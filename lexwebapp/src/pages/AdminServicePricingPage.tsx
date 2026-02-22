@@ -310,7 +310,7 @@ function ToolPricingTab() {
     if (isNaN(pct) || pct < -100) { setBulkMsg({ ok: false, text: 'Некоректне значення надбавки' }); return; }
     setBulkSaving(true); setBulkMsg(null);
     try {
-      const res = await api.admin.bulkToolMarkup({ markup_percent: pct, service: bulkService || undefined });
+      const res = await api.admin.bulkMarkupToolPricing({ markup_percent: pct, service: bulkService || undefined });
       setBulkMsg({ ok: true, text: `Оновлено ${res.data.updated} інструментів` });
       await load();
     } catch (e: any) {
