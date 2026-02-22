@@ -244,6 +244,12 @@ export const api = {
     getCohorts: () => apiClient.get('/api/admin/analytics/cohorts'),
     getCostBreakdown: (days: number = 30) =>
       apiClient.get('/api/admin/stats/cost-breakdown', { params: { days } }),
+    getUsersCostsSummary: (days: number = 30) =>
+      apiClient.get('/api/admin/stats/users-costs', { params: { days } }),
+    getUserActivity: (params?: { hours?: number; limit?: number; recent?: number }) =>
+      apiClient.get('/api/admin/users/activity', { params }),
+    getUserRequests: (userId: string, params?: { limit?: number; offset?: number; days?: number }) =>
+      apiClient.get(`/api/admin/users/${userId}/requests`, { params }),
     getUploadMetrics: () => apiClient.get('/api/admin/upload-metrics'),
     getRecentCourtDocs: (days: number = 30, limit: number = 5) =>
       apiClient.get('/api/admin/court-documents/recent', { params: { days, limit } }),

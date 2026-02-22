@@ -257,6 +257,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
     { id: 'service-pricing', label: 'Собівартість сервісів', icon: Tag, route: ROUTES.ADMIN_SERVICE_PRICING },
     { id: 'terminal', label: 'Термінал', icon: Terminal, route: ROUTES.ADMIN_TERMINAL },
     { id: 'zo-stats', label: 'Статистика рішень', icon: BarChart3, route: ROUTES.ADMIN_ZO_STATS },
+    { id: 'user-activity', label: 'Активність юзерів', icon: Zap, route: ROUTES.ADMIN_USER_ACTIVITY },
   ];
 
   const handleProfileMenuClick = () => setShowProfileMenu(!showProfileMenu);
