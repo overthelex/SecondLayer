@@ -152,8 +152,8 @@ export function createPaymentRouter(
       const userId = req.user?.userId || req.user?.id;
       const email = req.user?.email;
       const { amount_usd } = req.body;
-      if (!amount_usd || typeof amount_usd !== 'number') {
-        return res.status(400).json({ error: 'Invalid request', message: 'amount_usd is required and must be a number' });
+      if (!amount_usd || typeof amount_usd !== 'number' || amount_usd < 1) {
+        return res.status(400).json({ error: 'Invalid request', message: 'amount_usd is required and must be a number >= 1' });
       }
       const result = await nowpaymentsService.createInvoice(userId, amount_usd, email);
       return res.json(result);
