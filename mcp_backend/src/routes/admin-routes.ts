@@ -4117,5 +4117,208 @@ export function createAdminRoutes(
     });
   });
 
+  /**
+   * GET /api/admin/stats/users-costs
+   * Per-user cost summary for the period, sorted by total spend descending.
+   * Used to populate the user selector on the Costs admin page.
+   */
+  router.get('/stats/users-costs', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const days = Math.min(365, Math.max(1, Number(req.query.days || 30)));
+      const limit = Math.min(500, Math.max(1, Number(req.query.limit || 200)));
+
+      const result = await db.query(`
+        SELECT
+          u.id,
+          u.email,
+          u.name,
+          COALESCE(ub.pricing_tier, 'startup') as pricing_tier,
+          COUNT(ct.id)::int as request_count,
+          COALESCE(SUM(ct.total_cost_usd), 0)::float as total_cost_usd,
+          COALESCE(SUM(ct.openai_cost_usd), 0)::float as openai_cost_usd,
+          COALESCE(SUM(ct.anthropic_cost_usd), 0)::float as anthropic_cost_usd,
+          COALESCE(SUM(ct.zakononline_cost_usd), 0)::float as zakononline_cost_usd,
+          COALESCE(SUM(ct.voyage_cost_usd), 0)::float as voyage_cost_usd,
+          COALESCE(SUM(ct.secondlayer_cost_usd), 0)::float as secondlayer_cost_usd,
+          MAX(ct.created_at) as last_request_at
+        FROM users u
+        LEFT JOIN user_billing ub ON u.id = ub.user_id
+        INNER JOIN cost_tracking ct ON u.id = ct.user_id
+          AND ct.created_at >= NOW() - ($1 || ' days')::interval
+        GROUP BY u.id, u.email, u.name, ub.pricing_tier
+        ORDER BY total_cost_usd DESC
+        LIMIT $2
+      `, [days, limit]);
+
+      res.json({
+        users: result.rows,
+        period_days: days,
+      });
+    } catch (error: any) {
+      logger.error('Failed to get user cost summary', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve user cost summary' });
+    }
+  });
+
+  /**
+   * GET /api/admin/users/activity
+   * Recent activity feed across all users, sorted by most recent request.
+   * Returns users who had at least one request in the given time window.
+   */
+  router.get('/users/activity', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const hours = Math.min(720, Math.max(1, Number(req.query.hours || 24)));
+      const userLimit = Math.min(100, Math.max(1, Number(req.query.limit || 20)));
+      const recentCount = Math.min(20, Math.max(1, Number(req.query.recent || 8)));
+
+      const result = await db.query(`
+        WITH active_users AS (
+          SELECT
+            u.id,
+            u.email,
+            u.name,
+            u.picture,
+            ub.pricing_tier,
+            ub.balance_usd::float,
+            COUNT(ct.id)::int                              AS requests_in_period,
+            COALESCE(SUM(ct.total_cost_usd), 0)::float     AS cost_in_period,
+            MAX(ct.created_at)                             AS last_request_at
+          FROM users u
+          JOIN user_billing ub ON ub.user_id = u.id
+          JOIN cost_tracking ct ON ct.user_id = u.id
+            AND ct.created_at >= NOW() - ($1 || ' hours')::interval
+          GROUP BY u.id, u.email, u.name, u.picture, ub.pricing_tier, ub.balance_usd
+          ORDER BY last_request_at DESC
+          LIMIT $2
+        ),
+        ranked_requests AS (
+          SELECT
+            ct.user_id,
+            ct.id,
+            ct.tool_name,
+            LEFT(COALESCE(ct.user_query, ''), 150)          AS user_query,
+            ct.total_cost_usd::float,
+            ct.execution_time_ms,
+            ct.status,
+            ct.created_at,
+            ROW_NUMBER() OVER (PARTITION BY ct.user_id ORDER BY ct.created_at DESC) AS rn
+          FROM cost_tracking ct
+          WHERE ct.user_id IN (SELECT id FROM active_users)
+            AND ct.created_at >= NOW() - ($1 || ' hours')::interval
+        ),
+        agg_requests AS (
+          SELECT
+            user_id,
+            JSON_AGG(
+              JSON_BUILD_OBJECT(
+                'id',               id,
+                'tool_name',        tool_name,
+                'user_query',       user_query,
+                'total_cost_usd',   total_cost_usd,
+                'execution_time_ms',execution_time_ms,
+                'status',           status,
+                'created_at',       created_at
+              ) ORDER BY created_at DESC
+            ) AS requests
+          FROM ranked_requests
+          WHERE rn <= $3
+          GROUP BY user_id
+        )
+        SELECT
+          au.*,
+          COALESCE(ar.requests, '[]'::json) AS recent_requests
+        FROM active_users au
+        LEFT JOIN agg_requests ar ON ar.user_id = au.id
+        ORDER BY au.last_request_at DESC
+      `, [hours, userLimit, recentCount]);
+
+      // Summary stats
+      const statsResult = await db.query(`
+        SELECT
+          COUNT(DISTINCT user_id)::int           AS active_users,
+          COUNT(*)::int                          AS total_requests,
+          COALESCE(SUM(total_cost_usd), 0)::float AS total_cost
+        FROM cost_tracking
+        WHERE created_at >= NOW() - ($1 || ' hours')::interval
+      `, [hours]);
+
+      res.json({
+        users: result.rows,
+        stats: statsResult.rows[0],
+        meta: { hours, limit: userLimit },
+      });
+    } catch (error: any) {
+      logger.error('Failed to get user activity', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve user activity' });
+    }
+  });
+
+  /**
+   * GET /api/admin/users/:userId/requests
+   * Paginated cost_tracking records for a specific user.
+   */
+  router.get('/users/:userId/requests', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = getStringParam(req.params.userId);
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit || 25)));
+      const offset = Math.max(0, Number(req.query.offset || 0));
+      const days = req.query.days ? Math.min(365, Math.max(1, Number(req.query.days))) : null;
+
+      const params: any[] = [userId];
+      let extraWhere = '';
+
+      if (days) {
+        params.push(days);
+        extraWhere = ` AND created_at >= NOW() - ($${params.length} || ' days')::interval`;
+      }
+
+      const rows = await db.query(`
+        SELECT
+          id,
+          request_id,
+          tool_name,
+          user_query,
+          openai_cost_usd::float,
+          anthropic_cost_usd::float,
+          zakononline_cost_usd::float,
+          secondlayer_cost_usd::float,
+          voyage_cost_usd::float,
+          total_cost_usd::float,
+          base_cost_usd::float,
+          markup_amount_usd::float,
+          markup_percentage::float,
+          client_tier,
+          execution_time_ms,
+          status,
+          openai_total_tokens,
+          zakononline_api_calls,
+          created_at,
+          completed_at
+        FROM cost_tracking
+        WHERE user_id = $1${extraWhere}
+        ORDER BY created_at DESC
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      `, [...params, limit, offset]);
+
+      const countResult = await db.query(`
+        SELECT COUNT(*)::int as total
+        FROM cost_tracking
+        WHERE user_id = $1${extraWhere}
+      `, params);
+
+      res.json({
+        requests: rows.rows,
+        pagination: {
+          limit,
+          offset,
+          total: countResult.rows[0].total,
+        },
+      });
+    } catch (error: any) {
+      logger.error('Failed to get user requests', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve user requests' });
+    }
+  });
+
   return router;
 }
