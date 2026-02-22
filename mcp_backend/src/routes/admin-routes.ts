@@ -1969,7 +1969,7 @@ export function createAdminRoutes(
   const backfillJobs = new Map<string, BackfillJob>();
 
   const PROXIES = {
-    mail: 'http://mail.legal.org.ua:8888',
+    mail: 'http://10.149.22.1:8888',
   };
 
   async function getLiveCompletenessStats() {
