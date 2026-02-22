@@ -20,10 +20,12 @@ import { BillingService } from './services/billing-service.js';
 import { MonobankService } from './services/monobank-service.js';
 import { MetaMaskService } from './services/metamask-service.js';
 import { BinancePayService } from './services/binance-pay-service.js';
+import { NOWPaymentsService } from './services/nowpayments-service.js';
 import { EmailService } from './services/email-service.js';
 import { MockMonobankService } from './services/__mocks__/monobank-service-mock.js';
 import { MockMetaMaskService } from './services/__mocks__/metamask-service-mock.js';
 import { MockBinancePayService } from './services/__mocks__/binance-pay-service-mock.js';
+import { MockNOWPaymentsService } from './services/__mocks__/nowpayments-service-mock.js';
 import { initializeCryptoTagMiddleware } from './middleware/crypto-tag-required.js';
 import { createBalanceCheckMiddleware } from './middleware/balance-check.js';
 import { InvoiceService } from './services/invoice-service.js';
@@ -104,6 +106,7 @@ class HTTPMCPServer {
   private monobankService: MonobankService | MockMonobankService;
   private metamaskService: MetaMaskService | MockMetaMaskService;
   private binancePayService: BinancePayService | MockBinancePayService;
+  private nowpaymentsService: NOWPaymentsService | MockNOWPaymentsService;
   private emailService: EmailService;
   private invoiceService: InvoiceService;
   private mcpSSEServer: MCPSSEServer;
@@ -377,6 +380,15 @@ class HTTPMCPServer {
       logger.info('Using REAL Binance Pay service');
     }
 
+    const useMockNOWPayments = mockPaymentsEnabled || !process.env.NOWPAYMENTS_API_KEY || !process.env.NOWPAYMENTS_IPN_SECRET;
+    if (useMockNOWPayments) {
+      this.nowpaymentsService = new MockNOWPaymentsService(this.billingService, this.emailService);
+      logger.warn('Using MOCK NOWPayments service');
+    } else {
+      this.nowpaymentsService = new NOWPaymentsService(this.billingService, this.emailService, this.services.db);
+      logger.info('💰 Using REAL NOWPayments service');
+    }
+
     initializeCryptoTagMiddleware(this.services.db);
 
     logger.info('Payment services initialized', {
@@ -384,6 +396,7 @@ class HTTPMCPServer {
       monobankMode: useMockMonobank ? 'MOCK' : 'REAL',
       metamaskMode: useMockMetaMask ? 'MOCK' : 'REAL',
       binancePayMode: useMockBinancePay ? 'MOCK' : 'REAL',
+      nowpaymentsMode: useMockNOWPayments ? 'MOCK' : 'REAL',
     });
 
     const openaiManager = getOpenAIManager();
@@ -427,7 +440,7 @@ class HTTPMCPServer {
       '/webhooks',
       webhookRateLimit as any,
       express.raw({ type: 'application/json', limit: '10mb' }),
-      createWebhookRouter(this.monobankService, this.binancePayService)
+      createWebhookRouter(this.monobankService, this.binancePayService, this.nowpaymentsService)
     );
 
     // JSON parsing with UTF-8 support (for all other routes)
@@ -1575,7 +1588,7 @@ class HTTPMCPServer {
     // POST /api/billing/payment/stripe/create - Create Stripe PaymentIntent
     // POST /api/billing/payment/fondy/create - Create Fondy payment
     // GET /api/billing/payment/:provider/:paymentId/status - Check payment status
-    this.app.use('/api/billing/payment', requireJWT as any, createPaymentRouter(this.monobankService, this.metamaskService, this.binancePayService, this.services.db));
+    this.app.use('/api/billing/payment', requireJWT as any, createPaymentRouter(this.monobankService, this.metamaskService, this.binancePayService, this.nowpaymentsService, this.services.db));
 
     // Test email route - require JWT (user login)
     // POST /api/billing/test-email - Send test email

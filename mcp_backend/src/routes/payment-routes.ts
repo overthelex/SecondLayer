@@ -7,9 +7,11 @@ import { Router, Request, Response } from 'express';
 import { MonobankService } from '../services/monobank-service.js';
 import { MetaMaskService } from '../services/metamask-service.js';
 import { BinancePayService } from '../services/binance-pay-service.js';
+import { NOWPaymentsService } from '../services/nowpayments-service.js';
 import { MockMonobankService } from '../services/__mocks__/monobank-service-mock.js';
 import { MockMetaMaskService } from '../services/__mocks__/metamask-service-mock.js';
 import { MockBinancePayService } from '../services/__mocks__/binance-pay-service-mock.js';
+import { MockNOWPaymentsService } from '../services/__mocks__/nowpayments-service-mock.js';
 import { cryptoTagRequired } from '../middleware/crypto-tag-required.js';
 import { BaseDatabase } from '@secondlayer/shared';
 import { logger } from '../utils/logger.js';
@@ -21,6 +23,7 @@ export function createPaymentRouter(
   monobankService: MonobankService | MockMonobankService,
   metamaskService: MetaMaskService | MockMetaMaskService,
   binancePayService: BinancePayService | MockBinancePayService,
+  nowpaymentsService: NOWPaymentsService | MockNOWPaymentsService,
   db: BaseDatabase
 ): Router {
   const router = Router();
@@ -35,6 +38,7 @@ export function createPaymentRouter(
           { id: 'monobank', name: 'Monobank', enabled: true, currency: 'UAH' },
           { id: 'metamask', name: 'MetaMask', enabled: hasCryptoTag, currency: 'Crypto' },
           { id: 'binance_pay', name: 'Binance Pay', enabled: hasCryptoTag, currency: 'USDT' },
+          { id: 'nowpayments', name: 'NOWPayments', enabled: true, currency: 'Crypto' },
         ],
       });
     } catch (error: any) {
@@ -138,6 +142,27 @@ export function createPaymentRouter(
     }
   });
 
+  /**
+   * @route   POST /api/billing/payment/nowpayments/create
+   * @desc    Create NOWPayments hosted invoice for crypto payment
+   * @access  Protected (JWT required)
+   */
+  router.post('/nowpayments/create', async (req: any, res: Response) => {
+    try {
+      const userId = req.user?.userId || req.user?.id;
+      const email = req.user?.email;
+      const { amount_usd } = req.body;
+      if (!amount_usd || typeof amount_usd !== 'number') {
+        return res.status(400).json({ error: 'Invalid request', message: 'amount_usd is required and must be a number' });
+      }
+      const result = await nowpaymentsService.createInvoice(userId, amount_usd, email);
+      return res.json(result);
+    } catch (error: any) {
+      logger.error('Failed to create NOWPayments invoice', { error: error.message });
+      return res.status(500).json({ error: 'Payment creation failed', message: error.message });
+    }
+  });
+
   router.get('/:provider/:paymentId/status', async (req: any, res: Response) => {
     try {
       const { provider, paymentId } = req.params;
@@ -147,10 +172,12 @@ export function createPaymentRouter(
         status = await metamaskService.getPaymentStatus(paymentId);
       } else if (provider === 'binance_pay') {
         status = await binancePayService.getPaymentStatus(paymentId);
+      } else if (provider === 'nowpayments') {
+        status = await nowpaymentsService.getPaymentStatus(paymentId);
       } else {
         return res.status(400).json({
           error: 'Invalid provider',
-          message: 'Provider must be metamask or binance_pay',
+          message: 'Provider must be metamask, binance_pay, or nowpayments',
         });
       }
 
@@ -172,7 +199,8 @@ export function createPaymentRouter(
  */
 export function createWebhookRouter(
   monobankService: MonobankService | MockMonobankService,
-  binancePayService: BinancePayService | MockBinancePayService
+  binancePayService: BinancePayService | MockBinancePayService,
+  nowpaymentsService: NOWPaymentsService | MockNOWPaymentsService
 ): Router {
   const router = Router();
 
@@ -213,6 +241,26 @@ export function createWebhookRouter(
     } catch (error: any) {
       logger.error('Binance Pay webhook failed', { error: error.message });
       res.status(400).json({ error: 'Webhook processing failed', message: error.message });
+    }
+  });
+
+  /**
+   * @route   POST /webhooks/nowpayments
+   * @desc    NOWPayments IPN webhook endpoint
+   * @access  Public (HMAC-SHA512 signature verified)
+   */
+  router.post('/nowpayments', async (req: Request, res: Response) => {
+    try {
+      const signature = req.headers['x-nowpayments-sig'] as string;
+      if (!signature) {
+        return res.status(400).json({ error: 'Missing x-nowpayments-sig header' });
+      }
+      const rawBody: Buffer = req.body;
+      const result = await nowpaymentsService.handleWebhook(rawBody, signature);
+      return res.json(result);
+    } catch (error: any) {
+      logger.error('NOWPayments webhook failed', { error: error.message });
+      return res.status(400).json({ error: 'Webhook processing failed', message: error.message });
     }
   });
 
