@@ -593,9 +593,9 @@ function CourtScraperSection() {
     justice_kind: 'Кримінальне',
     justice_kind_id: '5',
     doc_form: '__all__',
-    date_from: '01.01.2015',
+    date_from: '01.01.2000',
     max_docs: 10000,
-    concurrency: 4,
+    concurrency: 5,
     proxy: 'mail',
   });
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
