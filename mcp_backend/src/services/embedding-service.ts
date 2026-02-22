@@ -4,8 +4,8 @@ import { logger } from '../utils/logger.js';
 import { VoyageAIClient } from '../utils/voyage-client.js';
 import { v4 as uuidv4 } from 'uuid';
 
-const EMBEDDING_DIMENSION = 1024; // VoyageAI voyage-multilingual-2
-const VOYAGE_MODEL = process.env.VOYAGEAI_EMBEDDING_MODEL || 'voyage-multilingual-2';
+const EMBEDDING_DIMENSION = 1024; // VoyageAI voyage-3.5
+const VOYAGE_MODEL = process.env.VOYAGEAI_EMBEDDING_MODEL || 'voyage-3.5';
 const MAX_CHUNK_TOKENS = 512;
 const CHUNK_OVERLAP = 50;
 
