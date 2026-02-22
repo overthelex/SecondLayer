@@ -28,7 +28,7 @@ async function runMigrations() {
         logger.info(`✅ Migration ${file} completed successfully`);
       } catch (error: any) {
         // Log but don't fail on "already exists" errors
-        if (error.message.includes('already exists') || error.message.includes('duplicate')) {
+        if (error.message.includes('already exists') || error.message.includes('duplicate') || error.message.includes('is not unique')) {
           logger.info(`Migration ${file} already applied, skipping...`);
         } else {
           throw error;
