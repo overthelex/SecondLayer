@@ -2332,9 +2332,9 @@ export function createAdminRoutes(
       justice_kind = 'Кримінальне',
       justice_kind_id = '5',
       doc_form = '__all__',
-      date_from = '01.01.2015',
+      date_from = '01.01.2000',
       max_docs = 10000,
-      concurrency = 4,
+      concurrency = 5,
       proxy: proxyKey,
     } = req.body || {};
 
@@ -2349,7 +2349,7 @@ export function createAdminRoutes(
       doc_form: String(doc_form),
       date_from: String(date_from),
       max_docs: Math.min(parseInt(String(max_docs)) || 10000, 50000),
-      concurrency: Math.min(Math.max(parseInt(String(concurrency)) || 4, 1), 10),
+      concurrency: Math.min(Math.max(parseInt(String(concurrency)) || 5, 1), 10),
       proxy: proxyUrl,
       pages_processed: 0,
       downloaded: 0,
