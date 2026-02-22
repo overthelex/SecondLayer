@@ -26,6 +26,8 @@ import {
   Square,
   Eye,
   X,
+  Plus,
+  Grid3X3,
 } from 'lucide-react';
 import { api } from '../utils/api-client';
 
@@ -112,6 +114,13 @@ interface ScraperJob {
   started_at: string;
   completed_at?: string;
   current_logs: string[];
+}
+
+interface CoverageMapData {
+  cells: Record<string, Record<string, number>>;
+  periods: string[];
+  justice_kinds: string[];
+  kind_labels: Record<string, string>;
 }
 
 interface BackfillJob {
@@ -586,220 +595,370 @@ const DOC_FORMS = [
   { label: 'Постанова', value: 'Постанова' },
 ];
 
-function CourtScraperSection() {
-  const [job, setJob] = useState<ScraperJob | null>(null);
+const MONTHS_SHORT = ['С','Л','Б','К','Т','Ч','Л','С','В','Ж','Л','Г'];
+
+function ScraperJobCard({ job, onStop }: { job: ScraperJob; onStop: (id: string) => void }) {
+  const isActive = job.status === 'running' || job.status === 'queued';
+  const [logsOpen, setLogsOpen] = useState(false);
+  return (
+    <div className={`rounded-lg border p-3 ${isActive ? 'border-blue-200 bg-blue-50' : job.status === 'completed' ? 'border-green-100 bg-green-50' : job.status === 'stopped' ? 'border-yellow-100 bg-yellow-50' : 'border-red-100 bg-red-50'}`}>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          {isActive ? (
+            <RefreshCw size={13} className="text-blue-600 animate-spin shrink-0" />
+          ) : job.status === 'completed' ? (
+            <CheckCircle size={13} className="text-green-600 shrink-0" />
+          ) : job.status === 'stopped' ? (
+            <Square size={13} className="text-yellow-600 shrink-0" />
+          ) : (
+            <XCircle size={13} className="text-red-600 shrink-0" />
+          )}
+          <span className="text-xs font-medium text-gray-800">{job.justice_kind}</span>
+          <span className="text-[10px] text-gray-500">від {job.date_from}</span>
+          {job.proxy ? (
+            <span className="inline-flex px-1.5 py-0.5 rounded-full text-[9px] bg-orange-100 text-orange-700 font-medium">Proxy</span>
+          ) : (
+            <span className="inline-flex px-1.5 py-0.5 rounded-full text-[9px] bg-gray-100 text-gray-500">Direct</span>
+          )}
+          <span className="text-[10px] text-gray-400">{job.concurrency}×</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {isActive && (
+            <button
+              onClick={() => onStop(job.job_id)}
+              className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-red-700 bg-red-100 border border-red-200 rounded hover:bg-red-200 transition-colors"
+            >
+              <Square size={9} /> Стоп
+            </button>
+          )}
+          {job.current_logs && job.current_logs.length > 0 && (
+            <button onClick={() => setLogsOpen(v => !v)} className="text-[10px] text-blue-600 hover:underline">
+              {logsOpen ? 'Сховати' : 'Логи'}
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-3 text-[10px] font-mono">
+        <span className="text-gray-500">Стор: <span className="text-gray-800">{job.pages_processed}</span></span>
+        <span className="text-gray-500">↓ <span className="text-blue-700">{job.downloaded}</span></span>
+        <span className="text-gray-500">БД: <span className="text-green-700">{job.saved_to_db}</span></span>
+        <span className="text-gray-500">Пропуск: <span className="text-yellow-700">{job.skipped}</span></span>
+        {job.errors > 0 && <span className="text-red-600">Помилок: {job.errors}</span>}
+      </div>
+      {logsOpen && job.current_logs && job.current_logs.length > 0 && (
+        <div className="mt-2 p-2 bg-slate-900 rounded text-[10px] font-mono text-green-400 max-h-28 overflow-y-auto">
+          {job.current_logs.map((log, i) => <div key={i} className="truncate">{log}</div>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CourtDataMapSection() {
+  const [jobs, setJobs] = useState<ScraperJob[]>([]);
+  const [mapData, setMapData] = useState<CoverageMapData | null>(null);
+  const [mapYears, setMapYears] = useState(3);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [showAddBatch, setShowAddBatch] = useState(false);
   const [starting, setStarting] = useState(false);
   const [config, setConfig] = useState({
     justice_kind: 'Кримінальне',
     justice_kind_id: '5',
     doc_form: '__all__',
-    date_from: '01.01.2000',
+    date_from: '01.01.2020',
     max_docs: 10000,
     concurrency: 5,
-    proxy: 'mail',
+    proxy: 'none',
   });
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  const loadJobs = useCallback(async () => {
+    try {
+      const res = await api.admin.getAllScraperJobs();
+      setJobs(res.data.jobs || []);
+    } catch { /* ignore */ }
   }, []);
 
-  const pollStatus = useCallback((jobId: string) => {
-    stopPolling();
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await api.admin.getCourtScraperStatus(jobId);
-        setJob(res.data);
-        if (res.data.status !== 'running' && res.data.status !== 'queued') stopPolling();
-      } catch { stopPolling(); }
-    }, 2000);
-  }, [stopPolling]);
+  const loadMap = useCallback(async (years: number) => {
+    setMapLoading(true);
+    try {
+      const res = await api.admin.getRegistryCoverageMap(years);
+      setMapData(res.data);
+    } catch { /* ignore */ } finally {
+      setMapLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    api.admin.getCourtScraperStatus().then(res => {
-      if (res.data.job) {
-        setJob(res.data.job);
-        if (res.data.active) pollStatus(res.data.job.job_id);
-      }
-    }).catch(() => {});
-    return () => stopPolling();
-  }, [pollStatus, stopPolling]);
+    loadMap(mapYears);
+    loadJobs();
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    const hasActive = jobs.some(j => j.status === 'running' || j.status === 'queued');
+    if (hasActive) {
+      pollRef.current = setInterval(() => loadJobs(), 2500);
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [jobs, loadJobs]);
+
+  const handleCellClick = (jk: string, period: string) => {
+    const [year, month] = period.split('-');
+    const date_from = `01.${month}.${year}`;
+    const found = JUSTICE_KINDS.find(k => k.id === jk);
+    if (found) {
+      setConfig(c => ({ ...c, justice_kind: found.value, justice_kind_id: found.id, date_from }));
+    } else {
+      setConfig(c => ({ ...c, date_from }));
+    }
+    setShowAddBatch(true);
+  };
 
   const handleStart = async () => {
     setStarting(true);
     try {
-      const res = await api.admin.startCourtScraper(config);
-      const newJob: ScraperJob = {
-        ...res.data,
-        justice_kind: config.justice_kind,
-        justice_kind_id: config.justice_kind_id,
-        doc_form: config.doc_form,
-        date_from: config.date_from,
-        max_docs: config.max_docs,
-        concurrency: config.concurrency,
-        proxy: config.proxy !== 'none' ? config.proxy : undefined,
-        pages_processed: 0, downloaded: 0, saved_to_db: 0, skipped: 0, errors: 0,
-        started_at: new Date().toISOString(), current_logs: [],
-      };
-      setJob(newJob);
-      pollStatus(res.data.job_id);
+      await api.admin.startCourtScraper(config);
+      setShowAddBatch(false);
+      await loadJobs();
     } catch (e: any) {
-      const msg = e?.response?.data?.error || 'Помилка запуску';
-      alert(msg);
+      alert(e?.response?.data?.error || 'Помилка запуску');
     } finally {
       setStarting(false);
     }
   };
 
-  const handleStop = async () => {
-    if (!job) return;
-    try { await api.admin.stopCourtScraper(job.job_id); } catch { /* ignore */ }
+  const handleStop = async (jobId: string) => {
+    try { await api.admin.stopCourtScraper(jobId); await loadJobs(); } catch { /* ignore */ }
   };
 
-  const isActive = job && (job.status === 'running' || job.status === 'queued');
+  // Group periods by year for header rendering
+  const periodsByYear = React.useMemo(() => {
+    if (!mapData) return {} as Record<string, string[]>;
+    const groups: Record<string, string[]> = {};
+    for (const p of mapData.periods) {
+      const year = p.split('-')[0];
+      if (!groups[year]) groups[year] = [];
+      groups[year].push(p);
+    }
+    return groups;
+  }, [mapData]);
+
+  const sortedYears = Object.keys(periodsByYear).sort();
+  const activeCount = jobs.filter(j => j.status === 'running' || j.status === 'queued').length;
 
   return (
-    <div className="bg-white rounded-xl border border-claude-border p-5">
-      {/* Config panel */}
-      {!isActive && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          <div>
-            <label className="block text-xs text-claude-subtext mb-1">Вид судочинства</label>
+    <div className="space-y-4">
+      {/* Coverage Map Card */}
+      <div className="bg-white rounded-xl border border-claude-border p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Grid3X3 size={15} className="text-claude-subtext" />
+            <span className="text-sm font-medium text-claude-text">Карта покриття реєстру</span>
             <select
-              className="w-full text-sm border border-claude-border rounded px-2 py-1.5 bg-white"
-              value={config.justice_kind}
-              onChange={e => {
-                const found = JUSTICE_KINDS.find(k => k.value === e.target.value);
-                setConfig(c => ({ ...c, justice_kind: e.target.value, justice_kind_id: found?.id || '1' }));
-              }}
+              value={mapYears}
+              onChange={e => { const y = Number(e.target.value); setMapYears(y); loadMap(y); }}
+              className="text-xs border border-claude-border rounded px-1.5 py-0.5 bg-white text-claude-text"
             >
-              {JUSTICE_KINDS.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
+              <option value={2}>2 роки</option>
+              <option value={3}>3 роки</option>
+              <option value={5}>5 років</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-xs text-claude-subtext mb-1">Форма документа</label>
-            <select
-              className="w-full text-sm border border-claude-border rounded px-2 py-1.5 bg-white"
-              value={config.doc_form}
-              onChange={e => setConfig(c => ({ ...c, doc_form: e.target.value }))}
-            >
-              {DOC_FORMS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-claude-subtext mb-1">Дата від</label>
-            <input
-              type="text"
-              className="w-full text-sm border border-claude-border rounded px-2 py-1.5"
-              placeholder="дд.мм.рррр"
-              value={config.date_from}
-              onChange={e => setConfig(c => ({ ...c, date_from: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-claude-subtext mb-1">Макс. документів</label>
-            <input
-              type="number"
-              className="w-full text-sm border border-claude-border rounded px-2 py-1.5"
-              min={100} max={50000} step={100}
-              value={config.max_docs}
-              onChange={e => setConfig(c => ({ ...c, max_docs: parseInt(e.target.value) || 10000 }))}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-claude-subtext mb-1">Потоків: {config.concurrency}</label>
-            <input
-              type="range" min={1} max={8} step={1}
-              value={config.concurrency}
-              onChange={e => setConfig(c => ({ ...c, concurrency: parseInt(e.target.value) }))}
-              className="w-full"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-claude-subtext mb-1">Проксі</label>
-            <select
-              className="w-full text-sm border border-claude-border rounded px-2 py-1.5 bg-white"
-              value={config.proxy}
-              onChange={e => setConfig(c => ({ ...c, proxy: e.target.value }))}
-            >
-              <option value="none">Без проксі</option>
-              <option value="mail">Mail Server (mail.legal.org.ua)</option>
-            </select>
-          </div>
-          <div className="flex items-end col-span-2">
-            <button
-              onClick={handleStart}
-              disabled={starting}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              <Play size={14} />
-              {starting ? 'Запуск...' : 'Завантажити документи'}
+            <button onClick={() => loadMap(mapYears)} title="Оновити" className="text-claude-subtext hover:text-claude-text transition-colors">
+              <RefreshCw size={13} className={mapLoading ? 'animate-spin' : ''} />
             </button>
           </div>
+          <button
+            onClick={() => setShowAddBatch(v => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={13} />
+            Новий батч
+            {activeCount > 0 && (
+              <span className="ml-1 bg-blue-400 text-white rounded-full px-1.5 py-0.5 text-[9px] font-bold">{activeCount}</span>
+            )}
+          </button>
+        </div>
+
+        {mapLoading && !mapData ? (
+          <div className="h-24 flex items-center justify-center text-gray-400">
+            <RefreshCw size={20} className="animate-spin" />
+          </div>
+        ) : mapData && mapData.justice_kinds.length > 0 ? (
+          <div className="overflow-x-auto">
+            <div className="min-w-max">
+              {/* Year header row */}
+              <div className="flex mb-0.5">
+                <div className="w-32 shrink-0" />
+                {sortedYears.map(year => (
+                  <div
+                    key={year}
+                    style={{ width: `${periodsByYear[year].length * 18}px` }}
+                    className="text-center text-[9px] text-gray-400 font-medium border-l border-gray-200 px-1 overflow-hidden"
+                  >
+                    {year}
+                  </div>
+                ))}
+              </div>
+
+              {/* Month labels */}
+              <div className="flex items-center mb-1.5">
+                <div className="w-32 shrink-0" />
+                {mapData.periods.map(period => {
+                  const month = parseInt(period.split('-')[1]) - 1;
+                  return (
+                    <div key={period} className="w-[16px] mr-[2px] text-[8px] text-center text-gray-300 leading-none">
+                      {MONTHS_SHORT[month]}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Data rows: one per justice kind */}
+              {mapData.justice_kinds.map(jk => (
+                <div key={jk} className="flex items-center mb-[3px]">
+                  <div className="w-32 text-[11px] text-right pr-3 text-gray-600 shrink-0 truncate" title={mapData.kind_labels[jk] || jk}>
+                    {mapData.kind_labels[jk] || jk}
+                  </div>
+                  {mapData.periods.map(period => {
+                    const count = mapData.cells[jk]?.[period] ?? 0;
+                    return (
+                      <div
+                        key={period}
+                        onClick={() => handleCellClick(jk, period)}
+                        title={`${mapData.kind_labels[jk] || jk} · ${period}: ${count.toLocaleString('uk')} документів\nКлік — запустити батч`}
+                        className={`w-[16px] h-[16px] mr-[2px] rounded-[2px] cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-offset-0 transition-all ${
+                          count === 0 ? 'bg-gray-100 hover:bg-gray-200' :
+                          count < 50 ? 'bg-sky-100' :
+                          count < 200 ? 'bg-sky-300' :
+                          count < 1000 ? 'bg-sky-500' :
+                          count < 5000 ? 'bg-sky-700' :
+                          'bg-sky-900'
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
+
+              {/* Legend */}
+              <div className="flex items-center gap-1.5 mt-3 ml-32">
+                <span className="text-[9px] text-gray-400">0</span>
+                {['bg-gray-100', 'bg-sky-100', 'bg-sky-300', 'bg-sky-500', 'bg-sky-700', 'bg-sky-900'].map(cls => (
+                  <div key={cls} className={`w-3 h-3 rounded-[2px] ${cls} border border-gray-100`} />
+                ))}
+                <span className="text-[9px] text-gray-400">5000+</span>
+                <span className="text-[9px] text-gray-300 ml-3">Клік на клітинку → запустити батч</span>
+              </div>
+            </div>
+          </div>
+        ) : !mapLoading ? (
+          <div className="h-16 flex items-center justify-center text-xs text-gray-400">
+            Даних для карти немає — запустіть перший батч скрапінгу
+          </div>
+        ) : null}
+      </div>
+
+      {/* Add Batch Form */}
+      {showAddBatch && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-blue-900">Новий батч скрапінгу</span>
+            <button onClick={() => setShowAddBatch(false)} className="text-blue-400 hover:text-blue-600 transition-colors">
+              <X size={16} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+            <div>
+              <label className="block text-xs text-blue-700 mb-1">Вид судочинства</label>
+              <select
+                className="w-full text-sm border border-blue-200 rounded px-2 py-1.5 bg-white"
+                value={config.justice_kind}
+                onChange={e => {
+                  const found = JUSTICE_KINDS.find(k => k.value === e.target.value);
+                  setConfig(c => ({ ...c, justice_kind: e.target.value, justice_kind_id: found?.id || '1' }));
+                }}
+              >
+                {JUSTICE_KINDS.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-blue-700 mb-1">Форма документа</label>
+              <select
+                className="w-full text-sm border border-blue-200 rounded px-2 py-1.5 bg-white"
+                value={config.doc_form}
+                onChange={e => setConfig(c => ({ ...c, doc_form: e.target.value }))}
+              >
+                {DOC_FORMS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-blue-700 mb-1">Дата від</label>
+              <input
+                type="text"
+                className="w-full text-sm border border-blue-200 rounded px-2 py-1.5 bg-white"
+                placeholder="дд.мм.рррр"
+                value={config.date_from}
+                onChange={e => setConfig(c => ({ ...c, date_from: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-blue-700 mb-1">Макс. документів</label>
+              <input
+                type="number"
+                className="w-full text-sm border border-blue-200 rounded px-2 py-1.5 bg-white"
+                min={100} max={50000} step={100}
+                value={config.max_docs}
+                onChange={e => setConfig(c => ({ ...c, max_docs: parseInt(e.target.value) || 10000 }))}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-blue-700 mb-1">Потоків: {config.concurrency}</label>
+              <input
+                type="range" min={1} max={8} step={1}
+                value={config.concurrency}
+                onChange={e => setConfig(c => ({ ...c, concurrency: parseInt(e.target.value) }))}
+                className="w-full mt-1.5"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-blue-700 mb-1">З'єднання</label>
+              <select
+                className="w-full text-sm border border-blue-200 rounded px-2 py-1.5 bg-white"
+                value={config.proxy}
+                onChange={e => setConfig(c => ({ ...c, proxy: e.target.value }))}
+              >
+                <option value="none">Без проксі (Direct)</option>
+                <option value="mail">Проксі: mail.legal.org.ua</option>
+              </select>
+            </div>
+          </div>
+          <button
+            onClick={handleStart}
+            disabled={starting}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            <Play size={14} />
+            {starting ? 'Запуск...' : 'Запустити батч'}
+          </button>
         </div>
       )}
 
-      {/* Progress */}
-      {job && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              {isActive ? (
-                <RefreshCw size={14} className="text-blue-600 animate-spin" />
-              ) : job.status === 'completed' ? (
-                <CheckCircle size={14} className="text-green-600" />
-              ) : job.status === 'stopped' ? (
-                <Square size={14} className="text-yellow-600" />
-              ) : (
-                <XCircle size={14} className="text-red-600" />
-              )}
-              <span className="text-sm font-medium text-blue-900">
-                {isActive ? 'Скрапінг...' : job.status === 'completed' ? 'Завершено' : job.status === 'stopped' ? 'Зупинено' : 'Помилка'}
-              </span>
-              <span className="text-xs text-blue-700">{job.justice_kind} · {job.date_from} · {job.concurrency} потоки</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {isActive && (
-                <button
-                  onClick={handleStop}
-                  className="flex items-center gap-1 px-2 py-1 text-xs text-red-700 bg-red-100 border border-red-200 rounded hover:bg-red-200 transition-colors"
-                >
-                  <Square size={10} />
-                  Зупинити
-                </button>
-              )}
-              {!isActive && (
-                <button onClick={() => setJob(null)} className="text-xs text-blue-600 hover:underline">
-                  Нове завдання
-                </button>
-              )}
-            </div>
+      {/* Active & Recent Jobs */}
+      {jobs.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-medium text-claude-subtext">
+              Батчі ({activeCount} активних з {jobs.length})
+            </span>
+            <button onClick={loadJobs} className="text-claude-subtext hover:text-claude-text transition-colors" title="Оновити">
+              <RefreshCw size={11} />
+            </button>
           </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-5 gap-2 mb-3">
-            {[
-              { label: 'Сторінок', value: job.pages_processed, color: 'text-blue-800' },
-              { label: 'Завантажено', value: job.downloaded, color: 'text-blue-800' },
-              { label: 'Збережено в БД', value: job.saved_to_db, color: 'text-green-700' },
-              { label: 'Пропущено', value: job.skipped, color: 'text-yellow-700' },
-              { label: 'Помилок', value: job.errors, color: job.errors > 0 ? 'text-red-600' : 'text-blue-800' },
-            ].map(s => (
-              <div key={s.label} className="bg-white rounded p-2 text-center border border-blue-100">
-                <div className={`text-lg font-mono font-semibold ${s.color}`}>{s.value}</div>
-                <div className="text-[10px] text-claude-subtext">{s.label}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Logs */}
-          {job.current_logs && job.current_logs.length > 0 && (
-            <div className="p-2 bg-slate-900 rounded text-[10px] font-mono text-green-400 max-h-32 overflow-y-auto">
-              {job.current_logs.map((log, i) => (
-                <div key={i} className="truncate">{log}</div>
-              ))}
-            </div>
-          )}
+          {jobs.slice(0, 10).map(job => (
+            <ScraperJobCard key={job.job_id} job={job} onStop={handleStop} />
+          ))}
         </div>
       )}
     </div>
@@ -1637,7 +1796,7 @@ export function AdminMonitoringPage() {
           <Download size={18} className="text-claude-subtext" />
           <h2 className="text-lg font-semibold text-claude-text font-sans">Докачати документи з реєстру</h2>
         </div>
-        <CourtScraperSection />
+        <CourtDataMapSection />
       </section>
 
       {/* Import Samples - Recent Script Uploads */}

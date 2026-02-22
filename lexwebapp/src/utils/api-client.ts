@@ -362,6 +362,10 @@ export const api = {
         : apiClient.get('/api/admin/scrape-court-registry'),
     stopCourtScraper: (jobId: string) =>
       apiClient.post(`/api/admin/scrape-court-registry/${jobId}/stop`),
+    getAllScraperJobs: () =>
+      apiClient.get('/api/admin/scrape-court-registry/all'),
+    getRegistryCoverageMap: (years?: number) =>
+      apiClient.get(`/api/admin/registry-coverage-map${years ? `?years=${years}` : ''}`),
 
     // Service pricing
     getServicePricing: () =>
