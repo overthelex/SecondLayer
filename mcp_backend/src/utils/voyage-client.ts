@@ -1,6 +1,6 @@
 /**
  * VoyageAI embedding client using native fetch (Node 20+).
- * Default model: voyage-multilingual-2 (supports Ukrainian and other languages).
+ * Default model: voyage-3.5 (supports Ukrainian and other languages).
  */
 
 const VOYAGE_API_URL = 'https://api.voyageai.com/v1/embeddings';
@@ -27,17 +27,17 @@ export class VoyageAIClient {
     }
   }
 
-  async generateEmbedding(text: string, model: string = 'voyage-multilingual-2'): Promise<number[]> {
+  async generateEmbedding(text: string, model: string = 'voyage-3.5'): Promise<number[]> {
     const result = await this.generateEmbeddingsBatchWithUsage([text], model);
     return result.embeddings[0];
   }
 
-  async generateEmbeddingsBatch(texts: string[], model: string = 'voyage-multilingual-2'): Promise<number[][]> {
+  async generateEmbeddingsBatch(texts: string[], model: string = 'voyage-3.5'): Promise<number[][]> {
     const result = await this.generateEmbeddingsBatchWithUsage(texts, model);
     return result.embeddings;
   }
 
-  async generateEmbeddingsBatchWithUsage(texts: string[], model: string = 'voyage-multilingual-2'): Promise<VoyageBatchResult> {
+  async generateEmbeddingsBatchWithUsage(texts: string[], model: string = 'voyage-3.5'): Promise<VoyageBatchResult> {
     const allEmbeddings: number[][] = [];
     let totalTokens = 0;
 
