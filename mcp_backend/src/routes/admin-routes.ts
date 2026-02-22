@@ -2289,6 +2289,96 @@ export function createAdminRoutes(
   });
 
   // ========================================
+  // REGISTRY COVERAGE MAP (temporal density of downloaded court docs)
+  // ========================================
+
+  /**
+   * GET /api/admin/registry-coverage-map
+   * Returns document counts grouped by justice_kind × month to render a heat map.
+   * Query params:
+   *   years - how many years back to look (default 3, max 5)
+   */
+  router.get('/registry-coverage-map', async (req: Request, res: Response) => {
+    try {
+      const years = Math.min(5, Math.max(1, Number(req.query.years || 3)));
+
+      // Load justice kind name dictionary
+      const kindNames: Record<string, string> = {};
+      try {
+        const dictResult = await db.query(`
+          SELECT data FROM zo_dictionaries
+          WHERE dictionary_name = 'justiceKinds' AND domain = 'court_decisions'
+          LIMIT 1
+        `);
+        if (dictResult.rows[0]?.data) {
+          const items = dictResult.rows[0].data;
+          if (Array.isArray(items)) {
+            for (const item of items) {
+              if (item.justice_kind != null && item.name) {
+                kindNames[String(item.justice_kind)] = item.name;
+              }
+            }
+          }
+        }
+      } catch { /* dictionary not available */ }
+
+      // Static known mappings as fallback
+      const FALLBACK_NAMES: Record<string, string> = {
+        '1': 'Цивільне', '2': 'Адміністративне', '3': 'Господарське',
+        '4': 'Конституційне', '5': 'Кримінальне', 'other': 'Інше',
+      };
+
+      const result = await db.query(`
+        SELECT
+          COALESCE(metadata->>'justice_kind', 'other') AS justice_kind,
+          TO_CHAR(DATE_TRUNC('month', COALESCE(date, created_at::date)), 'YYYY-MM') AS period,
+          COUNT(*) AS doc_count
+        FROM documents
+        WHERE type = 'court_decision'
+          AND COALESCE(date, created_at::date) >= (CURRENT_DATE - ($1 * INTERVAL '1 year'))
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+      `, [years]);
+
+      const cells: Record<string, Record<string, number>> = {};
+      const periodsSet = new Set<string>();
+      const justiceKindsSet = new Set<string>();
+
+      for (const row of result.rows) {
+        const jk = row.justice_kind;
+        const period = row.period;
+        justiceKindsSet.add(jk);
+        periodsSet.add(period);
+        if (!cells[jk]) cells[jk] = {};
+        cells[jk][period] = parseInt(row.doc_count);
+      }
+
+      // Build sorted periods covering the full requested range
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setFullYear(startDate.getFullYear() - years);
+      const allPeriods: string[] = [];
+      const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+      while (cursor <= endDate) {
+        const period = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+        allPeriods.push(period);
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+
+      const justiceKinds = Array.from(justiceKindsSet).sort();
+      const kindLabels: Record<string, string> = {};
+      for (const jk of justiceKinds) {
+        kindLabels[jk] = kindNames[jk] || FALLBACK_NAMES[jk] || `Вид ${jk}`;
+      }
+
+      res.json({ cells, periods: allPeriods, justice_kinds: justiceKinds, kind_labels: kindLabels });
+    } catch (err: any) {
+      logger.error('registry-coverage-map error', { error: err.message });
+      res.status(500).json({ error: 'Помилка отримання карти покриття' });
+    }
+  });
+
+  // ========================================
   // COURT REGISTRY SCRAPER (Playwright-based, downloads new docs)
   // ========================================
 
@@ -2321,11 +2411,10 @@ export function createAdminRoutes(
    * Start a new court registry scraper job (Playwright, headless)
    */
   router.post('/scrape-court-registry', async (req: Request, res: Response) => {
-    // Only one scraper at a time
-    for (const job of scraperJobs.values()) {
-      if (job.status === 'running' || job.status === 'queued') {
-        return res.status(409).json({ error: 'Скрапер вже виконується', job_id: job.job_id });
-      }
+    // Allow up to 4 concurrent scrapers
+    const activeJobs = Array.from(scraperJobs.values()).filter(j => j.status === 'running' || j.status === 'queued');
+    if (activeJobs.length >= 4) {
+      return res.status(409).json({ error: 'Максимум 4 скрапери одночасно. Зупиніть один перед запуском нового.', active_count: activeJobs.length });
     }
 
     const {
@@ -2423,6 +2512,18 @@ export function createAdminRoutes(
       if (!latest || job.started_at > latest.started_at) latest = job;
     }
     res.json({ active: latest ? (latest.status === 'running' || latest.status === 'queued') : false, job: latest });
+  });
+
+  /**
+   * GET /api/admin/scrape-court-registry/all
+   * List all scraper jobs (active + recent, newest first, max 20)
+   */
+  router.get('/scrape-court-registry/all', (_req: Request, res: Response) => {
+    const all = Array.from(scraperJobs.values())
+      .sort((a, b) => b.started_at.localeCompare(a.started_at))
+      .slice(0, 20);
+    const active = all.filter(j => j.status === 'running' || j.status === 'queued');
+    res.json({ jobs: all, active_count: active.length });
   });
 
   /**
