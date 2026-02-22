@@ -1970,6 +1970,7 @@ export function createAdminRoutes(
 
   const PROXIES = {
     mail: 'http://10.149.22.1:8888',
+    localdev: 'http://10.149.22.181:8888',
   };
 
   async function getLiveCompletenessStats() {
