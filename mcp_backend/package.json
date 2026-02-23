@@ -60,7 +60,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
     "@google-cloud/vision": "^5.3.4",
-    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@modelcontextprotocol/sdk": "^1.27.0",
     "@qdrant/js-client-rest": "^1.9.0",
     "@secondlayer/shared": "file:../packages/shared",
     "@simplewebauthn/server": "^13.2.2",
