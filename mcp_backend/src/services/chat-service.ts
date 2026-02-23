@@ -65,7 +65,7 @@ export interface ChatRequest {
 // Budget-aware limits: deep analysis needs much more context
 const BUDGET_LIMITS = {
   quick:    { maxResultChars: 6000,   maxContextChars: 48_000,  maxTokens: 4096,  maxToolCalls: 5,  resolutionSlice: 120 },
-  standard: { maxResultChars: 8000,   maxContextChars: 64_000,  maxTokens: 4096,  maxToolCalls: 5,  resolutionSlice: 300 },
+  standard: { maxResultChars: 8000,   maxContextChars: 64_000,  maxTokens: 8192,  maxToolCalls: 7,  resolutionSlice: 300 },
   deep:     { maxResultChars: 40_000, maxContextChars: 100_000, maxTokens: 16384, maxToolCalls: 10, resolutionSlice: 800 },
 } as const;
 type BudgetKey = keyof typeof BUDGET_LIMITS;
