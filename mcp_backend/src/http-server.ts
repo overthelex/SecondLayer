@@ -1842,11 +1842,22 @@ class HTTPMCPServer {
         // Emit cost_summary SSE event — billing was already handled by CostTracker.onTrackingComplete()
         if (chatCompleted && userId && chatTotalCostUsd > 0 && !res.writableEnded) {
           try {
-            const summary = await this.billingService.getBillingSummary(userId);
+            const [summary, trackingRow] = await Promise.all([
+              this.billingService.getBillingSummary(userId),
+              // chargeUser() already updated total_cost_usd to the marked-up amount
+              this.services.db.query(
+                'SELECT total_cost_usd, markup_percentage FROM cost_tracking WHERE request_id = $1',
+                [requestId]
+              ),
+            ]);
+            const chargedUsd = trackingRow.rows[0]?.total_cost_usd
+              ? parseFloat(trackingRow.rows[0].total_cost_usd)
+              : chatTotalCostUsd;
             res.write(`event: cost_summary\n`);
             res.write(`data: ${JSON.stringify({
               total_cost_usd: chatTotalCostUsd,
-              charged_usd: chatTotalCostUsd,
+              charged_usd: chargedUsd,
+              markup_percentage: trackingRow.rows[0]?.markup_percentage ?? 0,
               balance_usd: summary?.balance_usd ?? 0,
             })}\n\n`);
           } catch (e: any) {

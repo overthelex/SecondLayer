@@ -360,7 +360,11 @@ export class LegalAdviceTools extends BaseToolHandler {
 
     const budget = query.length < 30 ? 'quick' : 'standard';
     const intent = await this.queryPlanner.classifyIntent(query, budget as 'quick' | 'standard');
-    const queryParams = this.queryPlanner.buildQueryParams(intent, query);
+    // Optimize query for sph04 AND-mode: long queries with many words return 0 results
+    const searchQuery = query.length > 40
+      ? await this.queryPlanner.generateOptimizedSearchQuery(query, intent, budget as 'quick' | 'standard')
+      : query;
+    const queryParams = this.queryPlanner.buildQueryParams(intent, searchQuery);
     const endpoints = this.queryPlanner.selectEndpoints(intent).filter(e => e === 'court');
 
     const results: any[] = [];
