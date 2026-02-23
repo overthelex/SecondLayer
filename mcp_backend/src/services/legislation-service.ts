@@ -568,6 +568,22 @@ export class LegislationService {
 
       const searchResults = await this.embeddingService.searchVectors(queryEmbedding, limit * 2, filter);
 
+      if (searchResults.length === 0) {
+        logger.warn('[LegislationService] Vector search returned 0 results, falling back to text search', {
+          query: query.substring(0, 50),
+        });
+        const textResults = await this.searchLegislation(query, radaId, limit);
+        return textResults.flatMap(r => r.articles.map((a: any) => ({
+          rada_id: r.rada_id,
+          article_number: a.article_number,
+          title: a.title,
+          full_text: a.full_text,
+          full_text_html: a.full_text_html,
+          url: `https://zakon.rada.gov.ua/laws/show/${r.rada_id}#n${a.article_number}`,
+          metadata: a.metadata,
+        })));
+      }
+
       const articleIds = [...new Set(searchResults.map((r: any) => r.payload.article_id))].slice(0, limit);
 
       const result = await this.db.query(
