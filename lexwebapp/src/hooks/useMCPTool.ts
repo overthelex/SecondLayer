@@ -256,12 +256,16 @@ function extractEvidenceFromToolResult(
       });
     }
 
-    // Array of legislation results
-    if (parsed.legislation && Array.isArray(parsed.legislation)) {
-      for (const l of parsed.legislation) {
+    // Array of legislation results.
+    // search_legislation returns 'articles', some tools return 'legislation'.
+    const legislationArray = parsed.legislation || (toolName === 'search_legislation' ? parsed.articles : null);
+    if (legislationArray && Array.isArray(legislationArray)) {
+      for (const l of legislationArray) {
         citations.push({
           text: l.full_text || l.text || l.snippet || l.title || '',
-          source: l.title || l.type || 'Нормативний акт',
+          source: l.article_number
+            ? `${l.title || l.rada_id || 'Норма'}, ст. ${l.article_number}`
+            : (l.title || l.type || 'Нормативний акт'),
         });
       }
     }
