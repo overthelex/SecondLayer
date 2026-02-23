@@ -2393,6 +2393,27 @@ export function createAdminRoutes(
     res.json({ message: 'Stop requested', job_id: jobId });
   });
 
+  /**
+   * DELETE /api/admin/backfill-fulltext/:jobId
+   * Delete a finished backfill job (cannot delete active jobs)
+   */
+  router.delete('/backfill-fulltext/:jobId', async (req: Request, res: Response) => {
+    const jobId = getStringParam(req.params.jobId);
+    if (!jobId) return res.status(400).json({ error: 'Job ID required' });
+
+    const job = backfillJobs.get(jobId);
+    if (job && (job.status === 'running' || job.status === 'queued')) {
+      return res.status(409).json({ error: 'Cannot delete a running job. Stop it first.' });
+    }
+
+    backfillJobs.delete(jobId);
+    try {
+      await db.query(`DELETE FROM scraper_jobs WHERE job_id = $1`, [jobId]);
+    } catch { /* non-critical */ }
+
+    res.json({ message: 'Job deleted', job_id: jobId });
+  });
+
   // ========================================
   // REGISTRY COVERAGE MAP (temporal density of downloaded court docs)
   // ========================================
@@ -2694,6 +2715,27 @@ export function createAdminRoutes(
       try { process.kill(job.pid, 'SIGTERM'); } catch { /* already dead */ }
     }
     res.json({ message: 'Stop requested', job_id: jobId });
+  });
+
+  /**
+   * DELETE /api/admin/scrape-court-registry/:jobId
+   * Delete a finished scraper job (cannot delete active jobs)
+   */
+  router.delete('/scrape-court-registry/:jobId', async (req: Request, res: Response) => {
+    const jobId = getStringParam(req.params.jobId);
+    if (!jobId) return res.status(400).json({ error: 'Job ID required' });
+
+    const job = scraperJobs.get(jobId);
+    if (job && (job.status === 'running' || job.status === 'queued')) {
+      return res.status(409).json({ error: 'Cannot delete a running job. Stop it first.' });
+    }
+
+    scraperJobs.delete(jobId);
+    try {
+      await db.query(`DELETE FROM scraper_jobs WHERE job_id = $1`, [jobId]);
+    } catch { /* non-critical */ }
+
+    res.json({ message: 'Job deleted', job_id: jobId });
   });
 
   // ========================================
