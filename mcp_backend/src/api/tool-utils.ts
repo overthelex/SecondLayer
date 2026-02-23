@@ -383,6 +383,7 @@ export async function countAllResults(
   pages_fetched: number;
   time_taken_ms: number;
   cost_estimate_usd: number;
+  first_results: any[];
 }> {
   const startTime = Date.now();
   const maxApiLimit = 1000;
@@ -390,6 +391,7 @@ export async function countAllResults(
   let totalCount = 0;
   let pagesFetched = 0;
   let hasMore = true;
+  let firstResults: any[] = [];
 
   logger.info('Starting pagination to count all results', { query });
 
@@ -412,6 +414,10 @@ export async function countAllResults(
       const normalized = await zoAdapter.normalizeResponse(response);
 
       const resultsInPage = normalized.data.length;
+      // Capture first page results for use in right panel
+      if (pagesFetched === 0 && resultsInPage > 0) {
+        firstResults = normalized.data.slice(0, 50);
+      }
       totalCount += resultsInPage;
       pagesFetched++;
 
@@ -457,5 +463,6 @@ export async function countAllResults(
     pages_fetched: pagesFetched,
     time_taken_ms: timeTaken,
     cost_estimate_usd: parseFloat(costEstimate.toFixed(6)),
+    first_results: firstResults,
   };
 }
