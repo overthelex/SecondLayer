@@ -405,6 +405,27 @@ export class LegalAdviceTools extends BaseToolHandler {
         } catch (error: any) {
           errors.push(`fallback: ${error.message}`);
         }
+
+        // Second-level fallback: sph04 AND-mode requires ALL words present in the doc.
+        // A stripped multi-word phrase (8+ words) still returns 0. Retry with only the
+        // 4 longest words (most distinctive nouns), which greatly broadens the match.
+        if (results.length === 0) {
+          const keyWords = stripped.split(/\s+/).filter(w => w.length >= 6).slice(0, 4).join(' ');
+          if (keyWords && keyWords !== stripped) {
+            logger.info('[search_legal_precedents] 0 results with stripped query, retrying with key words only', {
+              stripped: stripped.substring(0, 100),
+              keyWords,
+            });
+            const shortParams = this.queryPlanner.buildQueryParams(intent, keyWords);
+            try {
+              const shortResponse = await this.zoAdapter.searchCourtDecisions(shortParams);
+              const shortNormalized = await this.zoAdapter.normalizeResponse(shortResponse);
+              results.push(...shortNormalized.data.slice(offset, offset + limit));
+            } catch (error: any) {
+              errors.push(`fallback2: ${error.message}`);
+            }
+          }
+        }
       }
     }
 
