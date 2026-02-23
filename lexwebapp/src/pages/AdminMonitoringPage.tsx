@@ -931,6 +931,7 @@ function CourtDataMapSection() {
               >
                 <option value="none">Без проксі (Direct)</option>
                 <option value="mail">Проксі: mail.legal.org.ua</option>
+                <option value="localdev">Проксі: localdev.legal.org.ua</option>
               </select>
             </div>
           </div>
@@ -1174,6 +1175,7 @@ function DocumentCompletenessSection() {
               >
                 <option value="none">Без проксі</option>
                 <option value="mail">Mail Server (порт 8888)</option>
+                <option value="localdev">LocalDev (порт 8888)</option>
               </select>
             </div>
           </div>
