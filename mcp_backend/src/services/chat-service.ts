@@ -154,7 +154,9 @@ export class ChatService {
       // 4. Budget escalation:
       //    - Plan with >= 3 steps → deep
       //    - Complex case analysis (case_number + long query) → deep even without a plan
+      //    - Court practice analysis query → deep (needs full doc content + long response)
       let effectiveBudget: BudgetKey = budget;
+      const PRACTICE_ANALYSIS_KEYWORDS = /проаналізу|аналіз практик|судова практика|знайти справи|знайти практику|огляд практики|яка практика|як суди|позиція судів/i;
       if (plan && plan.steps.length >= 3) {
         effectiveBudget = 'deep';
       } else if (
@@ -166,6 +168,15 @@ export class ChatService {
         logger.info('[ChatService] Auto-escalated to deep budget (case_number + long query, no plan)', {
           caseNumber: classification.slots.case_number,
           queryLength: query.length,
+        });
+      } else if (
+        classification.domains.includes('court') &&
+        PRACTICE_ANALYSIS_KEYWORDS.test(query)
+      ) {
+        effectiveBudget = 'deep';
+        logger.info('[ChatService] Auto-escalated to deep budget (court practice analysis query)', {
+          queryLength: query.length,
+          domains: classification.domains,
         });
       }
 
