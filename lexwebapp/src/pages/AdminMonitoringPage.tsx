@@ -501,7 +501,7 @@ function completenessBg(pct: number): string {
   return 'bg-red-50';
 }
 
-function BackfillProgress({ job, onStop, onRefresh }: { job: BackfillJob; onStop: () => void; onRefresh: () => void }) {
+function BackfillProgress({ job, onStop, onRefresh, onDelete }: { job: BackfillJob; onStop: () => void; onRefresh: () => void; onDelete: () => void }) {
   const isActive = job.status === 'running' || job.status === 'queued';
   const progressPct = job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0;
 
@@ -533,12 +533,21 @@ function BackfillProgress({ job, onStop, onRefresh }: { job: BackfillJob; onStop
             </button>
           )}
           {!isActive && (
-            <button
-              onClick={onRefresh}
-              className="text-xs text-blue-600 hover:underline"
-            >
-              Приховати
-            </button>
+            <>
+              <button
+                onClick={onDelete}
+                className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                title="Видалити задачу"
+              >
+                <X size={10} /> Видалити
+              </button>
+              <button
+                onClick={onRefresh}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Приховати
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -597,7 +606,7 @@ const DOC_FORMS = [
 
 const MONTHS_SHORT = ['С','Л','Б','К','Т','Ч','Л','С','В','Ж','Л','Г'];
 
-function ScraperJobCard({ job, onStop }: { job: ScraperJob; onStop: (id: string) => void }) {
+function ScraperJobCard({ job, onStop, onDelete }: { job: ScraperJob; onStop: (id: string) => void; onDelete: (id: string) => void }) {
   const isActive = job.status === 'running' || job.status === 'queued';
   const [logsOpen, setLogsOpen] = useState(false);
   return (
@@ -629,6 +638,15 @@ function ScraperJobCard({ job, onStop }: { job: ScraperJob; onStop: (id: string)
               className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-red-700 bg-red-100 border border-red-200 rounded hover:bg-red-200 transition-colors"
             >
               <Square size={9} /> Стоп
+            </button>
+          )}
+          {!isActive && (
+            <button
+              onClick={() => onDelete(job.job_id)}
+              className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-gray-500 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+              title="Видалити задачу"
+            >
+              <X size={9} /> Видалити
             </button>
           )}
           {job.current_logs && job.current_logs.length > 0 && (
@@ -731,6 +749,10 @@ function CourtDataMapSection() {
 
   const handleStop = async (jobId: string) => {
     try { await api.admin.stopCourtScraper(jobId); await loadJobs(); } catch { /* ignore */ }
+  };
+
+  const handleDelete = async (jobId: string) => {
+    try { await api.admin.deleteCourtScraperJob(jobId); await loadJobs(); } catch { /* ignore */ }
   };
 
   // Group periods by year for header rendering
@@ -958,7 +980,7 @@ function CourtDataMapSection() {
             </button>
           </div>
           {jobs.slice(0, 10).map(job => (
-            <ScraperJobCard key={job.job_id} job={job} onStop={handleStop} />
+            <ScraperJobCard key={job.job_id} job={job} onStop={handleStop} onDelete={handleDelete} />
           ))}
         </div>
       )}
@@ -1081,6 +1103,15 @@ function DocumentCompletenessSection() {
     } catch { /* ignore */ }
   };
 
+  const deleteBackfill = async () => {
+    if (!backfillJob) return;
+    try {
+      await api.admin.deleteBackfillJob(backfillJob.job_id);
+      setBackfillJob(null);
+      stopPolling();
+    } catch { /* ignore */ }
+  };
+
   const isBackfillActive = backfillJob && (backfillJob.status === 'running' || backfillJob.status === 'queued');
 
   const displayData = backfillJob?.completeness ?? result;
@@ -1188,6 +1219,7 @@ function DocumentCompletenessSection() {
           job={backfillJob}
           onStop={stopBackfill}
           onRefresh={() => setBackfillJob(null)}
+          onDelete={deleteBackfill}
         />
       )}
 
