@@ -1099,6 +1099,7 @@ ${stepsText}
         compact.grouped_documents[instance] = (docs as any[]).map((d: any) => {
           const entry: any = {
             doc_id: d.doc_id,
+            url: d.doc_id ? `https://reyestr.court.gov.ua/Review/${d.doc_id}` : undefined,
             case_number: d.case_number,
             document_type: d.document_type,
             instance: d.instance,
@@ -1128,6 +1129,7 @@ ${stepsText}
         results: parsed.results.map((r: any) => {
           const entry: any = {
             doc_id: r.doc_id,
+            url: r.doc_id ? `https://reyestr.court.gov.ua/Review/${r.doc_id}` : undefined,
             case_number: r.case_number,
             document_type: r.document_type,
             court: r.court,
