@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useContext, createContext } from 'react';
-import { Copy, RotateCw, Star, ThumbsUp, ThumbsDown, ChevronDown, Pencil, Check, X } from 'lucide-react';
+import { Copy, RotateCw, Star, ThumbsUp, ThumbsDown, ChevronDown, Pencil, Check, X, FileSearch } from 'lucide-react';
 
 // Context to pass list type (ul/ol) down to li without prop drilling
 const ListTypeContext = createContext<'ul' | 'ol'>('ul');
@@ -30,8 +30,11 @@ import { ThinkingSteps } from './ThinkingSteps';
 import { PlanDisplay } from './PlanDisplay';
 import { DocumentTemplate } from './DocumentTemplate';
 import { CostSummary } from './CostSummary';
+import { DocumentViewerModal } from './DocumentViewerModal';
+import type { DocumentViewerItem } from './DocumentViewerModal';
 import showToast from '../utils/toast';
 import type { ExecutionPlan, CitationWarning, CostSummary as CostSummaryType } from '../types/models/Message';
+import { useChatStore } from '../stores';
 
 export type MessageRole = 'user' | 'assistant';
 export interface MessageProps {
@@ -129,6 +132,31 @@ export function Message({
   const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(content);
+  const [docViewerItem, setDocViewerItem] = useState<DocumentViewerItem | null>(null);
+  const [isDocViewerOpen, setIsDocViewerOpen] = useState(false);
+
+  const allMessages = useChatStore(state => state.messages);
+
+  const openDocByRef = useCallback((docId: string) => {
+    const allDecisions = allMessages.flatMap(m => (m as any).decisions ?? []) as Decision[];
+    const decision = allDecisions.find(d =>
+      d.id.includes(docId) || (d as any).externalUrl?.includes(`/Review/${docId}`)
+    );
+    if (decision) {
+      const STATUS_LABELS: Record<string, string> = { active: 'Чинне', overturned: 'Скасовано', modified: 'Змінено' };
+      setDocViewerItem({
+        type: 'decision',
+        title: decision.number,
+        subtitle: [decision.court, decision.date].filter(Boolean).join(' • '),
+        badge: STATUS_LABELS[decision.status] || decision.status,
+        badgeVariant: decision.status as 'active' | 'overturned' | 'modified',
+        content: decision.summary || 'Текст рішення не завантажено.',
+        relevance: decision.relevance,
+        externalUrl: (decision as any).externalUrl,
+      });
+      setIsDocViewerOpen(true);
+    }
+  }, [allMessages]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -187,7 +215,7 @@ export function Message({
     }
   }, [feedback]);
 
-  return <motion.div initial={{
+  return <><motion.div initial={{
     opacity: 0,
     y: 8
   }} animate={{
@@ -361,9 +389,21 @@ export function Message({
                         </code>
                       );
                     },
-                    a: ({ href, children }) => (
-                      <a href={href} className="text-claude-text underline decoration-claude-subtext/30 hover:decoration-claude-text" target="_blank" rel="noopener noreferrer">{children}</a>
-                    ),
+                    a: ({ href, children }) => {
+                      if (href?.startsWith('#doc-')) {
+                        const docId = href.slice(5);
+                        return (
+                          <button
+                            onClick={() => openDocByRef(docId)}
+                            className="inline-flex items-center gap-1 text-claude-text font-medium underline decoration-claude-accent/50 hover:decoration-claude-text cursor-pointer bg-transparent border-0 p-0 text-[inherit] align-baseline"
+                          >
+                            <FileSearch size={13} className="flex-shrink-0 opacity-60" strokeWidth={2} />
+                            {children}
+                          </button>
+                        );
+                      }
+                      return <a href={href} className="text-claude-text underline decoration-claude-subtext/30 hover:decoration-claude-text" target="_blank" rel="noopener noreferrer">{children}</a>;
+                    },
                     table: ({ children }) => (
                       <div className="overflow-x-auto my-4 rounded-lg border border-claude-border shadow-sm">
                         <table className="w-full text-[13px] text-claude-text border-collapse">{children}</table>
@@ -483,5 +523,12 @@ export function Message({
             </div>
           </div>}
       </div>
-    </motion.div>;
+    </motion.div>
+
+    <DocumentViewerModal
+      isOpen={isDocViewerOpen}
+      onClose={() => setIsDocViewerOpen(false)}
+      item={docViewerItem}
+    />
+  </>;
 }

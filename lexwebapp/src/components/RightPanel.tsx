@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Gavel, BookOpen, FileText, X, Eye, ChevronDown, ChevronUp, Copy, Check, Maximize2 } from 'lucide-react';
+import { Gavel, BookOpen, FileText, X, Eye, ChevronDown, ChevronUp, Copy, Check, Maximize2, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Decision } from './DecisionCard';
@@ -392,6 +392,18 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
                                 <Maximize2 size={11} />
                                 Повний вигляд
                               </button>
+                              {decision.externalUrl && (
+                                <a
+                                  href={decision.externalUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center gap-1 text-[10px] text-claude-subtext hover:text-claude-text px-2 py-1 rounded-md hover:bg-claude-bg transition-colors"
+                                >
+                                  <ExternalLink size={11} />
+                                  Відкрити
+                                </a>
+                              )}
                             </div>
                           </div>
                         </motion.div>
@@ -565,6 +577,18 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
                               {copiedId === cardId ? <Check size={11} /> : <Copy size={11} />}
                               {copiedId === cardId ? 'Скопійовано' : 'Копіювати'}
                             </button>
+                            {d.externalUrl && (
+                              <a
+                                href={d.externalUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-1 text-[10px] text-claude-subtext hover:text-claude-text px-2 py-1 rounded-md hover:bg-claude-bg transition-colors"
+                              >
+                                <ExternalLink size={11} />
+                                Відкрити
+                              </a>
+                            )}
                           </div>
                         </div>
                       </motion.div>
