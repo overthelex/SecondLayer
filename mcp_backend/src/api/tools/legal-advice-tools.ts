@@ -387,8 +387,10 @@ export class LegalAdviceTools extends BaseToolHandler {
       }
     }
 
-    // Fallback: if 0 results, retry with stripped keywords (remove all quotes and Sphinx operators)
-    if (results.length === 0 && errors.length === 0 && searchQuery !== query) {
+    // Fallback: if 0 results, retry with stripped keywords (remove all quotes and Sphinx operators).
+    // Fires even when searchQuery === query (optimizer returned input unchanged) — in that case
+    // we still strip quotes/operators and retry with broader bare-keyword search.
+    if (results.length === 0 && errors.length === 0) {
       const stripped = query.replace(/["'|()]/g, ' ').replace(/\s+/g, ' ').trim();
       if (stripped && stripped !== searchQuery) {
         logger.info('[search_legal_precedents] 0 results with optimized query, retrying with stripped keywords', {
