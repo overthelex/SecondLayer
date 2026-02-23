@@ -44,7 +44,7 @@ import type { ShepardizationService, ShepardizationResult } from './shepardizati
 // ============================
 
 export interface ChatEvent {
-  type: 'plan' | 'thinking' | 'tool_result' | 'answer_delta' | 'answer' | 'citation_warning' | 'complete' | 'error';
+  type: 'plan' | 'thinking' | 'tool_result' | 'answer_delta' | 'answer' | 'citation_warning' | 'complete' | 'error' | 'budget_escalated';
   data: any;
 }
 
@@ -178,6 +178,13 @@ export class ChatService {
           queryLength: query.length,
           domains: classification.domains,
         });
+        yield {
+          type: 'budget_escalated',
+          data: {
+            reason: 'court_practice_analysis',
+            estimatedCost: { minUsd: 0.30, maxUsd: 0.90 },
+          },
+        };
       }
 
       logger.info('[ChatService] Starting agentic loop', {
