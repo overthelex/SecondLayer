@@ -1973,6 +1973,73 @@ export function createAdminRoutes(
     localdev: 'http://10.149.22.181:8888',
   };
 
+  // =========== PERSISTENT JOB TRACKING (survive browser close / server restart) ===========
+
+  /** Convert a scraper_jobs DB row to in-memory ScraperJob shape (type forward-ref is fine in TS) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dbRowToScraperJob = (row: any): any => ({
+    job_id: row.job_id,
+    status: row.status === 'interrupted' ? 'failed' : row.status,
+    justice_kind: row.config?.justice_kind || '',
+    justice_kind_id: row.config?.justice_kind_id || '',
+    doc_form: row.config?.doc_form || '',
+    date_from: row.config?.date_from || '',
+    max_docs: row.config?.max_docs || 0,
+    concurrency: row.config?.concurrency || 1,
+    proxy: row.config?.proxy,
+    pages_processed: row.progress?.pages_processed || 0,
+    downloaded: row.progress?.downloaded || 0,
+    saved_to_db: row.progress?.saved_to_db || 0,
+    skipped: row.progress?.skipped || 0,
+    errors: row.progress?.errors || 0,
+    started_at: row.started_at instanceof Date ? row.started_at.toISOString() : row.started_at,
+    completed_at: row.completed_at instanceof Date ? row.completed_at.toISOString() : row.completed_at,
+    current_logs: Array.isArray(row.current_logs) ? row.current_logs : [],
+    pid: row.progress?.pid,
+  });
+
+  /** Convert a scraper_jobs DB row to in-memory BackfillJob shape */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dbRowToBackfillJob = (row: any): any => ({
+    job_id: row.job_id,
+    status: row.status === 'interrupted' ? 'failed' : row.status,
+    justice_kind_code: row.config?.justice_kind_code ?? null,
+    total: row.config?.total || 0,
+    processed: row.progress?.processed || 0,
+    scraped: row.progress?.scraped || 0,
+    errors: row.progress?.errors || 0,
+    error_details: row.progress?.error_details || [],
+    started_at: row.started_at instanceof Date ? row.started_at.toISOString() : row.started_at,
+    completed_at: row.completed_at instanceof Date ? row.completed_at.toISOString() : row.completed_at,
+    current_logs: Array.isArray(row.current_logs) ? row.current_logs : [],
+    concurrency: row.config?.concurrency || 1,
+    proxy: row.config?.proxy,
+  });
+
+  /** Upsert job state to scraper_jobs table — fire-and-forget, non-critical */
+  const persistToDB = (
+    jobId: string,
+    jobType: 'court_scraper' | 'backfill',
+    status: string,
+    config: Record<string, unknown>,
+    progress: Record<string, unknown>,
+    currentLogs: string[],
+    startedAt: string,
+    completedAt?: string,
+  ) => {
+    db.query(
+      `INSERT INTO scraper_jobs(job_id, job_type, status, config, progress, current_logs, started_at, completed_at, updated_at)
+       VALUES($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+       ON CONFLICT (job_id) DO UPDATE SET
+         status       = EXCLUDED.status,
+         progress     = EXCLUDED.progress,
+         current_logs = EXCLUDED.current_logs,
+         completed_at = EXCLUDED.completed_at,
+         updated_at   = NOW()`,
+      [jobId, jobType, status, config, progress, currentLogs.slice(-50), startedAt, completedAt ?? null],
+    ).catch(() => { /* non-critical — table may not exist yet */ });
+  };
+
   async function getLiveCompletenessStats() {
     const kindNames: Record<string, string> = {};
     try {
@@ -2115,6 +2182,10 @@ export function createAdminRoutes(
       };
 
       backfillJobs.set(jobId, job);
+      persistToDB(jobId, 'backfill', 'queued',
+        { justice_kind_code: job.justice_kind_code, total: job.total, concurrency: job.concurrency, proxy: job.proxy },
+        { processed: 0, scraped: 0, errors: 0, error_details: [] },
+        [], job.started_at);
 
       // Start background processing
       (async () => {
@@ -2165,12 +2236,22 @@ export function createAdminRoutes(
           }
         };
 
+        const backfillProgress = () => ({
+          processed: job.processed, scraped: job.scraped,
+          errors: job.errors, error_details: job.error_details.slice(-20),
+        });
+        const backfillConfig = () => ({
+          justice_kind_code: job.justice_kind_code, total: job.total,
+          concurrency: job.concurrency, proxy: job.proxy,
+        });
+
         // Process in batches based on concurrency
         for (let i = 0; i < docs.length; i += job.concurrency) {
           if (job.stop_requested) {
             job.status = 'stopped';
             job.completed_at = new Date().toISOString();
             logger.info(`Backfill ${jobId} stopped by user at ${job.processed}/${job.total}`);
+            persistToDB(jobId, 'backfill', 'stopped', backfillConfig(), backfillProgress(), job.current_logs, job.started_at, job.completed_at);
             return;
           }
 
@@ -2199,17 +2280,22 @@ export function createAdminRoutes(
 
           if (job.processed % 10 === 0 || job.processed === job.total) {
             logger.info(`Backfill ${jobId}: ${job.processed}/${job.total} (scraped: ${job.scraped}, errors: ${job.errors}, concurrency: ${job.concurrency})`);
+            persistToDB(jobId, 'backfill', 'running', backfillConfig(), backfillProgress(), job.current_logs, job.started_at);
           }
         }
 
         job.status = 'completed';
         job.completed_at = new Date().toISOString();
         logger.info(`Backfill ${jobId} completed: ${job.scraped}/${job.total} scraped, ${job.errors} errors`);
+        persistToDB(jobId, 'backfill', 'completed', backfillConfig(), backfillProgress(), job.current_logs, job.started_at, job.completed_at);
       })().catch(err => {
         job.status = 'failed';
         job.error_details.push(`Fatal: ${err.message}`);
         job.completed_at = new Date().toISOString();
         logger.error(`Backfill ${jobId} failed:`, err.message);
+        persistToDB(jobId, 'backfill', 'failed', { justice_kind_code: job.justice_kind_code, total: job.total, concurrency: job.concurrency, proxy: job.proxy },
+          { processed: job.processed, scraped: job.scraped, errors: job.errors, error_details: job.error_details.slice(-20) },
+          job.current_logs, job.started_at, job.completed_at);
       });
 
       res.json({
@@ -2227,10 +2313,11 @@ export function createAdminRoutes(
   /**
    * GET /api/admin/backfill-fulltext
    * Get latest/active backfill job status (convenience)
+   * Falls back to DB so jobs are visible after server restart/browser reopen.
    * NOTE: must be registered BEFORE the :jobId route to avoid parameter capture
    */
-  router.get('/backfill-fulltext', (_req: Request, res: Response) => {
-    // Find the most recent job
+  router.get('/backfill-fulltext', async (_req: Request, res: Response) => {
+    // Find the most recent in-memory job
     let latest: BackfillJob | null = null;
     for (const job of backfillJobs.values()) {
       if (!latest || job.started_at > latest.started_at) {
@@ -2238,7 +2325,17 @@ export function createAdminRoutes(
       }
     }
 
+    // If nothing in memory, check DB (handles server restart scenario)
     if (!latest) {
+      try {
+        const dbRes = await db.query(
+          `SELECT * FROM scraper_jobs WHERE job_type='backfill' ORDER BY started_at DESC LIMIT 1`
+        );
+        if (dbRes.rows[0]) {
+          const dbJob = dbRowToBackfillJob(dbRes.rows[0]);
+          return res.json({ active: false, job: dbJob });
+        }
+      } catch { /* table may not exist yet */ }
       return res.json({ active: false, job: null });
     }
 
@@ -2256,7 +2353,14 @@ export function createAdminRoutes(
     const jobId = getStringParam(req.params.jobId);
     if (!jobId) return res.status(400).json({ error: 'Job ID required' });
 
-    const job = backfillJobs.get(jobId);
+    let job = backfillJobs.get(jobId);
+    // Fallback: check DB (handles server restart scenario)
+    if (!job) {
+      try {
+        const dbRes = await db.query(`SELECT * FROM scraper_jobs WHERE job_id=$1`, [jobId]);
+        if (dbRes.rows[0]) job = dbRowToBackfillJob(dbRes.rows[0]) as BackfillJob;
+      } catch { /* ignore */ }
+    }
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
     const response: Record<string, unknown> = { ...job };
@@ -2451,6 +2555,10 @@ export function createAdminRoutes(
     };
 
     scraperJobs.set(jobId, job);
+    persistToDB(jobId, 'court_scraper', 'queued',
+      { justice_kind: job.justice_kind, justice_kind_id: job.justice_kind_id, doc_form: job.doc_form, date_from: job.date_from, max_docs: job.max_docs, concurrency: job.concurrency, proxy: job.proxy },
+      { pages_processed: 0, downloaded: 0, saved_to_db: 0, skipped: 0, errors: 0 },
+      [], job.started_at);
     res.json({ job_id: jobId, status: 'queued', message: 'Скрапер запущено' });
 
     // Spawn scraper as child process
@@ -2475,7 +2583,10 @@ export function createAdminRoutes(
     job.pid = child.pid;
 
     const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '');
+    const scraperConfig = () => ({ justice_kind: job.justice_kind, justice_kind_id: job.justice_kind_id, doc_form: job.doc_form, date_from: job.date_from, max_docs: job.max_docs, concurrency: job.concurrency, proxy: job.proxy });
+    const scraperProgress = () => ({ pages_processed: job.pages_processed, downloaded: job.downloaded, saved_to_db: job.saved_to_db, skipped: job.skipped, errors: job.errors, pid: job.pid });
 
+    let logCount = 0;
     const addLog = (line: string) => {
       const clean = stripAnsi(line).trim();
       if (!clean) return;
@@ -2487,6 +2598,11 @@ export function createAdminRoutes(
       if (clean.includes('[PROC') && clean.includes('] Saved to DB')) job.saved_to_db++;
       if (clean.includes('skipping') || clean.includes('Server overload')) job.skipped++;
       if (clean.includes('] Error:') || /\[error\]/.test(clean)) job.errors++;
+
+      // Persist progress every 50 log lines
+      if (++logCount % 50 === 0) {
+        persistToDB(jobId, 'court_scraper', job.status, scraperConfig(), scraperProgress(), job.current_logs, job.started_at);
+      }
     };
 
     child.stdout?.on('data', (data: Buffer) => {
@@ -2500,6 +2616,7 @@ export function createAdminRoutes(
       job.status = job.stop_requested ? 'stopped' : (code === 0 ? 'completed' : 'failed');
       job.completed_at = new Date().toISOString();
       logger.info(`Court scraper ${jobId} ${job.status}: downloaded=${job.downloaded}, saved=${job.saved_to_db}`);
+      persistToDB(jobId, 'court_scraper', job.status, scraperConfig(), scraperProgress(), job.current_logs, job.started_at, job.completed_at);
     });
   });
 
@@ -2517,10 +2634,24 @@ export function createAdminRoutes(
 
   /**
    * GET /api/admin/scrape-court-registry/all
-   * List all scraper jobs (active + recent, newest first, max 20)
+   * List all scraper jobs (active + recent, newest first, max 20).
+   * Merges in-memory Map with DB so jobs are visible after server restart / browser reopen.
    */
-  router.get('/scrape-court-registry/all', (_req: Request, res: Response) => {
-    const all = Array.from(scraperJobs.values())
+  router.get('/scrape-court-registry/all', async (_req: Request, res: Response) => {
+    const inMemory = Array.from(scraperJobs.values());
+    const inMemoryIds = new Set(inMemory.map(j => j.job_id));
+
+    let dbJobs: ScraperJob[] = [];
+    try {
+      const dbRes = await db.query(
+        `SELECT * FROM scraper_jobs WHERE job_type='court_scraper' ORDER BY started_at DESC LIMIT 20`
+      );
+      dbJobs = dbRes.rows
+        .filter((r: any) => !inMemoryIds.has(r.job_id))
+        .map(dbRowToScraperJob) as ScraperJob[];
+    } catch { /* table may not exist yet */ }
+
+    const all = [...inMemory, ...dbJobs]
       .sort((a, b) => b.started_at.localeCompare(a.started_at))
       .slice(0, 20);
     const active = all.filter(j => j.status === 'running' || j.status === 'queued');
@@ -2531,10 +2662,17 @@ export function createAdminRoutes(
    * GET /api/admin/scrape-court-registry/:jobId
    * Get specific scraper job status
    */
-  router.get('/scrape-court-registry/:jobId', (req: Request, res: Response) => {
+  router.get('/scrape-court-registry/:jobId', async (req: Request, res: Response) => {
     const jobId = getStringParam(req.params.jobId);
     if (!jobId) return res.status(400).json({ error: 'Job ID required' });
-    const job = scraperJobs.get(jobId);
+    let job: ScraperJob | undefined = scraperJobs.get(jobId);
+    // Fallback: check DB (handles server restart scenario)
+    if (!job) {
+      try {
+        const dbRes = await db.query(`SELECT * FROM scraper_jobs WHERE job_id=$1`, [jobId]);
+        if (dbRes.rows[0]) job = dbRowToScraperJob(dbRes.rows[0]) as ScraperJob;
+      } catch { /* ignore */ }
+    }
     if (!job) return res.status(404).json({ error: 'Job not found' });
     res.json(job);
   });
@@ -4422,6 +4560,34 @@ export function createAdminRoutes(
       res.status(500).json({ error: 'Failed to retrieve user requests' });
     }
   });
+
+  // =========== STARTUP RECOVERY ===========
+  // On server restart, mark any previously-running jobs as 'interrupted' so the
+  // admin UI shows them instead of a blank list. The child processes are already
+  // dead (Docker SIGTERM cascade), so we cannot resume them — just surface the state.
+  (async () => {
+    try {
+      const activeInDB = await db.query(
+        `SELECT * FROM scraper_jobs WHERE status IN ('running', 'queued') AND started_at > NOW() - INTERVAL '24 hours'`
+      );
+      if (activeInDB.rows.length === 0) return;
+
+      const ids: string[] = activeInDB.rows.map((r: any) => r.job_id);
+      await db.query(
+        `UPDATE scraper_jobs SET status='interrupted', completed_at=NOW(), updated_at=NOW() WHERE job_id = ANY($1)`,
+        [ids],
+      );
+
+      for (const row of activeInDB.rows) {
+        if (row.job_type === 'court_scraper') {
+          scraperJobs.set(row.job_id, { ...dbRowToScraperJob(row), status: 'failed', completed_at: new Date().toISOString() } as ScraperJob);
+        } else if (row.job_type === 'backfill') {
+          backfillJobs.set(row.job_id, { ...dbRowToBackfillJob(row), status: 'failed', completed_at: new Date().toISOString() } as BackfillJob);
+        }
+      }
+      logger.info(`[startup] Marked ${ids.length} interrupted scraper job(s) from previous session`);
+    } catch { /* scraper_jobs table may not exist until migration runs */ }
+  })();
 
   return router;
 }
