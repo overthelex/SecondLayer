@@ -53,20 +53,26 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
     exampleQueries: [
       'Яка практика щодо виселення з іпотечного майна?',
       'Судова практика стягнення аліментів на дитину',
+      'Проаналізувати практику щодо самовільного захоплення земельних ділянок',
     ],
     dataSources: [
       { name: 'ZakonOnline', provides: 'судові рішення за темою' },
       { name: 'Qdrant', provides: 'векторний пошук по збережених рішеннях' },
     ],
     toolChain: [
-      { tool: 'search_legal_precedents', purpose: 'тематичний пошук рішень' },
-      { tool: 'get_court_decision', purpose: 'повний текст знайденого рішення', optional: true },
+      {
+        tool: 'search_legal_precedents',
+        purpose: 'тематичний пошук рішень — ЗАВЖДИ використовуй limit=25-30 для аналізу практики. Якщо запит містить кілька аспектів — виконай окремий виклик для кожного аспекту з цільовим запитом. Виклики з різними запитами НЕ є дублюванням.',
+      },
+      { tool: 'search_supreme_court_practice', purpose: 'практика Верховного Суду з цього питання', optional: true },
+      { tool: 'get_court_decision', purpose: 'повний текст ключового рішення для детального аналізу', optional: true },
       { tool: 'get_case_documents_chain', purpose: 'історія справи через інстанції', optional: true },
     ],
     responseTemplate: [
       { heading: 'Правова норма', instruction: 'відповідні статті законів' },
-      { heading: 'Позиція суду', instruction: 'конкретні рішення з номерами справ' },
-      { heading: 'Висновок', instruction: 'узагальнення практики' },
+      { heading: 'Позиція суду', instruction: 'конкретні рішення з номерами справ — вказуй номер справи, суд, рік, суть позиції' },
+      { heading: 'Кількість знайдених справ', instruction: 'скільки справ знайдено по кожному аспекту запиту' },
+      { heading: 'Висновок', instruction: 'узагальнення практики — яка позиція переважає' },
       { heading: 'Ризики', instruction: 'нюанси та суперечлива практика', optional: true },
       { heading: 'Джерела', instruction: 'номери справ, статті законів' },
     ],
