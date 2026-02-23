@@ -387,6 +387,25 @@ export class LegalAdviceTools extends BaseToolHandler {
       }
     }
 
+    // Fallback: if 0 results, retry with stripped keywords (remove all quotes and Sphinx operators)
+    if (results.length === 0 && errors.length === 0 && searchQuery !== query) {
+      const stripped = query.replace(/["'|()]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (stripped && stripped !== searchQuery) {
+        logger.info('[search_legal_precedents] 0 results with optimized query, retrying with stripped keywords', {
+          optimized: searchQuery,
+          fallback: stripped.substring(0, 100),
+        });
+        const fallbackParams = this.queryPlanner.buildQueryParams(intent, stripped);
+        try {
+          const fallbackResponse = await this.zoAdapter.searchCourtDecisions(fallbackParams);
+          const fallbackNormalized = await this.zoAdapter.normalizeResponse(fallbackResponse);
+          results.push(...fallbackNormalized.data.slice(offset, offset + limit));
+        } catch (error: any) {
+          errors.push(`fallback: ${error.message}`);
+        }
+      }
+    }
+
     return this.wrapResponse({
       results,
       intent,
