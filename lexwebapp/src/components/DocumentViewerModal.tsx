@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, ExternalLink, Gavel, BookOpen, FileText, Copy, Check, Download } from 'lucide-react';
 
-interface DocumentViewerItem {
+export interface DocumentViewerItem {
   type: 'decision' | 'citation' | 'document';
   title: string;
   subtitle?: string;
