@@ -1168,12 +1168,10 @@ export function useAIChat(options: UseMCPToolOptions = {}) {
           },
 
           onBudgetEscalated: (data) => {
-            addThinkingStep(assistantMessageId, {
-              id: 'budget-escalated',
-              title: `🔬 Глибокий аналіз — орієнтовна вартість $${data.estimatedCost.minUsd.toFixed(2)}–$${data.estimatedCost.maxUsd.toFixed(2)}`,
-              content: 'Запит містить аналіз судової практики. Увімкнено розширений режим для повного охоплення документів.',
-              isComplete: true,
-            });
+            showToast.info(
+              `🔬 Глибокий аналіз — орієнтовна вартість $${data.estimatedCost.minUsd.toFixed(2)}–$${data.estimatedCost.maxUsd.toFixed(2)}`,
+              6000
+            );
           },
 
           onThinking: (data) => {
