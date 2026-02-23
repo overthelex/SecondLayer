@@ -31,6 +31,7 @@ export interface ChatStreamCallbacks {
   onCitationWarning?: (data: CitationWarning) => void;
   onComplete?: (data: { iterations: number; elapsed_ms: number; tools_used?: string[]; total_cost_usd?: number; charged_usd?: number }) => void;
   onCostSummary?: (data: { total_cost_usd: number; charged_usd: number; balance_usd: number | null }) => void;
+  onBudgetEscalated?: (data: { reason: string; estimatedCost: { minUsd: number; maxUsd: number } }) => void;
   onError?: (data: { message: string }) => void;
 }
 
@@ -208,6 +209,9 @@ export class MCPService extends BaseService {
                       break;
                     case 'cost_summary':
                       callbacks.onCostSummary?.(data);
+                      break;
+                    case 'budget_escalated':
+                      callbacks.onBudgetEscalated?.(data);
                       break;
                     case 'error':
                       callbacks.onError?.(data);
