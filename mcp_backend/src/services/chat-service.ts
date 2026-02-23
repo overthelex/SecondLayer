@@ -65,7 +65,7 @@ export interface ChatRequest {
 // Budget-aware limits: deep analysis needs much more context
 const BUDGET_LIMITS = {
   quick:    { maxResultChars: 6000,   maxContextChars: 48_000,  maxTokens: 4096,  maxToolCalls: 5,  resolutionSlice: 120 },
-  standard: { maxResultChars: 8000,   maxContextChars: 64_000,  maxTokens: 4096,  maxToolCalls: 5,  resolutionSlice: 300 },
+  standard: { maxResultChars: 8000,   maxContextChars: 64_000,  maxTokens: 8192,  maxToolCalls: 7,  resolutionSlice: 300 },
   deep:     { maxResultChars: 40_000, maxContextChars: 100_000, maxTokens: 16384, maxToolCalls: 10, resolutionSlice: 800 },
 } as const;
 type BudgetKey = keyof typeof BUDGET_LIMITS;
@@ -154,7 +154,9 @@ export class ChatService {
       // 4. Budget escalation:
       //    - Plan with >= 3 steps → deep
       //    - Complex case analysis (case_number + long query) → deep even without a plan
+      //    - Court practice analysis query → deep (needs full doc content + long response)
       let effectiveBudget: BudgetKey = budget;
+      const PRACTICE_ANALYSIS_KEYWORDS = /проаналізу|аналіз практик|судова практика|знайти справи|знайти практику|огляд практики|яка практика|як суди|позиція судів/i;
       if (plan && plan.steps.length >= 3) {
         effectiveBudget = 'deep';
       } else if (
@@ -166,6 +168,15 @@ export class ChatService {
         logger.info('[ChatService] Auto-escalated to deep budget (case_number + long query, no plan)', {
           caseNumber: classification.slots.case_number,
           queryLength: query.length,
+        });
+      } else if (
+        classification.domains.includes('court') &&
+        PRACTICE_ANALYSIS_KEYWORDS.test(query)
+      ) {
+        effectiveBudget = 'deep';
+        logger.info('[ChatService] Auto-escalated to deep budget (court practice analysis query)', {
+          queryLength: query.length,
+          domains: classification.domains,
         });
       }
 
