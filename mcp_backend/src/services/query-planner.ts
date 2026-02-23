@@ -487,8 +487,17 @@ export class QueryPlanner {
         }
       }
       
-      // Clean up the response
-      content = content.trim().replace(/^["']|["']$/g, '');
+      // Clean up the response — only strip outer quotes when the ENTIRE content is a single
+      // quoted string (e.g., `"query"` → `query`).  Do NOT strip if content starts with `"`
+      // as part of a Sphinx multi-phrase OR query (e.g. `"фраза1" | "фраза2" | "фраза3"`),
+      // otherwise the leading `"` of the first phrase is silently removed and Sphinx returns 0.
+      content = content.trim();
+      const isSingleQuotedString =
+        (content.startsWith('"') && content.endsWith('"') && content.indexOf('"', 1) === content.length - 1) ||
+        (content.startsWith("'") && content.endsWith("'") && content.indexOf("'", 1) === content.length - 1);
+      if (isSingleQuotedString) {
+        content = content.slice(1, -1);
+      }
       
       logger.info('Generated optimized search query', {
         original: userQuery,
