@@ -498,7 +498,16 @@ export class QueryPlanner {
       if (isSingleQuotedString) {
         content = content.slice(1, -1);
       }
-      
+
+      // Convert AND-format phrases to OR: `"A" "B" "C"` → `"A" | "B" | "C"`.
+      // Sphinx sph04 treats adjacent quoted phrases as AND (all must be present),
+      // which returns very few results. OR gives many more matches.
+      // Only fires when the ENTIRE query is quoted phrases with no | already.
+      if (/^"[^"]+"(\s+"[^"]+")+$/.test(content)) {
+        content = content.replace(/"\s+"/g, '" | "');
+        logger.info('Converted AND-phrases to OR for broader Sphinx match', { converted: content });
+      }
+
       logger.info('Generated optimized search query', {
         original: userQuery,
         optimized: content,
