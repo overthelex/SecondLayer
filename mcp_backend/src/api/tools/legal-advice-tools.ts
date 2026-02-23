@@ -208,10 +208,12 @@ export class LegalAdviceTools extends BaseToolHandler {
         pages_fetched: countResult.pages_fetched,
         time_taken_ms: countResult.time_taken_ms,
         cost_estimate_usd: countResult.cost_estimate_usd,
-        note: 'Подсчитано через пагинацию с limit=1000. Документы НЕ загружались для экономии стоимости.',
+        note: 'Підраховано через пагінацію. Перші результати включені для відображення в правій панелі.',
         warning: countResult.total_count >= 10000000
           ? 'Достигнут лимит безопасности в 10,000,000 результатов.'
           : null,
+        // Include first page results so the right panel can display decisions
+        results: countResult.first_results,
       });
     }
 
