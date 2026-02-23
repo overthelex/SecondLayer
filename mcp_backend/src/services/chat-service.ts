@@ -1100,7 +1100,7 @@ ${stepsText}
           const entry: any = {
             doc_id: d.doc_id,
             url: d.doc_id ? `https://reyestr.court.gov.ua/Review/${d.doc_id}` : undefined,
-            case_number: d.case_number,
+            case_number: d.cause_num || d.case_number,
             document_type: d.document_type,
             instance: d.instance,
             court: d.court,
@@ -1130,9 +1130,9 @@ ${stepsText}
           const entry: any = {
             doc_id: r.doc_id,
             url: r.doc_id ? `https://reyestr.court.gov.ua/Review/${r.doc_id}` : undefined,
-            case_number: r.case_number,
+            case_number: r.cause_num || r.case_number,
             document_type: r.document_type,
-            court: r.court,
+            court: r.court_code || r.court,
             judge: r.judge,
             date: r.date || r.adjudication_date,
             instance: r.instance,
