@@ -263,6 +263,8 @@ export const api = {
         : apiClient.get('/api/admin/backfill-fulltext'),
     stopBackfill: (jobId: string) =>
       apiClient.post(`/api/admin/backfill-fulltext/${jobId}/stop`),
+    deleteBackfillJob: (jobId: string) =>
+      apiClient.delete(`/api/admin/backfill-fulltext/${jobId}`),
     getTrafficMetrics: (range: string = '1h') =>
       apiClient.get('/api/admin/metrics/traffic', { params: { range } }),
     getLatencyMetrics: (range: string = '1h') =>
@@ -362,6 +364,8 @@ export const api = {
         : apiClient.get('/api/admin/scrape-court-registry'),
     stopCourtScraper: (jobId: string) =>
       apiClient.post(`/api/admin/scrape-court-registry/${jobId}/stop`),
+    deleteCourtScraperJob: (jobId: string) =>
+      apiClient.delete(`/api/admin/scrape-court-registry/${jobId}`),
     getAllScraperJobs: () =>
       apiClient.get('/api/admin/scrape-court-registry/all'),
     getRegistryCoverageMap: (years?: number) =>
