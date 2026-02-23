@@ -155,6 +155,9 @@ function extractEvidenceFromToolResult(
     'count_cases_by_party',
   ];
   if (courtTools.some((t) => toolName.includes(t) || toolName === t)) {
+    const courtDocUrl = (docId: string | number | undefined) =>
+      docId ? `https://reyestr.court.gov.ua/Review/${docId}` : undefined;
+
     // source_case (single)
     if (parsed.source_case) {
       const sc = parsed.source_case;
@@ -166,6 +169,8 @@ function extractEvidenceFromToolResult(
         summary: sc.title || sc.resolution || '',
         relevance: 100,
         status: 'active',
+        documentType: sc.document_type,
+        externalUrl: courtDocUrl(sc.doc_id),
       });
     }
 
@@ -185,6 +190,8 @@ function extractEvidenceFromToolResult(
             ? Math.round(c.relevance * 100)
             : 70,
         status: 'active',
+        documentType: c.document_type,
+        externalUrl: courtDocUrl(c.doc_id),
       });
     }
 
@@ -205,6 +212,7 @@ function extractEvidenceFromToolResult(
         relevance: 80,
         status: 'active',
         documentType: doc.document_type,
+        externalUrl: courtDocUrl(doc.doc_id),
       });
     }
 
@@ -219,6 +227,8 @@ function extractEvidenceFromToolResult(
         summary: c.snippet || '',
         relevance: 70,
         status: 'active',
+        documentType: c.document_type,
+        externalUrl: courtDocUrl(c.doc_id),
       });
     }
 
@@ -233,6 +243,7 @@ function extractEvidenceFromToolResult(
         summary: summarySection?.text?.slice(0, 300) || '',
         relevance: 100,
         status: 'active',
+        externalUrl: courtDocUrl(parsed.doc_id),
       });
     }
   }
