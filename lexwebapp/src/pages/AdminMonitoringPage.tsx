@@ -770,6 +770,21 @@ function CourtDataMapSection() {
   const sortedYears = Object.keys(periodsByYear).sort();
   const activeCount = jobs.filter(j => j.status === 'running' || j.status === 'queued').length;
 
+  // Build set of cell keys that have active (running/queued) jobs → used for blink animation
+  const activeCellKeys = React.useMemo(() => {
+    const keys = new Set<string>();
+    for (const job of jobs) {
+      if (job.status !== 'running' && job.status !== 'queued') continue;
+      // date_from format: dd.mm.yyyy → convert to YYYY-MM
+      const parts = job.date_from.split('.');
+      if (parts.length === 3) {
+        const period = `${parts[2]}-${parts[1]}`;
+        keys.add(`${job.justice_kind_id}-${period}`);
+      }
+    }
+    return keys;
+  }, [jobs]);
+
   return (
     <div className="space-y-4">
       {/* Coverage Map Card */}
@@ -845,12 +860,15 @@ function CourtDataMapSection() {
                   </div>
                   {mapData.periods.map(period => {
                     const count = mapData.cells[jk]?.[period] ?? 0;
+                    const isActive = activeCellKeys.has(`${jk}-${period}`);
                     return (
                       <div
                         key={period}
                         onClick={() => handleCellClick(jk, period)}
                         title={`${mapData.kind_labels[jk] || jk} · ${period}: ${count.toLocaleString('uk')} документів\nКлік — запустити батч`}
                         className={`w-[16px] h-[16px] mr-[2px] rounded-[2px] cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-offset-0 transition-all ${
+                          isActive ? 'animate-pulse ring-2 ring-amber-400 ring-offset-0' : ''
+                        } ${
                           count === 0 ? 'bg-gray-100 hover:bg-gray-200' :
                           count < 50 ? 'bg-sky-100' :
                           count < 200 ? 'bg-sky-300' :
