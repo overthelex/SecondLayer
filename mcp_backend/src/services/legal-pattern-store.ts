@@ -376,9 +376,13 @@ export class LegalPatternStore {
     intent: string,
     minConfidence: number = 0.6
   ): Promise<LegalPattern[]> {
+    // Use fuzzy matching: stored intent keywords must appear in the query OR vice versa.
+    // This allows natural-language queries like "підстави для скасування рішення суду"
+    // to match stored patterns with intent "скасування рішення" or "касація".
     const result = await this.db.query(
-      `SELECT * FROM legal_patterns 
-       WHERE intent = $1 AND confidence >= $2
+      `SELECT * FROM legal_patterns
+       WHERE ($1 ILIKE '%' || intent || '%' OR intent ILIKE '%' || $1 || '%')
+         AND confidence >= $2
        ORDER BY frequency DESC, confidence DESC`,
       [intent, minConfidence]
     );
