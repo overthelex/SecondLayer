@@ -1,0 +1,58 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  # Node.js application services
+  - job_name: mcp_backend
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['app-prod:3000']
+        labels:
+          service: mcp_backend
+          environment: production
+
+  - job_name: mcp_rada
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['rada-mcp-app-prod:3001']
+        labels:
+          service: mcp_rada
+          environment: production
+
+  - job_name: mcp_openreyestr
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['app-openreyestr-prod:3005']
+        labels:
+          service: mcp_openreyestr
+          environment: production
+
+  # MinIO S3 storage
+  - job_name: minio
+    scrape_interval: 30s
+    metrics_path: /minio/v2/metrics/cluster
+    static_configs:
+      - targets: ['minio-prod:9000']
+        labels:
+          service: minio
+          environment: production
+
+  # Qdrant vector database
+  - job_name: qdrant
+    scrape_interval: 30s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['qdrant-prod:6333']
+        labels:
+          service: qdrant
+          environment: production
+
+  # Prometheus self-monitoring
+  - job_name: prometheus
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['localhost:9090']
