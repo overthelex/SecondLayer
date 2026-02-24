@@ -65,8 +65,8 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
 
   const messages = useChatStore(state => state.messages);
 
-  // "Рішення" and "Постанова" are proper court decisions; everything else goes to documents tab
-  const DECISION_TYPES = new Set(['Рішення', 'Постанова']);
+  // Only "Рішення" and "Вирок" are proper court decisions; Постанова, Ухвала, Окрема думка go to documents tab
+  const DECISION_TYPES = new Set(['Рішення', 'Вирок']);
 
   const allDecisions = useMemo(() => {
     const seen = new Set<string>();
