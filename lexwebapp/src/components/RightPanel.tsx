@@ -77,15 +77,15 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
     });
   }, [messages]);
 
-  // Only proper court decisions (Рішення/Постанова or no documentType = from search results)
+  // Only proper court decisions (Рішення/Постанова) with explicit documentType
   const decisions = useMemo(() =>
-    allDecisions.filter(d => !d.documentType || DECISION_TYPES.has(d.documentType)),
+    allDecisions.filter(d => d.documentType && DECISION_TYPES.has(d.documentType)),
     [allDecisions]
   );
 
-  // Other court documents (Ухвала, Окрема думка, etc.) — shown in documents tab
+  // Everything else (Ухвала, Окрема думка, untyped results, etc.) — shown in documents tab
   const otherCourtDocs = useMemo(() =>
-    allDecisions.filter(d => d.documentType && !DECISION_TYPES.has(d.documentType)),
+    allDecisions.filter(d => !d.documentType || !DECISION_TYPES.has(d.documentType)),
     [allDecisions]
   );
 
