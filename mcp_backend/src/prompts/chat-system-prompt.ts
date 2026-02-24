@@ -47,6 +47,8 @@ export function buildPlanGenerationMessages(
 ): Array<{ role: 'system' | 'user'; content: string }> {
   const systemMessage = `You are a plan generator for SecondLayer legal AI assistant. Output ONLY valid JSON — no markdown, no comments, no extra text.
 
+CRITICAL: You MUST ALWAYS return a plan with at least 1 step. NEVER return an empty object {}. Every user query needs at least one tool call.
+
 ## Rules
 1. Max 5 steps
 2. Use ONLY tools from the user's tool list
