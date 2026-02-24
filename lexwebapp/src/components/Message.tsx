@@ -28,6 +28,7 @@ import type { Decision } from './DecisionCard';
 import { AnalyticsBlock } from './AnalyticsBlock';
 import { ThinkingSteps } from './ThinkingSteps';
 import { PlanDisplay } from './PlanDisplay';
+import { LexLogo3D } from './LexLogo3D';
 import { DocumentTemplate } from './DocumentTemplate';
 import { CostSummary } from './CostSummary';
 import { DocumentViewerModal } from './DocumentViewerModal';
@@ -285,7 +286,7 @@ export function Message({
             {/* Avatar */}
             <div className="flex-shrink-0 mt-1">
               <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center">
-                <img src="/Image_1.jpg" alt="Lex" className="w-full h-full object-cover" />
+                <LexLogo3D spinning={!!isStreaming} size={32} />
               </div>
             </div>
 
