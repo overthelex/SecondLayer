@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { Message, MessageProps } from './Message';
 
 interface MessageThreadProps {
@@ -7,20 +7,34 @@ interface MessageThreadProps {
   onEdit?: (messageId: string, newContent: string) => void;
 }
 
+const SCROLL_THRESHOLD = 100;
+
 export function MessageThread({
   messages,
   onRegenerate,
   onEdit,
 }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const userScrolledUp = useRef(false);
+
+  const handleScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    userScrolledUp.current = distanceFromBottom > SCROLL_THRESHOLD;
+  }, []);
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'end'
-    });
+    if (!userScrolledUp.current) {
+      bottomRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'end'
+      });
+    }
   }, [messages]);
 
-  return <div className="flex-1 overflow-y-auto scroll-smooth">
+  return <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto scroll-smooth">
       <div className="flex flex-col">
         <div className="h-4 md:h-6" />
         {messages.map((message, idx) => {
