@@ -66,7 +66,7 @@ SECONDARY_LAYER_KEYS=test-key-123,dev-key-456,YOUR_API_KEY_PROD
 Your configuration had:
 ```json
 {
-  "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbGF1ZGUtZGVza3RvcCIsImlhdCI6MTc2ODc2NDIxOSwiZXhwIjoxODAwMzAwMjE5LCJpc3MiOiJzZWNvbmRsYXllci1tY3AifQ.r8VbMPM6bLxQjnLIlqUMW8sTIs-Zw_K-KqAgI8WQvEw"
+  "Authorization": "Bearer YOUR_JWT_TOKEN_HERE"
 }
 ```
 
