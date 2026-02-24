@@ -56,7 +56,12 @@ check_dns_resolution() {
 check_ssh_connectivity() {
     local server=$1
     local user=$2
-    if ssh -o ConnectTimeout=10 -o BatchMode=yes "${user}@${server}" "echo ok" > /dev/null 2>&1; then
+    local ssh_opts=""
+    # Use SSH key for prod
+    if [ -n "${PROD_SSH_KEY:-}" ] && [ "$server" = "${PROD_SERVER:-}" ]; then
+        ssh_opts="-i $PROD_SSH_KEY"
+    fi
+    if ssh $ssh_opts -o ConnectTimeout=10 -o BatchMode=yes "${user}@${server}" "echo ok" > /dev/null 2>&1; then
         preflight_record "SSH connectivity ($server)" "pass" ""
     else
         preflight_record "SSH connectivity ($server)" "fail" "Cannot connect via SSH to ${user}@${server}"
@@ -72,7 +77,11 @@ check_disk_space() {
     if [ "$server" = "localhost" ]; then
         avail_kb=$(df / | awk 'NR==2 {print $4}')
     else
-        avail_kb=$(ssh -o ConnectTimeout=10 "${DEPLOY_USER}@${server}" "df / | awk 'NR==2 {print \$4}'" 2>/dev/null)
+        local ssh_opts=""
+        if [ -n "${PROD_SSH_KEY:-}" ] && [ "$server" = "${PROD_SERVER:-}" ]; then
+            ssh_opts="-i $PROD_SSH_KEY"
+        fi
+        avail_kb=$(ssh $ssh_opts -o ConnectTimeout=10 "${DEPLOY_USER}@${server}" "df / | awk 'NR==2 {print \$4}'" 2>/dev/null)
     fi
 
     if [ -z "$avail_kb" ]; then
@@ -100,7 +109,11 @@ check_docker_daemon() {
             preflight_record "Docker daemon (local)" "fail" "Docker is not running"
         fi
     else
-        if ssh -o ConnectTimeout=10 "${DEPLOY_USER}@${server}" "$cmd" 2>/dev/null; then
+        local ssh_opts=""
+        if [ -n "${PROD_SSH_KEY:-}" ] && [ "$server" = "${PROD_SERVER:-}" ]; then
+            ssh_opts="-i $PROD_SSH_KEY"
+        fi
+        if ssh $ssh_opts -o ConnectTimeout=10 "${DEPLOY_USER}@${server}" "$cmd" 2>/dev/null; then
             preflight_record "Docker daemon ($server)" "pass" ""
         else
             preflight_record "Docker daemon ($server)" "fail" "Docker is not running on $server"
