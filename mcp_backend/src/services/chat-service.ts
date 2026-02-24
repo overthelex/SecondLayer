@@ -1026,7 +1026,7 @@ ${stepsText}
           temperature: 0.1,
           response_format: { type: 'json_object' },
         },
-        'quick',
+        'standard',
         'openai'
       );
 
