@@ -1109,6 +1109,8 @@ export function useAIChat(options: UseMCPToolOptions = {}) {
   const planRef = useRef<ExecutionPlan | null>(null);
   // Track cost summary data from complete + cost_summary events
   const costSummaryRef = useRef<Partial<CostSummary>>({});
+  // Track response_id for request traceability
+  const responseIdRef = useRef<string | null>(null);
 
   const executeChat = useCallback(
     async (query: string, documentIds?: string[]) => {
@@ -1119,6 +1121,7 @@ export function useAIChat(options: UseMCPToolOptions = {}) {
       contentRef.current = '';
       planRef.current = null;
       costSummaryRef.current = {};
+      responseIdRef.current = null;
       // 1. Add user message
       const userMessage = {
         id: Date.now().toString(),
@@ -1160,6 +1163,16 @@ export function useAIChat(options: UseMCPToolOptions = {}) {
       try {
         const chatConversationId = useChatStore.getState().conversationId || undefined;
         const controller = await mcpService.streamChat(query, history, {
+          onResponseId: (data) => {
+            responseIdRef.current = data.response_id;
+            addThinkingStep(assistantMessageId, {
+              id: 'response-id',
+              title: `#${data.response_id}`,
+              content: '',
+              isComplete: true,
+            });
+          },
+
           onPlan: (data) => {
             // Store the plan and add it to the message for UI rendering
             const plan: ExecutionPlan = {
@@ -1348,6 +1361,7 @@ export function useAIChat(options: UseMCPToolOptions = {}) {
                 tools_used: data.tools_used || [],
                 total_cost_usd: data.total_cost_usd || 0,
                 charged_usd: data.charged_usd || 0,
+                response_id: data.response_id || responseIdRef.current || undefined,
               };
               updateMessage(assistantMessageId, {
                 costSummary: costSummaryRef.current as CostSummary,
