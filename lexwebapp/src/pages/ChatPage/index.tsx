@@ -8,6 +8,7 @@ import { useState, useCallback } from 'react';
 import { ChatInput } from '../../components/ChatInput';
 import { MessageThread } from '../../components/MessageThread';
 import { EmptyState } from '../../components/EmptyState';
+import { PlanReviewDisplay } from '../../components/PlanReviewDisplay';
 import { useChatStore } from '../../stores';
 import { useMCPTool, useAIChat } from '../../hooks/useMCPTool';
 import showToast from '../../utils/toast';
@@ -18,7 +19,7 @@ export function ChatPage() {
   const [selectedTool, setSelectedTool] = useState(AI_CHAT_MODE);
 
   // Zustand stores
-  const { messages, isStreaming, cancelStream, removeMessage } = useChatStore();
+  const { messages, isStreaming, cancelStream, removeMessage, pendingPlanReview, isPlanLoading } = useChatStore();
 
   // MCP Tool hook (for manual tool mode)
   const { executeTool } = useMCPTool(selectedTool === AI_CHAT_MODE ? 'search_legal_precedents' : selectedTool, {
@@ -26,7 +27,7 @@ export function ChatPage() {
   });
 
   // AI Chat hook (agentic mode)
-  const { executeChat } = useAIChat();
+  const { executeChat, confirmPlanAndExecute, skipPlanReview } = useAIChat();
 
   /**
    * Parse content to tool-specific parameters
@@ -132,11 +133,24 @@ export function ChatPage() {
       ) : (
         <MessageThread messages={messages} onRegenerate={handleRegenerate} onEdit={handleEdit} />
       )}
+
+      {/* Plan review questionnaire — shown between messages and input */}
+      {pendingPlanReview && (
+        <div className="w-full max-w-3xl mx-auto px-4">
+          <PlanReviewDisplay
+            plan={pendingPlanReview.plan}
+            onConfirm={confirmPlanAndExecute}
+            onSkip={skipPlanReview}
+            isLoading={isStreaming}
+          />
+        </div>
+      )}
+
       <div className="w-full bg-gradient-to-t from-claude-bg via-claude-bg to-transparent pt-6 pb-4 z-20 border-t border-claude-border/30">
         <ChatInput
           onSend={handleSend}
-          disabled={isStreaming}
-          isStreaming={isStreaming}
+          disabled={isStreaming || isPlanLoading || !!pendingPlanReview}
+          isStreaming={isStreaming || isPlanLoading}
           onCancel={cancelStream}
           selectedTool={selectedTool}
           onToolChange={setSelectedTool}

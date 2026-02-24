@@ -1085,6 +1085,7 @@ export function useMCPTool(
 /**
  * useAIChat Hook
  * Calls the agentic /api/chat endpoint with SSE streaming.
+ * Supports two-phase flow: plan review → approved execution.
  * The LLM automatically selects and calls tools, then generates a synthesized answer.
  */
 export function useAIChat(options: UseMCPToolOptions = {}) {
@@ -1095,6 +1096,8 @@ export function useAIChat(options: UseMCPToolOptions = {}) {
     setStreaming,
     setStreamController,
     setCurrentTool,
+    setPendingPlanReview,
+    setIsPlanLoading,
   } = useChatStore();
 
   const { onSuccess, onError } = options;
@@ -1112,9 +1115,17 @@ export function useAIChat(options: UseMCPToolOptions = {}) {
   // Track response_id for request traceability
   const responseIdRef = useRef<string | null>(null);
 
-  const executeChat = useCallback(
-    async (query: string, documentIds?: string[]) => {
-      // Reset accumulators for new chat request
+  /**
+   * Internal: run the SSE chat stream (shared between direct and approved-plan flows).
+   */
+  const runChatStream = useCallback(
+    async (
+      query: string,
+      assistantMessageId: string,
+      approvedPlan?: ExecutionPlan,
+      planSessionId?: string
+    ) => {
+      // Reset accumulators
       accumulatedDecisions.current = [];
       accumulatedCitations.current = [];
       accumulatedDocuments.current = [];
@@ -1122,6 +1133,237 @@ export function useAIChat(options: UseMCPToolOptions = {}) {
       planRef.current = null;
       costSummaryRef.current = {};
       responseIdRef.current = null;
+
+      // Build history from prior messages
+      const currentMessages = useChatStore.getState().messages;
+      const history = currentMessages
+        .filter((m) => m.id !== assistantMessageId && (m.role === 'user' || m.role === 'assistant'))
+        .slice(-6)
+        .map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content.slice(0, 1000),
+        }));
+
+      const chatConversationId = useChatStore.getState().conversationId || undefined;
+
+      const controller = await mcpService.streamChat(query, history, {
+        onResponseId: (data) => {
+          responseIdRef.current = data.response_id;
+          addThinkingStep(assistantMessageId, {
+            id: 'response-id',
+            title: `#${data.response_id}`,
+            content: '',
+            isComplete: true,
+          });
+        },
+
+        onPlan: (data) => {
+          const plan: ExecutionPlan = {
+            goal: data.goal,
+            steps: data.steps.map((s) => ({ ...s, completed: false })),
+            expected_iterations: data.expected_iterations,
+          };
+          planRef.current = plan;
+          updateMessage(assistantMessageId, { executionPlan: plan });
+
+          const planSummary = data.steps
+            .map((s) => `${s.id}. ${s.purpose}`)
+            .join('\n');
+          addThinkingStep(assistantMessageId, {
+            id: 'plan',
+            title: `Стратегія: ${data.goal}`,
+            content: planSummary,
+            isComplete: true,
+          });
+        },
+
+        onBudgetEscalated: (data) => {
+          showToast.info(
+            `Глибокий аналіз — орієнтовна вартість $${data.estimatedCost.minUsd.toFixed(2)}–$${data.estimatedCost.maxUsd.toFixed(2)}`,
+            6000
+          );
+        },
+
+        onThinking: (data) => {
+          contentRef.current = '';
+
+          if (planRef.current) {
+            const matchingStep = planRef.current.steps.find((s) => s.tool === data.tool);
+            if (matchingStep && !matchingStep.completed) {
+              matchingStep.completed = true;
+              updateMessage(assistantMessageId, {
+                executionPlan: { ...planRef.current, steps: [...planRef.current.steps] },
+              });
+            }
+          }
+
+          const costSuffix = data.cost_usd ? ` · $${data.cost_usd.toFixed(4)}` : '';
+          addThinkingStep(assistantMessageId, {
+            id: `step-${data.step}`,
+            title: (data.description || `${getToolLabel(data.tool)}`) + costSuffix,
+            content: JSON.stringify(data.params, null, 2),
+            isComplete: false,
+          });
+        },
+
+        onToolResult: (data) => {
+          const toolPreview = typeof data.result === 'string'
+            ? data.result.slice(0, 500)
+            : JSON.stringify(data.result, null, 2).slice(0, 500);
+
+          const costSuffix = data.cost_usd ? ` · $${data.cost_usd.toFixed(4)}` : '';
+          addThinkingStep(assistantMessageId, {
+            id: `result-${data.tool}`,
+            title: `${getToolLabel(data.tool)}` + costSuffix,
+            content: toolPreview,
+            isComplete: true,
+          });
+
+          const evidence = extractEvidenceFromToolResult(data.tool, data.result);
+          console.log('[AIChat] Evidence extraction', {
+            tool: data.tool,
+            decisions: evidence.decisions.length,
+            citations: evidence.citations.length,
+            documents: evidence.documents.length,
+          });
+          if (evidence.decisions.length > 0) {
+            accumulatedDecisions.current.push(...evidence.decisions);
+          }
+          if (evidence.citations.length > 0) {
+            accumulatedCitations.current.push(...evidence.citations);
+          }
+          if (evidence.documents.length > 0) {
+            accumulatedDocuments.current.push(...evidence.documents);
+          }
+
+          if (accumulatedDecisions.current.length > 0 || accumulatedCitations.current.length > 0 || accumulatedDocuments.current.length > 0) {
+            updateMessage(assistantMessageId, {
+              decisions: [...accumulatedDecisions.current],
+              citations: [...accumulatedCitations.current],
+              documents: [...accumulatedDocuments.current],
+            });
+          }
+        },
+
+        onAnswerDelta: (data) => {
+          contentRef.current += data.text;
+          updateMessage(assistantMessageId, { content: contentRef.current });
+        },
+
+        onAnswer: (data) => {
+          contentRef.current = data.text;
+
+          const answerNorms = extractNormsFromAnswer(data.text);
+          if (answerNorms.length > 0) {
+            accumulatedCitations.current.push(...answerNorms);
+          }
+
+          updateMessage(assistantMessageId, {
+            content: data.text,
+            isStreaming: false,
+            decisions: accumulatedDecisions.current.length > 0
+              ? [...accumulatedDecisions.current]
+              : undefined,
+            citations: accumulatedCitations.current.length > 0
+              ? [...accumulatedCitations.current]
+              : undefined,
+            documents: accumulatedDocuments.current.length > 0
+              ? [...accumulatedDocuments.current]
+              : undefined,
+          });
+
+          setStreaming(false);
+          setStreamController(null);
+          setCurrentTool(null);
+
+          const completedState = useChatStore.getState();
+          const completedMsg = completedState.messages.find(
+            (m) => m.id === assistantMessageId
+          );
+          if (completedMsg) {
+            completedState.syncMessage(completedMsg);
+          }
+
+          if (completedState.conversationId && completedState.messages.length <= 3) {
+            const firstUserMsg = completedState.messages.find((m) => m.role === 'user');
+            if (firstUserMsg) {
+              const title = firstUserMsg.content.slice(0, 60).trim();
+              completedState.renameConversation(completedState.conversationId, title);
+            }
+          }
+
+          onSuccess?.(data);
+        },
+
+        onCitationWarning: (data) => {
+          const currentMsg = useChatStore.getState().messages.find(
+            (m) => m.id === assistantMessageId
+          );
+          const existing = currentMsg?.citationWarnings || [];
+          updateMessage(assistantMessageId, {
+            citationWarnings: [
+              ...existing,
+              {
+                case_number: data.case_number,
+                status: data.status,
+                confidence: data.confidence,
+                message: data.message,
+              },
+            ],
+          });
+        },
+
+        onError: (error) => {
+          updateMessage(assistantMessageId, {
+            content: `Помилка: ${error.message}`,
+            isStreaming: false,
+          });
+          setStreaming(false);
+          setStreamController(null);
+          setCurrentTool(null);
+          showToast.error(error.message);
+          onError?.(new Error(error.message));
+        },
+
+        onComplete: (data) => {
+          if (data.tools_used || data.total_cost_usd != null || data.charged_usd != null) {
+            costSummaryRef.current = {
+              ...costSummaryRef.current,
+              tools_used: data.tools_used || [],
+              total_cost_usd: data.total_cost_usd || 0,
+              charged_usd: data.charged_usd || 0,
+              response_id: data.response_id || responseIdRef.current || undefined,
+            };
+            updateMessage(assistantMessageId, {
+              costSummary: costSummaryRef.current as CostSummary,
+            });
+          }
+          console.log('[AIChat] Complete', data);
+        },
+
+        onCostSummary: (data) => {
+          costSummaryRef.current = {
+            ...costSummaryRef.current,
+            charged_usd: data.charged_usd,
+            balance_usd: data.balance_usd,
+          };
+          updateMessage(assistantMessageId, {
+            costSummary: costSummaryRef.current as CostSummary,
+          });
+        },
+      }, 'standard', chatConversationId, approvedPlan, planSessionId);
+
+      setStreamController(controller);
+    },
+    [addThinkingStep, updateMessage, setStreaming, setStreamController, setCurrentTool, onSuccess, onError]
+  );
+
+  /**
+   * Phase 1: Request plan for user review, then pause.
+   * If plan generation fails or returns null (simple query), falls through to direct execution.
+   */
+  const executeChat = useCallback(
+    async (query: string, documentIds?: string[]) => {
       // 1. Add user message
       const userMessage = {
         id: Date.now().toString(),
@@ -1137,18 +1379,7 @@ export function useAIChat(options: UseMCPToolOptions = {}) {
       }
       useChatStore.getState().syncMessage(userMessage);
 
-      // 3. Build history from prior messages
-      const currentMessages = useChatStore.getState().messages;
-      const history = currentMessages
-        .slice(0, -1) // exclude the just-added user message
-        .filter((m) => m.role === 'user' || m.role === 'assistant')
-        .slice(-6) // last 3 exchanges
-        .map((m) => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content.slice(0, 1000),
-        }));
-
-      // 4. Create placeholder assistant message
+      // 3. Create placeholder assistant message
       const assistantMessageId = (Date.now() + 1).toString();
       addMessage({
         id: assistantMessageId,
@@ -1157,233 +1388,35 @@ export function useAIChat(options: UseMCPToolOptions = {}) {
         isStreaming: true,
         thinkingSteps: [],
       });
+
+      // 4. Request plan for review
+      setIsPlanLoading(true);
+      try {
+        const planResult = await mcpService.requestPlan(query, 'standard');
+
+        if (planResult.plan && planResult.planSessionId) {
+          // Plan received — pause and show review UI
+          setIsPlanLoading(false);
+          updateMessage(assistantMessageId, { isStreaming: false });
+          setPendingPlanReview({
+            plan: planResult.plan,
+            planSessionId: planResult.planSessionId,
+            query,
+            assistantMessageId,
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn('[AIChat] Plan request failed, falling through to direct execution', err);
+      }
+
+      // No plan or plan failed → direct execution (old flow)
+      setIsPlanLoading(false);
       setStreaming(true);
       setCurrentTool('ai_chat');
 
       try {
-        const chatConversationId = useChatStore.getState().conversationId || undefined;
-        const controller = await mcpService.streamChat(query, history, {
-          onResponseId: (data) => {
-            responseIdRef.current = data.response_id;
-            addThinkingStep(assistantMessageId, {
-              id: 'response-id',
-              title: `#${data.response_id}`,
-              content: '',
-              isComplete: true,
-            });
-          },
-
-          onPlan: (data) => {
-            // Store the plan and add it to the message for UI rendering
-            const plan: ExecutionPlan = {
-              goal: data.goal,
-              steps: data.steps.map((s) => ({ ...s, completed: false })),
-              expected_iterations: data.expected_iterations,
-            };
-            planRef.current = plan;
-            updateMessage(assistantMessageId, { executionPlan: plan });
-
-            // Also add a thinking step showing the plan
-            const planSummary = data.steps
-              .map((s) => `${s.id}. ${s.purpose}`)
-              .join('\n');
-            addThinkingStep(assistantMessageId, {
-              id: 'plan',
-              title: `📋 Стратегія: ${data.goal}`,
-              content: planSummary,
-              isComplete: true,
-            });
-          },
-
-          onBudgetEscalated: (data) => {
-            showToast.info(
-              `🔬 Глибокий аналіз — орієнтовна вартість $${data.estimatedCost.minUsd.toFixed(2)}–$${data.estimatedCost.maxUsd.toFixed(2)}`,
-              6000
-            );
-          },
-
-          onThinking: (data) => {
-            // Clear partial streamed text when entering a tool-calling iteration
-            contentRef.current = '';
-
-            // Mark matching plan step as in-progress
-            if (planRef.current) {
-              const matchingStep = planRef.current.steps.find((s) => s.tool === data.tool);
-              if (matchingStep && !matchingStep.completed) {
-                matchingStep.completed = true;
-                updateMessage(assistantMessageId, {
-                  executionPlan: { ...planRef.current, steps: [...planRef.current.steps] },
-                });
-              }
-            }
-
-            const costSuffix = data.cost_usd ? ` · $${data.cost_usd.toFixed(4)}` : '';
-            addThinkingStep(assistantMessageId, {
-              id: `step-${data.step}`,
-              title: (data.description || `🔍 ${getToolLabel(data.tool)}`) + costSuffix,
-              content: JSON.stringify(data.params, null, 2),
-              isComplete: false,
-            });
-          },
-
-          onToolResult: (data) => {
-            // Update the last thinking step as complete and add result preview
-            const toolPreview = typeof data.result === 'string'
-              ? data.result.slice(0, 500)
-              : JSON.stringify(data.result, null, 2).slice(0, 500);
-
-            const costSuffix = data.cost_usd ? ` · $${data.cost_usd.toFixed(4)}` : '';
-            addThinkingStep(assistantMessageId, {
-              id: `result-${data.tool}`,
-              title: `✓ ${getToolLabel(data.tool)}` + costSuffix,
-              content: toolPreview,
-              isComplete: true,
-            });
-
-            // Extract decisions & citations from tool results
-            const evidence = extractEvidenceFromToolResult(data.tool, data.result);
-            console.log('[AIChat] Evidence extraction', {
-              tool: data.tool,
-              decisions: evidence.decisions.length,
-              citations: evidence.citations.length,
-              documents: evidence.documents.length,
-            });
-            if (evidence.decisions.length > 0) {
-              accumulatedDecisions.current.push(...evidence.decisions);
-            }
-            if (evidence.citations.length > 0) {
-              accumulatedCitations.current.push(...evidence.citations);
-            }
-            if (evidence.documents.length > 0) {
-              accumulatedDocuments.current.push(...evidence.documents);
-            }
-
-            // Update message with accumulated evidence so far (for live RightPanel updates)
-            if (accumulatedDecisions.current.length > 0 || accumulatedCitations.current.length > 0 || accumulatedDocuments.current.length > 0) {
-              updateMessage(assistantMessageId, {
-                decisions: [...accumulatedDecisions.current],
-                citations: [...accumulatedCitations.current],
-                documents: [...accumulatedDocuments.current],
-              });
-            }
-          },
-
-          onAnswerDelta: (data) => {
-            contentRef.current += data.text;
-            updateMessage(assistantMessageId, { content: contentRef.current });
-          },
-
-          onAnswer: (data) => {
-            // Reconcile with final answer text from server
-            contentRef.current = data.text;
-
-            // Extract law norm references mentioned in the answer text
-            const answerNorms = extractNormsFromAnswer(data.text);
-            if (answerNorms.length > 0) {
-              accumulatedCitations.current.push(...answerNorms);
-            }
-
-            updateMessage(assistantMessageId, {
-              content: data.text,
-              isStreaming: false,
-              decisions: accumulatedDecisions.current.length > 0
-                ? [...accumulatedDecisions.current]
-                : undefined,
-              citations: accumulatedCitations.current.length > 0
-                ? [...accumulatedCitations.current]
-                : undefined,
-              documents: accumulatedDocuments.current.length > 0
-                ? [...accumulatedDocuments.current]
-                : undefined,
-            });
-
-            setStreaming(false);
-            setStreamController(null);
-            setCurrentTool(null);
-
-            // Sync assistant message to server
-            const completedState = useChatStore.getState();
-            const completedMsg = completedState.messages.find(
-              (m) => m.id === assistantMessageId
-            );
-            if (completedMsg) {
-              completedState.syncMessage(completedMsg);
-            }
-
-            // Auto-title on first exchange
-            if (completedState.conversationId && completedState.messages.length <= 3) {
-              const firstUserMsg = completedState.messages.find((m) => m.role === 'user');
-              if (firstUserMsg) {
-                const title = firstUserMsg.content.slice(0, 60).trim();
-                completedState.renameConversation(completedState.conversationId, title);
-              }
-            }
-
-            onSuccess?.(data);
-          },
-
-          onCitationWarning: (data) => {
-            // Accumulate citation warnings on the assistant message
-            const currentMsg = useChatStore.getState().messages.find(
-              (m) => m.id === assistantMessageId
-            );
-            const existing = currentMsg?.citationWarnings || [];
-            updateMessage(assistantMessageId, {
-              citationWarnings: [
-                ...existing,
-                {
-                  case_number: data.case_number,
-                  status: data.status,
-                  confidence: data.confidence,
-                  message: data.message,
-                },
-              ],
-            });
-          },
-
-          onError: (error) => {
-            updateMessage(assistantMessageId, {
-              content: `Помилка: ${error.message}`,
-              isStreaming: false,
-            });
-            setStreaming(false);
-            setStreamController(null);
-            setCurrentTool(null);
-            showToast.error(error.message);
-            onError?.(new Error(error.message));
-          },
-
-          onComplete: (data) => {
-            // Store cost data from complete event
-            if (data.tools_used || data.total_cost_usd != null || data.charged_usd != null) {
-              costSummaryRef.current = {
-                ...costSummaryRef.current,
-                tools_used: data.tools_used || [],
-                total_cost_usd: data.total_cost_usd || 0,
-                charged_usd: data.charged_usd || 0,
-                response_id: data.response_id || responseIdRef.current || undefined,
-              };
-              updateMessage(assistantMessageId, {
-                costSummary: costSummaryRef.current as CostSummary,
-              });
-            }
-            console.log('[AIChat] Complete', data);
-          },
-
-          onCostSummary: (data) => {
-            // Merge balance info from cost_summary event
-            costSummaryRef.current = {
-              ...costSummaryRef.current,
-              charged_usd: data.charged_usd,
-              balance_usd: data.balance_usd,
-            };
-            updateMessage(assistantMessageId, {
-              costSummary: costSummaryRef.current as CostSummary,
-            });
-          },
-        }, 'standard', chatConversationId);
-
-        setStreamController(controller);
+        await runChatStream(query, assistantMessageId);
       } catch (error: any) {
         updateMessage(assistantMessageId, {
           content: `Помилка: ${error.message || 'Невідома помилка'}`,
@@ -1395,9 +1428,73 @@ export function useAIChat(options: UseMCPToolOptions = {}) {
         onError?.(error);
       }
     },
-    [addMessage, updateMessage, addThinkingStep, setStreaming, setStreamController, setCurrentTool, onSuccess, onError]
+    [addMessage, updateMessage, setStreaming, setCurrentTool, setIsPlanLoading, setPendingPlanReview, runChatStream, onError]
   );
 
-  return { executeChat };
+  /**
+   * Phase 2: User confirmed the plan with depth choices → execute.
+   */
+  const confirmPlanAndExecute = useCallback(
+    async (approvedPlan: ExecutionPlan) => {
+      const pending = useChatStore.getState().pendingPlanReview;
+      if (!pending) return;
+
+      const { query, assistantMessageId, planSessionId } = pending;
+
+      // Clear review state, switch to streaming
+      setPendingPlanReview(null);
+      updateMessage(assistantMessageId, { isStreaming: true, content: '' });
+      setStreaming(true);
+      setCurrentTool('ai_chat');
+
+      try {
+        await runChatStream(query, assistantMessageId, approvedPlan, planSessionId);
+      } catch (error: any) {
+        updateMessage(assistantMessageId, {
+          content: `Помилка: ${error.message || 'Невідома помилка'}`,
+          isStreaming: false,
+        });
+        setStreaming(false);
+        setCurrentTool(null);
+        showToast.error(error.message || 'Невідома помилка');
+        onError?.(error);
+      }
+    },
+    [updateMessage, setStreaming, setCurrentTool, setPendingPlanReview, runChatStream, onError]
+  );
+
+  /**
+   * Skip plan review → execute with default depths (standard flow).
+   */
+  const skipPlanReview = useCallback(
+    async () => {
+      const pending = useChatStore.getState().pendingPlanReview;
+      if (!pending) return;
+
+      const { query, assistantMessageId } = pending;
+
+      // Clear review state, direct execution without approved plan
+      setPendingPlanReview(null);
+      updateMessage(assistantMessageId, { isStreaming: true, content: '' });
+      setStreaming(true);
+      setCurrentTool('ai_chat');
+
+      try {
+        await runChatStream(query, assistantMessageId);
+      } catch (error: any) {
+        updateMessage(assistantMessageId, {
+          content: `Помилка: ${error.message || 'Невідома помилка'}`,
+          isStreaming: false,
+        });
+        setStreaming(false);
+        setCurrentTool(null);
+        showToast.error(error.message || 'Невідома помилка');
+        onError?.(error);
+      }
+    },
+    [updateMessage, setStreaming, setCurrentTool, setPendingPlanReview, runChatStream, onError]
+  );
+
+  return { executeChat, confirmPlanAndExecute, skipPlanReview };
 }
 

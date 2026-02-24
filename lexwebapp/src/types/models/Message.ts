@@ -55,6 +55,7 @@ export interface PlanStep {
   purpose: string;
   depends_on?: number[];
   completed?: boolean;
+  depth?: 'standard' | 'deep';
 }
 
 export interface Decision {

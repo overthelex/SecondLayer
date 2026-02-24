@@ -56,6 +56,19 @@ export interface ChatRequest {
   userId?: string;
   requestId?: string;
   signal?: AbortSignal;
+  /** Pre-approved plan with per-step depth choices — skips plan generation */
+  approvedPlan?: ExecutionPlan;
+  /** Session ID from a prior /api/chat/plan call — reuses cached classification */
+  planSessionId?: string;
+}
+
+/** Cached result from /api/chat/plan for reuse during execution */
+interface PlanSession {
+  classification: { domains: string[]; keywords: string; slots?: Record<string, any> };
+  toolDefs: ToolDefinition[];
+  plan: ExecutionPlan;
+  query: string;
+  createdAt: number;
 }
 
 // ============================
@@ -102,9 +115,24 @@ function toolCallHash(toolName: string, params: Record<string, any>): string {
   return `${toolName}:${hash}`;
 }
 
+/** Depth-based parameter overrides for search tools (deep = larger limits) */
+const DEPTH_OVERRIDES: Record<string, { standard: Record<string, any>; deep: Record<string, any> }> = {
+  search_legal_precedents:        { standard: { limit: 20 }, deep: { limit: 50 } },
+  search_supreme_court_practice:  { standard: { limit: 20 }, deep: { limit: 50 } },
+  find_similar_fact_pattern_cases: { standard: { limit: 10 }, deep: { limit: 30 } },
+  compare_practice_pro_contra:    { standard: { limit: 20 }, deep: { limit: 50 } },
+  search_legislation:             { standard: { limit: 10 }, deep: { limit: 30 } },
+  find_relevant_law_articles:     { standard: { limit: 10 }, deep: { limit: 25 } },
+  search_procedural_norms:        { standard: { limit: 10 }, deep: { limit: 25 } },
+};
+
+const PLAN_SESSION_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 export class ChatService {
   /** In-memory cache: conversationId → compressed summary of older history */
   private historySummaryCache = new Map<string, { messageCount: number; summary: string }>();
+  /** In-memory cache: planSessionId → classification + plan for two-phase flow */
+  private planSessions = new Map<string, PlanSession>();
 
   constructor(
     private toolRegistry: ToolRegistry,
@@ -114,7 +142,74 @@ export class ChatService {
     private conversationService?: ConversationService,
     private shepardizationService?: ShepardizationService,
     private embeddingService?: EmbeddingService
-  ) {}
+  ) {
+    // Periodic cleanup of expired plan sessions (every 2 minutes)
+    setInterval(() => {
+      const now = Date.now();
+      for (const [id, session] of this.planSessions) {
+        if (now - session.createdAt > PLAN_SESSION_TTL_MS) {
+          this.planSessions.delete(id);
+        }
+      }
+    }, 2 * 60 * 1000);
+  }
+
+  /**
+   * Phase 1: Generate execution plan for user review.
+   * Returns plan + session ID that can be passed to chat() for execution.
+   */
+  async generatePlanForReview(
+    query: string,
+    budget: 'quick' | 'standard' | 'deep' = 'standard',
+    userId?: string,
+    requestId?: string
+  ): Promise<{ plan: ExecutionPlan; planSessionId: string } | null> {
+    const classification = await this.classifyChatIntent(query, requestId);
+    const toolDefs = await this.filterTools(classification.domains, classification.slots);
+    const plan = await this.generateExecutionPlan(query, classification, toolDefs, requestId);
+
+    if (!plan) return null;
+
+    // Assign default depth to each step
+    for (const step of plan.steps) {
+      if (!step.depth) step.depth = 'standard';
+    }
+
+    // Cache session for reuse
+    const planSessionId = `plan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    this.planSessions.set(planSessionId, {
+      classification,
+      toolDefs,
+      plan,
+      query,
+      createdAt: Date.now(),
+    });
+
+    logger.info('[ChatService] Plan generated for review', {
+      planSessionId,
+      steps: plan.steps.length,
+      goal: plan.goal.slice(0, 100),
+    });
+
+    return { plan, planSessionId };
+  }
+
+  /**
+   * Apply user-chosen depth overrides to plan step parameters.
+   * Deep steps get larger limits for search tools.
+   */
+  private applyStepDepths(plan: ExecutionPlan): ExecutionPlan {
+    const adjustedSteps = plan.steps.map(step => {
+      const depth = step.depth || 'standard';
+      const overrides = DEPTH_OVERRIDES[step.tool];
+      if (!overrides) return step;
+      return {
+        ...step,
+        params: { ...step.params, ...overrides[depth] },
+      };
+    });
+    return { ...plan, steps: adjustedSteps };
+  }
 
   /**
    * Run the agentic chat loop. Yields ChatEvents for SSE streaming.
@@ -139,25 +234,58 @@ export class ChatService {
     }
 
     try {
-      // 1. Classify intent via LLM → filter tools
-      const classification = await this.classifyChatIntent(query, requestId);
-      const toolDefs = await this.filterTools(classification.domains, classification.slots);
+      // --- Two-phase support: reuse cached session if approvedPlan is provided ---
+      let classification: { domains: string[]; keywords: string; slots?: Record<string, any> };
+      let toolDefs: ToolDefinition[];
+      let plan: ExecutionPlan | undefined;
 
-      // 2. Generate execution plan (replaces old response template)
-      const plan = await this.generateExecutionPlan(query, classification, toolDefs, requestId);
+      if (request.approvedPlan && request.planSessionId) {
+        const session = this.planSessions.get(request.planSessionId);
+        if (session && Date.now() - session.createdAt <= PLAN_SESSION_TTL_MS) {
+          classification = session.classification;
+          toolDefs = session.toolDefs;
+          // Use the user-approved plan with depth overrides applied
+          plan = this.applyStepDepths(request.approvedPlan);
+          this.planSessions.delete(request.planSessionId);
+          logger.info('[ChatService] Using approved plan from session', {
+            planSessionId: request.planSessionId,
+            steps: plan.steps.length,
+            deepSteps: plan.steps.filter(s => s.depth === 'deep').length,
+          });
+        } else {
+          logger.warn('[ChatService] Plan session expired or not found, regenerating', {
+            planSessionId: request.planSessionId,
+          });
+          classification = await this.classifyChatIntent(query, requestId);
+          toolDefs = await this.filterTools(classification.domains, classification.slots);
+          plan = await this.generateExecutionPlan(query, classification, toolDefs, requestId);
+        }
+      } else {
+        // Standard flow: classify + generate plan
+        classification = await this.classifyChatIntent(query, requestId);
+        toolDefs = await this.filterTools(classification.domains, classification.slots);
+        plan = await this.generateExecutionPlan(query, classification, toolDefs, requestId);
+      }
 
-      // 3. Emit plan to client via SSE
+      // Emit plan to client via SSE
       if (plan) {
         yield { type: 'plan', data: plan };
       }
 
-      // 4. Budget escalation:
+      // Budget escalation:
+      //    - Any step marked "deep" by user → deep budget
       //    - Plan with >= 3 steps → deep
       //    - Complex case analysis (case_number + long query) → deep even without a plan
       //    - Court practice analysis query → deep (needs full doc content + long response)
       let effectiveBudget: BudgetKey = budget;
+      const hasDeepSteps = plan?.steps.some(s => s.depth === 'deep');
       const PRACTICE_ANALYSIS_KEYWORDS = /проаналізу|аналіз практик|судова практика|знайти справи|знайти практику|огляд практики|яка практика|як суди|позиція судів/i;
-      if (plan && plan.steps.length >= 3) {
+      if (hasDeepSteps) {
+        effectiveBudget = 'deep';
+        logger.info('[ChatService] Escalated to deep budget (user chose deep steps)', {
+          deepSteps: plan!.steps.filter(s => s.depth === 'deep').map(s => s.tool),
+        });
+      } else if (plan && plan.steps.length >= 3) {
         effectiveBudget = 'deep';
       } else if (
         !plan &&

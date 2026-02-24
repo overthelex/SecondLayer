@@ -28,6 +28,7 @@ export interface PlanStep {
   params: Record<string, any>; // Call parameters
   purpose: string;             // Why this step (for UI, Ukrainian)
   depends_on?: number[];       // Dependencies on prior steps
+  depth?: 'standard' | 'deep'; // User-chosen analysis depth (default: standard)
 }
 
 // ============================
