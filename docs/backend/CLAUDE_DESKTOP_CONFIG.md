@@ -18,7 +18,7 @@ Since Claude Desktop requires a `command` field, we use a local stdio proxy that
       ],
       "env": {
         "MCP_REMOTE_URL": "https://mcp.legal.org.ua",
-        "MCP_JWT_TOKEN": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbGF1ZGUtZGVza3RvcCIsImlhdCI6MTc2ODc2NDIxOSwiZXhwIjoxODAwMzAwMjE5LCJpc3MiOiJzZWNvbmRsYXllci1tY3AifQ.r8VbMPM6bLxQjnLIlqUMW8sTIs-Zw_K-KqAgI8WQvEw"
+        "MCP_JWT_TOKEN": "YOUR_JWT_TOKEN_HERE"
       }
     }
   }
@@ -70,7 +70,7 @@ Some newer versions of Claude Desktop may support direct SSE connections. If so,
     "SecondLayerMCP": {
       "url": "https://mcp.legal.org.ua/v1/sse",
       "headers": {
-        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbGF1ZGUtZGVza3RvcCIsImlhdCI6MTc2ODc2NDIxOSwiZXhwIjoxODAwMzAwMjE5LCJpc3MiOiJzZWNvbmRsYXllci1tY3AifQ.r8VbMPM6bLxQjnLIlqUMW8sTIs-Zw_K-KqAgI8WQvEw"
+        "Authorization": "Bearer YOUR_JWT_TOKEN_HERE"
       },
       "transport": "sse"
     }
