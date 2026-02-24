@@ -130,6 +130,32 @@ function extractNormsFromAnswer(answerText: string): Citation[] {
 }
 
 /**
+ * Classify court document type from available fields (title, summary, judgment_form).
+ * Used to split decisions into "Рішення" tab vs "Документи" tab in the right panel.
+ */
+function classifyDocumentType(item: any): string {
+  const form = item?.judgment_form || item?.form_name || item?.judgment_form_name
+    || item?.document_type || '';
+  const formLower = String(form).toLowerCase();
+  if (formLower.includes('постанова')) return 'Постанова';
+  if (formLower.includes('рішення')) return 'Рішення';
+  if (formLower.includes('ухвала')) return 'Ухвала';
+  if (formLower.includes('вирок')) return 'Вирок';
+  if (formLower.includes('окрема думка')) return 'Окрема думка';
+  if (formLower.includes('окрема')) return 'Окрема ухвала';
+
+  const text = [item?.title, item?.resolution, item?.summary, item?.snippet]
+    .filter(Boolean).join(' ');
+  if (/Постанова\b/i.test(text)) return 'Постанова';
+  if (/\bРішення\b/i.test(text)) return 'Рішення';
+  if (/\bУхвала\b/i.test(text)) return 'Ухвала';
+  if (/\bВирок\b/i.test(text)) return 'Вирок';
+  if (/Окрема думка/i.test(text)) return 'Окрема думка';
+
+  return '';
+}
+
+/**
  * Extract Decision[] and Citation[] from a tool_result SSE event.
  * Handles all court-case and legislation tools returned by the agentic loop.
  */
@@ -169,7 +195,7 @@ function extractEvidenceFromToolResult(
         summary: sc.title || sc.resolution || '',
         relevance: 100,
         status: 'active',
-        documentType: sc.document_type,
+        documentType: classifyDocumentType(sc),
         externalUrl: courtDocUrl(sc.doc_id),
       });
     }
@@ -190,7 +216,7 @@ function extractEvidenceFromToolResult(
             ? Math.round(c.relevance * 100)
             : 70,
         status: 'active',
-        documentType: c.document_type,
+        documentType: classifyDocumentType(c),
         externalUrl: courtDocUrl(c.doc_id),
       });
     }
@@ -211,7 +237,7 @@ function extractEvidenceFromToolResult(
         summary: doc.resolution || doc.title || '',
         relevance: 80,
         status: 'active',
-        documentType: doc.document_type,
+        documentType: classifyDocumentType(doc),
         externalUrl: courtDocUrl(doc.doc_id),
       });
     }
@@ -227,7 +253,7 @@ function extractEvidenceFromToolResult(
         summary: c.snippet || '',
         relevance: 70,
         status: 'active',
-        documentType: c.document_type,
+        documentType: classifyDocumentType(c),
         externalUrl: courtDocUrl(c.doc_id),
       });
     }
