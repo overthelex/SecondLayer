@@ -54,6 +54,7 @@ check_containers_running() {
 
     local env_short
     case $env in
+        prod|production) env_short="prod" ;;
         stage|staging) env_short="stage" ;;
         dev|development) env_short="dev" ;;
         local) env_short="local" ;;
@@ -65,7 +66,13 @@ check_containers_running() {
     if [ "$target_server" = "localhost" ]; then
         output=$(eval "$ps_cmd" 2>/dev/null)
     else
-        output=$(ssh "${DEPLOY_USER}@${target_server}" "$ps_cmd" 2>/dev/null)
+        local ssh_cmd
+        if [ "$env_short" = "prod" ] && [ -n "${PROD_SSH_KEY:-}" ]; then
+            ssh_cmd="ssh -i $PROD_SSH_KEY ${DEPLOY_USER}@${target_server}"
+        else
+            ssh_cmd="ssh ${DEPLOY_USER}@${target_server}"
+        fi
+        output=$($ssh_cmd "$ps_cmd" 2>/dev/null)
     fi
 
     if [ -z "$output" ]; then
@@ -100,6 +107,13 @@ check_http_health() {
 
     local all_passed=true
 
+    local ssh_cmd
+    if [ -n "${PROD_SSH_KEY:-}" ] && [[ "$env" =~ ^prod ]]; then
+        ssh_cmd="ssh -i $PROD_SSH_KEY ${DEPLOY_USER}@${target_server}"
+    else
+        ssh_cmd="ssh ${DEPLOY_USER}@${target_server}"
+    fi
+
     case $env in
         local)
             local urls=("https://localdev.legal.org.ua/health" "https://localdev.mcp.legal.org.ua/health")
@@ -125,15 +139,49 @@ check_http_health() {
             done
             ;;
 
-        stage|staging)
+        prod|production)
             # Primary: test directly via nginx on :80 over SSH (bypasses Cloudflare/DNS)
-            # These are authoritative — if nginx isn't routing, the deploy is broken.
-            local domains=("stage.legal.org.ua" "legal.org.ua" "mcp.legal.org.ua")
+            local domains=("legal.org.ua" "mcp.legal.org.ua")
             for domain in "${domains[@]}"; do
                 local attempt=1
                 local passed=false
                 while [ $attempt -le $SMOKE_TEST_RETRIES ]; do
-                    if ssh "${DEPLOY_USER}@${target_server}" \
+                    if $ssh_cmd \
+                        "curl -sf --max-time 10 -H 'Host: ${domain}' http://localhost:80/health" > /dev/null 2>&1; then
+                        smoke_record "HTTP health direct ($domain)" "pass" ""
+                        passed=true
+                        break
+                    fi
+                    if [ $attempt -lt $SMOKE_TEST_RETRIES ]; then
+                        print_msg "$YELLOW" "  Direct health check attempt $attempt failed for $domain, retrying in ${SMOKE_TEST_RETRY_DELAY}s..."
+                        sleep "$SMOKE_TEST_RETRY_DELAY"
+                    fi
+                    attempt=$((attempt + 1))
+                done
+                if [ "$passed" = false ]; then
+                    smoke_record "HTTP health direct ($domain)" "fail" "No response on localhost:80 after $SMOKE_TEST_RETRIES attempts"
+                    all_passed=false
+                fi
+            done
+
+            # Secondary: check public HTTPS URLs (through Cloudflare) — informational only
+            for domain in "${domains[@]}"; do
+                if curl -skf --max-time 10 "https://${domain}/health" > /dev/null 2>&1; then
+                    smoke_record "HTTP health public ($domain)" "pass" ""
+                else
+                    smoke_record "HTTP health public ($domain)" "warn" "Not reachable via public URL (CF/DNS may be slow)"
+                fi
+            done
+            ;;
+
+        stage|staging)
+            # Primary: test directly via nginx on :80 over SSH (bypasses Cloudflare/DNS)
+            local domains=("stage.legal.org.ua")
+            for domain in "${domains[@]}"; do
+                local attempt=1
+                local passed=false
+                while [ $attempt -le $SMOKE_TEST_RETRIES ]; do
+                    if $ssh_cmd \
                         "curl -sf --max-time 10 -H 'Host: ${domain}' http://localhost:80/health" > /dev/null 2>&1; then
                         smoke_record "HTTP health direct ($domain)" "pass" ""
                         passed=true
@@ -174,8 +222,11 @@ check_frontend_health() {
         local)
             urls=("https://localdev.legal.org.ua")
             ;;
+        prod|production)
+            urls=("https://legal.org.ua" "https://mcp.legal.org.ua")
+            ;;
         stage|staging)
-            urls=("https://stage.legal.org.ua" "https://legal.org.ua" "https://mcp.legal.org.ua")
+            urls=("https://stage.legal.org.ua")
             ;;
     esac
 
@@ -195,15 +246,17 @@ check_db_connectivity() {
 
     local env_short
     case $env in
+        prod|production) env_short="prod" ;;
         stage|staging) env_short="stage" ;;
         dev|development) env_short="dev" ;;
         local) env_short="local" ;;
     esac
 
     local db_name="secondlayer"
-    if [ "$env_short" = "local" ]; then
-        db_name="secondlayer_local"
-    fi
+    case $env_short in
+        local) db_name="secondlayer_local" ;;
+        prod)  db_name="secondlayer_prod" ;;
+    esac
 
     local db_cmd="docker exec secondlayer-postgres-${env_short} psql -U secondlayer -d ${db_name} -c 'SELECT 1' > /dev/null 2>&1"
 
@@ -211,7 +264,13 @@ check_db_connectivity() {
     if [ "$target_server" = "localhost" ]; then
         result=$(eval "$db_cmd" 2>&1 && echo "ok" || echo "fail")
     else
-        result=$(ssh "${DEPLOY_USER}@${target_server}" "$db_cmd" 2>&1 && echo "ok" || echo "fail")
+        local ssh_cmd
+        if [ "$env_short" = "prod" ] && [ -n "${PROD_SSH_KEY:-}" ]; then
+            ssh_cmd="ssh -i $PROD_SSH_KEY ${DEPLOY_USER}@${target_server}"
+        else
+            ssh_cmd="ssh ${DEPLOY_USER}@${target_server}"
+        fi
+        result=$($ssh_cmd "$db_cmd" 2>&1 && echo "ok" || echo "fail")
     fi
 
     if echo "$result" | grep -q "ok"; then
@@ -228,6 +287,7 @@ check_restart_loops() {
 
     local env_short
     case $env in
+        prod|production) env_short="prod" ;;
         stage|staging) env_short="stage" ;;
         dev|development) env_short="dev" ;;
         local) env_short="local" ;;
@@ -239,7 +299,13 @@ check_restart_loops() {
     if [ "$target_server" = "localhost" ]; then
         output=$(eval "$restart_cmd" 2>/dev/null)
     else
-        output=$(ssh "${DEPLOY_USER}@${target_server}" "$restart_cmd" 2>/dev/null)
+        local ssh_cmd
+        if [ "$env_short" = "prod" ] && [ -n "${PROD_SSH_KEY:-}" ]; then
+            ssh_cmd="ssh -i $PROD_SSH_KEY ${DEPLOY_USER}@${target_server}"
+        else
+            ssh_cmd="ssh ${DEPLOY_USER}@${target_server}"
+        fi
+        output=$($ssh_cmd "$restart_cmd" 2>/dev/null)
     fi
 
     if [ -n "$output" ]; then
