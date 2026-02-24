@@ -38,6 +38,7 @@ import {
 import { buildEnrichedSystemPrompt, SCENARIO_CATALOG } from '../prompts/tool-registry-catalog.js';
 import { ChatSearchCacheService, isCourtSearchTool } from './chat-search-cache-service.js';
 import type { ShepardizationService, ShepardizationResult } from './shepardization-service.js';
+import { extractAllEvidence } from './evidence-extractor.js';
 
 // ============================
 // Types
@@ -664,11 +665,19 @@ export class ChatService {
             role: 'user',
             content: request.query,
           });
+          // Extract decisions/citations/documents from tool results for persistence
+          const evidence = collectedThinkingSteps.length > 0
+            ? extractAllEvidence(collectedThinkingSteps, fullAnswerText)
+            : undefined;
+
           await this.conversationService.addMessage(request.conversationId, request.userId, {
             role: 'assistant',
             content: fullAnswerText,
             tool_calls: collectedToolCalls.length > 0 ? collectedToolCalls : undefined,
             thinking_steps: collectedThinkingSteps.length > 0 ? collectedThinkingSteps : undefined,
+            decisions: evidence?.decisions && evidence.decisions.length > 0 ? evidence.decisions : undefined,
+            citations: evidence?.citations && evidence.citations.length > 0 ? evidence.citations : undefined,
+            documents: evidence?.documents && evidence.documents.length > 0 ? evidence.documents : undefined,
             cost_summary: totalCostUsd > 0 ? { total_cost_usd: totalCostUsd, tools_used: toolsUsed } : undefined,
           });
         } catch (e) {
