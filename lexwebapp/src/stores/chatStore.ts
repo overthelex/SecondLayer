@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import { Message, ThinkingStep } from '../types/models';
+import { Message, ThinkingStep, ExecutionPlan } from '../types/models';
 import { api } from '../utils/api-client';
 
 interface ConversationSummary {
@@ -14,12 +14,24 @@ interface ConversationSummary {
   updated_at: string;
 }
 
+/** Pending plan awaiting user depth choices before execution */
+interface PendingPlanReview {
+  plan: ExecutionPlan;
+  planSessionId: string;
+  query: string;
+  assistantMessageId: string;
+}
+
 interface ChatState {
   // State
   messages: Message[];
   isStreaming: boolean;
   streamController: AbortController | null;
   currentTool: string | null;
+
+  // Plan review state
+  pendingPlanReview: PendingPlanReview | null;
+  isPlanLoading: boolean;
 
   // Conversation state
   conversationId: string | null;
@@ -42,6 +54,10 @@ interface ChatState {
   setStreamController: (controller: AbortController | null) => void;
   setCurrentTool: (toolName: string | null) => void;
   cancelStream: () => void;
+
+  // Plan review actions
+  setPendingPlanReview: (review: PendingPlanReview | null) => void;
+  setIsPlanLoading: (loading: boolean) => void;
 
   // Conversation actions
   loadConversations: () => Promise<void>;
@@ -67,6 +83,8 @@ export const useChatStore = create<ChatState>()(
         isStreaming: false,
         streamController: null,
         currentTool: null,
+        pendingPlanReview: null,
+        isPlanLoading: false,
         conversationId: null,
         conversations: [],
         conversationsLoading: false,
@@ -124,6 +142,10 @@ export const useChatStore = create<ChatState>()(
 
         // Set current tool being executed
         setCurrentTool: (toolName) => set({ currentTool: toolName }),
+
+        // Plan review actions
+        setPendingPlanReview: (review) => set({ pendingPlanReview: review }),
+        setIsPlanLoading: (loading) => set({ isPlanLoading: loading }),
 
         // Cancel active stream
         cancelStream: () => {

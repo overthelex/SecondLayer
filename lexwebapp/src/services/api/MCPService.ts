@@ -119,12 +119,39 @@ export class MCPService extends BaseService {
    * Stream AI chat (agentic LLM loop with tool calling)
    * POST /api/chat → SSE events: thinking, tool_result, answer, complete
    */
+  /**
+   * Request an execution plan for user review (Phase 1 of two-phase flow).
+   * Returns plan with steps that user can mark as standard/deep.
+   */
+  async requestPlan(
+    query: string,
+    budget: string = 'standard'
+  ): Promise<{ plan: import('../../types/models/Message').ExecutionPlan | null; planSessionId: string | null }> {
+    const response = await fetch(`${this.API_URL}/chat/plan`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.getAuthToken()}`,
+      },
+      body: JSON.stringify({ query, budget }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Plan request failed: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
+  }
+
   async streamChat(
     query: string,
     history: Array<{ role: 'user' | 'assistant'; content: string }>,
     callbacks: ChatStreamCallbacks,
     budget: string = 'standard',
-    conversationId?: string
+    conversationId?: string,
+    approvedPlan?: import('../../types/models/Message').ExecutionPlan,
+    planSessionId?: string
   ): Promise<AbortController> {
     const controller = new AbortController();
 
@@ -135,7 +162,7 @@ export class MCPService extends BaseService {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.getAuthToken()}`,
         },
-        body: JSON.stringify({ query, history, budget, conversationId }),
+        body: JSON.stringify({ query, history, budget, conversationId, approvedPlan, planSessionId }),
         signal: controller.signal,
       });
 
