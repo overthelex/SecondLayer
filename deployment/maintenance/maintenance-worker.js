@@ -34,17 +34,36 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
       width: 100%;
     }
 
-    .logo-wrap {
+    .logo-scene {
+      perspective: 1400px;
+      width: 120px;
+      height: 120px;
       margin: 0 auto 2rem;
-      width: 88px;
-      height: 88px;
-      animation: breathe 3.5s ease-in-out infinite;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-
-    @keyframes breathe {
-      0%, 100% { transform: scale(1);   opacity: 1;    }
-      50%       { transform: scale(.96); opacity: .75; }
+    .logo-3d {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      animation: spin 12s linear infinite;
     }
+    @keyframes spin {
+      from { transform: rotateY(0deg); }
+      to   { transform: rotateY(360deg); }
+    }
+    .logo-face, .logo-slice {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 95%; height: 95%;
+      margin: -47.5% 0 0 -47.5%;
+      transform-style: preserve-3d;
+      pointer-events: none;
+    }
+    .logo-face { backface-visibility: visible; }
+    .logo-face svg, .logo-slice svg { width: 100%; height: 100%; display: block; }
 
     .brand {
       font-family: 'Crimson Pro', Georgia, 'Times New Roman', serif;
@@ -119,34 +138,10 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <body>
   <div class="container">
 
-    <!-- Scales of Justice icon (inline SVG, no external deps) -->
-    <svg class="logo-wrap" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SecondLayer">
-      <!-- Background circle -->
-      <circle cx="44" cy="44" r="42" fill="#EDECEA" stroke="#E0DDD9" stroke-width="1.5"/>
-
-      <!-- Pole -->
-      <rect x="42.5" y="20" width="3" height="42" rx="1.5" fill="#2D2D2D"/>
-
-      <!-- Pivot cap -->
-      <circle cx="44" cy="20" r="4" fill="#D97757"/>
-
-      <!-- Horizontal beam -->
-      <rect x="18" y="31" width="52" height="3" rx="1.5" fill="#2D2D2D"/>
-
-      <!-- Left suspension line -->
-      <line x1="24" y1="34" x2="24" y2="44" stroke="#2D2D2D" stroke-width="1.8" stroke-linecap="round"/>
-      <!-- Right suspension line (slightly shorter → right pan higher) -->
-      <line x1="64" y1="34" x2="64" y2="41" stroke="#2D2D2D" stroke-width="1.8" stroke-linecap="round"/>
-
-      <!-- Left pan (lower) -->
-      <path d="M 16 46 Q 24 54 32 46" stroke="#D97757" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-      <!-- Right pan (higher) -->
-      <path d="M 56 43 Q 64 51 72 43" stroke="#2D2D2D" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".55"/>
-
-      <!-- Base foot -->
-      <rect x="34" y="62" width="20" height="3.5" rx="1.75" fill="#2D2D2D"/>
-      <rect x="29" y="65.5" width="30" height="2.5" rx="1.25" fill="#2D2D2D"/>
-    </svg>
+    <!-- 3D spinning LX logo (built from hardcoded SVG paths, no user input) -->
+    <div class="logo-scene">
+      <div class="logo-3d" id="logo3d"></div>
+    </div>
 
     <div class="brand">Second<em>Layer</em></div>
     <div class="divider"></div>
@@ -166,6 +161,38 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
     </div>
 
   </div>
+  <script>
+  (function(){
+    var depth=2,half=depth/2,edge='#1E2838',
+      pL='M2647 7105 c-170 -50 -322 -140 -454 -268 -182 -176 -310 -434 -327 -657 -3 -36 -8 -628 -11 -1316 -6 -1333 -5 -1394 41 -1574 89 -353 424 -690 784 -789 41 -12 121 -25 179 -31 106 -9 2806 -22 2854 -13 26 5 62 -49 -554 829 l-78 112 -948 7 c-881 7 -952 9 -1008 26 -159 49 -286 185 -330 354 -13 52 -15 259 -15 1702 l0 1643 -27 -1 c-16 0 -63 -11 -106 -24z',
+      pX1='M3340 6983 c56 -82 146 -211 200 -288 54 -77 136 -194 182 -260 47 -66 149 -212 228 -325 79 -113 173 -248 210 -300 36 -52 106 -151 155 -220 49 -69 170 -240 268 -380 242 -344 333 -473 534 -755 93 -132 241 -341 328 -465 87 -124 215 -306 285 -405 128 -181 169 -239 453 -640 86 -121 198 -280 249 -352 l93 -133 593 0 c325 0 592 3 592 6 0 5 -94 139 -380 544 -92 129 -243 343 -337 475 -93 132 -217 308 -275 390 -100 144 -208 296 -528 745 -81 113 -245 345 -365 515 -295 419 -386 548 -540 765 -72 102 -176 248 -230 325 -54 77 -124 176 -155 220 -31 44 -121 172 -200 285 -79 113 -174 249 -212 303 l-69 97 -590 0 -590 0 101 -147z',
+      pX2='M6489 7013 c-45 -65 -120 -174 -167 -243 -92 -135 -341 -496 -484 -702 -48 -70 -88 -130 -88 -133 0 -2 87 -130 193 -282 106 -153 241 -346 299 -430 l105 -151 89 131 c193 284 264 389 380 557 66 96 174 254 239 350 65 96 151 222 190 280 39 58 138 204 220 325 82 121 173 256 203 300 30 44 58 88 63 98 9 16 -21 17 -575 17 l-584 0 -83 -117z',
+      gt='translate(0,960) scale(0.1,-0.1)',
+      el=document.getElementById('logo3d');
+    function mkSvg(c1,c2){
+      var ns='http://www.w3.org/2000/svg';
+      var s=document.createElementNS(ns,'svg');
+      s.setAttribute('viewBox','0 0 960 960');
+      var g=document.createElementNS(ns,'g');
+      g.setAttribute('transform',gt);
+      g.setAttribute('stroke','none');
+      [[c1,pL],[c2,pX1],[c2,pX2]].forEach(function(p){
+        var path=document.createElementNS(ns,'path');
+        path.setAttribute('fill',p[0]);
+        path.setAttribute('d',p[1]);
+        g.appendChild(path);
+      });
+      s.appendChild(g);
+      return s;
+    }
+    function face(z,c1,c2){var d=document.createElement('div');d.className='logo-face';d.style.transform='translateZ('+z+'px)';d.appendChild(mkSvg(c1,c2));return d;}
+    function slice(z){var d=document.createElement('div');d.className='logo-slice';d.style.transform='translateZ('+z+'px)';d.appendChild(mkSvg(edge,edge));return d;}
+    var n=8,st=depth/(n+1);
+    el.appendChild(face(-half,'#1E2838','#5C7C9E'));
+    for(var i=1;i<=n;i++) el.appendChild(slice(-half+i*st));
+    el.appendChild(face(half,'#1E2838','#5C7C9E'));
+  })();
+  </script>
 </body>
 </html>`;
 
