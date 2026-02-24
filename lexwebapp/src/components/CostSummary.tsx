@@ -43,6 +43,9 @@ export function CostSummary({ data }: CostSummaryProps) {
               ? `$${Number(data.total_cost_usd).toFixed(4)}`
               : '$0.00'}
         </span>
+        {data.response_id && (
+          <span className="text-claude-subtext/60 font-mono">#{data.response_id}</span>
+        )}
         <ChevronDown
           size={12}
           className={`transition-transform ${expanded ? 'rotate-180' : ''}`}

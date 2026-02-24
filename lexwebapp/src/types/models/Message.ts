@@ -14,6 +14,7 @@ export interface CostSummary {
   total_cost_usd: number;
   charged_usd?: number;
   balance_usd?: number | null;
+  response_id?: string;
   /** @deprecated use charged_usd */
   credits_deducted?: number;
   /** @deprecated use balance_usd */

@@ -23,13 +23,14 @@ export interface CitationWarning {
 }
 
 export interface ChatStreamCallbacks {
+  onResponseId?: (data: { response_id: string }) => void;
   onPlan?: (data: { goal: string; steps: Array<{ id: number; tool: string; params: Record<string, any>; purpose: string; depends_on?: number[] }>; expected_iterations: number }) => void;
   onThinking?: (data: { step: number; tool: string; params: any; description?: string; cost_usd?: number }) => void;
   onToolResult?: (data: { tool: string; result: any; cost_usd?: number }) => void;
   onAnswerDelta?: (data: { text: string }) => void;
   onAnswer?: (data: { text: string; provider: string; model: string }) => void;
   onCitationWarning?: (data: CitationWarning) => void;
-  onComplete?: (data: { iterations: number; elapsed_ms: number; tools_used?: string[]; total_cost_usd?: number; charged_usd?: number }) => void;
+  onComplete?: (data: { iterations: number; elapsed_ms: number; tools_used?: string[]; total_cost_usd?: number; charged_usd?: number; response_id?: string }) => void;
   onCostSummary?: (data: { total_cost_usd: number; charged_usd: number; balance_usd: number | null }) => void;
   onBudgetEscalated?: (data: { reason: string; estimatedCost: { minUsd: number; maxUsd: number } }) => void;
   onError?: (data: { message: string }) => void;
@@ -186,6 +187,9 @@ export class MCPService extends BaseService {
                 try {
                   const data = JSON.parse(currentData);
                   switch (currentEvent) {
+                    case 'response_id':
+                      callbacks.onResponseId?.(data);
+                      break;
                     case 'plan':
                       callbacks.onPlan?.(data);
                       break;

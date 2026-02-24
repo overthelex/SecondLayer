@@ -1800,6 +1800,10 @@ class HTTPMCPServer {
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('X-Accel-Buffering', 'no');
 
+        // Emit response_id as the very first SSE event so the client can track it
+        res.write(`event: response_id\n`);
+        res.write(`data: ${JSON.stringify({ response_id: requestId })}\n\n`);
+
         // Abort controller for cancellation propagation
         const abortController = new AbortController();
 
@@ -1830,6 +1834,8 @@ class HTTPMCPServer {
             if (event.type === 'complete') {
               chatCompleted = true;
               chatTotalCostUsd = event.data?.total_cost_usd || 0;
+              // Inject response_id into the complete event
+              event.data.response_id = requestId;
             }
 
             res.write(`event: ${event.type}\n`);
