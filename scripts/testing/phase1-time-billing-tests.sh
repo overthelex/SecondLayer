@@ -7,7 +7,7 @@
 set -euo pipefail
 
 BASE_URL="http://localhost:3000"
-JWT="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJlbWFpbCI6InRlc3RAbGVnYWwub3JnLnVhIiwibmFtZSI6IlRlc3QgQXR0b3JuZXkiLCJpc0FkbWluIjp0cnVlLCJpYXQiOjE3NzA4NjY2MTEsImV4cCI6MTc3MDk1MzAxMX0.3j44FzCNN11Zo3xnYInX73AxxZWstl2tmkmContRmiQ"
+JWT="${TEST_JWT_TOKEN:?Error: TEST_JWT_TOKEN environment variable is required. Generate one with: cd mcp_backend && npx tsx scripts/generate-jwt-token.ts test-user 30d}"
 USER_ID="11111111-1111-1111-1111-111111111111"
 MATTER_A="44444444-4444-4444-4444-444444444444"
 MATTER_B="55555555-5555-5555-5555-555555555555"

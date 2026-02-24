@@ -12,7 +12,11 @@ const readline = require('readline');
 
 // Configuration
 const REMOTE_URL = process.env.MCP_REMOTE_URL || 'https://mcp.legal.org.ua';
-const JWT_TOKEN = process.env.MCP_JWT_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbGF1ZGUtZGVza3RvcCIsImlhdCI6MTc2ODc2NDIxOSwiZXhwIjoxODAwMzAwMjE5LCJpc3MiOiJzZWNvbmRsYXllci1tY3AifQ.r8VbMPM6bLxQjnLIlqUMW8sTIs-Zw_K-KqAgI8WQvEw';
+const JWT_TOKEN = process.env.MCP_JWT_TOKEN;
+if (!JWT_TOKEN) {
+  console.error('Error: MCP_JWT_TOKEN environment variable is required. Generate one with: npx tsx scripts/generate-jwt-token.ts');
+  process.exit(1);
+}
 
 const api = axios.create({
   baseURL: REMOTE_URL,

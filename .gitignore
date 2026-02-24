@@ -95,6 +95,9 @@ redis_data/
 # Scratch/temp notes with credentials
 1
 
+# MCP client configs (may contain tokens)
+config/jan-chat-mcp-config.json
+
 # Claude Code
 .claude/
 
