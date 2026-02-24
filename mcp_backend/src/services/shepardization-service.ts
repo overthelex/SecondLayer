@@ -301,17 +301,20 @@ export class ShepardizationService {
       return identifier;
     }
 
-    // Try UUID lookup in documents table
-    try {
-      const result = await this.db.query(
-        `SELECT metadata->>'case_number' as case_number FROM documents WHERE id = $1 LIMIT 1`,
-        [identifier]
-      );
-      if (result.rows.length > 0 && result.rows[0].case_number) {
-        return result.rows[0].case_number;
+    // Try UUID lookup in documents table (only if identifier looks like a UUID)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(identifier)) {
+      try {
+        const result = await this.db.query(
+          `SELECT metadata->>'case_number' as case_number FROM documents WHERE id = $1 LIMIT 1`,
+          [identifier]
+        );
+        if (result.rows.length > 0 && result.rows[0].case_number) {
+          return result.rows[0].case_number;
+        }
+      } catch {
+        // Not a valid UUID, ignore
       }
-    } catch {
-      // Not a valid UUID, ignore
     }
 
     // Try zakononline_id lookup
