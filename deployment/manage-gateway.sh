@@ -2,7 +2,7 @@
 
 ##############################################################################
 # SecondLayer Environment Management Script
-# Manages Staging and Local environments
+# Manages Production, Staging and Local environments
 ##############################################################################
 
 set -e  # Exit on error
@@ -20,9 +20,69 @@ NC='\033[0m' # No Color
 
 # Configuration
 STAGE_SERVER="gate.lexapp.co.ua"  # For stage environment
-DEPLOY_USER="vovkes"
-REMOTE_PATH="/home/vovkes/SecondLayer/deployment"
+STAGE_USER="vovkes"
+STAGE_REMOTE_PATH="/home/vovkes/SecondLayer/deployment"
+DEPLOY_USER="$STAGE_USER"  # Default for lib scripts; overridden per-env in deploy
+
+PROD_SERVER="18.192.189.254"      # AWS EC2 production
+PROD_USER="ubuntu"
+PROD_SSH_KEY="$HOME/.ssh/secondlayer-prod.pem"
+PROD_REMOTE_PATH="/home/ubuntu/SecondLayer/deployment"
+
 NO_CACHE=""  # Set to "--no-cache" via --no-cache flag
+
+# Helper: get SSH command for an environment
+get_ssh_cmd() {
+    local env=$1
+    case $env in
+        prod|production)
+            echo "ssh -i $PROD_SSH_KEY ${PROD_USER}@${PROD_SERVER}"
+            ;;
+        stage|staging)
+            echo "ssh ${STAGE_USER}@${STAGE_SERVER}"
+            ;;
+    esac
+}
+
+# Helper: get SCP command for an environment
+get_scp_cmd() {
+    local env=$1
+    case $env in
+        prod|production)
+            echo "scp -i $PROD_SSH_KEY"
+            ;;
+        stage|staging)
+            echo "scp"
+            ;;
+    esac
+}
+
+# Helper: get deploy user for an environment
+get_deploy_user() {
+    local env=$1
+    case $env in
+        prod|production) echo "$PROD_USER" ;;
+        stage|staging)   echo "$STAGE_USER" ;;
+    esac
+}
+
+# Helper: get target server for an environment
+get_target_server() {
+    local env=$1
+    case $env in
+        prod|production) echo "$PROD_SERVER" ;;
+        stage|staging)   echo "$STAGE_SERVER" ;;
+    esac
+}
+
+# Helper: get remote repo path for an environment
+get_remote_repo() {
+    local env=$1
+    case $env in
+        prod|production) echo "/home/${PROD_USER}/SecondLayer" ;;
+        stage|staging)   echo "/home/${STAGE_USER}/SecondLayer" ;;
+    esac
+}
 
 # Source orchestrator libraries
 source "$SCRIPT_DIR/lib/preflight.sh"
@@ -62,12 +122,12 @@ SecondLayer Environment Manager
 Usage: $0 <command> [environment] [options]
 
 Commands:
-  start <env>       Start environment (stage|local)
-  stop <env>        Stop environment (stage|local)
-  restart <env>     Restart environment (stage|local)
+  start <env>       Start environment (prod|stage|local)
+  stop <env>        Stop environment (prod|stage|local)
+  restart <env>     Restart environment (prod|stage|local)
   status            Show status of all environments
-  logs <env>        Show logs for environment (stage|local|gateway)
-  deploy <env>      Deploy environment (stage|local) [--no-cache]
+  logs <env>        Show logs for environment (prod|stage|local|gateway)
+  deploy <env>      Deploy environment (prod|stage|local) [--no-cache]
   build             Build Docker images
   gateway           Manage nginx gateway
     - start         Start nginx gateway
@@ -78,23 +138,28 @@ Commands:
   clean <env>       Clean environment data (USE WITH CAUTION!)
 
 Environments:
+  prod              Production -> 18.192.189.254 (AWS EC2, Cloudflare proxy)
+                    Domains: legal.org.ua, mcp.legal.org.ua
   stage             Staging -> gate.lexapp.co.ua (Cloudflare proxy)
                     Domains: stage.legal.org.ua, legal.org.ua, mcp.legal.org.ua
   local             Local development (localdev.legal.org.ua) -> localhost
 
 Deployment Targets:
+  - Prod:  Deploys to AWS EC2 (18.192.189.254), serves legal.org.ua via nginx + Cloudflare
   - Stage: Deploys to gate.lexapp.co.ua, serves all 3 domains via nginx + Cloudflare
   - Local: Full rebuild on localhost (pull, rebuild --no-cache, migrate)
 
 Examples:
   $0 start local             # Start local development environment
   $0 start stage             # Start staging environment
+  $0 start prod              # Start production environment
   $0 stop stage              # Stop staging environment
-  $0 restart stage           # Restart staging environment
+  $0 restart prod            # Restart production environment
   $0 logs local              # Show local environment logs
+  $0 logs prod               # Show production logs
   $0 deploy stage            # Deploy staging (cached build)
-  $0 deploy stage --no-cache # Deploy staging (full rebuild)
-  $0 deploy local            # Deploy local (cached build)
+  $0 deploy prod             # Deploy production (cached build)
+  $0 deploy prod --no-cache  # Deploy production (full rebuild)
   $0 deploy local --no-cache # Deploy local (full rebuild)
   $0 gateway start           # Start nginx gateway
   $0 health                  # Check health of all services
@@ -134,10 +199,21 @@ start_env() {
     print_msg "$BLUE" "Starting $env environment..."
 
     case $env in
+        prod|production)
+            local ssh_cmd=$(get_ssh_cmd prod)
+            print_msg "$BLUE" "Starting prod services on ${PROD_SERVER}..."
+            $ssh_cmd \
+                "cd ${PROD_REMOTE_PATH} && docker compose -f docker-compose.prod.yml --env-file .env.prod up -d \
+                    postgres-prod pgbouncer-prod redis-prod qdrant-prod minio-prod postgres-openreyestr-prod \
+                    app-prod rada-mcp-app-prod app-openreyestr-prod document-service-prod lexwebapp-prod \
+                    nginx-prod \
+                    prometheus-prod grafana-prod"
+            ;;
         stage|staging)
+            local ssh_cmd=$(get_ssh_cmd stage)
             print_msg "$BLUE" "Starting stage services on ${STAGE_SERVER}..."
-            ssh ${DEPLOY_USER}@${STAGE_SERVER} \
-                "cd ${REMOTE_PATH} && docker compose -f docker-compose.stage.yml --env-file .env.stage up -d \
+            $ssh_cmd \
+                "cd ${STAGE_REMOTE_PATH} && docker compose -f docker-compose.stage.yml --env-file .env.stage up -d \
                     postgres-stage pgbouncer-stage redis-stage qdrant-stage minio-stage postgres-openreyestr-stage \
                     app-stage rada-mcp-app-stage app-openreyestr-stage document-service-stage lexwebapp-stage \
                     nginx-stage \
@@ -167,7 +243,7 @@ start_env() {
             fi
             ;;
         *)
-            print_msg "$RED" "Invalid environment: $env (use stage or local)"
+            print_msg "$RED" "Invalid environment: $env (use prod, stage, or local)"
             usage
             ;;
     esac
@@ -183,10 +259,20 @@ stop_env() {
     print_msg "$BLUE" "Stopping $env environment..."
 
     case $env in
+        prod|production)
+            local ssh_cmd=$(get_ssh_cmd prod)
+            print_msg "$BLUE" "Stopping prod services on ${PROD_SERVER}..."
+            $ssh_cmd \
+                "cd ${PROD_REMOTE_PATH} && docker compose -f docker-compose.prod.yml --env-file .env.prod stop \
+                    nginx-prod \
+                    app-prod rada-mcp-app-prod app-openreyestr-prod document-service-prod lexwebapp-prod \
+                    prometheus-prod grafana-prod"
+            ;;
         stage|staging)
+            local ssh_cmd=$(get_ssh_cmd stage)
             print_msg "$BLUE" "Stopping stage services on ${STAGE_SERVER}..."
-            ssh ${DEPLOY_USER}@${STAGE_SERVER} \
-                "cd ${REMOTE_PATH} && docker compose -f docker-compose.stage.yml --env-file .env.stage stop \
+            $ssh_cmd \
+                "cd ${STAGE_REMOTE_PATH} && docker compose -f docker-compose.stage.yml --env-file .env.stage stop \
                     nginx-stage \
                     app-stage rada-mcp-app-stage app-openreyestr-stage document-service-stage lexwebapp-stage \
                     prometheus-stage grafana-stage postgres-exporter-backend postgres-exporter-openreyestr \
@@ -219,7 +305,7 @@ stop_env() {
             fi
             ;;
         *)
-            print_msg "$RED" "Invalid environment: $env (use stage or local)"
+            print_msg "$RED" "Invalid environment: $env (use prod, stage, or local)"
             usage
             ;;
     esac
@@ -239,8 +325,14 @@ restart_env() {
 show_status() {
     print_msg "$BLUE" "Environment Status\n"
 
+    print_msg "$YELLOW" "=== Production (${PROD_SERVER}) ==="
+    $(get_ssh_cmd prod) \
+        "docker ps --filter 'name=-prod' --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'" 2>/dev/null \
+        || print_msg "$RED" "  Could not connect to ${PROD_SERVER}"
+    echo ""
+
     print_msg "$YELLOW" "=== Staging (${STAGE_SERVER}) ==="
-    ssh ${DEPLOY_USER}@${STAGE_SERVER} \
+    $(get_ssh_cmd stage) \
         "docker ps --filter 'name=-stage' --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'" 2>/dev/null \
         || print_msg "$RED" "  Could not connect to ${STAGE_SERVER}"
     echo ""
@@ -260,9 +352,13 @@ show_logs() {
     local compose_cmd=$(get_compose_cmd)
 
     case $env in
+        prod|production)
+            $(get_ssh_cmd prod) \
+                "cd ${PROD_REMOTE_PATH} && docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f --tail=100"
+            ;;
         stage|staging)
-            ssh ${DEPLOY_USER}@${STAGE_SERVER} \
-                "cd ${REMOTE_PATH} && docker compose -f docker-compose.stage.yml --env-file .env.stage logs -f --tail=100"
+            $(get_ssh_cmd stage) \
+                "cd ${STAGE_REMOTE_PATH} && docker compose -f docker-compose.stage.yml --env-file .env.stage logs -f --tail=100"
             ;;
         local)
             if [ -f ".env.local" ]; then
@@ -275,7 +371,7 @@ show_logs() {
             $compose_cmd -f docker-compose.gateway.yml logs -f --tail=100
             ;;
         *)
-            print_msg "$RED" "Invalid environment: $env (use stage, local, or gateway)"
+            print_msg "$RED" "Invalid environment: $env (use prod, stage, local, or gateway)"
             usage
             ;;
     esac
@@ -345,15 +441,41 @@ build_images() {
 check_health() {
     print_msg "$BLUE" "Checking health of all services...\n"
 
+    # Production — container-level check via SSH
+    print_msg "$YELLOW" "=== Production containers (${PROD_SERVER}) ==="
+    $(get_ssh_cmd prod) \
+        "docker ps --filter 'name=-prod' --format 'table {{.Names}}\t{{.Status}}'" 2>/dev/null \
+        || print_msg "$RED" "  Could not connect to ${PROD_SERVER}"
+
+    # Production — HTTP endpoints
+    print_msg "$YELLOW" "\n=== Production HTTP endpoints ==="
+    for domain in legal.org.ua mcp.legal.org.ua; do
+        if curl -sf --max-time 10 "https://${domain}/health" > /dev/null 2>&1; then
+            print_msg "$GREEN" "  Backend  (https://${domain}/health): healthy"
+        else
+            print_msg "$RED" "  Backend  (https://${domain}/health): unhealthy"
+        fi
+        if curl -skf --max-time 10 "https://${domain}/" > /dev/null 2>&1; then
+            print_msg "$GREEN" "  Frontend (https://${domain}/): healthy"
+        else
+            print_msg "$RED" "  Frontend (https://${domain}/): unhealthy"
+        fi
+    done
+    # Direct backend health on prod (bypasses Cloudflare)
+    print_msg "$YELLOW" "\n=== Production direct (port 3007 on ${PROD_SERVER}) ==="
+    $(get_ssh_cmd prod) \
+        "curl -sf --max-time 5 http://localhost:3007/health && echo '  direct backend: healthy' || echo '  direct backend: unhealthy'" 2>/dev/null \
+        || print_msg "$RED" "  Could not connect to ${PROD_SERVER}"
+
     # Staging — container-level check via SSH
-    print_msg "$YELLOW" "=== Staging containers (${STAGE_SERVER}) ==="
-    ssh ${DEPLOY_USER}@${STAGE_SERVER} \
+    print_msg "$YELLOW" "\n=== Staging containers (${STAGE_SERVER}) ==="
+    $(get_ssh_cmd stage) \
         "docker ps --filter 'name=-stage' --format 'table {{.Names}}\t{{.Status}}'" 2>/dev/null \
         || print_msg "$RED" "  Could not connect to ${STAGE_SERVER}"
 
     # Staging — HTTP endpoints via public domains
     print_msg "$YELLOW" "\n=== Staging HTTP endpoints ==="
-    for domain in stage.legal.org.ua legal.org.ua mcp.legal.org.ua; do
+    for domain in stage.legal.org.ua; do
         if curl -sf --max-time 10 "https://${domain}/health" > /dev/null 2>&1; then
             print_msg "$GREEN" "  Backend  (https://${domain}/health): healthy"
         else
@@ -367,7 +489,7 @@ check_health() {
     done
     # Direct backend health on the gate server (bypasses Cloudflare)
     print_msg "$YELLOW" "\n=== Staging direct (port 3004 on ${STAGE_SERVER}) ==="
-    ssh ${DEPLOY_USER}@${STAGE_SERVER} \
+    $(get_ssh_cmd stage) \
         "curl -sf --max-time 5 http://localhost:3004/health && echo '  direct backend: healthy' || echo '  direct backend: unhealthy'" 2>/dev/null \
         || print_msg "$RED" "  Could not connect to ${STAGE_SERVER}"
 
@@ -594,103 +716,146 @@ deploy_local() {
     $compose_cmd $compose_args ps
 }
 
-# Deploy to stage server (gate.lexapp.co.ua)
+# Deploy to remote server (stage or prod)
 deploy_to_server() {
     local env=$1
 
     case $env in
+        prod|production)
+            env="prod"
+            ;;
         stage|staging)
+            env="stage"
             ;;
         local)
             deploy_local
             return
             ;;
         *)
-            print_msg "$RED" "Invalid environment: $env (use stage or local)"
+            print_msg "$RED" "Invalid environment: $env (use prod, stage, or local)"
             exit 1
             ;;
     esac
 
-    local target_server="${STAGE_SERVER}"
-    local server_name="gate server"
-    local env_file=".env.stage"
-    local compose_file="docker-compose.stage.yml"
+    local target_server=$(get_target_server "$env")
+    local deploy_user=$(get_deploy_user "$env")
+    local remote_repo=$(get_remote_repo "$env")
+    local ssh_cmd=$(get_ssh_cmd "$env")
+    local scp_cmd=$(get_scp_cmd "$env")
+    local env_file=".env.${env}"
+    local compose_file="docker-compose.${env}.yml"
+    local server_name
+    case $env in
+        prod) server_name="production server (AWS)" ;;
+        stage) server_name="gate server" ;;
+    esac
 
     local deploy_start
     deploy_start=$(date +%s)
 
-    print_msg "$BLUE" "Deploying stage to $server_name ($target_server)..."
+    print_msg "$BLUE" "Deploying $env to $server_name ($target_server)..."
 
-    # Phase 1: Pre-flight checks
-    if ! preflight_check "stage" "$target_server" "$env_file" "$compose_file" "$REPO_ROOT"; then
-        generate_deploy_report "stage" "failure" "" "$deploy_start" "$REPO_ROOT"
+    # Safety confirmation for production
+    if [ "$env" = "prod" ]; then
+        print_msg "$RED" "  *** PRODUCTION DEPLOYMENT ***"
+        print_msg "$YELLOW" "  Target: $target_server ($server_name)"
+        read -p "  Type 'deploy-prod' to confirm: " confirm
+        if [ "$confirm" != "deploy-prod" ]; then
+            print_msg "$YELLOW" "Aborted"
+            exit 0
+        fi
+    fi
+
+    # Phase 1: Pre-flight checks (use DEPLOY_USER override for preflight SSH)
+    local ORIG_DEPLOY_USER="$DEPLOY_USER"
+    DEPLOY_USER="$deploy_user"
+    if [ "$env" = "prod" ]; then
+        # Override SSH for preflight to use key-based auth
+        export PROD_SSH_OPTS="-i $PROD_SSH_KEY"
+    fi
+    if ! preflight_check "$env" "$target_server" "$env_file" "$compose_file" "$REPO_ROOT"; then
+        generate_deploy_report "$env" "failure" "" "$deploy_start" "$REPO_ROOT"
+        DEPLOY_USER="$ORIG_DEPLOY_USER"
         exit 1
     fi
 
     # Phase 2: Backup current state
     local backup_id
-    backup_id=$(create_backup "stage" "$target_server" "$REPO_ROOT")
+    backup_id=$(create_backup "$env" "$target_server" "$REPO_ROOT")
 
     # Phase 2b: Show maintenance page while services are down
-    enable_cf_maintenance
-
-    # Repo root on the remote server
-    local REMOTE_REPO="/home/${DEPLOY_USER}/SecondLayer"
+    enable_cf_maintenance "$env"
 
     # Phase 3: Deploy
     local deploy_failed=false
 
     # Step 1: Pull latest code on the server via git
     print_msg "$BLUE" "Pulling latest code on $server_name..."
-    if ! ssh ${DEPLOY_USER}@${target_server} "git -C ${REMOTE_REPO} fetch origin main && git -C ${REMOTE_REPO} reset --hard origin/main"; then
+    if ! $ssh_cmd "git -C ${remote_repo} fetch origin main && git -C ${remote_repo} reset --hard origin/main"; then
         print_msg "$RED" "Git sync failed, rolling back..."
-        rollback_to_backup "stage" "$target_server" "$compose_file" "$env_file"
-        generate_deploy_report "stage" "rollback" "$backup_id" "$deploy_start" "$REPO_ROOT"
+        rollback_to_backup "$env" "$target_server" "$compose_file" "$env_file"
+        generate_deploy_report "$env" "rollback" "$backup_id" "$deploy_start" "$REPO_ROOT"
+        DEPLOY_USER="$ORIG_DEPLOY_USER"
         exit 1
     fi
 
     # Step 2: Copy env file (not tracked in git)
     print_msg "$BLUE" "Copying env file to $server_name..."
-    scp $env_file ${DEPLOY_USER}@${target_server}:${REMOTE_REPO}/deployment/
+    $scp_cmd $env_file ${deploy_user}@${target_server}:${remote_repo}/deployment/
 
     # Step 3: Build, migrate, and start services
     print_msg "$BLUE" "Updating containers on $server_name..."
 
     local GIT_SHA
     GIT_SHA=$(git -C "${REPO_ROOT}" rev-parse HEAD)
-    if ! ssh ${DEPLOY_USER}@${target_server} "export REMOTE_REPO='${REMOTE_REPO}'; export NO_CACHE='${NO_CACHE}'; export GIT_SHA='${GIT_SHA}'; bash -s" << 'EOF'
+
+    # Determine env-specific values for the remote script
+    local env_suffix="$env"
+    local direct_backend_port
+    local nginx_check_port
+    local health_domains
+    case $env in
+        prod)
+            direct_backend_port="3007"
+            nginx_check_port="80"
+            health_domains="legal.org.ua mcp.legal.org.ua"
+            ;;
+        stage)
+            direct_backend_port="3004"
+            nginx_check_port="8080"
+            health_domains="stage.legal.org.ua legal.org.ua mcp.legal.org.ua"
+            ;;
+    esac
+
+    if ! $ssh_cmd "export REMOTE_REPO='${remote_repo}'; export NO_CACHE='${NO_CACHE}'; export GIT_SHA='${GIT_SHA}'; export ENV_SUFFIX='${env_suffix}'; export DIRECT_BACKEND_PORT='${direct_backend_port}'; export NGINX_CHECK_PORT='${nginx_check_port}'; export HEALTH_DOMAINS='${health_domains}'; bash -s" << 'EOF'
         set -e
         cd "$REMOTE_REPO/deployment"
 
-        COMPOSE_FILE="docker-compose.stage.yml"
-        ENV_FILE=".env.stage"
+        COMPOSE_FILE="docker-compose.${ENV_SUFFIX}.yml"
+        ENV_FILE=".env.${ENV_SUFFIX}"
         DC="docker compose -f $COMPOSE_FILE --env-file $ENV_FILE"
 
         # Step 1: Stop app containers only (keep infra: postgres, redis, qdrant, minio running)
         echo "Stopping app containers (keeping databases running)..."
         $DC stop \
-            nginx-stage \
-            app-stage rada-mcp-app-stage app-openreyestr-stage \
-            document-service-stage lexwebapp-stage \
-            prometheus-stage grafana-stage \
-            postgres-exporter-backend postgres-exporter-openreyestr \
-            redis-exporter node-exporter \
+            nginx-${ENV_SUFFIX} \
+            app-${ENV_SUFFIX} rada-mcp-app-${ENV_SUFFIX} app-openreyestr-${ENV_SUFFIX} \
+            document-service-${ENV_SUFFIX} lexwebapp-${ENV_SUFFIX} \
+            prometheus-${ENV_SUFFIX} grafana-${ENV_SUFFIX} \
             2>/dev/null || true
         $DC rm -f \
-            nginx-stage \
-            app-stage rada-mcp-app-stage app-openreyestr-stage \
-            document-service-stage lexwebapp-stage \
-            migrate-stage rada-migrate-stage migrate-openreyestr-stage \
-            rada-db-init-stage \
-            prometheus-stage grafana-stage \
-            postgres-exporter-backend postgres-exporter-openreyestr \
-            redis-exporter node-exporter \
+            nginx-${ENV_SUFFIX} \
+            app-${ENV_SUFFIX} rada-mcp-app-${ENV_SUFFIX} app-openreyestr-${ENV_SUFFIX} \
+            document-service-${ENV_SUFFIX} lexwebapp-${ENV_SUFFIX} \
+            migrate-${ENV_SUFFIX} rada-migrate-${ENV_SUFFIX} migrate-openreyestr-${ENV_SUFFIX} \
+            rada-db-init-${ENV_SUFFIX} \
+            prometheus-${ENV_SUFFIX} grafana-${ENV_SUFFIX} \
             2>/dev/null || true
 
         # Step 2: Cleanup exited/dead containers and dangling images
         echo "Cleaning up stopped containers..."
-        docker ps -a --filter "name=-stage" --filter "status=exited" -q | xargs -r docker rm -f
-        docker ps -a --filter "name=-stage" --filter "status=dead" -q | xargs -r docker rm -f
+        docker ps -a --filter "name=-${ENV_SUFFIX}" --filter "status=exited" -q | xargs -r docker rm -f
+        docker ps -a --filter "name=-${ENV_SUFFIX}" --filter "status=dead" -q | xargs -r docker rm -f
         echo "Removing dangling images..."
         docker image prune -f
 
@@ -711,12 +876,12 @@ deploy_to_server() {
         fi
         GIT_SHA_ENV="GIT_SHA=${GIT_SHA:-$(git -C "$REMOTE_REPO" rev-parse HEAD 2>/dev/null || echo unknown)}"
         $DC build $NO_CACHE --build-arg "$GIT_SHA_ENV" \
-            app-stage \
-            migrate-stage \
-            rada-migrate-stage \
-            migrate-openreyestr-stage \
-            document-service-stage \
-            lexwebapp-stage
+            app-${ENV_SUFFIX} \
+            migrate-${ENV_SUFFIX} \
+            rada-migrate-${ENV_SUFFIX} \
+            migrate-openreyestr-${ENV_SUFFIX} \
+            document-service-${ENV_SUFFIX} \
+            lexwebapp-${ENV_SUFFIX}
 
         # Step 5: Ensure infrastructure services are running
         echo "Ensuring infrastructure services are running..."
@@ -725,61 +890,69 @@ deploy_to_server() {
             INFRA_FLAGS="--force-recreate"
         fi
         $DC up -d $INFRA_FLAGS \
-            postgres-stage \
-            redis-stage \
-            qdrant-stage \
-            postgres-openreyestr-stage \
-            minio-stage
+            postgres-${ENV_SUFFIX} \
+            redis-${ENV_SUFFIX} \
+            qdrant-${ENV_SUFFIX} \
+            postgres-openreyestr-${ENV_SUFFIX} \
+            minio-${ENV_SUFFIX}
+
+        # Step 5b: Start pgbouncer if it exists in this compose file
+        $DC up -d pgbouncer-${ENV_SUFFIX} 2>/dev/null || true
 
         # Step 6: Wait for databases to be healthy, then run RADA DB init
         echo "Waiting for databases..."
         sleep 5
         echo "Running RADA DB init..."
-        $DC up rada-db-init-stage
+        $DC up rada-db-init-${ENV_SUFFIX}
 
         # Step 7: Run migrations (backend first, then rada + openreyestr in parallel)
         echo "Running backend migrations..."
-        $DC up migrate-stage
+        $DC up migrate-${ENV_SUFFIX}
         echo "Running RADA + OpenReyestr migrations in parallel..."
-        $DC up rada-migrate-stage migrate-openreyestr-stage
+        $DC up rada-migrate-${ENV_SUFFIX} migrate-openreyestr-${ENV_SUFFIX}
 
         # Step 7b: Seed admin users
         echo "Seeding admin users..."
-        $DC up seed-admin-stage
+        $DC up seed-admin-${ENV_SUFFIX} 2>/dev/null || echo "  (seed-admin not defined for this env)"
 
         # Step 8: Start application services
         echo "Starting application services..."
         $DC up -d \
-            app-stage \
-            rada-mcp-app-stage \
-            app-openreyestr-stage \
-            document-service-stage \
-            lexwebapp-stage
+            app-${ENV_SUFFIX} \
+            rada-mcp-app-${ENV_SUFFIX} \
+            app-openreyestr-${ENV_SUFFIX} \
+            document-service-${ENV_SUFFIX} \
+            lexwebapp-${ENV_SUFFIX}
 
         # Step 8b: Start nginx reverse proxy (after app services are up)
         echo "Starting nginx reverse proxy..."
-        $DC up -d nginx-stage
+        $DC up -d nginx-${ENV_SUFFIX}
 
         # Step 9: Start monitoring services
         echo "Starting monitoring services..."
         $DC up -d \
-            prometheus-stage \
-            grafana-stage \
-            postgres-exporter-backend \
-            postgres-exporter-openreyestr \
-            redis-exporter \
-            node-exporter \
-            cadvisor-stage \
+            prometheus-${ENV_SUFFIX} \
+            grafana-${ENV_SUFFIX} \
             2>/dev/null || echo "  (some monitoring services may not exist in this environment)"
+        # Stage-specific monitoring exporters
+        if [ "$ENV_SUFFIX" = "stage" ]; then
+            $DC up -d \
+                postgres-exporter-backend \
+                postgres-exporter-openreyestr \
+                redis-exporter \
+                node-exporter \
+                cadvisor-stage \
+                2>/dev/null || true
+        fi
 
         # Step 10: Verify nginx routing per domain (bypass Cloudflare — maintenance still active)
         echo "Waiting for nginx and services to initialize..."
         sleep 10
-        echo "Verifying domain health (direct nginx on :8080)..."
-        for domain in stage.legal.org.ua legal.org.ua mcp.legal.org.ua; do
+        echo "Verifying domain health (direct nginx on :${NGINX_CHECK_PORT})..."
+        for domain in $HEALTH_DOMAINS; do
             ok=false
             for attempt in 1 2 3; do
-                if curl -sf --max-time 10 -H "Host: ${domain}" "http://localhost:8080/health" > /dev/null 2>&1; then
+                if curl -sf --max-time 10 -H "Host: ${domain}" "http://localhost:${NGINX_CHECK_PORT}/health" > /dev/null 2>&1; then
                     echo "  [OK] ${domain}"
                     ok=true
                     break
@@ -789,7 +962,7 @@ deploy_to_server() {
             if [ "$ok" = false ]; then
                 echo "  [WARN] ${domain} nginx routing not ready after 3 attempts"
                 echo "    Checking direct backend health..."
-                curl -sf --max-time 5 "http://localhost:3004/health" 2>/dev/null && echo "    Backend is up on :3004 — nginx config issue" || echo "    Backend not responding on :3004 either"
+                curl -sf --max-time 5 "http://localhost:${DIRECT_BACKEND_PORT}/health" 2>/dev/null && echo "    Backend is up on :${DIRECT_BACKEND_PORT} — nginx config issue" || echo "    Backend not responding on :${DIRECT_BACKEND_PORT} either"
             fi
         done
 
@@ -802,26 +975,30 @@ EOF
 
     if [ "$deploy_failed" = true ]; then
         print_msg "$RED" "Remote deploy failed, rolling back..."
-        rollback_to_backup "stage" "$target_server" "$compose_file" "$env_file"
-        disable_cf_maintenance
-        generate_deploy_report "stage" "rollback" "$backup_id" "$deploy_start" "$REPO_ROOT"
+        rollback_to_backup "$env" "$target_server" "$compose_file" "$env_file"
+        disable_cf_maintenance "$env"
+        generate_deploy_report "$env" "rollback" "$backup_id" "$deploy_start" "$REPO_ROOT"
+        DEPLOY_USER="$ORIG_DEPLOY_USER"
         exit 1
     fi
 
     # Services are up — remove maintenance page before smoke tests
-    disable_cf_maintenance
+    disable_cf_maintenance "$env"
 
     # Phase 4: Smoke tests
-    if ! run_smoke_tests "stage" "$target_server" "$compose_file" "$env_file"; then
+    if ! run_smoke_tests "$env" "$target_server" "$compose_file" "$env_file"; then
         print_msg "$RED" "Smoke tests failed, rolling back..."
-        rollback_to_backup "stage" "$target_server" "$compose_file" "$env_file"
-        generate_deploy_report "stage" "rollback" "$backup_id" "$deploy_start" "$REPO_ROOT"
+        rollback_to_backup "$env" "$target_server" "$compose_file" "$env_file"
+        generate_deploy_report "$env" "rollback" "$backup_id" "$deploy_start" "$REPO_ROOT"
+        DEPLOY_USER="$ORIG_DEPLOY_USER"
         exit 1
     fi
 
+    DEPLOY_USER="$ORIG_DEPLOY_USER"
+
     # Phase 5: Report
-    generate_deploy_report "stage" "success" "$backup_id" "$deploy_start" "$REPO_ROOT"
-    print_msg "$GREEN" "Stage deployed to $server_name ($target_server)"
+    generate_deploy_report "$env" "success" "$backup_id" "$deploy_start" "$REPO_ROOT"
+    print_msg "$GREEN" "${env^} deployed to $server_name ($target_server)"
 }
 
 # Clean environment data
@@ -838,11 +1015,22 @@ clean_env() {
     fi
 
     case $env in
+        prod|production)
+            print_msg "$RED" "  *** PRODUCTION DATA WIPE ***"
+            read -p "  Type 'wipe-prod' to DOUBLE confirm: " confirm2
+            if [ "$confirm2" != "wipe-prod" ]; then
+                print_msg "$YELLOW" "Aborted"
+                exit 0
+            fi
+            $(get_ssh_cmd prod) \
+                "cd ${PROD_REMOTE_PATH} && docker compose -f docker-compose.prod.yml --env-file .env.prod down -v"
+            ;;
         stage|staging)
-            $compose_cmd -f docker-compose.stage.yml --env-file .env.stage down -v
+            $(get_ssh_cmd stage) \
+                "cd ${STAGE_REMOTE_PATH} && docker compose -f docker-compose.stage.yml --env-file .env.stage down -v"
             ;;
         *)
-            print_msg "$RED" "Invalid environment: $env (use stage)"
+            print_msg "$RED" "Invalid environment: $env (use prod or stage)"
             exit 1
             ;;
     esac

@@ -55,10 +55,12 @@ PRIMARY_DOMAIN="legal.org.ua"
 
 # Patterns to intercept during maintenance
 # Add/remove entries as needed
-STAGE_PATTERNS=(
+PROD_PATTERNS=(
     "legal.org.ua/*"
-    "stage.legal.org.ua/*"
     "mcp.legal.org.ua/*"
+)
+STAGE_PATTERNS=(
+    "stage.legal.org.ua/*"
 )
 LOCAL_PATTERNS=(
     "localdev.legal.org.ua/*"
@@ -176,15 +178,22 @@ PYEOF
 
 # ── Enable: create routes for all patterns ────────────────────────────────────
 enable_maintenance() {
-    local env="${1:-stage}"  # "local" or "stage" (default: stage)
+    local env="${1:-stage}"  # "local", "stage", or "prod" (default: stage)
 
-    if [ "$env" = "local" ]; then
-        local -n MAINTENANCE_PATTERNS=LOCAL_PATTERNS
-        log "Enabling Cloudflare maintenance mode (local: ${LOCAL_PATTERNS[*]})..."
-    else
-        local -n MAINTENANCE_PATTERNS=STAGE_PATTERNS
-        log "Enabling Cloudflare maintenance mode (stage: ${STAGE_PATTERNS[*]})..."
-    fi
+    case "$env" in
+        local)
+            local -n MAINTENANCE_PATTERNS=LOCAL_PATTERNS
+            log "Enabling Cloudflare maintenance mode (local: ${LOCAL_PATTERNS[*]})..."
+            ;;
+        prod|production)
+            local -n MAINTENANCE_PATTERNS=PROD_PATTERNS
+            log "Enabling Cloudflare maintenance mode (prod: ${PROD_PATTERNS[*]})..."
+            ;;
+        *)
+            local -n MAINTENANCE_PATTERNS=STAGE_PATTERNS
+            log "Enabling Cloudflare maintenance mode (stage: ${STAGE_PATTERNS[*]})..."
+            ;;
+    esac
 
     local account_id zone_id
     account_id=$(get_account_id)
@@ -240,13 +249,9 @@ enable_maintenance() {
 
 # ── Disable: delete maintenance routes (optionally filtered by env) ───────────
 disable_maintenance() {
-    local env="${1:-stage}"  # "local" or "stage" (default: stage)
+    local env="${1:-stage}"  # "local", "stage", or "prod" (default: stage)
 
-    if [ "$env" = "local" ]; then
-        log "Disabling Cloudflare maintenance mode (local only)..."
-    else
-        log "Disabling Cloudflare maintenance mode (all routes)..."
-    fi
+    log "Disabling Cloudflare maintenance mode ($env)..."
 
     local zone_id
     zone_id=$(get_zone_id)
@@ -255,19 +260,33 @@ disable_maintenance() {
     routes_resp=$(cf_get "/zones/${zone_id}/workers/routes")
 
     local route_ids
-    if [ "$env" = "local" ]; then
-        # Only delete routes matching LOCAL_PATTERNS
-        local local_json
-        local_json=$(printf '"%s",' "${LOCAL_PATTERNS[@]}")
-        local_json="[${local_json%,}]"
-        route_ids=$(python3 -c \
-            "import sys,json; d=json.load(sys.stdin); lp=${local_json}; [print(r['id']) for r in d.get('result',[]) if r.get('script')=='${WORKER_NAME}' and r.get('pattern') in lp]" \
-            <<< "$routes_resp")
-    else
-        route_ids=$(python3 -c \
-            "import sys,json; d=json.load(sys.stdin); [print(r['id']) for r in d.get('result',[]) if r.get('script')=='${WORKER_NAME}']" \
-            <<< "$routes_resp")
-    fi
+    case "$env" in
+        local)
+            local filter_json
+            filter_json=$(printf '"%s",' "${LOCAL_PATTERNS[@]}")
+            filter_json="[${filter_json%,}]"
+            route_ids=$(python3 -c \
+                "import sys,json; d=json.load(sys.stdin); lp=${filter_json}; [print(r['id']) for r in d.get('result',[]) if r.get('script')=='${WORKER_NAME}' and r.get('pattern') in lp]" \
+                <<< "$routes_resp")
+            ;;
+        prod|production)
+            local filter_json
+            filter_json=$(printf '"%s",' "${PROD_PATTERNS[@]}")
+            filter_json="[${filter_json%,}]"
+            route_ids=$(python3 -c \
+                "import sys,json; d=json.load(sys.stdin); lp=${filter_json}; [print(r['id']) for r in d.get('result',[]) if r.get('script')=='${WORKER_NAME}' and r.get('pattern') in lp]" \
+                <<< "$routes_resp")
+            ;;
+        *)
+            # Stage: only delete stage patterns
+            local filter_json
+            filter_json=$(printf '"%s",' "${STAGE_PATTERNS[@]}")
+            filter_json="[${filter_json%,}]"
+            route_ids=$(python3 -c \
+                "import sys,json; d=json.load(sys.stdin); lp=${filter_json}; [print(r['id']) for r in d.get('result',[]) if r.get('script')=='${WORKER_NAME}' and r.get('pattern') in lp]" \
+                <<< "$routes_resp")
+            ;;
+    esac
 
     if [ -z "$route_ids" ]; then
         ok "No active maintenance routes found — site already live"

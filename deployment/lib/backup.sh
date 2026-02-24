@@ -24,8 +24,13 @@ create_backup() {
     if [ "$target_server" = "localhost" ]; then
         git_sha=$(git -C "$repo_root" rev-parse HEAD 2>/dev/null)
     else
-        git_sha=$(ssh -o ConnectTimeout=10 "${DEPLOY_USER}@${target_server}" \
-            "git -C /home/${DEPLOY_USER}/SecondLayer rev-parse HEAD" 2>/dev/null)
+        local ssh_opts=""
+        if [ -n "${PROD_SSH_KEY:-}" ] && [ "$target_server" = "${PROD_SERVER:-}" ]; then
+            ssh_opts="-i $PROD_SSH_KEY"
+        fi
+        local remote_home="/home/${DEPLOY_USER}"
+        git_sha=$(ssh $ssh_opts -o ConnectTimeout=10 "${DEPLOY_USER}@${target_server}" \
+            "git -C ${remote_home}/SecondLayer rev-parse HEAD" 2>/dev/null)
     fi
     echo "$git_sha" > "${backup_path}/git_sha"
     print_msg "$GREEN" "  Git SHA saved: ${git_sha:0:12}"
@@ -54,6 +59,7 @@ tag_current_images() {
 
     local env_short
     case $env in
+        prod|production) env_short="prod" ;;
         stage|staging) env_short="stage" ;;
         dev|development) env_short="dev" ;;
         local) env_short="local" ;;
@@ -69,7 +75,11 @@ tag_current_images() {
     if [ "$target_server" = "localhost" ]; then
         eval "$tag_cmd"
     else
-        ssh "${DEPLOY_USER}@${target_server}" "$tag_cmd" 2>/dev/null || true
+        local ssh_opts=""
+        if [ -n "${PROD_SSH_KEY:-}" ] && [ "$target_server" = "${PROD_SERVER:-}" ]; then
+            ssh_opts="-i $PROD_SSH_KEY"
+        fi
+        ssh $ssh_opts "${DEPLOY_USER}@${target_server}" "$tag_cmd" 2>/dev/null || true
     fi
 
     print_msg "$GREEN" "  Docker images tagged with backup-${backup_id}"
@@ -83,6 +93,7 @@ save_container_state() {
 
     local env_short
     case $env in
+        prod|production) env_short="prod" ;;
         stage|staging) env_short="stage" ;;
         dev|development) env_short="dev" ;;
         local) env_short="local" ;;
@@ -93,7 +104,11 @@ save_container_state() {
     if [ "$target_server" = "localhost" ]; then
         eval "$state_cmd" > "${backup_path}/containers.txt" 2>/dev/null || true
     else
-        ssh "${DEPLOY_USER}@${target_server}" "$state_cmd" > "${backup_path}/containers.txt" 2>/dev/null || true
+        local ssh_opts=""
+        if [ -n "${PROD_SSH_KEY:-}" ] && [ "$target_server" = "${PROD_SERVER:-}" ]; then
+            ssh_opts="-i $PROD_SSH_KEY"
+        fi
+        ssh $ssh_opts "${DEPLOY_USER}@${target_server}" "$state_cmd" > "${backup_path}/containers.txt" 2>/dev/null || true
     fi
 }
 
@@ -144,6 +159,7 @@ rollback_to_backup() {
 
     local env_short
     case $env in
+        prod|production) env_short="prod" ;;
         stage|staging) env_short="stage" ;;
         dev|development) env_short="dev" ;;
         local) env_short="local" ;;
@@ -198,7 +214,11 @@ rollback_remote() {
 
     local remote_repo="/home/${DEPLOY_USER}/SecondLayer"
 
-    ssh "${DEPLOY_USER}@${target_server}" "export SAVED_SHA='$saved_sha' COMPOSE_FILE='$compose_file' ENV_FILE='$env_file' REMOTE_REPO='$remote_repo'; bash -s" << 'ROLLBACK_EOF'
+    local ssh_opts=""
+    if [ -n "${PROD_SSH_KEY:-}" ] && [ "$target_server" = "${PROD_SERVER:-}" ]; then
+        ssh_opts="-i $PROD_SSH_KEY"
+    fi
+    ssh $ssh_opts "${DEPLOY_USER}@${target_server}" "export SAVED_SHA='$saved_sha' COMPOSE_FILE='$compose_file' ENV_FILE='$env_file' REMOTE_REPO='$remote_repo'; bash -s" << 'ROLLBACK_EOF'
         cd "$REMOTE_REPO/deployment"
 
         # Stop current containers
