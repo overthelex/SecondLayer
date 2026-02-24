@@ -1760,6 +1760,41 @@ class HTTPMCPServer {
       }
     }) as any);
 
+    // ============ Chat Plan Review endpoint ============
+    // POST /api/chat/plan - Returns execution plan for user review before running
+    this.app.post('/api/chat/plan', chatRateLimit as any, requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
+      const userId = req.user?.id;
+      const requestId = `plan-${uuidv4()}`;
+
+      try {
+        const { query, budget } = req.body;
+
+        if (!query || typeof query !== 'string') {
+          return res.status(400).json({ error: 'query is required' });
+        }
+
+        const result = await this.chatService.generatePlanForReview(
+          query,
+          budget || 'standard',
+          userId,
+          requestId
+        );
+
+        if (!result) {
+          return res.json({ plan: null, planSessionId: null, message: 'Simple query — no plan needed' });
+        }
+
+        res.json({
+          plan: result.plan,
+          planSessionId: result.planSessionId,
+        });
+      } catch (error: any) {
+        logger.error('[ChatPlan] Endpoint error', { error: error.message, requestId });
+        res.status(500).json({ error: 'Plan generation failed', message: error.message });
+      }
+    }) as any);
+    logger.info('Chat Plan Review endpoint registered at POST /api/chat/plan');
+
     // ============ AI Chat endpoint (agentic LLM loop with SSE) ============
     // POST /api/chat - Streams thinking steps, tool results, and final answer
     this.app.post('/api/chat', chatRateLimit as any, requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
@@ -1767,7 +1802,7 @@ class HTTPMCPServer {
       const requestId = `chat-${uuidv4()}`;
 
       try {
-        const { query, history, budget, conversationId } = req.body;
+        const { query, history, budget, conversationId, approvedPlan, planSessionId } = req.body;
 
         if (!query || typeof query !== 'string') {
           return res.status(400).json({ error: 'query is required' });
@@ -1828,6 +1863,8 @@ class HTTPMCPServer {
             userId,
             requestId,
             signal: abortController.signal,
+            approvedPlan,
+            planSessionId,
           })) {
             if (abortController.signal.aborted) break;
 
