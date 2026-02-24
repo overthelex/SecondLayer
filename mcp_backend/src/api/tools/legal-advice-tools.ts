@@ -495,9 +495,18 @@ export class LegalAdviceTools extends BaseToolHandler {
         if (!status) return r;
 
         // Determine the highest court instance that reviewed this case
-        const highestInstance = status.affecting_decisions.length > 0
-          ? status.affecting_decisions[status.affecting_decisions.length - 1].instance
-          : undefined;
+        let highestInstance: string | undefined;
+        if (status.affecting_decisions.length > 0) {
+          highestInstance = status.affecting_decisions[status.affecting_decisions.length - 1].instance;
+        }
+        // Fallback: infer from the result's own title/court (the result itself IS the highest instance doc)
+        if (!highestInstance) {
+          const title = (r.title || '').toLowerCase();
+          if (title.includes('велика палата')) highestInstance = 'Велика Палата ВС';
+          else if (title.includes('касаційний')) highestInstance = 'Касація';
+          else if (title.includes('апеляційний')) highestInstance = 'Апеляція';
+          else highestInstance = 'Перша інстанція';
+        }
 
         return {
           ...r,
