@@ -6,7 +6,6 @@
   },
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
-
   "search.exclude": {
     "**/node_modules": true,
     "**/dist": true,
@@ -15,20 +14,17 @@
     "**/legacy": true,
     "deployment/grafana/dashboards/*.json": true
   },
-
   "files.exclude": {
     "**/.git": true,
     "**/node_modules": true,
     "**/dist": true,
     "legacy": true
   },
-
   "files.watcherExclude": {
     "**/node_modules/**": true,
     "**/dist/**": true,
     "**/build/**": true
   },
-
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
@@ -38,16 +34,12 @@
   "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-
   "testing.automaticallyOpenPeekView": "failureVisible",
-
   "jest.jestCommandLine": "npx jest --no-cache",
   "jest.rootPath": "mcp_backend",
   "jest.autoRun": "off",
-
   "vitest.enable": true,
   "vitest.rootPath": "lexwebapp",
-
-  "playwright.reuseBrowser": true,
-  "playwright.showTrace": true
+  "playwright.reuseBrowser": false,
+  "playwright.showTrace": false
 }
