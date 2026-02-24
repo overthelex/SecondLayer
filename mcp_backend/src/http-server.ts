@@ -1800,7 +1800,7 @@ class HTTPMCPServer {
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('X-Accel-Buffering', 'no');
 
-        // Emit response_id as the very first SSE event so the client can track it
+        // Emit response_id as the very first SSE event for request traceability
         res.write(`event: response_id\n`);
         res.write(`data: ${JSON.stringify({ response_id: requestId })}\n\n`);
 
@@ -1834,7 +1834,6 @@ class HTTPMCPServer {
             if (event.type === 'complete') {
               chatCompleted = true;
               chatTotalCostUsd = event.data?.total_cost_usd || 0;
-              // Inject response_id into the complete event
               event.data.response_id = requestId;
             }
 
