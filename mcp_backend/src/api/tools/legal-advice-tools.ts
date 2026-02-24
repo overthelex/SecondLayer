@@ -14,11 +14,15 @@ import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
 import { EmbeddingService } from '../../services/embedding-service.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
 import { CitationValidator } from '../../services/citation-validator.js';
+import { ShepardizationService, ShepardizationResult } from '../../services/shepardization-service.js';
 import { SectionType } from '../../types/index.js';
 import { logger } from '../../utils/logger.js';
 import { CourtDecisionHTMLParser, extractSearchTermsWithAI } from '../../utils/html-parser.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { countAllResults } from '../tool-utils.js';
+
+/** Max cases to enrich with precedent status per search (cost/latency guard) */
+const MAX_SHEPARDIZATION_BATCH = 15;
 
 export class LegalAdviceTools extends BaseToolHandler {
   constructor(
@@ -28,7 +32,8 @@ export class LegalAdviceTools extends BaseToolHandler {
     private sectionizer: SemanticSectionizer,
     private embeddingService: EmbeddingService,
     private patternStore: LegalPatternStore,
-    private citationValidator: CitationValidator
+    private citationValidator: CitationValidator,
+    private shepardizationService?: ShepardizationService
   ) {
     super();
   }
@@ -312,6 +317,8 @@ export class LegalAdviceTools extends BaseToolHandler {
           });
         }
 
+        const enrichedSimilar = await this.enrichWithPrecedentStatus(similarCasesForDisplay);
+
         return this.wrapResponse({
           source_case: {
             cause_num: sourceCase.cause_num,
@@ -335,13 +342,13 @@ export class LegalAdviceTools extends BaseToolHandler {
             case_essence: searchTerms.caseEssence,
           },
           search_query: smartQuery,
-          similar_cases: similarCasesForDisplay,
+          similar_cases: enrichedSimilar,
           total_found: totalFound,
           pages_fetched: pagesFetched,
           reached_safety_limit: reachedLimit,
-          displaying: similarCasesForDisplay.length,
+          displaying: enrichedSimilar.length,
           total_available_info: reachedLimit
-            ? `Найдено минимум ${totalFound} прецедентов (показано первых ${similarCasesForDisplay.length}).`
+            ? `Найдено минимум ${totalFound} прецедентов (показано первых ${enrichedSimilar.length}).`
             : `Найдено ${totalFound} прецедентов через ${pagesFetched} страниц.`,
         });
       } catch (error: any) {
@@ -431,13 +438,91 @@ export class LegalAdviceTools extends BaseToolHandler {
       }
     }
 
+    const enriched = await this.enrichWithPrecedentStatus(results);
+
     return this.wrapResponse({
-      results,
+      results: enriched,
       intent,
       search_method: 'text_based',
-      total: results.length,
+      total: enriched.length,
       ...(errors.length > 0 && { warnings: errors }),
     });
   }
 
+  /**
+   * Enrich an array of search results with precedent status (case stability).
+   * Uses ShepardizationService.batchAnalyze() to check the procedural chain
+   * for each case and determine if it was upheld, overruled, or modified.
+   */
+  private async enrichWithPrecedentStatus(results: any[]): Promise<any[]> {
+    if (!this.shepardizationService || results.length === 0) return results;
+
+    // Extract unique case numbers from results (limit batch size for cost/latency)
+    const caseNumbers = results
+      .map(r => r.cause_num || r.case_number)
+      .filter(Boolean)
+      .slice(0, MAX_SHEPARDIZATION_BATCH);
+
+    if (caseNumbers.length === 0) return results;
+
+    try {
+      const startTime = Date.now();
+      const statuses = await this.shepardizationService.batchAnalyze(caseNumbers);
+      const elapsed = Date.now() - startTime;
+
+      // Build lookup map: case_number → ShepardizationResult
+      const statusMap = new Map<string, ShepardizationResult>();
+      for (const s of statuses) {
+        statusMap.set(s.case_number, s);
+      }
+
+      logger.info('[LegalAdviceTools] Precedent status enrichment complete', {
+        cases: caseNumbers.length,
+        enriched: statuses.length,
+        elapsed_ms: elapsed,
+        statuses: {
+          valid: statuses.filter(s => s.status === 'valid').length,
+          overruled: statuses.filter(s => s.status === 'explicitly_overruled').length,
+          limited: statuses.filter(s => s.status === 'limited').length,
+          unknown: statuses.filter(s => s.status === 'unknown').length,
+        },
+      });
+
+      // Merge status into each result
+      return results.map(r => {
+        const cn = r.cause_num || r.case_number;
+        const status = cn ? statusMap.get(cn) : undefined;
+        if (!status) return r;
+
+        // Determine the highest court instance that reviewed this case
+        const highestInstance = status.affecting_decisions.length > 0
+          ? status.affecting_decisions[status.affecting_decisions.length - 1].instance
+          : undefined;
+
+        return {
+          ...r,
+          precedent_status: {
+            status: status.status,
+            confidence: status.confidence,
+            highest_instance: highestInstance,
+            affecting_decisions: status.affecting_decisions.map(d => ({
+              instance: d.instance,
+              court: d.court,
+              date: d.date,
+              outcome: d.outcome,
+              effect: d.effect,
+            })),
+            check_source: status.check_source,
+            chain_length: status.chain_length,
+          },
+        };
+      });
+    } catch (err: any) {
+      logger.warn('[LegalAdviceTools] Precedent status enrichment failed, returning results without status', {
+        error: err.message,
+        cases: caseNumbers.length,
+      });
+      return results;
+    }
+  }
 }
