@@ -801,6 +801,30 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </div>
         </motion.button>
 
+        {/* AWS Startups Badge */}
+        <motion.a
+          href="https://aws.amazon.com/startups"
+          target="_blank"
+          rel="noopener noreferrer"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="mt-4 mx-auto flex items-center gap-2 px-3 py-1.5 bg-white/60 backdrop-blur-sm border border-[#FF9900]/15 hover:border-[#FF9900]/40 rounded-full transition-all group w-fit"
+        >
+          <svg width="16" height="10" viewBox="0 0 40 25" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+            <path d="M14.8 15.3c-2.2 1.6-5.4 2.5-8.1 2.5C3 17.8.3 16.4 0 16.2c-.2-.2 0-.4.2-.3 2.8 1.6 6.3 2.6 9.9 2.6 2.4 0 5.1-.5 7.5-1.5.4-.2.7.2.3.5z" fill="#FF9900" transform="translate(8,4)"/>
+            <path d="M15.7 14.2c-.3-.4-1.8-.2-2.6-.1-.2 0-.2-.2-.1-.3 1.2-.9 3.3-.6 3.5-.3.2.3-.1 2.4-1.2 3.4-.2.1-.3.1-.3-.1.3-.7.9-2.2.6-2.5z" fill="#FF9900" transform="translate(8,4)"/>
+            <path d="M13.2 3.2V2.1c0-.2.1-.3.3-.3h4.8c.2 0 .3.1.3.3v.9c0 .2-.1.4-.4.8l-2.5 3.6c.9 0 1.9.1 2.7.6.2.1.2.3.2.4v1.2c0 .2-.2.4-.4.3-1.6-.8-3.7-.9-5.5 0-.2.1-.4-.1-.4-.3V8.2c0-.2 0-.4.2-.8l2.9-4.1h-2.5c-.2 0-.3-.1-.3-.3z" fill="#232F3E"/>
+            <path d="M4.7 10.1H3.3c-.1 0-.2-.1-.3-.2V2.1c0-.2.1-.3.3-.3H5c.1 0 .3.1.3.2v1h0C5.6 2.3 6.2 1.7 7 1.7c.9 0 1.4.5 1.8 1.2.3-.8 1-1.2 1.8-1.2.5 0 1.1.2 1.5.7.4.6.3 1.4.3 2.1v5.3c0 .2-.1.3-.3.3H10c-.1 0-.3-.1-.3-.3V5.2c0-.3 0-1-.1-1.3-.1-.4-.4-.6-.8-.6-.3 0-.7.2-.8.6-.1.3-.1.9-.1 1.3v4.7c0 .2-.1.3-.3.3H6.2c-.1 0-.3-.1-.3-.3V5.2c0-.8.1-1.9-.8-1.9-1 0-1 1.1-1 1.9v4.7c0 .2-.1.3-.3.3z" fill="#232F3E"/>
+            <path d="M24 6.3c0 .6 0 1.1-.3 1.5-.2.4-.6.6-1 .6-.6 0-.9-.4-.9-1 0-1.2 1-1.4 2.2-1.4v.3zm1.5 3.6c-.1.1-.2.1-.3.1-.5-.4-.5-.5-.8-.9-.7.7-1.2.9-2.1.9-1.1 0-1.9-.7-1.9-2 0-1 .6-1.7 1.4-2.1.7-.3 1.7-.3 2.5-.4v-.2c0-.3 0-.6-.2-.8-.1-.2-.4-.3-.7-.3-.5 0-.9.2-1 .8 0 .1-.1.2-.2.2l-1.3-.1c-.1 0-.3-.1-.2-.3.3-1.6 1.7-2 3-2 .6 0 1.5.2 2 .7.7.6.6 1.5.6 2.4v2.2c0 .7.3 1 .5 1.3.1.1.1.3 0 .4l-1 .8h0z" fill="#232F3E"/>
+          </svg>
+          <span className="text-[10px] text-[#232F3E]/60 group-hover:text-[#232F3E]/90 font-sans font-medium tracking-wide transition-colors">
+            AWS Startups
+          </span>
+        </motion.a>
+
         {/* Footer */}
         <motion.div
           initial={{
@@ -810,9 +834,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             opacity: 1
           }}
           transition={{
-            delay: 0.5
+            delay: 0.55
           }}
-          className="text-center mt-4 text-xs text-claude-subtext font-sans">
+          className="text-center mt-3 text-xs text-claude-subtext font-sans">
 
           <p>
             Продовжуючи, ви погоджуєтесь з{' '}
