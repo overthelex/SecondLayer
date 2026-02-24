@@ -1281,7 +1281,17 @@ export function useAIChat(options: UseMCPToolOptions = {}) {
 
           const answerNorms = extractNormsFromAnswer(data.text);
           if (answerNorms.length > 0) {
-            accumulatedCitations.current.push(...answerNorms);
+            // Deduplicate: skip answer-extracted norms that already exist from tool results
+            const existingSources = new Set(
+              accumulatedCitations.current.map(c => c.source.toLowerCase().replace(/\s+/g, ' ').trim())
+            );
+            const newNorms = answerNorms.filter(n => {
+              const key = n.source.toLowerCase().replace(/\s+/g, ' ').trim();
+              return !existingSources.has(key);
+            });
+            if (newNorms.length > 0) {
+              accumulatedCitations.current.push(...newNorms);
+            }
           }
 
           updateMessage(assistantMessageId, {

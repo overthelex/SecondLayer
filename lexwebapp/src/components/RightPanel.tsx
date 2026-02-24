@@ -89,10 +89,15 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
     [allDecisions]
   );
 
-  const citations = useMemo(() =>
-    messages.flatMap(m => m.citations ?? []),
-    [messages]
-  );
+  const citations = useMemo(() => {
+    const seen = new Set<string>();
+    return messages.flatMap(m => m.citations ?? []).filter(c => {
+      const key = c.source.toLowerCase().replace(/\s+/g, ' ').trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [messages]);
 
   const vaultDocuments = useMemo(() => {
     const seen = new Set<string>();
