@@ -658,9 +658,19 @@ export class ChatService {
         },
       };
 
-      // Server-side message persistence — skip if client disconnected (aborted)
-      if (this.conversationService && request.conversationId && request.userId && !signal?.aborted) {
+      // Server-side message persistence — always persist if we have any data,
+      // even if client disconnected (user may have refreshed or navigated away).
+      const hasData = fullAnswerText || collectedThinkingSteps.length > 0 || collectedToolCalls.length > 0;
+      if (this.conversationService && request.conversationId && request.userId && hasData) {
         try {
+          if (signal?.aborted) {
+            logger.info('[ChatService] Client disconnected but persisting partial results', {
+              conversationId: request.conversationId,
+              hadAnswer: !!fullAnswerText,
+              toolCallsCount: collectedToolCalls.length,
+            });
+          }
+
           await this.conversationService.addMessage(request.conversationId, request.userId, {
             role: 'user',
             content: request.query,
@@ -670,9 +680,13 @@ export class ChatService {
             ? extractAllEvidence(collectedThinkingSteps, fullAnswerText)
             : undefined;
 
+          const contentToSave = fullAnswerText || (collectedThinkingSteps.length > 0
+            ? '[Відповідь не завершена — клієнт від\'єднався під час генерації]'
+            : '');
+
           await this.conversationService.addMessage(request.conversationId, request.userId, {
             role: 'assistant',
-            content: fullAnswerText,
+            content: contentToSave,
             tool_calls: collectedToolCalls.length > 0 ? collectedToolCalls : undefined,
             thinking_steps: collectedThinkingSteps.length > 0 ? collectedThinkingSteps : undefined,
             decisions: evidence?.decisions && evidence.decisions.length > 0 ? evidence.decisions : undefined,
@@ -683,13 +697,6 @@ export class ChatService {
         } catch (e) {
           logger.warn('[ChatService] Failed to persist messages', { error: (e as Error).message });
         }
-      } else if (signal?.aborted) {
-        logger.info('[ChatService] Skipping message persistence — client disconnected', {
-          conversationId: request.conversationId,
-          userId: request.userId,
-          hadAnswer: !!fullAnswerText,
-          toolCallsCount: collectedToolCalls.length,
-        });
       }
     } catch (err: any) {
       logger.error('[ChatService] Error in agentic loop', { error: err.message, stack: err.stack });
