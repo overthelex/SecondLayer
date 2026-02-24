@@ -1022,8 +1022,7 @@ ${stepsText}
       const response = await llm.chatCompletion(
         {
           messages: planMessages,
-          max_tokens: 800,
-          temperature: 0.1,
+          max_tokens: 2000,
           response_format: { type: 'json_object' },
         },
         'standard',
@@ -1052,8 +1051,12 @@ ${stepsText}
 
       const parsed = JSON.parse(jsonMatch[0]);
 
-      // Empty object means model decided no plan is needed (simple/conversational query)
+      // Empty object — model failed to generate a plan despite instructions
       if (Object.keys(parsed).length === 0) {
+        logger.warn('[ChatService] Plan generation returned empty object, model did not follow instructions', {
+          model: response.model,
+          query: query.slice(0, 200),
+        });
         return undefined;
       }
 
