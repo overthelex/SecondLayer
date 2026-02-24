@@ -221,7 +221,8 @@ class HTTPMCPServer {
       this.services.sectionizer,
       this.services.embeddingService,
       this.services.patternStore,
-      this.services.citationValidator
+      this.services.citationValidator,
+      this.services.shepardizationService
     ));
     this.toolRegistry.registerHandler(new CourtSessionTools(
       this.services.zoSessionsAdapter,
