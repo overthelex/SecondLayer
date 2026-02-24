@@ -397,10 +397,8 @@ export class ShepardizationService {
     try {
       await this.db.query(
         `INSERT INTO precedent_status (case_id, case_number, target_doc_id, status, confidence, affecting_decisions, check_source, last_checked, ttl_expires_at)
-         VALUES (
-           COALESCE((SELECT id FROM documents WHERE metadata->>'case_number' = $1 LIMIT 1), uuid_generate_v4()),
-           $1, $2, $3, $4, $5::jsonb, $6, NOW(), NOW() + INTERVAL '7 days'
-         )
+         SELECT id, $1, $2, $3, $4, $5::jsonb, $6, NOW(), NOW() + INTERVAL '7 days'
+         FROM documents WHERE metadata->>'case_number' = $1 LIMIT 1
          ON CONFLICT (case_id) DO UPDATE SET
            case_number = EXCLUDED.case_number,
            target_doc_id = EXCLUDED.target_doc_id,
