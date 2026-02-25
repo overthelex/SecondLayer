@@ -116,7 +116,7 @@ check_http_health() {
 
     case $env in
         local)
-            local urls=("https://localdev.legal.org.ua/health" "https://localdev.mcp.legal.org.ua/health")
+            local urls=("https://localdev.legal.org.ua/health")
             for url in "${urls[@]}"; do
                 local attempt=1
                 local passed=false
