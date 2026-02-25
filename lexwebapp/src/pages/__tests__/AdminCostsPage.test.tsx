@@ -14,6 +14,26 @@ vi.mock('react-hot-toast', () => ({
   },
 }));
 
+// Mock recharts to avoid rendering issues in tests
+vi.mock('recharts', () => {
+  const MockResponsiveContainer = ({ children }: any) => <div>{children}</div>;
+  const MockAreaChart = ({ children }: any) => <div>{children}</div>;
+  const MockPieChart = ({ children }: any) => <div>{children}</div>;
+  const noop = () => null;
+  return {
+    ResponsiveContainer: MockResponsiveContainer,
+    AreaChart: MockAreaChart,
+    Area: noop,
+    PieChart: MockPieChart,
+    Pie: noop,
+    Cell: noop,
+    XAxis: noop,
+    YAxis: noop,
+    Tooltip: noop,
+    Legend: noop,
+  };
+});
+
 // Mock window.prompt
 const mockPrompt = vi.fn();
 window.prompt = mockPrompt;
@@ -23,6 +43,8 @@ const mockGetUsageAnalytics = vi.fn();
 const mockGetTransactions = vi.fn();
 const mockGetCohorts = vi.fn();
 const mockRefundTransaction = vi.fn();
+const mockGetCostBreakdown = vi.fn();
+const mockGetUsersCostsSummary = vi.fn();
 
 vi.mock('../../utils/api-client', () => ({
   default: {},
@@ -32,6 +54,8 @@ vi.mock('../../utils/api-client', () => ({
       getTransactions: (params?: any) => mockGetTransactions(params),
       getCohorts: () => mockGetCohorts(),
       refundTransaction: (id: string, reason: string) => mockRefundTransaction(id, reason),
+      getCostBreakdown: (days: number) => mockGetCostBreakdown(days),
+      getUsersCostsSummary: (days: number) => mockGetUsersCostsSummary(days),
     },
   },
 }));
@@ -42,6 +66,27 @@ const mockUsage = [
   { tool_name: 'search_court_cases', request_count: 500, total_revenue_usd: 25.0, avg_cost_usd: 0.05 },
   { tool_name: 'get_legal_advice', request_count: 300, total_revenue_usd: 45.0, avg_cost_usd: 0.15 },
 ];
+
+const mockCostData = {
+  period: { from: '2026-01-26', to: '2026-02-25', days: 30 },
+  totals: {
+    openai_cost_usd: 50,
+    anthropic_cost_usd: 10,
+    zakononline_cost_usd: 5,
+    secondlayer_cost_usd: 3,
+    voyage_cost_usd: 2,
+    total_cost_usd: 70,
+    total_requests: 800,
+  },
+  by_provider: [
+    { provider: 'openai', cost_usd: 50, requests: 600 },
+    { provider: 'anthropic', cost_usd: 10, requests: 200 },
+  ],
+  by_model: [
+    { provider: 'openai', model: 'gpt-4o', cost_usd: 40, tokens: 500000, requests: 400 },
+  ],
+  daily: [],
+};
 
 const mockTransactionsData = {
   transactions: [
@@ -81,20 +126,27 @@ const mockCohortsData = [
   { month: '2026-02', users: 20, active_users: 18, total_revenue_usd: 900.0, retention_rate: 90 },
 ];
 
+/** Set up all mocks to return successful defaults */
+function mockAllSuccess() {
+  mockGetCostBreakdown.mockResolvedValue({ data: mockCostData });
+  mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
+  mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
+  mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
+  mockGetUsersCostsSummary.mockResolvedValue({ data: { users: [] } });
+}
+
 describe('AdminCostsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('renders header and loads all sections', async () => {
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
+    mockAllSuccess();
 
     render(<AdminCostsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('API Costs & Analytics')).toBeInTheDocument();
+      expect(screen.getByText('Cost Breakdown')).toBeInTheDocument();
     });
 
     expect(screen.getByText('Tool Usage')).toBeInTheDocument();
@@ -102,22 +154,18 @@ describe('AdminCostsPage', () => {
     expect(screen.getByText('Cohort Analysis')).toBeInTheDocument();
   });
 
-  it('displays total revenue and requests in header', async () => {
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
+  it('displays total requests in header', async () => {
+    mockAllSuccess();
 
     render(<AdminCostsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/\$70\.00 revenue from 800 requests/)).toBeInTheDocument();
+      expect(screen.getByText(/800 requests/)).toBeInTheDocument();
     });
   });
 
   it('renders tool usage table with data', async () => {
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
+    mockAllSuccess();
 
     render(<AdminCostsPage />);
 
@@ -131,9 +179,8 @@ describe('AdminCostsPage', () => {
   });
 
   it('shows "No usage data" when usage is empty', async () => {
+    mockAllSuccess();
     mockGetUsageAnalytics.mockResolvedValue({ data: { usage: [] } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
 
     render(<AdminCostsPage />);
 
@@ -142,10 +189,8 @@ describe('AdminCostsPage', () => {
     });
   });
 
-  it('changing usage days dropdown refetches data', async () => {
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
+  it('changing cost days button refetches data', async () => {
+    mockAllSuccess();
 
     render(<AdminCostsPage />);
 
@@ -153,18 +198,18 @@ describe('AdminCostsPage', () => {
       expect(screen.getByText('search_court_cases')).toBeInTheDocument();
     });
 
-    const daysSelect = screen.getByDisplayValue('Last 30 days');
-    await userEvent.selectOptions(daysSelect, '7');
+    // Days selector is now button-based: 7d, 30d, 90d
+    const btn7d = screen.getByText('7d');
+    fireEvent.click(btn7d);
 
     await waitFor(() => {
+      expect(mockGetCostBreakdown).toHaveBeenCalledWith(7);
       expect(mockGetUsageAnalytics).toHaveBeenCalledWith(7);
     });
   });
 
   it('renders transactions table', async () => {
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
+    mockAllSuccess();
 
     render(<AdminCostsPage />);
 
@@ -177,9 +222,7 @@ describe('AdminCostsPage', () => {
   });
 
   it('shows refund button only for completed charges', async () => {
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
+    mockAllSuccess();
 
     render(<AdminCostsPage />);
 
@@ -194,9 +237,7 @@ describe('AdminCostsPage', () => {
 
   it('calls refundTransaction on refund button click', async () => {
     const toast = await import('react-hot-toast');
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
+    mockAllSuccess();
     mockRefundTransaction.mockResolvedValue({});
     mockPrompt.mockReturnValue('Customer complaint');
 
@@ -215,9 +256,7 @@ describe('AdminCostsPage', () => {
   });
 
   it('does not refund when prompt is cancelled', async () => {
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
+    mockAllSuccess();
     mockPrompt.mockReturnValue(null);
 
     render(<AdminCostsPage />);
@@ -231,9 +270,7 @@ describe('AdminCostsPage', () => {
   });
 
   it('transaction type filter triggers re-fetch', async () => {
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
+    mockAllSuccess();
 
     render(<AdminCostsPage />);
 
@@ -252,9 +289,7 @@ describe('AdminCostsPage', () => {
   });
 
   it('transaction status filter triggers re-fetch', async () => {
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
+    mockAllSuccess();
 
     render(<AdminCostsPage />);
 
@@ -273,9 +308,7 @@ describe('AdminCostsPage', () => {
   });
 
   it('renders cohort analysis table', async () => {
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
+    mockAllSuccess();
 
     render(<AdminCostsPage />);
 
@@ -284,13 +317,13 @@ describe('AdminCostsPage', () => {
     });
 
     expect(screen.getByText('$900.00')).toBeInTheDocument();
-    expect(screen.getByText('83%')).toBeInTheDocument();
-    expect(screen.getByText('90%')).toBeInTheDocument();
+    // Retention percentages may appear in both text and bar style, so use getAllByText
+    expect(screen.getAllByText('83%').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('90%').length).toBeGreaterThan(0);
   });
 
   it('shows "No cohort data" when cohorts are empty', async () => {
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
-    mockGetTransactions.mockResolvedValue({ data: mockTransactionsData });
+    mockAllSuccess();
     mockGetCohorts.mockResolvedValue({ data: { cohorts: [] } });
 
     render(<AdminCostsPage />);
@@ -301,9 +334,11 @@ describe('AdminCostsPage', () => {
   });
 
   it('shows error state when all APIs fail', async () => {
+    mockGetCostBreakdown.mockRejectedValue({ message: 'Connection refused' });
     mockGetUsageAnalytics.mockRejectedValue({ message: 'Connection refused' });
     mockGetTransactions.mockRejectedValue({ message: 'Connection refused' });
     mockGetCohorts.mockRejectedValue(new Error('fail'));
+    mockGetUsersCostsSummary.mockRejectedValue(new Error('fail'));
 
     render(<AdminCostsPage />);
 
@@ -315,11 +350,10 @@ describe('AdminCostsPage', () => {
   });
 
   it('shows "No transactions found" when transactions are empty', async () => {
-    mockGetUsageAnalytics.mockResolvedValue({ data: { usage: mockUsage } });
+    mockAllSuccess();
     mockGetTransactions.mockResolvedValue({
       data: { transactions: [], pagination: { limit: 20, offset: 0, total: 0 } },
     });
-    mockGetCohorts.mockResolvedValue({ data: { cohorts: mockCohortsData } });
 
     render(<AdminCostsPage />);
 
