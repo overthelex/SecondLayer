@@ -3,77 +3,110 @@ import { logger } from '../utils/logger.js';
 import { getOpenAIManager } from '../utils/openai-client.js';
 import { ModelSelector } from '../utils/model-selector.js';
 
-interface SectionMarker {
+interface StructuralMarker {
   type: SectionType;
   patterns: RegExp[];
   priority: number;
+  isHeading: boolean;
 }
+
+interface BoundaryMatch {
+  type: SectionType;
+  index: number;
+  matchLength: number;
+  priority: number;
+}
+
+const AMOUNT_PATTERNS: RegExp[] = [
+  /сума\s+\d+/gi,
+  /штраф\s+\d+/gi,
+  /компенсація\s+\d+/gi,
+  /\d[\d\s]*[\.,]?\d*\s*грн/gi,
+  /\d[\d\s]*[\.,]?\d*\s*гривень/gi,
+  /\d[\d\s]*[\.,]?\d*\s*грив\./gi,
+  /\d[\d\s]*[\.,]?\d*\s*копійок/gi,
+];
 
 export class SemanticSectionizer {
   private openaiManager = getOpenAIManager();
-  private markers: SectionMarker[];
+  private structuralMarkers: StructuralMarker[];
 
   constructor() {
-
-    // Initialize regex markers for Ukrainian legal documents
-    this.markers = [
+    this.structuralMarkers = [
       {
         type: SectionType.FACTS,
         patterns: [
-          /встановив[а-яіїє]*/gi,
-          /встановлено/gi,
-          /фактичні обставини/gi,
+          /\n\s*(ВСТАНОВИВ|УСТАНОВИВ|встановив|установив)\s*[:.\s]/,
+          /\n\s*[Сс]уд\s+встановив/,
+          /\n\s*Обставини справи/i,
+          /\n\s*Фактичні обставини/i,
         ],
         priority: 1,
+        isHeading: true,
       },
       {
         type: SectionType.CLAIMS,
         patterns: [
-          /позивач просить/gi,
-          /вимагає/gi,
-          /позовні вимоги/gi,
+          /\n\s*Короткий зміст позовних вимог/i,
+          /\n\s*Зміст позовних вимог/i,
+          /\n\s*[Пп]озовна заява мотивована/i,
+          /\n\s*[Пп]озивач\s+(просить|зазначає|вказує|стверджує)/i,
         ],
         priority: 2,
+        isHeading: true,
+      },
+      {
+        type: SectionType.PROCEDURAL_HISTORY,
+        patterns: [
+          /\n\s*Короткий зміст (рішень?|ухвал|постанов)/i,
+          /\n\s*Короткий зміст рішень судів/i,
+          /\n\s*Фактичні обставини справи, встановлені судами/i,
+          /\n\s*[Рр]ішенням\s+.{1,60}суду\s+.{1,40}від\s+\d/,
+        ],
+        priority: 3,
+        isHeading: true,
       },
       {
         type: SectionType.LAW_REFERENCES,
         patterns: [
-          /згідно зі ст\./gi,
-          /відповідно до/gi,
-          /на підставі/gi,
-          /ст\.\s*\d+/gi,
+          /\n\s*Правове обґрунтування/i,
+          /\n\s*Норми права/i,
+          /\n\s*Нормативне регулювання/i,
         ],
-        priority: 3,
+        priority: 4,
+        isHeading: true,
+      },
+      {
+        type: SectionType.MOTIVES,
+        patterns: [
+          /\n\s*Мотивувальна частина/i,
+          /\n\s*Мотиви суду/i,
+          /\n\s*МОТИВИ/i,
+          /\n\s*Суд зазначає/i,
+        ],
+        priority: 5,
+        isHeading: true,
       },
       {
         type: SectionType.COURT_REASONING,
         patterns: [
-          /суд вважає/gi,
-          /суд встановлює/gi,
-          /суд приходить до висновку/gi,
-          /обґрунтування/gi,
+          /\n\s*[Сс]уд (вважає|дійшов висновку|приходить до висновку)/,
+          /\n\s*[Оо]бґрунтування суду/i,
+          /\n\s*Висновки суду/i,
         ],
-        priority: 4,
+        priority: 6,
+        isHeading: true,
       },
       {
         type: SectionType.DECISION,
         patterns: [
-          /ухвалив/gi,
-          /постановив/gi,
-          /рішення/gi,
-          /резолютивна частина/gi,
+          /\n\s*Резолютивна частина/i,
+          /\n\s*(УХВАЛИВ|ПОСТАНОВИВ|ВИРІШИВ)\s*[:.\s]/,
+          /\n\s*(ухвалив|постановив|вирішив)\s*[:.\s]/,
+          /\n\s*Керуючись\s+/i,
         ],
-        priority: 5,
-      },
-      {
-        type: SectionType.AMOUNTS,
-        patterns: [
-          /сума\s+\d+/gi,
-          /штраф\s+\d+/gi,
-          /компенсація\s+\d+/gi,
-          /\d+\s+гривень/gi,
-        ],
-        priority: 6,
+        priority: 7,
+        isHeading: true,
       },
     ];
   }
@@ -82,68 +115,23 @@ export class SemanticSectionizer {
     text: string,
     useLLM: boolean = false
   ): Promise<DocumentSection[]> {
-    const sections: DocumentSection[] = [];
+    const boundaries = this.findAllBoundaries(text);
 
-    // First pass: regex-based extraction
-    for (const marker of this.markers.sort((a, b) => a.priority - b.priority)) {
-      for (const pattern of marker.patterns) {
-        // Reset regex state to prevent infinite loops
-        pattern.lastIndex = 0;
-
-        let match;
-        let iterationCount = 0;
-        const MAX_ITERATIONS = 1000; // Safety limit
-
-        while ((match = pattern.exec(text)) !== null) {
-          // Safety check to prevent infinite loops
-          if (++iterationCount > MAX_ITERATIONS) {
-            logger.warn('Max iterations reached for pattern', {
-              pattern: pattern.source,
-              type: marker.type
-            });
-            break;
-          }
-
-          const startIndex = match.index;
-          const endIndex = this.findSectionEnd(text, startIndex, marker.type);
-
-          // Check for overlap with existing sections
-          const overlaps = sections.some(
-            (s) =>
-              (startIndex >= s.start_index && startIndex < s.end_index) ||
-              (endIndex > s.start_index && endIndex <= s.end_index)
-          );
-
-          if (!overlaps && endIndex > startIndex) {
-            sections.push({
-              type: marker.type,
-              text: text.substring(startIndex, endIndex),
-              start_index: startIndex,
-              end_index: endIndex,
-              confidence: 0.8,
-            });
-          }
-
-          // If pattern has no global flag or didn't advance, break to prevent infinite loop
-          if (!pattern.global || pattern.lastIndex === 0 || pattern.lastIndex <= startIndex) {
-            break;
-          }
-        }
-
-        // Reset regex state after use
-        pattern.lastIndex = 0;
-      }
+    if (boundaries.length === 0 && useLLM) {
+      return await this.llmAssistedExtraction(text);
     }
 
-    // Calculate confidence and validate
+    const sections = this.buildSectionsFromBoundaries(text, boundaries);
+
+    const amountSections = this.extractAmountSections(text, sections);
+    sections.push(...amountSections);
+
     for (const section of sections) {
       section.confidence = this.calculateConfidence(section, text);
     }
 
-    // Filter low-confidence sections
     const validSections = sections.filter((s) => s.confidence >= 0.5);
 
-    // If confidence is low and LLM is allowed, use LLM-assisted extraction
     if (useLLM && validSections.length === 0) {
       return await this.llmAssistedExtraction(text);
     }
@@ -151,59 +139,155 @@ export class SemanticSectionizer {
     return validSections.sort((a, b) => a.start_index - b.start_index);
   }
 
-  private findSectionEnd(text: string, startIndex: number, _sectionType: SectionType): number {
-    // Find the end of section based on type
-    const maxLength = 5000; // Max section length
-    let endIndex = startIndex + maxLength;
+  private findAllBoundaries(text: string): BoundaryMatch[] {
+    const boundaries: BoundaryMatch[] = [];
 
-    // Look for next section marker or paragraph break
-    const nextMarkerIndex = this.findNextMarker(text, startIndex + 100);
-    if (nextMarkerIndex > 0 && nextMarkerIndex < endIndex) {
-      endIndex = nextMarkerIndex;
-    }
-
-    // Look for paragraph breaks
-    const paragraphBreak = text.indexOf('\n\n', startIndex + 100);
-    if (paragraphBreak > 0 && paragraphBreak < endIndex) {
-      endIndex = paragraphBreak;
-    }
-
-    // Ensure we don't exceed text length
-    return Math.min(endIndex, text.length);
-  }
-
-  private findNextMarker(text: string, startIndex: number): number {
-    let minIndex = -1;
-    for (const marker of this.markers) {
+    for (const marker of this.structuralMarkers) {
       for (const pattern of marker.patterns) {
-        pattern.lastIndex = startIndex;
-        const match = pattern.exec(text);
-        if (match && (minIndex === -1 || match.index < minIndex)) {
-          minIndex = match.index;
+        const freshPattern = new RegExp(pattern.source, pattern.flags);
+        const match = freshPattern.exec(text);
+        if (match) {
+          const existingAtSamePos = boundaries.find(
+            (b) => Math.abs(b.index - match.index) < 20
+          );
+          if (!existingAtSamePos || marker.priority < existingAtSamePos.priority) {
+            if (existingAtSamePos) {
+              const idx = boundaries.indexOf(existingAtSamePos);
+              boundaries[idx] = {
+                type: marker.type,
+                index: match.index,
+                matchLength: match[0].length,
+                priority: marker.priority,
+              };
+            } else {
+              boundaries.push({
+                type: marker.type,
+                index: match.index,
+                matchLength: match[0].length,
+                priority: marker.priority,
+              });
+            }
+          }
         }
       }
     }
-    return minIndex;
+
+    return boundaries.sort((a, b) => a.index - b.index);
+  }
+
+  private buildSectionsFromBoundaries(
+    text: string,
+    boundaries: BoundaryMatch[]
+  ): DocumentSection[] {
+    const sections: DocumentSection[] = [];
+    const maxLength = 50000;
+
+    if (boundaries.length === 0) {
+      return sections;
+    }
+
+    // Header: everything before first boundary
+    if (boundaries[0].index > 50) {
+      sections.push({
+        type: SectionType.HEADER,
+        text: text.substring(0, boundaries[0].index).trim(),
+        start_index: 0,
+        end_index: boundaries[0].index,
+        confidence: 0.85,
+      });
+    }
+
+    // Build sections from boundary pairs
+    for (let i = 0; i < boundaries.length; i++) {
+      const start = boundaries[i].index;
+      const nextStart = i + 1 < boundaries.length ? boundaries[i + 1].index : text.length;
+      const end = Math.min(nextStart, start + maxLength);
+
+      const sectionText = text.substring(start, end);
+      if (sectionText.trim().length < 10) continue;
+
+      sections.push({
+        type: boundaries[i].type,
+        text: sectionText,
+        start_index: start,
+        end_index: end,
+        confidence: 0.8,
+      });
+    }
+
+    return sections;
+  }
+
+  private extractAmountSections(
+    text: string,
+    existingSections: DocumentSection[]
+  ): DocumentSection[] {
+    const amountSections: DocumentSection[] = [];
+
+    for (const pattern of AMOUNT_PATTERNS) {
+      const freshPattern = new RegExp(pattern.source, pattern.flags);
+      let match;
+      while ((match = freshPattern.exec(text)) !== null) {
+        const contextStart = Math.max(0, match.index - 100);
+        const contextEnd = Math.min(text.length, match.index + match[0].length + 100);
+
+        // Skip if this region is already inside an existing section
+        const insideExisting = existingSections.some(
+          (s) => match!.index >= s.start_index && match!.index < s.end_index
+        );
+        if (insideExisting) continue;
+
+        // Skip if overlapping with already-found amount sections
+        const overlaps = amountSections.some(
+          (s) =>
+            (contextStart >= s.start_index && contextStart < s.end_index) ||
+            (contextEnd > s.start_index && contextEnd <= s.end_index)
+        );
+        if (overlaps) continue;
+
+        amountSections.push({
+          type: SectionType.AMOUNTS,
+          text: text.substring(contextStart, contextEnd),
+          start_index: contextStart,
+          end_index: contextEnd,
+          confidence: 0.75,
+        });
+      }
+    }
+
+    return amountSections;
   }
 
   private calculateConfidence(section: DocumentSection, _fullText: string): number {
-    let confidence = 0.7;
+    let confidence = section.confidence;
 
-    // Boost confidence if section has expected keywords
-    const marker = this.markers.find((m) => m.type === section.type);
-    if (marker) {
-      const matches = marker.patterns.filter((p) => p.test(section.text));
-      confidence += matches.length * 0.1;
+    // Boost for longer, meaningful sections
+    if (section.text.length >= 200 && section.text.length <= 30000) {
+      confidence += 0.1;
     }
 
-    // Reduce confidence if section is too short
+    // Reduce confidence for very short sections
     if (section.text.length < 50) {
       confidence -= 0.2;
     }
 
-    // Reduce confidence if section is too long
-    if (section.text.length > 10000) {
+    // Reduce confidence for extremely long sections (possible parsing issue)
+    if (section.text.length > 40000) {
       confidence -= 0.1;
+    }
+
+    // Boost for HEADER if it contains court name patterns
+    if (section.type === SectionType.HEADER) {
+      if (/суд/i.test(section.text) && /справ[аи]/i.test(section.text)) {
+        confidence += 0.1;
+      }
+    }
+
+    // Boost for DECISION if it contains operative keywords
+    if (section.type === SectionType.DECISION) {
+      if (/стягнути|відмовити|задовольнити|скасувати/i.test(section.text)) {
+        confidence += 0.1;
+      }
     }
 
     return Math.min(1.0, Math.max(0.0, confidence));
@@ -212,28 +296,30 @@ export class SemanticSectionizer {
   private async llmAssistedExtraction(text: string): Promise<DocumentSection[]> {
     try {
       const response = await this.openaiManager.executeWithRetry(async (client) => {
-        // Use deep model for complex section extraction
         const model = ModelSelector.getChatModel('deep');
         return await client.chat.completions.create({
-        model,
-        messages: [
-          {
-            role: 'system',
-            content: `Ти експерт з аналізу юридичних документів. Розбий текст на семантичні секції:
-- FACTS: Фактичні обставини
+          model,
+          messages: [
+            {
+              role: 'system',
+              content: `Ти експерт з аналізу юридичних документів. Розбий текст на семантичні секції:
+- HEADER: Шапка документа (суд, номер справи, дата, склад суду)
+- FACTS: Фактичні обставини (після ВСТАНОВИВ)
 - CLAIMS: Позовні вимоги
-- LAW_REFERENCES: Посилання на норми права
-- COURT_REASONING: Судебне обґрунтування
+- PROCEDURAL_HISTORY: Короткий зміст рішень попередніх інстанцій
+- LAW_REFERENCES: Посилання на норми права (окремий розділ)
+- MOTIVES: Мотивувальна частина
+- COURT_REASONING: Висновки суду
 - DECISION: Резолютивна частина
 - AMOUNTS: Суми, штрафи, компенсації
 
 Поверни JSON масив з об'єктами: { type, text, start_index, end_index, confidence }`,
-          },
-          {
-            role: 'user',
-            content: text.substring(0, 8000), // Limit to avoid token limits
-          },
-        ],
+            },
+            {
+              role: 'user',
+              content: text.substring(0, 8000),
+            },
+          ],
           ...(ModelSelector.supportsTemperature(model) ? { temperature: 0.2 } : {}),
           max_completion_tokens: 2000,
           response_format: { type: 'json_object' },
