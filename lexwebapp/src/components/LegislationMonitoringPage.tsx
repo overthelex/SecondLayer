@@ -539,6 +539,8 @@ export function LegislationMonitoringPage({
                   <Search className="h-5 w-5 text-claude-subtext group-focus-within:text-claude-accent transition-colors" />
                 </div>
                 <input
+                  id="legislation-search"
+                  name="search"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -558,17 +560,21 @@ export function LegislationMonitoringPage({
             {/* Filters */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-claude-text font-sans mb-2 flex items-center gap-2">
+                <label htmlFor="legislation-date-from" className="block text-sm font-medium text-claude-text font-sans mb-2 flex items-center gap-2">
                   <Calendar size={16} />
                   Період
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <input
+                    id="legislation-date-from"
+                    name="dateFrom"
                     type="date"
                     value={filters.dateFrom}
                     onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
                     className="w-full px-3 pr-8 py-2.5 bg-white border border-claude-border rounded-lg text-claude-text focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans text-sm" />
                   <input
+                    id="legislation-date-to"
+                    name="dateTo"
                     type="date"
                     value={filters.dateTo}
                     onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
@@ -577,11 +583,13 @@ export function LegislationMonitoringPage({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-claude-text font-sans mb-2 flex items-center gap-2">
+                <label htmlFor="legislation-doc-type" className="block text-sm font-medium text-claude-text font-sans mb-2 flex items-center gap-2">
                   <Filter size={16} />
                   Тип документа
                 </label>
                 <select
+                  id="legislation-doc-type"
+                  name="documentType"
                   value={filters.type}
                   onChange={(e) => setFilters({ ...filters, type: e.target.value })}
                   className="w-full px-4 py-2.5 bg-white border border-claude-border rounded-lg text-claude-text focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans">

@@ -317,6 +317,8 @@ export function MatterDetailPage({ matter, onBack }: MatterDetailPageProps) {
               {/* Add member form */}
               <form onSubmit={handleAddMember} className="flex gap-2 mb-6 p-4 bg-claude-bg rounded-xl">
                 <input
+                  id="matter-add-member-id"
+                  name="memberId"
                   type="text"
                   value={addMemberId}
                   onChange={(e) => setAddMemberId(e.target.value)}
@@ -324,6 +326,8 @@ export function MatterDetailPage({ matter, onBack }: MatterDetailPageProps) {
                   className="flex-1 px-3 py-2 bg-white border border-claude-border rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-claude-accent/20"
                 />
                 <select
+                  id="matter-add-member-role"
+                  name="memberRole"
                   value={addMemberRole}
                   onChange={(e) => setAddMemberRole(e.target.value as MatterTeamRole)}
                   className="px-3 py-2 bg-white border border-claude-border rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-claude-accent/20"
