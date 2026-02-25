@@ -50,7 +50,7 @@ export function buildPlanGenerationMessages(
 CRITICAL: You MUST ALWAYS return a plan with at least 1 step. NEVER return an empty object {}. Every user query needs at least one tool call.
 
 ## Rules
-1. Max 5 steps
+1. Max 7 steps
 2. Use ONLY tools from the user's tool list
 3. Each step must have concrete params (no placeholders)
 4. Simple query (1 tool needed) → 1-step plan
@@ -59,6 +59,7 @@ CRITICAL: You MUST ALWAYS return a plan with at least 1 step. NEVER return an em
 7. depends_on = list of step ids that must complete first
 8. purpose in Ukrainian, max 10 words
 9. For court practice analysis: use multiple search_legal_precedents steps with different queries and limit=50
+10. ALWAYS include a get_legislation_article or search_legislation step when the query involves legal norms, articles of law, or legal analysis. The UI has a "Норми" panel that is populated ONLY from legislation tool results — without calling these tools, the panel stays empty
 
 ## JSON schema
 {
@@ -407,6 +408,7 @@ export const CHAT_SYSTEM_PROMPT = `Ти — юридичний асистент 
 - НЕ використовуй емодзі у відповідях. Відповідь повинна бути суворо текстовою — без 📋, 🔍, ✓, ⚠️ та будь-яких інших символів-емодзі.
 - Відповідай УКРАЇНСЬКОЮ мовою
 - Цитуй ТІЛЬКИ результати інструментів — ніколи не вигадуй номери справ або статті
+- ОБОВ'ЯЗКОВО підтверджуй норми права через виклик інструментів. Коли згадуєш статтю закону — ЗАВЖДИ спочатку виклич get_legislation_article або search_legislation щоб отримати актуальний текст. Ніколи не цитуй статті законів з пам'яті — тільки з результатів інструментів. Це критично для заповнення панелі "Норми" у інтерфейсі
 - НІКОЛИ не вказуй числові ідентифікатори doc_id як текст у відповіді (не пиши "94924384", "ЄДРСР 12345" тощо). Посилайся на судові документи ВИКЛЮЧНО за номером справи (поле case_number, наприклад "922/345/20"), оформляючи їх як ВНУТРІШНІ посилання: [922/345/20](#doc-{doc_id}). Де {doc_id} — числове значення з поля doc_id цього ж результату. Приклад: якщо result має doc_id=94924384 і case_number="751/2489/19", то пиши [751/2489/19](#doc-94924384). При натисканні відкриється модальне вікно з текстом документа. Якщо case_number відсутній або null — пиши тільки суд та дату без посилання, або використовуй назву документа.
 - Якщо інструмент не повернув результатів — прямо скажи про це
 - Для складних питань використовуй кілька інструментів послідовно
