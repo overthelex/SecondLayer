@@ -18,9 +18,13 @@ export function createRestAPIRouter(db: Database): Router {
       const limit = end - start;
       const offset = start;
 
-      const userFilter = userId
-        ? { where: 'WHERE user_id = $1', params: [userId] }
-        : { where: '', params: [] };
+      if (!userId) {
+        res.setHeader('X-Total-Count', '0');
+        res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count');
+        res.json([]);
+        return;
+      }
+      const userFilter = { where: 'WHERE user_id = $1', params: [userId] };
 
       const countResult = await db.query(
         `SELECT COUNT(*) FROM documents ${userFilter.where}`,
@@ -56,12 +60,14 @@ export function createRestAPIRouter(db: Database): Router {
       const { id } = req.params;
       const userId = req.user?.id;
 
-      const result = userId
-        ? await db.query(
-            'SELECT * FROM documents WHERE id = $1 AND user_id = $2',
-            [id, userId]
-          )
-        : await db.query('SELECT * FROM documents WHERE id = $1', [id]);
+      if (!userId) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+      const result = await db.query(
+        'SELECT * FROM documents WHERE id = $1 AND user_id = $2',
+        [id, userId]
+      );
 
       if (result.rows.length === 0) {
         res.status(404).json({ error: 'Document not found' });
@@ -112,7 +118,11 @@ export function createRestAPIRouter(db: Database): Router {
       }
 
       // Only allow updating own documents (or public if no userId)
-      const ownerCheck = userId ? ` AND user_id = '${userId}'` : '';
+      if (!userId) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+      const ownerCheck = ` AND user_id = '${userId}'`;
       const result = await db.query(
         `UPDATE documents SET ${setClause}, updated_at = NOW() WHERE id = $1${ownerCheck} RETURNING *`,
         values
@@ -137,9 +147,11 @@ export function createRestAPIRouter(db: Database): Router {
       const userId = req.user?.id;
 
       // Only allow deleting own documents
-      const result = userId
-        ? await db.query('DELETE FROM documents WHERE id = $1 AND user_id = $2 RETURNING id', [id, userId])
-        : await db.query('DELETE FROM documents WHERE id = $1 RETURNING id', [id]);
+      if (!userId) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+      const result = await db.query('DELETE FROM documents WHERE id = $1 AND user_id = $2 RETURNING id', [id, userId]);
 
       if (result.rows.length === 0) {
         res.status(404).json({ error: 'Document not found' });
