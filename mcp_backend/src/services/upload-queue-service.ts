@@ -51,9 +51,10 @@ export class UploadQueueService {
     private uploadService: UploadService,
     minioService: MinioService,
     vaultTools: VaultTools,
-    pool: Pool
+    pool: Pool,
+    documentService?: import('./document-service.js').DocumentService
   ) {
-    this.deps = { uploadService, minioService, vaultTools, pool };
+    this.deps = { uploadService, minioService, vaultTools, pool, documentService };
 
     const redisHost = process.env.REDIS_HOST || 'localhost';
     const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
