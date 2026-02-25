@@ -35,6 +35,10 @@ generate_deploy_report() {
         rollback) status_icon="ROLLED BACK" ;;
     esac
 
+    # Strip ANSI escape codes from backup_id (may contain colored print_msg output)
+    local clean_backup_id
+    clean_backup_id=$(echo "${backup_id:-none}" | sed 's/\x1b\[[0-9;]*m//g' | tail -1)
+
     cat > "$report_file" << EOF
 ═══════════════════════════════════════════
   DEPLOYMENT REPORT
@@ -46,7 +50,7 @@ generate_deploy_report() {
   Duration    : ${duration_min}m ${duration_sec}s
   Git SHA     : $git_sha
   Git Branch  : $git_branch
-  Backup ID   : ${backup_id:-none}
+  Backup ID   : $clean_backup_id
 
 ───────────────────────────────────────────
   Pre-flight Checks
