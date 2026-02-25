@@ -7,6 +7,12 @@ import { Gavel, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Decision } from '../DecisionCard';
 import { ExpandableCard, EmptyTabState } from './ExpandableCard';
 
+function formatDate(raw: string): string {
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 const STATUS_LABELS: Record<string, string> = {
   active: 'Чинне',
   overturned: 'Скасовано',
@@ -76,7 +82,7 @@ export function DecisionsTab({ decisions, onOpenModal }: DecisionsTabProps) {
                   </div>
                 </div>
                 <div className="text-[11px] text-claude-subtext mb-2">
-                  {decision.court} {decision.date && `• ${decision.date}`}
+                  {decision.court} {decision.date && `• ${formatDate(decision.date)}`}
                 </div>
               </>
             }

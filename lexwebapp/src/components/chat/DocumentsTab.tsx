@@ -7,6 +7,12 @@ import { FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Decision } from '../DecisionCard';
 import { ExpandableCard, EmptyTabState } from './ExpandableCard';
 
+function formatDate(raw: string): string {
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 interface VaultDocument {
   id: string;
   title: string;
@@ -79,7 +85,7 @@ export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }:
                       {d.documentType}
                     </span>
                     {d.court && <span>{d.court}</span>}
-                    {d.date && <span>{d.date}</span>}
+                    {d.date && <span>{formatDate(d.date)}</span>}
                   </div>
                 </div>
               </div>
