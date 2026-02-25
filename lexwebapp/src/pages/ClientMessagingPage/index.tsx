@@ -3,7 +3,6 @@
  * Send messages to selected clients
  */
 
-import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ClientMessagingPage as ClientMessagingPageComponent } from '../../components/ClientMessagingPage';
 import { ROUTES } from '../../router/routes';

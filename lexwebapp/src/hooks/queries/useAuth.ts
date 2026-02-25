@@ -47,7 +47,7 @@ export function useUpdateProfile() {
 
       return { previousUser };
     },
-    onError: (err, newData, context) => {
+    onError: (_err, _newData, context) => {
       // Rollback on error
       if (context?.previousUser) {
         queryClient.setQueryData(queryKeys.auth.me, context.previousUser);

@@ -297,7 +297,7 @@ export function useAIChat(options: UseAIChatOptions = {}) {
    * Phase 1: Request plan for user review, then pause.
    */
   const executeChat = useCallback(
-    async (query: string, documentIds?: string[]) => {
+    async (query: string, _documentIds?: string[]) => {
       const userMessage = {
         id: Date.now().toString(),
         role: 'user' as const,

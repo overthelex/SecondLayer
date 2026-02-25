@@ -369,7 +369,7 @@ export function Message({
                     ),
                     pre: ({ children }) => {
                       // Check if this pre contains a document code block
-                      const child = React.Children.toArray(children)[0] as React.ReactElement;
+                      const child = React.Children.toArray(children)[0] as React.ReactElement<any>;
                       if (child?.props?.className?.includes('language-document')) {
                         // Render as DocumentTemplate — extract text content
                         const text = String(child.props.children || '').replace(/\n$/, '');
@@ -379,7 +379,7 @@ export function Message({
                         <pre className="bg-claude-sidebar border border-claude-border rounded-lg my-3 p-4 overflow-x-auto text-claude-text text-[13px]">{children}</pre>
                       );
                     },
-                    code: ({ className, children, ...props }) => {
+                    code: ({ className, children, ...props }: any) => {
                       const isBlock = className?.includes('language-');
                       if (isBlock) {
                         return <code className={`font-mono text-claude-text ${className || ''}`} {...props}>{children}</code>;

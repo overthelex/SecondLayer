@@ -208,6 +208,8 @@ export const api = {
       thinking_steps?: any[];
       decisions?: any[];
       citations?: any[];
+      documents?: any[];
+      cost_summary?: any;
     }) => apiClient.post(`/api/conversations/${conversationId}/messages`, message),
   },
 
@@ -387,6 +389,8 @@ export const api = {
       apiClient.put(`/api/admin/tool-pricing/${toolName}`, data),
     bulkMarkupToolPricing: (data: { markup_percent: number; service?: string }) =>
       apiClient.post('/api/admin/tool-pricing/bulk-markup', data),
+    getZOStats: (params: { yearFrom: number; yearTo: number; justiceKind: string }) =>
+      apiClient.get('/api/admin/zo-stats', { params }),
   },
 
   // GDPR

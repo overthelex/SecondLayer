@@ -3,7 +3,7 @@
  * Displays invoice history with PDF download capability
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   FileText,

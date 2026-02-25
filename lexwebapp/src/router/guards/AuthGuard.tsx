@@ -14,7 +14,7 @@ import { OrganizationSetupModal } from '../../components/organization/Organizati
 export const AuthGuard: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [showOrgModal, setShowOrgModal] = useState(false);
-  const [orgChecked, setOrgChecked] = useState(false);
+  const [, setOrgChecked] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;

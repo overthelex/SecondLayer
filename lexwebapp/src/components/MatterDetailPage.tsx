@@ -3,7 +3,7 @@
  * Tabbed layout: overview, team, holds, documents, activity
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -13,7 +13,6 @@ import {
   Shield,
   FileText,
   Clock,
-  Edit3,
   Building2,
   User,
   Gavel,
@@ -30,7 +29,7 @@ import { useClient } from '../hooks/queries/useClients';
 import { HoldsList } from './matters/HoldsList';
 import { AuditLogViewer } from './audit/AuditLogViewer';
 import { generateRoute } from '../router/routes';
-import type { Matter, MatterTeamRole, MatterAccessLevel } from '../types/models/Matter';
+import type { Matter, MatterTeamRole } from '../types/models/Matter';
 
 interface MatterDetailPageProps {
   matter: Matter;

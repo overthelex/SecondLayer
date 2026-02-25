@@ -1,4 +1,3 @@
-import React from 'react';
 import { Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 interface EmptyStateProps {

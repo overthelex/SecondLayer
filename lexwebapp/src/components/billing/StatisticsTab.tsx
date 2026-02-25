@@ -16,15 +16,11 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
-  Legend,
   BarChart,
   Bar,
 } from 'recharts';
 import {
   TrendingUp,
-  TrendingDown,
   AlertCircle,
   RefreshCw,
   Download,
@@ -329,7 +325,7 @@ export function StatisticsTab() {
                         borderRadius: '8px',
                         fontSize: '13px',
                       }}
-                      formatter={(value: number) => [value, 'Запитів']}
+                      formatter={(value: any) => [value, 'Запитів']}
                     />
                     <Area
                       type="monotone"
@@ -365,11 +361,11 @@ export function StatisticsTab() {
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value">
-                      {data.costByService.map((entry, index) => (
+                      {data.costByService.map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: number) => formatCost(value)} />
+                    <Tooltip formatter={(value: any) => formatCost(value)} />
                   </PieChart>
                 </ResponsiveContainer>
               </motion.div>
@@ -398,7 +394,7 @@ export function StatisticsTab() {
                       borderRadius: '8px',
                       fontSize: '13px',
                     }}
-                    formatter={(value: number) => [formatCost(value), 'Витрати']}
+                    formatter={(value: any) => [formatCost(value), 'Витрати']}
                   />
                   <Bar
                     dataKey="cost"

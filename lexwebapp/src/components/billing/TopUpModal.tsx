@@ -3,7 +3,7 @@
  * Wraps TopUpTab in a full-screen modal overlay
  */
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { TopUpTab } from './TopUpTab';
@@ -16,7 +16,7 @@ interface TopUpModalProps {
   upgradeTier?: string;
 }
 
-export function TopUpModal({ isOpen, onClose, onSuccess, initialAmount, upgradeTier }: TopUpModalProps) {
+export function TopUpModal({ isOpen, onClose, onSuccess: _onSuccess, initialAmount, upgradeTier }: TopUpModalProps) {
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

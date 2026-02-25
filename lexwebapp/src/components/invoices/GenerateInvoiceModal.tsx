@@ -3,8 +3,8 @@
  * Select unbilled time entries and generate invoice
  */
 
-import React, { useState } from 'react';
-import { Loader2, CheckCircle, DollarSign } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useGenerateInvoice } from '../../hooks/queries';
 import { useTimeEntries } from '../../hooks/queries/useTimeEntries';

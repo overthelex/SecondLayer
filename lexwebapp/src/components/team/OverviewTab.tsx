@@ -3,17 +3,12 @@
  * Displays team members, statistics, roles, and management functions
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Plus,
-  MoreVertical,
-  Mail,
-  Edit2,
   Trash2,
   RotateCw,
-  AlertCircle,
-  ChevronDown,
 } from 'lucide-react';
 import { api } from '../../utils/api-client';
 import { TeamMember, TeamStats, PermissionRow } from '../../types/models/Team';

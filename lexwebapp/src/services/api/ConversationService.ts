@@ -84,6 +84,7 @@ export class ConversationService extends BaseService {
       thinking_steps?: any[];
       decisions?: any[];
       citations?: any[];
+      documents?: any[];
       tool_calls?: any[];
       cost_tracking_id?: string;
       cost_summary?: any;

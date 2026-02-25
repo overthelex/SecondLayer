@@ -3,7 +3,7 @@
  * Reusable legal holds list component
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Lock,
@@ -61,7 +61,6 @@ export function HoldsList({ matterId }: HoldsListProps) {
 
   const holds = data?.holds || [];
   const activeHolds = holds.filter((h) => h.status === 'active');
-  const releasedHolds = holds.filter((h) => h.status !== 'active');
 
   return (
     <div className="space-y-4">
