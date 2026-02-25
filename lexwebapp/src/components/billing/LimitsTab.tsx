@@ -9,7 +9,6 @@ import { motion } from 'framer-motion';
 import {
   AlertTriangle,
   Bell,
-  Zap,
   TrendingUp,
   Target,
   RefreshCw,

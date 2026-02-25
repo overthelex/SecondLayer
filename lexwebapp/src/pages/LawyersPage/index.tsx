@@ -3,7 +3,6 @@
  * Wrapper for LawyersPage component with routing logic
  */
 
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LawyersPage as LawyersPageComponent } from '../../components/LawyersPage';
 import { generateRoute } from '../../router/routes';

@@ -1,96 +1,16 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import {
-  Search,
   Scale,
   TrendingUp,
-  Download,
   FileText,
-  Eye,
-  CheckCircle,
-  XCircle,
   BarChart3,
-  Calendar,
   ArrowLeft,
-  ChevronDown,
   Building2,
-  Users,
-  Tag } from
-'lucide-react';
-interface CourtCase {
-  id: string;
-  number: string;
-  court: string;
-  date: string;
-  result: 'approved' | 'rejected';
-}
+} from 'lucide-react';
 interface CourtPracticeAnalysisPageProps {
   onBack?: () => void;
 }
-const mockCases: CourtCase[] = [
-{
-  id: '1',
-  number: '123/456/2024',
-  court: 'ВС',
-  date: '15.01.2024',
-  result: 'approved'
-},
-{
-  id: '2',
-  number: '789/012/2024',
-  court: 'КАС',
-  date: '10.01.2024',
-  result: 'rejected'
-},
-{
-  id: '3',
-  number: '345/678/2024',
-  court: 'ВС',
-  date: '08.01.2024',
-  result: 'approved'
-},
-{
-  id: '4',
-  number: '901/234/2024',
-  court: 'ХОС',
-  date: '05.01.2024',
-  result: 'approved'
-},
-{
-  id: '5',
-  number: '567/890/2024',
-  court: 'КАС',
-  date: '03.01.2024',
-  result: 'rejected'
-}];
-
-const categories = [
-{
-  id: 'civil',
-  label: 'Цивільні',
-  icon: '⚖️'
-},
-{
-  id: 'criminal',
-  label: 'Кримінальні',
-  icon: '🔒'
-},
-{
-  id: 'administrative',
-  label: 'Адміністративні',
-  icon: '🏛️'
-},
-{
-  id: 'economic',
-  label: 'Господарські',
-  icon: '💼'
-},
-{
-  id: 'electoral',
-  label: 'Виборчі',
-  icon: '🗳️'
-}];
-
 const topCourts = [
 {
   name: 'Верховний Суд',
@@ -135,68 +55,13 @@ const keyArguments = [
   count: 34
 }];
 
-const monthlyData = [
-{
-  month: 'Січ',
-  count: 45
-},
-{
-  month: 'Лют',
-  count: 52
-},
-{
-  month: 'Бер',
-  count: 38
-},
-{
-  month: 'Квіт',
-  count: 61
-},
-{
-  month: 'Трав',
-  count: 48
-},
-{
-  month: 'Черв',
-  count: 55
-},
-{
-  month: 'Лип',
-  count: 42
-},
-{
-  month: 'Серп',
-  count: 39
-},
-{
-  month: 'Вер',
-  count: 47
-},
-{
-  month: 'Жовт',
-  count: 53
-},
-{
-  month: 'Лист',
-  count: 28
-},
-{
-  month: 'Груд',
-  count: 15
-}];
-
 export function CourtPracticeAnalysisPage({
   onBack
 }: CourtPracticeAnalysisPageProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [dateFrom, setDateFrom] = useState('2024-01-01');
-  const [dateTo, setDateTo] = useState('2026-01-19');
-  const [showResults, setShowResults] = useState(false);
-  const handleAnalyze = () => {
-    setShowResults(true);
-  };
-  const maxCount = Math.max(...monthlyData.map((d) => d.count));
+  const [_searchQuery, _setSearchQuery] = useState('');
+  const [_selectedCategory, _setSelectedCategory] = useState<string | null>(null);
+  const [_dateFrom, _setDateFrom] = useState('2024-01-01');
+  const [_dateTo, _setDateTo] = useState('2026-01-19');
   return (
     <div className="flex-1 h-full overflow-y-auto bg-claude-bg p-4 md:p-8 lg:p-12 pb-32">
       <div className="max-w-6xl mx-auto space-y-6">

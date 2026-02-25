@@ -3,7 +3,6 @@
  * Common layout structure with sidebar, header, and content area
  */
 
-import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { X, Menu, PanelRightOpen } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';

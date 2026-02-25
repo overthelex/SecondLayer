@@ -69,23 +69,6 @@ export function useUpdateBillingSettings() {
 }
 
 /**
- * Create Stripe payment
- */
-export function useCreateStripePayment() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ amount, metadata }: { amount: number; metadata?: any }) =>
-      billingService.createStripePayment(amount, metadata),
-    onSuccess: () => {
-      // Invalidate balance after payment
-      queryClient.invalidateQueries({ queryKey: queryKeys.billing.balance });
-      queryClient.invalidateQueries({ queryKey: queryKeys.billing.transactions() });
-    },
-  });
-}
-
-/**
  * Send test email
  */
 export function useSendTestEmail() {

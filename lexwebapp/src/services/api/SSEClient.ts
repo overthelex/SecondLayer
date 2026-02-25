@@ -85,7 +85,7 @@ export class SSEClient {
   private async processStream(
     body: ReadableStream<Uint8Array>,
     handlers: StreamingCallbacks,
-    controller: AbortController
+    _controller: AbortController
   ): Promise<void> {
     const reader = body.getReader();
     const decoder = new TextDecoder();

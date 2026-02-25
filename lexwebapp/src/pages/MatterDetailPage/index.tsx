@@ -3,7 +3,6 @@
  * Fetches matter by URL param
  */
 
-import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MatterDetailPage as MatterDetailPageComponent } from '../../components/MatterDetailPage';
 import { useMatter } from '../../hooks/queries/useMatters';

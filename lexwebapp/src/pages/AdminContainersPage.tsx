@@ -3,7 +3,7 @@
  * Per-container CPU, memory, and network metrics from cAdvisor
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   RefreshCw,
   ChevronDown,
@@ -11,7 +11,6 @@ import {
   Cpu,
   HardDrive,
   Activity,
-  Wifi,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -54,7 +53,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-function formatTime(ts: number): string {
+function formatTime(ts: any): string {
   return new Date(ts * 1000).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
@@ -323,7 +322,7 @@ export function AdminContainersPage() {
                     <Tooltip
                       {...tooltipStyle}
                       labelFormatter={formatTime}
-                      formatter={(value: number, name: string) => [`${value.toFixed(2)}%`, name]}
+                      formatter={(value: any, name: any) => [`${value.toFixed(2)}%`, name]}
                     />
                     <Legend wrapperStyle={{ fontSize: '11px' }} />
                     {containerNames.map((name, i) => (
@@ -353,7 +352,7 @@ export function AdminContainersPage() {
                     <Tooltip
                       {...tooltipStyle}
                       labelFormatter={formatTime}
-                      formatter={(value: number, name: string) => [`${value.toFixed(1)} MB`, name]}
+                      formatter={(value: any, name: any) => [`${value.toFixed(1)} MB`, name]}
                     />
                     <Legend wrapperStyle={{ fontSize: '11px' }} />
                     {memNames.map((name, i) => (

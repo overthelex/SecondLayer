@@ -7,8 +7,6 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Clock,
-  Search,
-  Calendar,
   DollarSign,
   CheckCircle,
   XCircle,

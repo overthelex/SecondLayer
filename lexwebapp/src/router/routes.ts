@@ -85,6 +85,7 @@ export const ROUTES = {
   ADMIN_SERVICE_PRICING: '/admin/service-pricing',
   ADMIN_TERMINAL: '/admin/terminal',
   ADMIN_USER_ACTIVITY: '/admin/user-activity',
+  ADMIN_ZO_STATS: '/admin/zo-stats',
 } as const;
 
 // Helper function to generate dynamic routes

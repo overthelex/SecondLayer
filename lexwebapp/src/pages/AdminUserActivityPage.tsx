@@ -3,7 +3,7 @@
  * Live feed of recent user activity — who was last online and what they did
  */
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   RefreshCw,
   Clock,

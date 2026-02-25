@@ -2,7 +2,6 @@
  * Release Hold Confirmation Dialog
  */
 
-import React from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useReleaseHold } from '../../hooks/queries/useMatters';

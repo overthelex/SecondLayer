@@ -3,7 +3,7 @@
  * List of matters with search, status filter, and client filter
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,

@@ -3,7 +3,7 @@
  * Combines Transactions and Invoices with a sub-toggle
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Receipt, FileText } from 'lucide-react';
 import { TransactionsTab } from './TransactionsTab';
 import { InvoicesTab } from './InvoicesTab';

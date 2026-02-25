@@ -12,7 +12,7 @@
  * - Everything else is normal body text
  */
 
-import React, { useRef, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 import { Copy, FileText, FileDown } from 'lucide-react';
 import showToast from '../utils/toast';
 

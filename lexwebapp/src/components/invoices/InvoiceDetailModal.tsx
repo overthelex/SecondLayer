@@ -3,8 +3,8 @@
  * View invoice details, line items, payments, and record payments
  */
 
-import React, { useState } from 'react';
-import { Loader2, Download, DollarSign, Calendar, FileText, CreditCard } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2, Download, DollarSign, Calendar, CreditCard } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Spinner } from '../ui/Spinner';
 import { useInvoice, useDownloadInvoicePDF, useRecordPayment } from '../../hooks/queries';

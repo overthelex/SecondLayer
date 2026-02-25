@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   Scale,
   Gavel,
@@ -13,9 +13,8 @@ import {
   Users,
   Tag,
   ArrowLeft,
-  ChevronDown,
-  Target } from
-'lucide-react';
+  Target,
+} from 'lucide-react';
 interface LegalArea {
   id: string;
   name: string;

@@ -3,7 +3,6 @@
  * Displays details for a judge or lawyer
  */
 
-import React from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { PersonDetailPage as PersonDetailPageComponent } from '../../components/PersonDetailPage';
 import { ROUTES } from '../../router/routes';
@@ -15,7 +14,7 @@ interface PersonDetailPageProps {
 export function PersonDetailPage({ type }: PersonDetailPageProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const { id: _id } = useParams<{ id: string }>();
 
   // Get person data from location state or fetch it based on ID
   const person = location.state?.person?.data;

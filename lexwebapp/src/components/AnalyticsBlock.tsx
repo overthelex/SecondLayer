@@ -1,4 +1,3 @@
-import React from 'react';
 import { BarChart3, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { motion } from 'framer-motion';
 interface AnalyticsData {

@@ -3,12 +3,12 @@
  * Used by DecisionsTab, RegulationsTab and DocumentsTab.
  */
 
-import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Copy, Check, Maximize2, ExternalLink, Eye } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
+import { Copy, Check, Maximize2, ExternalLink, Eye } from 'lucide-react';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
-const cardVariants = {
+const cardVariants: Variants = {
   hidden: { opacity: 0, y: 8 },
   visible: (i: number) => ({
     opacity: 1,
@@ -33,7 +33,7 @@ interface ExpandableCardProps {
 export function ExpandableCard({
   id,
   index,
-  icon: Icon,
+  icon: _Icon,
   header,
   preview,
   content,
