@@ -102,17 +102,14 @@ export function ExpandableCard({
                     Повний вигляд
                   </button>
                 )}
-                {externalUrl && (
-                  <a
-                    href={externalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
+                {externalUrl && onOpenModal && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onOpenModal(); }}
                     className="flex items-center gap-1 text-[10px] text-claude-subtext hover:text-claude-text px-2 py-1 rounded-md hover:bg-claude-bg transition-colors"
                   >
                     <ExternalLink size={11} />
                     Відкрити
-                  </a>
+                  </button>
                 )}
               </div>
             </div>

@@ -8,6 +8,7 @@ import { useEvidenceAggregator } from '../hooks/chat/useEvidenceAggregator';
 import { DecisionsTab } from './chat/DecisionsTab';
 import { RegulationsTab } from './chat/RegulationsTab';
 import { DocumentsTab } from './chat/DocumentsTab';
+import { mcpService } from '../services/api/MCPService';
 
 interface DocumentViewerItem {
   type: 'decision' | 'citation' | 'document';
@@ -32,6 +33,14 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   court_decision: 'Судове рішення',
   internal: 'Внутрішній',
   other: 'Інше',
+};
+
+const SECTION_TYPE_LABELS: Record<string, string> = {
+  HEADER: 'Заголовок',
+  FACTS: 'Обставини справи',
+  COURT_REASONING: 'Мотивувальна частина',
+  DECISION: 'Резолютивна частина',
+  DISSENT: 'Окрема думка',
 };
 
 interface RightPanelProps {
@@ -66,8 +75,10 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
   // --- Viewer modal state ---
   const [viewerItem, setViewerItem] = useState<DocumentViewerItem | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [isViewerLoading, setIsViewerLoading] = useState(false);
 
-  const openDecisionModal = (d: Decision) => {
+  const openDecisionModal = async (d: Decision) => {
+    // Open modal immediately with summary while loading
     setViewerItem({
       type: 'decision',
       title: d.number,
@@ -76,8 +87,41 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
       badgeVariant: d.status as 'active' | 'overturned' | 'modified',
       content: d.summary || 'Немає тексту рішення.',
       relevance: d.relevance,
+      externalUrl: d.externalUrl,
     });
     setIsViewerOpen(true);
+
+    // Try to fetch full text if we have a docId or case number
+    const docId = d.docId;
+    const caseNumber = d.number !== 'N/A' ? d.number : undefined;
+
+    if (docId || caseNumber) {
+      setIsViewerLoading(true);
+      try {
+        const params: Record<string, any> = { depth: 5 };
+        if (docId) params.doc_id = docId;
+        else if (caseNumber) params.case_number = caseNumber;
+
+        const result = await mcpService.callTool('get_court_decision', params);
+        const parsed = parseToolResult(result);
+
+        if (parsed?.sections && Array.isArray(parsed.sections) && parsed.sections.length > 0) {
+          const fullText = parsed.sections
+            .map((s: any) => {
+              const label = SECTION_TYPE_LABELS[s.type] || s.type;
+              return `## ${label}\n\n${s.text}`;
+            })
+            .join('\n\n---\n\n');
+
+          setViewerItem(prev => prev ? { ...prev, content: fullText } : prev);
+        }
+      } catch (err) {
+        console.error('Failed to fetch full decision text:', err);
+        // Keep showing the summary — no need to show error
+      } finally {
+        setIsViewerLoading(false);
+      }
+    }
   };
 
   const openCitationModal = (c: { text: string; source: string }) => {
@@ -231,6 +275,20 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
       isOpen={isViewerOpen}
       onClose={() => setIsViewerOpen(false)}
       item={viewerItem}
+      isLoading={isViewerLoading}
     />
   </>;
+}
+
+/** Parse MCP tool result wrapper to get the inner JSON payload */
+function parseToolResult(data: any): any {
+  try {
+    if (data?.result?.content?.[0]?.text) {
+      return JSON.parse(data.result.content[0].text);
+    }
+    if (data?.result) return data.result;
+    return data;
+  } catch {
+    return data;
+  }
 }

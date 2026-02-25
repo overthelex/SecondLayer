@@ -36,6 +36,7 @@ export function extractCourtEvidence(toolName: string, parsed: any): EvidenceRes
       status: 'active',
       documentType: classifyDocumentType(sc),
       externalUrl: courtDocUrl(sc.doc_id),
+      docId: sc.doc_id ? String(sc.doc_id) : undefined,
     });
   }
 
@@ -57,6 +58,7 @@ export function extractCourtEvidence(toolName: string, parsed: any): EvidenceRes
       status: 'active',
       documentType: classifyDocumentType(c),
       externalUrl: courtDocUrl(c.doc_id),
+      docId: c.doc_id ? String(c.doc_id) : undefined,
     });
   }
 
@@ -78,6 +80,7 @@ export function extractCourtEvidence(toolName: string, parsed: any): EvidenceRes
       status: 'active',
       documentType: classifyDocumentType(doc),
       externalUrl: courtDocUrl(doc.doc_id),
+      docId: doc.doc_id ? String(doc.doc_id) : undefined,
     });
   }
 
@@ -94,6 +97,7 @@ export function extractCourtEvidence(toolName: string, parsed: any): EvidenceRes
       status: 'active',
       documentType: classifyDocumentType(c),
       externalUrl: courtDocUrl(c.doc_id),
+      docId: c.doc_id ? String(c.doc_id) : undefined,
     });
   }
 
@@ -109,6 +113,7 @@ export function extractCourtEvidence(toolName: string, parsed: any): EvidenceRes
       relevance: 100,
       status: 'active',
       externalUrl: courtDocUrl(parsed.doc_id),
+      docId: parsed.doc_id ? String(parsed.doc_id) : undefined,
     });
   }
 

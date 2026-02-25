@@ -68,6 +68,7 @@ export interface Decision {
   status: 'active' | 'overturned' | 'modified';
   documentType?: string;
   externalUrl?: string;
+  docId?: string;
 }
 
 export interface Citation {
