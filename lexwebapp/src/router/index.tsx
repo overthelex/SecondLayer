@@ -198,6 +198,10 @@ export const router = createBrowserRouter([
             element: <DocumentsPage />,
           },
           {
+            path: ROUTES.DOCUMENTS_FOLDER,
+            element: <DocumentsPage />,
+          },
+          {
             path: ROUTES.CASE_ANALYSIS,
             element: <CaseAnalysisPage />,
           },

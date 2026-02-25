@@ -90,6 +90,11 @@ export function MainLayout() {
     if (location.pathname.startsWith('/matters/')) {
       return 'Деталі справи';
     }
+    if (location.pathname.startsWith('/documents/folders/')) {
+      const folderPath = location.pathname.replace('/documents/folders/', '');
+      const segments = folderPath.split('/').filter(Boolean);
+      return segments.length > 0 ? `Документи / ${segments.join(' / ')}` : 'Документи';
+    }
 
     return 'SecondLayer';
   };
