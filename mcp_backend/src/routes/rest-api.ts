@@ -19,7 +19,7 @@ export function createRestAPIRouter(db: Database): Router {
       const offset = start;
 
       const userFilter = userId
-        ? { where: 'WHERE (user_id = $1 OR user_id IS NULL)', params: [userId] }
+        ? { where: 'WHERE user_id = $1', params: [userId] }
         : { where: '', params: [] };
 
       const countResult = await db.query(
@@ -58,7 +58,7 @@ export function createRestAPIRouter(db: Database): Router {
 
       const result = userId
         ? await db.query(
-            'SELECT * FROM documents WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)',
+            'SELECT * FROM documents WHERE id = $1 AND user_id = $2',
             [id, userId]
           )
         : await db.query('SELECT * FROM documents WHERE id = $1', [id]);
@@ -112,7 +112,7 @@ export function createRestAPIRouter(db: Database): Router {
       }
 
       // Only allow updating own documents (or public if no userId)
-      const ownerCheck = userId ? ` AND (user_id = '${userId}' OR user_id IS NULL)` : '';
+      const ownerCheck = userId ? ` AND user_id = '${userId}'` : '';
       const result = await db.query(
         `UPDATE documents SET ${setClause}, updated_at = NOW() WHERE id = $1${ownerCheck} RETURNING *`,
         values
