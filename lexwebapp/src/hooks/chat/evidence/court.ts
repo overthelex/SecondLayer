@@ -10,6 +10,11 @@ const COURT_TOOLS = [
   'compare_practice_pro_contra',
   'get_court_decision',
   'count_cases_by_party',
+  'check_precedent_status',
+  'analyze_case_pattern',
+  'get_similar_reasoning',
+  'get_citation_graph',
+  'get_case_text',
 ];
 
 export function extractCourtEvidence(toolName: string, parsed: any): EvidenceResult {
