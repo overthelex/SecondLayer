@@ -2,6 +2,32 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Architecture
+
+- This is a monorepo with shared/backend/frontend packages. The app runs in Docker locally (nginx, backend, frontend, DB, MinIO).
+- Frontend API calls go through nginx. When changing API URLs or paths, trace the FULL request path (frontend → nginx → backend) before making changes to avoid cascading breakage.
+- Features should render results in the right panel/evidence panel, NOT in the chat window, unless explicitly told otherwise.
+
+## TypeScript
+
+- This project uses TypeScript throughout. After making multi-file changes, always run the TypeScript build (`tsc` or the build script) and fix all type errors before committing.
+- When removing or refactoring tools/functions, grep for ALL references across the monorepo before deleting to avoid stale references.
+
+## Deployment
+
+- After making code changes, always rebuild Docker images before testing (`docker compose build <service>` then `docker compose up -d`). Never test against stale containers.
+- Local dev runs in Docker. Do NOT attempt to restart backend processes directly — always use docker compose commands.
+
+## Git Workflow
+
+- When asked to commit and push, commit ONLY the files relevant to the current task. Do not stage unrelated files or over-scope commits.
+- If the user says a number or short response after listing options, ask for clarification rather than assuming intent.
+
+## Working Style
+
+- Prefer action over analysis. When the user asks to implement something, start coding after brief analysis (< 2 minutes exploration). Do NOT spend the whole session producing plans without writing code.
+- If asked to fix a specific bug, stay focused on that bug. Do not go down rabbit holes investigating tangentially related issues unless explicitly asked.
+
 ## Project Stack
 
 - Monorepo with shared/backend/frontend packages
