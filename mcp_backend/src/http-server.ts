@@ -287,7 +287,8 @@ class HTTPMCPServer {
       this.uploadService,
       this.minioService,
       this.vaultTools,
-      this.services.db.getPool()
+      this.services.db.getPool(),
+      this.services.documentService
     );
     this.uploadQueueService.startWorker();
     logger.info('BullMQ upload queue service initialized');
@@ -338,7 +339,8 @@ class HTTPMCPServer {
       this.uploadService,
       this.minioService,
       this.vaultTools,
-      this.services.db.getPool()
+      this.services.db.getPool(),
+      this.services.documentService
     );
     this.uploadRecoveryService.setQueueService(this.uploadQueueService);
 
@@ -1636,7 +1638,8 @@ class HTTPMCPServer {
       this.minioService,
       this.vaultTools,
       this.services.db.getPool(),
-      this.uploadQueueService
+      this.uploadQueueService,
+      this.services.documentService
     ));
     logger.info('Upload routes registered at /api/upload');
 

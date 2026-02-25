@@ -23,9 +23,10 @@ export class UploadRecoveryService {
     private uploadService: UploadService,
     minioService: MinioService,
     vaultTools: VaultTools,
-    pool: Pool
+    pool: Pool,
+    documentService?: import('./document-service.js').DocumentService
   ) {
-    this.deps = { uploadService, minioService, vaultTools, pool };
+    this.deps = { uploadService, minioService, vaultTools, pool, documentService };
   }
 
   /**

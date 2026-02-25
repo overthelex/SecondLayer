@@ -5,6 +5,7 @@ import fs from 'fs/promises';
 import { logger } from '../utils/logger.js';
 import { UploadService } from '../services/upload-service.js';
 import { MinioService } from '../services/minio-service.js';
+import { DocumentService } from '../services/document-service.js';
 import { VaultTools } from '../api/vault-tools.js';
 import { processUploadFile, ProcessorDeps } from '../services/upload-processor.js';
 import { AuthenticatedRequest as DualAuthRequest } from '../middleware/dual-auth.js';
@@ -117,7 +118,8 @@ export function createUploadRouter(
   minioService: MinioService,
   vaultTools: VaultTools,
   pool: Pool,
-  uploadQueueService?: UploadQueueService
+  uploadQueueService?: UploadQueueService,
+  documentService?: DocumentService
 ): Router {
   const router = Router();
 
@@ -367,7 +369,7 @@ export function createUploadRouter(
             error: error.message,
           });
           // Fallback to in-memory processing
-          processUpload(session, uploadService, minioService, vaultTools, pool).catch((err) => {
+          processUpload(session, uploadService, minioService, vaultTools, pool, undefined, documentService).catch((err) => {
             logger.error('[Upload] Fallback processing failed', {
               uploadId: session.id,
               error: err.message,
@@ -375,7 +377,7 @@ export function createUploadRouter(
           });
         });
       } else {
-        processUpload(session, uploadService, minioService, vaultTools, pool).catch((error) => {
+        processUpload(session, uploadService, minioService, vaultTools, pool, undefined, documentService).catch((error) => {
           logger.error('[Upload] Background processing failed', {
             uploadId: session.id,
             error: error.message,
@@ -497,7 +499,7 @@ export function createUploadRouter(
           });
         });
       } else {
-        processUpload(session, uploadService, minioService, vaultTools, pool, { manualRetry: true }).catch((error) => {
+        processUpload(session, uploadService, minioService, vaultTools, pool, { manualRetry: true }, documentService).catch((error) => {
           logger.error('[Upload] Manual retry failed', {
             uploadId: session.id,
             error: error.message,
@@ -577,9 +579,10 @@ async function processUpload(
   minioService: MinioService,
   vaultTools: VaultTools,
   pool: Pool,
-  extraMetadata?: Record<string, any>
+  extraMetadata?: Record<string, any>,
+  documentService?: DocumentService
 ): Promise<void> {
-  const deps: ProcessorDeps = { uploadService, minioService, vaultTools, pool };
+  const deps: ProcessorDeps = { uploadService, minioService, vaultTools, pool, documentService };
 
   await acquireProcessingSlot(session.userId);
   try {
