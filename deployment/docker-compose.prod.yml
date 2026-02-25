@@ -171,7 +171,7 @@ services:
     - "127.0.0.1:6383:6379"
     volumes:
     - redis_prod_data:/data
-    command: redis-server --appendonly yes --maxmemory 1536mb --maxmemory-policy noeviction
+    command: redis-server --appendonly yes --maxmemory 1536mb --maxmemory-policy volatile-lru
     healthcheck:
       test:
       - CMD
