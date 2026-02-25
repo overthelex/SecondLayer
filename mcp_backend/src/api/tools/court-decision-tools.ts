@@ -75,7 +75,7 @@ export class CourtDecisionTools extends BaseToolHandler {
             include_full_text: {
               type: 'boolean',
               default: false,
-              description: 'Включить полный текст документов (увеличивает размер ответа)'
+              description: 'Включить полный текст документов. Установите true когда пользователь просит "полный текст", "текст решения", анализ конкретного дела или любой глубокий анализ содержания решений. false возвращает только метаданные (суд, дата, тип) без текста.'
             },
             max_docs: {
               type: 'number',
