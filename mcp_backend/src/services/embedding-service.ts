@@ -11,7 +11,9 @@ const CHUNK_OVERLAP = 50;
 
 export type VoyageTokensCallback = (tokens: number, model: string, task: string) => void;
 
-export class EmbeddingService {
+import type { IEmbeddingPort } from '../domain/ports/index.js';
+
+export class EmbeddingService implements IEmbeddingPort {
   private voyageClient = new VoyageAIClient(process.env.VOYAGEAI_API_KEY!);
   private qdrant: QdrantClient;
   private collectionName = 'legal_sections';

@@ -1,6 +1,7 @@
 import { BaseDatabase, DatabaseConfig } from '@secondlayer/shared';
+import type { IDatabase } from '../domain/ports/index.js';
 
-export class Database extends BaseDatabase {
+export class Database extends BaseDatabase implements IDatabase {
   constructor() {
     const config: DatabaseConfig = {
       host: process.env.POSTGRES_HOST || 'localhost',
