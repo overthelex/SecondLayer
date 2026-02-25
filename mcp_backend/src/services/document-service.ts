@@ -311,7 +311,7 @@ export class DocumentService {
   ): Promise<{ documents: Document[]; total: number }> {
     const limit = options.limit || 20;
     const offset = options.offset || 0;
-    const conditions = ['(user_id = $1 OR user_id IS NULL)'];
+    const conditions = ['user_id = $1'];
     const params: any[] = [userId];
     let paramIndex = 2;
 
@@ -351,7 +351,7 @@ export class DocumentService {
    */
   async getDocumentForUser(id: string, userId: string): Promise<Document | null> {
     const result = await this.db.query(
-      `SELECT * FROM documents WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
+      `SELECT * FROM documents WHERE id = $1 AND user_id = $2`,
       [id, userId]
     );
     return result.rows[0] || null;

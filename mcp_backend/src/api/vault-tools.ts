@@ -591,9 +591,9 @@ Pipeline:
       const params: any[] = [];
       let paramIndex = 1;
 
-      // User isolation: show own + public documents
+      // User isolation: show only own documents
       if (args.userId) {
-        conditions.push(`(user_id = $${paramIndex} OR user_id IS NULL)`);
+        conditions.push(`user_id = $${paramIndex}`);
         params.push(args.userId);
         paramIndex++;
       }
@@ -702,7 +702,7 @@ Pipeline:
       let paramIndex = 1;
 
       if (args.userId) {
-        conditions.push(`(user_id = $${paramIndex} OR user_id IS NULL)`);
+        conditions.push(`user_id = $${paramIndex}`);
         params.push(args.userId);
         paramIndex++;
       }
@@ -819,7 +819,7 @@ Pipeline:
             SELECT id, type, title, metadata
             FROM documents
             WHERE id = ANY($1)
-            ${args.userId ? 'AND (user_id = $2 OR user_id IS NULL)' : ''}
+            ${args.userId ? 'AND user_id = $2' : ''}
           `;
           const params: any[] = args.userId ? [uniqueIds, args.userId] : [uniqueIds];
           const docsResult = await this.documentService['db'].query(docsQuery, params);
