@@ -93,7 +93,8 @@ export function MainLayout() {
     if (location.pathname.startsWith('/documents/folders/')) {
       const folderPath = location.pathname.replace('/documents/folders/', '');
       const segments = folderPath.split('/').filter(Boolean);
-      return segments.length > 0 ? `Документи / ${segments.join(' / ')}` : 'Документи';
+      const decoded = segments.map(s => { try { return decodeURIComponent(s); } catch { return s; } });
+      return decoded.length > 0 ? `Документи / ${decoded.join(' / ')}` : 'Документи';
     }
 
     return 'SecondLayer';
