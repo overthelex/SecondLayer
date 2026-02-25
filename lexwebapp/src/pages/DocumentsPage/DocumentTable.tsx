@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   FileText,
@@ -8,8 +8,12 @@ import {
   Image,
   Film,
   FileSpreadsheet,
+  Eye,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import type { VaultDocument, SortField, SortOrder } from './types';
+import { isEditable } from './types';
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   contract: 'Договір',
@@ -67,6 +71,9 @@ interface DocumentTableProps {
   sortOrder: SortOrder;
   onSort: (field: SortField) => void;
   onDocumentClick: (doc: VaultDocument) => void;
+  onView: (doc: VaultDocument) => void;
+  onEdit: (doc: VaultDocument) => void;
+  onDelete: (doc: VaultDocument) => void;
 }
 
 function SortIcon({ field, sortBy, sortOrder }: { field: SortField; sortBy: SortField; sortOrder: SortOrder }) {
@@ -106,7 +113,86 @@ function SortableHeader({
   );
 }
 
-export function DocumentTable({ documents, sortBy, sortOrder, onSort, onDocumentClick }: DocumentTableProps) {
+function RowContextMenu({
+  doc,
+  onView,
+  onEdit,
+  onDelete,
+}: {
+  doc: VaultDocument;
+  onView: (doc: VaultDocument) => void;
+  onEdit: (doc: VaultDocument) => void;
+  onDelete: (doc: VaultDocument) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        className="p-1 text-claude-subtext/30 hover:text-claude-text transition-colors opacity-0 group-hover:opacity-100"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+      >
+        <MoreVertical size={14} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-50 w-44 bg-white border border-claude-border rounded-xl shadow-lg py-1">
+          <button
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-claude-text hover:bg-claude-bg transition-colors font-sans"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onView(doc);
+            }}
+          >
+            <Eye size={14} className="text-claude-subtext/60" />
+            Переглянути
+          </button>
+          {isEditable(doc.metadata?.mimeType) && (
+            <button
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-claude-text hover:bg-claude-bg transition-colors font-sans"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+                onEdit(doc);
+              }}
+            >
+              <Pencil size={14} className="text-claude-subtext/60" />
+              Редагувати
+            </button>
+          )}
+          <button
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-sans"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onDelete(doc);
+            }}
+          >
+            <Trash2 size={14} />
+            Видалити
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function DocumentTable({ documents, sortBy, sortOrder, onSort, onDocumentClick, onView, onEdit, onDelete }: DocumentTableProps) {
   return (
     <div className="bg-white rounded-2xl border border-claude-border shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
@@ -182,12 +268,12 @@ export function DocumentTable({ documents, sortBy, sortOrder, onSort, onDocument
                     </div>
                   </td>
                   <td className="px-3 py-3">
-                    <button
-                      className="p-1 text-claude-subtext/30 hover:text-claude-text transition-colors opacity-0 group-hover:opacity-100"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreVertical size={14} />
-                    </button>
+                    <RowContextMenu
+                      doc={doc}
+                      onView={onView}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                    />
                   </td>
                 </motion.tr>
               );

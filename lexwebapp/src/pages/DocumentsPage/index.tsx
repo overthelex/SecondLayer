@@ -12,6 +12,7 @@ import {
   Loader2,
   LayoutGrid,
   List,
+  Trash2,
 } from 'lucide-react';
 import { mcpService } from '../../services';
 import { useUploadStore } from '../../stores/uploadStore';
@@ -117,6 +118,16 @@ export function DocumentsPage() {
   } | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<VaultDocument | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Edit modal state
+  const [editTarget, setEditTarget] = useState<VaultDocument | null>(null);
+  const [editText, setEditText] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   // Folder navigation state
   const [folders, setFolders] = useState<string[]>([]);
@@ -393,6 +404,57 @@ export function DocumentsPage() {
     }
   };
 
+  // Delete handler
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.documents.delete(deleteTarget.id);
+      toast.success('Документ видалено');
+      setDeleteTarget(null);
+      loadDocuments();
+      loadFolders(currentFolderPath);
+    } catch (err: any) {
+      console.error('Failed to delete document:', err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Edit handler — open modal and fetch full text
+  const handleEditOpen = async (doc: VaultDocument) => {
+    setEditTarget(doc);
+    setEditLoading(true);
+    setEditText('');
+    try {
+      const resp = await api.documents.getById(doc.id);
+      const data = resp.data;
+      setEditText(data.full_text || data.content || '');
+    } catch (err: any) {
+      console.error('Failed to fetch document for editing:', err);
+      toast.error('Не вдалося завантажити документ');
+      setEditTarget(null);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Save edited text
+  const handleEditSave = async () => {
+    if (!editTarget) return;
+    setEditSaving(true);
+    try {
+      await api.documents.update(editTarget.id, { full_text: editText });
+      toast.success('Документ збережено');
+      setEditTarget(null);
+      loadDocuments();
+    } catch (err: any) {
+      console.error('Failed to save document:', err);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   // Pagination
   const hasMore = offset + PAGE_SIZE < totalDocs;
   const hasPrev = offset > 0;
@@ -641,11 +703,17 @@ export function DocumentsPage() {
               sortOrder={sortOrder}
               onSort={handleSort}
               onDocumentClick={handleDocumentClick}
+              onView={handleDocumentClick}
+              onEdit={handleEditOpen}
+              onDelete={setDeleteTarget}
             />
           ) : (
             <DocumentGrid
               documents={documents}
               onDocumentClick={handleDocumentClick}
+              onView={handleDocumentClick}
+              onEdit={handleEditOpen}
+              onDelete={setDeleteTarget}
             />
           )}
 
@@ -698,6 +766,120 @@ export function DocumentsPage() {
           content: '',
         } : previewDoc}
       />
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            onClick={() => !deleting && setDeleteTarget(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-50 rounded-lg">
+                  <Trash2 size={20} className="text-red-500" />
+                </div>
+                <h3 className="text-lg font-semibold text-claude-text font-sans">
+                  Видалити документ?
+                </h3>
+              </div>
+              <p className="text-sm text-claude-subtext/70 mb-6 font-sans">
+                Ви впевнені, що хочете видалити &laquo;{deleteTarget.title}&raquo;? Цю дію неможливо скасувати.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  disabled={deleting}
+                  onClick={() => setDeleteTarget(null)}
+                  className="px-4 py-2 text-sm font-medium text-claude-text bg-white border border-claude-border rounded-xl hover:bg-claude-bg transition-colors font-sans disabled:opacity-50"
+                >
+                  Скасувати
+                </button>
+                <button
+                  disabled={deleting}
+                  onClick={handleDeleteConfirm}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors font-sans disabled:opacity-50 flex items-center gap-2"
+                >
+                  {deleting && <Loader2 size={14} className="animate-spin" />}
+                  Видалити
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Document Modal */}
+      <AnimatePresence>
+        {editTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            onClick={() => !editSaving && setEditTarget(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-claude-text font-sans truncate">
+                  Редагувати: {editTarget.title}
+                </h3>
+                <button
+                  onClick={() => !editSaving && setEditTarget(null)}
+                  className="p-1 text-claude-subtext/40 hover:text-claude-text transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              {editLoading ? (
+                <div className="flex-1 flex items-center justify-center py-20">
+                  <Loader2 size={24} className="animate-spin text-claude-subtext/40" />
+                </div>
+              ) : (
+                <>
+                  <textarea
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    className="flex-1 min-h-[400px] w-full p-4 border border-claude-border rounded-xl text-sm text-claude-text font-mono resize-none focus:outline-none focus:border-claude-subtext/40 transition-colors"
+                    placeholder="Вміст документа..."
+                  />
+                  <div className="flex justify-end gap-3 mt-4">
+                    <button
+                      disabled={editSaving}
+                      onClick={() => setEditTarget(null)}
+                      className="px-4 py-2 text-sm font-medium text-claude-text bg-white border border-claude-border rounded-xl hover:bg-claude-bg transition-colors font-sans disabled:opacity-50"
+                    >
+                      Скасувати
+                    </button>
+                    <button
+                      disabled={editSaving}
+                      onClick={handleEditSave}
+                      className="px-4 py-2 text-sm font-medium text-white bg-claude-text rounded-xl hover:bg-claude-text/90 transition-colors font-sans disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {editSaving && <Loader2 size={14} className="animate-spin" />}
+                      Зберегти
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
