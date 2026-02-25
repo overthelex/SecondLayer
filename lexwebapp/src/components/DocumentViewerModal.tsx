@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, ExternalLink, Gavel, BookOpen, FileText, Copy, Check, Download, Loader2 } from 'lucide-react';
+import { X, ExternalLink, Gavel, BookOpen, FileText, Copy, Check, Download, Loader2, AlertTriangle } from 'lucide-react';
 
 export interface DocumentViewerItem {
   type: 'decision' | 'citation' | 'document';
@@ -19,6 +19,7 @@ interface DocumentViewerModalProps {
   onClose: () => void;
   item: DocumentViewerItem | null;
   isLoading?: boolean;
+  errorMessage?: string | null;
 }
 
 const typeIcons = {
@@ -27,7 +28,7 @@ const typeIcons = {
   document: FileText,
 };
 
-export function DocumentViewerModal({ isOpen, onClose, item, isLoading }: DocumentViewerModalProps) {
+export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMessage }: DocumentViewerModalProps) {
   const [copied, setCopied] = React.useState(false);
 
   React.useEffect(() => {
@@ -175,6 +176,12 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading }: Docume
 
                 {/* Content — Markdown rendered */}
                 <div className="flex-1 overflow-y-auto px-6 py-5">
+                  {errorMessage && (
+                    <div className="flex items-start gap-3 p-3 mb-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[13px]">
+                      <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" strokeWidth={2} />
+                      <span>{errorMessage}</span>
+                    </div>
+                  )}
                   {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-16 text-claude-subtext">
                       <Loader2 size={28} className="animate-spin mb-3" strokeWidth={2} />
