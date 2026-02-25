@@ -1,4 +1,5 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -84,6 +85,17 @@ function SkeletonRows() {
 }
 
 export function DocumentsPage() {
+  const navigate = useNavigate();
+  const params = useParams();
+
+  // Derive folder path from URL: /documents/folders/a/b → "a/b/"
+  const currentFolderPath = useMemo(() => {
+    const wildcard = params['*'] || '';
+    if (!wildcard) return '';
+    // Ensure trailing slash for consistency
+    return wildcard.endsWith('/') ? wildcard : wildcard + '/';
+  }, [params]);
+
   // Document list state
   const [documents, setDocuments] = useState<VaultDocument[]>([]);
   const [totalDocs, setTotalDocs] = useState(0);
@@ -107,9 +119,19 @@ export function DocumentsPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
 
   // Folder navigation state
-  const [currentFolderPath, setCurrentFolderPath] = useState('');
   const [folders, setFolders] = useState<string[]>([]);
   const [foldersLoading, setFoldersLoading] = useState(false);
+
+  // Navigation helpers
+  const navigateToFolder = useCallback((folderPath: string) => {
+    if (!folderPath) {
+      navigate('/documents');
+    } else {
+      // Strip trailing slash for clean URLs
+      const cleanPath = folderPath.replace(/\/+$/, '');
+      navigate(`/documents/folders/${cleanPath}`);
+    }
+  }, [navigate]);
 
   // Upload state from Zustand store
   const {
@@ -587,13 +609,13 @@ export function DocumentsPage() {
                 const newPath = currentFolderPath
                   ? `${currentFolderPath}${folderName}/`
                   : `${folderName}/`;
-                setCurrentFolderPath(newPath);
+                navigateToFolder(newPath);
               }}
-              onReset={() => setCurrentFolderPath('')}
+              onReset={() => navigateToFolder('')}
               onBreadcrumbClick={(depth) => {
                 const segments = currentFolderPath.split('/').filter(Boolean);
                 const newPath = segments.slice(0, depth).join('/') + '/';
-                setCurrentFolderPath(newPath);
+                navigateToFolder(newPath);
               }}
               loading={foldersLoading}
             />

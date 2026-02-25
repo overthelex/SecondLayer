@@ -36,6 +36,7 @@ export const ROUTES = {
 
   // Documents
   DOCUMENTS: '/documents',
+  DOCUMENTS_FOLDER: '/documents/folders/*',
 
   // Cases & Decisions
   CASE_ANALYSIS: '/case-analysis',

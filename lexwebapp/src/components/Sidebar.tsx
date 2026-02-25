@@ -40,10 +40,13 @@ import {
   Search,
   Archive,
   Zap,
+  Folder,
+  FolderOpen,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useChatStore } from '../stores/chatStore';
+import { api } from '../utils/api-client';
 import type { UserRole } from '../types/models/User';
 
 interface SidebarProps {
@@ -143,7 +146,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   // Compute which section IDs are actually rendered (for toggle-all)
   const renderedSectionIds = useMemo(() => {
     if (role === 'administrator') return ['monitoring'];
-    const ids = ['research', 'legislation'];
+    const ids = ['research', 'legislation', 'vault'];
     if (conversations.length > 0) ids.push('conversations');
     if (role !== 'user') ids.push('matters');
     return ids;
@@ -169,11 +172,29 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
 
   const allCollapsed = renderedSectionIds.length > 0 && renderedSectionIds.every(id => collapsedSections.has(id));
 
+  const [vaultFolders, setVaultFolders] = useState<string[]>([]);
+  const [vaultFoldersLoaded, setVaultFoldersLoaded] = useState(false);
+
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadConversations();
   }, []);
+
+  // Load top-level vault folders when vault section is expanded
+  useEffect(() => {
+    if (!collapsedSections.has('vault') && !vaultFoldersLoaded) {
+      api.documents.getFolders()
+        .then((resp) => {
+          setVaultFolders(resp.data.folders || []);
+          setVaultFoldersLoaded(true);
+        })
+        .catch(() => {
+          setVaultFolders([]);
+          setVaultFoldersLoaded(true);
+        });
+    }
+  }, [collapsedSections, vaultFoldersLoaded]);
 
   // Listen for navigation events from NavItem (to close mobile sidebar)
   useEffect(() => {
@@ -407,10 +428,32 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                 ))}
               </Section>
 
-              {/* Vault — top-level link */}
-              <div className="mb-2">
-                <NavItem icon={Archive} label="Vault" route={ROUTES.DOCUMENTS} onClick={() => handleNavigation(ROUTES.DOCUMENTS)} />
-              </div>
+              {/* Vault — documents & folders */}
+              <Section id="vault" title="Vault" collapsed={collapsedSections.has('vault')} onToggle={toggleSection}>
+                <NavItem icon={Archive} label="Всі документи" route={ROUTES.DOCUMENTS} onClick={() => handleNavigation(ROUTES.DOCUMENTS)} />
+                {vaultFolders.map((folder) => {
+                  const folderRoute = `/documents/folders/${folder}`;
+                  const isActive = location.pathname === folderRoute || location.pathname.startsWith(folderRoute + '/');
+                  return (
+                    <button
+                      key={folder}
+                      onClick={() => handleNavigation(folderRoute)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-[13px] transition-all duration-200 flex items-center gap-3 group ${
+                        isActive
+                          ? 'bg-claude-accent/10 text-claude-accent'
+                          : 'text-claude-text hover:bg-claude-subtext/8'
+                      }`}
+                    >
+                      {isActive ? (
+                        <FolderOpen size={15} strokeWidth={2} className="text-claude-accent flex-shrink-0" />
+                      ) : (
+                        <Folder size={15} strokeWidth={2} className="text-claude-subtext/60 group-hover:text-claude-text transition-colors duration-200 flex-shrink-0" />
+                      )}
+                      <span className="truncate font-medium tracking-tight font-sans">{folder}</span>
+                    </button>
+                  );
+                })}
+              </Section>
 
               {/* Matters — company/lawyer only */}
               {role !== 'user' && (
