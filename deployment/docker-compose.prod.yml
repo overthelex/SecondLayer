@@ -47,6 +47,7 @@ services:
     - "127.0.0.1:5439:5432"
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@postgres-prod:5432/${POSTGRES_DB:-secondlayer_prod}
+      AUTH_TYPE: scram-sha-256
       POOL_MODE: transaction
       MAX_CLIENT_CONN: 300
       DEFAULT_POOL_SIZE: 30
@@ -445,8 +446,8 @@ services:
       HTTP_PORT: ${HTTP_PORT:-3000}
       HTTP_HOST: 0.0.0.0
       JWT_SECRET: ${JWT_SECRET}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@postgres-prod:5432/${POSTGRES_DB:-secondlayer_prod}
-      POSTGRES_HOST: postgres-prod
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@pgbouncer-prod:5432/${POSTGRES_DB:-secondlayer_prod}
+      POSTGRES_HOST: pgbouncer-prod
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -530,7 +531,7 @@ services:
     ports:
     - "127.0.0.1:3007:3000"
     depends_on:
-      postgres-prod:
+      pgbouncer-prod:
         condition: service_healthy
       qdrant-prod:
         condition: service_healthy
@@ -578,7 +579,7 @@ services:
         max-size: "50m"
         max-file: "10"
     depends_on:
-      postgres-prod:
+      pgbouncer-prod:
         condition: service_healthy
       qdrant-prod:
         condition: service_started
@@ -590,8 +591,8 @@ services:
       PORT: 3002
       HTTP_PORT: 3002
       HTTP_HOST: 0.0.0.0
-      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@postgres-prod:5432/${POSTGRES_DB:-secondlayer_prod}
-      POSTGRES_HOST: postgres-prod
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@pgbouncer-prod:5432/${POSTGRES_DB:-secondlayer_prod}
+      POSTGRES_HOST: pgbouncer-prod
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
