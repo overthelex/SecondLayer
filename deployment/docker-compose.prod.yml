@@ -487,6 +487,10 @@ services:
       OPENREYESTR_MCP_URL: http://app-openreyestr-prod:3005
       OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEY}
 
+      # Stage access for db-compare
+      STAGE_BACKEND_URL: ${STAGE_BACKEND_URL:-https://stage.legal.org.ua}
+      STAGE_API_KEY: ${STAGE_API_KEY:-}
+
       # WebAuthn / FIDO2
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-legal.org.ua}
       WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-SecondLayer Legal}
