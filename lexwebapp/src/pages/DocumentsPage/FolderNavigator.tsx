@@ -48,7 +48,7 @@ export function FolderNavigator({
                     : 'text-claude-subtext/70 hover:text-claude-text hover:bg-claude-bg'
                 }`}
               >
-                {seg}
+                {(() => { try { return decodeURIComponent(seg); } catch { return seg; } })()}
               </button>
             </React.Fragment>
           ))}
@@ -66,7 +66,7 @@ export function FolderNavigator({
               className="flex items-center gap-2 px-3 py-2.5 bg-white border border-claude-border rounded-xl text-sm text-claude-text hover:bg-claude-bg hover:border-claude-subtext/30 transition-all active:scale-[0.98] font-sans disabled:opacity-50"
             >
               <Folder size={16} className="text-claude-subtext/50 flex-shrink-0" />
-              <span className="truncate">{folder}</span>
+              <span className="truncate">{(() => { try { return decodeURIComponent(folder); } catch { return folder; } })()}</span>
             </button>
           ))}
         </div>
