@@ -76,6 +76,7 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
   const [viewerItem, setViewerItem] = useState<DocumentViewerItem | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [isViewerLoading, setIsViewerLoading] = useState(false);
+  const [viewerError, setViewerError] = useState<string | null>(null);
 
   const openDecisionModal = async (d: Decision) => {
     // Open modal immediately with summary while loading
@@ -90,6 +91,7 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
       externalUrl: d.externalUrl,
     });
     setIsViewerOpen(true);
+    setViewerError(null);
 
     // Try to fetch full text if we have a docId or case number
     const docId = d.docId;
@@ -115,9 +117,18 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
 
           setViewerItem(prev => prev ? { ...prev, content: fullText } : prev);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to fetch full decision text:', err);
-        // Keep showing the summary — no need to show error
+        const msg = err?.message || '';
+        if (msg.includes('429')) {
+          setViewerError(msg.includes('Daily') ? 'Вичерпано денний ліміт використання. Повний текст буде доступний завтра.' : 'Вичерпано місячний ліміт використання.');
+        } else if (msg.includes('402')) {
+          setViewerError('Недостатньо коштів на балансі для завантаження повного тексту.');
+        } else if (msg.includes('401')) {
+          setViewerError('Сесія закінчилась. Увійдіть повторно для завантаження повного тексту.');
+        } else {
+          setViewerError('Не вдалося завантажити повний текст рішення.');
+        }
       } finally {
         setIsViewerLoading(false);
       }
@@ -276,6 +287,7 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
       onClose={() => setIsViewerOpen(false)}
       item={viewerItem}
       isLoading={isViewerLoading}
+      errorMessage={viewerError}
     />
   </>;
 }
