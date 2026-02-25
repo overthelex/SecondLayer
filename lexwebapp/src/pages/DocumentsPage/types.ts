@@ -22,3 +22,16 @@ export type DocType = 'contract' | 'legislation' | 'court_decision' | 'internal'
 export type ViewMode = 'grid' | 'list';
 export type SortField = 'uploadedAt' | 'title' | 'type';
 export type SortOrder = 'asc' | 'desc';
+
+const EDITABLE_MIME_TYPES = new Set([
+  'text/plain',
+  'text/markdown',
+  'text/html',
+  'text/csv',
+  'application/rtf',
+]);
+
+export function isEditable(mimeType?: string): boolean {
+  if (!mimeType) return false;
+  return EDITABLE_MIME_TYPES.has(mimeType) || mimeType.startsWith('text/');
+}
