@@ -4,7 +4,7 @@ import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
 // @ts-ignore — no type declarations available
 import WordExtractor from 'word-extractor';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import AdmZip from 'adm-zip';
 import { logger } from '../utils/logger.js';
 import { getLLMManager } from '../utils/llm-client-manager.js';
@@ -594,31 +594,34 @@ export class DocumentParser {
   }
 
   /**
-   * Parse XLSX/XLS spreadsheets using SheetJS
+   * Parse XLSX/XLS spreadsheets using ExcelJS
    */
   async parseXLSX(fileBuffer: Buffer, mimeType: string): Promise<ParsedDocument> {
     logger.info('Parsing spreadsheet', { mimeType, size: fileBuffer.length });
 
-    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(fileBuffer as any);
     const textParts: string[] = [];
 
-    for (const sheetName of workbook.SheetNames) {
-      const sheet = workbook.Sheets[sheetName];
-      if (!sheet) continue;
+    workbook.eachSheet((sheet) => {
+      textParts.push(`--- ${sheet.name} ---`);
 
-      textParts.push(`--- ${sheetName} ---`);
-
-      // Convert sheet to array of arrays, then join as tab-separated text
-      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-      for (const row of rows) {
-        const line = row.map((cell: any) => String(cell ?? '')).join('\t');
+      sheet.eachRow((row) => {
+        const values = row.values as any[];
+        // ExcelJS row.values is 1-indexed (index 0 is undefined)
+        const line = values.slice(1).map((cell: any) => {
+          if (cell == null) return '';
+          if (typeof cell === 'object' && cell.text) return cell.text;
+          if (typeof cell === 'object' && cell.result != null) return String(cell.result);
+          return String(cell);
+        }).join('\t');
         if (line.trim()) {
           textParts.push(line);
         }
-      }
+      });
 
       textParts.push(''); // blank line between sheets
-    }
+    });
 
     const text = textParts.join('\n').trim();
 
@@ -626,7 +629,7 @@ export class DocumentParser {
       throw new Error('Spreadsheet contains no extractable text');
     }
 
-    logger.info('Spreadsheet parsed', { textLength: text.length, sheetCount: workbook.SheetNames.length });
+    logger.info('Spreadsheet parsed', { textLength: text.length, sheetCount: workbook.worksheets.length });
 
     return {
       text,
