@@ -270,7 +270,7 @@ export function LimitsTab() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-2">Денний ліміт (USD)</label>
+            <label htmlFor="limits-daily" className="block text-sm font-medium text-claude-text mb-2">Денний ліміт (USD)</label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-claude-subtext">$</span>
               <input
@@ -292,7 +292,7 @@ export function LimitsTab() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-2">
+            <label htmlFor="limits-monthly" className="block text-sm font-medium text-claude-text mb-2">
               Місячний ліміт (USD)
             </label>
             <div className="flex items-center gap-2">
@@ -316,7 +316,7 @@ export function LimitsTab() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-2">
+            <label htmlFor="limits-low-balance" className="block text-sm font-medium text-claude-text mb-2">
               Поріг низького балансу (USD)
             </label>
             <div className="flex items-center gap-2">
@@ -356,6 +356,8 @@ export function LimitsTab() {
           <label className="flex items-center justify-between p-4 bg-claude-bg rounded-lg cursor-pointer hover:bg-opacity-80 transition-colors">
             <span className="font-medium text-claude-text">Увімкнути email-сповіщення</span>
             <input
+              id="limits-email-notifications"
+              name="emailNotifications"
               type="checkbox"
               checked={limits.email_notifications}
               onChange={(e) => setLimits({ ...limits, email_notifications: e.target.checked })}
@@ -376,6 +378,8 @@ export function LimitsTab() {
                   className="flex items-center justify-between p-3 bg-white border border-claude-border rounded-lg cursor-pointer hover:border-claude-accent transition-colors">
                   <span className="text-sm text-claude-text">{notif.label}</span>
                   <input
+                    id={`limits-${notif.key}`}
+                    name={notif.key}
                     type="checkbox"
                     checked={(limits as any)[notif.key]}
                     onChange={(e) =>

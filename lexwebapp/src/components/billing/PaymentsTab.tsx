@@ -316,8 +316,10 @@ export function PaymentsTab() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-2">Назва компанії</label>
+            <label htmlFor="pay-company-name" className="block text-sm font-medium text-claude-text mb-2">Назва компанії</label>
             <input
+              id="pay-company-name"
+              name="companyName"
               type="text"
               value={billingInfo.companyName}
               onChange={(e) => setBillingInfo({ ...billingInfo, companyName: e.target.value })}
@@ -327,8 +329,10 @@ export function PaymentsTab() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-2">ЄДРПОУ</label>
+            <label htmlFor="pay-edrpou" className="block text-sm font-medium text-claude-text mb-2">ЄДРПОУ</label>
             <input
+              id="pay-edrpou"
+              name="edrpou"
               type="text"
               value={billingInfo.edrpou}
               onChange={(e) => setBillingInfo({ ...billingInfo, edrpou: e.target.value })}
@@ -338,8 +342,10 @@ export function PaymentsTab() {
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-claude-text mb-2">Адреса</label>
+            <label htmlFor="pay-address" className="block text-sm font-medium text-claude-text mb-2">Адреса</label>
             <input
+              id="pay-address"
+              name="address"
               type="text"
               value={billingInfo.address}
               onChange={(e) => setBillingInfo({ ...billingInfo, address: e.target.value })}
@@ -349,8 +355,10 @@ export function PaymentsTab() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-2">Місто</label>
+            <label htmlFor="pay-city" className="block text-sm font-medium text-claude-text mb-2">Місто</label>
             <input
+              id="pay-city"
+              name="city"
               type="text"
               value={billingInfo.city}
               onChange={(e) => setBillingInfo({ ...billingInfo, city: e.target.value })}
@@ -360,8 +368,10 @@ export function PaymentsTab() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-2">Поштовий індекс</label>
+            <label htmlFor="pay-postal-code" className="block text-sm font-medium text-claude-text mb-2">Поштовий індекс</label>
             <input
+              id="pay-postal-code"
+              name="postalCode"
               type="text"
               value={billingInfo.postalCode}
               onChange={(e) => setBillingInfo({ ...billingInfo, postalCode: e.target.value })}
@@ -371,8 +381,10 @@ export function PaymentsTab() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-2">Електронна пошта</label>
+            <label htmlFor="pay-email" className="block text-sm font-medium text-claude-text mb-2">Електронна пошта</label>
             <input
+              id="pay-email"
+              name="email"
               type="email"
               value={billingInfo.email}
               onChange={(e) => setBillingInfo({ ...billingInfo, email: e.target.value })}
@@ -382,8 +394,10 @@ export function PaymentsTab() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-2">Телефон</label>
+            <label htmlFor="pay-phone" className="block text-sm font-medium text-claude-text mb-2">Телефон</label>
             <input
+              id="pay-phone"
+              name="phone"
               type="tel"
               value={billingInfo.phone}
               onChange={(e) => setBillingInfo({ ...billingInfo, phone: e.target.value })}

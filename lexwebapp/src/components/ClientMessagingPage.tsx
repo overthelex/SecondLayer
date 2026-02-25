@@ -164,10 +164,12 @@ export function ClientMessagingPage({
           {/* Subject (Email only) */}
           {messageType === 'email' &&
           <div>
-              <label className="block text-sm font-medium text-claude-text font-sans mb-2">
+              <label htmlFor="messaging-subject" className="block text-sm font-medium text-claude-text font-sans mb-2">
                 Тема письма
               </label>
               <input
+              id="messaging-subject"
+              name="subject"
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
@@ -179,10 +181,12 @@ export function ClientMessagingPage({
 
           {/* Message Body */}
           <div>
-            <label className="block text-sm font-medium text-claude-text font-sans mb-2">
+            <label htmlFor="messaging-body" className="block text-sm font-medium text-claude-text font-sans mb-2">
               {messageType === 'email' ? 'Текст письма' : 'Текст сообщения'}
             </label>
             <textarea
+              id="messaging-body"
+              name="messageBody"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder={
