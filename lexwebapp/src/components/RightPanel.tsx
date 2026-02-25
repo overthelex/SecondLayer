@@ -41,6 +41,9 @@ const SECTION_TYPE_LABELS: Record<string, string> = {
   COURT_REASONING: 'Мотивувальна частина',
   DECISION: 'Резолютивна частина',
   DISSENT: 'Окрема думка',
+  AMOUNTS: 'Суми та компенсації',
+  CLAIMS: 'Позовні вимоги',
+  LAW_REFERENCES: 'Посилання на закон',
 };
 
 interface RightPanelProps {
@@ -107,15 +110,17 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
         const result = await mcpService.callTool('get_court_decision', params);
         const parsed = parseToolResult(result);
 
-        if (parsed?.sections && Array.isArray(parsed.sections) && parsed.sections.length > 0) {
-          const fullText = parsed.sections
+        if (parsed?.full_text && typeof parsed.full_text === 'string') {
+          setViewerItem(prev => prev ? { ...prev, content: parsed.full_text } : prev);
+        } else if (parsed?.sections && Array.isArray(parsed.sections) && parsed.sections.length > 0) {
+          const sectionsText = parsed.sections
             .map((s: any) => {
               const label = SECTION_TYPE_LABELS[s.type] || s.type;
               return `## ${label}\n\n${s.text}`;
             })
             .join('\n\n---\n\n');
 
-          setViewerItem(prev => prev ? { ...prev, content: fullText } : prev);
+          setViewerItem(prev => prev ? { ...prev, content: sectionsText } : prev);
         }
       } catch (err: any) {
         console.error('Failed to fetch full decision text:', err);

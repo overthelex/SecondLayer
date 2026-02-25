@@ -341,6 +341,7 @@ export class CourtDecisionTools extends BaseToolHandler {
       url,
       depth,
       sections: sections.slice(0, depth),
+      full_text: fullText || undefined,
       full_text_length: fullText.length,
     };
 
