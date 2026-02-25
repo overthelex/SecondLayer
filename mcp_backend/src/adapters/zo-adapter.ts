@@ -42,6 +42,18 @@ interface ZOSearchResponse {
   meta?: any;
 }
 
+/**
+ * Sanitize search query for ZakonOnline sph04 Sphinx mode.
+ * Strips characters that act as syntax operators (parentheses, etc.)
+ * and collapses resulting whitespace.
+ */
+function sanitizeSearchQuery(query: string): string {
+  return query
+    .replace(/[(){}[\]]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 export class ZOAdapter {
   private client: AxiosInstance;
   private redis: ReturnType<typeof createClient> | null = null;
@@ -758,10 +770,11 @@ export class ZOAdapter {
     }
 
     // Add search query if provided (from meta.search or meta.query)
+    // Sanitize to strip chars that break sph04 Sphinx parser (e.g. parentheses)
     if (params.meta?.search) {
-      apiParams.search = params.meta.search;
+      apiParams.search = sanitizeSearchQuery(params.meta.search);
     } else if (params.meta?.query) {
-      apiParams.search = params.meta.query;
+      apiParams.search = sanitizeSearchQuery(params.meta.query);
     }
 
     // Convert where array to API format (only if non-empty)
@@ -1557,11 +1570,11 @@ export class ZOAdapter {
       mode: params.mode || 'sph04',
     };
 
-    // Add search query
+    // Add search query — sanitize for sph04 Sphinx parser
     if (params.meta?.search) {
-      apiParams.search = params.meta.search;
+      apiParams.search = sanitizeSearchQuery(params.meta.search);
     } else if (params.meta?.query) {
-      apiParams.search = params.meta.query;
+      apiParams.search = sanitizeSearchQuery(params.meta.query);
     }
 
     // Add where conditions
