@@ -4,6 +4,8 @@ import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
 // @ts-ignore — no type declarations available
 import WordExtractor from 'word-extractor';
+import * as XLSX from 'xlsx';
+import AdmZip from 'adm-zip';
 import { logger } from '../utils/logger.js';
 import { getLLMManager } from '../utils/llm-client-manager.js';
 import fs from 'fs/promises';
@@ -560,6 +562,247 @@ export class DocumentParser {
   }
 
   /**
+   * Parse image files using OCR (Google Vision API)
+   */
+  async parseImage(fileBuffer: Buffer, mimeType: string): Promise<ParsedDocument> {
+    logger.info('Parsing image via OCR', { mimeType, size: fileBuffer.length });
+
+    if (!this.ocrAvailable) {
+      throw new Error('OCR not available — Vision credentials not configured. Cannot extract text from images.');
+    }
+
+    const ocrResult = await this.performOCR(fileBuffer);
+
+    if (!ocrResult.text.trim()) {
+      throw new Error('No text detected in image via OCR');
+    }
+
+    logger.info('Image OCR completed', { textLength: ocrResult.text.length, confidence: ocrResult.confidence });
+
+    return {
+      text: ocrResult.text,
+      metadata: {
+        source: 'ocr',
+        mimeType,
+      },
+      pages: [{
+        pageNumber: 1,
+        text: ocrResult.text,
+        confidence: ocrResult.confidence,
+      }],
+    };
+  }
+
+  /**
+   * Parse XLSX/XLS spreadsheets using SheetJS
+   */
+  async parseXLSX(fileBuffer: Buffer, mimeType: string): Promise<ParsedDocument> {
+    logger.info('Parsing spreadsheet', { mimeType, size: fileBuffer.length });
+
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+    const textParts: string[] = [];
+
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet) continue;
+
+      textParts.push(`--- ${sheetName} ---`);
+
+      // Convert sheet to array of arrays, then join as tab-separated text
+      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      for (const row of rows) {
+        const line = row.map((cell: any) => String(cell ?? '')).join('\t');
+        if (line.trim()) {
+          textParts.push(line);
+        }
+      }
+
+      textParts.push(''); // blank line between sheets
+    }
+
+    const text = textParts.join('\n').trim();
+
+    if (!text) {
+      throw new Error('Spreadsheet contains no extractable text');
+    }
+
+    logger.info('Spreadsheet parsed', { textLength: text.length, sheetCount: workbook.SheetNames.length });
+
+    return {
+      text,
+      metadata: {
+        source: 'native',
+        mimeType,
+      },
+    };
+  }
+
+  /**
+   * Parse ODT (OpenDocument Text) by extracting content.xml from the ZIP archive
+   */
+  async parseODT(fileBuffer: Buffer): Promise<ParsedDocument> {
+    logger.info('Parsing ODT document', { size: fileBuffer.length });
+
+    const zip = new AdmZip(fileBuffer);
+    const contentEntry = zip.getEntry('content.xml');
+
+    if (!contentEntry) {
+      throw new Error('ODT file does not contain content.xml');
+    }
+
+    const contentXml = contentEntry.getData().toString('utf-8');
+
+    // Strip XML tags to get plain text, preserve paragraph breaks
+    const text = contentXml
+      .replace(/<text:p[^>]*>/g, '\n')
+      .replace(/<text:tab[^/]*\/>/g, '\t')
+      .replace(/<text:line-break[^/]*\/>/g, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    if (!text) {
+      throw new Error('ODT file contains no extractable text');
+    }
+
+    logger.info('ODT parsed', { textLength: text.length });
+
+    return {
+      text,
+      metadata: {
+        source: 'native',
+        mimeType: 'application/vnd.oasis.opendocument.text',
+      },
+    };
+  }
+
+  /**
+   * Parse ODS (OpenDocument Spreadsheet) by extracting table cells from content.xml
+   */
+  async parseODS(fileBuffer: Buffer): Promise<ParsedDocument> {
+    logger.info('Parsing ODS spreadsheet', { size: fileBuffer.length });
+
+    const zip = new AdmZip(fileBuffer);
+    const contentEntry = zip.getEntry('content.xml');
+
+    if (!contentEntry) {
+      throw new Error('ODS file does not contain content.xml');
+    }
+
+    const contentXml = contentEntry.getData().toString('utf-8');
+
+    // Extract text from table cells: <text:p> inside <table:table-cell>
+    // Simple regex approach — sufficient for text extraction
+    const rows: string[] = [];
+    const tableMatches = contentXml.match(/<table:table-row[^>]*>[\s\S]*?<\/table:table-row>/g) || [];
+
+    for (const rowXml of tableMatches) {
+      const cellTexts: string[] = [];
+      const cellMatches = rowXml.match(/<table:table-cell[^>]*>[\s\S]*?<\/table:table-cell>/g) || [];
+
+      for (const cellXml of cellMatches) {
+        // Extract text content from <text:p> elements
+        const textMatches = cellXml.match(/<text:p[^>]*>([\s\S]*?)<\/text:p>/g) || [];
+        const cellText = textMatches
+          .map(m => m.replace(/<[^>]+>/g, '').trim())
+          .join(' ');
+
+        // Handle repeated empty cells
+        const repeatMatch = cellXml.match(/table:number-columns-repeated="(\d+)"/);
+        if (repeatMatch && !cellText) {
+          const count = Math.min(parseInt(repeatMatch[1], 10), 20); // cap to avoid huge empty runs
+          for (let i = 0; i < count; i++) cellTexts.push('');
+        } else {
+          cellTexts.push(cellText);
+        }
+      }
+
+      const line = cellTexts.join('\t').trim();
+      if (line) {
+        rows.push(line);
+      }
+    }
+
+    const text = rows.join('\n').trim();
+
+    if (!text) {
+      throw new Error('ODS spreadsheet contains no extractable text');
+    }
+
+    logger.info('ODS parsed', { textLength: text.length, rowCount: rows.length });
+
+    return {
+      text,
+      metadata: {
+        source: 'native',
+        mimeType: 'application/vnd.oasis.opendocument.spreadsheet',
+      },
+    };
+  }
+
+  /**
+   * Parse EML (email message) — extract body text after headers
+   */
+  async parseEML(fileBuffer: Buffer): Promise<ParsedDocument> {
+    logger.info('Parsing EML message', { size: fileBuffer.length });
+
+    const raw = fileBuffer.toString('utf-8');
+
+    // Split headers from body at first blank line
+    const headerBodySplit = raw.indexOf('\r\n\r\n');
+    const altSplit = raw.indexOf('\n\n');
+    const splitPos = headerBodySplit >= 0 ? headerBodySplit : altSplit;
+
+    let headers = '';
+    let body = '';
+
+    if (splitPos >= 0) {
+      headers = raw.substring(0, splitPos);
+      body = raw.substring(splitPos).trim();
+    } else {
+      body = raw;
+    }
+
+    // Extract useful header info
+    const subjectMatch = headers.match(/^Subject:\s*(.+)$/mi);
+    const fromMatch = headers.match(/^From:\s*(.+)$/mi);
+    const dateMatch = headers.match(/^Date:\s*(.+)$/mi);
+
+    const headerSummary = [
+      subjectMatch ? `Subject: ${subjectMatch[1]}` : null,
+      fromMatch ? `From: ${fromMatch[1]}` : null,
+      dateMatch ? `Date: ${dateMatch[1]}` : null,
+    ].filter(Boolean).join('\n');
+
+    // Strip HTML tags if body is HTML
+    if (body.includes('<html') || body.includes('<body')) {
+      body = body.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    }
+
+    const text = headerSummary ? `${headerSummary}\n\n${body}` : body;
+
+    if (!text.trim()) {
+      throw new Error('EML file contains no extractable text');
+    }
+
+    logger.info('EML parsed', { textLength: text.length });
+
+    return {
+      text,
+      metadata: {
+        source: 'native',
+        mimeType: 'message/rfc822',
+        title: subjectMatch?.[1],
+      },
+    };
+  }
+
+  /**
    * Attempt to parse unknown format using LLM
    * Sends a sample of the file content to LLM for format identification and text extraction
    */
@@ -687,6 +930,34 @@ export class DocumentParser {
 
       case 'application/rtf':
         return await this.parseRTF(fileBuffer);
+
+      // Image types → OCR
+      case 'image/jpeg':
+      case 'image/png':
+      case 'image/tiff':
+      case 'image/webp':
+      case 'image/bmp':
+        return await this.parseImage(fileBuffer, mimeType);
+
+      // Spreadsheets
+      case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+      case 'application/vnd.ms-excel':
+        return await this.parseXLSX(fileBuffer, mimeType);
+
+      // OpenDocument formats
+      case 'application/vnd.oasis.opendocument.text':
+        return await this.parseODT(fileBuffer);
+
+      case 'application/vnd.oasis.opendocument.spreadsheet':
+        return await this.parseODS(fileBuffer);
+
+      // CSV is just text
+      case 'text/csv':
+        return await this.parsePlainText(fileBuffer);
+
+      // Email messages
+      case 'message/rfc822':
+        return await this.parseEML(fileBuffer);
 
       default:
         // Try LLM-based parsing for unknown formats

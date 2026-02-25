@@ -914,6 +914,134 @@ Pipeline:
     }
   }
 
+  /**
+   * Extract text from a file buffer using the parse → sectionize → embed pipeline.
+   * Used by upload-processor for MinIO-routed files that still need text extraction.
+   * Best-effort: returns nulls on failure, never throws.
+   */
+  async extractTextFromFile(args: {
+    fileBuffer: Buffer;
+    mimeType: string;
+    documentId: string;
+    title: string;
+    type: string;
+    metadata?: any;
+    userId?: string;
+  }): Promise<{
+    fullText: string | null;
+    sections: DocumentSection[];
+    embeddingCount: number;
+  }> {
+    try {
+      // Step 1: Parse document
+      const parsed = await this.documentParser.parseDocument(args.fileBuffer, args.mimeType);
+
+      if (!parsed.text || parsed.text.trim().length <= 10) {
+        logger.info('[Vault] extractTextFromFile: no meaningful text extracted', {
+          documentId: args.documentId,
+          mimeType: args.mimeType,
+          textLength: parsed.text?.length || 0,
+        });
+        return { fullText: null, sections: [], embeddingCount: 0 };
+      }
+
+      logger.info('[Vault] extractTextFromFile: text extracted', {
+        documentId: args.documentId,
+        textLength: parsed.text.length,
+        source: parsed.metadata.source,
+      });
+
+      // Step 2: Sectionize
+      let sections: DocumentSection[] = [];
+      try {
+        sections = await this.sectionizer.extractSections(parsed.text, false);
+      } catch (err: any) {
+        logger.warn('[Vault] extractTextFromFile: sectionization failed', {
+          documentId: args.documentId,
+          error: err.message,
+        });
+      }
+
+      // Step 3: Generate embeddings
+      let embeddingCount = 0;
+      try {
+        const textsToEmbed = [
+          parsed.text.slice(0, 8000),
+          ...sections.map((s) => s.text.slice(0, 8000)),
+        ];
+
+        const allEmbeddings = await this.embeddingService.generateEmbeddingsBatch(textsToEmbed);
+        const fullTextEmbedding = allEmbeddings[0];
+        const sectionEmbeddings = allEmbeddings.slice(1);
+
+        const embeddingTasks = [];
+
+        // Store full document embedding
+        const fullTextTask = this.embeddingService.storeChunk({
+          id: args.documentId,
+          source: 'zakononline',
+          doc_id: args.documentId,
+          section_type: 'FACTS' as any,
+          text: parsed.text.slice(0, 1000),
+          embedding: fullTextEmbedding,
+          metadata: {
+            date: new Date().toISOString(),
+            ...args.metadata,
+          },
+          created_at: new Date().toISOString(),
+        });
+        fullTextTask.catch(() => {});
+        embeddingTasks.push(fullTextTask);
+
+        // Store section embeddings
+        for (let i = 0; i < sections.length; i++) {
+          const sectionTask = this.embeddingService.storeChunk({
+            id: uuidv4(),
+            source: 'zakononline',
+            doc_id: args.documentId,
+            section_type: sections[i].type,
+            text: sections[i].text.slice(0, 1000),
+            embedding: sectionEmbeddings[i],
+            metadata: {
+              date: new Date().toISOString(),
+              ...args.metadata,
+            },
+            created_at: new Date().toISOString(),
+          });
+          sectionTask.catch(() => {});
+          embeddingTasks.push(sectionTask);
+        }
+
+        const results = await Promise.allSettled(embeddingTasks);
+        embeddingCount = results.filter((r) => r.status === 'fulfilled').length;
+
+        logger.info('[Vault] extractTextFromFile: embeddings stored', {
+          documentId: args.documentId,
+          embeddingCount,
+          total: results.length,
+        });
+      } catch (err: any) {
+        logger.warn('[Vault] extractTextFromFile: embedding generation failed', {
+          documentId: args.documentId,
+          error: err.message,
+        });
+      }
+
+      return {
+        fullText: parsed.text,
+        sections,
+        embeddingCount,
+      };
+    } catch (error: any) {
+      logger.warn('[Vault] extractTextFromFile failed (best-effort)', {
+        documentId: args.documentId,
+        mimeType: args.mimeType,
+        error: error.message,
+      });
+      return { fullText: null, sections: [], embeddingCount: 0 };
+    }
+  }
+
   async executeTool(name: string, args: any): Promise<ToolResult | null> {
     switch (name) {
       case 'store_document':
