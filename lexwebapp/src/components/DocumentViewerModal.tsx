@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, ExternalLink, Gavel, BookOpen, FileText, Copy, Check, Download } from 'lucide-react';
+import { X, ExternalLink, Gavel, BookOpen, FileText, Copy, Check, Download, Loader2 } from 'lucide-react';
 
 export interface DocumentViewerItem {
   type: 'decision' | 'citation' | 'document';
@@ -18,6 +18,7 @@ interface DocumentViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
   item: DocumentViewerItem | null;
+  isLoading?: boolean;
 }
 
 const typeIcons = {
@@ -26,7 +27,7 @@ const typeIcons = {
   document: FileText,
 };
 
-export function DocumentViewerModal({ isOpen, onClose, item }: DocumentViewerModalProps) {
+export function DocumentViewerModal({ isOpen, onClose, item, isLoading }: DocumentViewerModalProps) {
   const [copied, setCopied] = React.useState(false);
 
   React.useEffect(() => {
@@ -138,14 +139,16 @@ export function DocumentViewerModal({ isOpen, onClose, item }: DocumentViewerMod
                   <div className="flex items-center gap-1 flex-shrink-0 ml-4">
                     <button
                       onClick={handleCopy}
-                      className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-all"
+                      disabled={isLoading}
+                      className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-all disabled:opacity-40"
                       title="Копіювати"
                     >
                       {copied ? <Check size={16} strokeWidth={2} /> : <Copy size={16} strokeWidth={2} />}
                     </button>
                     <button
                       onClick={handleSave}
-                      className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-all"
+                      disabled={isLoading}
+                      className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-all disabled:opacity-40"
                       title="Зберегти як .txt"
                     >
                       <Download size={16} strokeWidth={2} />
@@ -172,9 +175,16 @@ export function DocumentViewerModal({ isOpen, onClose, item }: DocumentViewerMod
 
                 {/* Content — Markdown rendered */}
                 <div className="flex-1 overflow-y-auto px-6 py-5">
-                  <div className="prose prose-sm max-w-none prose-headings:text-claude-text prose-p:text-claude-text prose-p:leading-relaxed prose-a:text-blue-600 prose-strong:text-claude-text prose-code:text-[13px] prose-code:bg-claude-bg prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-claude-bg prose-pre:border prose-pre:border-claude-border prose-blockquote:border-claude-border prose-blockquote:text-claude-subtext">
-                    <ReactMarkdown>{item.content}</ReactMarkdown>
-                  </div>
+                  {isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-claude-subtext">
+                      <Loader2 size={28} className="animate-spin mb-3" strokeWidth={2} />
+                      <p className="text-[13px]">Завантаження повного тексту...</p>
+                    </div>
+                  ) : (
+                    <div className="prose prose-sm max-w-none prose-headings:text-claude-text prose-p:text-claude-text prose-p:leading-relaxed prose-a:text-blue-600 prose-strong:text-claude-text prose-code:text-[13px] prose-code:bg-claude-bg prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-claude-bg prose-pre:border prose-pre:border-claude-border prose-blockquote:border-claude-border prose-blockquote:text-claude-subtext">
+                      <ReactMarkdown>{item.content}</ReactMarkdown>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </div>
