@@ -74,7 +74,7 @@ export class CostTracker extends BaseCostTracker {
         params.toolName,
         params.clientKey || null,
         params.userId || null,
-        params.userQuery,
+        params.userQuery?.replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]/g, '') || '',
         JSON.stringify(params.queryParams),
         monthlyTotal,
         'pending',
