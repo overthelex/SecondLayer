@@ -423,8 +423,10 @@ export function SettingsTab() {
       <CollapsibleSection title="Платіжні дані" icon={Building2}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-1.5">Назва компанії</label>
+            <label htmlFor="settings-company-name" className="block text-sm font-medium text-claude-text mb-1.5">Назва компанії</label>
             <input
+              id="settings-company-name"
+              name="companyName"
               type="text"
               value={billingInfo.companyName}
               onChange={(e) => setBillingInfo({ ...billingInfo, companyName: e.target.value })}
@@ -433,8 +435,10 @@ export function SettingsTab() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-1.5">ЄДРПОУ</label>
+            <label htmlFor="settings-edrpou" className="block text-sm font-medium text-claude-text mb-1.5">ЄДРПОУ</label>
             <input
+              id="settings-edrpou"
+              name="edrpou"
               type="text"
               value={billingInfo.edrpou}
               onChange={(e) => setBillingInfo({ ...billingInfo, edrpou: e.target.value })}
@@ -443,8 +447,10 @@ export function SettingsTab() {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-claude-text mb-1.5">Адреса</label>
+            <label htmlFor="settings-address" className="block text-sm font-medium text-claude-text mb-1.5">Адреса</label>
             <input
+              id="settings-address"
+              name="address"
               type="text"
               value={billingInfo.address}
               onChange={(e) => setBillingInfo({ ...billingInfo, address: e.target.value })}
@@ -453,8 +459,10 @@ export function SettingsTab() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-1.5">Місто</label>
+            <label htmlFor="settings-city" className="block text-sm font-medium text-claude-text mb-1.5">Місто</label>
             <input
+              id="settings-city"
+              name="city"
               type="text"
               value={billingInfo.city}
               onChange={(e) => setBillingInfo({ ...billingInfo, city: e.target.value })}
@@ -463,8 +471,10 @@ export function SettingsTab() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-1.5">Поштовий індекс</label>
+            <label htmlFor="settings-postal-code" className="block text-sm font-medium text-claude-text mb-1.5">Поштовий індекс</label>
             <input
+              id="settings-postal-code"
+              name="postalCode"
               type="text"
               value={billingInfo.postalCode}
               onChange={(e) => setBillingInfo({ ...billingInfo, postalCode: e.target.value })}
@@ -473,8 +483,10 @@ export function SettingsTab() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-1.5">Електронна пошта</label>
+            <label htmlFor="settings-email" className="block text-sm font-medium text-claude-text mb-1.5">Електронна пошта</label>
             <input
+              id="settings-email"
+              name="email"
               type="email"
               value={billingInfo.email}
               onChange={(e) => setBillingInfo({ ...billingInfo, email: e.target.value })}
@@ -483,8 +495,10 @@ export function SettingsTab() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-1.5">Телефон</label>
+            <label htmlFor="settings-phone" className="block text-sm font-medium text-claude-text mb-1.5">Телефон</label>
             <input
+              id="settings-phone"
+              name="phone"
               type="tel"
               value={billingInfo.phone}
               onChange={(e) => setBillingInfo({ ...billingInfo, phone: e.target.value })}
@@ -551,10 +565,12 @@ export function SettingsTab() {
         {/* Limit Inputs */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-1.5">Денний ліміт (USD)</label>
+            <label htmlFor="settings-daily-limit" className="block text-sm font-medium text-claude-text mb-1.5">Денний ліміт (USD)</label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-claude-subtext">$</span>
               <input
+                id="settings-daily-limit"
+                name="dailyLimit"
                 type="number"
                 min="0"
                 step="1"
@@ -565,10 +581,12 @@ export function SettingsTab() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-1.5">Місячний ліміт (USD)</label>
+            <label htmlFor="settings-monthly-limit" className="block text-sm font-medium text-claude-text mb-1.5">Місячний ліміт (USD)</label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-claude-subtext">$</span>
               <input
+                id="settings-monthly-limit"
+                name="monthlyLimit"
                 type="number"
                 min="0"
                 step="10"
@@ -579,10 +597,12 @@ export function SettingsTab() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-1.5">Поріг низького балансу (USD)</label>
+            <label htmlFor="settings-low-balance" className="block text-sm font-medium text-claude-text mb-1.5">Поріг низького балансу (USD)</label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-claude-subtext">$</span>
               <input
+                id="settings-low-balance"
+                name="lowBalance"
                 type="number"
                 min="0"
                 step="1"
@@ -636,6 +656,8 @@ export function SettingsTab() {
           <label className="flex items-center justify-between p-3 bg-claude-bg rounded-lg cursor-pointer hover:bg-opacity-80 transition-colors">
             <span className="font-medium text-claude-text text-sm">Увімкнути email-сповіщення</span>
             <input
+              id="settings-email-notifications"
+              name="emailNotifications"
               type="checkbox"
               checked={limits.email_notifications}
               onChange={(e) => setLimits({ ...limits, email_notifications: e.target.checked })}
@@ -659,6 +681,8 @@ export function SettingsTab() {
                     <span className="text-sm text-claude-text">{notif.label}</span>
                   </div>
                   <input
+                    id={`settings-${notif.key}`}
+                    name={notif.key}
                     type="checkbox"
                     checked={(limits as any)[notif.key]}
                     onChange={(e) => setLimits({ ...limits, [notif.key]: e.target.checked })}

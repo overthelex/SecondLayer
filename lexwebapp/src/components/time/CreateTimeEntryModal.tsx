@@ -85,10 +85,12 @@ export function CreateTimeEntryModal({
         {/* Matter Selection */}
         {!preselectedMatterId && (
           <div>
-            <label className="block text-sm font-medium text-claude-text font-sans mb-1">
+            <label htmlFor="time-entry-matter" className="block text-sm font-medium text-claude-text font-sans mb-1">
               Справа <span className="text-red-500">*</span>
             </label>
             <select
+              id="time-entry-matter"
+              name="matterId"
               required
               value={matterId}
               onChange={(e) => setMatterId(e.target.value)}

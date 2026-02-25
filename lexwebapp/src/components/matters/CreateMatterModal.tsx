@@ -111,7 +111,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
           </div>
         ) : (
           <div>
-            <label className="block text-sm font-medium text-claude-text font-sans mb-1">
+            <label htmlFor="matter-client" className="block text-sm font-medium text-claude-text font-sans mb-1">
               Клієнт <span className="text-red-500">*</span>
             </label>
             {clientsLoading ? (
@@ -121,6 +121,8 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
               </div>
             ) : (
               <select
+                id="matter-client"
+                name="clientId"
                 value={selectedClientId}
                 onChange={(e) => setSelectedClientId(e.target.value)}
                 disabled={!hasClients}

@@ -727,7 +727,10 @@ export function HistoricalAnalysisPage({
                             <div className="flex gap-4">
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
+                                id="display-side-by-side"
+                                name="displayMode"
                                 type="radio"
+                                value="side-by-side"
                                 checked={displayMode === 'side-by-side'}
                                 onChange={() =>
                                 setDisplayMode('side-by-side')
@@ -740,7 +743,10 @@ export function HistoricalAnalysisPage({
                               </label>
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
+                                id="display-unified"
+                                name="displayMode"
                                 type="radio"
+                                value="unified"
                                 checked={displayMode === 'unified'}
                                 onChange={() => setDisplayMode('unified')}
                                 className="w-4 h-4 text-claude-accent focus:ring-claude-accent" />
@@ -759,6 +765,8 @@ export function HistoricalAnalysisPage({
                             <div className="flex gap-4">
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
+                                id="show-added"
+                                name="showAdded"
                                 type="checkbox"
                                 checked={showAdded}
                                 onChange={(e) =>
@@ -772,6 +780,8 @@ export function HistoricalAnalysisPage({
                               </label>
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
+                                id="show-deleted"
+                                name="showDeleted"
                                 type="checkbox"
                                 checked={showDeleted}
                                 onChange={(e) =>
@@ -785,6 +795,8 @@ export function HistoricalAnalysisPage({
                               </label>
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
+                                id="show-unchanged"
+                                name="showUnchanged"
                                 type="checkbox"
                                 checked={showUnchanged}
                                 onChange={(e) =>
