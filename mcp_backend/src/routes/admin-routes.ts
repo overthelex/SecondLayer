@@ -420,7 +420,7 @@ export function createAdminRoutes(
             ct.user_id,
             ct.id,
             ct.tool_name,
-            LEFT(COALESCE(ct.user_query, ''), 150)          AS user_query,
+            COALESCE(ct.user_query, '')                      AS user_query,
             ct.total_cost_usd::float,
             ct.execution_time_ms,
             ct.status,
