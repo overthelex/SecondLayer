@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Target, Zap, Search, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { ExecutionPlan, PlanStep } from '../types/models/Message';
+import { getToolLabel } from '../hooks/chat/tool-labels';
 
 interface PlanReviewDisplayProps {
   plan: ExecutionPlan;
@@ -9,28 +10,6 @@ interface PlanReviewDisplayProps {
   onSkip: () => void;
   isLoading?: boolean;
 }
-
-const TOOL_LABELS: Record<string, string> = {
-  search_legal_precedents: 'Пошук прецедентів',
-  search_supreme_court_practice: 'Практика ВС',
-  get_court_decision: 'Отримання рішення',
-  get_case_documents_chain: 'Ланцюг документів',
-  find_similar_fact_pattern_cases: 'Схожі справи',
-  compare_practice_pro_contra: 'Аналіз за і проти',
-  load_full_texts: 'Повні тексти рішень',
-  search_legislation: 'Пошук законодавства',
-  get_legislation_article: 'Стаття закону',
-  get_legislation_articles: 'Статті закону',
-  get_legislation_section: 'Розділ закону',
-  find_relevant_law_articles: 'Релевантні статті',
-  search_procedural_norms: 'Процесуальні норми',
-  semantic_search: 'Семантичний пошук',
-  openreyestr_search_entities: 'Пошук юросіб',
-  openreyestr_get_entity_details: 'Деталі юрособи',
-  openreyestr_get_by_edrpou: 'Пошук за ЄДРПОУ',
-  rada_search_parliament_bills: 'Законопроекти Ради',
-  rada_get_deputy_info: 'Інфо про депутата',
-};
 
 /** Tools that support depth differentiation (search tools with configurable limits) */
 const DEPTH_CAPABLE_TOOLS = new Set([
@@ -42,10 +21,6 @@ const DEPTH_CAPABLE_TOOLS = new Set([
   'find_relevant_law_articles',
   'search_procedural_norms',
 ]);
-
-function getToolLabel(toolName: string): string {
-  return TOOL_LABELS[toolName] || toolName;
-}
 
 export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanReviewDisplayProps) {
   const [steps, setSteps] = useState<PlanStep[]>(

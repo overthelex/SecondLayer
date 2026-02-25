@@ -2,25 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CostSummary as CostSummaryType } from '../types/models/Message';
-
-const TOOL_LABELS: Record<string, string> = {
-  search_legal_precedents: 'Пошук прецедентів',
-  search_supreme_court_practice: 'Практика ВС',
-  get_court_decision: 'Отримання рішення',
-  get_case_documents_chain: 'Ланцюг документів',
-  find_similar_fact_pattern_cases: 'Схожі справи',
-  compare_practice_pro_contra: 'Аналіз за і проти',
-  search_legislation: 'Пошук законодавства',
-  get_legislation_article: 'Стаття закону',
-  semantic_search: 'Семантичний пошук',
-  openreyestr_search_entities: 'Пошук юросіб',
-  openreyestr_get_by_edrpou: 'Пошук за ЄДРПОУ',
-  rada_search_parliament_bills: 'Законопроекти Ради',
-};
-
-function getToolLabel(name: string): string {
-  return TOOL_LABELS[name] || name;
-}
+import { getToolLabel } from '../hooks/chat/tool-labels';
 
 interface CostSummaryProps {
   data: CostSummaryType;
