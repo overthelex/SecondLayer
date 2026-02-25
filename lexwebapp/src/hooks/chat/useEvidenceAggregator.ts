@@ -7,8 +7,11 @@ import { useMemo } from 'react';
 import { useChatStore } from '../../stores';
 import type { Decision, Citation, VaultDocument } from '../../types/models/Message';
 
-/** Only "Рішення" and "Вирок" are proper court decisions */
-const DECISION_TYPES = new Set(['Рішення', 'Вирок']);
+/** Proper court decisions — shown in the "Рішення" tab */
+const DECISION_TYPES = new Set(['Рішення', 'Вирок', 'Постанова']);
+
+/** Procedural court docs (ухвали, окремі думки) — shown in "Документи" tab */
+const PROCEDURAL_TYPES = new Set(['Ухвала', 'Окрема думка', 'Окрема ухвала']);
 
 export function useEvidenceAggregator() {
   const messages = useChatStore(state => state.messages);
@@ -23,12 +26,12 @@ export function useEvidenceAggregator() {
   }, [messages]);
 
   const decisions = useMemo(() =>
-    allDecisions.filter(d => d.documentType && DECISION_TYPES.has(d.documentType)),
+    allDecisions.filter(d => !d.documentType || DECISION_TYPES.has(d.documentType)),
     [allDecisions]
   );
 
   const otherCourtDocs = useMemo(() =>
-    allDecisions.filter(d => !d.documentType || !DECISION_TYPES.has(d.documentType)),
+    allDecisions.filter(d => d.documentType && PROCEDURAL_TYPES.has(d.documentType)),
     [allDecisions]
   );
 
