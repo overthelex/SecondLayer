@@ -572,12 +572,21 @@ export class ChatService {
           });
         }
 
-        // After first tool execution round, nudge the model to synthesize
+        // After first tool execution round, nudge the model to synthesize —
+        // but ONLY if there is no multi-step plan that requires further tool calls.
         if (iteration === 0 && settled.some(o => o.status === 'fulfilled')) {
-          messages.push({
-            role: 'user',
-            content: 'Дані вже отримано. Перейди до аналізу на основі зібраних результатів. Не повторюй виклики інструментів.',
-          });
+          const planExpectsMoreSteps = plan && plan.steps.length > 1;
+          if (planExpectsMoreSteps) {
+            messages.push({
+              role: 'user',
+              content: 'Перший крок виконано. Продовжуй план — виконай наступні кроки. Якщо всі кроки завершено, перейди до фінального аналізу.',
+            });
+          } else {
+            messages.push({
+              role: 'user',
+              content: 'Дані вже отримано. Якщо потрібні додаткові інструменти (наприклад, load_full_texts для завантаження повних текстів) — виклич їх. Інакше перейди до аналізу на основі зібраних результатів.',
+            });
+          }
         }
 
         // RAG compaction: if accumulated tool results are too large, compact them
