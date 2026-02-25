@@ -591,12 +591,13 @@ Pipeline:
       const params: any[] = [];
       let paramIndex = 1;
 
-      // User isolation: show only own documents
-      if (args.userId) {
-        conditions.push(`user_id = $${paramIndex}`);
-        params.push(args.userId);
-        paramIndex++;
+      // User isolation: require userId, return empty if not authenticated
+      if (!args.userId) {
+        return { documents: [], total: 0 };
       }
+      conditions.push(`user_id = $${paramIndex}`);
+      params.push(args.userId);
+      paramIndex++;
 
       if (args.type) {
         conditions.push(`type = $${paramIndex}`);
@@ -701,11 +702,13 @@ Pipeline:
       const params: any[] = [];
       let paramIndex = 1;
 
-      if (args.userId) {
-        conditions.push(`user_id = $${paramIndex}`);
-        params.push(args.userId);
-        paramIndex++;
+      // Require userId for folder listing
+      if (!args.userId) {
+        return { folders: [], fileCount: 0 };
       }
+      conditions.push(`user_id = $${paramIndex}`);
+      params.push(args.userId);
+      paramIndex++;
 
       if (prefix) {
         conditions.push(`metadata::jsonb ->> 'folderPath' LIKE $${paramIndex}`);
@@ -789,6 +792,11 @@ Pipeline:
         type: args.type,
         limit: args.limit,
       });
+
+      // Require userId for semantic search
+      if (!args.userId) {
+        return [];
+      }
 
       const limit = args.limit || 10;
       const threshold = args.threshold || 0.7;
