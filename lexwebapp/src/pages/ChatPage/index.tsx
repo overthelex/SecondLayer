@@ -11,9 +11,8 @@ import { EmptyState } from '../../components/EmptyState';
 import { PlanReviewDisplay } from '../../components/PlanReviewDisplay';
 import { useChatStore } from '../../stores';
 import { useMCPTool, useAIChat } from '../../hooks/useMCPTool';
+import { AI_CHAT_MODE } from '../../hooks/chat/tool-categories';
 import showToast from '../../utils/toast';
-
-const AI_CHAT_MODE = 'ai_chat';
 
 export function ChatPage() {
   const [selectedTool, setSelectedTool] = useState(AI_CHAT_MODE);

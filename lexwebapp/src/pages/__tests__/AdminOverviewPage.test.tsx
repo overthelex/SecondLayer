@@ -5,10 +5,41 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
+// Mock recharts to avoid rendering issues in tests
+vi.mock('recharts', () => {
+  const MockResponsiveContainer = ({ children }: any) => <div>{children}</div>;
+  const MockAreaChart = ({ children }: any) => <div>{children}</div>;
+  const MockLineChart = ({ children }: any) => <div>{children}</div>;
+  const MockComposedChart = ({ children }: any) => <div>{children}</div>;
+  const MockPieChart = ({ children }: any) => <div>{children}</div>;
+  const noop = () => null;
+  return {
+    ResponsiveContainer: MockResponsiveContainer,
+    AreaChart: MockAreaChart,
+    Area: noop,
+    LineChart: MockLineChart,
+    Line: noop,
+    ComposedChart: MockComposedChart,
+    Bar: noop,
+    PieChart: MockPieChart,
+    Pie: noop,
+    Cell: noop,
+    XAxis: noop,
+    YAxis: noop,
+    Tooltip: noop,
+    Legend: noop,
+  };
+});
+
 // Mock api-client
 const mockGetOverview = vi.fn();
 const mockGetRevenueChart = vi.fn();
 const mockGetTierDistribution = vi.fn();
+const mockGetTrafficMetrics = vi.fn();
+const mockGetLatencyMetrics = vi.fn();
+const mockGetServicesHealth = vi.fn();
+const mockGetSystemMetrics = vi.fn();
+const mockGetUsageAnalytics = vi.fn();
 
 vi.mock('../../utils/api-client', () => ({
   default: {},
@@ -17,6 +48,11 @@ vi.mock('../../utils/api-client', () => ({
       getOverview: () => mockGetOverview(),
       getRevenueChart: (days?: number) => mockGetRevenueChart(days),
       getTierDistribution: () => mockGetTierDistribution(),
+      getTrafficMetrics: (range?: string) => mockGetTrafficMetrics(range),
+      getLatencyMetrics: (range?: string) => mockGetLatencyMetrics(range),
+      getServicesHealth: () => mockGetServicesHealth(),
+      getSystemMetrics: () => mockGetSystemMetrics(),
+      getUsageAnalytics: (days?: number) => mockGetUsageAnalytics(days),
     },
   },
 }));
@@ -41,6 +77,30 @@ const mockTiers = [
   { tier: 'professional', user_count: 20, total_balance_usd: 1500 },
 ];
 
+/** Set up all mocks to return successful defaults */
+function mockAllSuccess() {
+  mockGetOverview.mockResolvedValue({ data: mockOverview });
+  mockGetRevenueChart.mockResolvedValue({ data: { data: mockChart } });
+  mockGetTierDistribution.mockResolvedValue({ data: { tiers: mockTiers } });
+  mockGetTrafficMetrics.mockResolvedValue({ data: null });
+  mockGetLatencyMetrics.mockResolvedValue({ data: null });
+  mockGetServicesHealth.mockResolvedValue({ data: { services: [] } });
+  mockGetSystemMetrics.mockResolvedValue({ data: null });
+  mockGetUsageAnalytics.mockResolvedValue({ data: { usage: [] } });
+}
+
+/** Set up all mocks to reject */
+function mockAllFail(error: any) {
+  mockGetOverview.mockRejectedValue(error);
+  mockGetRevenueChart.mockRejectedValue(error);
+  mockGetTierDistribution.mockRejectedValue(error);
+  mockGetTrafficMetrics.mockRejectedValue(error);
+  mockGetLatencyMetrics.mockRejectedValue(error);
+  mockGetServicesHealth.mockRejectedValue(error);
+  mockGetSystemMetrics.mockRejectedValue(error);
+  mockGetUsageAnalytics.mockRejectedValue(error);
+}
+
 describe('AdminOverviewPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -50,15 +110,18 @@ describe('AdminOverviewPage', () => {
     mockGetOverview.mockReturnValue(new Promise(() => {}));
     mockGetRevenueChart.mockReturnValue(new Promise(() => {}));
     mockGetTierDistribution.mockReturnValue(new Promise(() => {}));
+    mockGetTrafficMetrics.mockReturnValue(new Promise(() => {}));
+    mockGetLatencyMetrics.mockReturnValue(new Promise(() => {}));
+    mockGetServicesHealth.mockReturnValue(new Promise(() => {}));
+    mockGetSystemMetrics.mockReturnValue(new Promise(() => {}));
+    mockGetUsageAnalytics.mockReturnValue(new Promise(() => {}));
 
     render(<AdminOverviewPage />);
     expect(screen.getByText('Loading overview...')).toBeInTheDocument();
   });
 
   it('renders KPI cards after data loads', async () => {
-    mockGetOverview.mockResolvedValue({ data: mockOverview });
-    mockGetRevenueChart.mockResolvedValue({ data: { data: mockChart } });
-    mockGetTierDistribution.mockResolvedValue({ data: { tiers: mockTiers } });
+    mockAllSuccess();
 
     render(<AdminOverviewPage />);
 
@@ -66,22 +129,14 @@ describe('AdminOverviewPage', () => {
       expect(screen.getByText('System Overview')).toBeInTheDocument();
     });
 
-    // Revenue Today
     expect(screen.getByText('Revenue Today')).toBeInTheDocument();
     expect(screen.getByText('Revenue This Month')).toBeInTheDocument();
     expect(screen.getByText('Requests Today')).toBeInTheDocument();
-    expect(screen.getByText('Failed Requests')).toBeInTheDocument();
-
-    // Users section
-    expect(screen.getByText('Total Users')).toBeInTheDocument();
-    expect(screen.getByText('Active (30d)')).toBeInTheDocument();
-    expect(screen.getByText('Low Balance Alerts')).toBeInTheDocument();
+    expect(screen.getByText('Active Users (30d)')).toBeInTheDocument();
   });
 
   it('renders tier distribution section', async () => {
-    mockGetOverview.mockResolvedValue({ data: mockOverview });
-    mockGetRevenueChart.mockResolvedValue({ data: { data: mockChart } });
-    mockGetTierDistribution.mockResolvedValue({ data: { tiers: mockTiers } });
+    mockAllSuccess();
 
     render(<AdminOverviewPage />);
 
@@ -95,9 +150,8 @@ describe('AdminOverviewPage', () => {
   });
 
   it('shows "No revenue data available" when chart is empty', async () => {
-    mockGetOverview.mockResolvedValue({ data: mockOverview });
+    mockAllSuccess();
     mockGetRevenueChart.mockResolvedValue({ data: { data: [] } });
-    mockGetTierDistribution.mockResolvedValue({ data: { tiers: mockTiers } });
 
     render(<AdminOverviewPage />);
 
@@ -107,8 +161,7 @@ describe('AdminOverviewPage', () => {
   });
 
   it('shows "No tier data" when tiers are empty', async () => {
-    mockGetOverview.mockResolvedValue({ data: mockOverview });
-    mockGetRevenueChart.mockResolvedValue({ data: { data: mockChart } });
+    mockAllSuccess();
     mockGetTierDistribution.mockResolvedValue({ data: { tiers: [] } });
 
     render(<AdminOverviewPage />);
@@ -119,9 +172,7 @@ describe('AdminOverviewPage', () => {
   });
 
   it('shows error state with retry button on API failure', async () => {
-    mockGetOverview.mockRejectedValue({ message: 'Network error' });
-    mockGetRevenueChart.mockRejectedValue({ message: 'Network error' });
-    mockGetTierDistribution.mockRejectedValue({ message: 'Network error' });
+    mockAllFail({ message: 'Network error' });
 
     render(<AdminOverviewPage />);
 
@@ -133,9 +184,7 @@ describe('AdminOverviewPage', () => {
   });
 
   it('retries fetching on retry button click', async () => {
-    mockGetOverview.mockRejectedValueOnce({ message: 'Fail' });
-    mockGetRevenueChart.mockRejectedValueOnce({ message: 'Fail' });
-    mockGetTierDistribution.mockRejectedValueOnce({ message: 'Fail' });
+    mockAllFail({ message: 'Fail' });
 
     render(<AdminOverviewPage />);
 
@@ -143,9 +192,7 @@ describe('AdminOverviewPage', () => {
       expect(screen.getByText('Retry')).toBeInTheDocument();
     });
 
-    mockGetOverview.mockResolvedValue({ data: mockOverview });
-    mockGetRevenueChart.mockResolvedValue({ data: { data: mockChart } });
-    mockGetTierDistribution.mockResolvedValue({ data: { tiers: mockTiers } });
+    mockAllSuccess();
 
     fireEvent.click(screen.getByText('Retry'));
 
@@ -155,9 +202,7 @@ describe('AdminOverviewPage', () => {
   });
 
   it('refresh button re-fetches data', async () => {
-    mockGetOverview.mockResolvedValue({ data: mockOverview });
-    mockGetRevenueChart.mockResolvedValue({ data: { data: mockChart } });
-    mockGetTierDistribution.mockResolvedValue({ data: { tiers: mockTiers } });
+    mockAllSuccess();
 
     render(<AdminOverviewPage />);
 
@@ -180,6 +225,7 @@ describe('AdminOverviewPage', () => {
       alerts: { failed_requests_today: null },
     };
 
+    mockAllSuccess();
     mockGetOverview.mockResolvedValue({ data: partialOverview });
     mockGetRevenueChart.mockResolvedValue({ data: { data: [] } });
     mockGetTierDistribution.mockResolvedValue({ data: { tiers: [] } });
@@ -195,13 +241,7 @@ describe('AdminOverviewPage', () => {
   });
 
   it('shows server error message from response data', async () => {
-    mockGetOverview.mockRejectedValue({
-      response: { data: { error: 'Unauthorized access' } },
-    });
-    mockGetRevenueChart.mockRejectedValue({
-      response: { data: { error: 'Unauthorized access' } },
-    });
-    mockGetTierDistribution.mockRejectedValue({
+    mockAllFail({
       response: { data: { error: 'Unauthorized access' } },
     });
 
