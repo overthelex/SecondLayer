@@ -17,6 +17,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - After making code changes, always rebuild Docker images before testing (`docker compose build <service>` then `docker compose up -d`). Never test against stale containers.
 - Local dev runs in Docker. Do NOT attempt to restart backend processes directly — always use docker compose commands.
+- Compose files have NO `env_file:` directives — secrets are injected via shell env substitution. **Always pass `--env-file`**:
+  - Local: `docker compose -f docker-compose.local.yml --env-file .env.local up -d`
+  - Stage: `docker compose -f docker-compose.stage.yml --env-file .env.stage up -d`
+  - Prod: `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d`
 
 ## Git Workflow
 
