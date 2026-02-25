@@ -603,7 +603,7 @@ deploy_local() {
         set -e
 
         # Step 1: Stop app containers only (keep infrastructure: postgres, redis, qdrant, minio)
-        # Note: branch sync (localdev checkout + pull) is handled by preflight check_git_clean_state
+        # Note: deploys from current branch (main)
         print_msg "$BLUE" "Stopping app containers (keeping databases running)..."
         $compose_cmd $compose_args stop \
             app-local rada-mcp-app-local app-openreyestr-local \
