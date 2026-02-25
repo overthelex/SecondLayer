@@ -11,7 +11,6 @@ import {
   Mail,
   Phone,
   MapPin,
-  Calendar,
   Edit3,
   Building2,
   User,
@@ -85,7 +84,7 @@ export function ClientDetailPage({ client, onBack }: ClientDetailPageProps) {
   const navigate = useNavigate();
   const { clientDetailTab, setClientDetailTab } = useClientMatterStore();
   const [showCreateMatter, setShowCreateMatter] = React.useState(false);
-  const [showEditModal, setShowEditModal] = React.useState(false);
+  const [_showEditModal, setShowEditModal] = React.useState(false);
 
   const { data: mattersData } = useMatters({ clientId: client.id, limit: 100 });
   const matters = mattersData?.matters || [];

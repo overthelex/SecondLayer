@@ -3,7 +3,6 @@
  * Defines all application routes and their structure
  */
 
-import React from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ROUTES } from './routes';
 import { AuthGuard } from './guards/AuthGuard';

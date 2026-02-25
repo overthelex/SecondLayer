@@ -3,7 +3,7 @@
  * Dashboards for Backend Performance, Upload Pipeline, API Cost Trends, and Infrastructure
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   RefreshCw,
   ChevronDown,
@@ -54,7 +54,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-function formatTime(ts: number): string {
+function formatTime(ts: any): string {
   return new Date(ts * 1000).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
@@ -677,7 +677,7 @@ function CostRealtimeSection({ data }: { data: any }) {
             <BarChart data={topTools} layout="vertical">
               <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v.toFixed(2)}`} />
               <YAxis type="category" dataKey="tool" tick={{ fontSize: 10 }} width={150} />
-              <Tooltip {...tooltipStyle} formatter={(v: number) => `$${v.toFixed(4)}`} />
+              <Tooltip {...tooltipStyle} formatter={(v: any) => `$${v.toFixed(4)}`} />
               <Bar dataKey="cost" fill={COLORS.blue} radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -731,7 +731,7 @@ function InfrastructureSection({ data }: { data: any }) {
             <AreaChart data={cpuSeries}>
               <XAxis dataKey="timestamp" tickFormatter={formatTime} tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} />
-              <Tooltip {...tooltipStyle} labelFormatter={formatTime} formatter={(v: number) => `${(v * 100).toFixed(1)}%`} />
+              <Tooltip {...tooltipStyle} labelFormatter={formatTime} formatter={(v: any) => `${(v * 100).toFixed(1)}%`} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Area type="monotone" dataKey="user" stackId="1" stroke={COLORS.blue} fill={COLORS.blue} fillOpacity={0.5} name="User" />
               <Area type="monotone" dataKey="system" stackId="1" stroke={COLORS.amber} fill={COLORS.amber} fillOpacity={0.5} name="System" />
@@ -775,7 +775,7 @@ function InfrastructureSection({ data }: { data: any }) {
             <AreaChart data={redisMem}>
               <XAxis dataKey="timestamp" tickFormatter={formatTime} tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatBytes(v)} />
-              <Tooltip {...tooltipStyle} labelFormatter={formatTime} formatter={(v: number) => formatBytes(v)} />
+              <Tooltip {...tooltipStyle} labelFormatter={formatTime} formatter={(v: any) => formatBytes(v)} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Area type="monotone" dataKey="used" stroke={COLORS.blue} fill={COLORS.blue} fillOpacity={0.3} name="Used" />
               <Area type="monotone" dataKey="max" stroke={COLORS.slate} fill="none" strokeDasharray="5 5" name="Max" />
@@ -801,7 +801,7 @@ function InfrastructureSection({ data }: { data: any }) {
             <LineChart data={diskSeries}>
               <XAxis dataKey="timestamp" tickFormatter={formatTime} tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatBytes(v)} />
-              <Tooltip {...tooltipStyle} labelFormatter={formatTime} formatter={(v: number) => formatBytes(v)} />
+              <Tooltip {...tooltipStyle} labelFormatter={formatTime} formatter={(v: any) => formatBytes(v)} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line type="monotone" dataKey="read_bytes" stroke={COLORS.blue} dot={false} strokeWidth={1.5} name="Read" />
               <Line type="monotone" dataKey="write_bytes" stroke={COLORS.orange} dot={false} strokeWidth={1.5} name="Write" />
@@ -815,7 +815,7 @@ function InfrastructureSection({ data }: { data: any }) {
             <LineChart data={networkSeries}>
               <XAxis dataKey="timestamp" tickFormatter={formatTime} tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatBytes(v)} />
-              <Tooltip {...tooltipStyle} labelFormatter={formatTime} formatter={(v: number) => formatBytes(v)} />
+              <Tooltip {...tooltipStyle} labelFormatter={formatTime} formatter={(v: any) => formatBytes(v)} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line type="monotone" dataKey="rx_bytes" stroke={COLORS.emerald} dot={false} strokeWidth={1.5} name="Receive" />
               <Line type="monotone" dataKey="tx_bytes" stroke={COLORS.purple} dot={false} strokeWidth={1.5} name="Transmit" />

@@ -1,16 +1,13 @@
-import React, { useState, Fragment } from 'react';
+import { useState, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
   CheckCircle,
   XCircle,
-  Users,
   MapPin,
-  Clock,
   TrendingUp,
   Download,
   ArrowLeft,
-  ChevronDown,
   AlertCircle,
   Vote } from
 'lucide-react';

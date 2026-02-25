@@ -3,7 +3,7 @@
  * Allows users to add funds via Monobank, MetaMask, or Binance Pay
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   CreditCard,

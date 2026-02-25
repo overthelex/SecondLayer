@@ -3,7 +3,7 @@
  * Displays current balance, spending limits, and usage statistics
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   DollarSign,

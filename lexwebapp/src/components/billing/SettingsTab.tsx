@@ -3,19 +3,17 @@
  * 5 collapsible sections: Payment Methods, Billing Info, Limits & Forecasting, Notifications, Account & Test Email
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CreditCard,
   Plus,
   Trash2,
   CheckCircle,
-  Clock,
   AlertCircle,
   AlertTriangle,
   RefreshCw,
   Building2,
-  DollarSign,
   Inbox,
   Bell,
   Target,

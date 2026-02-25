@@ -4,14 +4,12 @@
  */
 
 import { BaseService } from '../base/BaseService';
-import { Balance, BillingBalance, Transaction, BillingSettings, PaymentIntent } from '../../types/models';
+import { Balance, BillingBalance, BillingSettings } from '../../types/models';
 import {
   UpdateBillingSettingsRequest,
-  CreatePaymentRequest,
   GetTransactionHistoryRequest,
   GetBalanceResponse,
   GetTransactionHistoryResponse,
-  CreatePaymentResponse,
 } from '../../types/api';
 
 export class BillingService extends BaseService {

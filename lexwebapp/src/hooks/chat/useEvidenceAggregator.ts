@@ -5,7 +5,6 @@
 
 import { useMemo } from 'react';
 import { useChatStore } from '../../stores';
-import type { Decision, Citation, VaultDocument } from '../../types/models/Message';
 
 /** Proper court decisions — shown in the "Рішення" tab */
 const DECISION_TYPES = new Set(['Рішення', 'Вирок', 'Постанова']);

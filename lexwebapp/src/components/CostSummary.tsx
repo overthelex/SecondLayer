@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CostSummary as CostSummaryType } from '../types/models/Message';

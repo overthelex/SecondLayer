@@ -3,7 +3,6 @@
  * Wrapper for JudgesPage component with routing logic
  */
 
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { JudgesPage as JudgesPageComponent } from '../../components/JudgesPage';
 import { generateRoute } from '../../router/routes';

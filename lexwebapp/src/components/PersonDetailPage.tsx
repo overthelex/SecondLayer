@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -8,11 +7,8 @@ import {
   Briefcase,
   Award,
   TrendingUp,
-  Calendar,
   FileText,
-  Scale,
-  Users } from
-'lucide-react';
+} from 'lucide-react';
 interface PersonDetailPageProps {
   type: 'judge' | 'lawyer';
   person: {

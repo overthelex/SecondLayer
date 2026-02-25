@@ -276,7 +276,7 @@ export function AdminZOStatsPage() {
                     <Tooltip
                       contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 8 }}
                       labelStyle={{ color: '#e5e7eb', fontWeight: 600 }}
-                      formatter={(value: any, name: string) => [formatNum(Number(value)), name]}
+                      formatter={(value: any, name: string | undefined) => [formatNum(Number(value)), name ?? '']}
                     />
                     <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
                     {data.justiceKinds.map(k => (

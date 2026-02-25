@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -7,7 +7,6 @@ import {
   Gavel,
   Percent,
   Clock,
-  Filter,
   LayoutGrid,
   List } from
 'lucide-react';

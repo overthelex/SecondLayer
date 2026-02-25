@@ -3,7 +3,6 @@
  * Fetches client by URL param, no longer depends on location.state
  */
 
-import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ClientDetailPage as ClientDetailPageComponent } from '../../components/ClientDetailPage';
 import { useClient } from '../../hooks/queries/useClients';

@@ -103,7 +103,7 @@ describe('useMCPTool', () => {
     let progressCallback: any;
 
     (mcpService.streamTool as any).mockImplementation(
-      async (toolName: string, params: any, callbacks: any) => {
+      async (_toolName: string, _params: any, callbacks: any) => {
         progressCallback = callbacks.onProgress;
         return mockController;
       }
@@ -144,7 +144,7 @@ describe('useMCPTool', () => {
     };
 
     (mcpService.streamTool as any).mockImplementation(
-      async (toolName: string, params: any, callbacks: any) => {
+      async (_toolName: string, _params: any, callbacks: any) => {
         completeCallback = callbacks.onComplete;
         return mockController;
       }
@@ -176,7 +176,7 @@ describe('useMCPTool', () => {
     let errorCallback: any;
 
     (mcpService.streamTool as any).mockImplementation(
-      async (toolName: string, params: any, callbacks: any) => {
+      async (_toolName: string, _params: any, callbacks: any) => {
         errorCallback = callbacks.onError;
         return mockController;
       }
@@ -207,7 +207,7 @@ describe('useMCPTool', () => {
     let completeCallback: any;
 
     (mcpService.streamTool as any).mockImplementation(
-      async (toolName: string, params: any, callbacks: any) => {
+      async (_toolName: string, _params: any, callbacks: any) => {
         completeCallback = callbacks.onComplete;
         return mockController;
       }

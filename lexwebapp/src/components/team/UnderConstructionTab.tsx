@@ -3,7 +3,6 @@
  * Placeholder for future tabs in Team section
  */
 
-import React from 'react';
 import { Construction } from 'lucide-react';
 
 export function UnderConstructionTab() {

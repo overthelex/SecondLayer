@@ -3,7 +3,7 @@
  * System dashboard with KPIs, recharts visualizations, Prometheus metrics
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   RefreshCw,
   DollarSign,
@@ -516,7 +516,7 @@ export function AdminOverviewPage() {
                 />
                 <Tooltip
                   {...tooltipStyle}
-                  formatter={(value: number) => [`$${Number(value).toFixed(2)}`]}
+                  formatter={(value: any) => [`$${Number(value).toFixed(2)}`]}
                 />
                 <Legend
                   iconType="circle"
@@ -565,7 +565,7 @@ export function AdminOverviewPage() {
                 />
                 <Tooltip
                   {...tooltipStyle}
-                  formatter={(value: number) => [`${Number(value).toFixed(1)}ms`]}
+                  formatter={(value: any) => [`${Number(value).toFixed(1)}ms`]}
                 />
                 <Legend
                   iconType="circle"
@@ -605,7 +605,7 @@ export function AdminOverviewPage() {
                   </Pie>
                   <Tooltip
                     {...tooltipStyle}
-                    formatter={(value: number) => [formatNumber(value), 'Requests']}
+                    formatter={(value: any) => [formatNumber(value), 'Requests']}
                   />
                 </PieChart>
               </ResponsiveContainer>

@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search,
   Download,
   Printer,
   ArrowLeft,
@@ -25,28 +24,6 @@ interface Revision {
   basis: string;
   changes: string;
 }
-const popularLaws = [
-{
-  name: 'Конституція України',
-  number: '254к/96-ВР',
-  revisions: 33
-},
-{
-  name: 'Цивільний кодекс',
-  number: '435-15',
-  revisions: 127
-},
-{
-  name: 'Кримінальний кодекс',
-  number: '2341-14',
-  revisions: 456
-},
-{
-  name: 'Податковий кодекс',
-  number: '2755-17',
-  revisions: 389
-}];
-
 const revisions: Revision[] = [
 {
   id: 33,
@@ -177,8 +154,8 @@ const articleVersions = [
 export function HistoricalAnalysisPage({
   onBack
 }: HistoricalAnalysisPageProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLaw, setSelectedLaw] = useState<string | null>(null);
+  const [_searchQuery, _setSearchQuery] = useState('');
+  const [selectedLaw] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     'timeline' | 'statistics' | 'comparison' | 'article'>(
     'timeline');
