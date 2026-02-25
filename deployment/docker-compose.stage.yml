@@ -282,6 +282,11 @@ services:
     image: rada-mcp:latest
     container_name: rada-mcp-app-stage
     command: ["node", "--max-old-space-size=3072", "dist/http-server.js"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     depends_on:
       rada-migrate-stage:
         condition: service_completed_successfully
@@ -359,6 +364,11 @@ services:
     image: openreyestr-app:latest
     container_name: openreyestr-app-stage
     command: ["node", "dist/http-server.js"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     environment:
       NODE_ENV: staging
       HTTP_PORT: 3005
@@ -433,6 +443,11 @@ services:
       dockerfile: deployment/Dockerfile.mono-backend
     image: secondlayer-app:latest
     container_name: secondlayer-app-stage
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
     command:
     - node
     - --max-old-space-size=8192
@@ -557,6 +572,11 @@ services:
     image: document-service:latest
     container_name: document-service-stage
     command: ["node", "--max-old-space-size=5120", "--expose-gc", "dist/document-service.js"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
     depends_on:
       postgres-stage:
         condition: service_healthy
@@ -709,6 +729,11 @@ services:
   nginx-stage:
     image: nginx:alpine
     container_name: nginx-stage
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     ports:
       - "80:80"
       - "443:443"

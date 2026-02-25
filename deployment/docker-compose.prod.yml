@@ -277,6 +277,11 @@ services:
     image: rada-mcp-prod:latest
     container_name: rada-mcp-app-prod
     command: ["node", "--max-old-space-size=1536", "dist/http-server.js"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     depends_on:
       rada-migrate-prod:
         condition: service_completed_successfully
@@ -351,6 +356,11 @@ services:
     image: openreyestr-app-prod:latest
     container_name: openreyestr-app-prod
     command: ["node", "dist/http-server.js"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     environment:
       NODE_ENV: production
       HTTP_PORT: 3005
@@ -425,6 +435,11 @@ services:
     - node
     - --max-old-space-size=3072
     - dist/http-server.js
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
     environment:
       NODE_ENV: production
       HTTP_PORT: ${HTTP_PORT:-3000}
@@ -557,6 +572,11 @@ services:
     image: document-service-prod:latest
     container_name: document-service-prod
     command: ["node", "--max-old-space-size=2048", "--expose-gc", "dist/document-service.js"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
     depends_on:
       postgres-prod:
         condition: service_healthy
@@ -672,6 +692,11 @@ services:
   nginx-prod:
     image: nginx:alpine
     container_name: nginx-prod
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     ports:
       - "80:80"
       - "443:443"
