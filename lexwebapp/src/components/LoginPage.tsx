@@ -804,7 +804,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         {/* AWS Startups Logo */}
         <div className="text-center mt-6">
           <motion.a
-            href="https://aws.amazon.com/startups"
+            href="https://aws.amazon.com/startups/showcase/startup-details/aa3724a2-2ad3-429d-a762-4415407bbd86"
             target="_blank"
             rel="noopener noreferrer"
             initial={{ scale: 0.9, opacity: 0 }}

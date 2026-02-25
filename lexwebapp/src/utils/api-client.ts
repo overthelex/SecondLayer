@@ -216,6 +216,9 @@ export const api = {
     getFolders: (prefix?: string) =>
       apiClient.get('/api/documents/folders', { params: { prefix } }),
     getById: (id: string) => apiClient.get(`/api/documents/${id}`),
+    delete: (id: string) => apiClient.delete(`/api/documents/${id}`),
+    update: (id: string, data: { full_text?: string; title?: string; type?: string }) =>
+      apiClient.patch(`/api/documents/${id}`, data),
   },
 
   // Admin

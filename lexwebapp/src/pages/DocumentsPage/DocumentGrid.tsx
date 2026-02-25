@@ -1,12 +1,17 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   FileText,
   Image,
   Film,
   FileSpreadsheet,
+  MoreVertical,
+  Eye,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import type { VaultDocument } from './types';
+import { isEditable } from './types';
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   contract: 'Договір',
@@ -58,12 +63,94 @@ function getFileIcon(mimeType?: string) {
   return FileText;
 }
 
+function CardContextMenu({
+  doc,
+  onView,
+  onEdit,
+  onDelete,
+}: {
+  doc: VaultDocument;
+  onView: (doc: VaultDocument) => void;
+  onEdit: (doc: VaultDocument) => void;
+  onDelete: (doc: VaultDocument) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        className="p-1 text-claude-subtext/30 hover:text-claude-text transition-colors opacity-0 group-hover:opacity-100"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+      >
+        <MoreVertical size={14} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-50 w-44 bg-white border border-claude-border rounded-xl shadow-lg py-1">
+          <button
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-claude-text hover:bg-claude-bg transition-colors font-sans"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onView(doc);
+            }}
+          >
+            <Eye size={14} className="text-claude-subtext/60" />
+            Переглянути
+          </button>
+          {isEditable(doc.metadata?.mimeType) && (
+            <button
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-claude-text hover:bg-claude-bg transition-colors font-sans"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+                onEdit(doc);
+              }}
+            >
+              <Pencil size={14} className="text-claude-subtext/60" />
+              Редагувати
+            </button>
+          )}
+          <button
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-sans"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onDelete(doc);
+            }}
+          >
+            <Trash2 size={14} />
+            Видалити
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface DocumentGridProps {
   documents: VaultDocument[];
   onDocumentClick: (doc: VaultDocument) => void;
+  onView: (doc: VaultDocument) => void;
+  onEdit: (doc: VaultDocument) => void;
+  onDelete: (doc: VaultDocument) => void;
 }
 
-export function DocumentGrid({ documents, onDocumentClick }: DocumentGridProps) {
+export function DocumentGrid({ documents, onDocumentClick, onView, onEdit, onDelete }: DocumentGridProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {documents.map((doc, index) => {
@@ -81,13 +168,21 @@ export function DocumentGrid({ documents, onDocumentClick }: DocumentGridProps) 
               <div className="p-2 bg-claude-subtext/5 rounded-lg">
                 <Icon size={20} className="text-claude-subtext/50" />
               </div>
-              <span
-                className={`inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-md border ${
-                  DOC_TYPE_COLORS[doc.type] || DOC_TYPE_COLORS.other
-                } font-sans`}
-              >
-                {DOC_TYPE_LABELS[doc.type] || doc.type}
-              </span>
+              <div className="flex items-center gap-1">
+                <span
+                  className={`inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-md border ${
+                    DOC_TYPE_COLORS[doc.type] || DOC_TYPE_COLORS.other
+                  } font-sans`}
+                >
+                  {DOC_TYPE_LABELS[doc.type] || doc.type}
+                </span>
+                <CardContextMenu
+                  doc={doc}
+                  onView={onView}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
+              </div>
             </div>
             <h4 className="text-sm font-semibold text-claude-text mb-1 truncate font-sans">
               {doc.title}
