@@ -1,9 +1,7 @@
-import { Pool } from 'pg';
-import { LegislationService, parseLegislationReference, parseLegislationReferenceWithAI, normalizeRadaId } from '../services/legislation-service';
+import type { ICachePort } from '../domain/ports/index.js';
+import { LegislationService, normalizeRadaId } from '../services/legislation-service';
 import { LegislationRenderer } from '../services/legislation-renderer';
-import { EmbeddingService } from '../services/embedding-service';
 import { logger } from '../utils/logger';
-import { createClient } from 'redis';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
 
 export interface LegislationToolArgs {
@@ -20,10 +18,13 @@ export class LegislationTools extends BaseToolHandler {
   private service: LegislationService;
   private renderer: LegislationRenderer;
 
-  constructor(db: Pool, embeddingService: EmbeddingService, redis?: ReturnType<typeof createClient>) {
+  constructor(
+    service: LegislationService,
+    renderer?: LegislationRenderer
+  ) {
     super();
-    this.service = new LegislationService(db, embeddingService, redis);
-    this.renderer = new LegislationRenderer();
+    this.service = service;
+    this.renderer = renderer || new LegislationRenderer();
   }
 
   getLegislationService(): LegislationService {
@@ -33,7 +34,7 @@ export class LegislationTools extends BaseToolHandler {
   /**
    * Устанавливает Redis клиент для AI-классификации законодательства
    */
-  setRedisClient(redis: ReturnType<typeof createClient> | null): void {
+  setRedisClient(redis: ICachePort | null): void {
     this.service.setRedisClient(redis);
   }
 

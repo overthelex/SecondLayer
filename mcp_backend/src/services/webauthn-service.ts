@@ -18,7 +18,7 @@ import type {
   AuthenticationResponseJSON,
   AuthenticatorTransportFuture,
 } from '@simplewebauthn/server';
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 
 export interface WebAuthnCredential {
@@ -37,12 +37,12 @@ export interface WebAuthnCredential {
 }
 
 export class WebAuthnService {
-  private db: Database;
+  private db: IDatabase;
   private rpName: string;
   private rpID: string;
   private origins: string[];
 
-  constructor(db: Database) {
+  constructor(db: IDatabase) {
     this.db = db;
     this.rpName = process.env.WEBAUTHN_RP_NAME || 'SecondLayer Legal';
     this.rpID = process.env.WEBAUTHN_RP_ID || 'localhost';

@@ -5,18 +5,18 @@
  * Records prompt instances and their execution results to PostgreSQL.
  */
 
-import type { Pool } from 'pg';
+import type { IDatabase } from '../../domain/ports/index.js';
 import type { PromptInstance, PromptExecutionResult } from '../../types/prompt.js';
 
 export class PromptLifecycleManager {
-  constructor(private pool: Pool) {}
+  constructor(private db: IDatabase) {}
 
   /**
    * Record a prompt instance (assembled prompt)
    */
   async recordInstance(instance: PromptInstance): Promise<void> {
     try {
-      await this.pool.query(
+      await this.db.query(
         `INSERT INTO prompt_instances (
           instance_id, intent_name, template_id, template_version,
           system_instructions, user_message, sources, constraints,
@@ -46,7 +46,7 @@ export class PromptLifecycleManager {
    */
   async recordExecution(result: PromptExecutionResult): Promise<void> {
     try {
-      await this.pool.query(
+      await this.db.query(
         `INSERT INTO prompt_executions (
           instance_id, model_used, tokens_input, tokens_output,
           cost_usd, execution_time_ms, validation_passed, retry_count,
@@ -77,7 +77,7 @@ export class PromptLifecycleManager {
    */
   async getInstanceHistory(intentName: string, limit = 10): Promise<any[]> {
     try {
-      const result = await this.pool.query(
+      const result = await this.db.query(
         `SELECT
           pi.instance_id,
           pi.intent_name,
@@ -113,7 +113,7 @@ export class PromptLifecycleManager {
    */
   async getMetrics(intentName: string, days = 7): Promise<any> {
     try {
-      const result = await this.pool.query(
+      const result = await this.db.query(
         `SELECT * FROM get_prompt_metrics($1, $2)`,
         [intentName, days]
       );
@@ -137,7 +137,7 @@ export class PromptLifecycleManager {
    */
   async getTemplatePerformance(): Promise<any[]> {
     try {
-      const result = await this.pool.query(
+      const result = await this.db.query(
         `SELECT * FROM prompt_performance
          WHERE execution_count > 0
          ORDER BY total_cost DESC
@@ -156,7 +156,7 @@ export class PromptLifecycleManager {
    */
   async getRetryAnalysis(days = 7): Promise<any[]> {
     try {
-      const result = await this.pool.query(
+      const result = await this.db.query(
         `SELECT
           pi.intent_name,
           pe.retry_count,

@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import { logger } from '../utils/logger';
-import { Pool } from 'pg';
+import type { IDatabase } from '../domain/ports/index.js';
 
 export interface LegislationMetadata {
   rada_id: string;
@@ -43,13 +43,13 @@ export interface ArticleChunk {
 
 export class RadaLegislationAdapter {
   private httpClient: AxiosInstance;
-  private db: Pool;
+  private db: IDatabase;
   private readonly BASE_URL = 'https://zakon.rada.gov.ua';
   private readonly CHUNK_SIZE = 500; // characters per chunk for vector search
   private readonly CHUNK_OVERLAP = 100; // overlap between chunks
   private externalApiMetrics: ((service: string, status: string, durationSec: number) => void) | null = null;
 
-  constructor(db: Pool) {
+  constructor(db: IDatabase) {
     this.db = db;
     this.httpClient = axios.create({
       timeout: 30000,
@@ -259,84 +259,79 @@ export class RadaLegislationAdapter {
     metadata: LegislationMetadata,
     articles: LegislationArticle[]
   ): Promise<{ legislationId: string; articleIds: string[] }> {
-    const client = await this.db.connect();
-    
     try {
-      await client.query('BEGIN');
-
-      const legislationResult = await client.query(
-        `INSERT INTO legislation (rada_id, type, title, short_title, full_url, adoption_date, 
-          effective_date, last_amended_date, status, total_articles, structure_metadata)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-         ON CONFLICT (rada_id) DO UPDATE SET
-           title = EXCLUDED.title,
-           short_title = EXCLUDED.short_title,
-           last_amended_date = EXCLUDED.last_amended_date,
-           total_articles = EXCLUDED.total_articles,
-           updated_at = NOW()
-         RETURNING id`,
-        [
-          metadata.rada_id,
-          metadata.type,
-          metadata.title,
-          metadata.short_title,
-          metadata.full_url,
-          metadata.adoption_date,
-          metadata.effective_date,
-          metadata.last_amended_date,
-          metadata.status,
-          articles.length,
-          metadata.structure_metadata || {},
-        ]
-      );
-
-      const legislationId = legislationResult.rows[0].id;
-      const articleIds: string[] = [];
-
-      for (const article of articles) {
-        const articleResult = await client.query(
-          `INSERT INTO legislation_articles 
-           (legislation_id, article_number, section_number, chapter_number, title, 
-            full_text, full_text_html, part_number, paragraph_number, notes, 
-            version_date, is_current, byte_size, metadata)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-           ON CONFLICT (legislation_id, article_number, version_date) DO UPDATE SET
-             full_text = EXCLUDED.full_text,
-             full_text_html = EXCLUDED.full_text_html,
-             byte_size = EXCLUDED.byte_size,
+      const result = await this.db.transaction(async (client) => {
+        const legislationResult = await client.query(
+          `INSERT INTO legislation (rada_id, type, title, short_title, full_url, adoption_date,
+            effective_date, last_amended_date, status, total_articles, structure_metadata)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           ON CONFLICT (rada_id) DO UPDATE SET
+             title = EXCLUDED.title,
+             short_title = EXCLUDED.short_title,
+             last_amended_date = EXCLUDED.last_amended_date,
+             total_articles = EXCLUDED.total_articles,
              updated_at = NOW()
            RETURNING id`,
           [
-            legislationId,
-            article.article_number,
-            article.section_number,
-            article.chapter_number,
-            article.title,
-            article.full_text,
-            article.full_text_html,
-            article.part_number,
-            article.paragraph_number,
-            article.notes,
-            article.version_date || new Date(),
-            true,
-            article.byte_size,
-            article.metadata || {},
+            metadata.rada_id,
+            metadata.type,
+            metadata.title,
+            metadata.short_title,
+            metadata.full_url,
+            metadata.adoption_date,
+            metadata.effective_date,
+            metadata.last_amended_date,
+            metadata.status,
+            articles.length,
+            metadata.structure_metadata || {},
           ]
         );
 
-        articleIds.push(articleResult.rows[0].id);
-      }
+        const legislationId = legislationResult.rows[0].id;
+        const articleIds: string[] = [];
 
-      await client.query('COMMIT');
-      logger.info(`Saved legislation ${metadata.rada_id} with ${articles.length} articles`);
+        for (const article of articles) {
+          const articleResult = await client.query(
+            `INSERT INTO legislation_articles
+             (legislation_id, article_number, section_number, chapter_number, title,
+              full_text, full_text_html, part_number, paragraph_number, notes,
+              version_date, is_current, byte_size, metadata)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             ON CONFLICT (legislation_id, article_number, version_date) DO UPDATE SET
+               full_text = EXCLUDED.full_text,
+               full_text_html = EXCLUDED.full_text_html,
+               byte_size = EXCLUDED.byte_size,
+               updated_at = NOW()
+             RETURNING id`,
+            [
+              legislationId,
+              article.article_number,
+              article.section_number,
+              article.chapter_number,
+              article.title,
+              article.full_text,
+              article.full_text_html,
+              article.part_number,
+              article.paragraph_number,
+              article.notes,
+              article.version_date || new Date(),
+              true,
+              article.byte_size,
+              article.metadata || {},
+            ]
+          );
 
-      return { legislationId, articleIds };
+          articleIds.push(articleResult.rows[0].id);
+        }
+
+        logger.info(`Saved legislation ${metadata.rada_id} with ${articles.length} articles`);
+        return { legislationId, articleIds };
+      });
+
+      return result;
     } catch (error: any) {
-      await client.query('ROLLBACK');
       logger.error(`Failed to save legislation to database:`, error.message);
       throw error;
-    } finally {
-      client.release();
     }
   }
 

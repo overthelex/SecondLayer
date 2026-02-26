@@ -7,6 +7,7 @@ import { logger } from './utils/logger.js';
 import { dualAuth, requireJWT, optionalJWT, initializeDualAuth, initializeWebAuthn, AuthenticatedRequest as DualAuthRequest } from './middleware/dual-auth.js';
 import { configurePassport } from './config/passport.js';
 import authRouter from './routes/auth.js';
+import { setAuthCache, setAuthEmailService } from './controllers/auth.js';
 import { createBackendCoreServices, BackendCoreServices } from './factories/core-services.js';
 import { DocumentAnalysisTools } from './api/document-analysis-tools.js';
 import { BatchDocumentTools } from './api/batch-document-tools.js';
@@ -44,13 +45,15 @@ import { ApiKeyService } from './services/api-key-service.js';
 import { CreditService } from './services/credit-service.js';
 import { createApiKeyRouter } from './routes/api-key-routes.js';
 import { getRedisClient } from './utils/redis-client.js';
+import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
+import { LLMAdapter } from './infrastructure/adapters/llm-adapter.js';
 import { createTemplateRoutes } from './routes/template-routes.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createOAuthRouter } from './routes/oauth-routes.js';
 import { OAuthService } from './services/oauth-service.js';
-import { createHybridAuthMiddleware } from './middleware/oauth-auth.js';
+// createHybridAuthMiddleware available from './middleware/oauth-auth.js' if needed
 import { mcpDiscoveryRateLimit, healthCheckRateLimit, webhookRateLimit, chatRateLimit } from './middleware/rate-limit.js';
 import { ToolRegistry } from './api/tool-registry.js';
 import { BusinessRegistryTools } from './api/tools/business-registry-tools.js';
@@ -91,6 +94,12 @@ import { getLLMManager } from './utils/llm-client-manager.js';
 import { ChatSearchCacheService } from './services/chat-search-cache-service.js';
 import { PricingService } from './services/pricing-service.js';
 import { SubscriptionService } from './services/subscription-service.js';
+import { UserPreferencesService } from './services/user-preferences-service.js';
+import { PrometheusService } from './services/prometheus-service.js';
+import { UserService } from './services/user-service.js';
+import { WebAuthnService } from './services/webauthn-service.js';
+import { setRateLimitCache } from './middleware/rate-limit.js';
+import { setUploadRateLimitCache } from './middleware/upload-rate-limit.js';
 import { ConfigService } from './services/config-service.js';
 
 dotenv.config();
@@ -103,6 +112,10 @@ class HTTPMCPServer {
   private batchDocumentTools: BatchDocumentTools;
   private costTracker: CostTracker;
   private billingService: BillingService;
+  private pricingService: PricingService;
+  private subscriptionService: SubscriptionService;
+  private userPreferencesService: UserPreferencesService;
+  private prometheusService: PrometheusService;
   private monobankService: MonobankService | MockMonobankService;
   private metamaskService: MetaMaskService | MockMetaMaskService;
   private binancePayService: BinancePayService | MockBinancePayService;
@@ -130,6 +143,7 @@ class HTTPMCPServer {
   private timeEntryService: TimeEntryService;
   private matterInvoiceService: MatterInvoiceService;
   private chatService: ChatService;
+  private chatSearchCache: ChatSearchCacheService;
   private configService: ConfigService;
 
   constructor() {
@@ -138,19 +152,23 @@ class HTTPMCPServer {
     // Initialize core services via factory
     this.services = createBackendCoreServices();
 
+    // Create LLM adapter for dependency injection
+    const llmAdapter = new LLMAdapter(getLLMManager());
+
     // Initialize document parser with Vision API credentials
     // Use env var if set (for Docker), otherwise fallback to local path
     const visionKeyPath = process.env.VISION_CREDENTIALS_PATH ||
                          process.env.GOOGLE_APPLICATION_CREDENTIALS ||
                          path.resolve(process.cwd(), '../vision-ocr-credentials.json');
-    this.documentParser = new DocumentParser(visionKeyPath);
+    this.documentParser = new DocumentParser(visionKeyPath, llmAdapter);
     this.documentAnalysisTools = new DocumentAnalysisTools(
       this.documentParser,
       this.services.sectionizer,
       this.services.patternStore,
       this.services.citationValidator,
       this.services.embeddingService,
-      this.services.documentService
+      this.services.documentService,
+      llmAdapter
     );
 
     // Initialize batch document tools
@@ -163,6 +181,10 @@ class HTTPMCPServer {
     // Initialize cost tracker and billing service
     this.costTracker = new CostTracker(this.services.db);
     this.billingService = new BillingService(this.services.db);
+    this.pricingService = new PricingService(this.services.db);
+    this.subscriptionService = new SubscriptionService(this.services.db);
+    this.userPreferencesService = new UserPreferencesService(this.services.db);
+    this.prometheusService = new PrometheusService(process.env.PROMETHEUS_URL);
     this.invoiceService = new InvoiceService();
     this.costTracker.setBillingService(this.billingService);
 
@@ -174,8 +196,8 @@ class HTTPMCPServer {
     });
 
     // Initialize Phase 2 billing services (API keys & credits)
-    this.apiKeyService = new ApiKeyService(this.services.db.getPool());
-    this.creditService = new CreditService(this.services.db.getPool());
+    this.apiKeyService = new ApiKeyService(this.services.db);
+    this.creditService = new CreditService(this.services.db);
     logger.info('Phase 2 billing services initialized (API keys & credits)');
 
     // Initialize OAuth 2.0 service for ChatGPT integration
@@ -196,7 +218,8 @@ class HTTPMCPServer {
       this.services.sectionizer,
       this.services.patternStore,
       this.services.citationValidator,
-      this.services.documentService
+      this.services.documentService,
+      llmAdapter
     );
     this.toolRegistry.registerHandler(new DueDiligenceTools(ddService));
     this.toolRegistry.registerHandler(this.services.mcpAPI);
@@ -212,7 +235,8 @@ class HTTPMCPServer {
       this.services.zoPracticeAdapter,
       this.services.sectionizer,
       this.services.embeddingService,
-      this.services.patternStore
+      this.services.patternStore,
+      llmAdapter
     ));
     this.toolRegistry.registerHandler(new LegalAdviceTools(
       this.services.queryPlanner,
@@ -222,7 +246,8 @@ class HTTPMCPServer {
       this.services.embeddingService,
       this.services.patternStore,
       this.services.citationValidator,
-      this.services.shepardizationService
+      this.services.shepardizationService,
+      llmAdapter
     ));
     this.toolRegistry.registerHandler(new CourtSessionTools(
       this.services.zoSessionsAdapter,
@@ -233,9 +258,9 @@ class HTTPMCPServer {
     logger.info('Core tool handlers registered with ToolRegistry');
 
     // Initialize upload and storage services
-    this.uploadService = new UploadService(this.services.db.getPool());
+    this.uploadService = new UploadService(this.services.db);
     this.minioService = new MinioService();
-    const metadataExtractor = new MetadataExtractor();
+    const metadataExtractor = new MetadataExtractor(llmAdapter);
     this.vaultTools = new VaultTools(
       this.documentParser,
       this.services.sectionizer,
@@ -264,7 +289,7 @@ class HTTPMCPServer {
     logger.info('Time tracking and billing services initialized');
 
     // Initialize ChatService (agentic LLM loop) with search cache
-    const chatSearchCache = new ChatSearchCacheService(
+    this.chatSearchCache = new ChatSearchCacheService(
       this.services.zoAdapter,
       this.services.documentService
     );
@@ -272,7 +297,8 @@ class HTTPMCPServer {
       this.toolRegistry,
       this.services.queryPlanner,
       this.costTracker,
-      chatSearchCache,
+      llmAdapter,
+      this.chatSearchCache,
       this.conversationService,
       this.services.shepardizationService,
       this.services.embeddingService
@@ -287,7 +313,7 @@ class HTTPMCPServer {
       this.uploadService,
       this.minioService,
       this.vaultTools,
-      this.services.db.getPool(),
+      this.services.db,
       this.services.documentService
     );
     this.uploadQueueService.startWorker();
@@ -339,7 +365,7 @@ class HTTPMCPServer {
       this.uploadService,
       this.minioService,
       this.vaultTools,
-      this.services.db.getPool(),
+      this.services.db,
       this.services.documentService
     );
     this.uploadRecoveryService.setQueueService(this.uploadQueueService);
@@ -349,6 +375,7 @@ class HTTPMCPServer {
     this.emailService.setPreferenceFetcher((userId: string) =>
       this.billingService.getEmailPreferences(userId)
     );
+    setAuthEmailService(this.emailService);
 
     // Use mock services if MOCK_PAYMENTS=true or keys not configured
     const mockPaymentsEnabled = process.env.MOCK_PAYMENTS === 'true';
@@ -420,8 +447,10 @@ class HTTPMCPServer {
 
     // Initialize authentication
     configurePassport(this.services.db);
-    initializeDualAuth(this.services.db, this.apiKeyService);
-    initializeWebAuthn(this.services.db);
+    const userService = new UserService(this.services.db);
+    const webAuthnService = new WebAuthnService(this.services.db);
+    initializeDualAuth(userService, this.apiKeyService);
+    initializeWebAuthn(webAuthnService);
     logger.info('Authentication configured (Google OAuth2 + dual auth + WebAuthn)');
 
     // Setup middleware and routes AFTER services are initialized
@@ -1113,7 +1142,7 @@ class HTTPMCPServer {
     });
 
     // OAuth 2.0 routes for ChatGPT integration (public)
-    this.app.use('/oauth', createOAuthRouter(this.services.db));
+    this.app.use('/oauth', createOAuthRouter(this.oauthService));
     logger.info('OAuth 2.0 routes registered at /oauth');
 
     // Document folders endpoint - must come before /api/documents generic REST route
@@ -1138,7 +1167,7 @@ class HTTPMCPServer {
     this.app.use('/api/auth', requireJWT as any, authRouter);
 
     // Phase 2 Billing: API key management - require JWT (user login)
-    this.app.use('/api/keys', requireJWT as any, createApiKeyRouter(this.services.db.getPool()));
+    this.app.use('/api/keys', requireJWT as any, createApiKeyRouter(this.apiKeyService, this.creditService));
     logger.info('API key management routes registered at /api/keys');
 
     // EULA endpoints - REMOVED: not needed
@@ -1606,7 +1635,7 @@ class HTTPMCPServer {
     // GET /api/billing/full-settings - Get combined billing and preferences
     // GET /api/billing/pricing-info - Get pricing tier information
     // POST /api/billing/estimate-price - Estimate price with user's tier
-    this.app.use('/api/billing', requireJWT as any, createBillingRoutes(this.services.db));
+    this.app.use('/api/billing', requireJWT as any, createBillingRoutes(this.billingService, this.userPreferencesService, this.pricingService));
 
     // Team management routes
     // GET /api/team/members - Get team members
@@ -1637,7 +1666,7 @@ class HTTPMCPServer {
       this.uploadService,
       this.minioService,
       this.vaultTools,
-      this.services.db.getPool(),
+      this.services.db,
       this.uploadQueueService,
       this.services.documentService
     ));
@@ -1671,9 +1700,7 @@ class HTTPMCPServer {
     // GET /api/admin/analytics/usage - Usage analytics
     // GET /api/admin/api-keys - List API keys
     // GET /api/admin/settings - Get system settings
-    const pricingService = new PricingService(this.services.db);
-    const subscriptionService = new SubscriptionService(this.services.db);
-    this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, process.env.PROMETHEUS_URL, pricingService, subscriptionService, this.configService));
+    this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billingService, this.userPreferencesService, this.prometheusService, this.pricingService, this.subscriptionService, this.configService));
 
     // Upload metrics endpoint (admin)
     this.app.get('/api/admin/upload-metrics', requireJWT as any, (async (_req: DualAuthRequest, res: express.Response) => {
@@ -2517,13 +2544,24 @@ class HTTPMCPServer {
       await this.services.embeddingService.initialize();
       await this.documentParser.initialize();
 
-      // Initialize Redis for AI-powered legislation classification (optional)
+      // Initialize Redis cache for services (optional)
       const redis = await getRedisClient();
       if (redis) {
-        this.services.legislationTools.setRedisClient(redis);
-        logger.info('Redis connected - AI legislation classification with caching enabled');
+        const cache = new CacheAdapter(redis);
+        this.services.legislationTools.setRedisClient(cache);
+        this.services.zoAdapter.setCachePort(cache);
+        this.services.zoPracticeAdapter.setCachePort(cache);
+        this.services.zoSessionsAdapter.setCachePort(cache);
+        this.services.zoLegalActsAdapter.setCachePort(cache);
+        this.services.zoECHRAdapter.setCachePort(cache);
+        this.services.shepardizationService.setCachePort(cache);
+        this.chatSearchCache.setCachePort(cache);
+        setAuthCache(cache);
+        setRateLimitCache(cache);
+        setUploadRateLimitCache(cache);
+        logger.info('Redis connected - caching enabled for all services');
       } else {
-        logger.info('Redis not available - AI legislation classification will work without caching');
+        logger.info('Redis not available - services will work without caching');
       }
 
       // Cleanup expired upload sessions every hour

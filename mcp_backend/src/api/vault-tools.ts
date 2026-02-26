@@ -1,7 +1,7 @@
 import { DocumentParser, ParsedDocument } from '../services/document-parser.js';
 import { SemanticSectionizer } from '../services/semantic-sectionizer.js';
 import { LegalPatternStore } from '../services/legal-pattern-store.js';
-import { EmbeddingService } from '../services/embedding-service.js';
+import type { IEmbeddingPort } from '../domain/ports/index.js';
 import { DocumentService, Document } from '../services/document-service.js';
 import { MetadataExtractor } from '../services/metadata-extractor.js';
 import { logger } from '../utils/logger.js';
@@ -62,7 +62,7 @@ export class VaultTools extends BaseToolHandler {
     private documentParser: DocumentParser,
     private sectionizer: SemanticSectionizer,
     private patternStore: LegalPatternStore,
-    private embeddingService: EmbeddingService,
+    private embeddingService: IEmbeddingPort,
     private documentService: DocumentService,
     private metadataExtractor: MetadataExtractor
   ) {

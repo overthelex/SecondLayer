@@ -4,7 +4,7 @@
  * Manages checkpoints, queue, and stats for reyestr.court.gov.ua scraping.
  */
 
-import type { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import crypto from 'crypto';
 
 export interface ScrapeConfig {
@@ -25,7 +25,7 @@ export interface Checkpoint {
 }
 
 export class CourtRegistryScrapeService {
-  constructor(private db: Database) {}
+  constructor(private db: IDatabase) {}
 
   /**
    * Hash excludes dateFrom so incremental mode works: when effectiveDateFrom

@@ -5,7 +5,6 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { OAuthService } from '../services/oauth-service.js';
-import { Database } from '../database/database.js';
 import { logger } from '../utils/logger.js';
 
 export interface OAuthAuthenticatedRequest extends Request {
@@ -18,8 +17,7 @@ export interface OAuthAuthenticatedRequest extends Request {
  * OAuth authentication middleware
  * Checks for OAuth access token in Authorization header
  */
-export function createOAuthMiddleware(db: Database) {
-  const oauthService = new OAuthService(db);
+export function createOAuthMiddleware(oauthService: OAuthService) {
 
   return async (req: OAuthAuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -78,8 +76,7 @@ export function createOAuthMiddleware(db: Database) {
  * Hybrid authentication middleware
  * Supports both OAuth tokens and API keys (Bearer tokens from SECONDARY_LAYER_KEYS)
  */
-export function createHybridAuthMiddleware(db: Database) {
-  const oauthService = new OAuthService(db);
+export function createHybridAuthMiddleware(oauthService: OAuthService) {
   const apiKeys = (process.env.SECONDARY_LAYER_KEYS || '').split(',').map((k) => k.trim());
 
   return async (req: OAuthAuthenticatedRequest, res: Response, next: NextFunction) => {

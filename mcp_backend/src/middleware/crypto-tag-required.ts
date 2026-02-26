@@ -5,12 +5,12 @@
  */
 
 import { Response, NextFunction } from 'express';
-import { BaseDatabase } from '@secondlayer/shared';
 import { logger } from '../utils/logger.js';
+import type { IDatabase } from '../domain/ports/index.js';
 
-let dbInstance: BaseDatabase | null = null;
+let dbInstance: IDatabase | null = null;
 
-export function initializeCryptoTagMiddleware(db: BaseDatabase): void {
+export function initializeCryptoTagMiddleware(db: IDatabase): void {
   dbInstance = db;
 }
 

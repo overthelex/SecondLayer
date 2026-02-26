@@ -5,13 +5,13 @@ import { UploadService, UploadSession } from './upload-service.js';
 import { MinioService } from './minio-service.js';
 import { DocumentService } from './document-service.js';
 import { VaultTools } from '../api/vault-tools.js';
-import { Pool } from 'pg';
+import type { IDatabase } from '../domain/ports/index.js';
 
 export interface ProcessorDeps {
   uploadService: UploadService;
   minioService: MinioService;
   vaultTools: VaultTools;
-  pool: Pool;
+  db: IDatabase;
   documentService?: DocumentService;
 }
 
@@ -25,7 +25,7 @@ export async function processUploadFile(
   deps: ProcessorDeps,
   extraMetadata?: Record<string, any>
 ): Promise<string> {
-  const { uploadService, minioService, vaultTools, pool } = deps;
+  const { uploadService, minioService, vaultTools, db } = deps;
 
   let documentId: string;
 
@@ -112,7 +112,7 @@ export async function processUploadFile(
     }
 
     // Save metadata record in documents table (now includes full_text)
-    await pool.query(
+    await db.query(
       `INSERT INTO documents
         (id, zakononline_id, type, title, full_text, metadata, storage_type, storage_path, file_size, mime_type, user_id, matter_id)
        VALUES ($1, $2, $3, $4, $5, $6, 'minio', $7, $8, $9, $10, $11)`,

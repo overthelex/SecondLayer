@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth.js';
 import { AuthenticatedRequest as DualAuthRequest } from '../middleware/dual-auth.js';
-import { Database } from '../database/database.js';
 import { logger } from '../utils/logger.js';
+import type { IDatabase } from '../domain/ports/index.js';
 
-export function createRestAPIRouter(db: Database): Router {
+export function createRestAPIRouter(db: IDatabase): Router {
   const router = Router();
 
   // ==================== DOCUMENTS ====================

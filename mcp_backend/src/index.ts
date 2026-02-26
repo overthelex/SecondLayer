@@ -14,6 +14,9 @@ import { MetadataExtractor } from './services/metadata-extractor.js';
 import { DueDiligenceService } from './services/due-diligence-service.js';
 import { DueDiligenceTools } from './api/due-diligence-tools.js';
 import { getRedisClient } from './utils/redis-client.js';
+import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
+import { LLMAdapter } from './infrastructure/adapters/llm-adapter.js';
+import { getLLMManager } from './utils/llm-client-manager.js';
 
 dotenv.config();
 
@@ -42,13 +45,16 @@ class SecondLayerMCPServer {
     // Initialize core services via factory
     this.services = createBackendCoreServices();
 
+    // Create LLM adapter for dependency injection
+    const llmAdapter = new LLMAdapter(getLLMManager());
+
     // Initialize vault tools (Stage 4)
     // DocumentParser will be initialized if vision credentials are available
     try {
       const visionKeyPath = process.env.VISION_CREDENTIALS_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS || '';
       if (visionKeyPath) {
-        this.documentParser = new DocumentParser(visionKeyPath);
-        const metadataExtractor = new MetadataExtractor();
+        this.documentParser = new DocumentParser(visionKeyPath, llmAdapter);
+        const metadataExtractor = new MetadataExtractor(llmAdapter);
         this.vaultTools = new VaultTools(
           this.documentParser,
           this.services.sectionizer,
@@ -76,7 +82,8 @@ class SecondLayerMCPServer {
         this.services.sectionizer,
         this.services.patternStore,
         this.services.citationValidator,
-        this.services.documentService
+        this.services.documentService,
+        llmAdapter
       );
       this.ddTools = new DueDiligenceTools(this.ddService);
       logger.info('DueDiligenceTools initialized successfully');
@@ -404,13 +411,16 @@ class SecondLayerMCPServer {
       await this.services.db.connect();
       await this.services.embeddingService.initialize();
 
-      // Initialize Redis for AI-powered legislation classification (optional)
+      // Initialize Redis cache for services (optional)
       const redis = await getRedisClient();
       if (redis) {
-        this.services.legislationTools.setRedisClient(redis);
-        logger.info('Redis connected - AI legislation classification with caching enabled');
+        const cache = new CacheAdapter(redis);
+        this.services.legislationTools.setRedisClient(cache);
+        this.services.zoAdapter.setCachePort(cache);
+        this.services.zoPracticeAdapter.setCachePort(cache);
+        logger.info('Redis connected - caching enabled for legislation and ZO adapters');
       } else {
-        logger.info('Redis not available - AI legislation classification will work without caching');
+        logger.info('Redis not available - services will work without caching');
       }
 
       // Check document service health

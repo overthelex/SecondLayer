@@ -1,8 +1,7 @@
-import { Database } from '../database/database.js';
+import type { IDatabase, IEmbeddingPort } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 import { MinioService } from './minio-service.js';
-import { EmbeddingService } from './embedding-service.js';
 
 export interface GdprRequest {
   id: string;
@@ -18,9 +17,9 @@ export interface GdprRequest {
 
 export class GdprService {
   constructor(
-    private db: Database,
+    private db: IDatabase,
     private minioService: MinioService,
-    private embeddingService: EmbeddingService
+    private embeddingService: IEmbeddingPort
   ) {}
 
   async requestExport(userId: string): Promise<GdprRequest> {

@@ -4,7 +4,6 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { Pool } from 'pg';
 import { ApiKeyService } from '../services/api-key-service.js';
 import { CreditService } from '../services/credit-service.js';
 import { logger } from '../utils/logger.js';
@@ -22,10 +21,8 @@ function getStringParam(param: string | string[] | undefined): string {
   return Array.isArray(param) ? param[0] : param;
 }
 
-export function createApiKeyRouter(pool: Pool): Router {
+export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: CreditService): Router {
   const router = Router();
-  const apiKeyService = new ApiKeyService(pool);
-  const creditService = new CreditService(pool);
 
   /**
    * GET /api/keys - List all API keys for authenticated user

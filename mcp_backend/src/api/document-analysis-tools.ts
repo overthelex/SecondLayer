@@ -2,11 +2,9 @@ import { DocumentParser, ParsedDocument } from '../services/document-parser.js';
 import { SemanticSectionizer } from '../services/semantic-sectionizer.js';
 import { LegalPatternStore } from '../services/legal-pattern-store.js';
 import { CitationValidator } from '../services/citation-validator.js';
-import { EmbeddingService } from '../services/embedding-service.js';
+import type { IEmbeddingPort, ILLMPort } from '../domain/ports/index.js';
 import { DocumentService } from '../services/document-service.js';
 import { logger } from '../utils/logger.js';
-import { getOpenAIManager } from '../utils/openai-client.js';
-import { ModelSelector } from '../utils/model-selector.js';
 import * as Diff from 'diff';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
 
@@ -45,8 +43,9 @@ export class DocumentAnalysisTools extends BaseToolHandler {
     _sectionizer: SemanticSectionizer,
     _patternStore: LegalPatternStore,
     _citationValidator: CitationValidator,
-    _embeddingService: EmbeddingService,
-    _documentService: DocumentService
+    _embeddingService: IEmbeddingPort,
+    _documentService: DocumentService,
+    private readonly llm?: ILLMPort
   ) {
     super();
   }
@@ -210,9 +209,9 @@ export class DocumentAnalysisTools extends BaseToolHandler {
       });
 
       // Step 1: Extract clauses using AI
-      const openaiManager = getOpenAIManager();
-      const modelSelection = ModelSelector.getModelSelection('standard');
-      const model = modelSelection.model;
+      if (!this.llm) {
+        throw new Error('LLM port not configured for document analysis');
+      }
 
       const prompt = `Проанализируй договор и выдели ключевые положения (клаузы).
 
@@ -243,19 +242,19 @@ export class DocumentAnalysisTools extends BaseToolHandler {
 Текст договора:
 ${args.documentText.slice(0, 15000)}`;
 
-      const response = await openaiManager.executeWithRetry(async (client) => {
-        return await client.chat.completions.create({
-          model,
+      const response = await this.llm.chatCompletion(
+        {
           messages: [
             { role: 'system', content: 'Ты юридический эксперт по анализу контрактов.' },
             { role: 'user', content: prompt },
           ],
-          ...(ModelSelector.supportsTemperature(model) ? { temperature: 0.1 } : {}),
+          temperature: 0.1,
           response_format: { type: 'json_object' },
-        });
-      });
+        },
+        'standard'
+      );
 
-      const parsed = JSON.parse(response.choices[0].message.content || '{"clauses":[]}');
+      const parsed = JSON.parse(response.content || '{"clauses":[]}');
       const clauses: ExtractedClause[] = parsed.clauses || [];
 
       // Step 2: Create simple risk report
@@ -290,9 +289,9 @@ ${args.documentText.slice(0, 15000)}`;
         detailLevel,
       });
 
-      const openaiManager = getOpenAIManager();
-      const modelSelection = ModelSelector.getModelSelection(detailLevel);
-      const model = modelSelection.model;
+      if (!this.llm) {
+        throw new Error('LLM port not configured for document analysis');
+      }
 
       const systemPrompt = `Ты юридический аналитик. Создай резюме документа в структурированном виде.`;
 
@@ -321,20 +320,20 @@ ${detailLevel === 'deep' ? 'ДЕТАЛЬНЫЙ АНАЛИЗ:' : 'КРАТКОЕ 
 Текст документа:
 ${args.documentText.slice(0, 20000)}`;
 
-      const response = await openaiManager.executeWithRetry(async (client) => {
-        return await client.chat.completions.create({
-          model,
+      const response = await this.llm.chatCompletion(
+        {
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
-          ...(ModelSelector.supportsTemperature(model) ? { temperature: 0.2 } : {}),
+          temperature: 0.2,
           response_format: { type: 'json_object' },
-        });
-      });
+        },
+        detailLevel
+      );
 
       const summary: DocumentSummary = JSON.parse(
-        response.choices[0].message.content || '{"executiveSummary":"","detailedSummary":"","keyFacts":{}}'
+        response.content || '{"executiveSummary":"","detailedSummary":"","keyFacts":{}}'
       );
 
       logger.info('[MCP Tool] summarize_document completed', {
@@ -392,9 +391,9 @@ ${args.documentText.slice(0, 20000)}`;
       const criticalChanges = changes.filter((c) => c.importance === 'critical');
 
       // Step 3: Generate summary using AI
-      const openaiManager = getOpenAIManager();
-      const modelSelection = ModelSelector.getModelSelection('standard');
-      const model = modelSelection.model;
+      if (!this.llm) {
+        throw new Error('LLM port not configured for document analysis');
+      }
 
       const changesText = changes
         .slice(0, 20)
@@ -408,18 +407,18 @@ ${changesText}
 
 Укажи самые важные изменения (критические и значительные) в 3-5 пунктах.`;
 
-      const response = await openaiManager.executeWithRetry(async (client) => {
-        return await client.chat.completions.create({
-          model,
+      const response = await this.llm.chatCompletion(
+        {
           messages: [
             { role: 'system', content: 'Ты юридический аналитик.' },
             { role: 'user', content: summaryPrompt },
           ],
-          ...(ModelSelector.supportsTemperature(model) ? { temperature: 0.2 } : {}),
-        });
-      });
+          temperature: 0.2,
+        },
+        'standard'
+      );
 
-      const summary = response.choices[0].message.content || 'Изменения обнаружены';
+      const summary = response.content || 'Изменения обнаружены';
 
       logger.info('[MCP Tool] compare_documents completed', {
         totalChanges: changes.length,

@@ -1,10 +1,9 @@
 import axios, { AxiosInstance } from 'axios';
-import { createClient } from 'redis';
 import { CourtDecisionHTMLParser } from '../utils/html-parser.js';
 import { logger } from '../utils/logger.js';
 import { DocumentService, type Document } from '../services/document-service.js';
 import { SemanticSectionizer } from '../services/semantic-sectionizer.js';
-import { EmbeddingService } from '../services/embedding-service.js';
+import type { IEmbeddingPort, ICachePort } from '../domain/ports/index.js';
 import { requestContext } from '../utils/openai-client.js';
 import type { CostTracker } from '../services/cost-tracker.js';
 import { SectionType } from '../types/index.js';
@@ -56,10 +55,10 @@ function sanitizeSearchQuery(query: string): string {
 
 export class ZOAdapter {
   private client: AxiosInstance;
-  private redis: ReturnType<typeof createClient> | null = null;
+  private cache: ICachePort | null = null;
   private documentService: DocumentService | null = null;
   private sectionizer: SemanticSectionizer;
-  private embeddingService: EmbeddingService | null = null;
+  private embeddingService: IEmbeddingPort | null = null;
   private apiTokens: string[];
   private currentTokenIndex: number = 0;
   private nextTokenIndex: number = 0;
@@ -82,7 +81,9 @@ export class ZOAdapter {
   constructor(
     domainOrDocService?: ZakonOnlineDomainName | DocumentService,
     documentService?: DocumentService,
-    embeddingService?: EmbeddingService
+    embeddingService?: IEmbeddingPort,
+    cache?: ICachePort,
+    sectionizer?: SemanticSectionizer
   ) {
     // Backward compatibility: if first arg is DocumentService, use default domain
     let domain: ZakonOnlineDomainName = 'court_decisions';
@@ -102,7 +103,7 @@ export class ZOAdapter {
 
     this.domainConfig = getDomainConfig(domain);
     this.documentService = docService;
-    this.sectionizer = new SemanticSectionizer();
+    this.sectionizer = sectionizer || new SemanticSectionizer();
     this.embeddingService = embeddingService || null;
 
     // Support primary and secondary tokens
@@ -157,7 +158,7 @@ export class ZOAdapter {
       },
     });
 
-    this.initializeRedis();
+    this.cache = cache || null;
 
     logger.info(`ZOAdapter initialized for domain: ${this.domainConfig.displayName}`, {
       baseURL: this.domainConfig.baseURL,
@@ -487,22 +488,14 @@ export class ZOAdapter {
     this.externalApiMetrics = callback;
   }
 
-  private async initializeRedis() {
-    try {
-      const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-      this.redis = createClient({ url: redisUrl });
-      await this.redis.connect();
-      logger.info('Redis connected');
-    } catch (error) {
-      logger.warn('Redis connection failed, continuing without cache:', error);
-      this.redis = null;
-    }
+  setCachePort(cache: ICachePort | null) {
+    this.cache = cache;
   }
 
   private async getCached(key: string): Promise<any | null> {
-    if (!this.redis) return null;
+    if (!this.cache) return null;
     try {
-      const cached = await this.redis.get(key);
+      const cached = await this.cache.get(key);
       return cached ? JSON.parse(cached) : null;
     } catch (error) {
       logger.error('Redis get error:', error);
@@ -511,9 +504,9 @@ export class ZOAdapter {
   }
 
   private async setCache(key: string, value: any, ttl: number = 3600) {
-    if (!this.redis) return;
+    if (!this.cache) return;
     try {
-      await this.redis.setEx(key, ttl, JSON.stringify(value));
+      await this.cache.set(key, JSON.stringify(value), ttl);
     } catch (error) {
       logger.error('Redis set error:', error);
     }

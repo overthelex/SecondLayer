@@ -1,4 +1,4 @@
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 
 export interface AuditLogEntry {
@@ -27,7 +27,7 @@ export interface AuditLogFilters {
 }
 
 export class AuditService {
-  constructor(private db: Database) {}
+  constructor(private db: IDatabase) {}
 
   async log(params: {
     userId?: string;

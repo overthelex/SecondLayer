@@ -13,8 +13,9 @@ import {
   QuestionClassification,
   ClassificationAlternative,
 } from './types.js';
-import { getOpenAIManager, logger } from '@secondlayer/shared';
+import { logger } from '@secondlayer/shared';
 import * as crypto from 'crypto';
+import type { ICachePort, ILLMPort } from '../../domain/ports/index.js';
 
 interface ClassificationPromptResult {
   intent: string;
@@ -52,7 +53,7 @@ export class TemplateClassifier {
     'other',
   ];
 
-  constructor(private redisClient?: any) {}
+  constructor(private redisClient?: ICachePort, private readonly llm?: ILLMPort) {}
 
   /**
    * Classify a question to determine intent and category
@@ -79,15 +80,16 @@ export class TemplateClassifier {
       }
 
       // 3. Call LLM to classify
-      const openai = getOpenAIManager();
+      if (!this.llm) {
+        throw new Error('LLM port not configured for template classification');
+      }
 
       const classificationPrompt = this.buildClassificationPrompt(
         normalizedQuestion
       );
 
-      const response = await openai.executeWithRetry(async (client) => {
-        return await client.chat.completions.create({
-          model: 'gpt-4o-mini', // Quick classification
+      const response = await this.llm.chatCompletion(
+        {
           messages: [
             {
               role: 'user',
@@ -95,11 +97,12 @@ export class TemplateClassifier {
             },
           ],
           temperature: 0.3,
-          max_completion_tokens: 500,
-        });
-      });
+          max_tokens: 500,
+        },
+        'quick'
+      );
 
-      const rawContent = response.choices[0].message.content || '{}';
+      const rawContent = response.content || '{}';
       const parsedResult = this.parseClassificationResponse(rawContent);
 
       // 4. Build result
@@ -213,10 +216,10 @@ export class TemplateClassifier {
     }
 
     try {
-      await this.redisClient.setex(
+      await this.redisClient.set(
         `classification:${questionHash}`,
-        this.CACHE_TTL,
-        JSON.stringify(classification)
+        JSON.stringify(classification),
+        this.CACHE_TTL
       );
     } catch (error) {
       logger.warn('TemplateClassifier: Cache write failed', {
@@ -409,9 +412,9 @@ Return ONLY the JSON object.`;
 // Export singleton instance (created by factory)
 let classifierInstance: TemplateClassifier | null = null;
 
-export function createTemplateClassifier(redisClient?: any): TemplateClassifier {
+export function createTemplateClassifier(redisClient?: ICachePort, llm?: ILLMPort): TemplateClassifier {
   if (!classifierInstance) {
-    classifierInstance = new TemplateClassifier(redisClient);
+    classifierInstance = new TemplateClassifier(redisClient, llm);
   }
   return classifierInstance;
 }

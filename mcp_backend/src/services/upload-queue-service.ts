@@ -4,7 +4,7 @@ import { UploadService, UploadSession } from './upload-service.js';
 import { MinioService } from './minio-service.js';
 import { VaultTools } from '../api/vault-tools.js';
 import { processUploadFile, ProcessorDeps } from './upload-processor.js';
-import { Pool } from 'pg';
+import type { IDatabase } from '../domain/ports/index.js';
 import { CpuAdaptiveManager } from './cpu-adaptive-manager.js';
 
 const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
@@ -51,10 +51,10 @@ export class UploadQueueService {
     private uploadService: UploadService,
     minioService: MinioService,
     vaultTools: VaultTools,
-    pool: Pool,
+    db: IDatabase,
     documentService?: import('./document-service.js').DocumentService
   ) {
-    this.deps = { uploadService, minioService, vaultTools, pool, documentService };
+    this.deps = { uploadService, minioService, vaultTools, db, documentService };
 
     const redisHost = process.env.REDIS_HOST || 'localhost';
     const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
