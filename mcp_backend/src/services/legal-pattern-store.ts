@@ -54,8 +54,7 @@
  * @see {@link EmbeddingService} for embedding generation
  */
 
-import { Database } from '../database/database.js';
-import { EmbeddingService } from './embedding-service.js';
+import type { IDatabase, IEmbeddingPort } from '../domain/ports/index.js';
 import { LegalPattern, SectionType } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -188,8 +187,8 @@ export class LegalPatternStore {
    * @param embeddingService - Service for generating and searching vector embeddings
    */
   constructor(
-    private db: Database,
-    private embeddingService: EmbeddingService
+    private db: IDatabase,
+    private embeddingService: IEmbeddingPort
   ) {}
 
   /**

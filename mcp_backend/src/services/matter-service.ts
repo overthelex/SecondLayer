@@ -1,4 +1,4 @@
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 import { AuditService } from './audit-service.js';
@@ -55,7 +55,7 @@ export interface MatterTeamMember {
 
 export class MatterService {
   constructor(
-    private db: Database,
+    private db: IDatabase,
     private auditService: AuditService
   ) {}
 

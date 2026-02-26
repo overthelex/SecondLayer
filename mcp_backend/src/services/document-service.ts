@@ -1,4 +1,4 @@
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 import { DocumentSection } from '../types/index.js';
@@ -28,7 +28,7 @@ export interface Document {
 }
 
 export class DocumentService {
-  constructor(private db: Database) {}
+  constructor(private db: IDatabase) {}
 
   /**
    * Save or update a document in the database

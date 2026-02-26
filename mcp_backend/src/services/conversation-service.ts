@@ -1,4 +1,4 @@
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -28,7 +28,7 @@ export interface ConversationMessage {
 }
 
 export class ConversationService {
-  constructor(private db: Database) {}
+  constructor(private db: IDatabase) {}
 
   async createConversation(
     userId: string,

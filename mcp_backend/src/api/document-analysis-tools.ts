@@ -2,7 +2,7 @@ import { DocumentParser, ParsedDocument } from '../services/document-parser.js';
 import { SemanticSectionizer } from '../services/semantic-sectionizer.js';
 import { LegalPatternStore } from '../services/legal-pattern-store.js';
 import { CitationValidator } from '../services/citation-validator.js';
-import { EmbeddingService } from '../services/embedding-service.js';
+import type { IEmbeddingPort } from '../domain/ports/index.js';
 import { DocumentService } from '../services/document-service.js';
 import { logger } from '../utils/logger.js';
 import { getOpenAIManager } from '../utils/openai-client.js';
@@ -45,7 +45,7 @@ export class DocumentAnalysisTools extends BaseToolHandler {
     _sectionizer: SemanticSectionizer,
     _patternStore: LegalPatternStore,
     _citationValidator: CitationValidator,
-    _embeddingService: EmbeddingService,
+    _embeddingService: IEmbeddingPort,
     _documentService: DocumentService
   ) {
     super();

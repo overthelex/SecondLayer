@@ -1,11 +1,11 @@
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { PrecedentStatus, PrecedentStatusType, CitationLink } from '../types/index.js';
 import { ShepardizationService } from './shepardization-service.js';
 import { logger } from '../utils/logger.js';
 
 export class CitationValidator {
   constructor(
-    private db: Database,
+    private db: IDatabase,
     private shepardizationService?: ShepardizationService
   ) {}
 

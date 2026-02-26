@@ -26,7 +26,7 @@ import {
   type LLMProvider,
 } from '@secondlayer/shared';
 import { ModelSelector } from '@secondlayer/shared';
-import type { EmbeddingService } from './embedding-service.js';
+import type { IEmbeddingPort } from '../domain/ports/index.js';
 import {
   CHAT_SYSTEM_PROMPT,
   CHAT_INTENT_CLASSIFICATION_PROMPT,
@@ -142,7 +142,7 @@ export class ChatService {
     private searchCache?: ChatSearchCacheService,
     private conversationService?: ConversationService,
     private shepardizationService?: ShepardizationService,
-    private embeddingService?: EmbeddingService
+    private embeddingService?: IEmbeddingPort
   ) {
     // Periodic cleanup of expired plan sessions (every 2 minutes)
     setInterval(() => {

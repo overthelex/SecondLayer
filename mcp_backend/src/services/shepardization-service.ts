@@ -14,7 +14,7 @@ import { logger } from '../utils/logger.js';
 import { getRedisClient } from '../utils/redis-client.js';
 import { generateCaseNumberVariations } from '../api/tool-utils.js';
 import type { ZOAdapter } from '../adapters/zo-adapter.js';
-import type { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import type { PrecedentStatusType } from '../types/index.js';
 
 // ============================
@@ -185,7 +185,7 @@ const ANALYZE_TIMEOUT_MS = 15_000;
 export class ShepardizationService {
   constructor(
     private zoAdapter: ZOAdapter,
-    private db: Database
+    private db: IDatabase
   ) {}
 
   /**

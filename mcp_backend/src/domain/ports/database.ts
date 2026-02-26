@@ -9,7 +9,7 @@
 // Query result
 // ---------------------------------------------------------------------------
 
-export interface IQueryResult<T = Record<string, unknown>> {
+export interface IQueryResult<T = any> {
   rows: T[];
   rowCount: number | null;
 }
@@ -19,7 +19,7 @@ export interface IQueryResult<T = Record<string, unknown>> {
 // ---------------------------------------------------------------------------
 
 export interface ITransactionClient {
-  query<T = Record<string, unknown>>(
+  query<T = any>(
     text: string,
     params?: unknown[],
   ): Promise<IQueryResult<T>>;
@@ -31,7 +31,7 @@ export interface ITransactionClient {
 
 export interface IDatabase {
   /** Execute a parameterised query. */
-  query<T = Record<string, unknown>>(
+  query<T = any>(
     text: string,
     params?: unknown[],
   ): Promise<IQueryResult<T>>;

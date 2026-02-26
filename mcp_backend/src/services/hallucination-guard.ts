@@ -1,11 +1,11 @@
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { ValidationResult } from '../types/index.js';
 import type { ShepardizationService } from './shepardization-service.js';
 import { logger } from '../utils/logger.js';
 
 export class HallucinationGuard {
   constructor(
-    private db: Database,
+    private db: IDatabase,
     private shepardizationService?: ShepardizationService
   ) {}
 

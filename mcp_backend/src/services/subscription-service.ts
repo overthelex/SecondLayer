@@ -3,7 +3,7 @@
  * CRUD operations for managing recurring subscriptions
  */
 
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 
 export interface Subscription {
@@ -42,7 +42,7 @@ export interface CreateSubscriptionInput {
 }
 
 export class SubscriptionService {
-  constructor(private db: Database) {}
+  constructor(private db: IDatabase) {}
 
   async list(filters: {
     status?: string;

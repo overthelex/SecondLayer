@@ -11,7 +11,7 @@
  * - ENTERPRISE tier: Custom pricing (negotiated contracts)
  */
 
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 
 export type PricingTier = 'free' | 'startup' | 'business' | 'enterprise' | 'internal';
@@ -38,7 +38,7 @@ export interface PriceCalculation {
 }
 
 export class PricingService {
-  private db: Database | null;
+  private db: IDatabase | null;
   private cache: Map<string, PricingConfig> | null = null;
   private cacheLoadedAt: number = 0;
   private static readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -138,7 +138,7 @@ export class PricingService {
     },
   };
 
-  constructor(db?: Database) {
+  constructor(db?: IDatabase) {
     this.db = db || null;
   }
 
