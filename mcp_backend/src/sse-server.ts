@@ -202,13 +202,16 @@ class SSEServer {
       await this.services.db.connect();
       await this.services.embeddingService.initialize();
 
-      // Initialize Redis for AI-powered legislation classification (optional)
+      // Initialize Redis cache for services (optional)
       const redis = await getRedisClient();
       if (redis) {
-        this.services.legislationTools.setRedisClient(new CacheAdapter(redis));
-        logger.info('Redis connected - AI legislation classification with caching enabled');
+        const cache = new CacheAdapter(redis);
+        this.services.legislationTools.setRedisClient(cache);
+        this.services.zoAdapter.setCachePort(cache);
+        this.services.zoPracticeAdapter.setCachePort(cache);
+        logger.info('Redis connected - caching enabled for legislation and ZO adapters');
       } else {
-        logger.info('Redis not available - AI legislation classification will work without caching');
+        logger.info('Redis not available - services will work without caching');
       }
 
       logger.info('SSE MCP Server services initialized');
