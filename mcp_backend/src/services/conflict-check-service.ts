@@ -1,4 +1,4 @@
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import { AuditService } from './audit-service.js';
 
@@ -19,7 +19,7 @@ export interface ConflictMatch {
 
 export class ConflictCheckService {
   constructor(
-    private db: Database,
+    private db: IDatabase,
     private auditService: AuditService
   ) {}
 

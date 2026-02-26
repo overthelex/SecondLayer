@@ -8,7 +8,8 @@
  * - Track template metadata and metrics
  */
 
-import { BaseDatabase, logger } from '@secondlayer/shared';
+import { logger } from '@secondlayer/shared';
+import type { IDatabase } from '../../domain/ports/index.js';
 import { GeneratedTemplate, TemplateVersion } from './types.js';
 
 export interface CreateTemplateOptions {
@@ -40,7 +41,7 @@ export interface UpdateTemplateOptions {
 }
 
 export class TemplateStorage {
-  constructor(private db: BaseDatabase) {}
+  constructor(private db: IDatabase) {}
 
   /**
    * Create a new template from approved generation
@@ -473,7 +474,7 @@ export class TemplateStorage {
  */
 let templateStorageInstance: TemplateStorage | null = null;
 
-export function getTemplateStorage(db?: BaseDatabase): TemplateStorage {
+export function getTemplateStorage(db?: IDatabase): TemplateStorage {
   if (!templateStorageInstance && db) {
     templateStorageInstance = new TemplateStorage(db);
   }

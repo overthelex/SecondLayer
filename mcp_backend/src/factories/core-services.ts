@@ -10,6 +10,9 @@ import { HallucinationGuard } from '../services/hallucination-guard.js';
 import { ShepardizationService } from '../services/shepardization-service.js';
 import { MCPQueryAPI } from '../api/mcp-query-api.js';
 import { LegislationTools } from '../api/legislation-tools.js';
+import { LegislationService } from '../services/legislation-service.js';
+import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
+import { getLLMManager } from '../utils/llm-client-manager.js';
 
 export interface BackendCoreServices {
   db: Database;
@@ -33,19 +36,21 @@ export interface BackendCoreServices {
 export function createBackendCoreServices(): BackendCoreServices {
   const db = new Database();
   const documentService = new DocumentService(db);
-  const queryPlanner = new QueryPlanner();
-  const sectionizer = new SemanticSectionizer();
+  const llmAdapter = new LLMAdapter(getLLMManager());
+  const queryPlanner = new QueryPlanner(llmAdapter);
+  const sectionizer = new SemanticSectionizer(llmAdapter);
   const embeddingService = new EmbeddingService();
-  const zoAdapter = new ZOAdapter(documentService, undefined, embeddingService);
-  const zoPracticeAdapter = new ZOAdapter('court_practice', documentService, embeddingService);
-  const zoSessionsAdapter = new ZOAdapter('court_sessions', documentService, embeddingService);
-  const zoLegalActsAdapter = new ZOAdapter('legal_acts', documentService, embeddingService);
-  const zoECHRAdapter = new ZOAdapter('echr_practice', documentService, embeddingService);
+  const zoAdapter = new ZOAdapter(documentService, undefined, embeddingService, undefined, sectionizer);
+  const zoPracticeAdapter = new ZOAdapter('court_practice', documentService, embeddingService, undefined, sectionizer);
+  const zoSessionsAdapter = new ZOAdapter('court_sessions', documentService, embeddingService, undefined, sectionizer);
+  const zoLegalActsAdapter = new ZOAdapter('legal_acts', documentService, embeddingService, undefined, sectionizer);
+  const zoECHRAdapter = new ZOAdapter('echr_practice', documentService, embeddingService, undefined, sectionizer);
   const patternStore = new LegalPatternStore(db, embeddingService);
   const shepardizationService = new ShepardizationService(zoAdapter, db);
   const citationValidator = new CitationValidator(db, shepardizationService);
   const hallucinationGuard = new HallucinationGuard(db, shepardizationService);
-  const legislationTools = new LegislationTools(db.getPool(), embeddingService);
+  const legislationService = new LegislationService(db, embeddingService, undefined, llmAdapter);
+  const legislationTools = new LegislationTools(legislationService);
 
   const mcpAPI = new MCPQueryAPI(
     queryPlanner,

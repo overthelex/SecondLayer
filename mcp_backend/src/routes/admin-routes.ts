@@ -8,8 +8,8 @@ import express, { Request, Response } from 'express';
 import axios from 'axios';
 import { spawn } from 'child_process';
 import { join } from 'path';
-import { Database } from '../database/database.js';
 import { BillingService } from '../services/billing-service.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { UserPreferencesService } from '../services/user-preferences-service.js';
 import { PrometheusService } from '../services/prometheus-service.js';
 import { PricingService } from '../services/pricing-service.js';
@@ -30,18 +30,15 @@ function getStringParam(param: string | string[] | undefined): string | null {
 }
 
 export function createAdminRoutes(
-  db: Database,
-  prometheusUrl?: string,
-  pricingService?: PricingService,
-  subscriptionService?: SubscriptionService,
+  db: IDatabase,
+  billingService: BillingService,
+  preferencesService: UserPreferencesService,
+  prometheus: PrometheusService,
+  pricing: PricingService,
+  subscriptions: SubscriptionService,
   configService?: ConfigService
 ): express.Router {
   const router = express.Router();
-  const billingService = new BillingService(db);
-  const preferencesService = new UserPreferencesService(db);
-  const prometheus = new PrometheusService(prometheusUrl);
-  const pricing = pricingService || new PricingService(db);
-  const subscriptions = subscriptionService || new SubscriptionService(db);
 
   /**
    * Middleware to verify admin access
@@ -2930,9 +2927,7 @@ export function createAdminRoutes(
         return res.status(400).json({ error: 'thresholds must be an array' });
       }
 
-      const client = await (db as any).pool.connect();
-      try {
-        await client.query('BEGIN');
+      await db.transaction(async (client) => {
         await client.query('DELETE FROM volume_discount_thresholds');
         for (const t of thresholds) {
           await client.query(
@@ -2940,13 +2935,7 @@ export function createAdminRoutes(
             [t.min_monthly_spend_usd, t.discount_percentage]
           );
         }
-        await client.query('COMMIT');
-      } catch (e) {
-        await client.query('ROLLBACK');
-        throw e;
-      } finally {
-        client.release();
-      }
+      });
 
       await logAdminAction(
         (req as any).user.id,
@@ -4065,7 +4054,7 @@ export function createAdminRoutes(
       }
     }
 
-    async function fetchMainDbStats(dbInstance: Database) {
+    async function fetchMainDbStats(dbInstance: IDatabase) {
       const tableList = [
         'documents', 'document_sections', 'legislation', 'legislation_articles',
         'legislation_chunks', 'users', 'conversations', 'upload_sessions', 'zo_dictionaries',

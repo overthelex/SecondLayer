@@ -5,7 +5,6 @@
  * Phase 1 implementation: Runs new prompt architecture in parallel, always returns legacy result.
  */
 
-import type { Pool } from 'pg';
 import { QueryPlanner } from './query-planner.js';
 import { ShadowModeExecutor } from './prompt/shadow-mode-executor.js';
 import type { PromptIntent, PromptContext, PromptPolicy } from '../types/prompt.js';
@@ -15,9 +14,9 @@ export class QueryPlannerV2 {
   private legacy: QueryPlanner;
   private shadow: ShadowModeExecutor;
 
-  constructor(pool: Pool) {
-    this.legacy = new QueryPlanner();
-    this.shadow = new ShadowModeExecutor(pool);
+  constructor(legacy: QueryPlanner, shadow: ShadowModeExecutor) {
+    this.legacy = legacy;
+    this.shadow = shadow;
   }
 
   /**

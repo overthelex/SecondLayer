@@ -3,7 +3,7 @@
  * Handles all user database operations for OAuth authentication
  */
 
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -47,9 +47,9 @@ export interface UserSession {
 }
 
 export class UserService {
-  private db: Database;
+  private db: IDatabase;
 
-  constructor(db: Database) {
+  constructor(db: IDatabase) {
     this.db = db;
   }
 

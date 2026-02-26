@@ -1,7 +1,6 @@
 import { DocumentParser, ParsedDocument } from '../services/document-parser.js';
 import { DocumentAnalysisTools, ExtractedClause, DocumentSummary } from './document-analysis-tools.js';
 import { logger } from '../utils/logger.js';
-import { getOpenAIManager } from '../utils/openai-client.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
 
 export interface BatchFile {

@@ -1,10 +1,9 @@
-import { Pool } from 'pg';
+import type { IDatabase, IEmbeddingPort } from '../domain/ports/index.js';
 import { RadaLegislationAdapter, LegislationArticle } from '../adapters/rada-legislation-adapter';
 import { logger } from '../utils/logger';
-import { EmbeddingService } from './embedding-service';
 import { createHash } from 'crypto';
 import { LegislationClassifier } from './legislation-classifier';
-import { createClient } from 'redis';
+import type { ICachePort, ILLMPort } from '../domain/ports/index.js';
 
 export interface LegislationReference {
   rada_id: string;
@@ -208,17 +207,22 @@ export function normalizeRadaId(radaId: string): string {
 
 export class LegislationService {
   private adapter: RadaLegislationAdapter;
-  private embeddingService: EmbeddingService;
-  private db: Pool;
+  private embeddingService: IEmbeddingPort;
+  private db: IDatabase;
   private classifier: LegislationClassifier | null = null;
 
-  constructor(db: Pool, embeddingService: EmbeddingService, redis?: ReturnType<typeof createClient>) {
+  constructor(
+    db: IDatabase,
+    embeddingService: IEmbeddingPort,
+    redis?: ICachePort,
+    llm?: ILLMPort,
+    adapter?: RadaLegislationAdapter,
+    classifier?: LegislationClassifier
+  ) {
     this.db = db;
-    this.adapter = new RadaLegislationAdapter(db);
+    this.adapter = adapter || new RadaLegislationAdapter(db);
     this.embeddingService = embeddingService;
-
-    // Инициализируем classifier (с Redis или без)
-    this.classifier = new LegislationClassifier(redis);
+    this.classifier = classifier || new LegislationClassifier(redis, llm);
   }
 
   getAdapter(): RadaLegislationAdapter {
@@ -229,7 +233,7 @@ export class LegislationService {
    * Устанавливает Redis клиент для AI-классификации законодательства.
    * Используется для кэширования результатов классификации.
    */
-  setRedisClient(redis: ReturnType<typeof createClient> | null): void {
+  setRedisClient(redis: ICachePort | null): void {
     if (this.classifier) {
       this.classifier.setRedisClient(redis);
     }

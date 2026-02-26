@@ -15,7 +15,7 @@
 import axios from 'axios';
 import { CourtDecisionHTMLParser } from '../utils/html-parser.js';
 import { SemanticSectionizer } from '../services/semantic-sectionizer.js';
-import { EmbeddingService } from '../services/embedding-service.js';
+import type { IEmbeddingPort } from '../domain/ports/index.js';
 import { DocumentService } from '../services/document-service.js';
 import { ZOAdapter } from '../adapters/zo-adapter.js';
 import { logger } from '../utils/logger.js';
@@ -102,12 +102,13 @@ export class ScrapeWorkerService {
 
   constructor(
     private documentService: DocumentService,
-    private embeddingService: EmbeddingService,
+    private embeddingService: IEmbeddingPort,
     private zoAdapter: ZOAdapter,
+    sectionizer?: SemanticSectionizer,
   ) {
     const maxConcurrent = parseInt(process.env.SCRAPE_MAX_CONCURRENT || '10', 10);
     this.semaphore = new Semaphore(maxConcurrent);
-    this.sectionizer = new SemanticSectionizer();
+    this.sectionizer = sectionizer || new SemanticSectionizer();
     // Rate limit: 5 req/sec = 200ms between requests
     this.minScrapeInterval = parseInt(process.env.SCRAPE_MIN_INTERVAL_MS || '200', 10);
   }

@@ -3,7 +3,7 @@
  * Manages user request preferences for cost and quality control
  */
 
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 
 export type ReasoningBudget = 'quick' | 'standard' | 'deep';
@@ -63,7 +63,7 @@ export interface CostEstimate {
 }
 
 export class UserPreferencesService {
-  constructor(private db: Database) {}
+  constructor(private db: IDatabase) {}
 
   /**
    * Get user preferences (with defaults if not set)

@@ -3,8 +3,8 @@
  * Handles API key validation, rate limiting, and user authentication
  */
 
-import { Pool } from 'pg';
 import { logger } from '../utils/logger.js';
+import type { IDatabase } from '../domain/ports/index.js';
 
 export interface ApiKeyInfo {
   id: string;
@@ -31,14 +31,14 @@ export interface RateLimitCheck {
 }
 
 export class ApiKeyService {
-  constructor(private pool: Pool) {}
+  constructor(private db: IDatabase) {}
 
   /**
    * Validate API key and get user info
    */
   async validateApiKey(apiKey: string): Promise<ApiKeyInfo | null> {
     try {
-      const result = await this.pool.query<ApiKeyInfo>(
+      const result = await this.db.query<ApiKeyInfo>(
         `SELECT
           ak.id,
           ak.user_id as "userId",
@@ -93,7 +93,7 @@ export class ApiKeyService {
    */
   async checkRateLimit(apiKey: string): Promise<RateLimitCheck> {
     try {
-      const result = await this.pool.query<RateLimitCheck>(
+      const result = await this.db.query<RateLimitCheck>(
         `SELECT * FROM check_api_key_rate_limit($1)`,
         [apiKey]
       );
@@ -121,7 +121,7 @@ export class ApiKeyService {
    */
   async updateUsage(apiKey: string): Promise<void> {
     try {
-      await this.pool.query(`SELECT increment_api_key_usage($1)`, [apiKey]);
+      await this.db.query(`SELECT increment_api_key_usage($1)`, [apiKey]);
     } catch (error: any) {
       logger.error('[ApiKeyService] Error updating API key usage', {
         error: error.message,
@@ -140,7 +140,7 @@ export class ApiKeyService {
     expiresAt?: Date
   ): Promise<{ id: string; key: string }> {
     try {
-      const result = await this.pool.query<{ id: string; key: string }>(
+      const result = await this.db.query<{ id: string; key: string }>(
         `INSERT INTO api_keys (user_id, key, name, description, expires_at)
          VALUES ($1, generate_api_key(), $2, $3, $4)
          RETURNING id, key`,
@@ -169,7 +169,7 @@ export class ApiKeyService {
    */
   async listUserApiKeys(userId: string): Promise<ApiKeyInfo[]> {
     try {
-      const result = await this.pool.query<ApiKeyInfo>(
+      const result = await this.db.query<ApiKeyInfo>(
         `SELECT
           ak.id,
           ak.user_id as "userId",
@@ -210,7 +210,7 @@ export class ApiKeyService {
    */
   async revokeApiKey(keyId: string, userId: string): Promise<boolean> {
     try {
-      const result = await this.pool.query(
+      const result = await this.db.query(
         `UPDATE api_keys SET is_active = false WHERE id = $1 AND user_id = $2`,
         [keyId, userId]
       );
@@ -233,7 +233,7 @@ export class ApiKeyService {
    */
   async deleteApiKey(keyId: string, userId: string): Promise<boolean> {
     try {
-      const result = await this.pool.query(
+      const result = await this.db.query(
         `DELETE FROM api_keys WHERE id = $1 AND user_id = $2`,
         [keyId, userId]
       );

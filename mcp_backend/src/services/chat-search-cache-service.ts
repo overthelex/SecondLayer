@@ -10,7 +10,7 @@
 
 import crypto from 'crypto';
 import { logger } from '../utils/logger.js';
-import { getRedisClient } from '../utils/redis-client.js';
+import type { ICachePort } from '../domain/ports/index.js';
 import { ZOAdapter } from '../adapters/zo-adapter.js';
 import { DocumentService } from './document-service.js';
 
@@ -33,10 +33,19 @@ export function isCourtSearchTool(toolName: string): boolean {
 }
 
 export class ChatSearchCacheService {
+  private cache: ICachePort | null = null;
+
   constructor(
     private zoAdapter: ZOAdapter,
-    private documentService: DocumentService
-  ) {}
+    private documentService: DocumentService,
+    cache?: ICachePort
+  ) {
+    this.cache = cache || null;
+  }
+
+  setCachePort(cache: ICachePort): void {
+    this.cache = cache;
+  }
 
   // ─── Query-level cache ───────────────────────────────────────
 
@@ -51,10 +60,9 @@ export class ChatSearchCacheService {
 
   async getCachedResult(toolName: string, args: Record<string, any>): Promise<any | null> {
     try {
-      const redis = await getRedisClient();
-      if (!redis) return null;
+      if (!this.cache) return null;
 
-      const raw = await redis.get(this.cacheKey(toolName, args));
+      const raw = await this.cache.get(this.cacheKey(toolName, args));
       if (!raw) return null;
 
       logger.info('[ChatSearchCache] Cache hit', { toolName });
@@ -67,13 +75,12 @@ export class ChatSearchCacheService {
 
   async cacheResult(toolName: string, args: Record<string, any>, result: any): Promise<void> {
     try {
-      const redis = await getRedisClient();
-      if (!redis) return;
+      if (!this.cache) return;
 
-      await redis.setEx(
+      await this.cache.set(
         this.cacheKey(toolName, args),
-        CACHE_TTL,
-        JSON.stringify(result)
+        JSON.stringify(result),
+        CACHE_TTL
       );
       logger.debug('[ChatSearchCache] Cached result', { toolName, ttl: CACHE_TTL });
     } catch (err: any) {

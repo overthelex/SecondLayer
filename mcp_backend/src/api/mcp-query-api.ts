@@ -19,7 +19,7 @@ import {
   QueryPlanner,
 } from '../services/query-planner.js';
 import { ZOAdapter } from '../adapters/zo-adapter.js';
-import { EmbeddingService } from '../services/embedding-service.js';
+import type { IEmbeddingPort } from '../domain/ports/index.js';
 import { LegalPatternStore } from '../services/legal-pattern-store.js';
 import { CitationValidator } from '../services/citation-validator.js';
 import { HallucinationGuard } from '../services/hallucination-guard.js';
@@ -39,7 +39,7 @@ export class MCPQueryAPI extends BaseToolHandler {
     private queryPlanner: QueryPlanner,
     private zoAdapter: ZOAdapter,
     private zoPracticeAdapter: ZOAdapter,
-    private embeddingService: EmbeddingService,
+    private embeddingService: IEmbeddingPort,
     private patternStore: LegalPatternStore,
     private citationValidator: CitationValidator,
     private hallucinationGuard: HallucinationGuard,

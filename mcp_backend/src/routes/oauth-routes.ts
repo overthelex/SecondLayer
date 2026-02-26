@@ -10,14 +10,12 @@
 
 import { Router, Request, Response } from 'express';
 import { OAuthService } from '../services/oauth-service.js';
-import { Database } from '../database/database.js';
 import { logger } from '../utils/logger.js';
 import bcrypt from 'bcryptjs';
 import { getUserService } from '../middleware/dual-auth.js';
 
-export function createOAuthRouter(db: Database): Router {
+export function createOAuthRouter(oauthService: OAuthService): Router {
   const router = Router();
-  const oauthService = new OAuthService(db);
   const userService = getUserService();
 
   /**

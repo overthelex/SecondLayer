@@ -8,7 +8,7 @@ import { BillingService } from './billing-service.js';
 import { EmailService } from './email-service.js';
 import { invoiceService } from './invoice-service.js';
 import { logger } from '../utils/logger.js';
-import { BaseDatabase } from '@secondlayer/shared';
+import type { IDatabase } from '../domain/ports/index.js';
 
 const BINANCE_PAY_API = 'https://bpay.binanceapi.com';
 
@@ -28,7 +28,7 @@ export class BinancePayService {
   constructor(
     private billingService: BillingService,
     private emailService: EmailService,
-    private db: BaseDatabase
+    private db: IDatabase
   ) {
     this.apiKey = process.env.BINANCE_PAY_API_KEY || '';
     this.secretKey = process.env.BINANCE_PAY_SECRET_KEY || '';

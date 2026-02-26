@@ -1,7 +1,6 @@
 import { DocumentSection, SectionType } from '../types/index.js';
 import { logger } from '../utils/logger.js';
-import { getOpenAIManager } from '../utils/openai-client.js';
-import { ModelSelector } from '../utils/model-selector.js';
+import type { ILLMPort } from '../domain/ports/index.js';
 
 interface StructuralMarker {
   type: SectionType;
@@ -28,10 +27,9 @@ const AMOUNT_PATTERNS: RegExp[] = [
 ];
 
 export class SemanticSectionizer {
-  private openaiManager = getOpenAIManager();
   private structuralMarkers: StructuralMarker[];
 
-  constructor() {
+  constructor(private readonly llm?: ILLMPort) {
     this.structuralMarkers = [
       {
         type: SectionType.FACTS,
@@ -294,11 +292,13 @@ export class SemanticSectionizer {
   }
 
   private async llmAssistedExtraction(text: string): Promise<DocumentSection[]> {
+    if (!this.llm) {
+      return [];
+    }
+
     try {
-      const response = await this.openaiManager.executeWithRetry(async (client) => {
-        const model = ModelSelector.getChatModel('deep');
-        return await client.chat.completions.create({
-          model,
+      const response = await this.llm.chatCompletion(
+        {
           messages: [
             {
               role: 'system',
@@ -320,13 +320,14 @@ export class SemanticSectionizer {
               content: text.substring(0, 8000),
             },
           ],
-          ...(ModelSelector.supportsTemperature(model) ? { temperature: 0.2 } : {}),
-          max_completion_tokens: 2000,
+          temperature: 0.2,
+          max_tokens: 2000,
           response_format: { type: 'json_object' },
-        });
-      });
+        },
+        'deep'
+      );
 
-      const result = JSON.parse(response.choices[0].message.content || '{}');
+      const result = JSON.parse(response.content || '{}');
       return (result.sections || []).map((s: any) => ({
         type: s.type as SectionType,
         text: s.text,

@@ -1,4 +1,4 @@
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { AuditService } from './audit-service.js';
 import { logger } from '../utils/logger.js';
 import PDFDocument from 'pdfkit';
@@ -91,7 +91,7 @@ export interface InvoiceWithDetails extends Invoice {
 
 export class MatterInvoiceService {
     constructor(
-        private db: Database,
+        private db: IDatabase,
         private auditService: AuditService
     ) {}
 

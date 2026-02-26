@@ -9,7 +9,7 @@ import { BillingService } from './billing-service.js';
 import { EmailService } from './email-service.js';
 import { invoiceService } from './invoice-service.js';
 import { logger } from '../utils/logger.js';
-import { BaseDatabase } from '@secondlayer/shared';
+import type { IDatabase } from '../domain/ports/index.js';
 
 // ERC-20 contract addresses per network
 const TOKEN_CONTRACTS: Record<string, Record<string, string>> = {
@@ -53,7 +53,7 @@ export class MetaMaskService {
   constructor(
     private billingService: BillingService,
     private emailService: EmailService,
-    private db: BaseDatabase
+    private db: IDatabase
   ) {
     this.receivingWallet = process.env.CRYPTO_RECEIVING_WALLET || '';
 

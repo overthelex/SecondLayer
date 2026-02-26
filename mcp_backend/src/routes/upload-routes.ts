@@ -11,7 +11,7 @@ import { processUploadFile, ProcessorDeps } from '../services/upload-processor.j
 import { AuthenticatedRequest as DualAuthRequest } from '../middleware/dual-auth.js';
 import { uploadInitRateLimit, uploadBatchInitRateLimit, uploadChunkRateLimit } from '../middleware/upload-rate-limit.js';
 import { UploadQueueService } from '../services/upload-queue-service.js';
-import { Pool } from 'pg';
+import type { IDatabase } from '../domain/ports/index.js';
 
 // Multer configured for disk storage — avoids holding 6MB buffers in memory per chunk
 const UPLOAD_TEMP_DIR = process.env.UPLOAD_TEMP_DIR || '/tmp/uploads';
@@ -117,7 +117,7 @@ export function createUploadRouter(
   uploadService: UploadService,
   minioService: MinioService,
   vaultTools: VaultTools,
-  pool: Pool,
+  db: IDatabase,
   uploadQueueService?: UploadQueueService,
   documentService?: DocumentService
 ): Router {
@@ -369,7 +369,7 @@ export function createUploadRouter(
             error: error.message,
           });
           // Fallback to in-memory processing
-          processUpload(session, uploadService, minioService, vaultTools, pool, undefined, documentService).catch((err) => {
+          processUpload(session, uploadService, minioService, vaultTools, db, undefined, documentService).catch((err) => {
             logger.error('[Upload] Fallback processing failed', {
               uploadId: session.id,
               error: err.message,
@@ -377,7 +377,7 @@ export function createUploadRouter(
           });
         });
       } else {
-        processUpload(session, uploadService, minioService, vaultTools, pool, undefined, documentService).catch((error) => {
+        processUpload(session, uploadService, minioService, vaultTools, db, undefined, documentService).catch((error) => {
           logger.error('[Upload] Background processing failed', {
             uploadId: session.id,
             error: error.message,
@@ -499,7 +499,7 @@ export function createUploadRouter(
           });
         });
       } else {
-        processUpload(session, uploadService, minioService, vaultTools, pool, { manualRetry: true }, documentService).catch((error) => {
+        processUpload(session, uploadService, minioService, vaultTools, db, { manualRetry: true }, documentService).catch((error) => {
           logger.error('[Upload] Manual retry failed', {
             uploadId: session.id,
             error: error.message,
@@ -578,11 +578,11 @@ async function processUpload(
   uploadService: UploadService,
   minioService: MinioService,
   vaultTools: VaultTools,
-  pool: Pool,
+  db: IDatabase,
   extraMetadata?: Record<string, any>,
   documentService?: DocumentService
 ): Promise<void> {
-  const deps: ProcessorDeps = { uploadService, minioService, vaultTools, pool, documentService };
+  const deps: ProcessorDeps = { uploadService, minioService, vaultTools, db, documentService };
 
   await acquireProcessingSlot(session.userId);
   try {

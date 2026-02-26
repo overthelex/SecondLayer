@@ -8,7 +8,7 @@ import { BillingService } from './billing-service.js';
 import { EmailService } from './email-service.js';
 import { invoiceService } from './invoice-service.js';
 import { logger } from '../utils/logger.js';
-import { BaseDatabase } from '@secondlayer/shared';
+import type { IDatabase } from '../domain/ports/index.js';
 
 const NOWPAYMENTS_API = 'https://api.nowpayments.io/v1';
 
@@ -26,7 +26,7 @@ export class NOWPaymentsService {
   constructor(
     private billingService: BillingService,
     private emailService: EmailService,
-    private db: BaseDatabase
+    private db: IDatabase
   ) {
     this.apiKey = process.env.NOWPAYMENTS_API_KEY || '';
     this.ipnSecret = process.env.NOWPAYMENTS_IPN_SECRET || '';

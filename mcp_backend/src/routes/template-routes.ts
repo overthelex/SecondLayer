@@ -12,10 +12,11 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { getTemplateClassifier, TemplateMatcher, TemplateGenerator, TemplateStorage } from '../services/template-system/index.js';
 import { AuthenticatedRequest } from '@secondlayer/shared';
 import { logger } from '@secondlayer/shared';
-import { BaseDatabase } from '@secondlayer/shared';
+import type { IDatabase } from '../domain/ports/index.js';
 
-export function createTemplateRoutes(db: BaseDatabase): Router {
+export function createTemplateRoutes(db: IDatabase, templateGenerator?: TemplateGenerator): Router {
   const router = Router();
+  const generator = templateGenerator || new TemplateGenerator(db);
 
   // Middleware to ensure authentication
   const requireAuth = (
@@ -389,7 +390,7 @@ export function createTemplateRoutes(db: BaseDatabase): Router {
         // Generate template asynchronously (don't wait for response)
         (async () => {
           try {
-            const generator = new TemplateGenerator(db);
+            // Use shared generator instance from factory
             const generationRequest = {
               questionText: question,
               classification,

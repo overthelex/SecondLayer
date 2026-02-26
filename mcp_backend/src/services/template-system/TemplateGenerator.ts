@@ -15,7 +15,8 @@ import {
   GeneratedTemplate,
   TemplateGenerationRequest,
 } from './types.js';
-import { logger, BaseDatabase, getOpenAIManager } from '@secondlayer/shared';
+import { logger } from '@secondlayer/shared';
+import type { IDatabase } from '../../domain/ports/index.js';
 import { CostTracker } from '../cost-tracker.js';
 
 interface GenerationStage {
@@ -55,7 +56,7 @@ export class TemplateGenerator {
   private readonly MAX_GENERATION_ATTEMPTS = 3;
 
   constructor(
-    private db: BaseDatabase,
+    private db: IDatabase,
     private llmManager?: any,
     private costTracker?: CostTracker,
     private embeddingService?: any
@@ -687,7 +688,7 @@ Generate the template now:
 let generatorInstance: TemplateGenerator | null = null;
 
 export function createTemplateGenerator(
-  db: BaseDatabase,
+  db: IDatabase,
   llmManager?: any,
   costTracker?: any,
   embeddingService?: any

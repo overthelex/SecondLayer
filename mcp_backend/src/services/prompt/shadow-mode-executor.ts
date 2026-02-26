@@ -5,7 +5,7 @@
  * Always returns legacy result, but logs comparison metrics.
  */
 
-import type { Pool } from 'pg';
+import type { IDatabase } from '../../domain/ports/index.js';
 import { PromptBuilder } from './prompt-builder.js';
 import { PromptLifecycleManager } from './prompt-lifecycle-manager.js';
 import { LLMClientManager } from '../../utils/llm-client-manager.js';
@@ -24,9 +24,9 @@ export class ShadowModeExecutor {
   private lifecycle: PromptLifecycleManager;
   private llmManager: LLMClientManager;
 
-  constructor(pool: Pool) {
+  constructor(db: IDatabase) {
     this.builder = new PromptBuilder();
-    this.lifecycle = new PromptLifecycleManager(pool);
+    this.lifecycle = new PromptLifecycleManager(db);
     this.llmManager = new LLMClientManager();
   }
 

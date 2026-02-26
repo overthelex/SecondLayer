@@ -10,7 +10,8 @@
  */
 
 import { QuestionClassification, TemplateMatchResult } from './types.js';
-import { logger, BaseDatabase } from '@secondlayer/shared';
+import { logger } from '@secondlayer/shared';
+import type { IDatabase, ICachePort } from '../../domain/ports/index.js';
 
 interface CachedMatchResult {
   matches: TemplateMatchResult[];
@@ -38,10 +39,10 @@ export class TemplateMatcher {
   private readonly MIN_MATCH_SCORE = 0.5; // Minimum score to return
 
   constructor(
-    private db: BaseDatabase,
+    private db: IDatabase,
     private embeddingService?: any,
     private qdrantClient?: any,
-    private redisClient?: any
+    private redisClient?: ICachePort
   ) {}
 
   /**
@@ -387,10 +388,10 @@ export class TemplateMatcher {
         costUsd: 0, // Caching is free
       };
 
-      await this.redisClient.setex(
+      await this.redisClient.set(
         cacheKey,
-        this.CACHE_TTL,
-        JSON.stringify(cacheData)
+        JSON.stringify(cacheData),
+        this.CACHE_TTL
       );
     } catch (error) {
       logger.warn('TemplateMatcher: Cache write failed', {
@@ -525,14 +526,14 @@ export class TemplateMatcher {
     }
 
     try {
-      const cursor = '0';
-      const pattern = 'template_match:*';
-
-      // Delete all template_match keys
-      const keys = await this.redisClient.keys(pattern);
-      if (keys.length > 0) {
-        await this.redisClient.del(...keys);
-        logger.info('TemplateMatcher: Cache cleared', { keysDeleted: keys.length });
+      // Use underlying client keys() for bulk deletion (debug/testing only)
+      const client = this.redisClient as any;
+      if (typeof client.keys === 'function') {
+        const keys = await client.keys('template_match:*');
+        if (keys.length > 0) {
+          await this.redisClient.del(...keys);
+          logger.info('TemplateMatcher: Cache cleared', { keysDeleted: keys.length });
+        }
       }
     } catch (error) {
       logger.warn('TemplateMatcher: Cache clear failed', {
@@ -546,10 +547,10 @@ export class TemplateMatcher {
 let matcherInstance: TemplateMatcher | null = null;
 
 export function createTemplateMatcher(
-  db: BaseDatabase,
+  db: IDatabase,
   embeddingService?: any,
   qdrantClient?: any,
-  redisClient?: any
+  redisClient?: ICachePort
 ): TemplateMatcher {
   if (!matcherInstance) {
     matcherInstance = new TemplateMatcher(

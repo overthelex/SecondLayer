@@ -12,7 +12,7 @@
  */
 
 import { ZOAdapter } from '../../adapters/zo-adapter.js';
-import { EmbeddingService } from '../../services/embedding-service.js';
+import type { IEmbeddingPort, ILLMPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
 import { SectionType } from '../../types/index.js';
 import { logger } from '../../utils/logger.js';
@@ -50,8 +50,9 @@ export class ProceduralTools extends BaseToolHandler {
     private zoAdapter: ZOAdapter,
     private zoPracticeAdapter: ZOAdapter,
     private sectionizer: SemanticSectionizer,
-    private embeddingService: EmbeddingService,
-    private patternStore: LegalPatternStore
+    private embeddingService: IEmbeddingPort,
+    private patternStore: LegalPatternStore,
+    private readonly llm?: ILLMPort
   ) {
     super();
   }
@@ -465,7 +466,7 @@ export class ProceduralTools extends BaseToolHandler {
     if (!factsText) throw new Error('facts_text parameter is required');
 
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
-    const extracted = await extractSearchTermsWithAI(factsText);
+    const extracted = await extractSearchTermsWithAI(factsText, this.llm);
     const extractedTerms = Array.isArray(extracted?.keywords) ? extracted.keywords : [];
     const query = typeof extracted?.searchQuery === 'string' && extracted.searchQuery.trim().length > 0
       ? extracted.searchQuery.trim()

@@ -47,7 +47,7 @@ async function createVovkesUser() {
     }
 
     // 2. Initialize credits using CreditService
-    const creditService = new CreditService(db.getPool());
+    const creditService = new CreditService(db);
 
     // Check current balance
     const currentBalance = await creditService.checkBalance(userId, 0);

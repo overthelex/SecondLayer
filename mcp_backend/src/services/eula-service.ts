@@ -3,7 +3,7 @@
  * Handles End User License Agreement acceptance tracking and document management
  */
 
-import { Pool } from 'pg';
+import type { IDatabase } from '../domain/ports/index.js';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -33,17 +33,17 @@ export interface UserManualSection {
 }
 
 export class EULAService {
-  private pool: Pool;
+  private db: IDatabase;
 
-  constructor(pool: Pool) {
-    this.pool = pool;
+  constructor(db: IDatabase) {
+    this.db = db;
   }
 
   /**
    * Get the currently active EULA document
    */
   async getActiveEULA(): Promise<EULADocument | null> {
-    const result = await this.pool.query<EULADocument>(
+    const result = await this.db.query<EULADocument>(
       `SELECT id, version, content, content_type as "contentType",
               is_active as "isActive", created_at as "createdAt",
               effective_date as "effectiveDate"
@@ -60,7 +60,7 @@ export class EULAService {
    * Get a specific EULA version
    */
   async getEULAByVersion(version: string): Promise<EULADocument | null> {
-    const result = await this.pool.query<EULADocument>(
+    const result = await this.db.query<EULADocument>(
       `SELECT id, version, content, content_type as "contentType",
               is_active as "isActive", created_at as "createdAt",
               effective_date as "effectiveDate"
@@ -97,7 +97,7 @@ export class EULAService {
       params = [userId];
     }
 
-    const result = await this.pool.query<{ count: string }>(query, params);
+    const result = await this.db.query<{ count: string }>(query, params);
     return parseInt(result.rows[0].count, 10) > 0;
   }
 
@@ -110,7 +110,7 @@ export class EULAService {
     ipAddress?: string,
     userAgent?: string
   ): Promise<EULAAcceptance> {
-    const result = await this.pool.query<EULAAcceptance>(
+    const result = await this.db.query<EULAAcceptance>(
       `INSERT INTO eula_acceptances (user_id, eula_version, ip_address, user_agent)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (user_id, eula_version) DO UPDATE
@@ -130,7 +130,7 @@ export class EULAService {
    * Get user's EULA acceptance history
    */
   async getUserAcceptances(userId: number): Promise<EULAAcceptance[]> {
-    const result = await this.pool.query<EULAAcceptance>(
+    const result = await this.db.query<EULAAcceptance>(
       `SELECT id, user_id as "userId", eula_version as "eulaVersion",
               accepted_at as "acceptedAt", ip_address as "ipAddress",
               user_agent as "userAgent"
@@ -230,7 +230,7 @@ export class EULAService {
   async updateEULAFromFile(version: string = '1.0'): Promise<void> {
     const eulaContent = await this.loadEULAFromFile();
 
-    await this.pool.query(
+    await this.db.query(
       `UPDATE eula_documents
        SET content = $1, content_type = 'markdown'
        WHERE version = $2`,
@@ -249,10 +249,10 @@ export class EULAService {
   ): Promise<EULADocument> {
     // If setting as active, deactivate all other versions first
     if (setAsActive) {
-      await this.pool.query('UPDATE eula_documents SET is_active = false');
+      await this.db.query('UPDATE eula_documents SET is_active = false');
     }
 
-    const result = await this.pool.query<EULADocument>(
+    const result = await this.db.query<EULADocument>(
       `INSERT INTO eula_documents (version, content, content_type, is_active, effective_date)
        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
        RETURNING id, version, content, content_type as "contentType",

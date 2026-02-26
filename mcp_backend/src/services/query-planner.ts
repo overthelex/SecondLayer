@@ -1,13 +1,11 @@
 import { QueryIntent, SectionType } from '../types/index.js';
 import { logger } from '../utils/logger.js';
-import { getOpenAIManager } from '../utils/openai-client.js';
-import { ModelSelector } from '../utils/model-selector.js';
+import type { ILLMPort } from '../domain/ports/index.js';
 
 export class QueryPlanner {
-  private openaiManager = getOpenAIManager();
   private intentMapping: Map<string, string[]> = new Map();
 
-  constructor() {
+  constructor(private readonly llm?: ILLMPort) {
 
     // Initialize intent to endpoint mapping
     this.intentMapping.set('consumer_penalty_delay', ['court', 'npa']);
@@ -34,14 +32,13 @@ export class QueryPlanner {
     }
 
     // For standard/deep, use LLM
+    if (!this.llm) {
+      return this.sanitizeIntent(this.quickIntentClassification(query));
+    }
+
     try {
-      const response = await this.openaiManager.executeWithRetry(async (client) => {
-        // Select model based on budget
-        const model = ModelSelector.getChatModel(budget);
-        const supportsJsonMode = ModelSelector.supportsJsonMode(model);
-        
-        const requestConfig: any = {
-          model: model,
+      const response = await this.llm.chatCompletion(
+        {
           messages: [
             {
               role: 'system',
@@ -70,18 +67,14 @@ export class QueryPlanner {
               content: query,
             },
           ],
-          ...(ModelSelector.supportsTemperature(model) ? { temperature: 0.3 } : {}),
-          max_completion_tokens: 500,
-        };
+          temperature: 0.3,
+          max_tokens: 500,
+          response_format: { type: 'json_object' },
+        },
+        budget
+      );
 
-        if (supportsJsonMode) {
-          requestConfig.response_format = { type: 'json_object' };
-        }
-
-        return await client.chat.completions.create(requestConfig);
-      });
-
-      let content = response.choices[0].message.content || '{}';
+      let content = response.content || '{}';
       
       // Extract JSON from markdown code blocks if present
       const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
@@ -418,13 +411,13 @@ export class QueryPlanner {
       return userQuery;
     }
 
+    if (!this.llm) {
+      return userQuery;
+    }
+
     try {
-      const response = await this.openaiManager.executeWithRetry(async (client) => {
-        const model = ModelSelector.getChatModel(budget);
-        const supportsJsonMode = ModelSelector.supportsJsonMode(model);
-        
-        const requestConfig: any = {
-          model: model,
+      const response = await this.llm.chatCompletion(
+        {
           messages: [
             {
               role: 'system',
@@ -454,26 +447,21 @@ export class QueryPlanner {
 Вхід: "звільнення самовільно захопленої частини земельної ділянки вивезення майна відповідача межі за експертизою"
 Вихід: "самовільне захоплення земельної ділянки" | "вивезення майна" | "межі ділянки експертиза"
 
-Поверни ТІЛЬКИ оптимізований пошуковий запит без додаткового тексту.`,
+Поверни JSON: {"search_query": "оптимізований запит"}`,
             },
             {
               role: 'user',
               content: userQuery,
             },
           ],
-          ...(ModelSelector.supportsTemperature(model) ? { temperature: 0.2 } : {}),
-          max_completion_tokens: 100,
-        };
+          temperature: 0.2,
+          max_tokens: 100,
+          response_format: { type: 'json_object' },
+        },
+        budget
+      );
 
-        if (supportsJsonMode) {
-          requestConfig.response_format = { type: 'json_object' };
-          requestConfig.messages[0].content += '\n\nПоверни JSON: {"search_query": "оптимізований запит"}';
-        }
-
-        return await client.chat.completions.create(requestConfig);
-      });
-
-      let content = response.choices[0].message.content || userQuery;
+      let content = response.content || userQuery;
       
       // If JSON mode, extract search_query field
       if (content.includes('{')) {

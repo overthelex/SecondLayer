@@ -1,6 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import { getRedisClient } from '../utils/redis-client.js';
+import type { ICachePort } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
+
+let rateCache: ICachePort | null = null;
+
+/** Set the cache port for rate limiting. Call from composition root. */
+export function setRateLimitCache(cache: ICachePort): void {
+  rateCache = cache;
+}
 
 interface RateLimitOptions {
   windowMs: number;
@@ -18,14 +25,13 @@ export function createRateLimiter(options: RateLimitOptions) {
 
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const redis = await getRedisClient();
-      if (!redis) {
-        return next(); // Redis unavailable, skip rate limiting
+      if (!rateCache) {
+        return next(); // Cache unavailable, skip rate limiting
       }
       const identifier = req.ip || req.socket.remoteAddress || 'unknown';
       const key = keyPrefix + ':' + identifier;
 
-      const current = await redis.get(key);
+      const current = await rateCache.get(key);
       const currentCount = current ? parseInt(current, 10) : 0;
 
       if (currentCount >= maxRequests) {
@@ -44,14 +50,7 @@ export function createRateLimiter(options: RateLimitOptions) {
         });
       }
 
-      const multi = redis.multi();
-      multi.incr(key);
-
-      if (currentCount === 0) {
-        multi.expire(key, Math.ceil(windowMs / 1000));
-      }
-
-      await multi.exec();
+      await rateCache.increment(key, Math.ceil(windowMs / 1000));
 
       res.setHeader('X-RateLimit-Limit', maxRequests.toString());
       res.setHeader('X-RateLimit-Remaining', (maxRequests - currentCount - 1).toString());
@@ -59,7 +58,7 @@ export function createRateLimiter(options: RateLimitOptions) {
 
       next();
     } catch (error) {
-      logger.error('[RateLimit] Redis error, allowing request', {
+      logger.error('[RateLimit] Cache error, allowing request', {
         error: (error as Error).message,
         path: req.path,
       });

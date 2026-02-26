@@ -3,7 +3,7 @@
  * Manages runtime system configuration with DB override → env → default fallback
  */
 
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 
 export interface ConfigEntry {
@@ -158,12 +158,12 @@ interface DbOverride {
 }
 
 export class ConfigService {
-  private db: Database;
+  private db: IDatabase;
   private cache: Map<string, DbOverride> = new Map();
   private lastRefresh: number = 0;
   private refreshInterval: number = 60_000; // 60s
 
-  constructor(db: Database) {
+  constructor(db: IDatabase) {
     this.db = db;
   }
 

@@ -11,10 +11,9 @@
  */
 
 import { logger } from '../utils/logger.js';
-import { getRedisClient } from '../utils/redis-client.js';
 import { generateCaseNumberVariations } from '../api/tool-utils.js';
 import type { ZOAdapter } from '../adapters/zo-adapter.js';
-import type { Database } from '../database/database.js';
+import type { IDatabase, ICachePort } from '../domain/ports/index.js';
 import type { PrecedentStatusType } from '../types/index.js';
 
 // ============================
@@ -183,10 +182,19 @@ const ANALYZE_TIMEOUT_MS = 15_000;
 // ============================
 
 export class ShepardizationService {
+  private cache: ICachePort | null = null;
+
   constructor(
     private zoAdapter: ZOAdapter,
-    private db: Database
-  ) {}
+    private db: IDatabase,
+    cache?: ICachePort
+  ) {
+    this.cache = cache || null;
+  }
+
+  setCachePort(cache: ICachePort): void {
+    this.cache = cache;
+  }
 
   /**
    * Full verification: Redis cache → PG cache → ZO API search → classify → cache.
@@ -339,10 +347,9 @@ export class ShepardizationService {
 
   private async checkRedisCache(caseNumber: string): Promise<ShepardizationResult | null> {
     try {
-      const redis = await getRedisClient();
-      if (!redis) return null;
+      if (!this.cache) return null;
 
-      const cached = await redis.get(`shepard:${caseNumber}`);
+      const cached = await this.cache.get(`shepard:${caseNumber}`);
       if (!cached) return null;
 
       return JSON.parse(cached) as ShepardizationResult;
@@ -353,10 +360,9 @@ export class ShepardizationService {
 
   private async cacheToRedis(caseNumber: string, result: ShepardizationResult): Promise<void> {
     try {
-      const redis = await getRedisClient();
-      if (!redis) return;
+      if (!this.cache) return;
 
-      await redis.setEx(`shepard:${caseNumber}`, REDIS_TTL_SECONDS, JSON.stringify(result));
+      await this.cache.set(`shepard:${caseNumber}`, JSON.stringify(result), REDIS_TTL_SECONDS);
     } catch {
       // non-critical
     }

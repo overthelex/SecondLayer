@@ -4,12 +4,10 @@
  */
 
 import express, { Request, Response, NextFunction } from 'express';
-import { Pool } from 'pg';
 import { EULAService } from '../services/eula-service.js';
 
-export function createEULARouter(pool: Pool): express.Router {
+export function createEULARouter(eulaService: EULAService): express.Router {
   const router = express.Router();
-  const eulaService = new EULAService(pool);
 
   /**
    * GET /api/eula
