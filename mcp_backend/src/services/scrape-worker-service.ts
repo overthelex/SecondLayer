@@ -104,10 +104,11 @@ export class ScrapeWorkerService {
     private documentService: DocumentService,
     private embeddingService: IEmbeddingPort,
     private zoAdapter: ZOAdapter,
+    sectionizer?: SemanticSectionizer,
   ) {
     const maxConcurrent = parseInt(process.env.SCRAPE_MAX_CONCURRENT || '10', 10);
     this.semaphore = new Semaphore(maxConcurrent);
-    this.sectionizer = new SemanticSectionizer();
+    this.sectionizer = sectionizer || new SemanticSectionizer();
     // Rate limit: 5 req/sec = 200ms between requests
     this.minScrapeInterval = parseInt(process.env.SCRAPE_MIN_INTERVAL_MS || '200', 10);
   }

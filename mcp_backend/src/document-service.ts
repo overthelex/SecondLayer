@@ -59,13 +59,14 @@ class DocumentAnalysisServer {
     );
 
     // Initialize ZOAdapter for court decision scraping
-    const zoAdapter = new ZOAdapter(this.documentService, undefined, this.embeddingService);
+    const zoAdapter = new ZOAdapter(this.documentService, undefined, this.embeddingService, undefined, sectionizer);
 
     // Initialize scrape worker service
     this.scrapeWorker = new ScrapeWorkerService(
       this.documentService,
       this.embeddingService,
       zoAdapter,
+      sectionizer,
     );
 
     this.setupRoutes();

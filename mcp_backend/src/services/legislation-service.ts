@@ -211,13 +211,18 @@ export class LegislationService {
   private db: IDatabase;
   private classifier: LegislationClassifier | null = null;
 
-  constructor(db: IDatabase, embeddingService: IEmbeddingPort, redis?: ICachePort, llm?: ILLMPort) {
+  constructor(
+    db: IDatabase,
+    embeddingService: IEmbeddingPort,
+    redis?: ICachePort,
+    llm?: ILLMPort,
+    adapter?: RadaLegislationAdapter,
+    classifier?: LegislationClassifier
+  ) {
     this.db = db;
-    this.adapter = new RadaLegislationAdapter(db);
+    this.adapter = adapter || new RadaLegislationAdapter(db);
     this.embeddingService = embeddingService;
-
-    // Инициализируем classifier (с Redis или без)
-    this.classifier = new LegislationClassifier(redis, llm);
+    this.classifier = classifier || new LegislationClassifier(redis, llm);
   }
 
   getAdapter(): RadaLegislationAdapter {

@@ -82,7 +82,8 @@ export class ZOAdapter {
     domainOrDocService?: ZakonOnlineDomainName | DocumentService,
     documentService?: DocumentService,
     embeddingService?: IEmbeddingPort,
-    cache?: ICachePort
+    cache?: ICachePort,
+    sectionizer?: SemanticSectionizer
   ) {
     // Backward compatibility: if first arg is DocumentService, use default domain
     let domain: ZakonOnlineDomainName = 'court_decisions';
@@ -102,7 +103,7 @@ export class ZOAdapter {
 
     this.domainConfig = getDomainConfig(domain);
     this.documentService = docService;
-    this.sectionizer = new SemanticSectionizer();
+    this.sectionizer = sectionizer || new SemanticSectionizer();
     this.embeddingService = embeddingService || null;
 
     // Support primary and secondary tokens

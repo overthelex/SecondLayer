@@ -39,11 +39,11 @@ export function createBackendCoreServices(): BackendCoreServices {
   const queryPlanner = new QueryPlanner(llmAdapter);
   const sectionizer = new SemanticSectionizer(llmAdapter);
   const embeddingService = new EmbeddingService();
-  const zoAdapter = new ZOAdapter(documentService, undefined, embeddingService);
-  const zoPracticeAdapter = new ZOAdapter('court_practice', documentService, embeddingService);
-  const zoSessionsAdapter = new ZOAdapter('court_sessions', documentService, embeddingService);
-  const zoLegalActsAdapter = new ZOAdapter('legal_acts', documentService, embeddingService);
-  const zoECHRAdapter = new ZOAdapter('echr_practice', documentService, embeddingService);
+  const zoAdapter = new ZOAdapter(documentService, undefined, embeddingService, undefined, sectionizer);
+  const zoPracticeAdapter = new ZOAdapter('court_practice', documentService, embeddingService, undefined, sectionizer);
+  const zoSessionsAdapter = new ZOAdapter('court_sessions', documentService, embeddingService, undefined, sectionizer);
+  const zoLegalActsAdapter = new ZOAdapter('legal_acts', documentService, embeddingService, undefined, sectionizer);
+  const zoECHRAdapter = new ZOAdapter('echr_practice', documentService, embeddingService, undefined, sectionizer);
   const patternStore = new LegalPatternStore(db, embeddingService);
   const shepardizationService = new ShepardizationService(zoAdapter, db);
   const citationValidator = new CitationValidator(db, shepardizationService);
