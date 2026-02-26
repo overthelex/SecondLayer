@@ -38,6 +38,7 @@ export class MetadataExtractor {
     }
 
     const snippet = text.slice(0, 4000);
+    let rawContent: string | undefined;
 
     try {
       if (!this.llm) {
@@ -71,7 +72,14 @@ export class MetadataExtractor {
         'quick'
       );
 
-      const parsed = JSON.parse(response.content);
+      rawContent = response.content;
+      const raw = rawContent?.trim();
+      if (!raw) {
+        logger.warn('[MetadataExtractor] LLM returned empty content', { title, docType });
+        return EMPTY_METADATA;
+      }
+
+      const parsed = JSON.parse(raw);
 
       const result: ExtractedMetadata = {
         documentDate: parsed.documentDate || null,
@@ -94,6 +102,7 @@ export class MetadataExtractor {
       logger.warn('[MetadataExtractor] Extraction failed, using defaults', {
         title,
         error: error.message,
+        ...(error.message?.includes('JSON') ? { rawContentPreview: rawContent?.slice(0, 200) } : {}),
       });
       return EMPTY_METADATA;
     }
