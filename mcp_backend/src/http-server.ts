@@ -2518,14 +2518,19 @@ class HTTPMCPServer {
       await this.services.embeddingService.initialize();
       await this.documentParser.initialize();
 
-      // Initialize Redis for AI-powered legislation classification (optional)
+      // Initialize Redis cache for services (optional)
       const redis = await getRedisClient();
       if (redis) {
         const cache = new CacheAdapter(redis);
         this.services.legislationTools.setRedisClient(cache);
-        logger.info('Redis connected - AI legislation classification with caching enabled');
+        this.services.zoAdapter.setCachePort(cache);
+        this.services.zoPracticeAdapter.setCachePort(cache);
+        this.services.zoSessionsAdapter.setCachePort(cache);
+        this.services.zoLegalActsAdapter.setCachePort(cache);
+        this.services.zoECHRAdapter.setCachePort(cache);
+        logger.info('Redis connected - caching enabled for legislation and ZO adapters');
       } else {
-        logger.info('Redis not available - AI legislation classification will work without caching');
+        logger.info('Redis not available - services will work without caching');
       }
 
       // Cleanup expired upload sessions every hour
