@@ -13,8 +13,8 @@ import { MockMetaMaskService } from '../services/__mocks__/metamask-service-mock
 import { MockBinancePayService } from '../services/__mocks__/binance-pay-service-mock.js';
 import { MockNOWPaymentsService } from '../services/__mocks__/nowpayments-service-mock.js';
 import { cryptoTagRequired } from '../middleware/crypto-tag-required.js';
-import { BaseDatabase } from '@secondlayer/shared';
 import { logger } from '../utils/logger.js';
+import type { IDatabase } from '../domain/ports/index.js';
 
 /**
  * Create payment router
@@ -24,7 +24,7 @@ export function createPaymentRouter(
   metamaskService: MetaMaskService | MockMetaMaskService,
   binancePayService: BinancePayService | MockBinancePayService,
   nowpaymentsService: NOWPaymentsService | MockNOWPaymentsService,
-  db: BaseDatabase
+  db: IDatabase
 ): Router {
   const router = Router();
 
