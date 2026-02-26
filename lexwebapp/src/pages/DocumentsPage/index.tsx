@@ -194,13 +194,23 @@ export function DocumentsPage() {
     setOffset(0);
   }, [filterType, currentFolderPath, searchQuery]);
 
-  // Load documents on mount and when filters/sort/offset change
+  // Load documents on mount and when filters/sort/offset/search change
+  useEffect(() => {
+    loadDocuments();
+    loadFolders(currentFolderPath);
+  }, [filterType, currentFolderPath, offset, sortBy, sortOrder]);
+
+  // Debounced text search — triggers list_documents with query param
   useEffect(() => {
     if (!searchQuery.trim()) {
       loadDocuments();
+      return;
     }
-    loadFolders(currentFolderPath);
-  }, [filterType, currentFolderPath, offset, sortBy, sortOrder]);
+    const timer = setTimeout(() => {
+      loadDocuments();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Check for stuck upload sessions on mount
   useEffect(() => {
@@ -241,6 +251,7 @@ export function DocumentsPage() {
       };
       if (filterType) params.type = filterType;
       if (currentFolderPath) params.folderPath = currentFolderPath;
+      if (searchQuery.trim()) params.query = searchQuery.trim();
 
       const result = await mcpService.callTool('list_documents', params);
       const parsed = result?.result?.content?.[0]?.text
@@ -371,38 +382,10 @@ export function DocumentsPage() {
     showToast.success(`Завантаження ${uploadItems.filter((i) => i.status === 'queued').length} файлів розпочато`);
   };
 
-  // Search
+  // Search — now uses list_documents with query param (debounced above)
+  // Enter key triggers immediate search
   const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      loadDocuments();
-      return;
-    }
-    setLoading(true);
-    try {
-      const result = await mcpService.callTool('semantic_search', {
-        query: searchQuery,
-        limit: 20,
-        threshold: 0.5,
-        ...(filterType ? { type: filterType } : {}),
-      });
-      const parsed = result?.result?.content?.[0]?.text
-        ? JSON.parse(result.result.content[0].text)
-        : result?.result || result;
-
-      const docs = (parsed.results || []).map((r: any) => ({
-        id: r.documentId || r.id,
-        title: r.title,
-        type: r.type || 'other',
-        metadata: r.metadata || { uploadedAt: '' },
-      }));
-      setDocuments(docs);
-      setTotalDocs(docs.length);
-    } catch (err: any) {
-      console.error('Search failed:', err);
-      showToast.error('Помилка пошуку');
-    } finally {
-      setLoading(false);
-    }
+    loadDocuments();
   };
 
   const handleClearSearch = () => {
@@ -768,7 +751,7 @@ export function DocumentsPage() {
               />
               <input
                 type="text"
-                placeholder="Семантичний пошук документів..."
+                placeholder="Пошук за назвою або змістом..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
