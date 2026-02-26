@@ -82,9 +82,9 @@ export const uploadBatchInitRateLimit = createUserRateLimiter({
   keyPrefix: 'ratelimit:upload-init-batch',
 });
 
-// 200 chunk uploads per minute per user
+// 500 chunk uploads per minute per user
 export const uploadChunkRateLimit = createUserRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 200,
+  maxRequests: 500,
   keyPrefix: 'ratelimit:upload-chunk',
 });
