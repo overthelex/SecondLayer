@@ -5,11 +5,9 @@
 
 import express, { Request, Response, NextFunction } from 'express';
 import { EULAService } from '../services/eula-service.js';
-import type { IDatabase } from '../domain/ports/index.js';
 
-export function createEULARouter(db: IDatabase): express.Router {
+export function createEULARouter(eulaService: EULAService): express.Router {
   const router = express.Router();
-  const eulaService = new EULAService(db);
 
   /**
    * GET /api/eula
