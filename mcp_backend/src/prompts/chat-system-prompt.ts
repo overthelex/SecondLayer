@@ -13,6 +13,38 @@ import {
 } from './tool-registry-catalog.js';
 
 // ============================
+// Query Classification Types
+// ============================
+
+export type QueryType =
+  | 'case_lookup'           // конкретна справа за номером
+  | 'practice_analysis'     // аналіз судової практики за темою
+  | 'legislation_lookup'    // конкретна стаття / розділ закону
+  | 'legal_consultation'    // загальна юридична консультація / інформаційне питання
+  | 'registry_lookup'       // пошук юрособи / боржника / нотаріуса
+  | 'parliament_query'      // депутати / законопроекти / голосування
+  | 'document_query'        // пошук у завантажених документах
+  | 'calculation'           // розрахунок строків, сум, штрафів
+  | 'document_drafting'     // складання зразка документа
+  | 'comparative_analysis'  // порівняння способів захисту / юрисдикцій
+  | 'due_diligence'         // комплексна перевірка контрагента
+  | 'unsupported';          // поза межами системи
+
+export interface ChatIntentClassification {
+  domains: string[];
+  keywords: string;
+  slots?: Record<string, any>;
+  queryType: QueryType;
+  unsupportedReason?: string;
+}
+
+const VALID_QUERY_TYPES: Set<string> = new Set([
+  'case_lookup', 'practice_analysis', 'legislation_lookup', 'legal_consultation',
+  'registry_lookup', 'parliament_query', 'document_query', 'calculation',
+  'document_drafting', 'comparative_analysis', 'due_diligence', 'unsupported',
+]);
+
+// ============================
 // Execution Plan Types
 // ============================
 
@@ -42,9 +74,28 @@ export interface PlanStep {
  */
 export function buildPlanGenerationMessages(
   query: string,
-  classification: { domains: string[]; keywords: string; slots?: Record<string, any> },
+  classification: { domains: string[]; keywords: string; slots?: Record<string, any>; queryType?: QueryType },
   toolDescriptions: string
 ): Array<{ role: 'system' | 'user'; content: string }> {
+  // Build queryType-specific planning rule
+  let queryTypeRule = '';
+  if (classification.queryType) {
+    const qtRules: Partial<Record<QueryType, string>> = {
+      case_lookup: '11. queryType=case_lookup: start with get_case_documents_chain, max 2 steps',
+      practice_analysis: '11. queryType=practice_analysis: use 5-10 search_legal_precedents calls with different queries and limit=50, then include legislation lookups',
+      legislation_lookup: '11. queryType=legislation_lookup: start with get_legislation_article or search_legislation, max 2 steps',
+      legal_consultation: '11. queryType=legal_consultation: combine legislation + practice search tools',
+      registry_lookup: '11. queryType=registry_lookup: start with openreyestr_get_by_edrpou or openreyestr_search_entities, max 3 steps',
+      parliament_query: '11. queryType=parliament_query: use rada_ tools, max 2 steps',
+      document_query: '11. queryType=document_query: use list_documents or semantic_search, max 2 steps',
+      document_drafting: '11. queryType=document_drafting: first find_relevant_law_articles for legal basis, then generate document',
+      comparative_analysis: '11. queryType=comparative_analysis: search each competing approach separately with pro/contra, include legislation',
+      due_diligence: '11. queryType=due_diligence: start with registry lookup, add debtors/bankruptcy/enforcement checks, then court cases',
+      calculation: '11. queryType=calculation: find relevant procedural norms first, then apply calculation logic',
+    };
+    queryTypeRule = qtRules[classification.queryType] || '';
+  }
+
   const systemMessage = `You are a plan generator for SecondLayer legal AI assistant. Output ONLY valid JSON — no markdown, no comments, no extra text.
 
 CRITICAL: You MUST ALWAYS return a plan with at least 1 step. NEVER return an empty object {}. Every user query needs at least one tool call.
@@ -59,7 +110,7 @@ CRITICAL: You MUST ALWAYS return a plan with at least 1 step. NEVER return an em
 7. depends_on = list of step ids that must complete first
 8. purpose in Ukrainian, max 10 words
 9. For court practice analysis: use multiple search_legal_precedents steps with different queries and limit=50
-10. ALWAYS include a get_legislation_article or search_legislation step when the query involves legal norms, articles of law, or legal analysis. The UI has a "Норми" panel that is populated ONLY from legislation tool results — without calling these tools, the panel stays empty
+10. ALWAYS include a get_legislation_article or search_legislation step when the query involves legal norms, articles of law, or legal analysis. The UI has a "Норми" panel that is populated ONLY from legislation tool results — without calling these tools, the panel stays empty${queryTypeRule ? '\n' + queryTypeRule : ''}
 
 ## JSON schema
 {
@@ -481,9 +532,10 @@ export const CHAT_INTENT_CLASSIFICATION_PROMPT = `Ти — класифікат�
 - rada_search_legislation_text — пошук текстів законів
 - rada_analyze_voting_record — аналіз голосувань
 
-### documents — Завантажені документи користувача (Qdrant vector DB)
+### documents — Завантажені документи користувача (VAULT / Qdrant vector DB)
 - store_document — зберегти документ
-- list_documents — список документів
+- list_documents — список документів користувача (завантажені файли, VAULT)
+- list_folders — список папок у сховищі
 - semantic_search — семантичний пошук по завантажених документах
 
 ### legal_advice — Комплексна юридична консультація
@@ -501,28 +553,70 @@ export const CHAT_INTENT_CLASSIFICATION_PROMPT = `Ти — класифікат�
 4e. Якщо запит про арбітражного керуючого → "registry"
 4f. Якщо запит про населений пункт, вулицю, адмінустрій → "registry"
 5. Якщо запит про депутатів, законопроєкти, голосування → "parliament"
-6. Якщо запит про завантажені/збережені документи користувача → "documents"
+6. Якщо запит про завантажені/збережені документи користувача, VAULT, сховище, "мої документи/файли" → "documents"
+6a. Ключові слова для "documents": vault, сховище, завантажив, завантажені, мої документи, мої файли, загрузил, збережені файли
 7. Якщо загальне юридичне питання → "legal_advice"
 7a. Якщо запит про комплексний/детальний аналіз конкретної справи через усі інстанції (хронологія, еволюція вимог, позиції судів, доказова база) → "court" + "legal_advice" + case_number
 8. ЄСПЛ/ECHR рішення шукаються через "court"
 9. Нормативно-правові акти (НПА) → "legislation"
+
+## Тип запиту (queryType)
+
+Визнач тип запиту на основі його змісту:
+
+| queryType | Опис | Приклади |
+|-----------|------|----------|
+| case_lookup | Конкретна справа за номером | "справа 922/989/18", "рішення у справі 757/1234/22" |
+| practice_analysis | Аналіз судової практики за темою | "практика щодо виселення", "як суди вирішують спори про оренду" |
+| legislation_lookup | Конкретна стаття / розділ закону | "ст. 16 ЦК", "стаття 382 КК" |
+| legal_consultation | Загальна юридична консультація | "як відкрити ФОП?", "що робити при затопленні квартири" |
+| registry_lookup | Пошук у реєстрах (юрособи, боржники, нотаріуси) | "ЄДРПОУ 12345678", "знайди ТОВ Нова Пошта" |
+| parliament_query | Депутати, законопроєкти, голосування | "хто депутат Шевченко?", "законопроєкти про мобілізацію" |
+| document_query | Пошук у завантажених документах | "що в моїх документах про оренду?", "знайди в VAULT" |
+| calculation | Розрахунок строків, сум, штрафів | "розрахуй строк позовної давності", "розмір судового збору" |
+| document_drafting | Складання зразка документа | "напиши позовну заяву", "зразок скарги" |
+| comparative_analysis | Порівняння способів захисту / юрисдикцій | "негаторний чи віндикаційний позов?", "яка стаття підходить" |
+| due_diligence | Комплексна перевірка контрагента | "перевірити контрагента ТОВ Партнер", "due diligence компанії" |
+| unsupported | Запит поза межами системи | "яка погода?", "склади рейтинг суддів за відсотком відмов" |
+
+## Межі системи (коли queryType = unsupported)
+
+Система МОЖЕ:
+- Шукати рішення за іменем судді, стороною справи, темою
+- Аналізувати практику за темою (знайти справи, порівняти підходи)
+- Отримати повний текст рішення, статтю закону
+- Перевірити юрособу в реєстрі, знайти бенефіціарів, боржників
+- Знайти законопроєкти, інформацію про депутатів
+
+Система НЕ МОЖЕ:
+- Агрегувати статистику по судді (% задоволених позовів, тенденції до закриття справ)
+- Передбачати результат справи числовим показником (% ймовірності)
+- Відповідати на запити не пов'язані з правом (погода, спорт, рецепти)
+- Надавати персональні дані фізичних осіб (ІПН, адреса проживання)
+- Давати медичні, фінансові або інші неюридичні поради
+
+Якщо queryType = unsupported, обов'язково додай поле "unsupportedReason" з коротким поясненням українською.
 
 ## Формат відповіді
 Поверни ТІЛЬКИ валідний JSON:
 {
   "domains": ["court", "legislation"],
   "keywords": "ключові слова для пошуку українською",
+  "queryType": "practice_analysis",
   "slots": {
     "procedure_code": "cpc|gpc|cac|crpc",
     "court_level": "first_instance|appeal|cassation|SC|GrandChamber",
     "case_number": "номер справи якщо вказано",
     "edrpou": "код ЄДРПОУ якщо вказано",
     "law_reference": "посилання на закон/статтю якщо вказано"
-  }
+  },
+  "unsupportedReason": "тільки якщо queryType = unsupported"
 }
 
 Поле "slots" — опціональне, включай тільки ті ключі, які можна витягнути з запиту.
-Поле "keywords" — витягни основні пошукові терміни українською для подальших викликів інструментів.`;
+Поле "keywords" — витягни основні пошукові терміни українською для подальших викликів інструментів.
+Поле "queryType" — ОБОВ'ЯЗКОВЕ, визнач тип запиту з таблиці вище.
+Поле "unsupportedReason" — тільки якщо queryType = "unsupported".`;
 
 /**
  * Domain→tools map and default tools — derived from the scenario catalog.
@@ -541,3 +635,5 @@ export const DOMAIN_TOOL_MAP: Record<string, string[]> = {
 };
 
 export const DEFAULT_TOOLS = DERIVED_DEFAULT_TOOLS;
+
+export { VALID_QUERY_TYPES };

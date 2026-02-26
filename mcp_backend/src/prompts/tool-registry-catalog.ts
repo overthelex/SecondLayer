@@ -966,7 +966,8 @@ function stripReplacedSections(prompt: string): string {
 export function buildEnrichedSystemPrompt(
   basePrompt: string,
   catalog: ScenarioCatalogEntry[],
-  domains?: string[]
+  domains?: string[],
+  preferredScenarioIds?: string[]
 ): string {
   // 1. Strip old sections
   const stripped = stripReplacedSections(basePrompt);
@@ -991,6 +992,14 @@ export function buildEnrichedSystemPrompt(
     }
   } else {
     filtered = catalog;
+  }
+
+  // 2b. Reorder: preferred scenarios first (if specified)
+  if (preferredScenarioIds && preferredScenarioIds.length > 0) {
+    const preferredSet = new Set(preferredScenarioIds);
+    const preferred = filtered.filter((e) => preferredSet.has(e.id));
+    const rest = filtered.filter((e) => !preferredSet.has(e.id));
+    filtered = [...preferred, ...rest];
   }
 
   // 3. Serialize catalog

@@ -31,10 +31,14 @@ import {
   CHAT_INTENT_CLASSIFICATION_PROMPT,
   DOMAIN_TOOL_MAP,
   DEFAULT_TOOLS,
+  VALID_QUERY_TYPES,
   buildPlanGenerationMessages,
   ExecutionPlan,
+  type QueryType,
+  type ChatIntentClassification,
 } from '../prompts/chat-system-prompt.js';
 import { buildEnrichedSystemPrompt, SCENARIO_CATALOG } from '../prompts/tool-registry-catalog.js';
+import { QUERY_TYPE_CONFIG } from '../prompts/query-type-config.js';
 import { ChatSearchCacheService, isCourtSearchTool } from './chat-search-cache-service.js';
 import type { ShepardizationService, ShepardizationResult } from './shepardization-service.js';
 import { extractAllEvidence } from './evidence-extractor.js';
@@ -64,7 +68,7 @@ export interface ChatRequest {
 
 /** Cached result from /api/chat/plan for reuse during execution */
 interface PlanSession {
-  classification: { domains: string[]; keywords: string; slots?: Record<string, any> };
+  classification: ChatIntentClassification;
   toolDefs: ToolDefinition[];
   plan: ExecutionPlan;
   query: string;
@@ -164,7 +168,7 @@ export class ChatService {
     budget: 'quick' | 'standard' | 'deep' = 'standard',
     userId?: string,
     requestId?: string
-  ): Promise<{ plan: ExecutionPlan; planSessionId: string } | null> {
+  ): Promise<{ plan: ExecutionPlan; planSessionId: string; queryType: QueryType } | null> {
     const classification = await this.classifyChatIntent(query, requestId);
     const toolDefs = await this.filterTools(classification.domains, classification.slots);
     const plan = await this.generateExecutionPlan(query, classification, toolDefs, requestId);
@@ -190,9 +194,10 @@ export class ChatService {
       planSessionId,
       steps: plan.steps.length,
       goal: plan.goal.slice(0, 100),
+      queryType: classification.queryType,
     });
 
-    return { plan, planSessionId };
+    return { plan, planSessionId, queryType: classification.queryType };
   }
 
   /**
@@ -236,7 +241,7 @@ export class ChatService {
 
     try {
       // --- Two-phase support: reuse cached session if approvedPlan is provided ---
-      let classification: { domains: string[]; keywords: string; slots?: Record<string, any> };
+      let classification: ChatIntentClassification;
       let toolDefs: ToolDefinition[];
       let plan: ExecutionPlan | undefined;
 
@@ -268,10 +273,59 @@ export class ChatService {
         plan = await this.generateExecutionPlan(query, classification, toolDefs, requestId);
       }
 
-      // Emit plan to client via SSE
-      if (plan) {
-        yield { type: 'plan', data: plan };
+      // --- 6a. Unsupported short-circuit ---
+      if (classification.queryType === 'unsupported') {
+        const reason = classification.unsupportedReason || 'Цей запит виходить за межі можливостей системи SecondLayer.';
+        logger.info('[ChatService] Query classified as unsupported', { reason, query: query.slice(0, 100) });
+        yield {
+          type: 'answer',
+          data: {
+            text: reason,
+            queryType: 'unsupported',
+          },
+        };
+        yield {
+          type: 'complete',
+          data: {
+            iterations: 0,
+            elapsed_ms: Date.now() - startTime,
+            tools_used: [],
+            total_cost_usd: 0,
+            queryType: 'unsupported',
+          },
+        };
+        return;
       }
+
+      // --- 6c. Synthetic thinking event (step 0) ---
+      const qtConfig = QUERY_TYPE_CONFIG[classification.queryType];
+      if (qtConfig?.thinkingPrefix) {
+        yield {
+          type: 'thinking',
+          data: {
+            step: 0,
+            tool: '_classify',
+            params: { queryType: classification.queryType },
+            description: qtConfig.thinkingPrefix,
+          },
+        };
+      }
+
+      // Emit plan to client via SSE (Step 7: include queryType)
+      if (plan) {
+        yield {
+          type: 'plan',
+          data: {
+            ...plan,
+            queryType: classification.queryType,
+            thinkingPrefix: qtConfig?.thinkingPrefix,
+          },
+        };
+      }
+
+      // --- 6b. Budget floor from queryType config ---
+      const budgetOrder: Record<string, number> = { quick: 0, standard: 1, deep: 2 };
+      const configBudget = qtConfig?.defaultBudget || 'standard';
 
       // Budget escalation:
       //    - Any step marked "deep" by user → deep budget
@@ -316,10 +370,21 @@ export class ChatService {
         };
       }
 
+      // Apply budget floor from queryType config (never downgrade below config minimum)
+      if ((budgetOrder[configBudget] || 0) > (budgetOrder[effectiveBudget] || 0)) {
+        logger.info('[ChatService] Budget floor applied from queryType config', {
+          queryType: classification.queryType,
+          configBudget,
+          previousBudget: effectiveBudget,
+        });
+        effectiveBudget = configBudget as BudgetKey;
+      }
+
       logger.info('[ChatService] Starting agentic loop', {
         query: query.slice(0, 100),
         domains: classification.domains,
         keywords: classification.keywords,
+        queryType: classification.queryType,
         toolCount: toolDefs.length,
         budget: effectiveBudget,
         budgetEscalated: effectiveBudget !== budget,
@@ -337,7 +402,7 @@ export class ChatService {
 
       // 5. Build messages with token-aware context window + injected plan
       const limits = BUDGET_LIMITS[effectiveBudget as BudgetKey] || BUDGET_LIMITS.standard;
-      const messages = await this.buildContextMessages(history, query, classification.domains, plan, limits.maxContextChars, request.conversationId, requestId);
+      const messages = await this.buildContextMessages(history, query, classification.domains, plan, limits.maxContextChars, request.conversationId, requestId, classification.queryType);
 
       // Log estimated prompt size for rate-limit debugging
       const totalChars = messages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
@@ -664,6 +729,7 @@ export class ChatService {
           elapsed_ms: elapsed,
           tools_used: toolsUsed,
           total_cost_usd: totalCostUsd,
+          queryType: classification.queryType,
         },
       };
 
@@ -756,15 +822,26 @@ export class ChatService {
     plan?: ExecutionPlan,
     maxContextChars?: number,
     conversationId?: string,
-    requestId?: string
+    requestId?: string,
+    queryType?: QueryType
   ): Promise<UnifiedMessage[]> {
     const contextBudget = maxContextChars || BUDGET_LIMITS.standard.maxContextChars;
+
+    // Get preferred scenarios from queryType config
+    const qtConfig = queryType ? QUERY_TYPE_CONFIG[queryType] : undefined;
+    const preferredScenarioIds = qtConfig?.preferredScenarios;
 
     let enrichedPrompt = buildEnrichedSystemPrompt(
       CHAT_SYSTEM_PROMPT,
       SCENARIO_CATALOG,
-      classifiedDomains
+      classifiedDomains,
+      preferredScenarioIds
     );
+
+    // Inject grounding note from queryType config
+    if (qtConfig?.groundingNote) {
+      enrichedPrompt += `\n\n## Обмеження відповіді (queryType: ${queryType})\n${qtConfig.groundingNote}`;
+    }
 
     // Inject execution plan into system prompt
     if (plan) {
@@ -908,11 +985,7 @@ ${stepsText}
    * Classify chat intent using a fast LLM call (gpt-4o-mini ~200ms).
    * Falls back to keyword-based QueryPlanner on error.
    */
-  private async classifyChatIntent(query: string, requestId?: string): Promise<{
-    domains: string[];
-    keywords: string;
-    slots?: Record<string, any>;
-  }> {
+  private async classifyChatIntent(query: string, requestId?: string): Promise<ChatIntentClassification> {
     try {
       const llm = this.llm;
 
@@ -987,9 +1060,37 @@ ${stepsText}
         domains.push('registry');
       }
 
-      logger.info('[ChatService] LLM intent classification', { domains, keywords, slots });
+      // Safety net for documents/vault queries
+      const documentsKeywords = ['vault', 'сховищ', 'завантажив', 'завантажені', 'мої документи', 'мої файли', 'загрузил', 'зарузил', 'загруженн', 'зберіг', 'збережені', 'uploaded', 'my documents', 'my files'];
+      const hasDocumentsKeyword = documentsKeywords.some(kw => lowerQuery.includes(kw));
+      if (hasDocumentsKeyword && !domains.includes('documents')) {
+        domains.push('documents');
+      }
 
-      return { domains, keywords, slots };
+      // Parse queryType with validation and safety coercions
+      let queryType: QueryType = 'legal_consultation';
+      if (parsed.queryType && VALID_QUERY_TYPES.has(parsed.queryType)) {
+        queryType = parsed.queryType as QueryType;
+      }
+
+      // Safety coercions based on slots
+      if (slots?.case_number && queryType === 'legal_consultation') {
+        queryType = 'case_lookup';
+      }
+      if (slots?.edrpou && queryType === 'legal_consultation') {
+        queryType = 'registry_lookup';
+      }
+      if (slots?.law_reference && queryType === 'legal_consultation') {
+        queryType = 'legislation_lookup';
+      }
+
+      const unsupportedReason = queryType === 'unsupported' && typeof parsed.unsupportedReason === 'string'
+        ? parsed.unsupportedReason
+        : undefined;
+
+      logger.info('[ChatService] LLM intent classification', { domains, keywords, slots, queryType, unsupportedReason });
+
+      return { domains, keywords, slots, queryType, unsupportedReason };
     } catch (err: any) {
       logger.warn('[ChatService] LLM classification failed, falling back to keyword matching', {
         error: err.message,
@@ -1011,6 +1112,7 @@ ${stepsText}
         domains: intent.domains,
         keywords: query,
         slots: Object.keys(fallbackSlots).length > 0 ? fallbackSlots : undefined,
+        queryType: 'legal_consultation' as QueryType,
       };
     }
   }
