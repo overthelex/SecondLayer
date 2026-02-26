@@ -75,6 +75,7 @@ import { ConversationService } from './services/conversation-service.js';
 import { GdprService } from './services/gdpr-service.js';
 import { createConversationRouter } from './routes/conversation-routes.js';
 import { createGdprRouter } from './routes/gdpr-routes.js';
+import { createBlogCommentsRouter } from './routes/blog-comments.js';
 import { AuditService } from './services/audit-service.js';
 import { MatterService } from './services/matter-service.js';
 import { ConflictCheckService } from './services/conflict-check-service.js';
@@ -1650,6 +1651,10 @@ class HTTPMCPServer {
     // Conversation routes - server-side chat persistence
     this.app.use('/api/conversations', requireJWT as any, createConversationRouter(this.conversationService));
     logger.info('Conversation routes registered at /api/conversations');
+
+    // Blog comments - GET is public, POST/DELETE require JWT (checked inside handler)
+    this.app.use('/api/blog', optionalJWT as any, createBlogCommentsRouter(this.services.db.getPool()));
+    logger.info('Blog comments routes registered at /api/blog/comments');
 
     // GDPR routes - data export and deletion
     this.app.use('/api/gdpr', requireJWT as any, createGdprRouter(this.gdprService));
