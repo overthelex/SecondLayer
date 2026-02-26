@@ -92,7 +92,19 @@ export class MinioService {
   ): Promise<string> {
     const bucket = this.getBucketName(userId);
     try {
-      return await this.client.presignedGetObject(bucket, objectKey, expirySeconds);
+      let url = await this.client.presignedGetObject(bucket, objectKey, expirySeconds);
+
+      // Rewrite internal Docker hostname to public URL if configured
+      const publicUrl = process.env.MINIO_PUBLIC_URL;
+      if (publicUrl) {
+        const endpoint = process.env.MINIO_ENDPOINT || 'localhost';
+        const port = process.env.MINIO_PORT || '9000';
+        const useSSL = process.env.MINIO_USE_SSL === 'true';
+        const internalOrigin = `${useSSL ? 'https' : 'http'}://${endpoint}:${port}`;
+        url = url.replace(internalOrigin, publicUrl);
+      }
+
+      return url;
     } catch (error: any) {
       logger.error('[MinIO] Failed to generate presigned URL', {
         bucket,
