@@ -7,7 +7,7 @@ import WordExtractor from 'word-extractor';
 import ExcelJS from 'exceljs';
 import AdmZip from 'adm-zip';
 import { logger } from '../utils/logger.js';
-import { getLLMManager } from '../utils/llm-client-manager.js';
+import type { ILLMPort } from '../domain/ports/index.js';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
@@ -40,8 +40,10 @@ export class DocumentParser {
   private ocrAvailable = false;
   private browser: Browser | null = null;
   private readonly tempDir = '/tmp/document-parser';
+  private llm?: ILLMPort;
 
-  constructor(visionKeyPath: string) {
+  constructor(visionKeyPath: string, llm?: ILLMPort) {
+    this.llm = llm;
     try {
       if (fsSync.existsSync(visionKeyPath)) {
         this.visionClient = new ImageAnnotatorClient({
@@ -832,8 +834,11 @@ export class DocumentParser {
       );
     }
 
-    const llm = getLLMManager();
-    const response = await llm.chatCompletion({
+    if (!this.llm) {
+      throw new Error('LLM port not configured — cannot parse unknown format');
+    }
+
+    const response = await this.llm.chatCompletion({
       messages: [
         {
           role: 'system',

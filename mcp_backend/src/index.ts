@@ -15,6 +15,8 @@ import { DueDiligenceService } from './services/due-diligence-service.js';
 import { DueDiligenceTools } from './api/due-diligence-tools.js';
 import { getRedisClient } from './utils/redis-client.js';
 import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
+import { LLMAdapter } from './infrastructure/adapters/llm-adapter.js';
+import { getLLMManager } from './utils/llm-client-manager.js';
 
 dotenv.config();
 
@@ -43,13 +45,16 @@ class SecondLayerMCPServer {
     // Initialize core services via factory
     this.services = createBackendCoreServices();
 
+    // Create LLM adapter for dependency injection
+    const llmAdapter = new LLMAdapter(getLLMManager());
+
     // Initialize vault tools (Stage 4)
     // DocumentParser will be initialized if vision credentials are available
     try {
       const visionKeyPath = process.env.VISION_CREDENTIALS_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS || '';
       if (visionKeyPath) {
-        this.documentParser = new DocumentParser(visionKeyPath);
-        const metadataExtractor = new MetadataExtractor();
+        this.documentParser = new DocumentParser(visionKeyPath, llmAdapter);
+        const metadataExtractor = new MetadataExtractor(llmAdapter);
         this.vaultTools = new VaultTools(
           this.documentParser,
           this.services.sectionizer,

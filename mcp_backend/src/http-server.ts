@@ -45,6 +45,7 @@ import { CreditService } from './services/credit-service.js';
 import { createApiKeyRouter } from './routes/api-key-routes.js';
 import { getRedisClient } from './utils/redis-client.js';
 import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
+import { LLMAdapter } from './infrastructure/adapters/llm-adapter.js';
 import { createTemplateRoutes } from './routes/template-routes.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
@@ -139,12 +140,15 @@ class HTTPMCPServer {
     // Initialize core services via factory
     this.services = createBackendCoreServices();
 
+    // Create LLM adapter for dependency injection
+    const llmAdapter = new LLMAdapter(getLLMManager());
+
     // Initialize document parser with Vision API credentials
     // Use env var if set (for Docker), otherwise fallback to local path
     const visionKeyPath = process.env.VISION_CREDENTIALS_PATH ||
                          process.env.GOOGLE_APPLICATION_CREDENTIALS ||
                          path.resolve(process.cwd(), '../vision-ocr-credentials.json');
-    this.documentParser = new DocumentParser(visionKeyPath);
+    this.documentParser = new DocumentParser(visionKeyPath, llmAdapter);
     this.documentAnalysisTools = new DocumentAnalysisTools(
       this.documentParser,
       this.services.sectionizer,
@@ -236,7 +240,7 @@ class HTTPMCPServer {
     // Initialize upload and storage services
     this.uploadService = new UploadService(this.services.db);
     this.minioService = new MinioService();
-    const metadataExtractor = new MetadataExtractor();
+    const metadataExtractor = new MetadataExtractor(llmAdapter);
     this.vaultTools = new VaultTools(
       this.documentParser,
       this.services.sectionizer,
@@ -273,6 +277,7 @@ class HTTPMCPServer {
       this.toolRegistry,
       this.services.queryPlanner,
       this.costTracker,
+      llmAdapter,
       chatSearchCache,
       this.conversationService,
       this.services.shepardizationService,
