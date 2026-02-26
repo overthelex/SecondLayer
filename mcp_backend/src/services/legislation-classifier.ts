@@ -1,7 +1,7 @@
 import { logger } from '../utils/logger';
 import { getOpenAIManager } from '../utils/openai-client';
 import { ModelSelector } from '../utils/model-selector';
-import { createClient } from 'redis';
+import type { ICachePort } from '../domain/ports/index.js';
 
 export interface LegislationClassification {
   rada_id: string | null;
@@ -17,7 +17,7 @@ export interface LegislationClassification {
  */
 export class LegislationClassifier {
   private openaiManager = getOpenAIManager();
-  private redis: ReturnType<typeof createClient> | null;
+  private redis: ICachePort | null;
   private cachePrefix = 'leg_classify:';
   private cacheTTL = 7 * 24 * 60 * 60; // 7 дней
 
@@ -37,14 +37,14 @@ export class LegislationClassifier {
     'КУ': { rada_id: '254к/96-вр', full_name: 'Конституція України' },
   };
 
-  constructor(redis?: ReturnType<typeof createClient>) {
+  constructor(redis?: ICachePort) {
     this.redis = redis || null;
   }
 
   /**
    * Устанавливает Redis клиент для кэширования (опционально)
    */
-  setRedisClient(redis: ReturnType<typeof createClient> | null): void {
+  setRedisClient(redis: ICachePort | null): void {
     this.redis = redis;
   }
 
@@ -212,7 +212,7 @@ ${availableCodes}
 
     try {
       const key = this.cachePrefix + query;
-      await this.redis.setEx(key, this.cacheTTL, JSON.stringify(classification));
+      await this.redis.set(key, JSON.stringify(classification), this.cacheTTL);
       logger.debug('[LegislationClassifier] Saved to cache', { query: query.substring(0, 50) });
     } catch (error: any) {
       logger.warn('[LegislationClassifier] Cache write error', { error: error.message });

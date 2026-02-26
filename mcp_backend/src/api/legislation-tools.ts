@@ -2,8 +2,8 @@ import type { IDatabase, IEmbeddingPort } from '../domain/ports/index.js';
 import { LegislationService, parseLegislationReference, parseLegislationReferenceWithAI, normalizeRadaId } from '../services/legislation-service';
 import { LegislationRenderer } from '../services/legislation-renderer';
 import { logger } from '../utils/logger';
-import { createClient } from 'redis';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
+import type { ICachePort } from '../domain/ports/index.js';
 
 export interface LegislationToolArgs {
   rada_id?: string;
@@ -19,7 +19,7 @@ export class LegislationTools extends BaseToolHandler {
   private service: LegislationService;
   private renderer: LegislationRenderer;
 
-  constructor(db: IDatabase, embeddingService: IEmbeddingPort, redis?: ReturnType<typeof createClient>) {
+  constructor(db: IDatabase, embeddingService: IEmbeddingPort, redis?: ICachePort) {
     super();
     this.service = new LegislationService(db, embeddingService, redis);
     this.renderer = new LegislationRenderer();
@@ -32,7 +32,7 @@ export class LegislationTools extends BaseToolHandler {
   /**
    * Устанавливает Redis клиент для AI-классификации законодательства
    */
-  setRedisClient(redis: ReturnType<typeof createClient> | null): void {
+  setRedisClient(redis: ICachePort | null): void {
     this.service.setRedisClient(redis);
   }
 

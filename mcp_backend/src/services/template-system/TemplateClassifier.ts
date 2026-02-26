@@ -15,6 +15,7 @@ import {
 } from './types.js';
 import { getOpenAIManager, logger } from '@secondlayer/shared';
 import * as crypto from 'crypto';
+import type { ICachePort } from '../../domain/ports/index.js';
 
 interface ClassificationPromptResult {
   intent: string;
@@ -52,7 +53,7 @@ export class TemplateClassifier {
     'other',
   ];
 
-  constructor(private redisClient?: any) {}
+  constructor(private redisClient?: ICachePort) {}
 
   /**
    * Classify a question to determine intent and category
@@ -213,10 +214,10 @@ export class TemplateClassifier {
     }
 
     try {
-      await this.redisClient.setex(
+      await this.redisClient.set(
         `classification:${questionHash}`,
-        this.CACHE_TTL,
-        JSON.stringify(classification)
+        JSON.stringify(classification),
+        this.CACHE_TTL
       );
     } catch (error) {
       logger.warn('TemplateClassifier: Cache write failed', {
@@ -409,7 +410,7 @@ Return ONLY the JSON object.`;
 // Export singleton instance (created by factory)
 let classifierInstance: TemplateClassifier | null = null;
 
-export function createTemplateClassifier(redisClient?: any): TemplateClassifier {
+export function createTemplateClassifier(redisClient?: ICachePort): TemplateClassifier {
   if (!classifierInstance) {
     classifierInstance = new TemplateClassifier(redisClient);
   }

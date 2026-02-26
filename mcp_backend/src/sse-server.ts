@@ -8,6 +8,7 @@ import { logger } from './utils/logger.js';
 import { createBackendCoreServices, BackendCoreServices } from './factories/core-services.js';
 import { authenticateJWT } from './middleware/jwt-auth.js';
 import { getRedisClient } from './utils/redis-client.js';
+import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
 
 dotenv.config();
 
@@ -204,7 +205,7 @@ class SSEServer {
       // Initialize Redis for AI-powered legislation classification (optional)
       const redis = await getRedisClient();
       if (redis) {
-        this.services.legislationTools.setRedisClient(redis);
+        this.services.legislationTools.setRedisClient(new CacheAdapter(redis));
         logger.info('Redis connected - AI legislation classification with caching enabled');
       } else {
         logger.info('Redis not available - AI legislation classification will work without caching');
