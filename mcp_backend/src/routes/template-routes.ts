@@ -12,9 +12,9 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { getTemplateClassifier, TemplateMatcher, TemplateGenerator, TemplateStorage } from '../services/template-system/index.js';
 import { AuthenticatedRequest } from '@secondlayer/shared';
 import { logger } from '@secondlayer/shared';
-import { BaseDatabase } from '@secondlayer/shared';
+import type { IDatabase } from '../domain/ports/index.js';
 
-export function createTemplateRoutes(db: BaseDatabase): Router {
+export function createTemplateRoutes(db: IDatabase): Router {
   const router = Router();
 
   // Middleware to ensure authentication

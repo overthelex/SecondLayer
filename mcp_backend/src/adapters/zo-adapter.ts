@@ -4,7 +4,7 @@ import { CourtDecisionHTMLParser } from '../utils/html-parser.js';
 import { logger } from '../utils/logger.js';
 import { DocumentService, type Document } from '../services/document-service.js';
 import { SemanticSectionizer } from '../services/semantic-sectionizer.js';
-import { EmbeddingService } from '../services/embedding-service.js';
+import type { IEmbeddingPort } from '../domain/ports/index.js';
 import { requestContext } from '../utils/openai-client.js';
 import type { CostTracker } from '../services/cost-tracker.js';
 import { SectionType } from '../types/index.js';
@@ -59,7 +59,7 @@ export class ZOAdapter {
   private redis: ReturnType<typeof createClient> | null = null;
   private documentService: DocumentService | null = null;
   private sectionizer: SemanticSectionizer;
-  private embeddingService: EmbeddingService | null = null;
+  private embeddingService: IEmbeddingPort | null = null;
   private apiTokens: string[];
   private currentTokenIndex: number = 0;
   private nextTokenIndex: number = 0;
@@ -82,7 +82,7 @@ export class ZOAdapter {
   constructor(
     domainOrDocService?: ZakonOnlineDomainName | DocumentService,
     documentService?: DocumentService,
-    embeddingService?: EmbeddingService
+    embeddingService?: IEmbeddingPort
   ) {
     // Backward compatibility: if first arg is DocumentService, use default domain
     let domain: ZakonOnlineDomainName = 'court_decisions';

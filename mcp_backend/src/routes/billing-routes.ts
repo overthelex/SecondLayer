@@ -4,13 +4,13 @@
  */
 
 import express, { Request, Response } from 'express';
-import { Database } from '../database/database.js';
 import { BillingService } from '../services/billing-service.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { UserPreferencesService } from '../services/user-preferences-service.js';
 import { PricingService } from '../services/pricing-service.js';
 import { logger } from '../utils/logger.js';
 
-export function createBillingRoutes(db: Database): express.Router {
+export function createBillingRoutes(db: IDatabase): express.Router {
   const router = express.Router();
   const billingService = new BillingService(db);
   const preferencesService = new UserPreferencesService(db);

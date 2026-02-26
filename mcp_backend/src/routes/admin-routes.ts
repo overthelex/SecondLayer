@@ -8,8 +8,8 @@ import express, { Request, Response } from 'express';
 import axios from 'axios';
 import { spawn } from 'child_process';
 import { join } from 'path';
-import { Database } from '../database/database.js';
 import { BillingService } from '../services/billing-service.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { UserPreferencesService } from '../services/user-preferences-service.js';
 import { PrometheusService } from '../services/prometheus-service.js';
 import { PricingService } from '../services/pricing-service.js';
@@ -30,7 +30,7 @@ function getStringParam(param: string | string[] | undefined): string | null {
 }
 
 export function createAdminRoutes(
-  db: Database,
+  db: IDatabase,
   prometheusUrl?: string,
   pricingService?: PricingService,
   subscriptionService?: SubscriptionService,
@@ -4065,7 +4065,7 @@ export function createAdminRoutes(
       }
     }
 
-    async function fetchMainDbStats(dbInstance: Database) {
+    async function fetchMainDbStats(dbInstance: IDatabase) {
       const tableList = [
         'documents', 'document_sections', 'legislation', 'legislation_articles',
         'legislation_chunks', 'users', 'conversations', 'upload_sessions', 'zo_dictionaries',

@@ -11,8 +11,8 @@ import { Server as WebSocketServer, WebSocket } from 'ws';
 import { WebSocket as WsClient } from 'ws';
 import * as pty from 'node-pty';
 import jwt from 'jsonwebtoken';
-import { Database } from '../database/database.js';
 import { logger } from '../utils/logger.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import type { Server as HttpServer } from 'http';
 
 const MAX_SESSIONS_PER_ADMIN = 2;
@@ -48,7 +48,7 @@ function buildPtyEnv(): Record<string, string> {
 
 async function verifyAdminFromToken(
   token: string,
-  db: Database
+  db: IDatabase
 ): Promise<{ id: string; email: string } | null> {
   try {
     const secret = process.env.JWT_SECRET;
@@ -80,7 +80,7 @@ function getClientIp(req: IncomingMessage): string {
   return req.socket?.remoteAddress || 'unknown';
 }
 
-export function attachTerminalWebSocket(httpServer: HttpServer, db: Database): void {
+export function attachTerminalWebSocket(httpServer: HttpServer, db: IDatabase): void {
   const wss = new WebSocketServer({ noServer: true });
 
   // Upgrade only for /api/admin/terminal
