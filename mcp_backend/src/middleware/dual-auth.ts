@@ -6,7 +6,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UserService, User } from '../services/user-service.js';
-import type { IDatabase } from '../domain/ports/index.js';
 import { ApiKeyService } from '../services/api-key-service.js';
 import { WebAuthnService } from '../services/webauthn-service.js';
 import { logger } from '../utils/logger.js';
@@ -33,10 +32,10 @@ let apiKeyService: ApiKeyService;
 let webAuthnService: WebAuthnService;
 
 /**
- * Initialize dual auth middleware with database instance
+ * Initialize dual auth middleware with pre-built service instances
  */
-export function initializeDualAuth(db: IDatabase, apiKeySvc: ApiKeyService) {
-  userService = new UserService(db);
+export function initializeDualAuth(userSvc: UserService, apiKeySvc: ApiKeyService) {
+  userService = userSvc;
   apiKeyService = apiKeySvc;
   logger.info('Dual auth middleware initialized');
 }
@@ -53,10 +52,10 @@ export function getUserService(): UserService {
 }
 
 /**
- * Initialize WebAuthn service with database instance
+ * Initialize WebAuthn service with pre-built instance
  */
-export function initializeWebAuthn(db: IDatabase) {
-  webAuthnService = new WebAuthnService(db);
+export function initializeWebAuthn(svc: WebAuthnService) {
+  webAuthnService = svc;
   logger.info('WebAuthn service initialized');
 }
 

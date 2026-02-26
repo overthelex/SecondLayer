@@ -1,7 +1,14 @@
 import { Response, NextFunction } from 'express';
-import { getRedisClient } from '../utils/redis-client.js';
+import type { ICachePort } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import { AuthenticatedRequest as DualAuthRequest } from './dual-auth.js';
+
+let uploadRateCache: ICachePort | null = null;
+
+/** Set the cache port for upload rate limiting. Call from composition root. */
+export function setUploadRateLimitCache(cache: ICachePort): void {
+  uploadRateCache = cache;
+}
 
 interface UserRateLimitOptions {
   windowMs: number;
@@ -19,13 +26,12 @@ function createUserRateLimiter(options: UserRateLimitOptions) {
         return next(); // Let auth middleware handle unauthenticated requests
       }
 
-      const redis = await getRedisClient();
-      if (!redis) {
-        return next(); // Redis unavailable, skip rate limiting
+      if (!uploadRateCache) {
+        return next(); // Cache unavailable, skip rate limiting
       }
 
       const key = `${keyPrefix}:${userId}`;
-      const current = await redis.get(key);
+      const current = await uploadRateCache.get(key);
       const currentCount = current ? parseInt(current, 10) : 0;
 
       if (currentCount >= maxRequests) {
@@ -46,19 +52,14 @@ function createUserRateLimiter(options: UserRateLimitOptions) {
         });
       }
 
-      const multi = redis.multi();
-      multi.incr(key);
-      if (currentCount === 0) {
-        multi.expire(key, Math.ceil(windowMs / 1000));
-      }
-      await multi.exec();
+      await uploadRateCache.increment(key, Math.ceil(windowMs / 1000));
 
       res.setHeader('X-RateLimit-Limit', maxRequests.toString());
       res.setHeader('X-RateLimit-Remaining', (maxRequests - currentCount - 1).toString());
 
       next();
     } catch (error) {
-      logger.error('[UploadRateLimit] Redis error, allowing request', {
+      logger.error('[UploadRateLimit] Cache error, allowing request', {
         error: (error as Error).message,
       });
       next();
