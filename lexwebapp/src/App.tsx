@@ -14,8 +14,14 @@ export function App() {
           toastOptions={{
             duration: 3000,
             style: {
-              borderRadius: '8px',
-              padding: '16px',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '14px',
+              borderRadius: '12px',
+              padding: '14px 16px',
+              color: '#2D2D2D',
+              background: '#FFFFFF',
+              border: '1px solid #E5E5E0',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
             },
           }}
         />

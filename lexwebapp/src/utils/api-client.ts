@@ -4,7 +4,7 @@
  */
 
 import axios, { AxiosError, AxiosInstance } from 'axios';
-import toast from 'react-hot-toast';
+import { showToast } from './toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -37,7 +37,7 @@ apiClient.interceptors.response.use(
   (error: AxiosError<any>) => {
     // Network error
     if (!error.response) {
-      toast.error('Network error. Please check your connection.');
+      showToast.error('Network error. Please check your connection.');
       return Promise.reject(error);
     }
 
@@ -46,7 +46,7 @@ apiClient.interceptors.response.use(
     // 401 Unauthorized - redirect to login
     if (status === 401) {
       const message = data?.message || 'Session expired. Please login again.';
-      toast.error(message);
+      showToast.error(message);
 
       // Clear token and redirect to login
       localStorage.removeItem('auth_token');
@@ -59,15 +59,7 @@ apiClient.interceptors.response.use(
     // 402 Payment Required - insufficient balance
     if (status === 402) {
       const message = data?.message || 'Insufficient balance. Please top up your account.';
-      toast.error(message, {
-        duration: 5000,
-        action: {
-          label: 'Top Up',
-          onClick: () => {
-            window.location.href = '/billing?tab=topup';
-          },
-        },
-      } as any);
+      showToast.error(message, 5000);
 
       return Promise.reject(error);
     }
@@ -78,22 +70,22 @@ apiClient.interceptors.response.use(
       const url = error.config?.url || '';
       if (!url.includes('/upload/')) {
         const message = data?.message || 'Rate limit exceeded. Please try again later.';
-        toast.error(message);
+        showToast.error(message);
       }
       return Promise.reject(error);
     }
 
     // 500+ Server errors
     if (status >= 500) {
-      toast.error('Server error. Please try again later.');
+      showToast.error('Server error. Please try again later.');
       return Promise.reject(error);
     }
 
     // Other errors - show message from server
     if (data?.message) {
-      toast.error(data.message);
+      showToast.error(data.message);
     } else {
-      toast.error('An error occurred. Please try again.');
+      showToast.error('An error occurred. Please try again.');
     }
 
     return Promise.reject(error);

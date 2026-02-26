@@ -1,23 +1,32 @@
 /**
  * Toast Notification Utility
- * Wrapper around react-hot-toast with custom styling
+ * Wrapper around react-hot-toast with claude theme styling
  */
 
 import toast from 'react-hot-toast';
+
+const baseStyle = {
+  fontFamily: 'Inter, sans-serif',
+  fontSize: '14px',
+  borderRadius: '12px',
+  padding: '14px 16px',
+  color: '#2D2D2D',
+  background: '#FFFFFF',
+  border: '1px solid #E5E5E0',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+};
 
 export const showToast = {
   success: (message: string, duration = 3000) => {
     return toast.success(message, {
       duration,
       style: {
-        background: '#52c41a',
-        color: '#fff',
-        padding: '16px',
-        borderRadius: '8px',
+        ...baseStyle,
+        borderLeft: '3px solid #4CAF50',
       },
       iconTheme: {
-        primary: '#fff',
-        secondary: '#52c41a',
+        primary: '#4CAF50',
+        secondary: '#FFFFFF',
       },
     });
   },
@@ -26,14 +35,12 @@ export const showToast = {
     return toast.error(message, {
       duration,
       style: {
-        background: '#ff4d4f',
-        color: '#fff',
-        padding: '16px',
-        borderRadius: '8px',
+        ...baseStyle,
+        borderLeft: '3px solid #E57373',
       },
       iconTheme: {
-        primary: '#fff',
-        secondary: '#ff4d4f',
+        primary: '#E57373',
+        secondary: '#FFFFFF',
       },
     });
   },
@@ -41,12 +48,10 @@ export const showToast = {
   info: (message: string, duration = 3000) => {
     return toast(message, {
       duration,
-      icon: 'ℹ️',
+      icon: '\u2139\uFE0F',
       style: {
-        background: '#1890ff',
-        color: '#fff',
-        padding: '16px',
-        borderRadius: '8px',
+        ...baseStyle,
+        borderLeft: '3px solid #D97757',
       },
     });
   },
@@ -54,12 +59,10 @@ export const showToast = {
   warning: (message: string, duration = 3500) => {
     return toast(message, {
       duration,
-      icon: '⚠️',
+      icon: '\u26A0\uFE0F',
       style: {
-        background: '#fa8c16',
-        color: '#fff',
-        padding: '16px',
-        borderRadius: '8px',
+        ...baseStyle,
+        borderLeft: '3px solid #F0A850',
       },
     });
   },
@@ -67,10 +70,8 @@ export const showToast = {
   loading: (message: string) => {
     return toast.loading(message, {
       style: {
-        background: '#2D2D2D',
-        color: '#fff',
-        padding: '16px',
-        borderRadius: '8px',
+        ...baseStyle,
+        borderLeft: '3px solid #6B6B6B',
       },
     });
   },
@@ -84,28 +85,25 @@ export const showToast = {
     }
   ) => {
     return toast.promise(promise, messages, {
-      style: {
-        padding: '16px',
-        borderRadius: '8px',
-      },
+      style: baseStyle,
       success: {
         style: {
-          background: '#52c41a',
-          color: '#fff',
+          ...baseStyle,
+          borderLeft: '3px solid #4CAF50',
         },
         iconTheme: {
-          primary: '#fff',
-          secondary: '#52c41a',
+          primary: '#4CAF50',
+          secondary: '#FFFFFF',
         },
       },
       error: {
         style: {
-          background: '#ff4d4f',
-          color: '#fff',
+          ...baseStyle,
+          borderLeft: '3px solid #E57373',
         },
         iconTheme: {
-          primary: '#fff',
-          secondary: '#ff4d4f',
+          primary: '#E57373',
+          secondary: '#FFFFFF',
         },
       },
     });

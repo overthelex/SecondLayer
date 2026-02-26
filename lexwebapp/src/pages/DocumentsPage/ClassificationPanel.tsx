@@ -11,7 +11,7 @@ import {
   Settings2,
 } from 'lucide-react';
 import { api } from '../../utils/api-client';
-import toast from 'react-hot-toast';
+import { showToast } from '../../utils/toast';
 import type { ClassificationJob, DocumentStats } from './types';
 
 interface ClassificationPanelProps {
@@ -44,7 +44,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
         }
         onComplete();
         if (jobData.status === 'completed') {
-          toast.success(
+          showToast.success(
             `Класифікацію завершено: ${jobData.completed} з ${jobData.total} документів`
           );
         }
@@ -73,7 +73,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
       setJob(jobData);
 
       if (jobData.total === 0) {
-        toast.success('Всі документи вже класифіковані');
+        showToast.success('Всі документи вже класифіковані');
         setStarting(false);
         return;
       }
@@ -81,7 +81,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
       // Start polling
       pollRef.current = setInterval(() => pollJob(jobData.jobId), 1500);
     } catch (err: any) {
-      toast.error('Не вдалося запустити класифікацію');
+      showToast.error('Не вдалося запустити класифікацію');
     } finally {
       setStarting(false);
     }
@@ -91,7 +91,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
     if (!job) return;
     try {
       await api.documents.cancelClassification(job.jobId);
-      toast.success('Класифікацію скасовано');
+      showToast.success('Класифікацію скасовано');
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;
@@ -99,7 +99,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
       setJob((prev) => prev ? { ...prev, status: 'cancelled' } : null);
       onComplete();
     } catch {
-      toast.error('Не вдалося скасувати');
+      showToast.error('Не вдалося скасувати');
     }
   };
 
