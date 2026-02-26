@@ -3,7 +3,7 @@
  * Manages user balances, charges, and transaction history
  */
 
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import { PricingService, PricingTier, PriceCalculation } from './pricing-service.js';
 
@@ -76,7 +76,7 @@ export interface EmailPreferences {
 export class BillingService {
   private pricingService: PricingService;
 
-  constructor(private db: Database) {
+  constructor(private db: IDatabase) {
     this.pricingService = new PricingService(db);
   }
 
@@ -234,11 +234,7 @@ export class BillingService {
     description?: string;
     toolName?: string;
   }): Promise<BillingTransaction & { pricing_details?: PriceCalculation }> {
-    const client = await this.db.getPool().connect();
-
-    try {
-      await client.query('BEGIN');
-
+    return this.db.transaction(async (client) => {
       // Get current billing account (with row lock)
       const billingResult = await client.query(
         'SELECT * FROM user_billing WHERE user_id = $1 FOR UPDATE',
@@ -348,8 +344,6 @@ export class BillingService {
         ]
       );
 
-      await client.query('COMMIT');
-
       const transaction = transactionResult.rows[0] as BillingTransaction;
 
       logger.info('User charged with markup', {
@@ -369,17 +363,7 @@ export class BillingService {
         ...transaction,
         pricing_details: priceCalc,
       };
-    } catch (error: any) {
-      await client.query('ROLLBACK');
-      logger.error('Failed to charge user', {
-        userId: params.userId,
-        requestId: params.requestId,
-        error: error.message,
-      });
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
   }
 
   /**
@@ -394,11 +378,7 @@ export class BillingService {
     paymentId?: string;
     metadata?: any;
   }): Promise<BillingTransaction> {
-    const client = await this.db.getPool().connect();
-
-    try {
-      await client.query('BEGIN');
-
+    return this.db.transaction(async (client) => {
       // Get current billing account (with row lock)
       const billingResult = await client.query(
         'SELECT * FROM user_billing WHERE user_id = $1 FOR UPDATE',
@@ -445,8 +425,6 @@ export class BillingService {
         ]
       );
 
-      await client.query('COMMIT');
-
       const transaction = transactionResult.rows[0] as BillingTransaction;
 
       logger.info('Balance topped up', {
@@ -457,16 +435,7 @@ export class BillingService {
       });
 
       return transaction;
-    } catch (error: any) {
-      await client.query('ROLLBACK');
-      logger.error('Failed to top up balance', {
-        userId: params.userId,
-        error: error.message,
-      });
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
   }
 
   /**

@@ -174,8 +174,8 @@ class HTTPMCPServer {
     });
 
     // Initialize Phase 2 billing services (API keys & credits)
-    this.apiKeyService = new ApiKeyService(this.services.db.getPool());
-    this.creditService = new CreditService(this.services.db.getPool());
+    this.apiKeyService = new ApiKeyService(this.services.db);
+    this.creditService = new CreditService(this.services.db);
     logger.info('Phase 2 billing services initialized (API keys & credits)');
 
     // Initialize OAuth 2.0 service for ChatGPT integration
@@ -233,7 +233,7 @@ class HTTPMCPServer {
     logger.info('Core tool handlers registered with ToolRegistry');
 
     // Initialize upload and storage services
-    this.uploadService = new UploadService(this.services.db.getPool());
+    this.uploadService = new UploadService(this.services.db);
     this.minioService = new MinioService();
     const metadataExtractor = new MetadataExtractor();
     this.vaultTools = new VaultTools(
@@ -287,7 +287,7 @@ class HTTPMCPServer {
       this.uploadService,
       this.minioService,
       this.vaultTools,
-      this.services.db.getPool(),
+      this.services.db,
       this.services.documentService
     );
     this.uploadQueueService.startWorker();
@@ -339,7 +339,7 @@ class HTTPMCPServer {
       this.uploadService,
       this.minioService,
       this.vaultTools,
-      this.services.db.getPool(),
+      this.services.db,
       this.services.documentService
     );
     this.uploadRecoveryService.setQueueService(this.uploadQueueService);
@@ -1138,7 +1138,7 @@ class HTTPMCPServer {
     this.app.use('/api/auth', requireJWT as any, authRouter);
 
     // Phase 2 Billing: API key management - require JWT (user login)
-    this.app.use('/api/keys', requireJWT as any, createApiKeyRouter(this.services.db.getPool()));
+    this.app.use('/api/keys', requireJWT as any, createApiKeyRouter(this.services.db));
     logger.info('API key management routes registered at /api/keys');
 
     // EULA endpoints - REMOVED: not needed
@@ -1637,7 +1637,7 @@ class HTTPMCPServer {
       this.uploadService,
       this.minioService,
       this.vaultTools,
-      this.services.db.getPool(),
+      this.services.db,
       this.uploadQueueService,
       this.services.documentService
     ));

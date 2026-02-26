@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
-import { Pool } from 'pg';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 
 export interface UploadSession {
@@ -45,7 +45,7 @@ const DOCUMENT_TYPES = [
 export class UploadService {
   private tempDir: string;
 
-  constructor(private pool: Pool) {
+  constructor(private db: IDatabase) {
     this.tempDir = process.env.UPLOAD_TEMP_DIR || '/tmp/uploads';
   }
 
@@ -74,7 +74,7 @@ export class UploadService {
     const id = uuidv4();
     const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
 
-    const result = await this.pool.query(
+    const result = await this.db.query(
       `INSERT INTO upload_sessions
         (id, user_id, file_name, file_size, mime_type, total_chunks, chunk_size,
          doc_type, relative_path, metadata, matter_id, status)
@@ -132,7 +132,7 @@ export class UploadService {
     await fs.writeFile(chunkPath, buffer);
 
     // Update session in DB
-    const result = await this.pool.query(
+    const result = await this.db.query(
       `UPDATE upload_sessions
        SET uploaded_chunks = array_append(
          CASE WHEN $2 = ANY(uploaded_chunks) THEN array_remove(uploaded_chunks, $2) ELSE uploaded_chunks END,
@@ -193,7 +193,7 @@ export class UploadService {
     }
 
     // Update status
-    await this.pool.query(
+    await this.db.query(
       `UPDATE upload_sessions SET status = 'assembling', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
       [sessionId]
     );
@@ -253,7 +253,7 @@ export class UploadService {
   }
 
   async getSession(sessionId: string): Promise<UploadSession | null> {
-    const result = await this.pool.query(
+    const result = await this.db.query(
       `SELECT * FROM upload_sessions WHERE id = $1`,
       [sessionId]
     );
@@ -266,7 +266,7 @@ export class UploadService {
     // - pending with 0 chunks and no update in 30+ sec (abandoned before first chunk — batch-init creates hundreds at once)
     // - pending/uploading with no update in 10+ min (abandoned uploads)
     // - assembling/processing with no update in 30+ min (hung processing)
-    const result = await this.pool.query(
+    const result = await this.db.query(
       `SELECT COUNT(*) as cnt FROM upload_sessions
        WHERE user_id = $1
          AND status NOT IN ('completed', 'cancelled', 'expired', 'failed')
@@ -280,7 +280,7 @@ export class UploadService {
 
   async getActiveSessions(userId: string): Promise<UploadSession[]> {
     // Exclude stale sessions — same filter as getActiveSessionCount()
-    const result = await this.pool.query(
+    const result = await this.db.query(
       `SELECT * FROM upload_sessions
        WHERE user_id = $1
          AND status NOT IN ('completed', 'cancelled', 'expired', 'failed')
@@ -295,7 +295,7 @@ export class UploadService {
 
   async updateStatus(sessionId: string, status: string, errorMessage?: string): Promise<void> {
     const setProcessingStarted = (status === 'assembling' || status === 'processing');
-    await this.pool.query(
+    await this.db.query(
       `UPDATE upload_sessions
        SET status = $2,
            error_message = $3,
@@ -307,7 +307,7 @@ export class UploadService {
   }
 
   async setDocumentId(sessionId: string, documentId: string): Promise<void> {
-    await this.pool.query(
+    await this.db.query(
       `UPDATE upload_sessions
        SET document_id = $1, status = 'completed', updated_at = CURRENT_TIMESTAMP
        WHERE id = $2`,
@@ -316,7 +316,7 @@ export class UploadService {
   }
 
   async cancelSession(sessionId: string): Promise<void> {
-    await this.pool.query(
+    await this.db.query(
       `UPDATE upload_sessions SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
       [sessionId]
     );
@@ -330,7 +330,7 @@ export class UploadService {
 
   async cleanupExpired(): Promise<number> {
     // Get expired sessions
-    const result = await this.pool.query(
+    const result = await this.db.query(
       `UPDATE upload_sessions
        SET status = 'expired', updated_at = CURRENT_TIMESTAMP
        WHERE status NOT IN ('completed', 'cancelled', 'expired')
@@ -356,7 +356,7 @@ export class UploadService {
    * These are abandoned uploads where the browser closed or network dropped.
    */
   async cleanupStale(staleMinutes: number = 30): Promise<number> {
-    const result = await this.pool.query(
+    const result = await this.db.query(
       `UPDATE upload_sessions
        SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
        WHERE status IN ('pending', 'uploading')
@@ -386,7 +386,7 @@ export class UploadService {
    * Returns count of cancelled sessions.
    */
   async cancelUserStaleSessions(userId: string): Promise<number> {
-    const result = await this.pool.query(
+    const result = await this.db.query(
       `UPDATE upload_sessions
        SET status = 'cancelled', error_message = 'Auto-cleared: stale session', updated_at = CURRENT_TIMESTAMP
        WHERE user_id = $1
@@ -424,7 +424,7 @@ export class UploadService {
    */
   async getStuckSessions(thresholdMinutes: number = 10): Promise<UploadSession[]> {
     // Returns all stuck sessions regardless of retry_count — caller decides what to do
-    const result = await this.pool.query(
+    const result = await this.db.query(
       `SELECT * FROM upload_sessions
        WHERE status IN ('assembling', 'processing')
          AND updated_at < CURRENT_TIMESTAMP - ($1 || ' minutes')::interval
@@ -440,7 +440,7 @@ export class UploadService {
    */
   async getRecoverableOnStartup(): Promise<UploadSession[]> {
     // Returns all sessions in assembling/processing — caller decides recovery vs force-fail
-    const result = await this.pool.query(
+    const result = await this.db.query(
       `SELECT * FROM upload_sessions
        WHERE status IN ('assembling', 'processing')
        ORDER BY updated_at ASC
@@ -454,7 +454,7 @@ export class UploadService {
    * Uses FOR UPDATE SKIP LOCKED to prevent concurrent recovery.
    */
   async getFullyUploadedStale(staleMinutes: number = 5): Promise<UploadSession[]> {
-    const result = await this.pool.query(
+    const result = await this.db.query(
       `SELECT * FROM upload_sessions
        WHERE status = 'uploading'
          AND array_length(uploaded_chunks, 1) = total_chunks
@@ -470,7 +470,7 @@ export class UploadService {
    * Increment retry count and set last_retry_at
    */
   async incrementRetryCount(sessionId: string): Promise<void> {
-    await this.pool.query(
+    await this.db.query(
       `UPDATE upload_sessions
        SET retry_count = retry_count + 1,
            last_retry_at = CURRENT_TIMESTAMP,
@@ -517,7 +517,7 @@ export class UploadService {
    * Check if a document already exists for this upload session
    */
   async findDocumentBySessionId(sessionId: string): Promise<string | null> {
-    const result = await this.pool.query(
+    const result = await this.db.query(
       `SELECT id FROM documents WHERE metadata->>'uploadSessionId' = $1 LIMIT 1`,
       [sessionId]
     );

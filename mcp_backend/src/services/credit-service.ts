@@ -3,7 +3,7 @@
  * Handles credit balance checks, deductions, and additions
  */
 
-import { Pool } from 'pg';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 
 export interface UserBalance {
@@ -41,14 +41,14 @@ export interface BalanceStatus {
 }
 
 export class CreditService {
-  constructor(private pool: Pool) {}
+  constructor(private db: IDatabase) {}
 
   /**
    * Check if user has sufficient credits
    */
   async checkBalance(userId: string, requiredCredits: number = 1): Promise<UserBalance> {
     try {
-      const result = await this.pool.query<UserBalance>(
+      const result = await this.db.query<UserBalance>(
         `SELECT
           has_credits AS "hasCredits",
           current_balance AS "currentBalance",
@@ -86,7 +86,7 @@ export class CreditService {
     description?: string
   ): Promise<CreditDeduction> {
     try {
-      const result = await this.pool.query<CreditDeduction>(
+      const result = await this.db.query<CreditDeduction>(
         `SELECT
           success,
           new_balance AS "newBalance",
@@ -147,7 +147,7 @@ export class CreditService {
     paymentReference?: string
   ): Promise<CreditAddition> {
     try {
-      const result = await this.pool.query<CreditAddition>(
+      const result = await this.db.query<CreditAddition>(
         `SELECT
           success,
           new_balance AS "newBalance",
@@ -196,7 +196,7 @@ export class CreditService {
    */
   async calculateCreditsForTool(toolName: string, userId?: string): Promise<number> {
     try {
-      const result = await this.pool.query<{ calculate_credits_for_tool: number }>(
+      const result = await this.db.query<{ calculate_credits_for_tool: number }>(
         `SELECT calculate_credits_for_tool($1, $2) as credits`,
         [toolName, userId || null]
       );
@@ -223,7 +223,7 @@ export class CreditService {
    */
   async getBalanceStatus(userId: string): Promise<BalanceStatus | null> {
     try {
-      const result = await this.pool.query<BalanceStatus>(
+      const result = await this.db.query<BalanceStatus>(
         `SELECT
           user_id as "userId",
           email,
@@ -262,7 +262,7 @@ export class CreditService {
    */
   async getTransactions(userId: string, limit: number = 20): Promise<any[]> {
     try {
-      const result = await this.pool.query(
+      const result = await this.db.query(
         `SELECT
           id,
           transaction_type as "transactionType",
@@ -295,7 +295,7 @@ export class CreditService {
    */
   async usdToCredits(costUsd: number): Promise<number> {
     try {
-      const result = await this.pool.query<{ usd_to_credits: number }>(
+      const result = await this.db.query<{ usd_to_credits: number }>(
         `SELECT usd_to_credits($1)`,
         [costUsd]
       );
@@ -311,7 +311,7 @@ export class CreditService {
    */
   async initializeUserCredits(userId: string, initialBalance: number = 0): Promise<void> {
     try {
-      await this.pool.query(
+      await this.db.query(
         `INSERT INTO user_credits (user_id, balance)
          VALUES ($1, $2)
          ON CONFLICT (user_id) DO NOTHING`,

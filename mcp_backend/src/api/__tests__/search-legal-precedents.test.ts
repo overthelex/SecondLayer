@@ -36,7 +36,7 @@ describe('search_legal_precedents tool', () => {
     patternStore = new LegalPatternStore(db, embeddingService);
     citationValidator = new CitationValidator(db);
     hallucinationGuard = new HallucinationGuard(db);
-    legislationTools = new LegislationTools(db.getPool(), embeddingService);
+    legislationTools = new LegislationTools(db, embeddingService);
 
     // Initialize MCP API
     mcpAPI = new MCPQueryAPI(

@@ -5,7 +5,7 @@ import { MinioService } from './minio-service.js';
 import { VaultTools } from '../api/vault-tools.js';
 import { processUploadFile, ProcessorDeps } from './upload-processor.js';
 import { UploadQueueService } from './upload-queue-service.js';
-import { Pool } from 'pg';
+import type { IDatabase } from '../domain/ports/index.js';
 
 const MAX_RETRIES = 3;
 const STUCK_THRESHOLD_MINUTES = 10;
@@ -23,10 +23,10 @@ export class UploadRecoveryService {
     private uploadService: UploadService,
     minioService: MinioService,
     vaultTools: VaultTools,
-    pool: Pool,
+    db: IDatabase,
     documentService?: import('./document-service.js').DocumentService
   ) {
-    this.deps = { uploadService, minioService, vaultTools, pool, documentService };
+    this.deps = { uploadService, minioService, vaultTools, db, documentService };
   }
 
   /**

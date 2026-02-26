@@ -10,7 +10,8 @@
  */
 
 import { QuestionClassification, TemplateMatchResult } from './types.js';
-import { logger, BaseDatabase } from '@secondlayer/shared';
+import { logger } from '@secondlayer/shared';
+import type { IDatabase } from '../../domain/ports/index.js';
 
 interface CachedMatchResult {
   matches: TemplateMatchResult[];
@@ -38,7 +39,7 @@ export class TemplateMatcher {
   private readonly MIN_MATCH_SCORE = 0.5; // Minimum score to return
 
   constructor(
-    private db: BaseDatabase,
+    private db: IDatabase,
     private embeddingService?: any,
     private qdrantClient?: any,
     private redisClient?: any
@@ -546,7 +547,7 @@ export class TemplateMatcher {
 let matcherInstance: TemplateMatcher | null = null;
 
 export function createTemplateMatcher(
-  db: BaseDatabase,
+  db: IDatabase,
   embeddingService?: any,
   qdrantClient?: any,
   redisClient?: any

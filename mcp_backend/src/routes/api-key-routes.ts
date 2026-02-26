@@ -4,10 +4,10 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { Pool } from 'pg';
 import { ApiKeyService } from '../services/api-key-service.js';
 import { CreditService } from '../services/credit-service.js';
 import { logger } from '../utils/logger.js';
+import type { IDatabase } from '../domain/ports/index.js';
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;
@@ -22,10 +22,10 @@ function getStringParam(param: string | string[] | undefined): string {
   return Array.isArray(param) ? param[0] : param;
 }
 
-export function createApiKeyRouter(pool: Pool): Router {
+export function createApiKeyRouter(db: IDatabase): Router {
   const router = Router();
-  const apiKeyService = new ApiKeyService(pool);
-  const creditService = new CreditService(pool);
+  const apiKeyService = new ApiKeyService(db);
+  const creditService = new CreditService(db);
 
   /**
    * GET /api/keys - List all API keys for authenticated user
