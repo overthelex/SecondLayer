@@ -10,7 +10,7 @@
  * 5. ChatGPT uses access token to authenticate SSE requests
  */
 
-import { Database } from '../database/database.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import crypto from 'crypto';
 
@@ -42,9 +42,9 @@ export interface OAuthAccessToken {
 }
 
 export class OAuthService {
-  private db: Database;
+  private db: IDatabase;
 
-  constructor(db: Database) {
+  constructor(db: IDatabase) {
     this.db = db;
   }
 

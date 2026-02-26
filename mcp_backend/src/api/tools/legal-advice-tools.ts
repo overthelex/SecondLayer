@@ -11,7 +11,7 @@
 import { QueryPlanner } from '../../services/query-planner.js';
 import { ZOAdapter } from '../../adapters/zo-adapter.js';
 import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
-import { EmbeddingService } from '../../services/embedding-service.js';
+import type { IEmbeddingPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
 import { CitationValidator } from '../../services/citation-validator.js';
 import { ShepardizationService, ShepardizationResult } from '../../services/shepardization-service.js';
@@ -30,7 +30,7 @@ export class LegalAdviceTools extends BaseToolHandler {
     private zoAdapter: ZOAdapter,
     private zoPracticeAdapter: ZOAdapter,
     private sectionizer: SemanticSectionizer,
-    private embeddingService: EmbeddingService,
+    private embeddingService: IEmbeddingPort,
     private patternStore: LegalPatternStore,
     private citationValidator: CitationValidator,
     private shepardizationService?: ShepardizationService

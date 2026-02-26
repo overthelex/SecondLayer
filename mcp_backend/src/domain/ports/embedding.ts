@@ -79,14 +79,14 @@ export interface IEmbeddingPort {
     queryEmbedding: number[],
     filters?: SimilarityFilter,
     limit?: number,
-  ): Promise<VectorSearchResult[]>;
+  ): Promise<any[]>;
 
   /** Low-level vector search with arbitrary Qdrant-style filter. */
   searchVectors(
     queryEmbedding: number[],
     limit?: number,
     filter?: Record<string, unknown>,
-  ): Promise<RawVectorSearchResult[]>;
+  ): Promise<any[]>;
 
   /** Upsert a single vector with its payload. */
   upsertVector(
