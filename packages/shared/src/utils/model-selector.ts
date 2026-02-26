@@ -128,6 +128,32 @@ export class ModelSelector {
       'claude-opus': { input: 5.00, output: 25.00 },
       'claude-sonnet': { input: 3.00, output: 15.00 },
       'claude-haiku': { input: 1.00, output: 5.00 },
+      // AWS Bedrock — Amazon Nova
+      'amazon.nova-micro-v1:0': { input: 0.035, output: 0.14 },
+      'amazon.nova-lite-v1:0': { input: 0.06, output: 0.24 },
+      'amazon.nova-pro-v1:0': { input: 0.80, output: 3.20 },
+      'amazon.nova-premier-v1:0': { input: 2.50, output: 12.50 },
+      'amazon.nova-2-lite-v1:0': { input: 0.04, output: 0.16 },
+      // AWS Bedrock — Meta Llama
+      'meta.llama3-2-1b-instruct-v1:0': { input: 0.10, output: 0.10 },
+      'meta.llama3-2-3b-instruct-v1:0': { input: 0.15, output: 0.15 },
+      'meta.llama3-3-70b-instruct-v1:0': { input: 0.72, output: 0.72 },
+      'meta.llama4-scout-17b-instruct-v1:0': { input: 0.17, output: 0.66 },
+      'meta.llama4-maverick-17b-instruct-v1:0': { input: 0.24, output: 0.97 },
+      // AWS Bedrock — Mistral
+      'mistral.mistral-7b-instruct-v0:2': { input: 0.15, output: 0.20 },
+      'mistral.mixtral-8x7b-instruct-v0:1': { input: 0.45, output: 0.70 },
+      'mistral.mistral-large-3-675b-instruct': { input: 0.50, output: 1.50 },
+      // AWS Bedrock — DeepSeek
+      'deepseek.r1-v1:0': { input: 1.35, output: 5.40 },
+      'deepseek.v3.2': { input: 0.62, output: 1.85 },
+      // AWS Bedrock — Cohere
+      'cohere.command-r-v1:0': { input: 0.50, output: 1.50 },
+      'cohere.command-r-plus-v1:0': { input: 2.50, output: 10.00 },
+      // AWS Bedrock — Embeddings
+      'amazon.titan-embed-text-v2:0': { input: 0.02, output: 0 },
+      'cohere.embed-multilingual-v3': { input: 0.10, output: 0 },
+      'cohere.embed-v4:0': { input: 0.10, output: 0 },
     };
 
     const pricing = costPer1M[model] || { input: 5.00, output: 15.00 };
@@ -188,6 +214,32 @@ export class ModelSelector {
       'claude-opus': { input: 5.00, output: 25.00 },
       'claude-sonnet': { input: 3.00, output: 15.00 },
       'claude-haiku': { input: 1.00, output: 5.00 },
+      // AWS Bedrock — Amazon Nova
+      'amazon.nova-micro-v1:0': { input: 0.035, output: 0.14 },
+      'amazon.nova-lite-v1:0': { input: 0.06, output: 0.24 },
+      'amazon.nova-pro-v1:0': { input: 0.80, output: 3.20 },
+      'amazon.nova-premier-v1:0': { input: 2.50, output: 12.50 },
+      'amazon.nova-2-lite-v1:0': { input: 0.04, output: 0.16 },
+      // AWS Bedrock — Meta Llama
+      'meta.llama3-2-1b-instruct-v1:0': { input: 0.10, output: 0.10 },
+      'meta.llama3-2-3b-instruct-v1:0': { input: 0.15, output: 0.15 },
+      'meta.llama3-3-70b-instruct-v1:0': { input: 0.72, output: 0.72 },
+      'meta.llama4-scout-17b-instruct-v1:0': { input: 0.17, output: 0.66 },
+      'meta.llama4-maverick-17b-instruct-v1:0': { input: 0.24, output: 0.97 },
+      // AWS Bedrock — Mistral
+      'mistral.mistral-7b-instruct-v0:2': { input: 0.15, output: 0.20 },
+      'mistral.mixtral-8x7b-instruct-v0:1': { input: 0.45, output: 0.70 },
+      'mistral.mistral-large-3-675b-instruct': { input: 0.50, output: 1.50 },
+      // AWS Bedrock — DeepSeek
+      'deepseek.r1-v1:0': { input: 1.35, output: 5.40 },
+      'deepseek.v3.2': { input: 0.62, output: 1.85 },
+      // AWS Bedrock — Cohere
+      'cohere.command-r-v1:0': { input: 0.50, output: 1.50 },
+      'cohere.command-r-plus-v1:0': { input: 2.50, output: 10.00 },
+      // AWS Bedrock — Embeddings
+      'amazon.titan-embed-text-v2:0': { input: 0.02, output: 0 },
+      'cohere.embed-multilingual-v3': { input: 0.10, output: 0 },
+      'cohere.embed-v4:0': { input: 0.10, output: 0 },
     };
 
     const pricing = costPer1M[model] || { input: 5.00, output: 15.00 };

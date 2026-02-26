@@ -395,6 +395,16 @@ export const api = {
       apiClient.get('/api/admin/zo-stats', { params }),
   },
 
+  // Decisions - court decision downloads from reyestr
+  decisions: {
+    checkAvailable: (docIds: string[]) =>
+      apiClient.get('/api/decisions/check-available', { params: { doc_ids: docIds.join(',') } }),
+    fetchFullText: (docId: string) =>
+      apiClient.post('/api/decisions/fetch-fulltext', { doc_id: docId }),
+    fetchFullTextBatch: (docIds: string[]) =>
+      apiClient.post('/api/decisions/fetch-fulltext-batch', { doc_ids: docIds }),
+  },
+
   // GDPR
   gdpr: {
     requestExport: () => apiClient.post('/api/gdpr/export'),

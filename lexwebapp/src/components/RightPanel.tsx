@@ -1,14 +1,16 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Gavel, BookOpen, FileText, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import { Decision } from './DecisionCard';
 import { DocumentViewerModal } from './DocumentViewerModal';
-import { useUIStore } from '../stores';
+import { useUIStore, useDecisionsSearchStore } from '../stores';
 import { useEvidenceAggregator } from '../hooks/chat/useEvidenceAggregator';
 import { DecisionsTab } from './chat/DecisionsTab';
 import { RegulationsTab } from './chat/RegulationsTab';
 import { DocumentsTab } from './chat/DocumentsTab';
 import { mcpService } from '../services/api/MCPService';
+import type { DownloadedDecision } from '../stores/decisionsSearchStore';
 
 interface DocumentViewerItem {
   type: 'decision' | 'citation' | 'document';
@@ -51,11 +53,42 @@ interface RightPanelProps {
   onClose: () => void;
 }
 
+/** Map a DownloadedDecision from the search store into the Decision interface for DecisionsTab */
+function mapDownloadedToDecision(d: DownloadedDecision): Decision {
+  return {
+    id: d.id,
+    number: d.caseNumber || `ID ${d.docId}`,
+    court: d.court || 'Невідомий суд',
+    date: d.date || '',
+    summary: d.fullText.substring(0, 300) + (d.fullText.length > 300 ? '...' : ''),
+    relevance: 100,
+    status: 'active',
+    documentType: 'court_decision',
+    docId: d.docId,
+  };
+}
+
 export function RightPanel({ isOpen, onClose }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<'decisions' | 'regulations' | 'documents'>('decisions');
   const userSelectedTab = useRef(false);
+  const location = useLocation();
+  const isDecisionsPage = location.pathname === '/decisions';
 
-  const { decisions, otherCourtDocs, citations, vaultDocuments, messagesCount } = useEvidenceAggregator();
+  const { decisions: chatDecisions, otherCourtDocs, citations, vaultDocuments, messagesCount } = useEvidenceAggregator();
+  const { downloadedDecisions } = useDecisionsSearchStore();
+
+  // On /decisions page, merge downloaded decisions into the decisions list
+  const downloadedList = useMemo(() => {
+    if (!isDecisionsPage) return [];
+    return Object.values(downloadedDecisions).map(mapDownloadedToDecision);
+  }, [isDecisionsPage, downloadedDecisions]);
+
+  const decisions = useMemo(() => {
+    if (!isDecisionsPage) return chatDecisions;
+    // On decisions page: show downloaded decisions (chat decisions are likely empty)
+    if (downloadedList.length > 0) return downloadedList;
+    return chatDecisions;
+  }, [isDecisionsPage, chatDecisions, downloadedList]);
 
   // Reset user-selection flag when conversation is cleared
   useEffect(() => {
@@ -95,6 +128,23 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
     });
     setIsViewerOpen(true);
     setViewerError(null);
+
+    // If we have the full text from the decisions search store, use it directly
+    if (d.docId && downloadedDecisions[d.docId]) {
+      const downloaded = downloadedDecisions[d.docId];
+      if (downloaded.sections.length > 0) {
+        const sectionsText = downloaded.sections
+          .map((s) => {
+            const label = SECTION_TYPE_LABELS[s.type] || s.type;
+            return `## ${label}\n\n${s.text}`;
+          })
+          .join('\n\n---\n\n');
+        setViewerItem(prev => prev ? { ...prev, content: sectionsText } : prev);
+      } else if (downloaded.fullText) {
+        setViewerItem(prev => prev ? { ...prev, content: downloaded.fullText } : prev);
+      }
+      return;
+    }
 
     // Try to fetch full text if we have a docId or case number
     const docId = d.docId;
