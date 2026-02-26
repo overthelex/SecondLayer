@@ -10,6 +10,7 @@ import { HallucinationGuard } from '../services/hallucination-guard.js';
 import { ShepardizationService } from '../services/shepardization-service.js';
 import { MCPQueryAPI } from '../api/mcp-query-api.js';
 import { LegislationTools } from '../api/legislation-tools.js';
+import { LegislationService } from '../services/legislation-service.js';
 import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
 import { getLLMManager } from '../utils/llm-client-manager.js';
 
@@ -48,7 +49,8 @@ export function createBackendCoreServices(): BackendCoreServices {
   const shepardizationService = new ShepardizationService(zoAdapter, db);
   const citationValidator = new CitationValidator(db, shepardizationService);
   const hallucinationGuard = new HallucinationGuard(db, shepardizationService);
-  const legislationTools = new LegislationTools(db, embeddingService, undefined, llmAdapter);
+  const legislationService = new LegislationService(db, embeddingService, undefined, llmAdapter);
+  const legislationTools = new LegislationTools(legislationService);
 
   const mcpAPI = new MCPQueryAPI(
     queryPlanner,

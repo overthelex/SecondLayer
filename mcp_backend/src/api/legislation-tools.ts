@@ -1,4 +1,4 @@
-import type { IDatabase, IEmbeddingPort, ICachePort, ILLMPort } from '../domain/ports/index.js';
+import type { ICachePort } from '../domain/ports/index.js';
 import { LegislationService, parseLegislationReference, parseLegislationReferenceWithAI, normalizeRadaId } from '../services/legislation-service';
 import { LegislationRenderer } from '../services/legislation-renderer';
 import { logger } from '../utils/logger';
@@ -18,10 +18,13 @@ export class LegislationTools extends BaseToolHandler {
   private service: LegislationService;
   private renderer: LegislationRenderer;
 
-  constructor(db: IDatabase, embeddingService: IEmbeddingPort, redis?: ICachePort, llm?: ILLMPort) {
+  constructor(
+    service: LegislationService,
+    renderer?: LegislationRenderer
+  ) {
     super();
-    this.service = new LegislationService(db, embeddingService, redis, llm);
-    this.renderer = new LegislationRenderer();
+    this.service = service;
+    this.renderer = renderer || new LegislationRenderer();
   }
 
   getLegislationService(): LegislationService {
