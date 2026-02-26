@@ -17,8 +17,7 @@ import { LegalPatternStore } from './legal-pattern-store.js';
 import { CitationValidator } from './citation-validator.js';
 import { DocumentService } from './document-service.js';
 import { logger } from '../utils/logger.js';
-import { getOpenAIManager } from '../utils/openai-client.js';
-import { ModelSelector } from '../utils/model-selector.js';
+import type { ILLMPort } from '../domain/ports/index.js';
 import { DocumentSection } from '../types/index.js';
 
 /**
@@ -116,7 +115,8 @@ export class DueDiligenceService {
     private sectionizer: SemanticSectionizer,
     private patternStore: LegalPatternStore,
     private citationValidator: CitationValidator,
-    private documentService: DocumentService
+    private documentService: DocumentService,
+    private readonly llm?: ILLMPort
   ) {}
 
   /**
@@ -324,8 +324,9 @@ export class DueDiligenceService {
     const findings: DDFinding[] = [];
 
     try {
-      const openaiManager = getOpenAIManager();
-      const model = ModelSelector.getChatModel('standard');
+      if (!this.llm) {
+        return findings;
+      }
 
       const sectionTypes = sections.map((s) => s.type).join(', ');
 
@@ -356,9 +357,8 @@ export class DueDiligenceService {
 Фрагмент договора:
 ${fullText.slice(0, 8000)}`;
 
-      const response = await openaiManager.executeWithRetry(async (client) => {
-        return await client.chat.completions.create({
-          model,
+      const response = await this.llm.chatCompletion(
+        {
           messages: [
             {
               role: 'system',
@@ -367,12 +367,13 @@ ${fullText.slice(0, 8000)}`;
             },
             { role: 'user', content: prompt },
           ],
-          ...(ModelSelector.supportsTemperature(model) ? { temperature: 0.1 } : {}),
+          temperature: 0.1,
           response_format: { type: 'json_object' },
-        });
-      });
+        },
+        'standard'
+      );
 
-      const result = JSON.parse(response.choices[0].message.content || '{"missingClauses":[]}');
+      const result = JSON.parse(response.content || '{"missingClauses":[]}');
       const missingClauses = result.missingClauses || [];
 
       for (const missing of missingClauses) {
@@ -612,8 +613,9 @@ ${riskScores
     overallRisk: RiskLevel
   ): Promise<{ executiveSummary: string; recommendations: string[] }> {
     try {
-      const openaiManager = getOpenAIManager();
-      const model = ModelSelector.getChatModel('standard');
+      if (!this.llm) {
+        return { executiveSummary: '', recommendations: [] };
+      }
 
       const criticalFindings = findings
         .filter((f) => f.riskLevel === 'critical' || f.riskLevel === 'high')
@@ -636,9 +638,8 @@ ${criticalFindings}
   "recommendations": ["рекомендация 1", "рекомендация 2", ...]
 }`;
 
-      const response = await openaiManager.executeWithRetry(async (client) => {
-        return await client.chat.completions.create({
-          model,
+      const response = await this.llm.chatCompletion(
+        {
           messages: [
             {
               role: 'system',
@@ -646,13 +647,14 @@ ${criticalFindings}
             },
             { role: 'user', content: prompt },
           ],
-          ...(ModelSelector.supportsTemperature(model) ? { temperature: 0.2 } : {}),
+          temperature: 0.2,
           response_format: { type: 'json_object' },
-        });
-      });
+        },
+        'standard'
+      );
 
       const result = JSON.parse(
-        response.choices[0].message.content ||
+        response.content ||
           '{"executiveSummary":"","recommendations":[]}'
       );
 

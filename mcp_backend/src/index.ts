@@ -82,7 +82,8 @@ class SecondLayerMCPServer {
         this.services.sectionizer,
         this.services.patternStore,
         this.services.citationValidator,
-        this.services.documentService
+        this.services.documentService,
+        llmAdapter
       );
       this.ddTools = new DueDiligenceTools(this.ddService);
       logger.info('DueDiligenceTools initialized successfully');
