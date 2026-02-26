@@ -146,19 +146,24 @@ Pipeline:
       },
       {
         name: 'list_documents',
-        description: `Список документов в Vault с фильтрацией.
+        description: `Список документов в Vault с фильтрацией и текстовым поиском.
 
 Фильтры:
+- По ключевым словам (query) — полнотекстовый поиск по названию и содержимому
 - По типу документа
 - По тегам
 - По категории
 - По дате загрузки
-- По уровню риска
+- По папке
 
-Поддерживает пагинацию и сортировку.`,
+Поддерживает пагинацию и сортировку. При текстовом поиске результаты ранжируются по релевантности.`,
         inputSchema: {
           type: 'object',
           properties: {
+            query: {
+              type: 'string',
+              description: 'Текстовий пошук по назві та змісту документа (keyword search)',
+            },
             type: {
               type: 'string',
               enum: ['contract', 'legislation', 'court_decision', 'internal', 'other'],
@@ -343,16 +348,33 @@ Pipeline:
         sectionCount: sections.length,
       });
 
-      // Step 3: Generate embeddings for full text + sections in batch
-      const textsToEmbed = [
-        parsed.text.slice(0, 8000), // Full document text
+      // Step 3: Generate embeddings for full text + sections + chunks in batch
+      // Build list of texts: full doc summary, sections, and chunks for large documents
+      const textsToEmbed: string[] = [
+        parsed.text.slice(0, 8000), // Full document text (summary embedding)
         ...sections.map((s) => s.text.slice(0, 8000)),
       ];
+
+      // For large documents, split into overlapping chunks to ensure all content is searchable
+      let chunks: string[] = [];
+      if (parsed.text.length > 8000) {
+        chunks = this.embeddingService.splitIntoChunks(parsed.text);
+        // Add chunks to batch (each chunk is already sized for embedding)
+        for (const chunk of chunks) {
+          textsToEmbed.push(chunk.slice(0, 8000));
+        }
+        logger.info('[Vault] Document chunked for embedding', {
+          documentId,
+          textLength: parsed.text.length,
+          chunkCount: chunks.length,
+        });
+      }
 
       // Single batch API call instead of N sequential calls
       const allEmbeddings = await this.embeddingService.generateEmbeddingsBatch(textsToEmbed);
       const fullTextEmbedding = allEmbeddings[0];
-      const sectionEmbeddings = allEmbeddings.slice(1);
+      const sectionEmbeddings = allEmbeddings.slice(1, 1 + sections.length);
+      const chunkEmbeddings = allEmbeddings.slice(1 + sections.length);
 
       // Store full document embedding
       const embeddingTasks = [];
@@ -389,6 +411,27 @@ Pipeline:
         });
         sectionTask.catch(() => {});
         embeddingTasks.push(sectionTask);
+      }
+
+      // Store chunk embeddings (for large documents)
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkTask = this.embeddingService.storeChunk({
+          id: uuidv4(),
+          source: 'zakononline',
+          doc_id: documentId,
+          section_type: 'CHUNK' as any,
+          text: chunks[i].slice(0, 1000),
+          embedding: chunkEmbeddings[i],
+          metadata: {
+            date: new Date().toISOString(),
+            chunk_index: i,
+            total_chunks: chunks.length,
+            ...args.metadata,
+          },
+          created_at: new Date().toISOString(),
+        });
+        chunkTask.catch(() => {});
+        embeddingTasks.push(chunkTask);
       }
 
       const embeddingResults = await Promise.allSettled(embeddingTasks);
@@ -566,6 +609,7 @@ Pipeline:
    * List documents with filtering
    */
   async listDocuments(args: {
+    query?: string;
     type?: string;
     tags?: string[];
     category?: string;
@@ -638,21 +682,42 @@ Pipeline:
         paramIndex++;
       }
 
+      // Text search filter (full-text search + ILIKE fallback for short queries)
+      const hasTextSearch = !!args.query?.trim();
+      let tsQueryParam: number | null = null;
+      if (hasTextSearch) {
+        const searchText = args.query!.trim();
+        // Use tsvector for full-text search
+        conditions.push(
+          `(search_vector @@ plainto_tsquery('simple', $${paramIndex}) OR title ILIKE $${paramIndex + 1})`
+        );
+        params.push(searchText);
+        params.push(`%${searchText}%`);
+        tsQueryParam = paramIndex;
+        paramIndex += 2;
+      }
+
       const whereClause = conditions.join(' AND ');
 
-      // Sort mapping
-      const sortColumn =
-        sortBy === 'uploadedAt'
-          ? 'created_at'
-          : sortBy === 'riskLevel'
-          ? "metadata::jsonb -> 'riskLevel'"
-          : 'title';
+      // Sort mapping — when text search is active, sort by relevance first
+      let orderClause: string;
+      if (hasTextSearch && tsQueryParam !== null) {
+        orderClause = `ts_rank(search_vector, plainto_tsquery('simple', $${tsQueryParam})) DESC, created_at DESC`;
+      } else {
+        const sortColumn =
+          sortBy === 'uploadedAt'
+            ? 'created_at'
+            : sortBy === 'riskLevel'
+            ? "metadata::jsonb -> 'riskLevel'"
+            : 'title';
+        orderClause = `${sortColumn} ${sortOrder.toUpperCase()}`;
+      }
 
       const query = `
         SELECT id, type, title, metadata, storage_type, mime_type, created_at, updated_at
         FROM documents
         WHERE ${whereClause}
-        ORDER BY ${sortColumn} ${sortOrder.toUpperCase()}
+        ORDER BY ${orderClause}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
 
@@ -964,7 +1029,7 @@ Pipeline:
         });
       }
 
-      // Step 3: Generate embeddings
+      // Step 3: Generate embeddings (including chunks for large documents)
       let embeddingCount = 0;
       try {
         const textsToEmbed = [
@@ -972,9 +1037,24 @@ Pipeline:
           ...sections.map((s) => s.text.slice(0, 8000)),
         ];
 
+        // Chunk large documents for complete coverage
+        let chunks: string[] = [];
+        if (parsed.text.length > 8000) {
+          chunks = this.embeddingService.splitIntoChunks(parsed.text);
+          for (const chunk of chunks) {
+            textsToEmbed.push(chunk.slice(0, 8000));
+          }
+          logger.info('[Vault] extractTextFromFile: document chunked', {
+            documentId: args.documentId,
+            textLength: parsed.text.length,
+            chunkCount: chunks.length,
+          });
+        }
+
         const allEmbeddings = await this.embeddingService.generateEmbeddingsBatch(textsToEmbed);
         const fullTextEmbedding = allEmbeddings[0];
-        const sectionEmbeddings = allEmbeddings.slice(1);
+        const sectionEmbeddings = allEmbeddings.slice(1, 1 + sections.length);
+        const chunkEmbeddings = allEmbeddings.slice(1 + sections.length);
 
         const embeddingTasks = [];
 
@@ -1012,6 +1092,27 @@ Pipeline:
           });
           sectionTask.catch(() => {});
           embeddingTasks.push(sectionTask);
+        }
+
+        // Store chunk embeddings
+        for (let i = 0; i < chunks.length; i++) {
+          const chunkTask = this.embeddingService.storeChunk({
+            id: uuidv4(),
+            source: 'zakononline',
+            doc_id: args.documentId,
+            section_type: 'CHUNK' as any,
+            text: chunks[i].slice(0, 1000),
+            embedding: chunkEmbeddings[i],
+            metadata: {
+              date: new Date().toISOString(),
+              chunk_index: i,
+              total_chunks: chunks.length,
+              ...args.metadata,
+            },
+            created_at: new Date().toISOString(),
+          });
+          chunkTask.catch(() => {});
+          embeddingTasks.push(chunkTask);
         }
 
         const results = await Promise.allSettled(embeddingTasks);
