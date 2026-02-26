@@ -11,6 +11,7 @@ import {
   Eye,
   Pencil,
   Trash2,
+  FolderInput,
   AlertTriangle,
 } from 'lucide-react';
 import type { VaultDocument, SortField, SortOrder } from './types';
@@ -75,6 +76,7 @@ interface DocumentTableProps {
   onView: (doc: VaultDocument) => void;
   onEdit: (doc: VaultDocument) => void;
   onDelete: (doc: VaultDocument) => void;
+  onMove: (doc: VaultDocument) => void;
 }
 
 function SortIcon({ field, sortBy, sortOrder }: { field: SortField; sortBy: SortField; sortOrder: SortOrder }) {
@@ -119,11 +121,13 @@ function RowContextMenu({
   onView,
   onEdit,
   onDelete,
+  onMove,
 }: {
   doc: VaultDocument;
   onView: (doc: VaultDocument) => void;
   onEdit: (doc: VaultDocument) => void;
   onDelete: (doc: VaultDocument) => void;
+  onMove: (doc: VaultDocument) => void;
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -177,6 +181,17 @@ function RowContextMenu({
             </button>
           )}
           <button
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-claude-text hover:bg-claude-bg transition-colors font-sans"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onMove(doc);
+            }}
+          >
+            <FolderInput size={14} className="text-claude-subtext/60" />
+            Перемістити
+          </button>
+          <button
             className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-sans"
             onClick={(e) => {
               e.stopPropagation();
@@ -193,7 +208,7 @@ function RowContextMenu({
   );
 }
 
-export function DocumentTable({ documents, sortBy, sortOrder, onSort, onDocumentClick, onView, onEdit, onDelete }: DocumentTableProps) {
+export function DocumentTable({ documents, sortBy, sortOrder, onSort, onDocumentClick, onView, onEdit, onDelete, onMove }: DocumentTableProps) {
   return (
     <div className="bg-white rounded-2xl border border-claude-border shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
@@ -285,6 +300,7 @@ export function DocumentTable({ documents, sortBy, sortOrder, onSort, onDocument
                       onView={onView}
                       onEdit={onEdit}
                       onDelete={onDelete}
+                      onMove={onMove}
                     />
                   </td>
                 </motion.tr>

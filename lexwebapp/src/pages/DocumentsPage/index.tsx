@@ -13,6 +13,10 @@ import {
   LayoutGrid,
   List,
   Trash2,
+  FolderInput,
+  Folder,
+  CornerLeftUp,
+  ChevronDown,
 } from 'lucide-react';
 import { mcpService } from '../../services';
 import { useUploadStore } from '../../stores/uploadStore';
@@ -120,6 +124,8 @@ export function DocumentsPage() {
     content: string;
     previewUrl?: string;
     mimeType?: string;
+    ocrText?: string;
+    documentId?: string;
   } | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -133,6 +139,14 @@ export function DocumentsPage() {
   const [editText, setEditText] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+
+  // Move modal state
+  const [moveTarget, setMoveTarget] = useState<VaultDocument | null>(null);
+  const [moveFolder, setMoveFolder] = useState('');
+  const [moveFolders, setMoveFolders] = useState<string[]>([]);
+  const [moveFoldersLoading, setMoveFoldersLoading] = useState(false);
+  const [moveLoading, setMoveLoading] = useState(false);
+  const [moveBrowsePath, setMoveBrowsePath] = useState('');
 
   // Document statistics state
   const [docStats, setDocStats] = useState<DocumentStats | null>(null);
@@ -407,6 +421,12 @@ export function DocumentsPage() {
     }
   };
 
+  // Save OCR text handler for DocumentViewerModal
+  const handleSaveOcrText = async (documentId: string, text: string) => {
+    await api.documents.update(documentId, { full_text: text });
+    showToast.success('Текст збережено');
+  };
+
   // Document preview
   const handleDocumentClick = async (doc: VaultDocument) => {
     const mimeType = doc.metadata?.mimeType || doc.mime_type;
@@ -416,9 +436,17 @@ export function DocumentsPage() {
       setPreviewLoading(true);
       setPreviewOpen(true);
       try {
-        const resp = await api.documents.getPreviewUrl(doc.id);
-        const { previewUrl, mimeType: serverMime } = resp.data;
+        const isImage = mimeType?.startsWith('image/');
+
+        // For images, fetch both preview URL and full_text (OCR) in parallel
+        const [previewResp, docResp] = await Promise.all([
+          api.documents.getPreviewUrl(doc.id),
+          isImage ? api.documents.getById(doc.id).catch(() => null) : Promise.resolve(null),
+        ]);
+
+        const { previewUrl, mimeType: serverMime } = previewResp.data;
         const badge = DOC_TYPE_LABELS[doc.type] || doc.type;
+        const ocrText = docResp?.data?.full_text ?? undefined;
 
         if (previewUrl) {
           setPreviewDoc({
@@ -426,9 +454,10 @@ export function DocumentsPage() {
             title: doc.title,
             subtitle: doc.metadata?.uploadedAt ? `Завантажено: ${new Date(doc.metadata.uploadedAt).toLocaleDateString('uk-UA')}` : undefined,
             badge,
-            content: '',
+            content: ocrText || '',
             previewUrl,
             mimeType: serverMime || mimeType,
+            ...(isImage ? { ocrText: ocrText || '', documentId: doc.id } : {}),
           });
         } else {
           // Fallback to text content if no preview URL
@@ -526,6 +555,52 @@ export function DocumentsPage() {
       console.error('Failed to save document:', err);
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  // Move handlers
+  const handleMoveOpen = async (doc: VaultDocument) => {
+    setMoveTarget(doc);
+    setMoveFolder(doc.metadata?.folderPath || '');
+    setMoveBrowsePath('');
+    setMoveFoldersLoading(true);
+    try {
+      const resp = await api.documents.getFolders();
+      setMoveFolders(resp.data.folders || []);
+    } catch {
+      setMoveFolders([]);
+    } finally {
+      setMoveFoldersLoading(false);
+    }
+  };
+
+  const handleMoveBrowse = async (prefix: string) => {
+    setMoveBrowsePath(prefix);
+    setMoveFoldersLoading(true);
+    try {
+      const resp = await api.documents.getFolders(prefix || undefined);
+      setMoveFolders(resp.data.folders || []);
+    } catch {
+      setMoveFolders([]);
+    } finally {
+      setMoveFoldersLoading(false);
+    }
+  };
+
+  const handleMoveConfirm = async () => {
+    if (!moveTarget) return;
+    setMoveLoading(true);
+    try {
+      await api.documents.move(moveTarget.id, moveFolder);
+      showToast.success(`Документ переміщено${moveFolder ? ` до ${moveFolder}` : ' у корінь'}`);
+      setMoveTarget(null);
+      loadDocuments();
+      loadFolders(currentFolderPath);
+    } catch (err: any) {
+      console.error('Failed to move document:', err);
+      showToast.error('Не вдалося перемістити документ');
+    } finally {
+      setMoveLoading(false);
     }
   };
 
@@ -792,6 +867,7 @@ export function DocumentsPage() {
               onView={handleDocumentClick}
               onEdit={handleEditOpen}
               onDelete={setDeleteTarget}
+              onMove={handleMoveOpen}
             />
           ) : (
             <DocumentGrid
@@ -800,6 +876,7 @@ export function DocumentsPage() {
               onView={handleDocumentClick}
               onEdit={handleEditOpen}
               onDelete={setDeleteTarget}
+              onMove={handleMoveOpen}
             />
           )}
 
@@ -851,6 +928,7 @@ export function DocumentsPage() {
           title: 'Завантаження...',
           content: '',
         } : previewDoc}
+        onSaveOcrText={handleSaveOcrText}
       />
 
       {/* Delete Confirmation Modal */}
@@ -962,6 +1040,155 @@ export function DocumentsPage() {
                   </div>
                 </>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Move Document Modal */}
+      <AnimatePresence>
+        {moveTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            onClick={() => !moveLoading && setMoveTarget(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[70vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-claude-bg rounded-lg">
+                  <FolderInput size={20} className="text-claude-text" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold text-claude-text font-sans">
+                    Перемістити документ
+                  </h3>
+                  <p className="text-xs text-claude-subtext/60 font-sans truncate">
+                    {moveTarget.title}
+                  </p>
+                </div>
+              </div>
+
+              {/* Current location */}
+              <div className="text-xs text-claude-subtext/60 font-sans mb-3">
+                Поточна папка: <span className="font-medium text-claude-text">{moveTarget.metadata?.folderPath || '/ (корінь)'}</span>
+              </div>
+
+              {/* Folder browser */}
+              <div className="flex-1 overflow-y-auto border border-claude-border rounded-xl mb-4">
+                {/* Root + back navigation */}
+                <button
+                  onClick={() => {
+                    setMoveFolder('');
+                    handleMoveBrowse('');
+                  }}
+                  className={`flex items-center gap-2 w-full px-3 py-2 text-sm font-sans transition-colors ${
+                    moveFolder === '' ? 'bg-claude-accent/10 text-claude-accent font-medium' : 'text-claude-text hover:bg-claude-bg'
+                  }`}
+                >
+                  <CornerLeftUp size={14} className="text-claude-subtext/60" />
+                  / (корінь)
+                </button>
+
+                {moveBrowsePath && (
+                  <button
+                    onClick={() => {
+                      const segments = moveBrowsePath.split('/').filter(Boolean);
+                      segments.pop();
+                      const parent = segments.length ? segments.join('/') + '/' : '';
+                      handleMoveBrowse(parent);
+                    }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-claude-subtext hover:bg-claude-bg transition-colors font-sans border-b border-claude-border/30"
+                  >
+                    <CornerLeftUp size={14} />
+                    ..
+                  </button>
+                )}
+
+                {moveBrowsePath && (
+                  <button
+                    onClick={() => setMoveFolder(moveBrowsePath)}
+                    className={`flex items-center gap-2 w-full px-3 py-2 text-sm font-sans transition-colors border-b border-claude-border/30 ${
+                      moveFolder === moveBrowsePath ? 'bg-claude-accent/10 text-claude-accent font-medium' : 'text-claude-text hover:bg-claude-bg'
+                    }`}
+                  >
+                    <Folder size={14} className="text-claude-accent" />
+                    {moveBrowsePath.replace(/\/$/, '').split('/').pop()} (поточна)
+                  </button>
+                )}
+
+                {moveFoldersLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 size={18} className="animate-spin text-claude-subtext/40" />
+                  </div>
+                ) : moveFolders.length === 0 ? (
+                  <div className="text-center py-4 text-xs text-claude-subtext/40 font-sans">
+                    Немає підпапок
+                  </div>
+                ) : (
+                  moveFolders.map((folder) => {
+                    const fullPath = moveBrowsePath ? `${moveBrowsePath}${folder}/` : `${folder}/`;
+                    return (
+                      <div key={folder} className="flex items-center border-b border-claude-border/20 last:border-0">
+                        <button
+                          onClick={() => setMoveFolder(fullPath)}
+                          className={`flex-1 flex items-center gap-2 px-3 py-2 text-sm font-sans transition-colors ${
+                            moveFolder === fullPath ? 'bg-claude-accent/10 text-claude-accent font-medium' : 'text-claude-text hover:bg-claude-bg'
+                          }`}
+                        >
+                          <Folder size={14} className={moveFolder === fullPath ? 'text-claude-accent' : 'text-claude-subtext/40'} />
+                          {folder}
+                        </button>
+                        <button
+                          onClick={() => handleMoveBrowse(fullPath)}
+                          className="px-2 py-2 text-claude-subtext/40 hover:text-claude-text transition-colors"
+                          title="Відкрити папку"
+                        >
+                          <ChevronDown size={14} className="rotate-[-90deg]" />
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Manual input */}
+              <div className="mb-4">
+                <label className="text-xs text-claude-subtext/60 font-sans mb-1 block">
+                  Або введіть шлях вручну:
+                </label>
+                <input
+                  type="text"
+                  value={moveFolder}
+                  onChange={(e) => setMoveFolder(e.target.value)}
+                  placeholder="наприклад: contracts/2026/"
+                  className="w-full px-3 py-2 border border-claude-border rounded-xl text-sm text-claude-text font-sans focus:outline-none focus:border-claude-subtext/40 transition-colors"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  disabled={moveLoading}
+                  onClick={() => setMoveTarget(null)}
+                  className="px-4 py-2 text-sm font-medium text-claude-text bg-white border border-claude-border rounded-xl hover:bg-claude-bg transition-colors font-sans disabled:opacity-50"
+                >
+                  Скасувати
+                </button>
+                <button
+                  disabled={moveLoading}
+                  onClick={handleMoveConfirm}
+                  className="px-4 py-2 text-sm font-medium text-white bg-claude-text rounded-xl hover:bg-claude-text/90 transition-colors font-sans disabled:opacity-50 flex items-center gap-2"
+                >
+                  {moveLoading && <Loader2 size={14} className="animate-spin" />}
+                  Перемістити
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

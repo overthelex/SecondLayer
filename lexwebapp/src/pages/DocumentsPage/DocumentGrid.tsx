@@ -9,6 +9,7 @@ import {
   Eye,
   Pencil,
   Trash2,
+  FolderInput,
 } from 'lucide-react';
 import type { VaultDocument } from './types';
 import { isEditable, getFileExtension } from './types';
@@ -68,11 +69,13 @@ function CardContextMenu({
   onView,
   onEdit,
   onDelete,
+  onMove,
 }: {
   doc: VaultDocument;
   onView: (doc: VaultDocument) => void;
   onEdit: (doc: VaultDocument) => void;
   onDelete: (doc: VaultDocument) => void;
+  onMove: (doc: VaultDocument) => void;
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -126,6 +129,17 @@ function CardContextMenu({
             </button>
           )}
           <button
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-claude-text hover:bg-claude-bg transition-colors font-sans"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onMove(doc);
+            }}
+          >
+            <FolderInput size={14} className="text-claude-subtext/60" />
+            Перемістити
+          </button>
+          <button
             className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-sans"
             onClick={(e) => {
               e.stopPropagation();
@@ -148,9 +162,10 @@ interface DocumentGridProps {
   onView: (doc: VaultDocument) => void;
   onEdit: (doc: VaultDocument) => void;
   onDelete: (doc: VaultDocument) => void;
+  onMove: (doc: VaultDocument) => void;
 }
 
-export function DocumentGrid({ documents, onDocumentClick, onView, onEdit, onDelete }: DocumentGridProps) {
+export function DocumentGrid({ documents, onDocumentClick, onView, onEdit, onDelete, onMove }: DocumentGridProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {documents.map((doc, index) => {
@@ -181,6 +196,7 @@ export function DocumentGrid({ documents, onDocumentClick, onView, onEdit, onDel
                   onView={onView}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  onMove={onMove}
                 />
               </div>
             </div>
