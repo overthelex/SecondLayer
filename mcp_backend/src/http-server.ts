@@ -53,7 +53,7 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createOAuthRouter } from './routes/oauth-routes.js';
 import { OAuthService } from './services/oauth-service.js';
-import { createHybridAuthMiddleware } from './middleware/oauth-auth.js';
+// createHybridAuthMiddleware available from './middleware/oauth-auth.js' if needed
 import { mcpDiscoveryRateLimit, healthCheckRateLimit, webhookRateLimit, chatRateLimit } from './middleware/rate-limit.js';
 import { ToolRegistry } from './api/tool-registry.js';
 import { BusinessRegistryTools } from './api/tools/business-registry-tools.js';
@@ -96,6 +96,10 @@ import { PricingService } from './services/pricing-service.js';
 import { SubscriptionService } from './services/subscription-service.js';
 import { UserPreferencesService } from './services/user-preferences-service.js';
 import { PrometheusService } from './services/prometheus-service.js';
+import { UserService } from './services/user-service.js';
+import { WebAuthnService } from './services/webauthn-service.js';
+import { setRateLimitCache } from './middleware/rate-limit.js';
+import { setUploadRateLimitCache } from './middleware/upload-rate-limit.js';
 import { ConfigService } from './services/config-service.js';
 
 dotenv.config();
@@ -442,8 +446,10 @@ class HTTPMCPServer {
 
     // Initialize authentication
     configurePassport(this.services.db);
-    initializeDualAuth(this.services.db, this.apiKeyService);
-    initializeWebAuthn(this.services.db);
+    const userService = new UserService(this.services.db);
+    const webAuthnService = new WebAuthnService(this.services.db);
+    initializeDualAuth(userService, this.apiKeyService);
+    initializeWebAuthn(webAuthnService);
     logger.info('Authentication configured (Google OAuth2 + dual auth + WebAuthn)');
 
     // Setup middleware and routes AFTER services are initialized
@@ -2550,7 +2556,9 @@ class HTTPMCPServer {
         this.services.shepardizationService.setCachePort(cache);
         this.chatSearchCache.setCachePort(cache);
         setAuthCache(cache);
-        logger.info('Redis connected - caching enabled for legislation, ZO adapters, shepardization, chat cache, and auth');
+        setRateLimitCache(cache);
+        setUploadRateLimitCache(cache);
+        logger.info('Redis connected - caching enabled for all services');
       } else {
         logger.info('Redis not available - services will work without caching');
       }
