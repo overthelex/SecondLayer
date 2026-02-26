@@ -94,6 +94,8 @@ import { getLLMManager } from './utils/llm-client-manager.js';
 import { ChatSearchCacheService } from './services/chat-search-cache-service.js';
 import { PricingService } from './services/pricing-service.js';
 import { SubscriptionService } from './services/subscription-service.js';
+import { UserPreferencesService } from './services/user-preferences-service.js';
+import { PrometheusService } from './services/prometheus-service.js';
 import { ConfigService } from './services/config-service.js';
 
 dotenv.config();
@@ -106,6 +108,10 @@ class HTTPMCPServer {
   private batchDocumentTools: BatchDocumentTools;
   private costTracker: CostTracker;
   private billingService: BillingService;
+  private pricingService: PricingService;
+  private subscriptionService: SubscriptionService;
+  private userPreferencesService: UserPreferencesService;
+  private prometheusService: PrometheusService;
   private monobankService: MonobankService | MockMonobankService;
   private metamaskService: MetaMaskService | MockMetaMaskService;
   private binancePayService: BinancePayService | MockBinancePayService;
@@ -171,6 +177,10 @@ class HTTPMCPServer {
     // Initialize cost tracker and billing service
     this.costTracker = new CostTracker(this.services.db);
     this.billingService = new BillingService(this.services.db);
+    this.pricingService = new PricingService(this.services.db);
+    this.subscriptionService = new SubscriptionService(this.services.db);
+    this.userPreferencesService = new UserPreferencesService(this.services.db);
+    this.prometheusService = new PrometheusService(process.env.PROMETHEUS_URL);
     this.invoiceService = new InvoiceService();
     this.costTracker.setBillingService(this.billingService);
 
@@ -1125,7 +1135,7 @@ class HTTPMCPServer {
     });
 
     // OAuth 2.0 routes for ChatGPT integration (public)
-    this.app.use('/oauth', createOAuthRouter(this.services.db));
+    this.app.use('/oauth', createOAuthRouter(this.oauthService));
     logger.info('OAuth 2.0 routes registered at /oauth');
 
     // Document folders endpoint - must come before /api/documents generic REST route
@@ -1150,7 +1160,7 @@ class HTTPMCPServer {
     this.app.use('/api/auth', requireJWT as any, authRouter);
 
     // Phase 2 Billing: API key management - require JWT (user login)
-    this.app.use('/api/keys', requireJWT as any, createApiKeyRouter(this.services.db));
+    this.app.use('/api/keys', requireJWT as any, createApiKeyRouter(this.apiKeyService, this.creditService));
     logger.info('API key management routes registered at /api/keys');
 
     // EULA endpoints - REMOVED: not needed
@@ -1618,7 +1628,7 @@ class HTTPMCPServer {
     // GET /api/billing/full-settings - Get combined billing and preferences
     // GET /api/billing/pricing-info - Get pricing tier information
     // POST /api/billing/estimate-price - Estimate price with user's tier
-    this.app.use('/api/billing', requireJWT as any, createBillingRoutes(this.services.db));
+    this.app.use('/api/billing', requireJWT as any, createBillingRoutes(this.billingService, this.userPreferencesService, this.pricingService));
 
     // Team management routes
     // GET /api/team/members - Get team members
@@ -1683,9 +1693,7 @@ class HTTPMCPServer {
     // GET /api/admin/analytics/usage - Usage analytics
     // GET /api/admin/api-keys - List API keys
     // GET /api/admin/settings - Get system settings
-    const pricingService = new PricingService(this.services.db);
-    const subscriptionService = new SubscriptionService(this.services.db);
-    this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, process.env.PROMETHEUS_URL, pricingService, subscriptionService, this.configService));
+    this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billingService, this.userPreferencesService, this.prometheusService, this.pricingService, this.subscriptionService, this.configService));
 
     // Upload metrics endpoint (admin)
     this.app.get('/api/admin/upload-metrics', requireJWT as any, (async (_req: DualAuthRequest, res: express.Response) => {

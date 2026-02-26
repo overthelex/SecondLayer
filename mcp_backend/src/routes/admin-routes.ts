@@ -31,17 +31,14 @@ function getStringParam(param: string | string[] | undefined): string | null {
 
 export function createAdminRoutes(
   db: IDatabase,
-  prometheusUrl?: string,
-  pricingService?: PricingService,
-  subscriptionService?: SubscriptionService,
+  billingService: BillingService,
+  preferencesService: UserPreferencesService,
+  prometheus: PrometheusService,
+  pricing: PricingService,
+  subscriptions: SubscriptionService,
   configService?: ConfigService
 ): express.Router {
   const router = express.Router();
-  const billingService = new BillingService(db);
-  const preferencesService = new UserPreferencesService(db);
-  const prometheus = new PrometheusService(prometheusUrl);
-  const pricing = pricingService || new PricingService(db);
-  const subscriptions = subscriptionService || new SubscriptionService(db);
 
   /**
    * Middleware to verify admin access
