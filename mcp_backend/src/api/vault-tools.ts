@@ -649,7 +649,7 @@ Pipeline:
           : 'title';
 
       const query = `
-        SELECT id, type, title, metadata, created_at, updated_at
+        SELECT id, type, title, metadata, storage_type, mime_type, created_at, updated_at
         FROM documents
         WHERE ${whereClause}
         ORDER BY ${sortColumn} ${sortOrder.toUpperCase()}
@@ -665,10 +665,12 @@ Pipeline:
       const countResult = await this.documentService['db'].query(countQuery, params.slice(0, -2));
       const total = parseInt(countResult.rows[0].total, 10);
 
-      const documents: VaultDocument[] = result.rows.map((row: any) => ({
+      const documents = result.rows.map((row: any) => ({
         id: row.id,
         title: row.title || 'Untitled',
         type: row.type,
+        storage_type: row.storage_type || 'vault',
+        mime_type: row.mime_type || null,
         content: '', // Don't include full content in list
         metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata || {},
       }));

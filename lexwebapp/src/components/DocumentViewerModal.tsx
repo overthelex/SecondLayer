@@ -12,6 +12,8 @@ export interface DocumentViewerItem {
   content: string;
   relevance?: number;
   externalUrl?: string;
+  previewUrl?: string;
+  mimeType?: string;
 }
 
 interface DocumentViewerModalProps {
@@ -174,7 +176,7 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
                   </div>
                 </div>
 
-                {/* Content — Markdown rendered */}
+                {/* Content — binary preview or Markdown rendered */}
                 <div className="flex-1 overflow-y-auto px-6 py-5">
                   {errorMessage && (
                     <div className="flex items-start gap-3 p-3 mb-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[13px]">
@@ -185,7 +187,29 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
                   {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-16 text-claude-subtext">
                       <Loader2 size={28} className="animate-spin mb-3" strokeWidth={2} />
-                      <p className="text-[13px]">Завантаження повного тексту...</p>
+                      <p className="text-[13px]">Завантаження...</p>
+                    </div>
+                  ) : item.previewUrl && item.mimeType?.startsWith('image/') ? (
+                    <div className="flex items-center justify-center">
+                      <img
+                        src={item.previewUrl}
+                        alt={item.title}
+                        className="max-w-full max-h-[70vh] rounded-lg object-contain"
+                      />
+                    </div>
+                  ) : item.previewUrl && item.mimeType === 'application/pdf' ? (
+                    <iframe
+                      src={item.previewUrl}
+                      className="w-full h-[70vh] rounded-lg border border-claude-border"
+                      title={item.title}
+                    />
+                  ) : item.previewUrl && item.mimeType?.startsWith('video/') ? (
+                    <div className="flex items-center justify-center">
+                      <video
+                        src={item.previewUrl}
+                        controls
+                        className="max-w-full max-h-[70vh] rounded-lg"
+                      />
                     </div>
                   ) : (
                     <div className="prose prose-sm max-w-none prose-headings:text-claude-text prose-p:text-claude-text prose-p:leading-relaxed prose-a:text-blue-600 prose-strong:text-claude-text prose-code:text-[13px] prose-code:bg-claude-bg prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-claude-bg prose-pre:border prose-pre:border-claude-border prose-blockquote:border-claude-border prose-blockquote:text-claude-subtext">

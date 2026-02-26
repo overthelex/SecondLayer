@@ -11,7 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { VaultDocument } from './types';
-import { isEditable } from './types';
+import { isEditable, getFileExtension } from './types';
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   contract: 'Договір',
@@ -184,9 +184,19 @@ export function DocumentGrid({ documents, onDocumentClick, onView, onEdit, onDel
                 />
               </div>
             </div>
-            <h4 className="text-sm font-semibold text-claude-text mb-1 truncate font-sans">
-              {doc.title}
-            </h4>
+            <div className="flex items-center gap-1.5 mb-1">
+              <h4 className="text-sm font-semibold text-claude-text truncate font-sans">
+                {doc.title}
+              </h4>
+              {(() => {
+                const ext = getFileExtension(doc);
+                return ext ? (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-claude-subtext/8 text-claude-subtext/60 rounded font-mono flex-shrink-0 uppercase">
+                    {ext.replace('.', '')}
+                  </span>
+                ) : null;
+              })()}
+            </div>
             <div className="flex items-center gap-2">
               <p className="text-xs text-claude-subtext/50 font-sans">
                 {doc.metadata?.documentDate

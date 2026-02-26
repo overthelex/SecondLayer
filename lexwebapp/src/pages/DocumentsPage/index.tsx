@@ -26,6 +26,7 @@ import { DocumentViewerModal } from '../../components/DocumentViewerModal';
 import { ClassificationPanel } from './ClassificationPanel';
 import { DocumentStatsPanel } from './DocumentStatsPanel';
 import type { VaultDocument, DocType, ViewMode, SortField, SortOrder, DocumentStats } from './types';
+import { isPreviewableBinary } from './types';
 
 const DOC_TYPE_LABELS: Record<DocType, string> = {
   contract: 'Договір',
@@ -117,6 +118,8 @@ export function DocumentsPage() {
     subtitle?: string;
     badge?: string;
     content: string;
+    previewUrl?: string;
+    mimeType?: string;
   } | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -406,6 +409,48 @@ export function DocumentsPage() {
 
   // Document preview
   const handleDocumentClick = async (doc: VaultDocument) => {
+    const mimeType = doc.metadata?.mimeType || doc.mime_type;
+
+    // For binary previewable files (images, PDFs, videos), fetch presigned URL
+    if (isPreviewableBinary(mimeType)) {
+      setPreviewLoading(true);
+      setPreviewOpen(true);
+      try {
+        const resp = await api.documents.getPreviewUrl(doc.id);
+        const { previewUrl, mimeType: serverMime } = resp.data;
+        const badge = DOC_TYPE_LABELS[doc.type] || doc.type;
+
+        if (previewUrl) {
+          setPreviewDoc({
+            type: 'document',
+            title: doc.title,
+            subtitle: doc.metadata?.uploadedAt ? `Завантажено: ${new Date(doc.metadata.uploadedAt).toLocaleDateString('uk-UA')}` : undefined,
+            badge,
+            content: '',
+            previewUrl,
+            mimeType: serverMime || mimeType,
+          });
+        } else {
+          // Fallback to text content if no preview URL
+          setPreviewDoc({
+            type: 'document',
+            title: doc.title,
+            subtitle: doc.metadata?.uploadedAt ? `Завантажено: ${new Date(doc.metadata.uploadedAt).toLocaleDateString('uk-UA')}` : undefined,
+            badge,
+            content: 'Попередній перегляд недоступний для цього файлу.',
+          });
+        }
+      } catch (err: any) {
+        console.error('Failed to fetch preview URL:', err);
+        toast.error('Не вдалося завантажити попередній перегляд');
+        setPreviewOpen(false);
+      } finally {
+        setPreviewLoading(false);
+      }
+      return;
+    }
+
+    // For text/document files, load full text via MCP tool
     setPreviewLoading(true);
     setPreviewOpen(true);
     try {
