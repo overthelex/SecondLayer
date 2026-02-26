@@ -2930,9 +2930,7 @@ export function createAdminRoutes(
         return res.status(400).json({ error: 'thresholds must be an array' });
       }
 
-      const client = await (db as any).pool.connect();
-      try {
-        await client.query('BEGIN');
+      await db.transaction(async (client) => {
         await client.query('DELETE FROM volume_discount_thresholds');
         for (const t of thresholds) {
           await client.query(
@@ -2940,13 +2938,7 @@ export function createAdminRoutes(
             [t.min_monthly_spend_usd, t.discount_percentage]
           );
         }
-        await client.query('COMMIT');
-      } catch (e) {
-        await client.query('ROLLBACK');
-        throw e;
-      } finally {
-        client.release();
-      }
+      });
 
       await logAdminAction(
         (req as any).user.id,
