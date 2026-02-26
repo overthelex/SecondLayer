@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { mcpService } from '../../services';
 import { useUploadStore } from '../../stores/uploadStore';
-import toast from 'react-hot-toast';
+import { showToast } from '../../utils/toast';
 import { api } from '../../utils/api-client';
 import { FolderNavigator } from './FolderNavigator';
 import { UploadQueuePanel } from './UploadQueuePanel';
@@ -354,7 +354,7 @@ export function DocumentsPage() {
   // Upload actions
   const handleStartUpload = () => {
     startUpload();
-    toast.success(`Завантаження ${uploadItems.filter((i) => i.status === 'queued').length} файлів розпочато`);
+    showToast.success(`Завантаження ${uploadItems.filter((i) => i.status === 'queued').length} файлів розпочато`);
   };
 
   // Search
@@ -385,7 +385,7 @@ export function DocumentsPage() {
       setTotalDocs(docs.length);
     } catch (err: any) {
       console.error('Search failed:', err);
-      toast.error('Помилка пошуку');
+      showToast.error('Помилка пошуку');
     } finally {
       setLoading(false);
     }
@@ -442,7 +442,7 @@ export function DocumentsPage() {
         }
       } catch (err: any) {
         console.error('Failed to fetch preview URL:', err);
-        toast.error('Не вдалося завантажити попередній перегляд');
+        showToast.error('Не вдалося завантажити попередній перегляд');
         setPreviewOpen(false);
       } finally {
         setPreviewLoading(false);
@@ -471,7 +471,7 @@ export function DocumentsPage() {
       });
     } catch (err: any) {
       console.error('Failed to fetch document:', err);
-      toast.error('Не вдалося завантажити документ');
+      showToast.error('Не вдалося завантажити документ');
       setPreviewOpen(false);
     } finally {
       setPreviewLoading(false);
@@ -484,7 +484,7 @@ export function DocumentsPage() {
     setDeleting(true);
     try {
       await api.documents.delete(deleteTarget.id);
-      toast.success('Документ видалено');
+      showToast.success('Документ видалено');
       setDeleteTarget(null);
       loadDocuments();
       loadFolders(currentFolderPath);
@@ -506,7 +506,7 @@ export function DocumentsPage() {
       setEditText(data.full_text || data.content || '');
     } catch (err: any) {
       console.error('Failed to fetch document for editing:', err);
-      toast.error('Не вдалося завантажити документ');
+      showToast.error('Не вдалося завантажити документ');
       setEditTarget(null);
     } finally {
       setEditLoading(false);
@@ -519,7 +519,7 @@ export function DocumentsPage() {
     setEditSaving(true);
     try {
       await api.documents.update(editTarget.id, { full_text: editText });
-      toast.success('Документ збережено');
+      showToast.success('Документ збережено');
       setEditTarget(null);
       loadDocuments();
     } catch (err: any) {
