@@ -14,10 +14,16 @@ import { EmailService } from '../services/email-service.js';
 import type { ICachePort } from '../domain/ports/index.js';
 
 let authCache: ICachePort | null = null;
+let authEmailService: EmailService | null = null;
 
 /** Set the cache port for WebAuthn challenge storage. Call from composition root. */
 export function setAuthCache(cache: ICachePort): void {
   authCache = cache;
+}
+
+/** Set the email service for auth-related emails. Call from composition root. */
+export function setAuthEmailService(svc: EmailService): void {
+  authEmailService = svc;
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
@@ -486,8 +492,9 @@ export async function registerWithPassword(req: Request, res: Response): Promise
     // Create verification token and send email
     const verificationToken = await userService.createVerificationToken(user.id);
 
-    const emailService = new EmailService();
-    await emailService.sendVerificationEmail(email, verificationToken);
+    if (authEmailService) {
+      await authEmailService.sendVerificationEmail(email, verificationToken);
+    }
 
     logger.info('User registered', { userId: user.id, email });
 
@@ -568,9 +575,8 @@ export async function forgotPassword(req: Request, res: Response): Promise<Respo
     const token = await userService.createPasswordResetToken(email);
 
     // Always return success even if user doesn't exist (security best practice)
-    if (token) {
-      const emailService = new EmailService();
-      await emailService.sendPasswordResetEmail(email, token);
+    if (token && authEmailService) {
+      await authEmailService.sendPasswordResetEmail(email, token);
       logger.info('Password reset requested', { email });
     }
 

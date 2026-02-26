@@ -1,5 +1,5 @@
 import type { ICachePort } from '../domain/ports/index.js';
-import { LegislationService, parseLegislationReference, parseLegislationReferenceWithAI, normalizeRadaId } from '../services/legislation-service';
+import { LegislationService, normalizeRadaId } from '../services/legislation-service';
 import { LegislationRenderer } from '../services/legislation-renderer';
 import { logger } from '../utils/logger';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
