@@ -76,8 +76,8 @@ export interface EmailPreferences {
 export class BillingService {
   private pricingService: PricingService;
 
-  constructor(private db: IDatabase) {
-    this.pricingService = new PricingService(db);
+  constructor(private db: IDatabase, pricingService?: PricingService) {
+    this.pricingService = pricingService || new PricingService(db);
   }
 
   /**
