@@ -645,17 +645,20 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
 
   {
     id: 'document_semantic_search',
-    label: 'Семантичний пошук по документах',
+    label: 'Пошук по документах користувача',
     domains: ['documents'],
     exampleQueries: [
       'Що написано в завантаженому договорі про відповідальність?',
       'Знайди в моїх документах інформацію про гарантійний строк',
+      'Документи зі словом "оренда" в назві',
     ],
     dataSources: [
+      { name: 'PostgreSQL', provides: 'повнотекстовий пошук по назві та змісту документів (list_documents з query)' },
       { name: 'Qdrant', provides: 'векторний пошук по завантажених документах' },
     ],
     toolChain: [
-      { tool: 'semantic_search', purpose: 'семантичний пошук по документах користувача' },
+      { tool: 'list_documents', purpose: 'текстовий пошук за ключовими словами (query параметр) — для точних збігів, назв, ключових слів', optional: true },
+      { tool: 'semantic_search', purpose: 'семантичний пошук за змістом — для пошуку за значенням, коли ключові слова невідомі' },
     ],
     responseTemplate: [
       { heading: 'Знайдені документи', instruction: 'назви документів' },
@@ -682,6 +685,26 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
     responseTemplate: [
       { heading: 'Статус збереження', instruction: 'успішно / помилка' },
       { heading: 'ID документа', instruction: 'ідентифікатор збереженого документа' },
+    ],
+  },
+
+  {
+    id: 'document_list',
+    label: 'Список документів користувача',
+    domains: ['documents'],
+    exampleQueries: [
+      'Які документи я завантажив?',
+      'Покажи мої файли у VAULT',
+      'Знайди документ з назвою "договір оренди"',
+    ],
+    dataSources: [
+      { name: 'PostgreSQL', provides: 'список завантажених документів з повнотекстовим пошуком' },
+    ],
+    toolChain: [
+      { tool: 'list_documents', purpose: 'отримати список документів (використовуй query для пошуку за ключовими словами у назві/тексті)' },
+    ],
+    responseTemplate: [
+      { heading: 'Документи', instruction: 'список документів з датами' },
     ],
   },
 
