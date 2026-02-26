@@ -1182,6 +1182,37 @@ class HTTPMCPServer {
       }
     }) as any);
 
+    // Document preview endpoint - returns presigned MinIO URL for binary files
+    this.app.get('/api/documents/:id/preview', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const { id } = req.params;
+
+        const result = await this.services.db.query(
+          'SELECT storage_type, storage_path, mime_type, metadata FROM documents WHERE id = $1 AND user_id = $2',
+          [id, userId]
+        );
+
+        if (result.rows.length === 0) {
+          res.status(404).json({ error: 'Document not found' });
+          return;
+        }
+
+        const doc = result.rows[0];
+
+        if (doc.storage_type === 'minio' && doc.metadata?.minioKey) {
+          const url = await this.minioService.getFileUrl(userId, doc.metadata.minioKey, 3600);
+          res.json({ previewUrl: url, mimeType: doc.mime_type, storageType: 'minio' });
+        } else {
+          // Vault document — no binary preview, content is text
+          res.json({ previewUrl: null, mimeType: doc.mime_type, storageType: doc.storage_type || 'vault' });
+        }
+      } catch (error: any) {
+        logger.error('Failed to get document preview', { error: error.message });
+        res.status(500).json({ error: 'Failed to get preview', message: error.message });
+      }
+    }) as any);
+
     // REST API for admin panel (CRUD operations) - require JWT (user login)
     this.app.use('/api/documents', requireJWT as any, createRestAPIRouter(this.services.db));
     this.app.use('/api/patterns', requireJWT as any, createRestAPIRouter(this.services.db));

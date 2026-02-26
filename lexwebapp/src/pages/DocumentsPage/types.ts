@@ -2,6 +2,8 @@ export interface VaultDocument {
   id: string;
   title: string;
   type: 'contract' | 'legislation' | 'court_decision' | 'internal' | 'other';
+  storage_type?: 'vault' | 'minio';
+  mime_type?: string;
   metadata: {
     uploadedAt: string;
     uploadedBy?: string;
@@ -18,6 +20,8 @@ export interface VaultDocument {
     classificationStatus?: 'classified' | 'needs_review' | 'pending';
     classificationConfidence?: number;
     classifiedAt?: string;
+    originalFilename?: string;
+    minioKey?: string;
   };
 }
 
@@ -49,6 +53,47 @@ export type DocType = 'contract' | 'legislation' | 'court_decision' | 'internal'
 export type ViewMode = 'grid' | 'list';
 export type SortField = 'uploadedAt' | 'title' | 'type';
 export type SortOrder = 'asc' | 'desc';
+
+/**
+ * Get file extension from original filename or mime type.
+ */
+export function getFileExtension(doc: VaultDocument): string {
+  // Try original filename first
+  const filename = doc.metadata?.originalFilename;
+  if (filename) {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (ext && ext !== filename.toLowerCase()) return `.${ext}`;
+  }
+  // Fallback to mime type mapping
+  const mime = doc.metadata?.mimeType || doc.mime_type;
+  if (!mime) return '';
+  const mimeMap: Record<string, string> = {
+    'application/pdf': '.pdf',
+    'application/msword': '.doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'text/html': '.html',
+    'text/plain': '.txt',
+    'application/rtf': '.rtf',
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/bmp': '.bmp',
+    'video/mp4': '.mp4',
+    'video/quicktime': '.mov',
+    'text/csv': '.csv',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+    'application/vnd.ms-excel': '.xls',
+  };
+  return mimeMap[mime] || '';
+}
+
+/**
+ * Check if document is a previewable binary file (image, PDF, video).
+ */
+export function isPreviewableBinary(mimeType?: string): boolean {
+  if (!mimeType) return false;
+  return mimeType.startsWith('image/') || mimeType === 'application/pdf' || mimeType.startsWith('video/');
+}
 
 const EDITABLE_MIME_TYPES = new Set([
   'text/plain',

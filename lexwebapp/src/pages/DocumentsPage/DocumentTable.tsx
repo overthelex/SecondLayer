@@ -14,7 +14,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import type { VaultDocument, SortField, SortOrder } from './types';
-import { isEditable } from './types';
+import { isEditable, getFileExtension } from './types';
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   contract: 'Договір',
@@ -215,6 +215,7 @@ export function DocumentTable({ documents, sortBy, sortOrder, onSort, onDocument
           <tbody className="divide-y divide-claude-border/30">
             {documents.map((doc, index) => {
               const Icon = getFileIcon(doc.metadata?.mimeType);
+              const ext = getFileExtension(doc);
               return (
                 <motion.tr
                   key={doc.id}
@@ -233,6 +234,11 @@ export function DocumentTable({ documents, sortBy, sortOrder, onSort, onDocument
                       <span className="text-sm font-medium text-claude-text truncate max-w-[300px] font-sans">
                         {doc.title}
                       </span>
+                      {ext && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-claude-subtext/8 text-claude-subtext/60 rounded font-mono flex-shrink-0 uppercase">
+                          {ext.replace('.', '')}
+                        </span>
+                      )}
                       {doc.metadata?.classificationStatus === 'needs_review' && (
                         <span className="flex-shrink-0" title="Потребує уваги — не вдалося класифікувати">
                           <AlertTriangle size={12} className="text-amber-500" />
