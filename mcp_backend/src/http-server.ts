@@ -1213,6 +1213,40 @@ class HTTPMCPServer {
       }
     }) as any);
 
+    // Move document to different folder - updates metadata.folderPath via jsonb_set
+    this.app.post('/api/documents/:id/move', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const { id } = req.params;
+        const { folderPath } = req.body;
+
+        if (folderPath === undefined) {
+          res.status(400).json({ error: 'folderPath is required' });
+          return;
+        }
+
+        const sanitized = typeof folderPath === 'string' ? folderPath : '';
+        const result = await this.services.db.query(
+          `UPDATE documents
+           SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{folderPath}', $3::jsonb),
+               updated_at = NOW()
+           WHERE id = $1 AND user_id = $2
+           RETURNING id, title, metadata`,
+          [id, userId, JSON.stringify(sanitized)]
+        );
+
+        if (result.rows.length === 0) {
+          res.status(404).json({ error: 'Document not found' });
+          return;
+        }
+
+        res.json(result.rows[0]);
+      } catch (error: any) {
+        logger.error('Failed to move document', { error: error.message });
+        res.status(500).json({ error: 'Failed to move document', message: error.message });
+      }
+    }) as any);
+
     // REST API for admin panel (CRUD operations) - require JWT (user login)
     this.app.use('/api/documents', requireJWT as any, createRestAPIRouter(this.services.db));
     this.app.use('/api/patterns', requireJWT as any, createRestAPIRouter(this.services.db));

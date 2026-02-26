@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, ExternalLink, Gavel, BookOpen, FileText, Copy, Check, Download, Loader2, AlertTriangle } from 'lucide-react';
+import { X, ExternalLink, Gavel, BookOpen, FileText, Copy, Check, Download, Loader2, AlertTriangle, Save } from 'lucide-react';
 
 export interface DocumentViewerItem {
   type: 'decision' | 'citation' | 'document';
@@ -14,6 +14,10 @@ export interface DocumentViewerItem {
   externalUrl?: string;
   previewUrl?: string;
   mimeType?: string;
+  /** OCR-extracted text for image documents */
+  ocrText?: string;
+  /** Document ID for saving edits */
+  documentId?: string;
 }
 
 interface DocumentViewerModalProps {
@@ -22,6 +26,7 @@ interface DocumentViewerModalProps {
   item: DocumentViewerItem | null;
   isLoading?: boolean;
   errorMessage?: string | null;
+  onSaveOcrText?: (documentId: string, text: string) => Promise<void>;
 }
 
 const typeIcons = {
@@ -30,8 +35,33 @@ const typeIcons = {
   document: FileText,
 };
 
-export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMessage }: DocumentViewerModalProps) {
+export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMessage, onSaveOcrText }: DocumentViewerModalProps) {
   const [copied, setCopied] = React.useState(false);
+  const [editedOcrText, setEditedOcrText] = React.useState('');
+  const [ocrSaving, setOcrSaving] = React.useState(false);
+  const [ocrSaved, setOcrSaved] = React.useState(false);
+
+  const isImageWithOcr = item?.previewUrl && item?.mimeType?.startsWith('image/') && item?.ocrText !== undefined;
+
+  // Sync edited text when item changes
+  React.useEffect(() => {
+    if (item?.ocrText !== undefined) {
+      setEditedOcrText(item.ocrText);
+      setOcrSaved(false);
+    }
+  }, [item?.ocrText]);
+
+  const handleSaveOcr = async () => {
+    if (!item?.documentId || !onSaveOcrText) return;
+    setOcrSaving(true);
+    try {
+      await onSaveOcrText(item.documentId, editedOcrText);
+      setOcrSaved(true);
+      setTimeout(() => setOcrSaved(false), 2000);
+    } finally {
+      setOcrSaving(false);
+    }
+  };
 
   React.useEffect(() => {
     if (isOpen) {
@@ -92,7 +122,7 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
+                className={`bg-white rounded-xl shadow-2xl w-full max-h-[85vh] flex flex-col ${isImageWithOcr ? 'max-w-6xl' : 'max-w-3xl'}`}
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Header */}
@@ -188,6 +218,47 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
                     <div className="flex flex-col items-center justify-center py-16 text-claude-subtext">
                       <Loader2 size={28} className="animate-spin mb-3" strokeWidth={2} />
                       <p className="text-[13px]">Завантаження...</p>
+                    </div>
+                  ) : isImageWithOcr ? (
+                    <div className="flex gap-4 h-[70vh]">
+                      {/* Left: Image preview */}
+                      <div className="flex-1 min-w-0 flex items-center justify-center bg-claude-bg/50 rounded-lg overflow-hidden">
+                        <img
+                          src={item.previewUrl}
+                          alt={item.title}
+                          className="max-w-full max-h-full rounded-lg object-contain"
+                        />
+                      </div>
+                      {/* Right: Editable OCR text */}
+                      <div className="flex-1 min-w-0 flex flex-col">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-claude-subtext uppercase tracking-wide">
+                            Розпізнаний текст
+                          </span>
+                          {onSaveOcrText && item.documentId && (
+                            <button
+                              onClick={handleSaveOcr}
+                              disabled={ocrSaving || editedOcrText === item.ocrText}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all disabled:opacity-40 bg-claude-text text-white hover:bg-claude-text/90 disabled:hover:bg-claude-text"
+                            >
+                              {ocrSaving ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : ocrSaved ? (
+                                <Check size={12} />
+                              ) : (
+                                <Save size={12} />
+                              )}
+                              {ocrSaved ? 'Збережено' : 'Зберегти'}
+                            </button>
+                          )}
+                        </div>
+                        <textarea
+                          value={editedOcrText}
+                          onChange={(e) => setEditedOcrText(e.target.value)}
+                          className="flex-1 w-full p-3 border border-claude-border rounded-lg text-sm text-claude-text font-mono resize-none focus:outline-none focus:border-claude-subtext/40 transition-colors leading-relaxed"
+                          placeholder="Текст не розпізнано"
+                        />
+                      </div>
                     </div>
                   ) : item.previewUrl && item.mimeType?.startsWith('image/') ? (
                     <div className="flex items-center justify-center">

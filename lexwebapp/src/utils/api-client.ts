@@ -213,6 +213,8 @@ export const api = {
     delete: (id: string) => apiClient.delete(`/api/documents/${id}`),
     update: (id: string, data: { full_text?: string; title?: string; type?: string }) =>
       apiClient.patch(`/api/documents/${id}`, data),
+    move: (id: string, folderPath: string) =>
+      apiClient.post(`/api/documents/${id}/move`, { folderPath }),
     getStats: () => apiClient.get('/api/documents/stats'),
     getPreviewUrl: (id: string) => apiClient.get(`/api/documents/${id}/preview`),
     startClassification: (params: { concurrency?: number; documentIds?: string[] }) =>
