@@ -11,6 +11,7 @@ import {
   Eye,
   Pencil,
   Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import type { VaultDocument, SortField, SortOrder } from './types';
 import { isEditable } from './types';
@@ -224,7 +225,7 @@ export function DocumentTable({ documents, sortBy, sortOrder, onSort, onDocument
                   onClick={() => onDocumentClick(doc)}
                 >
                   <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <Icon
                         size={16}
                         className="text-claude-subtext/40 flex-shrink-0"
@@ -232,6 +233,11 @@ export function DocumentTable({ documents, sortBy, sortOrder, onSort, onDocument
                       <span className="text-sm font-medium text-claude-text truncate max-w-[300px] font-sans">
                         {doc.title}
                       </span>
+                      {doc.metadata?.classificationStatus === 'needs_review' && (
+                        <span className="flex-shrink-0" title="Потребує уваги — не вдалося класифікувати">
+                          <AlertTriangle size={12} className="text-amber-500" />
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-5 py-3">

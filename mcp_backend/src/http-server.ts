@@ -102,6 +102,8 @@ import { WebAuthnService } from './services/webauthn-service.js';
 import { setRateLimitCache } from './middleware/rate-limit.js';
 import { setUploadRateLimitCache } from './middleware/upload-rate-limit.js';
 import { ConfigService } from './services/config-service.js';
+import { DocumentClassificationService } from './services/document-classification-service.js';
+import { createClassificationRoutes } from './routes/classification-routes.js';
 
 dotenv.config();
 
@@ -146,6 +148,7 @@ class HTTPMCPServer {
   private chatService: ChatService;
   private chatSearchCache: ChatSearchCacheService;
   private configService: ConfigService;
+  private classificationService: DocumentClassificationService;
 
   constructor() {
     this.app = express();
@@ -308,6 +311,13 @@ class HTTPMCPServer {
 
     // Initialize config service
     this.configService = new ConfigService(this.services.db);
+
+    // Initialize document classification service
+    this.classificationService = new DocumentClassificationService(
+      this.services.db,
+      llmAdapter,
+      this.costTracker
+    );
 
     // Initialize BullMQ upload queue service
     this.uploadQueueService = new UploadQueueService(
@@ -1145,6 +1155,19 @@ class HTTPMCPServer {
     // OAuth 2.0 routes for ChatGPT integration (public)
     this.app.use('/oauth', createOAuthRouter(this.oauthService));
     logger.info('OAuth 2.0 routes registered at /oauth');
+
+    // Document classification & stats endpoints - must come before /api/documents generic REST route
+    this.app.use('/api/documents/classify', requireJWT as any, createClassificationRoutes(this.classificationService));
+    this.app.get('/api/documents/stats', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const stats = await this.classificationService.getUserDocumentStats(userId);
+        res.json(stats);
+      } catch (error: any) {
+        logger.error('Failed to get document stats', { error: error.message });
+        res.status(500).json({ error: 'Failed to get stats', message: error.message });
+      }
+    }) as any);
 
     // Document folders endpoint - must come before /api/documents generic REST route
     this.app.get('/api/documents/folders', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
