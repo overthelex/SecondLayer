@@ -7,7 +7,7 @@ import { logger } from './utils/logger.js';
 import { dualAuth, requireJWT, optionalJWT, initializeDualAuth, initializeWebAuthn, AuthenticatedRequest as DualAuthRequest } from './middleware/dual-auth.js';
 import { configurePassport } from './config/passport.js';
 import authRouter from './routes/auth.js';
-import { setAuthCache } from './controllers/auth.js';
+import { setAuthCache, setAuthEmailService } from './controllers/auth.js';
 import { createBackendCoreServices, BackendCoreServices } from './factories/core-services.js';
 import { DocumentAnalysisTools } from './api/document-analysis-tools.js';
 import { BatchDocumentTools } from './api/batch-document-tools.js';
@@ -375,6 +375,7 @@ class HTTPMCPServer {
     this.emailService.setPreferenceFetcher((userId: string) =>
       this.billingService.getEmailPreferences(userId)
     );
+    setAuthEmailService(this.emailService);
 
     // Use mock services if MOCK_PAYMENTS=true or keys not configured
     const mockPaymentsEnabled = process.env.MOCK_PAYMENTS === 'true';
