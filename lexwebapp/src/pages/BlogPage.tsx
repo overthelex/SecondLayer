@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -714,10 +714,25 @@ AI не вирішує, яку стратегію обрати. Він дає ю
 
 export function BlogPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [copied, setCopied] = useState(false);
   const [filter, setFilter] = useState<'all' | 'tech' | 'legal'>('all');
+
+  // Auto-open article from ?article= query param (used after login redirect)
+  useEffect(() => {
+    const articleId = searchParams.get('article');
+    if (articleId && !selectedArticle) {
+      const found = articles.find((a) => a.id === articleId);
+      if (found) {
+        setSelectedArticle(found);
+        // Clean the query param from URL
+        searchParams.delete('article');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [searchParams]);
 
   // Comments state
   const [comments, setComments] = useState<BlogComment[]>([]);
@@ -1093,7 +1108,7 @@ export function BlogPage() {
                     </div>
                   ) : (
                     <a
-                      href="/login"
+                      href={`/login?returnUrl=${encodeURIComponent('/blog?article=' + selectedArticle.id)}`}
                       className="flex items-center justify-center gap-2 mb-6 px-4 py-3 bg-claude-bg border border-claude-border rounded-xl text-sm text-claude-subtext hover:text-claude-text hover:border-claude-accent/30 transition-all font-sans"
                     >
                       <LogIn size={16} />

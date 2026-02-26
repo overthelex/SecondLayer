@@ -64,6 +64,25 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
+  // Determine post-login redirect: returnUrl param → sessionStorage → /chat
+  const getReturnUrl = (): string => {
+    const saved = sessionStorage.getItem('login_return_url');
+    if (saved) {
+      sessionStorage.removeItem('login_return_url');
+      return saved;
+    }
+    return '/chat';
+  };
+
+  // Save returnUrl from query params to sessionStorage (survives OAuth redirect)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const returnUrl = urlParams.get('returnUrl');
+    if (returnUrl) {
+      sessionStorage.setItem('login_return_url', returnUrl);
+    }
+  }, []);
+
   // Handle OAuth callback on mount
   useEffect(() => {
     const handleOAuthCallback = async () => {
@@ -105,8 +124,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             onLoginSuccess();
           }
 
-          // Navigate to chat after successful login
-          navigate('/chat', { replace: true });
+          // Navigate to return URL or chat after successful login
+          navigate(getReturnUrl(), { replace: true });
         } catch (err: any) {
           console.error('Login failed:', err);
           setError('Не вдалося завершити вхід. Спробуйте ще раз.');
@@ -126,7 +145,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       if (onLoginSuccess) {
         onLoginSuccess();
       }
-      navigate('/chat', { replace: true });
+      navigate(getReturnUrl(), { replace: true });
     }
   }, [isAuthenticated, isLoading, onLoginSuccess, navigate]);
 
@@ -176,7 +195,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           onLoginSuccess();
         }
 
-        navigate('/chat', { replace: true });
+        navigate(getReturnUrl(), { replace: true });
       } catch (err: any) {
         console.error('Password login failed:', err);
         setError(err.message || 'Login failed. Please check your credentials.');
