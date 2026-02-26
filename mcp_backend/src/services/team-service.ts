@@ -3,7 +3,8 @@
  * Manages team operations including members, invitations, roles, and permissions
  */
 
-import { BaseDatabase, logger } from '@secondlayer/shared';
+import { logger } from '@secondlayer/shared';
+import type { IDatabase } from '../domain/ports/index.js';
 
 export interface TeamMember {
   id: string;
@@ -35,7 +36,7 @@ export interface Organization {
 }
 
 export class TeamService {
-  constructor(private db: BaseDatabase) {}
+  constructor(private db: IDatabase) {}
 
   /**
    * Get user's organization (as owner)
@@ -425,6 +426,6 @@ export class TeamService {
 /**
  * Factory function to create TeamService instance
  */
-export function createTeamService(db: BaseDatabase): TeamService {
+export function createTeamService(db: IDatabase): TeamService {
   return new TeamService(db);
 }

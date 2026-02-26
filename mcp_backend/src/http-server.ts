@@ -44,6 +44,7 @@ import { ApiKeyService } from './services/api-key-service.js';
 import { CreditService } from './services/credit-service.js';
 import { createApiKeyRouter } from './routes/api-key-routes.js';
 import { getRedisClient } from './utils/redis-client.js';
+import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
 import { createTemplateRoutes } from './routes/template-routes.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
@@ -2520,7 +2521,8 @@ class HTTPMCPServer {
       // Initialize Redis for AI-powered legislation classification (optional)
       const redis = await getRedisClient();
       if (redis) {
-        this.services.legislationTools.setRedisClient(redis);
+        const cache = new CacheAdapter(redis);
+        this.services.legislationTools.setRedisClient(cache);
         logger.info('Redis connected - AI legislation classification with caching enabled');
       } else {
         logger.info('Redis not available - AI legislation classification will work without caching');
