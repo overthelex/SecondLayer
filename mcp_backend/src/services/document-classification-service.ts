@@ -269,7 +269,7 @@ export class DocumentClassificationService {
             },
           ],
           temperature: 0.1,
-          max_tokens: 1000,
+          max_tokens: 4096,
           response_format: { type: 'json_object' },
         },
         'quick'
