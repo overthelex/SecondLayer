@@ -15,7 +15,8 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  User } from
+  User,
+  BookOpen } from
 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { useAuth } from '../contexts/AuthContext';
@@ -822,6 +823,22 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             />
           </motion.a>
         </div>
+
+        {/* Blog Link */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="text-center mt-5"
+        >
+          <a
+            href="/blog"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-claude-border hover:border-claude-accent/30 hover:bg-white rounded-xl text-sm text-claude-subtext hover:text-claude-text transition-all font-sans"
+          >
+            <BookOpen size={15} className="text-claude-accent" />
+            <span>Blog — як ми будуємо LEX AI</span>
+          </a>
+        </motion.div>
 
         {/* Footer */}
         <motion.div

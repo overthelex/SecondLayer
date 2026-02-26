@@ -49,6 +49,9 @@ export const ROUTES = {
   // Public Offer
   OFFER: '/:lang/offer',
 
+  // Blog
+  BLOG: '/blog',
+
   // Country-specific public pages
   US_DATA_SOURCES: '/us/data-sources',
   UK_DATA_SOURCES: '/uk/data-sources',
