@@ -222,6 +222,7 @@ export const api = {
     update: (id: string, data: { full_text?: string; title?: string; type?: string }) =>
       apiClient.patch(`/api/documents/${id}`, data),
     getStats: () => apiClient.get('/api/documents/stats'),
+    getPreviewUrl: (id: string) => apiClient.get(`/api/documents/${id}/preview`),
     startClassification: (params: { concurrency?: number; documentIds?: string[] }) =>
       apiClient.post('/api/documents/classify', params),
     getClassificationJob: (jobId: string) =>

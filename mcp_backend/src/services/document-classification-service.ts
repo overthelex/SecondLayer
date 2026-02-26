@@ -8,6 +8,7 @@ export interface ClassificationResult {
   type: string;
   tags: string[];
   documentSubtype: string | null;
+  suggestedTitle: string | null;
   confidence: number;
   status: 'classified' | 'needs_review' | 'failed';
   error?: string;
@@ -29,7 +30,7 @@ export interface ClassificationJobStatus {
 
 const VALID_TYPES = ['contract', 'legislation', 'court_decision', 'internal', 'other'] as const;
 
-const CLASSIFICATION_PROMPT = `Ти — юридичний класифікатор документів. Проаналізуй наданий фрагмент тексту документа і визначи його тип та теги.
+const CLASSIFICATION_PROMPT = `Ти — юридичний класифікатор документів. Проаналізуй наданий фрагмент тексту документа і визначи його тип, теги та запропонуй коротку описову назву.
 
 Доступні типи документів:
 - "contract" — договори, угоди, контракти, додаткові угоди
@@ -43,10 +44,11 @@ const CLASSIFICATION_PROMPT = `Ти — юридичний класифікат�
   "type": "один з: contract, legislation, court_decision, internal, other",
   "tags": ["до 5 тегів українською що описують зміст документа"],
   "documentSubtype": "конкретний підтип (наприклад: договір оренди, позовна заява, ухвала, наказ тощо) або null",
+  "suggestedTitle": "коротка описова назва документа українською (5-10 слів, без лапок), наприклад: Договір оренди нежитлового приміщення №12, Ухвала про відкриття провадження, Наказ про прийняття на роботу",
   "confidence": 0.0-1.0
 }
 
-Якщо текст занадто короткий, нечитабельний або не вдається визначити тип — встанови type="other" і confidence < 0.3.
+Якщо текст занадто короткий, нечитабельний або не вдається визначити тип — встанови type="other" і confidence < 0.3, а suggestedTitle = null.
 Відповідай ТІЛЬКИ валідним JSON без markdown.`;
 
 // Max chars to send to LLM for classification
@@ -179,6 +181,7 @@ export class DocumentClassificationService {
           type: 'other',
           tags: [],
           documentSubtype: null,
+          suggestedTitle: null,
           confidence: 0,
           status: 'failed',
           error: err.message,
@@ -229,6 +232,7 @@ export class DocumentClassificationService {
         type: 'other',
         tags: [],
         documentSubtype: null,
+        suggestedTitle: null,
         confidence: 0,
         classificationStatus: 'needs_review',
       });
@@ -238,6 +242,7 @@ export class DocumentClassificationService {
         type: 'other',
         tags: [],
         documentSubtype: null,
+        suggestedTitle: null,
         confidence: 0,
         status: 'needs_review',
         error: 'Text too short for classification',
@@ -264,7 +269,7 @@ export class DocumentClassificationService {
             },
           ],
           temperature: 0.1,
-          max_tokens: 300,
+          max_tokens: 4096,
           response_format: { type: 'json_object' },
         },
         'quick'
@@ -280,17 +285,21 @@ export class DocumentClassificationService {
       const classifiedType = VALID_TYPES.includes(parsed.type) ? parsed.type : 'other';
       const tags = Array.isArray(parsed.tags) ? parsed.tags.slice(0, 5) : [];
       const documentSubtype = parsed.documentSubtype || null;
+      const suggestedTitle = (typeof parsed.suggestedTitle === 'string' && parsed.suggestedTitle.trim())
+        ? parsed.suggestedTitle.trim()
+        : null;
       const confidence = typeof parsed.confidence === 'number'
         ? Math.min(1, Math.max(0, parsed.confidence))
         : 0.5;
 
       const status: 'classified' | 'needs_review' = confidence >= 0.3 ? 'classified' : 'needs_review';
 
-      // Update document in DB
+      // Update document in DB (including title if LLM suggested one with high confidence)
       await this.updateDocumentClassification(doc.id, userId, {
         type: classifiedType,
         tags,
         documentSubtype,
+        suggestedTitle: (suggestedTitle && confidence >= 0.5) ? suggestedTitle : null,
         confidence,
         classificationStatus: status,
       });
@@ -328,6 +337,7 @@ export class DocumentClassificationService {
         type: classifiedType,
         tags,
         documentSubtype,
+        suggestedTitle,
         confidence,
         status,
       };
@@ -344,6 +354,7 @@ export class DocumentClassificationService {
         type: doc.type || 'other',
         tags: [],
         documentSubtype: null,
+        suggestedTitle: null,
         confidence: 0,
         classificationStatus: 'needs_review',
       });
@@ -353,6 +364,7 @@ export class DocumentClassificationService {
         type: doc.type || 'other',
         tags: [],
         documentSubtype: null,
+        suggestedTitle: null,
         confidence: 0,
         status: 'failed',
         error: err.message,
@@ -367,10 +379,27 @@ export class DocumentClassificationService {
       type: string;
       tags: string[];
       documentSubtype: string | null;
+      suggestedTitle: string | null;
       confidence: number;
       classificationStatus: string;
     }
   ): Promise<void> {
+    // Build title update clause: only update if suggestedTitle is provided
+    const titleClause = data.suggestedTitle ? ', title = $9' : '';
+    const params: any[] = [
+      data.type,
+      JSON.stringify(data.tags),
+      data.documentSubtype,
+      data.confidence,
+      data.classificationStatus,
+      new Date().toISOString(),
+      docId,
+      userId,
+    ];
+    if (data.suggestedTitle) {
+      params.push(data.suggestedTitle);
+    }
+
     await this.db.query(
       `UPDATE documents
        SET type = $1,
@@ -381,19 +410,10 @@ export class DocumentClassificationService {
                'classificationConfidence', $4::numeric,
                'classificationStatus', $5::text,
                'classifiedAt', $6::text
-             ),
+             )${titleClause},
            updated_at = NOW()
        WHERE id = $7 AND user_id = $8`,
-      [
-        data.type,
-        JSON.stringify(data.tags),
-        data.documentSubtype,
-        data.confidence,
-        data.classificationStatus,
-        new Date().toISOString(),
-        docId,
-        userId,
-      ]
+      params
     );
   }
 

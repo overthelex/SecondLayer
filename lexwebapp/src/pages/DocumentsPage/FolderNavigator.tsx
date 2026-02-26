@@ -63,10 +63,11 @@ export function FolderNavigator({
               key={folder}
               onClick={() => onNavigate(folder)}
               disabled={loading}
-              className="flex items-center gap-2 px-3 py-2.5 bg-white border border-claude-border rounded-xl text-sm text-claude-text hover:bg-claude-bg hover:border-claude-subtext/30 transition-all active:scale-[0.98] font-sans disabled:opacity-50"
+              className="flex items-center gap-2.5 px-3.5 py-3 bg-amber-50/50 border border-amber-200/60 rounded-xl text-sm text-claude-text hover:bg-amber-50 hover:border-amber-300/60 transition-all active:scale-[0.98] font-sans disabled:opacity-50 group"
             >
-              <Folder size={16} className="text-claude-subtext/50 flex-shrink-0" />
-              <span className="truncate">{(() => { try { return decodeURIComponent(folder); } catch { return folder; } })()}</span>
+              <Folder size={18} className="text-amber-500 flex-shrink-0 group-hover:text-amber-600 transition-colors" />
+              <span className="truncate font-medium">{(() => { try { return decodeURIComponent(folder); } catch { return folder; } })()}</span>
+              <ChevronRight size={14} className="text-claude-subtext/30 flex-shrink-0 ml-auto" />
             </button>
           ))}
         </div>

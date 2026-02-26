@@ -66,7 +66,7 @@ export class MetadataExtractor {
             },
           ],
           temperature: 0.1,
-          max_tokens: 500,
+          max_tokens: 4096,
           response_format: { type: 'json_object' },
         },
         'quick'
