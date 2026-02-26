@@ -33,6 +33,7 @@ import { InvoiceService } from './services/invoice-service.js';
 import { createPaymentRouter, createWebhookRouter } from './routes/payment-routes.js';
 import { createBillingRoutes } from './routes/billing-routes.js';
 import { createAdminRoutes } from './routes/admin-routes.js';
+import { createDecisionsRoutes } from './routes/decisions-routes.js';
 import { attachTerminalWebSocket } from './routes/terminal-routes.js';
 import { createTeamRoutes } from './routes/team-routes.js';
 import { createTeamService } from './services/team-service.js';
@@ -1770,6 +1771,10 @@ class HTTPMCPServer {
       this.matterService, this.conflictCheckService, this.legalHoldService, this.auditService
     ));
     logger.info('Matter routes registered at /api/matters');
+
+    // Decisions routes - download court decision full texts from reyestr.court.gov.ua
+    this.app.use('/api/decisions', requireJWT as any, createDecisionsRoutes(this.services.reyestrDownloadService));
+    logger.info('Decisions routes registered at /api/decisions');
 
     // Time tracking and billing routes
     this.app.use('/api/time', requireJWT as any, createTimeEntryRoutes(this.timeEntryService));
