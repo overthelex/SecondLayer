@@ -1,5 +1,5 @@
-import { getLLMManager } from '@secondlayer/shared';
 import { logger } from '../utils/logger.js';
+import type { ILLMPort } from '../domain/ports/index.js';
 
 export interface ExtractedMetadata {
   documentDate: string | null;
@@ -23,6 +23,8 @@ const EMPTY_METADATA: ExtractedMetadata = {
  * from the first 4000 chars of document text.
  */
 export class MetadataExtractor {
+  constructor(private readonly llm?: ILLMPort) {}
+
   /**
    * Extract structured metadata from document text using LLM.
    */
@@ -38,9 +40,12 @@ export class MetadataExtractor {
     const snippet = text.slice(0, 4000);
 
     try {
-      const llm = getLLMManager();
+      if (!this.llm) {
+        logger.warn('[MetadataExtractor] No LLM port configured, skipping extraction');
+        return EMPTY_METADATA;
+      }
 
-      const response = await llm.chatCompletion(
+      const response = await this.llm.chatCompletion(
         {
           messages: [
             {

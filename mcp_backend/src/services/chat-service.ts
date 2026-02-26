@@ -19,14 +19,13 @@ import { generateThinkingDescription } from './thinking-descriptions.js';
 import { CostTracker } from './cost-tracker.js';
 import { ConversationService } from './conversation-service.js';
 import {
-  getLLMManager,
   UnifiedMessage,
   ToolDefinitionParam,
   ToolCall,
   type LLMProvider,
 } from '@secondlayer/shared';
 import { ModelSelector } from '@secondlayer/shared';
-import type { IEmbeddingPort } from '../domain/ports/index.js';
+import type { IEmbeddingPort, ILLMPort } from '../domain/ports/index.js';
 import {
   CHAT_SYSTEM_PROMPT,
   CHAT_INTENT_CLASSIFICATION_PROMPT,
@@ -139,6 +138,7 @@ export class ChatService {
     private toolRegistry: ToolRegistry,
     private queryPlanner: QueryPlanner,
     private costTracker: CostTracker,
+    private llm: ILLMPort,
     private searchCache?: ChatSearchCacheService,
     private conversationService?: ConversationService,
     private shepardizationService?: ShepardizationService,
@@ -362,7 +362,7 @@ export class ChatService {
       const llmTools = this.convertToolDefs(toolDefs);
 
       // 5. Agentic loop with streaming
-      const llm = getLLMManager();
+      const llm = this.llm;
       let iteration = 0;
       let fullAnswerText = '';
       let totalCostUsd = 0;
@@ -852,7 +852,7 @@ ${stepsText}
     }
 
     try {
-      const llm = getLLMManager();
+      const llm = this.llm;
 
       const historyText = olderMessages
         .map(m => `${m.role}: ${m.content.slice(0, 1000)}`)
@@ -914,7 +914,7 @@ ${stepsText}
     slots?: Record<string, any>;
   }> {
     try {
-      const llm = getLLMManager();
+      const llm = this.llm;
 
       const classifyChars = CHAT_INTENT_CLASSIFICATION_PROMPT.length + query.length;
       logger.debug('[ChatService] Intent classification prompt size', {
@@ -1027,7 +1027,7 @@ ${stepsText}
     requestId?: string
   ): Promise<ExecutionPlan | undefined> {
     try {
-      const llm = getLLMManager();
+      const llm = this.llm;
 
       // Build tool descriptions for the prompt
       const toolDescriptions = toolDefs
