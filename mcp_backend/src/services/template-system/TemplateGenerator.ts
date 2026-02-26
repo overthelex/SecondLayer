@@ -15,7 +15,7 @@ import {
   GeneratedTemplate,
   TemplateGenerationRequest,
 } from './types.js';
-import { logger, getOpenAIManager } from '@secondlayer/shared';
+import { logger } from '@secondlayer/shared';
 import type { IDatabase } from '../../domain/ports/index.js';
 import { CostTracker } from '../cost-tracker.js';
 

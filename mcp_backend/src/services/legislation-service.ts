@@ -3,7 +3,7 @@ import { RadaLegislationAdapter, LegislationArticle } from '../adapters/rada-leg
 import { logger } from '../utils/logger';
 import { createHash } from 'crypto';
 import { LegislationClassifier } from './legislation-classifier';
-import type { ICachePort } from '../domain/ports/index.js';
+import type { ICachePort, ILLMPort } from '../domain/ports/index.js';
 
 export interface LegislationReference {
   rada_id: string;
@@ -211,13 +211,13 @@ export class LegislationService {
   private db: IDatabase;
   private classifier: LegislationClassifier | null = null;
 
-  constructor(db: IDatabase, embeddingService: IEmbeddingPort, redis?: ICachePort) {
+  constructor(db: IDatabase, embeddingService: IEmbeddingPort, redis?: ICachePort, llm?: ILLMPort) {
     this.db = db;
     this.adapter = new RadaLegislationAdapter(db);
     this.embeddingService = embeddingService;
 
     // Инициализируем classifier (с Redis или без)
-    this.classifier = new LegislationClassifier(redis);
+    this.classifier = new LegislationClassifier(redis, llm);
   }
 
   getAdapter(): RadaLegislationAdapter {

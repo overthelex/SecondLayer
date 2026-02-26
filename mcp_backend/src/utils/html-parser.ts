@@ -1,7 +1,6 @@
 import { load, CheerioAPI } from 'cheerio';
 import { logger } from './logger.js';
-import { getOpenAIManager } from './openai-client.js';
-import { ModelSelector } from './model-selector.js';
+import type { ILLMPort } from '../domain/ports/index.js';
 
 export interface CourtDecisionSections {
   header: string[];      // Шапка (номер дела, суд, дата)
@@ -199,24 +198,23 @@ export class CourtDecisionHTMLParser {
 /**
  * Извлекает ключевые термины с помощью OpenAI для более точного анализа
  */
-export async function extractSearchTermsWithAI(text: string): Promise<{
+export async function extractSearchTermsWithAI(text: string, llm?: ILLMPort): Promise<{
   lawArticles: string[];
   keywords: string[];
   disputeType: string | null;
   searchQuery: string;
   caseEssence: string;
 }> {
-  const openaiManager = getOpenAIManager();
+  if (!llm) {
+    return { lawArticles: [], keywords: [], disputeType: null, searchQuery: text.substring(0, 200), caseEssence: '' };
+  }
 
   try {
     // Ограничиваем текст для анализа (макс 3000 символов)
     const analysisText = text.substring(0, 3000);
 
-    const response = await openaiManager.executeWithRetry(async (client) => {
-      // Use quick model for simple term extraction
-      const model = ModelSelector.getChatModel('quick');
-      return await client.chat.completions.create({
-        model,
+    const response = await llm.chatCompletion(
+      {
         messages: [
           {
             role: 'system',
@@ -235,13 +233,14 @@ export async function extractSearchTermsWithAI(text: string): Promise<{
             content: `Проаналізуй це судове рішення:\n\n${analysisText}`,
           },
         ],
-        ...(ModelSelector.supportsTemperature(model) ? { temperature: 0.3 } : {}),
-        max_completion_tokens: 500,
+        temperature: 0.3,
+        max_tokens: 500,
         response_format: { type: 'json_object' },
-      });
-    });
+      },
+      'quick'
+    );
 
-    const content = response.choices[0].message.content || '{}';
+    const content = response.content || '{}';
     const result = JSON.parse(content);
 
     logger.info('AI extracted search terms', {

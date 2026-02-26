@@ -10,6 +10,8 @@ import { HallucinationGuard } from '../services/hallucination-guard.js';
 import { ShepardizationService } from '../services/shepardization-service.js';
 import { MCPQueryAPI } from '../api/mcp-query-api.js';
 import { LegislationTools } from '../api/legislation-tools.js';
+import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
+import { getLLMManager } from '../utils/llm-client-manager.js';
 
 export interface BackendCoreServices {
   db: Database;
@@ -33,8 +35,9 @@ export interface BackendCoreServices {
 export function createBackendCoreServices(): BackendCoreServices {
   const db = new Database();
   const documentService = new DocumentService(db);
-  const queryPlanner = new QueryPlanner();
-  const sectionizer = new SemanticSectionizer();
+  const llmAdapter = new LLMAdapter(getLLMManager());
+  const queryPlanner = new QueryPlanner(llmAdapter);
+  const sectionizer = new SemanticSectionizer(llmAdapter);
   const embeddingService = new EmbeddingService();
   const zoAdapter = new ZOAdapter(documentService, undefined, embeddingService);
   const zoPracticeAdapter = new ZOAdapter('court_practice', documentService, embeddingService);
@@ -45,7 +48,7 @@ export function createBackendCoreServices(): BackendCoreServices {
   const shepardizationService = new ShepardizationService(zoAdapter, db);
   const citationValidator = new CitationValidator(db, shepardizationService);
   const hallucinationGuard = new HallucinationGuard(db, shepardizationService);
-  const legislationTools = new LegislationTools(db, embeddingService);
+  const legislationTools = new LegislationTools(db, embeddingService, undefined, llmAdapter);
 
   const mcpAPI = new MCPQueryAPI(
     queryPlanner,

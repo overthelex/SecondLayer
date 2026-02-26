@@ -11,6 +11,8 @@ import { ZOAdapter } from './adapters/zo-adapter.js';
 import { ScrapeWorkerService } from './services/scrape-worker-service.js';
 import { Database } from './database/database.js';
 import { logger } from './utils/logger.js';
+import { LLMAdapter } from './infrastructure/adapters/llm-adapter.js';
+import { getLLMManager } from './utils/llm-client-manager.js';
 import path from 'path';
 
 dotenv.config();
@@ -38,10 +40,11 @@ class DocumentAnalysisServer {
     const visionKeyPath = process.env.VISION_CREDENTIALS_PATH ||
       path.resolve(process.cwd(), '../vision-ocr-credentials.json');
 
-    this.documentParser = new DocumentParser(visionKeyPath);
+    const llmAdapter = new LLMAdapter(getLLMManager());
+    this.documentParser = new DocumentParser(visionKeyPath, llmAdapter);
 
     this.documentService = new DocumentService(this.db);
-    const sectionizer = new SemanticSectionizer();
+    const sectionizer = new SemanticSectionizer(llmAdapter);
     const patternStore = new LegalPatternStore(this.db, this.embeddingService);
     const citationValidator = new CitationValidator(this.db);
 
@@ -51,7 +54,8 @@ class DocumentAnalysisServer {
       patternStore,
       citationValidator,
       this.embeddingService,
-      this.documentService
+      this.documentService,
+      llmAdapter
     );
 
     // Initialize ZOAdapter for court decision scraping

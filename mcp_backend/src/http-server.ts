@@ -155,7 +155,8 @@ class HTTPMCPServer {
       this.services.patternStore,
       this.services.citationValidator,
       this.services.embeddingService,
-      this.services.documentService
+      this.services.documentService,
+      llmAdapter
     );
 
     // Initialize batch document tools
@@ -201,7 +202,8 @@ class HTTPMCPServer {
       this.services.sectionizer,
       this.services.patternStore,
       this.services.citationValidator,
-      this.services.documentService
+      this.services.documentService,
+      llmAdapter
     );
     this.toolRegistry.registerHandler(new DueDiligenceTools(ddService));
     this.toolRegistry.registerHandler(this.services.mcpAPI);
@@ -217,7 +219,8 @@ class HTTPMCPServer {
       this.services.zoPracticeAdapter,
       this.services.sectionizer,
       this.services.embeddingService,
-      this.services.patternStore
+      this.services.patternStore,
+      llmAdapter
     ));
     this.toolRegistry.registerHandler(new LegalAdviceTools(
       this.services.queryPlanner,
@@ -227,7 +230,8 @@ class HTTPMCPServer {
       this.services.embeddingService,
       this.services.patternStore,
       this.services.citationValidator,
-      this.services.shepardizationService
+      this.services.shepardizationService,
+      llmAdapter
     ));
     this.toolRegistry.registerHandler(new CourtSessionTools(
       this.services.zoSessionsAdapter,
