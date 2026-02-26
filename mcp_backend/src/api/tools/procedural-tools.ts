@@ -40,9 +40,9 @@ import {
  */
 function extractCourtFromTitle(title?: string): string {
   if (!title) return '';
-  // Court name is typically the last part of the title after the case number
-  const match = title.match(/(?:Касаційний \S+ суд|Велика палата Верховного Суду|Верховний Суд)/i);
-  return match ? match[0] : '';
+  // Match court name patterns: cassation, appellate, district, and other courts
+  const match = title.match(/(?:Касаційний \S+ суд|Велика палата Верховного Суду|Верховний Суд|[А-ЯІЇЄҐа-яіїєґ'\- ]+(?:апеляційний|окружний|районний|міський|господарський) суд[а-яіїєґ]*)/i);
+  return match ? match[0].trim() : '';
 }
 
 export class ProceduralTools extends BaseToolHandler {
@@ -94,11 +94,11 @@ export class ProceduralTools extends BaseToolHandler {
       },
       {
         name: 'search_supreme_court_practice',
-        description: `Поиск практики Верховного Суду (в т.ч. ВП/КЦС/КГС/КАС/ККС) с краткими выдержками`,
+        description: `Пошук судових рішень (всі суди або фільтр за рівнем: ВС, апеляція, перша інстанція)`,
         inputSchema: {
           type: 'object',
           properties: {
-            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'] },
+            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'], description: 'Procedure code filter. Omit for all types.' },
             query: { type: 'string' },
             time_range: {
               oneOf: [
@@ -106,11 +106,11 @@ export class ProceduralTools extends BaseToolHandler {
                 { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } },
               ],
             },
-            court_level: { type: 'string', enum: ['SC', 'GrandChamber'], default: 'SC' },
+            court_level: { type: 'string', enum: ['SC', 'GrandChamber', 'AC', 'FC'], description: 'Court level filter. SC=Supreme Court, AC=Appellate, FC=First instance. Omit for all courts.' },
             section_focus: { type: 'array', items: { type: 'string', enum: Object.values(SectionType) } },
             limit: { type: 'number', default: 10 },
           },
-          required: ['procedure_code', 'query'],
+          required: ['query'],
         },
       },
       {
@@ -129,16 +129,16 @@ export class ProceduralTools extends BaseToolHandler {
             },
             limit: { type: 'number', default: 7 },
           },
-          required: ['procedure_code', 'query'],
+          required: ['query'],
         },
       },
       {
         name: 'find_similar_fact_pattern_cases',
-        description: `Поиск дел по "похожим фактам" (приближенно: извлечение ключевых терминов + поиск)`,
+        description: `Поиск дел по "похожим фактам" (приближенно: извлечение ключевых терминов + поиск). procedure_code optional — omit to search all procedure types.`,
         inputSchema: {
           type: 'object',
           properties: {
-            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'] },
+            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'], description: 'Optional. Omit to search all procedure types.' },
             facts_text: { type: 'string' },
             time_range: {
               oneOf: [
@@ -148,7 +148,7 @@ export class ProceduralTools extends BaseToolHandler {
             },
             limit: { type: 'number', default: 10 },
           },
-          required: ['procedure_code', 'facts_text'],
+          required: ['facts_text'],
         },
       },
       {
@@ -305,19 +305,12 @@ export class ProceduralTools extends BaseToolHandler {
   }
 
   private async searchSupremeCourtPractice(args: any): Promise<ToolResult> {
-    const procedureCode = mapProcedureCodeToShort(args.procedure_code || args.code);
+    const procedureCode = mapProcedureCodeToShort(args.procedure_code || args.code) || null;
     const query = typeof args.query === 'string' ? args.query.trim() : '';
     const limit = Math.min(50, Math.max(1, Number(args.limit || 10)));
     const sectionFocus = Array.isArray(args.section_focus) ? args.section_focus : undefined;
-    const courtLevel = String(args.court_level || 'SC');
+    const courtLevel = args.court_level ? String(args.court_level) : '';
 
-    if (!procedureCode) {
-      const providedValue = args.procedure_code || args.code;
-      throw new Error(
-        `procedure_code must be one of: cpc, gpc, cac, crpc. ` +
-        `Received: ${providedValue ? `'${providedValue}'` : 'undefined'}.`
-      );
-    }
     if (!query) throw new Error('query parameter is required');
 
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
@@ -326,7 +319,7 @@ export class ProceduralTools extends BaseToolHandler {
     const whereFilters: any[] = [
       ...buildSupremeCourtWhereFilter(courtLevel),
     ];
-    const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
+    const justiceKind = procedureCode ? mapProcedureCodeToJusticeKind(procedureCode) : null;
     if (justiceKind !== null) {
       whereFilters.push({ field: 'justice_kind', operator: '=', value: justiceKind });
     }
@@ -392,7 +385,6 @@ export class ProceduralTools extends BaseToolHandler {
     const procedureCode = mapProcedureCodeToShort(args.procedure_code || args.code);
     const query = typeof args.query === 'string' ? args.query.trim() : '';
     const limit = Math.min(20, Math.max(1, Number(args.limit || 7)));
-    if (!procedureCode) throw new Error('procedure_code must be one of: cpc, gpc, cac, crpc');
     if (!query) throw new Error('query parameter is required');
 
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
@@ -401,7 +393,7 @@ export class ProceduralTools extends BaseToolHandler {
     const whereFilters: any[] = [
       ...buildSupremeCourtWhereFilter('SC'),
     ];
-    const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
+    const justiceKind = procedureCode ? mapProcedureCodeToJusticeKind(procedureCode) : null;
     if (justiceKind !== null) {
       whereFilters.push({ field: 'justice_kind', operator: '=', value: justiceKind });
     }
@@ -456,13 +448,6 @@ export class ProceduralTools extends BaseToolHandler {
     const procedureCode = mapProcedureCodeToShort(args.procedure_code || args.code);
     const factsText = typeof args.facts_text === 'string' ? args.facts_text.trim() : '';
     const limit = Math.min(20, Math.max(1, Number(args.limit || 10)));
-    if (!procedureCode) {
-      const providedValue = args.procedure_code || args.code;
-      throw new Error(
-        `procedure_code must be one of: cpc, gpc, cac, crpc. ` +
-        `Received: ${providedValue ? `'${providedValue}'` : 'undefined'}.`
-      );
-    }
     if (!factsText) throw new Error('facts_text parameter is required');
 
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
@@ -476,7 +461,7 @@ export class ProceduralTools extends BaseToolHandler {
     const whereFilters: any[] = [
       ...buildSupremeCourtWhereFilter('SC'),
     ];
-    const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
+    const justiceKind = procedureCode ? mapProcedureCodeToJusticeKind(procedureCode) : null;
     if (justiceKind !== null) {
       whereFilters.push({ field: 'justice_kind', operator: '=', value: justiceKind });
     }
@@ -537,7 +522,9 @@ export class ProceduralTools extends BaseToolHandler {
     const practiceUseCourtPractice = args.practice_use_court_practice !== false;
     const practiceCaseMapMax = Math.min(30, Math.max(0, Number(args.practice_case_map_max || 8)));
 
-    if (!procedureCode) throw new Error('procedure_code must be one of: cpc, gpc, cac, crpc');
+    if (!procedureCode) {
+      return this.wrapResponse({ error: 'procedure_code is required for deadline calculation. Must be one of: cpc (цивільний), gpc (господарський), cac (адміністративний), crpc (кримінальний). Please specify the procedure code and try again.' });
+    }
     if (!eventDate) throw new Error('event_date parameter is required (YYYY-MM-DD)');
     if (!appealType) throw new Error('appeal_type parameter is required');
 
@@ -930,7 +917,9 @@ export class ProceduralTools extends BaseToolHandler {
     const stage = String(args.stage || '').trim().toLowerCase();
     const caseCategory = typeof args.case_category === 'string' ? args.case_category.trim() : undefined;
 
-    if (!procedureCode) throw new Error('procedure_code must be one of: cpc, gpc, cac, crpc');
+    if (!procedureCode) {
+      return this.wrapResponse({ error: 'procedure_code is required for procedural checklist. Must be one of: cpc (цивільний), gpc (господарський), cac (адміністративний), crpc (кримінальний). Please specify the procedure code and try again.' });
+    }
     if (!stage) throw new Error('stage parameter is required');
 
     const stageKey = stage.includes('апел') ? 'апеляція'
