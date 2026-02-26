@@ -39,10 +39,11 @@ interface ToolPricingEntry {
 const PROVIDER_LABELS: Record<string, string> = {
   anthropic:   'Anthropic (Claude)',
   openai:      'OpenAI',
+  bedrock:     'AWS Bedrock',
   voyageai:    'VoyageAI',
   zakononline: 'ZakonOnline API',
 };
-const PROVIDER_ORDER = ['anthropic', 'openai', 'voyageai', 'zakononline'];
+const PROVIDER_ORDER = ['anthropic', 'openai', 'bedrock', 'voyageai', 'zakononline'];
 
 const UNIT_LABELS: Record<string, string> = {
   per_1m_input_tokens:  'за 1M вхідних токенів',
@@ -222,7 +223,7 @@ function ExternalProvidersTab() {
       })}
       <p className="text-xs text-claude-subtext">
         Ціни зберігаються в таблиці <code className="font-mono bg-claude-bg px-1 rounded">service_pricing</code> та використовуються для обліку собівартості запитів.
-        Значення вказуються в USD (крім ZakonOnline — в UAH).
+        Значення вказуються в USD (крім ZakonOnline — в UAH). AWS Bedrock — ціни on-demand для us-east-1.
       </p>
     </div>
   );
