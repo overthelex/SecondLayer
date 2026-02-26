@@ -13,6 +13,7 @@ import { LegislationTools } from '../api/legislation-tools.js';
 import { LegislationService } from '../services/legislation-service.js';
 import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
 import { getLLMManager } from '../utils/llm-client-manager.js';
+import { ReyestrDownloadService } from '../services/reyestr-download-service.js';
 
 export interface BackendCoreServices {
   db: Database;
@@ -30,6 +31,7 @@ export interface BackendCoreServices {
   citationValidator: CitationValidator;
   hallucinationGuard: HallucinationGuard;
   legislationTools: LegislationTools;
+  reyestrDownloadService: ReyestrDownloadService;
   mcpAPI: MCPQueryAPI;
 }
 
@@ -51,6 +53,7 @@ export function createBackendCoreServices(): BackendCoreServices {
   const hallucinationGuard = new HallucinationGuard(db, shepardizationService);
   const legislationService = new LegislationService(db, embeddingService, undefined, llmAdapter);
   const legislationTools = new LegislationTools(legislationService);
+  const reyestrDownloadService = new ReyestrDownloadService(db, documentService, sectionizer, embeddingService);
 
   const mcpAPI = new MCPQueryAPI(
     queryPlanner,
@@ -79,6 +82,7 @@ export function createBackendCoreServices(): BackendCoreServices {
     citationValidator,
     hallucinationGuard,
     legislationTools,
+    reyestrDownloadService,
     mcpAPI,
   };
 }
