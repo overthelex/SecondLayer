@@ -15,7 +15,34 @@ export interface VaultDocument {
     parties?: string[];
     documentSubtype?: string;
     jurisdiction?: string;
+    classificationStatus?: 'classified' | 'needs_review' | 'pending';
+    classificationConfidence?: number;
+    classifiedAt?: string;
   };
+}
+
+export interface DocumentStats {
+  total: number;
+  classified: number;
+  needsReview: number;
+  unclassified: number;
+  byType: Record<string, number>;
+  totalClassificationCostUsd: number;
+  totalUploadSessions: number;
+  totalStorageBytes: number;
+}
+
+export interface ClassificationJob {
+  jobId: string;
+  userId: string;
+  total: number;
+  completed: number;
+  failed: number;
+  inProgress: number;
+  status: 'running' | 'completed' | 'cancelled';
+  totalCostUsd: number;
+  startedAt: string;
+  completedAt?: string;
 }
 
 export type DocType = 'contract' | 'legislation' | 'court_decision' | 'internal' | 'other';

@@ -221,6 +221,13 @@ export const api = {
     delete: (id: string) => apiClient.delete(`/api/documents/${id}`),
     update: (id: string, data: { full_text?: string; title?: string; type?: string }) =>
       apiClient.patch(`/api/documents/${id}`, data),
+    getStats: () => apiClient.get('/api/documents/stats'),
+    startClassification: (params: { concurrency?: number; documentIds?: string[] }) =>
+      apiClient.post('/api/documents/classify', params),
+    getClassificationJob: (jobId: string) =>
+      apiClient.get(`/api/documents/classify/${jobId}`),
+    cancelClassification: (jobId: string) =>
+      apiClient.post(`/api/documents/classify/${jobId}/cancel`),
   },
 
   // Admin

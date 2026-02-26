@@ -23,7 +23,9 @@ import { UploadQueuePanel } from './UploadQueuePanel';
 import { DocumentTable } from './DocumentTable';
 import { DocumentGrid } from './DocumentGrid';
 import { DocumentViewerModal } from '../../components/DocumentViewerModal';
-import type { VaultDocument, DocType, ViewMode, SortField, SortOrder } from './types';
+import { ClassificationPanel } from './ClassificationPanel';
+import { DocumentStatsPanel } from './DocumentStatsPanel';
+import type { VaultDocument, DocType, ViewMode, SortField, SortOrder, DocumentStats } from './types';
 
 const DOC_TYPE_LABELS: Record<DocType, string> = {
   contract: 'Договір',
@@ -128,6 +130,10 @@ export function DocumentsPage() {
   const [editText, setEditText] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+
+  // Document statistics state
+  const [docStats, setDocStats] = useState<DocumentStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Folder navigation state
   const [folders, setFolders] = useState<string[]>([]);
@@ -245,6 +251,29 @@ export function DocumentsPage() {
       setFoldersLoading(false);
     }
   };
+
+  const loadStats = async () => {
+    setStatsLoading(true);
+    try {
+      const resp = await api.documents.getStats();
+      setDocStats(resp.data);
+    } catch (err: any) {
+      console.error('Failed to load document stats:', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  // Load stats on mount and when docs change
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  useEffect(() => {
+    if (completedFiles > 0 && !isUploading) {
+      loadStats();
+    }
+  }, [completedFiles, isUploading]);
 
   // File selection handlers
   const handleFilesSelected = useCallback(
@@ -596,6 +625,18 @@ export function DocumentsPage() {
             defaultDocType={defaultDocType}
             setDefaultDocType={setDefaultDocType}
             onStartUpload={handleStartUpload}
+          />
+
+          {/* Document Statistics */}
+          <DocumentStatsPanel stats={docStats} loading={statsLoading} />
+
+          {/* Classification Panel */}
+          <ClassificationPanel
+            stats={docStats}
+            onComplete={() => {
+              loadDocuments();
+              loadStats();
+            }}
           />
 
           {/* Search and Filters */}
