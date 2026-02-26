@@ -11,7 +11,14 @@ import { User } from '../services/user-service.js';
 import { logger } from '../utils/logger.js';
 import { getUserService, getWebAuthnService } from '../middleware/dual-auth.js';
 import { EmailService } from '../services/email-service.js';
-import { getRedisClient } from '../utils/redis-client.js';
+import type { ICachePort } from '../domain/ports/index.js';
+
+let authCache: ICachePort | null = null;
+
+/** Set the cache port for WebAuthn challenge storage. Call from composition root. */
+export function setAuthCache(cache: ICachePort): void {
+  authCache = cache;
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
 const JWT_EXPIRES_IN = '7d'; // 7 days
@@ -649,10 +656,9 @@ export async function webauthnRegisterOptions(req: AuthenticatedRequest, res: Re
     const webauthnService = getWebAuthnService();
     const options = await webauthnService.generateRegistrationOpts(user.id, user.email, attachment);
 
-    // Store challenge in Redis
-    const redis = await getRedisClient();
-    if (redis) {
-      await redis.set(`webauthn:reg:${user.id}`, options.challenge, { EX: WEBAUTHN_CHALLENGE_TTL });
+    // Store challenge in cache
+    if (authCache) {
+      await authCache.set(`webauthn:reg:${user.id}`, options.challenge, WEBAUTHN_CHALLENGE_TTL);
     }
 
     return res.json(options);
@@ -678,19 +684,18 @@ export async function webauthnRegisterVerify(req: AuthenticatedRequest, res: Res
       return res.status(400).json({ error: 'Bad Request', message: 'Response is required' });
     }
 
-    // Retrieve challenge from Redis
-    const redis = await getRedisClient();
-    if (!redis) {
-      return res.status(500).json({ error: 'Internal server error', message: 'Redis unavailable' });
+    // Retrieve challenge from cache
+    if (!authCache) {
+      return res.status(500).json({ error: 'Internal server error', message: 'Cache unavailable' });
     }
 
-    const challenge = await redis.get(`webauthn:reg:${user.id}`);
+    const challenge = await authCache.get(`webauthn:reg:${user.id}`);
     if (!challenge) {
       return res.status(400).json({ error: 'Bad Request', message: 'Challenge expired or not found' });
     }
 
     // Delete challenge after use
-    await redis.del(`webauthn:reg:${user.id}`);
+    await authCache.del(`webauthn:reg:${user.id}`);
 
     const webauthnService = getWebAuthnService();
     const verification = await webauthnService.verifyRegistration(
@@ -718,10 +723,9 @@ export async function webauthnAuthOptions(req: Request, res: Response): Promise<
     const webauthnService = getWebAuthnService();
     const options = await webauthnService.generateAuthenticationOpts(attachment);
 
-    // Store challenge in Redis keyed by challenge value
-    const redis = await getRedisClient();
-    if (redis) {
-      await redis.set(`webauthn:auth:${options.challenge}`, '1', { EX: WEBAUTHN_CHALLENGE_TTL });
+    // Store challenge in cache keyed by challenge value
+    if (authCache) {
+      await authCache.set(`webauthn:auth:${options.challenge}`, '1', WEBAUTHN_CHALLENGE_TTL);
     }
 
     return res.json(options);
@@ -742,19 +746,18 @@ export async function webauthnAuthVerify(req: Request, res: Response): Promise<R
       return res.status(400).json({ error: 'Bad Request', message: 'Response and challenge are required' });
     }
 
-    // Verify challenge exists in Redis
-    const redis = await getRedisClient();
-    if (!redis) {
-      return res.status(500).json({ error: 'Internal server error', message: 'Redis unavailable' });
+    // Verify challenge exists in cache
+    if (!authCache) {
+      return res.status(500).json({ error: 'Internal server error', message: 'Cache unavailable' });
     }
 
-    const challengeExists = await redis.get(`webauthn:auth:${challenge}`);
+    const challengeExists = await authCache.get(`webauthn:auth:${challenge}`);
     if (!challengeExists) {
       return res.status(400).json({ error: 'Bad Request', message: 'Challenge expired or not found' });
     }
 
     // Delete challenge after use
-    await redis.del(`webauthn:auth:${challenge}`);
+    await authCache.del(`webauthn:auth:${challenge}`);
 
     const webauthnService = getWebAuthnService();
     const { verified, userId } = await webauthnService.verifyAuthentication(response, challenge);

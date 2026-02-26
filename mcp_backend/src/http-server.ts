@@ -7,6 +7,7 @@ import { logger } from './utils/logger.js';
 import { dualAuth, requireJWT, optionalJWT, initializeDualAuth, initializeWebAuthn, AuthenticatedRequest as DualAuthRequest } from './middleware/dual-auth.js';
 import { configurePassport } from './config/passport.js';
 import authRouter from './routes/auth.js';
+import { setAuthCache } from './controllers/auth.js';
 import { createBackendCoreServices, BackendCoreServices } from './factories/core-services.js';
 import { DocumentAnalysisTools } from './api/document-analysis-tools.js';
 import { BatchDocumentTools } from './api/batch-document-tools.js';
@@ -132,6 +133,7 @@ class HTTPMCPServer {
   private timeEntryService: TimeEntryService;
   private matterInvoiceService: MatterInvoiceService;
   private chatService: ChatService;
+  private chatSearchCache: ChatSearchCacheService;
   private configService: ConfigService;
 
   constructor() {
@@ -273,7 +275,7 @@ class HTTPMCPServer {
     logger.info('Time tracking and billing services initialized');
 
     // Initialize ChatService (agentic LLM loop) with search cache
-    const chatSearchCache = new ChatSearchCacheService(
+    this.chatSearchCache = new ChatSearchCacheService(
       this.services.zoAdapter,
       this.services.documentService
     );
@@ -282,7 +284,7 @@ class HTTPMCPServer {
       this.services.queryPlanner,
       this.costTracker,
       llmAdapter,
-      chatSearchCache,
+      this.chatSearchCache,
       this.conversationService,
       this.services.shepardizationService,
       this.services.embeddingService
@@ -2537,7 +2539,10 @@ class HTTPMCPServer {
         this.services.zoSessionsAdapter.setCachePort(cache);
         this.services.zoLegalActsAdapter.setCachePort(cache);
         this.services.zoECHRAdapter.setCachePort(cache);
-        logger.info('Redis connected - caching enabled for legislation and ZO adapters');
+        this.services.shepardizationService.setCachePort(cache);
+        this.chatSearchCache.setCachePort(cache);
+        setAuthCache(cache);
+        logger.info('Redis connected - caching enabled for legislation, ZO adapters, shepardization, chat cache, and auth');
       } else {
         logger.info('Redis not available - services will work without caching');
       }
