@@ -145,7 +145,7 @@ export class ReyestrDownloadService {
 
     // Also fetch sections
     const sectRows = await this.db.query(
-      `SELECT type, text FROM document_sections WHERE document_id = $1 ORDER BY "order"`,
+      `SELECT section_type, text FROM document_sections WHERE document_id = $1 ORDER BY created_at`,
       [row.id]
     );
 
@@ -158,7 +158,7 @@ export class ReyestrDownloadService {
       date: row.date ? new Date(row.date).toISOString().split('T')[0] : null,
       disputeCategory: row.dispute_category,
       fullText: row.full_text || '',
-      sections: sectRows.rows.map((s: any) => ({ type: s.type, text: s.text })),
+      sections: sectRows.rows.map((s: any) => ({ type: s.section_type, text: s.text })),
     };
   }
 

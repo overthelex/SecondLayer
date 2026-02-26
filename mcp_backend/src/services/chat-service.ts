@@ -1084,9 +1084,62 @@ ${stepsText}
         queryType = 'legislation_lookup';
       }
 
-      const unsupportedReason = queryType === 'unsupported' && typeof parsed.unsupportedReason === 'string'
+      // Regex-based queryType coercions when LLM defaults to legal_consultation
+      if (queryType === 'legal_consultation') {
+        // Legislation: "ст. 16 ЦК", "стаття 382 КК", "ч. 3 ст. 16"
+        if (/ст(?:атт[яію])?\s*\.?\s*\d+/i.test(query) || /(?:^|\s)(?:ЦК|КК|ГПК|ЦПК|КАС|ГК|ЗК|СК|КЗпП|цк|кк|гпк|цпк|кас|гк|зк|ск|кзпп)(?:\s|$|,|\.)/.test(query)) {
+          queryType = 'legislation_lookup';
+        }
+        // Registry: ЄДРПОУ, 8-digit code, ТОВ/ПАТ/ФОП lookup
+        else if (hasEdrpouPattern || lowerQuery.includes('єдрпоу') || lowerQuery.includes('edrpou')) {
+          queryType = 'registry_lookup';
+        }
+        // Practice analysis: "аналіз практики", "судова практика", "як суди"
+        else if (/проаналізу|аналіз практик|судова практика|знайти справи|знайти практику|огляд практики|яка практика|як суди|позиція судів/i.test(query)) {
+          queryType = 'practice_analysis';
+        }
+        // Document drafting: "напиши позовну", "зразок скарги", "склади заяву"
+        else if (/\b(?:напиш[иі]|склад[иі]|підготуй|зразок|шаблон)\b.*\b(?:позов|скарг|заяв|клопотан|претенз)/i.test(query)) {
+          queryType = 'document_drafting';
+        }
+        // Due diligence: "перевір контрагента", "due diligence"
+        else if (/due.?diligence|перевір.*контрагент|комплексна перевірка/i.test(query)) {
+          queryType = 'due_diligence';
+        }
+        // Parliament: "депутат", "законопроєкт", "голосування"
+        else if (domains.includes('parliament')) {
+          queryType = 'parliament_query';
+        }
+        // Documents/vault
+        else if (hasDocumentsKeyword || domains.includes('documents')) {
+          queryType = 'document_query';
+        }
+        // Comparative analysis: "негаторний чи віндикаційний", "який спосіб захисту"
+        else if (/\bчи\b.*\bпозов|який спосіб захисту|порівн.*підход|яка стаття підходить/i.test(query)) {
+          queryType = 'comparative_analysis';
+        }
+        // Unsupported: non-legal queries
+        else if (/(?:погод[аиу]|рецепт|футбол|спорт|кіно|фільм|музик|пісн)/i.test(lowerQuery) && !domains.some((d: string) => d !== 'court')) {
+          queryType = 'unsupported';
+        }
+        // Unsupported: aggregated judge statistics
+        else if (/рейтинг.*(судд|суд)|статистик.*(судд|суд)|відсот.*(задовол|відмов).*судд|тенденці.*(закрит|судд)/i.test(lowerQuery)) {
+          queryType = 'unsupported';
+        }
+      }
+
+      let unsupportedReason = queryType === 'unsupported' && typeof parsed.unsupportedReason === 'string'
         ? parsed.unsupportedReason
         : undefined;
+
+      // Generate unsupportedReason if not provided by LLM
+      if (queryType === 'unsupported' && !unsupportedReason) {
+        if (/рейтинг.*(судд|суд)|статистик.*(судд|суд)|відсот.*(задовол|відмов)|тенденці.*(закрит|судд)/i.test(lowerQuery)) {
+          unsupportedReason = 'Система не може агрегувати статистику по суддях (відсоток задоволених позовів, тенденції). Можу знайти конкретні справи за іменем судді або за темою.';
+        } else {
+          unsupportedReason = 'Цей запит виходить за межі можливостей юридичної системи SecondLayer. Я спеціалізуюся на українському праві: судова практика, законодавство, реєстри, парламентські дані.';
+        }
+      }
 
       logger.info('[ChatService] LLM intent classification', { domains, keywords, slots, queryType, unsupportedReason });
 
