@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -10,14 +10,18 @@ import {
   Gavel,
   Loader2,
   AlertCircle,
+  Download,
+  CheckCircle2,
+  Eye,
+  DownloadCloud,
 } from 'lucide-react';
 import { mcpService } from '../services';
 import showToast from '../utils/toast';
+import { useDecisionsSearchStore } from '../stores/decisionsSearchStore';
+import { useUIStore } from '../stores';
 
 interface SearchFilters {
   query: string;
-  caseNumber: string;
-  court: string;
   dateFrom: string;
   dateTo: string;
   procedureCode: string;
@@ -35,6 +39,7 @@ interface CourtDecision {
 }
 
 const procedureCodes = [
+  { value: '', label: 'Всі кодекси' },
   { value: 'gpc', label: 'Господарський (ГПК)' },
   { value: 'cpc', label: 'Цивільний (ЦПК)' },
   { value: 'cac', label: 'Адміністративний (КАС)' },
@@ -56,20 +61,30 @@ export function DecisionsSearchPage() {
   const [results, setResults] = useState<CourtDecision[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<SearchFilters>({
     query: '',
-    caseNumber: '',
-    court: '',
     dateFrom: '',
     dateTo: '',
-    procedureCode: 'gpc',
+    procedureCode: '',
     courtLevel: '',
   });
 
+  const {
+    downloadStatus,
+    downloadedDecisions,
+    availableInDB,
+    checkAvailability,
+    fetchFullText,
+    fetchBatch,
+  } = useDecisionsSearchStore();
+
+  const { setRightPanelOpen } = useUIStore();
+
   const handleSearch = async () => {
-    if (!filters.query.trim() && !filters.caseNumber.trim()) {
-      showToast.error('Введіть пошуковий запит або номер справи');
+    if (!filters.query.trim()) {
+      showToast.error('Введіть пошуковий запит');
       return;
     }
 
@@ -79,10 +94,13 @@ export function DecisionsSearchPage() {
 
     try {
       const params: any = {
-        procedure_code: filters.procedureCode,
-        query: filters.query || filters.caseNumber,
+        query: filters.query.trim(),
         limit: 20,
       };
+
+      if (filters.procedureCode) {
+        params.procedure_code = filters.procedureCode;
+      }
 
       if (filters.courtLevel) {
         params.court_level = filters.courtLevel;
@@ -96,7 +114,6 @@ export function DecisionsSearchPage() {
 
       const response = await mcpService.callTool('search_supreme_court_practice', params);
 
-      // Parse response — result is in content[0].text as JSON string
       let parsed: any = null;
       if (response?.result?.content?.[0]?.text) {
         parsed = JSON.parse(response.result.content[0].text);
@@ -105,6 +122,14 @@ export function DecisionsSearchPage() {
       if (parsed?.results) {
         setResults(parsed.results);
         setTotalResults(parsed.total_returned || parsed.results.length);
+
+        // Check which results are already cached in DB
+        const docIds = parsed.results
+          .map((r: CourtDecision) => String(r.doc_id))
+          .filter((id: string) => /^\d+$/.test(id));
+        if (docIds.length > 0) {
+          checkAvailability(docIds);
+        }
       } else {
         setResults([]);
         setTotalResults(0);
@@ -132,17 +157,59 @@ export function DecisionsSearchPage() {
   const resetFilters = () => {
     setFilters({
       query: '',
-      caseNumber: '',
-      court: '',
       dateFrom: '',
       dateTo: '',
-      procedureCode: 'gpc',
+      procedureCode: '',
       courtLevel: '',
     });
     setResults([]);
     setHasSearched(false);
     setError(null);
   };
+
+  const handleDownload = async (docId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const doc = await fetchFullText(docId);
+    if (doc) {
+      setSelectedDocId(docId);
+      setRightPanelOpen(true);
+    }
+  };
+
+  const handleView = (docId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedDocId(docId);
+    setRightPanelOpen(true);
+  };
+
+  const handleBatchDownload = async () => {
+    const numericIds = results
+      .map(r => String(r.doc_id))
+      .filter(id => /^\d+$/.test(id))
+      .filter(id => downloadStatus[id] !== 'done' && downloadStatus[id] !== 'downloading');
+
+    if (numericIds.length === 0) {
+      showToast.error('Всі рішення вже завантажено');
+      return;
+    }
+
+    await fetchBatch(numericIds.slice(0, 10));
+  };
+
+  const getStatusForDoc = (docId: string): string => {
+    if (downloadStatus[docId]) return downloadStatus[docId];
+    if (availableInDB.has(docId)) return 'cached';
+    return 'idle';
+  };
+
+  // Expose selected decision for RightPanel to consume
+  useEffect(() => {
+    if (selectedDocId && downloadedDecisions[selectedDocId]) {
+      // Decision available — RightPanel reads from store
+    }
+  }, [selectedDocId, downloadedDecisions]);
 
   return (
     <div className="flex-1 h-full overflow-y-auto bg-claude-bg p-4 md:p-8 lg:p-12 pb-32">
@@ -166,60 +233,22 @@ export function DecisionsSearchPage() {
 
           {/* Search Form */}
           <div className="bg-white rounded-2xl border border-claude-border shadow-sm p-6 space-y-4">
-            {/* Main Search */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-claude-text font-sans mb-2">
-                  Пошуковий запит
-                </label>
-                <input
-                  id="decisions-search-query"
-                  name="query"
-                  type="text"
-                  value={filters.query}
-                  onChange={(e) => updateFilter('query', e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="позовна давність, неустойка, відшкодування збитків..."
-                  className="w-full px-4 py-2.5 bg-white border border-claude-border rounded-lg text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-claude-text font-sans mb-2">
-                    Процесуальний кодекс
-                  </label>
-                  <select
-                    id="decisions-procedure-code"
-                    name="procedureCode"
-                    value={filters.procedureCode}
-                    onChange={(e) => updateFilter('procedureCode', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white border border-claude-border rounded-lg text-claude-text focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans"
-                  >
-                    {procedureCodes.map((pc) => (
-                      <option key={pc.value} value={pc.value}>
-                        {pc.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-claude-text font-sans mb-2">
-                    Номер справи
-                  </label>
-                  <input
-                    id="decisions-case-number"
-                    name="caseNumber"
-                    type="text"
-                    value={filters.caseNumber}
-                    onChange={(e) => updateFilter('caseNumber', e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="910/12345/23"
-                    className="w-full px-4 py-2.5 bg-white border border-claude-border rounded-lg text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans"
-                  />
-                </div>
-              </div>
+            {/* Single Search Input */}
+            <div>
+              <label className="block text-sm font-medium text-claude-text font-sans mb-2">
+                Пошуковий запит
+              </label>
+              <input
+                id="decisions-search-query"
+                name="query"
+                type="text"
+                value={filters.query}
+                onChange={(e) => updateFilter('query', e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="номер справи, ключові слова, тема спору..."
+                className="w-full px-4 py-2.5 bg-white border border-claude-border rounded-lg text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans"
+                autoFocus
+              />
             </div>
 
             {/* Advanced Filters Toggle */}
@@ -241,7 +270,26 @@ export function DecisionsSearchPage() {
                   transition={{ duration: 0.3 }}
                   className="overflow-hidden space-y-4 pt-4 border-t border-claude-border"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-claude-text font-sans mb-2">
+                        Процесуальний кодекс
+                      </label>
+                      <select
+                        id="decisions-procedure-code"
+                        name="procedureCode"
+                        value={filters.procedureCode}
+                        onChange={(e) => updateFilter('procedureCode', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-white border border-claude-border rounded-lg text-claude-text focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans"
+                      >
+                        {procedureCodes.map((pc) => (
+                          <option key={pc.value} value={pc.value}>
+                            {pc.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     <div>
                       <label className="block text-sm font-medium text-claude-text font-sans mb-2">
                         Рівень суду
@@ -337,22 +385,36 @@ export function DecisionsSearchPage() {
               </span>
             </div>
 
-            {/* View Mode Toggle */}
-            <div className="flex bg-white border border-claude-border rounded-xl p-1">
-              <button
-                onClick={() => setViewMode('comfortable')}
-                className={`p-2 rounded-lg transition-colors ${viewMode === 'comfortable' ? 'bg-claude-accent text-white' : 'text-claude-subtext hover:text-claude-text'}`}
-                title="Комфортний вигляд"
-              >
-                <LayoutGrid size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode('compact')}
-                className={`p-2 rounded-lg transition-colors ${viewMode === 'compact' ? 'bg-claude-accent text-white' : 'text-claude-subtext hover:text-claude-text'}`}
-                title="Компактний вигляд"
-              >
-                <List size={18} />
-              </button>
+            <div className="flex items-center gap-2">
+              {/* Batch Download Button */}
+              {results.length > 0 && (
+                <button
+                  onClick={handleBatchDownload}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-claude-accent hover:bg-claude-accent/10 rounded-lg transition-colors font-sans"
+                  title="Завантажити всі (до 10)"
+                >
+                  <DownloadCloud size={16} />
+                  <span className="hidden sm:inline">Завантажити всі</span>
+                </button>
+              )}
+
+              {/* View Mode Toggle */}
+              <div className="flex bg-white border border-claude-border rounded-xl p-1">
+                <button
+                  onClick={() => setViewMode('comfortable')}
+                  className={`p-2 rounded-lg transition-colors ${viewMode === 'comfortable' ? 'bg-claude-accent text-white' : 'text-claude-subtext hover:text-claude-text'}`}
+                  title="Комфортний вигляд"
+                >
+                  <LayoutGrid size={18} />
+                </button>
+                <button
+                  onClick={() => setViewMode('compact')}
+                  className={`p-2 rounded-lg transition-colors ${viewMode === 'compact' ? 'bg-claude-accent text-white' : 'text-claude-subtext hover:text-claude-text'}`}
+                  title="Компактний вигляд"
+                >
+                  <List size={18} />
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -379,73 +441,127 @@ export function DecisionsSearchPage() {
         {/* Results */}
         {!isSearching && results.length > 0 && (
           <div className={viewMode === 'compact' ? 'space-y-2' : 'space-y-3'}>
-            {results.map((decision, index) => (
-              <motion.a
-                key={decision.doc_id}
-                href={decision.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: index * 0.05 }}
-                className={`group block bg-white rounded-2xl border border-claude-border shadow-sm hover:shadow-md hover:border-claude-subtext/30 transition-all ${viewMode === 'compact' ? 'p-3' : 'p-5'}`}
-              >
-                <div className="flex items-start gap-4">
-                  {/* Icon */}
-                  {viewMode === 'comfortable' && (
-                    <div className="w-12 h-12 rounded-xl bg-claude-sidebar border-2 border-white shadow-sm flex items-center justify-center flex-shrink-0">
-                      <Gavel size={20} className="text-claude-subtext" />
-                    </div>
-                  )}
+            {results.map((decision, index) => {
+              const docIdStr = String(decision.doc_id);
+              const isNumeric = /^\d+$/.test(docIdStr);
+              const status = getStatusForDoc(docIdStr);
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3
-                            className={`font-serif font-medium text-claude-text group-hover:text-claude-accent transition-colors ${viewMode === 'compact' ? 'text-base' : 'text-lg'}`}
-                          >
-                            {decision.case_number}
-                          </h3>
-                        </div>
-                        <p className={`text-claude-text font-sans ${viewMode === 'compact' ? 'text-xs' : 'text-sm'}`}>
-                          {decision.court}
-                          {decision.chamber && decision.chamber !== decision.court && ` • ${decision.chamber}`}
-                        </p>
-                        {decision.snippets?.length > 0 && viewMode === 'comfortable' && (
-                          <p className="text-sm text-claude-subtext font-sans mt-1 line-clamp-2">
-                            {decision.snippets[0]}
+              return (
+                <motion.div
+                  key={decision.doc_id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: index * 0.05 }}
+                  className={`group block bg-white rounded-2xl border border-claude-border shadow-sm hover:shadow-md hover:border-claude-subtext/30 transition-all ${viewMode === 'compact' ? 'p-3' : 'p-5'} ${selectedDocId === docIdStr ? 'ring-2 ring-claude-accent/30' : ''}`}
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Icon */}
+                    {viewMode === 'comfortable' && (
+                      <div className="w-12 h-12 rounded-xl bg-claude-sidebar border-2 border-white shadow-sm flex items-center justify-center flex-shrink-0">
+                        <Gavel size={20} className="text-claude-subtext" />
+                      </div>
+                    )}
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3
+                              className={`font-serif font-medium text-claude-text group-hover:text-claude-accent transition-colors ${viewMode === 'compact' ? 'text-base' : 'text-lg'}`}
+                            >
+                              {decision.case_number}
+                            </h3>
+                            {(status === 'done' || status === 'cached') && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-green-700 bg-green-50 rounded-full">
+                                <CheckCircle2 size={10} />
+                                {status === 'cached' ? 'В базі' : 'Завантажено'}
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-claude-text font-sans ${viewMode === 'compact' ? 'text-xs' : 'text-sm'}`}>
+                            {decision.court}
+                            {decision.chamber && decision.chamber !== decision.court && ` • ${decision.chamber}`}
                           </p>
-                        )}
+                          {decision.snippets?.length > 0 && viewMode === 'comfortable' && (
+                            <p className="text-sm text-claude-subtext font-sans mt-1 line-clamp-2">
+                              {decision.snippets[0]}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-1">
+                          {/* Download/View button */}
+                          {isNumeric && status !== 'done' && status !== 'cached' && (
+                            <button
+                              onClick={(e) => handleDownload(docIdStr, e)}
+                              disabled={status === 'downloading'}
+                              className="p-2 text-claude-accent hover:bg-claude-accent/10 rounded-lg transition-colors disabled:opacity-50"
+                              title="Завантажити повний текст"
+                            >
+                              {status === 'downloading' ? (
+                                <Loader2 size={16} className="animate-spin" />
+                              ) : (
+                                <Download size={16} />
+                              )}
+                            </button>
+                          )}
+
+                          {/* View button (for downloaded or cached) */}
+                          {isNumeric && (status === 'done' || status === 'cached') && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                // If cached but not yet fetched into store, fetch it
+                                if (status === 'cached' && !downloadedDecisions[docIdStr]) {
+                                  handleDownload(docIdStr, e);
+                                } else {
+                                  handleView(docIdStr, e);
+                                }
+                              }}
+                              className="p-2 text-claude-accent hover:bg-claude-accent/10 rounded-lg transition-colors"
+                              title="Переглянути"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          )}
+
+                          {/* External link */}
+                          <a
+                            href={decision.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                            title="Відкрити на ZakonOnline"
+                          >
+                            <ExternalLink size={16} />
+                          </a>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <button className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-colors opacity-0 group-hover:opacity-100">
-                          <ExternalLink size={16} />
-                        </button>
+                      <div className={`flex items-center gap-3 ${viewMode === 'compact' ? 'text-xs' : 'text-sm'}`}>
+                        <span className="text-claude-subtext font-sans">
+                          {decision.date
+                            ? new Date(decision.date).toLocaleDateString('uk-UA', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })
+                            : '—'}
+                        </span>
+                        <span className="text-claude-border">•</span>
+                        <span className="text-claude-subtext font-sans text-xs">
+                          ID: {decision.doc_id}
+                        </span>
                       </div>
-                    </div>
-
-                    <div className={`flex items-center gap-3 ${viewMode === 'compact' ? 'text-xs' : 'text-sm'}`}>
-                      <span className="text-claude-subtext font-sans">
-                        {decision.date
-                          ? new Date(decision.date).toLocaleDateString('uk-UA', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })
-                          : '—'}
-                      </span>
-                      <span className="text-claude-border">•</span>
-                      <span className="text-claude-subtext font-sans text-xs">
-                        ID: {decision.doc_id}
-                      </span>
                     </div>
                   </div>
-                </div>
-              </motion.a>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </div>
