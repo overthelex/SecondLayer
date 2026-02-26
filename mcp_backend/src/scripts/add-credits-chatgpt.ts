@@ -15,7 +15,7 @@ async function addCredits() {
 
   try {
     await db.connect();
-    const creditService = new CreditService(db.getPool());
+    const creditService = new CreditService(db);
 
     logger.info('💳 Adding credits to ChatGPT user...');
     logger.info(`   User ID: ${CHATGPT_USER_ID}`);

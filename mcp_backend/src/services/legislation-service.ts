@@ -1,7 +1,6 @@
-import { Pool } from 'pg';
+import type { IDatabase, IEmbeddingPort } from '../domain/ports/index.js';
 import { RadaLegislationAdapter, LegislationArticle } from '../adapters/rada-legislation-adapter';
 import { logger } from '../utils/logger';
-import { EmbeddingService } from './embedding-service';
 import { createHash } from 'crypto';
 import { LegislationClassifier } from './legislation-classifier';
 import { createClient } from 'redis';
@@ -208,11 +207,11 @@ export function normalizeRadaId(radaId: string): string {
 
 export class LegislationService {
   private adapter: RadaLegislationAdapter;
-  private embeddingService: EmbeddingService;
-  private db: Pool;
+  private embeddingService: IEmbeddingPort;
+  private db: IDatabase;
   private classifier: LegislationClassifier | null = null;
 
-  constructor(db: Pool, embeddingService: EmbeddingService, redis?: ReturnType<typeof createClient>) {
+  constructor(db: IDatabase, embeddingService: IEmbeddingPort, redis?: ReturnType<typeof createClient>) {
     this.db = db;
     this.adapter = new RadaLegislationAdapter(db);
     this.embeddingService = embeddingService;

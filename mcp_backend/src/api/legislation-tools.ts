@@ -1,7 +1,6 @@
-import { Pool } from 'pg';
+import type { IDatabase, IEmbeddingPort } from '../domain/ports/index.js';
 import { LegislationService, parseLegislationReference, parseLegislationReferenceWithAI, normalizeRadaId } from '../services/legislation-service';
 import { LegislationRenderer } from '../services/legislation-renderer';
-import { EmbeddingService } from '../services/embedding-service';
 import { logger } from '../utils/logger';
 import { createClient } from 'redis';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
@@ -20,7 +19,7 @@ export class LegislationTools extends BaseToolHandler {
   private service: LegislationService;
   private renderer: LegislationRenderer;
 
-  constructor(db: Pool, embeddingService: EmbeddingService, redis?: ReturnType<typeof createClient>) {
+  constructor(db: IDatabase, embeddingService: IEmbeddingPort, redis?: ReturnType<typeof createClient>) {
     super();
     this.service = new LegislationService(db, embeddingService, redis);
     this.renderer = new LegislationRenderer();

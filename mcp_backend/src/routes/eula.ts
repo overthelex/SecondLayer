@@ -4,12 +4,12 @@
  */
 
 import express, { Request, Response, NextFunction } from 'express';
-import { Pool } from 'pg';
 import { EULAService } from '../services/eula-service.js';
+import type { IDatabase } from '../domain/ports/index.js';
 
-export function createEULARouter(pool: Pool): express.Router {
+export function createEULARouter(db: IDatabase): express.Router {
   const router = express.Router();
-  const eulaService = new EULAService(pool);
+  const eulaService = new EULAService(db);
 
   /**
    * GET /api/eula

@@ -45,7 +45,7 @@ export function createBackendCoreServices(): BackendCoreServices {
   const shepardizationService = new ShepardizationService(zoAdapter, db);
   const citationValidator = new CitationValidator(db, shepardizationService);
   const hallucinationGuard = new HallucinationGuard(db, shepardizationService);
-  const legislationTools = new LegislationTools(db.getPool(), embeddingService);
+  const legislationTools = new LegislationTools(db, embeddingService);
 
   const mcpAPI = new MCPQueryAPI(
     queryPlanner,
