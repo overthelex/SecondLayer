@@ -105,6 +105,10 @@ import { setUploadRateLimitCache } from './middleware/upload-rate-limit.js';
 import { ConfigService } from './services/config-service.js';
 import { DocumentClassificationService } from './services/document-classification-service.js';
 import { createClassificationRoutes } from './routes/classification-routes.js';
+import { WorkflowService } from './services/workflow-service.js';
+import { WorkflowGeneratorService } from './services/workflow-generator-service.js';
+import { WorkflowExecutorService } from './services/workflow-executor-service.js';
+import { createWorkflowRoutes } from './routes/workflow-routes.js';
 
 dotenv.config();
 
@@ -150,6 +154,9 @@ class HTTPMCPServer {
   private chatSearchCache: ChatSearchCacheService;
   private configService: ConfigService;
   private classificationService: DocumentClassificationService;
+  private workflowService: WorkflowService;
+  private workflowGeneratorService: WorkflowGeneratorService;
+  private workflowExecutorService: WorkflowExecutorService;
 
   constructor() {
     this.app = express();
@@ -293,6 +300,12 @@ class HTTPMCPServer {
     this.matterInvoiceService = new MatterInvoiceService(this.services.db, this.auditService);
     logger.info('Time tracking and billing services initialized');
 
+    // Initialize workflow services
+    this.workflowService = new WorkflowService(this.services.db);
+    this.workflowGeneratorService = new WorkflowGeneratorService(this.toolRegistry, llmAdapter);
+    this.workflowExecutorService = new WorkflowExecutorService(this.toolRegistry, this.workflowService, this.costTracker);
+    logger.info('Workflow services initialized');
+
     // Initialize ChatService (agentic LLM loop) with search cache
     this.chatSearchCache = new ChatSearchCacheService(
       this.services.zoAdapter,
@@ -306,9 +319,11 @@ class HTTPMCPServer {
       this.chatSearchCache,
       this.conversationService,
       this.services.shepardizationService,
-      this.services.embeddingService
+      this.services.embeddingService,
+      this.workflowGeneratorService,
+      this.workflowService
     );
-    logger.info('ChatService initialized with search cache, conversation persistence, shepardization, and embedding');
+    logger.info('ChatService initialized with search cache, conversation persistence, shepardization, embedding, and workflows');
 
     // Initialize config service
     this.configService = new ConfigService(this.services.db);
@@ -1775,6 +1790,10 @@ class HTTPMCPServer {
     // Decisions routes - download court decision full texts from reyestr.court.gov.ua
     this.app.use('/api/decisions', requireJWT as any, createDecisionsRoutes(this.services.reyestrDownloadService));
     logger.info('Decisions routes registered at /api/decisions');
+
+    // Workflow routes - workflow sets, workflow execution, cancellation
+    this.app.use('/api', requireJWT as any, createWorkflowRoutes(this.workflowService, this.workflowExecutorService));
+    logger.info('Workflow routes registered at /api/workflow-sets, /api/workflows');
 
     // Time tracking and billing routes
     this.app.use('/api/time', requireJWT as any, createTimeEntryRoutes(this.timeEntryService));

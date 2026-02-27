@@ -205,6 +205,9 @@ export function useAIChat(options: UseAIChatOptions = {}) {
             documents: accumulatedDocuments.current.length > 0
               ? [...accumulatedDocuments.current]
               : undefined,
+            metadata: (data as any).workflowSetId
+              ? { workflowSetId: (data as any).workflowSetId }
+              : undefined,
           });
 
           setStreaming(false);

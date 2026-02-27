@@ -279,6 +279,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
     { id: 'terminal', label: 'Термінал', icon: Terminal, route: ROUTES.ADMIN_TERMINAL },
     { id: 'zo-stats', label: 'Статистика рішень', icon: BarChart3, route: ROUTES.ADMIN_ZO_STATS },
     { id: 'user-activity', label: 'Активність юзерів', icon: Zap, route: ROUTES.ADMIN_USER_ACTIVITY },
+    { id: 'bulk-scrape', label: 'Пайплайн збору', icon: Database, route: ROUTES.ADMIN_BULK_SCRAPE },
   ];
 
   const handleProfileMenuClick = () => setShowProfileMenu(!showProfileMenu);
@@ -464,9 +465,9 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                 </Section>
               )}
 
-              {/* Workflows — top-level link (placeholder) */}
+              {/* Workflows — institutional analysis */}
               <div className="mb-6">
-                <NavItem icon={Zap} label="Workflows" route={null} />
+                <NavItem icon={Zap} label="Workflows" route={ROUTES.WORKFLOWS} onClick={() => handleNavigation(ROUTES.WORKFLOWS)} />
               </div>
 
             </>
