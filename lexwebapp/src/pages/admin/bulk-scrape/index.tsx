@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw, Database, FileText, CheckCircle, Clock, AlertCircle, Cloud, Server } from 'lucide-react';
+import { RefreshCw, Database, FileText, CheckCircle, Clock, AlertCircle, Cloud, Server, Globe, Wifi } from 'lucide-react';
 import { api } from '../../../utils/api-client';
 import { SectionLoader, SectionError, formatNumber, formatDate } from '../monitoring/shared';
 import type { BulkScrapeStatusResponse, BulkScrapeJob, CourtBreakdown, JusticeKindBreakdown, WorkerStats } from './types';
@@ -55,59 +55,153 @@ function formatUptime(seconds: number): string {
   return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 }
 
+function WorkerStatusBadge({ status, online }: { status: string; online: boolean }) {
+  if (!online) return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">offline</span>
+  );
+  const map: Record<string, { label: string; cls: string }> = {
+    scraping: { label: 'scraping', cls: 'bg-blue-50 text-blue-700' },
+    idle: { label: 'idle', cls: 'bg-green-50 text-green-700' },
+    blocked: { label: 'blocked', cls: 'bg-red-50 text-red-700' },
+    error: { label: 'error', cls: 'bg-red-50 text-red-600' },
+    starting: { label: 'starting', cls: 'bg-yellow-50 text-yellow-700' },
+  };
+  const cfg = map[status] || { label: status || 'idle', cls: 'bg-gray-100 text-gray-600' };
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${cfg.cls}`}>
+      {status === 'scraping' && <span className="w-1 h-1 rounded-full bg-blue-500 animate-pulse mr-1" />}
+      {cfg.label}
+    </span>
+  );
+}
+
+function ProxyTypeBadge({ type }: { type: string }) {
+  if (type === 'residential') return (
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700">
+      <Wifi size={9} />resi
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-600">
+      <Server size={9} />dc
+    </span>
+  );
+}
+
 function WorkerTable({ workers }: { workers: WorkerStats[] }) {
   const onlineCount = workers.filter(w => w.online).length;
+  const dcCount = workers.filter(w => w.proxy_type !== 'residential').length;
+  const resiCount = workers.filter(w => w.proxy_type === 'residential').length;
+
+  // Group by region
+  const regionMap = new Map<string, WorkerStats[]>();
+  workers.forEach(w => {
+    const region = w.region || 'Unknown';
+    if (!regionMap.has(region)) regionMap.set(region, []);
+    regionMap.get(region)!.push(w);
+  });
+  // Sort regions: known first, Unknown last
+  const sortedRegions = [...regionMap.entries()].sort((a, b) => {
+    if (a[0] === 'Unknown') return 1;
+    if (b[0] === 'Unknown') return -1;
+    return a[0].localeCompare(b[0]);
+  });
+
   return (
     <div className="bg-white rounded-xl border border-claude-border shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-claude-border bg-gray-50 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Server size={14} className="text-purple-500" />
-          <h2 className="text-sm font-semibold text-claude-text">EC2 Workers</h2>
+          <Globe size={14} className="text-purple-500" />
+          <h2 className="text-sm font-semibold text-claude-text">Workers</h2>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
+            <Server size={9} />{dcCount} dc
+          </span>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-600">
+            <Wifi size={9} />{resiCount} resi
+          </span>
         </div>
-        <span className="text-xs text-claude-subtext">{onlineCount}/{workers.length} online</span>
+        <span className="text-xs text-claude-subtext">
+          <span className={onlineCount > 0 ? 'text-green-600 font-medium' : ''}>{onlineCount}</span>/{workers.length} online
+        </span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-claude-border bg-gray-50/50">
-              <th className="text-left px-4 py-2 text-xs font-medium text-claude-subtext"></th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-claude-subtext">Worker</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-claude-subtext">IP</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-claude-subtext">Uptime</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">Recv</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">DL</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">UP</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">Err</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">CAPTCHA</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">Rate</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">Last seen</th>
-            </tr>
-          </thead>
-          <tbody>
-            {workers.map((w) => (
-              <tr key={w.worker_id} className={`border-b border-claude-border/30 hover:bg-gray-50/50 ${!w.online ? 'opacity-40' : ''}`}>
-                <td className="px-4 py-2">
-                  <span className={`inline-block w-2 h-2 rounded-full ${w.online ? 'bg-green-500' : 'bg-gray-300'}`} />
-                </td>
-                <td className="px-4 py-2 font-mono text-xs text-claude-text">{w.worker_id_short}</td>
-                <td className="px-4 py-2 font-mono text-xs text-claude-subtext">{w.ip || '\u2014'}</td>
-                <td className="px-4 py-2 text-xs text-claude-subtext">{formatUptime(w.uptime_s)}</td>
-                <td className="px-4 py-2 text-right font-mono text-xs">{formatNumber(w.received)}</td>
-                <td className="px-4 py-2 text-right font-mono text-xs">{formatNumber(w.downloaded)}</td>
-                <td className="px-4 py-2 text-right font-mono text-xs text-green-700">{formatNumber(w.uploaded)}</td>
-                <td className="px-4 py-2 text-right font-mono text-xs">
-                  {w.errors > 0 ? <span className="text-red-600">{formatNumber(w.errors)}</span> : '\u2014'}
-                </td>
-                <td className="px-4 py-2 text-right font-mono text-xs">
-                  {w.captchas > 0 ? <span className="text-amber-600">{formatNumber(w.captchas)}</span> : '\u2014'}
-                </td>
-                <td className="px-4 py-2 text-right font-mono text-xs text-blue-600">{w.rate_docs_per_s.toFixed(2)}/s</td>
-                <td className="px-4 py-2 text-right text-xs text-claude-subtext">{w.last_seen_s}s ago</td>
+      {workers.length === 0 ? (
+        <div className="px-4 py-8 text-center text-sm text-claude-subtext">
+          Немає активних воркерів. Воркери з'являться тут після запуску скрапера.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-claude-border bg-gray-50/50">
+                <th className="text-left px-3 py-2 text-xs font-medium text-claude-subtext w-6"></th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-claude-subtext">Worker</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-claude-subtext">Тип</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-claude-subtext">Статус</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-claude-subtext">IP</th>
+                <th className="text-left px-3 py-2 text-xs font-medium text-claude-subtext">Uptime</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-claude-subtext">Recv</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-claude-subtext">DL</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-claude-subtext">UP</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-claude-subtext">Err</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-claude-subtext">CAPTCHA</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-claude-subtext">Rate lim</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-claude-subtext">Rate</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-claude-subtext">Last seen</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {sortedRegions.map(([region, regionWorkers]) => {
+                const regionOnline = regionWorkers.filter(w => w.online).length;
+                const regionTotalUploaded = regionWorkers.reduce((s, w) => s + w.uploaded, 0);
+                return (
+                  <React.Fragment key={region}>
+                    <tr className="bg-gray-50/80 border-b border-claude-border/50">
+                      <td colSpan={14} className="px-3 py-1.5">
+                        <div className="flex items-center gap-2">
+                          <Globe size={11} className="text-claude-subtext" />
+                          <span className="text-xs font-semibold text-claude-text">{region}</span>
+                          <span className="text-[10px] text-claude-subtext">
+                            {regionOnline}/{regionWorkers.length} online
+                          </span>
+                          <span className="text-[10px] text-claude-subtext ml-auto">
+                            {formatNumber(regionTotalUploaded)} uploaded
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                    {regionWorkers.map((w) => (
+                      <tr key={w.worker_id} className={`border-b border-claude-border/30 hover:bg-gray-50/50 ${!w.online ? 'opacity-40' : ''}`}>
+                        <td className="px-3 py-1.5">
+                          <span className={`inline-block w-2 h-2 rounded-full ${w.online ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        </td>
+                        <td className="px-3 py-1.5 font-mono text-xs text-claude-text">{w.worker_id_short}</td>
+                        <td className="px-3 py-1.5"><ProxyTypeBadge type={w.proxy_type} /></td>
+                        <td className="px-3 py-1.5"><WorkerStatusBadge status={w.status} online={w.online} /></td>
+                        <td className="px-3 py-1.5 font-mono text-xs text-claude-subtext">{w.ip || '\u2014'}</td>
+                        <td className="px-3 py-1.5 text-xs text-claude-subtext">{formatUptime(w.uptime_s)}</td>
+                        <td className="px-3 py-1.5 text-right font-mono text-xs">{formatNumber(w.received)}</td>
+                        <td className="px-3 py-1.5 text-right font-mono text-xs">{formatNumber(w.downloaded)}</td>
+                        <td className="px-3 py-1.5 text-right font-mono text-xs text-green-700">{formatNumber(w.uploaded)}</td>
+                        <td className="px-3 py-1.5 text-right font-mono text-xs">
+                          {w.errors > 0 ? <span className="text-red-600">{formatNumber(w.errors)}</span> : '\u2014'}
+                        </td>
+                        <td className="px-3 py-1.5 text-right font-mono text-xs">
+                          {w.captchas > 0 ? <span className="text-amber-600">{formatNumber(w.captchas)}</span> : '\u2014'}
+                        </td>
+                        <td className="px-3 py-1.5 text-right font-mono text-xs">
+                          {w.rate_limited > 0 ? <span className="text-orange-600">{formatNumber(w.rate_limited)}</span> : '\u2014'}
+                        </td>
+                        <td className="px-3 py-1.5 text-right font-mono text-xs text-blue-600">{w.rate_docs_per_s.toFixed(2)}/s</td>
+                        <td className="px-3 py-1.5 text-right text-xs text-claude-subtext">{w.last_seen_s}s ago</td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -283,7 +377,7 @@ export function AdminBulkScrapePage() {
       )}
 
       {/* Worker Stats */}
-      {workers.length > 0 && <WorkerTable workers={workers} />}
+      <WorkerTable workers={workers} />
 
       {/* Jobs Table */}
       {jobs.length > 0 && (

@@ -57,6 +57,9 @@ export interface WorkerStats {
   rate_docs_per_s: number;
   last_seen_s: number;
   online: boolean;
+  region: string | null;
+  proxy_type: 'datacenter' | 'residential';
+  status: 'idle' | 'scraping' | 'blocked' | 'error' | 'starting';
 }
 
 export interface BulkScrapeStatusResponse {
