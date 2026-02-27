@@ -592,19 +592,73 @@ export function DocumentsPage() {
     }
   };
 
-  // Preview navigation handlers
-  const handlePreviewPrevious = useCallback(() => {
+  // Preview navigation handlers (with auto-pagination)
+  const handlePreviewPrevious = useCallback(async () => {
     if (previewIndex > 0) {
       const prevDoc = documents[previewIndex - 1];
       if (prevDoc) handleDocumentClick(prevDoc, previewIndex - 1);
+    } else if (offset > 0) {
+      // Load previous page and open last document
+      const newOffset = Math.max(0, offset - PAGE_SIZE);
+      setOffset(newOffset);
+      setPreviewLoading(true);
+      try {
+        const params: Record<string, any> = { limit: PAGE_SIZE, offset: newOffset, sortBy, sortOrder };
+        if (filterType) params.type = filterType;
+        if (currentFolderPath) params.folderPath = currentFolderPath;
+        if (searchQuery.trim()) params.query = searchQuery.trim();
+        const result = await mcpService.callTool('list_documents', params);
+        const parsed = result?.result?.content?.[0]?.text ? JSON.parse(result.result.content[0].text) : result?.result || result;
+        const newDocs: VaultDocument[] = parsed.documents || [];
+        setDocuments(newDocs);
+        setTotalDocs(parsed.total || 0);
+        if (newDocs.length > 0) {
+          const lastDoc = newDocs[newDocs.length - 1];
+          handleDocumentClick(lastDoc, newDocs.length - 1);
+        }
+      } catch (err) {
+        console.error('Failed to load previous page:', err);
+        setPreviewLoading(false);
+      }
     }
-  }, [previewIndex, documents]);
+  }, [previewIndex, documents, offset, sortBy, sortOrder, filterType, currentFolderPath, searchQuery]);
 
-  const handlePreviewNext = useCallback(() => {
+  const handlePreviewNext = useCallback(async () => {
     if (previewIndex < documents.length - 1) {
       const nextDoc = documents[previewIndex + 1];
       if (nextDoc) handleDocumentClick(nextDoc, previewIndex + 1);
+    } else if (offset + PAGE_SIZE < totalDocs) {
+      // Load next page and open first document
+      const newOffset = offset + PAGE_SIZE;
+      setOffset(newOffset);
+      setPreviewLoading(true);
+      try {
+        const params: Record<string, any> = { limit: PAGE_SIZE, offset: newOffset, sortBy, sortOrder };
+        if (filterType) params.type = filterType;
+        if (currentFolderPath) params.folderPath = currentFolderPath;
+        if (searchQuery.trim()) params.query = searchQuery.trim();
+        const result = await mcpService.callTool('list_documents', params);
+        const parsed = result?.result?.content?.[0]?.text ? JSON.parse(result.result.content[0].text) : result?.result || result;
+        const newDocs: VaultDocument[] = parsed.documents || [];
+        setDocuments(newDocs);
+        setTotalDocs(parsed.total || 0);
+        if (newDocs.length > 0) {
+          handleDocumentClick(newDocs[0], 0);
+        }
+      } catch (err) {
+        console.error('Failed to load next page:', err);
+        setPreviewLoading(false);
+      }
     }
+  }, [previewIndex, documents, offset, totalDocs, sortBy, sortOrder, filterType, currentFolderPath, searchQuery]);
+
+  // Delete from preview modal — opens delete confirmation
+  const handlePreviewDelete = useCallback(() => {
+    if (previewIndex < 0 || !documents[previewIndex]) return;
+    const doc = documents[previewIndex];
+    setPreviewOpen(false);
+    setPreviewDoc(null);
+    setDeleteTarget(doc);
   }, [previewIndex, documents]);
 
   // Edit navigation handlers
@@ -620,6 +674,13 @@ export function DocumentsPage() {
     if (idx < documents.length - 1) handleEditOpen(documents[idx + 1]);
   }, [editTarget, documents]);
 
+  // Delete from edit modal — opens delete confirmation
+  const handleEditDelete = useCallback(() => {
+    if (!editTarget) return;
+    setEditTarget(null);
+    setDeleteTarget(editTarget);
+  }, [editTarget]);
+
   // Keyboard navigation for edit modal
   useEffect(() => {
     if (!editTarget) return;
@@ -633,11 +694,14 @@ export function DocumentsPage() {
       } else if (e.key === 'ArrowRight' && idx < documents.length - 1) {
         e.preventDefault();
         handleEditOpen(documents[idx + 1]);
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        handleEditDelete();
       }
     };
     window.addEventListener('keydown', handleKeydown);
     return () => window.removeEventListener('keydown', handleKeydown);
-  }, [editTarget, documents]);
+  }, [editTarget, documents, handleEditDelete]);
 
   // Pagination
   const hasMore = offset + PAGE_SIZE < totalDocs;
@@ -967,10 +1031,11 @@ export function DocumentsPage() {
         onSaveOcrText={handleSaveOcrText}
         onPrevious={handlePreviewPrevious}
         onNext={handlePreviewNext}
-        hasPrevious={previewIndex > 0}
-        hasNext={previewIndex < documents.length - 1}
-        currentIndex={previewIndex}
-        totalCount={documents.length}
+        hasPrevious={previewIndex > 0 || offset > 0}
+        hasNext={previewIndex < documents.length - 1 || offset + PAGE_SIZE < totalDocs}
+        currentIndex={offset + previewIndex}
+        totalCount={totalDocs}
+        onDelete={handlePreviewDelete}
       />
 
       {/* Delete Confirmation Modal */}
@@ -1074,12 +1139,22 @@ export function DocumentsPage() {
                     Редагувати: {editTarget.title}
                   </h3>
                 </div>
-                <button
-                  onClick={() => !editSaving && setEditTarget(null)}
-                  className="p-1 text-claude-subtext/40 hover:text-claude-text transition-colors"
-                >
-                  <X size={18} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleEditDelete}
+                    disabled={editSaving}
+                    className="p-1 text-claude-subtext/40 hover:text-red-500 transition-colors disabled:opacity-30"
+                    title="Видалити (Delete)"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                  <button
+                    onClick={() => !editSaving && setEditTarget(null)}
+                    className="p-1 text-claude-subtext/40 hover:text-claude-text transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
               {editLoading ? (
                 <div className="flex-1 flex items-center justify-center py-20">
