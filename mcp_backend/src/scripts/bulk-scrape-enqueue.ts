@@ -43,7 +43,7 @@ async function main(): Promise<void> {
     const countResult = await db.query(
       `SELECT COUNT(*) as total FROM documents
        WHERE full_text IS NULL
-         AND zakononline_id LIKE 'court_%'`
+         AND type = 'court_decision'`
     );
     const totalAvailable = parseInt(countResult.rows[0].total, 10);
     logger.info(`  Documents needing download: ${totalAvailable}`);
@@ -77,7 +77,7 @@ async function main(): Promise<void> {
       const result = await db.query(
         `SELECT zakononline_id FROM documents
          WHERE full_text IS NULL
-           AND zakononline_id LIKE 'court_%'
+           AND type = 'court_decision'
          ORDER BY zakononline_id
          OFFSET $1 LIMIT $2`,
         [offset, effectiveLimit]
@@ -85,7 +85,7 @@ async function main(): Promise<void> {
 
       if (result.rows.length === 0) break;
 
-      // Extract registry IDs (strip 'court_' prefix)
+      // Extract registry IDs (strip 'court_' prefix if present, use as-is otherwise)
       const registryIds: string[] = result.rows.map(
         (r: { zakononline_id: string }) => r.zakononline_id.replace(/^court_/, '')
       );
