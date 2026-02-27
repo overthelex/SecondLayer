@@ -571,12 +571,39 @@ Pipeline:
         return null;
       }
 
+      let content = doc.full_text || '';
+
+      // If full_text is raw EML with MIME attachments, re-parse to extract just the text
+      const docMeta = typeof doc.metadata === 'string' ? JSON.parse(doc.metadata) : doc.metadata || {};
+      const mimeType = (doc as any).mime_type || docMeta.mimeType;
+      if (mimeType === 'message/rfc822' && content.length > 0) {
+        const first500 = content.substring(0, 500);
+        const looksRawEml = /^(From|Subject|Date|MIME-Version|Content-Type):\s/mi.test(first500) &&
+          (/boundary=/i.test(first500) || /Content-Type:\s*multipart/i.test(first500));
+        if (looksRawEml) {
+          try {
+            const parsed = await this.documentParser.parseEML(Buffer.from(content, 'utf-8'));
+            content = parsed.text;
+            logger.info('[Vault] Re-parsed raw EML full_text', {
+              documentId: args.documentId,
+              originalLen: doc.full_text!.length,
+              parsedLen: content.length,
+            });
+          } catch (err: any) {
+            logger.warn('[Vault] Failed to re-parse EML, returning raw', {
+              documentId: args.documentId,
+              error: err.message,
+            });
+          }
+        }
+      }
+
       const result: VaultDocument = {
         id: doc.id!,
         title: doc.title || 'Untitled',
         type: doc.type as any,
-        content: doc.full_text || '',
-        metadata: typeof doc.metadata === 'string' ? JSON.parse(doc.metadata) : doc.metadata || {},
+        content,
+        metadata: docMeta,
       };
 
       // Include sections if requested
