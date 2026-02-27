@@ -42,3 +42,20 @@ export interface BulkScrapeStatusResponse {
   justice_kind_breakdown?: JusticeKindBreakdown[];
   message?: string;
 }
+
+export interface InfraHealthCheck {
+  ok: boolean;
+  error?: string;
+}
+
+export interface InfraHealthResponse {
+  postgres: InfraHealthCheck;
+  redis: InfraHealthCheck;
+  qdrant: InfraHealthCheck;
+  minio: InfraHealthCheck;
+  scrapeWorker: {
+    in_flight: number;
+    pending: number;
+    max_concurrent: number;
+  };
+}
