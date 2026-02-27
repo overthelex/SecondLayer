@@ -631,7 +631,7 @@ Pipeline:
       const sortOrder = args.sortOrder || 'desc';
 
       // Build SQL query with filters
-      const conditions: string[] = ['1=1'];
+      const conditions: string[] = ['1=1', 'deleted_at IS NULL'];
       const params: any[] = [];
       let paramIndex = 1;
 
@@ -765,7 +765,7 @@ Pipeline:
   }): Promise<{ folders: string[]; fileCount: number }> {
     try {
       const prefix = args.prefix || '';
-      const conditions: string[] = ["metadata::jsonb ->> 'folderPath' IS NOT NULL"];
+      const conditions: string[] = ["metadata::jsonb ->> 'folderPath' IS NOT NULL", 'deleted_at IS NULL'];
       const params: any[] = [];
       let paramIndex = 1;
 
@@ -893,7 +893,7 @@ Pipeline:
           const docsQuery = `
             SELECT id, type, title, metadata
             FROM documents
-            WHERE id = ANY($1)
+            WHERE id = ANY($1) AND deleted_at IS NULL
             ${args.userId ? 'AND user_id = $2' : ''}
           `;
           const params: any[] = args.userId ? [uniqueIds, args.userId] : [uniqueIds];
