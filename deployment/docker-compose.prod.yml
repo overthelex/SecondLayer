@@ -15,7 +15,7 @@ services:
       -c lock_timeout=30000
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
       TZ: Europe/Kiev
     ports:
@@ -46,7 +46,7 @@ services:
     ports:
     - "127.0.0.1:5439:5432"
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@postgres-prod:5432/${POSTGRES_DB:-secondlayer_prod}
+      DATABASE_URL: postgres://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@postgres-prod:5432/${POSTGRES_DB:-secondlayer_prod}
       AUTH_TYPE: scram-sha-256
       POOL_MODE: transaction
       MAX_CLIENT_CONN: 300
@@ -85,9 +85,9 @@ services:
       POSTGRES_PORT: "5432"
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       RADA_POSTGRES_USER: ${RADA_POSTGRES_USER:-rada_mcp}
-      RADA_POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD}
+      RADA_POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD:-}
       RADA_POSTGRES_SCHEMA: ${RADA_POSTGRES_SCHEMA:-rada}
       TZ: Europe/Kiev
     volumes:
@@ -114,7 +114,7 @@ services:
       -c lock_timeout=30000
     environment:
       POSTGRES_USER: ${OPENREYESTR_POSTGRES_USER:-openreyestr}
-      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${OPENREYESTR_POSTGRES_DB:-openreyestr_prod}
       TZ: Europe/Kiev
     ports:
@@ -205,11 +205,11 @@ services:
       redis-prod:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@postgres-prod:5432/${POSTGRES_DB:-secondlayer_prod}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@postgres-prod:5432/${POSTGRES_DB:-secondlayer_prod}
       POSTGRES_HOST: postgres-prod
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       NODE_ENV: production
@@ -229,13 +229,13 @@ services:
       migrate-prod:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@postgres-prod:5432/${POSTGRES_DB:-secondlayer_prod}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@postgres-prod:5432/${POSTGRES_DB:-secondlayer_prod}
       POSTGRES_HOST: postgres-prod
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
-      ADMIN_USERS: ${ADMIN_USERS}
+      ADMIN_USERS: ${ADMIN_USERS:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       NODE_ENV: production
       TZ: Europe/Kiev
@@ -260,7 +260,7 @@ services:
       POSTGRES_HOST: postgres-prod
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${RADA_POSTGRES_USER:-rada_mcp}
-      POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
       POSTGRES_SCHEMA: ${RADA_POSTGRES_SCHEMA:-rada}
       REDIS_URL: redis://redis-prod:6379
@@ -296,20 +296,20 @@ services:
       POSTGRES_HOST: postgres-prod
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${RADA_POSTGRES_USER:-rada_mcp}
-      POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
       POSTGRES_SCHEMA: ${RADA_POSTGRES_SCHEMA:-rada}
       REDIS_URL: redis://redis-prod:6379
       REDIS_HOST: redis-prod
       REDIS_PORT: 6379
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
       OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
       OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
       LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-task-aware}
       SECONDLAYER_URL: http://app-prod:3000
-      SECONDLAYER_API_KEY: ${SECONDARY_LAYER_KEYS}
-      RADA_API_KEYS: ${RADA_API_KEYS}
+      SECONDLAYER_API_KEY: ${SECONDARY_LAYER_KEYS:-}
+      RADA_API_KEYS: ${RADA_API_KEYS:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://legal.org.ua}
       TZ: Europe/Kiev
@@ -339,11 +339,11 @@ services:
       postgres-openreyestr-prod:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD}@postgres-openreyestr-prod:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_prod}
+      DATABASE_URL: postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD:-}@postgres-openreyestr-prod:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_prod}
       POSTGRES_HOST: postgres-openreyestr-prod
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${OPENREYESTR_POSTGRES_USER:-openreyestr}
-      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${OPENREYESTR_POSTGRES_DB:-openreyestr_prod}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       NODE_ENV: production
@@ -366,19 +366,19 @@ services:
       NODE_ENV: production
       HTTP_PORT: 3005
       HTTP_HOST: 0.0.0.0
-      DATABASE_URL: postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD}@postgres-openreyestr-prod:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_prod}
+      DATABASE_URL: postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD:-}@postgres-openreyestr-prod:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_prod}
       POSTGRES_HOST: postgres-openreyestr-prod
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${OPENREYESTR_POSTGRES_USER:-openreyestr}
-      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${OPENREYESTR_POSTGRES_DB:-openreyestr_prod}
-      OPENREYESTR_API_KEYS: ${OPENREYESTR_API_KEYS}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENREYESTR_API_KEYS: ${OPENREYESTR_API_KEYS:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
       OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
       OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
       SECONDLAYER_URL: http://app-prod:3000
-      SECONDLAYER_API_KEY: ${SECONDARY_LAYER_KEYS}
+      SECONDLAYER_API_KEY: ${SECONDARY_LAYER_KEYS:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       NODE_OPTIONS: --max-old-space-size=1536
       TZ: Europe/Kiev
@@ -445,18 +445,18 @@ services:
       NODE_ENV: production
       HTTP_PORT: ${HTTP_PORT:-3000}
       HTTP_HOST: 0.0.0.0
-      JWT_SECRET: ${JWT_SECRET}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@pgbouncer-prod:5432/${POSTGRES_DB:-secondlayer_prod}
+      JWT_SECRET: ${JWT_SECRET:-}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@pgbouncer-prod:5432/${POSTGRES_DB:-secondlayer_prod}
       POSTGRES_HOST: pgbouncer-prod
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
       QDRANT_URL: http://qdrant-prod:6333
       REDIS_URL: redis://redis-prod:6379
       REDIS_HOST: redis-prod
       REDIS_PORT: 6379
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_API_KEY2: ${OPENAI_API_KEY2:-}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
       OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
@@ -469,12 +469,12 @@ services:
       BEDROCK_MODEL_QUICK: ${BEDROCK_MODEL_QUICK:-eu.amazon.nova-micro-v1:0}
       BEDROCK_MODEL_STANDARD: ${BEDROCK_MODEL_STANDARD:-eu.amazon.nova-lite-v1:0}
       BEDROCK_MODEL_DEEP: ${BEDROCK_MODEL_DEEP:-eu.amazon.nova-pro-v1:0}
-      VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY}
+      VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY:-}
       VOYAGEAI_EMBEDDING_MODEL: ${VOYAGEAI_EMBEDDING_MODEL:-voyage-multilingual-2}
-      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN}
+      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN:-}
       ZAKONONLINE_API_TOKEN2: ${ZAKONONLINE_API_TOKEN2:-}
-      SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL_QUICK: ${ANTHROPIC_MODEL_QUICK:-claude-haiku-4-5-20251001}
       ANTHROPIC_MODEL_STANDARD: ${ANTHROPIC_MODEL_STANDARD:-claude-sonnet-4-5-20250929}
       ANTHROPIC_MODEL_DEEP: ${ANTHROPIC_MODEL_DEEP:-claude-sonnet-4-5-20250929}
@@ -489,9 +489,9 @@ services:
       # Unified Gateway
       ENABLE_UNIFIED_GATEWAY: "true"
       RADA_MCP_URL: http://rada-mcp-app-prod:3001
-      RADA_API_KEY: ${RADA_API_KEY}
+      RADA_API_KEY: ${RADA_API_KEY:-}
       OPENREYESTR_MCP_URL: http://app-openreyestr-prod:3005
-      OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEY}
+      OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEY:-}
 
       # Stage access for db-compare
       STAGE_BACKEND_URL: ${STAGE_BACKEND_URL:-https://stage.legal.org.ua}
@@ -502,8 +502,8 @@ services:
       WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-SecondLayer Legal}
       WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-https://legal.org.ua}
 
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_CALLBACK_URL: https://legal.org.ua/auth/google/callback
       FRONTEND_URL: https://legal.org.ua
       ALLOWED_ORIGINS: https://legal.org.ua,https://mcp.legal.org.ua
@@ -530,12 +530,12 @@ services:
       PROMETHEUS_URL: http://prometheus-prod:9090
 
       # Payment gateways
-      FONDY_MERCHANT_ID: ${FONDY_MERCHANT_ID}
-      FONDY_PAYMENT_KEY: ${FONDY_PAYMENT_KEY}
-      FONDY_CREDIT_PRIVATE_KEY: ${FONDY_CREDIT_PRIVATE_KEY}
-      NOWPAYMENTS_API_KEY: ${NOWPAYMENTS_API_KEY}
-      NOWPAYMENTS_IPN_SECRET: ${NOWPAYMENTS_IPN_SECRET}
-      NOWPAYMENTS_PUBLIC_KEY: ${NOWPAYMENTS_PUBLIC_KEY}
+      FONDY_MERCHANT_ID: ${FONDY_MERCHANT_ID:-}
+      FONDY_PAYMENT_KEY: ${FONDY_PAYMENT_KEY:-}
+      FONDY_CREDIT_PRIVATE_KEY: ${FONDY_CREDIT_PRIVATE_KEY:-}
+      NOWPAYMENTS_API_KEY: ${NOWPAYMENTS_API_KEY:-}
+      NOWPAYMENTS_IPN_SECRET: ${NOWPAYMENTS_IPN_SECRET:-}
+      NOWPAYMENTS_PUBLIC_KEY: ${NOWPAYMENTS_PUBLIC_KEY:-}
 
       LOG_LEVEL: ${LOG_LEVEL:-warn}
       TZ: Europe/Kiev
@@ -602,26 +602,26 @@ services:
       PORT: 3002
       HTTP_PORT: 3002
       HTTP_HOST: 0.0.0.0
-      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@pgbouncer-prod:5432/${POSTGRES_DB:-secondlayer_prod}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@pgbouncer-prod:5432/${POSTGRES_DB:-secondlayer_prod}
       POSTGRES_HOST: pgbouncer-prod
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
       QDRANT_URL: http://qdrant-prod:6333
       REDIS_URL: redis://redis-prod:6379
       REDIS_HOST: redis-prod
       REDIS_PORT: 6379
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_API_KEY2: ${OPENAI_API_KEY2:-}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
-      VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY}
+      VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY:-}
       VOYAGEAI_EMBEDDING_MODEL: ${VOYAGEAI_EMBEDDING_MODEL:-voyage-multilingual-2}
       OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
       OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
       OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
       LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-task-aware}
-      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN}
+      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN:-}
       ZAKONONLINE_API_TOKEN2: ${ZAKONONLINE_API_TOKEN2:-}
       VISION_CREDENTIALS_PATH: /app/credentials/vision-credentials.json
       GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/vision-credentials.json
@@ -629,8 +629,8 @@ services:
       SCRAPE_MAX_CONCURRENT: "5"
       SCRAPE_MAX_QUEUE_DEPTH: "200"
       SCRAPE_SKIP_EMBEDDINGS: "true"
-      SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS}
-      JWT_SECRET: ${JWT_SECRET}
+      SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS:-}
+      JWT_SECRET: ${JWT_SECRET:-}
       LOG_LEVEL: ${LOG_LEVEL:-warn}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://legal.org.ua}
       TZ: Europe/Kiev
