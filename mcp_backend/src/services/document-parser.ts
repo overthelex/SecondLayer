@@ -751,7 +751,35 @@ export class DocumentParser {
   }
 
   /**
-   * Parse EML (email message) — extract body text after headers
+   * Decode RFC 2047 encoded words (=?charset?encoding?text?=)
+   */
+  private decodeEncodedWords(str: string): string {
+    return str.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_match, _charset, encoding, text) => {
+      if (encoding.toUpperCase() === 'B') {
+        try { return Buffer.from(text, 'base64').toString('utf-8'); } catch { return text; }
+      }
+      if (encoding.toUpperCase() === 'Q') {
+        return text.replace(/_/g, ' ').replace(/=([0-9A-Fa-f]{2})/g, (_: string, hex: string) =>
+          String.fromCharCode(parseInt(hex, 16))
+        );
+      }
+      return text;
+    });
+  }
+
+  /**
+   * Extract a header value, handling multi-line folded headers
+   */
+  private extractEmlHeader(headers: string, name: string): string {
+    const regex = new RegExp(`^${name}:\\s*(.+(?:\\r?\\n[ \\t].+)*)`, 'mi');
+    const match = headers.match(regex);
+    if (!match) return '';
+    const raw = match[1].replace(/\r?\n[ \t]+/g, ' ').trim();
+    return this.decodeEncodedWords(raw);
+  }
+
+  /**
+   * Parse EML (email message) — properly handles multipart MIME
    */
   async parseEML(fileBuffer: Buffer): Promise<ParsedDocument> {
     logger.info('Parsing EML message', { size: fileBuffer.length });
@@ -759,52 +787,155 @@ export class DocumentParser {
     const raw = fileBuffer.toString('utf-8');
 
     // Split headers from body at first blank line
-    const headerBodySplit = raw.indexOf('\r\n\r\n');
-    const altSplit = raw.indexOf('\n\n');
-    const splitPos = headerBodySplit >= 0 ? headerBodySplit : altSplit;
+    const splitMatch = raw.match(/\r?\n\r?\n/);
+    if (!splitMatch || splitMatch.index === undefined) {
+      throw new Error('EML file contains no extractable text');
+    }
 
-    let headers = '';
-    let body = '';
+    const headers = raw.substring(0, splitMatch.index);
+    const bodySection = raw.substring(splitMatch.index + splitMatch[0].length);
 
-    if (splitPos >= 0) {
-      headers = raw.substring(0, splitPos);
-      body = raw.substring(splitPos).trim();
+    // Extract headers
+    const subject = this.extractEmlHeader(headers, 'Subject');
+    const from = this.extractEmlHeader(headers, 'From');
+    const date = this.extractEmlHeader(headers, 'Date');
+    const to = this.extractEmlHeader(headers, 'To');
+
+    const contentType = this.extractEmlHeader(headers, 'Content-Type');
+    const transferEncoding = this.extractEmlHeader(headers, 'Content-Transfer-Encoding').toLowerCase();
+
+    let textBody = '';
+    let htmlBody = '';
+    const attachments: string[] = [];
+
+    if (contentType.toLowerCase().includes('multipart')) {
+      // Extract boundary
+      const boundaryMatch = contentType.match(/boundary="?([^";\s]+)"?/i) ||
+                            headers.match(/boundary="?([^";\s]+)"?/i);
+      if (boundaryMatch) {
+        this.extractMimeParts(bodySection, boundaryMatch[1], (ct, content) => {
+          if (ct.startsWith('text/plain') && !textBody) textBody = content;
+          else if (ct.startsWith('text/html') && !htmlBody) htmlBody = content;
+        }, attachments);
+      }
+    } else if (contentType.toLowerCase().includes('text/html')) {
+      htmlBody = this.decodeMimeContent(bodySection, transferEncoding);
     } else {
-      body = raw;
+      textBody = this.decodeMimeContent(bodySection, transferEncoding);
     }
 
-    // Extract useful header info
-    const subjectMatch = headers.match(/^Subject:\s*(.+)$/mi);
-    const fromMatch = headers.match(/^From:\s*(.+)$/mi);
-    const dateMatch = headers.match(/^Date:\s*(.+)$/mi);
+    // Build readable output
+    const lines: string[] = [];
+    if (subject) lines.push(`Subject: ${subject}`);
+    if (from) lines.push(`From: ${from}`);
+    if (to) lines.push(`To: ${to}`);
+    if (date) lines.push(`Date: ${date}`);
+    if (lines.length > 0) lines.push('');
 
-    const headerSummary = [
-      subjectMatch ? `Subject: ${subjectMatch[1]}` : null,
-      fromMatch ? `From: ${fromMatch[1]}` : null,
-      dateMatch ? `Date: ${dateMatch[1]}` : null,
-    ].filter(Boolean).join('\n');
+    // Prefer plain text, fall back to stripped HTML
+    let body = textBody.trim();
+    if (!body && htmlBody) {
+      body = htmlBody
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n\n')
+        .replace(/<\/div>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+    if (body) lines.push(body);
 
-    // Strip HTML tags if body is HTML
-    if (body.includes('<html') || body.includes('<body')) {
-      body = body.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    if (attachments.length > 0) {
+      lines.push('', `Attachments (${attachments.length}):`);
+      for (const att of attachments) lines.push(`- ${att}`);
     }
 
-    const text = headerSummary ? `${headerSummary}\n\n${body}` : body;
-
+    const text = lines.join('\n');
     if (!text.trim()) {
       throw new Error('EML file contains no extractable text');
     }
 
-    logger.info('EML parsed', { textLength: text.length });
+    logger.info('EML parsed', { textLength: text.length, attachments: attachments.length });
 
     return {
       text,
       metadata: {
         source: 'native',
         mimeType: 'message/rfc822',
-        title: subjectMatch?.[1],
+        title: subject || undefined,
       },
     };
+  }
+
+  /**
+   * Recursively extract text parts from multipart MIME
+   */
+  private extractMimeParts(
+    body: string,
+    boundary: string,
+    onText: (contentType: string, content: string) => void,
+    attachments: string[]
+  ): void {
+    const escaped = boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = body.split(new RegExp(`--${escaped}(?:--)?`));
+
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+
+      const partSplit = trimmed.match(/\r?\n\r?\n/);
+      if (!partSplit || partSplit.index === undefined) continue;
+
+      const partHeaders = trimmed.substring(0, partSplit.index);
+      const partBody = trimmed.substring(partSplit.index + partSplit[0].length);
+
+      const ctMatch = partHeaders.match(/Content-Type:\s*([^;\r\n]+)/i);
+      const ct = ctMatch ? ctMatch[1].trim().toLowerCase() : 'text/plain';
+
+      // Handle nested multipart
+      if (ct.startsWith('multipart/')) {
+        const nestedBoundary = partHeaders.match(/boundary="?([^";\s]+)"?/i);
+        if (nestedBoundary) {
+          this.extractMimeParts(partBody, nestedBoundary[1], onText, attachments);
+        }
+        continue;
+      }
+
+      const encMatch = partHeaders.match(/Content-Transfer-Encoding:\s*(\S+)/i);
+      const enc = encMatch ? encMatch[1].trim().toLowerCase() : '7bit';
+
+      // Check for attachments
+      if (/Content-Disposition:\s*attachment/i.test(partHeaders)) {
+        const nameMatch = partHeaders.match(/filename="?([^";\r\n]+)"?/i);
+        if (nameMatch) attachments.push(this.decodeEncodedWords(nameMatch[1].trim()));
+        continue;
+      }
+
+      if (ct.startsWith('text/')) {
+        onText(ct, this.decodeMimeContent(partBody, enc));
+      }
+    }
+  }
+
+  /**
+   * Decode MIME content based on transfer encoding
+   */
+  private decodeMimeContent(content: string, encoding: string): string {
+    if (encoding === 'base64') {
+      try {
+        return Buffer.from(content.replace(/\s/g, ''), 'base64').toString('utf-8');
+      } catch { return content; }
+    }
+    if (encoding === 'quoted-printable') {
+      return content
+        .replace(/=\r?\n/g, '')
+        .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    }
+    return content;
   }
 
   /**
@@ -1006,6 +1137,12 @@ export class DocumentParser {
     const textLower = textStart.toLowerCase();
     if (textLower.includes('<html') || textLower.includes('<!doctype html')) {
       return 'text/html';
+    }
+
+    // EML: check for email headers
+    if (/^(From|Subject|Date|MIME-Version|Received|Return-Path):\s/mi.test(textStart) &&
+        (/boundary=/i.test(textStart) || /^Subject:\s/mi.test(textStart) || /^Content-Type:\s*multipart/mi.test(textStart))) {
+      return 'message/rfc822';
     }
 
     // Check if it looks like plain text (mostly printable characters)

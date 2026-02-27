@@ -88,11 +88,16 @@ export class MinioService {
   async getFileUrl(
     userId: string,
     objectKey: string,
-    expirySeconds: number = 3600
+    expirySeconds: number = 3600,
+    inline: boolean = false
   ): Promise<string> {
     const bucket = this.getBucketName(userId);
     try {
-      let url = await this.client.presignedGetObject(bucket, objectKey, expirySeconds);
+      const respHeaders: Record<string, string> = {};
+      if (inline) {
+        respHeaders['response-content-disposition'] = 'inline';
+      }
+      let url = await this.client.presignedGetObject(bucket, objectKey, expirySeconds, respHeaders);
 
       // Rewrite internal Docker hostname to public URL if configured
       const publicUrl = process.env.MINIO_PUBLIC_URL;
