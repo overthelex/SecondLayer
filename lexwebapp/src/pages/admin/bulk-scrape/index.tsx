@@ -3,6 +3,7 @@ import { RefreshCw, Database, FileText, CheckCircle, Clock, AlertCircle } from '
 import { api } from '../../../utils/api-client';
 import { SectionLoader, SectionError, formatNumber, formatDate } from '../monitoring/shared';
 import type { BulkScrapeStatusResponse, BulkScrapeJob, CourtBreakdown, JusticeKindBreakdown } from './types';
+import { InfrastructureDiagram } from './InfrastructureDiagram';
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -115,6 +116,9 @@ export function AdminBulkScrapePage() {
           Оновити
         </button>
       </div>
+
+      {/* Infrastructure Diagram */}
+      <InfrastructureDiagram hasRunningJob={data?.jobs?.some(j => j.status === 'running') ?? false} />
 
       {data?.message && (
         <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
