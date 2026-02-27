@@ -35,9 +35,18 @@ export interface JusticeKindBreakdown {
   pending: number;
 }
 
+export interface AwsPipelineStats {
+  sqs_pending: number;
+  sqs_in_flight: number;
+  sqs_dlq: number;
+  s3_downloaded: number;
+  active: boolean;
+}
+
 export interface BulkScrapeStatusResponse {
   jobs: BulkScrapeJob[];
   stats: BulkScrapeStats | null;
+  aws_pipeline?: AwsPipelineStats | null;
   court_breakdown?: CourtBreakdown[];
   justice_kind_breakdown?: JusticeKindBreakdown[];
   message?: string;

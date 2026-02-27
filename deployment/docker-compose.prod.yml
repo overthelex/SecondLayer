@@ -508,6 +508,11 @@ services:
       FRONTEND_URL: https://legal.org.ua
       ALLOWED_ORIGINS: https://legal.org.ua,https://mcp.legal.org.ua
 
+      # Bulk scrape pipeline (AWS SQS + S3)
+      BULK_SCRAPE_SQS_QUEUE_URL: ${BULK_SCRAPE_SQS_QUEUE_URL:-}
+      BULK_SCRAPE_SQS_DLQ_URL: ${BULK_SCRAPE_SQS_DLQ_URL:-}
+      BULK_SCRAPE_S3_BUCKET: ${BULK_SCRAPE_S3_BUCKET:-}
+
       # MinIO
       MINIO_ENDPOINT: minio-prod
       MINIO_PORT: 9000
