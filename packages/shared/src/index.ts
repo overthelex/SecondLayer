@@ -2,6 +2,7 @@ export { createLogger, logger, type Logger } from './utils/logger';
 export * from './utils/model-selector';
 export * from './utils/openai-client';
 export * from './utils/anthropic-client';
+export * from './utils/bedrock-client';
 export * from './utils/llm-client-manager';
 export * from './database/base-database';
 export * from './http/sse-handler';
