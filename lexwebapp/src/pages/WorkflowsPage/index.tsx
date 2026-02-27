@@ -31,6 +31,7 @@ export function WorkflowsPage() {
   };
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="max-w-6xl mx-auto p-6">
       <div className="flex items-center gap-3 mb-8">
         <Zap className="w-7 h-7 text-indigo-600" />
@@ -99,6 +100,7 @@ export function WorkflowsPage() {
           })}
         </div>
       )}
+    </div>
     </div>
   );
 }

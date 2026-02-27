@@ -81,6 +81,7 @@ export function WorkflowSetDetailPage() {
   const pendingCount = activeWorkflowSet.workflows?.filter((w) => w.status === 'pending').length || 0;
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="max-w-6xl mx-auto p-6">
       {/* Back button */}
       <button
@@ -141,6 +142,7 @@ export function WorkflowSetDetailPage() {
           />
         ))}
       </div>
+    </div>
     </div>
   );
 }
