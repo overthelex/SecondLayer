@@ -34,6 +34,8 @@ import { DocumentStatsPanel } from './DocumentStatsPanel';
 import type { VaultDocument, DocType, ViewMode, SortField, SortOrder, DocumentStats } from './types';
 import { isPreviewableBinary } from './types';
 import { processEmlContent } from '../../utils/eml-parser';
+import { useUndoStore } from '../../stores/undoStore';
+import { useUndoKeyboard } from '../../hooks/useUndoKeyboard';
 
 const DOC_TYPE_LABELS: Record<DocType, string> = {
   contract: 'Договір',
@@ -184,6 +186,23 @@ export function DocumentsPage() {
     dismissRecoveredSession,
     clearRecoveredSessions,
   } = useUploadStore();
+
+  // Undo/redo
+  const pushAction = useUndoStore((s) => s.pushAction);
+  const undoAction = useUndoStore((s) => s.undo);
+  const setOnActionExecuted = useUndoStore((s) => s.setOnActionExecuted);
+  const editOriginalTextRef = useRef<string>('');
+
+  useUndoKeyboard();
+
+  // Register reload callback for undo/redo
+  useEffect(() => {
+    setOnActionExecuted(() => {
+      loadDocuments();
+      loadFolders(currentFolderPath);
+    });
+    return () => setOnActionExecuted(null);
+  }, [currentFolderPath]);
 
   // Local UI state
   const [isDragOver, setIsDragOver] = useState(false);
@@ -503,8 +522,13 @@ export function DocumentsPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await api.documents.delete(deleteTarget.id);
-      showToast.success('Документ видалено');
+      const docId = deleteTarget.id;
+      const docTitle = deleteTarget.title;
+      await api.documents.delete(docId);
+      pushAction({ type: 'delete', documentId: docId, documentTitle: docTitle });
+      showToast.undoable(`«${docTitle}» видалено`, () => {
+        undoAction().then(() => { loadDocuments(); loadFolders(currentFolderPath); });
+      });
       setDeleteTarget(null);
       loadDocuments();
       loadFolders(currentFolderPath);
@@ -523,7 +547,9 @@ export function DocumentsPage() {
     try {
       const resp = await api.documents.getById(doc.id);
       const data = resp.data;
-      setEditText(data.full_text || data.content || '');
+      const text = data.full_text || data.content || '';
+      editOriginalTextRef.current = text;
+      setEditText(text);
     } catch (err: any) {
       console.error('Failed to fetch document for editing:', err);
       showToast.error('Не вдалося завантажити документ');
@@ -539,6 +565,15 @@ export function DocumentsPage() {
     setEditSaving(true);
     try {
       await api.documents.update(editTarget.id, { full_text: editText });
+      if (editText !== editOriginalTextRef.current) {
+        pushAction({
+          type: 'edit',
+          documentId: editTarget.id,
+          documentTitle: editTarget.title,
+          previousText: editOriginalTextRef.current,
+          newText: editText,
+        });
+      }
       showToast.success('Документ збережено');
       setEditTarget(null);
       loadDocuments();
@@ -582,8 +617,19 @@ export function DocumentsPage() {
     if (!moveTarget) return;
     setMoveLoading(true);
     try {
+      const previousFolder = moveTarget.metadata?.folderPath || '';
       await api.documents.move(moveTarget.id, moveFolder);
-      showToast.success(`Документ переміщено${moveFolder ? ` до ${moveFolder}` : ' у корінь'}`);
+      pushAction({
+        type: 'move',
+        documentId: moveTarget.id,
+        documentTitle: moveTarget.title,
+        previousFolder,
+        newFolder: moveFolder,
+      });
+      showToast.undoable(
+        `Документ переміщено${moveFolder ? ` до ${moveFolder}` : ' у корінь'}`,
+        () => { undoAction().then(() => { loadDocuments(); loadFolders(currentFolderPath); }); },
+      );
       setMoveTarget(null);
       loadDocuments();
       loadFolders(currentFolderPath);
@@ -661,7 +707,10 @@ export function DocumentsPage() {
     const doc = documents[previewIndex];
     try {
       await api.documents.delete(doc.id);
-      showToast.success(`«${doc.title}» видалено`);
+      pushAction({ type: 'delete', documentId: doc.id, documentTitle: doc.title });
+      showToast.undoable(`«${doc.title}» видалено`, () => {
+        undoAction().then(() => { loadDocuments(); loadFolders(currentFolderPath); });
+      });
       const newDocs = documents.filter((_, i) => i !== previewIndex);
       setDocuments(newDocs);
       setTotalDocs((prev) => Math.max(0, prev - 1));
@@ -699,7 +748,10 @@ export function DocumentsPage() {
     const idx = documents.findIndex((d) => d.id === editTarget.id);
     try {
       await api.documents.delete(editTarget.id);
-      showToast.success(`«${editTarget.title}» видалено`);
+      pushAction({ type: 'delete', documentId: editTarget.id, documentTitle: editTarget.title });
+      showToast.undoable(`«${editTarget.title}» видалено`, () => {
+        undoAction().then(() => { loadDocuments(); loadFolders(currentFolderPath); });
+      });
       const newDocs = documents.filter((d) => d.id !== editTarget.id);
       setDocuments(newDocs);
       setTotalDocs((prev) => Math.max(0, prev - 1));

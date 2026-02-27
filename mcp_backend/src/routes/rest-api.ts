@@ -24,7 +24,7 @@ export function createRestAPIRouter(db: IDatabase): Router {
         res.json([]);
         return;
       }
-      const userFilter = { where: 'WHERE user_id = $1', params: [userId] };
+      const userFilter = { where: 'WHERE user_id = $1 AND deleted_at IS NULL', params: [userId] };
 
       const countResult = await db.query(
         `SELECT COUNT(*) FROM documents ${userFilter.where}`,
@@ -65,7 +65,7 @@ export function createRestAPIRouter(db: IDatabase): Router {
         return;
       }
       const result = await db.query(
-        'SELECT * FROM documents WHERE id = $1 AND user_id = $2',
+        'SELECT * FROM documents WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL',
         [id, userId]
       );
 
@@ -151,7 +151,7 @@ export function createRestAPIRouter(db: IDatabase): Router {
         res.status(401).json({ error: 'Authentication required' });
         return;
       }
-      const result = await db.query('DELETE FROM documents WHERE id = $1 AND user_id = $2 RETURNING id', [id, userId]);
+      const result = await db.query('UPDATE documents SET deleted_at = NOW() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL RETURNING id', [id, userId]);
 
       if (result.rows.length === 0) {
         res.status(404).json({ error: 'Document not found' });
@@ -162,6 +162,34 @@ export function createRestAPIRouter(db: IDatabase): Router {
     } catch (error: any) {
       logger.error('Error deleting document:', error);
       res.status(500).json({ error: 'Failed to delete document', message: error.message });
+    }
+  }) as any);
+
+  // Restore soft-deleted document
+  router.patch('/:id/restore', (async (req: DualAuthRequest, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      const result = await db.query(
+        'UPDATE documents SET deleted_at = NULL WHERE id = $1 AND user_id = $2 AND deleted_at IS NOT NULL RETURNING id',
+        [id, userId]
+      );
+
+      if (result.rows.length === 0) {
+        res.status(404).json({ error: 'Document not found or not deleted' });
+        return;
+      }
+
+      res.json(result.rows[0]);
+    } catch (error: any) {
+      logger.error('Error restoring document:', error);
+      res.status(500).json({ error: 'Failed to restore document', message: error.message });
     }
   }) as any);
 
