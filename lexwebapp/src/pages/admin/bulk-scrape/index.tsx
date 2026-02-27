@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw, Database, FileText, CheckCircle, Clock, AlertCircle, Cloud } from 'lucide-react';
+import { RefreshCw, Database, FileText, CheckCircle, Clock, AlertCircle, Cloud, Server } from 'lucide-react';
 import { api } from '../../../utils/api-client';
 import { SectionLoader, SectionError, formatNumber, formatDate } from '../monitoring/shared';
-import type { BulkScrapeStatusResponse, BulkScrapeJob, CourtBreakdown, JusticeKindBreakdown } from './types';
+import type { BulkScrapeStatusResponse, BulkScrapeJob, CourtBreakdown, JusticeKindBreakdown, WorkerStats } from './types';
 import { InfrastructureDiagram } from './InfrastructureDiagram';
 
 function StatusBadge({ status }: { status: string }) {
@@ -49,6 +49,69 @@ function duration(startedAt: string | null, completedAt: string | null): string 
   return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
 }
 
+function formatUptime(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
+function WorkerTable({ workers }: { workers: WorkerStats[] }) {
+  const onlineCount = workers.filter(w => w.online).length;
+  return (
+    <div className="bg-white rounded-xl border border-claude-border shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-claude-border bg-gray-50 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Server size={14} className="text-purple-500" />
+          <h2 className="text-sm font-semibold text-claude-text">EC2 Workers</h2>
+        </div>
+        <span className="text-xs text-claude-subtext">{onlineCount}/{workers.length} online</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-claude-border bg-gray-50/50">
+              <th className="text-left px-4 py-2 text-xs font-medium text-claude-subtext"></th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-claude-subtext">Worker</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-claude-subtext">IP</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-claude-subtext">Uptime</th>
+              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">Recv</th>
+              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">DL</th>
+              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">UP</th>
+              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">Err</th>
+              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">CAPTCHA</th>
+              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">Rate</th>
+              <th className="text-right px-4 py-2 text-xs font-medium text-claude-subtext">Last seen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {workers.map((w) => (
+              <tr key={w.worker_id} className={`border-b border-claude-border/30 hover:bg-gray-50/50 ${!w.online ? 'opacity-40' : ''}`}>
+                <td className="px-4 py-2">
+                  <span className={`inline-block w-2 h-2 rounded-full ${w.online ? 'bg-green-500' : 'bg-gray-300'}`} />
+                </td>
+                <td className="px-4 py-2 font-mono text-xs text-claude-text">{w.worker_id_short}</td>
+                <td className="px-4 py-2 font-mono text-xs text-claude-subtext">{w.ip || '\u2014'}</td>
+                <td className="px-4 py-2 text-xs text-claude-subtext">{formatUptime(w.uptime_s)}</td>
+                <td className="px-4 py-2 text-right font-mono text-xs">{formatNumber(w.received)}</td>
+                <td className="px-4 py-2 text-right font-mono text-xs">{formatNumber(w.downloaded)}</td>
+                <td className="px-4 py-2 text-right font-mono text-xs text-green-700">{formatNumber(w.uploaded)}</td>
+                <td className="px-4 py-2 text-right font-mono text-xs">
+                  {w.errors > 0 ? <span className="text-red-600">{formatNumber(w.errors)}</span> : '\u2014'}
+                </td>
+                <td className="px-4 py-2 text-right font-mono text-xs">
+                  {w.captchas > 0 ? <span className="text-amber-600">{formatNumber(w.captchas)}</span> : '\u2014'}
+                </td>
+                <td className="px-4 py-2 text-right font-mono text-xs text-blue-600">{w.rate_docs_per_s.toFixed(2)}/s</td>
+                <td className="px-4 py-2 text-right text-xs text-claude-subtext">{w.last_seen_s}s ago</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export function AdminBulkScrapePage() {
   const [data, setData] = useState<BulkScrapeStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,7 +140,8 @@ export function AdminBulkScrapePage() {
   useEffect(() => {
     const hasRunning = data?.jobs?.some(j => j.status === 'running') ?? false;
     const awsActive = data?.aws_pipeline?.active ?? false;
-    const shouldPoll = hasRunning || awsActive;
+    const hasWorkers = (data?.workers?.length ?? 0) > 0;
+    const shouldPoll = hasRunning || awsActive || hasWorkers;
     if (shouldPoll && !polling) {
       setPolling(true);
       intervalRef.current = setInterval(() => fetchData(true), 10000);
@@ -88,7 +152,7 @@ export function AdminBulkScrapePage() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [data?.jobs, data?.aws_pipeline?.active, polling, fetchData]);
+  }, [data?.jobs, data?.aws_pipeline?.active, data?.workers?.length, polling, fetchData]);
 
   if (loading && !data) return <div className="p-6"><SectionLoader /></div>;
   if (error && !data) return <div className="p-6"><SectionError message={error} onRetry={() => fetchData()} /></div>;
@@ -96,6 +160,7 @@ export function AdminBulkScrapePage() {
   const stats = data?.stats;
   const jobs = data?.jobs ?? [];
   const awsPipeline = data?.aws_pipeline;
+  const workers = data?.workers ?? [];
   const courtBreakdown = data?.court_breakdown ?? [];
   const justiceKindBreakdown = data?.justice_kind_breakdown ?? [];
 
@@ -216,6 +281,9 @@ export function AdminBulkScrapePage() {
           )}
         </div>
       )}
+
+      {/* Worker Stats */}
+      {workers.length > 0 && <WorkerTable workers={workers} />}
 
       {/* Jobs Table */}
       {jobs.length > 0 && (
@@ -339,7 +407,7 @@ export function AdminBulkScrapePage() {
 
       {polling && (
         <div className="text-center text-xs text-claude-subtext">
-          Auto-refresh кожні 10 секунд (AWS pipeline active)
+          Auto-refresh кожні 10 секунд
         </div>
       )}
     </div>
