@@ -652,13 +652,29 @@ export function DocumentsPage() {
     }
   }, [previewIndex, documents, offset, totalDocs, sortBy, sortOrder, filterType, currentFolderPath, searchQuery]);
 
-  // Delete from preview modal — opens delete confirmation
-  const handlePreviewDelete = useCallback(() => {
+  // Silent delete from preview modal — removes doc and navigates to next
+  const handlePreviewDelete = useCallback(async () => {
     if (previewIndex < 0 || !documents[previewIndex]) return;
     const doc = documents[previewIndex];
-    setPreviewOpen(false);
-    setPreviewDoc(null);
-    setDeleteTarget(doc);
+    try {
+      await api.documents.delete(doc.id);
+      showToast.success(`«${doc.title}» видалено`);
+      const newDocs = documents.filter((_, i) => i !== previewIndex);
+      setDocuments(newDocs);
+      setTotalDocs((prev) => Math.max(0, prev - 1));
+      if (newDocs.length === 0) {
+        setPreviewOpen(false);
+        setPreviewDoc(null);
+        setPreviewIndex(-1);
+      } else if (previewIndex < newDocs.length) {
+        handleDocumentClick(newDocs[previewIndex], previewIndex);
+      } else {
+        handleDocumentClick(newDocs[newDocs.length - 1], newDocs.length - 1);
+      }
+    } catch (err: any) {
+      console.error('Failed to delete document:', err);
+      showToast.error('Не вдалося видалити документ');
+    }
   }, [previewIndex, documents]);
 
   // Edit navigation handlers
@@ -674,12 +690,28 @@ export function DocumentsPage() {
     if (idx < documents.length - 1) handleEditOpen(documents[idx + 1]);
   }, [editTarget, documents]);
 
-  // Delete from edit modal — opens delete confirmation
-  const handleEditDelete = useCallback(() => {
+  // Silent delete from edit modal — removes doc and navigates to next
+  const handleEditDelete = useCallback(async () => {
     if (!editTarget) return;
-    setEditTarget(null);
-    setDeleteTarget(editTarget);
-  }, [editTarget]);
+    const idx = documents.findIndex((d) => d.id === editTarget.id);
+    try {
+      await api.documents.delete(editTarget.id);
+      showToast.success(`«${editTarget.title}» видалено`);
+      const newDocs = documents.filter((d) => d.id !== editTarget.id);
+      setDocuments(newDocs);
+      setTotalDocs((prev) => Math.max(0, prev - 1));
+      if (newDocs.length === 0) {
+        setEditTarget(null);
+      } else if (idx < newDocs.length) {
+        handleEditOpen(newDocs[idx]);
+      } else {
+        handleEditOpen(newDocs[newDocs.length - 1]);
+      }
+    } catch (err: any) {
+      console.error('Failed to delete document:', err);
+      showToast.error('Не вдалося видалити документ');
+    }
+  }, [editTarget, documents]);
 
   // Keyboard navigation for edit modal
   useEffect(() => {
