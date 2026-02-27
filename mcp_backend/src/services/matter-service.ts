@@ -43,7 +43,7 @@ export interface MatterTeamMember {
   id: string;
   matter_id: string;
   user_id: string;
-  role: 'lead_attorney' | 'associate' | 'paralegal' | 'assistant' | 'observer';
+  role: 'lead_attorney' | 'associate' | 'paralegal' | 'assistant' | 'observer' | 'consultant';
   access_level: 'full' | 'read-only' | 'limited';
   added_at: Date;
   added_by?: string;

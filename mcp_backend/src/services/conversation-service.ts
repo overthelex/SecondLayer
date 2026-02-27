@@ -52,7 +52,8 @@ export class ConversationService {
     const limit = options.limit || 50;
     const offset = options.offset || 0;
 
-    const conditions = ['user_id = $1'];
+    const ownershipCondition = `(user_id = $1 OR (matter_id IS NOT NULL AND EXISTS (SELECT 1 FROM matter_team WHERE matter_id = conversations.matter_id AND user_id = $1 AND removed_at IS NULL)))`;
+    const conditions = [ownershipCondition];
     const params: any[] = [userId];
     let paramIndex = 2;
 
@@ -85,7 +86,10 @@ export class ConversationService {
 
   async getConversation(conversationId: string, userId: string): Promise<Conversation | null> {
     const result = await this.db.query(
-      `SELECT * FROM conversations WHERE id = $1 AND user_id = $2`,
+      `SELECT * FROM conversations WHERE id = $1
+       AND (user_id = $2 OR (matter_id IS NOT NULL AND EXISTS (
+         SELECT 1 FROM matter_team WHERE matter_id = conversations.matter_id AND user_id = $2 AND removed_at IS NULL
+       )))`,
       [conversationId, userId]
     );
     return result.rows[0] || null;

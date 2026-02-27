@@ -42,6 +42,7 @@ import {
   Zap,
   Folder,
   FolderOpen,
+  UserCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
@@ -468,6 +469,12 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
               {/* Workflows — institutional analysis */}
               <div className="mb-6">
                 <NavItem icon={Zap} label="Workflows" route={ROUTES.WORKFLOWS} onClick={() => handleNavigation(ROUTES.WORKFLOWS)} />
+              </div>
+
+              {/* Attorney Consultations */}
+              <div className="mb-6 space-y-1">
+                <NavItem icon={UserCheck} label="Адвокати" route={ROUTES.ATTORNEYS} onClick={() => handleNavigation(ROUTES.ATTORNEYS)} />
+                <NavItem icon={MessageSquare} label="Консультації" route={ROUTES.CONSULTATIONS} onClick={() => handleNavigation(ROUTES.CONSULTATIONS)} />
               </div>
 
             </>
