@@ -211,6 +211,7 @@ export const api = {
       apiClient.get('/api/documents/folders', { params: { prefix } }),
     getById: (id: string) => apiClient.get(`/api/documents/${id}`),
     delete: (id: string) => apiClient.delete(`/api/documents/${id}`),
+    restore: (id: string) => apiClient.patch(`/api/documents/${id}/restore`),
     update: (id: string, data: { full_text?: string; title?: string; type?: string }) =>
       apiClient.patch(`/api/documents/${id}`, data),
     move: (id: string, folderPath: string) =>

@@ -1205,7 +1205,7 @@ class HTTPMCPServer {
         const { id } = req.params;
 
         const result = await this.services.db.query(
-          'SELECT storage_type, storage_path, mime_type, metadata FROM documents WHERE id = $1 AND user_id = $2',
+          'SELECT storage_type, storage_path, mime_type, metadata FROM documents WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL',
           [id, userId]
         );
 
