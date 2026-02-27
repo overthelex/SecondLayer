@@ -120,15 +120,23 @@ function stripHtml(html: string): string {
 }
 
 /**
- * Check if content looks like a raw EML/MIME email
+ * Check if content looks like a raw EML/MIME email.
+ * Detects both raw EML and partially-parsed EML (where headers were decoded
+ * but MIME boundaries remain).
  */
 export function isRawEml(content: string): boolean {
   if (!content || content.length < 20) return false;
-  const first500 = content.substring(0, 500);
-  // Check for typical email headers at the start
-  const hasHeaders = /^(From|Subject|Date|MIME-Version|Content-Type|Received|Message-ID|Return-Path):\s/mi.test(first500);
-  const hasMimeBoundary = /boundary=/i.test(first500) || /Content-Type:\s*multipart/i.test(first500);
-  return hasHeaders && (hasMimeBoundary || /^Subject:\s/mi.test(first500));
+  const first1000 = content.substring(0, 1000);
+  // Check for typical email headers at the start (English or already-decoded Ukrainian)
+  const hasHeaders = /^(From|Subject|Date|MIME-Version|Content-Type|Received|Message-ID|Return-Path|Тема|Від|Кому):\s/mi.test(first1000);
+  // Check for MIME boundary markers anywhere in the content
+  const hasMimeBoundary = /boundary=/i.test(first1000) ||
+    /Content-Type:\s*multipart/i.test(first1000) ||
+    /^--[a-zA-Z0-9]+/m.test(first1000);
+  // Also detect if content has raw MIME part headers
+  const hasMimePartHeaders = /Content-Type:\s*(text\/plain|text\/html|image\/|application\/)/mi.test(first1000) ||
+    /Content-Transfer-Encoding:\s*(base64|quoted-printable)/mi.test(first1000);
+  return hasHeaders && (hasMimeBoundary || hasMimePartHeaders);
 }
 
 /**
@@ -164,10 +172,17 @@ export function parseEmlContent(raw: string): ParsedEmail {
   const contentTypeHeader = extractHeader(headerSection, 'Content-Type');
   const encodingHeader = extractHeader(headerSection, 'Content-Transfer-Encoding').toLowerCase();
 
-  if (contentTypeHeader.toLowerCase().includes('multipart')) {
-    // Extract boundary
+  // Try to find boundary from Content-Type header, or detect it from body
+  const isMultipart = contentTypeHeader.toLowerCase().includes('multipart') ||
+    /Content-Type:\s*multipart/i.test(bodySection) ||
+    /^--[0-9a-f]{20,}/m.test(bodySection);
+
+  if (isMultipart) {
+    // Extract boundary from header, body content-type, or detect from first boundary marker
     const boundaryMatch = contentTypeHeader.match(/boundary="?([^";\s]+)"?/i) ||
-                          headerSection.match(/boundary="?([^";\s]+)"?/i);
+                          headerSection.match(/boundary="?([^";\s]+)"?/i) ||
+                          bodySection.match(/boundary="?([^";\s]+)"?/i) ||
+                          bodySection.match(/^--([0-9a-f]{20,})/m);
     if (boundaryMatch) {
       const boundary = boundaryMatch[1];
       const parts = bodySection.split(new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:--)?`));
