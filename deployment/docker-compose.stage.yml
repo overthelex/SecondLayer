@@ -15,7 +15,7 @@ services:
       -c lock_timeout=30000
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_stage}
       TZ: Europe/Kiev
     ports:
@@ -47,7 +47,7 @@ services:
     ports:
     - "127.0.0.1:5437:5432"
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@postgres-stage:5432/${POSTGRES_DB:-secondlayer_stage}
+      DATABASE_URL: postgres://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@postgres-stage:5432/${POSTGRES_DB:-secondlayer_stage}
       POOL_MODE: transaction
       MAX_CLIENT_CONN: 500
       DEFAULT_POOL_SIZE: 50
@@ -86,9 +86,9 @@ services:
       POSTGRES_PORT: "5432"
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_stage}
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       RADA_POSTGRES_USER: ${RADA_POSTGRES_USER:-rada_mcp}
-      RADA_POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD}
+      RADA_POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD:-}
       RADA_POSTGRES_SCHEMA: ${RADA_POSTGRES_SCHEMA:-rada}
       TZ: Europe/Kiev
     volumes:
@@ -115,7 +115,7 @@ services:
       -c lock_timeout=30000
     environment:
       POSTGRES_USER: ${OPENREYESTR_POSTGRES_USER:-openreyestr}
-      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${OPENREYESTR_POSTGRES_DB:-openreyestr_stage}
       TZ: Europe/Kiev
     ports:
@@ -206,11 +206,11 @@ services:
       redis-stage:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@postgres-stage:5432/${POSTGRES_DB:-secondlayer_stage}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@postgres-stage:5432/${POSTGRES_DB:-secondlayer_stage}
       POSTGRES_HOST: postgres-stage
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_stage}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       NODE_ENV: staging
@@ -231,13 +231,13 @@ services:
       migrate-stage:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@postgres-stage:5432/${POSTGRES_DB:-secondlayer_stage}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@postgres-stage:5432/${POSTGRES_DB:-secondlayer_stage}
       POSTGRES_HOST: postgres-stage
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_stage}
-      ADMIN_USERS: ${ADMIN_USERS}
+      ADMIN_USERS: ${ADMIN_USERS:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       NODE_ENV: staging
       TZ: Europe/Kiev
@@ -263,7 +263,7 @@ services:
       POSTGRES_HOST: postgres-stage
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${RADA_POSTGRES_USER:-rada_mcp}
-      POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_stage}
       POSTGRES_SCHEMA: ${RADA_POSTGRES_SCHEMA:-rada}
       REDIS_URL: redis://redis-stage:6379
@@ -300,20 +300,20 @@ services:
       POSTGRES_HOST: postgres-stage
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${RADA_POSTGRES_USER:-rada_mcp}
-      POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_stage}
       POSTGRES_SCHEMA: ${RADA_POSTGRES_SCHEMA:-rada}
       REDIS_URL: redis://redis-stage:6379
       REDIS_HOST: redis-stage
       REDIS_PORT: 6379
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
       OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
       OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
       LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-openai-first}
       SECONDLAYER_URL: http://app-stage:3000
-      SECONDLAYER_API_KEY: ${SECONDARY_LAYER_KEYS}
-      RADA_API_KEYS: ${RADA_API_KEYS}
+      SECONDLAYER_API_KEY: ${SECONDARY_LAYER_KEYS:-}
+      RADA_API_KEYS: ${RADA_API_KEYS:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://stage.legal.org.ua}
       TZ: Europe/Kiev
@@ -345,11 +345,11 @@ services:
       postgres-openreyestr-stage:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD}@postgres-openreyestr-stage:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_stage}
+      DATABASE_URL: postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD:-}@postgres-openreyestr-stage:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_stage}
       POSTGRES_HOST: postgres-openreyestr-stage
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${OPENREYESTR_POSTGRES_USER:-openreyestr}
-      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${OPENREYESTR_POSTGRES_DB:-openreyestr_stage}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       NODE_ENV: staging
@@ -373,19 +373,19 @@ services:
       NODE_ENV: staging
       HTTP_PORT: 3005
       HTTP_HOST: 0.0.0.0
-      DATABASE_URL: postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD}@postgres-openreyestr-stage:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_stage}
+      DATABASE_URL: postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD:-}@postgres-openreyestr-stage:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_stage}
       POSTGRES_HOST: postgres-openreyestr-stage
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${OPENREYESTR_POSTGRES_USER:-openreyestr}
-      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${OPENREYESTR_POSTGRES_DB:-openreyestr_stage}
-      OPENREYESTR_API_KEYS: ${OPENREYESTR_API_KEYS}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENREYESTR_API_KEYS: ${OPENREYESTR_API_KEYS:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
       OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
       OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
       SECONDLAYER_URL: http://app-stage:3000
-      SECONDLAYER_API_KEY: ${SECONDARY_LAYER_KEYS}
+      SECONDLAYER_API_KEY: ${SECONDARY_LAYER_KEYS:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       NODE_OPTIONS: --max-old-space-size=6144
       TZ: Europe/Kiev
@@ -456,29 +456,29 @@ services:
       NODE_ENV: staging
       HTTP_PORT: ${HTTP_PORT:-3000}
       HTTP_HOST: 0.0.0.0
-      JWT_SECRET: ${JWT_SECRET}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@postgres-stage:5432/${POSTGRES_DB:-secondlayer_stage}
+      JWT_SECRET: ${JWT_SECRET:-}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@postgres-stage:5432/${POSTGRES_DB:-secondlayer_stage}
       POSTGRES_HOST: postgres-stage
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_stage}
       QDRANT_URL: http://qdrant-stage:6333
       REDIS_URL: redis://redis-stage:6379
       REDIS_HOST: redis-stage
       REDIS_PORT: 6379
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_API_KEY2: ${OPENAI_API_KEY2:-}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
       OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
       OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
       OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
       LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-openai-first}
-      VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY}
+      VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY:-}
       VOYAGEAI_EMBEDDING_MODEL: ${VOYAGEAI_EMBEDDING_MODEL:-voyage-multilingual-2}
-      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN}
+      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN:-}
       ZAKONONLINE_API_TOKEN2: ${ZAKONONLINE_API_TOKEN2:-}
-      SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS}
+      SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS:-}
 
       # Document Service (scraping delegation)
       DOCUMENT_SERVICE_URL: http://document-service-stage:3002
@@ -486,9 +486,9 @@ services:
       # Unified Gateway Configuration
       ENABLE_UNIFIED_GATEWAY: "true"
       RADA_MCP_URL: http://rada-mcp-app-stage:3001
-      RADA_API_KEY: ${RADA_API_KEY}
+      RADA_API_KEY: ${RADA_API_KEY:-}
       OPENREYESTR_MCP_URL: http://app-openreyestr-stage:3005
-      OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEY}
+      OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEY:-}
 
       # Google Cloud Vision API (for OCR in document analysis tools)
       VISION_CREDENTIALS_PATH: /app/credentials/vision-credentials.json
@@ -499,8 +499,8 @@ services:
       WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-SecondLayer Legal}
       WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-https://legal.org.ua,https://stage.legal.org.ua}
 
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-https://stage.legal.org.ua/auth/google/callback}
       FRONTEND_URL: ${FRONTEND_URL:-https://stage.legal.org.ua}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://stage.legal.org.ua,https://stage.mcp.legal.org.ua,https://legal.org.ua}
@@ -594,11 +594,11 @@ services:
       HTTP_HOST: 0.0.0.0
 
       # Database
-      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@postgres-stage:5432/${POSTGRES_DB:-secondlayer_stage}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@postgres-stage:5432/${POSTGRES_DB:-secondlayer_stage}
       POSTGRES_HOST: postgres-stage
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_stage}
 
       # Vector DB
@@ -610,12 +610,12 @@ services:
       REDIS_PORT: 6379
 
       # OpenAI Configuration
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_API_KEY2: ${OPENAI_API_KEY2:-}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
 
       # VoyageAI Configuration
-      VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY}
+      VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY:-}
       VOYAGEAI_EMBEDDING_MODEL: ${VOYAGEAI_EMBEDDING_MODEL:-voyage-multilingual-2}
 
       # Dynamic model selection
@@ -631,7 +631,7 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/vision-credentials.json
 
       # External APIs
-      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN}
+      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN:-}
       ZAKONONLINE_API_TOKEN2: ${ZAKONONLINE_API_TOKEN2:-}
       FULLTEXT_STRATEGY: scrape_only
 
@@ -641,8 +641,8 @@ services:
       SCRAPE_SKIP_EMBEDDINGS: "true"
 
       # Security
-      SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS}
-      JWT_SECRET: ${JWT_SECRET}
+      SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS:-}
+      JWT_SECRET: ${JWT_SECRET:-}
 
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -828,7 +828,7 @@ services:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     container_name: postgres-exporter-backend-stage
     environment:
-      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD}@postgres-stage:5432/${POSTGRES_DB:-secondlayer_stage}?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@postgres-stage:5432/${POSTGRES_DB:-secondlayer_stage}?sslmode=disable"
     volumes:
       - ./postgres_exporter.yml:/etc/postgres_exporter.yml:ro
     command: ["--config.file=/etc/postgres_exporter.yml"]
@@ -845,7 +845,7 @@ services:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     container_name: postgres-exporter-openreyestr-stage
     environment:
-      DATA_SOURCE_NAME: "postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD}@postgres-openreyestr-stage:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_stage}?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD:-}@postgres-openreyestr-stage:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_stage}?sslmode=disable"
     volumes:
       - ./postgres_exporter.yml:/etc/postgres_exporter.yml:ro
     command: ["--config.file=/etc/postgres_exporter.yml"]
