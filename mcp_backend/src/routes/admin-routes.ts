@@ -4626,6 +4626,33 @@ export function createAdminRoutes(
         WHERE d.zakononline_id LIKE 'court_%'
       `);
 
+      // Per-court breakdown (docs without full_text)
+      const courtBreakdownResult = await db.query(`
+        SELECT
+          COALESCE(metadata->>'court_name', 'Невідомий суд') as court_name,
+          COUNT(*) as pending_count,
+          COUNT(*) FILTER (WHERE full_text IS NOT NULL AND length(full_text) > 100) as has_text_count,
+          COUNT(*) as total_count
+        FROM documents
+        WHERE zakononline_id LIKE 'court_%'
+        GROUP BY metadata->>'court_name'
+        ORDER BY COUNT(*) FILTER (WHERE full_text IS NULL) DESC
+        LIMIT 50
+      `);
+
+      // Per-justice-kind breakdown
+      const justiceKindResult = await db.query(`
+        SELECT
+          COALESCE(metadata->>'justice_kind', 'Невідомо') as justice_kind,
+          COUNT(*) as total_count,
+          COUNT(*) FILTER (WHERE full_text IS NOT NULL AND length(full_text) > 100) as has_text_count,
+          COUNT(*) FILTER (WHERE full_text IS NULL) as pending_count
+        FROM documents
+        WHERE zakononline_id LIKE 'court_%'
+        GROUP BY metadata->>'justice_kind'
+        ORDER BY COUNT(*) DESC
+      `);
+
       const pgStats = statsResult.rows[0];
       const totalCourt = parseInt(pgStats.total_court, 10);
       const withFullText = parseInt(pgStats.with_full_text, 10);
@@ -4640,6 +4667,18 @@ export function createAdminRoutes(
           with_sections: withSections,
           completion_pct: totalCourt > 0 ? ((withFullText / totalCourt) * 100).toFixed(1) : '0.0',
         },
+        court_breakdown: courtBreakdownResult.rows.map((r: any) => ({
+          court_name: r.court_name,
+          total: parseInt(r.total_count, 10),
+          has_text: parseInt(r.has_text_count, 10),
+          pending: parseInt(r.total_count, 10) - parseInt(r.has_text_count, 10),
+        })),
+        justice_kind_breakdown: justiceKindResult.rows.map((r: any) => ({
+          justice_kind: r.justice_kind,
+          total: parseInt(r.total_count, 10),
+          has_text: parseInt(r.has_text_count, 10),
+          pending: parseInt(r.pending_count, 10),
+        })),
       });
     } catch (error: any) {
       // Table may not exist yet

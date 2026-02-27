@@ -46,6 +46,7 @@ const PAGE_TITLES: Record<string, string> = {
   [ROUTES.ADMIN_CONTAINERS]: 'Контейнери',
   [ROUTES.ADMIN_CONFIG]: 'Конфігурація системи',
   [ROUTES.ADMIN_TERMINAL]: 'Admin Terminal',
+  [ROUTES.ADMIN_BULK_SCRAPE]: 'Пайплайн збору даних',
 };
 
 export function MainLayout() {

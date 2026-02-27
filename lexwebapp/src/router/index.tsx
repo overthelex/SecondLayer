@@ -50,6 +50,7 @@ import { AdminServicePricingPage } from '../pages/AdminServicePricingPage';
 import { AdminTerminalPage } from '../pages/AdminTerminalPage';
 import { AdminZOStatsPage } from '../pages/AdminZOStatsPage';
 import { AdminUserActivityPage } from '../pages/AdminUserActivityPage';
+import { AdminBulkScrapePage } from '../pages/AdminBulkScrapePage';
 import { DocumentsPage } from '../pages/DocumentsPage';
 import { TimeEntriesPage } from '../pages/TimeEntriesPage';
 import { InvoicesPage } from '../pages/InvoicesPage';
@@ -65,6 +66,8 @@ import { EEDataSourcesPage } from '../pages/EEDataSourcesPage';
 import { UADataSourcesPage } from '../pages/UADataSourcesPage';
 import { EUComparisonPage } from '../pages/EUComparisonPage';
 import { BlogPage } from '../pages/BlogPage';
+import { WorkflowsPage } from '../pages/WorkflowsPage';
+import { WorkflowSetDetailPage } from '../pages/WorkflowSetDetailPage';
 
 export const router = createBrowserRouter([
   {
@@ -246,6 +249,14 @@ export const router = createBrowserRouter([
             element: <CourtPracticeAnalysisPage />,
           },
           {
+            path: ROUTES.WORKFLOWS,
+            element: <WorkflowsPage />,
+          },
+          {
+            path: ROUTES.WORKFLOW_SET_DETAIL,
+            element: <WorkflowSetDetailPage />,
+          },
+          {
             path: ROUTES.ADMIN_OVERVIEW,
             element: <AdminOverviewPage />,
           },
@@ -300,6 +311,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.ADMIN_USER_ACTIVITY,
             element: <AdminUserActivityPage />,
+          },
+          {
+            path: ROUTES.ADMIN_BULK_SCRAPE,
+            element: <AdminBulkScrapePage />,
           },
         ],
       },
