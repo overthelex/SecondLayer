@@ -396,6 +396,8 @@ export const api = {
       apiClient.get('/api/admin/zo-stats', { params }),
     getBulkScrapeStatus: () =>
       apiClient.get('/api/admin/bulk-scrape-status'),
+    getInfrastructureHealth: () =>
+      apiClient.get('/api/admin/infrastructure-health'),
   },
 
   // Decisions - court decision downloads from reyestr
