@@ -11,7 +11,7 @@
 // Value types
 // ---------------------------------------------------------------------------
 
-export type LLMProvider = 'openai' | 'anthropic';
+export type LLMProvider = 'openai' | 'anthropic' | 'bedrock';
 export type BudgetLevel = 'quick' | 'standard' | 'deep';
 
 // ---------------------------------------------------------------------------
