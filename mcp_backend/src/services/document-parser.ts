@@ -754,14 +754,26 @@ export class DocumentParser {
    * Decode RFC 2047 encoded words (=?charset?encoding?text?=)
    */
   private decodeEncodedWords(str: string): string {
-    return str.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_match, _charset, encoding, text) => {
+    return str.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_match, charset, encoding, text) => {
+      const enc = (charset || 'utf-8').toLowerCase().replace(/^(utf8|utf-8)$/, 'utf-8');
       if (encoding.toUpperCase() === 'B') {
-        try { return Buffer.from(text, 'base64').toString('utf-8'); } catch { return text; }
+        try { return Buffer.from(text, 'base64').toString(enc as BufferEncoding); } catch { return text; }
       }
       if (encoding.toUpperCase() === 'Q') {
-        return text.replace(/_/g, ' ').replace(/=([0-9A-Fa-f]{2})/g, (_: string, hex: string) =>
-          String.fromCharCode(parseInt(hex, 16))
-        );
+        // Collect all bytes first, then decode as charset (handles multi-byte UTF-8)
+        const withSpaces = text.replace(/_/g, ' ');
+        const bytes: number[] = [];
+        let i = 0;
+        while (i < withSpaces.length) {
+          if (withSpaces[i] === '=' && i + 2 < withSpaces.length) {
+            bytes.push(parseInt(withSpaces.substring(i + 1, i + 3), 16));
+            i += 3;
+          } else {
+            bytes.push(withSpaces.charCodeAt(i));
+            i++;
+          }
+        }
+        try { return Buffer.from(bytes).toString(enc as BufferEncoding); } catch { return text; }
       }
       return text;
     });
@@ -931,9 +943,20 @@ export class DocumentParser {
       } catch { return content; }
     }
     if (encoding === 'quoted-printable') {
-      return content
-        .replace(/=\r?\n/g, '')
-        .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+      // Remove soft line breaks, then decode all =XX sequences as raw bytes → UTF-8
+      const stripped = content.replace(/=\r?\n/g, '');
+      const bytes: number[] = [];
+      let i = 0;
+      while (i < stripped.length) {
+        if (stripped[i] === '=' && i + 2 < stripped.length && /[0-9A-Fa-f]{2}/.test(stripped.substring(i + 1, i + 3))) {
+          bytes.push(parseInt(stripped.substring(i + 1, i + 3), 16));
+          i += 3;
+        } else {
+          bytes.push(stripped.charCodeAt(i));
+          i++;
+        }
+      }
+      try { return Buffer.from(bytes).toString('utf-8'); } catch { return stripped; }
     }
     return content;
   }
