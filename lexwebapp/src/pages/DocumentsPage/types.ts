@@ -83,6 +83,7 @@ export function getFileExtension(doc: VaultDocument): string {
     'text/csv': '.csv',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
     'application/vnd.ms-excel': '.xls',
+    'message/rfc822': '.eml',
   };
   return mimeMap[mime] || '';
 }
