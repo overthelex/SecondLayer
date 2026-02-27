@@ -43,6 +43,16 @@ const DOCUMENT_TYPES = [
   'message/rfc822',
 ];
 
+const ARCHIVE_TYPES = [
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-tar',
+  'application/gzip',
+  'application/x-gzip',
+  'application/x-tgz',
+  'application/x-compressed-tar',
+];
+
 export class UploadService {
   private tempDir: string;
 
@@ -55,6 +65,13 @@ export class UploadService {
    */
   static isDocumentType(mimeType: string): boolean {
     return DOCUMENT_TYPES.includes(mimeType);
+  }
+
+  /**
+   * Check if a mime type is an archive type (ZIP, TAR, TAR.GZ)
+   */
+  static isArchiveType(mimeType: string): boolean {
+    return ARCHIVE_TYPES.includes(mimeType);
   }
 
   get defaultChunkSize(): number {

@@ -603,31 +603,49 @@ Pipeline:
         await fs.writeFile(tempPath, attachment.data);
 
         const isDocumentType = UploadService.isDocumentType(attachment.mimeType);
+        const isImageType = /^image\/(jpeg|png|tiff|webp|bmp)$/.test(attachment.mimeType);
 
-        if (isDocumentType) {
-          // Route through vault pipeline (parse, section, embed)
-          const result = await this.storeDocumentFromPath({
-            filePath: tempPath,
-            mimeType: attachment.mimeType,
-            title: attachment.filename.replace(/\.[^/.]+$/, ''),
-            type: 'other',
-            metadata: {
-              ...parentMetadata,
-              folderPath: attachmentFolder,
+        if (isDocumentType || isImageType) {
+          // Route through vault pipeline (parse, section, embed; images go through OCR)
+          try {
+            const result = await this.storeDocumentFromPath({
+              filePath: tempPath,
+              mimeType: attachment.mimeType,
+              title: attachment.filename.replace(/\.[^/.]+$/, ''),
+              type: 'other',
+              metadata: {
+                ...parentMetadata,
+                folderPath: attachmentFolder,
+                parentDocumentId,
+                extractedFrom: emlTitle,
+                originalFilename: attachment.filename,
+              },
+              userId,
+              skipAttachmentExtraction: true,
+            });
+
+            logger.info('[Vault] EML attachment stored via vault', {
               parentDocumentId,
-              extractedFrom: emlTitle,
-              originalFilename: attachment.filename,
-            },
-            userId,
-            skipAttachmentExtraction: true,
-          });
+              attachmentDocId: result.id,
+              filename: attachment.filename,
+            });
+            continue; // Successfully stored via vault, skip MinIO fallback
+          } catch (vaultErr: any) {
+            if (isImageType) {
+              // OCR failed for image — fall back to MinIO storage below
+              logger.warn('[Vault] OCR failed for image EML attachment, falling back to MinIO', {
+                parentDocumentId,
+                filename: attachment.filename,
+                error: vaultErr.message,
+              });
+            } else {
+              // Non-image document type failed — re-throw
+              throw vaultErr;
+            }
+          }
+        }
 
-          logger.info('[Vault] EML attachment stored via vault', {
-            parentDocumentId,
-            attachmentDocId: result.id,
-            filename: attachment.filename,
-          });
-        } else if (this.minioService && userId) {
+        if (this.minioService && userId) {
           // Route binary files to MinIO
           const objectKey = MinioService.generateObjectKey(attachment.filename);
           const minioResult = await this.minioService.uploadFile(

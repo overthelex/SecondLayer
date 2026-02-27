@@ -46,7 +46,7 @@ const DOC_TYPE_LABELS: Record<DocType, string> = {
 };
 
 const ACCEPTED_TYPES =
-  '.pdf,.docx,.doc,.html,.htm,.txt,.rtf,.eml,.jpg,.jpeg,.png,.bmp,.gif,.xlsx,.xls,.csv,.mp4,.mov,.avi,.mkv,.webm';
+  '.pdf,.docx,.doc,.html,.htm,.txt,.rtf,.eml,.jpg,.jpeg,.png,.bmp,.gif,.xlsx,.xls,.csv,.mp4,.mov,.avi,.mkv,.webm,.zip,.tar,.tar.gz,.tgz';
 
 const PAGE_SIZE = 50;
 
@@ -75,6 +75,10 @@ function guessMimeType(file: File): string {
     mkv: 'video/x-matroska',
     webm: 'video/webm',
     eml: 'message/rfc822',
+    zip: 'application/zip',
+    gz: 'application/gzip',
+    tgz: 'application/x-tgz',
+    tar: 'application/x-tar',
   };
   return map[ext || ''] || 'application/octet-stream';
 }

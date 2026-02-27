@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw, Database, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { RefreshCw, Database, FileText, CheckCircle, Clock, AlertCircle, Cloud } from 'lucide-react';
 import { api } from '../../../utils/api-client';
 import { SectionLoader, SectionError, formatNumber, formatDate } from '../monitoring/shared';
 import type { BulkScrapeStatusResponse, BulkScrapeJob, CourtBreakdown, JusticeKindBreakdown } from './types';
@@ -73,26 +73,29 @@ export function AdminBulkScrapePage() {
     fetchData();
   }, [fetchData]);
 
-  // Auto-poll when any job is running
+  // Auto-poll when any job is running or AWS pipeline is active
   useEffect(() => {
     const hasRunning = data?.jobs?.some(j => j.status === 'running') ?? false;
-    if (hasRunning && !polling) {
+    const awsActive = data?.aws_pipeline?.active ?? false;
+    const shouldPoll = hasRunning || awsActive;
+    if (shouldPoll && !polling) {
       setPolling(true);
-      intervalRef.current = setInterval(() => fetchData(true), 5000);
-    } else if (!hasRunning && polling) {
+      intervalRef.current = setInterval(() => fetchData(true), 10000);
+    } else if (!shouldPoll && polling) {
       setPolling(false);
       if (intervalRef.current) clearInterval(intervalRef.current);
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [data?.jobs, polling, fetchData]);
+  }, [data?.jobs, data?.aws_pipeline?.active, polling, fetchData]);
 
   if (loading && !data) return <div className="p-6"><SectionLoader /></div>;
   if (error && !data) return <div className="p-6"><SectionError message={error} onRetry={() => fetchData()} /></div>;
 
   const stats = data?.stats;
   const jobs = data?.jobs ?? [];
+  const awsPipeline = data?.aws_pipeline;
   const courtBreakdown = data?.court_breakdown ?? [];
   const justiceKindBreakdown = data?.justice_kind_breakdown ?? [];
 
@@ -118,7 +121,7 @@ export function AdminBulkScrapePage() {
       </div>
 
       {/* Infrastructure Diagram */}
-      <InfrastructureDiagram hasRunningJob={data?.jobs?.some(j => j.status === 'running') ?? false} />
+      <InfrastructureDiagram hasRunningJob={(data?.jobs?.some(j => j.status === 'running') ?? false) || (data?.aws_pipeline?.active ?? false)} />
 
       {data?.message && (
         <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
@@ -154,6 +157,63 @@ export function AdminBulkScrapePage() {
             value={`${stats.completion_pct}%`}
             sub={`${formatNumber(stats.with_full_text)} / ${formatNumber(stats.total_court_docs)}`}
           />
+        </div>
+      )}
+
+      {/* AWS Pipeline Stats */}
+      {awsPipeline && (
+        <div className="bg-white rounded-xl border border-claude-border shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-claude-border bg-gray-50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Cloud size={14} className="text-blue-500" />
+              <h2 className="text-sm font-semibold text-claude-text">AWS Pipeline (SQS → EC2 → S3)</h2>
+            </div>
+            {awsPipeline.active && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                Active
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
+            <div>
+              <div className="text-xs text-claude-subtext mb-1">SQS Pending</div>
+              <div className="text-lg font-semibold font-mono text-claude-text">{formatNumber(awsPipeline.sqs_pending)}</div>
+              <div className="text-[10px] text-claude-subtext/70">In queue</div>
+            </div>
+            <div>
+              <div className="text-xs text-claude-subtext mb-1">SQS In-Flight</div>
+              <div className="text-lg font-semibold font-mono text-blue-600">{formatNumber(awsPipeline.sqs_in_flight)}</div>
+              <div className="text-[10px] text-claude-subtext/70">Being processed</div>
+            </div>
+            <div>
+              <div className="text-xs text-claude-subtext mb-1">S3 Downloaded</div>
+              <div className="text-lg font-semibold font-mono text-green-600">{formatNumber(awsPipeline.s3_downloaded)}</div>
+              <div className="text-[10px] text-claude-subtext/70">Raw HTML files</div>
+            </div>
+            <div>
+              <div className="text-xs text-claude-subtext mb-1">DLQ (Failed)</div>
+              <div className={`text-lg font-semibold font-mono ${awsPipeline.sqs_dlq > 0 ? 'text-red-600' : 'text-claude-text'}`}>
+                {formatNumber(awsPipeline.sqs_dlq)}
+              </div>
+              <div className="text-[10px] text-claude-subtext/70">Dead letter queue</div>
+            </div>
+          </div>
+          {awsPipeline.active && awsPipeline.sqs_pending > 0 && (
+            <div className="px-4 pb-3">
+              <div className="w-full bg-gray-100 rounded-full h-2">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, ((awsPipeline.s3_downloaded) / (awsPipeline.s3_downloaded + awsPipeline.sqs_pending + awsPipeline.sqs_in_flight)) * 100).toFixed(1)}%`
+                  }}
+                />
+              </div>
+              <div className="text-[10px] text-claude-subtext mt-1 text-right">
+                {((awsPipeline.s3_downloaded) / (awsPipeline.s3_downloaded + awsPipeline.sqs_pending + awsPipeline.sqs_in_flight) * 100).toFixed(1)}% downloaded
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -279,7 +339,7 @@ export function AdminBulkScrapePage() {
 
       {polling && (
         <div className="text-center text-xs text-claude-subtext">
-          Auto-refresh кожні 5 секунд (є активні jobs)
+          Auto-refresh кожні 10 секунд (AWS pipeline active)
         </div>
       )}
     </div>

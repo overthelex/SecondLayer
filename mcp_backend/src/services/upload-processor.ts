@@ -5,6 +5,7 @@ import { UploadService, UploadSession } from './upload-service.js';
 import { MinioService } from './minio-service.js';
 import { DocumentService } from './document-service.js';
 import { VaultTools } from '../api/vault-tools.js';
+import { ArchiveExtractorService } from './archive-extractor.js';
 import type { IDatabase } from '../domain/ports/index.js';
 
 export interface ProcessorDeps {
@@ -29,7 +30,97 @@ export async function processUploadFile(
 
   let documentId: string;
 
-  if (UploadService.isDocumentType(session.mimeType)) {
+  if (UploadService.isArchiveType(session.mimeType)) {
+    // Route to archive extraction pipeline
+    documentId = uuidv4();
+
+    // Store original archive in MinIO (preserve original)
+    const objectKey = MinioService.generateObjectKey(session.fileName);
+    const minioResult = await minioService.uploadFile(
+      session.userId,
+      objectKey,
+      assembledPath,
+      session.mimeType
+    );
+    const storagePath = `${minioResult.bucket}/${minioResult.key}`;
+
+    // Create parent archive document record
+    await db.query(
+      `INSERT INTO documents
+        (id, zakononline_id, type, title, metadata, storage_type, storage_path, file_size, mime_type, user_id, matter_id)
+       VALUES ($1, $2, $3, $4, $5, 'minio', $6, $7, $8, $9, $10)`,
+      [
+        documentId,
+        documentId,
+        session.docType || 'other',
+        session.fileName.replace(/\.[^/.]+$/, ''),
+        JSON.stringify({
+          ...session.metadata,
+          isArchive: true,
+          originalFilename: session.fileName,
+          fileSize: session.fileSize,
+          mimeType: session.mimeType,
+          folderPath: session.relativePath,
+          uploadedAt: new Date().toISOString(),
+          minioEtag: minioResult.etag,
+          minioBucket: minioResult.bucket,
+          minioKey: minioResult.key,
+          uploadSessionId: session.id,
+          ...extraMetadata,
+        }),
+        storagePath,
+        session.fileSize,
+        session.mimeType,
+        session.userId,
+        session.matterId || null,
+      ]
+    );
+
+    // Extract archive contents and process each file
+    const extractor = new ArchiveExtractorService(vaultTools, minioService, db);
+    const extractionResult = await extractor.extractAndProcess({
+      archivePath: assembledPath,
+      mimeType: session.mimeType,
+      parentDocumentId: documentId,
+      archiveTitle: session.fileName,
+      userId: session.userId,
+      metadata: {
+        ...session.metadata,
+        folderPath: session.relativePath,
+        uploadSessionId: session.id,
+        ...extraMetadata,
+      },
+      matterId: session.matterId,
+    });
+
+    // Update parent document metadata with extraction results
+    const childDocumentIds = extractionResult.children
+      .filter(c => c.documentId)
+      .map(c => c.documentId);
+
+    await db.query(
+      `UPDATE documents SET metadata = metadata || $2::jsonb WHERE id = $1`,
+      [
+        documentId,
+        JSON.stringify({
+          childDocumentIds,
+          extractionStats: {
+            totalFiles: extractionResult.totalFiles,
+            processedFiles: extractionResult.processedFiles,
+            failedFiles: extractionResult.failedFiles,
+          },
+        }),
+      ]
+    );
+
+    logger.info('[Upload] Archive processed', {
+      sessionId: session.id,
+      documentId,
+      totalFiles: extractionResult.totalFiles,
+      processedFiles: extractionResult.processedFiles,
+      failedFiles: extractionResult.failedFiles,
+    });
+  } else if (UploadService.isDocumentType(session.mimeType)) {
     // Route to VaultTools for parsing, embedding, etc.
     const result = await vaultTools.storeDocumentFromPath({
       filePath: assembledPath,
