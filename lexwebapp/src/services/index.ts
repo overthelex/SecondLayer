@@ -19,3 +19,6 @@ export { UploadService, uploadService } from './api/UploadService';
 
 // Upload manager
 export { UploadManager, uploadManager } from './upload/UploadManager';
+
+// Workflow service
+export { WorkflowService, workflowService } from './api/WorkflowService';

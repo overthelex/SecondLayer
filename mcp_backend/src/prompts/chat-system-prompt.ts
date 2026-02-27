@@ -17,18 +17,19 @@ import {
 // ============================
 
 export type QueryType =
-  | 'case_lookup'           // конкретна справа за номером
-  | 'practice_analysis'     // аналіз судової практики за темою
-  | 'legislation_lookup'    // конкретна стаття / розділ закону
-  | 'legal_consultation'    // загальна юридична консультація / інформаційне питання
-  | 'registry_lookup'       // пошук юрособи / боржника / нотаріуса
-  | 'parliament_query'      // депутати / законопроекти / голосування
-  | 'document_query'        // пошук у завантажених документах
-  | 'calculation'           // розрахунок строків, сум, штрафів
-  | 'document_drafting'     // складання зразка документа
-  | 'comparative_analysis'  // порівняння способів захисту / юрисдикцій
-  | 'due_diligence'         // комплексна перевірка контрагента
-  | 'unsupported';          // поза межами системи
+  | 'case_lookup'              // конкретна справа за номером
+  | 'practice_analysis'        // аналіз судової практики за темою
+  | 'legislation_lookup'       // конкретна стаття / розділ закону
+  | 'legal_consultation'       // загальна юридична консультація / інформаційне питання
+  | 'registry_lookup'          // пошук юрособи / боржника / нотаріуса
+  | 'parliament_query'         // депутати / законопроекти / голосування
+  | 'document_query'           // пошук у завантажених документах
+  | 'calculation'              // розрахунок строків, сум, штрафів
+  | 'document_drafting'        // складання зразка документа
+  | 'comparative_analysis'     // порівняння способів захисту / юрисдикцій
+  | 'due_diligence'            // комплексна перевірка контрагента
+  | 'institutional_analysis'   // глибокий інституційний аналіз (суд, суддя, за період)
+  | 'unsupported';             // поза межами системи
 
 export interface ChatIntentClassification {
   domains: string[];
@@ -41,7 +42,8 @@ export interface ChatIntentClassification {
 const VALID_QUERY_TYPES: Set<string> = new Set([
   'case_lookup', 'practice_analysis', 'legislation_lookup', 'legal_consultation',
   'registry_lookup', 'parliament_query', 'document_query', 'calculation',
-  'document_drafting', 'comparative_analysis', 'due_diligence', 'unsupported',
+  'document_drafting', 'comparative_analysis', 'due_diligence', 'institutional_analysis',
+  'unsupported',
 ]);
 
 // ============================
@@ -91,6 +93,7 @@ export function buildPlanGenerationMessages(
       document_drafting: '11. queryType=document_drafting: first find_relevant_law_articles for legal basis, then generate document',
       comparative_analysis: '11. queryType=comparative_analysis: search each competing approach separately with pro/contra, include legislation',
       due_diligence: '11. queryType=due_diligence: start with registry lookup, add debtors/bankruptcy/enforcement checks, then court cases',
+      institutional_analysis: '11. queryType=institutional_analysis: use multiple search_legal_precedents with limit=50 for different aspects (topics, time periods), include count_cases_by_party and legislation lookups',
       calculation: '11. queryType=calculation: find relevant procedural norms first, then apply calculation logic',
     };
     queryTypeRule = qtRules[classification.queryType] || '';
@@ -577,7 +580,8 @@ export const CHAT_INTENT_CLASSIFICATION_PROMPT = `Ти — класифікат�
 | document_drafting | Складання зразка документа | "напиши позовну заяву", "зразок скарги" |
 | comparative_analysis | Порівняння способів захисту / юрисдикцій | "негаторний чи віндикаційний позов?", "яка стаття підходить" |
 | due_diligence | Комплексна перевірка контрагента | "перевірити контрагента ТОВ Партнер", "due diligence компанії" |
-| unsupported | Запит поза межами системи | "яка погода?", "склади рейтинг суддів за відсотком відмов" |
+| institutional_analysis | Глибокий аналіз суду/судді за період | "проаналізуй всі рішення суддів Оболонського суду за 15 років", "статистика по суду за 5 років", "аналіз рішень судді Іванова" |
+| unsupported | Запит поза межами системи | "яка погода?" |
 
 ## Межі системи (коли queryType = unsupported)
 
@@ -587,9 +591,9 @@ export const CHAT_INTENT_CLASSIFICATION_PROMPT = `Ти — класифікат�
 - Отримати повний текст рішення, статтю закону
 - Перевірити юрособу в реєстрі, знайти бенефіціарів, боржників
 - Знайти законопроєкти, інформацію про депутатів
+- Генерувати набори робочих процесів (workflows) для глибокого інституційного аналізу суду або судді за тривалий період
 
 Система НЕ МОЖЕ:
-- Агрегувати статистику по судді (% задоволених позовів, тенденції до закриття справ)
 - Передбачати результат справи числовим показником (% ймовірності)
 - Відповідати на запити не пов'язані з правом (погода, спорт, рецепти)
 - Надавати персональні дані фізичних осіб (ІПН, адреса проживання)
@@ -624,6 +628,12 @@ export const CHAT_INTENT_CLASSIFICATION_PROMPT = `Ти — класифікат�
  */
 export const DOMAIN_TOOL_MAP: Record<string, string[]> = {
   ...DERIVED_DOMAIN_TOOL_MAP,
+  // Institutional analysis uses court search + legislation tools
+  institutional_analysis: [
+    'search_legal_precedents', 'count_cases_by_party', 'search_supreme_court_practice',
+    'get_case_documents_chain', 'analyze_case_pattern', 'find_similar_fact_pattern_cases',
+    'search_legislation', 'find_relevant_law_articles',
+  ],
   // Ensure registry tools that don't appear in catalog scenarios are still mapped
   registry: [
     ...(DERIVED_DOMAIN_TOOL_MAP.registry || []),

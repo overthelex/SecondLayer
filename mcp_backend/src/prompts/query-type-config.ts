@@ -109,6 +109,14 @@ export const QUERY_TYPE_CONFIG: Record<QueryType, QueryTypeConfig> = {
     thinkingPrefix: 'Перевіряю контрагента',
   },
 
+  institutional_analysis: {
+    defaultBudget: 'deep',
+    requiresGrounding: true,
+    preferredScenarios: ['court_practice_search', 'practice_pro_contra', 'supreme_court_practice'],
+    groundingNote: 'Запит потребує глибокого інституційного аналізу. Система згенерує набір робочих процесів (workflows) для поетапного виконання.',
+    thinkingPrefix: 'Генерую план глибокого аналізу',
+  },
+
   unsupported: {
     defaultBudget: 'quick',
     requiresGrounding: false,

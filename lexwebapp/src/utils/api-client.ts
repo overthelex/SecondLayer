@@ -393,6 +393,8 @@ export const api = {
       apiClient.post('/api/admin/tool-pricing/bulk-markup', data),
     getZOStats: (params: { yearFrom: number; yearTo: number; justiceKind: string }) =>
       apiClient.get('/api/admin/zo-stats', { params }),
+    getBulkScrapeStatus: () =>
+      apiClient.get('/api/admin/bulk-scrape-status'),
   },
 
   // Decisions - court decision downloads from reyestr

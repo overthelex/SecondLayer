@@ -154,7 +154,7 @@ export class IntentClassifier {
           queryType = 'practice_analysis';
         }
         // Document drafting: "напиши позовну", "зразок скарги", "склади заяву"
-        else if (/\b(?:напиш[иі]|склад[иі]|підготуй|зразок|шаблон)\b.*\b(?:позов|скарг|заяв|клопотан|претенз)/i.test(query)) {
+        else if (/(?:^|\s)(?:напиш[иі]|склад[иі]|підготуй|зразок|шаблон)(?:\s).*(?:позов|скарг|заяв|клопотан|претенз)/i.test(query)) {
           queryType = 'document_drafting';
         }
         // Due diligence: "перевір контрагента", "due diligence"
@@ -170,16 +170,20 @@ export class IntentClassifier {
           queryType = 'document_query';
         }
         // Comparative analysis: "негаторний чи віндикаційний", "який спосіб захисту"
-        else if (/\bчи\b.*\bпозов|який спосіб захисту|порівн.*підход|яка стаття підходить/i.test(query)) {
+        else if (/(?:^|\s)чи(?:\s).*позов|який спосіб захисту|порівн.*підход|яка стаття підходить/i.test(query)) {
           queryType = 'comparative_analysis';
         }
         // Unsupported: non-legal queries
         else if (/(?:погод[аиу]|рецепт|футбол|спорт|кіно|фільм|музик|пісн)/i.test(lowerQuery) && !domains.some((d: string) => d !== 'court')) {
           queryType = 'unsupported';
         }
-        // Unsupported: aggregated judge statistics
+        // Institutional analysis: judge/court statistics, deep analysis over time
         else if (/рейтинг.*(судд|суд)|статистик.*(судд|суд)|відсот.*(задовол|відмов).*судд|тенденці.*(закрит|судд)/i.test(lowerQuery)) {
-          queryType = 'unsupported';
+          queryType = 'institutional_analysis';
+        }
+        // Institutional analysis: "аналіз рішень суддів суду за N років", "проаналізуй всі рішення суду"
+        else if (/аналіз.*рішень.*судд|проаналізу.*всі.*рішення.*суд|всі справи судді|аналіз суду за.*років|аналіз.*судді.*за.*рок/i.test(lowerQuery)) {
+          queryType = 'institutional_analysis';
         }
       }
 
@@ -189,11 +193,7 @@ export class IntentClassifier {
 
       // Generate unsupportedReason if not provided by LLM
       if (queryType === 'unsupported' && !unsupportedReason) {
-        if (/рейтинг.*(судд|суд)|статистик.*(судд|суд)|відсот.*(задовол|відмов)|тенденці.*(закрит|судд)/i.test(lowerQuery)) {
-          unsupportedReason = 'Система не може агрегувати статистику по суддях (відсоток задоволених позовів, тенденції). Можу знайти конкретні справи за іменем судді або за темою.';
-        } else {
-          unsupportedReason = 'Цей запит виходить за межі можливостей юридичної системи SecondLayer. Я спеціалізуюся на українському праві: судова практика, законодавство, реєстри, парламентські дані.';
-        }
+        unsupportedReason = 'Цей запит виходить за межі можливостей юридичної системи SecondLayer. Я спеціалізуюся на українському праві: судова практика, законодавство, реєстри, парламентські дані.';
       }
 
       logger.info('[IntentClassifier] LLM intent classification', { domains, keywords, slots, queryType, unsupportedReason });

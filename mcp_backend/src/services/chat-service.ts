@@ -41,6 +41,8 @@ import { BUDGET_LIMITS, CASE_NUMBER_REGEX, type BudgetKey } from './chat-constan
 import { IntentClassifier } from './chat-intent-classifier.js';
 import { ResultCompactor } from './chat-result-compactor.js';
 import { ChatContextBuilder } from './chat-context-builder.js';
+import type { WorkflowGeneratorService } from './workflow-generator-service.js';
+import type { WorkflowService } from './workflow-service.js';
 
 // ============================
 // Types
@@ -142,7 +144,9 @@ export class ChatService {
     private searchCache?: ChatSearchCacheService,
     private conversationService?: ConversationService,
     private shepardizationService?: ShepardizationService,
-    private embeddingService?: IEmbeddingPort
+    private embeddingService?: IEmbeddingPort,
+    private workflowGenerator?: WorkflowGeneratorService,
+    private workflowService?: WorkflowService
   ) {
     // Wire up cost recorder adapter for sub-modules
     const costRecorder = {
@@ -301,6 +305,77 @@ export class ChatService {
             queryType: 'unsupported',
           },
         };
+        return;
+      }
+
+      // --- 6b. Institutional analysis → generate workflows ---
+      if (classification.queryType === 'institutional_analysis' && this.workflowGenerator && this.workflowService) {
+        logger.info('[ChatService] Generating workflows for institutional analysis', { query: query.slice(0, 100) });
+        yield {
+          type: 'thinking',
+          data: {
+            step: 0,
+            tool: '_classify',
+            params: { queryType: 'institutional_analysis' },
+            description: 'Генерую план глибокого аналізу',
+          },
+        };
+
+        try {
+          const generated = await this.workflowGenerator.generateWorkflows(query, classification);
+          const workflowSet = await this.workflowService.createWorkflowSet({
+            userId: request.userId || 'anonymous',
+            conversationId: request.conversationId,
+            title: generated.title,
+            description: generated.description,
+            sourceQuery: query,
+            workflows: generated.workflows.map(w => ({
+              sequenceNumber: w.sequenceNumber,
+              title: w.title,
+              description: w.description,
+              plan: w.plan,
+            })),
+          });
+
+          yield {
+            type: 'answer',
+            data: {
+              text: `Для вашого запиту згенеровано **${generated.workflows.length} робочих процесів** у наборі "${generated.title}".\n\n${generated.description}\n\nПерейдіть на сторінку [Workflows](/workflows/${workflowSet.id}) для перегляду та запуску.`,
+              queryType: 'institutional_analysis',
+              workflowSetId: workflowSet.id,
+            },
+          };
+          yield {
+            type: 'complete',
+            data: {
+              iterations: 0,
+              elapsed_ms: Date.now() - startTime,
+              tools_used: [],
+              total_cost_usd: 0,
+              queryType: 'institutional_analysis',
+              workflowSetId: workflowSet.id,
+            },
+          };
+        } catch (err: any) {
+          logger.error('[ChatService] Workflow generation failed', { error: err.message });
+          yield {
+            type: 'answer',
+            data: {
+              text: `Не вдалося згенерувати робочі процеси: ${err.message}. Спробуйте уточнити запит.`,
+              queryType: 'institutional_analysis',
+            },
+          };
+          yield {
+            type: 'complete',
+            data: {
+              iterations: 0,
+              elapsed_ms: Date.now() - startTime,
+              tools_used: [],
+              total_cost_usd: 0,
+              queryType: 'institutional_analysis',
+            },
+          };
+        }
         return;
       }
 
