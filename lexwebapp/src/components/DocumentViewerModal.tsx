@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, ExternalLink, Gavel, BookOpen, FileText, Copy, Check, Download, Loader2, AlertTriangle, Save } from 'lucide-react';
+import { X, ExternalLink, Gavel, BookOpen, FileText, Copy, Check, Download, Loader2, AlertTriangle, Save, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export interface DocumentViewerItem {
   type: 'decision' | 'citation' | 'document';
@@ -27,6 +27,12 @@ interface DocumentViewerModalProps {
   isLoading?: boolean;
   errorMessage?: string | null;
   onSaveOcrText?: (documentId: string, text: string) => Promise<void>;
+  onPrevious?: () => void;
+  onNext?: () => void;
+  hasPrevious?: boolean;
+  hasNext?: boolean;
+  currentIndex?: number;
+  totalCount?: number;
 }
 
 const typeIcons = {
@@ -35,7 +41,7 @@ const typeIcons = {
   document: FileText,
 };
 
-export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMessage, onSaveOcrText }: DocumentViewerModalProps) {
+export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMessage, onSaveOcrText, onPrevious, onNext, hasPrevious, hasNext, currentIndex, totalCount }: DocumentViewerModalProps) {
   const [copied, setCopied] = React.useState(false);
   const [editedOcrText, setEditedOcrText] = React.useState('');
   const [ocrSaving, setOcrSaving] = React.useState(false);
@@ -73,12 +79,25 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
   }, [isOpen]);
 
   React.useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) onClose();
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (!isOpen) return;
+      // Skip navigation when user is typing in a textarea/input
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isTyping = tag === 'TEXTAREA' || tag === 'INPUT';
+
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'ArrowLeft' && !isTyping && onPrevious && hasPrevious) {
+        e.preventDefault();
+        onPrevious();
+      } else if (e.key === 'ArrowRight' && !isTyping && onNext && hasNext) {
+        e.preventDefault();
+        onNext();
+      }
     };
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose]);
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [isOpen, onClose, onPrevious, onNext, hasPrevious, hasNext]);
 
   const handleCopy = () => {
     if (!item) return;
@@ -116,6 +135,26 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
           />
 
           <div className="fixed inset-0 z-[1050] overflow-y-auto">
+            {/* Left arrow navigation */}
+            {onPrevious && hasPrevious && (
+              <button
+                onClick={onPrevious}
+                className="fixed left-3 top-1/2 -translate-y-1/2 z-[1060] p-2 bg-white/90 hover:bg-white rounded-full shadow-lg text-claude-subtext hover:text-claude-text transition-all backdrop-blur-sm"
+                title="Попередній (←)"
+              >
+                <ChevronLeft size={24} strokeWidth={2} />
+              </button>
+            )}
+            {/* Right arrow navigation */}
+            {onNext && hasNext && (
+              <button
+                onClick={onNext}
+                className="fixed right-3 top-1/2 -translate-y-1/2 z-[1060] p-2 bg-white/90 hover:bg-white rounded-full shadow-lg text-claude-subtext hover:text-claude-text transition-all backdrop-blur-sm"
+                title="Наступний (→)"
+              >
+                <ChevronRight size={24} strokeWidth={2} />
+              </button>
+            )}
             <div className="flex min-h-full items-center justify-center p-4">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -170,6 +209,11 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
                   </div>
 
                   <div className="flex items-center gap-1 flex-shrink-0 ml-4">
+                    {currentIndex != null && totalCount != null && totalCount > 1 && (
+                      <span className="text-[11px] text-claude-subtext font-medium mr-2 tabular-nums">
+                        {currentIndex + 1} / {totalCount}
+                      </span>
+                    )}
                     <button
                       onClick={handleCopy}
                       disabled={isLoading}
