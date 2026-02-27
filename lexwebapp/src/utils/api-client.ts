@@ -209,6 +209,8 @@ export const api = {
   documents: {
     getFolders: (prefix?: string) =>
       apiClient.get('/api/documents/folders', { params: { prefix } }),
+    deleteFolder: (folderPath: string) =>
+      apiClient.delete(`/api/documents/folders/${encodeURIComponent(folderPath)}`),
     getById: (id: string) => apiClient.get(`/api/documents/${id}`),
     delete: (id: string) => apiClient.delete(`/api/documents/${id}`),
     restore: (id: string) => apiClient.patch(`/api/documents/${id}/restore`),
