@@ -510,6 +510,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_USE_SSL: "false"
+      MINIO_PUBLIC_URL: https://stage.legal.org.ua/s3
 
       # Upload temp directory
       UPLOAD_TEMP_DIR: /app/data/uploads
