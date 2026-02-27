@@ -68,6 +68,11 @@ import { EUComparisonPage } from '../pages/EUComparisonPage';
 import { BlogPage } from '../pages/BlogPage';
 import { WorkflowsPage } from '../pages/WorkflowsPage';
 import { WorkflowSetDetailPage } from '../pages/WorkflowSetDetailPage';
+import { AttorneySearchPage } from '../pages/AttorneySearchPage';
+import { AttorneyDetailPage } from '../pages/AttorneyDetailPage';
+import { AttorneyProfilePage } from '../pages/AttorneyProfilePage';
+import { ConsultationsPage } from '../pages/ConsultationsPage';
+import { ConsultationDetailPage } from '../pages/ConsultationDetailPage';
 
 export const router = createBrowserRouter([
   {
@@ -247,6 +252,26 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.COURT_PRACTICE_ANALYSIS,
             element: <CourtPracticeAnalysisPage />,
+          },
+          {
+            path: ROUTES.ATTORNEYS,
+            element: <AttorneySearchPage />,
+          },
+          {
+            path: ROUTES.ATTORNEY_DETAIL,
+            element: <AttorneyDetailPage />,
+          },
+          {
+            path: ROUTES.ATTORNEY_PROFILE_EDIT,
+            element: <AttorneyProfilePage />,
+          },
+          {
+            path: ROUTES.CONSULTATIONS,
+            element: <ConsultationsPage />,
+          },
+          {
+            path: ROUTES.CONSULTATION_DETAIL,
+            element: <ConsultationDetailPage />,
           },
           {
             path: ROUTES.WORKFLOWS,

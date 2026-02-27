@@ -109,6 +109,11 @@ import { WorkflowService } from './services/workflow-service.js';
 import { WorkflowGeneratorService } from './services/workflow-generator-service.js';
 import { WorkflowExecutorService } from './services/workflow-executor-service.js';
 import { createWorkflowRoutes } from './routes/workflow-routes.js';
+import { AttorneyProfileService } from './services/attorney-profile-service.js';
+import { ConsultationService } from './services/consultation-service.js';
+import { ConsultationPaymentService } from './services/consultation-payment-service.js';
+import { createAttorneyRoutes } from './routes/attorney-routes.js';
+import { createConsultationRoutes } from './routes/consultation-routes.js';
 
 dotenv.config();
 
@@ -157,6 +162,9 @@ class HTTPMCPServer {
   private workflowService: WorkflowService;
   private workflowGeneratorService: WorkflowGeneratorService;
   private workflowExecutorService: WorkflowExecutorService;
+  private attorneyProfileService: AttorneyProfileService;
+  private consultationService: ConsultationService;
+  private consultationPaymentService: ConsultationPaymentService;
 
   constructor() {
     this.app = express();
@@ -456,6 +464,21 @@ class HTTPMCPServer {
       nowpaymentsMode: useMockNOWPayments ? 'MOCK' : 'REAL',
     });
 
+    // Initialize Attorney Consultation services (after payment services)
+    this.attorneyProfileService = new AttorneyProfileService(this.services.db);
+    this.consultationService = new ConsultationService(
+      this.services.db,
+      this.matterService,
+      this.auditService,
+      this.attorneyProfileService
+    );
+    this.consultationPaymentService = new ConsultationPaymentService(
+      this.services.db,
+      this.consultationService,
+      this.monobankService
+    );
+    logger.info('Attorney consultation services initialized');
+
     const openaiManager = getOpenAIManager();
     openaiManager.setCostTracker(this.costTracker);
     this.services.zoAdapter.setCostTracker(this.costTracker);
@@ -499,7 +522,7 @@ class HTTPMCPServer {
       '/webhooks',
       webhookRateLimit as any,
       express.raw({ type: 'application/json', limit: '10mb' }),
-      createWebhookRouter(this.monobankService, this.binancePayService, this.nowpaymentsService)
+      createWebhookRouter(this.monobankService, this.binancePayService, this.nowpaymentsService, this.consultationPaymentService)
     );
 
     // JSON parsing with UTF-8 support (for all other routes)
@@ -1802,6 +1825,16 @@ class HTTPMCPServer {
 
     this.app.use('/api/invoicing', requireJWT as any, createInvoiceRoutes(this.matterInvoiceService));
     logger.info('Invoicing routes registered at /api/invoicing');
+
+    // Attorney routes - search is public (optionalJWT), profile management requires JWT
+    this.app.use('/api/attorneys', optionalJWT as any, createAttorneyRoutes(this.attorneyProfileService));
+    logger.info('Attorney routes registered at /api/attorneys');
+
+    // Consultation routes - all require JWT
+    this.app.use('/api/consultations', requireJWT as any, createConsultationRoutes(
+      this.consultationService, this.consultationPaymentService
+    ));
+    logger.info('Consultation routes registered at /api/consultations');
 
     // Admin routes - require JWT + admin privileges
     // GET /api/admin/stats/overview - Dashboard statistics
