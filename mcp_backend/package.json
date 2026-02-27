@@ -59,6 +59,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
+    "@aws-sdk/client-s3": "^3.999.0",
+    "@aws-sdk/client-sqs": "^3.999.0",
     "@google-cloud/vision": "^5.3.4",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@qdrant/js-client-rest": "^1.9.0",

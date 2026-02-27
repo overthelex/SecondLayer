@@ -70,6 +70,7 @@ const DELAY_MS = parseInt(process.env.DELAY_MS || '2000', 10);
 const CONCURRENCY = parseInt(process.env.CONCURRENCY || '10', 10);
 const SKIP_EMBEDDINGS = process.env.SKIP_EMBEDDINGS === 'true';
 const PROCESS_ONLY = process.env.PROCESS_ONLY === 'true';
+const DISCOVERY_ONLY = process.env.DISCOVERY_ONLY === 'true';
 const JUSTICE_KIND = process.env.JUSTICE_KIND || 'Цивільне';
 const JUSTICE_KIND_ID = process.env.JUSTICE_KIND_ID || '1';
 const DOC_FORM = process.env.DOC_FORM || 'Рішення';
@@ -102,6 +103,12 @@ interface ProcessingContext {
 
 async function initServices(): Promise<ProcessingContext> {
   const db = new Database();
+
+  // In DISCOVERY_ONLY mode, we only need the DB connection
+  if (DISCOVERY_ONLY) {
+    return { db, documentService: null as any, sectionizer: null as any, embeddingService: null };
+  }
+
   const documentService = new DocumentService(db);
   const sectionizer = new SemanticSectionizer();
   let embeddingService: EmbeddingService | null = null;
@@ -338,6 +345,54 @@ async function processWithPool(
 
   // Wait for remaining tasks
   await Promise.all(active);
+}
+
+// ─── Discovery Mode ─────────────────────────────────────────────────────────
+
+/**
+ * In DISCOVERY_ONLY mode, just INSERT the zakononline_id into documents table
+ * without downloading or processing the full text. This is used to build the
+ * queue of documents to be downloaded by the distributed bulk-scrape pipeline.
+ */
+async function discoveryInsert(
+  db: Database,
+  docIds: string[]
+): Promise<{ inserted: number; skipped: number }> {
+  let inserted = 0;
+  let skipped = 0;
+
+  for (const docId of docIds) {
+    try {
+      const result = await db.query(
+        `INSERT INTO documents (zakononline_id, type, title, metadata, created_at, updated_at)
+         VALUES ($1, 'court_decision', $2, $3, NOW(), NOW())
+         ON CONFLICT (zakononline_id) DO NOTHING
+         RETURNING id`,
+        [
+          `court_${docId}`,
+          `Рішення ${docId}`,
+          JSON.stringify({
+            source: 'reyestr.court.gov.ua',
+            registry_id: docId,
+            justice_kind: JUSTICE_KIND_ID,
+            doc_form: DOC_FORM,
+            discovered_at: new Date().toISOString(),
+          }),
+        ]
+      );
+      if (result.rows.length > 0) {
+        inserted++;
+      } else {
+        skipped++;
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`  [DISC ${docId}] Insert error: ${msg}`);
+      skipped++;
+    }
+  }
+
+  return { inserted, skipped };
 }
 
 // ─── Scraping Functions ─────────────────────────────────────────────────────
@@ -735,6 +790,7 @@ async function main() {
   console.log(`  Concurrency:      ${CONCURRENCY}`);
   console.log(`  Skip embeddings:  ${SKIP_EMBEDDINGS}`);
   console.log(`  Process only:     ${PROCESS_ONLY}`);
+  console.log(`  Discovery only:   ${DISCOVERY_ONLY}`);
   console.log(`  Headless:         ${HEADLESS}`);
   console.log(`  Incremental:      ${INCREMENTAL}`);
   console.log(`  Resume:           ${RESUME}`);
@@ -880,16 +936,24 @@ async function main() {
           }
 
           const remaining = MAX_DOCS - totalDownloaded;
-          const idsToDownload = links.slice(0, remaining).map((l) => l.id);
+          const idsToProcess = links.slice(0, remaining).map((l) => l.id);
 
-          console.log(`  Downloading ${idsToDownload.length} decisions (${CONCURRENCY} concurrent tabs)...`);
-          const downloaded = await downloadWithPool(context, idsToDownload);
-          totalDownloaded += downloaded.length;
-          totalErrors += idsToDownload.length - downloaded.length;
+          if (DISCOVERY_ONLY) {
+            // Discovery mode: just INSERT zakononline_ids, skip download+process
+            const { inserted, skipped } = await discoveryInsert(ctx.db, idsToProcess);
+            totalDownloaded += inserted;
+            totalErrors += skipped;
+            console.log(`  Discovery: ${inserted} inserted, ${skipped} skipped (already exist)`);
+          } else {
+            console.log(`  Downloading ${idsToProcess.length} decisions (${CONCURRENCY} concurrent tabs)...`);
+            const downloaded = await downloadWithPool(context, idsToProcess);
+            totalDownloaded += downloaded.length;
+            totalErrors += idsToProcess.length - downloaded.length;
 
-          if (downloaded.length > 0) {
-            console.log(`\n  Processing batch of ${downloaded.length} documents...`);
-            await processWithPool(ctx, downloaded);
+            if (downloaded.length > 0) {
+              console.log(`\n  Processing batch of ${downloaded.length} documents...`);
+              await processWithPool(ctx, downloaded);
+            }
           }
 
           const cp = await scrapeService.upsertCheckpoint(
