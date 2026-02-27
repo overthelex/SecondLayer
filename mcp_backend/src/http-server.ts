@@ -1217,7 +1217,8 @@ class HTTPMCPServer {
         const doc = result.rows[0];
 
         if (doc.storage_type === 'minio' && doc.metadata?.minioKey) {
-          const url = await this.minioService.getFileUrl(userId, doc.metadata.minioKey, 3600);
+          const isPreviewable = doc.mime_type === 'application/pdf' || doc.mime_type?.startsWith('image/') || doc.mime_type?.startsWith('video/');
+          const url = await this.minioService.getFileUrl(userId, doc.metadata.minioKey, 3600, isPreviewable);
           res.json({ previewUrl: url, mimeType: doc.mime_type, storageType: 'minio' });
         } else {
           // Vault document — no binary preview, content is text

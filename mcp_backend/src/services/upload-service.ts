@@ -40,6 +40,7 @@ const DOCUMENT_TYPES = [
   'text/html',
   'text/plain',
   'application/rtf',
+  'message/rfc822',
 ];
 
 export class UploadService {

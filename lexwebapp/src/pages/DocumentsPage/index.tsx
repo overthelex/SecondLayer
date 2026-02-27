@@ -33,6 +33,7 @@ import { ClassificationPanel } from './ClassificationPanel';
 import { DocumentStatsPanel } from './DocumentStatsPanel';
 import type { VaultDocument, DocType, ViewMode, SortField, SortOrder, DocumentStats } from './types';
 import { isPreviewableBinary } from './types';
+import { processEmlContent } from '../../utils/eml-parser';
 import { useUndoStore } from '../../stores/undoStore';
 import { useUndoKeyboard } from '../../hooks/useUndoKeyboard';
 
@@ -45,7 +46,7 @@ const DOC_TYPE_LABELS: Record<DocType, string> = {
 };
 
 const ACCEPTED_TYPES =
-  '.pdf,.docx,.doc,.html,.htm,.txt,.rtf,.jpg,.jpeg,.png,.bmp,.gif,.xlsx,.xls,.csv,.mp4,.mov,.avi,.mkv,.webm';
+  '.pdf,.docx,.doc,.html,.htm,.txt,.rtf,.eml,.jpg,.jpeg,.png,.bmp,.gif,.xlsx,.xls,.csv,.mp4,.mov,.avi,.mkv,.webm';
 
 const PAGE_SIZE = 50;
 
@@ -73,6 +74,7 @@ function guessMimeType(file: File): string {
     avi: 'video/x-msvideo',
     mkv: 'video/x-matroska',
     webm: 'video/webm',
+    eml: 'message/rfc822',
   };
   return map[ext || ''] || 'application/octet-stream';
 }
@@ -495,7 +497,8 @@ export function DocumentsPage() {
         ? JSON.parse(result.result.content[0].text)
         : result?.result || result;
 
-      const content = parsed.content || parsed.text || parsed.sections?.map((s: any) => s.content).join('\n\n') || 'Вміст недоступний';
+      const rawContent = parsed.content || parsed.text || parsed.sections?.map((s: any) => s.content).join('\n\n') || 'Вміст недоступний';
+      const content = processEmlContent(rawContent);
       const badge = DOC_TYPE_LABELS[doc.type] || doc.type;
 
       setPreviewDoc({
