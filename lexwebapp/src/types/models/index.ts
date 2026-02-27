@@ -10,3 +10,4 @@ export * from './Matter';
 export * from './Person';
 export * from './Billing';
 export * from './TimeEntry';
+export * from './Workflow';

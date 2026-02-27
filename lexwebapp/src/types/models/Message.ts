@@ -33,6 +33,7 @@ export interface Message {
   documents?: VaultDocument[];
   citationWarnings?: CitationWarning[];
   costSummary?: CostSummary;
+  metadata?: Record<string, any>;
 }
 
 export interface ThinkingStep {

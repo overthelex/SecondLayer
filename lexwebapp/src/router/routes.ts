@@ -74,6 +74,10 @@ export const ROUTES = {
   HISTORICAL_ANALYSIS: '/legislation/historical',
   COURT_PRACTICE_ANALYSIS: '/analysis/court-practice',
 
+  // Workflows
+  WORKFLOWS: '/workflows',
+  WORKFLOW_SET_DETAIL: '/workflows/:id',
+
   // Admin
   ADMIN_OVERVIEW: '/admin/overview',
   ADMIN_MONITORING: '/admin/monitoring',
@@ -89,6 +93,7 @@ export const ROUTES = {
   ADMIN_TERMINAL: '/admin/terminal',
   ADMIN_USER_ACTIVITY: '/admin/user-activity',
   ADMIN_ZO_STATS: '/admin/zo-stats',
+  ADMIN_BULK_SCRAPE: '/admin/bulk-scrape',
 } as const;
 
 // Helper function to generate dynamic routes
