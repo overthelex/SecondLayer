@@ -18,7 +18,7 @@ export function createWorkerHeartbeatRoute(): express.Router {
    * Workers push stats every 10s. Stored in Redis with 60s TTL.
    */
   router.post('/heartbeat', async (req: Request, res: Response) => {
-    const { worker_id, ip, received, downloaded, uploaded, errors, captchas, rate_limited, uptime_s } = req.body;
+    const { worker_id, ip, received, downloaded, uploaded, errors, captchas, rate_limited, uptime_s, region, proxy_type, status } = req.body;
 
     if (!worker_id) {
       return res.status(400).json({ error: 'worker_id is required' });
@@ -40,6 +40,9 @@ export function createWorkerHeartbeatRoute(): express.Router {
         captchas: captchas || 0,
         rate_limited: rate_limited || 0,
         uptime_s: uptime_s || 0,
+        region: region || null,
+        proxy_type: proxy_type || 'datacenter',
+        status: status || 'idle',
         last_seen: Date.now(),
       });
 
@@ -96,6 +99,9 @@ export async function getWorkerStats(): Promise<any[]> {
           rate_docs_per_s: parseFloat(rateDocsPerS.toFixed(2)),
           last_seen_s: lastSeenS,
           online: lastSeenS < WORKER_TTL_SECONDS,
+          region: data.region || null,
+          proxy_type: data.proxy_type || 'datacenter',
+          status: data.status || 'idle',
         });
       } catch { /* skip malformed */ }
     }
