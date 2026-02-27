@@ -23,9 +23,9 @@ export class ModelSelector {
   private static readonly OPENAI_STANDARD = process.env.OPENAI_MODEL_STANDARD || 'gpt-5-mini';
   private static readonly OPENAI_DEEP = process.env.OPENAI_MODEL_DEEP || 'gpt-5.1';
 
-  private static readonly BEDROCK_QUICK = process.env.BEDROCK_MODEL_QUICK || 'amazon.nova-micro-v1:0';
-  private static readonly BEDROCK_STANDARD = process.env.BEDROCK_MODEL_STANDARD || 'amazon.nova-lite-v1:0';
-  private static readonly BEDROCK_DEEP = process.env.BEDROCK_MODEL_DEEP || 'amazon.nova-pro-v1:0';
+  private static readonly BEDROCK_QUICK = process.env.BEDROCK_MODEL_QUICK || 'eu.amazon.nova-micro-v1:0';
+  private static readonly BEDROCK_STANDARD = process.env.BEDROCK_MODEL_STANDARD || 'eu.amazon.nova-lite-v1:0';
+  private static readonly BEDROCK_DEEP = process.env.BEDROCK_MODEL_DEEP || 'eu.amazon.nova-pro-v1:0';
 
   private static readonly SINGLE_MODEL = process.env.OPENAI_MODEL;
 
@@ -106,7 +106,13 @@ export class ModelSelector {
     return providers;
   }
 
+  private static normalizeModelId(model: string): string {
+    // Strip regional prefix (e.g. "eu.amazon.nova-micro-v1:0" → "amazon.nova-micro-v1:0")
+    return model.replace(/^(eu|us|global)\./, '');
+  }
+
   static estimateCost(model: string, tokens: number): number {
+    const normalizedModel = this.normalizeModelId(model);
     const costPer1M: Record<string, { input: number; output: number }> = {
       // GPT-5 family
       'gpt-5.1': { input: 2.00, output: 8.00 },
@@ -181,7 +187,7 @@ export class ModelSelector {
       'cohere.embed-v4:0': { input: 0.10, output: 0 },
     };
 
-    const pricing = costPer1M[model] || { input: 5.00, output: 15.00 };
+    const pricing = costPer1M[normalizedModel] || costPer1M[model] || { input: 5.00, output: 15.00 };
     const inputCost = (tokens * 0.7 * pricing.input) / 1_000_000;
     const outputCost = (tokens * 0.3 * pricing.output) / 1_000_000;
 
@@ -193,6 +199,7 @@ export class ModelSelector {
     promptTokens: number,
     completionTokens: number
   ): number {
+    const normalizedModel = this.normalizeModelId(model);
     const costPer1M: Record<string, { input: number; output: number }> = {
       // GPT-5 family
       'gpt-5.1': { input: 2.00, output: 8.00 },
@@ -267,7 +274,7 @@ export class ModelSelector {
       'cohere.embed-v4:0': { input: 0.10, output: 0 },
     };
 
-    const pricing = costPer1M[model] || { input: 5.00, output: 15.00 };
+    const pricing = costPer1M[normalizedModel] || costPer1M[model] || { input: 5.00, output: 15.00 };
     const inputCost = (promptTokens * pricing.input) / 1_000_000;
     const outputCost = (completionTokens * pricing.output) / 1_000_000;
 
@@ -301,7 +308,7 @@ export class ModelSelector {
 
   static supportsJsonMode(model: string): boolean {
     // Nova models support JSON via system prompt instructions, not response_format
-    if (model.startsWith('amazon.nova')) return false;
+    if (model.includes('amazon.nova')) return false;
 
     const jsonModeModels = [
       'gpt-5.1',
