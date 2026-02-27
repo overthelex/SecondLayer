@@ -1,0 +1,268 @@
+/**
+ * IntentClassifier — classifies user chat intent and filters tools.
+ *
+ * Extracted from ChatService to isolate the classification logic
+ * (LLM call, regex safety nets, slot coercions, queryType coercions).
+ */
+
+import { logger } from '../utils/logger.js';
+import { ToolRegistry, ToolDefinition } from '../api/tool-registry.js';
+import { QueryPlanner } from './query-planner.js';
+import type { ILLMPort } from '../domain/ports/index.js';
+import {
+  CHAT_INTENT_CLASSIFICATION_PROMPT,
+  DOMAIN_TOOL_MAP,
+  DEFAULT_TOOLS,
+  VALID_QUERY_TYPES,
+  type QueryType,
+  type ChatIntentClassification,
+} from '../prompts/chat-system-prompt.js';
+
+interface CostRecorder {
+  recordStreamingCost(
+    requestId: string,
+    provider: string,
+    model: string,
+    usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number },
+    task: string
+  ): void;
+}
+
+export class IntentClassifier {
+  constructor(
+    private toolRegistry: ToolRegistry,
+    private queryPlanner: QueryPlanner,
+    private llm: ILLMPort,
+    private costRecorder?: CostRecorder
+  ) {}
+
+  /**
+   * Classify chat intent using a fast LLM call (gpt-4o-mini ~200ms).
+   * Falls back to keyword-based QueryPlanner on error.
+   */
+  async classify(query: string, requestId?: string): Promise<ChatIntentClassification> {
+    try {
+      const llm = this.llm;
+
+      const classifyChars = CHAT_INTENT_CLASSIFICATION_PROMPT.length + query.length;
+      logger.debug('[IntentClassifier] Intent classification prompt size', {
+        chars: classifyChars,
+        estimatedTokens: Math.ceil(classifyChars / 3.5),
+      });
+
+      const response = await llm.chatCompletion(
+        {
+          messages: [
+            { role: 'system', content: CHAT_INTENT_CLASSIFICATION_PROMPT },
+            { role: 'user', content: query },
+          ],
+          max_tokens: 300,
+          temperature: 0.1,
+          response_format: { type: 'json_object' },
+        },
+        'quick'
+      );
+
+      // Record classification LLM cost
+      if (requestId && response.usage && this.costRecorder) {
+        this.costRecorder.recordStreamingCost(requestId, response.provider, response.model, response.usage, 'intent_classification');
+      }
+
+      const content = response.content || '{}';
+
+      // Extract JSON from response (may be wrapped in markdown code blocks)
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in classification response');
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      const domains = Array.isArray(parsed.domains) && parsed.domains.length > 0
+        ? parsed.domains
+        : ['court'];
+      const keywords = typeof parsed.keywords === 'string' ? parsed.keywords : query;
+      let slots: Record<string, any> | undefined = parsed.slots && typeof parsed.slots === 'object' && Object.keys(parsed.slots).length > 0
+        ? parsed.slots
+        : undefined;
+
+      // Force-include domains based on extracted slots
+      if (slots?.edrpou && !domains.includes('registry')) {
+        domains.push('registry');
+      }
+      if (slots?.case_number && !domains.includes('court')) {
+        domains.push('court');
+      }
+      if (slots?.law_reference && !domains.includes('legislation')) {
+        domains.push('legislation');
+      }
+
+      // Safety net: extract case_number from query if LLM missed it
+      if (!slots?.case_number) {
+        const caseMatch = query.match(/\d+\/\d+\/\d{2,4}/);
+        if (caseMatch) {
+          if (!slots) slots = {};
+          slots.case_number = caseMatch[0];
+        }
+      }
+
+      // Keyword-based safety net for registry queries
+      const lowerQuery = query.toLowerCase();
+      const registryKeywords = ['тов ', 'тов "', 'тов «', 'фоп ', 'пп ', 'ат ', 'єдрпоу', 'edrpou', 'підприємство', 'компанія', 'юридична особа'];
+      const hasRegistryKeyword = registryKeywords.some(kw => lowerQuery.includes(kw));
+      const hasEdrpouPattern = /\b\d{8}\b/.test(query);
+      if ((hasRegistryKeyword || hasEdrpouPattern) && !domains.includes('registry')) {
+        domains.push('registry');
+      }
+
+      // Safety net for documents/vault queries
+      const documentsKeywords = ['vault', 'сховищ', 'завантажив', 'завантажені', 'мої документи', 'мої файли', 'загрузил', 'зарузил', 'загруженн', 'зберіг', 'збережені', 'uploaded', 'my documents', 'my files'];
+      const hasDocumentsKeyword = documentsKeywords.some(kw => lowerQuery.includes(kw));
+      if (hasDocumentsKeyword && !domains.includes('documents')) {
+        domains.push('documents');
+      }
+
+      // Parse queryType with validation and safety coercions
+      let queryType: QueryType = 'legal_consultation';
+      if (parsed.queryType && VALID_QUERY_TYPES.has(parsed.queryType)) {
+        queryType = parsed.queryType as QueryType;
+      }
+
+      // Safety coercions based on slots
+      if (slots?.case_number && queryType === 'legal_consultation') {
+        queryType = 'case_lookup';
+      }
+      if (slots?.edrpou && queryType === 'legal_consultation') {
+        queryType = 'registry_lookup';
+      }
+      if (slots?.law_reference && queryType === 'legal_consultation') {
+        queryType = 'legislation_lookup';
+      }
+
+      // Regex-based queryType coercions when LLM defaults to legal_consultation
+      if (queryType === 'legal_consultation') {
+        // Legislation: "ст. 16 ЦК", "стаття 382 КК", "ч. 3 ст. 16"
+        if (/ст(?:атт[яію])?\s*\.?\s*\d+/i.test(query) || /(?:^|\s)(?:ЦК|КК|ГПК|ЦПК|КАС|ГК|ЗК|СК|КЗпП|цк|кк|гпк|цпк|кас|гк|зк|ск|кзпп)(?:\s|$|,|\.)/.test(query)) {
+          queryType = 'legislation_lookup';
+        }
+        // Registry: ЄДРПОУ, 8-digit code, ТОВ/ПАТ/ФОП lookup
+        else if (hasEdrpouPattern || lowerQuery.includes('єдрпоу') || lowerQuery.includes('edrpou')) {
+          queryType = 'registry_lookup';
+        }
+        // Practice analysis: "аналіз практики", "судова практика", "як суди"
+        else if (/проаналізу|аналіз практик|судова практика|знайти справи|знайти практику|огляд практики|яка практика|як суди|позиція судів/i.test(query)) {
+          queryType = 'practice_analysis';
+        }
+        // Document drafting: "напиши позовну", "зразок скарги", "склади заяву"
+        else if (/\b(?:напиш[иі]|склад[иі]|підготуй|зразок|шаблон)\b.*\b(?:позов|скарг|заяв|клопотан|претенз)/i.test(query)) {
+          queryType = 'document_drafting';
+        }
+        // Due diligence: "перевір контрагента", "due diligence"
+        else if (/due.?diligence|перевір.*контрагент|комплексна перевірка/i.test(query)) {
+          queryType = 'due_diligence';
+        }
+        // Parliament: "депутат", "законопроєкт", "голосування"
+        else if (domains.includes('parliament')) {
+          queryType = 'parliament_query';
+        }
+        // Documents/vault
+        else if (hasDocumentsKeyword || domains.includes('documents')) {
+          queryType = 'document_query';
+        }
+        // Comparative analysis: "негаторний чи віндикаційний", "який спосіб захисту"
+        else if (/\bчи\b.*\bпозов|який спосіб захисту|порівн.*підход|яка стаття підходить/i.test(query)) {
+          queryType = 'comparative_analysis';
+        }
+        // Unsupported: non-legal queries
+        else if (/(?:погод[аиу]|рецепт|футбол|спорт|кіно|фільм|музик|пісн)/i.test(lowerQuery) && !domains.some((d: string) => d !== 'court')) {
+          queryType = 'unsupported';
+        }
+        // Unsupported: aggregated judge statistics
+        else if (/рейтинг.*(судд|суд)|статистик.*(судд|суд)|відсот.*(задовол|відмов).*судд|тенденці.*(закрит|судд)/i.test(lowerQuery)) {
+          queryType = 'unsupported';
+        }
+      }
+
+      let unsupportedReason = queryType === 'unsupported' && typeof parsed.unsupportedReason === 'string'
+        ? parsed.unsupportedReason
+        : undefined;
+
+      // Generate unsupportedReason if not provided by LLM
+      if (queryType === 'unsupported' && !unsupportedReason) {
+        if (/рейтинг.*(судд|суд)|статистик.*(судд|суд)|відсот.*(задовол|відмов)|тенденці.*(закрит|судд)/i.test(lowerQuery)) {
+          unsupportedReason = 'Система не може агрегувати статистику по суддях (відсоток задоволених позовів, тенденції). Можу знайти конкретні справи за іменем судді або за темою.';
+        } else {
+          unsupportedReason = 'Цей запит виходить за межі можливостей юридичної системи SecondLayer. Я спеціалізуюся на українському праві: судова практика, законодавство, реєстри, парламентські дані.';
+        }
+      }
+
+      logger.info('[IntentClassifier] LLM intent classification', { domains, keywords, slots, queryType, unsupportedReason });
+
+      return { domains, keywords, slots, queryType, unsupportedReason };
+    } catch (err: any) {
+      logger.warn('[IntentClassifier] LLM classification failed, falling back to keyword matching', {
+        error: err.message,
+      });
+
+      // Fallback to keyword-based classification
+      const intent = await this.queryPlanner.classifyIntent(query, 'quick');
+      const fallbackSlots = (intent.slots as Record<string, any>) || {};
+
+      // Extract case_number from query if QueryPlanner didn't
+      if (!fallbackSlots.case_number) {
+        const caseMatch = query.match(/\d+\/\d+\/\d{2,4}/);
+        if (caseMatch) {
+          fallbackSlots.case_number = caseMatch[0];
+        }
+      }
+
+      return {
+        domains: intent.domains,
+        keywords: query,
+        slots: Object.keys(fallbackSlots).length > 0 ? fallbackSlots : undefined,
+        queryType: 'legal_consultation' as QueryType,
+      };
+    }
+  }
+
+  /**
+   * Filter 45+ tools to a relevant subset based on intent domains.
+   */
+  async filterTools(domains: string[], slots?: Record<string, any>): Promise<ToolDefinition[]> {
+    const allDefs = await this.toolRegistry.getAllToolDefinitions();
+
+    // Collect tool names from matching domains
+    const relevantNames = new Set<string>(DEFAULT_TOOLS);
+    for (const domain of domains) {
+      const mapped = DOMAIN_TOOL_MAP[domain];
+      if (mapped) {
+        for (const name of mapped) {
+          relevantNames.add(name);
+        }
+      }
+    }
+
+    // If EDRPOU is in slots, ensure all registry tools are included
+    if (slots?.edrpou) {
+      const registryTools = DOMAIN_TOOL_MAP.registry || [];
+      for (const name of registryTools) {
+        relevantNames.add(name);
+      }
+    }
+
+    // If no domains matched, use a broader set
+    if (relevantNames.size <= DEFAULT_TOOLS.length && domains.length > 0) {
+      // Add all tools from the 'legal_advice' domain as fallback
+      const fallback = DOMAIN_TOOL_MAP.legal_advice || [];
+      for (const name of fallback) {
+        relevantNames.add(name);
+      }
+    }
+
+    // Filter to only tools that actually exist in the registry
+    const filtered = allDefs.filter((d) => relevantNames.has(d.name));
+
+    // Cap at 15 tools — modern LLMs handle 15-20 tools fine
+    return filtered.slice(0, 15);
+  }
+}
