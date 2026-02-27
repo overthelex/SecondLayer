@@ -103,8 +103,7 @@ function fetchHTML(registryId, retries = 3) {
       attempt++;
       const url = `${BASE_URL}${registryId}`;
 
-      const req = https.get(url, {
-        localAddress: LOCAL_IP,
+      const fetchOpts = {
         headers: {
           'User-Agent': randomUA(),
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -113,7 +112,10 @@ function fetchHTML(registryId, retries = 3) {
           'Connection': 'keep-alive',
         },
         timeout: 30000,
-      }, (res) => {
+      };
+      if (LOCAL_IP) fetchOpts.localAddress = LOCAL_IP;
+
+      const req = https.get(url, fetchOpts, (res) => {
         if (res.statusCode === 429) {
           stats.rateLimited++;
           if (attempt < retries) {
