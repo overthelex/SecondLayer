@@ -43,10 +43,27 @@ export interface AwsPipelineStats {
   active: boolean;
 }
 
+export interface WorkerStats {
+  worker_id: string;
+  worker_id_short: string;
+  ip: string | null;
+  uptime_s: number;
+  received: number;
+  downloaded: number;
+  uploaded: number;
+  errors: number;
+  captchas: number;
+  rate_limited: number;
+  rate_docs_per_s: number;
+  last_seen_s: number;
+  online: boolean;
+}
+
 export interface BulkScrapeStatusResponse {
   jobs: BulkScrapeJob[];
   stats: BulkScrapeStats | null;
   aws_pipeline?: AwsPipelineStats | null;
+  workers?: WorkerStats[];
   court_breakdown?: CourtBreakdown[];
   justice_kind_breakdown?: JusticeKindBreakdown[];
   message?: string;

@@ -21,6 +21,7 @@ import { CourtDecisionHTMLParser } from '../utils/html-parser.js';
 import { logger } from '../utils/logger.js';
 import { SQSClient, GetQueueAttributesCommand } from '@aws-sdk/client-sqs';
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { getWorkerStats } from './worker-heartbeat-routes.js';
 
 
 /**
@@ -4813,6 +4814,9 @@ export function createAdminRoutes(
         }
       }
 
+      // Worker stats from Redis heartbeats
+      const workers = await getWorkerStats();
+
       res.json({
         jobs: jobsResult.rows,
         stats: {
@@ -4823,6 +4827,7 @@ export function createAdminRoutes(
           completion_pct: totalCourt > 0 ? ((withFullText / totalCourt) * 100).toFixed(1) : '0.0',
         },
         aws_pipeline,
+        workers: workers.length > 0 ? workers : undefined,
         court_breakdown: courtBreakdownResult.rows.map((r: any) => ({
           court_name: r.court_name,
           total: parseInt(r.total_count, 10),
