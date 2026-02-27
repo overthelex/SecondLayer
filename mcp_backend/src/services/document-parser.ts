@@ -17,6 +17,12 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+export interface EmlAttachment {
+  filename: string;
+  mimeType: string;
+  data: Buffer;
+}
+
 export interface ParsedDocument {
   text: string;
   metadata: {
@@ -33,6 +39,7 @@ export interface ParsedDocument {
     text: string;
     confidence?: number;
   }>;
+  attachments?: EmlAttachment[];
 }
 
 export class DocumentParser {
@@ -818,7 +825,8 @@ export class DocumentParser {
 
     let textBody = '';
     let htmlBody = '';
-    const attachments: string[] = [];
+    const attachmentNames: string[] = [];
+    const attachmentBuffers: EmlAttachment[] = [];
 
     if (contentType.toLowerCase().includes('multipart')) {
       // Extract boundary
@@ -828,7 +836,7 @@ export class DocumentParser {
         this.extractMimeParts(bodySection, boundaryMatch[1], (ct, content) => {
           if (ct.startsWith('text/plain') && !textBody) textBody = content;
           else if (ct.startsWith('text/html') && !htmlBody) htmlBody = content;
-        }, attachments);
+        }, attachmentNames, attachmentBuffers);
       }
     } else if (contentType.toLowerCase().includes('text/html')) {
       htmlBody = this.decodeMimeContent(bodySection, transferEncoding);
@@ -861,9 +869,9 @@ export class DocumentParser {
     }
     if (body) lines.push(body);
 
-    if (attachments.length > 0) {
-      lines.push('', `Attachments (${attachments.length}):`);
-      for (const att of attachments) lines.push(`- ${att}`);
+    if (attachmentNames.length > 0) {
+      lines.push('', `Attachments (${attachmentNames.length}):`);
+      for (const att of attachmentNames) lines.push(`- ${att}`);
     }
 
     const text = lines.join('\n');
@@ -871,7 +879,7 @@ export class DocumentParser {
       throw new Error('EML file contains no extractable text');
     }
 
-    logger.info('EML parsed', { textLength: text.length, attachments: attachments.length });
+    logger.info('EML parsed', { textLength: text.length, attachments: attachmentNames.length, attachmentBuffers: attachmentBuffers.length });
 
     return {
       text,
@@ -880,17 +888,19 @@ export class DocumentParser {
         mimeType: 'message/rfc822',
         title: subject || undefined,
       },
+      ...(attachmentBuffers.length > 0 ? { attachments: attachmentBuffers } : {}),
     };
   }
 
   /**
-   * Recursively extract text parts from multipart MIME
+   * Recursively extract text parts and binary attachments from multipart MIME
    */
   private extractMimeParts(
     body: string,
     boundary: string,
     onText: (contentType: string, content: string) => void,
-    attachments: string[]
+    attachmentNames: string[],
+    attachmentBuffers?: EmlAttachment[]
   ): void {
     const escaped = boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const parts = body.split(new RegExp(`--${escaped}(?:--)?`));
@@ -912,7 +922,7 @@ export class DocumentParser {
       if (ct.startsWith('multipart/')) {
         const nestedBoundary = partHeaders.match(/boundary="?([^";\s]+)"?/i);
         if (nestedBoundary) {
-          this.extractMimeParts(partBody, nestedBoundary[1], onText, attachments);
+          this.extractMimeParts(partBody, nestedBoundary[1], onText, attachmentNames, attachmentBuffers);
         }
         continue;
       }
@@ -920,10 +930,48 @@ export class DocumentParser {
       const encMatch = partHeaders.match(/Content-Transfer-Encoding:\s*(\S+)/i);
       const enc = encMatch ? encMatch[1].trim().toLowerCase() : '7bit';
 
-      // Check for attachments
-      if (/Content-Disposition:\s*attachment/i.test(partHeaders)) {
-        const nameMatch = partHeaders.match(/filename="?([^";\r\n]+)"?/i);
-        if (nameMatch) attachments.push(this.decodeEncodedWords(nameMatch[1].trim()));
+      // Check for explicit attachments
+      const isAttachment = /Content-Disposition:\s*attachment/i.test(partHeaders);
+      // Check for inline with Content-ID (embedded images)
+      const isInline = /Content-Disposition:\s*inline/i.test(partHeaders) && /Content-ID:/i.test(partHeaders);
+
+      if (isAttachment || (isInline && !ct.startsWith('text/'))) {
+        const nameMatch = partHeaders.match(/filename="?([^";\r\n]+)"?/i) ||
+                          partHeaders.match(/name="?([^";\r\n]+)"?/i);
+        const filename = nameMatch ? this.decodeEncodedWords(nameMatch[1].trim()) : `attachment-${attachmentNames.length + 1}`;
+        attachmentNames.push(filename);
+
+        // Decode binary data if collecting attachments
+        if (attachmentBuffers) {
+          try {
+            let data: Buffer;
+            if (enc === 'base64') {
+              data = Buffer.from(partBody.replace(/\s/g, ''), 'base64');
+            } else if (enc === 'quoted-printable') {
+              const stripped = partBody.replace(/=\r?\n/g, '');
+              const bytes: number[] = [];
+              let i = 0;
+              while (i < stripped.length) {
+                if (stripped[i] === '=' && i + 2 < stripped.length && /[0-9A-Fa-f]{2}/.test(stripped.substring(i + 1, i + 3))) {
+                  bytes.push(parseInt(stripped.substring(i + 1, i + 3), 16));
+                  i += 3;
+                } else {
+                  bytes.push(stripped.charCodeAt(i));
+                  i++;
+                }
+              }
+              data = Buffer.from(bytes);
+            } else {
+              data = Buffer.from(partBody, 'binary');
+            }
+
+            if (data.length > 0) {
+              attachmentBuffers.push({ filename, mimeType: ct, data });
+            }
+          } catch (err: any) {
+            logger.warn('Failed to decode EML attachment', { filename, encoding: enc, error: err.message });
+          }
+        }
         continue;
       }
 

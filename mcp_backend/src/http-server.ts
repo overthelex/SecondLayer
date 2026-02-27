@@ -289,6 +289,7 @@ class HTTPMCPServer {
       this.services.documentService,
       metadataExtractor
     );
+    this.vaultTools.setMinioService(this.minioService);
     this.toolRegistry.registerHandler(this.vaultTools);
     this.conversationService = new ConversationService(this.services.db);
     this.gdprService = new GdprService(this.services.db, this.minioService, this.services.embeddingService);
