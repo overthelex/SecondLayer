@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, ExternalLink, Gavel, BookOpen, FileText, Copy, Check, Download, Loader2, AlertTriangle, Save, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ExternalLink, Gavel, BookOpen, FileText, Copy, Check, Download, Loader2, AlertTriangle, Save, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 
 export interface DocumentViewerItem {
   type: 'decision' | 'citation' | 'document';
@@ -33,6 +33,7 @@ interface DocumentViewerModalProps {
   hasNext?: boolean;
   currentIndex?: number;
   totalCount?: number;
+  onDelete?: () => void;
 }
 
 const typeIcons = {
@@ -41,7 +42,7 @@ const typeIcons = {
   document: FileText,
 };
 
-export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMessage, onSaveOcrText, onPrevious, onNext, hasPrevious, hasNext, currentIndex, totalCount }: DocumentViewerModalProps) {
+export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMessage, onSaveOcrText, onPrevious, onNext, hasPrevious, hasNext, currentIndex, totalCount, onDelete }: DocumentViewerModalProps) {
   const [copied, setCopied] = React.useState(false);
   const [editedOcrText, setEditedOcrText] = React.useState('');
   const [ocrSaving, setOcrSaving] = React.useState(false);
@@ -93,11 +94,14 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
       } else if (e.key === 'ArrowRight' && !isTyping && onNext && hasNext) {
         e.preventDefault();
         onNext();
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping && onDelete) {
+        e.preventDefault();
+        onDelete();
       }
     };
     window.addEventListener('keydown', handleKeydown);
     return () => window.removeEventListener('keydown', handleKeydown);
-  }, [isOpen, onClose, onPrevious, onNext, hasPrevious, hasNext]);
+  }, [isOpen, onClose, onPrevious, onNext, hasPrevious, hasNext, onDelete]);
 
   const handleCopy = () => {
     if (!item) return;
@@ -240,6 +244,16 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
                       >
                         <ExternalLink size={16} strokeWidth={2} />
                       </a>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={onDelete}
+                        disabled={isLoading}
+                        className="p-2 text-claude-subtext hover:text-red-500 hover:bg-red-50 rounded-lg transition-all disabled:opacity-40"
+                        title="Видалити (Delete)"
+                      >
+                        <Trash2 size={16} strokeWidth={2} />
+                      </button>
                     )}
                     <button
                       onClick={onClose}
