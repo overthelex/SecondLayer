@@ -1844,6 +1844,11 @@ class HTTPMCPServer {
     this.app.use('/api/decisions', requireJWT as any, createDecisionsRoutes(this.services.reyestrDownloadService));
     logger.info('Decisions routes registered at /api/decisions');
 
+    // Worker heartbeat (uses dualAuth so EC2 workers can auth with SECONDARY_LAYER_KEYS)
+    // MUST be before the catch-all /api workflow routes
+    this.app.use('/api/workers', dualAuth as any, createWorkerHeartbeatRoute());
+    logger.info('Worker heartbeat routes registered at /api/workers');
+
     // Workflow routes - workflow sets, workflow execution, cancellation
     this.app.use('/api', requireJWT as any, createWorkflowRoutes(this.workflowService, this.workflowExecutorService));
     logger.info('Workflow routes registered at /api/workflow-sets, /api/workflows');
@@ -1881,9 +1886,6 @@ class HTTPMCPServer {
     // GET /api/admin/api-keys - List API keys
     // GET /api/admin/settings - Get system settings
     this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billingService, this.userPreferencesService, this.prometheusService, this.pricingService, this.subscriptionService, this.configService));
-
-    // Worker heartbeat (uses dualAuth so EC2 workers can auth with SECONDARY_LAYER_KEYS)
-    this.app.use('/api/workers', dualAuth as any, createWorkerHeartbeatRoute());
 
     // Upload metrics endpoint (admin)
     this.app.get('/api/admin/upload-metrics', requireJWT as any, (async (_req: DualAuthRequest, res: express.Response) => {
