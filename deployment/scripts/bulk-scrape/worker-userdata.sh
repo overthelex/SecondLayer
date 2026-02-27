@@ -43,6 +43,8 @@ export AWS_REGION="__AWS_REGION__"
 export CONCURRENCY="5"
 export RATE_LIMIT_RPS="2"
 export WORKER_ID="$(curl -s http://169.254.169.254/latest/meta-data/instance-id)"
+export STATS_URL="__STATS_URL__"
+export STATS_API_KEY="__STATS_API_KEY__"
 
 # Run with restart on crash
 while true; do

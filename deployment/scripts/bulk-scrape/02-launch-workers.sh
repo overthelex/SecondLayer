@@ -28,6 +28,8 @@ S3_BUCKET="${BULK_SCRAPE_S3_BUCKET}"
 SQS_QUEUE_URL="${BULK_SCRAPE_SQS_QUEUE_URL}"
 IAM_PROFILE="${BULK_SCRAPE_IAM_PROFILE}"
 SG_ID="${BULK_SCRAPE_SECURITY_GROUP}"
+STATS_URL="${BULK_SCRAPE_STATS_URL:-}"
+STATS_API_KEY="${BULK_SCRAPE_STATS_API_KEY:-}"
 
 PREFIX="secondlayer-bulk-scrape"
 LT_NAME="${PREFIX}-lt"
@@ -59,6 +61,8 @@ USERDATA=$(cat "$SCRIPT_DIR/worker-userdata.sh" \
   | sed "s|__SQS_QUEUE_URL__|${SQS_QUEUE_URL}|g" \
   | sed "s|__S3_BUCKET__|${S3_BUCKET}|g" \
   | sed "s|__AWS_REGION__|${REGION}|g" \
+  | sed "s|__STATS_URL__|${STATS_URL}|g" \
+  | sed "s|__STATS_API_KEY__|${STATS_API_KEY}|g" \
   | base64 -w 0)
 
 # Get latest Ubuntu 22.04 AMI
