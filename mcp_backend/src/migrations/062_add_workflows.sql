@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS workflows (
     results JSONB DEFAULT NULL,
     error_message TEXT,
     cost_usd NUMERIC(10, 6) DEFAULT 0,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
