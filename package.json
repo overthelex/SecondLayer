@@ -52,5 +52,8 @@
     "ajv": ">=8.18.0",
     "minimatch": ">=10.2.1",
     "hono": ">=4.12.2"
+  },
+  "dependencies": {
+    "@withgraphite/graphite-cli": "^1.7.20"
   }
 }

@@ -1,6 +1,6 @@
 import { logger } from './logger';
 
-export type LLMProvider = 'openai' | 'anthropic';
+export type LLMProvider = 'openai' | 'anthropic' | 'bedrock';
 export type BudgetLevel = 'quick' | 'standard' | 'deep';
 export type TaskType = 'search' | 'analysis' | 'lookup';
 
@@ -23,6 +23,10 @@ export class ModelSelector {
   private static readonly OPENAI_STANDARD = process.env.OPENAI_MODEL_STANDARD || 'gpt-5-mini';
   private static readonly OPENAI_DEEP = process.env.OPENAI_MODEL_DEEP || 'gpt-5.1';
 
+  private static readonly BEDROCK_QUICK = process.env.BEDROCK_MODEL_QUICK || 'amazon.nova-micro-v1:0';
+  private static readonly BEDROCK_STANDARD = process.env.BEDROCK_MODEL_STANDARD || 'amazon.nova-lite-v1:0';
+  private static readonly BEDROCK_DEEP = process.env.BEDROCK_MODEL_DEEP || 'amazon.nova-pro-v1:0';
+
   private static readonly SINGLE_MODEL = process.env.OPENAI_MODEL;
 
   static getEmbeddingModel(): string {
@@ -42,28 +46,45 @@ export class ModelSelector {
       return { provider: 'openai', model: this.SINGLE_MODEL, budget };
     }
 
-    const selection: ModelSelection = {
-      provider: 'openai',
-      model: this.getModelForBudget(budget),
-      budget,
-    };
+    const provider = preferredProvider || this.selectProvider();
+    const model = this.getModelForBudget(budget, provider);
 
+    const selection: ModelSelection = { provider, model, budget };
     logger.debug('Selected chat model', selection);
     return selection;
   }
 
   private static selectProvider(): LLMProvider {
+    const strategy = this.PROVIDER_STRATEGY;
+
+    if (strategy === 'bedrock-first') {
+      if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+        return 'bedrock';
+      }
+      return 'openai';
+    }
+
     return 'openai';
   }
 
   /**
-   * @deprecated Round-robin removed. Always returns 'openai'.
+   * @deprecated Round-robin removed. Returns provider based on strategy.
    */
   static getNextProvider(): LLMProvider {
-    return 'openai';
+    return this.selectProvider();
   }
 
-  private static getModelForBudget(budget: BudgetLevel): string {
+  private static getModelForBudget(budget: BudgetLevel, provider?: LLMProvider): string {
+    const effectiveProvider = provider || this.selectProvider();
+
+    if (effectiveProvider === 'bedrock') {
+      return {
+        quick: this.BEDROCK_QUICK,
+        standard: this.BEDROCK_STANDARD,
+        deep: this.BEDROCK_DEEP,
+      }[budget];
+    }
+
     return {
       quick: this.OPENAI_QUICK,
       standard: this.OPENAI_STANDARD,
@@ -73,6 +94,10 @@ export class ModelSelector {
 
   static getAvailableProviders(): LLMProvider[] {
     const providers: LLMProvider[] = [];
+
+    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+      providers.push('bedrock');
+    }
 
     if (process.env.OPENAI_API_KEY) {
       providers.push('openai');
@@ -275,6 +300,9 @@ export class ModelSelector {
   }
 
   static supportsJsonMode(model: string): boolean {
+    // Nova models support JSON via system prompt instructions, not response_format
+    if (model.startsWith('amazon.nova')) return false;
+
     const jsonModeModels = [
       'gpt-5.1',
       'gpt-5',

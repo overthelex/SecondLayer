@@ -1,8 +1,22 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import type {
+  ContentBlock,
+  SystemContentBlock,
+  ConverseCommandInput,
+  ConverseStreamCommandInput,
+  ToolSpecification,
+  ToolConfiguration,
+  Message as BedrockMessage,
+} from '@aws-sdk/client-bedrock-runtime';
+import {
+  ConverseCommand,
+  ConverseStreamCommand,
+} from '@aws-sdk/client-bedrock-runtime';
 import { logger } from './logger';
 import { OpenAIClientManager, getOpenAIManager, CostTrackerInterface } from './openai-client';
 import { AnthropicClientManager, getAnthropicManager } from './anthropic-client';
+import { BedrockClientManager, getBedrockManager } from './bedrock-client';
 import { ModelSelector, LLMProvider, BudgetLevel, ModelSelection } from './model-selector';
 
 /** GPT-5 models only support temperature=1 (default) */
@@ -65,12 +79,14 @@ export interface UnifiedStreamChunk {
 export class LLMClientManager {
   private openaiManager: OpenAIClientManager;
   private anthropicManager: AnthropicClientManager;
+  private bedrockManager: BedrockClientManager;
   private availableProviders: LLMProvider[];
   private externalApiMetrics: ((service: string, status: string, durationSec: number) => void) | null = null;
 
   constructor() {
     this.openaiManager = getOpenAIManager();
     this.anthropicManager = getAnthropicManager();
+    this.bedrockManager = getBedrockManager();
     this.availableProviders = ModelSelector.getAvailableProviders();
 
     logger.info('LLM Client Manager initialized', {
@@ -81,6 +97,7 @@ export class LLMClientManager {
   setCostTracker(tracker: CostTrackerInterface) {
     this.openaiManager.setCostTracker(tracker);
     this.anthropicManager.setCostTracker(tracker);
+    this.bedrockManager.setCostTracker(tracker);
   }
 
   setExternalApiMetrics(callback: (service: string, status: string, durationSec: number) => void) {
@@ -134,6 +151,9 @@ export class LLMClientManager {
     request: UnifiedChatRequest,
     selection: ModelSelection
   ): Promise<UnifiedChatResponse> {
+    if (selection.provider === 'bedrock') {
+      return await this.executeBedrockChatCompletion(request, selection.model);
+    }
     return await this.executeOpenAIChatCompletion(request, selection.model);
   }
 
@@ -358,11 +378,36 @@ export class LLMClientManager {
 
     const streamStart = Date.now();
     try {
-      yield* this.executeOpenAIStreamCompletion(request, selection.model, signal);
+      if (selection.provider === 'bedrock') {
+        yield* this.executeBedrockStreamCompletion(request, selection.model, signal);
+      } else {
+        yield* this.executeOpenAIStreamCompletion(request, selection.model, signal);
+      }
       this.externalApiMetrics?.(selection.provider, 'success', (Date.now() - streamStart) / 1000);
     } catch (primaryError: any) {
       this.externalApiMetrics?.(selection.provider, 'error', (Date.now() - streamStart) / 1000);
-      logger.warn(`OpenAI streaming failed: ${primaryError.message}`);
+      logger.warn(`${selection.provider} streaming failed: ${primaryError.message}`);
+
+      // Fallback for streaming
+      const fallbackProvider = this.getFallbackProvider(selection.provider);
+      if (fallbackProvider) {
+        logger.info(`Stream falling back to ${fallbackProvider}`);
+        const fallbackSelection = ModelSelector.getModelSelection(budget, fallbackProvider);
+        const fbStart = Date.now();
+        try {
+          if (fallbackSelection.provider === 'bedrock') {
+            yield* this.executeBedrockStreamCompletion(request, fallbackSelection.model, signal);
+          } else {
+            yield* this.executeOpenAIStreamCompletion(request, fallbackSelection.model, signal);
+          }
+          this.externalApiMetrics?.(fallbackSelection.provider, 'success', (Date.now() - fbStart) / 1000);
+          return;
+        } catch (fbError: any) {
+          this.externalApiMetrics?.(fallbackSelection.provider, 'error', (Date.now() - fbStart) / 1000);
+          throw fbError;
+        }
+      }
+
       throw primaryError;
     }
   }
@@ -669,6 +714,283 @@ export class LLMClientManager {
       provider: 'anthropic',
     };
   }
+
+  // ─── Bedrock Converse API ─────────────────────────────────────────
+
+  private convertToBedrockMessages(
+    messages: UnifiedMessage[]
+  ): { system: SystemContentBlock[]; messages: BedrockMessage[] } {
+    const system: SystemContentBlock[] = [];
+    const bedrockMessages: BedrockMessage[] = [];
+
+    for (const m of messages) {
+      if (m.role === 'system') {
+        system.push({ text: m.content });
+        continue;
+      }
+
+      if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
+        const content: ContentBlock[] = [];
+        if (m.content) {
+          content.push({ text: m.content });
+        }
+        for (const tc of m.tool_calls) {
+          content.push({
+            toolUse: {
+              toolUseId: tc.id,
+              name: tc.name,
+              input: tc.arguments,
+            },
+          });
+        }
+        bedrockMessages.push({ role: 'assistant', content });
+        continue;
+      }
+
+      if (m.role === 'tool') {
+        // Bedrock expects tool results as user messages
+        const toolResultBlock: ContentBlock = {
+          toolResult: {
+            toolUseId: m.tool_call_id!,
+            content: [{ text: m.content }],
+          },
+        };
+        // Merge into last user message if possible
+        const lastMsg = bedrockMessages[bedrockMessages.length - 1];
+        if (lastMsg && lastMsg.role === 'user' && Array.isArray(lastMsg.content)) {
+          lastMsg.content.push(toolResultBlock);
+        } else {
+          bedrockMessages.push({ role: 'user', content: [toolResultBlock] });
+        }
+        continue;
+      }
+
+      // user or assistant (no tool_calls)
+      bedrockMessages.push({
+        role: m.role as 'user' | 'assistant',
+        content: [{ text: m.content }],
+      });
+    }
+
+    return { system, messages: bedrockMessages };
+  }
+
+  private buildBedrockToolConfig(request: UnifiedChatRequest): ToolConfiguration | undefined {
+    if (!request.tools || request.tools.length === 0) return undefined;
+
+    const tools = request.tools.map((t) => ({
+      toolSpec: {
+        name: t.name,
+        description: t.description,
+        inputSchema: {
+          json: t.parameters,
+        },
+      } as ToolSpecification,
+    }));
+
+    const toolChoice = request.tool_choice === 'none'
+      ? { auto: {} }  // Bedrock doesn't have 'none', use auto and skip tools
+      : { auto: {} };
+
+    return { tools, toolChoice };
+  }
+
+  private async executeBedrockChatCompletion(
+    request: UnifiedChatRequest,
+    model: string
+  ): Promise<UnifiedChatResponse> {
+    const client = this.bedrockManager.getClient();
+    const { system, messages } = this.convertToBedrockMessages(request.messages);
+
+    const params: ConverseCommandInput = {
+      modelId: model,
+      messages,
+      ...(system.length > 0 ? { system } : {}),
+    };
+
+    // Add inference config
+    const inferenceConfig: any = {};
+    if (request.max_tokens) {
+      inferenceConfig.maxTokens = request.max_tokens;
+    }
+    if (request.temperature !== undefined && ModelSelector.supportsTemperature(model)) {
+      inferenceConfig.temperature = request.temperature;
+    }
+    if (Object.keys(inferenceConfig).length > 0) {
+      params.inferenceConfig = inferenceConfig;
+    }
+
+    // Add tool config
+    if (request.tools && request.tools.length > 0 && request.tool_choice !== 'none') {
+      params.toolConfig = this.buildBedrockToolConfig(request);
+    }
+
+    const command = new ConverseCommand(params);
+    const response = await client.send(command);
+
+    // Parse response
+    const contentBlocks = response.output?.message?.content || [];
+    let textContent = '';
+    const toolCalls: ToolCall[] = [];
+
+    for (const block of contentBlocks) {
+      if ('text' in block && block.text) {
+        textContent += block.text;
+      }
+      if ('toolUse' in block && block.toolUse) {
+        toolCalls.push({
+          id: block.toolUse.toolUseId || `tc_${Date.now()}`,
+          name: block.toolUse.name || '',
+          arguments: (block.toolUse.input as Record<string, any>) || {},
+        });
+      }
+    }
+
+    const hasToolCalls = toolCalls.length > 0;
+    const inputTokens = response.usage?.inputTokens || 0;
+    const outputTokens = response.usage?.outputTokens || 0;
+
+    // Track cost
+    await this.bedrockManager.trackUsage(model, inputTokens, outputTokens);
+
+    return {
+      model,
+      provider: 'bedrock',
+      content: textContent,
+      usage: {
+        prompt_tokens: inputTokens,
+        completion_tokens: outputTokens,
+        total_tokens: inputTokens + outputTokens,
+      },
+      tool_calls: hasToolCalls ? toolCalls : undefined,
+      finish_reason: response.stopReason === 'tool_use' ? 'tool_calls' : 'stop',
+    };
+  }
+
+  private async *executeBedrockStreamCompletion(
+    request: UnifiedChatRequest,
+    model: string,
+    signal?: AbortSignal
+  ): AsyncGenerator<UnifiedStreamChunk> {
+    const client = this.bedrockManager.getClient();
+    const { system, messages } = this.convertToBedrockMessages(request.messages);
+
+    const params: ConverseStreamCommandInput = {
+      modelId: model,
+      messages,
+      ...(system.length > 0 ? { system } : {}),
+    };
+
+    const inferenceConfig: any = {};
+    if (request.max_tokens) {
+      inferenceConfig.maxTokens = request.max_tokens;
+    }
+    if (request.temperature !== undefined && ModelSelector.supportsTemperature(model)) {
+      inferenceConfig.temperature = request.temperature;
+    }
+    if (Object.keys(inferenceConfig).length > 0) {
+      params.inferenceConfig = inferenceConfig;
+    }
+
+    if (request.tools && request.tools.length > 0 && request.tool_choice !== 'none') {
+      params.toolConfig = this.buildBedrockToolConfig(request);
+    }
+
+    const command = new ConverseStreamCommand(params);
+    const response = await client.send(command);
+
+    if (!response.stream) {
+      throw new Error('Bedrock stream response is empty');
+    }
+
+    const toolCallBuffers = new Map<number, { id: string; name: string; args: string }>();
+    let finishReason: 'stop' | 'tool_calls' = 'stop';
+    let blockIndex = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    for await (const event of response.stream) {
+      if (signal?.aborted) break;
+
+      if (event.contentBlockStart) {
+        const start = event.contentBlockStart.start;
+        if (start && 'toolUse' in start && start.toolUse) {
+          toolCallBuffers.set(event.contentBlockStart.contentBlockIndex ?? blockIndex, {
+            id: start.toolUse.toolUseId || `tc_${Date.now()}`,
+            name: start.toolUse.name || '',
+            args: '',
+          });
+        }
+        blockIndex = event.contentBlockStart.contentBlockIndex ?? blockIndex;
+      }
+
+      if (event.contentBlockDelta) {
+        const delta = event.contentBlockDelta.delta;
+        if (delta && 'text' in delta && delta.text) {
+          yield { type: 'text_delta', text: delta.text };
+        }
+        if (delta && 'toolUse' in delta && delta.toolUse) {
+          const idx = event.contentBlockDelta.contentBlockIndex ?? blockIndex;
+          const buf = toolCallBuffers.get(idx);
+          if (buf) {
+            buf.args += delta.toolUse.input || '';
+            yield {
+              type: 'tool_call_delta',
+              tool_call: { index: idx, id: buf.id, name: buf.name },
+            };
+          }
+        }
+      }
+
+      if (event.messageStop) {
+        if (event.messageStop.stopReason === 'tool_use') {
+          finishReason = 'tool_calls';
+        }
+      }
+
+      if (event.metadata) {
+        inputTokens = event.metadata.usage?.inputTokens || 0;
+        outputTokens = event.metadata.usage?.outputTokens || 0;
+      }
+    }
+
+    // Track cost
+    await this.bedrockManager.trackUsage(model, inputTokens, outputTokens);
+
+    // Emit usage
+    yield {
+      type: 'usage',
+      usage: {
+        prompt_tokens: inputTokens,
+        completion_tokens: outputTokens,
+        total_tokens: inputTokens + outputTokens,
+      },
+    };
+
+    // Assemble completed tool calls
+    const completedToolCalls: ToolCall[] = [];
+    for (const [, buf] of toolCallBuffers) {
+      let args: Record<string, any> = {};
+      if (buf.args) {
+        try {
+          args = JSON.parse(buf.args);
+        } catch {
+          logger.warn('Failed to parse Bedrock tool call arguments', { args: buf.args });
+        }
+      }
+      completedToolCalls.push({ id: buf.id, name: buf.name, arguments: args });
+    }
+
+    yield {
+      type: 'done',
+      finish_reason: finishReason,
+      tool_calls: completedToolCalls.length > 0 ? completedToolCalls : undefined,
+      model,
+      provider: 'bedrock',
+    };
+  }
+
+  // ─── Fallback ───────────────────────────────────────────────────
 
   private getFallbackProvider(primaryProvider: LLMProvider): LLMProvider | null {
     const others = this.availableProviders.filter((p) => p !== primaryProvider);
