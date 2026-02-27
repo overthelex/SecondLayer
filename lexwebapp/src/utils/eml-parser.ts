@@ -20,15 +20,33 @@ function decodeEncodedWords(str: string): string {
   return str.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_match, _charset, encoding, text) => {
     if (encoding.toUpperCase() === 'B') {
       try {
-        return atob(text);
+        const bytes = atob(text);
+        const uint8 = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) uint8[i] = bytes.charCodeAt(i);
+        return new TextDecoder('utf-8').decode(uint8);
       } catch {
         return text;
       }
     }
     if (encoding.toUpperCase() === 'Q') {
-      return text.replace(/_/g, ' ').replace(/=([0-9A-Fa-f]{2})/g, (_: string, hex: string) =>
-        String.fromCharCode(parseInt(hex, 16))
-      );
+      // Collect all bytes first, then decode as UTF-8 (handles multi-byte Cyrillic)
+      const withSpaces = text.replace(/_/g, ' ');
+      const bytes: number[] = [];
+      let i = 0;
+      while (i < withSpaces.length) {
+        if (withSpaces[i] === '=' && i + 2 < withSpaces.length) {
+          bytes.push(parseInt(withSpaces.substring(i + 1, i + 3), 16));
+          i += 3;
+        } else {
+          bytes.push(withSpaces.charCodeAt(i));
+          i++;
+        }
+      }
+      try {
+        return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+      } catch {
+        return text;
+      }
     }
     return text;
   });
@@ -38,9 +56,24 @@ function decodeEncodedWords(str: string): string {
  * Decode quoted-printable encoded text
  */
 function decodeQuotedPrintable(text: string): string {
-  return text
-    .replace(/=\r?\n/g, '') // soft line breaks
-    .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  // Remove soft line breaks, then decode all =XX as raw bytes → UTF-8
+  const stripped = text.replace(/=\r?\n/g, '');
+  const bytes: number[] = [];
+  let i = 0;
+  while (i < stripped.length) {
+    if (stripped[i] === '=' && i + 2 < stripped.length && /[0-9A-Fa-f]{2}/.test(stripped.substring(i + 1, i + 3))) {
+      bytes.push(parseInt(stripped.substring(i + 1, i + 3), 16));
+      i += 3;
+    } else {
+      bytes.push(stripped.charCodeAt(i));
+      i++;
+    }
+  }
+  try {
+    return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+  } catch {
+    return stripped;
+  }
 }
 
 /**
