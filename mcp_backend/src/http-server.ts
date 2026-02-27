@@ -33,6 +33,7 @@ import { InvoiceService } from './services/invoice-service.js';
 import { createPaymentRouter, createWebhookRouter } from './routes/payment-routes.js';
 import { createBillingRoutes } from './routes/billing-routes.js';
 import { createAdminRoutes } from './routes/admin-routes.js';
+import { createWorkerHeartbeatRoute } from './routes/worker-heartbeat-routes.js';
 import { createDecisionsRoutes } from './routes/decisions-routes.js';
 import { attachTerminalWebSocket } from './routes/terminal-routes.js';
 import { createTeamRoutes } from './routes/team-routes.js';
@@ -1853,6 +1854,9 @@ class HTTPMCPServer {
     // GET /api/admin/api-keys - List API keys
     // GET /api/admin/settings - Get system settings
     this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billingService, this.userPreferencesService, this.prometheusService, this.pricingService, this.subscriptionService, this.configService));
+
+    // Worker heartbeat (uses dualAuth so EC2 workers can auth with SECONDARY_LAYER_KEYS)
+    this.app.use('/api/workers', dualAuth as any, createWorkerHeartbeatRoute());
 
     // Upload metrics endpoint (admin)
     this.app.get('/api/admin/upload-metrics', requireJWT as any, (async (_req: DualAuthRequest, res: express.Response) => {

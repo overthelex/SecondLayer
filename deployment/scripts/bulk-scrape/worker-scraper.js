@@ -14,6 +14,8 @@
  *   CONCURRENCY          - Parallel downloads per instance (default: 5)
  *   RATE_LIMIT_RPS       - Requests per second per instance (default: 2)
  *   WORKER_ID            - Unique worker identifier (default: hostname)
+ *   STATS_URL            - Backend heartbeat URL (optional, e.g. https://mcp.legal.org.ua/api/workers/heartbeat)
+ *   STATS_API_KEY        - Bearer token for heartbeat auth (optional)
  */
 
 const https = require('https');
@@ -44,6 +46,8 @@ const REGION = process.env.AWS_REGION || 'eu-central-1';
 const CONCURRENCY = parseInt(process.env.CONCURRENCY || '5', 10);
 const RATE_LIMIT_RPS = parseFloat(process.env.RATE_LIMIT_RPS || '2');
 const WORKER_ID = process.env.WORKER_ID || os.hostname();
+const STATS_URL = process.env.STATS_URL || '';
+const STATS_API_KEY = process.env.STATS_API_KEY || '';
 
 const BASE_URL = 'https://reyestr.court.gov.ua/Review/';
 
@@ -66,6 +70,53 @@ const stats = {
 };
 
 let shuttingDown = false;
+let workerPublicIp = null;
+
+// --- Stats push (heartbeat) ---
+function fetchPublicIp() {
+  return new Promise((resolve) => {
+    const req = http.get('http://169.254.169.254/latest/meta-data/public-ipv4', { timeout: 2000 }, (res) => {
+      if (res.statusCode !== 200) { res.resume(); resolve(null); return; }
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks).toString().trim()));
+      res.on('error', () => resolve(null));
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+  });
+}
+
+function pushStats() {
+  if (!STATS_URL) return;
+  const uptimeS = Math.round((Date.now() - stats.startTime) / 1000);
+  const body = JSON.stringify({
+    worker_id: WORKER_ID,
+    ip: workerPublicIp,
+    received: stats.received,
+    downloaded: stats.downloaded,
+    uploaded: stats.uploaded,
+    errors: stats.errors,
+    captchas: stats.captchas,
+    rate_limited: stats.rateLimited,
+    uptime_s: uptimeS,
+  });
+
+  const url = new URL(STATS_URL);
+  const transport = url.protocol === 'https:' ? https : http;
+  const req = transport.request(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body),
+      ...(STATS_API_KEY ? { 'Authorization': `Bearer ${STATS_API_KEY}` } : {}),
+    },
+    timeout: 5000,
+  }, (res) => { res.resume(); }); // drain response
+  req.on('error', () => {}); // silent — fire and forget
+  req.on('timeout', () => req.destroy());
+  req.end(body);
+}
 
 // --- Helpers ---
 function sleep(ms) {
@@ -343,12 +394,25 @@ async function main() {
   const sqs = new SQSClient({ region: REGION });
   const s3 = new S3Client({ region: REGION });
 
+  // Fetch public IP for heartbeat reporting
+  workerPublicIp = await fetchPublicIp();
+  if (workerPublicIp) log(`Public IP: ${workerPublicIp}`);
+
+  // Start heartbeat interval (every 10s)
+  let heartbeatInterval = null;
+  if (STATS_URL) {
+    log(`Stats push enabled: ${STATS_URL}`);
+    pushStats(); // initial push
+    heartbeatInterval = setInterval(pushStats, 10000);
+  }
+
   // Graceful shutdown
   const shutdown = () => {
     if (shuttingDown) return;
     shuttingDown = true;
     log('Shutting down gracefully...');
     logStats();
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
     setTimeout(() => process.exit(0), 5000);
   };
   process.on('SIGINT', shutdown);
