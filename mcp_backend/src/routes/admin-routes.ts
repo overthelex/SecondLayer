@@ -4592,6 +4592,78 @@ export function createAdminRoutes(
     }
   });
 
+  // =========== INFRASTRUCTURE HEALTH ===========
+
+  /**
+   * GET /api/admin/infrastructure-health
+   * Returns health status of all infrastructure components for the pipeline diagram.
+   */
+  router.get('/infrastructure-health', async (_req: Request, res: Response) => {
+    try {
+      const checks: Record<string, { ok: boolean; error?: string }> = {};
+
+      // PostgreSQL
+      try {
+        await db.query('SELECT 1');
+        checks.postgres = { ok: true };
+      } catch (err: any) {
+        checks.postgres = { ok: false, error: err.message };
+      }
+
+      // Redis
+      let redisOk = false;
+      try {
+        const { getRedisClient } = await import('../utils/redis-client.js');
+        const redis = await getRedisClient();
+        if (redis) {
+          await redis.ping();
+          redisOk = true;
+        }
+      } catch {}
+      checks.redis = redisOk ? { ok: true } : { ok: false, error: 'not connected' };
+
+      // Qdrant
+      try {
+        const qdrantUrl = process.env.QDRANT_URL || 'http://localhost:6333';
+        const resp = await axios.get(`${qdrantUrl}/collections`, { timeout: 3000 });
+        checks.qdrant = resp.status === 200 ? { ok: true } : { ok: false, error: `status ${resp.status}` };
+      } catch (err: any) {
+        checks.qdrant = { ok: false, error: err.message };
+      }
+
+      // MinIO
+      try {
+        const minioEndpoint = process.env.MINIO_ENDPOINT || 'localhost';
+        const minioPort = parseInt(process.env.MINIO_PORT || '9000');
+        const resp = await axios.get(`http://${minioEndpoint}:${minioPort}/minio/health/live`, { timeout: 3000 });
+        checks.minio = resp.status === 200 ? { ok: true } : { ok: false, error: `status ${resp.status}` };
+      } catch (err: any) {
+        checks.minio = { ok: false, error: err.message };
+      }
+
+      // Scrape worker — check document-service if configured
+      let scrapeWorker = { in_flight: 0, pending: 0, max_concurrent: 10 };
+      const docServiceUrl = process.env.DOCUMENT_SERVICE_URL;
+      if (docServiceUrl) {
+        try {
+          const resp = await axios.get(`${docServiceUrl}/health`, { timeout: 3000 });
+          if (resp.data?.checks) {
+            scrapeWorker = {
+              in_flight: resp.data.queue?.in_flight ?? 0,
+              pending: resp.data.queue?.pending ?? 0,
+              max_concurrent: 10,
+            };
+          }
+        } catch {}
+      }
+
+      res.json({ ...checks, scrapeWorker });
+    } catch (error: any) {
+      logger.error('Failed to get infrastructure health', { error: error.message });
+      res.status(500).json({ error: 'Failed to check infrastructure health' });
+    }
+  });
+
   // =========== BULK SCRAPE STATUS ===========
 
   /**
