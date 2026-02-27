@@ -74,6 +74,13 @@ export const ROUTES = {
   HISTORICAL_ANALYSIS: '/legislation/historical',
   COURT_PRACTICE_ANALYSIS: '/analysis/court-practice',
 
+  // Attorney Consultations
+  ATTORNEYS: '/attorneys',
+  ATTORNEY_DETAIL: '/attorneys/:id',
+  ATTORNEY_PROFILE_EDIT: '/attorney/profile',
+  CONSULTATIONS: '/consultations',
+  CONSULTATION_DETAIL: '/consultations/:id',
+
   // Workflows
   WORKFLOWS: '/workflows',
   WORKFLOW_SET_DETAIL: '/workflows/:id',
@@ -102,4 +109,6 @@ export const generateRoute = {
   lawyerDetail: (id: string) => `/lawyers/${id}`,
   clientDetail: (id: string) => `/clients/${id}`,
   matterDetail: (id: string) => `/matters/${id}`,
+  attorneyDetail: (id: string) => `/attorneys/${id}`,
+  consultationDetail: (id: string) => `/consultations/${id}`,
 };

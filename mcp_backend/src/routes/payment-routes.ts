@@ -15,6 +15,7 @@ import { MockNOWPaymentsService } from '../services/__mocks__/nowpayments-servic
 import { cryptoTagRequired } from '../middleware/crypto-tag-required.js';
 import { logger } from '../utils/logger.js';
 import type { IDatabase } from '../domain/ports/index.js';
+import { ConsultationPaymentService } from '../services/consultation-payment-service.js';
 
 /**
  * Create payment router
@@ -200,7 +201,8 @@ export function createPaymentRouter(
 export function createWebhookRouter(
   monobankService: MonobankService | MockMonobankService,
   binancePayService: BinancePayService | MockBinancePayService,
-  nowpaymentsService: NOWPaymentsService | MockNOWPaymentsService
+  nowpaymentsService: NOWPaymentsService | MockNOWPaymentsService,
+  consultationPaymentService?: ConsultationPaymentService
 ): Router {
   const router = Router();
 
@@ -219,6 +221,17 @@ export function createWebhookRouter(
       const rawBody: Buffer = req.body;
       const parsed = JSON.parse(rawBody.toString('utf8'));
       const result = await monobankService.handleWebhook(rawBody, parsed, signature);
+
+      // Check if this is a consultation payment and handle accordingly
+      if (consultationPaymentService && parsed?.invoiceId) {
+        try {
+          const status = parsed.status || (result as any)?.status;
+          await consultationPaymentService.handleWebhook(parsed.invoiceId, status);
+        } catch (err: any) {
+          logger.debug('Consultation payment webhook handling (non-critical)', { error: err.message });
+        }
+      }
+
       return res.json(result);
     } catch (error: any) {
       logger.error('Monobank webhook failed', { error: error.message });
