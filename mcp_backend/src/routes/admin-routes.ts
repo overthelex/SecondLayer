@@ -4592,6 +4592,66 @@ export function createAdminRoutes(
     }
   });
 
+  // =========== BULK SCRAPE STATUS ===========
+
+  /**
+   * GET /api/admin/bulk-scrape-status
+   * Returns bulk scraping pipeline status: jobs, document counts, completion %.
+   */
+  router.get('/bulk-scrape-status', async (_req: Request, res: Response) => {
+    try {
+      // Active/recent jobs
+      const jobsResult = await db.query(
+        `SELECT job_id, phase, status, total_docs, processed_docs, failed_docs, skipped_docs,
+                metadata, error_message, started_at, completed_at, created_at
+         FROM bulk_scrape_jobs
+         ORDER BY created_at DESC
+         LIMIT 20`
+      );
+
+      // Document stats
+      const statsResult = await db.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE zakononline_id LIKE 'court_%') as total_court,
+          COUNT(*) FILTER (WHERE zakononline_id LIKE 'court_%' AND full_text IS NOT NULL AND length(full_text) > 100) as with_full_text,
+          COUNT(*) FILTER (WHERE zakononline_id LIKE 'court_%' AND full_text IS NULL) as without_full_text
+        FROM documents
+      `);
+
+      // Section stats
+      const sectionResult = await db.query(`
+        SELECT COUNT(DISTINCT document_id) as with_sections
+        FROM document_sections ds
+        JOIN documents d ON d.id = ds.document_id
+        WHERE d.zakononline_id LIKE 'court_%'
+      `);
+
+      const pgStats = statsResult.rows[0];
+      const totalCourt = parseInt(pgStats.total_court, 10);
+      const withFullText = parseInt(pgStats.with_full_text, 10);
+      const withSections = parseInt(sectionResult.rows[0].with_sections, 10);
+
+      res.json({
+        jobs: jobsResult.rows,
+        stats: {
+          total_court_docs: totalCourt,
+          with_full_text: withFullText,
+          without_full_text: parseInt(pgStats.without_full_text, 10),
+          with_sections: withSections,
+          completion_pct: totalCourt > 0 ? ((withFullText / totalCourt) * 100).toFixed(1) : '0.0',
+        },
+      });
+    } catch (error: any) {
+      // Table may not exist yet
+      if (error.message?.includes('does not exist')) {
+        res.json({ jobs: [], stats: null, message: 'bulk_scrape_jobs table not yet created. Run migration 061.' });
+      } else {
+        logger.error('Failed to get bulk scrape status', { error: error.message });
+        res.status(500).json({ error: 'Failed to retrieve bulk scrape status' });
+      }
+    }
+  });
+
   // =========== STARTUP RECOVERY ===========
   // On server restart, mark any previously-running jobs as 'interrupted' so the
   // admin UI shows them instead of a blank list. The child processes are already
