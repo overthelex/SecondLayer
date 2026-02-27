@@ -1223,6 +1223,33 @@ class HTTPMCPServer {
       }
     }) as any);
 
+    // Delete folder - soft-deletes all documents within a folder path
+    this.app.delete('/api/documents/folders/:folderPath', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const folderPath = decodeURIComponent(req.params.folderPath as string);
+
+        if (!folderPath) {
+          res.status(400).json({ error: 'folderPath is required' });
+          return;
+        }
+
+        const result = await this.services.db.query(
+          `UPDATE documents
+           SET deleted_at = NOW()
+           WHERE user_id = $1
+             AND deleted_at IS NULL
+             AND metadata->>'folderPath' LIKE $2`,
+          [userId, folderPath + '%']
+        );
+
+        res.json({ deleted: result.rowCount || 0 });
+      } catch (error: any) {
+        logger.error('Failed to delete folder', { error: error.message, folderPath: req.params.folderPath });
+        res.status(500).json({ error: 'Failed to delete folder', message: error.message });
+      }
+    }) as any);
+
     // Document preview endpoint - returns presigned MinIO URL for binary files
     this.app.get('/api/documents/:id/preview', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
       try {

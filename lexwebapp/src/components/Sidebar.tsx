@@ -175,6 +175,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
 
   const [vaultFolders, setVaultFolders] = useState<string[]>([]);
   const [vaultFoldersLoaded, setVaultFoldersLoaded] = useState(false);
+  const [deletingFolder, setDeletingFolder] = useState<string | null>(null);
 
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -283,6 +284,17 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
     { id: 'bulk-scrape', label: 'Пайплайн збору', icon: Database, route: ROUTES.ADMIN_BULK_SCRAPE },
   ];
 
+  const handleDeleteFolder = async (folder: string) => {
+    try {
+      await api.documents.deleteFolder(folder);
+      setDeletingFolder(null);
+      setVaultFoldersLoaded(false);
+      showToast.success('Папку видалено');
+    } catch {
+      showToast.error('Не вдалося видалити папку');
+    }
+  };
+
   const handleProfileMenuClick = () => setShowProfileMenu(!showProfileMenu);
 
   const handleProfileClick = () => {
@@ -297,6 +309,47 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
 
   return (
     <>
+      {/* Folder Delete Confirmation */}
+      <AnimatePresence>
+        {deletingFolder && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center backdrop-blur-[2px]"
+            onClick={() => setDeletingFolder(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-xl border border-claude-border shadow-xl p-6 max-w-sm mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-[15px] font-semibold text-claude-text mb-2">Видалити папку?</h3>
+              <p className="text-[13px] text-claude-subtext mb-4">
+                Всі документи в папці <strong>{deletingFolder}</strong> будуть видалені. Цю дію можна скасувати через відновлення документів.
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setDeletingFolder(null)}
+                  className="px-4 py-2 text-[13px] font-medium text-claude-text bg-claude-bg hover:bg-claude-subtext/10 rounded-lg transition-colors"
+                >
+                  Скасувати
+                </button>
+                <button
+                  onClick={() => handleDeleteFolder(deletingFolder)}
+                  className="px-4 py-2 text-[13px] font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+                >
+                  Видалити
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Mobile Backdrop */}
       <AnimatePresence>
         {isOpen &&
@@ -437,22 +490,28 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                   const folderRoute = `/documents/folders/${folder}`;
                   const isActive = location.pathname === folderRoute || location.pathname.startsWith(folderRoute + '/');
                   return (
-                    <button
+                    <div
                       key={folder}
-                      onClick={() => handleNavigation(folderRoute)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-[13px] transition-all duration-200 flex items-center gap-3 group ${
+                      className={`flex items-center gap-1 px-3 py-2 rounded-lg text-[13px] transition-all duration-200 group cursor-pointer ${
                         isActive
                           ? 'bg-claude-accent/10 text-claude-accent'
                           : 'text-claude-text hover:bg-claude-subtext/8'
                       }`}
+                      onClick={() => handleNavigation(folderRoute)}
                     >
                       {isActive ? (
                         <FolderOpen size={15} strokeWidth={2} className="text-claude-accent flex-shrink-0" />
                       ) : (
                         <Folder size={15} strokeWidth={2} className="text-claude-subtext/60 group-hover:text-claude-text transition-colors duration-200 flex-shrink-0" />
                       )}
-                      <span className="truncate font-medium tracking-tight font-sans">{folder}</span>
-                    </button>
+                      <span className="flex-1 truncate font-medium tracking-tight font-sans">{folder}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeletingFolder(folder); }}
+                        className="hidden group-hover:flex p-1 hover:bg-red-100 text-red-500 rounded transition-colors flex-shrink-0"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   );
                 })}
               </Section>
