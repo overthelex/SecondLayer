@@ -1,13 +1,16 @@
-import { DocumentParser, ParsedDocument } from '../services/document-parser.js';
+import { DocumentParser, ParsedDocument, EmlAttachment } from '../services/document-parser.js';
 import { SemanticSectionizer } from '../services/semantic-sectionizer.js';
 import { LegalPatternStore } from '../services/legal-pattern-store.js';
 import type { IEmbeddingPort } from '../domain/ports/index.js';
 import { DocumentService, Document } from '../services/document-service.js';
+import { MinioService } from '../services/minio-service.js';
 import { MetadataExtractor } from '../services/metadata-extractor.js';
+import { UploadService } from '../services/upload-service.js';
 import { logger } from '../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 import { DocumentSection } from '../types/index.js';
 import fs from 'fs/promises';
+import path from 'path';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
 
 /**
@@ -58,6 +61,8 @@ export interface SemanticSearchResult {
 }
 
 export class VaultTools extends BaseToolHandler {
+  private minioService?: MinioService;
+
   constructor(
     private documentParser: DocumentParser,
     private sectionizer: SemanticSectionizer,
@@ -67,6 +72,10 @@ export class VaultTools extends BaseToolHandler {
     private metadataExtractor: MetadataExtractor
   ) {
     super();
+  }
+
+  setMinioService(minioService: MinioService): void {
+    this.minioService = minioService;
   }
 
   getToolDefinitions() {
@@ -270,6 +279,7 @@ Pipeline:
     type: 'contract' | 'legislation' | 'court_decision' | 'internal' | 'other';
     metadata?: any;
     userId?: string;
+    skipAttachmentExtraction?: boolean;
   }): Promise<VaultDocument> {
     const fileBuffer = await fs.readFile(args.filePath);
     const fileBase64 = fileBuffer.toString('base64');
@@ -281,6 +291,7 @@ Pipeline:
       type: args.type,
       metadata: args.metadata,
       userId: args.userId,
+      skipAttachmentExtraction: args.skipAttachmentExtraction,
     });
   }
 
@@ -301,6 +312,7 @@ Pipeline:
     type: 'contract' | 'legislation' | 'court_decision' | 'internal' | 'other';
     metadata?: any;
     userId?: string;
+    skipAttachmentExtraction?: boolean;
   }): Promise<VaultDocument> {
     const startTime = Date.now();
     const documentId = uuidv4();
@@ -517,6 +529,17 @@ Pipeline:
         await this.documentService.saveSections(documentId, sections);
       }
 
+      // Step 6: Extract and store EML attachments as separate documents
+      if (parsed.attachments && parsed.attachments.length > 0 && !args.skipAttachmentExtraction) {
+        await this.processEmlAttachments(
+          parsed.attachments,
+          documentId,
+          args.title,
+          args.metadata,
+          args.userId
+        );
+      }
+
       const duration = Date.now() - startTime;
       logger.info('[Vault] Document stored successfully', {
         documentId,
@@ -544,6 +567,131 @@ Pipeline:
         stack: error.stack,
       });
       throw new Error(`Failed to store document: ${error.message}`);
+    }
+  }
+
+  /**
+   * Process EML attachments: store document types via vault pipeline, binary types via MinIO
+   */
+  private async processEmlAttachments(
+    attachments: EmlAttachment[],
+    parentDocumentId: string,
+    emlTitle: string,
+    parentMetadata: any,
+    userId?: string
+  ): Promise<void> {
+    // Compute subfolder: strip .eml extension from title
+    const baseName = emlTitle.replace(/\.eml$/i, '');
+    const parentFolder = parentMetadata?.folderPath || '';
+    const attachmentFolder = parentFolder
+      ? `${parentFolder.replace(/\/$/, '')}/${baseName}/`
+      : `${baseName}/`;
+
+    const tempDir = '/tmp/eml-attachments';
+    await fs.mkdir(tempDir, { recursive: true });
+
+    logger.info('[Vault] Processing EML attachments', {
+      parentDocumentId,
+      attachmentCount: attachments.length,
+      attachmentFolder,
+    });
+
+    for (const attachment of attachments) {
+      const tempPath = path.join(tempDir, `${uuidv4()}-${attachment.filename}`);
+
+      try {
+        await fs.writeFile(tempPath, attachment.data);
+
+        const isDocumentType = UploadService.isDocumentType(attachment.mimeType);
+
+        if (isDocumentType) {
+          // Route through vault pipeline (parse, section, embed)
+          const result = await this.storeDocumentFromPath({
+            filePath: tempPath,
+            mimeType: attachment.mimeType,
+            title: attachment.filename.replace(/\.[^/.]+$/, ''),
+            type: 'other',
+            metadata: {
+              ...parentMetadata,
+              folderPath: attachmentFolder,
+              parentDocumentId,
+              extractedFrom: emlTitle,
+              originalFilename: attachment.filename,
+            },
+            userId,
+            skipAttachmentExtraction: true,
+          });
+
+          logger.info('[Vault] EML attachment stored via vault', {
+            parentDocumentId,
+            attachmentDocId: result.id,
+            filename: attachment.filename,
+          });
+        } else if (this.minioService && userId) {
+          // Route binary files to MinIO
+          const objectKey = MinioService.generateObjectKey(attachment.filename);
+          const minioResult = await this.minioService.uploadFile(
+            userId,
+            objectKey,
+            tempPath,
+            attachment.mimeType
+          );
+
+          const documentId = uuidv4();
+          const storagePath = `${minioResult.bucket}/${minioResult.key}`;
+
+          // Save metadata record in documents table
+          await this.documentService['db'].query(
+            `INSERT INTO documents
+              (id, zakononline_id, type, title, metadata, storage_type, storage_path, file_size, mime_type, user_id)
+             VALUES ($1, $2, $3, $4, $5, 'minio', $6, $7, $8, $9)`,
+            [
+              documentId,
+              documentId,
+              'other',
+              attachment.filename.replace(/\.[^/.]+$/, ''),
+              JSON.stringify({
+                ...parentMetadata,
+                folderPath: attachmentFolder,
+                parentDocumentId,
+                extractedFrom: emlTitle,
+                originalFilename: attachment.filename,
+                fileSize: attachment.data.length,
+                mimeType: attachment.mimeType,
+                uploadedAt: new Date().toISOString(),
+                minioEtag: minioResult.etag,
+                minioBucket: minioResult.bucket,
+                minioKey: minioResult.key,
+              }),
+              storagePath,
+              attachment.data.length,
+              attachment.mimeType,
+              userId,
+            ]
+          );
+
+          logger.info('[Vault] EML attachment stored via MinIO', {
+            parentDocumentId,
+            attachmentDocId: documentId,
+            filename: attachment.filename,
+            bucket: minioResult.bucket,
+          });
+        } else {
+          logger.warn('[Vault] Cannot store binary EML attachment — MinIO not configured or no userId', {
+            parentDocumentId,
+            filename: attachment.filename,
+            mimeType: attachment.mimeType,
+          });
+        }
+      } catch (err: any) {
+        logger.error('[Vault] Failed to store EML attachment', {
+          parentDocumentId,
+          filename: attachment.filename,
+          error: err.message,
+        });
+      } finally {
+        await fs.unlink(tempPath).catch(() => {});
+      }
     }
   }
 
@@ -827,10 +975,21 @@ Pipeline:
       const folderSet = new Set<string>();
       let fileCount = 0;
 
+      // Skip folderPath values that look like bare file names (no slash, has extension)
+      const FILE_EXT_RE = /\.[a-zA-Z0-9]{1,10}$/;
+
       for (const p of allPaths) {
+        // Skip entries that are just a filename (e.g. "contract.pdf") rather than a real folder
+        if (!p.includes('/') && FILE_EXT_RE.test(p)) {
+          continue;
+        }
         const segments = p.split('/').filter(Boolean);
         if (segments.length > prefixDepth) {
-          folderSet.add(segments[prefixDepth]);
+          const candidate = segments[prefixDepth];
+          // Also skip segment-level entries that look like filenames
+          if (!FILE_EXT_RE.test(candidate)) {
+            folderSet.add(candidate);
+          }
         }
         // Count files at exactly the current prefix level
         if (segments.length === prefixDepth || (prefix && p === prefix)) {

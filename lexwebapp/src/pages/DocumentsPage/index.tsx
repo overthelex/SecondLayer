@@ -335,7 +335,7 @@ export function DocumentsPage() {
         .map((file) => ({
           file,
           mimeType: guessMimeType(file),
-          relativePath: (file as any).webkitRelativePath || file.name,
+          relativePath: (file as any).webkitRelativePath || currentFolderPath || '',
           docType: defaultDocType,
         }));
 
@@ -343,7 +343,7 @@ export function DocumentsPage() {
       addFiles(newItems);
       setShowUploadPanel(true);
     },
-    [defaultDocType, addFiles]
+    [defaultDocType, addFiles, currentFolderPath]
   );
 
   const handleFileSelect = () => fileInputRef.current?.click();
