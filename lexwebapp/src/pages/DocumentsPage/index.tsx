@@ -17,6 +17,8 @@ import {
   Folder,
   CornerLeftUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { mcpService } from '../../services';
 import { useUploadStore } from '../../stores/uploadStore';
@@ -129,6 +131,7 @@ export function DocumentsPage() {
   } | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState<number>(-1);
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<VaultDocument | null>(null);
@@ -411,7 +414,9 @@ export function DocumentsPage() {
   };
 
   // Document preview
-  const handleDocumentClick = async (doc: VaultDocument) => {
+  const handleDocumentClick = async (doc: VaultDocument, index?: number) => {
+    if (index != null) setPreviewIndex(index);
+    else setPreviewIndex(documents.findIndex((d) => d.id === doc.id));
     const mimeType = doc.metadata?.mimeType || doc.mime_type;
 
     // For binary previewable files (images, PDFs, videos), fetch presigned URL
@@ -586,6 +591,53 @@ export function DocumentsPage() {
       setMoveLoading(false);
     }
   };
+
+  // Preview navigation handlers
+  const handlePreviewPrevious = useCallback(() => {
+    if (previewIndex > 0) {
+      const prevDoc = documents[previewIndex - 1];
+      if (prevDoc) handleDocumentClick(prevDoc, previewIndex - 1);
+    }
+  }, [previewIndex, documents]);
+
+  const handlePreviewNext = useCallback(() => {
+    if (previewIndex < documents.length - 1) {
+      const nextDoc = documents[previewIndex + 1];
+      if (nextDoc) handleDocumentClick(nextDoc, previewIndex + 1);
+    }
+  }, [previewIndex, documents]);
+
+  // Edit navigation handlers
+  const handleEditPrevious = useCallback(() => {
+    if (!editTarget) return;
+    const idx = documents.findIndex((d) => d.id === editTarget.id);
+    if (idx > 0) handleEditOpen(documents[idx - 1]);
+  }, [editTarget, documents]);
+
+  const handleEditNext = useCallback(() => {
+    if (!editTarget) return;
+    const idx = documents.findIndex((d) => d.id === editTarget.id);
+    if (idx < documents.length - 1) handleEditOpen(documents[idx + 1]);
+  }, [editTarget, documents]);
+
+  // Keyboard navigation for edit modal
+  useEffect(() => {
+    if (!editTarget) return;
+    const handleKeydown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+      const idx = documents.findIndex((d) => d.id === editTarget.id);
+      if (e.key === 'ArrowLeft' && idx > 0) {
+        e.preventDefault();
+        handleEditOpen(documents[idx - 1]);
+      } else if (e.key === 'ArrowRight' && idx < documents.length - 1) {
+        e.preventDefault();
+        handleEditOpen(documents[idx + 1]);
+      }
+    };
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [editTarget, documents]);
 
   // Pagination
   const hasMore = offset + PAGE_SIZE < totalDocs;
@@ -905,6 +957,7 @@ export function DocumentsPage() {
         onClose={() => {
           setPreviewOpen(false);
           setPreviewDoc(null);
+          setPreviewIndex(-1);
         }}
         item={previewLoading ? {
           type: 'document',
@@ -912,6 +965,12 @@ export function DocumentsPage() {
           content: '',
         } : previewDoc}
         onSaveOcrText={handleSaveOcrText}
+        onPrevious={handlePreviewPrevious}
+        onNext={handlePreviewNext}
+        hasPrevious={previewIndex > 0}
+        hasNext={previewIndex < documents.length - 1}
+        currentIndex={previewIndex}
+        totalCount={documents.length}
       />
 
       {/* Delete Confirmation Modal */}
@@ -982,9 +1041,39 @@ export function DocumentsPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-claude-text font-sans truncate">
-                  Редагувати: {editTarget.title}
-                </h3>
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  {(() => {
+                    const idx = documents.findIndex((d) => d.id === editTarget.id);
+                    return (
+                      <>
+                        <button
+                          disabled={editSaving || idx <= 0}
+                          onClick={handleEditPrevious}
+                          className="p-1 text-claude-subtext hover:text-claude-text transition-colors disabled:opacity-30"
+                          title="Попередній (←)"
+                        >
+                          <ChevronLeft size={18} />
+                        </button>
+                        <button
+                          disabled={editSaving || idx >= documents.length - 1}
+                          onClick={handleEditNext}
+                          className="p-1 text-claude-subtext hover:text-claude-text transition-colors disabled:opacity-30"
+                          title="Наступний (→)"
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+                        {documents.length > 1 && (
+                          <span className="text-[11px] text-claude-subtext font-medium tabular-nums mr-1">
+                            {idx + 1} / {documents.length}
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
+                  <h3 className="text-lg font-semibold text-claude-text font-sans truncate">
+                    Редагувати: {editTarget.title}
+                  </h3>
+                </div>
                 <button
                   onClick={() => !editSaving && setEditTarget(null)}
                   className="p-1 text-claude-subtext/40 hover:text-claude-text transition-colors"
