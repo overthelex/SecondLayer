@@ -73,7 +73,7 @@ export const mcpDiscoveryRateLimit = createRateLimiter({
 
 export const healthCheckRateLimit = createRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 60,
+  maxRequests: 300,
   keyPrefix: 'ratelimit:health',
 });
 
