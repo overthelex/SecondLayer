@@ -14,7 +14,7 @@
 import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 
-export type PricingTier = 'free' | 'startup' | 'business' | 'enterprise' | 'internal';
+export type PricingTier = 'free' | 'startup' | 'business' | 'enterprise' | 'internal' | 'attorney';
 
 export interface PricingConfig {
   tier: PricingTier;
@@ -120,6 +120,24 @@ export class PricingService {
       is_active: true,
       display_name: 'Enterprise',
       display_order: 3,
+    },
+    attorney: {
+      tier: 'attorney',
+      markup_percentage: 30,
+      description: 'Attorney tier - 30% markup with higher limits for legal professionals',
+      features: [
+        'Legal consultations management',
+        'Advanced legal document analysis',
+        'Court practice deep search',
+        'Priority support (12h response)',
+        'Higher daily/monthly limits ($50/$500)',
+      ],
+      monthly_price_usd: 49,
+      annual_price_usd: 490,
+      trial_days: 14,
+      is_active: true,
+      display_name: 'Attorney',
+      display_order: 2,
     },
     internal: {
       tier: 'internal',

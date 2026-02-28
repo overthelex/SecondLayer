@@ -68,6 +68,7 @@ const TIER_COLORS: Record<string, string> = {
   startup: 'bg-blue-100 text-blue-700',
   business: 'bg-purple-100 text-purple-700',
   enterprise: 'bg-amber-100 text-amber-700',
+  attorney: 'bg-orange-100 text-orange-700',
   internal: 'bg-green-100 text-green-700',
 };
 
