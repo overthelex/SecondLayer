@@ -21,6 +21,10 @@ function getStringParam(param: string | string[] | undefined): string {
   return Array.isArray(param) ? param[0] : param;
 }
 
+function getUserId(req: AuthenticatedRequest): string | undefined {
+  return req.userId || req.user?.id;
+}
+
 export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: CreditService): Router {
   const router = Router();
 
@@ -29,14 +33,15 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
    */
   router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
-      if (!req.userId) {
+      const userId = getUserId(req);
+      if (!userId) {
         return res.status(401).json({
           error: 'Unauthorized',
           message: 'User ID not found in request',
         });
       }
 
-      const keys = await apiKeyService.listUserApiKeys(req.userId);
+      const keys = await apiKeyService.listUserApiKeys(userId);
 
       // Mask keys (show only prefix and suffix)
       const maskedKeys = keys.map((key: any) => ({
@@ -52,7 +57,7 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
     } catch (error: any) {
       logger.error('[ApiKeyRoutes] Error listing API keys', {
         error: error.message,
-        userId: req.userId,
+        userId: getUserId(req),
       });
       return res.status(500).json({
         error: 'Failed to list API keys',
@@ -66,7 +71,8 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
    */
   router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
-      if (!req.userId) {
+      const userId = getUserId(req);
+      if (!userId) {
         return res.status(401).json({
           error: 'Unauthorized',
           message: 'User ID not found in request',
@@ -92,7 +98,7 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
       const expiresAtDate = expiresAt ? new Date(expiresAt) : undefined;
 
       const newKey = await apiKeyService.createApiKey(
-        req.userId,
+        userId,
         name.trim(),
         description?.trim(),
         expiresAtDate
@@ -107,7 +113,7 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
     } catch (error: any) {
       logger.error('[ApiKeyRoutes] Error creating API key', {
         error: error.message,
-        userId: req.userId,
+        userId: getUserId(req),
       });
       return res.status(500).json({
         error: 'Failed to create API key',
@@ -121,7 +127,8 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
    */
   router.delete('/:keyId', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
-      if (!req.userId) {
+      const userId = getUserId(req);
+      if (!userId) {
         return res.status(401).json({
           error: 'Unauthorized',
           message: 'User ID not found in request',
@@ -137,7 +144,7 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
         });
       }
 
-      const success = await apiKeyService.revokeApiKey(keyId, req.userId);
+      const success = await apiKeyService.revokeApiKey(keyId, userId);
 
       if (!success) {
         return res.status(404).json({
@@ -153,7 +160,7 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
     } catch (error: any) {
       logger.error('[ApiKeyRoutes] Error revoking API key', {
         error: error.message,
-        userId: req.userId,
+        userId: getUserId(req),
         keyId: req.params.keyId,
       });
       return res.status(500).json({
@@ -168,18 +175,19 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
    */
   router.get('/balance', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
-      if (!req.userId) {
+      const userId = getUserId(req);
+      if (!userId) {
         return res.status(401).json({
           error: 'Unauthorized',
           message: 'User ID not found in request',
         });
       }
 
-      const balanceStatus = await creditService.getBalanceStatus(req.userId);
+      const balanceStatus = await creditService.getBalanceStatus(userId);
 
       if (!balanceStatus) {
         // Initialize credits if not exists
-        await creditService.initializeUserCredits(req.userId, 0);
+        await creditService.initializeUserCredits(userId, 0);
 
         return res.json({
           success: true,
@@ -198,7 +206,7 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
     } catch (error: any) {
       logger.error('[ApiKeyRoutes] Error getting balance', {
         error: error.message,
-        userId: req.userId,
+        userId: getUserId(req),
       });
       return res.status(500).json({
         error: 'Failed to get balance',
@@ -212,7 +220,8 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
    */
   router.get('/transactions', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
-      if (!req.userId) {
+      const userId = getUserId(req);
+      if (!userId) {
         return res.status(401).json({
           error: 'Unauthorized',
           message: 'User ID not found in request',
@@ -228,7 +237,7 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
         });
       }
 
-      const transactions = await creditService.getTransactions(req.userId, limit);
+      const transactions = await creditService.getTransactions(userId, limit);
 
       return res.json({
         success: true,
@@ -238,7 +247,7 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
     } catch (error: any) {
       logger.error('[ApiKeyRoutes] Error getting transactions', {
         error: error.message,
-        userId: req.userId,
+        userId: getUserId(req),
       });
       return res.status(500).json({
         error: 'Failed to get transactions',
@@ -253,7 +262,8 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
    */
   router.post('/credits/add', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
-      if (!req.userId) {
+      const userId = getUserId(req);
+      if (!userId) {
         return res.status(401).json({
           error: 'Unauthorized',
           message: 'User ID not found in request',
@@ -270,7 +280,7 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
       }
 
       const result = await creditService.addCredits(
-        req.userId,
+        userId,
         amount,
         'bonus',
         'manual_grant',
@@ -287,7 +297,7 @@ export function createApiKeyRouter(apiKeyService: ApiKeyService, creditService: 
     } catch (error: any) {
       logger.error('[ApiKeyRoutes] Error adding credits', {
         error: error.message,
-        userId: req.userId,
+        userId: getUserId(req),
       });
       return res.status(500).json({
         error: 'Failed to add credits',
