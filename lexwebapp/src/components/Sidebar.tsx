@@ -569,6 +569,16 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                   </div>
                   <span className="text-[13px] font-medium text-claude-text font-sans">Профіль</span>
                 </button>
+                {role === 'user' && (
+                  <button
+                    onClick={() => { setShowProfileMenu(false); navigate(ROUTES.ATTORNEY_PROFILE_EDIT); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">
+                    <div className="p-1.5 bg-claude-subtext/8 rounded-lg">
+                      <Scale size={16} className="text-claude-subtext" />
+                    </div>
+                    <span className="text-[13px] font-medium text-claude-text font-sans">Стати адвокатом</span>
+                  </button>
+                )}
                 {role !== 'administrator' && (
                   <button
                     onClick={() => { setShowProfileMenu(false); navigate(ROUTES.BILLING); }}
