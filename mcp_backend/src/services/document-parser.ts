@@ -1,6 +1,5 @@
 import { chromium, Browser } from 'playwright';
 import { ImageAnnotatorClient } from '@google-cloud/vision';
-import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
 // @ts-ignore — no type declarations available
 import WordExtractor from 'word-extractor';
@@ -12,10 +11,23 @@ import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 
-const execAsync = promisify(exec);
+/**
+ * Locate the pdfjs-dist/build directory across possible node_modules paths.
+ */
+function findPdfJsBuildDir(): string {
+  const candidates = [
+    path.resolve(__dirname, '..', '..', 'node_modules', 'pdfjs-dist', 'build'),
+    path.resolve(__dirname, '..', '..', '..', 'node_modules', 'pdfjs-dist', 'build'),
+    path.resolve(__dirname, '..', '..', '..', '..', 'node_modules', 'pdfjs-dist', 'build'),
+  ];
+  for (const dir of candidates) {
+    if (fsSync.existsSync(path.join(dir, 'pdf.min.mjs'))) {
+      return dir;
+    }
+  }
+  throw new Error('pdfjs-dist build directory not found. Searched: ' + candidates.join(', '));
+}
 
 export interface EmlAttachment {
   filename: string;
@@ -93,38 +105,16 @@ export class DocumentParser {
   }
 
   /**
-   * Parse PDF document
-   * Strategy: Try native text extraction first, fallback to OCR via screenshots
+   * Parse PDF document using Playwright + pdf.js rendering + Google Vision OCR.
+   * Renders each page to a canvas in a headless browser, screenshots it, and OCRs the image.
    */
   async parsePDF(fileBuffer: Buffer): Promise<ParsedDocument> {
+    if (!this.ocrAvailable) {
+      throw new Error('PDF parsing requires OCR — Vision credentials not configured');
+    }
+
     try {
-      // Strategy 1: Try native text extraction
-      const parser = new PDFParse({ data: new Uint8Array(fileBuffer) });
-      const textResult = await parser.getText();
-      const pageCount = textResult.total || 1;
-      const nativeText = textResult.text?.trim() || '';
-
-      // If native extraction yields good text, use it
-      if (nativeText.length > 100) {
-        logger.info('PDF parsed with native text extraction', { textLength: nativeText.length, pageCount });
-        return {
-          text: nativeText,
-          metadata: { pageCount, source: 'native', mimeType: 'application/pdf' },
-        };
-      }
-
-      // Strategy 2: OCR fallback if available
-      if (this.ocrAvailable) {
-        logger.info('Native PDF text too short, falling back to OCR', { nativeTextLength: nativeText.length });
-        return await this.parsePDFWithOCR(fileBuffer, pageCount);
-      }
-
-      // Strategy 3: Return whatever native text we got
-      logger.warn('OCR not available and native text is sparse', { nativeTextLength: nativeText.length });
-      return {
-        text: nativeText || '[PDF could not be parsed — OCR credentials not configured]',
-        metadata: { pageCount, source: 'native', mimeType: 'application/pdf' },
-      };
+      return await this.parsePDFWithPlaywright(fileBuffer);
     } catch (error: any) {
       logger.error('PDF parsing failed', { error: error.message });
       throw new Error(`Failed to parse PDF: ${error.message}`);
@@ -132,78 +122,137 @@ export class DocumentParser {
   }
 
   /**
-   * Parse PDF using OCR (convert PDF to images via pdftoppm → Vision API)
+   * Render PDF pages to canvas via Playwright + pdf.js, then OCR each page screenshot.
+   * Uses context.route() to serve pdfjs-dist files from node_modules over virtual HTTP.
    */
-  private async parsePDFWithOCR(fileBuffer: Buffer, pageCount?: number): Promise<ParsedDocument> {
-    const tempPdfPath = path.join(this.tempDir, `${uuidv4()}.pdf`);
-    const tempPngPrefix = path.join(this.tempDir, `pdf_${uuidv4()}`);
+  private async parsePDFWithPlaywright(fileBuffer: Buffer): Promise<ParsedDocument> {
+    const MAX_PAGES = 10;
+    const SCALE = 2.0;
+    const pdfBuildDir = findPdfJsBuildDir();
+    const browser = await this.getBrowser();
+    const context = await browser.newContext();
 
     try {
-      // Save PDF temporarily
-      await fs.writeFile(tempPdfPath, fileBuffer);
+      // Serve pdf.js files via route interception (avoids file:// CORS issues with ESM workers)
+      await context.route('http://pdfrender/**', async (route) => {
+        const url = new URL(route.request().url());
+        const filePath = url.pathname.replace('/pdfrender/', '');
 
-      logger.info('Converting PDF to PNG using pdftoppm', { pageCount });
+        if (filePath === 'render.html') {
+          await route.fulfill({
+            contentType: 'text/html',
+            body: `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body><div id="container"></div>
+<script type="module">
+import { getDocument, GlobalWorkerOptions } from './pdf.min.mjs';
+GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
 
-      // Use pdftoppm to convert PDF pages to PNG images
-      // -png: output format
-      // -r 150: 150 DPI resolution (reduced from 300 to fit Vision API limits)
-      // -f 1 -l 5: first 5 pages only
-      await execAsync(`pdftoppm -png -r 150 -f 1 -l 5 "${tempPdfPath}" "${tempPngPrefix}"`);
+window.renderPDF = async function(base64Data, maxPages, scale) {
+  const binary = atob(base64Data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-      // Find all generated PNG files
-      const files = await fs.readdir(this.tempDir);
-      const pngFiles = files
-        .filter(f => f.startsWith(path.basename(tempPngPrefix)) && f.endsWith('.png'))
-        .sort();
+  const pdf = await getDocument({ data: bytes }).promise;
+  const totalPages = pdf.numPages;
+  const pagesToRender = Math.min(totalPages, maxPages);
+  const container = document.getElementById('container');
+  container.innerHTML = '';
 
-      logger.info(`Generated ${pngFiles.length} PNG files from PDF`);
+  for (let i = 1; i <= pagesToRender; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.id = 'page-' + i;
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    container.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+  }
+
+  return { totalPages, renderedPages: pagesToRender };
+};
+</script></body></html>`,
+          });
+          return;
+        }
+
+        // Serve pdf.js build files from node_modules
+        const localPath = path.join(pdfBuildDir, filePath);
+        if (fsSync.existsSync(localPath)) {
+          const content = await fs.readFile(localPath);
+          const ext = path.extname(filePath);
+          const contentType = ext === '.mjs' ? 'application/javascript' : 'application/octet-stream';
+          await route.fulfill({ contentType, body: content });
+        } else {
+          await route.fulfill({ status: 404, body: 'Not found' });
+        }
+      });
+
+      const page = await context.newPage();
+
+      // Log browser console and errors for debugging
+      page.on('console', msg => logger.debug('Browser console', { type: msg.type(), text: msg.text() }));
+      page.on('pageerror', err => logger.error('Browser page error', { error: err.message }));
+
+      await page.goto('http://pdfrender/render.html', { waitUntil: 'load' });
+
+      // Wait for the ESM module to finish loading and define renderPDF
+      await page.waitForFunction(() => typeof (globalThis as any).renderPDF === 'function', null, { timeout: 15000 });
+
+      // Pass PDF data to the browser and render pages
+      const base64Data = fileBuffer.toString('base64');
+      const renderResult = await page.evaluate(
+        async ([data, maxPages, scale]) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return await (globalThis as any).renderPDF(data, maxPages, scale);
+        },
+        [base64Data, MAX_PAGES, SCALE] as const
+      );
+
+      const totalPages = renderResult.totalPages as number;
+      const renderedPages = renderResult.renderedPages as number;
+
+      logger.info('PDF rendered via Playwright + pdf.js', { totalPages, renderedPages });
 
       const pages: Array<{ pageNumber: number; text: string; confidence?: number }> = [];
       let fullText = '';
 
-      // Process each PNG file
-      for (let i = 0; i < pngFiles.length; i++) {
-        const pngPath = path.join(this.tempDir, pngFiles[i]);
-        logger.info(`Processing PDF page ${i + 1}/${pngFiles.length} via OCR`);
+      // Screenshot each canvas and OCR it
+      for (let i = 1; i <= renderedPages; i++) {
+        const canvas = await page.$(`#page-${i}`);
+        if (!canvas) {
+          logger.warn(`Canvas for page ${i} not found, skipping`);
+          continue;
+        }
 
-        const pngBuffer = await fs.readFile(pngPath);
-        const ocrResult = await this.performOCR(pngBuffer);
+        logger.info(`OCR-ing PDF page ${i}/${renderedPages}`);
+        const screenshot = await canvas.screenshot({ type: 'png' });
+        const ocrResult = await this.performOCR(screenshot);
 
         pages.push({
-          pageNumber: i + 1,
+          pageNumber: i,
           text: ocrResult.text,
           confidence: ocrResult.confidence,
         });
 
         fullText += ocrResult.text + '\n\n';
-
-        // Clean up PNG file
-        await fs.unlink(pngPath).catch(() => {});
       }
 
-      // Clean up temp PDF
-      await fs.unlink(tempPdfPath).catch(() => {});
+      await page.close();
 
       return {
-        text: fullText,
+        text: fullText.trim(),
         metadata: {
-          pageCount: pageCount || pngFiles.length,
-          source: 'ocr',
+          pageCount: totalPages,
+          source: 'ocr' as const,
           mimeType: 'application/pdf',
         },
         pages,
       };
-    } catch (error: any) {
-      logger.error('PDF OCR failed', { error: error.message });
-      // Clean up temp files
-      await fs.unlink(tempPdfPath).catch(() => {});
-      const files = await fs.readdir(this.tempDir).catch(() => []);
-      for (const file of files) {
-        if (file.startsWith(path.basename(tempPngPrefix))) {
-          await fs.unlink(path.join(this.tempDir, file)).catch(() => {});
-        }
-      }
-      throw error;
+    } finally {
+      await context.close();
     }
   }
 
