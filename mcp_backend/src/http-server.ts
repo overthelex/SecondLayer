@@ -692,6 +692,7 @@ class HTTPMCPServer {
         issuer: baseUrl,
         authorization_endpoint: `${baseUrl}/oauth/authorize`,
         token_endpoint: `${baseUrl}/oauth/token`,
+        registration_endpoint: `${baseUrl}/oauth/register`,
         revocation_endpoint: `${baseUrl}/oauth/revoke`,
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code'],
@@ -711,6 +712,7 @@ class HTTPMCPServer {
         issuer: baseUrl,
         authorization_endpoint: `${baseUrl}/oauth/authorize`,
         token_endpoint: `${baseUrl}/oauth/token`,
+        registration_endpoint: `${baseUrl}/oauth/register`,
         revocation_endpoint: `${baseUrl}/oauth/revoke`,
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code'],
@@ -878,46 +880,53 @@ class HTTPMCPServer {
             userId = decoded.userId;
             logger.debug('[MCP v1/sse] Authenticated with JWT', { userId });
           } else {
-            // API key
-            clientKey = token;
-            const keyInfo = await this.apiKeyService.validateApiKey(token);
+            // Try OAuth access token first, then API key
+            const oauthToken = await this.oauthService.verifyAccessToken(token);
+            if (oauthToken) {
+              userId = oauthToken.userId;
+              logger.debug('[MCP v1/sse] Authenticated with OAuth token', { userId, clientId: oauthToken.clientId });
+            } else {
+              // API key
+              clientKey = token;
+              const keyInfo = await this.apiKeyService.validateApiKey(token);
 
-            if (!keyInfo) {
-              logger.warn('[MCP v1/sse] Invalid API key', {
-                keyPrefix: token.substring(0, 12) + '...',
-              });
-              return res.status(401).json({
-                error: 'Unauthorized',
-                message: 'Invalid API key',
-                code: 'INVALID_API_KEY',
-              });
-            }
+              if (!keyInfo) {
+                logger.warn('[MCP v1/sse] Invalid API key', {
+                  keyPrefix: token.substring(0, 12) + '...',
+                });
+                return res.status(401).json({
+                  error: 'Unauthorized',
+                  message: 'Invalid API key',
+                  code: 'INVALID_API_KEY',
+                });
+              }
 
-            // Check rate limits
-            const rateLimit = await this.apiKeyService.checkRateLimit(token);
+              // Check rate limits
+              const rateLimit = await this.apiKeyService.checkRateLimit(token);
 
-            if (!rateLimit.allowed) {
-              logger.warn('[MCP v1/sse] Rate limit exceeded', {
+              if (!rateLimit.allowed) {
+                logger.warn('[MCP v1/sse] Rate limit exceeded', {
+                  keyId: keyInfo.id,
+                  reason: rateLimit.reason,
+                });
+                return res.status(429).json({
+                  error: 'Rate limit exceeded',
+                  code: 'RATE_LIMIT_EXCEEDED',
+                  reason: rateLimit.reason,
+                });
+              }
+
+              userId = keyInfo.userId;
+              logger.debug('[MCP v1/sse] Authenticated with API key', {
+                userId,
                 keyId: keyInfo.id,
-                reason: rateLimit.reason,
               });
-              return res.status(429).json({
-                error: 'Rate limit exceeded',
-                code: 'RATE_LIMIT_EXCEEDED',
-                reason: rateLimit.reason,
+
+              // Update API key usage
+              this.apiKeyService.updateUsage(token).catch((err) => {
+                logger.error('[MCP v1/sse] Failed to update API key usage', { error: err.message });
               });
             }
-
-            userId = keyInfo.userId;
-            logger.debug('[MCP v1/sse] Authenticated with API key', {
-              userId,
-              keyId: keyInfo.id,
-            });
-
-            // Update API key usage
-            this.apiKeyService.updateUsage(token).catch((err) => {
-              logger.error('[MCP v1/sse] Failed to update API key usage', { error: err.message });
-            });
           }
         } catch (error) {
           // Auth failed - return 401
@@ -1167,6 +1176,7 @@ class HTTPMCPServer {
         issuer: baseUrl,
         authorization_endpoint: `${baseUrl}/oauth/authorize`,
         token_endpoint: `${baseUrl}/oauth/token`,
+        registration_endpoint: `${baseUrl}/oauth/register`,
         revocation_endpoint: `${baseUrl}/oauth/revoke`,
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code'],
@@ -1184,6 +1194,7 @@ class HTTPMCPServer {
         issuer: baseUrl,
         authorization_endpoint: `${baseUrl}/oauth/authorize`,
         token_endpoint: `${baseUrl}/oauth/token`,
+        registration_endpoint: `${baseUrl}/oauth/register`,
         revocation_endpoint: `${baseUrl}/oauth/revoke`,
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code'],
@@ -1191,6 +1202,11 @@ class HTTPMCPServer {
         scopes_supported: ['mcp', 'claudeai'],
         code_challenge_methods_supported: ['S256', 'plain'],
       });
+    });
+
+    // Redirect /register to /oauth/register (for MCP client compatibility)
+    this.app.post('/register', (req: Request, res: Response) => {
+      res.redirect(307, '/oauth/register');
     });
 
     // OAuth 2.0 routes for ChatGPT integration (public)
