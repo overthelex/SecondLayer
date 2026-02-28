@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Save, User } from 'lucide-react';
 import { attorneyService, type AttorneyProfile } from '../../services/api/AttorneyService';
+import { AttorneyOnboardingModal } from '../../components/attorney/AttorneyOnboardingModal';
 
 const SPECIALIZATIONS = [
   { value: 'criminal', label: 'Кримінальне' },
@@ -37,11 +38,17 @@ export function AttorneyProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     attorneyService.getMyProfile()
       .then(p => { setProfile(p); setIsNew(false); })
-      .catch(() => setIsNew(true))
+      .catch(() => {
+        setIsNew(true);
+        if (!sessionStorage.getItem('attorney_onboarding_skipped')) {
+          setShowOnboarding(true);
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -78,6 +85,15 @@ export function AttorneyProfilePage() {
     });
   };
 
+  const handleOnboardingComplete = (data: Partial<AttorneyProfile>) => {
+    setProfile(prev => ({ ...prev, ...data }));
+    setShowOnboarding(false);
+  };
+
+  const handleOnboardingSkip = () => {
+    setShowOnboarding(false);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -88,6 +104,12 @@ export function AttorneyProfilePage() {
 
   return (
     <div className="max-w-3xl mx-auto p-6">
+      <AttorneyOnboardingModal
+        open={showOnboarding}
+        onComplete={handleOnboardingComplete}
+        onSkip={handleOnboardingSkip}
+      />
+
       <div className="flex items-center gap-3 mb-8">
         <User className="w-7 h-7 text-indigo-600" />
         <h1 className="text-2xl font-bold text-gray-900">
