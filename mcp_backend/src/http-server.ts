@@ -35,6 +35,7 @@ import { createBillingRoutes } from './routes/billing-routes.js';
 import { createAdminRoutes } from './routes/admin-routes.js';
 import { createWorkerHeartbeatRoute } from './routes/worker-heartbeat-routes.js';
 import { createDecisionsRoutes } from './routes/decisions-routes.js';
+import { createERAUProxyRoutes } from './routes/erau-proxy-routes.js';
 import { attachTerminalWebSocket } from './routes/terminal-routes.js';
 import { createTeamRoutes } from './routes/team-routes.js';
 import { createTeamService } from './services/team-service.js';
@@ -1881,6 +1882,10 @@ class HTTPMCPServer {
     // Decisions routes - download court decision full texts from reyestr.court.gov.ua
     this.app.use('/api/decisions', requireJWT as any, createDecisionsRoutes(this.services.reyestrDownloadService));
     logger.info('Decisions routes registered at /api/decisions');
+
+    // ERAU proxy - Ukrainian Bar Registry (public, no auth required)
+    this.app.use('/api/erau', optionalJWT as any, createERAUProxyRoutes());
+    logger.info('ERAU proxy routes registered at /api/erau');
 
     // Worker heartbeat (uses dualAuth so EC2 workers can auth with SECONDARY_LAYER_KEYS)
     // MUST be before the catch-all /api workflow routes
