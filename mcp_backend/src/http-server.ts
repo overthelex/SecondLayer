@@ -140,6 +140,7 @@ class HTTPMCPServer {
   private apiKeyService: ApiKeyService;
   private creditService: CreditService;
   private oauthService: OAuthService;
+  private mcpSseSessions: Map<string, SSEServerTransport> = new Map();
   private toolRegistry: ToolRegistry;
   private serviceProxy: ServiceProxy;
   private uploadService: UploadService;
@@ -692,6 +693,7 @@ class HTTPMCPServer {
         issuer: baseUrl,
         authorization_endpoint: `${baseUrl}/oauth/authorize`,
         token_endpoint: `${baseUrl}/oauth/token`,
+        registration_endpoint: `${baseUrl}/oauth/register`,
         revocation_endpoint: `${baseUrl}/oauth/revoke`,
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code'],
@@ -711,6 +713,7 @@ class HTTPMCPServer {
         issuer: baseUrl,
         authorization_endpoint: `${baseUrl}/oauth/authorize`,
         token_endpoint: `${baseUrl}/oauth/token`,
+        registration_endpoint: `${baseUrl}/oauth/register`,
         revocation_endpoint: `${baseUrl}/oauth/revoke`,
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code'],
@@ -847,10 +850,27 @@ class HTTPMCPServer {
     }) as any);
 
     // Standard MCP SSE endpoint for MCP clients (Claude Desktop, Jan chat, etc.)
-    // Endpoint: ALL /v1/sse (handles both GET for SSE stream and POST for client messages)
+    // Endpoint: GET/POST /v1/sse (SSE stream + client messages)
     // This implements the standard Model Context Protocol over SSE Transport
     // Reference: https://spec.modelcontextprotocol.io/specification/transports/#server-sent-events
-    this.app.all('/v1/sse', (async (req: DualAuthRequest, res: Response) => {
+
+    // POST handler: route messages to existing SSE sessions
+    this.app.post('/v1/sse', (async (req: DualAuthRequest, res: Response) => {
+      const sessionId = req.query.sessionId as string;
+      if (!sessionId) {
+        return res.status(400).json({ error: 'Missing sessionId query parameter' });
+      }
+
+      const transport = this.mcpSseSessions.get(sessionId);
+      if (!transport) {
+        return res.status(404).json({ error: 'Session not found', sessionId });
+      }
+
+      await transport.handlePostMessage(req, res, req.body);
+    }) as any);
+
+    // GET handler: establish new SSE stream
+    this.app.get('/v1/sse', (async (req: DualAuthRequest, res: Response) => {
       try {
         logger.info('[MCP v1/sse] New standard MCP SSE connection');
 
@@ -869,7 +889,7 @@ class HTTPMCPServer {
         let userId: string | undefined;
         let clientKey: string | undefined;
 
-        // Authenticate (JWT or API key)
+        // Authenticate (JWT, OAuth access token, or API key)
         try {
           if (token.includes('.')) {
             // JWT token
@@ -878,46 +898,53 @@ class HTTPMCPServer {
             userId = decoded.userId;
             logger.debug('[MCP v1/sse] Authenticated with JWT', { userId });
           } else {
-            // API key
-            clientKey = token;
-            const keyInfo = await this.apiKeyService.validateApiKey(token);
+            // Try OAuth access token first, then API key
+            const oauthToken = await this.oauthService.verifyAccessToken(token);
+            if (oauthToken) {
+              userId = oauthToken.userId;
+              logger.debug('[MCP v1/sse] Authenticated with OAuth token', { userId, clientId: oauthToken.clientId });
+            } else {
+              // API key
+              clientKey = token;
+              const keyInfo = await this.apiKeyService.validateApiKey(token);
 
-            if (!keyInfo) {
-              logger.warn('[MCP v1/sse] Invalid API key', {
-                keyPrefix: token.substring(0, 12) + '...',
-              });
-              return res.status(401).json({
-                error: 'Unauthorized',
-                message: 'Invalid API key',
-                code: 'INVALID_API_KEY',
-              });
-            }
+              if (!keyInfo) {
+                logger.warn('[MCP v1/sse] Invalid API key', {
+                  keyPrefix: token.substring(0, 12) + '...',
+                });
+                return res.status(401).json({
+                  error: 'Unauthorized',
+                  message: 'Invalid API key',
+                  code: 'INVALID_API_KEY',
+                });
+              }
 
-            // Check rate limits
-            const rateLimit = await this.apiKeyService.checkRateLimit(token);
+              // Check rate limits
+              const rateLimit = await this.apiKeyService.checkRateLimit(token);
 
-            if (!rateLimit.allowed) {
-              logger.warn('[MCP v1/sse] Rate limit exceeded', {
+              if (!rateLimit.allowed) {
+                logger.warn('[MCP v1/sse] Rate limit exceeded', {
+                  keyId: keyInfo.id,
+                  reason: rateLimit.reason,
+                });
+                return res.status(429).json({
+                  error: 'Rate limit exceeded',
+                  code: 'RATE_LIMIT_EXCEEDED',
+                  reason: rateLimit.reason,
+                });
+              }
+
+              userId = keyInfo.userId;
+              logger.debug('[MCP v1/sse] Authenticated with API key', {
+                userId,
                 keyId: keyInfo.id,
-                reason: rateLimit.reason,
               });
-              return res.status(429).json({
-                error: 'Rate limit exceeded',
-                code: 'RATE_LIMIT_EXCEEDED',
-                reason: rateLimit.reason,
+
+              // Update API key usage
+              this.apiKeyService.updateUsage(token).catch((err) => {
+                logger.error('[MCP v1/sse] Failed to update API key usage', { error: err.message });
               });
             }
-
-            userId = keyInfo.userId;
-            logger.debug('[MCP v1/sse] Authenticated with API key', {
-              userId,
-              keyId: keyInfo.id,
-            });
-
-            // Update API key usage
-            this.apiKeyService.updateUsage(token).catch((err) => {
-              logger.error('[MCP v1/sse] Failed to update API key usage', { error: err.message });
-            });
           }
         } catch (error) {
           // Auth failed - return 401
@@ -1087,14 +1114,18 @@ class HTTPMCPServer {
         // Create SSE transport
         const transport = new SSEServerTransport('/v1/sse', res);
 
+        // Store session for POST message routing
+        this.mcpSseSessions.set(transport.sessionId, transport);
+
         // Connect MCP server to transport
         await mcpServer.connect(transport);
 
-        logger.info('[MCP v1/sse] Connection established');
+        logger.info('[MCP v1/sse] Connection established', { sessionId: transport.sessionId });
 
         // Handle client disconnect
         req.on('close', () => {
-          logger.info('[MCP v1/sse] Client disconnected');
+          logger.info('[MCP v1/sse] Client disconnected', { sessionId: transport.sessionId });
+          this.mcpSseSessions.delete(transport.sessionId);
           mcpServer.close();
         });
 
@@ -1167,6 +1198,7 @@ class HTTPMCPServer {
         issuer: baseUrl,
         authorization_endpoint: `${baseUrl}/oauth/authorize`,
         token_endpoint: `${baseUrl}/oauth/token`,
+        registration_endpoint: `${baseUrl}/oauth/register`,
         revocation_endpoint: `${baseUrl}/oauth/revoke`,
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code'],
@@ -1184,6 +1216,7 @@ class HTTPMCPServer {
         issuer: baseUrl,
         authorization_endpoint: `${baseUrl}/oauth/authorize`,
         token_endpoint: `${baseUrl}/oauth/token`,
+        registration_endpoint: `${baseUrl}/oauth/register`,
         revocation_endpoint: `${baseUrl}/oauth/revoke`,
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code'],
@@ -1191,6 +1224,11 @@ class HTTPMCPServer {
         scopes_supported: ['mcp', 'claudeai'],
         code_challenge_methods_supported: ['S256', 'plain'],
       });
+    });
+
+    // Redirect /register to /oauth/register (for MCP client compatibility)
+    this.app.post('/register', (req: Request, res: Response) => {
+      res.redirect(307, '/oauth/register');
     });
 
     // OAuth 2.0 routes for ChatGPT integration (public)
