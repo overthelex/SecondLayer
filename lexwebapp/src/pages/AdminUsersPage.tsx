@@ -14,6 +14,8 @@ import {
   X,
   KeyRound,
   AlertTriangle,
+  Briefcase,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../utils/api-client';
 import toast from 'react-hot-toast';
@@ -50,7 +52,46 @@ interface Pagination {
 }
 
 const TIERS = ['free', 'startup', 'business', 'enterprise', 'internal'];
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
+
+const SPECIALIZATIONS = [
+  { value: 'criminal', label: 'Кримінальне' },
+  { value: 'civil', label: 'Цивільне' },
+  { value: 'administrative', label: 'Адміністративне' },
+  { value: 'commercial', label: 'Господарське' },
+  { value: 'family', label: 'Сімейне' },
+  { value: 'labor', label: 'Трудове' },
+  { value: 'tax', label: 'Податкове' },
+  { value: 'ip', label: 'Інтелектуальна власність' },
+  { value: 'real_estate', label: 'Нерухомість' },
+];
+
+const COURT_TYPES = [
+  { value: 'district', label: 'Районний' },
+  { value: 'appellate', label: 'Апеляційний' },
+  { value: 'cassation', label: 'Касаційний' },
+  { value: 'constitutional', label: 'Конституційний' },
+  { value: 'echr', label: 'ЄСПЛ' },
+];
+
+interface AttorneyFormData {
+  bar_license_number: string;
+  bar_admission_date: string;
+  years_experience: string;
+  education: string;
+  specializations: string[];
+  court_types: string[];
+  region: string;
+  city: string;
+  serves_remotely: boolean;
+  consultation_fee_uah: string;
+  hourly_rate_uah: string;
+  representation_fee_uah: string;
+  free_initial_consultation: boolean;
+  bio: string;
+  is_available: boolean;
+  is_public: boolean;
+}
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return 'Never';
@@ -106,6 +147,18 @@ export function AdminUsersPage() {
   const [resetPasswordConfirm, setResetPasswordConfirm] = useState<{ userId: string; email: string } | null>(null);
   const [resetPasswordResult, setResetPasswordResult] = useState<string | null>(null);
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+
+  // Attorney profile state
+  const [attorneyModal, setAttorneyModal] = useState<{ userId: string; email: string } | null>(null);
+  const [attorneyForm, setAttorneyForm] = useState<AttorneyFormData>({
+    bar_license_number: '', bar_admission_date: '', years_experience: '', education: '',
+    specializations: [], court_types: [], region: '', city: '', serves_remotely: true,
+    consultation_fee_uah: '', hourly_rate_uah: '', representation_fee_uah: '',
+    free_initial_consultation: false, bio: '', is_available: true, is_public: true,
+  });
+  const [attorneyIsEdit, setAttorneyIsEdit] = useState(false);
+  const [attorneyLoading, setAttorneyLoading] = useState(false);
+  const [attorneySaving, setAttorneySaving] = useState(false);
 
   const fetchUsers = useCallback(async (offset = 0) => {
     setLoading(true);
@@ -262,6 +315,101 @@ export function AdminUsersPage() {
     } finally {
       setResetPasswordLoading(false);
     }
+  };
+
+  const openAttorneyModal = async (userId: string, email: string) => {
+    setAttorneyModal({ userId, email });
+    setAttorneyLoading(true);
+    setAttorneyIsEdit(false);
+    setAttorneyForm({
+      bar_license_number: '', bar_admission_date: '', years_experience: '', education: '',
+      specializations: [], court_types: [], region: '', city: '', serves_remotely: true,
+      consultation_fee_uah: '', hourly_rate_uah: '', representation_fee_uah: '',
+      free_initial_consultation: false, bio: '', is_available: true, is_public: true,
+    });
+    try {
+      const res = await api.admin.getAttorneyProfile(userId);
+      const p = res.data;
+      setAttorneyForm({
+        bar_license_number: p.bar_license_number || '',
+        bar_admission_date: p.bar_admission_date ? p.bar_admission_date.split('T')[0] : '',
+        years_experience: p.years_experience?.toString() || '',
+        education: p.education || '',
+        specializations: p.specializations || [],
+        court_types: p.court_types || [],
+        region: p.region || '',
+        city: p.city || '',
+        serves_remotely: p.serves_remotely ?? true,
+        consultation_fee_uah: p.consultation_fee_uah?.toString() || '',
+        hourly_rate_uah: p.hourly_rate_uah?.toString() || '',
+        representation_fee_uah: p.representation_fee_uah?.toString() || '',
+        free_initial_consultation: p.free_initial_consultation ?? false,
+        bio: p.bio || '',
+        is_available: p.is_available ?? true,
+        is_public: p.is_public ?? true,
+      });
+      setAttorneyIsEdit(true);
+    } catch {
+      // No profile yet — create mode
+    } finally {
+      setAttorneyLoading(false);
+    }
+  };
+
+  const handleSaveAttorneyProfile = async () => {
+    if (!attorneyModal) return;
+    setAttorneySaving(true);
+    try {
+      const payload: any = {
+        bar_license_number: attorneyForm.bar_license_number || null,
+        bar_admission_date: attorneyForm.bar_admission_date || null,
+        years_experience: attorneyForm.years_experience ? parseInt(attorneyForm.years_experience) : null,
+        education: attorneyForm.education || null,
+        specializations: attorneyForm.specializations,
+        court_types: attorneyForm.court_types,
+        region: attorneyForm.region || null,
+        city: attorneyForm.city || null,
+        serves_remotely: attorneyForm.serves_remotely,
+        consultation_fee_uah: attorneyForm.consultation_fee_uah ? parseFloat(attorneyForm.consultation_fee_uah) : null,
+        hourly_rate_uah: attorneyForm.hourly_rate_uah ? parseFloat(attorneyForm.hourly_rate_uah) : null,
+        representation_fee_uah: attorneyForm.representation_fee_uah ? parseFloat(attorneyForm.representation_fee_uah) : null,
+        free_initial_consultation: attorneyForm.free_initial_consultation,
+        bio: attorneyForm.bio || null,
+        is_available: attorneyForm.is_available,
+        is_public: attorneyForm.is_public,
+      };
+      if (attorneyIsEdit) {
+        await api.admin.updateAttorneyProfile(attorneyModal.userId, payload);
+        toast.success('Профіль адвоката оновлено');
+      } else {
+        await api.admin.createAttorneyProfile(attorneyModal.userId, payload);
+        toast.success('Профіль адвоката створено');
+        setAttorneyIsEdit(true);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Помилка збереження профілю');
+    } finally {
+      setAttorneySaving(false);
+    }
+  };
+
+  const handleDeleteAttorneyProfile = async () => {
+    if (!attorneyModal) return;
+    if (!confirm('Видалити профіль адвоката для цього користувача?')) return;
+    try {
+      await api.admin.deleteAttorneyProfile(attorneyModal.userId);
+      toast.success('Профіль адвоката видалено');
+      setAttorneyModal(null);
+    } catch {
+      toast.error('Помилка видалення профілю');
+    }
+  };
+
+  const toggleAttorneyArray = (field: 'specializations' | 'court_types', value: string) => {
+    setAttorneyForm(prev => {
+      const arr = prev[field];
+      return { ...prev, [field]: arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value] };
+    });
   };
 
   const totalPages = Math.ceil(pagination.total / PAGE_SIZE);
@@ -463,6 +611,13 @@ export function AdminUsersPage() {
                             title="Generate new password"
                           >
                             <KeyRound size={12} />
+                          </button>
+                          <button
+                            onClick={() => openAttorneyModal(u.id, u.email)}
+                            className="px-2 py-1 text-xs border border-claude-border rounded hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+                            title="Attorney profile"
+                          >
+                            <Briefcase size={12} />
                           </button>
                         </div>
                       </td>
@@ -751,6 +906,169 @@ export function AdminUsersPage() {
             >
               {createTestUserLoading ? 'Creating...' : 'Create Test User'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Attorney Profile Modal */}
+      {attorneyModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 overflow-y-auto py-8" onClick={() => setAttorneyModal(null)}>
+          <div className="bg-white rounded-xl border border-claude-border shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-claude-text flex items-center gap-2">
+                <Briefcase size={16} className="text-indigo-600" />
+                {attorneyIsEdit ? 'Редагувати профіль адвоката' : 'Створити профіль адвоката'}
+              </h3>
+              <div className="flex items-center gap-2">
+                {attorneyIsEdit && (
+                  <button onClick={handleDeleteAttorneyProfile} className="p-1 hover:bg-red-100 rounded text-red-500" title="Видалити профіль">
+                    <Trash2 size={16} />
+                  </button>
+                )}
+                <button onClick={() => setAttorneyModal(null)} className="p-1 hover:bg-gray-100 rounded">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            <p className="text-xs text-claude-subtext mb-4">Користувач: <strong>{attorneyModal.email}</strong></p>
+
+            {attorneyLoading ? (
+              <div className="text-center py-8 text-claude-subtext">
+                <RefreshCw size={20} className="animate-spin inline-block mr-2" />
+                Завантаження...
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* Credentials */}
+                <div>
+                  <h4 className="text-sm font-medium text-claude-text mb-3">Облікові дані</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-claude-subtext mb-1">Номер свідоцтва</label>
+                      <input type="text" value={attorneyForm.bar_license_number} onChange={e => setAttorneyForm(p => ({ ...p, bar_license_number: e.target.value }))} className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-claude-subtext mb-1">Дата допуску</label>
+                      <input type="date" value={attorneyForm.bar_admission_date} onChange={e => setAttorneyForm(p => ({ ...p, bar_admission_date: e.target.value }))} className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-claude-subtext mb-1">Років досвіду</label>
+                      <input type="number" value={attorneyForm.years_experience} onChange={e => setAttorneyForm(p => ({ ...p, years_experience: e.target.value }))} className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-claude-subtext mb-1">Освіта</label>
+                      <input type="text" value={attorneyForm.education} onChange={e => setAttorneyForm(p => ({ ...p, education: e.target.value }))} className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Specializations */}
+                <div>
+                  <h4 className="text-sm font-medium text-claude-text mb-2">Спеціалізації</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {SPECIALIZATIONS.map(s => (
+                      <button key={s.value} type="button" onClick={() => toggleAttorneyArray('specializations', s.value)}
+                        className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                          attorneyForm.specializations.includes(s.value)
+                            ? 'bg-indigo-100 border-indigo-300 text-indigo-700'
+                            : 'bg-white border-claude-border text-claude-subtext hover:border-gray-300'
+                        }`}>
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Court types */}
+                <div>
+                  <h4 className="text-sm font-medium text-claude-text mb-2">Суди</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {COURT_TYPES.map(c => (
+                      <button key={c.value} type="button" onClick={() => toggleAttorneyArray('court_types', c.value)}
+                        className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                          attorneyForm.court_types.includes(c.value)
+                            ? 'bg-indigo-100 border-indigo-300 text-indigo-700'
+                            : 'bg-white border-claude-border text-claude-subtext hover:border-gray-300'
+                        }`}>
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Location */}
+                <div>
+                  <h4 className="text-sm font-medium text-claude-text mb-3">Локація</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-claude-subtext mb-1">Регіон</label>
+                      <input type="text" value={attorneyForm.region} onChange={e => setAttorneyForm(p => ({ ...p, region: e.target.value }))} className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-claude-subtext mb-1">Місто</label>
+                      <input type="text" value={attorneyForm.city} onChange={e => setAttorneyForm(p => ({ ...p, city: e.target.value }))} className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm" />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs mt-2">
+                    <input type="checkbox" className="rounded" checked={attorneyForm.serves_remotely} onChange={e => setAttorneyForm(p => ({ ...p, serves_remotely: e.target.checked }))} />
+                    Працює дистанційно
+                  </label>
+                </div>
+
+                {/* Pricing */}
+                <div>
+                  <h4 className="text-sm font-medium text-claude-text mb-3">Вартість послуг (грн)</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs text-claude-subtext mb-1">Консультація</label>
+                      <input type="number" value={attorneyForm.consultation_fee_uah} onChange={e => setAttorneyForm(p => ({ ...p, consultation_fee_uah: e.target.value }))} className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-claude-subtext mb-1">Погодинна ставка</label>
+                      <input type="number" value={attorneyForm.hourly_rate_uah} onChange={e => setAttorneyForm(p => ({ ...p, hourly_rate_uah: e.target.value }))} className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-claude-subtext mb-1">Представництво</label>
+                      <input type="number" value={attorneyForm.representation_fee_uah} onChange={e => setAttorneyForm(p => ({ ...p, representation_fee_uah: e.target.value }))} className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm" />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs mt-2">
+                    <input type="checkbox" className="rounded" checked={attorneyForm.free_initial_consultation} onChange={e => setAttorneyForm(p => ({ ...p, free_initial_consultation: e.target.checked }))} />
+                    Перша консультація безкоштовна
+                  </label>
+                </div>
+
+                {/* Bio */}
+                <div>
+                  <h4 className="text-sm font-medium text-claude-text mb-2">Про адвоката</h4>
+                  <textarea rows={3} value={attorneyForm.bio} onChange={e => setAttorneyForm(p => ({ ...p, bio: e.target.value }))} placeholder="Досвід, підхід до роботи..." className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm" />
+                </div>
+
+                {/* Settings */}
+                <div>
+                  <h4 className="text-sm font-medium text-claude-text mb-2">Налаштування</h4>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 text-xs">
+                      <input type="checkbox" className="rounded" checked={attorneyForm.is_available} onChange={e => setAttorneyForm(p => ({ ...p, is_available: e.target.checked }))} />
+                      Доступний
+                    </label>
+                    <label className="flex items-center gap-2 text-xs">
+                      <input type="checkbox" className="rounded" checked={attorneyForm.is_public} onChange={e => setAttorneyForm(p => ({ ...p, is_public: e.target.checked }))} />
+                      Публічний профіль
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSaveAttorneyProfile}
+                  disabled={attorneySaving}
+                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                >
+                  {attorneySaving ? 'Збереження...' : attorneyIsEdit ? 'Оновити профіль' : 'Створити профіль'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
