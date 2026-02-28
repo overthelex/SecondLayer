@@ -136,7 +136,8 @@ export class DocumentParser {
       // Serve pdf.js files via route interception (avoids file:// CORS issues with ESM workers)
       await context.route('http://pdfrender/**', async (route) => {
         const url = new URL(route.request().url());
-        const filePath = url.pathname.replace('/pdfrender/', '');
+        // hostname is 'pdfrender', pathname is '/render.html' or '/pdf.min.mjs' etc.
+        const filePath = url.pathname.slice(1);
 
         if (filePath === 'render.html') {
           await route.fulfill({
