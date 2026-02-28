@@ -25,6 +25,7 @@ export const TIER_COLORS: Record<string, string> = {
   startup: '#60a5fa',
   business: '#a78bfa',
   enterprise: '#f59e0b',
+  attorney: '#f97316',
   internal: '#34d399',
 };
 

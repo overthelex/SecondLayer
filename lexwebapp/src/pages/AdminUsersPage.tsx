@@ -51,7 +51,7 @@ interface Pagination {
   total: number;
 }
 
-const TIERS = ['free', 'startup', 'business', 'enterprise', 'internal'];
+const TIERS = ['free', 'startup', 'attorney', 'business', 'enterprise', 'internal'];
 const PAGE_SIZE = 50;
 
 const SPECIALIZATIONS = [
