@@ -866,7 +866,7 @@ class HTTPMCPServer {
         return res.status(404).json({ error: 'Session not found', sessionId });
       }
 
-      await transport.handlePostMessage(req, res);
+      await transport.handlePostMessage(req, res, req.body);
     }) as any);
 
     // GET handler: establish new SSE stream
