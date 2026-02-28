@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AuditService } from './audit-service.js';
 import { MatterService } from './matter-service.js';
 import { AttorneyProfileService } from './attorney-profile-service.js';
+import { consultationMessageBus } from './consultation-message-bus.js';
 
 export interface Consultation {
   id: string;
@@ -435,7 +436,17 @@ export class ConsultationService {
        RETURNING *`,
       [id, consultationId, senderId, content, messageType || 'text']
     );
-    return result.rows[0];
+
+    // Fetch sender name for the published message
+    const userResult = await this.db.query(`SELECT name FROM users WHERE id = $1`, [senderId]);
+    const message: ConsultationMessage = {
+      ...result.rows[0],
+      sender_name: userResult.rows[0]?.name || 'Unknown',
+    };
+
+    consultationMessageBus.publish(consultationId, message);
+
+    return message;
   }
 
   async getMessages(
@@ -475,6 +486,16 @@ export class ConsultationService {
       messages: result.rows,
       total: parseInt(countResult.rows[0].count, 10),
     };
+  }
+
+  async getUnreadCount(consultationId: string, userId: string): Promise<number> {
+    await this.requireConsultation(consultationId, userId);
+    const result = await this.db.query(
+      `SELECT COUNT(*) FROM consultation_messages
+       WHERE consultation_id = $1 AND sender_id != $2 AND read_at IS NULL`,
+      [consultationId, userId]
+    );
+    return parseInt(result.rows[0].count, 10);
   }
 
   // ─── Reviews ───────────────────────────────────────────

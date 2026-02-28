@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { AuthenticatedRequest as DualAuthRequest } from '../middleware/dual-auth.js';
 import { ConsultationService } from '../services/consultation-service.js';
 import { ConsultationPaymentService } from '../services/consultation-payment-service.js';
@@ -9,6 +9,15 @@ export function createConsultationRoutes(
   consultationPaymentService: ConsultationPaymentService
 ): Router {
   const router = Router();
+
+  // Middleware: allow SSE endpoints to pass JWT token via query param
+  // (EventSource API doesn't support custom headers)
+  router.use(((req: DualAuthRequest, _res: Response, next: NextFunction) => {
+    if (!req.headers.authorization && req.query.token) {
+      req.headers.authorization = `Bearer ${req.query.token}`;
+    }
+    next();
+  }) as any);
 
   // POST /api/consultations — create consultation request
   router.post('/', (async (req: DualAuthRequest, res: Response): Promise<any> => {
@@ -181,6 +190,62 @@ export function createConsultationRoutes(
     } catch (error: any) {
       logger.error('Failed to get payment status', { error: error.message });
       res.status(500).json({ error: 'Failed to get payment' });
+    }
+  }) as any);
+
+  // GET /api/consultations/:id/messages/stream — SSE stream for real-time messages
+  router.get('/:id/messages/stream', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const consultationId = req.params.id as string;
+
+      // Verify access
+      const consultation = await consultationService.getConsultation(consultationId, req.user.id);
+      if (!consultation) return res.status(404).json({ error: 'Consultation not found' });
+
+      // Set SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders();
+
+      // Send initial heartbeat
+      res.write('event: connected\ndata: {}\n\n');
+
+      // Subscribe to message bus
+      const { consultationMessageBus } = await import('../services/consultation-message-bus.js');
+      const unsubscribe = consultationMessageBus.subscribe(consultationId, (message) => {
+        res.write(`event: message\ndata: ${JSON.stringify(message)}\n\n`);
+      });
+
+      // Heartbeat every 30s to keep connection alive
+      const heartbeat = setInterval(() => {
+        res.write('event: heartbeat\ndata: {}\n\n');
+      }, 30000);
+
+      // Cleanup on disconnect
+      req.on('close', () => {
+        unsubscribe();
+        clearInterval(heartbeat);
+      });
+    } catch (error: any) {
+      logger.error('Failed to setup message stream', { error: error.message });
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to setup message stream' });
+      }
+    }
+  }) as any);
+
+  // GET /api/consultations/:id/messages/unread-count — get unread message count
+  router.get('/:id/messages/unread-count', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const count = await consultationService.getUnreadCount(req.params.id as string, req.user.id);
+      res.json({ count });
+    } catch (error: any) {
+      logger.error('Failed to get unread count', { error: error.message });
+      res.status(500).json({ error: 'Failed to get unread count' });
     }
   }) as any);
 
