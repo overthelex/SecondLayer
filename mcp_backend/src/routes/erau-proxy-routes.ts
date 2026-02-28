@@ -37,7 +37,9 @@ export function createERAUProxyRoutes(): Router {
       }
 
       const data = await response.json();
-      res.json(data);
+      // ERAU returns { items: [...], total: "N" } — unwrap to array for frontend
+      const items = Array.isArray(data) ? data : (data.items || []);
+      res.json(items);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error('[ERAU] Proxy error', { error: msg });
