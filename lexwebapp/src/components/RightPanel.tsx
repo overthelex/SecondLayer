@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Gavel, BookOpen, FileText, X } from 'lucide-react';
+import { Gavel, BookOpen, FileText, MessageSquare, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { Decision } from './DecisionCard';
@@ -9,7 +9,9 @@ import { useEvidenceAggregator } from '../hooks/chat/useEvidenceAggregator';
 import { DecisionsTab } from './chat/DecisionsTab';
 import { RegulationsTab } from './chat/RegulationsTab';
 import { DocumentsTab } from './chat/DocumentsTab';
+import { ConsultationChatTab } from './chat/ConsultationChatTab';
 import { mcpService } from '../services/api/MCPService';
+import { consultationService } from '../services';
 import type { DownloadedDecision } from '../stores/decisionsSearchStore';
 
 interface DocumentViewerItem {
@@ -69,10 +71,15 @@ function mapDownloadedToDecision(d: DownloadedDecision): Decision {
 }
 
 export function RightPanel({ isOpen, onClose }: RightPanelProps) {
-  const [activeTab, setActiveTab] = useState<'decisions' | 'regulations' | 'documents'>('decisions');
+  const [activeTab, setActiveTab] = useState<'decisions' | 'regulations' | 'documents' | 'chat'>('decisions');
   const userSelectedTab = useRef(false);
   const location = useLocation();
   const isDecisionsPage = location.pathname === '/decisions';
+
+  // Extract consultation ID from URL
+  const consultationMatch = location.pathname.match(/^\/consultations\/([^/]+)$/);
+  const consultationId = consultationMatch ? consultationMatch[1] : null;
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   const { decisions: chatDecisions, otherCourtDocs, citations, vaultDocuments, messagesCount } = useEvidenceAggregator();
   const { downloadedDecisions } = useDecisionsSearchStore();
@@ -98,15 +105,42 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
     }
   }, [messagesCount]);
 
+  // Auto-switch to chat tab when on consultation page
+  useEffect(() => {
+    if (consultationId && !userSelectedTab.current) {
+      setActiveTab('chat');
+    } else if (!consultationId && activeTab === 'chat') {
+      setActiveTab('decisions');
+    }
+  }, [consultationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-switch to the most relevant tab when data first arrives
   useEffect(() => {
     if (userSelectedTab.current) return;
+    if (consultationId) return; // Don't override chat tab
     if (citations.length > 0 && decisions.length === 0) {
       setActiveTab('regulations');
     } else if (decisions.length > 0) {
       setActiveTab('decisions');
     }
-  }, [citations.length, decisions.length]);
+  }, [citations.length, decisions.length, consultationId]);
+
+  // Poll unread count when chat tab is not active but consultation is active
+  useEffect(() => {
+    if (!consultationId || activeTab === 'chat') {
+      setChatUnreadCount(0);
+      return;
+    }
+    let cancelled = false;
+    const poll = () => {
+      consultationService.getUnreadCount(consultationId).then(({ count }) => {
+        if (!cancelled) setChatUnreadCount(count);
+      }).catch(() => {});
+    };
+    poll();
+    const interval = setInterval(poll, 15000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [consultationId, activeTab]);
 
   // --- Viewer modal state ---
   const [viewerItem, setViewerItem] = useState<DocumentViewerItem | null>(null);
@@ -248,11 +282,15 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
   }, [setRightPanelWidth]);
 
   // --- Tabs ---
-  const tabs = [
+  const baseTabs = [
     { id: 'decisions' as const, label: 'Рішення', icon: Gavel, count: decisions.length },
     { id: 'regulations' as const, label: 'Норми', icon: BookOpen, count: citations.length },
     { id: 'documents' as const, label: 'Документи', icon: FileText, count: vaultDocuments.length + otherCourtDocs.length },
   ];
+
+  const tabs = consultationId
+    ? [...baseTabs, { id: 'chat' as const, label: 'Чат', icon: MessageSquare, count: chatUnreadCount }]
+    : baseTabs;
 
   return <>
     {/* Mobile Backdrop */}
@@ -320,21 +358,30 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-3">
-        {activeTab === 'decisions' && (
-          <DecisionsTab decisions={decisions} onOpenModal={openDecisionModal} />
-        )}
-        {activeTab === 'regulations' && (
-          <RegulationsTab citations={citations} onOpenModal={openCitationModal} />
-        )}
-        {activeTab === 'documents' && (
-          <DocumentsTab
-            otherCourtDocs={otherCourtDocs}
-            vaultDocuments={vaultDocuments}
-            onOpenDocModal={openDocumentModal}
+      {activeTab === 'chat' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <ConsultationChatTab
+            consultationId={consultationId}
+            onUnreadCountChange={setChatUnreadCount}
           />
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-3">
+          {activeTab === 'decisions' && (
+            <DecisionsTab decisions={decisions} onOpenModal={openDecisionModal} />
+          )}
+          {activeTab === 'regulations' && (
+            <RegulationsTab citations={citations} onOpenModal={openCitationModal} />
+          )}
+          {activeTab === 'documents' && (
+            <DocumentsTab
+              otherCourtDocs={otherCourtDocs}
+              vaultDocuments={vaultDocuments}
+              onOpenDocModal={openDocumentModal}
+            />
+          )}
+        </div>
+      )}
     </motion.aside>
 
     <DocumentViewerModal

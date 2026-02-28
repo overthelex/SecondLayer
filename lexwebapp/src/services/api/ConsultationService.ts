@@ -192,6 +192,27 @@ export class ConsultationService extends BaseService {
     }
   }
 
+  async getUnreadCount(id: string): Promise<{ count: number }> {
+    try {
+      const response = await this.client.get<{ count: number }>(`/api/consultations/${id}/messages/unread-count`);
+      return response.data;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  connectMessageStream(id: string): EventSource {
+    const token = localStorage.getItem('auth_token');
+    const baseURL = this.client.defaults.baseURL || '';
+    const url = `${baseURL}/api/consultations/${id}/messages/stream`;
+
+    // EventSource doesn't support custom headers, so we pass token as query param
+    // However, our SSE endpoint uses the same JWT middleware via cookie/header
+    // We'll use a polyfill approach with fetch-based EventSource
+    const eventSource = new EventSource(`${url}?token=${encodeURIComponent(token || '')}`);
+    return eventSource;
+  }
+
   async submitReview(id: string, data: SubmitReviewRequest): Promise<any> {
     try {
       const response = await this.client.post(`/api/consultations/${id}/review`, data);
