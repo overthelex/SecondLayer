@@ -473,14 +473,30 @@ export function DocumentsPage() {
             ...(isImage ? { ocrText: ocrText || '', documentId: doc.id } : {}),
           });
         } else {
-          // Fallback to text content if no preview URL
-          setPreviewDoc({
-            type: 'document',
-            title: doc.title,
-            subtitle: doc.metadata?.uploadedAt ? `Завантажено: ${new Date(doc.metadata.uploadedAt).toLocaleDateString('uk-UA')}` : undefined,
-            badge,
-            content: 'Попередній перегляд недоступний для цього файлу.',
-          });
+          // No binary preview (vault-stored PDF/image) — load extracted text
+          try {
+            const result = await mcpService.callTool('get_document', { documentId: doc.id });
+            const parsed = result?.result?.content?.[0]?.text
+              ? JSON.parse(result.result.content[0].text)
+              : result?.result || result;
+            const rawContent = parsed.content || parsed.text || parsed.sections?.map((s: any) => s.content).join('\n\n') || 'Вміст недоступний';
+            const content = processEmlContent(rawContent);
+            setPreviewDoc({
+              type: 'document',
+              title: doc.title,
+              subtitle: doc.metadata?.uploadedAt ? `Завантажено: ${new Date(doc.metadata.uploadedAt).toLocaleDateString('uk-UA')}` : undefined,
+              badge,
+              content,
+            });
+          } catch {
+            setPreviewDoc({
+              type: 'document',
+              title: doc.title,
+              subtitle: doc.metadata?.uploadedAt ? `Завантажено: ${new Date(doc.metadata.uploadedAt).toLocaleDateString('uk-UA')}` : undefined,
+              badge,
+              content: 'Попередній перегляд недоступний для цього файлу.',
+            });
+          }
         }
       } catch (err: any) {
         console.error('Failed to fetch preview URL:', err);
