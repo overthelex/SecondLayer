@@ -25,6 +25,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
   const [job, setJob] = useState<ClassificationJob | null>(null);
   const [concurrency, setConcurrency] = useState(3);
   const [starting, setStarting] = useState(false);
+  const [dismissing, setDismissing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -105,6 +106,21 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
 
   const handleDismiss = () => {
     setJob(null);
+  };
+
+  const handleDismissQueue = async () => {
+    if (!window.confirm('Очистити чергу? Документи залишаться з типом «Інше».')) return;
+    setDismissing(true);
+    try {
+      const resp = await api.documents.dismissClassification();
+      const count = resp.data?.dismissed || 0;
+      showToast.success(`${count} документів позначено як оброблені`);
+      onComplete();
+    } catch {
+      showToast.error('Не вдалося очистити чергу');
+    } finally {
+      setDismissing(false);
+    }
   };
 
   if (unclassifiedCount === 0 && !job) return null;
@@ -238,7 +254,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
 
                 <button
                   onClick={handleStart}
-                  disabled={starting}
+                  disabled={starting || dismissing}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-600 transition-colors disabled:opacity-50 font-sans"
                 >
                   {starting ? (
@@ -247,6 +263,19 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
                     <Play size={12} />
                   )}
                   Класифікувати
+                </button>
+
+                <button
+                  onClick={handleDismissQueue}
+                  disabled={dismissing || starting}
+                  className="p-1.5 text-amber-400 hover:text-amber-700 transition-colors disabled:opacity-50"
+                  title="Очистити чергу"
+                >
+                  {dismissing ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <X size={14} />
+                  )}
                 </button>
               </div>
             </div>

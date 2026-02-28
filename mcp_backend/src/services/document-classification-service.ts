@@ -436,6 +436,26 @@ export class DocumentClassificationService {
   }
 
   /**
+   * Dismiss all unclassified documents for a user (mark as 'dismissed').
+   */
+  async dismissUnclassified(userId: string): Promise<number> {
+    const result = await this.db.query(
+      `UPDATE documents
+       SET metadata = COALESCE(metadata, '{}'::jsonb) || '{"classificationStatus": "dismissed"}'::jsonb,
+           updated_at = NOW()
+       WHERE user_id = $1
+         AND deleted_at IS NULL
+         AND (
+           type = 'other'
+           OR metadata->>'classificationStatus' IS NULL
+           OR metadata->>'classificationStatus' = 'pending'
+         )`,
+      [userId]
+    );
+    return result.rowCount || 0;
+  }
+
+  /**
    * Get document statistics for a user.
    */
   async getUserDocumentStats(userId: string): Promise<{

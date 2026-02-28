@@ -3,10 +3,48 @@
  * Axios instance with authentication and error handling
  */
 
-import axios, { AxiosError, AxiosInstance } from 'axios';
+import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { showToast } from './toast';
 
+// Validate API URL against allowed origins
+const ALLOWED_API_ORIGINS = [
+  'https://legal.org.ua',
+  'https://stage.legal.org.ua',
+  'http://localhost:3000',
+  'http://localhost:8080',
+];
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+if (!ALLOWED_API_ORIGINS.some(origin => API_URL.startsWith(origin))) {
+  throw new Error(
+    `Invalid VITE_API_URL: "${API_URL}". Must start with one of: ${ALLOWED_API_ORIGINS.join(', ')}`
+  );
+}
+
+// Token refresh state
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (error: any) => void;
+}> = [];
+
+function processQueue(error: any, token: string | null = null) {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(token!);
+    }
+  });
+  failedQueue = [];
+}
+
+function forceLogout() {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('user');
+  window.location.href = '/login';
+}
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -31,29 +69,79 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor - handle errors
+// Response interceptor - handle errors with token refresh
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<any>) => {
+  async (error: AxiosError<any>) => {
     // Network error
     if (!error.response) {
       showToast.error('Network error. Please check your connection.');
       return Promise.reject(error);
     }
 
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     const { status, data } = error.response;
 
-    // 401 Unauthorized - redirect to login
+    // 401 Unauthorized - attempt token refresh before logging out
     if (status === 401) {
-      const message = data?.message || 'Session expired. Please login again.';
-      showToast.error(message);
+      // Skip refresh for auth endpoints to avoid infinite loops
+      const url = originalRequest?.url || '';
+      if (url.includes('/auth/refresh') || url.includes('/auth/login')) {
+        forceLogout();
+        return Promise.reject(error);
+      }
 
-      // Clear token and redirect to login
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Already retried this request — give up
+      if (originalRequest._retry) {
+        forceLogout();
+        return Promise.reject(error);
+      }
 
-      return Promise.reject(error);
+      // If a refresh is already in progress, queue this request
+      if (isRefreshing) {
+        return new Promise<string>((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return apiClient(originalRequest);
+        }).catch((err) => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const { data: refreshData } = await axios.post(
+          `${API_URL}/auth/refresh`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 10000,
+          }
+        );
+
+        const newToken = refreshData.token;
+        localStorage.setItem('auth_token', newToken);
+
+        // Retry all queued requests with the new token
+        processQueue(null, newToken);
+
+        // Retry the original request
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        showToast.error('Session expired. Please login again.');
+        forceLogout();
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
 
     // 402 Payment Required - insufficient balance
@@ -226,6 +314,8 @@ export const api = {
       apiClient.get(`/api/documents/classify/${jobId}`),
     cancelClassification: (jobId: string) =>
       apiClient.post(`/api/documents/classify/${jobId}/cancel`),
+    dismissClassification: () =>
+      apiClient.post('/api/documents/classify/dismiss'),
   },
 
   // Admin
