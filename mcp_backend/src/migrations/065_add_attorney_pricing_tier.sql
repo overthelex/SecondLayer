@@ -10,28 +10,32 @@ EXCEPTION WHEN undefined_table THEN
   RAISE NOTICE 'user_billing table does not exist, skipping constraint update';
 END $$;
 
--- 2. Insert attorney tier into pricing_tiers (DB-backed config)
-INSERT INTO pricing_tiers (tier_key, markup_percentage, description, features, monthly_price_usd, annual_price_usd, trial_days, is_active, display_name, display_order)
-VALUES (
-  'attorney',
-  30,
-  'Attorney tier - 30% markup with higher limits for legal professionals',
-  '["Legal consultations management", "Advanced legal document analysis", "Court practice deep search", "Priority support (12h response)", "Higher daily/monthly limits ($50/$500)"]',
-  49,
-  490,
-  14,
-  true,
-  'Attorney',
-  2
-)
-ON CONFLICT (tier_key) DO UPDATE SET
-  markup_percentage = EXCLUDED.markup_percentage,
-  description = EXCLUDED.description,
-  features = EXCLUDED.features,
-  monthly_price_usd = EXCLUDED.monthly_price_usd,
-  annual_price_usd = EXCLUDED.annual_price_usd,
-  trial_days = EXCLUDED.trial_days,
-  is_active = EXCLUDED.is_active,
-  display_name = EXCLUDED.display_name,
-  display_order = EXCLUDED.display_order,
-  updated_at = NOW();
+-- 2. Insert attorney tier into pricing_tiers (DB-backed config) if table exists
+DO $$ BEGIN
+  INSERT INTO pricing_tiers (tier_key, markup_percentage, description, features, monthly_price_usd, annual_price_usd, trial_days, is_active, display_name, display_order)
+  VALUES (
+    'attorney',
+    30,
+    'Attorney tier - 30% markup with higher limits for legal professionals',
+    '["Legal consultations management", "Advanced legal document analysis", "Court practice deep search", "Priority support (12h response)", "Higher daily/monthly limits ($50/$500)"]',
+    49,
+    490,
+    14,
+    true,
+    'Attorney',
+    2
+  )
+  ON CONFLICT (tier_key) DO UPDATE SET
+    markup_percentage = EXCLUDED.markup_percentage,
+    description = EXCLUDED.description,
+    features = EXCLUDED.features,
+    monthly_price_usd = EXCLUDED.monthly_price_usd,
+    annual_price_usd = EXCLUDED.annual_price_usd,
+    trial_days = EXCLUDED.trial_days,
+    is_active = EXCLUDED.is_active,
+    display_name = EXCLUDED.display_name,
+    display_order = EXCLUDED.display_order,
+    updated_at = NOW();
+EXCEPTION WHEN undefined_table THEN
+  RAISE NOTICE 'pricing_tiers table does not exist, skipping tier insert (fallback config used)';
+END $$;
