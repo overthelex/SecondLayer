@@ -36,7 +36,7 @@ export function createERAUProxyRoutes(): Router {
         return res.status(502).json({ error: `ERAU returned status ${response.status}` });
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
       // ERAU returns { items: [...], total: "N" } — unwrap to array for frontend
       const items = Array.isArray(data) ? data : (data.items || []);
       res.json(items);
