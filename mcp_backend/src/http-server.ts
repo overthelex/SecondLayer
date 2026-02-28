@@ -36,6 +36,7 @@ import { createAdminRoutes } from './routes/admin-routes.js';
 import { createWorkerHeartbeatRoute } from './routes/worker-heartbeat-routes.js';
 import { createDecisionsRoutes } from './routes/decisions-routes.js';
 import { createERAUProxyRoutes } from './routes/erau-proxy-routes.js';
+import { ERAUCacheService } from './services/erau-cache-service.js';
 import { attachTerminalWebSocket } from './routes/terminal-routes.js';
 import { createTeamRoutes } from './routes/team-routes.js';
 import { createTeamService } from './services/team-service.js';
@@ -1884,7 +1885,8 @@ class HTTPMCPServer {
     logger.info('Decisions routes registered at /api/decisions');
 
     // ERAU proxy - Ukrainian Bar Registry (public, no auth required)
-    this.app.use('/api/erau', optionalJWT as any, createERAUProxyRoutes());
+    const erauCacheService = new ERAUCacheService(this.services.db);
+    this.app.use('/api/erau', optionalJWT as any, createERAUProxyRoutes(erauCacheService));
     logger.info('ERAU proxy routes registered at /api/erau');
 
     // Worker heartbeat (uses dualAuth so EC2 workers can auth with SECONDARY_LAYER_KEYS)
