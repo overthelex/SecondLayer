@@ -103,6 +103,7 @@ export function AttorneyProfilePage() {
   }
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="max-w-3xl mx-auto p-6">
       <AttorneyOnboardingModal
         open={showOnboarding}
@@ -253,6 +254,7 @@ export function AttorneyProfilePage() {
           {isNew ? 'Створити профіль' : 'Зберегти зміни'}
         </button>
       </form>
+    </div>
     </div>
   );
 }
