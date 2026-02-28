@@ -546,7 +546,7 @@ export function createAdminRoutes(
       const userId = getStringParam(req.params.userId);
       const { tier } = req.body;
 
-      if (!['free', 'startup', 'business', 'enterprise', 'internal'].includes(tier)) {
+      if (!['free', 'startup', 'business', 'enterprise', 'internal', 'attorney'].includes(tier)) {
         return res.status(400).json({ error: 'Invalid pricing tier' });
       }
 
@@ -4958,8 +4958,14 @@ export function createAdminRoutes(
         ]
       );
 
-      // Set user_type to attorney
+      // Set user_type to attorney and assign attorney pricing tier
       await db.query(`UPDATE users SET user_type = 'attorney' WHERE id = $1`, [userId]);
+      await db.query(
+        `INSERT INTO user_billing (user_id, pricing_tier)
+         VALUES ($1, 'attorney')
+         ON CONFLICT (user_id) DO UPDATE SET pricing_tier = 'attorney', updated_at = NOW()`,
+        [userId]
+      );
 
       await logAdminAction(adminId, 'create_attorney_profile', userId, id, { email: userCheck.rows[0].email }, req);
       logger.info('Admin created attorney profile', { adminId, userId, profileId: id });
