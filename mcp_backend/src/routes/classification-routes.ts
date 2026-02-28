@@ -61,6 +61,23 @@ export function createClassificationRoutes(
     }
   }) as any);
 
+  // POST /api/documents/classify/dismiss — Dismiss all unclassified docs
+  router.post('/dismiss', (async (req: DualAuthRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      const count = await classificationService.dismissUnclassified(userId);
+      res.json({ dismissed: count });
+    } catch (error: any) {
+      logger.error('Failed to dismiss classification queue', { error: error.message });
+      res.status(500).json({ error: 'Failed to dismiss', message: error.message });
+    }
+  }) as any);
+
   // POST /api/documents/classify/:jobId/cancel — Cancel job
   router.post('/:jobId/cancel', (async (req: Request, res: Response): Promise<void> => {
     try {
