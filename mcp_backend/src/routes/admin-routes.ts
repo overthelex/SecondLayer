@@ -4880,5 +4880,189 @@ export function createAdminRoutes(
     } catch { /* scraper_jobs table may not exist until migration runs */ }
   })();
 
+  // ─── Admin Attorney Profile Management ────────────────────────────────
+
+  /**
+   * GET /api/admin/users/:userId/attorney-profile
+   * Get attorney profile for a specific user
+   */
+  router.get('/users/:userId/attorney-profile', requireAdmin, (async (req: Request, res: Response): Promise<any> => {
+    try {
+      const userId = getStringParam(req.params.userId);
+      if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+      const result = await db.query(
+        `SELECT ap.*, u.name as user_name, u.email as user_email,
+                o.name as organization_name, o.org_type
+         FROM attorney_profiles ap
+         JOIN users u ON u.id = ap.user_id
+         LEFT JOIN organizations o ON o.id = ap.organization_id
+         WHERE ap.user_id = $1`,
+        [userId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Attorney profile not found' });
+      }
+
+      res.json(result.rows[0]);
+    } catch (error: any) {
+      logger.error('Admin: failed to get attorney profile', { error: error.message });
+      res.status(500).json({ error: 'Failed to get attorney profile' });
+    }
+  }) as any);
+
+  /**
+   * POST /api/admin/users/:userId/attorney-profile
+   * Create attorney profile for a user (admin)
+   */
+  router.post('/users/:userId/attorney-profile', requireAdmin, (async (req: Request, res: Response): Promise<any> => {
+    try {
+      const userId = getStringParam(req.params.userId);
+      if (!userId) return res.status(400).json({ error: 'userId is required' });
+      const adminId = (req as any).user?.id;
+
+      // Check user exists
+      const userCheck = await db.query('SELECT id, email FROM users WHERE id = $1', [userId]);
+      if (userCheck.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+
+      // Check no existing profile
+      const existing = await db.query('SELECT id FROM attorney_profiles WHERE user_id = $1', [userId]);
+      if (existing.rows.length > 0) return res.status(409).json({ error: 'Attorney profile already exists for this user' });
+
+      const data = req.body;
+      const id = crypto.randomUUID();
+
+      const result = await db.query(
+        `INSERT INTO attorney_profiles (
+          id, user_id, organization_id,
+          bar_license_number, bar_admission_date, years_experience, education,
+          specializations, court_types,
+          region, city, serves_remotely, languages,
+          consultation_fee_uah, hourly_rate_uah, representation_fee_uah, free_initial_consultation,
+          bio, photo_url, is_available, max_active_consultations, is_public
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+        RETURNING *`,
+        [
+          id, userId, data.organization_id || null,
+          data.bar_license_number || null, data.bar_admission_date || null,
+          data.years_experience || null, data.education || null,
+          data.specializations || [], data.court_types || [],
+          data.region || null, data.city || null,
+          data.serves_remotely ?? true, data.languages || ['ukrainian'],
+          data.consultation_fee_uah || null, data.hourly_rate_uah || null,
+          data.representation_fee_uah || null, data.free_initial_consultation ?? false,
+          data.bio || null, data.photo_url || null,
+          data.is_available ?? true, data.max_active_consultations ?? 10,
+          data.is_public ?? true,
+        ]
+      );
+
+      // Set user_type to attorney
+      await db.query(`UPDATE users SET user_type = 'attorney' WHERE id = $1`, [userId]);
+
+      await logAdminAction(adminId, 'create_attorney_profile', userId, id, { email: userCheck.rows[0].email }, req);
+      logger.info('Admin created attorney profile', { adminId, userId, profileId: id });
+
+      res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      logger.error('Admin: failed to create attorney profile', { error: error.message });
+      res.status(500).json({ error: error.message || 'Failed to create attorney profile' });
+    }
+  }) as any);
+
+  /**
+   * PUT /api/admin/users/:userId/attorney-profile
+   * Update attorney profile for a user (admin)
+   */
+  router.put('/users/:userId/attorney-profile', requireAdmin, (async (req: Request, res: Response): Promise<any> => {
+    try {
+      const userId = getStringParam(req.params.userId);
+      if (!userId) return res.status(400).json({ error: 'userId is required' });
+      const adminId = (req as any).user?.id;
+      const data = req.body;
+
+      const fields: Array<[string, any]> = [
+        ['organization_id', data.organization_id],
+        ['bar_license_number', data.bar_license_number],
+        ['bar_admission_date', data.bar_admission_date],
+        ['years_experience', data.years_experience],
+        ['education', data.education],
+        ['specializations', data.specializations],
+        ['court_types', data.court_types],
+        ['region', data.region],
+        ['city', data.city],
+        ['serves_remotely', data.serves_remotely],
+        ['languages', data.languages],
+        ['consultation_fee_uah', data.consultation_fee_uah],
+        ['hourly_rate_uah', data.hourly_rate_uah],
+        ['representation_fee_uah', data.representation_fee_uah],
+        ['free_initial_consultation', data.free_initial_consultation],
+        ['bio', data.bio],
+        ['photo_url', data.photo_url],
+        ['is_available', data.is_available],
+        ['max_active_consultations', data.max_active_consultations],
+        ['is_public', data.is_public],
+      ];
+
+      const setClauses: string[] = [];
+      const params: any[] = [];
+      let idx = 1;
+
+      for (const [field, value] of fields) {
+        if (value !== undefined) {
+          setClauses.push(`${field} = $${idx++}`);
+          params.push(value);
+        }
+      }
+
+      if (setClauses.length === 0) {
+        return res.status(400).json({ error: 'No fields to update' });
+      }
+
+      params.push(userId);
+      const result = await db.query(
+        `UPDATE attorney_profiles SET ${setClauses.join(', ')}, updated_at = NOW() WHERE user_id = $${idx} RETURNING *`,
+        params
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Attorney profile not found' });
+      }
+
+      await logAdminAction(adminId, 'update_attorney_profile', userId, result.rows[0].id, { fields: Object.keys(data) }, req);
+
+      res.json(result.rows[0]);
+    } catch (error: any) {
+      logger.error('Admin: failed to update attorney profile', { error: error.message });
+      res.status(500).json({ error: error.message || 'Failed to update attorney profile' });
+    }
+  }) as any);
+
+  /**
+   * DELETE /api/admin/users/:userId/attorney-profile
+   * Delete attorney profile for a user (admin)
+   */
+  router.delete('/users/:userId/attorney-profile', requireAdmin, (async (req: Request, res: Response): Promise<any> => {
+    try {
+      const userId = getStringParam(req.params.userId);
+      if (!userId) return res.status(400).json({ error: 'userId is required' });
+      const adminId = (req as any).user?.id;
+
+      const result = await db.query('DELETE FROM attorney_profiles WHERE user_id = $1 RETURNING id', [userId]);
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Attorney profile not found' });
+      }
+
+      await db.query(`UPDATE users SET user_type = 'user' WHERE id = $1`, [userId]);
+      await logAdminAction(adminId, 'delete_attorney_profile', userId, result.rows[0].id, {}, req);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error('Admin: failed to delete attorney profile', { error: error.message });
+      res.status(500).json({ error: 'Failed to delete attorney profile' });
+    }
+  }) as any);
+
   return router;
 }
