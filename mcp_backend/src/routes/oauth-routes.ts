@@ -644,6 +644,67 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
   });
 
   /**
+   * POST /oauth/register
+   * Dynamic Client Registration (RFC 7591)
+   *
+   * Allows MCP clients (Claude Code, Claude Desktop) to register themselves
+   * automatically as OAuth clients without pre-registration.
+   */
+  router.post('/register', async (req: Request, res: Response) => {
+    try {
+      const {
+        client_name,
+        redirect_uris,
+        grant_types,
+        response_types,
+        token_endpoint_auth_method,
+        scope,
+      } = req.body;
+
+      // Validate redirect_uris (required per RFC 7591)
+      if (!redirect_uris || !Array.isArray(redirect_uris) || redirect_uris.length === 0) {
+        return res.status(400).json({
+          error: 'invalid_client_metadata',
+          error_description: 'redirect_uris is required and must be a non-empty array',
+        });
+      }
+
+      // Register the client
+      const name = client_name || `MCP Client ${new Date().toISOString().slice(0, 10)}`;
+      const client = await oauthService.registerClient({
+        name,
+        redirect_uris,
+      });
+
+      logger.info('Dynamic client registration', {
+        clientId: client.client_id,
+        name,
+        redirectUris: redirect_uris,
+      });
+
+      // Return RFC 7591 response
+      res.status(201).json({
+        client_id: client.client_id,
+        client_secret: client.client_secret,
+        client_name: name,
+        redirect_uris,
+        grant_types: grant_types || ['authorization_code'],
+        response_types: response_types || ['code'],
+        token_endpoint_auth_method: token_endpoint_auth_method || 'client_secret_post',
+        scope: scope || 'mcp',
+        client_id_issued_at: Math.floor(Date.now() / 1000),
+        client_secret_expires_at: 0, // never expires
+      });
+    } catch (error: any) {
+      logger.error('Error in /oauth/register:', error);
+      res.status(500).json({
+        error: 'server_error',
+        error_description: 'Failed to register client',
+      });
+    }
+  });
+
+  /**
    * GET /.well-known/oauth-authorization-server
    * OAuth 2.0 Authorization Server Metadata (RFC 8414)
    *
@@ -658,6 +719,7 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
       issuer: baseUrl,
       authorization_endpoint: `${baseUrl}/oauth/authorize`,
       token_endpoint: `${baseUrl}/oauth/token`,
+      registration_endpoint: `${baseUrl}/oauth/register`,
       revocation_endpoint: `${baseUrl}/oauth/revoke`,
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code'],
@@ -682,6 +744,7 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
       issuer: baseUrl,
       authorization_endpoint: `${baseUrl}/oauth/authorize`,
       token_endpoint: `${baseUrl}/oauth/token`,
+      registration_endpoint: `${baseUrl}/oauth/register`,
       revocation_endpoint: `${baseUrl}/oauth/revoke`,
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code'],
