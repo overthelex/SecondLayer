@@ -39,6 +39,44 @@ export function createConsultationRoutes(
     }
   }) as any);
 
+  // GET /api/consultations/pending-unseen — unseen pending requests for attorney
+  router.get('/pending-unseen', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const result = await consultationService.getUnseenPending(req.user.id);
+      res.json(result);
+    } catch (error: any) {
+      logger.error('Failed to get unseen pending consultations', { error: error.message });
+      res.status(500).json({ error: 'Failed to get unseen pending consultations' });
+    }
+  }) as any);
+
+  // PUT /api/consultations/mark-viewed — mark consultations as viewed
+  router.put('/mark-viewed', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const { ids } = req.body;
+      if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+      await consultationService.markViewed(ids, req.user.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error('Failed to mark consultations as viewed', { error: error.message });
+      res.status(500).json({ error: 'Failed to mark as viewed' });
+    }
+  }) as any);
+
+  // GET /api/consultations/my-clients — attorney's client list with stats
+  router.get('/my-clients', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const clients = await consultationService.getAttorneyClients(req.user.id);
+      res.json({ clients });
+    } catch (error: any) {
+      logger.error('Failed to get attorney clients', { error: error.message });
+      res.status(500).json({ error: 'Failed to get clients' });
+    }
+  }) as any);
+
   // GET /api/consultations/:id — get detail
   router.get('/:id', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {

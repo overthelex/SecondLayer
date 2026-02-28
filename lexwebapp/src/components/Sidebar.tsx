@@ -534,6 +534,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
               <div className="mb-6 space-y-1">
                 <NavItem icon={UserCheck} label="Адвокати" route={ROUTES.ATTORNEYS} onClick={() => handleNavigation(ROUTES.ATTORNEYS)} />
                 <NavItem icon={MessageSquare} label="Консультації" route={ROUTES.CONSULTATIONS} onClick={() => handleNavigation(ROUTES.CONSULTATIONS)} />
+                <NavItem icon={UsersRound} label="Мої клієнти" route={ROUTES.ATTORNEY_CLIENTS} onClick={() => handleNavigation(ROUTES.ATTORNEY_CLIENTS)} />
               </div>
 
             </>
