@@ -78,6 +78,7 @@ export const ROUTES = {
   ATTORNEYS: '/attorneys',
   ATTORNEY_DETAIL: '/attorneys/:id',
   ATTORNEY_PROFILE_EDIT: '/attorney/profile',
+  ATTORNEY_CLIENTS: '/attorney/clients',
   CONSULTATIONS: '/consultations',
   CONSULTATION_DETAIL: '/consultations/:id',
 
