@@ -140,6 +140,7 @@ class HTTPMCPServer {
   private apiKeyService: ApiKeyService;
   private creditService: CreditService;
   private oauthService: OAuthService;
+  private mcpSseSessions: Map<string, SSEServerTransport> = new Map();
   private toolRegistry: ToolRegistry;
   private serviceProxy: ServiceProxy;
   private uploadService: UploadService;
@@ -849,10 +850,27 @@ class HTTPMCPServer {
     }) as any);
 
     // Standard MCP SSE endpoint for MCP clients (Claude Desktop, Jan chat, etc.)
-    // Endpoint: ALL /v1/sse (handles both GET for SSE stream and POST for client messages)
+    // Endpoint: GET/POST /v1/sse (SSE stream + client messages)
     // This implements the standard Model Context Protocol over SSE Transport
     // Reference: https://spec.modelcontextprotocol.io/specification/transports/#server-sent-events
-    this.app.all('/v1/sse', (async (req: DualAuthRequest, res: Response) => {
+
+    // POST handler: route messages to existing SSE sessions
+    this.app.post('/v1/sse', (async (req: DualAuthRequest, res: Response) => {
+      const sessionId = req.query.sessionId as string;
+      if (!sessionId) {
+        return res.status(400).json({ error: 'Missing sessionId query parameter' });
+      }
+
+      const transport = this.mcpSseSessions.get(sessionId);
+      if (!transport) {
+        return res.status(404).json({ error: 'Session not found', sessionId });
+      }
+
+      await transport.handlePostMessage(req, res);
+    }) as any);
+
+    // GET handler: establish new SSE stream
+    this.app.get('/v1/sse', (async (req: DualAuthRequest, res: Response) => {
       try {
         logger.info('[MCP v1/sse] New standard MCP SSE connection');
 
@@ -871,7 +889,7 @@ class HTTPMCPServer {
         let userId: string | undefined;
         let clientKey: string | undefined;
 
-        // Authenticate (JWT or API key)
+        // Authenticate (JWT, OAuth access token, or API key)
         try {
           if (token.includes('.')) {
             // JWT token
@@ -1096,14 +1114,18 @@ class HTTPMCPServer {
         // Create SSE transport
         const transport = new SSEServerTransport('/v1/sse', res);
 
+        // Store session for POST message routing
+        this.mcpSseSessions.set(transport.sessionId, transport);
+
         // Connect MCP server to transport
         await mcpServer.connect(transport);
 
-        logger.info('[MCP v1/sse] Connection established');
+        logger.info('[MCP v1/sse] Connection established', { sessionId: transport.sessionId });
 
         // Handle client disconnect
         req.on('close', () => {
-          logger.info('[MCP v1/sse] Client disconnected');
+          logger.info('[MCP v1/sse] Client disconnected', { sessionId: transport.sessionId });
+          this.mcpSseSessions.delete(transport.sessionId);
           mcpServer.close();
         });
 
