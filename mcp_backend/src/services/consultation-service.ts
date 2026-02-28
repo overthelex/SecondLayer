@@ -375,6 +375,53 @@ export class ConsultationService {
     return result.rows[0];
   }
 
+  // ─── Unseen / Viewed ─────────────────────────────────────
+
+  async getUnseenPending(attorneyUserId: string): Promise<{ consultations: Consultation[]; count: number }> {
+    const result = await this.db.query(
+      `SELECT c.*,
+              cu.name as client_name,
+              au.name as attorney_name,
+              m.matter_name
+       FROM consultations c
+       JOIN users cu ON cu.id = c.client_user_id
+       JOIN users au ON au.id = c.attorney_user_id
+       LEFT JOIN matters m ON m.id = c.matter_id
+       WHERE c.attorney_user_id = $1 AND c.status = 'pending' AND c.viewed_at IS NULL
+       ORDER BY c.created_at DESC`,
+      [attorneyUserId]
+    );
+    return { consultations: result.rows, count: result.rows.length };
+  }
+
+  async markViewed(ids: string[], attorneyUserId: string): Promise<void> {
+    if (ids.length === 0) return;
+    await this.db.query(
+      `UPDATE consultations SET viewed_at = NOW() WHERE id = ANY($1) AND attorney_user_id = $2`,
+      [ids, attorneyUserId]
+    );
+  }
+
+  async getAttorneyClients(attorneyUserId: string): Promise<any[]> {
+    const result = await this.db.query(
+      `SELECT
+         c.client_user_id,
+         cu.name as client_name,
+         cu.email as client_email,
+         cu.picture as client_picture,
+         COUNT(*) as total_consultations,
+         COUNT(*) FILTER (WHERE c.status IN ('pending','accepted','paid','in_progress')) as active_consultations,
+         MAX(c.created_at) as last_consultation_at
+       FROM consultations c
+       JOIN users cu ON cu.id = c.client_user_id
+       WHERE c.attorney_user_id = $1 AND c.status NOT IN ('declined','cancelled')
+       GROUP BY c.client_user_id, cu.name, cu.email, cu.picture
+       ORDER BY MAX(c.created_at) DESC`,
+      [attorneyUserId]
+    );
+    return result.rows;
+  }
+
   // ─── Messaging ─────────────────────────────────────────
 
   async sendMessage(consultationId: string, senderId: string, content: string, messageType?: string): Promise<ConsultationMessage> {

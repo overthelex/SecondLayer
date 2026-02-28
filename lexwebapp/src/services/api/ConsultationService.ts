@@ -200,6 +200,42 @@ export class ConsultationService extends BaseService {
       return this.handleError(error);
     }
   }
+
+  async getUnseenPending(): Promise<{ consultations: Consultation[]; count: number }> {
+    try {
+      const response = await this.client.get('/api/consultations/pending-unseen');
+      return response.data;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async markViewed(ids: string[]): Promise<void> {
+    try {
+      await this.client.put('/api/consultations/mark-viewed', { ids });
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getMyClients(): Promise<{ clients: AttorneyClient[] }> {
+    try {
+      const response = await this.client.get('/api/consultations/my-clients');
+      return response.data;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+}
+
+export interface AttorneyClient {
+  client_user_id: string;
+  client_name: string;
+  client_email: string;
+  client_picture?: string;
+  total_consultations: number;
+  active_consultations: number;
+  last_consultation_at: string;
 }
 
 export const consultationService = new ConsultationService();

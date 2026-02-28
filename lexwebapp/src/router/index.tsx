@@ -73,6 +73,7 @@ import { AttorneyDetailPage } from '../pages/AttorneyDetailPage';
 import { AttorneyProfilePage } from '../pages/AttorneyProfilePage';
 import { ConsultationsPage } from '../pages/ConsultationsPage';
 import { ConsultationDetailPage } from '../pages/ConsultationDetailPage';
+import { AttorneyClientsPage } from '../pages/AttorneyClientsPage';
 
 export const router = createBrowserRouter([
   {
@@ -264,6 +265,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.ATTORNEY_PROFILE_EDIT,
             element: <AttorneyProfilePage />,
+          },
+          {
+            path: ROUTES.ATTORNEY_CLIENTS,
+            element: <AttorneyClientsPage />,
           },
           {
             path: ROUTES.CONSULTATIONS,

@@ -3,14 +3,17 @@
  * Common layout structure with sidebar, header, and content area
  */
 
+import { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { X, Menu, PanelRightOpen } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { RightPanel } from '../components/RightPanel';
 import { TimeTrackerWidget } from '../components/time/TimeTrackerWidget';
+import { PendingInvitationsModal } from '../components/attorney/PendingInvitationsModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useUIStore } from '../stores';
 import { ROUTES } from '../router/routes';
+import { consultationService, type Consultation } from '../services/api/ConsultationService';
 
 // Map routes to page titles
 const PAGE_TITLES: Record<string, string> = {
@@ -47,11 +50,39 @@ const PAGE_TITLES: Record<string, string> = {
   [ROUTES.ADMIN_CONFIG]: 'Конфігурація системи',
   [ROUTES.ADMIN_TERMINAL]: 'Admin Terminal',
   [ROUTES.ADMIN_BULK_SCRAPE]: 'Пайплайн збору даних',
+  [ROUTES.ATTORNEY_CLIENTS]: 'Мої клієнти',
 };
+
+const SESSION_KEY = 'pending_invitations_dismissed';
 
 export function MainLayout() {
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const [pendingConsultations, setPendingConsultations] = useState<Consultation[]>([]);
+  const [showInvitationsModal, setShowInvitationsModal] = useState(false);
+
+  // Fetch unseen pending consultations for attorneys
+  useEffect(() => {
+    if (!user?.id) return;
+    if (sessionStorage.getItem(SESSION_KEY)) return;
+
+    consultationService.getUnseenPending()
+      .then(data => {
+        if (data.count > 0) {
+          setPendingConsultations(data.consultations);
+          setShowInvitationsModal(true);
+        }
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
+  const handleInvitationsClose = useCallback((remainingIds: string[]) => {
+    if (remainingIds.length > 0) {
+      consultationService.markViewed(remainingIds).catch(() => {});
+    }
+    setShowInvitationsModal(false);
+    sessionStorage.setItem(SESSION_KEY, '1');
+  }, []);
 
   // Use UI store for sidebar and panel state
   const {
@@ -203,6 +234,13 @@ export function MainLayout() {
 
       {/* Time Tracker Widget */}
       <TimeTrackerWidget />
+
+      {/* Pending Invitations Modal for attorneys */}
+      <PendingInvitationsModal
+        open={showInvitationsModal}
+        consultations={pendingConsultations}
+        onClose={handleInvitationsClose}
+      />
     </div>
   );
 }
