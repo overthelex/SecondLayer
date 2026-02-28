@@ -490,6 +490,16 @@ export const api = {
       apiClient.get('/api/admin/bulk-scrape-status'),
     getInfrastructureHealth: () =>
       apiClient.get('/api/admin/infrastructure-health'),
+
+    // Attorney profile management
+    getAttorneyProfile: (userId: string) =>
+      apiClient.get(`/api/admin/users/${userId}/attorney-profile`),
+    createAttorneyProfile: (userId: string, data: any) =>
+      apiClient.post(`/api/admin/users/${userId}/attorney-profile`, data),
+    updateAttorneyProfile: (userId: string, data: any) =>
+      apiClient.put(`/api/admin/users/${userId}/attorney-profile`, data),
+    deleteAttorneyProfile: (userId: string) =>
+      apiClient.delete(`/api/admin/users/${userId}/attorney-profile`),
   },
 
   // Decisions - court decision downloads from reyestr
