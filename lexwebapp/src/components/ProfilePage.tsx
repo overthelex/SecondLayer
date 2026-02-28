@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Shield, CreditCard, Settings, Camera, Zap, ChevronRight, Edit2, Loader2, X, Phone, Save, Upload, DollarSign, Activity, Key, Smartphone, Trash2 } from 'lucide-react';
+import { User, Mail, Shield, CreditCard, Settings, Camera, Zap, ChevronRight, Edit2, Loader2, X, Phone, Save, Upload, DollarSign, Activity, Key, Smartphone, Trash2, Copy, Check, Plus, Terminal } from 'lucide-react';
 import { startRegistration } from '@simplewebauthn/browser';
 import { useAuth } from '../contexts/AuthContext';
 import { authService, billingService } from '../services';
+import { api } from '../utils/api-client';
 import { BillingBalance } from '../types/models';
 import showToast from '../utils/toast';
 import { GdprPrivacySection } from './GdprPrivacySection';
@@ -17,6 +18,13 @@ export function ProfilePage() {
   const [webauthnCredentials, setWebauthnCredentials] = useState<any[]>([]);
   const [isRegisteringKey, setIsRegisteringKey] = useState(false);
   const [isDeletingKey, setIsDeletingKey] = useState<string | null>(null);
+  const [mcpTokens, setMcpTokens] = useState<any[]>([]);
+  const [isCreatingToken, setIsCreatingToken] = useState(false);
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+  const [newTokenName, setNewTokenName] = useState('');
+  const [revealedToken, setRevealedToken] = useState<string | null>(null);
+  const [copiedToken, setCopiedToken] = useState(false);
+  const [isDeletingToken, setIsDeletingToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Edit form state
@@ -35,15 +43,25 @@ export function ProfilePage() {
     }
   }, []);
 
-  // Fetch billing data and WebAuthn credentials
+  const loadMcpTokens = useCallback(async () => {
+    try {
+      const { data } = await api.keys.list();
+      setMcpTokens(data.keys || []);
+    } catch (err) {
+      console.error('Failed to load MCP tokens:', err);
+    }
+  }, []);
+
+  // Fetch billing data, WebAuthn credentials, and MCP tokens
   useEffect(() => {
     if (user) {
       billingService.getBillingSummary()
         .then(data => setBilling(data))
         .catch(err => console.error('Failed to load billing:', err));
       loadCredentials();
+      loadMcpTokens();
     }
-  }, [user, loadCredentials]);
+  }, [user, loadCredentials, loadMcpTokens]);
 
   // Initialize form when user data loads
   useEffect(() => {
@@ -241,6 +259,47 @@ export function ProfilePage() {
     } finally {
       setIsDeletingKey(null);
     }
+  };
+
+  const handleCreateMcpToken = async () => {
+    if (!newTokenName.trim()) {
+      showToast.error('Введіть назву токена');
+      return;
+    }
+    setIsCreatingToken(true);
+    try {
+      const { data } = await api.keys.create({ name: newTokenName.trim() });
+      setRevealedToken(data.key.key);
+      setNewTokenName('');
+      await loadMcpTokens();
+    } catch (err: any) {
+      console.error('Failed to create MCP token:', err);
+      showToast.error('Не вдалося створити токен');
+    } finally {
+      setIsCreatingToken(false);
+    }
+  };
+
+  const handleRevokeMcpToken = async (keyId: string) => {
+    setIsDeletingToken(keyId);
+    try {
+      await api.keys.revoke(keyId);
+      showToast.success('Токен відкликано');
+      await loadMcpTokens();
+    } catch (err: any) {
+      console.error('Failed to revoke MCP token:', err);
+      showToast.error('Не вдалося відкликати токен');
+    } finally {
+      setIsDeletingToken(null);
+    }
+  };
+
+  const handleCopyToken = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedToken(true);
+      showToast.success('Скопійовано');
+      setTimeout(() => setCopiedToken(false), 2000);
+    });
   };
 
   const stats = [{
@@ -537,6 +596,77 @@ export function ProfilePage() {
               </div>
             </section>
 
+            {/* MCP Access Tokens Section */}
+            <section className="bg-white rounded-2xl border border-claude-border shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-claude-border/50 bg-claude-bg/30">
+                <h3 className="text-sm font-semibold text-claude-subtext uppercase tracking-wider">
+                  MCP Access Tokens
+                </h3>
+              </div>
+              <div className="p-6 space-y-4">
+                <p className="text-sm text-claude-subtext">
+                  Токени для підключення MCP-клієнтів (Claude Code, Claude Desktop, Jan AI) до SecondLayer.
+                </p>
+
+                {/* Token list */}
+                {mcpTokens.length > 0 ? (
+                  <div className="space-y-3">
+                    {mcpTokens.map((token) => (
+                      <div key={token.id} className="flex items-center justify-between p-3 rounded-xl border border-claude-border/50 hover:bg-claude-bg/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-claude-bg rounded-lg text-claude-subtext">
+                            <Terminal size={18} />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-claude-text">{token.name}</div>
+                            <div className="text-xs text-claude-subtext font-mono">{token.key}</div>
+                            <div className="text-xs text-claude-subtext mt-0.5">
+                              Створено: {new Date(token.created_at).toLocaleDateString('uk-UA')}
+                              {token.last_used_at && ` · Використано: ${new Date(token.last_used_at).toLocaleDateString('uk-UA')}`}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRevokeMcpToken(token.id)}
+                          disabled={isDeletingToken === token.id}
+                          className="p-2 text-claude-subtext hover:text-red-500 transition-colors disabled:opacity-50"
+                          title="Відкликати токен"
+                        >
+                          {isDeletingToken === token.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-claude-subtext text-center py-2">
+                    Немає створених токенів
+                  </p>
+                )}
+
+                {/* Generate Token button */}
+                <div className="pt-2">
+                  <button
+                    onClick={() => { setIsTokenModalOpen(true); setRevealedToken(null); setNewTokenName(''); }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl font-medium text-sm hover:bg-claude-bg transition-colors"
+                  >
+                    <Plus size={16} />
+                    Створити токен
+                  </button>
+                </div>
+
+                {/* Connection instructions */}
+                <div className="mt-4 p-4 bg-claude-bg/50 rounded-xl border border-claude-border/50">
+                  <h4 className="text-sm font-medium text-claude-text mb-2">Підключення Claude Code</h4>
+                  <div className="text-xs text-claude-subtext space-y-1 font-mono bg-white p-3 rounded-lg border border-claude-border/50 overflow-x-auto">
+                    <p>claude mcp add secondlayer \</p>
+                    <p className="pl-4">--transport sse \</p>
+                    <p className="pl-4">--url https://mcp.legal.org.ua/v1/sse \</p>
+                    <p className="pl-4">--header "Authorization: Bearer YOUR_TOKEN"</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             {/* GDPR Privacy Section */}
             <section className="bg-white rounded-2xl p-6 border border-claude-border shadow-sm">
               <GdprPrivacySection />
@@ -623,6 +753,118 @@ export function ProfilePage() {
           </motion.div>
         </div>
       </div>
+
+      {/* MCP Token Modal */}
+      <AnimatePresence>
+        {isTokenModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setIsTokenModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-2xl shadow-xl max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="border-b border-claude-border px-6 py-4 flex items-center justify-between">
+                <h2 className="text-xl font-serif text-claude-text">
+                  {revealedToken ? 'Токен створено' : 'Новий MCP токен'}
+                </h2>
+                <button
+                  onClick={() => setIsTokenModalOpen(false)}
+                  className="p-2 hover:bg-claude-bg rounded-lg transition-colors"
+                >
+                  <X size={20} className="text-claude-subtext" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {revealedToken ? (
+                  <>
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                      <p className="text-sm text-amber-800 font-medium">
+                        Збережіть цей токен — він більше не буде показаний!
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 p-3 bg-claude-bg rounded-lg text-sm font-mono text-claude-text break-all border border-claude-border/50">
+                        {revealedToken}
+                      </code>
+                      <button
+                        onClick={() => handleCopyToken(revealedToken)}
+                        className="p-2.5 bg-claude-bg border border-claude-border rounded-lg hover:bg-claude-sidebar transition-colors flex-shrink-0"
+                        title="Копіювати"
+                      >
+                        {copiedToken ? <Check size={18} className="text-green-600" /> : <Copy size={18} className="text-claude-subtext" />}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label htmlFor="token-name" className="block text-sm font-medium text-claude-text mb-2">
+                        Назва токена
+                      </label>
+                      <input
+                        id="token-name"
+                        name="token-name"
+                        type="text"
+                        value={newTokenName}
+                        onChange={(e) => setNewTokenName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCreateMcpToken()}
+                        className="w-full px-4 py-2.5 border border-claude-border rounded-lg focus:outline-none focus:ring-2 focus:ring-claude-accent focus:border-transparent transition-all"
+                        placeholder="напр. Claude Code — MacBook"
+                        maxLength={100}
+                        autoFocus
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="border-t border-claude-border px-6 py-4 flex gap-3">
+                {revealedToken ? (
+                  <button
+                    onClick={() => setIsTokenModalOpen(false)}
+                    className="flex-1 px-4 py-2.5 bg-claude-accent text-white rounded-xl font-medium text-sm hover:bg-[#C66345] transition-colors"
+                  >
+                    Готово
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setIsTokenModalOpen(false)}
+                      className="flex-1 px-4 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl font-medium text-sm hover:bg-claude-bg transition-colors"
+                    >
+                      Скасувати
+                    </button>
+                    <button
+                      onClick={handleCreateMcpToken}
+                      disabled={isCreatingToken || !newTokenName.trim()}
+                      className="flex-1 px-4 py-2.5 bg-claude-accent text-white rounded-xl font-medium text-sm hover:bg-[#C66345] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isCreatingToken ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Створення...
+                        </>
+                      ) : (
+                        'Створити'
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Edit Profile Modal */}
       <AnimatePresence>

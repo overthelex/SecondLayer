@@ -502,6 +502,14 @@ export const api = {
       apiClient.post('/api/decisions/fetch-fulltext-batch', { doc_ids: docIds }),
   },
 
+  // API Keys (MCP tokens)
+  keys: {
+    list: () => apiClient.get('/api/keys'),
+    create: (data: { name: string; description?: string; expiresAt?: string }) =>
+      apiClient.post('/api/keys', data),
+    revoke: (keyId: string) => apiClient.delete(`/api/keys/${keyId}`),
+  },
+
   // GDPR
   gdpr: {
     requestExport: () => apiClient.post('/api/gdpr/export'),
