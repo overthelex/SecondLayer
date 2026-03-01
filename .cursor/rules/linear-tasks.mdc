@@ -1,0 +1,29 @@
+---
+description: При створенні задач у Linear — завжди додавати в проєкт, Todo, milestone і Sprint 3
+alwaysApply: true
+---
+
+# Linear: створення задач
+
+При створенні задач у Linear через MCP (create_issue) **одразу після створення** викликай **update_issue**, щоб:
+
+1. **Проєкт:** `project: "SecondLayer MCP Server Development"`
+2. **Статус:** `state: "Todo"` (не Backlog)
+3. **Майлстоун:** `milestone: "Sprint 3"` (або "Sprint 3: Stabilization & UX Polish")
+4. **Спринт/цикл:** `cycle: "3"` (цикл 3 у команді Legalorgua)
+
+## Приклад
+
+Після `create_issue({ title: "...", team: "Legalorgua", ... })` виконай:
+
+```
+update_issue({
+  id: "<identifier нової задачі, напр. LEG-XXX>",
+  project: "SecondLayer MCP Server Development",
+  state: "Todo",
+  milestone: "Sprint 3",
+  cycle: "3"
+})
+```
+
+Так усі нові задачі потрапляють у проєкт, у Todo і в майлстоун/спринт 3.
