@@ -261,8 +261,10 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   const mattersSections = [
     { id: 'clients', label: 'Клієнти', icon: Users, route: ROUTES.CLIENTS },
     { id: 'matters', label: 'Справи', icon: Briefcase, route: ROUTES.MATTERS },
-    ...(isAttorney ? [{ id: 'time-entries', label: 'Time Entries', icon: Clock, route: ROUTES.TIME_ENTRIES }] : []),
-    { id: 'invoices', label: 'Invoices', icon: FileText, route: ROUTES.INVOICES },
+    ...(isAttorney ? [
+      { id: 'time-entries', label: 'Time Entries', icon: Clock, route: ROUTES.TIME_ENTRIES },
+      { id: 'invoices', label: 'Invoices', icon: FileText, route: ROUTES.INVOICES },
+    ] : []),
     { id: 'case-analysis', label: 'Аналіз справ', icon: Search, route: ROUTES.CASE_ANALYSIS },
   ];
 
