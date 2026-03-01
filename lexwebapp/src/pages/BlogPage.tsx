@@ -1147,9 +1147,15 @@ export function BlogPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="bg-white rounded-2xl border border-claude-border p-6 sm:p-8 hover:shadow-lg hover:border-claude-accent/30 transition-all cursor-pointer group"
+              className="bg-white rounded-2xl border border-claude-border overflow-hidden hover:shadow-lg hover:border-claude-accent/30 transition-all cursor-pointer group"
               onClick={() => setSelectedArticle(article)}
             >
+              <img
+                src={`/blog/${article.id}.png`}
+                alt={article.title}
+                className="w-full h-40 sm:h-48 object-cover"
+              />
+              <div className="p-6 sm:p-8">
               <div className="flex items-start gap-4">
                 <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
                   article.category === 'tech'
@@ -1190,6 +1196,7 @@ export function BlogPage() {
                     </span>
                   </div>
                 </div>
+              </div>
               </div>
             </motion.article>
           ))}
@@ -1279,6 +1286,13 @@ export function BlogPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Banner */}
+              <img
+                src={`/blog/${selectedArticle.id}.png`}
+                alt={selectedArticle.title}
+                className="w-full h-48 sm:h-64 object-cover"
+              />
 
               {/* Modal content */}
               <div className="px-6 sm:px-8 py-6 sm:py-8">
