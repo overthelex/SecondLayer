@@ -196,7 +196,10 @@ export const useChatStore = create<ChatState>()(
 
         // Switch to existing conversation
         switchConversation: async (conversationId: string) => {
-          if (!isAuthenticated()) return;
+          if (!isAuthenticated()) {
+            console.warn('[ChatStore] switchConversation blocked: not authenticated (no auth_token in localStorage)');
+            return;
+          }
           const { conversationId: currentId, messages, isStreaming } = get();
 
           // Save current conversation messages to cache before switching
