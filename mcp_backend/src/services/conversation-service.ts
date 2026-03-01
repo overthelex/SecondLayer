@@ -40,7 +40,7 @@ export class ConversationService {
       `INSERT INTO conversations (id, user_id, title, client_id, matter_id)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [id, userId, title || 'New conversation', options?.clientId || null, options?.matterId || null]
+      [id, userId, title || 'Нова розмова', options?.clientId || null, options?.matterId || null]
     );
     return result.rows[0];
   }
