@@ -259,7 +259,9 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   // Matters section — company/lawyer roles only
   const isAttorney = user?.userType === 'attorney';
   const mattersSections = [
-    { id: 'clients', label: 'Клієнти', icon: Users, route: ROUTES.CLIENTS },
+    ...(isAttorney ? [
+      { id: 'clients', label: 'Клієнти', icon: Users, route: ROUTES.CLIENTS },
+    ] : []),
     { id: 'matters', label: 'Справи', icon: Briefcase, route: ROUTES.MATTERS },
     ...(isAttorney ? [
       { id: 'time-entries', label: 'Time Entries', icon: Clock, route: ROUTES.TIME_ENTRIES },
