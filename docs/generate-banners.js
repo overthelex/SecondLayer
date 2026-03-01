@@ -126,29 +126,29 @@ function generateHTML(b) {
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:#1a1a1a; font-family:'Inter',sans-serif; }
-  .banner { width:1200px; height:627px; background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%); position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:center; padding:60px 80px; }
-  .banner::before { content:''; position:absolute; inset:0; background-image:linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px); background-size:40px 40px; }
-  .glow-1 { position:absolute; width:500px; height:500px; background:radial-gradient(circle,${b.accent}26 0%,transparent 70%); top:-100px; right:-100px; }
-  .glow-2 { position:absolute; width:400px; height:400px; background:radial-gradient(circle,${b.accent2}1a 0%,transparent 70%); bottom:-100px; left:-50px; }
+  body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:#e2e8f0; font-family:'Inter',sans-serif; }
+  .banner { width:1200px; height:627px; background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 50%,#e2e8f0 100%); position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:center; padding:60px 80px; }
+  .banner::before { content:''; position:absolute; inset:0; background-image:linear-gradient(rgba(0,0,0,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,0.04) 1px,transparent 1px); background-size:40px 40px; }
+  .glow-1 { position:absolute; width:500px; height:500px; background:radial-gradient(circle,${b.accent}20 0%,transparent 70%); top:-100px; right:-100px; }
+  .glow-2 { position:absolute; width:400px; height:400px; background:radial-gradient(circle,${b.accent2}15 0%,transparent 70%); bottom:-100px; left:-50px; }
   .content { position:relative; z-index:2; }
-  .badge { display:inline-flex; align-items:center; gap:8px; background:${b.accent}26; border:1px solid ${b.accent}4d; color:${b.accent}; font-size:13px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; padding:6px 16px; border-radius:100px; margin-bottom:32px; }
+  .badge { display:inline-flex; align-items:center; gap:8px; background:${b.accent}18; border:1px solid ${b.accent}40; color:${b.accent}; font-size:13px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; padding:6px 16px; border-radius:100px; margin-bottom:32px; }
   .badge-dot { width:6px; height:6px; background:${b.accent}; border-radius:50%; }
-  .title { color:#f1f5f9; font-size:48px; font-weight:800; line-height:1.15; max-width:800px; margin-bottom:24px; letter-spacing:-0.02em; }
+  .title { color:#0f172a; font-size:48px; font-weight:800; line-height:1.15; max-width:800px; margin-bottom:24px; letter-spacing:-0.02em; }
   .title span { color:${b.accent}; }
-  .subtitle { color:#94a3b8; font-size:18px; font-weight:400; line-height:1.5; max-width:700px; margin-bottom:40px; }
+  .subtitle { color:#475569; font-size:18px; font-weight:400; line-height:1.5; max-width:700px; margin-bottom:40px; }
   .flow { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-  .step { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); padding:8px 16px; border-radius:10px; color:#cbd5e1; font-size:13px; font-weight:500; }
-  .arrow { color:rgba(255,255,255,0.2); font-size:18px; }
+  .step { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.7); border:1px solid rgba(0,0,0,0.08); padding:8px 16px; border-radius:10px; color:#334155; font-size:13px; font-weight:500; }
+  .arrow { color:rgba(0,0,0,0.25); font-size:18px; }
   .logo-area { position:absolute; bottom:50px; right:80px; z-index:2; text-align:right; }
-  .logo-text { color:#64748b; font-size:18px; font-weight:600; letter-spacing:0.05em; }
+  .logo-text { color:#94a3b8; font-size:18px; font-weight:600; letter-spacing:0.05em; }
   .logo-text span { color:#d66b46; }
-  .url { color:#475569; font-size:13px; }
+  .url { color:#94a3b8; font-size:13px; }
   .deco-lines { position:absolute; top:60px; right:80px; z-index:2; }
-  .deco-line { height:3px; margin-bottom:6px; border-radius:2px; opacity:0.6; }
+  .deco-line { height:3px; margin-bottom:6px; border-radius:2px; opacity:0.5; }
   .deco-line:nth-child(1) { background:${b.accent}; width:200px; }
   .deco-line:nth-child(2) { background:${b.accent2}; width:150px; }
-  .deco-line:nth-child(3) { background:${b.accent}; width:100px; opacity:0.3; }
+  .deco-line:nth-child(3) { background:${b.accent}; width:100px; opacity:0.25; }
 </style></head><body>
 <div class="banner">
   <div class="glow-1"></div>
