@@ -79,7 +79,7 @@ export function AttorneyDetailPage() {
                 <Star key={i} className={`w-5 h-5 ${i <= Math.round(attorney.average_rating) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'}`} />
               ))}
               <span className="text-sm text-gray-500 ml-2">
-                {attorney.average_rating.toFixed(1)} ({attorney.rating_count} відгуків)
+                {Number(attorney.average_rating || 0).toFixed(1)} ({attorney.rating_count} відгуків)
               </span>
             </div>
           </div>
