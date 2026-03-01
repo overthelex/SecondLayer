@@ -214,7 +214,7 @@ function AttorneyCard({ attorney, onClick }: { attorney: AttorneyProfile; onClic
           />
         ))}
         <span className="text-xs text-gray-500 ml-1">
-          {attorney.average_rating.toFixed(1)} ({attorney.rating_count})
+          {Number(attorney.average_rating || 0).toFixed(1)} ({attorney.rating_count})
         </span>
       </div>
 
