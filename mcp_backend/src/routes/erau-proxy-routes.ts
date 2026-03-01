@@ -134,11 +134,12 @@ function parseERAUProfileHTML(html: string, id: string): ERAUProfile {
     if (!practiceType) {
       practiceType = extract(/(Індивідуальна адвокатська діяльність|Адвокатське бюро|Адвокатське об'єднання)/i);
     }
-    // Practice address: after "Адреса:"
-    const pAddrMatch = ps.match(/Адреса:<\/div>\s*<div[^>]*>([\s\S]*?)<\/div>/i);
+    // Practice address: after "Адреса:" in type-info div, value in next text-info div
+    const pAddrMatch = ps.match(/Адреса:[\s\S]*?<\/div>\s*<div[^>]*class="text-info[^>]*>([\s\S]*?)<\/div>/i);
     practiceAddress = pAddrMatch ? clean(pAddrMatch[1]) : null;
-    // Practice phone
-    const pPhoneMatch = ps.match(/href="tel:([^"]+)"/i);
+    // Practice phone: tel: link inside practice section
+    const pPhoneMatch = ps.match(/Мобільний[\s\S]*?href="tel:([^"]+)"/i)
+      || ps.match(/href="tel:([^"]+)"/i);
     practicePhone = pPhoneMatch ? clean(pPhoneMatch[1]) : null;
   }
 
