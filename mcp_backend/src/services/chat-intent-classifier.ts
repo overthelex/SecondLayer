@@ -116,7 +116,7 @@ export class IntentClassifier {
       }
 
       // Safety net for documents/vault queries
-      const documentsKeywords = ['vault', 'сховищ', 'завантажив', 'завантажені', 'мої документи', 'мої файли', 'загрузил', 'зарузил', 'загруженн', 'зберіг', 'збережені', 'uploaded', 'my documents', 'my files', 'видали', 'видалити', 'удали', 'удалить', 'delete', 'перейменуй', 'переименуй', 'rename', 'перенеси', 'move', 'папк', 'тег', 'tag', 'позначк'];
+      const documentsKeywords = ['vault', 'сховищ', 'завантажив', 'завантажені', 'мої документи', 'мої файли', 'загрузил', 'зарузил', 'загруженн', 'зберіг', 'збережені', 'uploaded', 'my documents', 'my files', 'видали', 'видалити', 'удали', 'удалить', 'delete', 'перейменуй', 'переименуй', 'rename', 'перенеси', 'move', 'папк', 'тег', 'tag', 'позначк', 'проаналізуй документ', 'проаналізуй договір', 'резюме документ', 'короткий зміст', 'ключові пункти', 'витяг положень', 'порівняй документ', 'що змінилось', 'аналіз договору', 'аналіз документ'];
       const hasDocumentsKeyword = documentsKeywords.some(kw => lowerQuery.includes(kw));
       if (hasDocumentsKeyword && !domains.includes('documents')) {
         domains.push('documents');
