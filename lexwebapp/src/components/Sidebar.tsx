@@ -257,10 +257,11 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   ];
 
   // Matters section — company/lawyer roles only
+  const isAttorney = user?.userType === 'attorney';
   const mattersSections = [
     { id: 'clients', label: 'Клієнти', icon: Users, route: ROUTES.CLIENTS },
     { id: 'matters', label: 'Справи', icon: Briefcase, route: ROUTES.MATTERS },
-    { id: 'time-entries', label: 'Time Entries', icon: Clock, route: ROUTES.TIME_ENTRIES },
+    ...(isAttorney ? [{ id: 'time-entries', label: 'Time Entries', icon: Clock, route: ROUTES.TIME_ENTRIES }] : []),
     { id: 'invoices', label: 'Invoices', icon: FileText, route: ROUTES.INVOICES },
     { id: 'case-analysis', label: 'Аналіз справ', icon: Search, route: ROUTES.CASE_ANALYSIS },
   ];
@@ -531,7 +532,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
               <div className="mb-6 space-y-1">
                 <NavItem icon={UserCheck} label="Адвокати" route={ROUTES.ATTORNEYS} onClick={() => handleNavigation(ROUTES.ATTORNEYS)} />
                 <NavItem icon={MessageSquare} label="Консультації" route={ROUTES.CONSULTATIONS} onClick={() => handleNavigation(ROUTES.CONSULTATIONS)} />
-                {user?.userType === 'attorney' && (
+                {isAttorney && (
                   <NavItem icon={UsersRound} label="Мої клієнти" route={ROUTES.ATTORNEY_CLIENTS} onClick={() => handleNavigation(ROUTES.ATTORNEY_CLIENTS)} />
                 )}
               </div>
@@ -569,7 +570,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                   </div>
                   <span className="text-[13px] font-medium text-claude-text font-sans">Профіль</span>
                 </button>
-                {role === 'user' && user?.userType !== 'attorney' && (
+                {role === 'user' && !isAttorney && (
                   <button
                     onClick={() => { setShowProfileMenu(false); navigate(ROUTES.ATTORNEY_PROFILE_EDIT); }}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">
