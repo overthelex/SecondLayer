@@ -531,7 +531,9 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
               <div className="mb-6 space-y-1">
                 <NavItem icon={UserCheck} label="Адвокати" route={ROUTES.ATTORNEYS} onClick={() => handleNavigation(ROUTES.ATTORNEYS)} />
                 <NavItem icon={MessageSquare} label="Консультації" route={ROUTES.CONSULTATIONS} onClick={() => handleNavigation(ROUTES.CONSULTATIONS)} />
-                <NavItem icon={UsersRound} label="Мої клієнти" route={ROUTES.ATTORNEY_CLIENTS} onClick={() => handleNavigation(ROUTES.ATTORNEY_CLIENTS)} />
+                {user?.userType === 'attorney' && (
+                  <NavItem icon={UsersRound} label="Мої клієнти" route={ROUTES.ATTORNEY_CLIENTS} onClick={() => handleNavigation(ROUTES.ATTORNEY_CLIENTS)} />
+                )}
               </div>
 
             </>
@@ -567,7 +569,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                   </div>
                   <span className="text-[13px] font-medium text-claude-text font-sans">Профіль</span>
                 </button>
-                {role === 'user' && (
+                {role === 'user' && user?.userType !== 'attorney' && (
                   <button
                     onClick={() => { setShowProfileMenu(false); navigate(ROUTES.ATTORNEY_PROFILE_EDIT); }}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">

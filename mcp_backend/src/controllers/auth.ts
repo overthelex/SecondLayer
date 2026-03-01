@@ -121,6 +121,7 @@ export async function getCurrentUser(req: AuthenticatedRequest, res: Response): 
         lastLogin: user.last_login,
         createdAt: user.created_at,
         role: user.role,
+        userType: user.user_type || 'individual',
       },
     });
   } catch (error: any) {
