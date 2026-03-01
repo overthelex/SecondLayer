@@ -39,7 +39,7 @@ export function PersonDetailPage({
             size={18}
             className="group-hover:-translate-x-1 transition-transform" />
 
-          <span className="font-sans text-sm">Назад к списку</span>
+          <span className="font-sans text-sm">Назад до списку</span>
         </button>
 
         {/* Header Section */}
@@ -101,23 +101,23 @@ export function PersonDetailPage({
             className="bg-white rounded-2xl p-6 border border-claude-border shadow-sm">
 
             <h2 className="text-xl font-serif text-claude-text mb-4">
-              Контактная информация
+              Контактна інформація
             </h2>
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-claude-subtext">
                 <Mail size={18} className="flex-shrink-0" />
                 <span className="font-sans text-sm">
-                  {person.name.toLowerCase().replace(/\s+/g, '.')}@example.ru
+                  {person.name.toLowerCase().replace(/\s+/g, '.')}@example.ua
                 </span>
               </div>
               <div className="flex items-center gap-3 text-claude-subtext">
                 <Phone size={18} className="flex-shrink-0" />
-                <span className="font-sans text-sm">+7 (495) 123-45-67</span>
+                <span className="font-sans text-sm">+380 (44) 123-45-67</span>
               </div>
               <div className="flex items-center gap-3 text-claude-subtext">
                 <MapPin size={18} className="flex-shrink-0" />
                 <span className="font-sans text-sm">
-                  г. Москва, ул. Примерная, д. 1
+                  м. Київ, вул. Хрещатик, 1
                 </span>
               </div>
             </div>
@@ -146,7 +146,7 @@ export function PersonDetailPage({
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-claude-subtext font-sans">
-                    Всего дел
+                    Всього справ
                   </span>
                   <span className="font-serif font-medium text-claude-text">
                     {person.cases}
@@ -156,7 +156,7 @@ export function PersonDetailPage({
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-claude-subtext font-sans">
-                    {isJudge ? 'Удовлетворение' : 'Успешность'}
+                    {isJudge ? 'Задоволення' : 'Успішність'}
                   </span>
                   <span className="font-serif font-medium text-claude-text">
                     {person.successRate}%
@@ -174,10 +174,10 @@ export function PersonDetailPage({
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-claude-subtext font-sans">
-                    Средняя длительность
+                    Середня тривалість
                   </span>
                   <span className="font-serif font-medium text-claude-text">
-                    4.2 мес.
+                    4.2 міс.
                   </span>
                 </div>
               </div>
@@ -201,7 +201,7 @@ export function PersonDetailPage({
             className="bg-white rounded-2xl p-6 border border-claude-border shadow-sm md:col-span-2">
 
             <h2 className="text-xl font-serif text-claude-text mb-4">
-              {isJudge ? 'Судебная практика' : 'Профессиональный опыт'}
+              {isJudge ? 'Судова практика' : 'Професійний досвід'}
             </h2>
             <div className="space-y-4">
               <div className="flex items-start gap-4 p-4 bg-claude-bg rounded-xl">
@@ -210,10 +210,10 @@ export function PersonDetailPage({
                 </div>
                 <div>
                   <h3 className="font-serif font-medium text-claude-text mb-1">
-                    {isJudge ? 'Категории дел' : 'Специализация'}
+                    {isJudge ? 'Категорії справ' : 'Спеціалізація'}
                   </h3>
                   <p className="text-sm text-claude-subtext font-sans">
-                    {person.specialization}, корпоративные споры, договорное
+                    {person.specialization}, корпоративні спори, договірне
                     право
                   </p>
                 </div>
@@ -225,12 +225,12 @@ export function PersonDetailPage({
                 </div>
                 <div>
                   <h3 className="font-serif font-medium text-claude-text mb-1">
-                    {isJudge ? 'Наиболее цитируемые решения' : 'Достижения'}
+                    {isJudge ? 'Найбільш цитовані рішення' : 'Досягнення'}
                   </h3>
                   <p className="text-sm text-claude-subtext font-sans">
                     {isJudge ?
-                    'Постановление от 15.03.2023 по делу №А40-12345/23, Определение от 22.06.2023' :
-                    'Победа в 85% арбитражных споров, успешное представительство в ВС РФ'}
+                    'Постанова від 15.03.2023 у справі №910/12345/23, Ухвала від 22.06.2023' :
+                    'Перемога у 85% господарських спорів, успішне представництво у ВС'}
                   </p>
                 </div>
               </div>
@@ -241,12 +241,12 @@ export function PersonDetailPage({
                 </div>
                 <div>
                   <h3 className="font-serif font-medium text-claude-text mb-1">
-                    {isJudge ? 'Тенденции' : 'Подход к делам'}
+                    {isJudge ? 'Тенденції' : 'Підхід до справ'}
                   </h3>
                   <p className="text-sm text-claude-subtext font-sans">
                     {isJudge ?
-                    'Последний год: более строгий подход к оценке доказательств, частое применение ст. 333 ГК РФ' :
-                    'Агрессивная процессуальная тактика, упор на формальные нарушения, эффективное использование сроков'}
+                    'Останній рік: більш суворий підхід до оцінки доказів, часте застосування ст. 551 ЦК України' :
+                    'Агресивна процесуальна тактика, акцент на формальних порушеннях, ефективне використання строків'}
                   </p>
                 </div>
               </div>
@@ -270,7 +270,7 @@ export function PersonDetailPage({
             className="bg-white rounded-2xl p-6 border border-claude-border shadow-sm md:col-span-2">
 
             <h2 className="text-xl font-serif text-claude-text mb-4">
-              Последние дела
+              Останні справи
             </h2>
             <div className="space-y-3">
               {[1, 2, 3].map((i) =>
@@ -282,7 +282,7 @@ export function PersonDetailPage({
                     <FileText size={16} className="text-claude-subtext" />
                     <div>
                       <div className="font-medium text-claude-text font-sans text-sm">
-                        Дело №А40-{12345 + i}/2024
+                        Справа №910/{12345 + i}/24
                       </div>
                       <div className="text-xs text-claude-subtext font-sans">
                         {person.specialization}
@@ -290,7 +290,7 @@ export function PersonDetailPage({
                     </div>
                   </div>
                   <div className="text-xs text-claude-subtext font-sans">
-                    {new Date(2024, 0, 15 - i).toLocaleDateString('ru-RU')}
+                    {new Date(2024, 0, 15 - i).toLocaleDateString('uk-UA')}
                   </div>
                 </div>
               )}
