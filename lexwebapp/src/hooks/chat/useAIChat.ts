@@ -222,11 +222,18 @@ export function useAIChat(options: UseAIChatOptions = {}) {
             completedState.syncMessage(completedMsg);
           }
 
-          if (completedState.conversationId && completedState.messages.length <= 3) {
-            const firstUserMsg = completedState.messages.find((m) => m.role === 'user');
-            if (firstUserMsg) {
-              const title = firstUserMsg.content.slice(0, 60).trim();
-              completedState.renameConversation(completedState.conversationId, title);
+          // Auto-rename conversation if it still has the default title
+          if (completedState.conversationId) {
+            const conv = completedState.conversations.find(
+              (c) => c.id === completedState.conversationId
+            );
+            const needsRename = !conv || conv.title === 'New conversation' || conv.title === 'Нова розмова';
+            if (needsRename) {
+              const firstUserMsg = completedState.messages.find((m) => m.role === 'user');
+              if (firstUserMsg) {
+                const title = firstUserMsg.content.slice(0, 60).trim();
+                completedState.renameConversation(completedState.conversationId, title);
+              }
             }
           }
 
@@ -264,6 +271,14 @@ export function useAIChat(options: UseAIChatOptions = {}) {
         },
 
         onComplete: (data) => {
+          // Pick up auto-created conversationId from backend
+          if (data.conversationId && !useChatStore.getState().conversationId) {
+            const store = useChatStore.getState();
+            useChatStore.setState({ conversationId: data.conversationId });
+            // Refresh sidebar conversation list
+            store.loadConversations();
+          }
+
           if (data.tools_used || data.total_cost_usd != null || data.charged_usd != null) {
             costSummaryRef.current = {
               ...costSummaryRef.current,
@@ -310,8 +325,10 @@ export function useAIChat(options: UseAIChatOptions = {}) {
 
       const state = useChatStore.getState();
       if (!state.conversationId && localStorage.getItem('auth_token')) {
-        await state.createConversation();
+        const title = query.slice(0, 60).trim() || undefined;
+        await state.createConversation(title);
       }
+      // syncMessage after createConversation resolves so conversationId is set
       useChatStore.getState().syncMessage(userMessage);
 
       const assistantMessageId = (Date.now() + 1).toString();
