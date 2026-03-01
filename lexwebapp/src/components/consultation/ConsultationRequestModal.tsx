@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { consultationService, type CreateConsultationRequest } from '../../services/api/ConsultationService';
 import { generateRoute } from '../../router/routes';
 import { StepIndicator } from '../attorney/AttorneyOnboardingModal/StepIndicator';
 import { DocumentPicker } from './DocumentPicker';
 import { ConfirmStep } from './ConfirmStep';
+import { PaymentStep } from './PaymentStep';
 import type { VaultDocument } from '../../pages/DocumentsPage/types';
 
 interface Props {
@@ -29,7 +30,7 @@ const URGENCY_OPTIONS = [
   { value: 'urgent', label: 'Термінова' },
 ];
 
-const STEP_TITLES = ['Деталі запиту', 'Документи', 'Підтвердження'];
+const STEP_TITLES = ['Деталі запиту', 'Документи', 'Підтвердження', 'Оплата'];
 
 export function ConsultationRequestModal({ attorneyId, attorneyName, consultationFee, matterId, onClose }: Props) {
   const navigate = useNavigate();
@@ -91,7 +92,7 @@ export function ConsultationRequestModal({ attorneyId, attorneyName, consultatio
           </button>
         </div>
 
-        <StepIndicator currentStep={step} totalSteps={3} />
+        <StepIndicator currentStep={step} totalSteps={4} />
 
         <div className="flex-1 overflow-y-auto min-h-0">
           {step === 1 && (
@@ -193,7 +194,17 @@ export function ConsultationRequestModal({ attorneyId, attorneyName, consultatio
               attorneyName={attorneyName}
               consultationFee={consultationFee}
               onBack={() => setStep(2)}
-              onSubmit={handleSubmit}
+              onNext={() => setStep(4)}
+            />
+          )}
+
+          {step === 4 && (
+            <PaymentStep
+              attorneyName={attorneyName}
+              consultationFee={consultationFee}
+              serviceType={form.consultationType || 'consultation'}
+              onPaymentComplete={handleSubmit}
+              onBack={() => setStep(3)}
               submitting={submitting}
               error={error}
             />
