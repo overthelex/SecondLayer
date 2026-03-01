@@ -196,10 +196,7 @@ export const useChatStore = create<ChatState>()(
 
         // Switch to existing conversation
         switchConversation: async (conversationId: string) => {
-          if (!isAuthenticated()) {
-            console.warn('[ChatStore] switchConversation blocked: not authenticated (no auth_token in localStorage)');
-            return;
-          }
+          if (!isAuthenticated()) return;
           const { conversationId: currentId, messages, isStreaming } = get();
 
           // Save current conversation messages to cache before switching
@@ -235,7 +232,7 @@ export const useChatStore = create<ChatState>()(
                     title: `✓ ${s.tool || 'tool'}`,
                     content: typeof s.result === 'string'
                       ? s.result.slice(0, 500)
-                      : JSON.stringify(s.result, null, 2).slice(0, 500),
+                      : (JSON.stringify(s.result ?? '', null, 2) || '').slice(0, 500),
                     isComplete: true,
                   }))
                 : undefined,
