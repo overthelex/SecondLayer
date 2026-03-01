@@ -147,9 +147,8 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   // Compute which section IDs are actually rendered (for toggle-all)
   const renderedSectionIds = useMemo(() => {
     if (role === 'administrator') return ['monitoring'];
-    const ids = ['research', 'legislation', 'vault'];
+    const ids = ['research', 'legislation', 'vault', 'matters'];
     if (conversations.length > 0) ids.push('conversations');
-    if (role !== 'user') ids.push('matters');
     return ids;
   }, [role, conversations.length]);
 
@@ -516,14 +515,12 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                 })}
               </Section>
 
-              {/* Matters — company/lawyer only */}
-              {role !== 'user' && (
-                <Section id="matters" title="Справи" collapsed={collapsedSections.has('matters')} onToggle={toggleSection}>
-                  {mattersSections.map((s) => (
-                    <NavItem key={s.id} icon={s.icon} label={s.label} route={s.route} onClick={() => handleNavigation(s.route)} />
-                  ))}
-                </Section>
-              )}
+              {/* Matters */}
+              <Section id="matters" title="Справи" collapsed={collapsedSections.has('matters')} onToggle={toggleSection}>
+                {mattersSections.map((s) => (
+                  <NavItem key={s.id} icon={s.icon} label={s.label} route={s.route} onClick={() => handleNavigation(s.route)} />
+                ))}
+              </Section>
 
               {/* Workflows — institutional analysis */}
               <div className="mb-6">
