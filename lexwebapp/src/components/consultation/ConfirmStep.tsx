@@ -1,4 +1,4 @@
-import { Loader2, FileText, File } from 'lucide-react';
+import { FileText, File } from 'lucide-react';
 import type { CreateConsultationRequest } from '../../services/api/ConsultationService';
 import type { VaultDocument } from '../../pages/DocumentsPage/types';
 import { getFileExtension } from '../../pages/DocumentsPage/types';
@@ -23,21 +23,15 @@ interface Props {
   attorneyName: string;
   consultationFee?: number;
   onBack: () => void;
-  onSubmit: () => void;
-  submitting: boolean;
-  error: string;
+  onNext: () => void;
 }
 
-export function ConfirmStep({ form, selectedDocIds, allDocs, attorneyName, consultationFee, onBack, onSubmit, submitting, error }: Props) {
+export function ConfirmStep({ form, selectedDocIds, allDocs, attorneyName, consultationFee, onBack, onNext }: Props) {
   const selectedDocs = allDocs.filter(d => selectedDocIds.includes(d.id));
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>
-        )}
-
         <div className="space-y-3">
           <Row label="Адвокат" value={attorneyName} />
           {consultationFee && <Row label="Вартість" value={`${consultationFee} грн`} />}
@@ -86,12 +80,10 @@ export function ConfirmStep({ form, selectedDocIds, allDocs, attorneyName, consu
         </button>
         <button
           type="button"
-          onClick={onSubmit}
-          disabled={submitting}
-          className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          onClick={onNext}
+          className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 flex items-center justify-center gap-2"
         >
-          {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-          Надіслати запит
+          Далі до оплати
         </button>
       </div>
     </div>
