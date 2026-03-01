@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { consultationService, type CreateConsultationRequest } from '../../services/api/ConsultationService';
 import { generateRoute } from '../../router/routes';
 import { StepIndicator } from '../attorney/AttorneyOnboardingModal/StepIndicator';
+import { ConversationPicker } from './ConversationPicker';
 import { DocumentPicker } from './DocumentPicker';
 import { ConfirmStep } from './ConfirmStep';
 import { PaymentStep } from './PaymentStep';
 import type { VaultDocument } from '../../pages/DocumentsPage/types';
+import type { Conversation } from '../../services/api/ConversationService';
 
 interface Props {
   attorneyId: string;
@@ -30,7 +32,7 @@ const URGENCY_OPTIONS = [
   { value: 'urgent', label: 'Термінова' },
 ];
 
-const STEP_TITLES = ['Деталі запиту', 'Документи', 'Підтвердження', 'Оплата'];
+const STEP_TITLES = ['Деталі запиту', 'Чати', 'Документи', 'Підтвердження', 'Оплата'];
 
 export function ConsultationRequestModal({ attorneyId, attorneyName, consultationFee, matterId, onClose }: Props) {
   const navigate = useNavigate();
@@ -39,6 +41,8 @@ export function ConsultationRequestModal({ attorneyId, attorneyName, consultatio
   const [error, setError] = useState('');
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [allDocs, setAllDocs] = useState<VaultDocument[]>([]);
+  const [selectedConversationIds, setSelectedConversationIds] = useState<string[]>([]);
+  const [allConversations, setAllConversations] = useState<Conversation[]>([]);
   const [form, setForm] = useState<CreateConsultationRequest>({
     attorneyUserId: attorneyId,
     matterId: matterId || undefined,
@@ -69,6 +73,7 @@ export function ConsultationRequestModal({ attorneyId, attorneyName, consultatio
       const payload: CreateConsultationRequest = {
         ...form,
         documentIds: selectedDocIds.length > 0 ? selectedDocIds : undefined,
+        conversationIds: selectedConversationIds.length > 0 ? selectedConversationIds : undefined,
       };
       const consultation = await consultationService.createConsultation(payload);
       onClose();
@@ -92,7 +97,7 @@ export function ConsultationRequestModal({ attorneyId, attorneyName, consultatio
           </button>
         </div>
 
-        <StepIndicator currentStep={step} totalSteps={4} />
+        <StepIndicator currentStep={step} totalSteps={5} />
 
         <div className="flex-1 overflow-y-auto min-h-0">
           {step === 1 && (
@@ -177,34 +182,46 @@ export function ConsultationRequestModal({ attorneyId, attorneyName, consultatio
           )}
 
           {step === 2 && (
-            <DocumentPicker
-              selectedIds={selectedDocIds}
-              onChange={setSelectedDocIds}
-              onDocsLoaded={setAllDocs}
+            <ConversationPicker
+              selectedIds={selectedConversationIds}
+              onChange={setSelectedConversationIds}
+              onConversationsLoaded={setAllConversations}
               onBack={() => setStep(1)}
               onNext={() => setStep(3)}
             />
           )}
 
           {step === 3 && (
-            <ConfirmStep
-              form={form}
-              selectedDocIds={selectedDocIds}
-              allDocs={allDocs}
-              attorneyName={attorneyName}
-              consultationFee={consultationFee}
+            <DocumentPicker
+              selectedIds={selectedDocIds}
+              onChange={setSelectedDocIds}
+              onDocsLoaded={setAllDocs}
               onBack={() => setStep(2)}
               onNext={() => setStep(4)}
             />
           )}
 
           {step === 4 && (
+            <ConfirmStep
+              form={form}
+              selectedDocIds={selectedDocIds}
+              allDocs={allDocs}
+              selectedConversationIds={selectedConversationIds}
+              allConversations={allConversations}
+              attorneyName={attorneyName}
+              consultationFee={consultationFee}
+              onBack={() => setStep(3)}
+              onNext={() => setStep(5)}
+            />
+          )}
+
+          {step === 5 && (
             <PaymentStep
               attorneyName={attorneyName}
               consultationFee={consultationFee}
               serviceType={form.consultationType || 'consultation'}
               onPaymentComplete={handleSubmit}
-              onBack={() => setStep(3)}
+              onBack={() => setStep(4)}
               submitting={submitting}
               error={error}
             />
