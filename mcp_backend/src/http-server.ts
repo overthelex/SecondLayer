@@ -117,6 +117,8 @@ import { ConsultationService } from './services/consultation-service.js';
 import { ConsultationPaymentService } from './services/consultation-payment-service.js';
 import { createAttorneyRoutes } from './routes/attorney-routes.js';
 import { createConsultationRoutes } from './routes/consultation-routes.js';
+import { JudgesService } from './services/judges-service.js';
+import { createJudgesRoutes } from './routes/judges-routes.js';
 
 dotenv.config();
 
@@ -1879,6 +1881,10 @@ class HTTPMCPServer {
       this.matterService, this.conflictCheckService, this.legalHoldService, this.auditService
     ));
     logger.info('Matter routes registered at /api/matters');
+
+    // Judges routes - search judges from VKKS data
+    const judgesService = new JudgesService(this.services.db);
+    this.app.use('/api/judges', requireJWT as any, createJudgesRoutes(judgesService));
 
     // Decisions routes - download court decision full texts from reyestr.court.gov.ua
     this.app.use('/api/decisions', requireJWT as any, createDecisionsRoutes(this.services.reyestrDownloadService));

@@ -1,94 +1,56 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,
   Scale,
   ChevronRight,
-  Gavel,
-  Percent,
-  Clock,
+  Calendar,
   LayoutGrid,
-  List } from
-'lucide-react';
-interface Judge {
-  id: string;
-  name: string;
-  court: string;
-  cases: number;
-  approvalRate: number;
-  avgDuration: string;
-  specialization: string;
-}
-const judgesData: Judge[] = [
-{
-  id: '1',
-  name: 'Іванов Петро Сергійович',
-  court: 'Верховний Суд КЦС',
-  cases: 156,
-  approvalRate: 68,
-  avgDuration: '4.5 міс.',
-  specialization: 'Банкрутство'
-},
-{
-  id: '2',
-  name: 'Петрова Анна Вікторівна',
-  court: 'Господарський суд м. Києва',
-  cases: 203,
-  approvalRate: 72,
-  avgDuration: '3.2 міс.',
-  specialization: 'Корпоративні спори'
-},
-{
-  id: '3',
-  name: 'Сидоренко Михайло Олександрович',
-  court: 'Північний апеляційний господарський суд',
-  cases: 89,
-  approvalRate: 65,
-  avgDuration: '2.8 міс.',
-  specialization: 'Нерухомість'
-},
-{
-  id: '4',
-  name: 'Кузнецова Олена Дмитрівна',
-  court: 'Господарський суд Київської області',
-  cases: 142,
-  approvalRate: 59,
-  avgDuration: '5.1 міс.',
-  specialization: 'Податкові спори'
-}];
+  List,
+  Loader2,
+} from 'lucide-react';
+import { useJudges } from '../hooks/queries/useJudges';
+import { Judge } from '../services/api/JudgesService';
 
 interface JudgesPageProps {
   onSelectJudge?: (judge: Judge) => void;
 }
+
 export function JudgesPage({ onSelectJudge }: JudgesPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'comfortable' | 'compact'>(
-    'comfortable'
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [viewMode, setViewMode] = useState<'comfortable' | 'compact'>('comfortable');
+  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (debounceTimer) clearTimeout(debounceTimer);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(value);
+    }, 300);
+    setDebounceTimer(timer);
+  };
+
+  const searchParams = useMemo(
+    () => (debouncedSearch.trim() ? { search: debouncedSearch.trim(), limit: 50 } : { limit: 50 }),
+    [debouncedSearch]
   );
-  const filteredJudges = judgesData.filter(
-    (judge) =>
-    judge.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    judge.court.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+
+  const { data, isLoading, isError, error } = useJudges(searchParams);
+
+  const judges = data?.judges ?? [];
+  const total = data?.total ?? 0;
+
   return (
     <div className="flex-1 h-full overflow-y-auto bg-claude-bg p-4 md:p-8 lg:p-12">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header Section */}
         <motion.div
-          initial={{
-            opacity: 0,
-            y: 20
-          }}
-          animate={{
-            opacity: 1,
-            y: 0
-          }}
-          transition={{
-            duration: 0.5,
-            ease: [0.22, 1, 0.36, 1]
-          }}
-          className="space-y-6">
-
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="space-y-6"
+        >
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <h1 className="text-3xl md:text-4xl font-serif text-claude-text font-medium tracking-tight mb-2">
@@ -102,7 +64,7 @@ export function JudgesPage({ onSelectJudge }: JudgesPageProps) {
             <div className="flex items-center gap-2 text-sm text-claude-subtext bg-white px-3 py-1.5 rounded-lg border border-claude-border shadow-sm">
               <Scale size={16} />
               <span className="font-sans">
-                {judgesData.length} суддів у базі
+                {total.toLocaleString('uk-UA')} суддів у базі
               </span>
             </div>
           </div>
@@ -111,15 +73,19 @@ export function JudgesPage({ onSelectJudge }: JudgesPageProps) {
           <div className="flex gap-3">
             <div className="relative flex-1 group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-claude-subtext group-focus-within:text-claude-accent transition-colors" />
+                {isLoading ? (
+                  <Loader2 className="h-5 w-5 text-claude-subtext animate-spin" />
+                ) : (
+                  <Search className="h-5 w-5 text-claude-subtext group-focus-within:text-claude-accent transition-colors" />
+                )}
               </div>
               <input
                 type="text"
                 className="block w-full pl-11 pr-4 py-4 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all shadow-sm font-sans"
                 placeholder="Пошук за прізвищем судді або назвою суду..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)} />
-
+                onChange={(e) => handleSearchChange(e.target.value)}
+              />
             </div>
 
             {/* View Mode Toggle */}
@@ -127,135 +93,135 @@ export function JudgesPage({ onSelectJudge }: JudgesPageProps) {
               <button
                 onClick={() => setViewMode('comfortable')}
                 className={`p-2 rounded-lg transition-colors ${viewMode === 'comfortable' ? 'bg-claude-accent text-white' : 'text-claude-subtext hover:text-claude-text'}`}
-                title="Зручний вигляд">
-
+                title="Зручний вигляд"
+              >
                 <LayoutGrid size={18} />
               </button>
               <button
                 onClick={() => setViewMode('compact')}
                 className={`p-2 rounded-lg transition-colors ${viewMode === 'compact' ? 'bg-claude-accent text-white' : 'text-claude-subtext hover:text-claude-text'}`}
-                title="Компактний вигляд">
-
+                title="Компактний вигляд"
+              >
                 <List size={18} />
               </button>
             </div>
           </div>
         </motion.div>
 
+        {/* Error State */}
+        {isError && (
+          <div className="text-center py-8">
+            <p className="text-red-500 font-sans">
+              Помилка завантаження: {(error as any)?.message || 'Невідома помилка'}
+            </p>
+          </div>
+        )}
+
         {/* Results Grid */}
         <div
-          className={`grid ${viewMode === 'compact' ? 'grid-cols-1 gap-2' : 'grid-cols-1 md:grid-cols-2 gap-4'}`}>
-
-          {filteredJudges.map((judge, index) =>
-          <motion.div
-            key={judge.id}
-            initial={{
-              opacity: 0,
-              y: 20
-            }}
-            animate={{
-              opacity: 1,
-              y: 0
-            }}
-            transition={{
-              duration: 0.4,
-              delay: index * 0.05 + 0.2
-            }}
-            onClick={() => onSelectJudge?.(judge)}
-            className={`group bg-white rounded-2xl border border-claude-border shadow-sm hover:shadow-md hover:border-claude-subtext/30 transition-all cursor-pointer relative overflow-hidden ${viewMode === 'compact' ? 'p-3' : 'p-5'}`}>
-
+          className={`grid ${viewMode === 'compact' ? 'grid-cols-1 gap-2' : 'grid-cols-1 md:grid-cols-2 gap-4'}`}
+        >
+          {judges.map((judge, index) => (
+            <motion.div
+              key={judge.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: index * 0.05 + 0.2 }}
+              onClick={() => onSelectJudge?.(judge)}
+              className={`group bg-white rounded-2xl border border-claude-border shadow-sm hover:shadow-md hover:border-claude-subtext/30 transition-all cursor-pointer relative overflow-hidden ${viewMode === 'compact' ? 'p-3' : 'p-5'}`}
+            >
               <div className="absolute top-0 right-0 p-5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-x-2 group-hover:translate-x-0">
                 <ChevronRight className="text-claude-subtext" />
               </div>
 
-              <div
-              className={`flex items-start gap-3 ${viewMode === 'compact' ? 'mb-2' : 'mb-4'}`}>
-
-                {viewMode === 'comfortable' &&
-              <div className="w-14 h-14 rounded-full bg-claude-sidebar border-2 border-white shadow-sm flex items-center justify-center text-xl font-serif text-claude-subtext flex-shrink-0">
-                    {judge.name.
-                split(' ').
-                map((n) => n[0]).
-                slice(0, 2).
-                join('')}
+              <div className={`flex items-start gap-3 ${viewMode === 'compact' ? 'mb-2' : 'mb-4'}`}>
+                {viewMode === 'comfortable' && (
+                  <div className="w-14 h-14 rounded-full bg-claude-sidebar border-2 border-white shadow-sm flex items-center justify-center text-xl font-serif text-claude-subtext flex-shrink-0">
+                    {judge.full_name
+                      .split(' ')
+                      .map((n) => n[0])
+                      .slice(0, 2)
+                      .join('')}
                   </div>
-              }
+                )}
                 <div className="flex-1">
                   <h3
-                  className={`font-serif font-medium text-claude-text group-hover:text-claude-accent transition-colors ${viewMode === 'compact' ? 'text-base' : 'text-lg'}`}>
-
-                    {judge.name}
+                    className={`font-serif font-medium text-claude-text group-hover:text-claude-accent transition-colors ${viewMode === 'compact' ? 'text-base' : 'text-lg'}`}
+                  >
+                    {judge.full_name}
                   </h3>
                   <p
-                  className={`text-claude-subtext font-sans mt-0.5 line-clamp-1 ${viewMode === 'compact' ? 'text-xs' : 'text-sm'}`}>
-
-                    {judge.court}
+                    className={`text-claude-subtext font-sans mt-0.5 line-clamp-1 ${viewMode === 'compact' ? 'text-xs' : 'text-sm'}`}
+                  >
+                    {judge.court_name || 'Суд не вказано'}
                   </p>
-                  <div
-                  className={`mt-2 inline-flex items-center px-2 py-0.5 rounded font-medium font-sans bg-claude-bg text-claude-subtext border border-claude-border/50 ${viewMode === 'compact' ? 'text-[10px]' : 'text-xs'}`}>
-
-                    {judge.specialization}
-                  </div>
+                  {judge.dossier_number && (
+                    <div
+                      className={`mt-2 inline-flex items-center px-2 py-0.5 rounded font-medium font-sans bg-claude-bg text-claude-subtext border border-claude-border/50 ${viewMode === 'compact' ? 'text-[10px]' : 'text-xs'}`}
+                    >
+                      Досьє: {judge.dossier_number}
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div
-              className={`grid grid-cols-3 gap-2 pt-3 border-t border-claude-border/50 ${viewMode === 'compact' ? 'text-xs' : ''}`}>
-
+                className={`grid grid-cols-3 gap-2 pt-3 border-t border-claude-border/50 ${viewMode === 'compact' ? 'text-xs' : ''}`}
+              >
                 <div className="text-center">
                   <div
-                  className={`flex items-center justify-center gap-1 text-claude-subtext mb-1 font-sans ${viewMode === 'compact' ? 'text-[10px]' : 'text-xs'}`}>
-
-                    <Gavel size={viewMode === 'compact' ? 10 : 12} />
-                    <span>Справ</span>
+                    className={`flex items-center justify-center gap-1 text-claude-subtext mb-1 font-sans ${viewMode === 'compact' ? 'text-[10px]' : 'text-xs'}`}
+                  >
+                    <Calendar size={viewMode === 'compact' ? 10 : 12} />
+                    <span>Перший запис</span>
                   </div>
                   <div
-                  className={`font-medium text-claude-text font-serif ${viewMode === 'compact' ? 'text-base' : 'text-lg'}`}>
-
-                    {judge.cases}
-                  </div>
-                </div>
-                <div className="text-center border-l border-claude-border/50">
-                  <div
-                  className={`flex items-center justify-center gap-1 text-claude-subtext mb-1 font-sans ${viewMode === 'compact' ? 'text-[10px]' : 'text-xs'}`}>
-
-                    <Percent size={viewMode === 'compact' ? 10 : 12} />
-                    <span>Задов.</span>
-                  </div>
-                  <div
-                  className={`font-medium text-claude-text font-serif ${viewMode === 'compact' ? 'text-base' : 'text-lg'}`}>
-
-                    {judge.approvalRate}%
+                    className={`font-medium text-claude-text font-serif ${viewMode === 'compact' ? 'text-sm' : 'text-base'}`}
+                  >
+                    {judge.first_seen
+                      ? new Date(judge.first_seen).toLocaleDateString('uk-UA', { year: 'numeric', month: 'short' })
+                      : '—'}
                   </div>
                 </div>
                 <div className="text-center border-l border-claude-border/50">
                   <div
-                  className={`flex items-center justify-center gap-1 text-claude-subtext mb-1 font-sans ${viewMode === 'compact' ? 'text-[10px]' : 'text-xs'}`}>
-
-                    <Clock size={viewMode === 'compact' ? 10 : 12} />
-                    <span>Строк</span>
+                    className={`flex items-center justify-center gap-1 text-claude-subtext mb-1 font-sans ${viewMode === 'compact' ? 'text-[10px]' : 'text-xs'}`}
+                  >
+                    <Calendar size={viewMode === 'compact' ? 10 : 12} />
+                    <span>Останній</span>
                   </div>
                   <div
-                  className={`font-medium text-claude-text font-serif ${viewMode === 'compact' ? 'text-base' : 'text-lg'}`}>
-
-                    {judge.avgDuration}
+                    className={`font-medium text-claude-text font-serif ${viewMode === 'compact' ? 'text-sm' : 'text-base'}`}
+                  >
+                    {judge.last_seen
+                      ? new Date(judge.last_seen).toLocaleDateString('uk-UA', { year: 'numeric', month: 'short' })
+                      : '—'}
+                  </div>
+                </div>
+                <div className="text-center border-l border-claude-border/50">
+                  <div
+                    className={`flex items-center justify-center gap-1 text-claude-subtext mb-1 font-sans ${viewMode === 'compact' ? 'text-[10px]' : 'text-xs'}`}
+                  >
+                    <Scale size={viewMode === 'compact' ? 10 : 12} />
+                    <span>Знімків</span>
+                  </div>
+                  <div
+                    className={`font-medium text-claude-text font-serif ${viewMode === 'compact' ? 'text-sm' : 'text-base'}`}
+                  >
+                    {judge.snapshot_count}
                   </div>
                 </div>
               </div>
             </motion.div>
-          )}
+          ))}
         </div>
 
-        {filteredJudges.length === 0 &&
-        <motion.div
-          initial={{
-            opacity: 0
-          }}
-          animate={{
-            opacity: 1
-          }}
-          className="text-center py-12">
-
+        {!isLoading && judges.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-12"
+          >
             <div className="w-16 h-16 bg-claude-bg rounded-full flex items-center justify-center mx-auto mb-4 text-claude-subtext">
               <Search size={24} />
             </div>
@@ -267,8 +233,8 @@ export function JudgesPage({ onSelectJudge }: JudgesPageProps) {
               прізвища
             </p>
           </motion.div>
-        }
+        )}
       </div>
-    </div>);
-
+    </div>
+  );
 }
