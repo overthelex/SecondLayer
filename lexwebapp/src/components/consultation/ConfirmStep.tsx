@@ -1,7 +1,8 @@
-import { FileText, File } from 'lucide-react';
+import { FileText, File, MessageSquare } from 'lucide-react';
 import type { CreateConsultationRequest } from '../../services/api/ConsultationService';
 import type { VaultDocument } from '../../pages/DocumentsPage/types';
 import { getFileExtension } from '../../pages/DocumentsPage/types';
+import type { Conversation } from '../../services/api/ConversationService';
 
 const TYPE_LABELS: Record<string, string> = {
   consultation: 'Консультація',
@@ -20,14 +21,17 @@ interface Props {
   form: CreateConsultationRequest;
   selectedDocIds: string[];
   allDocs: VaultDocument[];
+  selectedConversationIds: string[];
+  allConversations: Conversation[];
   attorneyName: string;
   consultationFee?: number;
   onBack: () => void;
   onNext: () => void;
 }
 
-export function ConfirmStep({ form, selectedDocIds, allDocs, attorneyName, consultationFee, onBack, onNext }: Props) {
+export function ConfirmStep({ form, selectedDocIds, allDocs, selectedConversationIds, allConversations, attorneyName, consultationFee, onBack, onNext }: Props) {
   const selectedDocs = allDocs.filter(d => selectedDocIds.includes(d.id));
+  const selectedConvs = allConversations.filter(c => selectedConversationIds.includes(c.id));
 
   return (
     <div className="flex flex-col h-full">
@@ -44,6 +48,22 @@ export function ConfirmStep({ form, selectedDocIds, allDocs, attorneyName, consu
             </div>
           )}
           <Row label="Терміновість" value={URGENCY_LABELS[form.urgency || ''] || form.urgency || ''} />
+        </div>
+
+        <div className="pt-2">
+          <p className="text-xs text-gray-500 mb-2">Чати</p>
+          {selectedConvs.length === 0 ? (
+            <p className="text-sm text-gray-400">Чати не вибрані</p>
+          ) : (
+            <div className="space-y-1">
+              {selectedConvs.map(conv => (
+                <div key={conv.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm">
+                  <MessageSquare className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <span className="truncate">{conv.title || 'Без назви'}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="pt-2">
