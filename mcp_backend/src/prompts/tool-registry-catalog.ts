@@ -750,6 +750,106 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
     ],
   },
 
+  // ─────────────── Document Analysis (4) ───────────────
+
+  {
+    id: 'document_summarize',
+    label: 'Резюме документа користувача',
+    domains: ['documents'],
+    exampleQueries: [
+      'Зроби резюме мого договору оренди',
+      'Короткий зміст завантаженого документа',
+      'Проаналізуй мій договір',
+    ],
+    dataSources: [
+      { name: 'PostgreSQL', provides: 'повний текст документа з Vault' },
+      { name: 'OpenAI', provides: 'LLM-аналіз для генерації резюме' },
+    ],
+    toolChain: [
+      { tool: 'list_documents', purpose: 'знайти документ за назвою/ключовими словами' },
+      { tool: 'get_document', purpose: 'отримати повний текст документа для аналізу' },
+      { tool: 'summarize_document', purpose: 'створити резюме: executive summary + детальний опис + ключові факти (сторони, дати, суми)' },
+    ],
+    responseTemplate: [
+      { heading: 'Executive Summary', instruction: 'короткий огляд для керівництва' },
+      { heading: 'Детальний опис', instruction: 'опис по секціях' },
+      { heading: 'Ключові факти', instruction: 'сторони, дати, суми' },
+    ],
+  },
+
+  {
+    id: 'document_extract_clauses',
+    label: 'Витяг ключових положень з договору',
+    domains: ['documents'],
+    exampleQueries: [
+      'Витягни ключові пункти з договору',
+      'Які зобов\'язання сторін у договорі?',
+      'Проаналізуй ризики в договорі оренди',
+    ],
+    dataSources: [
+      { name: 'PostgreSQL', provides: 'повний текст документа з Vault' },
+      { name: 'OpenAI', provides: 'LLM-аналіз для класифікації клаузул' },
+    ],
+    toolChain: [
+      { tool: 'list_documents', purpose: 'знайти документ за назвою/ключовими словами' },
+      { tool: 'get_document', purpose: 'отримати повний текст документа' },
+      { tool: 'extract_key_clauses', purpose: 'витягнути та класифікувати положення: сторони, обов\'язки, строки, платежі, відповідальність, ризики' },
+    ],
+    responseTemplate: [
+      { heading: 'Сторони та предмет', instruction: 'хто і про що' },
+      { heading: 'Ключові положення', instruction: 'список клаузул за типами' },
+      { heading: 'Ризики', instruction: 'положення з високим/середнім рівнем ризику' },
+    ],
+  },
+
+  {
+    id: 'document_compare',
+    label: 'Порівняння двох документів',
+    domains: ['documents'],
+    exampleQueries: [
+      'Порівняй два мої договори',
+      'Що змінилось у новій версії договору?',
+      'Різниця між двома документами',
+    ],
+    dataSources: [
+      { name: 'PostgreSQL', provides: 'повні тексти обох документів з Vault' },
+      { name: 'OpenAI', provides: 'семантичне порівняння через ембедінги' },
+    ],
+    toolChain: [
+      { tool: 'list_documents', purpose: 'знайти обидва документи за назвою' },
+      { tool: 'get_document', purpose: 'отримати повний текст першого документа' },
+      { tool: 'compare_documents', purpose: 'семантичне порівняння: критичні, значні та незначні зміни' },
+    ],
+    responseTemplate: [
+      { heading: 'Критичні зміни', instruction: 'зміни сум, строків, обов\'язків' },
+      { heading: 'Значні зміни', instruction: 'нові клаузули, зміни прав' },
+      { heading: 'Незначні зміни', instruction: 'форматування, опечатки' },
+      { heading: 'Висновок', instruction: 'загальна оцінка змін' },
+    ],
+  },
+
+  {
+    id: 'document_get_full_text',
+    label: 'Отримання повного тексту документа',
+    domains: ['documents'],
+    exampleQueries: [
+      'Покажи повний текст договору',
+      'Відкрий мій документ',
+      'Що написано в документі X?',
+    ],
+    dataSources: [
+      { name: 'PostgreSQL', provides: 'повний текст та метадані документа' },
+    ],
+    toolChain: [
+      { tool: 'list_documents', purpose: 'знайти документ за назвою/ключовими словами' },
+      { tool: 'get_document', purpose: 'отримати повний текст, метадані, секції та результати аналізу' },
+    ],
+    responseTemplate: [
+      { heading: 'Документ', instruction: 'текст документа або ключові секції' },
+      { heading: 'Метадані', instruction: 'тип, дата, теги' },
+    ],
+  },
+
   // ─────────────── Composite (4) ───────────────
 
   {
