@@ -833,6 +833,25 @@ export class ChatService {
           }
         }
 
+        // Document fallback nudge: if list_documents with query returned 0 docs, hint to retry without query
+        if (iteration === 0) {
+          const hasEmptyDocSearch = settled.some((outcome, idx) => {
+            if (outcome.status !== 'fulfilled') return false;
+            const call = toolCalls[idx];
+            if (call.name !== 'list_documents') return false;
+            const result = outcome.value.result;
+            const resultText = typeof result === 'string' ? result : JSON.stringify(result);
+            const hasQuery = call.arguments?.query && String(call.arguments.query).trim().length > 0;
+            return hasQuery && resultText.includes('"total":0');
+          });
+          if (hasEmptyDocSearch) {
+            messages.push({
+              role: 'user',
+              content: 'УВАГА: list_documents з ключовими словами повернув 0 документів. Це може означати що документи мають інші назви. Обовʼязково виклич list_documents(query="", limit=50) щоб побачити ВСІ документи, і semantic_search для пошуку по змісту.',
+            });
+          }
+        }
+
         // RAG compaction: if accumulated tool results are too large, compact them
         if (this.embeddingService && iteration >= 2) {
           const toolMessages = messages.filter(m => m.role === 'tool');
