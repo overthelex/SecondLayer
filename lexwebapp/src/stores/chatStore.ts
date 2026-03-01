@@ -210,11 +210,8 @@ export const useChatStore = create<ChatState>()(
           const cached = get().conversationCache[conversationId] || [];
           const targetHasActiveStream = isStreaming && cached.some((m) => m.isStreaming);
 
-          if (cached.length > 0) {
-            set({ conversationId, messages: cached });
-          } else {
-            set({ conversationId, messages: [] });
-          }
+          // Set conversationId and show cached messages (or empty while loading)
+          set({ conversationId, messages: cached.length > 0 ? cached : [] });
 
           // Skip server fetch if the target conversation is currently being streamed
           // (stream will continue updating the restored cached messages)
@@ -248,8 +245,8 @@ export const useChatStore = create<ChatState>()(
               messages: fetchedMessages,
               conversationCache: { ...state.conversationCache, [conversationId]: fetchedMessages },
             }));
-          } catch {
-            // Keep the cached messages if server fetch fails
+          } catch (err) {
+            console.error('[ChatStore] Failed to load conversation messages', conversationId, err);
           }
         },
 
