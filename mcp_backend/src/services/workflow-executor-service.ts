@@ -82,7 +82,7 @@ export class WorkflowExecutorService {
 
         try {
           // Inject userId for vault tools
-          const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders']);
+          const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
           const toolArgs = VAULT_TOOLS.has(step.tool)
             ? { ...step.params, userId }
             : step.params;

@@ -265,6 +265,76 @@ Pipeline:
           required: ['query'],
         },
       },
+      {
+        name: 'delete_document',
+        description: `Видалити документ з Vault (soft-delete).
+
+Видаляє документ, його векторні ембеддінги та файл з MinIO (якщо є).
+Потрібно знати ID документа — спочатку використай list_documents для пошуку.
+
+Приклади:
+- "Видали документ договір оренди" → спочатку list_documents(query="договір оренди"), потім delete_document(documentId=...)`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            documentId: {
+              type: 'string',
+              description: 'UUID документа в vault',
+            },
+          },
+          required: ['documentId'],
+        },
+      },
+      {
+        name: 'update_document',
+        description: `Оновити метадані документа в Vault.
+
+Можна змінити:
+- title — назву документа
+- tags — масив тегів
+- type — тип документа (contract, legislation, court_decision, internal, other)
+- category — категорію
+- folderPath — шлях до папки
+
+Потрібно знати ID документа — спочатку використай list_documents для пошуку.
+
+Приклади:
+- "Переименуй документ на 'Новий договір'" → list_documents → update_document(title="Новий договір")
+- "Додай тег 'оренда'" → list_documents → update_document(tags=["оренда"])
+- "Перенеси в папку Contracts" → list_documents → update_document(folderPath="/Contracts")`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            documentId: {
+              type: 'string',
+              description: 'UUID документа в vault',
+            },
+            title: {
+              type: 'string',
+              description: 'Нова назва документа',
+            },
+            tags: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Нові теги (замінюють існуючі)',
+            },
+            type: {
+              type: 'string',
+              enum: ['contract', 'legislation', 'court_decision', 'internal', 'other'],
+              description: 'Новий тип документа',
+            },
+            category: {
+              type: 'string',
+              description: 'Нова категорія',
+            },
+            folderPath: {
+              type: 'string',
+              description: 'Новий шлях до папки',
+            },
+          },
+          required: ['documentId'],
+        },
+      },
     ];
   }
 
@@ -1349,6 +1419,162 @@ Pipeline:
     }
   }
 
+  /**
+   * Delete document (soft-delete) with cleanup of vectors and MinIO
+   */
+  async deleteDocument(args: {
+    documentId: string;
+    userId?: string;
+  }): Promise<{ deleted: boolean; title?: string; error?: string }> {
+    try {
+      logger.info('[Vault] delete_document started', { documentId: args.documentId, userId: args.userId });
+
+      if (!args.userId) {
+        return { deleted: false, error: 'Authentication required' };
+      }
+
+      // Verify ownership and get doc info
+      const docResult = await this.documentService['db'].query(
+        `SELECT id, title, storage_type, storage_path, user_id, metadata
+         FROM documents WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+        [args.documentId, args.userId]
+      );
+
+      if (docResult.rows.length === 0) {
+        return { deleted: false, error: 'Document not found or access denied' };
+      }
+
+      const doc = docResult.rows[0];
+
+      // Soft-delete the document
+      await this.documentService['db'].query(
+        `UPDATE documents SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [args.documentId]
+      );
+
+      // Cleanup Qdrant vectors
+      try {
+        await this.embeddingService.deleteByDocId(args.documentId);
+        logger.info('[Vault] Vectors deleted for document', { documentId: args.documentId });
+      } catch (err: any) {
+        logger.warn('[Vault] Failed to delete vectors', { documentId: args.documentId, error: err.message });
+      }
+
+      // Cleanup MinIO object if stored there
+      if (doc.storage_type === 'minio' && doc.storage_path && this.minioService) {
+        try {
+          const meta = typeof doc.metadata === 'string' ? JSON.parse(doc.metadata) : doc.metadata || {};
+          const objectKey = meta.minioKey || doc.storage_path.split('/').pop();
+          if (objectKey) {
+            await this.minioService.deleteFile(args.userId, objectKey);
+            logger.info('[Vault] MinIO object deleted', { documentId: args.documentId, objectKey });
+          }
+        } catch (err: any) {
+          logger.warn('[Vault] Failed to delete MinIO object', { documentId: args.documentId, error: err.message });
+        }
+      }
+
+      logger.info('[Vault] delete_document completed', { documentId: args.documentId, title: doc.title });
+      return { deleted: true, title: doc.title };
+    } catch (error: any) {
+      logger.error('[Vault] delete_document failed', { documentId: args.documentId, error: error.message });
+      return { deleted: false, error: error.message };
+    }
+  }
+
+  /**
+   * Update document metadata
+   */
+  async updateDocument(args: {
+    documentId: string;
+    userId?: string;
+    title?: string;
+    tags?: string[];
+    type?: string;
+    category?: string;
+    folderPath?: string;
+  }): Promise<{ updated: boolean; document?: { id: string; title: string; type: string; metadata: any }; error?: string }> {
+    try {
+      logger.info('[Vault] update_document started', args);
+
+      if (!args.userId) {
+        return { updated: false, error: 'Authentication required' };
+      }
+
+      // Verify ownership
+      const docResult = await this.documentService['db'].query(
+        `SELECT id, title, type, metadata FROM documents WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+        [args.documentId, args.userId]
+      );
+
+      if (docResult.rows.length === 0) {
+        return { updated: false, error: 'Document not found or access denied' };
+      }
+
+      const doc = docResult.rows[0];
+      const currentMeta = typeof doc.metadata === 'string' ? JSON.parse(doc.metadata) : doc.metadata || {};
+
+      // Build dynamic SET clause
+      const setClauses: string[] = ['updated_at = NOW()'];
+      const params: any[] = [];
+      let paramIdx = 1;
+
+      if (args.title !== undefined) {
+        setClauses.push(`title = $${paramIdx++}`);
+        params.push(args.title);
+      }
+
+      if (args.type !== undefined) {
+        setClauses.push(`type = $${paramIdx++}`);
+        params.push(args.type);
+      }
+
+      // Merge metadata fields: tags, category, folderPath
+      const metaUpdates: Record<string, any> = {};
+      if (args.tags !== undefined) metaUpdates.tags = args.tags;
+      if (args.category !== undefined) metaUpdates.category = args.category;
+      if (args.folderPath !== undefined) metaUpdates.folderPath = args.folderPath;
+
+      if (Object.keys(metaUpdates).length > 0) {
+        const mergedMeta = { ...currentMeta, ...metaUpdates };
+        setClauses.push(`metadata = $${paramIdx++}`);
+        params.push(JSON.stringify(mergedMeta));
+      }
+
+      // Add WHERE params
+      params.push(args.documentId);
+      params.push(args.userId);
+
+      await this.documentService['db'].query(
+        `UPDATE documents SET ${setClauses.join(', ')} WHERE id = $${paramIdx++} AND user_id = $${paramIdx++} AND deleted_at IS NULL`,
+        params
+      );
+
+      // Fetch updated doc
+      const updated = await this.documentService['db'].query(
+        `SELECT id, title, type, metadata FROM documents WHERE id = $1`,
+        [args.documentId]
+      );
+
+      const updatedDoc = updated.rows[0];
+      const updatedMeta = typeof updatedDoc.metadata === 'string' ? JSON.parse(updatedDoc.metadata) : updatedDoc.metadata || {};
+
+      logger.info('[Vault] update_document completed', { documentId: args.documentId });
+      return {
+        updated: true,
+        document: {
+          id: updatedDoc.id,
+          title: updatedDoc.title,
+          type: updatedDoc.type,
+          metadata: updatedMeta,
+        },
+      };
+    } catch (error: any) {
+      logger.error('[Vault] update_document failed', { documentId: args.documentId, error: error.message });
+      return { updated: false, error: error.message };
+    }
+  }
+
   async executeTool(name: string, args: any): Promise<ToolResult | null> {
     switch (name) {
       case 'store_document':
@@ -1359,6 +1585,10 @@ Pipeline:
         return this.wrapResponse(await this.listDocuments(args));
       case 'semantic_search':
         return this.wrapResponse(await this.semanticSearch(args));
+      case 'delete_document':
+        return this.wrapResponse(await this.deleteDocument(args));
+      case 'update_document':
+        return this.wrapResponse(await this.updateDocument(args));
       default:
         return null;
     }
