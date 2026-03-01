@@ -6,9 +6,8 @@ import remarkGfm from 'remark-gfm';
 import {
   ArrowLeft,
   BookOpen,
-  Share2,
   Linkedin,
-  Copy,
+  Link2,
   Check,
   ChevronRight,
   Cpu,
@@ -18,6 +17,8 @@ import {
   Send,
   Trash2,
   LogIn,
+  Facebook,
+  Twitter,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { blogService, type BlogComment } from '../services/blog-service';
@@ -1032,14 +1033,28 @@ export function BlogPage() {
 
   const filtered = filter === 'all' ? articles : articles.filter(a => a.category === filter);
 
+  const getArticleUrl = (article: Article) =>
+    `${window.location.origin}/blog?article=${article.id}`;
+
   const shareOnLinkedIn = (article: Article) => {
+    const url = encodeURIComponent(getArticleUrl(article));
     const text = encodeURIComponent(`${article.punchline}\n\n#LegalTech #AI #LEXai`);
-    window.open(`https://www.linkedin.com/sharing/share-offsite/?text=${text}`, '_blank');
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}&text=${text}`, '_blank');
   };
 
-  const copyArticle = (article: Article) => {
-    const text = `${article.content}\n\n---\n\n${article.tags.map(t => `#${t}`).join(' ')}`;
-    navigator.clipboard.writeText(text);
+  const shareOnX = (article: Article) => {
+    const url = encodeURIComponent(getArticleUrl(article));
+    const text = encodeURIComponent(`${article.title}\n\n#LegalTech #AI`);
+    window.open(`https://x.com/intent/tweet?url=${url}&text=${text}`, '_blank');
+  };
+
+  const shareOnFacebook = (article: Article) => {
+    const url = encodeURIComponent(getArticleUrl(article));
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
+  };
+
+  const copyLink = (article: Article) => {
+    navigator.clipboard.writeText(getArticleUrl(article));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -1230,19 +1245,31 @@ export function BlogPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={(e) => { e.stopPropagation(); shareOnLinkedIn(selectedArticle); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-sans font-medium text-[#0A66C2] bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 rounded-lg transition-colors"
-                    title="Share on LinkedIn"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-[#0A66C2] bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 transition-colors"
+                    title="Поділитися в LinkedIn"
                   >
                     <Linkedin size={15} />
-                    <span className="hidden sm:inline">LinkedIn</span>
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); copyArticle(selectedArticle); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-sans font-medium text-claude-subtext bg-claude-bg hover:bg-claude-border rounded-lg transition-colors"
-                    title="Copy article text"
+                    onClick={(e) => { e.stopPropagation(); shareOnX(selectedArticle); }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-claude-text bg-claude-bg hover:bg-claude-border transition-colors"
+                    title="Поділитися в X"
                   >
-                    {copied ? <Check size={15} className="text-green-600" /> : <Copy size={15} />}
-                    <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
+                    <Twitter size={15} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); shareOnFacebook(selectedArticle); }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1877F2] bg-[#1877F2]/10 hover:bg-[#1877F2]/20 transition-colors"
+                    title="Поділитися у Facebook"
+                  >
+                    <Facebook size={15} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); copyLink(selectedArticle); }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-claude-subtext bg-claude-bg hover:bg-claude-border transition-colors"
+                    title="Копіювати посилання"
+                  >
+                    {copied ? <Check size={15} className="text-green-600" /> : <Link2 size={15} />}
                   </button>
                   <button
                     onClick={() => setSelectedArticle(null)}
@@ -1293,7 +1320,7 @@ export function BlogPage() {
                 {/* Share footer */}
                 <div className="mt-6 p-4 bg-claude-bg rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
                   <p className="text-sm text-claude-subtext font-sans">
-                    Поділитися або опублікувати цю статтю:
+                    Поділитися цією статтею:
                   </p>
                   <div className="flex items-center gap-2">
                     <button
@@ -1301,14 +1328,28 @@ export function BlogPage() {
                       className="flex items-center gap-2 px-4 py-2.5 bg-[#0A66C2] text-white rounded-xl text-sm font-sans font-medium hover:bg-[#004182] transition-colors"
                     >
                       <Linkedin size={16} />
-                      Поділитися в LinkedIn
+                      LinkedIn
                     </button>
                     <button
-                      onClick={() => copyArticle(selectedArticle)}
+                      onClick={() => shareOnX(selectedArticle)}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-claude-text text-white rounded-xl text-sm font-sans font-medium hover:bg-black transition-colors"
+                    >
+                      <Twitter size={16} />
+                      X
+                    </button>
+                    <button
+                      onClick={() => shareOnFacebook(selectedArticle)}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-[#1877F2] text-white rounded-xl text-sm font-sans font-medium hover:bg-[#0D65D9] transition-colors"
+                    >
+                      <Facebook size={16} />
+                      Facebook
+                    </button>
+                    <button
+                      onClick={() => copyLink(selectedArticle)}
                       className="flex items-center gap-2 px-4 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-sans font-medium hover:bg-claude-bg transition-colors"
                     >
-                      <Share2 size={16} />
-                      {copied ? 'Скопійовано' : 'Копіювати'}
+                      {copied ? <Check size={16} className="text-green-600" /> : <Link2 size={16} />}
+                      {copied ? 'Скопійовано!' : 'Копіювати посилання'}
                     </button>
                   </div>
                 </div>
