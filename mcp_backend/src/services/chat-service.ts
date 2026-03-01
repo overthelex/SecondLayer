@@ -235,6 +235,22 @@ export class ChatService {
     const { query, history = [], budget = 'standard', signal, requestId } = request;
     const startTime = Date.now();
 
+    // Auto-create conversation if userId is present but no conversationId was provided
+    if (this.conversationService && request.userId && !request.conversationId) {
+      try {
+        const titlePreview = query.slice(0, 80) || 'New conversation';
+        const conv = await this.conversationService.createConversation(request.userId, titlePreview);
+        request.conversationId = conv.id;
+        logger.info('[ChatService] Auto-created conversation for request without conversationId', {
+          conversationId: conv.id,
+          userId: request.userId,
+          requestId,
+        });
+      } catch (e) {
+        logger.warn('[ChatService] Failed to auto-create conversation', { error: (e as Error).message });
+      }
+    }
+
     // Create cost tracking record if requestId provided
     if (requestId) {
       try {
@@ -373,6 +389,87 @@ export class ChatService {
               tools_used: [],
               total_cost_usd: 0,
               queryType: 'institutional_analysis',
+            },
+          };
+        }
+        return;
+      }
+
+      // --- 6b2. Document listing fast-path ---
+      // When the user just asks "what documents do I have?" — skip plan generation
+      // and LLM summarization, directly call list_documents and return a formatted list.
+      if (classification.queryType === 'document_query' && this.isSimpleDocumentListQuery(query, classification)) {
+        logger.info('[ChatService] Fast-path: simple document listing', { query: query.slice(0, 100) });
+        yield {
+          type: 'thinking',
+          data: {
+            step: 0,
+            tool: '_classify',
+            params: { queryType: 'document_query' },
+            description: 'Отримую список документів',
+          },
+        };
+
+        try {
+          const toolArgs: Record<string, any> = {
+            query: '',
+            limit: 50,
+            offset: 0,
+            sortBy: 'uploadedAt',
+            sortOrder: 'desc',
+          };
+          if (request.userId) toolArgs.userId = request.userId;
+
+          const toolResult = await this.toolRegistry.executeTool('list_documents', toolArgs);
+
+          // Emit tool_result so evidence panel gets populated
+          yield {
+            type: 'tool_result',
+            data: {
+              tool: 'list_documents',
+              result: toolResult,
+              cached: false,
+              cost_usd: 0,
+            },
+          };
+
+          // Format a simple document list without LLM
+          const answerText = this.formatDocumentListAnswer(toolResult);
+
+          yield {
+            type: 'answer',
+            data: {
+              text: answerText,
+              queryType: 'document_query',
+            },
+          };
+          yield {
+            type: 'complete',
+            data: {
+              iterations: 0,
+              elapsed_ms: Date.now() - startTime,
+              tools_used: ['list_documents'],
+              total_cost_usd: 0,
+              queryType: 'document_query',
+            },
+          };
+        } catch (err: any) {
+          logger.error('[ChatService] Document listing fast-path failed', { error: err.message });
+          yield {
+            type: 'answer',
+            data: {
+              text: `Не вдалося отримати список документів: ${err.message}`,
+              queryType: 'document_query',
+            },
+          };
+          yield {
+            type: 'complete',
+            data: {
+              iterations: 0,
+              elapsed_ms: Date.now() - startTime,
+              tools_used: [],
+              total_cost_usd: 0,
+              queryType: 'document_query',
             },
           };
         }
@@ -1112,7 +1209,7 @@ export class ChatService {
 
     if (!cached) {
       try {
-        const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders']);
+        const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
         const toolArgs = (userId && VAULT_TOOLS.has(call.name))
           ? { ...call.arguments, userId }
           : call.arguments;
@@ -1132,5 +1229,82 @@ export class ChatService {
     }
 
     return { call, result: toolResult, cached };
+  }
+
+  /**
+   * Detect whether a document_query is a simple "list my documents" request
+   * (as opposed to a semantic search like "find contract about rent in my docs").
+   */
+  private isSimpleDocumentListQuery(query: string, classification: ChatIntentClassification): boolean {
+    const SIMPLE_LIST_PATTERNS = /^(як[іі]\s+документ|покажи\s+(мо[їі]|документ|файл)|список\s+документ|що\s+(я\s+)?завантажи|що\s+ти\s+бачиш|які\s+файли|мо[їі]\s+документ|мо[їі]\s+файл|what\s+document|show\s+(my\s+)?document|list\s+document|я\s+загрузил|я\s+завантажи|документи\s+загружен|які\s+є\s+документ|які\s+є\s+файл|що\s+в\s+(мене|моєму|моїй)|документи\s+в\s+(vault|сховищ)|файли\s+в\s+(vault|сховищ)|що\s+у\s+мене)/i;
+
+    // If query matches simple list patterns OR if keywords are very generic
+    if (SIMPLE_LIST_PATTERNS.test(query)) return true;
+
+    // Short queries with only "documents" domain are likely simple listings
+    const kw = classification.keywords.toLowerCase();
+    const genericKeywords = /^(документ|файл|завантажен|загружен|vault|сховищ|список|мої)\s*$/i;
+    if (query.length < 60 && classification.domains.length === 1 && classification.domains[0] === 'documents' && !kw.includes(' ')) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Format list_documents tool result into a simple readable list.
+   */
+  private formatDocumentListAnswer(toolResult: any): string {
+    try {
+      // Parse the tool result content
+      let data: any;
+      if (toolResult?.content && Array.isArray(toolResult.content)) {
+        const textBlock = toolResult.content.find((b: any) => b.type === 'text');
+        if (textBlock?.text) {
+          data = JSON.parse(textBlock.text);
+        }
+      } else if (typeof toolResult === 'object') {
+        data = toolResult;
+      }
+
+      if (!data?.documents || data.documents.length === 0) {
+        return 'У вас поки немає завантажених документів.';
+      }
+
+      const docs = data.documents;
+      const total = data.total || docs.length;
+
+      let text = `У вас ${total} ${this.pluralizeDocuments(total)}:\n\n`;
+      text += '| # | Назва | Тип | Дата завантаження |\n';
+      text += '|---|-------|-----|-------------------|\n';
+
+      for (let i = 0; i < docs.length; i++) {
+        const doc = docs[i];
+        const title = doc.title || 'Без назви';
+        const type = doc.type || '—';
+        const date = doc.metadata?.uploadedAt
+          ? new Date(doc.metadata.uploadedAt).toLocaleDateString('uk-UA')
+          : (doc.storage_type === 'vault' ? '—' : '—');
+        text += `| ${i + 1} | ${title} | ${type} | ${date} |\n`;
+      }
+
+      if (total > docs.length) {
+        text += `\n*Показано ${docs.length} з ${total} документів.*`;
+      }
+
+      return text;
+    } catch (err: any) {
+      logger.warn('[ChatService] Failed to format document list', { error: err.message });
+      return 'Документи отримано, але не вдалося відформатувати список.';
+    }
+  }
+
+  private pluralizeDocuments(n: number): string {
+    const lastTwo = n % 100;
+    const lastOne = n % 10;
+    if (lastTwo >= 11 && lastTwo <= 19) return 'документів';
+    if (lastOne === 1) return 'документ';
+    if (lastOne >= 2 && lastOne <= 4) return 'документи';
+    return 'документів';
   }
 }

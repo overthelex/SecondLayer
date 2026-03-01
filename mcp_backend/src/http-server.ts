@@ -1034,7 +1034,7 @@ class HTTPMCPServer {
               async () => {
                 // Route to appropriate tool handler via centralized registry
                 // Inject userId for all vault tools (user isolation)
-                const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders']);
+                const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
                 const toolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId } : args;
                 const registryResult = await this.toolRegistry.executeTool(toolName, toolArgs);
                 if (registryResult) {
@@ -2115,24 +2115,29 @@ class HTTPMCPServer {
 
         let chatCompleted = false;
         let chatTotalCostUsd = 0;
-        try {
-          for await (const event of this.chatService.chat({
+        const chatRequest = {
             query,
             history,
-            budget: budget || 'standard',
+            budget: (budget || 'standard') as 'quick' | 'standard' | 'deep',
             conversationId,
             userId,
             requestId,
             signal: abortController.signal,
             approvedPlan,
             planSessionId,
-          })) {
+        };
+        try {
+          for await (const event of this.chatService.chat(chatRequest)) {
             if (abortController.signal.aborted) break;
 
             if (event.type === 'complete') {
               chatCompleted = true;
               chatTotalCostUsd = event.data?.total_cost_usd || 0;
               event.data.response_id = requestId;
+              // Include auto-created conversationId so the client can track it
+              if (chatRequest.conversationId && chatRequest.conversationId !== conversationId) {
+                event.data.conversationId = chatRequest.conversationId;
+              }
             }
 
             res.write(`event: ${event.type}\n`);
@@ -2435,7 +2440,7 @@ class HTTPMCPServer {
             async () => {
               // Route to appropriate tool handler via centralized registry
               // Inject userId for all vault tools (user isolation)
-              const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders']);
+              const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
               const httpToolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId: req.user?.id } : args;
               return await this.toolRegistry.executeTool(toolName, httpToolArgs);
             }
