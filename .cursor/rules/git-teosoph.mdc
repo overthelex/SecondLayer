@@ -1,0 +1,29 @@
+---
+description: У цьому проєкті всі коміти та пуші — тільки від teosoph
+alwaysApply: true
+---
+
+# Git: завжди teosoph
+
+У репозиторії SecondLayer **усі операції з git** мають виконуватися від імені **teosoph**.
+
+## Автор комітів
+
+- **user.name:** `teosoph`
+- **user.email:** `teosoph@gmail.com`
+
+Для цього репо локально вже має бути (або потрібно встановити):
+
+```bash
+git config user.name "teosoph"
+git config user.email "teosoph@gmail.com"
+```
+
+## Пуш у remote
+
+Пуш у GitHub має йти з акаунту **teosoph** (SSH-ключ або credentials teosoph). Якщо в терміналі використовується інший ключ (наприклад automatedqa), потрібно:
+
+- або в `~/.ssh/config` для GitHub використовувати Host з IdentityFile ключа teosoph;
+- або тимчасово: `GIT_SSH_COMMAND="ssh -i ~/.ssh/id_teosoph" git push ...`.
+
+При створенні комітів у Cursor/агента — завжди використовувати автора teosoph (не змінювати існуючий `user.name`/`user.email` у репо).
