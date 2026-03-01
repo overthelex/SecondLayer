@@ -48,13 +48,18 @@ async function seedGorenichiProject() {
       orgId = newOrg.rows[0].id;
       logger.info(`Created organization: ${orgId}`);
 
-      // Add user as org owner
-      await db.query(
-        `INSERT INTO organization_members (organization_id, user_id, email, role, status, joined_at)
-         VALUES ($1, $2, $3, 'owner', 'active', now())
-         ON CONFLICT (organization_id, user_id) DO NOTHING`,
-        [orgId, user.id, user.email]
+      // Add user as org owner (check first to avoid duplicates)
+      const existingMember = await db.query(
+        'SELECT id FROM organization_members WHERE organization_id = $1 AND user_id = $2',
+        [orgId, user.id]
       );
+      if (existingMember.rows.length === 0) {
+        await db.query(
+          `INSERT INTO organization_members (organization_id, user_id, email, role, status, joined_at)
+           VALUES ($1, $2, $3, 'owner', 'active', now())`,
+          [orgId, user.id, user.email]
+        );
+      }
     }
 
     // Create or find client "Особисте"
