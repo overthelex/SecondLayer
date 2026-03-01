@@ -22,39 +22,39 @@ interface Judge {
 const judgesData: Judge[] = [
 {
   id: '1',
-  name: 'Иванов Петр Сергеевич',
-  court: 'Верховный Суд КГС',
+  name: 'Іванов Петро Сергійович',
+  court: 'Верховний Суд КЦС',
   cases: 156,
   approvalRate: 68,
-  avgDuration: '4.5 мес.',
-  specialization: 'Банкротство'
+  avgDuration: '4.5 міс.',
+  specialization: 'Банкрутство'
 },
 {
   id: '2',
-  name: 'Петрова Анна Викторовна',
-  court: 'Арбитражный суд г. Москвы',
+  name: 'Петрова Анна Вікторівна',
+  court: 'Господарський суд м. Києва',
   cases: 203,
   approvalRate: 72,
-  avgDuration: '3.2 мес.',
-  specialization: 'Корпоративные споры'
+  avgDuration: '3.2 міс.',
+  specialization: 'Корпоративні спори'
 },
 {
   id: '3',
-  name: 'Сидоров Михаил Александрович',
-  court: 'Девятый арбитражный апелляционный суд',
+  name: 'Сидоренко Михайло Олександрович',
+  court: 'Північний апеляційний господарський суд',
   cases: 89,
   approvalRate: 65,
-  avgDuration: '2.8 мес.',
-  specialization: 'Недвижимость'
+  avgDuration: '2.8 міс.',
+  specialization: 'Нерухомість'
 },
 {
   id: '4',
-  name: 'Кузнецова Елена Дмитриевна',
-  court: 'Арбитражный суд Московской области',
+  name: 'Кузнецова Олена Дмитрівна',
+  court: 'Господарський суд Київської області',
   cases: 142,
   approvalRate: 59,
-  avgDuration: '5.1 мес.',
-  specialization: 'Налоговые споры'
+  avgDuration: '5.1 міс.',
+  specialization: 'Податкові спори'
 }];
 
 interface JudgesPageProps {
@@ -92,17 +92,17 @@ export function JudgesPage({ onSelectJudge }: JudgesPageProps) {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <h1 className="text-3xl md:text-4xl font-serif text-claude-text font-medium tracking-tight mb-2">
-                Судьи
+                Судді
               </h1>
               <p className="text-claude-subtext font-sans">
-                Поиск и аналитика по судебному корпусу
+                Пошук та аналітика по суддівському корпусу
               </p>
             </div>
 
             <div className="flex items-center gap-2 text-sm text-claude-subtext bg-white px-3 py-1.5 rounded-lg border border-claude-border shadow-sm">
               <Scale size={16} />
               <span className="font-sans">
-                {judgesData.length} судей в базе
+                {judgesData.length} суддів у базі
               </span>
             </div>
           </div>
@@ -116,7 +116,7 @@ export function JudgesPage({ onSelectJudge }: JudgesPageProps) {
               <input
                 type="text"
                 className="block w-full pl-11 pr-4 py-4 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all shadow-sm font-sans"
-                placeholder="Поиск по фамилии судьи или названию суда..."
+                placeholder="Пошук за прізвищем судді або назвою суду..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)} />
 
@@ -127,14 +127,14 @@ export function JudgesPage({ onSelectJudge }: JudgesPageProps) {
               <button
                 onClick={() => setViewMode('comfortable')}
                 className={`p-2 rounded-lg transition-colors ${viewMode === 'comfortable' ? 'bg-claude-accent text-white' : 'text-claude-subtext hover:text-claude-text'}`}
-                title="Комфортный вид">
+                title="Зручний вигляд">
 
                 <LayoutGrid size={18} />
               </button>
               <button
                 onClick={() => setViewMode('compact')}
                 className={`p-2 rounded-lg transition-colors ${viewMode === 'compact' ? 'bg-claude-accent text-white' : 'text-claude-subtext hover:text-claude-text'}`}
-                title="Компактный вид">
+                title="Компактний вигляд">
 
                 <List size={18} />
               </button>
@@ -207,7 +207,7 @@ export function JudgesPage({ onSelectJudge }: JudgesPageProps) {
                   className={`flex items-center justify-center gap-1 text-claude-subtext mb-1 font-sans ${viewMode === 'compact' ? 'text-[10px]' : 'text-xs'}`}>
 
                     <Gavel size={viewMode === 'compact' ? 10 : 12} />
-                    <span>Дел</span>
+                    <span>Справ</span>
                   </div>
                   <div
                   className={`font-medium text-claude-text font-serif ${viewMode === 'compact' ? 'text-base' : 'text-lg'}`}>
@@ -220,7 +220,7 @@ export function JudgesPage({ onSelectJudge }: JudgesPageProps) {
                   className={`flex items-center justify-center gap-1 text-claude-subtext mb-1 font-sans ${viewMode === 'compact' ? 'text-[10px]' : 'text-xs'}`}>
 
                     <Percent size={viewMode === 'compact' ? 10 : 12} />
-                    <span>Удовл.</span>
+                    <span>Задов.</span>
                   </div>
                   <div
                   className={`font-medium text-claude-text font-serif ${viewMode === 'compact' ? 'text-base' : 'text-lg'}`}>
@@ -233,7 +233,7 @@ export function JudgesPage({ onSelectJudge }: JudgesPageProps) {
                   className={`flex items-center justify-center gap-1 text-claude-subtext mb-1 font-sans ${viewMode === 'compact' ? 'text-[10px]' : 'text-xs'}`}>
 
                     <Clock size={viewMode === 'compact' ? 10 : 12} />
-                    <span>Срок</span>
+                    <span>Строк</span>
                   </div>
                   <div
                   className={`font-medium text-claude-text font-serif ${viewMode === 'compact' ? 'text-base' : 'text-lg'}`}>
@@ -260,11 +260,11 @@ export function JudgesPage({ onSelectJudge }: JudgesPageProps) {
               <Search size={24} />
             </div>
             <h3 className="text-lg font-serif text-claude-text mb-2">
-              Ничего не найдено
+              Нічого не знайдено
             </h3>
             <p className="text-claude-subtext font-sans max-w-md mx-auto">
-              Попробуйте изменить параметры поиска или проверить написание
-              фамилии
+              Спробуйте змінити параметри пошуку або перевірити написання
+              прізвища
             </p>
           </motion.div>
         }
