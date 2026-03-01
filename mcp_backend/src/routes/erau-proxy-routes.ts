@@ -42,76 +42,142 @@ export interface ERAUProfile {
 }
 
 function parseERAUProfileHTML(html: string, id: string): ERAUProfile {
-  const extract = (pattern: RegExp): string | null => {
-    const m = html.match(pattern);
-    return m ? m[1].trim() : null;
+  const clean = (s: string | null | undefined): string | null => {
+    if (!s) return null;
+    return s.replace(/<[^>]+>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim() || null;
   };
 
-  // Name: first <h1> tag
-  const fullName = extract(/<h1[^>]*>([\s\S]*?)<\/h1>/) || '';
+  const extract = (pattern: RegExp): string | null => {
+    const m = html.match(pattern);
+    return m ? clean(m[1]) : null;
+  };
 
-  // Council: text after "Обліковується у:" section
-  const council = extract(/<h2[^>]*>[\s\S]*?Обліковується[\s\S]*?<\/h2>[\s\S]*?<h3[^>]*>([\s\S]*?)<\/h3>/);
+  // Name: <h1 class="info-about__name">...</h1>
+  const fullName = extract(/<h1[^>]*class="info-about__name"[^>]*>([\s\S]*?)<\/h1>/)
+    || extract(/<h1[^>]*>([\s\S]*?)<\/h1>/)
+    || '';
 
-  // Certificate fields
-  const certNumber = extract(/№\s*Свідоцтва:?\s*<\/strong>\s*([\s\S]*?)(?:<|$)/i)
-    || extract(/№\s*Свідоцтва:?\s*([\d\S]+)/i);
-  const certDate = extract(/Дата видачі свідоцтва:?\s*<\/strong>\s*([\s\S]*?)(?:<|$)/i);
-  const issuedBy = extract(/Орган,?\s*що видав свідоцтво:?\s*<\/strong>\s*([\s\S]*?)(?:<|$)/i);
-  const decisionNumber = extract(/Номер рішення:?\s*<\/strong>\s*([\s\S]*?)(?:<|$)/i);
-  const decisionDate = extract(/Дата прийняття рішення:?\s*<\/strong>\s*([\s\S]*?)(?:<|$)/i);
+  // Council: inside .info-about__council-name <h2>
+  const council = extract(/info-about__council-name[\s\S]*?<h2[^>]*>([\s\S]*?)<\/h2>/);
 
-  // Experience
-  const experience = extract(/Загальний стаж:?\s*<\/strong>\s*([\s\S]*?)(?:<|$)/i)
-    || extract(/стаж[^<]*?(\d+\s*(?:рок|років|р\.)[\s\S]*?)(?:<|$)/i);
+  // Certificate section: .info-about__certificate contains <p> label then <p> value pairs
+  const certSection = html.match(/info-about__certificate[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/i);
+  let certNumber: string | null = null;
+  let certDate: string | null = null;
+  let issuedBy: string | null = null;
 
-  // Contacts
-  const address = extract(/Адреса основна:?\s*<\/strong>\s*([\s\S]*?)(?:<\/|<strong|<h)/i);
-  const phone = extract(/href="tel:([^"]+)"/i);
-  const email = extract(/href="mailto:([^"]+)"/i);
-
-  // Practice form
-  const practiceType = extract(/Форма здійснення[\s\S]*?<h3[^>]*>([\s\S]*?)<\/h3>/i)
-    || extract(/(Індивідуальна адвокатська діяльність|Адвокатське бюро|Адвокатське об'єднання)/i);
-  const practiceAddress = extract(/Адреса здійснення діяльності:?\s*<\/strong>\s*([\s\S]*?)(?:<\/|<strong|<h)/i);
-  const practicePhone = extract(/Телефон(?:\s*(?:робочий|офісу))?:?\s*<\/strong>\s*[\s\S]*?href="tel:([^"]+)"/i);
-
-  // Qualification - collect year/status pairs
-  const qualification: Array<{ year: string; status: string }> = [];
-  const qualSection = html.match(/Підвищення кваліфікації[\s\S]*?(?:<\/(?:div|section|table)>)/i);
-  if (qualSection) {
-    const yearMatches = qualSection[0].matchAll(/(\d{4})\s*(?:рік|р\.?)[\s\S]*?(Виконано|Не виконано|В процесі|зараховано|не зараховано)/gi);
-    for (const m of yearMatches) {
-      qualification.push({ year: m[1], status: m[2] });
+  if (certSection) {
+    const cs = certSection[0];
+    // Pattern: <p>Label:</p>\n<p class="...">Value</p> or <p>Label:</p>\n<p>Value</p>
+    certNumber = extract.call(null, /№\s*Свідоцтва[\s\S]*?<\/p>\s*<p[^>]*>([\s\S]*?)<\/p>/i.exec(cs) ? /dummy/ : /dummy/)
+      || null;
+    // Use simpler approach — extract all <p> contents from certSection
+    const certPs = [...cs.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)].map(m => clean(m[1]));
+    // Structure: [label, value, label, value, label, value]
+    for (let i = 0; i < certPs.length - 1; i++) {
+      const label = certPs[i] || '';
+      const value = certPs[i + 1] || '';
+      if (label.includes('Свідоцтва')) { certNumber = value; i++; }
+      else if (label.includes('Дата видачі')) { certDate = value; i++; }
+      else if (label.includes('Орган')) { issuedBy = value; i++; }
     }
   }
 
-  const clean = (s: string | null): string | null => {
-    if (!s) return null;
-    return s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() || null;
-  };
+  // Decision section: .info-about__solution
+  const solSection = html.match(/info-about__solution[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/i);
+  let decisionNumber: string | null = null;
+  let decisionDate: string | null = null;
+  let experience: string | null = null;
+
+  if (solSection) {
+    const ss = solSection[0];
+    const solPs = [...ss.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)].map(m => clean(m[1]));
+    for (let i = 0; i < solPs.length - 1; i++) {
+      const label = solPs[i] || '';
+      const value = solPs[i + 1] || '';
+      if (label.includes('Номер рішення')) { decisionNumber = value; i++; }
+      else if (label.includes('Дата прийняття')) { decisionDate = value; i++; }
+      else if (label.includes('стаж')) { experience = value || null; i++; }
+    }
+  }
+
+  // Contacts section: after "Адреса робочого місця"
+  const contactSection = html.match(/Адреса робочого місця[\s\S]*?Форми адвокатської/i);
+  let address: string | null = null;
+  let phone: string | null = null;
+  let email: string | null = null;
+
+  if (contactSection) {
+    const cs = contactSection[0];
+    // Address: <h2> inside .text-info after "Адреса основна"
+    const addrMatch = cs.match(/Адреса основна[\s\S]*?<h2[^>]*>([\s\S]*?)<\/h2>/i);
+    address = addrMatch ? clean(addrMatch[1]) : null;
+    // Phone: first tel: link
+    const phoneMatch = cs.match(/href="tel:([^"]+)"/i);
+    phone = phoneMatch ? clean(phoneMatch[1]) : null;
+    // Email: mailto link
+    const emailMatch = cs.match(/href="mailto:\s*([\s\S]*?)"/i);
+    email = emailMatch ? clean(emailMatch[1]) : null;
+  }
+
+  // Practice form section: after "Форми адвокатської діяльності"
+  const practiceSection = html.match(/Форми адвокатської діяльності[\s\S]*?(?:Підвищення кваліфікації|<\/div>\s*<\/div>\s*<\/div>\s*<\/div>)/i);
+  let practiceType: string | null = null;
+  let practiceAddress: string | null = null;
+  let practicePhone: string | null = null;
+
+  if (practiceSection) {
+    const ps = practiceSection[0];
+    // Type: inside .column-right__header
+    const typeMatch = ps.match(/column-right__header[\s\S]*?>([\s\S]*?)<\/div>/i);
+    practiceType = typeMatch ? clean(typeMatch[1]) : null;
+    if (!practiceType) {
+      practiceType = extract(/(Індивідуальна адвокатська діяльність|Адвокатське бюро|Адвокатське об'єднання)/i);
+    }
+    // Practice address: after "Адреса:"
+    const pAddrMatch = ps.match(/Адреса:<\/div>\s*<div[^>]*>([\s\S]*?)<\/div>/i);
+    practiceAddress = pAddrMatch ? clean(pAddrMatch[1]) : null;
+    // Practice phone
+    const pPhoneMatch = ps.match(/href="tel:([^"]+)"/i);
+    practicePhone = pPhoneMatch ? clean(pPhoneMatch[1]) : null;
+  }
+
+  // Qualification section: after "Підвищення кваліфікації"
+  const qualification: Array<{ year: string; status: string }> = [];
+  const qualSection = html.match(/Підвищення кваліфікації[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/i);
+  if (qualSection) {
+    // Pairs: <div class="type-info...">2021 рік</div> <div class="text-info...">Виконано</div>
+    const pairs = [...qualSection[0].matchAll(/type-info[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*class="text-info[^>]*>([\s\S]*?)<\/div>/gi)];
+    for (const m of pairs) {
+      const yearMatch = m[1].match(/(\d{4})/);
+      const status = clean(m[2]);
+      if (yearMatch && status) {
+        qualification.push({ year: yearMatch[1], status });
+      }
+    }
+  }
 
   return {
     id,
-    fullName: clean(fullName) || '',
-    council: clean(council),
+    fullName: fullName || '',
+    council,
     certificate: {
-      number: clean(certNumber),
-      date: clean(certDate),
-      issuedBy: clean(issuedBy),
-      decisionNumber: clean(decisionNumber),
-      decisionDate: clean(decisionDate),
+      number: certNumber,
+      date: certDate,
+      issuedBy,
+      decisionNumber,
+      decisionDate,
     },
-    experience: clean(experience),
+    experience,
     contacts: {
-      address: clean(address),
-      phone: clean(phone),
-      email: clean(email),
+      address,
+      phone,
+      email,
     },
     practiceForm: {
-      type: clean(practiceType),
-      address: clean(practiceAddress),
-      phone: clean(practicePhone),
+      type: practiceType,
+      address: practiceAddress,
+      phone: practicePhone,
     },
     qualification,
   };
