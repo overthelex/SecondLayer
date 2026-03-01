@@ -15,6 +15,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Deployment
 
+- When deploying, always use SSH to the remote server (gate/staging/prod) — never run docker compose commands locally unless explicitly asked for local deployment.
+- The staging server is accessed via SSH. Always confirm which environment (local/stage/prod) before running deploy commands.
+- After deploying, always check container health and logs for errors.
 - After making code changes, always rebuild Docker images before testing (`docker compose build <service>` then `docker compose up -d`). Never test against stale containers.
 - Local dev runs in Docker. Do NOT attempt to restart backend processes directly — always use docker compose commands.
 - Compose files have NO `env_file:` directives — secrets are injected via shell env substitution. **Always pass `--env-file`**:
@@ -24,6 +27,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Git Workflow
 
+- Always create feature branches from `main` unless explicitly told otherwise.
+- Standard flow: commit → push → create PR → merge → switch back to main.
+- Never create branches off other feature branches without asking.
 - When asked to commit and push, commit ONLY the files relevant to the current task. Do not stage unrelated files or over-scope commits.
 - If the user says a number or short response after listing options, ask for clarification rather than assuming intent.
 
@@ -43,6 +49,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Session Scope
 
 When the user asks for a specific task (e.g., 'commit frontend changes'), do exactly that. Do not expand scope to investigate related issues, refactor adjacent code, or explore the codebase unless explicitly asked. If you see something worth investigating, mention it briefly and ask before proceeding.
+
+## Language & Localization
+
+- This project uses Ukrainian (uk-UA) for all user-facing strings and error messages.
+- All UI text, toast notifications, and error messages should be in Ukrainian unless told otherwise.
+
+## Infrastructure Notes
+
+- Primary stack: TypeScript, Docker Compose, PostgreSQL (with PgBouncer), Redis, Qdrant.
+- Staging and prod use different env files and API URLs — always double-check VITE_API_URL and similar env vars match the target environment.
+- When changing PostgreSQL auth or connection pooling config, verify auth method compatibility (MD5 vs SCRAM-SHA-256).
+- Never change SSH-related paths (home directory, authorized_keys) on remote servers without explicit confirmation.
+
+## Debugging Approach
+
+- When asked to check errors or logs, always check the REMOTE server logs (via SSH) unless explicitly told to check locally.
+- When diagnosing search/query issues, log the actual generated query before assuming the logic is correct.
+- When fixing bugs, deploy the fix AND verify it works in the target environment before marking done.
 
 ## Git & Deployment Workflow
 
