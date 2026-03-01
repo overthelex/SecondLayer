@@ -227,11 +227,17 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   };
 
   const handleSwitchConversation = async (convId: string) => {
-    if (switchingId) return;
+    console.log('[Sidebar] handleSwitchConversation called', { convId, switchingId, activeConversationId });
+    if (switchingId) {
+      console.warn('[Sidebar] blocked by switchingId', switchingId);
+      return;
+    }
     setSwitchingId(convId);
     try {
       await switchConversation(convId);
       if (location.pathname !== ROUTES.CHAT) navigate(ROUTES.CHAT);
+    } catch (err) {
+      console.error('[Sidebar] switchConversation error', err);
     } finally {
       setSwitchingId(null);
       if (window.innerWidth < 1024) onClose();
