@@ -127,6 +127,45 @@ export function useRemoveTeamMember() {
   });
 }
 
+// ─── Matter Documents ────────────────────────────────────
+
+export function useMatterDocuments(matterId: string) {
+  return useQuery({
+    queryKey: queryKeys.matters.documents(matterId),
+    queryFn: () => matterService.getMatterDocuments(matterId),
+    enabled: !!matterId,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useAssignDocuments() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ matterId, documentIds }: { matterId: string; documentIds: string[] }) =>
+      matterService.assignDocumentsToMatter(matterId, documentIds),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.matters.documents(variables.matterId),
+      });
+    },
+  });
+}
+
+export function useUnassignDocuments() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ matterId, documentIds }: { matterId: string; documentIds: string[] }) =>
+      matterService.unassignDocumentsFromMatter(matterId, documentIds),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.matters.documents(variables.matterId),
+      });
+    },
+  });
+}
+
 // ─── Legal Holds ─────────────────────────────────────────
 
 export function useMatterHolds(matterId: string) {

@@ -361,6 +361,75 @@ export function createMatterRoutes(
     }
   }) as any);
 
+  // ─── Matter Documents ─────────────────────────────────
+
+  // GET /matters/:matterId/documents — list documents linked to matter
+  router.get('/matters/:matterId/documents', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+
+      const matterId = req.params.matterId as string;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const result = await matterService.listMatterDocuments(matterId, userId, { limit, offset });
+      res.json(result);
+    } catch (error: any) {
+      logger.error('[MatterRoutes] List matter documents failed', { error: error.message });
+      if (error.message === 'Access denied to this matter') {
+        return res.status(403).json({ error: error.message });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  }) as any);
+
+  // PUT /matters/:matterId/documents/assign — bulk assign documents to matter
+  router.put('/matters/:matterId/documents/assign', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+
+      const matterId = req.params.matterId as string;
+      const { documentIds } = req.body;
+      if (!Array.isArray(documentIds) || documentIds.length === 0) {
+        return res.status(400).json({ error: 'documentIds array is required' });
+      }
+
+      const result = await matterService.assignDocumentsToMatter(matterId, documentIds, userId);
+      res.json(result);
+    } catch (error: any) {
+      logger.error('[MatterRoutes] Assign documents failed', { error: error.message });
+      if (error.message === 'Access denied to this matter') {
+        return res.status(403).json({ error: error.message });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  }) as any);
+
+  // PUT /matters/:matterId/documents/unassign — bulk unassign documents from matter
+  router.put('/matters/:matterId/documents/unassign', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+
+      const matterId = req.params.matterId as string;
+      const { documentIds } = req.body;
+      if (!Array.isArray(documentIds) || documentIds.length === 0) {
+        return res.status(400).json({ error: 'documentIds array is required' });
+      }
+
+      const result = await matterService.unassignDocumentsFromMatter(matterId, documentIds, userId);
+      res.json(result);
+    } catch (error: any) {
+      logger.error('[MatterRoutes] Unassign documents failed', { error: error.message });
+      if (error.message === 'Access denied to this matter') {
+        return res.status(403).json({ error: error.message });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  }) as any);
+
   // GET /audit/validate — validate chain integrity
   router.get('/audit/validate', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {

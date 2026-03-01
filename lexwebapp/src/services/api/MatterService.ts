@@ -173,6 +173,43 @@ export class MatterService extends BaseService {
     }
   }
 
+  // ─── Matter Documents ────────────────────────────────────
+
+  async getMatterDocuments(matterId: string): Promise<{ documents: any[]; total: number }> {
+    try {
+      const response = await this.client.get<{ documents: any[]; total: number }>(
+        `/api/matters/matters/${matterId}/documents`
+      );
+      return response.data;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async assignDocumentsToMatter(matterId: string, documentIds: string[]): Promise<{ assigned: number }> {
+    try {
+      const response = await this.client.put<{ assigned: number }>(
+        `/api/matters/matters/${matterId}/documents/assign`,
+        { documentIds }
+      );
+      return response.data;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async unassignDocumentsFromMatter(matterId: string, documentIds: string[]): Promise<{ unassigned: number }> {
+    try {
+      const response = await this.client.put<{ unassigned: number }>(
+        `/api/matters/matters/${matterId}/documents/unassign`,
+        { documentIds }
+      );
+      return response.data;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
   // ─── Audit ─────────────────────────────────────────────
 
   async getAuditLog(params?: AuditLogParams): Promise<AuditLogResponse> {

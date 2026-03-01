@@ -217,6 +217,10 @@ Pipeline:
               type: 'string',
               description: 'Фільтр по шляху папки (prefix match)',
             },
+            matterId: {
+              type: 'string',
+              description: 'Фільтр по справі (matter UUID)',
+            },
           },
         },
       },
@@ -330,6 +334,10 @@ Pipeline:
             folderPath: {
               type: 'string',
               description: 'Новий шлях до папки',
+            },
+            matterId: {
+              type: ['string', 'null'],
+              description: 'UUID справи (null для від\'єднання від справи)',
             },
           },
           required: ['documentId'],
@@ -884,6 +892,7 @@ Pipeline:
     sortOrder?: 'asc' | 'desc';
     userId?: string;
     folderPath?: string;
+    matterId?: string;
   }): Promise<{ documents: VaultDocument[]; total: number }> {
     try {
       logger.info('[Vault] list_documents started', args);
@@ -942,6 +951,13 @@ Pipeline:
       if (args.folderPath) {
         conditions.push(`metadata::jsonb ->> 'folderPath' LIKE $${paramIndex}`);
         params.push(args.folderPath + '%');
+        paramIndex++;
+      }
+
+      // Matter filter
+      if (args.matterId) {
+        conditions.push(`matter_id = $${paramIndex}`);
+        params.push(args.matterId);
         paramIndex++;
       }
 
@@ -1493,6 +1509,7 @@ Pipeline:
     type?: string;
     category?: string;
     folderPath?: string;
+    matterId?: string | null;
   }): Promise<{ updated: boolean; document?: { id: string; title: string; type: string; metadata: any }; error?: string }> {
     try {
       logger.info('[Vault] update_document started', args);
@@ -1527,6 +1544,11 @@ Pipeline:
       if (args.type !== undefined) {
         setClauses.push(`type = $${paramIdx++}`);
         params.push(args.type);
+      }
+
+      if (args.matterId !== undefined) {
+        setClauses.push(`matter_id = $${paramIdx++}`);
+        params.push(args.matterId);
       }
 
       // Merge metadata fields: tags, category, folderPath
