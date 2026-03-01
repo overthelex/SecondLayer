@@ -21,6 +21,7 @@ export interface User {
   updated_at: Date;
   password_hash?: string;
   role: 'user' | 'company' | 'administrator';
+  user_type?: 'individual' | 'attorney' | 'company_admin';
 }
 
 export interface UserCreate {
