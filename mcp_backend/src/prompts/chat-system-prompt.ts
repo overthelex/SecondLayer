@@ -89,7 +89,7 @@ export function buildPlanGenerationMessages(
       legal_consultation: '11. queryType=legal_consultation: combine legislation + practice search tools',
       registry_lookup: '11. queryType=registry_lookup: start with openreyestr_get_by_edrpou or openreyestr_search_entities, max 3 steps',
       parliament_query: '11. queryType=parliament_query: use rada_ tools, max 2 steps',
-      document_query: '11. queryType=document_query: use list_documents or semantic_search, max 2 steps',
+      document_query: '11. queryType=document_query: use list_documents, semantic_search, delete_document, or update_document, max 3 steps. For delete/update by name: first list_documents to find the doc, then delete_document/update_document with the ID',
       document_drafting: '11. queryType=document_drafting: first find_relevant_law_articles for legal basis, then generate document',
       comparative_analysis: '11. queryType=comparative_analysis: search each competing approach separately with pro/contra, include legislation',
       due_diligence: '11. queryType=due_diligence: start with registry lookup, add debtors/bankruptcy/enforcement checks, then court cases',
@@ -540,6 +540,8 @@ export const CHAT_INTENT_CLASSIFICATION_PROMPT = `Ти — класифікат�
 - list_documents — список документів користувача (завантажені файли, VAULT)
 - list_folders — список папок у сховищі
 - semantic_search — семантичний пошук по завантажених документах
+- delete_document — видалити документ (видали, удали файл)
+- update_document — оновити метадані (переименуй, додай тег, перенеси в папку)
 
 ### legal_advice — Комплексна юридична консультація
 Використовуй цей домен, коли потрібні одночасно і судова практика, і законодавство.

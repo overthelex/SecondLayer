@@ -708,6 +708,48 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
     ],
   },
 
+  {
+    id: 'document_delete',
+    label: 'Видалення документа з Vault',
+    domains: ['documents'],
+    exampleQueries: [
+      'Видали документ "договір оренди"',
+      'Удали файл про земельну ділянку',
+      'Delete document with name...',
+    ],
+    dataSources: [
+      { name: 'PostgreSQL', provides: 'документ для видалення' },
+    ],
+    toolChain: [
+      { tool: 'list_documents', purpose: 'знайти документ за назвою/ключовими словами' },
+      { tool: 'delete_document', purpose: 'видалити документ за ID' },
+    ],
+    responseTemplate: [
+      { heading: 'Результат', instruction: 'підтвердження видалення з назвою документа' },
+    ],
+  },
+
+  {
+    id: 'document_update',
+    label: 'Оновлення метаданих документа',
+    domains: ['documents'],
+    exampleQueries: [
+      'Переименуй документ на "Новий договір"',
+      'Додай тег "оренда" до документа',
+      'Перенеси документ в папку Contracts',
+    ],
+    dataSources: [
+      { name: 'PostgreSQL', provides: 'документ для оновлення' },
+    ],
+    toolChain: [
+      { tool: 'list_documents', purpose: 'знайти документ за назвою/ключовими словами' },
+      { tool: 'update_document', purpose: 'оновити метадані документа (назва, теги, тип, категорія, папка)' },
+    ],
+    responseTemplate: [
+      { heading: 'Результат', instruction: 'підтвердження оновлення з новими даними' },
+    ],
+  },
+
   // ─────────────── Composite (4) ───────────────
 
   {
