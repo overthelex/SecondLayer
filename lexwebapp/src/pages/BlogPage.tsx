@@ -1151,7 +1151,7 @@ export function BlogPage() {
               onClick={() => setSelectedArticle(article)}
             >
               <img
-                src={`/blog/${article.id}.png`}
+                src={`/blog-banners/${article.id}.png`}
                 alt={article.title}
                 className="w-full h-40 sm:h-48 object-cover"
               />
@@ -1289,7 +1289,7 @@ export function BlogPage() {
 
               {/* Banner */}
               <img
-                src={`/blog/${selectedArticle.id}.png`}
+                src={`/blog-banners/${selectedArticle.id}.png`}
                 alt={selectedArticle.title}
                 className="w-full h-48 sm:h-64 object-cover"
               />
