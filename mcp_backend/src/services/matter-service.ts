@@ -534,4 +534,112 @@ export class MatterService {
 
     return `${code}-${year}-${seq}`;
   }
+
+  // ─── Matter Documents ───────────────────────────────────
+
+  async listMatterDocuments(
+    matterId: string,
+    userId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<{ documents: any[]; total: number }> {
+    // Verify user has access to matter
+    const hasAccess = await this.isUserOnMatter(matterId, userId);
+    const orgId = await this.getUserOrgId(userId);
+    const isAdmin = orgId ? await this.isOrgAdmin(userId, orgId) : false;
+    if (!hasAccess && !isAdmin) {
+      throw new Error('Access denied to this matter');
+    }
+
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+
+    const countResult = await this.db.query(
+      `SELECT COUNT(*) FROM documents WHERE matter_id = $1 AND deleted_at IS NULL`,
+      [matterId]
+    );
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    const result = await this.db.query(
+      `SELECT id, title, type, mime_type, storage_type, metadata, created_at, updated_at
+       FROM documents
+       WHERE matter_id = $1 AND deleted_at IS NULL
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [matterId, limit, offset]
+    );
+
+    return {
+      documents: result.rows.map((row: any) => ({
+        id: row.id,
+        title: row.title || 'Untitled',
+        type: row.type,
+        mime_type: row.mime_type,
+        storage_type: row.storage_type,
+        metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata || {},
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      })),
+      total,
+    };
+  }
+
+  async assignDocumentsToMatter(
+    matterId: string,
+    documentIds: string[],
+    userId: string
+  ): Promise<{ assigned: number }> {
+    // Verify user has access to matter
+    const hasAccess = await this.isUserOnMatter(matterId, userId);
+    const orgId = await this.getUserOrgId(userId);
+    const isAdmin = orgId ? await this.isOrgAdmin(userId, orgId) : false;
+    if (!hasAccess && !isAdmin) {
+      throw new Error('Access denied to this matter');
+    }
+
+    const result = await this.db.query(
+      `UPDATE documents SET matter_id = $1, updated_at = NOW()
+       WHERE id = ANY($2) AND user_id = $3 AND deleted_at IS NULL`,
+      [matterId, documentIds, userId]
+    );
+
+    await this.auditService.log({
+      userId,
+      action: 'assign_documents',
+      resourceType: 'matter',
+      resourceId: matterId,
+      details: { documentIds, count: result.rowCount },
+    });
+
+    return { assigned: result.rowCount || 0 };
+  }
+
+  async unassignDocumentsFromMatter(
+    matterId: string,
+    documentIds: string[],
+    userId: string
+  ): Promise<{ unassigned: number }> {
+    // Verify user has access to matter
+    const hasAccess = await this.isUserOnMatter(matterId, userId);
+    const orgId = await this.getUserOrgId(userId);
+    const isAdmin = orgId ? await this.isOrgAdmin(userId, orgId) : false;
+    if (!hasAccess && !isAdmin) {
+      throw new Error('Access denied to this matter');
+    }
+
+    const result = await this.db.query(
+      `UPDATE documents SET matter_id = NULL, updated_at = NOW()
+       WHERE id = ANY($1) AND matter_id = $2 AND user_id = $3 AND deleted_at IS NULL`,
+      [documentIds, matterId, userId]
+    );
+
+    await this.auditService.log({
+      userId,
+      action: 'unassign_documents',
+      resourceType: 'matter',
+      resourceId: matterId,
+      details: { documentIds, count: result.rowCount },
+    });
+
+    return { unassigned: result.rowCount || 0 };
+  }
 }

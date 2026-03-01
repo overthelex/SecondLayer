@@ -27,6 +27,7 @@ import { useClientMatterStore } from '../stores/clientMatterStore';
 import { useMatterTeam, useAddTeamMember, useRemoveTeamMember, useCloseMatter } from '../hooks/queries/useMatters';
 import { useClient } from '../hooks/queries/useClients';
 import { HoldsList } from './matters/HoldsList';
+import { MatterDocuments } from './matters/MatterDocuments';
 import { AuditLogViewer } from './audit/AuditLogViewer';
 import { generateRoute } from '../router/routes';
 import type { Matter, MatterTeamRole } from '../types/models/Matter';
@@ -404,13 +405,7 @@ export function MatterDetailPage({ matter, onBack }: MatterDetailPageProps) {
           )}
 
           {activeTab === 'documents' && (
-            <div className="text-center py-12 bg-white rounded-2xl border border-claude-border shadow-sm">
-              <FileText size={32} className="mx-auto text-claude-subtext mb-3" />
-              <h3 className="text-lg font-serif text-claude-text mb-1">Документи справи</h3>
-              <p className="text-claude-subtext font-sans text-sm">
-                Документи будуть відображатися тут після завантаження
-              </p>
-            </div>
+            <MatterDocuments matterId={matter.id} />
           )}
 
           {activeTab === 'activity' && (

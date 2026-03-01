@@ -82,6 +82,7 @@ export const queryKeys = {
     detail: (matterId: string) => ['matters', 'detail', matterId] as const,
     team: (matterId: string) => ['matters', 'team', matterId] as const,
     holds: (matterId: string) => ['matters', 'holds', matterId] as const,
+    documents: (matterId: string) => ['matters', 'documents', matterId] as const,
   },
 
   // Audit
