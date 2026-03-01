@@ -9,3 +9,4 @@ export * from './useClients';
 export * from './useMatters';
 export * from './useTimeEntries';
 export * from './useInvoices';
+export * from './useJudges';

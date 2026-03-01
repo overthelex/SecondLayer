@@ -11,17 +11,15 @@ export function JudgesPage() {
   const navigate = useNavigate();
 
   const handleSelectJudge = (judge: any) => {
-    navigate(generateRoute.judgeDetail(judge.id), {
+    navigate(generateRoute.judgeDetail(judge.dossier_number || judge.id), {
       state: {
         person: {
           type: 'judge',
           data: {
             id: judge.id,
-            name: judge.name,
-            position: judge.court,
-            cases: judge.cases,
-            successRate: judge.approvalRate,
-            specialization: judge.specialization,
+            name: judge.full_name,
+            position: judge.court_name,
+            dossier_number: judge.dossier_number,
           },
         },
       },

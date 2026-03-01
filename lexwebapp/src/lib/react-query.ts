@@ -107,4 +107,12 @@ export const queryKeys = {
       ['invoices', 'list', filters] as const,
     detail: (invoiceId: string) => ['invoices', 'detail', invoiceId] as const,
   },
+
+  // Judges
+  judges: {
+    all: ['judges'] as const,
+    list: (params?: Record<string, any>) =>
+      ['judges', 'list', params] as const,
+    detail: (dossierNumber: string) => ['judges', 'detail', dossierNumber] as const,
+  },
 } as const;
