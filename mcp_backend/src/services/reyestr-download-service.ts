@@ -228,7 +228,10 @@ export class ReyestrDownloadService {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
-      return await tab.content();
+      let html = await tab.content();
+      // Fix encoding: reyestr puts <meta charset> inside <body>, move it to <head>
+      html = html.replace(/<head><\/head>/, '<head><meta charset="utf-8"></head>');
+      return html;
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`[ReyestrDownload] Download error for ${docId}: ${msg}`);
