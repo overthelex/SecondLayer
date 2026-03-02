@@ -6,12 +6,9 @@
 
 import { BaseService } from '../base/BaseService';
 import { SSEClient } from './SSEClient';
-import {
-  Message,
-  ThinkingStep,
-  Decision,
-  Citation,
-} from '../../types/models';
+import { getErrorMessage, isAbortError } from '../../utils/errors';
+import { transformToolResultToMessage } from './mcp/response-transformers';
+import type { Message } from '../../types/models';
 import { StreamingCallbacks } from '../../types/api/sse';
 
 export interface CitationWarning {
@@ -54,9 +51,6 @@ export class MCPService extends BaseService {
     this.sseClient = new SSEClient(this.API_URL, this.API_KEY);
   }
 
-  /**
-   * Get the current auth token (JWT from localStorage takes priority over API key)
-   */
   private getAuthToken(): string {
     return localStorage.getItem('auth_token') || this.API_KEY;
   }
@@ -65,9 +59,6 @@ export class MCPService extends BaseService {
   // Universal Tool Methods
   // ============================================================================
 
-  /**
-   * Call any MCP tool synchronously (no streaming)
-   */
   async callTool(toolName: string, params: any): Promise<any> {
     try {
       const response = await fetch(`${this.API_URL}/tools/${toolName}`, {
@@ -84,45 +75,36 @@ export class MCPService extends BaseService {
         throw new Error(`API Error: ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json();
-      return data;
-    } catch (error: any) {
+      return await response.json();
+    } catch (error: unknown) {
       console.error(`Tool ${toolName} error:`, error);
       throw error;
     }
   }
 
-  /**
-   * Call any MCP tool with SSE streaming
-   */
   async streamTool(
     toolName: string,
     params: any,
     callbacks: StreamingCallbacks
   ): Promise<AbortController> {
     if (!this.enableSSE) {
-      // Fallback to sync mode if SSE disabled
       try {
         const result = await this.callTool(toolName, params);
         callbacks.onComplete?.({ result });
         callbacks.onEnd?.();
-      } catch (error: any) {
-        callbacks.onError?.({ message: error.message, error });
+      } catch (error: unknown) {
+        callbacks.onError?.({ message: getErrorMessage(error), error });
       }
-      return new AbortController(); // Return dummy controller
+      return new AbortController();
     }
 
     return this.sseClient.streamToolWithRetry(toolName, params, callbacks, this.getAuthToken());
   }
 
-  /**
-   * Stream AI chat (agentic LLM loop with tool calling)
-   * POST /api/chat → SSE events: thinking, tool_result, answer, complete
-   */
-  /**
-   * Request an execution plan for user review (Phase 1 of two-phase flow).
-   * Returns plan with steps that user can mark as standard/deep.
-   */
+  // ============================================================================
+  // Chat Streaming
+  // ============================================================================
+
   async requestPlan(
     query: string,
     budget: string = 'standard'
@@ -182,11 +164,6 @@ export class MCPService extends BaseService {
       let buffer = '';
 
       const processEvents = async () => {
-        // NOTE: currentEvent/currentData must live OUTSIDE the chunk loop.
-        // Large SSE events (tool_result with many docs, final answer text) are
-        // routinely split across multiple TCP packets. Resetting these inside the
-        // while-loop would discard the event type when the data line arrives in a
-        // later chunk, silently dropping the event.
         let currentEvent = '';
         let currentData = '';
 
@@ -197,12 +174,10 @@ export class MCPService extends BaseService {
 
             buffer += decoder.decode(value, { stream: true });
 
-            // Parse SSE events from buffer
             const lines = buffer.split('\n');
-            buffer = lines.pop() || ''; // keep incomplete line in buffer
+            buffer = lines.pop() || '';
 
             for (const line of lines) {
-              // Skip SSE heartbeat comments
               if (line.startsWith(':')) continue;
 
               if (line.startsWith('event: ')) {
@@ -210,44 +185,9 @@ export class MCPService extends BaseService {
               } else if (line.startsWith('data: ')) {
                 currentData = line.slice(6);
               } else if (line === '' && currentEvent && currentData) {
-                // End of event — dispatch
                 try {
                   const data = JSON.parse(currentData);
-                  switch (currentEvent) {
-                    case 'response_id':
-                      callbacks.onResponseId?.(data);
-                      break;
-                    case 'plan':
-                      callbacks.onPlan?.(data);
-                      break;
-                    case 'thinking':
-                      callbacks.onThinking?.(data);
-                      break;
-                    case 'tool_result':
-                      callbacks.onToolResult?.(data);
-                      break;
-                    case 'answer_delta':
-                      callbacks.onAnswerDelta?.(data);
-                      break;
-                    case 'answer':
-                      callbacks.onAnswer?.(data);
-                      break;
-                    case 'citation_warning':
-                      callbacks.onCitationWarning?.(data);
-                      break;
-                    case 'complete':
-                      callbacks.onComplete?.(data);
-                      break;
-                    case 'cost_summary':
-                      callbacks.onCostSummary?.(data);
-                      break;
-                    case 'budget_escalated':
-                      callbacks.onBudgetEscalated?.(data);
-                      break;
-                    case 'error':
-                      callbacks.onError?.(data);
-                      break;
-                  }
+                  this.dispatchChatEvent(currentEvent, data, callbacks);
                 } catch {
                   // skip malformed JSON
                 }
@@ -256,249 +196,46 @@ export class MCPService extends BaseService {
               }
             }
           }
-        } catch (err: any) {
-          if (err.name !== 'AbortError') {
-            callbacks.onError?.({ message: err.message });
+        } catch (err: unknown) {
+          if (!isAbortError(err)) {
+            callbacks.onError?.({ message: getErrorMessage(err) });
           }
         }
       };
 
       processEvents();
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        callbacks.onError?.({ message: err.message });
+    } catch (err: unknown) {
+      if (!isAbortError(err)) {
+        callbacks.onError?.({ message: getErrorMessage(err) });
       }
     }
 
     return controller;
   }
 
-  // ============================================================================
-  // Response Parsing and Transformation
-  // ============================================================================
-
-  /**
-   * Parse backend response structure
-   */
-  private parseBackendResponse(data: any): any {
-    let parsedResult: any = {};
-
-    try {
-      // Backend returns result in content[0].text as JSON string
-      if (data.result?.content?.[0]?.text) {
-        parsedResult = JSON.parse(data.result.content[0].text);
-      } else if (data.result) {
-        parsedResult = data.result;
-      } else {
-        parsedResult = data;
-      }
-    } catch (e) {
-      console.warn('Failed to parse result content:', e);
-      parsedResult = data;
+  private dispatchChatEvent(event: string, data: any, callbacks: ChatStreamCallbacks) {
+    switch (event) {
+      case 'response_id': callbacks.onResponseId?.(data); break;
+      case 'plan': callbacks.onPlan?.(data); break;
+      case 'thinking': callbacks.onThinking?.(data); break;
+      case 'tool_result': callbacks.onToolResult?.(data); break;
+      case 'answer_delta': callbacks.onAnswerDelta?.(data); break;
+      case 'answer': callbacks.onAnswer?.(data); break;
+      case 'citation_warning': callbacks.onCitationWarning?.(data); break;
+      case 'complete': callbacks.onComplete?.(data); break;
+      case 'cost_summary': callbacks.onCostSummary?.(data); break;
+      case 'budget_escalated': callbacks.onBudgetEscalated?.(data); break;
+      case 'error': callbacks.onError?.(data); break;
     }
-
-    return parsedResult;
   }
 
-  /**
-   * Transform tool result to Message model
-   */
+  // ============================================================================
+  // Response Parsing (delegates to extracted module)
+  // ============================================================================
+
   transformToolResultToMessage(toolName: string, result: any): Message {
-    const parsedResult = this.parseBackendResponse(result);
-    return this.transformToMessage(parsedResult, toolName);
+    return transformToolResultToMessage(toolName, result);
   }
-
-  /**
-   * Transform API response to Message model
-   */
-  private transformToMessage(response: any, toolName: string): Message {
-    // Different tools return different structures
-    // Adapt based on tool type
-    let content = '';
-    let thinkingSteps: ThinkingStep[] | undefined;
-    let decisions: Decision[] | undefined;
-    let citations: Citation[] | undefined;
-
-    // Handle get_legal_advice format
-    if (
-      toolName === 'get_legal_advice' ||
-      toolName === 'packaged_lawyer_answer'
-    ) {
-      content =
-        response.summary ||
-        response.answer ||
-        response.result?.answer ||
-        'Відповідь отримано від backend.';
-
-      thinkingSteps = this.transformThinkingSteps(response.reasoning_chain);
-      decisions = this.transformDecisions(response.precedent_chunks);
-      citations = this.transformCitations(response.source_attribution);
-    }
-    // Handle search tools
-    else if (
-      toolName.includes('search') ||
-      toolName.includes('find') ||
-      toolName.includes('classify')
-    ) {
-      content = this.formatSearchResults(response);
-    }
-    // Handle document tools
-    else if (toolName.includes('document') || toolName.includes('parse')) {
-      content = this.formatDocumentResults(response);
-    }
-    // Handle legislation tools
-    else if (toolName.includes('legislation')) {
-      content = this.formatLegislationResults(response);
-    }
-    // Default format
-    else {
-      content = JSON.stringify(response, null, 2);
-    }
-
-    return {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content,
-      isStreaming: false,
-      thinkingSteps,
-      decisions,
-      citations,
-    };
-  }
-
-  /**
-   * Transform reasoning chain to thinking steps
-   */
-  private transformThinkingSteps(
-    reasoningChain?: any[]
-  ): ThinkingStep[] | undefined {
-    if (!reasoningChain || reasoningChain.length === 0) {
-      return undefined;
-    }
-
-    return reasoningChain.map((step, index) => ({
-      id: `s${index + 1}`,
-      title: `Крок ${step.step || index + 1}: ${step.action || 'Обробка'}`,
-      content: step.output
-        ? JSON.stringify(step.output, null, 2)
-        : step.explanation || '',
-      isComplete: true,
-    }));
-  }
-
-  /**
-   * Transform precedent chunks to decisions
-   */
-  private transformDecisions(precedentChunks?: any[]): Decision[] | undefined {
-    if (!precedentChunks || precedentChunks.length === 0) {
-      return undefined;
-    }
-
-    return precedentChunks.map((prec, index) => ({
-      id: `d${index + 1}`,
-      number: prec.case_number || prec.number || `Справа ${index + 1}`,
-      court: prec.court || 'Невідомий суд',
-      date: prec.date || '',
-      summary: prec.summary || prec.reasoning || prec.content || '',
-      relevance: Math.round((prec.similarity || prec.relevance || 0.5) * 100),
-      status: 'active',
-    }));
-  }
-
-  /**
-   * Transform source attribution to citations
-   */
-  private transformCitations(
-    sourceAttribution?: any[]
-  ): Citation[] | undefined {
-    if (!sourceAttribution || sourceAttribution.length === 0) {
-      return undefined;
-    }
-
-    return sourceAttribution.map((src, index) => ({
-      text: src.text || src.content || '',
-      source: src.citation || src.source || `Джерело ${index + 1}`,
-    }));
-  }
-
-  /**
-   * Format search results for display
-   */
-  private formatSearchResults(response: any): string {
-    if (response.cases && Array.isArray(response.cases)) {
-      return `Знайдено справ: ${response.total || response.cases.length}\n\n${response.cases
-        .map(
-          (c: any, i: number) =>
-            `${i + 1}. ${c.case_number || c.number || 'N/A'}\n   Суд: ${c.court || 'N/A'}\n   Дата: ${c.date || 'N/A'}\n   ${c.summary || c.category || ''}`
-        )
-        .join('\n\n')}`;
-    }
-
-    if (response.precedents && Array.isArray(response.precedents)) {
-      return `Знайдено прецедентів: ${response.total || response.precedents.length}\n\n${response.precedents
-        .map(
-          (p: any, i: number) =>
-            `${i + 1}. ${p.case_number}\n   Схожість: ${Math.round(p.similarity * 100)}%\n   ${p.summary}`
-        )
-        .join('\n\n')}`;
-    }
-
-    if (response.legislation && Array.isArray(response.legislation)) {
-      return `Знайдено законів: ${response.legislation.length}\n\n${response.legislation
-        .map((l: any, i: number) => `${i + 1}. ${l.title}\n   Тип: ${l.type}`)
-        .join('\n\n')}`;
-    }
-
-    return JSON.stringify(response, null, 2);
-  }
-
-  /**
-   * Format document results for display
-   */
-  private formatDocumentResults(response: any): string {
-    if (response.text) {
-      return response.text;
-    }
-
-    if (response.sections && Array.isArray(response.sections)) {
-      return response.sections
-        .map((s: any) => `## ${s.name}\n\n${s.content}`)
-        .join('\n\n---\n\n');
-    }
-
-    if (response.documents && Array.isArray(response.documents)) {
-      return response.documents
-        .map((d: any) => `### Документ: ${d.document_id}\n\n${d.text}`)
-        .join('\n\n---\n\n');
-    }
-
-    return JSON.stringify(response, null, 2);
-  }
-
-  /**
-   * Format legislation results for display
-   */
-  private formatLegislationResults(response: any): string {
-    if (response.text) {
-      return `# ${response.legislation_id} - Стаття ${response.article_number}\n\n${response.text}${response.context ? `\n\n---\n\n${response.context}` : ''}`;
-    }
-
-    if (response.content) {
-      return `# ${response.legislation_id} - ${response.section_name}\n\n${response.content}`;
-    }
-
-    if (response.articles && Array.isArray(response.articles)) {
-      return response.articles
-        .map(
-          (a: any) =>
-            `## Стаття ${a.article_number}\n\n${a.text || a.content}`
-        )
-        .join('\n\n---\n\n');
-    }
-
-    return JSON.stringify(response, null, 2);
-  }
-
 }
 
 // Export singleton instance

@@ -12,6 +12,7 @@
  */
 
 import { uploadService, InitUploadResponse, UploadStatusResponse } from '../api/UploadService';
+import { getErrorMessage } from '../../utils/errors';
 
 export type UploadItemStatus =
   | 'queued'
@@ -706,11 +707,11 @@ export class UploadManager {
       item.progress = 1;
       item.uploadedBytes = item.fileSize;
       this.emitItemUpdate(item);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (item.status === 'cancelled' || item.status === 'paused') return;
 
       item.status = 'failed';
-      item.error = error.message || 'Upload failed';
+      item.error = getErrorMessage(error);
       item.retries++;
       this.emitItemUpdate(item);
       this.emit({ type: 'error', error: `${item.fileName}: ${item.error}` });

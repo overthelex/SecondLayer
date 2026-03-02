@@ -2,13 +2,15 @@ import { RouterProvider } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { QueryProvider } from './providers/QueryProvider';
 import { AuthProvider } from './contexts/AuthContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { router } from './router';
 
 export function App() {
   return (
-    <QueryProvider>
-      <AuthProvider>
-        <RouterProvider router={router} />
+    <ErrorBoundary>
+      <QueryProvider>
+        <AuthProvider>
+          <RouterProvider router={router} />
         <Toaster
           position="top-right"
           toastOptions={{
@@ -27,5 +29,6 @@ export function App() {
         />
       </AuthProvider>
     </QueryProvider>
+    </ErrorBoundary>
   );
 }

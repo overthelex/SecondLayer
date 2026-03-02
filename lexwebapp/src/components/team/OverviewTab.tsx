@@ -13,6 +13,7 @@ import {
 import { api } from '../../utils/api-client';
 import { TeamMember, TeamStats, PermissionRow } from '../../types/models/Team';
 import toast from 'react-hot-toast';
+import { getErrorMessage } from '../../utils/errors';
 
 export function OverviewTab() {
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -60,8 +61,8 @@ export function OverviewTab() {
       setInviteEmail('');
       setShowInviteForm(false);
       await loadTeamData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to send invitation');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     } finally {
       setInviting(false);
     }
@@ -76,8 +77,8 @@ export function OverviewTab() {
       await api.team.removeMember(memberId);
       toast.success('Member removed');
       await loadTeamData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to remove member');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -85,8 +86,8 @@ export function OverviewTab() {
     try {
       await api.team.resendInvite(memberId);
       toast.success('Invitation resent');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to resend invitation');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
   };
 
