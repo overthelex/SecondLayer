@@ -3,7 +3,7 @@
  * Main billing interface with 5 tabs: Overview, Tariffs, History, Analytics, Settings
  */
 
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -13,13 +13,21 @@ import {
   ArrowLeft,
   Zap,
   TrendingUp,
+  Loader2,
 } from 'lucide-react';
-import { OverviewTab } from './billing/OverviewTab';
-import { TariffsTab } from './billing/TariffsTab';
-import { HistoryTab } from './billing/HistoryTab';
-import { AnalyticsTab } from './billing/AnalyticsTab';
-import { SettingsTab } from './billing/SettingsTab';
 import { TopUpModal } from './billing/TopUpModal';
+
+const OverviewTab = lazy(() => import('./billing/OverviewTab').then(m => ({ default: m.OverviewTab })));
+const TariffsTab = lazy(() => import('./billing/TariffsTab').then(m => ({ default: m.TariffsTab })));
+const HistoryTab = lazy(() => import('./billing/HistoryTab').then(m => ({ default: m.HistoryTab })));
+const AnalyticsTab = lazy(() => import('./billing/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })));
+const SettingsTab = lazy(() => import('./billing/SettingsTab').then(m => ({ default: m.SettingsTab })));
+
+const TabLoader = () => (
+  <div className="flex items-center justify-center py-12">
+    <Loader2 className="w-6 h-6 animate-spin text-claude-accent" />
+  </div>
+);
 
 type BillingTab = 'overview' | 'tariffs' | 'history' | 'analytics' | 'settings';
 
@@ -124,11 +132,13 @@ export function BillingDashboard({ onBack, initialTab = 'overview' }: BillingDas
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}>
-            {activeTab === 'overview' && <OverviewTab onTopUp={() => setShowTopUpModal(true)} />}
-            {activeTab === 'tariffs' && <TariffsTab onUpgradeTopUp={handleUpgradeTopUp} />}
-            {activeTab === 'history' && <HistoryTab />}
-            {activeTab === 'analytics' && <AnalyticsTab />}
-            {activeTab === 'settings' && <SettingsTab />}
+            <Suspense fallback={<TabLoader />}>
+              {activeTab === 'overview' && <OverviewTab onTopUp={() => setShowTopUpModal(true)} />}
+              {activeTab === 'tariffs' && <TariffsTab onUpgradeTopUp={handleUpgradeTopUp} />}
+              {activeTab === 'history' && <HistoryTab />}
+              {activeTab === 'analytics' && <AnalyticsTab />}
+              {activeTab === 'settings' && <SettingsTab />}
+            </Suspense>
           </motion.div>
         </div>
       </div>
