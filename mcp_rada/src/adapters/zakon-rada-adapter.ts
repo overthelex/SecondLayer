@@ -67,7 +67,11 @@ export class ZakonRadaAdapter {
     await this.waitForRateLimit();
 
     const lawNumber = this.resolveLawNumber(lawIdentifier);
-    const endpoint = `/laws/show/${lawNumber}`;
+    // Validate lawNumber to prevent SSRF — Ukrainian law numbers contain Cyrillic, digits, slashes, dashes
+    if (/[^\p{L}\p{N}\-_\/\.]/u.test(lawNumber) || lawNumber.includes('..')) {
+      throw new Error(`Invalid law number: ${lawNumber}`);
+    }
+    const endpoint = `/laws/show/${encodeURIComponent(lawNumber)}`;
     logger.info('Fetching law text', { lawIdentifier, lawNumber });
 
     try {

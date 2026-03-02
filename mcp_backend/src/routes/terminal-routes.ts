@@ -205,7 +205,8 @@ export function attachTerminalWebSocket(httpServer: HttpServer, db: IDatabase): 
         try {
           const msg = JSON.parse(raw.toString());
           if (msg.type === 'input' && typeof msg.data === 'string') {
-            ptyProcess.write(msg.data);
+            // lgtm[js/code-injection] - Intentional: admin terminal emulator forwards user keystrokes to PTY
+            ptyProcess.write(msg.data.slice(0, 4096));
           } else if (msg.type === 'resize') {
             const cols = Math.max(1, Math.min(500, parseInt(msg.cols, 10) || 80));
             const rows = Math.max(1, Math.min(200, parseInt(msg.rows, 10) || 24));

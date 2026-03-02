@@ -442,7 +442,7 @@ function validatePassword(password: string): { valid: boolean; message?: string 
 
 // Email validation helper
 function validateEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailRegex = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,10}$/;
   return emailRegex.test(email);
 }
 

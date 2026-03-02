@@ -11,7 +11,7 @@
  * 7. Stream token-level events to client via SSE
  */
 
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { logger } from '../utils/logger.js';
 import { ToolRegistry, ToolDefinition } from '../api/tool-registry.js';
 import { QueryPlanner } from './query-planner.js';
@@ -192,7 +192,7 @@ export class ChatService {
     }
 
     // Cache session for reuse
-    const planSessionId = `plan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const planSessionId = `plan-${Date.now()}-${randomBytes(4).toString('hex')}`;
     this.planSessions.set(planSessionId, {
       classification,
       toolDefs,

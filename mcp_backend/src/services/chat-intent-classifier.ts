@@ -99,7 +99,7 @@ export class IntentClassifier {
 
       // Safety net: extract case_number from query if LLM missed it
       if (!slots?.case_number) {
-        const caseMatch = query.match(/\d+\/\d+\/\d{2,4}/);
+        const caseMatch = query.match(/\d{1,10}\/\d{1,10}\/\d{2,4}/);
         if (caseMatch) {
           if (!slots) slots = {};
           slots.case_number = caseMatch[0];
@@ -142,7 +142,7 @@ export class IntentClassifier {
       // Regex-based queryType coercions when LLM defaults to legal_consultation
       if (queryType === 'legal_consultation') {
         // Legislation: "ст. 16 ЦК", "стаття 382 КК", "ч. 3 ст. 16"
-        if (/ст(?:атт[яію])?\s*\.?\s*\d+/i.test(query) || /(?:^|\s)(?:ЦК|КК|ГПК|ЦПК|КАС|ГК|ЗК|СК|КЗпП|цк|кк|гпк|цпк|кас|гк|зк|ск|кзпп)(?:\s|$|,|\.)/.test(query)) {
+        if (/ст(?:атт[яію])?\.?\s?\d+/i.test(query) || /(?:^|\s)(?:ЦК|КК|ГПК|ЦПК|КАС|ГК|ЗК|СК|КЗпП)(?:\s|$|[,.])/i.test(query)) {
           queryType = 'legislation_lookup';
         }
         // Registry: ЄДРПОУ, 8-digit code, ТОВ/ПАТ/ФОП lookup
@@ -154,11 +154,11 @@ export class IntentClassifier {
           queryType = 'practice_analysis';
         }
         // Document drafting: "напиши позовну", "зразок скарги", "склади заяву"
-        else if (/(?:^|\s)(?:напиш[иі]|склад[иі]|підготуй|зразок|шаблон)(?:\s).*(?:позов|скарг|заяв|клопотан|претенз)/i.test(query)) {
+        else if (/(?:^|\s)(?:напиш[иі]|склад[иі]|підготуй|зразок|шаблон)\s.{0,60}(?:позов|скарг|заяв|клопотан|претенз)/i.test(query)) {
           queryType = 'document_drafting';
         }
         // Due diligence: "перевір контрагента", "due diligence"
-        else if (/due.?diligence|перевір.*контрагент|комплексна перевірка/i.test(query)) {
+        else if (/due.?diligence|перевір.{0,30}контрагент|комплексна перевірка/i.test(query)) {
           queryType = 'due_diligence';
         }
         // Parliament: "депутат", "законопроєкт", "голосування"
@@ -170,7 +170,7 @@ export class IntentClassifier {
           queryType = 'document_query';
         }
         // Comparative analysis: "негаторний чи віндикаційний", "який спосіб захисту"
-        else if (/(?:^|\s)чи(?:\s).*позов|який спосіб захисту|порівн.*підход|яка стаття підходить/i.test(query)) {
+        else if (/(?:^|\s)чи\s.{0,40}позов|який спосіб захисту|порівн.{0,30}підход|яка стаття підходить/i.test(query)) {
           queryType = 'comparative_analysis';
         }
         // Unsupported: non-legal queries
@@ -178,11 +178,11 @@ export class IntentClassifier {
           queryType = 'unsupported';
         }
         // Institutional analysis: judge/court statistics, deep analysis over time
-        else if (/рейтинг.*(судд|суд)|статистик.*(судд|суд)|відсот.*(задовол|відмов).*судд|тенденці.*(закрит|судд)/i.test(lowerQuery)) {
+        else if (/рейтинг.{0,30}(?:судд|суд)|статистик.{0,30}(?:судд|суд)|відсот.{0,30}(?:задовол|відмов).{0,30}судд|тенденці.{0,30}(?:закрит|судд)/i.test(lowerQuery)) {
           queryType = 'institutional_analysis';
         }
         // Institutional analysis: "аналіз рішень суддів суду за N років", "проаналізуй всі рішення суду"
-        else if (/аналіз.*рішень.*судд|проаналізу.*всі.*рішення.*суд|всі справи судді|аналіз суду за.*років|аналіз.*судді.*за.*рок/i.test(lowerQuery)) {
+        else if (/аналіз.{0,30}рішень.{0,30}судд|проаналізу.{0,30}всі.{0,30}рішення.{0,30}суд|всі справи судді|аналіз суду за.{0,20}років|аналіз.{0,30}судді.{0,20}за.{0,10}рок/i.test(lowerQuery)) {
           queryType = 'institutional_analysis';
         }
       }
@@ -210,7 +210,7 @@ export class IntentClassifier {
 
       // Extract case_number from query if QueryPlanner didn't
       if (!fallbackSlots.case_number) {
-        const caseMatch = query.match(/\d+\/\d+\/\d{2,4}/);
+        const caseMatch = query.match(/\d{1,10}\/\d{1,10}\/\d{2,4}/);
         if (caseMatch) {
           fallbackSlots.case_number = caseMatch[0];
         }
