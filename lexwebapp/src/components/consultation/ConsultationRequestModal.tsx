@@ -67,6 +67,7 @@ export function ConsultationRequestModal({ attorneyId, attorneyName, consultatio
   };
 
   const handleSubmit = async () => {
+    if (submitting) return;
     setSubmitting(true);
     setError('');
     try {
