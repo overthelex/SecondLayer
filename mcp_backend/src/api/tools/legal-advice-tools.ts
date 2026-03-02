@@ -8,6 +8,7 @@
  * - get_citation_graph
  */
 
+import { load } from 'cheerio';
 import { QueryPlanner } from '../../services/query-planner.js';
 import { ZOAdapter } from '../../adapters/zo-adapter.js';
 import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
@@ -254,7 +255,7 @@ export class LegalAdviceTools extends BaseToolHandler {
             textSource = 'full_text_truncated_fallback';
           }
         } else {
-          const parts = [sourceCase.title, sourceCase.resolution, sourceCase.snippet?.replace(/<[^>]*>/g, '')].filter(Boolean);
+          const parts = [sourceCase.title, sourceCase.resolution, sourceCase.snippet ? load(sourceCase.snippet).root().text() : undefined].filter(Boolean);
           textForAnalysis = parts.join('\n');
           textSource = 'combined_metadata';
         }

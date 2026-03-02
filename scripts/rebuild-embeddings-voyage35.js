@@ -90,7 +90,8 @@ function progressBar(done, total, width = 45) {
 async function main() {
   console.log(`\n=== Rebuild legal_sections → ${NEW_MODEL} ===`);
   console.log(`    Qdrant: ${qdrantUrl}`);
-  console.log(`    DB:     ${dbUrl.replace(/:\/\/[^@]+@/, '://***@')}\n`);
+  const dbUrlParsed = new URL(dbUrl);
+  console.log(`    DB:     ${dbUrlParsed.protocol}//${dbUrlParsed.username}:***@${dbUrlParsed.host}${dbUrlParsed.pathname}\n`);
 
   // 1. Count total sections to process
   const typePlaceholders = SECTION_TYPES.map((_, i) => `$${i + 1}`).join(',');

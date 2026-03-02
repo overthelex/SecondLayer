@@ -7,6 +7,11 @@ import { Database } from '../database/database';
 import { logger } from '../utils/logger';
 import { ZakonRadaAdapter } from '../adapters/zakon-rada-adapter';
 import { v4 as uuidv4 } from 'uuid';
+
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 import {
   Legislation,
   LegislationSearchParams,
@@ -196,10 +201,11 @@ export class LegislationService {
 
       if (titleMatch || textMatch) {
         // Simple relevance: count occurrences
+        const escapedSearch = escapeRegExp(searchLower);
         const occurrences =
-          (article.text.toLowerCase().match(new RegExp(searchLower, 'g')) || [])
+          (article.text.toLowerCase().match(new RegExp(escapedSearch, 'g')) || [])
             .length +
-          (article.title?.toLowerCase().match(new RegExp(searchLower, 'g')) || [])
+          (article.title?.toLowerCase().match(new RegExp(escapedSearch, 'g')) || [])
             .length;
 
         results.push({

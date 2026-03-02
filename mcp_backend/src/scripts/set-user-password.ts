@@ -73,11 +73,11 @@ async function setUserPassword() {
     console.log('🔑 Authentication Methods:');
     console.log('  1. OAuth Login:');
     console.log(`     Email: ${email}`);
-    console.log(`     Password: ${password}`);
+    console.log(`     Password: [REDACTED]`);
     console.log('     URL: https://stage.legal.org.ua/oauth/authorize\n');
 
     console.log('  2. Direct Login (POST /auth/login):');
-    console.log(`     { "email": "${email}", "password": "${password}" }\n`);
+    console.log(`     { "email": "${email}", "password": "[REDACTED]" }\n`);
 
     console.log('⚠️  IMPORTANT: Store this password securely!');
     console.log('It cannot be retrieved later (only reset).\n');

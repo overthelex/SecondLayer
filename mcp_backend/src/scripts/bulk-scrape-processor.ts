@@ -61,17 +61,9 @@ function extractMetadataFromHTML(html: string, docId: string): {
 
   if (!fullText || fullText.length < 100) {
     if (!html.includes('txtdepository')) {
-      fullText = html
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&')
-        .replace(/&quot;/g, '"')
-        .replace(/\s+/g, ' ')
-        .trim();
+      const print$ = load(html);
+      print$('script, style').remove();
+      fullText = (print$('body').text() || print$.root().text()).replace(/\s+/g, ' ').trim();
     } else {
       try {
         const parser = new CourtDecisionHTMLParser(html);

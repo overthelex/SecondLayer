@@ -9,7 +9,7 @@ import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from './utils/logger';
 import { requireAPIKey } from './middleware/dual-auth';
-import { healthCheckRateLimit } from './middleware/rate-limit';
+import { healthCheckRateLimit, globalApiRateLimit } from './middleware/rate-limit';
 import { createRadaCoreServices, RadaCoreServices } from './factories/rada-services';
 import { requestContext } from './utils/openai-client';
 import { initRedisClient } from './utils/redis-client';
@@ -45,8 +45,14 @@ class HTTPRadaServer {
 
   private setupMiddleware() {
     // CORS - allow requests from clients
+    const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://legal.org.ua,https://stage.legal.org.ua').split(',').map(o => o.trim());
     this.app.use(cors({
-      origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        if (origin.match(/^https?:\/\/localhost(:\d+)?$/)) return callback(null, true);
+        callback(new Error(`CORS not allowed for origin: ${origin}`));
+      },
       credentials: true,
     }));
 
@@ -126,6 +132,9 @@ class HTTPRadaServer {
         checks,
       });
     });
+
+    // Global API rate limiter — baseline protection for all /api/ routes (120 req/min per IP)
+    this.app.use('/api', globalApiRateLimit as any);
 
     // Stats endpoint for admin monitoring (no auth — internal network only)
     this.app.get('/api/stats', async (_req, res) => {

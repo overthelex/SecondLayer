@@ -467,7 +467,8 @@ async function main() {
   console.log('Loading TCC dispute legislation (all blocks)');
   console.log(`  Vectors: ${skipVectors ? 'SKIP' : 'enabled'}`);
   console.log(`  Force reload: ${forceReload ? 'YES' : 'no'}`);
-  console.log(`  DB: ${DATABASE_URL.replace(/:[^@]+@/, ':***@')}`);
+  const dbUrlParsed = new URL(DATABASE_URL);
+  console.log(`  DB: ${dbUrlParsed.protocol}//${dbUrlParsed.username}:***@${dbUrlParsed.host}${dbUrlParsed.pathname}`);
 
   const lawsToLoad = explicitIds.length > 0
     ? LAWS.filter(l => explicitIds.includes(l.rada_id))

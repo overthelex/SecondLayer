@@ -69,7 +69,7 @@ export class CreditService {
     } catch (error: any) {
       logger.error('[CreditService] Error checking balance', {
         error: error.message,
-        userId,
+        userId: String(userId),
       });
       throw error;
     }
@@ -107,7 +107,7 @@ export class CreditService {
 
       if (deduction.success) {
         logger.info('[CreditService] Credits deducted', {
-          userId,
+          userId: String(userId),
           amount,
           toolName,
           newBalance: deduction.newBalance,
@@ -115,7 +115,7 @@ export class CreditService {
         });
       } else {
         logger.warn('[CreditService] Insufficient credits', {
-          userId,
+          userId: String(userId),
           amount,
           toolName,
           newBalance: deduction.newBalance,
@@ -126,7 +126,7 @@ export class CreditService {
     } catch (error: any) {
       logger.error('[CreditService] Error deducting credits', {
         error: error.message,
-        userId,
+        userId: String(userId),
         amount,
         toolName,
       });

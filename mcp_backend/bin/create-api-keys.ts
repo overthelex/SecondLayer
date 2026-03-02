@@ -149,7 +149,7 @@ async function bulkCreateFromCSV(csvPath: string): Promise<void> {
 
     if (apiKey) {
       results.success.push(apiKey);
-      console.log(`✅ Created key for ${email}: ${apiKey.key}`);
+      console.log(`✅ Created key for ${email}: ${apiKey.key.substring(0, 8)}...`);
     } else {
       results.failed.push(line);
     }
@@ -192,7 +192,7 @@ async function createMultipleKeys(
 
     if (apiKey) {
       results.push(apiKey);
-      console.log(`✅ ${i}/${count}: ${apiKey.key}`);
+      console.log(`✅ ${i}/${count}: ${apiKey.key.substring(0, 8)}...`);
     }
   }
 
@@ -316,9 +316,9 @@ Examples:
         console.log(`  ID: ${apiKey.id}`);
         console.log(`  User: ${apiKey.userEmail}`);
         console.log(`  Name: ${apiKey.name}`);
-        console.log(`  Key: ${apiKey.key}`);
+        console.log(`  Key: ${apiKey.key.substring(0, 8)}...[REDACTED]`);
         console.log(`  Created: ${apiKey.createdAt}`);
-        console.log('\n⚠️  IMPORTANT: Save this key securely! It will not be shown again.');
+        console.log('\n⚠️  IMPORTANT: The full key has been saved to the output file. It will not be shown again.');
       } else {
         process.exit(1);
       }
@@ -338,7 +338,7 @@ Examples:
 
       if (apiKey) {
         console.log('\n✅ API Key created successfully!');
-        console.log(`\n  Key: ${apiKey.key}`);
+        console.log(`\n  Key: ${apiKey.key.substring(0, 8)}...[REDACTED]`);
         console.log('\n⚠️  Save this key securely!');
       } else {
         process.exit(1);

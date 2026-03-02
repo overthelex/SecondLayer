@@ -365,7 +365,7 @@ async function multiRowUpsert(
     for (let c = 0; c < allColumns.length; c++) {
       const col = allColumns[c];
       const paramN = `$${offset + c + 1}`;
-      ph.push(sqlExpr[col] ? sqlExpr[col].replace('$', paramN) : paramN);
+      ph.push(sqlExpr[col] ? sqlExpr[col].replaceAll('$', paramN) : paramN);
       if (col === 'raw_data') {
         allValues.push(JSON.stringify(records[i]));
       } else if (col === 'source_file') {
@@ -401,7 +401,7 @@ async function multiRowUpsert(
         const placeholders = values.map((_, idx) => {
           const col = allColumns[idx];
           const paramN = `$${idx + 1}`;
-          return sqlExpr[col] ? sqlExpr[col].replace('$', paramN) : paramN;
+          return sqlExpr[col] ? sqlExpr[col].replaceAll('$', paramN) : paramN;
         }).join(', ');
         const rowSql = `INSERT INTO ${config.tableName} (${allColumns.join(', ')})
           VALUES (${placeholders})

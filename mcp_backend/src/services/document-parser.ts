@@ -5,6 +5,7 @@ import mammoth from 'mammoth';
 import WordExtractor from 'word-extractor';
 import ExcelJS from 'exceljs';
 import AdmZip from 'adm-zip';
+import { load as cheerioLoad } from 'cheerio';
 import { logger } from '../utils/logger.js';
 import type { ILLMPort } from '../domain/ports/index.js';
 import fs from 'fs/promises';
@@ -714,19 +715,9 @@ window.renderPDF = async function(base64Data, maxPages, scale) {
 
     const contentXml = contentEntry.getData().toString('utf-8');
 
-    // Strip XML tags to get plain text, preserve paragraph breaks
-    const text = contentXml
-      .replace(/<text:p[^>]*>/g, '\n')
-      .replace(/<text:tab[^/]*\/>/g, '\t')
-      .replace(/<text:line-break[^/]*\/>/g, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;/g, "'")
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    // Use cheerio to extract plain text from ODT content.xml
+    const $odt = cheerioLoad(contentXml, { xml: true });
+    const text = $odt.root().text().replace(/\s+/g, ' ').trim();
 
     if (!text) {
       throw new Error('ODT file contains no extractable text');
@@ -771,7 +762,7 @@ window.renderPDF = async function(base64Data, maxPages, scale) {
         // Extract text content from <text:p> elements
         const textMatches = cellXml.match(/<text:p[^>]*>([\s\S]*?)<\/text:p>/g) || [];
         const cellText = textMatches
-          .map(m => m.replace(/<[^>]+>/g, '').trim())
+          .map(m => cheerioLoad(m, { xml: true }).root().text().trim())
           .join(' ');
 
         // Handle repeated empty cells
@@ -905,17 +896,9 @@ window.renderPDF = async function(base64Data, maxPages, scale) {
     // Prefer plain text, fall back to stripped HTML
     let body = textBody.trim();
     if (!body && htmlBody) {
-      body = htmlBody
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/p>/gi, '\n\n')
-        .replace(/<\/div>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
-        .replace(/&nbsp;/gi, ' ')
-        .replace(/&amp;/gi, '&')
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
+      const $email = cheerioLoad(htmlBody);
+      $email('script, style').remove();
+      body = ($email('body').text() || $email.root().text()).replace(/\s+/g, ' ').trim();
     }
     if (body) lines.push(body);
 

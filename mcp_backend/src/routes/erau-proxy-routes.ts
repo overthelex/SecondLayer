@@ -9,6 +9,7 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { load } from 'cheerio';
 import { logger } from '../utils/logger.js';
 import { ERAUCacheService } from '../services/erau-cache-service.js';
 
@@ -44,7 +45,9 @@ export interface ERAUProfile {
 function parseERAUProfileHTML(html: string, id: string): ERAUProfile {
   const clean = (s: string | null | undefined): string | null => {
     if (!s) return null;
-    return s.replace(/<[^>]+>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim() || null;
+    const $ = load(s);
+    $('script, style').remove();
+    return ($('body').text() || $.root().text()).replace(/\s+/g, ' ').trim() || null;
   };
 
   const extract = (pattern: RegExp): string | null => {

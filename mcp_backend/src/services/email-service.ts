@@ -128,13 +128,13 @@ export class EmailService {
       });
 
       logger.info('Payment success email sent', {
-        email: params.email,
+        email: params.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
         amount: params.amount,
         currency: params.currency,
       });
     } catch (error: any) {
       logger.error('Failed to send payment success email', {
-        email: params.email,
+        email: params.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
         error: error.message,
       });
     }
@@ -164,13 +164,13 @@ export class EmailService {
       });
 
       logger.info('Payment failure email sent', {
-        email: params.email,
+        email: params.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
         amount: params.amount,
         currency: params.currency,
       });
     } catch (error: any) {
       logger.error('Failed to send payment failure email', {
-        email: params.email,
+        email: params.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
         error: error.message,
       });
     }
@@ -209,13 +209,13 @@ export class EmailService {
       });
 
       logger.info('Low balance alert sent', {
-        email: params.email,
+        email: params.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
         balance: params.balance,
         currency: params.currency,
       });
     } catch (error: any) {
       logger.error('Failed to send low balance alert', {
-        email: params.email,
+        email: params.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
         error: error.message,
       });
     }
