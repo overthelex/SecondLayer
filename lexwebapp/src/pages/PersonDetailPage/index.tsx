@@ -5,8 +5,8 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { LawyerProfilePage } from '../../components/LawyerProfilePage';
-import { JudgeProfilePage } from '../../components/JudgeProfilePage';
+import { LawyerProfilePage } from './LawyerProfile';
+import { JudgeProfilePage } from './JudgeProfile';
 import { erauService, ERAUProfile } from '../../services/api/ERAUService';
 import { judgesService, JudgeProfile } from '../../services/api/JudgesService';
 import { ROUTES } from '../../router/routes';
