@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import { timeEntryService } from '../services/api/TimeEntryService';
 import { ActiveTimer } from '../types/models';
+import { getErrorMessage } from '../utils/errors';
 
 interface TimerState {
   timers: ActiveTimer[];
@@ -64,8 +65,8 @@ export const useTimerStore = create<TimerState>((set, get) => {
       try {
         const timers = await timeEntryService.getActiveTimers();
         set({ timers, isLoading: false, lastSync: Date.now() });
-      } catch (error: any) {
-        set({ error: error.message || 'Failed to load timers', isLoading: false });
+      } catch (error: unknown) {
+        set({ error: getErrorMessage(error), isLoading: false });
       }
     },
 
@@ -83,8 +84,8 @@ export const useTimerStore = create<TimerState>((set, get) => {
           isLoading: false,
           lastSync: Date.now(),
         }));
-      } catch (error: any) {
-        set({ error: error.message || 'Failed to start timer', isLoading: false });
+      } catch (error: unknown) {
+        set({ error: getErrorMessage(error), isLoading: false });
         throw error;
       }
     },
@@ -103,8 +104,8 @@ export const useTimerStore = create<TimerState>((set, get) => {
           isLoading: false,
           lastSync: Date.now(),
         }));
-      } catch (error: any) {
-        set({ error: error.message || 'Failed to stop timer', isLoading: false });
+      } catch (error: unknown) {
+        set({ error: getErrorMessage(error), isLoading: false });
         throw error;
       }
     },
@@ -123,7 +124,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
           timers.map((timer) => timeEntryService.pingTimer(timer.matter_id))
         );
         set({ lastSync: Date.now() });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('[TimerStore] Ping failed:', error);
         // Don't set error state for ping failures, just log them
       }

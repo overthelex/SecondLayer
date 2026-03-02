@@ -28,6 +28,7 @@ import {
 import { format } from 'date-fns';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { getErrorMessage } from '../../utils/errors';
 import { useAuth } from '../../contexts/AuthContext';
 
 // --- Types ---
@@ -302,9 +303,8 @@ export function SettingsTab() {
     try {
       await api.billing.testEmail();
       showToast.success('Тестовий лист надіслано! Перевірте вхідні.');
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'Не вдалося надіслати тестовий лист';
-      showToast.error(message);
+    } catch (error: unknown) {
+      showToast.error(getErrorMessage(error));
     } finally {
       setIsSendingEmail(false);
     }

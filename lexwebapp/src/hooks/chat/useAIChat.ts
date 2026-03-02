@@ -8,6 +8,7 @@ import { useCallback, useRef } from 'react';
 import { useChatStore } from '../../stores';
 import { mcpService } from '../../services';
 import showToast from '../../utils/toast';
+import { getErrorMessage } from '../../utils/errors';
 import type { Decision, Citation, VaultDocument, ExecutionPlan, CostSummary } from '../../types/models/Message';
 import { getToolLabel } from './tool-labels';
 import { extractEvidenceFromToolResult } from './evidence-extractor';
@@ -366,15 +367,16 @@ export function useAIChat(options: UseAIChatOptions = {}) {
 
       try {
         await runChatStream(query, assistantMessageId);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const msg = getErrorMessage(error);
         updateMessage(assistantMessageId, {
-          content: `Помилка: ${error.message || 'Невідома помилка'}`,
+          content: `Помилка: ${msg}`,
           isStreaming: false,
         });
         setStreaming(false);
         setCurrentTool(null);
-        showToast.error(error.message || 'Невідома помилка');
-        onError?.(error);
+        showToast.error(msg);
+        onError?.(error instanceof Error ? error : new Error(msg));
       }
     },
     [addMessage, updateMessage, setStreaming, setCurrentTool, setIsPlanLoading, setPendingPlanReview, runChatStream, onError]
@@ -397,15 +399,16 @@ export function useAIChat(options: UseAIChatOptions = {}) {
 
       try {
         await runChatStream(query, assistantMessageId, approvedPlan, planSessionId);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const msg = getErrorMessage(error);
         updateMessage(assistantMessageId, {
-          content: `Помилка: ${error.message || 'Невідома помилка'}`,
+          content: `Помилка: ${msg}`,
           isStreaming: false,
         });
         setStreaming(false);
         setCurrentTool(null);
-        showToast.error(error.message || 'Невідома помилка');
-        onError?.(error);
+        showToast.error(msg);
+        onError?.(error instanceof Error ? error : new Error(msg));
       }
     },
     [updateMessage, setStreaming, setCurrentTool, setPendingPlanReview, runChatStream, onError]
@@ -428,15 +431,16 @@ export function useAIChat(options: UseAIChatOptions = {}) {
 
       try {
         await runChatStream(query, assistantMessageId);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const msg = getErrorMessage(error);
         updateMessage(assistantMessageId, {
-          content: `Помилка: ${error.message || 'Невідома помилка'}`,
+          content: `Помилка: ${msg}`,
           isStreaming: false,
         });
         setStreaming(false);
         setCurrentTool(null);
-        showToast.error(error.message || 'Невідома помилка');
-        onError?.(error);
+        showToast.error(msg);
+        onError?.(error instanceof Error ? error : new Error(msg));
       }
     },
     [updateMessage, setStreaming, setCurrentTool, setPendingPlanReview, runChatStream, onError]

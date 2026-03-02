@@ -13,6 +13,7 @@ import { useChatStore } from '../../stores';
 import { useMCPTool, useAIChat } from '../../hooks/useMCPTool';
 import { AI_CHAT_MODE } from '../../hooks/chat/tool-categories';
 import showToast from '../../utils/toast';
+import { getErrorMessage } from '../../utils/errors';
 
 export function ChatPage() {
   const [selectedTool, setSelectedTool] = useState(AI_CHAT_MODE);
@@ -91,11 +92,9 @@ export function ChatPage() {
         const params = parseContentToToolParams(tool, content, documentIds);
         await executeTool(params);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('MCP tool execution error:', error);
-      showToast.error(
-        error.message || 'Помилка при зверненні до API. Спробуйте пізніше.'
-      );
+      showToast.error(getErrorMessage(error));
     }
   };
 
