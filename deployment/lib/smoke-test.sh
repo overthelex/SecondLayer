@@ -116,25 +116,35 @@ check_http_health() {
 
     case $env in
         local)
-            local urls=("https://local.legal.org.ua/health")
-            for url in "${urls[@]}"; do
+            # Primary: test directly via nginx on :80 (bypasses DNS/SSL issues)
+            local domains=("local.legal.org.ua")
+            for domain in "${domains[@]}"; do
                 local attempt=1
                 local passed=false
                 while [ $attempt -le $SMOKE_TEST_RETRIES ]; do
-                    if curl -skf --max-time 10 "$url" > /dev/null 2>&1; then
-                        smoke_record "HTTP health ($url)" "pass" ""
+                    if curl -sf --max-time 10 -H "Host: ${domain}" http://localhost:80/health > /dev/null 2>&1; then
+                        smoke_record "HTTP health direct ($domain)" "pass" ""
                         passed=true
                         break
                     fi
                     if [ $attempt -lt $SMOKE_TEST_RETRIES ]; then
-                        print_msg "$YELLOW" "  Health check attempt $attempt failed for $url, retrying in ${SMOKE_TEST_RETRY_DELAY}s..."
+                        print_msg "$YELLOW" "  Direct health check attempt $attempt failed for $domain, retrying in ${SMOKE_TEST_RETRY_DELAY}s..."
                         sleep "$SMOKE_TEST_RETRY_DELAY"
                     fi
                     attempt=$((attempt + 1))
                 done
                 if [ "$passed" = false ]; then
-                    smoke_record "HTTP health ($url)" "fail" "No response after $SMOKE_TEST_RETRIES attempts"
+                    smoke_record "HTTP health direct ($domain)" "fail" "No response on localhost:80 after $SMOKE_TEST_RETRIES attempts"
                     all_passed=false
+                fi
+            done
+
+            # Secondary: check public HTTPS URL — informational only
+            for domain in "${domains[@]}"; do
+                if curl -skf --max-time 10 "https://${domain}/health" > /dev/null 2>&1; then
+                    smoke_record "HTTP health public ($domain)" "pass" ""
+                else
+                    smoke_record "HTTP health public ($domain)" "warn" "Not reachable via public URL (DNS/SSL may not be configured)"
                 fi
             done
             ;;
@@ -217,26 +227,31 @@ check_http_health() {
 check_frontend_health() {
     local env=$1
 
-    local urls=()
     case $env in
         local)
-            urls=("https://local.legal.org.ua")
+            # Test frontend directly via nginx on :80
+            local domain="local.legal.org.ua"
+            if curl -sf --max-time 10 -H "Host: ${domain}" http://localhost:80/ > /dev/null 2>&1; then
+                smoke_record "Frontend direct ($domain)" "pass" ""
+            else
+                smoke_record "Frontend direct ($domain)" "warn" "Not responding on localhost:80"
+            fi
             ;;
-        prod|production)
-            urls=("https://legal.org.ua" "https://mcp.legal.org.ua")
-            ;;
-        stage|staging)
-            urls=("https://stage.legal.org.ua")
+        prod|production|stage|staging)
+            local urls=()
+            case $env in
+                prod|production) urls=("https://legal.org.ua" "https://mcp.legal.org.ua") ;;
+                stage|staging)   urls=("https://stage.legal.org.ua") ;;
+            esac
+            for url in "${urls[@]}"; do
+                if curl -skf --max-time 10 "$url" > /dev/null 2>&1; then
+                    smoke_record "Frontend ($url)" "pass" ""
+                else
+                    smoke_record "Frontend ($url)" "warn" "Not responding (may need DNS propagation)"
+                fi
+            done
             ;;
     esac
-
-    for url in "${urls[@]}"; do
-        if curl -skf --max-time 10 "$url" > /dev/null 2>&1; then
-            smoke_record "Frontend ($url)" "pass" ""
-        else
-            smoke_record "Frontend ($url)" "warn" "Not responding (may need DNS propagation)"
-        fi
-    done
 }
 
 # Check database connectivity via container exec
