@@ -232,12 +232,18 @@ export function mapProcedureCodeToJusticeKind(code: string | null): number | nul
 }
 
 /**
- * Build where-filter conditions for Supreme Court instance filtering.
- * instance_code=1 corresponds to cassation courts (Верховний Суд).
+ * Build where-filter conditions for court instance filtering.
+ * instance_code: 1=cassation (ВС), 2=appellate, 3=first instance
  */
 export function buildSupremeCourtWhereFilter(courtLevel: string): any[] {
   if (courtLevel === 'SC' || courtLevel === 'GrandChamber') {
     return [{ field: 'instance_code', operator: '=', value: 1 }];
+  }
+  if (courtLevel === 'AC') {
+    return [{ field: 'instance_code', operator: '=', value: 2 }];
+  }
+  if (courtLevel === 'FC') {
+    return [{ field: 'instance_code', operator: '=', value: 3 }];
   }
   return [];
 }
