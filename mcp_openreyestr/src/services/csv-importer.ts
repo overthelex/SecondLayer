@@ -3,6 +3,9 @@
  * For large CSV registries (enforcement_proceedings, debtors).
  * Uses readline + iconv-lite for streaming, with N parallel DB workers
  * doing multi-row INSERTs for maximum throughput.
+ *
+ * For "huge" registries: TRUNCATE + plain INSERT (no ON CONFLICT),
+ * drop/recreate indexes, bigger batches, skip raw_data column.
  */
 
 import { Pool, PoolClient } from 'pg';
@@ -11,8 +14,9 @@ import { createInterface } from 'readline';
 import iconv from 'iconv-lite';
 import { RegistryConfig } from '../config/registries';
 
-const BATCH_SIZE = 1000;
-const PROGRESS_INTERVAL = 10000;
+const BATCH_SIZE_NORMAL = 1000;
+const BATCH_SIZE_HUGE = 5000;
+const PROGRESS_INTERVAL = 50000;
 const NUM_WORKERS = parseInt(process.env.CSV_IMPORT_WORKERS || '10', 10);
 
 export interface CsvImportStats {
@@ -23,9 +27,79 @@ export interface CsvImportStats {
   totalRows: number;
 }
 
+interface IndexDef {
+  indexname: string;
+  indexdef: string;
+  is_constraint: boolean;
+  constraint_type: string | null;
+}
+
+/**
+ * For huge registries: drop all non-PK indexes and constraints before bulk insert,
+ * recreate them after. Handles UNIQUE constraints that can't be dropped via DROP INDEX.
+ */
+async function dropIndexes(pool: Pool, tableName: string): Promise<IndexDef[]> {
+  // Get all indexes
+  const { rows: indexes } = await pool.query<{ indexname: string; indexdef: string }>(
+    `SELECT indexname, indexdef FROM pg_indexes
+     WHERE tablename = $1
+       AND indexname NOT LIKE '%_pkey'`,
+    [tableName]
+  );
+
+  // Check which indexes are backing constraints
+  const { rows: constraints } = await pool.query<{ conname: string; contype: string }>(
+    `SELECT conname, contype FROM pg_constraint
+     WHERE conrelid = $1::regclass
+       AND conname NOT LIKE '%_pkey'`,
+    [tableName]
+  );
+  const constraintMap = new Map(constraints.map(c => [c.conname, c.contype]));
+
+  const result: IndexDef[] = [];
+  for (const idx of indexes) {
+    const isConstraint = constraintMap.has(idx.indexname);
+    const constraintType = constraintMap.get(idx.indexname) || null;
+    result.push({ ...idx, is_constraint: isConstraint, constraint_type: constraintType });
+
+    if (isConstraint) {
+      console.log(`  Dropping constraint: ${idx.indexname}`);
+      await pool.query(`ALTER TABLE ${tableName} DROP CONSTRAINT ${idx.indexname}`);
+    } else {
+      console.log(`  Dropping index: ${idx.indexname}`);
+      await pool.query(`DROP INDEX IF EXISTS ${idx.indexname}`);
+    }
+  }
+  return result;
+}
+
+async function recreateIndexes(pool: Pool, tableName: string, indexes: IndexDef[]): Promise<void> {
+  for (const idx of indexes) {
+    if (idx.is_constraint && idx.constraint_type === 'u') {
+      // Recreate UNIQUE constraint
+      // Extract column list from indexdef: CREATE UNIQUE INDEX name ON table USING btree (col1, col2)
+      const colMatch = idx.indexdef.match(/\(([^)]+)\)/);
+      if (colMatch) {
+        console.log(`  Recreating UNIQUE constraint: ${idx.indexname}`);
+        await pool.query(`ALTER TABLE ${tableName} ADD CONSTRAINT ${idx.indexname} UNIQUE (${colMatch[1]})`);
+      }
+    } else {
+      console.log(`  Recreating index: ${idx.indexname}`);
+      await pool.query(idx.indexdef);
+    }
+  }
+}
+
 /**
  * Import CSV file into database using registry config.
  * Streams line-by-line, dispatches batches to N parallel workers.
+ *
+ * For huge registries (enforcement_proceedings, debtors):
+ *   - TRUNCATE table
+ *   - Drop indexes
+ *   - Plain INSERT (no ON CONFLICT) with bigger batches
+ *   - Skip raw_data column to reduce WAL
+ *   - Recreate indexes after
  */
 export async function importCsv(
   pool: Pool,
@@ -35,11 +109,24 @@ export async function importCsv(
 ): Promise<CsvImportStats> {
   const start = Date.now();
   const delimiter = config.csvDelimiter || ';';
+  const isHuge = config.sizeCategory === 'huge';
+  const batchSize = isHuge ? BATCH_SIZE_HUGE : BATCH_SIZE_NORMAL;
 
-  console.log(`  CSV delimiter: "${delimiter}", encoding: ${config.encoding}, workers: ${NUM_WORKERS}`);
+  console.log(`  CSV delimiter: "${delimiter}", encoding: ${config.encoding}, workers: ${NUM_WORKERS}, mode: ${isHuge ? 'TRUNCATE+INSERT' : 'UPSERT'}, batch: ${batchSize}`);
+
+  // For huge registries: truncate and drop indexes for max throughput
+  let savedIndexes: IndexDef[] = [];
+  if (isHuge) {
+    console.log(`  TRUNCATE ${config.tableName}...`);
+    await pool.query(`TRUNCATE ${config.tableName}`);
+    savedIndexes = await dropIndexes(pool, config.tableName);
+
+    // Disable autovacuum during bulk load
+    await pool.query(`ALTER TABLE ${config.tableName} SET (autovacuum_enabled = false)`);
+  }
 
   // Set up streaming pipeline
-  const fileStream = createReadStream(filePath);
+  const fileStream = createReadStream(filePath, { highWaterMark: 256 * 1024 });
   const decodedStream = config.encoding !== 'utf-8'
     ? fileStream.pipe(iconv.decodeStream(config.encoding))
     : fileStream;
@@ -56,17 +143,19 @@ export async function importCsv(
   let totalErrors = 0;
   let totalRows = 0;
 
-  // Get DB column names
+  // Get DB column names — skip raw_data for huge registries
   const columns = Object.keys(config.fieldMap);
-  const allColumns = [...columns, 'raw_data', 'source_file'];
+  const allColumns = isHuge
+    ? [...columns, 'source_file']
+    : [...columns, 'raw_data', 'source_file'];
 
-  // Build ON CONFLICT clause
+  // Build ON CONFLICT clause (only for non-huge)
   const uniqueKeys = Array.isArray(config.uniqueKey) ? config.uniqueKey : [config.uniqueKey];
   const conflictTarget = uniqueKeys.join(', ');
   const updateCols = columns
     .filter(c => !uniqueKeys.includes(c))
     .map(c => `${c} = EXCLUDED.${c}`)
-    .concat(['raw_data = EXCLUDED.raw_data', 'updated_at = CURRENT_TIMESTAMP']);
+    .concat(isHuge ? [] : ['raw_data = EXCLUDED.raw_data', 'updated_at = CURRENT_TIMESTAMP']);
 
   // Worker pool for parallel batch processing
   const pendingBatches: Promise<{ imported: number; errors: number }>[] = [];
@@ -82,6 +171,12 @@ export async function importCsv(
       pendingBatches.splice(settled.i, 1);
     }
   }
+
+  const processBatch = isHuge
+    ? (records: Record<string, string>[]) =>
+        processCsvBatchPlainInsert(pool, config, records, allColumns, sourceFile, isHuge)
+    : (records: Record<string, string>[]) =>
+        processCsvBatchMultiRow(pool, config, records, allColumns, conflictTarget, updateCols, sourceFile);
 
   for await (const line of rl) {
     lineNumber++;
@@ -115,19 +210,18 @@ export async function importCsv(
     batch.push(record);
     totalRows++;
 
-    if (batch.length >= BATCH_SIZE) {
-      // Drain if too many pending
+    if (batch.length >= batchSize) {
       await drainToN(MAX_PENDING);
 
       const batchToProcess = batch;
       batch = [];
 
-      pendingBatches.push(
-        processCsvBatchMultiRow(pool, config, batchToProcess, allColumns, conflictTarget, updateCols, sourceFile)
-      );
+      pendingBatches.push(processBatch(batchToProcess));
 
       if (totalRows % PROGRESS_INTERVAL === 0) {
-        process.stdout.write(`  Progress: ${totalRows} rows (${totalImported} imported, ${totalErrors} errors)\r`);
+        const elapsed = ((Date.now() - start) / 1000).toFixed(0);
+        const rate = Math.round(totalRows / ((Date.now() - start) / 1000));
+        process.stdout.write(`  Progress: ${totalRows} rows (${totalImported} imported, ${totalErrors} errors, ${rate} rows/s, ${elapsed}s)\r`);
       }
     }
   }
@@ -135,9 +229,7 @@ export async function importCsv(
   // Process remaining batch
   if (batch.length > 0) {
     await drainToN(MAX_PENDING);
-    pendingBatches.push(
-      processCsvBatchMultiRow(pool, config, batch, allColumns, conflictTarget, updateCols, sourceFile)
-    );
+    pendingBatches.push(processBatch(batch));
   }
 
   // Wait for all pending
@@ -145,6 +237,18 @@ export async function importCsv(
   for (const r of remaining) {
     totalImported += r.imported;
     totalErrors += r.errors;
+  }
+
+  // For huge registries: recreate indexes and re-enable autovacuum
+  if (isHuge && savedIndexes.length > 0) {
+    console.log(`\n  Recreating ${savedIndexes.length} indexes...`);
+    const idxStart = Date.now();
+    await recreateIndexes(pool, config.tableName, savedIndexes);
+    console.log(`  Indexes recreated in ${((Date.now() - idxStart) / 1000).toFixed(1)}s`);
+
+    await pool.query(`ALTER TABLE ${config.tableName} SET (autovacuum_enabled = true)`);
+    console.log(`  Running ANALYZE ${config.tableName}...`);
+    await pool.query(`ANALYZE ${config.tableName}`);
   }
 
   const elapsed = (Date.now() - start) / 1000;
@@ -222,7 +326,54 @@ function mapCsvRecord(
 }
 
 /**
- * Process a batch using a single multi-row INSERT.
+ * Plain INSERT (no ON CONFLICT) for huge registries after TRUNCATE.
+ * No deduplication needed — table is empty.
+ * Skips raw_data to reduce WAL volume.
+ */
+async function processCsvBatchPlainInsert(
+  pool: Pool,
+  config: RegistryConfig,
+  records: Record<string, string>[],
+  allColumns: string[],
+  sourceFile: string,
+  skipRawData: boolean
+): Promise<{ imported: number; errors: number }> {
+  const client: PoolClient = await pool.connect();
+  try {
+    const allValues: unknown[] = [];
+    const rowPlaceholders: string[] = [];
+    const colCount = allColumns.length;
+
+    for (let j = 0; j < records.length; j++) {
+      const mapped = mapCsvRecord(config, records[j], j + 1);
+      const rowValues = allColumns.map(col => {
+        if (col === 'raw_data') return skipRawData ? null : JSON.stringify(records[j]);
+        if (col === 'source_file') return sourceFile;
+        return mapped[col] ?? null;
+      });
+
+      const offset = j * colCount;
+      const placeholders = rowValues.map((_, idx) => `$${offset + idx + 1}`);
+      rowPlaceholders.push(`(${placeholders.join(', ')})`);
+      allValues.push(...rowValues);
+    }
+
+    const sql = `INSERT INTO ${config.tableName} (${allColumns.join(', ')})
+      VALUES ${rowPlaceholders.join(', ')}`;
+
+    await client.query(sql, allValues);
+    return { imported: records.length, errors: 0 };
+  } catch (err) {
+    console.error(`  Batch INSERT failed: ${err instanceof Error ? err.message : err}`);
+    return { imported: 0, errors: records.length };
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Process a batch using a single multi-row INSERT with ON CONFLICT (UPSERT).
+ * Used for non-huge registries.
  * Falls back to row-by-row on error.
  */
 async function processCsvBatchMultiRow(
@@ -245,7 +396,6 @@ async function processCsvBatchMultiRow(
     const keyParts = uniqueKeys.map(k => String(mapped[k] ?? ''));
     const key = keyParts.join('|');
     if (seen.has(key)) {
-      // Keep last occurrence (overwrite)
       dedupedRecords[seen.get(key)!] = records[j];
     } else {
       seen.set(key, dedupedRecords.length);
@@ -255,7 +405,6 @@ async function processCsvBatchMultiRow(
 
   const client: PoolClient = await pool.connect();
   try {
-    // Build multi-row VALUES
     const allValues: unknown[] = [];
     const rowPlaceholders: string[] = [];
     const colCount = allColumns.length;
