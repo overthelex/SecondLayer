@@ -142,7 +142,7 @@ Environments:
                     Domains: legal.org.ua, mcp.legal.org.ua
   stage             Staging -> gate.lexapp.co.ua (Cloudflare proxy)
                     Domains: stage.legal.org.ua, legal.org.ua, mcp.legal.org.ua
-  local             Local development (localdev.legal.org.ua) -> localhost
+  local             Local development (local.legal.org.ua) -> localhost
 
 Deployment Targets:
   - Prod:  Deploys to AWS EC2 (18.192.189.254), serves legal.org.ua via nginx + Cloudflare
@@ -233,11 +233,11 @@ start_env() {
             $compose_cmd $local_compose_args up -d --build
 
             # Open browser (nginx + Vite run inside Docker now)
-            print_msg "$BLUE" "Opening https://localdev.legal.org.ua ..."
+            print_msg "$BLUE" "Opening https://local.legal.org.ua ..."
             if command -v xdg-open &> /dev/null; then
-                xdg-open "https://localdev.legal.org.ua" 2>/dev/null &
+                xdg-open "https://local.legal.org.ua" 2>/dev/null &
             elif command -v open &> /dev/null; then
-                open "https://localdev.legal.org.ua" 2>/dev/null &
+                open "https://local.legal.org.ua" 2>/dev/null &
             fi
             ;;
         *)
@@ -496,8 +496,8 @@ check_health() {
     curl -sf --max-time 5 http://localhost:3000/health > /dev/null && print_msg "$GREEN" "  Backend (localhost:3000): healthy" || print_msg "$RED" "  Backend (localhost:3000): unhealthy"
     docker ps --filter "name=nginx-local" --format '{{.Status}}' 2>/dev/null | grep -qi "up" && print_msg "$GREEN" "  Nginx: running" || print_msg "$RED" "  Nginx: stopped"
     docker ps --filter "name=lexwebapp-local" --format '{{.Status}}' 2>/dev/null | grep -qi "up" && print_msg "$GREEN" "  Vite (Docker): running" || print_msg "$RED" "  Vite (Docker): stopped"
-    curl -sf --max-time 10 https://localdev.legal.org.ua/ > /dev/null && print_msg "$GREEN" "  Frontend (localdev HTTPS): healthy" || print_msg "$RED" "  Frontend (localdev HTTPS): unhealthy"
-    curl -sf --max-time 10 https://localdev.mcp.legal.org.ua/health > /dev/null && print_msg "$GREEN" "  MCP SSE (localdev.mcp HTTPS): healthy" || print_msg "$RED" "  MCP SSE (localdev.mcp HTTPS): unhealthy"
+    curl -sf --max-time 10 https://local.legal.org.ua/ > /dev/null && print_msg "$GREEN" "  Frontend (local HTTPS): healthy" || print_msg "$RED" "  Frontend (local HTTPS): unhealthy"
+    curl -sf --max-time 10 https://local.mcp.legal.org.ua/health > /dev/null && print_msg "$GREEN" "  MCP SSE (local.mcp HTTPS): healthy" || print_msg "$RED" "  MCP SSE (local.mcp HTTPS): unhealthy"
 
     echo ""
 }
@@ -506,8 +506,8 @@ check_health() {
 # Manage Let's Encrypt certificates for local environment
 ensure_letsencrypt_certs() {
     local certs_dir="$SCRIPT_DIR/nginx/certs"
-    local le_dir="/etc/letsencrypt/live/localdev.legal.org.ua"
-    local domains="-d localdev.legal.org.ua -d localdev.mcp.legal.org.ua"
+    local le_dir="/etc/letsencrypt/live/local.legal.org.ua"
+    local domains="-d local.legal.org.ua -d local.mcp.legal.org.ua"
     local compose_cmd=$(get_compose_cmd)
     local compose_args="$1"
 
@@ -682,11 +682,11 @@ deploy_local() {
     fi
 
     # Phase 5: Open browser (nginx + Vite run inside Docker now)
-    print_msg "$BLUE" "Opening https://localdev.legal.org.ua ..."
+    print_msg "$BLUE" "Opening https://local.legal.org.ua ..."
     if command -v xdg-open &> /dev/null; then
-        xdg-open "https://localdev.legal.org.ua" 2>/dev/null &
+        xdg-open "https://local.legal.org.ua" 2>/dev/null &
     elif command -v open &> /dev/null; then
-        open "https://localdev.legal.org.ua" 2>/dev/null &
+        open "https://local.legal.org.ua" 2>/dev/null &
     fi
 
     # Phase 6: Report

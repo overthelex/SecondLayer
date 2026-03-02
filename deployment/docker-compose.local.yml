@@ -277,16 +277,16 @@ services:
       STAGE_API_KEY: ${STAGE_API_KEY:-}
 
       # WebAuthn / FIDO2
-      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localdev.legal.org.ua}
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-local.legal.org.ua}
       WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-SecondLayer Legal}
-      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-https://localdev.legal.org.ua}
+      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-https://local.legal.org.ua}
 
       # OAuth (optional for local - can use API keys instead)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-https://localdev.legal.org.ua/auth/google/callback}
-      FRONTEND_URL: ${FRONTEND_URL:-https://localdev.legal.org.ua}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://localdev.legal.org.ua,https://usa.legal.org.ua,https://uk.legal.org.ua,https://de.legal.org.ua,https://fr.legal.org.ua,https://nl.legal.org.ua,https://ee.legal.org.ua,https://eu.legal.org.ua,https://ua.legal.org.ua,http://localhost:5173,http://localhost:3000}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-https://local.legal.org.ua/auth/google/callback}
+      FRONTEND_URL: ${FRONTEND_URL:-https://local.legal.org.ua}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://local.legal.org.ua,https://usa.legal.org.ua,https://uk.legal.org.ua,https://de.legal.org.ua,https://fr.legal.org.ua,https://nl.legal.org.ua,https://ee.legal.org.ua,https://eu.legal.org.ua,https://ua.legal.org.ua,http://localhost:5173,http://localhost:3000}
 
       # MinIO (S3-compatible object storage)
       MINIO_ENDPOINT: minio-local
@@ -294,7 +294,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_USE_SSL: "false"
-      MINIO_PUBLIC_URL: https://localdev.legal.org.ua/s3
+      MINIO_PUBLIC_URL: https://local.legal.org.ua/s3
 
       # Upload temp directory
       UPLOAD_TEMP_DIR: /app/data/uploads
@@ -748,7 +748,7 @@ services:
     environment:
       NODE_ENV: development
       DOCKER_ENV: "true"
-      VITE_API_URL: ${VITE_API_URL:-https://localdev.legal.org.ua}
+      VITE_API_URL: ${VITE_API_URL:-https://local.legal.org.ua}
     volumes:
       - ../lexwebapp:/app
       - lexwebapp_node_modules:/app/node_modules

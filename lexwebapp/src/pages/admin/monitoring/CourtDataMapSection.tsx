@@ -310,7 +310,7 @@ export function CourtDataMapSection() {
               >
                 <option value="none">Без проксі (Direct)</option>
                 <option value="mail">Проксі: mail.legal.org.ua</option>
-                <option value="localdev">Проксі: localdev.legal.org.ua</option>
+                <option value="localdev">Проксі: local.legal.org.ua</option>
               </select>
             </div>
           </div>
