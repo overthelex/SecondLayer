@@ -110,5 +110,10 @@ pip
 deployment/nginx/certs/
 .mcp.json
 
+
 # WireGuard secrets
 deployment/.env.wireguard
+docs/IGOR_LINEAR_TASKS.md
+docs/LEG-52_IMPLEMENTATION_PLAN.md
+docs/security/LEGAL_TECH_COMPLIANCE_AUDIT.md
+package-lock.json

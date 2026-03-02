@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Отступы между буквами (x в px, step = шаг до следующей буквы):
+  Оптический кернинг для органичного восприятия
+  S    x=23   step 28
+  E    x=51   step 28
+  C    x=79   step 28
+  O    x=107  step 28
+  N    x=135  step 27 (две вертикали — плотнее)
+  D    x=162  step 26 (округлая D + пробел = воздух)
+  пробел x=188 step 27
+  L    x=215  step 28
+  A    x=243  step 27 (A широкая, Y узкая)
+  Y    x=273  (центр слота; слот 268–296, ширина 28)
+  W    x=268  (начало слота)
+  E    x=306  (зазор 10 после W для равновесия)
+  R    x=334  step 28
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 100" width="380" height="100">
+  <rect width="380" height="100" fill="#F5F3ED"/>
+  <text y="58" font-family="Georgia, 'Times New Roman', serif" font-size="36" font-weight="600" text-anchor="start">
+    <tspan fill="#403F3E" x="28">S</tspan>
+    <tspan fill="#403F3E" x="52">E</tspan>
+    <tspan fill="#403F3E" x="79">C</tspan>
+    <tspan fill="#403F3E" x="106">O</tspan>
+    <tspan fill="#403F3E" x="135">N</tspan>
+    <tspan fill="#403F3E" x="166">D</tspan>
+    <tspan fill="#403F3E" x="188"> </tspan>
+    <tspan fill="#E07A5F" x="215">L</tspan>
+    <tspan fill="#E07A5F" x="244">A</tspan>
+    <tspan fill="#E07A5F" x="275" id="yLetter">Y<animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.35;0.42;0.92;1" dur="3s" repeatCount="indefinite"/></tspan> 
+    <tspan fill="#E07A5F" x="268" id="wLetter" opacity="0">W<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.42;0.5;0.85;0.92;1" dur="3s" repeatCount="indefinite"/></tspan>
+    <!-- <tspan fill="#E07A5F" x="275">Y</tspan> -->
+    <!-- <tspan fill="#E07A5F" x="268" >W</tspan> -->
+    <tspan fill="#E07A5F" x="308">E</tspan>
+    <tspan fill="#E07A5F" x="337">R</tspan>
+  </text>
+</svg>
