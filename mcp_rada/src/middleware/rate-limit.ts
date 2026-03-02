@@ -86,6 +86,6 @@ export const webhookRateLimit = createRateLimiter({
 // Global API rate limiter — baseline protection for all /api/ routes (120 req/min per IP)
 export const globalApiRateLimit = createRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 120,
+  maxRequests: 300,
   keyPrefix: 'ratelimit:rada-global-api',
 });
