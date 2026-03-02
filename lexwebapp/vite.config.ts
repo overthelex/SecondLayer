@@ -19,29 +19,6 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: mode === 'staging' ? 'dist-staging' : 'dist',
       sourcemap: mode === 'staging' || mode === 'development',
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            'admin': [
-              './src/pages/AdminOverviewPage.tsx',
-              './src/pages/AdminMonitoringPage.tsx',
-              './src/pages/AdminUsersPage.tsx',
-              './src/pages/AdminCostsPage.tsx',
-              './src/pages/AdminDataSourcesPage.tsx',
-              './src/pages/AdminBillingPage.tsx',
-              './src/pages/AdminInfrastructurePage.tsx',
-              './src/pages/AdminContainersPage.tsx',
-              './src/pages/AdminConfigPage.tsx',
-              './src/pages/AdminDBComparePage.tsx',
-              './src/pages/AdminServicePricingPage.tsx',
-              './src/pages/AdminTerminalPage.tsx',
-              './src/pages/AdminZOStatsPage.tsx',
-              './src/pages/AdminUserActivityPage.tsx',
-              './src/pages/AdminBulkScrapePage.tsx',
-            ],
-          },
-        },
-      },
     },
     server: {
       host: true,
