@@ -110,6 +110,6 @@ export const passwordResetRateLimit = createRateLimiter({
 // More specific per-endpoint limiters (auth, chat, etc.) still apply additionally.
 export const globalApiRateLimit = createRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 120,
+  maxRequests: 300,
   keyPrefix: 'ratelimit:global-api',
 });
