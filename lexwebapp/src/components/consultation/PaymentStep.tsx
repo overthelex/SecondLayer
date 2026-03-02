@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Loader2, CreditCard } from 'lucide-react';
 
 interface Props {
@@ -21,12 +21,14 @@ export function PaymentStep({ attorneyName, consultationFee, serviceType, onPaym
   const [paying, setPaying] = useState(false);
   const [paid, setPaid] = useState(false);
   const isFree = !consultationFee || consultationFee === 0;
+  const submittedRef = useRef(false);
 
   useEffect(() => {
-    if (isFree) {
+    if (isFree && !submittedRef.current) {
+      submittedRef.current = true;
       onPaymentComplete();
     }
-  }, [isFree, onPaymentComplete]);
+  }, [isFree]);
 
   const handlePay = () => {
     setPaying(true);
