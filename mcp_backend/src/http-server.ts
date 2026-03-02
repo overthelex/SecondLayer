@@ -539,7 +539,7 @@ class HTTPMCPServer {
     // Our custom Redis-backed limiters still apply per-route for finer control.
     this.app.use(rateLimit({
       windowMs: 60 * 1000,
-      max: 300,
+      max: 900,
       standardHeaders: true,
       legacyHeaders: false,
       message: { error: 'Too Many Requests', code: 'RATE_LIMIT_EXCEEDED' },
