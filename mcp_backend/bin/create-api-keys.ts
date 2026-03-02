@@ -12,7 +12,7 @@
 import { Pool } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
-import { maskSensitive } from '../src/utils/sanitize-log.js';
+import { maskSensitive, sanitizeId } from '../src/utils/sanitize-log.js';
 
 // Database connection
 const pool = new Pool({
@@ -314,11 +314,11 @@ Examples:
       if (apiKey) {
         console.log('\n✅ API Key created successfully!');
         console.log('\n📋 Details:');
-        console.log(`  ID: ${apiKey.id}`);
+        console.log(`  ID: ${sanitizeId(apiKey.id)}`);
         console.log(`  User: ${maskSensitive(apiKey.userEmail, 4)}`);
-        console.log(`  Name: ${apiKey.name}`);
+        console.log(`  Name: ${sanitizeId(apiKey.name)}`);
         console.log(`  Key: ${maskSensitive(apiKey.key, 8)}`);
-        console.log(`  Created: ${apiKey.createdAt}`);
+        console.log(`  Created: ${sanitizeId(apiKey.createdAt)}`);
         console.log('\n⚠️  IMPORTANT: The full key has been saved to the output file. It will not be shown again.');
       } else {
         process.exit(1);
