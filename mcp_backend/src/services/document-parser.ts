@@ -573,10 +573,10 @@ window.renderPDF = async function(base64Data, maxPages, scale) {
     // Remove RTF header/groups
     text = text.replace(/\{\\rtf[^}]*\}/g, '');
     // Remove font tables, color tables, stylesheet, info groups
-    text = text.replace(/\{\\fonttbl[^}]*(\{[^}]*\})*[^}]*\}/g, '');
+    text = text.replace(/\{\\fonttbl[^}]*\}/g, '');
     text = text.replace(/\{\\colortbl[^}]*\}/g, '');
-    text = text.replace(/\{\\stylesheet[^}]*(\{[^}]*\})*[^}]*\}/g, '');
-    text = text.replace(/\{\\info[^}]*(\{[^}]*\})*[^}]*\}/g, '');
+    text = text.replace(/\{\\stylesheet[^}]*\}/g, '');
+    text = text.replace(/\{\\info[^}]*\}/g, '');
     text = text.replace(/\{\\\*\\[^}]*\}/g, '');
     // Replace paragraph and line breaks
     text = text.replace(/\\par\b/g, '\n');
@@ -999,10 +999,11 @@ window.renderPDF = async function(base64Data, maxPages, scale) {
               data = Buffer.from(partBody.replace(/\s/g, ''), 'base64');
             } else if (enc === 'quoted-printable') {
               const stripped = partBody.replace(/=\r?\n/g, '');
+              const maxLen = Math.min(stripped.length, 50 * 1024 * 1024); // 50MB safety cap
               const bytes: number[] = [];
               let i = 0;
-              while (i < stripped.length) {
-                if (stripped[i] === '=' && i + 2 < stripped.length && /[0-9A-Fa-f]{2}/.test(stripped.substring(i + 1, i + 3))) {
+              while (i < maxLen) {
+                if (stripped[i] === '=' && i + 2 < maxLen && /[0-9A-Fa-f]{2}/.test(stripped.substring(i + 1, i + 3))) {
                   bytes.push(parseInt(stripped.substring(i + 1, i + 3), 16));
                   i += 3;
                 } else {
@@ -1043,10 +1044,11 @@ window.renderPDF = async function(base64Data, maxPages, scale) {
     if (encoding === 'quoted-printable') {
       // Remove soft line breaks, then decode all =XX sequences as raw bytes → UTF-8
       const stripped = content.replace(/=\r?\n/g, '');
+      const maxLen = Math.min(stripped.length, 50 * 1024 * 1024); // 50MB safety cap
       const bytes: number[] = [];
       let i = 0;
-      while (i < stripped.length) {
-        if (stripped[i] === '=' && i + 2 < stripped.length && /[0-9A-Fa-f]{2}/.test(stripped.substring(i + 1, i + 3))) {
+      while (i < maxLen) {
+        if (stripped[i] === '=' && i + 2 < maxLen && /[0-9A-Fa-f]{2}/.test(stripped.substring(i + 1, i + 3))) {
           bytes.push(parseInt(stripped.substring(i + 1, i + 3), 16));
           i += 3;
         } else {

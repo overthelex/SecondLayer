@@ -234,7 +234,7 @@ export class DatabaseImporter {
       ti: entity.terminated_info, f: entity.founders?.length,
       b: entity.beneficiaries?.length, sg: entity.signers?.length,
     });
-    return createHash('md5').update(data).digest('hex');
+    return createHash('sha256').update(data).digest('hex').slice(0, 32);
   }
 
   private computeFOPHash(entity: ParsedFOPEntity): string {
@@ -242,7 +242,7 @@ export class DatabaseImporter {
       n: entity.name, s: entity.stan, f: entity.farmer, em: entity.estate_manager,
       r: entity.registration, ti: entity.terminated_info,
     });
-    return createHash('md5').update(data).digest('hex');
+    return createHash('sha256').update(data).digest('hex').slice(0, 32);
   }
 
   private computeFSUHash(entity: ParsedFSUEntity): string {
@@ -251,7 +251,7 @@ export class DatabaseImporter {
       tb: entity.type_branch, s: entity.stan, r: entity.registration,
       ti: entity.terminated_info, f: entity.founders?.length,
     });
-    return createHash('md5').update(data).digest('hex');
+    return createHash('sha256').update(data).digest('hex').slice(0, 32);
   }
 
   // --- Single entity importers with multi-row INSERTs for related tables ---

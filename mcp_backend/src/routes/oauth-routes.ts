@@ -14,6 +14,23 @@ import { logger } from '../utils/logger.js';
 import bcrypt from 'bcryptjs';
 import { getUserService } from '../middleware/dual-auth.js';
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeJsString(str: string): string {
+  return str
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/</g, '\\x3c')
+    .replace(/>/g, '\\x3e');
+}
+
 export function createOAuthRouter(oauthService: OAuthService): Router {
   const router = Router();
   const userService = getUserService();
@@ -287,7 +304,7 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
 
     <div class="client-info">
       <strong>Application requesting access</strong>
-      <span>${client.name}</span>
+      <span>${escapeHtml(client.name)}</span>
     </div>
 
     <div id="error" class="error"></div>
@@ -350,12 +367,12 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
           body: JSON.stringify({
             email,
             password,
-            client_id: '${client_id}',
-            redirect_uri: '${redirect_uri}',
-            scope: '${scope}',
-            state: '${state || ''}',
-            code_challenge: '${code_challenge || ''}',
-            code_challenge_method: '${code_challenge_method || ''}',
+            client_id: '${escapeJsString(String(client_id))}',
+            redirect_uri: '${escapeJsString(String(redirect_uri))}',
+            scope: '${escapeJsString(String(scope))}',
+            state: '${escapeJsString(String(state || ''))}',
+            code_challenge: '${escapeJsString(String(code_challenge || ''))}',
+            code_challenge_method: '${escapeJsString(String(code_challenge_method || ''))}',
           }),
         });
 

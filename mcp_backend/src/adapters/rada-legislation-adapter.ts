@@ -64,8 +64,12 @@ export class RadaLegislationAdapter {
   }
 
   async fetchLegislation(radaId: string): Promise<{ metadata: LegislationMetadata; articles: LegislationArticle[] }> {
+    // Validate radaId to prevent SSRF — Ukrainian law IDs contain alphanumeric, slashes, dashes, Cyrillic
+    if (/[^\p{L}\p{N}\-_\/\.]/u.test(radaId) || radaId.includes('..')) {
+      throw new Error(`Invalid legislation ID: ${radaId}`);
+    }
     // Use /print endpoint for full text with all articles
-    const url = `${this.BASE_URL}/laws/show/${radaId}/print`;
+    const url = `${this.BASE_URL}/laws/show/${encodeURIComponent(radaId)}/print`;
     logger.info(`Fetching legislation from ${url}`);
 
     const callStart = Date.now();

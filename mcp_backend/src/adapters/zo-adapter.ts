@@ -616,11 +616,19 @@ export class ZOAdapter {
     return queryParams;
   }
 
+  /** Validate endpoint path to prevent SSRF via path traversal */
+  private validateEndpoint(endpoint: string): void {
+    if (/[^a-zA-Z0-9\-_\/.]/.test(endpoint) || endpoint.includes('..')) {
+      throw new ZakonOnlineValidationError(`Invalid endpoint path: ${endpoint}`);
+    }
+  }
+
   private async requestWithRetry(
     endpoint: string,
     params: any,
     maxRetries: number = 3
   ): Promise<any> {
+    this.validateEndpoint(endpoint);
     const cacheKey = this.generateCacheKey(endpoint, params);
     const cached = await this.getCached(cacheKey);
 
