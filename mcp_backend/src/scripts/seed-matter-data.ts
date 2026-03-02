@@ -350,7 +350,7 @@ async function seedMatterData() {
     logger.info(`  Legal holds: 2`);
 
   } catch (error: any) {
-    logger.error('Matter seed failed:', { message: String(error.message) });
+    logger.error('Matter seed failed:', { message: sanitizeId(error.message) });
     throw error;
   } finally {
     await db.close();
@@ -396,6 +396,6 @@ const isCleanup = process.argv.includes('--cleanup');
     process.exit(0);
   })
   .catch((error) => {
-    logger.error('Fatal error:', { message: error.message });
+    logger.error('Fatal error:', { message: sanitizeId(error.message) });
     process.exit(1);
   });
