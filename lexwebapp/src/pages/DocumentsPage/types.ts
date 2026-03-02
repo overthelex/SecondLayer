@@ -93,7 +93,11 @@ export function getFileExtension(doc: VaultDocument): string {
  */
 export function isPreviewableBinary(mimeType?: string): boolean {
   if (!mimeType) return false;
-  return mimeType.startsWith('image/') || mimeType === 'application/pdf' || mimeType.startsWith('video/');
+  return mimeType.startsWith('image/')
+    || mimeType === 'application/pdf'
+    || mimeType.startsWith('video/')
+    || mimeType === 'application/msword'
+    || mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 }
 
 const EDITABLE_MIME_TYPES = new Set([

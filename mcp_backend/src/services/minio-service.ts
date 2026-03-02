@@ -85,6 +85,39 @@ export class MinioService {
     }
   }
 
+  async getFileUrlFromBucket(
+    bucket: string,
+    objectKey: string,
+    expirySeconds: number = 3600,
+    inline: boolean = false
+  ): Promise<string> {
+    try {
+      const respHeaders: Record<string, string> = {};
+      if (inline) {
+        respHeaders['response-content-disposition'] = 'inline';
+      }
+      let url = await this.client.presignedGetObject(bucket, objectKey, expirySeconds, respHeaders);
+
+      const publicUrl = process.env.MINIO_PUBLIC_URL;
+      if (publicUrl) {
+        const endpoint = process.env.MINIO_ENDPOINT || 'localhost';
+        const port = process.env.MINIO_PORT || '9000';
+        const useSSL = process.env.MINIO_USE_SSL === 'true';
+        const internalOrigin = `${useSSL ? 'https' : 'http'}://${endpoint}:${port}`;
+        url = url.replace(internalOrigin, publicUrl);
+      }
+
+      return url;
+    } catch (error: any) {
+      logger.error('[MinIO] Failed to generate presigned URL', {
+        bucket,
+        key: objectKey,
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
   async getFileUrl(
     userId: string,
     objectKey: string,

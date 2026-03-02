@@ -1337,9 +1337,20 @@ class HTTPMCPServer {
         const doc = result.rows[0];
 
         if (doc.storage_type === 'minio' && doc.metadata?.minioKey) {
-          const isPreviewable = doc.mime_type === 'application/pdf' || doc.mime_type?.startsWith('image/') || doc.mime_type?.startsWith('video/');
-          const url = await this.minioService.getFileUrl(userId, doc.metadata.minioKey, 3600, isPreviewable);
-          res.json({ previewUrl: url, mimeType: doc.mime_type, storageType: 'minio' });
+          const isPreviewable = doc.mime_type === 'application/pdf' || doc.mime_type?.startsWith('image/') || doc.mime_type?.startsWith('video/') || !!doc.metadata?.previewKey;
+          const bucket = doc.metadata?.minioBucket || `user-${userId}`;
+
+          // For documents with a previewKey (JPG thumbnail from PDF/DOCX), serve that instead
+          let previewUrl: string;
+          let previewMime = doc.mime_type;
+          if (doc.metadata?.previewKey) {
+            previewUrl = await this.minioService.getFileUrlFromBucket(bucket, doc.metadata.previewKey, 3600, true);
+            previewMime = 'image/jpeg';
+          } else {
+            previewUrl = await this.minioService.getFileUrlFromBucket(bucket, doc.metadata.minioKey, 3600, isPreviewable);
+          }
+
+          res.json({ previewUrl, mimeType: previewMime, storageType: 'minio' });
         } else {
           // Vault document — no binary preview, content is text
           res.json({ previewUrl: null, mimeType: doc.mime_type, storageType: doc.storage_type || 'vault' });
