@@ -175,11 +175,11 @@ async function extractZip(zipPath: string, extractDir: string, depth: number = 0
     console.warn(`  Skipping nested ZIP extraction at depth ${depth} (max 2)`);
     return [];
   }
-  const { execSync } = require('child_process');
+  const { execFileSync } = require('child_process');
 
   // Try system unzip first — handles ZIP64 and large files better than Node.js unzipper
   try {
-    execSync(`unzip -o -q "${zipPath}" -d "${extractDir}"`, {
+    execFileSync('unzip', ['-o', '-q', zipPath, '-d', extractDir], {
       timeout: 10 * 60 * 1000,
       stdio: ['pipe', 'pipe', 'pipe'],
     });

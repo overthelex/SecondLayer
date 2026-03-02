@@ -294,7 +294,8 @@ async function loadBylaw(bylaw) {
 async function main() {
   console.log('Loading bylaws for TCC/military disputes');
   console.log('  Vectors: ' + (skipVectors ? 'SKIP' : 'enabled'));
-  console.log('  DB: ' + DATABASE_URL.replace(/:[^@]+@/, ':***@'));
+  const dbUrlParsed = new URL(DATABASE_URL);
+  console.log('  DB: ' + dbUrlParsed.protocol + '//' + dbUrlParsed.username + ':***@' + dbUrlParsed.host + dbUrlParsed.pathname);
 
   const bylawsToLoad = explicitIds.length > 0
     ? BYLAWS.filter(b => explicitIds.includes(b.rada_id))

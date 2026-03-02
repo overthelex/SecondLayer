@@ -9,6 +9,13 @@ import { createBackendCoreServices, BackendCoreServices } from './factories/core
 import { authenticateJWT } from './middleware/jwt-auth.js';
 import { getRedisClient } from './utils/redis-client.js';
 import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
+import { createRateLimiter, setRateLimitCache } from './middleware/rate-limit.js';
+
+const sseGlobalRateLimit = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 60,
+  keyPrefix: 'ratelimit:sse-global',
+});
 
 dotenv.config();
 
@@ -38,8 +45,14 @@ class SSEServer {
 
   private setupMiddleware() {
     // CORS for remote access
+    const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://legal.org.ua,https://stage.legal.org.ua').split(',').map(o => o.trim());
     this.app.use(cors({
-      origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        if (origin.match(/^https?:\/\/localhost(:\d+)?$/)) return callback(null, true);
+        callback(new Error(`CORS not allowed for origin: ${origin}`));
+      },
       credentials: true,
     }));
 
@@ -56,6 +69,9 @@ class SSEServer {
       });
       next();
     });
+
+    // Global rate limiter for SSE endpoints (60 req/min per IP)
+    this.app.use(sseGlobalRateLimit as any);
 
     // JWT Authentication - protects all endpoints except /health
     this.app.use(authenticateJWT);
@@ -206,6 +222,7 @@ class SSEServer {
       const redis = await getRedisClient();
       if (redis) {
         const cache = new CacheAdapter(redis);
+        setRateLimitCache(cache);
         this.services.legislationTools.setRedisClient(cache);
         this.services.zoAdapter.setCachePort(cache);
         this.services.zoPracticeAdapter.setCachePort(cache);

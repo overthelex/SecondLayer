@@ -81,10 +81,11 @@ export class CostTracker extends BaseCostTracker {
       ]
     );
 
+    const maskedKey = params.clientKey ? `${params.clientKey.substring(0, 8)}...` : 'none';
     logger.debug('Cost tracking record created', {
       requestId: params.requestId,
       userId: params.userId,
-      clientKey: params.clientKey ? params.clientKey.substring(0, 8) + '...' : 'none',
+      clientKeyPrefix: maskedKey,
     });
   }
 
