@@ -14,6 +14,7 @@ import { OpenReyestrTools } from './api/openreyestr-tools';
 import { CostTracker } from './services/cost-tracker';
 import { MCPOpenReyestrAPI } from './api/mcp-openreyestr-api';
 import { MetricsService } from './services/metrics-service';
+import { globalApiRateLimit, healthCheckRateLimit } from './middleware/rate-limit';
 
 dotenv.config();
 
@@ -54,8 +55,14 @@ class HTTPOpenReyestrServer {
 
   private setupMiddleware() {
     // CORS - allow requests from clients
+    const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://legal.org.ua,https://stage.legal.org.ua').split(',').map(o => o.trim());
     this.app.use(cors({
-      origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        if (origin.match(/^https?:\/\/localhost(:\d+)?$/)) return callback(null, true);
+        callback(new Error(`CORS not allowed for origin: ${origin}`));
+      },
       credentials: true,
     }));
 
@@ -105,7 +112,7 @@ class HTTPOpenReyestrServer {
     });
 
     // Readiness probe
-    this.app.get('/health/ready', async (_req, res) => {
+    this.app.get('/health/ready', healthCheckRateLimit as any, async (_req, res) => {
       try {
         await this.db.query('SELECT 1');
         res.json({ status: 'ok' });
@@ -115,7 +122,7 @@ class HTTPOpenReyestrServer {
     });
 
     // Full health check with dependency status
-    this.app.get('/health', async (_req, res) => {
+    this.app.get('/health', healthCheckRateLimit as any, async (_req, res) => {
       const checks: Record<string, { ok: boolean; error?: string }> = {};
       let degraded = false;
 
@@ -135,6 +142,9 @@ class HTTPOpenReyestrServer {
         checks,
       });
     });
+
+    // Global API rate limiter — baseline protection for all /api/ routes (120 req/min per IP)
+    this.app.use('/api', globalApiRateLimit as any);
 
     // Stats endpoint for admin monitoring (no auth — internal network only)
     this.app.get('/api/stats', async (_req, res) => {

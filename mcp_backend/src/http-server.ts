@@ -58,7 +58,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { createOAuthRouter } from './routes/oauth-routes.js';
 import { OAuthService } from './services/oauth-service.js';
 // createHybridAuthMiddleware available from './middleware/oauth-auth.js' if needed
-import { mcpDiscoveryRateLimit, healthCheckRateLimit, webhookRateLimit, chatRateLimit } from './middleware/rate-limit.js';
+import { mcpDiscoveryRateLimit, healthCheckRateLimit, webhookRateLimit, chatRateLimit, globalApiRateLimit } from './middleware/rate-limit.js';
 import { ToolRegistry } from './api/tool-registry.js';
 import { BusinessRegistryTools } from './api/tools/business-registry-tools.js';
 import { CourtDecisionTools } from './api/tools/court-decision-tools.js';
@@ -517,8 +517,17 @@ class HTTPMCPServer {
 
   private setupMiddleware() {
     // CORS - разрешаем запросы от клиентов
+    const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://legal.org.ua,https://stage.legal.org.ua').split(',').map(o => o.trim());
     this.app.use(cors({
-      origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+      origin: (origin, callback) => {
+        // Allow requests with no origin (server-to-server, curl, mobile apps)
+        if (!origin) return callback(null, true);
+        // Allow configured origins
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        // Allow localhost in development
+        if (origin.match(/^https?:\/\/localhost(:\d+)?$/)) return callback(null, true);
+        callback(new Error(`CORS not allowed for origin: ${origin}`));
+      },
       credentials: true,
       exposedHeaders: ['X-Upload-Queue-Depth', 'X-Upload-Throttle', 'Retry-After', 'X-Total-Count'],
     }));
@@ -906,7 +915,7 @@ class HTTPMCPServer {
             const oauthToken = await this.oauthService.verifyAccessToken(token);
             if (oauthToken) {
               userId = oauthToken.userId;
-              logger.debug('[MCP v1/sse] Authenticated with OAuth token', { userId, clientId: oauthToken.clientId });
+              logger.debug('[MCP v1/sse] Authenticated with OAuth token', { userId: String(userId), clientId: String(oauthToken.clientId) });
             } else {
               // API key
               clientKey = token;
@@ -914,7 +923,7 @@ class HTTPMCPServer {
 
               if (!keyInfo) {
                 logger.warn('[MCP v1/sse] Invalid API key', {
-                  keyPrefix: token.substring(0, 12) + '...',
+                  keyPrefix: token.substring(0, 8) + '...',
                 });
                 return res.status(401).json({
                   error: 'Unauthorized',
@@ -990,7 +999,7 @@ class HTTPMCPServer {
           try {
             logger.info('[MCP v1/sse] Tool call', {
               tool: toolName,
-              userId: userId || 'anonymous',
+              userId: String(userId || 'anonymous'),
             });
 
             // Phase 2 Billing: Check credits BEFORE execution
@@ -1002,7 +1011,7 @@ class HTTPMCPServer {
 
                 if (!balance.hasCredits) {
                   logger.warn('[MCP v1/sse] Insufficient credits', {
-                    userId,
+                    userId: String(userId),
                     tool: toolName,
                     creditsRequired,
                   });
@@ -1069,7 +1078,7 @@ class HTTPMCPServer {
 
                 if (deduction.success) {
                   logger.info('[MCP v1/sse] Credits deducted', {
-                    userId,
+                    userId: String(userId),
                     tool: toolName,
                     creditsDeducted: creditsRequired,
                     newBalance: deduction.newBalance,
@@ -1238,6 +1247,10 @@ class HTTPMCPServer {
     // OAuth 2.0 routes for ChatGPT integration (public)
     this.app.use('/oauth', createOAuthRouter(this.oauthService));
     logger.info('OAuth 2.0 routes registered at /oauth');
+
+    // Global API rate limiter — baseline protection for all /api/ routes (120 req/min per IP).
+    // More specific per-endpoint limiters (auth, chat, upload, etc.) still apply additionally.
+    this.app.use('/api', globalApiRateLimit as any);
 
     // Document classification & stats endpoints - must come before /api/documents generic REST route
     this.app.use('/api/documents/classify', requireJWT as any, createClassificationRoutes(this.classificationService));

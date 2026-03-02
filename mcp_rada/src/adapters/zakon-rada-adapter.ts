@@ -9,6 +9,10 @@ import { logger } from '../utils/logger';
 import { KNOWN_LAWS, ZakonRadaLawResponse, ZakonRadaSearchResult, ZakonRadaAPIError } from '../types/rada';
 import { CostTracker } from '../services/cost-tracker';
 
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export class ZakonRadaAdapter {
   private client: AxiosInstance;
   private baseURL = 'https://zakon.rada.gov.ua';
@@ -238,7 +242,7 @@ export class ZakonRadaAdapter {
     const $ = cheerio.load(lawText.html);
 
     // Try to find the specific article
-    const articlePattern = new RegExp(`Стаття\\s+${articleNumber}[^\\d]`, 'i');
+    const articlePattern = new RegExp(`Стаття\\s+${escapeRegExp(articleNumber)}[^\\d]`, 'i');
     const textContent = $.text();
     const match = textContent.match(articlePattern);
 

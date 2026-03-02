@@ -30,6 +30,10 @@ export class BaseDatabase {
     };
 
     if (config.schema) {
+      // Validate schema name to prevent injection via PostgreSQL options string
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(config.schema)) {
+        throw new Error(`Invalid schema name: ${config.schema}`);
+      }
       poolConfig.options = `-c search_path=${config.schema},public`;
     }
 

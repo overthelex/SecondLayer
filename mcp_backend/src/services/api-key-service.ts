@@ -63,7 +63,7 @@ export class ApiKeyService {
 
       if (result.rows.length === 0) {
         logger.debug('[ApiKeyService] API key not found or inactive', {
-          keyPrefix: apiKey.substring(0, 12) + '...',
+          keyPrefix: apiKey.substring(0, 8) + '...',
         });
         return null;
       }

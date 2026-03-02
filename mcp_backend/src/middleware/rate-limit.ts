@@ -105,3 +105,11 @@ export const passwordResetRateLimit = createRateLimiter({
   maxRequests: 3,
   keyPrefix: 'ratelimit:password-reset',
 });
+
+// Global API rate limiter — covers all /api/ routes as a baseline.
+// More specific per-endpoint limiters (auth, chat, etc.) still apply additionally.
+export const globalApiRateLimit = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 120,
+  keyPrefix: 'ratelimit:global-api',
+});

@@ -116,12 +116,12 @@ async function authenticateWithAPIKey(req: AuthenticatedRequest, apiKey: string)
   if (apiKeyService) {
     try {
       logger.debug('Attempting Phase 2 API key validation', {
-        keyPrefix: apiKey.substring(0, 12) + '...',
+        keyPrefix: apiKey.substring(0, 8) + '...',
       });
       const keyInfo = await apiKeyService.validateApiKey(apiKey);
 
       logger.debug('Phase 2 API key validation result', {
-        keyPrefix: apiKey.substring(0, 12) + '...',
+        keyPrefix: apiKey.substring(0, 8) + '...',
         found: keyInfo !== null,
         userId: keyInfo?.userId,
       });
@@ -159,7 +159,7 @@ async function authenticateWithAPIKey(req: AuthenticatedRequest, apiKey: string)
     } catch (error: any) {
       logger.error('Error validating Phase 2 API key', {
         error: error.message,
-        keyPrefix: apiKey.substring(0, 12) + '...',
+        keyPrefix: apiKey.substring(0, 8) + '...',
       });
       // Continue to check legacy keys
     }

@@ -10,7 +10,7 @@ async function testEmail(recipientEmail?: string) {
   const recipient = recipientEmail || process.env.TEST_ACCOUNT_EMAIL || 'test@legal.org.ua';
 
   logger.info('🧪 Testing email service...');
-  logger.info(`📧 Recipient: ${recipient}`);
+  logger.info(`📧 Recipient: ${recipient.replace(/(.{2})(.*)(@.*)/, '$1***$3')}`);
   logger.info(`📮 SMTP Host: ${process.env.SMTP_HOST || 'not configured'}`);
   logger.info(`🔌 SMTP Port: ${process.env.SMTP_PORT || 'not configured'}`);
   logger.info(`👤 SMTP User: ${process.env.SMTP_USER || 'not configured'}`);
@@ -58,7 +58,7 @@ async function testEmail(recipientEmail?: string) {
     logger.info('✅ Low balance alert sent!');
 
     logger.info('\n✅ All test emails sent successfully!');
-    logger.info(`\n📬 Check your inbox at: ${recipient}`);
+    logger.info(`\n📬 Check your inbox at: ${recipient.replace(/(.{2})(.*)(@.*)/, '$1***$3')}`);
     logger.info('💡 If you don\'t see the emails, check your spam folder.');
     logger.info('\n📧 Email Configuration:');
     logger.info(`   From: ${process.env.EMAIL_FROM || 'billing@legal.org.ua'}`);
