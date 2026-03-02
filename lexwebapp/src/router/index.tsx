@@ -13,7 +13,7 @@ import { AuthGuard } from './guards/AuthGuard';
 import { MainLayout } from '../layouts/MainLayout';
 
 // Auth — static import (first page users see)
-import { LoginPage } from '../components/LoginPage';
+import { LoginPage } from '../pages/LoginPage';
 
 // Loading spinner for lazy-loaded pages
 const PageLoader = () => (
@@ -30,8 +30,8 @@ const S = (Component: React.LazyExoticComponent<React.ComponentType<any>>, props
 );
 
 // -- Public pages --
-const VerifyEmailPage = lazy(() => import('../components/VerifyEmailPage').then(m => ({ default: m.VerifyEmailPage })));
-const ResetPasswordPage = lazy(() => import('../components/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
+const VerifyEmailPage = lazy(() => import('../pages/VerifyEmailPage').then(m => ({ default: m.VerifyEmailPage })));
+const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const PaymentSuccessPage = lazy(() => import('../pages/PaymentSuccessPage').then(m => ({ default: m.PaymentSuccessPage })));
 const PaymentErrorPage = lazy(() => import('../pages/PaymentErrorPage').then(m => ({ default: m.PaymentErrorPage })));
 const OfferPage = lazy(() => import('../pages/OfferPage').then(m => ({ default: m.OfferPage })));
@@ -49,11 +49,11 @@ const EUComparisonPage = lazy(() => import('../pages/EUComparisonPage').then(m =
 
 // -- Core app pages --
 const ChatPage = lazy(() => import('../pages/ChatPage').then(m => ({ default: m.ChatPage })));
-const ProfilePage = lazy(() => import('../components/ProfilePage').then(m => ({ default: m.ProfilePage })));
-const BillingDashboard = lazy(() => import('../components/BillingDashboard').then(m => ({ default: m.BillingDashboard })));
-const TeamPage = lazy(() => import('../components/team/TeamPage').then(m => ({ default: m.TeamPage })));
+const ProfilePage = lazy(() => import('../pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const BillingDashboard = lazy(() => import('../pages/BillingDashboard').then(m => ({ default: m.BillingDashboard })));
+const TeamPage = lazy(() => import('../pages/TeamPage').then(m => ({ default: m.TeamPage })));
 const DocumentsPage = lazy(() => import('../pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
-const HistoryPage = lazy(() => import('../components/HistoryPage').then(m => ({ default: m.HistoryPage })));
+const HistoryPage = lazy(() => import('../pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
 
 // -- Legal entities --
 const JudgesPage = lazy(() => import('../pages/JudgesPage').then(m => ({ default: m.JudgesPage })));
@@ -70,15 +70,15 @@ const TimeEntriesPage = lazy(() => import('../pages/TimeEntriesPage').then(m => 
 const InvoicesPage = lazy(() => import('../pages/InvoicesPage').then(m => ({ default: m.InvoicesPage })));
 
 // -- Legal analysis --
-const CaseAnalysisPage = lazy(() => import('../components/CaseAnalysisPage').then(m => ({ default: m.CaseAnalysisPage })));
-const DecisionsSearchPage = lazy(() => import('../components/DecisionsSearchPage').then(m => ({ default: m.DecisionsSearchPage })));
-const LegislationMonitoringPage = lazy(() => import('../components/LegislationMonitoringPage').then(m => ({ default: m.LegislationMonitoringPage })));
-const CourtPracticeAnalysisPage = lazy(() => import('../components/CourtPracticeAnalysisPage').then(m => ({ default: m.CourtPracticeAnalysisPage })));
-const LegalInitiativesPage = lazy(() => import('../components/LegalInitiativesPage').then(m => ({ default: m.LegalInitiativesPage })));
-const LegislationStatisticsPage = lazy(() => import('../components/LegislationStatisticsPage').then(m => ({ default: m.LegislationStatisticsPage })));
-const VotingAnalysisPage = lazy(() => import('../components/VotingAnalysisPage').then(m => ({ default: m.VotingAnalysisPage })));
-const LegalCodesLibraryPage = lazy(() => import('../components/LegalCodesLibraryPage').then(m => ({ default: m.LegalCodesLibraryPage })));
-const HistoricalAnalysisPage = lazy(() => import('../components/HistoricalAnalysisPage').then(m => ({ default: m.HistoricalAnalysisPage })));
+const CaseAnalysisPage = lazy(() => import('../pages/CaseAnalysisPage').then(m => ({ default: m.CaseAnalysisPage })));
+const DecisionsSearchPage = lazy(() => import('../pages/DecisionsSearchPage').then(m => ({ default: m.DecisionsSearchPage })));
+const LegislationMonitoringPage = lazy(() => import('../pages/LegislationMonitoringPage').then(m => ({ default: m.LegislationMonitoringPage })));
+const CourtPracticeAnalysisPage = lazy(() => import('../pages/CourtPracticeAnalysisPage').then(m => ({ default: m.CourtPracticeAnalysisPage })));
+const LegalInitiativesPage = lazy(() => import('../pages/LegalInitiativesPage').then(m => ({ default: m.LegalInitiativesPage })));
+const LegislationStatisticsPage = lazy(() => import('../pages/LegislationStatisticsPage').then(m => ({ default: m.LegislationStatisticsPage })));
+const VotingAnalysisPage = lazy(() => import('../pages/VotingAnalysisPage').then(m => ({ default: m.VotingAnalysisPage })));
+const LegalCodesLibraryPage = lazy(() => import('../pages/LegalCodesLibraryPage').then(m => ({ default: m.LegalCodesLibraryPage })));
+const HistoricalAnalysisPage = lazy(() => import('../pages/HistoricalAnalysisPage').then(m => ({ default: m.HistoricalAnalysisPage })));
 
 // -- Attorney/Consultations --
 const AttorneySearchPage = lazy(() => import('../pages/AttorneySearchPage').then(m => ({ default: m.AttorneySearchPage })));
