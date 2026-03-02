@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { X, Menu, PanelRightOpen } from 'lucide-react';
-import { Sidebar } from '../components/Sidebar';
+import { Sidebar } from '../components/sidebar';
 import { RightPanel } from '../components/RightPanel';
 import { TimeTrackerWidget } from '../components/time/TimeTrackerWidget';
 import { PendingInvitationsModal } from '../components/attorney/PendingInvitationsModal';
@@ -50,6 +50,7 @@ const PAGE_TITLES: Record<string, string> = {
   [ROUTES.ADMIN_CONFIG]: 'Конфігурація системи',
   [ROUTES.ADMIN_TERMINAL]: 'Admin Terminal',
   [ROUTES.ADMIN_BULK_SCRAPE]: 'Пайплайн збору даних',
+  [ROUTES.ADMIN_OPEN_DATA_CATALOG]: 'Каталог OpenData',
   [ROUTES.ATTORNEY_CLIENTS]: 'Мої клієнти',
 };
 
