@@ -309,7 +309,7 @@ export class ProceduralTools extends BaseToolHandler {
     const query = typeof args.query === 'string' ? args.query.trim() : '';
     const limit = Math.min(50, Math.max(1, Number(args.limit || 10)));
     const sectionFocus = Array.isArray(args.section_focus) ? args.section_focus : undefined;
-    const courtLevel = String(args.court_level || 'SC');
+    const courtLevel = args.court_level ? String(args.court_level) : undefined;
 
     if (!query) throw new Error('query parameter is required');
 
@@ -317,7 +317,7 @@ export class ProceduralTools extends BaseToolHandler {
 
     // Build where-filters for SC instance and justice_kind (procedure type)
     const whereFilters: any[] = [
-      ...buildSupremeCourtWhereFilter(courtLevel),
+      ...(courtLevel ? buildSupremeCourtWhereFilter(courtLevel) : []),
     ];
     if (procedureCode) {
       const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
@@ -371,7 +371,7 @@ export class ProceduralTools extends BaseToolHandler {
       query,
       time_range: args.time_range,
       applied_filters: {
-        court_level: courtLevel,
+        court_level: courtLevel || 'all',
         ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
         ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
       },
