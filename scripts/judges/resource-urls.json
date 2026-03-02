@@ -1,0 +1,422 @@
+[
+  {
+    "name": "Список суддів станом на 01.06.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/d90fe23d-a1b0-4f2a-8c13-13a3f8673065/download/spisok-suddiv-na-01-06-2021.xlsx",
+    "date": "2021-06-02T14:34:08.090992"
+  },
+  {
+    "name": "Список суддів станом на 14.06.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/abf2405e-37ff-46ca-ba77-074abf71d23f/download/spisok-suddiv-na-14-06-2021.xlsx",
+    "date": "2021-06-16T07:29:10.193568"
+  },
+  {
+    "name": "Список суддів станом на 22.06.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/92dde6c2-f252-467b-97f1-c95b7c81e463/download/spisok-suddiv-na-22-06-2021.xlsx",
+    "date": "2021-06-23T12:50:17.457815"
+  },
+  {
+    "name": "Cписок суддів станом на 05.07.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/dd6a47aa-6249-4b34-b4de-8dddd0c77b93/download/spisok-suddiv-na-05-07-2021.xlsx",
+    "date": "2021-07-06T13:58:30.991662"
+  },
+  {
+    "name": "Cписок суддів станом на 12.07.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/fd45fb38-976c-4f77-9f0d-f9f2bdfc6c61/download/spisok-suddiv-na-12-07-2021.xlsx",
+    "date": "2021-07-13T11:19:13.715218"
+  },
+  {
+    "name": "Cписок суддів станом на 19.07.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/d7e01384-5dc2-4cb2-8a77-ddc416a1af72/download/spisok-suddiv-na-19-07-2021.xlsx",
+    "date": "2021-07-20T14:01:26.365871"
+  },
+  {
+    "name": "Список суддів станом на 19.07.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/daedf9a1-cef4-43be-a200-37f0581e117b/download/spisok-suddiv-na-26-07-2021.xlsx",
+    "date": "2021-07-27T13:45:09.853083"
+  },
+  {
+    "name": "Список суддів станом на 02.08.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/bb75a78f-32eb-4bfd-aff2-0ea574d82719/download/spisok-suddiv-na-02-08-21.xlsx",
+    "date": "2021-08-04T12:18:53.949910"
+  },
+  {
+    "name": "Список суддів станом на 09.08.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/82be3e3d-8761-4c78-a813-ce4ede6f27eb/download/spisok-suddiv-na-09-08-2021.xlsx",
+    "date": "2021-08-11T07:31:19.553690"
+  },
+  {
+    "name": "Список суддів станом на 16.08.2021.xlsx",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/41764582-5e8e-466f-8263-8ea7f26ee31a/download/spisok-suddiv-na-16-08-2021.xlsx",
+    "date": "2021-08-19T05:38:05.247823"
+  },
+  {
+    "name": "Список суддів станом на 25.08.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/187db939-9bb9-4d6c-81f1-9c4927ae0a19/download/spisok-suddiv-na-25-08-2021.xlsx",
+    "date": "2021-08-27T12:37:51.959041"
+  },
+  {
+    "name": "Список суддів станом на 01.09.2021.xlsx",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/f6fb06a2-3661-4854-a58a-50bb9ed8ded5/download/spisok-suddiv-na-01-09-2021.xlsx",
+    "date": "2021-09-02T10:58:19.172852"
+  },
+  {
+    "name": "Список суддів станом на 06.09.2021.xlsx",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/6849214f-ab26-49ae-b2d2-d3a4759504a8/download/spisok-suddiv-na-06-09-2021.xlsx",
+    "date": "2021-09-07T14:16:18.831052"
+  },
+  {
+    "name": "Список суддів станом на 13.09.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/3e6e90fa-743a-4aff-b668-be43a72d8061/download/spisok-suddiv-stanom-na-13-09-2021.xlsx",
+    "date": "2021-09-16T04:27:58.026733"
+  },
+  {
+    "name": "Список суддів станом на 20.09.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/b8a14ec5-bf7c-4c19-a32d-010e02ab87b8/download/spisok-suddiv-stanom-na-20-09-2021.xlsx",
+    "date": "2021-09-21T12:50:16.926189"
+  },
+  {
+    "name": "Список суддів станом на 01.10.2021",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/fc72ff92-a4bd-40ca-8bc3-14b980347f72/download/spisok-suddiv-na-01-10-2021.xlsx",
+    "date": "2021-10-01T12:03:34.576653"
+  },
+  {
+    "name": "Список суддів",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/2049f091-1940-4867-a213-4aa286bb4178/download/spisok-suddiv-21-02-2022.xlsx",
+    "date": "2022-02-23T10:02:24.036971"
+  },
+  {
+    "name": "Список суддів на 01.05.2023.xlsx",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/58330c2e-f4cf-4324-85f1-06ebbac2709b/download/spisok-suddiv-na-01-05-2023.xlsx",
+    "date": "2023-05-03T11:54:09.885134"
+  },
+  {
+    "name": "Список суддів на 08.05.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/958121db-45d0-466e-aa67-7435e4e44e3a/download/spisok-suddiv-na-08-05-2023.xlsx",
+    "date": "2023-05-10T13:29:24.023928"
+  },
+  {
+    "name": "Список суддів на 15.05.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/784eb0ab-1787-4961-893d-b3013ffaad1c/download/spisok-suddiv-na-15-05-2023.xlsx",
+    "date": "2023-05-17T14:03:14.584187"
+  },
+  {
+    "name": "Список суддів на 22.05.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/0516876b-2e44-419a-b693-af19daba1d6c/download/spisok-suddiv-na-22-05-2023.xlsx",
+    "date": "2023-05-24T06:43:18.688880"
+  },
+  {
+    "name": "Список суддів на 01.06.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/34af7aeb-c512-4556-8318-e4d8f88beb3a/download/spisok-suddiv-na-01-06-2023.xlsx",
+    "date": "2023-06-05T08:04:27.928093"
+  },
+  {
+    "name": "Список суддів на 05.06.2023.",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/ae0cda86-4dd5-4023-90f0-eaf4d4e1803b/download/spisok-suddiv-na-05-06-2023.xlsx",
+    "date": "2023-06-07T10:22:13.087083"
+  },
+  {
+    "name": "Список суддів на 12.06.2023.xlsx",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/5e19ea74-7137-401f-9b28-cadfe8103aa0/download/spisok-suddiv-na-12-06-2023.xlsx",
+    "date": "2023-06-15T05:33:39.422528"
+  },
+  {
+    "name": "Список суддів на 19.06.2023.",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/51a78772-ca97-48e5-b21d-d0ed9e59c380/download/spisok-suddiv-na-19-06-2023.xlsx",
+    "date": "2023-06-22T16:55:30.953713"
+  },
+  {
+    "name": "Список суддів на 26.06.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/56e80d63-43b8-4bf5-b94d-810379952655/download/spisok-suddiv-na-26-06-2023.xlsx",
+    "date": "2023-06-29T13:43:17.073620"
+  },
+  {
+    "name": "Список суддів на 03.07.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/e9d45931-e93a-4b75-8c48-49c0849045e9/download/spisok-suddiv-na-03-07-2023.xlsx",
+    "date": "2023-07-05T12:46:49.070698"
+  },
+  {
+    "name": "Список суддів на 10.07.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/3711c400-fc63-4e16-b922-aa2c6460eb62/download/spisok-suddiv-na-10-07-2023.xlsx",
+    "date": "2023-07-13T09:56:40.378136"
+  },
+  {
+    "name": "Список суддів на 17.07.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/9140f08d-1842-417a-bfc1-b1507eda3eab/download/spisok-suddiv-na-17-07-2023.xlsx",
+    "date": "2023-07-21T08:17:04.920858"
+  },
+  {
+    "name": "Список суддів на 24.07.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/4fb8ec6a-5895-4088-be9a-20bbcf0f9838/download/spisok-suddiv-na-24-07-2023.xlsx",
+    "date": "2023-07-27T06:17:04.196280"
+  },
+  {
+    "name": "Список суддів станом на 01.08.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/2f983bbd-71ab-4273-8612-01826cd27c89/download/spisok-suddiv-stanom-na-01-08-2023.xlsx",
+    "date": "2023-08-03T11:59:48.186947"
+  },
+  {
+    "name": "Список суддів на  07.08.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/c6c8528f-a4ea-4cbe-bcca-c7c14ff4f9ab/download/spisok-suddiv-na-07-08-2023.xlsx",
+    "date": "2023-08-09T06:18:28.937103"
+  },
+  {
+    "name": "Список суддів на 14.08.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/55f6c93c-a5d5-4512-854a-ddb647b4f52c/download/spisok-suddiv-na-14-08-2023.xlsx",
+    "date": "2023-08-15T10:57:39.025910"
+  },
+  {
+    "name": "Список суддів станом на 21.08.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/a6f8c639-791c-4e06-bd8c-e3f67d2f2283/download/spisok-suddiv-stanom-na-21-08-2023.xlsx",
+    "date": "2023-08-23T06:30:24.634841"
+  },
+  {
+    "name": "Список суддів на 01.09.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/0998c78f-2255-4b69-a569-e99d64807e9f/download/spisok-suddiv-na-01-09-2023.xlsx",
+    "date": "2023-09-01T12:19:49.683637"
+  },
+  {
+    "name": "Список суддів станом на  04.09.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/12396c6a-3edc-4acf-a38b-146e566d87a4/download/spisok-suddiv-stanom-na-04-09-2023.xlsx",
+    "date": "2023-09-06T05:28:00.791427"
+  },
+  {
+    "name": "Список суддів станом на  11.09.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/bf202df6-e384-4c21-8727-bcfadd686b2f/download/spisok-suddiv-stanom-na-11-09-2023.xlsx",
+    "date": "2023-09-14T07:15:05.052976"
+  },
+  {
+    "name": "Список суддів станом на  18.09.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/0289e6a8-5d46-4b07-bc8d-e1858d92e307/download/spisok-suddiv-stanom-na-18-09-2023.xlsx",
+    "date": "2023-09-20T12:16:41.152252"
+  },
+  {
+    "name": "Список суддів станом на 25.09.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/646d66d1-4e73-4e35-a676-8a080feb4866/download/resurs-mistit-spisok-suddiv-stanom-na-25-09-2023.xlsx",
+    "date": "2023-09-27T13:01:23.642234"
+  },
+  {
+    "name": "Список суддів станом на 02.10.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/2d0916e1-f42d-4216-8a43-56edef98ff7f/download/spisok-suddiv-stanom-na-02-10-2023.xlsx",
+    "date": "2023-10-04T13:30:47.452677"
+  },
+  {
+    "name": "Список суддів станом на 09.10.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/3a53f3e9-1341-41f1-9458-4c2477213194/download/spisok-suddiv-stanom-na-09-10-2023.xlsx",
+    "date": "2023-10-11T10:34:26.740651"
+  },
+  {
+    "name": "Список суддів станом на 16.10.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/c832aae9-94cc-4367-9a80-a1e734031879/download/spisok-suddiv-stanom-na-16-10-2023.xlsx",
+    "date": "2023-10-18T09:46:14.054995"
+  },
+  {
+    "name": "Список суддів станом на  23.10.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/1f91ca3c-8b14-42de-9981-cac8901a0907/download/spisok-suddiv-stanom-na-23-10-2023.xlsx",
+    "date": "2023-10-25T10:26:57.763494"
+  },
+  {
+    "name": "Список суддів станом на 01.11.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/9d70ae27-5689-4595-b3ac-3ebfa0fd2051/download/spisok-suddiv-na-01-11-2023.xlsx",
+    "date": "2023-11-02T10:51:23.441805"
+  },
+  {
+    "name": "Список суддів станом на 06.11.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/3ace33d3-d84e-4b27-9e55-14da404d887c/download/spisok-suddiv-stanom-na-06-11-2023.xlsx",
+    "date": "2023-11-08T11:08:25.130980"
+  },
+  {
+    "name": "Список суддів станом на  13.11.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/0d613ada-5249-4fe7-b383-3a1f74aaa397/download/spisok-suddiv-stanom-na-13-11-2023.xlsx",
+    "date": "2023-11-14T14:37:09.250303"
+  },
+  {
+    "name": "Список суддів на 20.11.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/c49dd28f-5d08-46aa-880d-295bb96866b5/download/spisok-suddiv-na-20-11-2023.xlsx",
+    "date": "2023-11-21T15:21:52.903485"
+  },
+  {
+    "name": "Список суддів станом на  27.11.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/5d640bef-85b2-43e7-8c2d-b73711232cf7/download/spisok-suddiv-stanom-na-27-11-2023.xlsx",
+    "date": "2023-12-01T08:52:36.817026"
+  },
+  {
+    "name": "Список суддів станом на  04.12.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/7b57b389-3b14-4fd2-bcea-b3080fe6fb05/download/spisok-suddiv-stanom-na-04-12-2023.xlsx",
+    "date": "2023-12-05T12:57:54.724919"
+  },
+  {
+    "name": "Список суддів станом на  11.12.2023",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/205dfa95-3c01-4fbd-a357-c98fb5a8234e/download/spisok-suddiv-stanom-na-11-12-2023.xlsx",
+    "date": "2023-12-13T13:31:56.309300"
+  },
+  {
+    "name": "Список суддів на 18.12.2023.xlsx",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/d1a574c8-872d-4f2f-b8c1-adb228fae630/download/spisok-suddiv-na-18-12-2023.xlsx",
+    "date": "2023-12-19T14:48:14.198757"
+  },
+  {
+    "name": "Список суддів станом на 25.12.2023.xlsx",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/f007e38f-d0db-47b7-842c-f601c159d23a/download/spisok-suddiv-na-25-12-2023.xlsx",
+    "date": "2023-12-28T13:10:35.990064"
+  },
+  {
+    "name": "Список суддів станом на 01.01.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/bd230e82-60fd-4621-8c7b-5bcb75997214/download/spisok-suddiv-na-01-01-2024.xlsx",
+    "date": "2024-01-03T16:20:53.479361"
+  },
+  {
+    "name": "Список суддів станом на  08.01.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/bcc816b6-bc44-46f7-8757-9b5311d04b88/download/spisok-suddiv-stanom-na-08-01-2024.xlsx",
+    "date": "2024-01-10T09:26:48.070110"
+  },
+  {
+    "name": "Список суддів станом на  15.01.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/bd1d0baf-5bfa-4269-a67c-cd42c018cb69/download/spisok-suddiv-stanom-na-15-01-2024.xlsx",
+    "date": "2024-01-18T11:28:58.127054"
+  },
+  {
+    "name": "Список суддів станом на  22.01.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/2322b98e-59ea-4ab7-9d2b-132fe47034c3/download/spisok-suddiv-stanom-na-22-01-2024.xlsx",
+    "date": "2024-01-24T08:02:24.769667"
+  },
+  {
+    "name": "Список суддів станом на  01.02.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/8016cad3-8616-4918-bb37-ceffbd485fe4/download/spisok-suddiv-stanom-na-01-02-2024.xlsx",
+    "date": "2024-02-02T11:25:53.451462"
+  },
+  {
+    "name": "Список суддів станом на 05.02.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/4dd49d05-0878-4916-9c26-3a1cd7470247/download/spisok-suddiv-na-05-02-2024.xlsx",
+    "date": "2024-02-08T09:50:19.404948"
+  },
+  {
+    "name": "Список суддів станом на  12.02.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/43deea9e-e23d-4906-8f00-d8b2c9df2a7e/download/spisok-suddiv-stanom-na-12-02-2024.xlsx",
+    "date": "2024-02-15T07:49:06.516549"
+  },
+  {
+    "name": "Список суддів станом на  19.02.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/91b2f1a6-958b-4983-b0f3-40c936d13c82/download/spisok-suddiv-stanom-na-19-02-2024.xlsx",
+    "date": "2024-02-22T12:17:33.210055"
+  },
+  {
+    "name": "Список суддів станом на 26.02.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/95c3998d-3a29-4075-9c2c-ff62b27308d8/download/spisok-suddiv-na-26-02-2024.xlsx",
+    "date": "2024-02-29T05:42:07.384585"
+  },
+  {
+    "name": "Список суддів на 04.03.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/3a3b9757-4054-4e53-bb0c-57a39ad8cc7c/download/spisok-suddiv-na-04-03-2024.xlsx",
+    "date": "2024-03-07T07:29:57.357833"
+  },
+  {
+    "name": "Список суддів станом на  11.03.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/1632637f-718a-4b94-9bf0-a91d14a845b6/download/spisok-suddiv-stanom-na-11-03-2024.xlsx",
+    "date": "2024-03-14T12:37:24.216499"
+  },
+  {
+    "name": "Список суддів станом на 18.03.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/fab02739-23b4-4ddf-986c-915ce2856342/download/spisok-suddiv-na-18-03-2024.xlsx",
+    "date": "2024-03-22T07:42:59.519912"
+  },
+  {
+    "name": "Список суддів станом на  25.03.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/930eeb6a-91b6-40cd-b911-8f365ba68ad3/download/spisok-suddiv-stanom-na-25-03-2024.xlsx",
+    "date": "2024-03-28T12:32:21.768568"
+  },
+  {
+    "name": "Список суддів станом на  01.04.2024.",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/e07d65fc-9b35-438a-bad3-0b521e6997c2/download/spisok-suddiv-stanom-na-01-04-2024.xlsx",
+    "date": "2024-04-04T05:36:52.412632"
+  },
+  {
+    "name": "Список суддів станом на  08.04.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/5dba293c-9b64-4e38-b5ca-ed3a84c03524/download/spisok-suddiv-stanom-na-08-04-2024.xlsx",
+    "date": "2024-04-12T07:21:16.757967"
+  },
+  {
+    "name": "Список суддів станом на  15.04.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/0c7faf7f-a0c0-405a-84ac-1f3878df38ba/download/spisok-suddiv-stanom-na-15-04-2024.xlsx",
+    "date": "2024-04-18T10:04:51.777123"
+  },
+  {
+    "name": "Список суддів станом на  22.04.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/d8a44f0b-50e7-4757-93d5-3561e3c77e99/download/spisok-suddiv-stanom-na-22-04-2024.xlsx",
+    "date": "2024-04-24T10:42:39.645063"
+  },
+  {
+    "name": "Список суддів станом на 01.05.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/995fc972-3b6d-4718-a863-8e3f06cd79ba/download/spisok-suddiv-na-01-05-2024.xlsx",
+    "date": "2024-05-02T13:42:04.019005"
+  },
+  {
+    "name": "Список суддів станом на  06.05.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/a3863b9e-a002-418b-9b6b-1e358121940a/download/spisok-suddiv-stanom-na-06-05-2024.xlsx",
+    "date": "2024-05-09T11:02:01.719380"
+  },
+  {
+    "name": "Список суддів станом на  13.05.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/1011dd1b-c4c1-4bd2-a052-3f8c0135afcb/download/spisok-suddiv-stanom-na-13-05-2024.xlsx",
+    "date": "2024-05-16T11:25:27.129436"
+  },
+  {
+    "name": "Список суддів станом на  20.05.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/7310e8e6-08af-4318-a852-c6414cd6b2ec/download/spisok-suddiv-stanom-na-20-05-2024.xlsx",
+    "date": "2024-05-23T05:06:56.061296"
+  },
+  {
+    "name": "Список суддів станом на  27.05.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/5e7ff09a-b0ce-4e06-a5a0-bb246e27165c/download/spisok-suddiv-stanom-na-27-05-2024.xlsx",
+    "date": "2024-05-30T07:18:03.940145"
+  },
+  {
+    "name": "Список суддів станом на  03.06.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/3d1947ea-da35-4e1b-b4d7-d48addb99ece/download/spisok-suddiv-stanom-na-03-06-2024.xlsx",
+    "date": "2024-06-05T12:08:52.151536"
+  },
+  {
+    "name": "Список суддів станом на  10.06.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/765fdb9b-6d31-47a3-a896-4297bd4251f5/download/spisok-suddiv-stanom-na-10-06-2024.xlsx",
+    "date": "2024-06-11T12:39:38.098176"
+  },
+  {
+    "name": "Список суддів станом на  17.06.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/94516bf8-bc51-4b43-b6ed-7eef5e7e423d/download/spisok-suddiv-stanom-na-17-06-2024.xlsx",
+    "date": "2024-06-20T11:07:45.845476"
+  },
+  {
+    "name": "Список суддів станом на  24.06.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/ae1d77ae-ef77-43cc-aa5a-2b4ddfe0f7c8/download/spisok-suddiv-stanom-na-24-06-2024.xlsx",
+    "date": "2024-06-27T12:29:31.194696"
+  },
+  {
+    "name": "Список суддів на 01.07.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/090f4d02-e5aa-4559-af16-4b2dcdcfb492/download/spisok-suddiv-na-01-07-2024.xlsx",
+    "date": "2024-07-03T10:46:25.991873"
+  },
+  {
+    "name": "Список суддів станом на 08.07.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/e871e900-b605-4d80-88dc-55149b296115/download/spisok-suddiv-na-08-07-2024.xlsx",
+    "date": "2024-07-12T08:48:05.600184"
+  },
+  {
+    "name": "Список суддів станом на  15.07.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/7b3b8f03-7386-406c-83f3-0571679c408d/download/spisok-suddiv-stanom-na-15-07-2024.xlsx",
+    "date": "2024-07-19T10:48:28.441854"
+  },
+  {
+    "name": "Список суддів станом на 23.12.2024",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/4a1f1782-28a5-4604-84c0-8f110ebc4ad1/download/spisok-suddiv-stanom-na-23-12-2024.xlsx",
+    "date": "2024-12-25T12:51:17.153516"
+  },
+  {
+    "name": "Список суддів станом на 22.12.2025",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/32f641e7-4bb5-4f10-969f-cf72a0f4ce6b/download/spisok-suddiv-stanom-na-22-12-2025.xlsx",
+    "date": "2025-12-25T08:02:18.079297"
+  },
+  {
+    "name": "Список суддів станом на 23.02.2026",
+    "url": "https://data.gov.ua/dataset/9338e3fb-41a1-486d-a9b1-c49a0a4f7e4a/resource/11098a60-e3c0-424c-9205-2666c3ca85fe/download/spisok-suddiv-na-23-02-2026.xlsx",
+    "date": "2026-02-25T13:23:08.622883"
+  }
+]
