@@ -7,8 +7,8 @@ import path from 'path'
 export default defineConfig(({ mode }) => {
   const isDocker = !!process.env.DOCKER_ENV
   const certsDir = path.resolve(__dirname, 'certs')
-  const certFile = path.join(certsDir, 'localdev.legal.org.ua+2.pem')
-  const keyFile = path.join(certsDir, 'localdev.legal.org.ua+2-key.pem')
+  const certFile = path.join(certsDir, 'local.legal.org.ua+2.pem')
+  const keyFile = path.join(certsDir, 'local.legal.org.ua+2-key.pem')
   const hasLocalCerts = !isDocker && fs.existsSync(certFile) && fs.existsSync(keyFile)
 
   return {
@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: true,
-      allowedHosts: ['localdev.legal.org.ua', 'usa.legal.org.ua', 'uk.legal.org.ua', 'de.legal.org.ua', 'fr.legal.org.ua', 'nl.legal.org.ua', 'ee.legal.org.ua', 'eu.legal.org.ua', 'ua.legal.org.ua'],
+      allowedHosts: ['local.legal.org.ua', 'usa.legal.org.ua', 'uk.legal.org.ua', 'de.legal.org.ua', 'fr.legal.org.ua', 'nl.legal.org.ua', 'ee.legal.org.ua', 'eu.legal.org.ua', 'ua.legal.org.ua'],
       ...(hasLocalCerts && {
         https: {
           cert: fs.readFileSync(certFile),
@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => {
         },
       }),
       hmr: {
-        host: 'localdev.legal.org.ua',
+        host: 'local.legal.org.ua',
         ...(isDocker ? { clientPort: 443, protocol: 'wss' } : { port: 5173, protocol: 'wss' }),
       },
       watch: isDocker ? {

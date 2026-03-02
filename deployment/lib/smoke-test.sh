@@ -116,7 +116,7 @@ check_http_health() {
 
     case $env in
         local)
-            local urls=("https://localdev.legal.org.ua/health")
+            local urls=("https://local.legal.org.ua/health")
             for url in "${urls[@]}"; do
                 local attempt=1
                 local passed=false
@@ -220,7 +220,7 @@ check_frontend_health() {
     local urls=()
     case $env in
         local)
-            urls=("https://localdev.legal.org.ua")
+            urls=("https://local.legal.org.ua")
             ;;
         prod|production)
             urls=("https://legal.org.ua" "https://mcp.legal.org.ua")
