@@ -6,8 +6,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Zap, BarChart3, CreditCard, Shield } from 'lucide-react';
-import { OverviewTab } from './OverviewTab';
-import { UnderConstructionTab } from './UnderConstructionTab';
+import { OverviewTab } from '../components/team/OverviewTab';
+import { UnderConstructionTab } from '../components/team/UnderConstructionTab';
 
 type TeamTab = 'overview' | 'tariffs' | 'statistics' | 'payments' | 'limits';
 
