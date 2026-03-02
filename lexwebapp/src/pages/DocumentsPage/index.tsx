@@ -31,11 +31,13 @@ import { DocumentGrid } from './DocumentGrid';
 import { DocumentViewerModal } from '../../components/DocumentViewerModal';
 import { ClassificationPanel } from './ClassificationPanel';
 import { DocumentStatsPanel } from './DocumentStatsPanel';
-import type { VaultDocument, DocType, ViewMode, SortField, SortOrder, DocumentStats } from './types';
+import type { VaultDocument, DocType, ViewMode, SortField, SortOrder } from './types';
 import { isPreviewableBinary } from './types';
 import { processEmlContent } from '../../utils/eml-parser';
 import { useUndoStore } from '../../stores/undoStore';
 import { useUndoKeyboard } from '../../hooks/useUndoKeyboard';
+import { useDocumentData } from './useDocumentData';
+import { useDocumentActions } from './useDocumentActions';
 
 const DOC_TYPE_LABELS: Record<DocType, string> = {
   contract: 'Договір',
@@ -46,9 +48,7 @@ const DOC_TYPE_LABELS: Record<DocType, string> = {
 };
 
 const ACCEPTED_TYPES =
-  '.pdf,.docx,.doc,.html,.htm,.txt,.rtf,.eml,.jpg,.jpeg,.png,.bmp,.gif,.xlsx,.xls,.csv,.mp4,.mov,.avi,.mkv,.webm,.zip,.tar,.tar.gz,.tgz';
-
-const PAGE_SIZE = 50;
+  '.pdf,.docx,.doc,.html,.htm,.txt,.rtf,.jpg,.jpeg,.png,.bmp,.gif,.xlsx,.xls,.csv,.mp4,.mov,.avi,.mkv,.webm,.eml,.zip,.gz,.tgz,.tar';
 
 function guessMimeType(file: File): string {
   if (file.type) return file.type;
@@ -110,14 +110,10 @@ export function DocumentsPage() {
   const currentFolderPath = useMemo(() => {
     const wildcard = params['*'] || '';
     if (!wildcard) return '';
-    // Ensure trailing slash for consistency
     return wildcard.endsWith('/') ? wildcard : wildcard + '/';
   }, [params]);
 
-  // Document list state
-  const [documents, setDocuments] = useState<VaultDocument[]>([]);
-  const [totalDocs, setTotalDocs] = useState(0);
-  const [loading, setLoading] = useState(false);
+  // UI state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<DocType | ''>('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -125,7 +121,7 @@ export function DocumentsPage() {
   const [sortBy, setSortBy] = useState<SortField>('uploadedAt');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  // Document preview state
+  // Preview state
   const [previewDoc, setPreviewDoc] = useState<{
     type: 'document';
     title: string;
@@ -141,42 +137,51 @@ export function DocumentsPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewIndex, setPreviewIndex] = useState<number>(-1);
 
-  // Delete confirmation state
-  const [deleteTarget, setDeleteTarget] = useState<VaultDocument | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  // Reset offset when filters change
+  useEffect(() => {
+    setOffset(0);
+  }, [filterType, currentFolderPath, searchQuery]);
 
-  // Edit modal state
-  const [editTarget, setEditTarget] = useState<VaultDocument | null>(null);
-  const [editText, setEditText] = useState('');
-  const [editLoading, setEditLoading] = useState(false);
-  const [editSaving, setEditSaving] = useState(false);
+  // Data fetching hook
+  const {
+    documents,
+    setDocuments,
+    totalDocs,
+    setTotalDocs,
+    loading,
+    folders,
+    foldersLoading,
+    docStats,
+    statsLoading,
+    loadDocuments,
+    loadFolders,
+    loadStats,
+    PAGE_SIZE,
+  } = useDocumentData({
+    currentFolderPath,
+    filterType,
+    searchQuery,
+    sortBy,
+    sortOrder,
+    offset,
+  });
 
-  // Move modal state
-  const [moveTarget, setMoveTarget] = useState<VaultDocument | null>(null);
-  const [moveFolder, setMoveFolder] = useState('');
-  const [moveFolders, setMoveFolders] = useState<string[]>([]);
-  const [moveFoldersLoading, setMoveFoldersLoading] = useState(false);
-  const [moveLoading, setMoveLoading] = useState(false);
-  const [moveBrowsePath, setMoveBrowsePath] = useState('');
+  // CRUD actions hook
+  const actions = useDocumentActions({
+    loadDocuments,
+    loadFolders,
+    currentFolderPath,
+  });
 
-  // Document statistics state
-  const [docStats, setDocStats] = useState<DocumentStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(false);
-
-  // Folder navigation state
-  const [folders, setFolders] = useState<string[]>([]);
-  const [foldersLoading, setFoldersLoading] = useState(false);
-
-  // Navigation helpers
-  const navigateToFolder = useCallback((folderPath: string) => {
-    if (!folderPath) {
-      navigate('/documents');
-    } else {
-      // Strip trailing slash for clean URLs
-      const cleanPath = folderPath.replace(/\/+$/, '');
-      navigate(`/documents/folders/${cleanPath}`);
-    }
-  }, [navigate]);
+  const {
+    deleteTarget, setDeleteTarget, deleting, handleDeleteConfirm,
+    editTarget, setEditTarget, editText, setEditText, editLoading, editSaving,
+    handleEditOpen, handleEditSave,
+    moveTarget, setMoveTarget, moveFolder, setMoveFolder,
+    moveFolders, moveFoldersLoading, moveLoading, moveBrowsePath,
+    handleMoveOpen, handleMoveBrowse, handleMoveConfirm,
+    handleSaveOcrText, pushAction, undoAction,
+  } = actions;
 
   // Upload state from Zustand store
   const {
@@ -192,11 +197,7 @@ export function DocumentsPage() {
   } = useUploadStore();
 
   // Undo/redo
-  const pushAction = useUndoStore((s) => s.pushAction);
-  const undoAction = useUndoStore((s) => s.undo);
   const setOnActionExecuted = useUndoStore((s) => s.setOnActionExecuted);
-  const editOriginalTextRef = useRef<string>('');
-
   useUndoKeyboard();
 
   // Register reload callback for undo/redo
@@ -216,29 +217,6 @@ export function DocumentsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
-
-  // Reset offset when filters change
-  useEffect(() => {
-    setOffset(0);
-  }, [filterType, currentFolderPath, searchQuery]);
-
-  // Load documents on mount and when filters/sort/offset/search change
-  useEffect(() => {
-    loadDocuments();
-    loadFolders(currentFolderPath);
-  }, [filterType, currentFolderPath, offset, sortBy, sortOrder]);
-
-  // Debounced text search — triggers list_documents with query param
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      loadDocuments();
-      return;
-    }
-    const timer = setTimeout(() => {
-      loadDocuments();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   // Check for stuck upload sessions on mount
   useEffect(() => {
@@ -265,71 +243,19 @@ export function DocumentsPage() {
     if (completedFiles > 0 && !isUploading) {
       loadDocuments();
       loadFolders(currentFolderPath);
-    }
-  }, [completedFiles, isUploading]);
-
-  const loadDocuments = async () => {
-    setLoading(true);
-    try {
-      const params: Record<string, any> = {
-        limit: PAGE_SIZE,
-        offset,
-        sortBy,
-        sortOrder,
-      };
-      if (filterType) params.type = filterType;
-      if (currentFolderPath) params.folderPath = currentFolderPath;
-      if (searchQuery.trim()) params.query = searchQuery.trim();
-
-      const result = await mcpService.callTool('list_documents', params);
-      const parsed = result?.result?.content?.[0]?.text
-        ? JSON.parse(result.result.content[0].text)
-        : result?.result || result;
-
-      setDocuments(parsed.documents || []);
-      setTotalDocs(parsed.total || 0);
-    } catch (err: any) {
-      console.error('Failed to load documents:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadFolders = async (prefix: string) => {
-    setFoldersLoading(true);
-    try {
-      const resp = await api.documents.getFolders(prefix || undefined);
-      setFolders(resp.data.folders || []);
-    } catch (err: any) {
-      console.error('Failed to load folders:', err);
-      setFolders([]);
-    } finally {
-      setFoldersLoading(false);
-    }
-  };
-
-  const loadStats = async () => {
-    setStatsLoading(true);
-    try {
-      const resp = await api.documents.getStats();
-      setDocStats(resp.data);
-    } catch (err: any) {
-      console.error('Failed to load document stats:', err);
-    } finally {
-      setStatsLoading(false);
-    }
-  };
-
-  // Load stats on mount and when docs change
-  useEffect(() => {
-    loadStats();
-  }, []);
-
-  useEffect(() => {
-    if (completedFiles > 0 && !isUploading) {
       loadStats();
     }
   }, [completedFiles, isUploading]);
+
+  // Navigation helpers
+  const navigateToFolder = useCallback((folderPath: string) => {
+    if (!folderPath) {
+      navigate('/documents');
+    } else {
+      const cleanPath = folderPath.replace(/\/+$/, '');
+      navigate(`/documents/folders/${cleanPath}`);
+    }
+  }, [navigate]);
 
   // File selection handlers
   const handleFilesSelected = useCallback(
@@ -410,8 +336,6 @@ export function DocumentsPage() {
     showToast.success(`Завантаження ${uploadItems.filter((i) => i.status === 'queued').length} файлів розпочато`);
   };
 
-  // Search — now uses list_documents with query param (debounced above)
-  // Enter key triggers immediate search
   const handleSearch = async () => {
     loadDocuments();
   };
@@ -432,12 +356,6 @@ export function DocumentsPage() {
     }
   };
 
-  // Save OCR text handler for DocumentViewerModal
-  const handleSaveOcrText = async (documentId: string, text: string) => {
-    await api.documents.update(documentId, { full_text: text });
-    showToast.success('Текст збережено');
-  };
-
   // Document preview
   const handleDocumentClick = async (doc: VaultDocument, index?: number) => {
     if (index != null) setPreviewIndex(index);
@@ -449,7 +367,6 @@ export function DocumentsPage() {
       setPreviewLoading(true);
       setPreviewOpen(true);
       try {
-        // Fetch preview URL and full_text (OCR/parsed text) in parallel
         const [previewResp, docResp] = await Promise.all([
           api.documents.getPreviewUrl(doc.id),
           api.documents.getById(doc.id).catch(() => null),
@@ -473,7 +390,6 @@ export function DocumentsPage() {
             ...(isImagePreview ? { ocrText: ocrText || '', documentId: doc.id } : {}),
           });
         } else {
-          // No binary preview (vault-stored PDF/image) — load extracted text
           try {
             const result = await mcpService.callTool('get_document', { documentId: doc.id });
             const parsed = result?.result?.content?.[0]?.text
@@ -498,7 +414,7 @@ export function DocumentsPage() {
             });
           }
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error('Failed to fetch preview URL:', err);
         showToast.error('Не вдалося завантажити попередній перегляд');
         setPreviewOpen(false);
@@ -528,136 +444,12 @@ export function DocumentsPage() {
         badge,
         content,
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to fetch document:', err);
       showToast.error('Не вдалося завантажити документ');
       setPreviewOpen(false);
     } finally {
       setPreviewLoading(false);
-    }
-  };
-
-  // Delete handler
-  const handleDeleteConfirm = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      const docId = deleteTarget.id;
-      const docTitle = deleteTarget.title;
-      await api.documents.delete(docId);
-      pushAction({ type: 'delete', documentId: docId, documentTitle: docTitle });
-      showToast.undoable(`«${docTitle}» видалено`, () => {
-        undoAction().then(() => { loadDocuments(); loadFolders(currentFolderPath); });
-      });
-      setDeleteTarget(null);
-      loadDocuments();
-      loadFolders(currentFolderPath);
-    } catch (err: any) {
-      console.error('Failed to delete document:', err);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  // Edit handler — open modal and fetch full text
-  const handleEditOpen = async (doc: VaultDocument) => {
-    setEditTarget(doc);
-    setEditLoading(true);
-    setEditText('');
-    try {
-      const resp = await api.documents.getById(doc.id);
-      const data = resp.data;
-      const text = data.full_text || data.content || '';
-      editOriginalTextRef.current = text;
-      setEditText(text);
-    } catch (err: any) {
-      console.error('Failed to fetch document for editing:', err);
-      showToast.error('Не вдалося завантажити документ');
-      setEditTarget(null);
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  // Save edited text
-  const handleEditSave = async () => {
-    if (!editTarget) return;
-    setEditSaving(true);
-    try {
-      await api.documents.update(editTarget.id, { full_text: editText });
-      if (editText !== editOriginalTextRef.current) {
-        pushAction({
-          type: 'edit',
-          documentId: editTarget.id,
-          documentTitle: editTarget.title,
-          previousText: editOriginalTextRef.current,
-          newText: editText,
-        });
-      }
-      showToast.success('Документ збережено');
-      setEditTarget(null);
-      loadDocuments();
-    } catch (err: any) {
-      console.error('Failed to save document:', err);
-    } finally {
-      setEditSaving(false);
-    }
-  };
-
-  // Move handlers
-  const handleMoveOpen = async (doc: VaultDocument) => {
-    setMoveTarget(doc);
-    setMoveFolder(doc.metadata?.folderPath || '');
-    setMoveBrowsePath('');
-    setMoveFoldersLoading(true);
-    try {
-      const resp = await api.documents.getFolders();
-      setMoveFolders(resp.data.folders || []);
-    } catch {
-      setMoveFolders([]);
-    } finally {
-      setMoveFoldersLoading(false);
-    }
-  };
-
-  const handleMoveBrowse = async (prefix: string) => {
-    setMoveBrowsePath(prefix);
-    setMoveFoldersLoading(true);
-    try {
-      const resp = await api.documents.getFolders(prefix || undefined);
-      setMoveFolders(resp.data.folders || []);
-    } catch {
-      setMoveFolders([]);
-    } finally {
-      setMoveFoldersLoading(false);
-    }
-  };
-
-  const handleMoveConfirm = async () => {
-    if (!moveTarget) return;
-    setMoveLoading(true);
-    try {
-      const previousFolder = moveTarget.metadata?.folderPath || '';
-      await api.documents.move(moveTarget.id, moveFolder);
-      pushAction({
-        type: 'move',
-        documentId: moveTarget.id,
-        documentTitle: moveTarget.title,
-        previousFolder,
-        newFolder: moveFolder,
-      });
-      showToast.undoable(
-        `Документ переміщено${moveFolder ? ` до ${moveFolder}` : ' у корінь'}`,
-        () => { undoAction().then(() => { loadDocuments(); loadFolders(currentFolderPath); }); },
-      );
-      setMoveTarget(null);
-      loadDocuments();
-      loadFolders(currentFolderPath);
-    } catch (err: any) {
-      console.error('Failed to move document:', err);
-      showToast.error('Не вдалося перемістити документ');
-    } finally {
-      setMoveLoading(false);
     }
   };
 
@@ -667,7 +459,6 @@ export function DocumentsPage() {
       const prevDoc = documents[previewIndex - 1];
       if (prevDoc) handleDocumentClick(prevDoc, previewIndex - 1);
     } else if (offset > 0) {
-      // Load previous page and open last document
       const newOffset = Math.max(0, offset - PAGE_SIZE);
       setOffset(newOffset);
       setPreviewLoading(true);
@@ -697,7 +488,6 @@ export function DocumentsPage() {
       const nextDoc = documents[previewIndex + 1];
       if (nextDoc) handleDocumentClick(nextDoc, previewIndex + 1);
     } else if (offset + PAGE_SIZE < totalDocs) {
-      // Load next page and open first document
       const newOffset = offset + PAGE_SIZE;
       setOffset(newOffset);
       setPreviewLoading(true);
@@ -721,7 +511,7 @@ export function DocumentsPage() {
     }
   }, [previewIndex, documents, offset, totalDocs, sortBy, sortOrder, filterType, currentFolderPath, searchQuery]);
 
-  // Silent delete from preview modal — removes doc and navigates to next
+  // Silent delete from preview modal
   const handlePreviewDelete = useCallback(async () => {
     if (previewIndex < 0 || !documents[previewIndex]) return;
     const doc = documents[previewIndex];
@@ -743,7 +533,7 @@ export function DocumentsPage() {
       } else {
         handleDocumentClick(newDocs[newDocs.length - 1], newDocs.length - 1);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to delete document:', err);
       showToast.error('Не вдалося видалити документ');
     }
@@ -762,7 +552,7 @@ export function DocumentsPage() {
     if (idx < documents.length - 1) handleEditOpen(documents[idx + 1]);
   }, [editTarget, documents]);
 
-  // Silent delete from edit modal — removes doc and navigates to next
+  // Silent delete from edit modal
   const handleEditDelete = useCallback(async () => {
     if (!editTarget) return;
     const idx = documents.findIndex((d) => d.id === editTarget.id);
@@ -782,7 +572,7 @@ export function DocumentsPage() {
       } else {
         handleEditOpen(newDocs[newDocs.length - 1]);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to delete document:', err);
       showToast.error('Не вдалося видалити документ');
     }
@@ -1336,7 +1126,6 @@ export function DocumentsPage() {
 
               {/* Folder browser */}
               <div className="flex-1 overflow-y-auto border border-claude-border rounded-xl mb-4">
-                {/* Root + back navigation */}
                 <button
                   onClick={() => {
                     setMoveFolder('');

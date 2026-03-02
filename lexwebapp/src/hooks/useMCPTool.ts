@@ -11,6 +11,7 @@ import { useChatStore } from '../stores';
 import { useSettingsStore } from '../stores';
 import { mcpService } from '../services';
 import showToast from '../utils/toast';
+import { getErrorMessage } from '../utils/errors';
 import { buildContextualQuery } from './chat/chat-helpers';
 
 // Re-export useAIChat so existing imports from './useMCPTool' keep working
@@ -201,16 +202,17 @@ export function useMCPTool(
 
           onSuccess?.(result);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const msg = getErrorMessage(error);
         updateMessage(assistantMessageId, {
-          content: `Помилка: ${error.message || 'Невідома помилка'}`,
+          content: `Помилка: ${msg}`,
           isStreaming: false,
         });
         setStreaming(false);
         setCurrentTool(null);
-        showToast.error(error.message || 'Невідома помилка');
+        showToast.error(msg);
 
-        onError?.(error);
+        onError?.(error instanceof Error ? error : new Error(msg));
       }
     },
     [

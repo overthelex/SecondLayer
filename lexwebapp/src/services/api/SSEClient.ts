@@ -12,6 +12,7 @@ import {
   SSECompleteEvent,
   SSEErrorEvent,
 } from '../../types/api/sse';
+import { getErrorMessage, isAbortError } from '../../utils/errors';
 
 export class SSEClient {
   private readonly apiUrl: string;
@@ -64,13 +65,13 @@ export class SSEClient {
 
       // Process the stream
       this.processStream(response.body, handlers, controller);
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
+    } catch (error: unknown) {
+      if (isAbortError(error)) {
         console.log('Stream cancelled by user');
       } else {
         console.error('SSE stream error:', error);
         handlers.onError?.({
-          message: error.message || 'Stream connection failed',
+          message: getErrorMessage(error),
           error,
         });
       }
@@ -120,8 +121,8 @@ export class SSEClient {
           }
         }
       }
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
+    } catch (error: unknown) {
+      if (isAbortError(error)) {
         console.log('Stream reading cancelled');
       } else {
         console.error('Stream reading error:', error);
@@ -223,7 +224,7 @@ export class SSEClient {
           }
         },
       }, authToken);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (retryCount < this.maxRetries) {
         console.log(`Retrying stream (${retryCount + 1}/${this.maxRetries})...`);
         await new Promise((resolve) =>

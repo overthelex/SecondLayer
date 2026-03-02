@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { Modal } from '../ui/Modal/Modal';
 import { api } from '../../utils/api-client';
 import toast from 'react-hot-toast';
+import { getErrorMessage } from '../../utils/errors';
 
 interface OrganizationSetupModalProps {
   isOpen: boolean;
@@ -51,9 +52,8 @@ export const OrganizationSetupModal: React.FC<OrganizationSetupModalProps> = ({
 
       toast.success('Організацію створено');
       onCreated();
-    } catch (error: any) {
-      const message = error?.response?.data?.error || 'Не вдалося створити організацію';
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
