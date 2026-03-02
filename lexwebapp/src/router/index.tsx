@@ -108,6 +108,7 @@ const AdminTerminalPage = lazy(() => import('../pages/AdminTerminalPage').then(m
 const AdminZOStatsPage = lazy(() => import('../pages/AdminZOStatsPage').then(m => ({ default: m.AdminZOStatsPage })));
 const AdminUserActivityPage = lazy(() => import('../pages/AdminUserActivityPage').then(m => ({ default: m.AdminUserActivityPage })));
 const AdminBulkScrapePage = lazy(() => import('../pages/AdminBulkScrapePage').then(m => ({ default: m.AdminBulkScrapePage })));
+const AdminOpenDataCatalogPage = lazy(() => import('../pages/AdminOpenDataCatalogPage').then(m => ({ default: m.AdminOpenDataCatalogPage })));
 
 export const router = createBrowserRouter([
   {
@@ -379,6 +380,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.ADMIN_BULK_SCRAPE,
             element: S(AdminBulkScrapePage),
+          },
+          {
+            path: ROUTES.ADMIN_OPEN_DATA_CATALOG,
+            element: S(AdminOpenDataCatalogPage),
           },
         ],
       },
