@@ -145,6 +145,10 @@ export class UploadService {
       throw new Error(`Invalid chunk index ${chunkIndex}, expected 0-${session.totalChunks - 1}`);
     }
 
+    // Validate sessionId to prevent path traversal
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
+      throw new Error('Invalid session ID format');
+    }
     // Save chunk to disk
     const chunkPath = path.join(this.tempDir, sessionId, `chunk_${chunkIndex}`);
     await fs.writeFile(chunkPath, buffer);
@@ -339,9 +343,11 @@ export class UploadService {
       [sessionId]
     );
 
-    // Cleanup temp files
-    const sessionDir = path.join(this.tempDir, sessionId);
-    await fs.rm(sessionDir, { recursive: true, force: true }).catch(() => {});
+    // Cleanup temp files — validate sessionId to prevent path traversal
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
+      const sessionDir = path.join(this.tempDir, sessionId);
+      await fs.rm(sessionDir, { recursive: true, force: true }).catch(() => {});
+    }
 
     logger.info('[Upload] Session cancelled', { sessionId });
   }

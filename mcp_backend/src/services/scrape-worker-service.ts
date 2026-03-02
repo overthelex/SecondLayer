@@ -307,7 +307,14 @@ export class ScrapeWorkerService {
 
     // HTML scraping
     try {
-      const url = `https://zakononline.ua/court-decisions/show/${docId}`;
+      // Validate docId to prevent SSRF — must be alphanumeric/dashes only
+      const docIdStr = String(docId);
+      const safeDocId = docIdStr.replace(/[^a-zA-Z0-9\-_]/g, '');
+      if (safeDocId !== docIdStr) {
+        logger.warn(`Invalid docId rejected: ${docId}`);
+        return null;
+      }
+      const url = `https://zakononline.ua/court-decisions/show/${safeDocId}`;
       const response = await axios.get(url, {
         timeout: 15000,
         headers: {

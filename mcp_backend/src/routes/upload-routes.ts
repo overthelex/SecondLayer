@@ -13,6 +13,12 @@ import { uploadInitRateLimit, uploadBatchInitRateLimit, uploadChunkRateLimit } f
 import { UploadQueueService } from '../services/upload-queue-service.js';
 import type { IDatabase } from '../domain/ports/index.js';
 
+// Validate UUID format to prevent path traversal
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function validateUploadId(id: string): boolean {
+  return UUID_RE.test(id);
+}
+
 // Multer configured for disk storage — avoids holding 6MB buffers in memory per chunk
 const UPLOAD_TEMP_DIR = process.env.UPLOAD_TEMP_DIR || '/tmp/uploads';
 const upload = multer({
@@ -284,7 +290,10 @@ export function createUploadRouter(
         return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      const { uploadId } = req.params;
+      const uploadId = String(req.params.uploadId);
+      if (!validateUploadId(uploadId)) {
+        return res.status(400).json({ error: 'Invalid upload ID format' });
+      }
       const chunkIndex = parseInt(req.body.chunkIndex, 10);
 
       if (isNaN(chunkIndex)) {
@@ -339,8 +348,11 @@ export function createUploadRouter(
         return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      const { uploadId } = req.params;
-      const session = await uploadService.getSession(uploadId as string);
+      const uploadId = String(req.params.uploadId);
+      if (!validateUploadId(uploadId)) {
+        return res.status(400).json({ error: 'Invalid upload ID format' });
+      }
+      const session = await uploadService.getSession(uploadId);
 
       if (!session) {
         return res.status(404).json({ error: 'Session not found' });

@@ -261,9 +261,15 @@ export class ReyestrDownloadService {
 
     if (!fullText || fullText.length < 100) {
       if (!html.includes('txtdepository')) {
-        fullText = html
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
+        // Remove script/style tags in a loop to handle nested/malformed tags
+        let cleaned = html;
+        let prev = '';
+        while (prev !== cleaned) {
+          prev = cleaned;
+          cleaned = cleaned.replace(/<script[\s\S]*?<\/script>/gi, '');
+          cleaned = cleaned.replace(/<style[\s\S]*?<\/style>/gi, '');
+        }
+        fullText = cleaned
           .replace(/<[^>]+>/g, ' ')
           .replace(/&nbsp;/g, ' ')
           .replace(/&lt;/g, '<')

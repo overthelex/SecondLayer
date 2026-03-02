@@ -153,7 +153,7 @@ export class TemplateClassifier {
       .toLowerCase()
       .replace(/\s+/g, ' ') // Normalize whitespace
       .replace(/[?!]+$/, '') // Remove trailing punctuation
-      .replace(/the\s+/gi, '') // Remove articles
+      .replace(/\bthe /gi, '') // Remove articles
       .replace(
         /\b(цк|гк|кас|пк|цпк|гпк)\b/gi,
         (match) => {
@@ -362,7 +362,7 @@ Return ONLY the JSON object.`;
     }
 
     // 2. Extract amounts (currency)
-    const amountPattern = /(\d+\s*(?:грн|USD|EUR|UAH|\$|€)\.?)/gi;
+    const amountPattern = /(\d{1,15}\s?(?:грн|USD|EUR|UAH|\$|€)\.?)/gi;
     const amounts = questionText.match(amountPattern);
     if (amounts && amounts.length > 0) {
       entities.amounts = amounts;
@@ -376,7 +376,7 @@ Return ONLY the JSON object.`;
     }
 
     // 4. Extract email addresses
-    const emailPattern = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+    const emailPattern = /\b[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,10}\b/g;
     const emails = questionText.match(emailPattern);
     if (emails && emails.length > 0) {
       entities.emails = emails;

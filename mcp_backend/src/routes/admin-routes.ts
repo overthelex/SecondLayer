@@ -736,11 +736,19 @@ export function createAdminRoutes(
       }
 
       // Generate a 16-char secure random password: letters + digits + symbols
+      // Use rejection sampling to avoid modulo bias
       const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*';
-      const bytes = crypto.randomBytes(16);
-      const password = Array.from(bytes)
-        .map((b) => charset[b % charset.length])
-        .join('');
+      const maxValid = 256 - (256 % charset.length); // reject values >= maxValid
+      const chars: string[] = [];
+      while (chars.length < 16) {
+        const buf = crypto.randomBytes(16);
+        for (const b of buf) {
+          if (b < maxValid && chars.length < 16) {
+            chars.push(charset[b % charset.length]);
+          }
+        }
+      }
+      const password = chars.join('');
 
       const passwordHash = await bcrypt.hash(password, 12);
 
