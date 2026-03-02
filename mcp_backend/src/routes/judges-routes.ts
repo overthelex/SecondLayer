@@ -20,6 +20,21 @@ export function createJudgesRoutes(judgesService: JudgesService): Router {
     }
   });
 
+  router.get('/:dossierNumber/profile', async (req: any, res: Response) => {
+    try {
+      const { dossierNumber } = req.params;
+      const profile = await judgesService.getJudgeProfile(dossierNumber);
+      if (!profile) {
+        return res.status(404).json({ error: 'Judge not found' });
+      }
+      res.json(profile);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error('[Judges] profile error', { error: msg, dossier: req.params.dossierNumber });
+      res.status(500).json({ error: msg });
+    }
+  });
+
   router.get('/:dossierNumber', async (req: any, res: Response) => {
     try {
       const { dossierNumber } = req.params;
