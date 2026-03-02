@@ -12,7 +12,7 @@ import {
   XCircle,
   GraduationCap,
 } from 'lucide-react';
-import { ERAUProfile } from '../services/api/ERAUService';
+import { ERAUProfile } from '../../services/api/ERAUService';
 
 interface LawyerProfilePageProps {
   profile: ERAUProfile;

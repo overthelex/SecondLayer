@@ -16,5 +16,8 @@ export * from './Badge';
 export * from './Checkbox';
 export * from './Switch';
 
+// Navigation components
+export * from './Tabs';
+
 // Feedback components
 export * from './Spinner';

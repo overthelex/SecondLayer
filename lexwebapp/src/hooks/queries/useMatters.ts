@@ -3,7 +3,7 @@
  * React Query hooks for matter, team, hold, and audit management
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   matterService,
   SearchMattersParams,
@@ -17,37 +17,26 @@ import {
   MatterAccessLevel,
 } from '../../types/models/Matter';
 import { queryKeys } from '../../lib/react-query';
+import { createQueryHook, createDetailQueryHook, createMutationHook } from './createQueryHook';
 
 // ─── Matters ─────────────────────────────────────────────
 
-export function useMatters(params?: SearchMattersParams) {
-  return useQuery({
-    queryKey: queryKeys.matters.list(params),
-    queryFn: () => matterService.getMatters(params),
-    staleTime: 2 * 60 * 1000,
-  });
-}
+export const useMatters = createQueryHook<Awaited<ReturnType<typeof matterService.getMatters>>, SearchMattersParams>(
+  (params) => queryKeys.matters.list(params),
+  (params) => matterService.getMatters(params),
+  { staleTime: 2 * 60 * 1000 }
+);
 
-export function useMatter(matterId: string) {
-  return useQuery({
-    queryKey: queryKeys.matters.detail(matterId),
-    queryFn: () => matterService.getMatterById(matterId),
-    enabled: !!matterId,
-    staleTime: 5 * 60 * 1000,
-  });
-}
+export const useMatter = createDetailQueryHook(
+  (id) => queryKeys.matters.detail(id),
+  (id) => matterService.getMatterById(id),
+  { staleTime: 5 * 60 * 1000 }
+);
 
-export function useCreateMatter() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: CreateMatterRequest) => matterService.createMatter(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.matters.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all });
-    },
-  });
-}
+export const useCreateMatter = createMutationHook<any, CreateMatterRequest>(
+  (data) => matterService.createMatter(data),
+  [queryKeys.matters.all, queryKeys.clients.all]
+);
 
 export function useUpdateMatter() {
   const queryClient = useQueryClient();
@@ -81,14 +70,11 @@ export function useCloseMatter() {
 
 // ─── Team ────────────────────────────────────────────────
 
-export function useMatterTeam(matterId: string) {
-  return useQuery({
-    queryKey: queryKeys.matters.team(matterId),
-    queryFn: () => matterService.getTeamMembers(matterId),
-    enabled: !!matterId,
-    staleTime: 2 * 60 * 1000,
-  });
-}
+export const useMatterTeam = createDetailQueryHook(
+  (matterId) => queryKeys.matters.team(matterId),
+  (matterId) => matterService.getTeamMembers(matterId),
+  { staleTime: 2 * 60 * 1000 }
+);
 
 export function useAddTeamMember() {
   const queryClient = useQueryClient();
@@ -129,14 +115,11 @@ export function useRemoveTeamMember() {
 
 // ─── Matter Documents ────────────────────────────────────
 
-export function useMatterDocuments(matterId: string) {
-  return useQuery({
-    queryKey: queryKeys.matters.documents(matterId),
-    queryFn: () => matterService.getMatterDocuments(matterId),
-    enabled: !!matterId,
-    staleTime: 2 * 60 * 1000,
-  });
-}
+export const useMatterDocuments = createDetailQueryHook(
+  (matterId) => queryKeys.matters.documents(matterId),
+  (matterId) => matterService.getMatterDocuments(matterId),
+  { staleTime: 2 * 60 * 1000 }
+);
 
 export function useAssignDocuments() {
   const queryClient = useQueryClient();
@@ -168,14 +151,11 @@ export function useUnassignDocuments() {
 
 // ─── Legal Holds ─────────────────────────────────────────
 
-export function useMatterHolds(matterId: string) {
-  return useQuery({
-    queryKey: queryKeys.matters.holds(matterId),
-    queryFn: () => matterService.getHolds(matterId),
-    enabled: !!matterId,
-    staleTime: 2 * 60 * 1000,
-  });
-}
+export const useMatterHolds = createDetailQueryHook(
+  (matterId) => queryKeys.matters.holds(matterId),
+  (matterId) => matterService.getHolds(matterId),
+  { staleTime: 2 * 60 * 1000 }
+);
 
 export function useCreateHold() {
   const queryClient = useQueryClient();
@@ -213,13 +193,11 @@ export function useReleaseHold() {
 
 // ─── Audit ───────────────────────────────────────────────
 
-export function useAuditLog(params?: AuditLogParams) {
-  return useQuery({
-    queryKey: queryKeys.audit.list(params),
-    queryFn: () => matterService.getAuditLog(params),
-    staleTime: 30 * 1000,
-  });
-}
+export const useAuditLog = createQueryHook<Awaited<ReturnType<typeof matterService.getAuditLog>>, AuditLogParams>(
+  (params) => queryKeys.audit.list(params),
+  (params) => matterService.getAuditLog(params),
+  { staleTime: 30 * 1000 }
+);
 
 export function useValidateAuditChain() {
   return useMutation({

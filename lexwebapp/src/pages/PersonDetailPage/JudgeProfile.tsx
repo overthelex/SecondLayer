@@ -9,7 +9,7 @@ import {
   Clock,
   Info,
 } from 'lucide-react';
-import type { JudgeProfile } from '../services/api/JudgesService';
+import type { JudgeProfile } from '../../services/api/JudgesService';
 
 interface JudgeProfilePageProps {
   profile: JudgeProfile;

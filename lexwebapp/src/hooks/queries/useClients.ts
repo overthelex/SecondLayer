@@ -3,82 +3,37 @@
  * React Query hooks for client management
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   clientService,
   SearchClientsParams,
 } from '../../services/api/ClientService';
 import { CreateClientRequest, UpdateClientRequest } from '../../types/models/Client';
 import { queryKeys } from '../../lib/react-query';
+import { createQueryHook, createDetailQueryHook, createMutationHook } from './createQueryHook';
 
-/**
- * Get clients list
- */
-export function useClients(params?: SearchClientsParams) {
-  return useQuery({
-    queryKey: queryKeys.clients.list(params),
-    queryFn: () => clientService.getClients(params),
-    staleTime: 2 * 60 * 1000, // Fresh for 2 minutes
-  });
-}
+export const useClients = createQueryHook<Awaited<ReturnType<typeof clientService.getClients>>, SearchClientsParams>(
+  (params) => queryKeys.clients.list(params),
+  (params) => clientService.getClients(params),
+  { staleTime: 2 * 60 * 1000 }
+);
 
-/**
- * Get client by ID
- */
-export function useClient(clientId: string) {
-  return useQuery({
-    queryKey: queryKeys.clients.detail(clientId),
-    queryFn: () => clientService.getClientById(clientId),
-    enabled: !!clientId,
-    staleTime: 5 * 60 * 1000, // Fresh for 5 minutes
-  });
-}
+export const useClient = createDetailQueryHook(
+  (id) => queryKeys.clients.detail(id),
+  (id) => clientService.getClientById(id),
+  { staleTime: 5 * 60 * 1000 }
+);
 
-/**
- * Create new client
- */
-export function useCreateClient() {
-  const queryClient = useQueryClient();
+export const useCreateClient = createMutationHook<any, CreateClientRequest>(
+  (data) => clientService.createClient(data),
+  [queryKeys.clients.all]
+);
 
-  return useMutation({
-    mutationFn: (data: CreateClientRequest) => clientService.createClient(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all });
-    },
-  });
-}
+export const useUpdateClient = createMutationHook<any, { id: string; data: UpdateClientRequest }>(
+  ({ id, data }) => clientService.updateClient(id, data),
+  [queryKeys.clients.all]
+);
 
-/**
- * Update client
- */
-export function useUpdateClient() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateClientRequest }) =>
-      clientService.updateClient(id, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.clients.detail(variables.id),
-      });
-      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all });
-    },
-  });
-}
-
-/**
- * Run conflict check for a client
- */
-export function useConflictCheck() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (clientId: string) => clientService.runConflictCheck(clientId),
-    onSuccess: (_, clientId) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.clients.detail(clientId),
-      });
-      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all });
-    },
-  });
-}
+export const useConflictCheck = createMutationHook<any, string>(
+  (clientId) => clientService.runConflictCheck(clientId),
+  [queryKeys.clients.all]
+);
