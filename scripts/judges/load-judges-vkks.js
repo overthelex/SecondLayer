@@ -16,7 +16,7 @@
 
 const https = require('https');
 const http = require('http');
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const { Pool } = require('pg');
 const path = require('path');
 const fs = require('fs');
@@ -107,10 +107,15 @@ function detectLayout(rows) {
 }
 
 // --- Parse XLSX buffer into judge records ---
-function parseXlsx(buffer, snapshotDate, resourceName) {
-  const wb = XLSX.read(buffer, { type: 'buffer' });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+async function parseXlsx(buffer, snapshotDate, resourceName) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const ws = workbook.worksheets[0];
+
+  const rows = [];
+  ws.eachRow((row) => {
+    rows.push(row.values.slice(1)); // row.values is 1-indexed, slice to make 0-indexed
+  });
 
   const layout = detectLayout(rows);
   const judges = [];
@@ -173,7 +178,7 @@ async function processResource(resource, index, total) {
   }
 
   try {
-    const judges = parseXlsx(buffer, snapshotDate, resource.name);
+    const judges = await parseXlsx(buffer, snapshotDate, resource.name);
     return { snapshotDate, judges, resourceId: resource.id };
   } catch (err) {
     console.error(`  [${index + 1}/${total}] PARSE ERROR: ${resource.name} — ${err.message}`);
@@ -339,7 +344,7 @@ async function buildCurrentTable(pool) {
 }
 
 // --- Load from cached downloads (offline mode) ---
-function loadFromCache() {
+async function loadFromCache() {
   const files = fs.readdirSync(DOWNLOAD_DIR).filter(f => f.endsWith('.xlsx')).sort();
   console.log(`Loading ${files.length} cached files from ${DOWNLOAD_DIR}`);
   const results = [];
@@ -349,7 +354,7 @@ function loadFromCache() {
     const filePath = path.join(DOWNLOAD_DIR, file);
     const buffer = fs.readFileSync(filePath);
     try {
-      const judges = parseXlsx(buffer, snapshotDate, file);
+      const judges = await parseXlsx(buffer, snapshotDate, file);
       console.log(`  [${i + 1}/${files.length}] ${file}: ${judges.length} judges`);
       results.push({ snapshotDate, judges, resourceId: file });
     } catch (err) {
@@ -386,7 +391,7 @@ async function main() {
       results = await parallelMap(resources, processResource, CONCURRENCY);
     } catch (err) {
       console.log(`API unreachable (${err.message}), using ${cachedFiles.length} cached files...`);
-      results = loadFromCache();
+      results = await loadFromCache();
     }
   } else {
     let resources = await fetchResourceList();
