@@ -7,7 +7,7 @@ import { authService, billingService } from '../services';
 import { api } from '../utils/api-client';
 import { BillingBalance } from '../types/models';
 import showToast from '../utils/toast';
-import { GdprPrivacySection } from './GdprPrivacySection';
+import { GdprPrivacySection } from '../components/GdprPrivacySection';
 
 export function ProfilePage() {
   const { user, isLoading, updateUser } = useAuth();

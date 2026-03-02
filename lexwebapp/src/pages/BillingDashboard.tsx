@@ -15,13 +15,13 @@ import {
   TrendingUp,
   Loader2,
 } from 'lucide-react';
-import { TopUpModal } from './billing/TopUpModal';
+import { TopUpModal } from '../components/billing/TopUpModal';
 
-const OverviewTab = lazy(() => import('./billing/OverviewTab').then(m => ({ default: m.OverviewTab })));
-const TariffsTab = lazy(() => import('./billing/TariffsTab').then(m => ({ default: m.TariffsTab })));
-const HistoryTab = lazy(() => import('./billing/HistoryTab').then(m => ({ default: m.HistoryTab })));
-const AnalyticsTab = lazy(() => import('./billing/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })));
-const SettingsTab = lazy(() => import('./billing/SettingsTab').then(m => ({ default: m.SettingsTab })));
+const OverviewTab = lazy(() => import('../components/billing/OverviewTab').then(m => ({ default: m.OverviewTab })));
+const TariffsTab = lazy(() => import('../components/billing/TariffsTab').then(m => ({ default: m.TariffsTab })));
+const HistoryTab = lazy(() => import('../components/billing/HistoryTab').then(m => ({ default: m.HistoryTab })));
+const AnalyticsTab = lazy(() => import('../components/billing/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })));
+const SettingsTab = lazy(() => import('../components/billing/SettingsTab').then(m => ({ default: m.SettingsTab })));
 
 const TabLoader = () => (
   <div className="flex items-center justify-center py-12">
