@@ -197,7 +197,7 @@ async function extractZip(zipPath: string, extractDir: string, depth: number = 0
             // Prevent Zip Slip: ensure extracted path stays within extractDir
             if (!outPath.startsWith(path.resolve(extractDir) + path.sep)) {
               entry.autodrain();
-              continue;
+              return;
             }
             fs.mkdirSync(path.dirname(outPath), { recursive: true });
             const writePromise = new Promise<string>((res) => {
