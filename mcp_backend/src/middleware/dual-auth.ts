@@ -9,6 +9,7 @@ import { UserService, User } from '../services/user-service.js';
 import { ApiKeyService } from '../services/api-key-service.js';
 import { WebAuthnService } from '../services/webauthn-service.js';
 import { logger } from '../utils/logger.js';
+import { maskSensitive } from '../utils/sanitize-log.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
 
@@ -116,12 +117,12 @@ async function authenticateWithAPIKey(req: AuthenticatedRequest, apiKey: string)
   if (apiKeyService) {
     try {
       logger.debug('Attempting Phase 2 API key validation', {
-        keyPrefix: apiKey.substring(0, 8) + '...',
+        keyPrefix: maskSensitive(apiKey, 8),
       });
       const keyInfo = await apiKeyService.validateApiKey(apiKey);
 
       logger.debug('Phase 2 API key validation result', {
-        keyPrefix: apiKey.substring(0, 8) + '...',
+        keyPrefix: maskSensitive(apiKey, 8),
         found: keyInfo !== null,
         userId: keyInfo?.userId,
       });
@@ -159,7 +160,7 @@ async function authenticateWithAPIKey(req: AuthenticatedRequest, apiKey: string)
     } catch (error: any) {
       logger.error('Error validating Phase 2 API key', {
         error: error.message,
-        keyPrefix: apiKey.substring(0, 8) + '...',
+        keyPrefix: maskSensitive(apiKey, 8),
       });
       // Continue to check legacy keys
     }
@@ -170,7 +171,7 @@ async function authenticateWithAPIKey(req: AuthenticatedRequest, apiKey: string)
 
   if (!validKeys.includes(apiKey)) {
     logger.warn('Invalid API key attempt (not found in Phase 2 or legacy keys)', {
-      keyPrefix: apiKey.substring(0, 8) + '...',
+      keyPrefix: maskSensitive(apiKey, 8),
       validKeysCount: validKeys.length,
     });
     throw new Error('Invalid API key');
@@ -181,7 +182,7 @@ async function authenticateWithAPIKey(req: AuthenticatedRequest, apiKey: string)
   req.authType = 'apikey';
 
   logger.debug('Legacy API key authentication successful', {
-    keyPrefix: apiKey.substring(0, 8) + '...',
+    keyPrefix: maskSensitive(apiKey, 8),
   });
 }
 

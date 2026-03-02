@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { logger } from './utils/logger';
 import { requireAPIKey } from './middleware/dual-auth';
 import { healthCheckRateLimit, globalApiRateLimit } from './middleware/rate-limit';
+import rateLimit from 'express-rate-limit';
 import { createRadaCoreServices, RadaCoreServices } from './factories/rada-services';
 import { requestContext } from './utils/openai-client';
 import { initRedisClient } from './utils/redis-client';
@@ -58,6 +59,15 @@ class HTTPRadaServer {
 
     // JSON parsing
     this.app.use(express.json({ limit: '10mb' }));
+
+    // Global rate limiter (express-rate-limit) — recognised by CodeQL
+    this.app.use(rateLimit({
+      windowMs: 60 * 1000,
+      max: 300,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: 'Too Many Requests', code: 'RATE_LIMIT_EXCEEDED' },
+    }));
 
     // Prometheus HTTP metrics middleware
     this.app.use((req, res, next) => {

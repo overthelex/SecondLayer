@@ -1,5 +1,6 @@
 import type { IDatabase, IEmbeddingPort } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
+import { sanitizeId } from '../utils/sanitize-log.js';
 import { v4 as uuidv4 } from 'uuid';
 import { MinioService } from './minio-service.js';
 
@@ -115,7 +116,7 @@ export class GdprService {
         [JSON.stringify({ size_bytes: exportJson.length, data: exportData }), requestId]
       );
 
-      logger.info('[GDPR] Export completed', { requestId, userId: String(userId), sizeBytes: exportJson.length });
+      logger.info('[GDPR] Export completed', { requestId, userId: sanitizeId(userId), sizeBytes: exportJson.length });
     } catch (error: any) {
       await this.db.query(
         `UPDATE gdpr_requests SET status = 'failed', metadata = $1 WHERE id = $2`,

@@ -5,6 +5,7 @@
 
 import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
+import { sanitizeId } from '../utils/sanitize-log.js';
 
 export interface UserBalance {
   hasCredits: boolean;
@@ -69,7 +70,7 @@ export class CreditService {
     } catch (error: any) {
       logger.error('[CreditService] Error checking balance', {
         error: error.message,
-        userId: String(userId),
+        userId: sanitizeId(userId),
       });
       throw error;
     }
@@ -107,7 +108,7 @@ export class CreditService {
 
       if (deduction.success) {
         logger.info('[CreditService] Credits deducted', {
-          userId: String(userId),
+          userId: sanitizeId(userId),
           amount,
           toolName,
           newBalance: deduction.newBalance,
@@ -115,7 +116,7 @@ export class CreditService {
         });
       } else {
         logger.warn('[CreditService] Insufficient credits', {
-          userId: String(userId),
+          userId: sanitizeId(userId),
           amount,
           toolName,
           newBalance: deduction.newBalance,
@@ -126,7 +127,7 @@ export class CreditService {
     } catch (error: any) {
       logger.error('[CreditService] Error deducting credits', {
         error: error.message,
-        userId: String(userId),
+        userId: sanitizeId(userId),
         amount,
         toolName,
       });
