@@ -13,138 +13,59 @@ import {
   TimeEntryFilters,
 } from '../../types/models';
 import { queryKeys } from '../../lib/react-query';
+import { createQueryHook, createMutationHook } from './createQueryHook';
 
-/**
- * Get time entries list
- */
-export function useTimeEntries(filters?: TimeEntryFilters) {
-  return useQuery({
-    queryKey: queryKeys.timeEntries.list(filters),
-    queryFn: () => timeEntryService.getTimeEntries(filters),
-    staleTime: 1 * 60 * 1000, // Fresh for 1 minute
-  });
-}
+export const useTimeEntries = createQueryHook<Awaited<ReturnType<typeof timeEntryService.getTimeEntries>>, TimeEntryFilters>(
+  (filters) => queryKeys.timeEntries.list(filters),
+  (filters) => timeEntryService.getTimeEntries(filters),
+  { staleTime: 1 * 60 * 1000 }
+);
 
-/**
- * Create new time entry
- */
-export function useCreateTimeEntry() {
-  const queryClient = useQueryClient();
+export const useCreateTimeEntry = createMutationHook<any, CreateTimeEntryParams>(
+  (data) => timeEntryService.createTimeEntry(data),
+  [queryKeys.timeEntries.all]
+);
 
-  return useMutation({
-    mutationFn: (data: CreateTimeEntryParams) => timeEntryService.createTimeEntry(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.timeEntries.all });
-    },
-  });
-}
+export const useUpdateTimeEntry = createMutationHook<any, { id: string; data: UpdateTimeEntryParams }>(
+  ({ id, data }) => timeEntryService.updateTimeEntry(id, data),
+  [queryKeys.timeEntries.all]
+);
 
-/**
- * Update time entry
- */
-export function useUpdateTimeEntry() {
-  const queryClient = useQueryClient();
+export const useDeleteTimeEntry = createMutationHook<any, string>(
+  (id) => timeEntryService.deleteTimeEntry(id),
+  [queryKeys.timeEntries.all]
+);
 
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateTimeEntryParams }) =>
-      timeEntryService.updateTimeEntry(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.timeEntries.all });
-    },
-  });
-}
+export const useSubmitTimeEntry = createMutationHook<any, string>(
+  (id) => timeEntryService.submitTimeEntry(id),
+  [queryKeys.timeEntries.all]
+);
 
-/**
- * Delete time entry
- */
-export function useDeleteTimeEntry() {
-  const queryClient = useQueryClient();
+export const useApproveTimeEntry = createMutationHook<any, string>(
+  (id) => timeEntryService.approveTimeEntry(id),
+  [queryKeys.timeEntries.all]
+);
 
-  return useMutation({
-    mutationFn: (id: string) => timeEntryService.deleteTimeEntry(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.timeEntries.all });
-    },
-  });
-}
-
-/**
- * Submit time entry for approval
- */
-export function useSubmitTimeEntry() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => timeEntryService.submitTimeEntry(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.timeEntries.all });
-    },
-  });
-}
-
-/**
- * Approve time entry
- */
-export function useApproveTimeEntry() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => timeEntryService.approveTimeEntry(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.timeEntries.all });
-    },
-  });
-}
-
-/**
- * Reject time entry
- */
-export function useRejectTimeEntry() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
-      timeEntryService.rejectTimeEntry(id, notes),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.timeEntries.all });
-    },
-  });
-}
+export const useRejectTimeEntry = createMutationHook<any, { id: string; notes?: string }>(
+  ({ id, notes }) => timeEntryService.rejectTimeEntry(id, notes),
+  [queryKeys.timeEntries.all]
+);
 
 // ============================================================================
 // Timer Hooks
 // ============================================================================
 
-/**
- * Get active timers
- */
-export function useActiveTimers() {
-  return useQuery({
-    queryKey: queryKeys.timeEntries.timers,
-    queryFn: () => timeEntryService.getActiveTimers(),
-    staleTime: 30 * 1000, // Fresh for 30 seconds
-    refetchInterval: 30 * 1000, // Refetch every 30 seconds
-  });
-}
+export const useActiveTimers = createQueryHook(
+  () => queryKeys.timeEntries.timers,
+  () => timeEntryService.getActiveTimers(),
+  { staleTime: 30 * 1000, refetchInterval: 30 * 1000 }
+);
 
-/**
- * Start timer
- */
-export function useStartTimer() {
-  const queryClient = useQueryClient();
+export const useStartTimer = createMutationHook<any, { matter_id: string; description?: string }>(
+  ({ matter_id, description }) => timeEntryService.startTimer(matter_id, description),
+  [queryKeys.timeEntries.timers]
+);
 
-  return useMutation({
-    mutationFn: ({ matter_id, description }: { matter_id: string; description?: string }) =>
-      timeEntryService.startTimer(matter_id, description),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.timeEntries.timers });
-    },
-  });
-}
-
-/**
- * Stop timer
- */
 export function useStopTimer() {
   const queryClient = useQueryClient();
 
@@ -158,9 +79,6 @@ export function useStopTimer() {
   });
 }
 
-/**
- * Ping timer (keep-alive)
- */
 export function usePingTimer() {
   return useMutation({
     mutationFn: (matter_id: string) => timeEntryService.pingTimer(matter_id),
@@ -171,21 +89,15 @@ export function usePingTimer() {
 // Billing Rate Hooks
 // ============================================================================
 
-/**
- * Get user's current billing rate
- */
 export function useUserRate(userId: string, date?: string) {
   return useQuery({
     queryKey: ['userRate', userId, date],
     queryFn: () => timeEntryService.getUserRate(userId, date),
     enabled: !!userId,
-    staleTime: 10 * 60 * 1000, // Fresh for 10 minutes
+    staleTime: 10 * 60 * 1000,
   });
 }
 
-/**
- * Set user billing rate
- */
 export function useSetUserRate() {
   const queryClient = useQueryClient();
 

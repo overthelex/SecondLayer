@@ -3,74 +3,41 @@
  * React Query hooks for billing operations
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { billingService } from '../../services';
 import { queryKeys } from '../../lib/react-query';
 import {
   UpdateBillingSettingsRequest,
   GetTransactionHistoryRequest,
 } from '../../types/api';
+import { createQueryHook, createMutationHook } from './createQueryHook';
 
-/**
- * Get account balance
- */
-export function useBalance() {
-  return useQuery({
-    queryKey: queryKeys.billing.balance,
-    queryFn: () => billingService.getBalance(),
-    staleTime: 2 * 60 * 1000, // Balance fresh for 2 minutes
-    refetchInterval: 5 * 60 * 1000, // Auto-refetch every 5 minutes
-  });
-}
+export const useBalance = createQueryHook(
+  () => queryKeys.billing.balance,
+  () => billingService.getBalance(),
+  { staleTime: 2 * 60 * 1000, refetchInterval: 5 * 60 * 1000 }
+);
 
-/**
- * Get transaction history
- */
-export function useTransactionHistory(params?: GetTransactionHistoryRequest) {
-  return useQuery({
-    queryKey: queryKeys.billing.transactions(params),
-    queryFn: () => billingService.getTransactionHistory(params),
-    staleTime: 1 * 60 * 1000, // Fresh for 1 minute
-  });
-}
+export const useTransactionHistory = createQueryHook<Awaited<ReturnType<typeof billingService.getTransactionHistory>>, GetTransactionHistoryRequest>(
+  (params) => queryKeys.billing.transactions(params),
+  (params) => billingService.getTransactionHistory(params),
+  { staleTime: 1 * 60 * 1000 }
+);
 
-/**
- * Get billing settings
- */
-export function useBillingSettings() {
-  return useQuery({
-    queryKey: queryKeys.billing.settings,
-    queryFn: async () => {
-      // Assuming there's a getSettings method
-      // For now, return empty settings
-      return {
-        daily_limit_usd: undefined,
-        monthly_limit_usd: undefined,
-      };
-    },
-    staleTime: 10 * 60 * 1000, // Settings fresh for 10 minutes
-  });
-}
+export const useBillingSettings = createQueryHook(
+  () => queryKeys.billing.settings,
+  async () => ({
+    daily_limit_usd: undefined,
+    monthly_limit_usd: undefined,
+  }),
+  { staleTime: 10 * 60 * 1000 }
+);
 
-/**
- * Update billing settings
- */
-export function useUpdateBillingSettings() {
-  const queryClient = useQueryClient();
+export const useUpdateBillingSettings = createMutationHook<any, UpdateBillingSettingsRequest>(
+  (data) => billingService.updateSettings(data),
+  [queryKeys.billing.settings]
+);
 
-  return useMutation({
-    mutationFn: (data: UpdateBillingSettingsRequest) =>
-      billingService.updateSettings(data),
-    onSuccess: () => {
-      // Invalidate settings query
-      queryClient.invalidateQueries({ queryKey: queryKeys.billing.settings });
-    },
-  });
-}
-
-/**
- * Send test email
- */
 export function useSendTestEmail() {
   return useMutation({
     mutationFn: () => billingService.sendTestEmail(),

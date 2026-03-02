@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { Message, MessageProps } from './Message';
+import { Message, MessageProps } from './message';
 
 interface MessageThreadProps {
   messages: MessageProps[];

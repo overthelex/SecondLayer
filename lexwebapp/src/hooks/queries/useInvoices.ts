@@ -3,7 +3,7 @@
  * React Query hooks for invoice management
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   invoiceService,
   InvoiceFilters,
@@ -12,33 +12,20 @@ import {
 } from '../../services/api/InvoiceService';
 import { GenerateInvoiceParams } from '../../types/models';
 import { queryKeys } from '../../lib/react-query';
+import { createQueryHook, createDetailQueryHook } from './createQueryHook';
 
-/**
- * Get invoices list
- */
-export function useInvoices(filters?: InvoiceFilters) {
-  return useQuery({
-    queryKey: queryKeys.invoices.list(filters),
-    queryFn: () => invoiceService.getInvoices(filters),
-    staleTime: 2 * 60 * 1000, // Fresh for 2 minutes
-  });
-}
+export const useInvoices = createQueryHook<Awaited<ReturnType<typeof invoiceService.getInvoices>>, InvoiceFilters>(
+  (filters) => queryKeys.invoices.list(filters),
+  (filters) => invoiceService.getInvoices(filters),
+  { staleTime: 2 * 60 * 1000 }
+);
 
-/**
- * Get invoice by ID with details
- */
-export function useInvoice(invoiceId: string) {
-  return useQuery({
-    queryKey: queryKeys.invoices.detail(invoiceId),
-    queryFn: () => invoiceService.getInvoiceById(invoiceId),
-    enabled: !!invoiceId,
-    staleTime: 1 * 60 * 1000, // Fresh for 1 minute
-  });
-}
+export const useInvoice = createDetailQueryHook(
+  (id) => queryKeys.invoices.detail(id),
+  (id) => invoiceService.getInvoiceById(id),
+  { staleTime: 1 * 60 * 1000 }
+);
 
-/**
- * Generate invoice from time entries
- */
 export function useGenerateInvoice() {
   const queryClient = useQueryClient();
 
@@ -51,9 +38,6 @@ export function useGenerateInvoice() {
   });
 }
 
-/**
- * Download invoice PDF
- */
 export function useDownloadInvoicePDF() {
   return useMutation({
     mutationFn: ({ id, invoiceNumber }: { id: string; invoiceNumber: string }) =>
@@ -61,9 +45,6 @@ export function useDownloadInvoicePDF() {
   });
 }
 
-/**
- * Send invoice to client
- */
 export function useSendInvoice() {
   const queryClient = useQueryClient();
 
@@ -76,9 +57,6 @@ export function useSendInvoice() {
   });
 }
 
-/**
- * Record payment for invoice
- */
 export function useRecordPayment() {
   const queryClient = useQueryClient();
 
@@ -92,9 +70,6 @@ export function useRecordPayment() {
   });
 }
 
-/**
- * Void invoice
- */
 export function useVoidInvoice() {
   const queryClient = useQueryClient();
 
@@ -108,9 +83,6 @@ export function useVoidInvoice() {
   });
 }
 
-/**
- * Add manual line item to invoice
- */
 export function useAddLineItem() {
   const queryClient = useQueryClient();
 
