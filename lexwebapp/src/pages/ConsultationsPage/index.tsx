@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MessageSquare, Clock, CheckCircle, XCircle, AlertCircle, Loader2, CreditCard } from 'lucide-react';
 import { consultationService, type Consultation } from '../../services/api/ConsultationService';
 import { generateRoute } from '../../router/routes';
@@ -17,6 +17,16 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 
 export function ConsultationsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Redirect to last viewed consultation unless explicitly navigating to list
+  useEffect(() => {
+    if (searchParams.has('list')) return;
+    const lastId = sessionStorage.getItem('lastConsultationId');
+    if (lastId) {
+      navigate(generateRoute.consultationDetail(lastId), { replace: true });
+    }
+  }, []);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);

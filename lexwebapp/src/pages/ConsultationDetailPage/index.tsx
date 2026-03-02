@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, Send, Star, CreditCard, CheckCircle, XCircle, Play, MessageSquare } from 'lucide-react';
 import { consultationService, type Consultation, type ConsultationMessage } from '../../services/api/ConsultationService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -40,12 +40,16 @@ export function ConsultationDetailPage() {
       setMessages(m.messages);
     } catch {
       setConsultation(null);
+      sessionStorage.removeItem('lastConsultationId');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    load();
+    if (id) sessionStorage.setItem('lastConsultationId', id);
+  }, [id]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const handleAction = async (action: string) => {
@@ -119,7 +123,7 @@ export function ConsultationDetailPage() {
     return (
       <div className="max-w-4xl mx-auto p-6 text-center py-20">
         <h2 className="text-xl text-gray-600">Консультацію не знайдено</h2>
-        <button onClick={() => navigate(-1)} className="mt-4 text-indigo-600 hover:underline">Назад</button>
+        <Link to="/consultations?list" className="mt-4 text-indigo-600 hover:underline">Назад</Link>
       </div>
     );
   }
@@ -130,9 +134,9 @@ export function ConsultationDetailPage() {
   return (
     <div className="h-full overflow-y-auto">
     <div className="max-w-4xl mx-auto p-6">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6">
+      <Link to="/consultations?list" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6">
         <ArrowLeft className="w-4 h-4" /> Назад до консультацій
-      </button>
+      </Link>
 
       <div className="bg-white border rounded-lg p-6 mb-6">
         <h1 className="text-xl font-bold text-gray-900 mb-2">{consultation.request_title}</h1>
