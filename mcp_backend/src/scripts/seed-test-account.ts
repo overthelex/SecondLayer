@@ -13,6 +13,7 @@
 
 import { Database } from '../database/database.js';
 import { logger } from '../utils/logger.js';
+import { maskSensitive, sanitizeId } from '../utils/sanitize-log.js';
 
 const TEST_USER = {
   email: process.env.TEST_ACCOUNT_EMAIL || 'test@legal.org.ua',
@@ -40,7 +41,7 @@ async function cleanupTestAccount() {
     }
 
     const userId = existingUser.rows[0].id;
-    logger.info(`Found test user: ${TEST_USER.email.replace(/(.{2})(.*)(@.*)/, '$1***$3')} (ID: ${userId.substring(0, 8)}...)`);
+    logger.info(`Found test user: ${maskSensitive(TEST_USER.email, 4)} (ID: ${sanitizeId(userId.substring(0, 8))}...)`);
 
     // Must drop immutability rules to allow FK cascade
     await db.query(`
@@ -119,7 +120,7 @@ async function seedTestAccount() {
 
     if (existingUser.rows.length > 0) {
       userId = existingUser.rows[0].id;
-      logger.info(`Test user already exists: ${TEST_USER.email.replace(/(.{2})(.*)(@.*)/, '$1***$3')} (ID: ${userId.substring(0, 8)}...)`);
+      logger.info(`Test user already exists: ${maskSensitive(TEST_USER.email, 4)} (ID: ${sanitizeId(userId.substring(0, 8))}...)`);
     } else {
       // Create test user
       const userResult = await db.query(
@@ -130,7 +131,7 @@ async function seedTestAccount() {
       );
 
       userId = userResult.rows[0].id;
-      logger.info(`Created test user: ${TEST_USER.email.replace(/(.{2})(.*)(@.*)/, '$1***$3')} (ID: ${userId.substring(0, 8)}...)`);
+      logger.info(`Created test user: ${maskSensitive(TEST_USER.email, 4)} (ID: ${sanitizeId(userId.substring(0, 8))}...)`);
     }
 
     // 2. Check if billing record exists
@@ -259,8 +260,8 @@ async function seedTestAccount() {
 
     const billing = finalBilling.rows[0];
     logger.info('\nTest Account Summary:');
-    logger.info(`   Email: ${TEST_USER.email.replace(/(.{2})(.*)(@.*)/, '$1***$3')}`);
-    logger.info(`   User ID: ${userId.substring(0, 8)}...`);
+    logger.info(`   Email: ${maskSensitive(TEST_USER.email, 4)}`);
+    logger.info(`   User ID: ${sanitizeId(userId.substring(0, 8))}...`);
     logger.info(`   Balance: $${billing.balance_usd} USD`);
     logger.info(`   Transactions: ${transactions.length}`);
     logger.info(`   Payment Intents: ${paymentIntents.length}`);

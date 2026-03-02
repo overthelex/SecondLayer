@@ -2,6 +2,7 @@ import { BaseCostTracker, AdditionalCostResult } from '@secondlayer/shared';
 import { CostEstimate, CostBreakdown, ZOCallRecord } from '@secondlayer/shared';
 import { Database } from '../database/database.js';
 import { logger } from '../utils/logger.js';
+import { maskSensitive } from '../utils/sanitize-log.js';
 import { BillingService } from './billing-service.js';
 
 export class CostTracker extends BaseCostTracker {
@@ -81,7 +82,7 @@ export class CostTracker extends BaseCostTracker {
       ]
     );
 
-    const maskedKey = params.clientKey ? `${params.clientKey.substring(0, 8)}...` : 'none';
+    const maskedKey = params.clientKey ? maskSensitive(params.clientKey, 8) : 'none';
     logger.debug('Cost tracking record created', {
       requestId: params.requestId,
       userId: params.userId,

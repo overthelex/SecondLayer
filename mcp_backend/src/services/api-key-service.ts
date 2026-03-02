@@ -4,6 +4,7 @@
  */
 
 import { logger } from '../utils/logger.js';
+import { maskSensitive } from '../utils/sanitize-log.js';
 import type { IDatabase } from '../domain/ports/index.js';
 
 export interface ApiKeyInfo {
@@ -63,7 +64,7 @@ export class ApiKeyService {
 
       if (result.rows.length === 0) {
         logger.debug('[ApiKeyService] API key not found or inactive', {
-          keyPrefix: apiKey.substring(0, 8) + '...',
+          keyPrefix: maskSensitive(apiKey, 8),
         });
         return null;
       }
