@@ -116,7 +116,7 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${item.title.replace(/[^\wа-яА-ЯёЁa-zA-Z0-9]/g, '_')}.txt`;
+    a.download = `${item.title.replace(/[^a-zA-Z0-9\u0400-\u04FF_]/g, '_')}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };

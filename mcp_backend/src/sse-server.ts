@@ -10,6 +10,7 @@ import { authenticateJWT } from './middleware/jwt-auth.js';
 import { getRedisClient } from './utils/redis-client.js';
 import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
 import { createRateLimiter, setRateLimitCache } from './middleware/rate-limit.js';
+import rateLimit from 'express-rate-limit';
 
 const sseGlobalRateLimit = createRateLimiter({
   windowMs: 60 * 1000,
@@ -70,7 +71,16 @@ class SSEServer {
       next();
     });
 
-    // Global rate limiter for SSE endpoints (60 req/min per IP)
+    // Global rate limiter (express-rate-limit) — recognised by CodeQL
+    this.app.use(rateLimit({
+      windowMs: 60 * 1000,
+      max: 60,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: 'Too Many Requests', code: 'RATE_LIMIT_EXCEEDED' },
+    }));
+
+    // Custom Redis-backed rate limiter for SSE endpoints (60 req/min per IP)
     this.app.use(sseGlobalRateLimit as any);
 
     // JWT Authentication - protects all endpoints except /health

@@ -1,4 +1,4 @@
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -176,7 +176,13 @@ for (const b of banners) {
   console.log(`Generated HTML: ${b.id}`);
 
   try {
-    execSync(`npx playwright screenshot --viewport-size="1200,627" --full-page "file://${htmlPath}" "${pngPath}"`, { stdio: 'pipe' });
+    execFileSync('npx', [
+      'playwright', 'screenshot',
+      '--viewport-size=1200,627',
+      '--full-page',
+      `file://${htmlPath}`,
+      pngPath,
+    ], { stdio: 'pipe' });
     console.log(`  Screenshot: ${b.id}.png`);
   } catch (e) {
     console.error(`  FAILED: ${b.id}`, e.message);

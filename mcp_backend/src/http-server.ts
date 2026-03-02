@@ -119,6 +119,8 @@ import { createAttorneyRoutes } from './routes/attorney-routes.js';
 import { createConsultationRoutes } from './routes/consultation-routes.js';
 import { JudgesService } from './services/judges-service.js';
 import { createJudgesRoutes } from './routes/judges-routes.js';
+import { sanitizeId, maskSensitive } from './utils/sanitize-log.js';
+import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
@@ -532,6 +534,16 @@ class HTTPMCPServer {
       exposedHeaders: ['X-Upload-Queue-Depth', 'X-Upload-Throttle', 'Retry-After', 'X-Total-Count'],
     }));
 
+    // Global rate limiter (express-rate-limit) — recognised by CodeQL as proper rate limiting.
+    // Our custom Redis-backed limiters still apply per-route for finer control.
+    this.app.use(rateLimit({
+      windowMs: 60 * 1000,
+      max: 300,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: 'Too Many Requests', code: 'RATE_LIMIT_EXCEEDED' },
+    }));
+
     // Monobank webhooks need raw body BEFORE json parsing for signature verification
     // Mount webhook routes with raw body parser and rate limiting
     this.app.use(
@@ -771,7 +783,7 @@ class HTTPMCPServer {
 
             if (!tokenData) {
               logger.warn('[MCP SSE] Invalid OAuth token', {
-                tokenPrefix: token.substring(0, 15) + '...',
+                tokenPrefix: maskSensitive(token, 15),
               });
               return res.status(401).json({
                 error: 'Unauthorized',
@@ -794,7 +806,7 @@ class HTTPMCPServer {
 
             if (!keyInfo) {
               logger.warn('[MCP SSE] Invalid API key', {
-                keyPrefix: token.substring(0, 12) + '...',
+                keyPrefix: maskSensitive(token, 12),
               });
               return res.status(401).json({
                 error: 'Unauthorized',
@@ -915,7 +927,7 @@ class HTTPMCPServer {
             const oauthToken = await this.oauthService.verifyAccessToken(token);
             if (oauthToken) {
               userId = oauthToken.userId;
-              logger.debug('[MCP v1/sse] Authenticated with OAuth token', { userId: String(userId), clientId: String(oauthToken.clientId) });
+              logger.debug('[MCP v1/sse] Authenticated with OAuth token', { userId: sanitizeId(userId || ''), clientId: sanitizeId(oauthToken.clientId) });
             } else {
               // API key
               clientKey = token;
@@ -923,7 +935,7 @@ class HTTPMCPServer {
 
               if (!keyInfo) {
                 logger.warn('[MCP v1/sse] Invalid API key', {
-                  keyPrefix: token.substring(0, 8) + '...',
+                  keyPrefix: maskSensitive(token, 8),
                 });
                 return res.status(401).json({
                   error: 'Unauthorized',
@@ -999,7 +1011,7 @@ class HTTPMCPServer {
           try {
             logger.info('[MCP v1/sse] Tool call', {
               tool: toolName,
-              userId: String(userId || 'anonymous'),
+              userId: sanitizeId(userId || 'anonymous'),
             });
 
             // Phase 2 Billing: Check credits BEFORE execution
@@ -1011,7 +1023,7 @@ class HTTPMCPServer {
 
                 if (!balance.hasCredits) {
                   logger.warn('[MCP v1/sse] Insufficient credits', {
-                    userId: String(userId),
+                    userId: sanitizeId(userId),
                     tool: toolName,
                     creditsRequired,
                   });
@@ -1078,7 +1090,7 @@ class HTTPMCPServer {
 
                 if (deduction.success) {
                   logger.info('[MCP v1/sse] Credits deducted', {
-                    userId: String(userId),
+                    userId: sanitizeId(userId),
                     tool: toolName,
                     creditsDeducted: creditsRequired,
                     newBalance: deduction.newBalance,

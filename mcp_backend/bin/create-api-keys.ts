@@ -12,6 +12,7 @@
 import { Pool } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
+import { maskSensitive } from '../src/utils/sanitize-log.js';
 
 // Database connection
 const pool = new Pool({
@@ -149,7 +150,7 @@ async function bulkCreateFromCSV(csvPath: string): Promise<void> {
 
     if (apiKey) {
       results.success.push(apiKey);
-      console.log(`✅ Created key for ${email}: ${apiKey.key.substring(0, 8)}...`);
+      console.log(`✅ Created key for ${email}: ${maskSensitive(apiKey.key, 8)}`);
     } else {
       results.failed.push(line);
     }
@@ -192,7 +193,7 @@ async function createMultipleKeys(
 
     if (apiKey) {
       results.push(apiKey);
-      console.log(`✅ ${i}/${count}: ${apiKey.key.substring(0, 8)}...`);
+      console.log(`✅ ${i}/${count}: ${maskSensitive(apiKey.key, 8)}`);
     }
   }
 
@@ -314,9 +315,9 @@ Examples:
         console.log('\n✅ API Key created successfully!');
         console.log('\n📋 Details:');
         console.log(`  ID: ${apiKey.id}`);
-        console.log(`  User: ${apiKey.userEmail}`);
+        console.log(`  User: ${maskSensitive(apiKey.userEmail, 4)}`);
         console.log(`  Name: ${apiKey.name}`);
-        console.log(`  Key: ${apiKey.key.substring(0, 8)}...[REDACTED]`);
+        console.log(`  Key: ${maskSensitive(apiKey.key, 8)}`);
         console.log(`  Created: ${apiKey.createdAt}`);
         console.log('\n⚠️  IMPORTANT: The full key has been saved to the output file. It will not be shown again.');
       } else {
@@ -338,7 +339,7 @@ Examples:
 
       if (apiKey) {
         console.log('\n✅ API Key created successfully!');
-        console.log(`\n  Key: ${apiKey.key.substring(0, 8)}...[REDACTED]`);
+        console.log(`\n  Key: ${maskSensitive(apiKey.key, 8)}`);
         console.log('\n⚠️  Save this key securely!');
       } else {
         process.exit(1);

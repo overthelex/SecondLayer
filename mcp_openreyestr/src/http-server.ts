@@ -15,6 +15,7 @@ import { CostTracker } from './services/cost-tracker';
 import { MCPOpenReyestrAPI } from './api/mcp-openreyestr-api';
 import { MetricsService } from './services/metrics-service';
 import { globalApiRateLimit, healthCheckRateLimit } from './middleware/rate-limit';
+import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
@@ -68,6 +69,15 @@ class HTTPOpenReyestrServer {
 
     // JSON parsing
     this.app.use(express.json({ limit: '10mb' }));
+
+    // Global rate limiter (express-rate-limit) — recognised by CodeQL
+    this.app.use(rateLimit({
+      windowMs: 60 * 1000,
+      max: 300,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: 'Too Many Requests', code: 'RATE_LIMIT_EXCEEDED' },
+    }));
 
     // Prometheus HTTP metrics middleware
     this.app.use((req, res, next) => {
