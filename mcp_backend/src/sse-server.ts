@@ -36,6 +36,7 @@ class SSEServer {
 
   constructor() {
     this.app = express();
+    this.app.set('trust proxy', 1);
 
     // Initialize core services via factory
     this.services = createBackendCoreServices();
