@@ -623,6 +623,15 @@ export class ZOAdapter {
     }
   }
 
+  /** Validate a document/resource ID to prevent path injection */
+  private validateResourceId(id: string | number): string {
+    const idStr = String(id);
+    if (!/^[a-zA-Z0-9_-]+$/.test(idStr)) {
+      throw new ZakonOnlineValidationError(`Invalid resource ID: ${idStr}`);
+    }
+    return idStr;
+  }
+
   private async requestWithRetry(
     endpoint: string,
     params: any,
@@ -893,7 +902,8 @@ export class ZOAdapter {
    */
   async getDocumentByNumber(docId: string | number): Promise<any | null> {
     try {
-      const endpoint = `/v1/document/by/number/${docId}`;
+      const safeId = this.validateResourceId(docId);
+      const endpoint = `/v1/document/by/number/${safeId}`;
       logger.info(`Fetching document by number via API`, { docId, endpoint });
 
       const apiStart = Date.now();
@@ -921,7 +931,8 @@ export class ZOAdapter {
    */
   async getDocumentById(id: string | number): Promise<any | null> {
     try {
-      const endpoint = `/v1/document/by/id/${id}`;
+      const safeId = this.validateResourceId(id);
+      const endpoint = `/v1/document/by/id/${safeId}`;
       logger.info(`Fetching document by id via API`, { id, endpoint });
 
       const response = await this.requestWithRetry(endpoint, {});
