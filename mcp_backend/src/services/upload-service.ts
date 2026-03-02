@@ -146,11 +146,13 @@ export class UploadService {
     }
 
     // Validate sessionId to prevent path traversal
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
+    const uuidMatch = sessionId.match(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+    if (!uuidMatch) {
       throw new Error('Invalid session ID format');
     }
+    const safeSessionId = uuidMatch[1];
     // Save chunk to disk
-    const chunkPath = path.join(this.tempDir, sessionId, `chunk_${chunkIndex}`);
+    const chunkPath = path.join(this.tempDir, safeSessionId, `chunk_${chunkIndex}`);
     await fs.writeFile(chunkPath, buffer);
 
     // Update session in DB
@@ -344,8 +346,10 @@ export class UploadService {
     );
 
     // Cleanup temp files — validate sessionId to prevent path traversal
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
-      const sessionDir = path.join(this.tempDir, sessionId);
+    const uuidMatch = sessionId.match(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+    if (uuidMatch) {
+      const safeId = uuidMatch[1];
+      const sessionDir = path.join(this.tempDir, safeId);
       await fs.rm(sessionDir, { recursive: true, force: true }).catch(() => {});
     }
 

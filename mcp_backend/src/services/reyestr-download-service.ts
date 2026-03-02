@@ -261,23 +261,10 @@ export class ReyestrDownloadService {
 
     if (!fullText || fullText.length < 100) {
       if (!html.includes('txtdepository')) {
-        // Remove script/style tags in a loop to handle nested/malformed tags
-        let cleaned = html;
-        let prev = '';
-        while (prev !== cleaned) {
-          prev = cleaned;
-          cleaned = cleaned.replace(/<script[\s\S]*?<\/script>/gi, '');
-          cleaned = cleaned.replace(/<style[\s\S]*?<\/style>/gi, '');
-        }
-        fullText = cleaned
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&amp;/g, '&')
-          .replace(/&quot;/g, '"')
-          .replace(/\s+/g, ' ')
-          .trim();
+        // Use cheerio to safely strip script/style and extract text
+        const fallback$ = load(html);
+        fallback$('script, style').remove();
+        fullText = fallback$('body').text().replace(/\s+/g, ' ').trim();
       } else {
         try {
           const parser = new CourtDecisionHTMLParser(html);
