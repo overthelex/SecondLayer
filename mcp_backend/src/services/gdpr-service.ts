@@ -116,7 +116,7 @@ export class GdprService {
         [JSON.stringify({ size_bytes: exportJson.length, data: exportData }), requestId]
       );
 
-      logger.info('[GDPR] Export completed', { requestId, userId: sanitizeId(userId), sizeBytes: exportJson.length });
+      logger.info('[GDPR] Export completed', { requestId, userId: sanitizeId(userId), sizeBytes: Number(exportJson.length) });
     } catch (error: any) {
       await this.db.query(
         `UPDATE gdpr_requests SET status = 'failed', metadata = $1 WHERE id = $2`,
