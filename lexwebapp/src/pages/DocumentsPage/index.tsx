@@ -449,17 +449,17 @@ export function DocumentsPage() {
       setPreviewLoading(true);
       setPreviewOpen(true);
       try {
-        const isImage = mimeType?.startsWith('image/');
-
-        // For images, fetch both preview URL and full_text (OCR) in parallel
+        // Fetch preview URL and full_text (OCR/parsed text) in parallel
         const [previewResp, docResp] = await Promise.all([
           api.documents.getPreviewUrl(doc.id),
-          isImage ? api.documents.getById(doc.id).catch(() => null) : Promise.resolve(null),
+          api.documents.getById(doc.id).catch(() => null),
         ]);
 
         const { previewUrl, mimeType: serverMime } = previewResp.data;
         const badge = DOC_TYPE_LABELS[doc.type] || doc.type;
         const ocrText = docResp?.data?.full_text ?? undefined;
+        const effectiveMime = serverMime || mimeType;
+        const isImagePreview = effectiveMime?.startsWith('image/');
 
         if (previewUrl) {
           setPreviewDoc({
@@ -469,8 +469,8 @@ export function DocumentsPage() {
             badge,
             content: ocrText || '',
             previewUrl,
-            mimeType: serverMime || mimeType,
-            ...(isImage ? { ocrText: ocrText || '', documentId: doc.id } : {}),
+            mimeType: effectiveMime,
+            ...(isImagePreview ? { ocrText: ocrText || '', documentId: doc.id } : {}),
           });
         } else {
           // No binary preview (vault-stored PDF/image) — load extracted text

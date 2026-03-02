@@ -947,11 +947,12 @@ Pipeline:
         paramIndex++;
       }
 
-      // Folder path prefix filter
+      // Folder path prefix filter — match exact path OR any sub-path
       if (args.folderPath) {
-        conditions.push(`metadata::jsonb ->> 'folderPath' LIKE $${paramIndex}`);
-        params.push(args.folderPath + '%');
-        paramIndex++;
+        const cleanFolder = args.folderPath.replace(/\/+$/, '');
+        conditions.push(`(metadata::jsonb ->> 'folderPath' = $${paramIndex} OR metadata::jsonb ->> 'folderPath' LIKE $${paramIndex + 1})`);
+        params.push(cleanFolder, cleanFolder + '/%');
+        paramIndex += 2;
       }
 
       // Matter filter
