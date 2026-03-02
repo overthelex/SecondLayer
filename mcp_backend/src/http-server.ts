@@ -1883,7 +1883,7 @@ class HTTPMCPServer {
     logger.info('Matter routes registered at /api/matters');
 
     // Judges routes - search judges from VKKS data
-    const judgesService = new JudgesService(this.services.db);
+    const judgesService = new JudgesService(this.services.db, this.services.zoAdapter);
     this.app.use('/api/judges', requireJWT as any, createJudgesRoutes(judgesService));
 
     // Decisions routes - download court decision full texts from reyestr.court.gov.ua
