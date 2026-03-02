@@ -63,8 +63,8 @@ STAGE_PATTERNS=(
     "stage.legal.org.ua/*"
 )
 LOCAL_PATTERNS=(
-    "localdev.legal.org.ua/*"
-    "localdev.mcp.legal.org.ua/*"
+    "local.legal.org.ua/*"
+    "local.mcp.legal.org.ua/*"
 )
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -377,7 +377,7 @@ case "$CMD" in
         echo "Usage: $0 <enable|disable|status|setup> [local|stage]"
         echo ""
         echo "  setup           — deploy worker script to Cloudflare (first-time)"
-        echo "  enable [env]    — activate maintenance page (stage: all domains, local: localdev only)"
+        echo "  enable [env]    — activate maintenance page (stage: all domains, local: local only)"
         echo "  disable [env]   — deactivate maintenance page"
         echo "  status          — show current maintenance routes"
         exit 1
