@@ -148,11 +148,12 @@ export class TemplateClassifier {
    * - Expand common abbreviations
    */
   private normalizeQuestion(question: string): string {
-    return question
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, ' ') // Normalize whitespace
-      .replace(/[?!]+$/, '') // Remove trailing punctuation
+    let normalized = question.trim().toLowerCase().replace(/\s+/g, ' ');
+    // Remove trailing punctuation (iterative single-char trim to avoid ReDoS)
+    while (normalized.length > 0 && (normalized.endsWith('?') || normalized.endsWith('!'))) {
+      normalized = normalized.slice(0, -1);
+    }
+    return normalized
       .replace(/\bthe /gi, '') // Remove articles
       .replace(
         /\b(цк|гк|кас|пк|цпк|гпк)\b/gi,
@@ -369,7 +370,7 @@ Return ONLY the JSON object.`;
     }
 
     // 3. Extract percentages
-    const percentPattern = /(\d+(?:[.,]\d{1,2})?%)/g;
+    const percentPattern = /(\d{1,15}(?:[.,]\d{1,2})?%)/g;
     const percentages = questionText.match(percentPattern);
     if (percentages && percentages.length > 0) {
       entities.percentages = percentages;

@@ -19,6 +19,16 @@ function validateUploadId(id: string): boolean {
   return UUID_RE.test(id);
 }
 
+/** Validate that a multer file path is within the expected upload temp directory */
+function validateFilePath(filePath: string): string {
+  const resolved = path.resolve(filePath);
+  const tempDir = path.resolve(process.env.UPLOAD_TEMP_DIR || '/tmp/uploads');
+  if (!resolved.startsWith(tempDir + path.sep) && !resolved.startsWith(tempDir)) {
+    throw new Error('File path outside upload directory');
+  }
+  return resolved;
+}
+
 // Multer configured for disk storage — avoids holding 6MB buffers in memory per chunk
 const UPLOAD_TEMP_DIR = process.env.UPLOAD_TEMP_DIR || '/tmp/uploads';
 const upload = multer({
@@ -314,21 +324,24 @@ export function createUploadRouter(
       }
 
       // Read chunk from disk (multer diskStorage) and clean up temp file
-      const chunkBuffer = await fs.readFile(req.file.path);
+      const safePath = validateFilePath(req.file.path);
+      const chunkBuffer = await fs.readFile(safePath);
       const result = await uploadService.saveChunk(
         uploadId as string,
         chunkIndex,
         chunkBuffer
       );
       // Remove multer temp file after saving to session dir
-      await fs.unlink(req.file.path).catch(() => {});
+      await fs.unlink(safePath).catch(() => {});
 
       addBackpressureHeaders(res);
       res.json(result);
     } catch (error: any) {
       // Clean up multer temp file on error
       if (req.file?.path) {
-        await fs.unlink(req.file.path).catch(() => {});
+        try {
+          await fs.unlink(validateFilePath(req.file.path));
+        } catch { /* ignore cleanup errors */ }
       }
       logger.error('[Upload] Chunk upload failed', {
         uploadId: req.params.uploadId,

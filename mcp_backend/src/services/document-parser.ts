@@ -570,8 +570,8 @@ window.renderPDF = async function(base64Data, maxPages, scale) {
     // Strip RTF control sequences to extract plain text
     let text = raw;
 
-    // Remove RTF header/groups
-    text = text.replace(/\{\\rtf[^}]*\}/g, '');
+    // Remove RTF header/groups (limit match to avoid ReDoS)
+    text = text.replace(/\{\\rtf[^}]{0,500}\}/g, '');
     // Remove font tables, color tables, stylesheet, info groups
     text = text.replace(/\{\\fonttbl[^}]*\}/g, '');
     text = text.replace(/\{\\colortbl[^}]*\}/g, '');
