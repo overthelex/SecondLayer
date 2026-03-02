@@ -110,7 +110,7 @@ export class ProceduralTools extends BaseToolHandler {
             section_focus: { type: 'array', items: { type: 'string', enum: Object.values(SectionType) } },
             limit: { type: 'number', default: 10 },
           },
-          required: ['procedure_code', 'query'],
+          required: ['query'],
         },
       },
       {
@@ -311,13 +311,6 @@ export class ProceduralTools extends BaseToolHandler {
     const sectionFocus = Array.isArray(args.section_focus) ? args.section_focus : undefined;
     const courtLevel = String(args.court_level || 'SC');
 
-    if (!procedureCode) {
-      const providedValue = args.procedure_code || args.code;
-      throw new Error(
-        `procedure_code must be one of: cpc, gpc, cac, crpc. ` +
-        `Received: ${providedValue ? `'${providedValue}'` : 'undefined'}.`
-      );
-    }
     if (!query) throw new Error('query parameter is required');
 
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
@@ -326,9 +319,11 @@ export class ProceduralTools extends BaseToolHandler {
     const whereFilters: any[] = [
       ...buildSupremeCourtWhereFilter(courtLevel),
     ];
-    const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
-    if (justiceKind !== null) {
-      whereFilters.push({ field: 'justice_kind', operator: '=', value: justiceKind });
+    if (procedureCode) {
+      const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
+      if (justiceKind !== null) {
+        whereFilters.push({ field: 'justice_kind', operator: '=', value: justiceKind });
+      }
     }
 
     const searchParams: any = {
@@ -372,7 +367,7 @@ export class ProceduralTools extends BaseToolHandler {
     });
 
     const payload: any = {
-      procedure_code: procedureCode,
+      procedure_code: procedureCode || 'all',
       query,
       time_range: args.time_range,
       applied_filters: {
