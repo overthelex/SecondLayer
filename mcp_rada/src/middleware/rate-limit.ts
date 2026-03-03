@@ -19,6 +19,12 @@ export function createRateLimiter(options: RateLimitOptions) {
     try {
       const redis = getRedisClient();
       const identifier = req.ip || req.socket.remoteAddress || 'unknown';
+
+      // Skip rate limiting for internal/localhost traffic (Prometheus, health monitors)
+      if (identifier === '127.0.0.1' || identifier === '::1' || identifier === '::ffff:127.0.0.1') {
+        next();
+        return;
+      }
       const key = keyPrefix + ':' + identifier;
 
       const current = await redis.get(key);

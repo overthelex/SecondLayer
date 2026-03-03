@@ -29,6 +29,12 @@ export function createRateLimiter(options: RateLimitOptions) {
         return next(); // Cache unavailable, skip rate limiting
       }
       const identifier = req.ip || req.socket.remoteAddress || 'unknown';
+
+      // Skip rate limiting for internal/localhost traffic (Prometheus, health monitors)
+      if (identifier === '127.0.0.1' || identifier === '::1' || identifier === '::ffff:127.0.0.1') {
+        return next();
+      }
+
       const key = keyPrefix + ':' + identifier;
 
       const current = await rateCache.get(key);
