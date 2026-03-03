@@ -7,7 +7,15 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Database } from '../database/database.js';
 import { UserService } from '../services/user-service.js';
+import { BannerService } from '../services/banner-service.js';
 import { logger } from '../utils/logger.js';
+
+let passportBannerService: BannerService | null = null;
+
+/** Set the banner service for passport. Call from composition root. */
+export function setPassportBannerService(svc: BannerService): void {
+  passportBannerService = svc;
+}
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
@@ -83,6 +91,13 @@ export function configurePassport(db: Database): typeof passport {
 
           await userService.updateLastLogin(user.id);
           logger.info('New Google user created', { userId: user.id, email });
+
+          // Generate banner (fire and forget)
+          if (passportBannerService) {
+            passportBannerService.generateBanner(user.id, user.name || user.email).catch((err) => {
+              logger.error('[Banner] Async generation failed for OAuth user', { userId: user.id, error: err.message });
+            });
+          }
 
           return done(null, user);
         } catch (error: any) {

@@ -10,6 +10,7 @@ export interface User {
   email: string;
   name: string;
   picture?: string;
+  banner?: string;
   emailVerified?: boolean;
   lastLogin?: string;
   createdAt?: string;
