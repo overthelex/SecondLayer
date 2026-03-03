@@ -4,7 +4,7 @@ import type { UseProfileReturn } from './types';
 
 type ProfileHeaderProps = Pick<
   UseProfileReturn,
-  'user' | 'isUploadingPhoto' | 'fileInputRef' | 'handlePhotoClick' | 'handleFileChange' | 'handleEditProfile' | 'handleShare'
+  'user' | 'isUploadingPhoto' | 'fileInputRef' | 'handlePhotoClick' | 'handleFileChange' | 'handleEditProfile'
 >;
 
 export function ProfileHeader({
@@ -14,7 +14,6 @@ export function ProfileHeader({
   handlePhotoClick,
   handleFileChange,
   handleEditProfile,
-  handleShare,
 }: ProfileHeaderProps) {
   return (
     <motion.div
@@ -79,7 +78,7 @@ export function ProfileHeader({
           </h1>
           <p className="text-claude-subtext mt-1 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500" />
-            {user?.emailVerified && '✓ '}Verified • Member since {user?.createdAt ? new Date(user.createdAt).getFullYear() : new Date().getFullYear()}
+            {user?.emailVerified && '✓ '}Підтверджено · Учасник з {user?.createdAt ? new Date(user.createdAt).getFullYear() : new Date().getFullYear()} р.
           </p>
         </div>
 
@@ -88,13 +87,7 @@ export function ProfileHeader({
             onClick={handleEditProfile}
             className="flex-1 md:flex-none px-4 py-2.5 bg-claude-accent text-white rounded-xl font-medium text-sm hover:bg-[#C66345] transition-colors shadow-sm active:scale-[0.98]"
           >
-            Edit Profile
-          </button>
-          <button
-            onClick={handleShare}
-            className="flex-1 md:flex-none px-4 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl font-medium text-sm hover:bg-claude-bg transition-colors active:scale-[0.98]"
-          >
-            Share
+            Редагувати
           </button>
         </div>
       </div>

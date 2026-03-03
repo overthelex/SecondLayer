@@ -6,7 +6,7 @@ export function BillingSection({ billing, stats }: BillingSectionProps) {
   return (
     <section className="bg-white rounded-2xl p-6 border border-claude-border shadow-sm">
       <h2 className="text-xl font-serif text-claude-text mb-6">
-        Activity
+        Активність
       </h2>
       <div className="space-y-4">
         {stats.map((stat) => (
@@ -30,7 +30,7 @@ export function BillingSection({ billing, stats }: BillingSectionProps) {
         <div className="mt-6 pt-6 border-t border-claude-border/50">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-claude-text">
-              Monthly Spend
+              Витрати за місяць
             </span>
             <span className="text-sm text-claude-subtext">
               ${Number(billing.month_spent_usd).toFixed(2)} / ${Number(billing.monthly_limit_usd).toFixed(2)}
@@ -43,7 +43,7 @@ export function BillingSection({ billing, stats }: BillingSectionProps) {
             />
           </div>
           <p className="text-xs text-claude-subtext mt-2">
-            Daily limit: ${Number(billing.daily_limit_usd).toFixed(2)} • Today: ${Number(billing.today_spent_usd).toFixed(2)}
+            Денний ліміт: ${Number(billing.daily_limit_usd).toFixed(2)} · Сьогодні: ${Number(billing.today_spent_usd).toFixed(2)}
           </p>
         </div>
       )}
