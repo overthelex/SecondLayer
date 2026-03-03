@@ -64,7 +64,6 @@ export interface UseProfileReturn {
   handleSaveProfile: () => Promise<void>;
   handlePhotoClick: () => void;
   handleFileChange: (event: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
-  handleShare: () => void;
   handleRegisterPasskey: (attachment?: 'cross-platform') => Promise<void>;
   handleDeleteCredential: (credentialId: string) => Promise<void>;
   handleCreateMcpToken: () => Promise<void>;

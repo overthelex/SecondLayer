@@ -37,7 +37,7 @@ export function EditProfileModal({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 bg-white border-b border-claude-border px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="text-xl font-serif text-claude-text">Edit Profile</h2>
+              <h2 className="text-xl font-serif text-claude-text">Редагування профілю</h2>
               <button
                 onClick={handleCloseModal}
                 className="p-2 hover:bg-claude-bg rounded-lg transition-colors"
@@ -72,14 +72,14 @@ export function EditProfileModal({
                   ) : (
                     <Upload size={16} />
                   )}
-                  {isUploadingPhoto ? 'Uploading...' : 'Change Photo'}
+                  {isUploadingPhoto ? 'Завантаження...' : 'Змінити фото'}
                 </button>
               </div>
 
               {/* Name Field */}
               <div>
                 <label htmlFor="profile-name" className="block text-sm font-medium text-claude-text mb-2">
-                  Full Name
+                  Повне ім'я
                 </label>
                 <input
                   id="profile-name"
@@ -88,14 +88,14 @@ export function EditProfileModal({
                   value={editForm.name}
                   onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-4 py-2.5 border border-claude-border rounded-lg focus:outline-none focus:ring-2 focus:ring-claude-accent focus:border-transparent transition-all"
-                  placeholder="Enter your name"
+                  placeholder="Введіть ваше ім'я"
                 />
               </div>
 
               {/* Phone Field */}
               <div>
                 <label htmlFor="profile-phone" className="block text-sm font-medium text-claude-text mb-2">
-                  Phone Number (optional)
+                  Номер телефону (необов'язково)
                 </label>
                 <input
                   id="profile-phone"
@@ -111,14 +111,14 @@ export function EditProfileModal({
               {/* Email Field (Read-only) */}
               <div>
                 <label className="block text-sm font-medium text-claude-text mb-2">
-                  Email
+                  Електронна пошта
                 </label>
                 <div className="w-full px-4 py-2.5 border border-claude-border rounded-lg bg-claude-bg text-claude-subtext flex items-center gap-2">
                   <Mail size={16} />
                   {user?.email}
                 </div>
                 <p className="text-xs text-claude-subtext mt-1">
-                  Email cannot be changed for security reasons
+                  Email не можна змінити з міркувань безпеки
                 </p>
               </div>
             </div>
@@ -128,7 +128,7 @@ export function EditProfileModal({
                 onClick={handleCloseModal}
                 className="flex-1 px-4 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl font-medium text-sm hover:bg-claude-bg transition-colors"
               >
-                Cancel
+                Скасувати
               </button>
               <button
                 onClick={handleSaveProfile}
@@ -138,12 +138,12 @@ export function EditProfileModal({
                 {isSaving ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    Saving...
+                    Збереження...
                   </>
                 ) : (
                   <>
                     <Save size={16} />
-                    Save Changes
+                    Зберегти
                   </>
                 )}
               </button>
