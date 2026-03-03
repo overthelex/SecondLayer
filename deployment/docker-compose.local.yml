@@ -927,6 +927,48 @@ services:
         reservations:
           memory: 64M
 
+  # ===== HUDOC PostgreSQL on HDD (court sessions bulk data) =====
+
+  postgres-hudoc-local:
+    image: postgres:15-alpine
+    container_name: postgres-hudoc-local
+    shm_size: '1gb'
+    command: >-
+      postgres
+      -c max_connections=100
+      -c shared_buffers=512MB
+      -c effective_cache_size=2GB
+      -c work_mem=32MB
+      -c maintenance_work_mem=256MB
+      -c checkpoint_completion_target=0.9
+      -c wal_level=minimal
+      -c max_wal_senders=0
+    environment:
+      POSTGRES_USER: ${HUDOC_POSTGRES_USER:-hudoc}
+      POSTGRES_PASSWORD: ${HUDOC_POSTGRES_PASSWORD:-hudoc_local_pass}
+      POSTGRES_DB: ${HUDOC_POSTGRES_DB:-hudoc_local}
+    ports:
+      - "5436:5432"
+    volumes:
+      - /home/vovkes/hudoc-storage/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HUDOC_POSTGRES_USER:-hudoc} -d ${HUDOC_POSTGRES_DB:-hudoc_local}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
   redis-exporter-local:
     image: oliver006/redis_exporter:v1.56.0
     container_name: redis-exporter-local
