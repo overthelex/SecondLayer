@@ -412,6 +412,61 @@ services:
         reservations:
           memory: 512M
 
+  # Nextcloud - cloud file storage
+  nextcloud-db-prod:
+    image: postgres:15-alpine
+    container_name: nextcloud-db-prod
+    environment:
+      POSTGRES_DB: ${NEXTCLOUD_DB_NAME:-nextcloud}
+      POSTGRES_USER: ${NEXTCLOUD_DB_USER:-nextcloud}
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:-nextcloud_prod_pass}
+    volumes:
+      - nextcloud_db_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${NEXTCLOUD_DB_USER:-nextcloud}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    networks:
+      - secondlayer-prod-network
+
+  nextcloud-prod:
+    image: nextcloud:29-apache
+    container_name: nextcloud-prod
+    environment:
+      POSTGRES_HOST: nextcloud-db-prod
+      POSTGRES_DB: ${NEXTCLOUD_DB_NAME:-nextcloud}
+      POSTGRES_USER: ${NEXTCLOUD_DB_USER:-nextcloud}
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:-nextcloud_prod_pass}
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_USER:-admin}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_PASSWORD:-admin}
+      NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud-prod localhost legal.org.ua"
+      OVERWRITEWEBROOT: /nextcloud
+      OVERWRITEPROTOCOL: https
+    ports:
+      - "127.0.0.1:8890:80"
+    volumes:
+      - nextcloud_prod_data:/var/www/html
+    depends_on:
+      nextcloud-db-prod:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    networks:
+      - secondlayer-prod-network
+
   minio-prod:
     image: minio/minio:latest
     container_name: minio-prod
@@ -529,6 +584,11 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_USE_SSL: "false"
       MINIO_PUBLIC_URL: https://legal.org.ua/s3
+
+      # Nextcloud (cloud file storage)
+      NEXTCLOUD_URL: http://nextcloud-prod:80
+      NEXTCLOUD_USER: ${NEXTCLOUD_USER:-admin}
+      NEXTCLOUD_PASSWORD: ${NEXTCLOUD_PASSWORD:-admin}
 
       # Upload temp
       UPLOAD_TEMP_DIR: /app/data/uploads
@@ -860,6 +920,10 @@ volumes:
   nginx_prod_logs:
     driver: local
   grafana_prod_data:
+    driver: local
+  nextcloud_prod_data:
+    driver: local
+  nextcloud_db_prod_data:
     driver: local
 
 networks:
