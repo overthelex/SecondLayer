@@ -18,18 +18,34 @@ const BANNER_QUALITY = 85;
 const MIN_RADIUS = 4;
 const MAX_RADIUS = 18;
 
-// Color palettes for Ishihara effect
-const BACKGROUND_COLORS = [
-  '#2E8B57', '#3CB371', '#66CDAA', '#8FBC8F', '#20B2AA',
-  '#2E9959', '#4CAF6E', '#5BB882', '#3DA06B', '#48B577',
-  '#279E5E', '#55C285', '#6ECE9A', '#459F6E', '#38A863',
-];
+/**
+ * Generate a unique color palette for each user based on a hue value.
+ * Returns 15 HSL color strings with slight saturation/lightness variation.
+ */
+function generatePalette(baseHue: number, rand: () => number): string[] {
+  const colors: string[] = [];
+  for (let i = 0; i < 15; i++) {
+    const h = (baseHue + (rand() - 0.5) * 30) % 360;
+    const s = 45 + rand() * 30; // 45-75%
+    const l = 35 + rand() * 25; // 35-60%
+    colors.push(`hsl(${h.toFixed(0)}, ${s.toFixed(0)}%, ${l.toFixed(0)}%)`);
+  }
+  return colors;
+}
 
-const TEXT_COLORS = [
-  '#CD5C5C', '#E9967A', '#FA8072', '#F08080', '#DC143C',
-  '#D96B6B', '#E8826E', '#F4907A', '#E07474', '#D45858',
-  '#C94E4E', '#D77165', '#EB8B78', '#CE6262', '#DB6F5F',
-];
+/**
+ * Pick two contrasting hues for background and text based on userId seed.
+ * Hues are at least 90° apart on the color wheel for good contrast.
+ */
+function getUserPalettes(rand: () => number): { bg: string[]; text: string[] } {
+  const bgHue = rand() * 360;
+  // Offset text hue by 120-240° for contrast
+  const textHue = (bgHue + 120 + rand() * 120) % 360;
+  return {
+    bg: generatePalette(bgHue, rand),
+    text: generatePalette(textHue, rand),
+  };
+}
 
 /**
  * Simple seeded PRNG (mulberry32)
@@ -107,6 +123,7 @@ function escapeXml(str: string): string {
  */
 async function generateIshiharaSvg(userId: string, name: string): Promise<string> {
   const rand = seededRandom(hashString(userId));
+  const { bg: bgPalette, text: textPalette } = getUserPalettes(rand);
   const textMask = await createTextMask(name, BANNER_WIDTH, BANNER_HEIGHT);
 
   const circles: string[] = [];
@@ -127,8 +144,8 @@ async function generateIshiharaSvg(userId: string, name: string): Promise<string
       const my = Math.round(Math.min(Math.max(y, 0), BANNER_HEIGHT - 1));
       const isText = textMask[my]?.[mx] ?? false;
 
-      // Pick color from appropriate palette
-      const palette = isText ? TEXT_COLORS : BACKGROUND_COLORS;
+      // Pick color from user-unique palette
+      const palette = isText ? textPalette : bgPalette;
       const color = palette[Math.floor(rand() * palette.length)];
 
       // Slight opacity variation for organic feel
