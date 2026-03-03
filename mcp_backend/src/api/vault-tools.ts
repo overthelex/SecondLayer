@@ -994,7 +994,8 @@ Pipeline:
       }
 
       const query = `
-        SELECT id, type, title, metadata, storage_type, mime_type, created_at, updated_at
+        SELECT id, type, title, metadata, storage_type, mime_type, created_at, updated_at,
+               LEFT(regexp_replace(full_text, '[^\\x20-\\x7E\\u0400-\\u04FF\\u0500-\\u052F\\s]', '', 'g'), 300) AS text_preview
         FROM documents
         WHERE ${whereClause}
         ORDER BY ${orderClause}
@@ -1017,7 +1018,7 @@ Pipeline:
         storage_type: row.storage_type || 'vault',
         mime_type: row.mime_type || null,
         content: '', // Don't include full content in list
-        text_preview: '', // TODO: enable after cleaning invalid UTF-8 in full_text column
+        text_preview: row.text_preview || '',
         metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata || {},
       }));
 
