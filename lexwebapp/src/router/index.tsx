@@ -80,6 +80,9 @@ const VotingAnalysisPage = lazy(() => import('../pages/VotingAnalysisPage').then
 const LegalCodesLibraryPage = lazy(() => import('../pages/LegalCodesLibraryPage').then(m => ({ default: m.LegalCodesLibraryPage })));
 const HistoricalAnalysisPage = lazy(() => import('../pages/HistoricalAnalysisPage').then(m => ({ default: m.HistoricalAnalysisPage })));
 
+// -- MCP Connect --
+const MCPConnectPage = lazy(() => import('../pages/MCPConnectPage').then(m => ({ default: m.MCPConnectPage })));
+
 // -- Attorney/Consultations (hidden — feature not ready for production) --
 
 // -- Workflows --
@@ -194,6 +197,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.TEAM,
             element: S(TeamPage),
+          },
+          {
+            path: ROUTES.MCP_CONNECT,
+            element: S(MCPConnectPage),
           },
           {
             path: ROUTES.JUDGES,
