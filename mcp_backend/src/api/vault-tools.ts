@@ -994,7 +994,8 @@ Pipeline:
       }
 
       const query = `
-        SELECT id, type, title, metadata, storage_type, mime_type, created_at, updated_at
+        SELECT id, type, title, metadata, storage_type, mime_type, created_at, updated_at,
+               LEFT(full_text, 200) AS text_preview
         FROM documents
         WHERE ${whereClause}
         ORDER BY ${orderClause}
@@ -1017,6 +1018,7 @@ Pipeline:
         storage_type: row.storage_type || 'vault',
         mime_type: row.mime_type || null,
         content: '', // Don't include full content in list
+        text_preview: row.text_preview || '',
         metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata || {},
       }));
 
