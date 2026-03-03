@@ -80,13 +80,7 @@ const VotingAnalysisPage = lazy(() => import('../pages/VotingAnalysisPage').then
 const LegalCodesLibraryPage = lazy(() => import('../pages/LegalCodesLibraryPage').then(m => ({ default: m.LegalCodesLibraryPage })));
 const HistoricalAnalysisPage = lazy(() => import('../pages/HistoricalAnalysisPage').then(m => ({ default: m.HistoricalAnalysisPage })));
 
-// -- Attorney/Consultations --
-const AttorneySearchPage = lazy(() => import('../pages/AttorneySearchPage').then(m => ({ default: m.AttorneySearchPage })));
-const AttorneyDetailPage = lazy(() => import('../pages/AttorneyDetailPage').then(m => ({ default: m.AttorneyDetailPage })));
-const AttorneyProfilePage = lazy(() => import('../pages/AttorneyProfilePage').then(m => ({ default: m.AttorneyProfilePage })));
-const ConsultationsPage = lazy(() => import('../pages/ConsultationsPage').then(m => ({ default: m.ConsultationsPage })));
-const ConsultationDetailPage = lazy(() => import('../pages/ConsultationDetailPage').then(m => ({ default: m.ConsultationDetailPage })));
-const AttorneyClientsPage = lazy(() => import('../pages/AttorneyClientsPage').then(m => ({ default: m.AttorneyClientsPage })));
+// -- Attorney/Consultations (hidden — feature not ready for production) --
 
 // -- Workflows --
 const WorkflowsPage = lazy(() => import('../pages/WorkflowsPage').then(m => ({ default: m.WorkflowsPage })));
@@ -293,30 +287,7 @@ export const router = createBrowserRouter([
             path: ROUTES.COURT_PRACTICE_ANALYSIS,
             element: S(CourtPracticeAnalysisPage),
           },
-          {
-            path: ROUTES.ATTORNEYS,
-            element: S(AttorneySearchPage),
-          },
-          {
-            path: ROUTES.ATTORNEY_DETAIL,
-            element: S(AttorneyDetailPage),
-          },
-          {
-            path: ROUTES.ATTORNEY_PROFILE_EDIT,
-            element: S(AttorneyProfilePage),
-          },
-          {
-            path: ROUTES.ATTORNEY_CLIENTS,
-            element: S(AttorneyClientsPage),
-          },
-          {
-            path: ROUTES.CONSULTATIONS,
-            element: S(ConsultationsPage),
-          },
-          {
-            path: ROUTES.CONSULTATION_DETAIL,
-            element: S(ConsultationDetailPage),
-          },
+          /* Attorney/Consultation routes hidden — feature not ready for production */
           {
             path: ROUTES.WORKFLOWS,
             element: S(WorkflowsPage),
