@@ -8,158 +8,94 @@ import { FileText, ArrowLeft, Globe } from 'lucide-react';
 
 const offerContent = {
   uk: {
-    title: 'Публічна оферта',
-    subtitle: 'Договір публічної оферти про надання послуг',
-    effectiveDate: 'Дата набрання чинності: 14 лютого 2026 р.',
+    title: 'ПУБЛІЧНА ОФЕРТА',
+    subtitle: 'про надання інформаційних послуг',
     backLabel: 'Назад',
     switchLang: 'English',
     switchTo: 'en',
     sections: [
       {
+        heading: '',
+        content: `Товариство з обмеженою відповідальністю «Лекс ЕйАй»
+Код ЄДРПОУ: 46011385
+Місцезнаходження: 04132, Україна, м. Київ, 47-Садова, 1а
+Email: info@legal.org.ua`,
+      },
+      {
         heading: '1. Загальні положення',
-        content: `1.1. Цей документ є офіційною публічною офертою (далі — «Оферта») платформи SecondLayer (далі — «Виконавець»), адресованою будь-якій фізичній або юридичній особі (далі — «Замовник»), яка приймає умови цієї Оферти.
-
-1.2. Оферта вважається прийнятою (акцептованою) з моменту оплати послуг Замовником через платіжну систему Monobank або іншим доступним способом.
-
-1.3. Виконавець залишає за собою право змінювати умови цієї Оферти без попереднього повідомлення. Актуальна версія Оферти завжди доступна за цією адресою.`,
+        content: `Цей документ є офіційною публічною пропозицією (офертою) ТОВ «Лекс ЕйАй» укласти договір надання інформаційних послуг.`,
       },
       {
-        heading: '2. Предмет оферти',
-        content: `2.1. Виконавець надає Замовнику доступ до онлайн-платформи SecondLayer для юридичного аналізу, пошуку судових рішень, аналізу законодавства та інших юридичних послуг (далі — «Послуги»).
-
-2.2. Перелік та обсяг Послуг визначаються обраним тарифним планом та доступним балансом на рахунку Замовника.
-
-2.3. Послуги надаються на умовах «як є» (as is). Результати аналізу мають інформаційний характер і не є юридичною консультацією.`,
+        heading: '2. Предмет договору',
+        content: `Компанія надає доступ до програмного забезпечення Lex AI для автоматизації аналізу юридичних документів.`,
       },
       {
-        heading: '3. Вартість послуг та порядок оплати',
-        content: `3.1. Вартість Послуг визначається відповідно до діючих тарифів, опублікованих на платформі.
-
-3.2. Оплата здійснюється шляхом поповнення балансу через платіжну систему Monobank (в гривнях) або MetaMask (криптовалюта).
-
-3.3. Кошти списуються з балансу Замовника відповідно до фактичного використання Послуг.
-
-3.4. Повернення коштів здійснюється відповідно до чинного законодавства України та політики повернення Виконавця.`,
+        heading: '3. Порядок укладення договору',
+        content: `Договір вважається укладеним з моменту здійснення Клієнтом оплати послуг.`,
       },
       {
-        heading: '4. Права та обов\'язки сторін',
-        content: `4.1. Виконавець зобов\'язується:
-— забезпечити доступ до платформи 24/7, за винятком планових технічних робіт;
-— зберігати конфіденційність даних Замовника відповідно до Політики конфіденційності;
-— надавати технічну підтримку.
-
-4.2. Замовник зобов\'язується:
-— надати достовірну інформацію при реєстрації;
-— не передавати доступ до свого облікового запису третім особам;
-— використовувати платформу відповідно до чинного законодавства.`,
+        heading: '4. Вартість та порядок оплати',
+        content: `Вартість послуг визначається відповідно до обраного тарифу.
+Оплата здійснюється онлайн через платіжні системи.`,
       },
       {
-        heading: '5. Відповідальність',
-        content: `5.1. Виконавець не несе відповідальності за рішення, прийняті Замовником на основі результатів аналізу, наданих платформою.
-
-5.2. Максимальна відповідальність Виконавця обмежується сумою оплати, здійсненої Замовником за останні 30 днів.
-
-5.3. Виконавець не несе відповідальності за збої, спричинені форс-мажорними обставинами або діями третіх осіб.`,
+        heading: '5. Повернення коштів',
+        content: `Повернення можливе у випадках:
+— технічної неможливості надання послуг;
+— помилкової оплати.
+Заява подається протягом 14 календарних днів.`,
       },
       {
-        heading: '6. Персональні дані та конфіденційність',
-        content: `6.1. Виконавець збирає та обробляє персональні дані Замовника відповідно до Закону України «Про захист персональних даних» та Регламенту GDPR.
-
-6.2. Замовник надає згоду на обробку персональних даних шляхом акцепту цієї Оферти.
-
-6.3. Виконавець не передає персональні дані третім особам, за винятком випадків, передбачених законодавством.`,
-      },
-      {
-        heading: '7. Строк дії та розірвання',
-        content: `7.1. Ця Оферта діє безстроково з моменту її акцепту.
-
-7.2. Замовник може відмовитися від Послуг у будь-який час, звернувшись до служби підтримки.
-
-7.3. Виконавець має право припинити надання Послуг у разі порушення Замовником умов цієї Оферти.`,
-      },
-      {
-        heading: '8. Реквізити Виконавця',
-        content: `SecondLayer
-Електронна пошта: support@legal.org.ua
-Веб-сайт: https://legal.org.ua`,
+        heading: '6. Контактна інформація',
+        content: `ТОВ «Лекс ЕйАй», ЄДРПОУ: 46011385
+Юридична адреса: 04132, Україна, м. Київ, 47-Садова, 1а
+Email: info@legal.org.ua`,
       },
     ],
   },
   en: {
-    title: 'Public Offer',
-    subtitle: 'Public Offer Agreement for Provision of Services',
-    effectiveDate: 'Effective Date: February 14, 2026',
+    title: 'PUBLIC OFFER',
+    subtitle: 'for the provision of information services',
     backLabel: 'Back',
     switchLang: 'Українська',
     switchTo: 'uk',
     sections: [
       {
+        heading: '',
+        content: `Limited Liability Company "Lex AI"
+EDRPOU Code: 46011385
+Address: 04132, Ukraine, Kyiv, 47-Sadova, 1a
+Email: info@legal.org.ua`,
+      },
+      {
         heading: '1. General Provisions',
-        content: `1.1. This document constitutes an official public offer (hereinafter — "Offer") of the SecondLayer platform (hereinafter — "Provider"), addressed to any individual or legal entity (hereinafter — "Client") who accepts the terms of this Offer.
-
-1.2. The Offer is considered accepted from the moment of payment by the Client through the Monobank payment system or any other available method.
-
-1.3. The Provider reserves the right to amend the terms of this Offer without prior notice. The current version of the Offer is always available at this address.`,
+        content: `This document is an official public offer by LLC "Lex AI" to enter into an agreement for the provision of information services.`,
       },
       {
-        heading: '2. Subject of the Offer',
-        content: `2.1. The Provider grants the Client access to the SecondLayer online platform for legal analysis, court decision search, legislation analysis, and other legal services (hereinafter — "Services").
-
-2.2. The scope of Services is determined by the selected pricing plan and the available balance in the Client's account.
-
-2.3. Services are provided on an "as is" basis. Analysis results are informational in nature and do not constitute legal advice.`,
+        heading: '2. Subject of the Agreement',
+        content: `The Company provides access to the Lex AI software for automation of legal document analysis.`,
       },
       {
-        heading: '3. Pricing and Payment',
-        content: `3.1. The cost of Services is determined according to the current pricing published on the platform.
-
-3.2. Payment is made by topping up the balance through the Monobank payment system (in Ukrainian hryvnias) or MetaMask (cryptocurrency).
-
-3.3. Funds are deducted from the Client's balance according to actual usage of Services.
-
-3.4. Refunds are processed in accordance with the current legislation of Ukraine and the Provider's refund policy.`,
+        heading: '3. Conclusion of the Agreement',
+        content: `The agreement is considered concluded from the moment the Client makes payment for the services.`,
       },
       {
-        heading: '4. Rights and Obligations',
-        content: `4.1. The Provider undertakes to:
-— ensure platform availability 24/7, except for scheduled maintenance;
-— maintain the confidentiality of Client data in accordance with the Privacy Policy;
-— provide technical support.
-
-4.2. The Client undertakes to:
-— provide accurate information during registration;
-— not share access to their account with third parties;
-— use the platform in compliance with applicable laws.`,
+        heading: '4. Pricing and Payment',
+        content: `The cost of services is determined according to the selected plan.
+Payment is made online through payment systems.`,
       },
       {
-        heading: '5. Liability',
-        content: `5.1. The Provider is not liable for decisions made by the Client based on analysis results provided by the platform.
-
-5.2. The Provider's maximum liability is limited to the amount paid by the Client in the last 30 days.
-
-5.3. The Provider is not liable for failures caused by force majeure or actions of third parties.`,
+        heading: '5. Refunds',
+        content: `Refunds are possible in the following cases:
+— technical impossibility of providing services;
+— erroneous payment.
+The application must be submitted within 14 calendar days.`,
       },
       {
-        heading: '6. Personal Data and Privacy',
-        content: `6.1. The Provider collects and processes the Client's personal data in accordance with the Law of Ukraine "On Protection of Personal Data" and the GDPR.
-
-6.2. The Client consents to the processing of personal data by accepting this Offer.
-
-6.3. The Provider does not share personal data with third parties, except as required by law.`,
-      },
-      {
-        heading: '7. Duration and Termination',
-        content: `7.1. This Offer is valid indefinitely from the moment of acceptance.
-
-7.2. The Client may discontinue the Services at any time by contacting support.
-
-7.3. The Provider may terminate the Services if the Client violates the terms of this Offer.`,
-      },
-      {
-        heading: '8. Provider Details',
-        content: `SecondLayer
-Email: support@legal.org.ua
-Website: https://legal.org.ua`,
+        heading: '6. Contact Information',
+        content: `LLC "Lex AI", EDRPOU: 46011385
+Legal address: 04132, Ukraine, Kyiv, 47-Sadova, 1a
+Email: info@legal.org.ua`,
       },
     ],
   },
@@ -211,16 +147,17 @@ export function OfferPage() {
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">{content.title}</h1>
             <p className="text-lg text-gray-600">{content.subtitle}</p>
-            <p className="text-sm text-gray-400 mt-2">{content.effectiveDate}</p>
           </div>
 
           {/* Sections */}
           <div className="space-y-8">
             {content.sections.map((section, index) => (
               <section key={index}>
-                <h2 className="text-xl font-semibold text-gray-900 mb-3">
-                  {section.heading}
-                </h2>
+                {section.heading && (
+                  <h2 className="text-xl font-semibold text-gray-900 mb-3">
+                    {section.heading}
+                  </h2>
+                )}
                 <div className="text-gray-700 leading-relaxed whitespace-pre-line">
                   {section.content}
                 </div>
@@ -233,7 +170,7 @@ export function OfferPage() {
       {/* Footer */}
       <footer className="max-w-4xl mx-auto px-4 py-6 text-center">
         <p className="text-xs text-gray-400">
-          SecondLayer &copy; {new Date().getFullYear()}
+          ТОВ «Лекс ЕйАй» &copy; {new Date().getFullYear()}
         </p>
       </footer>
     </div>
