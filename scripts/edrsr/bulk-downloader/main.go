@@ -25,8 +25,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -39,16 +41,20 @@ import (
 // ---- Config ----------------------------------------------------------------
 
 type Config struct {
-	Workers     int
-	OutDir      string
-	Retries     int
-	RetryDelay  time.Duration
-	Timeout     time.Duration
-	SkipExist   bool
-	RateLimit   int // requests per second, 0 = unlimited
-	ProgressSec int // progress interval in seconds
-	UserAgent   string
-	TLSSkip     bool
+	Workers      int
+	OutDir       string
+	Retries      int
+	RetryDelay   time.Duration
+	Timeout      time.Duration
+	SkipExist    bool
+	RateLimit    int    // requests per second, 0 = unlimited
+	ProgressSec  int    // progress interval in seconds
+	UserAgent    string
+	TLSSkip      bool
+	PipeCmd      string // if set, pipe response body through "sh -c <PipeCmd>", write stdout to destPath
+	BindAddr     string // local IP to bind TCP connections to (forces specific interface via policy routing)
+	ShardIndex   int    // 0-based shard index (process only lines where lineNum % ShardTotal == ShardIndex)
+	ShardTotal   int    // total number of shards (0 = disabled)
 }
 
 // ---- Job -------------------------------------------------------------------
@@ -84,7 +90,15 @@ func (s *Stats) print(total int64, elapsed time.Duration) {
 // ---- HTTP client -----------------------------------------------------------
 
 func newClient(cfg *Config) *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+	if cfg.BindAddr != "" {
+		dialer.LocalAddr = &net.TCPAddr{IP: net.ParseIP(cfg.BindAddr)}
+	}
 	tr := &http.Transport{
+		DialContext:         dialer.DialContext,
 		MaxIdleConns:        cfg.Workers * 2,
 		MaxIdleConnsPerHost: cfg.Workers,
 		IdleConnTimeout:     90 * time.Second,
@@ -160,6 +174,10 @@ func doDownload(ctx context.Context, client *http.Client, job Job, cfg *Config, 
 		return &httpError{code: resp.StatusCode, url: job.URL}
 	}
 
+	if cfg.PipeCmd != "" {
+		return doPipe(ctx, resp.Body, job, cfg, stats)
+	}
+
 	// Write to temp file, rename on success (atomic)
 	tmp := job.DestPath + ".tmp"
 	f, err := os.Create(tmp)
@@ -184,6 +202,51 @@ func doDownload(ctx context.Context, client *http.Client, job Job, cfg *Config, 
 	return nil
 }
 
+// doPipe streams resp.Body through "sh -c <PipeCmd>" and writes stdout to job.DestPath.
+// This avoids writing the raw (e.g. RTF) file to disk — only converted output is kept.
+func doPipe(ctx context.Context, body io.Reader, job Job, cfg *Config, stats *Stats) error {
+	dir := filepath.Dir(job.DestPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", dir, err)
+	}
+
+	tmp := job.DestPath + ".tmp"
+	f, err := os.Create(tmp)
+	if err != nil {
+		return fmt.Errorf("create %s: %w", tmp, err)
+	}
+
+	cmd := exec.CommandContext(ctx, "sh", "-c", cfg.PipeCmd)
+	cmd.Stdin = body
+	cmd.Stdout = f
+	// Suppress converter stderr to avoid noise from 300 concurrent processes.
+	// Errors are surfaced via non-zero exit code.
+	cmd.Stderr = io.Discard
+
+	runErr := cmd.Run()
+	f.Close()
+
+	if runErr != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("pipe cmd: %w", runErr)
+	}
+
+	fi, err := os.Stat(tmp)
+	if err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("stat tmp: %w", err)
+	}
+
+	if err := os.Rename(tmp, job.DestPath); err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("rename %s: %w", tmp, err)
+	}
+
+	stats.bytes.Add(fi.Size())
+	stats.done.Add(1)
+	return nil
+}
+
 // ---- HTTP error type -------------------------------------------------------
 
 type httpError struct {
@@ -202,57 +265,64 @@ func isClientError(err error) bool {
 	return false
 }
 
-// ---- URL list reader -------------------------------------------------------
+// ---- URL list streaming ----------------------------------------------------
 
-// readJobs reads jobs from reader. Format per line:
-//   <url>
-//   <url> <dest-relative-path>
-// Lines starting with # or empty lines are skipped.
-func readJobs(r io.Reader, outDir string) ([]Job, error) {
-	var jobs []Job
+// parseLine parses one URL-list line into a Job. Returns ok=false for blank/comment lines.
+func parseLine(line, outDir string) (Job, bool) {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return Job{}, false
+	}
+	parts := strings.Fields(line)
+	rawURL := parts[0]
+	var destPath string
+	if len(parts) >= 2 {
+		destPath = filepath.Join(outDir, filepath.FromSlash(parts[1]))
+	} else {
+		segment := rawURL
+		if idx := strings.LastIndex(rawURL, "/"); idx >= 0 {
+			segment = rawURL[idx+1:]
+		}
+		if idx := strings.Index(segment, "?"); idx >= 0 {
+			segment = segment[:idx]
+		}
+		if segment == "" {
+			segment = "file"
+		}
+		destPath = filepath.Join(outDir, segment)
+	}
+	return Job{URL: rawURL, DestPath: destPath}, true
+}
+
+// streamJobs reads the URL list line-by-line and sends jobs directly into jobCh.
+// Supports sharding: if cfg.ShardTotal > 0, only lines where lineNum%ShardTotal==ShardIndex are emitted.
+// Returns total line count (including skipped shards/blanks) for progress display.
+func streamJobs(ctx context.Context, r io.Reader, cfg *Config, jobCh chan<- Job) (total int64, err error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
-
+	var lineNum int64
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
+		job, ok := parseLine(scanner.Text(), cfg.OutDir)
+		if !ok {
 			continue
 		}
-
-		parts := strings.Fields(line)
-		rawURL := parts[0]
-
-		var destPath string
-		if len(parts) >= 2 {
-			// Explicit destination path provided
-			destPath = filepath.Join(outDir, filepath.FromSlash(parts[1]))
-		} else {
-			// Derive filename from URL
-			segment := rawURL
-			if idx := strings.LastIndex(rawURL, "/"); idx >= 0 {
-				segment = rawURL[idx+1:]
-			}
-			// Strip query string
-			if idx := strings.Index(segment, "?"); idx >= 0 {
-				segment = segment[:idx]
-			}
-			if segment == "" {
-				segment = "file"
-			}
-			destPath = filepath.Join(outDir, segment)
+		lineNum++
+		total++
+		if cfg.ShardTotal > 0 && int(lineNum%int64(cfg.ShardTotal)) != cfg.ShardIndex {
+			continue
 		}
-
-		jobs = append(jobs, Job{URL: rawURL, DestPath: destPath})
+		select {
+		case jobCh <- job:
+		case <-ctx.Done():
+			return total, ctx.Err()
+		}
 	}
-
-	return jobs, scanner.Err()
+	return total, scanner.Err()
 }
 
 // ---- Worker pool -----------------------------------------------------------
 
-func runWorkers(ctx context.Context, jobs []Job, cfg *Config, client *http.Client, errLog *log.Logger) *Stats {
-	stats := &Stats{}
-	jobCh := make(chan Job, cfg.Workers*4)
+func runWorkers(ctx context.Context, jobCh <-chan Job, cfg *Config, client *http.Client, errLog *log.Logger, stats *Stats) {
 
 	// Rate limiter (token bucket via ticker)
 	var rateTicker <-chan time.Time
@@ -283,20 +353,7 @@ func runWorkers(ctx context.Context, jobs []Job, cfg *Config, client *http.Clien
 		}()
 	}
 
-	// Feed jobs
-	go func() {
-		for _, j := range jobs {
-			select {
-			case jobCh <- j:
-			case <-ctx.Done():
-				break
-			}
-		}
-		close(jobCh)
-	}()
-
 	wg.Wait()
-	return stats
 }
 
 // ---- Main ------------------------------------------------------------------
@@ -314,6 +371,10 @@ func main() {
 	flag.IntVar(&cfg.ProgressSec, "progress", 5, "progress print interval in seconds")
 	flag.StringVar(&cfg.UserAgent, "ua", "bulk-downloader/1.0", "User-Agent header")
 	flag.BoolVar(&cfg.TLSSkip, "tls-skip", false, "skip TLS certificate verification")
+	flag.StringVar(&cfg.PipeCmd, "pipe", "", "shell command to pipe each response body through; stdout is written to destPath (e.g. \"unrtf --text 2>/dev/null\")")
+	flag.StringVar(&cfg.BindAddr, "bind", "", "local IP to bind outgoing TCP connections to (e.g. 178.150.37.129 to force enp11s0 via policy routing)")
+	flag.IntVar(&cfg.ShardIndex, "shard-index", 0, "0-based shard index for this process (use with -shard-total)")
+	flag.IntVar(&cfg.ShardTotal, "shard-total", 0, "split URL list into N shards; 0 = disabled")
 
 	errFile := flag.String("errlog", "", "file to log errors to (default: stderr)")
 
@@ -339,6 +400,15 @@ Examples:
   # Stream URLs from psql
   psql "$DSN" -Atc "SELECT doc_url||E'\t'||doc_id||'.rtf' FROM edrsr_documents" \
     | bulk-downloader -workers 300 -out /data/rtf -
+
+  # Pipe mode: convert RTF→text on the fly, never write RTF to disk (~3x less space)
+  # URL list must use .txt destinations:
+  #   psql ... -Atc "SELECT doc_url, doc_id||'.txt' FROM edrsr_documents WHERE status=1"
+  bulk-downloader -workers 300 -pipe "unrtf --text 2>/dev/null" -out /data/edrsr/txt urls-txt.txt
+
+  # Pipe to tmpfs (fits 92 GB text in 132 GB RAM, avoid disk entirely):
+  #   mount -t tmpfs -o size=100g tmpfs /mnt/edrsr
+  bulk-downloader -workers 300 -pipe "unrtf --text 2>/dev/null" -out /mnt/edrsr urls-txt.txt
 
   # Limit to 1000 req/s total (rate/workers per goroutine)
   bulk-downloader -workers 100 -rate 10 -out /data/rtf urls.txt
@@ -378,22 +448,14 @@ Examples:
 		inputReader = f
 	}
 
+	// Validate shard flags
+	if cfg.ShardTotal > 0 && (cfg.ShardIndex < 0 || cfg.ShardIndex >= cfg.ShardTotal) {
+		log.Fatalf("-shard-index must be in [0, shard-total)")
+	}
+
 	// Ensure output dir exists
 	if err := os.MkdirAll(cfg.OutDir, 0755); err != nil {
 		log.Fatalf("mkdir -p %s: %v", cfg.OutDir, err)
-	}
-
-	// Read jobs
-	fmt.Printf("Reading URL list...")
-	jobs, err := readJobs(inputReader, cfg.OutDir)
-	if err != nil {
-		log.Fatalf("read jobs: %v", err)
-	}
-	fmt.Printf(" %d URLs\n", len(jobs))
-
-	if len(jobs) == 0 {
-		fmt.Println("Nothing to do.")
-		return
 	}
 
 	// Context with graceful shutdown
@@ -411,49 +473,67 @@ Examples:
 	client := newClient(cfg)
 	start := time.Now()
 
-	// Progress printer
+	shardLabel := ""
+	if cfg.ShardTotal > 0 {
+		shardLabel = fmt.Sprintf(" [shard %d/%d]", cfg.ShardIndex, cfg.ShardTotal)
+	}
+	fmt.Printf("Starting%s — workers=%d out=%s\n", shardLabel, cfg.Workers, cfg.OutDir)
+
+	// jobCh bridges the streaming reader and the worker pool.
+	// Buffer = workers*4 so the reader stays slightly ahead.
+	jobCh := make(chan Job, cfg.Workers*4)
+
+	// Stats is created upfront so the progress ticker can read it during execution.
+	stats := &Stats{}
+
+	// Stream URL list → jobCh (runs in background goroutine)
+	totalCh := make(chan int64, 1)
+	go func() {
+		n, err := streamJobs(ctx, inputReader, cfg, jobCh)
+		close(jobCh)
+		if err != nil && err != context.Canceled {
+			log.Printf("stream jobs: %v", err)
+		}
+		totalCh <- n
+	}()
+
+	// Worker pool (runs in background goroutine)
+	doneCh := make(chan struct{}, 1)
+	go func() {
+		runWorkers(ctx, jobCh, cfg, client, errLog, stats)
+		close(doneCh)
+	}()
+
+	// Progress printer — total unknown until streaming finishes (shows 0% until then).
 	ticker := time.NewTicker(time.Duration(cfg.ProgressSec) * time.Second)
 	defer ticker.Stop()
 
-	var statsPtr *Stats
-	var statsMu sync.Mutex
-	doneCh := make(chan *Stats, 1)
+	var total int64
+	totalKnown := false
 
-	go func() {
-		s := runWorkers(ctx, jobs, cfg, client, errLog)
-		doneCh <- s
-	}()
-
-	total := int64(len(jobs))
 loop:
 	for {
 		select {
+		case n := <-totalCh:
+			total = n
+			totalKnown = true
 		case <-ticker.C:
-			statsMu.Lock()
-			if statsPtr != nil {
-				statsPtr.print(total, time.Since(start))
+			stats.print(total, time.Since(start))
+		case <-doneCh:
+			if !totalKnown {
+				total = <-totalCh
 			}
-			statsMu.Unlock()
-		case s := <-doneCh:
-			statsMu.Lock()
-			statsPtr = s
-			statsMu.Unlock()
 			break loop
 		}
 	}
 
-	// Wait for stats to be set then print final
 	elapsed := time.Since(start)
-	statsMu.Lock()
-	if statsPtr != nil {
-		statsPtr.print(total, elapsed)
-	}
-	statsMu.Unlock()
+	stats.print(total, elapsed)
 
 	fmt.Printf("\n\nDone in %s\n", elapsed.Round(time.Millisecond))
 
-	if statsPtr != nil && statsPtr.errors.Load() > 0 {
-		fmt.Fprintf(os.Stderr, "Finished with %d errors\n", statsPtr.errors.Load())
+	if stats.errors.Load() > 0 {
+		fmt.Fprintf(os.Stderr, "Finished with %d errors\n", stats.errors.Load())
 		os.Exit(1)
 	}
 }
