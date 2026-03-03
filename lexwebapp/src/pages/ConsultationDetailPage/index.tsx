@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, Send, Star, CreditCard, CheckCircle, XCircle, Play, MessageSquare } from 'lucide-react';
 import { consultationService, type Consultation, type ConsultationMessage } from '../../services/api/ConsultationService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,7 +13,6 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function ConsultationDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [messages, setMessages] = useState<ConsultationMessage[]>([]);
