@@ -35,7 +35,6 @@ import { CreateMatterModal } from '../../components/matters/CreateMatterModal';
 import { Spinner } from '../../components/ui/Spinner';
 import { generateRoute } from '../../router/routes';
 import { ROUTES } from '../../router/routes';
-import type { Client } from '../../types/models/Client';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   individual: 'Фізична особа',
