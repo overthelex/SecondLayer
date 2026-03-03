@@ -549,7 +549,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }} className="text-center mt-3 text-xs text-claude-subtext font-sans">
           <p>
             Продовжуючи, ви погоджуєтесь з{' '}
-            <a href="#" className="text-claude-accent hover:text-[#C66345]">Умовами використання</a>{' '}
+            <a href="/uk/offer" className="text-claude-accent hover:text-[#C66345]">Договором публічної оферти</a>{' '}
             та{' '}
             <a href="#" className="text-claude-accent hover:text-[#C66345]">Політикою конфіденційності</a>
           </p>
