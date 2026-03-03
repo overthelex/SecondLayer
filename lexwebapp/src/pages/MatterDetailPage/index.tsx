@@ -81,6 +81,14 @@ export function MatterDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: matter, isLoading, error } = useMatter(id || '');
+  const { matterDetailTab, setMatterDetailTab } = useClientMatterStore();
+  const closeMatter = useCloseMatter();
+  const { data: teamData } = useMatterTeam(matter?.id || '');
+  const { data: clientData } = useClient(matter?.client_id || '');
+  const removeTeamMember = useRemoveTeamMember();
+  const addTeamMember = useAddTeamMember();
+  const [addMemberId, setAddMemberId] = useState('');
+  const [addMemberRole, setAddMemberRole] = useState<MatterTeamRole>('associate');
 
   const onBack = () => {
     navigate(ROUTES.MATTERS);
@@ -109,16 +117,6 @@ export function MatterDetailPage() {
       </div>
     );
   }
-  const { matterDetailTab, setMatterDetailTab } = useClientMatterStore();
-  const closeMatter = useCloseMatter();
-
-  const { data: teamData } = useMatterTeam(matter.id);
-  const { data: clientData } = useClient(matter.client_id);
-  const removeTeamMember = useRemoveTeamMember();
-  const addTeamMember = useAddTeamMember();
-
-  const [addMemberId, setAddMemberId] = useState('');
-  const [addMemberRole, setAddMemberRole] = useState<MatterTeamRole>('associate');
 
   const team = teamData?.members || [];
   const statusConfig = STATUS_CONFIG[matter.status] || STATUS_CONFIG.open;
