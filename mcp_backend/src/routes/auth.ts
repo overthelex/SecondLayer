@@ -155,6 +155,20 @@ router.post('/avatar', requireJWT as any, avatarUpload.single('avatar'), authCon
  */
 router.get('/avatar/:userId', authController.getAvatar as any);
 
+/**
+ * @route   GET /auth/banner/:userId
+ * @desc    Serve user banner image (Ishihara-style)
+ * @access  Public (cached)
+ */
+router.get('/banner/:userId', authController.getBanner as any);
+
+/**
+ * @route   POST /auth/banner/regenerate
+ * @desc    Regenerate banner for current user
+ * @access  Protected (JWT required)
+ */
+router.post('/banner/regenerate', requireJWT as any, authController.regenerateBanner as any);
+
 // ============================================================================
 // WebAuthn (Passkeys) Routes
 // ============================================================================

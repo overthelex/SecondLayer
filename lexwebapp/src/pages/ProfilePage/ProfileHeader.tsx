@@ -23,7 +23,11 @@ export function ProfileHeader({
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="relative bg-white rounded-2xl p-6 md:p-8 border border-claude-border shadow-sm overflow-hidden"
     >
-      <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-claude-accent/10 to-claude-bg" />
+      {user?.banner ? (
+        <img src={user.banner} alt="" className="absolute top-0 left-0 w-full h-32 object-cover" />
+      ) : (
+        <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-claude-accent/10 to-claude-bg" />
+      )}
 
       <div className="relative flex flex-col md:flex-row items-start md:items-end gap-6 pt-12">
         <div className="relative group">
