@@ -13,11 +13,13 @@ import { logger } from '../utils/logger.js';
 import { getUserService, getWebAuthnService } from '../middleware/dual-auth.js';
 import { EmailService } from '../services/email-service.js';
 import { MinioService } from '../services/minio-service.js';
+import { BannerService } from '../services/banner-service.js';
 import type { ICachePort } from '../domain/ports/index.js';
 
 let authCache: ICachePort | null = null;
 let authEmailService: EmailService | null = null;
 let authMinioService: MinioService | null = null;
+let authBannerService: BannerService | null = null;
 
 const AVATAR_BUCKET = 'avatars';
 const AVATAR_MAX_SIZE = 512; // px
@@ -41,6 +43,22 @@ export function setAuthEmailService(svc: EmailService): void {
 /** Set the MinIO service for avatar storage. Call from composition root. */
 export function setAuthMinioService(svc: MinioService): void {
   authMinioService = svc;
+}
+
+/** Set the banner service for profile banner generation. Call from composition root. */
+export function setAuthBannerService(svc: BannerService): void {
+  authBannerService = svc;
+}
+
+/**
+ * Fire-and-forget banner generation for a new user.
+ * Logs errors but never throws.
+ */
+function generateBannerAsync(userId: string, name: string): void {
+  if (!authBannerService) return;
+  authBannerService.generateBanner(userId, name).catch((err) => {
+    logger.error('[Banner] Async generation failed', { userId, error: err.message });
+  });
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
@@ -134,6 +152,7 @@ export async function getCurrentUser(req: AuthenticatedRequest, res: Response): 
         email: user.email,
         name: user.name,
         picture: user.picture,
+        banner: user.banner || null,
         emailVerified: user.email_verified,
         lastLogin: user.last_login,
         createdAt: user.created_at,
@@ -419,6 +438,7 @@ export async function loginWithPassword(req: Request, res: Response): Promise<Re
         email: user.email,
         name: user.name,
         picture: user.picture,
+        banner: user.banner || null,
         emailVerified: user.email_verified,
         lastLogin: user.last_login,
         createdAt: user.created_at,
@@ -500,6 +520,9 @@ export async function registerWithPassword(req: Request, res: Response): Promise
 
     // Create user
     const user = await userService.createUserWithPassword({ email, password, name });
+
+    // Generate banner (fire and forget)
+    generateBannerAsync(user.id, user.name || user.email);
 
     // Create verification token and send email
     const verificationToken = await userService.createVerificationToken(user.id);
@@ -804,6 +827,7 @@ export async function webauthnAuthVerify(req: Request, res: Response): Promise<R
         email: user.email,
         name: user.name,
         picture: user.picture,
+        banner: user.banner || null,
         emailVerified: user.email_verified,
         lastLogin: user.last_login,
         createdAt: user.created_at,
@@ -1023,5 +1047,68 @@ export async function getAvatar(req: Request, res: Response): Promise<void> {
       logger.error('[Avatar] Serve failed:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
+  }
+}
+
+// ============================================================================
+// Banner (Ishihara-style) Endpoints
+// ============================================================================
+
+/**
+ * Serve user banner from MinIO
+ * Public endpoint - serves banner by userId with caching headers
+ */
+export async function getBanner(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.params.userId as string;
+    if (!userId) {
+      res.status(400).json({ error: 'Bad Request', message: 'User ID is required' });
+      return;
+    }
+
+    if (!authBannerService) {
+      res.status(503).json({ error: 'Service Unavailable' });
+      return;
+    }
+
+    const stream = await authBannerService.getBannerStream(userId);
+    if (!stream) {
+      res.status(404).json({ error: 'Not Found', message: 'Банер не знайдено' });
+      return;
+    }
+
+    res.setHeader('Content-Type', 'image/webp');
+    res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    stream.pipe(res);
+  } catch (error: any) {
+    logger.error('[Banner] Serve failed:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * Regenerate banner for the current user
+ * Protected route - requires JWT
+ */
+export async function regenerateBanner(req: AuthenticatedRequest, res: Response): Promise<Response> {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!authBannerService) {
+      return res.status(503).json({ error: 'Service Unavailable', message: 'Banner service not configured' });
+    }
+
+    const bannerPath = await authBannerService.generateBanner(user.id, user.name || 'User');
+
+    return res.json({
+      success: true,
+      banner: bannerPath,
+    });
+  } catch (error: any) {
+    logger.error('[Banner] Regeneration failed:', error);
+    return res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 }

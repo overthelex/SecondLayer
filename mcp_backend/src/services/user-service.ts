@@ -14,6 +14,7 @@ export interface User {
   email: string;
   name?: string;
   picture?: string;
+  banner?: string;
   email_verified: boolean;
   locale?: string;
   last_login?: Date;
