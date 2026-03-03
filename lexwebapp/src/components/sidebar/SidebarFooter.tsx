@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, Scale, CreditCard, UsersRound } from 'lucide-react';
+import { User, LogOut, CreditCard, UsersRound } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ROUTES } from '../../router/routes';
 import type { UserRole } from '../../types/models/User';
@@ -20,8 +20,6 @@ export function SidebarFooter({
   onProfileMenuClick, onProfileClick, onLogout,
 }: SidebarFooterProps) {
   const navigate = useNavigate();
-  const isAttorney = user?.userType === 'attorney';
-
   return (
     <div className="p-4 border-t border-claude-border relative" ref={profileMenuRef}>
       <AnimatePresence>
@@ -40,16 +38,7 @@ export function SidebarFooter({
               </div>
               <span className="text-[13px] font-medium text-claude-text font-sans">Профіль</span>
             </button>
-            {role === 'user' && !isAttorney && (
-              <button
-                onClick={() => { onProfileMenuClick(); navigate(ROUTES.ATTORNEY_PROFILE_EDIT); }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">
-                <div className="p-1.5 bg-claude-subtext/8 rounded-lg">
-                  <Scale size={16} className="text-claude-subtext" />
-                </div>
-                <span className="text-[13px] font-medium text-claude-text font-sans">Стати адвокатом</span>
-              </button>
-            )}
+            {/* "Стати адвокатом" hidden — feature not ready for production */}
             {role !== 'administrator' && (
               <button
                 onClick={() => { onProfileMenuClick(); navigate(ROUTES.BILLING); }}
