@@ -146,27 +146,6 @@ export function useProfile(): UseProfileReturn {
     }
   };
 
-  const handleShare = () => {
-    const profileUrl = window.location.href;
-    if (navigator.share) {
-      navigator.share({
-        title: `${user!.name} - SecondLayer Profile`,
-        url: profileUrl
-      }).catch(() => {
-        copyToClipboard(profileUrl);
-      });
-    } else {
-      copyToClipboard(profileUrl);
-    }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      showToast.success('Посилання скопійовано');
-    }).catch(() => {
-      showToast.error('Не вдалося скопіювати посилання');
-    });
-  };
 
   const handleRegisterPasskey = async (attachment?: 'cross-platform') => {
     setIsRegisteringKey(true);
@@ -245,44 +224,44 @@ export function useProfile(): UseProfileReturn {
   };
 
   const stats = [{
-    label: 'Balance',
+    label: 'Баланс',
     value: billing ? `$${Number(billing.balance_usd).toFixed(2)}` : '—',
     icon: DollarSign
   }, {
-    label: 'Total Requests',
+    label: 'Всього запитів',
     value: billing ? String(billing.total_requests) : '—',
     icon: Activity
   }, {
-    label: 'Total Spent',
+    label: 'Всього витрачено',
     value: billing ? `$${Number(billing.total_spent_usd).toFixed(2)}` : '—',
     icon: Zap
   }];
 
   const settingsGroups = [{
-    title: 'Account',
+    title: 'Обліковий запис',
     items: [{
       icon: Mail,
-      label: 'Email',
-      value: user?.email || 'Not set'
+      label: 'Електронна пошта',
+      value: user?.email || 'Не вказано'
     }, {
       icon: Shield,
-      label: 'Authentication',
+      label: 'Автентифікація',
       value: 'Google OAuth'
     }, {
       icon: User,
-      label: 'User ID',
-      value: user?.id?.substring(0, 8) + '...' || 'N/A'
+      label: 'ID користувача',
+      value: user?.id?.substring(0, 8) + '...' || 'Н/Д'
     }]
   }, {
-    title: 'Application',
+    title: 'Додаток',
     items: [{
       icon: Settings,
-      label: 'Language',
+      label: 'Мова',
       value: 'Українська'
     }, {
       icon: CreditCard,
-      label: 'Billing',
-      value: billing ? `$${Number(billing.balance_usd).toFixed(2)} • ${billing.pricing_tier}` : 'Loading...',
+      label: 'Білінг',
+      value: billing ? `$${Number(billing.balance_usd).toFixed(2)} • ${billing.pricing_tier}` : 'Завантаження...',
       onClick: () => window.location.href = '/billing'
     }]
   }];
@@ -315,7 +294,6 @@ export function useProfile(): UseProfileReturn {
     handleSaveProfile,
     handlePhotoClick,
     handleFileChange,
-    handleShare,
     handleRegisterPasskey,
     handleDeleteCredential,
     handleCreateMcpToken,

@@ -19,7 +19,7 @@ export function ProfilePage() {
       <div className="flex-1 h-full flex items-center justify-center bg-claude-bg">
         <div className="text-center">
           <Loader2 size={48} className="text-claude-accent animate-spin mx-auto mb-4" />
-          <p className="text-claude-text font-sans">Loading profile...</p>
+          <p className="text-claude-text font-sans">Завантаження профілю...</p>
         </div>
       </div>
     );
@@ -30,12 +30,12 @@ export function ProfilePage() {
     return (
       <div className="flex-1 h-full flex items-center justify-center bg-claude-bg">
         <div className="text-center">
-          <p className="text-claude-text font-sans mb-4">No user data available</p>
+          <p className="text-claude-text font-sans mb-4">Дані користувача недоступні</p>
           <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-claude-accent text-white rounded-xl font-medium hover:bg-[#C66345] transition-colors"
           >
-            Reload Page
+            Перезавантажити
           </button>
         </div>
       </div>
@@ -53,7 +53,6 @@ export function ProfilePage() {
           handlePhotoClick={profile.handlePhotoClick}
           handleFileChange={profile.handleFileChange}
           handleEditProfile={profile.handleEditProfile}
-          handleShare={profile.handleShare}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -67,18 +66,18 @@ export function ProfilePage() {
             {/* Bio Section */}
             <section className="bg-white rounded-2xl p-6 border border-claude-border shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-serif text-claude-text">Profile Information</h2>
+                <h2 className="text-xl font-serif text-claude-text">Інформація профілю</h2>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-claude-subtext">Email</label>
+                  <label className="text-sm font-medium text-claude-subtext">Електронна пошта</label>
                   <p className="text-claude-text mt-1 flex items-center gap-2">
                     <Mail size={16} className="text-claude-subtext" />
-                    {user?.email || 'Not available'}
+                    {user?.email || 'Недоступно'}
                     {user?.emailVerified && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 border border-green-200 rounded-full text-xs text-green-700">
-                        ✓ Verified
+                        ✓ Підтверджено
                       </span>
                     )}
                   </p>
@@ -86,7 +85,7 @@ export function ProfilePage() {
 
                 {(user as any).phone && (
                   <div>
-                    <label className="text-sm font-medium text-claude-subtext">Phone</label>
+                    <label className="text-sm font-medium text-claude-subtext">Телефон</label>
                     <p className="text-claude-text mt-1 flex items-center gap-2">
                       <Phone size={16} className="text-claude-subtext" />
                       {(user as any).phone}
@@ -95,7 +94,7 @@ export function ProfilePage() {
                 )}
 
                 <div>
-                  <label className="text-sm font-medium text-claude-subtext">Last Login</label>
+                  <label className="text-sm font-medium text-claude-subtext">Останній вхід</label>
                   <p className="text-claude-text mt-1">
                     {user?.lastLogin ? new Date(user.lastLogin).toLocaleString('uk-UA', {
                       year: 'numeric',
@@ -103,18 +102,18 @@ export function ProfilePage() {
                       day: 'numeric',
                       hour: '2-digit',
                       minute: '2-digit'
-                    }) : 'Not available'}
+                    }) : 'Недоступно'}
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-claude-subtext">Account Created</label>
+                  <label className="text-sm font-medium text-claude-subtext">Обліковий запис створено</label>
                   <p className="text-claude-text mt-1">
                     {user?.createdAt ? new Date(user.createdAt).toLocaleString('uk-UA', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric'
-                    }) : 'Not available'}
+                    }) : 'Недоступно'}
                   </p>
                 </div>
               </div>
@@ -130,28 +129,33 @@ export function ProfilePage() {
                     </h3>
                   </div>
                   <div className="divide-y divide-claude-border/50">
-                    {group.items.map((item) => (
-                      <button
-                        key={item.label}
-                        onClick={item.onClick}
-                        className="w-full px-6 py-4 flex items-center justify-between hover:bg-claude-bg/50 transition-colors group"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="p-2 bg-claude-bg rounded-lg text-claude-subtext group-hover:text-claude-accent transition-colors">
-                            <item.icon size={18} />
-                          </div>
-                          <div className="text-left">
-                            <div className="text-sm font-medium text-claude-text">
-                              {item.label}
+                    {group.items.map((item) => {
+                      const Wrapper = item.onClick ? 'button' : 'div';
+                      return (
+                        <Wrapper
+                          key={item.label}
+                          onClick={item.onClick}
+                          className={`w-full px-6 py-4 flex items-center justify-between transition-colors group ${item.onClick ? 'hover:bg-claude-bg/50 cursor-pointer' : ''}`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={`p-2 bg-claude-bg rounded-lg text-claude-subtext ${item.onClick ? 'group-hover:text-claude-accent' : ''} transition-colors`}>
+                              <item.icon size={18} />
                             </div>
-                            <div className="text-xs text-claude-subtext">
-                              {item.value}
+                            <div className="text-left">
+                              <div className="text-sm font-medium text-claude-text">
+                                {item.label}
+                              </div>
+                              <div className="text-xs text-claude-subtext">
+                                {item.value}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <ChevronRight size={16} className="text-claude-border group-hover:text-claude-subtext transition-colors" />
-                      </button>
-                    ))}
+                          {item.onClick && (
+                            <ChevronRight size={16} className="text-claude-border group-hover:text-claude-subtext transition-colors" />
+                          )}
+                        </Wrapper>
+                      );
+                    })}
                   </div>
                 </section>
               ))}
@@ -192,30 +196,6 @@ export function ProfilePage() {
             {/* Usage Stats */}
             <BillingSection billing={billing} stats={stats} />
 
-            {/* Pro Card */}
-            <div className="bg-gradient-to-br from-claude-text to-gray-800 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/10 transition-colors duration-500" />
-
-              <div className="relative z-10">
-                <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-white/10 rounded-full text-xs font-medium mb-4 border border-white/10">
-                  <span className="w-1.5 h-1.5 rounded-full bg-claude-accent" />
-                  Pro Plan
-                </div>
-                <h3 className="text-xl font-serif mb-2">
-                  Upgrade your workflow
-                </h3>
-                <p className="text-white/70 text-sm mb-6 leading-relaxed">
-                  Get access to advanced models, longer context window, and
-                  priority support.
-                </p>
-                <button
-                  onClick={() => window.location.href = '/billing'}
-                  className="w-full py-2.5 bg-white text-claude-text rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors active:scale-[0.98]"
-                >
-                  Manage Subscription
-                </button>
-              </div>
-            </div>
           </motion.div>
         </div>
       </div>
