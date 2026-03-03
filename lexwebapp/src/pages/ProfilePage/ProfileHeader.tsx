@@ -32,14 +32,14 @@ export function ProfileHeader({
             name="profile-photo"
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/tiff,image/avif,image/heif,image/heic,image/svg+xml,image/x-icon,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif,.avif,.heif,.heic,.svg,.ico,.enc"
             onChange={handleFileChange}
             className="hidden"
           />
           <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-claude-sidebar border-4 border-white shadow-md flex items-center justify-center text-3xl font-serif text-claude-subtext overflow-hidden">
             {user?.picture ? (
               <img
-                src={user.picture}
+                src={user.picture.startsWith('/auth/avatar/') ? `${user.picture}?v=${Date.now()}` : user.picture}
                 alt={user.name || 'User avatar'}
                 className="w-full h-full object-cover group-hover:opacity-50 transition-opacity duration-200"
               />

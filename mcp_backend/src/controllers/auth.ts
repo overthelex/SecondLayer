@@ -7,14 +7,26 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import bcrypt from 'bcryptjs';
+import sharp from 'sharp';
 import { User } from '../services/user-service.js';
 import { logger } from '../utils/logger.js';
 import { getUserService, getWebAuthnService } from '../middleware/dual-auth.js';
 import { EmailService } from '../services/email-service.js';
+import { MinioService } from '../services/minio-service.js';
 import type { ICachePort } from '../domain/ports/index.js';
 
 let authCache: ICachePort | null = null;
 let authEmailService: EmailService | null = null;
+let authMinioService: MinioService | null = null;
+
+const AVATAR_BUCKET = 'avatars';
+const AVATAR_MAX_SIZE = 512; // px
+const AVATAR_QUALITY = 80;
+const SUPPORTED_IMAGE_FORMATS = [
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+  'image/bmp', 'image/tiff', 'image/avif', 'image/heif', 'image/heic',
+  'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon',
+];
 
 /** Set the cache port for WebAuthn challenge storage. Call from composition root. */
 export function setAuthCache(cache: ICachePort): void {
@@ -24,6 +36,11 @@ export function setAuthCache(cache: ICachePort): void {
 /** Set the email service for auth-related emails. Call from composition root. */
 export function setAuthEmailService(svc: EmailService): void {
   authEmailService = svc;
+}
+
+/** Set the MinIO service for avatar storage. Call from composition root. */
+export function setAuthMinioService(svc: MinioService): void {
+  authMinioService = svc;
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
@@ -275,12 +292,6 @@ export async function updateProfile(req: AuthenticatedRequest, res: Response): P
         return res.status(400).json({
           error: 'Bad Request',
           message: 'Picture must be a string URL or null',
-        });
-      }
-      if (picture && picture.length > 500) {
-        return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Picture URL cannot exceed 500 characters',
         });
       }
     }
@@ -866,5 +877,151 @@ export async function webauthnDeleteCredential(req: AuthenticatedRequest, res: R
   } catch (error: any) {
     logger.error('Error deleting WebAuthn credential:', error);
     return res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+}
+
+// ============================================================================
+// Avatar Upload & Serve
+// ============================================================================
+
+async function ensureAvatarBucket(): Promise<void> {
+  if (!authMinioService) throw new Error('MinIO service not configured');
+  try {
+    const client = (authMinioService as any).client;
+    const exists = await client.bucketExists(AVATAR_BUCKET);
+    if (!exists) {
+      await client.makeBucket(AVATAR_BUCKET);
+      // Set public read policy for avatars
+      const policy = JSON.stringify({
+        Version: '2012-10-17',
+        Statement: [{
+          Effect: 'Allow',
+          Principal: { AWS: ['*'] },
+          Action: ['s3:GetObject'],
+          Resource: [`arn:aws:s3:::${AVATAR_BUCKET}/*`],
+        }],
+      });
+      await client.setBucketPolicy(AVATAR_BUCKET, policy);
+      logger.info('[Avatar] Created avatars bucket with public read policy');
+    }
+  } catch (error: any) {
+    logger.error('[Avatar] Failed to ensure avatars bucket:', error);
+    throw error;
+  }
+}
+
+/**
+ * Upload user avatar
+ * Accepts multipart/form-data with an 'avatar' file field.
+ * Supports JPEG, PNG, WebP, GIF, BMP, TIFF, AVIF, HEIF, SVG, ICO.
+ * Converts to WebP, resizes to 512x512 max, stores in MinIO.
+ */
+export async function uploadAvatar(req: AuthenticatedRequest, res: Response): Promise<Response> {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!authMinioService) {
+      return res.status(503).json({ error: 'Service Unavailable', message: 'Storage service not configured' });
+    }
+
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'Bad Request', message: 'Файл не надано' });
+    }
+
+    if (!SUPPORTED_IMAGE_FORMATS.includes(file.mimetype)) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: `Непідтримуваний формат. Підтримуються: JPEG, PNG, WebP, GIF, BMP, TIFF, AVIF, HEIF, SVG, ICO`,
+      });
+    }
+
+    // Process image with sharp: resize + convert to WebP
+    let processedBuffer: Buffer;
+    try {
+      processedBuffer = await sharp(file.buffer)
+        .resize(AVATAR_MAX_SIZE, AVATAR_MAX_SIZE, {
+          fit: 'cover',
+          position: 'center',
+        })
+        .webp({ quality: AVATAR_QUALITY })
+        .toBuffer();
+    } catch (imgError: any) {
+      logger.error('[Avatar] Image processing failed:', imgError);
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Не вдалося обробити зображення. Перевірте формат файлу.',
+      });
+    }
+
+    // Upload to MinIO
+    await ensureAvatarBucket();
+    const objectKey = `${user.id}.webp`;
+    const client = (authMinioService as any).client;
+    await client.putObject(AVATAR_BUCKET, objectKey, processedBuffer, processedBuffer.length, {
+      'Content-Type': 'image/webp',
+      'Cache-Control': 'public, max-age=86400',
+    });
+
+    // Store avatar path in DB
+    const avatarPath = `/auth/avatar/${user.id}`;
+    const userService = getUserService();
+    const updatedUser = await userService.updateProfile(user.id, { picture: avatarPath });
+
+    logger.info('[Avatar] Avatar uploaded', { userId: user.id, size: processedBuffer.length });
+
+    return res.json({
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        picture: updatedUser.picture,
+        emailVerified: updatedUser.email_verified,
+        lastLogin: updatedUser.last_login,
+        createdAt: updatedUser.created_at,
+      },
+    });
+  } catch (error: any) {
+    logger.error('[Avatar] Upload failed:', error);
+    return res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+}
+
+/**
+ * Serve user avatar from MinIO
+ * Public endpoint - serves avatar by userId with caching headers
+ */
+export async function getAvatar(req: Request, res: Response): Promise<void> {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      res.status(400).json({ error: 'Bad Request', message: 'User ID is required' });
+      return;
+    }
+
+    if (!authMinioService) {
+      res.status(503).json({ error: 'Service Unavailable' });
+      return;
+    }
+
+    const objectKey = `${userId}.webp`;
+    const client = (authMinioService as any).client;
+
+    // Stream directly from MinIO
+    const stream = await client.getObject(AVATAR_BUCKET, objectKey);
+
+    res.setHeader('Content-Type', 'image/webp');
+    res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    stream.pipe(res);
+  } catch (error: any) {
+    if (error.code === 'NoSuchKey' || error.code === 'NoSuchBucket') {
+      res.status(404).json({ error: 'Not Found', message: 'Аватар не знайдено' });
+    } else {
+      logger.error('[Avatar] Serve failed:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 }
