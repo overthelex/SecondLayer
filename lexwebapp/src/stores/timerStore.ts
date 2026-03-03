@@ -31,26 +31,31 @@ const ELAPSED_UPDATE_INTERVAL = 1000;
 let pingIntervalId: NodeJS.Timeout | null = null;
 let elapsedIntervalId: NodeJS.Timeout | null = null;
 
-export const useTimerStore = create<TimerState>((set, get) => {
-  // Start background intervals
+function startIntervals(get: () => TimerState) {
   if (!pingIntervalId) {
     pingIntervalId = setInterval(() => {
-      const store = get();
-      if (store.timers.length > 0) {
-        store.pingTimers();
-      }
+      get().pingTimers();
     }, PING_INTERVAL);
   }
-
   if (!elapsedIntervalId) {
     elapsedIntervalId = setInterval(() => {
-      const store = get();
-      if (store.timers.length > 0) {
-        store.updateElapsed();
-      }
+      get().updateElapsed();
     }, ELAPSED_UPDATE_INTERVAL);
   }
+}
 
+function stopIntervals() {
+  if (pingIntervalId) {
+    clearInterval(pingIntervalId);
+    pingIntervalId = null;
+  }
+  if (elapsedIntervalId) {
+    clearInterval(elapsedIntervalId);
+    elapsedIntervalId = null;
+  }
+}
+
+export const useTimerStore = create<TimerState>((set, get) => {
   return {
     timers: [],
     isLoading: false,
@@ -65,6 +70,11 @@ export const useTimerStore = create<TimerState>((set, get) => {
       try {
         const timers = await timeEntryService.getActiveTimers();
         set({ timers, isLoading: false, lastSync: Date.now() });
+        if (timers.length > 0) {
+          startIntervals(get);
+        } else {
+          stopIntervals();
+        }
       } catch (error: unknown) {
         set({ error: getErrorMessage(error), isLoading: false });
       }
@@ -78,12 +88,13 @@ export const useTimerStore = create<TimerState>((set, get) => {
       try {
         const timer = await timeEntryService.startTimer(matterId, description);
 
-        // Add to local state
+        // Add to local state and ensure intervals are running
         set((state) => ({
           timers: [...state.timers, timer],
           isLoading: false,
           lastSync: Date.now(),
         }));
+        startIntervals(get);
       } catch (error: unknown) {
         set({ error: getErrorMessage(error), isLoading: false });
         throw error;
@@ -98,12 +109,15 @@ export const useTimerStore = create<TimerState>((set, get) => {
       try {
         await timeEntryService.stopTimer(matterId, createEntry);
 
-        // Remove from local state
+        // Remove from local state; stop intervals when no timers remain
         set((state) => ({
           timers: state.timers.filter((t) => t.matter_id !== matterId),
           isLoading: false,
           lastSync: Date.now(),
         }));
+        if (get().timers.length === 0) {
+          stopIntervals();
+        }
       } catch (error: unknown) {
         set({ error: getErrorMessage(error), isLoading: false });
         throw error;
@@ -163,7 +177,6 @@ export function hasMatterTimer(matterId: string): boolean {
 // Cleanup intervals on hot reload (development)
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    if (pingIntervalId) clearInterval(pingIntervalId);
-    if (elapsedIntervalId) clearInterval(elapsedIntervalId);
+    stopIntervals();
   });
 }
