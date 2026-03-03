@@ -5,9 +5,15 @@
 
 import { Router } from 'express';
 import passport from 'passport';
+import multer from 'multer';
 import * as authController from '../controllers/auth.js';
 import { authRateLimit, passwordResetRateLimit } from '../middleware/rate-limit.js';
 import { requireJWT } from '../middleware/dual-auth.js';
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
 
 const router: Router = Router();
 
@@ -134,6 +140,20 @@ router.post('/refresh', authController.refreshToken as any);
  * Email cannot be changed as it's managed by Google OAuth.
  */
 router.put('/profile', authController.updateProfile as any);
+
+/**
+ * @route   POST /auth/avatar
+ * @desc    Upload user avatar (multipart/form-data, field: 'avatar')
+ * @access  Protected (JWT required)
+ */
+router.post('/avatar', requireJWT as any, avatarUpload.single('avatar'), authController.uploadAvatar as any);
+
+/**
+ * @route   GET /auth/avatar/:userId
+ * @desc    Serve user avatar image
+ * @access  Public (cached)
+ */
+router.get('/avatar/:userId', authController.getAvatar as any);
 
 // ============================================================================
 // WebAuthn (Passkeys) Routes
