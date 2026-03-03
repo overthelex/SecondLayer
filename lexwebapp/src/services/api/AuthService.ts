@@ -37,6 +37,22 @@ export class AuthService extends BaseService {
   }
 
   /**
+   * Upload avatar image file
+   */
+  async uploadAvatar(file: File): Promise<User> {
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const response = await this.client.post<{ user: User }>('/auth/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data.user;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * Refresh authentication token
    */
   async refreshToken(): Promise<string> {

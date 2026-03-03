@@ -7,7 +7,7 @@ import { logger } from './utils/logger.js';
 import { dualAuth, requireJWT, optionalJWT, initializeDualAuth, initializeWebAuthn, AuthenticatedRequest as DualAuthRequest } from './middleware/dual-auth.js';
 import { configurePassport } from './config/passport.js';
 import authRouter from './routes/auth.js';
-import { setAuthCache, setAuthEmailService } from './controllers/auth.js';
+import { setAuthCache, setAuthEmailService, setAuthMinioService } from './controllers/auth.js';
 import { createBackendCoreServices, BackendCoreServices } from './factories/core-services.js';
 import { DocumentAnalysisTools } from './api/document-analysis-tools.js';
 import { BatchDocumentTools } from './api/batch-document-tools.js';
@@ -309,6 +309,7 @@ class HTTPMCPServer {
     this.toolRegistry.registerHandler(this.vaultTools);
     this.conversationService = new ConversationService(this.services.db);
     this.gdprService = new GdprService(this.services.db, this.minioService, this.services.embeddingService);
+    setAuthMinioService(this.minioService);
     logger.info('Upload and MinIO services initialized');
     logger.info('Conversation and GDPR services initialized');
 

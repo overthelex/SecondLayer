@@ -114,44 +114,35 @@ export function useProfile(): UseProfileReturn {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      showToast.error('Будь ласка, виберіть файл зображення');
+    const supportedTypes = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      'image/bmp', 'image/tiff', 'image/avif', 'image/heif', 'image/heic',
+      'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon',
+    ];
+
+    if (!file.type.startsWith('image/') && !supportedTypes.includes(file.type)) {
+      showToast.error('Непідтримуваний формат зображення');
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      showToast.error('Розмір файлу не повинен перевищувати 5MB');
+    if (file.size > 10 * 1024 * 1024) {
+      showToast.error('Розмір файлу не повинен перевищувати 10MB');
       return;
     }
 
     try {
       setIsUploadingPhoto(true);
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64 = e.target?.result as string;
-        try {
-          const updatedUser = await authService.updateProfile({
-            picture: base64
-          });
-          updateUser(updatedUser);
-          setEditForm(prev => ({ ...prev, picture: base64 }));
-          showToast.success('Фото профілю оновлено');
-        } catch (error) {
-          console.error('Failed to upload photo:', error);
-          showToast.error('Не вдалося завантажити фото');
-        } finally {
-          setIsUploadingPhoto(false);
-        }
-      };
-      reader.onerror = () => {
-        showToast.error('Помилка читання файлу');
-        setIsUploadingPhoto(false);
-      };
-      reader.readAsDataURL(file);
+      const updatedUser = await authService.uploadAvatar(file);
+      updateUser(updatedUser);
+      setEditForm(prev => ({ ...prev, picture: updatedUser.picture || '' }));
+      showToast.success('Фото профілю оновлено');
     } catch (error) {
-      console.error('Error handling file:', error);
-      showToast.error('Помилка обробки файлу');
+      console.error('Failed to upload photo:', error);
+      showToast.error('Не вдалося завантажити фото');
+    } finally {
       setIsUploadingPhoto(false);
+      // Reset input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
