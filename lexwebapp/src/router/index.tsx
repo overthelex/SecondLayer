@@ -136,6 +136,10 @@ export const router = createBrowserRouter([
     element: S(OfferPage),
   },
   {
+    path: ROUTES.OFERTA,
+    element: <Navigate to="/uk/offer" replace />,
+  },
+  {
     path: ROUTES.US_DATA_SOURCES,
     element: S(USDataSourcesPage),
   },

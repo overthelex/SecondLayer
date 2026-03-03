@@ -48,6 +48,7 @@ export const ROUTES = {
 
   // Public Offer
   OFFER: '/:lang/offer',
+  OFERTA: '/oferta',
 
   // Blog
   BLOG: '/blog',
