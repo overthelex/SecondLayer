@@ -179,18 +179,31 @@ export function DocumentGrid({ documents, onDocumentClick, onView, onEdit, onDel
             className="bg-white rounded-2xl border border-claude-border p-4 hover:shadow-md transition-all group cursor-pointer"
             onClick={() => onDocumentClick(doc)}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className="p-2 bg-claude-subtext/5 rounded-lg">
-                <Icon size={20} className="text-claude-subtext/50" />
-              </div>
-              <div className="flex items-center gap-1">
+            {/* Content preview area */}
+            <div className="relative mb-3 h-24 rounded-lg bg-claude-subtext/[0.03] border border-claude-border/40 overflow-hidden">
+              {doc.text_preview ? (
+                <p className="p-2.5 text-[11px] leading-[1.4] text-claude-subtext/60 font-sans line-clamp-5 whitespace-pre-line">
+                  {doc.text_preview}
+                </p>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <Icon size={24} className="text-claude-subtext/20" />
+                </div>
+              )}
+              {/* Fade out bottom */}
+              <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent" />
+              {/* Type badge overlay */}
+              <div className="absolute top-2 right-2 flex items-center gap-1">
                 <span
-                  className={`inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-md border ${
+                  className={`inline-flex px-1.5 py-0.5 text-[9px] font-semibold rounded-md border ${
                     DOC_TYPE_COLORS[doc.type] || DOC_TYPE_COLORS.other
-                  } font-sans`}
+                  } font-sans backdrop-blur-sm`}
                 >
                   {DOC_TYPE_LABELS[doc.type] || doc.type}
                 </span>
+              </div>
+              {/* Context menu overlay */}
+              <div className="absolute top-1.5 left-1.5">
                 <CardContextMenu
                   doc={doc}
                   onView={onView}

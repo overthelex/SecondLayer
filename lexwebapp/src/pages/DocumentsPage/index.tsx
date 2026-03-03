@@ -30,7 +30,6 @@ import { DocumentTable } from './DocumentTable';
 import { DocumentGrid } from './DocumentGrid';
 import { DocumentViewerModal } from '../../components/DocumentViewerModal';
 import { ClassificationPanel } from './ClassificationPanel';
-import { DocumentStatsPanel } from './DocumentStatsPanel';
 import type { VaultDocument, DocType, ViewMode, SortField, SortOrder } from './types';
 import { isPreviewableBinary } from './types';
 import { processEmlContent } from '../../utils/eml-parser';
@@ -152,7 +151,6 @@ export function DocumentsPage() {
     folders,
     foldersLoading,
     docStats,
-    statsLoading,
     loadDocuments,
     loadFolders,
     loadStats,
@@ -743,8 +741,7 @@ export function DocumentsPage() {
             onStartUpload={handleStartUpload}
           />
 
-          {/* Document Statistics */}
-          <DocumentStatsPanel stats={docStats} loading={statsLoading} />
+          {/* Document Statistics — removed per design */}
 
           {/* Classification Panel */}
           <ClassificationPanel

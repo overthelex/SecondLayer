@@ -4,6 +4,7 @@ export interface VaultDocument {
   type: 'contract' | 'legislation' | 'court_decision' | 'internal' | 'other';
   storage_type?: 'vault' | 'minio';
   mime_type?: string;
+  text_preview?: string;
   metadata: {
     uploadedAt: string;
     uploadedBy?: string;
