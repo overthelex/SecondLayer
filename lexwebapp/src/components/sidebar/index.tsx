@@ -39,7 +39,9 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [switchingId, setSwitchingId] = useState<string | null>(null);
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
+    new Set(['conversations', 'research', 'legislation', 'vault', 'matters', 'external-sources', 'monitoring'])
+  );
   const [vaultFolders, setVaultFolders] = useState<string[]>([]);
   const [vaultFoldersLoaded, setVaultFoldersLoaded] = useState(false);
   const [deletingFolder, setDeletingFolder] = useState<string | null>(null);
@@ -213,10 +215,6 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
           {/* NON-ADMIN MENU */}
           {role !== 'administrator' && (
             <>
-              <div className="mb-2">
-                <NavItem icon={MessageSquare} label="Асистент" route={ROUTES.CHAT} onClick={() => handleNavigation(ROUTES.CHAT)} />
-              </div>
-
               {conversations.length > 0 && (
                 <Section id="conversations" title="Розмови" collapsed={collapsedSections.has('conversations')} onToggle={toggleSection}>
                   <div className="max-h-[280px] overflow-y-auto space-y-0.5">
