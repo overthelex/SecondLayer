@@ -2,6 +2,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, ExternalLink, Gavel, BookOpen, FileText, Copy, Check, Download, Loader2, AlertTriangle, Save, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { ImageViewer } from './ImageViewer';
 
 export interface DocumentViewerItem {
   type: 'decision' | 'citation' | 'document';
@@ -48,7 +49,17 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
   const [ocrSaving, setOcrSaving] = React.useState(false);
   const [ocrSaved, setOcrSaved] = React.useState(false);
 
+  const ocrTextareaRef = React.useRef<HTMLTextAreaElement>(null);
+
   const isImageWithOcr = item?.previewUrl && item?.mimeType?.startsWith('image/') && item?.ocrText !== undefined;
+
+  // ZoomFollow: scroll textarea to match visible image range
+  const handleVisibleRangeChange = React.useCallback((top: number, _bottom: number) => {
+    const textarea = ocrTextareaRef.current;
+    if (!textarea) return;
+    const scrollTarget = top * (textarea.scrollHeight - textarea.clientHeight);
+    textarea.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+  }, []);
 
   // Sync edited text when item changes
   React.useEffect(() => {
@@ -279,12 +290,12 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
                     </div>
                   ) : isImageWithOcr ? (
                     <div className="flex gap-4 h-[70vh]">
-                      {/* Left: Image preview */}
-                      <div className="flex-1 min-w-0 flex items-center justify-center bg-claude-bg/50 rounded-lg overflow-hidden">
-                        <img
-                          src={item.previewUrl}
+                      {/* Left: Image preview with zoom/crop/follow */}
+                      <div className="flex-1 min-w-0">
+                        <ImageViewer
+                          src={item.previewUrl!}
                           alt={item.title}
-                          className="max-w-full max-h-full rounded-lg object-contain"
+                          onVisibleRangeChange={handleVisibleRangeChange}
                         />
                       </div>
                       {/* Right: Editable OCR text */}
@@ -311,6 +322,7 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
                           )}
                         </div>
                         <textarea
+                          ref={ocrTextareaRef}
                           value={editedOcrText}
                           onChange={(e) => setEditedOcrText(e.target.value)}
                           className="flex-1 w-full p-3 border border-claude-border rounded-lg text-sm text-claude-text font-mono resize-none focus:outline-none focus:border-claude-subtext/40 transition-colors leading-relaxed"
@@ -319,11 +331,10 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
                       </div>
                     </div>
                   ) : item.previewUrl && item.mimeType?.startsWith('image/') ? (
-                    <div className="flex items-center justify-center">
-                      <img
+                    <div className="h-[70vh]">
+                      <ImageViewer
                         src={item.previewUrl}
                         alt={item.title}
-                        className="max-w-full max-h-[70vh] rounded-lg object-contain"
                       />
                     </div>
                   ) : item.previewUrl && item.mimeType === 'application/pdf' ? (
