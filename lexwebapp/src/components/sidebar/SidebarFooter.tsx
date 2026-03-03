@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, CreditCard, UsersRound } from 'lucide-react';
+import { User, LogOut, CreditCard, UsersRound, Plug } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ROUTES } from '../../router/routes';
 import type { UserRole } from '../../types/models/User';
@@ -49,6 +49,14 @@ export function SidebarFooter({
                 <span className="text-[13px] font-medium text-claude-text font-sans">Біллінг</span>
               </button>
             )}
+            <button
+              onClick={() => { onProfileMenuClick(); navigate(ROUTES.MCP_CONNECT); }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">
+              <div className="p-1.5 bg-claude-subtext/8 rounded-lg">
+                <Plug size={16} className="text-claude-subtext" />
+              </div>
+              <span className="text-[13px] font-medium text-claude-text font-sans">MCP конект</span>
+            </button>
             {role === 'company' && (
               <button
                 onClick={() => { onProfileMenuClick(); navigate(ROUTES.TEAM); }}
