@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Send, Plus, Square, Loader2 } from 'lucide-react';
-import { uploadService } from '../services/api/UploadService';
 import showToast from '../utils/toast';
 import { ToolSelector } from './chat/ToolSelector';
 import { FileAttachments, SelectedFile } from './chat/FileAttachments';
 import { PromptManager } from './chat/PromptManager';
+import { useChatFileUpload } from '../hooks/useChatFileUpload';
 
 const ACCEPTED_FILE_TYPES = '.pdf,.docx,.doc,.txt,.rtf,.html';
 
@@ -31,6 +31,8 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const uploadFiles = useChatFileUpload(setFiles);
+
   const adjustHeight = () => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -42,50 +44,6 @@ export function ChatInput({
   useEffect(() => {
     adjustHeight();
   }, [input]);
-
-  const uploadFiles = useCallback(async (selectedFiles: SelectedFile[]): Promise<string[]> => {
-    const documentIds: string[] = [];
-    const updatedFiles = [...selectedFiles];
-
-    for (let i = 0; i < updatedFiles.length; i++) {
-      const sf = updatedFiles[i];
-      updatedFiles[i] = { ...sf, uploading: true };
-      setFiles([...updatedFiles]);
-
-      try {
-        const initResult = await uploadService.initUpload({
-          fileName: sf.file.name,
-          fileSize: sf.file.size,
-          mimeType: sf.file.type || 'application/octet-stream',
-          docType: 'other',
-        });
-
-        const chunk = sf.file.slice(0, sf.file.size);
-        await uploadService.uploadChunk(initResult.uploadId, 0, chunk);
-        await uploadService.completeUpload(initResult.uploadId);
-
-        let attempts = 0;
-        let status = await uploadService.getStatus(initResult.uploadId);
-        while (status.status !== 'completed' && status.status !== 'failed' && attempts < 30) {
-          await new Promise((r) => setTimeout(r, 1000));
-          status = await uploadService.getStatus(initResult.uploadId);
-          attempts++;
-        }
-
-        if (status.documentId) {
-          documentIds.push(status.documentId);
-          updatedFiles[i] = { ...sf, uploading: false, documentId: status.documentId };
-        } else {
-          updatedFiles[i] = { ...sf, uploading: false, error: 'Upload failed' };
-        }
-      } catch (err: any) {
-        updatedFiles[i] = { ...sf, uploading: false, error: err.message };
-      }
-      setFiles([...updatedFiles]);
-    }
-
-    return documentIds;
-  }, []);
 
   const handleSubmit = async () => {
     if ((!input.trim() && files.length === 0) || disabled || isStreaming) return;
