@@ -15,7 +15,7 @@ interface ConversationSummary {
 }
 
 /** Pending plan awaiting user depth choices before execution */
-interface PendingPlanReview {
+export interface PendingPlanReview {
   plan: ExecutionPlan;
   planSessionId: string;
   query: string;
