@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "npx vite",
-    "build": "npx vite build",
-    "build:staging": "npx vite build --mode staging",
+    "build": "tsc --noEmit && npx vite build",
+    "build:staging": "tsc --noEmit && npx vite build --mode staging",
     "lint": "eslint .",
     "preview": "npx vite preview",
     "preview:staging": "npx vite preview --mode staging",
