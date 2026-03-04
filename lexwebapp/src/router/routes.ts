@@ -64,6 +64,9 @@ export const ROUTES = {
   UA_DATA_SOURCES: '/ua/data-sources',
   EU_COMPARISON: '/eu/comparison',
 
+  // News
+  NEWS: '/news',
+
   // History
   HISTORY: '/history',
 
