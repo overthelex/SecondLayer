@@ -315,13 +315,13 @@ export function StatisticsTab() {
                         <stop offset="95%" stopColor="#D97757" stopOpacity={0.1} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7E0" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E5E0" />
                     <XAxis dataKey="date" stroke="#6B6B6B" style={{ fontSize: '11px' }} />
                     <YAxis stroke="#6B6B6B" style={{ fontSize: '11px' }} allowDecimals={false} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: '#F5F5F0',
-                        border: '1px solid #E5E7E0',
+                        border: '1px solid #E5E5E0',
                         borderRadius: '8px',
                         fontSize: '13px',
                       }}
@@ -359,7 +359,7 @@ export function StatisticsTab() {
                       labelLine={false}
                       label={({ name, value }) => `${name}: ${formatCost(value)}`}
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill="#D97757"
                       dataKey="value">
                       {data.costByService.map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -384,13 +384,13 @@ export function StatisticsTab() {
               </h3>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={data.dailyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7E0" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E5E0" />
                   <XAxis dataKey="date" stroke="#6B6B6B" style={{ fontSize: '11px' }} />
                   <YAxis stroke="#6B6B6B" style={{ fontSize: '11px' }} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: '#F5F5F0',
-                      border: '1px solid #E5E7E0',
+                      border: '1px solid #E5E5E0',
                       borderRadius: '8px',
                       fontSize: '13px',
                     }}

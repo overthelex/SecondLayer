@@ -37,20 +37,31 @@ chunk_size=$(( total_days / WORKERS ))
 
 echo "Total days: $total_days | Chunk: ~$chunk_size days/worker"
 
+# Unique prefix to avoid conflicts when running multiple instances
+RUN_ID="$$"
+
 # Ensure staging tables exist
 for i in $(seq 0 $((WORKERS - 1))); do
   docker exec "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -q -c \
-    "CREATE TABLE IF NOT EXISTS _cs_stg_${i} (LIKE court_sessions INCLUDING DEFAULTS);" 2>/dev/null
+    "CREATE TABLE IF NOT EXISTS _cs_stg_${RUN_ID}_${i} (LIKE court_sessions INCLUDING DEFAULTS);" 2>/dev/null
 done
+
+# Cleanup on exit
+cleanup() {
+  for i in $(seq 0 $((WORKERS - 1))); do
+    docker exec "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -q -c "DROP TABLE IF EXISTS _cs_stg_${RUN_ID}_${i};" 2>/dev/null
+  done
+}
+trap cleanup EXIT
 
 # Worker function
 crawl_worker() {
   local worker_id=$1
   local w_start=$2
   local w_end=$3
-  local stg_table="_cs_stg_${worker_id}"
-  local state_file="${SCRIPT_DIR}/.crawl-state-w${worker_id}"
-  local log_file="${SCRIPT_DIR}/crawl-w${worker_id}.log"
+  local stg_table="_cs_stg_${RUN_ID}_${worker_id}"
+  local state_file="${SCRIPT_DIR}/.crawl-state-${RUN_ID}-w${worker_id}"
+  local log_file="${SCRIPT_DIR}/crawl-${RUN_ID}-w${worker_id}.log"
 
   # Alternate tokens per worker
   local tokens=("$ZO_TOKEN")
@@ -164,10 +175,8 @@ for pid in "${pids[@]}"; do
   wait "$pid" || echo "Worker PID $pid exited with error"
 done
 
-# Cleanup staging tables
-for i in $(seq 0 $((WORKERS - 1))); do
-  docker exec "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -q -c "DROP TABLE IF EXISTS _cs_stg_${i};" 2>/dev/null
-done
+# Cleanup staging tables (also handled by trap)
+cleanup
 
 rm -f "$SCRIPT_DIR/.crawl-pids"
 
