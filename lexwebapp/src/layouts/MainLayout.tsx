@@ -25,6 +25,7 @@ const PAGE_TITLES: Record<string, string> = {
   [ROUTES.CLIENTS]: 'Клієнти',
   [ROUTES.DOCUMENTS]: 'Документи',
   [ROUTES.MATTERS]: 'Справи (юридичні)',
+  [ROUTES.NEWS]: 'Новини КМУ',
   [ROUTES.HISTORY]: 'Історія запитів',
   [ROUTES.DECISIONS_SEARCH]: 'Пошук судових рішень',
   [ROUTES.CASE_ANALYSIS]: 'Аналіз справи',
