@@ -71,7 +71,7 @@ export function DecisionsTab({ decisions, onOpenModal }: DecisionsTabProps) {
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide border ${
                       decision.status === 'active'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        ? 'bg-green-50 text-green-700 border-green-200'
                         : decision.status === 'overturned'
                         ? 'bg-red-50 text-red-600 border-red-200'
                         : 'bg-amber-50 text-amber-700 border-amber-200'

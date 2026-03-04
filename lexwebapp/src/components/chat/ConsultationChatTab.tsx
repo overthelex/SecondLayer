@@ -153,16 +153,16 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange }: Con
             <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[85%] rounded-xl px-3 py-2 ${
                 isMine
-                  ? 'bg-indigo-600 text-white rounded-br-sm'
-                  : 'bg-gray-100 text-claude-text rounded-bl-sm'
+                  ? 'bg-claude-accent text-white rounded-br-sm'
+                  : 'bg-claude-user text-claude-text rounded-bl-sm'
               }`}>
                 {!isMine && (
-                  <p className="text-[10px] font-medium text-indigo-600 mb-0.5">
+                  <p className="text-[10px] font-medium text-claude-accent mb-0.5">
                     {msg.sender_name}
                   </p>
                 )}
                 <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
-                <p className={`text-[9px] mt-1 ${isMine ? 'text-indigo-200' : 'text-claude-subtext'}`}>
+                <p className={`text-[9px] mt-1 ${isMine ? 'text-white/60' : 'text-claude-subtext'}`}>
                   {new Date(msg.created_at).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
@@ -181,13 +181,12 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange }: Con
             onKeyDown={handleKeyDown}
             placeholder="Написати повідомлення..."
             rows={1}
-            className="flex-1 resize-none rounded-lg border border-claude-border/50 px-3 py-2 text-[13px] placeholder:text-claude-subtext/50 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 max-h-24 overflow-y-auto bg-white"
-            style={{ minHeight: '36px' }}
+            className="flex-1 resize-none rounded-lg border border-claude-border/50 px-3 py-2 text-[13px] placeholder:text-claude-subtext/50 focus:outline-none focus:ring-1 focus:ring-claude-accent focus:border-claude-accent max-h-24 overflow-y-auto bg-white min-h-[36px]"
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isSending}
-            className="flex-shrink-0 p-2 rounded-lg bg-indigo-600 text-white disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+            className="flex-shrink-0 p-2 rounded-lg bg-claude-accent text-white disabled:opacity-40 hover:bg-opacity-90 transition-colors"
           >
             {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
