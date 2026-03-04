@@ -931,6 +931,102 @@ services:
       - secondlayer-stage-network
     restart: unless-stopped
 
+  # ===== Authentik SSO (sso.legal.org.ua) =====
+
+  authentik-postgresql-stage:
+    image: postgres:15-alpine
+    container_name: authentik-postgresql-stage
+    environment:
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: ${AUTHENTIK_PG_PASS:-}
+      POSTGRES_DB: authentik
+      TZ: Europe/Kiev
+    volumes:
+      - authentik_pg_stage_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authentik -d authentik"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - secondlayer-stage-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  authentik-server-stage:
+    image: ghcr.io/goauthentik/server:2024.12
+    container_name: authentik-server-stage
+    command: server
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-}
+      AUTHENTIK_REDIS__HOST: redis-stage
+      AUTHENTIK_REDIS__PORT: 6379
+      AUTHENTIK_REDIS__DB: 2
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql-stage
+      AUTHENTIK_POSTGRESQL__PORT: 5432
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_PG_PASS:-}
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:-}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL:-admin@legal.org.ua}
+      TZ: Europe/Kiev
+    volumes:
+      - authentik_media_stage:/media
+      - authentik_templates_stage:/templates
+    depends_on:
+      authentik-postgresql-stage:
+        condition: service_healthy
+      redis-stage:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - secondlayer-stage-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  authentik-worker-stage:
+    image: ghcr.io/goauthentik/server:2024.12
+    container_name: authentik-worker-stage
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-}
+      AUTHENTIK_REDIS__HOST: redis-stage
+      AUTHENTIK_REDIS__PORT: 6379
+      AUTHENTIK_REDIS__DB: 2
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql-stage
+      AUTHENTIK_POSTGRESQL__PORT: 5432
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_PG_PASS:-}
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      TZ: Europe/Kiev
+    volumes:
+      - authentik_media_stage:/media
+      - authentik_templates_stage:/templates
+    depends_on:
+      authentik-postgresql-stage:
+        condition: service_healthy
+      redis-stage:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - secondlayer-stage-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
   cadvisor-stage:
     image: gcr.io/cadvisor/cadvisor:v0.55.1
     container_name: cadvisor-stage
@@ -986,6 +1082,12 @@ volumes:
   nextcloud_stage_data:
     driver: local
   nextcloud_db_stage_data:
+    driver: local
+  authentik_pg_stage_data:
+    driver: local
+  authentik_media_stage:
+    driver: local
+  authentik_templates_stage:
     driver: local
 networks:
   secondlayer-stage-network:
