@@ -941,6 +941,7 @@ services:
       -c work_mem=32MB
       -c maintenance_work_mem=256MB
       -c checkpoint_completion_target=0.9
+      -c max_wal_size=4GB
       -c wal_level=minimal
       -c max_wal_senders=0
     environment:

@@ -15,6 +15,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Deployment
 
+- When asked to deploy to prod, ALWAYS merge the PR to main first unless explicitly told otherwise. Never deploy a branch directly to production.
+- Production environment: deployment is done by merging PR to main, then running the deploy script locally. The deploy script may hang on interactive prompts — pipe input or use non-interactive flags. Check the local deployment directory for current env vars and secrets, not the remote server.
 - When deploying, always use SSH to the remote server (gate/staging/prod) — never run docker compose commands locally unless explicitly asked for local deployment.
 - The staging server is accessed via SSH. Always confirm which environment (local/stage/prod) before running deploy commands.
 - After deploying, always check container health and logs for errors.
@@ -37,6 +39,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Prefer action over analysis. When the user asks to implement something, start coding after brief analysis (< 2 minutes exploration). Do NOT spend the whole session producing plans without writing code.
 - If asked to fix a specific bug, stay focused on that bug. Do not go down rabbit holes investigating tangentially related issues unless explicitly asked.
+
+## Project Overview
+
+- This is a TypeScript monorepo. Primary language is TypeScript. Always ensure builds pass (`npm run build` or equivalent) before creating PRs or deploying.
 
 ## Project Stack
 
@@ -64,6 +70,7 @@ When the user asks for a specific task (e.g., 'commit frontend changes'), do exa
 
 ## Debugging Approach
 
+- When debugging production issues, start with logs and targeted debug output FIRST. Do not extensively explore the codebase before checking actual runtime behavior.
 - When asked to check errors or logs, always check the REMOTE server logs (via SSH) unless explicitly told to check locally.
 - When diagnosing search/query issues, log the actual generated query before assuming the logic is correct.
 - When fixing bugs, deploy the fix AND verify it works in the target environment before marking done.
@@ -397,7 +404,13 @@ Express app with:
 
 Before modifying shared configuration values (env vars like VITE_API_URL, API base paths, port numbers, OAuth redirect URIs), trace ALL downstream usages across frontend, backend, and deploy scripts. Never change these without verifying the full impact chain.
 
+## Task Management
+
+- When asked to create Linear issues, create NEW issues for untracked work. Do not list existing issues unless explicitly asked to audit.
+
 ## Frontend Conventions
+
+- UI text should be in Ukrainian (uk-UA) unless specified otherwise.
 
 ### UI Display Rules
 
