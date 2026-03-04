@@ -1,6 +1,6 @@
 import {
   Gavel, BookOpen, TrendingUp, CheckCircle, Scale, Briefcase,
-  Bell, FileCode, BarChart3, Vote, History,
+  Bell, FileCode, BarChart3, Vote, History, Newspaper,
   Clock, FileText, Search, Activity, Database, Users, DollarSign,
   Server, Boxes, Globe, CreditCard, Settings, Terminal, Tag, Zap,
   Layers,
@@ -22,6 +22,7 @@ export const legislationSections = [
   { id: 'statistics', label: 'Статистика прийняття законів', icon: BarChart3, route: ROUTES.LEGISLATION_STATISTICS },
   { id: 'voting', label: 'Аналіз голосувань', icon: Vote, route: ROUTES.VOTING_ANALYSIS },
   { id: 'historical', label: 'Історичний аналіз', icon: History, route: ROUTES.HISTORICAL_ANALYSIS },
+  { id: 'news', label: 'Новини КМУ', icon: Newspaper, route: ROUTES.NEWS },
 ];
 
 export function getMattersSections(isAttorney: boolean) {

@@ -80,6 +80,9 @@ const VotingAnalysisPage = lazy(() => import('../pages/VotingAnalysisPage').then
 const LegalCodesLibraryPage = lazy(() => import('../pages/LegalCodesLibraryPage').then(m => ({ default: m.LegalCodesLibraryPage })));
 const HistoricalAnalysisPage = lazy(() => import('../pages/HistoricalAnalysisPage').then(m => ({ default: m.HistoricalAnalysisPage })));
 
+// -- News --
+const NewsPage = lazy(() => import('../pages/NewsPage').then(m => ({ default: m.NewsPage })));
+
 // -- MCP Connect --
 const MCPConnectPage = lazy(() => import('../pages/MCPConnectPage').then(m => ({ default: m.MCPConnectPage })));
 
@@ -261,6 +264,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.DECISIONS_SEARCH,
             element: S(DecisionsSearchPage),
+          },
+          {
+            path: ROUTES.NEWS,
+            element: S(NewsPage),
           },
           {
             path: ROUTES.HISTORY,
