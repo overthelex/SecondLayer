@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y \
     python3 \
     make \
     g++ \
-    && apt-get upgrade -y libnss3 \
+    && apt-get install --only-upgrade -y libnss3 \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHON=/usr/bin/python3
