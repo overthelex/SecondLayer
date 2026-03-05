@@ -1,13 +1,22 @@
 /**
  * Diia Service
- * Integration with Ukrainian government's Diia Business API for user authentication.
- * Docs: https://api2t.diia.gov.ua (test) / https://api2.diia.gov.ua (prod)
+ * Integration with Ukrainian government's Diia Business API.
+ *
+ * Auth flow (Diia.Sign / Дія.Підпис):
+ * 1. GET  /api/v1/auth/acquirer/{DIIA_ACQUIRER_TOKEN}  → session bearer token (no auth header, token in URL)
+ * 2. GET  /api/v2/acquirers/branches                   → list branches
+ * 3. GET  /api/v1/acquirers/branch/{id}/offers         → list offers
+ * 4. POST /api/v2/acquirers/branch/{id}/offer-request/dynamic → get deeplink
+ * 5. User scans QR in Diia app → Diia POSTs to our webhook
+ *
+ * SDK reference: https://github.com/diiaintegration/ua-acquirers-sdk-js
  */
 
+import crypto from 'crypto';
 import { logger } from '../utils/logger.js';
 
 const DIIA_BASE_URL = process.env.DIIA_BASE_URL || 'https://api2t.diia.gov.ua';
-const DIIA_AUTH_ACQUIRER_TOKEN = process.env.DIIA_AUTH_ACQUIRER_TOKEN || '';
+const DIIA_ACQUIRER_TOKEN = process.env.DIIA_ACQUIRER_TOKEN || '';
 
 interface DiiaSessionResponse {
   token: string;
@@ -15,196 +24,237 @@ interface DiiaSessionResponse {
 
 interface DiiaBranch {
   id: string;
+  _id?: string;
   name: string;
-  customFullName?: string;
-  customAddress?: string;
+  deliveryTypes?: string[];
   offerRequestType?: string;
+  scopes?: Record<string, unknown>;
 }
 
 interface DiiaOffer {
   id: string;
+  _id?: string;
   name: string;
   returnLink?: string;
-  shareAttributes?: string[];
+  scopes?: Record<string, unknown>;
 }
 
-interface DiiaAuthLink {
-  deepLink: string;
-  barcode: string;
-  requestId: string;
-}
-
-export interface DiiaUserInfo {
-  rnokpp?: string;    // IPN / tax number
-  firstName?: string;
-  lastName?: string;
-  middleName?: string;
-  email?: string;
-  phoneNumber?: string;
-  birthDate?: string;
+export interface DiiaDeeplinkResult {
+  deeplink: string;
+  requestId: string;        // plain UUID — used by frontend for polling
+  hashedRequestId: string;  // SHA256(requestId) — Diia sends this in X-Document-Request-Trace-Id
 }
 
 export class DiiaService {
   private tokenCache: { token: string; expiresAt: number } | null = null;
 
   /**
-   * Get Bearer token for Diia API using Basic auth (acquirer credentials).
-   * Token is cached until close to expiry.
+   * Step 1: Get Bearer session token.
+   * GET /api/v1/auth/acquirer/{acquirerToken}  — token is in URL path, no auth header.
    */
-  async getAcquirerToken(): Promise<string> {
+  async getSessionToken(): Promise<string> {
     if (this.tokenCache && Date.now() < this.tokenCache.expiresAt) {
       return this.tokenCache.token;
     }
 
-    if (!DIIA_AUTH_ACQUIRER_TOKEN) {
-      throw new Error('DIIA_AUTH_ACQUIRER_TOKEN is not configured');
+    if (!DIIA_ACQUIRER_TOKEN) {
+      throw new Error('DIIA_ACQUIRER_TOKEN is not configured');
     }
 
-    const response = await fetch(`${DIIA_BASE_URL}/api/v1/auth/acquirer/session`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${DIIA_AUTH_ACQUIRER_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const url = `${DIIA_BASE_URL}/api/v1/auth/acquirer/${DIIA_ACQUIRER_TOKEN}`;
+    const response = await fetch(url, { method: 'GET' });
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
-      throw new Error(`Diia auth session failed: ${response.status} ${body}`);
+      throw new Error(`Diia session token failed: ${response.status} ${body}`);
     }
 
     const data = await response.json() as DiiaSessionResponse;
 
-    // Cache for 23 hours (tokens typically valid 24h)
+    // Cache for 1h 55m (tokens valid 2 hours)
     this.tokenCache = {
       token: data.token,
-      expiresAt: Date.now() + 23 * 60 * 60 * 1000,
+      expiresAt: Date.now() + 115 * 60 * 1000,
     };
 
-    logger.info('[Diia] Acquirer session token obtained');
+    logger.info('[Diia] Session token obtained');
     return data.token;
   }
 
-  /**
-   * Get list of configured branches for this acquirer.
-   */
+  /** GET /api/v2/acquirers/branches */
   async getBranches(): Promise<DiiaBranch[]> {
-    const token = await this.getAcquirerToken();
-
-    const response = await fetch(`${DIIA_BASE_URL}/api/v2/acquirer/branches`, {
+    const token = await this.getSessionToken();
+    const response = await fetch(`${DIIA_BASE_URL}/api/v2/acquirers/branches?skip=0&limit=50`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
-      throw new Error(`Diia branches request failed: ${response.status} ${body}`);
+      throw new Error(`Diia getBranches failed: ${response.status} ${body}`);
     }
 
     const data = await response.json() as { branches: DiiaBranch[] };
     return data.branches || [];
   }
 
-  /**
-   * Get offers for a specific branch.
-   */
-  async getBranchOffers(branchId: string): Promise<DiiaOffer[]> {
-    const token = await this.getAcquirerToken();
+  /** POST /api/v2/acquirers/branch — create branch for auth */
+  async createBranch(): Promise<string> {
+    const token = await this.getSessionToken();
 
-    const response = await fetch(`${DIIA_BASE_URL}/api/v1/acquirer/branch/${branchId}/offers`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+    const branchBody = {
+      name: 'LexAI Auth',
+      email: 'admin@legal.org.ua',
+      region: 'м. Київ',
+      district: 'Шевченківський р-н',
+      location: 'м. Київ',
+      street: 'вул. Хрещатик',
+      house: '1',
+      customFullName: 'ТОВ "Лекс ЕйАй" — юридична AI-платформа',
+      customFullAddress: 'м. Київ, вул. Хрещатик, 1',
+      deliveryTypes: ['api'],
+      offerRequestType: 'dynamic',
+      scopes: { diiaId: ['auth'] },
+    };
+
+    const response = await fetch(`${DIIA_BASE_URL}/api/v2/acquirers/branch`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(branchBody),
     });
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
-      throw new Error(`Diia offers request failed: ${response.status} ${body}`);
+      throw new Error(`Diia createBranch failed: ${response.status} ${body}`);
+    }
+
+    const data = await response.json() as { _id: string };
+    logger.info('[Diia] Branch created', { branchId: data._id });
+    return data._id;
+  }
+
+  /** GET /api/v1/acquirers/branch/{branchId}/offers */
+  async getOffers(branchId: string): Promise<DiiaOffer[]> {
+    const token = await this.getSessionToken();
+    const response = await fetch(
+      `${DIIA_BASE_URL}/api/v1/acquirers/branch/${branchId}/offers?skip=0&limit=50`,
+      { headers: { 'Authorization': `Bearer ${token}` } }
+    );
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(`Diia getOffers failed: ${response.status} ${body}`);
     }
 
     const data = await response.json() as { offers: DiiaOffer[] };
     return data.offers || [];
   }
 
+  /** POST /api/v1/acquirers/branch/{branchId}/offer — create auth offer */
+  async createOffer(branchId: string, returnLink: string): Promise<string> {
+    const token = await this.getSessionToken();
+
+    const offerBody = {
+      name: 'Авторизація LexAI',
+      returnLink,
+      scopes: { diiaId: ['auth'] },
+    };
+
+    const response = await fetch(`${DIIA_BASE_URL}/api/v1/acquirers/branch/${branchId}/offer`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(offerBody),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(`Diia createOffer failed: ${response.status} ${body}`);
+    }
+
+    const data = await response.json() as { _id: string };
+    logger.info('[Diia] Offer created', { offerId: data._id, branchId });
+    return data._id;
+  }
+
   /**
-   * Create an auth sharing link (deeplink + QR barcode) for a given branch/offer.
-   * The returnUrl is where Diia redirects after the user authenticates.
+   * POST /api/v2/acquirers/branch/{branchId}/offer-request/dynamic
+   * Returns the deeplink and the requestId for polling.
+   *
+   * Note: Diia.Sign auth requires the requestId to be SHA256-hashed before sending.
    */
-  async createAuthLink(branchId: string, offerId: string, returnUrl: string): Promise<DiiaAuthLink> {
-    const token = await this.getAcquirerToken();
+  async getAuthDeeplink(branchId: string, offerId: string): Promise<DiiaDeeplinkResult> {
+    const token = await this.getSessionToken();
+
+    const requestId = crypto.randomUUID();
+    // SDK hashes requestId with SHA256 before sending to Diia
+    const hashedRequestId = crypto.createHash('sha256').update(requestId).digest('hex');
 
     const response = await fetch(
-      `${DIIA_BASE_URL}/api/v2/acquirer/branch/${branchId}/offer/${offerId}/sharing-link`,
+      `${DIIA_BASE_URL}/api/v2/acquirers/branch/${branchId}/offer-request/dynamic`,
       {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ returnLink: returnUrl }),
+        body: JSON.stringify({ offerId, requestId: hashedRequestId }),
       }
     );
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
-      throw new Error(`Diia sharing link creation failed: ${response.status} ${body}`);
+      throw new Error(`Diia getAuthDeeplink failed: ${response.status} ${body}`);
     }
 
-    return await response.json() as DiiaAuthLink;
+    const data = await response.json() as { deeplink: string };
+    logger.info('[Diia] Auth deeplink created', { branchId, offerId });
+
+    return { deeplink: data.deeplink, requestId, hashedRequestId };
   }
 
   /**
-   * Initialize a Diia auth session.
-   * Discovers the first available branch and offer, then creates an auth deeplink.
-   * Returns the deeplink, barcode, and requestId for tracking.
+   * Initialize a full auth session.
+   * Auto-discovers (or creates) branch and offer, then returns the auth deeplink.
+   * Uses DIIA_BRANCH_ID / DIIA_OFFER_ID env vars as cache to skip discovery.
    */
-  async initAuthSession(returnUrl: string): Promise<DiiaAuthLink & { branchId: string; offerId: string }> {
-    const branches = await this.getBranches();
+  async initAuthSession(returnUrl: string): Promise<DiiaDeeplinkResult> {
+    // Use cached branch/offer IDs from env if available
+    let branchId = process.env.DIIA_BRANCH_ID || '';
+    let offerId = process.env.DIIA_OFFER_ID || '';
 
-    if (!branches.length) {
-      throw new Error('No Diia branches configured for this acquirer. Please set up a branch in the Diia Business Cabinet.');
+    if (!branchId) {
+      const branches = await this.getBranches();
+      if (branches.length > 0) {
+        branchId = branches[0].id || branches[0]._id || '';
+      } else {
+        // First-time setup: create branch
+        branchId = await this.createBranch();
+      }
+      logger.info('[Diia] Using branch', { branchId });
     }
 
-    const branch = branches[0];
-    logger.info('[Diia] Using branch', { branchId: branch.id, name: branch.name });
-
-    const offers = await this.getBranchOffers(branch.id);
-
-    if (!offers.length) {
-      throw new Error('No Diia offers configured for branch ' + branch.id);
+    if (!offerId) {
+      const offers = await this.getOffers(branchId);
+      if (offers.length > 0) {
+        offerId = offers[0].id || offers[0]._id || '';
+      } else {
+        // First-time setup: create offer
+        offerId = await this.createOffer(branchId, returnUrl);
+      }
+      logger.info('[Diia] Using offer', { offerId });
     }
 
-    const offer = offers[0];
-    logger.info('[Diia] Using offer', { offerId: offer.id, name: offer.name });
-
-    const link = await this.createAuthLink(branch.id, offer.id, returnUrl);
-
-    return { ...link, branchId: branch.id, offerId: offer.id };
+    return this.getAuthDeeplink(branchId, offerId);
   }
 
-  /**
-   * Verify a Diia auth result by requestId.
-   * Called after the user returns from the Diia app.
-   */
-  async getAuthResult(requestId: string): Promise<DiiaUserInfo | null> {
-    const token = await this.getAcquirerToken();
-
-    const response = await fetch(`${DIIA_BASE_URL}/api/v1/acquirer/document-request/${requestId}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-
-    if (response.status === 404) {
-      return null;
-    }
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      throw new Error(`Diia auth result fetch failed: ${response.status} ${body}`);
-    }
-
-    return await response.json() as DiiaUserInfo;
-  }
-
-  /** Whether Diia is configured (tokens present). */
+  /** Whether Diia is configured (acquirer token present). */
   isConfigured(): boolean {
-    return Boolean(DIIA_AUTH_ACQUIRER_TOKEN);
+    return Boolean(DIIA_ACQUIRER_TOKEN);
   }
 }
 
