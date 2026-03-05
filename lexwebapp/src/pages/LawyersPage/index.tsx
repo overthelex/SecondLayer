@@ -1,6 +1,6 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
   Award,
@@ -10,12 +10,17 @@ import {
   List,
   ExternalLink,
   Loader2,
+  Clock,
+  X,
+  Trash2,
 } from 'lucide-react';
-import { erauService, ERAULawyer } from '../../services/api/ERAUService';
+import { erauService, ERAULawyer, SearchHistoryEntry } from '../../services/api/ERAUService';
 import { generateRoute } from '../../router/routes';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function LawyersPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   const handleSelectLawyer = (lawyer: ERAULawyer) => {
     const name = [lawyer.surname, lawyer.firstname, lawyer.middlename].filter(Boolean).join(' ');
@@ -41,6 +46,22 @@ export function LawyersPage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [viewMode, setViewMode] = useState<'comfortable' | 'compact'>('comfortable');
 
+  // History state
+  const [history, setHistory] = useState<SearchHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Load history on mount for authenticated users
+  useEffect(() => {
+    if (isAuthenticated) {
+      setHistoryLoading(true);
+      erauService.getSearchHistory(20).then((data) => {
+        setHistory(data);
+        setHistoryLoading(false);
+      }).catch(() => setHistoryLoading(false));
+    }
+  }, [isAuthenticated]);
+
   const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
     const trimmed = searchQuery.trim();
@@ -49,16 +70,60 @@ export function LawyersPage() {
     setLoading(true);
     setError(null);
     setHasSearched(true);
+    setShowHistory(false);
 
     try {
       const data = await erauService.searchLawyers(trimmed);
       setResults(data);
+
+      // Save to history (fire-and-forget)
+      if (isAuthenticated) {
+        erauService.saveSearchHistory(trimmed, data.length).then((/* void */) => {
+          // Refresh history list
+          erauService.getSearchHistory(20).then(setHistory).catch(() => {});
+        });
+      }
     } catch (err: any) {
       setError(err?.message || 'Не вдалося виконати пошук. Спробуйте пізніше.');
       setResults([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleHistoryClick = (entry: SearchHistoryEntry) => {
+    setSearchQuery(entry.query);
+    setShowHistory(false);
+    // Trigger search immediately
+    setLoading(true);
+    setError(null);
+    setHasSearched(true);
+
+    erauService.searchLawyers(entry.query).then((data) => {
+      setResults(data);
+      if (isAuthenticated) {
+        erauService.saveSearchHistory(entry.query, data.length).then(() => {
+          erauService.getSearchHistory(20).then(setHistory).catch(() => {});
+        });
+      }
+    }).catch((err: any) => {
+      setError(err?.message || 'Не вдалося виконати пошук. Спробуйте пізніше.');
+      setResults([]);
+    }).finally(() => {
+      setLoading(false);
+    });
+  };
+
+  const handleDeleteHistoryEntry = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setHistory((prev) => prev.filter((h) => h.id !== id));
+    await erauService.deleteSearchHistoryEntry(id);
+  };
+
+  const handleClearHistory = async () => {
+    setHistory([]);
+    setShowHistory(false);
+    await erauService.clearSearchHistory();
   };
 
   const formatDate = (dateStr: string) => {
@@ -68,6 +133,26 @@ export function LawyersPage() {
       return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
     } catch {
       return dateStr;
+    }
+  };
+
+  const formatHistoryDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diff = now.getTime() - d.getTime();
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+
+      if (minutes < 1) return 'щойно';
+      if (minutes < 60) return `${minutes} хв тому`;
+      if (hours < 24) return `${hours} год тому`;
+      if (days < 7) return `${days} дн тому`;
+      return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' });
+    } catch {
+      return '';
     }
   };
 
@@ -125,8 +210,74 @@ export function LawyersPage() {
                 placeholder="Введіть прізвище адвоката..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => {
+                  if (isAuthenticated && history.length > 0 && !hasSearched) {
+                    setShowHistory(true);
+                  }
+                }}
                 disabled={loading}
               />
+
+              {/* History Dropdown */}
+              <AnimatePresence>
+                {showHistory && history.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white border border-claude-border rounded-xl shadow-lg z-50 overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-claude-border/50">
+                      <span className="text-xs font-sans font-medium text-claude-subtext flex items-center gap-1.5">
+                        <Clock size={12} />
+                        Останні пошуки
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleClearHistory}
+                        className="text-xs text-claude-subtext hover:text-red-500 transition-colors font-sans flex items-center gap-1"
+                      >
+                        <Trash2 size={11} />
+                        Очистити
+                      </button>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {history.map((entry) => (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => handleHistoryClick(entry)}
+                          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-claude-bg transition-colors text-left group/item"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Clock size={14} className="text-claude-subtext/50 flex-shrink-0" />
+                            <span className="text-sm font-sans text-claude-text truncate">
+                              {entry.query}
+                            </span>
+                            <span className="text-xs text-claude-subtext/60 font-sans flex-shrink-0">
+                              {entry.result_count} рез.
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-claude-subtext/40 font-sans">
+                              {formatHistoryDate(entry.created_at)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteHistoryEntry(e, entry.id)}
+                              className="opacity-0 group-hover/item:opacity-100 p-0.5 text-claude-subtext/40 hover:text-red-400 transition-all"
+                              title="Видалити"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <button
@@ -158,6 +309,11 @@ export function LawyersPage() {
             </div>
           </form>
         </motion.div>
+
+        {/* Click-away to close history dropdown */}
+        {showHistory && (
+          <div className="fixed inset-0 z-40" onClick={() => setShowHistory(false)} />
+        )}
 
         {/* Error */}
         {error && (
@@ -236,7 +392,7 @@ export function LawyersPage() {
           </div>
         )}
 
-        {/* Empty state - before search */}
+        {/* Empty state - before search (with history) */}
         {!hasSearched && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -252,6 +408,44 @@ export function LawyersPage() {
             <p className="text-claude-subtext font-sans max-w-md mx-auto">
               Введіть прізвище адвоката для пошуку в Єдиному реєстрі адвокатів України
             </p>
+
+            {/* Recent searches below empty state */}
+            {isAuthenticated && !historyLoading && history.length > 0 && (
+              <div className="mt-8 max-w-md mx-auto">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-sans font-medium text-claude-subtext flex items-center gap-1.5">
+                    <Clock size={12} />
+                    Останні пошуки
+                  </span>
+                  <button
+                    onClick={handleClearHistory}
+                    className="text-xs text-claude-subtext hover:text-red-500 transition-colors font-sans flex items-center gap-1"
+                  >
+                    <Trash2 size={11} />
+                    Очистити
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {history.slice(0, 8).map((entry) => (
+                    <button
+                      key={entry.id}
+                      onClick={() => handleHistoryClick(entry)}
+                      className="group/chip flex items-center gap-1.5 px-3 py-1.5 bg-white border border-claude-border rounded-full text-sm font-sans text-claude-text hover:border-claude-accent hover:text-claude-accent transition-all shadow-sm"
+                    >
+                      <Clock size={12} className="text-claude-subtext/40" />
+                      {entry.query}
+                      <span className="text-[10px] text-claude-subtext/50">({entry.result_count})</span>
+                      <button
+                        onClick={(e) => handleDeleteHistoryEntry(e, entry.id)}
+                        className="opacity-0 group-hover/chip:opacity-100 ml-0.5 p-0.5 text-claude-subtext/40 hover:text-red-400 transition-all"
+                      >
+                        <X size={11} />
+                      </button>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 
