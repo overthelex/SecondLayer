@@ -36,6 +36,13 @@ export interface ERAUProfile {
   qualification: Array<{ year: string; status: string }>;
 }
 
+export interface SearchHistoryEntry {
+  id: string;
+  query: string;
+  result_count: number;
+  created_at: string;
+}
+
 export class ERAUService extends BaseService {
   async searchLawyers(surname: string): Promise<ERAULawyer[]> {
     try {
@@ -54,6 +61,41 @@ export class ERAUService extends BaseService {
       return response.data;
     } catch (error) {
       return this.handleError(error);
+    }
+  }
+
+  async getSearchHistory(limit = 20): Promise<SearchHistoryEntry[]> {
+    try {
+      const response = await this.client.get<SearchHistoryEntry[]>('/api/erau/search-history', {
+        params: { limit },
+      });
+      return response.data;
+    } catch {
+      return [];
+    }
+  }
+
+  async saveSearchHistory(query: string, resultCount: number): Promise<void> {
+    try {
+      await this.client.post('/api/erau/search-history', { query, resultCount });
+    } catch {
+      // silent — history is non-critical
+    }
+  }
+
+  async deleteSearchHistoryEntry(id: string): Promise<void> {
+    try {
+      await this.client.delete(`/api/erau/search-history/${id}`);
+    } catch {
+      // silent
+    }
+  }
+
+  async clearSearchHistory(): Promise<void> {
+    try {
+      await this.client.delete('/api/erau/search-history');
+    } catch {
+      // silent
     }
   }
 }

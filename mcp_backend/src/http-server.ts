@@ -1942,7 +1942,7 @@ class HTTPMCPServer {
 
     // ERAU proxy - Ukrainian Bar Registry (public, no auth required)
     const erauCacheService = new ERAUCacheService(this.services.db);
-    this.app.use('/api/erau', optionalJWT as any, createERAUProxyRoutes(erauCacheService));
+    this.app.use('/api/erau', optionalJWT as any, createERAUProxyRoutes(erauCacheService, this.services.db));
     logger.info('ERAU proxy routes registered at /api/erau');
 
     // Worker heartbeat (uses dualAuth so EC2 workers can auth with SECONDARY_LAYER_KEYS)
