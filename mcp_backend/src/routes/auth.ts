@@ -7,6 +7,7 @@ import { Router } from 'express';
 import passport from 'passport';
 import multer from 'multer';
 import * as authController from '../controllers/auth.js';
+import { getDiiaService } from '../services/diia-service.js';
 import { authRateLimit, passwordResetRateLimit } from '../middleware/rate-limit.js';
 import { requireJWT } from '../middleware/dual-auth.js';
 
@@ -100,6 +101,43 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   });
   router.get('/google/callback', (_req, res) => {
     res.status(501).json({ error: 'Google OAuth is not configured' });
+  });
+}
+
+/**
+ * Diia (Дія) OAuth routes.
+ * Only registered when DIIA_AUTH_ACQUIRER_TOKEN is set.
+ */
+if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
+  /**
+   * @route   GET /auth/diia
+   * @desc    Initiate Diia auth flow — calls Diia Business API, returns deeplink for QR
+   * @access  Public
+   */
+  router.get('/diia', authController.diiaAuthInit as any);
+
+  /**
+   * @route   GET /auth/diia/callback
+   * @desc    Diia redirects here after user authenticates in the app
+   * @access  Public
+   */
+  router.get('/diia/callback', authController.diiaAuthCallback as any);
+
+  /**
+   * @route   GET /auth/diia/status/:sessionId
+   * @desc    Poll for Diia auth session completion
+   * @access  Public
+   */
+  router.get('/diia/status/:sessionId', authController.diiaAuthStatus as any);
+} else {
+  router.get('/diia', (_req, res) => {
+    res.status(501).json({ error: 'Diia auth is not configured' });
+  });
+  router.get('/diia/callback', (_req, res) => {
+    res.status(501).json({ error: 'Diia auth is not configured' });
+  });
+  router.get('/diia/status/:sessionId', (_req, res) => {
+    res.status(501).json({ error: 'Diia auth is not configured' });
   });
 }
 

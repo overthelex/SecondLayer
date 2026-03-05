@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -15,6 +15,7 @@ import {
   EyeOff,
   User,
   BookOpen,
+  X,
 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { useAuth } from '../../contexts/AuthContext';
@@ -57,6 +58,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showGDPR, setShowGDPR] = useState(false);
+  const [diiaDeeplink, setDiiaDeeplink] = useState<string | null>(null);
+  const [diiaSessionId, setDiiaSessionId] = useState<string | null>(null);
+  const diiaPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -79,24 +83,34 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
   }, []);
 
-  // Handle OAuth callback on mount
+  // Handle OAuth callback on mount (Google + Diia)
   useEffect(() => {
     const handleOAuthCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const token = urlParams.get('token');
       const oauthError = urlParams.get('error');
+      const diiaDeeplinkParam = urlParams.get('diia_deeplink');
+      const diiaSessionParam = urlParams.get('diia_session');
+
+      // Handle Diia QR deeplink — show the QR modal
+      if (diiaDeeplinkParam && diiaSessionParam) {
+        setDiiaDeeplink(diiaDeeplinkParam);
+        setDiiaSessionId(diiaSessionParam);
+        window.history.replaceState({}, '', window.location.pathname);
+        return;
+      }
 
       if (oauthError) {
-        if (oauthError === 'oauth_failed') {
-          setError('Google authentication failed. Please try again.');
-          showToast.error('Google authentication failed');
-        } else if (oauthError === 'server_error') {
-          setError('Server error occurred. Please try again later.');
-          showToast.error('Server error occurred');
-        } else {
-          setError('Authentication failed. Please try again.');
-          showToast.error('Authentication failed');
-        }
+        const errorMap: Record<string, string> = {
+          oauth_failed: 'Помилка автентифікації через Google. Спробуйте ще раз.',
+          server_error: 'Помилка сервера. Спробуйте пізніше.',
+          diia_not_configured: 'Дія авторизацію ще не налаштовано.',
+          diia_failed: 'Помилка автентифікації через Дію. Спробуйте ще раз.',
+          diia_no_result: 'Не отримано дані від Дії. Спробуйте ще раз.',
+        };
+        const msg = errorMap[oauthError] || 'Помилка автентифікації. Спробуйте ще раз.';
+        setError(msg);
+        showToast.error(msg);
         window.history.replaceState({}, '', window.location.pathname);
         return;
       }
@@ -123,6 +137,39 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     handleOAuthCallback();
   }, [login, onLoginSuccess]);
 
+  // Poll Diia session status when QR modal is open
+  useEffect(() => {
+    if (!diiaSessionId) return;
+
+    diiaPollingRef.current = setInterval(async () => {
+      try {
+        const resp = await fetch(`${BASE_URL}/auth/diia/status/${diiaSessionId}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+
+        if (data.status === 'complete' && data.token) {
+          clearInterval(diiaPollingRef.current!);
+          setDiiaDeeplink(null);
+          setDiiaSessionId(null);
+          await login(data.token);
+          if (onLoginSuccess) onLoginSuccess();
+          navigate(getReturnUrl(), { replace: true });
+        } else if (data.status === 'expired') {
+          clearInterval(diiaPollingRef.current!);
+          setDiiaDeeplink(null);
+          setDiiaSessionId(null);
+          setError('Сесія Дії закінчилась. Спробуйте ще раз.');
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 3000);
+
+    return () => {
+      if (diiaPollingRef.current) clearInterval(diiaPollingRef.current);
+    };
+  }, [diiaSessionId]);
+
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
@@ -134,6 +181,11 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const handleGoogleAuth = () => {
     setError(null);
     window.location.href = `${window.location.origin}/auth/google`;
+  };
+
+  const handleDiiaAuth = () => {
+    setError(null);
+    window.location.href = `${window.location.origin}/auth/diia`;
   };
 
   const handlePasswordChange = (value: string) => {
@@ -304,6 +356,22 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               {isLogin ? 'Оберіть зручний спосіб входу' : 'Створіть акаунт для початку роботи'}
             </p>
           </div>
+
+          {/* Diia Auth Button */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleDiiaAuth}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-[#1A4DC2] hover:bg-[#1540A8] text-white rounded-xl font-medium transition-all shadow-sm mb-3 font-sans"
+          >
+            {/* Official Diia logo */}
+            <svg width="22" height="22" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="32" height="32" rx="6" fill="white" fillOpacity="0.15"/>
+              <path d="M8 7h7.5C19.09 7 22 9.91 22 13.5S19.09 20 15.5 20H11v5H8V7zm3 3v7h4.5c1.93 0 3.5-1.57 3.5-3.5S17.43 10 15.5 10H11z" fill="white"/>
+              <path d="M23 7h3v18h-3V7z" fill="white"/>
+            </svg>
+            {isLogin ? 'Увійти через Дію' : 'Зареєструватися через Дію'}
+          </motion.button>
 
           {/* Google Auth Button */}
           <motion.button
@@ -569,6 +637,72 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       {/* GDPR Info Modal */}
       <AnimatePresence>
         {showGDPR && <GDPRModal onClose={() => setShowGDPR(false)} />}
+      </AnimatePresence>
+
+      {/* Diia QR Modal */}
+      <AnimatePresence>
+        {diiaDeeplink && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => { setDiiaDeeplink(null); setDiiaSessionId(null); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center"
+            >
+              <button
+                onClick={() => { setDiiaDeeplink(null); setDiiaSessionId(null); }}
+                className="absolute top-4 right-4 text-claude-subtext hover:text-claude-text"
+              >
+                <X size={20} />
+              </button>
+
+              {/* Diia logo */}
+              <div className="w-16 h-16 bg-[#1A4DC2] rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg width="36" height="36" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 7h7.5C19.09 7 22 9.91 22 13.5S19.09 20 15.5 20H11v5H8V7zm3 3v7h4.5c1.93 0 3.5-1.57 3.5-3.5S17.43 10 15.5 10H11z" fill="white"/>
+                  <path d="M23 7h3v18h-3V7z" fill="white"/>
+                </svg>
+              </div>
+
+              <h2 className="text-xl font-medium text-claude-text mb-1 font-sans">Вхід через Дію</h2>
+              <p className="text-sm text-claude-subtext mb-6 font-sans">
+                Відкрийте застосунок Дія та відскануйте QR-код або натисніть кнопку нижче
+              </p>
+
+              {/* QR code placeholder — real QR from deeplink */}
+              <div className="bg-claude-bg rounded-xl p-4 mb-6 flex items-center justify-center">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(diiaDeeplink)}`}
+                  alt="Diia QR code"
+                  className="w-44 h-44"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+
+              <a
+                href={diiaDeeplink}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#1A4DC2] hover:bg-[#1540A8] text-white rounded-xl font-medium transition-colors font-sans mb-3"
+              >
+                Відкрити в застосунку Дія
+              </a>
+
+              <p className="text-xs text-claude-subtext font-sans flex items-center justify-center gap-2">
+                <Loader2 size={12} className="animate-spin" />
+                Очікування автентифікації…
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
