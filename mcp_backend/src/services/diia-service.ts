@@ -15,8 +15,9 @@
 import crypto from 'crypto';
 import { logger } from '../utils/logger.js';
 
-const DIIA_BASE_URL = process.env.DIIA_BASE_URL || 'https://api2t.diia.gov.ua';
+const DIIA_BASE_URL = process.env.DIIA_BASE_URL || 'https://api2s.diia.gov.ua';
 const DIIA_ACQUIRER_TOKEN = process.env.DIIA_ACQUIRER_TOKEN || '';
+const DIIA_AUTH_ACQUIRER_TOKEN = process.env.DIIA_AUTH_ACQUIRER_TOKEN || '';
 
 interface DiiaSessionResponse {
   token: string;
@@ -62,7 +63,11 @@ export class DiiaService {
     }
 
     const url = `${DIIA_BASE_URL}/api/v1/auth/acquirer/${DIIA_ACQUIRER_TOKEN}`;
-    const response = await fetch(url, { method: 'GET' });
+    const headers: Record<string, string> = {};
+    if (DIIA_AUTH_ACQUIRER_TOKEN) {
+      headers['Authorization'] = `Basic ${DIIA_AUTH_ACQUIRER_TOKEN}`;
+    }
+    const response = await fetch(url, { method: 'GET', headers });
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
