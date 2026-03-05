@@ -117,11 +117,13 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
   router.get('/diia', authController.diiaAuthInit as any);
 
   /**
-   * @route   GET /auth/diia/callback
-   * @desc    Diia redirects here after user authenticates in the app
+   * @route   POST /auth/diia/callback
+   * @desc    Diia webhook — called after user authenticates in the app
+   *          Header: X-Document-Request-Trace-Id = requestId
+   *          Must respond { success: true } within 30s
    * @access  Public
    */
-  router.get('/diia/callback', authController.diiaAuthCallback as any);
+  router.post('/diia/callback', authController.diiaAuthCallback as any);
 
   /**
    * @route   GET /auth/diia/status/:sessionId
@@ -133,7 +135,7 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
   router.get('/diia', (_req, res) => {
     res.status(501).json({ error: 'Diia auth is not configured' });
   });
-  router.get('/diia/callback', (_req, res) => {
+  router.post('/diia/callback', (_req, res) => {
     res.status(501).json({ error: 'Diia auth is not configured' });
   });
   router.get('/diia/status/:sessionId', (_req, res) => {

@@ -1147,22 +1147,21 @@ export async function diiaAuthInit(req: Request, res: Response): Promise<void> {
     const callbackUrl = `${baseUrl}/auth/diia/callback`;
 
     const session = await diiaService.initAuthSession(callbackUrl);
+    const { requestId, hashedRequestId, deeplink } = session;
 
-    const sessionId = session.requestId || crypto.randomUUID();
-
-    // Store pending session in Redis
+    // Store pending session under BOTH keys:
+    // - plain requestId  → for frontend polling (/auth/diia/status/:sessionId)
+    // - hashedRequestId  → for Diia webhook lookup (X-Document-Request-Trace-Id)
     if (authCache) {
-      await authCache.set(
-        `diia:session:${sessionId}`,
-        JSON.stringify({ status: 'pending', requestId: session.requestId }),
-        DIIA_SESSION_TTL
-      );
+      const pending = JSON.stringify({ status: 'pending' });
+      await authCache.set(`diia:session:${requestId}`, pending, DIIA_SESSION_TTL);
+      await authCache.set(`diia:session:${hashedRequestId}`, pending, DIIA_SESSION_TTL);
     }
 
     // Redirect frontend to login page with Diia deeplink params (for QR modal)
     const params = new URLSearchParams({
-      diia_session: sessionId,
-      diia_deeplink: session.deepLink,
+      diia_session: requestId,
+      diia_deeplink: deeplink,
     });
     res.redirect(`${baseUrl}/login?${params.toString()}`);
   } catch (error: any) {
@@ -1174,75 +1173,77 @@ export async function diiaAuthInit(req: Request, res: Response): Promise<void> {
 }
 
 /**
- * GET /auth/diia/callback
- * Diia redirects the user here after they complete authentication in the app.
- * The requestId is passed as a query param; we fetch the auth result from Diia.
+ * POST /auth/diia/callback
+ * Diia sends the signed auth package to this webhook after user completes auth in the app.
+ * Header X-Document-Request-Trace-Id contains our requestId (hashed).
+ *
+ * The body is an encrypted/signed package from Diia.
+ * Full decryption requires the IIT crypto library + private key (future work).
+ * For now we:
+ *  1. Acknowledge with { success: true } (required by Diia — must respond within 30s)
+ *  2. Mark the Redis session as "complete" so the frontend polling detects it
+ *  3. Create/find user keyed by requestId — identity extraction is done after IIT integration
  */
-export async function diiaAuthCallback(req: Request, res: Response): Promise<void> {
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
-  const frontendUrl = `${protocol}://${host}`;
+export async function diiaAuthCallback(req: Request, res: Response): Promise<Response> {
+  // Diia expects { success: true } within 30 seconds
+  const traceId = (req.headers['x-document-request-trace-id'] as string) || '';
+  logger.info('[Diia] Webhook received', { traceId, contentType: req.headers['content-type'] });
 
   try {
-    const { requestId } = req.query as Record<string, string>;
-
-    if (!requestId) {
-      res.redirect(`${frontendUrl}/login?error=diia_no_request`);
-      return;
-    }
-
-    const diiaService = getDiiaService();
-    const userInfo = await diiaService.getAuthResult(requestId);
-
-    if (!userInfo) {
-      res.redirect(`${frontendUrl}/login?error=diia_no_result`);
-      return;
+    if (!traceId) {
+      return res.status(400).json({ success: false, error: 'Missing X-Document-Request-Trace-Id' });
     }
 
     const userService = getUserService();
     if (!userService) {
-      res.redirect(`${frontendUrl}/login?error=server_error`);
-      return;
+      return res.status(503).json({ success: false, error: 'Service unavailable' });
     }
 
-    // Build an email from RNOKPP if no email provided
-    const email = userInfo.email || `diia_${userInfo.rnokpp || requestId}@diia.gov.ua`;
-    const name = [userInfo.lastName, userInfo.firstName, userInfo.middleName]
-      .filter(Boolean)
-      .join(' ') || 'Diia User';
+    // The traceId is our hashed requestId. Look up the original session in Redis.
+    // We stored it as diia:session:{hashedRequestId}
+    const sessionKey = `diia:session:${traceId}`;
+    let sessionData: { status: string; requestId?: string } | null = null;
 
-    // Find or create user
+    if (authCache) {
+      const raw = await authCache.get(sessionKey);
+      if (raw) sessionData = JSON.parse(raw);
+    }
+
+    // Create a placeholder user for the Diia session
+    // Full identity will be extracted after IIT crypto integration
+    const email = `diia_${traceId.substring(0, 16)}@diia.legal.org.ua`;
+    const name = 'Дія Користувач';
+
     let user = await userService.findByEmail(email);
     if (!user) {
       user = await userService.createUser({
-        googleId: '',       // no Google ID for Diia users
+        googleId: '',
         email,
         name,
-        emailVerified: true, // Diia-verified identity
+        emailVerified: true,
       });
-      logger.info('[Diia] Created new user from Diia auth', { userId: user.id, email });
-
-      // Generate banner async
+      logger.info('[Diia] Created user from webhook', { userId: user.id, traceId });
       generateBannerAsync(user.id, name);
     } else {
       await userService.updateLastLogin(user.id);
-      logger.info('[Diia] Existing user logged in via Diia', { userId: user.id, email });
+      logger.info('[Diia] Existing user webhook auth', { userId: user.id, traceId });
     }
 
-    // Mark session as complete in Redis
+    // Update Redis session: mark complete
     if (authCache) {
       await authCache.set(
-        `diia:session:${requestId}`,
+        sessionKey,
         JSON.stringify({ status: 'complete', userId: user.id }),
         DIIA_SESSION_TTL
       );
     }
 
-    const token = generateToken(user);
-    res.redirect(`${frontendUrl}/login?token=${token}`);
+    // Always respond { success: true } — required by Diia within 30s
+    return res.json({ success: true });
   } catch (error: any) {
-    logger.error('[Diia] Auth callback failed:', error);
-    res.redirect(`${frontendUrl}/login?error=diia_failed`);
+    logger.error('[Diia] Webhook failed:', error);
+    // Still return success to Diia to avoid retries
+    return res.json({ success: true });
   }
 }
 
