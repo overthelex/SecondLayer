@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import bcrypt from 'bcryptjs';
 import sharp from 'sharp';
+import crypto from 'crypto';
 import { User } from '../services/user-service.js';
 import { logger } from '../utils/logger.js';
 import { getUserService, getWebAuthnService } from '../middleware/dual-auth.js';
@@ -15,6 +16,7 @@ import { EmailService } from '../services/email-service.js';
 import { MinioService } from '../services/minio-service.js';
 import { BannerService } from '../services/banner-service.js';
 import type { ICachePort } from '../domain/ports/index.js';
+import { getDiiaService } from '../services/diia-service.js';
 
 let authCache: ICachePort | null = null;
 let authEmailService: EmailService | null = null;
@@ -1111,4 +1113,170 @@ export async function regenerateBanner(req: AuthenticatedRequest, res: Response)
     logger.error('[Banner] Regeneration failed:', error);
     return res.status(500).json({ error: 'Internal server error', message: error.message });
   }
+}
+
+// ============================================================================
+// Diia Auth Controllers
+// ============================================================================
+
+const DIIA_SESSION_TTL = 600; // 10 minutes
+
+/**
+ * GET /auth/diia
+ * Initiates Diia authentication flow.
+ * Calls Diia Business API to get a deeplink/QR session, stores pending session in Redis,
+ * then redirects frontend to /login with Diia params so it can show the QR modal.
+ */
+export async function diiaAuthInit(req: Request, res: Response): Promise<void> {
+  try {
+    const diiaService = getDiiaService();
+
+    if (!diiaService.isConfigured()) {
+      const frontendUrl = (() => {
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+        const host = req.headers['x-forwarded-host'] || req.headers.host;
+        return `${protocol}://${host}`;
+      })();
+      res.redirect(`${frontendUrl}/login?error=diia_not_configured`);
+      return;
+    }
+
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    const baseUrl = `${protocol}://${host}`;
+    const callbackUrl = `${baseUrl}/auth/diia/callback`;
+
+    const session = await diiaService.initAuthSession(callbackUrl);
+
+    const sessionId = session.requestId || crypto.randomUUID();
+
+    // Store pending session in Redis
+    if (authCache) {
+      await authCache.set(
+        `diia:session:${sessionId}`,
+        JSON.stringify({ status: 'pending', requestId: session.requestId }),
+        DIIA_SESSION_TTL
+      );
+    }
+
+    // Redirect frontend to login page with Diia deeplink params (for QR modal)
+    const params = new URLSearchParams({
+      diia_session: sessionId,
+      diia_deeplink: session.deepLink,
+    });
+    res.redirect(`${baseUrl}/login?${params.toString()}`);
+  } catch (error: any) {
+    logger.error('[Diia] Auth init failed:', error);
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    res.redirect(`${protocol}://${host}/login?error=diia_failed`);
+  }
+}
+
+/**
+ * GET /auth/diia/callback
+ * Diia redirects the user here after they complete authentication in the app.
+ * The requestId is passed as a query param; we fetch the auth result from Diia.
+ */
+export async function diiaAuthCallback(req: Request, res: Response): Promise<void> {
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const frontendUrl = `${protocol}://${host}`;
+
+  try {
+    const { requestId } = req.query as Record<string, string>;
+
+    if (!requestId) {
+      res.redirect(`${frontendUrl}/login?error=diia_no_request`);
+      return;
+    }
+
+    const diiaService = getDiiaService();
+    const userInfo = await diiaService.getAuthResult(requestId);
+
+    if (!userInfo) {
+      res.redirect(`${frontendUrl}/login?error=diia_no_result`);
+      return;
+    }
+
+    const userService = getUserService();
+    if (!userService) {
+      res.redirect(`${frontendUrl}/login?error=server_error`);
+      return;
+    }
+
+    // Build an email from RNOKPP if no email provided
+    const email = userInfo.email || `diia_${userInfo.rnokpp || requestId}@diia.gov.ua`;
+    const name = [userInfo.lastName, userInfo.firstName, userInfo.middleName]
+      .filter(Boolean)
+      .join(' ') || 'Diia User';
+
+    // Find or create user
+    let user = await userService.findByEmail(email);
+    if (!user) {
+      user = await userService.createUser({
+        googleId: '',       // no Google ID for Diia users
+        email,
+        name,
+        emailVerified: true, // Diia-verified identity
+      });
+      logger.info('[Diia] Created new user from Diia auth', { userId: user.id, email });
+
+      // Generate banner async
+      generateBannerAsync(user.id, name);
+    } else {
+      await userService.updateLastLogin(user.id);
+      logger.info('[Diia] Existing user logged in via Diia', { userId: user.id, email });
+    }
+
+    // Mark session as complete in Redis
+    if (authCache) {
+      await authCache.set(
+        `diia:session:${requestId}`,
+        JSON.stringify({ status: 'complete', userId: user.id }),
+        DIIA_SESSION_TTL
+      );
+    }
+
+    const token = generateToken(user);
+    res.redirect(`${frontendUrl}/login?token=${token}`);
+  } catch (error: any) {
+    logger.error('[Diia] Auth callback failed:', error);
+    res.redirect(`${frontendUrl}/login?error=diia_failed`);
+  }
+}
+
+/**
+ * GET /auth/diia/status/:sessionId
+ * Frontend polls this to check if the Diia auth session has completed.
+ * Returns { status: 'pending' | 'complete', token? }.
+ */
+export async function diiaAuthStatus(req: Request, res: Response): Promise<Response> {
+  const { sessionId } = req.params;
+
+  if (!authCache) {
+    return res.status(503).json({ error: 'Cache unavailable' });
+  }
+
+  const raw = await authCache.get(`diia:session:${sessionId}`);
+  if (!raw) {
+    return res.status(404).json({ status: 'expired' });
+  }
+
+  const session = JSON.parse(raw) as { status: string; userId?: string };
+
+  if (session.status === 'complete' && session.userId) {
+    const userService = getUserService();
+    if (!userService) return res.status(503).json({ error: 'Service unavailable' });
+
+    const user = await userService.findById(session.userId);
+    if (!user) return res.status(404).json({ status: 'expired' });
+
+    // Consume the session
+    await authCache.del(`diia:session:${sessionId}`);
+    const token = generateToken(user);
+    return res.json({ status: 'complete', token });
+  }
+
+  return res.json({ status: session.status });
 }
