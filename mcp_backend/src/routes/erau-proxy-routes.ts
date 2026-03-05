@@ -12,6 +12,7 @@ import { Router, Request, Response } from 'express';
 import { load } from 'cheerio';
 import { logger } from '../utils/logger.js';
 import { ERAUCacheService } from '../services/erau-cache-service.js';
+import { BaseDatabase } from '@secondlayer/shared';
 
 const ERAU_BASE_URL = 'https://erau.unba.org.ua';
 const PROFILE_REDIS_PREFIX = 'erau:profile:';
@@ -187,8 +188,113 @@ function parseERAUProfileHTML(html: string, id: string): ERAUProfile {
   };
 }
 
-export function createERAUProxyRoutes(erauCacheService?: ERAUCacheService): Router {
+export function createERAUProxyRoutes(erauCacheService?: ERAUCacheService, db?: BaseDatabase): Router {
   const router = Router();
+
+  // --- Search History endpoints ---
+
+  // GET /search-history — list recent searches for the authenticated user
+  router.get('/search-history', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId || !db) {
+        return res.json([]);
+      }
+
+      const limit = Math.min(Number(req.query.limit) || 20, 50);
+      const { rows } = await db.query(
+        `SELECT id, query, result_count, created_at
+         FROM search_history
+         WHERE user_id = $1 AND page = 'lawyers'
+         ORDER BY created_at DESC
+         LIMIT $2`,
+        [userId, limit]
+      );
+      res.json(rows);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error('[ERAU] Search history fetch error', { error: msg });
+      res.json([]);
+    }
+  });
+
+  // POST /search-history — save a search entry
+  router.post('/search-history', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId || !db) {
+        return res.status(200).json({ ok: true });
+      }
+
+      const { query, resultCount } = req.body;
+      if (!query || typeof query !== 'string' || query.trim().length < 2) {
+        return res.status(400).json({ error: 'query required (min 2 chars)' });
+      }
+
+      const trimmed = query.trim();
+
+      // Remove previous identical query for this user to avoid duplicates, then insert fresh
+      await db.query(
+        `DELETE FROM search_history WHERE user_id = $1 AND page = 'lawyers' AND LOWER(query) = LOWER($2)`,
+        [userId, trimmed]
+      );
+
+      const { rows } = await db.query(
+        `INSERT INTO search_history (user_id, page, query, result_count)
+         VALUES ($1, 'lawyers', $2, $3)
+         RETURNING id, query, result_count, created_at`,
+        [userId, trimmed, resultCount || 0]
+      );
+
+      res.json(rows[0]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error('[ERAU] Search history save error', { error: msg });
+      res.status(200).json({ ok: true });
+    }
+  });
+
+  // DELETE /search-history/:id — delete a single history entry
+  router.delete('/search-history/:id', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId || !db) {
+        return res.status(200).json({ ok: true });
+      }
+
+      await db.query(
+        `DELETE FROM search_history WHERE id = $1 AND user_id = $2`,
+        [req.params.id, userId]
+      );
+
+      res.json({ ok: true });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error('[ERAU] Search history delete error', { error: msg });
+      res.status(200).json({ ok: true });
+    }
+  });
+
+  // DELETE /search-history — clear all history for authenticated user
+  router.delete('/search-history', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId || !db) {
+        return res.status(200).json({ ok: true });
+      }
+
+      await db.query(
+        `DELETE FROM search_history WHERE user_id = $1 AND page = 'lawyers'`,
+        [userId]
+      );
+
+      res.json({ ok: true });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error('[ERAU] Search history clear error', { error: msg });
+      res.status(200).json({ ok: true });
+    }
+  });
 
   // Profile endpoint
   router.get('/profile/:id', async (req: Request, res: Response) => {
