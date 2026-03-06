@@ -105,6 +105,30 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 }
 
 /**
+ * OIDC (Authentik SSO) routes.
+ * Only registered when OIDC_DISCOVERY_URL is set.
+ *
+ * @route   GET /auth/oidc
+ * @desc    Initiate OIDC flow — redirects to Authentik login
+ * @access  Public
+ *
+ * @route   GET /auth/oidc/callback
+ * @desc    OIDC callback — exchanges code for token, creates/links user
+ * @access  Public
+ */
+if (process.env.OIDC_DISCOVERY_URL && process.env.OIDC_CLIENT_ID) {
+  router.get('/oidc', authController.oidcAuthInit as any);
+  router.get('/oidc/callback', authController.oidcAuthCallback as any);
+} else {
+  router.get('/oidc', (_req, res) => {
+    res.status(501).json({ error: 'OIDC/SSO is not configured' });
+  });
+  router.get('/oidc/callback', (_req, res) => {
+    res.status(501).json({ error: 'OIDC/SSO is not configured' });
+  });
+}
+
+/**
  * Diia (Дія) OAuth routes.
  * Only registered when DIIA_AUTH_ACQUIRER_TOKEN is set.
  */

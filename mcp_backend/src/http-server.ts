@@ -8,6 +8,7 @@ import { dualAuth, requireJWT, optionalJWT, initializeDualAuth, initializeWebAut
 import { configurePassport } from './config/passport.js';
 import authRouter from './routes/auth.js';
 import { setAuthCache, setAuthEmailService, setAuthMinioService, setAuthBannerService } from './controllers/auth.js';
+import { setOidcCache } from './services/oidc-service.js';
 import { BannerService } from './services/banner-service.js';
 import { setPassportBannerService } from './config/passport.js';
 import { createBackendCoreServices, BackendCoreServices } from './factories/core-services.js';
@@ -2848,6 +2849,7 @@ class HTTPMCPServer {
         this.services.shepardizationService.setCachePort(cache);
         this.chatSearchCache.setCachePort(cache);
         setAuthCache(cache);
+        setOidcCache(cache);
         setRateLimitCache(cache);
         setUploadRateLimitCache(cache);
         logger.info('Redis connected - caching enabled for all services');
