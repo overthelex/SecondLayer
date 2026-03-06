@@ -196,8 +196,9 @@ export class DiiaService {
     const token = await this.getSessionToken();
 
     const requestId = crypto.randomUUID();
-    // SDK hashes requestId with SHA256 before sending to Diia
-    const hashedRequestId = crypto.createHash('sha256').update(requestId).digest('hex');
+    // ECDSA algorithm: hash requestId with SHA256 → base64 (44 chars)
+    // DSTU (default) would require ГОСТ 34.311 via IIT library — use ECDSA instead
+    const hashedRequestId = crypto.createHash('sha256').update(requestId).digest('base64');
 
     const response = await fetch(
       `${DIIA_BASE_URL}/api/v2/acquirers/branch/${branchId}/offer-request/dynamic`,
@@ -207,7 +208,7 @@ export class DiiaService {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ offerId, requestId: hashedRequestId }),
+        body: JSON.stringify({ offerId, requestId: hashedRequestId, signAlgo: 'ECDSA' }),
       }
     );
 
