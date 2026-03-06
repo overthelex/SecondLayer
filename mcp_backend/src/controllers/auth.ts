@@ -17,6 +17,7 @@ import { MinioService } from '../services/minio-service.js';
 import { BannerService } from '../services/banner-service.js';
 import type { ICachePort } from '../domain/ports/index.js';
 import { getDiiaService } from '../services/diia-service.js';
+import * as oidcService from '../services/oidc-service.js';
 
 let authCache: ICachePort | null = null;
 let authEmailService: EmailService | null = null;
@@ -1112,6 +1113,102 @@ export async function regenerateBanner(req: AuthenticatedRequest, res: Response)
   } catch (error: any) {
     logger.error('[Banner] Regeneration failed:', error);
     return res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+}
+
+// ============================================================================
+// OIDC (Authentik SSO) Controllers
+// ============================================================================
+
+/**
+ * GET /auth/oidc
+ * Initiates OIDC authorization code flow.
+ * Redirects user to Authentik login page.
+ */
+export async function oidcAuthInit(req: Request, res: Response): Promise<void> {
+  try {
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    const callbackUrl = `${protocol}://${host}/auth/oidc/callback`;
+
+    const { url } = await oidcService.getAuthorizationUrl(callbackUrl);
+    res.redirect(url);
+  } catch (error: any) {
+    logger.error('[OIDC] Auth init failed:', error);
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    res.redirect(`${protocol}://${host}/login?error=oidc_failed`);
+  }
+}
+
+/**
+ * GET /auth/oidc/callback
+ * Handles callback from Authentik after user authenticates.
+ * Creates/links user, generates JWT, redirects to frontend.
+ */
+export async function oidcAuthCallback(req: Request, res: Response): Promise<void> {
+  try {
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    const frontendUrl = `${protocol}://${host}`;
+    const callbackUrl = `${frontendUrl}/auth/oidc/callback`;
+
+    const queryParams: Record<string, string> = {};
+    for (const [key, value] of Object.entries(req.query)) {
+      if (typeof value === 'string') queryParams[key] = value;
+    }
+
+    if (queryParams.error) {
+      logger.error('[OIDC] Provider returned error', {
+        error: queryParams.error,
+        description: queryParams.error_description,
+      });
+      res.redirect(`${frontendUrl}/login?error=oidc_failed`);
+      return;
+    }
+
+    const userInfo = await oidcService.handleCallback(callbackUrl, queryParams);
+    const userService = getUserService();
+
+    // 1. Find user by email (account linking)
+    let user = await userService.findByEmail(userInfo.email);
+
+    if (user) {
+      // User exists — update last login
+      await userService.updateLastLogin(user.id);
+      logger.info('[OIDC] Existing user logged in via SSO', {
+        userId: user.id,
+        email: user.email,
+      });
+    } else {
+      // 2. Create new user
+      user = await userService.createUser({
+        googleId: '',
+        email: userInfo.email,
+        name: userInfo.name || userInfo.email.split('@')[0],
+        picture: userInfo.picture,
+        emailVerified: userInfo.email_verified ?? true,
+      });
+      await userService.updateLastLogin(user.id);
+      logger.info('[OIDC] New user created via SSO', {
+        userId: user.id,
+        email: user.email,
+      });
+
+      // Generate banner (fire and forget)
+      generateBannerAsync(user.id, user.name || user.email);
+    }
+
+    // Generate JWT token
+    const token = generateToken(user);
+
+    // Redirect to frontend with token
+    res.redirect(`${frontendUrl}/login?token=${token}`);
+  } catch (error: any) {
+    logger.error('[OIDC] Callback failed:', error);
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    res.redirect(`${protocol}://${host}/login?error=oidc_failed`);
   }
 }
 

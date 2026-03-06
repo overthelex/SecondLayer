@@ -103,6 +103,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       if (oauthError) {
         const errorMap: Record<string, string> = {
           oauth_failed: 'Помилка автентифікації через Google. Спробуйте ще раз.',
+          oidc_failed: 'Помилка автентифікації через SSO. Спробуйте ще раз.',
           server_error: 'Помилка сервера. Спробуйте пізніше.',
           diia_not_configured: 'Дія авторизацію ще не налаштовано.',
           diia_failed: 'Помилка автентифікації через Дію. Спробуйте ще раз.',
@@ -177,6 +178,11 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       navigate(getReturnUrl(), { replace: true });
     }
   }, [isAuthenticated, isLoading, onLoginSuccess, navigate]);
+
+  const handleSSOAuth = () => {
+    setError(null);
+    window.location.href = `${window.location.origin}/auth/oidc`;
+  };
 
   const handleGoogleAuth = () => {
     setError(null);
@@ -356,6 +362,17 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               {isLogin ? 'Оберіть зручний спосіб входу' : 'Створіть акаунт для початку роботи'}
             </p>
           </div>
+
+          {/* SSO Auth Button */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleSSOAuth}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-gradient-to-r from-[#fd4b2d] to-[#e0422a] hover:from-[#e0422a] hover:to-[#c93a25] text-white rounded-xl font-medium transition-all shadow-sm mb-3 font-sans"
+          >
+            <ShieldCheck size={20} />
+            {isLogin ? 'Увійти через SSO' : 'Зареєструватися через SSO'}
+          </motion.button>
 
           {/* Diia Auth Button */}
           <motion.button
