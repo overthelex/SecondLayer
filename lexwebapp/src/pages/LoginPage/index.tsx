@@ -427,7 +427,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           {/* Auth Forms */}
           <AnimatePresence mode="wait">
             {authMethod === 'password' && (
-              <motion.div key="password" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }} className="space-y-4">
+              <motion.form key="password" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }} className="space-y-4" onSubmit={(e) => { e.preventDefault(); handlePasswordAuth(); }} method="post" autoComplete="on">
                 {/* Name field (Registration only) */}
                 {!isLogin && (
                   <div>
@@ -447,7 +447,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Mail size={18} className="text-claude-subtext" />
                     </div>
-                    <input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" autoComplete="email" className="block w-full pl-10 pr-4 py-3 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans" />
+                    <input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" autoComplete={isLogin ? 'username' : 'email'} className="block w-full pl-10 pr-4 py-3 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans" />
                   </div>
                 </div>
 
@@ -457,7 +457,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Lock size={18} className="text-claude-subtext" />
                     </div>
-                    <input id="password" name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => handlePasswordChange(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handlePasswordAuth()} placeholder="••••••••" autoComplete={isLogin ? 'current-password' : 'new-password'} className="block w-full pl-10 pr-12 py-3 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans" />
+                    <input id="password" name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => handlePasswordChange(e.target.value)} placeholder="••••••••" autoComplete={isLogin ? 'current-password' : 'new-password'} className="block w-full pl-10 pr-12 py-3 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans" />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-claude-subtext hover:text-claude-text transition-colors">
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -483,6 +483,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 {isLogin && (
                   <div className="flex justify-end">
                     <button
+                      type="button"
                       onClick={() => { setShowForgotPassword(true); setError(null); }}
                       className="text-sm text-claude-accent hover:text-[#C66345] font-sans"
                     >
@@ -491,7 +492,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   </div>
                 )}
 
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handlePasswordAuth} disabled={isLoading} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-black text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm font-sans disabled:opacity-50">
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={isLoading} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-black text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm font-sans disabled:opacity-50">
                   {isLoading ? (
                     <Loader2 size={18} className="animate-spin" />
                   ) : (
@@ -501,7 +502,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     </>
                   )}
                 </motion.button>
-              </motion.div>
+              </motion.form>
             )}
 
             {authMethod === 'hardware-key' && (
