@@ -443,9 +443,9 @@ services:
       POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:-nextcloud_stage_pass}
       NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_USER:-admin}
       NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_PASSWORD:-admin}
-      NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud-stage localhost stage.legal.org.ua"
-      OVERWRITEWEBROOT: /nextcloud
+      NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud-stage localhost stage.legal.org.ua nextcloud.legal.org.ua"
       OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: nextcloud.legal.org.ua
     ports:
       - "127.0.0.1:8889:80"
     volumes:
@@ -522,6 +522,12 @@ services:
       ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN:-}
       ZAKONONLINE_API_TOKEN2: ${ZAKONONLINE_API_TOKEN2:-}
       SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS:-}
+
+      # OIDC / Authentik SSO
+      OIDC_DISCOVERY_URL: https://sso.legal.org.ua/application/o/lexwebapp/.well-known/openid-configuration
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-lexwebapp-oidc}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-https://legal.org.ua/auth/oidc/callback}
 
       # Document Service (scraping delegation)
       DOCUMENT_SERVICE_URL: http://document-service-stage:3002
