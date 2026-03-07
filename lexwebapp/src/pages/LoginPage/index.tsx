@@ -700,6 +700,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <a href="/ua/privacy" className="text-claude-accent hover:text-[#C66345]">Конфіденційність</a>
             {' · '}
             <a href="/ua/dpa" className="text-claude-accent hover:text-[#C66345]">DPA</a>
+            {' · '}
+            <a href="/ua/ai-usage" className="text-claude-accent hover:text-[#C66345]">AI Policy</a>
           </p>
         </motion.div>
       </motion.div>
