@@ -641,7 +641,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             Продовжуючи, ви погоджуєтесь з{' '}
             <a href="/uk/offer" className="text-claude-accent hover:text-[#C66345]">Договором публічної оферти</a>{' '}
             та{' '}
-            <a href="#" className="text-claude-accent hover:text-[#C66345]">Політикою конфіденційності</a>
+            <a href="/uk/privacy" className="text-claude-accent hover:text-[#C66345]">Політикою конфіденційності</a>
           </p>
         </motion.div>
       </motion.div>
