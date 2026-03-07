@@ -52,6 +52,7 @@ export const ROUTES = {
   OFERTA: '/oferta',
   TERMS: '/:lang/terms',
   PRIVACY: '/:lang/privacy',
+  DPA: '/:lang/dpa',
 
   // Blog
   BLOG: '/blog',

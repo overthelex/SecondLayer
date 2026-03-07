@@ -37,6 +37,7 @@ const PaymentErrorPage = lazy(() => import('../pages/PaymentErrorPage').then(m =
 const OfferPage = lazy(() => import('../pages/OfferPage').then(m => ({ default: m.OfferPage })));
 const TermsPage = lazy(() => import('../pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const PrivacyPolicyPage = lazy(() => import('../pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
+const DpaPage = lazy(() => import('../pages/DpaPage').then(m => ({ default: m.DpaPage })));
 const BlogPage = lazy(() => import('../pages/BlogPage').then(m => ({ default: m.BlogPage })));
 
 // -- Data Sources (country pages) --
@@ -148,6 +149,10 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.PRIVACY,
     element: S(PrivacyPolicyPage),
+  },
+  {
+    path: ROUTES.DPA,
+    element: S(DpaPage),
   },
   {
     path: ROUTES.US_DATA_SOURCES,
