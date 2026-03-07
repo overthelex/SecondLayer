@@ -47,9 +47,11 @@ export const ROUTES = {
   PAYMENT_SUCCESS: '/payment/success',
   PAYMENT_ERROR: '/payment/error',
 
-  // Public Offer
+  // Public Offer & Legal
   OFFER: '/:lang/offer',
   OFERTA: '/oferta',
+  TERMS: '/:lang/terms',
+  PRIVACY: '/:lang/privacy',
 
   // Blog
   BLOG: '/blog',

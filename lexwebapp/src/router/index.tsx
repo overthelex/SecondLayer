@@ -35,6 +35,8 @@ const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage').then(m
 const PaymentSuccessPage = lazy(() => import('../pages/PaymentSuccessPage').then(m => ({ default: m.PaymentSuccessPage })));
 const PaymentErrorPage = lazy(() => import('../pages/PaymentErrorPage').then(m => ({ default: m.PaymentErrorPage })));
 const OfferPage = lazy(() => import('../pages/OfferPage').then(m => ({ default: m.OfferPage })));
+const TermsPage = lazy(() => import('../pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const PrivacyPolicyPage = lazy(() => import('../pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
 const BlogPage = lazy(() => import('../pages/BlogPage').then(m => ({ default: m.BlogPage })));
 
 // -- Data Sources (country pages) --
@@ -138,6 +140,14 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.OFERTA,
     element: <Navigate to="/uk/offer" replace />,
+  },
+  {
+    path: ROUTES.TERMS,
+    element: S(TermsPage),
+  },
+  {
+    path: ROUTES.PRIVACY,
+    element: S(PrivacyPolicyPage),
   },
   {
     path: ROUTES.US_DATA_SOURCES,
