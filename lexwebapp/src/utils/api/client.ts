@@ -8,6 +8,7 @@ import { showToast } from '../toast';
 // Validate API URL against allowed origins
 const ALLOWED_API_ORIGINS = [
   'https://legal.org.ua',
+  'https://local.legal.org.ua',
   'https://stage.legal.org.ua',
   'http://localhost:3000',
   'http://localhost:8080',

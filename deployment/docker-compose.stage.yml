@@ -528,6 +528,9 @@ services:
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-lexwebapp-oidc}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
       OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-https://legal.org.ua/auth/oidc/callback}
+      # Authentik user provisioning API
+      AUTHENTIK_API_URL: http://authentik-server-stage:9000
+      AUTHENTIK_API_TOKEN: ${AUTHENTIK_API_TOKEN:-}
 
       # Document Service (scraping delegation)
       DOCUMENT_SERVICE_URL: http://document-service-stage:3002
