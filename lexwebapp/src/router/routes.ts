@@ -53,6 +53,7 @@ export const ROUTES = {
   TERMS: '/:lang/terms',
   PRIVACY: '/:lang/privacy',
   DPA: '/:lang/dpa',
+  AI_USAGE: '/:lang/ai-usage',
 
   // Blog
   BLOG: '/blog',
