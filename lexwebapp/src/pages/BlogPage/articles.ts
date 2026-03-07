@@ -9,7 +9,14 @@ export interface Article {
   category: 'tech' | 'legal';
   tags: string[];
   readTime: string;
+  publishedAt: string; // ISO date, e.g. '2026-03-01'
   content: string;
+}
+
+/** Check if any article was published within the last 7 days */
+export function hasRecentArticles(): boolean {
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  return articles.some(a => new Date(a.publishedAt).getTime() > weekAgo);
 }
 
 export const articles: Article[] = [
@@ -20,6 +27,7 @@ export const articles: Article[] = [
     category: 'tech',
     tags: ['Marketplace', 'LegalTech', 'Payments', 'ЄРАУ'],
     readTime: '9 хв',
+    publishedAt: '2026-03-07',
     content: `# Маркетплейс юридичних консультацій: від реєстру ЄРАУ до оплати через Monobank
 
 *Як ми побудували повний цикл замовлення юридичної консультації — від верифікації адвоката до escrow-платежу.*
@@ -164,6 +172,7 @@ pending → accepted → paid → in_progress → completed
     category: 'legal',
     tags: ['MCP', 'ClaudeDesktop', 'Integration', 'Productivity'],
     readTime: '5 хв',
+    publishedAt: '2026-03-05',
     content: `# MCP-токени та інтеграція з Claude Desktop: юридичний AI у вашому робочому столі
 
 *Один токен. Одна команда. 56 юридичних інструментів у вашому робочому столі.*
@@ -266,6 +275,7 @@ Claude побачить 56 доступних інструментів, обер
     category: 'tech',
     tags: ['LLM', 'Architecture', 'OpenAI', 'AWS Bedrock'],
     readTime: '8 хв',
+    publishedAt: '2026-02-28',
     content: `# Чому ми відмовились від Round-Robin між OpenAI та Anthropic — і що використовуємо замість
 
 *Розробка юридичної AI-платформи навчила нас: мультипровайдерна LLM-маршрутизація чудово виглядає на архітектурних діаграмах, але ламається у продакшені.*
@@ -358,6 +368,7 @@ Round-robin мав балансувати витрати. Натомість:
     category: 'tech',
     tags: ['MCP', 'Architecture', 'TypeScript', 'BuildInPublic'],
     readTime: '10 хв',
+    publishedAt: '2026-02-25',
     content: `# Як ми побудували MCP-сервер на 56 інструментів для юридичного AI
 
 *Один endpoint. Три сервіси. Потрійний транспорт. Ось що потрібно, щоб побудувати продакшн MCP-сервер, який дійсно масштабується.*
@@ -433,6 +444,7 @@ Round-robin мав балансувати витрати. Натомість:
     category: 'tech',
     tags: ['Embeddings', 'Qdrant', 'SemanticSearch', 'NLP'],
     readTime: '7 хв',
+    publishedAt: '2026-02-20',
     content: `# Семантичний пошук по 5 000+ статтях законодавства
 
 *Ключові слова знаходять те, що ви вже знаєте. Семантичний пошук знаходить те, що вам потрібно.*
@@ -494,6 +506,7 @@ Round-robin мав балансувати витрати. Натомість:
     category: 'tech',
     tags: ['RAG', 'Hallucinations', 'LegalAI', 'Validation'],
     readTime: '7 хв',
+    publishedAt: '2026-02-15',
     content: `# RAG для юридичних документів: HallucinationGuard та CitationValidator
 
 *AI впевнено цитує неіснуючі статті. У юридичній сфері це не помилка — це мальпрактіс.*
@@ -552,6 +565,7 @@ Round-robin мав балансувати витрати. Натомість:
     category: 'tech',
     tags: ['MCP', 'Migration', 'Architecture', 'REST'],
     readTime: '6 хв',
+    publishedAt: '2026-02-10',
     content: `# Від моноліту до MCP: як Model Context Protocol змінив нашу архітектуру
 
 *REST API чудово працює, коли клієнт — людина. Коли клієнт — AI, потрібен інший протокол.*
@@ -623,6 +637,7 @@ MCP — не срібна куля. Але для AI-first продуктів ц
     category: 'tech',
     tags: ['Diia', 'Auth', 'DigitalIdentity', 'Ukraine'],
     readTime: '7 хв',
+    publishedAt: '2026-02-05',
     content: `# Авторизація через Дію: як ми інтегрували національну цифрову ідентифікацію
 
 *Паспорт у смартфоні — тепер ключ до юридичного AI.*
@@ -713,6 +728,7 @@ LEX AI тепер підтримує три незалежні методи вх
     category: 'legal',
     tags: ['MCP', 'Nextcloud', 'OpenData', 'Integration'],
     readTime: '6 хв',
+    publishedAt: '2026-01-30',
     content: `# MCP Connect: Nextcloud, Google Drive та 1400+ відкритих датасетів в одному інтерфейсі
 
 *Ваші документи. Ваші хмари. Один AI, який бачить все.*
@@ -815,6 +831,7 @@ LEX AI тепер підтримує три незалежні методи вх
     category: 'legal',
     tags: ['LegalInnovation', 'FutureOfLaw', 'LawyersOfLinkedIn'],
     readTime: '9 хв',
+    publishedAt: '2026-01-25',
     content: `# AI не замінить юриста — але юрист з AI замінить юриста без нього
 
 *Як насправді виглядає, коли юридична AI-платформа обробляє реальний аналіз справи.*
@@ -877,6 +894,7 @@ AI не замінює юридичне мислення. Він замінює 
     punchline: 'Ви шукаєте "відшкодування збитків за затоплення квартири" і не знаходите справу, де суд пише про "деліктну відповідальність за пошкодження майна внаслідок аварії інженерних мереж". Ключові слова знаходять слова. Семантичний пошук знаходить значення.',
     category: 'legal',
     tags: ['SemanticSearch', 'CourtPractice', 'LegalResearch'],
+    publishedAt: '2026-01-20',
     readTime: '5 хв',
     content: `# Пошук судових рішень за змістом, а не за ключовими словами
 
@@ -926,6 +944,7 @@ AI не замінює юридичне мислення. Він замінює 
     punchline: 'Людина переглядає 30-40 рішень за сесію. AI обробляє 200-300 за хвилину. Але справа не в швидкості — справа в повноті. Коли ви бачите всю картину, а не фрагмент, стратегічні рішення стають якісно іншими.',
     category: 'legal',
     tags: ['AI', 'CourtPractice', 'BigData', 'LegalAnalytics'],
+    publishedAt: '2026-01-15',
     readTime: '6 хв',
     content: `# Як AI аналізує мільйони судових рішень за секунди
 
@@ -987,6 +1006,7 @@ AI не вирішує, яку стратегію обрати. Він дає ю
     category: 'legal',
     tags: ['DueDiligence', 'Registry', 'Compliance', 'LegalTech'],
     readTime: '5 хв',
+    publishedAt: '2026-01-10',
     content: `# Due Diligence з AI: від реєстрів до бенефіціарів за один запит
 
 *Один запит. 2 секунди. 16 реєстрів. Повна картина.*
@@ -1052,6 +1072,7 @@ AI не вирішує, яку стратегію обрати. Він дає ю
     category: 'legal',
     tags: ['GDPR', 'DataPrivacy', 'Compliance', 'Security'],
     readTime: '6 хв',
+    publishedAt: '2026-01-05',
     content: `# Конфіденційність та AI: як ми захищаємо дані клієнтів у юридичній платформі
 
 *Юристи не можуть використовувати ChatGPT для клієнтських справ. Ми побудували платформу, де можуть.*
