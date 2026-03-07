@@ -30,7 +30,8 @@ export function BlogPage() {
     }
   }, [searchParams]);
 
-  const filtered = filter === 'all' ? articles : articles.filter(a => a.category === filter);
+  const sorted = [...articles].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  const filtered = filter === 'all' ? sorted : sorted.filter(a => a.category === filter);
 
   return (
     <div className="min-h-screen bg-claude-bg">

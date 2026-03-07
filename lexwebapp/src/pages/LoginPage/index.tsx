@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
+import { hasRecentArticles } from '../BlogPage/articles';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services';
 import showToast from '../../utils/toast';
@@ -628,6 +629,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           <a href="/blog" className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-claude-border hover:border-claude-accent/30 hover:bg-white rounded-xl text-sm text-claude-subtext hover:text-claude-text transition-all font-sans">
             <BookOpen size={15} className="text-claude-accent" />
             <span>Blog — як ми будуємо LEX AI</span>
+            {hasRecentArticles() && (
+              <span className="px-1.5 py-0.5 bg-claude-accent text-white text-[10px] font-bold rounded-full leading-none">NEW</span>
+            )}
           </a>
         </motion.div>
 
