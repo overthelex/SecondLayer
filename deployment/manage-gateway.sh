@@ -24,10 +24,10 @@ STAGE_USER="vovkes"
 STAGE_REMOTE_PATH="/home/vovkes/SecondLayer/deployment"
 DEPLOY_USER="$STAGE_USER"  # Default for lib scripts; overridden per-env in deploy
 
-PROD_SERVER="18.192.189.254"      # AWS EC2 production
-PROD_USER="ubuntu"
-PROD_SSH_KEY="$HOME/.ssh/secondlayer-prod.pem"
-PROD_REMOTE_PATH="/home/ubuntu/SecondLayer/deployment"
+PROD_SERVER="gate.lexapp.co.ua"   # Temporarily on gate server (AWS suspended)
+PROD_USER="vovkes"
+PROD_SSH_KEY=""
+PROD_REMOTE_PATH="/home/vovkes/SecondLayer/deployment"
 
 NO_CACHE=""  # Set to "--no-cache" via --no-cache flag
 
@@ -36,7 +36,7 @@ get_ssh_cmd() {
     local env=$1
     case $env in
         prod|production)
-            echo "ssh -i $PROD_SSH_KEY ${PROD_USER}@${PROD_SERVER}"
+            echo "ssh ${PROD_USER}@${PROD_SERVER}"
             ;;
         stage|staging)
             echo "ssh ${STAGE_USER}@${STAGE_SERVER}"
@@ -49,7 +49,7 @@ get_scp_cmd() {
     local env=$1
     case $env in
         prod|production)
-            echo "scp -i $PROD_SSH_KEY"
+            echo "scp"
             ;;
         stage|staging)
             echo "scp"
@@ -138,14 +138,14 @@ Commands:
   clean <env>       Clean environment data (USE WITH CAUTION!)
 
 Environments:
-  prod              Production -> 18.192.189.254 (AWS EC2, Cloudflare proxy)
+  prod              Production -> gate.lexapp.co.ua (temporarily on gate server)
                     Domains: legal.org.ua, mcp.legal.org.ua
   stage             Staging -> gate.lexapp.co.ua (Cloudflare proxy)
                     Domains: stage.legal.org.ua, legal.org.ua, mcp.legal.org.ua
   local             Local development (local.legal.org.ua) -> localhost
 
 Deployment Targets:
-  - Prod:  Deploys to AWS EC2 (18.192.189.254), serves legal.org.ua via nginx + Cloudflare
+  - Prod:  Deploys to gate.lexapp.co.ua (temporarily, AWS suspended), serves legal.org.ua via Cloudflare
   - Stage: Deploys to gate.lexapp.co.ua, serves all 3 domains via nginx + Cloudflare
   - Local: Full rebuild on localhost (pull, rebuild --no-cache, migrate)
 
@@ -207,7 +207,7 @@ start_env() {
                     postgres-prod pgbouncer-prod redis-prod qdrant-prod minio-prod postgres-openreyestr-prod \
                     app-prod rada-mcp-app-prod app-openreyestr-prod document-service-prod lexwebapp-prod \
                     nginx-prod \
-                    prometheus-prod grafana-prod"
+                    prometheus-prod grafana-prod cadvisor-prod"
             ;;
         stage|staging)
             local ssh_cmd=$(get_ssh_cmd stage)
@@ -264,7 +264,7 @@ stop_env() {
                 "cd ${PROD_REMOTE_PATH} && docker compose -f docker-compose.prod.yml --env-file .env.prod stop \
                     nginx-prod \
                     app-prod rada-mcp-app-prod app-openreyestr-prod document-service-prod lexwebapp-prod \
-                    prometheus-prod grafana-prod"
+                    prometheus-prod grafana-prod cadvisor-prod"
             ;;
         stage|staging)
             local ssh_cmd=$(get_ssh_cmd stage)
@@ -856,6 +856,8 @@ deploy_to_server() {
         GIT_SHA_ENV="GIT_SHA=${GIT_SHA:-$(git -C "$REMOTE_REPO" rev-parse HEAD 2>/dev/null || echo unknown)}"
         $DC build $NO_CACHE --build-arg "$GIT_SHA_ENV" \
             app-${ENV_SUFFIX} \
+            rada-mcp-app-${ENV_SUFFIX} \
+            app-openreyestr-${ENV_SUFFIX} \
             migrate-${ENV_SUFFIX} \
             rada-migrate-${ENV_SUFFIX} \
             migrate-openreyestr-${ENV_SUFFIX} \
@@ -912,6 +914,7 @@ deploy_to_server() {
         $DC up -d \
             prometheus-${ENV_SUFFIX} \
             grafana-${ENV_SUFFIX} \
+            cadvisor-${ENV_SUFFIX} \
             2>/dev/null || echo "  (some monitoring services may not exist in this environment)"
         # Stage-specific monitoring exporters
         if [ "$ENV_SUFFIX" = "stage" ]; then
@@ -920,7 +923,6 @@ deploy_to_server() {
                 postgres-exporter-openreyestr \
                 redis-exporter \
                 node-exporter \
-                cadvisor-stage \
                 2>/dev/null || true
         fi
 
@@ -1008,8 +1010,16 @@ clean_env() {
             $(get_ssh_cmd stage) \
                 "cd ${STAGE_REMOTE_PATH} && docker compose -f docker-compose.stage.yml --env-file .env.stage down -v"
             ;;
+        local)
+            local compose_cmd=$(get_compose_cmd)
+            local compose_args="-f docker-compose.local.yml"
+            if [ -f ".env.local" ]; then
+                compose_args="$compose_args --env-file .env.local"
+            fi
+            $compose_cmd $compose_args down -v
+            ;;
         *)
-            print_msg "$RED" "Invalid environment: $env (use prod or stage)"
+            print_msg "$RED" "Invalid environment: $env (use prod, stage, or local)"
             exit 1
             ;;
     esac

@@ -18,6 +18,7 @@ import { BannerService } from '../services/banner-service.js';
 import type { ICachePort } from '../domain/ports/index.js';
 import { getDiiaService } from '../services/diia-service.js';
 import * as oidcService from '../services/oidc-service.js';
+import { provisionAuthentikUser } from '../services/authentik-service.js';
 
 let authCache: ICachePort | null = null;
 let authEmailService: EmailService | null = null;
@@ -526,6 +527,9 @@ export async function registerWithPassword(req: Request, res: Response): Promise
 
     // Generate banner (fire and forget)
     generateBannerAsync(user.id, user.name || user.email);
+
+    // Provision user in Authentik for Nextcloud SSO access (fire and forget)
+    provisionAuthentikUser({ email, name, password }).catch(() => {});
 
     // Create verification token and send email
     const verificationToken = await userService.createVerificationToken(user.id);
@@ -1321,6 +1325,7 @@ export async function diiaAuthCallback(req: Request, res: Response): Promise<Res
       });
       logger.info('[Diia] Created user from webhook', { userId: user.id, traceId });
       generateBannerAsync(user.id, name);
+      provisionAuthentikUser({ email, name }).catch(() => {});
     } else {
       await userService.updateLastLogin(user.id);
       logger.info('[Diia] Existing user webhook auth', { userId: user.id, traceId });
