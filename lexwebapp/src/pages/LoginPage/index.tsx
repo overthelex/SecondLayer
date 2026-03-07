@@ -59,6 +59,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showGDPR, setShowGDPR] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [acceptedDpa, setAcceptedDpa] = useState(false);
   const [diiaDeeplink, setDiiaDeeplink] = useState<string | null>(null);
   const [diiaSessionId, setDiiaSessionId] = useState<string | null>(null);
   const diiaPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -181,18 +184,38 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   }, [isAuthenticated, isLoading, onLoginSuccess, navigate]);
 
   const handleSSOAuth = () => {
+    if (!isLogin && !allConsentsAccepted) {
+      setError('Для реєстрації необхідно прийняти всі документи');
+      return;
+    }
     setError(null);
     window.location.href = `${window.location.origin}/auth/oidc`;
   };
 
   const handleGoogleAuth = () => {
+    if (!isLogin && !allConsentsAccepted) {
+      setError('Для реєстрації необхідно прийняти всі документи');
+      return;
+    }
     setError(null);
     window.location.href = `${window.location.origin}/auth/google`;
   };
 
   const handleDiiaAuth = () => {
+    if (!isLogin && !allConsentsAccepted) {
+      setError('Для реєстрації необхідно прийняти всі документи');
+      return;
+    }
     setError(null);
     window.location.href = `${window.location.origin}/auth/diia`;
+  };
+
+  const allConsentsAccepted = acceptedTerms && acceptedPrivacy && acceptedDpa;
+
+  const resetConsents = () => {
+    setAcceptedTerms(false);
+    setAcceptedPrivacy(false);
+    setAcceptedDpa(false);
   };
 
   const handlePasswordChange = (value: string) => {
@@ -238,6 +261,11 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     } else {
       if (!email || !password) {
         setError('Please fill in email and password');
+        return;
+      }
+
+      if (!allConsentsAccepted) {
+        setError('Для реєстрації необхідно прийняти всі документи');
         return;
       }
 
@@ -363,6 +391,33 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               {isLogin ? 'Оберіть зручний спосіб входу' : 'Створіть акаунт для початку роботи'}
             </p>
           </div>
+
+          {/* Legal consent checkboxes (Registration only — above all auth methods) */}
+          {!isLogin && (
+            <div className="space-y-2.5 mb-6 p-4 bg-claude-bg/50 rounded-xl border border-claude-border/50">
+              <p className="text-xs font-medium text-claude-text font-sans mb-2">Для реєстрації необхідно прийняти:</p>
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 w-4 h-4 rounded border-claude-border text-claude-accent focus:ring-claude-accent/30 cursor-pointer" />
+                <span className="text-xs text-claude-subtext font-sans leading-relaxed">
+                  <a href="/uk/terms" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Умови використання</a>
+                  {' '}та{' '}
+                  <a href="/uk/offer" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Публічну оферту</a>
+                </span>
+              </label>
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={acceptedPrivacy} onChange={(e) => setAcceptedPrivacy(e.target.checked)} className="mt-0.5 w-4 h-4 rounded border-claude-border text-claude-accent focus:ring-claude-accent/30 cursor-pointer" />
+                <span className="text-xs text-claude-subtext font-sans leading-relaxed">
+                  <a href="/uk/privacy" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Політику конфіденційності</a>
+                </span>
+              </label>
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={acceptedDpa} onChange={(e) => setAcceptedDpa(e.target.checked)} className="mt-0.5 w-4 h-4 rounded border-claude-border text-claude-accent focus:ring-claude-accent/30 cursor-pointer" />
+                <span className="text-xs text-claude-subtext font-sans leading-relaxed">
+                  <a href="/uk/dpa" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Угоду про обробку даних (DPA)</a>
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* SSO Auth Button */}
           <motion.button
@@ -510,7 +565,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   </div>
                 )}
 
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={isLoading} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-black text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm font-sans disabled:opacity-50">
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={isLoading || (!isLogin && !allConsentsAccepted)} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-black text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm font-sans disabled:opacity-50">
                   {isLoading ? (
                     <Loader2 size={18} className="animate-spin" />
                   ) : (
@@ -561,7 +616,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="text-center mt-6">
           <p className="text-claude-subtext font-sans text-sm">
             {isLogin ? 'Немає акаунту?' : 'Вже є акаунт?'}{' '}
-            <button onClick={() => { setIsLogin(!isLogin); setError(null); setPassword(''); }} className="text-claude-accent hover:text-[#C66345] font-medium">
+            <button onClick={() => { setIsLogin(!isLogin); setError(null); setPassword(''); resetConsents(); }} className="text-claude-accent hover:text-[#C66345] font-medium">
               {isLogin ? 'Зареєструватися' : 'Увійти'}
             </button>
           </p>
@@ -638,10 +693,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         {/* Footer */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }} className="text-center mt-3 text-xs text-claude-subtext font-sans">
           <p>
-            Продовжуючи, ви погоджуєтесь з{' '}
-            <a href="/uk/offer" className="text-claude-accent hover:text-[#C66345]">Договором публічної оферти</a>{' '}
-            та{' '}
-            <a href="/uk/privacy" className="text-claude-accent hover:text-[#C66345]">Політикою конфіденційності</a>
+            <a href="/uk/terms" className="text-claude-accent hover:text-[#C66345]">Умови використання</a>
+            {' · '}
+            <a href="/uk/offer" className="text-claude-accent hover:text-[#C66345]">Оферта</a>
+            {' · '}
+            <a href="/uk/privacy" className="text-claude-accent hover:text-[#C66345]">Конфіденційність</a>
+            {' · '}
+            <a href="/uk/dpa" className="text-claude-accent hover:text-[#C66345]">DPA</a>
           </p>
         </motion.div>
       </motion.div>
