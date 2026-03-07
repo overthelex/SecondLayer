@@ -399,21 +399,21 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <label className="flex items-start gap-2.5 cursor-pointer">
                 <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 w-4 h-4 rounded border-claude-border text-claude-accent focus:ring-claude-accent/30 cursor-pointer" />
                 <span className="text-xs text-claude-subtext font-sans leading-relaxed">
-                  <a href="/uk/terms" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Умови використання</a>
+                  <a href="/ua/terms" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Умови використання</a>
                   {' '}та{' '}
-                  <a href="/uk/offer" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Публічну оферту</a>
+                  <a href="/ua/offer" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Публічну оферту</a>
                 </span>
               </label>
               <label className="flex items-start gap-2.5 cursor-pointer">
                 <input type="checkbox" checked={acceptedPrivacy} onChange={(e) => setAcceptedPrivacy(e.target.checked)} className="mt-0.5 w-4 h-4 rounded border-claude-border text-claude-accent focus:ring-claude-accent/30 cursor-pointer" />
                 <span className="text-xs text-claude-subtext font-sans leading-relaxed">
-                  <a href="/uk/privacy" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Політику конфіденційності</a>
+                  <a href="/ua/privacy" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Політику конфіденційності</a>
                 </span>
               </label>
               <label className="flex items-start gap-2.5 cursor-pointer">
                 <input type="checkbox" checked={acceptedDpa} onChange={(e) => setAcceptedDpa(e.target.checked)} className="mt-0.5 w-4 h-4 rounded border-claude-border text-claude-accent focus:ring-claude-accent/30 cursor-pointer" />
                 <span className="text-xs text-claude-subtext font-sans leading-relaxed">
-                  <a href="/uk/dpa" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Угоду про обробку даних (DPA)</a>
+                  <a href="/ua/dpa" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Угоду про обробку даних (DPA)</a>
                 </span>
               </label>
             </div>
@@ -693,13 +693,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         {/* Footer */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }} className="text-center mt-3 text-xs text-claude-subtext font-sans">
           <p>
-            <a href="/uk/terms" className="text-claude-accent hover:text-[#C66345]">Умови використання</a>
+            <a href="/ua/terms" className="text-claude-accent hover:text-[#C66345]">Умови використання</a>
             {' · '}
-            <a href="/uk/offer" className="text-claude-accent hover:text-[#C66345]">Оферта</a>
+            <a href="/ua/offer" className="text-claude-accent hover:text-[#C66345]">Оферта</a>
             {' · '}
-            <a href="/uk/privacy" className="text-claude-accent hover:text-[#C66345]">Конфіденційність</a>
+            <a href="/ua/privacy" className="text-claude-accent hover:text-[#C66345]">Конфіденційність</a>
             {' · '}
-            <a href="/uk/dpa" className="text-claude-accent hover:text-[#C66345]">DPA</a>
+            <a href="/ua/dpa" className="text-claude-accent hover:text-[#C66345]">DPA</a>
           </p>
         </motion.div>
       </motion.div>

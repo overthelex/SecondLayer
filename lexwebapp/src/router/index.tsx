@@ -140,7 +140,7 @@ export const router = createBrowserRouter([
   },
   {
     path: ROUTES.OFERTA,
-    element: <Navigate to="/uk/offer" replace />,
+    element: <Navigate to="/ua/offer" replace />,
   },
   {
     path: ROUTES.TERMS,
