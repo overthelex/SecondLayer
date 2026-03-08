@@ -1,26 +1,30 @@
 /**
  * CurrencyService
- * Fetches USD->UAH exchange rate from Monobank public API.
- * Caches rate in Redis with 1-hour TTL.
+ * Fetches USD->UAH exchange rate from NBU (National Bank of Ukraine) public API.
+ * Caches rate in Redis with 24-hour TTL (NBU updates rate once daily).
  * Falls back to last-known rate or default (~41.5 UAH) if API unavailable.
  */
 
 import { logger } from '../utils/logger.js';
 import { getRedisClient } from '../utils/redis-client.js';
 
-const REDIS_KEY = 'exchange_rate:USD_UAH';
-const REDIS_TTL_SECONDS = 3600; // 1 hour
+const REDIS_KEY = 'exchange_rate:NBU_USD_UAH';
+const REDIS_TTL_SECONDS = 86400; // 24 hours
 const DEFAULT_RATE = 41.5;
-const MONOBANK_API_URL = 'https://api.monobank.ua/bank/currency';
-
-// Monobank currency codes
-const USD_CODE = 840;
-const UAH_CODE = 980;
+const NBU_API_URL = 'https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&json';
 
 export interface ExchangeRateInfo {
   rate: number;
-  source: 'monobank' | 'cache' | 'default';
-  updatedAt: string;
+  source: 'NBU' | 'cache' | 'default';
+  lastUpdated: string;
+}
+
+interface NBUResponse {
+  r030: number;
+  txt: string;
+  rate: number;
+  cc: string;
+  exchangedate: string;
 }
 
 export class CurrencyService {
@@ -29,7 +33,7 @@ export class CurrencyService {
 
   /**
    * Get current USD->UAH rate.
-   * Priority: Redis cache -> Monobank API -> last-known -> default.
+   * Priority: Redis cache -> NBU API -> last-known -> default.
    */
   async getUsdToUahRate(): Promise<ExchangeRateInfo> {
     // 1. Try Redis cache
@@ -40,11 +44,11 @@ export class CurrencyService {
         if (cached) {
           const parsed = JSON.parse(cached);
           this.lastKnownRate = parsed.rate;
-          this.lastFetchedAt = parsed.updatedAt;
+          this.lastFetchedAt = parsed.lastUpdated;
           return {
             rate: parsed.rate,
             source: 'cache',
-            updatedAt: parsed.updatedAt,
+            lastUpdated: parsed.lastUpdated,
           };
         }
       }
@@ -52,9 +56,9 @@ export class CurrencyService {
       logger.warn('[CurrencyService] Redis read failed', { error: (err as Error).message });
     }
 
-    // 2. Fetch from Monobank API
+    // 2. Fetch from NBU API
     try {
-      const rate = await this.fetchFromMonobank();
+      const rate = await this.fetchFromNBU();
       const now = new Date().toISOString();
 
       this.lastKnownRate = rate;
@@ -66,7 +70,7 @@ export class CurrencyService {
         if (redis) {
           await redis.set(
             REDIS_KEY,
-            JSON.stringify({ rate, updatedAt: now }),
+            JSON.stringify({ rate, lastUpdated: now }),
             { EX: REDIS_TTL_SECONDS }
           );
         }
@@ -76,11 +80,11 @@ export class CurrencyService {
 
       return {
         rate,
-        source: 'monobank',
-        updatedAt: now,
+        source: 'NBU',
+        lastUpdated: now,
       };
     } catch (err) {
-      logger.warn('[CurrencyService] Monobank API failed, using fallback', {
+      logger.warn('[CurrencyService] NBU API failed, using fallback', {
         error: (err as Error).message,
         fallbackRate: this.lastKnownRate,
       });
@@ -90,7 +94,7 @@ export class CurrencyService {
     return {
       rate: this.lastKnownRate,
       source: 'default',
-      updatedAt: this.lastFetchedAt,
+      lastUpdated: this.lastFetchedAt,
     };
   }
 
@@ -106,47 +110,68 @@ export class CurrencyService {
   }
 
   /**
-   * Fetch USD->UAH rate from Monobank public API.
-   * Looks for currencyCodeA: 840 (USD), currencyCodeB: 980 (UAH).
-   * Uses rateSell if available, otherwise rateCross.
+   * Refresh the exchange rate from NBU API and update cache.
+   * Can be called by a cron/scheduled task.
    */
-  private async fetchFromMonobank(): Promise<number> {
+  async refreshRate(): Promise<void> {
+    logger.info('[CurrencyService] Refreshing NBU exchange rate...');
+    try {
+      const rate = await this.fetchFromNBU();
+      const now = new Date().toISOString();
+
+      this.lastKnownRate = rate;
+      this.lastFetchedAt = now;
+
+      // Update Redis cache
+      try {
+        const redis = await getRedisClient();
+        if (redis) {
+          await redis.set(
+            REDIS_KEY,
+            JSON.stringify({ rate, lastUpdated: now }),
+            { EX: REDIS_TTL_SECONDS }
+          );
+        }
+      } catch (err) {
+        logger.warn('[CurrencyService] Redis write failed during refresh', { error: (err as Error).message });
+      }
+
+      logger.info('[CurrencyService] NBU rate refreshed successfully', { rate });
+    } catch (err) {
+      logger.error('[CurrencyService] Failed to refresh NBU rate', { error: (err as Error).message });
+    }
+  }
+
+  /**
+   * Fetch USD->UAH rate from NBU (National Bank of Ukraine) API.
+   * Response: [{"r030":840,"txt":"Долар США","rate":41.2538,"cc":"USD","exchangedate":"08.03.2026"}]
+   */
+  private async fetchFromNBU(): Promise<number> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
     try {
-      const response = await fetch(MONOBANK_API_URL, {
+      const response = await fetch(NBU_API_URL, {
         signal: controller.signal,
         headers: { 'Accept': 'application/json' },
       });
 
       if (!response.ok) {
-        throw new Error(`Monobank API returned ${response.status}`);
+        throw new Error(`NBU API returned ${response.status}`);
       }
 
-      const data = await response.json() as Array<{
-        currencyCodeA: number;
-        currencyCodeB: number;
-        rateSell?: number;
-        rateBuy?: number;
-        rateCross?: number;
-        date: number;
-      }>;
+      const data = await response.json() as NBUResponse[];
 
-      const usdUah = data.find(
-        (item) => item.currencyCodeA === USD_CODE && item.currencyCodeB === UAH_CODE
-      );
-
-      if (!usdUah) {
-        throw new Error('USD/UAH pair not found in Monobank response');
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error('Empty or invalid response from NBU API');
       }
 
-      const rate = usdUah.rateSell || usdUah.rateCross;
+      const rate = data[0].rate;
       if (!rate || rate <= 0) {
-        throw new Error('Invalid rate value from Monobank');
+        throw new Error('Invalid rate value from NBU API');
       }
 
-      logger.info('[CurrencyService] Fetched USD/UAH rate from Monobank', { rate });
+      logger.info('[CurrencyService] Fetched USD/UAH rate from NBU', { rate });
       return rate;
     } finally {
       clearTimeout(timeout);

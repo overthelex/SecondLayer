@@ -127,6 +127,7 @@ import { JudgesService } from './services/judges-service.js';
 import { createJudgesRoutes } from './routes/judges-routes.js';
 import { sanitizeId, maskSensitive } from './utils/sanitize-log.js';
 import rateLimit from 'express-rate-limit';
+import cron from 'node-cron';
 
 dotenv.config();
 
@@ -218,6 +219,20 @@ class HTTPMCPServer {
     this.costTracker = new CostTracker(this.services.db);
     this.billingService = new BillingService(this.services.db);
     this.currencyService = new CurrencyService();
+
+    // Fetch NBU exchange rate on startup
+    this.currencyService.refreshRate().catch(err => {
+      logger.warn('[HTTPMCPServer] Initial NBU rate fetch failed', { error: (err as Error).message });
+    });
+
+    // Schedule daily NBU rate refresh at 6:00 AM Kyiv time
+    cron.schedule('0 6 * * *', () => {
+      logger.info('[HTTPMCPServer] Running scheduled NBU rate refresh');
+      this.currencyService.refreshRate().catch(err => {
+        logger.error('[HTTPMCPServer] Scheduled NBU rate refresh failed', { error: (err as Error).message });
+      });
+    }, { timezone: 'Europe/Kyiv' });
+
     this.pricingService = new PricingService(this.services.db);
     this.subscriptionService = new SubscriptionService(this.services.db);
     this.userPreferencesService = new UserPreferencesService(this.services.db);

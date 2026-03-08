@@ -7,8 +7,8 @@ import { BaseService } from '../base/BaseService';
 
 export interface ExchangeRateInfo {
   rate: number;
-  source: 'monobank' | 'cache' | 'default';
-  updatedAt: string;
+  source: 'NBU' | 'cache' | 'default';
+  lastUpdated: string;
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes client-side cache
@@ -39,7 +39,7 @@ class CurrencyServiceClass extends BaseService {
       return {
         rate: 41.5,
         source: 'default',
-        updatedAt: new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
       };
     }
   }
