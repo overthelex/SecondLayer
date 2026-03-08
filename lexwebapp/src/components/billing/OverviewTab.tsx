@@ -1,20 +1,22 @@
 /**
  * Overview Tab
  * Displays current balance, spending limits, and usage statistics
+ * All amounts shown in UAH (hryvnia)
  */
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  DollarSign,
   TrendingUp,
   Calendar,
   AlertCircle,
   RefreshCw,
   Clock,
+  Banknote,
 } from 'lucide-react';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 interface BalanceData {
   balance_usd: number;
@@ -36,6 +38,7 @@ export function OverviewTab({ onTopUp }: OverviewTabProps) {
   const [data, setData] = useState<BalanceData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const { formatUah, formatUahDirect } = useCurrencyRate();
 
   const fetchBalance = async () => {
     try {
@@ -44,7 +47,7 @@ export function OverviewTab({ onTopUp }: OverviewTabProps) {
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Failed to fetch balance:', error);
-      showToast.error('Failed to load balance data');
+      showToast.error('Не вдалося завантажити дані балансу');
     } finally {
       setIsLoading(false);
     }
@@ -90,16 +93,20 @@ export function OverviewTab({ onTopUp }: OverviewTabProps) {
     <div className="space-y-6">
       {/* Balance Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* USD Balance */}
+        {/* UAH Balance (primary) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-gradient-to-br from-claude-accent to-[#C66345] rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium opacity-90">Баланс USD</h3>
-            <DollarSign size={24} />
+            <h3 className="text-sm font-medium opacity-90">Баланс</h3>
+            <Banknote size={24} />
           </div>
-          <p className="text-4xl font-bold mb-2">${n(data.balance_usd).toFixed(2)}</p>
+          <p className="text-4xl font-bold mb-2">
+            {n(data.balance_uah) > 0
+              ? formatUahDirect(n(data.balance_uah))
+              : formatUah(n(data.balance_usd))}
+          </p>
           <div className="flex items-center justify-between">
             <p className="text-sm opacity-75">Доступно для використання</p>
             {onTopUp && (
@@ -112,20 +119,20 @@ export function OverviewTab({ onTopUp }: OverviewTabProps) {
           </div>
         </motion.div>
 
-        {/* UAH Balance */}
+        {/* USD equivalent (secondary) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           className="bg-white border border-claude-border rounded-xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-claude-subtext">Баланс UAH</h3>
-            <DollarSign size={24} className="text-claude-accent" />
+            <h3 className="text-sm font-medium text-claude-subtext">Еквівалент USD</h3>
+            <Banknote size={24} className="text-claude-accent" />
           </div>
           <p className="text-4xl font-bold text-claude-text mb-2">
-            ₴{n(data.balance_uah).toFixed(2)}
+            ${n(data.balance_usd).toFixed(2)}
           </p>
-          <p className="text-sm text-claude-subtext">Українська гривня</p>
+          <p className="text-sm text-claude-subtext">Внутрішній облік</p>
         </motion.div>
 
         {/* Total Requests */}
@@ -159,7 +166,7 @@ export function OverviewTab({ onTopUp }: OverviewTabProps) {
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-claude-text">Денний ліміт</span>
             <span className="text-sm text-claude-subtext">
-              ${n(data.today_spending_usd).toFixed(2)} / ${n(data.daily_limit_usd).toFixed(2)}
+              {formatUah(n(data.today_spending_usd))} / {formatUah(n(data.daily_limit_usd))}
             </span>
           </div>
           <div className="w-full bg-claude-bg rounded-full h-3 overflow-hidden">
@@ -186,7 +193,7 @@ export function OverviewTab({ onTopUp }: OverviewTabProps) {
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-claude-text">Місячний ліміт</span>
             <span className="text-sm text-claude-subtext">
-              ${n(data.monthly_spending_usd).toFixed(2)} / ${n(data.monthly_limit_usd).toFixed(2)}
+              {formatUah(n(data.monthly_spending_usd))} / {formatUah(n(data.monthly_limit_usd))}
             </span>
           </div>
           <div className="w-full bg-claude-bg rounded-full h-3 overflow-hidden">

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 interface TierFromBackend {
   tier: string;
@@ -97,6 +98,7 @@ export function TariffsTab({ onUpgradeTopUp }: TariffsTabProps) {
   const [currentTier, setCurrentTier] = useState<string>('free');
   const [tiers, setTiers] = useState<TierFromBackend[]>([]);
   const [recommendedTier, setRecommendedTier] = useState<string | undefined>();
+  const { toUah } = useCurrencyRate();
 
   useEffect(() => {
     fetchPricingInfo();
@@ -221,7 +223,7 @@ export function TariffsTab({ onUpgradeTopUp }: TariffsTabProps) {
       : tier.annual_price_usd || 0;
 
     featureMatrix[key] = {
-      'Базова вартість / міс.': price === 0 ? 'Безкоштовно' : `$${price}`,
+      'Базова вартість / міс.': price === 0 ? 'Безкоштовно' : `${toUah(price).toFixed(0)} \u20B4`,
       'Націнка на API': tier.markup_percentage === 0 ? 'Без націнки' : `${tier.markup_percentage}%`,
       'Пробний період': tier.trial_days ? `${tier.trial_days} днів` : 'Н/д',
       'Інструменти пошуку': true,
@@ -302,7 +304,7 @@ export function TariffsTab({ onUpgradeTopUp }: TariffsTabProps) {
     const targetIdx = tierOrder.indexOf(tierId);
     if (targetIdx > currentIdx) {
       const cost = getUpgradeCost(tierId);
-      if (cost > 0) return `Перейти за $${cost}${billingCycle === 'monthly' ? '/міс' : '/рік'}`;
+      if (cost > 0) return `Перейти за ${toUah(cost).toFixed(0)} \u20B4${billingCycle === 'monthly' ? '/міс' : '/рік'}`;
       return `Перейти на ${TIER_LABELS[tierId] || tierId}`;
     }
     return `Знизити до ${TIER_LABELS[tierId] || tierId}`;
@@ -436,14 +438,14 @@ export function TariffsTab({ onUpgradeTopUp }: TariffsTabProps) {
                     <p className="text-2xl font-bold text-claude-text">Індивідуальна ціна</p>
                   ) : price === 0 ? (
                     <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-bold text-claude-text">$0</span>
+                      <span className="text-4xl font-bold text-claude-text">0 &#8372;</span>
                       <span className="text-sm text-claude-subtext">/міс</span>
                     </div>
                   ) : (
                     <>
                       <div className="flex items-baseline gap-2">
                         <span className="text-4xl font-bold text-claude-text">
-                          ${price}
+                          {toUah(price).toFixed(0)} &#8372;
                         </span>
                         <span className="text-sm text-claude-subtext">
                           {billingCycle === 'monthly' ? '/міс' : '/рік'}
@@ -451,7 +453,7 @@ export function TariffsTab({ onUpgradeTopUp }: TariffsTabProps) {
                       </div>
                       {billingCycle === 'yearly' && price > 0 && (
                         <p className="text-xs text-green-600 mt-1">
-                          ${(price / 12).toFixed(2)}/міс при річній оплаті
+                          {toUah(price / 12).toFixed(0)} &#8372;/міс при річній оплаті
                         </p>
                       )}
                     </>

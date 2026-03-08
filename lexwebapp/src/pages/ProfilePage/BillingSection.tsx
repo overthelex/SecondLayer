@@ -1,8 +1,11 @@
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 import type { UseProfileReturn } from './types';
 
 type BillingSectionProps = Pick<UseProfileReturn, 'billing' | 'stats'>;
 
 export function BillingSection({ billing, stats }: BillingSectionProps) {
+  const { formatUah } = useCurrencyRate();
+
   return (
     <section className="bg-white rounded-2xl p-6 border border-claude-border shadow-sm">
       <h2 className="text-xl font-serif text-claude-text mb-6">
@@ -33,7 +36,7 @@ export function BillingSection({ billing, stats }: BillingSectionProps) {
               Витрати за місяць
             </span>
             <span className="text-sm text-claude-subtext">
-              ${Number(billing.month_spent_usd).toFixed(2)} / ${Number(billing.monthly_limit_usd).toFixed(2)}
+              {formatUah(Number(billing.month_spent_usd))} / {formatUah(Number(billing.monthly_limit_usd))}
             </span>
           </div>
           <div className="h-2 w-full bg-claude-bg rounded-full overflow-hidden">
@@ -43,7 +46,7 @@ export function BillingSection({ billing, stats }: BillingSectionProps) {
             />
           </div>
           <p className="text-xs text-claude-subtext mt-2">
-            Денний ліміт: ${Number(billing.daily_limit_usd).toFixed(2)} · Сьогодні: ${Number(billing.today_spent_usd).toFixed(2)}
+            Денний ліміт: {formatUah(Number(billing.daily_limit_usd))} · Сьогодні: {formatUah(Number(billing.today_spent_usd))}
           </p>
         </div>
       )}

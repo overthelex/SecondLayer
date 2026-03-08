@@ -3,6 +3,7 @@ import { ChevronDown, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CostSummary as CostSummaryType } from '../types/models/Message';
 import { getToolLabel } from '../hooks/chat/tool-labels';
+import { useCurrencyRate } from '../hooks/useCurrencyRate';
 
 interface CostSummaryProps {
   data: CostSummaryType;
@@ -10,6 +11,13 @@ interface CostSummaryProps {
 
 export function CostSummary({ data }: CostSummaryProps) {
   const [expanded, setExpanded] = useState(false);
+  const { formatUah } = useCurrencyRate();
+
+  const displayCostUsd = data.charged_usd != null && Number(data.charged_usd) > 0
+    ? Number(data.charged_usd)
+    : Number(data.total_cost_usd) > 0
+      ? Number(data.total_cost_usd)
+      : 0;
 
   return (
     <div className="mt-3">
@@ -19,11 +27,9 @@ export function CostSummary({ data }: CostSummaryProps) {
       >
         <Coins size={12} strokeWidth={2} />
         <span>
-          {data.charged_usd != null && Number(data.charged_usd) > 0
-            ? `$${Number(data.charged_usd).toFixed(4)}`
-            : Number(data.total_cost_usd) > 0
-              ? `$${Number(data.total_cost_usd).toFixed(4)}`
-              : '$0.00'}
+          {displayCostUsd > 0
+            ? formatUah(displayCostUsd)
+            : '0.00 \u20B4'}
         </span>
         {data.response_id && (
           <span className="text-claude-subtext/60 font-mono">#{data.response_id}</span>
@@ -63,13 +69,13 @@ export function CostSummary({ data }: CostSummaryProps) {
               {/* Cost breakdown */}
               <div className="flex items-center gap-3 flex-wrap">
                 {Number(data.total_cost_usd) > 0 && (
-                  <span>Вартість LLM: ${Number(data.total_cost_usd).toFixed(4)}</span>
+                  <span>Вартість LLM: {formatUah(Number(data.total_cost_usd))}</span>
                 )}
                 {data.charged_usd != null && Number(data.charged_usd) > 0 && (
-                  <span>Списано: ${Number(data.charged_usd).toFixed(4)}</span>
+                  <span>Списано: {formatUah(Number(data.charged_usd))}</span>
                 )}
                 {data.balance_usd != null && (
-                  <span>Баланс: ${Number(data.balance_usd).toFixed(2)}</span>
+                  <span>Баланс: {formatUah(Number(data.balance_usd))}</span>
                 )}
               </div>
             </div>

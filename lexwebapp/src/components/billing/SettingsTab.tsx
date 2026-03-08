@@ -30,6 +30,7 @@ import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
 import { getErrorMessage } from '../../utils/errors';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 // --- Types ---
 
@@ -121,6 +122,7 @@ function CollapsibleSection({
 export function SettingsTab() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const { formatUah } = useCurrencyRate();
 
   // Payment methods state
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -522,8 +524,8 @@ export function SettingsTab() {
           <div className="bg-claude-bg border border-claude-border rounded-lg p-3">
             <p className="text-xs text-claude-subtext mb-2">Денне використання</p>
             <div className="flex items-baseline justify-between mb-1">
-              <p className="text-xl font-bold text-claude-text">${n(usage.daily_spent).toFixed(2)}</p>
-              <p className="text-xs text-claude-subtext">/ ${n(usage.daily_limit).toFixed(2)}</p>
+              <p className="text-xl font-bold text-claude-text">{formatUah(n(usage.daily_spent))}</p>
+              <p className="text-xs text-claude-subtext">/ {formatUah(n(usage.daily_limit))}</p>
             </div>
             <div className="w-full bg-white rounded-full h-2 overflow-hidden">
               <div
@@ -535,8 +537,8 @@ export function SettingsTab() {
           <div className="bg-claude-bg border border-claude-border rounded-lg p-3">
             <p className="text-xs text-claude-subtext mb-2">Місячне використання</p>
             <div className="flex items-baseline justify-between mb-1">
-              <p className="text-xl font-bold text-claude-text">${n(usage.monthly_spent).toFixed(2)}</p>
-              <p className="text-xs text-claude-subtext">/ ${n(usage.monthly_limit).toFixed(2)}</p>
+              <p className="text-xl font-bold text-claude-text">{formatUah(n(usage.monthly_spent))}</p>
+              <p className="text-xs text-claude-subtext">/ {formatUah(n(usage.monthly_limit))}</p>
             </div>
             <div className="w-full bg-white rounded-full h-2 overflow-hidden">
               <div
@@ -548,7 +550,7 @@ export function SettingsTab() {
           <div className="bg-claude-bg border border-claude-border rounded-lg p-3">
             <p className="text-xs text-claude-subtext mb-2">Прогноз на місяць</p>
             <p className="text-xl font-bold text-claude-text mb-1">
-              ${n(usage.projected_monthly).toFixed(2)}
+              {formatUah(n(usage.projected_monthly))}
             </p>
             {usage.projected_monthly > usage.monthly_limit ? (
               <span className="text-xs text-red-600 font-semibold flex items-center gap-1">
@@ -567,7 +569,7 @@ export function SettingsTab() {
           <div>
             <label htmlFor="settings-daily-limit" className="block text-sm font-medium text-claude-text mb-1.5">Денний ліміт (USD)</label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-claude-subtext">$</span>
+              <span className="text-sm text-claude-subtext">&#8372;</span>
               <input
                 id="settings-daily-limit"
                 name="dailyLimit"
@@ -583,7 +585,7 @@ export function SettingsTab() {
           <div>
             <label htmlFor="settings-monthly-limit" className="block text-sm font-medium text-claude-text mb-1.5">Місячний ліміт (USD)</label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-claude-subtext">$</span>
+              <span className="text-sm text-claude-subtext">&#8372;</span>
               <input
                 id="settings-monthly-limit"
                 name="monthlyLimit"
@@ -599,7 +601,7 @@ export function SettingsTab() {
           <div>
             <label htmlFor="settings-low-balance" className="block text-sm font-medium text-claude-text mb-1.5">Поріг низького балансу (USD)</label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-claude-subtext">$</span>
+              <span className="text-sm text-claude-subtext">&#8372;</span>
               <input
                 id="settings-low-balance"
                 name="lowBalance"
@@ -623,7 +625,7 @@ export function SettingsTab() {
               Прогноз витрат
             </h4>
             <div className="space-y-1 text-sm text-blue-800">
-              <p>Середні щоденні витрати: <strong>${avgDailySpend.toFixed(2)}</strong></p>
+              <p>Середні щоденні витрати: <strong>{formatUah(avgDailySpend)}</strong></p>
               {daysUntilLimit < Infinity && daysUntilLimit > 0 ? (
                 <p>
                   При поточному темпі ви досягнете ліміту за{' '}
