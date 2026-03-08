@@ -10,6 +10,7 @@ import { UserService } from '../services/user-service.js';
 import { BannerService } from '../services/banner-service.js';
 import { logger } from '../utils/logger.js';
 import { provisionAuthentikUser } from '../services/authentik-service.js';
+import { provisionNextcloudUser } from '../services/nextcloud-provisioning.js';
 
 let passportBannerService: BannerService | null = null;
 
@@ -93,8 +94,9 @@ export function configurePassport(db: Database): typeof passport {
           await userService.updateLastLogin(user.id);
           logger.info('New Google user created', { userId: user.id, email });
 
-          // Provision in Authentik for Nextcloud SSO access (fire and forget)
+          // Provision in Authentik and Nextcloud (fire and forget)
           provisionAuthentikUser({ email, name }).catch(() => {});
+          provisionNextcloudUser({ email, name }).catch(() => {});
 
           // Generate banner (fire and forget)
           if (passportBannerService) {
