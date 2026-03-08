@@ -39,6 +39,7 @@ const TermsPage = lazy(() => import('../pages/TermsPage').then(m => ({ default: 
 const PrivacyPolicyPage = lazy(() => import('../pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
 const DpaPage = lazy(() => import('../pages/DpaPage').then(m => ({ default: m.DpaPage })));
 const AiUsagePolicyPage = lazy(() => import('../pages/AiUsagePolicyPage').then(m => ({ default: m.AiUsagePolicyPage })));
+const AiTransparencyPage = lazy(() => import('../pages/AiTransparencyPage').then(m => ({ default: m.AiTransparencyPage })));
 const BlogPage = lazy(() => import('../pages/BlogPage').then(m => ({ default: m.BlogPage })));
 
 // -- Data Sources (country pages) --
@@ -158,6 +159,10 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.AI_USAGE,
     element: S(AiUsagePolicyPage),
+  },
+  {
+    path: ROUTES.AI_TRANSPARENCY,
+    element: S(AiTransparencyPage),
   },
   {
     path: ROUTES.US_DATA_SOURCES,
