@@ -62,6 +62,11 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [acceptedDpa, setAcceptedDpa] = useState(false);
+  const [showSSOForm, setShowSSOForm] = useState(false);
+  const [ssoEmail, setSsoEmail] = useState('');
+  const [ssoPassword, setSsoPassword] = useState('');
+  const [showSSOPassword, setShowSSOPassword] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState(false);
   const [diiaDeeplink, setDiiaDeeplink] = useState<string | null>(null);
   const [diiaSessionId, setDiiaSessionId] = useState<string | null>(null);
   const diiaPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -189,7 +194,41 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       return;
     }
     setError(null);
-    window.location.href = `${window.location.origin}/auth/oidc`;
+    setShowSSOForm(!showSSOForm);
+  };
+
+  const handleSSOLogin = async () => {
+    setError(null);
+
+    if (!ssoEmail || !ssoPassword) {
+      setError('Введіть email та пароль SSO');
+      return;
+    }
+
+    setSsoLoading(true);
+
+    try {
+      const response = await fetch(`${BASE_URL}/auth/oidc/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: ssoEmail, password: ssoPassword }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'SSO login failed');
+
+      await login(data.token);
+      showToast.success('Вхід через SSO виконано успішно!');
+      if (onLoginSuccess) onLoginSuccess();
+      navigate(getReturnUrl(), { replace: true });
+    } catch (err: unknown) {
+      console.error('SSO login failed:', err);
+      const msg = err instanceof Error ? err.message : 'Помилка автентифікації через SSO';
+      setError(msg);
+      showToast.error('Помилка SSO');
+    } finally {
+      setSsoLoading(false);
+    }
   };
 
   const handleGoogleAuth = () => {
@@ -419,16 +458,81 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </div>
           )}
 
-          {/* SSO Auth Button */}
+          {/* SSO Auth Button + Expandable Form */}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleSSOAuth}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-gradient-to-r from-[#fd4b2d] to-[#e0422a] hover:from-[#e0422a] hover:to-[#c93a25] text-white rounded-xl font-medium transition-all shadow-sm mb-3 font-sans"
+            className={`w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-gradient-to-r from-[#fd4b2d] to-[#e0422a] hover:from-[#e0422a] hover:to-[#c93a25] text-white font-medium transition-all shadow-sm font-sans ${showSSOForm ? 'rounded-t-xl' : 'rounded-xl mb-3'}`}
           >
             <ShieldCheck size={20} />
             {isLogin ? 'Увійти через SSO' : 'Зареєструватися через SSO'}
           </motion.button>
+
+          <AnimatePresence>
+            {showSSOForm && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden mb-3"
+              >
+                <div className="bg-red-50/50 border border-t-0 border-red-200/30 rounded-b-xl p-4 space-y-3">
+                  <div>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail size={16} className="text-claude-subtext" />
+                      </div>
+                      <input
+                        type="email"
+                        value={ssoEmail}
+                        onChange={(e) => setSsoEmail(e.target.value)}
+                        placeholder="SSO email"
+                        autoComplete="username"
+                        className="block w-full pl-9 pr-4 py-2.5 bg-white border border-claude-border rounded-lg text-sm text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400 transition-all font-sans"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock size={16} className="text-claude-subtext" />
+                      </div>
+                      <input
+                        type={showSSOPassword ? 'text' : 'password'}
+                        value={ssoPassword}
+                        onChange={(e) => setSsoPassword(e.target.value)}
+                        placeholder="SSO пароль"
+                        autoComplete="current-password"
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSSOLogin(); }}
+                        className="block w-full pl-9 pr-10 py-2.5 bg-white border border-claude-border rounded-lg text-sm text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400 transition-all font-sans"
+                      />
+                      <button type="button" onClick={() => setShowSSOPassword(!showSSOPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-claude-subtext hover:text-claude-text transition-colors">
+                        {showSSOPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleSSOLogin}
+                    disabled={ssoLoading}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#fd4b2d] to-[#e0422a] hover:from-[#e0422a] hover:to-[#c93a25] text-white rounded-lg font-medium text-sm transition-all shadow-sm font-sans disabled:opacity-50"
+                  >
+                    {ssoLoading ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <>
+                        <ArrowRight size={16} />
+                        Увійти
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Diia Auth Button */}
           <motion.button
