@@ -173,7 +173,33 @@ We may update this Privacy Policy. We will notify you of material changes:
 
 Continued use of the Service after changes constitutes acceptance of the updated Policy.
 
-## 12. Contact Information
+## 12. AI Quality and Safety
+
+The Company implements comprehensive measures to ensure the quality and safety of AI data processing:
+
+**12.1. Continuous Monitoring:**
+- real-time automated monitoring of AI response quality;
+- tracking citation and reference accuracy metrics through the CitationValidator system;
+- monitoring HallucinationGuard performance to prevent generation of incorrect information.
+
+**12.2. User Feedback Loop:**
+- Users can report incorrect AI analysis results;
+- every report is analyzed to improve Service quality;
+- systematic analysis of feedback to enhance safety mechanisms.
+
+**12.3. Regular Testing:**
+- periodic testing of HallucinationGuard and CitationValidator mechanisms against current legal data;
+- verification of semantic search accuracy and result relevance;
+- assessment of AI error protection effectiveness.
+
+**12.4. Safety Audits:**
+- regular internal audits of AI data processing procedures;
+- verification of compliance with personal data protection standards;
+- Data Protection Impact Assessment (DPIA) when implementing new AI features.
+
+For AI quality and safety inquiries, contact: info@legal.org.ua
+
+## 13. Contact Information
 
 For data protection inquiries, please contact:
 
