@@ -89,6 +89,121 @@ export interface OidcUserInfo {
   email_verified?: boolean;
 }
 
+const AUTHENTIK_API_URL = process.env.AUTHENTIK_API_URL || '';
+const AUTHENTIK_AUTH_FLOW_SLUG = process.env.AUTHENTIK_AUTH_FLOW_SLUG || 'default-authentication-flow';
+
+/**
+ * Authenticate user via Authentik Flow Executor API (headless).
+ * Executes the authentication flow step by step:
+ * 1. GET flow → ak-stage-identification
+ * 2. POST uid_field → ak-stage-password
+ * 3. POST password → xak-flow-redirect (success)
+ * Then fetches user info from the Authentik session.
+ */
+export async function loginWithCredentials(
+  username: string,
+  password: string
+): Promise<OidcUserInfo> {
+  if (!AUTHENTIK_API_URL) {
+    throw new Error('AUTHENTIK_API_URL is not configured');
+  }
+
+  const flowUrl = `${AUTHENTIK_API_URL}/api/v3/flows/executor/${AUTHENTIK_AUTH_FLOW_SLUG}/`;
+
+  // We need to track cookies (authentik_session) across requests
+  let sessionCookie = '';
+
+  const fetchWithCookies = async (url: string, options: RequestInit = {}): Promise<any> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string> || {}),
+    };
+    if (sessionCookie) {
+      headers['Cookie'] = sessionCookie;
+    }
+
+    const resp = await fetch(url, { ...options, headers, redirect: 'manual' });
+
+    // Capture set-cookie header
+    const setCookie = resp.headers.get('set-cookie');
+    if (setCookie) {
+      const match = setCookie.match(/authentik_session=([^;]+)/);
+      if (match) {
+        sessionCookie = `authentik_session=${match[1]}`;
+      }
+    }
+
+    const text = await resp.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`Unexpected response from Authentik: ${text.substring(0, 200)}`);
+    }
+  };
+
+  // Step 1: GET flow — get identification stage
+  const step1 = await fetchWithCookies(flowUrl);
+
+  if (step1.component !== 'ak-stage-identification') {
+    logger.error('[OIDC] Unexpected flow stage', { component: step1.component });
+    throw new Error(`Unexpected flow stage: ${step1.component}`);
+  }
+
+  // Step 2: POST identification (email/username)
+  const step2 = await fetchWithCookies(flowUrl, {
+    method: 'POST',
+    body: JSON.stringify({ component: 'ak-stage-identification', uid_field: username }),
+  });
+
+  if (step2.component === 'ak-stage-access-denied') {
+    throw new Error('invalid_grant: user not found');
+  }
+
+  if (step2.component !== 'ak-stage-password') {
+    logger.error('[OIDC] Unexpected flow stage after identification', { component: step2.component });
+    throw new Error(`Unexpected flow stage: ${step2.component}`);
+  }
+
+  // Step 3: POST password
+  const step3 = await fetchWithCookies(flowUrl, {
+    method: 'POST',
+    body: JSON.stringify({ component: 'ak-stage-password', password }),
+  });
+
+  if (step3.component === 'ak-stage-access-denied') {
+    throw new Error('invalid_grant: invalid password');
+  }
+
+  if (step3.component !== 'xak-flow-redirect') {
+    // Could be MFA or other stage — not supported yet
+    logger.error('[OIDC] Unexpected flow stage after password', { component: step3.component });
+    throw new Error(`Unexpected flow stage: ${step3.component}`);
+  }
+
+  // Step 4: Get user info from session
+  const userInfoResp = await fetchWithCookies(`${AUTHENTIK_API_URL}/api/v3/core/users/me/`);
+
+  const user = userInfoResp.user || userInfoResp;
+  const userInfo: OidcUserInfo = {
+    sub: String(user.pk || user.uid || ''),
+    email: user.email || '',
+    name: user.name || undefined,
+    picture: user.avatar || undefined,
+    email_verified: true,
+  };
+
+  if (!userInfo.email) {
+    throw new Error('No email returned from Authentik');
+  }
+
+  logger.info('[OIDC] User authenticated via Flow Executor', {
+    sub: userInfo.sub,
+    email: userInfo.email,
+  });
+
+  return userInfo;
+}
+
 /**
  * Handle callback from Authentik.
  * Exchanges authorization code for tokens, returns user info.

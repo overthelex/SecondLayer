@@ -119,11 +119,15 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 if (process.env.OIDC_DISCOVERY_URL && process.env.OIDC_CLIENT_ID) {
   router.get('/oidc', authController.oidcAuthInit as any);
   router.get('/oidc/callback', authController.oidcAuthCallback as any);
+  router.post('/oidc/login', authRateLimit as any, authController.oidcLoginWithPassword as any);
 } else {
   router.get('/oidc', (_req, res) => {
     res.status(501).json({ error: 'OIDC/SSO is not configured' });
   });
   router.get('/oidc/callback', (_req, res) => {
+    res.status(501).json({ error: 'OIDC/SSO is not configured' });
+  });
+  router.post('/oidc/login', (_req, res) => {
     res.status(501).json({ error: 'OIDC/SSO is not configured' });
   });
 }
