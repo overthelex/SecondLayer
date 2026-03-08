@@ -50,7 +50,21 @@ The Company does **NOT** guarantee:
 
 The User is obligated to independently verify AI analysis results before using them in legal practice. The Company shall not be liable for damages caused by the use of analysis results without proper verification.
 
-The system includes HallucinationGuard and CitationValidator mechanisms to minimize errors; however, they do not guarantee absolute accuracy.
+### 4.1. AI Safety Mechanisms
+
+The Service employs a multi-level protection system to minimize errors:
+
+**HallucinationGuard** — incorrect information prevention system:
+- automatically detects and prevents generation of non-existent legal norms, articles, or court decisions;
+- verifies facts stated in AI responses by cross-referencing them with real sources;
+- marks conclusions with low confidence levels using special indicators for additional User verification.
+
+**CitationValidator** — citation validation system:
+- validates every citation of legislation and court decisions against real sources;
+- ensures that references to specific articles, parts, and clauses actually exist in the cited documents;
+- warns the User about detected discrepancies between a citation and the original source.
+
+These mechanisms significantly reduce the probability of errors but do **NOT** guarantee 100% accuracy of results. The User is obligated to independently verify critically important information.
 
 ## 5. Registration and Account
 

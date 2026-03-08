@@ -702,6 +702,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <a href="/ua/dpa" className="text-claude-accent hover:text-[#C66345]">DPA</a>
             {' · '}
             <a href="/ua/ai-usage" className="text-claude-accent hover:text-[#C66345]">AI Policy</a>
+            {' · '}
+            <a href="/ua/ai-transparency" className="text-claude-accent hover:text-[#C66345]">AI Transparency</a>
           </p>
         </motion.div>
       </motion.div>

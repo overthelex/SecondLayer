@@ -181,7 +181,37 @@ The Company may update this Policy in connection with:
 
 Users will be notified of material changes at least 14 days in advance through the Service interface or email.
 
-## 10. Contact Information
+## 10. Our Quality Guarantee
+
+The Company guarantees that every AI analysis result undergoes automatic verification through built-in safety mechanisms:
+
+### 10.1. HallucinationGuard — Standard for All Results
+
+HallucinationGuard is a mandatory component in processing every AI query. This mechanism:
+- analyzes every AI response for potentially non-existent norms, articles, or court decisions;
+- cross-references generated citations with real legislation and court practice databases;
+- blocks or flags responses containing unverified information;
+- ensures transparency — Users see the system's confidence level for each conclusion.
+
+### 10.2. CitationValidator — Standard for All Results
+
+CitationValidator automatically verifies every citation in AI responses:
+- validates article, part, and clause numbers of legislation;
+- verifies the existence of cited court decisions;
+- compares citation text with the original source;
+- notifies Users of any detected discrepancies.
+
+### 10.3. Error Reporting
+
+If a User discovers an error in AI analysis results:
+1. Report the error through the Service interface or to info@legal.org.ua;
+2. Specify the exact query, response, and nature of the error;
+3. We will analyze the report and take measures to prevent similar errors;
+4. Upon request, we will notify the User of the review results.
+
+The Company strives to continuously improve protection mechanisms and reduce AI errors.
+
+## 11. Contact Information
 
 For questions regarding AI usage in the Service:
 - Email: info@legal.org.ua

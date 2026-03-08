@@ -54,6 +54,7 @@ export const ROUTES = {
   PRIVACY: '/:lang/privacy',
   DPA: '/:lang/dpa',
   AI_USAGE: '/:lang/ai-usage',
+  AI_TRANSPARENCY: '/:lang/ai-transparency',
 
   // Blog
   BLOG: '/blog',
