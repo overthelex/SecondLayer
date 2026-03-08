@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { TopUpTab } from './TopUpTab';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 interface TopUpModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface TopUpModalProps {
 }
 
 export function TopUpModal({ isOpen, onClose, onSuccess: _onSuccess, initialAmount, upgradeTier }: TopUpModalProps) {
+  const { formatUah } = useCurrencyRate();
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -56,7 +58,7 @@ export function TopUpModal({ isOpen, onClose, onSuccess: _onSuccess, initialAmou
                 <h2 className="text-xl font-semibold text-claude-text">Поповнити баланс</h2>
                 {upgradeTier && (
                   <p className="text-sm text-claude-subtext mt-0.5">
-                    Для переходу на тариф <strong>{upgradeTier.charAt(0).toUpperCase() + upgradeTier.slice(1)}</strong> необхідно поповнити баланс на <strong>${initialAmount?.toFixed(2)}</strong>
+                    Для переходу на тариф <strong>{upgradeTier.charAt(0).toUpperCase() + upgradeTier.slice(1)}</strong> необхідно поповнити баланс на <strong>{initialAmount ? formatUah(initialAmount) : '0.00 \u20B4'}</strong>
                   </p>
                 )}
               </div>

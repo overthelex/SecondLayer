@@ -18,6 +18,7 @@ import {
 import { format } from 'date-fns';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 interface Transaction {
   id: string;
@@ -40,6 +41,7 @@ export function TransactionsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [limit] = useState(50);
+  const { formatUah } = useCurrencyRate();
 
   const fetchTransactions = async () => {
     setIsLoading(true);
@@ -258,18 +260,18 @@ export function TransactionsTab() {
                         className={`text-sm font-medium ${
                           transaction.type === 'charge' ? 'text-red-600' : 'text-green-600'
                         }`}>
-                        {transaction.type === 'charge' ? '-' : '+'}$
-                        {Math.abs(Number(transaction.amount_usd) || 0).toFixed(2)}
+                        {transaction.type === 'charge' ? '-' : '+'}
+                        {Number(transaction.amount_uah) > 0
+                          ? `${Math.abs(Number(transaction.amount_uah) || 0).toFixed(2)} \u20B4`
+                          : formatUah(Math.abs(Number(transaction.amount_usd) || 0))}
                       </div>
-                      {Number(transaction.amount_uah) > 0 && (
-                        <div className="text-xs text-claude-subtext">
-                          ₴{Math.abs(Number(transaction.amount_uah) || 0).toFixed(2)}
-                        </div>
-                      )}
+                      <div className="text-xs text-claude-subtext">
+                        ${Math.abs(Number(transaction.amount_usd) || 0).toFixed(2)}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="text-sm text-claude-text font-medium">
-                        ${(Number(transaction.balance_after_usd) || 0).toFixed(2)}
+                        {formatUah(Number(transaction.balance_after_usd) || 0)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

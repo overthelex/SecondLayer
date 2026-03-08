@@ -20,6 +20,7 @@ import { MetadataExtractor } from './services/metadata-extractor.js';
 import path from 'path';
 // import { createEULARouter } from './routes/eula.js'; // REMOVED: EULA not needed
 import { CostTracker } from './services/cost-tracker.js';
+import { CurrencyService } from './services/currency-service.js';
 import { BillingService } from './services/billing-service.js';
 import { MonobankService } from './services/monobank-service.js';
 import { MetaMaskService } from './services/metamask-service.js';
@@ -126,6 +127,7 @@ import { JudgesService } from './services/judges-service.js';
 import { createJudgesRoutes } from './routes/judges-routes.js';
 import { sanitizeId, maskSensitive } from './utils/sanitize-log.js';
 import rateLimit from 'express-rate-limit';
+import cron from 'node-cron';
 
 dotenv.config();
 
@@ -178,6 +180,7 @@ class HTTPMCPServer {
   private attorneyProfileService: AttorneyProfileService;
   private consultationService: ConsultationService;
   private consultationPaymentService: ConsultationPaymentService;
+  private currencyService: CurrencyService;
 
   constructor() {
     this.app = express();
@@ -212,9 +215,24 @@ class HTTPMCPServer {
     );
     logger.info('Batch document processing tools initialized');
 
-    // Initialize cost tracker and billing service
+    // Initialize cost tracker, billing service, and currency service
     this.costTracker = new CostTracker(this.services.db);
     this.billingService = new BillingService(this.services.db);
+    this.currencyService = new CurrencyService();
+
+    // Fetch NBU exchange rate on startup
+    this.currencyService.refreshRate().catch(err => {
+      logger.warn('[HTTPMCPServer] Initial NBU rate fetch failed', { error: (err as Error).message });
+    });
+
+    // Schedule daily NBU rate refresh at 6:00 AM Kyiv time
+    cron.schedule('0 6 * * *', () => {
+      logger.info('[HTTPMCPServer] Running scheduled NBU rate refresh');
+      this.currencyService.refreshRate().catch(err => {
+        logger.error('[HTTPMCPServer] Scheduled NBU rate refresh failed', { error: (err as Error).message });
+      });
+    }, { timezone: 'Europe/Kyiv' });
+
     this.pricingService = new PricingService(this.services.db);
     this.subscriptionService = new SubscriptionService(this.services.db);
     this.userPreferencesService = new UserPreferencesService(this.services.db);
@@ -1423,6 +1441,18 @@ class HTTPMCPServer {
 
     // EULA endpoints - REMOVED: not needed
     // this.app.use('/api/eula', createEULARouter(this.services.db.getPool()));
+
+    // Currency exchange rate endpoint (public, no auth required)
+    // GET /api/currency/rate - Get current USD->UAH rate
+    this.app.get('/api/currency/rate', (async (_req: Request, res: Response) => {
+      try {
+        const rateInfo = await this.currencyService.getUsdToUahRate();
+        res.json(rateInfo);
+      } catch (error: any) {
+        logger.error('[CurrencyAPI] Failed to get exchange rate', { error: error.message });
+        res.status(500).json({ error: 'Не вдалося отримати курс валют' });
+      }
+    }) as any);
 
     // Billing endpoints - require JWT (user login)
     // GET /api/billing/balance - Get current balance and limits

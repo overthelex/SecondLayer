@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 interface StatisticsData {
   period: string;
@@ -62,12 +63,6 @@ const PERIOD_LABELS: Record<PeriodType, string> = {
   '90d': '90 днів',
   'year': 'Рік',
 };
-
-function formatCost(value: number): string {
-  if (value < 0.01 && value > 0) return `$${value.toFixed(4)}`;
-  if (value < 1) return `$${value.toFixed(3)}`;
-  return `$${value.toFixed(2)}`;
-}
 
 function formatTokens(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
@@ -98,6 +93,7 @@ export function StatisticsTab() {
   const [data, setData] = useState<StatisticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { formatUah } = useCurrencyRate();
 
   const fetchStatistics = async () => {
     setIsLoading(true);
@@ -251,7 +247,7 @@ export function StatisticsTab() {
                 <DollarSign size={18} className="text-claude-subtext" />
               </div>
               <p className="text-3xl font-bold text-claude-text mb-1">
-                {formatCost(data.totalCost)}
+                {formatUah(data.totalCost)}
               </p>
               {prev && (
                 <ChangeIndicator
@@ -286,7 +282,7 @@ export function StatisticsTab() {
                 <TrendingUp size={18} className="text-claude-subtext" />
               </div>
               <p className="text-3xl font-bold text-claude-text mb-1">
-                {formatCost(data.avgCostPerRequest)}
+                {formatUah(data.avgCostPerRequest)}
               </p>
               <span className="text-xs text-claude-subtext">
                 за {PERIOD_LABELS[period]}
@@ -357,7 +353,7 @@ export function StatisticsTab() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, value }) => `${name}: ${formatCost(value)}`}
+                      label={({ name, value }) => `${name}: ${formatUah(value)}`}
                       outerRadius={80}
                       fill="#D97757"
                       dataKey="value">
@@ -365,7 +361,7 @@ export function StatisticsTab() {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: any) => formatCost(value)} />
+                    <Tooltip formatter={(value: any) => formatUah(value)} />
                   </PieChart>
                 </ResponsiveContainer>
               </motion.div>
@@ -380,7 +376,7 @@ export function StatisticsTab() {
               transition={{ delay: 0.7 }}
               className="bg-white border border-claude-border rounded-lg p-6">
               <h3 className="text-lg font-semibold text-claude-text mb-4">
-                Витрати по днях (USD)
+                Витрати по днях (UAH)
               </h3>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={data.dailyData}>
@@ -394,7 +390,7 @@ export function StatisticsTab() {
                       borderRadius: '8px',
                       fontSize: '13px',
                     }}
-                    formatter={(value: any) => [formatCost(value), 'Витрати']}
+                    formatter={(value: any) => [formatUah(value), 'Витрати']}
                   />
                   <Bar
                     dataKey="cost"
@@ -439,7 +435,7 @@ export function StatisticsTab() {
                           {tool.count.toLocaleString()}
                         </td>
                         <td className="px-4 py-3 text-right text-claude-text">
-                          {formatCost(tool.cost)}
+                          {formatUah(tool.cost)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
