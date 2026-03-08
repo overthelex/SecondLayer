@@ -20,6 +20,9 @@ export { UploadService, uploadService } from './api/UploadService';
 // Upload manager
 export { UploadManager, uploadManager } from './upload/UploadManager';
 
+// Currency service
+export { CurrencyService, currencyService } from './api/CurrencyService';
+
 // Workflow service
 export { WorkflowService, workflowService } from './api/WorkflowService';
 
