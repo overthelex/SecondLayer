@@ -3,6 +3,8 @@ import { Toaster } from 'react-hot-toast';
 import { QueryProvider } from './providers/QueryProvider';
 import { AuthProvider } from './contexts/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { CookieConsent } from './components/CookieConsent';
+import { GeoDetector } from './components/GeoDetector';
 import { router } from './router';
 
 export function App() {
@@ -10,7 +12,9 @@ export function App() {
     <ErrorBoundary>
       <QueryProvider>
         <AuthProvider>
+          <GeoDetector />
           <RouterProvider router={router} />
+          <CookieConsent />
         <Toaster
           position="top-right"
           toastOptions={{
