@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 interface BillingLimits {
   daily_limit_usd: number;
@@ -59,6 +60,7 @@ export function LimitsTab() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const { formatUah } = useCurrencyRate();
 
   useEffect(() => {
     fetchData();
@@ -188,8 +190,8 @@ export function LimitsTab() {
           <p className="text-sm text-claude-subtext mb-3">Денне використання</p>
           <div className="mb-3">
             <div className="flex items-baseline justify-between mb-1">
-              <p className="text-2xl font-bold text-claude-text">${n(usage.daily_spent).toFixed(2)}</p>
-              <p className="text-xs text-claude-subtext">/ ${n(usage.daily_limit).toFixed(2)}</p>
+              <p className="text-2xl font-bold text-claude-text">{formatUah(n(usage.daily_spent))}</p>
+              <p className="text-xs text-claude-subtext">/ {formatUah(n(usage.daily_limit))}</p>
             </div>
             <div className="w-full bg-claude-bg rounded-full h-3 overflow-hidden">
               <motion.div
@@ -212,8 +214,8 @@ export function LimitsTab() {
           <p className="text-sm text-claude-subtext mb-3">Місячне використання</p>
           <div className="mb-3">
             <div className="flex items-baseline justify-between mb-1">
-              <p className="text-2xl font-bold text-claude-text">${n(usage.monthly_spent).toFixed(2)}</p>
-              <p className="text-xs text-claude-subtext">/ ${n(usage.monthly_limit).toFixed(2)}</p>
+              <p className="text-2xl font-bold text-claude-text">{formatUah(n(usage.monthly_spent))}</p>
+              <p className="text-xs text-claude-subtext">/ {formatUah(n(usage.monthly_limit))}</p>
             </div>
             <div className="w-full bg-claude-bg rounded-full h-3 overflow-hidden">
               <motion.div
@@ -237,7 +239,7 @@ export function LimitsTab() {
           <div className="mb-3">
             <div className="flex items-baseline justify-between mb-1">
               <p className="text-2xl font-bold text-claude-text">
-                ${n(usage.projected_monthly).toFixed(2)}
+                {formatUah(n(usage.projected_monthly))}
               </p>
               <p className="text-xs text-claude-subtext">прогноз</p>
             </div>
@@ -270,9 +272,9 @@ export function LimitsTab() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label htmlFor="limits-daily" className="block text-sm font-medium text-claude-text mb-2">Денний ліміт (USD)</label>
+            <label htmlFor="limits-daily" className="block text-sm font-medium text-claude-text mb-2">Денний ліміт</label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-claude-subtext">$</span>
+              <span className="text-sm text-claude-subtext">&#8372;</span>
               <input
                 id="limits-daily"
                 name="dailyLimit"
@@ -287,16 +289,16 @@ export function LimitsTab() {
               />
             </div>
             <p className="text-xs text-claude-subtext mt-1">
-              Поточне: ${n(usage.daily_spent).toFixed(2)} витрачено сьогодні
+              Поточне: {formatUah(n(usage.daily_spent))} витрачено сьогодні
             </p>
           </div>
 
           <div>
             <label htmlFor="limits-monthly" className="block text-sm font-medium text-claude-text mb-2">
-              Місячний ліміт (USD)
+              Місячний ліміт
             </label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-claude-subtext">$</span>
+              <span className="text-sm text-claude-subtext">&#8372;</span>
               <input
                 id="limits-monthly"
                 name="monthlyLimit"
@@ -311,16 +313,16 @@ export function LimitsTab() {
               />
             </div>
             <p className="text-xs text-claude-subtext mt-1">
-              Поточне: ${n(usage.monthly_spent).toFixed(2)} витрачено цього місяця
+              Поточне: {formatUah(n(usage.monthly_spent))} витрачено цього місяця
             </p>
           </div>
 
           <div>
             <label htmlFor="limits-low-balance" className="block text-sm font-medium text-claude-text mb-2">
-              Поріг низького балансу (USD)
+              Поріг низького балансу
             </label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-claude-subtext">$</span>
+              <span className="text-sm text-claude-subtext">&#8372;</span>
               <input
                 id="limits-low-balance"
                 name="lowBalance"
@@ -407,12 +409,12 @@ export function LimitsTab() {
           </h3>
           <div className="space-y-2 text-sm text-blue-800">
             <p>
-              Середні щоденні витрати: <strong>${avgDailySpend.toFixed(2)}</strong>
+              Середні щоденні витрати: <strong>{formatUah(avgDailySpend)}</strong>
             </p>
             {daysUntilLimit < Infinity && daysUntilLimit > 0 ? (
               <p>
                 При поточному темпі ви досягнете місячного ліміту{' '}
-                <strong>${n(limits.monthly_limit_usd).toFixed(2)}</strong> приблизно за{' '}
+                <strong>{formatUah(n(limits.monthly_limit_usd))}</strong> приблизно за{' '}
                 <strong>{daysUntilLimit} {daysUntilLimit === 1 ? 'день' : daysUntilLimit < 5 ? 'дні' : 'днів'}</strong>.
               </p>
             ) : daysUntilLimit <= 0 ? (

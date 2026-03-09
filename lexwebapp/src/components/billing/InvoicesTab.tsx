@@ -12,18 +12,20 @@ import {
   Clock,
   AlertCircle,
   Calendar,
-  DollarSign,
+  Banknote,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { generateInvoicePDF, InvoiceData } from '../../utils/invoice-generator';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 export function InvoicesTab() {
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
+  const { formatUah } = useCurrencyRate();
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -238,15 +240,16 @@ export function InvoicesTab() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <DollarSign size={14} className="text-claude-subtext" />
+                      <Banknote size={14} className="text-claude-subtext" />
                       <span className="text-sm font-semibold text-claude-text">
-                        {invoice.currency === 'USD' ? '$' : '₴'}
-                        {(Number(invoice.total) || 0).toFixed(2)}
+                        {invoice.currency === 'UAH'
+                          ? `${(Number(invoice.total) || 0).toFixed(2)} ₴`
+                          : formatUah(Number(invoice.total) || 0)}
                       </span>
                     </div>
-                    {invoice.currency === 'UAH' && (
+                    {invoice.currency === 'UAH' && Number(invoice.tax) > 0 && (
                       <div className="text-xs text-claude-subtext">
-                        +₴{(Number(invoice.tax) || 0).toFixed(2)} VAT
+                        вкл. ₴{(Number(invoice.tax) || 0).toFixed(2)} ПДВ
                       </div>
                     )}
                   </td>

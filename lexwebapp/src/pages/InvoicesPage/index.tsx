@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   FileText,
-  DollarSign,
+  Banknote,
   Download,
   Send,
   CheckCircle,
@@ -22,6 +22,7 @@ import { useInvoices, useDownloadInvoicePDF, useSendInvoice } from '../../hooks/
 import { GenerateInvoiceModal } from '../../components/invoices/GenerateInvoiceModal';
 import { InvoiceDetailModal } from '../../components/invoices/InvoiceDetailModal';
 import { Invoice } from '../../types/models';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-claude-sidebar text-claude-subtext border border-claude-border',
@@ -63,6 +64,7 @@ export function InvoicesPage() {
     date_to: dateTo || undefined,
   };
 
+  const { formatUah } = useCurrencyRate();
   const { data, isLoading, error } = useInvoices(filters);
   const downloadPDF = useDownloadInvoicePDF();
   const sendInvoice = useSendInvoice();
@@ -150,11 +152,11 @@ export function InvoicesPage() {
 
             <div className="bg-white rounded-xl border border-claude-border p-4">
               <div className="flex items-center gap-2 text-claude-subtext mb-2">
-                <DollarSign size={16} />
+                <Banknote size={16} />
                 <span className="text-xs font-sans font-medium uppercase tracking-wide">Виставлено</span>
               </div>
               <p className="text-2xl font-serif font-medium text-claude-text">
-                ${stats.totalAmount.toFixed(2)}
+                {formatUah(stats.totalAmount)}
               </p>
             </div>
 
@@ -164,7 +166,7 @@ export function InvoicesPage() {
                 <span className="text-xs font-sans font-medium uppercase tracking-wide">Оплачено</span>
               </div>
               <p className="text-2xl font-serif font-medium text-green-700">
-                ${stats.paidAmount.toFixed(2)}
+                {formatUah(stats.paidAmount)}
               </p>
             </div>
 
@@ -174,7 +176,7 @@ export function InvoicesPage() {
                 <span className="text-xs font-sans font-medium uppercase tracking-wide">Очікується</span>
               </div>
               <p className="text-2xl font-serif font-medium text-amber-700">
-                ${stats.outstanding.toFixed(2)}
+                {formatUah(stats.outstanding)}
               </p>
             </div>
           </div>
@@ -351,10 +353,10 @@ export function InvoicesPage() {
                         {new Date(invoice.due_date).toLocaleDateString('uk-UA')}
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap text-sm font-sans font-medium text-claude-text">
-                        ${Number(invoice.total_usd || 0).toFixed(2)}
+                        {formatUah(Number(invoice.total_usd || 0))}
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap text-sm font-sans text-claude-subtext">
-                        ${Number(invoice.amount_paid_usd || 0).toFixed(2)}
+                        {formatUah(Number(invoice.amount_paid_usd || 0))}
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap">
                         <span
