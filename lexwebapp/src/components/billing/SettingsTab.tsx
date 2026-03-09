@@ -567,7 +567,7 @@ export function SettingsTab() {
         {/* Limit Inputs */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label htmlFor="settings-daily-limit" className="block text-sm font-medium text-claude-text mb-1.5">Денний ліміт (USD)</label>
+            <label htmlFor="settings-daily-limit" className="block text-sm font-medium text-claude-text mb-1.5">Денний ліміт</label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-claude-subtext">&#8372;</span>
               <input
@@ -583,7 +583,7 @@ export function SettingsTab() {
             </div>
           </div>
           <div>
-            <label htmlFor="settings-monthly-limit" className="block text-sm font-medium text-claude-text mb-1.5">Місячний ліміт (USD)</label>
+            <label htmlFor="settings-monthly-limit" className="block text-sm font-medium text-claude-text mb-1.5">Місячний ліміт</label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-claude-subtext">&#8372;</span>
               <input
@@ -599,7 +599,7 @@ export function SettingsTab() {
             </div>
           </div>
           <div>
-            <label htmlFor="settings-low-balance" className="block text-sm font-medium text-claude-text mb-1.5">Поріг низького балансу (USD)</label>
+            <label htmlFor="settings-low-balance" className="block text-sm font-medium text-claude-text mb-1.5">Поріг низького балансу</label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-claude-subtext">&#8372;</span>
               <input

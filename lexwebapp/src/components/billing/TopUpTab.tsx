@@ -17,9 +17,9 @@ import {
 } from 'lucide-react';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 const MOCK_PAYMENTS = import.meta.env.VITE_MOCK_PAYMENTS === 'true';
-const UAH_TO_USD_RATE = parseFloat(import.meta.env.VITE_UAH_TO_USD_RATE || '41.5');
 
 type PaymentProvider = 'monobank' | 'metamask' | 'binance_pay';
 
@@ -44,7 +44,7 @@ function truncateAddress(addr: string): string {
   return addr.slice(0, 6) + '...' + addr.slice(-4);
 }
 
-function MonobankPaymentForm({ amountUah, onSuccess }: { amountUah: number; onSuccess: () => void }) {
+function MonobankPaymentForm({ amountUah, uahRate, onSuccess }: { amountUah: number; uahRate: number; onSuccess: () => void }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,7 +83,7 @@ function MonobankPaymentForm({ amountUah, onSuccess }: { amountUah: number; onSu
           <span className="text-sm text-claude-subtext">Сума до оплати:</span>
           <div className="text-right">
             <span className="text-2xl font-bold text-claude-text">{amountUah.toFixed(0)} ₴</span>
-            <p className="text-xs text-claude-subtext">≈ ${(amountUah / UAH_TO_USD_RATE).toFixed(2)} USD</p>
+            <p className="text-xs text-claude-subtext">≈ ${(amountUah / uahRate).toFixed(2)} USD</p>
           </div>
         </div>
       </div>
@@ -515,6 +515,7 @@ interface TopUpTabProps {
 }
 
 export function TopUpTab({ initialAmount }: TopUpTabProps) {
+  const { rate, formatUah } = useCurrencyRate();
   const [provider, setProvider] = useState<PaymentProvider>('monobank');
   const [amount, setAmount] = useState<number>(initialAmount || 25);
   const [customAmount, setCustomAmount] = useState<string>(initialAmount ? String(initialAmount) : '');
@@ -538,9 +539,8 @@ export function TopUpTab({ initialAmount }: TopUpTabProps) {
 
   const cryptoEnabled = availableProviders.some((p) => p.id === 'metamask' && p.enabled);
   // Amount in UAH for Monobank; in USD for crypto
-  const amountUah = provider === 'monobank' ? Math.round(amount * UAH_TO_USD_RATE) : 0;
+  const amountUah = provider === 'monobank' ? Math.round(amount * rate) : 0;
   const presetAmounts = [10, 25, 50, 100];
-  const currencySymbol = '$';
 
   const handleSuccess = () => {
     setShowSuccess(true);
@@ -615,29 +615,26 @@ export function TopUpTab({ initialAmount }: TopUpTabProps) {
           {presetAmounts.map((preset) => (
             <button key={preset} onClick={() => { setAmount(preset); setCustomAmount(''); }}
               className={`p-4 border-2 rounded-xl font-semibold transition-all ${amount === preset && !customAmount ? 'border-claude-accent bg-claude-accent text-white' : 'border-claude-border text-claude-text hover:border-claude-accent'}`}>
-              {currencySymbol}{preset}
+              {formatUah(preset)}
             </button>
           ))}
         </div>
         <div>
           <label className="block text-sm font-medium text-claude-text mb-2">Інша сума</label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-claude-subtext font-medium">{currencySymbol}</span>
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-claude-subtext font-medium">₴</span>
             <input type="number" min="1" step="0.01"
               value={customAmount} onChange={(e) => { setCustomAmount(e.target.value); const p = parseFloat(e.target.value); if (!isNaN(p) && p > 0) setAmount(p); }}
               placeholder="25.00"
               className="w-full pl-8 pr-4 py-3 border border-claude-border rounded-lg focus:outline-none focus:ring-2 focus:ring-claude-accent/20" />
           </div>
-          <p className="text-xs text-claude-subtext mt-2">Мінімум: $1.00</p>
+          <p className="text-xs text-claude-subtext mt-2">Мінімум: {formatUah(1)}</p>
         </div>
         <div className="mt-4 p-4 bg-claude-bg rounded-lg">
           <div className="flex items-center justify-between">
             <span className="text-sm text-claude-subtext">До оплати:</span>
             <div className="text-right">
-              <span className="text-2xl font-bold text-claude-text">{currencySymbol}{amount.toFixed(2)}</span>
-              {provider === 'monobank' && (
-                <p className="text-xs text-claude-subtext">≈ {amountUah} ₴</p>
-              )}
+              <span className="text-2xl font-bold text-claude-text">{formatUah(amount)}</span>
             </div>
           </div>
         </div>
@@ -647,7 +644,7 @@ export function TopUpTab({ initialAmount }: TopUpTabProps) {
       <div className="bg-white border border-claude-border rounded-xl p-6">
         <h3 className="text-lg font-semibold text-claude-text mb-4">Деталі оплати</h3>
         {provider === 'monobank' ? (
-          <MonobankPaymentForm amountUah={amountUah} onSuccess={handleSuccess} />
+          <MonobankPaymentForm amountUah={amountUah} uahRate={rate} onSuccess={handleSuccess} />
         ) : provider === 'metamask' ? (
           <MetaMaskPaymentForm amount={amount} onSuccess={handleSuccess} />
         ) : provider === 'binance_pay' ? (
