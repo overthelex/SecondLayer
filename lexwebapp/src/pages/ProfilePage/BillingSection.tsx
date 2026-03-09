@@ -36,17 +36,17 @@ export function BillingSection({ billing, stats }: BillingSectionProps) {
               Витрати за місяць
             </span>
             <span className="text-sm text-claude-subtext">
-              {formatUah(Number(billing.month_spent_usd))} / {formatUah(Number(billing.monthly_limit_usd))}
+              {formatUah(Number(billing.monthly_spending_usd))} / {formatUah(Number(billing.monthly_limit_usd))}
             </span>
           </div>
           <div className="h-2 w-full bg-claude-bg rounded-full overflow-hidden">
             <div
               className="h-full bg-claude-accent rounded-full transition-all"
-              style={{ width: `${Math.min(100, (Number(billing.month_spent_usd) / Number(billing.monthly_limit_usd)) * 100)}%` }}
+              style={{ width: `${Math.min(100, (Number(billing.monthly_spending_usd) / Number(billing.monthly_limit_usd)) * 100)}%` }}
             />
           </div>
           <p className="text-xs text-claude-subtext mt-2">
-            Денний ліміт: {formatUah(Number(billing.daily_limit_usd))} · Сьогодні: {formatUah(Number(billing.today_spent_usd))}
+            Денний ліміт: {formatUah(Number(billing.daily_limit_usd))} · Сьогодні: {formatUah(Number(billing.today_spending_usd))}
           </p>
         </div>
       )}

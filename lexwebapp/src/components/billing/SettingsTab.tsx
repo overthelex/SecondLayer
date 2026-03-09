@@ -198,8 +198,8 @@ export function SettingsTab() {
 
       // Usage from balance
       const b = balanceRes.data;
-      const dailySpent = parseFloat(b.today_spent_usd || b.today_spending_usd || '0') || 0;
-      const monthlySpent = parseFloat(b.month_spent_usd || b.monthly_spending_usd || '0') || 0;
+      const dailySpent = parseFloat(b.today_spending_usd || '0') || 0;
+      const monthlySpent = parseFloat(b.monthly_spending_usd || '0') || 0;
       const dailyLimit = parseFloat(b.daily_limit_usd || s.daily_limit_usd || '50') || 50;
       const monthlyLimit = parseFloat(b.monthly_limit_usd || s.monthly_limit_usd || '1000') || 1000;
 
