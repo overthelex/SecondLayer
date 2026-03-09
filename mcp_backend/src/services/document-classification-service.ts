@@ -85,13 +85,13 @@ export class DocumentClassificationService {
                ORDER BY created_at DESC`;
       params = [userId, documentIds];
     } else {
-      // Get docs that have no tags or type is 'other' (unclassified)
+      // Get docs that haven't been classified yet (exclude already processed)
       query = `SELECT id, title, full_text, type, metadata
                FROM documents
                WHERE user_id = $1
+                 AND deleted_at IS NULL
                  AND (
-                   type = 'other'
-                   OR metadata->>'classificationStatus' IS NULL
+                   metadata->>'classificationStatus' IS NULL
                    OR metadata->>'classificationStatus' = 'pending'
                  )
                ORDER BY created_at DESC`;
@@ -446,8 +446,7 @@ export class DocumentClassificationService {
        WHERE user_id = $1
          AND deleted_at IS NULL
          AND (
-           type = 'other'
-           OR metadata->>'classificationStatus' IS NULL
+           metadata->>'classificationStatus' IS NULL
            OR metadata->>'classificationStatus' = 'pending'
          )`,
       [userId]

@@ -29,7 +29,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
   const [showSettings, setShowSettings] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const unclassifiedCount = stats ? stats.unclassified + stats.needsReview : 0;
+  const unclassifiedCount = stats ? stats.unclassified : 0;
 
   // Poll job status
   const pollJob = useCallback(async (jobId: string) => {
