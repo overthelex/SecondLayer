@@ -15,11 +15,12 @@ import {
   AlertCircle,
   RefreshCw,
   Building2,
-  DollarSign,
+  Banknote,
   Inbox,
 } from 'lucide-react';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 interface PaymentMethod {
   id: string;
@@ -62,6 +63,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export function PaymentsTab() {
+  const { formatUah } = useCurrencyRate();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [billingInfo, setBillingInfo] = useState<BillingInfo>({
     companyName: '',
@@ -101,7 +103,7 @@ export function PaymentsTab() {
           currency: 'USD',
           status: t.type === 'topup' ? 'completed' : t.type,
           provider: t.payment_provider || '—',
-          description: t.description || `${STATUS_LABELS[t.type] || t.type} $${parseFloat(t.amount_usd).toFixed(2)}`,
+          description: t.description || `${STATUS_LABELS[t.type] || t.type}`,
         }))
       );
     } catch (error) {
@@ -175,7 +177,7 @@ export function PaymentsTab() {
       case 'failed':
         return <AlertCircle size={18} className="text-red-500" />;
       default:
-        return <DollarSign size={18} className="text-claude-subtext" />;
+        return <Banknote size={18} className="text-claude-subtext" />;
     }
   };
 
@@ -422,7 +424,7 @@ export function PaymentsTab() {
         transition={{ delay: 0.2 }}
         className="bg-white border border-claude-border rounded-lg p-6">
         <h3 className="text-lg font-semibold text-claude-text mb-6 flex items-center gap-2">
-          <DollarSign size={20} />
+          <Banknote size={20} />
           Історія оплат
         </h3>
 
@@ -457,7 +459,7 @@ export function PaymentsTab() {
                     <td className="px-4 py-3 text-claude-text">{payment.description}</td>
                     <td className="px-4 py-3 text-claude-subtext">{payment.provider}</td>
                     <td className="px-4 py-3 text-right font-semibold text-claude-text">
-                      ${payment.amount.toFixed(2)}
+                      {formatUah(payment.amount)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">

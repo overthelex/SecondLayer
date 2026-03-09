@@ -69,12 +69,11 @@ export function TransactionsTab() {
   );
 
   const exportToCSV = () => {
-    const headers = ['Дата', 'Тип', 'Опис', 'Сума USD', 'Сума UAH', 'Баланс після', 'Провайдер'];
+    const headers = ['Дата', 'Тип', 'Опис', 'Сума UAH', 'Баланс після', 'Провайдер'];
     const rows = filteredTransactions.map((t) => [
       format(new Date(t.created_at), 'yyyy-MM-dd HH:mm:ss'),
       t.type,
       t.description,
-      Number(t.amount_usd || 0).toFixed(2),
       Number(t.amount_uah || 0).toFixed(2),
       Number(t.balance_after_usd || 0).toFixed(2),
       t.payment_provider || 'N/A',
@@ -264,9 +263,6 @@ export function TransactionsTab() {
                         {Number(transaction.amount_uah) > 0
                           ? `${Math.abs(Number(transaction.amount_uah) || 0).toFixed(2)} \u20B4`
                           : formatUah(Math.abs(Number(transaction.amount_usd) || 0))}
-                      </div>
-                      <div className="text-xs text-claude-subtext">
-                        ${Math.abs(Number(transaction.amount_usd) || 0).toFixed(2)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
