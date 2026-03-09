@@ -238,6 +238,7 @@ class HTTPMCPServer {
     this.userPreferencesService = new UserPreferencesService(this.services.db);
     this.prometheusService = new PrometheusService(process.env.PROMETHEUS_URL);
     this.invoiceService = new InvoiceService();
+    this.billingService.setCurrencyService(this.currencyService);
     this.costTracker.setBillingService(this.billingService);
 
     // Register VoyageAI token usage callback on EmbeddingService

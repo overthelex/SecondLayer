@@ -6,6 +6,7 @@
 import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import { PricingService, PricingTier, PriceCalculation } from './pricing-service.js';
+import type { CurrencyService } from './currency-service.js';
 
 export interface UserBilling {
   id: string;
@@ -75,9 +76,28 @@ export interface EmailPreferences {
 
 export class BillingService {
   private pricingService: PricingService;
+  private currencyService?: CurrencyService;
 
   constructor(private db: IDatabase, pricingService?: PricingService) {
     this.pricingService = pricingService || new PricingService(db);
+  }
+
+  setCurrencyService(currencyService: CurrencyService): void {
+    this.currencyService = currencyService;
+  }
+
+  /**
+   * Convert USD to UAH using CurrencyService. Falls back to 0 if service unavailable.
+   */
+  private async convertToUah(amountUsd: number): Promise<number> {
+    if (!this.currencyService || amountUsd <= 0) return 0;
+    try {
+      const { amountUah } = await this.currencyService.convertUsdToUah(amountUsd);
+      return amountUah;
+    } catch (err) {
+      logger.warn('Failed to convert USD to UAH for billing', { amountUsd, error: (err as Error).message });
+      return 0;
+    }
   }
 
   /**
@@ -277,6 +297,11 @@ export class BillingService {
       const balanceBefore = parseFloat(billing.balance_usd);
       const balanceAfter = balanceBefore - chargeAmount;
 
+      // Auto-convert USD charge to UAH if not provided
+      const chargeAmountUah = params.amountUah != null
+        ? params.amountUah
+        : await this.convertToUah(chargeAmount);
+
       // Update balance and statistics
       await client.query(
         `UPDATE user_billing
@@ -287,7 +312,7 @@ export class BillingService {
              total_requests = total_requests + 1,
              updated_at = NOW()
          WHERE user_id = $3`,
-        [chargeAmount, params.amountUah || 0, params.userId]
+        [chargeAmount, chargeAmountUah, params.userId]
       );
 
       // Record transaction with pricing metadata
@@ -312,7 +337,7 @@ export class BillingService {
           params.userId,
           'charge',
           chargeAmount,
-          params.amountUah || 0,
+          chargeAmountUah,
           balanceBefore,
           balanceAfter,
           params.requestId,
@@ -393,6 +418,11 @@ export class BillingService {
       const balanceBefore = parseFloat(billing.balance_usd);
       const balanceAfter = balanceBefore + params.amountUsd;
 
+      // Auto-convert USD to UAH if not provided
+      const topUpAmountUah = params.amountUah != null
+        ? params.amountUah
+        : await this.convertToUah(params.amountUsd);
+
       // Update balance
       await client.query(
         `UPDATE user_billing
@@ -400,7 +430,7 @@ export class BillingService {
              balance_uah = balance_uah + $2,
              updated_at = NOW()
          WHERE user_id = $3`,
-        [params.amountUsd, params.amountUah || 0, params.userId]
+        [params.amountUsd, topUpAmountUah, params.userId]
       );
 
       // Record transaction
@@ -415,7 +445,7 @@ export class BillingService {
           params.userId,
           'topup',
           params.amountUsd,
-          params.amountUah || 0,
+          topUpAmountUah,
           balanceBefore,
           balanceAfter,
           params.description || `Top up $${params.amountUsd}`,
