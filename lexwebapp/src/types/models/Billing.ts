@@ -17,8 +17,8 @@ export interface BillingBalance {
   daily_limit_usd: number;
   monthly_limit_usd: number;
   pricing_tier: string;
-  today_spent_usd: number;
-  month_spent_usd: number;
+  today_spending_usd: number;
+  monthly_spending_usd: number;
   last_request_at?: string;
 }
 

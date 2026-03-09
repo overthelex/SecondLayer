@@ -8,7 +8,7 @@ import {
   RefreshCw,
   Clock,
   Users,
-  DollarSign,
+  Banknote,
   Activity,
   ChevronDown,
   ChevronRight,
@@ -21,6 +21,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { api } from '../utils/api-client';
+import { useCurrencyRate } from '../hooks/useCurrencyRate';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -154,7 +155,7 @@ function StatusDot({ status }: { status: string | null }) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function RequestRow({ req }: { req: RecentRequest }) {
+function RequestRow({ req, formatUah }: { req: RecentRequest; formatUah: (usd: number) => string }) {
   return (
     <div className="flex items-start gap-3 py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors">
       <StatusDot status={req.status} />
@@ -173,7 +174,7 @@ function RequestRow({ req }: { req: RecentRequest }) {
           )}
           {req.total_cost_usd > 0 && (
             <span className="text-xs text-slate-400">
-              ${req.total_cost_usd.toFixed(4)}
+              {formatUah(req.total_cost_usd)}
             </span>
           )}
         </div>
@@ -194,10 +195,12 @@ function UserCard({
   user,
   expanded,
   onToggle,
+  formatUah,
 }: {
   user: UserActivity;
   expanded: boolean;
   onToggle: () => void;
+  formatUah: (usd: number) => string;
 }) {
   const ago = timeAgo(user.last_request_at);
   const isRecent = Date.now() - new Date(user.last_request_at).getTime() < 15 * 60_000;
@@ -261,7 +264,7 @@ function UserCard({
           </div>
           <div>
             <div className="text-sm font-semibold text-slate-800">
-              ${user.cost_in_period.toFixed(3)}
+              {formatUah(user.cost_in_period)}
             </div>
             <div className="text-xs text-slate-400">витрати</div>
           </div>
@@ -283,7 +286,7 @@ function UserCard({
       <div className="sm:hidden flex gap-3 px-4 pb-2 text-xs text-slate-500">
         <span>{user.requests_in_period} запитів</span>
         <span>•</span>
-        <span>${user.cost_in_period.toFixed(3)}</span>
+        <span>{formatUah(user.cost_in_period)}</span>
         <span>•</span>
         <span className={isRecent ? 'text-green-600' : ''}>{ago}</span>
       </div>
@@ -296,7 +299,7 @@ function UserCard({
               Останні дії
             </span>
             <span className="text-xs text-slate-400">
-              Баланс: ${user.balance_usd.toFixed(2)}
+              Баланс: {formatUah(user.balance_usd)}
             </span>
           </div>
           {user.recent_requests.length === 0 ? (
@@ -304,7 +307,7 @@ function UserCard({
           ) : (
             <div className="px-2 pb-2 space-y-0.5">
               {user.recent_requests.map((req) => (
-                <RequestRow key={req.id} req={req} />
+                <RequestRow key={req.id} req={req} formatUah={formatUah} />
               ))}
             </div>
           )}
@@ -325,6 +328,7 @@ function UserCard({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function AdminUserActivityPage() {
+  const { formatUah } = useCurrencyRate();
   const [users, setUsers] = useState<UserActivity[]>([]);
   const [stats, setStats] = useState<ActivityStats | null>(null);
   const [hours, setHours] = useState(24);
@@ -467,13 +471,13 @@ export function AdminUserActivityPage() {
           </div>
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign size={16} className="text-green-500" />
+              <Banknote size={16} className="text-green-500" />
               <span className="text-xs text-slate-500 font-medium uppercase tracking-wide">
                 Витрати
               </span>
             </div>
             <div className="text-2xl font-bold text-slate-900">
-              ${stats.total_cost.toFixed(4)}
+              {formatUah(stats.total_cost)}
             </div>
             <div className="text-xs text-slate-400">загальна вартість API</div>
           </div>
@@ -555,6 +559,7 @@ export function AdminUserActivityPage() {
                   user={user}
                   expanded={expandedId === user.id}
                   onToggle={() => handleToggle(user.id)}
+                  formatUah={formatUah}
                 />
               ))}
             </div>
