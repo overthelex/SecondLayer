@@ -1,15 +1,17 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { DollarSign, Activity, Zap, Mail, Shield, User, Settings, CreditCard } from 'lucide-react';
+import { Banknote, Activity, Zap, Mail, Shield, User, Settings, CreditCard } from 'lucide-react';
 import { startRegistration } from '@simplewebauthn/browser';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService, billingService } from '../../services';
 import { api } from '../../utils/api-client';
 import { BillingBalance } from '../../types/models';
 import showToast from '../../utils/toast';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 import type { EditFormState, UseProfileReturn } from './types';
 
 export function useProfile(): UseProfileReturn {
   const { user, isLoading, updateUser } = useAuth();
+  const { formatUah } = useCurrencyRate();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -225,15 +227,15 @@ export function useProfile(): UseProfileReturn {
 
   const stats = [{
     label: 'Баланс',
-    value: billing ? `$${Number(billing.balance_usd).toFixed(2)}` : '—',
-    icon: DollarSign
+    value: billing ? formatUah(Number(billing.balance_usd)) : '—',
+    icon: Banknote
   }, {
     label: 'Всього запитів',
     value: billing ? String(billing.total_requests) : '—',
     icon: Activity
   }, {
     label: 'Всього витрачено',
-    value: billing ? `$${Number(billing.total_spent_usd).toFixed(2)}` : '—',
+    value: billing ? formatUah(Number(billing.total_spent_usd)) : '—',
     icon: Zap
   }];
 
@@ -261,7 +263,7 @@ export function useProfile(): UseProfileReturn {
     }, {
       icon: CreditCard,
       label: 'Білінг',
-      value: billing ? `$${Number(billing.balance_usd).toFixed(2)} • ${billing.pricing_tier}` : 'Завантаження...',
+      value: billing ? `${formatUah(Number(billing.balance_usd))} • ${billing.pricing_tier}` : 'Завантаження...',
       onClick: () => window.location.href = '/billing'
     }]
   }];
