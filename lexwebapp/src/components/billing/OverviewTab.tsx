@@ -92,7 +92,7 @@ export function OverviewTab({ onTopUp }: OverviewTabProps) {
   return (
     <div className="space-y-6">
       {/* Balance Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* UAH Balance (primary) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -117,22 +117,6 @@ export function OverviewTab({ onTopUp }: OverviewTabProps) {
               </button>
             )}
           </div>
-        </motion.div>
-
-        {/* USD equivalent (secondary) */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white border border-claude-border rounded-xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-claude-subtext">Еквівалент USD</h3>
-            <Banknote size={24} className="text-claude-accent" />
-          </div>
-          <p className="text-4xl font-bold text-claude-text mb-2">
-            ${n(data.balance_usd).toFixed(2)}
-          </p>
-          <p className="text-sm text-claude-subtext">Внутрішній облік</p>
         </motion.div>
 
         {/* Total Requests */}
