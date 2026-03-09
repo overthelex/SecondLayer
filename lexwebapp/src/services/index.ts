@@ -26,6 +26,9 @@ export { CurrencyService, currencyService } from './api/CurrencyService';
 // Workflow service
 export { WorkflowService, workflowService } from './api/WorkflowService';
 
+// Geo service
+export { geoService } from './api/GeoService';
+
 // Attorney & Consultation services
 export { AttorneyService, attorneyService } from './api/AttorneyService';
 export { ConsultationService, consultationService } from './api/ConsultationService';

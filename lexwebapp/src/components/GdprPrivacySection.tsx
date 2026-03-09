@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Shield, Download, Trash2, Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Shield, Download, Trash2, Loader2, AlertTriangle, CheckCircle, Cookie } from 'lucide-react';
 import { api } from '../utils/api-client';
 import showToast from '../utils/toast';
+import { useConsentStore } from '../stores/consentStore';
 
 interface GdprRequest {
   id: string;
@@ -167,6 +168,27 @@ export function GdprPrivacySection() {
             ))}
         </div>
       )}
+
+      {/* Cookie Preferences */}
+      <div className="p-4 bg-white rounded-xl border border-claude-border">
+        <div className="flex items-start justify-between">
+          <div>
+            <h4 className="text-[14px] font-medium text-claude-text font-sans">
+              Налаштування cookie
+            </h4>
+            <p className="text-[12px] text-claude-subtext mt-1 font-sans">
+              Керуйте файлами cookie та налаштуваннями конфіденційності.
+            </p>
+          </div>
+          <button
+            onClick={() => useConsentStore.getState().openSettings()}
+            className="flex items-center gap-2 px-4 py-2 text-[13px] font-medium bg-claude-bg hover:bg-claude-border/50 border border-claude-border rounded-lg transition-colors"
+          >
+            <Cookie size={14} />
+            Налаштувати
+          </button>
+        </div>
+      </div>
 
       {/* Delete Account */}
       <div className="p-4 bg-red-50/50 rounded-xl border border-red-200/50">
