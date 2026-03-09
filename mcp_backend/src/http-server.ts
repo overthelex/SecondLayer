@@ -1443,6 +1443,40 @@ class HTTPMCPServer {
     // EULA endpoints - REMOVED: not needed
     // this.app.use('/api/eula', createEULARouter(this.services.db.getPool()));
 
+    // Geo detection endpoint (public, no auth required)
+    // Returns country/language/currency defaults based on Cloudflare headers
+    this.app.get('/api/geo', (async (req: Request, res: Response) => {
+      try {
+        // Cloudflare adds CF-IPCountry header automatically for proxied domains
+        const cfCountry = (req.headers['cf-ipcountry'] as string || '').toUpperCase();
+        const acceptLang = req.headers['accept-language'] || '';
+
+        // Determine country
+        const country = cfCountry && cfCountry !== 'XX' && cfCountry !== 'T1'
+          ? cfCountry
+          : 'OTHER';
+
+        // Determine language from country or Accept-Language
+        let language = 'en';
+        if (country === 'UA' || acceptLang.startsWith('uk')) {
+          language = 'uk';
+        }
+
+        // Determine currency from country
+        let currency = 'USD';
+        if (country === 'UA') {
+          currency = 'UAH';
+        } else if (['DE', 'FR', 'NL', 'EE', 'AT', 'BE', 'ES', 'IT', 'PT', 'FI', 'IE', 'LU', 'SK', 'SI', 'LV', 'LT', 'MT', 'CY', 'GR', 'HR'].includes(country)) {
+          currency = 'EUR';
+        }
+
+        res.json({ country, language, currency });
+      } catch (error: any) {
+        logger.error('[GeoAPI] Failed to detect geo', { error: error.message });
+        res.json({ country: 'OTHER', language: 'uk', currency: 'UAH' });
+      }
+    }) as any);
+
     // Currency exchange rate endpoint (public, no auth required)
     // GET /api/currency/rate - Get current USD->UAH rate
     this.app.get('/api/currency/rate', (async (_req: Request, res: Response) => {
