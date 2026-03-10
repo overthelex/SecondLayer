@@ -1,12 +1,14 @@
 /**
  * useDocumentActions — document CRUD action handlers for DocumentsPage
  * Handles delete, edit, move operations with undo support
+ * Modal state is managed via useDocumentModals reducer.
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 import { api } from '../../utils/api-client';
 import { showToast } from '../../utils/toast';
 import { useUndoStore } from '../../stores/undoStore';
+import { useDocumentModals } from './useDocumentModals';
 import type { VaultDocument } from './types';
 
 interface UseDocumentActionsOptions {
@@ -19,24 +21,18 @@ export function useDocumentActions({ loadDocuments, loadFolders, currentFolderPa
   const pushAction = useUndoStore((s) => s.pushAction);
   const undoAction = useUndoStore((s) => s.undo);
 
-  // Delete state
-  const [deleteTarget, setDeleteTarget] = useState<VaultDocument | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  // All modal state via reducer
+  const {
+    state: modalState,
+    dispatch,
+    setDeleteTarget,
+    setEditTarget,
+    setEditText,
+    setMoveTarget,
+    setMoveFolder,
+  } = useDocumentModals();
 
-  // Edit state
-  const [editTarget, setEditTarget] = useState<VaultDocument | null>(null);
-  const [editText, setEditText] = useState('');
-  const [editLoading, setEditLoading] = useState(false);
-  const [editSaving, setEditSaving] = useState(false);
   const editOriginalTextRef = useRef<string>('');
-
-  // Move state
-  const [moveTarget, setMoveTarget] = useState<VaultDocument | null>(null);
-  const [moveFolder, setMoveFolder] = useState('');
-  const [moveFolders, setMoveFolders] = useState<string[]>([]);
-  const [moveFoldersLoading, setMoveFoldersLoading] = useState(false);
-  const [moveLoading, setMoveLoading] = useState(false);
-  const [moveBrowsePath, setMoveBrowsePath] = useState('');
 
   const reload = useCallback(() => {
     loadDocuments();
@@ -45,125 +41,120 @@ export function useDocumentActions({ loadDocuments, loadFolders, currentFolderPa
 
   // Delete
   const handleDeleteConfirm = useCallback(async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
+    if (!modalState.deleteTarget) return;
+    dispatch({ type: 'SET_DELETING', value: true });
     try {
-      const docId = deleteTarget.id;
-      const docTitle = deleteTarget.title;
+      const docId = modalState.deleteTarget.id;
+      const docTitle = modalState.deleteTarget.title;
       await api.documents.delete(docId);
       pushAction({ type: 'delete', documentId: docId, documentTitle: docTitle });
       showToast.undoable(`«${docTitle}» видалено`, () => {
         undoAction().then(() => reload());
       });
-      setDeleteTarget(null);
+      dispatch({ type: 'CLOSE_DELETE' });
       reload();
     } catch (err) {
       console.error('Failed to delete document:', err);
     } finally {
-      setDeleting(false);
+      dispatch({ type: 'SET_DELETING', value: false });
     }
-  }, [deleteTarget, pushAction, undoAction, reload]);
+  }, [modalState.deleteTarget, pushAction, undoAction, reload, dispatch]);
 
   // Edit — open modal and fetch full text
   const handleEditOpen = useCallback(async (doc: VaultDocument) => {
-    setEditTarget(doc);
-    setEditLoading(true);
-    setEditText('');
+    dispatch({ type: 'OPEN_EDIT', target: doc });
     try {
       const resp = await api.documents.getById(doc.id);
       const data = resp.data;
       const text = data.full_text || data.content || '';
       editOriginalTextRef.current = text;
-      setEditText(text);
+      dispatch({ type: 'SET_EDIT_TEXT', text });
     } catch (err) {
       console.error('Failed to fetch document for editing:', err);
       showToast.error('Не вдалося завантажити документ');
-      setEditTarget(null);
+      dispatch({ type: 'CLOSE_EDIT' });
     } finally {
-      setEditLoading(false);
+      dispatch({ type: 'SET_EDIT_LOADING', value: false });
     }
-  }, []);
+  }, [dispatch]);
 
   // Save edited text
   const handleEditSave = useCallback(async () => {
-    if (!editTarget) return;
-    setEditSaving(true);
+    if (!modalState.editTarget) return;
+    dispatch({ type: 'SET_EDIT_SAVING', value: true });
     try {
-      await api.documents.update(editTarget.id, { full_text: editText });
-      if (editText !== editOriginalTextRef.current) {
+      await api.documents.update(modalState.editTarget.id, { full_text: modalState.editText });
+      if (modalState.editText !== editOriginalTextRef.current) {
         pushAction({
           type: 'edit',
-          documentId: editTarget.id,
-          documentTitle: editTarget.title,
+          documentId: modalState.editTarget.id,
+          documentTitle: modalState.editTarget.title,
           previousText: editOriginalTextRef.current,
-          newText: editText,
+          newText: modalState.editText,
         });
       }
       showToast.success('Документ збережено');
-      setEditTarget(null);
+      dispatch({ type: 'CLOSE_EDIT' });
       loadDocuments();
     } catch (err) {
       console.error('Failed to save document:', err);
     } finally {
-      setEditSaving(false);
+      dispatch({ type: 'SET_EDIT_SAVING', value: false });
     }
-  }, [editTarget, editText, pushAction, loadDocuments]);
+  }, [modalState.editTarget, modalState.editText, pushAction, loadDocuments, dispatch]);
 
   // Move — open modal
   const handleMoveOpen = useCallback(async (doc: VaultDocument) => {
-    setMoveTarget(doc);
-    setMoveFolder(doc.metadata?.folderPath || '');
-    setMoveBrowsePath('');
-    setMoveFoldersLoading(true);
+    dispatch({ type: 'OPEN_MOVE', target: doc, folder: doc.metadata?.folderPath || '' });
     try {
       const resp = await api.documents.getFolders();
-      setMoveFolders(resp.data.folders || []);
+      dispatch({ type: 'SET_MOVE_FOLDERS', folders: resp.data.folders || [] });
     } catch {
-      setMoveFolders([]);
+      dispatch({ type: 'SET_MOVE_FOLDERS', folders: [] });
     } finally {
-      setMoveFoldersLoading(false);
+      dispatch({ type: 'SET_MOVE_FOLDERS_LOADING', value: false });
     }
-  }, []);
+  }, [dispatch]);
 
   const handleMoveBrowse = useCallback(async (prefix: string) => {
-    setMoveBrowsePath(prefix);
-    setMoveFoldersLoading(true);
+    dispatch({ type: 'SET_MOVE_BROWSE_PATH', path: prefix });
+    dispatch({ type: 'SET_MOVE_FOLDERS_LOADING', value: true });
     try {
       const resp = await api.documents.getFolders(prefix || undefined);
-      setMoveFolders(resp.data.folders || []);
+      dispatch({ type: 'SET_MOVE_FOLDERS', folders: resp.data.folders || [] });
     } catch {
-      setMoveFolders([]);
+      dispatch({ type: 'SET_MOVE_FOLDERS', folders: [] });
     } finally {
-      setMoveFoldersLoading(false);
+      dispatch({ type: 'SET_MOVE_FOLDERS_LOADING', value: false });
     }
-  }, []);
+  }, [dispatch]);
 
   const handleMoveConfirm = useCallback(async () => {
-    if (!moveTarget) return;
-    setMoveLoading(true);
+    if (!modalState.moveTarget) return;
+    dispatch({ type: 'SET_MOVE_LOADING', value: true });
     try {
-      const previousFolder = moveTarget.metadata?.folderPath || '';
-      await api.documents.move(moveTarget.id, moveFolder);
+      const previousFolder = modalState.moveTarget.metadata?.folderPath || '';
+      await api.documents.move(modalState.moveTarget.id, modalState.moveFolder);
       pushAction({
         type: 'move',
-        documentId: moveTarget.id,
-        documentTitle: moveTarget.title,
+        documentId: modalState.moveTarget.id,
+        documentTitle: modalState.moveTarget.title,
         previousFolder,
-        newFolder: moveFolder,
+        newFolder: modalState.moveFolder,
       });
       showToast.undoable(
-        `Документ переміщено${moveFolder ? ` до ${moveFolder}` : ' у корінь'}`,
+        `Документ переміщено${modalState.moveFolder ? ` до ${modalState.moveFolder}` : ' у корінь'}`,
         () => { undoAction().then(() => reload()); },
       );
-      setMoveTarget(null);
+      dispatch({ type: 'CLOSE_MOVE' });
       reload();
     } catch (err) {
       console.error('Failed to move document:', err);
       showToast.error('Не вдалося перемістити документ');
     } finally {
-      setMoveLoading(false);
+      dispatch({ type: 'SET_MOVE_LOADING', value: false });
     }
-  }, [moveTarget, moveFolder, pushAction, undoAction, reload]);
+  }, [modalState.moveTarget, modalState.moveFolder, pushAction, undoAction, reload, dispatch]);
 
   // Save OCR text
   const handleSaveOcrText = useCallback(async (documentId: string, text: string) => {
@@ -173,30 +164,30 @@ export function useDocumentActions({ loadDocuments, loadFolders, currentFolderPa
 
   return {
     // Delete
-    deleteTarget,
+    deleteTarget: modalState.deleteTarget,
     setDeleteTarget,
-    deleting,
+    deleting: modalState.deleting,
     handleDeleteConfirm,
     // Edit
-    editTarget,
+    editTarget: modalState.editTarget,
     setEditTarget,
-    editText,
+    editText: modalState.editText,
     setEditText,
-    editLoading,
-    editSaving,
+    editLoading: modalState.editLoading,
+    editSaving: modalState.editSaving,
     editOriginalTextRef,
     handleEditOpen,
     handleEditSave,
     // Move
-    moveTarget,
+    moveTarget: modalState.moveTarget,
     setMoveTarget,
-    moveFolder,
+    moveFolder: modalState.moveFolder,
     setMoveFolder,
-    moveFolders,
-    moveFoldersLoading,
-    moveLoading,
-    moveBrowsePath,
-    setMoveBrowsePath,
+    moveFolders: modalState.moveFolders,
+    moveFoldersLoading: modalState.moveFoldersLoading,
+    moveLoading: modalState.moveLoading,
+    moveBrowsePath: modalState.moveBrowsePath,
+    setMoveBrowsePath: (path: string) => dispatch({ type: 'SET_MOVE_BROWSE_PATH', path }),
     handleMoveOpen,
     handleMoveBrowse,
     handleMoveConfirm,
