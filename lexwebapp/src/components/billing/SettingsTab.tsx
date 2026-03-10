@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   CreditCard,
   Plus,
@@ -23,8 +22,8 @@ import {
   Calendar,
   Save,
   Send,
-  ChevronDown,
 } from 'lucide-react';
+import { CollapsibleSection, BillingLoadingState } from './shared';
 import { format } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { api } from '../../utils/api-client';
@@ -73,49 +72,6 @@ interface CurrentUsage {
   monthly_limit: number;
   projected_monthly: number;
   days_remaining: number;
-}
-
-// --- Collapsible Section Component ---
-
-function CollapsibleSection({
-  title,
-  icon: Icon,
-  defaultOpen = true,
-  children,
-}: {
-  title: string;
-  icon: React.ElementType;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-
-  return (
-    <div className="bg-white border border-claude-border rounded-xl overflow-hidden">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-6 py-4 hover:bg-claude-bg/50 transition-colors">
-        <h3 className="text-lg font-semibold text-claude-text flex items-center gap-2">
-          <Icon size={20} />
-          {title}
-        </h3>
-        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
-          <ChevronDown size={20} className="text-claude-subtext" />
-        </motion.div>
-      </button>
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}>
-            <div className="px-6 pb-6 border-t border-claude-border pt-4">{children}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
 }
 
 // --- Main Component ---
@@ -315,11 +271,7 @@ export function SettingsTab() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <RefreshCw size={32} className="text-claude-accent animate-spin" />
-      </div>
-    );
+    return <BillingLoadingState height="h-96" />;
   }
 
   const n = (v: any) => Number(v) || 0;
