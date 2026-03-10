@@ -5094,24 +5094,39 @@ export function createAdminRoutes(
       let localByYear: Array<{ year: number | null; total: number; with_fulltext: number }> = [];
 
       if (has_docs) {
-        const query = has_ft
-          ? `SELECT
+        // Two separate queries to avoid massive LEFT JOIN that exhausts shared memory
+        const docsResult = await db.query(`
+          SELECT
+            EXTRACT(YEAR FROM adjudication_date)::int AS year,
+            COUNT(*)::int AS total
+          FROM edrsr_documents
+          GROUP BY year
+          ORDER BY year NULLS LAST
+        `);
+
+        if (has_ft) {
+          const ftResult = await db.query(`
+            SELECT
               EXTRACT(YEAR FROM d.adjudication_date)::int AS year,
-              COUNT(*)::int AS total,
-              COUNT(f.doc_id)::int AS with_fulltext
-            FROM edrsr_documents d
-            LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
+              COUNT(*)::int AS with_fulltext
+            FROM edrsr_fulltext f
+            JOIN edrsr_documents d ON d.doc_id = f.doc_id
             GROUP BY year
-            ORDER BY year NULLS LAST`
-          : `SELECT
-              EXTRACT(YEAR FROM adjudication_date)::int AS year,
-              COUNT(*)::int AS total,
-              0 AS with_fulltext
-            FROM edrsr_documents
-            GROUP BY year
-            ORDER BY year NULLS LAST`;
-        const result = await db.query(query);
-        localByYear = result.rows;
+            ORDER BY year NULLS LAST
+          `);
+          const ftMap = new Map(ftResult.rows.map((r: any) => [r.year, r.with_fulltext]));
+          localByYear = docsResult.rows.map((r: any) => ({
+            year: r.year,
+            total: r.total,
+            with_fulltext: ftMap.get(r.year) || 0,
+          }));
+        } else {
+          localByYear = docsResult.rows.map((r: any) => ({
+            year: r.year,
+            total: r.total,
+            with_fulltext: 0,
+          }));
+        }
       }
 
       let localStandaloneFulltext = 0;
