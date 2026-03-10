@@ -26,7 +26,7 @@ export interface Matter {
   opposing_party: string | null;
   court_case_number: string | null;
   court_name: string | null;
-  related_parties: string[] | null;
+  related_parties: Array<string | { inn?: string; name?: string; role?: string }> | null;
   retention_period_years: number;
   has_legal_hold: boolean;
   metadata: Record<string, any>;
