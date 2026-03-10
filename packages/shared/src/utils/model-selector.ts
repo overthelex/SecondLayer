@@ -23,9 +23,9 @@ export class ModelSelector {
   private static readonly OPENAI_STANDARD = process.env.OPENAI_MODEL_STANDARD || 'gpt-5-mini';
   private static readonly OPENAI_DEEP = process.env.OPENAI_MODEL_DEEP || 'gpt-5.1';
 
-  private static readonly BEDROCK_QUICK = process.env.BEDROCK_MODEL_QUICK || 'eu.amazon.nova-micro-v1:0';
-  private static readonly BEDROCK_STANDARD = process.env.BEDROCK_MODEL_STANDARD || 'eu.amazon.nova-lite-v1:0';
-  private static readonly BEDROCK_DEEP = process.env.BEDROCK_MODEL_DEEP || 'eu.amazon.nova-pro-v1:0';
+  private static readonly BEDROCK_QUICK = process.env.BEDROCK_MODEL_QUICK || 'eu.anthropic.claude-haiku-4-5-20251001-v1:0';
+  private static readonly BEDROCK_STANDARD = process.env.BEDROCK_MODEL_STANDARD || 'eu.anthropic.claude-sonnet-4-6';
+  private static readonly BEDROCK_DEEP = process.env.BEDROCK_MODEL_DEEP || 'eu.anthropic.claude-opus-4-6-v1';
 
   private static readonly SINGLE_MODEL = process.env.OPENAI_MODEL;
 
@@ -108,6 +108,7 @@ export class ModelSelector {
 
   private static normalizeModelId(model: string): string {
     // Strip regional prefix (e.g. "eu.amazon.nova-micro-v1:0" → "amazon.nova-micro-v1:0")
+    // Also handles "eu.anthropic.claude-haiku-4-5-20251001-v1:0" → "anthropic.claude-haiku-4-5-20251001-v1:0"
     return model.replace(/^(eu|us|global)\./, '');
   }
 
@@ -159,6 +160,13 @@ export class ModelSelector {
       'claude-opus': { input: 5.00, output: 25.00 },
       'claude-sonnet': { input: 3.00, output: 15.00 },
       'claude-haiku': { input: 1.00, output: 5.00 },
+      // AWS Bedrock — Anthropic Claude
+      'anthropic.claude-haiku-4-5-20251001-v1:0': { input: 1.00, output: 5.00 },
+      'anthropic.claude-sonnet-4-6': { input: 3.00, output: 15.00 },
+      'anthropic.claude-opus-4-6-v1': { input: 15.00, output: 75.00 },
+      'anthropic.claude-sonnet-4-20250514-v1:0': { input: 3.00, output: 15.00 },
+      'anthropic.claude-sonnet-4-5-20250929-v1:0': { input: 3.00, output: 15.00 },
+      'anthropic.claude-opus-4-5-20251101-v1:0': { input: 15.00, output: 75.00 },
       // AWS Bedrock — Amazon Nova
       'amazon.nova-micro-v1:0': { input: 0.035, output: 0.14 },
       'amazon.nova-lite-v1:0': { input: 0.06, output: 0.24 },
@@ -246,6 +254,13 @@ export class ModelSelector {
       'claude-opus': { input: 5.00, output: 25.00 },
       'claude-sonnet': { input: 3.00, output: 15.00 },
       'claude-haiku': { input: 1.00, output: 5.00 },
+      // AWS Bedrock — Anthropic Claude
+      'anthropic.claude-haiku-4-5-20251001-v1:0': { input: 1.00, output: 5.00 },
+      'anthropic.claude-sonnet-4-6': { input: 3.00, output: 15.00 },
+      'anthropic.claude-opus-4-6-v1': { input: 15.00, output: 75.00 },
+      'anthropic.claude-sonnet-4-20250514-v1:0': { input: 3.00, output: 15.00 },
+      'anthropic.claude-sonnet-4-5-20250929-v1:0': { input: 3.00, output: 15.00 },
+      'anthropic.claude-opus-4-5-20251101-v1:0': { input: 15.00, output: 75.00 },
       // AWS Bedrock — Amazon Nova
       'amazon.nova-micro-v1:0': { input: 0.035, output: 0.14 },
       'amazon.nova-lite-v1:0': { input: 0.06, output: 0.24 },
@@ -307,8 +322,9 @@ export class ModelSelector {
   }
 
   static supportsJsonMode(model: string): boolean {
-    // Nova models support JSON via system prompt instructions, not response_format
+    // Bedrock Converse API doesn't support response_format — JSON via prompt instructions
     if (model.includes('amazon.nova')) return false;
+    if (model.includes('anthropic.claude')) return false;
 
     const jsonModeModels = [
       'gpt-5.1',

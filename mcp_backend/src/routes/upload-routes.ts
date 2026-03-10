@@ -54,11 +54,11 @@ const upload = multer({
   },
 });
 
-// Per-user concurrent session quota (raised from 50: folders can have 1000+ files)
-const MAX_USER_SESSIONS = parseInt(process.env.MAX_USER_SESSIONS || '500', 10);
+// Per-user concurrent session quota (raised for 100 concurrent users with large folder uploads)
+const MAX_USER_SESSIONS = parseInt(process.env.MAX_USER_SESSIONS || '1000', 10);
 
 // Semaphore to limit concurrent file processing (DB pool, OpenAI rate limits)
-const MAX_CONCURRENT_PROCESSING = parseInt(process.env.MAX_CONCURRENT_PROCESSING || '50', 10);
+const MAX_CONCURRENT_PROCESSING = parseInt(process.env.MAX_CONCURRENT_PROCESSING || '100', 10);
 let activeProcessing = 0;
 
 // Fair processing queue: round-robin per user instead of global FIFO
