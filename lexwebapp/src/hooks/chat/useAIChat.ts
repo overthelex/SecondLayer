@@ -12,7 +12,7 @@ import { useAIChatStream } from './useAIChatStream';
 import { useAIChatPlan } from './useAIChatPlan';
 
 export interface UseAIChatOptions {
-  onSuccess?: (result: any) => void;
+  onSuccess?: (result: unknown) => void;
   onError?: (error: Error) => void;
 }
 

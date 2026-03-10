@@ -12,15 +12,58 @@ export interface Conversation {
   updated_at: string;
 }
 
+export interface ConversationThinkingStep {
+  tool?: string;
+  result?: unknown;
+}
+
+export interface ConversationDecision {
+  id?: string;
+  number?: string;
+  court?: string;
+  date?: string;
+  summary?: string;
+  relevance?: number;
+  status?: string;
+  externalUrl?: string;
+}
+
+export interface ConversationCitation {
+  text?: string;
+  source?: string;
+}
+
+export interface ConversationToolCall {
+  tool: string;
+  params?: Record<string, unknown>;
+  result?: unknown;
+}
+
+export interface ConversationCostSummary {
+  tools_used?: string[];
+  total_cost_usd?: number;
+  charged_usd?: number;
+  balance_usd?: number | null;
+  response_id?: string;
+}
+
+export interface ConversationDocument {
+  id: string;
+  title: string;
+  type: string;
+  uploadedAt?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface ConversationMessage {
   id: string;
   conversation_id: string;
   role: 'user' | 'assistant';
   content: string;
-  thinking_steps?: any[];
-  decisions?: any[];
-  citations?: any[];
-  tool_calls?: any[];
+  thinking_steps?: ConversationThinkingStep[];
+  decisions?: ConversationDecision[];
+  citations?: ConversationCitation[];
+  tool_calls?: ConversationToolCall[];
   cost_tracking_id?: string;
   created_at: string;
 }
@@ -58,13 +101,13 @@ export class ConversationService extends BaseService {
     message: {
       role: 'user' | 'assistant';
       content: string;
-      thinking_steps?: any[];
-      decisions?: any[];
-      citations?: any[];
-      documents?: any[];
-      tool_calls?: any[];
+      thinking_steps?: ConversationThinkingStep[];
+      decisions?: ConversationDecision[];
+      citations?: ConversationCitation[];
+      documents?: ConversationDocument[];
+      tool_calls?: ConversationToolCall[];
       cost_tracking_id?: string;
-      cost_summary?: any;
+      cost_summary?: ConversationCostSummary;
     }
   ): Promise<ConversationMessage> {
     return this.request(() => this.client.post<ConversationMessage>(

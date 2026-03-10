@@ -1,5 +1,5 @@
 import type { Citation } from '../../../types/models/Message';
-import type { EvidenceResult } from './types';
+import type { EvidenceResult, ToolResultData } from './types';
 
 const LEGISLATION_TOOLS = [
   'search_legislation',
@@ -9,7 +9,7 @@ const LEGISLATION_TOOLS = [
   'find_relevant_law_articles',
 ];
 
-export function extractLegislationEvidence(toolName: string, parsed: any): EvidenceResult {
+export function extractLegislationEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
   const citations: Citation[] = [];
   if (!LEGISLATION_TOOLS.some((t) => toolName.includes(t) || toolName === t)) {
     return { decisions: [], citations, documents: [] };

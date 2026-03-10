@@ -12,6 +12,22 @@ const MAX_RETRIES = 3;
 const MAX_429_RETRIES = 30; // Cap 429 retries to prevent infinite loops
 const RETRY_DELAYS = [1000, 2000, 4000]; // ms
 
+/** Shape of HTTP/upload errors with status and optional details */
+interface UploadError extends Error {
+  status?: number;
+  retryAfter?: string;
+  details?: {
+    code?: string;
+    retryAfter?: string;
+  };
+}
+
+/** Narrow unknown catch value to UploadError (or wrap in Error) */
+function toUploadError(err: unknown): UploadError {
+  if (err instanceof Error) return err as UploadError;
+  return new Error(String(err)) as UploadError;
+}
+
 export interface RetryContext {
   /** Emit an event to listeners */
   emit: (event: UploadEvent) => void;
@@ -40,7 +56,8 @@ export class UploadRetry {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         return await operation();
-      } catch (err: any) {
+      } catch (rawErr: unknown) {
+        const err = toUploadError(rawErr);
         // Don't retry if cancelled/aborted
         if (err.name === 'AbortError') {
           throw err;
@@ -109,7 +126,8 @@ export class UploadRetry {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         return await operation();
-      } catch (err: any) {
+      } catch (rawErr: unknown) {
+        const err = toUploadError(rawErr);
         // 429 — wait for Retry-After, don't count as attempt (but cap retries)
         if (err.status === 429) {
           // Auto-clear stale sessions on SESSION_QUOTA_EXCEEDED (once per batch)

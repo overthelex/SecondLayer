@@ -1,7 +1,9 @@
 import type { Decision, Citation } from '../../../types/models/Message';
 import type { EvidenceResult } from './types';
 
-export function extractRetrieveLegalSourcesEvidence(toolName: string, parsed: any): EvidenceResult {
+import type { ToolResultData } from './types';
+
+export function extractRetrieveLegalSourcesEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
   if (toolName !== 'retrieve_legal_sources') {
     return { decisions: [], citations: [], documents: [] };
   }

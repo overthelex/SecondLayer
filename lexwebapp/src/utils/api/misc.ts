@@ -25,6 +25,6 @@ export const gdprApi = {
 };
 
 export const toolsApi = {
-  execute: (toolName: string, params: any) =>
+  execute: (toolName: string, params: Record<string, unknown>) =>
     apiClient.post(`/api/tools/${toolName}`, params),
 };

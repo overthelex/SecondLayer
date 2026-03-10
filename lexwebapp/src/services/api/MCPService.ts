@@ -21,9 +21,9 @@ export interface CitationWarning {
 
 export interface ChatStreamCallbacks {
   onResponseId?: (data: { response_id: string }) => void;
-  onPlan?: (data: { goal: string; steps: Array<{ id: number; tool: string; params: Record<string, any>; purpose: string; depends_on?: number[] }>; expected_iterations: number }) => void;
-  onThinking?: (data: { step: number; tool: string; params: any; description?: string; cost_usd?: number }) => void;
-  onToolResult?: (data: { tool: string; result: any; cost_usd?: number }) => void;
+  onPlan?: (data: { goal: string; steps: Array<{ id: number; tool: string; params: Record<string, unknown>; purpose: string; depends_on?: number[] }>; expected_iterations: number }) => void;
+  onThinking?: (data: { step: number; tool: string; params: Record<string, unknown>; description?: string; cost_usd?: number }) => void;
+  onToolResult?: (data: { tool: string; result: unknown; cost_usd?: number }) => void;
   onAnswerDelta?: (data: { text: string }) => void;
   onAnswer?: (data: { text: string; provider: string; model: string }) => void;
   onCitationWarning?: (data: CitationWarning) => void;
@@ -59,7 +59,8 @@ export class MCPService extends BaseService {
   // Universal Tool Methods
   // ============================================================================
 
-  async callTool(toolName: string, params: any): Promise<any> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MCP tool responses are dynamic JSON, each tool returns a different shape
+  async callTool(toolName: string, params: Record<string, unknown>): Promise<Record<string, any>> {
     try {
       const response = await fetch(`${this.API_URL}/tools/${toolName}`, {
         method: 'POST',
@@ -84,7 +85,7 @@ export class MCPService extends BaseService {
 
   async streamTool(
     toolName: string,
-    params: any,
+    params: Record<string, unknown>,
     callbacks: StreamingCallbacks
   ): Promise<AbortController> {
     if (!this.enableSSE) {
@@ -213,19 +214,20 @@ export class MCPService extends BaseService {
     return controller;
   }
 
-  private dispatchChatEvent(event: string, data: any, callbacks: ChatStreamCallbacks) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SSE events are parsed JSON with dynamic shapes per event type
+  private dispatchChatEvent(event: string, data: Record<string, any>, callbacks: ChatStreamCallbacks) {
     switch (event) {
-      case 'response_id': callbacks.onResponseId?.(data); break;
-      case 'plan': callbacks.onPlan?.(data); break;
-      case 'thinking': callbacks.onThinking?.(data); break;
-      case 'tool_result': callbacks.onToolResult?.(data); break;
-      case 'answer_delta': callbacks.onAnswerDelta?.(data); break;
-      case 'answer': callbacks.onAnswer?.(data); break;
-      case 'citation_warning': callbacks.onCitationWarning?.(data); break;
-      case 'complete': callbacks.onComplete?.(data); break;
-      case 'cost_summary': callbacks.onCostSummary?.(data); break;
-      case 'budget_escalated': callbacks.onBudgetEscalated?.(data); break;
-      case 'error': callbacks.onError?.(data); break;
+      case 'response_id': callbacks.onResponseId?.(data as { response_id: string }); break;
+      case 'plan': callbacks.onPlan?.(data as Parameters<NonNullable<ChatStreamCallbacks['onPlan']>>[0]); break;
+      case 'thinking': callbacks.onThinking?.(data as Parameters<NonNullable<ChatStreamCallbacks['onThinking']>>[0]); break;
+      case 'tool_result': callbacks.onToolResult?.(data as Parameters<NonNullable<ChatStreamCallbacks['onToolResult']>>[0]); break;
+      case 'answer_delta': callbacks.onAnswerDelta?.(data as { text: string }); break;
+      case 'answer': callbacks.onAnswer?.(data as { text: string; provider: string; model: string }); break;
+      case 'citation_warning': callbacks.onCitationWarning?.(data as CitationWarning); break;
+      case 'complete': callbacks.onComplete?.(data as Parameters<NonNullable<ChatStreamCallbacks['onComplete']>>[0]); break;
+      case 'cost_summary': callbacks.onCostSummary?.(data as Parameters<NonNullable<ChatStreamCallbacks['onCostSummary']>>[0]); break;
+      case 'budget_escalated': callbacks.onBudgetEscalated?.(data as Parameters<NonNullable<ChatStreamCallbacks['onBudgetEscalated']>>[0]); break;
+      case 'error': callbacks.onError?.(data as { message: string }); break;
     }
   }
 
@@ -233,7 +235,7 @@ export class MCPService extends BaseService {
   // Response Parsing (delegates to extracted module)
   // ============================================================================
 
-  transformToolResultToMessage(toolName: string, result: any): Message {
+  transformToolResultToMessage(toolName: string, result: unknown): Message {
     return transformToolResultToMessage(toolName, result);
   }
 }
