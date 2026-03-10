@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { Play, Square, ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, Loader2 } from 'lucide-react';
 import type { Workflow } from '../../types/models/Workflow';
+import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 interface WorkflowCardProps {
   workflow: Workflow;
@@ -23,6 +24,7 @@ const STATUS_BADGES: Record<string, { label: string; color: string; icon: typeof
 
 export function WorkflowCard({ workflow, onExecute, onCancel, isExecuting }: WorkflowCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const { formatUah } = useCurrencyRate();
   const status = STATUS_BADGES[workflow.status] || STATUS_BADGES.pending;
   const StatusIcon = status.icon;
 
@@ -77,7 +79,7 @@ export function WorkflowCard({ workflow, onExecute, onCancel, isExecuting }: Wor
         {/* Cost */}
         {workflow.cost_usd > 0 && (
           <div className="text-xs text-gray-400 mb-3">
-            Вартість: ${workflow.cost_usd.toFixed(4)}
+            Вартість: {formatUah(workflow.cost_usd)}
           </div>
         )}
 

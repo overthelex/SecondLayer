@@ -3,6 +3,7 @@ import { Target, Zap, Search, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { ExecutionPlan, PlanStep } from '../types/models/Message';
 import { getToolLabel } from '../hooks/chat/tool-labels';
+import { useCurrencyRate } from '../hooks/useCurrencyRate';
 
 interface PlanReviewDisplayProps {
   plan: ExecutionPlan;
@@ -49,12 +50,8 @@ function getStepCost(step: PlanStep): number {
   return costs[depth];
 }
 
-function formatCost(usd: number): string {
-  if (usd < 0.001) return '<$0.001';
-  return `$${usd.toFixed(3)}`;
-}
-
 export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanReviewDisplayProps) {
+  const { formatUah } = useCurrencyRate();
   const [steps, setSteps] = useState<PlanStep[]>(
     // Use recommendedDepth from backend (LLM-chosen) as the default
     plan.steps.map(s => ({
@@ -147,7 +144,7 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
               {/* Cost + Depth toggle */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 <span className="text-[10px] text-claude-subtext/50 font-mono tabular-nums w-[50px] text-right">
-                  {formatCost(cost)}
+                  {formatUah(cost)}
                 </span>
 
                 {isDepthCapable ? (
@@ -205,7 +202,7 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
           )}
           <span className="text-[11px] text-claude-subtext/30 ml-1">|</span>
           <span className="text-[11px] text-claude-subtext font-mono tabular-nums">
-            ~{formatCost(totalCost)}
+            ~{formatUah(totalCost)}
           </span>
         </div>
 
