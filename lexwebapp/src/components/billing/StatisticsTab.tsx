@@ -101,7 +101,7 @@ export function StatisticsTab() {
     try {
       const response = await api.billing.getStatistics(period);
       setData(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch statistics:', err);
       setError('Не вдалося завантажити статистику');
       showToast.error('Не вдалося завантажити статистику');

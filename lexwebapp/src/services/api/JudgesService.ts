@@ -73,30 +73,15 @@ export interface JudgeProfile {
 
 export class JudgesService extends BaseService {
   async getJudges(params?: JudgesSearchParams): Promise<JudgesListResponse> {
-    try {
-      const response = await this.client.get<JudgesListResponse>('/api/judges', { params });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<JudgesListResponse>('/api/judges', { params }));
   }
 
   async getJudgeByDossier(dossierNumber: string): Promise<Judge> {
-    try {
-      const response = await this.client.get<Judge>(`/api/judges/${dossierNumber}`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<Judge>(`/api/judges/${dossierNumber}`));
   }
 
   async getJudgeProfile(dossierNumber: string): Promise<JudgeProfile> {
-    try {
-      const response = await this.client.get<JudgeProfile>(`/api/judges/${dossierNumber}/profile`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<JudgeProfile>(`/api/judges/${dossierNumber}/profile`));
   }
 }
 

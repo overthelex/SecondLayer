@@ -16,52 +16,44 @@ export class AuthService extends BaseService {
    * Get current user profile
    */
   async getMe(): Promise<User> {
-    try {
-      const response = await this.client.get<GetMeResponse>('/auth/me');
-      return response.data.user;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(
+      () => this.client.get<GetMeResponse>('/auth/me'),
+      (data) => data.user
+    );
   }
 
   /**
    * Update user profile
    */
   async updateProfile(data: UpdateProfileRequest): Promise<User> {
-    try {
-      const response = await this.client.put<{ user: User }>('/auth/profile', data);
-      return response.data.user;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(
+      () => this.client.put<{ user: User }>('/auth/profile', data),
+      (data) => data.user
+    );
   }
 
   /**
    * Upload avatar image file
    */
   async uploadAvatar(file: File): Promise<User> {
-    try {
-      const formData = new FormData();
-      formData.append('avatar', file);
-      const response = await this.client.post<{ user: User }>('/auth/avatar', formData, {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    return this.request(
+      () => this.client.post<{ user: User }>('/auth/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      return response.data.user;
-    } catch (error) {
-      return this.handleError(error);
-    }
+      }),
+      (data) => data.user
+    );
   }
 
   /**
    * Refresh authentication token
    */
   async refreshToken(): Promise<string> {
-    try {
-      const response = await this.client.post<RefreshTokenResponse>('/auth/refresh');
-      return response.data.token;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(
+      () => this.client.post<RefreshTokenResponse>('/auth/refresh'),
+      (data) => data.token
+    );
   }
 
   /**
@@ -92,48 +84,28 @@ export class AuthService extends BaseService {
    * Register new user with email and password
    */
   async register(email: string, password: string, name?: string): Promise<any> {
-    try {
-      const response = await this.client.post('/auth/register', { email, password, name });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post('/auth/register', { email, password, name }));
   }
 
   /**
    * Verify email with token
    */
   async verifyEmail(token: string): Promise<any> {
-    try {
-      const response = await this.client.post('/auth/verify-email', { token });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post('/auth/verify-email', { token }));
   }
 
   /**
    * Request password reset email
    */
   async forgotPassword(email: string): Promise<any> {
-    try {
-      const response = await this.client.post('/auth/forgot-password', { email });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post('/auth/forgot-password', { email }));
   }
 
   /**
    * Reset password with token
    */
   async resetPassword(token: string, password: string): Promise<any> {
-    try {
-      const response = await this.client.post('/auth/reset-password', { token, password });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post('/auth/reset-password', { token, password }));
   }
 
   // ========================================================================
@@ -144,76 +116,46 @@ export class AuthService extends BaseService {
    * Generate WebAuthn registration options
    */
   async webauthnRegisterOptions(attachment?: 'cross-platform' | 'platform'): Promise<any> {
-    try {
-      const response = await this.client.post('/auth/webauthn/register/options', { attachment });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post('/auth/webauthn/register/options', { attachment }));
   }
 
   /**
    * Verify WebAuthn registration
    */
   async webauthnRegisterVerify(response: any, friendlyName?: string, attachment?: string): Promise<any> {
-    try {
-      const res = await this.client.post('/auth/webauthn/register/verify', {
-        response,
-        friendlyName,
-        attachment,
-      });
-      return res.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post('/auth/webauthn/register/verify', {
+      response,
+      friendlyName,
+      attachment,
+    }));
   }
 
   /**
    * Generate WebAuthn authentication options (login)
    */
   async webauthnAuthOptions(attachment?: 'cross-platform'): Promise<any> {
-    try {
-      const response = await this.client.post('/auth/webauthn/auth/options', { attachment });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post('/auth/webauthn/auth/options', { attachment }));
   }
 
   /**
    * Verify WebAuthn authentication (login)
    */
   async webauthnAuthVerify(response: any, challenge: string): Promise<any> {
-    try {
-      const res = await this.client.post('/auth/webauthn/auth/verify', { response, challenge });
-      return res.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post('/auth/webauthn/auth/verify', { response, challenge }));
   }
 
   /**
    * List user's WebAuthn credentials
    */
   async webauthnListCredentials(): Promise<any> {
-    try {
-      const response = await this.client.get('/auth/webauthn/credentials');
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get('/auth/webauthn/credentials'));
   }
 
   /**
    * Delete a WebAuthn credential
    */
   async webauthnDeleteCredential(credentialId: string): Promise<any> {
-    try {
-      const response = await this.client.delete(`/auth/webauthn/credentials/${credentialId}`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.delete(`/auth/webauthn/credentials/${credentialId}`));
   }
 }
 

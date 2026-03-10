@@ -25,3 +25,24 @@ export function getErrorMessage(error: unknown): string {
 export function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
 }
+
+/**
+ * Type guard: checks if an unknown value has an HTTP-like `status` number property.
+ */
+export function hasStatus(err: unknown): err is { status: number; message?: string; details?: Record<string, unknown>; retryAfter?: string } {
+  return typeof err === 'object' && err !== null && typeof (err as any).status === 'number';
+}
+
+/**
+ * Type guard: checks if an unknown value has a `.code` property (e.g. MetaMask errors).
+ */
+export function hasCode(err: unknown): err is { code: number; message?: string } {
+  return typeof err === 'object' && err !== null && typeof (err as any).code === 'number';
+}
+
+/**
+ * Type guard: checks if an unknown value has a `.name` property (e.g. DOMException).
+ */
+export function hasName(err: unknown): err is { name: string; message?: string } {
+  return typeof err === 'object' && err !== null && typeof (err as any).name === 'string';
+}

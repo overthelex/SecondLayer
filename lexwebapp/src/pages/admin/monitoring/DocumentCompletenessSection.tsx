@@ -4,7 +4,9 @@ import {
   Play,
   Download,
 } from 'lucide-react';
+import axios from 'axios';
 import { api } from '../../../utils/api-client';
+import { getErrorMessage } from '../../../utils/errors';
 import type { CompletenessResult, BackfillJob } from './types';
 import { formatDate, formatNumber, completenessColor, completenessBg } from './shared';
 import { BackfillProgress } from './BackfillProgress';
@@ -75,12 +77,12 @@ export function DocumentCompletenessSection() {
       if (res.data.runs_today >= res.data.max_runs_per_day) {
         setLimitReached(true);
       }
-    } catch (err: any) {
-      if (err.response?.status === 429) {
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.status === 429) {
         setLimitReached(true);
         setError(err.response?.data?.error || 'Ліміт вичерпано');
       } else {
-        setError(err.response?.data?.error || err.message);
+        setError(getErrorMessage(err));
       }
     } finally {
       setLoading(false);
@@ -99,8 +101,8 @@ export function DocumentCompletenessSection() {
       const job = { ...res.data, processed: 0, scraped: 0, errors: 0, error_details: [], started_at: new Date().toISOString() } as BackfillJob;
       setBackfillJob(job);
       pollBackfillStatus(res.data.job_id);
-    } catch (err: any) {
-      if (err.response?.status === 409) {
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
         // Already running — fetch status
         try {
           const statusRes = await api.admin.getBackfillStatus();
@@ -110,7 +112,7 @@ export function DocumentCompletenessSection() {
           }
         } catch { /* ignore */ }
       } else {
-        setError(err.response?.data?.error || err.message);
+        setError(getErrorMessage(err));
       }
     } finally {
       setBackfillStarting(false);

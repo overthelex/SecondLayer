@@ -45,23 +45,13 @@ export interface SearchHistoryEntry {
 
 export class ERAUService extends BaseService {
   async searchLawyers(surname: string): Promise<ERAULawyer[]> {
-    try {
-      const response = await this.client.get<ERAULawyer[]>('/api/erau/search', {
-        params: { surname },
-      });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<ERAULawyer[]>('/api/erau/search', {
+      params: { surname },
+    }));
   }
 
   async getProfile(id: string): Promise<ERAUProfile> {
-    try {
-      const response = await this.client.get<ERAUProfile>(`/api/erau/profile/${id}`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<ERAUProfile>(`/api/erau/profile/${id}`));
   }
 
   async getSearchHistory(limit = 20): Promise<SearchHistoryEntry[]> {

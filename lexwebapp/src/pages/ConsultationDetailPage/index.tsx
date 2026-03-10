@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, Send, Star, CreditCard, CheckCircle, XCircle, Play, MessageSquare } from 'lucide-react';
 import { consultationService, type Consultation, type ConsultationMessage } from '../../services/api/ConsultationService';
 import { useAuth } from '../../contexts/AuthContext';
+import { getErrorMessage } from '../../utils/errors';
 
 const STATUS_STEPS = ['pending', 'accepted', 'paid', 'in_progress', 'completed'];
 const STATUS_LABELS: Record<string, string> = {
@@ -82,8 +83,8 @@ export function ConsultationDetailPage() {
         default: return;
       }
       setConsultation(result);
-    } catch (err: any) {
-      alert(err.message || 'Помилка');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err));
     } finally {
       setActionLoading('');
     }
@@ -109,8 +110,8 @@ export function ConsultationDetailPage() {
       await consultationService.submitReview(id, { rating, reviewText: reviewText || undefined });
       setShowReview(false);
       alert('Дякуємо за відгук!');
-    } catch (err: any) {
-      alert(err.message || 'Помилка');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err));
     }
   };
 

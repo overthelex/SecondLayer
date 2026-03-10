@@ -8,6 +8,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { api } from '../../../utils/api-client';
+import { getErrorMessage } from '../../../utils/errors';
 import toast from 'react-hot-toast';
 import type { UserCostSummary, UserRequest, Pagination } from './types';
 import { TIER_COLORS, USER_REQ_PAGE } from './constants';
@@ -33,8 +34,8 @@ export function UserRequestsPanel({
       const res = await api.admin.getUserRequests(user.id, { limit: USER_REQ_PAGE, offset, days });
       setRequests(res.data?.requests || []);
       setPagination(res.data?.pagination || { limit: USER_REQ_PAGE, offset, total: 0 });
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to load requests');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

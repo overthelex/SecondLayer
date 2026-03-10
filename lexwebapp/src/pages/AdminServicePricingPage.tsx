@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Tag, RefreshCw, Save, AlertCircle, CheckCircle, ChevronDown, ChevronRight, Percent } from 'lucide-react';
 import { api } from '../utils/api-client';
+import { getErrorMessage } from '../utils/errors';
 
 // ─── External service pricing ───────────────────────────────────────────────
 
@@ -93,8 +94,8 @@ function ExternalProvidersTab() {
         initial[p.id] = { price_usd: String(p.price_usd), notes: p.notes || '', is_active: p.is_active };
       }
       setEditValues(initial);
-    } catch (e: any) {
-      setError(e?.response?.data?.error || e.message || 'Помилка завантаження');
+    } catch (e: unknown) {
+      setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -116,8 +117,8 @@ function ExternalProvidersTab() {
       setSavedIds(prev => new Set([...prev, entry.id]));
       setPricing(prev => prev.map(p => p.id === entry.id ? { ...p, price_usd: priceNum, notes: vals.notes || null, is_active: vals.is_active, updated_at: new Date().toISOString() } : p));
       setTimeout(() => setSavedIds(prev => { const n = new Set(prev); n.delete(entry.id); return n; }), 2500);
-    } catch (e: any) {
-      setErrorIds(prev => ({ ...prev, [entry.id]: e?.response?.data?.error || e.message || 'Помилка збереження' }));
+    } catch (e: unknown) {
+      setErrorIds(prev => ({ ...prev, [entry.id]: getErrorMessage(e) }));
     } finally {
       setSaving(prev => ({ ...prev, [entry.id]: false }));
     }
@@ -263,8 +264,8 @@ function ToolPricingTab() {
         };
       }
       setEditValues(initial);
-    } catch (e: any) {
-      setError(e?.response?.data?.error || e.message || 'Помилка завантаження');
+    } catch (e: unknown) {
+      setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -299,8 +300,8 @@ function ToolPricingTab() {
         : t
       ));
       setTimeout(() => setSavedNames(prev => { const n = new Set(prev); n.delete(tool.tool_name); return n; }), 2500);
-    } catch (e: any) {
-      setErrorNames(prev => ({ ...prev, [tool.tool_name]: e?.response?.data?.error || e.message || 'Помилка збереження' }));
+    } catch (e: unknown) {
+      setErrorNames(prev => ({ ...prev, [tool.tool_name]: getErrorMessage(e) }));
     } finally {
       setSaving(prev => ({ ...prev, [tool.tool_name]: false }));
     }
@@ -314,8 +315,8 @@ function ToolPricingTab() {
       const res = await api.admin.bulkMarkupToolPricing({ markup_percent: pct, service: bulkService || undefined });
       setBulkMsg({ ok: true, text: `Оновлено ${res.data.updated} інструментів` });
       await load();
-    } catch (e: any) {
-      setBulkMsg({ ok: false, text: e?.response?.data?.error || e.message || 'Помилка' });
+    } catch (e: unknown) {
+      setBulkMsg({ ok: false, text: getErrorMessage(e) });
     } finally {
       setBulkSaving(false);
     }

@@ -174,7 +174,7 @@ export function LegislationMonitoringPage({
 
       setDocuments(mapped);
       setTotalCount(data.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load legislation:', err);
       setError('Не вдалося завантажити список законодавства');
     } finally {
@@ -206,7 +206,7 @@ export function LegislationMonitoringPage({
     try {
       const response = await apiClient.get(`/api/legislation/${encodeURIComponent(doc.rada_id)}/structure`);
       setDocStructure(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load structure:', err);
     } finally {
       setStructureLoading(false);
@@ -224,7 +224,7 @@ export function LegislationMonitoringPage({
         `/api/legislation/${encodeURIComponent(selectedDocument.rada_id)}/article/${encodeURIComponent(articleNumber)}`
       );
       setSelectedArticle(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load article:', err);
       setSelectedArticle(null);
     } finally {

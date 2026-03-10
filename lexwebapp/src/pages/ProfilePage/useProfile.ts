@@ -7,6 +7,7 @@ import { api } from '../../utils/api-client';
 import { BillingBalance } from '../../types/models';
 import showToast from '../../utils/toast';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
+import { getErrorMessage, hasName } from '../../utils/errors';
 import type { EditFormState, UseProfileReturn } from './types';
 
 export function useProfile(): UseProfileReturn {
@@ -158,12 +159,12 @@ export function useProfile(): UseProfileReturn {
       await authService.webauthnRegisterVerify(regResponse, friendlyName, attachment);
       showToast.success('Ключ безпеки зареєстровано!');
       await loadCredentials();
-    } catch (err: any) {
-      if (err.name === 'NotAllowedError') {
+    } catch (err: unknown) {
+      if (hasName(err) && err.name === 'NotAllowedError') {
         showToast.error('Реєстрацію скасовано');
       } else {
         console.error('Passkey registration failed:', err);
-        showToast.error(err.message || 'Не вдалося зареєструвати ключ');
+        showToast.error(getErrorMessage(err));
       }
     } finally {
       setIsRegisteringKey(false);
@@ -176,7 +177,7 @@ export function useProfile(): UseProfileReturn {
       await authService.webauthnDeleteCredential(credentialId);
       showToast.success('Ключ видалено');
       await loadCredentials();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to delete credential:', err);
       showToast.error('Не вдалося видалити ключ');
     } finally {
@@ -195,7 +196,7 @@ export function useProfile(): UseProfileReturn {
       setRevealedToken(data.key.key);
       setNewTokenName('');
       await loadMcpTokens();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to create MCP token:', err);
       showToast.error('Не вдалося створити токен');
     } finally {
@@ -209,7 +210,7 @@ export function useProfile(): UseProfileReturn {
       await api.keys.revoke(keyId);
       showToast.success('Токен відкликано');
       await loadMcpTokens();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to revoke MCP token:', err);
       showToast.error('Не вдалося відкликати токен');
     } finally {

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../../utils/api-client';
 import toast from 'react-hot-toast';
+import { getErrorMessage } from '../../../utils/errors';
 import type { Transaction, Pagination } from './types';
 import { PAGE_SIZE } from './constants';
 import { formatDate } from './formatters';
@@ -27,9 +28,9 @@ export function TransactionsSection() {
       const res = await api.admin.getTransactions(params);
       setTransactions(res.data?.transactions || []);
       setTxPagination(res.data?.pagination || { limit: PAGE_SIZE, offset, total: 0 });
-    } catch (err: any) {
+    } catch (err: unknown) {
       // non-critical — toast only
-      toast.error(err.response?.data?.error || err.message);
+      toast.error(getErrorMessage(err));
     } finally {
       setTxLoading(false);
     }

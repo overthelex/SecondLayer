@@ -14,38 +14,28 @@ export interface SavedPrompt {
 
 export class PromptService extends BaseService {
   async list(): Promise<SavedPrompt[]> {
-    try {
-      const response = await this.client.get<{ prompts: SavedPrompt[] }>('/api/prompts');
-      return response.data.prompts;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(
+      () => this.client.get<{ prompts: SavedPrompt[] }>('/api/prompts'),
+      (data) => data.prompts
+    );
   }
 
   async save(name: string, content: string): Promise<SavedPrompt> {
-    try {
-      const response = await this.client.post<{ prompt: SavedPrompt }>('/api/prompts', { name, content });
-      return response.data.prompt;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(
+      () => this.client.post<{ prompt: SavedPrompt }>('/api/prompts', { name, content }),
+      (data) => data.prompt
+    );
   }
 
   async toggleFavorite(id: string): Promise<{ id: string; is_favorite: boolean }> {
-    try {
-      const response = await this.client.patch<{ prompt: { id: string; is_favorite: boolean } }>(`/api/prompts/${id}/favorite`);
-      return response.data.prompt;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(
+      () => this.client.patch<{ prompt: { id: string; is_favorite: boolean } }>(`/api/prompts/${id}/favorite`),
+      (data) => data.prompt
+    );
   }
 
   async delete(id: string): Promise<void> {
-    try {
-      await this.client.delete(`/api/prompts/${id}`);
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.requestVoid(() => this.client.delete(`/api/prompts/${id}`));
   }
 }
 

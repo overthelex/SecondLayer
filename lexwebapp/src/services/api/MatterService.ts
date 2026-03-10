@@ -41,63 +41,31 @@ export class MatterService extends BaseService {
   // ─── Matters ───────────────────────────────────────────
 
   async getMatters(params?: SearchMattersParams): Promise<MattersListResponse> {
-    try {
-      const response = await this.client.get<MattersListResponse>('/api/matters/matters', {
-        params,
-      });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<MattersListResponse>('/api/matters/matters', { params }));
   }
 
   async getMatterById(id: string): Promise<Matter> {
-    try {
-      const response = await this.client.get<Matter>(`/api/matters/matters/${id}`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<Matter>(`/api/matters/matters/${id}`));
   }
 
   async createMatter(data: CreateMatterRequest): Promise<Matter> {
-    try {
-      const response = await this.client.post<Matter>('/api/matters/matters', data);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<Matter>('/api/matters/matters', data));
   }
 
   async updateMatter(id: string, data: UpdateMatterRequest): Promise<Matter> {
-    try {
-      const response = await this.client.put<Matter>(`/api/matters/matters/${id}`, data);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.put<Matter>(`/api/matters/matters/${id}`, data));
   }
 
   async closeMatter(id: string): Promise<Matter> {
-    try {
-      const response = await this.client.post<Matter>(`/api/matters/matters/${id}/close`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<Matter>(`/api/matters/matters/${id}/close`));
   }
 
   // ─── Team ──────────────────────────────────────────────
 
   async getTeamMembers(matterId: string): Promise<{ members: MatterTeamMember[] }> {
-    try {
-      const response = await this.client.get<{ members: MatterTeamMember[] }>(
-        `/api/matters/matters/${matterId}/team`
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<{ members: MatterTeamMember[] }>(
+      `/api/matters/matters/${matterId}/team`
+    ));
   }
 
   async addTeamMember(
@@ -106,132 +74,72 @@ export class MatterService extends BaseService {
     role: MatterTeamRole = 'associate',
     accessLevel: MatterAccessLevel = 'full'
   ): Promise<MatterTeamMember> {
-    try {
-      const response = await this.client.post<MatterTeamMember>(
-        `/api/matters/matters/${matterId}/team`,
-        { memberId, role, accessLevel }
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<MatterTeamMember>(
+      `/api/matters/matters/${matterId}/team`,
+      { memberId, role, accessLevel }
+    ));
   }
 
   async removeTeamMember(matterId: string, userId: string): Promise<void> {
-    try {
-      await this.client.delete(`/api/matters/matters/${matterId}/team/${userId}`);
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.requestVoid(() => this.client.delete(`/api/matters/matters/${matterId}/team/${userId}`));
   }
 
   // ─── Legal Holds ───────────────────────────────────────
 
   async getHolds(matterId: string): Promise<{ holds: LegalHold[] }> {
-    try {
-      const response = await this.client.get<{ holds: LegalHold[] }>(
-        `/api/matters/matters/${matterId}/holds`
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<{ holds: LegalHold[] }>(
+      `/api/matters/matters/${matterId}/holds`
+    ));
   }
 
   async createHold(matterId: string, data: CreateHoldRequest): Promise<LegalHold> {
-    try {
-      const response = await this.client.post<LegalHold>(
-        `/api/matters/matters/${matterId}/holds`,
-        data
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<LegalHold>(
+      `/api/matters/matters/${matterId}/holds`,
+      data
+    ));
   }
 
   async releaseHold(holdId: string): Promise<LegalHold> {
-    try {
-      const response = await this.client.post<LegalHold>(
-        `/api/matters/holds/${holdId}/release`
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<LegalHold>(`/api/matters/holds/${holdId}/release`));
   }
 
   async addDocumentsToHold(holdId: string, documentIds: string[]): Promise<any> {
-    try {
-      const response = await this.client.post(
-        `/api/matters/holds/${holdId}/documents`,
-        { documentIds }
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post(
+      `/api/matters/holds/${holdId}/documents`,
+      { documentIds }
+    ));
   }
 
   // ─── Matter Documents ────────────────────────────────────
 
   async getMatterDocuments(matterId: string): Promise<{ documents: any[]; total: number }> {
-    try {
-      const response = await this.client.get<{ documents: any[]; total: number }>(
-        `/api/matters/matters/${matterId}/documents`
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<{ documents: any[]; total: number }>(
+      `/api/matters/matters/${matterId}/documents`
+    ));
   }
 
   async assignDocumentsToMatter(matterId: string, documentIds: string[]): Promise<{ assigned: number }> {
-    try {
-      const response = await this.client.put<{ assigned: number }>(
-        `/api/matters/matters/${matterId}/documents/assign`,
-        { documentIds }
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.put<{ assigned: number }>(
+      `/api/matters/matters/${matterId}/documents/assign`,
+      { documentIds }
+    ));
   }
 
   async unassignDocumentsFromMatter(matterId: string, documentIds: string[]): Promise<{ unassigned: number }> {
-    try {
-      const response = await this.client.put<{ unassigned: number }>(
-        `/api/matters/matters/${matterId}/documents/unassign`,
-        { documentIds }
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.put<{ unassigned: number }>(
+      `/api/matters/matters/${matterId}/documents/unassign`,
+      { documentIds }
+    ));
   }
 
   // ─── Audit ─────────────────────────────────────────────
 
   async getAuditLog(params?: AuditLogParams): Promise<AuditLogResponse> {
-    try {
-      const response = await this.client.get<AuditLogResponse>('/api/matters/audit', {
-        params,
-      });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<AuditLogResponse>('/api/matters/audit', { params }));
   }
 
   async validateAuditChain(): Promise<AuditValidationResult> {
-    try {
-      const response = await this.client.get<AuditValidationResult>(
-        '/api/matters/audit/validate'
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<AuditValidationResult>('/api/matters/audit/validate'));
   }
 }
 

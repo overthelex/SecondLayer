@@ -21,6 +21,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { api } from '../utils/api-client';
+import { getErrorMessage } from '../utils/errors';
 import { useCurrencyRate } from '../hooks/useCurrencyRate';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -347,8 +348,8 @@ export function AdminUserActivityPage() {
       setUsers(res.data.users || []);
       setStats(res.data.stats || null);
       setLastUpdated(new Date());
-    } catch (e: any) {
-      setError(e?.response?.data?.error || 'Помилка завантаження даних');
+    } catch (e: unknown) {
+      setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }

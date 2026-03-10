@@ -20,6 +20,7 @@ import showToast from '../utils/toast';
 import { useShallow } from 'zustand/react/shallow';
 import { useDecisionsSearchStore } from '../stores/decisionsSearchStore';
 import { useUIStore } from '../stores';
+import { getErrorMessage } from '../utils/errors';
 
 interface SearchFilters {
   query: string;
@@ -137,9 +138,9 @@ export function DecisionsSearchPage() {
         setResults([]);
         setTotalResults(0);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Search failed:', err);
-      setError(err.message || 'Помилка пошуку');
+      setError(getErrorMessage(err));
       setResults([]);
       setTotalResults(0);
     } finally {

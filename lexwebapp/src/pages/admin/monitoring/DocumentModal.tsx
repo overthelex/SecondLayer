@@ -6,6 +6,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from '../../../utils/api-client';
+import { getErrorMessage } from '../../../utils/errors';
 import { formatDate } from './shared';
 
 interface DocumentModalProps {
@@ -32,8 +33,8 @@ export function DocumentModal({ documentId, isOpen, onClose }: DocumentModalProp
     try {
       const res = await api.documents.getById(documentId);
       setDocument(res.data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

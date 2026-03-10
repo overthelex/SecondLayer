@@ -71,57 +71,27 @@ export interface AttorneyReview {
 
 export class AttorneyService extends BaseService {
   async searchAttorneys(params?: AttorneySearchParams): Promise<AttorneySearchResponse> {
-    try {
-      const response = await this.client.get<AttorneySearchResponse>('/api/attorneys', { params });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<AttorneySearchResponse>('/api/attorneys', { params }));
   }
 
   async getAttorney(id: string): Promise<AttorneyProfile> {
-    try {
-      const response = await this.client.get<AttorneyProfile>(`/api/attorneys/${id}`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<AttorneyProfile>(`/api/attorneys/${id}`));
   }
 
   async getAttorneyReviews(id: string, params?: { limit?: number; offset?: number }): Promise<{ reviews: AttorneyReview[]; total: number }> {
-    try {
-      const response = await this.client.get(`/api/attorneys/${id}/reviews`, { params });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get(`/api/attorneys/${id}/reviews`, { params }));
   }
 
   async getMyProfile(): Promise<AttorneyProfile> {
-    try {
-      const response = await this.client.get<AttorneyProfile>('/api/attorneys/profile/me');
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<AttorneyProfile>('/api/attorneys/profile/me'));
   }
 
   async createProfile(data: Partial<AttorneyProfile>): Promise<AttorneyProfile> {
-    try {
-      const response = await this.client.post<AttorneyProfile>('/api/attorneys/profile', data);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<AttorneyProfile>('/api/attorneys/profile', data));
   }
 
   async updateProfile(data: Partial<AttorneyProfile>): Promise<AttorneyProfile> {
-    try {
-      const response = await this.client.put<AttorneyProfile>('/api/attorneys/profile', data);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.put<AttorneyProfile>('/api/attorneys/profile', data));
   }
 }
 

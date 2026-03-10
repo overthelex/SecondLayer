@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Loader2, Save, User } from 'lucide-react';
 import { attorneyService, type AttorneyProfile } from '../../services/api/AttorneyService';
 import { AttorneyOnboardingModal } from '../../components/attorney/AttorneyOnboardingModal';
+import { getErrorMessage } from '../../utils/errors';
 
 const SPECIALIZATIONS = [
   { value: 'criminal', label: 'Кримінальне' },
@@ -68,8 +69,8 @@ export function AttorneyProfilePage() {
         setProfile(updated);
         setSuccess('Профіль оновлено');
       }
-    } catch (err: any) {
-      setError(err.message || 'Помилка збереження');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }

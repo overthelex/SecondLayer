@@ -23,6 +23,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { api } from '../utils/api-client';
+import { getErrorMessage } from '../utils/errors';
 import toast from 'react-hot-toast';
 
 // ── Types ──────────────────────────────────────────────
@@ -110,8 +111,8 @@ export function AdminZOStatsPage() {
         justiceKind: selectedKinds.join(','),
       });
       setData(resp.data as ZOStatsResponse);
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Помилка запиту';
+    } catch (err: unknown) {
+      const msg = getErrorMessage(err);
       setError(msg);
       toast.error(msg);
     } finally {

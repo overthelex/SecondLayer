@@ -22,6 +22,7 @@ import {
   Legend,
 } from 'recharts';
 import { api } from '../utils/api-client';
+import { getErrorMessage } from '../utils/errors';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -186,8 +187,8 @@ export function AdminContainersPage() {
       const res = await api.admin.getContainerMetrics(range);
       setData(res.data);
       setError(null);
-    } catch (e: any) {
-      setError(e.message || 'Failed to load container metrics');
+    } catch (e: unknown) {
+      setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }

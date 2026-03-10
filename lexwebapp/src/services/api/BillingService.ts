@@ -17,24 +17,17 @@ export class BillingService extends BaseService {
    * Get account balance
    */
   async getBalance(): Promise<Balance> {
-    try {
-      const response = await this.client.get<GetBalanceResponse>('/api/billing/balance');
-      return response.data.balance;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(
+      () => this.client.get<GetBalanceResponse>('/api/billing/balance'),
+      (data) => data.balance
+    );
   }
 
   /**
    * Get full billing summary from backend
    */
   async getBillingSummary(): Promise<BillingBalance> {
-    try {
-      const response = await this.client.get<BillingBalance>('/api/billing/balance');
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<BillingBalance>('/api/billing/balance'));
   }
 
   /**
@@ -43,56 +36,37 @@ export class BillingService extends BaseService {
   async getTransactionHistory(
     params?: GetTransactionHistoryRequest
   ): Promise<GetTransactionHistoryResponse> {
-    try {
-      const response = await this.client.get<GetTransactionHistoryResponse>(
-        '/api/billing/history',
-        { params }
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<GetTransactionHistoryResponse>(
+      '/api/billing/history',
+      { params }
+    ));
   }
 
   /**
    * Update billing settings
    */
   async updateSettings(data: UpdateBillingSettingsRequest): Promise<BillingSettings> {
-    try {
-      const response = await this.client.put<{ settings: BillingSettings }>(
-        '/api/billing/settings',
-        data
-      );
-      return response.data.settings;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(
+      () => this.client.put<{ settings: BillingSettings }>('/api/billing/settings', data),
+      (data) => data.settings
+    );
   }
 
   /**
    * Create Monobank invoice
    */
   async createMonobankInvoice(amount_uah: number): Promise<{ invoiceId: string; pageUrl: string }> {
-    try {
-      const response = await this.client.post<{ invoiceId: string; pageUrl: string }>(
-        '/api/billing/payment/monobank/create',
-        { amount_uah }
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<{ invoiceId: string; pageUrl: string }>(
+      '/api/billing/payment/monobank/create',
+      { amount_uah }
+    ));
   }
 
   /**
    * Send test email
    */
   async sendTestEmail(): Promise<void> {
-    try {
-      await this.client.post('/api/billing/test-email');
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.requestVoid(() => this.client.post('/api/billing/test-email'));
   }
 }
 

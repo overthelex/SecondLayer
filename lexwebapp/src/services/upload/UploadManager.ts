@@ -12,7 +12,7 @@
  */
 
 import { uploadService, InitUploadResponse, UploadStatusResponse } from '../api/UploadService';
-import { getErrorMessage } from '../../utils/errors';
+import { getErrorMessage, hasStatus, hasName } from '../../utils/errors';
 
 export type UploadItemStatus =
   | 'queued'
@@ -455,9 +455,9 @@ export class UploadManager {
           }
         }
         return; // Success
-      } catch (err: any) {
+      } catch (err: unknown) {
         // 429 — wait for Retry-After, don't count as attempt (but cap retries)
-        if (err.status === 429) {
+        if (hasStatus(err) && err.status === 429) {
           // Auto-clear stale sessions on SESSION_QUOTA_EXCEEDED (once per batch)
           if (err.details?.code === 'SESSION_QUOTA_EXCEEDED' && !staleClearAttempted) {
             staleClearAttempted = true;
@@ -481,7 +481,7 @@ export class UploadManager {
             this.emit({ type: 'error', error: 'Server busy too long, batch init failed' });
             break; // Fall through to individual init
           }
-          const retryAfter = parseInt(err.details?.retryAfter || '60', 10);
+          const retryAfter = parseInt(String(err.details?.retryAfter ?? '60'), 10);
           this.emit({
             type: 'error',
             error: `Server busy, batch init paused for ${retryAfter}s (${throttleRetries}/${MAX_429_RETRIES})`,
@@ -546,9 +546,9 @@ export class UploadManager {
             item.uploadId = initResponse.uploadId;
             initError = null;
             break;
-          } catch (err: any) {
+          } catch (err: unknown) {
             // 429 — wait for Retry-After, don't count as attempt (but cap retries)
-            if (err.status === 429) {
+            if (hasStatus(err) && err.status === 429) {
               // Auto-clear stale sessions on SESSION_QUOTA_EXCEEDED (once per file)
               if (err.details?.code === 'SESSION_QUOTA_EXCEEDED' && !initStaleClearAttempted) {
                 initStaleClearAttempted = true;
@@ -572,7 +572,7 @@ export class UploadManager {
                 initError = new Error('Server busy too long, upload init failed');
                 break;
               }
-              const retryAfter = parseInt(err.details?.retryAfter || '60', 10);
+              const retryAfter = parseInt(String(err.details?.retryAfter ?? '60'), 10);
               this.emit({
                 type: 'error',
                 error: `Server busy, init paused for ${retryAfter}s (${initThrottleRetries}/${MAX_429_RETRIES})`,
@@ -581,7 +581,7 @@ export class UploadManager {
               attempt--;
               continue;
             }
-            initError = err;
+            initError = err instanceof Error ? err : new Error(getErrorMessage(err));
             if (attempt < MAX_RETRIES) {
               const delay = RETRY_DELAYS[attempt] || 4000;
               await new Promise((r) => setTimeout(r, delay));
@@ -649,15 +649,16 @@ export class UploadManager {
 
             lastError = null;
             break;
-          } catch (err: any) {
+          } catch (err: unknown) {
             // Handle 429 — wait for Retry-After, don't count as retry attempt (but cap retries)
-            if (err.status === 429 || err.message?.includes('429')) {
+            const is429 = (hasStatus(err) && err.status === 429) || getErrorMessage(err).includes('429');
+            if (is429) {
               chunkThrottleRetries++;
               if (chunkThrottleRetries > MAX_429_RETRIES) {
                 lastError = new Error('Server busy too long, chunk upload failed');
                 break;
               }
-              const retryAfter = parseInt(err.retryAfter || '5', 10);
+              const retryAfter = parseInt(String((hasStatus(err) ? err.retryAfter : undefined) ?? '5'), 10);
               this.emit({
                 type: 'error',
                 error: `Server busy, uploads paused for ${retryAfter}s (${chunkThrottleRetries}/${MAX_429_RETRIES})`,
@@ -669,10 +670,10 @@ export class UploadManager {
             }
 
             // Don't retry if cancelled/aborted
-            if (err.name === 'AbortError' || controller.signal.aborted) {
+            if ((hasName(err) && err.name === 'AbortError') || controller.signal.aborted) {
               return;
             }
-            lastError = err;
+            lastError = err instanceof Error ? err : new Error(getErrorMessage(err));
             if (attempt < MAX_RETRIES) {
               const delay = RETRY_DELAYS[attempt] || 4000;
               await new Promise((r) => setTimeout(r, delay));

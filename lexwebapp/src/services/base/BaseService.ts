@@ -3,7 +3,7 @@
  * Abstract base class for all services with common error handling
  */
 
-import { AxiosInstance, AxiosError } from 'axios';
+import { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
 import apiClient from '../../utils/api-client';
 
 export interface ServiceError {
@@ -46,6 +46,36 @@ export abstract class BaseService {
       code: 'UNKNOWN_ERROR',
       message: 'An unknown error occurred',
     } as ServiceError;
+  }
+
+  /**
+   * Execute an API request with uniform error handling.
+   * Eliminates repetitive try/catch + handleError boilerplate.
+   *
+   * @param fn - Function that performs the axios call
+   * @param transform - Optional transform applied to response.data before returning
+   */
+  protected async request<T, R = T>(
+    fn: () => Promise<AxiosResponse<T>>,
+    transform?: (data: T) => R
+  ): Promise<R> {
+    try {
+      const response = await fn();
+      return transform ? transform(response.data) : (response.data as unknown as R);
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Execute an API request that returns void (e.g. DELETE, PUT with no response body).
+   */
+  protected async requestVoid(fn: () => Promise<AxiosResponse<any>>): Promise<void> {
+    try {
+      await fn();
+    } catch (error) {
+      return this.handleError(error);
+    }
   }
 
   /**
