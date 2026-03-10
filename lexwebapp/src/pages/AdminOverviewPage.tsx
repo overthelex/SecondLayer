@@ -30,6 +30,7 @@ import {
   Legend,
 } from 'recharts';
 import { api } from '../utils/api-client';
+import { getErrorMessage } from '../utils/errors';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -303,8 +304,8 @@ export function AdminOverviewPage() {
       setServices(svcRes.data?.services || []);
       setSystem(sysRes.data);
       setToolUsage((usageRes.data?.usage || []).slice(0, 8));
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to load overview');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

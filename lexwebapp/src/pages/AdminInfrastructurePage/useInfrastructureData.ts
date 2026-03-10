@@ -4,6 +4,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../utils/api-client';
+import { getErrorMessage } from '../../utils/errors';
 import type { TimeRange, SectionState } from './types';
 
 const INITIAL_STATE: SectionState<any> = { data: null, loading: true, error: null };
@@ -21,8 +22,8 @@ export function useInfrastructureData(range: TimeRange) {
     try {
       const { data } = await api.admin.getBackendDetailMetrics(range);
       setBackendDetail({ data, loading: false, error: null });
-    } catch (e: any) {
-      setBackendDetail({ data: null, loading: false, error: e.message || 'Failed to load' });
+    } catch (e: unknown) {
+      setBackendDetail({ data: null, loading: false, error: getErrorMessage(e) });
     }
   }, [range]);
 
@@ -31,8 +32,8 @@ export function useInfrastructureData(range: TimeRange) {
     try {
       const { data } = await api.admin.getUploadPipelineMetrics(range);
       setUploadPipeline({ data, loading: false, error: null });
-    } catch (e: any) {
-      setUploadPipeline({ data: null, loading: false, error: e.message || 'Failed to load' });
+    } catch (e: unknown) {
+      setUploadPipeline({ data: null, loading: false, error: getErrorMessage(e) });
     }
   }, [range]);
 
@@ -41,8 +42,8 @@ export function useInfrastructureData(range: TimeRange) {
     try {
       const { data } = await api.admin.getCostRealtimeMetrics(range);
       setCostRealtime({ data, loading: false, error: null });
-    } catch (e: any) {
-      setCostRealtime({ data: null, loading: false, error: e.message || 'Failed to load' });
+    } catch (e: unknown) {
+      setCostRealtime({ data: null, loading: false, error: getErrorMessage(e) });
     }
   }, [range]);
 
@@ -51,8 +52,8 @@ export function useInfrastructureData(range: TimeRange) {
     try {
       const { data } = await api.admin.getInfrastructureMetrics(range);
       setInfrastructure({ data, loading: false, error: null });
-    } catch (e: any) {
-      setInfrastructure({ data: null, loading: false, error: e.message || 'Failed to load' });
+    } catch (e: unknown) {
+      setInfrastructure({ data: null, loading: false, error: getErrorMessage(e) });
     }
   }, [range]);
 

@@ -7,6 +7,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { api } from '../../../utils/api-client';
+import { getErrorMessage } from '../../../utils/errors';
 import type { ImportSamplesData } from './types';
 import { formatDate, formatNumber, SectionLoader, SectionError } from './shared';
 import { DocumentModal } from './DocumentModal';
@@ -26,8 +27,8 @@ export function ImportSamplesSection() {
     try {
       const res = await api.admin.getImportSamples(h, 5);
       setData(res.data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

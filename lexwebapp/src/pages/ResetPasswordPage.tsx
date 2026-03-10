@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff, CheckCircle, Loader2 } from 'lucide-react';
 import showToast from '../utils/toast';
+import { getErrorMessage } from '../utils/errors';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const BASE_URL = API_URL.replace(/\/api$/, '');
@@ -63,8 +64,8 @@ export function ResetPasswordPage() {
       setTimeout(() => {
         navigate('/login');
       }, 3000);
-    } catch (err: any) {
-      setError(err.message || 'Password reset failed');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
       showToast.error('Password reset failed');
     } finally {
       setIsLoading(false);

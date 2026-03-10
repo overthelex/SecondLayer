@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../../utils/api-client';
 import toast from 'react-hot-toast';
+import { getErrorMessage } from '../../../utils/errors';
 import type { UserCostSummary } from './types';
 import { TIER_COLORS } from './constants';
 import { formatDate } from './formatters';
@@ -27,8 +28,8 @@ export function UsersCostSection({
     try {
       const res = await api.admin.getUsersCostsSummary(days);
       setUsers(res.data?.users || []);
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Помилка завантаження');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

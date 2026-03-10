@@ -24,6 +24,7 @@ import { clientService } from '../../services/api/ClientService';
 import { Modal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Spinner';
 import { generateRoute } from '../../router/routes';
+import { getErrorMessage } from '../../utils/errors';
 import type { Client, ClientType, CreateClientRequest, UpdateClientRequest } from '../../types/models/Client';
 
 const CLIENT_TYPE_LABELS: Record<ClientType, string> = {
@@ -106,8 +107,8 @@ export function ClientsPage() {
       });
       setClients(result.clients);
       setTotal(result.total);
-    } catch (err: any) {
-      setError(err.message || 'Не вдалося завантажити клієнтів');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -180,7 +181,7 @@ export function ClientsPage() {
       }
       setShowModal(false);
       fetchClients();
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Error toast is handled by api-client interceptor
     } finally {
       setSaving(false);

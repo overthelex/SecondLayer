@@ -7,6 +7,7 @@ import {
   Grid3X3,
 } from 'lucide-react';
 import { api } from '../../../utils/api-client';
+import { getErrorMessage } from '../../../utils/errors';
 import type { ScraperJob, CoverageMapData } from './types';
 import { ScraperJobCard } from './ScraperJobCard';
 import { JUSTICE_KINDS, DOC_FORMS, MONTHS_SHORT } from './constants';
@@ -79,8 +80,8 @@ export function CourtDataMapSection() {
       await api.admin.startCourtScraper(config);
       setShowAddBatch(false);
       await loadJobs();
-    } catch (e: any) {
-      alert(e?.response?.data?.error || 'Помилка запуску');
+    } catch (e: unknown) {
+      alert(getErrorMessage(e));
     } finally {
       setStarting(false);
     }
