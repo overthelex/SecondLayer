@@ -82,23 +82,19 @@ export function useDocumentData(options: UseDocumentDataOptions) {
     }
   }, []);
 
-  // Load documents when deps change
+  // Load documents + folders when deps change (debounce text search)
   useEffect(() => {
-    loadDocuments();
     loadFolders(currentFolderPath);
-  }, [filterType, currentFolderPath, offset, sortBy, sortOrder]);
 
-  // Debounced text search
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      loadDocuments();
-      return;
+    if (searchQuery.trim()) {
+      const timer = setTimeout(() => {
+        loadDocuments();
+      }, 300);
+      return () => clearTimeout(timer);
     }
-    const timer = setTimeout(() => {
-      loadDocuments();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+
+    loadDocuments();
+  }, [loadDocuments, loadFolders, filterType, currentFolderPath, offset, sortBy, sortOrder, searchQuery]);
 
   // Load stats on mount
   useEffect(() => {
