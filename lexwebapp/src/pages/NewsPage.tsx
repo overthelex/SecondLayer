@@ -56,7 +56,10 @@ export function NewsPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/proxy/kmu-rss');
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/proxy/kmu-rss', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const xml = await response.text();
       const items = parseRSS(xml);
