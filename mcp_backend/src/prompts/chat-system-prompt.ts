@@ -89,7 +89,7 @@ export function buildPlanGenerationMessages(
       practice_analysis: '11. queryType=practice_analysis: use 5-10 search_legal_precedents calls with different queries and limit=50, then include legislation lookups',
       legislation_lookup: '11. queryType=legislation_lookup: start with get_legislation_article or search_legislation, max 2 steps',
       legal_consultation: '11. queryType=legal_consultation: combine legislation + practice search tools',
-      registry_lookup: '11. queryType=registry_lookup: start with openreyestr_get_by_edrpou or openreyestr_search_entities, max 3 steps',
+      registry_lookup: '11. queryType=registry_lookup: start with openreyestr_get_by_edrpou or openreyestr_search_entities. For debtors/enforcement proceedings use search_erb_debtors (10M+ records from Minjust). For bank info use search_nbu_banks. Max 3 steps',
       parliament_query: '11. queryType=parliament_query: use rada_ tools, max 2 steps',
       document_query: '11. queryType=document_query: ALWAYS start with list_documents(query="", limit=50) to get ALL user documents. Then use semantic_search for content-relevant fragments. For analysis: also use get_document to read full text of relevant docs. For delete/update by name: first list_documents to find the doc, then delete_document/update_document with the ID. Max 5 steps.',
       document_drafting: '11. queryType=document_drafting: first find_relevant_law_articles for legal basis, then generate document',
@@ -532,7 +532,7 @@ export const CHAT_INTENT_CLASSIFICATION_PROMPT = `Ти — класифікат�
 - find_relevant_law_articles — знайти статті за описом ситуації
 - search_procedural_norms — пошук процесуальних норм
 
-### registry — Державні реєстри (OpenReyestr / data.gov.ua / НАІС)
+### registry — Державні реєстри (OpenReyestr / data.gov.ua / НАІС / НБУ / Мін'юст)
 - openreyestr_search_entities — пошук юридичних осіб за назвою
 - openreyestr_get_entity_details — деталі юридичної особи
 - openreyestr_search_beneficiaries — пошук бенефіціарів
@@ -548,6 +548,8 @@ export const CHAT_INTENT_CLASSIFICATION_PROMPT = `Ти — класифікат�
 - openreyestr_search_administrative_units — адмін. устрій (КОАТУУ)
 - openreyestr_search_streets — вулиці
 - openreyestr_search_special_forms — спец. бланки нотаріусів
+- search_erb_debtors — Єдиний реєстр боржників (Мін'юст, 10M+ записів, виконавчі провадження)
+- search_nbu_banks — реєстр банків з ліцензією НБУ (60 банків, ліцензії, адреси, статус)
 
 ### parliament — Парламентські дані (Verkhovna Rada Open Data)
 - rada_search_parliament_bills — пошук законопроєктів

@@ -79,6 +79,7 @@ import { UploadService } from './services/upload-service.js';
 import { MinioService } from './services/minio-service.js';
 import { NextcloudService } from './services/nextcloud-service.js';
 import { NextcloudTools } from './api/tools/nextcloud-tools.js';
+import { StateRegistryTools } from './api/tools/state-registry-tools.js';
 import { createUploadRouter } from './routes/upload-routes.js';
 import { VaultTools } from './api/vault-tools.js';
 import { ConversationService } from './services/conversation-service.js';
@@ -308,6 +309,7 @@ class HTTPMCPServer {
     ));
     this.toolRegistry.registerHandler(new LegalActsTools(this.services.zoLegalActsAdapter));
     this.toolRegistry.registerHandler(new ECHRPracticeTools(this.services.zoECHRAdapter));
+    this.toolRegistry.registerHandler(new StateRegistryTools(this.services.db));
     logger.info('Core tool handlers registered with ToolRegistry');
 
     // Initialize Nextcloud integration

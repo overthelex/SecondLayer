@@ -474,18 +474,22 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
     exampleQueries: [
       'Чи є борги у ТОВ "Приклад"?',
       'Перевірити боржника Іванов Іван Іванович',
+      'Виконавчі провадження по ЄДРПОУ 12345678',
     ],
     dataSources: [
+      { name: 'ERB (Мін\'юст)', provides: 'Єдиний реєстр боржників (10M+ записів)' },
       { name: 'OpenReyestr', provides: 'реєстр боржників' },
     ],
     toolChain: [
-      { tool: 'openreyestr_search_debtors', purpose: 'пошук у реєстрі боржників' },
+      { tool: 'search_erb_debtors', purpose: 'пошук у Єдиному реєстрі боржників Мін\'юсту (основне джерело, 10M+ записів)' },
+      { tool: 'openreyestr_search_debtors', purpose: 'додатковий пошук боржників (OpenReyestr)', optional: true },
     ],
     responseTemplate: [
       { heading: 'Боржник', instruction: 'назва/ПІБ боржника' },
-      { heading: 'Сума боргу', instruction: 'розмір заборгованості' },
-      { heading: 'Стягувач', instruction: 'хто стягує борг' },
-      { heading: 'Стан провадження', instruction: 'статус виконавчого провадження' },
+      { heading: 'Код ЄДРПОУ', instruction: 'ідентифікаційний код (якщо є)', optional: true },
+      { heading: 'Виконавче провадження', instruction: 'номер ВП та категорія стягнення' },
+      { heading: 'Орган стягнення', instruction: 'суд або орган, що видав документ' },
+      { heading: 'Виконавець', instruction: 'ПІБ та контакти державного/приватного виконавця' },
     ],
   },
 
@@ -520,10 +524,12 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
       'Статус виконавчого провадження №12345',
     ],
     dataSources: [
+      { name: 'ERB (Мін\'юст)', provides: 'Єдиний реєстр боржників (виконавчі провадження)' },
       { name: 'OpenReyestr', provides: 'реєстр виконавчих проваджень' },
     ],
     toolChain: [
-      { tool: 'openreyestr_search_enforcement_proceedings', purpose: 'пошук виконавчих проваджень' },
+      { tool: 'search_erb_debtors', purpose: 'пошук у Єдиному реєстрі боржників за номером ВП або ПІБ' },
+      { tool: 'openreyestr_search_enforcement_proceedings', purpose: 'додатковий пошук виконавчих проваджень', optional: true },
     ],
     responseTemplate: [
       { heading: 'Номер провадження', instruction: 'номер та дата відкриття' },
@@ -553,6 +559,30 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
       { heading: 'Список знайдених', instruction: 'ПІБ, район діяльності' },
       { heading: 'Контакти', instruction: 'адреса, телефон' },
       { heading: 'Спеціалізація', instruction: 'вид діяльності або спеціальність' },
+    ],
+  },
+
+  {
+    id: 'nbu_bank_search',
+    label: 'Пошук банків з ліцензією НБУ',
+    domains: ['registry'],
+    exampleQueries: [
+      'Чи має банк "Приватбанк" ліцензію НБУ?',
+      'Які банки мають статус "Неплатоспроможний"?',
+      'Інформація про банк з ЄДРПОУ 14360570',
+      'Список усіх банків України',
+    ],
+    dataSources: [
+      { name: 'НБУ (bank.gov.ua)', provides: 'реєстр банків з банківською ліцензією' },
+    ],
+    toolChain: [
+      { tool: 'search_nbu_banks', purpose: 'пошук банків у реєстрі НБУ' },
+    ],
+    responseTemplate: [
+      { heading: 'Банк', instruction: 'назва та ЄДРПОУ' },
+      { heading: 'Статус', instruction: 'нормальний / неплатоспроможний / ліквідація' },
+      { heading: 'Ліцензія', instruction: 'номер та дата ліцензії' },
+      { heading: 'Контакти', instruction: 'адреса, телефон, сайт' },
     ],
   },
 
