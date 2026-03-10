@@ -2144,22 +2144,76 @@ class HTTPMCPServer {
     }) as any);
 
     // ============ KMU RSS Proxy ============
-    // GET /api/proxy/kmu-rss - Proxy KMU government news RSS feed (handles bot-protection redirects)
+    // GET /api/proxy/kmu-rss - Proxy KMU government news RSS feed via headless browser (bypasses Radware bot protection)
     this.app.get('/api/proxy/kmu-rss', requireJWT as any, (async (_req: DualAuthRequest, res: Response) => {
+      const KMU_RSS_URL = 'https://www.kmu.gov.ua/api/rss';
+      const CACHE_KEY = 'kmu_rss_cache';
+      const CACHE_TTL = 1800; // 30 minutes
       try {
-        const KMU_RSS_URL = 'https://www.kmu.gov.ua/api/rss';
-        const headers: Record<string, string> = {
-          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          'Accept': 'application/rss+xml, application/xml, text/xml, */*',
-        };
-        const response = await fetch(KMU_RSS_URL, { headers, redirect: 'follow' });
-        if (!response.ok) {
-          return res.status(response.status).json({ error: `KMU RSS returned ${response.status}` });
+        // Try Redis cache first
+        const redis = await getRedisClient();
+        if (!redis) {
+          return res.status(503).json({ error: 'Redis unavailable' });
         }
-        const body = await response.text();
-        res.set('Content-Type', 'application/xml; charset=utf-8');
-        res.set('Cache-Control', 'public, max-age=600');
-        res.send(body);
+        const cached = await redis.get(CACHE_KEY);
+        if (cached) {
+          logger.info('[KMU RSS Proxy] Serving from cache');
+          res.set('Content-Type', 'application/xml; charset=utf-8');
+          res.set('Cache-Control', 'public, max-age=600');
+          res.set('X-Cache', 'HIT');
+          return res.send(cached);
+        }
+
+        // Fetch via headless browser to bypass bot protection
+        logger.info('[KMU RSS Proxy] Cache miss, fetching via headless browser');
+        const { chromium } = await import('playwright');
+        const browser = await chromium.launch({
+          executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        });
+        try {
+          const context = await browser.newContext({
+            userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            ignoreHTTPSErrors: true,
+          });
+          const page = await context.newPage();
+          const response = await page.goto(KMU_RSS_URL, { waitUntil: 'networkidle', timeout: 30000 });
+          const body = await page.content();
+
+          // Extract XML from page content (browser renders XML in an HTML wrapper)
+          let xml = body;
+          // If the page returned actual XML, content() wraps it — try to get raw response
+          if (response && response.ok()) {
+            // For XML pages, page.content() returns HTML-wrapped content
+            // Use evaluate to get the raw XML serialization (runs in browser context)
+            // @ts-ignore - runs in browser context
+            xml = await page.evaluate(() => new XMLSerializer().serializeToString(document));
+          }
+
+          // Clean up: remove any HTML wrapper that the browser might have added around the XML
+          const rssMatch = xml.match(/<\?xml[\s\S]*<\/rss>/);
+          if (rssMatch) {
+            xml = rssMatch[0];
+          }
+
+          await context.close();
+
+          if (!xml.includes('<rss') && !xml.includes('<channel>')) {
+            logger.warn('[KMU RSS Proxy] Response does not look like RSS', { bodySnippet: xml.substring(0, 200) });
+            return res.status(502).json({ error: 'KMU RSS returned non-RSS content' });
+          }
+
+          // Cache in Redis
+          await redis.setEx(CACHE_KEY, CACHE_TTL, xml);
+          logger.info('[KMU RSS Proxy] Fetched and cached successfully');
+
+          res.set('Content-Type', 'application/xml; charset=utf-8');
+          res.set('Cache-Control', 'public, max-age=600');
+          res.set('X-Cache', 'MISS');
+          res.send(xml);
+        } finally {
+          await browser.close();
+        }
       } catch (error: any) {
         logger.error('[KMU RSS Proxy] Error', { error: error.message });
         res.status(502).json({ error: 'Failed to fetch KMU RSS feed' });
