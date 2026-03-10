@@ -2143,6 +2143,30 @@ class HTTPMCPServer {
       }
     }) as any);
 
+    // ============ KMU RSS Proxy ============
+    // GET /api/proxy/kmu-rss - Proxy KMU government news RSS feed (handles bot-protection redirects)
+    this.app.get('/api/proxy/kmu-rss', requireJWT as any, (async (_req: DualAuthRequest, res: Response) => {
+      try {
+        const KMU_RSS_URL = 'https://www.kmu.gov.ua/api/rss';
+        const headers: Record<string, string> = {
+          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+        };
+        const response = await fetch(KMU_RSS_URL, { headers, redirect: 'follow' });
+        if (!response.ok) {
+          return res.status(response.status).json({ error: `KMU RSS returned ${response.status}` });
+        }
+        const body = await response.text();
+        res.set('Content-Type', 'application/xml; charset=utf-8');
+        res.set('Cache-Control', 'public, max-age=600');
+        res.send(body);
+      } catch (error: any) {
+        logger.error('[KMU RSS Proxy] Error', { error: error.message });
+        res.status(502).json({ error: 'Failed to fetch KMU RSS feed' });
+      }
+    }) as any);
+    logger.info('KMU RSS Proxy endpoint registered at GET /api/proxy/kmu-rss');
+
     // ============ Chat Plan Review endpoint ============
     // POST /api/chat/plan - Returns execution plan for user review before running
     this.app.post('/api/chat/plan', chatRateLimit as any, requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
