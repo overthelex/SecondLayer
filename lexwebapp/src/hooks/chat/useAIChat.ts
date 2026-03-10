@@ -13,6 +13,7 @@ import type { Decision, Citation, VaultDocument, ExecutionPlan, CostSummary } fr
 import { getToolLabel } from './tool-labels';
 import { extractEvidenceFromToolResult } from './evidence-extractor';
 import { extractNormsFromAnswer } from './chat-helpers';
+import { useCurrencyRate } from '../useCurrencyRate';
 
 export interface UseAIChatOptions {
   onSuccess?: (result: any) => void;
@@ -32,6 +33,7 @@ export function useAIChat(options: UseAIChatOptions = {}) {
   } = useChatStore();
 
   const { onSuccess, onError } = options;
+  const { formatUah } = useCurrencyRate();
 
   // Accumulate evidence across multiple tool calls in one chat session
   const accumulatedDecisions = useRef<Decision[]>([]);
@@ -106,7 +108,7 @@ export function useAIChat(options: UseAIChatOptions = {}) {
 
         onBudgetEscalated: (data) => {
           showToast.info(
-            `Глибокий аналіз — орієнтовна вартість $${data.estimatedCost.minUsd.toFixed(2)}–$${data.estimatedCost.maxUsd.toFixed(2)}`,
+            `Глибокий аналіз — орієнтовна вартість ${formatUah(data.estimatedCost.minUsd)}–${formatUah(data.estimatedCost.maxUsd)}`,
             6000
           );
         },
@@ -124,7 +126,7 @@ export function useAIChat(options: UseAIChatOptions = {}) {
             }
           }
 
-          const costSuffix = data.cost_usd ? ` · $${data.cost_usd.toFixed(4)}` : '';
+          const costSuffix = data.cost_usd ? ` · ${formatUah(data.cost_usd)}` : '';
           addThinkingStep(assistantMessageId, {
             id: `step-${data.step}`,
             title: (data.description || `${getToolLabel(data.tool)}`) + costSuffix,
@@ -138,7 +140,7 @@ export function useAIChat(options: UseAIChatOptions = {}) {
             ? data.result.slice(0, 500)
             : JSON.stringify(data.result, null, 2).slice(0, 500);
 
-          const costSuffix = data.cost_usd ? ` · $${data.cost_usd.toFixed(4)}` : '';
+          const costSuffix = data.cost_usd ? ` · ${formatUah(data.cost_usd)}` : '';
           addThinkingStep(assistantMessageId, {
             id: `result-${data.tool}`,
             title: `${getToolLabel(data.tool)}` + costSuffix,
@@ -309,7 +311,7 @@ export function useAIChat(options: UseAIChatOptions = {}) {
 
       setStreamController(controller);
     },
-    [addThinkingStep, updateMessage, setStreaming, setStreamController, setCurrentTool, onSuccess, onError]
+    [addThinkingStep, updateMessage, setStreaming, setStreamController, setCurrentTool, onSuccess, onError, formatUah]
   );
 
   /**
