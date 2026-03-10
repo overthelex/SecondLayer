@@ -34,14 +34,18 @@ ENV VITE_SHOW_TOOL_SELECTOR=$VITE_SHOW_TOOL_SELECTOR
 ENV VITE_ENABLE_THINKING_STEPS=$VITE_ENABLE_THINKING_STEPS
 ENV VITE_AUTO_EXPAND_THINKING=$VITE_AUTO_EXPAND_THINKING
 
-# Build the application for staging
-RUN npm run build:staging
+# Build the application using the correct mode and normalize output to /app/lexwebapp/dist
+RUN if [ "$BUILD_ENV" = "production" ]; then \
+      npm run build; \
+    else \
+      npm run build:staging && mv dist-staging dist; \
+    fi
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine
 
-# Copy built assets from builder stage (staging build outputs to dist-staging)
-COPY --from=builder /app/lexwebapp/dist-staging /usr/share/nginx/html
+# Copy built assets from builder stage
+COPY --from=builder /app/lexwebapp/dist /usr/share/nginx/html
 
 # Copy custom nginx configuration
 COPY lexwebapp/nginx.conf /etc/nginx/conf.d/default.conf
