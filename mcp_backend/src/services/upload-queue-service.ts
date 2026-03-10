@@ -36,7 +36,7 @@ export interface UploadQueueMetrics {
 }
 
 const QUEUE_NAME = 'upload-processing';
-const DEFAULT_CONCURRENCY = parseInt(process.env.MAX_CONCURRENT_PROCESSING || '50', 10);
+const DEFAULT_CONCURRENCY = parseInt(process.env.MAX_CONCURRENT_PROCESSING || '100', 10);
 
 export class UploadQueueService {
   private queue: Queue;
@@ -100,8 +100,8 @@ export class UploadQueueService {
         connection,
         concurrency,
         limiter: {
-          max: 10,
-          duration: 5000, // Max 10 jobs started per 5 seconds — prevents OpenAI API burst
+          max: 40,
+          duration: 5000, // Max 40 jobs started per 5 seconds — Bedrock has no strict RPM limits
         },
       }
     );
