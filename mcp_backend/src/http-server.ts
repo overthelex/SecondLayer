@@ -2881,6 +2881,79 @@ class HTTPMCPServer {
       }
     }) as any);
 
+    // Internal EDRSR stats endpoint (used by pg-monitoring cross-env queries)
+    this.app.get('/api/internal/edrsr-stats', dualAuth as any, (async (_req: DualAuthRequest, res: Response) => {
+      try {
+        // Check if tables exist
+        const tablesExist = await this.services.db.query(`
+          SELECT
+            EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='edrsr_documents') AS has_docs,
+            EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='edrsr_fulltext') AS has_ft
+        `);
+        const { has_docs, has_ft } = tablesExist.rows[0];
+
+        let edrsrByYear: Array<{ year: number | null; total: number; with_fulltext: number }> = [];
+
+        if (has_docs && has_ft) {
+          const result = await this.services.db.query(`
+            SELECT
+              EXTRACT(YEAR FROM e.adjudication_date)::int AS year,
+              COUNT(*)::int AS total,
+              COUNT(f.doc_id)::int AS with_fulltext
+            FROM edrsr_documents e
+            LEFT JOIN edrsr_fulltext f ON f.doc_id = e.doc_id
+            GROUP BY year
+            ORDER BY year NULLS LAST
+          `);
+          edrsrByYear = result.rows;
+        } else if (has_docs) {
+          const result = await this.services.db.query(`
+            SELECT
+              EXTRACT(YEAR FROM adjudication_date)::int AS year,
+              COUNT(*)::int AS total,
+              0 AS with_fulltext
+            FROM edrsr_documents
+            GROUP BY year
+            ORDER BY year NULLS LAST
+          `);
+          edrsrByYear = result.rows;
+        }
+
+        // Also get standalone fulltext records not in edrsr_documents
+        let standaloneFulltext = 0;
+        if (has_ft) {
+          const ftOnly = await this.services.db.query(`
+            SELECT COUNT(*)::int AS cnt FROM edrsr_fulltext f
+            WHERE NOT EXISTS (SELECT 1 FROM edrsr_documents e WHERE e.doc_id = f.doc_id)
+          `);
+          standaloneFulltext = ftOnly.rows[0]?.cnt || 0;
+        }
+
+        // Get total counts
+        let totalDocs = 0;
+        let totalFulltext = 0;
+        if (has_docs) {
+          const r = await this.services.db.query('SELECT COUNT(*)::int AS cnt FROM edrsr_documents');
+          totalDocs = r.rows[0]?.cnt || 0;
+        }
+        if (has_ft) {
+          const r = await this.services.db.query('SELECT COUNT(*)::int AS cnt FROM edrsr_fulltext');
+          totalFulltext = r.rows[0]?.cnt || 0;
+        }
+
+        res.json({
+          byYear: edrsrByYear,
+          totalDocuments: totalDocs,
+          totalFulltext: totalFulltext,
+          standaloneFulltext,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error: any) {
+        logger.error('internal/edrsr-stats failed', { error: error.message });
+        res.status(500).json({ error: 'Failed to collect EDRSR stats' });
+      }
+    }) as any);
+
     // User prompts (save/load)
     this.app.get('/api/prompts', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
       try {
