@@ -81,7 +81,8 @@ export function MatterDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: matter, isLoading, error } = useMatter(id || '');
-  const { matterDetailTab, setMatterDetailTab } = useClientMatterStore();
+  const matterDetailTab = useClientMatterStore(s => s.matterDetailTab);
+  const setMatterDetailTab = useClientMatterStore(s => s.setMatterDetailTab);
   const closeMatter = useCloseMatter();
   const { data: teamData } = useMatterTeam(matter?.id || '');
   const { data: clientData } = useClient(matter?.client_id || '');

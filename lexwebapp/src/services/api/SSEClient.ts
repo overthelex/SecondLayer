@@ -5,14 +5,11 @@
  */
 
 import {
-  SSEEvent,
-  SSEEventType,
   StreamingCallbacks,
-  SSEProgressEvent,
-  SSECompleteEvent,
-  SSEErrorEvent,
 } from '../../types/api/sse';
 import { getErrorMessage, isAbortError } from '../../utils/errors';
+import { parseSSEMessage, handleSSEEvent } from './sse/parseSSEMessage';
+import { calculateRetryDelay } from './sse/RetryStrategy';
 
 export class SSEClient {
   private readonly apiUrl: string;
@@ -112,9 +109,9 @@ export class SSEClient {
           if (message.trim() === '') continue;
 
           try {
-            const event = this.parseSSEMessage(message);
+            const event = parseSSEMessage(message);
             if (event) {
-              this.handleSSEEvent(event, handlers);
+              handleSSEEvent(event, handlers);
             }
           } catch (error) {
             console.error('Failed to parse SSE message:', error, message);
@@ -137,69 +134,6 @@ export class SSEClient {
   }
 
   /**
-   * Parse SSE message format
-   * Format: event: <type>\ndata: <json>\n\n
-   */
-  private parseSSEMessage(message: string): SSEEvent | null {
-    const lines = message.split('\n');
-    let event: SSEEventType = 'progress';
-    let data: any = null;
-    let id: string | undefined;
-
-    for (const line of lines) {
-      if (line.startsWith('event:')) {
-        event = line.substring(6).trim() as SSEEventType;
-      } else if (line.startsWith('data:')) {
-        const dataStr = line.substring(5).trim();
-        try {
-          data = JSON.parse(dataStr);
-        } catch (error) {
-          // If not JSON, use as plain string
-          data = dataStr;
-        }
-      } else if (line.startsWith('id:')) {
-        id = line.substring(3).trim();
-      }
-    }
-
-    if (data === null) {
-      return null;
-    }
-
-    return { id, event, data };
-  }
-
-  /**
-   * Handle different SSE event types
-   */
-  private handleSSEEvent(event: SSEEvent, handlers: StreamingCallbacks): void {
-    switch (event.event) {
-      case 'connected':
-        handlers.onConnected?.(event.data);
-        break;
-
-      case 'progress':
-        handlers.onProgress?.(event.data as SSEProgressEvent);
-        break;
-
-      case 'complete':
-        handlers.onComplete?.(event.data as SSECompleteEvent);
-        break;
-
-      case 'error':
-        handlers.onError?.(event.data as SSEErrorEvent);
-        break;
-
-      case 'end':
-        handlers.onEnd?.();
-        break;
-
-      default:
-        console.warn('Unknown SSE event type:', event.event);
-    }
-  }
-
-  /**
    * Stream with automatic retry on failure
    */
   async streamToolWithRetry(
@@ -218,7 +152,7 @@ export class SSEClient {
             console.log(`Retrying stream (${retryCount + 1}/${this.maxRetries})...`);
             setTimeout(() => {
               this.streamToolWithRetry(toolName, params, handlers, authToken, retryCount + 1);
-            }, 1000 * Math.pow(2, retryCount)); // Exponential backoff
+            }, calculateRetryDelay(retryCount, 1000));
           } else {
             handlers.onError?.(error);
           }
@@ -228,7 +162,7 @@ export class SSEClient {
       if (retryCount < this.maxRetries) {
         console.log(`Retrying stream (${retryCount + 1}/${this.maxRetries})...`);
         await new Promise((resolve) =>
-          setTimeout(resolve, 1000 * Math.pow(2, retryCount))
+          setTimeout(resolve, calculateRetryDelay(retryCount, 1000))
         );
         return this.streamToolWithRetry(toolName, params, handlers, authToken, retryCount + 1);
       }

@@ -3,7 +3,6 @@
  * React Query hooks for matter, team, hold, and audit management
  */
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   matterService,
   SearchMattersParams,
@@ -38,35 +37,26 @@ export const useCreateMatter = createMutationHook<any, CreateMatterRequest>(
   [queryKeys.matters.all, queryKeys.clients.all]
 );
 
-export function useUpdateMatter() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateMatterRequest }) =>
-      matterService.updateMatter(id, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.matters.detail(variables.id),
-      });
-      queryClient.invalidateQueries({ queryKey: queryKeys.matters.all });
+export const useUpdateMatter = createMutationHook<any, { id: string; data: UpdateMatterRequest }>(
+  ({ id, data }) => matterService.updateMatter(id, data),
+  {
+    onSuccess: (qc, _, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.matters.detail(variables.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.matters.all });
     },
-  });
-}
+  }
+);
 
-export function useCloseMatter() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (matterId: string) => matterService.closeMatter(matterId),
-    onSuccess: (_, matterId) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.matters.detail(matterId),
-      });
-      queryClient.invalidateQueries({ queryKey: queryKeys.matters.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all });
+export const useCloseMatter = createMutationHook<any, string>(
+  (matterId) => matterService.closeMatter(matterId),
+  {
+    onSuccess: (qc, _, matterId) => {
+      qc.invalidateQueries({ queryKey: queryKeys.matters.detail(matterId) });
+      qc.invalidateQueries({ queryKey: queryKeys.matters.all });
+      qc.invalidateQueries({ queryKey: queryKeys.clients.all });
     },
-  });
-}
+  }
+);
 
 // ─── Team ────────────────────────────────────────────────
 
@@ -76,42 +66,27 @@ export const useMatterTeam = createDetailQueryHook(
   { staleTime: 2 * 60 * 1000 }
 );
 
-export function useAddTeamMember() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      matterId,
-      memberId,
-      role,
-      accessLevel,
-    }: {
-      matterId: string;
-      memberId: string;
-      role?: MatterTeamRole;
-      accessLevel?: MatterAccessLevel;
-    }) => matterService.addTeamMember(matterId, memberId, role, accessLevel),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.matters.team(variables.matterId),
-      });
+export const useAddTeamMember = createMutationHook<
+  any,
+  { matterId: string; memberId: string; role?: MatterTeamRole; accessLevel?: MatterAccessLevel }
+>(
+  ({ matterId, memberId, role, accessLevel }) =>
+    matterService.addTeamMember(matterId, memberId, role, accessLevel),
+  {
+    onSuccess: (qc, _, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.matters.team(variables.matterId) });
     },
-  });
-}
+  }
+);
 
-export function useRemoveTeamMember() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ matterId, userId }: { matterId: string; userId: string }) =>
-      matterService.removeTeamMember(matterId, userId),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.matters.team(variables.matterId),
-      });
+export const useRemoveTeamMember = createMutationHook<any, { matterId: string; userId: string }>(
+  ({ matterId, userId }) => matterService.removeTeamMember(matterId, userId),
+  {
+    onSuccess: (qc, _, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.matters.team(variables.matterId) });
     },
-  });
-}
+  }
+);
 
 // ─── Matter Documents ────────────────────────────────────
 
@@ -121,33 +96,23 @@ export const useMatterDocuments = createDetailQueryHook(
   { staleTime: 2 * 60 * 1000 }
 );
 
-export function useAssignDocuments() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ matterId, documentIds }: { matterId: string; documentIds: string[] }) =>
-      matterService.assignDocumentsToMatter(matterId, documentIds),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.matters.documents(variables.matterId),
-      });
+export const useAssignDocuments = createMutationHook<any, { matterId: string; documentIds: string[] }>(
+  ({ matterId, documentIds }) => matterService.assignDocumentsToMatter(matterId, documentIds),
+  {
+    onSuccess: (qc, _, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.matters.documents(variables.matterId) });
     },
-  });
-}
+  }
+);
 
-export function useUnassignDocuments() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ matterId, documentIds }: { matterId: string; documentIds: string[] }) =>
-      matterService.unassignDocumentsFromMatter(matterId, documentIds),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.matters.documents(variables.matterId),
-      });
+export const useUnassignDocuments = createMutationHook<any, { matterId: string; documentIds: string[] }>(
+  ({ matterId, documentIds }) => matterService.unassignDocumentsFromMatter(matterId, documentIds),
+  {
+    onSuccess: (qc, _, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.matters.documents(variables.matterId) });
     },
-  });
-}
+  }
+);
 
 // ─── Legal Holds ─────────────────────────────────────────
 
@@ -157,39 +122,25 @@ export const useMatterHolds = createDetailQueryHook(
   { staleTime: 2 * 60 * 1000 }
 );
 
-export function useCreateHold() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ matterId, data }: { matterId: string; data: CreateHoldRequest }) =>
-      matterService.createHold(matterId, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.matters.holds(variables.matterId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.matters.detail(variables.matterId),
-      });
+export const useCreateHold = createMutationHook<any, { matterId: string; data: CreateHoldRequest }>(
+  ({ matterId, data }) => matterService.createHold(matterId, data),
+  {
+    onSuccess: (qc, _, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.matters.holds(variables.matterId) });
+      qc.invalidateQueries({ queryKey: queryKeys.matters.detail(variables.matterId) });
     },
-  });
-}
+  }
+);
 
-export function useReleaseHold() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ holdId }: { holdId: string; matterId: string }) =>
-      matterService.releaseHold(holdId),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.matters.holds(variables.matterId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.matters.detail(variables.matterId),
-      });
+export const useReleaseHold = createMutationHook<any, { holdId: string; matterId: string }>(
+  ({ holdId }) => matterService.releaseHold(holdId),
+  {
+    onSuccess: (qc, _, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.matters.holds(variables.matterId) });
+      qc.invalidateQueries({ queryKey: queryKeys.matters.detail(variables.matterId) });
     },
-  });
-}
+  }
+);
 
 // ─── Audit ───────────────────────────────────────────────
 
@@ -199,8 +150,7 @@ export const useAuditLog = createQueryHook<Awaited<ReturnType<typeof matterServi
   { staleTime: 30 * 1000 }
 );
 
-export function useValidateAuditChain() {
-  return useMutation({
-    mutationFn: () => matterService.validateAuditChain(),
-  });
-}
+export const useValidateAuditChain = createMutationHook<any, void>(
+  () => matterService.validateAuditChain(),
+  []
+);

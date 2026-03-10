@@ -18,8 +18,13 @@ import { getErrorMessage } from '../../utils/errors';
 export function ChatPage() {
   const [selectedTool, setSelectedTool] = useState(AI_CHAT_MODE);
 
-  // Zustand stores
-  const { messages, isStreaming, cancelStream, removeMessage, pendingPlanReview, isPlanLoading } = useChatStore();
+  // Zustand stores — individual selectors to avoid full-store re-renders
+  const messages = useChatStore(s => s.messages);
+  const isStreaming = useChatStore(s => s.isStreaming);
+  const pendingPlanReview = useChatStore(s => s.pendingPlanReview);
+  const isPlanLoading = useChatStore(s => s.isPlanLoading);
+  const cancelStream = useChatStore(s => s.cancelStream);
+  const removeMessage = useChatStore(s => s.removeMessage);
 
   // MCP Tool hook (for manual tool mode)
   const { executeTool } = useMCPTool(selectedTool === AI_CHAT_MODE ? 'search_legal_precedents' : selectedTool, {

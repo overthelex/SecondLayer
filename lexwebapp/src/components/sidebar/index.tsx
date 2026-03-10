@@ -47,15 +47,13 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   const [deletingFolder, setDeletingFolder] = useState<string | null>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
-  const {
-    conversations,
-    conversationId: activeConversationId,
-    loadConversations,
-    switchConversation,
-    deleteConversation,
-    renameConversation,
-    newConversation,
-  } = useChatStore();
+  const conversations = useChatStore(s => s.conversations);
+  const activeConversationId = useChatStore(s => s.conversationId);
+  const loadConversations = useChatStore(s => s.loadConversations);
+  const switchConversation = useChatStore(s => s.switchConversation);
+  const deleteConversation = useChatStore(s => s.deleteConversation);
+  const renameConversation = useChatStore(s => s.renameConversation);
+  const newConversation = useChatStore(s => s.newConversation);
 
   const renderedSectionIds = useMemo(() => {
     if (role === 'administrator') return ['external-sources', 'monitoring'];

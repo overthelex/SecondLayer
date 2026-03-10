@@ -86,15 +86,13 @@ export function MainLayout() {
     sessionStorage.setItem(SESSION_KEY, '1');
   }, []);
 
-  // Use UI store for sidebar and panel state
-  const {
-    isSidebarOpen,
-    isRightPanelOpen,
-    rightPanelWidth,
-    toggleSidebar,
-    toggleRightPanel,
-    setSidebarOpen,
-  } = useUIStore();
+  // Use UI store for sidebar and panel state — individual selectors
+  const isSidebarOpen = useUIStore(s => s.isSidebarOpen);
+  const isRightPanelOpen = useUIStore(s => s.isRightPanelOpen);
+  const rightPanelWidth = useUIStore(s => s.rightPanelWidth);
+  const toggleSidebar = useUIStore(s => s.toggleSidebar);
+  const toggleRightPanel = useUIStore(s => s.toggleRightPanel);
+  const setSidebarOpen = useUIStore(s => s.setSidebarOpen);
 
   const handleLogout = () => {
     logout();

@@ -3,7 +3,7 @@
  * React Query hooks for time tracking and timers
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   timeEntryService,
 } from '../../services/api/TimeEntryService';
@@ -66,24 +66,15 @@ export const useStartTimer = createMutationHook<any, { matter_id: string; descri
   [queryKeys.timeEntries.timers]
 );
 
-export function useStopTimer() {
-  const queryClient = useQueryClient();
+export const useStopTimer = createMutationHook<any, { matter_id: string; create_entry?: boolean }>(
+  ({ matter_id, create_entry }) => timeEntryService.stopTimer(matter_id, create_entry),
+  [queryKeys.timeEntries.timers, queryKeys.timeEntries.all]
+);
 
-  return useMutation({
-    mutationFn: ({ matter_id, create_entry }: { matter_id: string; create_entry?: boolean }) =>
-      timeEntryService.stopTimer(matter_id, create_entry),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.timeEntries.timers });
-      queryClient.invalidateQueries({ queryKey: queryKeys.timeEntries.all });
-    },
-  });
-}
-
-export function usePingTimer() {
-  return useMutation({
-    mutationFn: (matter_id: string) => timeEntryService.pingTimer(matter_id),
-  });
-}
+export const usePingTimer = createMutationHook<any, string>(
+  (matter_id) => timeEntryService.pingTimer(matter_id),
+  []
+);
 
 // ============================================================================
 // Billing Rate Hooks
@@ -98,32 +89,21 @@ export function useUserRate(userId: string, date?: string) {
   });
 }
 
-export function useSetUserRate() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      user_id,
-      hourly_rate_usd,
-      effective_from,
-      effective_to,
-      is_default,
-    }: {
-      user_id: string;
-      hourly_rate_usd: number;
-      effective_from?: string;
-      effective_to?: string;
-      is_default?: boolean;
-    }) =>
-      timeEntryService.setUserRate(
-        user_id,
-        hourly_rate_usd,
-        effective_from,
-        effective_to,
-        is_default
-      ),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['userRate', variables.user_id] });
+export const useSetUserRate = createMutationHook<
+  any,
+  {
+    user_id: string;
+    hourly_rate_usd: number;
+    effective_from?: string;
+    effective_to?: string;
+    is_default?: boolean;
+  }
+>(
+  ({ user_id, hourly_rate_usd, effective_from, effective_to, is_default }) =>
+    timeEntryService.setUserRate(user_id, hourly_rate_usd, effective_from, effective_to, is_default),
+  {
+    onSuccess: (qc, _, variables) => {
+      qc.invalidateQueries({ queryKey: ['userRate', variables.user_id] });
     },
-  });
-}
+  }
+);

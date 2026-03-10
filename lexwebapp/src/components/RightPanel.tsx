@@ -82,7 +82,7 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   const { decisions: chatDecisions, otherCourtDocs, citations, vaultDocuments, messagesCount } = useEvidenceAggregator();
-  const { downloadedDecisions } = useDecisionsSearchStore();
+  const downloadedDecisions = useDecisionsSearchStore(s => s.downloadedDecisions);
 
   // On /decisions page, merge downloaded decisions into the decisions list
   const downloadedList = useMemo(() => {
@@ -247,7 +247,8 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
   };
 
   // --- Resize handle ---
-  const { rightPanelWidth, setRightPanelWidth } = useUIStore();
+  const rightPanelWidth = useUIStore(s => s.rightPanelWidth);
+  const setRightPanelWidth = useUIStore(s => s.setRightPanelWidth);
   const isResizing = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);

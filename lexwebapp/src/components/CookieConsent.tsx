@@ -50,16 +50,14 @@ function CategoryToggle({ label, description, checked, disabled, onChange }: Cat
 }
 
 export function CookieConsent() {
-  const {
-    hasConsented,
-    showBanner,
-    showSettings,
-    acceptAll,
-    rejectNonEssential,
-    savePreferences,
-    openSettings,
-    closeSettings,
-  } = useConsentStore();
+  const hasConsented = useConsentStore(s => s.hasConsented);
+  const showBanner = useConsentStore(s => s.showBanner);
+  const showSettings = useConsentStore(s => s.showSettings);
+  const acceptAll = useConsentStore(s => s.acceptAll);
+  const rejectNonEssential = useConsentStore(s => s.rejectNonEssential);
+  const savePreferences = useConsentStore(s => s.savePreferences);
+  const openSettings = useConsentStore(s => s.openSettings);
+  const closeSettings = useConsentStore(s => s.closeSettings);
 
   const [localPrefs, setLocalPrefs] = useState<Omit<ConsentPreferences, 'essential'>>({
     functional: false,

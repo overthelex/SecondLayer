@@ -17,6 +17,7 @@ import {
   SearchX,
 } from 'lucide-react';
 import { mcpService } from '../../services';
+import { useShallow } from 'zustand/react/shallow';
 import { useUploadStore } from '../../stores/uploadStore';
 import { showToast } from '../../utils/toast';
 import { api } from '../../utils/api-client';
@@ -195,18 +196,20 @@ export function DocumentsPage() {
     handleSaveOcrText, pushAction, undoAction,
   } = actions;
 
-  // Upload state from Zustand store
-  const {
-    items: uploadItems,
-    isUploading,
-    completedFiles,
-    addFiles,
-    startUpload,
-    recoverSessions,
-    recoveredSessions,
-    dismissRecoveredSession,
-    clearRecoveredSessions,
-  } = useUploadStore();
+  // Upload state from Zustand store — shallow selector for state values
+  const { items: uploadItems, isUploading, completedFiles, recoveredSessions } = useUploadStore(
+    useShallow(s => ({
+      items: s.items,
+      isUploading: s.isUploading,
+      completedFiles: s.completedFiles,
+      recoveredSessions: s.recoveredSessions,
+    }))
+  );
+  const addFiles = useUploadStore(s => s.addFiles);
+  const startUpload = useUploadStore(s => s.startUpload);
+  const recoverSessions = useUploadStore(s => s.recoverSessions);
+  const dismissRecoveredSession = useUploadStore(s => s.dismissRecoveredSession);
+  const clearRecoveredSessions = useUploadStore(s => s.clearRecoveredSessions);
 
   // Undo/redo
   const setOnActionExecuted = useUndoStore((s) => s.setOnActionExecuted);
