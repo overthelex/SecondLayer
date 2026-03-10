@@ -26,17 +26,17 @@ export function ReleaseHoldConfirmation({ hold, matterId, onClose }: ReleaseHold
   };
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Зняти утримання" size="sm">
+    <Modal isOpen={true} onClose={onClose} title="Зняти заборону знищення" size="sm">
       <div className="space-y-4 p-1">
         <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
           <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-amber-800 font-sans">
-              Ви впевнені, що хочете зняти утримання?
+              Ви впевнені, що хочете зняти заборону знищення?
             </p>
             <p className="text-xs text-amber-700 font-sans mt-1">
-              Утримання "{hold.hold_name}" буде знято. Документи, що знаходяться під цим
-              утриманням, більше не будуть захищені від видалення.
+              Заборону "{hold.hold_name}" буде знято. Документи, на які поширювалась ця
+              заборона, більше не будуть захищені від видалення.
             </p>
           </div>
         </div>
@@ -55,7 +55,7 @@ export function ReleaseHoldConfirmation({ hold, matterId, onClose }: ReleaseHold
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-xl font-medium text-sm font-sans hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {releaseHold.isPending && <Loader2 size={16} className="animate-spin" />}
-            Зняти утримання
+            Зняти заборону
           </button>
         </div>
       </div>
