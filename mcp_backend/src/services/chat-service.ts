@@ -273,7 +273,7 @@ export class ChatService {
     if (this.conversationService && request.userId && !request.conversationId) {
       try {
         const titlePreview = query.slice(0, 80) || 'New conversation';
-        const conv = await this.conversationService.createConversation(request.userId, titlePreview);
+        const conv = await this.conversationService.createConversation(request.userId, titlePreview, { requestId });
         request.conversationId = conv.id;
         logger.info('[ChatService] Auto-created conversation for request without conversationId', {
           conversationId: conv.id,
@@ -283,6 +283,9 @@ export class ChatService {
       } catch (e) {
         logger.warn('[ChatService] Failed to auto-create conversation', { error: (e as Error).message });
       }
+    } else if (this.conversationService && request.conversationId && requestId) {
+      // Link request_id to existing conversation for log traceability
+      this.conversationService.updateRequestId(request.conversationId, requestId).catch(() => {});
     }
 
     // Create cost tracking record if requestId provided
