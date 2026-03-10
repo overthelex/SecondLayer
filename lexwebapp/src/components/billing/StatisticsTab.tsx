@@ -116,9 +116,11 @@ export function StatisticsTab() {
 
   const handleExportCSV = () => {
     if (!data) return;
+    const csvEscape = (val: string) =>
+      val.includes(',') || val.includes('"') || val.includes('\n') ? `"${val.replace(/"/g, '""')}"` : val;
     const rows = [
       ['Дата', 'Запити', 'Витрати (USD)'],
-      ...data.dailyData.map((d) => [d.date, d.requests.toString(), d.cost.toFixed(4)]),
+      ...data.dailyData.map((d) => [csvEscape(d.date), d.requests.toString(), d.cost.toFixed(4)]),
     ];
     const csv = rows.map((r) => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

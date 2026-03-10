@@ -620,15 +620,15 @@ export function TopUpTab({ initialAmount }: TopUpTabProps) {
           ))}
         </div>
         <div>
-          <label className="block text-sm font-medium text-claude-text mb-2">Інша сума</label>
+          <label className="block text-sm font-medium text-claude-text mb-2">Інша сума (USD)</label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-claude-subtext font-medium">₴</span>
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-claude-subtext font-medium">$</span>
             <input type="number" min="1" step="0.01"
               value={customAmount} onChange={(e) => { setCustomAmount(e.target.value); const p = parseFloat(e.target.value); if (!isNaN(p) && p > 0) setAmount(p); }}
               placeholder="25.00"
               className="w-full pl-8 pr-4 py-3 border border-claude-border rounded-lg focus:outline-none focus:ring-2 focus:ring-claude-accent/20" />
           </div>
-          <p className="text-xs text-claude-subtext mt-2">Мінімум: {formatUah(1)}</p>
+          <p className="text-xs text-claude-subtext mt-2">Мінімум: $1 (≈ {formatUah(1)})</p>
         </div>
         <div className="mt-4 p-4 bg-claude-bg rounded-lg">
           <div className="flex items-center justify-between">
