@@ -57,6 +57,8 @@ export interface PlanStep {
   depends_on?: number[];
   completed?: boolean;
   depth?: 'standard' | 'deep';
+  recommendedDepth?: 'standard' | 'deep';
+  estimatedCost?: number;
 }
 
 export interface Decision {

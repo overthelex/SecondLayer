@@ -63,6 +63,8 @@ export interface PlanStep {
   purpose: string;             // Why this step (for UI, Ukrainian)
   depends_on?: number[];       // Dependencies on prior steps
   depth?: 'standard' | 'deep'; // User-chosen analysis depth (default: standard)
+  recommendedDepth?: 'standard' | 'deep'; // LLM-recommended depth
+  estimatedCost?: number;      // Estimated cost in USD for this step
 }
 
 // ============================
@@ -124,11 +126,18 @@ CRITICAL: You MUST ALWAYS return a plan with at least 1 step. NEVER return an em
       "tool": "tool_name",
       "params": {"key": "value"},
       "purpose": "Мета кроку українською",
-      "depends_on": []
+      "depends_on": [],
+      "recommendedDepth": "standard"
     }
   ],
   "expected_iterations": 3
 }
+
+## recommendedDepth rules
+- For search tools (search_legal_precedents, search_supreme_court_practice, find_similar_fact_pattern_cases, compare_practice_pro_contra, search_legislation, find_relevant_law_articles, search_procedural_norms):
+  - Use "deep" when query requires thorough analysis, complex legal questions, institutional analysis, or comparative study
+  - Use "standard" for simple lookups, basic searches, or when query is narrow and specific
+- For non-search tools: omit recommendedDepth (they are fixed-cost)
 
 ## Example
 Query: "Аналіз справи 922/989/18 через усі інстанції"
@@ -138,11 +147,11 @@ Response:
 {"goal":"Комплексний аналіз справи 922/989/18 через усі інстанції","steps":[{"id":1,"tool":"get_case_documents_chain","params":{"case_number":"922/989/18","include_full_text":true},"purpose":"Отримати всі документи справи з повними текстами"}],"expected_iterations":2}
 
 Example 2:
-Query: "Дай повний текст 369/1855/15-ц"
-Slots: {"case_number": "369/1855/15-ц"}
+Query: "Судова практика щодо захисту авторських прав"
+Slots: {}
 
 Response:
-{"goal":"Отримати повний текст рішень у справі 369/1855/15-ц","steps":[{"id":1,"tool":"get_case_documents_chain","params":{"case_number":"369/1855/15-ц","include_full_text":true},"purpose":"Завантажити документи з повними текстами"}],"expected_iterations":1}`;
+{"goal":"Аналіз судової практики захисту авторських прав","steps":[{"id":1,"tool":"search_legal_precedents","params":{"query":"захист авторських прав","limit":20},"purpose":"Знайти релевантні судові рішення","recommendedDepth":"deep"},{"id":2,"tool":"find_relevant_law_articles","params":{"query":"авторські права","limit":10},"purpose":"Знайти статті законодавства","recommendedDepth":"standard"}],"expected_iterations":3}`;
 
   const slotsStr = classification.slots ? `\nСлоти: ${JSON.stringify(classification.slots)}` : '';
 

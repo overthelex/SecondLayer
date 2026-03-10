@@ -122,6 +122,32 @@ const DEPTH_OVERRIDES: Record<string, { standard: Record<string, any>; deep: Rec
   search_procedural_norms:        { standard: { limit: 10 }, deep: { limit: 25 } },
 };
 
+/**
+ * Estimated cost per step (USD) based on tool type and depth.
+ * Includes LLM processing cost (token estimation) + embedding/API costs.
+ */
+const STEP_COST_ESTIMATES: Record<string, { standard: number; deep: number }> = {
+  // Search tools — cost scales with result limit
+  search_legal_precedents:         { standard: 0.008, deep: 0.025 },
+  search_supreme_court_practice:   { standard: 0.008, deep: 0.025 },
+  find_similar_fact_pattern_cases: { standard: 0.005, deep: 0.015 },
+  compare_practice_pro_contra:     { standard: 0.008, deep: 0.025 },
+  search_legislation:              { standard: 0.004, deep: 0.012 },
+  find_relevant_law_articles:      { standard: 0.004, deep: 0.010 },
+  search_procedural_norms:         { standard: 0.004, deep: 0.010 },
+  // Fixed-cost tools
+  get_court_decision:              { standard: 0.005, deep: 0.005 },
+  get_case_documents_chain:        { standard: 0.010, deep: 0.010 },
+  get_legislation_article:         { standard: 0.003, deep: 0.003 },
+  get_legislation_structure:       { standard: 0.002, deep: 0.002 },
+  load_full_texts:                 { standard: 0.008, deep: 0.008 },
+  semantic_search:                 { standard: 0.004, deep: 0.004 },
+  list_documents:                  { standard: 0.002, deep: 0.002 },
+  count_cases_by_party:            { standard: 0.003, deep: 0.003 },
+};
+
+const DEFAULT_STEP_COST = { standard: 0.004, deep: 0.004 };
+
 const PLAN_SESSION_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // ============================
@@ -186,9 +212,17 @@ export class ChatService {
 
     if (!plan) return null;
 
-    // Assign default depth to each step
+    // Apply LLM-recommended depth and estimate costs per step
     for (const step of plan.steps) {
-      if (!step.depth) step.depth = 'standard';
+      // Use LLM-recommended depth if provided, otherwise default to 'standard'
+      if (step.recommendedDepth) {
+        step.depth = step.recommendedDepth;
+      } else if (!step.depth) {
+        step.depth = 'standard';
+      }
+      // Calculate estimated cost for this step at current depth
+      const costMap = STEP_COST_ESTIMATES[step.tool] || DEFAULT_STEP_COST;
+      step.estimatedCost = costMap[step.depth || 'standard'];
     }
 
     // Cache session for reuse
