@@ -9,7 +9,9 @@ import { useTimerStore } from '../../stores';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const TimeTrackerWidget: React.FC = () => {
-  const { timers, loadTimers, stopTimer } = useTimerStore();
+  const timers = useTimerStore(s => s.timers);
+  const loadTimers = useTimerStore(s => s.loadTimers);
+  const stopTimer = useTimerStore(s => s.stopTimer);
   const [isExpanded, setIsExpanded] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
 

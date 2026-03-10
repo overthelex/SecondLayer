@@ -5,6 +5,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Clock, CheckCircle, AlertCircle, Trash2, Loader2 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { useWorkflowStore } from '../../stores/workflowStore';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
@@ -17,7 +18,11 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 
 export function WorkflowsPage() {
   const navigate = useNavigate();
-  const { workflowSets, isLoading, error, fetchWorkflowSets, deleteWorkflowSet } = useWorkflowStore();
+  const { workflowSets, isLoading, error } = useWorkflowStore(
+    useShallow(s => ({ workflowSets: s.workflowSets, isLoading: s.isLoading, error: s.error }))
+  );
+  const fetchWorkflowSets = useWorkflowStore(s => s.fetchWorkflowSets);
+  const deleteWorkflowSet = useWorkflowStore(s => s.deleteWorkflowSet);
 
   useEffect(() => {
     fetchWorkflowSets();

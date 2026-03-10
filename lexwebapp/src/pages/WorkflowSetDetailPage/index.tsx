@@ -5,6 +5,7 @@
 import { useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Zap, Play, Loader2 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { useWorkflowStore } from '../../stores/workflowStore';
 import { WorkflowCard } from './WorkflowCard';
 import { ROUTES } from '../../router/routes';
@@ -14,15 +15,17 @@ export function WorkflowSetDetailPage() {
   const navigate = useNavigate();
   const cancelRef = useRef<(() => void) | null>(null);
 
-  const {
-    activeWorkflowSet,
-    isLoading,
-    error,
-    executingWorkflowId,
-    fetchWorkflowSet,
-    executeWorkflow,
-    cancelWorkflow,
-  } = useWorkflowStore();
+  const { activeWorkflowSet, isLoading, error, executingWorkflowId } = useWorkflowStore(
+    useShallow(s => ({
+      activeWorkflowSet: s.activeWorkflowSet,
+      isLoading: s.isLoading,
+      error: s.error,
+      executingWorkflowId: s.executingWorkflowId,
+    }))
+  );
+  const fetchWorkflowSet = useWorkflowStore(s => s.fetchWorkflowSet);
+  const executeWorkflow = useWorkflowStore(s => s.executeWorkflow);
+  const cancelWorkflow = useWorkflowStore(s => s.cancelWorkflow);
 
   useEffect(() => {
     if (id) fetchWorkflowSet(id);
