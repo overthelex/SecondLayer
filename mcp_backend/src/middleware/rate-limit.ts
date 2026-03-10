@@ -91,10 +91,10 @@ export const webhookRateLimit = createRateLimiter({
   keyPrefix: 'ratelimit:webhook',
 });
 
-// Chat endpoint rate limiter (max 10 requests per minute)
+// Chat endpoint rate limiter (max 20 requests per minute)
 export const chatRateLimit = createRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 10,
+  maxRequests: 20,
   keyPrefix: 'ratelimit:chat',
 });
 
