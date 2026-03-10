@@ -211,13 +211,9 @@ export function useAIChat(options: UseAIChatOptions = {}) {
           setStreamController(null);
           setCurrentTool(null);
 
+          // Server-side persistence handles saving assistant messages
+          // (chat-service.ts saves with full tool_calls/cost_summary data)
           const completedState = useChatStore.getState();
-          const completedMsg = completedState.messages.find(
-            (m) => m.id === assistantMessageId
-          );
-          if (completedMsg) {
-            completedState.syncMessage(completedMsg);
-          }
 
           // Auto-rename conversation if it still has the default title
           if (completedState.conversationId) {
@@ -325,8 +321,8 @@ export function useAIChat(options: UseAIChatOptions = {}) {
         const title = query.slice(0, 60).trim() || undefined;
         await state.createConversation(title);
       }
-      // syncMessage after createConversation resolves so conversationId is set
-      useChatStore.getState().syncMessage(userMessage);
+      // Server-side persistence handles saving user messages
+      // (chat-service.ts saves both user and assistant messages)
 
       const assistantMessageId = (Date.now() + 1).toString();
       addMessage({
