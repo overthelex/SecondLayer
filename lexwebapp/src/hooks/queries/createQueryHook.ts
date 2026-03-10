@@ -40,21 +40,37 @@ export function createDetailQueryHook<TData>(
 }
 
 /**
- * Creates a mutation hook that invalidates query keys on success
+ * Creates a mutation hook that invalidates query keys on success.
+ *
+ * Supports two signatures:
+ *   1. Static keys:   createMutationHook(fn, [key1, key2])
+ *   2. Dynamic keys:  createMutationHook(fn, { onSuccess: (qc, data, vars) => ... })
  */
 export function createMutationHook<TData, TVariables>(
   mutationFn: (variables: TVariables) => Promise<TData>,
-  invalidateKeys: QueryKey[]
+  invalidation:
+    | QueryKey[]
+    | {
+        onSuccess: (
+          queryClient: ReturnType<typeof useQueryClient>,
+          data: TData,
+          variables: TVariables
+        ) => void;
+      }
 ) {
   return () => {
     const queryClient = useQueryClient();
 
     return useMutation({
       mutationFn,
-      onSuccess: () => {
-        invalidateKeys.forEach((key) => {
-          queryClient.invalidateQueries({ queryKey: key });
-        });
+      onSuccess: (data, variables) => {
+        if (Array.isArray(invalidation)) {
+          invalidation.forEach((key) => {
+            queryClient.invalidateQueries({ queryKey: key });
+          });
+        } else {
+          invalidation.onSuccess(queryClient, data, variables);
+        }
       },
     });
   };

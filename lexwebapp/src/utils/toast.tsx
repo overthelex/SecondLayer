@@ -4,7 +4,6 @@
  */
 
 import toast from 'react-hot-toast';
-import React from 'react';
 
 const baseStyle = {
   fontFamily: 'Inter, sans-serif',
@@ -112,22 +111,26 @@ export const showToast = {
 
   undoable: (message: string, onUndo: () => void, duration = 5000) => {
     return toast(
-      (t) => React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } },
-        React.createElement('span', null, message),
-        React.createElement('button', {
-          onClick: () => { toast.dismiss(t.id); onUndo(); },
-          style: {
-            background: 'none',
-            border: '1px solid #D97757',
-            borderRadius: '6px',
-            color: '#D97757',
-            cursor: 'pointer',
-            padding: '4px 10px',
-            fontSize: '13px',
-            fontWeight: 500,
-            whiteSpace: 'nowrap' as const,
-          },
-        }, '\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438'),
+      (t) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span>{message}</span>
+          <button
+            onClick={() => { toast.dismiss(t.id); onUndo(); }}
+            style={{
+              background: 'none',
+              border: '1px solid #D97757',
+              borderRadius: '6px',
+              color: '#D97757',
+              cursor: 'pointer',
+              padding: '4px 10px',
+              fontSize: '13px',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Скасувати
+          </button>
+        </div>
       ),
       {
         duration,
