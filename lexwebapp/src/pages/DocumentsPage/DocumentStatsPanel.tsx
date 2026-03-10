@@ -8,29 +8,7 @@ import {
   HardDrive,
 } from 'lucide-react';
 import type { DocumentStats } from './types';
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-  contract: 'Договори',
-  legislation: 'Законодавство',
-  court_decision: 'Судові рішення',
-  internal: 'Внутрішні',
-  other: 'Інше',
-};
-
-const DOC_TYPE_COLORS: Record<string, string> = {
-  contract: 'bg-blue-100 text-blue-700',
-  legislation: 'bg-purple-100 text-purple-700',
-  court_decision: 'bg-amber-100 text-amber-700',
-  internal: 'bg-green-100 text-green-700',
-  other: 'bg-gray-100 text-gray-600',
-};
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
-}
+import { DOC_TYPE_LABELS_PLURAL, DOC_TYPE_COLORS_SOLID, formatFileSize } from './constants';
 
 interface DocumentStatsPanelProps {
   stats: DocumentStats | null;
@@ -38,7 +16,17 @@ interface DocumentStatsPanelProps {
 }
 
 export function DocumentStatsPanel({ stats, loading }: DocumentStatsPanelProps) {
-  if (loading || !stats || stats.total === 0) return null;
+  if (loading || !stats) return null;
+
+  if (stats.total === 0) {
+    return (
+      <div className="mb-5 rounded-xl border border-claude-border bg-white p-4 text-center">
+        <p className="text-sm text-claude-subtext/60 font-sans">
+          0 документів — завантажте перший файл щоб побачити статистику
+        </p>
+      </div>
+    );
+  }
 
   const classifiedPercent = stats.total > 0
     ? Math.round((stats.classified / stats.total) * 100)
@@ -82,7 +70,7 @@ export function DocumentStatsPanel({ stats, loading }: DocumentStatsPanelProps) 
         <StatCard
           icon={<HardDrive size={14} />}
           label="Обсяг"
-          value={formatBytes(stats.totalStorageBytes)}
+          value={formatFileSize(stats.totalStorageBytes)}
           color="text-purple-600"
         />
       </div>
@@ -97,10 +85,10 @@ export function DocumentStatsPanel({ stats, loading }: DocumentStatsPanelProps) 
               <span
                 key={type}
                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-sans font-medium ${
-                  DOC_TYPE_COLORS[type] || DOC_TYPE_COLORS.other
+                  DOC_TYPE_COLORS_SOLID[type] || DOC_TYPE_COLORS_SOLID.other
                 }`}
               >
-                {DOC_TYPE_LABELS[type] || type}
+                {DOC_TYPE_LABELS_PLURAL[type] || type}
                 <span className="opacity-70">{count}</span>
               </span>
             ))}
