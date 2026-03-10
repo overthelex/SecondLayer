@@ -40,9 +40,9 @@ export class CpuAdaptiveManager {
     this.onConcurrencyChange = onConcurrencyChange;
     this.cpuCount = os.cpus().length;
 
-    this.workersPerCore = parseInt(process.env.WORKERS_PER_CORE || '4', 10);
-    this.minConcurrency = parseInt(process.env.MIN_CONCURRENT_PROCESSING || '2', 10);
-    this.maxConcurrency = parseInt(process.env.MAX_CONCURRENT_PROCESSING || '50', 10);
+    this.workersPerCore = parseInt(process.env.WORKERS_PER_CORE || '8', 10);
+    this.minConcurrency = parseInt(process.env.MIN_CONCURRENT_PROCESSING || '5', 10);
+    this.maxConcurrency = parseInt(process.env.MAX_CONCURRENT_PROCESSING || '100', 10);
     this.currentConcurrency = initialConcurrency;
 
     logger.info('[CpuAdaptive] Initialized', {
