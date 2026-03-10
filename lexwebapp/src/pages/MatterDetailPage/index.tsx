@@ -319,7 +319,11 @@ export function MatterDetailPage() {
                         <div className="text-xs text-claude-subtext font-sans mb-1">Пов'язані сторони</div>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {matter.related_parties.map((party, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-claude-bg rounded text-xs font-sans text-claude-text">{party}</span>
+                            <span key={i} className="px-2 py-0.5 bg-claude-bg rounded text-xs font-sans text-claude-text">
+                              {typeof party === 'object' && party !== null
+                                ? [party.name, party.role, party.inn].filter(Boolean).join(' — ')
+                                : String(party)}
+                            </span>
                           ))}
                         </div>
                       </div>
