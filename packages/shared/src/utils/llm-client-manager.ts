@@ -718,7 +718,8 @@ export class LLMClientManager {
   // ─── Bedrock Converse API ─────────────────────────────────────────
 
   private convertToBedrockMessages(
-    messages: UnifiedMessage[]
+    messages: UnifiedMessage[],
+    hasTools: boolean = true
   ): { system: SystemContentBlock[]; messages: BedrockMessage[] } {
     const system: SystemContentBlock[] = [];
     const bedrockMessages: BedrockMessage[] = [];
@@ -730,37 +731,60 @@ export class LLMClientManager {
       }
 
       if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
-        const content: ContentBlock[] = [];
-        if (m.content) {
-          content.push({ text: m.content });
+        if (hasTools) {
+          const content: ContentBlock[] = [];
+          if (m.content) {
+            content.push({ text: m.content });
+          }
+          for (const tc of m.tool_calls) {
+            content.push({
+              toolUse: {
+                toolUseId: tc.id,
+                name: tc.name,
+                input: tc.arguments,
+              },
+            });
+          }
+          bedrockMessages.push({ role: 'assistant', content });
+        } else {
+          // No tools in request — convert tool_use blocks to text to avoid
+          // Bedrock's "toolConfig must be defined" validation error
+          const parts: string[] = [];
+          if (m.content) parts.push(m.content);
+          for (const tc of m.tool_calls) {
+            parts.push(`[Викликано інструмент ${tc.name}(${JSON.stringify(tc.arguments)})]`);
+          }
+          bedrockMessages.push({ role: 'assistant', content: [{ text: parts.join('\n') }] });
         }
-        for (const tc of m.tool_calls) {
-          content.push({
-            toolUse: {
-              toolUseId: tc.id,
-              name: tc.name,
-              input: tc.arguments,
-            },
-          });
-        }
-        bedrockMessages.push({ role: 'assistant', content });
         continue;
       }
 
       if (m.role === 'tool') {
-        // Bedrock expects tool results as user messages
-        const toolResultBlock: ContentBlock = {
-          toolResult: {
-            toolUseId: m.tool_call_id!,
-            content: [{ text: m.content }],
-          },
-        };
-        // Merge into last user message if possible
-        const lastMsg = bedrockMessages[bedrockMessages.length - 1];
-        if (lastMsg && lastMsg.role === 'user' && Array.isArray(lastMsg.content)) {
-          lastMsg.content.push(toolResultBlock);
+        if (hasTools) {
+          // Bedrock expects tool results as user messages
+          const toolResultBlock: ContentBlock = {
+            toolResult: {
+              toolUseId: m.tool_call_id!,
+              content: [{ text: m.content }],
+            },
+          };
+          // Merge into last user message if possible
+          const lastMsg = bedrockMessages[bedrockMessages.length - 1];
+          if (lastMsg && lastMsg.role === 'user' && Array.isArray(lastMsg.content)) {
+            lastMsg.content.push(toolResultBlock);
+          } else {
+            bedrockMessages.push({ role: 'user', content: [toolResultBlock] });
+          }
         } else {
-          bedrockMessages.push({ role: 'user', content: [toolResultBlock] });
+          // No tools in request — convert tool results to plain text
+          const resultText = `[Результат інструменту: ${m.content.slice(0, 3000)}]`;
+          // Merge into last user message if possible
+          const lastMsg = bedrockMessages[bedrockMessages.length - 1];
+          if (lastMsg && lastMsg.role === 'user' && Array.isArray(lastMsg.content)) {
+            lastMsg.content.push({ text: resultText });
+          } else {
+            bedrockMessages.push({ role: 'user', content: [{ text: resultText }] });
+          }
         }
         continue;
       }
@@ -800,7 +824,8 @@ export class LLMClientManager {
     model: string
   ): Promise<UnifiedChatResponse> {
     const client = this.bedrockManager.getClient();
-    const { system, messages } = this.convertToBedrockMessages(request.messages);
+    const hasTools = !!(request.tools && request.tools.length > 0);
+    const { system, messages } = this.convertToBedrockMessages(request.messages, hasTools);
 
     const params: ConverseCommandInput = {
       modelId: model,
@@ -873,7 +898,8 @@ export class LLMClientManager {
     signal?: AbortSignal
   ): AsyncGenerator<UnifiedStreamChunk> {
     const client = this.bedrockManager.getClient();
-    const { system, messages } = this.convertToBedrockMessages(request.messages);
+    const hasTools = !!(request.tools && request.tools.length > 0);
+    const { system, messages } = this.convertToBedrockMessages(request.messages, hasTools);
 
     const params: ConverseStreamCommandInput = {
       modelId: model,
