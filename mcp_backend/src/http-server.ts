@@ -2177,31 +2177,26 @@ class HTTPMCPServer {
             ignoreHTTPSErrors: true,
           });
           const page = await context.newPage();
-          const response = await page.goto(KMU_RSS_URL, { waitUntil: 'networkidle', timeout: 30000 });
-          const body = await page.content();
 
-          // Extract XML from page content (browser renders XML in an HTML wrapper)
-          let xml = body;
-          // If the page returned actual XML, content() wraps it — try to get raw response
-          if (response && response.ok()) {
-            // For XML pages, page.content() returns HTML-wrapped content
-            // Use evaluate to get the raw XML serialization (runs in browser context)
-            // @ts-ignore - runs in browser context
-            xml = await page.evaluate(() => new XMLSerializer().serializeToString(document));
-          }
+          // Intercept the RSS response to get raw body (browser wraps XML in HTML viewer)
+          let rawXml = '';
+          page.on('response', async (resp) => {
+            if (resp.url().includes('/api/rss') && resp.status() === 200) {
+              try {
+                rawXml = await resp.text();
+              } catch { /* ignore */ }
+            }
+          });
 
-          // Clean up: remove any HTML wrapper that the browser might have added around the XML
-          const rssMatch = xml.match(/<\?xml[\s\S]*<\/rss>/);
-          if (rssMatch) {
-            xml = rssMatch[0];
-          }
-
+          await page.goto(KMU_RSS_URL, { waitUntil: 'networkidle', timeout: 30000 });
           await context.close();
 
-          if (!xml.includes('<rss') && !xml.includes('<channel>')) {
-            logger.warn('[KMU RSS Proxy] Response does not look like RSS', { bodySnippet: xml.substring(0, 200) });
+          if (!rawXml || (!rawXml.includes('<rss') && !rawXml.includes('<channel>'))) {
+            logger.warn('[KMU RSS Proxy] Response does not look like RSS', { bodySnippet: (rawXml || '').substring(0, 200) });
             return res.status(502).json({ error: 'KMU RSS returned non-RSS content' });
           }
+
+          const xml = rawXml;
 
           // Cache in Redis
           await redis.setEx(CACHE_KEY, CACHE_TTL, xml);
