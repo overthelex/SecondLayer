@@ -33,16 +33,23 @@ export class ConversationService {
   async createConversation(
     userId: string,
     title?: string,
-    options?: { clientId?: string; matterId?: string }
+    options?: { clientId?: string; matterId?: string; requestId?: string }
   ): Promise<Conversation> {
     const id = uuidv4();
     const result = await this.db.query(
-      `INSERT INTO conversations (id, user_id, title, client_id, matter_id)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO conversations (id, user_id, title, client_id, matter_id, request_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [id, userId, title || 'Нова розмова', options?.clientId || null, options?.matterId || null]
+      [id, userId, title || 'Нова розмова', options?.clientId || null, options?.matterId || null, options?.requestId || null]
     );
     return result.rows[0];
+  }
+
+  async updateRequestId(conversationId: string, requestId: string): Promise<void> {
+    await this.db.query(
+      'UPDATE conversations SET request_id = $1 WHERE id = $2',
+      [requestId, conversationId]
+    );
   }
 
   async listConversations(
