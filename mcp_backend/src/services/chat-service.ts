@@ -1076,10 +1076,8 @@ export class ChatService {
         {
           messages: planMessages,
           max_tokens: 2000,
-          response_format: { type: 'json_object' },
         },
-        'deep',
-        'openai'
+        'deep'
       );
 
       // Record plan generation LLM cost
@@ -1144,7 +1142,7 @@ export class ChatService {
       };
 
       logger.info('[ChatService] Execution plan generated', {
-        provider: 'openai',
+        provider: response.provider,
         elapsed_ms: elapsed,
         steps: plan.steps.length,
         goal: plan.goal.slice(0, 100),
