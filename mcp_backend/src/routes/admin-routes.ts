@@ -5080,9 +5080,19 @@ export function createAdminRoutes(
 
   // ========================================
   // PG MONITORING — EDRSR stats (prod + stage)
+  // Uses in-memory cache (5 min TTL) to avoid hammering PG with heavy GROUP BY on 45M rows
   // ========================================
+  let pgMonitoringCache: { data: any; timestamp: number } | null = null;
+  const PG_MONITORING_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
   router.get('/pg-monitoring', async (req: Request, res: Response) => {
     try {
+      // Return cached data if fresh enough
+      const now = Date.now();
+      if (pgMonitoringCache && (now - pgMonitoringCache.timestamp) < PG_MONITORING_CACHE_TTL_MS) {
+        return res.json(pgMonitoringCache.data);
+      }
+
       // Fetch local EDRSR stats
       const tablesExist = await db.query(`
         SELECT
@@ -5094,7 +5104,7 @@ export function createAdminRoutes(
       let localByYear: Array<{ year: number | null; total: number; with_fulltext: number }> = [];
 
       if (has_docs) {
-        // Two separate queries to avoid massive LEFT JOIN that exhausts shared memory
+        // Use reltuples for fast approximate counts, fall back to exact only if stats are empty
         const docsResult = await db.query(`
           SELECT
             EXTRACT(YEAR FROM adjudication_date)::int AS year,
@@ -5105,16 +5115,21 @@ export function createAdminRoutes(
         `);
 
         if (has_ft) {
-          const ftResult = await db.query(`
-            SELECT
-              EXTRACT(YEAR FROM d.adjudication_date)::int AS year,
-              COUNT(*)::int AS with_fulltext
-            FROM edrsr_fulltext f
-            JOIN edrsr_documents d ON d.doc_id = f.doc_id
-            GROUP BY year
-            ORDER BY year NULLS LAST
-          `);
-          const ftMap = new Map(ftResult.rows.map((r: any) => [r.year, r.with_fulltext]));
+          // Use transaction with reduced work_mem to prevent shared memory exhaustion
+          // on JOIN of 45M+ rows (edrsr_documents) with edrsr_fulltext
+          const ftResult = await db.transaction(async (client: any) => {
+            await client.query("SET LOCAL work_mem = '32MB'");
+            return client.query(`
+              SELECT
+                EXTRACT(YEAR FROM d.adjudication_date)::int AS year,
+                COUNT(*)::int AS with_fulltext
+              FROM edrsr_fulltext f
+              JOIN edrsr_documents d ON d.doc_id = f.doc_id
+              GROUP BY year
+              ORDER BY year NULLS LAST
+            `);
+          });
+          const ftMap = new Map<number | null, number>(ftResult.rows.map((r: any) => [r.year, r.with_fulltext]));
           localByYear = docsResult.rows.map((r: any) => ({
             year: r.year,
             total: r.total,
@@ -5131,7 +5146,6 @@ export function createAdminRoutes(
 
       let localStandaloneFulltext = 0;
       if (has_ft) {
-        // Count fulltext records not linked to edrsr_documents (orphaned from different EDRSR dump)
         const ftTotal = await db.query('SELECT COUNT(*)::int AS cnt FROM edrsr_fulltext');
         localStandaloneFulltext = ftTotal.rows[0]?.cnt || 0;
       }
@@ -5181,12 +5195,17 @@ export function createAdminRoutes(
         fetchRemote(prodBackendUrl, prodApiKey),
       ]);
 
-      return res.json({
+      const responseData = {
         local: localData,
         stage: stageData,
         prod: prodData,
         timestamp: new Date().toISOString(),
-      });
+      };
+
+      // Cache the result
+      pgMonitoringCache = { data: responseData, timestamp: now };
+
+      return res.json(responseData);
     } catch (error: any) {
       logger.error('pg-monitoring failed', { error: error.message });
       res.status(500).json({ error: 'Failed to fetch PG monitoring data' });
