@@ -27,6 +27,10 @@ export class ModelSelector {
   private static readonly BEDROCK_STANDARD = process.env.BEDROCK_MODEL_STANDARD || 'eu.anthropic.claude-sonnet-4-6';
   private static readonly BEDROCK_DEEP = process.env.BEDROCK_MODEL_DEEP || 'eu.anthropic.claude-opus-4-6-v1';
 
+  private static readonly ANTHROPIC_QUICK = process.env.ANTHROPIC_MODEL_QUICK || 'claude-haiku-4-5-20251001';
+  private static readonly ANTHROPIC_STANDARD = process.env.ANTHROPIC_MODEL_STANDARD || 'claude-sonnet-4-6-20250514';
+  private static readonly ANTHROPIC_DEEP = process.env.ANTHROPIC_MODEL_DEEP || 'claude-opus-4-6-20250602';
+
   private static readonly SINGLE_MODEL = process.env.OPENAI_MODEL;
 
   static getEmbeddingModel(): string {
@@ -85,6 +89,14 @@ export class ModelSelector {
       }[budget];
     }
 
+    if (effectiveProvider === 'anthropic') {
+      return {
+        quick: this.ANTHROPIC_QUICK,
+        standard: this.ANTHROPIC_STANDARD,
+        deep: this.ANTHROPIC_DEEP,
+      }[budget];
+    }
+
     return {
       quick: this.OPENAI_QUICK,
       standard: this.OPENAI_STANDARD,
@@ -101,6 +113,10 @@ export class ModelSelector {
 
     if (process.env.OPENAI_API_KEY) {
       providers.push('openai');
+    }
+
+    if (process.env.ANTHROPIC_API_KEY) {
+      providers.push('anthropic');
     }
 
     return providers;
