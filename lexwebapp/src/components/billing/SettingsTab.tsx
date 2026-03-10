@@ -26,6 +26,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { uk } from 'date-fns/locale';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
 import { getErrorMessage } from '../../utils/errors';
@@ -259,8 +260,9 @@ export function SettingsTab() {
   const handleSaveBillingInfo = async () => {
     setIsSavingBilling(true);
     try {
-      await api.billing.updateSettings({});
-      showToast.success('Платіжну інформацію збережено');
+      // TODO: Backend endpoint for billing info (company, EDRPOU, address) not yet implemented
+      // For now, store locally and show a notice
+      showToast.info('Збереження платіжних даних буде доступне найближчим часом');
     } catch (error) {
       console.error('Failed to save billing info:', error);
       showToast.error('Не вдалося зберегти платіжну інформацію');
@@ -569,7 +571,7 @@ export function SettingsTab() {
           <div>
             <label htmlFor="settings-daily-limit" className="block text-sm font-medium text-claude-text mb-1.5">Денний ліміт</label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-claude-subtext">&#8372;</span>
+              <span className="text-sm text-claude-subtext">$</span>
               <input
                 id="settings-daily-limit"
                 name="dailyLimit"
@@ -581,11 +583,12 @@ export function SettingsTab() {
                 className="flex-1 px-3 py-2 border border-claude-border rounded-lg text-sm"
               />
             </div>
+            <p className="text-xs text-claude-subtext mt-1">≈ {formatUah(limits.daily_limit_usd)}</p>
           </div>
           <div>
             <label htmlFor="settings-monthly-limit" className="block text-sm font-medium text-claude-text mb-1.5">Місячний ліміт</label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-claude-subtext">&#8372;</span>
+              <span className="text-sm text-claude-subtext">$</span>
               <input
                 id="settings-monthly-limit"
                 name="monthlyLimit"
@@ -597,11 +600,12 @@ export function SettingsTab() {
                 className="flex-1 px-3 py-2 border border-claude-border rounded-lg text-sm"
               />
             </div>
+            <p className="text-xs text-claude-subtext mt-1">≈ {formatUah(limits.monthly_limit_usd)}</p>
           </div>
           <div>
             <label htmlFor="settings-low-balance" className="block text-sm font-medium text-claude-text mb-1.5">Поріг низького балансу</label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-claude-subtext">&#8372;</span>
+              <span className="text-sm text-claude-subtext">$</span>
               <input
                 id="settings-low-balance"
                 name="lowBalance"
@@ -613,7 +617,7 @@ export function SettingsTab() {
                 className="flex-1 px-3 py-2 border border-claude-border rounded-lg text-sm"
               />
             </div>
-            <p className="text-xs text-claude-subtext mt-1">Сповіщення при балансі нижче цієї суми</p>
+            <p className="text-xs text-claude-subtext mt-1">Сповіщення при балансі нижче цієї суми (≈ {formatUah(limits.low_balance_threshold_usd)})</p>
           </div>
         </div>
 
@@ -725,14 +729,14 @@ export function SettingsTab() {
             <label className="block text-sm font-medium text-claude-subtext mb-1">Акаунт створено</label>
             <div className="flex items-center gap-2 text-sm text-claude-text">
               <Calendar size={16} className="text-claude-subtext" />
-              {user?.createdAt ? format(new Date(user.createdAt), 'MMM dd, yyyy') : 'N/A'}
+              {user?.createdAt ? format(new Date(user.createdAt), 'd MMM yyyy', { locale: uk }) : 'Н/д'}
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-claude-subtext mb-1">Останній вхід</label>
             <div className="flex items-center gap-2 text-sm text-claude-text">
               <Calendar size={16} className="text-claude-subtext" />
-              {user?.lastLogin ? format(new Date(user.lastLogin), 'MMM dd, yyyy HH:mm') : 'N/A'}
+              {user?.lastLogin ? format(new Date(user.lastLogin), 'd MMM yyyy HH:mm', { locale: uk }) : 'Н/д'}
             </div>
           </div>
         </div>

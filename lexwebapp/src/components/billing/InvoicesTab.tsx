@@ -15,11 +15,19 @@ import {
   Banknote,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { uk } from 'date-fns/locale';
 import { generateInvoicePDF, InvoiceData } from '../../utils/invoice-generator';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
+
+const STATUS_LABELS: Record<string, string> = {
+  paid: 'Оплачено',
+  pending: 'Очікує',
+  overdue: 'Прострочено',
+  draft: 'Чернетка',
+};
 
 export function InvoicesTab() {
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
@@ -220,11 +228,11 @@ export function InvoicesTab() {
                       <Calendar size={16} className="text-claude-subtext" />
                       <div>
                         <div className="text-sm text-claude-text">
-                          {format(invoice.date, 'MMM dd, yyyy')}
+                          {format(invoice.date, 'd MMM yyyy', { locale: uk })}
                         </div>
                         {invoice.dueDate && invoice.status === 'pending' && (
                           <div className="text-xs text-claude-subtext">
-                            Термін: {format(invoice.dueDate, 'MMM dd')}
+                            Термін: {format(invoice.dueDate, 'd MMM', { locale: uk })}
                           </div>
                         )}
                       </div>
@@ -257,10 +265,10 @@ export function InvoicesTab() {
                     <div className="flex items-center gap-2">
                       {getStatusIcon(invoice.status)}
                       <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(
                           invoice.status
                         )}`}>
-                        {invoice.status}
+                        {STATUS_LABELS[invoice.status] || invoice.status}
                       </span>
                     </div>
                   </td>

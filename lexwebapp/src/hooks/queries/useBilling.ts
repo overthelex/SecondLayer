@@ -26,10 +26,11 @@ export const useTransactionHistory = createQueryHook<Awaited<ReturnType<typeof b
 
 export const useBillingSettings = createQueryHook(
   () => queryKeys.billing.settings,
-  async () => ({
-    daily_limit_usd: undefined,
-    monthly_limit_usd: undefined,
-  }),
+  async () => {
+    const { default: apiClient } = await import('../../utils/api/client');
+    const response = await apiClient.get('/api/billing/settings');
+    return response.data;
+  },
   { staleTime: 10 * 60 * 1000 }
 );
 
