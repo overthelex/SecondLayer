@@ -43,14 +43,25 @@ interface ZOSearchResponse {
 
 /**
  * Sanitize search query for ZakonOnline sph04 Sphinx mode.
- * Strips characters that act as syntax operators (parentheses, etc.)
- * and collapses resulting whitespace.
+ * Strips LLM artifacts (```json blocks, "search_query": prefix)
+ * and characters that act as syntax operators.
  */
 function sanitizeSearchQuery(query: string): string {
-  return query
-    .replace(/[(){}[\]]/g, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+  let q = query;
+
+  // Strip markdown code block wrappers: ```json ... ``` or ``` ... ```
+  q = q.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/g, '');
+
+  // Strip JSON-style "search_query": prefix (with or without quotes around key)
+  q = q.replace(/^["']?search_query["']?\s*:\s*/i, '');
+
+  // Strip remaining Sphinx-breaking chars: brackets
+  q = q.replace(/[(){}[\]]/g, ' ');
+
+  // Collapse whitespace
+  q = q.replace(/\s{2,}/g, ' ').trim();
+
+  return q;
 }
 
 export class ZOAdapter {
