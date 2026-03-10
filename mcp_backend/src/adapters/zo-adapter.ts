@@ -123,7 +123,7 @@ export class ZOAdapter {
     this.apiTokens = [primaryToken, secondaryToken].filter(t => t.length > 0);
 
     if (this.apiTokens.length === 0) {
-      throw new Error('No Zakononline API tokens configured');
+      logger.warn(`ZOAdapter (${this.domainConfig.displayName}): no API tokens configured — adapter disabled`);
     }
 
     // If we have multiple tokens, prefer starting with the second one (TOKEN2)
@@ -473,6 +473,10 @@ export class ZOAdapter {
     return this.domainConfig.availableTargets;
   }
 
+  get disabled(): boolean {
+    return this.apiTokens.length === 0;
+  }
+
   private getCurrentToken(): string {
     return this.apiTokens[this.currentTokenIndex];
   }
@@ -648,6 +652,9 @@ export class ZOAdapter {
     params: any,
     maxRetries: number = 3
   ): Promise<any> {
+    if (this.disabled) {
+      throw new Error('ZOAdapter is disabled — no API tokens configured');
+    }
     this.validateEndpoint(endpoint);
     const cacheKey = this.generateCacheKey(endpoint, params);
     const cached = await this.getCached(cacheKey);
