@@ -5093,38 +5093,32 @@ export function createAdminRoutes(
 
       let localByYear: Array<{ year: number | null; total: number; with_fulltext: number }> = [];
 
-      if (has_docs && has_ft) {
-        const result = await db.query(`
-          SELECT
-            EXTRACT(YEAR FROM e.adjudication_date)::int AS year,
-            COUNT(*)::int AS total,
-            COUNT(f.doc_id)::int AS with_fulltext
-          FROM edrsr_documents e
-          LEFT JOIN edrsr_fulltext f ON f.doc_id = e.doc_id
-          GROUP BY year
-          ORDER BY year NULLS LAST
-        `);
-        localByYear = result.rows;
-      } else if (has_docs) {
-        const result = await db.query(`
-          SELECT
-            EXTRACT(YEAR FROM adjudication_date)::int AS year,
-            COUNT(*)::int AS total,
-            0 AS with_fulltext
-          FROM edrsr_documents
-          GROUP BY year
-          ORDER BY year NULLS LAST
-        `);
+      if (has_docs) {
+        const query = has_ft
+          ? `SELECT
+              EXTRACT(YEAR FROM d.adjudication_date)::int AS year,
+              COUNT(*)::int AS total,
+              COUNT(f.doc_id)::int AS with_fulltext
+            FROM edrsr_documents d
+            LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
+            GROUP BY year
+            ORDER BY year NULLS LAST`
+          : `SELECT
+              EXTRACT(YEAR FROM adjudication_date)::int AS year,
+              COUNT(*)::int AS total,
+              0 AS with_fulltext
+            FROM edrsr_documents
+            GROUP BY year
+            ORDER BY year NULLS LAST`;
+        const result = await db.query(query);
         localByYear = result.rows;
       }
 
       let localStandaloneFulltext = 0;
-      if (has_ft && has_docs) {
-        const ftOnly = await db.query(`
-          SELECT COUNT(*)::int AS cnt FROM edrsr_fulltext f
-          WHERE NOT EXISTS (SELECT 1 FROM edrsr_documents e WHERE e.doc_id = f.doc_id)
-        `);
-        localStandaloneFulltext = ftOnly.rows[0]?.cnt || 0;
+      if (has_ft) {
+        // Count fulltext records not linked to edrsr_documents (orphaned from different EDRSR dump)
+        const ftTotal = await db.query('SELECT COUNT(*)::int AS cnt FROM edrsr_fulltext');
+        localStandaloneFulltext = ftTotal.rows[0]?.cnt || 0;
       }
 
       let totalDocs = 0;
