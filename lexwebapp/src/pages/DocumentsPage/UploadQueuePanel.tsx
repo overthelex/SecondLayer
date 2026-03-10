@@ -12,23 +12,9 @@ import {
 } from 'lucide-react';
 import { useUploadStore } from '../../stores/uploadStore';
 import { UploadItemRow } from './UploadItemRow';
-
-type DocType = 'contract' | 'legislation' | 'court_decision' | 'internal' | 'other';
-
-const DOC_TYPE_LABELS: Record<DocType, string> = {
-  contract: 'Договір',
-  legislation: 'Законодавство',
-  court_decision: 'Судове рішення',
-  internal: 'Внутрішній',
-  other: 'Інше',
-};
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
+import { DOC_TYPE_LABELS } from './constants';
+import { formatFileSize } from './constants';
+import type { DocType } from './types';
 
 interface UploadQueuePanelProps {
   showUploadPanel: boolean;

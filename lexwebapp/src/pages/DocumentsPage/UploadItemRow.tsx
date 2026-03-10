@@ -7,20 +7,9 @@ import {
   Pause,
   RotateCcw,
   XCircle,
-  FileText,
-  Image,
-  Film,
-  FileSpreadsheet,
 } from 'lucide-react';
 import type { UploadItem } from '../../services/upload/UploadManager';
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-  contract: 'Договір',
-  legislation: 'Законодавство',
-  court_decision: 'Судове рішення',
-  internal: 'Внутрішній',
-  other: 'Інше',
-};
+import { DOC_TYPE_LABELS, formatFileSize, getFileIcon } from './constants';
 
 const STATUS_LABELS: Record<string, string> = {
   queued: 'В черзі',
@@ -33,25 +22,6 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Скасовано',
   paused: 'Пауза',
 };
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
-function getFileIcon(mimeType: string) {
-  if (mimeType.startsWith('image/')) return Image;
-  if (mimeType.startsWith('video/')) return Film;
-  if (
-    mimeType.includes('spreadsheet') ||
-    mimeType.includes('excel') ||
-    mimeType === 'text/csv'
-  )
-    return FileSpreadsheet;
-  return FileText;
-}
 
 interface UploadItemRowProps {
   item: UploadItem;
@@ -134,7 +104,7 @@ export function UploadItemRow({
         >
           {(Object.keys(DOC_TYPE_LABELS) as string[]).map((t) => (
             <option key={t} value={t}>
-              {DOC_TYPE_LABELS[t]}
+              {DOC_TYPE_LABELS[t as keyof typeof DOC_TYPE_LABELS]}
             </option>
           ))}
         </select>
