@@ -23,6 +23,7 @@ import {
   Legend,
 } from 'recharts';
 import { api } from '../../../utils/api-client';
+import { getErrorMessage } from '../../../utils/errors';
 import type { CostBreakdown, ToolUsage, UserCostSummary } from './types';
 import { COLORS, PROVIDER_COLORS, PIE_COLORS, tooltipStyle } from './constants';
 import { formatUSD } from './formatters';
@@ -53,8 +54,8 @@ export function AdminCostsPage() {
     try {
       const res = await api.admin.getCostBreakdown(costDays);
       setCostData(res.data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setCostLoading(false);
     }
@@ -65,8 +66,8 @@ export function AdminCostsPage() {
     try {
       const res = await api.admin.getUsageAnalytics(costDays);
       setToolUsage(res.data?.usage || []);
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setUsageLoading(false);
     }

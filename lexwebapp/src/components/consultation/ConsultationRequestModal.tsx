@@ -10,6 +10,7 @@ import { ConfirmStep } from './ConfirmStep';
 import { PaymentStep } from './PaymentStep';
 import type { VaultDocument } from '../../pages/DocumentsPage/types';
 import type { Conversation } from '../../services/api/ConversationService';
+import { getErrorMessage } from '../../utils/errors';
 
 interface Props {
   attorneyId: string;
@@ -79,8 +80,8 @@ export function ConsultationRequestModal({ attorneyId, attorneyName, consultatio
       const consultation = await consultationService.createConsultation(payload);
       onClose();
       navigate(generateRoute.consultationDetail(consultation.id));
-    } catch (err: any) {
-      setError(err.message || 'Помилка створення запиту');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }

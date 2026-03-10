@@ -15,6 +15,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { api } from '../utils/api-client';
+import { getErrorMessage } from '../utils/errors';
 import toast from 'react-hot-toast';
 
 interface ConfigEntry {
@@ -73,8 +74,8 @@ export function AdminConfigPage() {
       toast.success(`Updated ${key}`);
       setEditingKey(null);
       await fetchConfig();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Failed to update');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -85,8 +86,8 @@ export function AdminConfigPage() {
       await api.admin.resetConfig(key);
       toast.success(`Reset ${key} to default`);
       await fetchConfig();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Failed to reset');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
     }
   };
 

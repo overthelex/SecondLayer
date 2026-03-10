@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { workflowService } from '../services';
 import type { WorkflowSet, Workflow } from '../types/models/Workflow';
+import { getErrorMessage } from '../utils/errors';
 
 interface WorkflowState {
   workflowSets: WorkflowSet[];
@@ -34,8 +35,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     try {
       const sets = await workflowService.listWorkflowSets();
       set({ workflowSets: sets, isLoading: false });
-    } catch (err: any) {
-      set({ error: err.message || 'Failed to load workflows', isLoading: false });
+    } catch (err: unknown) {
+      set({ error: getErrorMessage(err), isLoading: false });
     }
   },
 
@@ -44,8 +45,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     try {
       const workflowSet = await workflowService.getWorkflowSet(id);
       set({ activeWorkflowSet: workflowSet, isLoading: false });
-    } catch (err: any) {
-      set({ error: err.message || 'Failed to load workflow set', isLoading: false });
+    } catch (err: unknown) {
+      set({ error: getErrorMessage(err), isLoading: false });
     }
   },
 
@@ -122,8 +123,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     try {
       await workflowService.cancelWorkflow(id);
       set({ executingWorkflowId: null });
-    } catch (err: any) {
-      set({ error: err.message || 'Failed to cancel workflow' });
+    } catch (err: unknown) {
+      set({ error: getErrorMessage(err) });
     }
   },
 
@@ -134,8 +135,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         workflowSets: state.workflowSets.filter((s) => s.id !== id),
         activeWorkflowSet: state.activeWorkflowSet?.id === id ? null : state.activeWorkflowSet,
       }));
-    } catch (err: any) {
-      set({ error: err.message || 'Failed to delete workflow set' });
+    } catch (err: unknown) {
+      set({ error: getErrorMessage(err) });
     }
   },
 

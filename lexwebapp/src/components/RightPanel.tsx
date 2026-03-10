@@ -12,6 +12,7 @@ import { DocumentsTab } from './chat/DocumentsTab';
 import { ConsultationChatTab } from './chat/ConsultationChatTab';
 import { mcpService } from '../services/api/MCPService';
 import { consultationService } from '../services';
+import { getErrorMessage } from '../utils/errors';
 import type { DownloadedDecision } from '../stores/decisionsSearchStore';
 
 interface DocumentViewerItem {
@@ -206,9 +207,9 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
 
           setViewerItem(prev => prev ? { ...prev, content: sectionsText } : prev);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch full decision text:', err);
-        const msg = err?.message || '';
+        const msg = getErrorMessage(err);
         if (msg.includes('429')) {
           setViewerError(msg.includes('Daily') ? 'Вичерпано денний ліміт використання. Повний текст буде доступний завтра.' : 'Вичерпано місячний ліміт використання.');
         } else if (msg.includes('402')) {

@@ -15,6 +15,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { erauService, ERAULawyer, SearchHistoryEntry } from '../../services/api/ERAUService';
+import { getErrorMessage } from '../../utils/errors';
 import { generateRoute } from '../../router/routes';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -83,8 +84,8 @@ export function LawyersPage() {
           erauService.getSearchHistory(20).then(setHistory).catch(() => {});
         });
       }
-    } catch (err: any) {
-      setError(err?.message || 'Не вдалося виконати пошук. Спробуйте пізніше.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || 'Не вдалося виконати пошук. Спробуйте пізніше.');
       setResults([]);
     } finally {
       setLoading(false);
@@ -106,8 +107,8 @@ export function LawyersPage() {
           erauService.getSearchHistory(20).then(setHistory).catch(() => {});
         });
       }
-    }).catch((err: any) => {
-      setError(err?.message || 'Не вдалося виконати пошук. Спробуйте пізніше.');
+    }).catch((err: unknown) => {
+      setError(getErrorMessage(err) || 'Не вдалося виконати пошук. Спробуйте пізніше.');
       setResults([]);
     }).finally(() => {
       setLoading(false);

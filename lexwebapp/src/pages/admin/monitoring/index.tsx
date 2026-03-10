@@ -13,6 +13,7 @@ import {
   Download,
 } from 'lucide-react';
 import { api } from '../../../utils/api-client';
+import { getErrorMessage } from '../../../utils/errors';
 import type { BackendData, ServiceData, CourtDocsData, SectionState } from './types';
 import {
   formatNumber,
@@ -41,8 +42,8 @@ export function AdminMonitoringPage() {
     try {
       const res = await api.admin.getDataSources('backend');
       setBackend({ data: res.data, loading: false, error: null });
-    } catch (err: any) {
-      setBackend(prev => ({ ...prev, loading: false, error: err.response?.data?.error || err.message }));
+    } catch (err: unknown) {
+      setBackend(prev => ({ ...prev, loading: false, error: getErrorMessage(err) }));
     }
   }, []);
 
@@ -56,8 +57,8 @@ export function AdminMonitoringPage() {
       } else {
         setRada({ data: d, loading: false, error: null });
       }
-    } catch (err: any) {
-      setRada(prev => ({ ...prev, loading: false, error: err.response?.data?.error || err.message }));
+    } catch (err: unknown) {
+      setRada(prev => ({ ...prev, loading: false, error: getErrorMessage(err) }));
     }
   }, []);
 
@@ -71,8 +72,8 @@ export function AdminMonitoringPage() {
       } else {
         setOpenreyestr({ data: d, loading: false, error: null });
       }
-    } catch (err: any) {
-      setOpenreyestr(prev => ({ ...prev, loading: false, error: err.response?.data?.error || err.message }));
+    } catch (err: unknown) {
+      setOpenreyestr(prev => ({ ...prev, loading: false, error: getErrorMessage(err) }));
     }
   }, []);
 
@@ -82,8 +83,8 @@ export function AdminMonitoringPage() {
     try {
       const res = await api.admin.getRecentCourtDocs(d, 5);
       setCourtDocs({ data: res.data, loading: false, error: null });
-    } catch (err: any) {
-      setCourtDocs(prev => ({ ...prev, loading: false, error: err.response?.data?.error || err.message }));
+    } catch (err: unknown) {
+      setCourtDocs(prev => ({ ...prev, loading: false, error: getErrorMessage(err) }));
     }
   }, [courtDocsDays]);
 

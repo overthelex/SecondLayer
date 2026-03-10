@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { mcpService } from '../../services';
 import { showToast } from '../../utils/toast';
+import { getErrorMessage } from '../../utils/errors';
 import {
   LegislationStructure,
   ArticleData,
@@ -61,8 +62,8 @@ export function useLegalCodes() {
       const data = parseToolResult(result);
       setGlobalSearchResults(data.articles || []);
       setGlobalSearchTotal(data.total_found || 0);
-    } catch (err: any) {
-      showToast.error(err.message || 'Помилка пошуку');
+    } catch (err: unknown) {
+      showToast.error(getErrorMessage(err));
     } finally {
       setGlobalSearchLoading(false);
     }
@@ -93,8 +94,8 @@ export function useLegalCodes() {
       a.click();
       URL.revokeObjectURL(url);
       showToast.success('Завантажено');
-    } catch (err: any) {
-      showToast.error(err.message || 'Не вдалося завантажити');
+    } catch (err: unknown) {
+      showToast.error(getErrorMessage(err));
     }
   }, []);
 
@@ -138,9 +139,9 @@ export function useLegalCodes() {
             .map((_: any, i: number) => `toc-${i}`);
           setExpandedSections(topIds);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!cancelled) {
-          setStructureError(err.message || 'Failed to load structure');
+          setStructureError(getErrorMessage(err));
         }
       } finally {
         if (!cancelled) setLoadingStructure(false);
@@ -174,8 +175,8 @@ export function useLegalCodes() {
       } else {
         setCurrentArticle(data);
       }
-    } catch (err: any) {
-      showToast.error(err.message || 'Failed to load article');
+    } catch (err: unknown) {
+      showToast.error(getErrorMessage(err));
       setCurrentArticle(null);
     } finally {
       setLoadingArticle(false);
@@ -193,8 +194,8 @@ export function useLegalCodes() {
       const data = parseToolResult(result);
       setSearchResults(data.articles || []);
       setSearchTotal(data.total_found || 0);
-    } catch (err: any) {
-      showToast.error(err.message || 'Search failed');
+    } catch (err: unknown) {
+      showToast.error(getErrorMessage(err));
     } finally {
       setSearchLoading(false);
     }

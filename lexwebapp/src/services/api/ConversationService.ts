@@ -31,49 +31,26 @@ export interface ConversationWithMessages extends Conversation {
 
 export class ConversationService extends BaseService {
   async create(title?: string): Promise<Conversation> {
-    try {
-      const response = await this.client.post<Conversation>('/api/conversations', { title });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<Conversation>('/api/conversations', { title }));
   }
 
   async list(params?: { limit?: number; offset?: number }): Promise<{
     conversations: Conversation[];
     total: number;
   }> {
-    try {
-      const response = await this.client.get('/api/conversations', { params });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get('/api/conversations', { params }));
   }
 
   async get(id: string): Promise<ConversationWithMessages> {
-    try {
-      const response = await this.client.get<ConversationWithMessages>(`/api/conversations/${id}`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<ConversationWithMessages>(`/api/conversations/${id}`));
   }
 
   async rename(id: string, title: string): Promise<void> {
-    try {
-      await this.client.put(`/api/conversations/${id}`, { title });
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.requestVoid(() => this.client.put(`/api/conversations/${id}`, { title }));
   }
 
   async delete(id: string): Promise<void> {
-    try {
-      await this.client.delete(`/api/conversations/${id}`);
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.requestVoid(() => this.client.delete(`/api/conversations/${id}`));
   }
 
   async addMessage(
@@ -90,15 +67,10 @@ export class ConversationService extends BaseService {
       cost_summary?: any;
     }
   ): Promise<ConversationMessage> {
-    try {
-      const response = await this.client.post<ConversationMessage>(
-        `/api/conversations/${conversationId}/messages`,
-        message
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<ConversationMessage>(
+      `/api/conversations/${conversationId}/messages`,
+      message
+    ));
   }
 
 }

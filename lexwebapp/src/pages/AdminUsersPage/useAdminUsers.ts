@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../utils/api-client';
 import toast from 'react-hot-toast';
+import { getErrorMessage } from '../../utils/errors';
 import {
   UserRow, UserDetail, Pagination, AttorneyFormData,
   PAGE_SIZE, DEFAULT_ATTORNEY_FORM,
@@ -53,8 +54,8 @@ export function useAdminUsers() {
       const res = await api.admin.getUsers(params);
       setUsers(res.data.users || []);
       setPagination(res.data.pagination || { limit: PAGE_SIZE, offset, total: 0 });
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to load users');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -261,8 +262,8 @@ export function useAdminUsers() {
         toast.success('Профіль адвоката створено');
         setAttorneyIsEdit(true);
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Помилка збереження профілю');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
     } finally {
       setAttorneySaving(false);
     }

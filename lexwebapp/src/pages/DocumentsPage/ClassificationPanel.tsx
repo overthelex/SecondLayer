@@ -81,7 +81,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
 
       // Start polling
       pollRef.current = setInterval(() => pollJob(jobData.jobId), 1500);
-    } catch (err: any) {
+    } catch (err: unknown) {
       showToast.error('Не вдалося запустити класифікацію');
     } finally {
       setStarting(false);

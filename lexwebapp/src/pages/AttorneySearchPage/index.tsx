@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Star, MapPin, Briefcase, Loader2, Scale } from 'lucide-react';
 import { attorneyService, type AttorneyProfile, type AttorneySearchParams } from '../../services/api/AttorneyService';
 import { generateRoute } from '../../router/routes';
+import { getErrorMessage } from '../../utils/errors';
 
 const SPECIALIZATIONS = [
   { value: 'criminal', label: 'Кримінальне' },
@@ -44,8 +45,8 @@ export function AttorneySearchPage() {
       const result = await attorneyService.searchAttorneys(filters);
       setAttorneys(result.attorneys);
       setTotal(result.total);
-    } catch (err: any) {
-      setError(err.message || 'Failed to search attorneys');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Database, RefreshCw } from 'lucide-react';
 import { api } from '../utils/api-client';
+import { getErrorMessage } from '../utils/errors';
 
 interface ServiceStats {
   tables: Record<string, { rows: number; source?: string; updateFrequency?: string; lastUpdate?: string | null }>;
@@ -168,8 +169,8 @@ export function AdminDBComparePage() {
       const resp = await api.admin.getDBCompare();
       setData(resp.data as CompareResult);
       setLastFetched(new Date().toLocaleTimeString('uk-UA'));
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Помилка завантаження');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

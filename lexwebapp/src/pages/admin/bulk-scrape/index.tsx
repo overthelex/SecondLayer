@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { RefreshCw, Database, FileText, CheckCircle, Clock, AlertCircle, Cloud, Server, Globe, Wifi } from 'lucide-react';
 import { api } from '../../../utils/api-client';
+import { getErrorMessage } from '../../../utils/errors';
 import { SectionLoader, SectionError, formatNumber, formatDate } from '../monitoring/shared';
 import type { BulkScrapeStatusResponse, BulkScrapeJob, CourtBreakdown, JusticeKindBreakdown, WorkerStats } from './types';
 import { InfrastructureDiagram } from './InfrastructureDiagram';
@@ -219,8 +220,8 @@ export function AdminBulkScrapePage() {
     try {
       const resp = await api.admin.getBulkScrapeStatus();
       setData(resp.data as BulkScrapeStatusResponse);
-    } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || 'Помилка завантаження');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

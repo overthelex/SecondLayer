@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { getErrorMessage, hasCode } from '../../utils/errors';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 const MOCK_PAYMENTS = import.meta.env.VITE_MOCK_PAYMENTS === 'true';
@@ -62,8 +63,8 @@ function MonobankPaymentForm({ amountUah, uahRate, onSuccess }: { amountUah: num
 
       // Redirect to Monobank hosted payment page
       window.location.href = data.pageUrl;
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Помилка створення рахунку. Спробуйте ще раз.';
+    } catch (err: unknown) {
+      const message = getErrorMessage(err);
       setError(message);
       showToast.error(message);
     } finally {
@@ -171,11 +172,11 @@ function MetaMaskPaymentForm({ amount, onSuccess }: { amount: number; onSuccess:
       setConnectedAddress(accounts[0]);
       const currentChainId = await ethereum.request({ method: 'eth_chainId' });
       setChainId(currentChainId);
-    } catch (err: any) {
-      if (err.code === 4001) {
+    } catch (err: unknown) {
+      if (hasCode(err) && err.code === 4001) {
         setError('Підключення відхилено користувачем');
       } else {
-        setError(err.message || 'Не вдалося підключити гаманець');
+        setError(getErrorMessage(err));
       }
     } finally {
       setIsConnecting(false);
@@ -197,11 +198,11 @@ function MetaMaskPaymentForm({ amount, onSuccess }: { amount: number; onSuccess:
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: targetChainId }],
       });
-    } catch (err: any) {
-      if (err.code === 4001) {
+    } catch (err: unknown) {
+      if (hasCode(err) && err.code === 4001) {
         setError('Перемикання мережі відхилено');
       } else {
-        setError(err.message || 'Не вдалося перемкнути мережу');
+        setError(getErrorMessage(err));
       }
     }
   };
@@ -227,9 +228,10 @@ function MetaMaskPaymentForm({ amount, onSuccess }: { amount: number; onSuccess:
         return;
       }
       setPaymentData(data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Не вдалося створити платіж.');
-      showToast.error(err.response?.data?.message || 'Не вдалося створити платіж.');
+    } catch (err: unknown) {
+      const message = getErrorMessage(err);
+      setError(message);
+      showToast.error(message);
     } finally {
       setIsProcessing(false);
     }
@@ -277,11 +279,11 @@ function MetaMaskPaymentForm({ amount, onSuccess }: { amount: number; onSuccess:
       } else {
         setError(verifyResult.message || 'Верифікація не пройшла');
       }
-    } catch (err: any) {
-      if (err.code === 4001) {
+    } catch (err: unknown) {
+      if (hasCode(err) && err.code === 4001) {
         setError('Транзакцію відхилено користувачем');
       } else {
-        setError(err.response?.data?.message || err.message || 'Помилка транзакції');
+        setError(getErrorMessage(err));
       }
     } finally {
       setVerifying(false);
@@ -461,9 +463,10 @@ function BinancePayForm({ amount, onSuccess }: { amount: number; onSuccess: () =
           }
         } catch { /* ignore */ }
       }, 5000);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Не вдалося створити замовлення.');
-      showToast.error(err.response?.data?.message || 'Не вдалося створити замовлення.');
+    } catch (err: unknown) {
+      const message = getErrorMessage(err);
+      setError(message);
+      showToast.error(message);
     } finally {
       setIsProcessing(false);
     }
