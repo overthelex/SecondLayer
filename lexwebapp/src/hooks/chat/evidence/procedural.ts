@@ -1,5 +1,5 @@
 import type { Citation } from '../../../types/models/Message';
-import type { EvidenceResult } from './types';
+import type { EvidenceResult, ToolResultData } from './types';
 
 const PROCEDURAL_TOOLS = [
   'calculate_procedural_deadlines',
@@ -7,7 +7,7 @@ const PROCEDURAL_TOOLS = [
   'calculate_monetary_claims',
 ];
 
-export function extractProceduralEvidence(toolName: string, parsed: any): EvidenceResult {
+export function extractProceduralEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
   const citations: Citation[] = [];
   if (!PROCEDURAL_TOOLS.some((t) => toolName === t)) {
     return { decisions: [], citations, documents: [] };

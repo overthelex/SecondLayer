@@ -5,13 +5,13 @@
 import { User, Balance, Transaction } from '../models';
 
 // Common response wrapper
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: Record<string, unknown>;
   };
 }
 
@@ -32,7 +32,7 @@ export interface ReasoningStep {
   step: number;
   action: string;
   explanation?: string;
-  output?: any;
+  output?: Record<string, unknown>;
 }
 
 export interface PrecedentChunk {

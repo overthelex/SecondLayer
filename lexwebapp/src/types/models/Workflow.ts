@@ -53,5 +53,5 @@ export interface Workflow {
 
 export interface WorkflowSSEEvent {
   type: 'step_start' | 'step_complete' | 'step_error' | 'workflow_complete' | 'heartbeat' | 'done' | 'error';
-  data: any;
+  data: Record<string, unknown>;
 }

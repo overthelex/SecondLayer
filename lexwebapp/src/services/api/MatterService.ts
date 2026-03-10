@@ -26,6 +26,16 @@ export interface SearchMattersParams {
   offset?: number;
 }
 
+export interface MatterDocument {
+  id: string;
+  title: string;
+  type: string;
+  mime_type?: string;
+  created_at?: string;
+  updated_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface AuditLogParams {
   userId?: string;
   action?: string;
@@ -103,7 +113,7 @@ export class MatterService extends BaseService {
     return this.request(() => this.client.post<LegalHold>(`/api/matters/holds/${holdId}/release`));
   }
 
-  async addDocumentsToHold(holdId: string, documentIds: string[]): Promise<any> {
+  async addDocumentsToHold(holdId: string, documentIds: string[]): Promise<{ added: number }> {
     return this.request(() => this.client.post(
       `/api/matters/holds/${holdId}/documents`,
       { documentIds }
@@ -112,8 +122,8 @@ export class MatterService extends BaseService {
 
   // ─── Matter Documents ────────────────────────────────────
 
-  async getMatterDocuments(matterId: string): Promise<{ documents: any[]; total: number }> {
-    return this.request(() => this.client.get<{ documents: any[]; total: number }>(
+  async getMatterDocuments(matterId: string): Promise<{ documents: MatterDocument[]; total: number }> {
+    return this.request(() => this.client.get<{ documents: MatterDocument[]; total: number }>(
       `/api/matters/matters/${matterId}/documents`
     ));
   }

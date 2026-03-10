@@ -1,5 +1,5 @@
 import type { Citation, VaultDocument } from '../../../types/models/Message';
-import type { EvidenceResult } from './types';
+import type { EvidenceResult, ToolResultData } from './types';
 
 const REGISTRY_TOOLS = [
   'openreyestr_search_entities',
@@ -15,7 +15,7 @@ const REGISTRY_TOOLS = [
   'openreyestr_search_arbitration_managers',
 ];
 
-export function extractRegistryEvidence(toolName: string, parsed: any): EvidenceResult {
+export function extractRegistryEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
   const citations: Citation[] = [];
   const documents: VaultDocument[] = [];
   if (!REGISTRY_TOOLS.some((t) => toolName === t)) {

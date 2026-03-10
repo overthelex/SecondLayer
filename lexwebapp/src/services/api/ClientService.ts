@@ -45,7 +45,7 @@ export class ClientService extends BaseService {
   /**
    * Run conflict check for a client
    */
-  async runConflictCheck(id: string): Promise<any> {
+  async runConflictCheck(id: string): Promise<import('../../types/models/Matter').ConflictResult> {
     return this.request(() => this.client.post(`/api/matters/clients/${id}/conflict-check`));
   }
 }

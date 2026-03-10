@@ -424,7 +424,7 @@ export class UploadManager {
 
             // Process backpressure headers from chunk response
             if (response && typeof response === 'object' && '_headers' in response) {
-              this.handleBackpressureHeaders((response as any)._headers);
+              this.handleBackpressureHeaders((response as { _headers: Record<string, string> })._headers);
             }
           },
           retryCtx,

@@ -53,7 +53,7 @@ export class UploadService extends BaseService {
     mimeType: string;
     docType?: string;
     relativePath?: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
   }): Promise<InitUploadResponse> {
     return this.request(() => this.client.post('/api/upload/init', params));
   }
@@ -67,7 +67,7 @@ export class UploadService extends BaseService {
     mimeType: string;
     docType?: string;
     relativePath?: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
   }>): Promise<{ sessions: Array<InitUploadResponse | { error: string; fileName: string }> }> {
     return this.request(() => this.client.post('/api/upload/init-batch', { files }));
   }
@@ -126,10 +126,11 @@ export class UploadService extends BaseService {
           resolve(result);
         } else if (xhr.status === 429) {
           const retryAfter = xhr.getResponseHeader('Retry-After') || '5';
-          const err: any = new Error(`HTTP 429 - Rate limited`);
-          err.status = 429;
-          err.retryAfter = retryAfter;
-          reject(err);
+          const rateLimitError = Object.assign(new Error(`HTTP 429 - Rate limited`), {
+            status: 429,
+            retryAfter,
+          });
+          reject(rateLimitError);
         } else {
           try {
             const err = JSON.parse(xhr.responseText);
@@ -176,7 +177,7 @@ export class UploadService extends BaseService {
   async getActiveSessions(): Promise<ActiveSession[]> {
     return this.request(
       () => this.client.get('/api/upload/active'),
-      (data: any) => data.sessions
+      (data: { sessions: ActiveSession[] }) => data.sessions
     );
   }
 

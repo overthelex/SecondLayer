@@ -1,4 +1,11 @@
 import apiClient from './client';
+import type {
+  ConversationThinkingStep,
+  ConversationDecision,
+  ConversationCitation,
+  ConversationDocument,
+  ConversationCostSummary,
+} from '../../services/api/ConversationService';
 
 export const conversationsApi = {
   create: (title?: string) => apiClient.post('/api/conversations', { title }),
@@ -11,10 +18,10 @@ export const conversationsApi = {
   addMessage: (conversationId: string, message: {
     role: 'user' | 'assistant';
     content: string;
-    thinking_steps?: any[];
-    decisions?: any[];
-    citations?: any[];
-    documents?: any[];
-    cost_summary?: any;
+    thinking_steps?: ConversationThinkingStep[];
+    decisions?: ConversationDecision[];
+    citations?: ConversationCitation[];
+    documents?: ConversationDocument[];
+    cost_summary?: ConversationCostSummary;
   }) => apiClient.post(`/api/conversations/${conversationId}/messages`, message),
 };

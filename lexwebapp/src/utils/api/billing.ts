@@ -26,7 +26,7 @@ export const billingApi = {
   getUsageChart: (days: number = 30) =>
     apiClient.get(`/api/billing/usage-chart?days=${days}`),
   getPaymentMethods: () => apiClient.get('/api/billing/payment-methods'),
-  addPaymentMethod: (data: any) =>
+  addPaymentMethod: (data: Record<string, unknown>) =>
     apiClient.post('/api/billing/payment-methods', data),
   removePaymentMethod: (id: string) =>
     apiClient.delete(`/api/billing/payment-methods/${id}`),

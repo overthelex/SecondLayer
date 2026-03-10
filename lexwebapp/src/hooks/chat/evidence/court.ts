@@ -1,5 +1,5 @@
 import type { Decision } from '../../../types/models/Message';
-import type { EvidenceResult } from './types';
+import type { EvidenceResult, ToolResultData } from './types';
 import { classifyDocumentType, courtDocUrl } from './parse';
 
 const COURT_TOOLS = [
@@ -17,7 +17,7 @@ const COURT_TOOLS = [
   'get_case_text',
 ];
 
-export function extractCourtEvidence(toolName: string, parsed: any): EvidenceResult {
+export function extractCourtEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
   const decisions: Decision[] = [];
   if (!COURT_TOOLS.some((t) => toolName.includes(t) || toolName === t)) {
     return { decisions, citations: [], documents: [] };
@@ -63,11 +63,11 @@ export function extractCourtEvidence(toolName: string, parsed: any): EvidenceRes
   }
 
   // get_case_documents_chain format
-  let chainDocs: any[] = [];
+  let chainDocs: ToolResultData[] = [];
   if (parsed.documents && Array.isArray(parsed.documents)) {
     chainDocs = parsed.documents;
   } else if (parsed.grouped_documents && typeof parsed.grouped_documents === 'object') {
-    chainDocs = Object.values(parsed.grouped_documents).flat();
+    chainDocs = (Object.values(parsed.grouped_documents) as ToolResultData[][]).flat();
   }
   for (const doc of chainDocs) {
     decisions.push({
@@ -103,7 +103,7 @@ export function extractCourtEvidence(toolName: string, parsed: any): EvidenceRes
 
   // get_court_decision — single decision with sections
   if (parsed.sections && Array.isArray(parsed.sections) && (parsed.doc_id || parsed.case_number)) {
-    const summarySection = parsed.sections.find((s: any) => s.type === 'DECISION' || s.type === 'COURT_REASONING');
+    const summarySection = parsed.sections.find((s: ToolResultData) => s.type === 'DECISION' || s.type === 'COURT_REASONING');
     decisions.push({
       id: `gcd-${parsed.doc_id || Date.now()}`,
       number: parsed.case_number || String(parsed.doc_id) || 'N/A',

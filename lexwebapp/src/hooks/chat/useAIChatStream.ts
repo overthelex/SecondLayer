@@ -16,7 +16,7 @@ import { useCurrencyRate } from '../useCurrencyRate';
 import { handleStreamError, autoTitleConversation } from './chat-error-utils';
 
 export interface UseAIChatStreamOptions {
-  onSuccess?: (result: any) => void;
+  onSuccess?: (result: unknown) => void;
   onError?: (error: Error) => void;
 }
 
@@ -199,8 +199,8 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
             documents: accumulatedDocuments.current.length > 0
               ? [...accumulatedDocuments.current]
               : undefined,
-            metadata: (data as any).workflowSetId
-              ? { workflowSetId: (data as any).workflowSetId }
+            metadata: (data as { workflowSetId?: string }).workflowSetId
+              ? { workflowSetId: (data as { workflowSetId?: string }).workflowSetId }
               : undefined,
           });
 

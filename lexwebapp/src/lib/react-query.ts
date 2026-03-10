@@ -15,9 +15,10 @@ export const queryClient = new QueryClient({
       gcTime: 10 * 60 * 1000,
 
       // Retry failed requests
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, error: unknown) => {
         // Don't retry on 4xx errors
-        if (error?.status >= 400 && error?.status < 500) {
+        const status = (error as { status?: number })?.status;
+        if (status && status >= 400 && status < 500) {
           return false;
         }
         // Retry up to 2 times for other errors
@@ -52,7 +53,7 @@ export const queryKeys = {
   legal: {
     all: ['legal'] as const,
     advice: (query: string) => ['legal', 'advice', query] as const,
-    cases: (filters: Record<string, any>) =>
+    cases: (filters: object) =>
       ['legal', 'cases', filters] as const,
     document: (docId: string) => ['legal', 'document', docId] as const,
   },
@@ -61,7 +62,7 @@ export const queryKeys = {
   billing: {
     all: ['billing'] as const,
     balance: ['billing', 'balance'] as const,
-    transactions: (filters?: Record<string, any>) =>
+    transactions: (filters?: object) =>
       ['billing', 'transactions', filters] as const,
     settings: ['billing', 'settings'] as const,
   },
@@ -69,7 +70,7 @@ export const queryKeys = {
   // Clients
   clients: {
     all: ['clients'] as const,
-    list: (filters?: Record<string, any>) =>
+    list: (filters?: object) =>
       ['clients', 'list', filters] as const,
     detail: (clientId: string) => ['clients', 'detail', clientId] as const,
   },
@@ -77,7 +78,7 @@ export const queryKeys = {
   // Matters
   matters: {
     all: ['matters'] as const,
-    list: (filters?: Record<string, any>) =>
+    list: (filters?: object) =>
       ['matters', 'list', filters] as const,
     detail: (matterId: string) => ['matters', 'detail', matterId] as const,
     team: (matterId: string) => ['matters', 'team', matterId] as const,
@@ -88,14 +89,14 @@ export const queryKeys = {
   // Audit
   audit: {
     all: ['audit'] as const,
-    list: (filters?: Record<string, any>) =>
+    list: (filters?: object) =>
       ['audit', 'list', filters] as const,
   },
 
   // Time Entries
   timeEntries: {
     all: ['timeEntries'] as const,
-    list: (filters?: Record<string, any>) =>
+    list: (filters?: object) =>
       ['timeEntries', 'list', filters] as const,
     timers: ['timeEntries', 'timers'] as const,
   },
@@ -103,7 +104,7 @@ export const queryKeys = {
   // Invoices
   invoices: {
     all: ['invoices'] as const,
-    list: (filters?: Record<string, any>) =>
+    list: (filters?: object) =>
       ['invoices', 'list', filters] as const,
     detail: (invoiceId: string) => ['invoices', 'detail', invoiceId] as const,
   },
@@ -111,7 +112,7 @@ export const queryKeys = {
   // Judges
   judges: {
     all: ['judges'] as const,
-    list: (params?: Record<string, any>) =>
+    list: (params?: object) =>
       ['judges', 'list', params] as const,
     detail: (dossierNumber: string) => ['judges', 'detail', dossierNumber] as const,
   },

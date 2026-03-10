@@ -10,7 +10,7 @@ export interface ServiceError {
   code: string;
   message: string;
   status?: number;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 export abstract class BaseService {
@@ -70,7 +70,7 @@ export abstract class BaseService {
   /**
    * Execute an API request that returns void (e.g. DELETE, PUT with no response body).
    */
-  protected async requestVoid(fn: () => Promise<AxiosResponse<any>>): Promise<void> {
+  protected async requestVoid(fn: () => Promise<AxiosResponse<unknown>>): Promise<void> {
     try {
       await fn();
     } catch (error) {

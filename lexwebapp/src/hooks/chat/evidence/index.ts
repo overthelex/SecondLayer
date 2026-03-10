@@ -6,7 +6,7 @@
 export type { EvidenceResult } from './types';
 export { classifyDocumentType } from './parse';
 
-import type { EvidenceResult } from './types';
+import type { EvidenceResult, ToolResultData } from './types';
 import { parseToolResultContent } from './parse';
 import { extractCourtEvidence } from './court';
 import { extractLegislationEvidence } from './legislation';
@@ -30,7 +30,7 @@ function mergeEvidence(target: EvidenceResult, source: EvidenceResult): void {
  */
 export function extractEvidenceFromToolResult(
   toolName: string,
-  rawResult: any
+  rawResult: unknown
 ): EvidenceResult {
   const result: EvidenceResult = { decisions: [], citations: [], documents: [] };
 
@@ -39,7 +39,7 @@ export function extractEvidenceFromToolResult(
 
   mergeEvidence(result, extractCourtEvidence(toolName, parsed));
   mergeEvidence(result, extractLegislationEvidence(toolName, parsed));
-  mergeEvidence(result, extractProceduralNormEvidence(toolName, rawResult));
+  mergeEvidence(result, extractProceduralNormEvidence(toolName, (rawResult || {}) as ToolResultData));
   mergeEvidence(result, extractVaultEvidence(toolName, parsed));
   mergeEvidence(result, extractRetrieveLegalSourcesEvidence(toolName, parsed));
   mergeEvidence(result, extractRadaEvidence(toolName, parsed));

@@ -1,18 +1,30 @@
 /**
  * Parse raw MCP tool result content — handles content array and plain objects.
  */
-export function parseToolResultContent(result: any): any {
+
+/** Content block within an MCP result envelope. */
+interface ContentBlock {
+  type?: string;
+  text?: string;
+}
+
+/** Loosely-typed tool result from the backend. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ToolResult = Record<string, any>;
+
+export function parseToolResultContent(result: unknown): ToolResult | null {
   if (!result) return null;
   try {
-    if (result.content && Array.isArray(result.content)) {
-      const textBlock = result.content.find((b: any) => b.type === 'text');
+    const r = result as ToolResult;
+    if (r.content && Array.isArray(r.content)) {
+      const textBlock = r.content.find((b: ContentBlock) => b.type === 'text');
       if (textBlock?.text) {
         return JSON.parse(textBlock.text);
       }
     }
-    return typeof result === 'string' ? JSON.parse(result) : result;
+    return typeof result === 'string' ? JSON.parse(result) : r;
   } catch {
-    return result;
+    return result as ToolResult;
   }
 }
 
@@ -20,7 +32,7 @@ export function parseToolResultContent(result: any): any {
  * Classify court document type from available fields.
  * Used to split decisions into "Рішення" tab vs "Документи" tab.
  */
-export function classifyDocumentType(item: any): string {
+export function classifyDocumentType(item: ToolResult): string {
   const form = item?.judgment_form || item?.form_name || item?.judgment_form_name
     || item?.document_type || '';
   const formLower = String(form).toLowerCase();
