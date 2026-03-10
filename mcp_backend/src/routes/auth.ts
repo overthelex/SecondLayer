@@ -70,6 +70,9 @@ router.post('/reset-password', authRateLimit as any, authController.resetPasswor
  * The redirect URI must also be registered in Google Cloud Console.
  */
 function getCallbackURL(req: any): string {
+  if (process.env.GOOGLE_CALLBACK_URL) {
+    return process.env.GOOGLE_CALLBACK_URL;
+  }
   const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   return `${protocol}://${host}/auth/google/callback`;
