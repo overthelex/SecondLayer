@@ -113,6 +113,7 @@ export const ROUTES = {
   ADMIN_ZO_STATS: '/admin/zo-stats',
   ADMIN_BULK_SCRAPE: '/admin/bulk-scrape',
   ADMIN_OPEN_DATA_CATALOG: '/admin/open-data-catalog',
+  ADMIN_PG_MONITORING: '/admin/pg-monitoring',
 } as const;
 
 // Helper function to generate dynamic routes

@@ -52,6 +52,7 @@ const PAGE_TITLES: Record<string, string> = {
   [ROUTES.ADMIN_TERMINAL]: 'Admin Terminal',
   [ROUTES.ADMIN_BULK_SCRAPE]: 'Пайплайн збору даних',
   [ROUTES.ADMIN_OPEN_DATA_CATALOG]: 'Каталог OpenData',
+  [ROUTES.ADMIN_PG_MONITORING]: 'PG Моніторинг',
   [ROUTES.ATTORNEY_CLIENTS]: 'Мої клієнти',
 };
 

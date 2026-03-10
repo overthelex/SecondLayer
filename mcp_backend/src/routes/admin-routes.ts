@@ -5078,5 +5078,111 @@ export function createAdminRoutes(
     }
   }) as any);
 
+  // ========================================
+  // PG MONITORING — EDRSR stats (prod + stage)
+  // ========================================
+  router.get('/pg-monitoring', async (req: Request, res: Response) => {
+    try {
+      // Fetch local EDRSR stats
+      const tablesExist = await db.query(`
+        SELECT
+          EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='edrsr_documents') AS has_docs,
+          EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='edrsr_fulltext') AS has_ft
+      `);
+      const { has_docs, has_ft } = tablesExist.rows[0];
+
+      let localByYear: Array<{ year: number | null; total: number; with_fulltext: number }> = [];
+
+      if (has_docs && has_ft) {
+        const result = await db.query(`
+          SELECT
+            EXTRACT(YEAR FROM e.adjudication_date)::int AS year,
+            COUNT(*)::int AS total,
+            COUNT(f.doc_id)::int AS with_fulltext
+          FROM edrsr_documents e
+          LEFT JOIN edrsr_fulltext f ON f.doc_id = e.doc_id
+          GROUP BY year
+          ORDER BY year NULLS LAST
+        `);
+        localByYear = result.rows;
+      } else if (has_docs) {
+        const result = await db.query(`
+          SELECT
+            EXTRACT(YEAR FROM adjudication_date)::int AS year,
+            COUNT(*)::int AS total,
+            0 AS with_fulltext
+          FROM edrsr_documents
+          GROUP BY year
+          ORDER BY year NULLS LAST
+        `);
+        localByYear = result.rows;
+      }
+
+      let localStandaloneFulltext = 0;
+      if (has_ft && has_docs) {
+        const ftOnly = await db.query(`
+          SELECT COUNT(*)::int AS cnt FROM edrsr_fulltext f
+          WHERE NOT EXISTS (SELECT 1 FROM edrsr_documents e WHERE e.doc_id = f.doc_id)
+        `);
+        localStandaloneFulltext = ftOnly.rows[0]?.cnt || 0;
+      }
+
+      let totalDocs = 0;
+      let totalFulltext = 0;
+      if (has_docs) {
+        const r = await db.query('SELECT COUNT(*)::int AS cnt FROM edrsr_documents');
+        totalDocs = r.rows[0]?.cnt || 0;
+      }
+      if (has_ft) {
+        const r = await db.query('SELECT COUNT(*)::int AS cnt FROM edrsr_fulltext');
+        totalFulltext = r.rows[0]?.cnt || 0;
+      }
+
+      const localData = {
+        byYear: localByYear,
+        totalDocuments: totalDocs,
+        totalFulltext: totalFulltext,
+        standaloneFulltext: localStandaloneFulltext,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Fetch remote env stats
+      const stageBackendUrl = process.env.STAGE_BACKEND_URL || 'https://stage.legal.org.ua';
+      const stageApiKey = process.env.STAGE_API_KEY ||
+        process.env.SECONDARY_LAYER_KEYS?.split(',')[0]?.trim() || '';
+      const prodBackendUrl = process.env.PROD_BACKEND_URL || 'https://mcp.legal.org.ua';
+      const prodApiKey = process.env.PROD_API_KEY ||
+        process.env.SECONDARY_LAYER_KEYS?.split(',')[0]?.trim() || '';
+
+      const fetchRemote = async (url: string, apiKey: string) => {
+        try {
+          const resp = await axios.get(`${url}/api/internal/edrsr-stats`, {
+            headers: { Authorization: `Bearer ${apiKey}` },
+            timeout: 30000,
+          });
+          return resp.data;
+        } catch (err: any) {
+          logger.warn('pg-monitoring: failed to fetch remote EDRSR stats', { url, error: err.message });
+          return null;
+        }
+      };
+
+      const [stageData, prodData] = await Promise.all([
+        fetchRemote(stageBackendUrl, stageApiKey),
+        fetchRemote(prodBackendUrl, prodApiKey),
+      ]);
+
+      return res.json({
+        local: localData,
+        stage: stageData,
+        prod: prodData,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      logger.error('pg-monitoring failed', { error: error.message });
+      res.status(500).json({ error: 'Failed to fetch PG monitoring data' });
+    }
+  });
+
   return router;
 }

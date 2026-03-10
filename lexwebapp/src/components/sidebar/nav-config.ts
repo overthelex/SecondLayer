@@ -3,7 +3,7 @@ import {
   Bell, FileCode, BarChart3, Vote, History, Newspaper,
   Clock, FileText, Search, Activity, Database, Users, DollarSign,
   Server, Boxes, Globe, CreditCard, Settings, Terminal, Tag, Zap,
-  Layers,
+  Layers, HardDrive,
 } from 'lucide-react';
 import { ROUTES } from '../../router/routes';
 
@@ -56,4 +56,5 @@ export const monitoringSections = [
   { id: 'zo-stats', label: 'Статистика рішень', icon: BarChart3, route: ROUTES.ADMIN_ZO_STATS },
   { id: 'user-activity', label: 'Активність юзерів', icon: Zap, route: ROUTES.ADMIN_USER_ACTIVITY },
   { id: 'bulk-scrape', label: 'Пайплайн збору', icon: Database, route: ROUTES.ADMIN_BULK_SCRAPE },
+  { id: 'pg-monitoring', label: 'PG Моніторинг', icon: HardDrive, route: ROUTES.ADMIN_PG_MONITORING },
 ];
