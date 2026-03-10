@@ -44,7 +44,12 @@ export function createBillingRoutes(
         pricing_tier: summary.pricing_tier,
         today_spent_usd: summary.today_spent_usd,
         month_spent_usd: summary.month_spent_usd,
+        // Aliases for frontend compatibility
+        today_spending_usd: summary.today_spent_usd,
+        monthly_spending_usd: summary.month_spent_usd,
         last_request_at: summary.last_request_at,
+        is_active: summary.is_active,
+        low_balance_threshold_usd: summary.low_balance_threshold_usd,
       });
     } catch (error: any) {
       logger.error('Failed to get balance', { error: error.message });
@@ -115,6 +120,48 @@ export function createBillingRoutes(
   });
 
   /**
+   * GET /api/billing/settings
+   * Get user billing settings (limits, notifications)
+   */
+  router.get('/settings', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const summary = await billingService.getBillingSummary(userId);
+      if (!summary) {
+        return res.json({
+          daily_limit_usd: 10,
+          monthly_limit_usd: 100,
+          email_notifications: true,
+          notify_low_balance: true,
+          notify_payment_success: true,
+          notify_payment_failure: false,
+          notify_monthly_report: true,
+          low_balance_threshold_usd: 20,
+        });
+      }
+
+      res.json({
+        daily_limit_usd: summary.daily_limit_usd,
+        monthly_limit_usd: summary.monthly_limit_usd,
+        pricing_tier: summary.pricing_tier,
+        email_notifications: summary.email_notifications,
+        notify_low_balance: summary.notify_low_balance,
+        notify_payment_success: summary.notify_payment_success,
+        notify_payment_failure: summary.notify_payment_failure,
+        notify_monthly_report: summary.notify_monthly_report,
+        low_balance_threshold_usd: summary.low_balance_threshold_usd,
+      });
+    } catch (error: any) {
+      logger.error('Failed to get billing settings', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve billing settings' });
+    }
+  });
+
+  /**
    * PUT /api/billing/settings
    * Update user billing settings (limits, tier)
    */
@@ -125,12 +172,31 @@ export function createBillingRoutes(
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const { dailyLimitUsd, monthlyLimitUsd, pricingTier } = req.body;
+      const {
+        dailyLimitUsd, daily_limit_usd,
+        monthlyLimitUsd, monthly_limit_usd,
+        pricingTier,
+        email_notifications,
+        notify_low_balance,
+        notify_payment_success,
+        notify_payment_failure,
+        notify_monthly_report,
+        low_balance_threshold_usd,
+      } = req.body;
+
+      const dailyVal = dailyLimitUsd ?? daily_limit_usd;
+      const monthlyVal = monthlyLimitUsd ?? monthly_limit_usd;
 
       await billingService.updateBillingSettings(userId, {
-        dailyLimitUsd: dailyLimitUsd !== undefined ? Number(dailyLimitUsd) : undefined,
-        monthlyLimitUsd: monthlyLimitUsd !== undefined ? Number(monthlyLimitUsd) : undefined,
+        dailyLimitUsd: dailyVal !== undefined ? Number(dailyVal) : undefined,
+        monthlyLimitUsd: monthlyVal !== undefined ? Number(monthlyVal) : undefined,
         pricingTier,
+        email_notifications,
+        notify_low_balance,
+        notify_payment_success,
+        notify_payment_failure,
+        notify_monthly_report,
+        low_balance_threshold_usd: low_balance_threshold_usd !== undefined ? Number(low_balance_threshold_usd) : undefined,
       });
 
       res.json({ success: true, message: 'Billing settings updated' });

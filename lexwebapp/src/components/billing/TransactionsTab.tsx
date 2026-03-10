@@ -16,9 +16,17 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { uk } from 'date-fns/locale';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
+
+const TYPE_LABELS: Record<string, string> = {
+  charge: 'Списання',
+  topup: 'Поповнення',
+  refund: 'Повернення',
+  adjustment: 'Коригування',
+};
 
 interface Transaction {
   id: string;
@@ -41,6 +49,7 @@ export function TransactionsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [limit] = useState(50);
+  const [hasMore, setHasMore] = useState(false);
   const { formatUah } = useCurrencyRate();
 
   const fetchTransactions = async () => {
@@ -51,7 +60,9 @@ export function TransactionsTab() {
         offset: page * limit,
         type: filter === 'all' ? undefined : filter,
       });
-      setTransactions(response.data.transactions || []);
+      const txns = response.data.transactions || [];
+      setTransactions(txns);
+      setHasMore(txns.length >= limit);
     } catch (error) {
       console.error('Failed to fetch transactions:', error);
       showToast.error('Не вдалося завантажити історію транзакцій');
@@ -68,12 +79,19 @@ export function TransactionsTab() {
     t.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const csvEscape = (val: string) => {
+    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+      return `"${val.replace(/"/g, '""')}"`;
+    }
+    return val;
+  };
+
   const exportToCSV = () => {
     const headers = ['Дата', 'Тип', 'Опис', 'Сума UAH', 'Баланс після', 'Провайдер'];
     const rows = filteredTransactions.map((t) => [
       format(new Date(t.created_at), 'yyyy-MM-dd HH:mm:ss'),
-      t.type,
-      t.description,
+      TYPE_LABELS[t.type] || t.type,
+      csvEscape(t.description),
       Number(t.amount_uah || 0).toFixed(2),
       Number(t.balance_after_usd || 0).toFixed(2),
       t.payment_provider || 'N/A',
@@ -227,7 +245,7 @@ export function TransactionsTab() {
                     className="hover:bg-claude-bg transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-claude-text">
-                        {format(new Date(transaction.created_at), 'MMM dd, yyyy')}
+                        {format(new Date(transaction.created_at), 'd MMM yyyy', { locale: uk })}
                       </div>
                       <div className="text-xs text-claude-subtext">
                         {format(new Date(transaction.created_at), 'HH:mm:ss')}
@@ -237,10 +255,10 @@ export function TransactionsTab() {
                       <div className="flex items-center gap-2">
                         {getTypeIcon(transaction.type)}
                         <span
-                          className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${getTypeColor(
+                          className={`px-2.5 py-1 rounded-full text-xs font-medium ${getTypeColor(
                             transaction.type
                           )}`}>
-                          {transaction.type}
+                          {TYPE_LABELS[transaction.type] || transaction.type}
                         </span>
                       </div>
                     </td>
@@ -290,8 +308,7 @@ export function TransactionsTab() {
         {!isLoading && filteredTransactions.length > 0 && (
           <div className="px-6 py-4 border-t border-claude-border flex items-center justify-between">
             <p className="text-sm text-claude-subtext">
-              Показано {page * limit + 1} — {Math.min((page + 1) * limit, filteredTransactions.length)} з{' '}
-              {filteredTransactions.length} транзакцій
+              Сторінка {page + 1} · Показано {filteredTransactions.length} транзакцій
             </p>
             <div className="flex gap-2">
               <button
@@ -302,7 +319,7 @@ export function TransactionsTab() {
               </button>
               <button
                 onClick={() => setPage(page + 1)}
-                disabled={(page + 1) * limit >= filteredTransactions.length}
+                disabled={!hasMore}
                 className="p-2 border border-claude-border rounded-lg hover:bg-claude-bg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 <ChevronRight size={18} />
               </button>

@@ -28,6 +28,7 @@ interface BalanceData {
   total_requests: number;
   last_request_at: string | null;
   is_active: boolean;
+  low_balance_threshold_usd?: number;
 }
 
 interface OverviewTabProps {
@@ -56,8 +57,12 @@ export function OverviewTab({ onTopUp }: OverviewTabProps) {
   useEffect(() => {
     fetchBalance();
 
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchBalance, 30000);
+    // Auto-refresh every 60 seconds, only when tab is visible
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchBalance();
+      }
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -229,7 +234,7 @@ export function OverviewTab({ onTopUp }: OverviewTabProps) {
       </motion.div>
 
       {/* Low Balance Warning */}
-      {data.balance_usd < 5 && (
+      {data.balance_usd < (data.low_balance_threshold_usd ?? 5) && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
