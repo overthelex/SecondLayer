@@ -82,7 +82,7 @@ export function MattersPage() {
                 Справи
               </h1>
               <p className="text-claude-subtext font-sans text-sm">
-                Управління юридичними справами та провадженнями
+                Управління юридичними справами та провадженнями. Кожна справа містить документи, команду, історію дій та заборони знищення.
               </p>
             </div>
 
@@ -206,14 +206,14 @@ export function MattersPage() {
                       <div className="flex items-start justify-between gap-4 mb-2">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-mono text-claude-subtext">{matter.matter_number}</span>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig.color}`}>
+                            <span className="text-xs font-mono text-claude-subtext" title="Унікальний номер справи в системі">{matter.matter_number}</span>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig.color}`} title="Поточний статус справи">
                               {statusConfig.label}
                             </span>
                             {matter.has_legal_hold && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" title="Документи у справі захищені від видалення (Legal Hold)">
                                 <Shield size={10} />
-                                Утримання
+                                Заборона знищення
                               </span>
                             )}
                           </div>
@@ -226,18 +226,18 @@ export function MattersPage() {
                       {/* Details row */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                         {matter.client_name && (
-                          <div className="flex items-center gap-2 text-sm text-claude-subtext font-sans">
+                          <div className="flex items-center gap-2 text-sm text-claude-subtext font-sans" title="Клієнт — замовник юридичних послуг">
                             <Building2 size={14} className="flex-shrink-0" />
                             <span className="truncate">{matter.client_name}</span>
                           </div>
                         )}
                         {matter.responsible_attorney && (
-                          <div className="flex items-center gap-2 text-sm text-claude-subtext font-sans">
+                          <div className="flex items-center gap-2 text-sm text-claude-subtext font-sans" title="Адвокат, який веде справу">
                             <User size={14} className="flex-shrink-0" />
                             <span className="truncate">{matter.responsible_attorney}</span>
                           </div>
                         )}
-                        <div className="flex items-center gap-2 text-sm text-claude-subtext font-sans">
+                        <div className="flex items-center gap-2 text-sm text-claude-subtext font-sans" title="Дата створення справи в системі">
                           <Calendar size={14} className="flex-shrink-0" />
                           <span>{new Date(matter.opened_date).toLocaleDateString('uk-UA')}</span>
                         </div>

@@ -54,7 +54,7 @@ export function HoldsList({ matterId }: HoldsListProps) {
     return (
       <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 font-sans text-sm">
         <AlertCircle size={18} />
-        Помилка завантаження утримань
+        Помилка завантаження заборон знищення
       </div>
     );
   }
@@ -67,7 +67,7 @@ export function HoldsList({ matterId }: HoldsListProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-lg font-serif text-claude-text">Утримання</h3>
+          <h3 className="text-lg font-serif text-claude-text">Заборона знищення</h3>
           {activeHolds.length > 0 && (
             <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full">
               {activeHolds.length} активних
@@ -79,7 +79,7 @@ export function HoldsList({ matterId }: HoldsListProps) {
           className="flex items-center gap-2 px-3 py-2 bg-claude-accent text-white rounded-xl font-medium text-xs font-sans hover:bg-[#C66345] transition-colors shadow-sm"
         >
           <Plus size={14} />
-          Створити утримання
+          Створити заборону
         </button>
       </div>
 
@@ -87,7 +87,7 @@ export function HoldsList({ matterId }: HoldsListProps) {
       {holds.length === 0 ? (
         <div className="text-center py-8">
           <Shield size={24} className="mx-auto text-claude-subtext mb-2" />
-          <p className="text-claude-subtext font-sans text-sm">Утримань немає</p>
+          <p className="text-claude-subtext font-sans text-sm">Заборон знищення немає</p>
         </div>
       ) : (
         <div className="space-y-3">

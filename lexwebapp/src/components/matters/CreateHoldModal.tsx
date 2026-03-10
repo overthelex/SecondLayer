@@ -55,7 +55,7 @@ export function CreateHoldModal({ isOpen, onClose, matterId }: CreateHoldModalPr
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Нове утримання" size="md">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Нова заборона знищення" size="md">
       <form onSubmit={handleSubmit} className="space-y-4 p-1">
         <div>
           <label className="block text-sm font-medium text-claude-text font-sans mb-1">
@@ -68,7 +68,7 @@ export function CreateHoldModal({ isOpen, onClose, matterId }: CreateHoldModalPr
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Наприклад: Утримання документів для суду"
+            placeholder="Наприклад: Заборона знищення документів для суду"
             className="w-full px-3 py-2.5 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans text-sm"
           />
         </div>
@@ -102,7 +102,7 @@ export function CreateHoldModal({ isOpen, onClose, matterId }: CreateHoldModalPr
             name="scopeDescription"
             value={scope}
             onChange={(e) => setScope(e.target.value)}
-            placeholder="Описати документи та дані, що підлягають утриманню..."
+            placeholder="Описати документи та дані, на які поширюється заборона знищення..."
             rows={3}
             className="w-full px-3 py-2.5 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all resize-none font-sans text-sm"
           />
