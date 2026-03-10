@@ -9,79 +9,33 @@
  * - Adaptive concurrency based on server backpressure
  * - 429 handling with Retry-After
  * - Batch init for 100+ files
+ *
+ * Composed from:
+ * - UploadQueue — item storage, ordering, concurrency slots
+ * - UploadRetry — retry strategy, backoff logic
+ * - BackpressureManager — server throttling detection, adaptive concurrency
  */
 
-import { uploadService, InitUploadResponse, UploadStatusResponse } from '../api/UploadService';
-import { getErrorMessage, hasStatus, hasName } from '../../utils/errors';
+import { uploadService, InitUploadResponse } from '../api/UploadService';
+import { getErrorMessage } from '../../utils/errors';
+import type { UploadItem, UploadEvent, UploadListener } from './types';
+import { UploadQueue } from './UploadQueue';
+import { UploadRetry } from './UploadRetry';
+import { BackpressureManager } from './BackpressureManager';
 
-export type UploadItemStatus =
-  | 'queued'
-  | 'initializing'
-  | 'uploading'
-  | 'assembling'
-  | 'processing'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'paused';
+// Re-export types so consumers keep the same import path
+export type { UploadItemStatus, UploadItem, UploadEventType, UploadEvent } from './types';
 
-export interface UploadItem {
-  id: string; // Client-side ID
-  file: File;
-  fileName: string;
-  fileSize: number;
-  mimeType: string;
-  relativePath: string;
-  docType: string;
-  status: UploadItemStatus;
-  uploadId?: string; // Server-side session ID
-  documentId?: string;
-  storageType?: string;
-  progress: number; // 0-1
-  uploadedBytes: number;
-  error?: string;
-  retries: number;
-}
-
-export type UploadEventType =
-  | 'item-updated'
-  | 'global-progress'
-  | 'all-completed'
-  | 'error'
-  | 'throttle-changed';
-
-export interface UploadEvent {
-  type: UploadEventType;
-  item?: UploadItem;
-  globalProgress?: number;
-  error?: string;
-  isThrottled?: boolean;
-  serverQueueDepth?: number;
-}
-
-type UploadListener = (event: UploadEvent) => void;
-
-const DEFAULT_CONCURRENT_FILES = 3;
-const MAX_RETRIES = 3;
-const MAX_429_RETRIES = 30; // Cap 429 retries to prevent infinite loops
-const RETRY_DELAYS = [1000, 2000, 4000]; // ms
 const POLL_INTERVAL = 2000; // ms
 const BATCH_INIT_THRESHOLD = 10; // Use batch init for 10+ files
 const BATCH_CHUNK_SIZE = 500; // Server limit per batch-init request
 
 export class UploadManager {
-  private items: Map<string, UploadItem> = new Map();
-  private activeUploads = 0;
-  private maxConcurrentFiles = DEFAULT_CONCURRENT_FILES;
-  private userRequestedConcurrency = DEFAULT_CONCURRENT_FILES;
-  private isPaused = false;
+  private queue = new UploadQueue();
+  private retry = new UploadRetry();
+  private backpressure = new BackpressureManager();
   private listeners: Set<UploadListener> = new Set();
   private abortControllers: Map<string, AbortController> = new Map();
-
-  // Adaptive throttling state
-  private _isThrottled = false;
-  private _serverQueueDepth = 0;
-  private interChunkDelay = 0; // ms, added when throttled
 
   subscribe(listener: UploadListener): () => void {
     this.listeners.add(listener);
@@ -89,20 +43,19 @@ export class UploadManager {
   }
 
   setConcurrency(n: number) {
-    this.userRequestedConcurrency = Math.max(1, Math.min(100, n));
-    this.maxConcurrentFiles = this.userRequestedConcurrency;
+    this.backpressure.setConcurrency(n);
   }
 
   getConcurrency(): number {
-    return this.maxConcurrentFiles;
+    return this.backpressure.getConcurrency();
   }
 
   get isThrottled(): boolean {
-    return this._isThrottled;
+    return this.backpressure.isThrottled;
   }
 
   get serverQueueDepth(): number {
-    return this._serverQueueDepth;
+    return this.backpressure.serverQueueDepth;
   }
 
   private emit(event: UploadEvent) {
@@ -115,7 +68,7 @@ export class UploadManager {
   }
 
   private emitGlobalProgress() {
-    const items = Array.from(this.items.values());
+    const items = this.queue.getAll();
     if (items.length === 0) return;
     const totalBytes = items.reduce((sum, i) => sum + i.fileSize, 0);
     const uploadedBytes = items.reduce((sum, i) => sum + i.uploadedBytes, 0);
@@ -129,33 +82,9 @@ export class UploadManager {
    * Process backpressure headers from server response
    */
   private handleBackpressureHeaders(headers: Record<string, string> | null): void {
-    if (!headers) return;
-
-    const queueDepth = parseInt(headers['x-upload-queue-depth'] || '0', 10);
-    const throttle = headers['x-upload-throttle'] === '1';
-
-    this._serverQueueDepth = queueDepth;
-
-    if (throttle && !this._isThrottled) {
-      // Server is under load — reduce concurrency
-      this._isThrottled = true;
-      this.maxConcurrentFiles = Math.max(1, Math.floor(this.userRequestedConcurrency / 2));
-      this.interChunkDelay = 500;
-      this.emit({
-        type: 'throttle-changed',
-        isThrottled: true,
-        serverQueueDepth: queueDepth,
-      });
-    } else if (!throttle && this._isThrottled && queueDepth < 100) {
-      // Server recovered — gradually restore concurrency
-      this._isThrottled = false;
-      this.interChunkDelay = 0;
-      this.maxConcurrentFiles = this.userRequestedConcurrency;
-      this.emit({
-        type: 'throttle-changed',
-        isThrottled: false,
-        serverQueueDepth: queueDepth,
-      });
+    const event = this.backpressure.handleBackpressureHeaders(headers);
+    if (event) {
+      this.emit(event);
     }
   }
 
@@ -170,37 +99,16 @@ export class UploadManager {
       docType: string;
     }>
   ): UploadItem[] {
-    const newItems: UploadItem[] = [];
-
-    for (const f of files) {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const item: UploadItem = {
-        id,
-        file: f.file,
-        fileName: f.file.name,
-        fileSize: f.file.size,
-        mimeType: f.mimeType,
-        relativePath: f.relativePath,
-        docType: f.docType,
-        status: 'queued',
-        progress: 0,
-        uploadedBytes: 0,
-        retries: 0,
-      };
-      this.items.set(id, item);
-      newItems.push(item);
-    }
-
-    return newItems;
+    return this.queue.addFiles(files);
   }
 
   /**
    * Start uploading all queued files
    */
   async start() {
-    this.isPaused = false;
+    this.queue.isPaused = false;
     // Batch-init sessions for large file sets (reduces 100 requests to 1)
-    const queued = Array.from(this.items.values()).filter((i) => i.status === 'queued');
+    const queued = this.queue.getQueued();
     if (queued.length >= BATCH_INIT_THRESHOLD) {
       // Proactively clear stale sessions to free quota before batch init
       try {
@@ -217,9 +125,9 @@ export class UploadManager {
    * Pause all uploads
    */
   pause() {
-    this.isPaused = true;
+    this.queue.isPaused = true;
     // Pause active uploads
-    for (const [id, item] of this.items) {
+    for (const [id, item] of this.queue.entries()) {
       if (item.status === 'uploading' || item.status === 'initializing') {
         item.status = 'paused';
         this.emitItemUpdate(item);
@@ -233,13 +141,11 @@ export class UploadManager {
    * Resume paused uploads
    */
   resume() {
-    this.isPaused = false;
+    this.queue.isPaused = false;
     // Reset paused items to queued
-    for (const item of this.items.values()) {
-      if (item.status === 'paused') {
-        item.status = 'queued';
-        this.emitItemUpdate(item);
-      }
+    for (const item of this.queue.getByStatus('paused')) {
+      item.status = 'queued';
+      this.emitItemUpdate(item);
     }
     this.processQueue();
   }
@@ -248,7 +154,7 @@ export class UploadManager {
    * Cancel a specific file
    */
   async cancelFile(itemId: string) {
-    const item = this.items.get(itemId);
+    const item = this.queue.get(itemId);
     if (!item) return;
 
     // Set cancelled status FIRST to stop the chunk upload loop immediately
@@ -272,10 +178,10 @@ export class UploadManager {
    * Cancel all uploads
    */
   async cancelAll() {
-    this.isPaused = true;
+    this.queue.isPaused = true;
     const promises: Promise<void>[] = [];
 
-    for (const [id, item] of this.items) {
+    for (const [id, item] of this.queue.entries()) {
       if (['queued', 'initializing', 'uploading', 'paused'].includes(item.status)) {
         promises.push(this.cancelFile(id));
       }
@@ -288,7 +194,7 @@ export class UploadManager {
    * Retry a failed file
    */
   retryFile(itemId: string) {
-    const item = this.items.get(itemId);
+    const item = this.queue.get(itemId);
     if (!item || item.status !== 'failed') return;
 
     item.status = 'queued';
@@ -304,15 +210,13 @@ export class UploadManager {
    * Retry all failed files
    */
   retryAllFailed() {
-    for (const item of this.items.values()) {
-      if (item.status === 'failed') {
-        item.status = 'queued';
-        item.retries = 0;
-        item.error = undefined;
-        item.uploadedBytes = 0;
-        item.progress = 0;
-        this.emitItemUpdate(item);
-      }
+    for (const item of this.queue.getByStatus('failed')) {
+      item.status = 'queued';
+      item.retries = 0;
+      item.error = undefined;
+      item.uploadedBytes = 0;
+      item.progress = 0;
+      this.emitItemUpdate(item);
     }
     this.processQueue();
   }
@@ -321,11 +225,7 @@ export class UploadManager {
    * Remove a file from the queue (only if not actively uploading)
    */
   removeFile(itemId: string) {
-    const item = this.items.get(itemId);
-    if (!item) return;
-
-    if (['queued', 'completed', 'failed', 'cancelled'].includes(item.status)) {
-      this.items.delete(itemId);
+    if (this.queue.removeFile(itemId)) {
       this.emitGlobalProgress();
     }
   }
@@ -334,11 +234,7 @@ export class UploadManager {
    * Clear all completed/cancelled/failed items
    */
   clearFinished() {
-    for (const [id, item] of this.items) {
-      if (['completed', 'cancelled', 'failed'].includes(item.status)) {
-        this.items.delete(id);
-      }
-    }
+    this.queue.clearFinished();
     this.emitGlobalProgress();
   }
 
@@ -346,68 +242,46 @@ export class UploadManager {
    * Get all items as array
    */
   getItems(): UploadItem[] {
-    return Array.from(this.items.values());
+    return this.queue.getAll();
   }
 
   /**
    * Get stats
    */
   getStats() {
-    const items = Array.from(this.items.values());
-    return {
-      total: items.length,
-      queued: items.filter((i) => i.status === 'queued').length,
-      uploading: items.filter((i) =>
-        ['initializing', 'uploading', 'assembling', 'processing'].includes(i.status)
-      ).length,
-      completed: items.filter((i) => i.status === 'completed').length,
-      failed: items.filter((i) => i.status === 'failed').length,
-      cancelled: items.filter((i) => i.status === 'cancelled').length,
-      paused: items.filter((i) => i.status === 'paused').length,
-      totalBytes: items.reduce((s, i) => s + i.fileSize, 0),
-      uploadedBytes: items.reduce((s, i) => s + i.uploadedBytes, 0),
-    };
+    return this.queue.getStats();
   }
 
   /**
    * Update doc type for a queued item
    */
   updateDocType(itemId: string, docType: string) {
-    const item = this.items.get(itemId);
-    if (item && item.status === 'queued') {
-      item.docType = docType;
-    }
+    this.queue.updateDocType(itemId, docType);
   }
 
   /**
    * Update doc type for all queued items
    */
   updateAllDocTypes(docType: string) {
-    for (const item of this.items.values()) {
-      if (item.status === 'queued') {
-        item.docType = docType;
-      }
-    }
+    this.queue.updateAllDocTypes(docType);
   }
 
   // --- Internal ---
 
   private processQueue() {
-    if (this.isPaused) return;
+    if (this.queue.isPaused) return;
 
-    const queued = Array.from(this.items.values()).filter(
-      (i) => i.status === 'queued'
-    );
+    const queued = this.queue.getQueued();
 
-    while (this.activeUploads < this.maxConcurrentFiles && queued.length > 0) {
+    while (this.queue.activeUploads < this.backpressure.maxConcurrentFiles && queued.length > 0) {
       const item = queued.shift()!;
-      this.activeUploads++;
+      this.queue.incrementActive();
       this.uploadFile(item).finally(() => {
-        this.activeUploads--;
+        this.queue.decrementActive();
         this.processQueue();
 
         // Check if all done
-        const stats = this.getStats();
+        const stats = this.queue.getStats();
         if (stats.queued === 0 && stats.uploading === 0 && stats.paused === 0) {
           this.emit({ type: 'all-completed' });
         }
@@ -440,69 +314,21 @@ export class UploadManager {
       relativePath: i.relativePath,
     }));
 
-    let throttleRetries = 0;
-    let staleClearAttempted = false;
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const response = await uploadService.initBatch(files);
-        if (response?.sessions) {
-          for (let idx = 0; idx < response.sessions.length; idx++) {
-            const session = response.sessions[idx];
-            const item = needInit[idx];
-            if (item && session && !('error' in session)) {
-              item.uploadId = session.uploadId;
-            }
-          }
-        }
-        return; // Success
-      } catch (err: unknown) {
-        // 429 — wait for Retry-After, don't count as attempt (but cap retries)
-        if (hasStatus(err) && err.status === 429) {
-          // Auto-clear stale sessions on SESSION_QUOTA_EXCEEDED (once per batch)
-          if (err.details?.code === 'SESSION_QUOTA_EXCEEDED' && !staleClearAttempted) {
-            staleClearAttempted = true;
-            try {
-              const clearResult = await uploadService.clearStaleSessions();
-              if (clearResult.cancelled > 0) {
-                this.emit({
-                  type: 'error',
-                  error: `Cleared ${clearResult.cancelled} stale session(s), retrying...`,
-                });
-                attempt--; // Retry immediately
-                continue;
-              }
-            } catch {
-              // Best effort — fall through to normal 429 handling
-            }
-          }
+    const retryCtx = { emit: (event: UploadEvent) => this.emit(event) };
 
-          throttleRetries++;
-          if (throttleRetries > MAX_429_RETRIES) {
-            this.emit({ type: 'error', error: 'Server busy too long, batch init failed' });
-            break; // Fall through to individual init
-          }
-          const retryAfter = parseInt(String(err.details?.retryAfter ?? '60'), 10);
-          this.emit({
-            type: 'error',
-            error: `Server busy, batch init paused for ${retryAfter}s (${throttleRetries}/${MAX_429_RETRIES})`,
-          });
-          await new Promise((r) => setTimeout(r, retryAfter * 1000));
-          attempt--; // Don't count 429 as an attempt
-          continue;
-        }
+    const response = await this.retry.executeWithRetryForBatch(
+      () => uploadService.initBatch(files),
+      retryCtx,
+      { label: 'batch init' }
+    );
 
-        // Other errors — backoff then fall through to individual init
-        if (attempt < MAX_RETRIES) {
-          const delay = RETRY_DELAYS[attempt] || 4000;
-          await new Promise((r) => setTimeout(r, delay));
-          continue;
+    if (response?.sessions) {
+      for (let idx = 0; idx < response.sessions.length; idx++) {
+        const session = response.sessions[idx];
+        const item = needInit[idx];
+        if (item && session && !('error' in session)) {
+          item.uploadId = session.uploadId;
         }
-
-        // All retries exhausted — fall back to individual init per file
-        this.emit({
-          type: 'error',
-          error: 'Batch init failed, falling back to individual init',
-        });
       }
     }
   }
@@ -530,65 +356,20 @@ export class UploadManager {
           expiresAt: '',
         };
       } else {
-        // Init with retry (same pattern as chunk upload 429 handling)
-        let initError: Error | null = null;
-        let initThrottleRetries = 0;
-        let initStaleClearAttempted = false;
-        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-          try {
-            initResponse = await uploadService.initUpload({
+        const retryCtx = { emit: (event: UploadEvent) => this.emit(event) };
+        initResponse = await this.retry.executeWithRetry(
+          () =>
+            uploadService.initUpload({
               fileName: item.fileName,
               fileSize: item.fileSize,
               mimeType: item.mimeType,
               docType: item.docType,
               relativePath: item.relativePath,
-            });
-            item.uploadId = initResponse.uploadId;
-            initError = null;
-            break;
-          } catch (err: unknown) {
-            // 429 — wait for Retry-After, don't count as attempt (but cap retries)
-            if (hasStatus(err) && err.status === 429) {
-              // Auto-clear stale sessions on SESSION_QUOTA_EXCEEDED (once per file)
-              if (err.details?.code === 'SESSION_QUOTA_EXCEEDED' && !initStaleClearAttempted) {
-                initStaleClearAttempted = true;
-                try {
-                  const clearResult = await uploadService.clearStaleSessions();
-                  if (clearResult.cancelled > 0) {
-                    this.emit({
-                      type: 'error',
-                      error: `Cleared ${clearResult.cancelled} stale session(s), retrying...`,
-                    });
-                    attempt--; // Retry immediately
-                    continue;
-                  }
-                } catch {
-                  // Best effort — fall through to normal 429 handling
-                }
-              }
-
-              initThrottleRetries++;
-              if (initThrottleRetries > MAX_429_RETRIES) {
-                initError = new Error('Server busy too long, upload init failed');
-                break;
-              }
-              const retryAfter = parseInt(String(err.details?.retryAfter ?? '60'), 10);
-              this.emit({
-                type: 'error',
-                error: `Server busy, init paused for ${retryAfter}s (${initThrottleRetries}/${MAX_429_RETRIES})`,
-              });
-              await new Promise((r) => setTimeout(r, retryAfter * 1000));
-              attempt--;
-              continue;
-            }
-            initError = err instanceof Error ? err : new Error(getErrorMessage(err));
-            if (attempt < MAX_RETRIES) {
-              const delay = RETRY_DELAYS[attempt] || 4000;
-              await new Promise((r) => setTimeout(r, delay));
-            }
-          }
-        }
-        if (initError) throw initError;
+            }),
+          retryCtx,
+          { label: 'upload init' }
+        );
+        item.uploadId = initResponse.uploadId;
       }
 
       // Step 2: Upload chunks
@@ -603,7 +384,7 @@ export class UploadManager {
       item.uploadedBytes = uploadedSet.size * chunkSize;
 
       for (let i = 0; i < totalChunks; i++) {
-        if (this.isPaused || (item.status as string) === 'paused' || (item.status as string) === 'cancelled') {
+        if (this.queue.isPaused || (item.status as string) === 'paused' || (item.status as string) === 'cancelled') {
           return;
         }
 
@@ -615,15 +396,14 @@ export class UploadManager {
         const chunk = item.file.slice(start, end);
 
         // Inter-chunk delay when server is throttled
-        if (this.interChunkDelay > 0) {
-          await new Promise((r) => setTimeout(r, this.interChunkDelay));
+        if (this.backpressure.interChunkDelay > 0) {
+          await new Promise((r) => setTimeout(r, this.backpressure.interChunkDelay));
         }
 
-        // Upload with retries
-        let lastError: Error | null = null;
-        let chunkThrottleRetries = 0;
-        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-          try {
+        // Upload chunk with retries
+        const retryCtx = { emit: (event: UploadEvent) => this.emit(event) };
+        await this.retry.executeWithRetry(
+          async () => {
             const response = await uploadService.uploadChunk(
               item.uploadId!,
               i,
@@ -646,43 +426,14 @@ export class UploadManager {
             if (response && typeof response === 'object' && '_headers' in response) {
               this.handleBackpressureHeaders((response as any)._headers);
             }
+          },
+          retryCtx,
+          { label: 'chunk upload' }
+        );
 
-            lastError = null;
-            break;
-          } catch (err: unknown) {
-            // Handle 429 — wait for Retry-After, don't count as retry attempt (but cap retries)
-            const is429 = (hasStatus(err) && err.status === 429) || getErrorMessage(err).includes('429');
-            if (is429) {
-              chunkThrottleRetries++;
-              if (chunkThrottleRetries > MAX_429_RETRIES) {
-                lastError = new Error('Server busy too long, chunk upload failed');
-                break;
-              }
-              const retryAfter = parseInt(String((hasStatus(err) ? err.retryAfter : undefined) ?? '5'), 10);
-              this.emit({
-                type: 'error',
-                error: `Server busy, uploads paused for ${retryAfter}s (${chunkThrottleRetries}/${MAX_429_RETRIES})`,
-              });
-              await new Promise((r) => setTimeout(r, retryAfter * 1000));
-              // Don't increment attempt counter for 429
-              attempt--;
-              continue;
-            }
-
-            // Don't retry if cancelled/aborted
-            if ((hasName(err) && err.name === 'AbortError') || controller.signal.aborted) {
-              return;
-            }
-            lastError = err instanceof Error ? err : new Error(getErrorMessage(err));
-            if (attempt < MAX_RETRIES) {
-              const delay = RETRY_DELAYS[attempt] || 4000;
-              await new Promise((r) => setTimeout(r, delay));
-            }
-          }
-        }
-
-        if (lastError) {
-          throw lastError;
+        // Don't retry if cancelled/aborted — check after retry returns
+        if (controller.signal.aborted) {
+          return;
         }
 
         // Update progress after successful chunk
@@ -724,7 +475,7 @@ export class UploadManager {
   private async pollForCompletion(
     uploadId: string,
     maxAttempts = 120 // 4 min max
-  ): Promise<UploadStatusResponse> {
+  ) {
     for (let i = 0; i < maxAttempts; i++) {
       const status = await uploadService.getStatus(uploadId);
 
