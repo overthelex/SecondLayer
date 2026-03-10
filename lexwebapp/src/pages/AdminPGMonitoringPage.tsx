@@ -179,7 +179,7 @@ export function AdminPGMonitoringPage() {
   }, [autoRefresh, fetchData]);
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto">
+    <div className="p-6 max-w-[1600px] mx-auto h-full overflow-y-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-claude-text-primary">PG Моніторинг</h1>
