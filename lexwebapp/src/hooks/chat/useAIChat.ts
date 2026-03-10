@@ -78,12 +78,6 @@ export function useAIChat(options: UseAIChatOptions = {}) {
       const controller = await mcpService.streamChat(query, history, {
         onResponseId: (data) => {
           responseIdRef.current = data.response_id;
-          addThinkingStep(assistantMessageId, {
-            id: 'response-id',
-            title: `#${data.response_id}`,
-            content: '',
-            isComplete: true,
-          });
         },
 
         onPlan: (data) => {

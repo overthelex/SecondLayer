@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ChevronDown, Coins } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { ChevronDown, Coins, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CostSummary as CostSummaryType } from '../types/models/Message';
 import { getToolLabel } from '../hooks/chat/tool-labels';
@@ -11,7 +11,16 @@ interface CostSummaryProps {
 
 export function CostSummary({ data }: CostSummaryProps) {
   const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
   const { formatUah } = useCurrencyRate();
+
+  const copyRequestId = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!data.response_id) return;
+    navigator.clipboard.writeText(data.response_id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [data.response_id]);
 
   const displayCostUsd = data.charged_usd != null && Number(data.charged_usd) > 0
     ? Number(data.charged_usd)
@@ -32,7 +41,14 @@ export function CostSummary({ data }: CostSummaryProps) {
             : '0.00 \u20B4'}
         </span>
         {data.response_id && (
-          <span className="text-claude-subtext/60 font-mono">#{data.response_id}</span>
+          <button
+            onClick={copyRequestId}
+            className="inline-flex items-center gap-1 text-claude-subtext/60 font-mono hover:text-claude-text transition-colors"
+            title="Копіювати request ID"
+          >
+            {data.response_id}
+            {copied ? <Check size={10} strokeWidth={2} /> : <Copy size={10} strokeWidth={2} />}
+          </button>
         )}
         <ChevronDown
           size={12}
