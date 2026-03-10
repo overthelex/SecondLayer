@@ -7,7 +7,7 @@ import type { WorkflowSet, Workflow } from '../../types/models/Workflow';
 
 export interface WorkflowSSECallbacks {
   onStepStart?: (data: { workflowId: string; stepId: number; stepIndex: number; totalSteps: number; tool: string; purpose: string }) => void;
-  onStepComplete?: (data: { workflowId: string; stepId: number; stepIndex: number; tool: string; result: any }) => void;
+  onStepComplete?: (data: { workflowId: string; stepId: number; stepIndex: number; tool: string; result: unknown }) => void;
   onStepError?: (data: { workflowId: string; stepId?: number; tool?: string; error: string }) => void;
   onWorkflowComplete?: (data: { workflowId: string; status: string; stepCount: number; costUsd: number }) => void;
   onError?: (error: string) => void;
@@ -17,7 +17,7 @@ export class WorkflowService extends BaseService {
   async listWorkflowSets(): Promise<WorkflowSet[]> {
     return this.request(
       () => this.client.get('/api/workflow-sets'),
-      (data: any) => data.workflow_sets || []
+      (data: { workflow_sets?: WorkflowSet[] }) => data.workflow_sets || []
     );
   }
 
@@ -97,22 +97,23 @@ export class WorkflowService extends BaseService {
     return () => abortController.abort();
   }
 
-  private handleSSEEvent(type: string, data: any, callbacks: WorkflowSSECallbacks): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SSE events are parsed JSON with dynamic shapes per event type
+  private handleSSEEvent(type: string, data: Record<string, any>, callbacks: WorkflowSSECallbacks): void {
     switch (type) {
       case 'step_start':
-        callbacks.onStepStart?.(data);
+        callbacks.onStepStart?.(data as Parameters<NonNullable<WorkflowSSECallbacks['onStepStart']>>[0]);
         break;
       case 'step_complete':
-        callbacks.onStepComplete?.(data);
+        callbacks.onStepComplete?.(data as Parameters<NonNullable<WorkflowSSECallbacks['onStepComplete']>>[0]);
         break;
       case 'step_error':
-        callbacks.onStepError?.(data);
+        callbacks.onStepError?.(data as Parameters<NonNullable<WorkflowSSECallbacks['onStepError']>>[0]);
         break;
       case 'workflow_complete':
-        callbacks.onWorkflowComplete?.(data);
+        callbacks.onWorkflowComplete?.(data as Parameters<NonNullable<WorkflowSSECallbacks['onWorkflowComplete']>>[0]);
         break;
       case 'error':
-        callbacks.onError?.(data.error || 'Unknown error');
+        callbacks.onError?.(String(data.error || 'Unknown error'));
         break;
     }
   }

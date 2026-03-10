@@ -23,7 +23,7 @@ export { extractEvidenceFromToolResult } from './chat/evidence-extractor';
 
 export interface UseMCPToolOptions {
   enableStreaming?: boolean;
-  onSuccess?: (result: any) => void;
+  onSuccess?: (result: unknown) => void;
   onError?: (error: Error) => void;
 }
 
@@ -45,7 +45,7 @@ export function useMCPTool(
   const { enableStreaming = true, onSuccess, onError } = options;
 
   const executeTool = useCallback(
-    async (params: any) => {
+    async (params: string | Record<string, unknown>) => {
       // 1. Add user message
       const userMessage = {
         id: Date.now().toString(),
@@ -53,7 +53,7 @@ export function useMCPTool(
         content:
           typeof params === 'string'
             ? params
-            : params.query || JSON.stringify(params, null, 2),
+            : (typeof params.query === 'string' ? params.query : JSON.stringify(params, null, 2)),
       };
       addMessage(userMessage);
 

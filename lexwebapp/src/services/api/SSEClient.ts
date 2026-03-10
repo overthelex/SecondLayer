@@ -30,7 +30,7 @@ export class SSEClient {
    */
   async streamTool(
     toolName: string,
-    params: any,
+    params: Record<string, unknown>,
     handlers: StreamingCallbacks,
     authToken?: string
   ): Promise<AbortController> {
@@ -138,7 +138,7 @@ export class SSEClient {
    */
   async streamToolWithRetry(
     toolName: string,
-    params: any,
+    params: Record<string, unknown>,
     handlers: StreamingCallbacks,
     authToken?: string,
     retryCount: number = 0

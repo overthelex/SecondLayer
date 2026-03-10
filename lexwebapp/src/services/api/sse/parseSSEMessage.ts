@@ -19,7 +19,7 @@ import type {
 export function parseSSEMessage(message: string): SSEEvent | null {
   const lines = message.split('\n');
   let event: SSEEventType = 'progress';
-  let data: any = null;
+  let data: SSEEvent['data'] = null;
   let id: string | undefined;
 
   for (const line of lines) {

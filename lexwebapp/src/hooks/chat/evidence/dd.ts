@@ -1,5 +1,5 @@
 import type { Citation } from '../../../types/models/Message';
-import type { EvidenceResult } from './types';
+import type { EvidenceResult, ToolResultData } from './types';
 
 const DD_TOOLS = [
   'generate_dd_report',
@@ -7,7 +7,7 @@ const DD_TOOLS = [
   'format_answer_pack',
 ];
 
-export function extractDDEvidence(toolName: string, parsed: any): EvidenceResult {
+export function extractDDEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
   const citations: Citation[] = [];
   if (!DD_TOOLS.some((t) => toolName === t)) {
     return { decisions: [], citations, documents: [] };

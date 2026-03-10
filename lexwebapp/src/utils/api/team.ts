@@ -8,7 +8,7 @@ export const teamApi = {
     apiClient.post('/api/team/organization', data),
   inviteMember: (email: string, role: string) =>
     apiClient.post('/api/team/invite', { email, role }),
-  updateMember: (memberId: string, data: any) =>
+  updateMember: (memberId: string, data: { role?: string; status?: string }) =>
     apiClient.put(`/api/team/members/${memberId}`, data),
   removeMember: (memberId: string) =>
     apiClient.delete(`/api/team/members/${memberId}`),

@@ -8,22 +8,38 @@ import type {
   Decision,
   Citation,
 } from '../../../types/models';
+import type { ReasoningStep, PrecedentChunk, SourceAttribution } from '../../../types/api/responses';
 import {
   formatSearchResults,
   formatDocumentResults,
   formatLegislationResults,
 } from './formatters';
 
+/** Loosely-typed backend response — the envelope is dynamic JSON. */
+interface BackendToolResponse {
+  result?: {
+    content?: Array<{ type?: string; text?: string }>;
+    answer?: string;
+    [key: string]: unknown;
+  };
+  summary?: string;
+  answer?: string;
+  reasoning_chain?: ReasoningStep[];
+  precedent_chunks?: PrecedentChunk[];
+  source_attribution?: SourceAttribution[];
+  [key: string]: unknown;
+}
+
 /**
  * Parse backend response structure (content[0].text JSON envelope)
  */
-export function parseBackendResponse(data: any): any {
+export function parseBackendResponse(data: BackendToolResponse): BackendToolResponse {
   try {
     if (data.result?.content?.[0]?.text) {
       return JSON.parse(data.result.content[0].text);
     }
     if (data.result) {
-      return data.result;
+      return data.result as BackendToolResponse;
     }
     return data;
   } catch (e) {
@@ -35,12 +51,12 @@ export function parseBackendResponse(data: any): any {
 /**
  * Transform a tool result into a Message model
  */
-export function transformToolResultToMessage(toolName: string, result: any): Message {
-  const parsedResult = parseBackendResponse(result);
+export function transformToolResultToMessage(toolName: string, result: unknown): Message {
+  const parsedResult = parseBackendResponse(result as BackendToolResponse);
   return transformToMessage(parsedResult, toolName);
 }
 
-function transformToMessage(response: any, toolName: string): Message {
+function transformToMessage(response: BackendToolResponse, toolName: string): Message {
   let content = '';
   let thinkingSteps: ThinkingStep[] | undefined;
   let decisions: Decision[] | undefined;
@@ -51,9 +67,9 @@ function transformToMessage(response: any, toolName: string): Message {
     toolName === 'packaged_lawyer_answer'
   ) {
     content =
-      response.summary ||
-      response.answer ||
-      response.result?.answer ||
+      (response.summary as string) ||
+      (response.answer as string) ||
+      (response.result?.answer as string) ||
       'Відповідь отримано від backend.';
 
     thinkingSteps = transformThinkingSteps(response.reasoning_chain);
@@ -84,7 +100,7 @@ function transformToMessage(response: any, toolName: string): Message {
   };
 }
 
-function transformThinkingSteps(reasoningChain?: any[]): ThinkingStep[] | undefined {
+function transformThinkingSteps(reasoningChain?: ReasoningStep[]): ThinkingStep[] | undefined {
   if (!reasoningChain || reasoningChain.length === 0) return undefined;
 
   return reasoningChain.map((step, index) => ({
@@ -97,7 +113,7 @@ function transformThinkingSteps(reasoningChain?: any[]): ThinkingStep[] | undefi
   }));
 }
 
-function transformDecisions(precedentChunks?: any[]): Decision[] | undefined {
+function transformDecisions(precedentChunks?: PrecedentChunk[]): Decision[] | undefined {
   if (!precedentChunks || precedentChunks.length === 0) return undefined;
 
   return precedentChunks.map((prec, index) => ({
@@ -107,11 +123,11 @@ function transformDecisions(precedentChunks?: any[]): Decision[] | undefined {
     date: prec.date || '',
     summary: prec.summary || prec.reasoning || prec.content || '',
     relevance: Math.round((prec.similarity || prec.relevance || 0.5) * 100),
-    status: 'active',
+    status: 'active' as const,
   }));
 }
 
-function transformCitations(sourceAttribution?: any[]): Citation[] | undefined {
+function transformCitations(sourceAttribution?: SourceAttribution[]): Citation[] | undefined {
   if (!sourceAttribution || sourceAttribution.length === 0) return undefined;
 
   return sourceAttribution.map((src, index) => ({

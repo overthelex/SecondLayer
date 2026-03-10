@@ -17,6 +17,7 @@ import {
 import { useMatterDocuments, useAssignDocuments, useUnassignDocuments } from '../../hooks/queries/useMatters';
 import { mcpService } from '../../services';
 import { DocumentViewerModal, DocumentViewerItem } from '../DocumentViewerModal';
+import type { MatterDocument } from '../../services/api/MatterService';
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   contract: 'Договір',
@@ -55,7 +56,7 @@ export function MatterDocuments({ matterId }: MatterDocumentsProps) {
     await unassignMutation.mutateAsync({ matterId, documentIds: [docId] });
   };
 
-  const handleViewDocument = async (doc: any) => {
+  const handleViewDocument = async (doc: MatterDocument) => {
     setViewerLoading(true);
     setViewerOpen(true);
     try {
@@ -118,7 +119,7 @@ export function MatterDocuments({ matterId }: MatterDocumentsProps) {
         </div>
       ) : (
         <div className="divide-y divide-claude-border">
-          {documents.map((doc: any) => (
+          {documents.map((doc: MatterDocument) => (
             <div
               key={doc.id}
               className="flex items-center justify-between px-6 py-3 hover:bg-claude-bg/50 transition-colors group"
@@ -135,7 +136,7 @@ export function MatterDocuments({ matterId }: MatterDocumentsProps) {
                       {DOC_TYPE_LABELS[doc.type] || doc.type}
                     </span>
                     <span className="text-xs text-claude-subtext">
-                      {new Date(doc.created_at).toLocaleDateString('uk-UA')}
+                      {doc.created_at ? new Date(doc.created_at).toLocaleDateString('uk-UA') : ''}
                     </span>
                   </div>
                 </div>
@@ -157,7 +158,7 @@ export function MatterDocuments({ matterId }: MatterDocumentsProps) {
       <AnimatePresence>
         {showAddModal && (
           <AddDocumentsModal
-            existingDocIds={documents.map((d: any) => d.id)}
+            existingDocIds={documents.map((d: MatterDocument) => d.id)}
             onClose={() => setShowAddModal(false)}
             onAssign={async (ids) => {
               await assignMutation.mutateAsync({ matterId, documentIds: ids });
@@ -189,7 +190,7 @@ interface AddDocumentsModalProps {
 }
 
 function AddDocumentsModal({ existingDocIds, onClose, onAssign, isAssigning }: AddDocumentsModalProps) {
-  const [availableDocs, setAvailableDocs] = useState<any[]>([]);
+  const [availableDocs, setAvailableDocs] = useState<MatterDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
@@ -203,7 +204,7 @@ function AddDocumentsModal({ existingDocIds, onClose, onAssign, isAssigning }: A
       const result = await mcpService.callTool('list_documents', { limit: 200 });
       const docs = result?.documents || [];
       // Filter out already-assigned documents
-      const unlinked = docs.filter((d: any) => !existingDocIds.includes(d.id));
+      const unlinked = docs.filter((d: MatterDocument) => !existingDocIds.includes(d.id));
       setAvailableDocs(unlinked);
     } catch {
       setAvailableDocs([]);
@@ -213,7 +214,7 @@ function AddDocumentsModal({ existingDocIds, onClose, onAssign, isAssigning }: A
   };
 
   const filtered = search.trim()
-    ? availableDocs.filter((d: any) =>
+    ? availableDocs.filter((d: MatterDocument) =>
         d.title?.toLowerCase().includes(search.toLowerCase())
       )
     : availableDocs;
@@ -276,7 +277,7 @@ function AddDocumentsModal({ existingDocIds, onClose, onAssign, isAssigning }: A
             </p>
           ) : (
             <div className="space-y-1">
-              {filtered.map((doc: any) => (
+              {filtered.map((doc: MatterDocument) => (
                 <button
                   key={doc.id}
                   onClick={() => toggleDoc(doc.id)}

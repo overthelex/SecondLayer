@@ -58,7 +58,7 @@ export const adminApi = {
   // Billing management
   getBillingTiers: () =>
     apiClient.get('/api/admin/billing/tiers'),
-  updateBillingTier: (idOrKey: string, data: any) =>
+  updateBillingTier: (idOrKey: string, data: Record<string, unknown>) =>
     apiClient.put(`/api/admin/billing/tiers/${idOrKey}`, data),
   setDefaultTier: (id: string) =>
     apiClient.put(`/api/admin/billing/tiers/${id}/default`),
@@ -66,19 +66,19 @@ export const adminApi = {
     apiClient.delete(`/api/admin/billing/tiers/${id}`),
   getVolumeDiscounts: () =>
     apiClient.get('/api/admin/billing/volume-discounts'),
-  updateVolumeDiscounts: (thresholds: any[]) =>
+  updateVolumeDiscounts: (thresholds: Array<Record<string, unknown>>) =>
     apiClient.put('/api/admin/billing/volume-discounts', { thresholds }),
   getOrganizations: () =>
     apiClient.get('/api/admin/billing/organizations'),
   getOrganization: (id: string) =>
     apiClient.get(`/api/admin/billing/organizations/${id}`),
-  updateOrganization: (id: string, data: any) =>
+  updateOrganization: (id: string, data: Record<string, unknown>) =>
     apiClient.put(`/api/admin/billing/organizations/${id}`, data),
   getSubscriptions: (params?: { limit?: number; offset?: number; status?: string; tier?: string }) =>
     apiClient.get('/api/admin/billing/subscriptions', { params }),
-  createSubscription: (data: any) =>
+  createSubscription: (data: Record<string, unknown>) =>
     apiClient.post('/api/admin/billing/subscriptions', data),
-  updateSubscription: (id: string, data: any) =>
+  updateSubscription: (id: string, data: Record<string, unknown>) =>
     apiClient.put(`/api/admin/billing/subscriptions/${id}`, data),
   deleteSubscription: (id: string) =>
     apiClient.delete(`/api/admin/billing/subscriptions/${id}`),
@@ -175,9 +175,9 @@ export const adminApi = {
   // Attorney profile management
   getAttorneyProfile: (userId: string) =>
     apiClient.get(`/api/admin/users/${userId}/attorney-profile`),
-  createAttorneyProfile: (userId: string, data: any) =>
+  createAttorneyProfile: (userId: string, data: Record<string, unknown>) =>
     apiClient.post(`/api/admin/users/${userId}/attorney-profile`, data),
-  updateAttorneyProfile: (userId: string, data: any) =>
+  updateAttorneyProfile: (userId: string, data: Record<string, unknown>) =>
     apiClient.put(`/api/admin/users/${userId}/attorney-profile`, data),
   deleteAttorneyProfile: (userId: string) =>
     apiClient.delete(`/api/admin/users/${userId}/attorney-profile`),

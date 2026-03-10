@@ -1,5 +1,5 @@
 import type { Citation, VaultDocument } from '../../../types/models/Message';
-import type { EvidenceResult } from './types';
+import type { EvidenceResult, ToolResultData } from './types';
 
 const RADA_TOOLS = [
   'rada_search_parliament_bills',
@@ -8,7 +8,7 @@ const RADA_TOOLS = [
   'rada_analyze_voting_record',
 ];
 
-export function extractRadaEvidence(toolName: string, parsed: any): EvidenceResult {
+export function extractRadaEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
   const citations: Citation[] = [];
   const documents: VaultDocument[] = [];
   if (!RADA_TOOLS.some((t) => toolName === t)) {

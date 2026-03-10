@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { Message, ThinkingStep, ExecutionPlan } from '../types/models';
 import { api } from '../utils/api-client';
+import type { ConversationThinkingStep } from '../services/api/ConversationService';
 
 interface ConversationSummary {
   id: string;
@@ -222,12 +223,12 @@ export const useChatStore = create<ChatState>()(
             // User may have switched again while we were fetching — bail out
             if (get().conversationId !== conversationId) return;
             const data = response.data;
-            const fetchedMessages: Message[] = (data.messages || []).map((m: any) => ({
+            const fetchedMessages: Message[] = (data.messages || []).map((m: { id: string; role: 'user' | 'assistant'; content: string; thinking_steps?: ConversationThinkingStep[]; decisions?: Message['decisions']; citations?: Message['citations']; documents?: Message['documents']; cost_summary?: Message['costSummary'] }) => ({
               id: m.id,
               role: m.role,
               content: m.content,
               thinkingSteps: Array.isArray(m.thinking_steps)
-                ? m.thinking_steps.map((s: any, i: number) => ({
+                ? m.thinking_steps.map((s: ConversationThinkingStep, i: number) => ({
                     id: `step-${i}`,
                     title: `✓ ${s.tool || 'tool'}`,
                     content: typeof s.result === 'string'
@@ -305,7 +306,7 @@ export const useChatStore = create<ChatState>()(
             .addMessage(conversationId, {
               role: message.role,
               content: message.content,
-              thinking_steps: message.thinkingSteps,
+              thinking_steps: message.thinkingSteps?.map(s => ({ tool: s.title, result: s.content })),
               decisions: message.decisions,
               citations: message.citations,
               documents: message.documents,

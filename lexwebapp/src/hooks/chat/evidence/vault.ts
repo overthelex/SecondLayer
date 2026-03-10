@@ -1,5 +1,5 @@
 import type { Citation, VaultDocument } from '../../../types/models/Message';
-import type { EvidenceResult } from './types';
+import type { EvidenceResult, ToolResultData } from './types';
 
 const VAULT_TOOLS = [
   'list_documents',
@@ -14,7 +14,7 @@ const VAULT_TOOLS = [
   'extract_key_clauses',
 ];
 
-export function extractVaultEvidence(toolName: string, parsed: any): EvidenceResult {
+export function extractVaultEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
   const citations: Citation[] = [];
   const documents: VaultDocument[] = [];
   if (!VAULT_TOOLS.some((t) => toolName.includes(t) || toolName === t)) {

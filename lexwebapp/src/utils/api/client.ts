@@ -26,10 +26,10 @@ if (!ALLOWED_API_ORIGINS.some(origin => API_URL.startsWith(origin))) {
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (token: string) => void;
-  reject: (error: any) => void;
+  reject: (error: unknown) => void;
 }> = [];
 
-function processQueue(error: any, token: string | null = null) {
+function processQueue(error: unknown, token: string | null = null) {
   failedQueue.forEach(({ resolve, reject }) => {
     if (error) {
       reject(error);
@@ -72,7 +72,7 @@ apiClient.interceptors.request.use(
 // Response interceptor - handle errors with token refresh
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError<any>) => {
+  async (error: AxiosError<{ message?: string }>) => {
     // Network error
     if (!error.response) {
       showToast.error('Network error. Please check your connection.');

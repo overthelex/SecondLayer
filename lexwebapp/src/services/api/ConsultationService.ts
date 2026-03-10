@@ -148,7 +148,7 @@ export class ConsultationService extends BaseService {
     return eventSource;
   }
 
-  async submitReview(id: string, data: SubmitReviewRequest): Promise<any> {
+  async submitReview(id: string, data: SubmitReviewRequest): Promise<{ success: boolean }> {
     return this.request(() => this.client.post(`/api/consultations/${id}/review`, data));
   }
 
