@@ -35,9 +35,9 @@ const ACTION_LABELS: Record<string, string> = {
   'matter.reopen': 'Відкрито справу повторно',
   'team.add': 'Додано учасника команди',
   'team.remove': 'Видалено учасника команди',
-  'hold.create': 'Встановлено утримання',
-  'hold.release': 'Знято утримання',
-  'hold.add_documents': 'Додано документи до утримання',
+  'hold.create': 'Встановлено заборону знищення',
+  'hold.release': 'Знято заборону знищення',
+  'hold.add_documents': 'Додано документи до заборони знищення',
   'document.upload': 'Завантажено документ',
   'document.delete': 'Видалено документ',
   'conflict_check.run': 'Перевірка конфліктів',
@@ -171,7 +171,7 @@ export function AuditLogViewer({ resourceType, resourceId, compact = false }: Au
                   : 'bg-white text-claude-text border border-claude-border hover:bg-claude-bg'
               }`}
             >
-              {type === '' ? 'Всі' : type === 'client' ? 'Клієнти' : type === 'matter' ? 'Справи' : type === 'hold' ? 'Утримання' : type === 'team' ? 'Команда' : 'Документи'}
+              {type === '' ? 'Всі' : type === 'client' ? 'Клієнти' : type === 'matter' ? 'Справи' : type === 'hold' ? 'Заборона знищення' : type === 'team' ? 'Команда' : 'Документи'}
             </button>
           ))}
         </motion.div>

@@ -72,7 +72,7 @@ type Tab = 'overview' | 'team' | 'holds' | 'documents' | 'activity';
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Огляд', icon: <Briefcase size={16} /> },
   { id: 'team', label: 'Команда', icon: <Users size={16} /> },
-  { id: 'holds', label: 'Утримання', icon: <Lock size={16} /> },
+  { id: 'holds', label: 'Заборона знищення', icon: <Lock size={16} /> },
   { id: 'documents', label: 'Документи', icon: <FileText size={16} /> },
   { id: 'activity', label: 'Активність', icon: <Clock size={16} /> },
 ];
@@ -176,7 +176,7 @@ export function MatterDetailPage() {
                 {matter.has_legal_hold && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-red-100 text-red-700">
                     <Shield size={12} />
-                    Утримання
+                    Заборона знищення
                   </span>
                 )}
               </div>
@@ -243,14 +243,20 @@ export function MatterDetailPage() {
                 <h2 className="text-xl font-serif text-claude-text mb-4">Деталі справи</h2>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 bg-claude-bg rounded-lg">
-                    <span className="text-sm text-claude-subtext font-sans">Тип</span>
+                    <div>
+                      <span className="text-sm text-claude-subtext font-sans">Тип</span>
+                      <p className="text-[11px] text-claude-subtext/60 font-sans">Категорія юридичної роботи за цією справою</p>
+                    </div>
                     <span className="text-sm font-medium text-claude-text font-sans">
                       {MATTER_TYPE_LABELS[matter.matter_type] || matter.matter_type}
                     </span>
                   </div>
                   {matter.responsible_attorney && (
                     <div className="flex items-center justify-between p-3 bg-claude-bg rounded-lg">
-                      <span className="text-sm text-claude-subtext font-sans">Відповідальний</span>
+                      <div>
+                        <span className="text-sm text-claude-subtext font-sans">Відповідальний</span>
+                        <p className="text-[11px] text-claude-subtext/60 font-sans">Адвокат, який веде справу</p>
+                      </div>
                       <span className="text-sm font-medium text-claude-text font-sans flex items-center gap-2">
                         <User size={14} />
                         {matter.responsible_attorney}
@@ -258,7 +264,10 @@ export function MatterDetailPage() {
                     </div>
                   )}
                   <div className="flex items-center justify-between p-3 bg-claude-bg rounded-lg">
-                    <span className="text-sm text-claude-subtext font-sans">Дата відкриття</span>
+                    <div>
+                      <span className="text-sm text-claude-subtext font-sans">Дата відкриття</span>
+                      <p className="text-[11px] text-claude-subtext/60 font-sans">Коли справу було створено в системі</p>
+                    </div>
                     <span className="text-sm font-medium text-claude-text font-sans flex items-center gap-2">
                       <Calendar size={14} />
                       {new Date(matter.opened_date).toLocaleDateString('uk-UA')}
@@ -266,14 +275,20 @@ export function MatterDetailPage() {
                   </div>
                   {matter.closed_date && (
                     <div className="flex items-center justify-between p-3 bg-claude-bg rounded-lg">
-                      <span className="text-sm text-claude-subtext font-sans">Дата закриття</span>
+                      <div>
+                        <span className="text-sm text-claude-subtext font-sans">Дата закриття</span>
+                        <p className="text-[11px] text-claude-subtext/60 font-sans">Коли справу було завершено</p>
+                      </div>
                       <span className="text-sm font-medium text-claude-text font-sans">
                         {new Date(matter.closed_date).toLocaleDateString('uk-UA')}
                       </span>
                     </div>
                   )}
                   <div className="flex items-center justify-between p-3 bg-claude-bg rounded-lg">
-                    <span className="text-sm text-claude-subtext font-sans">Строк зберігання</span>
+                    <div>
+                      <span className="text-sm text-claude-subtext font-sans">Строк зберігання</span>
+                      <p className="text-[11px] text-claude-subtext/60 font-sans">Мінімальний період зберігання документів після закриття</p>
+                    </div>
                     <span className="text-sm font-medium text-claude-text font-sans">
                       {matter.retention_period_years} р.
                     </span>
@@ -289,7 +304,8 @@ export function MatterDetailPage() {
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-claude-bg rounded-lg text-claude-subtext"><Gavel size={18} /></div>
                       <div>
-                        <div className="text-xs text-claude-subtext font-sans mb-1">Суд</div>
+                        <div className="text-xs text-claude-subtext font-sans mb-0.5">Суд</div>
+                        <p className="text-[11px] text-claude-subtext/60 font-sans mb-1">Суд, в якому розглядається справа</p>
                         <p className="text-sm text-claude-text font-sans">{matter.court_name}</p>
                       </div>
                     </div>
@@ -298,7 +314,8 @@ export function MatterDetailPage() {
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-claude-bg rounded-lg text-claude-subtext"><FileText size={18} /></div>
                       <div>
-                        <div className="text-xs text-claude-subtext font-sans mb-1">Номер справи в суді</div>
+                        <div className="text-xs text-claude-subtext font-sans mb-0.5">Номер справи в суді</div>
+                        <p className="text-[11px] text-claude-subtext/60 font-sans mb-1">Єдиний унікальний номер судової справи</p>
                         <p className="text-sm text-claude-text font-sans font-mono">{matter.court_case_number}</p>
                       </div>
                     </div>
@@ -307,7 +324,8 @@ export function MatterDetailPage() {
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-claude-bg rounded-lg text-claude-subtext"><Users size={18} /></div>
                       <div>
-                        <div className="text-xs text-claude-subtext font-sans mb-1">Протилежна сторона</div>
+                        <div className="text-xs text-claude-subtext font-sans mb-0.5">Протилежна сторона</div>
+                        <p className="text-[11px] text-claude-subtext/60 font-sans mb-1">Опонент у справі (відповідач, позивач тощо)</p>
                         <p className="text-sm text-claude-text font-sans">{matter.opposing_party}</p>
                       </div>
                     </div>
@@ -316,7 +334,8 @@ export function MatterDetailPage() {
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-claude-bg rounded-lg text-claude-subtext"><Users size={18} /></div>
                       <div>
-                        <div className="text-xs text-claude-subtext font-sans mb-1">Пов'язані сторони</div>
+                        <div className="text-xs text-claude-subtext font-sans mb-0.5">Пов'язані сторони</div>
+                        <p className="text-[11px] text-claude-subtext/60 font-sans mb-1">Треті особи, свідки або інші учасники справи</p>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {matter.related_parties.map((party, i) => (
                             <span key={i} className="px-2 py-0.5 bg-claude-bg rounded text-xs font-sans text-claude-text">
