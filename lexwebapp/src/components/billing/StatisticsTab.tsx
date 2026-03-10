@@ -21,7 +21,6 @@ import {
 } from 'recharts';
 import {
   TrendingUp,
-  AlertCircle,
   RefreshCw,
   Download,
   Calendar,
@@ -32,6 +31,7 @@ import {
   ArrowDownRight,
   Minus,
 } from 'lucide-react';
+import { BillingLoadingState, BillingErrorState } from './shared';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
@@ -134,30 +134,11 @@ export function StatisticsTab() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <RefreshCw size={32} className="text-claude-accent animate-spin mx-auto mb-3" />
-          <p className="text-sm text-claude-subtext">Завантаження статистики...</p>
-        </div>
-      </div>
-    );
+    return <BillingLoadingState height="h-96" text="Завантаження статистики..." />;
   }
 
   if (error || !data) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <AlertCircle size={48} className="text-claude-subtext mx-auto mb-4" />
-          <p className="text-claude-text mb-2">{error || 'Дані недоступні'}</p>
-          <button
-            onClick={fetchStatistics}
-            className="px-4 py-2 bg-claude-accent text-white rounded-lg hover:bg-opacity-90">
-            Повторити
-          </button>
-        </div>
-      </div>
-    );
+    return <BillingErrorState message={error || 'Дані недоступні'} onRetry={fetchStatistics} />;
   }
 
   const hasData = data.totalRequests > 0;

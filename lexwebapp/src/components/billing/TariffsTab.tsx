@@ -12,11 +12,10 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
-  RefreshCw,
-  AlertCircle,
   Crown,
   Sparkles,
 } from 'lucide-react';
+import { BillingLoadingState, BillingErrorState } from './shared';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
@@ -315,27 +314,11 @@ export function TariffsTab({ onUpgradeTopUp }: TariffsTabProps) {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw size={32} className="text-claude-accent animate-spin" />
-      </div>
-    );
+    return <BillingLoadingState />;
   }
 
   if (tiers.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <AlertCircle size={48} className="text-claude-subtext mx-auto mb-4" />
-          <p className="text-claude-text">Не вдалося завантажити тарифи</p>
-          <button
-            onClick={fetchPricingInfo}
-            className="mt-4 px-4 py-2 bg-claude-accent text-white rounded-lg hover:bg-opacity-90">
-            Повторити
-          </button>
-        </div>
-      </div>
-    );
+    return <BillingErrorState message="Не вдалося завантажити тарифи" onRetry={fetchPricingInfo} />;
   }
 
   return (
