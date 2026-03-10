@@ -45,109 +45,66 @@ export class InvoiceService extends BaseService {
    * List invoices with optional filters
    */
   async getInvoices(filters?: InvoiceFilters): Promise<InvoicesListResponse> {
-    try {
-      const response = await this.client.get<InvoicesListResponse>('/api/invoicing/invoices', {
-        params: filters,
-      });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<InvoicesListResponse>('/api/invoicing/invoices', {
+      params: filters,
+    }));
   }
 
   /**
    * Get invoice with details (line items and payments)
    */
   async getInvoiceById(id: string): Promise<InvoiceWithDetails> {
-    try {
-      const response = await this.client.get<InvoiceWithDetails>(`/api/invoicing/invoices/${id}`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<InvoiceWithDetails>(`/api/invoicing/invoices/${id}`));
   }
 
   /**
    * Generate invoice from time entries
    */
   async generateInvoice(params: GenerateInvoiceParams): Promise<InvoiceWithDetails> {
-    try {
-      const response = await this.client.post<InvoiceWithDetails>(
-        '/api/invoicing/generate',
-        params
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<InvoiceWithDetails>('/api/invoicing/generate', params));
   }
 
   /**
    * Download invoice PDF
    */
   async downloadInvoicePDF(id: string): Promise<Blob> {
-    try {
-      const response = await this.client.get(`/api/invoicing/invoices/${id}/pdf`, {
-        responseType: 'blob',
-      });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get(`/api/invoicing/invoices/${id}/pdf`, {
+      responseType: 'blob',
+    }));
   }
 
   /**
    * Send invoice to client
    */
   async sendInvoice(id: string): Promise<Invoice> {
-    try {
-      const response = await this.client.post<Invoice>(`/api/invoicing/invoices/${id}/send`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<Invoice>(`/api/invoicing/invoices/${id}/send`));
   }
 
   /**
    * Record payment for invoice
    */
   async recordPayment(id: string, params: RecordPaymentParams): Promise<InvoicePayment> {
-    try {
-      const response = await this.client.post<InvoicePayment>(
-        `/api/invoicing/invoices/${id}/payment`,
-        params
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<InvoicePayment>(
+      `/api/invoicing/invoices/${id}/payment`,
+      params
+    ));
   }
 
   /**
    * Void invoice
    */
   async voidInvoice(id: string): Promise<Invoice> {
-    try {
-      const response = await this.client.post<Invoice>(`/api/invoicing/invoices/${id}/void`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<Invoice>(`/api/invoicing/invoices/${id}/void`));
   }
 
   /**
    * Add manual line item to invoice
    */
   async addLineItem(id: string, params: AddLineItemParams): Promise<InvoiceLineItem> {
-    try {
-      const response = await this.client.post<InvoiceLineItem>(
-        `/api/invoicing/invoices/${id}/line-items`,
-        params
-      );
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<InvoiceLineItem>(
+      `/api/invoicing/invoices/${id}/line-items`,
+      params
+    ));
   }
 
   /**

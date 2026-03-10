@@ -55,12 +55,7 @@ export class UploadService extends BaseService {
     relativePath?: string;
     metadata?: any;
   }): Promise<InitUploadResponse> {
-    try {
-      const response = await this.client.post('/api/upload/init', params);
-      return response.data;
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.request(() => this.client.post('/api/upload/init', params));
   }
 
   /**
@@ -74,12 +69,7 @@ export class UploadService extends BaseService {
     relativePath?: string;
     metadata?: any;
   }>): Promise<{ sessions: Array<InitUploadResponse | { error: string; fileName: string }> }> {
-    try {
-      const response = await this.client.post('/api/upload/init-batch', { files });
-      return response.data;
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.request(() => this.client.post('/api/upload/init-batch', { files }));
   }
 
   /**
@@ -163,71 +153,45 @@ export class UploadService extends BaseService {
    * Signal that all chunks are uploaded and file should be assembled
    */
   async completeUpload(uploadId: string): Promise<{ uploadId: string; status: string }> {
-    try {
-      const response = await this.client.post(`/api/upload/${uploadId}/complete`);
-      return response.data;
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.request(() => this.client.post(`/api/upload/${uploadId}/complete`));
   }
 
   /**
    * Poll upload status
    */
   async getStatus(uploadId: string): Promise<UploadStatusResponse> {
-    try {
-      const response = await this.client.get(`/api/upload/${uploadId}/status`);
-      return response.data;
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.request(() => this.client.get(`/api/upload/${uploadId}/status`));
   }
 
   /**
    * Cancel an upload
    */
   async cancelUpload(uploadId: string): Promise<void> {
-    try {
-      await this.client.delete(`/api/upload/${uploadId}`);
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.requestVoid(() => this.client.delete(`/api/upload/${uploadId}`));
   }
 
   /**
    * Get active upload sessions
    */
   async getActiveSessions(): Promise<ActiveSession[]> {
-    try {
-      const response = await this.client.get('/api/upload/active');
-      return response.data.sessions;
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.request(
+      () => this.client.get('/api/upload/active'),
+      (data: any) => data.sessions
+    );
   }
 
   /**
    * Clear stale sessions (stuck pending/uploading >30min, assembling/processing >60min)
    */
   async clearStaleSessions(): Promise<{ cancelled: number; activeCount: number; maxSessions: number }> {
-    try {
-      const response = await this.client.post('/api/upload/clear-stale');
-      return response.data;
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.request(() => this.client.post('/api/upload/clear-stale'));
   }
 
   /**
    * Retry a stuck/failed upload session
    */
   async retrySession(uploadId: string): Promise<{ uploadId: string; status: string }> {
-    try {
-      const response = await this.client.post(`/api/upload/${uploadId}/retry`);
-      return response.data;
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.request(() => this.client.post(`/api/upload/${uploadId}/retry`));
   }
 }
 

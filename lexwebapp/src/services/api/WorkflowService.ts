@@ -15,46 +15,26 @@ export interface WorkflowSSECallbacks {
 
 export class WorkflowService extends BaseService {
   async listWorkflowSets(): Promise<WorkflowSet[]> {
-    try {
-      const response = await this.client.get('/api/workflow-sets');
-      return response.data.workflow_sets || [];
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.request(
+      () => this.client.get('/api/workflow-sets'),
+      (data: any) => data.workflow_sets || []
+    );
   }
 
   async getWorkflowSet(id: string): Promise<WorkflowSet> {
-    try {
-      const response = await this.client.get(`/api/workflow-sets/${id}`);
-      return response.data;
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.request(() => this.client.get(`/api/workflow-sets/${id}`));
   }
 
   async getWorkflow(id: string): Promise<Workflow> {
-    try {
-      const response = await this.client.get(`/api/workflows/${id}`);
-      return response.data;
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.request(() => this.client.get(`/api/workflows/${id}`));
   }
 
   async deleteWorkflowSet(id: string): Promise<void> {
-    try {
-      await this.client.delete(`/api/workflow-sets/${id}`);
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.requestVoid(() => this.client.delete(`/api/workflow-sets/${id}`));
   }
 
   async cancelWorkflow(id: string): Promise<void> {
-    try {
-      await this.client.post(`/api/workflows/${id}/cancel`);
-    } catch (error) {
-      this.handleError(error);
-    }
+    return this.requestVoid(() => this.client.post(`/api/workflows/${id}/cancel`));
   }
 
   executeWorkflow(id: string, callbacks: WorkflowSSECallbacks): () => void {

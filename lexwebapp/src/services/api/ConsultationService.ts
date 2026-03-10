@@ -85,120 +85,55 @@ export interface SubmitReviewRequest {
 
 export class ConsultationService extends BaseService {
   async createConsultation(data: CreateConsultationRequest): Promise<Consultation> {
-    try {
-      const response = await this.client.post<Consultation>('/api/consultations', data);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<Consultation>('/api/consultations', data));
   }
 
   async listConsultations(params?: { role?: string; status?: string; limit?: number; offset?: number }): Promise<{ consultations: Consultation[]; total: number }> {
-    try {
-      const response = await this.client.get('/api/consultations', { params });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get('/api/consultations', { params }));
   }
 
   async getConsultation(id: string): Promise<Consultation> {
-    try {
-      const response = await this.client.get<Consultation>(`/api/consultations/${id}`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<Consultation>(`/api/consultations/${id}`));
   }
 
   async acceptConsultation(id: string, agreedFee?: number): Promise<Consultation> {
-    try {
-      const response = await this.client.put<Consultation>(`/api/consultations/${id}/accept`, { agreedFee });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.put<Consultation>(`/api/consultations/${id}/accept`, { agreedFee }));
   }
 
   async declineConsultation(id: string, reason?: string): Promise<Consultation> {
-    try {
-      const response = await this.client.put<Consultation>(`/api/consultations/${id}/decline`, { reason });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.put<Consultation>(`/api/consultations/${id}/decline`, { reason }));
   }
 
   async startConsultation(id: string): Promise<Consultation> {
-    try {
-      const response = await this.client.put<Consultation>(`/api/consultations/${id}/start`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.put<Consultation>(`/api/consultations/${id}/start`));
   }
 
   async completeConsultation(id: string, summary?: string): Promise<Consultation> {
-    try {
-      const response = await this.client.put<Consultation>(`/api/consultations/${id}/complete`, { summary });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.put<Consultation>(`/api/consultations/${id}/complete`, { summary }));
   }
 
   async cancelConsultation(id: string, reason?: string): Promise<Consultation> {
-    try {
-      const response = await this.client.put<Consultation>(`/api/consultations/${id}/cancel`, { reason });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.put<Consultation>(`/api/consultations/${id}/cancel`, { reason }));
   }
 
   async initiatePayment(id: string): Promise<{ paymentUrl: string; paymentId: string }> {
-    try {
-      const response = await this.client.post(`/api/consultations/${id}/pay`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post(`/api/consultations/${id}/pay`));
   }
 
   async getPaymentStatus(id: string): Promise<ConsultationPayment> {
-    try {
-      const response = await this.client.get<ConsultationPayment>(`/api/consultations/${id}/payment`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<ConsultationPayment>(`/api/consultations/${id}/payment`));
   }
 
   async getMessages(id: string, params?: { limit?: number; offset?: number }): Promise<{ messages: ConsultationMessage[]; total: number }> {
-    try {
-      const response = await this.client.get(`/api/consultations/${id}/messages`, { params });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get(`/api/consultations/${id}/messages`, { params }));
   }
 
   async sendMessage(id: string, content: string, messageType?: string): Promise<ConsultationMessage> {
-    try {
-      const response = await this.client.post<ConsultationMessage>(`/api/consultations/${id}/messages`, { content, messageType });
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post<ConsultationMessage>(`/api/consultations/${id}/messages`, { content, messageType }));
   }
 
   async getUnreadCount(id: string): Promise<{ count: number }> {
-    try {
-      const response = await this.client.get<{ count: number }>(`/api/consultations/${id}/messages/unread-count`);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get<{ count: number }>(`/api/consultations/${id}/messages/unread-count`));
   }
 
   connectMessageStream(id: string): EventSource {
@@ -214,38 +149,19 @@ export class ConsultationService extends BaseService {
   }
 
   async submitReview(id: string, data: SubmitReviewRequest): Promise<any> {
-    try {
-      const response = await this.client.post(`/api/consultations/${id}/review`, data);
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.post(`/api/consultations/${id}/review`, data));
   }
 
   async getUnseenPending(): Promise<{ consultations: Consultation[]; count: number }> {
-    try {
-      const response = await this.client.get('/api/consultations/pending-unseen');
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get('/api/consultations/pending-unseen'));
   }
 
   async markViewed(ids: string[]): Promise<void> {
-    try {
-      await this.client.put('/api/consultations/mark-viewed', { ids });
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.requestVoid(() => this.client.put('/api/consultations/mark-viewed', { ids }));
   }
 
   async getMyClients(): Promise<{ clients: AttorneyClient[] }> {
-    try {
-      const response = await this.client.get('/api/consultations/my-clients');
-      return response.data;
-    } catch (error) {
-      return this.handleError(error);
-    }
+    return this.request(() => this.client.get('/api/consultations/my-clients'));
   }
 }
 
