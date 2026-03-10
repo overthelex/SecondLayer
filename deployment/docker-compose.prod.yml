@@ -28,6 +28,7 @@ services:
       TZ: Europe/Kiev
     ports:
     - "127.0.0.1:5438:5432"
+    shm_size: '2g'
     volumes:
     - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:
