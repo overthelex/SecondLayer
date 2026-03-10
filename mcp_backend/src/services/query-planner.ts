@@ -463,6 +463,9 @@ export class QueryPlanner {
 
       let content = response.content || userQuery;
       
+      // Strip markdown code block wrappers before JSON parse
+      content = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/g, '').trim();
+
       // If JSON mode, extract search_query field
       if (content.includes('{')) {
         try {
@@ -471,7 +474,11 @@ export class QueryPlanner {
             content = parsed.search_query;
           }
         } catch {
-          // Not JSON, use as is
+          // Not valid JSON — try to extract "search_query": "value" with regex
+          const match = content.match(/["']?search_query["']?\s*:\s*"([^"]+)"/i);
+          if (match) {
+            content = match[1];
+          }
         }
       }
       
