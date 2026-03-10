@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { mcpService } from '../services';
 import showToast from '../utils/toast';
+import { useShallow } from 'zustand/react/shallow';
 import { useDecisionsSearchStore } from '../stores/decisionsSearchStore';
 import { useUIStore } from '../stores';
 
@@ -71,16 +72,18 @@ export function DecisionsSearchPage() {
     courtLevel: '',
   });
 
-  const {
-    downloadStatus,
-    downloadedDecisions,
-    availableInDB,
-    checkAvailability,
-    fetchFullText,
-    fetchBatch,
-  } = useDecisionsSearchStore();
+  const { downloadStatus, downloadedDecisions, availableInDB } = useDecisionsSearchStore(
+    useShallow(s => ({
+      downloadStatus: s.downloadStatus,
+      downloadedDecisions: s.downloadedDecisions,
+      availableInDB: s.availableInDB,
+    }))
+  );
+  const checkAvailability = useDecisionsSearchStore(s => s.checkAvailability);
+  const fetchFullText = useDecisionsSearchStore(s => s.fetchFullText);
+  const fetchBatch = useDecisionsSearchStore(s => s.fetchBatch);
 
-  const { setRightPanelOpen } = useUIStore();
+  const setRightPanelOpen = useUIStore(s => s.setRightPanelOpen);
 
   const handleSearch = async () => {
     if (!filters.query.trim()) {

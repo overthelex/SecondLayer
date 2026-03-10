@@ -10,9 +10,8 @@ import { useCallback } from 'react';
 import { useChatStore } from '../stores';
 import { useSettingsStore } from '../stores';
 import { mcpService } from '../services';
-import showToast from '../utils/toast';
-import { getErrorMessage } from '../utils/errors';
 import { buildContextualQuery } from './chat/chat-helpers';
+import { handleStreamError, handleCatchError, autoTitleConversation } from './chat/chat-error-utils';
 
 // Re-export useAIChat so existing imports from './useMCPTool' keep working
 export { useAIChat } from './chat/useAIChat';
@@ -41,7 +40,7 @@ export function useMCPTool(
     setCurrentTool,
   } = useChatStore();
 
-  const { maxPrecedents } = useSettingsStore();
+  const maxPrecedents = useSettingsStore(s => s.maxPrecedents);
 
   const { enableStreaming = true, onSuccess, onError } = options;
 
@@ -135,28 +134,15 @@ export function useMCPTool(
               }
 
               // Auto-title on first exchange
-              if (completedState.conversationId && completedState.messages.length <= 3) {
-                const firstUserMsg = completedState.messages.find((m) => m.role === 'user');
-                if (firstUserMsg) {
-                  const title = firstUserMsg.content.slice(0, 60).trim();
-                  completedState.renameConversation(completedState.conversationId, title);
-                }
-              }
+              autoTitleConversation({ maxMessages: 3 });
 
               onSuccess?.(data);
             },
 
             onError: (error) => {
-              updateMessage(assistantMessageId, {
-                content: `Помилка: ${error.message}`,
-                isStreaming: false,
+              handleStreamError(assistantMessageId, error, {
+                updateMessage, setStreaming, setStreamController, setCurrentTool, onError,
               });
-              setStreaming(false);
-              setStreamController(null);
-              setCurrentTool(null);
-              showToast.error(error.message);
-
-              onError?.(new Error(error.message));
             },
 
             onEnd: () => {
@@ -192,27 +178,14 @@ export function useMCPTool(
           }
 
           // Auto-title on first exchange
-          if (completedState.conversationId && completedState.messages.length <= 3) {
-            const firstUserMsg = completedState.messages.find((m) => m.role === 'user');
-            if (firstUserMsg) {
-              const title = firstUserMsg.content.slice(0, 60).trim();
-              completedState.renameConversation(completedState.conversationId, title);
-            }
-          }
+          autoTitleConversation({ maxMessages: 3 });
 
           onSuccess?.(result);
         }
       } catch (error: unknown) {
-        const msg = getErrorMessage(error);
-        updateMessage(assistantMessageId, {
-          content: `Помилка: ${msg}`,
-          isStreaming: false,
+        handleCatchError(assistantMessageId, error, {
+          updateMessage, setStreaming, setCurrentTool, onError,
         });
-        setStreaming(false);
-        setCurrentTool(null);
-        showToast.error(msg);
-
-        onError?.(error instanceof Error ? error : new Error(msg));
       }
     },
     [

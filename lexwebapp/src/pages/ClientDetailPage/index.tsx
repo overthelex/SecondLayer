@@ -109,7 +109,8 @@ export function ClientDetailPage() {
       </div>
     );
   }
-  const { clientDetailTab, setClientDetailTab } = useClientMatterStore();
+  const clientDetailTab = useClientMatterStore(s => s.clientDetailTab);
+  const setClientDetailTab = useClientMatterStore(s => s.setClientDetailTab);
   const [showCreateMatter, setShowCreateMatter] = React.useState(false);
   const [_showEditModal, setShowEditModal] = React.useState(false);
 

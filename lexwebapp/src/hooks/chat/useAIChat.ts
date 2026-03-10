@@ -8,12 +8,12 @@ import { useCallback, useRef } from 'react';
 import { useChatStore } from '../../stores';
 import { mcpService } from '../../services';
 import showToast from '../../utils/toast';
-import { getErrorMessage } from '../../utils/errors';
 import type { Decision, Citation, VaultDocument, ExecutionPlan, CostSummary } from '../../types/models/Message';
 import { getToolLabel } from './tool-labels';
 import { extractEvidenceFromToolResult } from './evidence-extractor';
 import { extractNormsFromAnswer } from './chat-helpers';
 import { useCurrencyRate } from '../useCurrencyRate';
+import { handleStreamError, handleCatchError, autoTitleConversation } from './chat-error-utils';
 
 export interface UseAIChatOptions {
   onSuccess?: (result: any) => void;
@@ -213,22 +213,9 @@ export function useAIChat(options: UseAIChatOptions = {}) {
 
           // Server-side persistence handles saving assistant messages
           // (chat-service.ts saves with full tool_calls/cost_summary data)
-          const completedState = useChatStore.getState();
 
           // Auto-rename conversation if it still has the default title
-          if (completedState.conversationId) {
-            const conv = completedState.conversations.find(
-              (c) => c.id === completedState.conversationId
-            );
-            const needsRename = !conv || conv.title === 'New conversation' || conv.title === 'Нова розмова';
-            if (needsRename) {
-              const firstUserMsg = completedState.messages.find((m) => m.role === 'user');
-              if (firstUserMsg) {
-                const title = firstUserMsg.content.slice(0, 60).trim();
-                completedState.renameConversation(completedState.conversationId, title);
-              }
-            }
-          }
+          autoTitleConversation();
 
           onSuccess?.(data);
         },
@@ -252,15 +239,9 @@ export function useAIChat(options: UseAIChatOptions = {}) {
         },
 
         onError: (error) => {
-          updateMessage(assistantMessageId, {
-            content: `Помилка: ${error.message}`,
-            isStreaming: false,
+          handleStreamError(assistantMessageId, error, {
+            updateMessage, setStreaming, setStreamController, setCurrentTool, onError,
           });
-          setStreaming(false);
-          setStreamController(null);
-          setCurrentTool(null);
-          showToast.error(error.message);
-          onError?.(new Error(error.message));
         },
 
         onComplete: (data) => {
@@ -360,15 +341,9 @@ export function useAIChat(options: UseAIChatOptions = {}) {
       try {
         await runChatStream(query, assistantMessageId);
       } catch (error: unknown) {
-        const msg = getErrorMessage(error);
-        updateMessage(assistantMessageId, {
-          content: `Помилка: ${msg}`,
-          isStreaming: false,
+        handleCatchError(assistantMessageId, error, {
+          updateMessage, setStreaming, setCurrentTool, onError,
         });
-        setStreaming(false);
-        setCurrentTool(null);
-        showToast.error(msg);
-        onError?.(error instanceof Error ? error : new Error(msg));
       }
     },
     [addMessage, updateMessage, setStreaming, setCurrentTool, setIsPlanLoading, setPendingPlanReview, runChatStream, onError]
@@ -392,15 +367,9 @@ export function useAIChat(options: UseAIChatOptions = {}) {
       try {
         await runChatStream(query, assistantMessageId, approvedPlan, planSessionId);
       } catch (error: unknown) {
-        const msg = getErrorMessage(error);
-        updateMessage(assistantMessageId, {
-          content: `Помилка: ${msg}`,
-          isStreaming: false,
+        handleCatchError(assistantMessageId, error, {
+          updateMessage, setStreaming, setCurrentTool, onError,
         });
-        setStreaming(false);
-        setCurrentTool(null);
-        showToast.error(msg);
-        onError?.(error instanceof Error ? error : new Error(msg));
       }
     },
     [updateMessage, setStreaming, setCurrentTool, setPendingPlanReview, runChatStream, onError]
@@ -424,15 +393,9 @@ export function useAIChat(options: UseAIChatOptions = {}) {
       try {
         await runChatStream(query, assistantMessageId);
       } catch (error: unknown) {
-        const msg = getErrorMessage(error);
-        updateMessage(assistantMessageId, {
-          content: `Помилка: ${msg}`,
-          isStreaming: false,
+        handleCatchError(assistantMessageId, error, {
+          updateMessage, setStreaming, setCurrentTool, onError,
         });
-        setStreaming(false);
-        setCurrentTool(null);
-        showToast.error(msg);
-        onError?.(error instanceof Error ? error : new Error(msg));
       }
     },
     [updateMessage, setStreaming, setCurrentTool, setPendingPlanReview, runChatStream, onError]

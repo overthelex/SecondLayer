@@ -10,6 +10,7 @@ import {
   RotateCcw,
   XCircle,
 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { useUploadStore } from '../../stores/uploadStore';
 import { UploadItemRow } from './UploadItemRow';
 import { DOC_TYPE_LABELS } from './constants';
@@ -31,6 +32,7 @@ export function UploadQueuePanel({
   setDefaultDocType,
   onStartUpload,
 }: UploadQueuePanelProps) {
+  // State values via shallow selector to avoid full-store re-renders
   const {
     items: uploadItems,
     isUploading,
@@ -41,18 +43,30 @@ export function UploadQueuePanel({
     totalBytes,
     uploadedBytes,
     concurrency,
-    pauseUpload,
-    resumeUpload,
-    cancelFile,
-    cancelAll,
-    retryFile,
-    retryAllFailed,
-    removeFile,
-    clearFinished,
-    updateDocType,
-    updateAllDocTypes,
-    setConcurrency,
-  } = useUploadStore();
+  } = useUploadStore(useShallow(s => ({
+    items: s.items,
+    isUploading: s.isUploading,
+    isPaused: s.isPaused,
+    totalFiles: s.totalFiles,
+    completedFiles: s.completedFiles,
+    failedFiles: s.failedFiles,
+    totalBytes: s.totalBytes,
+    uploadedBytes: s.uploadedBytes,
+    concurrency: s.concurrency,
+  })));
+
+  // Actions (stable refs)
+  const pauseUpload = useUploadStore(s => s.pauseUpload);
+  const resumeUpload = useUploadStore(s => s.resumeUpload);
+  const cancelFile = useUploadStore(s => s.cancelFile);
+  const cancelAll = useUploadStore(s => s.cancelAll);
+  const retryFile = useUploadStore(s => s.retryFile);
+  const retryAllFailed = useUploadStore(s => s.retryAllFailed);
+  const removeFile = useUploadStore(s => s.removeFile);
+  const clearFinished = useUploadStore(s => s.clearFinished);
+  const updateDocType = useUploadStore(s => s.updateDocType);
+  const updateAllDocTypes = useUploadStore(s => s.updateAllDocTypes);
+  const setConcurrency = useUploadStore(s => s.setConcurrency);
 
   const [showTypeDropdown, setShowTypeDropdown] = React.useState(false);
   const uploadQueueRef = useRef<HTMLDivElement>(null);
