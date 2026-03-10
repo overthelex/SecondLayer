@@ -106,12 +106,29 @@ export class DocumentParser {
   }
 
   /**
-   * Parse PDF document using Playwright + pdf.js rendering + Google Vision OCR.
-   * Renders each page to a canvas in a headless browser, screenshots it, and OCRs the image.
+   * Parse PDF document.
+   * Strategy: 1) Try native text extraction via pdfjs getTextContent() (fast, no OCR cost).
+   *           2) If text is too short (scanned PDF), fall back to render + OCR.
    */
   async parsePDF(fileBuffer: Buffer): Promise<ParsedDocument> {
+    // Strategy 1: Try native text extraction (works with signed .p7s PDFs too)
+    try {
+      const textResult = await this.extractPDFText(fileBuffer);
+      if (textResult.text.trim().length > 50) {
+        logger.info('PDF parsed via native text extraction', {
+          textLength: textResult.text.length,
+          pageCount: textResult.metadata.pageCount,
+        });
+        return textResult;
+      }
+      logger.info('PDF text extraction yielded too little text, trying render + OCR');
+    } catch (error: any) {
+      logger.warn('PDF text extraction failed, trying render + OCR', { error: error.message });
+    }
+
+    // Strategy 2: Render + OCR (for scanned PDFs)
     if (!this.ocrAvailable) {
-      throw new Error('PDF parsing requires OCR — Vision credentials not configured');
+      throw new Error('PDF has no extractable text and OCR is not configured');
     }
 
     try {
@@ -119,6 +136,100 @@ export class DocumentParser {
     } catch (error: any) {
       logger.error('PDF parsing failed', { error: error.message });
       throw new Error(`Failed to parse PDF: ${error.message}`);
+    }
+  }
+
+  /**
+   * Extract text from PDF using pdfjs getTextContent() — no canvas rendering needed.
+   */
+  private async extractPDFText(fileBuffer: Buffer): Promise<ParsedDocument> {
+    const MAX_PAGES = 50;
+    const pdfBuildDir = findPdfJsBuildDir();
+    const browser = await this.getBrowser();
+    const context = await browser.newContext();
+
+    try {
+      await context.route('http://pdftext/**', async (route) => {
+        const url = new URL(route.request().url());
+        const filePath = url.pathname.slice(1);
+
+        if (filePath === 'extract.html') {
+          await route.fulfill({
+            contentType: 'text/html',
+            body: `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body>
+<script type="module">
+import { getDocument, GlobalWorkerOptions } from './pdf.min.mjs';
+GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
+
+window.extractText = async function(base64Data, maxPages) {
+  const binary = atob(base64Data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+  const pdf = await getDocument({ data: bytes }).promise;
+  const totalPages = pdf.numPages;
+  const pagesToProcess = Math.min(totalPages, maxPages);
+  const pages = [];
+
+  for (let i = 1; i <= pagesToProcess; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const text = content.items.map(item => item.str).join(' ');
+    pages.push({ pageNumber: i, text });
+  }
+
+  return { totalPages, pages };
+};
+</script></body></html>`,
+          });
+          return;
+        }
+
+        const localPath = path.join(pdfBuildDir, filePath);
+        if (fsSync.existsSync(localPath)) {
+          const content = await fs.readFile(localPath);
+          const ext = path.extname(filePath);
+          const contentType = ext === '.mjs' ? 'application/javascript' : 'application/octet-stream';
+          await route.fulfill({ contentType, body: content });
+        } else {
+          await route.fulfill({ status: 404, body: 'Not found' });
+        }
+      });
+
+      const page = await context.newPage();
+      page.on('pageerror', err => logger.warn('Browser page error during text extraction', { error: err.message }));
+
+      await page.goto('http://pdftext/extract.html', { waitUntil: 'load' });
+      await page.waitForFunction(() => typeof (globalThis as any).extractText === 'function', null, { timeout: 15000 });
+
+      const base64Data = fileBuffer.toString('base64');
+      const result = await page.evaluate(
+        async ([data, maxPages]) => {
+          return await (globalThis as any).extractText(data, maxPages);
+        },
+        [base64Data, MAX_PAGES] as const
+      );
+
+      const totalPages = result.totalPages as number;
+      const extractedPages = result.pages as Array<{ pageNumber: number; text: string }>;
+
+      await page.close();
+
+      const fullText = extractedPages.map(p => p.text).join('\n\n');
+
+      return {
+        text: fullText.trim(),
+        metadata: {
+          pageCount: totalPages,
+          source: 'native' as const,
+          mimeType: 'application/pdf',
+        },
+        pages: extractedPages.map(p => ({ pageNumber: p.pageNumber, text: p.text })),
+      };
+    } finally {
+      await context.close();
     }
   }
 

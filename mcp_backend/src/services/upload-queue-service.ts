@@ -375,8 +375,11 @@ export class UploadQueueService {
         durationSeconds: durationSeconds.toFixed(1),
       });
 
-      // Only mark as failed on final attempt
-      if (job.attemptsMade >= (job.opts.attempts || 3)) {
+      // Mark as failed on final attempt.
+      // BullMQ: attemptsMade is 0-indexed at time of processing (0, 1, 2 for 3 attempts),
+      // so final attempt = attempts - 1.
+      const maxAttempts = job.opts.attempts || 3;
+      if (job.attemptsMade >= maxAttempts - 1) {
         await this.uploadService.updateStatus(session.id, 'failed', error.message);
         await this.uploadService.cleanupAssembledFile(session.id).catch(() => {});
       }
