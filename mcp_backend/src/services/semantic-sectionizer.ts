@@ -327,7 +327,10 @@ export class SemanticSectionizer {
         'deep'
       );
 
-      const result = JSON.parse(response.content || '{}');
+      // Strip markdown code fences (```json ... ```) that some models wrap around JSON
+      let rawContent = response.content || '{}';
+      rawContent = rawContent.replace(/^[\s\n]*```(?:json)?\s*\n?/i, '').replace(/\n?\s*```[\s\n]*$/i, '');
+      const result = JSON.parse(rawContent);
       return (result.sections || []).map((s: any) => ({
         type: s.type as SectionType,
         text: s.text,
