@@ -14,11 +14,7 @@ import {
   List,
   Trash2,
   FolderInput,
-  Folder,
-  CornerLeftUp,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
+  SearchX,
 } from 'lucide-react';
 import { mcpService } from '../../services';
 import { useUploadStore } from '../../stores/uploadStore';
@@ -30,6 +26,9 @@ import { DocumentTable } from './DocumentTable';
 import { DocumentGrid } from './DocumentGrid';
 import { DocumentViewerModal } from '../../components/DocumentViewerModal';
 import { ClassificationPanel } from './ClassificationPanel';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
+import { EditDocumentModal } from './EditDocumentModal';
+import { MoveDocumentModal } from './MoveDocumentModal';
 import type { VaultDocument, DocType, ViewMode, SortField, SortOrder } from './types';
 import { isPreviewableBinary } from './types';
 import { processEmlContent } from '../../utils/eml-parser';
@@ -37,17 +36,12 @@ import { useUndoStore } from '../../stores/undoStore';
 import { useUndoKeyboard } from '../../hooks/useUndoKeyboard';
 import { useDocumentData } from './useDocumentData';
 import { useDocumentActions } from './useDocumentActions';
-
-const DOC_TYPE_LABELS: Record<DocType, string> = {
-  contract: 'Договір',
-  legislation: 'Законодавство',
-  court_decision: 'Судове рішення',
-  internal: 'Внутрішній',
-  other: 'Інше',
-};
+import { DOC_TYPE_LABELS } from './constants';
 
 const ACCEPTED_TYPES =
   '.pdf,.docx,.doc,.html,.htm,.txt,.rtf,.jpg,.jpeg,.png,.bmp,.gif,.xlsx,.xls,.csv,.mp4,.mov,.avi,.mkv,.webm,.eml,.zip,.gz,.tgz,.tar';
+
+const VIEW_MODE_KEY = 'documents-view-mode';
 
 function guessMimeType(file: File): string {
   if (file.type) return file.type;
@@ -115,10 +109,16 @@ export function DocumentsPage() {
   // UI state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<DocType | ''>('');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem(VIEW_MODE_KEY);
+    return (saved === 'grid' || saved === 'list') ? saved : 'list';
+  });
   const [offset, setOffset] = useState(0);
   const [sortBy, setSortBy] = useState<SortField>('uploadedAt');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+  // Multi-select state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Preview state
   const [previewDoc, setPreviewDoc] = useState<{
@@ -136,10 +136,24 @@ export function DocumentsPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewIndex, setPreviewIndex] = useState<number>(-1);
 
+  // Compact upload zone
+  const [uploadZoneExpanded, setUploadZoneExpanded] = useState(false);
+
+  // Persist view mode
+  const handleSetViewMode = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem(VIEW_MODE_KEY, mode);
+  }, []);
+
   // Reset offset when filters change
   useEffect(() => {
     setOffset(0);
   }, [filterType, currentFolderPath, searchQuery]);
+
+  // Clear selection when documents change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [currentFolderPath, filterType, searchQuery, offset]);
 
   // Data fetching hook
   const {
@@ -289,6 +303,7 @@ export function DocumentsPage() {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(true);
+    setUploadZoneExpanded(true);
   };
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
@@ -353,6 +368,51 @@ export function DocumentsPage() {
       setSortOrder('desc');
     }
   };
+
+  // Multi-select handlers
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleToggleAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      const allSelected = documents.every((d) => prev.has(d.id));
+      if (allSelected) return new Set();
+      return new Set(documents.map((d) => d.id));
+    });
+  }, [documents]);
+
+  const handleBatchDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    const ids = Array.from(selectedIds);
+    try {
+      await Promise.all(ids.map((id) => api.documents.delete(id)));
+      ids.forEach((id) => {
+        const doc = documents.find((d) => d.id === id);
+        if (doc) pushAction({ type: 'delete', documentId: id, documentTitle: doc.title });
+      });
+      showToast.success(`${count} документів видалено`);
+      setSelectedIds(new Set());
+      loadDocuments();
+      loadFolders(currentFolderPath);
+    } catch (err) {
+      console.error('Batch delete failed:', err);
+      showToast.error('Не вдалося видалити деякі документи');
+    }
+  }, [selectedIds, documents, pushAction, loadDocuments, loadFolders, currentFolderPath]);
+
+  const handleBatchMove = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    // Use the first selected document as move target to open modal
+    const firstDoc = documents.find((d) => selectedIds.has(d.id));
+    if (firstDoc) handleMoveOpen(firstDoc);
+  }, [selectedIds, documents, handleMoveOpen]);
 
   // Document preview
   const handleDocumentClick = async (doc: VaultDocument, index?: number) => {
@@ -509,9 +569,20 @@ export function DocumentsPage() {
     }
   }, [previewIndex, documents, offset, totalDocs, sortBy, sortOrder, filterType, currentFolderPath, searchQuery]);
 
-  // Silent delete from preview modal
+  // Delete from preview modal — with double-click confirmation
+  const [previewDeletePending, setPreviewDeletePending] = useState(false);
   const handlePreviewDelete = useCallback(async () => {
     if (previewIndex < 0 || !documents[previewIndex]) return;
+
+    // First press = arm, second press = delete
+    if (!previewDeletePending) {
+      setPreviewDeletePending(true);
+      showToast.success('Натисніть Delete ще раз для підтвердження');
+      setTimeout(() => setPreviewDeletePending(false), 3000);
+      return;
+    }
+
+    setPreviewDeletePending(false);
     const doc = documents[previewIndex];
     try {
       await api.documents.delete(doc.id);
@@ -535,22 +606,20 @@ export function DocumentsPage() {
       console.error('Failed to delete document:', err);
       showToast.error('Не вдалося видалити документ');
     }
-  }, [previewIndex, documents]);
+  }, [previewIndex, documents, previewDeletePending]);
 
   // Edit navigation handlers
+  const editIndex = editTarget ? documents.findIndex((d) => d.id === editTarget.id) : -1;
+
   const handleEditPrevious = useCallback(() => {
-    if (!editTarget) return;
-    const idx = documents.findIndex((d) => d.id === editTarget.id);
-    if (idx > 0) handleEditOpen(documents[idx - 1]);
-  }, [editTarget, documents]);
+    if (editIndex > 0) handleEditOpen(documents[editIndex - 1]);
+  }, [editIndex, documents]);
 
   const handleEditNext = useCallback(() => {
-    if (!editTarget) return;
-    const idx = documents.findIndex((d) => d.id === editTarget.id);
-    if (idx < documents.length - 1) handleEditOpen(documents[idx + 1]);
-  }, [editTarget, documents]);
+    if (editIndex < documents.length - 1) handleEditOpen(documents[editIndex + 1]);
+  }, [editIndex, documents]);
 
-  // Silent delete from edit modal
+  // Delete from edit modal — with double-click confirmation
   const handleEditDelete = useCallback(async () => {
     if (!editTarget) return;
     const idx = documents.findIndex((d) => d.id === editTarget.id);
@@ -576,35 +645,32 @@ export function DocumentsPage() {
     }
   }, [editTarget, documents]);
 
-  // Keyboard navigation for edit modal
+  // Keyboard shortcut for upload (Ctrl+U)
   useEffect(() => {
-    if (!editTarget) return;
     const handleKeydown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'TEXTAREA' || tag === 'INPUT') return;
-      const idx = documents.findIndex((d) => d.id === editTarget.id);
-      if (e.key === 'ArrowLeft' && idx > 0) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
         e.preventDefault();
-        handleEditOpen(documents[idx - 1]);
-      } else if (e.key === 'ArrowRight' && idx < documents.length - 1) {
-        e.preventDefault();
-        handleEditOpen(documents[idx + 1]);
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        handleEditDelete();
+        handleFileSelect();
       }
     };
     window.addEventListener('keydown', handleKeydown);
     return () => window.removeEventListener('keydown', handleKeydown);
-  }, [editTarget, documents, handleEditDelete]);
+  }, []);
 
   // Pagination
   const hasMore = offset + PAGE_SIZE < totalDocs;
   const hasPrev = offset > 0;
   const isSearchActive = searchQuery.trim().length > 0;
+  const hasDocuments = documents.length > 0;
+  const showCompactUpload = hasDocuments && !uploadZoneExpanded;
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
+    <div
+      className="flex-1 flex flex-col h-full overflow-hidden"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Hidden file inputs */}
       <input
         ref={fileInputRef}
@@ -681,55 +747,99 @@ export function DocumentsPage() {
             )}
           </AnimatePresence>
 
-          {/* Upload Zone */}
-          <div
-            ref={dropZoneRef}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`relative rounded-2xl border-2 border-dashed p-8 mb-6 transition-all duration-300 ${
-              isDragOver
-                ? 'border-claude-accent bg-claude-accent/5 scale-[1.01]'
-                : 'border-claude-border hover:border-claude-subtext/40 bg-white'
-            }`}
-          >
-            <div className="text-center">
-              <div className="flex justify-center gap-3 mb-4">
-                <button
-                  onClick={handleFileSelect}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all active:scale-[0.98] shadow-sm"
-                >
-                  <Upload size={16} strokeWidth={2} />
-                  Завантажити файли
-                </button>
-                <button
-                  onClick={handleFolderSelect}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-medium hover:bg-claude-bg transition-all active:scale-[0.98] shadow-sm"
-                >
-                  <FolderUp size={16} strokeWidth={2} />
-                  Завантажити папку
-                </button>
-              </div>
-              <p className="text-sm text-claude-subtext/70 font-sans">
-                Перетягніть файли або папку сюди &middot; PDF, DOCX, HTML, TXT, зображення, відео &middot; до 2 ГБ
-              </p>
-            </div>
+          {/* Upload Zone — compact when documents exist, full when empty or expanded */}
+          <div ref={dropZoneRef}>
+            {showCompactUpload ? (
+              /* Compact upload toolbar */
+              <div className={`mb-4 transition-all ${isDragOver ? 'ring-2 ring-claude-accent ring-offset-2 rounded-xl' : ''}`}>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleFileSelect}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all active:scale-[0.98] shadow-sm font-sans"
+                  >
+                    <Upload size={14} strokeWidth={2} />
+                    Завантажити
+                  </button>
+                  <button
+                    onClick={handleFolderSelect}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-claude-border text-claude-subtext rounded-xl text-sm font-medium hover:bg-claude-bg transition-all active:scale-[0.98] font-sans"
+                  >
+                    <FolderUp size={14} strokeWidth={2} />
+                    Папку
+                  </button>
+                  <span className="text-xs text-claude-subtext/40 font-sans ml-1 hidden sm:inline">
+                    або перетягніть файли · Ctrl+U
+                  </span>
+                </div>
 
-            {/* Drag overlay */}
-            <AnimatePresence>
-              {isDragOver && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute inset-0 flex items-center justify-center bg-claude-accent/10 rounded-2xl z-10"
-                >
-                  <div className="text-claude-accent font-semibold text-lg font-sans">
-                    Відпустіть для завантаження
+                {/* Drag overlay for compact mode */}
+                <AnimatePresence>
+                  {isDragOver && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mt-2 flex items-center justify-center bg-claude-accent/10 rounded-xl py-6"
+                    >
+                      <div className="text-claude-accent font-semibold text-lg font-sans">
+                        Відпустіть для завантаження
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              /* Full upload zone */
+              <div
+                className={`relative rounded-2xl border-2 border-dashed p-8 mb-6 transition-all duration-300 ${
+                  isDragOver
+                    ? 'border-claude-accent bg-claude-accent/5 scale-[1.01]'
+                    : 'border-claude-border hover:border-claude-subtext/40 bg-white'
+                }`}
+                role="button"
+                aria-label="Зона завантаження файлів"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleFileSelect(); }}
+              >
+                <div className="text-center">
+                  <div className="flex justify-center gap-3 mb-4">
+                    <button
+                      onClick={handleFileSelect}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all active:scale-[0.98] shadow-sm"
+                    >
+                      <Upload size={16} strokeWidth={2} />
+                      Завантажити файли
+                    </button>
+                    <button
+                      onClick={handleFolderSelect}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-medium hover:bg-claude-bg transition-all active:scale-[0.98] shadow-sm"
+                    >
+                      <FolderUp size={16} strokeWidth={2} />
+                      Завантажити папку
+                    </button>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  <p className="text-sm text-claude-subtext/70 font-sans">
+                    Перетягніть файли або папку сюди &middot; PDF, DOCX, HTML, TXT, зображення, відео &middot; до 2 ГБ &middot; Ctrl+U
+                  </p>
+                </div>
+
+                {/* Drag overlay */}
+                <AnimatePresence>
+                  {isDragOver && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 flex items-center justify-center bg-claude-accent/10 rounded-2xl z-10"
+                    >
+                      <div className="text-claude-accent font-semibold text-lg font-sans">
+                        Відпустіть для завантаження
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
 
           {/* Upload Queue Panel */}
@@ -740,8 +850,6 @@ export function DocumentsPage() {
             setDefaultDocType={setDefaultDocType}
             onStartUpload={handleStartUpload}
           />
-
-          {/* Document Statistics — removed per design */}
 
           {/* Classification Panel */}
           <ClassificationPanel
@@ -782,6 +890,7 @@ export function DocumentsPage() {
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as DocType | '')}
               className="px-3 py-2.5 bg-white border border-claude-border rounded-xl text-sm text-claude-text focus:outline-none focus:border-claude-subtext/40 transition-colors font-sans"
+              title="Фільтр за типом документа"
             >
               <option value="">Всі типи</option>
               {(Object.keys(DOC_TYPE_LABELS) as DocType[]).map((t) => (
@@ -794,27 +903,68 @@ export function DocumentsPage() {
             {/* View mode toggle */}
             <div className="flex border border-claude-border rounded-xl overflow-hidden">
               <button
-                onClick={() => setViewMode('list')}
+                onClick={() => handleSetViewMode('list')}
                 className={`p-2.5 transition-colors ${
                   viewMode === 'list'
                     ? 'bg-claude-text text-white'
                     : 'bg-white text-claude-subtext hover:bg-claude-bg'
                 }`}
+                title="Таблиця"
               >
                 <List size={16} />
               </button>
               <button
-                onClick={() => setViewMode('grid')}
+                onClick={() => handleSetViewMode('grid')}
                 className={`p-2.5 transition-colors ${
                   viewMode === 'grid'
                     ? 'bg-claude-text text-white'
                     : 'bg-white text-claude-subtext hover:bg-claude-bg'
                 }`}
+                title="Сітка"
               >
                 <LayoutGrid size={16} />
               </button>
             </div>
           </div>
+
+          {/* Batch actions bar */}
+          <AnimatePresence>
+            {selectedIds.size > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="mb-4 flex items-center gap-3 px-4 py-2.5 bg-claude-accent/5 border border-claude-accent/20 rounded-xl"
+              >
+                <span className="text-sm font-medium text-claude-text font-sans">
+                  Вибрано: {selectedIds.size}
+                </span>
+                <div className="flex items-center gap-2 ml-auto">
+                  <button
+                    onClick={handleBatchMove}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-claude-border rounded-lg hover:bg-claude-bg transition-colors font-sans"
+                  >
+                    <FolderInput size={12} />
+                    Перемістити
+                  </button>
+                  <button
+                    onClick={handleBatchDelete}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors font-sans"
+                  >
+                    <Trash2 size={12} />
+                    Видалити
+                  </button>
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    className="p-1 text-claude-subtext/40 hover:text-claude-text transition-colors"
+                    title="Зняти виділення"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Folder Navigator */}
           {(currentFolderPath || folders.length > 0) && (
@@ -841,15 +991,36 @@ export function DocumentsPage() {
           {loading ? (
             <SkeletonRows />
           ) : documents.length === 0 ? (
-            <div className="text-center py-20">
-              <FileText size={48} className="mx-auto mb-4 text-claude-subtext/20" />
-              <h3 className="text-lg font-semibold text-claude-text mb-2 font-sans">
-                Немає документів
-              </h3>
-              <p className="text-sm text-claude-subtext/60 font-sans">
-                Завантажте документи за допомогою кнопок вище або перетягніть файли
-              </p>
-            </div>
+            isSearchActive ? (
+              /* Search no results */
+              <div className="text-center py-20">
+                <SearchX size={48} className="mx-auto mb-4 text-claude-subtext/20" />
+                <h3 className="text-lg font-semibold text-claude-text mb-2 font-sans">
+                  Нічого не знайдено
+                </h3>
+                <p className="text-sm text-claude-subtext/60 font-sans mb-4">
+                  За запитом «{searchQuery}» не знайдено документів
+                </p>
+                <button
+                  onClick={handleClearSearch}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-medium hover:bg-claude-bg transition-colors font-sans"
+                >
+                  <X size={14} />
+                  Очистити пошук
+                </button>
+              </div>
+            ) : (
+              /* Empty state */
+              <div className="text-center py-20">
+                <FileText size={48} className="mx-auto mb-4 text-claude-subtext/20" />
+                <h3 className="text-lg font-semibold text-claude-text mb-2 font-sans">
+                  Немає документів
+                </h3>
+                <p className="text-sm text-claude-subtext/60 font-sans">
+                  Завантажте документи за допомогою кнопок вище або перетягніть файли
+                </p>
+              </div>
+            )
           ) : viewMode === 'list' ? (
             <DocumentTable
               documents={documents}
@@ -861,6 +1032,9 @@ export function DocumentsPage() {
               onEdit={handleEditOpen}
               onDelete={setDeleteTarget}
               onMove={handleMoveOpen}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              onToggleAll={handleToggleAll}
             />
           ) : (
             <DocumentGrid
@@ -870,14 +1044,19 @@ export function DocumentsPage() {
               onEdit={handleEditOpen}
               onDelete={setDeleteTarget}
               onMove={handleMoveOpen}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
             />
           )}
 
-          {/* Pagination footer */}
-          {documents.length > 0 && !isSearchActive && (
+          {/* Pagination footer — always show when there are results */}
+          {documents.length > 0 && (hasMore || hasPrev || isSearchActive) && (
             <div className="flex items-center justify-between mt-4">
               <span className="text-xs text-claude-subtext/50 font-sans">
-                {offset + 1}–{Math.min(offset + PAGE_SIZE, totalDocs)} з {totalDocs}
+                {isSearchActive ? `Знайдено: ` : ''}{offset + 1}–{Math.min(offset + PAGE_SIZE, totalDocs)} з {totalDocs}
               </span>
               <div className="flex gap-2">
                 <button
@@ -898,11 +1077,11 @@ export function DocumentsPage() {
             </div>
           )}
 
-          {/* Search results count */}
-          {documents.length > 0 && isSearchActive && (
+          {/* Simple count when only one page */}
+          {documents.length > 0 && !hasMore && !hasPrev && !isSearchActive && (
             <div className="mt-4 text-center">
               <span className="text-xs text-claude-subtext/50 font-sans">
-                Знайдено {documents.length} документів
+                {totalDocs} документів
               </span>
             </div>
           )}
@@ -916,6 +1095,7 @@ export function DocumentsPage() {
           setPreviewOpen(false);
           setPreviewDoc(null);
           setPreviewIndex(-1);
+          setPreviewDeletePending(false);
         }}
         item={previewLoading ? {
           type: 'document',
@@ -933,306 +1113,42 @@ export function DocumentsPage() {
       />
 
       {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {deleteTarget && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-            onClick={() => !deleting && setDeleteTarget(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-red-50 rounded-lg">
-                  <Trash2 size={20} className="text-red-500" />
-                </div>
-                <h3 className="text-lg font-semibold text-claude-text font-sans">
-                  Видалити документ?
-                </h3>
-              </div>
-              <p className="text-sm text-claude-subtext/70 mb-6 font-sans">
-                Ви впевнені, що хочете видалити &laquo;{deleteTarget.title}&raquo;? Цю дію неможливо скасувати.
-              </p>
-              <div className="flex justify-end gap-3">
-                <button
-                  disabled={deleting}
-                  onClick={() => setDeleteTarget(null)}
-                  className="px-4 py-2 text-sm font-medium text-claude-text bg-white border border-claude-border rounded-xl hover:bg-claude-bg transition-colors font-sans disabled:opacity-50"
-                >
-                  Скасувати
-                </button>
-                <button
-                  disabled={deleting}
-                  onClick={handleDeleteConfirm}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors font-sans disabled:opacity-50 flex items-center gap-2"
-                >
-                  {deleting && <Loader2 size={14} className="animate-spin" />}
-                  Видалити
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <DeleteConfirmModal
+        target={deleteTarget}
+        deleting={deleting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {/* Edit Document Modal */}
-      <AnimatePresence>
-        {editTarget && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-            onClick={() => !editSaving && setEditTarget(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  {(() => {
-                    const idx = documents.findIndex((d) => d.id === editTarget.id);
-                    return (
-                      <>
-                        <button
-                          disabled={editSaving || idx <= 0}
-                          onClick={handleEditPrevious}
-                          className="p-1 text-claude-subtext hover:text-claude-text transition-colors disabled:opacity-30"
-                          title="Попередній (←)"
-                        >
-                          <ChevronLeft size={18} />
-                        </button>
-                        <button
-                          disabled={editSaving || idx >= documents.length - 1}
-                          onClick={handleEditNext}
-                          className="p-1 text-claude-subtext hover:text-claude-text transition-colors disabled:opacity-30"
-                          title="Наступний (→)"
-                        >
-                          <ChevronRight size={18} />
-                        </button>
-                        {documents.length > 1 && (
-                          <span className="text-[11px] text-claude-subtext font-medium tabular-nums mr-1">
-                            {idx + 1} / {documents.length}
-                          </span>
-                        )}
-                      </>
-                    );
-                  })()}
-                  <h3 className="text-lg font-semibold text-claude-text font-sans truncate">
-                    Редагувати: {editTarget.title}
-                  </h3>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={handleEditDelete}
-                    disabled={editSaving}
-                    className="p-1 text-claude-subtext/40 hover:text-red-500 transition-colors disabled:opacity-30"
-                    title="Видалити (Delete)"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                  <button
-                    onClick={() => !editSaving && setEditTarget(null)}
-                    className="p-1 text-claude-subtext/40 hover:text-claude-text transition-colors"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-              </div>
-              {editLoading ? (
-                <div className="flex-1 flex items-center justify-center py-20">
-                  <Loader2 size={24} className="animate-spin text-claude-subtext/40" />
-                </div>
-              ) : (
-                <>
-                  <textarea
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                    className="flex-1 min-h-[400px] w-full p-4 border border-claude-border rounded-xl text-sm text-claude-text font-mono resize-none focus:outline-none focus:border-claude-subtext/40 transition-colors"
-                    placeholder="Вміст документа..."
-                  />
-                  <div className="flex justify-end gap-3 mt-4">
-                    <button
-                      disabled={editSaving}
-                      onClick={() => setEditTarget(null)}
-                      className="px-4 py-2 text-sm font-medium text-claude-text bg-white border border-claude-border rounded-xl hover:bg-claude-bg transition-colors font-sans disabled:opacity-50"
-                    >
-                      Скасувати
-                    </button>
-                    <button
-                      disabled={editSaving}
-                      onClick={handleEditSave}
-                      className="px-4 py-2 text-sm font-medium text-white bg-claude-text rounded-xl hover:bg-claude-text/90 transition-colors font-sans disabled:opacity-50 flex items-center gap-2"
-                    >
-                      {editSaving && <Loader2 size={14} className="animate-spin" />}
-                      Зберегти
-                    </button>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <EditDocumentModal
+        target={editTarget}
+        editText={editText}
+        onEditTextChange={setEditText}
+        editLoading={editLoading}
+        editSaving={editSaving}
+        onSave={handleEditSave}
+        onClose={() => !editSaving && setEditTarget(null)}
+        onPrevious={handleEditPrevious}
+        onNext={handleEditNext}
+        onDelete={handleEditDelete}
+        currentIndex={editIndex}
+        totalCount={documents.length}
+      />
+
       {/* Move Document Modal */}
-      <AnimatePresence>
-        {moveTarget && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-            onClick={() => !moveLoading && setMoveTarget(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[70vh] flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-claude-bg rounded-lg">
-                  <FolderInput size={20} className="text-claude-text" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-lg font-semibold text-claude-text font-sans">
-                    Перемістити документ
-                  </h3>
-                  <p className="text-xs text-claude-subtext/60 font-sans truncate">
-                    {moveTarget.title}
-                  </p>
-                </div>
-              </div>
-
-              {/* Current location */}
-              <div className="text-xs text-claude-subtext/60 font-sans mb-3">
-                Поточна папка: <span className="font-medium text-claude-text">{moveTarget.metadata?.folderPath || '/ (корінь)'}</span>
-              </div>
-
-              {/* Folder browser */}
-              <div className="flex-1 overflow-y-auto border border-claude-border rounded-xl mb-4">
-                <button
-                  onClick={() => {
-                    setMoveFolder('');
-                    handleMoveBrowse('');
-                  }}
-                  className={`flex items-center gap-2 w-full px-3 py-2 text-sm font-sans transition-colors ${
-                    moveFolder === '' ? 'bg-claude-accent/10 text-claude-accent font-medium' : 'text-claude-text hover:bg-claude-bg'
-                  }`}
-                >
-                  <CornerLeftUp size={14} className="text-claude-subtext/60" />
-                  / (корінь)
-                </button>
-
-                {moveBrowsePath && (
-                  <button
-                    onClick={() => {
-                      const segments = moveBrowsePath.split('/').filter(Boolean);
-                      segments.pop();
-                      const parent = segments.length ? segments.join('/') + '/' : '';
-                      handleMoveBrowse(parent);
-                    }}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-claude-subtext hover:bg-claude-bg transition-colors font-sans border-b border-claude-border/30"
-                  >
-                    <CornerLeftUp size={14} />
-                    ..
-                  </button>
-                )}
-
-                {moveBrowsePath && (
-                  <button
-                    onClick={() => setMoveFolder(moveBrowsePath)}
-                    className={`flex items-center gap-2 w-full px-3 py-2 text-sm font-sans transition-colors border-b border-claude-border/30 ${
-                      moveFolder === moveBrowsePath ? 'bg-claude-accent/10 text-claude-accent font-medium' : 'text-claude-text hover:bg-claude-bg'
-                    }`}
-                  >
-                    <Folder size={14} className="text-claude-accent" />
-                    {moveBrowsePath.replace(/\/$/, '').split('/').pop()} (поточна)
-                  </button>
-                )}
-
-                {moveFoldersLoading ? (
-                  <div className="flex justify-center py-6">
-                    <Loader2 size={18} className="animate-spin text-claude-subtext/40" />
-                  </div>
-                ) : moveFolders.length === 0 ? (
-                  <div className="text-center py-4 text-xs text-claude-subtext/40 font-sans">
-                    Немає підпапок
-                  </div>
-                ) : (
-                  moveFolders.map((folder) => {
-                    const fullPath = moveBrowsePath ? `${moveBrowsePath}${folder}/` : `${folder}/`;
-                    return (
-                      <div key={folder} className="flex items-center border-b border-claude-border/20 last:border-0">
-                        <button
-                          onClick={() => setMoveFolder(fullPath)}
-                          className={`flex-1 flex items-center gap-2 px-3 py-2 text-sm font-sans transition-colors ${
-                            moveFolder === fullPath ? 'bg-claude-accent/10 text-claude-accent font-medium' : 'text-claude-text hover:bg-claude-bg'
-                          }`}
-                        >
-                          <Folder size={14} className={moveFolder === fullPath ? 'text-claude-accent' : 'text-claude-subtext/40'} />
-                          {folder}
-                        </button>
-                        <button
-                          onClick={() => handleMoveBrowse(fullPath)}
-                          className="px-2 py-2 text-claude-subtext/40 hover:text-claude-text transition-colors"
-                          title="Відкрити папку"
-                        >
-                          <ChevronDown size={14} className="rotate-[-90deg]" />
-                        </button>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Manual input */}
-              <div className="mb-4">
-                <label className="text-xs text-claude-subtext/60 font-sans mb-1 block">
-                  Або введіть шлях вручну:
-                </label>
-                <input
-                  type="text"
-                  value={moveFolder}
-                  onChange={(e) => setMoveFolder(e.target.value)}
-                  placeholder="наприклад: contracts/2026/"
-                  className="w-full px-3 py-2 border border-claude-border rounded-xl text-sm text-claude-text font-sans focus:outline-none focus:border-claude-subtext/40 transition-colors"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <button
-                  disabled={moveLoading}
-                  onClick={() => setMoveTarget(null)}
-                  className="px-4 py-2 text-sm font-medium text-claude-text bg-white border border-claude-border rounded-xl hover:bg-claude-bg transition-colors font-sans disabled:opacity-50"
-                >
-                  Скасувати
-                </button>
-                <button
-                  disabled={moveLoading}
-                  onClick={handleMoveConfirm}
-                  className="px-4 py-2 text-sm font-medium text-white bg-claude-text rounded-xl hover:bg-claude-text/90 transition-colors font-sans disabled:opacity-50 flex items-center gap-2"
-                >
-                  {moveLoading && <Loader2 size={14} className="animate-spin" />}
-                  Перемістити
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <MoveDocumentModal
+        target={moveTarget}
+        moveFolder={moveFolder}
+        onMoveFolderChange={setMoveFolder}
+        moveFolders={moveFolders}
+        moveFoldersLoading={moveFoldersLoading}
+        moveLoading={moveLoading}
+        moveBrowsePath={moveBrowsePath}
+        onBrowse={handleMoveBrowse}
+        onConfirm={handleMoveConfirm}
+        onClose={() => !moveLoading && setMoveTarget(null)}
+      />
     </div>
   );
 }
