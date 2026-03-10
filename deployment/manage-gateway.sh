@@ -24,10 +24,10 @@ STAGE_USER="vovkes"
 STAGE_REMOTE_PATH="/home/vovkes/SecondLayer/deployment"
 DEPLOY_USER="$STAGE_USER"  # Default for lib scripts; overridden per-env in deploy
 
-PROD_SERVER="gate.lexapp.co.ua"   # Temporarily on gate server (AWS suspended)
-PROD_USER="vovkes"
-PROD_SSH_KEY=""
-PROD_REMOTE_PATH="/home/vovkes/SecondLayer/deployment"
+PROD_SERVER="18.192.189.254"      # AWS EC2 (eu-central-1)
+PROD_USER="ubuntu"
+PROD_SSH_KEY="$HOME/.ssh/secondlayer-prod.pem"
+PROD_REMOTE_PATH="/home/ubuntu/SecondLayer/deployment"
 
 NO_CACHE=""  # Set to "--no-cache" via --no-cache flag
 
@@ -36,7 +36,7 @@ get_ssh_cmd() {
     local env=$1
     case $env in
         prod|production)
-            echo "ssh ${PROD_USER}@${PROD_SERVER}"
+            echo "ssh -i ${PROD_SSH_KEY} ${PROD_USER}@${PROD_SERVER}"
             ;;
         stage|staging)
             echo "ssh ${STAGE_USER}@${STAGE_SERVER}"
@@ -49,7 +49,7 @@ get_scp_cmd() {
     local env=$1
     case $env in
         prod|production)
-            echo "scp"
+            echo "scp -i ${PROD_SSH_KEY}"
             ;;
         stage|staging)
             echo "scp"
@@ -138,14 +138,14 @@ Commands:
   clean <env>       Clean environment data (USE WITH CAUTION!)
 
 Environments:
-  prod              Production -> gate.lexapp.co.ua (temporarily on gate server)
+  prod              Production -> 18.192.189.254 (AWS EC2)
                     Domains: legal.org.ua, mcp.legal.org.ua
   stage             Staging -> gate.lexapp.co.ua (Cloudflare proxy)
                     Domains: stage.legal.org.ua, legal.org.ua, mcp.legal.org.ua
   local             Local development (local.legal.org.ua) -> localhost
 
 Deployment Targets:
-  - Prod:  Deploys to gate.lexapp.co.ua (temporarily, AWS suspended), serves legal.org.ua via Cloudflare
+  - Prod:  Deploys to 18.192.189.254 (AWS EC2), serves legal.org.ua via Cloudflare
   - Stage: Deploys to gate.lexapp.co.ua, serves all 3 domains via nginx + Cloudflare
   - Local: Full rebuild on localhost (pull, rebuild --no-cache, migrate)
 

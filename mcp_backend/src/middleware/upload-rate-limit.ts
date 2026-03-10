@@ -67,24 +67,24 @@ function createUserRateLimiter(options: UserRateLimitOptions) {
   };
 }
 
-// 200 init requests per minute per user (generous — session quota is the real abuse protection)
+// 500 init requests per minute per user (generous — session quota is the real abuse protection)
 export const uploadInitRateLimit = createUserRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 200,
+  maxRequests: 500,
   keyPrefix: 'ratelimit:upload-init',
 });
 
-// 500 batch-init requests per minute per user (each batch handles up to 500 files;
+// 1000 batch-init requests per minute per user (each batch handles up to 2000 files;
 // retries on failure consume this budget quickly). Session quota provides the real abuse protection.
 export const uploadBatchInitRateLimit = createUserRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 500,
+  maxRequests: 1000,
   keyPrefix: 'ratelimit:upload-init-batch',
 });
 
-// 500 chunk uploads per minute per user
+// 1500 chunk uploads per minute per user (100 users × 5 files × 10 chunks = 5000 chunks/min total)
 export const uploadChunkRateLimit = createUserRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 500,
+  maxRequests: 1500,
   keyPrefix: 'ratelimit:upload-chunk',
 });

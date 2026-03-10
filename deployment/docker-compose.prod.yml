@@ -58,10 +58,10 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@postgres-prod:5432/${POSTGRES_DB:-secondlayer_prod}
       AUTH_TYPE: scram-sha-256
       POOL_MODE: transaction
-      MAX_CLIENT_CONN: 300
-      DEFAULT_POOL_SIZE: 30
-      MIN_POOL_SIZE: 5
-      RESERVE_POOL_SIZE: 5
+      MAX_CLIENT_CONN: 500
+      DEFAULT_POOL_SIZE: 50
+      MIN_POOL_SIZE: 10
+      RESERVE_POOL_SIZE: 10
       RESERVE_POOL_TIMEOUT: 5
       SERVER_ROUND_ROBIN: 1
       TZ: Europe/Kiev
@@ -180,7 +180,7 @@ services:
     - "127.0.0.1:6383:6379"
     volumes:
     - redis_prod_data:/data
-    command: redis-server --appendonly yes --maxmemory 1536mb --maxmemory-policy noeviction
+    command: redis-server --appendonly yes --maxmemory 2048mb --maxmemory-policy noeviction
     healthcheck:
       test:
       - CMD
@@ -498,7 +498,7 @@ services:
     container_name: secondlayer-app-prod
     command:
     - node
-    - --max-old-space-size=3072
+    - --max-old-space-size=6144
     - dist/http-server.js
     logging:
       driver: json-file
@@ -649,11 +649,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 4G
+          cpus: '3'
+          memory: 8G
         reservations:
-          cpus: '0.5'
-          memory: 2G
+          cpus: '1'
+          memory: 4G
 
   document-service-prod:
     build:
