@@ -24,6 +24,34 @@ function supportsTemperature(model: string): boolean {
   return !model.startsWith('gpt-5');
 }
 
+/** Per-chunk timeout for LLM streams — throws if no chunk arrives within timeoutMs */
+const STREAM_CHUNK_TIMEOUT_MS = 90_000; // 90 seconds between chunks
+
+async function* withChunkTimeout<T>(
+  source: AsyncIterable<T>,
+  timeoutMs: number = STREAM_CHUNK_TIMEOUT_MS,
+  signal?: AbortSignal,
+): AsyncGenerator<T> {
+  const iterator = source[Symbol.asyncIterator]();
+  try {
+    while (true) {
+      if (signal?.aborted) break;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const result = await Promise.race([
+        iterator.next(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`LLM stream stalled — no chunk received for ${timeoutMs / 1000}s`)), timeoutMs);
+        }),
+      ]);
+      clearTimeout(timer);
+      if (result.done) break;
+      yield result.value;
+    }
+  } finally {
+    iterator.return?.();
+  }
+}
+
 export interface ToolDefinitionParam {
   name: string;
   description: string;
@@ -128,9 +156,27 @@ export class LLMClientManager {
       this.externalApiMetrics?.(selection.provider, 'error', callDuration);
       logger.warn(`Primary provider ${selection.provider} failed: ${primaryError.message}`);
 
+      // If primary was Bedrock, try Bedrock fallback model (Nova) before switching providers
+      if (selection.provider === 'bedrock') {
+        const bedrockFallback = ModelSelector.getBedrockFallbackSelection(budget);
+        if (bedrockFallback.model !== selection.model) {
+          logger.info(`Bedrock fallback: ${selection.model} → ${bedrockFallback.model}`);
+          const fbStart = Date.now();
+          try {
+            const result = await this.executeChatCompletion(request, bedrockFallback);
+            this.externalApiMetrics?.('bedrock-fallback', 'success', (Date.now() - fbStart) / 1000);
+            return result;
+          } catch (fbError: any) {
+            this.externalApiMetrics?.('bedrock-fallback', 'error', (Date.now() - fbStart) / 1000);
+            logger.warn(`Bedrock fallback also failed: ${fbError.message}`);
+          }
+        }
+      }
+
+      // Last resort: try a different provider entirely
       const fallbackProvider = this.getFallbackProvider(selection.provider);
       if (fallbackProvider) {
-        logger.info(`Falling back to ${fallbackProvider}`);
+        logger.info(`Falling back to provider ${fallbackProvider}`);
         const fallbackSelection = ModelSelector.getModelSelection(budget, fallbackProvider);
         const fbStart = Date.now();
         try {
@@ -388,10 +434,27 @@ export class LLMClientManager {
       this.externalApiMetrics?.(selection.provider, 'error', (Date.now() - streamStart) / 1000);
       logger.warn(`${selection.provider} streaming failed: ${primaryError.message}`);
 
-      // Fallback for streaming
+      // If primary was Bedrock, try Bedrock fallback model (Nova) before switching providers
+      if (selection.provider === 'bedrock') {
+        const bedrockFallback = ModelSelector.getBedrockFallbackSelection(budget);
+        if (bedrockFallback.model !== selection.model) {
+          logger.info(`Stream bedrock fallback: ${selection.model} → ${bedrockFallback.model}`);
+          const fbStart = Date.now();
+          try {
+            yield* this.executeBedrockStreamCompletion(request, bedrockFallback.model, signal);
+            this.externalApiMetrics?.('bedrock-fallback', 'success', (Date.now() - fbStart) / 1000);
+            return;
+          } catch (fbError: any) {
+            this.externalApiMetrics?.('bedrock-fallback', 'error', (Date.now() - fbStart) / 1000);
+            logger.warn(`Stream bedrock fallback also failed: ${fbError.message}`);
+          }
+        }
+      }
+
+      // Last resort: try a different provider entirely
       const fallbackProvider = this.getFallbackProvider(selection.provider);
       if (fallbackProvider) {
-        logger.info(`Stream falling back to ${fallbackProvider}`);
+        logger.info(`Stream falling back to provider ${fallbackProvider}`);
         const fallbackSelection = ModelSelector.getModelSelection(budget, fallbackProvider);
         const fbStart = Date.now();
         try {
@@ -491,7 +554,7 @@ export class LLMClientManager {
     const toolCallBuffers = new Map<number, { id: string; name: string; args: string }>();
     let finishReason: 'stop' | 'tool_calls' = 'stop';
 
-    for await (const chunk of stream as any) {
+    for await (const chunk of withChunkTimeout(stream as AsyncIterable<any>, STREAM_CHUNK_TIMEOUT_MS, signal)) {
       if (signal?.aborted) break;
 
       const choice = chunk.choices?.[0];
@@ -639,7 +702,7 @@ export class LLMClientManager {
     let inputTokens = 0;
     let outputTokens = 0;
 
-    for await (const event of stream as any) {
+    for await (const event of withChunkTimeout(stream as AsyncIterable<any>, STREAM_CHUNK_TIMEOUT_MS, signal)) {
       if (signal?.aborted) break;
 
       switch (event.type) {
@@ -790,9 +853,10 @@ export class LLMClientManager {
       }
 
       // user or assistant (no tool_calls)
+      const text = m.content || (m.role === 'assistant' ? '...' : '...');
       bedrockMessages.push({
         role: m.role as 'user' | 'assistant',
-        content: [{ text: m.content }],
+        content: [{ text }],
       });
     }
 
@@ -935,7 +999,7 @@ export class LLMClientManager {
     let inputTokens = 0;
     let outputTokens = 0;
 
-    for await (const event of response.stream) {
+    for await (const event of withChunkTimeout(response.stream, STREAM_CHUNK_TIMEOUT_MS, signal)) {
       if (signal?.aborted) break;
 
       if (event.contentBlockStart) {
