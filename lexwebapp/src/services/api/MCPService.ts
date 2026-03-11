@@ -19,13 +19,22 @@ export interface CitationWarning {
   message: string;
 }
 
+import type { Decision, Citation, VaultDocument } from '../../types/models/Message';
+
+export interface EvidenceEnvelope {
+  decisions: Decision[];
+  citations: Citation[];
+  documents: VaultDocument[];
+}
+
 export interface ChatStreamCallbacks {
   onResponseId?: (data: { response_id: string }) => void;
   onPlan?: (data: { goal: string; steps: Array<{ id: number; tool: string; params: Record<string, unknown>; purpose: string; depends_on?: number[] }>; expected_iterations: number }) => void;
   onThinking?: (data: { step: number; tool: string; params: Record<string, unknown>; description?: string; cost_usd?: number }) => void;
-  onToolResult?: (data: { tool: string; result: unknown; cost_usd?: number }) => void;
+  onToolResult?: (data: { tool: string; result: unknown; evidence?: EvidenceEnvelope; cost_usd?: number }) => void;
   onAnswerDelta?: (data: { text: string }) => void;
-  onAnswer?: (data: { text: string; provider: string; model: string }) => void;
+  onAnswer?: (data: { text: string; provider: string; model: string; norms?: Array<{ text: string; source: string }> }) => void;
+  onEvidenceUpdate?: (data: EvidenceEnvelope) => void;
   onCitationWarning?: (data: CitationWarning) => void;
   onComplete?: (data: { iterations: number; elapsed_ms: number; tools_used?: string[]; total_cost_usd?: number; charged_usd?: number; response_id?: string; conversationId?: string }) => void;
   onCostSummary?: (data: { total_cost_usd: number; charged_usd: number; balance_usd: number | null }) => void;
@@ -222,7 +231,8 @@ export class MCPService extends BaseService {
       case 'thinking': callbacks.onThinking?.(data as Parameters<NonNullable<ChatStreamCallbacks['onThinking']>>[0]); break;
       case 'tool_result': callbacks.onToolResult?.(data as Parameters<NonNullable<ChatStreamCallbacks['onToolResult']>>[0]); break;
       case 'answer_delta': callbacks.onAnswerDelta?.(data as { text: string }); break;
-      case 'answer': callbacks.onAnswer?.(data as { text: string; provider: string; model: string }); break;
+      case 'answer': callbacks.onAnswer?.(data as Parameters<NonNullable<ChatStreamCallbacks['onAnswer']>>[0]); break;
+      case 'evidence_update': callbacks.onEvidenceUpdate?.(data as EvidenceEnvelope); break;
       case 'citation_warning': callbacks.onCitationWarning?.(data as CitationWarning); break;
       case 'complete': callbacks.onComplete?.(data as Parameters<NonNullable<ChatStreamCallbacks['onComplete']>>[0]); break;
       case 'cost_summary': callbacks.onCostSummary?.(data as Parameters<NonNullable<ChatStreamCallbacks['onCostSummary']>>[0]); break;
