@@ -23,31 +23,48 @@ const DEPTH_CAPABLE_TOOLS = new Set([
   'search_procedural_norms',
 ]);
 
-/** Fallback cost estimates when backend doesn't provide them (USD) */
+/** Fallback cost estimates (USD) per single tool call at each budget tier.
+ *  standard → Sonnet 4.6, deep → Opus 4.6 (5x more expensive).
+ *  Calibrated from production cost_tracking data. */
 const FALLBACK_COST: Record<string, { standard: number; deep: number }> = {
-  search_legal_precedents:         { standard: 0.008, deep: 0.025 },
-  search_supreme_court_practice:   { standard: 0.008, deep: 0.025 },
-  find_similar_fact_pattern_cases: { standard: 0.005, deep: 0.015 },
-  compare_practice_pro_contra:     { standard: 0.008, deep: 0.025 },
-  search_legislation:              { standard: 0.004, deep: 0.012 },
-  find_relevant_law_articles:      { standard: 0.004, deep: 0.010 },
-  search_procedural_norms:         { standard: 0.004, deep: 0.010 },
-  get_court_decision:              { standard: 0.005, deep: 0.005 },
-  get_case_documents_chain:        { standard: 0.010, deep: 0.010 },
-  get_legislation_article:         { standard: 0.003, deep: 0.003 },
-  get_legislation_structure:       { standard: 0.002, deep: 0.002 },
-  load_full_texts:                 { standard: 0.008, deep: 0.008 },
-  semantic_search:                 { standard: 0.004, deep: 0.004 },
-  list_documents:                  { standard: 0.002, deep: 0.002 },
-  count_cases_by_party:            { standard: 0.003, deep: 0.003 },
+  search_legal_precedents:         { standard: 0.05, deep: 0.40 },
+  search_supreme_court_practice:   { standard: 0.05, deep: 0.40 },
+  find_similar_fact_pattern_cases: { standard: 0.04, deep: 0.30 },
+  compare_practice_pro_contra:     { standard: 0.05, deep: 0.40 },
+  search_legislation:              { standard: 0.03, deep: 0.25 },
+  find_relevant_law_articles:      { standard: 0.03, deep: 0.25 },
+  search_procedural_norms:         { standard: 0.03, deep: 0.25 },
+  get_court_decision:              { standard: 0.04, deep: 0.30 },
+  get_case_documents_chain:        { standard: 0.05, deep: 0.35 },
+  get_legislation_article:         { standard: 0.02, deep: 0.15 },
+  get_legislation_structure:       { standard: 0.01, deep: 0.10 },
+  load_full_texts:                 { standard: 0.06, deep: 0.50 },
+  semantic_search:                 { standard: 0.03, deep: 0.25 },
+  list_documents:                  { standard: 0.01, deep: 0.10 },
+  count_cases_by_party:            { standard: 0.02, deep: 0.15 },
 };
-const FALLBACK_DEFAULT = { standard: 0.004, deep: 0.004 };
+const FALLBACK_DEFAULT = { standard: 0.04, deep: 0.30 };
+const FALLBACK_OVERHEAD: Record<string, number> = { standard: 0.14, deep: 0.70 };
+
+/** Typical number of tool invocations per plan step (must match backend TYPICAL_CALLS) */
+const FALLBACK_TYPICAL_CALLS: Record<string, number> = {
+  get_court_decision:    4,
+  load_full_texts:       2,
+  get_legislation_article: 2,
+};
+const DEFAULT_CALLS = 1;
+
+function getStepCalls(step: PlanStep): number {
+  return step.estimatedCalls ?? FALLBACK_TYPICAL_CALLS[step.tool] ?? DEFAULT_CALLS;
+}
 
 function getStepCost(step: PlanStep): number {
   const depth = step.depth || 'standard';
   if (step.estimatedCost != null) return step.estimatedCost;
+  // Fallback: per-call cost × typical calls
   const costs = FALLBACK_COST[step.tool] || FALLBACK_DEFAULT;
-  return costs[depth];
+  const calls = getStepCalls(step);
+  return costs[depth] * calls;
 }
 
 export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanReviewDisplayProps) {
@@ -60,31 +77,35 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
     }))
   );
 
+  // Recalculate all step costs based on effective budget tier.
+  // Any deep step OR 5+ steps → all iterations use Opus (deep tier).
+  const recalcSteps = (newSteps: PlanStep[]): PlanStep[] => {
+    const hasDeep = newSteps.some(s => s.depth === 'deep');
+    const tier: 'standard' | 'deep' = (hasDeep || newSteps.length >= 5) ? 'deep' : 'standard';
+    return newSteps.map(s => {
+      const costs = FALLBACK_COST[s.tool] || FALLBACK_DEFAULT;
+      const calls = getStepCalls(s);
+      return { ...s, estimatedCost: costs[tier] * calls };
+    });
+  };
+
   const toggleDepth = (stepId: number) => {
-    setSteps(prev =>
-      prev.map(s => {
-        if (s.id !== stepId) return s;
-        const newDepth = s.depth === 'deep' ? 'standard' : 'deep';
-        // Recalculate cost when depth changes
-        const costs = FALLBACK_COST[s.tool] || FALLBACK_DEFAULT;
-        return { ...s, depth: newDepth, estimatedCost: costs[newDepth] };
-      })
-    );
+    setSteps(prev => {
+      const toggled = prev.map(s =>
+        s.id === stepId ? { ...s, depth: (s.depth === 'deep' ? 'standard' : 'deep') as 'standard' | 'deep' } : s
+      );
+      return recalcSteps(toggled);
+    });
   };
 
   const setAllDeep = () => {
-    setSteps(prev => prev.map(s => {
-      if (!DEPTH_CAPABLE_TOOLS.has(s.tool)) return s;
-      const costs = FALLBACK_COST[s.tool] || FALLBACK_DEFAULT;
-      return { ...s, depth: 'deep', estimatedCost: costs.deep };
-    }));
+    setSteps(prev => recalcSteps(prev.map(s =>
+      DEPTH_CAPABLE_TOOLS.has(s.tool) ? { ...s, depth: 'deep' as const } : s
+    )));
   };
 
   const setAllStandard = () => {
-    setSteps(prev => prev.map(s => {
-      const costs = FALLBACK_COST[s.tool] || FALLBACK_DEFAULT;
-      return { ...s, depth: 'standard', estimatedCost: costs.standard };
-    }));
+    setSteps(prev => recalcSteps(prev.map(s => ({ ...s, depth: 'standard' as const }))));
   };
 
   const handleConfirm = () => {
@@ -92,7 +113,10 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
   };
 
   const deepCount = steps.filter(s => s.depth === 'deep').length;
-  const totalCost = useMemo(() => steps.reduce((sum, s) => sum + getStepCost(s), 0), [steps]);
+  // Effective tier determines overhead + per-step costs
+  const effectiveTier: 'standard' | 'deep' = (deepCount > 0 || steps.length >= 5) ? 'deep' : 'standard';
+  const overheadCost = plan.overheadCost ?? (FALLBACK_OVERHEAD[effectiveTier] || FALLBACK_OVERHEAD.standard);
+  const totalCost = useMemo(() => overheadCost + steps.reduce((sum, s) => sum + getStepCost(s), 0), [steps, overheadCost]);
 
   return (
     <motion.div
@@ -120,6 +144,7 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
           const isDepthCapable = DEPTH_CAPABLE_TOOLS.has(step.tool);
           const isDeep = step.depth === 'deep';
           const cost = getStepCost(step);
+          const calls = getStepCalls(step);
           const isRecommended = step.recommendedDepth && step.depth === step.recommendedDepth;
 
           return (
@@ -143,8 +168,8 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
 
               {/* Cost + Depth toggle */}
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-[10px] text-claude-subtext/50 font-mono tabular-nums w-[50px] text-right">
-                  {formatUah(cost)}
+                <span className="text-[10px] text-claude-subtext/50 font-mono tabular-nums w-[60px] text-right" title={calls > 1 ? `~${calls} викликів` : undefined}>
+                  {formatUah(cost)}{calls > 1 && <span className="text-claude-subtext/30 ml-0.5">×{calls}</span>}
                 </span>
 
                 {isDepthCapable ? (
