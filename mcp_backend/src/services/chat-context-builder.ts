@@ -15,6 +15,7 @@ import {
 } from '../prompts/chat-system-prompt.js';
 import { buildEnrichedSystemPrompt, SCENARIO_CATALOG } from '../prompts/tool-registry-catalog.js';
 import { QUERY_TYPE_CONFIG } from '../prompts/query-type-config.js';
+import { getPromptSectionsForQueryType } from '../prompts/prompt-sections.js';
 import { BUDGET_LIMITS } from './chat-constants.js';
 
 interface CostRecorder {
@@ -62,6 +63,12 @@ export class ChatContextBuilder {
       classifiedDomains,
       preferredScenarioIds
     );
+
+    // Inject queryType-specific prompt sections (document_drafting template, practice analysis, etc.)
+    const queryTypeSections = getPromptSectionsForQueryType(queryType);
+    if (queryTypeSections) {
+      enrichedPrompt += '\n\n' + queryTypeSections;
+    }
 
     // Inject grounding note from queryType config
     if (qtConfig?.groundingNote) {

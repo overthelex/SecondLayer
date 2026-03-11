@@ -35,7 +35,7 @@ import {
 import { QUERY_TYPE_CONFIG } from '../prompts/query-type-config.js';
 import { ChatSearchCacheService, isCourtSearchTool } from './chat-search-cache-service.js';
 import type { ShepardizationService, ShepardizationResult } from './shepardization-service.js';
-import { extractAllEvidence } from './evidence-extractor.js';
+import { extractAllEvidence, extractFromToolResult, extractNormsFromAnswer } from './evidence-extractor.js';
 
 import { BUDGET_LIMITS, CASE_NUMBER_REGEX, type BudgetKey } from './chat-constants.js';
 import { IntentClassifier } from './chat-intent-classifier.js';
@@ -49,7 +49,7 @@ import type { WorkflowService } from './workflow-service.js';
 // ============================
 
 export interface ChatEvent {
-  type: 'plan' | 'thinking' | 'tool_result' | 'answer_delta' | 'answer' | 'citation_warning' | 'complete' | 'error' | 'budget_escalated';
+  type: 'plan' | 'thinking' | 'tool_result' | 'answer_delta' | 'answer' | 'citation_warning' | 'complete' | 'error' | 'budget_escalated' | 'evidence_update';
   data: any;
 }
 
@@ -263,6 +263,91 @@ export class ChatService {
   }
 
   /**
+   * Fast plan lookup for deterministic query types.
+   * Returns a pre-built plan if the classification is simple enough,
+   * skipping the plan-generation LLM call (saves 200-400ms).
+   */
+  private fastPlanLookup(
+    classification: ChatIntentClassification,
+    toolDefs: ToolDefinition[]
+  ): ExecutionPlan | null {
+    const slots = classification.slots || {};
+    const toolNames = new Set(toolDefs.map(t => t.name));
+
+    // EDRPOU → single registry lookup
+    if (slots.edrpou && classification.queryType === 'registry_lookup' && toolNames.has('openreyestr_get_by_edrpou')) {
+      return {
+        goal: `Пошук юридичної особи за ЄДРПОУ ${slots.edrpou}`,
+        steps: [{
+          id: 1,
+          tool: 'openreyestr_get_by_edrpou',
+          params: { edrpou: slots.edrpou },
+          purpose: 'Отримати дані з реєстру',
+        }],
+        expected_iterations: 1,
+      };
+    }
+
+    // Single case number → case document chain
+    if (
+      slots.case_number &&
+      !slots.law_reference &&
+      classification.queryType === 'case_lookup' &&
+      toolNames.has('get_case_documents_chain')
+    ) {
+      return {
+        goal: `Отримати документи справи ${slots.case_number}`,
+        steps: [{
+          id: 1,
+          tool: 'get_case_documents_chain',
+          params: { case_number: slots.case_number, include_full_text: true },
+          purpose: 'Отримати всі документи справи',
+        }],
+        expected_iterations: 2,
+      };
+    }
+
+    // Legislation article lookup
+    if (
+      slots.law_reference &&
+      !slots.case_number &&
+      classification.queryType === 'legislation_lookup' &&
+      toolNames.has('get_legislation_article')
+    ) {
+      return {
+        goal: `Отримати текст ${slots.law_reference}`,
+        steps: [{
+          id: 1,
+          tool: 'get_legislation_article',
+          params: { query: slots.law_reference },
+          purpose: 'Знайти статтю закону',
+        }],
+        expected_iterations: 1,
+      };
+    }
+
+    // Deputy info lookup
+    if (
+      slots.deputy_name &&
+      classification.queryType === 'parliament_query' &&
+      toolNames.has('rada_get_deputy_info')
+    ) {
+      return {
+        goal: `Інформація про депутата ${slots.deputy_name}`,
+        steps: [{
+          id: 1,
+          tool: 'rada_get_deputy_info',
+          params: { name: slots.deputy_name },
+          purpose: 'Отримати інформацію про депутата',
+        }],
+        expected_iterations: 1,
+      };
+    }
+
+    return null;
+  }
+
+  /**
    * Run the agentic chat loop. Yields ChatEvents for SSE streaming.
    */
   async *chat(request: ChatRequest): AsyncGenerator<ChatEvent> {
@@ -303,6 +388,12 @@ export class ChatService {
       }
     }
 
+    // Emit early thinking event so client sees immediate feedback
+    yield {
+      type: 'thinking',
+      data: { step: 0, tool: '_init', description: 'Аналізую запит...' },
+    };
+
     try {
       // --- Two-phase support: reuse cached session if approvedPlan is provided ---
       let classification: ChatIntentClassification;
@@ -334,7 +425,18 @@ export class ChatService {
         // Standard flow: classify + generate plan
         classification = await this.intentClassifier.classify(query, requestId);
         toolDefs = await this.intentClassifier.filterTools(classification.domains, classification.slots);
-        plan = await this.generateExecutionPlan(query, classification, toolDefs, requestId);
+
+        // Try fast plan lookup for deterministic query types (skips LLM plan generation)
+        const fastPlan = this.fastPlanLookup(classification, toolDefs);
+        if (fastPlan) {
+          plan = fastPlan;
+          logger.info('[ChatService] Used fast plan lookup, skipped plan generation LLM call', {
+            queryType: classification.queryType,
+            steps: fastPlan.steps.map(s => s.tool),
+          });
+        } else {
+          plan = await this.generateExecutionPlan(query, classification, toolDefs, requestId);
+        }
       }
 
       // --- 6a. Unsupported short-circuit ---
@@ -460,11 +562,13 @@ export class ChatService {
           const toolResult = await this.toolRegistry.executeTool('list_documents', toolArgs);
 
           // Emit tool_result so evidence panel gets populated
+          const listDocEvidence = extractFromToolResult('list_documents', toolResult);
           yield {
             type: 'tool_result',
             data: {
               tool: 'list_documents',
               result: toolResult,
+              evidence: listDocEvidence,
               cached: false,
               cost_usd: 0,
             },
@@ -543,10 +647,9 @@ export class ChatService {
       const budgetOrder: Record<string, number> = { quick: 0, standard: 1, deep: 2 };
       const configBudget = qtConfig?.defaultBudget || 'standard';
 
-      // Budget escalation:
+      // Budget escalation (tightened to avoid unnecessary slow-model paths):
       //    - Any step marked "deep" by user → deep budget
-      //    - Plan with >= 3 steps → deep
-      //    - Complex case analysis (case_number + long query) → deep even without a plan
+      //    - Plan with >= 5 steps → deep (raised from 3 to keep most queries on standard)
       //    - Court practice analysis query → deep (needs full doc content + long response)
       let effectiveBudget: BudgetKey = budget;
       const hasDeepSteps = plan?.steps.some(s => s.depth === 'deep');
@@ -556,17 +659,10 @@ export class ChatService {
         logger.info('[ChatService] Escalated to deep budget (user chose deep steps)', {
           deepSteps: plan!.steps.filter(s => s.depth === 'deep').map(s => s.tool),
         });
-      } else if (plan && plan.steps.length >= 3) {
+      } else if (plan && plan.steps.length >= 5) {
         effectiveBudget = 'deep';
-      } else if (
-        !plan &&
-        classification.slots?.case_number &&
-        query.length > 100
-      ) {
-        effectiveBudget = 'deep';
-        logger.info('[ChatService] Auto-escalated to deep budget (case_number + long query, no plan)', {
-          caseNumber: classification.slots.case_number,
-          queryLength: query.length,
+        logger.info('[ChatService] Escalated to deep budget (plan >= 5 steps)', {
+          stepCount: plan.steps.length,
         });
       } else if (
         classification.domains.includes('court') &&
@@ -652,6 +748,14 @@ export class ChatService {
       const collectedThinkingSteps: Array<{ tool: string; params: any; result: any }> = [];
       const previousToolCallHashes = new Set<string>();
 
+      // Cumulative evidence tracking for evidence_update events (Phase 3)
+      const cumulativeDecisions: import('@secondlayer/shared').Decision[] = [];
+      const cumulativeCitations: import('@secondlayer/shared').Citation[] = [];
+      const cumulativeDocuments: import('@secondlayer/shared').VaultDocument[] = [];
+      const seenDecisionIds = new Set<string>();
+      const seenCitationKeys = new Set<string>();
+      const seenDocumentIds = new Set<string>();
+
       while (iteration < limits.maxToolCalls) {
         if (signal?.aborted) break;
 
@@ -733,10 +837,39 @@ export class ChatService {
         // Final answer — no tool calls
         if (finishReason === 'stop' || toolCalls.length === 0) {
           fullAnswerText = fullContent;
+
+          // Extract norm references from the answer text (Phase 2)
+          const answerNorms = extractNormsFromAnswer(fullContent);
+          // Add answer norms to cumulative citations
+          for (const n of answerNorms) {
+            const key = n.source.toLowerCase().replace(/\s+/g, ' ').trim();
+            if (!seenCitationKeys.has(key)) {
+              seenCitationKeys.add(key);
+              cumulativeCitations.push(n);
+            }
+          }
+
           yield {
             type: 'answer',
-            data: { text: fullContent, provider: selection.provider, model: selection.model },
+            data: {
+              text: fullContent,
+              provider: selection.provider,
+              model: selection.model,
+              norms: answerNorms.length > 0 ? answerNorms : undefined,
+            },
           };
+
+          // Final evidence_update with norms included
+          if (cumulativeDecisions.length > 0 || cumulativeCitations.length > 0 || cumulativeDocuments.length > 0) {
+            yield {
+              type: 'evidence_update',
+              data: {
+                decisions: cumulativeDecisions,
+                citations: cumulativeCitations,
+                documents: cumulativeDocuments,
+              },
+            };
+          }
           break;
         }
 
@@ -834,17 +967,53 @@ export class ChatService {
 
           const summarized = this.resultCompactor.summarize(toolResult, limits);
 
-          // Send the FULL result to the frontend for evidence extraction (decisions, citations).
-          // The summarized version is only used for the LLM conversation to save tokens.
+          // Extract evidence server-side and include in tool_result event.
+          // The FULL result is kept for backward compatibility; `evidence` is the new field.
+          const toolEvidence = extractFromToolResult(call.name, toolResult);
+
           yield {
             type: 'tool_result',
             data: {
               tool: call.name,
               result: toolResult,
+              evidence: toolEvidence,
               cached,
               cost_usd: iterationCostUsd,
             },
           };
+
+          // Accumulate cumulative evidence (deduplicated) for evidence_update
+          for (const d of toolEvidence.decisions) {
+            if (!seenDecisionIds.has(d.id)) {
+              seenDecisionIds.add(d.id);
+              cumulativeDecisions.push(d);
+            }
+          }
+          for (const c of toolEvidence.citations) {
+            const key = c.source.toLowerCase().replace(/\s+/g, ' ').trim();
+            if (!seenCitationKeys.has(key)) {
+              seenCitationKeys.add(key);
+              cumulativeCitations.push(c);
+            }
+          }
+          for (const doc of toolEvidence.documents) {
+            if (!seenDocumentIds.has(doc.id)) {
+              seenDocumentIds.add(doc.id);
+              cumulativeDocuments.push(doc);
+            }
+          }
+
+          // Emit cumulative evidence_update after each tool result
+          if (cumulativeDecisions.length > 0 || cumulativeCitations.length > 0 || cumulativeDocuments.length > 0) {
+            yield {
+              type: 'evidence_update',
+              data: {
+                decisions: cumulativeDecisions,
+                citations: cumulativeCitations,
+                documents: cumulativeDocuments,
+              },
+            };
+          }
 
           messages.push({
             role: 'tool',
@@ -943,7 +1112,33 @@ export class ChatService {
           }
           if (fallbackContent) {
             fullAnswerText = fallbackContent;
-            yield { type: 'answer', data: { text: fallbackContent, provider: selection.provider, model: selection.model } };
+            const fallbackNorms = extractNormsFromAnswer(fallbackContent);
+            for (const n of fallbackNorms) {
+              const key = n.source.toLowerCase().replace(/\s+/g, ' ').trim();
+              if (!seenCitationKeys.has(key)) {
+                seenCitationKeys.add(key);
+                cumulativeCitations.push(n);
+              }
+            }
+            yield {
+              type: 'answer',
+              data: {
+                text: fallbackContent,
+                provider: selection.provider,
+                model: selection.model,
+                norms: fallbackNorms.length > 0 ? fallbackNorms : undefined,
+              },
+            };
+            if (cumulativeDecisions.length > 0 || cumulativeCitations.length > 0 || cumulativeDocuments.length > 0) {
+              yield {
+                type: 'evidence_update',
+                data: {
+                  decisions: cumulativeDecisions,
+                  citations: cumulativeCitations,
+                  documents: cumulativeDocuments,
+                },
+              };
+            }
           }
         } catch (fallbackErr: any) {
           logger.warn('[ChatService] Fallback answer generation failed', { error: fallbackErr.message });

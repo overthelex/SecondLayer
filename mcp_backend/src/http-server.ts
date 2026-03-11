@@ -2266,7 +2266,18 @@ class HTTPMCPServer {
           return res.status(400).json({ error: 'query is required' });
         }
 
+        // Set SSE headers EARLY — before balance check — so client gets first byte faster
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
+
+        // Emit response_id as the very first SSE event for request traceability
+        res.write(`event: response_id\n`);
+        res.write(`data: ${JSON.stringify({ response_id: requestId })}\n\n`);
+
         // Pre-flight balance check — use BillingService (USD-based)
+        // Now runs AFTER SSE is established; failures sent as SSE error events
         if (userId) {
           const billing = await this.billingService.getOrCreateUserBilling(userId);
           if (billing.billing_enabled) {
@@ -2277,25 +2288,18 @@ class HTTPMCPServer {
             });
             const balanceCheck = await this.billingService.checkBalance(userId, estimatedCost.total_estimated_cost_usd);
             if (!balanceCheck.hasBalance) {
-              return res.status(402).json({
+              res.write(`event: error\n`);
+              res.write(`data: ${JSON.stringify({
                 error: 'Insufficient balance',
                 code: 'INSUFFICIENT_BALANCE',
                 required_usd: estimatedCost.total_estimated_cost_usd,
                 current_balance_usd: balanceCheck.currentBalance,
-              });
+              })}\n\n`);
+              res.end();
+              return;
             }
           }
         }
-
-        // Set SSE headers
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache, no-transform');
-        res.setHeader('Connection', 'keep-alive');
-        res.setHeader('X-Accel-Buffering', 'no');
-
-        // Emit response_id as the very first SSE event for request traceability
-        res.write(`event: response_id\n`);
-        res.write(`data: ${JSON.stringify({ response_id: requestId })}\n\n`);
 
         // Abort controller for cancellation propagation
         const abortController = new AbortController();
