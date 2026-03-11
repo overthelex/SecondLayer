@@ -47,6 +47,7 @@ export interface ExecutionPlan {
   goal: string;
   steps: PlanStep[];
   expected_iterations: number;
+  overheadCost?: number; // Fixed LLM cost for classification + plan gen + final synthesis (USD)
 }
 
 export interface PlanStep {
@@ -58,7 +59,8 @@ export interface PlanStep {
   completed?: boolean;
   depth?: 'standard' | 'deep';
   recommendedDepth?: 'standard' | 'deep';
-  estimatedCost?: number;
+  estimatedCost?: number;      // Total cost for this step (per-call cost × estimatedCalls), USD
+  estimatedCalls?: number;     // How many times this tool is typically invoked
 }
 
 export interface Decision {
