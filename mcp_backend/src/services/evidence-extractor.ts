@@ -4,40 +4,14 @@
  * Mirrors the frontend extractEvidenceFromToolResult() logic so that
  * decisions, citations, and documents are persisted in conversation_messages
  * and survive page reloads.
+ *
+ * Types are imported from @secondlayer/shared — single source of truth.
  */
 
-// ── Types (lightweight — match what frontend expects) ────────────────
+import type { Decision, Citation, VaultDocument, ExtractedEvidence } from '@secondlayer/shared';
 
-export interface Decision {
-  id: string;
-  number: string;
-  court: string;
-  date: string;
-  summary: string;
-  relevance: number;
-  status: string;
-  documentType?: string;
-  externalUrl?: string;
-}
-
-export interface Citation {
-  text: string;
-  source: string;
-}
-
-export interface VaultDocument {
-  id: string;
-  title: string;
-  type: string;
-  uploadedAt?: string;
-  metadata?: Record<string, any>;
-}
-
-export interface ExtractedEvidence {
-  decisions: Decision[];
-  citations: Citation[];
-  documents: VaultDocument[];
-}
+// Re-export for consumers that import from this file
+export type { Decision, Citation, VaultDocument, ExtractedEvidence };
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -93,7 +67,7 @@ function classifyDocumentType(item: any): string {
 
 // ── Single tool result extraction ────────────────────────────────────
 
-function extractFromToolResult(
+export function extractFromToolResult(
   toolName: string,
   rawResult: any,
 ): ExtractedEvidence {
@@ -577,7 +551,7 @@ function extractFromToolResult(
 
 // ── Norm extraction from answer text ─────────────────────────────────
 
-function extractNormsFromAnswer(answerText: string): Citation[] {
+export function extractNormsFromAnswer(answerText: string): Citation[] {
   const norms: Citation[] = [];
   const seen = new Set<string>();
 

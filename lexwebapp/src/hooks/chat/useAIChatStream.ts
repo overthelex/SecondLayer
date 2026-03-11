@@ -140,12 +140,14 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
             isComplete: true,
           });
 
-          const evidence = extractEvidenceFromToolResult(data.tool, data.result);
+          // Use server-side evidence if available, fall back to client-side extraction
+          const evidence = data.evidence || extractEvidenceFromToolResult(data.tool, data.result);
           console.log('[AIChat] Evidence extraction', {
             tool: data.tool,
             decisions: evidence.decisions.length,
             citations: evidence.citations.length,
             documents: evidence.documents.length,
+            source: data.evidence ? 'server' : 'client',
           });
           if (evidence.decisions.length > 0) {
             accumulatedDecisions.current.push(...evidence.decisions);
@@ -184,7 +186,8 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
           }
           contentRef.current = data.text;
 
-          const answerNorms = extractNormsFromAnswer(data.text);
+          // Use server-side norms if available, fall back to client-side extraction
+          const answerNorms = data.norms || extractNormsFromAnswer(data.text);
           if (answerNorms.length > 0) {
             const existingSources = new Set(
               accumulatedCitations.current.map(c => c.source.toLowerCase().replace(/\s+/g, ' ').trim())
@@ -226,6 +229,19 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
           autoTitleConversation();
 
           onSuccess?.(data);
+        },
+
+        onEvidenceUpdate: (data) => {
+          // Server sends cumulative deduplicated evidence — use directly
+          updateMessage(assistantMessageId, {
+            decisions: data.decisions.length > 0 ? data.decisions : undefined,
+            citations: data.citations.length > 0 ? data.citations : undefined,
+            documents: data.documents.length > 0 ? data.documents : undefined,
+          });
+          // Sync refs to keep local accumulators in sync
+          accumulatedDecisions.current = [...data.decisions];
+          accumulatedCitations.current = [...data.citations];
+          accumulatedDocuments.current = [...data.documents];
         },
 
         onCitationWarning: (data) => {
