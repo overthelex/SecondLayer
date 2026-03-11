@@ -40,6 +40,7 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
   const planRef = useRef<ExecutionPlan | null>(null);
   const costSummaryRef = useRef<Partial<CostSummary>>({});
   const responseIdRef = useRef<string | null>(null);
+  const rafPendingRef = useRef<number | null>(null);
 
   /**
    * Run the SSE chat stream (shared between direct and approved-plan flows).
@@ -167,10 +168,20 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
 
         onAnswerDelta: (data) => {
           contentRef.current += data.text;
-          updateMessage(assistantMessageId, { content: contentRef.current });
+          if (!rafPendingRef.current) {
+            rafPendingRef.current = requestAnimationFrame(() => {
+              updateMessage(assistantMessageId, { content: contentRef.current });
+              rafPendingRef.current = null;
+            });
+          }
         },
 
         onAnswer: (data) => {
+          // Flush any pending RAF before final answer
+          if (rafPendingRef.current) {
+            cancelAnimationFrame(rafPendingRef.current);
+            rafPendingRef.current = null;
+          }
           contentRef.current = data.text;
 
           const answerNorms = extractNormsFromAnswer(data.text);
