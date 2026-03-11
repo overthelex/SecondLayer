@@ -74,6 +74,8 @@ interface PlanSession {
   plan: ExecutionPlan;
   query: string;
   createdAt: number;
+  /** Pre-fetched document chain result (to avoid re-fetching during execution) */
+  prefetchedChainResult?: any;
 }
 
 // ============================
@@ -123,30 +125,73 @@ const DEPTH_OVERRIDES: Record<string, { standard: Record<string, any>; deep: Rec
 };
 
 /**
- * Estimated cost per step (USD) based on tool type and depth.
- * Includes LLM processing cost (token estimation) + embedding/API costs.
+ * Estimated cost per SINGLE tool call (USD) at two budget tiers.
+ * Includes BOTH tool API cost AND LLM processing cost for one iteration.
+ *
+ * Budget tiers map to different models on prod:
+ *   standard → Sonnet 4.6  ($3/M input,  $15/M output)  — ~$0.03-0.06/iter
+ *   deep     → Opus 4.6    ($15/M input, $75/M output)  — ~$0.20-0.80/iter
+ *
+ * Calibrated from production cost_tracking data (2026-03-11):
+ *   Sonnet sessions (2-3 iters): $0.33-$0.74 total
+ *   Opus sessions (5 iters):     $5-$15 total
  */
-const STEP_COST_ESTIMATES: Record<string, { standard: number; deep: number }> = {
-  // Search tools — cost scales with result limit
-  search_legal_precedents:         { standard: 0.008, deep: 0.025 },
-  search_supreme_court_practice:   { standard: 0.008, deep: 0.025 },
-  find_similar_fact_pattern_cases: { standard: 0.005, deep: 0.015 },
-  compare_practice_pro_contra:     { standard: 0.008, deep: 0.025 },
-  search_legislation:              { standard: 0.004, deep: 0.012 },
-  find_relevant_law_articles:      { standard: 0.004, deep: 0.010 },
-  search_procedural_norms:         { standard: 0.004, deep: 0.010 },
-  // Fixed-cost tools
-  get_court_decision:              { standard: 0.005, deep: 0.005 },
-  get_case_documents_chain:        { standard: 0.010, deep: 0.010 },
-  get_legislation_article:         { standard: 0.003, deep: 0.003 },
-  get_legislation_structure:       { standard: 0.002, deep: 0.002 },
-  load_full_texts:                 { standard: 0.008, deep: 0.008 },
-  semantic_search:                 { standard: 0.004, deep: 0.004 },
-  list_documents:                  { standard: 0.002, deep: 0.002 },
-  count_cases_by_party:            { standard: 0.003, deep: 0.003 },
+const STEP_COST_PER_CALL: Record<string, { standard: number; deep: number }> = {
+  // Search tools — deep mode uses Opus + returns more results → much larger cost
+  search_legal_precedents:         { standard: 0.05, deep: 0.40 },
+  search_supreme_court_practice:   { standard: 0.05, deep: 0.40 },
+  find_similar_fact_pattern_cases: { standard: 0.04, deep: 0.30 },
+  compare_practice_pro_contra:     { standard: 0.05, deep: 0.40 },
+  search_legislation:              { standard: 0.03, deep: 0.25 },
+  find_relevant_law_articles:      { standard: 0.03, deep: 0.25 },
+  search_procedural_norms:         { standard: 0.03, deep: 0.25 },
+  // Fixed-output tools — cost still differs because deep → Opus model
+  get_court_decision:              { standard: 0.04, deep: 0.30 },
+  get_case_documents_chain:        { standard: 0.05, deep: 0.35 },
+  get_legislation_article:         { standard: 0.02, deep: 0.15 },
+  get_legislation_structure:       { standard: 0.01, deep: 0.10 },
+  load_full_texts:                 { standard: 0.06, deep: 0.50 },
+  semantic_search:                 { standard: 0.03, deep: 0.25 },
+  list_documents:                  { standard: 0.01, deep: 0.10 },
+  count_cases_by_party:            { standard: 0.02, deep: 0.15 },
 };
 
-const DEFAULT_STEP_COST = { standard: 0.004, deep: 0.004 };
+const DEFAULT_STEP_COST_PER_CALL = { standard: 0.04, deep: 0.30 };
+
+/**
+ * Typical number of tool invocations per plan step.
+ * Some tools are called once, others are called multiple times
+ * (e.g., get_court_decision is called per each decision in the case chain).
+ */
+const TYPICAL_CALLS: Record<string, number> = {
+  get_court_decision:              4,  // Per decision: district, appeal, cassation, Grand Chamber
+  load_full_texts:                 2,  // May need multiple batches for many documents
+  get_legislation_article:         2,  // Often multiple articles referenced
+  get_case_documents_chain:        1,
+  search_legal_precedents:         1,
+  search_supreme_court_practice:   1,
+  find_similar_fact_pattern_cases: 1,
+  compare_practice_pro_contra:     1,
+  search_legislation:              1,
+  find_relevant_law_articles:      1,
+  search_procedural_norms:         1,
+  get_legislation_structure:       1,
+  semantic_search:                 1,
+  list_documents:                  1,
+  count_cases_by_party:            1,
+};
+
+const DEFAULT_TYPICAL_CALLS = 1;
+
+/**
+ * Fixed overhead cost (USD) per request by budget tier.
+ * - Classification: ~$0.005 (always Haiku)
+ * - Plan generation: ~$0.08 (always Opus 4.6)
+ * - Final synthesis: ~$0.04 (Sonnet) or ~$0.50 (Opus)
+ *
+ * Calibrated from prod: plan_generation alone costs $0.055-$0.107
+ */
+const PLAN_OVERHEAD_COST: Record<string, number> = { standard: 0.14, deep: 0.70 };
 
 const PLAN_SESSION_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -212,18 +257,70 @@ export class ChatService {
 
     if (!plan) return null;
 
+    // Pre-fetch document count for case-based queries to get accurate cost estimates.
+    // get_case_documents_chain is fast (~200-500ms) and gives us exact document counts.
+    // The result is cached in the plan session so execution doesn't re-fetch it.
+    let docCount = 0;
+    let prefetchedChainResult: any = undefined;
+    const caseNumber = classification.slots?.case_number;
+    if (caseNumber && plan.steps.some(s => ['get_court_decision', 'load_full_texts', 'get_case_documents_chain'].includes(s.tool))) {
+      try {
+        prefetchedChainResult = await this.toolRegistry.executeTool('get_case_documents_chain', {
+          case_number: caseNumber,
+          group_by_instance: false,
+        });
+        const parsed = typeof prefetchedChainResult === 'string' ? JSON.parse(prefetchedChainResult) : prefetchedChainResult;
+        docCount = parsed?.total_documents || parsed?.data?.total_documents || 0;
+        logger.info('[ChatService] Pre-fetched document chain for cost estimation', {
+          caseNumber,
+          docCount,
+        });
+      } catch (e) {
+        logger.warn('[ChatService] Failed to pre-fetch document chain for cost estimation', {
+          error: (e as Error).message,
+        });
+      }
+    }
+
     // Apply LLM-recommended depth and estimate costs per step
     for (const step of plan.steps) {
-      // Use LLM-recommended depth if provided, otherwise default to 'standard'
       if (step.recommendedDepth) {
         step.depth = step.recommendedDepth;
       } else if (!step.depth) {
         step.depth = 'standard';
       }
-      // Calculate estimated cost for this step at current depth
-      const costMap = STEP_COST_ESTIMATES[step.tool] || DEFAULT_STEP_COST;
-      step.estimatedCost = costMap[step.depth || 'standard'];
     }
+
+    // Predict effective budget tier (mirrors escalation logic in chat()):
+    //   any deep step → deep, 5+ steps → deep, court practice analysis → deep
+    const hasDeepSteps = plan.steps.some(s => s.depth === 'deep');
+    const PRACTICE_KW = /проаналізу|аналіз практик|судова практика|знайти справи|знайти практику|огляд практики|яка практика|як суди|позиція судів/i;
+    const willEscalateToDeep =
+      hasDeepSteps ||
+      plan.steps.length >= 5 ||
+      (classification.domains.includes('court') && PRACTICE_KW.test(query));
+    const effectiveTier: 'standard' | 'deep' = willEscalateToDeep ? 'deep' : 'standard';
+
+    // Calculate cost per step using predicted budget tier
+    for (const step of plan.steps) {
+      let calls = TYPICAL_CALLS[step.tool] || DEFAULT_TYPICAL_CALLS;
+      if (docCount > 0) {
+        if (step.tool === 'get_court_decision') {
+          calls = docCount;
+        } else if (step.tool === 'load_full_texts') {
+          calls = Math.ceil(docCount / 5);
+        }
+      }
+      const costPerCall = STEP_COST_PER_CALL[step.tool] || DEFAULT_STEP_COST_PER_CALL;
+      step.estimatedCalls = calls;
+      step.estimatedCost = costPerCall[effectiveTier] * calls;
+    }
+
+    // Overhead: classification + plan gen (Opus) + final synthesis (model depends on tier)
+    const baseOverhead = PLAN_OVERHEAD_COST[effectiveTier] || PLAN_OVERHEAD_COST.standard;
+    plan.overheadCost = docCount > 5
+      ? baseOverhead + (docCount - 5) * (effectiveTier === 'deep' ? 0.03 : 0.005)
+      : baseOverhead;
 
     // Cache session for reuse
     const planSessionId = `plan-${Date.now()}-${randomBytes(4).toString('hex')}`;
@@ -233,6 +330,7 @@ export class ChatService {
       plan,
       query,
       createdAt: Date.now(),
+      prefetchedChainResult,
     });
 
     logger.info('[ChatService] Plan generated for review', {
@@ -407,6 +505,17 @@ export class ChatService {
           toolDefs = session.toolDefs;
           // Use the user-approved plan with depth overrides applied
           plan = this.applyStepDepths(request.approvedPlan);
+          // Seed search cache with pre-fetched document chain result
+          if (session.prefetchedChainResult && this.searchCache) {
+            const caseNum = classification.slots?.case_number;
+            if (caseNum) {
+              this.searchCache.cacheResult(
+                'get_case_documents_chain',
+                { case_number: caseNum, group_by_instance: false },
+                session.prefetchedChainResult
+              ).catch(() => {});
+            }
+          }
           this.planSessions.delete(request.planSessionId);
           logger.info('[ChatService] Using approved plan from session', {
             planSessionId: request.planSessionId,
