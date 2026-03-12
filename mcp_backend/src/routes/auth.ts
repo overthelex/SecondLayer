@@ -194,6 +194,13 @@ router.get('/me', (authController.getCurrentUser as any));
 router.post('/logout', authController.logout as any);
 
 /**
+ * @route   POST /auth/accept-attorney-offer
+ * @desc    Accept attorney public offer
+ * @access  Protected (JWT required, attorney only)
+ */
+router.post('/accept-attorney-offer', requireJWT as any, authController.acceptAttorneyOffer as any);
+
+/**
  * @route   POST /auth/refresh
  * @desc    Refresh JWT token
  * @access  Protected (valid JWT required)

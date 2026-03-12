@@ -150,6 +150,22 @@ export async function getCurrentUser(req: AuthenticatedRequest, res: Response): 
       });
     }
 
+    // Check attorney offer acceptance for attorney users
+    let attorneyOfferAccepted = false;
+    if (user.user_type === 'attorney') {
+      try {
+        const userService = getUserService();
+        const db = (userService as any).db;
+        const result = await db.query(
+          `SELECT 1 FROM eula_acceptances WHERE user_id = $1 AND eula_version = $2 LIMIT 1`,
+          [user.id, 'attorney-offer-1.0']
+        );
+        attorneyOfferAccepted = result.rows.length > 0;
+      } catch (err: any) {
+        logger.warn('Failed to check attorney offer acceptance', { userId: user.id, error: err.message });
+      }
+    }
+
     // Return user profile without sensitive data
     return res.json({
       user: {
@@ -163,6 +179,7 @@ export async function getCurrentUser(req: AuthenticatedRequest, res: Response): 
         createdAt: user.created_at,
         role: user.role,
         userType: user.user_type || 'individual',
+        ...(user.user_type === 'attorney' && { attorneyOfferAccepted }),
       },
     });
   } catch (error: any) {
@@ -179,6 +196,45 @@ export async function getCurrentUser(req: AuthenticatedRequest, res: Response): 
  * With JWT, logout is handled client-side by deleting the token
  * This endpoint can be used for logging or session cleanup
  */
+/**
+ * Accept attorney offer
+ * Records attorney offer acceptance in eula_acceptances table
+ */
+export async function acceptAttorneyOffer(req: AuthenticatedRequest, res: Response): Promise<Response> {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (user.user_type !== 'attorney') {
+      return res.status(403).json({ error: 'Тільки адвокати можуть прийняти цю оферту' });
+    }
+
+    const userService = getUserService();
+    const db = (userService as any).db;
+
+    await db.query(
+      `INSERT INTO eula_acceptances (user_id, eula_version, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, eula_version) DO NOTHING`,
+      [
+        user.id,
+        'attorney-offer-1.0',
+        req.ip || req.headers['x-forwarded-for'] || 'unknown',
+        req.headers['user-agent'] || 'unknown',
+      ]
+    );
+
+    logger.info('Attorney accepted offer', { userId: user.id, email: user.email });
+
+    return res.json({ success: true, message: 'Оферту прийнято' });
+  } catch (error: any) {
+    logger.error('Error accepting attorney offer:', error);
+    return res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+}
+
 export async function logout(req: AuthenticatedRequest, res: Response): Promise<Response> {
   try {
     const user = req.user;
