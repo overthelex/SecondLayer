@@ -39,7 +39,7 @@ export interface ChatStreamCallbacks {
   onComplete?: (data: { iterations: number; elapsed_ms: number; tools_used?: string[]; total_cost_usd?: number; charged_usd?: number; response_id?: string; conversationId?: string }) => void;
   onCostSummary?: (data: { total_cost_usd: number; charged_usd: number; balance_usd: number | null }) => void;
   onBudgetEscalated?: (data: { reason: string; estimatedCost: { minUsd: number; maxUsd: number } }) => void;
-  onError?: (data: { message: string }) => void;
+  onError?: (data: { message?: string; code?: string; current_balance_usd?: number }) => void;
 }
 
 export class MCPService extends BaseService {
@@ -237,7 +237,7 @@ export class MCPService extends BaseService {
       case 'complete': callbacks.onComplete?.(data as Parameters<NonNullable<ChatStreamCallbacks['onComplete']>>[0]); break;
       case 'cost_summary': callbacks.onCostSummary?.(data as Parameters<NonNullable<ChatStreamCallbacks['onCostSummary']>>[0]); break;
       case 'budget_escalated': callbacks.onBudgetEscalated?.(data as Parameters<NonNullable<ChatStreamCallbacks['onBudgetEscalated']>>[0]); break;
-      case 'error': callbacks.onError?.(data as { message: string }); break;
+      case 'error': callbacks.onError?.(data as { message?: string; code?: string; current_balance_usd?: number }); break;
     }
   }
 
