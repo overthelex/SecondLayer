@@ -16,6 +16,7 @@ export interface User {
   createdAt?: string;
   role: UserRole;
   userType?: UserType;
+  attorneyOfferAccepted?: boolean;
 }
 
 export interface UserProfile extends User {

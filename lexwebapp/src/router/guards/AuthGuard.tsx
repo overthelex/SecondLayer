@@ -2,6 +2,7 @@
  * Auth Guard
  * Protects routes that require authentication
  * Shows organization setup modal if user has no organization
+ * Shows attorney offer modal if attorney hasn't accepted the offer
  */
 
 import React, { useEffect, useState } from 'react';
@@ -10,11 +11,17 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ROUTES } from '../routes';
 import { api } from '../../utils/api-client';
 import { OrganizationSetupModal } from '../../components/organization/OrganizationSetupModal';
+import { AttorneyOfferModal } from '../../components/attorney/AttorneyOfferModal';
 
 export const AuthGuard: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [showOrgModal, setShowOrgModal] = useState(false);
   const [, setOrgChecked] = useState(false);
+
+  // Check if attorney needs to accept the offer
+  const showAttorneyOffer = isAuthenticated
+    && user?.userType === 'attorney'
+    && !user?.attorneyOfferAccepted;
 
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
@@ -56,16 +63,24 @@ export const AuthGuard: React.FC = () => {
     return <Navigate to={ROUTES.LOGIN} replace />;
   }
 
-  // Render child routes + org setup modal overlay
+  // Render child routes + modals
   return (
     <>
       <Outlet />
-      <OrganizationSetupModal
-        isOpen={showOrgModal}
-        onClose={() => setShowOrgModal(false)}
-        onCreated={() => setShowOrgModal(false)}
-        userEmail={user?.email}
-      />
+      {showAttorneyOffer && (
+        <AttorneyOfferModal
+          isOpen={true}
+          onAccepted={() => {/* user state updated via updateUser in modal */}}
+        />
+      )}
+      {!showAttorneyOffer && (
+        <OrganizationSetupModal
+          isOpen={showOrgModal}
+          onClose={() => setShowOrgModal(false)}
+          onCreated={() => setShowOrgModal(false)}
+          userEmail={user?.email}
+        />
+      )}
     </>
   );
 };
