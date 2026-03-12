@@ -92,7 +92,11 @@ const NewsPage = lazy(() => import('../pages/NewsPage').then(m => ({ default: m.
 // -- MCP Connect --
 const MCPConnectPage = lazy(() => import('../pages/MCPConnectPage').then(m => ({ default: m.MCPConnectPage })));
 
-// -- Attorney/Consultations (hidden — feature not ready for production) --
+// -- Attorney/Consultations (client-facing) --
+const AttorneySearchPage = lazy(() => import('../pages/AttorneySearchPage').then(m => ({ default: m.AttorneySearchPage })));
+const AttorneyDetailPage = lazy(() => import('../pages/AttorneyDetailPage').then(m => ({ default: m.AttorneyDetailPage })));
+const ConsultationsPage = lazy(() => import('../pages/ConsultationsPage').then(m => ({ default: m.ConsultationsPage })));
+const ConsultationDetailPage = lazy(() => import('../pages/ConsultationDetailPage').then(m => ({ default: m.ConsultationDetailPage })));
 
 // -- Workflows --
 const WorkflowsPage = lazy(() => import('../pages/WorkflowsPage').then(m => ({ default: m.WorkflowsPage })));
@@ -332,7 +336,22 @@ export const router = createBrowserRouter([
             path: ROUTES.COURT_PRACTICE_ANALYSIS,
             element: S(CourtPracticeAnalysisPage),
           },
-          /* Attorney/Consultation routes hidden — feature not ready for production */
+          {
+            path: ROUTES.ATTORNEYS,
+            element: S(AttorneySearchPage),
+          },
+          {
+            path: ROUTES.ATTORNEY_DETAIL,
+            element: S(AttorneyDetailPage),
+          },
+          {
+            path: ROUTES.CONSULTATIONS,
+            element: S(ConsultationsPage),
+          },
+          {
+            path: ROUTES.CONSULTATION_DETAIL,
+            element: S(ConsultationDetailPage),
+          },
           {
             path: ROUTES.WORKFLOWS,
             element: S(WorkflowsPage),
