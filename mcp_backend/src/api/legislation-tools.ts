@@ -88,6 +88,35 @@ export class LegislationTools extends BaseToolHandler {
     if (radaId && articleNumber) {
       resolved = { radaId: normalizeRadaId(radaId), articleNumber };
     }
+    // rada_id + query без article_number → векторный поиск по конкретному НПА
+    else if (radaId && query && !articleNumber) {
+      logger.info('[MCP Tool] get_legislation_section: vector search within legislation', {
+        rada_id: radaId,
+        query: query.substring(0, 80),
+      });
+
+      const relevantArticles = await this.service.findRelevantArticles(query, normalizeRadaId(radaId), 3);
+      if (relevantArticles.length > 0) {
+        const response: any = {
+          rada_id: normalizeRadaId(radaId),
+          search_query: query,
+          articles: relevantArticles.map(a => ({
+            article_number: a.article_number,
+            title: a.title,
+            full_text: a.full_text,
+            url: a.url,
+            metadata: a.metadata,
+          })),
+          resolved_from: { query, method: 'vector_search' },
+        };
+        return response;
+      }
+
+      return {
+        error: `No relevant articles found in legislation ${radaId} for query: ${query}`,
+        suggestion: 'Try a more specific query or provide an article_number',
+      };
+    }
     // Иначе пытаемся парсить из query
     else if (query) {
       // Используем AI-классификацию для улучшенного парсинга
@@ -98,7 +127,7 @@ export class LegislationTools extends BaseToolHandler {
     }
 
     if (!resolved) {
-      throw new Error('Provide either (rada_id + article_number) or query like "ст. 625 ЦК" or "стаття 44 податкового кодексу"');
+      throw new Error('Provide either (rada_id + article_number), (rada_id + query), or query like "ст. 625 ЦК" or "стаття 44 податкового кодексу"');
     }
 
     logger.info('[MCP Tool] get_legislation_section started', {
