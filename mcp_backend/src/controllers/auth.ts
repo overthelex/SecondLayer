@@ -1321,10 +1321,12 @@ export async function diiaAuthInit(req: Request, res: Response): Promise<void> {
     // Store pending session under BOTH keys:
     // - plain requestId  → for frontend polling (/auth/diia/status/:sessionId)
     // - hashedRequestId  → for Diia webhook lookup (X-Document-Request-Trace-Id)
+    //   includes plainRequestId so the callback can update both keys
     if (authCache) {
       const pending = JSON.stringify({ status: 'pending' });
+      const pendingWithMapping = JSON.stringify({ status: 'pending', plainRequestId: requestId });
       await authCache.set(`diia:session:${requestId}`, pending, DIIA_SESSION_TTL);
-      await authCache.set(`diia:session:${hashedRequestId}`, pending, DIIA_SESSION_TTL);
+      await authCache.set(`diia:session:${hashedRequestId}`, pendingWithMapping, DIIA_SESSION_TTL);
     }
 
     // Redirect frontend to login page with Diia deeplink params (for QR modal)
@@ -1369,12 +1371,12 @@ export async function diiaAuthCallback(req: Request, res: Response): Promise<Res
     }
 
     // The traceId is our hashed requestId. Look up the original session in Redis.
-    // We stored it as diia:session:{hashedRequestId}
-    const sessionKey = `diia:session:${traceId}`;
-    let sessionData: { status: string; requestId?: string } | null = null;
+    // We stored it as diia:session:{hashedRequestId} with plainRequestId mapping.
+    const hashedKey = `diia:session:${traceId}`;
+    let sessionData: { status: string; plainRequestId?: string } | null = null;
 
     if (authCache) {
-      const raw = await authCache.get(sessionKey);
+      const raw = await authCache.get(hashedKey);
       if (raw) sessionData = JSON.parse(raw);
     }
 
@@ -1400,13 +1402,21 @@ export async function diiaAuthCallback(req: Request, res: Response): Promise<Res
       logger.info('[Diia] Existing user webhook auth', { userId: user.id, traceId });
     }
 
-    // Update Redis session: mark complete
+    // Update Redis sessions: mark complete under BOTH keys
+    // - hashed key (for internal tracking)
+    // - plain requestId key (for frontend polling via /auth/diia/status/:sessionId)
     if (authCache) {
-      await authCache.set(
-        sessionKey,
-        JSON.stringify({ status: 'complete', userId: user.id }),
-        DIIA_SESSION_TTL
-      );
+      const completeData = JSON.stringify({ status: 'complete', userId: user.id });
+      await authCache.set(hashedKey, completeData, DIIA_SESSION_TTL);
+
+      // Update the plain requestId key so frontend polling picks up completion
+      if (sessionData?.plainRequestId) {
+        await authCache.set(
+          `diia:session:${sessionData.plainRequestId}`,
+          completeData,
+          DIIA_SESSION_TTL,
+        );
+      }
     }
 
     // Always respond { success: true } — required by Diia within 30s
