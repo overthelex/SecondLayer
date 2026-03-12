@@ -110,6 +110,10 @@ export const MarkdownContent = React.memo(function MarkdownContent({ content, is
           </button>
         );
       }
+      // Internal links (starting with /) navigate in the same tab
+      if (href?.startsWith('/')) {
+        return <a href={href} className="text-claude-accent font-medium underline decoration-claude-accent/50 hover:decoration-claude-accent">{children}</a>;
+      }
       return <a href={href} className="text-claude-text underline decoration-claude-subtext/30 hover:decoration-claude-text" target="_blank" rel="noopener noreferrer">{children}</a>;
     },
     table: ({ children }: any) => (
