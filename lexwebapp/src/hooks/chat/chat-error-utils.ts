@@ -13,7 +13,7 @@ import { getErrorMessage } from '../../utils/errors';
  */
 export function handleStreamError(
   assistantMessageId: string,
-  error: { message: string },
+  error: { message?: string; code?: string; current_balance_usd?: number },
   deps: {
     updateMessage: ReturnType<typeof useChatStore.getState>['updateMessage'];
     setStreaming: ReturnType<typeof useChatStore.getState>['setStreaming'];
@@ -24,16 +24,31 @@ export function handleStreamError(
 ) {
   const { updateMessage, setStreaming, setStreamController, setCurrentTool, onError } = deps;
 
+  let content: string;
+  let toastMessage: string;
+
+  if (error.code === 'INSUFFICIENT_BALANCE') {
+    const balance = error.current_balance_usd != null
+      ? `$${error.current_balance_usd.toFixed(2)}`
+      : '';
+    content = `⚠️ **Недостатньо коштів на балансі**${balance ? ` (поточний баланс: ${balance})` : ''}.\n\nДля продовження роботи, будь ласка, [поповніть баланс](/billing).`;
+    toastMessage = 'Недостатньо коштів на балансі';
+  } else {
+    const msg = error.message || 'Невідома помилка';
+    content = `Помилка: ${msg}`;
+    toastMessage = msg;
+  }
+
   updateMessage(assistantMessageId, {
-    content: `Помилка: ${error.message}`,
+    content,
     isStreaming: false,
   });
   setStreaming(false);
   setStreamController(null);
   setCurrentTool(null);
-  showToast.error(error.message);
+  showToast.error(toastMessage);
 
-  onError?.(new Error(error.message));
+  onError?.(new Error(toastMessage));
 }
 
 /**

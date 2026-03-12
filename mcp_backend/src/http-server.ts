@@ -2291,6 +2291,7 @@ class HTTPMCPServer {
               res.write(`event: error\n`);
               res.write(`data: ${JSON.stringify({
                 error: 'Insufficient balance',
+                message: `Недостатньо коштів на балансі. Поточний баланс: $${balanceCheck.currentBalance.toFixed(2)}. Поповніть баланс для продовження роботи.`,
                 code: 'INSUFFICIENT_BALANCE',
                 required_usd: estimatedCost.total_estimated_cost_usd,
                 current_balance_usd: balanceCheck.currentBalance,
