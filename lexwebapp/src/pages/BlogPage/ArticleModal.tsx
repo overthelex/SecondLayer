@@ -115,7 +115,7 @@ export function ArticleModal({ article, onClose }: ArticleModalProps) {
         </div>
 
         {/* Banner */}
-        <div className="relative w-full h-56 sm:h-72 overflow-hidden">
+        <div className="relative w-full h-60 sm:h-76 overflow-hidden">
           <div className={`absolute inset-0 ${article.category === 'tech' ? 'bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-700' : 'bg-gradient-to-br from-claude-accent via-amber-600 to-orange-700'}`} />
           <img
             src={`/blog-banners/${article.id}.png`}
