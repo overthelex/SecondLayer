@@ -13,6 +13,15 @@ export interface Article {
   content: string;
 }
 
+export interface ArticleTranslation {
+  title: string;
+  punchline: string;
+  readTime: string;
+  content: string;
+}
+
+export type TranslationMap = Record<string, ArticleTranslation>;
+
 /** Check if any article was published within the last 7 days */
 export function hasRecentArticles(): boolean {
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -1439,169 +1448,401 @@ Rollback — одна команда: Cloud Run дозволяє перемкн�
   {
     id: 'edrsr-fulltext-pipeline',
     title: 'EDRSR: як ми імпортували мільйони судових рішень з держреєстру',
-    punchline: '30.4 мільйона повних текстів. 137 ГБ даних. 685 судів. Конвертація RTF у plaintext через multiprocessing. Двофазне копіювання на продакшн з шардингом. PostgreSQL shared memory exhaustion під навантаженням. Адмін-панель для відстеження прогресу по кожному суду. Все це -- на відкритих даних, без комерційних API.',
+    punchline: '60 мільйонів повних текстів. 283 ГБ на 4 шардах. Кастомний RTF-парсер з depth-tracking для Windows-1251 кирилиці. Двофазний ETL з idempotent upsert через temp-таблиці. Application-level sharding по doc_id з незалежними backup domains. PostgreSQL shared memory exhaustion і три рівні захисту. Все на відкритих даних ЄДРСР.',
     category: 'tech',
-    tags: ['EDRSR', 'OpenData', 'PostgreSQL', 'DataPipeline', 'Python'],
-    readTime: '7 хв',
+    tags: ['EDRSR', 'OpenData', 'PostgreSQL', 'DataPipeline', 'Python', 'Sharding'],
+    readTime: '15 хв',
     publishedAt: '2026-03-12',
-    content: `# EDRSR: як ми імпортували мільйони судових рішень з держреєстру
+    content: `# EDRSR: data pipeline для 60 мільйонів судових рішень
 
-*Інженерна історія про побудову data pipeline для 30.4 мільйона судових рішень -- від завантаження RTF-файлів до продакшн-бази.*
+*Архітектура ETL-системи, яка переносить весь Єдиний державний реєстр судових рішень у 4-шардову PostgreSQL-інфраструктуру -- від моделі даних і RTF-парсингу до capacity planning і операційних trade-offs.*
 
 ---
 
-## Навіщо нам повні тексти рішень
+## Контекст задачі
 
-LEX AI -- платформа семантичного пошуку по судовій практиці. Щоб пошук працював, потрібні не лише метадані (назва суду, дата, номер справи), а повні тексти рішень. Без тексту немає ембедінгів, без ембедінгів немає семантичного пошуку.
+LEX AI -- платформа семантичного пошуку по судовій практиці. Ядро пошуку -- векторні ембедінги (text-embedding-ada-002, 1536 dim), які генеруються з повних текстів рішень. Без тексту немає ембедінгів, без ембедінгів немає семантичного пошуку.
 
-Єдиний державний реєстр судових рішень (EDRSR) містить десятки мільйонів документів. Наша задача -- імпортувати їх усі.
+ЄДРСР (Єдиний державний реєстр судових рішень) -- це ~60M документів від 685 судів усіх інстанцій, з 2006 року по сьогодні. Повні тексти зберігаються у форматі RTF з кодуванням Windows-1251.
+
+**Масштаб задачі:**
+
+| Параметр | Значення |
+|----------|----------|
+| Документів у реєстрі | ~60,000,000 |
+| Середній розмір RTF | ~4.5 КБ |
+| Середній розмір plaintext | ~2.3 КБ |
+| Сумарний обсяг тексту | 283 ГБ (PostgreSQL) |
+| Судів-джерел | 685 |
+| Часовий діапазон | 2006--2026 |
 
 ## Принципове рішення: тільки відкриті дані
 
-Ми свідомо обрали працювати виключно з відкритими джерелами даних. Портал data.gov.ua та reyestr.court.gov.ua публікують судові рішення у відкритому доступі -- це публічна інформація, доступ до якої гарантований законом.
+Ми свідомо обрали працювати виключно з відкритими джерелами. Портал reyestr.court.gov.ua публікує судові рішення у відкритому доступі -- це публічна інформація за Законом України «Про доступ до публічної інформації».
 
-Комерційні API мають обмеження: rate limits, блокування токенів при bulk-завантаженні, залежність від третьої сторони. Один інцидент з блокуванням токенів може зупинити продакшн-чат для користувачів. Відкриті дані -- це незалежність і передбачуваність.
+Причина не тільки етична. Комерційні API мають операційні ризики: rate limits, блокування токенів при bulk-завантаженні, залежність від третьої сторони. Конкретний інцидент: bulk-завантаження court_sessions (~35K запитів за 2.7 години) призвело до блокування обох API-токенів ZakonOnline, що вивело з ладу продакшн-чат.
 
-| Джерело | Що отримуємо | Обмеження |
-|---------|-------------|-----------|
-| **reyestr.court.gov.ua** | Повні тексти у RTF | Rate limits, але безкоштовно |
-| **data.gov.ua** | Метадані, розклади | Оновлюється щодня |
-| **Комерційні API** | Те саме + зручний формат | Платно, токени блокуються |
+| Джерело | Що отримуємо | Модель доступу |
+|---------|-------------|----------------|
+| **reyestr.court.gov.ua** | Повні тексти у RTF | HTTP GET, rate-limited, безкоштовно |
+| **data.gov.ua** | Метадані (CSV dumps) | Bulk download, оновлення щодня |
+| **Комерційні API** | Те саме + JSON | REST API, платно, токени блокуються |
 
-Вибір очевидний.
+## Модель даних
+
+Перед тим як говорити про pipeline, варто зрозуміти цільову схему. Ми розділили метадані і повні тексти у дві окремі таблиці -- це ключове архітектурне рішення.
+
+### Метадані: edrsr_documents
+
+\`\`\`sql
+CREATE TABLE edrsr_documents (
+  doc_id       BIGINT PRIMARY KEY,   -- PK з ЄДРСР, автоінкремент
+  court_code   INTEGER,              -- FK на edrsr_courts (без constraint)
+  judgment_code SMALLINT,            -- тип рішення (вирок, ухвала, постанова)
+  justice_kind SMALLINT,             -- вид судочинства
+  category_code INTEGER,             -- категорія справи (4106 категорій)
+  cause_num    TEXT,                  -- номер справи
+  adjudication_date TIMESTAMPTZ,     -- дата винесення
+  receipt_date TIMESTAMPTZ,          -- дата надходження до реєстру
+  judge        TEXT,                  -- суддя/колегія
+  doc_url      TEXT,                  -- URL на RTF у реєстрі
+  status       SMALLINT DEFAULT 0,
+  date_publ    TIMESTAMPTZ
+);
+\`\`\`
+
+**Навмисна відсутність FK constraints.** Джерельні дані з data.gov.ua містять court_code, justice_kind, category_code, які не завжди присутні в довідникових таблицях. З FK constraints імпорт ламається на кожному «брудному» рядку. Без них -- ми імпортуємо все, а валідацію робимо на рівні запитів.
+
+**Чому \`doc_id BIGINT\`, а не \`UUID\`?** doc_id -- це натуральний ключ з ЄДРСР (автоінкремент). Він монотонно зростає, що дає ідеальний B-tree з мінімальною фрагментацією при послідовному імпорті. UUID дав би випадкові вставки по всьому індексу -- на 60M рядків це суттєва різниця в I/O.
+
+**8 індексів** на типові паттерни запитів: court_code, justice_kind, judgment_code, category_code, cause_num, judge, adjudication_date, receipt_date. Кожен обґрунтований реальним use case (фільтрація по суду, по виду судочинства, пошук по номеру справи).
+
+### Повні тексти: edrsr_fulltext
+
+\`\`\`sql
+CREATE TABLE edrsr_fulltext (
+  doc_id      BIGINT PRIMARY KEY,  -- join key до edrsr_documents
+  full_text   TEXT,                -- plaintext після RTF-конвертації
+  text_length INTEGER,             -- pre-computed для фільтрації
+  created_at  TIMESTAMP DEFAULT NOW()
+);
+\`\`\`
+
+**Чому окрема таблиця, а не колонка в edrsr_documents?** Три причини:
+
+1. **TOAST-сегментація.** PostgreSQL зберігає TEXT > 2 КБ в окремих TOAST-сторінках. Якщо full_text лежить у тій же таблиці, що й метадані, то \`SELECT court_code, cause_num FROM edrsr_documents\` все одно торкатиметься TOAST-сторінок при sequential scan. Окрема таблиця = чистий sequential scan по метаданих без overhead.
+
+2. **Різні lifecycle.** Метадані імпортуються з CSV-дампів data.gov.ua (щоденне оновлення). Повні тексти завантажуються з reyestr.court.gov.ua (одноразовий bulk + incremental). Різні джерела, різні скрипти, різна частота.
+
+3. **Незалежний шардинг.** Повні тексти займають 283 ГБ проти ~12 ГБ метаданих. Шардити потрібно тільки тексти, метадані лишаються в одній базі.
+
+### Довідники
+
+5 довідникових таблиць: courts (685), instances (3), regions (27), justice_kinds (5), judgment_forms (10+), cause_categories (4106). Імпортуються один раз, оновлюються рідко.
 
 ## Архітектура pipeline
 
-Pipeline складається з чотирьох етапів, кожен реалізований окремим Python-скриптом.
+Pipeline реалізований як 4 незалежні Python-скрипти. Кожен idempotent -- можна перезапускати без втрати даних і дублікатів.
 
-| Етап | Скрипт | Що робить | Масштаб |
-|------|--------|-----------|---------|
-| 1. Завантаження | \`download-and-import-fulltext.py\` | Async download RTF (100 воркерів) | ~30M файлів |
-| 2. Імпорт з HDD | \`import-fulltext-from-hdd.py\` | Parallel RTF-to-text + PG COPY | 137 ГБ тексту |
-| 3. Моніторинг | Admin PG Monitoring | Прогрес по роках, покриття % | 685 судів |
-| 4. Копіювання на прод | \`copy-fulltext-to-prod.py\` | Двофазний export/upload з шардингом | 200 паралельних воркерів |
+\`\`\`
+┌─────────────────────┐    ┌──────────────────────┐    ┌──────────────────┐    ┌──────────────────────┐
+│  1. Download RTF    │    │  2. Import from HDD  │    │  3. Monitor      │    │  4. Copy to Prod     │
+│                     │    │                      │    │                  │    │                      │
+│  asyncio + aiohttp  │───▶│  multiprocessing     │───▶│  PG aggregate    │───▶│  2-phase ETL         │
+│  100 workers        │    │  12 CPU workers      │    │  + in-mem cache  │    │  200 psql workers    │
+│  3 retries + backoff│    │  COPY FROM STDIN     │    │  cross-env stats │    │  TSV chunks on NVMe  │
+│                     │    │  ON CONFLICT NOTHING  │    │                  │    │  ON CONFLICT NOTHING  │
+│  reyestr.court.gov  │    │  HDD → PG local      │    │  local/stage/prod│    │  PG local → PG prod  │
+│  → /tmp/edrsr-rtf/  │    │  18 TB /dev/sda1     │    │                  │    │  per-shard routing   │
+└─────────────────────┘    └──────────────────────┘    └──────────────────┘    └──────────────────────┘
+\`\`\`
 
 ### Етап 1: Завантаження RTF
 
-Перший скрипт використовує \`asyncio\` + \`aiohttp\` для паралельного завантаження RTF-файлів з reyestr.court.gov.ua. 100 concurrent workers, batch розміром 2000 документів.
+**I/O-модель:** async HTTP GET → disk write. Network-bound задача, тому \`asyncio\` + \`aiohttp\` з \`TCPConnector(limit=100, limit_per_host=100)\`.
 
-RTF -- це формат, в якому реєстр зберігає рішення. Файли мають кодування Windows-1251 (класика українських держсистем). Ми написали кастомний RTF-to-plaintext конвертер, який обробляє:
+\`\`\`python
+semaphore = asyncio.Semaphore(100)  # 100 concurrent downloads
+# Retry: 3 attempts, exponential backoff (2s, 4s, 6s)
+# 429 handling: sleep 5 * (attempt + 1) seconds
+\`\`\`
 
-- \`\\\\'XX\` байти Windows-1251
-- \`\\uNNNNN\` Unicode escape sequences
-- Вкладені RTF-групи (\`{\\fonttbl ...}\`, \`{\\colortbl ...}\`)
-- Керуючі символи (\`\\par\`, \`\\tab\`, \`\\line\`)
+**Resumability.** Перед завантаженням перевіряємо \`outpath.exists() and outpath.stat().st_size > 0\`. Якщо файл вже є і не порожній -- пропускаємо. Це дозволяє перезапускати скрипт без повторного завантаження.
 
-Чому не \`striprtf\` чи інші бібліотеки? Тестували -- вони ламають кирилицю в Windows-1251 документах. Кастомний конвертер дає 99.5% точність на нашому корпусі.
+**Файлова конвенція:** \`{doc_id}.rtf\` -- doc_id є ім'ям файлу. Це дає O(1) lookup без бази метаданих: \`int(filename[:-4])\` → doc_id.
+
+### RTF-парсер: чому кастомний
+
+RTF з ЄДРСР -- не звичайний RTF. Це Windows-1251 кирилиця, закодована як \`\\\\'XX\` escape-послідовності всередині latin1-обгортки. Стандартні бібліотеки (\`striprtf\`, \`pyrtf-ng\`) не розрізняють Windows-1251 та latin1 байти і ламають кирилицю.
+
+Наш парсер працює в 7 кроків:
+
+\`\`\`
+1. raw bytes → latin1 decode (RTF envelope)
+2. Remove nested groups: {\\fonttbl ...}, {\\colortbl ...},
+   {\\stylesheet ...}, {\\info ...}, {\\*\\ ...}
+   (depth-tracking brace parser, O(n))
+3. Strip \\rtf1 header
+4. \\par → \\n, \\line → \\n, \\tab → \\t
+5. \\\\'XX → Windows-1251 byte decode
+6. \\uNNNNN → chr(code), range check 0..0x10FFFF
+7. Strip remaining \\keyword sequences
+8. Remove braces, null bytes, normalize newlines
+9. UTF-8 surrogate cleanup: encode('utf-8', errors='surrogatepass')
+                            .decode('utf-8', errors='replace')
+\`\`\`
+
+**Depth-tracking для вкладених груп.** RTF-група \`{\\fonttbl {\\f0 Times;}}\` може мати довільну глибину вкладеності. Парсер відстежує баланс \`{}\` і видаляє всю групу від відкриваючої до закриваючої дужки на тому ж рівні. Складність O(n) по довжині документа.
+
+**Точність:** 99.5% на корпусі ~1000 вручну перевірених документів. 0.5% помилок -- документи з нестандартними RTF-розширеннями (вбудовані зображення, OLE-об'єкти), де текст все одно витягується, але з артефактами.
 
 ### Етап 2: Масовий імпорт з HDD
 
-Усі завантажені RTF-файли потрапляють на 18-терабайтний HDD (\`/dev/sda1\`). Скрипт \`import-fulltext-from-hdd.py\` -- це головний робочий кінь pipeline.
+Це головний робочий кінь pipeline. Усі RTF-файли лежать на 18 ТБ HDD (\`/dev/sda1\`), і скрипт повинен конвертувати їх у текст та завантажити в PostgreSQL.
 
-Ключові рішення:
+**Чому multiprocessing, а не asyncio?** RTF-конвертація -- CPU-bound: 7 regex замін, ітерація по символах для depth-tracking, encode/decode. Python GIL блокує паралельне виконання CPU-bound коду в тредах. \`multiprocessing.Pool\` з 12 воркерами (= кількість ядер) обходить GIL через окремі процеси.
 
-**multiprocessing.Pool замість asyncio.** Конвертація RTF у текст -- CPU-bound задача. 12 воркерів (по кількості ядер) з \`chunksize=50\` для оптимального розподілу.
+\`\`\`python
+Pool(processes=12, initializer=_init_worker, initargs=(rtf_lookup,))
+pool.map(convert_one, batch_ids, chunksize=50)
+\`\`\`
 
-**PG COPY замість INSERT.** Кожен batch формує CSV в пам'яті (\`io.StringIO\`), потім завантажується через \`COPY ... FROM STDIN\` у тимчасову таблицю. Далі -- \`INSERT ... ON CONFLICT DO NOTHING\` для дедуплікації.
+**\`chunksize=50\`:** балансує між overhead на IPC (передача задач між процесами) і granularity. При chunksize=1 IPC overhead домінує. При chunksize=1000 один повільний файл блокує весь чанк.
 
-**Без stat() для 15M+ файлів.** На HDD з мільйонами файлів навіть \`os.stat()\` стає bottleneck. Скрипт будує lookup-словник імен файлів один раз при старті.
+#### I/O-паттерн: scandir замість stat
 
-Результат: ~30,400,000 записів імпортовано з покриттям 94-97% по кожному року (2021-2026).
+На HDD з 15M+ файлів \`os.stat()\` -- bottleneck. Кожен stat() -- окремий I/O seek на шпиндельному диску. При 15M файлів це ~4 години тільки на stat().
 
-### Етап 3: Моніторинг прогресу
+\`\`\`python
+# Один прохід scandir -- побудова lookup O(n)
+rtf_lookup: dict[int, Path] = {}
+for entry in os.scandir(rtf_dir):   # readdir, без stat()
+    if entry.name.endswith('.rtf'):
+        doc_id = int(entry.name[:-4])
+        rtf_lookup[doc_id] = rtf_dir / entry.name
+\`\`\`
 
-Коли імпортуєш мільйони записів, потрібно бачити прогрес. Ми побудували адмін-сторінку PG Monitoring:
+\`os.scandir()\` викликає \`readdir()\` системного рівня, який повертає імена файлів без stat(). Це один sequential read директорії замість 15M random seeks.
 
-- KPI-картки: загальна кількість метаданих, fulltext, відсоток покриття
+#### Idempotent upsert через temp-таблицю
+
+Критичний патерн для будь-якого data pipeline на великих обсягах:
+
+\`\`\`sql
+CREATE TEMP TABLE _ft_tmp (doc_id bigint, full_text text);
+COPY _ft_tmp FROM stdin;            -- bulk load у тимчасову
+INSERT INTO edrsr_fulltext(doc_id, full_text)
+SELECT doc_id, full_text FROM _ft_tmp
+ON CONFLICT (doc_id) DO NOTHING;    -- idempotent: дублікати ігноруються
+DROP TABLE _ft_tmp;
+\`\`\`
+
+**Чому не прямий \`COPY INTO edrsr_fulltext\`?** COPY не підтримує ON CONFLICT. Якщо в batch є doc_id, який вже існує, весь COPY падає. Temp-таблиця + INSERT ON CONFLICT -- це staging area з дедуплікацією.
+
+**Чому не \`INSERT ... ON CONFLICT DO UPDATE\`?** DO NOTHING дешевше: не генерує WAL для незмінених рядків. Тексти не змінюються після першого імпорту, тому UPDATE не потрібен.
+
+#### Перевірка вже імпортованих
+
+Перед конвертацією скрипт вивантажує existing doc_id:
+
+\`\`\`python
+SELECT doc_id FROM edrsr_fulltext WHERE doc_id BETWEEN {min_id} AND {max_id};
+to_import = sorted(set(rtf_lookup.keys()) - existing)
+\`\`\`
+
+Це set difference на рівні Python -- O(n). Для 30M doc_id це ~2 ГБ пам'яті (64 байти на int у set), що прийнятно.
+
+### Етап 3: Моніторинг і PostgreSQL shared memory
+
+Коли імпортуєш мільйони записів, потрібна observability. Ми побудували адмін-сторінку з cross-environment агрегацією:
+
+- KPI-картки: total metadata, total fulltext, coverage %
 - Таблиця по роках з progress bars
-- Дані з трьох середовищ: local, stage, prod
+- Дані з local, stage, prod (через \`/api/internal/edrsr-stats\`)
 - Auto-refresh кожні 30 секунд
 
-Backend endpoint \`GET /api/admin/pg-monitoring\` агрегує дані з локальної бази та робить cross-environment запити до stage і prod через \`/api/internal/edrsr-stats\`.
-
-## PostgreSQL shared memory: коли 45M рядків зустрічають GROUP BY
-
-Коли моніторинг-сторінка пішла на прод, ми отримали:
+#### Інцидент: PG error 53100
 
 \`\`\`
-PG error 53100: could not resize shared memory segment -- No space left on device
+could not resize shared memory segment -- No space left on device
 \`\`\`
 
-Причина: запит \`JOIN edrsr_documents (45M) x edrsr_fulltext\` з \`GROUP BY year\` перевищував \`shm_size\` контейнера (стандартні 64 МБ). PostgreSQL потребує shared memory для sort і hash operations, а з \`work_mem=256MB\` один такий JOIN з'їдав весь доступний простір.
+**Root cause.** Запит \`LEFT JOIN edrsr_documents (45M) x edrsr_fulltext\` з \`GROUP BY EXTRACT(YEAR FROM adjudication_date)\` потребував hash join. PostgreSQL алокує hash table у shared memory. З \`work_mem=256MB\` одна така операція з'їдала весь \`shm_size\` контейнера (Docker default: 64 МБ).
 
-Frontend з auto-refresh кожні 30 секунд генерував ~120 важких запитів на годину. Кожен з них вбивав shared memory.
+Auto-refresh frontend кожні 30с = ~120 таких запитів/год. Кожен -- потенційний OOM на shared memory.
 
-### Три фікси
+**Три рівні захисту:**
 
-**1. Розділення запиту.** Замість одного масивного LEFT JOIN ми розбили на два окремі COUNT-запити, які зливаються в Node.js. Кожен запит працює з однією таблицею -- ніякого cross-join.
+**1. Query decomposition.** Замість одного JOIN -- два окремі COUNT:
 
-**2. work_mem throttling.** \`SET LOCAL work_mem='32MB'\` всередині транзакції для важких запитів. 32 МБ замість 256 МБ -- в 8 разів менше тиску на shared memory.
+\`\`\`sql
+-- Query 1: metadata counts
+SELECT EXTRACT(YEAR FROM adjudication_date)::int AS year,
+       COUNT(*)::int AS total FROM edrsr_documents GROUP BY year;
 
-**3. In-memory кеш (5 хв TTL).** Ідентичні відповіді віддаються з кешу. Важкі запити виконуються максимум раз на 5 хвилин замість 120 разів на годину.
+-- Query 2: fulltext counts
+SELECT EXTRACT(YEAR FROM d.adjudication_date)::int AS year,
+       COUNT(f.doc_id)::int AS with_fulltext
+FROM edrsr_documents d
+LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id GROUP BY year;
+\`\`\`
 
-Плюс \`shm_size: 2g\` в Docker Compose як safety net.
+Merge відбувається в Node.js. Кожен запит працює з меншим hash table.
+
+**2. work_mem throttling.** \`SET LOCAL work_mem='32MB'\` в транзакції. 32 МБ замість 256 МБ -- 8x менше тиску на shared memory. \`SET LOCAL\` скидається після транзакції, не впливає на інші з'єднання.
+
+**3. In-memory cache (TTL 5 хв).** Node.js Map з timestamp. Ідентичні відповіді віддаються з кешу. 120 запитів/год → 12 запитів/год.
+
+**Safety net:** \`shm_size: 2g\` в Docker Compose. Не фікс, а страховка.
 
 ## Архітектура шардингу: 4 бази на одному PostgreSQL
 
-Одна таблиця \`edrsr_fulltext\` з 60 мільйонами повних текстів і 283 ГБ даних не поміститься в одну базу на EC2 \`t3.xlarge\` (16 ГБ RAM). Точніше -- поміститься, але \`VACUUM\`, \`ANALYZE\`, і бекапи стануть непрогнозовано довгими. Тому ми пішли на ручний шардинг -- 4 окремі бази в одному PostgreSQL-контейнері:
+### Capacity planning
 
-| Шард | Діапазон doc_id | Рядків | Розмір |
-|------|----------------|--------|--------|
-| \`secondlayer_prod\` | < 112M | ~24M | 146 ГБ |
-| \`secondlayer_prod_ft2\` | 112M — 150M | ~26M | 101 ГБ |
-| \`secondlayer_prod_ft3\` | 150M — 175M | ~8M | 27 ГБ |
-| \`secondlayer_prod_ft4\` | > 175M | ~2M | 8 ГБ |
+\`\`\`
+60M рядків × ~4.7 КБ середній розмір (текст + overhead) = ~283 ГБ
+EC2 t3.xlarge: 4 vCPU, 16 ГБ RAM, EBS gp3
+shared_buffers = 4 ГБ (25% RAM)
+effective_cache_size = 12 ГБ
+\`\`\`
 
-### Чому ручний шардинг, а не Citus чи partitioning?
+283 ГБ даних при 4 ГБ shared_buffers означає buffer hit ratio ~1.4%. Для sequential scan (VACUUM, ANALYZE) це прийнятно. Для point lookups по doc_id (PK) -- B-tree індекс ~2.8 ГБ поміщається в shared_buffers.
 
-**PostgreSQL native partitioning** (declarative range partitions) був першим кандидатом. Проблема: всі партиції живуть в одній базі, і \`pg_dump\` / \`pg_restore\` працюють на рівні бази цілком. Коли у вас 283 ГБ, бекап займає ~4 години, і якщо він впаде на 90% -- починаєте спочатку. З окремими базами ми робимо 4 незалежних бекапи паралельно.
+**Проблема single-database:** \`pg_dump\` 283 ГБ -- це ~4 години. Якщо впаде на 90% -- починаєте спочатку. \`VACUUM FULL\` на таблиці 283 ГБ -- потрібен подвійний дисковий простір (566 ГБ). autovacuum на 60M рядків з великим dead tuple ratio може працювати годинами.
 
-**Citus** -- це окремий PostgreSQL extension, який потребує або managed-сервіс (Azure/Neon), або самостійного розгортання coordinator + worker ноди. Для нашого кейсу -- один сервер, один контейнер -- це overengineering. Нам не потрібен distributed query planning, бо fulltext-пошук іде по конкретному \`doc_id\`, а не по довільних JOIN-ах між шардами.
+### Стратегія шардингу
 
-### Як працює маршрутизація
+Application-level sharding по \`doc_id\` ranges. 4 окремі бази в одному PostgreSQL-контейнері:
 
-Ключ шардингу -- \`doc_id\` (BIGINT, автоінкремент з ЄДРСР). Скрипт \`copy-fulltext-to-prod.py\` приймає параметри \`--min-doc-id\` та \`--max-doc-id\` і цільову базу \`--prod-db\`. Фактично це application-level sharding: логіка розподілу живе в скрипті завантаження, а не в PostgreSQL.
+| Шард | База | Діапазон doc_id | Рядків | Розмір | Backup time |
+|------|------|----------------|--------|--------|-------------|
+| S1 | \`secondlayer_prod\` | < 112M | ~24M | 146 ГБ | ~90 хв |
+| S2 | \`secondlayer_prod_ft2\` | 112M--150M | ~26M | 101 ГБ | ~60 хв |
+| S3 | \`secondlayer_prod_ft3\` | 150M--175M | ~8M | 27 ГБ | ~15 хв |
+| S4 | \`secondlayer_prod_ft4\` | > 175M | ~2M | 8 ГБ | ~2 хв |
 
-При читанні backend знає, в якому шарді шукати, за діапазоном \`doc_id\`. Для моніторингу endpoint \`/api/internal/edrsr-stats\` агрегує статистику з усіх 4 баз послідовно через \`reltuples\` (миттєвий approximate count замість повного \`COUNT(*)\`).
+**Чому не нативний partitioning?** Declarative range partitions вирішили б проблему VACUUM (кожна partition -- окрема heap), але NOT \`pg_dump\`: всі партиції живуть в одній базі, і дамп/рестор працює на рівні бази цілком. З окремими базами -- 4 незалежні \`pg_dump | pg_restore\` паралельно.
+
+**Чому не Citus?** Citus потребує coordinator + workers (мінімум 2 ноди) або managed-сервіс. Наш access pattern -- point lookups по \`doc_id\` -- не потребує distributed query planning. Також Citus не дає незалежних backup domains.
+
+**Чому не FDW (Foreign Data Wrappers)?** Розглядали \`postgres_fdw\` для прозорого cross-shard query. Відкинули: fdw додає latency (~2ms overhead на запит), не підтримує pushdown для всіх операцій, і ускладнює backup (fdw-таблиці не дампляться стандартним pg_dump).
+
+### Маршрутизація запитів
+
+Ключ шардингу -- \`doc_id\` (BIGINT). Монотонно зростає, тому range sharding природний:
+
+\`\`\`
+doc_id < 112,000,000        → secondlayer_prod      (S1)
+112M ≤ doc_id < 150,000,000 → secondlayer_prod_ft2  (S2)
+150M ≤ doc_id < 175,000,000 → secondlayer_prod_ft3  (S3)
+doc_id ≥ 175,000,000        → secondlayer_prod_ft4  (S4)
+\`\`\`
+
+Backend маршрутизує на рівні connection pool: 4 пули PgBouncer, кожен на свою базу. Для нового шарду -- додати базу, пул, і оновити range map.
+
+**Моніторинг:** endpoint \`/api/internal/edrsr-stats\` збирає count з усіх шардів через \`pg_class.reltuples\` (approximate count, O(1)) замість \`COUNT(*)\` (sequential scan, O(n)).
 
 ### Trade-offs
 
-Основний мінус -- cross-shard запити неможливі. Якщо потрібен JOIN між шардами, доводиться робити це в Node.js. Для нашого кейсу це не проблема: fulltext завжди читається по конкретному \`doc_id\`, і ми знаємо діапазон заздалегідь. Другий мінус -- 4 connection pools замість одного, що з'їдає частину лімітів PgBouncer.
+| Аспект | Плюс | Мінус |
+|--------|------|-------|
+| Backup | Незалежний per-shard (ft4 = 2 хв) | 4 окремі cron jobs |
+| VACUUM | Паралельний, менші таблиці | 4 autovacuum workers |
+| Queries | Point lookup O(log n) | Cross-shard JOIN тільки в Node.js |
+| Connections | Ізольовані пули | 4× connection overhead в PgBouncer |
+| Ops | Можна дропнути/перебудувати один шард | Ручний range management |
 
-Основний плюс -- незалежність. Кожну базу можна бекапити, відновлювати, VACUUM-ити окремо. Шард \`ft4\` з 8 ГБ бекапиться за 2 хвилини, поки основна база на 146 ГБ тримає стабільне навантаження.
+## Копіювання на продакшн: двофазний ETL
 
-## Копіювання на продакшн: двофазний підхід
+Перенести 60M рядків (283 ГБ) з локального PG на 4 шарди продакшну через мережу -- окрема інженерна задача. Скрипт \`copy-fulltext-to-prod.py\` реалізує двофазний підхід.
 
-Перенести 60M записів з локальної бази на 4 шарди продакшну -- окрема інженерна задача. Скрипт \`copy-fulltext-to-prod.py\` працює у дві фази:
+### Фаза 1: Export (sequential read → TSV chunks)
 
-**Фаза 1: Export.** Локальний PG експортує дані в TSV-чанки на NVMe-диск. Один чанк = 10,000 рядків. Швидке послідовне читання, без навантаження на мережу.
+\`\`\`python
+# Один streaming COPY з local PG → TSV-файли на NVMe
+export_sql = "\\\\COPY (SELECT doc_id, full_text FROM edrsr_fulltext "
+             f"WHERE {where} ORDER BY doc_id) TO STDOUT WITH (FORMAT text)"
 
-**Фаза 2: Upload.** 200 паралельних воркерів завантажують чанки на прод через \`COPY FROM STDIN\` у тимчасову таблицю, потім \`INSERT ... ON CONFLICT DO NOTHING\` в \`edrsr_fulltext\`. Кожен воркер -- окреме з'єднання через \`psql\`, що дозволяє обійти GIL Python і використати повну пропускну здатність мережі.
+proc = subprocess.Popen(LOCAL_CMD + ["-c", export_sql], stdout=PIPE)
+for line in proc.stdout:  # streaming, без накопичення в пам'яті
+    current_file.write(line)
+    if line_count >= chunk_size:  # default 5000 рядків
+        rotate_to_next_chunk()
+\`\`\`
 
-Скрипт запускається окремо для кожного шарду з відповідними діапазонами \`doc_id\`. Прогрес виводиться кожні 200 чанків: кількість скопійованих, пропущених (вже існують), помилок, швидкість, ETA.
+**Чому TSV, а не CSV?** COPY text format (TSV) -- native PostgreSQL формат. Не потрібен CSV parsing на стороні прийому. Escaping простіший: tab-separated, backslash-escaping.
+
+**Чому chunk files, а не pipe?** Resumability. Якщо мережа впаде на 70% uploadu -- restart підбирає невідправлені чанки. Кожен чанк = atomic unit of work.
+
+**I/O pattern:** Sequential read з local PG (NVMe) → sequential write в \`/tmp/edrsr-ft-chunks/\`. Один потік, без конкуренції за диск.
+
+### Фаза 2: Upload (parallel workers → prod PG)
+
+\`\`\`python
+Pool(processes=200)  # 200 паралельних psql-процесів
+pool.imap_unordered(upload_chunk, chunk_files, chunksize=1)
+\`\`\`
+
+Кожен воркер:
+
+1. Читає TSV-чанк з диска (~5000 рядків, ~25 МБ)
+2. Формує SQL: \`CREATE TEMP TABLE\` → \`COPY FROM STDIN\` → \`INSERT ON CONFLICT\` → \`DROP TABLE\`
+3. Виконує через \`subprocess.run(["psql", "-h", prod_host, ...])\`
+4. Парсить stdout на \`INSERT 0 N\` для підрахунку скопійованих
+5. Видаляє чанк-файл після успіху
+
+**Чому psql subprocess, а не psycopg2?** Python GIL. 200 тредів з psycopg2 серіалізуються на GIL при обробці мережевих буферів. 200 subprocess -- це 200 окремих процесів, кожен з власним TCP-з'єднанням. Повна утилізація мережевої пропускної здатності.
+
+**\`SET lock_timeout = '5min'\`** на кожному чанку -- захист від deadlock при конкурентних INSERT в один шард.
+
+**Resumability:** Чанки видаляються тільки після успішного INSERT. \`--skip-export\` дозволяє перезапустити тільки фазу upload з наявних чанків. \`--resume-from-doc-id\` дозволяє доекспортувати нові дані до існуючих чанків.
+
+**Прогрес:** кожні 200 чанків: copied, skipped (already exist), errors, rows/s, ETA.
+
+### Розмір воркер-пулу: чому 200?
+
+Продакшн PostgreSQL: \`max_connections=500\`, PgBouncer у transaction mode. 200 воркерів = 200 concurrent connections. Кожен воркер тримає з'єднання ~2-5 секунд (COPY + INSERT). При 200 workers і chunk_size=5000: throughput ~100K-200K rows/s, залежно від мережевої латентності.
+
+500 воркерів -- oversaturation: PG починає тротлити на lock contention (concurrent INSERT в той самий індекс). 100 воркерів -- недовантаження мережі. 200 -- емпіричний оптимум для нашого EC2 \`t3.xlarge\`.
+
+## Data quality
+
+| Метрика | Значення |
+|---------|----------|
+| RTF-конвертація: точність | 99.5% (manual validation, n=1000) |
+| Покриття по роках (2021-2026) | 94-97% |
+| Gaps | 3-6% -- документи без RTF (тільки метадані) |
+| Дублікати | 0 (ON CONFLICT DO NOTHING) |
+| Encoding errors | <0.1% (surrogate replacement) |
+
+**3-6% gap** -- це документи, для яких ЄДРСР не публікує повний текст (закриті провадження, рішення з обмеженим доступом за ЗУ «Про судоустрій та статус суддів»).
 
 ## Результати
 
 | Метрика | Значення |
 |---------|----------|
-| Повних текстів | ~60,000,000 |
-| Шардів на проді | 4 (одна PG інстанція) |
-| Загальний розмір | 283 ГБ |
-| Кількість судів | 685 |
-| Покриття (2021-2026) | 94-97% по кожному року |
-| Воркерів завантаження | 100 (async) |
-| Воркерів імпорту | 12 (multiprocessing) |
-| Воркерів продакшн-копії | 200 (parallel) |
+| Повних текстів на проді | ~60,000,000 |
+| Шардів | 4 (одна PG інстанція, EC2 t3.xlarge) |
+| Загальний розмір | 283 ГБ (EBS gp3) |
+| Індекси (B-tree PK) | ~2.8 ГБ per shard |
+| Backup S4 (8 ГБ) | ~2 хв |
+| Backup S1 (146 ГБ) | ~90 хв |
+| Воркерів завантаження | 100 (asyncio) |
+| Воркерів конвертації | 12 (multiprocessing) |
+| Воркерів продакшн-копії | 200 (subprocess) |
+| Pipeline idempotent | Так (ON CONFLICT DO NOTHING + file-level resume) |
 
 ## Що далі
 
-Повні тексти -- це сировина. Наступний крок -- побудова векторних ембедінгів для семантичного пошуку по 60 мільйонах рішень. Це окрема інженерна задача з власними масштабними проблемами: при розмірі одного ембедінга 1536 dim (text-embedding-ada-002) і 60M документів, тільки векторний індекс займе ~350 ГБ в Qdrant.
+Повні тексти -- це сировина для двох наступних шарів:
 
-А поки що -- pipeline працює, 4 шарди стабільно тримають навантаження на проді, моніторинг показує 94-97% покриття, і PostgreSQL більше не падає від shared memory exhaustion.
+1. **Векторні ембедінги.** 60M × 1536 dim (text-embedding-ada-002) = ~350 ГБ у Qdrant. Це потребує batch-embedding pipeline з rate limiting (OpenAI TPM), chunking довгих текстів, та incremental update strategy.
+
+2. **Semantic sectioning.** Розбиття рішень на логічні секції (мотивувальна частина, резолютивна частина, окрема думка) для точнішого пошуку. SemanticSectionizer вже працює для окремих документів, але batch-обробка 60M -- окремий виклик.
 
 ---
 
-*Відкриті дані -- це не компроміс. Це принцип. 60 мільйонів повних текстів судових рішень, розподілених по 4 шардах на 283 ГБ -- і ми побудували інфраструктуру, щоб зробити їх по-справжньому доступними для аналізу.*`,
+*Відкриті дані -- це не компроміс. Це архітектурне рішення. 60 мільйонів повних текстів, 283 ГБ на 4 шардах, idempotent pipeline з нульовою толерантністю до втрати даних -- і все побудовано на публічних джерелах, без залежності від комерційних API.*`,
   },
   {
     id: 'chat-latency-optimization',
