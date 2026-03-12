@@ -126,7 +126,7 @@ export class AuthService extends BaseService {
   /**
    * Accept attorney offer
    */
-  async acceptAttorneyOffer(): Promise<{ success: boolean; message: string }> {
+  async acceptAttorneyOffer(): Promise<{ success: boolean; message: string; contractNumber?: string; contractDate?: string }> {
     return this.request(() => this.client.post('/auth/accept-attorney-offer'));
   }
 
