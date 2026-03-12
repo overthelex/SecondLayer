@@ -36,6 +36,11 @@ export function getMattersSections(isAttorney: boolean) {
   ];
 }
 
+export const attorneyClientSections = [
+  { id: 'attorney-search', label: 'Знайти адвоката', icon: Search, route: ROUTES.ATTORNEYS },
+  { id: 'my-consultations', label: 'Мої консультації', icon: Briefcase, route: ROUTES.CONSULTATIONS },
+];
+
 export const externalSourcesSections = [
   { id: 'ext-monitoring', label: 'Моніторинг', icon: Database, route: ROUTES.ADMIN_MONITORING },
   { id: 'ext-data-sources', label: 'Джерела даних', icon: Globe, route: ROUTES.ADMIN_DATA_SOURCES },
