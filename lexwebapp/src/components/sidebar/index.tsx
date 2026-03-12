@@ -18,7 +18,7 @@ import { Section } from './Section';
 import { SidebarFooter } from './SidebarFooter';
 import {
   researchSections, legislationSections, getMattersSections,
-  externalSourcesSections, monitoringSections,
+  attorneyClientSections, externalSourcesSections, monitoringSections,
 } from './nav-config';
 
 interface SidebarProps {
@@ -40,7 +40,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   const [editTitle, setEditTitle] = useState('');
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
-    new Set(['conversations', 'research', 'legislation', 'vault', 'matters', 'external-sources', 'monitoring'])
+    new Set(['conversations', 'research', 'legislation', 'vault', 'matters', 'attorneys', 'external-sources', 'monitoring'])
   );
   const [vaultFolders, setVaultFolders] = useState<string[]>([]);
   const [vaultFoldersLoaded, setVaultFoldersLoaded] = useState(false);
@@ -57,7 +57,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
 
   const renderedSectionIds = useMemo(() => {
     if (role === 'administrator') return ['external-sources', 'monitoring'];
-    const ids = ['research', 'legislation', 'vault', 'matters'];
+    const ids = ['research', 'legislation', 'vault', 'matters', 'attorneys'];
     if (conversations.length > 0) ids.push('conversations');
     return ids;
   }, [role, conversations.length]);
@@ -287,11 +287,17 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                 ))}
               </Section>
 
+              {!isAttorney && (
+                <Section id="attorneys" title="Адвокати" collapsed={collapsedSections.has('attorneys')} onToggle={toggleSection}>
+                  {attorneyClientSections.map((s) => (
+                    <NavItem key={s.id} icon={s.icon} label={s.label} route={s.route} onClick={() => handleNavigation(s.route)} />
+                  ))}
+                </Section>
+              )}
+
               <div className="mb-6">
                 <NavItem icon={Zap} label="Workflows" route={ROUTES.WORKFLOWS} onClick={() => handleNavigation(ROUTES.WORKFLOWS)} />
               </div>
-
-              {/* Attorney section hidden — feature not ready for production */}
             </>
           )}
 
