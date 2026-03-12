@@ -137,7 +137,7 @@ export function MainLayout() {
   return (
     <div className="flex h-screen bg-claude-bg overflow-hidden">
       {/* Sidebar */}
-      <div className={`${isSidebarOpen ? 'block' : 'hidden'} lg:block h-full`}>
+      <div className={`${isSidebarOpen ? 'block' : 'hidden'} h-full`}>
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setSidebarOpen(false)}
