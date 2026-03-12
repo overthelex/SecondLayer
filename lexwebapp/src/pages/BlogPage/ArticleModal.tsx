@@ -115,11 +115,15 @@ export function ArticleModal({ article, onClose }: ArticleModalProps) {
         </div>
 
         {/* Banner */}
-        <img
-          src={`/blog-banners/${article.id}.png`}
-          alt={article.title}
-          className="w-full h-48 sm:h-64 object-cover"
-        />
+        <div className="relative w-full h-48 sm:h-64 overflow-hidden">
+          <div className={`absolute inset-0 ${article.category === 'tech' ? 'bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-700' : 'bg-gradient-to-br from-claude-accent via-amber-600 to-orange-700'}`} />
+          <img
+            src={`/blog-banners/${article.id}.png`}
+            alt={article.title}
+            className="relative w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        </div>
 
         {/* Modal content */}
         <div className="px-6 sm:px-8 py-6 sm:py-8">
