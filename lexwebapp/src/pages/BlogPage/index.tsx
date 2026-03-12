@@ -124,11 +124,15 @@ export function BlogPage() {
               className="bg-white rounded-2xl border border-claude-border overflow-hidden hover:shadow-lg hover:border-claude-accent/30 transition-all cursor-pointer group"
               onClick={() => setSelectedArticle(article)}
             >
-              <img
-                src={`/blog-banners/${article.id}.png`}
-                alt={article.title}
-                className="w-full h-40 sm:h-48 object-cover"
-              />
+              <div className="relative w-full h-40 sm:h-48 overflow-hidden">
+                <div className={`absolute inset-0 ${article.category === 'tech' ? 'bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-700' : 'bg-gradient-to-br from-claude-accent via-amber-600 to-orange-700'}`} />
+                <img
+                  src={`/blog-banners/${article.id}.png`}
+                  alt={article.title}
+                  className="relative w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
               <div className="p-6 sm:p-8">
               <div className="flex items-start gap-4">
                 <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
