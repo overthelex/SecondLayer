@@ -42,9 +42,16 @@ export const AttorneyOfferModal: React.FC<AttorneyOfferModalProps> = ({
   const handleAccept = async () => {
     setIsSubmitting(true);
     try {
-      await authService.acceptAttorneyOffer();
-      updateUser({ attorneyOfferAccepted: true });
-      toast.success(lang === 'uk' ? 'Оферту прийнято!' : 'Offer accepted!');
+      const result = await authService.acceptAttorneyOffer();
+      updateUser({
+        attorneyOfferAccepted: true,
+        attorneyContractNumber: result.contractNumber,
+        attorneyContractDate: result.contractDate,
+      });
+      const contractInfo = result.contractNumber
+        ? ` ${lang === 'uk' ? 'Договір' : 'Contract'} №${result.contractNumber} ${lang === 'uk' ? 'від' : 'dated'} ${result.contractDate}`
+        : '';
+      toast.success((lang === 'uk' ? 'Оферту прийнято!' : 'Offer accepted!') + contractInfo);
       onAccepted();
     } catch (error: any) {
       toast.error(error.message || 'Помилка при прийнятті оферти');

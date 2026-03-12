@@ -152,15 +152,21 @@ export async function getCurrentUser(req: AuthenticatedRequest, res: Response): 
 
     // Check attorney offer acceptance for attorney users
     let attorneyOfferAccepted = false;
+    let attorneyContractNumber: string | null = null;
+    let attorneyContractDate: string | null = null;
     if (user.user_type === 'attorney') {
       try {
         const userService = getUserService();
         const db = (userService as any).db;
         const result = await db.query(
-          `SELECT 1 FROM eula_acceptances WHERE user_id = $1 AND eula_version = $2 LIMIT 1`,
+          `SELECT contract_number, contract_date FROM eula_acceptances WHERE user_id = $1 AND eula_version = $2 LIMIT 1`,
           [user.id, 'attorney-offer-1.0']
         );
         attorneyOfferAccepted = result.rows.length > 0;
+        if (result.rows.length > 0) {
+          attorneyContractNumber = result.rows[0].contract_number;
+          attorneyContractDate = result.rows[0].contract_date;
+        }
       } catch (err: any) {
         logger.warn('Failed to check attorney offer acceptance', { userId: user.id, error: err.message });
       }
@@ -179,7 +185,11 @@ export async function getCurrentUser(req: AuthenticatedRequest, res: Response): 
         createdAt: user.created_at,
         role: user.role,
         userType: user.user_type || 'individual',
-        ...(user.user_type === 'attorney' && { attorneyOfferAccepted }),
+        ...(user.user_type === 'attorney' && {
+          attorneyOfferAccepted,
+          ...(attorneyContractNumber && { attorneyContractNumber }),
+          ...(attorneyContractDate && { attorneyContractDate }),
+        }),
       },
     });
   } catch (error: any) {
@@ -214,21 +224,44 @@ export async function acceptAttorneyOffer(req: AuthenticatedRequest, res: Respon
     const userService = getUserService();
     const db = (userService as any).db;
 
+    // Check if already accepted
+    const existing = await db.query(
+      `SELECT contract_number, contract_date FROM eula_acceptances WHERE user_id = $1 AND eula_version = $2 LIMIT 1`,
+      [user.id, 'attorney-offer-1.0']
+    );
+
+    if (existing.rows.length > 0) {
+      return res.json({
+        success: true,
+        message: 'Оферту вже прийнято',
+        contractNumber: existing.rows[0].contract_number,
+        contractDate: existing.rows[0].contract_date,
+      });
+    }
+
+    // Generate unique contract number: OFFER-YYYY-NNNN
+    const year = new Date().getFullYear();
+    const seqResult = await db.query(`SELECT nextval('attorney_offer_contract_seq') AS seq`);
+    const seq = String(seqResult.rows[0].seq).padStart(4, '0');
+    const contractNumber = `OFFER-${year}-${seq}`;
+    const contractDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
     await db.query(
-      `INSERT INTO eula_acceptances (user_id, eula_version, ip_address, user_agent)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (user_id, eula_version) DO NOTHING`,
+      `INSERT INTO eula_acceptances (user_id, eula_version, ip_address, user_agent, contract_number, contract_date)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         user.id,
         'attorney-offer-1.0',
         req.ip || req.headers['x-forwarded-for'] || 'unknown',
         req.headers['user-agent'] || 'unknown',
+        contractNumber,
+        contractDate,
       ]
     );
 
-    logger.info('Attorney accepted offer', { userId: user.id, email: user.email });
+    logger.info('Attorney accepted offer', { userId: user.id, email: user.email, contractNumber });
 
-    return res.json({ success: true, message: 'Оферту прийнято' });
+    return res.json({ success: true, message: 'Оферту прийнято', contractNumber, contractDate });
   } catch (error: any) {
     logger.error('Error accepting attorney offer:', error);
     return res.status(500).json({ error: 'Internal server error', message: error.message });
