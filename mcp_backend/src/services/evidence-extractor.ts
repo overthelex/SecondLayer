@@ -17,16 +17,30 @@ export type { Decision, Citation, VaultDocument, ExtractedEvidence };
 
 function parseToolResultContent(result: any): any {
   if (!result) return null;
-  try {
-    if (result.content && Array.isArray(result.content)) {
-      const textBlock = result.content.find((b: any) => b.type === 'text');
-      if (textBlock?.text) {
-        return JSON.parse(textBlock.text);
-      }
+
+  // Extract text from MCP content blocks first
+  let rawText: string | undefined;
+  if (result.content && Array.isArray(result.content)) {
+    const textBlock = result.content.find((b: any) => b.type === 'text');
+    if (textBlock?.text) {
+      rawText = textBlock.text;
     }
+  }
+
+  if (rawText) {
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      // Text is not JSON — return it as a plain-text wrapper, NOT the original
+      // ToolResult (which has content: [{type, text}] that breaks React rendering)
+      return { text: rawText };
+    }
+  }
+
+  try {
     return typeof result === 'string' ? JSON.parse(result) : result;
   } catch {
-    return result;
+    return { text: String(result) };
   }
 }
 

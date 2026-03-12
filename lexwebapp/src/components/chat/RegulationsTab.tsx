@@ -37,6 +37,8 @@ export function RegulationsTab({ citations, onOpenModal }: RegulationsTabProps) 
       {citations.map((citation, idx) => {
         const cardId = `citation-${idx}`;
         const isExpanded = expandedCards.has(cardId);
+        // Safeguard: citation.text may arrive as an object/array from MCP content blocks
+        const safeText = typeof citation.text === 'string' ? citation.text : JSON.stringify(citation.text);
 
         return (
           <ExpandableCard
@@ -46,7 +48,7 @@ export function RegulationsTab({ citations, onOpenModal }: RegulationsTabProps) 
             icon={BookOpen}
             isExpanded={isExpanded}
             onToggle={() => toggleCard(cardId)}
-            content={citation.text || 'Немає тексту.'}
+            content={safeText || 'Немає тексту.'}
             onOpenModal={() => onOpenModal(citation)}
             header={
               <div className="flex items-start gap-2.5">
@@ -66,7 +68,7 @@ export function RegulationsTab({ citations, onOpenModal }: RegulationsTabProps) 
             preview={
               <div className="ml-[30px]">
                 <p className="text-[11px] text-claude-subtext leading-relaxed line-clamp-3">
-                  {citation.text}
+                  {safeText}
                 </p>
               </div>
             }
