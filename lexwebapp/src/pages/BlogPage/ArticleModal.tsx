@@ -120,7 +120,7 @@ export function ArticleModal({ article, onClose }: ArticleModalProps) {
           <img
             src={`/blog-banners/${article.id}.png`}
             alt={article.title}
-            className="relative w-full h-full object-cover"
+            className="relative w-full h-full object-cover object-top"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
