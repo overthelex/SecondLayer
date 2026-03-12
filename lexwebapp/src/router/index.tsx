@@ -35,6 +35,7 @@ const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage').then(m
 const PaymentSuccessPage = lazy(() => import('../pages/PaymentSuccessPage').then(m => ({ default: m.PaymentSuccessPage })));
 const PaymentErrorPage = lazy(() => import('../pages/PaymentErrorPage').then(m => ({ default: m.PaymentErrorPage })));
 const OfferPage = lazy(() => import('../pages/OfferPage').then(m => ({ default: m.OfferPage })));
+const AttorneyOfferPage = lazy(() => import('../pages/AttorneyOfferPage').then(m => ({ default: m.AttorneyOfferPage })));
 const TermsPage = lazy(() => import('../pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const PrivacyPolicyPage = lazy(() => import('../pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
 const DpaPage = lazy(() => import('../pages/DpaPage').then(m => ({ default: m.DpaPage })));
@@ -140,6 +141,10 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.OFFER,
     element: S(OfferPage),
+  },
+  {
+    path: ROUTES.ATTORNEY_OFFER,
+    element: S(AttorneyOfferPage),
   },
   {
     path: ROUTES.OFERTA,

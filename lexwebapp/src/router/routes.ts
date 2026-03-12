@@ -49,6 +49,7 @@ export const ROUTES = {
 
   // Public Offer & Legal
   OFFER: '/:lang/offer',
+  ATTORNEY_OFFER: '/:lang/attorney-offer',
   OFERTA: '/oferta',
   TERMS: '/:lang/terms',
   PRIVACY: '/:lang/privacy',

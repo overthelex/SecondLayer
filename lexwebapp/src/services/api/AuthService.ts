@@ -123,6 +123,13 @@ export class AuthService extends BaseService {
     return this.request(() => this.client.post('/auth/reset-password', { token, password }));
   }
 
+  /**
+   * Accept attorney offer
+   */
+  async acceptAttorneyOffer(): Promise<{ success: boolean; message: string }> {
+    return this.request(() => this.client.post('/auth/accept-attorney-offer'));
+  }
+
   // ========================================================================
   // WebAuthn (Passkeys)
   // ========================================================================
