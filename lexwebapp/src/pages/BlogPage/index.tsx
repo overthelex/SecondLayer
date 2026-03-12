@@ -124,7 +124,7 @@ export function BlogPage() {
               className="bg-white rounded-2xl border border-claude-border overflow-hidden hover:shadow-lg hover:border-claude-accent/30 transition-all cursor-pointer group"
               onClick={() => setSelectedArticle(article)}
             >
-              <div className="relative w-full h-40 sm:h-48 overflow-hidden">
+              <div className="relative w-full h-48 sm:h-56 overflow-hidden">
                 <div className={`absolute inset-0 ${article.category === 'tech' ? 'bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-700' : 'bg-gradient-to-br from-claude-accent via-amber-600 to-orange-700'}`} />
                 <img
                   src={`/blog-banners/${article.id}.png`}
