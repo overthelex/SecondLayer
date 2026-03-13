@@ -36,6 +36,7 @@ const PaymentSuccessPage = lazy(() => import('../pages/PaymentSuccessPage').then
 const PaymentErrorPage = lazy(() => import('../pages/PaymentErrorPage').then(m => ({ default: m.PaymentErrorPage })));
 const OfferPage = lazy(() => import('../pages/OfferPage').then(m => ({ default: m.OfferPage })));
 const AttorneyOfferPage = lazy(() => import('../pages/AttorneyOfferPage').then(m => ({ default: m.AttorneyOfferPage })));
+const MarketplaceRulesPage = lazy(() => import('../pages/MarketplaceRulesPage').then(m => ({ default: m.MarketplaceRulesPage })));
 const TermsPage = lazy(() => import('../pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const PrivacyPolicyPage = lazy(() => import('../pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
 const DpaPage = lazy(() => import('../pages/DpaPage').then(m => ({ default: m.DpaPage })));
@@ -96,6 +97,8 @@ const ContractsPage = lazy(() => import('../pages/ContractsPage').then(m => ({ d
 // -- Attorney/Consultations (client-facing) --
 const AttorneySearchPage = lazy(() => import('../pages/AttorneySearchPage').then(m => ({ default: m.AttorneySearchPage })));
 const AttorneyDetailPage = lazy(() => import('../pages/AttorneyDetailPage').then(m => ({ default: m.AttorneyDetailPage })));
+const AttorneyProfilePage = lazy(() => import('../pages/AttorneyProfilePage').then(m => ({ default: m.AttorneyProfilePage })));
+const AttorneyClientsPage = lazy(() => import('../pages/AttorneyClientsPage').then(m => ({ default: m.AttorneyClientsPage })));
 const ConsultationsPage = lazy(() => import('../pages/ConsultationsPage').then(m => ({ default: m.ConsultationsPage })));
 const ConsultationDetailPage = lazy(() => import('../pages/ConsultationDetailPage').then(m => ({ default: m.ConsultationDetailPage })));
 
@@ -150,6 +153,10 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.ATTORNEY_OFFER,
     element: S(AttorneyOfferPage),
+  },
+  {
+    path: ROUTES.MARKETPLACE_RULES,
+    element: S(MarketplaceRulesPage),
   },
   {
     path: ROUTES.OFERTA,
@@ -348,6 +355,14 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.ATTORNEY_DETAIL,
             element: S(AttorneyDetailPage),
+          },
+          {
+            path: ROUTES.ATTORNEY_PROFILE_EDIT,
+            element: S(AttorneyProfilePage),
+          },
+          {
+            path: ROUTES.ATTORNEY_CLIENTS,
+            element: S(AttorneyClientsPage),
           },
           {
             path: ROUTES.CONSULTATIONS,
