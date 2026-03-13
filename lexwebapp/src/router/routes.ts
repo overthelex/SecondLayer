@@ -16,6 +16,7 @@ export const ROUTES = {
   BILLING: '/billing',
   TEAM: '/team',
   MCP_CONNECT: '/mcp-connect',
+  MY_CONTRACTS: '/my-contracts',
 
   // Legal Entities
   JUDGES: '/judges',
