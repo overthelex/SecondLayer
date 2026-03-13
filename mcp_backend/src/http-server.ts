@@ -93,6 +93,8 @@ import { ConflictCheckService } from './services/conflict-check-service.js';
 import { LegalHoldService } from './services/legal-hold-service.js';
 import { initializeMatterAccess } from './middleware/matter-access.js';
 import { createMatterRoutes } from './routes/matter-routes.js';
+import { ContractService } from './services/contract-service.js';
+import { createContractRoutes } from './routes/contract-routes.js';
 import { UploadRecoveryService } from './services/upload-recovery-service.js';
 import { UploadQueueService } from './services/upload-queue-service.js';
 import { getUploadProcessingMetrics } from './routes/upload-routes.js';
@@ -164,6 +166,7 @@ class HTTPMCPServer {
   private gdprService: GdprService;
   private auditService: AuditService;
   private matterService: MatterService;
+  private contractService: ContractService;
   private conflictCheckService: ConflictCheckService;
   private legalHoldService: LegalHoldService;
   private uploadRecoveryService: UploadRecoveryService;
@@ -343,6 +346,7 @@ class HTTPMCPServer {
     // Initialize Client-Matter segregation services
     this.auditService = new AuditService(this.services.db);
     this.matterService = new MatterService(this.services.db, this.auditService);
+    this.contractService = new ContractService(this.services.db);
     this.conflictCheckService = new ConflictCheckService(this.services.db, this.auditService);
     this.legalHoldService = new LegalHoldService(this.services.db, this.auditService);
     initializeMatterAccess(this.matterService);
@@ -1999,6 +2003,10 @@ class HTTPMCPServer {
       this.matterService, this.conflictCheckService, this.legalHoldService, this.auditService
     ));
     logger.info('Matter routes registered at /api/matters');
+
+    // Contract acceptance routes
+    this.app.use('/api/contracts', requireJWT as any, createContractRoutes(this.contractService));
+    logger.info('Contract routes registered at /api/contracts');
 
     // Judges routes - search judges from VKKS data
     const judgesService = new JudgesService(this.services.db, this.services.zoAdapter);
