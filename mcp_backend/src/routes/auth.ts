@@ -201,6 +201,13 @@ router.post('/logout', authController.logout as any);
 router.post('/accept-attorney-offer', requireJWT as any, authController.acceptAttorneyOffer as any);
 
 /**
+ * @route   GET /auth/my-contracts
+ * @desc    Get all signed contracts/acceptances for current user
+ * @access  Protected (JWT required)
+ */
+router.get('/my-contracts', requireJWT as any, authController.getMyContracts as any);
+
+/**
  * @route   POST /auth/refresh
  * @desc    Refresh JWT token
  * @access  Protected (valid JWT required)

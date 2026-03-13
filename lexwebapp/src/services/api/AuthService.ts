@@ -130,6 +130,23 @@ export class AuthService extends BaseService {
     return this.request(() => this.client.post('/auth/accept-attorney-offer'));
   }
 
+  /**
+   * Get all signed contracts for current user
+   */
+  async getMyContracts(): Promise<{ contracts: Array<{
+    id: string;
+    version: string;
+    contractNumber: string | null;
+    contractDate: string | null;
+    acceptedAt: string;
+    ipAddress: string | null;
+    title: string;
+    type: string;
+    url: string;
+  }> }> {
+    return this.request(() => this.client.get('/auth/my-contracts'));
+  }
+
   // ========================================================================
   // WebAuthn (Passkeys)
   // ========================================================================

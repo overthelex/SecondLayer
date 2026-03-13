@@ -91,6 +91,7 @@ const NewsPage = lazy(() => import('../pages/NewsPage').then(m => ({ default: m.
 
 // -- MCP Connect --
 const MCPConnectPage = lazy(() => import('../pages/MCPConnectPage').then(m => ({ default: m.MCPConnectPage })));
+const ContractsPage = lazy(() => import('../pages/ContractsPage').then(m => ({ default: m.ContractsPage })));
 
 // -- Attorney/Consultations (client-facing) --
 const AttorneySearchPage = lazy(() => import('../pages/AttorneySearchPage').then(m => ({ default: m.AttorneySearchPage })));
@@ -239,6 +240,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.MCP_CONNECT,
             element: S(MCPConnectPage),
+          },
+          {
+            path: ROUTES.MY_CONTRACTS,
+            element: S(ContractsPage),
           },
           {
             path: ROUTES.JUDGES,
