@@ -11,6 +11,10 @@ export const ROUTES = {
   HOME: '/',
   CHAT: '/chat',
 
+  // Referral
+  REFERRAL: '/referral',
+  REFERRAL_LANDING: '/r/:code',
+
   // Profile & Settings
   PROFILE: '/profile',
   BILLING: '/billing',
@@ -51,6 +55,7 @@ export const ROUTES = {
   // Public Offer & Legal
   OFFER: '/:lang/offer',
   ATTORNEY_OFFER: '/:lang/attorney-offer',
+  MARKETPLACE_RULES: '/:lang/marketplace-rules',
   OFERTA: '/oferta',
   TERMS: '/:lang/terms',
   PRIVACY: '/:lang/privacy',
