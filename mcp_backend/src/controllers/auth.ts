@@ -20,11 +20,13 @@ import { getDiiaService } from '../services/diia-service.js';
 import * as oidcService from '../services/oidc-service.js';
 import { provisionAuthentikUser } from '../services/authentik-service.js';
 import { provisionNextcloudUser } from '../services/nextcloud-provisioning.js';
+import type { ReferralService } from '../services/referral-service.js';
 
 let authCache: ICachePort | null = null;
 let authEmailService: EmailService | null = null;
 let authMinioService: MinioService | null = null;
 let authBannerService: BannerService | null = null;
+let authReferralService: ReferralService | null = null;
 
 const AVATAR_BUCKET = 'avatars';
 const AVATAR_MAX_SIZE = 512; // px
@@ -53,6 +55,11 @@ export function setAuthMinioService(svc: MinioService): void {
 /** Set the banner service for profile banner generation. Call from composition root. */
 export function setAuthBannerService(svc: BannerService): void {
   authBannerService = svc;
+}
+
+/** Set the referral service for linking referrals on registration. Call from composition root. */
+export function setAuthReferralService(svc: ReferralService): void {
+  authReferralService = svc;
 }
 
 /**
@@ -629,7 +636,7 @@ function validateEmail(email: string): boolean {
  */
 export async function registerWithPassword(req: Request, res: Response): Promise<Response> {
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name, referralCode } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -673,6 +680,19 @@ export async function registerWithPassword(req: Request, res: Response): Promise
     // Provision user in Authentik and Nextcloud (fire and forget)
     provisionAuthentikUser({ email, name, password }).catch(() => {});
     provisionNextcloudUser({ email, name, password }).catch(() => {});
+
+    // Link referral if code provided
+    if (referralCode && authReferralService) {
+      try {
+        const referrerId = await authReferralService.getUserByCode(referralCode);
+        if (referrerId) {
+          await authReferralService.linkReferral(referrerId, user.id);
+          logger.info('Referral linked on registration', { referrerId, referredId: user.id, referralCode });
+        }
+      } catch (refErr: any) {
+        logger.warn('Failed to link referral on registration', { referralCode, error: refErr.message });
+      }
+    }
 
     // Create verification token and send email
     const verificationToken = await userService.createVerificationToken(user.id);
