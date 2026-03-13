@@ -268,6 +268,58 @@ export async function acceptAttorneyOffer(req: AuthenticatedRequest, res: Respon
   }
 }
 
+/**
+ * Get all contracts/acceptances for current user
+ */
+export async function getMyContracts(req: AuthenticatedRequest, res: Response): Promise<Response> {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const userService = getUserService();
+    const db = (userService as any).db;
+
+    const result = await db.query(
+      `SELECT id, eula_version, contract_number, contract_date, accepted_at, ip_address
+       FROM eula_acceptances
+       WHERE user_id = $1
+       ORDER BY accepted_at DESC`,
+      [user.id]
+    );
+
+    // Map eula_version to human-readable contract info
+    const versionMap: Record<string, { title: string; type: string; url: string }> = {
+      'attorney-offer-1.0': { title: 'Публічна оферта для адвокатів', type: 'attorney_offer', url: '/ua/attorney-offer' },
+      'client-offer-1.0': { title: 'Публічна оферта для клієнтів', type: 'client_offer', url: '/ua/offer' },
+      'marketplace-rules-1.0': { title: 'Правила маркетплейсу', type: 'marketplace_rules', url: '/ua/terms' },
+    };
+
+    const contracts = result.rows.map((row: any) => {
+      const meta = versionMap[row.eula_version] || {
+        title: row.eula_version,
+        type: 'unknown',
+        url: '#',
+      };
+      return {
+        id: row.id,
+        version: row.eula_version,
+        contractNumber: row.contract_number || null,
+        contractDate: row.contract_date || null,
+        acceptedAt: row.accepted_at,
+        ipAddress: row.ip_address || null,
+        ...meta,
+      };
+    });
+
+    return res.json({ contracts });
+  } catch (error: any) {
+    logger.error('Error getting user contracts:', error);
+    return res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+}
+
 export async function logout(req: AuthenticatedRequest, res: Response): Promise<Response> {
   try {
     const user = req.user;

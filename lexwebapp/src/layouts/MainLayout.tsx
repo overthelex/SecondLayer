@@ -20,6 +20,7 @@ const PAGE_TITLES: Record<string, string> = {
   [ROUTES.CHAT]: 'Чат',
   [ROUTES.PROFILE]: 'Профіль',
   [ROUTES.BILLING]: 'Білінг',
+  [ROUTES.MY_CONTRACTS]: 'Мої договори',
   [ROUTES.JUDGES]: 'Судді',
   [ROUTES.LAWYERS]: 'Адвокати',
   [ROUTES.CLIENTS]: 'Клієнти',
