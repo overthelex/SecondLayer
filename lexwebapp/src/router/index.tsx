@@ -102,6 +102,10 @@ const AttorneyClientsPage = lazy(() => import('../pages/AttorneyClientsPage').th
 const ConsultationsPage = lazy(() => import('../pages/ConsultationsPage').then(m => ({ default: m.ConsultationsPage })));
 const ConsultationDetailPage = lazy(() => import('../pages/ConsultationDetailPage').then(m => ({ default: m.ConsultationDetailPage })));
 
+// -- Referral --
+const ReferralLanding = lazy(() => import('../pages/ReferralLanding').then(m => ({ default: m.ReferralLanding })));
+const ReferralPage = lazy(() => import('../pages/ReferralPage').then(m => ({ default: m.ReferralPage })));
+
 // -- Workflows --
 const WorkflowsPage = lazy(() => import('../pages/WorkflowsPage').then(m => ({ default: m.WorkflowsPage })));
 const WorkflowSetDetailPage = lazy(() => import('../pages/WorkflowSetDetailPage').then(m => ({ default: m.WorkflowSetDetailPage })));
@@ -219,6 +223,10 @@ export const router = createBrowserRouter([
     element: S(BlogPage),
   },
   {
+    path: ROUTES.REFERRAL_LANDING,
+    element: S(ReferralLanding),
+  },
+  {
     element: <AuthGuard />,
     children: [
       {
@@ -251,6 +259,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.MY_CONTRACTS,
             element: S(ContractsPage),
+          },
+          {
+            path: ROUTES.REFERRAL,
+            element: S(ReferralPage),
           },
           {
             path: ROUTES.JUDGES,

@@ -77,6 +77,7 @@ export interface EmailPreferences {
 export class BillingService {
   private pricingService: PricingService;
   private currencyService?: CurrencyService;
+  private referralRewardCallback?: (userId: string, amountUsd: number, amountUah: number, transactionId: string) => Promise<void>;
 
   constructor(private db: IDatabase, pricingService?: PricingService) {
     this.pricingService = pricingService || new PricingService(db);
@@ -84,6 +85,14 @@ export class BillingService {
 
   setCurrencyService(currencyService: CurrencyService): void {
     this.currencyService = currencyService;
+  }
+
+  /**
+   * Set a callback to process referral rewards on top-up.
+   * Decouples BillingService from ReferralService.
+   */
+  setReferralRewardCallback(cb: (userId: string, amountUsd: number, amountUah: number, transactionId: string) => Promise<void>): void {
+    this.referralRewardCallback = cb;
   }
 
   /**
@@ -403,7 +412,7 @@ export class BillingService {
     paymentId?: string;
     metadata?: any;
   }): Promise<BillingTransaction> {
-    return this.db.transaction(async (client) => {
+    const result = await this.db.transaction(async (client) => {
       // Get current billing account (with row lock)
       const billingResult = await client.query(
         'SELECT * FROM user_billing WHERE user_id = $1 FOR UPDATE',
@@ -466,6 +475,15 @@ export class BillingService {
 
       return transaction;
     });
+
+    // Process referral reward outside the transaction (fire and forget)
+    if (this.referralRewardCallback && result.type === 'topup' && params.paymentProvider !== 'referral') {
+      this.referralRewardCallback(params.userId, params.amountUsd, params.amountUah || 0, result.id).catch(err => {
+        logger.warn('Referral reward processing failed', { userId: params.userId, error: (err as Error).message });
+      });
+    }
+
+    return result;
   }
 
   /**

@@ -7,7 +7,7 @@ import { logger } from './utils/logger.js';
 import { dualAuth, requireJWT, optionalJWT, initializeDualAuth, initializeWebAuthn, AuthenticatedRequest as DualAuthRequest } from './middleware/dual-auth.js';
 import { configurePassport } from './config/passport.js';
 import authRouter from './routes/auth.js';
-import { setAuthCache, setAuthEmailService, setAuthMinioService, setAuthBannerService } from './controllers/auth.js';
+import { setAuthCache, setAuthEmailService, setAuthMinioService, setAuthBannerService, setAuthReferralService } from './controllers/auth.js';
 import { setOidcCache } from './services/oidc-service.js';
 import { BannerService } from './services/banner-service.js';
 import { setPassportBannerService } from './config/passport.js';
@@ -128,6 +128,8 @@ import { createAttorneyRoutes } from './routes/attorney-routes.js';
 import { createConsultationRoutes } from './routes/consultation-routes.js';
 import { JudgesService } from './services/judges-service.js';
 import { createJudgesRoutes } from './routes/judges-routes.js';
+import { ReferralService } from './services/referral-service.js';
+import { createReferralRoutes } from './routes/referral-routes.js';
 import { sanitizeId, maskSensitive } from './utils/sanitize-log.js';
 import rateLimit from 'express-rate-limit';
 import cron from 'node-cron';
@@ -185,6 +187,7 @@ class HTTPMCPServer {
   private consultationService: ConsultationService;
   private consultationPaymentService: ConsultationPaymentService;
   private currencyService: CurrencyService;
+  private referralService: ReferralService;
 
   constructor() {
     this.app = express();
@@ -244,6 +247,12 @@ class HTTPMCPServer {
     this.invoiceService = new InvoiceService();
     this.billingService.setCurrencyService(this.currencyService);
     this.costTracker.setBillingService(this.billingService);
+    this.referralService = new ReferralService(this.services.db, this.billingService);
+    setAuthReferralService(this.referralService);
+    this.billingService.setReferralRewardCallback(
+      (userId, amountUsd, amountUah, transactionId) =>
+        this.referralService.processReward(userId, amountUsd, amountUah, transactionId)
+    );
 
     // Register VoyageAI token usage callback on EmbeddingService
     this.services.embeddingService.setTokenUsageCallback((tokens, model, task) => {
@@ -2007,6 +2016,10 @@ class HTTPMCPServer {
     // Contract acceptance routes
     this.app.use('/api/contracts', requireJWT as any, createContractRoutes(this.contractService));
     logger.info('Contract routes registered at /api/contracts');
+
+    // Referral system routes
+    this.app.use('/api/referral', createReferralRoutes(this.referralService));
+    logger.info('Referral routes registered at /api/referral');
 
     // Judges routes - search judges from VKKS data
     const judgesService = new JudgesService(this.services.db, this.services.zoAdapter);

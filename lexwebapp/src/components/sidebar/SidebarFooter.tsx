@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, CreditCard, UsersRound, Plug, FileText } from 'lucide-react';
+import { User, LogOut, CreditCard, UsersRound, Plug, FileText, Shield, ScrollText, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ROUTES } from '../../router/routes';
 import type { UserRole } from '../../types/models/User';
@@ -58,6 +58,14 @@ export function SidebarFooter({
               <span className="text-[13px] font-medium text-claude-text font-sans">Мої договори</span>
             </button>
             <button
+              onClick={() => { onProfileMenuClick(); navigate(ROUTES.REFERRAL); }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">
+              <div className="p-1.5 bg-claude-subtext/8 rounded-lg">
+                <UserPlus size={16} className="text-claude-subtext" />
+              </div>
+              <span className="text-[13px] font-medium text-claude-text font-sans">Запросити друга</span>
+            </button>
+            <button
               onClick={() => { onProfileMenuClick(); navigate(ROUTES.MCP_CONNECT); }}
               className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">
               <div className="p-1.5 bg-claude-subtext/8 rounded-lg">
@@ -86,6 +94,17 @@ export function SidebarFooter({
           </motion.div>
         }
       </AnimatePresence>
+
+      <div className="flex items-center justify-center gap-3 mb-2 px-2">
+        <a href="/ua/offer" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-claude-subtext/60 hover:text-claude-subtext transition-colors">
+          <ScrollText size={10} />
+          <span>Оферта</span>
+        </a>
+        <a href="/ua/privacy" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-claude-subtext/60 hover:text-claude-subtext transition-colors">
+          <Shield size={10} />
+          <span>Конфіденційність</span>
+        </a>
+      </div>
 
       <button
         onClick={onProfileMenuClick}

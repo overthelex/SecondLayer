@@ -311,15 +311,17 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       setIsLoading(true);
 
       try {
+        const referralCode = localStorage.getItem('referral_code') || undefined;
         const response = await fetch(`${BASE_URL}/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, name: name || undefined }),
+          body: JSON.stringify({ email, password, name: name || undefined, referralCode }),
         });
 
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || 'Registration failed');
 
+        localStorage.removeItem('referral_code');
         showToast.success('Registration successful! Please check your email to verify your account.');
         setIsLogin(true);
         setEmail('');
