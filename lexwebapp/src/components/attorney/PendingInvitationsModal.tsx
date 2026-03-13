@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Clock, FileText, MessageSquare } from 'lucide-react';
 import { consultationService, type Consultation } from '../../services/api/ConsultationService';
@@ -23,8 +23,15 @@ const TYPE_LABELS: Record<string, string> = {
   document_review: 'Перевірка документів',
 };
 
-export function PendingInvitationsModal({ open, consultations: initialConsultations, onClose }: PendingInvitationsModalProps) {
-  const [items, setItems] = useState<Consultation[]>(initialConsultations);
+export function PendingInvitationsModal({ open, consultations, onClose }: PendingInvitationsModalProps) {
+  const [items, setItems] = useState<Consultation[]>(consultations);
+
+  // Sync internal items state when consultations prop changes
+  useEffect(() => {
+    if (consultations.length > 0) {
+      setItems(consultations);
+    }
+  }, [consultations]);
   const [processing, setProcessing] = useState<string | null>(null);
 
   const handleAccept = async (id: string) => {
