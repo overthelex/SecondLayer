@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Star, MapPin, Briefcase, Loader2, Scale } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Search, Filter, Star, MapPin, Briefcase, Loader2, Scale, BookOpen } from 'lucide-react';
 import { attorneyService, type AttorneyProfile, type AttorneySearchParams } from '../../services/api/AttorneyService';
 import { generateRoute } from '../../router/routes';
 import { getErrorMessage } from '../../utils/errors';
+import { useLocaleStore } from '../../stores/localeStore';
 
 const SPECIALIZATIONS = [
   { value: 'criminal', label: 'Кримінальне' },
@@ -26,6 +27,7 @@ const SORT_OPTIONS = [
 
 export function AttorneySearchPage() {
   const navigate = useNavigate();
+  const lang = useLocaleStore(s => s.language === 'en' ? 'en' : 'uk');
   const [attorneys, setAttorneys] = useState<AttorneyProfile[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -76,6 +78,19 @@ export function AttorneySearchPage() {
           Фільтри
         </button>
       </div>
+
+      <Link
+        to={`/${lang}/marketplace-rules`}
+        target="_blank"
+        className="flex items-center gap-3 mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors group"
+      >
+        <BookOpen className="w-5 h-5 text-emerald-600 shrink-0" />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-emerald-800">Правила маркетплейсу юридичних консультацій</p>
+          <p className="text-xs text-emerald-600 mt-0.5">Ознайомтесь з умовами замовлення консультацій, оплати та захисту ваших прав як клієнта</p>
+        </div>
+        <span className="text-emerald-500 text-xs shrink-0 group-hover:underline">Відкрити →</span>
+      </Link>
 
       {showFilters && (
         <div className="mb-6 p-4 bg-gray-50 rounded-lg border grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">

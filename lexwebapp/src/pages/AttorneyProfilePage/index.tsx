@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Save, User } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Loader2, Save, User, BookOpen } from 'lucide-react';
 import { attorneyService, type AttorneyProfile } from '../../services/api/AttorneyService';
 import { AttorneyOnboardingModal } from '../../components/attorney/AttorneyOnboardingModal';
 import { getErrorMessage } from '../../utils/errors';
+import { useLocaleStore } from '../../stores/localeStore';
 
 const SPECIALIZATIONS = [
   { value: 'criminal', label: 'Кримінальне' },
@@ -25,6 +27,7 @@ const COURT_TYPES = [
 ];
 
 export function AttorneyProfilePage() {
+  const lang = useLocaleStore(s => s.language === 'en' ? 'en' : 'uk');
   const [profile, setProfile] = useState<Partial<AttorneyProfile>>({
     specializations: [],
     court_types: [],
@@ -118,6 +121,19 @@ export function AttorneyProfilePage() {
           {isNew ? 'Створити профіль адвоката' : 'Мій профіль адвоката'}
         </h1>
       </div>
+
+      <Link
+        to={`/${lang}/marketplace-rules`}
+        target="_blank"
+        className="flex items-center gap-3 mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors group"
+      >
+        <BookOpen className="w-5 h-5 text-emerald-600 shrink-0" />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-emerald-800">Правила маркетплейсу юридичних консультацій</p>
+          <p className="text-xs text-emerald-600 mt-0.5">Ознайомтесь з правилами роботи маркетплейсу, комісією, ескроу та порядком виплат</p>
+        </div>
+        <span className="text-emerald-500 text-xs shrink-0 group-hover:underline">Відкрити →</span>
+      </Link>
 
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
       {success && <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">{success}</div>}
