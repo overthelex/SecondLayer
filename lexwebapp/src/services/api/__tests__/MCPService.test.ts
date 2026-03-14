@@ -206,56 +206,5 @@ describe('MCPService', () => {
     });
   });
 
-  describe('parseBackendResponse', () => {
-    it('should parse nested JSON response', () => {
-      const response = {
-        result: {
-          content: [
-            {
-              text: JSON.stringify({ answer: 'Test' }),
-            },
-          ],
-        },
-      };
-
-      // Access private method via any
-      const parsed = (mcpService as any).parseBackendResponse(response);
-
-      expect(parsed).toEqual({ answer: 'Test' });
-    });
-
-    it('should handle direct result format', () => {
-      const response = {
-        result: { answer: 'Test' },
-      };
-
-      const parsed = (mcpService as any).parseBackendResponse(response);
-
-      expect(parsed).toEqual({ answer: 'Test' });
-    });
-
-    it('should handle plain response', () => {
-      const response = { answer: 'Test' };
-
-      const parsed = (mcpService as any).parseBackendResponse(response);
-
-      expect(parsed).toEqual({ answer: 'Test' });
-    });
-
-    it('should handle JSON parse errors', () => {
-      const response = {
-        result: {
-          content: [
-            {
-              text: 'invalid json',
-            },
-          ],
-        },
-      };
-
-      const parsed = (mcpService as any).parseBackendResponse(response);
-
-      expect(parsed).toEqual(response);
-    });
-  });
+  // parseBackendResponse was moved to response-transformers.ts — tests are in that module
 });
