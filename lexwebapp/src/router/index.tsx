@@ -15,6 +15,23 @@ import { MainLayout } from '../layouts/MainLayout';
 // Auth — static import (first page users see)
 import { LoginPage } from '../pages/LoginPage';
 
+// Retry dynamic imports — handles stale chunks after deploys
+function lazyWithRetry(factory: () => Promise<any>) {
+  return lazy(() =>
+    factory().catch(() => {
+      // Chunk not found (stale hash after deploy) — reload once to get new manifest
+      const key = 'chunk-reload';
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        window.location.reload();
+        return new Promise(() => {}); // never resolves — page is reloading
+      }
+      sessionStorage.removeItem(key);
+      return factory(); // second attempt after reload — let it fail naturally
+    })
+  );
+}
+
 // Loading spinner for lazy-loaded pages
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-claude-bg">
@@ -30,104 +47,104 @@ const S = (Component: React.LazyExoticComponent<React.ComponentType<any>>, props
 );
 
 // -- Public pages --
-const VerifyEmailPage = lazy(() => import('../pages/VerifyEmailPage').then(m => ({ default: m.VerifyEmailPage })));
-const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
-const PaymentSuccessPage = lazy(() => import('../pages/PaymentSuccessPage').then(m => ({ default: m.PaymentSuccessPage })));
-const PaymentErrorPage = lazy(() => import('../pages/PaymentErrorPage').then(m => ({ default: m.PaymentErrorPage })));
-const OfferPage = lazy(() => import('../pages/OfferPage').then(m => ({ default: m.OfferPage })));
-const AttorneyOfferPage = lazy(() => import('../pages/AttorneyOfferPage').then(m => ({ default: m.AttorneyOfferPage })));
-const MarketplaceRulesPage = lazy(() => import('../pages/MarketplaceRulesPage').then(m => ({ default: m.MarketplaceRulesPage })));
-const TermsPage = lazy(() => import('../pages/TermsPage').then(m => ({ default: m.TermsPage })));
-const PrivacyPolicyPage = lazy(() => import('../pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
-const DpaPage = lazy(() => import('../pages/DpaPage').then(m => ({ default: m.DpaPage })));
-const AiUsagePolicyPage = lazy(() => import('../pages/AiUsagePolicyPage').then(m => ({ default: m.AiUsagePolicyPage })));
-const AiTransparencyPage = lazy(() => import('../pages/AiTransparencyPage').then(m => ({ default: m.AiTransparencyPage })));
-const BlogPage = lazy(() => import('../pages/BlogPage').then(m => ({ default: m.BlogPage })));
+const VerifyEmailPage = lazyWithRetry(() => import('../pages/VerifyEmailPage').then(m => ({ default: m.VerifyEmailPage })));
+const ResetPasswordPage = lazyWithRetry(() => import('../pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
+const PaymentSuccessPage = lazyWithRetry(() => import('../pages/PaymentSuccessPage').then(m => ({ default: m.PaymentSuccessPage })));
+const PaymentErrorPage = lazyWithRetry(() => import('../pages/PaymentErrorPage').then(m => ({ default: m.PaymentErrorPage })));
+const OfferPage = lazyWithRetry(() => import('../pages/OfferPage').then(m => ({ default: m.OfferPage })));
+const AttorneyOfferPage = lazyWithRetry(() => import('../pages/AttorneyOfferPage').then(m => ({ default: m.AttorneyOfferPage })));
+const MarketplaceRulesPage = lazyWithRetry(() => import('../pages/MarketplaceRulesPage').then(m => ({ default: m.MarketplaceRulesPage })));
+const TermsPage = lazyWithRetry(() => import('../pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const PrivacyPolicyPage = lazyWithRetry(() => import('../pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
+const DpaPage = lazyWithRetry(() => import('../pages/DpaPage').then(m => ({ default: m.DpaPage })));
+const AiUsagePolicyPage = lazyWithRetry(() => import('../pages/AiUsagePolicyPage').then(m => ({ default: m.AiUsagePolicyPage })));
+const AiTransparencyPage = lazyWithRetry(() => import('../pages/AiTransparencyPage').then(m => ({ default: m.AiTransparencyPage })));
+const BlogPage = lazyWithRetry(() => import('../pages/BlogPage').then(m => ({ default: m.BlogPage })));
 
 // -- Data Sources (country pages) --
-const USDataSourcesPage = lazy(() => import('../pages/USDataSourcesPage').then(m => ({ default: m.USDataSourcesPage })));
-const UKDataSourcesPage = lazy(() => import('../pages/UKDataSourcesPage').then(m => ({ default: m.UKDataSourcesPage })));
-const DEDataSourcesPage = lazy(() => import('../pages/DEDataSourcesPage').then(m => ({ default: m.DEDataSourcesPage })));
-const FRDataSourcesPage = lazy(() => import('../pages/FRDataSourcesPage').then(m => ({ default: m.FRDataSourcesPage })));
-const NLDataSourcesPage = lazy(() => import('../pages/NLDataSourcesPage').then(m => ({ default: m.NLDataSourcesPage })));
-const EEDataSourcesPage = lazy(() => import('../pages/EEDataSourcesPage').then(m => ({ default: m.EEDataSourcesPage })));
-const UADataSourcesPage = lazy(() => import('../pages/UADataSourcesPage').then(m => ({ default: m.UADataSourcesPage })));
-const EUComparisonPage = lazy(() => import('../pages/EUComparisonPage').then(m => ({ default: m.EUComparisonPage })));
+const USDataSourcesPage = lazyWithRetry(() => import('../pages/USDataSourcesPage').then(m => ({ default: m.USDataSourcesPage })));
+const UKDataSourcesPage = lazyWithRetry(() => import('../pages/UKDataSourcesPage').then(m => ({ default: m.UKDataSourcesPage })));
+const DEDataSourcesPage = lazyWithRetry(() => import('../pages/DEDataSourcesPage').then(m => ({ default: m.DEDataSourcesPage })));
+const FRDataSourcesPage = lazyWithRetry(() => import('../pages/FRDataSourcesPage').then(m => ({ default: m.FRDataSourcesPage })));
+const NLDataSourcesPage = lazyWithRetry(() => import('../pages/NLDataSourcesPage').then(m => ({ default: m.NLDataSourcesPage })));
+const EEDataSourcesPage = lazyWithRetry(() => import('../pages/EEDataSourcesPage').then(m => ({ default: m.EEDataSourcesPage })));
+const UADataSourcesPage = lazyWithRetry(() => import('../pages/UADataSourcesPage').then(m => ({ default: m.UADataSourcesPage })));
+const EUComparisonPage = lazyWithRetry(() => import('../pages/EUComparisonPage').then(m => ({ default: m.EUComparisonPage })));
 
 // -- Core app pages --
-const ChatPage = lazy(() => import('../pages/ChatPage').then(m => ({ default: m.ChatPage })));
-const ProfilePage = lazy(() => import('../pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
-const BillingDashboard = lazy(() => import('../pages/BillingDashboard').then(m => ({ default: m.BillingDashboard })));
-const TeamPage = lazy(() => import('../pages/TeamPage').then(m => ({ default: m.TeamPage })));
-const DocumentsPage = lazy(() => import('../pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
-const HistoryPage = lazy(() => import('../pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
+const ChatPage = lazyWithRetry(() => import('../pages/ChatPage').then(m => ({ default: m.ChatPage })));
+const ProfilePage = lazyWithRetry(() => import('../pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const BillingDashboard = lazyWithRetry(() => import('../pages/BillingDashboard').then(m => ({ default: m.BillingDashboard })));
+const TeamPage = lazyWithRetry(() => import('../pages/TeamPage').then(m => ({ default: m.TeamPage })));
+const DocumentsPage = lazyWithRetry(() => import('../pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
+const HistoryPage = lazyWithRetry(() => import('../pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
 
 // -- Legal entities --
-const JudgesPage = lazy(() => import('../pages/JudgesPage').then(m => ({ default: m.JudgesPage })));
-const LawyersPage = lazy(() => import('../pages/LawyersPage').then(m => ({ default: m.LawyersPage })));
-const ClientsPage = lazy(() => import('../pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
-const PersonDetailPage = lazy(() => import('../pages/PersonDetailPage').then(m => ({ default: m.PersonDetailPage })));
-const ClientDetailPage = lazy(() => import('../pages/ClientDetailPage').then(m => ({ default: m.ClientDetailPage })));
-const ClientMessagingPage = lazy(() => import('../pages/ClientMessagingPage').then(m => ({ default: m.ClientMessagingPage })));
+const JudgesPage = lazyWithRetry(() => import('../pages/JudgesPage').then(m => ({ default: m.JudgesPage })));
+const LawyersPage = lazyWithRetry(() => import('../pages/LawyersPage').then(m => ({ default: m.LawyersPage })));
+const ClientsPage = lazyWithRetry(() => import('../pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
+const PersonDetailPage = lazyWithRetry(() => import('../pages/PersonDetailPage').then(m => ({ default: m.PersonDetailPage })));
+const ClientDetailPage = lazyWithRetry(() => import('../pages/ClientDetailPage').then(m => ({ default: m.ClientDetailPage })));
+const ClientMessagingPage = lazyWithRetry(() => import('../pages/ClientMessagingPage').then(m => ({ default: m.ClientMessagingPage })));
 
 // -- Matters & Time --
-const MattersPage = lazy(() => import('../pages/MattersPage').then(m => ({ default: m.MattersPage })));
-const MatterDetailPage = lazy(() => import('../pages/MatterDetailPage').then(m => ({ default: m.MatterDetailPage })));
-const TimeEntriesPage = lazy(() => import('../pages/TimeEntriesPage').then(m => ({ default: m.TimeEntriesPage })));
-const InvoicesPage = lazy(() => import('../pages/InvoicesPage').then(m => ({ default: m.InvoicesPage })));
+const MattersPage = lazyWithRetry(() => import('../pages/MattersPage').then(m => ({ default: m.MattersPage })));
+const MatterDetailPage = lazyWithRetry(() => import('../pages/MatterDetailPage').then(m => ({ default: m.MatterDetailPage })));
+const TimeEntriesPage = lazyWithRetry(() => import('../pages/TimeEntriesPage').then(m => ({ default: m.TimeEntriesPage })));
+const InvoicesPage = lazyWithRetry(() => import('../pages/InvoicesPage').then(m => ({ default: m.InvoicesPage })));
 
 // -- Legal analysis --
-const CaseAnalysisPage = lazy(() => import('../pages/CaseAnalysisPage').then(m => ({ default: m.CaseAnalysisPage })));
-const DecisionsSearchPage = lazy(() => import('../pages/DecisionsSearchPage').then(m => ({ default: m.DecisionsSearchPage })));
-const LegislationMonitoringPage = lazy(() => import('../pages/LegislationMonitoringPage').then(m => ({ default: m.LegislationMonitoringPage })));
-const CourtPracticeAnalysisPage = lazy(() => import('../pages/CourtPracticeAnalysisPage').then(m => ({ default: m.CourtPracticeAnalysisPage })));
-const LegalInitiativesPage = lazy(() => import('../pages/LegalInitiativesPage').then(m => ({ default: m.LegalInitiativesPage })));
-const LegislationStatisticsPage = lazy(() => import('../pages/LegislationStatisticsPage').then(m => ({ default: m.LegislationStatisticsPage })));
-const VotingAnalysisPage = lazy(() => import('../pages/VotingAnalysisPage').then(m => ({ default: m.VotingAnalysisPage })));
-const LegalCodesLibraryPage = lazy(() => import('../pages/LegalCodesLibraryPage').then(m => ({ default: m.LegalCodesLibraryPage })));
-const HistoricalAnalysisPage = lazy(() => import('../pages/HistoricalAnalysisPage').then(m => ({ default: m.HistoricalAnalysisPage })));
+const CaseAnalysisPage = lazyWithRetry(() => import('../pages/CaseAnalysisPage').then(m => ({ default: m.CaseAnalysisPage })));
+const DecisionsSearchPage = lazyWithRetry(() => import('../pages/DecisionsSearchPage').then(m => ({ default: m.DecisionsSearchPage })));
+const LegislationMonitoringPage = lazyWithRetry(() => import('../pages/LegislationMonitoringPage').then(m => ({ default: m.LegislationMonitoringPage })));
+const CourtPracticeAnalysisPage = lazyWithRetry(() => import('../pages/CourtPracticeAnalysisPage').then(m => ({ default: m.CourtPracticeAnalysisPage })));
+const LegalInitiativesPage = lazyWithRetry(() => import('../pages/LegalInitiativesPage').then(m => ({ default: m.LegalInitiativesPage })));
+const LegislationStatisticsPage = lazyWithRetry(() => import('../pages/LegislationStatisticsPage').then(m => ({ default: m.LegislationStatisticsPage })));
+const VotingAnalysisPage = lazyWithRetry(() => import('../pages/VotingAnalysisPage').then(m => ({ default: m.VotingAnalysisPage })));
+const LegalCodesLibraryPage = lazyWithRetry(() => import('../pages/LegalCodesLibraryPage').then(m => ({ default: m.LegalCodesLibraryPage })));
+const HistoricalAnalysisPage = lazyWithRetry(() => import('../pages/HistoricalAnalysisPage').then(m => ({ default: m.HistoricalAnalysisPage })));
 
 // -- News --
-const NewsPage = lazy(() => import('../pages/NewsPage').then(m => ({ default: m.NewsPage })));
+const NewsPage = lazyWithRetry(() => import('../pages/NewsPage').then(m => ({ default: m.NewsPage })));
 
 // -- MCP Connect --
-const MCPConnectPage = lazy(() => import('../pages/MCPConnectPage').then(m => ({ default: m.MCPConnectPage })));
-const ContractsPage = lazy(() => import('../pages/ContractsPage').then(m => ({ default: m.ContractsPage })));
+const MCPConnectPage = lazyWithRetry(() => import('../pages/MCPConnectPage').then(m => ({ default: m.MCPConnectPage })));
+const ContractsPage = lazyWithRetry(() => import('../pages/ContractsPage').then(m => ({ default: m.ContractsPage })));
 
 // -- Attorney/Consultations (client-facing) --
-const AttorneySearchPage = lazy(() => import('../pages/AttorneySearchPage').then(m => ({ default: m.AttorneySearchPage })));
-const AttorneyDetailPage = lazy(() => import('../pages/AttorneyDetailPage').then(m => ({ default: m.AttorneyDetailPage })));
-const AttorneyProfilePage = lazy(() => import('../pages/AttorneyProfilePage').then(m => ({ default: m.AttorneyProfilePage })));
-const AttorneyClientsPage = lazy(() => import('../pages/AttorneyClientsPage').then(m => ({ default: m.AttorneyClientsPage })));
-const ConsultationsPage = lazy(() => import('../pages/ConsultationsPage').then(m => ({ default: m.ConsultationsPage })));
-const ConsultationDetailPage = lazy(() => import('../pages/ConsultationDetailPage').then(m => ({ default: m.ConsultationDetailPage })));
+const AttorneySearchPage = lazyWithRetry(() => import('../pages/AttorneySearchPage').then(m => ({ default: m.AttorneySearchPage })));
+const AttorneyDetailPage = lazyWithRetry(() => import('../pages/AttorneyDetailPage').then(m => ({ default: m.AttorneyDetailPage })));
+const AttorneyProfilePage = lazyWithRetry(() => import('../pages/AttorneyProfilePage').then(m => ({ default: m.AttorneyProfilePage })));
+const AttorneyClientsPage = lazyWithRetry(() => import('../pages/AttorneyClientsPage').then(m => ({ default: m.AttorneyClientsPage })));
+const ConsultationsPage = lazyWithRetry(() => import('../pages/ConsultationsPage').then(m => ({ default: m.ConsultationsPage })));
+const ConsultationDetailPage = lazyWithRetry(() => import('../pages/ConsultationDetailPage').then(m => ({ default: m.ConsultationDetailPage })));
 
 // -- Referral --
-const ReferralLanding = lazy(() => import('../pages/ReferralLanding').then(m => ({ default: m.ReferralLanding })));
-const ReferralPage = lazy(() => import('../pages/ReferralPage').then(m => ({ default: m.ReferralPage })));
+const ReferralLanding = lazyWithRetry(() => import('../pages/ReferralLanding').then(m => ({ default: m.ReferralLanding })));
+const ReferralPage = lazyWithRetry(() => import('../pages/ReferralPage').then(m => ({ default: m.ReferralPage })));
 
 // -- Workflows --
-const WorkflowsPage = lazy(() => import('../pages/WorkflowsPage').then(m => ({ default: m.WorkflowsPage })));
-const WorkflowSetDetailPage = lazy(() => import('../pages/WorkflowSetDetailPage').then(m => ({ default: m.WorkflowSetDetailPage })));
+const WorkflowsPage = lazyWithRetry(() => import('../pages/WorkflowsPage').then(m => ({ default: m.WorkflowsPage })));
+const WorkflowSetDetailPage = lazyWithRetry(() => import('../pages/WorkflowSetDetailPage').then(m => ({ default: m.WorkflowSetDetailPage })));
 
 // -- Admin --
-const AdminOverviewPage = lazy(() => import('../pages/AdminOverviewPage').then(m => ({ default: m.AdminOverviewPage })));
-const AdminMonitoringPage = lazy(() => import('../pages/AdminMonitoringPage').then(m => ({ default: m.AdminMonitoringPage })));
-const AdminUsersPage = lazy(() => import('../pages/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })));
-const AdminCostsPage = lazy(() => import('../pages/AdminCostsPage').then(m => ({ default: m.AdminCostsPage })));
-const AdminDataSourcesPage = lazy(() => import('../pages/AdminDataSourcesPage').then(m => ({ default: m.AdminDataSourcesPage })));
-const AdminBillingPage = lazy(() => import('../pages/AdminBillingPage').then(m => ({ default: m.AdminBillingPage })));
-const AdminInfrastructurePage = lazy(() => import('../pages/AdminInfrastructurePage').then(m => ({ default: m.AdminInfrastructurePage })));
-const AdminContainersPage = lazy(() => import('../pages/AdminContainersPage').then(m => ({ default: m.AdminContainersPage })));
-const AdminConfigPage = lazy(() => import('../pages/AdminConfigPage').then(m => ({ default: m.AdminConfigPage })));
-const AdminDBComparePage = lazy(() => import('../pages/AdminDBComparePage').then(m => ({ default: m.AdminDBComparePage })));
-const AdminServicePricingPage = lazy(() => import('../pages/AdminServicePricingPage').then(m => ({ default: m.AdminServicePricingPage })));
-const AdminTerminalPage = lazy(() => import('../pages/AdminTerminalPage').then(m => ({ default: m.AdminTerminalPage })));
-const AdminZOStatsPage = lazy(() => import('../pages/AdminZOStatsPage').then(m => ({ default: m.AdminZOStatsPage })));
-const AdminUserActivityPage = lazy(() => import('../pages/AdminUserActivityPage').then(m => ({ default: m.AdminUserActivityPage })));
-const AdminBulkScrapePage = lazy(() => import('../pages/AdminBulkScrapePage').then(m => ({ default: m.AdminBulkScrapePage })));
-const AdminOpenDataCatalogPage = lazy(() => import('../pages/AdminOpenDataCatalogPage').then(m => ({ default: m.AdminOpenDataCatalogPage })));
-const AdminPGMonitoringPage = lazy(() => import('../pages/AdminPGMonitoringPage').then(m => ({ default: m.AdminPGMonitoringPage })));
+const AdminOverviewPage = lazyWithRetry(() => import('../pages/AdminOverviewPage').then(m => ({ default: m.AdminOverviewPage })));
+const AdminMonitoringPage = lazyWithRetry(() => import('../pages/AdminMonitoringPage').then(m => ({ default: m.AdminMonitoringPage })));
+const AdminUsersPage = lazyWithRetry(() => import('../pages/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })));
+const AdminCostsPage = lazyWithRetry(() => import('../pages/AdminCostsPage').then(m => ({ default: m.AdminCostsPage })));
+const AdminDataSourcesPage = lazyWithRetry(() => import('../pages/AdminDataSourcesPage').then(m => ({ default: m.AdminDataSourcesPage })));
+const AdminBillingPage = lazyWithRetry(() => import('../pages/AdminBillingPage').then(m => ({ default: m.AdminBillingPage })));
+const AdminInfrastructurePage = lazyWithRetry(() => import('../pages/AdminInfrastructurePage').then(m => ({ default: m.AdminInfrastructurePage })));
+const AdminContainersPage = lazyWithRetry(() => import('../pages/AdminContainersPage').then(m => ({ default: m.AdminContainersPage })));
+const AdminConfigPage = lazyWithRetry(() => import('../pages/AdminConfigPage').then(m => ({ default: m.AdminConfigPage })));
+const AdminDBComparePage = lazyWithRetry(() => import('../pages/AdminDBComparePage').then(m => ({ default: m.AdminDBComparePage })));
+const AdminServicePricingPage = lazyWithRetry(() => import('../pages/AdminServicePricingPage').then(m => ({ default: m.AdminServicePricingPage })));
+const AdminTerminalPage = lazyWithRetry(() => import('../pages/AdminTerminalPage').then(m => ({ default: m.AdminTerminalPage })));
+const AdminZOStatsPage = lazyWithRetry(() => import('../pages/AdminZOStatsPage').then(m => ({ default: m.AdminZOStatsPage })));
+const AdminUserActivityPage = lazyWithRetry(() => import('../pages/AdminUserActivityPage').then(m => ({ default: m.AdminUserActivityPage })));
+const AdminBulkScrapePage = lazyWithRetry(() => import('../pages/AdminBulkScrapePage').then(m => ({ default: m.AdminBulkScrapePage })));
+const AdminOpenDataCatalogPage = lazyWithRetry(() => import('../pages/AdminOpenDataCatalogPage').then(m => ({ default: m.AdminOpenDataCatalogPage })));
+const AdminPGMonitoringPage = lazyWithRetry(() => import('../pages/AdminPGMonitoringPage').then(m => ({ default: m.AdminPGMonitoringPage })));
 
 export const router = createBrowserRouter([
   {
