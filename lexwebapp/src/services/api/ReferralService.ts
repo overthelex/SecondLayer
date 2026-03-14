@@ -20,6 +20,7 @@ export interface ReferralEntry {
   hasToppedUp: boolean;
   rewardAmountUsd: number;
   rewardAmountUah: number;
+  totalPaidUsd: number;
 }
 
 export class ReferralService extends BaseService {
