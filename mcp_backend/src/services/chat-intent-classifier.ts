@@ -17,6 +17,8 @@ import {
   type QueryType,
   type ChatIntentClassification,
 } from '../prompts/chat-system-prompt.js';
+import { getScenarioPriorityTools } from '../prompts/tool-registry-catalog.js';
+import { QUERY_TYPE_CONFIG } from '../prompts/query-type-config.js';
 
 interface CostRecorder {
   recordStreamingCost(
@@ -227,8 +229,10 @@ export class IntentClassifier {
 
   /**
    * Filter 45+ tools to a relevant subset based on intent domains.
+   * When queryType is provided, tools from matching scenarios are prioritized
+   * so they survive the 15-tool cap.
    */
-  async filterTools(domains: string[], slots?: Record<string, any>): Promise<ToolDefinition[]> {
+  async filterTools(domains: string[], slots?: Record<string, any>, queryType?: QueryType): Promise<ToolDefinition[]> {
     const allDefs = await this.toolRegistry.getAllToolDefinitions();
 
     // Collect tool names from matching domains
@@ -261,6 +265,24 @@ export class IntentClassifier {
 
     // Filter to only tools that actually exist in the registry
     const filtered = allDefs.filter((d) => relevantNames.has(d.name));
+
+    // Build priority set from preferred scenarios for this queryType
+    const priorityTools = new Set<string>();
+    if (queryType) {
+      const config = QUERY_TYPE_CONFIG[queryType];
+      if (config?.preferredScenarios?.length) {
+        for (const tool of getScenarioPriorityTools(config.preferredScenarios)) {
+          priorityTools.add(tool);
+        }
+      }
+    }
+
+    // Sort: scenario-priority tools first, then the rest (preserving original order within each group)
+    if (priorityTools.size > 0) {
+      const priority = filtered.filter((d) => priorityTools.has(d.name));
+      const rest = filtered.filter((d) => !priorityTools.has(d.name));
+      return [...priority, ...rest].slice(0, 15);
+    }
 
     // Cap at 15 tools — modern LLMs handle 15-20 tools fine
     return filtered.slice(0, 15);

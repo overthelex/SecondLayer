@@ -252,7 +252,7 @@ export class ChatService {
     requestId?: string
   ): Promise<{ plan: ExecutionPlan; planSessionId: string; queryType: QueryType } | null> {
     const classification = await this.intentClassifier.classify(query, requestId);
-    const toolDefs = await this.intentClassifier.filterTools(classification.domains, classification.slots);
+    const toolDefs = await this.intentClassifier.filterTools(classification.domains, classification.slots, classification.queryType);
     const plan = await this.generateExecutionPlan(query, classification, toolDefs, requestId);
 
     if (!plan) return null;
@@ -527,13 +527,13 @@ export class ChatService {
             planSessionId: request.planSessionId,
           });
           classification = await this.intentClassifier.classify(query, requestId);
-          toolDefs = await this.intentClassifier.filterTools(classification.domains, classification.slots);
+          toolDefs = await this.intentClassifier.filterTools(classification.domains, classification.slots, classification.queryType);
           plan = await this.generateExecutionPlan(query, classification, toolDefs, requestId);
         }
       } else {
         // Standard flow: classify + generate plan
         classification = await this.intentClassifier.classify(query, requestId);
-        toolDefs = await this.intentClassifier.filterTools(classification.domains, classification.slots);
+        toolDefs = await this.intentClassifier.filterTools(classification.domains, classification.slots, classification.queryType);
 
         // Try fast plan lookup for deterministic query types (skips LLM plan generation)
         const fastPlan = this.fastPlanLookup(classification, toolDefs);
