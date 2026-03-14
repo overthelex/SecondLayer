@@ -2,7 +2,7 @@
 
 ## DPA — LEX AI Platform
 
-*Last updated: March 8, 2026*
+*Last updated: March 13, 2026*
 
 ---
 
@@ -49,20 +49,29 @@ This DPA becomes effective upon the Client's acceptance of the Service Terms of 
 
 2.4. The Company does not independently determine the purposes of processing Client Data and does not use it for its own purposes, except as provided in this DPA.
 
+2.5. In the context of the Legal Consultation Marketplace, the Company acts as a Processor of Client Data when providing technical infrastructure, and as an independent Controller when processing data for the purposes of escrow payments, Attorney verification, moderation, and dispute resolution.
+
+2.6. An Attorney registered on the Platform is an independent Controller of the Client's personal data received in the course of providing a legal Consultation. The Attorney is obligated to comply with attorney-client privilege requirements in accordance with Article 22 of the Law of Ukraine "On the Bar and Practice of Law" and Applicable Data Protection Law.
+
 ## 3. Subject Matter and Scope of Processing
 
-3.1. Subject matter: processing of Client Data for the purpose of providing AI analysis of legal documents, semantic search, document storage, and related Service functions.
+3.1. Subject matter: processing of Client Data for the purpose of providing AI analysis of legal documents, semantic search, document storage, and related Service functions, as well as ensuring the operation of the Legal Consultation Marketplace (escrow payments, verification, ratings, communication).
 
 **3.2. Categories of data subjects:**
 - clients and counterparties of the Client mentioned in documents;
 - parties to legal proceedings;
-- natural persons referenced in legal documents.
+- natural persons referenced in legal documents;
+- Attorneys registered on the Platform;
+- Clients ordering legal Consultations through the Marketplace.
 
 **3.3. Types of personal data:**
 - identification data (full name, tax ID, passport details);
 - contact data (addresses, phone numbers, email);
 - legal data (court case data, contracts, transactions);
-- financial data (if contained in uploaded documents).
+- financial data (if contained in uploaded documents);
+- Attorney verification data (License number, URAU data, bank details);
+- communication logs between Clients and Attorneys (metadata, excluding content of secured Consultations);
+- escrow transaction data (amounts, dates, payment and payout statuses).
 
 3.4. Duration of processing: for the term of the Main Agreement + 30 days after its termination for data deletion.
 
@@ -72,7 +81,10 @@ This DPA becomes effective upon the Client's acceptance of the Service Terms of 
 - uploading documents for AI analysis;
 - executing search queries;
 - storing documents in the vault;
-- using MCP tools via API or web interface.
+- using MCP tools via API or web interface;
+- creating Orders and using the Marketplace;
+- transferring materials to the Attorney (with the Controller's explicit consent);
+- confirming Order completion and initiating payouts.
 
 4.2. The Client's use of the Service constitutes documented instructions for processing.
 
@@ -120,6 +132,7 @@ This DPA becomes effective upon the Client's acceptance of the Service Terms of 
 | Monobank (JSC "Universal Bank") | Ukraine | Payment processing | National law |
 | Cloudflare, Inc. | USA | CDN, DDoS protection, SSL | SCCs |
 | Hetzner Online GmbH | Germany | Server hosting | Adequacy (EU) |
+| Attorneys (registered on the Platform) | Ukraine | Provision of legal Consultations | Independent controllers |
 
 7.2. The Processor shall notify the Controller of any addition or replacement of a Sub-processor at least 14 days before processing begins. The Controller has the right to object within 14 days of notification.
 
@@ -132,6 +145,13 @@ This DPA becomes effective upon the Client's acceptance of the Service Terms of 
 - data is retained for up to 30 days for abuse monitoring;
 - processing is governed by a separate DPA between the Company and OpenAI;
 - OpenAI holds SOC 2 Type 2 certification.
+
+**7.6. Specifics of data processing by Attorneys:**
+- Attorneys are independent data controllers for data received during Consultations, not sub-processors of the Company;
+- the Company transfers Client data to the Attorney solely with the Client's explicit consent and to the extent determined by the Client;
+- after Order completion, the Attorney's access to Client materials on the Platform is automatically revoked after 7 (seven) calendar days;
+- the Attorney is independently responsible for ensuring compliance of their data processing with Applicable Data Protection Law;
+- the content of Consultations conducted through secure channels (video, audio) is protected by attorney-client privilege — Company personnel do not have access to it.
 
 ## 8. International Data Transfers
 
@@ -207,6 +227,12 @@ This DPA becomes effective upon the Client's acceptance of the Service Terms of 
 **13.4. Data transferred to Sub-processors is deleted according to the terms of agreements with Sub-processors:**
 - OpenAI: automatic deletion after 30 days;
 - Cloudflare: cache deletion within 72 hours.
+
+13.5. Data deletion in the Marketplace context:
+- Client materials transferred to the Attorney: Platform access is revoked 7 days after Order closure;
+- communication logs: retained for 12 months from Order completion date for dispute resolution purposes, then deleted;
+- escrow transaction data: retained for 5 years in accordance with accounting legislation requirements;
+- Attorney verification data: retained for the duration of the account + 3 years after deletion.
 
 ## 14. Liability
 
