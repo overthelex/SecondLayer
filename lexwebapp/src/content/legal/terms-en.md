@@ -2,7 +2,7 @@
 
 ## LEX AI Platform
 
-*Last updated: March 7, 2026*
+*Last updated: March 14, 2026*
 
 ---
 
@@ -37,7 +37,7 @@ LEX AI provides:
 - access to parliamentary data (bills, voting records);
 - integration via MCP tokens with Claude Desktop and other clients.
 
-The Service uses artificial intelligence technologies (OpenAI API) for processing and analyzing legal information.
+The Service uses artificial intelligence technologies (Anthropic Claude models via AWS Bedrock as the primary route, OpenAI API as auxiliary) for processing and analyzing legal information.
 
 ## 4. AI Analysis Disclaimer
 

@@ -2,7 +2,7 @@
 
 ## LEX AI Platform
 
-*Last updated: March 13, 2026*
+*Last updated: March 14, 2026*
 
 ---
 
@@ -90,11 +90,24 @@ For EU/EEA users, we process data based on:
 - **Legitimate interest** (Art. 6(1)(f) GDPR) — for security and Service improvement;
 - **Legal obligation** (Art. 6(1)(c) GDPR) — for compliance with legal requirements.
 
-## 5. Document Processing via AI (OpenAI)
+## 5. Document Processing via AI (Anthropic, OpenAI)
 
-**IMPORTANT:** When using AI analysis, the content of your documents and queries is transmitted to the OpenAI API for processing.
+**IMPORTANT:** When using AI analysis, the content of your documents and queries is transmitted to AI providers for processing.
 
-Terms of data processing through OpenAI:
+The Service uses multiple AI providers:
+
+**5.1. Primary provider — Anthropic (via AWS Bedrock):**
+- Claude models (Opus, Sonnet, Haiku) are the primary route for AI query processing;
+- access to Anthropic models is provided through AWS Bedrock (Amazon Web Services);
+- data is processed on AWS servers in the EU region (eu-central-1, Frankfurt);
+- AWS Bedrock does **NOT** retain input or output data after processing;
+- Anthropic does **NOT** use data transmitted through AWS Bedrock for training its models;
+- processing is governed by a Data Processing Addendum (DPA) between the Company and AWS;
+- AWS holds SOC 2 Type 2, ISO 27001, ISO 27017, and ISO 27018 certifications.
+
+**5.2. Secondary provider — OpenAI:**
+- GPT-4o and GPT-4o-mini models are used as an auxiliary processing route;
+- the text-embedding-3-small model is used for creating vector embeddings;
 - OpenAI acts as a sub-processor and processes data solely according to our instructions;
 - OpenAI does **NOT** use API data for training its models (by default since March 1, 2023);
 - data is retained by OpenAI for up to 30 days solely for abuse monitoring, after which it is deleted;
@@ -127,7 +140,7 @@ Recommendations for users:
 - uploaded documents — duration of the account, deleted upon request;
 - usage logs — 90 days;
 - payment data — 5 years (legal requirement);
-- AI query data — 30 days (OpenAI abuse monitoring);
+- AI query data — up to 30 days (OpenAI abuse monitoring; AWS Bedrock does not retain data after processing);
 - Marketplace communication logs — 12 months from Order completion date;
 - Attorney verification data — duration of the Attorney's account + 3 years;
 - escrow transaction data — 5 years (legal requirement).
@@ -137,7 +150,8 @@ Recommendations for users:
 We share personal data exclusively with the following categories of recipients:
 
 **7.1. Sub-processors:**
-- OpenAI, LP (USA) — AI analysis of documents and queries;
+- Amazon Web Services, Inc. (AWS Bedrock, EU/USA) — primary AI analysis of documents and queries (Anthropic Claude models);
+- OpenAI, LP (USA) — auxiliary AI analysis and vector embeddings;
 - Monobank / JSC "Universal Bank" (Ukraine) — payment processing;
 - Cloudflare, Inc. (USA) — CDN and DDoS protection;
 - Hetzner Online GmbH (Germany) — server hosting.

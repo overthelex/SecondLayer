@@ -18,7 +18,7 @@ export function ForgotPasswordModal({ initialEmail, onClose }: ForgotPasswordMod
 
   const handleSubmit = async () => {
     if (!email) {
-      setError('Please enter your email');
+      setError('Введіть ваш email');
       return;
     }
 
@@ -35,15 +35,15 @@ export function ForgotPasswordModal({ initialEmail, onClose }: ForgotPasswordMod
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to send reset email');
+        throw new Error(data.message || 'Не вдалося відправити лист для скидання паролю');
       }
 
-      showToast.success('Password reset link sent to your email');
+      showToast.success('Посилання для скидання паролю відправлено на email');
       onClose();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to send reset email';
+      const msg = err instanceof Error ? err.message : 'Не вдалося відправити лист';
       setError(msg);
-      showToast.error('Failed to send reset email');
+      showToast.error('Помилка відправки листа');
     } finally {
       setIsLoading(false);
     }
