@@ -109,7 +109,11 @@ jobs:
       always() &&
       needs.build-and-test.result == 'failure'
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_USE_BEDROCK: '1'
+      CLAUDE_CODE_BEDROCK_MODEL: anthropic.claude-sonnet-4-6
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: eu-central-1
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -177,7 +181,6 @@ jobs:
         if: steps.guard.outputs.skip == 'false'
         id: check-fix
         run: |
-          BRANCH_NAME="ci-autofix/$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA:0:7}"
           CURRENT_BRANCH=$(git branch --show-current)
           if git log --oneline "main..$CURRENT_BRANCH" 2>/dev/null | grep -q .; then
             echo "has_fix=true" >> "$GITHUB_OUTPUT"
@@ -432,7 +435,11 @@ jobs:
       always() &&
       needs.deploy-prod.result == 'failure'
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_USE_BEDROCK: '1'
+      CLAUDE_CODE_BEDROCK_MODEL: anthropic.claude-sonnet-4-6
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: eu-central-1
       PROD_SERVER: '18.192.189.254'
       PROD_USER: 'ubuntu'
       GH_TOKEN: ${{ github.token }}
