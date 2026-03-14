@@ -46,6 +46,14 @@ export interface DiiaDeeplinkResult {
   hashedRequestId: string;  // SHA256(requestId) — Diia sends this in X-Document-Request-Trace-Id
 }
 
+/** Thrown when the Diia acquirer lacks required scope permissions. */
+export class DiiaPermissionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DiiaPermissionError';
+  }
+}
+
 export class DiiaService {
   private tokenCache: { token: string; expiresAt: number } | null = null;
 
@@ -132,6 +140,9 @@ export class DiiaService {
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
+      if (response.status === 403 && body.includes('forbidden')) {
+        throw new DiiaPermissionError(`Diia acquirer не має дозволу на scope diiaId:auth. Зверніться до Diia Business для активації. (${body})`);
+      }
       throw new Error(`Diia createBranch failed: ${response.status} ${body}`);
     }
 
@@ -178,6 +189,9 @@ export class DiiaService {
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
+      if (response.status === 403 && body.includes('forbidden')) {
+        throw new DiiaPermissionError(`Diia acquirer не має дозволу на scope diiaId:auth. Зверніться до Diia Business для активації. (${body})`);
+      }
       throw new Error(`Diia createOffer failed: ${response.status} ${body}`);
     }
 
@@ -235,7 +249,15 @@ export class DiiaService {
 
     if (!branchId) {
       const branches = await this.getBranches();
-      if (branches.length > 0) {
+      // Prefer a branch that has diiaId auth scopes
+      const authBranch = branches.find(b =>
+        b.scopes && typeof b.scopes === 'object' && 'diiaId' in b.scopes
+      );
+      if (authBranch) {
+        branchId = authBranch.id || authBranch._id || '';
+      } else if (branches.length > 0) {
+        // No branch with auth scopes — try the first one, createOffer will fail if scope is missing
+        logger.warn('[Diia] No branch with diiaId scope found, using first branch');
         branchId = branches[0].id || branches[0]._id || '';
       } else {
         // First-time setup: create branch

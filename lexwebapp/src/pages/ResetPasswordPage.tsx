@@ -22,24 +22,24 @@ export function ResetPasswordPage() {
     setError(null);
 
     if (!password || !confirmPassword) {
-      setError('Please fill in all fields');
+      setError('Заповніть всі поля');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('Паролі не співпадають');
       return;
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters long');
+      setError('Пароль повинен містити щонайменше 8 символів');
       return;
     }
 
     const token = searchParams.get('token');
 
     if (!token) {
-      setError('Invalid reset link');
+      setError('Недійсне посилання для скидання');
       return;
     }
 
@@ -55,18 +55,18 @@ export function ResetPasswordPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Password reset failed');
+        throw new Error(data.message || 'Помилка скидання паролю');
       }
 
       setSuccess(true);
-      showToast.success('Password reset successfully!');
+      showToast.success('Пароль успішно скинуто!');
 
       setTimeout(() => {
         navigate('/login');
       }, 3000);
     } catch (err: unknown) {
       setError(getErrorMessage(err));
-      showToast.error('Password reset failed');
+      showToast.error('Помилка скидання паролю');
     } finally {
       setIsLoading(false);
     }
@@ -81,9 +81,9 @@ export function ResetPasswordPage() {
           className="bg-white rounded-2xl shadow-xl border border-claude-border p-8 max-w-md w-full text-center"
         >
           <CheckCircle size={64} className="text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-sans text-claude-text mb-2">Password Reset Successfully!</h1>
-          <p className="text-claude-subtext mb-6">You can now login with your new password.</p>
-          <p className="text-sm text-claude-subtext">Redirecting to login...</p>
+          <h1 className="text-2xl font-sans text-claude-text mb-2">Пароль успішно скинуто!</h1>
+          <p className="text-claude-subtext mb-6">Тепер ви можете увійти з новим паролем.</p>
+          <p className="text-sm text-claude-subtext">Перенаправлення на сторінку входу...</p>
         </motion.div>
       </div>
     );

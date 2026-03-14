@@ -115,6 +115,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           oidc_failed: 'Помилка автентифікації через SSO. Спробуйте ще раз.',
           server_error: 'Помилка сервера. Спробуйте пізніше.',
           diia_not_configured: 'Дія авторизацію ще не налаштовано.',
+          diia_scope_forbidden: 'Дія авторизація (diiaId:auth) ще не активована для цього акаунта. Зверніться до адміністратора.',
           diia_failed: 'Помилка автентифікації через Дію. Спробуйте ще раз.',
           diia_no_result: 'Не отримано дані від Дії. Спробуйте ще раз.',
         };
