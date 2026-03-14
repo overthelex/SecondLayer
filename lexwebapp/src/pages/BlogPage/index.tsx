@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -9,28 +9,40 @@ import {
   Scale,
 } from 'lucide-react';
 import { articles, type Article } from './articles';
+import { enTranslations } from './articles-en';
+import { ruTranslations } from './articles-ru';
 import { ArticleModal } from './ArticleModal';
+import { useLocaleStore } from '../../stores/localeStore';
+import { getBlogUI, getLocalizedArticles } from './blog-i18n';
+
+const translationMaps = { en: enTranslations, ru: ruTranslations };
 
 export function BlogPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [filter, setFilter] = useState<'all' | 'tech' | 'legal'>('all');
+  const language = useLocaleStore((s) => s.language);
+  const ui = getBlogUI(language);
+  const localizedArticles = useMemo(
+    () => getLocalizedArticles(articles, language, translationMaps),
+    [language]
+  );
 
   // Auto-open article from ?article= query param (used after login redirect)
   useEffect(() => {
     const articleId = searchParams.get('article');
     if (articleId && !selectedArticle) {
-      const found = articles.find((a) => a.id === articleId);
+      const found = localizedArticles.find((a) => a.id === articleId);
       if (found) {
         setSelectedArticle(found);
         searchParams.delete('article');
         setSearchParams(searchParams, { replace: true });
       }
     }
-  }, [searchParams]);
+  }, [searchParams, localizedArticles]);
 
-  const sorted = [...articles].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  const sorted = [...localizedArticles].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
   const filtered = filter === 'all' ? sorted : sorted.filter(a => a.category === filter);
 
   return (
@@ -56,7 +68,7 @@ export function BlogPage() {
             href="/login"
             className="px-4 py-2 bg-claude-accent text-white rounded-xl text-sm font-medium font-sans hover:bg-[#C66345] transition-colors"
           >
-            Спробувати LEX AI
+            {ui.tryLexAi}
           </a>
         </div>
       </header>
@@ -77,8 +89,7 @@ export function BlogPage() {
             transition={{ delay: 0.1 }}
             className="text-claude-subtext font-sans max-w-2xl mx-auto"
           >
-            Як ми будуємо AI-платформу для юридичної аналітики.
-            Технічні інсайти для розробників та практичні кейси для юристів.
+            {ui.heroSubtitle}
           </motion.p>
 
           {/* Filter tabs */}
@@ -89,9 +100,9 @@ export function BlogPage() {
             className="flex justify-center gap-2 mt-8"
           >
             {([
-              { key: 'all', label: 'Всі', count: articles.length },
-              { key: 'tech', label: 'Tech', count: articles.filter(a => a.category === 'tech').length },
-              { key: 'legal', label: 'Для юристів', count: articles.filter(a => a.category === 'legal').length },
+              { key: 'all', label: ui.all, count: localizedArticles.length },
+              { key: 'tech', label: ui.tech, count: localizedArticles.filter(a => a.category === 'tech').length },
+              { key: 'legal', label: ui.forLawyers, count: localizedArticles.filter(a => a.category === 'legal').length },
             ] as const).map(tab => (
               <button
                 key={tab.key}
@@ -170,7 +181,7 @@ export function BlogPage() {
                     ))}
                     <div className="flex-1" />
                     <span className="text-sm text-claude-accent font-sans font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      Читати <ChevronRight size={14} />
+                      {ui.read} <ChevronRight size={14} />
                     </span>
                   </div>
                 </div>
@@ -186,12 +197,12 @@ export function BlogPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img src="/Image.jpg" alt="Lex" className="h-8 w-auto" />
-            <span className="text-sm text-claude-subtext font-sans">LEX AI — AI-powered legal research platform</span>
+            <span className="text-sm text-claude-subtext font-sans">{ui.footerDescription}</span>
           </div>
           <div className="flex items-center gap-4 text-sm text-claude-subtext font-sans">
-            <a href="/login" className="hover:text-claude-accent transition-colors">Увійти</a>
+            <a href="/login" className="hover:text-claude-accent transition-colors">{ui.login}</a>
             <span className="text-claude-border">|</span>
-            <a href="/ua/data-sources" className="hover:text-claude-accent transition-colors">Джерела даних</a>
+            <a href="/ua/data-sources" className="hover:text-claude-accent transition-colors">{ui.dataSources}</a>
           </div>
         </div>
       </footer>
