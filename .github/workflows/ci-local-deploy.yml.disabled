@@ -11,6 +11,10 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+  pull-requests: write
+
 concurrency:
   group: deploy-local-to-prod
   cancel-in-progress: false
@@ -182,13 +186,17 @@ jobs:
       needs.detect-changes.outputs.has_changes == 'true' &&
       contains(needs.*.result, 'failure')
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      GH_TOKEN: ${{ secrets.CI_AUTOFIX_TOKEN }}
+      CLAUDE_CODE_USE_BEDROCK: '1'
+      CLAUDE_CODE_BEDROCK_MODEL: anthropic.claude-sonnet-4-6
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: eu-central-1
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 10
-          token: ${{ secrets.CI_AUTOFIX_TOKEN }}
+          token: ${{ github.token }}
 
       - name: Guard against infinite loops
         id: guard
@@ -542,15 +550,19 @@ jobs:
       always() &&
       needs.deploy-prod.result == 'failure'
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_USE_BEDROCK: '1'
+      CLAUDE_CODE_BEDROCK_MODEL: anthropic.claude-sonnet-4-6
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: eu-central-1
       PROD_SERVER: '18.192.189.254'
       PROD_USER: 'ubuntu'
-      GH_TOKEN: ${{ secrets.CI_AUTOFIX_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 10
-          token: ${{ secrets.CI_AUTOFIX_TOKEN }}
+          token: ${{ github.token }}
 
       - name: Guard against infinite loops
         id: guard
