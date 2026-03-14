@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Globe, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Globe, ChevronRight, List, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
@@ -112,6 +112,8 @@ export function LegalPageLayout({
   const { toc, title, subtitle, meta } = useMemo(() => extractToc(content), [content]);
   const strippedContent = useMemo(() => stripTitleFromContent(content), [content]);
 
+  const [mobileTocOpen, setMobileTocOpen] = useState(false);
+
   const currentPage = LEGAL_PAGES.find(p => p.path === routePath);
   const breadcrumbLabel = currentLang === 'ua'
     ? (currentPage?.labelUk || routePath)
@@ -182,9 +184,9 @@ export function LegalPageLayout({
     <div className="min-h-screen bg-claude-bg">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-claude-border sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4 sm:gap-6">
               <button
                 onClick={() => navigate('/')}
                 className="flex items-center gap-2 text-claude-subtext hover:text-claude-text transition-colors"
@@ -196,41 +198,84 @@ export function LegalPageLayout({
               </Link>
             </div>
 
-            <button
-              onClick={() => navigate(`/${switchTo}/${routePath}`, { replace: true })}
-              className="flex items-center gap-1.5 text-sm text-claude-subtext hover:text-claude-text transition-colors"
-            >
-              <Globe size={14} />
-              <span>{currentLang === 'ua' ? 'EN' : 'UA'}</span>
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Mobile TOC toggle */}
+              {toc.length > 0 && (
+                <button
+                  onClick={() => setMobileTocOpen(!mobileTocOpen)}
+                  className="lg:hidden flex items-center gap-1.5 text-sm text-claude-subtext hover:text-claude-text transition-colors"
+                  aria-label={currentLang === 'ua' ? 'Зміст' : 'Contents'}
+                >
+                  {mobileTocOpen ? <X size={18} /> : <List size={18} />}
+                </button>
+              )}
+
+              <button
+                onClick={() => navigate(`/${switchTo}/${routePath}`, { replace: true })}
+                className="flex items-center gap-1.5 text-sm text-claude-subtext hover:text-claude-text transition-colors"
+              >
+                <Globe size={14} />
+                <span>{currentLang === 'ua' ? 'EN' : 'UA'}</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
+      {/* Mobile TOC dropdown */}
+      {toc.length > 0 && mobileTocOpen && (
+        <div className="lg:hidden bg-white border-b border-claude-border shadow-sm sticky top-14 z-10 max-h-[60vh] overflow-y-auto">
+          <nav className="px-4 py-4">
+            <p className="text-xs font-medium uppercase tracking-widest text-claude-subtext mb-3">
+              {currentLang === 'ua' ? 'Зміст' : 'Contents'}
+            </p>
+            <ul className="space-y-0.5">
+              {toc.map((item) => (
+                <li key={item.id}>
+                  <button
+                    onClick={() => {
+                      scrollToSection(item.id);
+                      setMobileTocOpen(false);
+                    }}
+                    className={`block w-full text-left text-sm leading-snug py-2 pl-3 border-l-2 transition-colors ${
+                      activeSection === item.id
+                        ? 'border-claude-accent text-claude-text font-medium'
+                        : 'border-transparent text-claude-subtext hover:text-claude-text'
+                    }`}
+                  >
+                    {item.text}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
+      )}
+
       {/* Breadcrumb */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 pt-6">
-        <nav className="flex items-center gap-1.5 text-sm text-claude-subtext">
-          <Link to="/" className="hover:text-claude-text transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
+        <nav className="flex items-center gap-1.5 text-xs sm:text-sm text-claude-subtext">
+          <Link to="/" className="hover:text-claude-text transition-colors shrink-0">
             {currentLang === 'ua' ? 'Головна' : 'Home'}
           </Link>
-          <ChevronRight size={12} />
-          <span className="text-claude-text">{breadcrumbLabel}</span>
+          <ChevronRight size={12} className="shrink-0" />
+          <span className="text-claude-text truncate">{breadcrumbLabel}</span>
         </nav>
       </div>
 
       {/* Hero */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 pt-10 pb-8 border-b border-claude-border">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 pb-6 sm:pb-8 border-b border-claude-border">
         <div className="max-w-3xl">
-          <h1 className="font-serif text-4xl md:text-5xl font-semibold text-claude-text leading-tight tracking-tight">
+          <h1 className="font-serif text-2xl sm:text-4xl md:text-5xl font-semibold text-claude-text leading-tight tracking-tight">
             {title}
           </h1>
           {subtitle && (
-            <p className="mt-3 text-xl text-claude-subtext font-light">
+            <p className="mt-2 sm:mt-3 text-base sm:text-xl text-claude-subtext font-light">
               {subtitle}
             </p>
           )}
           {meta && (
-            <p className="mt-4 text-sm text-claude-subtext">
+            <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-claude-subtext">
               {meta}
             </p>
           )}
@@ -238,7 +283,7 @@ export function LegalPageLayout({
       </div>
 
       {/* Content with sidebar TOC */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         <div className="flex gap-12 lg:gap-16">
           {/* Sidebar TOC - desktop only */}
           {toc.length > 0 && (
@@ -278,10 +323,16 @@ export function LegalPageLayout({
               prose-strong:text-claude-text prose-strong:font-semibold
               prose-em:text-claude-subtext
               prose-hr:border-claude-border prose-hr:my-8
-              prose-table:text-sm
+              prose-table:text-sm prose-table:block prose-table:overflow-x-auto
               prose-th:bg-claude-sidebar prose-th:px-4 prose-th:py-2.5 prose-th:text-claude-text prose-th:font-medium
               prose-td:px-4 prose-td:py-2.5 prose-td:border-claude-border
               prose-a:text-claude-text prose-a:underline prose-a:underline-offset-2 prose-a:decoration-claude-accent/40 hover:prose-a:decoration-claude-accent
+              prose-a:break-words
+              max-sm:[&_h2]:text-xl max-sm:[&_h2]:mt-8 max-sm:[&_h2]:pt-4
+              max-sm:[&_h3]:text-base max-sm:[&_h3]:mt-4
+              max-sm:[&_p]:text-[14px] max-sm:[&_li]:text-[14px]
+              max-sm:[&_th]:px-3 max-sm:[&_th]:py-2 max-sm:[&_th]:whitespace-nowrap max-sm:[&_th]:text-xs
+              max-sm:[&_td]:px-3 max-sm:[&_td]:py-2 max-sm:[&_td]:text-xs
             ">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
@@ -296,13 +347,13 @@ export function LegalPageLayout({
 
       {/* Footer */}
       <footer className="border-t border-claude-border mt-10">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           {/* Other legal docs */}
           <div className="mb-8">
             <p className="text-xs font-medium uppercase tracking-widest text-claude-subtext mb-4">
               {currentLang === 'ua' ? 'Правові документи' : 'Legal Documents'}
             </p>
-            <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <div className="flex flex-wrap gap-x-6 gap-y-2 max-sm:grid max-sm:grid-cols-2">
               {LEGAL_PAGES.filter(p => p.path !== routePath).map((page) => (
                 <Link
                   key={page.path}
@@ -315,7 +366,7 @@ export function LegalPageLayout({
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-6 border-t border-claude-border">
+          <div className="flex items-center justify-between pt-6 border-t border-claude-border max-sm:flex-col max-sm:items-start max-sm:gap-3">
             <div className="flex items-center gap-3">
               <span className="font-serif text-sm font-semibold text-claude-text">LEX AI</span>
               <span className="text-xs text-claude-subtext">
