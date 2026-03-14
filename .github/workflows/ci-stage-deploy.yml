@@ -106,6 +106,75 @@ jobs:
         env:
           VITE_API_URL: https://stage.legal.org.ua
 
+  # ─── Step 2b: Self-heal build failures with Claude Code ─────────────
+  self-heal-build:
+    name: Self-Heal Build Failures
+    runs-on: [self-hosted, stage]
+    needs: [detect-changes, build-and-test]
+    if: |
+      always() &&
+      needs.build-and-test.result == 'failure'
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Guard against infinite loops
+        id: guard
+        run: |
+          LAST_AUTHOR=$(git log -1 --format='%an')
+          LAST_MSG=$(git log -1 --format='%s')
+          if echo "$LAST_MSG" | grep -q '\[ci-autofix\]'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Previous commit was already a CI autofix — skipping to prevent loop"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch build error logs
+        if: steps.guard.outputs.skip == 'false'
+        id: errors
+        run: |
+          # Capture the failed run's logs
+          RUN_ID="${{ github.run_id }}"
+          gh run view "$RUN_ID" --log-failed 2>&1 | tail -100 > /tmp/ci-errors.log
+          echo "Captured $(wc -l < /tmp/ci-errors.log) lines of error logs"
+
+      - name: Claude Code — diagnose and fix
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          ERROR_LOG=$(cat /tmp/ci-errors.log)
+
+          claude -p "$(cat <<PROMPT
+          The CI/CD build-and-test job failed. Here are the error logs:
+
+          \`\`\`
+          ${ERROR_LOG}
+          \`\`\`
+
+          Your task:
+          1. Analyze the errors and identify the root cause
+          2. Fix the code — edit the minimal set of files needed
+          3. Run the TypeScript build (npm run build in the affected service) to verify your fix compiles
+          4. Stage ONLY the files you changed and commit with message: "fix: [ci-autofix] <description>"
+          5. Push to main
+
+          Rules:
+          - Do NOT change test expectations to make tests pass — fix the actual code
+          - Do NOT modify CI workflow files
+          - Do NOT install new dependencies unless absolutely necessary
+          - If the error is in environment config (missing env vars, wrong URLs), fix it in the workflow env or skip
+          - If you cannot fix the issue, create a GitHub issue describing the problem instead of committing broken code
+
+          Working directory: $(pwd)
+          PROMPT
+          )" --allowedTools "Bash,Read,Edit,Write,Glob,Grep" --max-turns 25
+        timeout-minutes: 10
+
   # ─── Step 3: Deploy to stage & integration test ─────────────────────
   stage-deploy-and-test:
     name: Deploy to Stage & Integration Test
@@ -311,6 +380,117 @@ jobs:
             [ $i -eq 3 ] && echo "::warning::Public health check timed out — may be Cloudflare cache"
             sleep 5
           done
+
+  # ─── Step 4b: Self-heal deploy failures ─────────────────────────────
+  self-heal-deploy:
+    name: Self-Heal Deploy Failures
+    runs-on: [self-hosted, stage]
+    needs: [detect-changes, deploy-prod]
+    if: |
+      always() &&
+      needs.deploy-prod.result == 'failure'
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PROD_SERVER: '18.192.189.254'
+      PROD_USER: 'ubuntu'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+
+      - name: Guard against infinite loops
+        id: guard
+        run: |
+          LAST_MSG=$(git log -1 --format='%s')
+          if echo "$LAST_MSG" | grep -q '\[ci-autofix\]'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Previous commit was already a CI autofix — skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Collect prod diagnostics
+        if: steps.guard.outputs.skip == 'false'
+        id: diag
+        env:
+          PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
+        run: |
+          SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}"
+          REMOTE_REPO="/home/${PROD_USER}/SecondLayer"
+
+          {
+            echo "=== Docker container status ==="
+            $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml ps" 2>&1 || true
+
+            echo ""
+            echo "=== Last 50 lines from failing containers ==="
+            for svc in app-prod rada-mcp-app-prod app-openreyestr-prod nginx-prod lexwebapp-prod; do
+              echo "--- $svc ---"
+              $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml logs --tail=30 $svc" 2>&1 || true
+            done
+
+            echo ""
+            echo "=== Health check responses ==="
+            $SSH_CMD "curl -sf http://localhost:3007/health 2>&1 || echo 'Backend health: FAILED'"
+            $SSH_CMD "curl -sf http://localhost:3001/health 2>&1 || echo 'RADA health: FAILED'"
+          } > /tmp/deploy-diag.log 2>&1
+
+          echo "Captured $(wc -l < /tmp/deploy-diag.log) lines of diagnostics"
+
+      - name: Claude Code — diagnose deploy failure
+        if: steps.guard.outputs.skip == 'false'
+        env:
+          PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
+        run: |
+          DIAG_LOG=$(cat /tmp/deploy-diag.log)
+          FAILED_RUN_LOG=$(gh run view "${{ github.run_id }}" --log-failed 2>&1 | tail -80)
+
+          claude -p "$(cat <<PROMPT
+          Production deployment failed. Here are the diagnostics:
+
+          === CI Run Error Log ===
+          ${FAILED_RUN_LOG}
+
+          === Production Server Diagnostics ===
+          ${DIAG_LOG}
+
+          Your task (in order of priority):
+          1. Analyze the failure — is it a code bug, config issue, Docker build error, or infrastructure problem?
+          2. If it's a quick code fix (typo, missing import, wrong env var):
+             - Fix the code locally, commit with "[ci-autofix]" tag, and push to main
+          3. If it's a Docker/infra issue that can be fixed by restarting:
+             - SSH to prod: ssh -i ${PROD_SSH_KEY_PATH} -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}
+             - Restart the failing containers and nginx
+             - Verify health checks pass
+          4. If you cannot fix it, ROLLBACK:
+             - SSH to prod and run: cd /home/${PROD_USER}/SecondLayer && git reset --hard HEAD~1
+             - Rebuild and restart Docker containers from the previous commit
+             - Create a GitHub issue describing what went wrong
+          5. Always verify prod health (curl http://localhost:3007/health) after any action
+
+          Rules:
+          - Production stability is the #1 priority — rollback if unsure
+          - Do NOT modify CI workflow files
+          - Always restart nginx-prod after container changes (Docker caches old upstream IPs)
+
+          Working directory: $(pwd)
+          PROMPT
+          )" --allowedTools "Bash,Read,Edit,Write,Glob,Grep" --max-turns 30
+        timeout-minutes: 15
+
+  # ─── Step 5: Create release ────────────────────────────────────────
+  create-release:
+    name: Create Release
+    runs-on: [self-hosted, stage]
+    needs: [detect-changes, deploy-prod]
+    if: |
+      always() &&
+      needs.deploy-prod.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Create release
         env:
