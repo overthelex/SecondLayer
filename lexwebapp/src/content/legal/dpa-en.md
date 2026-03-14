@@ -2,7 +2,7 @@
 
 ## DPA — LEX AI Platform
 
-*Last updated: March 13, 2026*
+*Last updated: March 14, 2026*
 
 ---
 
@@ -128,7 +128,8 @@ This DPA becomes effective upon the Client's acceptance of the Service Terms of 
 
 | Sub-processor | Jurisdiction | Function | Transfer mechanism |
 |---|---|---|---|
-| OpenAI, LP | USA | AI analysis of documents and queries | SCCs + DPA |
+| Amazon Web Services, Inc. (AWS Bedrock) | EU (Frankfurt) / USA | Primary AI analysis of documents and queries (Anthropic Claude models) | SCCs + DPA |
+| OpenAI, LP | USA | Auxiliary AI analysis and vector embeddings | SCCs + DPA |
 | Monobank (JSC "Universal Bank") | Ukraine | Payment processing | National law |
 | Cloudflare, Inc. | USA | CDN, DDoS protection, SSL | SCCs |
 | Hetzner Online GmbH | Germany | Server hosting | Adequacy (EU) |
@@ -140,7 +141,14 @@ This DPA becomes effective upon the Client's acceptance of the Service Terms of 
 
 7.4. The Processor bears full responsibility for the acts and omissions of its Sub-processors.
 
-**7.5. Specifics of processing through OpenAI:**
+**7.5. Specifics of processing through AWS Bedrock (Anthropic):**
+- Anthropic Claude models (Opus, Sonnet, Haiku) are the primary AI processing route;
+- AWS Bedrock does **NOT** retain input or output data after request processing is complete;
+- Anthropic does **NOT** use data transmitted through AWS Bedrock for model training;
+- processing is governed by a DPA between the Company and AWS;
+- AWS holds SOC 2 Type 2, ISO 27001, ISO 27017, and ISO 27018 certifications.
+
+**7.5.1. Specifics of processing through OpenAI:**
 - OpenAI does **NOT** use API data for model training;
 - data is retained for up to 30 days for abuse monitoring;
 - processing is governed by a separate DPA between the Company and OpenAI;
@@ -157,7 +165,7 @@ This DPA becomes effective upon the Client's acceptance of the Service Terms of 
 
 8.1. Client Data may be transferred to the following jurisdictions:
 - Germany (Hetzner) — EU adequacy decision;
-- USA (OpenAI, Cloudflare) — Standard Contractual Clauses (SCCs).
+- USA (OpenAI, Cloudflare, AWS) — Standard Contractual Clauses (SCCs).
 
 8.2. For transfers to third countries without an adequacy decision, the Processor ensures:
 - execution of SCCs (Commission Decision 2021/914);
@@ -225,6 +233,7 @@ This DPA becomes effective upon the Client's acceptance of the Service Terms of 
 13.3. The Processor may retain copies of data only if required by Applicable Law, with notification to the Controller of the grounds and scope of retention.
 
 **13.4. Data transferred to Sub-processors is deleted according to the terms of agreements with Sub-processors:**
+- AWS Bedrock: data is not retained after request processing;
 - OpenAI: automatic deletion after 30 days;
 - Cloudflare: cache deletion within 72 hours.
 

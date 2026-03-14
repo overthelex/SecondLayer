@@ -269,7 +269,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
     if (isLogin) {
       if (!email || !password) {
-        setError('Please enter both email and password');
+        setError('Введіть email та пароль');
         return;
       }
 
@@ -283,23 +283,23 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         });
 
         const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Login failed');
+        if (!response.ok) throw new Error(data.message || 'Помилка входу');
 
         await login(data.token);
-        showToast.success('Login successful!');
+        showToast.success('Вхід виконано успішно!');
         if (onLoginSuccess) onLoginSuccess();
         navigate(getReturnUrl(), { replace: true });
       } catch (err: unknown) {
         console.error('Password login failed:', err);
-        const msg = err instanceof Error ? err.message : 'Login failed. Please check your credentials.';
+        const msg = err instanceof Error ? err.message : 'Невірний email або пароль';
         setError(msg);
-        showToast.error('Login failed');
+        showToast.error('Помилка входу');
       } finally {
         setIsLoading(false);
       }
     } else {
       if (!email || !password) {
-        setError('Please fill in email and password');
+        setError('Введіть email та пароль');
         return;
       }
 
@@ -322,16 +322,16 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         if (!response.ok) throw new Error(data.message || 'Registration failed');
 
         localStorage.removeItem('referral_code');
-        showToast.success('Registration successful! Please check your email to verify your account.');
+        showToast.success('Реєстрацію завершено! Перевірте email для підтвердження акаунту.');
         setIsLogin(true);
         setEmail('');
         setPassword('');
         setName('');
       } catch (err: unknown) {
         console.error('Registration failed:', err);
-        const msg = err instanceof Error ? err.message : 'Registration failed. Please try again.';
+        const msg = err instanceof Error ? err.message : 'Помилка реєстрації. Спробуйте ще раз.';
         setError(msg);
-        showToast.error('Registration failed');
+        showToast.error('Помилка реєстрації');
       } finally {
         setIsLoading(false);
       }
@@ -371,7 +371,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       <div className="min-h-screen bg-gradient-to-br from-claude-bg via-white to-claude-sidebar flex items-center justify-center p-4">
         <div className="text-center">
           <Loader2 size={48} className="text-claude-accent animate-spin mx-auto mb-4" />
-          <p className="text-claude-text font-sans">Completing authentication...</p>
+          <p className="text-claude-text font-sans">Завершення автентифікації...</p>
         </div>
       </div>
     );
