@@ -1083,6 +1083,36 @@ export function deriveDefaultTools(catalog: ScenarioCatalogEntry[]): string[] {
     .map(([tool]) => tool);
 }
 
+/**
+ * Get prioritized tool names for a list of preferred scenario IDs.
+ * Non-optional tools from preferred scenarios come first.
+ */
+export function getScenarioPriorityTools(scenarioIds: string[]): string[] {
+  const priority: string[] = [];
+  const seen = new Set<string>();
+
+  for (const id of scenarioIds) {
+    const scenario = SCENARIO_CATALOG.find(s => s.id === id);
+    if (!scenario) continue;
+    // Non-optional tools first
+    for (const step of scenario.toolChain) {
+      if (!step.optional && !seen.has(step.tool)) {
+        seen.add(step.tool);
+        priority.push(step.tool);
+      }
+    }
+    // Then optional tools
+    for (const step of scenario.toolChain) {
+      if (step.optional && !seen.has(step.tool)) {
+        seen.add(step.tool);
+        priority.push(step.tool);
+      }
+    }
+  }
+
+  return priority;
+}
+
 // Pre-computed exports
 export const DERIVED_DOMAIN_TOOL_MAP = deriveDomainToolMap(SCENARIO_CATALOG);
 export const DERIVED_DEFAULT_TOOLS = deriveDefaultTools(SCENARIO_CATALOG);
