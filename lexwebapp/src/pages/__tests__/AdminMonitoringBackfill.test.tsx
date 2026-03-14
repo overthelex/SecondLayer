@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { AxiosError } from 'axios';
 
 // Mock timers for polling
 vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -266,9 +267,10 @@ describe('Document Completeness & Backfill', () => {
     });
 
     it('handles 429 error for completeness check', async () => {
-      mockRunCompletenessCheck.mockRejectedValue({
-        response: { status: 429, data: { error: 'Ліміт вичерпано: 5/5 перевірок сьогодні' } },
-      });
+      const axiosErr = new AxiosError('Request failed', '429', undefined, undefined, {
+        status: 429, data: { error: 'Ліміт вичерпано: 5/5 перевірок сьогодні' },
+      } as any);
+      mockRunCompletenessCheck.mockRejectedValue(axiosErr);
       render(<AdminMonitoringPage />);
 
       await waitFor(() => {
@@ -364,9 +366,10 @@ describe('Document Completeness & Backfill', () => {
 
     it('handles 409 conflict (already running) by fetching status', async () => {
       mockRunCompletenessCheck.mockResolvedValue({ data: mockCompletenessResult });
-      mockStartBackfill.mockRejectedValue({
-        response: { status: 409, data: { error: 'Backfill вже виконується', job_id: 'backfill-existing' } },
-      });
+      const conflict409 = new AxiosError('Conflict', '409', undefined, undefined, {
+        status: 409, data: { error: 'Backfill вже виконується', job_id: 'backfill-existing' },
+      } as any);
+      mockStartBackfill.mockRejectedValue(conflict409);
       mockGetBackfillStatus
         .mockResolvedValueOnce({ data: { active: false, job: null } }) // initial mount
         .mockResolvedValue({ data: mockBackfillJobRunning }); // after 409

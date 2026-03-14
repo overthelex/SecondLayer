@@ -16,6 +16,19 @@ export function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') {
     return error;
   }
+  if (typeof error === 'object' && error !== null) {
+    const obj = error as Record<string, unknown>;
+    // Extract from response.data (axios-like error shape without isAxiosError)
+    if (obj.response && typeof obj.response === 'object') {
+      const resp = obj.response as Record<string, unknown>;
+      if (resp.data && typeof resp.data === 'object') {
+        const data = resp.data as Record<string, unknown>;
+        if (typeof data.message === 'string') return data.message;
+        if (typeof data.error === 'string') return data.error;
+      }
+    }
+    if (typeof obj.message === 'string') return obj.message;
+  }
   return 'Невідома помилка';
 }
 
