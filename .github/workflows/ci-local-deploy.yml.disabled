@@ -183,20 +183,20 @@ jobs:
       contains(needs.*.result, 'failure')
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ secrets.CI_AUTOFIX_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 5
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 10
+          token: ${{ secrets.CI_AUTOFIX_TOKEN }}
 
       - name: Guard against infinite loops
         id: guard
         run: |
-          LAST_MSG=$(git log -1 --format='%s')
-          if echo "$LAST_MSG" | grep -q '\[ci-autofix\]'; then
+          AUTOFIX_COUNT=$(git log -5 --format='%s' | grep -c '\[ci-autofix\]' || true)
+          if [ "$AUTOFIX_COUNT" -ge 1 ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::warning::Previous commit was already a CI autofix — skipping to prevent loop"
+            echo "::warning::Found $AUTOFIX_COUNT autofix commit(s) in last 5 — skipping to prevent loop"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
@@ -210,8 +210,12 @@ jobs:
 
       - name: Claude Code — diagnose and fix
         if: steps.guard.outputs.skip == 'false'
+        id: claude-fix
         run: |
           ERROR_LOG=$(cat /tmp/ci-errors.log)
+          BRANCH_NAME="ci-autofix/$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA:0:7}"
+
+          git checkout -b "$BRANCH_NAME"
 
           claude -p "$(cat <<PROMPT
           The CI/CD build-and-test job failed. Here are the error logs:
@@ -225,12 +229,13 @@ jobs:
           2. Fix the code — edit the minimal set of files needed
           3. Run the TypeScript build (npm run build in the affected service) to verify your fix compiles
           4. Stage ONLY the files you changed and commit with message: "fix: [ci-autofix] <description>"
-          5. Push to main
+          5. Do NOT push — the pipeline will handle pushing and PR creation
 
           Rules:
           - Do NOT change test expectations to make tests pass — fix the actual code
           - Do NOT modify CI workflow files
           - Do NOT install new dependencies unless absolutely necessary
+          - Do NOT run git push
           - If the error is in environment config (missing env vars, wrong URLs), fix it in the workflow env or skip
           - If you cannot fix the issue, create a GitHub issue describing the problem instead of committing broken code
 
@@ -238,6 +243,44 @@ jobs:
           PROMPT
           )" --allowedTools "Bash,Read,Edit,Write,Glob,Grep" --max-turns 25
         timeout-minutes: 10
+
+      - name: Check if fix was produced
+        if: steps.guard.outputs.skip == 'false'
+        id: check-fix
+        run: |
+          CURRENT_BRANCH=$(git branch --show-current)
+          if git log --oneline "main..$CURRENT_BRANCH" 2>/dev/null | grep -q .; then
+            echo "has_fix=true" >> "$GITHUB_OUTPUT"
+            echo "branch=$CURRENT_BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_fix=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Claude Code did not produce a fix"
+          fi
+
+      - name: Push branch and create PR
+        if: steps.guard.outputs.skip == 'false' && steps.check-fix.outputs.has_fix == 'true'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BRANCH="${{ steps.check-fix.outputs.branch }}"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "fix: [ci-autofix] Auto-fix for build failure" \
+            --body "$(cat <<EOF
+          ## Auto-generated fix
+
+          Claude Code analyzed the CI build failure and produced this fix automatically.
+
+          **Source run:** $RUN_URL
+
+          > Review carefully before merging — this is an automated fix.
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          EOF
+          )" \
+            --base main \
+            --head "$BRANCH"
 
   # ─── Step 4: Build Docker images locally ─────────────────────────────
   build-docker:
@@ -502,19 +545,20 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       PROD_SERVER: '18.192.189.254'
       PROD_USER: 'ubuntu'
-      GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ secrets.CI_AUTOFIX_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 5
+          fetch-depth: 10
+          token: ${{ secrets.CI_AUTOFIX_TOKEN }}
 
       - name: Guard against infinite loops
         id: guard
         run: |
-          LAST_MSG=$(git log -1 --format='%s')
-          if echo "$LAST_MSG" | grep -q '\[ci-autofix\]'; then
+          AUTOFIX_COUNT=$(git log -5 --format='%s' | grep -c '\[ci-autofix\]' || true)
+          if [ "$AUTOFIX_COUNT" -ge 1 ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::warning::Previous commit was already a CI autofix — skipping"
+            echo "::warning::Found $AUTOFIX_COUNT autofix commit(s) in last 5 — skipping"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
@@ -546,13 +590,15 @@ jobs:
 
           echo "Captured $(wc -l < /tmp/deploy-diag.log) lines of diagnostics"
 
-      - name: Claude Code — diagnose deploy failure
+      - name: Claude Code — diagnose and create fix PR
         if: steps.guard.outputs.skip == 'false'
-        env:
-          PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
+        id: claude-fix
         run: |
           DIAG_LOG=$(cat /tmp/deploy-diag.log)
           FAILED_RUN_LOG=$(gh run view "${{ github.run_id }}" --log-failed 2>&1 | tail -80)
+          BRANCH_NAME="ci-autofix/deploy-$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA:0:7}"
+
+          git checkout -b "$BRANCH_NAME"
 
           claude -p "$(cat <<PROMPT
           Production deployment failed. Here are the diagnostics:
@@ -563,26 +609,60 @@ jobs:
           === Production Server Diagnostics ===
           ${DIAG_LOG}
 
-          Your task (in order of priority):
+          Your task:
           1. Analyze the failure — is it a code bug, config issue, Docker build error, or infrastructure problem?
-          2. If it's a quick code fix (typo, missing import, wrong env var):
-             - Fix the code locally, commit with "[ci-autofix]" tag, and push to main
-          3. If it's a Docker/infra issue that can be fixed by restarting:
-             - SSH to prod: ssh -i ${PROD_SSH_KEY_PATH} -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}
-             - Restart the failing containers and nginx
-             - Verify health checks pass
-          4. If you cannot fix it, ROLLBACK:
-             - SSH to prod and run: cd /home/${PROD_USER}/SecondLayer && git reset --hard HEAD~1
-             - Rebuild and restart Docker containers from the previous commit
-             - Create a GitHub issue describing what went wrong
-          5. Always verify prod health (curl http://localhost:3007/health) after any action
+          2. If it's a code fix (typo, missing import, wrong env var, Docker config):
+             - Fix the code locally
+             - Stage ONLY the files you changed and commit with message: "fix: [ci-autofix] <description>"
+             - Do NOT push — the pipeline will handle pushing and PR creation
+          3. If you cannot fix it with code changes, create a GitHub issue describing the problem
 
           Rules:
-          - Production stability is the #1 priority — rollback if unsure
+          - Do NOT SSH to production servers — no direct prod access
+          - Do NOT run git push
           - Do NOT modify CI workflow files
-          - Always restart nginx-prod after container changes (Docker caches old upstream IPs)
+          - Do NOT run git reset, git revert, or any destructive git commands
+          - Focus on identifying and fixing the root cause in code
 
           Working directory: $(pwd)
           PROMPT
-          )" --allowedTools "Bash,Read,Edit,Write,Glob,Grep" --max-turns 30
-        timeout-minutes: 15
+          )" --allowedTools "Bash,Read,Edit,Write,Glob,Grep" --max-turns 25
+        timeout-minutes: 10
+
+      - name: Check if fix was produced
+        if: steps.guard.outputs.skip == 'false'
+        id: check-fix
+        run: |
+          CURRENT_BRANCH=$(git branch --show-current)
+          if git log --oneline "main..$CURRENT_BRANCH" 2>/dev/null | grep -q .; then
+            echo "has_fix=true" >> "$GITHUB_OUTPUT"
+            echo "branch=$CURRENT_BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_fix=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Claude Code did not produce a fix — manual intervention needed"
+          fi
+
+      - name: Push branch and create PR
+        if: steps.guard.outputs.skip == 'false' && steps.check-fix.outputs.has_fix == 'true'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BRANCH="${{ steps.check-fix.outputs.branch }}"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "fix: [ci-autofix] Auto-fix for deploy failure" \
+            --body "$(cat <<EOF
+          ## Auto-generated fix for deploy failure
+
+          Claude Code analyzed the production deploy failure and produced this fix.
+
+          **Source run:** $RUN_URL
+
+          > ⚠️ Production may be in a degraded state. Review and merge promptly, or rollback manually.
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          EOF
+          )" \
+            --base main \
+            --head "$BRANCH"
