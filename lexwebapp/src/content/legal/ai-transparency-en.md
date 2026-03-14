@@ -2,7 +2,7 @@
 
 ## for the LEX AI Service
 
-*Last updated: March 8, 2026*
+*Last updated: March 14, 2026*
 
 ---
 
@@ -93,7 +93,7 @@ Semantic Ranking is an intelligent search result ranking system that ensures the
 
 ### 4.2. How Semantic Ranking Works
 
-1. **Vector representation** — the User's query and documents in the database are converted into numerical vectors (embeddings) using OpenAI's text-embedding-3-small model.
+1. **Vector representation** — the User's query and documents in the database are converted into numerical vectors (embeddings) using OpenAI's text-embedding-3-small model. Text analysis and response generation are primarily performed by Anthropic Claude models (Opus, Sonnet, Haiku) via AWS Bedrock, with OpenAI models used as an auxiliary route.
 
 2. **Semantic comparison** — the system compares the query vector with document vectors by meaning, not just keywords. This enables finding documents that match by content even when they use different terminology.
 

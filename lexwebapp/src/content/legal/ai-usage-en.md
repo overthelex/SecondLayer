@@ -2,7 +2,7 @@
 
 ## for the LEX AI Service
 
-*Last updated: March 8, 2026*
+*Last updated: March 14, 2026*
 
 ---
 
@@ -34,7 +34,8 @@ The Service uses APIs from third-party providers to process queries:
 
 | Provider | Purpose | Server Location |
 |----------|---------|----------------|
-| OpenAI (GPT-4o, GPT-4o-mini) | Text analysis, response generation | USA, EU |
+| Anthropic (Claude Opus, Sonnet, Haiku) via AWS Bedrock | Primary text analysis, response generation | EU (Frankfurt) |
+| OpenAI (GPT-4o, GPT-4o-mini) | Auxiliary text analysis, response generation | USA, EU |
 | OpenAI (text-embedding-3-small) | Vector embeddings | USA, EU |
 
 The Company may change the list of AI providers by notifying Users through the Service interface or via email.
@@ -65,7 +66,7 @@ The Service transmits only the minimum necessary data to AI providers:
 
 User data is **NOT** used for:
 - training or fine-tuning AI models;
-- improving base models of providers (OpenAI API is used with the training-on-data option disabled);
+- improving base models of providers (OpenAI API is used with the training-on-data option disabled; Anthropic does not use data transmitted through AWS Bedrock for model training);
 - creating publicly available datasets;
 - transfer to third parties for any purpose other than direct query processing.
 
