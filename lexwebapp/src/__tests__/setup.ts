@@ -13,12 +13,15 @@ afterEach(() => {
 });
 
 // Mock environment variables
-vi.stubEnv('VITE_API_URL', 'https://test.example.com');
+vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
 vi.stubEnv('VITE_API_KEY', 'test-key-123');
 vi.stubEnv('VITE_ENABLE_SSE_STREAMING', 'true');
 
 // Mock fetch globally
 global.fetch = vi.fn();
+
+// Mock scrollIntoView (not available in jsdom)
+Element.prototype.scrollIntoView = vi.fn();
 
 // Mock AbortController if not available
 if (typeof AbortController === 'undefined') {
