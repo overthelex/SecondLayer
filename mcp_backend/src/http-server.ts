@@ -73,6 +73,10 @@ import { DueDiligenceService } from './services/due-diligence-service.js';
 import { CourtSessionTools } from './api/tools/court-session-tools.js';
 import { LegalActsTools } from './api/tools/legal-acts-tools.js';
 import { ECHRPracticeTools } from './api/tools/echr-practice-tools.js';
+import { EdsrSearchTools } from './api/tools/edrsr-search-tools.js';
+import { EdsrSemanticTools } from './api/tools/edrsr-semantic-tools.js';
+import { EdsrFtsService } from './services/edrsr-fts-service.js';
+import { EdsrVectorizerService } from './services/edrsr-vectorizer-service.js';
 import { ServiceProxy } from './services/service-proxy.js';
 import { ServiceType } from './types/gateway.js';
 import { UploadService } from './services/upload-service.js';
@@ -322,6 +326,24 @@ class HTTPMCPServer {
     this.toolRegistry.registerHandler(new LegalActsTools(this.services.zoLegalActsAdapter));
     this.toolRegistry.registerHandler(new ECHRPracticeTools(this.services.zoECHRAdapter));
     this.toolRegistry.registerHandler(new StateRegistryTools(this.services.db));
+    this.toolRegistry.registerHandler(new EdsrSearchTools(this.services.db));
+
+    // EDRSR FTS + semantic search + on-demand vectorization
+    const edsrFtsService = new EdsrFtsService();
+    let edsrVectorizer: EdsrVectorizerService | undefined;
+    try {
+      edsrVectorizer = new EdsrVectorizerService();
+      edsrVectorizer.setTokenUsageCallback((tokens, model, task) => {
+        this.costTracker.recordVoyageCall({ model, totalTokens: tokens, task }).catch((err) => {
+          logger.warn('Failed to record Voyage cost', { error: err.message });
+        });
+      });
+    } catch (err: any) {
+      logger.warn('EdsrVectorizerService not available (VOYAGEAI_API_KEY missing?)', { error: err.message });
+    }
+    if (edsrVectorizer) {
+      this.toolRegistry.registerHandler(new EdsrSemanticTools(this.services.db, edsrFtsService, edsrVectorizer));
+    }
     logger.info('Core tool handlers registered with ToolRegistry');
 
     // Initialize Nextcloud integration

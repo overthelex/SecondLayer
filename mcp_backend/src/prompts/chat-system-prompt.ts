@@ -416,6 +416,8 @@ export const DOMAIN_TOOL_MAP: Record<string, string[]> = {
   ...DERIVED_DOMAIN_TOOL_MAP,
   // Institutional analysis uses court search + legislation tools
   institutional_analysis: [
+    'search_edrsr_decisions', 'search_edrsr_fulltext', 'search_edrsr_semantic',
+    'vectorize_edrsr_results', 'get_edrsr_decision_fulltext',
     'search_legal_precedents', 'count_cases_by_party', 'search_supreme_court_practice',
     'get_case_documents_chain', 'analyze_case_pattern', 'find_similar_fact_pattern_cases',
     'search_legislation', 'find_relevant_law_articles',

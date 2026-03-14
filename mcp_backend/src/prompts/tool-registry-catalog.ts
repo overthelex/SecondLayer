@@ -280,6 +280,103 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
     ],
   },
 
+  // ─────────────── EDRSR (2) ───────────────
+
+  {
+    id: 'edrsr_case_search',
+    label: 'Пошук рішень у ЄДРСР',
+    domains: ['court'],
+    exampleQueries: [
+      'Знайди рішення судді Іванова за 2024 рік',
+      'Господарські справи Господарського суду Харківської області за останній місяць',
+      'Рішення у справі 922/989/18',
+      'Кримінальні вироки за статтею 190 КК за 2023 рік',
+    ],
+    dataSources: [
+      { name: 'PostgreSQL (ЄДРСР)', provides: 'метадані та повні тексти 82+ млн судових рішень' },
+    ],
+    toolChain: [
+      { tool: 'search_edrsr_decisions', purpose: 'пошук рішень за суддею, судом, датою, видом судочинства' },
+      { tool: 'get_edrsr_decision_fulltext', purpose: 'отримати повний текст конкретного рішення', optional: true },
+    ],
+    responseTemplate: [
+      { heading: 'Результати пошуку', instruction: 'знайдені рішення з номером справи, судом, суддею, датою' },
+      { heading: 'Кількість', instruction: 'скільки всього знайдено рішень' },
+      { heading: 'Аналіз', instruction: 'короткий огляд знайдених рішень', optional: true },
+      { heading: 'Джерела', instruction: 'посилання на ЄДРСР' },
+    ],
+  },
+
+  {
+    id: 'edrsr_judge_analysis',
+    label: 'Аналіз практики конкретного судді',
+    domains: ['court'],
+    triggerSlots: ['judge_name'],
+    exampleQueries: [
+      'Які рішення виносив суддя Петренко?',
+      'Статистика рішень судді Коваленко за 2023-2024',
+    ],
+    dataSources: [
+      { name: 'PostgreSQL (ЄДРСР)', provides: 'рішення конкретного судді з повними текстами' },
+    ],
+    toolChain: [
+      { tool: 'search_edrsr_decisions', purpose: 'пошук рішень за ПІБ судді' },
+      { tool: 'get_edrsr_decision_fulltext', purpose: 'повний текст ключового рішення', optional: true },
+    ],
+    responseTemplate: [
+      { heading: 'Статистика судді', instruction: 'кількість рішень, розподіл за категоріями та формами' },
+      { heading: 'Ключові справи', instruction: 'найбільш значимі рішення' },
+      { heading: 'Джерела', instruction: 'посилання на ЄДРСР' },
+    ],
+  },
+
+  {
+    id: 'edrsr_fulltext_search',
+    label: 'Повнотекстовий пошук у ЄДРСР',
+    domains: ['court'],
+    exampleQueries: [
+      'Знайди рішення про самовільне зайняття земельної ділянки',
+      'Судова практика щодо оренди нежитлових приміщень',
+      'Рішення де згадується ст. 376 ЦК',
+    ],
+    dataSources: [
+      { name: 'PostgreSQL (ЄДРСР FTS)', provides: 'повнотекстовий пошук по 96М+ рішеннях з ранжуванням' },
+    ],
+    toolChain: [
+      { tool: 'search_edrsr_fulltext', purpose: 'повнотекстовий пошук за ключовими словами з фільтрами' },
+      { tool: 'get_edrsr_decision_fulltext', purpose: 'повний текст найрелевантнішого рішення', optional: true },
+    ],
+    responseTemplate: [
+      { heading: 'Результати пошуку', instruction: 'знайдені рішення з фрагментами тексту та ранжуванням' },
+      { heading: 'Кількість', instruction: 'скільки знайдено рішень за запитом' },
+      { heading: 'Джерела', instruction: 'посилання на ЄДРСР' },
+    ],
+  },
+
+  {
+    id: 'edrsr_semantic_search',
+    label: 'Семантичний пошук подібних рішень у ЄДРСР',
+    domains: ['court'],
+    exampleQueries: [
+      'Знайди рішення з подібною аргументацією до цієї справи',
+      'Схожі справи про порушення умов договору підряду',
+      'Рішення де суд застосовував аналогічну правову позицію',
+    ],
+    dataSources: [
+      { name: 'Qdrant (ЄДРСР vectors)', provides: 'семантичний пошук за змістом через Voyage AI embeddings' },
+      { name: 'PostgreSQL (ЄДРСР FTS)', provides: 'попередній пошук для автоматичної векторизації' },
+    ],
+    toolChain: [
+      { tool: 'search_edrsr_semantic', purpose: 'семантичний пошук за змістом, не за точними словами' },
+      { tool: 'get_edrsr_decision_fulltext', purpose: 'повний текст семантично схожого рішення', optional: true },
+    ],
+    responseTemplate: [
+      { heading: 'Семантично схожі рішення', instruction: 'рішення відсортовані за семантичною близькістю з оцінкою' },
+      { heading: 'Аналіз подібності', instruction: 'що спільного між знайденими рішеннями' },
+      { heading: 'Джерела', instruction: 'посилання на ЄДРСР' },
+    ],
+  },
+
   // ─────────────── Legislation (5) ───────────────
 
   {
