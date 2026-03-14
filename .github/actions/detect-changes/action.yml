@@ -1,0 +1,153 @@
+name: 'Detect Monorepo Changes'
+description: 'Detects which services changed since the last successful deploy'
+
+outputs:
+  shared:
+    description: 'Whether packages/shared changed'
+    value: ${{ steps.changes.outputs.shared }}
+  backend:
+    description: 'Whether mcp_backend changed'
+    value: ${{ steps.changes.outputs.backend }}
+  rada:
+    description: 'Whether mcp_rada changed'
+    value: ${{ steps.changes.outputs.rada }}
+  openreyestr:
+    description: 'Whether mcp_openreyestr changed'
+    value: ${{ steps.changes.outputs.openreyestr }}
+  frontend:
+    description: 'Whether lexwebapp changed'
+    value: ${{ steps.changes.outputs.frontend }}
+  deployment:
+    description: 'Whether deployment configs changed'
+    value: ${{ steps.changes.outputs.deployment }}
+  any_backend:
+    description: 'Whether any backend service changed (shared/backend/rada/openreyestr)'
+    value: ${{ steps.changes.outputs.any_backend }}
+  services_to_build:
+    description: 'JSON array of services that need rebuilding'
+    value: ${{ steps.changes.outputs.services_to_build }}
+  services_to_deploy:
+    description: 'JSON array of Docker service names to deploy on prod'
+    value: ${{ steps.changes.outputs.services_to_deploy }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Get last successful deploy commit
+      id: last_deploy
+      shell: bash
+      run: |
+        # Try to get the last successful deploy tag; fall back to previous commit
+        LAST_SHA=""
+        if git tag -l "deploy-prod-*" | tail -1 > /dev/null 2>&1; then
+          LAST_TAG=$(git tag -l "deploy-prod-*" --sort=-creatordate | head -1)
+          if [ -n "$LAST_TAG" ]; then
+            LAST_SHA=$(git rev-parse "$LAST_TAG" 2>/dev/null || echo "")
+          fi
+        fi
+        if [ -z "$LAST_SHA" ]; then
+          LAST_SHA=$(git rev-parse HEAD~1)
+        fi
+        echo "last_sha=$LAST_SHA" >> "$GITHUB_OUTPUT"
+        echo "Comparing changes since: $LAST_SHA"
+
+    - name: Detect changed paths
+      id: changes
+      shell: bash
+      run: |
+        LAST_SHA="${{ steps.last_deploy.outputs.last_sha }}"
+        CURRENT_SHA="${{ github.sha }}"
+
+        # Get list of changed files
+        CHANGED_FILES=$(git diff --name-only "$LAST_SHA" "$CURRENT_SHA" 2>/dev/null || git diff --name-only HEAD~1 HEAD)
+        echo "Changed files:"
+        echo "$CHANGED_FILES"
+
+        # Detect which components changed
+        SHARED=false
+        BACKEND=false
+        RADA=false
+        OPENREYESTR=false
+        FRONTEND=false
+        DEPLOYMENT=false
+
+        while IFS= read -r file; do
+          case "$file" in
+            packages/shared/*) SHARED=true ;;
+            mcp_backend/*) BACKEND=true ;;
+            mcp_rada/*) RADA=true ;;
+            mcp_openreyestr/*) OPENREYESTR=true ;;
+            lexwebapp/*) FRONTEND=true ;;
+            deployment/*) DEPLOYMENT=true ;;
+          esac
+        done <<< "$CHANGED_FILES"
+
+        # If shared changed, ALL backend services need rebuild
+        if [ "$SHARED" = "true" ]; then
+          BACKEND=true
+          RADA=true
+          OPENREYESTR=true
+        fi
+
+        # If deployment configs changed, rebuild everything
+        if [ "$DEPLOYMENT" = "true" ]; then
+          BACKEND=true
+          RADA=true
+          OPENREYESTR=true
+          FRONTEND=true
+        fi
+
+        ANY_BACKEND=false
+        if [ "$BACKEND" = "true" ] || [ "$RADA" = "true" ] || [ "$OPENREYESTR" = "true" ]; then
+          ANY_BACKEND=true
+        fi
+
+        # Build services list (for Docker compose service names)
+        SERVICES_TO_BUILD="[]"
+        SERVICES_TO_DEPLOY="[]"
+        BUILD_LIST=""
+        DEPLOY_LIST=""
+
+        if [ "$BACKEND" = "true" ]; then
+          BUILD_LIST="${BUILD_LIST}\"backend\","
+          DEPLOY_LIST="${DEPLOY_LIST}\"app\",\"document-service\","
+        fi
+        if [ "$RADA" = "true" ]; then
+          BUILD_LIST="${BUILD_LIST}\"rada\","
+          DEPLOY_LIST="${DEPLOY_LIST}\"rada-mcp-app\","
+        fi
+        if [ "$OPENREYESTR" = "true" ]; then
+          BUILD_LIST="${BUILD_LIST}\"openreyestr\","
+          DEPLOY_LIST="${DEPLOY_LIST}\"app-openreyestr\","
+        fi
+        if [ "$FRONTEND" = "true" ]; then
+          BUILD_LIST="${BUILD_LIST}\"frontend\","
+          DEPLOY_LIST="${DEPLOY_LIST}\"lexwebapp\","
+        fi
+
+        # Remove trailing comma and wrap in array
+        BUILD_LIST="${BUILD_LIST%,}"
+        DEPLOY_LIST="${DEPLOY_LIST%,}"
+        SERVICES_TO_BUILD="[${BUILD_LIST}]"
+        SERVICES_TO_DEPLOY="[${DEPLOY_LIST}]"
+
+        echo "shared=$SHARED" >> "$GITHUB_OUTPUT"
+        echo "backend=$BACKEND" >> "$GITHUB_OUTPUT"
+        echo "rada=$RADA" >> "$GITHUB_OUTPUT"
+        echo "openreyestr=$OPENREYESTR" >> "$GITHUB_OUTPUT"
+        echo "frontend=$FRONTEND" >> "$GITHUB_OUTPUT"
+        echo "deployment=$DEPLOYMENT" >> "$GITHUB_OUTPUT"
+        echo "any_backend=$ANY_BACKEND" >> "$GITHUB_OUTPUT"
+        echo "services_to_build=$SERVICES_TO_BUILD" >> "$GITHUB_OUTPUT"
+        echo "services_to_deploy=$SERVICES_TO_DEPLOY" >> "$GITHUB_OUTPUT"
+
+        echo ""
+        echo "=== Change Detection Summary ==="
+        echo "  shared:      $SHARED"
+        echo "  backend:     $BACKEND"
+        echo "  rada:        $RADA"
+        echo "  openreyestr: $OPENREYESTR"
+        echo "  frontend:    $FRONTEND"
+        echo "  deployment:  $DEPLOYMENT"
+        echo "  services_to_build: $SERVICES_TO_BUILD"
+        echo "  services_to_deploy: $SERVICES_TO_DEPLOY"
