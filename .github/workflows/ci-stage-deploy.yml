@@ -103,6 +103,8 @@ jobs:
           cd lexwebapp && npm ci
           npm test
           npm run build
+        env:
+          VITE_API_URL: https://stage.legal.org.ua
 
   # ─── Step 3: Deploy to stage & integration test ─────────────────────
   stage-deploy-and-test:
