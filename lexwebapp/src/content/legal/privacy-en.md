@@ -2,7 +2,7 @@
 
 ## LEX AI Platform
 
-*Last updated: March 7, 2026*
+*Last updated: March 13, 2026*
 
 ---
 
@@ -44,6 +44,14 @@ By using the Service, you confirm that you have read this Policy and consent to 
 - Diia.Signature data (full name, tax ID) — when authorizing via Diia;
 - payment information from Monobank (transaction status, without card number).
 
+**2.4. Attorney data (for Attorneys registered on the Platform):**
+- license number and issuance date for the License to practice law;
+- data from the Unified Register of Attorneys of Ukraine (URAU);
+- specialization, experience, biography;
+- bank details (IBAN, bank name) for payouts;
+- profile photo;
+- rates and service conditions.
+
 ## 3. Purposes of Data Processing
 
 We process personal data for the following purposes:
@@ -66,6 +74,13 @@ We process personal data for the following purposes:
 **3.4. Legal obligations:**
 - compliance with legal requirements;
 - accounting records (payment data).
+
+**3.5. Marketplace operation:**
+- Attorney verification (data verification in the URAU);
+- transfer of Client materials to the Attorney (with the Client's explicit consent when creating an Order);
+- storage of communication logs between the Client and the Attorney (for dispute and complaint resolution);
+- processing of escrow payments and Attorney payouts;
+- rating calculation and review moderation.
 
 ## 4. Legal Basis for Processing (GDPR)
 
@@ -112,7 +127,10 @@ Recommendations for users:
 - uploaded documents — duration of the account, deleted upon request;
 - usage logs — 90 days;
 - payment data — 5 years (legal requirement);
-- AI query data — 30 days (OpenAI abuse monitoring).
+- AI query data — 30 days (OpenAI abuse monitoring);
+- Marketplace communication logs — 12 months from Order completion date;
+- Attorney verification data — duration of the Attorney's account + 3 years;
+- escrow transaction data — 5 years (legal requirement).
 
 ## 7. Data Sharing with Third Parties
 
@@ -123,6 +141,13 @@ We share personal data exclusively with the following categories of recipients:
 - Monobank / JSC "Universal Bank" (Ukraine) — payment processing;
 - Cloudflare, Inc. (USA) — CDN and DDoS protection;
 - Hetzner Online GmbH (Germany) — server hosting.
+
+**7.1.1. Data sharing with Attorneys:**
+Attorneys registered on the Platform receive access to Client data exclusively to the extent determined by the Client when creating an Order, and solely for the purpose of providing the legal Consultation. After Order completion, the Attorney's access to Client materials is automatically revoked after 7 (seven) calendar days.
+
+The Attorney is an independent controller of the Client's personal data received in the course of providing the Consultation and is obligated to comply with attorney-client privilege requirements in accordance with Article 22 of the Law of Ukraine "On the Bar and Practice of Law."
+
+Company personnel do not have access to the content of Consultations and case materials, except in cases of complaint review with the consent of both parties.
 
 **7.2. Government authorities:**
 - upon court order or lawful request in accordance with Ukrainian law.
@@ -152,7 +177,28 @@ We respond to requests within 30 days.
 
 You also have the right to lodge a complaint with the Ukrainian Parliament Commissioner for Human Rights (Ukraine) or the supervisory authority in your EU country.
 
-## 9. Cookies
+8.1. **Data Portability API.** The Client may use the REST API method `POST /api/user/export` to obtain their data in a machine-readable format (JSON). The export includes: profile, uploaded documents, AI query history, analysis results, Order history, and usage logs.
+
+## 9. Automated Decision-Making
+
+9.1. In accordance with Art. 22 GDPR, the Service does NOT make decisions with legal effects on the Client based solely on automated processing, including profiling.
+
+9.2. AI analysis results are informational assistance only and do not replace professional legal advice. No Platform decision (including ratings, moderation, escrow payouts) is fully automated — all material decisions provide for the possibility of human intervention.
+
+9.3. The Client has the right to request human review of any decision affecting their rights by contacting info@legal.org.ua.
+
+## 10. Legitimate Interest Assessment
+
+10.1. The Company processes certain categories of data based on legitimate interest (Art. 6(1)(f) GDPR) for the following purposes:
+- ensuring Service security and fraud prevention;
+- improving Service quality based on aggregated analytics;
+- detecting and preventing abuse.
+
+10.2. The Company has conducted a Legitimate Interest Assessment and determined that such processing does not override the rights and freedoms of data subjects.
+
+10.3. The Client has the right to request a copy of the Legitimate Interest Assessment by contacting info@legal.org.ua.
+
+## 11. Cookies
 
 The Service uses:
 - **essential cookies** — for authentication and session support (JWT tokens);
@@ -160,11 +206,11 @@ The Service uses:
 
 We do **NOT** use third-party advertising or analytics cookies. We do **NOT** track users across other websites.
 
-## 10. Children's Data Protection
+## 12. Children's Data Protection
 
 The Service is not intended for persons under the age of 18. We do not knowingly collect personal data from minors. If you believe a minor has provided us with their data, please contact us for its deletion.
 
-## 11. Changes to This Policy
+## 13. Changes to This Policy
 
 We may update this Privacy Policy. We will notify you of material changes:
 - via the email registered with your account;
@@ -173,33 +219,33 @@ We may update this Privacy Policy. We will notify you of material changes:
 
 Continued use of the Service after changes constitutes acceptance of the updated Policy.
 
-## 12. AI Quality and Safety
+## 14. AI Quality and Safety
 
 The Company implements comprehensive measures to ensure the quality and safety of AI data processing:
 
-**12.1. Continuous Monitoring:**
+**14.1. Continuous Monitoring:**
 - real-time automated monitoring of AI response quality;
 - tracking citation and reference accuracy metrics through the CitationValidator system;
 - monitoring HallucinationGuard performance to prevent generation of incorrect information.
 
-**12.2. User Feedback Loop:**
+**14.2. User Feedback Loop:**
 - Users can report incorrect AI analysis results;
 - every report is analyzed to improve Service quality;
 - systematic analysis of feedback to enhance safety mechanisms.
 
-**12.3. Regular Testing:**
+**14.3. Regular Testing:**
 - periodic testing of HallucinationGuard and CitationValidator mechanisms against current legal data;
 - verification of semantic search accuracy and result relevance;
 - assessment of AI error protection effectiveness.
 
-**12.4. Safety Audits:**
+**14.4. Safety Audits:**
 - regular internal audits of AI data processing procedures;
 - verification of compliance with personal data protection standards;
 - Data Protection Impact Assessment (DPIA) when implementing new AI features.
 
 For AI quality and safety inquiries, contact: info@legal.org.ua
 
-## 13. Contact Information
+## 15. Contact Information
 
 For data protection inquiries, please contact:
 
