@@ -24,7 +24,7 @@ export const QUERY_TYPE_CONFIG: Record<QueryType, QueryTypeConfig> = {
   case_lookup: {
     defaultBudget: 'standard',
     requiresGrounding: true,
-    preferredScenarios: ['specific_case_lookup', 'case_chain_analysis', 'comprehensive_case_analysis'],
+    preferredScenarios: ['specific_case_lookup', 'case_chain_analysis', 'comprehensive_case_analysis', 'edrsr_case_search'],
     groundingNote: 'Відповідь МУСИТЬ містити дані з результатів інструментів (номер справи, суд, дата, резолютивна частина). Не вигадуй деталі справи.',
     thinkingPrefix: 'Шукаю справу в реєстрі',
   },
@@ -112,7 +112,7 @@ export const QUERY_TYPE_CONFIG: Record<QueryType, QueryTypeConfig> = {
   institutional_analysis: {
     defaultBudget: 'deep',
     requiresGrounding: true,
-    preferredScenarios: ['court_practice_search', 'practice_pro_contra', 'supreme_court_practice'],
+    preferredScenarios: ['edrsr_judge_analysis', 'edrsr_case_search', 'court_practice_search', 'practice_pro_contra', 'supreme_court_practice'],
     groundingNote: 'Запит потребує глибокого інституційного аналізу. Система згенерує набір робочих процесів (workflows) для поетапного виконання.',
     thinkingPrefix: 'Генерую план глибокого аналізу',
   },

@@ -101,6 +101,8 @@ export function extractFromToolResult(
     'compare_practice_pro_contra',
     'get_court_decision',
     'count_cases_by_party',
+    'search_edrsr_decisions',
+    'get_edrsr_decision_fulltext',
   ];
   if (courtTools.some((t) => toolName.includes(t) || toolName === t)) {
     // source_case (single)
