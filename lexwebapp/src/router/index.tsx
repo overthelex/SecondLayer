@@ -19,8 +19,8 @@ import { LoginPage } from '../pages/LoginPage';
 function lazyWithRetry(factory: () => Promise<any>) {
   return lazy(() =>
     factory().catch(() => {
-      // Chunk not found (stale hash after deploy) — reload once to get new manifest
-      const key = 'chunk-reload';
+      // Chunk not found (stale hash after deploy) — reload once per page path
+      const key = `chunk-reload:${window.location.pathname}`;
       if (!sessionStorage.getItem(key)) {
         sessionStorage.setItem(key, '1');
         window.location.reload();
