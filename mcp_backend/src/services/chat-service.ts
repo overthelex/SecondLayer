@@ -43,6 +43,7 @@ import { ResultCompactor } from './chat-result-compactor.js';
 import { ChatContextBuilder } from './chat-context-builder.js';
 import type { WorkflowGeneratorService } from './workflow-generator-service.js';
 import type { WorkflowService } from './workflow-service.js';
+import { NameVariationService } from './name-variation-service.js';
 
 // ============================
 // Types
@@ -206,6 +207,7 @@ export class ChatService {
   private intentClassifier: IntentClassifier;
   private resultCompactor: ResultCompactor;
   private contextBuilder: ChatContextBuilder;
+  private nameVariationService: NameVariationService;
 
   constructor(
     private toolRegistry: ToolRegistry,
@@ -229,6 +231,7 @@ export class ChatService {
     this.intentClassifier = new IntentClassifier(toolRegistry, queryPlanner, llm, costRecorder);
     this.resultCompactor = new ResultCompactor(embeddingService);
     this.contextBuilder = new ChatContextBuilder(llm, costRecorder);
+    this.nameVariationService = new NameVariationService(llm);
 
     // Periodic cleanup of expired plan sessions (every 2 minutes)
     setInterval(() => {
@@ -1576,6 +1579,11 @@ export class ChatService {
         toolResult = { error: err.message };
       }
 
+      // Post-execution: retry entity search with name variations if not found
+      if (call.name === 'openreyestr_search_entities' && this.isEntityNotFound(toolResult) && call.arguments?.query) {
+        toolResult = await this.retryWithNameVariations(call.name, call.arguments, toolResult);
+      }
+
       // Post-execution: cache result & trigger background downloads
       if (this.searchCache && isCourtSearchTool(call.name) && !toolResult?.error) {
         this.searchCache.cacheResult(call.name, call.arguments, toolResult);
@@ -1587,6 +1595,83 @@ export class ChatService {
     }
 
     return { call, result: toolResult, cached };
+  }
+
+  /**
+   * Check if an OpenReyestr search result indicates "not found".
+   */
+  private isEntityNotFound(result: any): boolean {
+    if (Array.isArray(result) && result.length === 1 && result[0]?.found === false) {
+      return true;
+    }
+    // Result may come wrapped in MCP content format
+    if (result?.content && Array.isArray(result.content)) {
+      try {
+        const textBlock = result.content.find((b: any) => b.type === 'text');
+        if (textBlock?.text) {
+          const parsed = JSON.parse(textBlock.text);
+          if (Array.isArray(parsed) && parsed.length === 1 && parsed[0]?.found === false) {
+            return true;
+          }
+        }
+      } catch { /* not JSON, ignore */ }
+    }
+    return false;
+  }
+
+  /**
+   * Retry entity search with LLM-generated name spelling variations.
+   * Searches sequentially with early exit on first match.
+   */
+  private async retryWithNameVariations(
+    toolName: string,
+    originalArgs: any,
+    originalResult: any
+  ): Promise<any> {
+    const variations = await this.nameVariationService.generateVariations(originalArgs.query);
+    if (variations.length === 0) return originalResult;
+
+    logger.info('[ChatService] Retrying entity search with name variations', {
+      original: originalArgs.query,
+      variations,
+    });
+
+    for (const variant of variations) {
+      try {
+        const variantResult = await this.toolRegistry.executeTool(toolName, {
+          ...originalArgs,
+          query: variant,
+        });
+
+        if (!this.isEntityNotFound(variantResult)) {
+          logger.info('[ChatService] Name variation matched', {
+            original: originalArgs.query,
+            matchedVariant: variant,
+          });
+
+          // Return results with metadata about the name variation
+          if (Array.isArray(variantResult)) {
+            return {
+              _nameVariation: {
+                originalQuery: originalArgs.query,
+                matchedVariant: variant,
+                attemptedVariants: variations,
+              },
+              results: variantResult,
+            };
+          }
+          return variantResult;
+        }
+      } catch (err: any) {
+        logger.warn('[ChatService] Variant search failed', { variant, error: err.message });
+      }
+    }
+
+    // No matches found — enrich original result with attempted variants
+    if (Array.isArray(originalResult) && originalResult.length > 0) {
+      originalResult[0].attemptedVariants = variations;
+    }
+    return originalResult;
   }
 
   /**
