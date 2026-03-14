@@ -77,11 +77,15 @@ jobs:
       - name: Build shared package
         run: cd packages/shared && npm ci && npm run build
 
-      # Backend/RADA/OpenReyestr tests require running infrastructure (DB, Redis, MinIO).
-      # CI only verifies TypeScript compilation. Integration tests run in Docker.
+      # Backend/RADA/OpenReyestr integration tests require running infrastructure (DB, Redis, MinIO).
+      # CI runs TypeScript compilation + unit tests (mocked, no infra needed).
       - name: Build backend
         if: needs.detect-changes.outputs.backend == 'true'
         run: cd mcp_backend && npm ci && npm run build
+
+      - name: Unit test backend (controllers)
+        if: needs.detect-changes.outputs.backend == 'true'
+        run: cd mcp_backend && npx jest --no-cache src/controllers/__tests__/ --forceExit
 
       - name: Build RADA
         if: needs.detect-changes.outputs.rada == 'true'

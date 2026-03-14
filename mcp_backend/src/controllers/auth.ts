@@ -16,7 +16,7 @@ import { EmailService } from '../services/email-service.js';
 import { MinioService } from '../services/minio-service.js';
 import { BannerService } from '../services/banner-service.js';
 import type { ICachePort } from '../domain/ports/index.js';
-import { getDiiaService } from '../services/diia-service.js';
+import { getDiiaService, DiiaPermissionError } from '../services/diia-service.js';
 import * as oidcService from '../services/oidc-service.js';
 import { provisionAuthentikUser } from '../services/authentik-service.js';
 import { provisionNextcloudUser } from '../services/nextcloud-provisioning.js';
@@ -1500,7 +1500,8 @@ export async function diiaAuthInit(req: Request, res: Response): Promise<void> {
     logger.error('[Diia] Auth init failed:', error);
     const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host;
-    res.redirect(`${protocol}://${host}/login?error=diia_failed`);
+    const errorCode = error instanceof DiiaPermissionError ? 'diia_scope_forbidden' : 'diia_failed';
+    res.redirect(`${protocol}://${host}/login?error=${errorCode}`);
   }
 }
 
