@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import type { Article } from './articles';
 import { CommentSection } from './CommentSection';
+import { useLocaleStore } from '../../stores/localeStore';
+import { getBlogUI } from './blog-i18n';
 
 interface ArticleModalProps {
   article: Article;
@@ -20,6 +22,8 @@ interface ArticleModalProps {
 
 export function ArticleModal({ article, onClose }: ArticleModalProps) {
   const [copied, setCopied] = useState(false);
+  const language = useLocaleStore((s) => s.language);
+  const ui = getBlogUI(language);
 
   const getArticleUrl = () =>
     `${window.location.origin}/blog?article=${article.id}`;
@@ -80,28 +84,28 @@ export function ArticleModal({ article, onClose }: ArticleModalProps) {
             <button
               onClick={(e) => { e.stopPropagation(); shareOnLinkedIn(); }}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-[#0A66C2] bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 transition-colors"
-              title="Поділитися в LinkedIn"
+              title={ui.shareLinkedIn}
             >
               <Linkedin size={15} />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); shareOnX(); }}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-claude-text bg-claude-bg hover:bg-claude-border transition-colors"
-              title="Поділитися в X"
+              title={ui.shareX}
             >
               <Twitter size={15} />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); shareOnFacebook(); }}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1877F2] bg-[#1877F2]/10 hover:bg-[#1877F2]/20 transition-colors"
-              title="Поділитися у Facebook"
+              title={ui.shareFacebook}
             >
               <Facebook size={15} />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); copyLink(); }}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-claude-subtext bg-claude-bg hover:bg-claude-border transition-colors"
-              title="Копіювати посилання"
+              title={ui.copyLink}
             >
               {copied ? <Check size={15} className="text-green-600" /> : <Link2 size={15} />}
             </button>
@@ -165,7 +169,7 @@ export function ArticleModal({ article, onClose }: ArticleModalProps) {
           {/* Share footer */}
           <div className="mt-6 p-4 bg-claude-bg rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-claude-subtext font-sans">
-              Поділитися цією статтею:
+              {ui.shareArticle}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -194,7 +198,7 @@ export function ArticleModal({ article, onClose }: ArticleModalProps) {
                 className="flex items-center gap-2 px-4 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-sans font-medium hover:bg-claude-bg transition-colors"
               >
                 {copied ? <Check size={16} className="text-green-600" /> : <Link2 size={16} />}
-                {copied ? 'Скопійовано!' : 'Копіювати посилання'}
+                {copied ? ui.copied : ui.copyLink}
               </button>
             </div>
           </div>

@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 
-export type AppLanguage = 'uk' | 'en';
+export type AppLanguage = 'uk' | 'en' | 'ru';
 export type AppCurrency = 'UAH' | 'USD' | 'EUR';
 export type AppCountry = 'UA' | 'US' | 'GB' | 'DE' | 'FR' | 'NL' | 'EE' | 'OTHER';
 
@@ -41,6 +41,11 @@ function getDefaultsForCountry(countryCode: string): {
   // Ukrainian-speaking countries
   if (code === 'UA') {
     return { language: 'uk', currency: 'UAH', country: 'UA' };
+  }
+
+  // Russian-speaking countries
+  if (['RU', 'BY', 'KZ'].includes(code)) {
+    return { language: 'ru', currency: 'USD', country: 'OTHER' };
   }
 
   // Euro zone
