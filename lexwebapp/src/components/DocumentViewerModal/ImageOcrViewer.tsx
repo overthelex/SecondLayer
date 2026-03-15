@@ -44,7 +44,7 @@ export function ImageOcrViewer({ item, onSaveOcrText }: ImageOcrViewerProps) {
   };
 
   return (
-    <div className="flex gap-4 h-[70vh]">
+    <div className="flex gap-4 h-full">
       {/* Left: Image preview with zoom/crop/follow */}
       <div className="flex-1 min-w-0">
         <ImageViewer
