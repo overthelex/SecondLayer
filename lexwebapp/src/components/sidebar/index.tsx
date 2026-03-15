@@ -128,22 +128,6 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
     return () => clearInterval(interval);
   }, [user?.id, isAttorney]);
 
-  // Auto-expand conversations when new ones appear
-  useEffect(() => {
-    if (conversations.length > prevConversationCount.current && prevConversationCount.current >= 0) {
-      expandSection('conversations');
-    }
-    prevConversationCount.current = conversations.length;
-  }, [conversations.length]);
-
-  // Auto-expand attorneys/consultations when new pending items appear
-  useEffect(() => {
-    if (pendingCount > 0 && prevPendingCount.current === 0) {
-      expandSection('attorneys');
-    }
-    prevPendingCount.current = pendingCount;
-  }, [pendingCount]);
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
