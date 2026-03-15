@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import path from 'path'
+import { execSync } from 'child_process'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -20,6 +21,9 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'import.meta.env.VITE_BUILD_TIME': JSON.stringify(new Date().toISOString()),
+      'import.meta.env.VITE_APP_VERSION': JSON.stringify(
+        (() => { try { return execSync('git describe --tags --abbrev=0 2>/dev/null').toString().trim(); } catch { return 'dev'; } })()
+      ),
     },
     build: {
       outDir: mode === 'staging' ? 'dist-staging' : 'dist',
