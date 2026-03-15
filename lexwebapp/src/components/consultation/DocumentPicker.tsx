@@ -16,7 +16,7 @@ const PAGE_SIZE = 100;
 
 /** Extract top-level folder from a document's folderPath metadata */
 function getTopFolder(doc: VaultDocument): string {
-  const fp = doc.metadata?.folderPath || doc.metadata?.folder_path || '';
+  const fp = doc.metadata?.folderPath || (doc.metadata as any)?.folder_path || '';
   if (!fp) return '';
   // folderPath is like "Tolstogo23-case/Dvizh-Actions/..." — take first segment
   const first = fp.split('/').filter(Boolean)[0];
@@ -33,7 +33,7 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [folders, setFolders] = useState<string[]>([]);
   const [selectingAll, setSelectingAll] = useState(false);
-  const [folderDocCount, setFolderDocCount] = useState(0);
+  const [, setFolderDocCount] = useState(0);
 
   const loadDocs = useCallback(async (offset: number, append: boolean, folderPath?: string) => {
     try {
@@ -68,7 +68,7 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
   // Initial load — get all docs (first page) to extract folders
   useEffect(() => {
     setLoading(true);
-    loadDocs(0, false).then(({ loaded, total }) => {
+    loadDocs(0, false).then(({ loaded }) => {
       // Extract unique top-level folders
       const folderSet = new Set<string>();
       loaded.forEach(d => {
