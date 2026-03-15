@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { ZoomIn, ZoomOut, RotateCcw, Crop, ScanEye, Move } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, RotateCw, Crop, ScanEye, Move } from 'lucide-react';
 
 interface ImageViewerProps {
   src: string;
@@ -22,6 +22,7 @@ export function ImageViewer({ src, alt, onVisibleRangeChange }: ImageViewerProps
   // Transform state
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const [rotation, setRotation] = useState(0);
 
   // Mode state
   const [mode, setMode] = useState<Mode>('zoom');
@@ -99,6 +100,7 @@ export function ImageViewer({ src, alt, onVisibleRangeChange }: ImageViewerProps
   const resetZoom = useCallback(() => {
     setScale(1);
     setTranslate({ x: 0, y: 0 });
+    setRotation(0);
   }, []);
 
   // --- Visible range reporting for ZoomFollow ---
@@ -304,6 +306,7 @@ export function ImageViewer({ src, alt, onVisibleRangeChange }: ImageViewerProps
     setCropEnd(null);
     setScale(1);
     setTranslate({ x: 0, y: 0 });
+    setRotation(0);
     setMode('zoom');
   }, [cropStart, cropEnd, scale, translate]);
 
@@ -347,6 +350,23 @@ export function ImageViewer({ src, alt, onVisibleRangeChange }: ImageViewerProps
           title="Скинути масштаб (Ctrl+0)"
         >
           <RotateCcw size={16} strokeWidth={2} />
+        </button>
+
+        <div className="w-px h-4 bg-claude-border mx-1" />
+
+        <button
+          onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
+          className="p-1.5 rounded-md text-claude-subtext hover:text-claude-text hover:bg-claude-bg transition-all"
+          title="Повернути проти годинникової"
+        >
+          <RotateCcw size={16} strokeWidth={2} />
+        </button>
+        <button
+          onClick={() => setRotation((r) => (r + 90) % 360)}
+          className="p-1.5 rounded-md text-claude-subtext hover:text-claude-text hover:bg-claude-bg transition-all"
+          title="Повернути за годинниковою"
+        >
+          <RotateCw size={16} strokeWidth={2} />
         </button>
 
         <div className="w-px h-4 bg-claude-border mx-1" />
@@ -407,7 +427,7 @@ export function ImageViewer({ src, alt, onVisibleRangeChange }: ImageViewerProps
         <div
           className="w-full h-full flex items-center justify-center"
           style={{
-            transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
+            transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale}) rotate(${rotation}deg)`,
             transformOrigin: 'center center',
             transition: isPanning || isCropping ? 'none' : 'transform 0.2s ease-out',
           }}
