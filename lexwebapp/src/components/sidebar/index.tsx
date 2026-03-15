@@ -19,7 +19,7 @@ import { Section } from './Section';
 import { SidebarFooter } from './SidebarFooter';
 import {
   researchSections, legislationSections, getMattersSections,
-  attorneyClientSections, externalSourcesSections, monitoringSections,
+  externalSourcesSections, monitoringSections,
 } from './nav-config';
 
 interface SidebarProps {
