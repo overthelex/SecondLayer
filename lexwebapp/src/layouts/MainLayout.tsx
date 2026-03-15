@@ -14,6 +14,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useUIStore } from '../stores';
 import { ROUTES } from '../router/routes';
 import { consultationService, type Consultation } from '../services/api/ConsultationService';
+import showToast from '../utils/toast';
 
 // Map routes to page titles
 const PAGE_TITLES: Record<string, string> = {
@@ -68,13 +69,18 @@ export function MainLayout() {
   // Fetch unseen pending consultations for attorneys
   useEffect(() => {
     if (!user?.id) return;
-    if (sessionStorage.getItem(SESSION_KEY)) return;
 
     consultationService.getUnseenPending()
       .then(data => {
         if (data.count > 0) {
           setPendingConsultations(data.consultations);
-          setShowInvitationsModal(true);
+          // Show modal only once per session
+          if (!sessionStorage.getItem(SESSION_KEY)) {
+            setShowInvitationsModal(true);
+          }
+          // Always show toast notification
+          const word = data.count === 1 ? 'новий запит' : data.count < 5 ? 'нових запити' : 'нових запитів';
+          showToast.info(`У вас ${data.count} ${word} на консультацію`);
         }
       })
       .catch(() => {});
