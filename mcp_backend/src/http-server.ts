@@ -2410,13 +2410,29 @@ class HTTPMCPServer {
             const chargedUsd = trackingRow.rows[0]?.total_cost_usd
               ? parseFloat(trackingRow.rows[0].total_cost_usd)
               : chatTotalCostUsd;
-            res.write(`event: cost_summary\n`);
-            res.write(`data: ${JSON.stringify({
+            const costSummaryFull = {
               total_cost_usd: chatTotalCostUsd,
               charged_usd: chargedUsd,
-              markup_percentage: trackingRow.rows[0]?.markup_percentage ?? 0,
               balance_usd: summary?.balance_usd ?? 0,
+            };
+            res.write(`event: cost_summary\n`);
+            res.write(`data: ${JSON.stringify({
+              ...costSummaryFull,
+              markup_percentage: trackingRow.rows[0]?.markup_percentage ?? 0,
             })}\n\n`);
+
+            // Persist charged_usd back to conversation_messages so reload shows correct cost
+            if (conversationId) {
+              this.services.db.query(
+                `UPDATE conversation_messages SET cost_summary = $1
+                 WHERE id = (
+                   SELECT id FROM conversation_messages
+                   WHERE conversation_id = $2 AND role = 'assistant'
+                   ORDER BY created_at DESC LIMIT 1
+                 )`,
+                [JSON.stringify(costSummaryFull), conversationId]
+              ).catch(e => logger.warn('[ChatService] Failed to persist charged_usd', { error: e.message }));
+            }
           } catch (e: any) {
             logger.warn('[ChatService] Failed to emit cost_summary', { error: e.message, requestId });
           }
