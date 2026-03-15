@@ -151,6 +151,12 @@ export class MatterService extends BaseService {
   async validateAuditChain(): Promise<AuditValidationResult> {
     return this.request(() => this.client.get<AuditValidationResult>('/api/matters/audit/validate'));
   }
+
+  // ─── Auto-create from upload ──────────────────────────────
+
+  async autoCreateFromUpload(documentIds: string[]): Promise<{ matter: Matter; description: string; documentsAssigned: number }> {
+    return this.request(() => this.client.post('/api/matters/auto-create-from-upload', { documentIds }));
+  }
 }
 
 // Export singleton instance
