@@ -159,8 +159,8 @@ export class IntentClassifier {
         else if (/(?:^|\s)(?:напиш[иі]|склад[иі]|підготуй|зразок|шаблон)\s.{0,60}(?:позов|скарг|заяв|клопотан|претенз)/i.test(query)) {
           queryType = 'document_drafting';
         }
-        // Due diligence: "перевір контрагента", "due diligence"
-        else if (/due.?diligence|перевір.{0,30}контрагент|комплексна перевірка/i.test(query)) {
+        // Due diligence: "перевір контрагента/компанію/власників", "due diligence"
+        else if (/due.?diligence|перевір.{0,30}(?:контрагент|компані|підприємств|власник|бенефіціар|засновник|афілі)|комплексна перевірка|корупц.{0,30}схем/i.test(query)) {
           queryType = 'due_diligence';
         }
         // Parliament: "депутат", "законопроєкт", "голосування"
@@ -196,6 +196,11 @@ export class IntentClassifier {
       // Generate unsupportedReason if not provided by LLM
       if (queryType === 'unsupported' && !unsupportedReason) {
         unsupportedReason = 'Цей запит виходить за межі можливостей юридичної системи SecondLayer. Я спеціалізуюся на українському праві: судова практика, законодавство, реєстри, парламентські дані.';
+      }
+
+      // Auto-inject 'registry' domain when query mentions companies, owners, beneficiaries
+      if (!domains.includes('registry') && /компані|ТОВ |ПАТ |підприємств|власник|бенефіціар|засновник|афілі|ЄДРПОУ|edrpou/i.test(query)) {
+        domains.push('registry');
       }
 
       logger.info('[IntentClassifier] LLM intent classification', { domains, keywords, slots, queryType, unsupportedReason });
