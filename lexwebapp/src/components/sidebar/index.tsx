@@ -5,12 +5,13 @@ import showToast from '../../utils/toast';
 import {
   Plus, MessageSquare, X, Edit3, Trash2,
   ChevronsUpDown, Archive, Folder, FolderOpen,
-  Zap,
+  Zap, Briefcase, Users, Search,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChatStore } from '../../stores/chatStore';
 import { api } from '../../utils/api-client';
+import { consultationService } from '../../services/api/ConsultationService';
 import type { UserRole } from '../../types/models/User';
 
 import { NavItem } from './NavItem';
@@ -45,6 +46,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   const [vaultFolders, setVaultFolders] = useState<string[]>([]);
   const [vaultFoldersLoaded, setVaultFoldersLoaded] = useState(false);
   const [deletingFolder, setDeletingFolder] = useState<string | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   const conversations = useChatStore(s => s.conversations);
@@ -100,6 +102,19 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
     window.addEventListener('vault-folders-changed', handler);
     return () => window.removeEventListener('vault-folders-changed', handler);
   }, []);
+
+  // Poll pending consultations for attorneys (every 60s)
+  useEffect(() => {
+    if (!user?.id || !isAttorney) return;
+    const fetchPending = () => {
+      consultationService.getUnseenPending()
+        .then(data => setPendingCount(data.count))
+        .catch(() => {});
+    };
+    fetchPending();
+    const interval = setInterval(fetchPending, 60_000);
+    return () => clearInterval(interval);
+  }, [user?.id, isAttorney]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -296,13 +311,15 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                 ))}
               </Section>
 
-              {!isAttorney && (
-                <Section id="attorneys" title="Адвокати" collapsed={collapsedSections.has('attorneys')} onToggle={toggleSection}>
-                  {attorneyClientSections.map((s) => (
-                    <NavItem key={s.id} icon={s.icon} label={s.label} route={s.route} onClick={() => handleNavigation(s.route)} />
-                  ))}
-                </Section>
-              )}
+              <Section id="attorneys" title={isAttorney ? 'Консультації' : 'Адвокати'} collapsed={collapsedSections.has('attorneys')} onToggle={toggleSection}>
+                {!isAttorney && (
+                  <NavItem icon={Search} label="Знайти адвоката" route={ROUTES.ATTORNEYS} onClick={() => handleNavigation(ROUTES.ATTORNEYS)} />
+                )}
+                <NavItem icon={Briefcase} label="Мої консультації" route={ROUTES.CONSULTATIONS} onClick={() => handleNavigation(ROUTES.CONSULTATIONS)} badge={pendingCount > 0 ? pendingCount : undefined} />
+                {isAttorney && (
+                  <NavItem icon={Users} label="Мої клієнти" route={ROUTES.ATTORNEY_CLIENTS} onClick={() => handleNavigation(ROUTES.ATTORNEY_CLIENTS)} />
+                )}
+              </Section>
 
               <div className="mb-6">
                 <NavItem icon={Zap} label="Workflows" route={ROUTES.WORKFLOWS} onClick={() => handleNavigation(ROUTES.WORKFLOWS)} />
