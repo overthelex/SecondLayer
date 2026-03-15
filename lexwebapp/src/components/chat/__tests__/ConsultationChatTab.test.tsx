@@ -148,7 +148,7 @@ describe('ConsultationChatTab', () => {
         expect(screen.getByText('Test message')).toBeInTheDocument();
       });
 
-      expect(mockSendMessage).toHaveBeenCalledWith('cons-1', 'Test message');
+      expect(mockSendMessage).toHaveBeenCalledWith('cons-1', 'Test message', undefined, undefined);
     });
 
     it('does not send empty messages', async () => {
