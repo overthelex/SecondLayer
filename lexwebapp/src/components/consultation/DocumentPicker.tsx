@@ -57,6 +57,37 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
     setLoadingMore(false);
   };
 
+  const [selectingAll, setSelectingAll] = useState(false);
+
+  // Load ALL remaining pages and return full doc list
+  const loadAllDocs = async (): Promise<VaultDocument[]> => {
+    let all = [...docs];
+    let offset = all.length;
+    while (offset < totalCount) {
+      try {
+        const result = await mcpService.callTool('list_documents', {
+          limit: PAGE_SIZE,
+          offset,
+          sortBy: 'uploadedAt',
+          sortOrder: 'desc',
+        });
+        const parsed = result?.result?.content?.[0]?.text
+          ? JSON.parse(result.result.content[0].text)
+          : result?.result || result;
+        const loaded: VaultDocument[] = parsed.documents || [];
+        if (loaded.length === 0) break;
+        all = [...all, ...loaded];
+        offset = all.length;
+      } catch {
+        break;
+      }
+    }
+    setDocs(all);
+    setHasMore(false);
+    onDocsLoaded(all);
+    return all;
+  };
+
   const toggle = (id: string) => {
     onChange(
       selectedIds.includes(id)
@@ -75,16 +106,26 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(d => selectedIds.includes(d.id));
 
-  const toggleAll = () => {
-    if (allFilteredSelected) {
-      // Deselect all filtered
+  const toggleAll = async () => {
+    if (allFilteredSelected && !hasMore) {
+      // Deselect all
       const filteredIds = new Set(filtered.map(d => d.id));
       onChange(selectedIds.filter(id => !filteredIds.has(id)));
     } else {
-      // Select all filtered (merge with existing selection)
-      const existing = new Set(selectedIds);
-      const merged = [...selectedIds, ...filtered.filter(d => !existing.has(d.id)).map(d => d.id)];
-      onChange(merged);
+      // Select all — load remaining pages first if needed
+      setSelectingAll(true);
+      try {
+        const allDocs = hasMore ? await loadAllDocs() : docs;
+        const allFiltered = q
+          ? allDocs.filter(d =>
+              d.title.toLowerCase().includes(q) ||
+              (d.metadata?.originalFilename || '').toLowerCase().includes(q)
+            )
+          : allDocs;
+        onChange(allFiltered.map(d => d.id));
+      } finally {
+        setSelectingAll(false);
+      }
     }
   };
 
@@ -107,11 +148,21 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
           <button
             type="button"
             onClick={toggleAll}
-            disabled={filtered.length === 0}
+            disabled={filtered.length === 0 || selectingAll}
             className="flex items-center gap-1.5 text-xs text-claude-subtext hover:text-claude-text transition-colors disabled:opacity-40"
           >
-            {allFilteredSelected ? <CheckSquare size={14} /> : <Square size={14} />}
-            {allFilteredSelected ? 'Зняти вибір' : `Вибрати все (${filtered.length})`}
+            {selectingAll ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : allFilteredSelected && !hasMore ? (
+              <CheckSquare size={14} />
+            ) : (
+              <Square size={14} />
+            )}
+            {selectingAll
+              ? `Завантаження всіх (${docs.length} / ${totalCount})...`
+              : allFilteredSelected && !hasMore
+                ? 'Зняти вибір'
+                : `Вибрати все (${totalCount > filtered.length ? totalCount : filtered.length})`}
           </button>
           {hasSelected && (
             <span className="text-xs text-claude-accent font-medium">
