@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, FileText, File, Loader2, CheckSquare, Square, ChevronDown } from 'lucide-react';
+import { Search, FileText, File, Loader2, CheckSquare, Square, ChevronDown, FolderOpen } from 'lucide-react';
 import { mcpService } from '../../services/api/MCPService';
 import type { VaultDocument } from '../../pages/DocumentsPage/types';
 import { getFileExtension } from '../../pages/DocumentsPage/types';
@@ -14,6 +14,15 @@ interface Props {
 
 const PAGE_SIZE = 100;
 
+/** Extract top-level folder from a document's folderPath metadata */
+function getTopFolder(doc: VaultDocument): string {
+  const fp = doc.metadata?.folderPath || doc.metadata?.folder_path || '';
+  if (!fp) return '';
+  // folderPath is like "Tolstogo23-case/Dvizh-Actions/..." — take first segment
+  const first = fp.split('/').filter(Boolean)[0];
+  return first || '';
+}
+
 export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, onNext }: Props) {
   const [docs, setDocs] = useState<VaultDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,15 +30,22 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
   const [search, setSearch] = useState('');
   const [hasMore, setHasMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const [selectedFolder, setSelectedFolder] = useState<string>('');
+  const [folders, setFolders] = useState<string[]>([]);
+  const [selectingAll, setSelectingAll] = useState(false);
+  const [folderDocCount, setFolderDocCount] = useState(0);
 
-  const loadDocs = useCallback(async (offset: number, append: boolean) => {
+  const loadDocs = useCallback(async (offset: number, append: boolean, folderPath?: string) => {
     try {
-      const result = await mcpService.callTool('list_documents', {
+      const params: Record<string, any> = {
         limit: PAGE_SIZE,
         offset,
         sortBy: 'uploadedAt',
         sortOrder: 'desc',
-      });
+      };
+      if (folderPath) params.folderPath = folderPath;
+
+      const result = await mcpService.callTool('list_documents', params);
       const parsed = result?.result?.content?.[0]?.text
         ? JSON.parse(result.result.content[0].text)
         : result?.result || result;
@@ -39,38 +55,62 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
       const updated = append ? [...docs, ...loaded] : loaded;
       setDocs(updated);
       setTotalCount(total);
+      setFolderDocCount(total);
       setHasMore(updated.length < total);
       onDocsLoaded(updated);
+      return { loaded, total };
     } catch (err) {
       console.error('Failed to load documents:', err);
+      return { loaded: [], total: 0 };
     }
   }, [docs, onDocsLoaded]);
 
+  // Initial load — get all docs (first page) to extract folders
   useEffect(() => {
     setLoading(true);
-    loadDocs(0, false).finally(() => setLoading(false));
+    loadDocs(0, false).then(({ loaded, total }) => {
+      // Extract unique top-level folders
+      const folderSet = new Set<string>();
+      loaded.forEach(d => {
+        const f = getTopFolder(d);
+        if (f) folderSet.add(f);
+      });
+      setFolders(Array.from(folderSet).sort());
+      setLoading(false);
+    });
   }, []);
 
   const loadMore = async () => {
     setLoadingMore(true);
-    await loadDocs(docs.length, true);
+    await loadDocs(docs.length, true, selectedFolder || undefined);
     setLoadingMore(false);
   };
 
-  const [selectingAll, setSelectingAll] = useState(false);
+  // When folder changes — reload from scratch with folderPath filter
+  const handleFolderChange = async (folder: string) => {
+    setSelectedFolder(folder);
+    setSearch('');
+    setLoading(true);
+    await loadDocs(0, false, folder || undefined);
+    setLoading(false);
+  };
 
-  // Load ALL remaining pages and return full doc list
+  // Load ALL remaining pages
   const loadAllDocs = async (): Promise<VaultDocument[]> => {
     let all = [...docs];
     let offset = all.length;
+    const fp = selectedFolder || undefined;
     while (offset < totalCount) {
       try {
-        const result = await mcpService.callTool('list_documents', {
+        const params: Record<string, any> = {
           limit: PAGE_SIZE,
           offset,
           sortBy: 'uploadedAt',
           sortOrder: 'desc',
-        });
+        };
+        if (fp) params.folderPath = fp;
+
+        const result = await mcpService.callTool('list_documents', params);
         const parsed = result?.result?.content?.[0]?.text
           ? JSON.parse(result.result.content[0].text)
           : result?.result || result;
@@ -78,6 +118,8 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
         if (loaded.length === 0) break;
         all = [...all, ...loaded];
         offset = all.length;
+        // Update UI during loading
+        setDocs([...all]);
       } catch {
         break;
       }
@@ -108,11 +150,9 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
 
   const toggleAll = async () => {
     if (allFilteredSelected && !hasMore) {
-      // Deselect all
       const filteredIds = new Set(filtered.map(d => d.id));
       onChange(selectedIds.filter(id => !filteredIds.has(id)));
     } else {
-      // Select all — load remaining pages first if needed
       setSelectingAll(true);
       try {
         const allDocs = hasMore ? await loadAllDocs() : docs;
@@ -122,7 +162,10 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
               (d.metadata?.originalFilename || '').toLowerCase().includes(q)
             )
           : allDocs;
-        onChange(allFiltered.map(d => d.id));
+        // Merge with existing selections from other folders
+        const existing = new Set(selectedIds);
+        const merged = [...selectedIds, ...allFiltered.filter(d => !existing.has(d.id)).map(d => d.id)];
+        onChange(merged);
       } finally {
         setSelectingAll(false);
       }
@@ -134,6 +177,24 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
   return (
     <div className="flex flex-col h-full">
       <div className="p-5 pb-3 space-y-3">
+        {/* Folder filter */}
+        {folders.length > 0 && (
+          <div className="flex items-center gap-2">
+            <FolderOpen size={14} className="text-claude-subtext shrink-0" />
+            <select
+              value={selectedFolder}
+              onChange={e => handleFolderChange(e.target.value)}
+              className="flex-1 text-sm border border-claude-border rounded-lg px-3 py-2 bg-white text-claude-text focus:outline-none focus:border-claude-subtext/40 transition-colors"
+            >
+              <option value="">Усі папки</option>
+              {folders.map(f => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-claude-subtext" />
           <input
@@ -144,6 +205,8 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
             onChange={e => setSearch(e.target.value)}
           />
         </div>
+
+        {/* Select all + count */}
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -162,17 +225,17 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
               ? `Завантаження всіх (${docs.length} / ${totalCount})...`
               : allFilteredSelected && !hasMore
                 ? 'Зняти вибір'
-                : `Вибрати все (${totalCount > filtered.length ? totalCount : filtered.length})`}
+                : `Вибрати все${selectedFolder ? ` в ${selectedFolder}` : ''} (${totalCount > filtered.length ? totalCount : filtered.length})`}
           </button>
           {hasSelected && (
             <span className="text-xs text-claude-accent font-medium">
-              Вибрано: {selectedIds.length}{totalCount > 0 ? ` / ${totalCount}` : ''}
+              Вибрано: {selectedIds.length}
             </span>
           )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 min-h-0" style={{ maxHeight: '350px' }}>
+      <div className="flex-1 overflow-y-auto px-5 min-h-0" style={{ maxHeight: '300px' }}>
         {loading ? (
           <div className="flex items-center justify-center py-12 text-claude-subtext">
             <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -180,7 +243,7 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
           </div>
         ) : docs.length === 0 ? (
           <div className="text-center py-12 text-claude-subtext text-sm">
-            У вас ще немає документів
+            {selectedFolder ? `Папка "${selectedFolder}" порожня` : 'У вас ще немає документів'}
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-8 text-claude-subtext text-sm">
@@ -224,7 +287,6 @@ export function DocumentPicker({ selectedIds, onChange, onDocsLoaded, onBack, on
               );
             })}
 
-            {/* Load More */}
             {hasMore && (
               <button
                 type="button"
