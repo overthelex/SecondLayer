@@ -112,7 +112,7 @@ export const QUERY_TYPE_CONFIG: Record<QueryType, QueryTypeConfig> = {
   institutional_analysis: {
     defaultBudget: 'deep',
     requiresGrounding: true,
-    preferredScenarios: ['edrsr_judge_analysis', 'edrsr_case_search', 'court_practice_search', 'practice_pro_contra', 'supreme_court_practice'],
+    preferredScenarios: ['edrsr_judge_analysis', 'edrsr_case_search', 'court_practice_search', 'practice_pro_contra', 'supreme_court_practice', 'due_diligence_check', 'entity_search_name', 'beneficiary_search'],
     groundingNote: 'Запит потребує глибокого інституційного аналізу. Система згенерує набір робочих процесів (workflows) для поетапного виконання.',
     thinkingPrefix: 'Генерую план глибокого аналізу',
   },

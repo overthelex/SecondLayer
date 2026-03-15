@@ -189,6 +189,17 @@ export class IntentClassifier {
         }
       }
 
+      // Escalate due_diligence → institutional_analysis for long-period investigations
+      // Queries spanning 5+ years, mentioning corruption schemes, or requesting deep investigation
+      // of affiliated persons need workflow-based multi-step analysis, not a single agentic loop
+      if (queryType === 'due_diligence') {
+        const hasLongPeriod = /(?:\d{2,})\s*(?:років|рок|лет|year)|за\s+(?:весь\s+)?(?:час|період|історі)/i.test(query);
+        const isDeepInvestigation = /корупц|розслідуван|афілі.{0,30}(?:персон|осіб|чиновник|судд|адвокат|нотаріус)|схем.{0,20}(?:присво|виведен|захоплен)/i.test(query);
+        if (hasLongPeriod || isDeepInvestigation) {
+          queryType = 'institutional_analysis';
+        }
+      }
+
       let unsupportedReason = queryType === 'unsupported' && typeof parsed.unsupportedReason === 'string'
         ? parsed.unsupportedReason
         : undefined;
