@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Loader2, Send, Star, CreditCard, CheckCircle, XCircle, Play, MessageSquare } from 'lucide-react';
-import { consultationService, type Consultation, type ConsultationMessage } from '../../services/api/ConsultationService';
+import { ArrowLeft, Loader2, Star, CreditCard, CheckCircle, XCircle, Play, MessageSquare, Shield, Lock } from 'lucide-react';
+import { consultationService, type Consultation } from '../../services/api/ConsultationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { getErrorMessage } from '../../utils/errors';
+import { ConsultationChatTab } from '../../components/chat/ConsultationChatTab';
 
 const STATUS_STEPS = ['pending', 'accepted', 'paid', 'in_progress', 'completed'];
 const STATUS_LABELS: Record<string, string> = {
@@ -16,15 +17,12 @@ export function ConsultationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const [consultation, setConsultation] = useState<Consultation | null>(null);
-  const [messages, setMessages] = useState<ConsultationMessage[]>([]);
-  const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
   const [actionLoading, setActionLoading] = useState('');
   const [showReview, setShowReview] = useState(false);
+  const [showEscrow, setShowEscrow] = useState(false);
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isClient = consultation?.client_user_id === user?.id;
   const isAttorney = consultation?.attorney_user_id === user?.id;
@@ -32,12 +30,8 @@ export function ConsultationDetailPage() {
   const load = async () => {
     if (!id) return;
     try {
-      const [c, m] = await Promise.all([
-        consultationService.getConsultation(id),
-        consultationService.getMessages(id),
-      ]);
+      const c = await consultationService.getConsultation(id);
       setConsultation(c);
-      setMessages(m.messages);
     } catch {
       setConsultation(null);
       sessionStorage.removeItem('lastConsultationId');
@@ -50,7 +44,6 @@ export function ConsultationDetailPage() {
     load();
     if (id) sessionStorage.setItem('lastConsultationId', id);
   }, [id]);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const handleAction = async (action: string) => {
     if (!id) return;
@@ -90,20 +83,6 @@ export function ConsultationDetailPage() {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!id || !newMessage.trim()) return;
-    setSending(true);
-    try {
-      const msg = await consultationService.sendMessage(id, newMessage.trim());
-      setMessages(prev => [...prev, msg]);
-      setNewMessage('');
-    } catch {
-      alert('Не вдалося надіслати повідомлення');
-    } finally {
-      setSending(false);
-    }
-  };
-
   const handleSubmitReview = async () => {
     if (!id) return;
     try {
@@ -130,164 +109,206 @@ export function ConsultationDetailPage() {
 
   const currentStepIdx = STATUS_STEPS.indexOf(consultation.status);
   const isTerminal = ['cancelled', 'declined', 'disputed'].includes(consultation.status);
+  const isChatDisabled = isTerminal || consultation.status === 'completed';
 
   return (
-    <div className="h-full overflow-y-auto">
-    <div className="max-w-4xl mx-auto p-6">
-      <Link to="/consultations?list" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6">
-        <ArrowLeft className="w-4 h-4" /> Назад до консультацій
-      </Link>
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="flex-shrink-0 overflow-y-auto max-h-[45vh] border-b border-gray-200">
+        <div className="max-w-4xl mx-auto p-6">
+          <Link to="/consultations?list" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4">
+            <ArrowLeft className="w-4 h-4" /> Назад до консультацій
+          </Link>
 
-      <div className="bg-white border rounded-lg p-6 mb-6">
-        <h1 className="text-xl font-bold text-gray-900 mb-2">{consultation.request_title}</h1>
-        {consultation.request_description && (
-          <p className="text-gray-600 mb-4">{consultation.request_description}</p>
-        )}
-        <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-          <span>Клієнт: <strong>{consultation.client_name}</strong></span>
-          <span>Адвокат: <strong>{consultation.attorney_name}</strong></span>
-          {consultation.matter_name && <span>Справа: <strong>{consultation.matter_name}</strong></span>}
-          {consultation.agreed_fee_uah && <span>Вартість: <strong>{consultation.agreed_fee_uah} грн</strong></span>}
-        </div>
-      </div>
+          <div className="bg-white border rounded-lg p-5 mb-4">
+            <h1 className="text-lg font-bold text-gray-900 mb-2">{consultation.request_title}</h1>
+            {consultation.request_description && (
+              <p className="text-sm text-gray-600 mb-3">{consultation.request_description}</p>
+            )}
+            <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+              <span>Клієнт: <strong>{consultation.client_name}</strong></span>
+              <span>Адвокат: <strong>{consultation.attorney_name}</strong></span>
+              {consultation.matter_name && <span>Справа: <strong>{consultation.matter_name}</strong></span>}
+              {consultation.agreed_fee_uah && <span>Вартість: <strong>{consultation.agreed_fee_uah} грн</strong></span>}
+            </div>
+          </div>
 
-      {/* Status timeline */}
-      {!isTerminal && (
-        <div className="bg-white border rounded-lg p-5 mb-6">
-          <div className="flex items-center justify-between">
-            {STATUS_STEPS.map((step, i) => {
-              const isActive = i <= currentStepIdx;
-              const isCurrent = step === consultation.status;
-              return (
-                <div key={step} className="flex items-center flex-1">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium ${
-                    isCurrent ? 'bg-indigo-600 text-white' : isActive ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
-                  }`}>
-                    {isActive && !isCurrent ? <CheckCircle className="w-4 h-4" /> : i + 1}
-                  </div>
-                  <span className={`ml-2 text-xs hidden sm:inline ${isCurrent ? 'text-indigo-600 font-semibold' : 'text-gray-400'}`}>
-                    {STATUS_LABELS[step]}
-                  </span>
-                  {i < STATUS_STEPS.length - 1 && (
-                    <div className={`flex-1 h-0.5 mx-2 ${isActive ? 'bg-green-300' : 'bg-gray-200'}`} />
-                  )}
-                </div>
-              );
-            })}
+          {/* Status timeline */}
+          {!isTerminal && (
+            <div className="bg-white border rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between">
+                {STATUS_STEPS.map((step, i) => {
+                  const isActive = i <= currentStepIdx;
+                  const isCurrent = step === consultation.status;
+                  return (
+                    <div key={step} className="flex items-center flex-1">
+                      <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium ${
+                        isCurrent ? 'bg-indigo-600 text-white' : isActive ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
+                      }`}>
+                        {isActive && !isCurrent ? <CheckCircle className="w-3.5 h-3.5" /> : i + 1}
+                      </div>
+                      <span className={`ml-1.5 text-xs hidden sm:inline ${isCurrent ? 'text-indigo-600 font-semibold' : 'text-gray-400'}`}>
+                        {STATUS_LABELS[step]}
+                      </span>
+                      {i < STATUS_STEPS.length - 1 && (
+                        <div className={`flex-1 h-0.5 mx-2 ${isActive ? 'bg-green-300' : 'bg-gray-200'}`} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {isTerminal && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 font-medium text-sm">{STATUS_LABELS[consultation.status]}</p>
+              {consultation.decline_reason && <p className="text-xs text-red-600 mt-1">Причина: {consultation.decline_reason}</p>}
+              {consultation.cancel_reason && <p className="text-xs text-red-600 mt-1">Причина: {consultation.cancel_reason}</p>}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2">
+            {isAttorney && consultation.status === 'pending' && (
+              <>
+                <button onClick={() => handleAction('accept')} disabled={!!actionLoading}
+                  className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
+                  {actionLoading === 'accept' ? <Loader2 className="w-4 h-4 animate-spin inline" /> : <CheckCircle className="w-4 h-4 inline mr-1" />}
+                  Прийняти
+                </button>
+                <button onClick={() => handleAction('decline')} disabled={!!actionLoading}
+                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50">
+                  Відхилити
+                </button>
+              </>
+            )}
+            {isClient && consultation.status === 'accepted' && (
+              <button onClick={() => setShowEscrow(true)} disabled={!!actionLoading}
+                className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
+                <CreditCard className="w-4 h-4 inline mr-1" />
+                Оплатити {consultation.agreed_fee_uah ? `${consultation.agreed_fee_uah} грн` : ''}
+              </button>
+            )}
+            {isAttorney && consultation.status === 'paid' && (
+              <button onClick={() => handleAction('start')} disabled={!!actionLoading}
+                className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 disabled:opacity-50">
+                <Play className="w-4 h-4 inline mr-1" />
+                Почати роботу
+              </button>
+            )}
+            {isAttorney && consultation.status === 'in_progress' && (
+              <button onClick={() => handleAction('complete')} disabled={!!actionLoading}
+                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
+                Завершити
+              </button>
+            )}
+            {!isTerminal && consultation.status !== 'completed' && (
+              <button onClick={() => handleAction('cancel')} disabled={!!actionLoading}
+                className="px-3 py-1.5 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
+                <XCircle className="w-4 h-4 inline mr-1" />
+                Скасувати
+              </button>
+            )}
+            {isClient && consultation.status === 'completed' && (
+              <button onClick={() => setShowReview(true)}
+                className="px-3 py-1.5 bg-yellow-500 text-white rounded-lg text-sm hover:bg-yellow-600">
+                <Star className="w-4 h-4 inline mr-1" />
+                Залишити відгук
+              </button>
+            )}
           </div>
         </div>
-      )}
-
-      {isTerminal && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-700 font-medium">{STATUS_LABELS[consultation.status]}</p>
-          {consultation.decline_reason && <p className="text-sm text-red-600 mt-1">Причина: {consultation.decline_reason}</p>}
-          {consultation.cancel_reason && <p className="text-sm text-red-600 mt-1">Причина: {consultation.cancel_reason}</p>}
-        </div>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {isAttorney && consultation.status === 'pending' && (
-          <>
-            <button onClick={() => handleAction('accept')} disabled={!!actionLoading}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
-              {actionLoading === 'accept' ? <Loader2 className="w-4 h-4 animate-spin inline" /> : <CheckCircle className="w-4 h-4 inline mr-1" />}
-              Прийняти
-            </button>
-            <button onClick={() => handleAction('decline')} disabled={!!actionLoading}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50">
-              Відхилити
-            </button>
-          </>
-        )}
-        {isClient && consultation.status === 'accepted' && (
-          <button onClick={() => handleAction('pay')} disabled={!!actionLoading}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
-            <CreditCard className="w-4 h-4 inline mr-1" />
-            Оплатити {consultation.agreed_fee_uah ? `${consultation.agreed_fee_uah} грн` : ''}
-          </button>
-        )}
-        {isAttorney && consultation.status === 'paid' && (
-          <button onClick={() => handleAction('start')} disabled={!!actionLoading}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 disabled:opacity-50">
-            <Play className="w-4 h-4 inline mr-1" />
-            Почати роботу
-          </button>
-        )}
-        {isAttorney && consultation.status === 'in_progress' && (
-          <button onClick={() => handleAction('complete')} disabled={!!actionLoading}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
-            Завершити
-          </button>
-        )}
-        {!isTerminal && consultation.status !== 'completed' && (
-          <button onClick={() => handleAction('cancel')} disabled={!!actionLoading}
-            className="px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
-            <XCircle className="w-4 h-4 inline mr-1" />
-            Скасувати
-          </button>
-        )}
-        {isClient && consultation.status === 'completed' && (
-          <button onClick={() => setShowReview(true)}
-            className="px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm hover:bg-yellow-600">
-            <Star className="w-4 h-4 inline mr-1" />
-            Залишити відгук
-          </button>
-        )}
       </div>
 
-      {/* Messages */}
-      <div className="bg-white border rounded-lg">
-        <div className="p-4 border-b">
-          <h3 className="font-semibold flex items-center gap-2">
+      {/* Chat section — takes remaining space */}
+      <div className="flex-1 min-h-0 flex flex-col bg-white">
+        <div className="px-4 py-2.5 border-b bg-gray-50/80 flex-shrink-0">
+          <h3 className="font-semibold text-sm flex items-center gap-2">
             <MessageSquare className="w-4 h-4" />
             Повідомлення
           </h3>
         </div>
-        <div className="p-4 max-h-96 overflow-y-auto space-y-3">
-          {messages.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">Повідомлень поки немає</p>
-          ) : (
-            messages.map(msg => {
-              const isMine = msg.sender_id === user?.id;
-              return (
-                <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] px-4 py-2 rounded-lg text-sm ${
-                    isMine ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {!isMine && <p className="text-xs font-medium mb-1 opacity-70">{msg.sender_name}</p>}
-                    <p>{msg.content}</p>
-                    <p className={`text-xs mt-1 ${isMine ? 'text-indigo-200' : 'text-gray-400'}`}>
-                      {new Date(msg.created_at).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
-              );
-            })
-          )}
-          <div ref={messagesEndRef} />
+        <div className="flex-1 min-h-0">
+          <ConsultationChatTab
+            consultationId={id || null}
+            onUnreadCountChange={() => {}}
+            disabled={isChatDisabled}
+          />
         </div>
-        {!isTerminal && consultation.status !== 'completed' && (
-          <div className="p-4 border-t flex gap-2">
-            <input
-              type="text"
-              placeholder="Написати повідомлення..."
-              className="flex-1 px-4 py-2 border rounded-lg text-sm"
-              value={newMessage}
-              onChange={e => setNewMessage(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={sending || !newMessage.trim()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            </button>
-          </div>
-        )}
       </div>
+
+      {/* Escrow confirmation modal */}
+      {showEscrow && consultation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowEscrow(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                <Shield className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Безпечна оплата Escrow</h3>
+                <p className="text-xs text-gray-500">Захист покупця через Monobank</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Адвокат</span>
+                <span className="font-medium text-gray-800">{consultation.attorney_name}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Послуга</span>
+                <span className="font-medium text-gray-800">{consultation.request_title}</span>
+              </div>
+              <div className="border-t pt-2 mt-2 flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-700">Сума резервування</span>
+                <span className="text-xl font-bold text-gray-900">{consultation.agreed_fee_uah} грн</span>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-4 space-y-3">
+              <div className="flex gap-2.5">
+                <Lock className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-blue-800">
+                  Кошти будуть <strong>заморожені</strong> на вашій картці Visa/Mastercard, а не списані. Адвокат отримає оплату лише після завершення консультації.
+                </p>
+              </div>
+              <div className="flex gap-2.5">
+                <Shield className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-blue-800">
+                  Ви можете <strong>відмовитися</strong> від консультації в будь-який момент до її початку — кошти будуть автоматично розморожені.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 text-center mb-4">
+              Тестовий режим — реальне списання не відбувається
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowEscrow(false)}
+                className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Скасувати
+              </button>
+              <button
+                onClick={() => { setShowEscrow(false); handleAction('pay'); }}
+                disabled={!!actionLoading}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-2 disabled:opacity-70"
+                style={{ backgroundColor: '#000000' }}
+              >
+                {actionLoading === 'pay' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CreditCard className="w-4 h-4" />
+                )}
+                Підтвердити та оплатити
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Review modal */}
       {showReview && (
@@ -315,7 +336,6 @@ export function ConsultationDetailPage() {
           </div>
         </div>
       )}
-    </div>
     </div>
   );
 }

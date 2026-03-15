@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import type { ConsultationMessage } from './consultation-service.js';
 
 type MessageCallback = (message: ConsultationMessage) => void;
+type StatusCallback = (payload: { messageIds: string[]; status: string }) => void;
 
 class ConsultationMessageBus {
   private emitter = new EventEmitter();
@@ -18,8 +19,20 @@ class ConsultationMessageBus {
     };
   }
 
+  subscribeStatus(consultationId: string, callback: StatusCallback): () => void {
+    const event = `status:${consultationId}`;
+    this.emitter.on(event, callback);
+    return () => {
+      this.emitter.off(event, callback);
+    };
+  }
+
   publish(consultationId: string, message: ConsultationMessage): void {
     this.emitter.emit(`msg:${consultationId}`, message);
+  }
+
+  publishStatus(consultationId: string, messageIds: string[], status: string): void {
+    this.emitter.emit(`status:${consultationId}`, { messageIds, status });
   }
 }
 
