@@ -91,16 +91,48 @@ export const useUploadStore = create<UploadState>((set) => {
       set({ ...sync, isUploading: false });
 
       // Auto-create matter from completed uploads (fire-and-forget)
-      const completedItems = sync.items.filter(i => i.status === 'completed' && i.documentId);
-      if (completedItems.length >= 3) {
-        const documentIds = completedItems.map(i => i.documentId!);
-        matterService.autoCreateFromUpload(documentIds).then(result => {
-          showToast.success(
-            `Створено справу "${result.matter.matter_name}" (${result.documentsAssigned} документів)`
-          );
-        }).catch(err => {
-          console.warn('[UploadStore] Auto-create matter failed (non-critical)', err);
-        });
+      const completedItems = sync.items.filter(i => i.status === 'completed');
+      if (completedItems.length >= 1) {
+        // Collect documentIds from completed items; some may not have documentId yet
+        const knownIds = completedItems.map(i => i.documentId).filter(Boolean) as string[];
+
+        if (knownIds.length > 0) {
+          matterService.autoCreateFromUpload(knownIds).then(result => {
+            showToast.success(
+              `Створено справу "${result.matter.matter_name}" (${result.documentsAssigned} документів)`
+            );
+          }).catch(err => {
+            console.warn('[UploadStore] Auto-create matter failed (non-critical)', err);
+          });
+        } else {
+          // documentIds not yet available — fetch recent docs from upload sessions
+          const uploadIds = completedItems.map(i => i.uploadId).filter(Boolean) as string[];
+          if (uploadIds.length > 0) {
+            // Small delay to let backend finish processing
+            setTimeout(() => {
+              Promise.all(uploadIds.map(id => uploadService.getStatus(id).catch(() => null)))
+                .then(sessions => {
+                  const docIds = sessions
+                    .filter(s => s && s.documentId)
+                    .map(s => s!.documentId!) as string[];
+                  if (docIds.length > 0) {
+                    return matterService.autoCreateFromUpload(docIds);
+                  }
+                  return null;
+                })
+                .then(result => {
+                  if (result) {
+                    showToast.success(
+                      `Створено справу "${result.matter.matter_name}" (${result.documentsAssigned} документів)`
+                    );
+                  }
+                })
+                .catch(err => {
+                  console.warn('[UploadStore] Auto-create matter (deferred) failed', err);
+                });
+            }, 5000);
+          }
+        }
       }
     } else if (event.type === 'throttle-changed') {
       set({
