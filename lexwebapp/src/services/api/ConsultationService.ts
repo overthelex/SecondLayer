@@ -41,9 +41,15 @@ export interface ConsultationMessage {
   sender_id: string;
   content: string;
   message_type: string;
+  status?: 'sent' | 'delivered' | 'read';
   read_at?: string;
+  delivered_at?: string;
   created_at: string;
   sender_name?: string;
+  attachment_url?: string;
+  attachment_name?: string;
+  attachment_type?: string;
+  attachment_size?: number;
 }
 
 export interface ConsultationPayment {
@@ -128,12 +134,28 @@ export class ConsultationService extends BaseService {
     return this.request(() => this.client.get(`/api/consultations/${id}/messages`, { params }));
   }
 
-  async sendMessage(id: string, content: string, messageType?: string): Promise<ConsultationMessage> {
-    return this.request(() => this.client.post<ConsultationMessage>(`/api/consultations/${id}/messages`, { content, messageType }));
+  async sendMessage(
+    id: string,
+    content: string,
+    messageType?: string,
+    attachment?: { url: string; name: string; type: string; size: number }
+  ): Promise<ConsultationMessage> {
+    return this.request(() => this.client.post<ConsultationMessage>(`/api/consultations/${id}/messages`, {
+      content,
+      messageType,
+      attachmentUrl: attachment?.url,
+      attachmentName: attachment?.name,
+      attachmentType: attachment?.type,
+      attachmentSize: attachment?.size,
+    }));
   }
 
   async getUnreadCount(id: string): Promise<{ count: number }> {
     return this.request(() => this.client.get<{ count: number }>(`/api/consultations/${id}/messages/unread-count`));
+  }
+
+  async markMessagesRead(id: string): Promise<void> {
+    return this.requestVoid(() => this.client.put(`/api/consultations/${id}/messages/mark-read`));
   }
 
   connectMessageStream(id: string): EventSource {

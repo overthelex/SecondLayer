@@ -215,9 +215,19 @@ export function createConsultationRoutes(
 
       // Subscribe to message bus
       const { consultationMessageBus } = await import('../services/consultation-message-bus.js');
-      const unsubscribe = consultationMessageBus.subscribe(consultationId, (message) => {
+      const unsubscribeMsg = consultationMessageBus.subscribe(consultationId, (message) => {
         res.write(`event: message\ndata: ${JSON.stringify(message)}\n\n`);
       });
+      const unsubscribeStatus = consultationMessageBus.subscribeStatus(consultationId, (payload) => {
+        res.write(`event: message_status\ndata: ${JSON.stringify(payload)}\n\n`);
+      });
+
+      // Mark existing messages as delivered when client connects
+      try {
+        await consultationService.markMessagesDelivered(consultationId, req.user!.id);
+      } catch (err: any) {
+        logger.warn('Failed to mark messages as delivered on SSE connect', { error: err.message });
+      }
 
       // Heartbeat every 30s to keep connection alive
       const heartbeat = setInterval(() => {
@@ -226,7 +236,8 @@ export function createConsultationRoutes(
 
       // Cleanup on disconnect
       req.on('close', () => {
-        unsubscribe();
+        unsubscribeMsg();
+        unsubscribeStatus();
         clearInterval(heartbeat);
       });
     } catch (error: any) {
@@ -265,12 +276,31 @@ export function createConsultationRoutes(
     }
   }) as any);
 
+  // PUT /api/consultations/:id/messages/mark-read — mark all unread messages as read
+  router.put('/:id/messages/mark-read', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const ids = await consultationService.markMessagesRead(req.params.id as string, req.user.id);
+      res.json({ success: true, markedCount: ids.length });
+    } catch (error: any) {
+      logger.error('Failed to mark messages as read', { error: error.message });
+      res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
   // POST /api/consultations/:id/messages — send message
   router.post('/:id/messages', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {
       if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const { content, messageType, attachmentUrl, attachmentName, attachmentType, attachmentSize } = req.body;
+      const attachment = attachmentUrl ? {
+        url: attachmentUrl,
+        name: attachmentName || 'file',
+        type: attachmentType || 'application/octet-stream',
+        size: attachmentSize || 0,
+      } : undefined;
       const message = await consultationService.sendMessage(
-        req.params.id as string, req.user.id, req.body.content, req.body.messageType
+        req.params.id as string, req.user.id, content, messageType, attachment
       );
       res.status(201).json(message);
     } catch (error: any) {
