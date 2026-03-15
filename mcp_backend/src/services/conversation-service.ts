@@ -23,7 +23,7 @@ export interface ConversationMessage {
   documents?: any[];
   tool_calls?: any[];
   cost_tracking_id?: string;
-  cost_summary?: { total_cost_usd: number; tools_used: string[] } | null;
+  cost_summary?: { total_cost_usd: number; tools_used: string[]; response_id?: string; charged_usd?: number; balance_usd?: number } | null;
   created_at: Date;
 }
 
@@ -114,7 +114,7 @@ export class ConversationService {
       documents?: any[];
       tool_calls?: any[];
       cost_tracking_id?: string;
-      cost_summary?: { total_cost_usd: number; tools_used: string[] } | null;
+      cost_summary?: { total_cost_usd: number; tools_used: string[]; response_id?: string; charged_usd?: number; balance_usd?: number } | null;
     }
   ): Promise<ConversationMessage | null> {
     // Verify ownership
