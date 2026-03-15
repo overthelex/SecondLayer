@@ -7,7 +7,7 @@ interface MediaViewerProps {
 
 export function ImageOnlyViewer({ item }: MediaViewerProps) {
   return (
-    <div className="h-[70vh]">
+    <div className="h-full">
       <ImageViewer
         src={item.previewUrl!}
         alt={item.title}
@@ -20,7 +20,7 @@ export function PdfViewer({ item }: MediaViewerProps) {
   return (
     <iframe
       src={item.previewUrl!}
-      className="w-full h-[70vh] rounded-lg border border-claude-border"
+      className="w-full h-full rounded-lg border border-claude-border"
       title={item.title}
     />
   );
@@ -28,11 +28,11 @@ export function PdfViewer({ item }: MediaViewerProps) {
 
 export function VideoViewer({ item }: MediaViewerProps) {
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex items-center justify-center h-full">
       <video
         src={item.previewUrl!}
         controls
-        className="max-w-full max-h-[70vh] rounded-lg"
+        className="max-w-full max-h-full rounded-lg"
       />
     </div>
   );

@@ -112,7 +112,8 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                className={`bg-white rounded-xl shadow-2xl w-full max-h-[85vh] flex flex-col ${isImageWithOcr ? 'max-w-6xl' : 'max-w-3xl'}`}
+                className={`bg-white rounded-xl shadow-2xl flex flex-col resize overflow-hidden ${isImageWithOcr ? 'w-[90vw] h-[90vh]' : 'w-[48rem] h-[85vh]'}`}
+                style={{ minWidth: '24rem', minHeight: '20rem', maxWidth: '98vw', maxHeight: '96vh' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Header */}
@@ -212,7 +213,7 @@ export function DocumentViewerModal({ isOpen, onClose, item, isLoading, errorMes
                 </div>
 
                 {/* Content — binary preview or Markdown rendered */}
-                <div className="flex-1 overflow-y-auto px-6 py-5">
+                <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
                   <ContentRenderer
                     item={item}
                     isLoading={isLoading}
