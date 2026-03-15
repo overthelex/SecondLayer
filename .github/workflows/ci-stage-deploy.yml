@@ -341,16 +341,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Link Cloudflare credentials
-        run: ln -sf /home/vovkes/SecondLayer/.env.cloudflare .env.cloudflare 2>/dev/null || true
-
       - name: Enable Cloudflare maintenance page
+        env:
+          CLOUDFLARE_GLOBAL_API_KEY: ${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
         run: |
-          if [ -f deployment/maintenance/cf-maintenance.sh ] && [ -f .env.cloudflare ]; then
-            bash deployment/maintenance/cf-maintenance.sh enable prod || echo "::warning::Could not enable CF maintenance page — deploying without it"
-          else
-            echo "::warning::cf-maintenance.sh or .env.cloudflare not found — skipping maintenance page"
+          if [ -z "$CLOUDFLARE_GLOBAL_API_KEY" ] || [ -z "$CLOUDFLARE_EMAIL" ]; then
+            echo "::warning::CLOUDFLARE_GLOBAL_API_KEY or CLOUDFLARE_EMAIL secret not set — skipping maintenance page"
+            exit 0
           fi
+          cat > .env.cloudflare <<EOF
+          CLOUDFLARE_GLOBAL_API_KEY=$CLOUDFLARE_GLOBAL_API_KEY
+          CLOUDFLARE_EMAIL=$CLOUDFLARE_EMAIL
+          EOF
+          bash deployment/maintenance/cf-maintenance.sh enable prod || echo "::warning::Could not enable CF maintenance page — deploying without it"
 
       - name: Deploy changed services to prod
         env:
@@ -444,10 +448,18 @@ jobs:
 
       - name: Disable Cloudflare maintenance page
         if: always()
+        env:
+          CLOUDFLARE_GLOBAL_API_KEY: ${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
         run: |
-          if [ -f deployment/maintenance/cf-maintenance.sh ] && [ -f .env.cloudflare ]; then
-            bash deployment/maintenance/cf-maintenance.sh disable prod || echo "::warning::Could not disable CF maintenance page — run manually"
+          if [ -z "$CLOUDFLARE_GLOBAL_API_KEY" ] || [ -z "$CLOUDFLARE_EMAIL" ]; then
+            exit 0
           fi
+          cat > .env.cloudflare <<EOF
+          CLOUDFLARE_GLOBAL_API_KEY=$CLOUDFLARE_GLOBAL_API_KEY
+          CLOUDFLARE_EMAIL=$CLOUDFLARE_EMAIL
+          EOF
+          bash deployment/maintenance/cf-maintenance.sh disable prod || echo "::warning::Could not disable CF maintenance page — run manually"
 
   # ─── Step 4b: Self-heal deploy failures ─────────────────────────────
   self-heal-deploy:
