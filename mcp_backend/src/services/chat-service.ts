@@ -1309,7 +1309,7 @@ export class ChatService {
             decisions: evidence?.decisions && evidence.decisions.length > 0 ? evidence.decisions : undefined,
             citations: evidence?.citations && evidence.citations.length > 0 ? evidence.citations : undefined,
             documents: evidence?.documents && evidence.documents.length > 0 ? evidence.documents : undefined,
-            cost_summary: totalCostUsd > 0 ? { total_cost_usd: totalCostUsd, tools_used: toolsUsed } : undefined,
+            cost_summary: totalCostUsd > 0 ? { total_cost_usd: totalCostUsd, tools_used: toolsUsed, response_id: requestId } : undefined,
           });
         } catch (e) {
           logger.warn('[ChatService] Failed to persist messages', { error: (e as Error).message });
