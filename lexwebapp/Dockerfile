@@ -21,9 +21,12 @@ ARG VITE_ENABLE_THINKING_STEPS=true
 ARG VITE_AUTO_EXPAND_THINKING=true
 # GIT_SHA busts the cache on every new deploy so stale layers are never reused
 ARG GIT_SHA=unknown
+ARG APP_VERSION=dev
 
 # Copy lexwebapp source code
 COPY lexwebapp/ ./
+# Copy VERSION file if exists (for fallback)
+COPY VERSION* ./
 
 # Set env vars for build
 ENV VITE_API_URL=$VITE_API_URL
@@ -33,6 +36,7 @@ ENV VITE_ENABLE_ALL_MCP_TOOLS=$VITE_ENABLE_ALL_MCP_TOOLS
 ENV VITE_SHOW_TOOL_SELECTOR=$VITE_SHOW_TOOL_SELECTOR
 ENV VITE_ENABLE_THINKING_STEPS=$VITE_ENABLE_THINKING_STEPS
 ENV VITE_AUTO_EXPAND_THINKING=$VITE_AUTO_EXPAND_THINKING
+ENV APP_VERSION=$APP_VERSION
 
 # Build the application using the correct mode and normalize output to /app/lexwebapp/dist
 RUN if [ "$BUILD_ENV" = "production" ]; then \

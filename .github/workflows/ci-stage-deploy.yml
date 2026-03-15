@@ -386,6 +386,7 @@ jobs:
           $SSH_CMD bash << DEPLOY_SCRIPT
             set -e
             cd ${REMOTE_REPO}/deployment
+            export APP_VERSION=\$(cat ${REMOTE_REPO}/VERSION 2>/dev/null || echo 'dev')
             DC="docker compose -f docker-compose.prod.yml --env-file .env.prod"
 
             STOP="" BUILD="" START=""
