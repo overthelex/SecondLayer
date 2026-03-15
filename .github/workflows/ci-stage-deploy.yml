@@ -154,7 +154,7 @@ jobs:
 
           git checkout -b "$BRANCH_NAME"
 
-          claude -p "$(cat <<PROMPT
+          npx -y @anthropic-ai/claude-code@latest -p "$(cat <<PROMPT
           The CI/CD build-and-test job failed. Here are the error logs:
 
           \`\`\`
@@ -533,7 +533,7 @@ jobs:
 
           git checkout -b "$BRANCH_NAME"
 
-          claude -p "$(cat <<PROMPT
+          npx -y @anthropic-ai/claude-code@latest -p "$(cat <<PROMPT
           Production deployment failed. Here are the diagnostics:
 
           === CI Run Error Log ===
