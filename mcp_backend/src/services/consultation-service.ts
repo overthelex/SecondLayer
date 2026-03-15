@@ -48,9 +48,15 @@ export interface ConsultationMessage {
   sender_id: string;
   content: string;
   message_type: 'text' | 'system' | 'file';
+  status: 'sent' | 'delivered' | 'read';
   read_at?: Date;
+  delivered_at?: Date;
   created_at: Date;
   sender_name?: string;
+  attachment_url?: string;
+  attachment_name?: string;
+  attachment_type?: string;
+  attachment_size?: number;
 }
 
 export interface CreateConsultationData {
@@ -425,16 +431,25 @@ export class ConsultationService {
 
   // ─── Messaging ─────────────────────────────────────────
 
-  async sendMessage(consultationId: string, senderId: string, content: string, messageType?: string): Promise<ConsultationMessage> {
+  async sendMessage(
+    consultationId: string,
+    senderId: string,
+    content: string,
+    messageType?: string,
+    attachment?: { url: string; name: string; type: string; size: number }
+  ): Promise<ConsultationMessage> {
     // Verify sender is a party to this consultation
     await this.requireConsultation(consultationId, senderId);
 
     const id = uuidv4();
     const result = await this.db.query(
-      `INSERT INTO consultation_messages (id, consultation_id, sender_id, content, message_type)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO consultation_messages (id, consultation_id, sender_id, content, message_type, attachment_url, attachment_name, attachment_type, attachment_size)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [id, consultationId, senderId, content, messageType || 'text']
+      [
+        id, consultationId, senderId, content, messageType || (attachment ? 'file' : 'text'),
+        attachment?.url || null, attachment?.name || null, attachment?.type || null, attachment?.size || null,
+      ]
     );
 
     // Fetch sender name for the published message
@@ -447,6 +462,38 @@ export class ConsultationService {
     consultationMessageBus.publish(consultationId, message);
 
     return message;
+  }
+
+  async markMessagesDelivered(consultationId: string, userId: string): Promise<string[]> {
+    const result = await this.db.query(
+      `UPDATE consultation_messages
+       SET status = 'delivered', delivered_at = NOW()
+       WHERE consultation_id = $1 AND sender_id != $2 AND status = 'sent'
+       RETURNING id`,
+      [consultationId, userId]
+    );
+    const ids = result.rows.map((r: any) => r.id);
+    if (ids.length > 0) {
+      consultationMessageBus.publishStatus(consultationId, ids, 'delivered');
+    }
+    return ids;
+  }
+
+  async markMessagesRead(consultationId: string, userId: string): Promise<string[]> {
+    await this.requireConsultation(consultationId, userId);
+
+    const result = await this.db.query(
+      `UPDATE consultation_messages
+       SET status = 'read', read_at = NOW()
+       WHERE consultation_id = $1 AND sender_id != $2 AND status != 'read'
+       RETURNING id`,
+      [consultationId, userId]
+    );
+    const ids = result.rows.map((r: any) => r.id);
+    if (ids.length > 0) {
+      consultationMessageBus.publishStatus(consultationId, ids, 'read');
+    }
+    return ids;
   }
 
   async getMessages(

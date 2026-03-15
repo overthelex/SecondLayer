@@ -57,12 +57,24 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   const renameConversation = useChatStore(s => s.renameConversation);
   const newConversation = useChatStore(s => s.newConversation);
 
+  const prevConversationCount = useRef<number>(conversations.length);
+  const prevPendingCount = useRef<number>(0);
+
   const renderedSectionIds = useMemo(() => {
     if (role === 'administrator') return ['external-sources', 'monitoring'];
     const ids = ['research', 'legislation', 'vault', 'matters', 'attorneys'];
     if (conversations.length > 0) ids.push('conversations');
     return ids;
   }, [role, conversations.length]);
+
+  const expandSection = (sectionId: string) => {
+    setCollapsedSections(prev => {
+      if (!prev.has(sectionId)) return prev;
+      const next = new Set(prev);
+      next.delete(sectionId);
+      return next;
+    });
+  };
 
   const toggleSection = (sectionId: string) => {
     setCollapsedSections(prev => {
@@ -98,7 +110,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   }, [onClose]);
 
   useEffect(() => {
-    const handler = () => setVaultFoldersLoaded(false);
+    const handler = () => { setVaultFoldersLoaded(false); expandSection('vault'); };
     window.addEventListener('vault-folders-changed', handler);
     return () => window.removeEventListener('vault-folders-changed', handler);
   }, []);
