@@ -73,10 +73,15 @@ export class MetadataExtractor {
       );
 
       rawContent = response.content;
-      const raw = rawContent?.trim();
+      let raw = rawContent?.trim();
       if (!raw) {
         logger.warn('[MetadataExtractor] LLM returned empty content', { title, docType });
         return EMPTY_METADATA;
+      }
+
+      // Strip markdown code blocks (```json ... ```) — some LLMs ignore response_format
+      if (raw.startsWith('```')) {
+        raw = raw.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
       }
 
       const parsed = JSON.parse(raw);

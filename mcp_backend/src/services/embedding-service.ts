@@ -83,10 +83,17 @@ export class EmbeddingService implements IEmbeddingPort {
   }
 
   async generateEmbeddingsBatch(texts: string[], task: string = 'batch_embedding'): Promise<number[][]> {
+    // Filter out empty strings — VoyageAI rejects them with 400
+    const filtered = texts.filter(t => t && t.trim().length > 0);
+    if (filtered.length === 0) {
+      return texts.map(() => []);
+    }
     try {
-      const result = await this.voyageClient.generateEmbeddingsBatchWithUsage(texts, VOYAGE_MODEL);
+      const result = await this.voyageClient.generateEmbeddingsBatchWithUsage(filtered, VOYAGE_MODEL);
       this.tokenUsageCallback?.(result.totalTokens, result.model, task);
-      return result.embeddings;
+      // Map back: empty inputs get empty embeddings, non-empty get real ones
+      let idx = 0;
+      return texts.map(t => (t && t.trim().length > 0) ? result.embeddings[idx++] : []);
     } catch (error) {
       logger.error('Batch embedding generation error:', error);
       throw error;
