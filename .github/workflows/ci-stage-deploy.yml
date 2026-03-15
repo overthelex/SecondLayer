@@ -178,7 +178,7 @@ jobs:
 
           Working directory: $(pwd)
           PROMPT
-          )" --allowedTools "Bash,Read,Edit,Write,Glob,Grep" --max-turns 25
+          )" --allowedTools "Bash,Read,Edit,Write,Glob,Grep" --max-turns 25 --model eu.anthropic.claude-sonnet-4-6
         timeout-minutes: 10
 
       - name: Check if fix was produced
@@ -564,7 +564,7 @@ jobs:
 
           Working directory: $(pwd)
           PROMPT
-          )" --allowedTools "Bash,Read,Edit,Write,Glob,Grep" --max-turns 25
+          )" --allowedTools "Bash,Read,Edit,Write,Glob,Grep" --max-turns 25 --model eu.anthropic.claude-sonnet-4-6
         timeout-minutes: 10
 
       - name: Check if fix was produced

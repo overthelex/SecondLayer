@@ -57,9 +57,6 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   const renameConversation = useChatStore(s => s.renameConversation);
   const newConversation = useChatStore(s => s.newConversation);
 
-  const prevConversationCount = useRef<number>(conversations.length);
-  const prevPendingCount = useRef<number>(0);
-
   const renderedSectionIds = useMemo(() => {
     if (role === 'administrator') return ['external-sources', 'monitoring'];
     const ids = ['research', 'legislation', 'vault', 'matters', 'attorneys'];
