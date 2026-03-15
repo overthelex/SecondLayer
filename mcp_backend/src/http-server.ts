@@ -607,12 +607,16 @@ class HTTPMCPServer {
 
     // Global rate limiter (express-rate-limit) — recognised by CodeQL as proper rate limiting.
     // Our custom Redis-backed limiters still apply per-route for finer control.
+    // Upload routes are excluded — they have their own per-user Redis-backed limits
+    // (upload-rate-limit.ts) and the global IP-based limit blocks bulk folder uploads
+    // through Cloudflare (all requests arrive from the same CF edge IP).
     this.app.use(rateLimit({
       windowMs: 60 * 1000,
       max: 900,
       standardHeaders: true,
       legacyHeaders: false,
       message: { error: 'Too Many Requests', code: 'RATE_LIMIT_EXCEEDED' },
+      skip: (req) => req.path.startsWith('/upload'),
     }));
 
     // Monobank webhooks need raw body BEFORE json parsing for signature verification
