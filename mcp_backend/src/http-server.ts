@@ -172,6 +172,7 @@ class HTTPMCPServer {
   private gdprService: GdprService;
   private auditService: AuditService;
   private matterService: MatterService;
+  private llmAdapter: any;
   private contractService: ContractService;
   private conflictCheckService: ConflictCheckService;
   private legalHoldService: LegalHoldService;
@@ -202,6 +203,7 @@ class HTTPMCPServer {
 
     // Create LLM adapter for dependency injection
     const llmAdapter = new LLMAdapter(getLLMManager());
+    this.llmAdapter = llmAdapter;
 
     // Initialize document parser with Vision API credentials
     // Use env var if set (for Docker), otherwise fallback to local path
@@ -2036,7 +2038,7 @@ class HTTPMCPServer {
     // Client-Matter segregation routes (matters, clients, legal holds, audit)
     this.app.use('/api/matters', requireJWT as any, createMatterRoutes(
       this.matterService, this.conflictCheckService, this.legalHoldService, this.auditService,
-      this.services.db, llmAdapter
+      this.services.db, this.llmAdapter
     ));
     logger.info('Matter routes registered at /api/matters');
 
