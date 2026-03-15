@@ -11,12 +11,14 @@ vi.mock('../../../contexts/AuthContext', () => ({
 const mockGetMessages = vi.fn();
 const mockSendMessage = vi.fn();
 const mockConnectMessageStream = vi.fn();
+const mockMarkMessagesRead = vi.fn();
 
 vi.mock('../../../services', () => ({
   consultationService: {
     getMessages: (...args: any[]) => mockGetMessages(...args),
     sendMessage: (...args: any[]) => mockSendMessage(...args),
     connectMessageStream: (...args: any[]) => mockConnectMessageStream(...args),
+    markMessagesRead: (...args: any[]) => mockMarkMessagesRead(...args),
   },
 }));
 
@@ -46,6 +48,7 @@ describe('ConsultationChatTab', () => {
     vi.clearAllMocks();
     mockGetMessages.mockResolvedValue({ messages: [], total: 0 });
     mockConnectMessageStream.mockReturnValue(createMockEventSource());
+    mockMarkMessagesRead.mockResolvedValue(undefined);
   });
 
   describe('Empty state', () => {
