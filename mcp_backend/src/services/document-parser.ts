@@ -159,6 +159,17 @@ export class DocumentParser {
             body: `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body>
+<script>
+// Polyfill Map.prototype.getOrInsertComputed (TC39 Stage 3) — required by pdfjs-dist ≥5.x
+if (!Map.prototype.getOrInsertComputed) {
+  Map.prototype.getOrInsertComputed = function(key, callbackFn) {
+    if (this.has(key)) return this.get(key);
+    const value = callbackFn(key);
+    this.set(key, value);
+    return value;
+  };
+}
+</script>
 <script type="module">
 import { getDocument, GlobalWorkerOptions } from './pdf.min.mjs';
 GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
@@ -257,6 +268,17 @@ window.extractText = async function(base64Data, maxPages) {
             body: `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body><div id="container"></div>
+<script>
+// Polyfill Map.prototype.getOrInsertComputed (TC39 Stage 3) — required by pdfjs-dist ≥5.x
+if (!Map.prototype.getOrInsertComputed) {
+  Map.prototype.getOrInsertComputed = function(key, callbackFn) {
+    if (this.has(key)) return this.get(key);
+    const value = callbackFn(key);
+    this.set(key, value);
+    return value;
+  };
+}
+</script>
 <script type="module">
 import { getDocument, GlobalWorkerOptions } from './pdf.min.mjs';
 GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
