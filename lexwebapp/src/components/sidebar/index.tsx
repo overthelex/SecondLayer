@@ -96,6 +96,12 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   }, [onClose]);
 
   useEffect(() => {
+    const handler = () => setVaultFoldersLoaded(false);
+    window.addEventListener('vault-folders-changed', handler);
+    return () => window.removeEventListener('vault-folders-changed', handler);
+  }, []);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
         setShowProfileMenu(false);
@@ -185,6 +191,9 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
             <div className="h-16 flex items-center">
               <img src="/Image.jpg" alt="Lex" className="h-full w-auto object-contain" />
             </div>
+            <span className="text-[10px] text-claude-subtext/60 font-mono tracking-tight">
+              {import.meta.env.VITE_APP_VERSION || ''}
+            </span>
           </div>
           <button onClick={onClose} className="lg:hidden p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-subtext/8 rounded-lg transition-all duration-200">
             <X size={18} strokeWidth={2} />
