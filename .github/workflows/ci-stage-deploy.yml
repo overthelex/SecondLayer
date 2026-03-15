@@ -250,6 +250,7 @@ jobs:
         run: |
           ln -sf /home/vovkes/SecondLayer/deployment/.env.stage deployment/.env.stage
           ln -sf /home/vovkes/SecondLayer/deployment/.env.prod deployment/.env.prod 2>/dev/null || true
+          ln -sf /home/vovkes/SecondLayer/.env.cloudflare .env.cloudflare 2>/dev/null || true
 
       - name: Build & restart changed stage services
         working-directory: deployment
@@ -340,6 +341,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Link Cloudflare credentials
+        run: ln -sf /home/vovkes/SecondLayer/.env.cloudflare .env.cloudflare 2>/dev/null || true
+
+      - name: Enable Cloudflare maintenance page
+        run: |
+          if [ -f deployment/maintenance/cf-maintenance.sh ] && [ -f .env.cloudflare ]; then
+            bash deployment/maintenance/cf-maintenance.sh enable prod || echo "::warning::Could not enable CF maintenance page — deploying without it"
+          else
+            echo "::warning::cf-maintenance.sh or .env.cloudflare not found — skipping maintenance page"
+          fi
+
       - name: Deploy changed services to prod
         env:
           PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
@@ -429,6 +441,13 @@ jobs:
             [ $i -eq 3 ] && echo "::warning::Public health check timed out — may be Cloudflare cache"
             sleep 5
           done
+
+      - name: Disable Cloudflare maintenance page
+        if: always()
+        run: |
+          if [ -f deployment/maintenance/cf-maintenance.sh ] && [ -f .env.cloudflare ]; then
+            bash deployment/maintenance/cf-maintenance.sh disable prod || echo "::warning::Could not disable CF maintenance page — run manually"
+          fi
 
   # ─── Step 4b: Self-heal deploy failures ─────────────────────────────
   self-heal-deploy:
