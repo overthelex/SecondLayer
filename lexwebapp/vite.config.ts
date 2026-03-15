@@ -22,7 +22,9 @@ export default defineConfig(({ mode }) => {
     define: {
       'import.meta.env.VITE_BUILD_TIME': JSON.stringify(new Date().toISOString()),
       'import.meta.env.VITE_APP_VERSION': JSON.stringify(
-        (() => { try { return execSync('git describe --tags --abbrev=0 2>/dev/null').toString().trim(); } catch { return 'dev'; } })()
+        process.env.APP_VERSION ||
+        (() => { try { return execSync('git tag -l "v*" --sort=-version:refname 2>/dev/null').toString().trim().split('\n')[0]; } catch { return ''; } })() ||
+        (() => { try { return fs.readFileSync(path.resolve(__dirname, '..', 'VERSION'), 'utf8').trim(); } catch { return 'dev'; } })()
       ),
     },
     build: {

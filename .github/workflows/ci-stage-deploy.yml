@@ -365,8 +365,12 @@ jobs:
 
           echo "=== Deploying to production (from stage) ==="
 
-          # Pull latest code
-          $SSH_CMD "git -C ${REMOTE_REPO} fetch origin main && git -C ${REMOTE_REPO} reset --hard origin/main"
+          # Pull latest code and tags
+          $SSH_CMD "git -C ${REMOTE_REPO} fetch origin main --tags && git -C ${REMOTE_REPO} reset --hard origin/main"
+
+          # Write VERSION file for frontend build
+          LATEST_TAG=$(git tag -l "v*" --sort=-version:refname | head -1)
+          $SSH_CMD "echo '${LATEST_TAG:-dev}' > ${REMOTE_REPO}/VERSION"
 
           # Build dist on prod
           $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix packages/shared install && npm --prefix packages/shared run build"
