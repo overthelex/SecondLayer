@@ -2414,6 +2414,7 @@ class HTTPMCPServer {
               total_cost_usd: chatTotalCostUsd,
               charged_usd: chargedUsd,
               balance_usd: summary?.balance_usd ?? 0,
+              response_id: requestId,
             };
             res.write(`event: cost_summary\n`);
             res.write(`data: ${JSON.stringify({
