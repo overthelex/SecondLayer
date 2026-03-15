@@ -2035,7 +2035,8 @@ class HTTPMCPServer {
 
     // Client-Matter segregation routes (matters, clients, legal holds, audit)
     this.app.use('/api/matters', requireJWT as any, createMatterRoutes(
-      this.matterService, this.conflictCheckService, this.legalHoldService, this.auditService
+      this.matterService, this.conflictCheckService, this.legalHoldService, this.auditService,
+      this.services.db, llmAdapter
     ));
     logger.info('Matter routes registered at /api/matters');
 

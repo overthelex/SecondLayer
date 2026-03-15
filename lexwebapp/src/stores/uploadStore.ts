@@ -10,6 +10,8 @@ import {
   UploadEvent,
 } from '../services/upload/UploadManager';
 import { uploadService, ActiveSession } from '../services/api/UploadService';
+import { matterService } from '../services/api/MatterService';
+import { showToast } from '../utils/toast';
 
 export interface RecoveredSession {
   uploadId: string;
@@ -87,6 +89,19 @@ export const useUploadStore = create<UploadState>((set) => {
     const sync = syncFromManager(uploadManager);
     if (event.type === 'all-completed') {
       set({ ...sync, isUploading: false });
+
+      // Auto-create matter from completed uploads (fire-and-forget)
+      const completedItems = sync.items.filter(i => i.status === 'completed' && i.documentId);
+      if (completedItems.length >= 3) {
+        const documentIds = completedItems.map(i => i.documentId!);
+        matterService.autoCreateFromUpload(documentIds).then(result => {
+          showToast.success(
+            `Створено справу "${result.matter.matter_name}" (${result.documentsAssigned} документів)`
+          );
+        }).catch(err => {
+          console.warn('[UploadStore] Auto-create matter failed (non-critical)', err);
+        });
+      }
     } else if (event.type === 'throttle-changed') {
       set({
         ...sync,
