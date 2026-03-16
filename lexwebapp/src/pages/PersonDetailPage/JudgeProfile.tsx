@@ -14,6 +14,7 @@ import type { JudgeProfile } from '../../services/api/JudgesService';
 interface JudgeProfilePageProps {
   profile: JudgeProfile;
   onBack: () => void;
+  children?: React.ReactNode;
 }
 
 function formatDate(dateStr: string | null): string {
@@ -40,7 +41,7 @@ function computeExperience(firstSeen: string | null): string | null {
   return `${y} р. ${m} міс.`;
 }
 
-export function JudgeProfilePage({ profile, onBack }: JudgeProfilePageProps) {
+export function JudgeProfilePage({ profile, onBack, children }: JudgeProfilePageProps) {
   const { basic, court_history, stats } = profile;
 
   const initials = basic.full_name
@@ -359,6 +360,9 @@ export function JudgeProfilePage({ profile, onBack }: JudgeProfilePageProps) {
             </div>
           </motion.div>
         )}
+
+        {/* Additional content (e.g. analytics) */}
+        {children}
       </div>
     </div>
   );
