@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../domain/auth_notifier.dart';
 import '../../../navigation/route_names.dart';
 
@@ -51,7 +52,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.balance, size: 64, color: theme.colorScheme.primary),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.asset(
+                      'assets/images/logo.jpg',
+                      height: 80,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'SecondLayer',
@@ -170,6 +177,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         child: const Text('Зареєструватися'),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 24),
+                  FutureBuilder<PackageInfo>(
+                    future: PackageInfo.fromPlatform(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox.shrink();
+                      final info = snapshot.data!;
+                      return Text(
+                        'v${info.version} (${info.buildNumber})',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
