@@ -17,6 +17,8 @@ import '../features/matters/presentation/clients_screen.dart';
 import '../features/matters/presentation/matters_screen.dart';
 import '../features/time_tracking/presentation/time_tracking_screen.dart';
 import '../features/billing/presentation/billing_screen.dart';
+import '../features/consultation/presentation/consultation_list_screen.dart';
+import '../features/consultation/presentation/consultation_chat_screen.dart';
 import 'route_names.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -139,9 +141,23 @@ final routerProvider = Provider<GoRouter>((ref) {
                 parentNavigatorKey: _rootNavigatorKey,
                 builder: (_, __) => const BillingScreen(),
               ),
+              GoRoute(
+                path: 'consultations',
+                name: RouteNames.consultations,
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (_, __) => const ConsultationListScreen(),
+              ),
             ],
           ),
         ],
+      ),
+      // Full-screen consultation chat (outside shell)
+      GoRoute(
+        path: '/consultations/:id',
+        name: RouteNames.consultationChat,
+        builder: (_, state) => ConsultationChatScreen(
+          consultationId: state.pathParameters['id']!,
+        ),
       ),
     ],
   );

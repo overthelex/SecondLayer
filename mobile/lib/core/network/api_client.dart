@@ -77,8 +77,12 @@ class ApiClient {
             e.type == DioExceptionType.connectionTimeout) {
           return const NetworkException();
         }
-        final message =
-            e.response?.data?['message'] ?? e.message ?? 'Невідома помилка';
+        final responseData = e.response?.data;
+        final message = (responseData is Map<String, dynamic>
+                ? responseData['message']
+                : responseData?.toString()) ??
+            e.message ??
+            'Невідома помилка';
         return AppException(message,
             statusCode: e.response?.statusCode, originalError: e);
     }
