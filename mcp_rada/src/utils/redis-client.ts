@@ -17,7 +17,7 @@ export async function initRedisClient(): Promise<void> {
     const redisUrl = process.env.REDIS_URL || `redis://${redisHost}:${redisPort}`;
     redisClient = createClient({ url: redisUrl });
 
-    redisClient.on('error', (err) => {
+    redisClient.on('error', (err: Error) => {
       logger.error('[Redis] Client error:', err);
     });
 
