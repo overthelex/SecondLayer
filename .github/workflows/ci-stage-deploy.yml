@@ -294,45 +294,63 @@ jobs:
           $DC restart nginx-stage
           docker image prune -f
 
-      - name: Wait for stage services
-        run: sleep 30
-
-      - name: Stage health checks
+      - name: Wait for stage services to become healthy
         run: |
           DC="docker compose -f docker-compose.stage.yml --env-file .env.stage"
           FAILED=false
 
+          # Wait for Docker healthcheck to report healthy (uses compose HEALTHCHECK config)
+          wait_healthy() {
+            local name=$1 container=$2 max_wait=${3:-120}
+            local elapsed=0
+            echo "Waiting for $name ($container) to become healthy (max ${max_wait}s)..."
+            while [ $elapsed -lt $max_wait ]; do
+              local status
+              status=$(docker inspect --format='{{.State.Health.Status}}' "$container" 2>/dev/null || echo "not_found")
+              case "$status" in
+                healthy)
+                  echo "✓ $name: healthy (${elapsed}s)"
+                  return 0
+                  ;;
+                unhealthy)
+                  echo "✗ $name: unhealthy after ${elapsed}s"
+                  echo "::error::$name is unhealthy"
+                  echo "Last health check output:"
+                  docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' "$container" 2>/dev/null | tail -5
+                  FAILED=true
+                  return 1
+                  ;;
+                *)
+                  sleep 5
+                  elapsed=$((elapsed + 5))
+                  ;;
+              esac
+            done
+            echo "✗ $name: timed out after ${max_wait}s (status: $status)"
+            echo "::error::$name health check timed out"
+            docker logs "$container" 2>&1 | tail -20
+            FAILED=true
+          }
+
+          # HTTP health check for externally accessible services
           check_health() {
             local name=$1 url=$2
             for i in 1 2 3 4 5 6; do
-              if curl -sf --max-time 10 "$url" > /dev/null; then
-                echo "$name: OK"
+              local response
+              response=$(curl -sf --max-time 10 "$url" 2>&1) && {
+                echo "✓ $name: OK"
                 return 0
-              fi
-              echo "$name: attempt $i failed, retrying in 10s..."
+              }
+              echo "$name: attempt $i failed ($response), retrying in 10s..."
               sleep 10
             done
             echo "::error::$name health check failed on stage"
             FAILED=true
           }
 
-          check_health_docker() {
-            local name=$1 container=$2 url=$3
-            for i in 1 2 3 4 5 6; do
-              if $DC exec -T "$container" wget --spider -q "$url" 2>/dev/null; then
-                echo "$name: OK"
-                return 0
-              fi
-              echo "$name: attempt $i failed, retrying in 10s..."
-              sleep 10
-            done
-            echo "::error::$name health check failed on stage"
-            FAILED=true
-          }
-
-          [ "$BACKEND_CHANGED" = "true" ] && check_health "Backend" "http://localhost:3004/health"
-          [ "$RADA_CHANGED" = "true" ] && check_health_docker "RADA" "rada-mcp-app-stage" "http://127.0.0.1:3001/health"
-          [ "$OPENREYESTR_CHANGED" = "true" ] && check_health_docker "OpenReyestr" "app-openreyestr-stage" "http://127.0.0.1:3005/health"
+          [ "$BACKEND_CHANGED" = "true" ] && wait_healthy "Backend" "secondlayer-app-stage" 180
+          [ "$RADA_CHANGED" = "true" ] && wait_healthy "RADA" "rada-mcp-app-stage" 120
+          [ "$OPENREYESTR_CHANGED" = "true" ] && wait_healthy "OpenReyestr" "openreyestr-app-stage" 120
 
           check_health "Stage (public)" "https://stage.legal.org.ua/health"
 
