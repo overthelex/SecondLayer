@@ -31,6 +31,33 @@ scrape_configs:
           service: mcp_openreyestr
           environment: production
 
+  # PostgreSQL exporters
+  - job_name: postgres_backend
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['postgres-exporter-backend:9187']
+        labels:
+          database: secondlayer_prod
+
+  - job_name: postgres_openreyestr
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['postgres-exporter-openreyestr:9187']
+        labels:
+          database: openreyestr_prod
+
+  # Redis exporter
+  - job_name: redis
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # Node exporter (host metrics)
+  - job_name: node
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['node-exporter:9100']
+
   # MinIO S3 storage
   - job_name: minio
     scrape_interval: 30s

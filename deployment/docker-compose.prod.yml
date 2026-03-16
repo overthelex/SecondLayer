@@ -859,6 +859,77 @@ services:
         reservations:
           memory: 256M
 
+  postgres-exporter-backend:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: postgres-exporter-backend-prod
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-}@postgres-prod:5432/${POSTGRES_DB:-secondlayer_prod}?sslmode=disable"
+    volumes:
+      - ./postgres_exporter.yml:/etc/postgres_exporter.yml:ro
+    networks:
+      - secondlayer-prod-network
+    restart: unless-stopped
+    depends_on:
+      postgres-prod:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
+
+  postgres-exporter-openreyestr:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: postgres-exporter-openreyestr-prod
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD:-}@postgres-openreyestr-prod:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_prod}?sslmode=disable"
+    volumes:
+      - ./postgres_exporter.yml:/etc/postgres_exporter.yml:ro
+    networks:
+      - secondlayer-prod-network
+    restart: unless-stopped
+    depends_on:
+      postgres-openreyestr-prod:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.56.0
+    container_name: redis-exporter-prod
+    environment:
+      REDIS_ADDR: "redis://redis-prod:6379"
+    networks:
+      - secondlayer-prod-network
+    restart: unless-stopped
+    depends_on:
+      - redis-prod
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M
+
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: node-exporter-prod
+    command:
+      - '--path.rootfs=/host'
+    pid: host
+    volumes:
+      - '/:/host:ro,rslave'
+    networks:
+      - secondlayer-prod-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 128M
+
   grafana-prod:
     image: grafana/grafana:10.2.3
     container_name: grafana-prod

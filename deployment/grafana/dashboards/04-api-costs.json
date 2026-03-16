@@ -256,12 +256,12 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "sum(rate(cost_tracking_total_usd[5m])) by (model)",
-          "legendFormat": "{{model}}",
+          "expr": "sum(rate(cost_tracking_total_usd[5m])) by (tool_name)",
+          "legendFormat": "{{tool_name}}",
           "refId": "A"
         }
       ],
-      "title": "Cost Trend by Model",
+      "title": "Cost Trend by Tool",
       "type": "timeseries"
     },
     {
