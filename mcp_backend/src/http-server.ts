@@ -694,22 +694,26 @@ class HTTPMCPServer {
     // Readiness probe — DB is accessible (200/503)
     this.app.get('/health/ready', healthCheckRateLimit as any, async (_req, res) => {
       try {
+        const start = Date.now();
         await this.services.db.query('SELECT 1');
-        res.json({ status: 'ok' });
+        const latencyMs = Date.now() - start;
+        res.json({ status: 'ok', latencyMs });
       } catch (err: any) {
+        logger.warn('Healthcheck /ready failed', { error: err.message });
         res.status(503).json({ status: 'unavailable', error: err.message });
       }
     });
 
     // Full health check with dependency status (public - no auth, rate limited)
     this.app.get('/health', healthCheckRateLimit as any, async (_req, res) => {
-      const checks: Record<string, { ok: boolean; error?: string }> = {};
+      const checks: Record<string, { ok: boolean; latencyMs?: number; error?: string }> = {};
       let degraded = false;
 
       // PostgreSQL
       try {
+        const start = Date.now();
         await this.services.db.query('SELECT 1');
-        checks.postgres = { ok: true };
+        checks.postgres = { ok: true, latencyMs: Date.now() - start };
       } catch (err: any) {
         checks.postgres = { ok: false, error: err.message };
         degraded = true;
@@ -717,10 +721,11 @@ class HTTPMCPServer {
 
       // Redis
       try {
+        const start = Date.now();
         const redis = await getRedisClient();
         if (redis) {
           await redis.ping();
-          checks.redis = { ok: true };
+          checks.redis = { ok: true, latencyMs: Date.now() - start };
         } else {
           checks.redis = { ok: false, error: 'not connected' };
           degraded = true;
@@ -731,20 +736,41 @@ class HTTPMCPServer {
       }
 
       // Qdrant
-      const qdrantResult = await this.services.embeddingService.healthCheck();
-      checks.qdrant = qdrantResult;
-      if (!qdrantResult.ok) degraded = true;
+      try {
+        const start = Date.now();
+        const qdrantResult = await this.services.embeddingService.healthCheck();
+        checks.qdrant = { ...qdrantResult, latencyMs: Date.now() - start };
+        if (!qdrantResult.ok) degraded = true;
+      } catch (err: any) {
+        checks.qdrant = { ok: false, error: err.message };
+        degraded = true;
+      }
 
       // MinIO
-      const minioResult = await this.minioService.healthCheck();
-      checks.minio = minioResult;
-      if (!minioResult.ok) degraded = true;
+      try {
+        const start = Date.now();
+        const minioResult = await this.minioService.healthCheck();
+        checks.minio = { ...minioResult, latencyMs: Date.now() - start };
+        if (!minioResult.ok) degraded = true;
+      } catch (err: any) {
+        checks.minio = { ok: false, error: err.message };
+        degraded = true;
+      }
 
       const status = degraded ? 'degraded' : 'ok';
+
+      if (degraded) {
+        const failedChecks = Object.entries(checks)
+          .filter(([, v]) => !v.ok)
+          .map(([k, v]) => `${k}: ${v.error}`);
+        logger.warn('Healthcheck degraded', { failedChecks });
+      }
+
       res.status(degraded ? 503 : 200).json({
         status,
         service: 'secondlayer-mcp-http',
-        version: '1.0.0',
+        uptime: Math.round(process.uptime()),
+        memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
         checks,
       });
     });
