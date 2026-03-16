@@ -107,7 +107,7 @@ async function pass1c() {
   await mainPool.query(`
     WITH form_data AS (
       SELECT d.judge, d.court_code,
-        jsonb_object_agg(COALESCE(jf.name, d.judgment_code::TEXT), cnt) AS by_form
+        jsonb_object_agg(COALESCE(jf.name, d.judgment_code::TEXT, 'Невідомо'), cnt) AS by_form
       FROM (
         SELECT judge, court_code, judgment_code, COUNT(*) AS cnt
         FROM edrsr_documents
@@ -133,7 +133,7 @@ async function pass1d() {
   await mainPool.query(`
     WITH jk_data AS (
       SELECT d.judge, d.court_code,
-        jsonb_object_agg(COALESCE(jk.name, d.justice_kind::TEXT), cnt) AS by_jk
+        jsonb_object_agg(COALESCE(jk.name, d.justice_kind::TEXT, 'Невідомо'), cnt) AS by_jk
       FROM (
         SELECT judge, court_code, justice_kind, COUNT(*) AS cnt
         FROM edrsr_documents
