@@ -7,8 +7,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LawyerProfilePage } from './LawyerProfile';
 import { JudgeProfilePage } from './JudgeProfile';
+import { JudgeAnalyticsDetail } from './JudgeAnalyticsDetail';
 import { erauService, ERAUProfile } from '../../services/api/ERAUService';
 import { judgesService, JudgeProfile } from '../../services/api/JudgesService';
+import { judgeAnalyticsService, JudgeAnalyticsRecord } from '../../services/api/JudgeAnalyticsService';
 import { ROUTES } from '../../router/routes';
 
 interface PersonDetailPageProps {
@@ -21,6 +23,7 @@ export function PersonDetailPage({ type }: PersonDetailPageProps) {
 
   const [lawyerProfile, setLawyerProfile] = useState<ERAUProfile | null>(null);
   const [judgeProfile, setJudgeProfile] = useState<JudgeProfile | null>(null);
+  const [judgeAnalytics, setJudgeAnalytics] = useState<JudgeAnalyticsRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,16 +54,20 @@ export function PersonDetailPage({ type }: PersonDetailPageProps) {
       });
   }, [type, id]);
 
-  // Fetch judge profile
+  // Fetch judge profile + analytics
   useEffect(() => {
     if (type !== 'judge' || !id) return;
 
     setLoading(true);
     setError(null);
 
-    judgesService.getJudgeProfile(id)
-      .then((data) => {
-        setJudgeProfile(data);
+    Promise.all([
+      judgesService.getJudgeProfile(id),
+      judgeAnalyticsService.getAnalyticsDetail(id).catch(() => null),
+    ])
+      .then(([profile, analytics]) => {
+        setJudgeProfile(profile);
+        setJudgeAnalytics(analytics);
       })
       .catch((err) => {
         setError(err.message || 'Не вдалося завантажити профіль судді');
@@ -137,5 +144,9 @@ export function PersonDetailPage({ type }: PersonDetailPageProps) {
     );
   }
 
-  return <JudgeProfilePage profile={judgeProfile} onBack={handleBack} />;
+  return (
+    <JudgeProfilePage profile={judgeProfile} onBack={handleBack}>
+      {judgeAnalytics && <JudgeAnalyticsDetail analytics={judgeAnalytics} />}
+    </JudgeProfilePage>
+  );
 }
