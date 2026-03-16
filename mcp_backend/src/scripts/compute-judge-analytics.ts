@@ -220,13 +220,17 @@ async function pass2() {
   log('Pass 2 done');
 }
 
-// ── Pass 3: Appeal rate (optimized with temp tables + batched workers) ────
+// ── Pass 3: Appeal rate (optimized with unlogged staging tables) ──────────
 async function pass3() {
-  log('Pass 3: Appeal rate — building temp tables');
+  log('Pass 3: Appeal rate — building staging tables');
 
-  // Step 1: Create temp table with first-instance judges' distinct cause_nums
+  // Cleanup any leftover tables from previous runs
+  await mainPool.query('DROP TABLE IF EXISTS _ja_first_instance_causes');
+  await mainPool.query('DROP TABLE IF EXISTS _ja_appeal_causes');
+
+  // Step 1: Unlogged table with first-instance judges' distinct cause_nums
   await mainPool.query(`
-    CREATE TEMP TABLE IF NOT EXISTS tmp_first_instance_causes AS
+    CREATE UNLOGGED TABLE _ja_first_instance_causes AS
     SELECT DISTINCT d.judge, d.court_code, d.cause_num
     FROM edrsr_documents d
     JOIN judge_analytics ja ON d.judge = ja.judge_name AND d.court_code = ja.court_code
@@ -236,15 +240,15 @@ async function pass3() {
       AND d.adjudication_date <= $2::DATE
   `, [PERIOD_START, PERIOD_END]);
 
-  await mainPool.query(`CREATE INDEX IF NOT EXISTS idx_tmp_fic_cause ON tmp_first_instance_causes(cause_num)`);
-  await mainPool.query(`CREATE INDEX IF NOT EXISTS idx_tmp_fic_judge ON tmp_first_instance_causes(judge, court_code)`);
+  await mainPool.query(`CREATE INDEX idx_ja_fic_cause ON _ja_first_instance_causes(cause_num)`);
+  await mainPool.query(`CREATE INDEX idx_ja_fic_judge ON _ja_first_instance_causes(judge, court_code)`);
 
-  const { rows: ficStats } = await mainPool.query('SELECT COUNT(*) AS cnt, COUNT(DISTINCT judge) AS judges FROM tmp_first_instance_causes');
-  log(`Pass 3: temp table built — ${ficStats[0].cnt} cause_nums for ${ficStats[0].judges} first-instance judges`);
+  const { rows: ficStats } = await mainPool.query('SELECT COUNT(*) AS cnt, COUNT(DISTINCT judge) AS judges FROM _ja_first_instance_causes');
+  log(`Pass 3: staging table built — ${ficStats[0].cnt} cause_nums for ${ficStats[0].judges} first-instance judges`);
 
-  // Step 2: Create temp table with appeal court cause_nums (instance_code=2)
+  // Step 2: Unlogged table with appeal court cause_nums (instance_code=2)
   await mainPool.query(`
-    CREATE TEMP TABLE IF NOT EXISTS tmp_appeal_causes AS
+    CREATE UNLOGGED TABLE _ja_appeal_causes AS
     SELECT DISTINCT cause_num
     FROM edrsr_documents d
     JOIN edrsr_courts ac ON ac.court_code = d.court_code AND ac.instance_code = 2
@@ -252,19 +256,19 @@ async function pass3() {
       AND d.adjudication_date >= $1::DATE
   `, [PERIOD_START]);
 
-  await mainPool.query(`CREATE INDEX IF NOT EXISTS idx_tmp_ac_cause ON tmp_appeal_causes(cause_num)`);
+  await mainPool.query(`CREATE INDEX idx_ja_ac_cause ON _ja_appeal_causes(cause_num)`);
 
-  const { rows: acStats } = await mainPool.query('SELECT COUNT(*) AS cnt FROM tmp_appeal_causes');
-  log(`Pass 3: appeal causes temp table — ${acStats[0].cnt} distinct cause_nums`);
+  const { rows: acStats } = await mainPool.query('SELECT COUNT(*) AS cnt FROM _ja_appeal_causes');
+  log(`Pass 3: appeal causes table — ${acStats[0].cnt} distinct cause_nums`);
 
-  // Step 3: Count appealed cases per judge using temp tables (fast hash join)
-  log('Pass 3: computing appeal rates via temp table join');
+  // Step 3: Count appealed cases per judge using staging tables (fast hash join)
+  log('Pass 3: computing appeal rates via staging table join');
   await mainPool.query(`
     WITH appealed AS (
       SELECT fic.judge, fic.court_code, COUNT(DISTINCT fic.cause_num) AS cnt
-      FROM tmp_first_instance_causes fic
+      FROM _ja_first_instance_causes fic
       WHERE EXISTS (
-        SELECT 1 FROM tmp_appeal_causes ac WHERE ac.cause_num = fic.cause_num
+        SELECT 1 FROM _ja_appeal_causes ac WHERE ac.cause_num = fic.cause_num
       )
       GROUP BY fic.judge, fic.court_code
     )
@@ -283,8 +287,8 @@ async function pass3() {
   `);
 
   // Cleanup temp tables
-  await mainPool.query('DROP TABLE IF EXISTS tmp_first_instance_causes');
-  await mainPool.query('DROP TABLE IF EXISTS tmp_appeal_causes');
+  await mainPool.query('DROP TABLE IF EXISTS _ja_first_instance_causes');
+  await mainPool.query('DROP TABLE IF EXISTS _ja_appeal_causes');
 
   const { rows: appealStats } = await mainPool.query('SELECT COUNT(CASE WHEN appeal_rate > 0 THEN 1 END) AS with_appeal, MAX(appeal_rate) AS max_rate FROM judge_analytics');
   log(`Pass 3 done: ${appealStats[0].with_appeal} judges with appeals, max rate ${appealStats[0].max_rate}%`);
