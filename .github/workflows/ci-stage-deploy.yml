@@ -299,7 +299,9 @@ jobs:
 
       - name: Stage health checks
         run: |
+          DC="docker compose -f docker-compose.stage.yml --env-file .env.stage"
           FAILED=false
+
           check_health() {
             local name=$1 url=$2
             for i in 1 2 3 4 5 6; do
@@ -314,9 +316,23 @@ jobs:
             FAILED=true
           }
 
+          check_health_docker() {
+            local name=$1 container=$2 url=$3
+            for i in 1 2 3 4 5 6; do
+              if $DC exec -T "$container" wget --spider -q "$url" 2>/dev/null; then
+                echo "$name: OK"
+                return 0
+              fi
+              echo "$name: attempt $i failed, retrying in 10s..."
+              sleep 10
+            done
+            echo "::error::$name health check failed on stage"
+            FAILED=true
+          }
+
           [ "$BACKEND_CHANGED" = "true" ] && check_health "Backend" "http://localhost:3004/health"
-          [ "$RADA_CHANGED" = "true" ] && check_health "RADA" "http://localhost:3001/health"
-          [ "$OPENREYESTR_CHANGED" = "true" ] && check_health "OpenReyestr" "http://localhost:3005/health"
+          [ "$RADA_CHANGED" = "true" ] && check_health_docker "RADA" "rada-mcp-app-stage" "http://127.0.0.1:3001/health"
+          [ "$OPENREYESTR_CHANGED" = "true" ] && check_health_docker "OpenReyestr" "app-openreyestr-stage" "http://127.0.0.1:3005/health"
 
           check_health "Stage (public)" "https://stage.legal.org.ua/health"
 
