@@ -111,8 +111,8 @@ export class JudgeAnalyticsService {
     `;
 
     const [countResult, dataResult] = await Promise.all([
-      this.db.query<{ total: string }>(countQuery, params),
-      this.db.query<JudgeAnalyticsRecord>(dataQuery, [...params, limit, offset]),
+      this.db.query(countQuery, params),
+      this.db.query(dataQuery, [...params, limit, offset]),
     ]);
 
     return {
@@ -123,7 +123,7 @@ export class JudgeAnalyticsService {
 
   async getAnalyticsDetail(identifier: string): Promise<JudgeAnalyticsRecord | null> {
     // Try dossier number first, then id
-    let result = await this.db.query<JudgeAnalyticsRecord>(
+    let result = await this.db.query(
       `SELECT * FROM judge_analytics WHERE dossier_number = $1 LIMIT 1`,
       [identifier]
     );
@@ -131,7 +131,7 @@ export class JudgeAnalyticsService {
     if (result.rows.length === 0) {
       const numId = parseInt(identifier, 10);
       if (!isNaN(numId)) {
-        result = await this.db.query<JudgeAnalyticsRecord>(
+        result = await this.db.query(
           `SELECT * FROM judge_analytics WHERE id = $1 LIMIT 1`,
           [numId]
         );
@@ -140,7 +140,7 @@ export class JudgeAnalyticsService {
 
     if (result.rows.length === 0) {
       // Try URL-decoded judge name
-      result = await this.db.query<JudgeAnalyticsRecord>(
+      result = await this.db.query(
         `SELECT * FROM judge_analytics WHERE judge_name = $1 LIMIT 1`,
         [decodeURIComponent(identifier)]
       );
