@@ -62,10 +62,17 @@ export function PersonDetailPage({ type }: PersonDetailPageProps) {
     setError(null);
 
     Promise.all([
-      judgesService.getJudgeProfile(id),
+      judgesService.getJudgeProfile(id).catch((err) => {
+        if (err.status === 404) return null;
+        throw err;
+      }),
       judgeAnalyticsService.getAnalyticsDetail(id).catch(() => null),
     ])
       .then(([profile, analytics]) => {
+        if (!profile) {
+          setError('Суддю з таким номером досьє не знайдено');
+          return;
+        }
         setJudgeProfile(profile);
         setJudgeAnalytics(analytics);
       })
