@@ -32,6 +32,9 @@ outputs:
   services_to_deploy:
     description: 'JSON array of Docker service names to deploy on prod'
     value: ${{ steps.changes.outputs.services_to_deploy }}
+  monitoring:
+    description: 'Whether monitoring configs changed (grafana, prometheus)'
+    value: ${{ steps.changes.outputs.monitoring }}
 
 runs:
   using: 'composite'
@@ -75,6 +78,9 @@ runs:
         DEPLOYMENT=false
         MOBILE=false
 
+        DEPLOY_INFRA=false  # Dockerfiles, compose files, nginx — triggers full rebuild
+        DEPLOY_MONITORING=false  # Grafana, prometheus — deploy-only, no rebuild
+
         while IFS= read -r file; do
           case "$file" in
             packages/shared/*) SHARED=true ;;
@@ -82,7 +88,8 @@ runs:
             mcp_rada/*) RADA=true ;;
             mcp_openreyestr/*) OPENREYESTR=true ;;
             lexwebapp/*) FRONTEND=true ;;
-            deployment/*) DEPLOYMENT=true ;;
+            deployment/grafana/*|deployment/prometheus/*) DEPLOY_MONITORING=true; DEPLOYMENT=true ;;
+            deployment/*) DEPLOY_INFRA=true; DEPLOYMENT=true ;;
             mobile/*) MOBILE=true ;;
           esac
         done <<< "$CHANGED_FILES"
@@ -94,8 +101,9 @@ runs:
           OPENREYESTR=true
         fi
 
-        # If deployment configs changed, rebuild everything
-        if [ "$DEPLOYMENT" = "true" ]; then
+        # If deployment infra changed (Dockerfiles, compose, nginx), rebuild everything
+        # Monitoring-only changes (grafana, prometheus) don't require service rebuilds
+        if [ "$DEPLOY_INFRA" = "true" ]; then
           BACKEND=true
           RADA=true
           OPENREYESTR=true
@@ -142,6 +150,7 @@ runs:
         echo "openreyestr=$OPENREYESTR" >> "$GITHUB_OUTPUT"
         echo "frontend=$FRONTEND" >> "$GITHUB_OUTPUT"
         echo "deployment=$DEPLOYMENT" >> "$GITHUB_OUTPUT"
+        echo "monitoring=$DEPLOY_MONITORING" >> "$GITHUB_OUTPUT"
         echo "mobile=$MOBILE" >> "$GITHUB_OUTPUT"
         echo "any_backend=$ANY_BACKEND" >> "$GITHUB_OUTPUT"
         echo "services_to_build=$SERVICES_TO_BUILD" >> "$GITHUB_OUTPUT"
@@ -155,6 +164,7 @@ runs:
         echo "  openreyestr: $OPENREYESTR"
         echo "  frontend:    $FRONTEND"
         echo "  deployment:  $DEPLOYMENT"
+        echo "  monitoring:  $DEPLOY_MONITORING"
         echo "  mobile:      $MOBILE"
         echo "  services_to_build: $SERVICES_TO_BUILD"
         echo "  services_to_deploy: $SERVICES_TO_DEPLOY"
