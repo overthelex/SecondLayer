@@ -116,4 +116,12 @@ export const queryKeys = {
       ['judges', 'list', params] as const,
     detail: (dossierNumber: string) => ['judges', 'detail', dossierNumber] as const,
   },
+
+  // Judge Analytics
+  judgeAnalytics: {
+    all: ['judgeAnalytics'] as const,
+    list: (params?: object) =>
+      ['judgeAnalytics', 'list', params] as const,
+    detail: (identifier: string) => ['judgeAnalytics', 'detail', identifier] as const,
+  },
 } as const;

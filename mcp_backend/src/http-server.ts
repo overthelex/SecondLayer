@@ -132,6 +132,8 @@ import { createAttorneyRoutes } from './routes/attorney-routes.js';
 import { createConsultationRoutes } from './routes/consultation-routes.js';
 import { JudgesService } from './services/judges-service.js';
 import { createJudgesRoutes } from './routes/judges-routes.js';
+import { JudgeAnalyticsService } from './services/judge-analytics-service.js';
+import { createJudgeAnalyticsRoutes } from './routes/judge-analytics-routes.js';
 import { ReferralService } from './services/referral-service.js';
 import { createReferralRoutes } from './routes/referral-routes.js';
 import { sanitizeId, maskSensitive } from './utils/sanitize-log.js';
@@ -2053,6 +2055,11 @@ class HTTPMCPServer {
     // Judges routes - search judges from VKKS data
     const judgesService = new JudgesService(this.services.db, this.services.zoAdapter);
     this.app.use('/api/judges', requireJWT as any, createJudgesRoutes(judgesService));
+
+    // Judge analytics routes - pre-computed metrics from EDRSR
+    const judgeAnalyticsService = new JudgeAnalyticsService(this.services.db);
+    this.app.use('/api/judge-analytics', requireJWT as any, createJudgeAnalyticsRoutes(judgeAnalyticsService));
+    logger.info('Judge analytics routes registered at /api/judge-analytics');
 
     // Decisions routes - download court decision full texts from reyestr.court.gov.ua
     this.app.use('/api/decisions', requireJWT as any, createDecisionsRoutes(this.services.reyestrDownloadService));
