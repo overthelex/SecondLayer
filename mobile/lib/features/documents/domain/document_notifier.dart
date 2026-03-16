@@ -66,7 +66,7 @@ class DocumentNotifier extends Notifier<DocumentState> {
   DocumentState build() {
     _repo = ref.read(documentRepositoryProvider);
     _uploadService = ref.read(uploadServiceProvider);
-    loadDocuments();
+    Future.microtask(() => loadDocuments());
     return const DocumentState(isLoading: true);
   }
 
