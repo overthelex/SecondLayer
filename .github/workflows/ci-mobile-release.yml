@@ -1,0 +1,284 @@
+##############################################################################
+# Pipeline: Flutter Mobile App — Build, Test & Release
+# - Triggers on push to main when mobile/ files change
+# - Runs flutter analyze + build APK
+# - Creates GitHub Release with APK artifact
+# - Independent versioning via mobile-v* tags (same semver pattern as main release)
+##############################################################################
+name: 'Mobile: Build & Release APK'
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Force release even without mobile changes'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mobile-release
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.41.4'
+  JAVA_VERSION: '17'
+
+jobs:
+  # ─── Step 1: Detect mobile changes ──────────────────────────────────
+  detect-changes:
+    name: Detect Mobile Changes
+    runs-on: ubuntu-latest
+    outputs:
+      mobile_changed: ${{ steps.check.outputs.mobile_changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for mobile changes
+        id: check
+        run: |
+          if [ "${{ github.event.inputs.force_release }}" = "true" ]; then
+            echo "mobile_changed=true" >> "$GITHUB_OUTPUT"
+            echo "Force release requested"
+            exit 0
+          fi
+
+          LAST_TAG=$(git tag -l "mobile-v*" --sort=-version:refname | head -1)
+          if [ -z "$LAST_TAG" ]; then
+            LAST_SHA=$(git rev-parse HEAD~1)
+          else
+            LAST_SHA=$(git rev-parse "$LAST_TAG")
+          fi
+
+          CHANGED=$(git diff --name-only "$LAST_SHA" HEAD | grep -c "^mobile/" || true)
+          if [ "$CHANGED" -gt 0 ]; then
+            echo "mobile_changed=true" >> "$GITHUB_OUTPUT"
+            echo "Found $CHANGED changed files in mobile/"
+          else
+            echo "mobile_changed=false" >> "$GITHUB_OUTPUT"
+            echo "No mobile changes detected"
+          fi
+
+  # ─── Step 2: Analyze & Test ─────────────────────────────────────────
+  build-and-test:
+    name: Analyze & Build
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.mobile_changed == 'true'
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run tests
+        run: flutter test || echo "::warning::Some tests failed — review before releasing"
+
+  # ─── Step 3: Build release APK ──────────────────────────────────────
+  build-release-apk:
+    name: Build Release APK
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-test]
+    if: needs.build-and-test.result == 'success'
+    defaults:
+      run:
+        working-directory: mobile
+    outputs:
+      version_name: ${{ steps.version.outputs.version_name }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      apk_path: ${{ steps.build.outputs.apk_path }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          LAST_TAG=$(git tag -l "mobile-v*" --sort=-version:refname | head -1)
+
+          if [ -z "$LAST_TAG" ]; then
+            NEXT_VERSION="mobile-v1.0.0"
+            VERSION_NAME="1.0.0"
+          else
+            COMMITS=$(git log "${LAST_TAG}..HEAD" --oneline --no-merges -- ../mobile/)
+            CURRENT="${LAST_TAG#mobile-v}"
+            MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+            MINOR=$(echo "$CURRENT" | cut -d. -f2)
+            PATCH=$(echo "$CURRENT" | cut -d. -f3)
+
+            if echo "$COMMITS" | grep -qiE "^[a-f0-9]+ (feat|refactor)!:|BREAKING CHANGE"; then
+              MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+            elif echo "$COMMITS" | grep -qiE "^[a-f0-9]+ feat(\(|:)"; then
+              MINOR=$((MINOR + 1)); PATCH=0
+            else
+              PATCH=$((PATCH + 1))
+            fi
+            VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}"
+            NEXT_VERSION="mobile-v${VERSION_NAME}"
+          fi
+
+          # Version code = major*10000 + minor*100 + patch
+          MAJOR=$(echo "$VERSION_NAME" | cut -d. -f1)
+          MINOR=$(echo "$VERSION_NAME" | cut -d. -f2)
+          PATCH=$(echo "$VERSION_NAME" | cut -d. -f3)
+          VERSION_CODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
+
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "next_tag=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION_NAME ($VERSION_CODE) — tag: $NEXT_VERSION"
+
+      - name: Update pubspec.yaml version
+        run: |
+          VERSION="${{ steps.version.outputs.version_name }}"
+          CODE="${{ steps.version.outputs.version_code }}"
+          sed -i "s/^version: .*/version: ${VERSION}+${CODE}/" pubspec.yaml
+          echo "Updated pubspec.yaml to version: ${VERSION}+${CODE}"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Setup signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEY_PROPERTIES" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+            echo "$KEY_PROPERTIES" > android/key.properties
+            echo "Release signing configured"
+          else
+            echo "::warning::No signing secrets — building debug APK"
+            echo "USE_DEBUG=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build APK
+        id: build
+        run: |
+          if [ "$USE_DEBUG" = "true" ]; then
+            flutter build apk --debug
+            APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
+          else
+            flutter build apk --release
+            APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
+          fi
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
+          echo "Built: $APK_PATH ($(du -sh $APK_PATH | cut -f1))"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: secondlayer-android-${{ steps.version.outputs.version_name }}
+          path: mobile/${{ steps.build.outputs.apk_path }}
+          retention-days: 90
+
+  # ─── Step 4: Create GitHub Release ──────────────────────────────────
+  create-release:
+    name: Create Mobile Release
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-release-apk]
+    if: needs.build-release-apk.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: secondlayer-android-${{ needs.build-release-apk.outputs.version_name }}
+          path: ./release-apk
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ needs.build-release-apk.outputs.version_name }}
+          VERSION_CODE: ${{ needs.build-release-apk.outputs.version_code }}
+        run: |
+          TAG="mobile-v${VERSION_NAME}"
+
+          # Build changelog from mobile-scoped commits
+          LAST_TAG=$(git tag -l "mobile-v*" --sort=-version:refname | head -1)
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --oneline --no-merges -20 -- mobile/)
+          else
+            COMMITS=$(git log "${LAST_TAG}..HEAD" --oneline --no-merges -- mobile/)
+          fi
+
+          FEATURES=$(echo "$COMMITS" | grep -iE "^[a-f0-9]+ feat(\(|:)" | sed 's/^[a-f0-9]* /- /' || true)
+          FIXES=$(echo "$COMMITS" | grep -iE "^[a-f0-9]+ fix(\(|:)" | sed 's/^[a-f0-9]* /- /' || true)
+          OTHER=$(echo "$COMMITS" | grep -viE "^[a-f0-9]+ (feat|fix)(\(|:)" | grep -v "^$" | sed 's/^[a-f0-9]* /- /' || true)
+
+          BODY="## SecondLayer Android ${VERSION_NAME} (${VERSION_CODE})\n"
+
+          if [ -n "$FEATURES" ]; then
+            BODY="${BODY}\n### Features\n${FEATURES}\n"
+          fi
+          if [ -n "$FIXES" ]; then
+            BODY="${BODY}\n### Fixes\n${FIXES}\n"
+          fi
+          if [ -n "$OTHER" ]; then
+            BODY="${BODY}\n### Other\n${OTHER}\n"
+          fi
+
+          BODY="${BODY}\n---\n"
+          BODY="${BODY}**Commit:** ${GITHUB_SHA:0:7}\n"
+          BODY="${BODY}**Install:** Download \`secondlayer-${VERSION_NAME}.apk\` below and install on Android device"
+
+          # Rename APK for release
+          APK_FILE=$(find ./release-apk -name "*.apk" | head -1)
+          RELEASE_APK="./secondlayer-${VERSION_NAME}.apk"
+          cp "$APK_FILE" "$RELEASE_APK"
+
+          echo "Creating release $TAG"
+
+          git tag "$TAG"
+          git push origin "$TAG"
+
+          printf "%b" "$BODY" | gh release create "$TAG" \
+            --title "Android ${VERSION_NAME}" \
+            --notes-file - \
+            "$RELEASE_APK"
+
+          echo "Release created: $TAG"

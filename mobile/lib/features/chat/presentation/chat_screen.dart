@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/chat_notifier.dart';
+import '../domain/chat_state.dart';
 import 'widgets/message_bubble.dart';
 import 'widgets/chat_input.dart';
+import 'widgets/evidence_panel.dart';
+import 'widgets/evidence_badge.dart';
+import 'widgets/plan_review_sheet.dart';
 import 'conversation_list.dart';
 import '../../../shared/widgets/empty_state.dart';
 
@@ -15,10 +19,12 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
+  final _sheetController = DraggableScrollableController();
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _sheetController.dispose();
     super.dispose();
   }
 
@@ -46,17 +52,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           next.isStreaming) {
         _scrollToBottom();
       }
+
+      // Show plan review sheet when pending
+      if (prev?.pendingPlanReview == null && next.pendingPlanReview != null) {
+        _showPlanReview(context, next.pendingPlanReview!);
+      }
     });
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('AI Чат'),
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) => const ConversationListScreen()),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
         actions: [
@@ -67,48 +76,112 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ],
       ),
-      body: Column(
+      drawer: const ConversationDrawer(),
+      body: Stack(
         children: [
-          // Error banner
-          if (chatState.error != null)
-            MaterialBanner(
-              content: Text(chatState.error!),
-              backgroundColor:
-                  Theme.of(context).colorScheme.errorContainer,
-              actions: [
-                TextButton(
-                  onPressed: () => ref
-                      .read(chatNotifierProvider.notifier)
-                      .sendMessage(''),
-                  child: const Text('OK'),
+          // Main content
+          Column(
+            children: [
+              // Error banner
+              if (chatState.error != null)
+                MaterialBanner(
+                  content: Text(chatState.error!),
+                  backgroundColor:
+                      Theme.of(context).colorScheme.errorContainer,
+                  actions: [
+                    TextButton(
+                      onPressed: () => ref
+                          .read(chatNotifierProvider.notifier)
+                          .sendMessage(''),
+                      child: const Text('OK'),
+                    ),
+                  ],
                 ),
-              ],
-            ),
 
-          // Messages
-          Expanded(
-            child: chatState.messages.isEmpty
-                ? const EmptyState(
-                    icon: Icons.chat_bubble_outline,
-                    title: 'Почніть розмову',
-                    subtitle:
-                        'Задайте питання про судову практику,\nзаконодавство або правові документи',
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: chatState.messages.length,
-                    itemBuilder: (_, index) {
-                      return MessageBubble(
-                        message: chatState.messages[index],
-                      );
-                    },
-                  ),
+              // Messages
+              Expanded(
+                child: chatState.messages.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.chat_bubble_outline,
+                        title: 'Почніть розмову',
+                        subtitle:
+                            'Задайте питання про судову практику,\nзаконодавство або правові документи',
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: chatState.messages.length,
+                        itemBuilder: (_, index) {
+                          final message = chatState.messages[index];
+                          final isLastAssistant = message.role == 'assistant' &&
+                              index == chatState.messages.length - 1;
+                          return MessageBubble(
+                            message: message,
+                            isLastAssistant: isLastAssistant,
+                            onRegenerate: isLastAssistant
+                                ? () => ref
+                                    .read(chatNotifierProvider.notifier)
+                                    .regenerateLastMessage()
+                                : null,
+                            onEdit: (messageId, newContent) => ref
+                                .read(chatNotifierProvider.notifier)
+                                .editAndResend(messageId, newContent),
+                          );
+                        },
+                      ),
+              ),
+
+              // Evidence badge
+              EvidenceBadge(
+                onTap: () {
+                  ref.read(chatNotifierProvider.notifier).toggleEvidencePanel();
+                  if (_sheetController.isAttached) {
+                    _sheetController.animateTo(
+                      0.45,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                },
+              ),
+
+              // Input
+              const ChatInput(),
+            ],
           ),
 
-          // Input
-          const ChatInput(),
+          // Evidence panel overlay
+          EvidencePanel(controller: _sheetController),
         ],
+      ),
+    );
+  }
+
+  void _showPlanReview(BuildContext context, PendingPlanReview pending) {
+    final notifier = ref.read(chatNotifierProvider.notifier);
+    var currentPlan = pending.plan;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      builder: (_) => PlanReviewSheet(
+        plan: pending.plan,
+        query: pending.query,
+        onPlanChanged: (plan) => currentPlan = plan,
+        onConfirm: () {
+          Navigator.pop(context);
+          notifier.confirmPlanAndExecute(currentPlan);
+        },
+        onSkip: () {
+          Navigator.pop(context);
+          notifier.skipPlanReview();
+        },
+        onCancel: () {
+          Navigator.pop(context);
+          notifier.cancelPlanReview();
+        },
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/secure_storage.dart';
 import 'models/user.dart';
@@ -14,7 +15,11 @@ class AuthRepository {
     GoogleSignIn? googleSignIn,
   })  : _api = api,
         _storage = storage,
-        _googleSignIn = googleSignIn ?? GoogleSignIn(scopes: ['email', 'profile']);
+        _googleSignIn = googleSignIn ??
+            GoogleSignIn(
+              scopes: ['email', 'profile'],
+              serverClientId: dotenv.env['GOOGLE_CLIENT_ID'],
+            );
 
   Future<User> signInWithEmail(String email, String password) async {
     final response = await _api.post('/auth/login', data: {
@@ -48,20 +53,32 @@ class AuthRepository {
   }
 
   Future<User> signInWithGoogle() async {
-    final googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) throw Exception('Вхід через Google скасовано');
+    try {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) throw Exception('Вхід через Google скасовано');
 
-    final auth = await googleUser.authentication;
-    final response = await _api.post('/auth/google/mobile', data: {
-      'idToken': auth.idToken,
-      'accessToken': auth.accessToken,
-    });
-    final data = response.data as Map<String, dynamic>;
-    await _storage.setToken(data['token'] as String);
-    if (data['refreshToken'] != null) {
-      await _storage.setRefreshToken(data['refreshToken'] as String);
+      final auth = await googleUser.authentication;
+
+      if (auth.idToken == null) {
+        throw Exception(
+            'Google Sign-In не повернув idToken. Перевірте налаштування OAuth.');
+      }
+
+      final response = await _api.post('/auth/google/mobile', data: {
+        'idToken': auth.idToken,
+        'accessToken': auth.accessToken,
+      });
+      final data = response.data as Map<String, dynamic>;
+      await _storage.setToken(data['token'] as String);
+      if (data['refreshToken'] != null) {
+        await _storage.setRefreshToken(data['refreshToken'] as String);
+      }
+      return User.fromJson(data['user'] as Map<String, dynamic>);
+    } on Exception {
+      rethrow;
+    } catch (e) {
+      throw Exception('Помилка входу через Google: $e');
     }
-    return User.fromJson(data['user'] as Map<String, dynamic>);
   }
 
   /// Handle OAuth deep link callback (secondlayer://auth/callback?token=xxx)

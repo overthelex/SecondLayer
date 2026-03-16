@@ -1,14 +1,45 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../data/models/message.dart';
 import '../../../../shared/theme/app_colors.dart';
+import 'legal_markdown.dart';
+import 'message_actions.dart';
+import 'citation_warnings_strip.dart';
 
-class MessageBubble extends StatelessWidget {
+class MessageBubble extends StatefulWidget {
   final Message message;
+  final bool isLastAssistant;
+  final VoidCallback? onRegenerate;
+  final void Function(String messageId, String newContent)? onEdit;
 
-  const MessageBubble({super.key, required this.message});
+  const MessageBubble({
+    super.key,
+    required this.message,
+    this.isLastAssistant = false,
+    this.onRegenerate,
+    this.onEdit,
+  });
 
-  bool get _isUser => message.role == 'user';
+  @override
+  State<MessageBubble> createState() => _MessageBubbleState();
+}
+
+class _MessageBubbleState extends State<MessageBubble> {
+  bool _isEditing = false;
+  late TextEditingController _editController;
+
+  bool get _isUser => widget.message.role == 'user';
+
+  @override
+  void initState() {
+    super.initState();
+    _editController = TextEditingController(text: widget.message.content);
+  }
+
+  @override
+  void dispose() {
+    _editController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,79 +52,177 @@ class MessageBubble extends StatelessWidget {
         crossAxisAlignment:
             _isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          // Thinking steps
-          if (message.thinkingSteps.isNotEmpty && !_isUser)
-            _ThinkingStepsWidget(steps: message.thinkingSteps),
+          // Thinking steps (collapsible)
+          if (widget.message.thinkingSteps.isNotEmpty && !_isUser)
+            _ThinkingStepsWidget(steps: widget.message.thinkingSteps),
 
           // Execution plan
-          if (message.executionPlan != null && !_isUser)
-            _ExecutionPlanWidget(plan: message.executionPlan!),
+          if (widget.message.executionPlan != null && !_isUser)
+            _ExecutionPlanWidget(plan: widget.message.executionPlan!),
 
-          // Message bubble
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.8,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: _isUser
-                  ? (isDark ? AppColors.darkUserBubble : AppColors.userBubble)
-                  : (isDark
-                      ? AppColors.darkAssistantBubble
-                      : AppColors.assistantBubble),
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft: Radius.circular(_isUser ? 16 : 4),
-                bottomRight: Radius.circular(_isUser ? 4 : 16),
+          // Message row with optional avatar
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment:
+                _isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              // Assistant avatar
+              if (!_isUser) ...[
+                Container(
+                  width: 28,
+                  height: 28,
+                  margin: const EdgeInsets.only(right: 8, top: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.balance,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+
+              // Bubble
+              Flexible(
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.78,
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _isUser
+                        ? (isDark
+                            ? AppColors.darkUserBubble
+                            : AppColors.userBubble)
+                        : (isDark
+                            ? AppColors.darkAssistantBubble
+                            : AppColors.assistantBubble),
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: Radius.circular(_isUser ? 16 : 4),
+                      bottomRight: Radius.circular(_isUser ? 4 : 16),
+                    ),
+                    border: _isUser
+                        ? null
+                        : Border.all(
+                            color: isDark
+                                ? AppColors.darkBorder
+                                : AppColors.border,
+                          ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Editing mode
+                      if (_isEditing)
+                        _buildEditField(theme)
+                      // User message
+                      else if (_isUser)
+                        Text(
+                          widget.message.content,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: isDark
+                                ? AppColors.darkTextPrimary
+                                : AppColors.textPrimary,
+                          ),
+                        )
+                      // Streaming indicator
+                      else if (widget.message.content.isEmpty &&
+                          widget.message.isStreaming)
+                        _StreamingIndicator()
+                      // Assistant message with legal markdown
+                      else
+                        LegalMarkdownBody(data: widget.message.content),
+
+                      // Citation warnings
+                      if (widget.message.citationWarnings.isNotEmpty &&
+                          !_isUser) ...[
+                        const SizedBox(height: 8),
+                        CitationWarningsStrip(
+                          warnings: widget.message.citationWarnings,
+                        ),
+                      ],
+
+                      // Cost summary
+                      if (widget.message.costSummary != null && !_isUser)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            '\$${widget.message.costSummary!.totalCostUsd.toStringAsFixed(4)}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Message actions
+          if (!widget.message.isStreaming && widget.message.content.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(
+                left: _isUser ? 0 : 36,
+                top: 2,
+              ),
+              child: MessageActions(
+                role: widget.message.role,
+                content: widget.message.content,
+                isLastAssistant: widget.isLastAssistant,
+                onRegenerate: widget.onRegenerate,
+                onEdit: _isUser
+                    ? () => setState(() => _isEditing = true)
+                    : null,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_isUser)
-                  Text(
-                    message.content,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
-                    ),
-                  )
-                else if (message.content.isEmpty && message.isStreaming)
-                  _StreamingIndicator()
-                else
-                  MarkdownBody(
-                    data: message.content,
-                    selectable: true,
-                    styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                      p: theme.textTheme.bodyMedium?.copyWith(
-                        color: isDark
-                            ? AppColors.darkTextPrimary
-                            : AppColors.textPrimary,
-                      ),
-                      code: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
-                        backgroundColor:
-                            isDark ? const Color(0xFF1A202C) : const Color(0xFFF7FAFC),
-                      ),
-                    ),
-                  ),
-
-                // Cost summary
-                if (message.costSummary != null && !_isUser)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      '\$${message.costSummary!.totalCostUsd.toStringAsFixed(4)}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEditField(ThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: _editController,
+          maxLines: null,
+          autofocus: true,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(
+              onPressed: () => setState(() => _isEditing = false),
+              child: const Text('Скасувати'),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () {
+                final text = _editController.text.trim();
+                if (text.isNotEmpty) {
+                  widget.onEdit?.call(widget.message.id, text);
+                }
+                setState(() => _isEditing = false);
+              },
+              child: const Text('Надіслати'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -158,7 +287,7 @@ class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
         width: 8,
         height: 8,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          color: AppColors.primary,
           shape: BoxShape.circle,
         ),
       ),
@@ -166,15 +295,22 @@ class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
   }
 }
 
-class _ThinkingStepsWidget extends StatelessWidget {
+class _ThinkingStepsWidget extends StatefulWidget {
   final List<ThinkingStep> steps;
   const _ThinkingStepsWidget({required this.steps});
+
+  @override
+  State<_ThinkingStepsWidget> createState() => _ThinkingStepsWidgetState();
+}
+
+class _ThinkingStepsWidgetState extends State<_ThinkingStepsWidget> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 8, left: 36),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
@@ -186,36 +322,50 @@ class _ThinkingStepsWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.psychology, size: 16, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Text('Аналіз', style: theme.textTheme.labelLarge),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...steps.map((step) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      step.isComplete
-                          ? Icons.check_circle
-                          : Icons.hourglass_top,
-                      size: 14,
-                      color: step.isComplete
-                          ? AppColors.success
-                          : theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(step.title,
-                          style: theme.textTheme.bodySmall),
-                    ),
-                  ],
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Row(
+              children: [
+                Icon(Icons.psychology,
+                    size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('Аналіз (${widget.steps.length})',
+                    style: theme.textTheme.labelLarge),
+                const Spacer(),
+                AnimatedRotation(
+                  turns: _expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(Icons.expand_more,
+                      size: 18, color: theme.colorScheme.onSurfaceVariant),
                 ),
-              )),
+              ],
+            ),
+          ),
+          if (_expanded) ...[
+            const SizedBox(height: 8),
+            ...widget.steps.map((step) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        step.isComplete
+                            ? Icons.check_circle
+                            : Icons.hourglass_top,
+                        size: 14,
+                        color: step.isComplete
+                            ? AppColors.success
+                            : theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(step.title,
+                            style: theme.textTheme.bodySmall),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
         ],
       ),
     );
@@ -230,13 +380,13 @@ class _ExecutionPlanWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 8, left: 36),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+        color: AppColors.primary.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+          color: AppColors.primary.withValues(alpha: 0.2),
         ),
       ),
       child: Column(
@@ -244,7 +394,7 @@ class _ExecutionPlanWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.route, size: 16, color: theme.colorScheme.primary),
+              Icon(Icons.route, size: 16, color: AppColors.primary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(plan.goal, style: theme.textTheme.labelLarge),

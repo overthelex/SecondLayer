@@ -78,6 +78,13 @@ function getCallbackURL(req: any): string {
   return `${protocol}://${host}/auth/google/callback`;
 }
 
+/**
+ * @route   POST /auth/google/mobile
+ * @desc    Authenticate via Google idToken from mobile SDK
+ * @access  Public (rate limited)
+ */
+router.post('/google/mobile', authRateLimit as any, authController.googleMobileAuth as any);
+
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   router.get('/google', (req, res, next) => {
     passport.authenticate('google', {

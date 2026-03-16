@@ -20,6 +20,9 @@ outputs:
   deployment:
     description: 'Whether deployment configs changed'
     value: ${{ steps.changes.outputs.deployment }}
+  mobile:
+    description: 'Whether mobile/ Flutter app changed'
+    value: ${{ steps.changes.outputs.mobile }}
   any_backend:
     description: 'Whether any backend service changed (shared/backend/rada/openreyestr)'
     value: ${{ steps.changes.outputs.any_backend }}
@@ -70,6 +73,7 @@ runs:
         OPENREYESTR=false
         FRONTEND=false
         DEPLOYMENT=false
+        MOBILE=false
 
         while IFS= read -r file; do
           case "$file" in
@@ -79,6 +83,7 @@ runs:
             mcp_openreyestr/*) OPENREYESTR=true ;;
             lexwebapp/*) FRONTEND=true ;;
             deployment/*) DEPLOYMENT=true ;;
+            mobile/*) MOBILE=true ;;
           esac
         done <<< "$CHANGED_FILES"
 
@@ -137,6 +142,7 @@ runs:
         echo "openreyestr=$OPENREYESTR" >> "$GITHUB_OUTPUT"
         echo "frontend=$FRONTEND" >> "$GITHUB_OUTPUT"
         echo "deployment=$DEPLOYMENT" >> "$GITHUB_OUTPUT"
+        echo "mobile=$MOBILE" >> "$GITHUB_OUTPUT"
         echo "any_backend=$ANY_BACKEND" >> "$GITHUB_OUTPUT"
         echo "services_to_build=$SERVICES_TO_BUILD" >> "$GITHUB_OUTPUT"
         echo "services_to_deploy=$SERVICES_TO_DEPLOY" >> "$GITHUB_OUTPUT"
@@ -149,5 +155,6 @@ runs:
         echo "  openreyestr: $OPENREYESTR"
         echo "  frontend:    $FRONTEND"
         echo "  deployment:  $DEPLOYMENT"
+        echo "  mobile:      $MOBILE"
         echo "  services_to_build: $SERVICES_TO_BUILD"
         echo "  services_to_deploy: $SERVICES_TO_DEPLOY"
