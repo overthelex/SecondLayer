@@ -325,9 +325,9 @@ services:
       TZ: Europe/Kiev
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3001/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3001/health/ready', r => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); });"]
+      interval: 15s
+      timeout: 5s
       retries: 3
       start_period: 30s
     networks:
@@ -398,9 +398,9 @@ services:
       migrate-openreyestr-prod:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3005/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3005/health/ready', r => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); });"]
+      interval: 15s
+      timeout: 5s
       retries: 3
       start_period: 30s
     restart: unless-stopped
@@ -637,14 +637,9 @@ services:
     - app_prod_logs:/app/logs
     - ../vision-ocr-credentials.json:/app/credentials/vision-credentials.json:ro
     healthcheck:
-      test:
-      - CMD
-      - wget
-      - --spider
-      - -q
-      - http://127.0.0.1:3000/health
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/ready', r => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); });"]
+      interval: 15s
+      timeout: 5s
       retries: 3
       start_period: 60s
     restart: unless-stopped
@@ -730,9 +725,9 @@ services:
     volumes:
       - ../vision-ocr-credentials.json:/app/credentials/vision-credentials.json:ro
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3002/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3002/health/ready', r => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); });"]
+      interval: 15s
+      timeout: 5s
       retries: 3
       start_period: 30s
     restart: unless-stopped

@@ -13,7 +13,7 @@ import { healthCheckRateLimit, globalApiRateLimit } from './middleware/rate-limi
 import rateLimit from 'express-rate-limit';
 import { createRadaCoreServices, RadaCoreServices } from './factories/rada-services';
 import { requestContext } from './utils/openai-client';
-import { initRedisClient } from './utils/redis-client';
+import { initRedisClient, getRedisClient } from './utils/redis-client';
 import { MetricsService } from './services/metrics-service';
 
 dotenv.config();
@@ -114,31 +114,56 @@ class HTTPRadaServer {
     // Readiness probe
     this.app.get('/health/ready', healthCheckRateLimit as any, async (_req, res) => {
       try {
+        const start = Date.now();
         await this.services.db.query('SELECT 1');
-        res.json({ status: 'ok' });
+        const latencyMs = Date.now() - start;
+        res.json({ status: 'ok', latencyMs });
       } catch (err: any) {
+        logger.warn('Healthcheck /ready failed', { error: err.message });
         res.status(503).json({ status: 'unavailable', error: err.message });
       }
     });
 
     // Full health check with dependency status
     this.app.get('/health', healthCheckRateLimit as any, async (_req, res) => {
-      const checks: Record<string, { ok: boolean; error?: string }> = {};
+      const checks: Record<string, { ok: boolean; latencyMs?: number; error?: string }> = {};
       let degraded = false;
 
+      // PostgreSQL
       try {
+        const start = Date.now();
         await this.services.db.query('SELECT 1');
-        checks.postgres = { ok: true };
+        checks.postgres = { ok: true, latencyMs: Date.now() - start };
       } catch (err: any) {
         checks.postgres = { ok: false, error: err.message };
         degraded = true;
       }
 
+      // Redis
+      try {
+        const start = Date.now();
+        const redis = getRedisClient();
+        await redis.ping();
+        checks.redis = { ok: true, latencyMs: Date.now() - start };
+      } catch (err: any) {
+        checks.redis = { ok: false, error: err.message };
+        degraded = true;
+      }
+
       const status = degraded ? 'degraded' : 'ok';
+
+      if (degraded) {
+        const failedChecks = Object.entries(checks)
+          .filter(([, v]) => !v.ok)
+          .map(([k, v]) => `${k}: ${v.error}`);
+        logger.warn('Healthcheck degraded', { failedChecks });
+      }
+
       res.status(degraded ? 503 : 200).json({
         status,
         service: 'rada-mcp-http',
-        version: '1.0.0',
+        uptime: Math.round(process.uptime()),
+        memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
         checks,
       });
     });
