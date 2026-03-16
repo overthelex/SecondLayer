@@ -13,7 +13,7 @@ export function createReferralRoutes(referralService: ReferralService): Router {
 
   /**
    * GET /api/referral/code
-   * Get current user's referral code (creates one if needed)
+   * Get current user's referral code (creates one if needed, requires verification)
    */
   router.get('/code', requireJWT as any, async (req: Request, res: Response) => {
     try {
@@ -23,7 +23,52 @@ export function createReferralRoutes(referralService: ReferralService): Router {
       const code = await referralService.getOrCreateCode(userId);
       return res.json({ code });
     } catch (err: any) {
+      if (err.message === 'REFERRAL_NOT_VERIFIED') {
+        return res.status(403).json({ error: 'REFERRAL_NOT_VERIFIED', message: 'Для участі в реферальній програмі потрібна верифікація ФОП/ТОВ/Адвокат' });
+      }
       logger.error('Failed to get referral code', { error: err.message });
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * GET /api/referral/verification
+   * Get verification status
+   */
+  router.get('/verification', requireJWT as any, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const status = await referralService.getVerificationStatus(userId);
+      return res.json(status);
+    } catch (err: any) {
+      logger.error('Failed to get verification status', { error: err.message });
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * POST /api/referral/verification
+   * Submit verification for referral program
+   */
+  router.post('/verification', requireJWT as any, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const { referrerType, businessCode } = req.body;
+      if (!referrerType || !businessCode) {
+        return res.status(400).json({ error: 'referrerType та businessCode обов\'язкові' });
+      }
+      if (!['fop', 'tov', 'attorney'].includes(referrerType)) {
+        return res.status(400).json({ error: 'referrerType повинен бути fop, tov або attorney' });
+      }
+
+      await referralService.submitVerification(userId, { referrerType, businessCode });
+      return res.json({ success: true });
+    } catch (err: any) {
+      logger.error('Failed to submit verification', { error: err.message });
       return res.status(500).json({ error: 'Internal server error' });
     }
   });

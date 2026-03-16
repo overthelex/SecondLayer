@@ -23,6 +23,15 @@ export interface ReferralEntry {
   totalPaidUsd: number;
 }
 
+export type ReferrerType = 'fop' | 'tov' | 'attorney';
+
+export interface ReferrerStatus {
+  isVerified: boolean;
+  referrerType: ReferrerType | null;
+  businessCode: string | null;
+  verifiedAt: string | null;
+}
+
 export class ReferralService extends BaseService {
   async getCode(): Promise<string> {
     return this.request(
@@ -46,6 +55,18 @@ export class ReferralService extends BaseService {
     return this.request(
       () => this.client.get<{ valid: boolean }>(`/api/referral/resolve/${code}`),
       (data) => data.valid
+    );
+  }
+
+  async getVerificationStatus(): Promise<ReferrerStatus> {
+    return this.request(
+      () => this.client.get<ReferrerStatus>('/api/referral/verification')
+    );
+  }
+
+  async submitVerification(referrerType: ReferrerType, businessCode: string): Promise<void> {
+    return this.request(
+      () => this.client.post('/api/referral/verification', { referrerType, businessCode })
     );
   }
 }

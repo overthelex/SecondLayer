@@ -1,6 +1,7 @@
 /**
  * Referral Service
- * Manages referral codes, links, and rewards (MVP: 1 level, 20% of first top-up)
+ * Manages referral codes, links, and rewards (lifetime 20% of every top-up)
+ * Participation restricted to verified FOP/TOV/Attorneys
  */
 
 import type { IDatabase } from '../domain/ports/index.js';
@@ -36,6 +37,21 @@ export interface ReferralEntry {
   hasToppedUp: boolean;
   rewardAmountUsd: number;
   rewardAmountUah: number;
+  totalPaidUsd: number;
+}
+
+export type ReferrerType = 'fop' | 'tov' | 'attorney';
+
+export interface ReferrerVerification {
+  referrerType: ReferrerType;
+  businessCode: string;
+}
+
+export interface ReferrerStatus {
+  isVerified: boolean;
+  referrerType: ReferrerType | null;
+  businessCode: string | null;
+  verifiedAt: string | null;
 }
 
 export class ReferralService {
@@ -45,14 +61,18 @@ export class ReferralService {
   ) {}
 
   /**
-   * Get existing referral code or create a new one
+   * Get existing referral code or create a new one.
+   * Requires verified FOP/TOV/Attorney status.
    */
   async getOrCreateCode(userId: string): Promise<string> {
     const existing = await this.db.query(
-      'SELECT code FROM referral_codes WHERE user_id = $1 AND is_active = true',
+      'SELECT code, verified_at FROM referral_codes WHERE user_id = $1 AND is_active = true',
       [userId]
     );
     if (existing.rows.length > 0) {
+      if (!existing.rows[0].verified_at) {
+        throw new Error('REFERRAL_NOT_VERIFIED');
+      }
       return existing.rows[0].code;
     }
 
@@ -72,6 +92,59 @@ export class ReferralService {
       }
     }
     throw new Error('Failed to generate unique referral code');
+  }
+
+  /**
+   * Submit verification request for referral program participation
+   */
+  async submitVerification(userId: string, verification: ReferrerVerification): Promise<void> {
+    const { referrerType, businessCode } = verification;
+
+    // Upsert referral code with verification data
+    const existing = await this.db.query(
+      'SELECT id FROM referral_codes WHERE user_id = $1',
+      [userId]
+    );
+
+    if (existing.rows.length > 0) {
+      await this.db.query(
+        `UPDATE referral_codes
+         SET referrer_type = $1, business_code = $2, verified_at = NOW()
+         WHERE user_id = $3`,
+        [referrerType, businessCode, userId]
+      );
+    } else {
+      const code = generateReferralCode();
+      await this.db.query(
+        `INSERT INTO referral_codes (user_id, code, referrer_type, business_code, verified_at)
+         VALUES ($1, $2, $3, $4, NOW())`,
+        [userId, code, referrerType, businessCode]
+      );
+    }
+
+    logger.info('Referral verification submitted', { userId, referrerType, businessCode });
+  }
+
+  /**
+   * Get verification status for a user
+   */
+  async getVerificationStatus(userId: string): Promise<ReferrerStatus> {
+    const result = await this.db.query(
+      'SELECT referrer_type, business_code, verified_at FROM referral_codes WHERE user_id = $1',
+      [userId]
+    );
+
+    if (result.rows.length === 0 || !result.rows[0].verified_at) {
+      return { isVerified: false, referrerType: null, businessCode: null, verifiedAt: null };
+    }
+
+    const row = result.rows[0];
+    return {
+      isVerified: true,
+      referrerType: row.referrer_type,
+      businessCode: row.business_code,
+      verifiedAt: row.verified_at,
+    };
   }
 
   /**
@@ -105,8 +178,8 @@ export class ReferralService {
   }
 
   /**
-   * Process referral reward on first top-up by referred user.
-   * Checks if reward was already given for this source user.
+   * Process referral reward on every top-up by referred user (lifetime model).
+   * Deduplicates by transaction ID to prevent double-processing.
    */
   async processReward(
     referredUserId: string,
@@ -123,12 +196,12 @@ export class ReferralService {
 
     const referrerId = linkResult.rows[0].referrer_id;
 
-    // Check if reward already given for this referred user
+    // Check if reward already given for this specific transaction
     const existingReward = await this.db.query(
-      'SELECT id FROM referral_rewards WHERE beneficiary_id = $1 AND source_user_id = $2',
-      [referrerId, referredUserId]
+      'SELECT id FROM referral_rewards WHERE source_transaction_id = $1',
+      [transactionId]
     );
-    if (existingReward.rows.length > 0) return; // already rewarded
+    if (existingReward.rows.length > 0) return; // already processed this transaction
 
     const rewardUsd = Number((transactionAmountUsd * REFERRAL_REWARD_PERCENT / 100).toFixed(2));
     const rewardUah = Number((transactionAmountUah * REFERRAL_REWARD_PERCENT / 100).toFixed(2));
@@ -194,7 +267,7 @@ export class ReferralService {
   }
 
   /**
-   * Get list of referrals for a user
+   * Get list of referrals for a user (with aggregated lifetime rewards)
    */
   async getReferrals(userId: string): Promise<ReferralEntry[]> {
     const result = await this.db.query(
@@ -203,12 +276,23 @@ export class ReferralService {
         u.name AS referred_name,
         u.email AS referred_email,
         rl.registered_at,
-        COALESCE(rr.amount_usd, 0) AS reward_amount_usd,
-        COALESCE(rr.amount_uah, 0) AS reward_amount_uah,
-        CASE WHEN rr.id IS NOT NULL THEN true ELSE false END AS has_topped_up
+        COALESCE(rr_agg.total_reward_usd, 0) AS reward_amount_usd,
+        COALESCE(rr_agg.total_reward_uah, 0) AS reward_amount_uah,
+        COALESCE(rr_agg.total_paid_usd, 0) AS total_paid_usd,
+        COALESCE(rr_agg.reward_count, 0) > 0 AS has_topped_up
       FROM referral_links rl
       JOIN users u ON u.id = rl.referred_id
-      LEFT JOIN referral_rewards rr ON rr.beneficiary_id = $1 AND rr.source_user_id = rl.referred_id
+      LEFT JOIN (
+        SELECT
+          source_user_id,
+          SUM(amount_usd) AS total_reward_usd,
+          SUM(amount_uah) AS total_reward_uah,
+          SUM(amount_usd / (percentage / 100)) AS total_paid_usd,
+          COUNT(*) AS reward_count
+        FROM referral_rewards
+        WHERE beneficiary_id = $1
+        GROUP BY source_user_id
+      ) rr_agg ON rr_agg.source_user_id = rl.referred_id
       WHERE rl.referrer_id = $1
       ORDER BY rl.registered_at DESC`,
       [userId]
@@ -222,6 +306,7 @@ export class ReferralService {
       hasToppedUp: row.has_topped_up,
       rewardAmountUsd: parseFloat(row.reward_amount_usd),
       rewardAmountUah: parseFloat(row.reward_amount_uah),
+      totalPaidUsd: parseFloat(row.total_paid_usd),
     }));
   }
 }

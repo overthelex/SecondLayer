@@ -1,39 +1,200 @@
 /**
  * ReferralPage
- * Dashboard showing referral link, stats, and list of referred users
+ * Dashboard showing referral link, stats, and list of referred users.
+ * Requires FOP/TOV/Attorney verification to participate.
  */
 
 import { useState, useEffect } from 'react';
-import { Copy, Check, UserPlus, Gift, Users, TrendingUp, Award, DollarSign, Link2 } from 'lucide-react';
-import { ReferralService, ReferralStats, ReferralEntry } from '../../services/api/ReferralService';
+import { Copy, Check, UserPlus, Gift, Users, TrendingUp, Award, DollarSign, Link2, ShieldCheck, Building2, Briefcase, Scale } from 'lucide-react';
+import { ReferralService, ReferralStats, ReferralEntry, ReferrerStatus, ReferrerType } from '../../services/api/ReferralService';
 import { showToast } from '../../utils/toast';
 
 const referralService = new ReferralService();
 
+const REFERRER_TYPE_LABELS: Record<ReferrerType, string> = {
+  fop: 'ФОП (фізична особа-підприємець)',
+  tov: 'ТОВ (товариство з обмеженою відповідальністю)',
+  attorney: 'Адвокат (свідоцтво ЄРАУ)',
+};
+
+const REFERRER_TYPE_ICONS: Record<ReferrerType, typeof Building2> = {
+  fop: Briefcase,
+  tov: Building2,
+  attorney: Scale,
+};
+
+function VerificationForm({ onVerified }: { onVerified: () => void }) {
+  const [referrerType, setReferrerType] = useState<ReferrerType | null>(null);
+  const [businessCode, setBusinessCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!referrerType || !businessCode.trim()) {
+      showToast.error('Заповніть всі поля');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await referralService.submitVerification(referrerType, businessCode.trim());
+      showToast.success('Верифікацію пройдено');
+      onVerified();
+    } catch {
+      showToast.error('Не вдалося пройти верифікацію');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const codeLabel = referrerType === 'attorney' ? 'Номер свідоцтва ЄРАУ' : 'Код ЄДРПОУ';
+  const codePlaceholder = referrerType === 'attorney' ? 'Наприклад: 12345' : 'Наприклад: 12345678';
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-8 md:px-8 lg:px-12">
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-serif text-claude-text font-medium tracking-tight mb-2">
+          Реферальна програма
+        </h1>
+        <p className="text-sm text-claude-subtext">
+          Для участі необхідна верифікація як ФОП, ТОВ або Адвокат
+        </p>
+      </div>
+
+      <div className="bg-white rounded-xl border border-claude-border p-6 mb-6">
+        <div className="flex items-center gap-2 mb-5">
+          <div className="p-2 bg-claude-accent/10 rounded-lg">
+            <ShieldCheck size={16} className="text-claude-accent" />
+          </div>
+          <h2 className="text-sm font-semibold text-claude-text uppercase tracking-wide">
+            Верифікація учасника
+          </h2>
+        </div>
+
+        <p className="text-sm text-claude-subtext mb-6 leading-relaxed">
+          Реферальна програма доступна для верифікованих ФОП, ТОВ та адвокатів.
+          Це необхідно для коректного оформлення виплат відповідно до податкового законодавства.
+        </p>
+
+        <div className="space-y-3 mb-6">
+          {(['fop', 'tov', 'attorney'] as ReferrerType[]).map((type) => {
+            const Icon = REFERRER_TYPE_ICONS[type];
+            const isSelected = referrerType === type;
+            return (
+              <button
+                key={type}
+                onClick={() => setReferrerType(type)}
+                className={`w-full flex items-center gap-3 p-4 rounded-lg border transition-all text-left ${
+                  isSelected
+                    ? 'border-claude-accent bg-claude-accent/5'
+                    : 'border-claude-border hover:border-claude-subtext/30 hover:bg-claude-bg/50'
+                }`}
+              >
+                <div className={`p-2 rounded-lg ${isSelected ? 'bg-claude-accent/10' : 'bg-claude-bg'}`}>
+                  <Icon size={16} className={isSelected ? 'text-claude-accent' : 'text-claude-subtext'} />
+                </div>
+                <span className={`text-sm font-medium ${isSelected ? 'text-claude-text' : 'text-claude-subtext'}`}>
+                  {REFERRER_TYPE_LABELS[type]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {referrerType && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-claude-subtext uppercase tracking-wide mb-1.5">
+                {codeLabel}
+              </label>
+              <input
+                type="text"
+                value={businessCode}
+                onChange={(e) => setBusinessCode(e.target.value)}
+                placeholder={codePlaceholder}
+                className="w-full px-4 py-2.5 rounded-lg border border-claude-border bg-white text-sm text-claude-text placeholder:text-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent"
+              />
+            </div>
+
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || !businessCode.trim()}
+              className="w-full px-4 py-2.5 bg-claude-accent text-white rounded-lg hover:bg-claude-accent/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? 'Верифікація...' : 'Підтвердити та отримати реферальний код'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Program Terms preview */}
+      <div className="bg-white rounded-xl border border-claude-border p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <div className="p-2 bg-claude-accent/10 rounded-lg">
+            <Award size={16} className="text-claude-accent" />
+          </div>
+          <h2 className="text-sm font-semibold text-claude-text uppercase tracking-wide">
+            Умови програми
+          </h2>
+        </div>
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-full bg-claude-accent/10 flex items-center justify-center">
+              <TrendingUp size={16} className="text-claude-accent" />
+            </div>
+            <div>
+              <h3 className="text-sm font-serif font-medium text-claude-text">До 20% від кожного платежу</h3>
+              <p className="text-xs text-claude-subtext mt-1 leading-relaxed">
+                Ви отримуєте до 20% реферальної винагороди з кожного платежу клієнта, якого ви привели на платформу. Винагорода нараховується постійно, поки клієнт залишається активним.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-full bg-claude-accent/10 flex items-center justify-center">
+              <Award size={16} className="text-claude-accent" />
+            </div>
+            <div>
+              <h3 className="text-sm font-serif font-medium text-claude-text">Equity Share для топ-рефералів</h3>
+              <p className="text-xs text-claude-subtext mt-1 leading-relaxed">
+                Якщо за 3 місяці ви запросите 10+ клієнтів, кожен з яких платить від $500/міс — вся сума виплачених вам реферальних відсотків додатково конвертується в equity share компанії.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ReferralPage() {
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [referrals, setReferrals] = useState<ReferralEntry[]>([]);
+  const [verification, setVerification] = useState<ReferrerStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      try {
+  const loadData = async () => {
+    try {
+      const verStatus = await referralService.getVerificationStatus();
+      setVerification(verStatus);
+
+      if (verStatus.isVerified) {
         const [s, r] = await Promise.all([
           referralService.getStats(),
           referralService.getReferrals(),
         ]);
         setStats(s);
         setReferrals(r);
-      } catch (err) {
-        console.error('Failed to load referral data', err);
-        showToast.error('Не вдалося завантажити дані');
-      } finally {
-        setLoading(false);
       }
+    } catch (err) {
+      console.error('Failed to load referral data', err);
+      showToast.error('Не вдалося завантажити дані');
+    } finally {
+      setLoading(false);
     }
-    load();
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   const referralLink = stats ? `${window.location.origin}/r/${stats.referralCode}` : '';
@@ -70,6 +231,11 @@ export function ReferralPage() {
     );
   }
 
+  // Show verification form if not verified
+  if (!verification?.isVerified) {
+    return <VerificationForm onVerified={() => { setLoading(true); loadData(); }} />;
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 md:px-8 lg:px-12">
       {/* Header */}
@@ -91,6 +257,10 @@ export function ReferralPage() {
           <h2 className="text-sm font-semibold text-claude-text uppercase tracking-wide">
             Ваше реферальне посилання
           </h2>
+          <span className="ml-auto inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <ShieldCheck size={10} />
+            {verification.referrerType === 'attorney' ? 'Адвокат' : verification.referrerType?.toUpperCase()}
+          </span>
         </div>
 
         <div className="space-y-3">
@@ -238,7 +408,7 @@ export function ReferralPage() {
                       )}
                     </td>
                     <td className="px-6 py-3 text-right text-claude-subtext font-mono text-xs">
-                      {(r.totalPaidUsd ?? 0) > 0
+                      {r.totalPaidUsd > 0
                         ? `$${r.totalPaidUsd.toFixed(2)}`
                         : '—'}
                     </td>
