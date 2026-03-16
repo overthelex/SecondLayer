@@ -92,11 +92,12 @@ The Platform's Commission depends on the source of Client acquisition and the ty
 | **Attorney's Client** (invitation) | 10% | 10% |
 | **Marketplace Client** (found independently) | 60% | 10% |
 
-5.2. **Commission Reduction for High Rating.** For Marketplace Clients, the Commission on informational services is reduced from 60% to 30% when the following conditions are simultaneously met:
-- The Attorney has been working on the Platform for at least 12 (twelve) months;
-- The Attorney Rating is at least 80 out of 100 points over the preceding 12 months.
+5.2. **Commission Reduction for High Rating.** For Marketplace Clients, the Commission on informational services is gradually reduced from 60% to 30% over 12 (twelve) months in equal installments, provided the Attorney maintains a positive Rating (at least 80 out of 100 points):
+- The reduction is 2.5 percentage points per month (30% ÷ 12 months);
+- Reduction schedule: Month 1 — 57.5%, Month 2 — 55%, Month 3 — 52.5%, ..., Month 12 — 30%;
+- The reduction commences from the first full calendar month in which the Attorney's Rating reaches or exceeds 80 points.
 
-Compliance verification is performed automatically on a monthly basis. If the Rating drops below 80 points, the Commission reverts to the base rate of 60% from the following calendar month.
+Compliance verification is performed automatically on a monthly basis. If the Rating drops below 80 points, the gradual Commission reduction is suspended until the Rating is restored. If the Rating remains below 80 points for 3 (three) consecutive months, the Commission reverts to the base rate of 60% from the following calendar month, and the gradual reduction schedule restarts from the beginning.
 
 5.3. **Payment Procedure.** Payment to the Attorney shall be made after confirmation of Consultation completion by both parties (Attorney and Client) or automatically 72 (seventy-two) hours after Consultation completion in the absence of complaints.
 
