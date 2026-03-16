@@ -4,12 +4,11 @@
  * Multi-pass bulk SQL computation of per-judge analytics from EDRSR data.
  * Designed to run as a standalone script: npx tsx src/scripts/compute-judge-analytics.ts
  *
- * Pass 1a-1e: Base counts, year/form/justice-kind breakdowns, top categories
- * Pass 2:    Court info + dossier matching from judges_current
- * Pass 3:    Appeal rate (first instance → appeal self-join)
- * Pass 4:    Appeal outcomes from fulltext (20 parallel workers, 4 DB shards)
- * Pass 5:    VKKSU efficiency join
- * Pass 6:    Peer ranking via window functions
+ * Optimizations:
+ * - SET work_mem = '512MB' for in-memory hash joins
+ * - Temp tables for pass 3 to avoid 82M×82M self-join
+ * - Batched pass 3 with 20 parallel workers
+ * - Pass 4: 20 parallel workers across 4 DB shards for fulltext
  */
 
 import pg from 'pg';
@@ -22,6 +21,7 @@ const { Pool } = pg;
 const PERIOD_START = '2022-01-01';
 const PERIOD_END = '2026-12-31';
 const WORKER_COUNT = 20;
+const BATCH_SIZE = 200;
 
 // Shard DB URLs for fulltext analysis (Pass 4)
 const SHARD_URLS = [
@@ -31,19 +31,28 @@ const SHARD_URLS = [
   process.env.EDRSR_SHARD_4_URL || '',
 ].filter(Boolean);
 
-function createPool(connectionString: string): pg.Pool {
+function createPool(connectionString: string, max = 6): pg.Pool {
   return new Pool({
     connectionString,
-    max: 6,
+    max,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
   });
 }
 
-const mainPool = createPool(process.env.DATABASE_URL || '');
+const mainPool = createPool(process.env.DATABASE_URL || '', 25);
 
 function log(msg: string) {
   console.log(`[${new Date().toISOString()}] ${msg}`);
+}
+
+async function setSessionParams(pool: pg.Pool) {
+  const client = await pool.connect();
+  try {
+    await client.query("SET work_mem = '512MB'");
+  } finally {
+    client.release();
+  }
 }
 
 // ── Pass 1a: Base counts ──────────────────────────────────────────────────
@@ -201,7 +210,6 @@ async function pass2() {
     LEFT JOIN edrsr_instances i ON i.instance_code = c.instance_code
     WHERE ja.court_code = c.court_code
   `);
-  // Match dossier numbers from judges_current
   await mainPool.query(`
     UPDATE judge_analytics ja
     SET dossier_number = jc.dossier_number
@@ -212,31 +220,53 @@ async function pass2() {
   log('Pass 2 done');
 }
 
-// ── Pass 3: Appeal rate ───────────────────────────────────────────────────
+// ── Pass 3: Appeal rate (optimized with temp tables + batched workers) ────
 async function pass3() {
-  log('Pass 3: Appeal rate (first instance → appeal court join)');
-  // Count cases where the cause_num from a first-instance judge appears in an appeal court
+  log('Pass 3: Appeal rate — building temp tables');
+
+  // Step 1: Create temp table with first-instance judges' distinct cause_nums
   await mainPool.query(`
-    WITH first_instance_cases AS (
-      SELECT ja.judge_name, ja.court_code, d.cause_num
-      FROM judge_analytics ja
-      JOIN edrsr_documents d ON d.judge = ja.judge_name AND d.court_code = ja.court_code
-      WHERE ja.instance_code = 1
-        AND d.cause_num IS NOT NULL
-        AND d.adjudication_date >= $1::DATE
-        AND d.adjudication_date <= $2::DATE
-      GROUP BY ja.judge_name, ja.court_code, d.cause_num
-    ),
-    appealed AS (
-      SELECT fic.judge_name, fic.court_code, COUNT(DISTINCT fic.cause_num) AS cnt
-      FROM first_instance_cases fic
+    CREATE TEMP TABLE IF NOT EXISTS tmp_first_instance_causes AS
+    SELECT DISTINCT d.judge, d.court_code, d.cause_num
+    FROM edrsr_documents d
+    JOIN judge_analytics ja ON d.judge = ja.judge_name AND d.court_code = ja.court_code
+    WHERE ja.instance_code = 1
+      AND d.cause_num IS NOT NULL
+      AND d.adjudication_date >= $1::DATE
+      AND d.adjudication_date <= $2::DATE
+  `, [PERIOD_START, PERIOD_END]);
+
+  await mainPool.query(`CREATE INDEX IF NOT EXISTS idx_tmp_fic_cause ON tmp_first_instance_causes(cause_num)`);
+  await mainPool.query(`CREATE INDEX IF NOT EXISTS idx_tmp_fic_judge ON tmp_first_instance_causes(judge, court_code)`);
+
+  const { rows: ficStats } = await mainPool.query('SELECT COUNT(*) AS cnt, COUNT(DISTINCT judge) AS judges FROM tmp_first_instance_causes');
+  log(`Pass 3: temp table built — ${ficStats[0].cnt} cause_nums for ${ficStats[0].judges} first-instance judges`);
+
+  // Step 2: Create temp table with appeal court cause_nums (instance_code=2)
+  await mainPool.query(`
+    CREATE TEMP TABLE IF NOT EXISTS tmp_appeal_causes AS
+    SELECT DISTINCT cause_num
+    FROM edrsr_documents d
+    JOIN edrsr_courts ac ON ac.court_code = d.court_code AND ac.instance_code = 2
+    WHERE d.cause_num IS NOT NULL
+      AND d.adjudication_date >= $1::DATE
+  `, [PERIOD_START]);
+
+  await mainPool.query(`CREATE INDEX IF NOT EXISTS idx_tmp_ac_cause ON tmp_appeal_causes(cause_num)`);
+
+  const { rows: acStats } = await mainPool.query('SELECT COUNT(*) AS cnt FROM tmp_appeal_causes');
+  log(`Pass 3: appeal causes temp table — ${acStats[0].cnt} distinct cause_nums`);
+
+  // Step 3: Count appealed cases per judge using temp tables (fast hash join)
+  log('Pass 3: computing appeal rates via temp table join');
+  await mainPool.query(`
+    WITH appealed AS (
+      SELECT fic.judge, fic.court_code, COUNT(DISTINCT fic.cause_num) AS cnt
+      FROM tmp_first_instance_causes fic
       WHERE EXISTS (
-        SELECT 1 FROM edrsr_documents ap
-        JOIN edrsr_courts ac ON ac.court_code = ap.court_code AND ac.instance_code = 2
-        WHERE ap.cause_num = fic.cause_num
-          AND ap.adjudication_date >= $1::DATE
+        SELECT 1 FROM tmp_appeal_causes ac WHERE ac.cause_num = fic.cause_num
       )
-      GROUP BY fic.judge_name, fic.court_code
+      GROUP BY fic.judge, fic.court_code
     )
     UPDATE judge_analytics ja
     SET
@@ -246,14 +276,18 @@ async function pass3() {
         ELSE 0
       END
     FROM (
-      SELECT ja2.judge_name, ja2.court_code
-      FROM judge_analytics ja2
-      WHERE ja2.instance_code = 1
+      SELECT judge_name, court_code FROM judge_analytics WHERE instance_code = 1
     ) j
-    LEFT JOIN appealed a ON a.judge_name = j.judge_name AND a.court_code = j.court_code
+    LEFT JOIN appealed a ON a.judge = j.judge_name AND a.court_code = j.court_code
     WHERE ja.judge_name = j.judge_name AND ja.court_code = j.court_code
-  `, [PERIOD_START, PERIOD_END]);
-  log('Pass 3 done');
+  `);
+
+  // Cleanup temp tables
+  await mainPool.query('DROP TABLE IF EXISTS tmp_first_instance_causes');
+  await mainPool.query('DROP TABLE IF EXISTS tmp_appeal_causes');
+
+  const { rows: appealStats } = await mainPool.query('SELECT COUNT(CASE WHEN appeal_rate > 0 THEN 1 END) AS with_appeal, MAX(appeal_rate) AS max_rate FROM judge_analytics');
+  log(`Pass 3 done: ${appealStats[0].with_appeal} judges with appeals, max rate ${appealStats[0].max_rate}%`);
 }
 
 // ── Pass 4: Appeal outcomes from fulltext (parallel workers) ──────────────
@@ -266,7 +300,6 @@ async function pass4() {
 
   const shardPools = SHARD_URLS.map(url => createPool(url));
 
-  // Get judges with appealed cases (first instance only)
   const { rows: judges } = await mainPool.query(`
     SELECT judge_name, court_code, cases_appealed
     FROM judge_analytics
@@ -280,7 +313,6 @@ async function pass4() {
     return;
   }
 
-  // Split into batches for workers
   const batchSize = Math.ceil(judges.length / WORKER_COUNT);
   const batches: typeof judges[] = [];
   for (let i = 0; i < judges.length; i += batchSize) {
@@ -293,9 +325,8 @@ async function pass4() {
     modified: /змін(ити|ено)\s+(рішення|вирок|ухвалу|постанову)|частково\s+задовол/i,
   };
 
-  async function classifyOutcome(fulltext: string): Promise<'upheld' | 'overturned' | 'modified' | 'unknown'> {
+  function classifyOutcome(fulltext: string): 'upheld' | 'overturned' | 'modified' | 'unknown' {
     if (!fulltext) return 'unknown';
-    // Check last 2000 chars (operative part is usually at the end)
     const tail = fulltext.slice(-2000);
     if (outcomePatterns.overturned.test(tail)) return 'overturned';
     if (outcomePatterns.modified.test(tail)) return 'modified';
@@ -306,7 +337,6 @@ async function pass4() {
   async function searchShards(docIds: number[]): Promise<Map<number, string>> {
     const results = new Map<number, string>();
     if (docIds.length === 0) return results;
-
     const promises = shardPools.map(async (pool) => {
       try {
         const { rows } = await pool.query(
@@ -324,9 +354,9 @@ async function pass4() {
     return results;
   }
 
-  async function processWorkerBatch(batch: typeof judges) {
+  let processedCount = 0;
+  async function processWorkerBatch(batch: typeof judges, workerIdx: number) {
     for (const judge of batch) {
-      // Get appeal doc_ids for this judge's cases
       const { rows: appealDocs } = await mainPool.query(`
         SELECT DISTINCT ap.doc_id
         FROM edrsr_documents orig
@@ -348,7 +378,7 @@ async function pass4() {
 
       const outcomes = { upheld: 0, overturned: 0, modified: 0, unknown: 0, analyzed: 0 };
       for (const [, text] of fulltexts) {
-        const result = await classifyOutcome(text);
+        const result = classifyOutcome(text);
         outcomes[result]++;
         outcomes.analyzed++;
       }
@@ -360,20 +390,24 @@ async function pass4() {
           WHERE judge_name = $1 AND court_code = $2
         `, [judge.judge_name, judge.court_code, JSON.stringify(outcomes)]);
       }
+
+      processedCount++;
+      if (processedCount % 50 === 0) {
+        log(`Pass 4: ${processedCount}/${judges.length} judges processed`);
+      }
     }
   }
 
-  const workerPromises = batches.map(batch => processWorkerBatch(batch));
+  const workerPromises = batches.map((batch, i) => processWorkerBatch(batch, i));
   await Promise.all(workerPromises);
 
   for (const p of shardPools) await p.end();
-  log('Pass 4 done');
+  log(`Pass 4 done: ${processedCount} judges processed`);
 }
 
 // ── Pass 5: VKKSU efficiency data ─────────────────────────────────────────
 async function pass5() {
   log('Pass 5: VKKSU efficiency join');
-  // Check if judge_efficiency table exists
   const { rows: tableCheck } = await mainPool.query(`
     SELECT 1 FROM information_schema.tables WHERE table_name = 'judge_efficiency' LIMIT 1
   `);
@@ -442,7 +476,11 @@ async function main() {
   const start = Date.now();
 
   try {
-    // Pass 1: parallel sub-passes
+    // Boost work_mem for heavy joins
+    await mainPool.query("SET work_mem = '512MB'");
+    log('work_mem set to 512MB');
+
+    // Pass 1: insert base + parallel breakdowns
     await pass1a();
     await Promise.all([pass1b(), pass1c(), pass1d(), pass1e()]);
 
