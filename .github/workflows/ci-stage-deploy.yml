@@ -48,7 +48,8 @@ jobs:
         id: check
         run: |
           SERVICES='${{ steps.changes.outputs.services_to_build }}'
-          if [ "$SERVICES" = '[]' ]; then
+          MONITORING='${{ steps.changes.outputs.monitoring }}'
+          if [ "$SERVICES" = '[]' ] && [ "$MONITORING" != "true" ]; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No services changed — skipping build/test/deploy"
           else
@@ -294,19 +295,20 @@ jobs:
           docker image prune -f
 
       - name: Wait for stage services
-        run: sleep 20
+        run: sleep 30
 
       - name: Stage health checks
         run: |
           FAILED=false
           check_health() {
             local name=$1 url=$2
-            for i in 1 2 3; do
+            for i in 1 2 3 4 5 6; do
               if curl -sf --max-time 10 "$url" > /dev/null; then
                 echo "$name: OK"
                 return 0
               fi
-              sleep 5
+              echo "$name: attempt $i failed, retrying in 10s..."
+              sleep 10
             done
             echo "::error::$name health check failed on stage"
             FAILED=true
@@ -336,6 +338,7 @@ jobs:
       RADA_CHANGED: ${{ needs.detect-changes.outputs.rada }}
       OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
       FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+      MONITORING_CHANGED: ${{ needs.detect-changes.outputs.monitoring }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -423,6 +426,13 @@ jobs:
             [ -n "\$START" ] && \$DC up -d \$START
 
             \$DC restart nginx-prod
+
+            # Restart monitoring containers if configs changed (grafana dashboards, prometheus rules)
+            if [ "${MONITORING_CHANGED}" = "true" ]; then
+              echo "=== Restarting monitoring services ==="
+              \$DC restart grafana-prod prometheus-prod 2>/dev/null || true
+            fi
+
             docker image prune -f
           DEPLOY_SCRIPT
 
