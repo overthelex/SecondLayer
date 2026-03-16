@@ -25,7 +25,7 @@ export function createJudgesRoutes(judgesService: JudgesService): Router {
       const { dossierNumber } = req.params;
       const profile = await judgesService.getJudgeProfile(dossierNumber);
       if (!profile) {
-        return res.status(404).json({ error: 'Judge not found' });
+        return res.status(404).json({ error: 'Judge not found', message: 'Суддю з таким номером досьє не знайдено' });
       }
       res.json(profile);
     } catch (err: unknown) {
@@ -40,7 +40,7 @@ export function createJudgesRoutes(judgesService: JudgesService): Router {
       const { dossierNumber } = req.params;
       const judge = await judgesService.getJudgeByDossier(dossierNumber);
       if (!judge) {
-        return res.status(404).json({ error: 'Judge not found' });
+        return res.status(404).json({ error: 'Judge not found', message: 'Суддю з таким номером досьє не знайдено' });
       }
       res.json(judge);
     } catch (err: unknown) {

@@ -34,7 +34,7 @@ export function createJudgeAnalyticsRoutes(service: JudgeAnalyticsService): Rout
       const { id } = req.params;
       const record = await service.getAnalyticsDetail(id);
       if (!record) {
-        return res.status(404).json({ error: 'Аналітику для цього судді не знайдено' });
+        return res.status(404).json({ error: 'Not found', message: 'Аналітику для цього судді не знайдено' });
       }
       res.json(record);
     } catch (err: unknown) {
