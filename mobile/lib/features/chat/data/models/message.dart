@@ -6,6 +6,9 @@ class Message {
   final List<ThinkingStep> thinkingSteps;
   final ExecutionPlan? executionPlan;
   final List<Decision> decisions;
+  final List<Citation> citations;
+  final List<VaultDocument> documents;
+  final List<CitationWarning> citationWarnings;
   final CostSummary? costSummary;
   final DateTime createdAt;
 
@@ -17,6 +20,9 @@ class Message {
     this.thinkingSteps = const [],
     this.executionPlan,
     this.decisions = const [],
+    this.citations = const [],
+    this.documents = const [],
+    this.citationWarnings = const [],
     this.costSummary,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? const _Now();
@@ -27,6 +33,9 @@ class Message {
     List<ThinkingStep>? thinkingSteps,
     ExecutionPlan? executionPlan,
     List<Decision>? decisions,
+    List<Citation>? citations,
+    List<VaultDocument>? documents,
+    List<CitationWarning>? citationWarnings,
     CostSummary? costSummary,
   }) =>
       Message(
@@ -37,6 +46,9 @@ class Message {
         thinkingSteps: thinkingSteps ?? this.thinkingSteps,
         executionPlan: executionPlan ?? this.executionPlan,
         decisions: decisions ?? this.decisions,
+        citations: citations ?? this.citations,
+        documents: documents ?? this.documents,
+        citationWarnings: citationWarnings ?? this.citationWarnings,
         costSummary: costSummary ?? this.costSummary,
         createdAt: createdAt,
       );
@@ -51,6 +63,19 @@ class Message {
             [],
         decisions: (json['decisions'] as List?)
                 ?.map((e) => Decision.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        citations: (json['citations'] as List?)
+                ?.map((e) => Citation.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        documents: (json['documents'] as List?)
+                ?.map((e) => VaultDocument.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        citationWarnings: (json['citation_warnings'] as List?)
+                ?.map(
+                    (e) => CitationWarning.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [],
         createdAt: json['created_at'] != null
@@ -68,7 +93,8 @@ class Message {
 class _Now implements DateTime {
   const _Now();
   @override
-  dynamic noSuchMethod(Invocation invocation) => DateTime.now().noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) =>
+      DateTime.now().noSuchMethod(invocation);
 }
 
 class ThinkingStep {
@@ -132,6 +158,8 @@ class PlanStep {
   final Map<String, dynamic> params;
   final String purpose;
   final bool completed;
+  final String? depth; // 'standard' | 'deep'
+  final List<int>? dependsOn;
 
   const PlanStep({
     required this.id,
@@ -139,14 +167,18 @@ class PlanStep {
     this.params = const {},
     required this.purpose,
     this.completed = false,
+    this.depth,
+    this.dependsOn,
   });
 
-  PlanStep copyWith({bool? completed}) => PlanStep(
+  PlanStep copyWith({bool? completed, String? depth}) => PlanStep(
         id: id,
         tool: tool,
         params: params,
         purpose: purpose,
         completed: completed ?? this.completed,
+        depth: depth ?? this.depth,
+        dependsOn: dependsOn,
       );
 
   factory PlanStep.fromJson(Map<String, dynamic> json) => PlanStep(
@@ -155,6 +187,8 @@ class PlanStep {
         params: (json['params'] as Map?)?.cast<String, dynamic>() ?? {},
         purpose: json['purpose'] as String? ?? '',
         completed: json['completed'] as bool? ?? false,
+        depth: json['depth'] as String?,
+        dependsOn: (json['depends_on'] as List?)?.cast<int>(),
       );
 }
 
@@ -166,6 +200,8 @@ class Decision {
   final String summary;
   final double relevance;
   final String? docId;
+  final String? status; // 'active' | 'overturned' | 'modified'
+  final String? documentType; // Рішення, Ухвала, Постанова, etc.
 
   const Decision({
     required this.id,
@@ -175,6 +211,8 @@ class Decision {
     required this.summary,
     this.relevance = 0,
     this.docId,
+    this.status,
+    this.documentType,
   });
 
   factory Decision.fromJson(Map<String, dynamic> json) => Decision(
@@ -184,7 +222,97 @@ class Decision {
         date: json['date'] as String? ?? '',
         summary: json['summary'] as String? ?? '',
         relevance: (json['relevance'] as num?)?.toDouble() ?? 0,
-        docId: json['docId'] as String?,
+        docId: json['docId'] as String? ?? json['doc_id'] as String?,
+        status: json['status'] as String?,
+        documentType:
+            json['documentType'] as String? ?? json['document_type'] as String?,
+      );
+}
+
+class Citation {
+  final String text;
+  final String source;
+
+  const Citation({required this.text, required this.source});
+
+  factory Citation.fromJson(Map<String, dynamic> json) => Citation(
+        text: json['text'] as String? ?? '',
+        source: json['source'] as String? ?? '',
+      );
+}
+
+class VaultDocument {
+  final String id;
+  final String title;
+  final String type;
+  final String? uploadedAt;
+  final Map<String, dynamic>? metadata;
+
+  const VaultDocument({
+    required this.id,
+    required this.title,
+    required this.type,
+    this.uploadedAt,
+    this.metadata,
+  });
+
+  factory VaultDocument.fromJson(Map<String, dynamic> json) => VaultDocument(
+        id: json['id'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        type: json['type'] as String? ?? '',
+        uploadedAt: json['uploaded_at'] as String?,
+        metadata: (json['metadata'] as Map?)?.cast<String, dynamic>(),
+      );
+}
+
+class CitationWarning {
+  final String? caseNumber;
+  final String status; // 'verified' | 'unverified' | 'not_found'
+  final double? confidence;
+  final String? message;
+
+  const CitationWarning({
+    this.caseNumber,
+    required this.status,
+    this.confidence,
+    this.message,
+  });
+
+  factory CitationWarning.fromJson(Map<String, dynamic> json) =>
+      CitationWarning(
+        caseNumber: json['case_number'] as String?,
+        status: json['status'] as String? ?? 'unverified',
+        confidence: (json['confidence'] as num?)?.toDouble(),
+        message: json['message'] as String?,
+      );
+}
+
+class FileAttachment {
+  final String name;
+  final int size;
+  final String? documentId;
+  final bool uploading;
+  final String? error;
+
+  const FileAttachment({
+    required this.name,
+    required this.size,
+    this.documentId,
+    this.uploading = false,
+    this.error,
+  });
+
+  FileAttachment copyWith({
+    String? documentId,
+    bool? uploading,
+    String? error,
+  }) =>
+      FileAttachment(
+        name: name,
+        size: size,
+        documentId: documentId ?? this.documentId,
+        uploading: uploading ?? this.uploading,
+        error: error ?? this.error,
       );
 }
 

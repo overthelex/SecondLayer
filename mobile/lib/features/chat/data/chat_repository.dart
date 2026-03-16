@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:dio/dio.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/sse_client.dart';
 import 'models/message.dart';
@@ -28,18 +30,21 @@ class ChatRepository {
       'history': history.map((m) => m.toJson()).toList(),
       'budget': budget,
       if (conversationId != null) 'conversationId': conversationId,
-      if (approvedPlan != null) 'approvedPlan': {
-        'goal': approvedPlan.goal,
-        'steps': approvedPlan.steps
-            .map((s) => {
-                  'id': s.id,
-                  'tool': s.tool,
-                  'params': s.params,
-                  'purpose': s.purpose,
-                })
-            .toList(),
-        'expected_iterations': approvedPlan.expectedIterations,
-      },
+      if (approvedPlan != null)
+        'approvedPlan': {
+          'goal': approvedPlan.goal,
+          'steps': approvedPlan.steps
+              .map((s) => {
+                    'id': s.id,
+                    'tool': s.tool,
+                    'params': s.params,
+                    'purpose': s.purpose,
+                    if (s.depth != null) 'depth': s.depth,
+                    if (s.dependsOn != null) 'depends_on': s.dependsOn,
+                  })
+              .toList(),
+          'expected_iterations': approvedPlan.expectedIterations,
+        },
     };
 
     return _sse.stream(
@@ -52,6 +57,43 @@ class ChatRepository {
       onDone: onDone,
       onError: onError,
     );
+  }
+
+  /// Request a plan without execution
+  Future<Map<String, dynamic>> requestPlan(
+      String query, String budget) async {
+    final response = await _api.post('/api/chat/plan', data: {
+      'query': query,
+      'budget': budget,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Upload a file
+  Future<Map<String, dynamic>> uploadFile(
+    File file, {
+    void Function(int, int)? onProgress,
+  }) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(file.path,
+          filename: file.path.split('/').last),
+    });
+
+    final response = await _api.dio.post(
+      '/api/documents/upload',
+      data: formData,
+      onSendProgress: onProgress,
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Call a specific tool directly
+  Future<Map<String, dynamic>> callTool(
+    String toolName,
+    Map<String, dynamic> params,
+  ) async {
+    final response = await _api.post('/api/tools/$toolName', data: params);
+    return response.data as Map<String, dynamic>;
   }
 
   // Conversations CRUD
@@ -94,18 +136,20 @@ class ChatRepository {
     await _api.post('/api/conversations/$conversationId/messages', data: {
       'role': message.role,
       'content': message.content,
-      if (message.thinkingSteps.isNotEmpty) 'thinking_steps': message.thinkingSteps
-          .map((s) => {'id': s.id, 'title': s.title, 'content': s.content})
-          .toList(),
-      if (message.decisions.isNotEmpty) 'decisions': message.decisions
-          .map((d) => {
-                'id': d.id,
-                'number': d.number,
-                'court': d.court,
-                'date': d.date,
-                'summary': d.summary,
-              })
-          .toList(),
+      if (message.thinkingSteps.isNotEmpty)
+        'thinking_steps': message.thinkingSteps
+            .map((s) => {'id': s.id, 'title': s.title, 'content': s.content})
+            .toList(),
+      if (message.decisions.isNotEmpty)
+        'decisions': message.decisions
+            .map((d) => {
+                  'id': d.id,
+                  'number': d.number,
+                  'court': d.court,
+                  'date': d.date,
+                  'summary': d.summary,
+                })
+            .toList(),
     });
   }
 }

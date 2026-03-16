@@ -1,49 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTextStyles {
-  static const headlineLarge = TextStyle(
+  static TextStyle headlineLarge = GoogleFonts.crimsonPro(
     fontSize: 28,
     fontWeight: FontWeight.w700,
     height: 1.3,
   );
 
-  static const headlineMedium = TextStyle(
+  static TextStyle headlineMedium = GoogleFonts.crimsonPro(
     fontSize: 22,
     fontWeight: FontWeight.w600,
     height: 1.3,
   );
 
-  static const headlineSmall = TextStyle(
+  static TextStyle headlineSmall = GoogleFonts.crimsonPro(
     fontSize: 18,
     fontWeight: FontWeight.w600,
     height: 1.4,
   );
 
-  static const bodyLarge = TextStyle(
+  static TextStyle bodyLarge = GoogleFonts.inter(
     fontSize: 16,
     fontWeight: FontWeight.w400,
     height: 1.5,
   );
 
-  static const bodyMedium = TextStyle(
+  static TextStyle bodyMedium = GoogleFonts.inter(
     fontSize: 14,
     fontWeight: FontWeight.w400,
     height: 1.5,
   );
 
-  static const bodySmall = TextStyle(
+  static TextStyle bodySmall = GoogleFonts.inter(
     fontSize: 12,
     fontWeight: FontWeight.w400,
     height: 1.5,
   );
 
-  static const labelLarge = TextStyle(
+  static TextStyle labelLarge = GoogleFonts.inter(
     fontSize: 14,
     fontWeight: FontWeight.w600,
     height: 1.4,
   );
 
-  static const labelSmall = TextStyle(
+  static TextStyle labelSmall = GoogleFonts.inter(
     fontSize: 11,
     fontWeight: FontWeight.w500,
     height: 1.4,
