@@ -60,6 +60,7 @@ const DpaPage = lazyWithRetry(() => import('../pages/DpaPage').then(m => ({ defa
 const AiUsagePolicyPage = lazyWithRetry(() => import('../pages/AiUsagePolicyPage').then(m => ({ default: m.AiUsagePolicyPage })));
 const AiTransparencyPage = lazyWithRetry(() => import('../pages/AiTransparencyPage').then(m => ({ default: m.AiTransparencyPage })));
 const BlogPage = lazyWithRetry(() => import('../pages/BlogPage').then(m => ({ default: m.BlogPage })));
+const InvestorLetterPage = lazyWithRetry(() => import('../pages/InvestorLetterPage').then(m => ({ default: m.InvestorLetterPage })));
 
 // -- Data Sources (country pages) --
 const USDataSourcesPage = lazyWithRetry(() => import('../pages/USDataSourcesPage').then(m => ({ default: m.USDataSourcesPage })));
@@ -238,6 +239,10 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.BLOG,
     element: S(BlogPage),
+  },
+  {
+    path: ROUTES.INVESTOR_LETTER,
+    element: S(InvestorLetterPage),
   },
   {
     path: ROUTES.REFERRAL_LANDING,
