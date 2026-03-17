@@ -100,9 +100,8 @@ jobs:
       - name: Test frontend
         if: needs.detect-changes.outputs.frontend == 'true'
         run: |
-          cd lexwebapp
-          rm -rf node_modules
-          npm ci
+          rm -rf node_modules lexwebapp/node_modules
+          cd lexwebapp && npm ci
           npm test
           npm run build
         env:

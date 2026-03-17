@@ -17,7 +17,7 @@ import { generateRoute } from '../../router/routes';
 
 const PAGE_SIZE = 25;
 
-// EDRSR instance codes: 1=Касаційна, 2=Апеляційна, 3=Перша
+// EDRSR instance codes: 1=Касаційна, 2=Апеляційна, 3=Перша інстанція
 const INSTANCE_TABS = [
   { value: '', label: 'Всі', count: null },
   { value: '3', label: 'Перша інстанція', count: null },
