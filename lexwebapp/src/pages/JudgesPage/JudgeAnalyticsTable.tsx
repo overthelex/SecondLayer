@@ -17,16 +17,17 @@ import { generateRoute } from '../../router/routes';
 
 const PAGE_SIZE = 25;
 
-const INSTANCE_OPTIONS = [
-  { value: '', label: 'Всі інстанції' },
-  { value: '1', label: 'Перша інстанція' },
-  { value: '2', label: 'Апеляційна' },
-  { value: '3', label: 'Касаційна' },
+// EDRSR instance codes: 1=Касаційна, 2=Апеляційна, 3=Перша
+const INSTANCE_TABS = [
+  { value: '', label: 'Всі', count: null },
+  { value: '3', label: 'Перша інстанція', count: null },
+  { value: '2', label: 'Апеляційна', count: null },
+  { value: '1', label: 'Касаційна', count: null },
 ];
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'total_decisions', label: 'Рішень' },
-  { value: 'appeal_rate', label: 'Апеляція %' },
+  { value: 'appeal_rate', label: 'Оскарження %' },
   { value: 'cases_appealed', label: 'Оскаржено' },
   { value: 'unique_cases', label: 'Справ' },
   { value: 'judge_name', label: "Ім'я" },
@@ -116,8 +117,32 @@ export function JudgeAnalyticsTable() {
       : <ChevronUp size={14} className="text-claude-accent" />;
   };
 
+  // Appeal rate column label depends on instance filter
+  const appealColumnLabel = instanceFilter === '1'
+    ? 'Оскарження %'  // Cassation — rare, Grand Chamber
+    : instanceFilter === '2'
+      ? 'Касація %'    // Appellate — appealed to cassation
+      : 'Апеляція %';  // First instance or all
+
   return (
     <div className="space-y-4">
+      {/* Instance Tabs */}
+      <div className="flex items-center gap-1 p-1 bg-claude-bg rounded-xl border border-claude-border">
+        {INSTANCE_TABS.map(tab => (
+          <button
+            key={tab.value}
+            onClick={() => { setInstanceFilter(tab.value); setPage(0); }}
+            className={`flex-1 px-3 py-2 rounded-lg text-sm font-sans transition-all ${
+              instanceFilter === tab.value
+                ? 'bg-white text-claude-text shadow-sm font-medium'
+                : 'text-claude-subtext hover:text-claude-text'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Search + Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 group">
@@ -139,7 +164,7 @@ export function JudgeAnalyticsTable() {
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-sans transition-all ${
-            showFilters || instanceFilter || courtFilter
+            showFilters || courtFilter
               ? 'bg-claude-accent text-white border-claude-accent'
               : 'bg-white text-claude-subtext border-claude-border hover:border-claude-subtext/30'
           }`}
@@ -156,18 +181,6 @@ export function JudgeAnalyticsTable() {
           animate={{ opacity: 1, height: 'auto' }}
           className="flex flex-col sm:flex-row gap-3 p-4 bg-white rounded-xl border border-claude-border"
         >
-          <div className="flex-1">
-            <label className="block text-xs text-claude-subtext mb-1 font-sans">Інстанція</label>
-            <select
-              value={instanceFilter}
-              onChange={(e) => { setInstanceFilter(e.target.value); setPage(0); }}
-              className="w-full px-3 py-2 bg-claude-bg border border-claude-border rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-claude-accent/20"
-            >
-              {INSTANCE_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
           <div className="flex-1">
             <label className="block text-xs text-claude-subtext mb-1 font-sans">Суд</label>
             <input
@@ -233,7 +246,7 @@ export function JudgeAnalyticsTable() {
                   className="px-3 py-3 text-right font-sans font-medium text-claude-subtext cursor-pointer hover:text-claude-text transition-colors"
                   onClick={() => handleSort('appeal_rate')}
                 >
-                  <span className="flex items-center justify-end gap-1">Апеляція % <SortIcon column="appeal_rate" /></span>
+                  <span className="flex items-center justify-end gap-1">{appealColumnLabel} <SortIcon column="appeal_rate" /></span>
                 </th>
                 <th className="px-3 py-3 text-right font-sans font-medium text-claude-subtext hidden md:table-cell">Скасовано</th>
                 <th className="px-3 py-3 text-right font-sans font-medium text-claude-subtext hidden lg:table-cell">Порушення строків</th>

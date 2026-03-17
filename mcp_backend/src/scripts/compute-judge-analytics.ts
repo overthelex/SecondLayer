@@ -220,35 +220,34 @@ async function pass2() {
   log('Pass 2 done');
 }
 
-// ── Pass 3: Appeal rate (optimized with unlogged staging tables) ──────────
+// ── Pass 3: Appeal rate (per-instance: first→appellate, appellate→cassation) ──
+// EDRSR instance codes: 1=Касаційна, 2=Апеляційна, 3=Перша
 async function pass3() {
-  log('Pass 3: Appeal rate — building staging tables');
+  log('Pass 3: Appeal rate — per-instance computation');
 
   // Cleanup any leftover tables from previous runs
-  await mainPool.query('DROP TABLE IF EXISTS _ja_first_instance_causes');
-  await mainPool.query('DROP TABLE IF EXISTS _ja_appeal_causes');
+  await mainPool.query('DROP TABLE IF EXISTS _ja_source_causes');
+  await mainPool.query('DROP TABLE IF EXISTS _ja_higher_causes');
 
-  // Step 1: Unlogged table with first-instance judges' distinct cause_nums
+  // ── 3a: First instance (code=3) → appealed to appellate (code=2) ──
+  log('Pass 3a: First instance judges — cases appealed to appellate courts');
+
   await mainPool.query(`
-    CREATE UNLOGGED TABLE _ja_first_instance_causes AS
+    CREATE UNLOGGED TABLE _ja_source_causes AS
     SELECT DISTINCT d.judge, d.court_code, d.cause_num
     FROM edrsr_documents d
     JOIN judge_analytics ja ON d.judge = ja.judge_name AND d.court_code = ja.court_code
-    WHERE ja.instance_code = 1
+    WHERE ja.instance_code = 3
       AND d.cause_num IS NOT NULL
       AND d.adjudication_date >= $1::DATE
       AND d.adjudication_date <= $2::DATE
   `, [PERIOD_START, PERIOD_END]);
 
-  await mainPool.query(`CREATE INDEX idx_ja_fic_cause ON _ja_first_instance_causes(cause_num)`);
-  await mainPool.query(`CREATE INDEX idx_ja_fic_judge ON _ja_first_instance_causes(judge, court_code)`);
+  await mainPool.query(`CREATE INDEX idx_ja_sc_cause ON _ja_source_causes(cause_num)`);
+  await mainPool.query(`CREATE INDEX idx_ja_sc_judge ON _ja_source_causes(judge, court_code)`);
 
-  const { rows: ficStats } = await mainPool.query('SELECT COUNT(*) AS cnt, COUNT(DISTINCT judge) AS judges FROM _ja_first_instance_causes');
-  log(`Pass 3: staging table built — ${ficStats[0].cnt} cause_nums for ${ficStats[0].judges} first-instance judges`);
-
-  // Step 2: Unlogged table with appeal court cause_nums (instance_code=2)
   await mainPool.query(`
-    CREATE UNLOGGED TABLE _ja_appeal_causes AS
+    CREATE UNLOGGED TABLE _ja_higher_causes AS
     SELECT DISTINCT cause_num
     FROM edrsr_documents d
     JOIN edrsr_courts ac ON ac.court_code = d.court_code AND ac.instance_code = 2
@@ -256,21 +255,17 @@ async function pass3() {
       AND d.adjudication_date >= $1::DATE
   `, [PERIOD_START]);
 
-  await mainPool.query(`CREATE INDEX idx_ja_ac_cause ON _ja_appeal_causes(cause_num)`);
+  await mainPool.query(`CREATE INDEX idx_ja_hc_cause ON _ja_higher_causes(cause_num)`);
 
-  const { rows: acStats } = await mainPool.query('SELECT COUNT(*) AS cnt FROM _ja_appeal_causes');
-  log(`Pass 3: appeal causes table — ${acStats[0].cnt} distinct cause_nums`);
+  const { rows: ficStats } = await mainPool.query('SELECT COUNT(*) AS cnt, COUNT(DISTINCT judge) AS judges FROM _ja_source_causes');
+  log(`Pass 3a: ${ficStats[0].cnt} cause_nums for ${ficStats[0].judges} first-instance judges`);
 
-  // Step 3: Count appealed cases per judge using staging tables (fast hash join)
-  log('Pass 3: computing appeal rates via staging table join');
   await mainPool.query(`
     WITH appealed AS (
-      SELECT fic.judge, fic.court_code, COUNT(DISTINCT fic.cause_num) AS cnt
-      FROM _ja_first_instance_causes fic
-      WHERE EXISTS (
-        SELECT 1 FROM _ja_appeal_causes ac WHERE ac.cause_num = fic.cause_num
-      )
-      GROUP BY fic.judge, fic.court_code
+      SELECT sc.judge, sc.court_code, COUNT(DISTINCT sc.cause_num) AS cnt
+      FROM _ja_source_causes sc
+      WHERE EXISTS (SELECT 1 FROM _ja_higher_causes hc WHERE hc.cause_num = sc.cause_num)
+      GROUP BY sc.judge, sc.court_code
     )
     UPDATE judge_analytics ja
     SET
@@ -279,16 +274,66 @@ async function pass3() {
         WHEN ja.unique_cases > 0 THEN ROUND(COALESCE(a.cnt, 0)::NUMERIC / ja.unique_cases * 100, 2)
         ELSE 0
       END
-    FROM (
-      SELECT judge_name, court_code FROM judge_analytics WHERE instance_code = 1
-    ) j
+    FROM (SELECT judge_name, court_code FROM judge_analytics WHERE instance_code = 3) j
     LEFT JOIN appealed a ON a.judge = j.judge_name AND a.court_code = j.court_code
     WHERE ja.judge_name = j.judge_name AND ja.court_code = j.court_code
   `);
 
-  // Cleanup temp tables
-  await mainPool.query('DROP TABLE IF EXISTS _ja_first_instance_causes');
-  await mainPool.query('DROP TABLE IF EXISTS _ja_appeal_causes');
+  await mainPool.query('DROP TABLE IF EXISTS _ja_source_causes');
+  await mainPool.query('DROP TABLE IF EXISTS _ja_higher_causes');
+
+  // ── 3b: Appellate (code=2) → appealed to cassation (code=1) ──
+  log('Pass 3b: Appellate judges — cases appealed to cassation');
+
+  await mainPool.query(`
+    CREATE UNLOGGED TABLE _ja_source_causes AS
+    SELECT DISTINCT d.judge, d.court_code, d.cause_num
+    FROM edrsr_documents d
+    JOIN judge_analytics ja ON d.judge = ja.judge_name AND d.court_code = ja.court_code
+    WHERE ja.instance_code = 2
+      AND d.cause_num IS NOT NULL
+      AND d.adjudication_date >= $1::DATE
+      AND d.adjudication_date <= $2::DATE
+  `, [PERIOD_START, PERIOD_END]);
+
+  await mainPool.query(`CREATE INDEX idx_ja_sc_cause ON _ja_source_causes(cause_num)`);
+  await mainPool.query(`CREATE INDEX idx_ja_sc_judge ON _ja_source_causes(judge, court_code)`);
+
+  await mainPool.query(`
+    CREATE UNLOGGED TABLE _ja_higher_causes AS
+    SELECT DISTINCT cause_num
+    FROM edrsr_documents d
+    JOIN edrsr_courts ac ON ac.court_code = d.court_code AND ac.instance_code = 1
+    WHERE d.cause_num IS NOT NULL
+      AND d.adjudication_date >= $1::DATE
+  `, [PERIOD_START]);
+
+  await mainPool.query(`CREATE INDEX idx_ja_hc_cause ON _ja_higher_causes(cause_num)`);
+
+  const { rows: appStats } = await mainPool.query('SELECT COUNT(*) AS cnt, COUNT(DISTINCT judge) AS judges FROM _ja_source_causes');
+  log(`Pass 3b: ${appStats[0].cnt} cause_nums for ${appStats[0].judges} appellate judges`);
+
+  await mainPool.query(`
+    WITH appealed AS (
+      SELECT sc.judge, sc.court_code, COUNT(DISTINCT sc.cause_num) AS cnt
+      FROM _ja_source_causes sc
+      WHERE EXISTS (SELECT 1 FROM _ja_higher_causes hc WHERE hc.cause_num = sc.cause_num)
+      GROUP BY sc.judge, sc.court_code
+    )
+    UPDATE judge_analytics ja
+    SET
+      cases_appealed = COALESCE(a.cnt, 0),
+      appeal_rate = CASE
+        WHEN ja.unique_cases > 0 THEN ROUND(COALESCE(a.cnt, 0)::NUMERIC / ja.unique_cases * 100, 2)
+        ELSE 0
+      END
+    FROM (SELECT judge_name, court_code FROM judge_analytics WHERE instance_code = 2) j
+    LEFT JOIN appealed a ON a.judge = j.judge_name AND a.court_code = j.court_code
+    WHERE ja.judge_name = j.judge_name AND ja.court_code = j.court_code
+  `);
+
+  await mainPool.query('DROP TABLE IF EXISTS _ja_source_causes');
+  await mainPool.query('DROP TABLE IF EXISTS _ja_higher_causes');
 
   const { rows: appealStats } = await mainPool.query('SELECT COUNT(CASE WHEN appeal_rate > 0 THEN 1 END) AS with_appeal, MAX(appeal_rate) AS max_rate FROM judge_analytics');
   log(`Pass 3 done: ${appealStats[0].with_appeal} judges with appeals, max rate ${appealStats[0].max_rate}%`);
@@ -307,7 +352,7 @@ async function pass4() {
   const { rows: judges } = await mainPool.query(`
     SELECT judge_name, court_code, cases_appealed
     FROM judge_analytics
-    WHERE instance_code = 1 AND cases_appealed > 0
+    WHERE instance_code IN (2, 3) AND cases_appealed > 0
     ORDER BY cases_appealed DESC
   `);
   log(`Pass 4: ${judges.length} judges with appealed cases`);
