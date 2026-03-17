@@ -90,9 +90,7 @@ export function InvestorLetterPage() {
         <Section icon={<Users size={20} />} title={t.s1_title}>
           <div className="grid md:grid-cols-2 gap-8">
             <div className="space-y-3">
-              <div className="w-16 h-16 bg-claude-accent/10 rounded-full flex items-center justify-center text-claude-accent font-serif text-xl font-medium">
-                {t.s1_vladimir_initials}
-              </div>
+              <img src="/founder-vladimir.jpeg" alt={t.s1_vladimir_name} className="w-20 h-20 rounded-full object-cover shadow-md" />
               <h3 className="text-xl font-serif text-claude-text">{t.s1_vladimir_name}</h3>
               <p className="text-sm text-claude-subtext font-sans leading-relaxed">
                 <span className="font-medium text-claude-text">{t.s1_vladimir_role}</span>{' '}
@@ -104,14 +102,16 @@ export function InvestorLetterPage() {
               </a>
             </div>
             <div className="space-y-3">
-              <div className="w-16 h-16 bg-[#003399]/10 rounded-full flex items-center justify-center text-[#003399] font-serif text-xl font-medium">
-                {t.s1_igor_initials}
-              </div>
+              <img src="/founder-igor.jpeg" alt={t.s1_igor_name} className="w-20 h-20 rounded-full object-cover shadow-md" />
               <h3 className="text-xl font-serif text-claude-text">{t.s1_igor_name}</h3>
               <p className="text-sm text-claude-subtext font-sans leading-relaxed">
                 <span className="font-medium text-claude-text">{t.s1_igor_role}</span>{' '}
                 {t.s1_igor_bio}
               </p>
+              <a href="https://www.linkedin.com/in/ihor-kyrychenko-90503890/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-claude-accent hover:text-[#C66345] font-sans">
+                <ExternalLink size={14} />
+                {t.s1_igor_linkedin}
+              </a>
             </div>
           </div>
           <div className="mt-8 p-4 bg-claude-bg rounded-xl">
