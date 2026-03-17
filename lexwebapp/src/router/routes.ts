@@ -129,7 +129,7 @@ export const ROUTES = {
 
 // Helper function to generate dynamic routes
 export const generateRoute = {
-  judgeDetail: (id: string) => `/judges/${id}`,
+  judgeDetail: (id: string) => `/judges/${encodeURIComponent(id)}`,
   lawyerDetail: (id: string) => `/lawyers/${id}`,
   clientDetail: (id: string) => `/clients/${id}`,
   matterDetail: (id: string) => `/matters/${id}`,

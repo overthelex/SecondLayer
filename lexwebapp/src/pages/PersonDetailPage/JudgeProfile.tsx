@@ -353,7 +353,7 @@ export function JudgeProfilePage({ profile, onBack, children }: JudgeProfilePage
                   Статистика рішень недоступна
                 </p>
                 <p className="font-sans text-sm mt-1">
-                  Не вдалося знайти цього суддю в реєстрі судових рішень ZakonOnline.
+                  Детальна статистика рішень за видами судочинства наразі недоступна.
                   Базова інформація отримана з досьє ВККС.
                 </p>
               </div>

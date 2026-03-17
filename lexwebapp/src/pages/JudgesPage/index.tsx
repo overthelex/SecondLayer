@@ -24,7 +24,7 @@ export function JudgesPage() {
   const [activeTab, setActiveTab] = useState<TabType>('analytics');
 
   const handleSelectJudge = (judge: Judge) => {
-    navigate(generateRoute.judgeDetail(String(judge.dossier_number || judge.id)), {
+    navigate(generateRoute.judgeDetail(judge.dossier_number || judge.full_name), {
       state: {
         person: {
           type: 'judge',
