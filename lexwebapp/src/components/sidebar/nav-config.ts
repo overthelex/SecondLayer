@@ -23,6 +23,7 @@ export const legislationSections = [
   { id: 'voting', label: 'Аналіз голосувань', icon: Vote, route: ROUTES.VOTING_ANALYSIS },
   { id: 'historical', label: 'Історичний аналіз', icon: History, route: ROUTES.HISTORICAL_ANALYSIS },
   { id: 'news', label: 'Новини КМУ', icon: Newspaper, route: ROUTES.NEWS },
+  { id: 'lex-news', label: 'Новини LEX', icon: Globe, route: ROUTES.LEX_NEWS },
 ];
 
 export function getMattersSections(isAttorney: boolean) {
