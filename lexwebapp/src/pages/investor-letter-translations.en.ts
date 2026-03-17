@@ -15,6 +15,7 @@ export const en = {
   s1_vladimir_bio:
     'Graduate of KPI, Faculty of Applied Mathematics. Worked at the V.M. Glushkov Institute of Cybernetics of the National Academy of Sciences of Ukraine. Has 15+ years of experience developing information systems. Specialization — building scalable platforms for data processing, NLP, and AI infrastructure.',
   s1_vladimir_linkedin: 'LinkedIn Profile',
+  s1_igor_linkedin: 'LinkedIn Profile',
   s1_igor_initials: 'IK',
   s1_igor_name: 'Igor Kyrychenko',
   s1_igor_role: 'Co-founder & CEO.',

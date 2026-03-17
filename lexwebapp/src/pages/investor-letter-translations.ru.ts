@@ -14,6 +14,7 @@ export const ru = {
   s1_vladimir_role: 'Co-founder & CTO.',
   s1_vladimir_bio: 'Выпускник КПИ, Факультет прикладной математики. Работал в Институте кибернетики имени В.М. Глушкова НАН Украины. Имеет 15+ лет опыта разработки информационных систем. Специализация — построение масштабируемых платформ для работы с данными, NLP и AI-инфраструктура.',
   s1_vladimir_linkedin: 'LinkedIn профиль',
+  s1_igor_linkedin: 'LinkedIn профиль',
   s1_igor_initials: 'ИК',
   s1_igor_name: 'Игорь Кириченко',
   s1_igor_role: 'Co-founder & CEO.',
