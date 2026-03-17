@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, Router } from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -672,6 +672,403 @@ class HTTPMCPServer {
       });
       next();
     });
+  }
+
+  /**
+   * Create versioned tool router (v1)
+   * Mounted at /api/v1/tools (canonical) and /api/tools (backward compat)
+   */
+  private createToolRouter(): Router {
+    const router = Router();
+    const balanceCheckMiddleware = createBalanceCheckMiddleware(this.billingService, this.costTracker);
+
+    // Inject apiVersion into all JSON responses from this router
+    router.use((_req: Request, res: Response, next) => {
+      const originalJson = res.json.bind(res);
+      res.json = (body: any) => {
+        if (body && typeof body === 'object' && !Array.isArray(body)) {
+          body.apiVersion = 'v1';
+        }
+        return originalJson(body);
+      };
+      next();
+    });
+
+    // GET / — List available tools
+    router.get('/', dualAuth as any, (async (_req: DualAuthRequest, res: Response) => {
+      try {
+        const gatewayEnabled = process.env.ENABLE_UNIFIED_GATEWAY === 'true';
+
+        if (gatewayEnabled) {
+          const allTools = await this.toolRegistry.getAllTools(
+            this.toolRegistry.getLocalToolDefinitions(),
+            process.env.RADA_MCP_URL,
+            process.env.RADA_API_KEY,
+            process.env.OPENREYESTR_MCP_URL,
+            process.env.OPENREYESTR_API_KEY
+          );
+
+          const counts = this.toolRegistry.getToolCounts();
+
+          res.json({
+            tools: allTools,
+            count: allTools.length,
+            gateway: {
+              enabled: true,
+              services: counts,
+            },
+          });
+        } else {
+          const tools = this.toolRegistry.getLocalToolDefinitions();
+
+          res.json({
+            tools,
+            count: tools.length,
+            gateway: {
+              enabled: false,
+            },
+          });
+        }
+      } catch (error: any) {
+        logger.error('Error listing tools:', error);
+        res.status(500).json({
+          error: 'Internal server error',
+          message: error.message,
+        });
+      }
+    }) as any);
+
+    // POST /batch — Batch tool calls (must be before /:toolName)
+    router.post('/batch', dualAuth as any, balanceCheckMiddleware as any, (async (req: DualAuthRequest, res: Response): Promise<void> => {
+      try {
+        const { calls } = req.body;
+
+        if (!Array.isArray(calls)) {
+          res.status(400).json({
+            error: 'Invalid request',
+            message: 'Expected array of tool calls in "calls" field',
+          });
+          return;
+        }
+
+        const results = await Promise.all(
+          calls.map(async (call: { name: string; arguments?: any }) => {
+            try {
+              const result = await this.toolRegistry.executeTool(
+                call.name,
+                call.arguments || {}
+              );
+              if (result === null || result === undefined) {
+                return {
+                  tool: call.name,
+                  success: false,
+                  error: `No handler registered for tool: ${call.name}`,
+                };
+              }
+              return {
+                tool: call.name,
+                success: true,
+                result,
+              };
+            } catch (error: any) {
+              return {
+                tool: call.name,
+                success: false,
+                error: error.message,
+              };
+            }
+          })
+        );
+
+        res.json({
+          success: true,
+          results,
+        });
+      } catch (error: any) {
+        logger.error('Batch tool call error:', error);
+        res.status(500).json({
+          error: 'Batch execution failed',
+          message: error.message,
+        });
+      }
+    }) as any);
+
+    // POST /:toolName/stream — Dedicated SSE streaming endpoint
+    router.post('/:toolName/stream', dualAuth as any, balanceCheckMiddleware as any, (async (req: DualAuthRequest, res: Response) => {
+      try {
+        const toolName = Array.isArray(req.params.toolName) ? req.params.toolName[0] : req.params.toolName;
+        if (!toolName) {
+          return res.status(400).json({ error: 'Tool name is required' });
+        }
+        const args = req.body.arguments || req.body;
+
+        logger.info('Streaming tool call request', {
+          tool: toolName,
+          clientKey: req.clientKey?.substring(0, 8) + '...',
+        });
+
+        await this.handleStreamingToolCall(req, res, toolName, args);
+      } catch (error: any) {
+        logger.error('Streaming tool call error:', error);
+        if (!res.headersSent) {
+          res.status(500).json({
+            error: 'Tool execution failed',
+            message: error.message,
+            tool: req.params.toolName,
+          });
+        }
+      }
+    }) as any);
+
+    // POST /:toolName — Execute MCP tool (with SSE support and cost tracking)
+    router.post('/:toolName', dualAuth as any, balanceCheckMiddleware as any, (async (req: DualAuthRequest, res: Response) => {
+      const requestId = uuidv4();
+      const startTime = Date.now();
+
+      try {
+        const toolName = Array.isArray(req.params.toolName) ? req.params.toolName[0] : req.params.toolName;
+        if (!toolName) {
+          return res.status(400).json({ error: 'Tool name is required' });
+        }
+        const args = req.body.arguments || req.body;
+        const acceptHeader = req.headers.accept || '';
+
+        logger.info('Tool call request', {
+          requestId,
+          tool: toolName,
+          clientKey: req.clientKey?.substring(0, 8) + '...',
+          streaming: acceptHeader.includes('text/event-stream'),
+        });
+
+        // 1. Check credits BEFORE execution (for API key users)
+        if (req.authType === 'apikey' && req.user?.id) {
+          try {
+            const creditsRequired = await this.creditService.calculateCreditsForTool(toolName, req.user.id);
+
+            if (creditsRequired > 0) {
+              const balance = await this.creditService.checkBalance(req.user.id, creditsRequired);
+
+              if (!balance.hasCredits) {
+                logger.warn('[HTTP API] Insufficient credits, blocking request', {
+                  userId: req.user.id,
+                  tool: toolName,
+                  creditsRequired,
+                  currentBalance: balance.currentBalance,
+                });
+
+                return res.status(402).json({
+                  error: 'Insufficient credits',
+                  code: 'INSUFFICIENT_CREDITS',
+                  currentBalance: balance.currentBalance,
+                  creditsRequired,
+                  message: 'Your credit balance is too low to perform this operation. Please purchase more credits.',
+                });
+              }
+
+              logger.debug('[HTTP API] Credit check passed', {
+                userId: req.user.id,
+                tool: toolName,
+                creditsRequired,
+                currentBalance: balance.currentBalance,
+              });
+            }
+          } catch (creditError: any) {
+            logger.error('[HTTP API] Error checking credits', {
+              userId: req.user.id,
+              tool: toolName,
+              error: creditError.message,
+            });
+            // On error, allow the request to proceed (fail open)
+          }
+        }
+
+        // 2. Create tracking record (pending)
+        await this.costTracker.createTrackingRecord({
+          requestId,
+          toolName,
+          clientKey: req.clientKey,
+          userId: req.user?.id,
+          userQuery: args.query || JSON.stringify(args),
+          queryParams: args,
+        });
+
+        // 3. Estimate cost BEFORE execution
+        const estimate = await this.costTracker.estimateCost({
+          toolName,
+          queryLength: (args.query || '').length,
+          reasoningBudget: args.reasoning_budget || 'standard',
+        });
+
+        logger.info('Cost estimate before execution', {
+          requestId,
+          toolName,
+          estimate,
+        });
+
+        // 4. Route to appropriate service (GATEWAY LOGIC)
+        const gatewayEnabled = process.env.ENABLE_UNIFIED_GATEWAY === 'true';
+        const route = gatewayEnabled ? this.toolRegistry.getRoute(toolName) : null;
+
+        let result: any;
+
+        if (gatewayEnabled && route && !route.local) {
+          // PROXIED EXECUTION - call remote service (RADA or OpenReyestr)
+          logger.info('[Gateway] Proxying to remote service', {
+            requestId,
+            tool: toolName,
+            service: route.service,
+            serviceName: route.serviceName,
+          });
+
+          // Check if client wants SSE streaming
+          if (acceptHeader.includes('text/event-stream')) {
+            return await this.handleStreamingProxyCall(
+              req,
+              res,
+              route.service,
+              route.serviceName,
+              args,
+              requestId
+            );
+          }
+
+          // Regular JSON request to remote service
+          const remoteResult = await this.serviceProxy.callRemoteService({
+            service: route.service,
+            serviceName: route.serviceName,
+            args,
+            requestId,
+          });
+
+          result = remoteResult.result || remoteResult;
+
+        } else {
+          // LOCAL EXECUTION - backend tools
+          logger.debug('[Gateway] Executing locally', {
+            requestId,
+            tool: toolName,
+            gatewayEnabled,
+            routeFound: !!route,
+          });
+
+          // Check if client wants SSE streaming
+          if (acceptHeader.includes('text/event-stream')) {
+            return this.handleStreamingToolCall(req, res, toolName, args);
+          }
+
+          // Execute in request context
+          result = await requestContext.run(
+            { requestId, task: toolName },
+            async () => {
+              const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
+              const httpToolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId: req.user?.id } : args;
+              return await this.toolRegistry.executeTool(toolName, httpToolArgs);
+            }
+          );
+        }
+
+        // 4.5. Guard: if executeTool returned null, the tool doesn't exist
+        if (result === null || result === undefined) {
+          res.status(404).json({
+            success: false,
+            error: 'Tool not found',
+            message: `No handler registered for tool: ${toolName}`,
+          });
+          return;
+        }
+
+        // 5. Complete tracking and get breakdown
+        const executionTime = Date.now() - startTime;
+        const breakdown = await this.costTracker.completeTrackingRecord({
+          requestId,
+          executionTimeMs: executionTime,
+          status: 'completed',
+        });
+
+        logger.info('Request completed with cost tracking', {
+          requestId,
+          toolName,
+          totalCostUsd: breakdown.totals.cost_usd.toFixed(6),
+        });
+
+        // 6. Deduct credits after successful execution (for API key users)
+        if (req.authType === 'apikey' && req.user?.id) {
+          try {
+            const creditsRequired = await this.creditService.calculateCreditsForTool(toolName, req.user.id);
+
+            if (creditsRequired > 0) {
+              const deduction = await this.creditService.deductCredits(
+                req.user.id,
+                creditsRequired,
+                toolName,
+                requestId,
+                `Tool execution: ${toolName}`
+              );
+
+              if (deduction.success) {
+                logger.info('[HTTP API] Credits deducted', {
+                  userId: req.user.id,
+                  tool: toolName,
+                  creditsDeducted: creditsRequired,
+                  newBalance: deduction.newBalance,
+                });
+              } else {
+                logger.error('[HTTP API] Failed to deduct credits after execution', {
+                  userId: req.user.id,
+                  tool: toolName,
+                  creditsRequired,
+                  message: 'Balance was sufficient before execution but deduction failed',
+                });
+              }
+            }
+          } catch (creditError: any) {
+            logger.error('[HTTP API] Error deducting credits', {
+              userId: req.user.id,
+              tool: toolName,
+              error: creditError.message,
+            });
+          }
+        }
+
+        // 7. Return result with cost tracking info
+        res.json({
+          success: true,
+          tool: toolName,
+          service: route?.service || 'backend',
+          result,
+          cost_tracking: {
+            request_id: requestId,
+            estimate_before: estimate,
+            actual_cost: breakdown,
+          },
+        });
+      } catch (error: any) {
+        logger.error('Tool call error:', error);
+
+        const executionTime = Date.now() - startTime;
+        try {
+          await this.costTracker.completeTrackingRecord({
+            requestId,
+            executionTimeMs: executionTime,
+            status: 'failed',
+            errorMessage: error.message,
+          });
+        } catch (trackingError) {
+          logger.error('Failed to record error in cost tracking:', trackingError);
+        }
+
+        res.status(500).json({
+          error: 'Tool execution failed',
+          message: error.message,
+          tool: req.params.toolName,
+          cost_tracking: {
+            request_id: requestId,
+          },
+        });
+      }
+    }) as any);
+
+    return router;
   }
 
   private setupRoutes() {
@@ -2102,7 +2499,10 @@ class HTTPMCPServer {
     logger.info('Worker heartbeat routes registered at /api/workers');
 
     // Workflow routes - workflow sets, workflow execution, cancellation
-    this.app.use('/api', requireJWT as any, createWorkflowRoutes(this.workflowService, this.workflowExecutorService));
+    // IMPORTANT: Use specific prefixes, NOT '/api' — a catch-all '/api' prefix with requireJWT
+    // would block API key auth for all /api/* routes (including /api/tools with dualAuth)
+    this.app.use('/api/workflow-sets', requireJWT as any, createWorkflowRoutes(this.workflowService, this.workflowExecutorService));
+    this.app.use('/api/workflows', requireJWT as any, createWorkflowRoutes(this.workflowService, this.workflowExecutorService));
     logger.info('Workflow routes registered at /api/workflow-sets, /api/workflows');
 
     // Time tracking and billing routes
@@ -2548,391 +2948,13 @@ class HTTPMCPServer {
       }
     }) as any);
 
-    // MCP tool endpoints - allow both JWT and API keys
-    // List available tools (unified gateway - returns all 44 tools)
-    this.app.get('/api/tools', dualAuth as any, ((async (_req: DualAuthRequest, res: Response) => {
-      try {
-        // Check if unified gateway is enabled
-        const gatewayEnabled = process.env.ENABLE_UNIFIED_GATEWAY === 'true';
+    // MCP tool endpoints - versioned API (v1)
+    // Mount at /api/v1/tools (canonical) and /api/tools (backward compat alias)
+    const toolRouter = this.createToolRouter();
+    this.app.use('/api/v1/tools', toolRouter);
+    this.app.use('/api/tools', toolRouter);
+    logger.info('Tool routes registered at /api/v1/tools and /api/tools (backward compat)');
 
-        if (gatewayEnabled) {
-          // Unified gateway mode - fetch from all services
-          const allTools = await this.toolRegistry.getAllTools(
-            this.toolRegistry.getLocalToolDefinitions(),
-            process.env.RADA_MCP_URL,
-            process.env.RADA_API_KEY,
-            process.env.OPENREYESTR_MCP_URL,
-            process.env.OPENREYESTR_API_KEY
-          );
-
-          const counts = this.toolRegistry.getToolCounts();
-
-          res.json({
-            tools: allTools,
-            count: allTools.length,
-            gateway: {
-              enabled: true,
-              services: counts,
-            },
-          });
-        } else {
-          // Legacy mode - only backend tools
-          const tools = this.toolRegistry.getLocalToolDefinitions();
-
-          res.json({
-            tools,
-            count: tools.length,
-            gateway: {
-              enabled: false,
-            },
-          });
-        }
-      } catch (error: any) {
-        logger.error('Error listing tools:', error);
-        res.status(500).json({
-          error: 'Internal server error',
-          message: error.message,
-        });
-      }
-    }) as any) as any);
-
-    // Call MCP tool (with SSE support and cost tracking)
-    // Balance check middleware ensures user has sufficient funds before execution
-    const balanceCheckMiddleware = createBalanceCheckMiddleware(this.billingService, this.costTracker);
-    this.app.post('/api/tools/:toolName', dualAuth as any, balanceCheckMiddleware as any, (async (req: DualAuthRequest, res: Response) => {
-      const requestId = uuidv4();
-      const startTime = Date.now();
-
-      try {
-        const toolName = Array.isArray(req.params.toolName) ? req.params.toolName[0] : req.params.toolName;
-        if (!toolName) {
-          return res.status(400).json({ error: 'Tool name is required' });
-        }
-        const args = req.body.arguments || req.body;
-        const acceptHeader = req.headers.accept || '';
-
-        logger.info('Tool call request', {
-          requestId,
-          tool: toolName,
-          clientKey: req.clientKey?.substring(0, 8) + '...',
-          streaming: acceptHeader.includes('text/event-stream'),
-        });
-
-        // 1. Check credits BEFORE execution (for API key users)
-        if (req.authType === 'apikey' && req.user?.id) {
-          try {
-            const creditsRequired = await this.creditService.calculateCreditsForTool(toolName, req.user.id);
-
-            if (creditsRequired > 0) {
-              const balance = await this.creditService.checkBalance(req.user.id, creditsRequired);
-
-              if (!balance.hasCredits) {
-                logger.warn('[HTTP API] Insufficient credits, blocking request', {
-                  userId: req.user.id,
-                  tool: toolName,
-                  creditsRequired,
-                  currentBalance: balance.currentBalance,
-                });
-
-                return res.status(402).json({
-                  error: 'Insufficient credits',
-                  code: 'INSUFFICIENT_CREDITS',
-                  currentBalance: balance.currentBalance,
-                  creditsRequired,
-                  message: 'Your credit balance is too low to perform this operation. Please purchase more credits.',
-                });
-              }
-
-              logger.debug('[HTTP API] Credit check passed', {
-                userId: req.user.id,
-                tool: toolName,
-                creditsRequired,
-                currentBalance: balance.currentBalance,
-              });
-            }
-          } catch (creditError: any) {
-            logger.error('[HTTP API] Error checking credits', {
-              userId: req.user.id,
-              tool: toolName,
-              error: creditError.message,
-            });
-            // On error, allow the request to proceed (fail open)
-          }
-        }
-
-        // 2. Create tracking record (pending)
-        await this.costTracker.createTrackingRecord({
-          requestId,
-          toolName,
-          clientKey: req.clientKey,
-          userId: req.user?.id,
-          userQuery: args.query || JSON.stringify(args),
-          queryParams: args,
-        });
-
-        // 3. Estimate cost BEFORE execution
-        const estimate = await this.costTracker.estimateCost({
-          toolName,
-          queryLength: (args.query || '').length,
-          reasoningBudget: args.reasoning_budget || 'standard',
-        });
-
-        logger.info('Cost estimate before execution', {
-          requestId,
-          toolName,
-          estimate,
-        });
-
-        // 4. Route to appropriate service (GATEWAY LOGIC)
-        const gatewayEnabled = process.env.ENABLE_UNIFIED_GATEWAY === 'true';
-        const route = gatewayEnabled ? this.toolRegistry.getRoute(toolName) : null;
-
-        let result: any;
-
-        if (gatewayEnabled && route && !route.local) {
-          // PROXIED EXECUTION - call remote service (RADA or OpenReyestr)
-          logger.info('[Gateway] Proxying to remote service', {
-            requestId,
-            tool: toolName,
-            service: route.service,
-            serviceName: route.serviceName,
-          });
-
-          // Check if client wants SSE streaming
-          if (acceptHeader.includes('text/event-stream')) {
-            // Stream from remote service
-            return await this.handleStreamingProxyCall(
-              req,
-              res,
-              route.service,
-              route.serviceName,
-              args,
-              requestId
-            );
-          }
-
-          // Regular JSON request to remote service
-          const remoteResult = await this.serviceProxy.callRemoteService({
-            service: route.service,
-            serviceName: route.serviceName,
-            args,
-            requestId,
-          });
-
-          // Extract result from remote service response
-          result = remoteResult.result || remoteResult;
-
-        } else {
-          // LOCAL EXECUTION - backend tools
-          logger.debug('[Gateway] Executing locally', {
-            requestId,
-            tool: toolName,
-            gatewayEnabled,
-            routeFound: !!route,
-          });
-
-          // Check if client wants SSE streaming
-          if (acceptHeader.includes('text/event-stream')) {
-            return this.handleStreamingToolCall(req, res, toolName, args);
-          }
-
-          // Execute in request context
-          result = await requestContext.run(
-            { requestId, task: toolName },
-            async () => {
-              // Route to appropriate tool handler via centralized registry
-              // Inject userId for all vault tools (user isolation)
-              const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
-              const httpToolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId: req.user?.id } : args;
-              return await this.toolRegistry.executeTool(toolName, httpToolArgs);
-            }
-          );
-        }
-
-        // 4.5. Guard: if executeTool returned null, the tool doesn't exist
-        if (result === null || result === undefined) {
-          res.status(404).json({
-            success: false,
-            error: 'Tool not found',
-            message: `No handler registered for tool: ${toolName}`,
-          });
-          return;
-        }
-
-        // 5. Complete tracking and get breakdown
-        const executionTime = Date.now() - startTime;
-        const breakdown = await this.costTracker.completeTrackingRecord({
-          requestId,
-          executionTimeMs: executionTime,
-          status: 'completed',
-        });
-
-        logger.info('Request completed with cost tracking', {
-          requestId,
-          toolName,
-          totalCostUsd: breakdown.totals.cost_usd.toFixed(6),
-        });
-
-        // 6. Deduct credits after successful execution (for API key users)
-        if (req.authType === 'apikey' && req.user?.id) {
-          try {
-            const creditsRequired = await this.creditService.calculateCreditsForTool(toolName, req.user.id);
-
-            if (creditsRequired > 0) {
-              const deduction = await this.creditService.deductCredits(
-                req.user.id,
-                creditsRequired,
-                toolName,
-                requestId,
-                `Tool execution: ${toolName}`
-              );
-
-              if (deduction.success) {
-                logger.info('[HTTP API] Credits deducted', {
-                  userId: req.user.id,
-                  tool: toolName,
-                  creditsDeducted: creditsRequired,
-                  newBalance: deduction.newBalance,
-                });
-              } else {
-                // This should not happen since we checked balance before execution
-                logger.error('[HTTP API] Failed to deduct credits after execution', {
-                  userId: req.user.id,
-                  tool: toolName,
-                  creditsRequired,
-                  message: 'Balance was sufficient before execution but deduction failed',
-                });
-              }
-            }
-          } catch (creditError: any) {
-            logger.error('[HTTP API] Error deducting credits', {
-              userId: req.user.id,
-              tool: toolName,
-              error: creditError.message,
-            });
-          }
-        }
-
-        // 7. Return result with cost tracking info
-        res.json({
-          success: true,
-          tool: toolName,
-          service: route?.service || 'backend',
-          result,
-          cost_tracking: {
-            request_id: requestId,
-            estimate_before: estimate,
-            actual_cost: breakdown,
-          },
-        });
-      } catch (error: any) {
-        logger.error('Tool call error:', error);
-
-        // Record failure
-        const executionTime = Date.now() - startTime;
-        try {
-          await this.costTracker.completeTrackingRecord({
-            requestId,
-            executionTimeMs: executionTime,
-            status: 'failed',
-            errorMessage: error.message,
-          });
-        } catch (trackingError) {
-          logger.error('Failed to record error in cost tracking:', trackingError);
-        }
-
-        res.status(500).json({
-          error: 'Tool execution failed',
-          message: error.message,
-          tool: req.params.toolName,
-          cost_tracking: {
-            request_id: requestId,
-          },
-        });
-      }
-    }) as any);
-
-    // Dedicated SSE streaming endpoint (with balance check)
-    this.app.post('/api/tools/:toolName/stream', dualAuth as any, balanceCheckMiddleware as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const toolName = Array.isArray(req.params.toolName) ? req.params.toolName[0] : req.params.toolName;
-        if (!toolName) {
-          return res.status(400).json({ error: 'Tool name is required' });
-        }
-        const args = req.body.arguments || req.body;
-
-        logger.info('Streaming tool call request', {
-          tool: toolName,
-          clientKey: req.clientKey?.substring(0, 8) + '...',
-        });
-
-        await this.handleStreamingToolCall(req, res, toolName, args);
-      } catch (error: any) {
-        logger.error('Streaming tool call error:', error);
-        if (!res.headersSent) {
-          res.status(500).json({
-            error: 'Tool execution failed',
-            message: error.message,
-            tool: req.params.toolName,
-          });
-        }
-      }
-    }) as any);
-
-    // Batch tool calls (with balance check)
-    this.app.post('/api/tools/batch', dualAuth as any, balanceCheckMiddleware as any, (async (req: DualAuthRequest, res: Response): Promise<void> => {
-      try {
-        const { calls } = req.body;
-
-        if (!Array.isArray(calls)) {
-          res.status(400).json({
-            error: 'Invalid request',
-            message: 'Expected array of tool calls in "calls" field',
-          });
-          return;
-        }
-
-        const results = await Promise.all(
-          calls.map(async (call: { name: string; arguments?: any }) => {
-            try {
-              const result = await this.toolRegistry.executeTool(
-                call.name,
-                call.arguments || {}
-              );
-              if (result === null || result === undefined) {
-                return {
-                  tool: call.name,
-                  success: false,
-                  error: `No handler registered for tool: ${call.name}`,
-                };
-              }
-              return {
-                tool: call.name,
-                success: true,
-                result,
-              };
-            } catch (error: any) {
-              return {
-                tool: call.name,
-                success: false,
-                error: error.message,
-              };
-            }
-          })
-        );
-
-        res.json({
-          success: true,
-          results,
-        });
-      } catch (error: any) {
-        logger.error('Batch tool call error:', error);
-        res.status(500).json({
-          error: 'Batch execution failed',
-          message: error.message,
-        });
-      }
-    }) as any);
 
     // Internal service-to-service endpoint for DB stats (used by local→stage db-compare)
     // Accepts API key auth (dualAuth) so the local backend can call stage without a JWT
