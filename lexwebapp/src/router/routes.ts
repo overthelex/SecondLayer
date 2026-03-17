@@ -81,6 +81,7 @@ export const ROUTES = {
 
   // News
   NEWS: '/news',
+  LEX_NEWS: '/lex-news',
 
   // History
   HISTORY: '/history',

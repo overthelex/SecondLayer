@@ -107,6 +107,7 @@ const HistoricalAnalysisPage = lazyWithRetry(() => import('../pages/HistoricalAn
 
 // -- News --
 const NewsPage = lazyWithRetry(() => import('../pages/NewsPage').then(m => ({ default: m.NewsPage })));
+const LexNewsPage = lazyWithRetry(() => import('../pages/LexNewsPage').then(m => ({ default: m.LexNewsPage })));
 
 // -- MCP Connect --
 const MCPConnectPage = lazyWithRetry(() => import('../pages/MCPConnectPage').then(m => ({ default: m.MCPConnectPage })));
@@ -239,6 +240,10 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.BLOG,
     element: S(BlogPage),
+  },
+  {
+    path: ROUTES.LEX_NEWS,
+    element: S(LexNewsPage),
   },
   {
     path: ROUTES.INVESTOR_LETTER,
