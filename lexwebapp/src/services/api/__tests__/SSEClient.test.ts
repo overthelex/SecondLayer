@@ -11,7 +11,7 @@ describe('SSEClient', () => {
   let mockFetch: any;
 
   beforeEach(() => {
-    sseClient = new SSEClient('https://test.example.com/api', 'test-key');
+    sseClient = new SSEClient('https://test.example.com/api/v1/tools', 'test-key');
     mockFetch = vi.fn();
     global.fetch = mockFetch;
   });
@@ -46,7 +46,7 @@ describe('SSEClient', () => {
       const controller = await sseClient.streamTool('test_tool', {}, callbacks);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://test.example.com/api/tools/test_tool/stream',
+        'https://test.example.com/api/v1/tools/test_tool/stream',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
