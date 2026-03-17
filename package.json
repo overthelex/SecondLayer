@@ -40,6 +40,7 @@
     "fast-xml-parser": "^5.4.2",
     "jest-validate": "^30.3.0",
     "jest-watcher": "^30.3.0",
+    "jsdom": "^29.0.0",
     "ora": "^9.3.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
