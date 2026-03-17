@@ -303,6 +303,56 @@ async function pass2() {
   `);
   log(`Pass 2e: Surname+initials match — ${surnameInitialsMatch.rowCount} additional judges matched`);
 
+  // Pass 2f: Normalized court names (м. → міста, abbreviations)
+  // Handles: "Київський районний суд м. Одеси" vs "Київський районний суд міста Одеси"
+  const normalizedCourtMatch = await mainPool.query(`
+    WITH normalized AS (
+      SELECT ja.id as analytics_id, jc.dossier_number,
+             COUNT(*) OVER (PARTITION BY ja.id) as match_count
+      FROM judge_analytics ja
+      JOIN judges_current jc
+        ON LOWER(SPLIT_PART(ja.judge_name, ' ', 1)) = LOWER(SPLIT_PART(jc.full_name, ' ', 1))
+        AND LOWER(REGEXP_REPLACE(REGEXP_REPLACE(TRIM(ja.court_name), ' м\\.', ' міста', 'g'), '\\s+', ' ', 'g')) =
+            LOWER(REGEXP_REPLACE(REGEXP_REPLACE(TRIM(jc.court_name), ' м\\.', ' міста', 'g'), '\\s+', ' ', 'g'))
+      WHERE ja.dossier_number IS NULL
+        AND jc.dossier_number IS NOT NULL
+    )
+    UPDATE judge_analytics ja
+    SET dossier_number = n.dossier_number
+    FROM normalized n
+    WHERE ja.id = n.analytics_id
+      AND n.match_count = 1
+    RETURNING ja.id
+  `);
+  log(`Pass 2f: Normalized court names match — ${normalizedCourtMatch.rowCount} additional judges matched`);
+
+  // Pass 2g: Cross-court surname match (judge transferred to different court)
+  // Only if there's exactly ONE judge with that surname in entire VKKSU registry
+  const crossCourtMatch = await mainPool.query(`
+    WITH surname_unique AS (
+      SELECT full_name, dossier_number,
+             COUNT(*) OVER (PARTITION BY LOWER(SPLIT_PART(full_name, ' ', 1))) as surname_count
+      FROM judges_current
+      WHERE dossier_number IS NOT NULL
+    ),
+    cross_matches AS (
+      SELECT ja.id as analytics_id, su.dossier_number
+      FROM judge_analytics ja
+      JOIN surname_unique su
+        ON LOWER(SPLIT_PART(ja.judge_name, ' ', 1)) = LOWER(SPLIT_PART(su.full_name, ' ', 1))
+        OR LOWER(TRIM(SPLIT_PART(ja.judge_name, ' ', array_length(string_to_array(ja.judge_name, ' '), 1)))) =
+           LOWER(SPLIT_PART(su.full_name, ' ', 1))
+      WHERE ja.dossier_number IS NULL
+        AND su.surname_count = 1
+    )
+    UPDATE judge_analytics ja
+    SET dossier_number = cm.dossier_number
+    FROM cross_matches cm
+    WHERE ja.id = cm.analytics_id
+    RETURNING ja.id
+  `);
+  log(`Pass 2g: Cross-court (unique surname) match — ${crossCourtMatch.rowCount} additional judges matched`);
+
   // Log unmatched for debugging
   const unmatched = await mainPool.query(`
     SELECT COUNT(*) as cnt FROM judge_analytics WHERE dossier_number IS NULL
