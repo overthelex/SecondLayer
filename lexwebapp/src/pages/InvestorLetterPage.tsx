@@ -4,10 +4,10 @@ import { ArrowLeft, Users, Target, Database, Calculator, BarChart3, TrendingUp, 
 import { useNavigate } from 'react-router-dom';
 import { translations, type Lang } from './investor-letter-translations';
 
-const LANGS: { key: Lang; label: string; flag: string }[] = [
-  { key: 'ua', label: 'UA', flag: '🇺🇦' },
-  { key: 'en', label: 'EN', flag: '🇺🇸' },
-  { key: 'ru', label: 'RU', flag: '🇷🇺' },
+const LANGS: { key: Lang; label: string }[] = [
+  { key: 'ua', label: 'UA' },
+  { key: 'en', label: 'EN' },
+  { key: 'ru', label: 'RU' },
 ];
 
 const COMPETITOR_FLAGS: [boolean, boolean, boolean, boolean][] = [
@@ -55,13 +55,12 @@ export function InvestorLetterPage() {
               <button
                 key={l.key}
                 onClick={() => setLang(l.key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-sans font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-md text-sm font-sans font-medium transition-all ${
                   lang === l.key
                     ? 'bg-white text-claude-text shadow-sm'
                     : 'text-claude-subtext hover:text-claude-text'
                 }`}
               >
-                <span className="text-base">{l.flag}</span>
                 {l.label}
               </button>
             ))}
