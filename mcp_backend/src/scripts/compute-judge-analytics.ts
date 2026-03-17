@@ -210,14 +210,57 @@ async function pass2() {
     LEFT JOIN edrsr_instances i ON i.instance_code = c.instance_code
     WHERE ja.court_code = c.court_code
   `);
-  await mainPool.query(`
+
+  // Pass 2a: Exact match (fast path)
+  const exactMatch = await mainPool.query(`
     UPDATE judge_analytics ja
     SET dossier_number = jc.dossier_number
     FROM judges_current jc
     WHERE ja.judge_name = jc.full_name
       AND ja.dossier_number IS NULL
+    RETURNING ja.id
   `);
-  log('Pass 2 done');
+  log(`Pass 2a: Exact match — ${exactMatch.rowCount} judges matched`);
+
+  // Pass 2b: Case-insensitive + normalized whitespace match
+  const normalizedMatch = await mainPool.query(`
+    UPDATE judge_analytics ja
+    SET dossier_number = jc.dossier_number
+    FROM judges_current jc
+    WHERE ja.dossier_number IS NULL
+      AND LOWER(TRIM(REGEXP_REPLACE(ja.judge_name, '\\s+', ' ', 'g'))) =
+          LOWER(TRIM(REGEXP_REPLACE(jc.full_name, '\\s+', ' ', 'g')))
+    RETURNING ja.id
+  `);
+  log(`Pass 2b: Normalized match — ${normalizedMatch.rowCount} additional judges matched`);
+
+  // Pass 2c: Surname + court match (handles abbreviated names like "Іваненко П.В." vs "Іваненко Петро Васильович")
+  // Only match if there's exactly one judge with that surname in that court
+  const surnameMatch = await mainPool.query(`
+    WITH surname_matches AS (
+      SELECT ja.id as analytics_id, jc.dossier_number,
+             COUNT(*) OVER (PARTITION BY ja.id) as match_count
+      FROM judge_analytics ja
+      JOIN judges_current jc
+        ON LOWER(SPLIT_PART(ja.judge_name, ' ', 1)) = LOWER(SPLIT_PART(jc.full_name, ' ', 1))
+        AND LOWER(ja.court_name) = LOWER(jc.court_name)
+      WHERE ja.dossier_number IS NULL
+        AND jc.dossier_number IS NOT NULL
+    )
+    UPDATE judge_analytics ja
+    SET dossier_number = sm.dossier_number
+    FROM surname_matches sm
+    WHERE ja.id = sm.analytics_id
+      AND sm.match_count = 1
+    RETURNING ja.id
+  `);
+  log(`Pass 2c: Surname+court match — ${surnameMatch.rowCount} additional judges matched`);
+
+  // Log unmatched for debugging
+  const unmatched = await mainPool.query(`
+    SELECT COUNT(*) as cnt FROM judge_analytics WHERE dossier_number IS NULL
+  `);
+  log(`Pass 2 done — ${unmatched.rows[0].cnt} judges still without dossier_number`);
 }
 
 // ── Pass 3: Appeal rate (per-instance: first→appellate, appellate→cassation) ──
