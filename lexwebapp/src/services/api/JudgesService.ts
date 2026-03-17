@@ -80,8 +80,8 @@ export class JudgesService extends BaseService {
     return this.request(() => this.client.get<Judge>(`/api/judges/${dossierNumber}`));
   }
 
-  async getJudgeProfile(dossierNumber: string): Promise<JudgeProfile> {
-    return this.request(() => this.client.get<JudgeProfile>(`/api/judges/${dossierNumber}/profile`));
+  async getJudgeProfile(identifier: string): Promise<JudgeProfile> {
+    return this.request(() => this.client.get<JudgeProfile>(`/api/judges/${encodeURIComponent(identifier)}/profile`));
   }
 }
 

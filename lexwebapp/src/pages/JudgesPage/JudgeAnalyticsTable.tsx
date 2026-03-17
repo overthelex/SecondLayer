@@ -106,7 +106,7 @@ export function JudgeAnalyticsTable() {
   };
 
   const handleJudgeClick = (judge: JudgeAnalyticsRecord) => {
-    const id = judge.dossier_number || String(judge.id);
+    const id = judge.dossier_number || judge.judge_name;
     navigate(generateRoute.judgeDetail(id));
   };
 

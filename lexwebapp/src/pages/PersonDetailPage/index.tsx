@@ -69,11 +69,30 @@ export function PersonDetailPage({ type }: PersonDetailPageProps) {
       judgeAnalyticsService.getAnalyticsDetail(id).catch(() => null),
     ])
       .then(([profile, analytics]) => {
-        if (!profile) {
-          setError('Суддю з таким номером досьє не знайдено');
+        if (!profile && !analytics) {
+          setError('Суддю не знайдено');
           return;
         }
-        setJudgeProfile(profile);
+        if (profile) {
+          setJudgeProfile(profile);
+        } else if (analytics) {
+          // Build minimal profile from analytics data
+          setJudgeProfile({
+            basic: {
+              id: analytics.id,
+              dossier_number: analytics.dossier_number,
+              full_name: analytics.judge_name,
+              gender: null,
+              court_name: analytics.court_name,
+              first_seen: null,
+              last_seen: null,
+              snapshot_count: 0,
+            },
+            court_history: [],
+            zo_id: null,
+            stats: null,
+          });
+        }
         setJudgeAnalytics(analytics);
       })
       .catch((err) => {
