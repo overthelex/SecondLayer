@@ -78,7 +78,7 @@ export function JudgesPage() {
                 Судді
               </h1>
               <p className="text-claude-subtext font-sans">
-                Пошук та аналітика по суддівському корпусу
+                Аналітика та пошук по суддівському корпусу
               </p>
             </div>
 
