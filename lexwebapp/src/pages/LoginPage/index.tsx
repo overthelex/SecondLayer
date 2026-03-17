@@ -16,6 +16,7 @@ import {
   User,
   BookOpen,
   X,
+  TrendingUp,
 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { hasRecentArticles } from '../BlogPage/articles';
@@ -764,8 +765,27 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </div>
         </motion.button>
 
+        {/* Investor Letter — prominent CTA */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.48, duration: 0.5 }} className="mt-6">
+          <a
+            href="/investor"
+            className="block w-full px-5 py-4 bg-gradient-to-r from-claude-accent/10 via-white to-claude-accent/10 border-2 border-claude-accent/30 hover:border-claude-accent hover:shadow-lg rounded-2xl transition-all group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0 w-11 h-11 bg-claude-accent rounded-xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                <TrendingUp size={22} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-claude-text font-sans">Відкритий лист для інвестора</p>
+                <p className="text-xs text-claude-subtext font-sans mt-0.5">Команда, продукт, ринок, юніт-економіка та прогноз доходів</p>
+              </div>
+              <ArrowRight size={18} className="text-claude-accent flex-shrink-0 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </a>
+        </motion.div>
+
         {/* Blog Link */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="text-center mt-5">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.52 }} className="text-center mt-4">
           <a href="/blog" className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-claude-border hover:border-claude-accent/30 hover:bg-white rounded-xl text-sm text-claude-subtext hover:text-claude-text transition-all font-sans">
             <BookOpen size={15} className="text-claude-accent" />
             <span>Blog — як ми будуємо LEX AI</span>

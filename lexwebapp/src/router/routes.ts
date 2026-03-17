@@ -66,6 +66,9 @@ export const ROUTES = {
   // Blog
   BLOG: '/blog',
 
+  // Investor
+  INVESTOR_LETTER: '/investor',
+
   // Country-specific public pages
   US_DATA_SOURCES: '/us/data-sources',
   UK_DATA_SOURCES: '/uk/data-sources',
