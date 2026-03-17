@@ -236,6 +236,7 @@ async function pass2() {
 
   // Pass 2c: Surname + court match (handles abbreviated names like "Іваненко П.В." vs "Іваненко Петро Васильович")
   // Only match if there's exactly one judge with that surname in that court
+  // Note: TRIM on court_name because EDRSR has trailing spaces
   const surnameMatch = await mainPool.query(`
     WITH surname_matches AS (
       SELECT ja.id as analytics_id, jc.dossier_number,
@@ -243,7 +244,7 @@ async function pass2() {
       FROM judge_analytics ja
       JOIN judges_current jc
         ON LOWER(SPLIT_PART(ja.judge_name, ' ', 1)) = LOWER(SPLIT_PART(jc.full_name, ' ', 1))
-        AND LOWER(ja.court_name) = LOWER(jc.court_name)
+        AND LOWER(TRIM(ja.court_name)) = LOWER(TRIM(jc.court_name))
       WHERE ja.dossier_number IS NULL
         AND jc.dossier_number IS NOT NULL
     )
@@ -255,6 +256,53 @@ async function pass2() {
     RETURNING ja.id
   `);
   log(`Pass 2c: Surname+court match — ${surnameMatch.rowCount} additional judges matched`);
+
+  // Pass 2d: Abbreviated names with surname LAST (e.g. "В.В. Щербаков" → "Щербаков Володимир Валерійович")
+  // Extract last word from EDRSR name, match to first word (surname) in VKKSU
+  const abbrevMatch = await mainPool.query(`
+    WITH abbrev_matches AS (
+      SELECT ja.id as analytics_id, jc.dossier_number,
+             COUNT(*) OVER (PARTITION BY ja.id) as match_count
+      FROM judge_analytics ja
+      JOIN judges_current jc
+        ON LOWER(TRIM(SPLIT_PART(ja.judge_name, ' ',
+             array_length(string_to_array(ja.judge_name, ' '), 1)))) =
+           LOWER(SPLIT_PART(jc.full_name, ' ', 1))
+        AND LOWER(TRIM(ja.court_name)) = LOWER(TRIM(jc.court_name))
+      WHERE ja.dossier_number IS NULL
+        AND jc.dossier_number IS NOT NULL
+        AND ja.judge_name ~ '^[А-ЯІЇЄҐA-Z]\\.[А-ЯІЇЄҐA-Z]?\\.' -- matches "І.П." or "І." prefix pattern
+    )
+    UPDATE judge_analytics ja
+    SET dossier_number = am.dossier_number
+    FROM abbrev_matches am
+    WHERE ja.id = am.analytics_id
+      AND am.match_count = 1
+    RETURNING ja.id
+  `);
+  log(`Pass 2d: Abbreviated (И.О. Фамилия) match — ${abbrevMatch.rowCount} additional judges matched`);
+
+  // Pass 2e: Format "Фамилія І.О." or "Фамилія І. О." — surname first, initials after
+  const surnameInitialsMatch = await mainPool.query(`
+    WITH si_matches AS (
+      SELECT ja.id as analytics_id, jc.dossier_number,
+             COUNT(*) OVER (PARTITION BY ja.id) as match_count
+      FROM judge_analytics ja
+      JOIN judges_current jc
+        ON LOWER(SPLIT_PART(ja.judge_name, ' ', 1)) = LOWER(SPLIT_PART(jc.full_name, ' ', 1))
+        AND LOWER(TRIM(ja.court_name)) = LOWER(TRIM(jc.court_name))
+      WHERE ja.dossier_number IS NULL
+        AND jc.dossier_number IS NOT NULL
+        AND ja.judge_name ~ '[А-ЯІЇЄҐA-Z]\\.' -- has initials somewhere
+    )
+    UPDATE judge_analytics ja
+    SET dossier_number = sim.dossier_number
+    FROM si_matches sim
+    WHERE ja.id = sim.analytics_id
+      AND sim.match_count = 1
+    RETURNING ja.id
+  `);
+  log(`Pass 2e: Surname+initials match — ${surnameInitialsMatch.rowCount} additional judges matched`);
 
   // Log unmatched for debugging
   const unmatched = await mainPool.query(`
