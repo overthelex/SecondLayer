@@ -44,6 +44,7 @@ export interface ChatStreamCallbacks {
 
 export class MCPService extends BaseService {
   private readonly API_URL: string;
+  private readonly TOOLS_URL: string;
   private readonly API_KEY: string;
   private readonly sseClient: SSEClient;
   private readonly enableSSE: boolean;
@@ -52,12 +53,13 @@ export class MCPService extends BaseService {
     super();
     const baseUrl = import.meta.env.VITE_API_URL || 'https://stage.legal.org.ua';
     this.API_URL = `${baseUrl}/api`;
+    this.TOOLS_URL = `${baseUrl}/api/v1/tools`;
     this.API_KEY =
       import.meta.env.VITE_API_KEY ||
       'REDACTED_SL_KEY_STAGE';
     this.enableSSE =
       import.meta.env.VITE_ENABLE_SSE_STREAMING !== 'false';
-    this.sseClient = new SSEClient(this.API_URL, this.API_KEY);
+    this.sseClient = new SSEClient(this.TOOLS_URL, this.API_KEY);
   }
 
   private getAuthToken(): string {
@@ -71,7 +73,7 @@ export class MCPService extends BaseService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MCP tool responses are dynamic JSON, each tool returns a different shape
   async callTool(toolName: string, params: Record<string, unknown>): Promise<Record<string, any>> {
     try {
-      const response = await fetch(`${this.API_URL}/tools/${toolName}`, {
+      const response = await fetch(`${this.TOOLS_URL}/${toolName}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
