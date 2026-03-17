@@ -136,25 +136,25 @@ export class JudgesService {
     return { judges: dataResult.rows, total };
   }
 
-  async getJudgeByDossier(dossierNumber: string): Promise<JudgeRecord | null> {
+  async getJudgeByDossier(identifier: string): Promise<JudgeRecord | null> {
     const pool = this.db.getPool();
     const result = await pool.query(
       `SELECT id, dossier_number, full_name, gender, court_name, first_seen, last_seen, snapshot_count
        FROM judges_current WHERE dossier_number = $1 LIMIT 1`,
-      [dossierNumber]
+      [identifier]
     );
     return result.rows[0] || null;
   }
 
-  async getJudgeProfile(dossierNumber: string): Promise<JudgeProfile | null> {
+  async getJudgeProfile(identifier: string): Promise<JudgeProfile | null> {
     // Check Redis cache first
-    const cacheKey = `judge:profile:${dossierNumber}`;
+    const cacheKey = `judge:profile:${identifier}`;
     try {
       const redis = await getRedisClient();
       if (redis) {
         const cached = await redis.get(cacheKey);
         if (cached) {
-          logger.debug('[Judges] Cache hit for profile', { dossierNumber });
+          logger.debug('[Judges] Cache hit for profile', { identifier });
           return JSON.parse(cached);
         }
       }
@@ -164,13 +164,89 @@ export class JudgesService {
 
     const pool = this.db.getPool();
 
-    // 1. Basic info from judges_current
-    const basicResult = await pool.query(
+    // 1. Basic info from judges_current — try dossier_number first, then name
+    let basicResult = await pool.query(
       `SELECT id, dossier_number, full_name, gender, court_name, first_seen, last_seen, snapshot_count
        FROM judges_current WHERE dossier_number = $1 LIMIT 1`,
-      [dossierNumber]
+      [identifier]
     );
-    if (basicResult.rows.length === 0) return null;
+
+    // Fallback: try by full_name (URL-decoded)
+    if (basicResult.rows.length === 0) {
+      const decodedName = decodeURIComponent(identifier);
+      basicResult = await pool.query(
+        `SELECT id, dossier_number, full_name, gender, court_name, first_seen, last_seen, snapshot_count
+         FROM judges_current WHERE full_name = $1 LIMIT 1`,
+        [decodedName]
+      );
+    }
+
+    // Fallback: try by numeric ID in judge_analytics → get name → find in judges_current
+    if (basicResult.rows.length === 0) {
+      const numId = parseInt(identifier, 10);
+      if (!isNaN(numId)) {
+        const analyticsResult = await pool.query(
+          `SELECT judge_name, court_name FROM judge_analytics WHERE id = $1 LIMIT 1`,
+          [numId]
+        );
+        if (analyticsResult.rows.length > 0) {
+          basicResult = await pool.query(
+            `SELECT id, dossier_number, full_name, gender, court_name, first_seen, last_seen, snapshot_count
+             FROM judges_current WHERE full_name = $1 LIMIT 1`,
+            [analyticsResult.rows[0].judge_name]
+          );
+        }
+      }
+    }
+
+    // Final fallback: build minimal profile from judge_analytics
+    if (basicResult.rows.length === 0) {
+      const decodedName = decodeURIComponent(identifier);
+      const analyticsResult = await pool.query(
+        `SELECT id, judge_name, court_name, dossier_number FROM judge_analytics
+         WHERE judge_name = $1 OR dossier_number = $1 LIMIT 1`,
+        [decodedName]
+      );
+      if (analyticsResult.rows.length === 0) {
+        // Also try numeric ID
+        const numId = parseInt(identifier, 10);
+        if (!isNaN(numId)) {
+          const byIdResult = await pool.query(
+            `SELECT id, judge_name, court_name, dossier_number FROM judge_analytics WHERE id = $1 LIMIT 1`,
+            [numId]
+          );
+          if (byIdResult.rows.length === 0) return null;
+          analyticsResult.rows = byIdResult.rows;
+        } else {
+          return null;
+        }
+      }
+      const ar = analyticsResult.rows[0];
+      const basic: JudgeRecord = {
+        id: ar.id,
+        dossier_number: ar.dossier_number,
+        full_name: ar.judge_name,
+        gender: null,
+        court_name: ar.court_name,
+        first_seen: null,
+        last_seen: null,
+        snapshot_count: 0,
+      };
+      const profile: JudgeProfile = { basic, court_history: [], zo_id: null, stats: null };
+
+      // Cache result
+      try {
+        const redis = await getRedisClient();
+        if (redis) {
+          await redis.set(cacheKey, JSON.stringify(profile), { EX: CACHE_TTL });
+        }
+      } catch (err) {
+        logger.warn('[Judges] Redis cache write failed', { error: (err as Error).message });
+      }
+
+      return profile;
+    }
+
     const basic: JudgeRecord = basicResult.rows[0];
 
     // 2. Court history from judges table (historical snapshots)
@@ -180,7 +256,7 @@ export class JudgesService {
        WHERE dossier_number = $1 AND court_name IS NOT NULL
        GROUP BY court_name
        ORDER BY MIN(snapshot_date) ASC`,
-      [dossierNumber]
+      [identifier]
     );
     const court_history: CourtHistoryEntry[] = historyResult.rows;
 
@@ -196,9 +272,9 @@ export class JudgesService {
         const match = judges.find((j) => j.title.trim().toLowerCase() === normalizedName);
         if (match) {
           zo_id = match.id;
-          logger.info('[Judges] ZO match found', { dossierNumber, zo_id, name: basic.full_name });
+          logger.info('[Judges] ZO match found', { identifier, zo_id, name: basic.full_name });
         } else {
-          logger.info('[Judges] No ZO match for judge', { dossierNumber, name: basic.full_name });
+          logger.info('[Judges] No ZO match for judge', { identifier, name: basic.full_name });
         }
       }
     } catch (err) {
@@ -212,7 +288,7 @@ export class JudgesService {
         stats = await this.fetchZoStats(zo_id);
       } catch (err) {
         logger.warn('[Judges] ZO stats fetch failed, returning profile without stats', {
-          dossierNumber, zo_id, error: (err as Error).message,
+          identifier, zo_id, error: (err as Error).message,
         });
       }
     }

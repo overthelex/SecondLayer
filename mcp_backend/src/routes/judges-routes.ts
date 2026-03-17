@@ -20,17 +20,17 @@ export function createJudgesRoutes(judgesService: JudgesService): Router {
     }
   });
 
-  router.get('/:dossierNumber/profile', async (req: any, res: Response) => {
+  router.get('/:identifier/profile', async (req: any, res: Response) => {
     try {
-      const { dossierNumber } = req.params;
-      const profile = await judgesService.getJudgeProfile(dossierNumber);
+      const { identifier } = req.params;
+      const profile = await judgesService.getJudgeProfile(identifier);
       if (!profile) {
-        return res.status(404).json({ error: 'Judge not found', message: 'Суддю з таким номером досьє не знайдено' });
+        return res.status(404).json({ error: 'Judge not found', message: 'Суддю не знайдено' });
       }
       res.json(profile);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      logger.error('[Judges] profile error', { error: msg, dossier: req.params.dossierNumber });
+      logger.error('[Judges] profile error', { error: msg, identifier: req.params.identifier });
       res.status(500).json({ error: msg });
     }
   });
