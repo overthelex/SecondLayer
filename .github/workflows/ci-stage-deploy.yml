@@ -97,13 +97,13 @@ jobs:
         if: needs.detect-changes.outputs.openreyestr == 'true'
         run: cd mcp_openreyestr && npm ci && npm run build
 
+      - name: Install frontend deps
+        if: needs.detect-changes.outputs.frontend == 'true'
+        run: npm ci
+
       - name: Test frontend
         if: needs.detect-changes.outputs.frontend == 'true'
-        run: |
-          rm -rf node_modules
-          npm ci --workspace=lexwebapp
-          npm test --workspace=lexwebapp
-          npm run build --workspace=lexwebapp
+        run: cd lexwebapp && npm test && npm run build
         env:
           VITE_API_URL: https://stage.legal.org.ua
 
