@@ -14,6 +14,7 @@ export const ua = {
   s1_vladimir_role: 'Co-founder & CTO.',
   s1_vladimir_bio: 'Випускник КПІ, Факультет прикладної математики. Працював в Інституті кібернетики імені В.М. Глушкова НАН України. Має 15+ років досвіду розробки інформаційних систем. Спеціалізація — побудова масштабованих платформ для роботи з даними, NLP, та AI-інфраструктура.',
   s1_vladimir_linkedin: 'LinkedIn профіль',
+  s1_igor_linkedin: 'LinkedIn профіль',
   s1_igor_initials: 'ІК',
   s1_igor_name: 'Ігор Кириченко',
   s1_igor_role: 'Co-founder & CEO.',
