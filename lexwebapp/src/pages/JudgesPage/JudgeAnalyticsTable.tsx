@@ -344,7 +344,7 @@ export function JudgeAnalyticsTable() {
                 <ChevronLeft size={16} />
               </button>
               <span className="text-xs font-sans text-claude-subtext px-2">
-                {page + 1} / {totalPages}
+                {page + 1} з {totalPages}
               </span>
               <button
                 onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
