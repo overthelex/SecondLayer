@@ -35,7 +35,7 @@ export class SSEClient {
     authToken?: string
   ): Promise<AbortController> {
     const controller = new AbortController();
-    const url = `${this.apiUrl}/tools/${toolName}/stream`;
+    const url = `${this.apiUrl}/${toolName}/stream`;
     const token = authToken || this.apiKey;
 
     try {
