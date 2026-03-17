@@ -100,10 +100,9 @@ jobs:
       - name: Test frontend
         if: needs.detect-changes.outputs.frontend == 'true'
         run: |
-          rm -rf node_modules lexwebapp/node_modules
-          cd lexwebapp && npm ci
-          npm test
-          npm run build
+          npm ci --workspace=lexwebapp
+          npm test --workspace=lexwebapp
+          npm run build --workspace=lexwebapp
         env:
           VITE_API_URL: https://stage.legal.org.ua
 
