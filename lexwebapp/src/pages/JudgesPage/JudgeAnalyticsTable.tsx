@@ -156,7 +156,7 @@ export function JudgeAnalyticsTable() {
           <input
             type="text"
             className="block w-full pl-9 pr-4 py-2.5 bg-white border border-claude-border rounded-xl text-sm text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all shadow-sm font-sans"
-            placeholder="Пошук за прізвищем судді..."
+            placeholder="Пошук судді за прізвищем..."
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
