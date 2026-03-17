@@ -243,7 +243,7 @@ async function pass2() {
       FROM judge_analytics ja
       JOIN judges_current jc
         ON LOWER(SPLIT_PART(ja.judge_name, ' ', 1)) = LOWER(SPLIT_PART(jc.full_name, ' ', 1))
-        AND LOWER(ja.court_name) = LOWER(jc.court_name)
+        AND LOWER(TRIM(ja.court_name)) = LOWER(TRIM(jc.court_name))
       WHERE ja.dossier_number IS NULL
         AND jc.dossier_number IS NOT NULL
     )
@@ -267,7 +267,7 @@ async function pass2() {
         ON LOWER(TRIM(SPLIT_PART(ja.judge_name, ' ',
              array_length(string_to_array(ja.judge_name, ' '), 1)))) =
            LOWER(SPLIT_PART(jc.full_name, ' ', 1))
-        AND LOWER(ja.court_name) = LOWER(jc.court_name)
+        AND LOWER(TRIM(ja.court_name)) = LOWER(TRIM(jc.court_name))
       WHERE ja.dossier_number IS NULL
         AND jc.dossier_number IS NOT NULL
         AND ja.judge_name ~ '^[А-ЯІЇЄҐA-Z]\\.[А-ЯІЇЄҐA-Z]?\\.' -- matches "І.П." or "І." prefix pattern
@@ -289,7 +289,7 @@ async function pass2() {
       FROM judge_analytics ja
       JOIN judges_current jc
         ON LOWER(SPLIT_PART(ja.judge_name, ' ', 1)) = LOWER(SPLIT_PART(jc.full_name, ' ', 1))
-        AND LOWER(ja.court_name) = LOWER(jc.court_name)
+        AND LOWER(TRIM(ja.court_name)) = LOWER(TRIM(jc.court_name))
       WHERE ja.dossier_number IS NULL
         AND jc.dossier_number IS NOT NULL
         AND ja.judge_name ~ '[А-ЯІЇЄҐA-Z]\\.' -- has initials somewhere
