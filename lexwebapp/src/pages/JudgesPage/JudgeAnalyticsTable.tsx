@@ -30,7 +30,7 @@ const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'appeal_rate', label: 'Оскарження %' },
   { value: 'cases_appealed', label: 'Оскаржено' },
   { value: 'unique_cases', label: 'Справ' },
-  { value: 'judge_name', label: "Ім'я" },
+  { value: 'judge_name', label: 'Прізвище' },
 ];
 
 function getAppealRateColor(rate: number): string {
