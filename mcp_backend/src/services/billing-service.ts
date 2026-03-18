@@ -732,6 +732,259 @@ export class BillingService {
   }
 
   /**
+   * Get billing invoices (top-up transactions with invoice metadata)
+   */
+  async getBillingInvoices(
+    userId: string,
+    options: { limit?: number; offset?: number; status?: string } = {}
+  ): Promise<{ invoices: any[]; total: number }> {
+    const { limit = 50, offset = 0 } = options;
+
+    try {
+      // Count total
+      const countResult = await this.db.query(
+        `SELECT COUNT(*) as total FROM billing_transactions
+         WHERE user_id = $1 AND type = 'topup'`,
+        [userId]
+      );
+      const total = parseInt(countResult.rows[0]?.total || '0', 10);
+
+      // Fetch invoices from top-up transactions
+      const result = await this.db.query(
+        `SELECT
+          bt.id,
+          bt.invoice_number,
+          bt.created_at as date,
+          bt.amount_usd,
+          bt.amount_uah,
+          bt.payment_provider,
+          bt.payment_id,
+          bt.description,
+          bt.metadata,
+          u.email as customer_email,
+          u.name as customer_name
+        FROM billing_transactions bt
+        JOIN users u ON u.id = bt.user_id
+        WHERE bt.user_id = $1 AND bt.type = 'topup'
+        ORDER BY bt.created_at DESC
+        LIMIT $2 OFFSET $3`,
+        [userId, limit, offset]
+      );
+
+      const invoices = result.rows.map((row: any, idx: number) => ({
+        invoiceNumber: row.invoice_number || `INV-${row.id.slice(0, 8).toUpperCase()}`,
+        date: row.date,
+        customerName: row.customer_name,
+        customerEmail: row.customer_email,
+        amount: Number(row.amount_uah) || Number(row.amount_usd) * 41.5,
+        amountUsd: Number(row.amount_usd),
+        currency: Number(row.amount_uah) > 0 ? 'UAH' : 'USD',
+        paymentMethod: row.payment_provider || 'unknown',
+        paymentId: row.payment_id,
+        status: 'paid',
+        description: row.description,
+      }));
+
+      return { invoices, total };
+    } catch (error: any) {
+      logger.error('Failed to get billing invoices', { userId, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get billing statistics for a given period
+   */
+  async getBillingStatistics(userId: string, period: string): Promise<any> {
+    try {
+      const periodDays: Record<string, number> = {
+        '7d': 7, '30d': 30, '90d': 90, 'year': 365,
+      };
+      const days = periodDays[period] || 30;
+      const prevDays = days * 2; // for comparison
+
+      // Current period stats
+      const statsResult = await this.db.query(
+        `SELECT
+          COUNT(*) as total_requests,
+          COALESCE(SUM(total_cost_usd), 0) as total_cost,
+          COALESCE(SUM(openai_total_tokens), 0) as openai_tokens,
+          CASE WHEN COUNT(*) > 0
+            THEN COALESCE(SUM(total_cost_usd), 0) / COUNT(*)
+            ELSE 0
+          END as avg_cost_per_request
+        FROM cost_tracking
+        WHERE user_id = $1
+          AND status = 'completed'
+          AND created_at >= NOW() - ($2 || ' days')::interval`,
+        [userId, days.toString()]
+      );
+
+      // Previous period stats (for comparison)
+      const prevResult = await this.db.query(
+        `SELECT
+          COUNT(*) as total_requests,
+          COALESCE(SUM(total_cost_usd), 0) as total_cost
+        FROM cost_tracking
+        WHERE user_id = $1
+          AND status = 'completed'
+          AND created_at >= NOW() - ($2 || ' days')::interval
+          AND created_at < NOW() - ($3 || ' days')::interval`,
+        [userId, prevDays.toString(), days.toString()]
+      );
+
+      // Daily data
+      const dailyResult = await this.db.query(
+        `SELECT
+          DATE(created_at) as date,
+          COUNT(*) as requests,
+          COALESCE(SUM(total_cost_usd), 0) as cost
+        FROM cost_tracking
+        WHERE user_id = $1
+          AND status = 'completed'
+          AND created_at >= NOW() - ($2 || ' days')::interval
+        GROUP BY DATE(created_at)
+        ORDER BY date`,
+        [userId, days.toString()]
+      );
+
+      // Cost by service (tool_name grouped)
+      const serviceResult = await this.db.query(
+        `SELECT
+          tool_name as name,
+          COALESCE(SUM(total_cost_usd), 0) as cost,
+          COUNT(*) as count
+        FROM cost_tracking
+        WHERE user_id = $1
+          AND status = 'completed'
+          AND created_at >= NOW() - ($2 || ' days')::interval
+        GROUP BY tool_name
+        ORDER BY cost DESC
+        LIMIT 10`,
+        [userId, days.toString()]
+      );
+
+      const stats = statsResult.rows[0];
+      const prev = prevResult.rows[0];
+      const totalCost = Number(stats.total_cost);
+      const totalRequests = Number(stats.total_requests);
+      const prevTotalCost = Number(prev?.total_cost || 0);
+      const prevTotalRequests = Number(prev?.total_requests || 0);
+
+      // Build costByService with percentage
+      const serviceColors = ['#8B5E3C', '#A0522D', '#CD853F', '#D2B48C', '#DEB887', '#F5DEB3', '#FFDEAD', '#FFE4B5'];
+      const costByService = serviceResult.rows.map((row: any, idx: number) => ({
+        name: row.name,
+        cost: Number(row.cost),
+        count: Number(row.count),
+        color: serviceColors[idx % serviceColors.length],
+        percentage: totalCost > 0 ? Number(((Number(row.cost) / totalCost) * 100).toFixed(1)) : 0,
+      }));
+
+      // Top tools
+      const topTools = serviceResult.rows.map((row: any) => ({
+        name: row.name,
+        count: Number(row.count),
+        cost: Number(row.cost),
+        percentage: totalCost > 0 ? Number(((Number(row.cost) / totalCost) * 100).toFixed(1)) : 0,
+      }));
+
+      return {
+        period,
+        totalRequests,
+        totalCost,
+        openaiTokens: Number(stats.openai_tokens),
+        avgCostPerRequest: Number(Number(stats.avg_cost_per_request).toFixed(6)),
+        costByService,
+        topTools,
+        dailyData: dailyResult.rows.map((row: any) => ({
+          date: row.date,
+          requests: Number(row.requests),
+          cost: Number(row.cost),
+        })),
+        previousPeriod: prevTotalRequests > 0 ? {
+          totalRequests: prevTotalRequests,
+          totalCost: prevTotalCost,
+          requestsChange: prevTotalRequests > 0
+            ? Number((((totalRequests - prevTotalRequests) / prevTotalRequests) * 100).toFixed(1))
+            : 0,
+          costChange: prevTotalCost > 0
+            ? Number((((totalCost - prevTotalCost) / prevTotalCost) * 100).toFixed(1))
+            : 0,
+        } : undefined,
+      };
+    } catch (error: any) {
+      logger.error('Failed to get billing statistics', { userId, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get saved payment methods for user
+   */
+  async getPaymentMethods(userId: string): Promise<any[]> {
+    try {
+      const result = await this.db.query(
+        `SELECT * FROM billing_payment_methods
+         WHERE user_id = $1
+         ORDER BY is_primary DESC, created_at DESC`,
+        [userId]
+      );
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        provider: row.provider,
+        cardLast4: row.card_last4,
+        cardBrand: row.card_brand,
+        cardBank: row.card_bank,
+        walletAddress: row.wallet_address,
+        cryptoNetwork: row.crypto_network,
+        label: row.label,
+        isPrimary: row.is_primary,
+        createdAt: row.created_at,
+      }));
+    } catch (error: any) {
+      // Table may not exist yet — return empty array
+      if (error.code === '42P01') return [];
+      logger.error('Failed to get payment methods', { userId, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Remove a saved payment method
+   */
+  async removePaymentMethod(userId: string, methodId: string): Promise<void> {
+    const result = await this.db.query(
+      'DELETE FROM billing_payment_methods WHERE id = $1 AND user_id = $2',
+      [methodId, userId]
+    );
+    if (result.rowCount === 0) {
+      throw new Error('Payment method not found');
+    }
+  }
+
+  /**
+   * Set a payment method as primary
+   */
+  async setPrimaryPaymentMethod(userId: string, methodId: string): Promise<void> {
+    await this.db.transaction(async (client) => {
+      // Unset current primary
+      await client.query(
+        'UPDATE billing_payment_methods SET is_primary = false WHERE user_id = $1 AND is_primary = true',
+        [userId]
+      );
+      // Set new primary
+      const result = await client.query(
+        'UPDATE billing_payment_methods SET is_primary = true WHERE id = $1 AND user_id = $2',
+        [methodId, userId]
+      );
+      if (result.rowCount === 0) {
+        throw new Error('Payment method not found');
+      }
+    });
+  }
+
+  /**
    * Get email notification preferences for a user
    */
   async getEmailPreferences(userId: string): Promise<EmailPreferences> {

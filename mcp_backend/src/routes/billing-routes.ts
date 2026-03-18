@@ -207,6 +207,147 @@ export function createBillingRoutes(
   });
 
   /**
+   * GET /api/billing/invoices
+   * Get billing invoices (top-up transactions)
+   */
+  router.get('/invoices', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit || 50)));
+      const offset = Math.max(0, Number(req.query.offset || 0));
+      const status = req.query.status as string | undefined;
+
+      const { invoices, total } = await billingService.getBillingInvoices(userId, {
+        limit,
+        offset,
+        status,
+      });
+
+      res.json({
+        invoices,
+        pagination: { limit, offset, count: invoices.length, total },
+      });
+    } catch (error: any) {
+      logger.error('Failed to get billing invoices', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve invoices' });
+    }
+  });
+
+  /**
+   * GET /api/billing/invoices/:invoiceNumber/pdf
+   * Generate PDF for a billing invoice
+   */
+  router.get('/invoices/:invoiceNumber/pdf', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Find the transaction for this invoice
+      const { invoices } = await billingService.getBillingInvoices(userId, { limit: 200 });
+      const invoice = invoices.find((inv: any) =>
+        inv.invoiceNumber === req.params.invoiceNumber
+      );
+
+      if (!invoice) {
+        return res.status(404).json({ error: 'Invoice not found' });
+      }
+
+      // Return invoice data as JSON — frontend generates PDF client-side
+      res.json(invoice);
+    } catch (error: any) {
+      logger.error('Failed to get invoice', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve invoice' });
+    }
+  });
+
+  /**
+   * GET /api/billing/statistics
+   * Get billing usage statistics for a period
+   */
+  router.get('/statistics', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const period = (req.query.period as string) || '30d';
+      if (!['7d', '30d', '90d', 'year'].includes(period)) {
+        return res.status(400).json({ error: 'Invalid period. Must be 7d, 30d, 90d, or year' });
+      }
+
+      const statistics = await billingService.getBillingStatistics(userId, period);
+      res.json(statistics);
+    } catch (error: any) {
+      logger.error('Failed to get billing statistics', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve statistics' });
+    }
+  });
+
+  /**
+   * GET /api/billing/payment-methods
+   * Get user's saved payment methods
+   */
+  router.get('/payment-methods', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const methods = await billingService.getPaymentMethods(userId);
+      res.json({ paymentMethods: methods });
+    } catch (error: any) {
+      logger.error('Failed to get payment methods', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve payment methods' });
+    }
+  });
+
+  /**
+   * DELETE /api/billing/payment-methods/:id
+   * Remove a saved payment method
+   */
+  router.delete('/payment-methods/:id', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      await billingService.removePaymentMethod(userId, req.params.id as string);
+      res.json({ success: true, message: 'Payment method removed' });
+    } catch (error: any) {
+      logger.error('Failed to remove payment method', { error: error.message });
+      res.status(error.message === 'Payment method not found' ? 404 : 500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * PUT /api/billing/payment-methods/:id/primary
+   * Set a payment method as primary
+   */
+  router.put('/payment-methods/:id/primary', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      await billingService.setPrimaryPaymentMethod(userId, req.params.id as string);
+      res.json({ success: true, message: 'Primary payment method updated' });
+    } catch (error: any) {
+      logger.error('Failed to set primary payment method', { error: error.message });
+      res.status(error.message === 'Payment method not found' ? 404 : 500).json({ error: error.message });
+    }
+  });
+
+  /**
    * GET /api/billing/preferences
    * Get user's request preferences
    */
