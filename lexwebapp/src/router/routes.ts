@@ -18,6 +18,11 @@ export const ROUTES = {
   // Profile & Settings
   PROFILE: '/profile',
   BILLING: '/billing',
+  BILLING_OVERVIEW: '/billing/overview',
+  BILLING_TARIFFS: '/billing/tariffs',
+  BILLING_HISTORY: '/billing/history',
+  BILLING_ANALYTICS: '/billing/analytics',
+  BILLING_SETTINGS: '/billing/settings',
   TEAM: '/team',
   MCP_CONNECT: '/mcp-connect',
   MY_CONTRACTS: '/my-contracts',
