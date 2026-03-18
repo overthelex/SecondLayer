@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/service_locator.dart';
+import '../data/document_cache_service.dart';
 import '../data/document_repository.dart';
 import '../data/upload_service.dart';
 import '../data/models/document.dart';
@@ -11,6 +12,10 @@ final documentRepositoryProvider = Provider<DocumentRepository>((ref) {
 
 final uploadServiceProvider = Provider<UploadService>((ref) {
   return UploadService(api: sl.apiClient);
+});
+
+final documentCacheServiceProvider = Provider<DocumentCacheService>((ref) {
+  return sl.documentCache;
 });
 
 final documentNotifierProvider =

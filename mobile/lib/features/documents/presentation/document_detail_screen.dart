@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import '../domain/document_notifier.dart';
+import '../data/document_cache_service.dart';
 import '../data/models/document.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/l10n/app_localizations.dart';
@@ -70,24 +71,72 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
     });
 
     final repo = ref.read(documentRepositoryProvider);
+    final cache = ref.read(documentCacheServiceProvider);
+    final docId = widget.document.id;
 
+    // Try loading from persistent cache first
+    if (cache.isCached(docId)) {
+      final meta = cache.getMeta(docId);
+      if (meta != null) {
+        if (meta.type == 'pdf') {
+          final path = cache.getCachedPdfPath(docId);
+          if (path != null) {
+            _pdfLocalPath = path;
+            setState(() => _isLoading = false);
+            return;
+          }
+        } else if (meta.type == 'text') {
+          final text = await cache.readCachedText(docId);
+          if (text != null) {
+            _textContent = text;
+            setState(() => _isLoading = false);
+            return;
+          }
+        }
+      }
+    }
+
+    // Fetch from network
     try {
-      final preview = await repo.getDocumentPreview(widget.document.id);
+      final preview = await repo.getDocumentPreview(docId);
       _preview = preview;
 
       if (preview.hasPreview && preview.isPdf) {
-        // Download PDF to local temp file for rendering
         await _downloadPdf(preview.previewUrl!);
+        // Persist to cache
+        if (_pdfLocalPath != null) {
+          await cache.cachePdf(
+            documentId: docId,
+            title: widget.document.title,
+            sourcePath: _pdfLocalPath!,
+          );
+        }
       } else if (!preview.hasPreview) {
-        final text = await repo.getDocumentText(widget.document.id);
+        final text = await repo.getDocumentText(docId);
         _textContent = text;
+        // Persist to cache
+        if (text != null && text.isNotEmpty) {
+          await cache.cacheText(
+            documentId: docId,
+            title: widget.document.title,
+            content: text,
+          );
+        }
       }
 
       setState(() => _isLoading = false);
     } catch (e) {
       try {
-        final text = await repo.getDocumentText(widget.document.id);
+        final text = await repo.getDocumentText(docId);
         _textContent = text;
+        // Persist to cache
+        if (text != null && text.isNotEmpty) {
+          await cache.cacheText(
+            documentId: docId,
+            title: widget.document.title,
+            content: text,
+          );
+        }
         setState(() => _isLoading = false);
       } catch (e2) {
         setState(() {
@@ -104,7 +153,7 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
       final filePath =
           '${dir.path}/doc_${widget.document.id.hashCode}.pdf';
 
-      // Skip download if already cached
+      // Skip download if already in temp
       if (File(filePath).existsSync()) {
         _pdfLocalPath = filePath;
         return;
@@ -206,6 +255,47 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
               onPressed: () => _openInBrowser(_preview!.previewUrl!),
               icon: const Icon(Icons.open_in_browser, size: 16),
               label: Text(AppLocalizations.of(context)!.documentOpenInBrowser),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // PDF loaded from cache (no _preview available)
+    if (_pdfLocalPath != null) {
+      return Column(
+        children: [
+          if (_pdfPages > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Text(
+                'Сторінка ${_pdfCurrentPage + 1} з $_pdfPages',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          Expanded(
+            child: PDFView(
+              filePath: _pdfLocalPath!,
+              enableSwipe: true,
+              swipeHorizontal: false,
+              autoSpacing: true,
+              pageFling: true,
+              pageSnap: true,
+              fitPolicy: FitPolicy.WIDTH,
+              onRender: (pages) {
+                setState(() => _pdfPages = pages ?? 0);
+              },
+              onPageChanged: (page, total) {
+                setState(() => _pdfCurrentPage = page ?? 0);
+              },
+              onError: (error) {
+                setState(() {
+                  _pdfLocalPath = null;
+                  _error = 'Не вдалось відобразити PDF: $error';
+                });
+              },
             ),
           ),
         ],
