@@ -21,7 +21,9 @@ export interface LegislationMetadata {
 export interface LegislationArticle {
   article_number: string;
   section_number?: string;
+  section_title?: string;
   chapter_number?: string;
+  chapter_title?: string;
   title?: string;
   full_text: string;
   full_text_html?: string;
@@ -119,17 +121,21 @@ export class RadaLegislationAdapter {
 
   private extractArticles($: cheerio.CheerioAPI, radaId: string): LegislationArticle[] {
     const articles: LegislationArticle[] = [];
-
-    // Parse /print endpoint format: <span class=rvts9>Стаття N.</span>
-    // Note: cheerio adds quotes to attributes, so we match both class=rvts9 and class="rvts9"
-    // Allow optional whitespace before closing </span> tag (some articles have extra spaces)
     const bodyHtml = $('body').html() || '';
+
+    // Build section/chapter map by scanning rvts15 spans before each article
+    // Sections: <span class=rvts15>Розділ I </span><br><span class=rvts15>TITLE</span>
+    // Chapters: <span class=rvts15>Глава 1 </span><br><span class=rvts15>TITLE</span>
+    const structureMap = this.extractStructureMap(bodyHtml);
+
+    // Parse articles: <span class=rvts9>Стаття N.</span>
     const articleRegex = /<span\s+class=["']?rvts9["']?>Стаття\s+(\d+(?:-\d+)?)\.?\s*<\/span>\s*(.*?)(?=<span\s+class=["']?rvts9|$)/gs;
 
     let match;
     while ((match = articleRegex.exec(bodyHtml)) !== null) {
       const articleNumber = match[1];
       const articleHtml = match[2];
+      const articlePosition = match.index;
 
       // Load the article HTML into cheerio for text extraction
       const $article = cheerio.load(`<div>${articleHtml}</div>`);
@@ -151,8 +157,15 @@ export class RadaLegislationAdapter {
         title = firstSentence.trim();
       }
 
+      // Find which section/chapter this article belongs to
+      const structure = this.findStructureForPosition(structureMap, articlePosition);
+
       articles.push({
         article_number: articleNumber,
+        section_number: structure.sectionNumber,
+        section_title: structure.sectionTitle,
+        chapter_number: structure.chapterNumber,
+        chapter_title: structure.chapterTitle,
         title: title,
         full_text: fullText,
         full_text_html: articleHtml.substring(0, 10000), // Limit HTML size
@@ -172,6 +185,92 @@ export class RadaLegislationAdapter {
     }
 
     return articles;
+  }
+
+  private extractStructureMap(bodyHtml: string): Array<{
+    position: number;
+    type: 'section' | 'chapter';
+    number: string;
+    title: string;
+  }> {
+    const entries: Array<{
+      position: number;
+      type: 'section' | 'chapter';
+      number: string;
+      title: string;
+    }> = [];
+
+    // Match section/chapter headers: <span class=rvts15>Розділ X </span> followed by <span class=rvts15>TITLE</span>
+    // Sections use Roman or Arabic numerals
+    const headerRegex = /<span\s+class=["']?rvts15["']?>(Розділ|Глава)\s+([^<]+?)\s*<\/span>\s*(?:<br\s*\/?>)?\s*<span\s+class=["']?rvts15["']?>([^<]+?)<\/span>/gi;
+
+    let match;
+    while ((match = headerRegex.exec(bodyHtml)) !== null) {
+      const type = match[1].toLowerCase().startsWith('розділ') ? 'section' as const : 'chapter' as const;
+      const rawNumber = match[2].trim();
+      const title = match[3].trim();
+
+      // Convert Roman numerals to Arabic for consistent ordering
+      const number = this.romanToArabic(rawNumber) || rawNumber;
+
+      entries.push({
+        position: match.index,
+        type,
+        number,
+        title,
+      });
+    }
+
+    return entries;
+  }
+
+  private findStructureForPosition(
+    structureMap: Array<{ position: number; type: 'section' | 'chapter'; number: string; title: string }>,
+    articlePosition: number,
+  ): { sectionNumber?: string; sectionTitle?: string; chapterNumber?: string; chapterTitle?: string } {
+    let sectionNumber: string | undefined;
+    let sectionTitle: string | undefined;
+    let chapterNumber: string | undefined;
+    let chapterTitle: string | undefined;
+
+    for (const entry of structureMap) {
+      if (entry.position > articlePosition) break;
+      if (entry.type === 'section') {
+        sectionNumber = entry.number;
+        sectionTitle = entry.title;
+        // Reset chapter when entering a new section
+        chapterNumber = undefined;
+        chapterTitle = undefined;
+      } else if (entry.type === 'chapter') {
+        chapterNumber = entry.number;
+        chapterTitle = entry.title;
+      }
+    }
+
+    return { sectionNumber, sectionTitle, chapterNumber, chapterTitle };
+  }
+
+  private romanToArabic(str: string): string | null {
+    const roman: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+    const cleaned = str.trim().toUpperCase();
+
+    // Check if it's already an Arabic number
+    if (/^\d+$/.test(cleaned)) return cleaned;
+
+    // Check if it's a valid Roman numeral
+    if (!/^[IVXLCDM]+$/.test(cleaned)) return null;
+
+    let result = 0;
+    for (let i = 0; i < cleaned.length; i++) {
+      const current = roman[cleaned[i]];
+      const next = roman[cleaned[i + 1]];
+      if (next && current < next) {
+        result -= current;
+      } else {
+        result += current;
+      }
+    }
+    return result.toString();
   }
 
   private extractArticlesFallback($: cheerio.CheerioAPI, radaId: string): LegislationArticle[] {
@@ -297,13 +396,17 @@ export class RadaLegislationAdapter {
         for (const article of articles) {
           const articleResult = await client.query(
             `INSERT INTO legislation_articles
-             (legislation_id, article_number, section_number, chapter_number, title,
+             (legislation_id, article_number, section_number, section_title, chapter_number, chapter_title, title,
               full_text, full_text_html, part_number, paragraph_number, notes,
               version_date, is_current, byte_size, metadata)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
              ON CONFLICT (legislation_id, article_number, version_date) DO UPDATE SET
                full_text = EXCLUDED.full_text,
                full_text_html = EXCLUDED.full_text_html,
+               section_number = EXCLUDED.section_number,
+               section_title = EXCLUDED.section_title,
+               chapter_number = EXCLUDED.chapter_number,
+               chapter_title = EXCLUDED.chapter_title,
                byte_size = EXCLUDED.byte_size,
                updated_at = NOW()
              RETURNING id`,
@@ -311,7 +414,9 @@ export class RadaLegislationAdapter {
               legislationId,
               article.article_number,
               article.section_number,
+              article.section_title,
               article.chapter_number,
+              article.chapter_title,
               article.title,
               article.full_text,
               article.full_text_html,
