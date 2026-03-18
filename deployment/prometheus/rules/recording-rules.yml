@@ -49,3 +49,14 @@ groups:
           pg_pool_connections{state="active"}
           /
           (pg_pool_connections{state="active"} + pg_pool_connections{state="idle"})
+
+  - name: nodejs_runtime_aggregations
+    interval: 15s
+    rules:
+      # Heap utilization ratio per service
+      - record: nodejs:heap_utilization:ratio
+        expr: nodejs_heap_size_used_bytes / nodejs_heap_size_total_bytes
+
+      # GC time spent (percentage of wall-clock time)
+      - record: nodejs:gc_time:ratio5m
+        expr: sum(rate(nodejs_gc_duration_seconds_sum[5m])) by (job)

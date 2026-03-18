@@ -137,7 +137,7 @@ export class MetricsService {
 
     // Pre-initialize external API counters so Prometheus always has these series
     // (counters don't appear until first .inc() otherwise)
-    for (const svc of ['openai', 'anthropic', 'zakononline', 'rada']) {
+    for (const svc of ['openai', 'anthropic', 'rada', 'diia']) {
       this.externalApiCallsTotal.inc({ service: svc, status: 'success' }, 0);
     }
 
