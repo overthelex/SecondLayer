@@ -17,7 +17,7 @@ import { EmailService } from '../services/email-service.js';
 import { MinioService } from '../services/minio-service.js';
 import { BannerService } from '../services/banner-service.js';
 import type { ICachePort } from '../domain/ports/index.js';
-import { getDiiaService, DiiaPermissionError } from '../services/diia-service.js';
+import { getDiiaService, DiiaPermissionError, type DiiaSignFile } from '../services/diia-service.js';
 import * as oidcService from '../services/oidc-service.js';
 import { provisionAuthentikUser } from '../services/authentik-service.js';
 import { provisionNextcloudUser } from '../services/nextcloud-provisioning.js';
@@ -1718,6 +1718,166 @@ export async function diiaAuthStatus(req: Request, res: Response): Promise<Respo
     await authCache.del(`diia:session:${sessionId}`);
     const token = generateToken(user);
     return res.json({ status: 'complete', token });
+  }
+
+  return res.json({ status: session.status });
+}
+
+// ---------------------------------------------------------------------------
+// Дія.Підпис (Document Signing) — hashedFilesSigning scope
+// ---------------------------------------------------------------------------
+
+const DIIA_SIGN_SESSION_TTL = 900; // 15 minutes — signing may take longer than auth
+
+/**
+ * POST /auth/diia/sign
+ * Initiate a Дія.Підпис signing session.
+ * Body: { files: [{ fileName, fileHash }], returnUrl?: string }
+ * Returns: { sessionId, deeplink }
+ */
+export async function diiaSignInit(req: Request, res: Response): Promise<Response> {
+  try {
+    const diiaService = getDiiaService();
+
+    if (!diiaService.isConfigured()) {
+      return res.status(501).json({ error: 'Дія.Підпис не налаштовано' });
+    }
+
+    const { files, returnUrl } = req.body as {
+      files?: DiiaSignFile[];
+      returnUrl?: string;
+    };
+
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      return res.status(400).json({ error: 'Необхідно передати масив files з fileName та fileHash' });
+    }
+
+    // Validate each file entry
+    for (const file of files) {
+      if (!file.fileName || !file.fileHash) {
+        return res.status(400).json({ error: 'Кожен файл повинен мати fileName та fileHash' });
+      }
+    }
+
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    const baseUrl = `${protocol}://${host}`;
+    const callbackUrl = `${baseUrl}/auth/diia/sign/callback`;
+    const effectiveReturnUrl = returnUrl || `${baseUrl}/documents`;
+
+    const session = await diiaService.initSigningSession(effectiveReturnUrl, files);
+    const { requestId, hashedRequestId, deeplink } = session;
+
+    // Store pending session under both keys (same pattern as auth)
+    if (authCache) {
+      const pending = JSON.stringify({
+        status: 'pending',
+        files,
+      });
+      const pendingWithMapping = JSON.stringify({
+        status: 'pending',
+        plainRequestId: requestId,
+        files,
+      });
+      await authCache.set(`diia:sign:${requestId}`, pending, DIIA_SIGN_SESSION_TTL);
+      await authCache.set(`diia:sign:${hashedRequestId}`, pendingWithMapping, DIIA_SIGN_SESSION_TTL);
+    }
+
+    logger.info('[Diia] Sign session initiated', { sessionId: requestId, fileCount: files.length });
+
+    return res.json({ sessionId: requestId, deeplink });
+  } catch (error: any) {
+    logger.error('[Diia] Sign init failed:', error);
+    const errorCode = error instanceof DiiaPermissionError ? 'scope_forbidden' : 'sign_failed';
+    return res.status(500).json({ error: errorCode, message: error.message });
+  }
+}
+
+/**
+ * POST /auth/diia/sign/callback
+ * Diia webhook — called after user signs documents in the app.
+ * Header: X-Document-Request-Trace-Id = hashedRequestId
+ * Must respond { success: true } within 30s.
+ */
+export async function diiaSignCallback(req: Request, res: Response): Promise<Response> {
+  const traceId = (req.headers['x-document-request-trace-id'] as string) || '';
+  logger.info('[Diia] Sign webhook received', { traceId, contentType: req.headers['content-type'] });
+
+  try {
+    if (!traceId) {
+      return res.status(400).json({ success: false, error: 'Missing X-Document-Request-Trace-Id' });
+    }
+
+    const hashedKey = `diia:sign:${traceId}`;
+    let sessionData: { status: string; plainRequestId?: string; files?: DiiaSignFile[] } | null = null;
+
+    if (authCache) {
+      const raw = await authCache.get(hashedKey);
+      if (raw) sessionData = JSON.parse(raw);
+    }
+
+    // Store the signed response body for later retrieval
+    const signedData = req.body;
+
+    // Update Redis sessions: mark complete under BOTH keys
+    if (authCache) {
+      const completeData = JSON.stringify({
+        status: 'complete',
+        signedData,
+        files: sessionData?.files,
+      });
+      await authCache.set(hashedKey, completeData, DIIA_SIGN_SESSION_TTL);
+
+      if (sessionData?.plainRequestId) {
+        await authCache.set(
+          `diia:sign:${sessionData.plainRequestId}`,
+          completeData,
+          DIIA_SIGN_SESSION_TTL,
+        );
+      }
+    }
+
+    logger.info('[Diia] Sign webhook processed', { traceId });
+
+    // Always respond { success: true } — required by Diia within 30s
+    return res.json({ success: true });
+  } catch (error: any) {
+    logger.error('[Diia] Sign webhook failed:', error);
+    return res.json({ success: true });
+  }
+}
+
+/**
+ * GET /auth/diia/sign/status/:sessionId
+ * Frontend polls this to check if the signing session has completed.
+ * Returns { status: 'pending' | 'complete' | 'expired', signedData? }.
+ */
+export async function diiaSignStatus(req: Request, res: Response): Promise<Response> {
+  const { sessionId } = req.params;
+
+  if (!authCache) {
+    return res.status(503).json({ error: 'Cache unavailable' });
+  }
+
+  const raw = await authCache.get(`diia:sign:${sessionId}`);
+  if (!raw) {
+    return res.status(404).json({ status: 'expired' });
+  }
+
+  const session = JSON.parse(raw) as {
+    status: string;
+    signedData?: any;
+    files?: DiiaSignFile[];
+  };
+
+  if (session.status === 'complete') {
+    // Consume the session
+    await authCache.del(`diia:sign:${sessionId}`);
+    return res.json({
+      status: 'complete',
+      signedData: session.signedData,
+      files: session.files,
+    });
   }
 
   return res.json({ status: session.status });
