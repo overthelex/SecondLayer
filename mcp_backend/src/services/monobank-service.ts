@@ -4,7 +4,7 @@
  * Configure MONOBANK_API_KEY to enable real payments.
  */
 
-import { createHmac } from 'crypto';
+import { createVerify, createPublicKey } from 'crypto';
 import { logger } from '../utils/logger.js';
 import { BillingService } from './billing-service.js';
 import { EmailService } from './email-service.js';
@@ -132,16 +132,59 @@ export class MonobankService {
     };
   }
 
+  private cachedPubKey: string | null = null;
+  private pubKeyFetchedAt = 0;
+
   /**
-   * Validate Monobank webhook HMAC-SHA256 signature.
-   * Monobank signs the raw request body with the merchant token as the key.
+   * Fetch Monobank's ECDSA public key for webhook signature verification.
+   * Cached for 1 hour.
    */
-  validateSignature(rawBody: Buffer | string, signature: string): boolean {
-    const key = this.apiKey;
-    const expected = createHmac('sha256', key)
-      .update(typeof rawBody === 'string' ? rawBody : rawBody)
-      .digest('base64');
-    return expected === signature;
+  private async getMonobankPublicKey(): Promise<string> {
+    const ONE_HOUR = 60 * 60 * 1000;
+    if (this.cachedPubKey && Date.now() - this.pubKeyFetchedAt < ONE_HOUR) {
+      return this.cachedPubKey;
+    }
+
+    const response = await fetch('https://api.monobank.ua/api/merchant/pubkey', {
+      headers: { 'X-Token': this.apiKey },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch Monobank public key: ${response.status}`);
+    }
+
+    const data = (await response.json()) as { key: string };
+    this.cachedPubKey = data.key;
+    this.pubKeyFetchedAt = Date.now();
+
+    logger.info('[MonobankService] Public key fetched/refreshed');
+    return data.key;
+  }
+
+  /**
+   * Validate Monobank webhook ECDSA signature.
+   * Monobank signs the raw request body with ECDSA P-256 and sends
+   * the base64-encoded signature in the X-Sign header.
+   */
+  async validateSignature(rawBody: Buffer | string, signature: string): Promise<boolean> {
+    try {
+      const pubKeyBase64 = await this.getMonobankPublicKey();
+      const pubKeyDer = Buffer.from(pubKeyBase64, 'base64');
+      const pubKey = createPublicKey({
+        key: pubKeyDer,
+        format: 'der',
+        type: 'spki',
+      });
+
+      const verify = createVerify('SHA256');
+      verify.update(typeof rawBody === 'string' ? rawBody : rawBody);
+      verify.end();
+
+      return verify.verify(pubKey, signature, 'base64');
+    } catch (err: any) {
+      logger.error('[MonobankService] Signature validation error', { error: err.message });
+      return false;
+    }
   }
 
   /**
@@ -149,7 +192,7 @@ export class MonobankService {
    * Validates signature, looks up payment_intent, credits balance, sends email.
    */
   async handleWebhook(rawBody: Buffer | string, body: MonobankWebhookBody, signature: string): Promise<{ received: boolean }> {
-    if (!this.validateSignature(rawBody, signature)) {
+    if (!(await this.validateSignature(rawBody, signature))) {
       logger.warn('[MonobankService] Webhook signature validation failed');
       throw new Error('Invalid webhook signature');
     }
