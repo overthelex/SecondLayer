@@ -93,7 +93,7 @@ const CONFIG_REGISTRY: ConfigEntry[] = [
   { key: 'REDIS_PORT', category: 'redis', description: 'Redis port', is_secret: false, value_type: 'number', default_value: '6379' },
 
   // Payments
-  { key: 'MOCK_PAYMENTS', category: 'payments', description: 'Use mock payment providers', is_secret: false, value_type: 'boolean', default_value: 'true' },
+  { key: 'MOCK_PAYMENTS', category: 'payments', description: 'Use mock payment providers', is_secret: false, value_type: 'boolean', default_value: 'false' },
   { key: 'UAH_TO_USD_RATE', category: 'payments', description: 'UAH to USD exchange rate', is_secret: false, value_type: 'number', default_value: '41.5' },
   { key: 'MONOBANK_REDIRECT_URL', category: 'payments', description: 'Monobank payment redirect URL', is_secret: false, value_type: 'string', default_value: '' },
 
