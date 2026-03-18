@@ -57,5 +57,32 @@
   "cancel": "Скасувати",
   "delete": "Видалити",
   "save": "Зберегти",
-  "close": "Закрити"
+  "close": "Закрити",
+  "documentPdfPageOf": "Сторінка {current} з {total}",
+  "@documentPdfPageOf": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "documentPdfRenderError": "Не вдалось відобразити PDF: {error}",
+  "@documentPdfRenderError": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "documentOpenInBrowser": "Відкрити у браузері",
+  "documentOpenPdf": "Відкрити PDF",
+  "documentImageLoadError": "Не вдалось завантажити зображення",
+  "documentEmpty": "Документ порожній",
+  "documentItemOf": "{current} з {total}",
+  "@documentItemOf": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "documentsEmpty": "Немає документів",
+  "documentsEmptySubtitle": "Натисніть + щоб завантажити файл",
+  "documentDeleteConfirm": "Видалити документ?"
 }
