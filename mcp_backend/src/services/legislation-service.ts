@@ -511,15 +511,22 @@ export class LegislationService {
       return (a.number || '').localeCompare(b.number || '', undefined, { numeric: true });
     };
 
-    // Sort top-level sections
+    // Sort chapters within sections
+    for (const item of toc) {
+      if (item.type === 'section' && item.chapters && item.chapters.length > 1) {
+        item.chapters.sort(numericSort);
+      }
+    }
+
+    // Rebuild toc with sections sorted numerically, preserving non-section items in place
     const sections = toc.filter((item: any) => item.type === 'section');
     if (sections.length > 1) {
       sections.sort(numericSort);
-    }
-    // Sort chapters within sections
-    for (const section of sections) {
-      if (section.chapters && section.chapters.length > 1) {
-        section.chapters.sort(numericSort);
+      let si = 0;
+      for (let i = 0; i < toc.length; i++) {
+        if (toc[i].type === 'section') {
+          toc[i] = sections[si++];
+        }
       }
     }
 
