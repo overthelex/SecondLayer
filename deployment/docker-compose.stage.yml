@@ -586,6 +586,12 @@ services:
       # Prometheus (for admin metrics dashboard)
       PROMETHEUS_URL: http://prometheus-stage:9090
 
+      # Payment gateways
+      MOCK_PAYMENTS: ${MOCK_PAYMENTS:-true}
+      PUBLIC_URL: https://stage.legal.org.ua
+      MONOBANK_API_KEY: ${MONOBANK_API_KEY:-}
+      MONOBANK_REDIRECT_URL: ${MONOBANK_REDIRECT_URL:-https://stage.legal.org.ua}
+
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: Europe/Kiev
     ports:
