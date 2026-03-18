@@ -247,16 +247,33 @@ export class LegislationService {
     );
 
     if (result.rows.length > 0) {
+      // Check if section data is missing (legacy data before section extraction)
+      const sectionCheck = await this.db.query(
+        `SELECT COUNT(*) as total, COUNT(section_number) as with_sections
+         FROM legislation_articles la
+         JOIN legislation l ON la.legislation_id = l.id
+         WHERE l.rada_id = $1 AND la.is_current = true`,
+        [radaId]
+      );
+      const { total, with_sections } = sectionCheck.rows[0];
+      if (parseInt(total) > 0 && parseInt(with_sections) === 0) {
+        logger.info(`Legislation ${radaId} has no section data, re-fetching...`);
+        return this.refetchLegislation(radaId);
+      }
       return true;
     }
 
     logger.info(`Legislation ${radaId} not found in database, fetching...`);
+    return this.refetchLegislation(radaId);
+  }
+
+  private async refetchLegislation(radaId: string): Promise<boolean> {
     try {
       const { metadata, articles } = await this.adapter.fetchLegislation(radaId);
       await this.adapter.saveLegislationToDatabase(metadata, articles);
-      
+
       await this.indexArticlesForVectorSearch(radaId);
-      
+
       return true;
     } catch (error: any) {
       logger.error(`Failed to fetch and save legislation ${radaId}:`, error.message);
@@ -398,7 +415,7 @@ export class LegislationService {
     await this.ensureLegislationExists(radaId);
 
     const result = await this.db.query(
-      `SELECT 
+      `SELECT
          l.title,
          l.short_title,
          l.type,
@@ -409,7 +426,9 @@ export class LegislationService {
              'article_number', la.article_number,
              'title', la.title,
              'section_number', la.section_number,
+             'section_title', la.section_title,
              'chapter_number', la.chapter_number,
+             'chapter_title', la.chapter_title,
              'byte_size', la.byte_size
            ) ORDER BY (regexp_match(la.article_number, '^\d+'))[1]::integer NULLS LAST, la.article_number
          ) as articles
@@ -447,6 +466,7 @@ export class LegislationService {
         currentSection = {
           type: 'section',
           number: article.section_number,
+          title: article.section_title || undefined,
           articles: [],
         };
         toc.push(currentSection);
@@ -457,6 +477,7 @@ export class LegislationService {
         currentChapter = {
           type: 'chapter',
           number: article.chapter_number,
+          title: article.chapter_title || undefined,
           articles: [],
         };
         if (currentSection) {
@@ -479,6 +500,26 @@ export class LegislationService {
         currentSection.articles.push(articleEntry);
       } else {
         toc.push(articleEntry);
+      }
+    }
+
+    // Sort sections and chapters numerically (1, 2, 3 instead of 1, 10, 2)
+    const numericSort = (a: any, b: any) => {
+      const numA = parseInt(a.number, 10);
+      const numB = parseInt(b.number, 10);
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+      return (a.number || '').localeCompare(b.number || '', undefined, { numeric: true });
+    };
+
+    // Sort top-level sections
+    const sections = toc.filter((item: any) => item.type === 'section');
+    if (sections.length > 1) {
+      sections.sort(numericSort);
+    }
+    // Sort chapters within sections
+    for (const section of sections) {
+      if (section.chapters && section.chapters.length > 1) {
+        section.chapters.sort(numericSort);
       }
     }
 

@@ -19,12 +19,14 @@ export interface TOCArticleEntry {
 export interface TOCChapter {
   type: 'chapter';
   number: string;
+  title?: string;
   articles: TOCArticleEntry[];
 }
 
 export interface TOCSection {
   type: 'section';
   number: string;
+  title?: string;
   articles: TOCArticleEntry[];
   chapters?: TOCChapter[];
 }

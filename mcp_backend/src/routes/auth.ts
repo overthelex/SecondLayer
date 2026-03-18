@@ -169,6 +169,32 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
    * @access  Public
    */
   router.get('/diia/status/:sessionId', authController.diiaAuthStatus as any);
+  // ----- Дія.Підпис (Signing) routes -----
+
+  /**
+   * @route   POST /auth/diia/sign
+   * @desc    Initiate Дія.Підпис signing session
+   *          Body: { files: [{ fileName, fileHash }], returnUrl? }
+   *          Returns: { sessionId, deeplink }
+   * @access  Protected (JWT required — user must be authenticated)
+   */
+  router.post('/diia/sign', authController.diiaSignInit as any);
+
+  /**
+   * @route   POST /auth/diia/sign/callback
+   * @desc    Diia webhook — called after user signs documents in the app
+   *          Header: X-Document-Request-Trace-Id = hashedRequestId
+   *          Must respond { success: true } within 30s
+   * @access  Public (webhook from Diia)
+   */
+  router.post('/diia/sign/callback', authController.diiaSignCallback as any);
+
+  /**
+   * @route   GET /auth/diia/sign/status/:sessionId
+   * @desc    Poll for Дія.Підпис signing session completion
+   * @access  Protected (JWT required)
+   */
+  router.get('/diia/sign/status/:sessionId', authController.diiaSignStatus as any);
 } else {
   router.get('/diia', (_req, res) => {
     res.status(501).json({ error: 'Diia auth is not configured' });
@@ -178,6 +204,15 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
   });
   router.get('/diia/status/:sessionId', (_req, res) => {
     res.status(501).json({ error: 'Diia auth is not configured' });
+  });
+  router.post('/diia/sign', (_req, res) => {
+    res.status(501).json({ error: 'Diia signing is not configured' });
+  });
+  router.post('/diia/sign/callback', (_req, res) => {
+    res.status(501).json({ error: 'Diia signing is not configured' });
+  });
+  router.get('/diia/sign/status/:sessionId', (_req, res) => {
+    res.status(501).json({ error: 'Diia signing is not configured' });
   });
 }
 
