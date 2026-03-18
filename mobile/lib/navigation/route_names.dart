@@ -8,6 +8,8 @@ class RouteNames {
   static const legislationToc = 'legislation-toc';
   static const legislationArticle = 'legislation-article';
   static const documents = 'documents';
+  static const documentDetail = 'document-detail';
+  static const documentPager = 'document-pager';
   static const more = 'more';
   static const profile = 'profile';
   static const clients = 'clients';
