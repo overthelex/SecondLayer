@@ -1,4 +1,5 @@
 import '../../config/app_config.dart';
+import '../../features/documents/data/document_cache_service.dart';
 import '../network/api_client.dart';
 import '../network/sse_client.dart';
 import '../storage/secure_storage.dart';
@@ -14,12 +15,16 @@ class ServiceLocator {
   late final LocalCache localCache;
   late final ApiClient apiClient;
   late final SSEClient sseClient;
+  late final DocumentCacheService documentCache;
 
   Future<void> init(AppConfig appConfig) async {
     config = appConfig;
     secureStorage = SecureStorage();
     localCache = LocalCache();
     await localCache.init();
+
+    documentCache = DocumentCacheService();
+    await documentCache.init();
 
     apiClient = ApiClient(config: config, storage: secureStorage);
     sseClient = SSEClient(config: config, storage: secureStorage);

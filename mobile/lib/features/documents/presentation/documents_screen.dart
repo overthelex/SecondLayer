@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import '../domain/document_notifier.dart';
+import '../data/document_cache_service.dart';
 import '../../../shared/widgets/loading_indicator.dart';
 import '../../../shared/widgets/error_state.dart';
 import '../../../shared/widgets/empty_state.dart';
@@ -17,6 +18,8 @@ class DocumentsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(documentNotifierProvider);
+    final cache = ref.read(documentCacheServiceProvider);
+    final cachedIds = cache.cachedIds;
     final theme = Theme.of(context);
     final dateFormat = DateFormat('dd.MM.yyyy', 'uk');
 
@@ -30,6 +33,64 @@ class DocumentsScreen extends ConsumerWidget {
                     ref.read(documentNotifierProvider.notifier).navigateUp(),
               )
             : null,
+        actions: [
+          if (cachedIds.isNotEmpty)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) async {
+                if (value == 'clear_cache') {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Очистити кеш документів?'),
+                      content: Text(
+                        'Кешовано документів: ${cachedIds.length} '
+                        '(${cache.totalCacheSizeFormatted})',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Скасувати'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Очистити'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true) {
+                    await cache.clearAll();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Кеш документів очищено'),
+                        ),
+                      );
+                      // Force rebuild to update cached indicators
+                      ref
+                          .read(documentNotifierProvider.notifier)
+                          .loadDocuments();
+                    }
+                  }
+                }
+              },
+              itemBuilder: (ctx) => [
+                PopupMenuItem<String>(
+                  value: 'clear_cache',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.delete_sweep, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Очистити кеш (${cache.totalCacheSizeFormatted})',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _pickAndUpload(ref),
@@ -168,6 +229,19 @@ class DocumentsScreen extends ConsumerWidget {
                                         ].where((s) => s.isNotEmpty).join(' · '),
                                         style: theme.textTheme.bodySmall,
                                       ),
+                                      trailing: cachedIds.contains(doc.id)
+                                          ? Tooltip(
+                                              message: 'Збережено офлайн',
+                                              child: Icon(
+                                                Icons.download_done,
+                                                size: 18,
+                                                color: theme
+                                                    .colorScheme
+                                                    .primary
+                                                    .withOpacity(0.7),
+                                              ),
+                                            )
+                                          : null,
                                       onTap: () => context.pushNamed(
                                         RouteNames.documentDetail,
                                         pathParameters: {'id': doc.id},
