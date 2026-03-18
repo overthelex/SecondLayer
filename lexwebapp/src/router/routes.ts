@@ -62,6 +62,7 @@ export const ROUTES = {
   DPA: '/:lang/dpa',
   AI_USAGE: '/:lang/ai-usage',
   AI_TRANSPARENCY: '/:lang/ai-transparency',
+  REFUND_POLICY: '/:lang/refund-policy',
 
   // Blog
   BLOG: '/blog',

@@ -59,6 +59,7 @@ const PrivacyPolicyPage = lazyWithRetry(() => import('../pages/PrivacyPolicyPage
 const DpaPage = lazyWithRetry(() => import('../pages/DpaPage').then(m => ({ default: m.DpaPage })));
 const AiUsagePolicyPage = lazyWithRetry(() => import('../pages/AiUsagePolicyPage').then(m => ({ default: m.AiUsagePolicyPage })));
 const AiTransparencyPage = lazyWithRetry(() => import('../pages/AiTransparencyPage').then(m => ({ default: m.AiTransparencyPage })));
+const RefundPolicyPage = lazyWithRetry(() => import('../pages/RefundPolicyPage').then(m => ({ default: m.RefundPolicyPage })));
 const BlogPage = lazyWithRetry(() => import('../pages/BlogPage').then(m => ({ default: m.BlogPage })));
 const InvestorLetterPage = lazyWithRetry(() => import('../pages/InvestorLetterPage').then(m => ({ default: m.InvestorLetterPage })));
 
@@ -204,6 +205,10 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.AI_TRANSPARENCY,
     element: S(AiTransparencyPage),
+  },
+  {
+    path: ROUTES.REFUND_POLICY,
+    element: S(RefundPolicyPage),
   },
   {
     path: ROUTES.US_DATA_SOURCES,
