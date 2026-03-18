@@ -60,9 +60,10 @@ function renderTOCItems(
     // Section or chapter
     const typed = item as TOCSection | TOCChapter;
     const isExpanded = expandedSections.includes(key);
-    const label = typed.type === 'section'
+    const prefix = typed.type === 'section'
       ? `Розділ ${typed.number}`
       : `Глава ${typed.number}`;
+    const label = typed.title ? `${prefix}. ${typed.title}` : prefix;
 
     const children: React.ReactNode[] = [];
     if (isExpanded) {
