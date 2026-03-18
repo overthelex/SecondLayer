@@ -120,3 +120,21 @@ groups:
         annotations:
           summary: "High memory usage > 80%"
           description: "System memory usage is {{ $value | humanizePercentage }}."
+
+      - alert: HighEventLoopLag
+        expr: nodejs_eventloop_lag_p99_seconds > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High event loop lag on {{ $labels.job }}"
+          description: "P99 event loop lag is {{ $value }}s for 5+ minutes. Check for blocking operations."
+
+      - alert: HeapMemoryHigh
+        expr: nodejs_heap_size_used_bytes / nodejs_heap_size_total_bytes > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node.js heap usage > 90% on {{ $labels.job }}"
+          description: "Heap utilization is {{ $value | humanizePercentage }}. Possible memory leak."
