@@ -44,5 +44,28 @@ export function createJudgeAnalyticsRoutes(service: JudgeAnalyticsService): Rout
     }
   });
 
+  // GET /api/judge-analytics/:id/peers — peers in same court
+  router.get('/:id/peers', async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
+
+      const record = await service.getAnalyticsDetail(id);
+      if (!record) {
+        return res.status(404).json({ error: 'Not found', message: 'Аналітику для цього судді не знайдено' });
+      }
+      if (!record.court_code) {
+        return res.json({ peers: [], court_name: record.court_name, total_in_court: 0 });
+      }
+
+      const result = await service.getPeersInCourt(record.id, record.court_code, limit);
+      res.json(result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error('[JudgeAnalytics] peers error', { error: msg, id: req.params.id });
+      res.status(500).json({ error: msg });
+    }
+  });
+
   return router;
 }
