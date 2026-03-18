@@ -338,7 +338,7 @@ export class LegislationTools extends BaseToolHandler {
       type: structure.type,
       total_articles: structure.total_articles,
       table_of_contents: structure.table_of_contents,
-      articles_summary: structure.articles.slice(0, 20).map((a: any) => ({
+      articles_summary: structure.articles.map((a: any) => ({
         article_number: a.article_number,
         title: a.title,
         byte_size: a.byte_size,
