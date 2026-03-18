@@ -496,56 +496,60 @@ class HTTPMCPServer {
     );
     setAuthEmailService(this.emailService);
 
-    // Use mock services if MOCK_PAYMENTS=true or keys not configured
+    // Use mock services ONLY when explicitly enabled via MOCK_PAYMENTS=true
     const mockPaymentsEnabled = process.env.MOCK_PAYMENTS === 'true';
 
-    const useMockMonobank = mockPaymentsEnabled ||
-                            !process.env.MONOBANK_API_KEY ||
-                            process.env.MONOBANK_API_KEY.includes('mock') ||
-                            process.env.MONOBANK_API_KEY.includes('test');
-    if (useMockMonobank) {
+    if (mockPaymentsEnabled) {
       this.monobankService = new MockMonobankService(this.billingService, this.emailService, this.services.db);
-      logger.warn('🧪 Using MOCK Monobank service (no real payments will be processed)');
-    } else {
-      this.monobankService = new MonobankService(this.billingService, this.emailService, this.services.db);
-      logger.info('💳 Using REAL Monobank service');
-    }
-
-    const useMockMetaMask = mockPaymentsEnabled || !process.env.CRYPTO_RECEIVING_WALLET || !process.env.ETHEREUM_RPC_URL;
-    if (useMockMetaMask) {
       this.metamaskService = new MockMetaMaskService(this.billingService, this.emailService);
-      logger.warn('Using MOCK MetaMask service');
-    } else {
-      this.metamaskService = new MetaMaskService(this.billingService, this.emailService, this.services.db);
-      logger.info('Using REAL MetaMask service');
-    }
-
-    const useMockBinancePay = mockPaymentsEnabled || !process.env.BINANCE_PAY_API_KEY || !process.env.BINANCE_PAY_SECRET_KEY;
-    if (useMockBinancePay) {
       this.binancePayService = new MockBinancePayService(this.billingService, this.emailService);
-      logger.warn('Using MOCK Binance Pay service');
-    } else {
-      this.binancePayService = new BinancePayService(this.billingService, this.emailService, this.services.db);
-      logger.info('Using REAL Binance Pay service');
-    }
-
-    const useMockNOWPayments = mockPaymentsEnabled || !process.env.NOWPAYMENTS_API_KEY || !process.env.NOWPAYMENTS_IPN_SECRET;
-    if (useMockNOWPayments) {
       this.nowpaymentsService = new MockNOWPaymentsService(this.billingService, this.emailService);
-      logger.warn('Using MOCK NOWPayments service');
+      logger.warn('MOCK_PAYMENTS=true — all payment services are mocked');
     } else {
-      this.nowpaymentsService = new NOWPaymentsService(this.billingService, this.emailService, this.services.db);
-      logger.info('💰 Using REAL NOWPayments service');
+      // Real Monobank — will fail at runtime if MONOBANK_API_KEY is missing
+      this.monobankService = new MonobankService(this.billingService, this.emailService, this.services.db);
+      if (!process.env.MONOBANK_API_KEY) {
+        logger.warn('MONOBANK_API_KEY is not set — Monobank payments will fail at runtime');
+      } else {
+        logger.info('Monobank service: REAL');
+      }
+
+      // MetaMask — real if keys available, mock otherwise (crypto is optional)
+      if (process.env.CRYPTO_RECEIVING_WALLET && process.env.ETHEREUM_RPC_URL) {
+        this.metamaskService = new MetaMaskService(this.billingService, this.emailService, this.services.db);
+        logger.info('MetaMask service: REAL');
+      } else {
+        this.metamaskService = new MockMetaMaskService(this.billingService, this.emailService);
+        logger.info('MetaMask service: MOCK (no CRYPTO_RECEIVING_WALLET / ETHEREUM_RPC_URL)');
+      }
+
+      // Binance Pay — real if keys available, mock otherwise (crypto is optional)
+      if (process.env.BINANCE_PAY_API_KEY && process.env.BINANCE_PAY_SECRET_KEY) {
+        this.binancePayService = new BinancePayService(this.billingService, this.emailService, this.services.db);
+        logger.info('Binance Pay service: REAL');
+      } else {
+        this.binancePayService = new MockBinancePayService(this.billingService, this.emailService);
+        logger.info('Binance Pay service: MOCK (no BINANCE_PAY keys)');
+      }
+
+      // NOWPayments — real if keys available, mock otherwise
+      if (process.env.NOWPAYMENTS_API_KEY && process.env.NOWPAYMENTS_IPN_SECRET) {
+        this.nowpaymentsService = new NOWPaymentsService(this.billingService, this.emailService, this.services.db);
+        logger.info('NOWPayments service: REAL');
+      } else {
+        this.nowpaymentsService = new MockNOWPaymentsService(this.billingService, this.emailService);
+        logger.info('NOWPayments service: MOCK (no NOWPAYMENTS keys)');
+      }
     }
 
     initializeCryptoTagMiddleware(this.services.db);
 
     logger.info('Payment services initialized', {
       mockPayments: mockPaymentsEnabled,
-      monobankMode: useMockMonobank ? 'MOCK' : 'REAL',
-      metamaskMode: useMockMetaMask ? 'MOCK' : 'REAL',
-      binancePayMode: useMockBinancePay ? 'MOCK' : 'REAL',
-      nowpaymentsMode: useMockNOWPayments ? 'MOCK' : 'REAL',
+      monobank: this.monobankService.constructor.name,
+      metamask: this.metamaskService.constructor.name,
+      binancePay: this.binancePayService.constructor.name,
+      nowpayments: this.nowpaymentsService.constructor.name,
     });
 
     // Initialize Attorney Consultation services (after payment services)
