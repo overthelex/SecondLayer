@@ -65,8 +65,9 @@ export function createPaymentRouter(
         });
       }
 
-      const description = `SecondLayer balance top-up: ${amount_uah} UAH`;
-      const result = await monobankService.createInvoice(userId, amount_uah, description, redirect_url);
+      const email = req.user?.email;
+      const description = `Поповнення балансу SecondLayer: ${amount_uah} ₴`;
+      const result = await monobankService.createInvoice(userId, amount_uah, description, redirect_url, email);
 
       return res.json(result);
     } catch (error: any) {

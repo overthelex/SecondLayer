@@ -166,11 +166,11 @@ async function seedTestAccount() {
 
     // 3. Create mock transactions
     const transactions = [
-      { type: 'topup', amount_usd: 20.00, provider: 'stripe', desc: 'Initial top-up via Stripe' },
-      { type: 'topup', amount_usd: 25.00, provider: 'stripe', desc: 'Balance top-up via Stripe' },
-      { type: 'topup', amount_usd: 15.00, provider: 'fondy', desc: 'Balance top-up via Fondy', amount_uah: 555.56 },
+      { type: 'topup', amount_usd: 20.00, provider: 'monobank', desc: 'Поповнення через Monobank' },
+      { type: 'topup', amount_usd: 25.00, provider: 'monobank', desc: 'Поповнення через Monobank', amount_uah: 1037.50 },
+      { type: 'topup', amount_usd: 15.00, provider: 'monobank', desc: 'Поповнення через Monobank', amount_uah: 622.50 },
       { type: 'topup', amount_usd: 30.00, provider: 'manual', desc: 'Manual credit adjustment' },
-      { type: 'topup', amount_usd: 10.00, provider: 'stripe', desc: 'Balance top-up via Stripe' },
+      { type: 'topup', amount_usd: 10.00, provider: 'nowpayments', desc: 'Crypto top-up via NOWPayments' },
       { type: 'charge', amount_usd: -2.50, provider: null, desc: 'Tool execution: search_court_cases' },
       { type: 'charge', amount_usd: -5.00, provider: null, desc: 'Tool execution: semantic_search' },
       { type: 'charge', amount_usd: -1.25, provider: null, desc: 'Tool execution: get_document_text' },
@@ -209,21 +209,23 @@ async function seedTestAccount() {
     // 4. Create mock payment intents
     const paymentIntents = [
       {
-        provider: 'stripe',
-        external_id: 'pi_test_succeeded_' + Date.now(),
-        amount_usd: 25.00,
+        provider: 'monobank',
+        external_id: 'SL-' + userId.substring(0, 8) + '-' + (Date.now() - 86400000),
+        amount_usd: 0,
+        amount_uah: 1037.50,
         status: 'succeeded',
       },
       {
-        provider: 'stripe',
-        external_id: 'pi_test_pending_' + Date.now(),
-        amount_usd: 50.00,
+        provider: 'monobank',
+        external_id: 'SL-' + userId.substring(0, 8) + '-' + Date.now(),
+        amount_usd: 0,
+        amount_uah: 2075.00,
         status: 'pending',
       },
       {
-        provider: 'fondy',
-        external_id: 'SL-' + userId.substring(0, 8) + '-' + Date.now(),
-        amount_uah: 555.56,
+        provider: 'nowpayments',
+        external_id: 'np_' + Date.now(),
+        amount_usd: 10.00,
         status: 'succeeded',
       },
     ];
