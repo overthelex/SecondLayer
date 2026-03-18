@@ -7,10 +7,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LawyerProfilePage } from './LawyerProfile';
 import { JudgeProfilePage } from './JudgeProfile';
-import { JudgeAnalyticsDetail } from './JudgeAnalyticsDetail';
+import { JudgeDossier } from './JudgeDossier';
 import { erauService, ERAUProfile } from '../../services/api/ERAUService';
 import { judgesService, JudgeProfile } from '../../services/api/JudgesService';
-import { judgeAnalyticsService, JudgeAnalyticsRecord } from '../../services/api/JudgeAnalyticsService';
+import { judgeAnalyticsService, JudgeAnalyticsRecord, PeerJudge } from '../../services/api/JudgeAnalyticsService';
 import { ROUTES } from '../../router/routes';
 
 interface PersonDetailPageProps {
@@ -24,6 +24,8 @@ export function PersonDetailPage({ type }: PersonDetailPageProps) {
   const [lawyerProfile, setLawyerProfile] = useState<ERAUProfile | null>(null);
   const [judgeProfile, setJudgeProfile] = useState<JudgeProfile | null>(null);
   const [judgeAnalytics, setJudgeAnalytics] = useState<JudgeAnalyticsRecord | null>(null);
+  const [judgePeers, setJudgePeers] = useState<PeerJudge[]>([]);
+  const [judgePeersTotalInCourt, setJudgePeersTotalInCourt] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,8 +69,9 @@ export function PersonDetailPage({ type }: PersonDetailPageProps) {
         throw err;
       }),
       judgeAnalyticsService.getAnalyticsDetail(id).catch(() => null),
+      judgeAnalyticsService.getAnalyticsPeers(id).catch(() => null),
     ])
-      .then(([profile, analytics]) => {
+      .then(([profile, analytics, peersResult]) => {
         if (!profile && !analytics) {
           setError('Суддю не знайдено');
           return;
@@ -94,6 +97,10 @@ export function PersonDetailPage({ type }: PersonDetailPageProps) {
           });
         }
         setJudgeAnalytics(analytics);
+        if (peersResult) {
+          setJudgePeers(peersResult.peers);
+          setJudgePeersTotalInCourt(peersResult.total_in_court);
+        }
       })
       .catch((err) => {
         setError(err.message || 'Не вдалося завантажити профіль судді');
@@ -172,7 +179,13 @@ export function PersonDetailPage({ type }: PersonDetailPageProps) {
 
   return (
     <JudgeProfilePage profile={judgeProfile} onBack={handleBack}>
-      {judgeAnalytics && <JudgeAnalyticsDetail analytics={judgeAnalytics} />}
+      {judgeAnalytics && (
+        <JudgeDossier
+          analytics={judgeAnalytics}
+          peers={judgePeers}
+          totalInCourt={judgePeersTotalInCourt}
+        />
+      )}
     </JudgeProfilePage>
   );
 }

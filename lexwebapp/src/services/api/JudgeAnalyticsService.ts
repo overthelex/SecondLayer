@@ -48,6 +48,23 @@ export interface JudgeAnalyticsFilters {
   offset?: number;
 }
 
+export interface PeerJudge {
+  id: number;
+  judge_name: string;
+  total_decisions: number;
+  appeal_rate: number;
+  cases_appealed: number;
+  appeal_outcomes: JudgeAnalyticsRecord['appeal_outcomes'];
+  vkksu_data: Record<string, unknown>;
+  peer_rank_in_court: number | null;
+}
+
+export interface PeersResult {
+  peers: PeerJudge[];
+  court_name: string | null;
+  total_in_court: number;
+}
+
 export class JudgeAnalyticsService extends BaseService {
   async getAnalyticsList(params?: JudgeAnalyticsFilters): Promise<JudgeAnalyticsListResult> {
     return this.request(() =>
@@ -58,6 +75,12 @@ export class JudgeAnalyticsService extends BaseService {
   async getAnalyticsDetail(identifier: string): Promise<JudgeAnalyticsRecord> {
     return this.request(() =>
       this.client.get<JudgeAnalyticsRecord>(`/api/judge-analytics/${encodeURIComponent(identifier)}`)
+    );
+  }
+
+  async getAnalyticsPeers(identifier: string): Promise<PeersResult> {
+    return this.request(() =>
+      this.client.get<PeersResult>(`/api/judge-analytics/${encodeURIComponent(identifier)}/peers`)
     );
   }
 }
