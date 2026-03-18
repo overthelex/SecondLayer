@@ -67,6 +67,14 @@ function renderTOCItems(
 
     const children: React.ReactNode[] = [];
     if (isExpanded) {
+      // Render direct articles first (articles without a chapter), then chapters
+      if (typed.articles && typed.articles.length > 0) {
+        children.push(
+          ...typed.articles.map((a, ai) =>
+            renderTOCArticle(a, `${key}-art-${ai}`, level + 1, selectedArticleNumber, fetchArticle)
+          )
+        );
+      }
       if (typed.type === 'section' && (typed as TOCSection).chapters) {
         children.push(
           ...renderTOCItems(
@@ -77,13 +85,6 @@ function renderTOCItems(
             fetchArticle,
             level + 1,
             key,
-          )
-        );
-      }
-      if (typed.articles && typed.articles.length > 0) {
-        children.push(
-          ...typed.articles.map((a, ai) =>
-            renderTOCArticle(a, `${key}-art-${ai}`, level + 1, selectedArticleNumber, fetchArticle)
           )
         );
       }
