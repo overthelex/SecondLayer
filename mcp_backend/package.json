@@ -142,9 +142,7 @@
     "typescript": "^5.3.3"
   },
   "overrides": {
-    "minio": {
-      "fast-xml-parser": ">=5.3.7"
-    },
+    "fast-xml-parser": ">=5.5.6",
     "flatted": ">=3.4.0",
     "undici": ">=6.24.0",
     "hono": ">=4.12.7",
