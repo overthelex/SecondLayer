@@ -321,6 +321,11 @@ services:
       # Terminal service (dedicated Debian container for admin shell)
       TERMINAL_SERVICE_URL: ws://terminal-service-local:3010
 
+      # Payment gateways
+      MONOBANK_API_KEY: ${MONOBANK_API_KEY:-}
+      MONOBANK_REDIRECT_URL: ${MONOBANK_REDIRECT_URL:-}
+      PUBLIC_URL: ${PUBLIC_URL:-https://local.legal.org.ua}
+
     ports:
       - "3000:3000"  # Standard backend port
 
