@@ -77,6 +77,11 @@ const EUComparisonPage = lazyWithRetry(() => import('../pages/EUComparisonPage')
 const ChatPage = lazyWithRetry(() => import('../pages/ChatPage').then(m => ({ default: m.ChatPage })));
 const ProfilePage = lazyWithRetry(() => import('../pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const BillingDashboard = lazyWithRetry(() => import('../pages/BillingDashboard').then(m => ({ default: m.BillingDashboard })));
+const BillingOverviewTab = lazyWithRetry(() => import('../components/billing/OverviewTab').then(m => ({ default: m.OverviewTab })));
+const BillingTariffsTab = lazyWithRetry(() => import('../components/billing/TariffsTab').then(m => ({ default: m.TariffsTab })));
+const BillingHistoryTab = lazyWithRetry(() => import('../components/billing/HistoryTab').then(m => ({ default: m.HistoryTab })));
+const BillingAnalyticsTab = lazyWithRetry(() => import('../components/billing/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })));
+const BillingSettingsTab = lazyWithRetry(() => import('../components/billing/SettingsTab').then(m => ({ default: m.SettingsTab })));
 const TeamPage = lazyWithRetry(() => import('../pages/TeamPage').then(m => ({ default: m.TeamPage })));
 const DocumentsPage = lazyWithRetry(() => import('../pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
 const HistoryPage = lazyWithRetry(() => import('../pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
@@ -279,6 +284,32 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.BILLING,
             element: S(BillingDashboard),
+            children: [
+              {
+                index: true,
+                element: <Navigate to="overview" replace />,
+              },
+              {
+                path: 'overview',
+                element: S(BillingOverviewTab),
+              },
+              {
+                path: 'tariffs',
+                element: S(BillingTariffsTab),
+              },
+              {
+                path: 'history',
+                element: S(BillingHistoryTab),
+              },
+              {
+                path: 'analytics',
+                element: S(BillingAnalyticsTab),
+              },
+              {
+                path: 'settings',
+                element: S(BillingSettingsTab),
+              },
+            ],
           },
           {
             path: ROUTES.TEAM,

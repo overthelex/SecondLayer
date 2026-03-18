@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   TrendingUp,
@@ -17,6 +18,7 @@ import {
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
+import type { BillingOutletContext } from '../../pages/BillingDashboard';
 
 interface BalanceData {
   balance_usd: number;
@@ -35,7 +37,9 @@ interface OverviewTabProps {
   onTopUp?: () => void;
 }
 
-export function OverviewTab({ onTopUp }: OverviewTabProps) {
+export function OverviewTab({ onTopUp: onTopUpProp }: OverviewTabProps) {
+  const context = useOutletContext<BillingOutletContext | undefined>();
+  const onTopUp = onTopUpProp ?? context?.onTopUp;
   const [data, setData] = useState<BalanceData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());

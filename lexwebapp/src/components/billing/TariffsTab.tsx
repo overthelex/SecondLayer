@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Check,
@@ -19,6 +20,7 @@ import { BillingLoadingState, BillingErrorState } from './shared';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
+import type { BillingOutletContext } from '../../pages/BillingDashboard';
 
 interface TierFromBackend {
   tier: string;
@@ -89,7 +91,9 @@ interface TariffsTabProps {
   onUpgradeTopUp?: (amount: number, targetTier: string) => void;
 }
 
-export function TariffsTab({ onUpgradeTopUp }: TariffsTabProps) {
+export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabProps) {
+  const context = useOutletContext<BillingOutletContext | undefined>();
+  const onUpgradeTopUp = onUpgradeTopUpProp ?? context?.onUpgradeTopUp;
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null);
   const [isUpgrading, setIsUpgrading] = useState<string | null>(null);

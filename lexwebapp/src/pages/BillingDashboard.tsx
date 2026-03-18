@@ -1,10 +1,10 @@
 /**
  * Billing Dashboard
- * Main billing interface with 5 tabs: Overview, Tariffs, History, Analytics, Settings
+ * Layout with tab navigation — each tab is a nested route rendered via Outlet
  */
 
-import { useState, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   DollarSign,
@@ -13,35 +13,34 @@ import {
   ArrowLeft,
   Zap,
   TrendingUp,
-  Loader2,
 } from 'lucide-react';
 import { TopUpModal } from '../components/billing/TopUpModal';
 
-const OverviewTab = lazy(() => import('../components/billing/OverviewTab').then(m => ({ default: m.OverviewTab })));
-const TariffsTab = lazy(() => import('../components/billing/TariffsTab').then(m => ({ default: m.TariffsTab })));
-const HistoryTab = lazy(() => import('../components/billing/HistoryTab').then(m => ({ default: m.HistoryTab })));
-const AnalyticsTab = lazy(() => import('../components/billing/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })));
-const SettingsTab = lazy(() => import('../components/billing/SettingsTab').then(m => ({ default: m.SettingsTab })));
-
-const TabLoader = () => (
-  <div className="flex items-center justify-center py-12">
-    <Loader2 className="w-6 h-6 animate-spin text-claude-accent" />
-  </div>
-);
-
 type BillingTab = 'overview' | 'tariffs' | 'history' | 'analytics' | 'settings';
 
-interface BillingDashboardProps {
-  onBack?: () => void;
-  initialTab?: BillingTab;
+const tabs = [
+  { id: 'overview' as const, label: 'Огляд', icon: DollarSign },
+  { id: 'tariffs' as const, label: 'Тарифи', icon: Zap },
+  { id: 'history' as const, label: 'Історія', icon: Receipt },
+  { id: 'analytics' as const, label: 'Аналітика', icon: TrendingUp },
+  { id: 'settings' as const, label: 'Налаштування', icon: Settings },
+];
+
+export interface BillingOutletContext {
+  onTopUp: () => void;
+  onUpgradeTopUp: (amount: number, targetTier: string) => void;
 }
 
-export function BillingDashboard({ onBack, initialTab = 'overview' }: BillingDashboardProps) {
+export function BillingDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<BillingTab>(initialTab);
+  const location = useLocation();
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState<number | undefined>();
   const [upgradeTier, setUpgradeTier] = useState<string | undefined>();
+
+  // Derive active tab from URL path
+  const pathSegment = location.pathname.split('/').pop() as BillingTab;
+  const activeTab: BillingTab = tabs.some(t => t.id === pathSegment) ? pathSegment : 'overview';
 
   const handleUpgradeTopUp = (amount: number, targetTier: string) => {
     setTopUpAmount(amount);
@@ -56,20 +55,13 @@ export function BillingDashboard({ onBack, initialTab = 'overview' }: BillingDas
   };
 
   const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else {
-      navigate(-1);
-    }
+    navigate(-1);
   };
 
-  const tabs = [
-    { id: 'overview' as const, label: 'Огляд', icon: DollarSign },
-    { id: 'tariffs' as const, label: 'Тарифи', icon: Zap },
-    { id: 'history' as const, label: 'Історія', icon: Receipt },
-    { id: 'analytics' as const, label: 'Аналітика', icon: TrendingUp },
-    { id: 'settings' as const, label: 'Налаштування', icon: Settings },
-  ];
+  const outletContext: BillingOutletContext = {
+    onTopUp: () => setShowTopUpModal(true),
+    onUpgradeTopUp: handleUpgradeTopUp,
+  };
 
   return (
     <div className="flex flex-col h-screen bg-claude-bg">
@@ -98,7 +90,7 @@ export function BillingDashboard({ onBack, initialTab = 'overview' }: BillingDas
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => navigate(`/billing/${tab.id}`)}
                 className={`
                   flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm
                   transition-all whitespace-nowrap relative
@@ -124,7 +116,7 @@ export function BillingDashboard({ onBack, initialTab = 'overview' }: BillingDas
         </div>
       </div>
 
-      {/* Content */}
+      {/* Content — rendered by nested route */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto p-6">
           <motion.div
@@ -132,13 +124,7 @@ export function BillingDashboard({ onBack, initialTab = 'overview' }: BillingDas
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}>
-            <Suspense fallback={<TabLoader />}>
-              {activeTab === 'overview' && <OverviewTab onTopUp={() => setShowTopUpModal(true)} />}
-              {activeTab === 'tariffs' && <TariffsTab onUpgradeTopUp={handleUpgradeTopUp} />}
-              {activeTab === 'history' && <HistoryTab />}
-              {activeTab === 'analytics' && <AnalyticsTab />}
-              {activeTab === 'settings' && <SettingsTab />}
-            </Suspense>
+            <Outlet context={outletContext} />
           </motion.div>
         </div>
       </div>
