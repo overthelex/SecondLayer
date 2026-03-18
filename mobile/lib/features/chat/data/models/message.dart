@@ -334,10 +334,17 @@ class CostSummary {
                 ?.map((e) => e as String)
                 .toList() ??
             [],
-        totalCostUsd: (json['total_cost_usd'] as num?)?.toDouble() ?? 0,
-        chargedUsd: (json['charged_usd'] as num?)?.toDouble(),
-        balanceUsd: (json['balance_usd'] as num?)?.toDouble(),
+        totalCostUsd: _toDouble(json['total_cost_usd']) ?? 0,
+        chargedUsd: _toDouble(json['charged_usd']),
+        balanceUsd: _toDouble(json['balance_usd']),
       );
+
+  static double? _toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v);
+    return null;
+  }
 }
 
 class Conversation {
