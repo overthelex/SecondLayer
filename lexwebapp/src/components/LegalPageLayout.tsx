@@ -27,6 +27,7 @@ const LEGAL_PAGES = [
   { path: 'ai-usage', labelUk: 'Використання AI', labelEn: 'AI Usage Policy' },
   { path: 'ai-transparency', labelUk: 'Прозорість AI', labelEn: 'AI Transparency' },
   { path: 'marketplace-rules', labelUk: 'Правила маркетплейсу', labelEn: 'Marketplace Rules' },
+  { path: 'refund-policy', labelUk: 'Повернення коштів', labelEn: 'Refund Policy' },
 ];
 
 function extractToc(markdown: string): { toc: TocItem[]; title: string; subtitle: string; meta: string } {
