@@ -7,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import '../domain/document_notifier.dart';
-import '../data/document_cache_service.dart';
 import '../data/models/document.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/l10n/app_localizations.dart';
@@ -115,7 +114,7 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
         final text = await repo.getDocumentText(docId);
         _textContent = text;
         // Persist to cache
-        if (text != null && text.isNotEmpty) {
+        if (text.isNotEmpty) {
           await cache.cacheText(
             documentId: docId,
             title: widget.document.title,
@@ -130,7 +129,7 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
         final text = await repo.getDocumentText(docId);
         _textContent = text;
         // Persist to cache
-        if (text != null && text.isNotEmpty) {
+        if (text.isNotEmpty) {
           await cache.cacheText(
             documentId: docId,
             title: widget.document.title,
@@ -269,7 +268,7 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
             Container(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Text(
-                'Сторінка ${_pdfCurrentPage + 1} з $_pdfPages',
+                AppLocalizations.of(context)!.documentPdfPageOf(_pdfCurrentPage + 1, _pdfPages),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -293,7 +292,7 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
               onError: (error) {
                 setState(() {
                   _pdfLocalPath = null;
-                  _error = 'Не вдалось відобразити PDF: $error';
+                  _error = AppLocalizations.of(context)!.documentPdfRenderError(error.toString());
                 });
               },
             ),

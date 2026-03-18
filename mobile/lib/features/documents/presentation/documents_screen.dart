@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import '../domain/document_notifier.dart';
-import '../data/document_cache_service.dart';
 import '../../../shared/widgets/loading_indicator.dart';
 import '../../../shared/widgets/error_state.dart';
 import '../../../shared/widgets/empty_state.dart';
@@ -238,7 +237,7 @@ class DocumentsScreen extends ConsumerWidget {
                                                 color: theme
                                                     .colorScheme
                                                     .primary
-                                                    .withOpacity(0.7),
+                                                    .withValues(alpha: 0.7),
                                               ),
                                             )
                                           : null,
