@@ -15,7 +15,7 @@ export class MetricsService {
   constructor() {
     this.registry = new Registry();
 
-    collectDefaultMetrics({ register: this.registry, prefix: 'nodejs_' });
+    collectDefaultMetrics({ register: this.registry });
 
     this.httpRequestDuration = new Histogram({
       name: 'http_request_duration_seconds',

@@ -38,7 +38,9 @@ export class MetricsService {
     this.registry = new Registry();
 
     // Default Node.js metrics (CPU, memory, GC, event loop lag)
-    collectDefaultMetrics({ register: this.registry, prefix: 'nodejs_' });
+    // Note: prom-client already prefixes these with "nodejs_" (e.g. nodejs_heap_size_used_bytes),
+    // so we must NOT add an extra prefix to avoid double-prefixing (nodejs_nodejs_*).
+    collectDefaultMetrics({ register: this.registry });
 
     // --- HTTP ---
     this.httpRequestDuration = new Histogram({
