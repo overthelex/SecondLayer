@@ -504,10 +504,10 @@ class HTTPMCPServer {
                             process.env.MONOBANK_API_KEY.includes('mock') ||
                             process.env.MONOBANK_API_KEY.includes('test');
     if (useMockMonobank) {
-      this.monobankService = new MockMonobankService(this.billingService, this.emailService);
+      this.monobankService = new MockMonobankService(this.billingService, this.emailService, this.services.db);
       logger.warn('🧪 Using MOCK Monobank service (no real payments will be processed)');
     } else {
-      this.monobankService = new MonobankService(this.billingService, this.emailService);
+      this.monobankService = new MonobankService(this.billingService, this.emailService, this.services.db);
       logger.info('💳 Using REAL Monobank service');
     }
 
@@ -2401,8 +2401,9 @@ class HTTPMCPServer {
     }) as any);
 
     // Payment routes - require JWT (user login)
-    // POST /api/billing/payment/stripe/create - Create Stripe PaymentIntent
-    // POST /api/billing/payment/fondy/create - Create Fondy payment
+    // POST /api/billing/payment/monobank/create - Create Monobank invoice
+    // POST /api/billing/payment/nowpayments/create - Create NOWPayments invoice
+    // GET /api/billing/payment/monobank/:invoiceId/status - Check Monobank status
     // GET /api/billing/payment/:provider/:paymentId/status - Check payment status
     this.app.use('/api/billing/payment', requireJWT as any, createPaymentRouter(this.monobankService, this.metamaskService, this.binancePayService, this.nowpaymentsService, this.services.db));
 

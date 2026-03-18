@@ -42,31 +42,31 @@ export function PaymentSuccessPage() {
         </div>
 
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Payment Successful
+          Оплата успішна
         </h1>
 
         <p className="text-gray-600 mb-6">
-          Your payment has been processed successfully. Your account balance will be updated shortly.
+          Ваш платіж успішно оброблено. Баланс буде оновлено найближчим часом.
         </p>
 
         {orderInfo.orderId && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 text-left">
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Order ID:</span>
+                <span className="text-gray-500">Номер замовлення:</span>
                 <span className="font-medium text-gray-800">{orderInfo.orderId}</span>
               </div>
               {orderInfo.amount && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Amount:</span>
+                  <span className="text-gray-500">Сума:</span>
                   <span className="font-medium text-gray-800">
                     {orderInfo.currency === 'UAH' ? '₴' : '$'}{orderInfo.amount}
                   </span>
                 </div>
               )}
               <div className="flex justify-between">
-                <span className="text-gray-500">Status:</span>
-                <span className="font-medium text-green-700">Approved</span>
+                <span className="text-gray-500">Статус:</span>
+                <span className="font-medium text-green-700">Підтверджено</span>
               </div>
             </div>
           </div>
@@ -76,12 +76,12 @@ export function PaymentSuccessPage() {
           onClick={() => navigate(ROUTES.BILLING)}
           className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
         >
-          Go to Billing
+          Перейти до білінгу
           <ArrowRight size={18} />
         </button>
 
         <p className="text-xs text-gray-400 mt-4">
-          You will receive an email confirmation shortly.
+          Підтвердження буде надіслано на вашу електронну пошту.
         </p>
       </div>
     </div>

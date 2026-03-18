@@ -44,11 +44,11 @@ export function PaymentErrorPage() {
         </div>
 
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Payment Failed
+          Оплата не вдалася
         </h1>
 
         <p className="text-gray-600 mb-6">
-          Unfortunately, your payment could not be processed. No charges were made to your account.
+          На жаль, платіж не було оброблено. Кошти з вашого рахунку не списано.
         </p>
 
         {(orderInfo.orderId || orderInfo.reason) && (
@@ -56,25 +56,25 @@ export function PaymentErrorPage() {
             <div className="space-y-2 text-sm">
               {orderInfo.orderId && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Order ID:</span>
+                  <span className="text-gray-500">Номер замовлення:</span>
                   <span className="font-medium text-gray-800">{orderInfo.orderId}</span>
                 </div>
               )}
               {orderInfo.amount && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Amount:</span>
+                  <span className="text-gray-500">Сума:</span>
                   <span className="font-medium text-gray-800">
                     {orderInfo.currency === 'UAH' ? '₴' : '$'}{orderInfo.amount}
                   </span>
                 </div>
               )}
               <div className="flex justify-between">
-                <span className="text-gray-500">Status:</span>
-                <span className="font-medium text-red-700">Declined</span>
+                <span className="text-gray-500">Статус:</span>
+                <span className="font-medium text-red-700">Відхилено</span>
               </div>
               {orderInfo.reason && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Reason:</span>
+                  <span className="text-gray-500">Причина:</span>
                   <span className="font-medium text-red-700">{orderInfo.reason}</span>
                 </div>
               )}
@@ -88,20 +88,20 @@ export function PaymentErrorPage() {
             className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
           >
             <RefreshCw size={18} />
-            Try Again
+            Спробувати ще раз
           </button>
 
           <button
             onClick={() => navigate(ROUTES.CHAT)}
             className="w-full flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
           >
-            Go to Dashboard
+            На головну
             <ArrowRight size={18} />
           </button>
         </div>
 
         <p className="text-xs text-gray-400 mt-4">
-          If this problem persists, please contact our support team.
+          Якщо проблема повторюється, зверніться до служби підтримки.
         </p>
       </div>
     </div>

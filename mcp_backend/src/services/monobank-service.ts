@@ -1,6 +1,6 @@
 /**
  * MonobankService
- * Stub implementation for Monobank Acquiring payment integration.
+ * Full Monobank Acquiring payment integration.
  * Configure MONOBANK_API_KEY to enable real payments.
  */
 
@@ -8,10 +8,13 @@ import { createHmac } from 'crypto';
 import { logger } from '../utils/logger.js';
 import { BillingService } from './billing-service.js';
 import { EmailService } from './email-service.js';
+import { invoiceService } from './invoice-service.js';
+import type { IDatabase } from '../domain/ports/index.js';
 
 export interface MonobankInvoiceResult {
   invoiceId: string;
   pageUrl: string;
+  paymentIntentId: string;
 }
 
 export interface MonobankPaymentStatus {
@@ -33,7 +36,8 @@ export interface MonobankWebhookBody {
 export class MonobankService {
   constructor(
     protected billingService: BillingService,
-    protected emailService: EmailService
+    protected emailService: EmailService,
+    protected db: IDatabase
   ) {}
 
   private get apiKey(): string {
@@ -48,18 +52,25 @@ export class MonobankService {
 
   /**
    * Create a Monobank invoice (hosted payment page).
+   * Stores payment_intent in DB for idempotent webhook processing.
    */
   async createInvoice(
     userId: string,
     amountUah: number,
     description: string,
-    redirectUrl?: string
+    redirectUrl?: string,
+    email?: string
   ): Promise<MonobankInvoiceResult> {
     const key = this.apiKey; // throws if not configured
+
+    if (amountUah < 1) {
+      throw new Error('Мінімальна сума поповнення — 1 ₴');
+    }
 
     // Amount in kopecks (1 UAH = 100 kopecks)
     const amountKopecks = Math.round(amountUah * 100);
     const finalRedirectUrl = redirectUrl || `${this.redirectUrl}/payment/success`;
+    const orderRef = `SL-${userId.substring(0, 8)}-${Date.now()}`;
 
     logger.info('[MonobankService] Creating invoice', { userId, amountUah, amountKopecks });
 
@@ -73,7 +84,7 @@ export class MonobankService {
         amount: amountKopecks,
         ccy: 980, // UAH
         merchantPaymInfo: {
-          reference: `SL-${userId.substring(0, 8)}-${Date.now()}`,
+          reference: orderRef,
           destination: description,
           comment: description,
         },
@@ -89,11 +100,35 @@ export class MonobankService {
     }
 
     const data = (await response.json()) as { invoiceId: string; pageUrl: string };
-    logger.info('[MonobankService] Invoice created', { userId, invoiceId: data.invoiceId });
+
+    // Store payment_intent for idempotent webhook processing
+    const insertResult = await this.db.query(
+      `INSERT INTO payment_intents
+        (user_id, provider, external_id, amount_usd, amount_uah, status, metadata)
+       VALUES ($1, 'monobank', $2, $3, $4, 'pending', $5)
+       RETURNING id`,
+      [
+        userId,
+        data.invoiceId,
+        0, // amount_usd not applicable for UAH payments
+        amountUah,
+        JSON.stringify({ email, orderRef, pageUrl: data.pageUrl }),
+      ]
+    );
+
+    const paymentIntentId = insertResult.rows[0].id;
+
+    logger.info('[MonobankService] Invoice created', {
+      userId,
+      invoiceId: data.invoiceId,
+      paymentIntentId,
+      amountUah,
+    });
 
     return {
       invoiceId: data.invoiceId,
       pageUrl: data.pageUrl,
+      paymentIntentId,
     };
   }
 
@@ -101,7 +136,7 @@ export class MonobankService {
    * Validate Monobank webhook HMAC-SHA256 signature.
    * Monobank signs the raw request body with the merchant token as the key.
    */
-  private validateSignature(rawBody: Buffer | string, signature: string): boolean {
+  validateSignature(rawBody: Buffer | string, signature: string): boolean {
     const key = this.apiKey;
     const expected = createHmac('sha256', key)
       .update(typeof rawBody === 'string' ? rawBody : rawBody)
@@ -111,6 +146,7 @@ export class MonobankService {
 
   /**
    * Handle Monobank webhook callback.
+   * Validates signature, looks up payment_intent, credits balance, sends email.
    */
   async handleWebhook(rawBody: Buffer | string, body: MonobankWebhookBody, signature: string): Promise<{ received: boolean }> {
     if (!this.validateSignature(rawBody, signature)) {
@@ -123,14 +159,81 @@ export class MonobankService {
       status: body.status,
     });
 
-    if (body.status === 'success' && body.invoiceId) {
-      // reference contains our "SL-{userId}-{timestamp}" string
-      const reference = (body as any).reference || '';
-      const parts = reference.split('-');
-      if (parts.length >= 2) {
-        const userPrefix = parts[1];
-        logger.info('[MonobankService] Payment success for user prefix', { userPrefix, reference });
-        // Full implementation: look up user by reference in DB and credit their account
+    // Only process successful payments
+    if (body.status !== 'success') {
+      // Update status for non-success terminal statuses
+      if (['failure', 'reversed', 'expired'].includes(body.status)) {
+        await this.db.query(
+          'UPDATE payment_intents SET status = $1, updated_at = NOW() WHERE external_id = $2 AND provider = $3',
+          [body.status === 'failure' ? 'failed' : body.status, body.invoiceId, 'monobank']
+        );
+      }
+      return { received: true };
+    }
+
+    // Look up payment_intent by invoiceId (external_id)
+    const piResult = await this.db.query(
+      'SELECT * FROM payment_intents WHERE external_id = $1 AND provider = $2',
+      [body.invoiceId, 'monobank']
+    );
+
+    if (piResult.rows.length === 0) {
+      logger.warn('[MonobankService] Webhook: payment intent not found', { invoiceId: body.invoiceId });
+      return { received: true };
+    }
+
+    const pi = piResult.rows[0];
+
+    // Idempotency: skip if already processed
+    if (pi.status === 'succeeded') {
+      logger.warn('[MonobankService] Webhook: already processed', { invoiceId: body.invoiceId });
+      return { received: true };
+    }
+
+    // Mark as succeeded
+    await this.db.query(
+      'UPDATE payment_intents SET status = $1, updated_at = NOW() WHERE id = $2',
+      ['succeeded', pi.id]
+    );
+
+    // Credit user balance
+    const amountUah = parseFloat(pi.amount_uah) || (body.amount / 100);
+    const transaction = await this.billingService.topUpBalance({
+      userId: pi.user_id,
+      amountUsd: 0,
+      amountUah,
+      description: `Поповнення через Monobank: ${amountUah} ₴`,
+      paymentProvider: 'monobank',
+      paymentId: pi.id,
+      metadata: { invoiceId: body.invoiceId, reference: body.reference },
+    });
+
+    // Generate invoice number
+    const invoiceNumber = invoiceService.generateInvoiceNumber(transaction.id);
+    await this.billingService.setTransactionInvoiceNumber(transaction.id, invoiceNumber);
+
+    logger.info('[MonobankService] Payment succeeded', {
+      paymentIntentId: pi.id,
+      amountUah,
+      transactionId: transaction.id,
+      invoiceNumber,
+    });
+
+    // Send confirmation email
+    const metadata = JSON.parse(pi.metadata || '{}');
+    if (metadata.email) {
+      try {
+        await this.emailService.sendPaymentSuccess({
+          email: metadata.email,
+          name: 'User',
+          amount: amountUah,
+          currency: 'UAH',
+          newBalance: transaction.balance_after_usd,
+          paymentId: pi.id,
+          userId: pi.user_id,
+        });
+      } catch (emailErr: any) {
+        logger.error('[MonobankService] Failed to send confirmation email', { error: emailErr.message });
       }
     }
 
