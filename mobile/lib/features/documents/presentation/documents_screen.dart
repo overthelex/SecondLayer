@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import '../domain/document_notifier.dart';
 import '../../../shared/widgets/loading_indicator.dart';
 import '../../../shared/widgets/error_state.dart';
 import '../../../shared/widgets/empty_state.dart';
+import '../../../navigation/route_names.dart';
 
 class DocumentsScreen extends ConsumerWidget {
   const DocumentsScreen({super.key});
@@ -164,6 +166,11 @@ class DocumentsScreen extends ConsumerWidget {
                                             dateFormat.format(doc.uploadedAt!),
                                         ].where((s) => s.isNotEmpty).join(' · '),
                                         style: theme.textTheme.bodySmall,
+                                      ),
+                                      onTap: () => context.pushNamed(
+                                        RouteNames.documentDetail,
+                                        pathParameters: {'id': doc.id},
+                                        extra: doc,
                                       ),
                                     ),
                                   )),

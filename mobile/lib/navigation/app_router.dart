@@ -11,6 +11,9 @@ import '../features/legislation/presentation/library_screen.dart';
 import '../features/legislation/presentation/toc_screen.dart';
 import '../features/legislation/presentation/article_screen.dart';
 import '../features/documents/presentation/documents_screen.dart';
+import '../features/documents/presentation/document_detail_screen.dart';
+import '../features/documents/presentation/document_pager_screen.dart';
+import '../features/documents/data/models/document.dart';
 import '../features/more/more_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/matters/presentation/clients_screen.dart';
@@ -105,6 +108,29 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/documents',
             name: RouteNames.documents,
             builder: (_, __) => const DocumentsScreen(),
+            routes: [
+              GoRoute(
+                path: 'pager',
+                name: RouteNames.documentPager,
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (_, state) {
+                  final extra = state.extra as Map<String, dynamic>;
+                  return DocumentPagerScreen(
+                    documents: extra['documents'] as List<VaultDocument>,
+                    initialIndex: extra['initialIndex'] as int,
+                  );
+                },
+              ),
+              GoRoute(
+                path: ':id',
+                name: RouteNames.documentDetail,
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (_, state) {
+                  final doc = state.extra as VaultDocument;
+                  return DocumentDetailScreen(document: doc);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: '/more',
