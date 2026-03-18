@@ -15,6 +15,7 @@
     "frontend": "cd lexwebapp && npm run dev",
     "backend:build": "cd mcp_backend && npm run build",
     "frontend:build": "cd lexwebapp && npm run build",
+    "postinstall": "node scripts/patch-fast-xml-parser.js",
     "install:all": "npm install",
     "batch-process": "tsx scripts/batch-process-documents.ts"
   },
@@ -37,7 +38,6 @@
     "cli-table3": "^0.6.3",
     "commander": "^14.0.3",
     "dotenv": "^17.3.1",
-    "fast-xml-parser": "^5.4.2",
     "jest-validate": "^30.3.0",
     "jest-watcher": "^30.3.0",
     "jsdom": "^29.0.0",
@@ -50,9 +50,7 @@
   "overrides": {
     "postcss": "^8.4.49",
     "esbuild": ">=0.25.0",
-    "minio": {
-      "fast-xml-parser": ">=5.3.8"
-    },
+    "fast-xml-parser": ">=5.5.6",
     "ajv": ">=8.18.0",
     "minimatch": ">=10.2.1",
     "hono": ">=4.12.7",
