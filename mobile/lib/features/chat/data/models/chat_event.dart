@@ -1,5 +1,12 @@
 import 'message.dart';
 
+double? _toDouble(dynamic v) {
+  if (v == null) return null;
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v);
+  return null;
+}
+
 /// Represents the different SSE events from /api/chat.
 /// Maps to the backend chat-service.ts SSE event contract.
 sealed class ChatEvent {
@@ -38,8 +45,8 @@ sealed class ChatEvent {
                   ?.map((e) => e as String)
                   .toList() ??
               [],
-          totalCostUsd: (json['total_cost_usd'] as num?)?.toDouble() ?? 0,
-          chargedUsd: (json['charged_usd'] as num?)?.toDouble(),
+          totalCostUsd: _toDouble(json['total_cost_usd']) ?? 0,
+          chargedUsd: _toDouble(json['charged_usd']),
           conversationId: json['conversationId'] as String?,
         ),
       'cost_summary' => CostSummaryEvent(
