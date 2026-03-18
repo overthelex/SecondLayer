@@ -18,7 +18,7 @@ export function PaymentSuccessPage() {
   }>({});
 
   useEffect(() => {
-    // Fondy may send data via POST (form) or GET (query params)
+    // Monobank redirects with query params after payment
     const orderId = searchParams.get('order_id') || '';
     const amount = searchParams.get('amount') || '';
     const currency = searchParams.get('currency') || 'UAH';
