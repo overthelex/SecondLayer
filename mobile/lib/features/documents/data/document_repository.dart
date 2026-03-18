@@ -46,6 +46,27 @@ class DocumentRepository {
         .toList();
   }
 
+  Future<DocumentPreview> getDocumentPreview(String documentId) async {
+    final response = await _api.get('/api/documents/$documentId/preview');
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return DocumentPreview.fromJson(data);
+    }
+    return const DocumentPreview();
+  }
+
+  Future<String> getDocumentText(String documentId) async {
+    final response = await _api.get('/api/documents/$documentId/text');
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return data['text'] as String? ?? data['content'] as String? ?? '';
+    }
+    if (data is String) {
+      return data;
+    }
+    return '';
+  }
+
   Future<void> deleteDocument(String id) async {
     await _api.delete('/api/documents/$id');
   }

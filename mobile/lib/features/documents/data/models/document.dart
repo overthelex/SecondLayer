@@ -58,6 +58,34 @@ class DocumentFolder {
       );
 }
 
+class DocumentPreview {
+  final String? previewUrl;
+  final String? mimeType;
+
+  const DocumentPreview({
+    this.previewUrl,
+    this.mimeType,
+  });
+
+  bool get hasPreview => previewUrl != null && previewUrl!.isNotEmpty;
+
+  bool get isPdf =>
+      mimeType?.contains('pdf') == true ||
+      (previewUrl != null && previewUrl!.endsWith('.pdf'));
+
+  bool get isImage =>
+      mimeType?.startsWith('image/') == true ||
+      (previewUrl != null &&
+          RegExp(r'\.(png|jpg|jpeg|gif|webp)$', caseSensitive: false)
+              .hasMatch(previewUrl!));
+
+  factory DocumentPreview.fromJson(Map<String, dynamic> json) =>
+      DocumentPreview(
+        previewUrl: json['preview_url'] as String? ?? json['previewUrl'] as String?,
+        mimeType: json['mime_type'] as String? ?? json['mimeType'] as String?,
+      );
+}
+
 class UploadProgress {
   final String fileName;
   final int totalChunks;
