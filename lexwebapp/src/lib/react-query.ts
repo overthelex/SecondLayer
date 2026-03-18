@@ -123,5 +123,6 @@ export const queryKeys = {
     list: (params?: object) =>
       ['judgeAnalytics', 'list', params] as const,
     detail: (identifier: string) => ['judgeAnalytics', 'detail', identifier] as const,
+    peers: (identifier: string) => ['judgeAnalytics', 'peers', identifier] as const,
   },
 } as const;

@@ -18,3 +18,11 @@ export const useJudgeAnalyticsDetail = createDetailQueryHook<
   (id) => judgeAnalyticsService.getAnalyticsDetail(id),
   { staleTime: 10 * 60 * 1000 }
 );
+
+export const useJudgeAnalyticsPeers = createDetailQueryHook<
+  Awaited<ReturnType<typeof judgeAnalyticsService.getAnalyticsPeers>>
+>(
+  (id) => queryKeys.judgeAnalytics.peers(id),
+  (id) => judgeAnalyticsService.getAnalyticsPeers(id),
+  { staleTime: 10 * 60 * 1000 }
+);

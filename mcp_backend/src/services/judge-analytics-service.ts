@@ -49,6 +49,17 @@ export interface JudgeAnalyticsFilters {
   offset?: number;
 }
 
+export interface PeerJudge {
+  id: number;
+  judge_name: string;
+  total_decisions: number;
+  appeal_rate: number;
+  cases_appealed: number;
+  appeal_outcomes: JudgeAnalyticsRecord['appeal_outcomes'];
+  vkksu_data: Record<string, unknown>;
+  peer_rank_in_court: number | null;
+}
+
 const ALLOWED_SORT_COLUMNS: Record<string, string> = {
   total_decisions: 'total_decisions',
   appeal_rate: 'appeal_rate',
@@ -118,6 +129,35 @@ export class JudgeAnalyticsService {
     return {
       judges: dataResult.rows,
       total: parseInt(countResult.rows[0]?.total || '0', 10),
+    };
+  }
+
+  async getPeersInCourt(judgeId: number, courtCode: number, limit = 10): Promise<{
+    peers: PeerJudge[];
+    court_name: string | null;
+    total_in_court: number;
+  }> {
+    const [peersResult, countResult] = await Promise.all([
+      this.db.query(
+        `SELECT id, judge_name, total_decisions, appeal_rate, cases_appealed,
+                appeal_outcomes, vkksu_data, peer_rank_in_court
+         FROM judge_analytics
+         WHERE court_code = $1
+         ORDER BY total_decisions DESC
+         LIMIT $2`,
+        [courtCode, limit]
+      ),
+      this.db.query(
+        `SELECT COUNT(*) AS total, MIN(court_name) AS court_name
+         FROM judge_analytics WHERE court_code = $1`,
+        [courtCode]
+      ),
+    ]);
+
+    return {
+      peers: peersResult.rows,
+      court_name: countResult.rows[0]?.court_name || null,
+      total_in_court: parseInt(countResult.rows[0]?.total || '0', 10),
     };
   }
 
