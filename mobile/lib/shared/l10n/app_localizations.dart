@@ -441,6 +441,66 @@ abstract class AppLocalizations {
   /// In uk, this message translates to:
   /// **'Закрити'**
   String get close;
+
+  /// No description provided for @documentPdfPageOf.
+  ///
+  /// In uk, this message translates to:
+  /// **'Сторінка {current} з {total}'**
+  String documentPdfPageOf(int current, int total);
+
+  /// No description provided for @documentPdfRenderError.
+  ///
+  /// In uk, this message translates to:
+  /// **'Не вдалось відобразити PDF: {error}'**
+  String documentPdfRenderError(String error);
+
+  /// No description provided for @documentOpenInBrowser.
+  ///
+  /// In uk, this message translates to:
+  /// **'Відкрити у браузері'**
+  String get documentOpenInBrowser;
+
+  /// No description provided for @documentOpenPdf.
+  ///
+  /// In uk, this message translates to:
+  /// **'Відкрити PDF'**
+  String get documentOpenPdf;
+
+  /// No description provided for @documentImageLoadError.
+  ///
+  /// In uk, this message translates to:
+  /// **'Не вдалось завантажити зображення'**
+  String get documentImageLoadError;
+
+  /// No description provided for @documentEmpty.
+  ///
+  /// In uk, this message translates to:
+  /// **'Документ порожній'**
+  String get documentEmpty;
+
+  /// No description provided for @documentItemOf.
+  ///
+  /// In uk, this message translates to:
+  /// **'{current} з {total}'**
+  String documentItemOf(int current, int total);
+
+  /// No description provided for @documentsEmpty.
+  ///
+  /// In uk, this message translates to:
+  /// **'Немає документів'**
+  String get documentsEmpty;
+
+  /// No description provided for @documentsEmptySubtitle.
+  ///
+  /// In uk, this message translates to:
+  /// **'Натисніть + щоб завантажити файл'**
+  String get documentsEmptySubtitle;
+
+  /// No description provided for @documentDeleteConfirm.
+  ///
+  /// In uk, this message translates to:
+  /// **'Видалити документ?'**
+  String get documentDeleteConfirm;
 }
 
 class _AppLocalizationsDelegate

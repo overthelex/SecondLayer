@@ -9,6 +9,7 @@ import '../../../shared/widgets/loading_indicator.dart';
 import '../../../shared/widgets/error_state.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../navigation/route_names.dart';
+import '../../../shared/l10n/app_localizations.dart';
 
 class DocumentsScreen extends ConsumerWidget {
   const DocumentsScreen({super.key});
@@ -21,7 +22,7 @@ class DocumentsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Документи'),
+        title: Text(AppLocalizations.of(context)!.documents),
         leading: state.breadcrumb.isNotEmpty
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
@@ -87,10 +88,10 @@ class DocumentsScreen extends ConsumerWidget {
                             .loadDocuments(),
                       )
                     : state.folders.isEmpty && state.documents.isEmpty
-                        ? const EmptyState(
+                        ? EmptyState(
                             icon: Icons.folder_open,
-                            title: 'Немає документів',
-                            subtitle: 'Натисніть + щоб завантажити файл',
+                            title: AppLocalizations.of(context)!.documentsEmpty,
+                            subtitle: AppLocalizations.of(context)!.documentsEmptySubtitle,
                           )
                         : ListView(
                             children: [
@@ -126,20 +127,20 @@ class DocumentsScreen extends ConsumerWidget {
                                         context: context,
                                         builder: (ctx) => AlertDialog(
                                           title:
-                                              const Text('Видалити документ?'),
+                                              Text(AppLocalizations.of(context)!.documentDeleteConfirm),
                                           content: Text(doc.title),
                                           actions: [
                                             TextButton(
                                               onPressed: () =>
                                                   Navigator.pop(ctx, false),
                                               child:
-                                                  const Text('Скасувати'),
+                                                  Text(AppLocalizations.of(context)!.cancel),
                                             ),
                                             TextButton(
                                               onPressed: () =>
                                                   Navigator.pop(ctx, true),
                                               child:
-                                                  const Text('Видалити'),
+                                                  Text(AppLocalizations.of(context)!.delete),
                                             ),
                                           ],
                                         ),

@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../domain/document_notifier.dart';
 import '../data/models/document.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/l10n/app_localizations.dart';
 
 /// Standalone screen with AppBar — used when opening a single document.
 class DocumentDetailScreen extends ConsumerWidget {
@@ -151,7 +152,7 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
             ElevatedButton.icon(
               onPressed: _loadContent,
               icon: const Icon(Icons.refresh),
-              label: const Text('Спробувати знову'),
+              label: Text(AppLocalizations.of(context)!.retry),
             ),
           ],
         ),
@@ -169,7 +170,7 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
             Container(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Text(
-                'Сторінка ${_pdfCurrentPage + 1} з $_pdfPages',
+                AppLocalizations.of(context)!.documentPdfPageOf(_pdfCurrentPage + 1, _pdfPages),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -193,7 +194,7 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
               onError: (error) {
                 setState(() {
                   _pdfLocalPath = null;
-                  _error = 'Не вдалось відобразити PDF: $error';
+                  _error = AppLocalizations.of(context)!.documentPdfRenderError(error.toString());
                 });
               },
             ),
@@ -204,7 +205,7 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
             child: TextButton.icon(
               onPressed: () => _openInBrowser(_preview!.previewUrl!),
               icon: const Icon(Icons.open_in_browser, size: 16),
-              label: const Text('Відкрити у браузері'),
+              label: Text(AppLocalizations.of(context)!.documentOpenInBrowser),
             ),
           ),
         ],
@@ -231,7 +232,7 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
               ElevatedButton.icon(
                 onPressed: () => _openInBrowser(_preview!.previewUrl!),
                 icon: const Icon(Icons.open_in_browser),
-                label: const Text('Відкрити PDF'),
+                label: Text(AppLocalizations.of(context)!.documentOpenPdf),
               ),
             ],
           ),
@@ -262,10 +263,10 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
               children: [
                 const Icon(Icons.broken_image, size: 48),
                 const SizedBox(height: 8),
-                const Text('Не вдалось завантажити зображення'),
+                Text(AppLocalizations.of(context)!.documentImageLoadError),
                 TextButton(
                   onPressed: () => _openInBrowser(_preview!.previewUrl!),
-                  child: const Text('Відкрити у браузері'),
+                  child: Text(AppLocalizations.of(context)!.documentOpenInBrowser),
                 ),
               ],
             ),
@@ -318,7 +319,7 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
       );
     }
 
-    return const Center(child: Text('Документ порожній'));
+    return Center(child: Text(AppLocalizations.of(context)!.documentEmpty));
   }
 
   Future<void> _openInBrowser(String url) async {
