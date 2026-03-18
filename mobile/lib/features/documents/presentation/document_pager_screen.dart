@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/models/document.dart';
 import 'document_detail_screen.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/l10n/app_localizations.dart';
 
 /// Full-screen pager that lets you swipe between documents.
 class DocumentPagerScreen extends StatefulWidget {
@@ -51,7 +52,7 @@ class _DocumentPagerScreenState extends State<DocumentPagerScreen> {
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              '${_currentIndex + 1} з ${widget.documents.length}',
+              AppLocalizations.of(context)!.documentItemOf(_currentIndex + 1, widget.documents.length),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

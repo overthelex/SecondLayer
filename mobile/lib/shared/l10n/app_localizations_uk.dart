@@ -181,4 +181,36 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get close => 'Закрити';
+
+  @override
+  String documentPdfPageOf(int current, int total) =>
+      'Сторінка $current з $total';
+
+  @override
+  String documentPdfRenderError(String error) =>
+      'Не вдалось відобразити PDF: $error';
+
+  @override
+  String get documentOpenInBrowser => 'Відкрити у браузері';
+
+  @override
+  String get documentOpenPdf => 'Відкрити PDF';
+
+  @override
+  String get documentImageLoadError => 'Не вдалось завантажити зображення';
+
+  @override
+  String get documentEmpty => 'Документ порожній';
+
+  @override
+  String documentItemOf(int current, int total) => '$current з $total';
+
+  @override
+  String get documentsEmpty => 'Немає документів';
+
+  @override
+  String get documentsEmptySubtitle => 'Натисніть + щоб завантажити файл';
+
+  @override
+  String get documentDeleteConfirm => 'Видалити документ?';
 }
