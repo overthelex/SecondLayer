@@ -9,15 +9,19 @@
  *
  * Remove this script once AWS SDK ships an xml-builder that depends on >=5.5.6.
  */
-const fs = require('fs');
-const path = require('path');
+try {
+  const fs = require('fs');
+  const path = require('path');
 
-const nestedDir = path.join(
-  __dirname, '..', 'node_modules', '@aws-sdk', 'xml-builder',
-  'node_modules', 'fast-xml-parser'
-);
+  const nestedDir = path.join(
+    __dirname, '..', 'node_modules', '@aws-sdk', 'xml-builder',
+    'node_modules', 'fast-xml-parser'
+  );
 
-if (fs.existsSync(nestedDir)) {
-  fs.rmSync(nestedDir, { recursive: true });
-  console.log('[patch] Removed nested fast-xml-parser@5.4.1 from @aws-sdk/xml-builder (using hoisted >=5.5.6)');
+  if (fs.existsSync(nestedDir)) {
+    fs.rmSync(nestedDir, { recursive: true });
+    console.log('[patch] Removed nested fast-xml-parser@5.4.1 from @aws-sdk/xml-builder (using hoisted >=5.5.6)');
+  }
+} catch {
+  // Silently skip in Docker/CI where the script dir may not match node_modules layout
 }

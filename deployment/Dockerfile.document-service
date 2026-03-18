@@ -47,6 +47,7 @@ WORKDIR /app
 
 # Copy workspace package.json for workspace setup
 COPY package.json ./
+COPY scripts/patch-fast-xml-parser.js ./scripts/patch-fast-xml-parser.js
 COPY mcp_backend/package.json ./mcp_backend/
 COPY packages/shared/package.json ./packages/shared/
 
