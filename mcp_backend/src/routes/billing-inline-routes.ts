@@ -157,6 +157,8 @@ export function createBillingInlineRoutes(deps: {
       else if (period === '90d') intervalSql = '90 days';
       else if (period === 'year') intervalSql = '365 days';
 
+      const statusFilter = "AND status = 'completed'";
+
       const statsQuery = `
         SELECT
           COUNT(*) as total_requests,
@@ -165,6 +167,7 @@ export function createBillingInlineRoutes(deps: {
           COALESCE(AVG(total_cost_usd), 0) as avg_cost_per_request
         FROM cost_tracking
         WHERE user_id = $1
+          ${statusFilter}
           AND created_at >= NOW() - INTERVAL '${intervalSql}'
       `;
       const statsResult = await deps.db.query(statsQuery, [userId]);
@@ -172,11 +175,12 @@ export function createBillingInlineRoutes(deps: {
 
       const dailyQuery = `
         SELECT
-          TO_CHAR(created_at::date, 'Mon DD') as date,
+          TO_CHAR(created_at::date, 'DD.MM') as date,
           COUNT(*) as requests,
           COALESCE(SUM(total_cost_usd), 0) as cost
         FROM cost_tracking
         WHERE user_id = $1
+          ${statusFilter}
           AND created_at >= NOW() - INTERVAL '${intervalSql}'
         GROUP BY created_at::date
         ORDER BY created_at::date
@@ -190,6 +194,7 @@ export function createBillingInlineRoutes(deps: {
           COALESCE(SUM(total_cost_usd), 0) as cost
         FROM cost_tracking
         WHERE user_id = $1
+          ${statusFilter}
           AND created_at >= NOW() - INTERVAL '${intervalSql}'
           AND tool_name IS NOT NULL
         GROUP BY tool_name
@@ -205,6 +210,7 @@ export function createBillingInlineRoutes(deps: {
           COALESCE(SUM(total_cost_usd), 0) as value
         FROM cost_tracking
         WHERE user_id = $1
+          ${statusFilter}
           AND created_at >= NOW() - INTERVAL '${intervalSql}'
           AND tool_name IS NOT NULL
         GROUP BY tool_name
@@ -220,6 +226,7 @@ export function createBillingInlineRoutes(deps: {
           COALESCE(SUM(total_cost_usd), 0) as total_cost
         FROM cost_tracking
         WHERE user_id = $1
+          ${statusFilter}
           AND created_at >= NOW() - INTERVAL '${intervalSql}' * 2
           AND created_at < NOW() - INTERVAL '${intervalSql}'
       `;
