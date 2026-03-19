@@ -59,7 +59,7 @@ export class EncryptionService extends BaseService {
     kdf_params: Record<string, unknown>;
   }): Promise<EncryptionKeySetupResponse> {
     return this.request(
-      () => this.client.post<EncryptionKeySetupResponse>('/encryption/setup', data)
+      () => this.client.post<EncryptionKeySetupResponse>('/api/encryption/setup', data)
     );
   }
 
@@ -68,7 +68,7 @@ export class EncryptionService extends BaseService {
    */
   async getStatus(): Promise<EncryptionStatusResponse> {
     return this.request(
-      () => this.client.get<EncryptionStatusResponse>('/encryption/status')
+      () => this.client.get<EncryptionStatusResponse>('/api/encryption/status')
     );
   }
 
@@ -77,7 +77,7 @@ export class EncryptionService extends BaseService {
    */
   async getPublicKey(userId: string): Promise<PublicKeyResponse> {
     return this.request(
-      () => this.client.get<PublicKeyResponse>(`/encryption/public-key/${userId}`)
+      () => this.client.get<PublicKeyResponse>(`/api/encryption/public-key/${userId}`)
     );
   }
 
@@ -86,7 +86,7 @@ export class EncryptionService extends BaseService {
    */
   async getMyKey(): Promise<MyKeyResponse> {
     return this.request(
-      () => this.client.get<MyKeyResponse>('/encryption/my-key')
+      () => this.client.get<MyKeyResponse>('/api/encryption/my-key')
     );
   }
 
@@ -95,7 +95,7 @@ export class EncryptionService extends BaseService {
    */
   async saveDocumentKey(documentId: string, encryptedDek: string): Promise<DocumentKeyResponse> {
     return this.request(
-      () => this.client.post<DocumentKeyResponse>('/encryption/document-keys', {
+      () => this.client.post<DocumentKeyResponse>('/api/encryption/document-keys', {
         document_id: documentId,
         encrypted_dek: encryptedDek,
       })
@@ -107,7 +107,7 @@ export class EncryptionService extends BaseService {
    */
   async getDocumentKey(documentId: string): Promise<DocumentKeyResponse> {
     return this.request(
-      () => this.client.get<DocumentKeyResponse>(`/encryption/document-keys/${documentId}`)
+      () => this.client.get<DocumentKeyResponse>(`/api/encryption/document-keys/${documentId}`)
     );
   }
 
@@ -120,7 +120,7 @@ export class EncryptionService extends BaseService {
     encryptedDek: string
   ): Promise<DocumentKeyResponse> {
     return this.request(
-      () => this.client.post<DocumentKeyResponse>('/encryption/share', {
+      () => this.client.post<DocumentKeyResponse>('/api/encryption/share', {
         document_id: documentId,
         target_user_id: targetUserId,
         encrypted_dek: encryptedDek,
@@ -133,7 +133,7 @@ export class EncryptionService extends BaseService {
    */
   async revokeAccess(documentId: string, userId: string): Promise<void> {
     return this.requestVoid(
-      () => this.client.delete(`/encryption/share/${documentId}/${userId}`)
+      () => this.client.delete(`/api/encryption/share/${documentId}/${userId}`)
     );
   }
 
@@ -143,7 +143,7 @@ export class EncryptionService extends BaseService {
   async getDocumentShares(documentId: string): Promise<DocumentSharesResponse> {
     return this.request(
       () => this.client.get<DocumentSharesResponse>(
-        `/encryption/document-keys/${documentId}/shares`
+        `/api/encryption/document-keys/${documentId}/shares`
       )
     );
   }
@@ -157,7 +157,7 @@ export class EncryptionService extends BaseService {
     recovery_salt: string;
   }): Promise<void> {
     return this.requestVoid(
-      () => this.client.post('/encryption/diia/init-recovery', data)
+      () => this.client.post('/api/encryption/diia/init-recovery', data)
     );
   }
 
@@ -166,7 +166,7 @@ export class EncryptionService extends BaseService {
    */
   async getDiiaRecoveryData(): Promise<DiiaRecoveryResponse> {
     return this.request(
-      () => this.client.get<DiiaRecoveryResponse>('/encryption/diia/recovery-data')
+      () => this.client.get<DiiaRecoveryResponse>('/api/encryption/diia/recovery-data')
     );
   }
 
@@ -181,7 +181,7 @@ export class EncryptionService extends BaseService {
   ): Promise<{ success: boolean; document_id: string }> {
     return this.request(
       () => this.client.post<{ success: boolean; document_id: string }>(
-        '/encryption/encrypt-document',
+        '/api/encryption/encrypt-document',
         {
           document_id: documentId,
           encrypted_content: encryptedContent,
@@ -197,7 +197,7 @@ export class EncryptionService extends BaseService {
   async getVaultStats(): Promise<{ total: number; encrypted: number; unencrypted: number }> {
     return this.request(
       () => this.client.get<{ total: number; encrypted: number; unencrypted: number }>(
-        '/encryption/vault-stats'
+        '/api/encryption/vault-stats'
       )
     );
   }
@@ -211,7 +211,7 @@ export class EncryptionService extends BaseService {
   ): Promise<{ documents: Array<{ id: string; title: string }> }> {
     return this.request(
       () => this.client.get<{ documents: Array<{ id: string; title: string }> }>(
-        `/encryption/unencrypted-documents?limit=${limit}&offset=${offset}`
+        `/api/encryption/unencrypted-documents?limit=${limit}&offset=${offset}`
       )
     );
   }
