@@ -1,6 +1,7 @@
 /**
  * Payment Error/Decline Page
- * Monobank redirects here after a failed or declined payment
+ * Monobank redirects here after a failed or declined payment.
+ * Supports both balance top-up and consultation escrow payments.
  */
 
 import { useEffect, useState } from 'react';
@@ -18,6 +19,8 @@ export function PaymentErrorPage() {
     reason?: string;
   }>({});
 
+  const consultationId = sessionStorage.getItem('lastConsultationId');
+
   useEffect(() => {
     const orderId = searchParams.get('order_id') || '';
     const amount = searchParams.get('amount') || '';
@@ -34,6 +37,14 @@ export function PaymentErrorPage() {
     }
   }, [searchParams]);
 
+  const handleRetry = () => {
+    if (consultationId) {
+      navigate(`/consultations/${consultationId}`);
+    } else {
+      navigate(ROUTES.BILLING);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-red-50 to-white flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-lg border border-red-100 p-8 text-center">
@@ -48,7 +59,9 @@ export function PaymentErrorPage() {
         </h1>
 
         <p className="text-gray-600 mb-6">
-          На жаль, платіж не було оброблено. Кошти з вашого рахунку не списано.
+          {consultationId
+            ? 'На жаль, платіж за консультацію не було оброблено. Кошти з вашого рахунку не списано. Ви можете спробувати знову на сторінці консультації.'
+            : 'На жаль, платіж не було оброблено. Кошти з вашого рахунку не списано.'}
         </p>
 
         {(orderInfo.orderId || orderInfo.reason) && (
@@ -84,20 +97,32 @@ export function PaymentErrorPage() {
 
         <div className="space-y-3">
           <button
-            onClick={() => navigate(ROUTES.BILLING)}
+            onClick={handleRetry}
             className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
           >
             <RefreshCw size={18} />
-            Спробувати ще раз
+            {consultationId ? 'Повернутися до консультації' : 'Спробувати ще раз'}
           </button>
 
-          <button
-            onClick={() => navigate(ROUTES.CHAT)}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-          >
-            На головну
-            <ArrowRight size={18} />
-          </button>
+          {consultationId && (
+            <button
+              onClick={() => navigate(ROUTES.BILLING)}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+            >
+              На головну
+              <ArrowRight size={18} />
+            </button>
+          )}
+
+          {!consultationId && (
+            <button
+              onClick={() => navigate(ROUTES.CHAT)}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+            >
+              На головну
+              <ArrowRight size={18} />
+            </button>
+          )}
         </div>
 
         <p className="text-xs text-gray-400 mt-4">

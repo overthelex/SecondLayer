@@ -146,6 +146,14 @@ export function createConsultationRoutes(
       const consultation = await consultationService.completeConsultation(
         req.params.id as string, req.user.id, req.body.summary
       );
+
+      // Auto-release escrow payment on completion
+      try {
+        await consultationPaymentService.releasePayment(req.params.id as string);
+      } catch (err: any) {
+        logger.warn('Failed to release escrow payment on completion (non-critical)', { error: err.message });
+      }
+
       res.json(consultation);
     } catch (error: any) {
       logger.error('Failed to complete consultation', { error: error.message });
@@ -160,6 +168,14 @@ export function createConsultationRoutes(
       const consultation = await consultationService.cancelConsultation(
         req.params.id as string, req.user.id, req.body.reason
       );
+
+      // Auto-refund escrow payment on cancellation
+      try {
+        await consultationPaymentService.refundPayment(req.params.id as string);
+      } catch (err: any) {
+        logger.warn('Failed to refund escrow payment on cancellation (non-critical)', { error: err.message });
+      }
+
       res.json(consultation);
     } catch (error: any) {
       logger.error('Failed to cancel consultation', { error: error.message });
