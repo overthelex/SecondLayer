@@ -971,8 +971,17 @@ UPSTREAM_EOF
             # Ensure nginx is running
             $DC up -d nginx-prod
 
-            # Validate and reload nginx config
-            if ! docker exec nginx-prod nginx -t 2>&1; then
+            # Validate and reload nginx config (retry up to 5 times — Docker DNS may need a moment)
+            NGINX_OK=false
+            for NGINX_TRY in 1 2 3 4 5; do
+                if docker exec nginx-prod nginx -t 2>&1; then
+                    NGINX_OK=true
+                    break
+                fi
+                echo "nginx -t attempt $NGINX_TRY/5 failed — waiting 3s for Docker DNS..."
+                sleep 3
+            done
+            if [ "$NGINX_OK" != "true" ]; then
                 echo "ERROR: nginx config validation failed! Reverting upstream..."
                 # Revert to old color upstream
                 if [ "$ACTIVE_COLOR" = "blue" ]; then
