@@ -6,12 +6,12 @@
  * - get_legal_act_meta
  */
 
-import { ZOAdapter } from '../../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
 import { logger } from '../../utils/logger.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 
 export class LegalActsTools extends BaseToolHandler {
-  constructor(private zoLegalActsAdapter: ZOAdapter) {
+  constructor(private zoLegalActsAdapter: EdsrLocalAdapter) {
     super();
   }
 

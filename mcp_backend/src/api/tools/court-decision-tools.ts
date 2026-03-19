@@ -11,7 +11,7 @@
  * - count_cases_by_party
  */
 
-import { ZOAdapter } from '../../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
 import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
 import type { IEmbeddingPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
@@ -22,8 +22,8 @@ import { generateCaseNumberVariations, extractSnippets } from '../tool-utils.js'
 
 export class CourtDecisionTools extends BaseToolHandler {
   constructor(
-    private zoAdapter: ZOAdapter,
-    private zoPracticeAdapter: ZOAdapter,
+    private zoAdapter: EdsrLocalAdapter,
+    private zoPracticeAdapter: EdsrLocalAdapter,
     private sectionizer: SemanticSectionizer,
     private embeddingService: IEmbeddingPort,
     private patternStore: LegalPatternStore

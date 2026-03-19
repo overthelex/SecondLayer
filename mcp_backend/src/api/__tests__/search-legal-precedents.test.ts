@@ -1,6 +1,6 @@
 import { MCPQueryAPI } from '../mcp-query-api.js';
 import { QueryPlanner } from '../../services/query-planner.js';
-import { ZOAdapter } from '../../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
 import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
 import { EmbeddingService } from '../../services/embedding-service.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
@@ -14,7 +14,7 @@ describe('search_legal_precedents tool', () => {
   let mcpAPI: MCPQueryAPI;
   let db: Database;
   let queryPlanner: QueryPlanner;
-  let zoAdapter: ZOAdapter;
+  let zoAdapter: EdsrLocalAdapter;
   let sectionizer: SemanticSectionizer;
   let embeddingService: EmbeddingService;
   let patternStore: LegalPatternStore;
@@ -29,7 +29,7 @@ describe('search_legal_precedents tool', () => {
 
     // Initialize services
     queryPlanner = new QueryPlanner();
-    zoAdapter = new ZOAdapter();
+    zoAdapter = new EdsrLocalAdapter();
     sectionizer = new SemanticSectionizer();
     embeddingService = new EmbeddingService();
     await embeddingService.initialize();

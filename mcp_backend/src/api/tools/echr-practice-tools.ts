@@ -6,12 +6,12 @@
  * - get_echr_document
  */
 
-import { ZOAdapter } from '../../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
 import { logger } from '../../utils/logger.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 
 export class ECHRPracticeTools extends BaseToolHandler {
-  constructor(private zoECHRAdapter: ZOAdapter) {
+  constructor(private zoECHRAdapter: EdsrLocalAdapter) {
     super();
   }
 

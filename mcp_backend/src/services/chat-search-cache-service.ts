@@ -11,7 +11,7 @@
 import crypto from 'crypto';
 import { logger } from '../utils/logger.js';
 import type { ICachePort } from '../domain/ports/index.js';
-import { ZOAdapter } from '../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../adapters/edrsr-local-adapter.js';
 import { DocumentService } from './document-service.js';
 
 const CACHE_TTL = parseInt(process.env.CHAT_SEARCH_CACHE_TTL || '1800', 10); // 30 min
@@ -36,7 +36,7 @@ export class ChatSearchCacheService {
   private cache: ICachePort | null = null;
 
   constructor(
-    private zoAdapter: ZOAdapter,
+    private zoAdapter: EdsrLocalAdapter,
     private documentService: DocumentService,
     cache?: ICachePort
   ) {

@@ -64,6 +64,11 @@ function sanitizeSearchQuery(query: string): string {
   return q;
 }
 
+/**
+ * @deprecated ZakonOnline API is fully disabled. Use {@link EdsrLocalAdapter} instead.
+ * This class is kept only for backward compatibility with batch scripts in scripts/.
+ * All tool handlers and services should import EdsrLocalAdapter.
+ */
 export class ZOAdapter {
   private client: AxiosInstance;
   private cache: ICachePort | null = null;

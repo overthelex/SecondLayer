@@ -10,7 +10,7 @@
 
 import { load } from 'cheerio';
 import { QueryPlanner } from '../../services/query-planner.js';
-import { ZOAdapter } from '../../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
 import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
 import type { IEmbeddingPort, ILLMPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
@@ -28,8 +28,8 @@ const MAX_SHEPARDIZATION_BATCH = 15;
 export class LegalAdviceTools extends BaseToolHandler {
   constructor(
     private queryPlanner: QueryPlanner,
-    private zoAdapter: ZOAdapter,
-    private zoPracticeAdapter: ZOAdapter,
+    private zoAdapter: EdsrLocalAdapter,
+    private zoPracticeAdapter: EdsrLocalAdapter,
     private sectionizer: SemanticSectionizer,
     private embeddingService: IEmbeddingPort,
     private patternStore: LegalPatternStore,
