@@ -16,8 +16,11 @@ interface Props {
 }
 
 export function PostUploadDestination({ onComplete }: Props) {
-  const pendingDocumentIds = useUploadStore(s => s.pendingDocumentIds);
-  const dismissDestinationPicker = useUploadStore(s => s.dismissDestinationPicker);
+  const items = useUploadStore(s => s.items);
+  const pendingDocumentIds = items
+    .filter(i => i.status === 'completed' && i.documentId)
+    .map(i => i.documentId!);
+  const dismissDestinationPicker = onComplete;
 
   const [destination, setDestination] = useState<Destination>('new-matter');
   const [saving, setSaving] = useState(false);
