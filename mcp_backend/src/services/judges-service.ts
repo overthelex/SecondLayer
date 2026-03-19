@@ -1,6 +1,6 @@
 import { BaseDatabase } from '@secondlayer/shared';
 import { logger } from '../utils/logger.js';
-import { ZOAdapter } from '../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../adapters/edrsr-local-adapter.js';
 import { getRedisClient } from '../utils/redis-client.js';
 
 export interface JudgeRecord {
@@ -99,9 +99,9 @@ const CACHE_TTL = 86400; // 24 hours
 
 export class JudgesService {
   private db: BaseDatabase;
-  private zoAdapter: ZOAdapter | null;
+  private zoAdapter: EdsrLocalAdapter | null;
 
-  constructor(db: BaseDatabase, zoAdapter?: ZOAdapter) {
+  constructor(db: BaseDatabase, zoAdapter?: EdsrLocalAdapter) {
     this.db = db;
     this.zoAdapter = zoAdapter || null;
   }

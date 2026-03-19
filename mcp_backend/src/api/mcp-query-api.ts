@@ -18,7 +18,7 @@
 import {
   QueryPlanner,
 } from '../services/query-planner.js';
-import { ZOAdapter } from '../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../adapters/edrsr-local-adapter.js';
 import type { IEmbeddingPort } from '../domain/ports/index.js';
 import { LegalPatternStore } from '../services/legal-pattern-store.js';
 import { CitationValidator } from '../services/citation-validator.js';
@@ -37,8 +37,8 @@ export type StreamEventCallback = (event: {
 export class MCPQueryAPI extends BaseToolHandler {
   constructor(
     private queryPlanner: QueryPlanner,
-    private zoAdapter: ZOAdapter,
-    private zoPracticeAdapter: ZOAdapter,
+    private zoAdapter: EdsrLocalAdapter,
+    private zoPracticeAdapter: EdsrLocalAdapter,
     private embeddingService: IEmbeddingPort,
     private patternStore: LegalPatternStore,
     private citationValidator: CitationValidator,

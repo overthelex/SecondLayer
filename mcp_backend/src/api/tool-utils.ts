@@ -6,7 +6,7 @@
  */
 
 import { SectionType } from '../types/index.js';
-import { ZOAdapter } from '../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../adapters/edrsr-local-adapter.js';
 import { logger } from '../utils/logger.js';
 import axios from 'axios';
 
@@ -293,7 +293,7 @@ export function parseOpenReyestrResponse(response: any): any {
  * Resolve court decision doc_id by case number using ZO adapter search.
  */
 export async function resolveCourtDecisionDocIdByCaseNumber(
-  zoAdapter: ZOAdapter,
+  zoAdapter: EdsrLocalAdapter,
   caseNumber: string
 ): Promise<number | null> {
   const cn = String(caseNumber || '').trim();
@@ -381,7 +381,7 @@ export async function callOpenReyestrTool(toolName: string, args: any): Promise<
  * Count all results by paginating through ZO adapter.
  */
 export async function countAllResults(
-  zoAdapter: ZOAdapter,
+  zoAdapter: EdsrLocalAdapter,
   query: string,
   queryParams?: any
 ): Promise<{

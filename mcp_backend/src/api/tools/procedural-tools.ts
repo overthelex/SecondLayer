@@ -11,7 +11,7 @@
  * - calculate_monetary_claims
  */
 
-import { ZOAdapter } from '../../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
 import type { IEmbeddingPort, ILLMPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
 import { SectionType } from '../../types/index.js';
@@ -47,8 +47,8 @@ function extractCourtFromTitle(title?: string): string {
 
 export class ProceduralTools extends BaseToolHandler {
   constructor(
-    private zoAdapter: ZOAdapter,
-    private zoPracticeAdapter: ZOAdapter,
+    private zoAdapter: EdsrLocalAdapter,
+    private zoPracticeAdapter: EdsrLocalAdapter,
     private sectionizer: SemanticSectionizer,
     private embeddingService: IEmbeddingPort,
     private patternStore: LegalPatternStore,
