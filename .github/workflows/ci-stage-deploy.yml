@@ -586,21 +586,30 @@ jobs:
         run: |
           SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}"
 
-          # Health check through nginx (works regardless of blue/green)
+          # Full health check through nginx (works regardless of blue/green)
           for i in 1 2 3 4 5; do
-            if $SSH_CMD "curl -sf --max-time 10 http://localhost/health"; then
-              echo "Production backend (via nginx): healthy"
+            HEALTH=$($SSH_CMD "curl -sf --max-time 10 http://localhost/health" 2>/dev/null) && {
+              echo "=== Production health (via nginx) ==="
+              echo "$HEALTH" | jq . 2>/dev/null || echo "$HEALTH"
+              STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null)
+              if [ "$STATUS" = "degraded" ]; then
+                echo "::warning::Production is degraded"
+                echo "$HEALTH" | jq -r '.checks | to_entries[] | select(.value.ok == false) | "  ✗ \(.key): \(.value.error)"' 2>/dev/null
+              else
+                echo "✓ All checks passed"
+              fi
               break
-            fi
+            }
             [ $i -eq 5 ] && echo "::error::Production health check failed" && exit 1
             sleep 10
           done
 
           for i in 1 2 3; do
-            if curl -sf --max-time 15 "https://legal.org.ua/health"; then
-              echo "Production (public): healthy"
+            PUBLIC_HEALTH=$(curl -sf --max-time 15 "https://legal.org.ua/health" 2>/dev/null) && {
+              echo "=== Production health (public) ==="
+              echo "$PUBLIC_HEALTH" | jq . 2>/dev/null || echo "$PUBLIC_HEALTH"
               break
-            fi
+            }
             [ $i -eq 3 ] && echo "::warning::Public health check timed out — may be Cloudflare cache"
             sleep 5
           done
