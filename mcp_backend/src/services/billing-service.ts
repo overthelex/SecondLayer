@@ -963,6 +963,33 @@ export class BillingService {
   }
 
   /**
+   * Save a payment method (upsert by user + provider + last4 to avoid duplicates)
+   */
+  async savePaymentMethod(userId: string, data: {
+    provider: string;
+    cardLast4?: string;
+    cardBrand?: string;
+    cardBank?: string;
+    label?: string;
+  }): Promise<void> {
+    try {
+      // Upsert: if same card (provider + last4) already exists, update it
+      await this.db.query(
+        `INSERT INTO billing_payment_methods (id, user_id, provider, card_last4, card_brand, card_bank, label, is_primary)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6,
+           NOT EXISTS(SELECT 1 FROM billing_payment_methods WHERE user_id = $1)
+         )
+         ON CONFLICT ON CONSTRAINT billing_payment_methods_user_provider_card_unique
+         DO UPDATE SET card_brand = EXCLUDED.card_brand, card_bank = EXCLUDED.card_bank, updated_at = NOW()`,
+        [userId, data.provider, data.cardLast4 || null, data.cardBrand || null, data.cardBank || null, data.label || null]
+      );
+    } catch (error: any) {
+      // Non-critical — don't fail the payment
+      logger.warn('Failed to save payment method', { userId, error: error.message });
+    }
+  }
+
+  /**
    * Remove a saved payment method
    */
   async removePaymentMethod(userId: string, methodId: string): Promise<void> {

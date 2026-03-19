@@ -294,6 +294,25 @@ export class MonobankService {
       invoiceNumber,
     });
 
+    // Save card details from invoice status (non-blocking)
+    try {
+      const statusData = await this.getInvoiceStatusRaw(body.invoiceId);
+      if (statusData?.paymentInfo?.maskedPan) {
+        const pi2 = statusData.paymentInfo;
+        const last4 = pi2.maskedPan.replace(/[*\s]/g, '').slice(-4);
+        await this.billingService.savePaymentMethod(pi.user_id, {
+          provider: 'monobank',
+          cardLast4: last4,
+          cardBrand: pi2.paymentSystem || null,
+          cardBank: pi2.bank || null,
+          label: `${(pi2.paymentSystem || '').toUpperCase()} •••• ${last4}`,
+        });
+        logger.info('[MonobankService] Card saved from payment', { last4, brand: pi2.paymentSystem });
+      }
+    } catch (cardErr: any) {
+      logger.warn('[MonobankService] Failed to save card (non-critical)', { error: cardErr.message });
+    }
+
     // Send confirmation email
     const metadata = JSON.parse(pi.metadata || '{}');
     if (metadata.email) {
@@ -313,6 +332,19 @@ export class MonobankService {
     }
 
     return { received: true };
+  }
+
+  /**
+   * Get raw invoice status from Monobank (includes paymentInfo with card data).
+   */
+  private async getInvoiceStatusRaw(invoiceId: string): Promise<any> {
+    const key = this.apiKey;
+    const response = await fetch(
+      `https://api.monobank.ua/api/merchant/invoice/status?invoiceId=${encodeURIComponent(invoiceId)}`,
+      { method: 'GET', headers: { 'X-Token': key } }
+    );
+    if (!response.ok) return null;
+    return response.json();
   }
 
   /**
