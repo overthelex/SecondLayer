@@ -4,7 +4,7 @@
  * Configure MONOBANK_API_KEY to enable real payments.
  */
 
-import { createVerify, createPublicKey } from 'crypto';
+import { createVerify, createPublicKey, verify as cryptoVerify } from 'crypto';
 import { logger } from '../utils/logger.js';
 import { BillingService } from './billing-service.js';
 import { EmailService } from './email-service.js';
@@ -171,12 +171,28 @@ export class MonobankService {
       const pubKeyBase64 = await this.getMonobankPublicKey();
       const pubKeyPem = Buffer.from(pubKeyBase64, 'base64').toString('utf8');
       const pubKey = createPublicKey(pubKeyPem);
+      const bodyBuf = typeof rawBody === 'string' ? Buffer.from(rawBody) : rawBody;
+      const sigBuf = Buffer.from(signature, 'base64');
 
-      const verify = createVerify('SHA256');
-      verify.update(typeof rawBody === 'string' ? rawBody : rawBody);
-      verify.end();
+      // Try DER-encoded signature first (standard Node.js ECDSA format)
+      try {
+        const verify = createVerify('SHA256');
+        verify.update(bodyBuf);
+        verify.end();
+        if (verify.verify(pubKey, sigBuf)) return true;
+      } catch { /* DER parse failed, try P1363 below */ }
 
-      return verify.verify(pubKey, signature, 'base64');
+      // Fallback: try crypto.verify with IEEE P1363 format (raw r||s, 64 bytes for P-256)
+      const valid = cryptoVerify(
+        'SHA256',
+        bodyBuf,
+        { key: pubKey, dsaEncoding: 'ieee-p1363' },
+        sigBuf
+      );
+      if (valid) {
+        logger.info('[MonobankService] Signature valid (P1363 format)');
+      }
+      return valid;
     } catch (err: any) {
       logger.error('[MonobankService] Signature validation error', { error: err.message });
       return false;
