@@ -170,7 +170,7 @@ describe('CryptoKeyManager', () => {
       ['deriveKey']
     );
     const masterKey = await crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt, iterations: 1000, hash: 'SHA-256' },
+      { name: 'PBKDF2', salt: salt as unknown as BufferSource, iterations: 1000, hash: 'SHA-256' },
       keyMaterial,
       { name: 'AES-GCM', length: 256 },
       false,

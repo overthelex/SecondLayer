@@ -30,6 +30,16 @@ export function randomBytes(length: number): Uint8Array {
 }
 
 /**
+ * Cast Uint8Array to BufferSource for Web Crypto API compatibility.
+ * TS 5.9+ treats Uint8Array.buffer as ArrayBufferLike (includes SharedArrayBuffer),
+ * but Web Crypto typings require ArrayBuffer. This is a type-level cast only —
+ * at runtime Uint8Array is already accepted by all Web Crypto implementations.
+ */
+export function toBuffer(data: Uint8Array): BufferSource {
+  return data as unknown as BufferSource;
+}
+
+/**
  * Constant-time comparison of two Uint8Arrays.
  */
 export function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {

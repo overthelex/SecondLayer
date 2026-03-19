@@ -10,7 +10,7 @@
 
 // We use tweetnacl for X25519 since Web Crypto doesn't support it natively
 import nacl from 'tweetnacl';
-import { encodeBase64, decodeBase64 } from './utils';
+import { encodeBase64, decodeBase64, toBuffer } from './utils';
 
 export interface KeyPair {
   publicKey: Uint8Array;
@@ -63,7 +63,7 @@ export async function deriveKeyPBKDF2(
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt,
+      salt: toBuffer(salt),
       iterations,
       hash: 'SHA-256',
     },
@@ -100,7 +100,7 @@ export async function deriveKeyFromPassword(
 
     const key = await crypto.subtle.importKey(
       'raw',
-      result.hash,
+      toBuffer(result.hash),
       { name: 'AES-GCM', length: 256 },
       false,
       ['encrypt', 'decrypt']
@@ -142,9 +142,9 @@ export async function encryptPrivateKey(
 ): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: toBuffer(iv) },
     masterKey,
-    privateKey
+    toBuffer(privateKey)
   );
 
   // Concatenate IV + ciphertext (includes auth tag)
@@ -167,9 +167,9 @@ export async function decryptPrivateKey(
   const ciphertext = data.slice(12);
 
   const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: toBuffer(iv) },
     masterKey,
-    ciphertext
+    toBuffer(ciphertext)
   );
 
   return new Uint8Array(plaintext);

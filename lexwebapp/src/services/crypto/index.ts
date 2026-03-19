@@ -39,6 +39,7 @@ export {
   decodeBase64,
   randomBytes,
   timingSafeEqual,
+  toBuffer,
 } from './utils';
 
 export {
