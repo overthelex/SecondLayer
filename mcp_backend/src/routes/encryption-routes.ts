@@ -17,6 +17,20 @@ export function createEncryptionRoutes(
   const router = express.Router();
 
   /**
+   * GET /api/encryption/setup — returns setup status (alias for /status)
+   */
+  router.get('/setup', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      const hasSetup = await encryptionKeyService.hasEncryptionSetup(userId);
+      res.json({ has_encryption: hasSetup });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Помилка перевірки статусу шифрування' });
+    }
+  }) as any);
+
+  /**
    * POST /api/encryption/setup
    * Initialize user encryption keys (called once during E2EE setup)
    */
