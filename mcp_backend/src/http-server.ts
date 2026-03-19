@@ -305,6 +305,15 @@ class HTTPMCPServer {
     // Document classification routes - must come before /api/documents generic REST route
     this.app.use('/api/documents/classify', requireJWT as any, createClassificationRoutes(this.app_.classificationService));
 
+    // Misc document routes (stats, folders, preview, move) - must come before generic /:id REST route
+    this.app.use('/api', createMiscInlineRoutes({
+      db: this.services.db,
+      classificationService: this.app_.classificationService,
+      vaultTools: this.tools.vaultTools,
+      minioService: this.tools.minioService,
+      legislationTools: this.services.legislationTools,
+    }));
+
     // REST API for admin panel (CRUD operations) - require JWT (user login)
     this.app.use('/api/documents', requireJWT as any, createRestAPIRouter(this.services.db));
     this.app.use('/api/patterns', requireJWT as any, createRestAPIRouter(this.services.db));
@@ -658,15 +667,6 @@ class HTTPMCPServer {
     logger.info('Tool routes registered at /api/v1/tools and /api/tools (backward compat)');
 
 
-
-    // Misc inline routes (documents, legislation, history, prompts, internal stats)
-    this.app.use('/api', createMiscInlineRoutes({
-      db: this.services.db,
-      classificationService: this.app_.classificationService,
-      vaultTools: this.tools.vaultTools,
-      minioService: this.tools.minioService,
-      legislationTools: this.services.legislationTools,
-    }));
 
     // 404 handler
     this.app.use((req, res) => {
