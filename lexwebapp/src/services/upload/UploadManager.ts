@@ -97,6 +97,7 @@ export class UploadManager {
       mimeType: string;
       relativePath: string;
       docType: string;
+      encrypt?: boolean;
     }>
   ): UploadItem[] {
     return this.queue.addFiles(files);
@@ -312,6 +313,7 @@ export class UploadManager {
       mimeType: i.mimeType,
       docType: i.docType,
       relativePath: i.relativePath,
+      encrypt: i.encrypt || undefined,
     }));
 
     const retryCtx = { emit: (event: UploadEvent) => this.emit(event) };
@@ -365,6 +367,7 @@ export class UploadManager {
               mimeType: item.mimeType,
               docType: item.docType,
               relativePath: item.relativePath,
+              encrypt: item.encrypt || undefined,
             }),
           retryCtx,
           { label: 'upload init' }
