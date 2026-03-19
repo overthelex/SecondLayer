@@ -192,7 +192,7 @@ export const en = {
   s6_intro:
     'Below are two real cases performed by the LEX platform. They demonstrate the depth of analytics unavailable from any Ukrainian competitor.',
   s6_case1_title:
-    'Case 1: Performance Analysis of Judge Kolesnikova I.S.',
+    'Case 1: Performance Analysis of Judge K. I.S.',
   s6_case1_subtitle:
     'Kyiv District Administrative Court | Full report based on 24,039 USRCD documents',
   s6_case1_intro:
@@ -202,7 +202,7 @@ export const en = {
   s6_case1_stat3: 'deadline violations (#1 in court)',
   s6_case1_stat4: 'cases \u2014 public service',
   s6_case1_conclusion:
-    'AI Conclusion: Judge Kolesnikova I.S. is a high-productivity judge with problematic decision quality. Every second appealed decision is overturned by higher courts. Absolute leader in deadline violations (3.8x above average).',
+    'AI Conclusion: Judge K. I.S. is a high-productivity judge with problematic decision quality. Every second appealed decision is overturned by higher courts. Absolute leader in deadline violations (3.8x above average).',
   s6_case1_value:
     'Practical value: A lawyer receiving such a report can substantiate a judge recusal, adjust defense strategy, or predict the likelihood of appellate review.',
   s6_case1_link: 'Open judge analytics on the platform',
