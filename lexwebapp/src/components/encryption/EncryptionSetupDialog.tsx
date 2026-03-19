@@ -4,7 +4,7 @@
  * Also handles unlock flow for returning users.
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Modal } from '../ui/Modal/Modal';
 import { Shield, Download, Eye, EyeOff, Loader2, KeyRound, Lock } from 'lucide-react';
 import { useEncryptionStore, downloadKeyFile } from '../../stores/encryptionStore';

@@ -4,7 +4,7 @@
  * Each document gets a unique DEK (Data Encryption Key).
  */
 
-import { encodeBase64, decodeBase64, randomBytes } from './utils';
+import { encodeBase64, decodeBase64, randomBytes, toBuffer } from './utils';
 
 /**
  * Generate a random 256-bit DEK for a document.
@@ -19,7 +19,7 @@ export function generateDEK(): Uint8Array {
 async function importDEK(dek: Uint8Array): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     'raw',
-    dek,
+    toBuffer(dek),
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt', 'decrypt']
@@ -40,9 +40,9 @@ export async function encryptContent(
   const plaintext = encoder.encode(content);
 
   const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: toBuffer(iv) },
     key,
-    plaintext
+    toBuffer(plaintext)
   );
 
   const result = new Uint8Array(iv.length + ciphertext.byteLength);
@@ -65,9 +65,9 @@ export async function decryptContent(
   const ciphertext = data.slice(12);
 
   const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: toBuffer(iv) },
     key,
-    ciphertext
+    toBuffer(ciphertext)
   );
 
   const decoder = new TextDecoder();
@@ -86,9 +86,9 @@ export async function encryptBinary(
   const iv = randomBytes(12);
 
   const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: toBuffer(iv) },
     key,
-    data
+    toBuffer(data)
   );
 
   const result = new Uint8Array(iv.length + ciphertext.byteLength);
@@ -110,9 +110,9 @@ export async function decryptBinary(
   const ciphertext = encryptedData.slice(12);
 
   const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: toBuffer(iv) },
     key,
-    ciphertext
+    toBuffer(ciphertext)
   );
 
   return new Uint8Array(plaintext);

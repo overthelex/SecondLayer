@@ -16,7 +16,7 @@
  */
 
 import nacl from 'tweetnacl';
-import { encodeBase64, decodeBase64, randomBytes } from './utils';
+import { encodeBase64, decodeBase64, randomBytes, toBuffer } from './utils';
 
 const HKDF_INFO = new TextEncoder().encode('SecondLayer-E2EE-DEK-v1');
 
@@ -26,7 +26,7 @@ const HKDF_INFO = new TextEncoder().encode('SecondLayer-E2EE-DEK-v1');
 async function deriveWrappingKey(sharedSecret: Uint8Array, salt: Uint8Array): Promise<CryptoKey> {
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    sharedSecret,
+    toBuffer(sharedSecret),
     'HKDF',
     false,
     ['deriveKey']
@@ -36,8 +36,8 @@ async function deriveWrappingKey(sharedSecret: Uint8Array, salt: Uint8Array): Pr
     {
       name: 'HKDF',
       hash: 'SHA-256',
-      salt,
-      info: HKDF_INFO,
+      salt: toBuffer(salt),
+      info: toBuffer(HKDF_INFO),
     },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
@@ -67,9 +67,9 @@ export async function wrapDEK(
   // Encrypt the DEK with AES-256-GCM
   const iv = randomBytes(12);
   const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: toBuffer(iv) },
     wrappingKey,
-    dek
+    toBuffer(dek)
   );
 
   // Pack: ephemeral_public (32) + salt (16) + IV (12) + ciphertext
@@ -105,9 +105,9 @@ export async function unwrapDEK(
 
   // Decrypt the DEK
   const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: toBuffer(iv) },
     wrappingKey,
-    ciphertext
+    toBuffer(ciphertext)
   );
 
   return new Uint8Array(plaintext);
