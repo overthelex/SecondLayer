@@ -124,7 +124,7 @@ export function createBillingServices(db: Database, embeddingService: EmbeddingS
     logger.warn('MOCK_PAYMENTS=true — all payment services are mocked');
   } else {
     // Real Monobank
-    monobankService = new MonobankService(billingService, emailService, db);
+    monobankService = new MonobankService(billingService, emailService, db, currencyService);
     if (!process.env.MONOBANK_API_KEY) {
       logger.warn('MONOBANK_API_KEY is not set — Monobank payments will fail at runtime');
     } else {
