@@ -107,6 +107,7 @@ This DPA becomes effective upon the Client's acceptance of the Service Terms of 
 **Technical measures:**
 - data encryption in transit (TLS 1.2+);
 - data encryption at rest (PostgreSQL, MinIO);
+- end-to-end document encryption (E2EE) — three-level envelope encryption (AES-256-GCM for documents, X25519 ECDH for key wrapping, Argon2id KDF for master secret protection), where encryption keys are stored exclusively on the Controller's side, and the Processor has no technical ability to decrypt the content of encrypted documents;
 - JWT token authentication with limited validity;
 - role-based access control (RBAC);
 - data isolation between clients (matter segregation);
