@@ -56,10 +56,10 @@ export interface CreateB2BInvoiceParams {
 // Seller details from env vars
 function getSellerDetails() {
   return {
-    name: process.env.COMPANY_LEGAL_NAME || 'ТОВ "Лекс ЕйАй"',
-    edrpou: process.env.COMPANY_EDRPOU || '46011385',
-    iban: process.env.COMPANY_IBAN || 'UA333220010000026007700013340',
-    bank: process.env.COMPANY_BANK || 'АТ "УНІВЕРСАЛ БАНК" (monobank)',
+    name: process.env.COMPANY_LEGAL_NAME || 'ФОП Кириченко Ігор Вікторович',
+    edrpou: process.env.COMPANY_EDRPOU || '2967214056',
+    iban: process.env.COMPANY_IBAN || 'UA613220010000026006330050699',
+    bank: process.env.COMPANY_BANK || 'АТ «УНІВЕРСАЛ БАНК»',
     mfo: process.env.COMPANY_MFO || '322001',
     address: process.env.COMPANY_LEGAL_ADDRESS || 'м. Київ, Дніпровський р-н, Садовод вул. Садова 47, буд. 1А',
     isVatPayer: process.env.COMPANY_IS_VAT_PAYER === 'true',
