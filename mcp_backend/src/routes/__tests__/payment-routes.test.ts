@@ -192,6 +192,26 @@ describe('POST /api/billing/payment/monobank/create', () => {
       TEST_USER.email
     );
   });
+
+  it('rejects zero amount', async () => {
+    const { app } = buildPaymentApp();
+
+    const res = await request(app)
+      .post('/api/billing/payment/monobank/create')
+      .send({ amount_uah: 0 });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects negative amount', async () => {
+    const { app } = buildPaymentApp();
+
+    const res = await request(app)
+      .post('/api/billing/payment/monobank/create')
+      .send({ amount_uah: -50 });
+
+    expect(res.status).toBe(400);
+  });
 });
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -353,6 +373,52 @@ describe('POST /webhooks/monobank', () => {
 
     // Main webhook should still succeed
     expect(res.status).toBe(200);
+  });
+
+  it('returns 400 on generic service error (non-signature)', async () => {
+    const { app } = buildWebhookApp({
+      monobank: {
+        handleWebhook: jest.fn().mockRejectedValue(new Error('Database connection lost')),
+      },
+    });
+
+    const body = JSON.stringify({ invoiceId: INVOICE_ID, status: 'success' });
+
+    const res = await request(app)
+      .post('/webhooks/monobank')
+      .set('X-Sign', 'valid-sig')
+      .set('Content-Type', 'application/json')
+      .send(body);
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('Database connection lost');
+  });
+
+  it('handles malformed JSON body gracefully', async () => {
+    const { app } = buildWebhookApp();
+
+    const res = await request(app)
+      .post('/webhooks/monobank')
+      .set('X-Sign', 'valid-sig')
+      .set('Content-Type', 'application/json')
+      .send('not valid json');
+
+    expect(res.status).toBe(400);
+  });
+
+  it('passes non-success status to consultation payment service', async () => {
+    const consultationPayment = makeConsultationPaymentService();
+    const { app } = buildWebhookApp({ consultationPayment });
+
+    const body = JSON.stringify({ invoiceId: INVOICE_ID, status: 'failure' });
+
+    await request(app)
+      .post('/webhooks/monobank')
+      .set('X-Sign', 'valid-sig')
+      .set('Content-Type', 'application/json')
+      .send(body);
+
+    expect(consultationPayment.handleWebhook).toHaveBeenCalledWith(INVOICE_ID, 'failure');
   });
 });
 
