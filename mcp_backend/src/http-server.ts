@@ -37,6 +37,8 @@ import { InvoiceService } from './services/invoice-service.js';
 import { createPaymentRouter, createWebhookRouter } from './routes/payment-routes.js';
 import { createBillingRoutes } from './routes/billing-routes.js';
 import { createAdminRoutes } from './routes/admin-routes.js';
+import { createB2BInvoiceRoutes } from './routes/b2b-invoice-routes.js';
+import { B2BInvoiceService } from './services/b2b-invoice-service.js';
 import { EncryptionKeyService } from './services/encryption-key-service.js';
 import { createEncryptionRoutes } from './routes/encryption-routes.js';
 import { createWorkerHeartbeatRoute } from './routes/worker-heartbeat-routes.js';
@@ -166,6 +168,7 @@ class HTTPMCPServer {
   private mcpSSEServer: MCPSSEServer;
   private apiKeyService: ApiKeyService;
   private creditService: CreditService;
+  private b2bInvoiceService: B2BInvoiceService;
   private oauthService: OAuthService;
   private mcpSseSessions: Map<string, SSEServerTransport> = new Map();
   private toolRegistry: ToolRegistry;
@@ -277,6 +280,10 @@ class HTTPMCPServer {
     this.apiKeyService = new ApiKeyService(this.services.db);
     this.creditService = new CreditService(this.services.db);
     logger.info('Phase 2 billing services initialized (API keys & credits)');
+
+    // B2B Invoice service for legal entities
+    this.b2bInvoiceService = new B2BInvoiceService(this.services.db);
+    logger.info('B2B invoice service initialized');
 
     // Initialize OAuth 2.0 service for ChatGPT integration
     this.oauthService = new OAuthService(this.services.db);
@@ -2429,6 +2436,9 @@ class HTTPMCPServer {
     // GET /api/billing/pricing-info - Get pricing tier information
     // POST /api/billing/estimate-price - Estimate price with user's tier
     this.app.use('/api/billing', requireJWT as any, createBillingRoutes(this.billingService, this.userPreferencesService, this.pricingService));
+
+    // B2B Invoice routes - bank transfer invoicing for legal entities
+    this.app.use('/api/b2b-invoices', requireJWT as any, createB2BInvoiceRoutes(this.b2bInvoiceService, this.billingService, this.subscriptionService, this.services.db));
 
     // Team management routes
     // GET /api/team/members - Get team members
