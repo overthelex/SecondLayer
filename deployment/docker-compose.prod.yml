@@ -288,6 +288,8 @@ services:
     image: rada-mcp-prod:latest
     container_name: rada-mcp-app-prod
     command: ["node", "--max-old-space-size=1536", "dist/http-server.js"]
+    ports:
+      - "127.0.0.1:3001:3001"
     logging:
       driver: json-file
       options:
