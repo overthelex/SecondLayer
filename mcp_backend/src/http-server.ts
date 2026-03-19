@@ -7,39 +7,20 @@ import { logger } from './utils/logger.js';
 import { dualAuth, requireJWT, optionalJWT, initializeDualAuth, initializeWebAuthn, AuthenticatedRequest as DualAuthRequest } from './middleware/dual-auth.js';
 import { configurePassport } from './config/passport.js';
 import authRouter from './routes/auth.js';
-import { setAuthCache, setAuthEmailService, setAuthMinioService, setAuthBannerService, setAuthReferralService } from './controllers/auth.js';
+import { setAuthCache, setAuthMinioService, setAuthBannerService } from './controllers/auth.js';
 import { setOidcCache } from './services/oidc-service.js';
 import { BannerService } from './services/banner-service.js';
 import { setPassportBannerService } from './config/passport.js';
 import { createBackendCoreServices, BackendCoreServices } from './factories/core-services.js';
-import { DocumentAnalysisTools } from './api/document-analysis-tools.js';
-import { BatchDocumentTools } from './api/batch-document-tools.js';
-import { DocumentParser } from './services/document-parser.js';
+import { createToolServices, ToolServices } from './factories/tool-services.js';
 import { createRestAPIRouter } from './routes/rest-api.js';
-import { MetadataExtractor } from './services/metadata-extractor.js';
-import path from 'path';
 // import { createEULARouter } from './routes/eula.js'; // REMOVED: EULA not needed
-import { CostTracker } from './services/cost-tracker.js';
-import { CurrencyService } from './services/currency-service.js';
-import { BillingService } from './services/billing-service.js';
-import { MonobankService } from './services/monobank-service.js';
-import { MetaMaskService } from './services/metamask-service.js';
-import { BinancePayService } from './services/binance-pay-service.js';
-import { NOWPaymentsService } from './services/nowpayments-service.js';
-import { EmailService } from './services/email-service.js';
-import { MockMonobankService } from './services/__mocks__/monobank-service-mock.js';
-import { MockMetaMaskService } from './services/__mocks__/metamask-service-mock.js';
-import { MockBinancePayService } from './services/__mocks__/binance-pay-service-mock.js';
-import { MockNOWPaymentsService } from './services/__mocks__/nowpayments-service-mock.js';
-import { initializeCryptoTagMiddleware } from './middleware/crypto-tag-required.js';
 import { createBalanceCheckMiddleware } from './middleware/balance-check.js';
-import { InvoiceService } from './services/invoice-service.js';
 import { createPaymentRouter, createWebhookRouter } from './routes/payment-routes.js';
 import { createBillingRoutes } from './routes/billing-routes.js';
 import { createAdminRoutes } from './routes/admin-routes.js';
 import { createB2BInvoiceRoutes } from './routes/b2b-invoice-routes.js';
-import { B2BInvoiceService } from './services/b2b-invoice-service.js';
-import { EncryptionKeyService } from './services/encryption-key-service.js';
+import { createBillingServices, BillingServices } from './factories/billing-services.js';
 import { createEncryptionRoutes } from './routes/encryption-routes.js';
 import { createWorkerHeartbeatRoute } from './routes/worker-heartbeat-routes.js';
 import { createDecisionsRoutes } from './routes/decisions-routes.js';
@@ -53,8 +34,6 @@ import { requestContext } from './utils/openai-client.js';
 import { getOpenAIManager } from './utils/openai-client.js';
 import passport from 'passport';
 import { MCPSSEServer } from './api/mcp-sse-server.js';
-import { ApiKeyService } from './services/api-key-service.js';
-import { CreditService } from './services/credit-service.js';
 import { createApiKeyRouter } from './routes/api-key-routes.js';
 import { getRedisClient } from './utils/redis-client.js';
 import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
@@ -67,29 +46,8 @@ import { createOAuthRouter } from './routes/oauth-routes.js';
 import { OAuthService } from './services/oauth-service.js';
 // createHybridAuthMiddleware available from './middleware/oauth-auth.js' if needed
 import { mcpDiscoveryRateLimit, healthCheckRateLimit, webhookRateLimit, chatRateLimit, globalApiRateLimit } from './middleware/rate-limit.js';
-import { ToolRegistry } from './api/tool-registry.js';
-import { BusinessRegistryTools } from './api/tools/business-registry-tools.js';
-import { CourtDecisionTools } from './api/tools/court-decision-tools.js';
-import { ProceduralTools } from './api/tools/procedural-tools.js';
-import { LegalAdviceTools } from './api/tools/legal-advice-tools.js';
-import { DueDiligenceTools } from './api/due-diligence-tools.js';
-import { DueDiligenceService } from './services/due-diligence-service.js';
-import { CourtSessionTools } from './api/tools/court-session-tools.js';
-import { LegalActsTools } from './api/tools/legal-acts-tools.js';
-import { ECHRPracticeTools } from './api/tools/echr-practice-tools.js';
-import { EdsrSearchTools } from './api/tools/edrsr-search-tools.js';
-import { EdsrSemanticTools } from './api/tools/edrsr-semantic-tools.js';
-import { EdsrFtsService } from './services/edrsr-fts-service.js';
-import { EdsrVectorizerService } from './services/edrsr-vectorizer-service.js';
-import { ServiceProxy } from './services/service-proxy.js';
 import { ServiceType } from './types/gateway.js';
-import { UploadService } from './services/upload-service.js';
-import { MinioService } from './services/minio-service.js';
-import { NextcloudService } from './services/nextcloud-service.js';
-import { NextcloudTools } from './api/tools/nextcloud-tools.js';
-import { StateRegistryTools } from './api/tools/state-registry-tools.js';
 import { createUploadRouter } from './routes/upload-routes.js';
-import { VaultTools } from './api/vault-tools.js';
 import { ConversationService } from './services/conversation-service.js';
 import { GdprService } from './services/gdpr-service.js';
 import { createConversationRouter } from './routes/conversation-routes.js';
@@ -114,10 +72,6 @@ import { createInvoiceRoutes } from './routes/invoice-routes.js';
 import { ChatService, ChatEvent } from './services/chat-service.js';
 import { getLLMManager } from './utils/llm-client-manager.js';
 import { ChatSearchCacheService } from './services/chat-search-cache-service.js';
-import { PricingService } from './services/pricing-service.js';
-import { SubscriptionService } from './services/subscription-service.js';
-import { UserPreferencesService } from './services/user-preferences-service.js';
-import { PrometheusService } from './services/prometheus-service.js';
 import { UserService } from './services/user-service.js';
 import { WebAuthnService } from './services/webauthn-service.js';
 import { setRateLimitCache } from './middleware/rate-limit.js';
@@ -138,44 +92,20 @@ import { JudgesService } from './services/judges-service.js';
 import { createJudgesRoutes } from './routes/judges-routes.js';
 import { JudgeAnalyticsService } from './services/judge-analytics-service.js';
 import { createJudgeAnalyticsRoutes } from './routes/judge-analytics-routes.js';
-import { ReferralService } from './services/referral-service.js';
 import { createReferralRoutes } from './routes/referral-routes.js';
 import { sanitizeId, maskSensitive } from './utils/sanitize-log.js';
 import rateLimit from 'express-rate-limit';
-import cron from 'node-cron';
 
 dotenv.config();
 
 class HTTPMCPServer {
   private app: express.Application;
   private services: BackendCoreServices;
-  private documentParser: DocumentParser;
-  private documentAnalysisTools: DocumentAnalysisTools;
-  private batchDocumentTools: BatchDocumentTools;
-  private costTracker: CostTracker;
-  private billingService: BillingService;
-  private encryptionKeyService: EncryptionKeyService;
-  private pricingService: PricingService;
-  private subscriptionService: SubscriptionService;
-  private userPreferencesService: UserPreferencesService;
-  private prometheusService: PrometheusService;
-  private monobankService: MonobankService | MockMonobankService;
-  private metamaskService: MetaMaskService | MockMetaMaskService;
-  private binancePayService: BinancePayService | MockBinancePayService;
-  private nowpaymentsService: NOWPaymentsService | MockNOWPaymentsService;
-  private emailService: EmailService;
-  private invoiceService: InvoiceService;
+  private billing: BillingServices;
+  private tools: ToolServices;
   private mcpSSEServer: MCPSSEServer;
-  private apiKeyService: ApiKeyService;
-  private creditService: CreditService;
-  private b2bInvoiceService: B2BInvoiceService;
   private oauthService: OAuthService;
   private mcpSseSessions: Map<string, SSEServerTransport> = new Map();
-  private toolRegistry: ToolRegistry;
-  private serviceProxy: ServiceProxy;
-  private uploadService: UploadService;
-  private minioService: MinioService;
-  private vaultTools: VaultTools;
   private conversationService: ConversationService;
   private gdprService: GdprService;
   private auditService: AuditService;
@@ -199,8 +129,6 @@ class HTTPMCPServer {
   private attorneyProfileService: AttorneyProfileService;
   private consultationService: ConsultationService;
   private consultationPaymentService: ConsultationPaymentService;
-  private currencyService: CurrencyService;
-  private referralService: ReferralService;
 
   constructor() {
     this.app = express();
@@ -213,177 +141,20 @@ class HTTPMCPServer {
     const llmAdapter = new LLMAdapter(getLLMManager());
     this.llmAdapter = llmAdapter;
 
-    // Initialize document parser with Vision API credentials
-    // Use env var if set (for Docker), otherwise fallback to local path
-    const visionKeyPath = process.env.VISION_CREDENTIALS_PATH ||
-                         process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-                         path.resolve(process.cwd(), '../vision-ocr-credentials.json');
-    this.documentParser = new DocumentParser(visionKeyPath, llmAdapter);
-    this.documentAnalysisTools = new DocumentAnalysisTools(
-      this.documentParser,
-      this.services.sectionizer,
-      this.services.patternStore,
-      this.services.citationValidator,
-      this.services.embeddingService,
-      this.services.documentService,
-      llmAdapter
-    );
+    // Initialize billing, payment, and cost tracking services via factory
+    this.billing = createBillingServices(this.services.db, this.services.embeddingService);
 
-    // Initialize batch document tools
-    this.batchDocumentTools = new BatchDocumentTools(
-      this.documentParser,
-      this.documentAnalysisTools
-    );
-    logger.info('Batch document processing tools initialized');
-
-    // Initialize cost tracker, billing service, and currency service
-    this.costTracker = new CostTracker(this.services.db);
-    this.billingService = new BillingService(this.services.db);
-    this.encryptionKeyService = new EncryptionKeyService(this.services.db);
-    this.currencyService = new CurrencyService();
-
-    // Fetch NBU exchange rate on startup
-    this.currencyService.refreshRate().catch(err => {
-      logger.warn('[HTTPMCPServer] Initial NBU rate fetch failed', { error: (err as Error).message });
-    });
-
-    // Schedule daily NBU rate refresh at 6:00 AM Kyiv time
-    cron.schedule('0 6 * * *', () => {
-      logger.info('[HTTPMCPServer] Running scheduled NBU rate refresh');
-      this.currencyService.refreshRate().catch(err => {
-        logger.error('[HTTPMCPServer] Scheduled NBU rate refresh failed', { error: (err as Error).message });
-      });
-    }, { timezone: 'Europe/Kyiv' });
-
-    this.pricingService = new PricingService(this.services.db);
-    this.subscriptionService = new SubscriptionService(this.services.db);
-    this.userPreferencesService = new UserPreferencesService(this.services.db);
-    this.prometheusService = new PrometheusService(process.env.PROMETHEUS_URL);
-    this.invoiceService = new InvoiceService();
-    this.billingService.setCurrencyService(this.currencyService);
-    this.costTracker.setBillingService(this.billingService);
-    this.referralService = new ReferralService(this.services.db, this.billingService);
-    setAuthReferralService(this.referralService);
-    this.billingService.setReferralRewardCallback(
-      (userId, amountUsd, amountUah, transactionId) =>
-        this.referralService.processReward(userId, amountUsd, amountUah, transactionId)
-    );
-
-    // Register VoyageAI token usage callback on EmbeddingService
-    this.services.embeddingService.setTokenUsageCallback((tokens, model, task) => {
-      this.costTracker.recordVoyageCall({ model, totalTokens: tokens, task }).catch((err) => {
-        logger.warn('Failed to record VoyageAI tokens in monthly stats', { error: err.message });
-      });
-    });
-
-    // Initialize Phase 2 billing services (API keys & credits)
-    this.apiKeyService = new ApiKeyService(this.services.db);
-    this.creditService = new CreditService(this.services.db);
-    logger.info('Phase 2 billing services initialized (API keys & credits)');
-
-    // B2B Invoice service for legal entities
-    this.b2bInvoiceService = new B2BInvoiceService(this.services.db);
-    logger.info('B2B invoice service initialized');
+    // Initialize tool registry, service proxy, document tools, upload/minio/vault via factory
+    this.tools = createToolServices(this.services, this.billing.costTracker, llmAdapter);
 
     // Initialize OAuth 2.0 service for ChatGPT integration
     this.oauthService = new OAuthService(this.services.db);
     logger.info('OAuth 2.0 service initialized');
 
-    // Initialize Unified Gateway components
-    this.toolRegistry = new ToolRegistry();
-    this.serviceProxy = new ServiceProxy(this.costTracker);
-    logger.info('Unified Gateway initialized (Tool Registry + Service Proxy)');
-
-    // Register all tool handlers with the central registry
-    this.toolRegistry.registerHandler(this.services.legislationTools);
-    this.toolRegistry.registerHandler(this.documentAnalysisTools);
-    this.toolRegistry.registerHandler(this.batchDocumentTools);
-    this.toolRegistry.registerHandler(new BusinessRegistryTools());
-    const ddService = new DueDiligenceService(
-      this.services.sectionizer,
-      this.services.patternStore,
-      this.services.citationValidator,
-      this.services.documentService,
-      llmAdapter
-    );
-    this.toolRegistry.registerHandler(new DueDiligenceTools(ddService));
-    this.toolRegistry.registerHandler(this.services.mcpAPI);
-    this.toolRegistry.registerHandler(new CourtDecisionTools(
-      this.services.zoAdapter,
-      this.services.zoPracticeAdapter,
-      this.services.sectionizer,
-      this.services.embeddingService,
-      this.services.patternStore
-    ));
-    this.toolRegistry.registerHandler(new ProceduralTools(
-      this.services.zoAdapter,
-      this.services.zoPracticeAdapter,
-      this.services.sectionizer,
-      this.services.embeddingService,
-      this.services.patternStore,
-      llmAdapter
-    ));
-    this.toolRegistry.registerHandler(new LegalAdviceTools(
-      this.services.queryPlanner,
-      this.services.zoAdapter,
-      this.services.zoPracticeAdapter,
-      this.services.sectionizer,
-      this.services.embeddingService,
-      this.services.patternStore,
-      this.services.citationValidator,
-      this.services.shepardizationService,
-      llmAdapter
-    ));
-    this.toolRegistry.registerHandler(new CourtSessionTools(
-      this.services.zoSessionsAdapter,
-      this.services.db
-    ));
-    this.toolRegistry.registerHandler(new LegalActsTools(this.services.zoLegalActsAdapter));
-    this.toolRegistry.registerHandler(new ECHRPracticeTools(this.services.zoECHRAdapter));
-    this.toolRegistry.registerHandler(new StateRegistryTools(this.services.db));
-    this.toolRegistry.registerHandler(new EdsrSearchTools(this.services.db));
-
-    // EDRSR FTS + semantic search + on-demand vectorization
-    const edsrFtsService = new EdsrFtsService();
-    let edsrVectorizer: EdsrVectorizerService | undefined;
-    try {
-      edsrVectorizer = new EdsrVectorizerService();
-      edsrVectorizer.setTokenUsageCallback((tokens, model, task) => {
-        this.costTracker.recordVoyageCall({ model, totalTokens: tokens, task }).catch((err) => {
-          logger.warn('Failed to record Voyage cost', { error: err.message });
-        });
-      });
-    } catch (err: any) {
-      logger.warn('EdsrVectorizerService not available (VOYAGEAI_API_KEY missing?)', { error: err.message });
-    }
-    if (edsrVectorizer) {
-      this.toolRegistry.registerHandler(new EdsrSemanticTools(this.services.db, edsrFtsService, edsrVectorizer));
-    }
-    logger.info('Core tool handlers registered with ToolRegistry');
-
-    // Initialize Nextcloud integration
-    const nextcloudService = new NextcloudService();
-    this.toolRegistry.registerHandler(new NextcloudTools(nextcloudService));
-    logger.info('Nextcloud tools registered');
-
-    // Initialize upload and storage services
-    this.uploadService = new UploadService(this.services.db);
-    this.minioService = new MinioService();
-    const metadataExtractor = new MetadataExtractor(llmAdapter);
-    this.vaultTools = new VaultTools(
-      this.documentParser,
-      this.services.sectionizer,
-      this.services.patternStore,
-      this.services.embeddingService,
-      this.services.documentService,
-      metadataExtractor
-    );
-    this.vaultTools.setMinioService(this.minioService);
-    this.toolRegistry.registerHandler(this.vaultTools);
     this.conversationService = new ConversationService(this.services.db);
-    this.gdprService = new GdprService(this.services.db, this.minioService, this.services.embeddingService);
-    setAuthMinioService(this.minioService);
-    const bannerService = new BannerService(this.minioService, this.services.db);
+    this.gdprService = new GdprService(this.services.db, this.tools.minioService, this.services.embeddingService);
+    setAuthMinioService(this.tools.minioService);
+    const bannerService = new BannerService(this.tools.minioService, this.services.db);
     setAuthBannerService(bannerService);
     setPassportBannerService(bannerService);
     logger.info('Upload, MinIO, and Banner services initialized');
@@ -405,8 +176,8 @@ class HTTPMCPServer {
 
     // Initialize workflow services
     this.workflowService = new WorkflowService(this.services.db);
-    this.workflowGeneratorService = new WorkflowGeneratorService(this.toolRegistry, llmAdapter);
-    this.workflowExecutorService = new WorkflowExecutorService(this.toolRegistry, this.workflowService, this.costTracker);
+    this.workflowGeneratorService = new WorkflowGeneratorService(this.tools.toolRegistry, llmAdapter);
+    this.workflowExecutorService = new WorkflowExecutorService(this.tools.toolRegistry, this.workflowService, this.billing.costTracker);
     logger.info('Workflow services initialized');
 
     // Initialize ChatService (agentic LLM loop) with search cache
@@ -415,9 +186,9 @@ class HTTPMCPServer {
       this.services.documentService
     );
     this.chatService = new ChatService(
-      this.toolRegistry,
+      this.tools.toolRegistry,
       this.services.queryPlanner,
-      this.costTracker,
+      this.billing.costTracker,
       llmAdapter,
       this.chatSearchCache,
       this.conversationService,
@@ -435,14 +206,14 @@ class HTTPMCPServer {
     this.classificationService = new DocumentClassificationService(
       this.services.db,
       llmAdapter,
-      this.costTracker
+      this.billing.costTracker
     );
 
     // Initialize BullMQ upload queue service
     this.uploadQueueService = new UploadQueueService(
-      this.uploadService,
-      this.minioService,
-      this.vaultTools,
+      this.tools.uploadService,
+      this.tools.minioService,
+      this.tools.vaultTools,
       this.services.db,
       this.services.documentService
     );
@@ -464,7 +235,7 @@ class HTTPMCPServer {
     });
 
     // Wire cost tracker to Prometheus counter
-    this.costTracker.setMetricsCallback((toolName, costUsd) => {
+    this.billing.costTracker.setMetricsCallback((toolName, costUsd) => {
       this.metricsService.costTrackingTotalUsd.inc({ tool_name: toolName }, costUsd);
     });
 
@@ -484,7 +255,7 @@ class HTTPMCPServer {
     this.services.zoAdapter.setExternalApiMetrics(externalApiMetricsCallback);
     this.services.zoPracticeAdapter.setExternalApiMetrics(externalApiMetricsCallback);
     this.services.zoSessionsAdapter.setExternalApiMetrics(externalApiMetricsCallback);
-    this.serviceProxy.setExternalApiMetrics(externalApiMetricsCallback);
+    this.tools.serviceProxy.setExternalApiMetrics(externalApiMetricsCallback);
     getLLMManager().setExternalApiMetrics(externalApiMetricsCallback);
     this.services.legislationTools.getLegislationService().getAdapter().setExternalApiMetrics(externalApiMetricsCallback);
 
@@ -492,76 +263,14 @@ class HTTPMCPServer {
 
     // Initialize upload recovery service (uses BullMQ for re-enqueuing)
     this.uploadRecoveryService = new UploadRecoveryService(
-      this.uploadService,
-      this.minioService,
-      this.vaultTools,
+      this.tools.uploadService,
+      this.tools.minioService,
+      this.tools.vaultTools,
       this.services.db,
       this.services.documentService
     );
     this.uploadRecoveryService.setQueueService(this.uploadQueueService);
 
-    // Initialize payment services
-    this.emailService = new EmailService();
-    this.emailService.setPreferenceFetcher((userId: string) =>
-      this.billingService.getEmailPreferences(userId)
-    );
-    setAuthEmailService(this.emailService);
-
-    // Use mock services ONLY when explicitly enabled via MOCK_PAYMENTS=true
-    const mockPaymentsEnabled = process.env.MOCK_PAYMENTS === 'true';
-
-    if (mockPaymentsEnabled) {
-      this.monobankService = new MockMonobankService(this.billingService, this.emailService, this.services.db);
-      this.metamaskService = new MockMetaMaskService(this.billingService, this.emailService);
-      this.binancePayService = new MockBinancePayService(this.billingService, this.emailService);
-      this.nowpaymentsService = new MockNOWPaymentsService(this.billingService, this.emailService);
-      logger.warn('MOCK_PAYMENTS=true — all payment services are mocked');
-    } else {
-      // Real Monobank — will fail at runtime if MONOBANK_API_KEY is missing
-      this.monobankService = new MonobankService(this.billingService, this.emailService, this.services.db);
-      if (!process.env.MONOBANK_API_KEY) {
-        logger.warn('MONOBANK_API_KEY is not set — Monobank payments will fail at runtime');
-      } else {
-        logger.info('Monobank service: REAL');
-      }
-
-      // MetaMask — real if keys available, mock otherwise (crypto is optional)
-      if (process.env.CRYPTO_RECEIVING_WALLET && process.env.ETHEREUM_RPC_URL) {
-        this.metamaskService = new MetaMaskService(this.billingService, this.emailService, this.services.db);
-        logger.info('MetaMask service: REAL');
-      } else {
-        this.metamaskService = new MockMetaMaskService(this.billingService, this.emailService);
-        logger.info('MetaMask service: MOCK (no CRYPTO_RECEIVING_WALLET / ETHEREUM_RPC_URL)');
-      }
-
-      // Binance Pay — real if keys available, mock otherwise (crypto is optional)
-      if (process.env.BINANCE_PAY_API_KEY && process.env.BINANCE_PAY_SECRET_KEY) {
-        this.binancePayService = new BinancePayService(this.billingService, this.emailService, this.services.db);
-        logger.info('Binance Pay service: REAL');
-      } else {
-        this.binancePayService = new MockBinancePayService(this.billingService, this.emailService);
-        logger.info('Binance Pay service: MOCK (no BINANCE_PAY keys)');
-      }
-
-      // NOWPayments — real if keys available, mock otherwise
-      if (process.env.NOWPAYMENTS_API_KEY && process.env.NOWPAYMENTS_IPN_SECRET) {
-        this.nowpaymentsService = new NOWPaymentsService(this.billingService, this.emailService, this.services.db);
-        logger.info('NOWPayments service: REAL');
-      } else {
-        this.nowpaymentsService = new MockNOWPaymentsService(this.billingService, this.emailService);
-        logger.info('NOWPayments service: MOCK (no NOWPAYMENTS keys)');
-      }
-    }
-
-    initializeCryptoTagMiddleware(this.services.db);
-
-    logger.info('Payment services initialized', {
-      mockPayments: mockPaymentsEnabled,
-      monobank: this.monobankService.constructor.name,
-      metamask: this.metamaskService.constructor.name,
-      binancePay: this.binancePayService.constructor.name,
-      nowpayments: this.nowpaymentsService.constructor.name,
-    });
 
     // Initialize Attorney Consultation services (after payment services)
     this.attorneyProfileService = new AttorneyProfileService(this.services.db);
@@ -574,23 +283,23 @@ class HTTPMCPServer {
     this.consultationPaymentService = new ConsultationPaymentService(
       this.services.db,
       this.consultationService,
-      this.monobankService
+      this.billing.monobankService
     );
     logger.info('Attorney consultation services initialized');
 
     const openaiManager = getOpenAIManager();
-    openaiManager.setCostTracker(this.costTracker);
-    this.services.zoAdapter.setCostTracker(this.costTracker);
-    this.services.zoPracticeAdapter.setCostTracker(this.costTracker);
+    openaiManager.setCostTracker(this.billing.costTracker);
+    this.services.zoAdapter.setCostTracker(this.billing.costTracker);
+    this.services.zoPracticeAdapter.setCostTracker(this.billing.costTracker);
 
     // Wire cost metrics to Prometheus (callback set after metricsService init below)
     logger.info('Cost tracking and billing initialized');
 
     // Initialize MCP SSE Server for ChatGPT integration
     this.mcpSSEServer = new MCPSSEServer(
-      this.toolRegistry,
-      this.costTracker,
-      this.creditService
+      this.tools.toolRegistry,
+      this.billing.costTracker,
+      this.billing.creditService
     );
     logger.info('MCP SSE Server initialized with Phase 2 billing support');
 
@@ -598,7 +307,7 @@ class HTTPMCPServer {
     configurePassport(this.services.db);
     const userService = new UserService(this.services.db);
     const webAuthnService = new WebAuthnService(this.services.db);
-    initializeDualAuth(userService, this.apiKeyService);
+    initializeDualAuth(userService, this.billing.apiKeyService);
     initializeWebAuthn(webAuthnService);
     logger.info('Authentication configured (Google OAuth2 + dual auth + WebAuthn)');
 
@@ -644,7 +353,7 @@ class HTTPMCPServer {
       '/webhooks',
       webhookRateLimit as any,
       express.raw({ type: 'application/json', limit: '10mb' }),
-      createWebhookRouter(this.monobankService, this.binancePayService, this.nowpaymentsService, this.consultationPaymentService)
+      createWebhookRouter(this.billing.monobankService, this.billing.binancePayService, this.billing.nowpaymentsService, this.consultationPaymentService)
     );
 
     // JSON parsing with UTF-8 support (for all other routes)
@@ -695,7 +404,7 @@ class HTTPMCPServer {
    */
   private createToolRouter(): Router {
     const router = Router();
-    const balanceCheckMiddleware = createBalanceCheckMiddleware(this.billingService, this.costTracker);
+    const balanceCheckMiddleware = createBalanceCheckMiddleware(this.billing.billingService, this.billing.costTracker);
 
     // Inject apiVersion into all JSON responses from this router
     router.use((_req: Request, res: Response, next) => {
@@ -715,15 +424,15 @@ class HTTPMCPServer {
         const gatewayEnabled = process.env.ENABLE_UNIFIED_GATEWAY === 'true';
 
         if (gatewayEnabled) {
-          const allTools = await this.toolRegistry.getAllTools(
-            this.toolRegistry.getLocalToolDefinitions(),
+          const allTools = await this.tools.toolRegistry.getAllTools(
+            this.tools.toolRegistry.getLocalToolDefinitions(),
             process.env.RADA_MCP_URL,
             process.env.RADA_API_KEY,
             process.env.OPENREYESTR_MCP_URL,
             process.env.OPENREYESTR_API_KEY
           );
 
-          const counts = this.toolRegistry.getToolCounts();
+          const counts = this.tools.toolRegistry.getToolCounts();
 
           res.json({
             tools: allTools,
@@ -734,7 +443,7 @@ class HTTPMCPServer {
             },
           });
         } else {
-          const tools = this.toolRegistry.getLocalToolDefinitions();
+          const tools = this.tools.toolRegistry.getLocalToolDefinitions();
 
           res.json({
             tools,
@@ -769,7 +478,7 @@ class HTTPMCPServer {
         const results = await Promise.all(
           calls.map(async (call: { name: string; arguments?: any }) => {
             try {
-              const result = await this.toolRegistry.executeTool(
+              const result = await this.tools.toolRegistry.executeTool(
                 call.name,
                 call.arguments || {}
               );
@@ -858,10 +567,10 @@ class HTTPMCPServer {
         // 1. Check credits BEFORE execution (for API key users)
         if (req.authType === 'apikey' && req.user?.id) {
           try {
-            const creditsRequired = await this.creditService.calculateCreditsForTool(toolName, req.user.id);
+            const creditsRequired = await this.billing.creditService.calculateCreditsForTool(toolName, req.user.id);
 
             if (creditsRequired > 0) {
-              const balance = await this.creditService.checkBalance(req.user.id, creditsRequired);
+              const balance = await this.billing.creditService.checkBalance(req.user.id, creditsRequired);
 
               if (!balance.hasCredits) {
                 logger.warn('[HTTP API] Insufficient credits, blocking request', {
@@ -898,7 +607,7 @@ class HTTPMCPServer {
         }
 
         // 2. Create tracking record (pending)
-        await this.costTracker.createTrackingRecord({
+        await this.billing.costTracker.createTrackingRecord({
           requestId,
           toolName,
           clientKey: req.clientKey,
@@ -908,7 +617,7 @@ class HTTPMCPServer {
         });
 
         // 3. Estimate cost BEFORE execution
-        const estimate = await this.costTracker.estimateCost({
+        const estimate = await this.billing.costTracker.estimateCost({
           toolName,
           queryLength: (args.query || '').length,
           reasoningBudget: args.reasoning_budget || 'standard',
@@ -922,7 +631,7 @@ class HTTPMCPServer {
 
         // 4. Route to appropriate service (GATEWAY LOGIC)
         const gatewayEnabled = process.env.ENABLE_UNIFIED_GATEWAY === 'true';
-        const route = gatewayEnabled ? this.toolRegistry.getRoute(toolName) : null;
+        const route = gatewayEnabled ? this.tools.toolRegistry.getRoute(toolName) : null;
 
         let result: any;
 
@@ -948,7 +657,7 @@ class HTTPMCPServer {
           }
 
           // Regular JSON request to remote service
-          const remoteResult = await this.serviceProxy.callRemoteService({
+          const remoteResult = await this.tools.serviceProxy.callRemoteService({
             service: route.service,
             serviceName: route.serviceName,
             args,
@@ -977,7 +686,7 @@ class HTTPMCPServer {
             async () => {
               const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
               const httpToolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId: req.user?.id } : args;
-              return await this.toolRegistry.executeTool(toolName, httpToolArgs);
+              return await this.tools.toolRegistry.executeTool(toolName, httpToolArgs);
             }
           );
         }
@@ -994,7 +703,7 @@ class HTTPMCPServer {
 
         // 5. Complete tracking and get breakdown
         const executionTime = Date.now() - startTime;
-        const breakdown = await this.costTracker.completeTrackingRecord({
+        const breakdown = await this.billing.costTracker.completeTrackingRecord({
           requestId,
           executionTimeMs: executionTime,
           status: 'completed',
@@ -1009,10 +718,10 @@ class HTTPMCPServer {
         // 6. Deduct credits after successful execution (for API key users)
         if (req.authType === 'apikey' && req.user?.id) {
           try {
-            const creditsRequired = await this.creditService.calculateCreditsForTool(toolName, req.user.id);
+            const creditsRequired = await this.billing.creditService.calculateCreditsForTool(toolName, req.user.id);
 
             if (creditsRequired > 0) {
-              const deduction = await this.creditService.deductCredits(
+              const deduction = await this.billing.creditService.deductCredits(
                 req.user.id,
                 creditsRequired,
                 toolName,
@@ -1062,7 +771,7 @@ class HTTPMCPServer {
 
         const executionTime = Date.now() - startTime;
         try {
-          await this.costTracker.completeTrackingRecord({
+          await this.billing.costTracker.completeTrackingRecord({
             requestId,
             executionTimeMs: executionTime,
             status: 'failed',
@@ -1161,7 +870,7 @@ class HTTPMCPServer {
       // MinIO
       try {
         const start = Date.now();
-        const minioResult = await this.minioService.healthCheck();
+        const minioResult = await this.tools.minioService.healthCheck();
         checks.minio = { ...minioResult, latencyMs: Date.now() - start };
         if (!minioResult.ok) degraded = true;
       } catch (err: any) {
@@ -1319,7 +1028,7 @@ class HTTPMCPServer {
           } else {
             // API key - validate and get user info
             clientKey = token;
-            const keyInfo = await this.apiKeyService.validateApiKey(token);
+            const keyInfo = await this.billing.apiKeyService.validateApiKey(token);
 
             if (!keyInfo) {
               logger.warn('[MCP SSE] Invalid API key', {
@@ -1333,7 +1042,7 @@ class HTTPMCPServer {
             }
 
             // Valid API key - check rate limits
-            const rateLimit = await this.apiKeyService.checkRateLimit(token);
+            const rateLimit = await this.billing.apiKeyService.checkRateLimit(token);
 
             if (!rateLimit.allowed) {
               logger.warn('[MCP SSE] Rate limit exceeded', {
@@ -1358,7 +1067,7 @@ class HTTPMCPServer {
             });
 
             // Update API key usage (async, don't wait)
-            this.apiKeyService.updateUsage(token).catch((err) => {
+            this.billing.apiKeyService.updateUsage(token).catch((err) => {
               logger.error('[MCP SSE] Failed to update API key usage', { error: err.message });
             });
           }
@@ -1448,7 +1157,7 @@ class HTTPMCPServer {
             } else {
               // API key
               clientKey = token;
-              const keyInfo = await this.apiKeyService.validateApiKey(token);
+              const keyInfo = await this.billing.apiKeyService.validateApiKey(token);
 
               if (!keyInfo) {
                 logger.warn('[MCP v1/sse] Invalid API key', {
@@ -1462,7 +1171,7 @@ class HTTPMCPServer {
               }
 
               // Check rate limits
-              const rateLimit = await this.apiKeyService.checkRateLimit(token);
+              const rateLimit = await this.billing.apiKeyService.checkRateLimit(token);
 
               if (!rateLimit.allowed) {
                 logger.warn('[MCP v1/sse] Rate limit exceeded', {
@@ -1483,7 +1192,7 @@ class HTTPMCPServer {
               });
 
               // Update API key usage
-              this.apiKeyService.updateUsage(token).catch((err) => {
+              this.billing.apiKeyService.updateUsage(token).catch((err) => {
                 logger.error('[MCP v1/sse] Failed to update API key usage', { error: err.message });
               });
             }
@@ -1514,7 +1223,7 @@ class HTTPMCPServer {
         // Setup tools/list handler
         mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
           return {
-            tools: this.toolRegistry.getLocalToolDefinitions(),
+            tools: this.tools.toolRegistry.getLocalToolDefinitions(),
           };
         });
 
@@ -1532,11 +1241,11 @@ class HTTPMCPServer {
             });
 
             // Phase 2 Billing: Check credits BEFORE execution
-            if (userId && this.creditService) {
-              const creditsRequired = await this.creditService.calculateCreditsForTool(toolName, userId);
+            if (userId && this.billing.creditService) {
+              const creditsRequired = await this.billing.creditService.calculateCreditsForTool(toolName, userId);
 
               if (creditsRequired > 0) {
-                const balance = await this.creditService.checkBalance(userId, creditsRequired);
+                const balance = await this.billing.creditService.checkBalance(userId, creditsRequired);
 
                 if (!balance.hasCredits) {
                   logger.warn('[MCP v1/sse] Insufficient credits', {
@@ -1559,7 +1268,7 @@ class HTTPMCPServer {
             }
 
             // Create cost tracking record
-            await this.costTracker.createTrackingRecord({
+            await this.billing.costTracker.createTrackingRecord({
               requestId,
               toolName,
               clientKey,
@@ -1576,7 +1285,7 @@ class HTTPMCPServer {
                 // Inject userId for all vault tools (user isolation)
                 const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
                 const toolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId } : args;
-                const registryResult = await this.toolRegistry.executeTool(toolName, toolArgs);
+                const registryResult = await this.tools.toolRegistry.executeTool(toolName, toolArgs);
                 if (registryResult) {
                   return registryResult;
                 }
@@ -1586,18 +1295,18 @@ class HTTPMCPServer {
 
             // Complete cost tracking
             const executionTime = Date.now() - startTime;
-            await this.costTracker.completeTrackingRecord({
+            await this.billing.costTracker.completeTrackingRecord({
               requestId,
               executionTimeMs: executionTime,
               status: 'completed',
             });
 
             // Phase 2 Billing: Deduct credits after successful execution
-            if (userId && this.creditService) {
-              const creditsRequired = await this.creditService.calculateCreditsForTool(toolName, userId);
+            if (userId && this.billing.creditService) {
+              const creditsRequired = await this.billing.creditService.calculateCreditsForTool(toolName, userId);
 
               if (creditsRequired > 0) {
-                const deduction = await this.creditService.deductCredits(
+                const deduction = await this.billing.creditService.deductCredits(
                   userId,
                   creditsRequired,
                   toolName,
@@ -1634,7 +1343,7 @@ class HTTPMCPServer {
 
             // Record failure
             const executionTime = Date.now() - startTime;
-            await this.costTracker.completeTrackingRecord({
+            await this.billing.costTracker.completeTrackingRecord({
               requestId,
               executionTimeMs: executionTime,
               status: 'failed',
@@ -1799,7 +1508,7 @@ class HTTPMCPServer {
       try {
         const userId = req.user!.id;
         const prefix = (req.query.prefix as string) || '';
-        const result = await this.vaultTools.listFolders({ prefix, userId });
+        const result = await this.tools.vaultTools.listFolders({ prefix, userId });
         res.json(result);
       } catch (error: any) {
         logger.error('Failed to list folders', { error: error.message });
@@ -1860,10 +1569,10 @@ class HTTPMCPServer {
           let previewUrl: string;
           let previewMime = doc.mime_type;
           if (doc.metadata?.previewKey) {
-            previewUrl = await this.minioService.getFileUrlFromBucket(bucket, doc.metadata.previewKey, 3600, true);
+            previewUrl = await this.tools.minioService.getFileUrlFromBucket(bucket, doc.metadata.previewKey, 3600, true);
             previewMime = 'image/jpeg';
           } else {
-            previewUrl = await this.minioService.getFileUrlFromBucket(bucket, doc.metadata.minioKey, 3600, isPreviewable);
+            previewUrl = await this.tools.minioService.getFileUrlFromBucket(bucket, doc.metadata.minioKey, 3600, isPreviewable);
           }
 
           res.json({ previewUrl, mimeType: previewMime, storageType: 'minio' });
@@ -1920,7 +1629,7 @@ class HTTPMCPServer {
     this.app.use('/api/auth', requireJWT as any, authRouter);
 
     // Phase 2 Billing: API key management - require JWT (user login)
-    this.app.use('/api/keys', requireJWT as any, createApiKeyRouter(this.apiKeyService, this.creditService));
+    this.app.use('/api/keys', requireJWT as any, createApiKeyRouter(this.billing.apiKeyService, this.billing.creditService));
     logger.info('API key management routes registered at /api/keys');
 
     // EULA endpoints - REMOVED: not needed
@@ -1964,7 +1673,7 @@ class HTTPMCPServer {
     // GET /api/currency/rate - Get current USD->UAH rate
     this.app.get('/api/currency/rate', (async (_req: Request, res: Response) => {
       try {
-        const rateInfo = await this.currencyService.getUsdToUahRate();
+        const rateInfo = await this.billing.currencyService.getUsdToUahRate();
         res.json(rateInfo);
       } catch (error: any) {
         logger.error('[CurrencyAPI] Failed to get exchange rate', { error: error.message });
@@ -1977,7 +1686,7 @@ class HTTPMCPServer {
     this.app.get('/api/billing/balance', requireJWT as any, (async (req: DualAuthRequest, res: Response): Promise<any> => {
       try {
         const userId = req.user!.id;
-        const summary = await this.billingService.getBillingSummary(userId);
+        const summary = await this.billing.billingService.getBillingSummary(userId);
 
         if (!summary) {
           return res.status(404).json({
@@ -2015,7 +1724,7 @@ class HTTPMCPServer {
         const offset = parseInt(req.query.offset as string) || 0;
         const type = req.query.type as string;
 
-        const transactions = await this.billingService.getTransactionHistory(userId, {
+        const transactions = await this.billing.billingService.getTransactionHistory(userId, {
           limit,
           offset,
           type,
@@ -2052,7 +1761,7 @@ class HTTPMCPServer {
           });
         }
 
-        const transaction = await this.billingService.topUpBalance({
+        const transaction = await this.billing.billingService.topUpBalance({
           userId,
           amountUsd: amount_usd,
           amountUah: amount_uah || 0,
@@ -2062,8 +1771,8 @@ class HTTPMCPServer {
         });
 
         // Generate invoice number for the transaction
-        const invoiceNumber = this.invoiceService.generateInvoiceNumber(transaction.id);
-        await this.billingService.setTransactionInvoiceNumber(transaction.id, invoiceNumber);
+        const invoiceNumber = this.billing.invoiceService.generateInvoiceNumber(transaction.id);
+        await this.billing.billingService.setTransactionInvoiceNumber(transaction.id, invoiceNumber);
 
         res.json({
           success: true,
@@ -2083,8 +1792,8 @@ class HTTPMCPServer {
     this.app.get('/api/billing/settings', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
       try {
         const userId = req.user!.id;
-        const summary = await this.billingService.getBillingSummary(userId);
-        const emailPrefs = await this.billingService.getEmailPreferences(userId);
+        const summary = await this.billing.billingService.getBillingSummary(userId);
+        const emailPrefs = await this.billing.billingService.getEmailPreferences(userId);
 
         res.json({
           daily_limit_usd: summary?.daily_limit_usd ?? 50,
@@ -2258,7 +1967,7 @@ class HTTPMCPServer {
         if (notify_monthly_report !== undefined) settings.notify_monthly_report = notify_monthly_report;
         if (low_balance_threshold_usd !== undefined) settings.low_balance_threshold_usd = low_balance_threshold_usd;
 
-        await this.billingService.updateBillingSettings(userId, settings);
+        await this.billing.billingService.updateBillingSettings(userId, settings);
 
         res.json({
           success: true,
@@ -2277,7 +1986,7 @@ class HTTPMCPServer {
     this.app.get('/api/billing/email-preferences', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
       try {
         const userId = req.user!.id;
-        const preferences = await this.billingService.getEmailPreferences(userId);
+        const preferences = await this.billing.billingService.getEmailPreferences(userId);
         res.json(preferences);
       } catch (error: any) {
         logger.error('Failed to get email preferences', { error: error.message });
@@ -2384,7 +2093,7 @@ class HTTPMCPServer {
         const amount = parseFloat(tx.amount_usd) || parseFloat(tx.amount_uah) || 0;
         const currency: 'USD' | 'UAH' = parseFloat(tx.amount_usd) > 0 ? 'USD' : 'UAH';
 
-        const invoiceData = this.invoiceService.createInvoiceFromTransaction(
+        const invoiceData = this.billing.invoiceService.createInvoiceFromTransaction(
           tx.id,
           tx.invoice_number,
           tx.user_name || 'Customer',
@@ -2396,7 +2105,7 @@ class HTTPMCPServer {
           tx.payment_id
         );
 
-        const pdfBuffer = await this.invoiceService.generateInvoicePDF(invoiceData);
+        const pdfBuffer = await this.billing.invoiceService.generateInvoicePDF(invoiceData);
 
         // Update generation timestamp
         await this.services.db.query(
@@ -2420,11 +2129,11 @@ class HTTPMCPServer {
     // POST /api/billing/payment/nowpayments/create - Create NOWPayments invoice
     // GET /api/billing/payment/monobank/:invoiceId/status - Check Monobank status
     // GET /api/billing/payment/:provider/:paymentId/status - Check payment status
-    this.app.use('/api/billing/payment', requireJWT as any, createPaymentRouter(this.monobankService, this.metamaskService, this.binancePayService, this.nowpaymentsService, this.services.db));
+    this.app.use('/api/billing/payment', requireJWT as any, createPaymentRouter(this.billing.monobankService, this.billing.metamaskService, this.billing.binancePayService, this.billing.nowpaymentsService, this.services.db));
 
     // Test email route - require JWT (user login)
     // POST /api/billing/test-email - Send test email
-    this.app.use('/api/billing/test-email', requireJWT as any, createTestEmailRoute(this.emailService));
+    this.app.use('/api/billing/test-email', requireJWT as any, createTestEmailRoute(this.billing.emailService));
 
     // Billing and user preferences routes
     // GET /api/billing/preferences - Get user request preferences
@@ -2435,10 +2144,10 @@ class HTTPMCPServer {
     // GET /api/billing/full-settings - Get combined billing and preferences
     // GET /api/billing/pricing-info - Get pricing tier information
     // POST /api/billing/estimate-price - Estimate price with user's tier
-    this.app.use('/api/billing', requireJWT as any, createBillingRoutes(this.billingService, this.userPreferencesService, this.pricingService));
+    this.app.use('/api/billing', requireJWT as any, createBillingRoutes(this.billing.billingService, this.billing.userPreferencesService, this.billing.pricingService));
 
     // B2B Invoice routes - bank transfer invoicing for legal entities
-    this.app.use('/api/b2b-invoices', requireJWT as any, createB2BInvoiceRoutes(this.b2bInvoiceService, this.billingService, this.subscriptionService, this.services.db));
+    this.app.use('/api/b2b-invoices', requireJWT as any, createB2BInvoiceRoutes(this.billing.b2bInvoiceService, this.billing.billingService, this.billing.subscriptionService, this.services.db));
 
     // Team management routes
     // GET /api/team/members - Get team members
@@ -2470,9 +2179,9 @@ class HTTPMCPServer {
     // DELETE /api/upload/:uploadId - Cancel
     // GET /api/upload/active - List active sessions
     this.app.use('/api/upload', requireJWT as any, createUploadRouter(
-      this.uploadService,
-      this.minioService,
-      this.vaultTools,
+      this.tools.uploadService,
+      this.tools.minioService,
+      this.tools.vaultTools,
       this.services.db,
       this.uploadQueueService,
       this.services.documentService
@@ -2491,7 +2200,7 @@ class HTTPMCPServer {
     logger.info('Contract routes registered at /api/contracts');
 
     // Referral system routes
-    this.app.use('/api/referral', createReferralRoutes(this.referralService));
+    this.app.use('/api/referral', createReferralRoutes(this.billing.referralService));
     logger.info('Referral routes registered at /api/referral');
 
     // Judges routes - search judges from VKKS data
@@ -2536,7 +2245,7 @@ class HTTPMCPServer {
     logger.info('Attorney routes registered at /api/attorneys');
 
     // E2EE encryption key management routes - all require JWT
-    this.app.use('/api/encryption', requireJWT as any, createEncryptionRoutes(this.encryptionKeyService, this.services.db));
+    this.app.use('/api/encryption', requireJWT as any, createEncryptionRoutes(this.billing.encryptionKeyService, this.services.db));
     logger.info('Encryption routes registered at /api/encryption');
 
     // Consultation routes - all require JWT
@@ -2560,7 +2269,7 @@ class HTTPMCPServer {
     // GET /api/admin/analytics/usage - Usage analytics
     // GET /api/admin/api-keys - List API keys
     // GET /api/admin/settings - Get system settings
-    this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billingService, this.userPreferencesService, this.prometheusService, this.pricingService, this.subscriptionService, this.configService));
+    this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billing.billingService, this.billing.userPreferencesService, this.billing.prometheusService, this.billing.pricingService, this.billing.subscriptionService, this.configService));
 
     // Upload metrics endpoint (admin)
     this.app.get('/api/admin/upload-metrics', requireJWT as any, (async (_req: DualAuthRequest, res: express.Response) => {
@@ -2785,14 +2494,14 @@ class HTTPMCPServer {
         // Pre-flight balance check — use BillingService (USD-based)
         // Now runs AFTER SSE is established; failures sent as SSE error events
         if (userId) {
-          const billing = await this.billingService.getOrCreateUserBilling(userId);
+          const billing = await this.billing.billingService.getOrCreateUserBilling(userId);
           if (billing.billing_enabled) {
-            const estimatedCost = await this.costTracker.estimateCost({
+            const estimatedCost = await this.billing.costTracker.estimateCost({
               toolName: 'ai_chat',
               queryLength: JSON.stringify(req.body).length,
               reasoningBudget: (budget || 'standard') as 'quick' | 'standard' | 'deep',
             });
-            const balanceCheck = await this.billingService.checkBalance(userId, estimatedCost.total_estimated_cost_usd);
+            const balanceCheck = await this.billing.billingService.checkBalance(userId, estimatedCost.total_estimated_cost_usd);
             if (!balanceCheck.hasBalance) {
               res.write(`event: error\n`);
               res.write(`data: ${JSON.stringify({
@@ -2859,7 +2568,7 @@ class HTTPMCPServer {
         if (chatCompleted && userId && chatTotalCostUsd > 0 && !res.writableEnded) {
           try {
             const [summary, trackingRow] = await Promise.all([
-              this.billingService.getBillingSummary(userId),
+              this.billing.billingService.getBillingSummary(userId),
               // chargeUser() already updated total_cost_usd to the marked-up amount
               this.services.db.query(
                 'SELECT total_cost_usd, markup_percentage FROM cost_tracking WHERE request_id = $1',
@@ -3197,7 +2906,7 @@ class HTTPMCPServer {
     try {
       await this.services.db.connect();
       await this.services.embeddingService.initialize();
-      await this.documentParser.initialize();
+      await this.tools.documentParser.initialize();
 
       // Initialize Redis cache for services (optional)
       const redis = await getRedisClient();
@@ -3222,19 +2931,19 @@ class HTTPMCPServer {
 
       // Cleanup expired upload sessions every hour
       setInterval(() => {
-        this.uploadService.cleanupExpired().catch((err) => {
+        this.tools.uploadService.cleanupExpired().catch((err) => {
           logger.error('Upload cleanup failed', { error: err.message });
         });
       }, 60 * 60 * 1000);
 
       // Cleanup stale pending/uploading sessions every 5 minutes
       setInterval(() => {
-        this.uploadService.cleanupStale(30).catch((err) => {
+        this.tools.uploadService.cleanupStale(30).catch((err) => {
           logger.error('Upload stale cleanup failed', { error: err.message });
         });
       }, 5 * 60 * 1000);
       // Run once on startup too
-      this.uploadService.cleanupStale(30).catch((err) => {
+      this.tools.uploadService.cleanupStale(30).catch((err) => {
         logger.error('Upload stale cleanup on startup failed', { error: err.message });
       });
 
@@ -3275,7 +2984,7 @@ class HTTPMCPServer {
       });
 
       // Get remote service stream
-      const stream = await this.serviceProxy.callRemoteService({
+      const stream = await this.tools.serviceProxy.callRemoteService({
         service,
         serviceName,
         args,
@@ -3338,18 +3047,18 @@ class HTTPMCPServer {
 
     try {
       // Streaming support for different tools
-      if (this.toolRegistry.supportsStreaming(toolName)) {
-        await this.toolRegistry.executeToolStream(toolName, args, (event: any) => {
+      if (this.tools.toolRegistry.supportsStreaming(toolName)) {
+        await this.tools.toolRegistry.executeToolStream(toolName, args, (event: any) => {
           this.sendSSEEvent(res, event);
         });
       } else if (toolName === 'batch_process_documents') {
         // Batch document processing with real-time progress
-        await this.batchDocumentTools.processBatch(args, (event) => {
+        await this.tools.batchDocumentTools.processBatch(args, (event) => {
           this.sendSSEEvent(res, event);
         });
       } else {
         // For other tools, stream the regular result
-        const result = await this.toolRegistry.executeTool(toolName, args);
+        const result = await this.tools.toolRegistry.executeTool(toolName, args);
         if (result === null || result === undefined) {
           this.sendSSEEvent(res, {
             type: 'error',
