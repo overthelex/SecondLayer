@@ -305,11 +305,14 @@ export class BillingService {
 
       const balanceBefore = parseFloat(billing.balance_usd);
       const balanceAfter = balanceBefore - chargeAmount;
+      const balanceBeforeUah = parseFloat(billing.balance_uah) || 0;
 
       // Auto-convert USD charge to UAH if not provided
       const chargeAmountUah = params.amountUah != null
         ? params.amountUah
         : await this.convertToUah(chargeAmount);
+
+      const balanceAfterUah = balanceBeforeUah - chargeAmountUah;
 
       // Update balance and statistics
       await client.query(
@@ -339,8 +342,9 @@ export class BillingService {
         `INSERT INTO billing_transactions (
           user_id, type, amount_usd, amount_uah,
           balance_before_usd, balance_after_usd,
+          balance_before_uah, balance_after_uah,
           request_id, description, metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *`,
         [
           params.userId,
@@ -349,6 +353,8 @@ export class BillingService {
           chargeAmountUah,
           balanceBefore,
           balanceAfter,
+          balanceBeforeUah,
+          balanceAfterUah,
           params.requestId,
           params.description || `Request ${params.requestId}`,
           JSON.stringify(transactionMetadata),
@@ -426,11 +432,14 @@ export class BillingService {
       const billing = billingResult.rows[0];
       const balanceBefore = parseFloat(billing.balance_usd);
       const balanceAfter = balanceBefore + params.amountUsd;
+      const balanceBeforeUah = parseFloat(billing.balance_uah) || 0;
 
       // Auto-convert USD to UAH if not provided
       const topUpAmountUah = params.amountUah != null
         ? params.amountUah
         : await this.convertToUah(params.amountUsd);
+
+      const balanceAfterUah = balanceBeforeUah + topUpAmountUah;
 
       // Update balance
       await client.query(
@@ -447,8 +456,9 @@ export class BillingService {
         `INSERT INTO billing_transactions (
           user_id, type, amount_usd, amount_uah,
           balance_before_usd, balance_after_usd,
+          balance_before_uah, balance_after_uah,
           description, payment_provider, payment_id, metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *`,
         [
           params.userId,
@@ -457,6 +467,8 @@ export class BillingService {
           topUpAmountUah,
           balanceBefore,
           balanceAfter,
+          balanceBeforeUah,
+          balanceAfterUah,
           params.description || `Top up $${params.amountUsd}`,
           params.paymentProvider,
           params.paymentId,
