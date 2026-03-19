@@ -169,12 +169,8 @@ export class MonobankService {
   async validateSignature(rawBody: Buffer | string, signature: string): Promise<boolean> {
     try {
       const pubKeyBase64 = await this.getMonobankPublicKey();
-      const pubKeyDer = Buffer.from(pubKeyBase64, 'base64');
-      const pubKey = createPublicKey({
-        key: pubKeyDer,
-        format: 'der',
-        type: 'spki',
-      });
+      const pubKeyPem = Buffer.from(pubKeyBase64, 'base64').toString('utf8');
+      const pubKey = createPublicKey(pubKeyPem);
 
       const verify = createVerify('SHA256');
       verify.update(typeof rawBody === 'string' ? rawBody : rawBody);

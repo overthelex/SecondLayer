@@ -21,8 +21,8 @@ const TEST_API_KEY = 'test_monobank_api_key_12345';
 
 // Generate a test ECDSA P-256 key pair for signature tests
 const testKeyPair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-const testPubKeyDer = testKeyPair.publicKey.export({ format: 'der', type: 'spki' });
-const testPubKeyBase64 = testPubKeyDer.toString('base64');
+const testPubKeyPem = testKeyPair.publicKey.export({ format: 'pem', type: 'spki' }) as string;
+const testPubKeyBase64 = Buffer.from(testPubKeyPem).toString('base64');
 
 function makeEcdsaSignature(body: string | Buffer): string {
   const sign = crypto.createSign('SHA256');
