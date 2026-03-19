@@ -85,7 +85,7 @@ class DocumentAnalysisServer {
     });
 
     // Ready check (includes dependencies)
-    this.app.get('/ready', async (_req, res) => {
+    this.app.get(['/ready', '/health/ready'], async (_req, res) => {
       try {
         res.json({
           status: 'ready',
