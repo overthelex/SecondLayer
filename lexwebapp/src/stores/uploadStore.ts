@@ -137,9 +137,9 @@ export const useUploadStore = create<UploadState>((set) => {
         }
       }
 
-      // Post-upload encryption: if encryption is enabled, encrypt completed documents
+      // Post-upload encryption: always encrypt completed documents (E2EE mandatory)
       const encState = useEncryptionStore.getState();
-      if (encState.encryptNewUploads && encState.isUnlocked && encState.publicKey) {
+      if (encState.isUnlocked && encState.publicKey) {
         const docIds = completedItems.map(i => i.documentId).filter(Boolean) as string[];
         if (docIds.length > 0) {
           encryptUploadedDocuments(docIds, encState.publicKey).then(results => {
@@ -184,11 +184,10 @@ export const useUploadStore = create<UploadState>((set) => {
     isRecovering: false,
 
     addFiles: (files) => {
-      // Inject encrypt flag from encryption store
-      const encryptNewUploads = useEncryptionStore.getState().encryptNewUploads;
+      // E2EE is mandatory — always encrypt uploads
       const filesWithEncrypt = files.map(f => ({
         ...f,
-        encrypt: encryptNewUploads,
+        encrypt: true,
       }));
       uploadManager.addFiles(filesWithEncrypt);
       set(syncFromManager(uploadManager));

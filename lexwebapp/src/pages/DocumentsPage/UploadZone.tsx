@@ -1,9 +1,10 @@
 import React, { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FolderUp, Shield } from 'lucide-react';
+import { Upload, FolderUp, Lock } from 'lucide-react';
 import type { DocType } from './types';
 import { useEncryptionStore } from '../../stores/encryptionStore';
 import { EncryptionSetupDialog } from '../../components/encryption/EncryptionSetupDialog';
+import { showToast } from '../../utils/toast';
 
 const ACCEPTED_TYPES =
   '.pdf,.docx,.doc,.html,.htm,.txt,.rtf,.jpg,.jpeg,.png,.bmp,.gif,.xlsx,.xls,.csv,.mp4,.mov,.avi,.mkv,.webm,.eml,.zip,.gz,.tgz,.tar';
@@ -104,8 +105,32 @@ export function UploadZone({
   fileInputRef,
   folderInputRef,
 }: UploadZoneProps) {
+  const { hasEncryption, isUnlocked } = useEncryptionStore();
+  const [showEncryptionDialog, setShowEncryptionDialog] = useState(false);
+
+  /**
+   * E2EE is mandatory. If user has no keys or keys are locked,
+   * show setup/unlock dialog instead of starting upload.
+   */
+  const ensureEncryptionReady = useCallback((): boolean => {
+    if (!hasEncryption) {
+      setShowEncryptionDialog(true);
+      showToast.info('Для завантаження документів потрібно створити ключ шифрування');
+      return false;
+    }
+    if (!isUnlocked) {
+      setShowEncryptionDialog(true);
+      showToast.info('Розблокуйте шифрування для завантаження документів');
+      return false;
+    }
+    return true;
+  }, [hasEncryption, isUnlocked]);
+
   const handleFilesSelected = useCallback(
     (files: FileList | File[]) => {
+      // E2EE mandatory: block upload if encryption not ready
+      if (!ensureEncryptionReady()) return;
+
       const newItems = Array.from(files)
         .filter((f) => f.size > 0)
         .map((file) => ({
@@ -119,7 +144,7 @@ export function UploadZone({
       addFiles(newItems);
       setShowUploadPanel(true);
     },
-    [defaultDocType, addFiles, currentFolderPath, setShowUploadPanel]
+    [defaultDocType, addFiles, currentFolderPath, setShowUploadPanel, ensureEncryptionReady]
   );
 
   const handleFileSelect = () => fileInputRef.current?.click();
@@ -178,36 +203,11 @@ export function UploadZone({
     }
   };
 
-  const { hasEncryption, isUnlocked, encryptNewUploads, setEncryptNewUploads } = useEncryptionStore();
-  const [showEncryptionDialog, setShowEncryptionDialog] = useState(false);
-
-  const handleEncryptionToggle = () => {
-    if (!hasEncryption) {
-      // First time: show setup dialog
-      setShowEncryptionDialog(true);
-      return;
-    }
-    if (!isUnlocked) {
-      // Keys exist but locked: show unlock dialog
-      setShowEncryptionDialog(true);
-      return;
-    }
-    // Toggle encryption for new uploads
-    setEncryptNewUploads(!encryptNewUploads);
-  };
-
   return (
     <>
       <EncryptionSetupDialog
         isOpen={showEncryptionDialog}
-        onClose={() => {
-          setShowEncryptionDialog(false);
-          // If unlock/setup succeeded, enable encryption
-          const state = useEncryptionStore.getState();
-          if (state.isUnlocked) {
-            setEncryptNewUploads(true);
-          }
-        }}
+        onClose={() => setShowEncryptionDialog(false)}
         mode={hasEncryption ? 'unlock' : 'setup'}
       />
 
@@ -254,22 +254,19 @@ export function UploadZone({
                 <FolderUp size={14} strokeWidth={2} />
                 Папку
               </button>
-              <button
-                onClick={handleEncryptionToggle}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all active:scale-[0.98] font-sans ${
-                  encryptNewUploads && isUnlocked
-                    ? 'bg-green-50 border border-green-300 text-green-700 hover:bg-green-100'
-                    : 'bg-white border border-claude-border text-claude-subtext hover:bg-claude-bg'
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium font-sans ${
+                  isUnlocked
+                    ? 'bg-green-50 border border-green-300 text-green-700'
+                    : 'bg-amber-50 border border-amber-300 text-amber-700 cursor-pointer'
                 }`}
-                title={
-                  encryptNewUploads && isUnlocked
-                    ? 'Шифрування увімкнено'
-                    : 'Увімкнути шифрування'
-                }
+                title={isUnlocked ? 'Шифрування активне' : 'Потрібно розблокувати шифрування'}
+                onClick={!isUnlocked ? () => setShowEncryptionDialog(true) : undefined}
+                role={!isUnlocked ? 'button' : undefined}
               >
-                <Shield size={14} strokeWidth={2} />
-                {encryptNewUploads && isUnlocked ? 'E2EE' : 'E2EE'}
-              </button>
+                <Lock size={14} strokeWidth={2} />
+                E2EE
+              </span>
               <span className="text-xs text-claude-subtext/40 font-sans ml-1 hidden sm:inline">
                 або перетягніть файли · Ctrl+U
               </span>

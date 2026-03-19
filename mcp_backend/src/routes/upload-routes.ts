@@ -645,10 +645,10 @@ async function processUpload(
 
     const documentId = await processUploadFile(session, assembledPath, deps, extraMetadata);
 
-    // Encrypt content after parse/embed if requested (hybrid E2EE)
+    // Encrypt content after parse/embed (E2EE mandatory — encrypt both text and source)
     if (session.encrypt) {
       try {
-        const encrypted = await encryptDocumentContent(db, documentId, session.userId);
+        const encrypted = await encryptDocumentContent(db, documentId, session.userId, minioService);
         if (encrypted) {
           logger.info('[Upload] Document encrypted after processing', {
             sessionId: session.id,
