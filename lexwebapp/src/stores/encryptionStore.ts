@@ -28,15 +28,11 @@ interface EncryptionState {
   isLoading: boolean;
   /** Error message from last operation */
   error: string | null;
-  /** Whether to encrypt new uploads by default */
-  encryptNewUploads: boolean;
-
   // Actions
   checkStatus: () => Promise<void>;
   setup: (password: string) => Promise<EncryptedKeyBundle>;
   unlock: (password: string) => Promise<void>;
   lock: () => void;
-  setEncryptNewUploads: (value: boolean) => void;
   reset: () => void;
 }
 
@@ -49,7 +45,6 @@ export const useEncryptionStore = create<EncryptionState>()(
       publicKey: null,
       isLoading: false,
       error: null,
-      encryptNewUploads: false,
 
       /**
        * Check if the current user has encryption set up.
@@ -154,10 +149,6 @@ export const useEncryptionStore = create<EncryptionState>()(
         });
       },
 
-      setEncryptNewUploads: (value: boolean) => {
-        set({ encryptNewUploads: value });
-      },
-
       /**
        * Full reset (on logout).
        */
@@ -171,7 +162,6 @@ export const useEncryptionStore = create<EncryptionState>()(
           publicKey: null,
           isLoading: false,
           error: null,
-          encryptNewUploads: false,
         });
       },
     }),

@@ -9,11 +9,9 @@ import {
   Play,
   RotateCcw,
   XCircle,
-  Lock,
 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useUploadStore } from '../../stores/uploadStore';
-import { useEncryptionStore } from '../../stores/encryptionStore';
 import { UploadItemRow } from './UploadItemRow';
 import { DOC_TYPE_LABELS } from './constants';
 import { formatFileSize } from './constants';
@@ -126,9 +124,6 @@ export function UploadQueuePanel({
                   ))}
                 </select>
               </div>
-
-              {/* Encryption toggle */}
-              <EncryptionToggle />
 
               {/* Default doc type selector */}
               <div className="relative">
@@ -283,29 +278,3 @@ export function UploadQueuePanel({
   );
 }
 
-function EncryptionToggle() {
-  const { hasEncryption, encryptNewUploads, setEncryptNewUploads } = useEncryptionStore(
-    useShallow(s => ({
-      hasEncryption: s.hasEncryption,
-      encryptNewUploads: s.encryptNewUploads,
-      setEncryptNewUploads: s.setEncryptNewUploads,
-    }))
-  );
-
-  if (!hasEncryption) return null;
-
-  return (
-    <button
-      onClick={() => setEncryptNewUploads(!encryptNewUploads)}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg transition-colors font-sans ${
-        encryptNewUploads
-          ? 'text-emerald-700 border-emerald-300 bg-emerald-50'
-          : 'text-claude-subtext border-claude-border hover:bg-claude-bg'
-      }`}
-      title={encryptNewUploads ? 'Шифрування увімкнено' : 'Увімкнути шифрування'}
-    >
-      <Lock size={12} />
-      {encryptNewUploads ? 'E2EE' : 'E2EE'}
-    </button>
-  );
-}
