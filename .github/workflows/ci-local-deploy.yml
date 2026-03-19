@@ -135,6 +135,11 @@ jobs:
           fetch-depth: 10
           token: ${{ github.token }}
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
       - name: Guard against infinite loops
         id: guard
         run: |
@@ -661,6 +666,11 @@ jobs:
           fetch-depth: 10
           token: ${{ github.token }}
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
       - name: Guard against infinite loops
         id: guard
         run: |
@@ -678,24 +688,31 @@ jobs:
         env:
           PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
         run: |
-          SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}"
+          set +e
+          SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${PROD_USER}@${PROD_SERVER}"
           REMOTE_REPO="/home/${PROD_USER}/SecondLayer"
 
           {
-            echo "=== Docker container status ==="
-            $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml ps" 2>&1 || true
+            # Test SSH connectivity first
+            if ! $SSH_CMD "echo SSH_OK" 2>/dev/null; then
+              echo "=== SSH to prod FAILED — server may be unreachable ==="
+              echo "Skipping remote diagnostics. CI error log will be used instead."
+            else
+              echo "=== Docker container status ==="
+              $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml ps" 2>&1 || true
 
-            echo ""
-            echo "=== Last 30 lines from failing containers ==="
-            for svc in app-prod rada-mcp-app-prod app-openreyestr-prod nginx-prod lexwebapp-prod; do
-              echo "--- $svc ---"
-              $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml logs --tail=30 $svc" 2>&1 || true
-            done
+              echo ""
+              echo "=== Last 30 lines from failing containers ==="
+              for svc in app-prod rada-mcp-app-prod app-openreyestr-prod nginx-prod lexwebapp-prod; do
+                echo "--- $svc ---"
+                $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml logs --tail=30 $svc" 2>&1 || true
+              done
 
-            echo ""
-            echo "=== Health check responses ==="
-            $SSH_CMD "curl -sf http://localhost:3007/health 2>&1 || echo 'Backend health: FAILED'"
-            $SSH_CMD "curl -sf http://localhost:3001/health 2>&1 || echo 'RADA health: FAILED'"
+              echo ""
+              echo "=== Health check responses ==="
+              $SSH_CMD "curl -sf http://localhost:3007/health 2>&1 || echo 'Backend health: FAILED'" || true
+              $SSH_CMD "curl -sf http://localhost:3001/health 2>&1 || echo 'RADA health: FAILED'" || true
+            fi
           } > /tmp/deploy-diag.log 2>&1
 
           echo "Captured $(wc -l < /tmp/deploy-diag.log) lines of diagnostics"
