@@ -100,9 +100,9 @@ export class InvoiceService {
           .text('SecondLayer', 50, 50)
           .fontSize(10)
           .font(fontRegular)
-          .text('Legal AI Platform', 50, 80)
-          .text('Kyiv, Ukraine', 50, 95)
-          .text('billing@legal.org.ua', 50, 110);
+          .text('\u041E\u0434\u0435\u0440\u0436\u0443\u0432\u0430\u0447: \u0424\u041E\u041F \u041A\u0438\u0440\u0438\u0447\u0435\u043D\u043A\u043E \u0406\u0433\u043E\u0440 \u0412\u0456\u043A\u0442\u043E\u0440\u043E\u0432\u0438\u0447', 50, 80)
+          .text('IBAN: UA613220010000026006330050699', 50, 95)
+          .text('\u0404\u0414\u0420\u041F\u041E\u0423: 2967214056 | \u0410\u0422 \u00AB\u0423\u041D\u0406\u0412\u0415\u0420\u0421\u0410\u041B \u0411\u0410\u041D\u041A\u00BB', 50, 110);
 
         // Invoice title and status
         doc
@@ -202,7 +202,7 @@ export class InvoiceService {
         doc
           .fontSize(8)
           .text(
-            'Thank you for using SecondLayer. For questions, contact billing@legal.org.ua',
+            '\u0424\u041E\u041F \u041A\u0438\u0440\u0438\u0447\u0435\u043D\u043A\u043E \u0406.\u0412. | \u0404\u0414\u0420\u041F\u041E\u0423: 2967214056 | billing@legal.org.ua',
             50,
             700,
             { align: 'center', width: 500 }
