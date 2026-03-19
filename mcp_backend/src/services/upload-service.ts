@@ -27,6 +27,7 @@ export interface UploadSession {
   expiresAt: string;
   createdAt: string;
   updatedAt: string;
+  encrypt?: boolean;
 }
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
@@ -83,7 +84,7 @@ export class UploadService {
     fileName: string,
     fileSize: number,
     mimeType: string,
-    opts: { docType?: string; relativePath?: string; metadata?: any; matterId?: string } = {}
+    opts: { docType?: string; relativePath?: string; metadata?: any; matterId?: string; encrypt?: boolean } = {}
   ): Promise<UploadSession> {
     if (fileSize > MAX_FILE_SIZE) {
       throw new Error(`File size ${fileSize} exceeds maximum ${MAX_FILE_SIZE}`);
@@ -108,7 +109,7 @@ export class UploadService {
         CHUNK_SIZE,
         opts.docType || 'other',
         opts.relativePath || null,
-        JSON.stringify(opts.metadata || {}),
+        JSON.stringify({ ...(opts.metadata || {}), ...(opts.encrypt ? { encrypt: true } : {}) }),
         opts.matterId || null,
       ]
     );
@@ -579,6 +580,7 @@ export class UploadService {
       expiresAt: row.expires_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      encrypt: row.metadata?.encrypt === true,
     };
   }
 }

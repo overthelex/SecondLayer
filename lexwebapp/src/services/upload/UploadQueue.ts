@@ -44,6 +44,7 @@ export class UploadQueue {
       mimeType: string;
       relativePath: string;
       docType: string;
+      encrypt?: boolean;
     }>
   ): UploadItem[] {
     const newItems: UploadItem[] = [];
@@ -58,6 +59,7 @@ export class UploadQueue {
         mimeType: f.mimeType,
         relativePath: f.relativePath,
         docType: f.docType,
+        encrypt: f.encrypt ?? false,
         status: 'queued',
         progress: 0,
         uploadedBytes: 0,

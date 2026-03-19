@@ -21,6 +21,7 @@ export interface UploadItem {
   mimeType: string;
   relativePath: string;
   docType: string;
+  encrypt: boolean;
   status: UploadItemStatus;
   uploadId?: string; // Server-side session ID
   documentId?: string;
