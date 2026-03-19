@@ -13,7 +13,13 @@ DO $$ BEGIN
 END $$;
 
 -- GIN index on tsvector column for fast full text search
--- Note: not using CONCURRENTLY because migration runner wraps in transaction block.
--- On 125M rows with mostly NULL tsv values this will be fast (NULLs are not indexed by GIN).
--- The index will grow incrementally as the background service populates tsv values.
-CREATE INDEX IF NOT EXISTS idx_edrsr_fulltext_tsv ON edrsr_fulltext USING gin(tsv);
+-- Wrapped in existence check to avoid lock contention on 125M-row table
+-- when background FTS workers are running concurrent UPDATEs.
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE indexname = 'idx_edrsr_fulltext_tsv'
+  ) THEN
+    CREATE INDEX idx_edrsr_fulltext_tsv ON edrsr_fulltext USING gin(tsv);
+  END IF;
+END $$;
