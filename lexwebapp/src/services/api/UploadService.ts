@@ -28,6 +28,7 @@ export interface UploadStatusResponse {
   uploadedChunks: number[];
   totalChunks: number;
   errorMessage?: string;
+  isEncrypted?: boolean;
 }
 
 export interface ActiveSession {
@@ -54,6 +55,7 @@ export class UploadService extends BaseService {
     docType?: string;
     relativePath?: string;
     metadata?: Record<string, unknown>;
+    encrypt?: boolean;
   }): Promise<InitUploadResponse> {
     return this.request(() => this.client.post('/api/upload/init', params));
   }
@@ -68,6 +70,7 @@ export class UploadService extends BaseService {
     docType?: string;
     relativePath?: string;
     metadata?: Record<string, unknown>;
+    encrypt?: boolean;
   }>): Promise<{ sessions: Array<InitUploadResponse | { error: string; fileName: string }> }> {
     return this.request(() => this.client.post('/api/upload/init-batch', { files }));
   }
