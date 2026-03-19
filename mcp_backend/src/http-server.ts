@@ -4,17 +4,14 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from './utils/logger.js';
-import { dualAuth, requireJWT, optionalJWT, initializeDualAuth, initializeWebAuthn, AuthenticatedRequest as DualAuthRequest } from './middleware/dual-auth.js';
-import { configurePassport } from './config/passport.js';
+import { dualAuth, requireJWT, optionalJWT, AuthenticatedRequest as DualAuthRequest } from './middleware/dual-auth.js';
 import authRouter from './routes/auth.js';
-import { setAuthCache, setAuthMinioService, setAuthBannerService } from './controllers/auth.js';
+import { setAuthCache } from './controllers/auth.js';
 import { setOidcCache } from './services/oidc-service.js';
-import { BannerService } from './services/banner-service.js';
-import { setPassportBannerService } from './config/passport.js';
 import { createBackendCoreServices, BackendCoreServices } from './factories/core-services.js';
 import { createToolServices, ToolServices } from './factories/tool-services.js';
+import { createAppServices, AppServices } from './factories/app-services.js';
 import { createRestAPIRouter } from './routes/rest-api.js';
-// import { createEULARouter } from './routes/eula.js'; // REMOVED: EULA not needed
 import { createBalanceCheckMiddleware } from './middleware/balance-check.js';
 import { createPaymentRouter, createWebhookRouter } from './routes/payment-routes.js';
 import { createBillingRoutes } from './routes/billing-routes.js';
@@ -31,9 +28,7 @@ import { createTeamRoutes } from './routes/team-routes.js';
 import { createTeamService } from './services/team-service.js';
 import { createTestEmailRoute } from './routes/test-email-route.js';
 import { requestContext } from './utils/openai-client.js';
-import { getOpenAIManager } from './utils/openai-client.js';
 import passport from 'passport';
-import { MCPSSEServer } from './api/mcp-sse-server.js';
 import { createApiKeyRouter } from './routes/api-key-routes.js';
 import { getRedisClient } from './utils/redis-client.js';
 import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
@@ -43,49 +38,23 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createOAuthRouter } from './routes/oauth-routes.js';
-import { OAuthService } from './services/oauth-service.js';
 // createHybridAuthMiddleware available from './middleware/oauth-auth.js' if needed
 import { mcpDiscoveryRateLimit, healthCheckRateLimit, webhookRateLimit, chatRateLimit, globalApiRateLimit } from './middleware/rate-limit.js';
 import { ServiceType } from './types/gateway.js';
 import { createUploadRouter } from './routes/upload-routes.js';
-import { ConversationService } from './services/conversation-service.js';
-import { GdprService } from './services/gdpr-service.js';
 import { createConversationRouter } from './routes/conversation-routes.js';
 import { createGdprRouter } from './routes/gdpr-routes.js';
 import { createBlogCommentsRouter } from './routes/blog-comments.js';
-import { AuditService } from './services/audit-service.js';
-import { MatterService } from './services/matter-service.js';
-import { ConflictCheckService } from './services/conflict-check-service.js';
-import { LegalHoldService } from './services/legal-hold-service.js';
-import { initializeMatterAccess } from './middleware/matter-access.js';
 import { createMatterRoutes } from './routes/matter-routes.js';
-import { ContractService } from './services/contract-service.js';
 import { createContractRoutes } from './routes/contract-routes.js';
-import { UploadRecoveryService } from './services/upload-recovery-service.js';
-import { UploadQueueService } from './services/upload-queue-service.js';
 import { getUploadProcessingMetrics } from './routes/upload-routes.js';
-import { MetricsService } from './services/metrics-service.js';
-import { TimeEntryService } from './services/time-entry-service.js';
-import { MatterInvoiceService } from './services/matter-invoice-service.js';
 import { createTimeEntryRoutes } from './routes/time-entry-routes.js';
 import { createInvoiceRoutes } from './routes/invoice-routes.js';
-import { ChatService, ChatEvent } from './services/chat-service.js';
 import { getLLMManager } from './utils/llm-client-manager.js';
-import { ChatSearchCacheService } from './services/chat-search-cache-service.js';
-import { UserService } from './services/user-service.js';
-import { WebAuthnService } from './services/webauthn-service.js';
 import { setRateLimitCache } from './middleware/rate-limit.js';
 import { setUploadRateLimitCache } from './middleware/upload-rate-limit.js';
-import { ConfigService } from './services/config-service.js';
-import { DocumentClassificationService } from './services/document-classification-service.js';
 import { createClassificationRoutes } from './routes/classification-routes.js';
-import { WorkflowService } from './services/workflow-service.js';
-import { WorkflowGeneratorService } from './services/workflow-generator-service.js';
-import { WorkflowExecutorService } from './services/workflow-executor-service.js';
 import { createWorkflowRoutes } from './routes/workflow-routes.js';
-import { AttorneyProfileService } from './services/attorney-profile-service.js';
-import { ConsultationService } from './services/consultation-service.js';
-import { ConsultationPaymentService } from './services/consultation-payment-service.js';
 import { createAttorneyRoutes } from './routes/attorney-routes.js';
 import { createConsultationRoutes } from './routes/consultation-routes.js';
 import { JudgesService } from './services/judges-service.js';
@@ -103,32 +72,8 @@ class HTTPMCPServer {
   private services: BackendCoreServices;
   private billing: BillingServices;
   private tools: ToolServices;
-  private mcpSSEServer: MCPSSEServer;
-  private oauthService: OAuthService;
+  private app_: AppServices;
   private mcpSseSessions: Map<string, SSEServerTransport> = new Map();
-  private conversationService: ConversationService;
-  private gdprService: GdprService;
-  private auditService: AuditService;
-  private matterService: MatterService;
-  private llmAdapter: any;
-  private contractService: ContractService;
-  private conflictCheckService: ConflictCheckService;
-  private legalHoldService: LegalHoldService;
-  private uploadRecoveryService: UploadRecoveryService;
-  private uploadQueueService: UploadQueueService;
-  private metricsService: MetricsService;
-  private timeEntryService: TimeEntryService;
-  private matterInvoiceService: MatterInvoiceService;
-  private chatService: ChatService;
-  private chatSearchCache: ChatSearchCacheService;
-  private configService: ConfigService;
-  private classificationService: DocumentClassificationService;
-  private workflowService: WorkflowService;
-  private workflowGeneratorService: WorkflowGeneratorService;
-  private workflowExecutorService: WorkflowExecutorService;
-  private attorneyProfileService: AttorneyProfileService;
-  private consultationService: ConsultationService;
-  private consultationPaymentService: ConsultationPaymentService;
 
   constructor() {
     this.app = express();
@@ -139,7 +84,6 @@ class HTTPMCPServer {
 
     // Create LLM adapter for dependency injection
     const llmAdapter = new LLMAdapter(getLLMManager());
-    this.llmAdapter = llmAdapter;
 
     // Initialize billing, payment, and cost tracking services via factory
     this.billing = createBillingServices(this.services.db, this.services.embeddingService);
@@ -147,169 +91,8 @@ class HTTPMCPServer {
     // Initialize tool registry, service proxy, document tools, upload/minio/vault via factory
     this.tools = createToolServices(this.services, this.billing.costTracker, llmAdapter);
 
-    // Initialize OAuth 2.0 service for ChatGPT integration
-    this.oauthService = new OAuthService(this.services.db);
-    logger.info('OAuth 2.0 service initialized');
-
-    this.conversationService = new ConversationService(this.services.db);
-    this.gdprService = new GdprService(this.services.db, this.tools.minioService, this.services.embeddingService);
-    setAuthMinioService(this.tools.minioService);
-    const bannerService = new BannerService(this.tools.minioService, this.services.db);
-    setAuthBannerService(bannerService);
-    setPassportBannerService(bannerService);
-    logger.info('Upload, MinIO, and Banner services initialized');
-    logger.info('Conversation and GDPR services initialized');
-
-    // Initialize Client-Matter segregation services
-    this.auditService = new AuditService(this.services.db);
-    this.matterService = new MatterService(this.services.db, this.auditService);
-    this.contractService = new ContractService(this.services.db);
-    this.conflictCheckService = new ConflictCheckService(this.services.db, this.auditService);
-    this.legalHoldService = new LegalHoldService(this.services.db, this.auditService);
-    initializeMatterAccess(this.matterService);
-    logger.info('Client-Matter segregation and legal hold services initialized');
-
-    // Initialize Time Tracking and Billing services
-    this.timeEntryService = new TimeEntryService(this.services.db, this.auditService);
-    this.matterInvoiceService = new MatterInvoiceService(this.services.db, this.auditService);
-    logger.info('Time tracking and billing services initialized');
-
-    // Initialize workflow services
-    this.workflowService = new WorkflowService(this.services.db);
-    this.workflowGeneratorService = new WorkflowGeneratorService(this.tools.toolRegistry, llmAdapter);
-    this.workflowExecutorService = new WorkflowExecutorService(this.tools.toolRegistry, this.workflowService, this.billing.costTracker);
-    logger.info('Workflow services initialized');
-
-    // Initialize ChatService (agentic LLM loop) with search cache
-    this.chatSearchCache = new ChatSearchCacheService(
-      this.services.zoAdapter,
-      this.services.documentService
-    );
-    this.chatService = new ChatService(
-      this.tools.toolRegistry,
-      this.services.queryPlanner,
-      this.billing.costTracker,
-      llmAdapter,
-      this.chatSearchCache,
-      this.conversationService,
-      this.services.shepardizationService,
-      this.services.embeddingService,
-      this.workflowGeneratorService,
-      this.workflowService
-    );
-    logger.info('ChatService initialized with search cache, conversation persistence, shepardization, embedding, and workflows');
-
-    // Initialize config service
-    this.configService = new ConfigService(this.services.db);
-
-    // Initialize document classification service
-    this.classificationService = new DocumentClassificationService(
-      this.services.db,
-      llmAdapter,
-      this.billing.costTracker
-    );
-
-    // Initialize BullMQ upload queue service
-    this.uploadQueueService = new UploadQueueService(
-      this.tools.uploadService,
-      this.tools.minioService,
-      this.tools.vaultTools,
-      this.services.db,
-      this.services.documentService
-    );
-    this.uploadQueueService.startWorker();
-    logger.info('BullMQ upload queue service initialized');
-
-    // Initialize Prometheus metrics service
-    this.metricsService = new MetricsService();
-
-    // Bind PG pool metrics collector
-    this.services.db.setMetricsCollector((stats) => this.metricsService.updatePgPool(stats));
-
-    // Bind upload queue metrics collector (every 10s)
-    this.uploadQueueService.setMetricsCollector((metrics) => this.metricsService.updateUploadQueue(metrics));
-
-    // Bind per-job processing duration to Prometheus histogram
-    this.uploadQueueService.setProcessingDurationCallback((durationSeconds, status) => {
-      this.metricsService.uploadProcessingDuration.observe({ status }, durationSeconds);
-    });
-
-    // Wire cost tracker to Prometheus counter
-    this.billing.costTracker.setMetricsCallback((toolName, costUsd) => {
-      this.metricsService.costTrackingTotalUsd.inc({ tool_name: toolName }, costUsd);
-    });
-
-    // Bind CPU adaptive concurrency metrics collector
-    const cpuAdaptiveManager = this.uploadQueueService.getCpuAdaptiveManager();
-    if (cpuAdaptiveManager) {
-      cpuAdaptiveManager.setMetricsCallback((metrics) => this.metricsService.updateCpuAdaptive(metrics));
-    }
-
-    // Bind external API metrics collectors
-    const externalApiMetricsCallback = (service: string, status: string, durationSec: number) => {
-      this.metricsService.externalApiCallsTotal.inc({ service, status });
-      if (durationSec > 0) {
-        this.metricsService.externalApiDuration.observe({ service }, durationSec);
-      }
-    };
-    this.services.zoAdapter.setExternalApiMetrics(externalApiMetricsCallback);
-    this.services.zoPracticeAdapter.setExternalApiMetrics(externalApiMetricsCallback);
-    this.services.zoSessionsAdapter.setExternalApiMetrics(externalApiMetricsCallback);
-    this.tools.serviceProxy.setExternalApiMetrics(externalApiMetricsCallback);
-    getLLMManager().setExternalApiMetrics(externalApiMetricsCallback);
-    this.services.legislationTools.getLegislationService().getAdapter().setExternalApiMetrics(externalApiMetricsCallback);
-
-    logger.info('Prometheus metrics service initialized');
-
-    // Initialize upload recovery service (uses BullMQ for re-enqueuing)
-    this.uploadRecoveryService = new UploadRecoveryService(
-      this.tools.uploadService,
-      this.tools.minioService,
-      this.tools.vaultTools,
-      this.services.db,
-      this.services.documentService
-    );
-    this.uploadRecoveryService.setQueueService(this.uploadQueueService);
-
-
-    // Initialize Attorney Consultation services (after payment services)
-    this.attorneyProfileService = new AttorneyProfileService(this.services.db);
-    this.consultationService = new ConsultationService(
-      this.services.db,
-      this.matterService,
-      this.auditService,
-      this.attorneyProfileService
-    );
-    this.consultationPaymentService = new ConsultationPaymentService(
-      this.services.db,
-      this.consultationService,
-      this.billing.monobankService
-    );
-    logger.info('Attorney consultation services initialized');
-
-    const openaiManager = getOpenAIManager();
-    openaiManager.setCostTracker(this.billing.costTracker);
-    this.services.zoAdapter.setCostTracker(this.billing.costTracker);
-    this.services.zoPracticeAdapter.setCostTracker(this.billing.costTracker);
-
-    // Wire cost metrics to Prometheus (callback set after metricsService init below)
-    logger.info('Cost tracking and billing initialized');
-
-    // Initialize MCP SSE Server for ChatGPT integration
-    this.mcpSSEServer = new MCPSSEServer(
-      this.tools.toolRegistry,
-      this.billing.costTracker,
-      this.billing.creditService
-    );
-    logger.info('MCP SSE Server initialized with Phase 2 billing support');
-
-    // Initialize authentication
-    configurePassport(this.services.db);
-    const userService = new UserService(this.services.db);
-    const webAuthnService = new WebAuthnService(this.services.db);
-    initializeDualAuth(userService, this.billing.apiKeyService);
-    initializeWebAuthn(webAuthnService);
-    logger.info('Authentication configured (Google OAuth2 + dual auth + WebAuthn)');
+    // Initialize all application services via factory
+    this.app_ = createAppServices(this.services, this.billing, this.tools, llmAdapter);
 
     // Setup middleware and routes AFTER services are initialized
     this.setupMiddleware();
@@ -353,7 +136,7 @@ class HTTPMCPServer {
       '/webhooks',
       webhookRateLimit as any,
       express.raw({ type: 'application/json', limit: '10mb' }),
-      createWebhookRouter(this.billing.monobankService, this.billing.binancePayService, this.billing.nowpaymentsService, this.consultationPaymentService)
+      createWebhookRouter(this.billing.monobankService, this.billing.binancePayService, this.billing.nowpaymentsService, this.app_.consultationPaymentService)
     );
 
     // JSON parsing with UTF-8 support (for all other routes)
@@ -379,10 +162,10 @@ class HTTPMCPServer {
       res.on('finish', () => {
         const durationNs = Number(process.hrtime.bigint() - start);
         const durationSec = durationNs / 1e9;
-        const route = this.metricsService.normalizeRoute(req.route?.path || req.path);
+        const route = this.app_.metricsService.normalizeRoute(req.route?.path || req.path);
         const labels = { method: req.method, route, status_code: String(res.statusCode) };
-        this.metricsService.httpRequestDuration.observe(labels, durationSec);
-        this.metricsService.httpRequestsTotal.inc(labels);
+        this.app_.metricsService.httpRequestDuration.observe(labels, durationSec);
+        this.app_.metricsService.httpRequestsTotal.inc(labels);
       });
       next();
     });
@@ -799,8 +582,8 @@ class HTTPMCPServer {
     // Prometheus metrics endpoint (no auth - internal Docker network only)
     this.app.get('/metrics', async (_req, res) => {
       try {
-        const metrics = await this.metricsService.getMetrics();
-        res.set('Content-Type', this.metricsService.getContentType());
+        const metrics = await this.app_.metricsService.getMetrics();
+        res.set('Content-Type', this.app_.metricsService.getContentType());
         res.end(metrics);
       } catch (err: any) {
         res.status(500).end(err.message);
@@ -1005,7 +788,7 @@ class HTTPMCPServer {
             logger.debug('[MCP SSE] Authenticated with JWT', { userId });
           } else if (token.startsWith('mcp_token_')) {
             // OAuth 2.0 access token - verify with OAuth service
-            const tokenData = await this.oauthService.verifyAccessToken(token);
+            const tokenData = await this.app_.oauthService.verifyAccessToken(token);
 
             if (!tokenData) {
               logger.warn('[MCP SSE] Invalid OAuth token', {
@@ -1088,7 +871,7 @@ class HTTPMCPServer {
         res.setHeader('X-Accel-Buffering', 'no');
 
         // Pass userId and clientKey to SSE handler
-        await this.mcpSSEServer.handleSSEConnection(req, res, userId, clientKey);
+        await this.app_.mcpSSEServer.handleSSEConnection(req, res, userId, clientKey);
       } catch (error: any) {
         logger.error('[MCP SSE] Connection error:', error);
         if (!res.headersSent) {
@@ -1150,7 +933,7 @@ class HTTPMCPServer {
             logger.debug('[MCP v1/sse] Authenticated with JWT', { userId });
           } else {
             // Try OAuth access token first, then API key
-            const oauthToken = await this.oauthService.verifyAccessToken(token);
+            const oauthToken = await this.app_.oauthService.verifyAccessToken(token);
             if (oauthToken) {
               userId = oauthToken.userId;
               logger.debug('[MCP v1/sse] Authenticated with OAuth token', { userId: sanitizeId(userId || ''), clientId: sanitizeId(oauthToken.clientId) });
@@ -1394,7 +1177,7 @@ class HTTPMCPServer {
     // MCP discovery endpoint (public - lists available tools, rate limited)
     // GET /mcp - Returns MCP server info and capabilities
     this.app.get('/mcp', mcpDiscoveryRateLimit as any, (_req: Request, res: Response) => {
-      const tools = this.mcpSSEServer.getAllTools();
+      const tools = this.app_.mcpSSEServer.getAllTools();
       res.json({
         protocolVersion: '2024-11-05',
         serverInfo: {
@@ -1483,7 +1266,7 @@ class HTTPMCPServer {
     });
 
     // OAuth 2.0 routes for ChatGPT integration (public)
-    this.app.use('/oauth', createOAuthRouter(this.oauthService));
+    this.app.use('/oauth', createOAuthRouter(this.app_.oauthService));
     logger.info('OAuth 2.0 routes registered at /oauth');
 
     // Global API rate limiter — baseline protection for all /api/ routes (120 req/min per IP).
@@ -1491,11 +1274,11 @@ class HTTPMCPServer {
     this.app.use('/api', globalApiRateLimit as any);
 
     // Document classification & stats endpoints - must come before /api/documents generic REST route
-    this.app.use('/api/documents/classify', requireJWT as any, createClassificationRoutes(this.classificationService));
+    this.app.use('/api/documents/classify', requireJWT as any, createClassificationRoutes(this.app_.classificationService));
     this.app.get('/api/documents/stats', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
       try {
         const userId = req.user!.id;
-        const stats = await this.classificationService.getUserDocumentStats(userId);
+        const stats = await this.app_.classificationService.getUserDocumentStats(userId);
         res.json(stats);
       } catch (error: any) {
         logger.error('Failed to get document stats', { error: error.message });
@@ -2160,7 +1943,7 @@ class HTTPMCPServer {
     this.app.use('/api/team', requireJWT as any, createTeamRoutes(teamService));
 
     // Conversation routes - server-side chat persistence
-    this.app.use('/api/conversations', requireJWT as any, createConversationRouter(this.conversationService));
+    this.app.use('/api/conversations', requireJWT as any, createConversationRouter(this.app_.conversationService));
     logger.info('Conversation routes registered at /api/conversations');
 
     // Blog comments - GET is public, POST/DELETE require JWT (checked inside handler)
@@ -2168,7 +1951,7 @@ class HTTPMCPServer {
     logger.info('Blog comments routes registered at /api/blog/comments');
 
     // GDPR routes - data export and deletion
-    this.app.use('/api/gdpr', requireJWT as any, createGdprRouter(this.gdprService));
+    this.app.use('/api/gdpr', requireJWT as any, createGdprRouter(this.app_.gdprService));
     logger.info('GDPR routes registered at /api/gdpr');
 
     // Upload routes - chunked file upload with MinIO storage
@@ -2183,20 +1966,20 @@ class HTTPMCPServer {
       this.tools.minioService,
       this.tools.vaultTools,
       this.services.db,
-      this.uploadQueueService,
+      this.app_.uploadQueueService,
       this.services.documentService
     ));
     logger.info('Upload routes registered at /api/upload');
 
     // Client-Matter segregation routes (matters, clients, legal holds, audit)
     this.app.use('/api/matters', requireJWT as any, createMatterRoutes(
-      this.matterService, this.conflictCheckService, this.legalHoldService, this.auditService,
-      this.services.db, this.llmAdapter
+      this.app_.matterService, this.app_.conflictCheckService, this.app_.legalHoldService, this.app_.auditService,
+      this.services.db, this.app_.llmAdapter
     ));
     logger.info('Matter routes registered at /api/matters');
 
     // Contract acceptance routes
-    this.app.use('/api/contracts', requireJWT as any, createContractRoutes(this.contractService));
+    this.app.use('/api/contracts', requireJWT as any, createContractRoutes(this.app_.contractService));
     logger.info('Contract routes registered at /api/contracts');
 
     // Referral system routes
@@ -2229,19 +2012,19 @@ class HTTPMCPServer {
     // Workflow routes - workflow sets, workflow execution, cancellation
     // IMPORTANT: Use specific prefixes, NOT '/api' — a catch-all '/api' prefix with requireJWT
     // would block API key auth for all /api/* routes (including /api/tools with dualAuth)
-    this.app.use('/api/workflow-sets', requireJWT as any, createWorkflowRoutes(this.workflowService, this.workflowExecutorService));
-    this.app.use('/api/workflows', requireJWT as any, createWorkflowRoutes(this.workflowService, this.workflowExecutorService));
+    this.app.use('/api/workflow-sets', requireJWT as any, createWorkflowRoutes(this.app_.workflowService, this.app_.workflowExecutorService));
+    this.app.use('/api/workflows', requireJWT as any, createWorkflowRoutes(this.app_.workflowService, this.app_.workflowExecutorService));
     logger.info('Workflow routes registered at /api/workflow-sets, /api/workflows');
 
     // Time tracking and billing routes
-    this.app.use('/api/time', requireJWT as any, createTimeEntryRoutes(this.timeEntryService));
+    this.app.use('/api/time', requireJWT as any, createTimeEntryRoutes(this.app_.timeEntryService));
     logger.info('Time tracking routes registered at /api/time');
 
-    this.app.use('/api/invoicing', requireJWT as any, createInvoiceRoutes(this.matterInvoiceService));
+    this.app.use('/api/invoicing', requireJWT as any, createInvoiceRoutes(this.app_.matterInvoiceService));
     logger.info('Invoicing routes registered at /api/invoicing');
 
     // Attorney routes - search is public (optionalJWT), profile management requires JWT
-    this.app.use('/api/attorneys', optionalJWT as any, createAttorneyRoutes(this.attorneyProfileService));
+    this.app.use('/api/attorneys', optionalJWT as any, createAttorneyRoutes(this.app_.attorneyProfileService));
     logger.info('Attorney routes registered at /api/attorneys');
 
     // E2EE encryption key management routes - all require JWT
@@ -2250,7 +2033,7 @@ class HTTPMCPServer {
 
     // Consultation routes - all require JWT
     this.app.use('/api/consultations', requireJWT as any, createConsultationRoutes(
-      this.consultationService, this.consultationPaymentService
+      this.app_.consultationService, this.app_.consultationPaymentService
     ));
     logger.info('Consultation routes registered at /api/consultations');
 
@@ -2269,12 +2052,12 @@ class HTTPMCPServer {
     // GET /api/admin/analytics/usage - Usage analytics
     // GET /api/admin/api-keys - List API keys
     // GET /api/admin/settings - Get system settings
-    this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billing.billingService, this.billing.userPreferencesService, this.billing.prometheusService, this.billing.pricingService, this.billing.subscriptionService, this.configService));
+    this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billing.billingService, this.billing.userPreferencesService, this.billing.prometheusService, this.billing.pricingService, this.billing.subscriptionService, this.app_.configService));
 
     // Upload metrics endpoint (admin)
     this.app.get('/api/admin/upload-metrics', requireJWT as any, (async (_req: DualAuthRequest, res: express.Response) => {
       try {
-        const queueMetrics = await this.uploadQueueService.getMetrics();
+        const queueMetrics = await this.app_.uploadQueueService.getMetrics();
         const processingMetrics = getUploadProcessingMetrics();
         res.json({
           queue: queueMetrics,
@@ -2446,7 +2229,7 @@ class HTTPMCPServer {
           return res.status(400).json({ error: 'query is required' });
         }
 
-        const result = await this.chatService.generatePlanForReview(
+        const result = await this.app_.chatService.generatePlanForReview(
           query,
           budget || 'standard',
           userId,
@@ -2544,7 +2327,7 @@ class HTTPMCPServer {
             planSessionId,
         };
         try {
-          for await (const event of this.chatService.chat(chatRequest)) {
+          for await (const event of this.app_.chatService.chat(chatRequest)) {
             if (abortController.signal.aborted) break;
 
             if (event.type === 'complete') {
@@ -2919,7 +2702,7 @@ class HTTPMCPServer {
         this.services.zoLegalActsAdapter.setCachePort(cache);
         this.services.zoECHRAdapter.setCachePort(cache);
         this.services.shepardizationService.setCachePort(cache);
-        this.chatSearchCache.setCachePort(cache);
+        this.app_.chatSearchCache.setCachePort(cache);
         setAuthCache(cache);
         setOidcCache(cache);
         setRateLimitCache(cache);
@@ -2948,7 +2731,7 @@ class HTTPMCPServer {
       });
 
       // Start upload recovery service (30s delay, then every 5 min)
-      this.uploadRecoveryService.start();
+      this.app_.uploadRecoveryService.start();
       logger.info('Upload recovery service started');
 
       logger.info('HTTP MCP Server services initialized');

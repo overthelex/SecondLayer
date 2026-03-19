@@ -253,7 +253,6 @@ jobs:
         run: |
           ln -sf /home/vovkes/SecondLayer/deployment/.env.stage deployment/.env.stage
           ln -sf /home/vovkes/SecondLayer/deployment/.env.prod deployment/.env.prod 2>/dev/null || true
-          ln -sf /home/vovkes/SecondLayer/.env.cloudflare .env.cloudflare 2>/dev/null || true
 
       - name: Build & restart changed stage services
         working-directory: deployment
@@ -380,29 +379,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Enable Cloudflare maintenance page
-        env:
-          CLOUDFLARE_GLOBAL_API_KEY: ${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}
-          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
-        run: |
-          if [ -z "$CLOUDFLARE_GLOBAL_API_KEY" ] || [ -z "$CLOUDFLARE_EMAIL" ]; then
-            echo "::warning::CLOUDFLARE_GLOBAL_API_KEY or CLOUDFLARE_EMAIL secret not set — skipping maintenance page"
-            exit 0
-          fi
-          cat > .env.cloudflare <<EOF
-          CLOUDFLARE_GLOBAL_API_KEY=$CLOUDFLARE_GLOBAL_API_KEY
-          CLOUDFLARE_EMAIL=$CLOUDFLARE_EMAIL
-          EOF
-          bash deployment/maintenance/cf-maintenance.sh enable prod || echo "::warning::Could not enable CF maintenance page — deploying without it"
-
-      - name: Deploy changed services to prod
+      - name: Deploy changed services to prod (blue-green)
         env:
           PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
         run: |
           SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}"
           REMOTE_REPO="/home/${PROD_USER}/SecondLayer"
 
-          echo "=== Deploying to production (from stage) ==="
+          echo "=== Blue-green deploy to production ==="
 
           # Pull latest code and tags
           $SSH_CMD "git -C ${REMOTE_REPO} fetch origin main --tags && git -C ${REMOTE_REPO} reset --hard origin/main"
@@ -421,49 +405,171 @@ jobs:
           [ "$OPENREYESTR_CHANGED" = "true" ] && \
             $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build"
 
-          # Selective stop/build/migrate/start
+          # Blue-green rolling deploy
           $SSH_CMD bash << DEPLOY_SCRIPT
             set -e
             cd ${REMOTE_REPO}/deployment
             export APP_VERSION=\$(cat ${REMOTE_REPO}/VERSION 2>/dev/null || echo 'dev')
             DC="docker compose -f docker-compose.prod.yml --env-file .env.prod"
 
-            STOP="" BUILD="" START=""
+            # --- Determine active colors (per service group) ---
+            BACKEND_COLOR=\$(grep '^backend=' .active-colors 2>/dev/null | cut -d= -f2 || echo "blue")
+            FRONTEND_COLOR=\$(grep '^frontend=' .active-colors 2>/dev/null | cut -d= -f2 || echo "blue")
+            [ "\$BACKEND_COLOR" = "green" ] && NEW_BACKEND="blue" || NEW_BACKEND="green"
+            [ "\$FRONTEND_COLOR" = "green" ] && NEW_FRONTEND="blue" || NEW_FRONTEND="green"
 
-            if [ "${BACKEND_CHANGED}" = "true" ]; then
-              STOP="\$STOP app-prod document-service-prod"
-              BUILD="\$BUILD app-prod document-service-prod migrate-prod"
-              START="\$START app-prod document-service-prod"
-            fi
-            if [ "${RADA_CHANGED}" = "true" ]; then
-              STOP="\$STOP rada-mcp-app-prod"
-              BUILD="\$BUILD rada-mcp-app-prod rada-db-init-prod rada-migrate-prod"
-              START="\$START rada-mcp-app-prod"
-            fi
-            if [ "${OPENREYESTR_CHANGED}" = "true" ]; then
-              STOP="\$STOP app-openreyestr-prod"
-              BUILD="\$BUILD app-openreyestr-prod migrate-openreyestr-prod"
-              START="\$START app-openreyestr-prod"
-            fi
-            if [ "${FRONTEND_CHANGED}" = "true" ]; then
-              STOP="\$STOP lexwebapp-prod"
-              BUILD="\$BUILD lexwebapp-prod"
-              START="\$START lexwebapp-prod"
-            fi
+            ANY_BACKEND=false
+            [ "${BACKEND_CHANGED}" = "true" ] || [ "${RADA_CHANGED}" = "true" ] || [ "${OPENREYESTR_CHANGED}" = "true" ] && ANY_BACKEND=true
 
-            [ -n "\$STOP" ] && \$DC stop \$STOP 2>/dev/null || true
-            [ -n "\$STOP" ] && \$DC rm -f \$STOP 2>/dev/null || true
+            echo "Backend: \$BACKEND_COLOR → \$NEW_BACKEND (changed: \$ANY_BACKEND)"
+            echo "Frontend: \$FRONTEND_COLOR → \$NEW_FRONTEND (changed: ${FRONTEND_CHANGED})"
+
+            # --- 1. Build images (old containers still serving traffic) ---
+            BUILD=""
+            [ "${BACKEND_CHANGED}" = "true" ] && BUILD="\$BUILD app-prod document-service-prod migrate-prod"
+            [ "${RADA_CHANGED}" = "true" ] && BUILD="\$BUILD rada-mcp-app-prod rada-db-init-prod rada-migrate-prod"
+            [ "${OPENREYESTR_CHANGED}" = "true" ] && BUILD="\$BUILD app-openreyestr-prod migrate-openreyestr-prod"
+            [ "${FRONTEND_CHANGED}" = "true" ] && BUILD="\$BUILD lexwebapp-prod"
             [ -n "\$BUILD" ] && \$DC build \$BUILD
 
-            [ "${BACKEND_CHANGED}" = "true" ] && \$DC up migrate-prod || true
+            # --- 2. Run migrations (idempotent, safe while old containers serve) ---
+            [ "${BACKEND_CHANGED}" = "true" ] && { \$DC up migrate-prod || true; }
             [ "${RADA_CHANGED}" = "true" ] && { \$DC up rada-db-init-prod || true; \$DC up rada-migrate-prod || true; }
-            [ "${OPENREYESTR_CHANGED}" = "true" ] && \$DC up migrate-openreyestr-prod || true
+            [ "${OPENREYESTR_CHANGED}" = "true" ] && { \$DC up migrate-openreyestr-prod || true; }
 
-            [ -n "\$START" ] && \$DC up -d \$START
+            # --- 3. Start new-color containers alongside old ones ---
+            # When any backend service changes, start ALL backend services in new color
+            # (green services form a self-contained cluster referencing each other)
+            if [ "\$ANY_BACKEND" = "true" ]; then
+              if [ "\$NEW_BACKEND" = "green" ]; then
+                \$DC --profile green up -d app-prod-green document-service-prod-green rada-mcp-app-prod-green app-openreyestr-prod-green
+              else
+                \$DC up -d app-prod document-service-prod rada-mcp-app-prod app-openreyestr-prod
+              fi
+            fi
+            if [ "${FRONTEND_CHANGED}" = "true" ]; then
+              if [ "\$NEW_FRONTEND" = "green" ]; then
+                \$DC --profile green up -d lexwebapp-prod-green
+              else
+                \$DC up -d lexwebapp-prod
+              fi
+            fi
 
-            \$DC restart nginx-prod
+            # --- 4. Wait for new containers to be healthy ---
+            wait_healthy() {
+              local container=\$1 max_wait=\${2:-120} elapsed=0
+              echo "Waiting for \$container to be healthy..."
+              while [ \$elapsed -lt \$max_wait ]; do
+                local status
+                status=\$(docker inspect --format='{{.State.Health.Status}}' "\$container" 2>/dev/null || echo "not_found")
+                case "\$status" in
+                  healthy) echo "✓ \$container: healthy (\${elapsed}s)"; return 0 ;;
+                  unhealthy)
+                    echo "✗ \$container: unhealthy after \${elapsed}s"
+                    docker logs --tail=20 "\$container" 2>&1
+                    return 1 ;;
+                  *) sleep 5; elapsed=\$((elapsed + 5)) ;;
+                esac
+              done
+              echo "✗ \$container: timed out (\${max_wait}s)"
+              docker logs --tail=20 "\$container" 2>&1
+              return 1
+            }
 
-            # Restart monitoring containers if configs changed (grafana dashboards, prometheus rules)
+            HEALTH_OK=true
+            if [ "\$ANY_BACKEND" = "true" ]; then
+              if [ "\$NEW_BACKEND" = "green" ]; then
+                wait_healthy "secondlayer-app-prod-green" 180 || HEALTH_OK=false
+                wait_healthy "document-service-prod-green" 120 || HEALTH_OK=false
+                wait_healthy "rada-mcp-app-prod-green" 120 || HEALTH_OK=false
+                wait_healthy "openreyestr-app-prod-green" 120 || HEALTH_OK=false
+              else
+                wait_healthy "secondlayer-app-prod" 180 || HEALTH_OK=false
+                wait_healthy "document-service-prod" 120 || HEALTH_OK=false
+                wait_healthy "rada-mcp-app-prod" 120 || HEALTH_OK=false
+                wait_healthy "openreyestr-app-prod" 120 || HEALTH_OK=false
+              fi
+            fi
+            if [ "${FRONTEND_CHANGED}" = "true" ]; then
+              if [ "\$NEW_FRONTEND" = "green" ]; then
+                wait_healthy "lexwebapp-prod-green" 60 || HEALTH_OK=false
+              else
+                wait_healthy "lexwebapp-prod" 60 || HEALTH_OK=false
+              fi
+            fi
+
+            if [ "\$HEALTH_OK" != "true" ]; then
+              echo "::error::New containers failed health check — aborting (old containers still serving)"
+              # Stop failed new containers
+              if [ "\$ANY_BACKEND" = "true" ]; then
+                if [ "\$NEW_BACKEND" = "green" ]; then
+                  \$DC --profile green stop app-prod-green document-service-prod-green rada-mcp-app-prod-green app-openreyestr-prod-green 2>/dev/null || true
+                  \$DC --profile green rm -f app-prod-green document-service-prod-green rada-mcp-app-prod-green app-openreyestr-prod-green 2>/dev/null || true
+                else
+                  \$DC stop app-prod document-service-prod rada-mcp-app-prod app-openreyestr-prod 2>/dev/null || true
+                  \$DC rm -f app-prod document-service-prod rada-mcp-app-prod app-openreyestr-prod 2>/dev/null || true
+                fi
+              fi
+              if [ "${FRONTEND_CHANGED}" = "true" ]; then
+                if [ "\$NEW_FRONTEND" = "green" ]; then
+                  \$DC --profile green stop lexwebapp-prod-green 2>/dev/null || true
+                  \$DC --profile green rm -f lexwebapp-prod-green 2>/dev/null || true
+                else
+                  \$DC stop lexwebapp-prod 2>/dev/null || true
+                  \$DC rm -f lexwebapp-prod 2>/dev/null || true
+                fi
+              fi
+              exit 1
+            fi
+
+            # --- 5. Switch nginx upstreams to new color ---
+            if [ "\$ANY_BACKEND" = "true" ]; then
+              [ "\$NEW_BACKEND" = "green" ] && BE_HOST="app-prod-green" || BE_HOST="app-prod"
+            else
+              [ "\$BACKEND_COLOR" = "green" ] && BE_HOST="app-prod-green" || BE_HOST="app-prod"
+            fi
+            if [ "${FRONTEND_CHANGED}" = "true" ]; then
+              [ "\$NEW_FRONTEND" = "green" ] && FE_HOST="lexwebapp-prod-green" || FE_HOST="lexwebapp-prod"
+            else
+              [ "\$FRONTEND_COLOR" = "green" ] && FE_HOST="lexwebapp-prod-green" || FE_HOST="lexwebapp-prod"
+            fi
+
+            printf '# Active upstreams — managed by deploy script (blue-green switching)\n# DO NOT EDIT MANUALLY — overwritten during zero-downtime deploy\n\nupstream prod_mcp_backend {\n    server %s:3000;\n    keepalive 128;\n}\n\nupstream prod_frontend {\n    server %s:80;\n    keepalive 32;\n}\n' "\$BE_HOST" "\$FE_HOST" > nginx/includes/prod-upstreams.conf
+
+            # Validate and reload nginx (graceful, zero-downtime)
+            docker exec nginx-prod nginx -t
+            docker exec nginx-prod nginx -s reload
+            echo "Nginx reloaded — traffic switched to new containers"
+
+            # Allow in-flight requests to complete
+            sleep 5
+
+            # --- 6. Stop old-color containers ---
+            if [ "\$ANY_BACKEND" = "true" ]; then
+              if [ "\$BACKEND_COLOR" = "green" ]; then
+                \$DC --profile green stop app-prod-green document-service-prod-green rada-mcp-app-prod-green app-openreyestr-prod-green 2>/dev/null || true
+                \$DC --profile green rm -f app-prod-green document-service-prod-green rada-mcp-app-prod-green app-openreyestr-prod-green 2>/dev/null || true
+              else
+                \$DC stop app-prod document-service-prod rada-mcp-app-prod app-openreyestr-prod 2>/dev/null || true
+                \$DC rm -f app-prod document-service-prod rada-mcp-app-prod app-openreyestr-prod 2>/dev/null || true
+              fi
+              BACKEND_COLOR="\$NEW_BACKEND"
+            fi
+            if [ "${FRONTEND_CHANGED}" = "true" ]; then
+              if [ "\$FRONTEND_COLOR" = "green" ]; then
+                \$DC --profile green stop lexwebapp-prod-green 2>/dev/null || true
+                \$DC --profile green rm -f lexwebapp-prod-green 2>/dev/null || true
+              else
+                \$DC stop lexwebapp-prod 2>/dev/null || true
+                \$DC rm -f lexwebapp-prod 2>/dev/null || true
+              fi
+              FRONTEND_COLOR="\$NEW_FRONTEND"
+            fi
+
+            # --- 7. Save active colors ---
+            printf 'backend=%s\nfrontend=%s\n' "\$BACKEND_COLOR" "\$FRONTEND_COLOR" > .active-colors
+
+            # Restart monitoring if needed
             if [ "${MONITORING_CHANGED}" = "true" ]; then
               echo "=== Restarting monitoring services ==="
               \$DC restart grafana-prod prometheus-prod 2>/dev/null || true
@@ -477,11 +583,11 @@ jobs:
           PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
         run: |
           SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}"
-          sleep 15
 
+          # Health check through nginx (works regardless of blue/green)
           for i in 1 2 3 4 5; do
-            if $SSH_CMD "curl -sf --max-time 10 http://localhost:3007/health"; then
-              echo "Production backend: healthy"
+            if $SSH_CMD "curl -sf --max-time 10 http://localhost/health"; then
+              echo "Production backend (via nginx): healthy"
               break
             fi
             [ $i -eq 5 ] && echo "::error::Production health check failed" && exit 1
@@ -496,21 +602,6 @@ jobs:
             [ $i -eq 3 ] && echo "::warning::Public health check timed out — may be Cloudflare cache"
             sleep 5
           done
-
-      - name: Disable Cloudflare maintenance page
-        if: always()
-        env:
-          CLOUDFLARE_GLOBAL_API_KEY: ${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}
-          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
-        run: |
-          if [ -z "$CLOUDFLARE_GLOBAL_API_KEY" ] || [ -z "$CLOUDFLARE_EMAIL" ]; then
-            exit 0
-          fi
-          cat > .env.cloudflare <<EOF
-          CLOUDFLARE_GLOBAL_API_KEY=$CLOUDFLARE_GLOBAL_API_KEY
-          CLOUDFLARE_EMAIL=$CLOUDFLARE_EMAIL
-          EOF
-          bash deployment/maintenance/cf-maintenance.sh disable prod || echo "::warning::Could not disable CF maintenance page — run manually"
 
   # ─── Step 4b: Self-heal deploy failures ─────────────────────────────
   self-heal-deploy:
