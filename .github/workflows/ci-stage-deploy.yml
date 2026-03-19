@@ -419,7 +419,9 @@ jobs:
             [ "\$FRONTEND_COLOR" = "green" ] && NEW_FRONTEND="blue" || NEW_FRONTEND="green"
 
             ANY_BACKEND=false
-            [ "${BACKEND_CHANGED}" = "true" ] || [ "${RADA_CHANGED}" = "true" ] || [ "${OPENREYESTR_CHANGED}" = "true" ] && ANY_BACKEND=true
+            if [ "${BACKEND_CHANGED}" = "true" ] || [ "${RADA_CHANGED}" = "true" ] || [ "${OPENREYESTR_CHANGED}" = "true" ]; then
+              ANY_BACKEND=true
+            fi
 
             echo "Backend: \$BACKEND_COLOR → \$NEW_BACKEND (changed: \$ANY_BACKEND)"
             echo "Frontend: \$FRONTEND_COLOR → \$NEW_FRONTEND (changed: ${FRONTEND_CHANGED})"
