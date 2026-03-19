@@ -6,6 +6,7 @@ import { BatchDocumentTools } from '../api/batch-document-tools.js';
 import { MetadataExtractor } from '../services/metadata-extractor.js';
 import { ToolRegistry } from '../api/tool-registry.js';
 import { ServiceProxy } from '../services/service-proxy.js';
+import { RemoteServiceClient } from '../services/remote-service-client.js';
 import { UploadService } from '../services/upload-service.js';
 import { MinioService } from '../services/minio-service.js';
 import { VaultTools } from '../api/vault-tools.js';
@@ -67,9 +68,10 @@ export function createToolServices(
   );
   logger.info('Batch document processing tools initialized');
 
-  // Unified Gateway components
-  const toolRegistry = new ToolRegistry();
-  const serviceProxy = new ServiceProxy(costTracker);
+  // Unified Gateway components — single shared HTTP client for remote services
+  const remoteClient = new RemoteServiceClient();
+  const toolRegistry = new ToolRegistry(remoteClient);
+  const serviceProxy = new ServiceProxy(costTracker, remoteClient);
   logger.info('Unified Gateway initialized (Tool Registry + Service Proxy)');
 
   // Register all tool handlers with the central registry

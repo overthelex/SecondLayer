@@ -10,8 +10,8 @@
 
 import { ToolRoute, ServiceType } from '../types/gateway.js';
 import { logger } from '../utils/logger.js';
-import axios, { AxiosInstance } from 'axios';
 import { BaseToolHandler, ToolResult, ToolDefinition as BaseToolDefinition, StreamEventCallback } from './base-tool-handler.js';
+import { RemoteServiceClient } from '../services/remote-service-client.js';
 
 export interface ToolDefinition {
   name: string;
@@ -26,17 +26,15 @@ export interface RemoteServiceConfig {
 
 export class ToolRegistry {
   private routes: Map<string, ToolRoute>;
-  private axiosClient: AxiosInstance;
   private handlers: BaseToolHandler[] = [];
   private handlerMap: Map<string, BaseToolHandler> = new Map();
   private remoteToolDefs: ToolDefinition[] = [];
   private remoteToolDefsLoaded = false;
+  private remoteClient: RemoteServiceClient;
 
-  constructor() {
+  constructor(remoteClient?: RemoteServiceClient) {
     this.routes = new Map();
-    this.axiosClient = axios.create({
-      timeout: 60000,
-    });
+    this.remoteClient = remoteClient || new RemoteServiceClient();
     this.initializeRoutes();
   }
 
@@ -88,63 +86,24 @@ export class ToolRegistry {
    * Execute a tool on a remote service via HTTP proxy.
    */
   private async executeRemoteTool(route: ToolRoute, args: any): Promise<any> {
-    const config = this.getRemoteServiceConfig(route.service);
-    if (!config.baseUrl || !config.apiKey) {
-      throw new Error(`Remote service ${route.service} is not configured (missing URL or API key)`);
-    }
-
-    const url = `${config.baseUrl}/api/tools/${route.serviceName}`;
     logger.info('[ToolRegistry] Proxying to remote service', {
       tool: route.toolName,
       service: route.service,
       serviceName: route.serviceName,
     });
 
-    try {
-      const response = await this.axiosClient.post(
-        url,
-        { arguments: args },
-        {
-          headers: {
-            Authorization: `Bearer ${config.apiKey}`,
-            Accept: 'application/json',
-          },
-          timeout: 60000,
-        }
-      );
+    const responseData = await this.remoteClient.callRemoteTool({
+      service: route.service,
+      toolName: route.serviceName,
+      args,
+    });
 
-      logger.info('[ToolRegistry] Remote call successful', {
-        tool: route.toolName,
-        service: route.service,
-      });
+    logger.info('[ToolRegistry] Remote call successful', {
+      tool: route.toolName,
+      service: route.service,
+    });
 
-      return response.data?.result || response.data;
-    } catch (error: any) {
-      logger.error('[ToolRegistry] Remote call failed', {
-        tool: route.toolName,
-        service: route.service,
-        error: error.message,
-        status: error.response?.status,
-      });
-      throw new Error(`Remote service call failed (${route.service}/${route.serviceName}): ${error.message}`);
-    }
-  }
-
-  /**
-   * Get remote service connection config from env vars.
-   */
-  private getRemoteServiceConfig(service: ServiceType): RemoteServiceConfig {
-    const configs: Record<string, RemoteServiceConfig> = {
-      rada: {
-        baseUrl: process.env.RADA_MCP_URL || '',
-        apiKey: process.env.RADA_API_KEY || '',
-      },
-      openreyestr: {
-        baseUrl: process.env.OPENREYESTR_MCP_URL || '',
-        apiKey: process.env.OPENREYESTR_API_KEY || '',
-      },
-    };
-    return configs[service] || { baseUrl: '', apiKey: '' };
+    return responseData?.result || responseData;
   }
 
   /**
@@ -210,47 +169,31 @@ export class ToolRegistry {
     const defs: ToolDefinition[] = [];
 
     // Fetch RADA tools
-    const radaConfig = this.getRemoteServiceConfig('rada');
+    const radaConfig = this.remoteClient.getServiceConfig('rada');
     if (radaConfig.baseUrl && radaConfig.apiKey) {
-      try {
-        const response = await this.axiosClient.get(`${radaConfig.baseUrl}/api/tools`, {
-          headers: { Authorization: `Bearer ${radaConfig.apiKey}` },
-          timeout: 5000,
+      const tools = await this.remoteClient.fetchRemoteToolDefinitions(radaConfig.baseUrl, radaConfig.apiKey);
+      for (const tool of tools) {
+        defs.push({
+          name: `rada_${tool.name}`,
+          description: `[RADA] ${tool.description}`,
+          inputSchema: tool.inputSchema,
         });
-        const tools = response.data.tools || [];
-        for (const tool of tools) {
-          defs.push({
-            name: `rada_${tool.name}`,
-            description: `[RADA] ${tool.description}`,
-            inputSchema: tool.inputSchema,
-          });
-        }
-        logger.info('[ToolRegistry] Fetched RADA tool definitions', { count: tools.length });
-      } catch (err: any) {
-        logger.warn('[ToolRegistry] Failed to fetch RADA tools', { error: err.message });
       }
+      logger.info('[ToolRegistry] Fetched RADA tool definitions', { count: tools.length });
     }
 
     // Fetch OpenReyestr tools
-    const orConfig = this.getRemoteServiceConfig('openreyestr');
+    const orConfig = this.remoteClient.getServiceConfig('openreyestr');
     if (orConfig.baseUrl && orConfig.apiKey) {
-      try {
-        const response = await this.axiosClient.get(`${orConfig.baseUrl}/api/tools`, {
-          headers: { Authorization: `Bearer ${orConfig.apiKey}` },
-          timeout: 5000,
+      const tools = await this.remoteClient.fetchRemoteToolDefinitions(orConfig.baseUrl, orConfig.apiKey);
+      for (const tool of tools) {
+        defs.push({
+          name: `openreyestr_${tool.name}`,
+          description: `[OpenReyestr] ${tool.description}`,
+          inputSchema: tool.inputSchema,
         });
-        const tools = response.data.tools || [];
-        for (const tool of tools) {
-          defs.push({
-            name: `openreyestr_${tool.name}`,
-            description: `[OpenReyestr] ${tool.description}`,
-            inputSchema: tool.inputSchema,
-          });
-        }
-        logger.info('[ToolRegistry] Fetched OpenReyestr tool definitions', { count: tools.length });
-      } catch (err: any) {
-        logger.warn('[ToolRegistry] Failed to fetch OpenReyestr tools', { error: err.message });
       }
+      logger.info('[ToolRegistry] Fetched OpenReyestr tool definitions', { count: tools.length });
     }
 
     this.remoteToolDefs = defs;
@@ -335,58 +278,28 @@ export class ToolRegistry {
 
     // Fetch RADA tools if configured
     if (radaBaseUrl && radaApiKey) {
-      try {
-        const response = await this.axiosClient.get(`${radaBaseUrl}/api/tools`, {
-          headers: {
-            Authorization: `Bearer ${radaApiKey}`,
-          },
-          timeout: 5000,
-        });
+      const radaTools = await this.remoteClient.fetchRemoteToolDefinitions(radaBaseUrl, radaApiKey);
+      logger.debug('Fetched RADA tools', { count: radaTools.length });
 
-        const radaTools = response.data.tools || [];
-        logger.debug('Fetched RADA tools', { count: radaTools.length });
-
-        // Prefix RADA tools with 'rada_'
-        for (const tool of radaTools) {
-          allTools.push({
-            name: `rada_${tool.name}`,
-            description: `[RADA] ${tool.description}`,
-            inputSchema: tool.inputSchema,
-          });
-        }
-      } catch (error: any) {
-        logger.warn('Failed to fetch RADA tools', {
-          error: error.message,
-          baseUrl: radaBaseUrl,
+      for (const tool of radaTools) {
+        allTools.push({
+          name: `rada_${tool.name}`,
+          description: `[RADA] ${tool.description}`,
+          inputSchema: tool.inputSchema,
         });
       }
     }
 
     // Fetch OpenReyestr tools if configured
     if (openreyestrBaseUrl && openreyestrApiKey) {
-      try {
-        const response = await this.axiosClient.get(`${openreyestrBaseUrl}/api/tools`, {
-          headers: {
-            Authorization: `Bearer ${openreyestrApiKey}`,
-          },
-          timeout: 5000,
-        });
+      const openreyestrTools = await this.remoteClient.fetchRemoteToolDefinitions(openreyestrBaseUrl, openreyestrApiKey);
+      logger.debug('Fetched OpenReyestr tools', { count: openreyestrTools.length });
 
-        const openreyestrTools = response.data.tools || [];
-        logger.debug('Fetched OpenReyestr tools', { count: openreyestrTools.length });
-
-        // Prefix OpenReyestr tools with 'openreyestr_'
-        for (const tool of openreyestrTools) {
-          allTools.push({
-            name: `openreyestr_${tool.name}`,
-            description: `[OpenReyestr] ${tool.description}`,
-            inputSchema: tool.inputSchema,
-          });
-        }
-      } catch (error: any) {
-        logger.warn('Failed to fetch OpenReyestr tools', {
-          error: error.message,
-          baseUrl: openreyestrBaseUrl,
+      for (const tool of openreyestrTools) {
+        allTools.push({
+          name: `openreyestr_${tool.name}`,
+          description: `[OpenReyestr] ${tool.description}`,
+          inputSchema: tool.inputSchema,
         });
       }
     }
