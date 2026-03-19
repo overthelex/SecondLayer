@@ -58,10 +58,10 @@ export function createPaymentRouter(
       const userId = req.user?.userId || req.user?.id;
       const { amount_uah, redirect_url } = req.body;
 
-      if (!amount_uah || typeof amount_uah !== 'number') {
+      if (!amount_uah || typeof amount_uah !== 'number' || amount_uah < 1) {
         return res.status(400).json({
           error: 'Invalid request',
-          message: 'amount_uah is required and must be a number',
+          message: 'amount_uah is required and must be a number >= 1',
         });
       }
 

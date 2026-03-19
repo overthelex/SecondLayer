@@ -520,7 +520,7 @@ interface TopUpTabProps {
 export function TopUpTab({ initialAmount }: TopUpTabProps) {
   const { rate, formatUah } = useCurrencyRate();
   const [provider, setProvider] = useState<PaymentProvider>('monobank');
-  const [amount, setAmount] = useState<number>(initialAmount || 25);
+  const [amount, setAmount] = useState<number>(initialAmount || 500);
   const [customAmount, setCustomAmount] = useState<string>(initialAmount ? String(initialAmount) : '');
   const [showSuccess, setShowSuccess] = useState(false);
   const [availableProviders, setAvailableProviders] = useState<ProviderInfo[]>([]);
@@ -541,13 +541,16 @@ export function TopUpTab({ initialAmount }: TopUpTabProps) {
   }, [initialAmount]);
 
   const cryptoEnabled = availableProviders.some((p) => p.id === 'metamask' && p.enabled);
-  // Amount in UAH for Monobank; in USD for crypto
-  const amountUah = provider === 'monobank' ? Math.round(amount * rate) : 0;
-  const presetAmounts = [10, 25, 50, 100];
+  const isUah = provider === 'monobank';
+  // For Monobank: amount is already in UAH; for crypto: amount is in USD
+  const amountUah = isUah ? amount : Math.round(amount * rate);
+  const presetAmountsUah = [500, 1000, 2000, 5000];
+  const presetAmountsUsd = [10, 25, 50, 100];
+  const presetAmounts = isUah ? presetAmountsUah : presetAmountsUsd;
 
   const handleSuccess = () => {
     setShowSuccess(true);
-    setAmount(25);
+    setAmount(provider === 'monobank' ? 500 : 25);
     setCustomAmount('');
     setTimeout(() => setShowSuccess(false), 5000);
   };
@@ -555,7 +558,7 @@ export function TopUpTab({ initialAmount }: TopUpTabProps) {
   const handleProviderChange = (p: PaymentProvider) => {
     setProvider(p);
     setCustomAmount('');
-    setAmount(25);
+    setAmount(p === 'monobank' ? 500 : 25);
   };
 
   return (
@@ -618,26 +621,37 @@ export function TopUpTab({ initialAmount }: TopUpTabProps) {
           {presetAmounts.map((preset) => (
             <button key={preset} onClick={() => { setAmount(preset); setCustomAmount(''); }}
               className={`p-4 border-2 rounded-xl font-semibold transition-all ${amount === preset && !customAmount ? 'border-claude-accent bg-claude-accent text-white' : 'border-claude-border text-claude-text hover:border-claude-accent'}`}>
-              {formatUah(preset)}
+              {isUah ? `${preset} ₴` : formatUah(preset)}
             </button>
           ))}
         </div>
         <div>
-          <label className="block text-sm font-medium text-claude-text mb-2">Інша сума (USD)</label>
+          <label className="block text-sm font-medium text-claude-text mb-2">
+            {isUah ? 'Інша сума (₴)' : 'Інша сума (USD)'}
+          </label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-claude-subtext font-medium">$</span>
-            <input type="number" min="1" step="0.01"
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-claude-subtext font-medium">
+              {isUah ? '₴' : '$'}
+            </span>
+            <input type="number" min="1" step={isUah ? '1' : '0.01'}
               value={customAmount} onChange={(e) => { setCustomAmount(e.target.value); const p = parseFloat(e.target.value); if (!isNaN(p) && p > 0) setAmount(p); }}
-              placeholder="25.00"
+              placeholder={isUah ? '1000' : '25.00'}
               className="w-full pl-8 pr-4 py-3 border border-claude-border rounded-lg focus:outline-none focus:ring-2 focus:ring-claude-accent/20" />
           </div>
-          <p className="text-xs text-claude-subtext mt-2">Мінімум: $1 (≈ {formatUah(1)})</p>
+          <p className="text-xs text-claude-subtext mt-2">
+            {isUah ? 'Мінімум: 1 ₴' : `Мінімум: $1 (≈ ${formatUah(1)})`}
+          </p>
         </div>
         <div className="mt-4 p-4 bg-claude-bg rounded-lg">
           <div className="flex items-center justify-between">
             <span className="text-sm text-claude-subtext">До оплати:</span>
             <div className="text-right">
-              <span className="text-2xl font-bold text-claude-text">{formatUah(amount)}</span>
+              <span className="text-2xl font-bold text-claude-text">
+                {isUah ? `${amount.toFixed(0)} ₴` : formatUah(amount)}
+              </span>
+              {isUah && (
+                <p className="text-xs text-claude-subtext">≈ ${(amount / rate).toFixed(2)} USD</p>
+              )}
             </div>
           </div>
         </div>
