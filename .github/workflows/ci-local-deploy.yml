@@ -35,6 +35,7 @@ jobs:
       any_backend: ${{ steps.changes.outputs.any_backend }}
       services_to_build: ${{ steps.changes.outputs.services_to_build }}
       services_to_deploy: ${{ steps.changes.outputs.services_to_deploy }}
+      monitoring: ${{ steps.changes.outputs.monitoring }}
       has_changes: ${{ steps.check.outputs.has_changes }}
     steps:
       - uses: actions/checkout@v4
@@ -244,16 +245,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Ensure native build tools
+        run: |
+          if ! command -v make &>/dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq build-essential python3
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
       - name: Build dist for changed services
         run: |
           npm --prefix packages/shared install && npm --prefix packages/shared run build
 
-          [ "$BACKEND_CHANGED" = "true" ] && \
-            npm --prefix mcp_backend install && npm --prefix mcp_backend run build || true
-          [ "$RADA_CHANGED" = "true" ] && \
-            npm --prefix mcp_rada install && npm --prefix mcp_rada run build || true
-          [ "$OPENREYESTR_CHANGED" = "true" ] && \
-            npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build || true
+          if [ "$BACKEND_CHANGED" = "true" ]; then
+            npm --prefix mcp_backend install && npm --prefix mcp_backend run build
+          fi
+          if [ "$RADA_CHANGED" = "true" ]; then
+            npm --prefix mcp_rada install && npm --prefix mcp_rada run build
+          fi
+          if [ "$OPENREYESTR_CHANGED" = "true" ]; then
+            npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build
+          fi
 
       - name: Link env files from main repo
         run: |
@@ -404,12 +419,15 @@ jobs:
           # Build dist on prod
           $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix packages/shared install && npm --prefix packages/shared run build"
 
-          [ "$BACKEND_CHANGED" = "true" ] && \
+          if [ "$BACKEND_CHANGED" = "true" ]; then
             $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix mcp_backend install && npm --prefix mcp_backend run build"
-          [ "$RADA_CHANGED" = "true" ] && \
+          fi
+          if [ "$RADA_CHANGED" = "true" ]; then
             $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix mcp_rada install && npm --prefix mcp_rada run build"
-          [ "$OPENREYESTR_CHANGED" = "true" ] && \
+          fi
+          if [ "$OPENREYESTR_CHANGED" = "true" ]; then
             $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build"
+          fi
 
           # Blue-green rolling deploy
           $SSH_CMD bash << DEPLOY_SCRIPT
