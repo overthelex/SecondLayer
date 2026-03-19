@@ -567,8 +567,8 @@ jobs:
 
             printf '# Active upstreams — managed by deploy script (blue-green switching)\n# DO NOT EDIT MANUALLY — overwritten during zero-downtime deploy\n\nupstream prod_mcp_backend {\n    server %s:3000;\n    keepalive 128;\n}\n\nupstream prod_frontend {\n    server %s:80;\n    keepalive 32;\n}\n' "\$BE_HOST" "\$FE_HOST" > nginx/includes/prod-upstreams.conf
 
-            # Copy upstreams into nginx container (bind mount inode may be stale after git reset --hard)
-            docker cp nginx/includes/prod-upstreams.conf nginx-prod:/etc/nginx/includes/prod-upstreams.conf
+            # Write directly inside nginx container (bind mount inode stale after git reset --hard, docker cp fails: device busy)
+            docker exec nginx-prod sh -c "cat /dev/stdin > /etc/nginx/includes/prod-upstreams.conf" < nginx/includes/prod-upstreams.conf
 
             # Validate and reload nginx (graceful, zero-downtime)
             docker exec nginx-prod nginx -t
