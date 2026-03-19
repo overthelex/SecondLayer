@@ -11,6 +11,7 @@ import crypto from 'crypto';
 import nacl from 'tweetnacl';
 import { logger } from '../utils/logger.js';
 import type { IDatabase } from '../domain/ports/index.js';
+import type { MinioService } from './minio-service.js';
 
 const HKDF_INFO = Buffer.from('SecondLayer-E2EE-DEK-v1', 'utf-8');
 
@@ -108,12 +109,15 @@ export async function wrapDEK(
  * Encrypt a document's content and wrap the DEK for the owner.
  * Called after parsing/embedding in the upload pipeline.
  *
- * Returns documentId for convenience.
+ * Encrypts:
+ * - full_text and full_text_html (PostgreSQL)
+ * - Original file in MinIO (if storage_type='minio' and minioService provided)
  */
 export async function encryptDocumentContent(
   db: IDatabase,
   documentId: string,
-  userId: string
+  userId: string,
+  minioService?: MinioService
 ): Promise<boolean> {
   // Get user's public key
   const keyResult = await db.query<{ public_key: string }>(
@@ -132,12 +136,17 @@ export async function encryptDocumentContent(
   const publicKeyBase64 = keyResult.rows[0].public_key;
   const publicKey = new Uint8Array(Buffer.from(publicKeyBase64, 'base64'));
 
-  // Get document content
+  // Get document content + storage info
   const docResult = await db.query<{
     full_text: string | null;
     full_text_html: string | null;
+    storage_type: string | null;
+    storage_path: string | null;
+    mime_type: string | null;
+    user_id: string;
+    metadata: any;
   }>(
-    'SELECT full_text, full_text_html FROM documents WHERE id = $1',
+    'SELECT full_text, full_text_html, storage_type, storage_path, mime_type, user_id, metadata FROM documents WHERE id = $1',
     [documentId]
   );
 
@@ -146,7 +155,7 @@ export async function encryptDocumentContent(
     return false;
   }
 
-  const { full_text, full_text_html } = docResult.rows[0];
+  const { full_text, full_text_html, storage_type, metadata } = docResult.rows[0];
 
   // Generate DEK for this document
   const dek = generateDEK();
@@ -156,6 +165,38 @@ export async function encryptDocumentContent(
   const encryptedFullTextHtml = full_text_html
     ? encryptContent(full_text_html, dek)
     : null;
+
+  // Encrypt original file in MinIO (source encryption)
+  let sourceEncrypted = false;
+  if (storage_type === 'minio' && minioService && metadata) {
+    const meta = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+    const objectKey = meta.minioKey;
+    if (objectKey) {
+      try {
+        const fileBuffer = await minioService.getFileBuffer(userId, objectKey);
+        const encryptedBuffer = encryptBinary(fileBuffer, dek);
+        await minioService.uploadBuffer(
+          userId,
+          objectKey,
+          encryptedBuffer,
+          'application/octet-stream' // encrypted binary, original mime lost intentionally
+        );
+        sourceEncrypted = true;
+        logger.info('[Encryption] Original file encrypted in MinIO', {
+          documentId,
+          objectKey,
+          originalSize: fileBuffer.length,
+          encryptedSize: encryptedBuffer.length,
+        });
+      } catch (err: any) {
+        logger.error('[Encryption] Failed to encrypt MinIO file (text still encrypted)', {
+          documentId,
+          objectKey,
+          error: err.message,
+        });
+      }
+    }
+  }
 
   // Wrap DEK with user's public key
   const wrappedDEK = await wrapDEK(dek, publicKey);
@@ -190,6 +231,7 @@ export async function encryptDocumentContent(
     userId,
     hasFullText: !!full_text,
     hasFullTextHtml: !!full_text_html,
+    sourceEncrypted,
   });
 
   return true;
