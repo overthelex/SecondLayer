@@ -37,6 +37,8 @@ import { InvoiceService } from './services/invoice-service.js';
 import { createPaymentRouter, createWebhookRouter } from './routes/payment-routes.js';
 import { createBillingRoutes } from './routes/billing-routes.js';
 import { createAdminRoutes } from './routes/admin-routes.js';
+import { EncryptionKeyService } from './services/encryption-key-service.js';
+import { createEncryptionRoutes } from './routes/encryption-routes.js';
 import { createWorkerHeartbeatRoute } from './routes/worker-heartbeat-routes.js';
 import { createDecisionsRoutes } from './routes/decisions-routes.js';
 import { createERAUProxyRoutes } from './routes/erau-proxy-routes.js';
@@ -150,6 +152,7 @@ class HTTPMCPServer {
   private batchDocumentTools: BatchDocumentTools;
   private costTracker: CostTracker;
   private billingService: BillingService;
+  private encryptionKeyService: EncryptionKeyService;
   private pricingService: PricingService;
   private subscriptionService: SubscriptionService;
   private userPreferencesService: UserPreferencesService;
@@ -233,6 +236,7 @@ class HTTPMCPServer {
     // Initialize cost tracker, billing service, and currency service
     this.costTracker = new CostTracker(this.services.db);
     this.billingService = new BillingService(this.services.db);
+    this.encryptionKeyService = new EncryptionKeyService(this.services.db);
     this.currencyService = new CurrencyService();
 
     // Fetch NBU exchange rate on startup
@@ -2520,6 +2524,10 @@ class HTTPMCPServer {
     // Attorney routes - search is public (optionalJWT), profile management requires JWT
     this.app.use('/api/attorneys', optionalJWT as any, createAttorneyRoutes(this.attorneyProfileService));
     logger.info('Attorney routes registered at /api/attorneys');
+
+    // E2EE encryption key management routes - all require JWT
+    this.app.use('/api/encryption', requireJWT as any, createEncryptionRoutes(this.encryptionKeyService, this.services.db));
+    logger.info('Encryption routes registered at /api/encryption');
 
     // Consultation routes - all require JWT
     this.app.use('/api/consultations', requireJWT as any, createConsultationRoutes(

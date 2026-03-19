@@ -8,6 +8,7 @@ import {
   Pencil,
   Trash2,
   FolderInput,
+  Lock,
   AlertTriangle,
 } from 'lucide-react';
 import type { VaultDocument, SortField, SortOrder } from './types';
@@ -276,6 +277,12 @@ export function DocumentTable({
                     >
                       {DOC_TYPE_LABELS[doc.type] || doc.type}
                     </span>
+                    {doc.is_encrypted && (
+                      <span className="inline-flex items-center ml-1 px-1.5 py-0.5 text-[9px] font-semibold rounded-md border border-green-300 bg-green-50 text-green-700 font-sans" title="Зашифровано (E2EE)">
+                        <Lock size={9} className="mr-0.5" />
+                        E2EE
+                      </span>
+                    )}
                   </td>
                   <td className="px-5 py-3 text-xs text-claude-subtext/60 font-sans whitespace-nowrap">
                     {doc.metadata?.documentDate

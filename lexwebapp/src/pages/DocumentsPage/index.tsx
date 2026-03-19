@@ -23,6 +23,7 @@ import { useDocumentActions } from './useDocumentActions';
 import { useDocumentPreview } from './useDocumentPreview';
 import { useMultiSelect } from './useMultiSelect';
 import { useEditNavigation } from './useEditNavigation';
+import { RetroactiveEncryptionPanel } from '../../components/encryption/RetroactiveEncryptionPanel';
 
 const VIEW_MODE_KEY = 'documents-view-mode';
 
@@ -295,6 +296,10 @@ export function DocumentsPage() {
             stats={docStats}
             onComplete={() => { loadDocuments(); loadStats(); }}
           />
+
+          <div className="mb-4">
+            <RetroactiveEncryptionPanel />
+          </div>
 
           <DocumentSearchBar
             searchQuery={searchQuery}

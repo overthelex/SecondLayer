@@ -11,6 +11,9 @@ import { PaymentStep } from './PaymentStep';
 import type { VaultDocument } from '../../pages/DocumentsPage/types';
 import type { Conversation } from '../../services/api/ConversationService';
 import { getErrorMessage } from '../../utils/errors';
+import { useEncryptionStore } from '../../stores/encryptionStore';
+import { encryptionService } from '../../services/api/EncryptionService';
+import { rewrapDEK } from '../../services/crypto';
 
 interface Props {
   attorneyId: string;
@@ -78,6 +81,40 @@ export function ConsultationRequestModal({ attorneyId, attorneyName, consultatio
         conversationIds: selectedConversationIds.length > 0 ? selectedConversationIds : undefined,
       };
       const consultation = await consultationService.createConsultation(payload);
+
+      // E2EE: Auto-wrap DEKs for encrypted documents being shared
+      if (selectedDocIds.length > 0) {
+        const encState = useEncryptionStore.getState();
+        if (encState.isUnlocked && encState.privateKey) {
+          // Find encrypted docs among selected
+          const encryptedDocs = allDocs.filter(
+            d => d.is_encrypted && selectedDocIds.includes(d.id)
+          );
+
+          if (encryptedDocs.length > 0) {
+            try {
+              // Get attorney's public key
+              const { public_key: attorneyPubKey } = await encryptionService.getPublicKey(attorneyId);
+              const attorneyPubKeyBytes = (await import('../../services/crypto')).decodeBase64(attorneyPubKey);
+
+              // Rewrap each encrypted doc's DEK for the attorney
+              for (const doc of encryptedDocs) {
+                try {
+                  const { encrypted_dek: myWrappedDEK } = await encryptionService.getDocumentKey(doc.id);
+                  const rewrappedDEK = await rewrapDEK(myWrappedDEK, encState.privateKey, attorneyPubKeyBytes);
+                  await encryptionService.shareDocument(doc.id, attorneyId, rewrappedDEK);
+                } catch (e) {
+                  console.warn(`[Consultation] Failed to share DEK for doc ${doc.id}:`, e);
+                }
+              }
+            } catch (e) {
+              // Attorney may not have encryption set up — not a blocker
+              console.warn('[Consultation] Failed to share encrypted docs with attorney:', e);
+            }
+          }
+        }
+      }
+
       onClose();
       navigate(generateRoute.consultationDetail(consultation.id));
     } catch (err: unknown) {

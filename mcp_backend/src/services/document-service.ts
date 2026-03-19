@@ -23,6 +23,8 @@ export interface Document {
   client_id?: string;
   document_class?: string;
   privilege_status?: string;
+  is_encrypted?: boolean;
+  encryption_version?: number;
   created_at?: Date;
   updated_at?: Date;
 }
