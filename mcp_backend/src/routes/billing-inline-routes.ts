@@ -277,11 +277,8 @@ export function createBillingInlineRoutes(deps: {
     }
   }) as any);
 
-  // GET /payment-methods - Stub that returns empty array
-  router.get('/payment-methods', (async (_req: DualAuthRequest, res: Response) => {
-    // Payment methods storage not yet implemented — return empty list
-    res.json({ paymentMethods: [] });
-  }) as any);
+  // NOTE: GET /payment-methods is handled by billing-routes.ts (real implementation)
+  // Do NOT add a stub here — it would shadow the real endpoint
 
   // PUT /settings - Update billing settings
   router.put('/settings', (async (req: DualAuthRequest, res: Response) => {
