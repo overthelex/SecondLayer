@@ -3,8 +3,34 @@
  * Generates invoice numbers and PDF invoices for billing transactions
  */
 
+import fs from 'fs';
 import PDFDocument from 'pdfkit';
 import { logger } from '../utils/logger.js';
+
+// Cyrillic-supporting font paths (checked in order)
+const FONT_CANDIDATES: { regular: string; bold: string }[] = [
+  { // Alpine (Docker prod/stage)
+    regular: '/usr/share/fonts/freefont/FreeSans.otf',
+    bold: '/usr/share/fonts/freefont/FreeSansBold.otf',
+  },
+  { // Debian/Ubuntu (local dev)
+    regular: '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+    bold: '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+  },
+  { // Alternative Debian path
+    regular: '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+    bold: '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+  },
+];
+
+function findFont(): { regular: string; bold: string } | null {
+  for (const candidate of FONT_CANDIDATES) {
+    if (fs.existsSync(candidate.regular) && fs.existsSync(candidate.bold)) {
+      return candidate;
+    }
+  }
+  return null;
+}
 
 export interface InvoiceItem {
   description: string;
@@ -52,15 +78,28 @@ export class InvoiceService {
         doc.on('end', () => resolve(Buffer.concat(chunks)));
         doc.on('error', reject);
 
-        const currencySymbol = invoice.currency === 'USD' ? '$' : '₴';
+        // Register Unicode font for Cyrillic + ₴ support
+        const font = findFont();
+        let fontRegular = 'Helvetica';
+        let fontBold = 'Helvetica-Bold';
+        if (font) {
+          doc.registerFont('Sans', font.regular);
+          doc.registerFont('Sans-Bold', font.bold);
+          fontRegular = 'Sans';
+          fontBold = 'Sans-Bold';
+        } else {
+          logger.warn('[InvoiceService] No Cyrillic font found, falling back to Helvetica');
+        }
+
+        const currencySymbol = invoice.currency === 'USD' ? '$' : '\u20B4';
 
         // Header
         doc
           .fontSize(24)
-          .font('Helvetica-Bold')
+          .font(fontBold)
           .text('SecondLayer', 50, 50)
           .fontSize(10)
-          .font('Helvetica')
+          .font(fontRegular)
           .text('Legal AI Platform', 50, 80)
           .text('Kyiv, Ukraine', 50, 95)
           .text('billing@legal.org.ua', 50, 110);
@@ -68,12 +107,12 @@ export class InvoiceService {
         // Invoice title and status
         doc
           .fontSize(20)
-          .font('Helvetica-Bold')
+          .font(fontBold)
           .text('INVOICE', 400, 50, { align: 'right' });
 
         doc
           .fontSize(10)
-          .font('Helvetica')
+          .font(fontRegular)
           .text(`Invoice #: ${invoice.invoiceNumber}`, 400, 80, { align: 'right' })
           .text(`Date: ${invoice.date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`, 400, 95, { align: 'right' })
           .text(`Status: ${invoice.status.toUpperCase()}`, 400, 110, { align: 'right' });
@@ -81,12 +120,12 @@ export class InvoiceService {
         // Bill To
         doc
           .fontSize(12)
-          .font('Helvetica-Bold')
+          .font(fontBold)
           .text('Bill To:', 50, 160);
 
         doc
           .fontSize(10)
-          .font('Helvetica')
+          .font(fontRegular)
           .text(invoice.customerName, 50, 180)
           .text(invoice.customerEmail, 50, 195);
 
@@ -98,7 +137,7 @@ export class InvoiceService {
         // Table header
         doc
           .fontSize(10)
-          .font('Helvetica-Bold')
+          .font(fontBold)
           .text('Description', descriptionX, tableTop)
           .text('Amount', amountX, tableTop);
 
@@ -109,7 +148,7 @@ export class InvoiceService {
 
         // Table rows
         let currentY = tableTop + 25;
-        doc.font('Helvetica');
+        doc.font(fontRegular);
 
         for (const item of invoice.items) {
           doc
@@ -142,7 +181,7 @@ export class InvoiceService {
 
         currentY += 20;
         doc
-          .font('Helvetica-Bold')
+          .font(fontBold)
           .fontSize(12)
           .text('Total:', totalsX, currentY)
           .text(`${currencySymbol}${invoice.total.toFixed(2)}`, amountX, currentY);
@@ -151,7 +190,7 @@ export class InvoiceService {
         currentY += 40;
         doc
           .fontSize(10)
-          .font('Helvetica')
+          .font(fontRegular)
           .text(`Payment Method: ${invoice.paymentMethod}`, 50, currentY);
 
         if (invoice.paymentId) {

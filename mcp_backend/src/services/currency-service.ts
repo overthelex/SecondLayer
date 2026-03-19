@@ -110,6 +110,17 @@ export class CurrencyService {
   }
 
   /**
+   * Convert UAH amount to USD.
+   */
+  async convertUahToUsd(amountUah: number): Promise<{ amountUsd: number; rate: number }> {
+    const { rate } = await this.getUsdToUahRate();
+    return {
+      amountUsd: Math.round((amountUah / rate) * 100) / 100,
+      rate,
+    };
+  }
+
+  /**
    * Refresh the exchange rate from NBU API and update cache.
    * Can be called by a cron/scheduled task.
    */

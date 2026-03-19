@@ -8,6 +8,7 @@ import { createVerify, createPublicKey, verify as cryptoVerify } from 'crypto';
 import { logger } from '../utils/logger.js';
 import { BillingService } from './billing-service.js';
 import { EmailService } from './email-service.js';
+import { CurrencyService } from './currency-service.js';
 import { invoiceService } from './invoice-service.js';
 import type { IDatabase } from '../domain/ports/index.js';
 
@@ -37,7 +38,8 @@ export class MonobankService {
   constructor(
     protected billingService: BillingService,
     protected emailService: EmailService,
-    protected db: IDatabase
+    protected db: IDatabase,
+    protected currencyService?: CurrencyService
   ) {}
 
   private get apiKey(): string {
@@ -260,11 +262,20 @@ export class MonobankService {
       ['succeeded', pi.id]
     );
 
-    // Credit user balance
+    // Credit user balance (both UAH and USD equivalent)
     const amountUah = parseFloat(pi.amount_uah) || (body.amount / 100);
+    let amountUsd = 0;
+    if (this.currencyService) {
+      try {
+        const { amountUsd: converted } = await this.currencyService.convertUahToUsd(amountUah);
+        amountUsd = converted;
+      } catch (err: any) {
+        logger.warn('[MonobankService] Failed to convert UAH to USD, crediting UAH only', { amountUah, error: err.message });
+      }
+    }
     const transaction = await this.billingService.topUpBalance({
       userId: pi.user_id,
-      amountUsd: 0,
+      amountUsd,
       amountUah,
       description: `Поповнення через Monobank: ${amountUah} ₴`,
       paymentProvider: 'monobank',
