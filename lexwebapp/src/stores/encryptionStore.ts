@@ -11,7 +11,6 @@ import {
   setupEncryption,
   unlockPrivateKey,
   exportKeyFile,
-  decodeBase64,
   type EncryptedKeyBundle,
   type KdfParams,
 } from '../services/crypto';
@@ -82,9 +81,7 @@ export const useEncryptionStore = create<EncryptionState>()(
             kdf_params: bundle.kdfParams as unknown as Record<string, unknown>,
           });
 
-          // Unlock immediately after setup
-          const privateKey = decodeBase64(bundle.publicKey); // We still have the raw key
-          // Actually, we need to re-derive the private key from the bundle
+          // Unlock immediately after setup — re-derive private key from the bundle
           const pk = await unlockPrivateKey(
             password,
             bundle.encryptedPrivateKey,

@@ -11,7 +11,7 @@
  * 7. Verify plaintext is not visible in "stored" data
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   generateKeyPair,
   generateDEK,
@@ -189,8 +189,6 @@ describe('E2EE Integration: Full Lifecycle', () => {
   });
 
   it('different documents use different DEKs', async () => {
-    const kp = generateKeyPair();
-
     const dek1 = generateDEK();
     const dek2 = generateDEK();
     expect(timingSafeEqual(dek1, dek2)).toBe(false);
@@ -211,7 +209,6 @@ describe('E2EE Integration: Full Lifecycle', () => {
   });
 
   it('compromised DEK only exposes one document', async () => {
-    const kp = generateKeyPair();
     const doc1Content = 'Secret document 1';
     const doc2Content = 'Secret document 2';
 
