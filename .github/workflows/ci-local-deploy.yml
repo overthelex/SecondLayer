@@ -617,7 +617,7 @@ jobs:
 
           # Full health check through nginx (works regardless of blue/green)
           for i in 1 2 3 4 5; do
-            HEALTH=$($SSH_CMD "curl -sf --max-time 10 http://localhost/health" 2>/dev/null) && {
+            HEALTH=$($SSH_CMD "curl -sfk --max-time 10 https://localhost/health" 2>/dev/null) && {
               echo "=== Production health (via nginx) ==="
               echo "$HEALTH" | jq . 2>/dev/null || echo "$HEALTH"
               STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null)
