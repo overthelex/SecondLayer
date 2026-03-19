@@ -1,11 +1,15 @@
 /**
  * Service Proxy - HTTP client for proxying requests to remote MCP services (RADA, OpenReyestr)
+ *
+ * Delegates HTTP transport to RemoteServiceClient; retains cost-tracking integration.
  */
 
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { logger } from '../utils/logger.js';
 import { CostTracker } from './cost-tracker.js';
 import { ServiceType } from '../types/gateway.js';
+import { RemoteServiceClient } from './remote-service-client.js';
+
+export { RemoteServiceConfig } from './remote-service-client.js';
 
 export interface ServiceProxyConfig {
   baseUrl: string;
@@ -13,17 +17,10 @@ export interface ServiceProxyConfig {
 }
 
 export class ServiceProxy {
-  private axiosClient: AxiosInstance;
-  private externalApiMetrics: ((service: string, status: string, durationSec: number) => void) | null = null;
-
-  constructor(private costTracker: CostTracker) {
-    this.axiosClient = axios.create({
-      timeout: 60000,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-  }
+  constructor(
+    private costTracker: CostTracker,
+    private remoteClient: RemoteServiceClient
+  ) {}
 
   /**
    * Call a remote MCP service (RADA or OpenReyestr)
@@ -37,81 +34,30 @@ export class ServiceProxy {
   }): Promise<any> {
     const { service, serviceName, args, requestId, acceptHeader } = params;
 
-    const config = this.getServiceConfig(service);
-
-    if (!config.baseUrl || !config.apiKey) {
-      throw new Error(`Service ${service} is not configured (missing URL or API key)`);
-    }
-
-    const url = `${config.baseUrl}/api/tools/${serviceName}`;
-
-    logger.info('[ServiceProxy] Calling remote service', {
+    const responseData = await this.remoteClient.callRemoteTool({
       service,
-      tool: serviceName,
-      url,
+      toolName: serviceName,
+      args,
       requestId,
-      streaming: acceptHeader?.includes('event-stream'),
+      acceptHeader,
     });
 
-    const callStart = Date.now();
-    try {
-      // Make HTTP request to remote service
-      const response: AxiosResponse = await this.axiosClient.post(
-        url,
-        { arguments: args },
-        {
-          headers: {
-            Authorization: `Bearer ${config.apiKey}`,
-            Accept: acceptHeader || 'application/json',
-            'X-Parent-Request-ID': requestId,
-          },
-          responseType: acceptHeader?.includes('event-stream') ? 'stream' : 'json',
-        }
-      );
-      const callDuration = (Date.now() - callStart) / 1000;
-      this.externalApiMetrics?.(service, 'success', callDuration);
-
-      // For streaming responses, return the raw stream
-      if (acceptHeader?.includes('event-stream')) {
-        return response.data;
-      }
-
-      // Extract cost tracking from response
-      if (response.data?.cost_tracking?.actual_cost) {
-        await this.recordRemoteServiceCost({
-          requestId,
-          service,
-          toolName: serviceName,
-          costData: response.data.cost_tracking.actual_cost,
-        });
-      }
-
-      logger.info('[ServiceProxy] Remote call successful', {
-        service,
-        tool: serviceName,
-        requestId,
-        statusCode: response.status,
-      });
-
-      return response.data;
-    } catch (error: any) {
-      const callDuration = (Date.now() - callStart) / 1000;
-      this.externalApiMetrics?.(service, 'error', callDuration);
-
-      logger.error('[ServiceProxy] Remote call failed', {
-        service,
-        tool: serviceName,
-        requestId,
-        error: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-      });
-
-      // Re-throw with more context
-      throw new Error(
-        `Remote service call failed (${service}/${serviceName}): ${error.message}`
-      );
+    // For streaming responses, return the raw stream (no cost extraction)
+    if (acceptHeader?.includes('event-stream')) {
+      return responseData;
     }
+
+    // Extract cost tracking from response
+    if (responseData?.cost_tracking?.actual_cost) {
+      await this.recordRemoteServiceCost({
+        requestId,
+        service,
+        toolName: serviceName,
+        costData: responseData.cost_tracking.actual_cost,
+      });
+    }
+
+    return responseData;
   }
 
   /**
@@ -164,42 +110,15 @@ export class ServiceProxy {
     }
   }
 
-  /**
-   * Get service configuration from environment variables
-   */
-  private getServiceConfig(service: ServiceType): ServiceProxyConfig {
-    const configs: Record<ServiceType, ServiceProxyConfig> = {
-      backend: {
-        baseUrl: '',
-        apiKey: '',
-      },
-      rada: {
-        baseUrl: process.env.RADA_MCP_URL || 'http://rada-mcp-app-stage:3001',
-        apiKey: process.env.RADA_API_KEY || '',
-      },
-      openreyestr: {
-        baseUrl: process.env.OPENREYESTR_MCP_URL || 'http://app-openreyestr-stage:3005',
-        apiKey: process.env.OPENREYESTR_API_KEY || '',
-      },
-    };
-
-    return configs[service];
-  }
-
   setExternalApiMetrics(callback: (service: string, status: string, durationSec: number) => void) {
-    this.externalApiMetrics = callback;
+    this.remoteClient.setMetricsCallback(callback);
   }
 
   /**
    * Check if a service is configured and available
    */
   isServiceAvailable(service: ServiceType): boolean {
-    if (service === 'backend') {
-      return true; // Backend is always available
-    }
-
-    const config = this.getServiceConfig(service);
-    return !!(config.baseUrl && config.apiKey);
+    return this.remoteClient.isServiceAvailable(service);
   }
 
   /**
