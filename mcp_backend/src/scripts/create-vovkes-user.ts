@@ -63,7 +63,7 @@ async function createVovkesUser() {
       'manual_grant', // source
       'initial-balance-vovkes', // source ID
       `Initial balance for Vovkes admin account ($${USER_DATA.balance})`,
-      undefined // no stripe payment intent
+      undefined // no payment intent
     );
 
     logger.info('✅ Credits added successfully!');
