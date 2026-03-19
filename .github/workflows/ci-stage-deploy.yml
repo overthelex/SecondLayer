@@ -526,9 +526,9 @@ jobs:
 
             # --- 5. Switch nginx upstreams to new color ---
             if [ "\$ANY_BACKEND" = "true" ]; then
-              [ "\$NEW_BACKEND" = "green" ] && BE_HOST="app-prod-green" || BE_HOST="app-prod"
+              [ "\$NEW_BACKEND" = "green" ] && BE_HOST="secondlayer-app-prod-green" || BE_HOST="secondlayer-app-prod"
             else
-              [ "\$BACKEND_COLOR" = "green" ] && BE_HOST="app-prod-green" || BE_HOST="app-prod"
+              [ "\$BACKEND_COLOR" = "green" ] && BE_HOST="secondlayer-app-prod-green" || BE_HOST="secondlayer-app-prod"
             fi
             if [ "${FRONTEND_CHANGED}" = "true" ]; then
               [ "\$NEW_FRONTEND" = "green" ] && FE_HOST="lexwebapp-prod-green" || FE_HOST="lexwebapp-prod"
