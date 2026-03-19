@@ -105,7 +105,7 @@ Closed Orders are automatically archived after 30 (thirty) calendar days. Archiv
 - not copy, distribute, or transfer Materials to third parties;
 - comply with attorney-client privilege requirements in accordance with Article 22 of the Law of Ukraine "On the Bar and Practice of Law."
 
-5.5. The Platform ensures technical protection of Case Materials (encryption in transit and at rest) but is not responsible for the content of transferred documents.
+5.5. The Platform ensures technical protection of Case Materials (encryption in transit and at rest) but is not responsible for the content of transferred documents. If the Client has activated end-to-end encryption (E2EE), the encryption key for each document is cryptographically re-encrypted for the Attorney when transferring Materials. The Attorney's access to encrypted Materials is automatically revoked upon completion or cancellation of the Order.
 
 ## 6. Escrow and Payments
 

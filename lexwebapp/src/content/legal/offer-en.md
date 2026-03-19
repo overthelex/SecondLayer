@@ -67,7 +67,7 @@ Email: info@legal.org.ua
 - semantic search across the Ukrainian court practice database;
 - legislation search and analysis with intelligent sectioning;
 - counterparty verification in state registries (EDR, EDRSR);
-- secure cloud document storage;
+- secure cloud document storage with optional end-to-end encryption (E2EE);
 - access to parliamentary data (bills, deputy voting records);
 - integration via MCP tokens with external clients (Claude Desktop, etc.);
 - access to analytical tools and reporting;
@@ -283,6 +283,14 @@ The detailed procedure is defined by the Marketplace Rules.
 13.2. The Provider undertakes not to disclose the Client's confidential information to third parties, except as provided by law or this Agreement.
 
 13.3. The terms of processing personal data of third parties contained in the Client's Content are governed by the Data Processing Agreement (DPA).
+
+13.4. The Client may activate end-to-end document encryption (E2EE). When E2EE is activated:
+- document content is encrypted in the Client's browser using AES-256-GCM before being stored on the Provider's servers;
+- encryption keys are generated and stored exclusively on the Client's side, protected by an encryption password (Argon2id);
+- the Provider has no technical ability to decrypt encrypted documents;
+- when delegating access to an Attorney via the Marketplace, the document key is cryptographically re-encrypted for the Attorney;
+- the Attorney's access is automatically revoked upon completion or cancellation of the Order;
+- in case of loss of the encryption password and key file, recovery of access to encrypted documents is technically impossible, and the Provider bears no liability for such loss.
 
 ## 14. Force Majeure
 
