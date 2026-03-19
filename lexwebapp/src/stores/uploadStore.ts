@@ -12,6 +12,8 @@ import {
 import { uploadService, ActiveSession } from '../services/api/UploadService';
 import { matterService } from '../services/api/MatterService';
 import { showToast } from '../utils/toast';
+import { useEncryptionStore } from './encryptionStore';
+import { encryptUploadedDocuments } from '../services/crypto/PostUploadEncryptor';
 
 export interface RecoveredSession {
   uploadId: string;
@@ -134,6 +136,26 @@ export const useUploadStore = create<UploadState>((set) => {
           }
         }
       }
+
+      // Post-upload encryption: if encryption is enabled, encrypt completed documents
+      const encState = useEncryptionStore.getState();
+      if (encState.encryptNewUploads && encState.isUnlocked && encState.publicKey) {
+        const docIds = completedItems.map(i => i.documentId).filter(Boolean) as string[];
+        if (docIds.length > 0) {
+          encryptUploadedDocuments(docIds, encState.publicKey).then(results => {
+            const succeeded = results.filter(r => r.success).length;
+            const failed = results.filter(r => !r.success).length;
+            if (succeeded > 0) {
+              showToast.success(`Зашифровано ${succeeded} документів`);
+            }
+            if (failed > 0) {
+              showToast.error(`Не вдалося зашифрувати ${failed} документів`);
+            }
+          }).catch(err => {
+            console.warn('[UploadStore] Post-upload encryption failed', err);
+          });
+        }
+      }
     } else if (event.type === 'throttle-changed') {
       set({
         ...sync,
@@ -162,7 +184,13 @@ export const useUploadStore = create<UploadState>((set) => {
     isRecovering: false,
 
     addFiles: (files) => {
-      uploadManager.addFiles(files);
+      // Inject encrypt flag from encryption store
+      const encryptNewUploads = useEncryptionStore.getState().encryptNewUploads;
+      const filesWithEncrypt = files.map(f => ({
+        ...f,
+        encrypt: encryptNewUploads,
+      }));
+      uploadManager.addFiles(filesWithEncrypt);
       set(syncFromManager(uploadManager));
     },
 

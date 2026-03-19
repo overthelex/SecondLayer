@@ -5,6 +5,8 @@ import { consultationService, type Consultation } from '../../services/api/Consu
 import { useAuth } from '../../contexts/AuthContext';
 import { getErrorMessage } from '../../utils/errors';
 import { ConsultationChatTab } from '../../components/chat/ConsultationChatTab';
+import { EscrowStatusBadge } from '../../components/consultation/EscrowStatusBadge';
+import { SharedDocumentsSection } from '../../components/consultation/SharedDocumentsSection';
 
 const STATUS_STEPS = ['pending', 'accepted', 'paid', 'in_progress', 'completed'];
 const STATUS_LABELS: Record<string, string> = {
@@ -167,6 +169,25 @@ export function ConsultationDetailPage() {
             </div>
           )}
 
+          {/* Escrow payment status */}
+          {consultation.agreed_fee_uah && consultation.agreed_fee_uah > 0 && !['pending', 'declined'].includes(consultation.status) && (
+            <EscrowStatusBadge
+              consultationId={consultation.id}
+              consultationStatus={consultation.status}
+              onPaymentConfirmed={load}
+            />
+          )}
+
+          {/* Shared documents */}
+          {consultation.document_ids?.length > 0 && (
+            <SharedDocumentsSection
+              documentIds={consultation.document_ids}
+              attorneyUserId={consultation.attorney_user_id}
+              isClient={isClient}
+              consultationStatus={consultation.status}
+            />
+          )}
+
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
             {isAttorney && consultation.status === 'pending' && (
@@ -280,10 +301,6 @@ export function ConsultationDetailPage() {
                 </p>
               </div>
             </div>
-
-            <p className="text-xs text-gray-400 text-center mb-4">
-              Тестовий режим — реальне списання не відбувається
-            </p>
 
             <div className="flex gap-3">
               <button

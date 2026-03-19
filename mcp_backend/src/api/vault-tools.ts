@@ -30,6 +30,7 @@ export interface VaultDocument {
   title: string;
   type: 'contract' | 'legislation' | 'court_decision' | 'internal' | 'other';
   content: string;
+  is_encrypted?: boolean;
   metadata: {
     uploadedAt: string;
     uploadedBy?: string;
@@ -847,6 +848,7 @@ Pipeline:
         title: doc.title || 'Untitled',
         type: doc.type as any,
         content,
+        is_encrypted: (doc as any).is_encrypted || false,
         metadata: docMeta,
       };
 
@@ -995,6 +997,7 @@ Pipeline:
 
       const query = `
         SELECT id, type, title, metadata, storage_type, mime_type, created_at, updated_at,
+               COALESCE(is_encrypted, false) AS is_encrypted,
                LEFT(regexp_replace(full_text, '[^\\x20-\\x7E\\u0400-\\u04FF\\u0500-\\u052F\\s]', '', 'g'), 300) AS text_preview
         FROM documents
         WHERE ${whereClause}
@@ -1017,6 +1020,7 @@ Pipeline:
         type: row.type,
         storage_type: row.storage_type || 'vault',
         mime_type: row.mime_type || null,
+        is_encrypted: row.is_encrypted || false,
         content: '', // Don't include full content in list
         text_preview: row.text_preview || '',
         metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata || {},

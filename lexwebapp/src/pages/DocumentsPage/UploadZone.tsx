@@ -1,7 +1,9 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FolderUp } from 'lucide-react';
+import { Upload, FolderUp, Shield } from 'lucide-react';
 import type { DocType } from './types';
+import { useEncryptionStore } from '../../stores/encryptionStore';
+import { EncryptionSetupDialog } from '../../components/encryption/EncryptionSetupDialog';
 
 const ACCEPTED_TYPES =
   '.pdf,.docx,.doc,.html,.htm,.txt,.rtf,.jpg,.jpeg,.png,.bmp,.gif,.xlsx,.xls,.csv,.mp4,.mov,.avi,.mkv,.webm,.eml,.zip,.gz,.tgz,.tar';
@@ -176,8 +178,39 @@ export function UploadZone({
     }
   };
 
+  const { hasEncryption, isUnlocked, encryptNewUploads, setEncryptNewUploads } = useEncryptionStore();
+  const [showEncryptionDialog, setShowEncryptionDialog] = useState(false);
+
+  const handleEncryptionToggle = () => {
+    if (!hasEncryption) {
+      // First time: show setup dialog
+      setShowEncryptionDialog(true);
+      return;
+    }
+    if (!isUnlocked) {
+      // Keys exist but locked: show unlock dialog
+      setShowEncryptionDialog(true);
+      return;
+    }
+    // Toggle encryption for new uploads
+    setEncryptNewUploads(!encryptNewUploads);
+  };
+
   return (
     <>
+      <EncryptionSetupDialog
+        isOpen={showEncryptionDialog}
+        onClose={() => {
+          setShowEncryptionDialog(false);
+          // If unlock/setup succeeded, enable encryption
+          const state = useEncryptionStore.getState();
+          if (state.isUnlocked) {
+            setEncryptNewUploads(true);
+          }
+        }}
+        mode={hasEncryption ? 'unlock' : 'setup'}
+      />
+
       {/* Hidden file inputs */}
       <input
         ref={fileInputRef}
@@ -220,6 +253,22 @@ export function UploadZone({
               >
                 <FolderUp size={14} strokeWidth={2} />
                 Папку
+              </button>
+              <button
+                onClick={handleEncryptionToggle}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all active:scale-[0.98] font-sans ${
+                  encryptNewUploads && isUnlocked
+                    ? 'bg-green-50 border border-green-300 text-green-700 hover:bg-green-100'
+                    : 'bg-white border border-claude-border text-claude-subtext hover:bg-claude-bg'
+                }`}
+                title={
+                  encryptNewUploads && isUnlocked
+                    ? 'Шифрування увімкнено'
+                    : 'Увімкнути шифрування'
+                }
+              >
+                <Shield size={14} strokeWidth={2} />
+                {encryptNewUploads && isUnlocked ? 'E2EE' : 'E2EE'}
               </button>
               <span className="text-xs text-claude-subtext/40 font-sans ml-1 hidden sm:inline">
                 або перетягніть файли · Ctrl+U
