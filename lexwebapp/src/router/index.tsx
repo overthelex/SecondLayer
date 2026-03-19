@@ -82,6 +82,7 @@ const BillingTariffsTab = lazyWithRetry(() => import('../components/billing/Tari
 const BillingHistoryTab = lazyWithRetry(() => import('../components/billing/HistoryTab').then(m => ({ default: m.HistoryTab })));
 const BillingAnalyticsTab = lazyWithRetry(() => import('../components/billing/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })));
 const BillingSettingsTab = lazyWithRetry(() => import('../components/billing/SettingsTab').then(m => ({ default: m.SettingsTab })));
+const B2BInvoicesTab = lazyWithRetry(() => import('../components/billing/B2BInvoicesTab').then(m => ({ default: m.B2BInvoicesTab })));
 const TeamPage = lazyWithRetry(() => import('../pages/TeamPage').then(m => ({ default: m.TeamPage })));
 const DocumentsPage = lazyWithRetry(() => import('../pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
 const HistoryPage = lazyWithRetry(() => import('../pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
@@ -304,6 +305,10 @@ export const router = createBrowserRouter([
               {
                 path: 'analytics',
                 element: S(BillingAnalyticsTab),
+              },
+              {
+                path: 'b2b-invoices',
+                element: S(B2BInvoicesTab),
               },
               {
                 path: 'settings',

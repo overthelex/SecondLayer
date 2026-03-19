@@ -37,6 +37,19 @@ export const billingApi = {
   getPricingInfo: () => apiClient.get('/api/billing/pricing-info'),
 };
 
+export const b2bInvoiceApi = {
+  create: (data: { invoice_type: string; tier_key?: string; billing_cycle?: string; amount_uah?: number; notes?: string }) =>
+    apiClient.post('/api/b2b-invoices', data),
+  list: (params?: { status?: string; limit?: number; offset?: number }) =>
+    apiClient.get('/api/b2b-invoices', { params }),
+  get: (id: string) =>
+    apiClient.get(`/api/b2b-invoices/${id}`),
+  downloadPDF: (id: string) =>
+    apiClient.get(`/api/b2b-invoices/${id}/pdf`, { responseType: 'blob' }),
+  cancel: (id: string, reason?: string) =>
+    apiClient.post(`/api/b2b-invoices/${id}/cancel`, { reason }),
+};
+
 export const paymentApi = {
   createMonobank: (data: { amount_uah: number; redirect_url?: string }) =>
     apiClient.post('/api/billing/payment/monobank/create', data),
