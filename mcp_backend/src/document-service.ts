@@ -84,6 +84,15 @@ class DocumentAnalysisServer {
       });
     });
 
+    // Ready check alias (used by Docker healthcheck)
+    this.app.get('/health/ready', async (_req, res) => {
+      res.json({
+        status: 'ready',
+        service: 'document-analysis',
+        timestamp: new Date().toISOString()
+      });
+    });
+
     // Ready check (includes dependencies)
     this.app.get('/ready', async (_req, res) => {
       try {
