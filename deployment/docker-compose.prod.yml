@@ -323,6 +323,8 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://legal.org.ua}
       TZ: Europe/Kiev
+    ports:
+      - "127.0.0.1:3001:3001"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3001/health/ready', r => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); });"]
