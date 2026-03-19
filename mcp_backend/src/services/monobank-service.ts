@@ -46,6 +46,15 @@ export class MonobankService {
     return key;
   }
 
+  private getPublicUrl(): string {
+    const url = process.env.PUBLIC_URL;
+    if (!url) {
+      logger.error('PUBLIC_URL is not set — Monobank webhooks will not be delivered');
+      throw new Error('PUBLIC_URL environment variable is required for payment webhooks');
+    }
+    return url;
+  }
+
   private get redirectUrl(): string {
     return process.env.MONOBANK_REDIRECT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
   }
@@ -89,7 +98,7 @@ export class MonobankService {
           comment: description,
         },
         redirectUrl: finalRedirectUrl,
-        webHookUrl: `${process.env.PUBLIC_URL || 'http://localhost:3000'}/webhooks/monobank`,
+        webHookUrl: `${this.getPublicUrl()}/webhooks/monobank`,
         validity: 3600, // 1 hour
       }),
     });
