@@ -336,6 +336,24 @@ export class ConsultationService {
       }
     }
 
+    // Revoke E2EE document key access for shared encrypted documents
+    if (consultation.document_ids?.length > 0) {
+      try {
+        await this.db.query(
+          `UPDATE document_keys SET revoked_at = NOW()
+           WHERE user_id = $1 AND document_id = ANY($2) AND revoked_at IS NULL`,
+          [consultation.attorney_user_id, consultation.document_ids]
+        );
+        logger.info('Attorney E2EE document key access revoked', {
+          consultationId: id,
+          attorneyUserId: consultation.attorney_user_id,
+          documentCount: consultation.document_ids.length,
+        });
+      } catch (err: any) {
+        logger.warn('Failed to revoke E2EE document keys', { error: err.message });
+      }
+    }
+
     await this.auditService.log({
       userId: attorneyUserId,
       action: 'consultation.completed',
@@ -368,6 +386,19 @@ export class ConsultationService {
         );
       } catch (_err) {
         // Ignore — may not exist
+      }
+    }
+
+    // Revoke E2EE document key access for shared encrypted documents
+    if (consultation.document_ids?.length > 0) {
+      try {
+        await this.db.query(
+          `UPDATE document_keys SET revoked_at = NOW()
+           WHERE user_id = $1 AND document_id = ANY($2) AND revoked_at IS NULL`,
+          [consultation.attorney_user_id, consultation.document_ids]
+        );
+      } catch (_err) {
+        // Non-critical — keys may not exist
       }
     }
 

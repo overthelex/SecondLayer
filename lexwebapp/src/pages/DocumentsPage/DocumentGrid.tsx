@@ -7,6 +7,7 @@ import {
   Trash2,
   FolderInput,
   AlertTriangle,
+  Lock,
 } from 'lucide-react';
 import type { VaultDocument, SortField, SortOrder } from './types';
 import { isEditable, getFileExtension } from './types';
@@ -213,6 +214,12 @@ export function DocumentGrid({
                   >
                     {DOC_TYPE_LABELS[doc.type] || doc.type}
                   </span>
+                  {doc.is_encrypted && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-md border border-green-300 bg-green-50 text-green-700 font-sans backdrop-blur-sm" title="Зашифровано (E2EE)">
+                      <Lock size={9} className="mr-0.5" />
+                      E2EE
+                    </span>
+                  )}
                 </div>
                 {/* Context menu overlay */}
                 <div className="absolute top-1.5 left-1.5">

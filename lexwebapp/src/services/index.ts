@@ -32,3 +32,6 @@ export { geoService } from './api/GeoService';
 // Attorney & Consultation services
 export { AttorneyService, attorneyService } from './api/AttorneyService';
 export { ConsultationService, consultationService } from './api/ConsultationService';
+
+// Encryption service (E2EE)
+export { EncryptionService, encryptionService } from './api/EncryptionService';
