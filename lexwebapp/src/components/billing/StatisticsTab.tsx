@@ -365,7 +365,7 @@ export function StatisticsTab() {
                 <BarChart data={data.dailyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E5E0" />
                   <XAxis dataKey="date" stroke="#6B6B6B" style={{ fontSize: '11px' }} />
-                  <YAxis stroke="#6B6B6B" style={{ fontSize: '11px' }} />
+                  <YAxis stroke="#6B6B6B" style={{ fontSize: '11px' }} tickFormatter={(v) => formatUah(v)} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: '#F5F5F0',
