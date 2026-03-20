@@ -504,32 +504,40 @@ export class B2BInvoiceService {
     return new Promise((resolve, reject) => {
       try {
         // Register DejaVu font for Ukrainian characters
-        const fontPath = path.join(process.cwd(), 'assets', 'fonts', 'DejaVuSans.ttf');
-        const fontBoldPath = path.join(process.cwd(), 'assets', 'fonts', 'DejaVuSans-Bold.ttf');
+        // Try multiple possible paths (dev vs container)
+        const basePaths = [
+          path.join(process.cwd(), 'assets', 'fonts'),
+          path.resolve(__dirname, '..', '..', 'assets', 'fonts'),
+        ];
 
-        let doc: PDFKit.PDFDocument;
-        try {
-          doc = new PDFDocument({
-            margin: 50,
-            size: 'A4',
-            font: fontPath,
-          });
-        } catch {
-          // Fallback to Helvetica if DejaVu not available
-          doc = new PDFDocument({ margin: 50, size: 'A4' });
+        let fontPath = '';
+        let fontBoldPath = '';
+        for (const base of basePaths) {
+          const regular = path.join(base, 'DejaVuSans.ttf');
+          try {
+            require('fs').accessSync(regular);
+            fontPath = regular;
+            fontBoldPath = path.join(base, 'DejaVuSans-Bold.ttf');
+            break;
+          } catch { /* try next */ }
         }
+
+        if (!fontPath) {
+          throw new Error('DejaVuSans fonts not found — cannot generate PDF with Ukrainian text');
+        }
+
+        const doc = new PDFDocument({
+          margin: 50,
+          size: 'A4',
+          font: fontPath,
+        });
+        doc.registerFont('Regular', fontPath);
+        doc.registerFont('Bold', fontBoldPath);
 
         const chunks: Buffer[] = [];
         doc.on('data', (chunk: Buffer) => chunks.push(chunk));
         doc.on('end', () => resolve(Buffer.concat(chunks)));
         doc.on('error', reject);
-
-        // Try to register bold font
-        try {
-          doc.registerFont('Bold', fontBoldPath);
-        } catch {
-          doc.registerFont('Bold', 'Helvetica-Bold');
-        }
 
         const formatDate = (dateStr: string) => {
           const d = new Date(dateStr);
@@ -557,7 +565,7 @@ export class B2BInvoiceService {
           .font('Bold')
           .fontSize(10)
           .text('Постачальник:', { continued: true })
-          .font('Helvetica')
+          .font('Regular')
           .text(` ${seller.name}`);
 
         doc.text(`ЄДРПОУ: ${seller.edrpou}`);
@@ -577,7 +585,7 @@ export class B2BInvoiceService {
           .font('Bold')
           .fontSize(10)
           .text('Покупець:', { continued: true })
-          .font('Helvetica')
+          .font('Regular')
           .text(` ${invoice.buyer_name}`);
 
         doc.text(`ЄДРПОУ: ${invoice.buyer_edrpou}`);
@@ -618,7 +626,7 @@ export class B2BInvoiceService {
 
         // Table row
         const rowY = lineY + 8;
-        doc.font('Helvetica').fontSize(9);
+        doc.font('Regular').fontSize(9);
 
         let itemDescription: string;
         if (invoice.invoice_type === 'subscription') {
@@ -647,7 +655,7 @@ export class B2BInvoiceService {
         const labelX = 350;
         const valueX = 480;
 
-        doc.font('Helvetica').fontSize(10);
+        doc.font('Regular').fontSize(10);
         doc.text('Сума:', labelX, totalY);
         doc.text(`${formatMoney(invoice.amount_uah)} грн`, valueX, totalY);
 
@@ -666,14 +674,14 @@ export class B2BInvoiceService {
 
         // === TOTAL IN WORDS ===
         totalY += 30;
-        doc.font('Helvetica').fontSize(10);
+        doc.font('Regular').fontSize(10);
         doc.text(`Всього до оплати: ${numberToUkrainianWords(invoice.total_uah)}`, col1, totalY);
 
         // === PAYMENT PURPOSE ===
         totalY += 30;
         doc.font('Bold').fontSize(10);
         doc.text('Призначення платежу:', col1, totalY);
-        doc.font('Helvetica');
+        doc.font('Regular');
         totalY += 15;
         doc.text(`Оплата за послуги згідно рахунку № ${invoice.invoice_number} від ${formatDate(invoice.issue_date)}`, col1, totalY);
 
@@ -685,7 +693,7 @@ export class B2BInvoiceService {
         // === NOTES ===
         if (invoice.notes) {
           totalY += 25;
-          doc.font('Helvetica').fontSize(9);
+          doc.font('Regular').fontSize(9);
           doc.text(`Примітки: ${invoice.notes}`, col1, totalY, { width: 500 });
         }
 
