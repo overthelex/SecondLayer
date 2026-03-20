@@ -636,11 +636,15 @@ jobs:
           DEPLOY_SCRIPT
 
       - name: Prod health check
+        env:
+          PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
         run: |
-          # Public health check through HTTPS (container health already verified in step 4)
+          SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${PROD_USER}@${PROD_SERVER}"
+
+          # Health check via SSH to prod (avoids local-runner → public-internet routing issues)
           for i in 1 2 3 4 5; do
-            HEALTH=$(curl -sf --max-time 15 "https://legal.org.ua/health" 2>/dev/null) && {
-              echo "=== Production health (public HTTPS) ==="
+            HEALTH=$($SSH_CMD "curl -sf --max-time 10 http://127.0.0.1:3000/health" 2>/dev/null) && {
+              echo "=== Production health (internal via SSH) ==="
               echo "$HEALTH" | jq . 2>/dev/null || echo "$HEALTH"
               STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null)
               if [ "$STATUS" = "degraded" ]; then
