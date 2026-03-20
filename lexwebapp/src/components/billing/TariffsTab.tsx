@@ -219,13 +219,8 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
       return;
     }
 
-    const tierOrder = ['free', 'startup', 'business', 'enterprise'];
-    const currentIdx = tierOrder.indexOf(currentTier);
-    const targetIdx = tierOrder.indexOf(tierId);
-    const isUpgrade = targetIdx > currentIdx;
-
-    if (isUpgrade) {
-      // Calculate cost difference
+    if (isUpgradeTo(tierId)) {
+      // Upgrade — calculate cost difference and redirect to top-up
       const currentTierData = tiers.find((t) => t.tier === currentTier);
       const targetTierData = tiers.find((t) => t.tier === tierId);
 
@@ -238,12 +233,10 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
 
       const priceDifference = targetPrice - currentPrice;
 
-      if (priceDifference > 0) {
-        if (onUpgradeTopUp) {
-          onUpgradeTopUp(priceDifference, tierId);
-        }
-        return;
+      if (priceDifference > 0 && onUpgradeTopUp) {
+        onUpgradeTopUp(priceDifference, tierId);
       }
+      return;
     }
 
     // Downgrade — confirm with refund info before applying
@@ -274,37 +267,27 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
     }
   };
 
-  const getUpgradeCost = (tierId: string): number => {
+
+  /** Determine if switching to tierId is an upgrade (costs more) based on price, not tier order */
+  const isUpgradeTo = (tierId: string): boolean => {
     const currentTierData = tiers.find((t) => t.tier === currentTier);
     const targetTierData = tiers.find((t) => t.tier === tierId);
-    const currentPrice = billingCycle === 'monthly'
-      ? (currentTierData?.monthly_price_usd || 0)
-      : (currentTierData?.annual_price_usd || 0);
-    const targetPrice = billingCycle === 'monthly'
-      ? (targetTierData?.monthly_price_usd || 0)
-      : (targetTierData?.annual_price_usd || 0);
-    return targetPrice - currentPrice;
+    const currentPrice = currentTierData?.monthly_price_usd || 0;
+    const targetPrice = targetTierData?.monthly_price_usd || 0;
+    return targetPrice > currentPrice;
   };
 
   const getCtaText = (tierId: string): string => {
     if (tierId === currentTier) return 'Поточний план';
     if (tierId === 'enterprise') return "Зв'язатися з нами";
-    const tierOrder = ['free', 'startup', 'business', 'enterprise'];
-    const currentIdx = tierOrder.indexOf(currentTier);
-    const targetIdx = tierOrder.indexOf(tierId);
-    if (targetIdx > currentIdx) {
-      return `Перейти на ${TIER_LABELS[tierId] || tierId}`;
-    }
-    return `Знизити до ${TIER_LABELS[tierId] || tierId}`;
+    return isUpgradeTo(tierId)
+      ? `Перейти на ${TIER_LABELS[tierId] || tierId}`
+      : `Знизити до ${TIER_LABELS[tierId] || tierId}`;
   };
 
   /** Returns a description of what happens financially when switching plans */
   const getPlanSwitchInfo = (tierId: string): string | null => {
     if (tierId === currentTier || tierId === 'enterprise') return null;
-    const tierOrder = ['free', 'startup', 'business', 'enterprise'];
-    const currentIdx = tierOrder.indexOf(currentTier);
-    const targetIdx = tierOrder.indexOf(tierId);
-    const isUpgrade = targetIdx > currentIdx;
 
     const currentTierData = tiers.find((t) => t.tier === currentTier);
     const targetTierData = tiers.find((t) => t.tier === tierId);
@@ -314,19 +297,22 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
     const targetPrice = billingCycle === 'monthly'
       ? (targetTierData?.monthly_price_usd || 0)
       : (targetTierData?.annual_price_usd || 0);
-    const diff = targetPrice - currentPrice;
     const period = billingCycle === 'monthly' ? 'міс' : 'рік';
 
-    if (isUpgrade) {
+    if (targetPrice > currentPrice) {
+      // Upgrade — user pays more
+      const surcharge = targetPrice - currentPrice;
       if (currentPrice === 0) {
         return `Оплата: ${toUah(targetPrice).toFixed(0)} \u20B4/${period}`;
       }
-      return `Доплата: +${toUah(diff).toFixed(0)} \u20B4/${period} (різниця тарифів)`;
+      return `Доплата: ${toUah(surcharge).toFixed(0)} \u20B4/${period} (різниця тарифів)`;
     } else {
+      // Downgrade — user gets refund
+      const refund = currentPrice - targetPrice;
       if (targetPrice === 0) {
-        return `Повернення: ${toUah(Math.abs(diff)).toFixed(0)} \u20B4 на баланс`;
+        return `Повернення: ${toUah(refund).toFixed(0)} \u20B4 на баланс`;
       }
-      return `Повернення різниці: ${toUah(Math.abs(diff)).toFixed(0)} \u20B4/${period} на баланс`;
+      return `Повернення різниці: ${toUah(refund).toFixed(0)} \u20B4/${period} на баланс`;
     }
   };
 
@@ -492,7 +478,7 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
                 <div className="h-10 flex items-center justify-center">
                   {switchInfo && (
                     <p className={`text-xs text-center ${
-                      getUpgradeCost(tier.tier) > 0 ? 'text-claude-subtext' : 'text-green-600'
+                      isUpgradeTo(tier.tier) ? 'text-claude-subtext' : 'text-green-600'
                     }`}>
                       {switchInfo}
                     </p>
