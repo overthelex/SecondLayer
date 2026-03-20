@@ -15,14 +15,16 @@ interface DualAuthRequest {
   query: any;
 }
 
-export function createWorkflowRoutes(
-  workflowService: WorkflowService,
-  workflowExecutor: WorkflowExecutorService
+/**
+ * Workflow-sets routes — mounted at /api/workflow-sets
+ */
+export function createWorkflowSetRoutes(
+  workflowService: WorkflowService
 ): Router {
   const router = Router();
 
   // GET /api/workflow-sets — List user's workflow sets
-  router.get('/workflow-sets', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+  router.get('/', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -36,7 +38,7 @@ export function createWorkflowRoutes(
   }) as any);
 
   // GET /api/workflow-sets/:id — Get workflow set with all workflows
-  router.get('/workflow-sets/:id', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+  router.get('/:id', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -50,8 +52,35 @@ export function createWorkflowRoutes(
     }
   }) as any);
 
+  // DELETE /api/workflow-sets/:id — Delete workflow set
+  router.delete('/:id', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      const deleted = await workflowService.deleteWorkflowSet(req.params.id, userId);
+      if (!deleted) return res.status(404).json({ error: 'Workflow set not found' });
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error('[WorkflowRoutes] Failed to delete workflow set', { error: error.message });
+      res.status(500).json({ error: 'Failed to delete workflow set' });
+    }
+  }) as any);
+
+  return router;
+}
+
+/**
+ * Workflow routes — mounted at /api/workflows
+ */
+export function createWorkflowRoutes(
+  workflowService: WorkflowService,
+  workflowExecutor: WorkflowExecutorService
+): Router {
+  const router = Router();
+
   // GET /api/workflows/:id — Get single workflow detail
-  router.get('/workflows/:id', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+  router.get('/:id', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -68,7 +97,7 @@ export function createWorkflowRoutes(
   }) as any);
 
   // POST /api/workflows/:id/execute — Execute workflow (SSE stream)
-  router.post('/workflows/:id/execute', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+  router.post('/:id/execute', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -116,7 +145,7 @@ export function createWorkflowRoutes(
   }) as any);
 
   // POST /api/workflows/:id/cancel — Cancel running workflow
-  router.post('/workflows/:id/cancel', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+  router.post('/:id/cancel', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -136,21 +165,6 @@ export function createWorkflowRoutes(
     } catch (error: any) {
       logger.error('[WorkflowRoutes] Failed to cancel workflow', { error: error.message });
       res.status(500).json({ error: 'Failed to cancel workflow' });
-    }
-  }) as any);
-
-  // DELETE /api/workflow-sets/:id — Delete workflow set
-  router.delete('/workflow-sets/:id', (async (req: DualAuthRequest, res: Response): Promise<any> => {
-    const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-    try {
-      const deleted = await workflowService.deleteWorkflowSet(req.params.id, userId);
-      if (!deleted) return res.status(404).json({ error: 'Workflow set not found' });
-      res.json({ success: true });
-    } catch (error: any) {
-      logger.error('[WorkflowRoutes] Failed to delete workflow set', { error: error.message });
-      res.status(500).json({ error: 'Failed to delete workflow set' });
     }
   }) as any);
 

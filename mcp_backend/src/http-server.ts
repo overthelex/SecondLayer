@@ -55,7 +55,7 @@ import { getLLMManager } from './utils/llm-client-manager.js';
 import { setRateLimitCache } from './middleware/rate-limit.js';
 import { setUploadRateLimitCache } from './middleware/upload-rate-limit.js';
 import { createClassificationRoutes } from './routes/classification-routes.js';
-import { createWorkflowRoutes } from './routes/workflow-routes.js';
+import { createWorkflowSetRoutes, createWorkflowRoutes } from './routes/workflow-routes.js';
 import { createAttorneyRoutes } from './routes/attorney-routes.js';
 import { createConsultationRoutes } from './routes/consultation-routes.js';
 import { JudgesService } from './services/judges-service.js';
@@ -483,7 +483,7 @@ class HTTPMCPServer {
     // Workflow routes - workflow sets, workflow execution, cancellation
     // IMPORTANT: Use specific prefixes, NOT '/api' — a catch-all '/api' prefix with requireJWT
     // would block API key auth for all /api/* routes (including /api/tools with dualAuth)
-    this.app.use('/api/workflow-sets', requireJWT as any, createWorkflowRoutes(this.app_.workflowService, this.app_.workflowExecutorService));
+    this.app.use('/api/workflow-sets', requireJWT as any, createWorkflowSetRoutes(this.app_.workflowService));
     this.app.use('/api/workflows', requireJWT as any, createWorkflowRoutes(this.app_.workflowService, this.app_.workflowExecutorService));
     logger.info('Workflow routes registered at /api/workflow-sets, /api/workflows');
 
