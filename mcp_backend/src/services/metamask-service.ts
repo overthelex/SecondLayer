@@ -261,7 +261,7 @@ export class MetaMaskService {
       });
 
       // Send confirmation email
-      const metadata = JSON.parse(pi.metadata || '{}');
+      const metadata = typeof pi.metadata === 'string' ? JSON.parse(pi.metadata) : (pi.metadata || {});
       if (metadata.email) {
         await this.emailService.sendPaymentSuccess({
           email: metadata.email,
