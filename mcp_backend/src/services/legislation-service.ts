@@ -323,7 +323,12 @@ export class LegislationService {
     }));
   }
 
-  async listLegislation(limit: number = 50, offset: number = 0, search?: string): Promise<{
+  async listLegislation(
+    limit: number = 50,
+    offset: number = 0,
+    search?: string,
+    filters?: { type?: string; status?: string; dateFrom?: string; dateTo?: string }
+  ): Promise<{
     items: Array<{
       rada_id: string;
       title: string;
@@ -338,13 +343,35 @@ export class LegislationService {
     }>;
     total: number;
   }> {
-    let whereClause = '';
+    const conditions: string[] = [];
     const params: any[] = [];
 
     if (search) {
       params.push(`%${search}%`);
-      whereClause = `WHERE title ILIKE $${params.length} OR short_title ILIKE $${params.length} OR rada_id ILIKE $${params.length}`;
+      conditions.push(`(title ILIKE $${params.length} OR short_title ILIKE $${params.length} OR rada_id ILIKE $${params.length})`);
     }
+
+    if (filters?.type) {
+      params.push(filters.type);
+      conditions.push(`type = $${params.length}`);
+    }
+
+    if (filters?.status) {
+      params.push(filters.status);
+      conditions.push(`status = $${params.length}`);
+    }
+
+    if (filters?.dateFrom) {
+      params.push(filters.dateFrom);
+      conditions.push(`adoption_date >= $${params.length}`);
+    }
+
+    if (filters?.dateTo) {
+      params.push(filters.dateTo);
+      conditions.push(`adoption_date <= $${params.length}`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const countResult = await this.db.query(
       `SELECT COUNT(*) as total FROM legislation ${whereClause}`,
@@ -381,6 +408,54 @@ export class LegislationService {
       })),
       total: parseInt(countResult.rows[0].total, 10),
     };
+  }
+
+  async getLegislationStats(): Promise<{
+    total: number;
+    active: number;
+    totalArticles: number;
+  }> {
+    const result = await this.db.query(
+      `SELECT COUNT(*) AS total,
+              COUNT(*) FILTER (WHERE status = 'active') AS active,
+              COALESCE(SUM(total_articles), 0) AS total_articles
+       FROM legislation`
+    );
+    const row = result.rows[0];
+    return {
+      total: parseInt(row.total, 10),
+      active: parseInt(row.active, 10),
+      totalArticles: parseInt(row.total_articles, 10),
+    };
+  }
+
+  async getDistinctTypes(): Promise<string[]> {
+    const result = await this.db.query(
+      `SELECT DISTINCT type FROM legislation WHERE type IS NOT NULL ORDER BY type`
+    );
+    return result.rows.map((row: any) => row.type);
+  }
+
+  async getAmendmentHistory(radaId: string): Promise<Array<{
+    article_number: string;
+    title: string | null;
+    version_date: string | null;
+    created_at: string;
+  }>> {
+    const result = await this.db.query(
+      `SELECT la.article_number, la.title, la.metadata->>'version_date' AS version_date, la.created_at
+       FROM legislation_articles la
+       JOIN legislation l ON la.legislation_id = l.id
+       WHERE l.rada_id = $1 AND la.is_current = false
+       ORDER BY la.article_number, la.created_at DESC`,
+      [radaId]
+    );
+    return result.rows.map((row: any) => ({
+      article_number: row.article_number,
+      title: row.title,
+      version_date: row.version_date,
+      created_at: row.created_at,
+    }));
   }
 
   async searchLegislation(query: string, radaId?: string, limit: number = 10): Promise<LegislationSearchResult[]> {

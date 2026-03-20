@@ -154,6 +154,30 @@ export function createMiscInlineRoutes(deps: {
 
   // ============ Legislation endpoints ============
 
+  // GET /legislation/stats - Get legislation statistics (MUST be before /:radaId routes)
+  router.get('/legislation/stats', requireJWT as any, (async (_req: DualAuthRequest, res: Response) => {
+    try {
+      const legislationService = deps.legislationTools.getLegislationService();
+      const stats = await legislationService.getLegislationStats();
+      res.json(stats);
+    } catch (error: any) {
+      logger.error('Error getting legislation stats:', error.message);
+      res.status(500).json({ error: 'Failed to get legislation stats' });
+    }
+  }) as any);
+
+  // GET /legislation/types - Get distinct legislation types (MUST be before /:radaId routes)
+  router.get('/legislation/types', requireJWT as any, (async (_req: DualAuthRequest, res: Response) => {
+    try {
+      const legislationService = deps.legislationTools.getLegislationService();
+      const types = await legislationService.getDistinctTypes();
+      res.json({ types });
+    } catch (error: any) {
+      logger.error('Error getting legislation types:', error.message);
+      res.status(500).json({ error: 'Failed to get legislation types' });
+    }
+  }) as any);
+
   // GET /legislation - List legislation
   router.get('/legislation', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
     try {
@@ -161,13 +185,35 @@ export function createMiscInlineRoutes(deps: {
       const offset = parseInt(req.query.offset as string) || 0;
       const search = (req.query.search as string) || undefined;
 
+      const filters: { type?: string; status?: string; dateFrom?: string; dateTo?: string } = {};
+      if (req.query.type) filters.type = req.query.type as string;
+      if (req.query.status) filters.status = req.query.status as string;
+      if (req.query.dateFrom) filters.dateFrom = req.query.dateFrom as string;
+      if (req.query.dateTo) filters.dateTo = req.query.dateTo as string;
+
       const legislationService = deps.legislationTools.getLegislationService();
-      const result = await legislationService.listLegislation(limit, offset, search);
+      const result = await legislationService.listLegislation(
+        limit, offset, search,
+        Object.keys(filters).length > 0 ? filters : undefined
+      );
 
       res.json(result);
     } catch (error: any) {
       logger.error('Error listing legislation:', error.message);
       res.status(500).json({ error: 'Failed to list legislation' });
+    }
+  }) as any);
+
+  // GET /legislation/:radaId/history - Get amendment history
+  router.get('/legislation/:radaId/history', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
+    try {
+      const radaId = req.params.radaId as string;
+      const legislationService = deps.legislationTools.getLegislationService();
+      const history = await legislationService.getAmendmentHistory(radaId);
+      res.json({ history });
+    } catch (error: any) {
+      logger.error('Error getting legislation history:', error.message);
+      res.status(500).json({ error: 'Failed to get legislation history' });
     }
   }) as any);
 
