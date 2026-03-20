@@ -394,6 +394,8 @@ jobs:
       always() &&
       needs.local-deploy-and-test.result == 'success'
     environment: production
+    outputs:
+      version: ${{ steps.version.outputs.next_version }}
     env:
       PROD_SERVER: '18.192.189.254'
       PROD_USER: 'ubuntu'
@@ -407,9 +409,33 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Compute next version
+        id: version
+        run: |
+          LAST_TAG=$(git tag -l "v*" --sort=-version:refname | head -1)
+          if [ -z "$LAST_TAG" ]; then
+            echo "next_version=v1.0.0" >> "$GITHUB_OUTPUT"
+          else
+            CURRENT="${LAST_TAG#v}"
+            MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+            MINOR=$(echo "$CURRENT" | cut -d. -f2)
+            PATCH=$(echo "$CURRENT" | cut -d. -f3)
+            COMMITS=$(git log "${LAST_TAG}..HEAD" --oneline --no-merges)
+            if echo "$COMMITS" | grep -qiE "^[a-f0-9]+ (feat|refactor)!:|BREAKING CHANGE"; then
+              MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+            elif echo "$COMMITS" | grep -qiE "^[a-f0-9]+ feat(\(|:)"; then
+              MINOR=$((MINOR + 1)); PATCH=0
+            else
+              PATCH=$((PATCH + 1))
+            fi
+            echo "next_version=v${MAJOR}.${MINOR}.${PATCH}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Next version: $(grep next_version "$GITHUB_OUTPUT" | cut -d= -f2)"
+
       - name: Deploy changed services to prod (blue-green)
         env:
           PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
+          NEXT_VERSION: ${{ steps.version.outputs.next_version }}
         run: |
           SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}"
           REMOTE_REPO="/home/${PROD_USER}/SecondLayer"
@@ -419,9 +445,8 @@ jobs:
           # Pull latest code and tags
           $SSH_CMD "git -C ${REMOTE_REPO} fetch origin main --tags && git -C ${REMOTE_REPO} reset --hard origin/main"
 
-          # Write VERSION file for frontend build
-          LATEST_TAG=$(git tag -l "v*" --sort=-version:refname | head -1)
-          $SSH_CMD "echo '${LATEST_TAG:-dev}' > ${REMOTE_REPO}/VERSION"
+          # Write VERSION file for frontend build (uses computed next version)
+          $SSH_CMD "echo '${NEXT_VERSION}' > ${REMOTE_REPO}/VERSION"
 
           # Build dist on prod
           $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix packages/shared install && npm --prefix packages/shared run build"
@@ -799,32 +824,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SERVICES_TO_DEPLOY: ${{ needs.detect-changes.outputs.services_to_deploy }}
+          NEXT_VERSION: ${{ needs.deploy-prod.outputs.version }}
         run: |
-          # Determine next version based on conventional commits
           LAST_TAG=$(git tag -l "v*" --sort=-version:refname | head -1)
 
           if [ -z "$LAST_TAG" ]; then
-            # First release ever
-            NEXT_VERSION="v1.0.0"
             COMMITS=$(git log --oneline --no-merges -50)
           else
             COMMITS=$(git log "${LAST_TAG}..HEAD" --oneline --no-merges)
-
-            # Parse current version
-            CURRENT="${LAST_TAG#v}"
-            MAJOR=$(echo "$CURRENT" | cut -d. -f1)
-            MINOR=$(echo "$CURRENT" | cut -d. -f2)
-            PATCH=$(echo "$CURRENT" | cut -d. -f3)
-
-            # Determine bump type from commit messages
-            if echo "$COMMITS" | grep -qiE "^[a-f0-9]+ (feat|refactor)!:|BREAKING CHANGE"; then
-              MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
-            elif echo "$COMMITS" | grep -qiE "^[a-f0-9]+ feat(\(|:)"; then
-              MINOR=$((MINOR + 1)); PATCH=0
-            else
-              PATCH=$((PATCH + 1))
-            fi
-            NEXT_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
           fi
 
           # Build changelog grouped by type
