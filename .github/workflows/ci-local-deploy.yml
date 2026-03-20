@@ -373,9 +373,13 @@ jobs:
             FAILED=true
           }
 
-          [ "$BACKEND_CHANGED" = "true" ] && wait_healthy "Backend" "secondlayer-app-local" 180
+          if [ "$BACKEND_CHANGED" = "true" ]; then
+            wait_healthy "Backend" "secondlayer-app-local" 180
+            wait_healthy "Document Service" "document-service-local" 120
+          fi
           [ "$RADA_CHANGED" = "true" ] && wait_healthy "RADA" "rada-mcp-app-local" 120
           [ "$OPENREYESTR_CHANGED" = "true" ] && wait_healthy "OpenReyestr" "openreyestr-app-local" 120
+          [ "$FRONTEND_CHANGED" = "true" ] && wait_healthy "Frontend" "lexwebapp-local" 60
 
           check_health "Local (public)" "https://local.legal.org.ua/health"
 
@@ -607,15 +611,11 @@ jobs:
           DEPLOY_SCRIPT
 
       - name: Prod health check
-        env:
-          PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
         run: |
-          SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}"
-
-          # Full health check through nginx (works regardless of blue/green)
+          # Public health check through HTTPS (container health already verified in step 4)
           for i in 1 2 3 4 5; do
-            HEALTH=$($SSH_CMD "curl -sf --max-time 10 http://localhost/health" 2>/dev/null) && {
-              echo "=== Production health (via nginx) ==="
+            HEALTH=$(curl -sf --max-time 15 "https://legal.org.ua/health" 2>/dev/null) && {
+              echo "=== Production health (public HTTPS) ==="
               echo "$HEALTH" | jq . 2>/dev/null || echo "$HEALTH"
               STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null)
               if [ "$STATUS" = "degraded" ]; then
@@ -628,16 +628,6 @@ jobs:
             }
             [ $i -eq 5 ] && echo "::error::Production health check failed" && exit 1
             sleep 10
-          done
-
-          for i in 1 2 3; do
-            PUBLIC_HEALTH=$(curl -sf --max-time 15 "https://legal.org.ua/health" 2>/dev/null) && {
-              echo "=== Production health (public) ==="
-              echo "$PUBLIC_HEALTH" | jq . 2>/dev/null || echo "$PUBLIC_HEALTH"
-              break
-            }
-            [ $i -eq 3 ] && echo "::warning::Public health check timed out — may be Cloudflare cache"
-            sleep 5
           done
 
   # ─── Step 4b: Self-heal deploy failures ─────────────────────────────
@@ -696,19 +686,20 @@ jobs:
               echo "Skipping remote diagnostics. CI error log will be used instead."
             else
               echo "=== Docker container status ==="
-              $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml ps" 2>&1 || true
+              $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml --env-file .env.prod ps" 2>&1 || true
 
               echo ""
               echo "=== Last 30 lines from failing containers ==="
-              for svc in app-prod rada-mcp-app-prod app-openreyestr-prod nginx-prod lexwebapp-prod; do
+              for svc in app-prod rada-mcp-app-prod app-openreyestr-prod document-service-prod nginx-prod lexwebapp-prod; do
                 echo "--- $svc ---"
-                $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml logs --tail=30 $svc" 2>&1 || true
+                $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml --env-file .env.prod logs --tail=30 $svc" 2>&1 || true
               done
 
               echo ""
               echo "=== Health check responses ==="
-              $SSH_CMD "curl -sf http://localhost:3007/health 2>&1 || echo 'Backend health: FAILED'" || true
-              $SSH_CMD "curl -sf http://localhost:3001/health 2>&1 || echo 'RADA health: FAILED'" || true
+              $SSH_CMD "docker exec secondlayer-app-prod curl -sf http://127.0.0.1:3000/health 2>&1 || echo 'Backend health: FAILED'" || true
+              $SSH_CMD "docker exec rada-mcp-app-prod curl -sf http://127.0.0.1:3001/health 2>&1 || echo 'RADA health: FAILED'" || true
+              $SSH_CMD "docker exec openreyestr-app-prod curl -sf http://127.0.0.1:3005/health 2>&1 || echo 'OpenReyestr health: FAILED'" || true
             fi
           } > /tmp/deploy-diag.log 2>&1
 
