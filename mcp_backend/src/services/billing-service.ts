@@ -980,7 +980,7 @@ export class BillingService {
            NOT EXISTS(SELECT 1 FROM billing_payment_methods WHERE user_id = $1)
          )
          ON CONFLICT ON CONSTRAINT billing_payment_methods_user_provider_card_unique
-         DO UPDATE SET card_brand = EXCLUDED.card_brand, card_bank = EXCLUDED.card_bank, updated_at = NOW()`,
+         DO UPDATE SET card_brand = EXCLUDED.card_brand, card_bank = EXCLUDED.card_bank, label = EXCLUDED.label, updated_at = NOW()`,
         [userId, data.provider, data.cardLast4 || null, data.cardBrand || null, data.cardBank || null, data.label || null]
       );
     } catch (error: any) {
@@ -993,13 +993,27 @@ export class BillingService {
    * Remove a saved payment method
    */
   async removePaymentMethod(userId: string, methodId: string): Promise<void> {
-    const result = await this.db.query(
-      'DELETE FROM billing_payment_methods WHERE id = $1 AND user_id = $2',
-      [methodId, userId]
-    );
-    if (result.rowCount === 0) {
-      throw new Error('Payment method not found');
-    }
+    await this.db.transaction(async (client) => {
+      const result = await client.query(
+        'DELETE FROM billing_payment_methods WHERE id = $1 AND user_id = $2 RETURNING is_primary',
+        [methodId, userId]
+      );
+      if (result.rowCount === 0) {
+        throw new Error('Payment method not found');
+      }
+      // If deleted card was primary, promote the most recent remaining card
+      if (result.rows[0].is_primary) {
+        await client.query(
+          `UPDATE billing_payment_methods SET is_primary = true
+           WHERE id = (
+             SELECT id FROM billing_payment_methods
+             WHERE user_id = $1
+             ORDER BY created_at DESC LIMIT 1
+           )`,
+          [userId]
+        );
+      }
+    });
   }
 
   /**
