@@ -66,8 +66,9 @@ export function createConsultationRoutes(
 
       res.write('event: connected\ndata: {}\n\n');
 
-      const { consultationMessageBus } = await import('../services/consultation-message-bus.js');
-      const unsubscribe = consultationMessageBus.subscribeUser(userId, (event) => {
+      const { getConsultationMessageBus } = await import('../services/consultation-message-bus.js');
+      const bus = getConsultationMessageBus();
+      const unsubscribe = bus.subscribeUser(userId, (event) => {
         res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
       });
 
@@ -297,18 +298,35 @@ export function createConsultationRoutes(
       // Send initial heartbeat
       res.write('event: connected\ndata: {}\n\n');
 
+      // Replay missed messages if Last-Event-ID is present (SSE reconnection)
+      const lastEventId = req.headers['last-event-id'] as string | undefined;
+      if (lastEventId) {
+        try {
+          const missed = await consultationService.getMessagesSince(consultationId, lastEventId);
+          for (const msg of missed) {
+            res.write(`id: ${msg.id}\nevent: message\ndata: ${JSON.stringify(msg)}\n\n`);
+          }
+          logger.info('SSE replay: sent missed messages', { consultationId, lastEventId, count: missed.length });
+        } catch (err: any) {
+          logger.warn('SSE replay failed (non-critical)', { error: err.message, lastEventId });
+        }
+      }
+
       // Subscribe to message bus
-      const { consultationMessageBus } = await import('../services/consultation-message-bus.js');
-      const unsubscribeMsg = consultationMessageBus.subscribe(consultationId, (message) => {
-        res.write(`event: message\ndata: ${JSON.stringify(message)}\n\n`);
+      const { getConsultationMessageBus } = await import('../services/consultation-message-bus.js');
+      const bus = getConsultationMessageBus();
+      const unsubscribeMsg = bus.subscribe(consultationId, (message) => {
+        // Include id: field for Last-Event-ID support
+        const eventId = (message as any).id || '';
+        res.write(`id: ${eventId}\nevent: message\ndata: ${JSON.stringify(message)}\n\n`);
       });
-      const unsubscribeStatus = consultationMessageBus.subscribeStatus(consultationId, (payload) => {
+      const unsubscribeStatus = bus.subscribeStatus(consultationId, (payload) => {
         res.write(`event: message_status\ndata: ${JSON.stringify(payload)}\n\n`);
       });
-      const unsubscribeConsultationStatus = consultationMessageBus.subscribeConsultationStatus(consultationId, (consultation) => {
-        res.write(`event: consultation_status\ndata: ${JSON.stringify(consultation)}\n\n`);
+      const unsubscribeConsultationStatus = bus.subscribeConsultationStatus(consultationId, (updatedConsultation) => {
+        res.write(`event: consultation_status\ndata: ${JSON.stringify(updatedConsultation)}\n\n`);
       });
-      const unsubscribeTyping = consultationMessageBus.subscribeTyping(consultationId, (data) => {
+      const unsubscribeTyping = bus.subscribeTyping(consultationId, (data) => {
         // Don't echo typing back to the sender
         if (data.userId !== req.user!.id) {
           res.write(`event: typing\ndata: ${JSON.stringify(data)}\n\n`);
@@ -408,8 +426,8 @@ export function createConsultationRoutes(
   router.post('/:id/typing', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {
       if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
-      const { consultationMessageBus } = await import('../services/consultation-message-bus.js');
-      consultationMessageBus.publishTyping(req.params.id as string, req.user.id, req.user.name);
+      const { getConsultationMessageBus } = await import('../services/consultation-message-bus.js');
+      getConsultationMessageBus().publishTyping(req.params.id as string, req.user.id, req.user.name);
       res.json({ ok: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
