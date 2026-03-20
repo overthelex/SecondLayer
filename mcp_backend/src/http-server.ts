@@ -753,29 +753,8 @@ class HTTPMCPServer {
           this.tools.edsrFtsService.setEdsrCache(edsrCache);
         }
 
-        // Start EDRSR pre-vectorization background worker (if vectorizer available)
-        if (this.tools.edsrVectorizer) {
-          const { EdsrPreVectorizerWorker } = await import('./workers/edrsr-pre-vectorizer.js');
-          const preVectorizer = new EdsrPreVectorizerWorker(
-            this.tools.edsrVectorizer,
-            this.services.db,
-            cache,
-          );
-          preVectorizer.setMetricsCallback((event, value) => {
-            if (event === 'docs_processed') {
-              this.app_.metricsService.edsrVectorizerDocsProcessed.inc(value);
-            } else if (event === 'batch_error') {
-              this.app_.metricsService.edsrVectorizerErrors.inc(value);
-            } else if (event === 'status_change') {
-              this.app_.metricsService.edsrVectorizerStatus.set(value);
-            }
-          });
-          preVectorizer.start();
-          this.app_.metricsService.edsrVectorizerStatus.set(1); // running
-          // Expose status endpoint
-          (this as any)._preVectorizer = preVectorizer;
-          logger.info('EDRSR pre-vectorization background worker started');
-        }
+        // EDRSR pre-vectorization disabled — vectorization happens on-demand only
+        // (background worker was too expensive for 110M+ documents)
 
         logger.info('Redis connected - caching enabled for all services');
       } else {
