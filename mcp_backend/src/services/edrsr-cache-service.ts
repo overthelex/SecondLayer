@@ -25,16 +25,27 @@ const KEY_FULLTEXT = 'edrsr:ft:';
 const KEY_METADATA = 'edrsr:meta:';
 const KEY_FTS = 'edrsr:fts:';
 
+export type CacheMetricsCallback = (operation: string, result: 'hit' | 'miss') => void;
+
 export class EdsrCacheService {
+  private metricsCallback?: CacheMetricsCallback;
+
   constructor(private cache: ICachePort) {}
+
+  setMetricsCallback(cb: CacheMetricsCallback): void {
+    this.metricsCallback = cb;
+  }
 
   // ── Fulltext ─────────────────────────────────────────────────────────────
 
   async getCachedFulltext(docId: number): Promise<string | null> {
     try {
-      return await this.cache.get(`${KEY_FULLTEXT}${docId}`);
+      const result = await this.cache.get(`${KEY_FULLTEXT}${docId}`);
+      this.metricsCallback?.('fulltext', result ? 'hit' : 'miss');
+      return result;
     } catch (err: any) {
       logger.debug('[EdsrCache] getCachedFulltext error', { docId, error: err.message });
+      this.metricsCallback?.('fulltext', 'miss');
       return null;
     }
   }
@@ -52,9 +63,11 @@ export class EdsrCacheService {
   async getCachedMetadata(docId: number): Promise<any | null> {
     try {
       const raw = await this.cache.get(`${KEY_METADATA}${docId}`);
+      this.metricsCallback?.('metadata', raw ? 'hit' : 'miss');
       return raw ? JSON.parse(raw) : null;
     } catch (err: any) {
       logger.debug('[EdsrCache] getCachedMetadata error', { docId, error: err.message });
+      this.metricsCallback?.('metadata', 'miss');
       return null;
     }
   }
@@ -73,9 +86,11 @@ export class EdsrCacheService {
     try {
       const hash = this.hashFtsQuery(query, filters, limit, offset);
       const raw = await this.cache.get(`${KEY_FTS}${hash}`);
+      this.metricsCallback?.('fts', raw ? 'hit' : 'miss');
       return raw ? JSON.parse(raw) : null;
     } catch (err: any) {
       logger.debug('[EdsrCache] getCachedFtsResults error', { error: err.message });
+      this.metricsCallback?.('fts', 'miss');
       return null;
     }
   }
