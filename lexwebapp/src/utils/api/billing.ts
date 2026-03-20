@@ -48,6 +48,10 @@ export const b2bInvoiceApi = {
     apiClient.get(`/api/b2b-invoices/${id}/pdf`, { responseType: 'blob' }),
   cancel: (id: string, reason?: string) =>
     apiClient.post(`/api/b2b-invoices/${id}/cancel`, { reason }),
+  getOrgInfo: () =>
+    apiClient.get('/api/b2b-invoices/org-info'),
+  updateOrgInfo: (data: { edrpou?: string; legal_address?: string; name?: string; billing_email?: string }) =>
+    apiClient.patch('/api/b2b-invoices/org-info', data),
 };
 
 export const paymentApi = {

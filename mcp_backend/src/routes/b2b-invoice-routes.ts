@@ -62,6 +62,72 @@ export function createB2BInvoiceRoutes(
   // ===== USER ENDPOINTS =====
 
   /**
+   * GET /api/b2b-invoices/org-info — Get org billing details for invoice form
+   */
+  router.get('/org-info', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: 'Потрібна автентифікація' });
+
+      const orgId = await getUserOrgId(userId);
+      if (!orgId) return res.status(200).json({ org: null });
+
+      const result = await db.query(
+        'SELECT id, name, edrpou, legal_address, billing_email FROM organizations WHERE id = $1',
+        [orgId]
+      );
+      res.json({ org: result.rows[0] || null });
+    } catch (error: any) {
+      logger.error('Failed to get org info', { error: error.message });
+      res.status(500).json({ error: 'Помилка отримання даних організації' });
+    }
+  });
+
+  /**
+   * PATCH /api/b2b-invoices/org-info — Update org billing details (edrpou, address)
+   */
+  router.patch('/org-info', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: 'Потрібна автентифікація' });
+
+      const orgId = await getUserOrgId(userId);
+      if (!orgId) return res.status(400).json({ error: 'Ви не належите до жодної організації' });
+
+      // Verify user is org owner
+      const ownerCheck = await db.query('SELECT owner_id FROM organizations WHERE id = $1', [orgId]);
+      if (ownerCheck.rows[0]?.owner_id !== userId) {
+        return res.status(403).json({ error: 'Тільки власник організації може змінювати реквізити' });
+      }
+
+      const { edrpou, legal_address, name, billing_email } = req.body;
+
+      const updates: string[] = [];
+      const values: any[] = [];
+      let idx = 2;
+
+      if (edrpou !== undefined) { updates.push(`edrpou = $${idx++}`); values.push(edrpou); }
+      if (legal_address !== undefined) { updates.push(`legal_address = $${idx++}`); values.push(legal_address); }
+      if (name !== undefined) { updates.push(`name = $${idx++}`); values.push(name); }
+      if (billing_email !== undefined) { updates.push(`billing_email = $${idx++}`); values.push(billing_email); }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'Немає полів для оновлення' });
+      }
+
+      await db.query(
+        `UPDATE organizations SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $1`,
+        [orgId, ...values]
+      );
+
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error('Failed to update org info', { error: error.message });
+      res.status(500).json({ error: 'Помилка оновлення даних організації' });
+    }
+  });
+
+  /**
    * POST /api/b2b-invoices — Request new invoice
    */
   router.post('/', async (req: Request, res: Response) => {
