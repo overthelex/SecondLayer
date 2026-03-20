@@ -61,7 +61,7 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
     ],
     toolChain: [
       {
-        tool: 'search_legal_precedents',
+        tool: 'search_edrsr_fulltext',
         purpose: 'тематичний пошук рішень — ЗАВЖДИ використовуй limit=25-30 для аналізу практики. Якщо запит містить кілька аспектів — виконай окремий виклик для кожного аспекту з цільовим запитом. Виклики з різними запитами НЕ є дублюванням.',
       },
       { tool: 'search_supreme_court_practice', purpose: 'практика Верховного Суду з цього питання', optional: true },
@@ -243,7 +243,7 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
     ],
     toolChain: [
       { tool: 'compare_practice_pro_contra', purpose: 'порівняння позитивної та негативної практики' },
-      { tool: 'search_legal_precedents', purpose: 'додатковий пошук по окремих моделях захисту з різними запитами', optional: true },
+      { tool: 'search_edrsr_fulltext', purpose: 'додатковий пошук по окремих моделях захисту з різними запитами', optional: true },
       { tool: 'get_case_documents_chain', purpose: 'перевірка скасованих рішень через інстанції', optional: true },
     ],
     responseTemplate: [
@@ -394,7 +394,7 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
     ],
     toolChain: [
       { tool: 'get_legislation_article', purpose: 'отримати текст конкретної статті' },
-      { tool: 'search_legal_precedents', purpose: 'практика застосування цієї статті', optional: true },
+      { tool: 'search_edrsr_fulltext', purpose: 'практика застосування цієї статті', optional: true },
     ],
     responseTemplate: [
       { heading: 'Текст статті', instruction: 'повний текст статті закону' },
@@ -995,7 +995,7 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
     toolChain: [
       { tool: 'search_legislation', purpose: 'знайти відповідний закон' },
       { tool: 'get_legislation_article', purpose: 'текст конкретної статті', optional: true },
-      { tool: 'search_legal_precedents', purpose: 'судова практика з цього питання — окремі виклики для кожної моделі захисту' },
+      { tool: 'search_edrsr_fulltext', purpose: 'судова практика з цього питання — окремі виклики для кожної моделі захисту' },
       { tool: 'compare_practice_pro_contra', purpose: 'порівняння позитивної та негативної практики по кожній моделі', optional: true },
       { tool: 'get_case_documents_chain', purpose: 'перевірка скасованих рішень через інстанції', optional: true },
     ],
@@ -1244,9 +1244,10 @@ export const TOOL_GROUPS: ToolGroup[] = [
     label: 'Судова практика',
     domains: ['court', 'legal_advice'],
     tools: [
-      'search_legal_precedents',
+      'search_edrsr_fulltext',
+      'search_edrsr_semantic',
+      'search_edrsr_decisions',
       'search_supreme_court_practice',
-      'get_court_decision',
       'get_case_documents_chain',
       'count_cases_by_party',
     ],

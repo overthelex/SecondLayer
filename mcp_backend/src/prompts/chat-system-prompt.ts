@@ -88,7 +88,7 @@ export function buildPlanGenerationMessages(
   if (classification.queryType) {
     const qtRules: Partial<Record<QueryType, string>> = {
       case_lookup: '11. queryType=case_lookup: start with get_case_documents_chain, max 2 steps',
-      practice_analysis: '11. queryType=practice_analysis: use 5-10 search_legal_precedents calls with different queries and limit=50, then include legislation lookups',
+      practice_analysis: '11. queryType=practice_analysis: use search_edrsr_fulltext (full-text search in 110M+ court decisions) and/or search_edrsr_semantic (vector similarity) with different queries and limit=20-50, then include legislation lookups. Do NOT use search_legal_precedents (deprecated).',
       legislation_lookup: '11. queryType=legislation_lookup: start with get_legislation_article or search_legislation, max 2 steps',
       legal_consultation: '11. queryType=legal_consultation: combine legislation + practice search tools',
       registry_lookup: '11. queryType=registry_lookup: start with openreyestr_get_by_edrpou or openreyestr_search_entities. For debtors/enforcement proceedings use search_erb_debtors (10M+ records from Minjust). For bank info use search_nbu_banks. Max 3 steps',
@@ -97,7 +97,7 @@ export function buildPlanGenerationMessages(
       document_drafting: '11. queryType=document_drafting: first find_relevant_law_articles for legal basis, then generate document',
       comparative_analysis: '11. queryType=comparative_analysis: search each competing approach separately with pro/contra, include legislation',
       due_diligence: '11. queryType=due_diligence: start with registry lookup, add debtors/bankruptcy/enforcement checks, then court cases',
-      institutional_analysis: '11. queryType=institutional_analysis: use multiple search_legal_precedents with limit=50 for different aspects (topics, time periods), include count_cases_by_party and legislation lookups',
+      institutional_analysis: '11. queryType=institutional_analysis: use search_edrsr_decisions (filter by judge/court/date), search_edrsr_fulltext, search_edrsr_semantic for different aspects (topics, time periods), include count_cases_by_party and legislation lookups. Do NOT use search_legal_precedents (deprecated).',
       calculation: '11. queryType=calculation: find relevant procedural norms first, then apply calculation logic',
     };
     queryTypeRule = qtRules[classification.queryType] || '';
@@ -116,7 +116,7 @@ CRITICAL: You MUST ALWAYS return a plan with at least 1 step. NEVER return an em
 6. If law_reference is in slots → start with get_legislation_article
 7. depends_on = list of step ids that must complete first
 8. purpose in Ukrainian, max 10 words
-9. For court practice analysis: use multiple search_legal_precedents steps with different queries and limit=50
+9. For court practice analysis: use search_edrsr_fulltext and/or search_edrsr_semantic steps with different queries. Do NOT use search_legal_precedents (deprecated, returns 0 results)
 10. ALWAYS include a get_legislation_article or search_legislation step when the query involves legal norms, articles of law, or legal analysis. The UI has a "Норми" panel that is populated ONLY from legislation tool results — without calling these tools, the panel stays empty${queryTypeRule ? '\n' + queryTypeRule : ''}
 
 ## JSON schema
@@ -136,7 +136,7 @@ CRITICAL: You MUST ALWAYS return a plan with at least 1 step. NEVER return an em
 }
 
 ## recommendedDepth rules
-- For search tools (search_legal_precedents, search_supreme_court_practice, find_similar_fact_pattern_cases, compare_practice_pro_contra, search_legislation, find_relevant_law_articles, search_procedural_norms):
+- For search tools (search_edrsr_fulltext, search_edrsr_semantic, search_edrsr_decisions, search_supreme_court_practice, find_similar_fact_pattern_cases, compare_practice_pro_contra, search_legislation, find_relevant_law_articles, search_procedural_norms):
   - Use "deep" when query requires thorough analysis, complex legal questions, institutional analysis, or comparative study
   - Use "standard" for simple lookups, basic searches, or when query is narrow and specific
 - For non-search tools: omit recommendedDepth (they are fixed-cost)
@@ -153,7 +153,7 @@ Query: "Судова практика щодо захисту авторськи
 Slots: {}
 
 Response:
-{"goal":"Аналіз судової практики захисту авторських прав","steps":[{"id":1,"tool":"search_legal_precedents","params":{"query":"захист авторських прав","limit":20},"purpose":"Знайти релевантні судові рішення","recommendedDepth":"deep"},{"id":2,"tool":"find_relevant_law_articles","params":{"query":"авторські права","limit":10},"purpose":"Знайти статті законодавства","recommendedDepth":"standard"}],"expected_iterations":3}`;
+{"goal":"Аналіз судової практики захисту авторських прав","steps":[{"id":1,"tool":"search_edrsr_fulltext","params":{"query":"захист авторських прав порушення","limit":20},"purpose":"Знайти релевантні судові рішення","recommendedDepth":"deep"},{"id":2,"tool":"find_relevant_law_articles","params":{"query":"авторські права","limit":10},"purpose":"Знайти статті законодавства","recommendedDepth":"standard"}],"expected_iterations":3}`;
 
   const slotsStr = classification.slots ? `\nСлоти: ${JSON.stringify(classification.slots)}` : '';
 
@@ -267,17 +267,17 @@ export const CHAT_INTENT_CLASSIFICATION_PROMPT = `Ти — класифікат�
 
 ## Доступні домени та їхні інструменти
 
-### court — Судова практика (база ZakonOnline + ЄДРСР)
-- search_legal_precedents — тематичний пошук судових рішень (ZakonOnline)
+### court — Судова практика (ЄДРСР — 96+ млн метаданих, 110+ млн повних текстів)
+- search_edrsr_decisions — пошук у ЄДРСР за суддею, судом, датою, категорією, видом судочинства (структурований пошук за метаданими)
+- search_edrsr_fulltext — повнотекстовий пошук рішень за ключовими словами (FTS по 110+ млн документів). Основний інструмент для тематичного пошуку практики.
+- search_edrsr_semantic — семантичний пошук за змістом (векторний пошук, знаходить за змістом навіть без точних слів)
+- get_edrsr_decision_fulltext — отримання повного тексту рішення з ЄДРСР за doc_id
 - search_supreme_court_practice — пошук практики Верховного Суду (потрібен procedure_code)
-- get_court_decision — отримання конкретного рішення за номером справи (ZakonOnline)
 - get_case_documents_chain — вся історія справи через усі інстанції
 - load_full_texts — завантаження повних текстів рішень для глибокого аналізу
 - find_similar_fact_pattern_cases — пошук справ зі схожими обставинами
 - compare_practice_pro_contra — порівняння позитивної та негативної практики
 - count_cases_by_party — статистика справ за учасником
-- search_edrsr_decisions — пошук у ЄДРСР (82+ млн рішень) за суддею, судом, датою, категорією, видом судочинства. Має повні тексти рішень. Використовуй для пошуку за суддею, судом, або фільтрування за категоріями/видами.
-- get_edrsr_decision_fulltext — отримання повного тексту рішення з ЄДРСР за doc_id
 
 ### legislation — Законодавство (Rada API + ZakonOnline)
 - search_legislation — пошук законів за темою
@@ -345,8 +345,8 @@ export const CHAT_INTENT_CLASSIFICATION_PROMPT = `Ти — класифікат�
 7. Якщо загальне юридичне питання → "legal_advice"
 7a. Якщо запит про комплексний/детальний аналіз конкретної справи через усі інстанції (хронологія, еволюція вимог, позиції судів, доказова база) → "court" + "legal_advice" + case_number
 8. ЄСПЛ/ECHR рішення шукаються через "court"
-8a. Якщо запит містить ПІБ судді, назву суду, або потрібен фільтр за категорією/видом судочинства → використовуй search_edrsr_decisions (ЄДРСР, 82+ млн рішень з повними текстами)
-8b. Якщо запит тематичний ("практика щодо...") → використовуй search_legal_precedents (ZakonOnline, семантичний пошук)
+8a. Якщо запит містить ПІБ судді, назву суду, або потрібен фільтр за категорією/видом судочинства → використовуй search_edrsr_decisions (ЄДРСР, 96+ млн рішень)
+8b. Якщо запит тематичний ("практика щодо...") → використовуй search_edrsr_fulltext (повнотекстовий пошук по 110+ млн рішень) або search_edrsr_semantic (семантичний пошук). НЕ використовуй search_legal_precedents (deprecated, завжди повертає 0 результатів).
 9. Нормативно-правові акти (НПА) → "legislation"
 
 ## Тип запиту (queryType)
