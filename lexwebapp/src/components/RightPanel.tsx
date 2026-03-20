@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { Decision } from './DecisionCard';
 import { DocumentViewerModal } from './DocumentViewerModal';
-import { useUIStore, useDecisionsSearchStore } from '../stores';
+import { useUIStore, useDecisionsSearchStore, useChatStore } from '../stores';
 import { useEvidenceAggregator } from '../hooks/chat/useEvidenceAggregator';
 import { DecisionsTab } from './chat/DecisionsTab';
 import { RegulationsTab } from './chat/RegulationsTab';
@@ -77,7 +77,8 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
 
   // Chat tab removed from right panel — consultation pages have their own embedded chat
 
-  const { decisions: chatDecisions, otherCourtDocs, citations, vaultDocuments, messagesCount } = useEvidenceAggregator();
+  const conversationId = useChatStore(s => s.conversationId);
+  const { decisions: chatDecisions, otherCourtDocs, citations, vaultDocuments, messagesCount } = useEvidenceAggregator(conversationId ?? undefined);
   const downloadedDecisions = useDecisionsSearchStore(s => s.downloadedDecisions);
 
   // On /decisions page, merge downloaded decisions into the decisions list
