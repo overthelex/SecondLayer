@@ -48,6 +48,53 @@ export function createConsultationRoutes(
     }
   }) as any);
 
+  // GET /api/consultations/user-stream — SSE stream for user-level events
+  router.get('/user-stream', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const userId = req.user.id;
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders();
+
+      res.write('event: connected\ndata: {}\n\n');
+
+      const { consultationMessageBus } = await import('../services/consultation-message-bus.js');
+      const unsubscribe = consultationMessageBus.subscribeUser(userId, (event) => {
+        res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+      });
+
+      const heartbeat = setInterval(() => {
+        res.write('event: heartbeat\ndata: {}\n\n');
+      }, 30000);
+
+      req.on('close', () => {
+        unsubscribe();
+        clearInterval(heartbeat);
+      });
+    } catch (error: any) {
+      logger.error('Failed to setup user stream', { error: error.message });
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to setup user stream' });
+      }
+    }
+  }) as any);
+
+  // GET /api/consultations/unread-total — global unread message count
+  router.get('/unread-total', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const count = await consultationService.getGlobalUnreadCount(req.user.id);
+      res.json({ count });
+    } catch (error: any) {
+      logger.error('Failed to get global unread count', { error: error.message });
+      res.status(500).json({ error: 'Failed to get unread count' });
+    }
+  }) as any);
+
   // GET /api/consultations/pending-unseen — unseen pending requests for attorney
   router.get('/pending-unseen', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {
@@ -237,6 +284,15 @@ export function createConsultationRoutes(
       const unsubscribeStatus = consultationMessageBus.subscribeStatus(consultationId, (payload) => {
         res.write(`event: message_status\ndata: ${JSON.stringify(payload)}\n\n`);
       });
+      const unsubscribeConsultationStatus = consultationMessageBus.subscribeConsultationStatus(consultationId, (consultation) => {
+        res.write(`event: consultation_status\ndata: ${JSON.stringify(consultation)}\n\n`);
+      });
+      const unsubscribeTyping = consultationMessageBus.subscribeTyping(consultationId, (data) => {
+        // Don't echo typing back to the sender
+        if (data.userId !== req.user!.id) {
+          res.write(`event: typing\ndata: ${JSON.stringify(data)}\n\n`);
+        }
+      });
 
       // Mark existing messages as delivered when client connects
       try {
@@ -254,6 +310,8 @@ export function createConsultationRoutes(
       req.on('close', () => {
         unsubscribeMsg();
         unsubscribeStatus();
+        unsubscribeConsultationStatus();
+        unsubscribeTyping();
         clearInterval(heartbeat);
       });
     } catch (error: any) {
@@ -321,6 +379,18 @@ export function createConsultationRoutes(
       res.status(201).json(message);
     } catch (error: any) {
       logger.error('Failed to send message', { error: error.message });
+      res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
+  // POST /api/consultations/:id/typing — fire-and-forget typing indicator
+  router.post('/:id/typing', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const { consultationMessageBus } = await import('../services/consultation-message-bus.js');
+      consultationMessageBus.publishTyping(req.params.id as string, req.user.id, req.user.name);
+      res.json({ ok: true });
+    } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
   }) as any);

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageSquare, Clock, CheckCircle, XCircle, AlertCircle, Loader2, CreditCard } from 'lucide-react';
-import { consultationService, type Consultation } from '../../services/api/ConsultationService';
+import { consultationService } from '../../services/api/ConsultationService';
 import { generateRoute } from '../../router/routes';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
@@ -17,30 +18,36 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 
 export function ConsultationsPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
   // Clear stale redirect so attorney always sees full list first
   useEffect(() => {
     sessionStorage.removeItem('lastConsultationId');
   }, []);
-  const [consultations, setConsultations] = useState<Consultation[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+
   const [role, setRole] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
 
-  useEffect(() => {
-    setLoading(true);
-    consultationService.listConsultations({
+  const { data, isLoading } = useQuery({
+    queryKey: ['consultations', role, statusFilter],
+    queryFn: () => consultationService.listConsultations({
       role: role || undefined,
       status: statusFilter || undefined,
       limit: 50,
-    })
-      .then(result => {
-        setConsultations(result.consultations);
-        setTotal(result.total);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [role, statusFilter]);
+    }),
+  });
+
+  const consultations = data?.consultations ?? [];
+  const total = data?.total ?? 0;
+
+  // Invalidate query on SSE consultation status events
+  useEffect(() => {
+    const handler = () => {
+      queryClient.invalidateQueries({ queryKey: ['consultations'] });
+    };
+    window.addEventListener('consultation-updated', handler);
+    return () => window.removeEventListener('consultation-updated', handler);
+  }, [queryClient]);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -72,7 +79,7 @@ export function ConsultationsPage() {
         </select>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
         </div>

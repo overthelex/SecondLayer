@@ -11,9 +11,9 @@ import { RightPanel } from '../components/RightPanel';
 import { TimeTrackerWidget } from '../components/time/TimeTrackerWidget';
 import { PendingInvitationsModal } from '../components/attorney/PendingInvitationsModal';
 import { useAuth } from '../contexts/AuthContext';
-import { useUIStore } from '../stores';
+import { useUIStore, useConsultationStore } from '../stores';
 import { ROUTES } from '../router/routes';
-import { consultationService, type Consultation } from '../services/api/ConsultationService';
+import { consultationService } from '../services/api/ConsultationService';
 import showToast from '../utils/toast';
 
 // Map routes to page titles
@@ -59,27 +59,40 @@ const SESSION_KEY = 'pending_invitations_dismissed';
 export function MainLayout() {
   const location = useLocation();
   const { logout, user } = useAuth();
-  const [pendingConsultations, setPendingConsultations] = useState<Consultation[]>([]);
   const [showInvitationsModal, setShowInvitationsModal] = useState(false);
+  const pendingConsultations = useConsultationStore(s => s.pendingConsultations);
+  const connect = useConsultationStore(s => s.connect);
+  const disconnect = useConsultationStore(s => s.disconnect);
+  const fetchInitialCounts = useConsultationStore(s => s.fetchInitialCounts);
 
-  // Fetch unseen pending consultations for attorneys
+  // Connect SSE + fetch initial counts on auth
   useEffect(() => {
     if (!user?.id) return;
 
-    consultationService.getUnseenPending()
-      .then(data => {
-        if (data.count > 0) {
-          setPendingConsultations(data.consultations);
-          // Show modal only once per session
-          if (!sessionStorage.getItem(SESSION_KEY)) {
-            setShowInvitationsModal(true);
-          }
-          // Always show toast notification
-          const word = data.count === 1 ? 'новий запит' : data.count < 5 ? 'нових запити' : 'нових запитів';
-          showToast.info(`У вас ${data.count} ${word} на консультацію`);
-        }
-      })
-      .catch(() => {});
+    connect();
+    fetchInitialCounts().then(() => {
+      const pending = useConsultationStore.getState().pendingConsultations;
+      if (pending.length > 0 && !sessionStorage.getItem(SESSION_KEY)) {
+        setShowInvitationsModal(true);
+        const count = pending.length;
+        const word = count === 1 ? 'новий запит' : count < 5 ? 'нових запити' : 'нових запитів';
+        showToast.info(`У вас ${count} ${word} на консультацію`);
+      }
+    });
+
+    // Listen for new pending requests arriving via SSE
+    const handleNewPending = (e: Event) => {
+      const consultation = (e as CustomEvent).detail;
+      if (consultation?.status === 'pending') {
+        showToast.info(`Новий запит на консультацію: ${consultation.request_title || 'без назви'}`);
+      }
+    };
+    window.addEventListener('consultation-updated', handleNewPending);
+
+    return () => {
+      disconnect();
+      window.removeEventListener('consultation-updated', handleNewPending);
+    };
   }, [user?.id]);
 
   const handleInvitationsClose = useCallback((remainingIds: string[]) => {
