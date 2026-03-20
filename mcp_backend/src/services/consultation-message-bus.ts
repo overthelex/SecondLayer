@@ -44,15 +44,23 @@ export interface IConsultationMessageBus {
   publishTyping(consultationId: string, userId: string, userName?: string): void;
 
   shutdown?(): Promise<void>;
+  setMetricsCallback?(cb: BusMetricsCallback): void;
 }
+
+export type BusMetricsCallback = (channel: string) => void;
 
 // ── EventEmitter Implementation (in-memory fallback) ──────────────────────────
 
 export class LocalConsultationMessageBus implements IConsultationMessageBus {
   private emitter = new EventEmitter();
+  private metricsCallback?: BusMetricsCallback;
 
   constructor() {
     this.emitter.setMaxListeners(1000);
+  }
+
+  setMetricsCallback(cb: BusMetricsCallback): void {
+    this.metricsCallback = cb;
   }
 
   subscribe(consultationId: string, callback: MessageCallback): () => void {
@@ -89,14 +97,17 @@ export class LocalConsultationMessageBus implements IConsultationMessageBus {
 
   publish(consultationId: string, message: ConsultationMessage): void {
     this.emitter.emit(`msg:${consultationId}`, message);
+    this.metricsCallback?.('msg');
   }
 
   publishStatus(consultationId: string, messageIds: string[], status: string): void {
     this.emitter.emit(`status:${consultationId}`, { messageIds, status });
+    this.metricsCallback?.('status');
   }
 
   publishConsultationStatus(consultation: any): void {
     this.emitter.emit(`consultation_status:${consultation.id}`, consultation);
+    this.metricsCallback?.('consultation_status');
     if (consultation.client_user_id) {
       this.publishUserEvent(consultation.client_user_id, {
         type: 'consultation_status',
@@ -113,10 +124,12 @@ export class LocalConsultationMessageBus implements IConsultationMessageBus {
 
   publishUserEvent(userId: string, event: UserEvent): void {
     this.emitter.emit(`user_event:${userId}`, event);
+    this.metricsCallback?.('user_event');
   }
 
   publishTyping(consultationId: string, userId: string, userName?: string): void {
     this.emitter.emit(`typing:${consultationId}`, { consultationId, userId, userName });
+    this.metricsCallback?.('typing');
   }
 
   subscribeTyping(consultationId: string, callback: (data: { consultationId: string; userId: string; userName?: string }) => void): () => void {

@@ -208,6 +208,7 @@ export class ChatService {
   private resultCompactor: ResultCompactor;
   private contextBuilder: ChatContextBuilder;
   private nameVariationService: NameVariationService;
+  private toolGroupMetricsCallback?: (groups: string) => void;
 
   constructor(
     private toolRegistry: ToolRegistry,
@@ -242,6 +243,10 @@ export class ChatService {
         }
       }
     }, 2 * 60 * 1000);
+  }
+
+  setToolGroupMetricsCallback(cb: (groups: string) => void): void {
+    this.toolGroupMetricsCallback = cb;
   }
 
   /**
@@ -1573,8 +1578,16 @@ export class ChatService {
           tools: matchedTools,
           hint: 'Тепер ви можете використовувати ці інструменти у наступних кроках.',
         };
+        logger.info('[ChatService] Meta-tool request_additional_tools invoked', {
+          groups: groupIds,
+          toolsReturned: matchedTools.length,
+        });
+        this.toolGroupMetricsCallback?.(groupIds.join(','));
       } else {
         toolResult = { error: 'Параметр groups має бути масивом ідентифікаторів груп (edrsr_search, court_practice, legislation, registry, parliament, vault, procedural, due_diligence, echr)' };
+        logger.warn('[ChatService] Meta-tool request_additional_tools called with invalid args', {
+          args: call.arguments,
+        });
       }
       return { call, result: toolResult, cached: false };
     }
