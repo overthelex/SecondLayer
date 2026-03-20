@@ -25,6 +25,17 @@ export const billingApi = {
     apiClient.get(`/api/billing/statistics?period=${period}`),
   getUsageChart: (days: number = 30) =>
     apiClient.get(`/api/billing/usage-chart?days=${days}`),
+  getBillingInfo: () => apiClient.get('/api/billing/billing-info'),
+  updateBillingInfo: (data: {
+    companyName?: string;
+    edrpou?: string;
+    address?: string;
+    city?: string;
+    postalCode?: string;
+    country?: string;
+    email?: string;
+    phone?: string;
+  }) => apiClient.put('/api/billing/billing-info', data),
   getPaymentMethods: () => apiClient.get('/api/billing/payment-methods'),
   addPaymentMethod: (data: Record<string, unknown>) =>
     apiClient.post('/api/billing/payment-methods', data),

@@ -291,6 +291,42 @@ export function createBillingRoutes(
   });
 
   /**
+   * GET /api/billing/billing-info
+   * Get user's billing info (company details for invoicing)
+   */
+  router.get('/billing-info', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      const info = await billingService.getBillingInfo(userId);
+      res.json(info);
+    } catch (error: any) {
+      logger.error('Failed to get billing info', { error: error.message });
+      res.status(500).json({ error: 'Не вдалося отримати платіжну інформацію' });
+    }
+  });
+
+  /**
+   * PUT /api/billing/billing-info
+   * Update user's billing info (company details for invoicing)
+   */
+  router.put('/billing-info', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      await billingService.updateBillingInfo(userId, req.body);
+      res.json({ success: true, message: 'Платіжну інформацію збережено' });
+    } catch (error: any) {
+      logger.error('Failed to update billing info', { error: error.message });
+      res.status(500).json({ error: 'Не вдалося зберегти платіжну інформацію' });
+    }
+  });
+
+  /**
    * GET /api/billing/payment-methods
    * Get user's saved payment methods
    */

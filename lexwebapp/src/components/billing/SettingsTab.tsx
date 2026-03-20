@@ -131,14 +131,30 @@ export function SettingsTab() {
   const fetchAllData = async () => {
     setIsLoading(true);
     try {
-      const [methodsRes, settingsRes, balanceRes] = await Promise.all([
+      const [methodsRes, settingsRes, balanceRes, billingInfoRes] = await Promise.all([
         api.billing.getPaymentMethods(),
         api.billing.getSettings(),
         api.billing.getBalance(),
+        api.billing.getBillingInfo(),
       ]);
 
       // Payment methods
       setPaymentMethods(methodsRes.data?.paymentMethods || []);
+
+      // Billing info
+      const bi = billingInfoRes.data;
+      if (bi) {
+        setBillingInfo({
+          companyName: bi.companyName || '',
+          edrpou: bi.edrpou || '',
+          address: bi.address || '',
+          city: bi.city || '',
+          postalCode: bi.postalCode || '',
+          country: bi.country || 'Ukraine',
+          email: bi.email || '',
+          phone: bi.phone || '',
+        });
+      }
 
       // Limits from settings
       const s = settingsRes.data;
@@ -216,9 +232,8 @@ export function SettingsTab() {
   const handleSaveBillingInfo = async () => {
     setIsSavingBilling(true);
     try {
-      // TODO: Backend endpoint for billing info (company, EDRPOU, address) not yet implemented
-      // For now, store locally and show a notice
-      showToast.info('Збереження платіжних даних буде доступне найближчим часом');
+      await api.billing.updateBillingInfo(billingInfo);
+      showToast.success('Платіжну інформацію збережено');
     } catch (error) {
       console.error('Failed to save billing info:', error);
       showToast.error('Не вдалося зберегти платіжну інформацію');
