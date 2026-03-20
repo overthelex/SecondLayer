@@ -172,7 +172,7 @@ if (!Map.prototype.getOrInsertComputed) {
 </script>
 <script type="module">
 import { getDocument, GlobalWorkerOptions } from './pdf.min.mjs';
-GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
+GlobalWorkerOptions.workerSrc = '';
 
 window.extractText = async function(base64Data, maxPages) {
   const binary = atob(base64Data);
@@ -281,7 +281,7 @@ if (!Map.prototype.getOrInsertComputed) {
 </script>
 <script type="module">
 import { getDocument, GlobalWorkerOptions } from './pdf.min.mjs';
-GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
+GlobalWorkerOptions.workerSrc = '';
 
 window.renderPDF = async function(base64Data, maxPages, scale) {
   const binary = atob(base64Data);
