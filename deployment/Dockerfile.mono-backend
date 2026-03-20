@@ -49,6 +49,7 @@ RUN cd mcp_backend \
 COPY mcp_backend/tsconfig.json mcp_backend/tsconfig.json
 COPY mcp_backend/src mcp_backend/src
 COPY mcp_backend/scripts mcp_backend/scripts
+COPY mcp_backend/assets mcp_backend/assets
 RUN cd mcp_backend \
   && npm run build \
   && npm prune --omit=dev
@@ -90,6 +91,7 @@ COPY --from=builder /app/mcp_backend/package-lock.json* ./
 COPY --from=builder /app/mcp_backend/node_modules ./node_modules
 COPY --from=builder /app/mcp_backend/dist ./dist
 COPY --from=builder /app/mcp_backend/scripts ./scripts
+COPY --from=builder /app/mcp_backend/assets ./assets
 COPY --from=builder /app/mcp_backend/src/migrations ./src/migrations
 
 EXPOSE 3000
