@@ -66,7 +66,7 @@ export function BillingDashboard() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-claude-bg">
+    <div className="flex flex-col h-full bg-claude-bg">
       {/* Header */}
       <div className="bg-white border-b border-claude-border px-6 py-4">
         <div className="flex items-center gap-4">
