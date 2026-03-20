@@ -11,6 +11,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -329,22 +330,39 @@ export function StatisticsTab() {
                 <h3 className="text-lg font-semibold text-claude-text mb-4">
                   Витрати по інструментах
                 </h3>
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
                     <Pie
                       data={data.costByService}
                       cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, value }) => `${name}: ${formatUah(value)}`}
-                      outerRadius={80}
+                      cy="45%"
+                      outerRadius={90}
+                      innerRadius={40}
                       fill="#D97757"
-                      dataKey="value">
+                      dataKey="value"
+                      labelLine={{ stroke: '#999', strokeWidth: 1 }}
+                      label={({ percent }: any) => `${((percent ?? 0) * 100).toFixed(0)}%`}
+                      style={{ fontSize: '11px' }}>
                       {data.costByService.map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: any) => formatUah(value)} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#F5F5F0',
+                        border: '1px solid #E5E5E0',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                      }}
+                      formatter={(value: any, name: any) => [formatUah(value), name]}
+                    />
+                    <Legend
+                      verticalAlign="bottom"
+                      iconType="circle"
+                      iconSize={8}
+                      wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }}
+                      formatter={(value: string) => <span style={{ color: '#3D3929' }}>{value}</span>}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </motion.div>
