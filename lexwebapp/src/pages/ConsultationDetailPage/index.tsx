@@ -25,6 +25,8 @@ export function ConsultationDetailPage() {
   const [showEscrow, setShowEscrow] = useState(false);
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [acceptFee, setAcceptFee] = useState('');
 
   const isClient = consultation?.client_user_id === user?.id;
   const isAttorney = consultation?.attorney_user_id === user?.id;
@@ -53,7 +55,13 @@ export function ConsultationDetailPage() {
     try {
       let result: Consultation;
       switch (action) {
-        case 'accept': result = await consultationService.acceptConsultation(id); break;
+        case 'accept': {
+          const fee = parseFloat(acceptFee);
+          if (!fee || fee <= 0) { alert('Вкажіть коректну суму гонорару'); return; }
+          result = await consultationService.acceptConsultation(id, fee);
+          setShowAcceptModal(false);
+          break;
+        }
         case 'decline': {
           const reason = prompt('Причина відмови:');
           result = await consultationService.declineConsultation(id, reason || undefined);
@@ -192,7 +200,7 @@ export function ConsultationDetailPage() {
           <div className="flex flex-wrap gap-2">
             {isAttorney && consultation.status === 'pending' && (
               <>
-                <button onClick={() => handleAction('accept')} disabled={!!actionLoading}
+                <button onClick={() => { setAcceptFee(''); setShowAcceptModal(true); }} disabled={!!actionLoading}
                   className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
                   {actionLoading === 'accept' ? <Loader2 className="w-4 h-4 animate-spin inline" /> : <CheckCircle className="w-4 h-4 inline mr-1" />}
                   Прийняти
@@ -321,6 +329,46 @@ export function ConsultationDetailPage() {
                   <CreditCard className="w-4 h-4" />
                 )}
                 Підтвердити та оплатити
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Accept fee modal */}
+      {showAcceptModal && consultation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAcceptModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Прийняти консультацію</h3>
+            <p className="text-sm text-gray-500 mb-4">Вкажіть суму гонорару, яку буде зарезервовано на картці клієнта</p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Сума гонорару (грн)</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={acceptFee}
+                onChange={e => setAcceptFee(e.target.value)}
+                placeholder="Наприклад: 2000"
+                className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') handleAction('accept'); }}
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowAcceptModal(false)}
+                className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Скасувати
+              </button>
+              <button
+                onClick={() => handleAction('accept')}
+                disabled={!!actionLoading || !acceptFee || parseFloat(acceptFee) <= 0}
+                className="flex-1 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {actionLoading === 'accept' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                Прийняти за {acceptFee ? `${acceptFee} грн` : '...'}
               </button>
             </div>
           </div>
