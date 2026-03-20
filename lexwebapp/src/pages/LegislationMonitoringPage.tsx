@@ -1,12 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { motion } from 'framer-motion';
 import {
   Search,
   Filter,
   Eye,
   Star,
-  Bell,
-  X,
   FileText,
   Calendar,
   CheckCircle,
@@ -16,23 +14,23 @@ import {
   Share2,
   BookOpen,
   History,
-  Link as LinkIcon,
   AlertCircle,
-  Clock,
   XCircle,
   Loader2,
-  ChevronRight } from
+  ChevronRight,
+  ChevronLeft,
+  Clock } from
 'lucide-react';
 import apiClient from '../utils/api-client';
+import showToast from '../utils/toast';
 
 interface LegislationDocument {
   id: string;
   title: string;
   number: string;
   date: string;
-  status: 'active' | 'inactive' | 'draft' | 'rejected';
+  status: 'active' | 'amended' | 'repealed';
   type: string;
-  category: string;
   rada_id: string;
   total_articles?: number;
   url?: string;
@@ -66,6 +64,13 @@ interface ArticleContent {
   url: string;
 }
 
+interface HistoryEntry {
+  article_number: string;
+  title: string | null;
+  version_date: string | null;
+  created_at: string;
+}
+
 interface LegislationMonitoringPageProps {
   onBack?: () => void;
 }
@@ -76,43 +81,30 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
     color: 'bg-green-50 text-green-700 border-green-200',
     icon: <CheckCircle size={12} className="text-green-600" />
   },
-  inactive: {
-    label: 'Втратив чинність',
-    color: 'bg-red-50 text-red-700 border-red-200',
-    icon: <XCircle size={12} className="text-red-600" />
-  },
-  draft: {
-    label: 'На розгляді',
+  amended: {
+    label: 'Зі змінами',
     color: 'bg-amber-50 text-amber-700 border-amber-200',
     icon: <Clock size={12} className="text-amber-600" />
   },
-  rejected: {
-    label: 'Відхилено',
-    color: 'bg-gray-50 text-gray-700 border-gray-200',
-    icon: <XCircle size={12} className="text-gray-600" />
+  repealed: {
+    label: 'Втратив чинність',
+    color: 'bg-red-50 text-red-700 border-red-200',
+    icon: <XCircle size={12} className="text-red-600" />
   }
 };
 
-const documentTypes = [
-  'Всі типи',
-  'закон',
-  'кодекс',
-  'конституція',
-  'постанова',
-];
+const typeLabels: Record<string, string> = {
+  code: 'Кодекс',
+  law: 'Закон',
+  regulation: 'Постанова',
+  constitution: 'Конституція',
+};
 
-function mapStatus(status: string | null): 'active' | 'inactive' | 'draft' | 'rejected' {
-  if (!status) return 'active';
-  const s = status.toLowerCase();
-  if (s.includes('чинн') || s === 'active') return 'active';
-  if (s.includes('втратив') || s === 'inactive') return 'inactive';
-  if (s.includes('розгляд') || s === 'draft') return 'draft';
-  if (s.includes('відхил') || s === 'rejected') return 'rejected';
-  return 'active';
-}
+const PAGE_SIZE = 50;
+const FAVORITES_KEY = 'legislation-monitoring-favorites';
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—';
+  if (!dateStr) return '\u2014';
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
@@ -120,6 +112,19 @@ function formatDate(dateStr: string | null): string {
   } catch {
     return dateStr;
   }
+}
+
+function loadFavorites(): Set<string> {
+  try {
+    const stored = localStorage.getItem(FAVORITES_KEY);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveFavorites(favorites: Set<string>) {
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites]));
 }
 
 export function LegislationMonitoringPage({
@@ -130,6 +135,7 @@ export function LegislationMonitoringPage({
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
 
   const [selectedDocument, setSelectedDocument] = useState<LegislationDocument | null>(null);
   const [docStructure, setDocStructure] = useState<LegislationStructure | null>(null);
@@ -138,21 +144,48 @@ export function LegislationMonitoringPage({
   const [selectedArticle, setSelectedArticle] = useState<ArticleContent | null>(null);
   const [articleLoading, setArticleLoading] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'text' | 'card' | 'history' | 'links'>('card');
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [activeTab, setActiveTab] = useState<'text' | 'card' | 'history'>('card');
   const [filters, setFilters] = useState({
-    type: 'Всі типи',
+    type: '',
     dateFrom: '',
     dateTo: ''
   });
 
+  // Stats from server
+  const [stats, setStats] = useState<{ total: number; active: number; totalArticles: number } | null>(null);
+
+  // Available types from server
+  const [availableTypes, setAvailableTypes] = useState<string[]>([]);
+
+  // Favorites
+  const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
+
+  // History tab
+  const [amendmentHistory, setAmendmentHistory] = useState<HistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Debounce timer for date filters
+  const filterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load stats and types on mount
+  useEffect(() => {
+    apiClient.get('/api/legislation/stats').then(r => setStats(r.data)).catch(() => {});
+    apiClient.get('/api/legislation/types').then(r => setAvailableTypes(r.data.types || [])).catch(() => {});
+  }, []);
+
   // Load legislation list
-  const loadLegislation = useCallback(async (search?: string) => {
+  const loadLegislation = useCallback(async (search?: string, currentOffset?: number) => {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string | number> = { limit: 50, offset: 0 };
+      const params: Record<string, string | number> = {
+        limit: PAGE_SIZE,
+        offset: currentOffset ?? offset,
+      };
       if (search) params.search = search;
+      if (filters.type) params.type = filters.type;
+      if (filters.dateFrom) params.dateFrom = filters.dateFrom;
+      if (filters.dateTo) params.dateTo = filters.dateTo;
 
       const response = await apiClient.get('/api/legislation', { params });
       const data = response.data;
@@ -162,9 +195,8 @@ export function LegislationMonitoringPage({
         title: item.title || item.short_title || item.rada_id,
         number: item.rada_id,
         date: formatDate(item.adoption_date || item.effective_date),
-        status: mapStatus(item.status),
-        type: item.type || 'Закон',
-        category: '',
+        status: item.status || 'active',
+        type: item.type || '',
         rada_id: item.rada_id,
         total_articles: item.total_articles,
         url: item.url,
@@ -180,19 +212,61 @@ export function LegislationMonitoringPage({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [offset, filters]);
 
   useEffect(() => {
-    loadLegislation();
+    loadLegislation(searchQuery || undefined);
   }, [loadLegislation]);
+
+  // Reload on filter changes (debounced for dates)
+  const handleFilterChange = (newFilters: typeof filters) => {
+    setFilters(newFilters);
+    setOffset(0);
+  };
+
+  const handleDateFilterChange = (key: 'dateFrom' | 'dateTo', value: string) => {
+    if (filterDebounceRef.current) clearTimeout(filterDebounceRef.current);
+    const newFilters = { ...filters, [key]: value };
+    setFilters(newFilters);
+    filterDebounceRef.current = setTimeout(() => {
+      setOffset(0);
+    }, 500);
+  };
 
   // Search handler
   const handleSearch = () => {
-    loadLegislation(searchQuery || undefined);
+    setOffset(0);
+    loadLegislation(searchQuery || undefined, 0);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSearch();
+  };
+
+  // Pagination
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+  const totalPages = Math.max(Math.ceil(totalCount / PAGE_SIZE), 1);
+
+  const handlePrevPage = () => {
+    if (offset > 0) setOffset(offset - PAGE_SIZE);
+  };
+
+  const handleNextPage = () => {
+    if (offset + PAGE_SIZE < totalCount) setOffset(offset + PAGE_SIZE);
+  };
+
+  // Favorites
+  const toggleFavorite = (radaId: string) => {
+    setFavorites(prev => {
+      const next = new Set(prev);
+      if (next.has(radaId)) {
+        next.delete(radaId);
+      } else {
+        next.add(radaId);
+      }
+      saveFavorites(next);
+      return next;
+    });
   };
 
   // Load document structure when selecting a document
@@ -201,6 +275,7 @@ export function LegislationMonitoringPage({
     setActiveTab('card');
     setSelectedArticle(null);
     setDocStructure(null);
+    setAmendmentHistory([]);
     setStructureLoading(true);
 
     try {
@@ -232,17 +307,34 @@ export function LegislationMonitoringPage({
     }
   };
 
-  // Client-side filter
-  const filteredDocuments = documents.filter((doc) => {
-    const matchesType = filters.type === 'Всі типи' ||
-      doc.type.toLowerCase().includes(filters.type.toLowerCase());
-    return matchesType;
-  });
+  // Load amendment history
+  const handleLoadHistory = async () => {
+    if (!selectedDocument || amendmentHistory.length > 0) return;
+    setHistoryLoading(true);
+    try {
+      const response = await apiClient.get(`/api/legislation/${encodeURIComponent(selectedDocument.rada_id)}/history`);
+      setAmendmentHistory(response.data.history || []);
+    } catch (err: unknown) {
+      console.error('Failed to load history:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
-  // Stats derived from data
-  const totalDocs = totalCount;
-  const activeDocs = documents.filter(d => d.status === 'active').length;
-  const totalArticles = documents.reduce((sum, d) => sum + (d.total_articles || 0), 0);
+  // Print
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // Share
+  const handleShare = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      showToast.success('Посилання скопійовано');
+    }).catch(() => {
+      showToast.error('Не вдалося скопіювати посилання');
+    });
+  };
 
   // ==================== DETAIL VIEW ====================
   if (selectedDocument) {
@@ -253,7 +345,7 @@ export function LegislationMonitoringPage({
           <div className="max-w-7xl mx-auto px-4 md:px-8 py-4">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => { setSelectedDocument(null); setDocStructure(null); setSelectedArticle(null); }}
+                onClick={() => { setSelectedDocument(null); setDocStructure(null); setSelectedArticle(null); setAmendmentHistory([]); }}
                 className="p-2 hover:bg-claude-bg rounded-lg transition-colors">
                 <ArrowLeft size={20} className="text-claude-text" />
               </button>
@@ -277,8 +369,11 @@ export function LegislationMonitoringPage({
                     <ExternalLink size={20} />
                   </a>
                 )}
-                <button className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-colors">
-                  <Star size={20} />
+                <button
+                  onClick={() => toggleFavorite(selectedDocument.rada_id)}
+                  className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-colors"
+                  title={favorites.has(selectedDocument.rada_id) ? 'Прибрати з обраного' : 'В обране'}>
+                  <Star size={20} className={favorites.has(selectedDocument.rada_id) ? 'fill-amber-400 text-amber-400' : ''} />
                 </button>
               </div>
             </div>
@@ -293,13 +388,15 @@ export function LegislationMonitoringPage({
                 { id: 'card', label: 'Картка', icon: BookOpen },
                 { id: 'text', label: 'Текст', icon: FileText },
                 { id: 'history', label: 'Історія', icon: History },
-                { id: 'links', label: "Зв'язки", icon: LinkIcon },
               ].map((tab) => {
                 const Icon = tab.icon;
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => {
+                      setActiveTab(tab.id as any);
+                      if (tab.id === 'history') handleLoadHistory();
+                    }}
                     className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium font-sans transition-colors relative ${activeTab === tab.id ? 'text-claude-accent bg-claude-accent/5' : 'text-claude-subtext hover:text-claude-text hover:bg-claude-bg'}`}>
                     <Icon size={16} />
                     {tab.label}
@@ -330,7 +427,7 @@ export function LegislationMonitoringPage({
                       <div className="p-4 bg-claude-bg rounded-xl border border-claude-border">
                         <p className="text-xs text-claude-subtext font-sans mb-1">Тип документа</p>
                         <p className="text-sm font-medium text-claude-text font-sans">
-                          {docStructure?.type || selectedDocument.type}
+                          {typeLabels[docStructure?.type || selectedDocument.type] || docStructure?.type || selectedDocument.type || '\u2014'}
                         </p>
                       </div>
                       <div className="p-4 bg-claude-bg rounded-xl border border-claude-border">
@@ -343,7 +440,7 @@ export function LegislationMonitoringPage({
                       <div className="p-4 bg-claude-bg rounded-xl border border-claude-border">
                         <p className="text-xs text-claude-subtext font-sans mb-1">Кількість статей</p>
                         <p className="text-sm font-medium text-claude-text font-sans">
-                          {docStructure?.total_articles || selectedDocument.total_articles || '—'}
+                          {docStructure?.total_articles || selectedDocument.total_articles || '\u2014'}
                         </p>
                       </div>
                       <div className="p-4 bg-claude-bg rounded-xl border border-claude-border">
@@ -410,11 +507,15 @@ export function LegislationMonitoringPage({
                         Відкрити на Раді
                       </a>
                     )}
-                    <button className="flex items-center gap-2 px-4 py-2 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-medium font-sans hover:bg-claude-bg transition-colors">
+                    <button
+                      onClick={handlePrint}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-medium font-sans hover:bg-claude-bg transition-colors">
                       <Printer size={16} />
                       Друк
                     </button>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-medium font-sans hover:bg-claude-bg transition-colors">
+                    <button
+                      onClick={handleShare}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-medium font-sans hover:bg-claude-bg transition-colors">
                       <Share2 size={16} />
                       Поділитися
                     </button>
@@ -476,21 +577,32 @@ export function LegislationMonitoringPage({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-4">
-                  <p className="text-claude-subtext font-sans">
-                    Історія змін документа буде відображатися тут...
-                  </p>
-                </motion.div>
-              )}
-
-              {/* Links tab */}
-              {activeTab === 'links' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-4">
-                  <p className="text-claude-subtext font-sans">
-                    Зв'язки з іншими документами будуть відображатися тут...
-                  </p>
+                  {historyLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 size={24} className="animate-spin text-claude-accent" />
+                      <span className="ml-2 text-sm text-claude-subtext font-sans">Завантаження історії...</span>
+                    </div>
+                  ) : amendmentHistory.length > 0 ? (
+                    <div className="space-y-2">
+                      {amendmentHistory.map((entry, i) => (
+                        <div key={i} className="p-3 bg-claude-bg rounded-xl border border-claude-border">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-sans text-claude-text font-medium">
+                              Стаття {entry.article_number}
+                              {entry.title && `. ${entry.title}`}
+                            </span>
+                            <span className="text-xs text-claude-subtext font-sans">
+                              {entry.version_date ? formatDate(entry.version_date) : formatDate(entry.created_at)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-claude-subtext font-sans text-sm">
+                      Для цього документа немає збереженої історії змін.
+                    </p>
+                  )}
                 </motion.div>
               )}
             </div>
@@ -520,7 +632,7 @@ export function LegislationMonitoringPage({
             }
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <Bell size={32} className="text-claude-accent" />
+                <BookOpen size={32} className="text-claude-accent" />
                 <h1 className="text-3xl md:text-4xl font-sans text-claude-text font-medium tracking-tight">
                   Моніторинг законодавства
                 </h1>
@@ -570,14 +682,14 @@ export function LegislationMonitoringPage({
                     name="dateFrom"
                     type="date"
                     value={filters.dateFrom}
-                    onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                    onChange={(e) => handleDateFilterChange('dateFrom', e.target.value)}
                     className="w-full px-3 pr-8 py-2.5 bg-white border border-claude-border rounded-lg text-claude-text focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans text-sm" />
                   <input
                     id="legislation-date-to"
                     name="dateTo"
                     type="date"
                     value={filters.dateTo}
-                    onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                    onChange={(e) => handleDateFilterChange('dateTo', e.target.value)}
                     className="w-full px-3 pr-8 py-2.5 bg-white border border-claude-border rounded-lg text-claude-text focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans text-sm" />
                 </div>
               </div>
@@ -591,10 +703,11 @@ export function LegislationMonitoringPage({
                   id="legislation-doc-type"
                   name="documentType"
                   value={filters.type}
-                  onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+                  onChange={(e) => handleFilterChange({ ...filters, type: e.target.value })}
                   className="w-full px-4 py-2.5 bg-white border border-claude-border rounded-lg text-claude-text focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans">
-                  {documentTypes.map((type) => (
-                    <option key={type} value={type}>{type}</option>
+                  <option value="">Всі типи</option>
+                  {availableTypes.map((type) => (
+                    <option key={type} value={type}>{typeLabels[type] || type}</option>
                   ))}
                 </select>
               </div>
@@ -613,7 +726,7 @@ export function LegislationMonitoringPage({
               <div>
                 <p className="text-sm text-claude-subtext font-sans mb-1">Всього документів</p>
                 <p className="text-3xl font-sans font-bold text-claude-text">
-                  {loading ? '...' : totalDocs}
+                  {stats ? stats.total : '...'}
                 </p>
               </div>
               <div className="p-2 bg-claude-accent/10 rounded-lg">
@@ -632,14 +745,14 @@ export function LegislationMonitoringPage({
               <div>
                 <p className="text-sm text-claude-subtext font-sans mb-1">Чинних</p>
                 <p className="text-3xl font-sans font-bold text-claude-text">
-                  {loading ? '...' : activeDocs}
+                  {stats ? stats.active : '...'}
                 </p>
               </div>
               <div className="p-2 bg-claude-accent/10 rounded-lg">
                 <CheckCircle size={20} className="text-claude-accent" />
               </div>
             </div>
-            <p className="text-sm text-claude-subtext font-sans">із завантажених</p>
+            <p className="text-sm text-claude-subtext font-sans">в базі даних</p>
           </motion.div>
 
           <motion.div
@@ -651,7 +764,7 @@ export function LegislationMonitoringPage({
               <div>
                 <p className="text-sm text-claude-subtext font-sans mb-1">Статей</p>
                 <p className="text-3xl font-sans font-bold text-claude-text">
-                  {loading ? '...' : totalArticles.toLocaleString('uk-UA')}
+                  {stats ? stats.totalArticles.toLocaleString('uk-UA') : '...'}
                 </p>
               </div>
               <div className="p-2 bg-claude-accent/10 rounded-lg">
@@ -678,7 +791,7 @@ export function LegislationMonitoringPage({
         {/* Results Header */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-claude-subtext font-sans">
-            Показано: {filteredDocuments.length} з {totalCount}
+            Показано: {documents.length} з {totalCount}
           </p>
         </div>
 
@@ -690,7 +803,7 @@ export function LegislationMonitoringPage({
                 <Loader2 size={32} className="animate-spin text-claude-accent" />
                 <span className="ml-3 text-claude-subtext font-sans">Завантаження...</span>
               </div>
-            ) : filteredDocuments.length === 0 ? (
+            ) : documents.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16">
                 <FileText size={48} className="text-claude-subtext/30 mb-4" />
                 <p className="text-claude-subtext font-sans">
@@ -698,7 +811,7 @@ export function LegislationMonitoringPage({
                 </p>
                 {searchQuery && (
                   <button
-                    onClick={() => { setSearchQuery(''); loadLegislation(); }}
+                    onClick={() => { setSearchQuery(''); setOffset(0); loadLegislation(undefined, 0); }}
                     className="mt-2 text-sm text-claude-accent hover:underline font-sans">
                     Очистити пошук
                   </button>
@@ -729,7 +842,7 @@ export function LegislationMonitoringPage({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-claude-border">
-                  {filteredDocuments.map((doc, index) => (
+                  {documents.map((doc, index) => (
                     <motion.tr
                       key={doc.id}
                       initial={{ opacity: 0, y: 10 }}
@@ -738,7 +851,7 @@ export function LegislationMonitoringPage({
                       className="hover:bg-claude-bg transition-colors cursor-pointer"
                       onClick={() => handleSelectDocument(doc)}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-claude-subtext font-sans">
-                        {index + 1}
+                        {offset + index + 1}
                       </td>
                       <td className="px-6 py-4 text-sm text-claude-text font-sans font-medium">
                         <div>
@@ -754,7 +867,7 @@ export function LegislationMonitoringPage({
                         {doc.number}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-claude-subtext font-sans">
-                        {doc.type}
+                        {typeLabels[doc.type] || doc.type}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border ${statusConfig[doc.status]?.color || statusConfig.active.color}`}>
@@ -782,10 +895,10 @@ export function LegislationMonitoringPage({
                             </a>
                           )}
                           <button
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(doc.rada_id); }}
                             className="p-1.5 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded transition-colors"
-                            title="В обране">
-                            <Star size={16} />
+                            title={favorites.has(doc.rada_id) ? 'Прибрати з обраного' : 'В обране'}>
+                            <Star size={16} className={favorites.has(doc.rada_id) ? 'fill-amber-400 text-amber-400' : ''} />
                           </button>
                         </div>
                       </td>
@@ -795,46 +908,31 @@ export function LegislationMonitoringPage({
               </table>
             )}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && !loading && documents.length > 0 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-claude-border bg-claude-bg">
+              <button
+                onClick={handlePrevPage}
+                disabled={offset === 0}
+                className="flex items-center gap-1 px-3 py-2 text-sm font-sans text-claude-text bg-white border border-claude-border rounded-lg hover:bg-claude-bg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <ChevronLeft size={16} />
+                Попередня
+              </button>
+              <span className="text-sm text-claude-subtext font-sans">
+                Сторінка {currentPage} з {totalPages}
+              </span>
+              <button
+                onClick={handleNextPage}
+                disabled={offset + PAGE_SIZE >= totalCount}
+                className="flex items-center gap-1 px-3 py-2 text-sm font-sans text-claude-text bg-white border border-claude-border rounded-lg hover:bg-claude-bg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                Наступна
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Notifications Modal */}
-      <AnimatePresence>
-        {showNotifications &&
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowNotifications(false)}
-              className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm" />
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl bg-white rounded-2xl border border-claude-border shadow-2xl z-50 overflow-hidden">
-
-              <div className="flex items-center justify-between p-6 border-b border-claude-border">
-                <h2 className="text-xl font-serif text-claude-text font-medium">
-                  Налаштування сповіщень
-                </h2>
-                <button
-                  onClick={() => setShowNotifications(false)}
-                  className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-colors">
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
-                <p className="text-claude-subtext font-sans text-sm">
-                  Функція сповіщень буде доступна незабаром.
-                </p>
-              </div>
-            </motion.div>
-          </>
-        }
-      </AnimatePresence>
     </div>
   );
 }
