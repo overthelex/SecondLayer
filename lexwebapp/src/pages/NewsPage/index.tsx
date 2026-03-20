@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Loader2, ExternalLink, RefreshCw, AlertCircle, Calendar } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Loader2, ExternalLink, RefreshCw, AlertCircle, Calendar, Sparkles } from 'lucide-react';
+import { KmuArticleModal } from './KmuArticleModal';
 
 interface NewsItem {
   title: string;
@@ -51,6 +52,7 @@ export function NewsPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<NewsItem | null>(null);
 
   const fetchNews = async () => {
     setLoading(true);
@@ -120,15 +122,13 @@ export function NewsPage() {
 
         <div className="space-y-4">
           {news.map((item, index) => (
-            <motion.a
+            <motion.div
               key={item.link || index}
-              href={item.link}
-              target="_blank"
-              rel="noopener noreferrer"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03, duration: 0.3 }}
-              className="block p-5 bg-white border border-claude-border rounded-xl hover:border-claude-accent/30 hover:shadow-sm transition-all group"
+              onClick={() => setSelectedItem(item)}
+              className="block p-5 bg-white border border-claude-border rounded-xl hover:border-claude-accent/30 hover:shadow-sm transition-all group cursor-pointer"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
@@ -147,9 +147,12 @@ export function NewsPage() {
                     </div>
                   )}
                 </div>
-                <ExternalLink size={16} className="flex-shrink-0 text-claude-subtext/40 group-hover:text-claude-accent transition-colors mt-1" />
+                <div className="flex items-center gap-1.5 flex-shrink-0 mt-1">
+                  <Sparkles size={14} className="text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ExternalLink size={16} className="text-claude-subtext/40 group-hover:text-claude-accent transition-colors" />
+                </div>
               </div>
-            </motion.a>
+            </motion.div>
           ))}
         </div>
 
@@ -168,6 +171,17 @@ export function NewsPage() {
           </div>
         )}
       </div>
+
+      {/* Article Modal */}
+      <AnimatePresence>
+        {selectedItem && (
+          <KmuArticleModal
+            url={selectedItem.link}
+            title={selectedItem.title}
+            onClose={() => setSelectedItem(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
