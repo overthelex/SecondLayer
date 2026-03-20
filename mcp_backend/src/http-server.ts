@@ -528,7 +528,10 @@ class HTTPMCPServer {
       this.app_.consultationService,
       this.app_.consultationPaymentService,
       this.app_.attorneyPayoutService,
-      this.services.db
+      this.services.db,
+      (type, delta) => {
+        this.app_.metricsService.sseActiveConnections.inc({ type }, delta);
+      }
     ));
     logger.info('Consultation routes registered at /api/consultations');
 
@@ -734,8 +737,16 @@ class HTTPMCPServer {
       await this.tools.documentParser.initialize();
 
       // Initialize Redis-backed consultation message bus (falls back to in-memory)
-      const { createConsultationMessageBus } = await import('./services/consultation-message-bus.js');
+      const { createConsultationMessageBus, getConsultationMessageBus } = await import('./services/consultation-message-bus.js');
       await createConsultationMessageBus();
+
+      // Wire message bus metrics
+      const bus = getConsultationMessageBus();
+      if (bus.setMetricsCallback) {
+        bus.setMetricsCallback((channel) => {
+          this.app_.metricsService.consultationBusMessages.inc({ channel });
+        });
+      }
 
       // Initialize Redis cache for services (optional)
       const redis = await getRedisClient();
@@ -756,6 +767,9 @@ class HTTPMCPServer {
         // EDRSR cache service (fulltext, metadata, FTS results)
         const { EdsrCacheService } = await import('./services/edrsr-cache-service.js');
         const edsrCache = new EdsrCacheService(cache);
+        edsrCache.setMetricsCallback((operation, result) => {
+          this.app_.metricsService.edsrCacheOps.inc({ operation, result });
+        });
         if (this.tools.edsrFtsService) {
           this.tools.edsrFtsService.setEdsrCache(edsrCache);
         }
@@ -768,7 +782,17 @@ class HTTPMCPServer {
             this.services.db,
             cache,
           );
+          preVectorizer.setMetricsCallback((event, value) => {
+            if (event === 'docs_processed') {
+              this.app_.metricsService.edsrVectorizerDocsProcessed.inc(value);
+            } else if (event === 'batch_error') {
+              this.app_.metricsService.edsrVectorizerErrors.inc(value);
+            } else if (event === 'status_change') {
+              this.app_.metricsService.edsrVectorizerStatus.set(value);
+            }
+          });
           preVectorizer.start();
+          this.app_.metricsService.edsrVectorizerStatus.set(1); // running
           // Expose status endpoint
           (this as any)._preVectorizer = preVectorizer;
           logger.info('EDRSR pre-vectorization background worker started');

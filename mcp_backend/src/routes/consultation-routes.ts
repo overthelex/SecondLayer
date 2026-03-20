@@ -6,11 +6,15 @@ import { AttorneyPayoutService } from '../services/attorney-payout-service.js';
 import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 
+/** Optional callback for SSE connection metrics */
+export type SseMetricsCallback = (type: 'user_stream' | 'message_stream', delta: 1 | -1) => void;
+
 export function createConsultationRoutes(
   consultationService: ConsultationService,
   consultationPaymentService: ConsultationPaymentService,
   payoutService?: AttorneyPayoutService,
-  db?: IDatabase
+  db?: IDatabase,
+  sseMetrics?: SseMetricsCallback
 ): Router {
   const router = Router();
 
@@ -65,6 +69,7 @@ export function createConsultationRoutes(
       res.flushHeaders();
 
       res.write('event: connected\ndata: {}\n\n');
+      sseMetrics?.('user_stream', 1);
 
       const { getConsultationMessageBus } = await import('../services/consultation-message-bus.js');
       const bus = getConsultationMessageBus();
@@ -79,6 +84,7 @@ export function createConsultationRoutes(
       req.on('close', () => {
         unsubscribe();
         clearInterval(heartbeat);
+        sseMetrics?.('user_stream', -1);
       });
     } catch (error: any) {
       logger.error('Failed to setup user stream', { error: error.message });
@@ -297,6 +303,7 @@ export function createConsultationRoutes(
 
       // Send initial heartbeat
       res.write('event: connected\ndata: {}\n\n');
+      sseMetrics?.('message_stream', 1);
 
       // Replay missed messages if Last-Event-ID is present (SSE reconnection)
       const lastEventId = req.headers['last-event-id'] as string | undefined;
@@ -352,6 +359,7 @@ export function createConsultationRoutes(
         unsubscribeConsultationStatus();
         unsubscribeTyping();
         clearInterval(heartbeat);
+        sseMetrics?.('message_stream', -1);
       });
     } catch (error: any) {
       logger.error('Failed to setup message stream', { error: error.message });

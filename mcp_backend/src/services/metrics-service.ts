@@ -34,6 +34,23 @@ export class MetricsService {
   // Cost metrics
   readonly costTrackingTotalUsd: Counter;
 
+  // SSE connection metrics
+  readonly sseActiveConnections: Gauge;
+
+  // EDRSR cache metrics
+  readonly edsrCacheOps: Counter;
+
+  // Vectorizer worker metrics
+  readonly edsrVectorizerDocsProcessed: Counter;
+  readonly edsrVectorizerErrors: Counter;
+  readonly edsrVectorizerStatus: Gauge;
+
+  // Consultation message bus metrics
+  readonly consultationBusMessages: Counter;
+
+  // Chat tool grouping metrics
+  readonly chatToolGroupRequests: Counter;
+
   constructor() {
     this.registry = new Registry();
 
@@ -134,6 +151,57 @@ export class MetricsService {
       name: 'cost_tracking_total_usd',
       help: 'Total cost tracked in USD',
       labelNames: ['tool_name'] as const,
+      registers: [this.registry],
+    });
+
+    // --- SSE Connections ---
+    this.sseActiveConnections = new Gauge({
+      name: 'sse_active_connections',
+      help: 'Active SSE connections by type',
+      labelNames: ['type'] as const, // 'user_stream' | 'message_stream'
+      registers: [this.registry],
+    });
+
+    // --- EDRSR Cache ---
+    this.edsrCacheOps = new Counter({
+      name: 'edrsr_cache_operations_total',
+      help: 'EDRSR cache operations',
+      labelNames: ['operation', 'result'] as const, // operation: fulltext|metadata|fts, result: hit|miss
+      registers: [this.registry],
+    });
+
+    // --- Vectorizer Worker ---
+    this.edsrVectorizerDocsProcessed = new Counter({
+      name: 'edrsr_vectorizer_docs_processed_total',
+      help: 'Documents processed by EDRSR pre-vectorizer',
+      registers: [this.registry],
+    });
+
+    this.edsrVectorizerErrors = new Counter({
+      name: 'edrsr_vectorizer_errors_total',
+      help: 'EDRSR pre-vectorizer batch errors',
+      registers: [this.registry],
+    });
+
+    this.edsrVectorizerStatus = new Gauge({
+      name: 'edrsr_vectorizer_status',
+      help: 'EDRSR pre-vectorizer status (1=running, 0=stopped, -1=paused)',
+      registers: [this.registry],
+    });
+
+    // --- Consultation Message Bus ---
+    this.consultationBusMessages = new Counter({
+      name: 'consultation_bus_messages_total',
+      help: 'Messages published via consultation message bus',
+      labelNames: ['channel'] as const, // msg|status|consultation_status|typing|user_event
+      registers: [this.registry],
+    });
+
+    // --- Chat Tool Grouping ---
+    this.chatToolGroupRequests = new Counter({
+      name: 'chat_tool_group_requests_total',
+      help: 'LLM requests for additional tool groups via meta-tool',
+      labelNames: ['groups'] as const,
       registers: [this.registry],
     });
 

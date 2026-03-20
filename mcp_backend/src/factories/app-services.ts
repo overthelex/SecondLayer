@@ -178,6 +178,11 @@ export function createAppServices(
   tools.serviceProxy.setExternalApiMetrics(externalApiMetricsCallback);
   getLLMManager().setExternalApiMetrics(externalApiMetricsCallback);
   coreServices.legislationTools.getLegislationService().getAdapter().setExternalApiMetrics(externalApiMetricsCallback);
+  // Wire ChatService tool group metrics
+  chatService.setToolGroupMetricsCallback((groups) => {
+    metricsService.chatToolGroupRequests.inc({ groups });
+  });
+
   logger.info('Prometheus metrics service initialized');
 
   // Upload recovery service (uses BullMQ for re-enqueuing)
