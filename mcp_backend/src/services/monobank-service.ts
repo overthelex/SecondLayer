@@ -314,7 +314,7 @@ export class MonobankService {
     }
 
     // Send confirmation email
-    const metadata = JSON.parse(pi.metadata || '{}');
+    const metadata = typeof pi.metadata === 'string' ? JSON.parse(pi.metadata) : (pi.metadata || {});
     if (metadata.email) {
       try {
         await this.emailService.sendPaymentSuccess({
