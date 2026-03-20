@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: any) => children,
   motion: {
-    div: ({ children, className, onClick, ...rest }: any) => (
+    div: ({ children, className, onClick }: any) => (
       <div className={className} onClick={onClick}>{children}</div>
     ),
   },
@@ -289,7 +289,6 @@ describe('PendingInvitationsModal', () => {
 
       // Fee confirm and back buttons should be in flex container
       const confirmBtn = screen.getByText(/Прийняти за/).closest('button');
-      const backBtn = screen.getByText('Назад').closest('button');
 
       expect(confirmBtn?.className).toContain('flex-1');
       const btnContainer = confirmBtn?.parentElement;

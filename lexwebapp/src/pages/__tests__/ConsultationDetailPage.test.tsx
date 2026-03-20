@@ -7,7 +7,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: any) => children,
   motion: {
-    div: ({ children, className, onClick, ...rest }: any) => (
+    div: ({ children, className, onClick }: any) => (
       <div className={className} onClick={onClick}>{children}</div>
     ),
   },
