@@ -246,12 +246,26 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
       }
     }
 
-    // Downgrade or free tier — apply directly
+    // Downgrade — confirm with refund info before applying
+    const switchInfo = getPlanSwitchInfo(tierId);
+    const confirmMsg = switchInfo
+      ? `Ви впевнені, що хочете знизити тариф до ${TIER_LABELS[tierId] || tierId}?\n\n${switchInfo}`
+      : `Ви впевнені, що хочете знизити тариф до ${TIER_LABELS[tierId] || tierId}?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
     setIsUpgrading(tierId);
     try {
-      await api.billing.upgradePlan(tierId);
+      const response = await api.billing.upgradePlan(tierId);
       setCurrentTier(tierId);
-      showToast.success(`Тариф ${TIER_LABELS[tierId] || tierId} успішно активовано`);
+      const refundUah = response?.data?.refund_uah;
+      if (refundUah && refundUah > 0) {
+        showToast.success(
+          `Тариф ${TIER_LABELS[tierId] || tierId} активовано. Повернено ${Math.round(refundUah)} ₴ на баланс`
+        );
+      } else {
+        showToast.success(`Тариф ${TIER_LABELS[tierId] || tierId} успішно активовано`);
+      }
     } catch (error) {
       console.error('Upgrade failed:', error);
       showToast.error('Не вдалося змінити тариф');

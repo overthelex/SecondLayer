@@ -573,11 +573,12 @@ export class BillingService {
       notify_monthly_report?: boolean;
       low_balance_threshold_usd?: number;
     }
-  ): Promise<void> {
+  ): Promise<{ refund_uah?: number; refund_usd?: number }> {
     try {
       const updates: string[] = [];
       const params: any[] = [];
       let paramIndex = 1;
+      let refundResult: { refund_uah?: number; refund_usd?: number } = {};
 
       if (settings.dailyLimitUsd !== undefined) {
         updates.push(`daily_limit_usd = $${paramIndex++}`);
@@ -604,6 +605,54 @@ export class BillingService {
         if (!this.pricingService.isValidTier(settings.pricingTier)) {
           throw new Error(`Invalid pricing tier: ${settings.pricingTier}`);
         }
+
+        // Check for downgrade → issue prorated refund
+        const currentBilling = await this.getOrCreateUserBilling(userId);
+        const oldTier = currentBilling.pricing_tier || 'free';
+        const newTier = settings.pricingTier;
+
+        if (oldTier !== newTier) {
+          const allTiers = this.pricingService.getAllTiers();
+          const oldTierConfig = allTiers.find(t => t.tier === oldTier);
+          const newTierConfig = allTiers.find(t => t.tier === newTier);
+          const oldPrice = oldTierConfig?.monthly_price_usd || 0;
+          const newPrice = newTierConfig?.monthly_price_usd || 0;
+
+          if (oldPrice > newPrice) {
+            // Downgrade: refund the monthly price difference to balance
+            const refundUsd = oldPrice - newPrice;
+            const refundUah = await this.convertToUah(refundUsd);
+
+            if (refundUsd > 0) {
+              const balanceBefore = parseFloat(String(currentBilling.balance_usd)) || 0;
+              const balanceAfter = balanceBefore + refundUsd;
+
+              await this.db.query(
+                `UPDATE user_billing
+                 SET balance_usd = balance_usd + $1,
+                     balance_uah = balance_uah + $2,
+                     updated_at = NOW()
+                 WHERE user_id = $3`,
+                [refundUsd, refundUah, userId]
+              );
+
+              // Record refund transaction
+              await this.db.query(
+                `INSERT INTO billing_transactions
+                  (user_id, type, amount_usd, amount_uah, balance_before_usd, balance_after_usd, description)
+                 VALUES ($1, 'refund', $2, $3, $4, $5, $6)`,
+                [userId, refundUsd, refundUah, balanceBefore, balanceAfter,
+                 `Повернення за зміну тарифу: ${oldTier} → ${newTier}`]
+              );
+
+              refundResult = { refund_usd: refundUsd, refund_uah: refundUah };
+              logger.info('Plan downgrade refund issued', {
+                userId, oldTier, newTier, refundUsd, refundUah,
+              });
+            }
+          }
+        }
+
         updates.push(`pricing_tier = $${paramIndex++}`);
         params.push(settings.pricingTier);
       }
@@ -639,7 +688,7 @@ export class BillingService {
       }
 
       if (updates.length === 0) {
-        return;
+        return refundResult;
       }
 
       params.push(userId);
@@ -652,6 +701,7 @@ export class BillingService {
       await this.db.query(query, params);
 
       logger.info('Billing settings updated', { userId, settings });
+      return refundResult;
     } catch (error: any) {
       logger.error('Failed to update billing settings', {
         userId,
