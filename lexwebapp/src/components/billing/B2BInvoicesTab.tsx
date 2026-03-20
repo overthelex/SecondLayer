@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { FileText, Plus, Download, XCircle, RefreshCw } from 'lucide-react';
+import { FileText, Plus, Download, XCircle, RefreshCw, X, Eye, Loader2 } from 'lucide-react';
 import { b2bInvoiceApi } from '../../utils/api/billing';
 import type { B2BInvoice } from '../../types/models/Billing';
 import { B2BInvoiceRequestModal } from './B2BInvoiceRequestModal';
@@ -30,12 +30,104 @@ function formatMoney(amount: number): string {
   return amount.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function InvoicePreviewModal({
+  invoice,
+  onClose,
+}: {
+  invoice: B2BInvoice;
+  onClose: () => void;
+}) {
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let url: string | null = null;
+    b2bInvoiceApi.downloadPDF(invoice.id).then(res => {
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      url = window.URL.createObjectURL(blob);
+      setPdfUrl(url);
+    }).catch(() => {
+      setError('Помилка завантаження PDF');
+    }).finally(() => {
+      setLoading(false);
+    });
+
+    return () => {
+      if (url) window.URL.revokeObjectURL(url);
+    };
+  }, [invoice.id]);
+
+  const handleDownload = () => {
+    if (!pdfUrl) return;
+    const a = document.createElement('a');
+    a.href = pdfUrl;
+    a.download = `${invoice.invoice_number}.pdf`;
+    a.click();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl mx-4 h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-claude-border flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <FileText size={20} className="text-claude-accent" />
+            <div>
+              <h2 className="text-lg font-semibold text-claude-text">
+                Рахунок {invoice.invoice_number}
+              </h2>
+              <p className="text-xs text-claude-subtext">
+                {formatDate(invoice.issue_date)} · {formatMoney(invoice.total_uah)} грн
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              disabled={!pdfUrl}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-claude-accent text-white rounded-lg text-sm font-medium hover:bg-claude-accent/90 transition-colors disabled:opacity-50"
+              title="Завантажити PDF">
+              <Download size={14} />
+              Завантажити
+            </button>
+            <button onClick={onClose} className="p-1.5 hover:bg-claude-bg rounded-lg">
+              <X size={20} className="text-claude-subtext" />
+            </button>
+          </div>
+        </div>
+
+        {/* PDF viewer */}
+        <div className="flex-1 overflow-hidden">
+          {loading ? (
+            <div className="h-full flex items-center justify-center text-claude-subtext">
+              <Loader2 size={24} className="animate-spin mr-2" />
+              Завантаження PDF...
+            </div>
+          ) : error ? (
+            <div className="h-full flex items-center justify-center text-red-500 text-sm">
+              {error}
+            </div>
+          ) : pdfUrl ? (
+            <iframe
+              src={pdfUrl}
+              className="w-full h-full border-0"
+              title={`Рахунок ${invoice.invoice_number}`}
+            />
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function B2BInvoicesTab() {
   const [invoices, setInvoices] = useState<B2BInvoice[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [previewInvoice, setPreviewInvoice] = useState<B2BInvoice | null>(null);
 
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
@@ -46,7 +138,6 @@ export function B2BInvoicesTab() {
       setInvoices(res.data.invoices || []);
       setTotal(res.data.total || 0);
     } catch {
-      // If org not found or no access, show empty
       setInvoices([]);
       setTotal(0);
     } finally {
@@ -166,7 +257,10 @@ export function B2BInvoicesTab() {
                 const canCancel = ['draft', 'issued', 'sent'].includes(inv.status);
 
                 return (
-                  <tr key={inv.id} className="border-b border-claude-border last:border-0 hover:bg-claude-bg/30">
+                  <tr
+                    key={inv.id}
+                    className="border-b border-claude-border last:border-0 hover:bg-claude-bg/30 cursor-pointer"
+                    onClick={() => setPreviewInvoice(inv)}>
                     <td className="px-4 py-3 font-mono text-xs">{inv.invoice_number}</td>
                     <td className="px-4 py-3">{formatDate(inv.issue_date)}</td>
                     <td className="px-4 py-3">
@@ -182,14 +276,20 @@ export function B2BInvoicesTab() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => handleDownloadPDF(inv)}
+                          onClick={(e) => { e.stopPropagation(); setPreviewInvoice(inv); }}
+                          className="p-1.5 hover:bg-claude-bg rounded-lg transition-colors"
+                          title="Переглянути">
+                          <Eye size={15} className="text-claude-subtext" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); }}
                           className="p-1.5 hover:bg-claude-bg rounded-lg transition-colors"
                           title="Завантажити PDF">
                           <Download size={15} className="text-claude-subtext" />
                         </button>
                         {canCancel && (
                           <button
-                            onClick={() => handleCancel(inv)}
+                            onClick={(e) => { e.stopPropagation(); handleCancel(inv); }}
                             className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                             title="Скасувати">
                             <XCircle size={15} className="text-red-400" />
@@ -216,6 +316,14 @@ export function B2BInvoicesTab() {
         <B2BInvoiceRequestModal
           onClose={() => setShowModal(false)}
           onCreated={handleCreated}
+        />
+      )}
+
+      {/* PDF Preview Modal */}
+      {previewInvoice && (
+        <InvoicePreviewModal
+          invoice={previewInvoice}
+          onClose={() => setPreviewInvoice(null)}
         />
       )}
     </div>
