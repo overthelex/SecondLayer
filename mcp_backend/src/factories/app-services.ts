@@ -3,6 +3,7 @@ import { BillingServices } from './billing-services.js';
 import { ToolServices } from './tool-services.js';
 import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
 import { ConversationService } from '../services/conversation-service.js';
+import { ConversationEvidenceService } from '../services/conversation-evidence-service.js';
 import { GdprService } from '../services/gdpr-service.js';
 import { AuditService } from '../services/audit-service.js';
 import { MatterService } from '../services/matter-service.js';
@@ -40,6 +41,7 @@ import { logger } from '../utils/logger.js';
 
 export interface AppServices {
   conversationService: ConversationService;
+  evidenceService: ConversationEvidenceService;
   gdprService: GdprService;
   auditService: AuditService;
   matterService: MatterService;
@@ -79,6 +81,7 @@ export function createAppServices(
 
   // Conversation & GDPR
   const conversationService = new ConversationService(coreServices.db);
+  const evidenceService = new ConversationEvidenceService(coreServices.db);
   const gdprService = new GdprService(coreServices.db, tools.minioService, coreServices.embeddingService);
 
   // Wire MinIO and Banner to auth controllers
@@ -238,6 +241,7 @@ export function createAppServices(
 
   return {
     conversationService,
+    evidenceService,
     gdprService,
     auditService,
     matterService,
