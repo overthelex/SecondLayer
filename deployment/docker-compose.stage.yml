@@ -555,7 +555,7 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-https://stage.legal.org.ua/auth/google/callback}
       # Diia (Дія) Auth
-      DIIA_BASE_URL: ${DIIA_BASE_URL:-https://api2t.diia.gov.ua}
+      DIIA_BASE_URL: ${DIIA_BASE_URL:-https://api2s.diia.gov.ua}
       DIIA_ACQUIRER_TOKEN: ${DIIA_ACQUIRER_TOKEN:-}
       DIIA_AUTH_ACQUIRER_TOKEN: ${DIIA_AUTH_ACQUIRER_TOKEN:-}
       FRONTEND_URL: ${FRONTEND_URL:-https://stage.legal.org.ua}
