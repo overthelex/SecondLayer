@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AuditService } from './audit-service.js';
 import { MatterService } from './matter-service.js';
 import { AttorneyProfileService } from './attorney-profile-service.js';
-import { consultationMessageBus } from './consultation-message-bus.js';
+import { getConsultationMessageBus } from './consultation-message-bus.js';
 import type { EmailService } from './email-service.js';
 
 export interface Consultation {
@@ -149,7 +149,7 @@ export class ConsultationService {
 
     // Emit real-time status event
     const enriched = await this.getConsultation(id, clientUserId) || result.rows[0];
-    consultationMessageBus.publishConsultationStatus(enriched);
+    getConsultationMessageBus().publishConsultationStatus(enriched);
 
     return result.rows[0];
   }
@@ -273,7 +273,7 @@ export class ConsultationService {
     }
 
     const enriched = await this.getConsultation(id, attorneyUserId) || result.rows[0];
-    consultationMessageBus.publishConsultationStatus(enriched);
+    getConsultationMessageBus().publishConsultationStatus(enriched);
 
     return result.rows[0];
   }
@@ -315,7 +315,7 @@ export class ConsultationService {
     }
 
     const enriched = await this.getConsultation(id, attorneyUserId) || result.rows[0];
-    consultationMessageBus.publishConsultationStatus(enriched);
+    getConsultationMessageBus().publishConsultationStatus(enriched);
 
     return result.rows[0];
   }
@@ -382,7 +382,7 @@ export class ConsultationService {
 
     // Re-fetch with JOINs for enriched data
     const enriched = await this.getConsultationById(id) || consultation;
-    consultationMessageBus.publishConsultationStatus(enriched);
+    getConsultationMessageBus().publishConsultationStatus(enriched);
 
     return consultation;
   }
@@ -406,7 +406,7 @@ export class ConsultationService {
     });
 
     const enriched = await this.getConsultation(id, attorneyUserId) || result.rows[0];
-    consultationMessageBus.publishConsultationStatus(enriched);
+    getConsultationMessageBus().publishConsultationStatus(enriched);
 
     return result.rows[0];
   }
@@ -481,7 +481,7 @@ export class ConsultationService {
     }
 
     const enriched = await this.getConsultation(id, attorneyUserId) || result.rows[0];
-    consultationMessageBus.publishConsultationStatus(enriched);
+    getConsultationMessageBus().publishConsultationStatus(enriched);
 
     return result.rows[0];
   }
@@ -553,7 +553,7 @@ export class ConsultationService {
     }
 
     const enriched = await this.getConsultationById(id) || result.rows[0];
-    consultationMessageBus.publishConsultationStatus(enriched);
+    getConsultationMessageBus().publishConsultationStatus(enriched);
 
     return result.rows[0];
   }
@@ -635,13 +635,13 @@ export class ConsultationService {
       sender_name: userResult.rows[0]?.name || 'Unknown',
     };
 
-    consultationMessageBus.publish(consultationId, message);
+    getConsultationMessageBus().publish(consultationId, message);
 
     // Emit user-level new_message event for the other party (for global unread badge)
     const recipientId = consultation.client_user_id === senderId
       ? consultation.attorney_user_id
       : consultation.client_user_id;
-    consultationMessageBus.publishUserEvent(recipientId, {
+    getConsultationMessageBus().publishUserEvent(recipientId, {
       type: 'new_message',
       consultationId,
       senderId,
@@ -662,7 +662,7 @@ export class ConsultationService {
     );
     const ids = result.rows.map((r: any) => r.id);
     if (ids.length > 0) {
-      consultationMessageBus.publishStatus(consultationId, ids, 'delivered');
+      getConsultationMessageBus().publishStatus(consultationId, ids, 'delivered');
     }
     return ids;
   }
@@ -679,7 +679,7 @@ export class ConsultationService {
     );
     const ids = result.rows.map((r: any) => r.id);
     if (ids.length > 0) {
-      consultationMessageBus.publishStatus(consultationId, ids, 'read');
+      getConsultationMessageBus().publishStatus(consultationId, ids, 'read');
     }
     return ids;
   }
@@ -719,13 +719,35 @@ export class ConsultationService {
     );
     if (readResult.rows.length > 0) {
       const readIds = readResult.rows.map((r: any) => r.id);
-      consultationMessageBus.publishStatus(consultationId, readIds, 'read');
+      getConsultationMessageBus().publishStatus(consultationId, readIds, 'read');
     }
 
     return {
       messages: result.rows,
       total: parseInt(countResult.rows[0].count, 10),
     };
+  }
+
+  /**
+   * Get messages created after a given message ID (for SSE Last-Event-ID replay).
+   * Returns messages in chronological order.
+   */
+  async getMessagesSince(
+    consultationId: string,
+    lastEventId: string,
+  ): Promise<ConsultationMessage[]> {
+    const result = await this.db.query(
+      `SELECT cm.*, u.name as sender_name
+       FROM consultation_messages cm
+       JOIN users u ON u.id = cm.sender_id
+       WHERE cm.consultation_id = $1 AND cm.created_at > (
+         SELECT created_at FROM consultation_messages WHERE id = $2
+       )
+       ORDER BY cm.created_at ASC
+       LIMIT 100`,
+      [consultationId, lastEventId]
+    );
+    return result.rows;
   }
 
   async getUnreadCount(consultationId: string, userId: string): Promise<number> {
@@ -840,7 +862,7 @@ export class ConsultationService {
     });
 
     const enriched = await this.getConsultationById(consultationId) || consultationResult.rows[0];
-    consultationMessageBus.publishConsultationStatus(enriched);
+    getConsultationMessageBus().publishConsultationStatus(enriched);
 
     // Email notification to the other party
     if (this.emailService) {
@@ -950,7 +972,7 @@ export class ConsultationService {
     });
 
     const enriched = await this.getConsultationById(dispute.consultation_id);
-    if (enriched) consultationMessageBus.publishConsultationStatus(enriched);
+    if (enriched) getConsultationMessageBus().publishConsultationStatus(enriched);
 
     logger.info('Dispute resolved', { disputeId, resolution, consultationId: dispute.consultation_id });
 

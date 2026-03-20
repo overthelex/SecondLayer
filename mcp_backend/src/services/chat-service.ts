@@ -1558,6 +1558,27 @@ export class ChatService {
     let toolResult: any;
     let cached = false;
 
+    // Meta-tool: request_additional_tools — returns available tools by group
+    if (call.name === 'request_additional_tools') {
+      const { resolveToolGroupsByIds } = await import('../prompts/tool-registry-catalog.js');
+      const groupIds = call.arguments?.groups;
+      if (Array.isArray(groupIds)) {
+        const toolNames = resolveToolGroupsByIds(groupIds);
+        const allDefs = await this.toolRegistry.getAllToolDefinitions();
+        const matchedTools = allDefs
+          .filter(d => toolNames.includes(d.name))
+          .map(d => ({ name: d.name, description: d.description }));
+        toolResult = {
+          message: `Додаткові інструменти для груп [${groupIds.join(', ')}]:`,
+          tools: matchedTools,
+          hint: 'Тепер ви можете використовувати ці інструменти у наступних кроках.',
+        };
+      } else {
+        toolResult = { error: 'Параметр groups має бути масивом ідентифікаторів груп (edrsr_search, court_practice, legislation, registry, parliament, vault, procedural, due_diligence, echr)' };
+      }
+      return { call, result: toolResult, cached: false };
+    }
+
     // Check cache for court search tools
     if (this.searchCache && isCourtSearchTool(call.name)) {
       const hit = await this.searchCache.getCachedResult(call.name, call.arguments);
