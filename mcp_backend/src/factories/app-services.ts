@@ -24,6 +24,7 @@ import { MetricsService } from '../services/metrics-service.js';
 import { AttorneyProfileService } from '../services/attorney-profile-service.js';
 import { ConsultationService } from '../services/consultation-service.js';
 import { ConsultationPaymentService } from '../services/consultation-payment-service.js';
+import { AttorneyPayoutService } from '../services/attorney-payout-service.js';
 import { OAuthService } from '../services/oauth-service.js';
 import { MCPSSEServer } from '../api/mcp-sse-server.js';
 import { BannerService } from '../services/banner-service.js';
@@ -60,6 +61,7 @@ export interface AppServices {
   attorneyProfileService: AttorneyProfileService;
   consultationService: ConsultationService;
   consultationPaymentService: ConsultationPaymentService;
+  attorneyPayoutService: AttorneyPayoutService;
   oauthService: OAuthService;
   mcpSSEServer: MCPSSEServer;
   llmAdapter: LLMAdapter;
@@ -196,12 +198,15 @@ export function createAppServices(
     auditService,
     attorneyProfileService
   );
+  const attorneyPayoutService = new AttorneyPayoutService(coreServices.db);
   const consultationPaymentService = new ConsultationPaymentService(
     coreServices.db,
     consultationService,
     billing.monobankService
   );
-  logger.info('Attorney consultation services initialized');
+  consultationPaymentService.setPayoutService(attorneyPayoutService);
+  consultationService.setEmailService(billing.emailService);
+  logger.info('Attorney consultation services initialized (with payout tracking and email notifications)');
 
   // Wire cost tracker to OpenAI manager and ZO adapters
   const openaiManager = getOpenAIManager();
@@ -249,6 +254,7 @@ export function createAppServices(
     attorneyProfileService,
     consultationService,
     consultationPaymentService,
+    attorneyPayoutService,
     oauthService,
     mcpSSEServer,
     llmAdapter,

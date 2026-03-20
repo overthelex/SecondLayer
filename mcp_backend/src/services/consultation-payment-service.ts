@@ -2,8 +2,10 @@ import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 import { ConsultationService } from './consultation-service.js';
+import { AttorneyPayoutService } from './attorney-payout-service.js';
 
 const PLATFORM_FEE_PERCENT = 10; // 10% platform fee
+const AUTO_RELEASE_DAYS = 7; // Days after completion to auto-release escrow
 
 export interface ConsultationPayment {
   id: string;
@@ -24,11 +26,17 @@ export interface ConsultationPayment {
 }
 
 export class ConsultationPaymentService {
+  private payoutService?: AttorneyPayoutService;
+
   constructor(
     private db: IDatabase,
     private consultationService: ConsultationService,
     private monobankService: any // MonobankService | MockMonobankService
   ) {}
+
+  setPayoutService(payoutService: AttorneyPayoutService): void {
+    this.payoutService = payoutService;
+  }
 
   async createPayment(consultationId: string, payerUserId: string): Promise<ConsultationPayment> {
     // Get consultation details
@@ -159,7 +167,50 @@ export class ConsultationPaymentService {
         consultationId,
         amount: result.rows[0].attorney_payout_uah,
       });
+
+      // Auto-create payout record for admin to process
+      if (this.payoutService) {
+        try {
+          await this.payoutService.createPayout(consultationId);
+        } catch (err: any) {
+          logger.warn('Failed to create attorney payout record', { consultationId, error: err.message });
+        }
+      }
     }
+  }
+
+  /**
+   * Auto-release escrow payments for completed consultations older than 7 days.
+   * Intended to be called by a daily cron job.
+   */
+  async autoReleaseStaleCompletedPayments(): Promise<number> {
+    const result = await this.db.query(
+      `SELECT cp.consultation_id
+       FROM consultation_payments cp
+       JOIN consultations c ON c.id = cp.consultation_id
+       WHERE cp.status = 'held'
+         AND c.status = 'completed'
+         AND c.completed_at + INTERVAL '${AUTO_RELEASE_DAYS} days' < NOW()`
+    );
+
+    let released = 0;
+    for (const row of result.rows) {
+      try {
+        await this.releasePayment(row.consultation_id);
+        released++;
+        logger.info('Auto-released stale escrow payment', { consultationId: row.consultation_id });
+      } catch (err: any) {
+        logger.error('Failed to auto-release escrow payment', {
+          consultationId: row.consultation_id,
+          error: err.message,
+        });
+      }
+    }
+
+    if (released > 0) {
+      logger.info(`Auto-release cron: released ${released} stale escrow payments`);
+    }
+    return released;
   }
 
   async refundPayment(consultationId: string): Promise<void> {
