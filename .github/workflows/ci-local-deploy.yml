@@ -373,9 +373,13 @@ jobs:
             FAILED=true
           }
 
-          [ "$BACKEND_CHANGED" = "true" ] && wait_healthy "Backend" "secondlayer-app-local" 180
+          if [ "$BACKEND_CHANGED" = "true" ]; then
+            wait_healthy "Backend" "secondlayer-app-local" 180
+            wait_healthy "Document Service" "document-service-local" 120
+          fi
           [ "$RADA_CHANGED" = "true" ] && wait_healthy "RADA" "rada-mcp-app-local" 120
           [ "$OPENREYESTR_CHANGED" = "true" ] && wait_healthy "OpenReyestr" "openreyestr-app-local" 120
+          [ "$FRONTEND_CHANGED" = "true" ] && wait_healthy "Frontend" "lexwebapp-local" 60
 
           check_health "Local (public)" "https://local.legal.org.ua/health"
 
@@ -682,19 +686,20 @@ jobs:
               echo "Skipping remote diagnostics. CI error log will be used instead."
             else
               echo "=== Docker container status ==="
-              $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml ps" 2>&1 || true
+              $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml --env-file .env.prod ps" 2>&1 || true
 
               echo ""
               echo "=== Last 30 lines from failing containers ==="
-              for svc in app-prod rada-mcp-app-prod app-openreyestr-prod nginx-prod lexwebapp-prod; do
+              for svc in app-prod rada-mcp-app-prod app-openreyestr-prod document-service-prod nginx-prod lexwebapp-prod; do
                 echo "--- $svc ---"
-                $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml logs --tail=30 $svc" 2>&1 || true
+                $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml --env-file .env.prod logs --tail=30 $svc" 2>&1 || true
               done
 
               echo ""
               echo "=== Health check responses ==="
-              $SSH_CMD "curl -sf http://localhost:3007/health 2>&1 || echo 'Backend health: FAILED'" || true
-              $SSH_CMD "curl -sf http://localhost:3001/health 2>&1 || echo 'RADA health: FAILED'" || true
+              $SSH_CMD "docker exec secondlayer-app-prod curl -sf http://127.0.0.1:3000/health 2>&1 || echo 'Backend health: FAILED'" || true
+              $SSH_CMD "docker exec rada-mcp-app-prod curl -sf http://127.0.0.1:3001/health 2>&1 || echo 'RADA health: FAILED'" || true
+              $SSH_CMD "docker exec openreyestr-app-prod curl -sf http://127.0.0.1:3005/health 2>&1 || echo 'OpenReyestr health: FAILED'" || true
             fi
           } > /tmp/deploy-diag.log 2>&1
 
