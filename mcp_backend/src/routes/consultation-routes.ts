@@ -2,11 +2,15 @@ import { Router, Response, NextFunction } from 'express';
 import { AuthenticatedRequest as DualAuthRequest } from '../middleware/dual-auth.js';
 import { ConsultationService } from '../services/consultation-service.js';
 import { ConsultationPaymentService } from '../services/consultation-payment-service.js';
+import { AttorneyPayoutService } from '../services/attorney-payout-service.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 
 export function createConsultationRoutes(
   consultationService: ConsultationService,
-  consultationPaymentService: ConsultationPaymentService
+  consultationPaymentService: ConsultationPaymentService,
+  payoutService?: AttorneyPayoutService,
+  db?: IDatabase
 ): Router {
   const router = Router();
 
@@ -130,6 +134,19 @@ export function createConsultationRoutes(
     } catch (error: any) {
       logger.error('Failed to get attorney clients', { error: error.message });
       res.status(500).json({ error: 'Failed to get clients' });
+    }
+  }) as any);
+
+  // GET /api/consultations/my-payouts — attorney's payout history
+  router.get('/my-payouts', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      if (!payoutService) return res.status(500).json({ error: 'Payout service not configured' });
+      const payouts = await payoutService.getAttorneyPayoutHistory(req.user.id);
+      res.json({ payouts });
+    } catch (error: any) {
+      logger.error('Failed to get attorney payouts', { error: error.message });
+      res.status(500).json({ error: 'Failed to get payouts' });
     }
   }) as any);
 
@@ -407,6 +424,128 @@ export function createConsultationRoutes(
       res.status(201).json(review);
     } catch (error: any) {
       logger.error('Failed to submit review', { error: error.message });
+      res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
+  // ─── Dispute Routes ──────────────────────────────────────
+
+  // POST /api/consultations/:id/dispute — raise a dispute
+  router.post('/:id/dispute', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const { reason } = req.body;
+      if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+        return res.status(400).json({ error: 'reason is required' });
+      }
+      const result = await consultationService.raiseDispute(
+        req.params.id as string, req.user.id, reason.trim()
+      );
+      res.status(201).json(result);
+    } catch (error: any) {
+      logger.error('Failed to raise dispute', { error: error.message });
+      res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
+  // GET /api/consultations/:id/dispute — get dispute details
+  router.get('/:id/dispute', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const dispute = await consultationService.getDispute(req.params.id as string, req.user.id);
+      if (!dispute) return res.status(404).json({ error: 'No dispute found' });
+      res.json(dispute);
+    } catch (error: any) {
+      logger.error('Failed to get dispute', { error: error.message });
+      res.status(500).json({ error: 'Failed to get dispute' });
+    }
+  }) as any);
+
+  // ─── Payout Routes ───────────────────────────────────────
+
+  // GET /api/consultations/my-payouts — attorney's payout history
+  // Note: registered AFTER /:id routes won't conflict because Express matches in order,
+  // and this is already after parametric routes. We need to add it before /:id.
+  // Actually we already have it registered here; the path 'my-payouts' won't match '/:id/dispute'.
+
+  // ─── Admin Routes (require admin check) ──────────────────
+
+  // Admin middleware for consultation admin routes
+  const requireAdmin = async (req: DualAuthRequest, res: Response, next: NextFunction): Promise<any> => {
+    if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+    if (!db) return res.status(500).json({ error: 'Admin routes not configured' });
+    try {
+      const result = await db.query('SELECT is_admin, role FROM users WHERE id = $1', [req.user.id]);
+      if (!result.rows[0]?.is_admin && result.rows[0]?.role !== 'administrator') {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+      next();
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to verify admin access' });
+    }
+  };
+
+  // GET /api/consultations/admin/disputes — list open disputes (admin)
+  router.get('/admin/disputes', requireAdmin as any, (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      const disputes = await consultationService.listOpenDisputes();
+      res.json({ disputes });
+    } catch (error: any) {
+      logger.error('Failed to list disputes', { error: error.message });
+      res.status(500).json({ error: 'Failed to list disputes' });
+    }
+  }) as any);
+
+  // PUT /api/consultations/admin/disputes/:disputeId/resolve — resolve dispute (admin)
+  router.put('/admin/disputes/:disputeId/resolve', requireAdmin as any, (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      const { resolution, notes } = req.body;
+      const validResolutions = ['refund_full', 'refund_partial', 'dismissed'];
+      if (!resolution || !validResolutions.includes(resolution)) {
+        return res.status(400).json({ error: 'resolution must be one of: refund_full, refund_partial, dismissed' });
+      }
+      const dispute = await consultationService.resolveDispute(
+        req.params.disputeId as string, req.user!.id, resolution, notes
+      );
+
+      // Handle refund if resolution is refund
+      if (resolution === 'refund_full' || resolution === 'refund_partial') {
+        try {
+          await consultationPaymentService.refundPayment(dispute.consultation_id);
+        } catch (err: any) {
+          logger.warn('Failed to refund payment after dispute resolution', { error: err.message });
+        }
+      }
+
+      res.json(dispute);
+    } catch (error: any) {
+      logger.error('Failed to resolve dispute', { error: error.message });
+      res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
+  // GET /api/consultations/admin/payouts — pending payouts (admin)
+  router.get('/admin/payouts', requireAdmin as any, (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!payoutService) return res.status(500).json({ error: 'Payout service not configured' });
+      const payouts = await payoutService.listPendingPayouts();
+      res.json({ payouts });
+    } catch (error: any) {
+      logger.error('Failed to list payouts', { error: error.message });
+      res.status(500).json({ error: 'Failed to list payouts' });
+    }
+  }) as any);
+
+  // PUT /api/consultations/admin/payouts/:id/process — mark payout as processed (admin)
+  router.put('/admin/payouts/:id/process', requireAdmin as any, (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!payoutService) return res.status(500).json({ error: 'Payout service not configured' });
+      const payout = await payoutService.markPayoutProcessed(
+        req.params.id as string, req.user!.id, req.body.notes
+      );
+      res.json(payout);
+    } catch (error: any) {
+      logger.error('Failed to process payout', { error: error.message });
       res.status(400).json({ error: error.message });
     }
   }) as any);
