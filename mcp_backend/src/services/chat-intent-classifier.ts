@@ -17,8 +17,26 @@ import {
   type QueryType,
   type ChatIntentClassification,
 } from '../prompts/chat-system-prompt.js';
-import { getScenarioPriorityTools } from '../prompts/tool-registry-catalog.js';
+import { getScenarioPriorityTools, resolveToolGroupsByDomains } from '../prompts/tool-registry-catalog.js';
 import { QUERY_TYPE_CONFIG } from '../prompts/query-type-config.js';
+import { TOOL_GROUPS } from '../prompts/tool-registry-catalog.js';
+
+/** Virtual meta-tool definition — safety valve when LLM needs tools not in the filtered set */
+const META_TOOL_DEF: ToolDefinition = {
+  name: 'request_additional_tools',
+  description: `Запитати додаткові інструменти з конкретної групи. Використовуй якщо потрібні інструменти, яких немає у поточному наборі. Доступні групи: ${TOOL_GROUPS.map(g => `${g.id} (${g.label})`).join(', ')}`,
+  inputSchema: {
+    type: 'object',
+    properties: {
+      groups: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Масив ідентифікаторів груп інструментів',
+      },
+    },
+    required: ['groups'],
+  },
+};
 
 interface CostRecorder {
   recordStreamingCost(
@@ -245,42 +263,56 @@ export class IntentClassifier {
 
   /**
    * Filter 45+ tools to a relevant subset based on intent domains.
-   * When queryType is provided, tools from matching scenarios are prioritized
-   * so they survive the 15-tool cap.
+   *
+   * Two-tier selection:
+   *   1. Tool Groups (primary) — semantic groups matched by domain
+   *   2. Scenario priority (secondary) — preferred scenarios for the queryType
+   *   3. DOMAIN_TOOL_MAP (fallback) — if groups don't cover enough
+   *
+   * Target: 8-15 tools per request.
    */
   async filterTools(domains: string[], slots?: Record<string, any>, queryType?: QueryType): Promise<ToolDefinition[]> {
     const allDefs = await this.toolRegistry.getAllToolDefinitions();
+    const allDefsByName = new Map(allDefs.map(d => [d.name, d]));
 
-    // Collect tool names from matching domains
-    const relevantNames = new Set<string>(DEFAULT_TOOLS);
-    for (const domain of domains) {
-      const mapped = DOMAIN_TOOL_MAP[domain];
-      if (mapped) {
-        for (const name of mapped) {
-          relevantNames.add(name);
+    // 1. Start with tool groups matched by domains (primary selection)
+    const groupToolNames = new Set<string>(resolveToolGroupsByDomains(domains));
+
+    // 2. Add default tools (appear in 2+ scenarios)
+    for (const name of DEFAULT_TOOLS) {
+      groupToolNames.add(name);
+    }
+
+    // 3. Slot-based additions
+    if (slots?.edrpou) {
+      const registryTools = DOMAIN_TOOL_MAP.registry || [];
+      for (const name of registryTools) {
+        groupToolNames.add(name);
+      }
+    }
+
+    // 4. DOMAIN_TOOL_MAP fallback when groups don't cover enough
+    if (groupToolNames.size < 5 && domains.length > 0) {
+      for (const domain of domains) {
+        const mapped = DOMAIN_TOOL_MAP[domain];
+        if (mapped) {
+          for (const name of mapped) {
+            groupToolNames.add(name);
+          }
         }
       }
     }
 
-    // If EDRPOU is in slots, ensure all registry tools are included
-    if (slots?.edrpou) {
-      const registryTools = DOMAIN_TOOL_MAP.registry || [];
-      for (const name of registryTools) {
-        relevantNames.add(name);
-      }
-    }
-
-    // If no domains matched, use a broader set
-    if (relevantNames.size <= DEFAULT_TOOLS.length && domains.length > 0) {
-      // Add all tools from the 'legal_advice' domain as fallback
+    // 5. Legal advice fallback if still sparse
+    if (groupToolNames.size <= DEFAULT_TOOLS.length && domains.length > 0) {
       const fallback = DOMAIN_TOOL_MAP.legal_advice || [];
       for (const name of fallback) {
-        relevantNames.add(name);
+        groupToolNames.add(name);
       }
     }
 
     // Filter to only tools that actually exist in the registry
-    const filtered = allDefs.filter((d) => relevantNames.has(d.name));
+    const filtered = allDefs.filter((d) => groupToolNames.has(d.name));
 
     // Build priority set from preferred scenarios for this queryType
     const priorityTools = new Set<string>();
@@ -293,14 +325,23 @@ export class IntentClassifier {
       }
     }
 
-    // Sort: scenario-priority tools first, then the rest (preserving original order within each group)
+    // Sort: scenario-priority tools first, then the rest
     if (priorityTools.size > 0) {
       const priority = filtered.filter((d) => priorityTools.has(d.name));
       const rest = filtered.filter((d) => !priorityTools.has(d.name));
-      return [...priority, ...rest].slice(0, 15);
+
+      const combined = [...priority, ...rest].slice(0, 14);
+
+      // Always include request_additional_tools as safety valve
+      combined.push(META_TOOL_DEF);
+
+      return combined;
     }
 
-    // Cap at 15 tools — modern LLMs handle 15-20 tools fine
-    return filtered.slice(0, 15);
+    // Cap at 14 tools + meta-tool = 15
+    const result = filtered.slice(0, 14);
+    result.push(META_TOOL_DEF);
+
+    return result;
   }
 }

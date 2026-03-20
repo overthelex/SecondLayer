@@ -1,6 +1,23 @@
 import { create } from 'zustand';
 import { consultationService, type Consultation } from '../services/api/ConsultationService';
 
+/** Dedup set for recent SSE event IDs (prevents duplicate processing on reconnect) */
+const recentEventIds = new Set<string>();
+const MAX_RECENT_IDS = 500;
+
+function trackEventId(id: string): boolean {
+  if (recentEventIds.has(id)) return false; // Already seen
+  recentEventIds.add(id);
+  if (recentEventIds.size > MAX_RECENT_IDS) {
+    // Evict oldest entries (Set preserves insertion order)
+    const iter = recentEventIds.values();
+    for (let i = 0; i < 100; i++) iter.next();
+    const toDelete = [...recentEventIds].slice(0, 100);
+    toDelete.forEach(id => recentEventIds.delete(id));
+  }
+  return true; // New event
+}
+
 interface ConsultationState {
   globalUnreadCount: number;
   pendingCount: number;
@@ -73,6 +90,10 @@ export const useConsultationStore = create<ConsultationState>((set, get) => ({
     es.addEventListener('new_message', (event) => {
       try {
         const data = JSON.parse(event.data);
+        // Deduplicate: skip if we've already processed this event
+        const eventId = data.messageId || data.consultationId + ':' + data.preview;
+        if (!trackEventId(eventId)) return;
+
         set(s => ({ globalUnreadCount: s.globalUnreadCount + 1 }));
         // Dispatch event for toast notifications
         window.dispatchEvent(new CustomEvent('consultation-new-message', { detail: data }));

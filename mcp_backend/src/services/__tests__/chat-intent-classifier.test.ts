@@ -589,7 +589,7 @@ describe('IntentClassifier', () => {
       expect(result.unsupportedReason).toBeDefined();
     });
 
-    it('should coerce to unsupported for judge statistics queries', async () => {
+    it('should coerce to institutional_analysis for judge statistics queries', async () => {
       const { classifier } = buildClassifier({
         domains: ['court'],
         keywords: 'test',
@@ -598,11 +598,10 @@ describe('IntentClassifier', () => {
 
       const result = await classifier.classify('Рейтинг суддів за відсотком задоволених позовів');
 
-      expect(result.queryType).toBe('unsupported');
-      expect(result.unsupportedReason).toContain('статистику');
+      expect(result.queryType).toBe('institutional_analysis');
     });
 
-    it('should generate unsupported reason for judge statistics even if LLM did not', async () => {
+    it('should coerce to institutional_analysis for judge statistics even if LLM defaulted to legal_consultation', async () => {
       const { classifier } = buildClassifier({
         domains: ['court'],
         keywords: 'test',
@@ -611,8 +610,7 @@ describe('IntentClassifier', () => {
 
       const result = await classifier.classify('Статистика суддів по задоволеним позовам');
 
-      expect(result.queryType).toBe('unsupported');
-      expect(result.unsupportedReason).toBeTruthy();
+      expect(result.queryType).toBe('institutional_analysis');
     });
 
     it('should preserve LLM queryType when not legal_consultation', async () => {
@@ -827,17 +825,14 @@ describe('IntentClassifier', () => {
 
   describe('filterTools()', () => {
 
-    it('should return default tools when domains is empty', async () => {
+    it('should return default tools + meta-tool when domains is empty', async () => {
       const toolNames = allToolNames();
       const { classifier } = buildClassifier({}, { toolNames });
 
-      // Pass empty domains - should still return at least DEFAULT_TOOLS
+      // Pass empty domains - should still return at least DEFAULT_TOOLS + request_additional_tools
       const filtered = await classifier.filterTools([]);
 
-      // When domains is empty, relevantNames has DEFAULT_TOOLS, then no domain tools are added.
-      // But since domains.length === 0, the fallback condition (relevantNames.size <= DEFAULT_TOOLS.length && domains.length > 0)
-      // is NOT triggered. So we only get default tools.
-      const defaultSet = new Set(DEFAULT_TOOLS);
+      const defaultSet = new Set([...DEFAULT_TOOLS, 'request_additional_tools']);
       for (const tool of filtered) {
         expect(defaultSet.has(tool.name)).toBe(true);
       }
@@ -850,14 +845,11 @@ describe('IntentClassifier', () => {
       const filtered = await classifier.filterTools(['court']);
       const filteredNames = filtered.map((d) => d.name);
 
-      // Court tools from DOMAIN_TOOL_MAP should be included
-      const courtTools = DOMAIN_TOOL_MAP.court || [];
-      for (const tool of courtTools) {
-        if (filteredNames.length < 15) {
-          // tools are capped at 15
-          expect(filteredNames).toContain(tool);
-        }
-      }
+      // Key court tools should be included (from tool groups or DOMAIN_TOOL_MAP)
+      expect(filteredNames).toContain('search_legal_precedents');
+      expect(filteredNames).toContain('get_court_decision');
+      // Meta-tool should always be present
+      expect(filteredNames).toContain('request_additional_tools');
     });
 
     it('should include registry tools for registry domain', async () => {
@@ -897,7 +889,7 @@ describe('IntentClassifier', () => {
       expect(filtered.length).toBeLessThanOrEqual(15);
     });
 
-    it('should only return tools that exist in the registry', async () => {
+    it('should only return tools that exist in the registry plus meta-tool', async () => {
       // Registry with limited tools
       const { classifier } = buildClassifier({}, {
         toolNames: ['search_legal_precedents', 'get_court_decision'],
@@ -906,9 +898,9 @@ describe('IntentClassifier', () => {
       const filtered = await classifier.filterTools(['court']);
       const filteredNames = filtered.map((d) => d.name);
 
-      // Should only contain tools that exist in our limited registry
+      // Should only contain tools from registry + the virtual meta-tool
       for (const name of filteredNames) {
-        expect(['search_legal_precedents', 'get_court_decision']).toContain(name);
+        expect(['search_legal_precedents', 'get_court_decision', 'request_additional_tools']).toContain(name);
       }
     });
 
@@ -1052,15 +1044,16 @@ describe('DOMAIN_TOOL_MAP', () => {
 
 describe('VALID_QUERY_TYPES', () => {
 
-  it('should contain all 12 defined query types', () => {
+  it('should contain all 13 defined query types', () => {
     const expected: QueryType[] = [
       'case_lookup', 'practice_analysis', 'legislation_lookup', 'legal_consultation',
       'registry_lookup', 'parliament_query', 'document_query', 'calculation',
-      'document_drafting', 'comparative_analysis', 'due_diligence', 'unsupported',
+      'document_drafting', 'comparative_analysis', 'due_diligence', 'institutional_analysis',
+      'unsupported',
     ];
     for (const qt of expected) {
       expect(VALID_QUERY_TYPES.has(qt)).toBe(true);
     }
-    expect(VALID_QUERY_TYPES.size).toBe(12);
+    expect(VALID_QUERY_TYPES.size).toBe(13);
   });
 });

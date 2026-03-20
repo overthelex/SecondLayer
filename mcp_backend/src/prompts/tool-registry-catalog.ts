@@ -1210,6 +1210,165 @@ export function getScenarioPriorityTools(scenarioIds: string[]): string[] {
   return priority;
 }
 
+// ============================
+// Tool Groups — Two-tier selection
+// ============================
+
+/**
+ * Semantic tool groups for two-tier tool selection.
+ * IntentClassifier picks relevant groups based on intent, then expands to tool names.
+ * This reduces the tool count the LLM sees from 45+ down to 8-15.
+ */
+export interface ToolGroup {
+  id: string;
+  label: string;       // Ukrainian label
+  tools: string[];     // Tool names in this group
+  domains: string[];   // Which domains this group covers
+}
+
+export const TOOL_GROUPS: ToolGroup[] = [
+  {
+    id: 'edrsr_search',
+    label: 'Пошук в ЄДРСР',
+    domains: ['court'],
+    tools: [
+      'edrsr_search_decisions',
+      'edrsr_fulltext_search',
+      'edrsr_semantic_search',
+      'edrsr_get_decision',
+      'edrsr_search_by_judge',
+    ],
+  },
+  {
+    id: 'court_practice',
+    label: 'Судова практика',
+    domains: ['court', 'legal_advice'],
+    tools: [
+      'search_legal_precedents',
+      'search_supreme_court_practice',
+      'get_court_decision',
+      'get_case_documents_chain',
+      'count_cases_by_party',
+    ],
+  },
+  {
+    id: 'legislation',
+    label: 'Законодавство',
+    domains: ['legislation', 'legal_advice'],
+    tools: [
+      'get_legislation_article',
+      'search_legislation',
+      'find_relevant_law_articles',
+      'get_legislation_structure',
+    ],
+  },
+  {
+    id: 'registry',
+    label: 'Реєстри',
+    domains: ['registry'],
+    tools: [
+      'openreyestr_get_by_edrpou',
+      'openreyestr_search_entities',
+      'openreyestr_get_entity_details',
+      'openreyestr_search_beneficiaries',
+      'search_erb_debtors',
+      'search_nbu_banks',
+      'openreyestr_search_arbitration_managers',
+      'openreyestr_search_legal_acts',
+      'openreyestr_search_administrative_units',
+      'openreyestr_search_streets',
+      'openreyestr_search_special_forms',
+    ],
+  },
+  {
+    id: 'parliament',
+    label: 'Парламент',
+    domains: ['parliament'],
+    tools: [
+      'rada_search_deputies',
+      'rada_search_bills',
+      'rada_get_legislation_text',
+      'rada_get_voting_record',
+    ],
+  },
+  {
+    id: 'vault',
+    label: 'Документи',
+    domains: ['documents'],
+    tools: [
+      'list_documents',
+      'get_document',
+      'semantic_search',
+      'delete_document',
+      'update_document',
+    ],
+  },
+  {
+    id: 'procedural',
+    label: 'Процесуальне',
+    domains: ['court', 'legal_advice'],
+    tools: [
+      'search_court_sessions',
+      'search_court_registry',
+      'get_court_info',
+      'search_judges',
+      'check_case_status',
+      'calculate_deadlines',
+    ],
+  },
+  {
+    id: 'due_diligence',
+    label: 'Due Diligence',
+    domains: ['registry', 'court'],
+    tools: [
+      'openreyestr_get_by_edrpou',
+      'openreyestr_search_beneficiaries',
+      'search_erb_debtors',
+      'count_cases_by_party',
+    ],
+  },
+  {
+    id: 'echr',
+    label: 'ЄСПЛ',
+    domains: ['echr'],
+    tools: [
+      'search_echr_cases',
+      'get_echr_decision',
+      'search_echr_by_article',
+    ],
+  },
+];
+
+/**
+ * Resolve tool groups by domain list → flat array of unique tool names.
+ */
+export function resolveToolGroupsByDomains(domains: string[]): string[] {
+  const tools = new Set<string>();
+  for (const group of TOOL_GROUPS) {
+    if (group.domains.some(d => domains.includes(d))) {
+      for (const tool of group.tools) {
+        tools.add(tool);
+      }
+    }
+  }
+  return Array.from(tools);
+}
+
+/**
+ * Resolve specific tool group IDs → flat array of unique tool names.
+ */
+export function resolveToolGroupsByIds(groupIds: string[]): string[] {
+  const tools = new Set<string>();
+  for (const group of TOOL_GROUPS) {
+    if (groupIds.includes(group.id)) {
+      for (const tool of group.tools) {
+        tools.add(tool);
+      }
+    }
+  }
+  return Array.from(tools);
+}
+
 // Pre-computed exports
 export const DERIVED_DOMAIN_TOOL_MAP = deriveDomainToolMap(SCENARIO_CATALOG);
 export const DERIVED_DEFAULT_TOOLS = deriveDefaultTools(SCENARIO_CATALOG);
