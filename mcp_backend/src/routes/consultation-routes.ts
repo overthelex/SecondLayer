@@ -150,8 +150,12 @@ export function createConsultationRoutes(
   router.put('/:id/accept', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {
       if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const { agreedFee } = req.body;
+      if (agreedFee === undefined || agreedFee === null || Number(agreedFee) <= 0) {
+        return res.status(400).json({ error: 'agreedFee is required and must be greater than 0' });
+      }
       const consultation = await consultationService.acceptConsultation(
-        req.params.id as string, req.user.id, req.body.agreedFee
+        req.params.id as string, req.user.id, Number(agreedFee)
       );
       res.json(consultation);
     } catch (error: any) {
