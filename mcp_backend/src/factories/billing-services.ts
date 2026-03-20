@@ -107,6 +107,36 @@ export function createBillingServices(db: Database, embeddingService: EmbeddingS
   emailService.setPreferenceFetcher((userId: string) =>
     billingService.getEmailPreferences(userId)
   );
+  emailService.setReferralDataFetcher(async (userId: string) => {
+    try {
+      const codeResult = await db.query(
+        'SELECT code, verified_at FROM referral_codes WHERE user_id = $1 AND is_active = true',
+        [userId]
+      );
+      const isVerified = codeResult.rows.length > 0 && !!codeResult.rows[0].verified_at;
+      const referralCode = codeResult.rows.length > 0 ? codeResult.rows[0].code : null;
+
+      const countResult = await db.query(
+        'SELECT COUNT(*) as total FROM referral_links WHERE referrer_id = $1',
+        [userId]
+      );
+
+      const earningsResult = await db.query(
+        'SELECT COALESCE(SUM(amount_usd), 0) as total_usd, COALESCE(SUM(amount_uah), 0) as total_uah FROM referral_rewards WHERE beneficiary_id = $1',
+        [userId]
+      );
+
+      return {
+        referralCode,
+        totalReferrals: parseInt(countResult.rows[0].total, 10),
+        totalEarnedUsd: parseFloat(earningsResult.rows[0].total_usd),
+        totalEarnedUah: parseFloat(earningsResult.rows[0].total_uah),
+        isVerified,
+      };
+    } catch {
+      return { referralCode: null, totalReferrals: 0, totalEarnedUsd: 0, totalEarnedUah: 0, isVerified: false };
+    }
+  });
   setAuthEmailService(emailService);
 
   // Payment services — mock vs real selection
