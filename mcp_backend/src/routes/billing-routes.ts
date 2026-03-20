@@ -187,7 +187,7 @@ export function createBillingRoutes(
       const dailyVal = dailyLimitUsd ?? daily_limit_usd;
       const monthlyVal = monthlyLimitUsd ?? monthly_limit_usd;
 
-      await billingService.updateBillingSettings(userId, {
+      const result = await billingService.updateBillingSettings(userId, {
         dailyLimitUsd: dailyVal !== undefined ? Number(dailyVal) : undefined,
         monthlyLimitUsd: monthlyVal !== undefined ? Number(monthlyVal) : undefined,
         pricingTier,
@@ -199,7 +199,7 @@ export function createBillingRoutes(
         low_balance_threshold_usd: low_balance_threshold_usd !== undefined ? Number(low_balance_threshold_usd) : undefined,
       });
 
-      res.json({ success: true, message: 'Billing settings updated' });
+      res.json({ success: true, message: 'Billing settings updated', ...result });
     } catch (error: any) {
       logger.error('Failed to update billing settings', { error: error.message });
       res.status(400).json({ error: error.message });
