@@ -25,6 +25,8 @@ import { createEncryptionRoutes } from './routes/encryption-routes.js';
 import { createWorkerHeartbeatRoute } from './routes/worker-heartbeat-routes.js';
 import { createDecisionsRoutes } from './routes/decisions-routes.js';
 import { createERAUProxyRoutes } from './routes/erau-proxy-routes.js';
+import { createNewsRoutes } from './routes/news-routes.js';
+import { NewsArticleService } from './services/news-article-service.js';
 import { ERAUCacheService } from './services/erau-cache-service.js';
 import { attachTerminalWebSocket } from './routes/terminal-routes.js';
 import { createTeamRoutes } from './routes/team-routes.js';
@@ -474,6 +476,11 @@ class HTTPMCPServer {
     // Decisions routes - download court decision full texts from reyestr.court.gov.ua
     this.app.use('/api/decisions', requireJWT as any, createDecisionsRoutes(this.services.reyestrDownloadService));
     logger.info('Decisions routes registered at /api/decisions');
+
+    // News article routes - fetch KMU articles with AI analysis
+    const newsArticleService = new NewsArticleService(this.services.db);
+    this.app.use('/api/news', requireJWT as any, createNewsRoutes(newsArticleService));
+    logger.info('News article routes registered at /api/news');
 
     // ERAU proxy - Ukrainian Bar Registry (public, no auth required)
     const erauCacheService = new ERAUCacheService(this.services.db);
