@@ -44,6 +44,8 @@ import { createOAuthRouter } from './routes/oauth-routes.js';
 import { healthCheckRateLimit, webhookRateLimit, globalApiRateLimit } from './middleware/rate-limit.js';
 import { createUploadRouter } from './routes/upload-routes.js';
 import { createConversationRouter } from './routes/conversation-routes.js';
+import { createEvidenceRoutes } from './routes/evidence-routes.js';
+import { createEdsrRoutes } from './routes/edrsr-routes.js';
 import { createGdprRouter } from './routes/gdpr-routes.js';
 import { createBlogCommentsRouter } from './routes/blog-comments.js';
 import { createMatterRoutes } from './routes/matter-routes.js';
@@ -410,7 +412,12 @@ class HTTPMCPServer {
 
     // Conversation routes - server-side chat persistence
     this.app.use('/api/conversations', requireJWT as any, createConversationRouter(this.app_.conversationService));
-    logger.info('Conversation routes registered at /api/conversations');
+    this.app.use('/api/conversations', requireJWT as any, createEvidenceRoutes(this.app_.evidenceService));
+    logger.info('Conversation and evidence routes registered at /api/conversations');
+
+    // EDRSR direct access routes
+    this.app.use('/api/edrsr', requireJWT as any, createEdsrRoutes(this.services.db));
+    logger.info('EDRSR routes registered at /api/edrsr');
 
     // Blog comments - GET is public, POST/DELETE require JWT (checked inside handler)
     this.app.use('/api/blog', optionalJWT as any, createBlogCommentsRouter(this.services.db.getPool()));
@@ -739,6 +746,7 @@ class HTTPMCPServer {
         this.services.zoECHRAdapter.setCachePort(cache);
         this.services.shepardizationService.setCachePort(cache);
         this.app_.chatSearchCache.setCachePort(cache);
+        this.app_.evidenceService.setCachePort(cache);
         setAuthCache(cache);
         setOidcCache(cache);
         setRateLimitCache(cache);
