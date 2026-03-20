@@ -11,7 +11,7 @@ import express from 'express';
 import http from 'http';
 import request from 'supertest';
 import { createConsultationRoutes } from '../consultation-routes';
-import { consultationMessageBus } from '../../services/consultation-message-bus';
+import { getConsultationMessageBus } from '../../services/consultation-message-bus';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Mock services
@@ -169,7 +169,7 @@ describe('Consultation Chat Routes', () => {
                 created_at: new Date().toISOString(),
                 sender_name: 'Attorney',
               };
-              consultationMessageBus.publish('cons-1', msg as any);
+              getConsultationMessageBus().publish('cons-1', msg as any);
             }
 
             if (data.includes('event: message')) {

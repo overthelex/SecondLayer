@@ -39,6 +39,8 @@ export interface ToolServices {
   uploadService: UploadService;
   minioService: MinioService;
   vaultTools: VaultTools;
+  edsrFtsService: EdsrFtsService;
+  edsrVectorizer?: EdsrVectorizerService;
 }
 
 export function createToolServices(
@@ -172,5 +174,7 @@ export function createToolServices(
     uploadService,
     minioService,
     vaultTools,
+    edsrFtsService,
+    edsrVectorizer,
   };
 }

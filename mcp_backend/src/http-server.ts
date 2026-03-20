@@ -564,6 +564,28 @@ class HTTPMCPServer {
       }
     }) as any);
 
+    // EDRSR vectorization status endpoint (admin)
+    this.app.get('/api/admin/edrsr-vectorization-status', requireJWT as any, (async (_req: DualAuthRequest, res: express.Response) => {
+      try {
+        const preVectorizer = (this as any)._preVectorizer;
+        if (!preVectorizer) {
+          return res.json({ status: 'not_configured', message: 'Pre-vectorizer not running (VOYAGEAI_API_KEY missing or Redis unavailable)' });
+        }
+        const workerStatus = await preVectorizer.getStatus();
+
+        // Also get Qdrant collection stats
+        let qdrantStats = null;
+        if (this.tools.edsrVectorizer) {
+          qdrantStats = await this.tools.edsrVectorizer.getVectorizationStats();
+        }
+
+        res.json({ worker: workerStatus, qdrant: qdrantStats });
+      } catch (error: any) {
+        logger.error('[Admin] EDRSR vectorization status failed', { error: error.message });
+        res.status(500).json({ error: error.message });
+      }
+    }) as any);
+
     // Template system routes - Dynamic template classification, matching, generation, and analytics
     // POST /api/templates/classify-question - Classify question intent
     // GET /api/templates/classify-question/stats - Classification statistics
@@ -711,6 +733,10 @@ class HTTPMCPServer {
       await this.services.embeddingService.initialize();
       await this.tools.documentParser.initialize();
 
+      // Initialize Redis-backed consultation message bus (falls back to in-memory)
+      const { createConsultationMessageBus } = await import('./services/consultation-message-bus.js');
+      await createConsultationMessageBus();
+
       // Initialize Redis cache for services (optional)
       const redis = await getRedisClient();
       if (redis) {
@@ -727,6 +753,27 @@ class HTTPMCPServer {
         setOidcCache(cache);
         setRateLimitCache(cache);
         setUploadRateLimitCache(cache);
+        // EDRSR cache service (fulltext, metadata, FTS results)
+        const { EdsrCacheService } = await import('./services/edrsr-cache-service.js');
+        const edsrCache = new EdsrCacheService(cache);
+        if (this.tools.edsrFtsService) {
+          this.tools.edsrFtsService.setEdsrCache(edsrCache);
+        }
+
+        // Start EDRSR pre-vectorization background worker (if vectorizer available)
+        if (this.tools.edsrVectorizer) {
+          const { EdsrPreVectorizerWorker } = await import('./workers/edrsr-pre-vectorizer.js');
+          const preVectorizer = new EdsrPreVectorizerWorker(
+            this.tools.edsrVectorizer,
+            this.services.db,
+            cache,
+          );
+          preVectorizer.start();
+          // Expose status endpoint
+          (this as any)._preVectorizer = preVectorizer;
+          logger.info('EDRSR pre-vectorization background worker started');
+        }
+
         logger.info('Redis connected - caching enabled for all services');
       } else {
         logger.info('Redis not available - services will work without caching');

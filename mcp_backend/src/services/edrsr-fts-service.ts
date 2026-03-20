@@ -14,6 +14,7 @@
  */
 
 import { logger } from '../utils/logger.js';
+import type { EdsrCacheService } from './edrsr-cache-service.js';
 
 export interface EdsrFtsFilters {
   court_code?: number;
@@ -55,6 +56,12 @@ export interface EdsrIndexProgress {
 }
 
 export class EdsrFtsService {
+  private edsrCache: EdsrCacheService | null = null;
+
+  setEdsrCache(cache: EdsrCacheService): void {
+    this.edsrCache = cache;
+  }
+
   /**
    * Full text search over edrsr_fulltext with optional metadata filters from edrsr_documents.
    *
@@ -70,6 +77,15 @@ export class EdsrFtsService {
   ): Promise<EdsrFtsSearchResponse> {
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     const safeOffset = Math.max(offset, 0);
+
+    // Check cache first
+    if (this.edsrCache) {
+      const cached = await this.edsrCache.getCachedFtsResults(query, filters, safeLimit, safeOffset);
+      if (cached) {
+        logger.debug('[EdsrFtsService] Cache hit for FTS query', { query });
+        return cached;
+      }
+    }
 
     const conditions: string[] = [];
     const params: any[] = [];
@@ -175,7 +191,7 @@ export class EdsrFtsService {
         returned: dataResult.rows.length,
       });
 
-      return {
+      const response = {
         query,
         total,
         returned: dataResult.rows.length,
@@ -193,6 +209,13 @@ export class EdsrFtsService {
           ...(row.judgment_code !== undefined ? { judgment_code: row.judgment_code } : {}),
         })),
       };
+
+      // Cache the result
+      if (this.edsrCache) {
+        this.edsrCache.setCachedFtsResults(query, filters, safeLimit, safeOffset, response).catch(() => {});
+      }
+
+      return response;
     } catch (err: any) {
       logger.error('[EdsrFtsService] searchFulltext failed', { error: err.message, query });
       throw new Error(`FTS search failed: ${err.message}`);
