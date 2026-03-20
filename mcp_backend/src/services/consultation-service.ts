@@ -116,6 +116,11 @@ export class ConsultationService {
     });
 
     logger.info('Consultation created', { id, clientUserId, attorneyUserId: data.attorneyUserId });
+
+    // Emit real-time status event
+    const enriched = await this.getConsultation(id, clientUserId) || result.rows[0];
+    consultationMessageBus.publishConsultationStatus(enriched);
+
     return result.rows[0];
   }
 
@@ -219,6 +224,9 @@ export class ConsultationService {
       details: { agreedFee },
     });
 
+    const enriched = await this.getConsultation(id, attorneyUserId) || result.rows[0];
+    consultationMessageBus.publishConsultationStatus(enriched);
+
     return result.rows[0];
   }
 
@@ -240,6 +248,9 @@ export class ConsultationService {
       resourceId: id,
       details: { reason },
     });
+
+    const enriched = await this.getConsultation(id, attorneyUserId) || result.rows[0];
+    consultationMessageBus.publishConsultationStatus(enriched);
 
     return result.rows[0];
   }
@@ -284,6 +295,10 @@ export class ConsultationService {
       details: { paymentId, matterId: consultation.matter_id },
     });
 
+    // Re-fetch with JOINs for enriched data
+    const enriched = await this.getConsultationById(id) || consultation;
+    consultationMessageBus.publishConsultationStatus(enriched);
+
     return consultation;
   }
 
@@ -304,6 +319,9 @@ export class ConsultationService {
       resourceType: 'consultation',
       resourceId: id,
     });
+
+    const enriched = await this.getConsultation(id, attorneyUserId) || result.rows[0];
+    consultationMessageBus.publishConsultationStatus(enriched);
 
     return result.rows[0];
   }
@@ -361,6 +379,9 @@ export class ConsultationService {
       resourceId: id,
     });
 
+    const enriched = await this.getConsultation(id, attorneyUserId) || result.rows[0];
+    consultationMessageBus.publishConsultationStatus(enriched);
+
     return result.rows[0];
   }
 
@@ -409,6 +430,9 @@ export class ConsultationService {
       resourceId: id,
       details: { reason, previousStatus: consultation.status },
     });
+
+    const enriched = await this.getConsultationById(id) || result.rows[0];
+    consultationMessageBus.publishConsultationStatus(enriched);
 
     return result.rows[0];
   }
@@ -470,7 +494,7 @@ export class ConsultationService {
     attachment?: { url: string; name: string; type: string; size: number }
   ): Promise<ConsultationMessage> {
     // Verify sender is a party to this consultation
-    await this.requireConsultation(consultationId, senderId);
+    const consultation = await this.requireConsultation(consultationId, senderId);
 
     const id = uuidv4();
     const result = await this.db.query(
@@ -491,6 +515,18 @@ export class ConsultationService {
     };
 
     consultationMessageBus.publish(consultationId, message);
+
+    // Emit user-level new_message event for the other party (for global unread badge)
+    const recipientId = consultation.client_user_id === senderId
+      ? consultation.attorney_user_id
+      : consultation.client_user_id;
+    consultationMessageBus.publishUserEvent(recipientId, {
+      type: 'new_message',
+      consultationId,
+      senderId,
+      senderName: message.sender_name,
+      preview: content.substring(0, 100),
+    });
 
     return message;
   }
@@ -553,12 +589,17 @@ export class ConsultationService {
       ),
     ]);
 
-    // Mark messages as read
-    await this.db.query(
-      `UPDATE consultation_messages SET read_at = NOW()
-       WHERE consultation_id = $1 AND sender_id != $2 AND read_at IS NULL`,
+    // Mark messages as read (fix: also set status to 'read')
+    const readResult = await this.db.query(
+      `UPDATE consultation_messages SET status = 'read', read_at = NOW()
+       WHERE consultation_id = $1 AND sender_id != $2 AND status != 'read'
+       RETURNING id`,
       [consultationId, userId]
     );
+    if (readResult.rows.length > 0) {
+      const readIds = readResult.rows.map((r: any) => r.id);
+      consultationMessageBus.publishStatus(consultationId, readIds, 'read');
+    }
 
     return {
       messages: result.rows,
@@ -570,7 +611,7 @@ export class ConsultationService {
     await this.requireConsultation(consultationId, userId);
     const result = await this.db.query(
       `SELECT COUNT(*) FROM consultation_messages
-       WHERE consultation_id = $1 AND sender_id != $2 AND read_at IS NULL`,
+       WHERE consultation_id = $1 AND sender_id != $2 AND status != 'read'`,
       [consultationId, userId]
     );
     return parseInt(result.rows[0].count, 10);
@@ -623,6 +664,38 @@ export class ConsultationService {
     });
 
     return result.rows[0];
+  }
+
+  // ─── Internal helpers ──────────────────────────────────
+
+  /** Fetch consultation with JOINs (no auth check — internal use only for events) */
+  private async getConsultationById(id: string): Promise<Consultation | null> {
+    const result = await this.db.query(
+      `SELECT c.*,
+              cu.name as client_name,
+              au.name as attorney_name,
+              m.matter_name
+       FROM consultations c
+       JOIN users cu ON cu.id = c.client_user_id
+       JOIN users au ON au.id = c.attorney_user_id
+       LEFT JOIN matters m ON m.id = c.matter_id
+       WHERE c.id = $1`,
+      [id]
+    );
+    return result.rows[0] || null;
+  }
+
+  // ─── Global unread count ──────────────────────────────
+
+  async getGlobalUnreadCount(userId: string): Promise<number> {
+    const result = await this.db.query(
+      `SELECT COUNT(*) FROM consultation_messages cm
+       JOIN consultations c ON c.id = cm.consultation_id
+       WHERE cm.sender_id != $1 AND cm.status != 'read'
+         AND (c.client_user_id = $1 OR c.attorney_user_id = $1)`,
+      [userId]
+    );
+    return parseInt(result.rows[0].count, 10);
   }
 
   // ─── Helpers ───────────────────────────────────────────

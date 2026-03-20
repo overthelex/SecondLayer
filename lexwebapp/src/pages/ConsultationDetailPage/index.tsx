@@ -4,9 +4,12 @@ import { ArrowLeft, Loader2, Star, CreditCard, CheckCircle, XCircle, Play, Messa
 import { consultationService, type Consultation } from '../../services/api/ConsultationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { getErrorMessage } from '../../utils/errors';
+import showToast from '../../utils/toast';
 import { ConsultationChatTab } from '../../components/chat/ConsultationChatTab';
 import { EscrowStatusBadge } from '../../components/consultation/EscrowStatusBadge';
 import { SharedDocumentsSection } from '../../components/consultation/SharedDocumentsSection';
+import { ConfirmModal } from '../../components/ui/ConfirmModal';
+import { useConsultationStore } from '../../stores/consultationStore';
 
 const STATUS_STEPS = ['pending', 'accepted', 'paid', 'in_progress', 'completed'];
 const STATUS_LABELS: Record<string, string> = {
@@ -27,6 +30,9 @@ export function ConsultationDetailPage() {
   const [reviewText, setReviewText] = useState('');
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [acceptFee, setAcceptFee] = useState('');
+  const [activeModal, setActiveModal] = useState<'decline' | 'complete' | 'cancel' | null>(null);
+
+  const addStatusListener = useConsultationStore(s => s.addStatusListener);
 
   const isClient = consultation?.client_user_id === user?.id;
   const isAttorney = consultation?.attorney_user_id === user?.id;
@@ -49,7 +55,16 @@ export function ConsultationDetailPage() {
     if (id) sessionStorage.setItem('lastConsultationId', id);
   }, [id]);
 
-  const handleAction = async (action: string) => {
+  // Subscribe to real-time consultation status changes
+  useEffect(() => {
+    if (!id) return;
+    const unsub = addStatusListener(id, (updated) => {
+      setConsultation(updated);
+    });
+    return unsub;
+  }, [id, addStatusListener]);
+
+  const handleAction = async (action: string, inputValue?: string) => {
     if (!id) return;
     setActionLoading(action);
     try {
@@ -57,25 +72,33 @@ export function ConsultationDetailPage() {
       switch (action) {
         case 'accept': {
           const fee = parseFloat(acceptFee);
-          if (!fee || fee <= 0) { alert('Вкажіть коректну суму гонорару'); return; }
+          if (!fee || fee <= 0) { showToast.error('Вкажіть коректну суму гонорару'); return; }
           result = await consultationService.acceptConsultation(id, fee);
           setShowAcceptModal(false);
+          showToast.success('Консультацію прийнято');
           break;
         }
         case 'decline': {
-          const reason = prompt('Причина відмови:');
-          result = await consultationService.declineConsultation(id, reason || undefined);
+          result = await consultationService.declineConsultation(id, inputValue || undefined);
+          setActiveModal(null);
+          showToast.success('Консультацію відхилено');
           break;
         }
-        case 'start': result = await consultationService.startConsultation(id); break;
+        case 'start': {
+          result = await consultationService.startConsultation(id);
+          showToast.success('Консультацію розпочато');
+          break;
+        }
         case 'complete': {
-          const summary = prompt('Підсумок консультації:');
-          result = await consultationService.completeConsultation(id, summary || undefined);
+          result = await consultationService.completeConsultation(id, inputValue || undefined);
+          setActiveModal(null);
+          showToast.success('Консультацію завершено');
           break;
         }
         case 'cancel': {
-          const reason = prompt('Причина скасування:');
-          result = await consultationService.cancelConsultation(id, reason || undefined);
+          result = await consultationService.cancelConsultation(id, inputValue || undefined);
+          setActiveModal(null);
+          showToast.success('Консультацію скасовано');
           break;
         }
         case 'pay': {
@@ -87,7 +110,7 @@ export function ConsultationDetailPage() {
       }
       setConsultation(result);
     } catch (err: unknown) {
-      alert(getErrorMessage(err));
+      showToast.error(getErrorMessage(err));
     } finally {
       setActionLoading('');
     }
@@ -98,9 +121,9 @@ export function ConsultationDetailPage() {
     try {
       await consultationService.submitReview(id, { rating, reviewText: reviewText || undefined });
       setShowReview(false);
-      alert('Дякуємо за відгук!');
+      showToast.success('Дякуємо за відгук!');
     } catch (err: unknown) {
-      alert(getErrorMessage(err));
+      showToast.error(getErrorMessage(err));
     }
   };
 
@@ -205,7 +228,7 @@ export function ConsultationDetailPage() {
                   {actionLoading === 'accept' ? <Loader2 className="w-4 h-4 animate-spin inline" /> : <CheckCircle className="w-4 h-4 inline mr-1" />}
                   Прийняти
                 </button>
-                <button onClick={() => handleAction('decline')} disabled={!!actionLoading}
+                <button onClick={() => setActiveModal('decline')} disabled={!!actionLoading}
                   className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50">
                   Відхилити
                 </button>
@@ -226,13 +249,13 @@ export function ConsultationDetailPage() {
               </button>
             )}
             {isAttorney && consultation.status === 'in_progress' && (
-              <button onClick={() => handleAction('complete')} disabled={!!actionLoading}
+              <button onClick={() => setActiveModal('complete')} disabled={!!actionLoading}
                 className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
                 Завершити
               </button>
             )}
             {!isTerminal && consultation.status !== 'completed' && (
-              <button onClick={() => handleAction('cancel')} disabled={!!actionLoading}
+              <button onClick={() => setActiveModal('cancel')} disabled={!!actionLoading}
                 className="px-3 py-1.5 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
                 <XCircle className="w-4 h-4 inline mr-1" />
                 Скасувати
@@ -265,6 +288,47 @@ export function ConsultationDetailPage() {
           />
         </div>
       </div>
+
+      {/* Decline modal */}
+      <ConfirmModal
+        isOpen={activeModal === 'decline'}
+        title="Відхилити консультацію"
+        description="Ви впевнені, що хочете відхилити цей запит?"
+        confirmLabel="Відхилити"
+        variant="danger"
+        inputLabel="Причина відмови"
+        inputPlaceholder="Вкажіть причину відмови (необов'язково)..."
+        loading={actionLoading === 'decline'}
+        onConfirm={(reason) => handleAction('decline', reason)}
+        onCancel={() => setActiveModal(null)}
+      />
+
+      {/* Complete modal */}
+      <ConfirmModal
+        isOpen={activeModal === 'complete'}
+        title="Завершити консультацію"
+        description="Після завершення клієнт зможе залишити відгук, а кошти будуть звільнені."
+        confirmLabel="Завершити"
+        inputLabel="Підсумок консультації"
+        inputPlaceholder="Опишіть результати консультації..."
+        loading={actionLoading === 'complete'}
+        onConfirm={(summary) => handleAction('complete', summary)}
+        onCancel={() => setActiveModal(null)}
+      />
+
+      {/* Cancel modal */}
+      <ConfirmModal
+        isOpen={activeModal === 'cancel'}
+        title="Скасувати консультацію"
+        description="Ви впевнені? Якщо оплата вже здійснена, кошти будуть повернені."
+        confirmLabel="Скасувати консультацію"
+        variant="danger"
+        inputLabel="Причина скасування"
+        inputPlaceholder="Вкажіть причину скасування..."
+        loading={actionLoading === 'cancel'}
+        onConfirm={(reason) => handleAction('cancel', reason)}
+        onCancel={() => setActiveModal(null)}
+      />
 
       {/* Escrow confirmation modal */}
       {showEscrow && consultation && (

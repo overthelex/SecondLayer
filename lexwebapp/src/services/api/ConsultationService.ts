@@ -174,6 +174,14 @@ export class ConsultationService extends BaseService {
     return this.request(() => this.client.post(`/api/consultations/${id}/review`, data));
   }
 
+  async getGlobalUnreadCount(): Promise<{ count: number }> {
+    return this.request(() => this.client.get<{ count: number }>('/api/consultations/unread-total'));
+  }
+
+  sendTyping(id: string): void {
+    this.client.post(`/api/consultations/${id}/typing`).catch(() => {});
+  }
+
   async getUnseenPending(): Promise<{ consultations: Consultation[]; count: number }> {
     return this.request(() => this.client.get('/api/consultations/pending-unseen'));
   }
