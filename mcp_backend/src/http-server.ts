@@ -207,23 +207,11 @@ class HTTPMCPServer {
       res.json({ status: 'ok' });
     });
 
-    // Readiness probe — DB is accessible (200/503)
-    this.app.get('/health/ready', healthCheckRateLimit as any, async (_req, res) => {
-      try {
-        const start = Date.now();
-        await this.services.db.query('SELECT 1');
-        const latencyMs = Date.now() - start;
-        res.json({ status: 'ok', latencyMs });
-      } catch (err: any) {
-        logger.warn('Healthcheck /ready failed', { error: err.message });
-        res.status(503).json({ status: 'unavailable', error: err.message });
-      }
-    });
-
-    // Full health check with dependency status (public - no auth, rate limited)
-    this.app.get('/health', healthCheckRateLimit as any, async (_req, res) => {
+    // Readiness probe + full health — always 200 for Docker healthcheck,
+    // returns detailed dependency checks array.
+    // Works even during startup (reports initialized: false).
+    const healthHandler = async (_req: any, res: any) => {
       const checks: Record<string, { ok: boolean; latencyMs?: number; error?: string }> = {};
-      let degraded = false;
 
       // PostgreSQL
       try {
@@ -232,7 +220,6 @@ class HTTPMCPServer {
         checks.postgres = { ok: true, latencyMs: Date.now() - start };
       } catch (err: any) {
         checks.postgres = { ok: false, error: err.message };
-        degraded = true;
       }
 
       // Redis
@@ -244,11 +231,9 @@ class HTTPMCPServer {
           checks.redis = { ok: true, latencyMs: Date.now() - start };
         } else {
           checks.redis = { ok: false, error: 'not connected' };
-          degraded = true;
         }
       } catch (err: any) {
         checks.redis = { ok: false, error: err.message };
-        degraded = true;
       }
 
       // Qdrant
@@ -256,10 +241,8 @@ class HTTPMCPServer {
         const start = Date.now();
         const qdrantResult = await this.services.embeddingService.healthCheck();
         checks.qdrant = { ...qdrantResult, latencyMs: Date.now() - start };
-        if (!qdrantResult.ok) degraded = true;
       } catch (err: any) {
         checks.qdrant = { ok: false, error: err.message };
-        degraded = true;
       }
 
       // MinIO
@@ -267,29 +250,25 @@ class HTTPMCPServer {
         const start = Date.now();
         const minioResult = await this.tools.minioService.healthCheck();
         checks.minio = { ...minioResult, latencyMs: Date.now() - start };
-        if (!minioResult.ok) degraded = true;
       } catch (err: any) {
         checks.minio = { ok: false, error: err.message };
-        degraded = true;
       }
 
-      const status = degraded ? 'degraded' : 'ok';
+      const allOk = Object.values(checks).every(c => c.ok);
 
-      if (degraded) {
-        const failedChecks = Object.entries(checks)
-          .filter(([, v]) => !v.ok)
-          .map(([k, v]) => `${k}: ${v.error}`);
-        logger.warn('Healthcheck degraded', { failedChecks });
-      }
-
-      res.status(degraded ? 503 : 200).json({
-        status,
+      // Always 200 — Docker healthcheck must not kill container during slow init
+      res.json({
+        status: allOk ? 'ok' : 'degraded',
+        initialized: (this as any)._initialized === true,
         service: 'secondlayer-mcp-http',
         uptime: Math.round(process.uptime()),
         memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
         checks,
       });
-    });
+    };
+
+    this.app.get('/health/ready', healthHandler);
+    this.app.get('/health', healthCheckRateLimit as any, healthHandler);
 
     // MCP SSE routes (SSE endpoints, OAuth discovery, redirects)
     this.app.use(createMCPSSERoutes({
@@ -825,6 +804,7 @@ class HTTPMCPServer {
       this.app_.uploadRecoveryService.start();
       logger.info('Upload recovery service started');
 
+      (this as any)._initialized = true;
       logger.info('HTTP MCP Server services initialized');
     } catch (error) {
       logger.error('Failed to initialize server:', error);
@@ -833,8 +813,6 @@ class HTTPMCPServer {
   }
 
   async start() {
-    await this.initialize();
-
     const port = parseInt(process.env.HTTP_PORT || '3000', 10);
     const host = process.env.HTTP_HOST || '0.0.0.0';
 
@@ -843,31 +821,13 @@ class HTTPMCPServer {
     // Attach admin terminal WebSocket
     attachTerminalWebSocket(httpServer, this.services.db);
 
-    httpServer.listen(port, host, () => {
-      logger.info(`HTTP MCP Server started on http://${host}:${port}`);
-      logger.info('Available endpoints:');
-      logger.info('  GET  /health - Health check');
-      logger.info('  GET  /mcp - MCP server info and capabilities');
-      logger.info('  POST /sse - MCP SSE endpoint for ChatGPT web');
-      logger.info('  GET  /api/tools - List available tools');
-      logger.info('  POST /api/tools/:toolName - Call a tool (JSON or SSE)');
-      logger.info('  POST /api/tools/:toolName/stream - Stream tool execution (SSE)');
-      logger.info('  POST /api/tools/batch - Batch tool calls');
-      logger.info('  WS   /api/admin/terminal - Admin bash terminal');
-      logger.info('');
-      logger.info('ChatGPT Web Integration:');
-      logger.info('  - MCP Server URL: https://mcp.legal.org.ua/sse');
-      logger.info('  - Discovery: https://mcp.legal.org.ua/mcp');
-      logger.info('  - Protocol: MCP over SSE (Model Context Protocol)');
-      logger.info('');
-      logger.info('SSE Streaming:');
-      logger.info('  - Add Accept: text/event-stream header for streaming');
-      logger.info('  - Or use /api/tools/:toolName/stream endpoint');
-      logger.info('  - Tools with streaming support are auto-detected');
-      logger.info('');
-      logger.info('Authentication: Use Authorization header with Bearer token');
-      logger.info('  Example: Authorization: Bearer <SECONDARY_LAYER_KEY>');
-    });
+    // Listen BEFORE initialize so healthcheck responds during slow startup
+    await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));
+    logger.info(`HTTP server listening on http://${host}:${port} (initializing services...)`);
+
+    await this.initialize();
+
+    logger.info(`HTTP MCP Server fully initialized on http://${host}:${port}`);
   }
 }
 
