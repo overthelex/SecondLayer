@@ -12,6 +12,8 @@ const mockGetMessages = vi.fn();
 const mockSendMessage = vi.fn();
 const mockConnectMessageStream = vi.fn();
 const mockMarkMessagesRead = vi.fn();
+const mockSendTyping = vi.fn();
+const mockGetGlobalUnreadCount = vi.fn();
 
 vi.mock('../../../services', () => ({
   consultationService: {
@@ -19,7 +21,24 @@ vi.mock('../../../services', () => ({
     sendMessage: (...args: any[]) => mockSendMessage(...args),
     connectMessageStream: (...args: any[]) => mockConnectMessageStream(...args),
     markMessagesRead: (...args: any[]) => mockMarkMessagesRead(...args),
+    sendTyping: (...args: any[]) => mockSendTyping(...args),
+    getGlobalUnreadCount: (...args: any[]) => mockGetGlobalUnreadCount(...args),
   },
+}));
+
+// Mock consultation store
+vi.mock('../../../stores/consultationStore', () => ({
+  useConsultationStore: Object.assign(
+    (selector: any) => {
+      const state = {
+        globalUnreadCount: 0,
+        setGlobalUnreadCount: vi.fn(),
+        decrementUnread: vi.fn(),
+      };
+      return selector ? selector(state) : state;
+    },
+    { getState: () => ({ setGlobalUnreadCount: vi.fn() }) }
+  ),
 }));
 
 import { ConsultationChatTab } from '../ConsultationChatTab';
@@ -49,6 +68,7 @@ describe('ConsultationChatTab', () => {
     mockGetMessages.mockResolvedValue({ messages: [], total: 0 });
     mockConnectMessageStream.mockReturnValue(createMockEventSource());
     mockMarkMessagesRead.mockResolvedValue(undefined);
+    mockGetGlobalUnreadCount.mockResolvedValue({ count: 0 });
   });
 
   describe('Empty state', () => {
