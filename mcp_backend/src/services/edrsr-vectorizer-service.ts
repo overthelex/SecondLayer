@@ -87,10 +87,16 @@ function chunkText(text: string, maxChars = MAX_CHUNK_CHARS, overlapWords = CHUN
 
     chunks.push(text.slice(start, end));
 
+    if (end >= text.length) break;
+
     // Overlap: go back by overlapWords words
     const words = text.slice(start, end).split(/\s+/);
     const overlapText = words.slice(-overlapWords).join(' ');
-    start = end - overlapText.length;
+    const newStart = end - overlapText.length;
+
+    // Safety: always advance by at least half the chunk size to prevent infinite loops
+    // (can happen when text has ≤50 very long words, making overlap ≥ chunk size)
+    start = Math.max(newStart, start + Math.floor(maxChars / 2));
 
     if (start >= text.length - 100) break; // Don't create tiny last chunk
   }
