@@ -307,24 +307,21 @@ export class BillingService {
       const balanceAfter = balanceBefore - chargeAmount;
       const balanceBeforeUah = parseFloat(billing.balance_uah) || 0;
 
-      // Auto-convert USD charge to UAH if not provided
-      const chargeAmountUah = params.amountUah != null
-        ? params.amountUah
-        : await this.convertToUah(chargeAmount);
+      // Recalculate entire UAH balance from new USD balance using current NBU rate
+      const balanceAfterUah = await this.convertToUah(balanceAfter);
+      const chargeAmountUah = balanceBeforeUah - balanceAfterUah;
 
-      const balanceAfterUah = balanceBeforeUah - chargeAmountUah;
-
-      // Update balance and statistics
+      // Update balance and statistics — set balance_uah to recalculated value
       await client.query(
         `UPDATE user_billing
          SET balance_usd = balance_usd - $1,
-             balance_uah = balance_uah - $2,
+             balance_uah = $2,
              total_spent_usd = total_spent_usd + $1,
-             total_spent_uah = total_spent_uah + $2,
+             total_spent_uah = total_spent_uah + $3,
              total_requests = total_requests + 1,
              updated_at = NOW()
-         WHERE user_id = $3`,
-        [chargeAmount, chargeAmountUah, params.userId]
+         WHERE user_id = $4`,
+        [chargeAmount, balanceAfterUah, chargeAmountUah > 0 ? chargeAmountUah : 0, params.userId]
       );
 
       // Record transaction with pricing metadata
@@ -434,21 +431,18 @@ export class BillingService {
       const balanceAfter = balanceBefore + params.amountUsd;
       const balanceBeforeUah = parseFloat(billing.balance_uah) || 0;
 
-      // Auto-convert USD to UAH if not provided
-      const topUpAmountUah = params.amountUah != null
-        ? params.amountUah
-        : await this.convertToUah(params.amountUsd);
+      // Recalculate entire UAH balance from new USD balance using current NBU rate
+      const balanceAfterUah = await this.convertToUah(balanceAfter);
+      const topUpAmountUah = balanceAfterUah - balanceBeforeUah;
 
-      const balanceAfterUah = balanceBeforeUah + topUpAmountUah;
-
-      // Update balance
+      // Update balance — set balance_uah to recalculated value
       await client.query(
         `UPDATE user_billing
          SET balance_usd = balance_usd + $1,
-             balance_uah = balance_uah + $2,
+             balance_uah = $2,
              updated_at = NOW()
          WHERE user_id = $3`,
-        [params.amountUsd, topUpAmountUah, params.userId]
+        [params.amountUsd, balanceAfterUah, params.userId]
       );
 
       // Record transaction
