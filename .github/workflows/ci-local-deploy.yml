@@ -607,15 +607,11 @@ jobs:
           DEPLOY_SCRIPT
 
       - name: Prod health check
-        env:
-          PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
         run: |
-          SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}"
-
-          # Full health check through nginx (works regardless of blue/green)
+          # Public health check through HTTPS (container health already verified in step 4)
           for i in 1 2 3 4 5; do
-            HEALTH=$($SSH_CMD "curl -sf --max-time 10 http://localhost/health" 2>/dev/null) && {
-              echo "=== Production health (via nginx) ==="
+            HEALTH=$(curl -sf --max-time 15 "https://legal.org.ua/health" 2>/dev/null) && {
+              echo "=== Production health (public HTTPS) ==="
               echo "$HEALTH" | jq . 2>/dev/null || echo "$HEALTH"
               STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null)
               if [ "$STATUS" = "degraded" ]; then
@@ -628,16 +624,6 @@ jobs:
             }
             [ $i -eq 5 ] && echo "::error::Production health check failed" && exit 1
             sleep 10
-          done
-
-          for i in 1 2 3; do
-            PUBLIC_HEALTH=$(curl -sf --max-time 15 "https://legal.org.ua/health" 2>/dev/null) && {
-              echo "=== Production health (public) ==="
-              echo "$PUBLIC_HEALTH" | jq . 2>/dev/null || echo "$PUBLIC_HEALTH"
-              break
-            }
-            [ $i -eq 3 ] && echo "::warning::Public health check timed out — may be Cloudflare cache"
-            sleep 5
           done
 
   # ─── Step 4b: Self-heal deploy failures ─────────────────────────────
