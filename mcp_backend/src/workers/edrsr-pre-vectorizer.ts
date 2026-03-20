@@ -44,6 +44,8 @@ export interface PreVectorizerStatus {
   consecutiveErrors: number;
 }
 
+export type VectorizerMetricsCallback = (event: 'docs_processed' | 'batch_error' | 'status_change', value: number) => void;
+
 export class EdsrPreVectorizerWorker {
   private timer: NodeJS.Timeout | null = null;
   private running = false;
@@ -51,6 +53,7 @@ export class EdsrPreVectorizerWorker {
   private circuitBreakerUntil: number = 0;
   private batchSize: number;
   private intervalMs: number;
+  private metricsCallback?: VectorizerMetricsCallback;
 
   constructor(
     private vectorizer: EdsrVectorizerService,
@@ -59,6 +62,10 @@ export class EdsrPreVectorizerWorker {
   ) {
     this.batchSize = parseInt(process.env.EDRSR_VECTORIZE_BATCH_SIZE || '', 10) || DEFAULT_BATCH_SIZE;
     this.intervalMs = parseInt(process.env.EDRSR_VECTORIZE_INTERVAL_MS || '', 10) || DEFAULT_INTERVAL_MS;
+  }
+
+  setMetricsCallback(cb: VectorizerMetricsCallback): void {
+    this.metricsCallback = cb;
   }
 
   /**
@@ -184,6 +191,8 @@ export class EdsrPreVectorizerWorker {
       await this.setRedis(KEY_LAST_RUN, new Date().toISOString());
 
       this.consecutiveErrors = 0;
+      this.metricsCallback?.('docs_processed', newlyVectorized);
+      this.metricsCallback?.('status_change', 1); // running
 
       logger.info('[EdsrPreVectorizer] Batch complete', {
         batchSize: docs.length,
@@ -193,6 +202,7 @@ export class EdsrPreVectorizerWorker {
       });
     } catch (err: any) {
       this.consecutiveErrors++;
+      this.metricsCallback?.('batch_error', 1);
       logger.error('[EdsrPreVectorizer] Batch failed', {
         error: err.message,
         consecutiveErrors: this.consecutiveErrors,
@@ -202,6 +212,7 @@ export class EdsrPreVectorizerWorker {
       if (this.consecutiveErrors >= CIRCUIT_BREAKER_THRESHOLD) {
         this.circuitBreakerUntil = Date.now() + CIRCUIT_BREAKER_PAUSE_MS;
         this.updateStatus('paused');
+        this.metricsCallback?.('status_change', -1); // paused
         logger.warn('[EdsrPreVectorizer] Circuit breaker tripped — pausing for 30 minutes', {
           consecutiveErrors: this.consecutiveErrors,
         });
