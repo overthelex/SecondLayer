@@ -3,6 +3,7 @@ import { Send, MessageSquare, Loader2, Paperclip, FileText, Download, X, Check, 
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services';
 import { uploadService } from '../../services/api/UploadService';
+import { useConsultationStore } from '../../stores/consultationStore';
 import type { ConsultationMessage } from '../../services/api/ConsultationService';
 
 interface ConsultationChatTabProps {
@@ -89,9 +90,12 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [typingUser, setTypingUser] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentRef = useRef<number>(0);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -162,6 +166,25 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
       }
     });
 
+    // Handle typing indicators
+    es.addEventListener('typing', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.userId !== user?.id) {
+          setTypingUser(data.userName || 'Співрозмовник');
+          // Clear after 4s (sender sends every 3s while typing)
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 4000);
+        }
+      } catch {}
+    });
+
+    // Handle consultation status changes
+    es.addEventListener('consultation_status', () => {
+      // Dispatch global event for other components
+      window.dispatchEvent(new CustomEvent('consultation-updated'));
+    });
+
     es.onerror = () => {
       // EventSource will auto-reconnect
     };
@@ -169,13 +192,21 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
     return () => {
       es.close();
       eventSourceRef.current = null;
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, [consultationId, onUnreadCountChange, scrollToBottom, user?.id]);
 
   // Mark messages as read when chat becomes visible
   useEffect(() => {
     if (consultationId && messages.length > 0) {
-      consultationService.markMessagesRead(consultationId).catch(() => {});
+      consultationService.markMessagesRead(consultationId)
+        .then(() => {
+          // Re-fetch global unread to get accurate count
+          consultationService.getGlobalUnreadCount()
+            .then(r => useConsultationStore.getState().setGlobalUnreadCount(r.count))
+            .catch(() => {});
+        })
+        .catch(() => {});
     }
   }, [consultationId, messages.length]);
 
@@ -286,6 +317,15 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
     }
   };
 
+  const sendTypingIndicator = useCallback(() => {
+    if (!consultationId) return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current > 3000) {
+      lastTypingSentRef.current = now;
+      consultationService.sendTyping(consultationId);
+    }
+  }, [consultationId]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -359,6 +399,13 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
             </div>
           );
         })}
+        {typingUser && (
+          <div className="flex justify-start">
+            <div className="bg-claude-user text-claude-subtext rounded-xl rounded-bl-sm px-3 py-2">
+              <p className="text-[11px] italic">{typingUser} пише...</p>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -414,7 +461,7 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
             </button>
             <textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => { setInput(e.target.value); sendTypingIndicator(); }}
               onKeyDown={handleKeyDown}
               placeholder="Написати повідомлення..."
               rows={1}
