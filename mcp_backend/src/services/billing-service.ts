@@ -1038,6 +1038,68 @@ export class BillingService {
   }
 
   /**
+   * Get billing info (company details for invoicing)
+   */
+  async getBillingInfo(userId: string): Promise<{
+    companyName: string;
+    edrpou: string;
+    address: string;
+    city: string;
+    postalCode: string;
+    country: string;
+    email: string;
+    phone: string;
+  }> {
+    const result = await this.db.query(
+      `SELECT company_name, edrpou, billing_address, billing_city,
+              billing_postal_code, billing_country, billing_email, billing_phone
+       FROM user_billing WHERE user_id = $1`,
+      [userId]
+    );
+    const row = result.rows[0];
+    return {
+      companyName: row?.company_name || '',
+      edrpou: row?.edrpou || '',
+      address: row?.billing_address || '',
+      city: row?.billing_city || '',
+      postalCode: row?.billing_postal_code || '',
+      country: row?.billing_country || 'Ukraine',
+      email: row?.billing_email || '',
+      phone: row?.billing_phone || '',
+    };
+  }
+
+  /**
+   * Update billing info (company details for invoicing)
+   */
+  async updateBillingInfo(userId: string, data: {
+    companyName?: string;
+    edrpou?: string;
+    address?: string;
+    city?: string;
+    postalCode?: string;
+    country?: string;
+    email?: string;
+    phone?: string;
+  }): Promise<void> {
+    await this.db.query(
+      `UPDATE user_billing SET
+        company_name = COALESCE($2, company_name),
+        edrpou = COALESCE($3, edrpou),
+        billing_address = COALESCE($4, billing_address),
+        billing_city = COALESCE($5, billing_city),
+        billing_postal_code = COALESCE($6, billing_postal_code),
+        billing_country = COALESCE($7, billing_country),
+        billing_email = COALESCE($8, billing_email),
+        billing_phone = COALESCE($9, billing_phone),
+        updated_at = NOW()
+       WHERE user_id = $1`,
+      [userId, data.companyName, data.edrpou, data.address, data.city,
+       data.postalCode, data.country, data.email, data.phone]
+    );
+  }
+
+  /**
    * Get email notification preferences for a user
    */
   async getEmailPreferences(userId: string): Promise<EmailPreferences> {
