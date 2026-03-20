@@ -64,6 +64,7 @@ import { JudgeAnalyticsService } from './services/judge-analytics-service.js';
 import { createJudgeAnalyticsRoutes } from './routes/judge-analytics-routes.js';
 import { createReferralRoutes } from './routes/referral-routes.js';
 import rateLimit from 'express-rate-limit';
+import cron from 'node-cron';
 
 dotenv.config();
 
@@ -97,6 +98,14 @@ class HTTPMCPServer {
     // Setup middleware and routes AFTER services are initialized
     this.setupMiddleware();
     this.setupRoutes();
+
+    // Cron: auto-release stale escrow payments daily at 07:00 Kyiv time
+    cron.schedule('0 7 * * *', () => {
+      logger.info('[Cron] Running auto-release stale escrow payments');
+      this.app_.consultationPaymentService.autoReleaseStaleCompletedPayments().catch(err => {
+        logger.error('[Cron] Auto-release escrow failed', { error: (err as Error).message });
+      });
+    }, { timezone: 'Europe/Kyiv' });
   }
 
   private setupMiddleware() {
@@ -516,7 +525,10 @@ class HTTPMCPServer {
 
     // Consultation routes - all require JWT
     this.app.use('/api/consultations', requireJWT as any, createConsultationRoutes(
-      this.app_.consultationService, this.app_.consultationPaymentService
+      this.app_.consultationService,
+      this.app_.consultationPaymentService,
+      this.app_.attorneyPayoutService,
+      this.services.db
     ));
     logger.info('Consultation routes registered at /api/consultations');
 

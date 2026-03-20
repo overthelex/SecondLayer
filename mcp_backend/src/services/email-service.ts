@@ -333,6 +333,298 @@ export class EmailService {
     }
   }
 
+  // ─── Consultation Email Notifications ───────────────────────
+
+  /**
+   * Send notification about a new consultation request (to attorney)
+   */
+  async sendConsultationRequestEmail(params: {
+    email: string;
+    attorneyName: string;
+    clientName: string;
+    requestTitle: string;
+    consultationId: string;
+  }): Promise<void> {
+    try {
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Нова заявка на консультацію від ${params.clientName}`,
+        heading: 'Нова заявка на консультацію',
+        body: `<p>Шановний(-а) ${params.attorneyName},</p>
+               <p>Ви отримали нову заявку на консультацію:</p>
+               <p><strong>${params.requestTitle}</strong></p>
+               <p>Від клієнта: ${params.clientName}</p>`,
+        actionUrl: `${this.frontendUrl}/consultations/${params.consultationId}`,
+        actionText: 'Переглянути заявку',
+      });
+      logger.info('Consultation request email sent', { consultationId: params.consultationId });
+    } catch (error: any) {
+      logger.error('Failed to send consultation request email', { error: error.message });
+    }
+  }
+
+  /**
+   * Send notification that attorney accepted consultation (to client)
+   */
+  async sendConsultationAcceptedEmail(params: {
+    email: string;
+    clientName: string;
+    attorneyName: string;
+    requestTitle: string;
+    agreedFeeUah: number;
+    consultationId: string;
+  }): Promise<void> {
+    try {
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Адвокат ${params.attorneyName} прийняв вашу заявку`,
+        heading: 'Заявку прийнято',
+        body: `<p>Вітаємо, ${params.clientName}!</p>
+               <p>Адвокат <strong>${params.attorneyName}</strong> прийняв вашу заявку «${params.requestTitle}».</p>
+               <p>Узгоджена вартість: <strong>${params.agreedFeeUah} грн</strong></p>
+               <p>Для продовження необхідно здійснити оплату.</p>`,
+        actionUrl: `${this.frontendUrl}/consultations/${params.consultationId}`,
+        actionText: 'Перейти до оплати',
+      });
+      logger.info('Consultation accepted email sent', { consultationId: params.consultationId });
+    } catch (error: any) {
+      logger.error('Failed to send consultation accepted email', { error: error.message });
+    }
+  }
+
+  /**
+   * Send notification that attorney declined consultation (to client)
+   */
+  async sendConsultationDeclinedEmail(params: {
+    email: string;
+    clientName: string;
+    attorneyName: string;
+    requestTitle: string;
+    reason?: string;
+    consultationId: string;
+  }): Promise<void> {
+    try {
+      const reasonText = params.reason
+        ? `<p>Причина: ${params.reason}</p>`
+        : '';
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Адвокат відхилив заявку «${params.requestTitle}»`,
+        heading: 'Заявку відхилено',
+        body: `<p>Шановний(-а) ${params.clientName},</p>
+               <p>На жаль, адвокат <strong>${params.attorneyName}</strong> відхилив вашу заявку «${params.requestTitle}».</p>
+               ${reasonText}
+               <p>Ви можете звернутися до іншого адвоката на платформі.</p>`,
+        actionUrl: `${this.frontendUrl}/attorneys`,
+        actionText: 'Знайти адвоката',
+      });
+      logger.info('Consultation declined email sent', { consultationId: params.consultationId });
+    } catch (error: any) {
+      logger.error('Failed to send consultation declined email', { error: error.message });
+    }
+  }
+
+  /**
+   * Send notification that payment was confirmed/held in escrow (to both parties)
+   */
+  async sendConsultationPaidEmail(params: {
+    email: string;
+    recipientName: string;
+    otherPartyName: string;
+    requestTitle: string;
+    amountUah: number;
+    consultationId: string;
+    isAttorney: boolean;
+  }): Promise<void> {
+    try {
+      const body = params.isAttorney
+        ? `<p>Шановний(-а) ${params.recipientName},</p>
+           <p>Клієнт ${params.otherPartyName} здійснив оплату <strong>${params.amountUah} грн</strong> за консультацію «${params.requestTitle}».</p>
+           <p>Кошти утримуються на ескроу-рахунку. Ви можете розпочати консультацію.</p>`
+        : `<p>Вітаємо, ${params.recipientName}!</p>
+           <p>Ваша оплата <strong>${params.amountUah} грн</strong> за консультацію «${params.requestTitle}» підтверджена.</p>
+           <p>Кошти утримуються на ескроу-рахунку до завершення консультації.</p>`;
+
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Оплату підтверджено: ${params.requestTitle}`,
+        heading: 'Оплату підтверджено',
+        body,
+        actionUrl: `${this.frontendUrl}/consultations/${params.consultationId}`,
+        actionText: params.isAttorney ? 'Розпочати консультацію' : 'Переглянути консультацію',
+      });
+      logger.info('Consultation paid email sent', { consultationId: params.consultationId, isAttorney: params.isAttorney });
+    } catch (error: any) {
+      logger.error('Failed to send consultation paid email', { error: error.message });
+    }
+  }
+
+  /**
+   * Send notification that consultation was completed (to client)
+   */
+  async sendConsultationCompletedEmail(params: {
+    email: string;
+    clientName: string;
+    attorneyName: string;
+    requestTitle: string;
+    consultationId: string;
+  }): Promise<void> {
+    try {
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Консультацію завершено: ${params.requestTitle}`,
+        heading: 'Консультацію завершено',
+        body: `<p>Вітаємо, ${params.clientName}!</p>
+               <p>Адвокат <strong>${params.attorneyName}</strong> завершив консультацію «${params.requestTitle}».</p>
+               <p>Кошти з ескроу-рахунку буде перераховано адвокату.</p>
+               <p>Будь ласка, залиште відгук про якість консультації.</p>`,
+        actionUrl: `${this.frontendUrl}/consultations/${params.consultationId}`,
+        actionText: 'Залишити відгук',
+      });
+      logger.info('Consultation completed email sent', { consultationId: params.consultationId });
+    } catch (error: any) {
+      logger.error('Failed to send consultation completed email', { error: error.message });
+    }
+  }
+
+  /**
+   * Send notification that consultation was cancelled (to other party)
+   */
+  async sendConsultationCancelledEmail(params: {
+    email: string;
+    recipientName: string;
+    cancelledByName: string;
+    requestTitle: string;
+    reason?: string;
+    consultationId: string;
+  }): Promise<void> {
+    try {
+      const reasonText = params.reason
+        ? `<p>Причина: ${params.reason}</p>`
+        : '';
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Консультацію скасовано: ${params.requestTitle}`,
+        heading: 'Консультацію скасовано',
+        body: `<p>Шановний(-а) ${params.recipientName},</p>
+               <p>Консультацію «${params.requestTitle}» було скасовано користувачем ${params.cancelledByName}.</p>
+               ${reasonText}
+               <p>Якщо було здійснено оплату, кошти буде повернено на ваш рахунок.</p>`,
+        actionUrl: `${this.frontendUrl}/consultations/${params.consultationId}`,
+        actionText: 'Переглянути деталі',
+      });
+      logger.info('Consultation cancelled email sent', { consultationId: params.consultationId });
+    } catch (error: any) {
+      logger.error('Failed to send consultation cancelled email', { error: error.message });
+    }
+  }
+
+  /**
+   * Send notification that a dispute was opened (to other party)
+   */
+  async sendConsultationDisputeEmail(params: {
+    email: string;
+    recipientName: string;
+    raisedByName: string;
+    requestTitle: string;
+    reason: string;
+    consultationId: string;
+  }): Promise<void> {
+    try {
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Відкрито спір: ${params.requestTitle}`,
+        heading: 'Відкрито спір',
+        body: `<p>Шановний(-а) ${params.recipientName},</p>
+               <p>Користувач ${params.raisedByName} відкрив спір щодо консультації «${params.requestTitle}».</p>
+               <p><strong>Причина:</strong> ${params.reason}</p>
+               <p>Адміністрація платформи розгляне спір та прийме рішення.</p>`,
+        actionUrl: `${this.frontendUrl}/consultations/${params.consultationId}`,
+        actionText: 'Переглянути деталі',
+      });
+      logger.info('Consultation dispute email sent', { consultationId: params.consultationId });
+    } catch (error: any) {
+      logger.error('Failed to send consultation dispute email', { error: error.message });
+    }
+  }
+
+  /**
+   * Generic consultation email sender with LEX branding
+   */
+  private async sendConsultationEmail(params: {
+    to: string;
+    subject: string;
+    heading: string;
+    body: string;
+    actionUrl: string;
+    actionText: string;
+  }): Promise<void> {
+    const logoImg = this.logoBuffer
+      ? '<img src="cid:lexlogo@legal.org.ua" alt="LEX" width="40" height="40" style="display:inline-block;vertical-align:middle;margin-right:8px;" />'
+      : '<span style="font-size:22px;font-weight:bold;color:#1e293b;letter-spacing:3px;vertical-align:middle;">LEX</span>';
+
+    const html = `
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background: #f1f5f9; }
+    .wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .card { background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.07); }
+    .header { background: #e8effa; padding: 24px 30px; }
+    .content { padding: 30px; }
+    .btn { display: inline-block; background: #1e293b; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; }
+    .btn-center { text-align: center; margin: 24px 0; }
+    .footer { text-align: center; padding: 20px; font-size: 12px; color: #94a3b8; }
+    .footer a { color: #64748b; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <div style="margin-bottom:12px;">${logoImg}</div>
+        <h1 style="color:#1e293b;font-size:20px;margin:0;font-weight:700;">${params.heading}</h1>
+      </div>
+      <div class="content">
+        ${params.body}
+        <div class="btn-center">
+          <a href="${params.actionUrl}" class="btn">${params.actionText}</a>
+        </div>
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;" />
+        <p style="font-size:13px;color:#64748b;text-align:center;">
+          Якщо у вас виникли питання — напишіть нам на <a href="mailto:support@legal.org.ua" style="color:#1e293b;">support@legal.org.ua</a>
+        </p>
+      </div>
+      <div class="footer">
+        <p>&copy; ${new Date().getFullYear()} LEX Legal Platform. Усі права захищено.</p>
+        <p><a href="${this.frontendUrl}">legal.org.ua</a></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`.trim();
+
+    const attachments: nodemailer.SendMailOptions['attachments'] = [];
+    if (this.logoBuffer) {
+      attachments.push({
+        filename: 'logolex.png',
+        content: this.logoBuffer,
+        cid: 'lexlogo@legal.org.ua',
+      });
+    }
+
+    await this.transporter.sendMail({
+      from: `"${this.config.fromName}" <${this.config.from}>`,
+      to: params.to,
+      subject: params.subject,
+      html,
+      attachments,
+    });
+  }
+
   /**
    * Generate verification email template
    */

@@ -5,6 +5,7 @@ import { AuditService } from './audit-service.js';
 import { MatterService } from './matter-service.js';
 import { AttorneyProfileService } from './attorney-profile-service.js';
 import { consultationMessageBus } from './consultation-message-bus.js';
+import type { EmailService } from './email-service.js';
 
 export interface Consultation {
   id: string;
@@ -77,12 +78,24 @@ export interface CreateConsultationData {
 }
 
 export class ConsultationService {
+  private emailService?: EmailService;
+
   constructor(
     private db: IDatabase,
     private matterService: MatterService,
     private auditService: AuditService,
     private attorneyProfileService: AttorneyProfileService
   ) {}
+
+  setEmailService(emailService: EmailService): void {
+    this.emailService = emailService;
+  }
+
+  /** Helper to fetch user email + name for notifications */
+  private async getUserInfo(userId: string): Promise<{ name: string; email: string } | null> {
+    const result = await this.db.query('SELECT name, email FROM users WHERE id = $1', [userId]);
+    return result.rows[0] || null;
+  }
 
   async createConsultation(clientUserId: string, data: CreateConsultationData): Promise<Consultation> {
     const id = uuidv4();
@@ -116,6 +129,23 @@ export class ConsultationService {
     });
 
     logger.info('Consultation created', { id, clientUserId, attorneyUserId: data.attorneyUserId });
+
+    // Email notification to attorney
+    if (this.emailService) {
+      this.getUserInfo(data.attorneyUserId).then(attorney => {
+        if (!attorney) return;
+        this.getUserInfo(clientUserId).then(client => {
+          if (!client) return;
+          this.emailService!.sendConsultationRequestEmail({
+            email: attorney.email,
+            attorneyName: attorney.name,
+            clientName: client.name,
+            requestTitle: data.requestTitle,
+            consultationId: id,
+          }).catch(() => {});
+        }).catch(() => {});
+      }).catch(() => {});
+    }
 
     // Emit real-time status event
     const enriched = await this.getConsultation(id, clientUserId) || result.rows[0];
@@ -224,6 +254,24 @@ export class ConsultationService {
       details: { agreedFee },
     });
 
+    // Email notification to client
+    if (this.emailService) {
+      const fee = agreedFee ?? consultation.agreed_fee_uah ?? 0;
+      Promise.all([this.getUserInfo(consultation.client_user_id), this.getUserInfo(attorneyUserId)])
+        .then(([client, attorney]) => {
+          if (client && attorney) {
+            this.emailService!.sendConsultationAcceptedEmail({
+              email: client.email,
+              clientName: client.name,
+              attorneyName: attorney.name,
+              requestTitle: consultation.request_title,
+              agreedFeeUah: fee,
+              consultationId: id,
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+    }
+
     const enriched = await this.getConsultation(id, attorneyUserId) || result.rows[0];
     consultationMessageBus.publishConsultationStatus(enriched);
 
@@ -248,6 +296,23 @@ export class ConsultationService {
       resourceId: id,
       details: { reason },
     });
+
+    // Email notification to client
+    if (this.emailService) {
+      Promise.all([this.getUserInfo(consultation.client_user_id), this.getUserInfo(attorneyUserId)])
+        .then(([client, attorney]) => {
+          if (client && attorney) {
+            this.emailService!.sendConsultationDeclinedEmail({
+              email: client.email,
+              clientName: client.name,
+              attorneyName: attorney.name,
+              requestTitle: consultation.request_title,
+              reason,
+              consultationId: id,
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+    }
 
     const enriched = await this.getConsultation(id, attorneyUserId) || result.rows[0];
     consultationMessageBus.publishConsultationStatus(enriched);
@@ -294,6 +359,26 @@ export class ConsultationService {
       resourceId: id,
       details: { paymentId, matterId: consultation.matter_id },
     });
+
+    // Email notification to both parties
+    if (this.emailService) {
+      Promise.all([this.getUserInfo(consultation.client_user_id), this.getUserInfo(consultation.attorney_user_id)])
+        .then(([client, attorney]) => {
+          if (!client || !attorney) return;
+          const amount = consultation.agreed_fee_uah || 0;
+          const title = consultation.request_title || 'Консультація';
+          // Client email
+          this.emailService!.sendConsultationPaidEmail({
+            email: client.email, recipientName: client.name, otherPartyName: attorney.name,
+            requestTitle: title, amountUah: amount, consultationId: id, isAttorney: false,
+          }).catch(() => {});
+          // Attorney email
+          this.emailService!.sendConsultationPaidEmail({
+            email: attorney.email, recipientName: attorney.name, otherPartyName: client.name,
+            requestTitle: title, amountUah: amount, consultationId: id, isAttorney: true,
+          }).catch(() => {});
+        }).catch(() => {});
+    }
 
     // Re-fetch with JOINs for enriched data
     const enriched = await this.getConsultationById(id) || consultation;
@@ -379,6 +464,22 @@ export class ConsultationService {
       resourceId: id,
     });
 
+    // Email notification to client
+    if (this.emailService) {
+      Promise.all([this.getUserInfo(consultation.client_user_id), this.getUserInfo(attorneyUserId)])
+        .then(([client, attorney]) => {
+          if (client && attorney) {
+            this.emailService!.sendConsultationCompletedEmail({
+              email: client.email,
+              clientName: client.name,
+              attorneyName: attorney.name,
+              requestTitle: consultation.request_title,
+              consultationId: id,
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+    }
+
     const enriched = await this.getConsultation(id, attorneyUserId) || result.rows[0];
     consultationMessageBus.publishConsultationStatus(enriched);
 
@@ -430,6 +531,26 @@ export class ConsultationService {
       resourceId: id,
       details: { reason, previousStatus: consultation.status },
     });
+
+    // Email notification to the other party
+    if (this.emailService) {
+      const recipientId = consultation.client_user_id === userId
+        ? consultation.attorney_user_id
+        : consultation.client_user_id;
+      Promise.all([this.getUserInfo(recipientId), this.getUserInfo(userId)])
+        .then(([recipient, canceller]) => {
+          if (recipient && canceller) {
+            this.emailService!.sendConsultationCancelledEmail({
+              email: recipient.email,
+              recipientName: recipient.name,
+              cancelledByName: canceller.name,
+              requestTitle: consultation.request_title,
+              reason,
+              consultationId: id,
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+    }
 
     const enriched = await this.getConsultationById(id) || result.rows[0];
     consultationMessageBus.publishConsultationStatus(enriched);
@@ -664,6 +785,176 @@ export class ConsultationService {
     });
 
     return result.rows[0];
+  }
+
+  // ─── Disputes ────────────────────────────────────────────
+
+  /**
+   * Raise a dispute on a consultation (client or attorney).
+   * Allowed from 'in_progress' or 'completed' (within 7 days of completion).
+   */
+  async raiseDispute(
+    consultationId: string,
+    userId: string,
+    reason: string
+  ): Promise<{ consultation: Consultation; dispute: any }> {
+    const consultation = await this.requireConsultation(consultationId, userId);
+
+    const allowedStatuses = ['in_progress', 'completed'];
+    if (!allowedStatuses.includes(consultation.status)) {
+      throw new Error(`Cannot raise dispute for consultation in status: ${consultation.status}`);
+    }
+
+    // For completed consultations, enforce 7-day window
+    if (consultation.status === 'completed' && consultation.completed_at) {
+      const daysSinceCompleted = (Date.now() - new Date(consultation.completed_at).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceCompleted > 7) {
+        throw new Error('Dispute window expired: must be raised within 7 days of completion');
+      }
+    }
+
+    // Transition consultation to disputed
+    const consultationResult = await this.db.query(
+      `UPDATE consultations
+       SET status = 'disputed', dispute_reason = $2, dispute_raised_by = $3, dispute_raised_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [consultationId, reason, userId]
+    );
+
+    // Create dispute record
+    const disputeId = uuidv4();
+    const disputeResult = await this.db.query(
+      `INSERT INTO consultation_disputes (id, consultation_id, raised_by, reason)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [disputeId, consultationId, userId, reason]
+    );
+
+    await this.auditService.log({
+      userId,
+      action: 'consultation.disputed',
+      resourceType: 'consultation',
+      resourceId: consultationId,
+      details: { disputeId, reason },
+    });
+
+    const enriched = await this.getConsultationById(consultationId) || consultationResult.rows[0];
+    consultationMessageBus.publishConsultationStatus(enriched);
+
+    // Email notification to the other party
+    if (this.emailService) {
+      const recipientId = consultation.client_user_id === userId
+        ? consultation.attorney_user_id
+        : consultation.client_user_id;
+      Promise.all([this.getUserInfo(recipientId), this.getUserInfo(userId)])
+        .then(([recipient, raiser]) => {
+          if (recipient && raiser) {
+            this.emailService!.sendConsultationDisputeEmail({
+              email: recipient.email,
+              recipientName: recipient.name,
+              raisedByName: raiser.name,
+              requestTitle: consultation.request_title,
+              reason,
+              consultationId,
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+    }
+
+    logger.info('Dispute raised', { consultationId, disputeId, userId });
+
+    return {
+      consultation: consultationResult.rows[0],
+      dispute: disputeResult.rows[0],
+    };
+  }
+
+  /**
+   * Get dispute details for a consultation
+   */
+  async getDispute(consultationId: string, userId: string): Promise<any> {
+    await this.requireConsultation(consultationId, userId);
+
+    const result = await this.db.query(
+      `SELECT cd.*, u.name as raised_by_name,
+              ru.name as resolved_by_name
+       FROM consultation_disputes cd
+       JOIN users u ON u.id = cd.raised_by
+       LEFT JOIN users ru ON ru.id = cd.resolved_by
+       WHERE cd.consultation_id = $1
+       ORDER BY cd.created_at DESC LIMIT 1`,
+      [consultationId]
+    );
+    return result.rows[0] || null;
+  }
+
+  /**
+   * List all open disputes (admin)
+   */
+  async listOpenDisputes(): Promise<any[]> {
+    const result = await this.db.query(
+      `SELECT cd.*,
+              u.name as raised_by_name,
+              c.request_title,
+              cu.name as client_name, cu.email as client_email,
+              au.name as attorney_name, au.email as attorney_email
+       FROM consultation_disputes cd
+       JOIN consultations c ON c.id = cd.consultation_id
+       JOIN users u ON u.id = cd.raised_by
+       JOIN users cu ON cu.id = c.client_user_id
+       JOIN users au ON au.id = c.attorney_user_id
+       WHERE cd.status IN ('open', 'under_review')
+       ORDER BY cd.created_at ASC`
+    );
+    return result.rows;
+  }
+
+  /**
+   * Resolve a dispute (admin)
+   */
+  async resolveDispute(
+    disputeId: string,
+    adminUserId: string,
+    resolution: 'refund_full' | 'refund_partial' | 'dismissed',
+    notes?: string
+  ): Promise<any> {
+    const disputeResult = await this.db.query(
+      `UPDATE consultation_disputes
+       SET status = 'resolved', resolution = $2, resolution_notes = $3,
+           resolved_by = $4, resolved_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND status IN ('open', 'under_review')
+       RETURNING *`,
+      [disputeId, resolution, notes || null, adminUserId]
+    );
+
+    if (disputeResult.rows.length === 0) {
+      throw new Error('Dispute not found or already resolved');
+    }
+
+    const dispute = disputeResult.rows[0];
+
+    // Update consultation status based on resolution
+    const newStatus = resolution === 'dismissed' ? 'completed' : 'cancelled';
+    await this.db.query(
+      `UPDATE consultations SET status = $2 WHERE id = $1`,
+      [dispute.consultation_id, newStatus]
+    );
+
+    await this.auditService.log({
+      userId: adminUserId,
+      action: 'consultation.dispute_resolved',
+      resourceType: 'consultation',
+      resourceId: dispute.consultation_id,
+      details: { disputeId, resolution, notes },
+    });
+
+    const enriched = await this.getConsultationById(dispute.consultation_id);
+    if (enriched) consultationMessageBus.publishConsultationStatus(enriched);
+
+    logger.info('Dispute resolved', { disputeId, resolution, consultationId: dispute.consultation_id });
+
+    return dispute;
   }
 
   // ─── Internal helpers ──────────────────────────────────
