@@ -622,7 +622,7 @@ services:
       NOWPAYMENTS_IPN_SECRET: ${NOWPAYMENTS_IPN_SECRET:-}
       NOWPAYMENTS_PUBLIC_KEY: ${NOWPAYMENTS_PUBLIC_KEY:-}
 
-      LOG_LEVEL: ${LOG_LEVEL:-warn}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: Europe/Kiev
     ports:
     - "127.0.0.1:3007:3000"
@@ -637,7 +637,7 @@ services:
         condition: service_completed_successfully
     volumes:
     - app_prod_data:/app/data
-    - app_prod_logs:/app/logs
+    - app_prod_logs:/app/mcp_backend/logs
     - ../vision-ocr-credentials.json:/app/credentials/vision-credentials.json:ro
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/ready', r => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); });"]
@@ -720,7 +720,7 @@ services:
       SCRAPE_SKIP_EMBEDDINGS: "true"
       SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS:-}
       JWT_SECRET: ${JWT_SECRET:-}
-      LOG_LEVEL: ${LOG_LEVEL:-warn}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://legal.org.ua}
       TZ: Europe/Kiev
     ports:
@@ -934,7 +934,7 @@ services:
       NOWPAYMENTS_API_KEY: ${NOWPAYMENTS_API_KEY:-}
       NOWPAYMENTS_IPN_SECRET: ${NOWPAYMENTS_IPN_SECRET:-}
       NOWPAYMENTS_PUBLIC_KEY: ${NOWPAYMENTS_PUBLIC_KEY:-}
-      LOG_LEVEL: ${LOG_LEVEL:-warn}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: Europe/Kiev
     depends_on:
       pgbouncer-prod:
@@ -945,7 +945,7 @@ services:
         condition: service_healthy
     volumes:
     - app_prod_data:/app/data
-    - app_prod_logs:/app/logs
+    - app_prod_logs:/app/mcp_backend/logs
     - ../vision-ocr-credentials.json:/app/credentials/vision-credentials.json:ro
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/ready', r => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); });"]
@@ -1129,7 +1129,7 @@ services:
       SCRAPE_SKIP_EMBEDDINGS: "true"
       SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS:-}
       JWT_SECRET: ${JWT_SECRET:-}
-      LOG_LEVEL: ${LOG_LEVEL:-warn}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://legal.org.ua}
       TZ: Europe/Kiev
     volumes:
