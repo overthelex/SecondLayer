@@ -476,7 +476,7 @@ export class EmailService {
           </tr>
           <tr>
             <td>Поточний баланс</td>
-            <td>$${params.newBalance.toFixed(2)} USD</td>
+            <td>$${Number(params.newBalance).toFixed(2)} USD</td>
           </tr>
           <tr>
             <td>Дата</td>
