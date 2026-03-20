@@ -195,7 +195,6 @@ describe('ConsultationsPage', () => {
 
       // Cards should be in a space-y-3 container
       const card1 = screen.getByText('Перша').closest('.border');
-      const card2 = screen.getByText('Друга').closest('.border');
       const container = card1?.parentElement;
       expect(container?.className).toContain('space-y-3');
     });

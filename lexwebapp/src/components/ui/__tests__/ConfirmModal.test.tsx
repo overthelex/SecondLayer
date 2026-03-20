@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfirmModal } from '../ConfirmModal';
 
@@ -138,12 +138,8 @@ describe('ConfirmModal', () => {
   describe('loading state', () => {
     it('disables buttons when loading', () => {
       render(<ConfirmModal {...defaultProps} loading={true} />);
-      const buttons = screen.getAllByRole('button');
-      // Cancel and confirm buttons (skip X)
-      const cancelBtn = screen.getByText('Скасувати').closest('button');
-      const confirmBtn = screen.getByText('Підтвердити').closest('button');
-      expect(cancelBtn).toBeDisabled();
-      expect(confirmBtn).toBeDisabled();
+      expect(screen.getByText('Скасувати').closest('button')).toBeDisabled();
+      expect(screen.getByText('Підтвердити').closest('button')).toBeDisabled();
     });
   });
 });
