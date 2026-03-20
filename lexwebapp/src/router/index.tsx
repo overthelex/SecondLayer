@@ -106,11 +106,7 @@ const CaseAnalysisPage = lazyWithRetry(() => import('../pages/CaseAnalysisPage')
 const DecisionsSearchPage = lazyWithRetry(() => import('../pages/DecisionsSearchPage').then(m => ({ default: m.DecisionsSearchPage })));
 const LegislationMonitoringPage = lazyWithRetry(() => import('../pages/LegislationMonitoringPage').then(m => ({ default: m.LegislationMonitoringPage })));
 const CourtPracticeAnalysisPage = lazyWithRetry(() => import('../pages/CourtPracticeAnalysisPage').then(m => ({ default: m.CourtPracticeAnalysisPage })));
-const LegalInitiativesPage = lazyWithRetry(() => import('../pages/LegalInitiativesPage').then(m => ({ default: m.LegalInitiativesPage })));
-const LegislationStatisticsPage = lazyWithRetry(() => import('../pages/LegislationStatisticsPage').then(m => ({ default: m.LegislationStatisticsPage })));
-const VotingAnalysisPage = lazyWithRetry(() => import('../pages/VotingAnalysisPage').then(m => ({ default: m.VotingAnalysisPage })));
 const LegalCodesLibraryPage = lazyWithRetry(() => import('../pages/LegalCodesLibraryPage').then(m => ({ default: m.LegalCodesLibraryPage })));
-const HistoricalAnalysisPage = lazyWithRetry(() => import('../pages/HistoricalAnalysisPage').then(m => ({ default: m.HistoricalAnalysisPage })));
 
 // -- News --
 const NewsPage = lazyWithRetry(() => import('../pages/NewsPage').then(m => ({ default: m.NewsPage })));
@@ -405,24 +401,8 @@ export const router = createBrowserRouter([
             element: S(LegislationMonitoringPage),
           },
           {
-            path: ROUTES.LEGISLATION_STATISTICS,
-            element: S(LegislationStatisticsPage),
-          },
-          {
-            path: ROUTES.LEGAL_INITIATIVES,
-            element: S(LegalInitiativesPage),
-          },
-          {
             path: ROUTES.LEGAL_CODES_LIBRARY,
             element: S(LegalCodesLibraryPage),
-          },
-          {
-            path: ROUTES.VOTING_ANALYSIS,
-            element: S(VotingAnalysisPage),
-          },
-          {
-            path: ROUTES.HISTORICAL_ANALYSIS,
-            element: S(HistoricalAnalysisPage),
           },
           {
             path: ROUTES.COURT_PRACTICE_ANALYSIS,
