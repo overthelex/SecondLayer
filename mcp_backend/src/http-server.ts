@@ -825,9 +825,9 @@ class HTTPMCPServer {
     await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));
     logger.info(`HTTP server listening on http://${host}:${port} (initializing services...)`);
 
-    await this.initialize();
-
-    logger.info(`HTTP MCP Server fully initialized on http://${host}:${port}`);
+    this.initialize()
+      .then(() => logger.info(`HTTP MCP Server fully initialized on http://${host}:${port}`))
+      .catch((error) => logger.error('Failed to initialize services:', error));
   }
 }
 
