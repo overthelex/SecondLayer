@@ -19,6 +19,10 @@ const FREE_TOOLS = new Set([
   'get_document_sections',
   'list_conversations',
   'get_conversation',
+  'get_legislation_structure',
+  'get_legislation_article',
+  'get_legislation_articles',
+  'get_legislation_section',
 ]);
 
 export function createBalanceCheckMiddleware(
