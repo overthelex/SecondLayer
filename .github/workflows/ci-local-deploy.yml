@@ -641,10 +641,19 @@ jobs:
         run: |
           SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${PROD_USER}@${PROD_SERVER}"
 
-          # Health check via SSH to prod (avoids local-runner → public-internet routing issues)
+          # Determine active backend container name (blue or green)
+          BACKEND_COLOR=$($SSH_CMD "grep '^backend=' /home/${PROD_USER}/SecondLayer/deployment/.active-colors 2>/dev/null | cut -d= -f2" || echo "blue")
+          if [ "$BACKEND_COLOR" = "green" ]; then
+            CONTAINER="secondlayer-app-prod-green"
+          else
+            CONTAINER="secondlayer-app-prod"
+          fi
+          echo "Checking container: $CONTAINER"
+
+          # Health check via docker exec on prod (port 3000 is not exposed on host)
           for i in 1 2 3 4 5; do
-            HEALTH=$($SSH_CMD "curl -sf --max-time 10 http://127.0.0.1:3000/health" 2>/dev/null) && {
-              echo "=== Production health (internal via SSH) ==="
+            HEALTH=$($SSH_CMD "docker exec $CONTAINER wget -q -O- --timeout=10 http://127.0.0.1:3000/health 2>/dev/null") && {
+              echo "=== Production health (docker exec via SSH) ==="
               echo "$HEALTH" | jq . 2>/dev/null || echo "$HEALTH"
               STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null)
               if [ "$STATUS" = "degraded" ]; then
