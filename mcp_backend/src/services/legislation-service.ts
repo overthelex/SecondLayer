@@ -247,19 +247,10 @@ export class LegislationService {
     );
 
     if (result.rows.length > 0) {
-      // Check if section data is missing (legacy data before section extraction)
-      const sectionCheck = await this.db.query(
-        `SELECT COUNT(*) as total, COUNT(section_number) as with_sections
-         FROM legislation_articles la
-         JOIN legislation l ON la.legislation_id = l.id
-         WHERE l.rada_id = $1 AND la.is_current = true`,
-        [radaId]
-      );
-      const { total, with_sections } = sectionCheck.rows[0];
-      if (parseInt(total) > 0 && parseInt(with_sections) === 0) {
-        logger.info(`Legislation ${radaId} has no section data, re-fetching...`);
-        return this.refetchLegislation(radaId);
-      }
+      // Legislation exists — no need to re-fetch.
+      // Previously we re-fetched when section_number was missing, but some laws
+      // (e.g. Кримінальний кодекс 1618-15) don't have section structure in RADA API,
+      // causing an infinite re-fetch loop on every request.
       return true;
     }
 
@@ -276,7 +267,7 @@ export class LegislationService {
 
       return true;
     } catch (error: any) {
-      logger.error(`Failed to fetch and save legislation ${radaId}:`, error.message);
+      logger.error(`Failed to fetch and save legislation ${radaId}: ${error.message}`);
       return false;
     }
   }

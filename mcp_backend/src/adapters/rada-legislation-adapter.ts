@@ -423,7 +423,7 @@ export class RadaLegislationAdapter {
               article.part_number,
               article.paragraph_number,
               article.notes,
-              article.version_date || new Date(),
+              article.version_date || new Date('2000-01-01T00:00:00Z'),
               true,
               article.byte_size,
               article.metadata || {},
@@ -439,7 +439,7 @@ export class RadaLegislationAdapter {
 
       return result;
     } catch (error: any) {
-      logger.error(`Failed to save legislation to database:`, error.message);
+      logger.error(`Failed to save legislation to database: ${error.message}`);
       throw error;
     }
   }
