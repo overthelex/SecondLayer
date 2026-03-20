@@ -409,10 +409,35 @@ export class EmailService {
    */
   private generatePaymentSuccessTemplate(params: PaymentSuccessParams, referralData: ReferralData | null): string {
     const logoImg = this.logoBuffer
-      ? '<img src="cid:lexlogo@legal.org.ua" alt="LEX" width="80" height="80" style="display:block;margin:0 auto 10px;" />'
-      : '<div style="font-size:36px;font-weight:bold;color:#1e293b;letter-spacing:4px;">LEX</div>';
+      ? '<img src="cid:lexlogo@legal.org.ua" alt="LEX" width="60" height="60" style="display:inline-block;vertical-align:middle;margin-right:10px;" />'
+      : '<span style="font-size:28px;font-weight:bold;color:#1e293b;letter-spacing:3px;vertical-align:middle;">LEX</span>';
 
     const referralSection = this.generateReferralSection(referralData);
+
+    // Inline SVG fractal-like pattern (matches blog banner style: light bg, subtle organic branches on right)
+    const fractalSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="140" viewBox="0 0 320 140" style="display:block;width:100%;height:100%;">
+      <defs>
+        <radialGradient id="glow" cx="30%" cy="45%" r="60%"><stop offset="0%" stop-color="#94b4e0" stop-opacity="0.22"/><stop offset="100%" stop-color="#eef2fa" stop-opacity="0"/></radialGradient>
+      </defs>
+      <rect width="320" height="140" fill="#eef2fa"/>
+      <ellipse cx="120" cy="70" rx="160" ry="110" fill="url(#glow)"/>
+      <path d="M60,140 Q80,90 110,75 Q140,58 160,25 Q170,10 185,2" stroke="#b4c8e4" stroke-width="2.5" fill="none" opacity="0.55"/>
+      <path d="M110,75 Q130,65 150,70 Q170,76 195,60" stroke="#9ab3d6" stroke-width="2" fill="none" opacity="0.45"/>
+      <path d="M160,25 Q175,35 195,30 Q210,24 225,35" stroke="#a8bfdd" stroke-width="1.5" fill="none" opacity="0.38"/>
+      <path d="M80,140 Q100,105 130,90 Q150,82 170,55 Q185,35 200,18" stroke="#c2d3ea" stroke-width="2" fill="none" opacity="0.42"/>
+      <path d="M130,90 Q150,95 175,87 Q195,78 215,82" stroke="#b0c5de" stroke-width="1.5" fill="none" opacity="0.32"/>
+      <path d="M100,140 Q115,118 140,108 Q160,103 185,92" stroke="#d0ddf0" stroke-width="1.8" fill="none" opacity="0.32"/>
+      <path d="M170,55 Q190,50 210,55 Q225,60 240,52" stroke="#b8cce3" stroke-width="1.2" fill="none" opacity="0.32"/>
+      <circle cx="185" cy="2" r="3" fill="#8aa4d0" opacity="0.38"/>
+      <circle cx="200" cy="18" r="2.5" fill="#96b0d4" opacity="0.32"/>
+      <circle cx="195" cy="60" r="2.5" fill="#9ab3d6" opacity="0.32"/>
+      <circle cx="225" cy="35" r="2" fill="#a8bfdd" opacity="0.28"/>
+      <circle cx="215" cy="82" r="2" fill="#b0c5de" opacity="0.28"/>
+      <circle cx="185" cy="92" r="2" fill="#c2d3ea" opacity="0.22"/>
+      <line x1="160" y1="6" x2="240" y2="6" stroke="#94b4e0" stroke-width="1.5" opacity="0.32"/>
+      <line x1="175" y1="12" x2="225" y2="12" stroke="#a3bede" stroke-width="1" opacity="0.22"/>
+      <line x1="168" y1="18" x2="215" y2="18" stroke="#b4c8e4" stroke-width="0.8" opacity="0.15"/>
+    </svg>`;
 
     return `
 <!DOCTYPE html>
@@ -424,9 +449,12 @@ export class EmailService {
     body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background: #f1f5f9; }
     .wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
     .card { background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.07); }
-    .header { background: #1e293b; padding: 30px 20px; text-align: center; }
-    .header h1 { color: #ffffff; font-size: 20px; margin: 10px 0 0; font-weight: 600; }
-    .success-badge { display: inline-block; background: #22c55e; color: #fff; padding: 6px 18px; border-radius: 20px; font-size: 14px; font-weight: 600; margin-top: 12px; }
+    .header { position: relative; text-align: center; }
+    .header-bg { display: block; width: 100%; }
+    .header-content { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: 24px 30px; }
+    .header-logo { margin-bottom: 12px; }
+    .header h1 { color: #1e293b; font-size: 20px; margin: 0 0 10px; font-weight: 700; text-align: left; }
+    .success-badge { display: inline-block; background: #22c55e; color: #fff; padding: 5px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; }
     .content { padding: 30px; }
     .amount-block { text-align: center; margin: 24px 0; }
     .amount { font-size: 36px; font-weight: 700; color: #1e293b; }
@@ -455,10 +483,15 @@ export class EmailService {
 <body>
   <div class="wrapper">
     <div class="card">
-      <div class="header">
-        ${logoImg}
-        <h1>Оплата пройшла успішно</h1>
-        <div class="success-badge">Підтверджено</div>
+      <div class="header" style="background:#eef2fa;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;right:0;bottom:0;width:320px;opacity:0.85;">
+          ${fractalSvg}
+        </div>
+        <div style="position:relative;z-index:1;padding:28px 30px 24px;text-align:left;">
+          <div class="header-logo" style="margin-bottom:14px;">${logoImg}</div>
+          <h1 style="color:#1e293b;font-size:21px;margin:0 0 12px;font-weight:700;">Оплата пройшла успішно</h1>
+          <div class="success-badge">Підтверджено</div>
+        </div>
       </div>
       <div class="content">
         <p>Вітаємо, ${params.name}!</p>
