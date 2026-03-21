@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { X, Menu, PanelRightOpen } from 'lucide-react';
 import { Sidebar } from '../components/sidebar';
-import { RightPanel } from '../components/RightPanel';
+import { RightPanel } from '../components/right-panel';
 import { TimeTrackerWidget } from '../components/time/TimeTrackerWidget';
 import { PendingInvitationsModal } from '../components/attorney/PendingInvitationsModal';
 import { useAuth } from '../contexts/AuthContext';
