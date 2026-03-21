@@ -23,7 +23,7 @@ import { MockNOWPaymentsService } from '../services/__mocks__/nowpayments-servic
 import { UserPreferencesService } from '../services/user-preferences-service.js';
 import { PrometheusService } from '../services/prometheus-service.js';
 import { initializeCryptoTagMiddleware } from '../middleware/crypto-tag-required.js';
-import { setAuthEmailService, setAuthReferralService } from '../controllers/auth.js';
+import { setAuthEmailService, setAuthReferralService, setAuthBillingService } from '../controllers/auth.js';
 import { logger } from '../utils/logger.js';
 import cron from 'node-cron';
 
@@ -81,6 +81,7 @@ export function createBillingServices(db: Database, embeddingService: EmbeddingS
   // Referral
   const referralService = new ReferralService(db, billingService);
   setAuthReferralService(referralService);
+  setAuthBillingService(billingService);
   billingService.setReferralRewardCallback(
     (userId, amountUsd, amountUah, transactionId) =>
       referralService.processReward(userId, amountUsd, amountUah, transactionId)

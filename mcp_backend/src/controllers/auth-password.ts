@@ -13,6 +13,7 @@ import {
   generateBannerAsync,
   validatePassword,
   validateEmail,
+  getAuthBillingService,
   getAuthEmailService,
   getAuthReferralService,
   JWT_EXPIRES_IN,
@@ -175,6 +176,27 @@ export async function registerWithPassword(req: Request, res: Response): Promise
         if (referrerId) {
           await authReferralService.linkReferral(referrerId, user.id);
           logger.info('Referral linked on registration', { referrerId, referredId: user.id, referralCode });
+
+          // Welcome bonus for beta testers (referral code 'beta2026')
+          const billingService = getAuthBillingService();
+          if (billingService && referralCode === 'beta2026') {
+            try {
+              const WELCOME_BONUS_UAH = 400;
+              // Convert UAH to USD using billing service's currency conversion
+              const amountUsd = await billingService.convertFromUah(WELCOME_BONUS_UAH);
+              await billingService.topUpBalance({
+                userId: user.id,
+                amountUsd,
+                amountUah: WELCOME_BONUS_UAH,
+                description: 'Бонус бетатестера — 400 грн',
+                paymentProvider: 'adjustment',
+                paymentId: `beta-welcome-${user.id}`,
+              });
+              logger.info('Beta welcome bonus credited', { userId: user.id, amountUah: WELCOME_BONUS_UAH, amountUsd });
+            } catch (bonusErr: any) {
+              logger.warn('Failed to credit welcome bonus', { userId: user.id, error: bonusErr.message });
+            }
+          }
         }
       } catch (refErr: any) {
         logger.warn('Failed to link referral on registration', { referralCode, error: refErr.message });
