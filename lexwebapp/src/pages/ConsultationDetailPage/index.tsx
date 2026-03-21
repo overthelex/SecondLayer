@@ -55,7 +55,7 @@ export function ConsultationDetailPage() {
     if (id) sessionStorage.setItem('lastConsultationId', id);
   }, [id]);
 
-  // Subscribe to real-time consultation status changes
+  // Subscribe to real-time consultation status changes (user-level SSE)
   useEffect(() => {
     if (!id) return;
     const unsub = addStatusListener(id, (updated) => {
@@ -63,6 +63,23 @@ export function ConsultationDetailPage() {
     });
     return unsub;
   }, [id, addStatusListener]);
+
+  // Fallback: listen to per-conversation SSE via window event
+  useEffect(() => {
+    if (!id) return;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail && detail.id === id) {
+        // Per-conversation SSE sends consultation object directly
+        setConsultation(detail);
+      } else {
+        // No detail or different consultation — refetch
+        load();
+      }
+    };
+    window.addEventListener('consultation-updated', handler);
+    return () => window.removeEventListener('consultation-updated', handler);
+  }, [id]);
 
   const handleAction = async (action: string, inputValue?: string) => {
     if (!id) return;
