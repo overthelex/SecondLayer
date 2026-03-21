@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Key, Wallet, Activity, ArrowRight } from 'lucide-react';
+import { Key, Wallet, Activity, ArrowRight, Zap } from 'lucide-react';
 import { api } from '@/utils/api-client';
 import { CodeBlock } from '@/components/CodeBlock';
 
@@ -8,18 +8,20 @@ interface DashboardData {
   keysCount: number;
   balance: number;
   firstKey: string | null;
+  totalCalls: number;
 }
 
 export function DashboardPage() {
-  const [data, setData] = useState<DashboardData>({ keysCount: 0, balance: 0, firstKey: null });
+  const [data, setData] = useState<DashboardData>({ keysCount: 0, balance: 0, firstKey: null, totalCalls: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [keysRes, balanceRes] = await Promise.all([
+        const [keysRes, balanceRes, usageRes] = await Promise.all([
           api.get('/keys'),
           api.get('/keys/balance').catch(() => ({ data: { balance: 0 } })),
+          api.get('/usage/summary?days=30').catch(() => ({ data: { total_calls: 0 } })),
         ]);
 
         const keys = keysRes.data.keys || [];
@@ -27,6 +29,7 @@ export function DashboardPage() {
           keysCount: keys.length,
           balance: balanceRes.data.balance || 0,
           firstKey: keys.length > 0 ? keys[0].key : null,
+          totalCalls: usageRes.data.total_calls || 0,
         });
       } catch {
         // ignore
@@ -57,7 +60,7 @@ export function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard
           icon={Key}
           label="API Keys"
@@ -71,6 +74,13 @@ export function DashboardPage() {
           value={`$${data.balance.toFixed(2)}`}
           linkTo="/usage"
           linkLabel="Деталі"
+        />
+        <StatCard
+          icon={Zap}
+          label="Запити (30д)"
+          value={data.totalCalls.toLocaleString()}
+          linkTo="/usage"
+          linkLabel="Аналітика"
         />
         <StatCard
           icon={Activity}
