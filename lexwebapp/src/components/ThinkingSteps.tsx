@@ -76,9 +76,9 @@ export function ThinkingSteps({
           }} transition={{
             duration: 0.2
           }} className="border-t border-claude-border/30">
-                  <div className="p-3 text-[13px] text-claude-text leading-relaxed bg-claude-bg/30">
+                  <pre className="p-3 text-[12px] text-claude-text leading-relaxed bg-claude-bg/30 whitespace-pre-wrap break-words max-h-[400px] overflow-y-auto font-mono">
                     {step.content}
-                  </div>
+                  </pre>
                 </motion.div>}
             </AnimatePresence>
           </motion.div>)}
