@@ -103,6 +103,7 @@ export const ROUTES = {
   ATTORNEY_PROFILE_EDIT: '/attorney/profile',
   ATTORNEY_CLIENTS: '/attorney/clients',
   CONSULTATIONS: '/consultations',
+  CONSULTATIONS_PAYOUTS: '/consultations/payouts',
   CONSULTATION_DETAIL: '/consultations/:id',
 
   // Workflows
