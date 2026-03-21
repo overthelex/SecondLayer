@@ -149,7 +149,7 @@ export function ChatPage() {
         </div>
       )}
 
-      <div className="w-full bg-gradient-to-t from-claude-bg via-claude-bg to-transparent pt-6 pb-4 z-20 border-t border-claude-border/30">
+      <div className="w-full bg-claude-bg pt-4 pb-4 z-20 border-t border-claude-border">
         <ChatInput
           onSend={handleSend}
           disabled={isStreaming || isPlanLoading || !!pendingPlanReview}

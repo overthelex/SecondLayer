@@ -53,26 +53,26 @@ export function UserMessage({ content, onEdit }: UserMessageProps) {
   if (isEditing) {
     return (
       <div className="flex flex-col items-end gap-1.5">
-        <div className="w-full max-w-[85%]">
+        <div className="w-full max-w-[80%]">
           <textarea
             ref={textareaRef}
             value={editDraft}
             onChange={(e) => setEditDraft(e.target.value)}
             onKeyDown={handleEditKeyDown}
             rows={Math.min(10, editDraft.split('\n').length + 1)}
-            className="w-full bg-claude-bg/80 border border-claude-text/30 rounded-2xl px-4 py-3 text-[15px] text-claude-text leading-relaxed resize-none focus:outline-none focus:border-claude-text/60 shadow-sm"
+            className="w-full bg-white border border-zinc-300 rounded-xl px-4 py-3 text-[14px] text-zinc-900 leading-relaxed resize-none focus:outline-none focus:border-zinc-500 shadow-elevation-1"
           />
           <div className="flex items-center justify-end gap-2 mt-1.5">
-            <span className="text-[11px] text-claude-subtext">⌘↵ зберегти · Esc скасувати</span>
+            <span className="text-[11px] text-zinc-400">⌘↵ зберегти · Esc скасувати</span>
             <button
               onClick={handleEditCancel}
-              className="flex items-center gap-1 px-2.5 py-1 text-[12px] text-claude-subtext hover:text-claude-text border border-claude-border rounded-lg transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 text-[12px] text-zinc-500 hover:text-zinc-700 border border-zinc-200 rounded-md transition-colors duration-150"
             >
               <X size={11} strokeWidth={2} /> Скасувати
             </button>
             <button
               onClick={handleEditSave}
-              className="flex items-center gap-1 px-2.5 py-1 text-[12px] text-claude-text border border-claude-border bg-claude-bg rounded-lg hover:bg-claude-subtext/10 transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 text-[12px] bg-zinc-900 text-white rounded-md hover:bg-zinc-700 transition-colors duration-150"
             >
               <Check size={11} strokeWidth={2.5} /> Надіслати
             </button>
@@ -83,27 +83,27 @@ export function UserMessage({ content, onEdit }: UserMessageProps) {
   }
 
   return (
-    <div className="flex flex-col items-end gap-1.5">
-      <div className="max-w-[85%] bg-claude-bg/60 backdrop-blur-sm border border-claude-border/50 rounded-2xl px-4 py-3 shadow-sm">
-        <p className="font-sans text-[15px] text-claude-text leading-relaxed whitespace-pre-wrap">
+    <div className="flex flex-col items-end gap-1">
+      <div className="max-w-[80%] bg-zinc-100 border border-zinc-200/60 rounded-2xl px-4 py-2.5">
+        <p className="font-sans text-[14px] text-zinc-900 leading-relaxed whitespace-pre-wrap">
           {content}
         </p>
       </div>
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         <button
           onClick={handleCopy}
-          className="p-1.5 text-claude-subtext hover:text-claude-text hover:bg-claude-subtext/8 rounded-md transition-all duration-200"
+          className="p-1 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-md transition-colors duration-150"
           title="Копіювати"
         >
-          <Copy size={12} strokeWidth={2} />
+          <Copy size={11} strokeWidth={2} />
         </button>
         {onEdit && (
           <button
             onClick={() => { setEditDraft(content); setIsEditing(true); }}
-            className="p-1.5 text-claude-subtext hover:text-claude-text hover:bg-claude-subtext/8 rounded-md transition-all duration-200"
+            className="p-1 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-md transition-colors duration-150"
             title="Редагувати"
           >
-            <Pencil size={12} strokeWidth={2} />
+            <Pencil size={11} strokeWidth={2} />
           </button>
         )}
       </div>
