@@ -37,8 +37,10 @@ export interface BillingTransaction {
   request_id?: string;
   payment_provider?: string;
   payment_id?: string;
+  reference_transaction_id?: string;
   description?: string;
   metadata?: any;
+  status?: string;
   created_at: Date;
 }
 

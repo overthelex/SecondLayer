@@ -100,43 +100,71 @@ export function createAdminTransactionsRoutes(
 
       const transaction = txResult.rows[0];
 
-      if (transaction.status === 'refunded') {
+      // Check if already refunded (a refund row referencing this transaction exists)
+      const existingRefund = await db.query(
+        `SELECT id FROM billing_transactions WHERE reference_transaction_id = $1 AND type = 'refund'`,
+        [transactionId]
+      );
+      if (existingRefund.rows.length > 0) {
         return res.status(400).json({ error: 'Transaction already refunded' });
       }
 
-      // Atomically update transaction status and refund balance
-      await db.transaction(async (client) => {
-        // Lock the transaction row to prevent double-refund
-        const locked = await client.query(
-          `SELECT * FROM billing_transactions WHERE id = $1 AND status != 'refunded' FOR UPDATE`,
+      // Atomically create refund transaction and credit balance
+      const refundTx = await db.transaction(async (client) => {
+        // Lock the original to prevent double-refund
+        await client.query(
+          `SELECT id FROM billing_transactions WHERE id = $1 FOR UPDATE`,
           [transactionId]
         );
 
-        if (locked.rows.length === 0) {
+        // Double-check no refund was created concurrently
+        const doubleCheck = await client.query(
+          `SELECT id FROM billing_transactions WHERE reference_transaction_id = $1 AND type = 'refund'`,
+          [transactionId]
+        );
+        if (doubleCheck.rows.length > 0) {
           throw new Error('Transaction already refunded (concurrent)');
         }
 
-        // Update transaction status
-        await client.query(
-          `UPDATE billing_transactions
-           SET status = 'refunded',
-               metadata = COALESCE(metadata, '{}'::jsonb) || $1
-           WHERE id = $2`,
+        // Get current balance for snapshot
+        const billingResult = await client.query(
+          `SELECT * FROM user_billing WHERE user_id = $1 FOR UPDATE`,
+          [transaction.user_id]
+        );
+        const balanceBefore = billingResult.rows.length > 0 ? parseFloat(billingResult.rows[0].balance_usd) : 0;
+        const balanceAfter = balanceBefore + parseFloat(transaction.amount_usd);
+
+        // Create immutable refund row referencing the original
+        const refundResult = await client.query(
+          `INSERT INTO billing_transactions (
+            user_id, type, amount_usd, amount_uah,
+            balance_before_usd, balance_after_usd,
+            reference_transaction_id, description, metadata, status
+          ) VALUES ($1, 'refund', $2, $3, $4, $5, $6, $7, $8, 'completed')
+          RETURNING *`,
           [
+            transaction.user_id,
+            transaction.amount_usd,
+            transaction.amount_uah || 0,
+            balanceBefore,
+            balanceAfter,
+            transactionId,
+            `Повернення: ${reason || 'admin refund'}`,
             JSON.stringify({
               refund_reason: reason,
               refunded_by: (req as any).user?.id,
-              refunded_at: new Date().toISOString()
+              original_transaction_type: transaction.type,
             }),
-            transactionId
           ]
         );
 
-        // Refund balance
+        // Credit balance
         await client.query(
           'UPDATE user_billing SET balance_usd = balance_usd + $1 WHERE user_id = $2',
           [transaction.amount_usd, transaction.user_id]
         );
+
+        return refundResult.rows[0];
       });
 
       // Log admin action (non-critical, outside transaction)
@@ -162,8 +190,8 @@ export function createAdminTransactionsRoutes(
           userId: (req as any).user?.id,
           action: 'admin.refund',
           resourceType: 'billing_transaction',
-          resourceId: transactionId || undefined,
-          details: { targetUserId: transaction.user_id, amountUsd: transaction.amount_usd, reason },
+          resourceId: refundTx.id,
+          details: { originalTransactionId: transactionId, targetUserId: transaction.user_id, amountUsd: transaction.amount_usd, reason },
         }).catch(err => logger.warn('[Audit] Failed to log admin.refund', { error: (err as Error).message }));
       }
 
