@@ -22,8 +22,8 @@ export function ToolSelector({ selectedTool, onToolChange }: ToolSelectorProps) 
   );
 
   return (
-    <div className="mb-3 pb-1">
-      <div className="flex flex-wrap gap-2">
+    <div className="mb-2.5 pb-0.5">
+      <div className="flex flex-wrap gap-1.5">
         {/* AI Chat pill (default) */}
         <button
           onClick={() => {
@@ -31,13 +31,13 @@ export function ToolSelector({ selectedTool, onToolChange }: ToolSelectorProps) 
             setShowManualTools(false);
             setExpandedCategory(null);
           }}
-          className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[12px] font-medium transition-all duration-200 border flex items-center gap-1.5 ${
+          className={`flex-shrink-0 px-3 py-1 rounded-full text-[12px] font-medium transition-colors duration-150 border flex items-center gap-1.5 ${
             isAIChat
-              ? 'bg-claude-text text-white border-claude-text shadow-sm'
-              : 'bg-white text-claude-subtext border-claude-border hover:border-claude-subtext/40 hover:text-claude-text'
+              ? 'bg-zinc-900 text-white border-zinc-900'
+              : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300 hover:text-zinc-700'
           }`}
         >
-          <Sparkles size={12} />
+          <Sparkles size={11} />
           AI Чат
         </button>
 
@@ -47,19 +47,19 @@ export function ToolSelector({ selectedTool, onToolChange }: ToolSelectorProps) 
             setShowManualTools(!showManualTools);
             if (showManualTools) setExpandedCategory(null);
           }}
-          className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[12px] font-medium transition-all duration-200 border flex items-center gap-1 ${
+          className={`flex-shrink-0 px-3 py-1 rounded-full text-[12px] font-medium transition-colors duration-150 border flex items-center gap-1 ${
             !isAIChat
-              ? 'bg-claude-text/10 text-claude-text border-claude-text/30'
-              : 'bg-white text-claude-subtext border-claude-border hover:border-claude-subtext/40 hover:text-claude-text'
+              ? 'bg-zinc-100 text-zinc-700 border-zinc-200'
+              : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300 hover:text-zinc-700'
           }`}
         >
           Інструменти
-          <ChevronDown size={12} className={`transition-transform ${showManualTools ? 'rotate-180' : ''}`} />
+          <ChevronDown size={11} className={`transition-transform duration-150 ${showManualTools ? 'rotate-180' : ''}`} />
         </button>
 
         {/* Active tool indicator (when tools panel is collapsed) */}
         {!isAIChat && !showManualTools && activeCategory && (
-          <span className="flex-shrink-0 px-3 py-1.5 rounded-full text-[12px] font-medium bg-claude-text text-white border border-claude-text shadow-sm">
+          <span className="flex-shrink-0 px-3 py-1 rounded-full text-[12px] font-medium bg-zinc-900 text-white border border-zinc-900">
             {activeCategory.tools.find(t => t.name === selectedTool)?.label}
           </span>
         )}
@@ -67,35 +67,35 @@ export function ToolSelector({ selectedTool, onToolChange }: ToolSelectorProps) 
 
       {/* Category pills */}
       {showManualTools && (
-        <div className="mt-2 space-y-2">
-          <div className="flex flex-wrap gap-1.5">
+        <div className="mt-2 space-y-1.5">
+          <div className="flex flex-wrap gap-1">
             {TOOL_CATEGORIES.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setExpandedCategory(expandedCategory === cat.id ? null : cat.id)}
-                className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all duration-200 border flex items-center gap-1 ${
+                className={`flex-shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors duration-150 border flex items-center gap-1 ${
                   expandedCategory === cat.id || activeCategory?.id === cat.id
-                    ? 'bg-claude-text/10 text-claude-text border-claude-text/30'
-                    : 'bg-white text-claude-subtext border-claude-border hover:border-claude-subtext/40 hover:text-claude-text'
+                    ? 'bg-zinc-100 text-zinc-800 border-zinc-300'
+                    : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300 hover:text-zinc-700'
                 }`}
               >
                 {cat.label}
-                <ChevronDown size={10} className={`transition-transform ${expandedCategory === cat.id ? 'rotate-180' : ''}`} />
+                <ChevronDown size={10} className={`transition-transform duration-150 ${expandedCategory === cat.id ? 'rotate-180' : ''}`} />
               </button>
             ))}
           </div>
 
           {/* Tools in selected category */}
           {expandedCategory && (
-            <div className="flex flex-wrap gap-1.5 pl-1">
+            <div className="flex flex-wrap gap-1 pl-0.5">
               {TOOL_CATEGORIES.find(c => c.id === expandedCategory)?.tools.map((tool) => (
                 <button
                   key={tool.name}
                   onClick={() => onToolChange(tool.name)}
-                  className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-200 border ${
+                  className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors duration-150 border ${
                     selectedTool === tool.name
-                      ? 'bg-claude-text text-white border-claude-text shadow-sm'
-                      : 'bg-white text-claude-subtext border-claude-border hover:border-claude-subtext/40 hover:text-claude-text'
+                      ? 'bg-zinc-900 text-white border-zinc-900'
+                      : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300 hover:text-zinc-700'
                   }`}
                 >
                   {tool.label}

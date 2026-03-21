@@ -4,16 +4,16 @@
  */
 
 import { useState } from 'react';
-import { Copy, Check, Maximize2, ExternalLink, Eye } from 'lucide-react';
+import { Copy, Check, Maximize2, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
 const cardVariants: Variants = {
-  hidden: { opacity: 0, y: 8 },
+  hidden: { opacity: 0, y: 6 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1], delay: i * 0.04 },
+    transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1], delay: i * 0.03 },
   }),
 };
 
@@ -57,19 +57,11 @@ export function ExpandableCard({
       initial="hidden"
       animate="visible"
       layout
-      className="bg-white border border-claude-border rounded-xl overflow-hidden hover:border-claude-subtext/30 hover:shadow-md transition-all duration-200"
+      className="bg-white border border-zinc-200 rounded-lg overflow-hidden hover:border-zinc-300 hover:shadow-elevation-1 transition-all duration-150"
     >
       <div onClick={onToggle} className="p-3 cursor-pointer group">
         {header}
         {!isExpanded && preview}
-        {!isExpanded && (
-          <div className="flex items-center justify-end pt-2 border-t border-claude-border/30 mt-2">
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Eye size={12} className="text-claude-subtext" strokeWidth={2} />
-              <span className="text-[10px] text-claude-subtext">Розгорнути</span>
-            </div>
-          </div>
-        )}
       </div>
 
       <AnimatePresence>
@@ -78,36 +70,36 @@ export function ExpandableCard({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             className="overflow-hidden"
           >
-            <div className="px-3 pb-3 border-t border-claude-border/30">
-              <div className="mt-3 max-h-[300px] overflow-y-auto text-[12px] text-claude-text/90 leading-relaxed prose prose-sm prose-slate">
+            <div className="px-3 pb-3 border-t border-zinc-100">
+              <div className="mt-3 max-h-[280px] overflow-y-auto text-[12px] text-zinc-700 leading-relaxed prose prose-sm">
                 <ReactMarkdown>{content}</ReactMarkdown>
               </div>
-              <div className="flex items-center gap-2 mt-3 pt-2 border-t border-claude-border/30">
+              <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-zinc-100">
                 <button
                   onClick={(e) => { e.stopPropagation(); copyContent(content); }}
-                  className="flex items-center gap-1 text-[10px] text-claude-subtext hover:text-claude-text px-2 py-1 rounded-md hover:bg-claude-bg transition-colors"
+                  className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-zinc-700 px-2 py-1 rounded hover:bg-zinc-50 transition-colors duration-150"
                 >
-                  {copiedId === id ? <Check size={11} /> : <Copy size={11} />}
+                  {copiedId === id ? <Check size={10} /> : <Copy size={10} />}
                   {copiedId === id ? 'Скопійовано' : 'Копіювати'}
                 </button>
                 {onOpenModal && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onOpenModal(); }}
-                    className="flex items-center gap-1 text-[10px] text-claude-subtext hover:text-claude-text px-2 py-1 rounded-md hover:bg-claude-bg transition-colors"
+                    className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-zinc-700 px-2 py-1 rounded hover:bg-zinc-50 transition-colors duration-150"
                   >
-                    <Maximize2 size={11} />
+                    <Maximize2 size={10} />
                     Повний вигляд
                   </button>
                 )}
                 {externalUrl && onOpenModal && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onOpenModal(); }}
-                    className="flex items-center gap-1 text-[10px] text-claude-subtext hover:text-claude-text px-2 py-1 rounded-md hover:bg-claude-bg transition-colors"
+                    className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-zinc-700 px-2 py-1 rounded hover:bg-zinc-50 transition-colors duration-150"
                   >
-                    <ExternalLink size={11} />
+                    <ExternalLink size={10} />
                     Відкрити
                   </button>
                 )}
@@ -122,8 +114,8 @@ export function ExpandableCard({
 
 export function EmptyTabState({ icon: Icon, text }: { icon: React.ElementType; text: string }) {
   return (
-    <div className="text-center py-12 text-claude-subtext/50">
-      <Icon size={28} className="mx-auto mb-3 opacity-30" strokeWidth={1.5} />
+    <div className="text-center py-10 text-zinc-400">
+      <Icon size={24} className="mx-auto mb-3 opacity-25" strokeWidth={1.5} />
       <p className="text-[12px]">{text}</p>
     </div>
   );

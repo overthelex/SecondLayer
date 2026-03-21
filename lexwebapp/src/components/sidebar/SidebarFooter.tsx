@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, CreditCard, UsersRound, Plug, FileText, Shield, ScrollText, UserPlus } from 'lucide-react';
+import { User, LogOut, CreditCard, UsersRound, Plug, FileText, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ROUTES } from '../../router/routes';
 import type { UserRole } from '../../types/models/User';
@@ -21,105 +21,90 @@ export function SidebarFooter({
 }: SidebarFooterProps) {
   const navigate = useNavigate();
   return (
-    <div className="p-4 border-t border-claude-border relative" ref={profileMenuRef}>
+    <div className="px-3 py-3 border-t border-claude-border relative" ref={profileMenuRef}>
       <AnimatePresence>
         {showProfileMenu &&
         <motion.div
-          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+          initial={{ opacity: 0, y: 8, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 10, scale: 0.95 }}
-          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="absolute bottom-full left-4 right-4 mb-2 bg-white rounded-xl border border-claude-border shadow-xl overflow-hidden z-50">
+          exit={{ opacity: 0, y: 8, scale: 0.97 }}
+          transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute bottom-full left-3 right-3 mb-1.5 bg-white rounded-lg border border-zinc-200 shadow-elevation-3 overflow-hidden z-50">
             <button
               onClick={onProfileClick}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">
-              <div className="p-1.5 bg-claude-accent/10 rounded-lg">
-                <User size={16} className="text-claude-accent" />
-              </div>
-              <span className="text-[13px] font-medium text-claude-text font-sans">Профіль</span>
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-zinc-50 transition-colors duration-100 border-b border-zinc-100">
+              <User size={14} className="text-zinc-500 flex-shrink-0" />
+              <span className="text-[13px] font-medium text-zinc-800 font-sans">Профіль</span>
             </button>
             {/* "Стати адвокатом" hidden — feature not ready for production */}
             {role !== 'administrator' && (
               <button
                 onClick={() => { onProfileMenuClick(); navigate(ROUTES.BILLING); }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">
-                <div className="p-1.5 bg-claude-subtext/8 rounded-lg">
-                  <CreditCard size={16} className="text-claude-subtext" />
-                </div>
-                <span className="text-[13px] font-medium text-claude-text font-sans">Біллінг</span>
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-zinc-50 transition-colors duration-100 border-b border-zinc-100">
+                <CreditCard size={14} className="text-zinc-500 flex-shrink-0" />
+                <span className="text-[13px] font-medium text-zinc-800 font-sans">Біллінг</span>
               </button>
             )}
             <button
               onClick={() => { onProfileMenuClick(); navigate(ROUTES.MY_CONTRACTS); }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">
-              <div className="p-1.5 bg-claude-subtext/8 rounded-lg">
-                <FileText size={16} className="text-claude-subtext" />
-              </div>
-              <span className="text-[13px] font-medium text-claude-text font-sans">Мої договори</span>
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-zinc-50 transition-colors duration-100 border-b border-zinc-100">
+              <FileText size={14} className="text-zinc-500 flex-shrink-0" />
+              <span className="text-[13px] font-medium text-zinc-800 font-sans">Мої договори</span>
             </button>
             <button
               onClick={() => { onProfileMenuClick(); navigate(ROUTES.REFERRAL); }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">
-              <div className="p-1.5 bg-claude-subtext/8 rounded-lg">
-                <UserPlus size={16} className="text-claude-subtext" />
-              </div>
-              <span className="text-[13px] font-medium text-claude-text font-sans">Запросити друга</span>
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-zinc-50 transition-colors duration-100 border-b border-zinc-100">
+              <UserPlus size={14} className="text-zinc-500 flex-shrink-0" />
+              <span className="text-[13px] font-medium text-zinc-800 font-sans">Запросити друга</span>
             </button>
             <button
               onClick={() => { onProfileMenuClick(); navigate(ROUTES.MCP_CONNECT); }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">
-              <div className="p-1.5 bg-claude-subtext/8 rounded-lg">
-                <Plug size={16} className="text-claude-subtext" />
-              </div>
-              <span className="text-[13px] font-medium text-claude-text font-sans">MCP конект</span>
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-zinc-50 transition-colors duration-100 border-b border-zinc-100">
+              <Plug size={14} className="text-zinc-500 flex-shrink-0" />
+              <span className="text-[13px] font-medium text-zinc-800 font-sans">MCP конект</span>
             </button>
             {role === 'company' && (
               <button
                 onClick={() => { onProfileMenuClick(); navigate(ROUTES.TEAM); }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-claude-bg transition-colors border-b border-claude-border/50">
-                <div className="p-1.5 bg-claude-subtext/8 rounded-lg">
-                  <UsersRound size={16} className="text-claude-subtext" />
-                </div>
-                <span className="text-[13px] font-medium text-claude-text font-sans">Команда</span>
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-zinc-50 transition-colors duration-100 border-b border-zinc-100">
+                <UsersRound size={14} className="text-zinc-500 flex-shrink-0" />
+                <span className="text-[13px] font-medium text-zinc-800 font-sans">Команда</span>
               </button>
             )}
             <button
               onClick={onLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-50 transition-colors">
-              <div className="p-1.5 bg-red-50 rounded-lg">
-                <LogOut size={16} className="text-red-600" />
-              </div>
-              <span className="text-[13px] font-medium text-red-600 font-sans">Вихід</span>
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-red-50 transition-colors duration-100">
+              <LogOut size={14} className="text-red-500 flex-shrink-0" />
+              <span className="text-[13px] font-medium text-red-500 font-sans">Вихід</span>
             </button>
           </motion.div>
         }
       </AnimatePresence>
 
-      <div className="flex items-center justify-center gap-3 mb-2 px-2">
-        <a href="/ua/offer" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-claude-subtext/60 hover:text-claude-subtext transition-colors">
-          <ScrollText size={10} />
-          <span>Оферта</span>
+      <div className="flex items-center justify-center gap-3 mb-2 px-1">
+        <a href="/ua/offer" target="_blank" rel="noopener noreferrer" className="text-[10px] text-zinc-400 hover:text-zinc-500 transition-colors">
+          Оферта
         </a>
-        <a href="/ua/privacy" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-claude-subtext/60 hover:text-claude-subtext transition-colors">
-          <Shield size={10} />
-          <span>Конфіденційність</span>
+        <span className="text-zinc-300 text-[10px]">·</span>
+        <a href="/ua/privacy" target="_blank" rel="noopener noreferrer" className="text-[10px] text-zinc-400 hover:text-zinc-500 transition-colors">
+          Конфіденційність
         </a>
       </div>
 
       <button
         onClick={onProfileMenuClick}
-        className="w-full flex items-center gap-3 px-2 py-2 hover:bg-claude-subtext/8 rounded-lg transition-all duration-200">
+        className="w-full flex items-center gap-2.5 px-2 py-2 hover:bg-zinc-200/40 rounded-lg transition-colors duration-150">
         {user?.picture ?
-          <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full object-cover" /> :
-          <div className="w-8 h-8 rounded-full bg-claude-subtext/15 flex items-center justify-center text-claude-subtext text-[11px] font-semibold">
+          <img src={user.picture} alt={user.name} className="w-7 h-7 rounded-full object-cover flex-shrink-0" /> :
+          <div className="w-7 h-7 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-600 text-[10px] font-semibold flex-shrink-0">
             {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'}
           </div>
         }
-        <div className="flex-1 text-left">
-          <div className="text-[13px] font-semibold text-claude-text tracking-tight font-sans">
+        <div className="flex-1 text-left min-w-0">
+          <div className="text-[13px] font-semibold text-zinc-900 tracking-tight font-sans truncate">
             {user?.name || 'Користувач'}
           </div>
-          <div className="text-[11px] text-claude-subtext/70 font-sans">{user?.email || ''}</div>
+          <div className="text-[11px] text-zinc-400 font-sans truncate">{user?.email || ''}</div>
         </div>
       </button>
     </div>

@@ -148,9 +148,9 @@ export function AssistantMessage({
 
           {thinkingSteps && thinkingSteps.length > 0 && (
             <div>
-              <button onClick={() => setShowThinking(!showThinking)} className="flex items-center gap-2 text-[13px] text-claude-subtext hover:text-claude-text transition-colors mb-2">
-                <ChevronDown size={14} className={`transition-transform ${showThinking ? 'rotate-180' : ''}`} strokeWidth={2} />
-                <span className="font-medium">
+              <button onClick={() => setShowThinking(!showThinking)} className="flex items-center gap-2 text-[12px] text-zinc-400 hover:text-zinc-700 transition-colors duration-150 mb-2">
+                <ChevronDown size={13} className={`transition-transform duration-200 ${showThinking ? 'rotate-180' : ''}`} strokeWidth={2} />
+                <span className="font-medium tracking-tight">
                   {thinkingSteps[0]?.title || 'Обдумую відповідь...'}
                 </span>
               </button>
@@ -167,28 +167,25 @@ export function AssistantMessage({
               {citationWarnings.map((warning, idx) => (
                 <motion.div
                   key={`cw-${idx}`}
-                  initial={{ opacity: 0, y: -5 }}
+                  initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: idx * 0.1 }}
-                  className={`flex items-start gap-3 px-4 py-3 rounded-lg border ${
+                  transition={{ duration: 0.25, delay: idx * 0.08 }}
+                  className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border ${
                     warning.status === 'explicitly_overruled'
-                      ? 'bg-orange-50/70 border-orange-200 dark:bg-orange-950/20 dark:border-orange-800/50'
-                      : 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/50'
+                      ? 'bg-orange-50 border-orange-200/70'
+                      : 'bg-amber-50 border-amber-200/70'
                   }`}
                 >
-                  <span className="text-base mt-0.5 opacity-70">
-                    {warning.status === 'explicitly_overruled' ? '\u{1F4CB}' : '\u{1F4CC}'}
-                  </span>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${
+                    <p className={`text-[13px] leading-relaxed ${
                       warning.status === 'explicitly_overruled'
-                        ? 'text-orange-700 dark:text-orange-300'
-                        : 'text-amber-700 dark:text-amber-300'
+                        ? 'text-orange-700'
+                        : 'text-amber-700'
                     }`}>
                       {warning.message}
                     </p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      {warning.status === 'explicitly_overruled' ? 'Скасовано вищою інстанцією' : 'Частково змінено'} &middot; впевненість: {Math.round(warning.confidence * 100)}%
+                    <p className="text-[11px] text-zinc-400 mt-1">
+                      {warning.status === 'explicitly_overruled' ? 'Скасовано вищою інстанцією' : 'Частково змінено'} · впевненість: {Math.round(warning.confidence * 100)}%
                     </p>
                   </div>
                 </motion.div>
@@ -203,49 +200,49 @@ export function AssistantMessage({
           )}
 
           {!isStreaming && content && (
-            <div className="flex items-center gap-1 pt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="flex items-center gap-0.5 pt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <button
                 onClick={handleCopy}
-                className="p-1.5 text-claude-subtext hover:text-claude-text hover:bg-claude-subtext/8 rounded-md transition-all duration-200"
+                className="p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-md transition-colors duration-150"
                 aria-label="Copy message"
                 title="Копіювати"
               >
-                <Copy size={13} strokeWidth={2} />
+                <Copy size={12} strokeWidth={2} />
               </button>
               <button
                 onClick={handleStar}
-                className={`p-1.5 hover:bg-claude-subtext/8 rounded-md transition-all duration-200 ${starred ? 'text-claude-text' : 'text-claude-subtext hover:text-claude-text'}`}
+                className={`p-1.5 hover:bg-zinc-100 rounded-md transition-colors duration-150 ${starred ? 'text-zinc-700' : 'text-zinc-400 hover:text-zinc-600'}`}
                 aria-label="Save to favorites"
                 title="Зберегти в обране"
               >
-                <Star size={13} strokeWidth={2} fill={starred ? 'currentColor' : 'none'} />
+                <Star size={12} strokeWidth={2} fill={starred ? 'currentColor' : 'none'} />
               </button>
               {onRegenerate && (
                 <button
                   onClick={onRegenerate}
-                  className="p-1.5 text-claude-subtext hover:text-claude-text hover:bg-claude-subtext/8 rounded-md transition-all duration-200"
+                  className="p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-md transition-colors duration-150"
                   aria-label="Regenerate response"
                   title="Повторити"
                 >
-                  <RotateCw size={13} strokeWidth={2} />
+                  <RotateCw size={12} strokeWidth={2} />
                 </button>
               )}
-              <div className="w-px h-3 bg-claude-border mx-1" />
+              <div className="w-px h-3 bg-zinc-200 mx-1" />
               <button
                 onClick={() => handleFeedback('up')}
-                className={`p-1.5 hover:bg-claude-subtext/10 rounded-md transition-all duration-200 ${feedback === 'up' ? 'text-claude-text' : 'text-claude-subtext hover:text-claude-text'}`}
+                className={`p-1.5 hover:bg-zinc-100 rounded-md transition-colors duration-150 ${feedback === 'up' ? 'text-zinc-700' : 'text-zinc-400 hover:text-zinc-600'}`}
                 aria-label="Good response"
                 title="Гарна відповідь"
               >
-                <ThumbsUp size={13} strokeWidth={2} fill={feedback === 'up' ? 'currentColor' : 'none'} />
+                <ThumbsUp size={12} strokeWidth={2} fill={feedback === 'up' ? 'currentColor' : 'none'} />
               </button>
               <button
                 onClick={() => handleFeedback('down')}
-                className={`p-1.5 hover:bg-claude-subtext/10 rounded-md transition-all duration-200 ${feedback === 'down' ? 'text-claude-text' : 'text-claude-subtext hover:text-claude-text'}`}
+                className={`p-1.5 hover:bg-zinc-100 rounded-md transition-colors duration-150 ${feedback === 'down' ? 'text-zinc-700' : 'text-zinc-400 hover:text-zinc-600'}`}
                 aria-label="Bad response"
                 title="Погана відповідь"
               >
-                <ThumbsDown size={13} strokeWidth={2} fill={feedback === 'down' ? 'currentColor' : 'none'} />
+                <ThumbsDown size={12} strokeWidth={2} fill={feedback === 'down' ? 'currentColor' : 'none'} />
               </button>
             </div>
           )}

@@ -105,19 +105,19 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
     <motion.aside
       initial={false}
       animate={{ x: isOpen ? 0 : rightPanelWidth }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       style={{ width: rightPanelWidth }}
-      className="fixed lg:static inset-y-0 right-0 z-50 bg-white border-l border-claude-border flex flex-col lg:translate-x-0 lg:h-full"
+      className="fixed lg:static inset-y-0 right-0 z-50 bg-claude-sidebar border-l border-claude-border flex flex-col lg:translate-x-0 lg:h-full"
     >
       <ResizeHandle />
 
       {/* Header */}
-      <div className="px-4 py-3 border-b border-claude-border/50 flex items-center justify-between">
-        <h2 className="font-sans font-semibold text-[15px] text-claude-text tracking-tight">
+      <div className="px-4 py-3 border-b border-claude-border flex items-center justify-between">
+        <h2 className="font-sans font-medium text-[13px] text-zinc-500 tracking-widest uppercase">
           Доказова база
         </h2>
-        <button onClick={onClose} className="lg:hidden p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-subtext/8 rounded-lg transition-all duration-200">
-          <X size={18} strokeWidth={2} />
+        <button onClick={onClose} className="lg:hidden p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 rounded-md transition-colors duration-150">
+          <X size={16} strokeWidth={2} />
         </button>
       </div>
 
