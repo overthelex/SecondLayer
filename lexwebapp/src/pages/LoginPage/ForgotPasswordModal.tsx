@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Loader2 } from 'lucide-react';
+import { Mail, Loader2, X } from 'lucide-react';
 import showToast from '../../utils/toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -9,12 +9,14 @@ const BASE_URL = API_URL.replace(/\/api$/, '');
 interface ForgotPasswordModalProps {
   initialEmail: string;
   onClose: () => void;
+  isDark?: boolean;
 }
 
-export function ForgotPasswordModal({ initialEmail, onClose }: ForgotPasswordModalProps) {
+export function ForgotPasswordModal({ initialEmail, onClose, isDark = true }: ForgotPasswordModalProps) {
   const [email, setEmail] = useState(initialEmail);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = isDark;
 
   const handleSubmit = async () => {
     if (!email) {
@@ -54,29 +56,43 @@ export function ForgotPasswordModal({ initialEmail, onClose }: ForgotPasswordMod
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      transition={{ duration: 0.2 }}
+      className={`fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4 ${t ? 'bg-black/80' : 'bg-black/40'}`}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        initial={{ opacity: 0, scale: 0.97, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl"
+        exit={{ opacity: 0, scale: 0.97, y: 12 }}
+        transition={{ duration: 0.2 }}
+        className={`border rounded-2xl p-6 max-w-md w-full shadow-2xl ${t ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200'}`}
       >
-        <h2 className="text-xl font-sans text-claude-text mb-2">Скидання паролю</h2>
-        <p className="text-sm text-claude-subtext mb-6">
-          Введіть email вашого акаунту, і ми відправимо вам посилання для скидання паролю.
-        </p>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className={`text-base font-semibold ${t ? 'text-zinc-100' : 'text-zinc-900'}`}>Скидання паролю</h2>
+            <p className={`text-xs mt-0.5 leading-relaxed ${t ? 'text-zinc-500' : 'text-zinc-500'}`}>
+              Введіть email — надішлемо посилання для скидання
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ml-4 ${t ? 'hover:bg-zinc-800 text-zinc-600 hover:text-zinc-300' : 'hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600'}`}
+          >
+            <X size={16} />
+          </button>
+        </div>
 
         {error && (
-          <p className="text-sm text-red-600 mb-4">{error}</p>
+          <p className={`text-xs mb-4 px-3 py-2 rounded-lg border ${t ? 'text-red-400 bg-red-950/30 border-red-800/30' : 'text-red-600 bg-red-50 border-red-200'}`}>
+            {error}
+          </p>
         )}
 
         <div className="relative mb-4">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Mail size={18} className="text-claude-subtext" />
+            <Mail size={14} className={t ? 'text-zinc-600' : 'text-zinc-400'} />
           </div>
           <input
             type="email"
@@ -85,23 +101,23 @@ export function ForgotPasswordModal({ initialEmail, onClose }: ForgotPasswordMod
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
             placeholder="your@email.com"
             autoFocus
-            className="block w-full pl-10 pr-4 py-3 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans"
+            className={`block w-full pl-9 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-1 transition-all ${t ? 'bg-zinc-900 border-zinc-800 text-zinc-100 placeholder-zinc-700 focus:ring-zinc-600 focus:border-zinc-600' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:ring-zinc-400 focus:border-zinc-400'}`}
           />
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-3 border border-claude-border rounded-xl hover:bg-claude-bg transition-colors font-sans"
+            className={`flex-1 px-4 py-2.5 border rounded-lg text-sm transition-colors duration-150 ${t ? 'border-zinc-800 text-zinc-500 hover:text-zinc-200 hover:border-zinc-700' : 'border-zinc-200 text-zinc-500 hover:text-zinc-700 hover:border-zinc-300'}`}
           >
             Скасувати
           </button>
           <button
             onClick={handleSubmit}
             disabled={isLoading}
-            className="flex-1 px-4 py-3 bg-black text-white rounded-xl hover:bg-gray-800 transition-colors font-sans disabled:opacity-50 flex items-center justify-center"
+            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 disabled:opacity-40 flex items-center justify-center ${t ? 'bg-white text-zinc-900 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
           >
-            {isLoading ? <Loader2 size={18} className="animate-spin" /> : 'Відправити'}
+            {isLoading ? <Loader2 size={15} className="animate-spin" /> : 'Надіслати'}
           </button>
         </div>
       </motion.div>

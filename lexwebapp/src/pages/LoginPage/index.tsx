@@ -18,6 +18,7 @@ import {
   Newspaper,
   X,
   TrendingUp,
+  ChevronRight,
 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { hasRecentArticles } from '../BlogPage/articles';
@@ -47,6 +48,39 @@ function checkPasswordStrength(pwd: string): 'weak' | 'medium' | 'strong' {
   if (strength < 3) return 'weak';
   if (strength < 5) return 'medium';
   return 'strong';
+}
+
+const FADE_UP = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.5, ease: 'easeOut' as const },
+};
+
+// Subtle geometric background pattern for left panel
+function GridPattern() {
+  return (
+    <svg
+      className="absolute inset-0 w-full h-full opacity-[0.03]"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grid)" />
+    </svg>
+  );
+}
+
+// Vertical rule separating left from right panel — fades top and bottom
+function PanelDivider() {
+  return (
+    <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-px">
+      <div className="h-full bg-gradient-to-b from-transparent via-zinc-700/40 to-transparent" />
+    </div>
+  );
 }
 
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
@@ -85,7 +119,6 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     return '/chat';
   };
 
-  // Save returnUrl from query params to sessionStorage (survives OAuth redirect)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const returnUrl = urlParams.get('returnUrl');
@@ -94,7 +127,6 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
   }, []);
 
-  // Handle OAuth callback on mount (Google + Diia)
   useEffect(() => {
     const handleOAuthCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search);
@@ -103,7 +135,6 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       const diiaDeeplinkParam = urlParams.get('diia_deeplink');
       const diiaSessionParam = urlParams.get('diia_session');
 
-      // Handle Diia QR deeplink — show the QR modal
       if (diiaDeeplinkParam && diiaSessionParam) {
         setDiiaDeeplink(diiaDeeplinkParam);
         setDiiaSessionId(diiaSessionParam);
@@ -150,7 +181,6 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     handleOAuthCallback();
   }, [login, onLoginSuccess]);
 
-  // Poll Diia session status when QR modal is open
   useEffect(() => {
     if (!diiaSessionId) return;
 
@@ -183,7 +213,6 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     };
   }, [diiaSessionId]);
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
       if (onLoginSuccess) onLoginSuccess();
@@ -315,6 +344,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
       try {
         const referralCode = localStorage.getItem('referral_code') || undefined;
+
         const response = await fetch(`${BASE_URL}/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -368,131 +398,303 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
   };
 
-  // Show loading state during OAuth callback processing
   if (isLoading && !showForgotPassword) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-claude-bg via-white to-claude-sidebar flex items-center justify-center p-4">
-        <div className="text-center">
-          <Loader2 size={48} className="text-claude-accent animate-spin mx-auto mb-4" />
-          <p className="text-claude-text font-sans">Завершення автентифікації...</p>
+      <div className="min-h-screen bg-[#080808] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-5">
+          <div className="w-10 h-10 rounded-full border border-zinc-800 flex items-center justify-center">
+            <Loader2 size={18} className="text-zinc-500 animate-spin" />
+          </div>
+          <p className="text-[10px] text-zinc-700 tracking-[0.2em] uppercase">Автентифікація</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-claude-bg via-white to-claude-sidebar flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-md"
+    <div className="min-h-screen bg-[#080808] flex">
+
+      {/* ── Left panel: brand identity ── */}
+      <div
+        className="hidden lg:flex lg:w-[480px] xl:w-[560px] flex-shrink-0 flex-col justify-between relative overflow-hidden"
+        style={{ background: 'linear-gradient(160deg, #0e0e0e 0%, #080808 60%, #0a0c10 100%)' }}
       >
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="inline-block"
-          >
-            <img src="/Image.jpg" alt="Lex" className="h-20 w-auto mx-auto" />
-          </motion.div>
+        {/* Subtle grid texture */}
+        <GridPattern />
+
+        {/* Very subtle top-left ambient glow */}
+        <div
+          className="absolute -top-32 -left-32 w-96 h-96 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.025) 0%, transparent 70%)' }}
+        />
+
+        {/* Divider on the right edge */}
+        <PanelDivider />
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col justify-between h-full p-12 xl:p-14">
+
+          {/* Logo */}
+          <div>
+            <img src="/Image.jpg" alt="SecondLayer" className="h-9 w-auto opacity-90" />
+          </div>
+
+          {/* Value proposition */}
+          <div className="space-y-12">
+
+            {/* Headline */}
+            <div>
+              <div className="mb-4">
+                <span className="inline-block text-[9px] font-semibold tracking-[0.22em] uppercase text-zinc-600 border border-zinc-800/80 px-2.5 py-1 rounded-sm">
+                  Для юридичних фірм
+                </span>
+              </div>
+              <h1 className="text-[2.6rem] xl:text-[2.9rem] font-semibold text-white leading-[1.1] tracking-tight">
+                Правовий аналіз.<br />
+                <span className="text-zinc-500">На рівні партнера.</span>
+              </h1>
+              <p className="mt-5 text-[0.875rem] text-zinc-500 leading-relaxed max-w-[340px]">
+                AI-платформа для юридичних фірм та корпоративних юристів: аналіз справ, пошук по рішеннях судів, моніторинг законодавства.
+              </p>
+            </div>
+
+            {/* Feature list — architectural numbered style */}
+            <div className="border-l border-zinc-800/80">
+              {[
+                { label: 'Семантичний пошук по мільйонам судових рішень', number: '01' },
+                { label: 'Аналіз практики і правових позицій', number: '02' },
+                { label: 'Моніторинг змін у законодавстві', number: '03' },
+                { label: 'Підготовка правових позицій з джерелами', number: '04' },
+              ].map((feature, i) => (
+                <div
+                  key={feature.number}
+                  className={`flex items-start gap-4 px-5 py-3.5 ${i < 3 ? 'border-b border-zinc-800/60' : ''}`}
+                >
+                  <span className="text-[10px] font-mono text-zinc-700 mt-0.5 flex-shrink-0 w-5 tabular-nums">{feature.number}</span>
+                  <span className="text-[0.8rem] text-zinc-400 leading-snug">{feature.label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Beta promo */}
+            <button
+              onClick={() => {
+                localStorage.setItem('referral_code', 'beta2026');
+                setIsLogin(false);
+                showToast.success('Промокод активовано! Зареєструйтесь для отримання 400 грн');
+              }}
+              className="group flex items-center gap-3 text-left w-full"
+            >
+              <div className="flex-shrink-0 px-2 py-0.5 rounded border border-emerald-800/40 bg-emerald-950/30">
+                <span className="text-[8px] font-bold text-emerald-700 tracking-[0.2em] uppercase">Beta</span>
+              </div>
+              <span className="text-[12px] text-zinc-600 group-hover:text-zinc-400 transition-colors duration-200 leading-snug">
+                Перші 20 бетатестерів отримають 400 грн на рахунок
+              </span>
+              <ChevronRight
+                size={12}
+                className="text-zinc-700 group-hover:text-zinc-500 flex-shrink-0 transition-all duration-200 group-hover:translate-x-0.5"
+              />
+            </button>
+
+          </div>
+
+          {/* Bottom navigation */}
+          <div className="flex items-center gap-6 flex-wrap">
+            <a
+              href="/blog"
+              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors duration-200 tracking-wide"
+            >
+              <BookOpen size={11} />
+              <span>Blog</span>
+              {hasRecentArticles() && (
+                <span className="w-1 h-1 rounded-full bg-zinc-500 inline-block" />
+              )}
+            </a>
+            <a
+              href="/lex-news"
+              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors duration-200 tracking-wide"
+            >
+              <Newspaper size={11} />
+              <span>Новини</span>
+              <span className="w-1 h-1 rounded-full bg-emerald-700 inline-block" />
+            </a>
+            <a
+              href="/investor"
+              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors duration-200 tracking-wide"
+            >
+              <TrendingUp size={11} />
+              <span>Для інвесторів</span>
+            </a>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── Right panel: auth form ── */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 lg:px-16 xl:px-24 relative">
+
+        {/* Subtle right-side ambient */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 60% 50% at 80% 20%, rgba(255,255,255,0.012) 0%, transparent 60%)' }}
+        />
+
+        {/* Mobile logo */}
+        <div className="lg:hidden mb-10 self-start relative z-10">
+          <img src="/Image.jpg" alt="SecondLayer" className="h-8 w-auto opacity-90" />
         </div>
 
-        {/* Beta Promo Banner */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-          className="mb-6 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl text-center cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => {
-            localStorage.setItem('referral_code', 'beta2026');
-            setIsLogin(false);
-            showToast.success('Промокод активовано! Зареєструйтесь для отримання 400 грн');
-          }}
+          {...FADE_UP}
+          className="w-full max-w-[400px] relative z-10"
         >
-          <p className="text-lg font-bold text-emerald-800 mb-1">
-            Першим 20-ти бетатестерам — 400 грн на рахунок!
-          </p>
-          <p className="text-sm text-emerald-600">
-            Натисніть та зареєструйтесь для отримання безкоштовного доступу до AI-юриста
-          </p>
-        </motion.div>
-
-        {/* Error Banner */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3"
-          >
-            <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-red-800 font-sans">{error}</p>
-            </div>
-            <button onClick={() => setError(null)} className="ml-auto text-red-600 hover:text-red-800">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </motion.div>
-        )}
-
-        {/* Main Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-xl border border-claude-border p-8"
-        >
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-sans text-claude-text font-medium mb-2">
-              {isLogin ? 'Вхід в систему' : 'Реєстрація'}
-            </h1>
-            <p className="text-claude-subtext font-sans text-sm">
-              {isLogin ? 'Оберіть зручний спосіб входу' : 'Створіть акаунт для початку роботи'}
+          {/* Heading */}
+          <div className="mb-8">
+            <h2 className="text-[1.5rem] font-semibold text-white tracking-tight leading-tight mb-2">
+              {isLogin ? 'Вхід до платформи' : 'Створити акаунт'}
+            </h2>
+            <p className="text-[0.775rem] text-zinc-600 tracking-wide">
+              {isLogin
+                ? 'Оберіть зручний спосіб автентифікації'
+                : 'Зареєструйтесь для початку роботи'}
             </p>
           </div>
 
-          {/* Legal consent checkboxes (Registration only — above all auth methods) */}
-          {!isLogin && (
-            <div className="space-y-2.5 mb-6 p-4 bg-claude-bg/50 rounded-xl border border-claude-border/50">
-              <p className="text-xs font-medium text-claude-text font-sans mb-2">Для реєстрації необхідно прийняти:</p>
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 w-4 h-4 rounded border-claude-border text-claude-accent focus:ring-claude-accent/30 cursor-pointer" />
-                <span className="text-xs text-claude-subtext font-sans leading-relaxed">
-                  <a href="/ua/terms" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Умови використання</a>
-                  {' '}та{' '}
-                  <a href="/ua/offer" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Публічну оферту</a>
-                </span>
-              </label>
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input type="checkbox" checked={acceptedPrivacy} onChange={(e) => setAcceptedPrivacy(e.target.checked)} className="mt-0.5 w-4 h-4 rounded border-claude-border text-claude-accent focus:ring-claude-accent/30 cursor-pointer" />
-                <span className="text-xs text-claude-subtext font-sans leading-relaxed">
-                  <a href="/ua/privacy" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Політику конфіденційності</a>
-                </span>
-              </label>
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input type="checkbox" checked={acceptedDpa} onChange={(e) => setAcceptedDpa(e.target.checked)} className="mt-0.5 w-4 h-4 rounded border-claude-border text-claude-accent focus:ring-claude-accent/30 cursor-pointer" />
-                <span className="text-xs text-claude-subtext font-sans leading-relaxed">
-                  <a href="/ua/dpa" target="_blank" rel="noopener noreferrer" className="text-claude-accent hover:text-[#C66345] underline" onClick={(e) => e.stopPropagation()}>Угоду про обробку даних (DPA)</a>
-                </span>
-              </label>
-            </div>
-          )}
+          {/* Error banner */}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                key="error"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="mb-6 px-4 py-3 rounded-lg bg-red-950/25 border border-red-900/35 flex items-start gap-3"
+              >
+                <AlertCircle size={13} className="text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-[0.775rem] text-red-400 leading-snug flex-1">{error}</p>
+                <button
+                  onClick={() => setError(null)}
+                  className="text-red-800 hover:text-red-500 flex-shrink-0 transition-colors ml-1"
+                >
+                  <X size={13} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* SSO Auth Button + Expandable Form */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleSSOAuth}
-            className={`w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-gradient-to-r from-[#fd4b2d] to-[#e0422a] hover:from-[#e0422a] hover:to-[#c93a25] text-white font-medium transition-all shadow-sm font-sans ${showSSOForm ? 'rounded-t-xl' : 'rounded-xl mb-3'}`}
+          {/* Legal consent (registration only) */}
+          <AnimatePresence>
+            {!isLogin && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.25 }}
+                className="overflow-hidden mb-6"
+              >
+                <div className="space-y-2.5 px-4 py-4 rounded-lg bg-zinc-900/70 border border-zinc-800/70">
+                  <p className="text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.18em] mb-3">
+                    Для реєстрації необхідно прийняти:
+                  </p>
+                  {[
+                    {
+                      checked: acceptedTerms,
+                      onChange: setAcceptedTerms,
+                      links: [
+                        { href: '/ua/terms', label: 'Умови використання' },
+                        { href: '/ua/offer', label: 'Публічну оферту' },
+                      ],
+                      separator: ' та ',
+                    },
+                    {
+                      checked: acceptedPrivacy,
+                      onChange: setAcceptedPrivacy,
+                      links: [{ href: '/ua/privacy', label: 'Політику конфіденційності' }],
+                      separator: '',
+                    },
+                    {
+                      checked: acceptedDpa,
+                      onChange: setAcceptedDpa,
+                      links: [{ href: '/ua/dpa', label: 'Угоду про обробку даних (DPA)' }],
+                      separator: '',
+                    },
+                  ].map((item, i) => (
+                    <label key={i} className="flex items-start gap-2.5 cursor-pointer group">
+                      <div
+                        className="relative mt-0.5 flex-shrink-0"
+                        onClick={() => item.onChange(!item.checked)}
+                      >
+                        <div className={`w-3.5 h-3.5 rounded-sm border transition-all duration-150 flex items-center justify-center ${
+                          item.checked
+                            ? 'bg-white border-white'
+                            : 'border-zinc-700 bg-transparent group-hover:border-zinc-500'
+                        }`}>
+                          {item.checked && (
+                            <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                              <path d="M1 3.5L3.5 6L8 1" stroke="#080808" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-[11px] text-zinc-500 leading-relaxed group-hover:text-zinc-400 transition-colors">
+                        {item.links.map((link, li) => (
+                          <span key={link.href}>
+                            <a
+                              href={link.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-zinc-300 hover:text-white underline underline-offset-2 decoration-zinc-700 hover:decoration-zinc-400 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {link.label}
+                            </a>
+                            {li < item.links.length - 1 && item.separator}
+                          </span>
+                        ))}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Primary: Google OAuth */}
+          <button
+            onClick={handleGoogleAuth}
+            className="w-full flex items-center justify-center gap-3 px-4 py-[11px] rounded-lg bg-white text-zinc-900 text-[0.825rem] font-medium hover:bg-zinc-100 active:bg-zinc-200 transition-colors duration-150 mb-2.5 shadow-sm"
           >
-            <ShieldCheck size={20} />
+            <svg width="15" height="15" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+            </svg>
+            {isLogin ? 'Увійти через Google' : 'Зареєструватися через Google'}
+          </button>
+
+          {/* Diia Auth */}
+          <button
+            onClick={handleDiiaAuth}
+            className="w-full flex items-center justify-center gap-3 px-4 py-[11px] rounded-lg bg-[#080808] border border-zinc-800 text-zinc-300 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 active:bg-zinc-900/60 transition-colors duration-150 mb-2.5"
+          >
+            <svg width="19" height="19" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+              <rect width="32" height="32" rx="6" fill="white" />
+              <text x="16" y="22" textAnchor="middle" fill="black" fontSize="15" fontWeight="700" fontFamily="'e-Ukraine', Arial, Helvetica, sans-serif" letterSpacing="-0.5">Дія</text>
+            </svg>
+            {isLogin ? 'Увійти через Дію' : 'Зареєструватися через Дію'}
+          </button>
+
+          {/* SSO */}
+          <button
+            onClick={handleSSOAuth}
+            className={`w-full flex items-center justify-center gap-2.5 px-4 py-[11px] bg-[#080808] border border-zinc-800 text-zinc-600 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 hover:text-zinc-400 active:bg-zinc-900/60 transition-colors duration-150 ${showSSOForm ? 'rounded-t-lg' : 'rounded-lg mb-5'}`}
+          >
+            <ShieldCheck size={14} className="flex-shrink-0" />
             {isLogin ? 'Увійти через SSO' : 'Зареєструватися через SSO'}
-          </motion.button>
+          </button>
 
           <AnimatePresence>
             {showSSOForm && (
@@ -500,343 +702,330 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                className="overflow-hidden mb-3"
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden mb-5"
               >
-                <div className="bg-red-50/50 border border-t-0 border-red-200/30 rounded-b-xl p-4 space-y-3">
-                  <div>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Mail size={16} className="text-claude-subtext" />
-                      </div>
-                      <input
-                        type="email"
-                        value={ssoEmail}
-                        onChange={(e) => setSsoEmail(e.target.value)}
-                        placeholder="SSO email"
-                        autoComplete="username"
-                        className="block w-full pl-9 pr-4 py-2.5 bg-white border border-claude-border rounded-lg text-sm text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400 transition-all font-sans"
-                      />
+                <div className="bg-zinc-900/70 border border-t-0 border-zinc-800 rounded-b-lg p-4 space-y-3">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail size={13} className="text-zinc-600" />
                     </div>
+                    <input
+                      type="email"
+                      value={ssoEmail}
+                      onChange={(e) => setSsoEmail(e.target.value)}
+                      placeholder="SSO email"
+                      autoComplete="username"
+                      className="block w-full pl-9 pr-4 py-2.5 bg-zinc-800/60 border border-zinc-700/60 rounded-md text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500 focus:border-zinc-500 transition-all"
+                    />
                   </div>
-                  <div>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Lock size={16} className="text-claude-subtext" />
-                      </div>
-                      <input
-                        type={showSSOPassword ? 'text' : 'password'}
-                        value={ssoPassword}
-                        onChange={(e) => setSsoPassword(e.target.value)}
-                        placeholder="SSO пароль"
-                        autoComplete="current-password"
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleSSOLogin(); }}
-                        className="block w-full pl-9 pr-10 py-2.5 bg-white border border-claude-border rounded-lg text-sm text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400 transition-all font-sans"
-                      />
-                      <button type="button" onClick={() => setShowSSOPassword(!showSSOPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-claude-subtext hover:text-claude-text transition-colors">
-                        {showSSOPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock size={13} className="text-zinc-600" />
                     </div>
+                    <input
+                      type={showSSOPassword ? 'text' : 'password'}
+                      value={ssoPassword}
+                      onChange={(e) => setSsoPassword(e.target.value)}
+                      placeholder="SSO пароль"
+                      autoComplete="current-password"
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSSOLogin(); }}
+                      className="block w-full pl-9 pr-10 py-2.5 bg-zinc-800/60 border border-zinc-700/60 rounded-md text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500 focus:border-zinc-500 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSSOPassword(!showSSOPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-600 hover:text-zinc-400 transition-colors"
+                    >
+                      {showSSOPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                    </button>
                   </div>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                  <button
                     onClick={handleSSOLogin}
                     disabled={ssoLoading}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#fd4b2d] to-[#e0422a] hover:from-[#e0422a] hover:to-[#c93a25] text-white rounded-lg font-medium text-sm transition-all shadow-sm font-sans disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-100 rounded-md text-sm font-medium transition-colors duration-150 disabled:opacity-40"
                   >
-                    {ssoLoading ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <>
-                        <ArrowRight size={16} />
-                        Увійти
-                      </>
-                    )}
-                  </motion.button>
+                    {ssoLoading ? <Loader2 size={14} className="animate-spin" /> : <><ArrowRight size={13} />Увійти</>}
+                  </button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Diia Auth Button */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleDiiaAuth}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white border-2 border-claude-border hover:border-claude-accent hover:bg-claude-bg rounded-xl font-medium text-claude-text transition-all shadow-sm mb-3 font-sans"
-          >
-            {/* Official Diia logo */}
-            <svg width="22" height="22" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="32" height="32" rx="7" fill="black"/>
-              <text x="16" y="22" textAnchor="middle" fill="white" fontSize="15" fontWeight="700" fontFamily="'e-Ukraine', Arial, Helvetica, sans-serif" letterSpacing="-0.5">Дія</text>
-            </svg>
-            {isLogin ? 'Увійти через Дію' : 'Зареєструватися через Дію'}
-          </motion.button>
-
-          {/* Google Auth Button */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleGoogleAuth}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white border-2 border-claude-border hover:border-claude-accent hover:bg-claude-bg rounded-xl font-medium text-claude-text transition-all shadow-sm mb-6 font-sans"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-            </svg>
-            {isLogin ? 'Увійти через Google' : 'Зареєструватися через Google'}
-          </motion.button>
-
           {/* Divider */}
-          <div className="relative mb-6">
+          <div className="relative mb-5">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-claude-border"></div>
+              <div className="w-full border-t border-zinc-800/60" />
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-claude-subtext font-sans">або</span>
+            <div className="relative flex justify-center">
+              <span className="px-3 bg-[#080808] text-[9px] text-zinc-700 tracking-[0.18em] uppercase">або</span>
             </div>
           </div>
 
-          {/* Auth Method Tabs */}
-          <div className="flex gap-2 mb-6 bg-claude-bg p-1 rounded-xl">
-            <button
-              onClick={() => setAuthMethod('password')}
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg font-medium text-sm font-sans transition-all ${authMethod === 'password' ? 'bg-white text-claude-text shadow-sm' : 'text-claude-subtext hover:text-claude-text'}`}
-            >
-              <Lock size={16} />
-              Пароль
-            </button>
-            <button
-              onClick={() => setAuthMethod('hardware-key')}
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg font-medium text-sm font-sans transition-all ${authMethod === 'hardware-key' ? 'bg-white text-claude-text shadow-sm' : 'text-claude-subtext hover:text-claude-text'}`}
-            >
-              <Key size={16} />
-              Ключ
-            </button>
-            <button
-              onClick={() => setAuthMethod('phone-key')}
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg font-medium text-sm font-sans transition-all ${authMethod === 'phone-key' ? 'bg-white text-claude-text shadow-sm' : 'text-claude-subtext hover:text-claude-text'}`}
-            >
-              <Smartphone size={16} />
-              Телефон
-            </button>
+          {/* Auth method tabs */}
+          <div className="flex gap-px mb-5 rounded-lg overflow-hidden border border-zinc-800/60 bg-zinc-900/30">
+            {([
+              { key: 'password', icon: Lock, label: 'Пароль' },
+              { key: 'hardware-key', icon: Key, label: 'Ключ' },
+              { key: 'phone-key', icon: Smartphone, label: 'Телефон' },
+            ] as const).map(({ key, icon: Icon, label }) => (
+              <button
+                key={key}
+                onClick={() => setAuthMethod(key)}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-medium transition-all duration-150 ${
+                  authMethod === key
+                    ? 'bg-zinc-800/90 text-zinc-200'
+                    : 'text-zinc-600 hover:text-zinc-500 hover:bg-zinc-900/50'
+                }`}
+              >
+                <Icon size={11} />
+                {label}
+              </button>
+            ))}
           </div>
 
-          {/* Auth Forms */}
+          {/* Auth forms */}
           <AnimatePresence mode="wait">
             {authMethod === 'password' && (
-              <motion.form key="password" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }} className="space-y-4" onSubmit={(e) => { e.preventDefault(); handlePasswordAuth(); }} method="post" autoComplete="on">
-                {/* Name field (Registration only) */}
+              <motion.form
+                key="password"
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 6 }}
+                transition={{ duration: 0.18 }}
+                className="space-y-3"
+                onSubmit={(e) => { e.preventDefault(); handlePasswordAuth(); }}
+                method="post"
+                autoComplete="on"
+              >
                 {!isLogin && (
                   <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-claude-text font-sans mb-2">Ім'я</label>
+                    <label htmlFor="name" className="block text-[10px] font-medium text-zinc-600 mb-1.5 tracking-[0.08em] uppercase">
+                      Ім'я
+                    </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <User size={18} className="text-claude-subtext" />
+                        <User size={13} className="text-zinc-700" />
                       </div>
-                      <input id="name" name="name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Іван Петренко" autoComplete="name" className="block w-full pl-10 pr-4 py-3 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans" />
+                      <input
+                        id="name"
+                        name="name"
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Іван Петренко"
+                        autoComplete="name"
+                        className="block w-full pl-9 pr-4 py-2.5 bg-zinc-900/50 border border-zinc-800/80 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
+                      />
                     </div>
                   </div>
                 )}
 
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-claude-text font-sans mb-2">Email</label>
+                  <label htmlFor="email" className="block text-[10px] font-medium text-zinc-600 mb-1.5 tracking-[0.08em] uppercase">
+                    Email
+                  </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Mail size={18} className="text-claude-subtext" />
+                      <Mail size={13} className="text-zinc-700" />
                     </div>
-                    <input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" autoComplete={isLogin ? 'username' : 'email'} className="block w-full pl-10 pr-4 py-3 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans" />
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="your@email.com"
+                      autoComplete={isLogin ? 'username' : 'email'}
+                      className="block w-full pl-9 pr-4 py-2.5 bg-zinc-900/50 border border-zinc-800/80 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
+                    />
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-claude-text font-sans mb-2">Пароль</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="password" className="block text-[10px] font-medium text-zinc-600 tracking-[0.08em] uppercase">
+                      Пароль
+                    </label>
+                    {isLogin && (
+                      <button
+                        type="button"
+                        onClick={() => { setShowForgotPassword(true); setError(null); }}
+                        className="text-[11px] text-zinc-700 hover:text-zinc-400 transition-colors duration-150"
+                      >
+                        Забули пароль?
+                      </button>
+                    )}
+                  </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Lock size={18} className="text-claude-subtext" />
+                      <Lock size={13} className="text-zinc-700" />
                     </div>
-                    <input id="password" name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => handlePasswordChange(e.target.value)} placeholder="••••••••" autoComplete={isLogin ? 'current-password' : 'new-password'} className="block w-full pl-10 pr-12 py-3 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans" />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-claude-subtext hover:text-claude-text transition-colors">
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    <input
+                      id="password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => handlePasswordChange(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete={isLogin ? 'current-password' : 'new-password'}
+                      className="block w-full pl-9 pr-10 py-2.5 bg-zinc-900/50 border border-zinc-800/80 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-700 hover:text-zinc-400 transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
                     </button>
                   </div>
 
-                  {/* Password strength indicator (Registration only) */}
                   {!isLogin && password && (
                     <div className="mt-2">
-                      <div className="flex gap-1 mb-1">
-                        <div className={`h-1 flex-1 rounded ${passwordStrength === 'weak' ? 'bg-red-500' : passwordStrength === 'medium' ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
-                        <div className={`h-1 flex-1 rounded ${passwordStrength === 'medium' || passwordStrength === 'strong' ? (passwordStrength === 'medium' ? 'bg-yellow-500' : 'bg-green-500') : 'bg-gray-200'}`}></div>
-                        <div className={`h-1 flex-1 rounded ${passwordStrength === 'strong' ? 'bg-green-500' : 'bg-gray-200'}`}></div>
+                      <div className="flex gap-0.5">
+                        {(['weak', 'medium', 'strong'] as const).map((level, i) => {
+                          const filled = (
+                            (passwordStrength === 'weak' && i === 0) ||
+                            (passwordStrength === 'medium' && i <= 1) ||
+                            (passwordStrength === 'strong')
+                          );
+                          const color = passwordStrength === 'weak' ? 'bg-red-700' : passwordStrength === 'medium' ? 'bg-amber-600' : 'bg-emerald-600';
+                          return <div key={level} className={`h-px flex-1 ${filled ? color : 'bg-zinc-800'} transition-colors duration-200`} />;
+                        })}
                       </div>
-                      <p className="text-xs text-claude-subtext">
-                        {passwordStrength === 'weak' && 'Слабкий пароль — додайте великі літери, цифри або спецсимволи'}
+                      <p className="text-[10px] text-zinc-700 mt-1.5">
+                        {passwordStrength === 'weak' && 'Слабкий — додайте великі літери, цифри або спецсимволи'}
                         {passwordStrength === 'medium' && 'Середній пароль'}
-                        {passwordStrength === 'strong' && 'Сильний пароль'}
+                        {passwordStrength === 'strong' && 'Надійний пароль'}
                       </p>
                     </div>
                   )}
                 </div>
 
-                {isLogin && (
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => { setShowForgotPassword(true); setError(null); }}
-                      className="text-sm text-claude-accent hover:text-[#C66345] font-sans"
-                    >
-                      Забули пароль?
-                    </button>
-                  </div>
-                )}
-
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={isLoading || (!isLogin && !allConsentsAccepted)} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-black text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm font-sans disabled:opacity-50">
+                <button
+                  type="submit"
+                  disabled={isLoading || (!isLogin && !allConsentsAccepted)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-[11px] mt-1 bg-white text-zinc-900 rounded-lg text-[0.825rem] font-medium hover:bg-zinc-100 active:bg-zinc-200 transition-colors duration-150 disabled:opacity-25 disabled:cursor-not-allowed shadow-sm"
+                >
                   {isLoading ? (
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={14} className="animate-spin" />
                   ) : (
                     <>
                       {isLogin ? 'Увійти' : 'Зареєструватися'}
-                      <ArrowRight size={18} />
+                      <ArrowRight size={13} />
                     </>
                   )}
-                </motion.button>
+                </button>
               </motion.form>
             )}
 
             {authMethod === 'hardware-key' && (
-              <motion.div key="hardware-key" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }} className="space-y-6">
-                <div className="text-center py-8">
-                  <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 2, repeat: Infinity }} className="inline-flex items-center justify-center w-20 h-20 bg-claude-accent/10 rounded-full mb-4">
-                    <Shield size={40} className="text-claude-accent" />
-                  </motion.div>
-                  <h3 className="text-lg font-serif text-claude-text mb-2">Підключіть ключ безпеки</h3>
-                  <p className="text-sm text-claude-subtext font-sans mb-6">Вставте USB-ключ або використайте NFC</p>
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => handleWebAuthnLogin('cross-platform')} disabled={isLoading} className="px-6 py-3 bg-claude-accent text-white rounded-xl font-medium hover:bg-[#C66345] transition-colors shadow-sm font-sans disabled:opacity-50">
-                    {isLoading ? <Loader2 size={18} className="animate-spin inline mr-2" /> : null}
-                    Автентифікація
-                  </motion.button>
+              <motion.div
+                key="hardware-key"
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 6 }}
+                transition={{ duration: 0.18 }}
+                className="py-10 text-center"
+              >
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-zinc-900/60 border border-zinc-800 mb-5">
+                  <Shield size={22} className="text-zinc-500" />
                 </div>
+                <h3 className="text-[0.825rem] font-medium text-zinc-300 mb-1.5">Підключіть ключ безпеки</h3>
+                <p className="text-[0.775rem] text-zinc-600 mb-6 leading-relaxed">Вставте USB-ключ або використайте NFC</p>
+                <button
+                  onClick={() => handleWebAuthnLogin('cross-platform')}
+                  disabled={isLoading}
+                  className="px-6 py-2.5 bg-zinc-900 border border-zinc-700 text-zinc-400 rounded-lg text-sm font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-colors duration-150 disabled:opacity-40"
+                >
+                  {isLoading ? <Loader2 size={14} className="animate-spin inline mr-2" /> : null}
+                  Автентифікація
+                </button>
               </motion.div>
             )}
 
             {authMethod === 'phone-key' && (
-              <motion.div key="phone-key" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }} className="space-y-6">
-                <div className="text-center py-8">
-                  <motion.div animate={{ rotate: [0, 5, -5, 0] }} transition={{ duration: 2, repeat: Infinity }} className="inline-flex items-center justify-center w-20 h-20 bg-claude-accent/10 rounded-full mb-4">
-                    <Smartphone size={40} className="text-claude-accent" />
-                  </motion.div>
-                  <h3 className="text-lg font-serif text-claude-text mb-2">Вхід через телефон</h3>
-                  <p className="text-sm text-claude-subtext font-sans mb-6">Браузер покаже QR-код для сканування телефоном</p>
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => handleWebAuthnLogin()} disabled={isLoading} className="px-6 py-3 bg-claude-accent text-white rounded-xl font-medium hover:bg-[#C66345] transition-colors shadow-sm font-sans disabled:opacity-50">
-                    {isLoading ? <Loader2 size={18} className="animate-spin inline mr-2" /> : null}
-                    Автентифікація
-                  </motion.button>
+              <motion.div
+                key="phone-key"
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 6 }}
+                transition={{ duration: 0.18 }}
+                className="py-10 text-center"
+              >
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-zinc-900/60 border border-zinc-800 mb-5">
+                  <Smartphone size={22} className="text-zinc-500" />
                 </div>
+                <h3 className="text-[0.825rem] font-medium text-zinc-300 mb-1.5">Вхід через телефон</h3>
+                <p className="text-[0.775rem] text-zinc-600 mb-6 leading-relaxed">Браузер покаже QR-код для сканування</p>
+                <button
+                  onClick={() => handleWebAuthnLogin()}
+                  disabled={isLoading}
+                  className="px-6 py-2.5 bg-zinc-900 border border-zinc-700 text-zinc-400 rounded-lg text-sm font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-colors duration-150 disabled:opacity-40"
+                >
+                  {isLoading ? <Loader2 size={14} className="animate-spin inline mr-2" /> : null}
+                  Автентифікація
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
-        </motion.div>
 
-        {/* Toggle Login/Register */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="text-center mt-6">
-          <p className="text-claude-subtext font-sans text-sm">
+          {/* Toggle login / register */}
+          <p className="text-center text-[12px] text-zinc-700 mt-6">
             {isLogin ? 'Немає акаунту?' : 'Вже є акаунт?'}{' '}
-            <button onClick={() => { setIsLogin(!isLogin); setError(null); setPassword(''); resetConsents(); }} className="text-claude-accent hover:text-[#C66345] font-medium">
+            <button
+              onClick={() => { setIsLogin(!isLogin); setError(null); setPassword(''); resetConsents(); }}
+              className="text-zinc-400 hover:text-white transition-colors duration-150 font-medium"
+            >
               {isLogin ? 'Зареєструватися' : 'Увійти'}
             </button>
           </p>
-        </motion.div>
 
-        {/* GDPR Compliance Badge */}
-        <motion.button
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45, duration: 0.5 }}
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          onClick={() => setShowGDPR(true)}
-          className="w-full mt-6 px-4 py-3 bg-white/70 backdrop-blur-sm border border-[#003399]/10 hover:border-[#003399]/25 rounded-xl flex items-center gap-3 cursor-pointer transition-colors text-left"
-        >
-          <div className="flex-shrink-0 w-9 h-9 bg-[#003399]/10 rounded-lg flex items-center justify-center">
-            <ShieldCheck size={20} className="text-[#003399]" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-bold text-[#003399] tracking-wider font-sans uppercase">GDPR</span>
-              <span className="text-[10px] text-claude-subtext/50">|</span>
-              <span className="text-[11px] text-claude-text font-medium font-sans">Захист даних</span>
-            </div>
-            <p className="text-[10px] text-claude-subtext font-sans mt-0.5 leading-tight">
-              Сервіс відповідає вимогам Регламенту ЄС 2016/679 щодо захисту персональних даних
-            </p>
-          </div>
-          <div className="flex-shrink-0 w-7 h-7 rounded-full bg-[#003399]/10 flex items-center justify-center" title="European Union">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((angle) => {
-                const r = 10;
-                const cx = 12 + r * Math.cos((angle - 90) * Math.PI / 180);
-                const cy = 12 + r * Math.sin((angle - 90) * Math.PI / 180);
-                return <circle key={angle} cx={cx} cy={cy} r="1.2" fill="#003399" opacity="0.7" />;
-              })}
-            </svg>
-          </div>
-        </motion.button>
-
-        {/* Investor Letter — prominent CTA */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.48, duration: 0.5 }} className="mt-6">
-          <a
-            href="/investor"
-            className="block w-full px-5 py-4 bg-gradient-to-r from-claude-accent/10 via-white to-claude-accent/10 border-2 border-claude-accent/30 hover:border-claude-accent hover:shadow-lg rounded-2xl transition-all group"
+          {/* GDPR badge */}
+          <button
+            onClick={() => setShowGDPR(true)}
+            className="w-full mt-5 px-4 py-3 rounded-lg bg-zinc-900/50 border border-zinc-800/60 hover:border-zinc-700/80 flex items-center gap-3 transition-colors duration-150 text-left group"
           >
-            <div className="flex items-center gap-4">
-              <div className="flex-shrink-0 w-11 h-11 bg-claude-accent rounded-xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                <TrendingUp size={22} className="text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-claude-text font-sans">Відкритий лист для інвестора</p>
-                <p className="text-xs text-claude-subtext font-sans mt-0.5">Команда, продукт, ринок, юніт-економіка та прогноз доходів</p>
-              </div>
-              <ArrowRight size={18} className="text-claude-accent flex-shrink-0 group-hover:translate-x-1 transition-transform" />
+            <div className="flex-shrink-0 w-7 h-7 rounded-md bg-[#0d1627] border border-[#1a2d5a]/40 flex items-center justify-center">
+              <ShieldCheck size={12} className="text-[#4d6ef5]" />
             </div>
-          </a>
-        </motion.div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-[8px] font-bold text-[#4d6ef5] tracking-[0.2em] uppercase">GDPR</span>
+                <span className="w-px h-2 bg-zinc-800 inline-block" />
+                <span className="text-[10px] text-zinc-500">Захист персональних даних</span>
+              </div>
+              <p className="text-[9px] text-zinc-700 tracking-wide">
+                Відповідає Регламенту ЄС 2016/679
+              </p>
+            </div>
+            <ChevronRight
+              size={11}
+              className="text-zinc-700 group-hover:text-zinc-500 flex-shrink-0 transition-all duration-200 group-hover:translate-x-0.5"
+            />
+          </button>
 
-        {/* Blog & News Links */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.52 }} className="flex justify-center gap-3 mt-4 flex-wrap">
-          <a href="/blog" className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-claude-border hover:border-claude-accent/30 hover:bg-white rounded-xl text-sm text-claude-subtext hover:text-claude-text transition-all font-sans">
-            <BookOpen size={15} className="text-claude-accent" />
-            <span>Blog</span>
-            {hasRecentArticles() && (
-              <span className="px-1.5 py-0.5 bg-claude-accent text-white text-[10px] font-bold rounded-full leading-none">NEW</span>
-            )}
-          </a>
-          <a href="/lex-news" className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-claude-border hover:border-emerald-400/30 hover:bg-white rounded-xl text-sm text-claude-subtext hover:text-claude-text transition-all font-sans">
-            <Newspaper size={15} className="text-emerald-600" />
-            <span>News</span>
-            <span className="px-1.5 py-0.5 bg-emerald-600 text-white text-[10px] font-bold rounded-full leading-none">NEW</span>
-          </a>
+          {/* Footer legal links */}
+          <div className="mt-5 flex flex-wrap justify-center gap-x-3 gap-y-1">
+            {[
+              { href: '/ua/terms', label: 'Умови' },
+              { href: '/ua/offer', label: 'Оферта' },
+              { href: '/ua/privacy', label: 'Конфіденційність' },
+              { href: '/ua/dpa', label: 'DPA' },
+              { href: '/ua/ai-usage', label: 'Політика AI' },
+              { href: '/ua/ai-transparency', label: 'Прозорість AI' },
+            ].map(({ href, label }) => (
+              <a
+                key={href}
+                href={href}
+                className="text-[10px] text-zinc-800 hover:text-zinc-500 transition-colors duration-150"
+              >
+                {label}
+              </a>
+            ))}
+          </div>
         </motion.div>
-
-        {/* Footer */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }} className="text-center mt-3 text-xs text-claude-subtext font-sans">
-          <p>
-            <a href="/ua/terms" className="text-claude-accent hover:text-[#C66345]">Умови використання</a>
-            {' · '}
-            <a href="/ua/offer" className="text-claude-accent hover:text-[#C66345]">Оферта</a>
-            {' · '}
-            <a href="/ua/privacy" className="text-claude-accent hover:text-[#C66345]">Конфіденційність</a>
-            {' · '}
-            <a href="/ua/dpa" className="text-claude-accent hover:text-[#C66345]">DPA</a>
-            {' · '}
-            <a href="/ua/ai-usage" className="text-claude-accent hover:text-[#C66345]">Політика AI</a>
-            {' · '}
-            <a href="/ua/ai-transparency" className="text-claude-accent hover:text-[#C66345]">Прозорість AI</a>
-          </p>
-        </motion.div>
-      </motion.div>
+      </div>
 
       {/* Forgot Password Modal */}
       <AnimatePresence>
@@ -860,58 +1049,54 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             onClick={() => { setDiiaDeeplink(null); setDiiaSessionId(null); }}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.97, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.97, opacity: 0, y: 8 }}
               transition={{ duration: 0.2 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center"
+              className="relative bg-zinc-950 border border-zinc-800/80 rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center"
             >
               <button
                 onClick={() => { setDiiaDeeplink(null); setDiiaSessionId(null); }}
-                className="absolute top-4 right-4 text-claude-subtext hover:text-claude-text"
+                className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-md text-zinc-700 hover:text-zinc-400 hover:bg-zinc-900 transition-colors"
               >
-                <X size={20} />
+                <X size={14} />
               </button>
 
-              {/* Diia logo */}
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="32" height="32" rx="7" fill="black"/>
-                  <text x="16" y="22" textAnchor="middle" fill="white" fontSize="15" fontWeight="700" fontFamily="'e-Ukraine', Arial, Helvetica, sans-serif" letterSpacing="-0.5">Дія</text>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-5 bg-white">
+                <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <text x="16" y="22" textAnchor="middle" fill="black" fontSize="15" fontWeight="700" fontFamily="'e-Ukraine', Arial, Helvetica, sans-serif" letterSpacing="-0.5">Дія</text>
                 </svg>
               </div>
 
-              <h2 className="text-xl font-medium text-claude-text mb-1 font-sans">Вхід через Дію</h2>
-              <p className="text-sm text-claude-subtext mb-6 font-sans">
+              <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5">Вхід через Дію</h2>
+              <p className="text-[0.775rem] text-zinc-500 mb-6 leading-relaxed">
                 Відкрийте застосунок Дія та відскануйте QR-код або натисніть кнопку нижче
               </p>
 
-              {/* QR code placeholder — real QR from deeplink */}
-              <div className="bg-claude-bg rounded-xl p-4 mb-6 flex items-center justify-center">
+              <div className="bg-white rounded-xl p-4 mb-5 inline-block mx-auto">
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(diiaDeeplink)}`}
                   alt="Diia QR code"
                   className="w-44 h-44"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               </div>
 
               <a
                 href={diiaDeeplink}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#1A4DC2] hover:bg-[#1540A8] text-white rounded-xl font-medium transition-colors font-sans mb-3"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 rounded-lg font-medium text-sm transition-colors mb-4"
               >
                 Відкрити в застосунку Дія
               </a>
 
-              <p className="text-xs text-claude-subtext font-sans flex items-center justify-center gap-2">
-                <Loader2 size={12} className="animate-spin" />
+              <p className="text-[10px] text-zinc-700 flex items-center justify-center gap-2">
+                <Loader2 size={10} className="animate-spin" />
                 Очікування автентифікації…
               </p>
             </motion.div>
