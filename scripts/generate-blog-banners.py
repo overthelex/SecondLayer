@@ -486,6 +486,17 @@ if __name__ == '__main__':
             'fractal_type': 'julia',
             'seed': 7,
         },
+        {
+            'article_id': 'military-lawyer-ai',
+            'scheme_name': 'legal-amber',
+            'category_label': 'Military Law',
+            'title_lines': ['AI для військового', 'адвоката: 273K+', 'рішень за секунди'],
+            'accent_words': ['273K+'],
+            'subtitle': 'ст. 407-409 КК. Повнотекстовий пошук. Ланцюжки оскаржень.',
+            'keywords': ['EDRSR', 'Military Law', 'Criminal', 'AI Search'],
+            'fractal_type': 'julia',
+            'seed': 3,
+        },
     ]
 
     print(f'Generating {len(banners)} banners...')
