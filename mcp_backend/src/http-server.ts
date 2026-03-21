@@ -517,7 +517,8 @@ class HTTPMCPServer {
       this.services.db,
       (type, delta) => {
         this.app_.metricsService.sseActiveConnections.inc({ type }, delta);
-      }
+      },
+      this.tools.minioService
     ));
     logger.info('Consultation routes registered at /api/consultations');
 
