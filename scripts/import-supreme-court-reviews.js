@@ -158,7 +158,8 @@ function splitIntoSections(text) {
 
 async function processPdf(filePath) {
   const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse(buffer);
+  const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  const parser = new PDFParse(uint8);
   await parser.load();
   const info = await parser.getInfo();
   const text = await parser.getText();
