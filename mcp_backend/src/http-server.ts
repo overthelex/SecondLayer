@@ -537,7 +537,7 @@ class HTTPMCPServer {
     // GET /api/admin/analytics/usage - Usage analytics
     // GET /api/admin/api-keys - List API keys
     // GET /api/admin/settings - Get system settings
-    this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billing.billingService, this.billing.userPreferencesService, this.billing.prometheusService, this.billing.pricingService, this.billing.subscriptionService, this.app_.configService));
+    this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billing.billingService, this.billing.userPreferencesService, this.billing.prometheusService, this.billing.pricingService, this.billing.subscriptionService, this.app_.configService, this.app_.auditService));
 
     // Upload metrics endpoint (admin)
     this.app.get('/api/admin/upload-metrics', requireJWT as any, (async (_req: DualAuthRequest, res: express.Response) => {

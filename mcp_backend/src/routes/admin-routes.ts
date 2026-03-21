@@ -12,6 +12,7 @@ import { PrometheusService } from '../services/prometheus-service.js';
 import { PricingService } from '../services/pricing-service.js';
 import { SubscriptionService } from '../services/subscription-service.js';
 import { ConfigService } from '../services/config-service.js';
+import type { AuditService } from '../services/audit-service.js';
 
 import {
   createRequireAdmin,
@@ -34,7 +35,8 @@ export function createAdminRoutes(
   prometheus: PrometheusService,
   pricing: PricingService,
   subscriptions: SubscriptionService,
-  configService?: ConfigService
+  configService?: ConfigService,
+  auditService?: AuditService,
 ): express.Router {
   const router = express.Router();
 
@@ -46,7 +48,7 @@ export function createAdminRoutes(
   // Mount all domain sub-routers (no path prefix — handlers define their own paths)
   router.use(createAdminStatsRoutes(db, logAdminAction));
   router.use(createAdminUsersRoutes(db, logAdminAction));
-  router.use(createAdminTransactionsRoutes(db, logAdminAction));
+  router.use(createAdminTransactionsRoutes(db, logAdminAction, auditService));
   router.use(createAdminBillingRoutes(db, logAdminAction, pricing, subscriptions));
   router.use(createAdminConfigRoutes(db, logAdminAction, preferencesService, pricing, configService));
   router.use(createAdminMetricsRoutes(db, prometheus));
