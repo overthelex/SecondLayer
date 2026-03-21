@@ -95,7 +95,7 @@ export function ConsultationDetailPage() {
           return prev;
         });
       }).catch(() => {});
-    }, 5000);
+    }, 15000);
     return () => clearInterval(poll);
   }, [id]);
 

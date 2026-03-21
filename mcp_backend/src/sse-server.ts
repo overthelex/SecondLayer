@@ -14,7 +14,7 @@ import rateLimit from 'express-rate-limit';
 
 const sseGlobalRateLimit = createRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 60,
+  maxRequests: 120,
   keyPrefix: 'ratelimit:sse-global',
 });
 
@@ -75,7 +75,7 @@ class SSEServer {
     // Global rate limiter (express-rate-limit) — recognised by CodeQL
     this.app.use(rateLimit({
       windowMs: 60 * 1000,
-      max: 60,
+      max: 120,
       standardHeaders: true,
       legacyHeaders: false,
       message: { error: 'Too Many Requests', code: 'RATE_LIMIT_EXCEEDED' },
