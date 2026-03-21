@@ -110,6 +110,20 @@ export class BillingService {
   }
 
   /**
+   * Convert UAH to USD using CurrencyService. Falls back to approximate rate if unavailable.
+   */
+  async convertFromUah(amountUah: number): Promise<number> {
+    if (!this.currencyService || amountUah <= 0) return 0;
+    try {
+      const { amountUsd } = await this.currencyService.convertUahToUsd(amountUah);
+      return amountUsd;
+    } catch (err) {
+      logger.warn('Failed to convert UAH to USD', { amountUah, error: (err as Error).message });
+      return Math.round((amountUah / 41.5) * 100) / 100; // fallback approximate rate
+    }
+  }
+
+  /**
    * PG returns numeric(10,2) as string — coerce to number
    */
   private coerceNumericFields(row: any): UserBilling {

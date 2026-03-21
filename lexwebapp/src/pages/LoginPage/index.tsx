@@ -400,6 +400,21 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </motion.div>
         </div>
 
+        {/* Beta Promo Banner */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="mb-6 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl text-center"
+        >
+          <p className="text-lg font-bold text-emerald-800 mb-1">
+            Першим 20-ти бетатестерам — 400 грн на рахунок!
+          </p>
+          <p className="text-sm text-emerald-600">
+            Зареєструйтесь та отримайте безкоштовний доступ до AI-юриста
+          </p>
+        </motion.div>
+
         {/* Error Banner */}
         {error && (
           <motion.div
