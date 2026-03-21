@@ -96,7 +96,8 @@ export function createToolServices(
     coreServices.zoPracticeAdapter,
     coreServices.sectionizer,
     coreServices.embeddingService,
-    coreServices.patternStore
+    coreServices.patternStore,
+    coreServices.db
   ));
   toolRegistry.registerHandler(new ProceduralTools(
     coreServices.zoAdapter,
