@@ -23,6 +23,9 @@ outputs:
   mobile:
     description: 'Whether mobile/ Flutter app changed'
     value: ${{ steps.changes.outputs.mobile }}
+  platform:
+    description: 'Whether platform/ developer console changed'
+    value: ${{ steps.changes.outputs.platform }}
   any_backend:
     description: 'Whether any backend service changed (shared/backend/rada/openreyestr)'
     value: ${{ steps.changes.outputs.any_backend }}
@@ -77,6 +80,7 @@ runs:
         FRONTEND=false
         DEPLOYMENT=false
         MOBILE=false
+        PLATFORM=false
 
         DEPLOY_INFRA=false  # Dockerfiles, compose files, nginx — triggers full rebuild
         DEPLOY_MONITORING=false  # Grafana, prometheus — deploy-only, no rebuild
@@ -91,6 +95,7 @@ runs:
             deployment/grafana/*|deployment/prometheus/*) DEPLOY_MONITORING=true; DEPLOYMENT=true ;;
             deployment/*) DEPLOY_INFRA=true; DEPLOYMENT=true ;;
             mobile/*) MOBILE=true ;;
+            platform/*) PLATFORM=true ;;
           esac
         done <<< "$CHANGED_FILES"
 
@@ -108,6 +113,7 @@ runs:
           RADA=true
           OPENREYESTR=true
           FRONTEND=true
+          PLATFORM=true
         fi
 
         ANY_BACKEND=false
@@ -137,6 +143,10 @@ runs:
           BUILD_LIST="${BUILD_LIST}\"frontend\","
           DEPLOY_LIST="${DEPLOY_LIST}\"lexwebapp\","
         fi
+        if [ "$PLATFORM" = "true" ]; then
+          BUILD_LIST="${BUILD_LIST}\"platform\","
+          DEPLOY_LIST="${DEPLOY_LIST}\"platform\","
+        fi
 
         # Remove trailing comma and wrap in array
         BUILD_LIST="${BUILD_LIST%,}"
@@ -152,6 +162,7 @@ runs:
         echo "deployment=$DEPLOYMENT" >> "$GITHUB_OUTPUT"
         echo "monitoring=$DEPLOY_MONITORING" >> "$GITHUB_OUTPUT"
         echo "mobile=$MOBILE" >> "$GITHUB_OUTPUT"
+        echo "platform=$PLATFORM" >> "$GITHUB_OUTPUT"
         echo "any_backend=$ANY_BACKEND" >> "$GITHUB_OUTPUT"
         echo "services_to_build=$SERVICES_TO_BUILD" >> "$GITHUB_OUTPUT"
         echo "services_to_deploy=$SERVICES_TO_DEPLOY" >> "$GITHUB_OUTPUT"
@@ -166,5 +177,6 @@ runs:
         echo "  deployment:  $DEPLOYMENT"
         echo "  monitoring:  $DEPLOY_MONITORING"
         echo "  mobile:      $MOBILE"
+        echo "  platform:    $PLATFORM"
         echo "  services_to_build: $SERVICES_TO_BUILD"
         echo "  services_to_deploy: $SERVICES_TO_DEPLOY"
