@@ -342,4 +342,88 @@ export class ConsultationPaymentService {
     );
     return result.rows[0] || null;
   }
+
+  /**
+   * Flag consultations stuck in 'in_progress' for more than 30 days as 'disputed'.
+   * Also logs failed attorney payouts. Intended for daily cron.
+   */
+  async flagStuckConsultationsAndPayouts(): Promise<{ disputed: number; failedPayouts: number }> {
+    // Mark stuck in_progress consultations as disputed
+    const stuckResult = await this.db.query(
+      `UPDATE consultations
+       SET status = 'disputed',
+           dispute_reason = 'Автоматично: консультація в статусі in_progress понад 30 днів',
+           dispute_raised_by = 'system',
+           dispute_raised_at = NOW()
+       WHERE status = 'in_progress'
+         AND started_at < NOW() - INTERVAL '30 days'
+       RETURNING id`
+    );
+
+    for (const row of stuckResult.rows) {
+      logger.warn('[StuckEscrow] Consultation auto-disputed after 30 days', { consultationId: row.id });
+      if (this.auditService) {
+        this.auditService.log({
+          action: 'escrow.auto_disputed',
+          resourceType: 'consultation',
+          resourceId: row.id,
+          details: { reason: 'in_progress > 30 days' },
+        }).catch(() => {});
+      }
+    }
+
+    // Alert on failed payouts
+    const failedPayouts = await this.db.query(
+      `SELECT ap.id, ap.attorney_user_id, ap.amount_uah, ap.consultation_payment_id
+       FROM attorney_payouts ap
+       WHERE ap.status = 'failed'
+         AND ap.updated_at > NOW() - INTERVAL '24 hours'`
+    );
+
+    for (const payout of failedPayouts.rows) {
+      logger.error('[FailedPayout] Attorney payout failed and needs attention', {
+        payoutId: payout.id,
+        attorneyUserId: payout.attorney_user_id,
+        amountUah: payout.amount_uah,
+      });
+    }
+
+    if (stuckResult.rows.length > 0 || failedPayouts.rows.length > 0) {
+      logger.info('[StuckEscrow] Cron completed', {
+        disputed: stuckResult.rows.length,
+        failedPayouts: failedPayouts.rows.length,
+      });
+    }
+
+    return { disputed: stuckResult.rows.length, failedPayouts: failedPayouts.rows.length };
+  }
+
+  /**
+   * Reconciliation assertion: SUM(released payments) should equal SUM(created payouts).
+   * Returns the mismatch amount if any.
+   */
+  async getPayoutReconciliation(): Promise<{
+    ok: boolean;
+    releasedTotal: number;
+    payoutsTotal: number;
+    mismatch: number;
+  }> {
+    const result = await this.db.query(
+      `SELECT
+         COALESCE((SELECT SUM(attorney_payout_uah) FROM consultation_payments WHERE status = 'released'), 0) AS released_total,
+         COALESCE((SELECT SUM(amount_uah) FROM attorney_payouts), 0) AS payouts_total`
+    );
+
+    const row = result.rows[0];
+    const releasedTotal = parseFloat(row.released_total);
+    const payoutsTotal = parseFloat(row.payouts_total);
+    const mismatch = Math.abs(releasedTotal - payoutsTotal);
+
+    return {
+      ok: mismatch < 0.01,
+      releasedTotal,
+      payoutsTotal,
+      mismatch,
+    };
+  }
 }
