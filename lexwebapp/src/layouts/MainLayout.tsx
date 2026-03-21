@@ -9,6 +9,7 @@ import { X, Menu, PanelRightOpen } from 'lucide-react';
 import { Sidebar } from '../components/sidebar';
 import { RightPanel } from '../components/right-panel';
 import { TimeTrackerWidget } from '../components/time/TimeTrackerWidget';
+import { OnboardingTour } from '../components/onboarding/OnboardingTour';
 import { PendingInvitationsModal } from '../components/attorney/PendingInvitationsModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useUIStore, useConsultationStore } from '../stores';
@@ -163,75 +164,75 @@ export function MainLayout() {
 
       <main className="flex-1 flex flex-col min-w-0 relative h-full">
         {/* Desktop Header */}
-        <header className="hidden lg:flex items-center justify-between px-6 py-3 border-b border-claude-border bg-white/80 backdrop-blur-sm sticky top-0 z-30">
+        <header className="hidden lg:flex items-center justify-between px-5 py-2.5 border-b border-claude-border bg-claude-bg sticky top-0 z-30">
           {/* Left: Toggle button */}
-          <div className="flex items-center gap-3 w-[200px]">
+          <div className="flex items-center gap-2 w-[180px]">
             <button
               onClick={toggleSidebar}
-              className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-subtext/8 rounded-lg transition-all duration-200"
+              className="p-1.5 text-claude-subtext hover:text-claude-text hover:bg-zinc-100 rounded-md transition-colors duration-150"
               title={isSidebarOpen ? 'Сховати меню' : 'Показати меню'}
             >
               {isSidebarOpen ? (
-                <X size={18} strokeWidth={2} />
+                <X size={16} strokeWidth={2} />
               ) : (
-                <Menu size={18} strokeWidth={2} />
+                <Menu size={16} strokeWidth={2} />
               )}
             </button>
           </div>
 
           {/* Center: Page title */}
           <div className="flex-1 flex items-center justify-center">
-            <h1 className="font-sans text-lg text-claude-text font-medium">
+            <h1 className="font-sans text-sm text-claude-subtext font-medium tracking-wide uppercase">
               {pageTitle}
             </h1>
           </div>
 
           {/* Right: Toggle right panel button */}
-          <div className="flex items-center justify-end gap-2 w-[200px]">
+          <div className="flex items-center justify-end gap-2 w-[180px]">
             <button
               onClick={toggleRightPanel}
-              className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-subtext/8 rounded-lg transition-all duration-200"
+              className="p-1.5 text-claude-subtext hover:text-claude-text hover:bg-zinc-100 rounded-md transition-colors duration-150"
               title={isRightPanelOpen ? 'Сховати панель' : 'Показати панель'}
             >
               {isRightPanelOpen ? (
-                <X size={18} strokeWidth={2} />
+                <X size={16} strokeWidth={2} />
               ) : (
-                <PanelRightOpen size={18} strokeWidth={2} />
+                <PanelRightOpen size={16} strokeWidth={2} />
               )}
             </button>
           </div>
         </header>
 
         {/* Mobile Header */}
-        <header className="lg:hidden flex items-center justify-between px-4 py-2.5 border-b border-claude-border bg-white/80 backdrop-blur-md sticky top-0 z-30">
+        <header className="lg:hidden flex items-center justify-between px-4 py-2 border-b border-claude-border bg-claude-bg sticky top-0 z-30">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-subtext/8 rounded-lg transition-all duration-200"
+            className="p-2 text-claude-subtext hover:text-claude-text hover:bg-zinc-100 rounded-md transition-colors duration-150"
           >
             <img
               src="/Image_1.jpg"
               alt="Menu"
-              className="w-6 h-6 object-contain"
+              className="w-5 h-5 object-contain"
             />
           </button>
           <div className="flex items-center">
             {pageTitle ? (
-              <h1 className="text-base font-sans text-claude-text font-medium">
+              <h1 className="text-xs font-sans text-claude-subtext font-medium tracking-widest uppercase">
                 {pageTitle}
               </h1>
             ) : (
               <img
                 src="/Image.jpg"
                 alt="Lex"
-                className="h-10 w-auto object-contain"
+                className="h-9 w-auto object-contain"
               />
             )}
           </div>
           <button
             onClick={() => useUIStore.getState().setRightPanelOpen(true)}
-            className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-subtext/8 rounded-lg transition-all duration-200"
+            className="p-2 text-claude-subtext hover:text-claude-text hover:bg-zinc-100 rounded-md transition-colors duration-150"
           >
-            <PanelRightOpen size={20} strokeWidth={2} />
+            <PanelRightOpen size={18} strokeWidth={2} />
           </button>
         </header>
 
@@ -251,6 +252,9 @@ export function MainLayout() {
 
       {/* Time Tracker Widget */}
       <TimeTrackerWidget />
+
+      {/* Onboarding Tour */}
+      <OnboardingTour />
 
       {/* Pending Invitations Modal for attorneys */}
       <PendingInvitationsModal

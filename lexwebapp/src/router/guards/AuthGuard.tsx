@@ -5,18 +5,21 @@
  * Shows attorney offer modal if attorney hasn't accepted the offer
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROUTES } from '../routes';
 import { api } from '../../utils/api-client';
 import { OrganizationSetupModal } from '../../components/organization/OrganizationSetupModal';
 import { AttorneyOfferModal } from '../../components/attorney/AttorneyOfferModal';
+import { useOnboardingStore } from '../../stores/onboardingStore';
 
 export const AuthGuard: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [showOrgModal, setShowOrgModal] = useState(false);
   const [, setOrgChecked] = useState(false);
+
+  const tourTriggeredRef = useRef(false);
 
   // Check if attorney needs to accept the offer
   const showAttorneyOffer = isAuthenticated
@@ -45,6 +48,17 @@ export const AuthGuard: React.FC = () => {
         setOrgChecked(true);
       });
   }, [isAuthenticated, isLoading]);
+
+  // Trigger onboarding tour after modals are dismissed
+  useEffect(() => {
+    if (isAuthenticated && !showAttorneyOffer && !showOrgModal && !tourTriggeredRef.current) {
+      const store = useOnboardingStore.getState();
+      if (!store.isCompleted) {
+        tourTriggeredRef.current = true;
+        store.startTour();
+      }
+    }
+  }, [isAuthenticated, showAttorneyOffer, showOrgModal]);
 
   // Show loading spinner while checking authentication
   if (isLoading) {
