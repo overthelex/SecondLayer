@@ -791,6 +791,45 @@ services:
           cpus: '0.1'
           memory: 64M
 
+  platform-prod:
+    build:
+      context: ..
+      dockerfile: platform/Dockerfile
+      args:
+        - BUILD_ENV=production
+        - VITE_API_URL=https://platform.legal.org.ua
+        - GIT_SHA=${GIT_SHA:-unknown}
+    image: platform-prod:latest
+    container_name: platform-prod
+    ports:
+    - "127.0.0.1:8094:80"
+    environment:
+    - NODE_ENV=production
+    - TZ=Europe/Kiev
+    networks:
+    - secondlayer-prod-network
+    restart: unless-stopped
+    depends_on:
+      - app-prod
+    healthcheck:
+      test:
+      - CMD
+      - sh
+      - -c
+      - wget --quiet --tries=1 --spider http://127.0.0.1/ || exit 1
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
   nginx-prod:
     image: nginx:alpine
     container_name: nginx-prod
