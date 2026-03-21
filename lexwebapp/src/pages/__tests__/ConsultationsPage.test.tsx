@@ -14,6 +14,7 @@ vi.mock('../../services/api/ConsultationService', () => ({
 
 // Mock routes
 vi.mock('../../router/routes', () => ({
+  ROUTES: { CONSULTATIONS: '/consultations' },
   generateRoute: {
     consultationDetail: (id: string) => `/consultations/${id}`,
   },
