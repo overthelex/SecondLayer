@@ -65,6 +65,7 @@ import { createJudgesRoutes } from './routes/judges-routes.js';
 import { JudgeAnalyticsService } from './services/judge-analytics-service.js';
 import { createJudgeAnalyticsRoutes } from './routes/judge-analytics-routes.js';
 import { createReferralRoutes } from './routes/referral-routes.js';
+import { createLegislationMonitoringRoutes } from './routes/legislation-monitoring-routes.js';
 import rateLimit from 'express-rate-limit';
 import cron from 'node-cron';
 
@@ -122,6 +123,14 @@ class HTTPMCPServer {
       logger.info('[Cron] Running stuck escrow and failed payout check');
       this.app_.consultationPaymentService.flagStuckConsultationsAndPayouts().catch(err => {
         logger.error('[Cron] Stuck escrow check failed', { error: (err as Error).message });
+      });
+    }, { timezone: 'Europe/Kyiv' });
+
+    // Cron: check legislation changes daily at 06:00 Kyiv time
+    cron.schedule('0 6 * * *', () => {
+      logger.info('[Cron] Running legislation change detection');
+      this.app_.legislationMonitoringService.checkAllSubscribedLegislation().catch(err => {
+        logger.error('[Cron] Legislation change detection failed', { error: (err as Error).message });
       });
     }, { timezone: 'Europe/Kyiv' });
   }
@@ -485,6 +494,10 @@ class HTTPMCPServer {
     // Referral system routes
     this.app.use('/api/referral', createReferralRoutes(this.billing.referralService));
     logger.info('Referral routes registered at /api/referral');
+
+    // Legislation monitoring routes - subscriptions, changes, notifications
+    this.app.use('/api/legislation/monitoring', requireJWT as any, createLegislationMonitoringRoutes(this.app_.legislationMonitoringService));
+    logger.info('Legislation monitoring routes registered at /api/legislation/monitoring');
 
     // Judges routes - search judges from VKKS data
     const judgesService = new JudgesService(this.services.db, this.services.zoAdapter);

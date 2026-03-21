@@ -27,6 +27,7 @@ import { ConsultationService } from '../services/consultation-service.js';
 import { ConsultationPaymentService } from '../services/consultation-payment-service.js';
 import { AttorneyPayoutService } from '../services/attorney-payout-service.js';
 import { OAuthService } from '../services/oauth-service.js';
+import { LegislationMonitoringService } from '../services/legislation-monitoring-service.js';
 import { MCPSSEServer } from '../api/mcp-sse-server.js';
 import { BannerService } from '../services/banner-service.js';
 import { UserService } from '../services/user-service.js';
@@ -67,6 +68,7 @@ export interface AppServices {
   oauthService: OAuthService;
   mcpSSEServer: MCPSSEServer;
   llmAdapter: LLMAdapter;
+  legislationMonitoringService: LegislationMonitoringService;
 }
 
 export function createAppServices(
@@ -219,6 +221,14 @@ export function createAppServices(
   consultationService.setEmailService(billing.emailService);
   logger.info('Attorney consultation services initialized (with payout tracking and email notifications)');
 
+  // Legislation monitoring service
+  const legislationMonitoringService = new LegislationMonitoringService(
+    coreServices.db,
+    coreServices.legislationTools.getLegislationService().getAdapter(),
+    billing.emailService
+  );
+  logger.info('Legislation monitoring service initialized');
+
   // Wire audit service into billing and payment services
   billing.billingService.setAuditService(auditService);
   billing.monobankService.setAuditService(auditService);
@@ -275,5 +285,6 @@ export function createAppServices(
     oauthService,
     mcpSSEServer,
     llmAdapter,
+    legislationMonitoringService,
   };
 }

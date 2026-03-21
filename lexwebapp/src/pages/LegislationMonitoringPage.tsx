@@ -4,7 +4,8 @@ import {
   Search,
   Filter,
   Eye,
-  Star,
+  Bell,
+  BellOff,
   FileText,
   Calendar,
   CheckCircle,
@@ -19,10 +20,12 @@ import {
   Loader2,
   ChevronRight,
   ChevronLeft,
-  Clock } from
+  Clock,
+  GitCompareArrows } from
 'lucide-react';
 import apiClient from '../utils/api-client';
 import showToast from '../utils/toast';
+import { ChangeFeed } from '../components/legislation/ChangeFeed';
 
 interface LegislationDocument {
   id: string;
@@ -101,7 +104,6 @@ const typeLabels: Record<string, string> = {
 };
 
 const PAGE_SIZE = 50;
-const FAVORITES_KEY = 'legislation-monitoring-favorites';
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '\u2014';
@@ -112,19 +114,6 @@ function formatDate(dateStr: string | null): string {
   } catch {
     return dateStr;
   }
-}
-
-function loadFavorites(): Set<string> {
-  try {
-    const stored = localStorage.getItem(FAVORITES_KEY);
-    return stored ? new Set(JSON.parse(stored)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveFavorites(favorites: Set<string>) {
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites]));
 }
 
 export function LegislationMonitoringPage({
@@ -144,7 +133,7 @@ export function LegislationMonitoringPage({
   const [selectedArticle, setSelectedArticle] = useState<ArticleContent | null>(null);
   const [articleLoading, setArticleLoading] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'text' | 'card' | 'history'>('card');
+  const [activeTab, setActiveTab] = useState<'text' | 'card' | 'history' | 'changes'>('card');
   const [filters, setFilters] = useState({
     type: '',
     dateFrom: '',
@@ -157,8 +146,12 @@ export function LegislationMonitoringPage({
   // Available types from server
   const [availableTypes, setAvailableTypes] = useState<string[]>([]);
 
-  // Favorites
-  const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
+  // Subscriptions (server-side)
+  const [subscriptions, setSubscriptions] = useState<Set<string>>(new Set());
+  const [subscriptionLoading, setSubscriptionLoading] = useState<string | null>(null);
+
+  // Top-level view tab
+  const [viewTab, setViewTab] = useState<'list' | 'changes'>('list');
 
   // History tab
   const [amendmentHistory, setAmendmentHistory] = useState<HistoryEntry[]>([]);
@@ -167,10 +160,14 @@ export function LegislationMonitoringPage({
   // Debounce timer for date filters
   const filterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load stats and types on mount
+  // Load stats, types, and subscriptions on mount
   useEffect(() => {
     apiClient.get('/api/legislation/stats').then(r => setStats(r.data)).catch(() => {});
     apiClient.get('/api/legislation/types').then(r => setAvailableTypes(r.data.types || [])).catch(() => {});
+    apiClient.get('/api/legislation/monitoring/subscriptions').then(r => {
+      const subs = new Set<string>((r.data.subscriptions || []).map((s: any) => s.rada_id));
+      setSubscriptions(subs);
+    }).catch(() => {});
   }, []);
 
   // Load legislation list
@@ -255,18 +252,24 @@ export function LegislationMonitoringPage({
     if (offset + PAGE_SIZE < totalCount) setOffset(offset + PAGE_SIZE);
   };
 
-  // Favorites
-  const toggleFavorite = (radaId: string) => {
-    setFavorites(prev => {
-      const next = new Set(prev);
-      if (next.has(radaId)) {
-        next.delete(radaId);
+  // Subscriptions
+  const toggleSubscription = async (radaId: string) => {
+    setSubscriptionLoading(radaId);
+    try {
+      if (subscriptions.has(radaId)) {
+        await apiClient.delete(`/api/legislation/monitoring/subscriptions/${encodeURIComponent(radaId)}`);
+        setSubscriptions(prev => { const next = new Set(prev); next.delete(radaId); return next; });
+        showToast.success('Підписку скасовано');
       } else {
-        next.add(radaId);
+        await apiClient.post('/api/legislation/monitoring/subscriptions', { rada_id: radaId });
+        setSubscriptions(prev => { const next = new Set(prev); next.add(radaId); return next; });
+        showToast.success('Підписано на зміни');
       }
-      saveFavorites(next);
-      return next;
-    });
+    } catch (err: any) {
+      showToast.error('Не вдалося змінити підписку');
+    } finally {
+      setSubscriptionLoading(null);
+    }
   };
 
   // Load document structure when selecting a document
@@ -370,10 +373,16 @@ export function LegislationMonitoringPage({
                   </a>
                 )}
                 <button
-                  onClick={() => toggleFavorite(selectedDocument.rada_id)}
-                  className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-colors"
-                  title={favorites.has(selectedDocument.rada_id) ? 'Прибрати з обраного' : 'В обране'}>
-                  <Star size={20} className={favorites.has(selectedDocument.rada_id) ? 'fill-amber-400 text-amber-400' : ''} />
+                  onClick={() => toggleSubscription(selectedDocument.rada_id)}
+                  disabled={subscriptionLoading === selectedDocument.rada_id}
+                  className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-colors disabled:opacity-50"
+                  title={subscriptions.has(selectedDocument.rada_id) ? 'Відписатися від змін' : 'Підписатися на зміни'}>
+                  {subscriptionLoading === selectedDocument.rada_id
+                    ? <Loader2 size={20} className="animate-spin" />
+                    : subscriptions.has(selectedDocument.rada_id)
+                      ? <Bell size={20} className="fill-claude-accent text-claude-accent" />
+                      : <BellOff size={20} />
+                  }
                 </button>
               </div>
             </div>
@@ -387,6 +396,7 @@ export function LegislationMonitoringPage({
               {[
                 { id: 'card', label: 'Картка', icon: BookOpen },
                 { id: 'text', label: 'Текст', icon: FileText },
+                { id: 'changes', label: 'Зміни', icon: GitCompareArrows },
                 { id: 'history', label: 'Історія', icon: History },
               ].map((tab) => {
                 const Icon = tab.icon;
@@ -568,6 +578,16 @@ export function LegislationMonitoringPage({
                       Оберіть статтю у вкладці "Картка" для перегляду тексту
                     </p>
                   )}
+                </motion.div>
+              )}
+
+              {/* Changes tab */}
+              {activeTab === 'changes' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <ChangeFeed radaId={selectedDocument.rada_id} />
                 </motion.div>
               )}
 
@@ -788,6 +808,31 @@ export function LegislationMonitoringPage({
           </div>
         )}
 
+        {/* View tabs */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewTab('list')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium font-sans transition-colors ${viewTab === 'list' ? 'bg-claude-accent text-white' : 'bg-white border border-claude-border text-claude-text hover:bg-claude-bg'}`}>
+            <FileText size={16} />
+            Документи
+          </button>
+          <button
+            onClick={() => setViewTab('changes')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium font-sans transition-colors ${viewTab === 'changes' ? 'bg-claude-accent text-white' : 'bg-white border border-claude-border text-claude-text hover:bg-claude-bg'}`}>
+            <GitCompareArrows size={16} />
+            Зміни
+            {subscriptions.size > 0 && (
+              <span className="px-1.5 py-0.5 bg-white/20 rounded text-xs">{subscriptions.size}</span>
+            )}
+          </button>
+        </div>
+
+        {viewTab === 'changes' ? (
+          <div className="bg-white rounded-2xl border border-claude-border shadow-sm p-6">
+            <ChangeFeed />
+          </div>
+        ) : (
+        <>
         {/* Results Header */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-claude-subtext font-sans">
@@ -895,10 +940,16 @@ export function LegislationMonitoringPage({
                             </a>
                           )}
                           <button
-                            onClick={(e) => { e.stopPropagation(); toggleFavorite(doc.rada_id); }}
-                            className="p-1.5 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded transition-colors"
-                            title={favorites.has(doc.rada_id) ? 'Прибрати з обраного' : 'В обране'}>
-                            <Star size={16} className={favorites.has(doc.rada_id) ? 'fill-amber-400 text-amber-400' : ''} />
+                            onClick={(e) => { e.stopPropagation(); toggleSubscription(doc.rada_id); }}
+                            disabled={subscriptionLoading === doc.rada_id}
+                            className="p-1.5 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded transition-colors disabled:opacity-50"
+                            title={subscriptions.has(doc.rada_id) ? 'Відписатися від змін' : 'Підписатися на зміни'}>
+                            {subscriptionLoading === doc.rada_id
+                              ? <Loader2 size={16} className="animate-spin" />
+                              : subscriptions.has(doc.rada_id)
+                                ? <Bell size={16} className="fill-claude-accent text-claude-accent" />
+                                : <BellOff size={16} />
+                            }
                           </button>
                         </div>
                       </td>
@@ -932,6 +983,8 @@ export function LegislationMonitoringPage({
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
   );
