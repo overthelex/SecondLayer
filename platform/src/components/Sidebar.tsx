@@ -10,12 +10,15 @@ import {
   FileCode2,
   Gauge,
   Cable,
+  Play,
+  X,
 } from 'lucide-react';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/keys', icon: Key, label: 'API Keys' },
   { to: '/usage', icon: BarChart3, label: 'Usage' },
+  { to: '/playground', icon: Play, label: 'Playground' },
 ];
 
 const docsItems = [
@@ -28,11 +31,17 @@ const docsItems = [
   { to: '/docs/integrations', icon: Cable, label: 'Integrations' },
 ];
 
-function SidebarLink({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+function SidebarLink({ to, icon: Icon, label, onClick }: { to: string; icon: React.ElementType; label: string; onClick?: () => void }) {
   return (
     <NavLink
       to={to}
       end={to === '/' || to === '/docs'}
+      onClick={onClick}
       className={({ isActive }) =>
         `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
           isActive
@@ -47,10 +56,10 @@ function SidebarLink({ to, icon: Icon, label }: { to: string; icon: React.Elemen
   );
 }
 
-export function Sidebar() {
+function SidebarContent({ onClose }: { onClose?: () => void }) {
   return (
-    <aside className="w-64 bg-sidebar-bg h-screen flex flex-col fixed left-0 top-0">
-      <div className="px-5 py-5 border-b border-white/10">
+    <>
+      <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold text-sm">
             SL
@@ -60,11 +69,16 @@ export function Sidebar() {
             <div className="text-sidebar-text text-xs">Developer Platform</div>
           </div>
         </div>
+        {onClose && (
+          <button onClick={onClose} className="lg:hidden p-1 text-sidebar-text hover:text-white">
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => (
-          <SidebarLink key={item.to} {...item} />
+          <SidebarLink key={item.to} {...item} onClick={onClose} />
         ))}
 
         <div className="pt-4 pb-2">
@@ -74,7 +88,7 @@ export function Sidebar() {
         </div>
 
         {docsItems.map((item) => (
-          <SidebarLink key={item.to} {...item} />
+          <SidebarLink key={item.to} {...item} onClick={onClose} />
         ))}
       </nav>
 
@@ -83,6 +97,27 @@ export function Sidebar() {
           SecondLayer Platform v0.1
         </div>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function Sidebar({ isOpen, onClose }: SidebarProps) {
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-64 bg-sidebar-bg h-screen flex-col fixed left-0 top-0 z-30">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile overlay */}
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={onClose} />
+          <aside className="fixed left-0 top-0 w-64 bg-sidebar-bg h-screen flex flex-col z-50 lg:hidden animate-slide-in">
+            <SidebarContent onClose={onClose} />
+          </aside>
+        </>
+      )}
+    </>
   );
 }
