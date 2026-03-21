@@ -108,14 +108,14 @@ const MILITARY_DEFENSE_FULL: GeneratedWorkflowSet = {
           {
             id: 1,
             tool: 'search_edrsr_decisions',
-            params: { military_preset: 'awol', instance_code: 1, date_from: '2022-02-24', judgment_code: 1, limit: 10 },
-            purpose: 'Вироки касаційної інстанції по самовільному залишенню частини',
+            params: { military_preset: 'awol', instance_code: 1, date_from: '2022-02-24', limit: 10 },
+            purpose: 'Рішення касаційної інстанції по самовільному залишенню частини',
           },
           {
             id: 2,
             tool: 'search_edrsr_decisions',
-            params: { military_preset: 'desertion', instance_code: 1, date_from: '2022-02-24', judgment_code: 1, limit: 10 },
-            purpose: 'Вироки касаційної інстанції по дезертирству',
+            params: { military_preset: 'desertion', instance_code: 1, date_from: '2022-02-24', limit: 10 },
+            purpose: 'Рішення касаційної інстанції по дезертирству',
           },
         ],
       },
@@ -186,13 +186,13 @@ const MILITARY_DEFENSE_FULL: GeneratedWorkflowSet = {
           {
             id: 1,
             tool: 'search_edrsr_decisions',
-            params: { military_preset: 'draft_evasion', justice_kind: 5, date_from: '2024-01-01', limit: 10 },
-            purpose: 'Адміністративні справи по ухиленню (КУпАП ст. 210-1)',
+            params: { category_code: 41260, justice_kind: 5, date_from: '2024-01-01', limit: 10 },
+            purpose: 'Адміністративні справи — непокора розпорядженню військовослужбовця',
           },
           {
             id: 2,
             tool: 'search_edrsr_decisions',
-            params: { military_preset: 'draft_evasion', justice_kind: 2, date_from: '2024-01-01', limit: 10 },
+            params: { military_preset: 'draft_evasion', date_from: '2024-01-01', limit: 10 },
             purpose: 'Кримінальні справи по ухиленню від мобілізації',
           },
           {
@@ -312,13 +312,13 @@ const MILITARY_DRAFT_EVASION: GeneratedWorkflowSet = {
           {
             id: 1,
             tool: 'search_edrsr_decisions',
-            params: { military_preset: 'draft_evasion', justice_kind: 5, date_from: '2024-01-01', limit: 10 },
-            purpose: 'Адміністративні справи (КУпАП ст. 210, 210-1)',
+            params: { category_code: 41260, justice_kind: 5, date_from: '2024-01-01', limit: 10 },
+            purpose: 'Адміністративні справи — непокора розпорядженню військовослужбовця',
           },
           {
             id: 2,
             tool: 'search_edrsr_decisions',
-            params: { military_preset: 'draft_evasion', justice_kind: 2, date_from: '2024-01-01', limit: 10 },
+            params: { military_preset: 'draft_evasion', date_from: '2024-01-01', limit: 10 },
             purpose: 'Кримінальні справи по ухиленню від мобілізації',
           },
         ],
