@@ -118,7 +118,7 @@ jobs:
 
       - name: Build platform
         if: needs.detect-changes.outputs.platform == 'true'
-        run: cd platform && npm ci && npm run build
+        run: cd platform && npm install --legacy-peer-deps && npm run build
 
   # ─── Step 2b: Self-heal build failures with Claude Code ─────────────
   self-heal-build:
