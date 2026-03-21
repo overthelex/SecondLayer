@@ -170,6 +170,10 @@ export class ConsultationService extends BaseService {
     return eventSource;
   }
 
+  async saveAttachmentToVault(consultationId: string, messageId: string): Promise<{ documentId: string; alreadyExists?: boolean }> {
+    return this.request(() => this.client.post(`/api/consultations/${consultationId}/messages/${messageId}/save-to-vault`));
+  }
+
   async submitReview(id: string, data: SubmitReviewRequest): Promise<{ success: boolean }> {
     return this.request(() => this.client.post(`/api/consultations/${id}/review`, data));
   }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, MessageSquare, Loader2, Paperclip, FileText, Download, X, Check, CheckCheck, Image as ImageIcon } from 'lucide-react';
+import { Send, MessageSquare, Loader2, Paperclip, FileText, Download, FolderDown, X, Check, CheckCheck, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services';
 import { uploadService } from '../../services/api/UploadService';
@@ -37,11 +37,42 @@ function MessageStatus({ message, isMine }: { message: ConsultationMessage; isMi
   return <Check size={12} className="text-white/50 inline-block ml-1" />;
 }
 
-function AttachmentDisplay({ message }: { message: ConsultationMessage }) {
+function AttachmentDisplay({ message, consultationId, isMine }: { message: ConsultationMessage; consultationId?: string; isMine?: boolean }) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
   if (!message.attachment_url) return null;
 
   const isImage = isImageType(message.attachment_type);
   const attachmentUrl = message.attachment_url;
+
+  const handleSaveToVault = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!consultationId || saving || saved) return;
+    setSaving(true);
+    try {
+      const res = await consultationService.saveAttachmentToVault(consultationId, message.id);
+      if (res.documentId) {
+        setSaved(true);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveButton = !isMine && consultationId && (
+    <button
+      onClick={handleSaveToVault}
+      disabled={saving || saved}
+      className="flex-shrink-0 opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30"
+      title={saved ? 'Збережено' : 'Зберегти до моїх документів'}
+    >
+      {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} className="text-green-500" /> : <FolderDown size={14} />}
+    </button>
+  );
 
   if (isImage) {
     return (
@@ -54,30 +85,36 @@ function AttachmentDisplay({ message }: { message: ConsultationMessage }) {
             loading="lazy"
           />
         </a>
-        {message.attachment_name && (
-          <p className="text-[10px] opacity-60 mt-0.5 truncate">{message.attachment_name}</p>
-        )}
+        <div className="flex items-center justify-between mt-0.5">
+          {message.attachment_name && (
+            <p className="text-[10px] opacity-60 truncate">{message.attachment_name}</p>
+          )}
+          {saveButton}
+        </div>
       </div>
     );
   }
 
   // Non-image file
   return (
-    <a
-      href={attachmentUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="mt-1.5 flex items-center gap-2 p-2 rounded-lg bg-black/10 hover:bg-black/15 transition-colors max-w-[240px]"
-    >
-      <FileText size={16} className="flex-shrink-0 opacity-70" />
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium truncate">{message.attachment_name || 'Файл'}</p>
-        {message.attachment_size && (
-          <p className="text-[10px] opacity-60">{formatFileSize(message.attachment_size)}</p>
-        )}
-      </div>
-      <Download size={14} className="flex-shrink-0 opacity-50" />
-    </a>
+    <div className="mt-1.5 flex items-center gap-2 p-2 rounded-lg bg-black/10 max-w-[240px]">
+      <a
+        href={attachmentUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-80 transition-opacity"
+      >
+        <FileText size={16} className="flex-shrink-0 opacity-70" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium truncate">{message.attachment_name || 'Файл'}</p>
+          {message.attachment_size && (
+            <p className="text-[10px] opacity-60">{formatFileSize(message.attachment_size)}</p>
+          )}
+        </div>
+        <Download size={14} className="flex-shrink-0 opacity-50" />
+      </a>
+      {saveButton}
+    </div>
   );
 }
 
@@ -413,7 +450,7 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
                 {msg.content && (
                   <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                 )}
-                <AttachmentDisplay message={msg} />
+                <AttachmentDisplay message={msg} consultationId={consultationId ?? undefined} isMine={isMine} />
                 <div className={`flex items-center justify-end gap-0.5 mt-1 ${isMine ? 'text-white/60' : 'text-claude-subtext'}`}>
                   <span className="text-[9px]">
                     {new Date(msg.created_at).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}
