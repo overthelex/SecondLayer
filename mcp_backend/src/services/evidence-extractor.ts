@@ -127,10 +127,12 @@ export function extractFromToolResult(
       decisions.push({
         id: `d-${c.doc_id || c.id || rndId()}`,
         number: c.cause_num || c.case_number || c.number || 'N/A',
-        court: c.court_code || c.court || '',
+        court: c.court_name || c.court_code || c.court || '',
         date: c.adjudication_date || c.date || '',
         summary: c.title || c.resolution || c.summary || c.similarity_reason
-          || (Array.isArray(c.snippets) ? c.snippets.join(' ') : '') || '',
+          || (Array.isArray(c.snippets) ? c.snippets.join(' ') : '')
+          || (c.full_text ? c.full_text.slice(0, 300) : '')
+          || (c.judgment_form ? `${c.judgment_form} у справі ${c.cause_num || ''}`.trim() : '') || '',
         relevance: c.similarity
           ? Math.round(c.similarity * 100)
           : c.relevance
@@ -153,9 +155,11 @@ export function extractFromToolResult(
       decisions.push({
         id: `chain-${doc.doc_id || rndId()}`,
         number: doc.case_number || parsed.case_number || doc.title || 'N/A',
-        court: doc.court || doc.instance || '',
-        date: doc.date || '',
-        summary: doc.resolution || doc.title || '',
+        court: doc.court_name || doc.court || doc.instance || '',
+        date: doc.adjudication_date || doc.date || '',
+        summary: doc.resolution || doc.title
+          || (doc.full_text ? doc.full_text.slice(0, 300) : '')
+          || (doc.judgment_form ? `${doc.judgment_form} у справі ${doc.case_number || parsed.case_number || ''}`.trim() : '') || '',
         relevance: 80,
         status: 'active',
         documentType: classifyDocumentType(doc),
