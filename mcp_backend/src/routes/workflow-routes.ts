@@ -24,6 +24,11 @@ export function createWorkflowSetRoutes(
 ): Router {
   const router = Router();
 
+  // GET /api/workflow-sets/presets — List available presets (MUST be before /:id)
+  router.get('/presets', (async (_req: DualAuthRequest, res: Response): Promise<any> => {
+    res.json({ presets: WORKFLOW_PRESET_LIST });
+  }) as any);
+
   // GET /api/workflow-sets — List user's workflow sets
   router.get('/', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     const userId = req.user?.id;
@@ -51,11 +56,6 @@ export function createWorkflowSetRoutes(
       logger.error('[WorkflowRoutes] Failed to get workflow set', { error: error.message });
       res.status(500).json({ error: 'Failed to get workflow set' });
     }
-  }) as any);
-
-  // GET /api/workflow-sets/presets — List available presets
-  router.get('/presets', (async (_req: DualAuthRequest, res: Response): Promise<any> => {
-    res.json({ presets: WORKFLOW_PRESET_LIST });
   }) as any);
 
   // POST /api/workflow-sets/presets/:presetId — Create workflow set from preset
