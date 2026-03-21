@@ -13,6 +13,8 @@ export interface WorkflowPresetMeta {
   description: string;
   icon: string;
   category: string;
+  tags: string[];
+  stepsCount: number;
 }
 
 export const WORKFLOW_PRESET_LIST: WorkflowPresetMeta[] = [
@@ -22,6 +24,8 @@ export const WORKFLOW_PRESET_LIST: WorkflowPresetMeta[] = [
     description: 'Комплексний аналіз судової практики по військових злочинах: самовільне залишення частини, дезертирство, ухилення від мобілізації, непокора. 273K+ рішень.',
     icon: 'shield',
     category: 'military',
+    tags: ['кримінальне право', 'судова практика', 'законодавство'],
+    stepsCount: 5,
   },
   {
     id: 'military_awol',
@@ -29,6 +33,8 @@ export const WORKFLOW_PRESET_LIST: WorkflowPresetMeta[] = [
     description: 'Аналіз 191K+ рішень по ст. 407 КК: статистика вироків, позиції ВС, пом\'якшуючі обставини, типові покарання.',
     icon: 'user-x',
     category: 'military',
+    tags: ['кримінальне право', 'судова практика'],
+    stepsCount: 3,
   },
   {
     id: 'military_draft_evasion',
@@ -36,6 +42,8 @@ export const WORKFLOW_PRESET_LIST: WorkflowPresetMeta[] = [
     description: 'Аналіз 26K+ рішень щодо ухилення від призову: адмінвідповідальність, кримінальна відповідальність, практика ТЦК.',
     icon: 'shield-alert',
     category: 'military',
+    tags: ['адмінправо', 'кримінальне право', 'судова практика'],
+    stepsCount: 3,
   },
 ];
 

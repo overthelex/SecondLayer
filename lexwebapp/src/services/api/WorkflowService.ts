@@ -33,10 +33,10 @@ export class WorkflowService extends BaseService {
     return this.requestVoid(() => this.client.delete(`/api/workflow-sets/${id}`));
   }
 
-  async listPresets(): Promise<Array<{ id: string; title: string; description: string; icon: string; category: string }>> {
+  async listPresets(): Promise<Array<{ id: string; title: string; description: string; icon: string; category: string; tags: string[]; stepsCount: number }>> {
     return this.request(
       () => this.client.get('/api/workflow-sets/presets'),
-      (data: { presets?: Array<{ id: string; title: string; description: string; icon: string; category: string }> }) => data.presets || []
+      (data: { presets?: Array<{ id: string; title: string; description: string; icon: string; category: string; tags: string[]; stepsCount: number }> }) => data.presets || []
     );
   }
 
