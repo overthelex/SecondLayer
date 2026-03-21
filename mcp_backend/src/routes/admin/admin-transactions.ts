@@ -6,10 +6,12 @@ import { Router, Request, Response } from 'express';
 import type { IDatabase } from '../../domain/ports/index.js';
 import { logger } from '../../utils/logger.js';
 import { getStringParam, type LogAdminAction } from './admin-middleware.js';
+import type { AuditService } from '../../services/audit-service.js';
 
 export function createAdminTransactionsRoutes(
   db: IDatabase,
   logAdminAction: LogAdminAction,
+  auditService?: AuditService,
 ): Router {
   const router = Router();
 
@@ -102,29 +104,42 @@ export function createAdminTransactionsRoutes(
         return res.status(400).json({ error: 'Transaction already refunded' });
       }
 
-      // Update transaction status
-      await db.query(
-        `UPDATE billing_transactions
-         SET status = 'refunded',
-             metadata = COALESCE(metadata, '{}'::jsonb) || $1
-         WHERE id = $2`,
-        [
-          JSON.stringify({
-            refund_reason: reason,
-            refunded_by: (req as any).user?.id,
-            refunded_at: new Date().toISOString()
-          }),
-          transactionId
-        ]
-      );
+      // Atomically update transaction status and refund balance
+      await db.transaction(async (client) => {
+        // Lock the transaction row to prevent double-refund
+        const locked = await client.query(
+          `SELECT * FROM billing_transactions WHERE id = $1 AND status != 'refunded' FOR UPDATE`,
+          [transactionId]
+        );
 
-      // Refund balance
-      await db.query(
-        'UPDATE user_billing SET balance_usd = balance_usd + $1 WHERE user_id = $2',
-        [transaction.amount_usd, transaction.user_id]
-      );
+        if (locked.rows.length === 0) {
+          throw new Error('Transaction already refunded (concurrent)');
+        }
 
-      // Log admin action
+        // Update transaction status
+        await client.query(
+          `UPDATE billing_transactions
+           SET status = 'refunded',
+               metadata = COALESCE(metadata, '{}'::jsonb) || $1
+           WHERE id = $2`,
+          [
+            JSON.stringify({
+              refund_reason: reason,
+              refunded_by: (req as any).user?.id,
+              refunded_at: new Date().toISOString()
+            }),
+            transactionId
+          ]
+        );
+
+        // Refund balance
+        await client.query(
+          'UPDATE user_billing SET balance_usd = balance_usd + $1 WHERE user_id = $2',
+          [transaction.amount_usd, transaction.user_id]
+        );
+      });
+
+      // Log admin action (non-critical, outside transaction)
       await logAdminAction(
         (req as any).user.id,
         'refund_transaction',
@@ -140,6 +155,17 @@ export function createAdminTransactionsRoutes(
         amount: transaction.amount_usd,
         reason
       });
+
+      // Audit: admin.refund
+      if (auditService) {
+        auditService.log({
+          userId: (req as any).user?.id,
+          action: 'admin.refund',
+          resourceType: 'billing_transaction',
+          resourceId: transactionId || undefined,
+          details: { targetUserId: transaction.user_id, amountUsd: transaction.amount_usd, reason },
+        }).catch(err => logger.warn('[Audit] Failed to log admin.refund', { error: (err as Error).message }));
+      }
 
       res.json({ success: true, message: 'Transaction refunded' });
     } catch (error: any) {

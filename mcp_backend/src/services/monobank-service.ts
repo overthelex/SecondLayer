@@ -11,6 +11,7 @@ import { EmailService } from './email-service.js';
 import { CurrencyService } from './currency-service.js';
 import { invoiceService } from './invoice-service.js';
 import type { IDatabase } from '../domain/ports/index.js';
+import type { AuditService } from './audit-service.js';
 
 export interface MonobankInvoiceResult {
   invoiceId: string;
@@ -35,12 +36,18 @@ export interface MonobankWebhookBody {
 }
 
 export class MonobankService {
+  protected auditService?: AuditService;
+
   constructor(
     protected billingService: BillingService,
     protected emailService: EmailService,
     protected db: IDatabase,
     protected currencyService?: CurrencyService
   ) {}
+
+  setAuditService(auditService: AuditService): void {
+    this.auditService = auditService;
+  }
 
   private get apiKey(): string {
     const key = process.env.MONOBANK_API_KEY;
@@ -293,6 +300,21 @@ export class MonobankService {
       transactionId: transaction.id,
       invoiceNumber,
     });
+
+    // Audit: payment.received
+    if (this.auditService) {
+      try {
+        await this.auditService.log({
+          userId: pi.user_id,
+          action: 'payment.received',
+          resourceType: 'payment_intent',
+          resourceId: pi.id,
+          details: { invoiceId: body.invoiceId, amountUah, amountUsd, transactionId: transaction.id },
+        });
+      } catch (err: any) {
+        logger.warn('[Audit] Failed to log payment.received', { error: err.message });
+      }
+    }
 
     // Save card details from invoice status (non-blocking)
     try {

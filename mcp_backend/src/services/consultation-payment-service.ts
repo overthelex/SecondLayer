@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ConsultationService } from './consultation-service.js';
 import { AttorneyPayoutService } from './attorney-payout-service.js';
 import type { BillingService } from './billing-service.js';
+import type { AuditService } from './audit-service.js';
 
 const PLATFORM_FEE_PERCENT = 30; // 30% platform fee
 const AUTO_RELEASE_DAYS = 7; // Days after completion to auto-release escrow
@@ -29,6 +30,7 @@ export interface ConsultationPayment {
 export class ConsultationPaymentService {
   private payoutService?: AttorneyPayoutService;
   private billingService?: BillingService;
+  private auditService?: AuditService;
 
   constructor(
     private db: IDatabase,
@@ -42,6 +44,10 @@ export class ConsultationPaymentService {
 
   setBillingService(billingService: BillingService): void {
     this.billingService = billingService;
+  }
+
+  setAuditService(auditService: AuditService): void {
+    this.auditService = auditService;
   }
 
   async createPayment(consultationId: string, payerUserId: string): Promise<ConsultationPayment> {
@@ -146,6 +152,17 @@ export class ConsultationPaymentService {
         paymentId: payment.id,
         consultationId: payment.consultation_id,
       });
+
+      // Audit: escrow.held
+      if (this.auditService) {
+        this.auditService.log({
+          userId: payment.payer_user_id,
+          action: 'escrow.held',
+          resourceType: 'consultation_payment',
+          resourceId: payment.id,
+          details: { consultationId: payment.consultation_id, amountUah: payment.amount_uah },
+        }).catch(err => logger.warn('[Audit] Failed to log escrow.held', { error: (err as Error).message }));
+      }
     } else if (status === 'failure' || status === 'reversed') {
       await this.db.query(
         `UPDATE consultation_payments SET status = 'refunded', refunded_at = NOW() WHERE id = $1`,
@@ -160,53 +177,82 @@ export class ConsultationPaymentService {
   }
 
   async releasePayment(consultationId: string): Promise<void> {
-    const result = await this.db.query(
-      `UPDATE consultation_payments SET status = 'released', released_at = NOW()
-       WHERE consultation_id = $1 AND status = 'held'
-       RETURNING *`,
-      [consultationId]
-    );
+    const payment = await this.db.transaction(async (client) => {
+      // Lock the payment row to prevent concurrent release
+      const lockResult = await client.query(
+        `SELECT * FROM consultation_payments
+         WHERE consultation_id = $1 AND status = 'held'
+         FOR UPDATE`,
+        [consultationId]
+      );
 
-    if (result.rows.length > 0) {
-      const payment = result.rows[0];
-      logger.info('Consultation payment released', {
-        paymentId: payment.id,
-        consultationId,
-        amount: payment.attorney_payout_uah,
-      });
-
-      // Credit attorney's platform balance with their share
-      if (this.billingService && payment.payee_user_id && payment.attorney_payout_uah > 0) {
-        try {
-          const amountUah = parseFloat(payment.attorney_payout_uah);
-          const amountUsd = await this.billingService.convertFromUah(amountUah);
-          await this.billingService.getOrCreateUserBilling(payment.payee_user_id);
-          await this.billingService.topUpBalance({
-            userId: payment.payee_user_id,
-            amountUsd,
-            amountUah,
-            description: `Виплата за консультацію (${amountUah} грн)`,
-            paymentProvider: 'consultation_escrow',
-            paymentId: payment.id,
-          });
-          logger.info('Attorney balance credited from escrow', {
-            attorneyUserId: payment.payee_user_id,
-            amountUah,
-            amountUsd,
-            consultationId,
-          });
-        } catch (err: any) {
-          logger.error('Failed to credit attorney balance', { consultationId, error: err.message });
-        }
+      if (lockResult.rows.length === 0) {
+        return null;
       }
 
-      // Auto-create payout record for admin to process
-      if (this.payoutService) {
-        try {
-          await this.payoutService.createPayout(consultationId);
-        } catch (err: any) {
-          logger.warn('Failed to create attorney payout record', { consultationId, error: err.message });
-        }
+      const row = lockResult.rows[0];
+
+      // Update status within the same transaction
+      await client.query(
+        `UPDATE consultation_payments SET status = 'released', released_at = NOW()
+         WHERE id = $1`,
+        [row.id]
+      );
+
+      return row;
+    });
+
+    if (!payment) {
+      return;
+    }
+
+    logger.info('Consultation payment released', {
+      paymentId: payment.id,
+      consultationId,
+      amount: payment.attorney_payout_uah,
+    });
+
+    // Audit: escrow.released
+    if (this.auditService) {
+      this.auditService.log({
+        userId: payment.payee_user_id,
+        action: 'escrow.released',
+        resourceType: 'consultation_payment',
+        resourceId: payment.id,
+        details: { consultationId, amountUah: payment.attorney_payout_uah, payerUserId: payment.payer_user_id },
+      }).catch(err => logger.warn('[Audit] Failed to log escrow.released', { error: (err as Error).message }));
+    }
+
+    // Credit attorney's platform balance with their share.
+    // If this fails, the error propagates — the payment status is already
+    // committed as 'released', so a reconciliation job should pick it up.
+    // We do NOT silently swallow this error.
+    if (this.billingService && payment.payee_user_id && payment.attorney_payout_uah > 0) {
+      const amountUah = parseFloat(payment.attorney_payout_uah);
+      const amountUsd = await this.billingService.convertFromUah(amountUah);
+      await this.billingService.getOrCreateUserBilling(payment.payee_user_id);
+      await this.billingService.topUpBalance({
+        userId: payment.payee_user_id,
+        amountUsd,
+        amountUah,
+        description: `Виплата за консультацію (${amountUah} грн)`,
+        paymentProvider: 'consultation_escrow',
+        paymentId: payment.id,
+      });
+      logger.info('Attorney balance credited from escrow', {
+        attorneyUserId: payment.payee_user_id,
+        amountUah,
+        amountUsd,
+        consultationId,
+      });
+    }
+
+    // Auto-create payout record for admin to process (non-critical)
+    if (this.payoutService) {
+      try {
+        await this.payoutService.createPayout(consultationId);
+      } catch (err: any) {
+        logger.warn('Failed to create attorney payout record', { consultationId, error: err.message });
       }
     }
   }
@@ -246,18 +292,46 @@ export class ConsultationPaymentService {
   }
 
   async refundPayment(consultationId: string): Promise<void> {
-    const result = await this.db.query(
-      `UPDATE consultation_payments SET status = 'refunded', refunded_at = NOW()
-       WHERE consultation_id = $1 AND status IN ('held', 'processing')
-       RETURNING *`,
-      [consultationId]
-    );
+    const payment = await this.db.transaction(async (client) => {
+      // Lock the payment row to prevent concurrent refund/release
+      const lockResult = await client.query(
+        `SELECT * FROM consultation_payments
+         WHERE consultation_id = $1 AND status IN ('held', 'processing')
+         FOR UPDATE`,
+        [consultationId]
+      );
 
-    if (result.rows.length > 0) {
+      if (lockResult.rows.length === 0) {
+        return null;
+      }
+
+      const row = lockResult.rows[0];
+
+      await client.query(
+        `UPDATE consultation_payments SET status = 'refunded', refunded_at = NOW()
+         WHERE id = $1`,
+        [row.id]
+      );
+
+      return row;
+    });
+
+    if (payment) {
       logger.info('Consultation payment refunded', {
-        paymentId: result.rows[0].id,
+        paymentId: payment.id,
         consultationId,
       });
+
+      // Audit: escrow.refunded
+      if (this.auditService) {
+        this.auditService.log({
+          userId: payment.payer_user_id,
+          action: 'escrow.refunded',
+          resourceType: 'consultation_payment',
+          resourceId: payment.id,
+          details: { consultationId, amountUah: payment.amount_uah },
+        }).catch(err => logger.warn('[Audit] Failed to log escrow.refunded', { error: (err as Error).message }));
+      }
     }
   }
 
