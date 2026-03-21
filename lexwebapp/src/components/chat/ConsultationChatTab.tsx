@@ -238,7 +238,7 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
     };
   }, [consultationId, onUnreadCountChange, scrollToBottom, user?.id]);
 
-  // Polling fallback: SSE through Cloudflare is unreliable, poll every 5s
+  // Polling fallback: SSE through Cloudflare is unreliable, poll every 30s
   useEffect(() => {
     if (!consultationId) return;
     const poll = setInterval(() => {
@@ -254,7 +254,7 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
           return merged;
         });
       }).catch(() => {});
-    }, 5000);
+    }, 30000);
     return () => clearInterval(poll);
   }, [consultationId, scrollToBottom]);
 
