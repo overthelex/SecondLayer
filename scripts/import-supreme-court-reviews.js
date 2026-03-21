@@ -16,7 +16,7 @@ import path from 'path';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+const { PDFParse } = require('pdf-parse');
 
 const { Pool } = pg;
 
@@ -158,11 +158,12 @@ function splitIntoSections(text) {
 
 async function processPdf(filePath) {
   const buffer = fs.readFileSync(filePath);
-  const data = await pdfParse(buffer);
+  const parser = new PDFParse(buffer);
+  const data = await parser.parse();
   return {
-    text: data.text,
-    pages: data.numpages,
-    wordCount: data.text.split(/\s+/).length,
+    text: data.text || '',
+    pages: data.numpages || data.pages || 0,
+    wordCount: (data.text || '').split(/\s+/).length,
   };
 }
 
