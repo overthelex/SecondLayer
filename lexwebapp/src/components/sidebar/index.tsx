@@ -108,6 +108,15 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   }, [onClose]);
 
   useEffect(() => {
+    const handler = (e: Event) => {
+      const sectionId = (e as CustomEvent).detail;
+      if (sectionId) expandSection(sectionId);
+    };
+    window.addEventListener('tour-expand-section', handler);
+    return () => window.removeEventListener('tour-expand-section', handler);
+  }, []);
+
+  useEffect(() => {
     const handler = () => { setVaultFoldersLoaded(false); expandSection('vault'); };
     window.addEventListener('vault-folders-changed', handler);
     return () => window.removeEventListener('vault-folders-changed', handler);
@@ -169,7 +178,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="bg-white rounded-xl border border-claude-border shadow-xl p-6 max-w-sm mx-4"
+              className="bg-white rounded-xl border border-claude-border shadow-elevation-3 p-6 max-w-sm mx-4"
               onClick={(e) => e.stopPropagation()}>
               <h3 className="text-[15px] font-semibold text-claude-text mb-2">Видалити папку?</h3>
               <p className="text-[13px] text-claude-subtext mb-4">
@@ -195,39 +204,39 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
       </AnimatePresence>
 
       {/* Sidebar Container */}
-      <aside className={`fixed lg:static inset-y-0 left-0 lg:inset-auto z-50 w-[280px] h-screen lg:h-full bg-claude-sidebar border-r border-claude-border flex flex-col transition-transform duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 lg:inset-auto z-50 w-[260px] h-screen lg:h-full bg-claude-sidebar border-r border-claude-border flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
 
         {/* Header */}
-        <div className="p-4 flex items-center justify-between border-b border-claude-border/50">
-          <div className="flex items-center gap-3 px-1">
-            <div className="h-16 flex items-center">
+        <div className="px-4 py-3 flex items-center justify-between border-b border-claude-border">
+          <div className="flex items-center gap-2.5 px-1">
+            <div className="h-12 flex items-center">
               <img src="/Image.jpg" alt="Lex" className="h-full w-auto object-contain" />
             </div>
-            <span className="text-[10px] text-claude-subtext/60 font-mono tracking-tight">
-              {import.meta.env.VITE_APP_VERSION || ''}
-            </span>
+            {import.meta.env.VITE_APP_VERSION && (
+              <span className="text-[9px] text-claude-subtext/40 font-mono tracking-tight">
+                {import.meta.env.VITE_APP_VERSION}
+              </span>
+            )}
           </div>
-          <button onClick={onClose} className="lg:hidden p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-subtext/8 rounded-lg transition-all duration-200">
-            <X size={18} strokeWidth={2} />
+          <button onClick={onClose} className="lg:hidden p-1.5 text-claude-subtext hover:text-claude-text hover:bg-zinc-200/60 rounded-md transition-colors duration-150">
+            <X size={16} strokeWidth={2} />
           </button>
         </div>
 
         {/* New Chat Button */}
-        <div className="p-4 pb-3">
-          <button onClick={handleNewChat} className="w-full flex items-center gap-3 px-4 py-2.5 bg-white border border-claude-border hover:bg-claude-bg hover:border-claude-subtext/30 rounded-[12px] text-claude-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 group active:scale-[0.98]">
-            <div className="p-1 bg-claude-subtext/10 rounded-full group-hover:bg-claude-subtext/15 transition-colors duration-200">
-              <Plus size={15} strokeWidth={2.5} className="text-claude-text" />
-            </div>
-            <span className="font-medium text-[13px] tracking-tight font-sans">Новий запит</span>
+        <div className="px-3 pt-3 pb-2">
+          <button onClick={handleNewChat} className="w-full flex items-center gap-2.5 px-3 py-2 bg-claude-text text-white hover:bg-zinc-700 rounded-lg text-[13px] font-medium transition-colors duration-150 group active:scale-[0.98]">
+            <Plus size={14} strokeWidth={2.5} />
+            <span className="font-sans tracking-tight">Новий запит</span>
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-3 py-1">
-          <div className="flex justify-end px-1 py-1">
+        <div className="flex-1 overflow-y-auto px-2 py-1">
+          <div className="flex justify-end px-1 py-0.5">
             <button onClick={toggleAllSections} title={allCollapsed ? 'Розгорнути все' : 'Згорнути все'}
-              className="p-1.5 text-claude-subtext/50 hover:text-claude-text hover:bg-claude-subtext/8 rounded-lg transition-all duration-200">
-              <ChevronsUpDown size={14} strokeWidth={2} />
+              className="p-1 text-claude-subtext/40 hover:text-claude-subtext rounded-md transition-colors duration-150">
+              <ChevronsUpDown size={13} strokeWidth={2} />
             </button>
           </div>
 
@@ -240,9 +249,9 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                     {conversations.map((conv) => (
                       <div
                         key={conv.id}
-                        className={`group flex items-center gap-1 px-3 py-2 rounded-lg text-[13px] cursor-pointer transition-all duration-200 ${
-                          activeConversationId === conv.id ? 'bg-claude-accent/10 text-claude-accent' : 'text-claude-text hover:bg-claude-subtext/8'
-                        } ${switchingId === conv.id ? 'opacity-60 pointer-events-none' : ''}`}
+                        className={`group flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[13px] cursor-pointer transition-colors duration-150 ${
+                          activeConversationId === conv.id ? 'bg-zinc-200/70 text-claude-text font-medium' : 'text-claude-text hover:bg-zinc-200/40'
+                        } ${switchingId === conv.id ? 'opacity-50 pointer-events-none' : ''}`}
                         onClick={() => handleSwitchConversation(conv.id)}>
                         <MessageSquare size={14} strokeWidth={2} className="flex-shrink-0 opacity-60" />
                         {editingId === conv.id ? (

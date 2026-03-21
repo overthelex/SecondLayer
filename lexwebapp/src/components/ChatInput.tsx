@@ -97,7 +97,7 @@ export function ChatInput({
 
   return (
     <>
-    <div className="max-w-3xl mx-auto px-4 md:px-6 pb-2">
+    <div className="max-w-3xl mx-auto px-4 md:px-6 pb-2" data-tour="chat-input">
       {/* Mode Selection */}
       {onToolChange && selectedTool && (
         <ToolSelector selectedTool={selectedTool} onToolChange={onToolChange} />
