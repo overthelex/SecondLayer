@@ -13,12 +13,16 @@
 import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
-import pdfParse from 'pdf-parse';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 
 const { Pool } = pg;
 
 // ─── Configuration ───────────────────────────────────────────────
-const DATA_DIR = path.resolve(import.meta.dirname || '.', '../datasets/supreme-court');
+const __dirname = path.dirname(new URL(import.meta.url).pathname);
+const DATA_DIR = path.resolve(__dirname, '../datasets/supreme-court');
 
 const CHAMBER_MAP = {
   KKS: { name: 'Касаційний кримінальний суд', short: 'ККС', priority: 1 },
