@@ -36,6 +36,7 @@ jobs:
       services_to_build: ${{ steps.changes.outputs.services_to_build }}
       services_to_deploy: ${{ steps.changes.outputs.services_to_deploy }}
       monitoring: ${{ steps.changes.outputs.monitoring }}
+      platform: ${{ steps.changes.outputs.platform }}
       has_changes: ${{ steps.check.outputs.has_changes }}
     steps:
       - uses: actions/checkout@v4
@@ -69,6 +70,7 @@ jobs:
       RADA_CHANGED: ${{ needs.detect-changes.outputs.rada }}
       OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
       FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+      PLATFORM_CHANGED: ${{ needs.detect-changes.outputs.platform }}
     steps:
       - uses: actions/checkout@v4
 
@@ -113,6 +115,10 @@ jobs:
           npm run build
         env:
           VITE_API_URL: https://local.legal.org.ua
+
+      - name: Build platform
+        if: needs.detect-changes.outputs.platform == 'true'
+        run: cd platform && npm ci && npm run build
 
   # ─── Step 2b: Self-heal build failures with Claude Code ─────────────
   self-heal-build:
@@ -245,6 +251,7 @@ jobs:
       RADA_CHANGED: ${{ needs.detect-changes.outputs.rada }}
       OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
       FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+      PLATFORM_CHANGED: ${{ needs.detect-changes.outputs.platform }}
     steps:
       - uses: actions/checkout@v4
 
@@ -403,6 +410,7 @@ jobs:
       RADA_CHANGED: ${{ needs.detect-changes.outputs.rada }}
       OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
       FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+      PLATFORM_CHANGED: ${{ needs.detect-changes.outputs.platform }}
       MONITORING_CHANGED: ${{ needs.detect-changes.outputs.monitoring }}
     steps:
       - uses: actions/checkout@v4
@@ -488,6 +496,7 @@ jobs:
             [ "${RADA_CHANGED}" = "true" ] && BUILD="\$BUILD rada-mcp-app-prod rada-db-init-prod rada-migrate-prod"
             [ "${OPENREYESTR_CHANGED}" = "true" ] && BUILD="\$BUILD app-openreyestr-prod migrate-openreyestr-prod"
             [ "${FRONTEND_CHANGED}" = "true" ] && BUILD="\$BUILD lexwebapp-prod"
+            [ "${PLATFORM_CHANGED}" = "true" ] && BUILD="\$BUILD platform-prod"
             [ -n "\$BUILD" ] && \$DC build \$BUILD
 
             # --- 2. Run migrations (idempotent, safe while old containers serve) ---
@@ -511,6 +520,10 @@ jobs:
               else
                 \$DC up -d lexwebapp-prod
               fi
+            fi
+            # Platform: simple restart (no blue-green needed for static SPA)
+            if [ "${PLATFORM_CHANGED}" = "true" ]; then
+              \$DC up -d platform-prod
             fi
 
             # --- 4. Wait for new containers to be healthy ---
@@ -554,6 +567,10 @@ jobs:
               else
                 wait_healthy "lexwebapp-prod" 60 || HEALTH_OK=false
               fi
+            fi
+
+            if [ "${PLATFORM_CHANGED}" = "true" ]; then
+              wait_healthy "platform-prod" 60 || HEALTH_OK=false
             fi
 
             if [ "\$HEALTH_OK" != "true" ]; then

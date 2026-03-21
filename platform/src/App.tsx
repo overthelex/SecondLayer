@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ApiKeysPage } from './pages/ApiKeysPage';
 import { UsagePage } from './pages/UsagePage';
+import { PlaygroundPage } from './pages/PlaygroundPage';
 import { DocsLayout } from './pages/docs/DocsLayout';
 import { IntroductionPage } from './pages/docs/IntroductionPage';
 import { AuthenticationPage } from './pages/docs/AuthenticationPage';
@@ -31,6 +32,7 @@ export function App() {
           <Route index element={<DashboardPage />} />
           <Route path="keys" element={<ApiKeysPage />} />
           <Route path="usage" element={<UsagePage />} />
+          <Route path="playground" element={<PlaygroundPage />} />
 
           <Route path="docs" element={<DocsLayout />}>
             <Route index element={<IntroductionPage />} />
