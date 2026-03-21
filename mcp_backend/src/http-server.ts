@@ -41,7 +41,7 @@ import { createTemplateRoutes } from './routes/template-routes.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { createOAuthRouter } from './routes/oauth-routes.js';
 // createHybridAuthMiddleware available from './middleware/oauth-auth.js' if needed
-import { healthCheckRateLimit, webhookRateLimit, globalApiRateLimit } from './middleware/rate-limit.js';
+import { healthCheckRateLimit, webhookRateLimit, globalApiRateLimit, consultationRateLimit } from './middleware/rate-limit.js';
 import { createUploadRouter } from './routes/upload-routes.js';
 import { createConversationRouter } from './routes/conversation-routes.js';
 import { createEvidenceRoutes } from './routes/evidence-routes.js';
@@ -556,7 +556,7 @@ class HTTPMCPServer {
         req.headers.authorization = `Bearer ${req.query.token}`;
       }
       next();
-    }) as any, requireJWT as any, createConsultationRoutes(
+    }) as any, requireJWT as any, consultationRateLimit as any, createConsultationRoutes(
       this.app_.consultationService,
       this.app_.consultationPaymentService,
       this.app_.attorneyPayoutService,

@@ -118,9 +118,17 @@ export const passwordResetRateLimit = createRateLimiter({
   keyPrefix: 'ratelimit:password-reset',
 });
 
+// Consultation rate limiter — keyed by userId to avoid Cloudflare shared IP issues.
+// Generous limit: polling fallback at 30s = ~2 req/min per user, plus SSE + detail page.
+export const consultationRateLimit = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 120,
+  keyPrefix: 'ratelimit:consultation',
+  keyByUserId: true,
+});
+
 // Global API rate limiter — covers all /api/ routes as a baseline.
 // Raised to 1500/min to handle 20+ concurrent users behind Cloudflare (shared IP).
-// Polling alone generates ~480 req/min for 20 users.
 export const globalApiRateLimit = createRateLimiter({
   windowMs: 60 * 1000,
   maxRequests: 1500,
