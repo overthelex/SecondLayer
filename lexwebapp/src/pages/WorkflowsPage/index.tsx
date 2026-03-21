@@ -102,10 +102,13 @@ export function WorkflowsPage() {
   return (
     <div className="h-full overflow-y-auto">
     <div className="max-w-6xl mx-auto p-6">
-      <div className="flex items-center gap-3 mb-8">
+      <div className="flex items-center gap-3 mb-2">
         <Zap className="w-7 h-7 text-indigo-600" />
         <h1 className="text-2xl font-bold text-gray-900">Workflows</h1>
       </div>
+      <p className="text-sm text-gray-500 mb-8">
+        Готові аналітичні шаблони для юриста. Кожен workflow автоматично шукає судові рішення в ЄДРСР, збирає нормативну базу та аналізує правові позиції ВС.
+      </p>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -177,7 +180,7 @@ export function WorkflowsPage() {
               Шаблонів за запитом не знайдено
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {filteredPresets.map((preset) => {
                 const IconComponent = PRESET_ICONS[preset.icon] || Shield;
                 const isCreating = creatingPreset === preset.id;
@@ -186,29 +189,27 @@ export function WorkflowsPage() {
                     key={preset.id}
                     onClick={() => handleCreateFromPreset(preset.id)}
                     disabled={isCreating}
-                    className="text-left bg-gradient-to-br from-indigo-50 to-white border border-indigo-200 rounded-xl p-4 hover:border-indigo-400 hover:shadow-md transition-all disabled:opacity-50 group"
+                    className="text-left bg-gradient-to-br from-indigo-50 to-white border border-indigo-200 rounded-xl p-5 hover:border-indigo-400 hover:shadow-md transition-all disabled:opacity-50 group"
                   >
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2.5 mb-3">
                       {isCreating ? (
                         <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
                       ) : (
                         <IconComponent className="w-5 h-5 text-indigo-600" />
                       )}
-                      <span className="font-medium text-gray-900 text-sm flex-1">{preset.title}</span>
-                    </div>
-                    <p className="text-xs text-gray-500 line-clamp-2 mb-3">{preset.description}</p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-wrap gap-1">
-                        {preset.tags.slice(0, 3).map((tag) => (
-                          <span key={tag} className="inline-flex px-1.5 py-0.5 rounded-md bg-indigo-100/60 text-indigo-600 text-[10px] font-medium">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                      <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
-                        <ListChecks size={10} />
-                        {preset.stepsCount}
+                      <span className="font-semibold text-gray-900 text-sm flex-1">{preset.title}</span>
+                      <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 shrink-0">
+                        <ListChecks size={12} />
+                        {preset.stepsCount} workflows
                       </span>
+                    </div>
+                    <p className="text-xs text-gray-600 leading-relaxed mb-3">{preset.description}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {preset.tags.map((tag) => (
+                        <span key={tag} className="inline-flex px-2 py-0.5 rounded-md bg-indigo-100/60 text-indigo-600 text-[10px] font-medium">
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </button>
                 );
