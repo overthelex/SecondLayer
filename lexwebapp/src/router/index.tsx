@@ -429,6 +429,10 @@ export const router = createBrowserRouter([
             element: S(ConsultationsPage),
           },
           {
+            path: ROUTES.CONSULTATIONS_PAYOUTS,
+            element: S(ConsultationsPage),
+          },
+          {
             path: ROUTES.CONSULTATION_DETAIL,
             element: S(ConsultationDetailPage),
           },

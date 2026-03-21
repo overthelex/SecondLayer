@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageSquare, Clock, CheckCircle, XCircle, AlertCircle, Loader2, CreditCard, Wallet } from 'lucide-react';
 import { consultationService } from '../../services/api/ConsultationService';
-import { generateRoute } from '../../router/routes';
+import { generateRoute, ROUTES } from '../../router/routes';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   pending: { label: 'Очікує', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
@@ -18,8 +18,13 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 
 export function ConsultationsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'list' | 'payouts'>('list');
+  const activeTab = location.pathname === ROUTES.CONSULTATIONS_PAYOUTS ? 'payouts' : 'list';
+
+  const setActiveTab = (tab: 'list' | 'payouts') => {
+    navigate(tab === 'payouts' ? ROUTES.CONSULTATIONS_PAYOUTS : ROUTES.CONSULTATIONS, { replace: true });
+  };
 
   // Clear stale redirect so attorney always sees full list first
   useEffect(() => {
