@@ -7,6 +7,7 @@ import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import { PricingService, PricingTier, PriceCalculation } from './pricing-service.js';
 import type { CurrencyService } from './currency-service.js';
+import type { AuditService } from './audit-service.js';
 
 export interface UserBilling {
   id: string;
@@ -77,10 +78,15 @@ export interface EmailPreferences {
 export class BillingService {
   private pricingService: PricingService;
   private currencyService?: CurrencyService;
+  private auditService?: AuditService;
   private referralRewardCallback?: (userId: string, amountUsd: number, amountUah: number, transactionId: string) => Promise<void>;
 
   constructor(private db: IDatabase, pricingService?: PricingService) {
     this.pricingService = pricingService || new PricingService(db);
+  }
+
+  setAuditService(auditService: AuditService): void {
+    this.auditService = auditService;
   }
 
   setCurrencyService(currencyService: CurrencyService): void {
@@ -277,7 +283,7 @@ export class BillingService {
     description?: string;
     toolName?: string;
   }): Promise<BillingTransaction & { pricing_details?: PriceCalculation }> {
-    return this.db.transaction(async (client) => {
+    const result = await this.db.transaction(async (client) => {
       // Get current billing account (with row lock)
       const billingResult = await client.query(
         'SELECT * FROM user_billing WHERE user_id = $1 FOR UPDATE',
@@ -415,6 +421,19 @@ export class BillingService {
         pricing_details: priceCalc,
       };
     });
+
+    // Audit: balance.charge
+    if (this.auditService) {
+      this.auditService.log({
+        userId: params.userId,
+        action: 'balance.charge',
+        resourceType: 'billing_transaction',
+        resourceId: result.id,
+        details: { amountUsd: result.amount_usd, requestId: params.requestId, toolName: params.toolName },
+      }).catch(err => logger.warn('[Audit] Failed to log balance.charge', { error: (err as Error).message }));
+    }
+
+    return result;
   }
 
   /**
@@ -495,6 +514,17 @@ export class BillingService {
 
       return transaction;
     });
+
+    // Audit: balance.topup
+    if (this.auditService) {
+      this.auditService.log({
+        userId: params.userId,
+        action: 'balance.topup',
+        resourceType: 'billing_transaction',
+        resourceId: result.id,
+        details: { amountUsd: params.amountUsd, amountUah: params.amountUah, provider: params.paymentProvider },
+      }).catch(err => logger.warn('[Audit] Failed to log balance.topup', { error: (err as Error).message }));
+    }
 
     // Process referral reward outside the transaction (fire and forget)
     if (this.referralRewardCallback && result.type === 'topup' && params.paymentProvider !== 'referral') {

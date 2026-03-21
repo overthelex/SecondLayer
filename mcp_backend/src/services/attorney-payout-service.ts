@@ -1,6 +1,7 @@
 import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
+import type { AuditService } from './audit-service.js';
 
 export interface AttorneyPayout {
   id: string;
@@ -23,7 +24,13 @@ export interface AttorneyPayout {
 }
 
 export class AttorneyPayoutService {
+  private auditService?: AuditService;
+
   constructor(private db: IDatabase) {}
+
+  setAuditService(auditService: AuditService): void {
+    this.auditService = auditService;
+  }
 
   /**
    * Create a payout record after escrow release.
@@ -113,13 +120,26 @@ export class AttorneyPayoutService {
       throw new Error('Payout not found or already processed');
     }
 
+    const payout = result.rows[0];
+
     logger.info('Attorney payout marked as processed', {
       payoutId,
       adminUserId,
-      amount: result.rows[0].amount_uah,
+      amount: payout.amount_uah,
     });
 
-    return result.rows[0];
+    // Audit: payout.completed
+    if (this.auditService) {
+      this.auditService.log({
+        userId: adminUserId,
+        action: 'payout.completed',
+        resourceType: 'attorney_payout',
+        resourceId: payoutId,
+        details: { attorneyUserId: payout.attorney_user_id, amountUah: payout.amount_uah },
+      }).catch(err => logger.warn('[Audit] Failed to log payout.completed', { error: (err as Error).message }));
+    }
+
+    return payout;
   }
 
   /**

@@ -214,8 +214,14 @@ export function createAppServices(
   );
   consultationPaymentService.setPayoutService(attorneyPayoutService);
   consultationPaymentService.setBillingService(billing.billingService);
+  consultationPaymentService.setAuditService(auditService);
+  attorneyPayoutService.setAuditService(auditService);
   consultationService.setEmailService(billing.emailService);
   logger.info('Attorney consultation services initialized (with payout tracking and email notifications)');
+
+  // Wire audit service into billing and payment services
+  billing.billingService.setAuditService(auditService);
+  billing.monobankService.setAuditService(auditService);
 
   // Wire cost tracker to OpenAI manager and ZO adapters
   const openaiManager = getOpenAIManager();
