@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 class ConsultationInput extends StatefulWidget {
   final ValueChanged<String> onSend;
+  final VoidCallback? onTyping;
 
-  const ConsultationInput({super.key, required this.onSend});
+  const ConsultationInput({super.key, required this.onSend, this.onTyping});
 
   @override
   State<ConsultationInput> createState() => _ConsultationInputState();
@@ -60,6 +61,7 @@ class _ConsultationInputState extends State<ConsultationInput> {
               maxLines: 4,
               minLines: 1,
               textInputAction: TextInputAction.newline,
+              onChanged: (_) => widget.onTyping?.call(),
               decoration: InputDecoration(
                 hintText: 'Написати повідомлення...',
                 border: OutlineInputBorder(

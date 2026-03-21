@@ -5,11 +5,15 @@ import '../../../../shared/theme/app_colors.dart';
 class ConsultationMessageBubble extends StatelessWidget {
   final ConsultationMessage message;
   final bool isMe;
+  final void Function(String attachmentId)? onSaveToVault;
+  final bool isSavedToVault;
 
   const ConsultationMessageBubble({
     super.key,
     required this.message,
     required this.isMe,
+    this.onSaveToVault,
+    this.isSavedToVault = false,
   });
 
   @override
@@ -65,7 +69,12 @@ class ConsultationMessageBubble extends StatelessWidget {
               children: [
                 // Attachments
                 if (message.attachments.isNotEmpty)
-                  _AttachmentsDisplay(attachments: message.attachments),
+                  _AttachmentsDisplay(
+                    attachments: message.attachments,
+                    showVaultButton: !isMe && onSaveToVault != null,
+                    isSavedToVault: isSavedToVault,
+                    onSaveToVault: onSaveToVault,
+                  ),
 
                 // Text content
                 if (message.content.isNotEmpty)
@@ -138,7 +147,16 @@ class _StatusIcon extends StatelessWidget {
 
 class _AttachmentsDisplay extends StatelessWidget {
   final List<ConsultationAttachment> attachments;
-  const _AttachmentsDisplay({required this.attachments});
+  final bool showVaultButton;
+  final bool isSavedToVault;
+  final void Function(String attachmentId)? onSaveToVault;
+
+  const _AttachmentsDisplay({
+    required this.attachments,
+    this.showVaultButton = false,
+    this.isSavedToVault = false,
+    this.onSaveToVault,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -151,19 +169,32 @@ class _AttachmentsDisplay extends StatelessWidget {
           if (att.type == 'image') {
             return Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  att.url,
-                  width: 200,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 200,
-                    height: 100,
-                    color: AppColors.surfaceVariant,
-                    child: const Icon(Icons.broken_image),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      att.url,
+                      width: 200,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 200,
+                        height: 100,
+                        color: AppColors.surfaceVariant,
+                        child: const Icon(Icons.broken_image),
+                      ),
+                    ),
                   ),
-                ),
+                  if (showVaultButton)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: _VaultButton(
+                        isSaved: isSavedToVault,
+                        onTap: () => onSaveToVault?.call(att.id),
+                      ),
+                    ),
+                ],
               ),
             );
           }
@@ -187,11 +218,69 @@ class _AttachmentsDisplay extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (showVaultButton) ...[
+                  const SizedBox(width: 6),
+                  _VaultButton(
+                    isSaved: isSavedToVault,
+                    onTap: () => onSaveToVault?.call(att.id),
+                  ),
+                ],
               ],
             ),
           );
         }),
       ],
+    );
+  }
+}
+
+class _VaultButton extends StatefulWidget {
+  final bool isSaved;
+  final VoidCallback? onTap;
+
+  const _VaultButton({required this.isSaved, this.onTap});
+
+  @override
+  State<_VaultButton> createState() => _VaultButtonState();
+}
+
+class _VaultButtonState extends State<_VaultButton> {
+  bool _isSaving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.isSaved) {
+      return const Icon(
+        Icons.check_circle,
+        size: 20,
+        color: Colors.green,
+      );
+    }
+
+    if (_isSaving) {
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () async {
+        setState(() => _isSaving = true);
+        widget.onTap?.call();
+        // The parent will update isSaved via state
+        // but keep spinner for a moment in case of delay
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted && !widget.isSaved) {
+          setState(() => _isSaving = false);
+        }
+      },
+      child: const Icon(
+        Icons.folder_outlined,
+        size: 20,
+        color: AppColors.textSecondary,
+      ),
     );
   }
 }

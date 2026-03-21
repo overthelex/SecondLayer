@@ -27,18 +27,57 @@ class SSEClient {
     required void Function() onDone,
     required void Function(dynamic error) onError,
   }) async {
-    final token = await storage.getToken();
-    final uri = Uri.parse('${config.apiUrl}$path');
-
-    final request = http.Request('POST', uri)
-      ..headers.addAll({
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        if (token != null) 'Authorization': 'Bearer $token',
-      })
+    final request = http.Request(
+      'POST',
+      Uri.parse('${config.apiUrl}$path'),
+    )
+      ..headers.addAll(await _headers())
       ..body = jsonEncode(body);
 
+    return _sendRequest(
+      request: request,
+      onEvent: onEvent,
+      onDone: onDone,
+      onError: onError,
+    );
+  }
+
+  /// Opens a GET SSE stream (used for consultation messages).
+  Future<StreamSubscription?> streamGet({
+    required String path,
+    required void Function(SSEEvent event) onEvent,
+    required void Function() onDone,
+    required void Function(dynamic error) onError,
+  }) async {
+    final request = http.Request(
+      'GET',
+      Uri.parse('${config.apiUrl}$path'),
+    )..headers.addAll(await _headers());
+
+    return _sendRequest(
+      request: request,
+      onEvent: onEvent,
+      onDone: onDone,
+      onError: onError,
+    );
+  }
+
+  Future<Map<String, String>> _headers() async {
+    final token = await storage.getToken();
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  Future<StreamSubscription?> _sendRequest({
+    required http.Request request,
+    required void Function(SSEEvent event) onEvent,
+    required void Function() onDone,
+    required void Function(dynamic error) onError,
+  }) async {
     try {
       final client = http.Client();
       final response = await client.send(request);

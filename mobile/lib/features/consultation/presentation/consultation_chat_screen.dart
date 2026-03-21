@@ -79,10 +79,49 @@ class _ConsultationChatScreenState
                           return ConsultationMessageBubble(
                             message: chatState.messages[index],
                             isMe: chatState.messages[index].senderId == 'me',
+                            onSaveToVault: chatState.messages[index].attachments.isNotEmpty
+                                ? (attachmentId) => ref
+                                    .read(consultationChatProvider(
+                                            widget.consultationId)
+                                        .notifier)
+                                    .saveAttachmentToVault(
+                                      messageId:
+                                          chatState.messages[index].id,
+                                      attachmentId: attachmentId,
+                                    )
+                                : null,
+                            isSavedToVault:
+                                chatState.savedAttachmentMessageIds
+                                    .contains(chatState.messages[index].id),
                           );
                         },
                       ),
           ),
+
+          // Typing indicator
+          if (chatState.typingUserName != null)
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${chatState.typingUserName} друкує...',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant,
+                        ),
+                  ),
+                ],
+              ),
+            ),
 
           // Input
           ConsultationInput(
@@ -90,6 +129,10 @@ class _ConsultationChatScreenState
                 .read(
                     consultationChatProvider(widget.consultationId).notifier)
                 .sendMessage(text),
+            onTyping: () => ref
+                .read(
+                    consultationChatProvider(widget.consultationId).notifier)
+                .onTyping(),
           ),
         ],
       ),
