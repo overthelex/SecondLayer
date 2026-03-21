@@ -70,15 +70,33 @@ export function ConsultationDetailPage() {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent).detail;
       if (detail && detail.id === id) {
-        // Per-conversation SSE sends consultation object directly
         setConsultation(detail);
       } else {
-        // No detail or different consultation — refetch
         load();
       }
     };
     window.addEventListener('consultation-updated', handler);
     return () => window.removeEventListener('consultation-updated', handler);
+  }, [id]);
+
+  // Polling fallback: refetch consultation every 5s to catch status/fee changes
+  // SSE through Cloudflare is unreliable
+  useEffect(() => {
+    if (!id) return;
+    const poll = setInterval(() => {
+      consultationService.getConsultation(id).then((c) => {
+        if (!c) return;
+        setConsultation(prev => {
+          if (!prev) return c;
+          // Only update if something changed
+          if (prev.status !== c.status || prev.agreed_fee_uah !== c.agreed_fee_uah || prev.updated_at !== c.updated_at) {
+            return c;
+          }
+          return prev;
+        });
+      }).catch(() => {});
+    }, 5000);
+    return () => clearInterval(poll);
   }, [id]);
 
   const handleAction = async (action: string, inputValue?: string) => {

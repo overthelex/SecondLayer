@@ -201,6 +201,26 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
     };
   }, [consultationId, onUnreadCountChange, scrollToBottom, user?.id]);
 
+  // Polling fallback: SSE through Cloudflare is unreliable, poll every 5s
+  useEffect(() => {
+    if (!consultationId) return;
+    const poll = setInterval(() => {
+      consultationService.getMessages(consultationId, { limit: 100 }).then((result) => {
+        setMessages(prev => {
+          if (result.messages.length === prev.length) return prev;
+          // Merge: keep all messages, deduplicate by id
+          const ids = new Set(prev.map(m => m.id));
+          const newMsgs = result.messages.filter(m => !ids.has(m.id));
+          if (newMsgs.length === 0) return prev;
+          const merged = [...prev, ...newMsgs];
+          setTimeout(scrollToBottom, 100);
+          return merged;
+        });
+      }).catch(() => {});
+    }, 5000);
+    return () => clearInterval(poll);
+  }, [consultationId, scrollToBottom]);
+
   // Mark messages as read when chat becomes visible
   useEffect(() => {
     if (consultationId && messages.length > 0) {
