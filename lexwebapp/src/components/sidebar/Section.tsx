@@ -11,7 +11,7 @@ interface SectionProps {
 
 export function Section({ id, title, collapsed, onToggle, children }: SectionProps) {
   return (
-    <div className="mb-6">
+    <div className="mb-6" data-tour={id}>
       <button
         onClick={() => onToggle(id)}
         className="w-full flex items-center justify-between px-3 py-2 group cursor-pointer"
