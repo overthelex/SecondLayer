@@ -182,6 +182,8 @@ export async function registerWithPassword(req: Request, res: Response): Promise
           if (billingService && referralCode === 'beta2026') {
             try {
               const WELCOME_BONUS_UAH = 400;
+              // Ensure billing account exists before top-up
+              await billingService.getOrCreateUserBilling(user.id);
               // Convert UAH to USD using billing service's currency conversion
               const amountUsd = await billingService.convertFromUah(WELCOME_BONUS_UAH);
               await billingService.topUpBalance({
