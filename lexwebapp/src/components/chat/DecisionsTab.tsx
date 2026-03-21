@@ -2,10 +2,11 @@
  * DecisionsTab — renders court decision cards (Рішення/Вирок).
  */
 
-import { useState } from 'react';
 import { Gavel, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Decision } from '../DecisionCard';
 import { ExpandableCard, EmptyTabState } from './ExpandableCard';
+import { useExpandableCards } from '../../hooks/useExpandableCards';
+import { STATUS_LABELS } from '../right-panel/constants';
 
 function formatDate(raw: string): string {
   const d = new Date(raw);
@@ -13,28 +14,13 @@ function formatDate(raw: string): string {
   return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  active: 'Чинне',
-  overturned: 'Скасовано',
-  modified: 'Змінено',
-};
-
 interface DecisionsTabProps {
   decisions: Decision[];
   onOpenModal: (decision: Decision) => void;
 }
 
 export function DecisionsTab({ decisions, onOpenModal }: DecisionsTabProps) {
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
-
-  const toggleCard = (id: string) => {
-    setExpandedCards(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const { isExpanded, toggleCard } = useExpandableCards();
 
   if (decisions.length === 0) {
     return <EmptyTabState icon={Gavel} text="Судові рішення з'являться після аналізу" />;
@@ -44,7 +30,7 @@ export function DecisionsTab({ decisions, onOpenModal }: DecisionsTabProps) {
     <div className="space-y-2">
       {decisions.map((decision, i) => {
         const cardId = `decision-${decision.id}`;
-        const isExpanded = expandedCards.has(cardId);
+        const expanded = isExpanded(cardId);
 
         return (
           <ExpandableCard
@@ -52,7 +38,7 @@ export function DecisionsTab({ decisions, onOpenModal }: DecisionsTabProps) {
             id={cardId}
             index={i}
             icon={Gavel}
-            isExpanded={isExpanded}
+            isExpanded={expanded}
             onToggle={() => toggleCard(cardId)}
             content={decision.summary || 'Немає тексту рішення.'}
             onOpenModal={() => onOpenModal(decision)}
@@ -78,7 +64,7 @@ export function DecisionsTab({ decisions, onOpenModal }: DecisionsTabProps) {
                     }`}>
                       {STATUS_LABELS[decision.status] || decision.status}
                     </span>
-                    {isExpanded ? <ChevronUp size={14} className="text-claude-subtext" /> : <ChevronDown size={14} className="text-claude-subtext" />}
+                    {expanded ? <ChevronUp size={14} className="text-claude-subtext" /> : <ChevronDown size={14} className="text-claude-subtext" />}
                   </div>
                 </div>
                 <div className="text-[11px] text-claude-subtext mb-2">
