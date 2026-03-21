@@ -138,8 +138,8 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
 
         onToolResult: (data) => {
           const toolPreview = typeof data.result === 'string'
-            ? data.result.slice(0, 500)
-            : JSON.stringify(data.result, null, 2).slice(0, 500);
+            ? data.result
+            : JSON.stringify(data.result, null, 2);
 
           const costSuffix = data.cost_usd ? ` · ${formatUah(data.cost_usd)}` : '';
           addThinkingStep(assistantMessageId, {

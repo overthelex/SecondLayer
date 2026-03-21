@@ -232,8 +232,8 @@ export const useChatStore = create<ChatState>()(
                     id: `step-${i}`,
                     title: `✓ ${s.tool || 'tool'}`,
                     content: typeof s.result === 'string'
-                      ? s.result.slice(0, 500)
-                      : (JSON.stringify(s.result ?? '', null, 2) || '').slice(0, 500),
+                      ? s.result
+                      : (JSON.stringify(s.result ?? '', null, 2) || ''),
                     isComplete: true,
                   }))
                 : undefined,
