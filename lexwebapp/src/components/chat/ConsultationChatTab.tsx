@@ -180,9 +180,14 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
     });
 
     // Handle consultation status changes
-    es.addEventListener('consultation_status', () => {
-      // Dispatch global event for other components
-      window.dispatchEvent(new CustomEvent('consultation-updated'));
+    es.addEventListener('consultation_status', (event) => {
+      try {
+        const updated = JSON.parse(event.data);
+        // Dispatch with full consultation data for other components
+        window.dispatchEvent(new CustomEvent('consultation-updated', { detail: updated }));
+      } catch {
+        window.dispatchEvent(new CustomEvent('consultation-updated'));
+      }
     });
 
     es.onerror = () => {
