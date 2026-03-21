@@ -625,6 +625,39 @@ export class EmailService {
     });
   }
 
+  // ─── Legislation Monitoring Email ───────────────────────
+
+  async sendLegislationChangeNotification(params: {
+    email: string;
+    name: string;
+    lawTitle: string;
+    radaId: string;
+    changeCount: number;
+    changedArticles: string;
+    link: string;
+  }): Promise<void> {
+    try {
+      const articlesText = params.changedArticles
+        ? `<p>Змінені статті: <strong>${params.changedArticles}</strong></p>`
+        : '<p>Виявлено структурні зміни</p>';
+
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Зміни в ${params.lawTitle}`,
+        heading: 'Зміни в законодавстві',
+        body: `<p>Вітаємо, ${params.name}!</p>
+               <p>У документі <strong>${params.lawTitle}</strong> виявлено <strong>${params.changeCount}</strong> змін.</p>
+               ${articlesText}
+               <p>Перегляньте деталі змін на платформі.</p>`,
+        actionUrl: `${this.frontendUrl}${params.link}`,
+        actionText: 'Переглянути зміни',
+      });
+      logger.info('Legislation change email sent', { email: params.email, radaId: params.radaId });
+    } catch (error: any) {
+      logger.error('Failed to send legislation change email', { error: error.message });
+    }
+  }
+
   /**
    * Generate verification email template
    */
