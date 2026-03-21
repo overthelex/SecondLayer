@@ -537,7 +537,13 @@ class HTTPMCPServer {
     logger.info('Encryption routes registered at /api/encryption');
 
     // Consultation routes - all require JWT
-    this.app.use('/api/consultations', requireJWT as any, createConsultationRoutes(
+    // SSE endpoints use query param token (EventSource API doesn't support custom headers)
+    this.app.use('/api/consultations', ((req: any, _res: any, next: any) => {
+      if (!req.headers.authorization && req.query.token) {
+        req.headers.authorization = `Bearer ${req.query.token}`;
+      }
+      next();
+    }) as any, requireJWT as any, createConsultationRoutes(
       this.app_.consultationService,
       this.app_.consultationPaymentService,
       this.app_.attorneyPayoutService,
