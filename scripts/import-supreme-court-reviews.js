@@ -89,7 +89,7 @@ async function ensureTable(pool) {
     CREATE INDEX IF NOT EXISTS idx_scr_chamber ON supreme_court_reviews(chamber_short);
     CREATE INDEX IF NOT EXISTS idx_scr_category ON supreme_court_reviews(category);
     CREATE INDEX IF NOT EXISTS idx_scr_year_month ON supreme_court_reviews(year, month);
-    CREATE INDEX IF NOT EXISTS idx_scr_fulltext ON supreme_court_reviews USING gin(to_tsvector('ukrainian', full_text));
+    CREATE INDEX IF NOT EXISTS idx_scr_fulltext ON supreme_court_reviews USING gin(to_tsvector('simple', full_text));
   `);
 }
 
