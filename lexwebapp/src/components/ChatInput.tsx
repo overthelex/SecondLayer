@@ -109,16 +109,16 @@ export function ChatInput({
       {/* Load / Save prompt buttons */}
       <PromptManager currentInput={input} onLoadPrompt={handleLoadPrompt} />
 
-      <div className="relative bg-white rounded-2xl border border-claude-border shadow-sm focus-within:shadow-md focus-within:border-claude-subtext/40 transition-all duration-300">
-        <div className="flex items-end gap-2 p-2">
+      <div className="relative bg-white rounded-xl border border-zinc-200 shadow-elevation-1 focus-within:shadow-input-focus focus-within:border-zinc-400 transition-all duration-200">
+        <div className="flex items-end gap-1.5 p-1.5">
           {/* Plus / Attach button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-subtext/8 rounded-lg transition-all duration-200 flex-shrink-0"
+            className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors duration-150 flex-shrink-0"
             aria-label="Додати вкладення"
           >
-            <Plus size={18} strokeWidth={2} />
+            <Plus size={16} strokeWidth={2} />
           </button>
           <input
             ref={fileInputRef}
@@ -136,41 +136,41 @@ export function ChatInput({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Відповісти..."
+            placeholder="Напишіть повідомлення..."
             disabled={disabled || isStreaming}
             rows={1}
-            className="flex-1 py-2 px-2 bg-transparent border-none resize-none focus:ring-0 focus:outline-none text-claude-text placeholder:text-claude-subtext/40 font-sans text-[15px] leading-relaxed max-h-[200px] overflow-hidden"
+            className="flex-1 py-2 px-1 bg-transparent border-none resize-none focus:ring-0 focus:outline-none text-zinc-900 placeholder:text-zinc-400 font-sans text-[14px] leading-relaxed max-h-[200px] overflow-hidden"
             style={{
-              minHeight: '40px'
+              minHeight: '38px'
             }}
           />
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             {isStreaming ? (
               <button
                 type="button"
                 onClick={onCancel}
-                className="p-2 rounded-lg transition-all duration-200 bg-claude-text text-white hover:bg-claude-text/90 shadow-sm active:scale-95"
+                className="p-2 rounded-lg transition-colors duration-150 bg-zinc-900 text-white hover:bg-zinc-700 active:scale-95"
                 aria-label="Зупинити генерацію"
                 title="Зупинити"
               >
-                <Square size={18} strokeWidth={2} fill="currentColor" />
+                <Square size={15} strokeWidth={2} fill="currentColor" />
               </button>
             ) : (
               <button
                 onClick={handleSubmit}
                 disabled={(!input.trim() && files.length === 0) || disabled || isUploadingFiles}
-                className={`p-2 rounded-lg transition-all duration-200 ${
+                className={`p-2 rounded-lg transition-colors duration-150 ${
                   (input.trim() || files.length > 0) && !disabled && !isUploadingFiles
-                    ? 'bg-claude-text text-white hover:bg-claude-text/90 shadow-sm active:scale-95'
-                    : 'bg-claude-subtext/10 text-claude-subtext/30 cursor-not-allowed'
+                    ? 'bg-zinc-900 text-white hover:bg-zinc-700 active:scale-95'
+                    : 'bg-zinc-100 text-zinc-300 cursor-not-allowed'
                 }`}
                 aria-label="Надіслати повідомлення"
               >
                 {isUploadingFiles ? (
-                  <Loader2 size={18} strokeWidth={2} className="animate-spin" />
+                  <Loader2 size={15} strokeWidth={2} className="animate-spin" />
                 ) : (
-                  <Send size={18} strokeWidth={2} />
+                  <Send size={15} strokeWidth={2} />
                 )}
               </button>
             )}
