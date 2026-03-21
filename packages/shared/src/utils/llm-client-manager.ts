@@ -860,7 +860,19 @@ export class LLMClientManager {
       });
     }
 
-    return { system, messages: bedrockMessages };
+    // Bedrock requires strict user/assistant alternation.
+    // Merge consecutive same-role messages to avoid "Error in input stream".
+    const merged: BedrockMessage[] = [];
+    for (const msg of bedrockMessages) {
+      const prev = merged[merged.length - 1];
+      if (prev && prev.role === msg.role && Array.isArray(prev.content) && Array.isArray(msg.content)) {
+        prev.content.push(...msg.content);
+      } else {
+        merged.push(msg);
+      }
+    }
+
+    return { system, messages: merged };
   }
 
   private buildBedrockToolConfig(request: UnifiedChatRequest): ToolConfiguration | undefined {
