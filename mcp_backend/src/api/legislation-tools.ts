@@ -78,7 +78,9 @@ export class LegislationTools extends BaseToolHandler {
   }
 
   async getLegislationSection(args: LegislationToolArgs): Promise<any> {
-    const query = typeof args.query === 'string' ? args.query.trim() : '';
+    const query = typeof args.query === 'string' ? args.query.trim()
+      : typeof (args as any).legislation_reference === 'string' ? (args as any).legislation_reference.trim()
+      : '';
     const radaId = args.rada_id ? String(args.rada_id).trim() : '';
     const articleNumber = args.article_number ? String(args.article_number).trim() : '';
 
