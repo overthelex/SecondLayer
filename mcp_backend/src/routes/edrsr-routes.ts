@@ -49,7 +49,7 @@ export function createEdsrRoutes(db: IDatabase): Router {
       // Enrich with court name and judgment form
       const [courtResult, formResult] = await Promise.all([
         db.query('SELECT name FROM edrsr_courts WHERE court_code = $1 LIMIT 1', [meta.court_code]),
-        db.query('SELECT name FROM edrsr_judgment_forms WHERE code = $1 LIMIT 1', [meta.judgment_code]),
+        db.query('SELECT name FROM edrsr_judgment_forms WHERE judgment_code = $1 LIMIT 1', [meta.judgment_code]),
       ]);
 
       res.json({
@@ -168,12 +168,12 @@ export function createEdsrRoutes(db: IDatabase): Router {
           ? db.query('SELECT court_code, name FROM edrsr_courts WHERE court_code = ANY($1)', [courtCodes])
           : { rows: [] },
         judgmentCodes.length > 0
-          ? db.query('SELECT code, name FROM edrsr_judgment_forms WHERE code = ANY($1)', [judgmentCodes])
+          ? db.query('SELECT judgment_code, name FROM edrsr_judgment_forms WHERE judgment_code = ANY($1)', [judgmentCodes])
           : { rows: [] },
       ]);
 
       const courtMap = new Map((courts as any).rows.map((r: any) => [r.court_code, r.name]));
-      const formMap = new Map((forms as any).rows.map((r: any) => [r.code, r.name]));
+      const formMap = new Map((forms as any).rows.map((r: any) => [r.judgment_code, r.name]));
 
       const results = dataResult.rows.map((r: any) => ({
         ...r,
