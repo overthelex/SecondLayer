@@ -3,6 +3,7 @@ import { ShieldCheck, ExternalLink, X } from 'lucide-react';
 
 interface GDPRModalProps {
   onClose: () => void;
+  isDark?: boolean;
 }
 
 const COMPLIANCE_POINTS = [
@@ -45,65 +46,74 @@ const OFFICIAL_LINKS = [
   { href: 'https://edpb.europa.eu/', label: 'European Data Protection Board (EDPB)' },
 ];
 
-export function GDPRModal({ onClose }: GDPRModalProps) {
+export function GDPRModal({ onClose, isDark = true }: GDPRModalProps) {
+  const t = isDark;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      transition={{ duration: 0.2 }}
+      className={`fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4 ${t ? 'bg-black/80' : 'bg-black/40'}`}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        initial={{ opacity: 0, scale: 0.97, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white rounded-2xl max-w-lg w-full shadow-2xl max-h-[90vh] flex flex-col"
+        exit={{ opacity: 0, scale: 0.97, y: 12 }}
+        transition={{ duration: 0.2 }}
+        className={`border rounded-2xl max-w-lg w-full shadow-2xl max-h-[90vh] flex flex-col ${t ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200'}`}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 p-6 pb-4 border-b border-claude-border">
-          <div className="w-10 h-10 bg-[#003399]/10 rounded-xl flex items-center justify-center flex-shrink-0">
-            <ShieldCheck size={22} className="text-[#003399]" />
+        <div className={`flex items-center gap-3 px-6 py-5 border-b ${t ? 'border-zinc-800' : 'border-zinc-200'}`}>
+          <div className="w-9 h-9 bg-[#003399]/10 border border-[#003399]/20 rounded-lg flex items-center justify-center flex-shrink-0">
+            <ShieldCheck size={17} className="text-[#4d6ef5]" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-sans text-claude-text font-medium">Відповідність GDPR</h2>
-            <p className="text-xs text-claude-subtext font-sans">Регламент ЄС 2016/679</p>
+            <h2 className={`text-base font-semibold ${t ? 'text-zinc-100' : 'text-zinc-900'}`}>Відповідність GDPR</h2>
+            <p className={`text-xs ${t ? 'text-zinc-600' : 'text-zinc-400'}`}>Регламент ЄС 2016/679</p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-claude-bg text-claude-subtext hover:text-claude-text transition-colors"
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${t ? 'hover:bg-zinc-800 text-zinc-600 hover:text-zinc-300' : 'hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600'}`}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto p-6 space-y-5">
-          <p className="text-sm text-claude-text font-sans leading-relaxed">
-            Наш сервіс повністю відповідає вимогам <strong>Загального регламенту захисту даних (GDPR)</strong> Європейського Союзу. Ми забезпечуємо найвищий рівень захисту ваших персональних даних.
+        <div className="overflow-y-auto px-6 py-5 space-y-5">
+          <p className={`text-sm leading-relaxed ${t ? 'text-zinc-400' : 'text-zinc-600'}`}>
+            Наш сервіс повністю відповідає вимогам{' '}
+            <strong className={`font-medium ${t ? 'text-zinc-200' : 'text-zinc-800'}`}>Загального регламенту захисту даних (GDPR)</strong>{' '}
+            Європейського Союзу. Ми забезпечуємо найвищий рівень захисту ваших персональних даних.
           </p>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {COMPLIANCE_POINTS.map((item) => (
-              <div key={item.article} className="flex gap-3 p-3 bg-claude-bg/50 rounded-xl">
-                <div className="flex-shrink-0 w-6 h-6 bg-[#003399]/10 rounded-md flex items-center justify-center mt-0.5">
-                  <ShieldCheck size={14} className="text-[#003399]" />
+              <div
+                key={item.article}
+                className={`flex gap-3 px-4 py-3 border rounded-lg ${t ? 'bg-zinc-900 border-zinc-800/60' : 'bg-zinc-50 border-zinc-200'}`}
+              >
+                <div className="flex-shrink-0 w-5 h-5 bg-[#003399]/10 border border-[#003399]/20 rounded flex items-center justify-center mt-0.5">
+                  <ShieldCheck size={12} className="text-[#4d6ef5]" />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-claude-text font-sans">{item.title}</span>
-                    <span className="text-[10px] text-[#003399] bg-[#003399]/10 px-1.5 py-0.5 rounded font-medium font-sans">{item.article}</span>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className={`text-sm font-medium ${t ? 'text-zinc-200' : 'text-zinc-800'}`}>{item.title}</span>
+                    <span className="text-[10px] text-[#4d6ef5] bg-[#003399]/10 border border-[#003399]/20 px-1.5 py-0.5 rounded font-semibold tracking-wider uppercase">{item.article}</span>
                   </div>
-                  <p className="text-xs text-claude-subtext font-sans mt-1 leading-relaxed">{item.desc}</p>
+                  <p className={`text-xs leading-relaxed ${t ? 'text-zinc-500' : 'text-zinc-500'}`}>{item.desc}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="pt-2 border-t border-claude-border">
-            <p className="text-xs font-medium text-claude-text font-sans mb-3">Офіційні документи ЄС:</p>
+          <div className={`pt-1 border-t ${t ? 'border-zinc-800' : 'border-zinc-200'}`}>
+            <p className={`text-xs font-medium uppercase tracking-wider mb-3 ${t ? 'text-zinc-500' : 'text-zinc-400'}`}>Офіційні документи ЄС</p>
             <div className="space-y-2">
               {OFFICIAL_LINKS.map((link) => (
                 <a
@@ -111,9 +121,9 @@ export function GDPRModal({ onClose }: GDPRModalProps) {
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-xs text-[#003399] hover:text-[#002266] font-sans transition-colors group"
+                  className={`flex items-center gap-2 text-xs transition-colors group ${t ? 'text-zinc-500 hover:text-zinc-200' : 'text-zinc-500 hover:text-zinc-800'}`}
                 >
-                  <ExternalLink size={13} className="flex-shrink-0 opacity-60 group-hover:opacity-100" />
+                  <ExternalLink size={12} className="flex-shrink-0 opacity-50 group-hover:opacity-100" />
                   <span>{link.label}</span>
                 </a>
               ))}
@@ -122,10 +132,10 @@ export function GDPRModal({ onClose }: GDPRModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="p-6 pt-4 border-t border-claude-border">
+        <div className={`px-6 py-4 border-t ${t ? 'border-zinc-800' : 'border-zinc-200'}`}>
           <button
             onClick={onClose}
-            className="w-full px-4 py-3 bg-[#003399] text-white rounded-xl hover:bg-[#002266] transition-colors font-sans font-medium text-sm"
+            className={`w-full px-4 py-2.5 border rounded-lg text-sm font-medium transition-colors duration-150 ${t ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-100' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-800'}`}
           >
             Зрозуміло
           </button>
