@@ -88,8 +88,8 @@ const CITATION_CHECK_TIMEOUT_MS = 5_000;
 // Tools where deduplication hashes only on the primary key (e.g. caseNumber),
 // ignoring secondary params like groupByInstance, includeFullText, maxDocs.
 const COARSE_HASH_TOOLS: Record<string, string[]> = {
-  get_case_documents_chain: ['caseNumber'],
-  get_court_decision: ['caseNumber'],
+  get_case_documents_chain: ['case_number'],
+  get_court_decision: ['doc_id', 'case_number'],
   load_full_texts: ['doc_ids'],
 };
 
