@@ -223,9 +223,10 @@ export function createAppServices(
   billing.billingService.setAuditService(auditService);
   billing.monobankService.setAuditService(auditService);
 
-  // Wire cost tracker to OpenAI manager and ZO adapters
+  // Wire cost tracker to OpenAI manager, LLM manager, and ZO adapters
   const openaiManager = getOpenAIManager();
   openaiManager.setCostTracker(billing.costTracker);
+  getLLMManager().setCostTracker(billing.costTracker);
   coreServices.zoAdapter.setCostTracker(billing.costTracker);
   coreServices.zoPracticeAdapter.setCostTracker(billing.costTracker);
   logger.info('Cost tracking and billing initialized');
