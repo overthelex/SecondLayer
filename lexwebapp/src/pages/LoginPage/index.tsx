@@ -405,13 +405,18 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.15 }}
-          className="mb-6 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl text-center"
+          className="mb-6 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl text-center cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            localStorage.setItem('referral_code', 'beta2026');
+            setIsLogin(false);
+            showToast.success('Промокод активовано! Зареєструйтесь для отримання 400 грн');
+          }}
         >
           <p className="text-lg font-bold text-emerald-800 mb-1">
             Першим 20-ти бетатестерам — 400 грн на рахунок!
           </p>
           <p className="text-sm text-emerald-600">
-            Зареєструйтесь та отримайте безкоштовний доступ до AI-юриста
+            Натисніть та зареєструйтесь для отримання безкоштовного доступу до AI-юриста
           </p>
         </motion.div>
 
