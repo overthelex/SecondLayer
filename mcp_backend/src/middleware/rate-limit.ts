@@ -14,6 +14,8 @@ interface RateLimitOptions {
   maxRequests: number;
   keyPrefix?: string;
   skipSuccessfulRequests?: boolean;
+  /** Use authenticated user ID instead of IP for rate limiting (requires JWT auth before this middleware) */
+  keyByUserId?: boolean;
 }
 
 export function createRateLimiter(options: RateLimitOptions) {
@@ -28,7 +30,9 @@ export function createRateLimiter(options: RateLimitOptions) {
       if (!rateCache) {
         return next(); // Cache unavailable, skip rate limiting
       }
-      const identifier = req.ip || req.socket.remoteAddress || 'unknown';
+      const identifier = options.keyByUserId && (req as any).user?.id
+        ? `user:${(req as any).user.id}`
+        : req.ip || req.socket.remoteAddress || 'unknown';
 
       // Skip rate limiting for internal/localhost traffic (Prometheus, health monitors)
       if (identifier === '127.0.0.1' || identifier === '::1' || identifier === '::ffff:127.0.0.1') {
@@ -91,11 +95,13 @@ export const webhookRateLimit = createRateLimiter({
   keyPrefix: 'ratelimit:webhook',
 });
 
-// Chat endpoint rate limiter (max 20 requests per minute)
+// Chat endpoint rate limiter — per authenticated user, not per IP
+// (Cloudflare proxies all traffic through shared IPs)
 export const chatRateLimit = createRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 20,
+  maxRequests: 60,
   keyPrefix: 'ratelimit:chat',
+  keyByUserId: true,
 });
 
 // Auth endpoint rate limiter (max 10 requests per 15 minutes)
@@ -113,9 +119,10 @@ export const passwordResetRateLimit = createRateLimiter({
 });
 
 // Global API rate limiter — covers all /api/ routes as a baseline.
-// More specific per-endpoint limiters (auth, chat, etc.) still apply additionally.
+// Raised to 1500/min to handle 20+ concurrent users behind Cloudflare (shared IP).
+// Polling alone generates ~480 req/min for 20 users.
 export const globalApiRateLimit = createRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 900,
+  maxRequests: 1500,
   keyPrefix: 'ratelimit:global-api',
 });
