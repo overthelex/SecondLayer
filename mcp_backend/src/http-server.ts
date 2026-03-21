@@ -116,6 +116,14 @@ class HTTPMCPServer {
         logger.error('[Cron] Monobank reconciliation failed', { error: (err as Error).message });
       });
     }, { timezone: 'Europe/Kyiv' });
+
+    // Cron: flag stuck consultations + alert on failed payouts daily at 08:00 Kyiv time
+    cron.schedule('0 8 * * *', () => {
+      logger.info('[Cron] Running stuck escrow and failed payout check');
+      this.app_.consultationPaymentService.flagStuckConsultationsAndPayouts().catch(err => {
+        logger.error('[Cron] Stuck escrow check failed', { error: (err as Error).message });
+      });
+    }, { timezone: 'Europe/Kyiv' });
   }
 
   private setupMiddleware() {
@@ -262,6 +270,17 @@ class HTTPMCPServer {
         checks.minio = { ...minioResult, latencyMs: Date.now() - start };
       } catch (err: any) {
         checks.minio = { ok: false, error: err.message };
+      }
+
+      // Payout reconciliation (non-blocking)
+      try {
+        const recon = await this.app_.consultationPaymentService.getPayoutReconciliation();
+        checks.payout_reconciliation = {
+          ok: recon.ok,
+          ...(recon.ok ? {} : { error: `Mismatch: ${recon.mismatch.toFixed(2)} UAH (released: ${recon.releasedTotal}, payouts: ${recon.payoutsTotal})` }),
+        };
+      } catch (err: any) {
+        checks.payout_reconciliation = { ok: false, error: err.message };
       }
 
       const allOk = Object.values(checks).every(c => c.ok);
