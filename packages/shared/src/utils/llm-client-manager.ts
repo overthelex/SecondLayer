@@ -912,7 +912,8 @@ export class LLMClientManager {
     // Add inference config
     const inferenceConfig: any = {};
     if (request.max_tokens) {
-      inferenceConfig.maxTokens = request.max_tokens;
+      const modelMaxTokens = model.includes('nova') ? 10000 : request.max_tokens;
+      inferenceConfig.maxTokens = Math.min(request.max_tokens, modelMaxTokens);
     }
     if (request.temperature !== undefined && ModelSelector.supportsTemperature(model)) {
       inferenceConfig.temperature = request.temperature;
@@ -985,7 +986,8 @@ export class LLMClientManager {
 
     const inferenceConfig: any = {};
     if (request.max_tokens) {
-      inferenceConfig.maxTokens = request.max_tokens;
+      const modelMaxTokens = model.includes('nova') ? 10000 : request.max_tokens;
+      inferenceConfig.maxTokens = Math.min(request.max_tokens, modelMaxTokens);
     }
     if (request.temperature !== undefined && ModelSelector.supportsTemperature(model)) {
       inferenceConfig.temperature = request.temperature;
