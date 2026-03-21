@@ -227,24 +227,50 @@ export class EdsrSearchTools extends BaseToolHandler {
       d.doc_url, d.status, d.date_publ
       ${includeFulltext ? ', LEFT(f.full_text, 10000) as full_text' : ''}`;
 
-    try {
-      // Count query (with timeout for safety on large result sets)
-      const countSql = `SELECT COUNT(*)::int as total FROM ${fromClause} WHERE ${whereClause}`;
+    const executeSearch = async (withFulltext: boolean) => {
+      const actualFromClause = `edrsr_documents d
+      ${needsCourtJoin ? 'LEFT JOIN edrsr_courts c ON c.court_code = d.court_code' : ''}
+      ${withFulltext ? 'LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id' : ''}`;
+
+      const actualSelectFields = `
+      d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+      d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+      d.doc_url, d.status, d.date_publ
+      ${withFulltext ? ', LEFT(f.full_text, 10000) as full_text' : ''}`;
+
+      const countSql = `SELECT COUNT(*)::int as total FROM ${actualFromClause} WHERE ${whereClause}`;
       const countResult = await this.db.query(countSql, params);
       const total = countResult.rows[0]?.total || 0;
 
-      // Data query
       const dataSql = `
-        SELECT ${selectFields}
-        FROM ${fromClause}
+        SELECT ${actualSelectFields}
+        FROM ${actualFromClause}
         WHERE ${whereClause}
         ORDER BY d.adjudication_date DESC NULLS LAST
         LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
 
       const dataResult = await this.db.query(dataSql, [...params, limit, offset]);
+      return { total, rows: dataResult.rows };
+    };
+
+    try {
+      let total: number;
+      let rows: any[];
+
+      try {
+        ({ total, rows } = await executeSearch(includeFulltext));
+      } catch (err: any) {
+        // Retry without fulltext JOIN if encoding error (some records have invalid UTF-8 bytes)
+        if (includeFulltext && err.code === '22021') {
+          logger.warn('[EdsrSearchTools] Retrying without fulltext due to encoding error', { cause_num: args.cause_num });
+          ({ total, rows } = await executeSearch(false));
+        } else {
+          throw err;
+        }
+      }
 
       // Enrich with reference data
-      const enriched = await this.enrichResults(dataResult.rows);
+      const enriched = await this.enrichResults(rows);
 
       logger.info('[EdsrSearchTools] search_edrsr_decisions', {
         filters: Object.keys(args).filter(k => args[k] !== undefined && k !== 'limit' && k !== 'offset'),
