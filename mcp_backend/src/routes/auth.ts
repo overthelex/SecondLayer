@@ -66,13 +66,10 @@ router.post('/reset-password', authRateLimit as any, authController.resetPasswor
  */
 /**
  * Build callback URL dynamically from request host.
- * This allows OAuth to work from both legal.org.ua and stage.legal.org.ua.
- * The redirect URI must also be registered in Google Cloud Console.
+ * This allows OAuth to work from legal.org.ua, platform.legal.org.ua, etc.
+ * Each redirect URI must also be registered in Google Cloud Console.
  */
 function getCallbackURL(req: any): string {
-  if (process.env.GOOGLE_CALLBACK_URL) {
-    return process.env.GOOGLE_CALLBACK_URL;
-  }
   const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   return `${protocol}://${host}/auth/google/callback`;
