@@ -2,10 +2,11 @@
  * DocumentsTab — renders vault documents + other court docs (Ухвала, Окрема думка, etc.).
  */
 
-import { useState } from 'react';
 import { FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Decision } from '../DecisionCard';
 import { ExpandableCard, EmptyTabState } from './ExpandableCard';
+import { useExpandableCards } from '../../hooks/useExpandableCards';
+import { DOC_TYPE_LABELS } from '../right-panel/constants';
 
 function formatDate(raw: string): string {
   const d = new Date(raw);
@@ -21,14 +22,6 @@ interface VaultDocument {
   metadata?: Record<string, any>;
 }
 
-const DOC_TYPE_LABELS: Record<string, string> = {
-  contract: 'Договір',
-  legislation: 'Законодавство',
-  court_decision: 'Судове рішення',
-  internal: 'Внутрішній',
-  other: 'Інше',
-};
-
 interface DocumentsTabProps {
   otherCourtDocs: Decision[];
   vaultDocuments: VaultDocument[];
@@ -36,16 +29,7 @@ interface DocumentsTabProps {
 }
 
 export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }: DocumentsTabProps) {
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
-
-  const toggleCard = (id: string) => {
-    setExpandedCards(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const { isExpanded, toggleCard } = useExpandableCards();
 
   if (vaultDocuments.length === 0 && otherCourtDocs.length === 0) {
     return <EmptyTabState icon={FileText} text="Документи з'являться після пошуку" />;
@@ -56,7 +40,7 @@ export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }:
       {/* Other court document types (Ухвала, Окрема думка, etc.) */}
       {otherCourtDocs.map((d, i) => {
         const cardId = `other-${d.id}`;
-        const isExpanded = expandedCards.has(cardId);
+        const expanded = isExpanded(cardId);
 
         return (
           <ExpandableCard
@@ -64,7 +48,7 @@ export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }:
             id={cardId}
             index={i}
             icon={FileText}
-            isExpanded={isExpanded}
+            isExpanded={expanded}
             onToggle={() => toggleCard(cardId)}
             content={d.summary || 'Немає тексту.'}
             externalUrl={d.externalUrl}
@@ -78,7 +62,7 @@ export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }:
                     <div className="font-medium text-[13px] text-claude-text mb-1 truncate leading-tight">
                       {d.number}
                     </div>
-                    {isExpanded ? <ChevronUp size={14} className="text-claude-subtext flex-shrink-0 ml-2" /> : <ChevronDown size={14} className="text-claude-subtext flex-shrink-0 ml-2" />}
+                    {expanded ? <ChevronUp size={14} className="text-claude-subtext flex-shrink-0 ml-2" /> : <ChevronDown size={14} className="text-claude-subtext flex-shrink-0 ml-2" />}
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-claude-subtext">
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-medium border bg-amber-50 text-amber-700 border-amber-200">
@@ -104,7 +88,7 @@ export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }:
       {/* Vault documents */}
       {vaultDocuments.map((doc, i) => {
         const cardId = `doc-${doc.id}`;
-        const isExpanded = expandedCards.has(cardId);
+        const expanded = isExpanded(cardId);
 
         return (
           <ExpandableCard
@@ -112,7 +96,7 @@ export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }:
             id={cardId}
             index={i}
             icon={FileText}
-            isExpanded={isExpanded}
+            isExpanded={expanded}
             onToggle={() => toggleCard(cardId)}
             content={doc.metadata?.snippet || doc.metadata?.text || doc.metadata?.content || 'Немає вмісту для перегляду.'}
             onOpenModal={() => onOpenDocModal(doc)}
@@ -126,7 +110,7 @@ export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }:
                     <div className="font-medium text-[13px] text-claude-text mb-1 truncate leading-tight">
                       {doc.title}
                     </div>
-                    {isExpanded ? <ChevronUp size={14} className="text-claude-subtext flex-shrink-0 ml-2" /> : <ChevronDown size={14} className="text-claude-subtext flex-shrink-0 ml-2" />}
+                    {expanded ? <ChevronUp size={14} className="text-claude-subtext flex-shrink-0 ml-2" /> : <ChevronDown size={14} className="text-claude-subtext flex-shrink-0 ml-2" />}
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-claude-subtext">
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${
