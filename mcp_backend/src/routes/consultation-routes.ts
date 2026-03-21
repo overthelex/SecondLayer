@@ -265,11 +265,19 @@ export function createConsultationRoutes(
   router.post('/:id/pay', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {
       if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      logger.info('Initiating consultation payment', { consultationId: req.params.id, userId: req.user.id });
       const payment = await consultationPaymentService.createPayment(req.params.id as string, req.user.id);
+      logger.info('Payment record created', { paymentId: payment.id, amount: payment.amount_uah });
       const result = await consultationPaymentService.initiatePayment(payment.id);
+      logger.info('Monobank invoice created', { paymentId: payment.id, hasUrl: !!result.paymentUrl });
       res.json(result);
     } catch (error: any) {
-      logger.error('Failed to initiate consultation payment', { error: error.message });
+      logger.error('Failed to initiate consultation payment', {
+        error: error.message,
+        consultationId: req.params.id,
+        userId: req.user?.id,
+        stack: error.stack?.substring(0, 500),
+      });
       res.status(400).json({ error: error.message });
     }
   }) as any);
