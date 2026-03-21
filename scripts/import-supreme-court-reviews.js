@@ -162,12 +162,13 @@ async function processPdf(filePath) {
   const parser = new PDFParse(uint8);
   await parser.load();
   const info = await parser.getInfo();
-  const text = await parser.getText();
-  const pages = info?.pages || 0;
+  const result = await parser.getText();
+  const text = result?.text || '';
+  const pages = info?.total || result?.total || 0;
   return {
-    text: text || '',
+    text,
     pages,
-    wordCount: (text || '').split(/\s+/).length,
+    wordCount: text.split(/\s+/).length,
   };
 }
 
