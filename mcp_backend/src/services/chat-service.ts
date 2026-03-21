@@ -261,6 +261,18 @@ export class ChatService {
   ): Promise<{ plan: ExecutionPlan; planSessionId: string; queryType: QueryType } | null> {
     const classification = await this.intentClassifier.classify(query, requestId);
     const toolDefs = await this.intentClassifier.filterTools(classification.domains, classification.slots, classification.queryType);
+
+    // Fast plan queries (case_number, EDRPOU, legislation, deputy) skip plan review —
+    // they're deterministic and don't need user confirmation
+    const fastPlan = this.fastPlanLookup(classification, toolDefs);
+    if (fastPlan) {
+      logger.info('[ChatService] Fast plan detected in generatePlanForReview, skipping review', {
+        queryType: classification.queryType,
+        steps: fastPlan.steps.map(s => s.tool),
+      });
+      return null;
+    }
+
     const plan = await this.generateExecutionPlan(query, classification, toolDefs, requestId);
 
     if (!plan) return null;
