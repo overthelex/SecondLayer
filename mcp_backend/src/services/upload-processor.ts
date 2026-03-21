@@ -121,6 +121,15 @@ export async function processUploadFile(
       failedFiles: extractionResult.failedFiles,
     });
   } else if (UploadService.isDocumentType(session.mimeType)) {
+    // Store original file in MinIO for preview/download
+    const objectKey = MinioService.generateObjectKey(session.fileName);
+    const minioResult = await minioService.uploadFile(
+      session.userId,
+      objectKey,
+      assembledPath,
+      session.mimeType
+    );
+
     // Route to VaultTools for parsing, embedding, etc.
     const result = await vaultTools.storeDocumentFromPath({
       filePath: assembledPath,
@@ -135,15 +144,26 @@ export async function processUploadFile(
         mimeType: session.mimeType,
         folderPath: session.relativePath,
         uploadSessionId: session.id,
+        minioEtag: minioResult.etag,
+        minioBucket: minioResult.bucket,
+        minioKey: minioResult.key,
         ...extraMetadata,
       },
     });
 
     documentId = result.id;
 
+    // Update storage info so preview endpoint can find the original file
+    await db.query(
+      `UPDATE documents SET storage_type = 'minio', storage_path = $2, file_size = $3, mime_type = $4 WHERE id = $1`,
+      [documentId, `${minioResult.bucket}/${minioResult.key}`, session.fileSize, session.mimeType]
+    );
+
     logger.info('[Upload] Document processed via VaultTools', {
       sessionId: session.id,
       documentId,
+      minioBucket: minioResult.bucket,
+      minioKey: minioResult.key,
     });
   } else {
     // Route to MinIO for binary storage
