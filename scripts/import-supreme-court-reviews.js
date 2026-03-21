@@ -159,11 +159,14 @@ function splitIntoSections(text) {
 async function processPdf(filePath) {
   const buffer = fs.readFileSync(filePath);
   const parser = new PDFParse(buffer);
-  const data = await parser.parse();
+  await parser.load();
+  const info = await parser.getInfo();
+  const text = await parser.getText();
+  const pages = info?.pages || 0;
   return {
-    text: data.text || '',
-    pages: data.numpages || data.pages || 0,
-    wordCount: (data.text || '').split(/\s+/).length,
+    text: text || '',
+    pages,
+    wordCount: (text || '').split(/\s+/).length,
   };
 }
 
