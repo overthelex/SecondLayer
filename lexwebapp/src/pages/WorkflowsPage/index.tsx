@@ -2,11 +2,12 @@
  * WorkflowsPage — Lists all workflow sets for the current user.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Clock, CheckCircle, AlertCircle, Trash2, Loader2 } from 'lucide-react';
+import { Zap, Clock, CheckCircle, AlertCircle, Trash2, Loader2, Shield, UserX, ShieldAlert, Plus } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useWorkflowStore } from '../../stores/workflowStore';
+import { workflowService } from '../../services/api/WorkflowService';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
   pending: { label: 'Очікує', color: 'bg-gray-100 text-gray-700', icon: Clock },
@@ -14,6 +15,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   completed: { label: 'Завершено', color: 'bg-green-100 text-green-700', icon: CheckCircle },
   partial: { label: 'Частково', color: 'bg-yellow-100 text-yellow-700', icon: AlertCircle },
   failed: { label: 'Помилка', color: 'bg-red-100 text-red-700', icon: AlertCircle },
+};
+
+const PRESET_ICONS: Record<string, typeof Shield> = {
+  shield: Shield,
+  'user-x': UserX,
+  'shield-alert': ShieldAlert,
 };
 
 export function WorkflowsPage() {
@@ -24,9 +31,26 @@ export function WorkflowsPage() {
   const fetchWorkflowSets = useWorkflowStore(s => s.fetchWorkflowSets);
   const deleteWorkflowSet = useWorkflowStore(s => s.deleteWorkflowSet);
 
+  const [presets, setPresets] = useState<Array<{ id: string; title: string; description: string; icon: string; category: string }>>([]);
+  const [creatingPreset, setCreatingPreset] = useState<string | null>(null);
+
   useEffect(() => {
     fetchWorkflowSets();
+    workflowService.listPresets().then(setPresets).catch(() => {});
   }, [fetchWorkflowSets]);
+
+  const handleCreateFromPreset = async (presetId: string) => {
+    setCreatingPreset(presetId);
+    try {
+      const result = await workflowService.createFromPreset(presetId);
+      await fetchWorkflowSets();
+      navigate(`/workflows/${result.id}`);
+    } catch (err) {
+      console.error('Failed to create from preset:', err);
+    } finally {
+      setCreatingPreset(null);
+    }
+  };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -46,6 +70,39 @@ export function WorkflowsPage() {
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {error}
+        </div>
+      )}
+
+      {presets.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Plus className="w-5 h-5 text-indigo-500" />
+            <h2 className="text-lg font-semibold text-gray-800">Готові шаблони аналізу</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {presets.map((preset) => {
+              const IconComponent = PRESET_ICONS[preset.icon] || Shield;
+              const isCreating = creatingPreset === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  onClick={() => handleCreateFromPreset(preset.id)}
+                  disabled={isCreating}
+                  className="text-left bg-gradient-to-br from-indigo-50 to-white border border-indigo-200 rounded-xl p-4 hover:border-indigo-400 hover:shadow-md transition-all disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    {isCreating ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+                    ) : (
+                      <IconComponent className="w-5 h-5 text-indigo-600" />
+                    )}
+                    <span className="font-medium text-gray-900 text-sm">{preset.title}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 line-clamp-2">{preset.description}</p>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
