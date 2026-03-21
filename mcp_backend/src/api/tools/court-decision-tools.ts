@@ -288,39 +288,69 @@ export class CourtDecisionTools extends BaseToolHandler {
       if (!Number.isNaN(n) && Number.isFinite(n)) docId = n;
     }
 
-    let doc: any = null;
-    let fullTextData: any = null;
-    let metadata: any = null;
-
-    if (docId) {
-      const searchResult = await this.zoAdapter.searchCourtDecisions({
-        meta: { search: String(docId) },
-        limit: 1,
-        fulldata: 1,
-      });
-
-      if (searchResult?.data && searchResult.data.length > 0) {
-        metadata = searchResult.data[0];
-      }
-
-      fullTextData = await this.zoAdapter.getDocumentFullText(docId);
-      doc = {
-        ...metadata,
-        text: fullTextData?.text,
-        html: fullTextData?.html,
-        case_number: fullTextData?.case_number || metadata?.case_number,
-      };
-    } else if (caseNumber) {
-      doc = await this.zoAdapter.getDocumentByCaseNumber(caseNumber);
-    } else {
+    if (!docId && !caseNumber) {
       throw new Error('Provide doc_id (preferred) or case_number');
     }
 
-    const fullText = typeof doc?.full_text === 'string' ? doc.full_text : (typeof doc?.text === 'string' ? doc.text : '');
-    const url = typeof doc?.url === 'string' ? doc.url : (docId ? `https://zakononline.ua/court-decisions/show/${docId}` : undefined);
+    if (!this.db) {
+      return this.wrapError('Database not configured');
+    }
 
-    const actualDocId = doc?.doc_id || doc?.zakononline_id || docId || null;
-    const actualCaseNumber = doc?.case_number || caseNumber || undefined;
+    let row: any = null;
+
+    if (docId) {
+      const result = await this.db.query(`
+        SELECT
+          d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+          d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+          d.doc_url, d.status, d.date_publ,
+          f.full_text
+        FROM edrsr_documents d
+        LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
+        WHERE d.doc_id = $1
+      `, [docId]);
+
+      if (result.rows.length > 0) {
+        row = result.rows[0];
+      } else {
+        // Try fulltext-only
+        const ftResult = await this.db.query(
+          `SELECT doc_id, full_text FROM edrsr_fulltext WHERE doc_id = $1`, [docId]
+        );
+        if (ftResult.rows.length > 0) {
+          row = { doc_id: docId, full_text: ftResult.rows[0].full_text };
+        }
+      }
+    } else if (caseNumber) {
+      // Find most recent decision for this case number
+      const result = await this.db.query(`
+        SELECT
+          d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+          d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+          d.doc_url, d.status, d.date_publ,
+          f.full_text
+        FROM edrsr_documents d
+        LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
+        WHERE d.cause_num = $1
+        ORDER BY d.adjudication_date DESC NULLS LAST
+        LIMIT 1
+      `, [caseNumber]);
+
+      if (result.rows.length > 0) {
+        row = result.rows[0];
+      }
+    }
+
+    if (!row) {
+      return this.wrapError(`Рішення не знайдено в ЄДРСР (doc_id=${docId || 'N/A'}, cause_num=${caseNumber || 'N/A'})`);
+    }
+
+    // Enrich with court/judge names
+    const courtName = row.court_code ? await this.lookupName('edrsr_courts', 'court_code', row.court_code) : null;
+    const judgmentForm = row.judgment_code ? await this.lookupName('edrsr_judgment_forms', 'judgment_code', row.judgment_code) : null;
+
+    const fullText = row.full_text || '';
+    const url = `https://reyestr.court.gov.ua/Review/${row.doc_id}`;
 
     const extractedSections = fullText
       ? await this.sectionizer.extractSections(fullText, budget === 'deep')
@@ -337,8 +367,12 @@ export class CourtDecisionTools extends BaseToolHandler {
       : [];
 
     const payload: any = {
-      doc_id: actualDocId || undefined,
-      case_number: actualCaseNumber || undefined,
+      doc_id: row.doc_id,
+      case_number: row.cause_num || caseNumber || undefined,
+      judge: row.judge || undefined,
+      court_name: courtName || undefined,
+      judgment_form: judgmentForm || undefined,
+      adjudication_date: row.adjudication_date || undefined,
       url,
       depth,
       sections: sections.slice(0, depth),
@@ -347,6 +381,16 @@ export class CourtDecisionTools extends BaseToolHandler {
     };
 
     return this.wrapResponse(payload);
+  }
+
+  private async lookupName(table: string, idColumn: string, id: number): Promise<string | null> {
+    if (!this.db) return null;
+    try {
+      const result = await this.db.query(`SELECT name FROM ${table} WHERE ${idColumn} = $1 LIMIT 1`, [id]);
+      return result.rows.length > 0 ? result.rows[0].name : null;
+    } catch {
+      return null;
+    }
   }
 
   private async getCaseDocumentsChain(args: any): Promise<ToolResult> {
