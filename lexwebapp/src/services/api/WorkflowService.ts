@@ -50,7 +50,7 @@ export class WorkflowService extends BaseService {
 
   executeWorkflow(id: string, callbacks: WorkflowSSECallbacks): () => void {
     const token = localStorage.getItem('auth_token');
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://stage.legal.org.ua';
+    const baseUrl = import.meta.env.VITE_API_URL || '';
 
     const abortController = new AbortController();
 
