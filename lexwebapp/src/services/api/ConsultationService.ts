@@ -199,7 +199,10 @@ export class ConsultationService extends BaseService {
   }
 
   async getMyPayouts(): Promise<AttorneyPayout[]> {
-    return this.request(() => this.client.get('/api/consultations/my-payouts'));
+    return this.request(
+      () => this.client.get<{ payouts: AttorneyPayout[] }>('/api/consultations/my-payouts'),
+      (data) => data.payouts,
+    );
   }
 }
 
