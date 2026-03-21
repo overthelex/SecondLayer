@@ -7,6 +7,7 @@ import { Router, Response } from 'express';
 import { logger } from '../utils/logger.js';
 import { WorkflowService } from '../services/workflow-service.js';
 import { WorkflowExecutorService } from '../services/workflow-executor-service.js';
+import { getWorkflowPreset, WORKFLOW_PRESET_LIST } from '../services/workflow-presets.js';
 
 interface DualAuthRequest {
   user?: { id: string; email?: string };
@@ -49,6 +50,52 @@ export function createWorkflowSetRoutes(
     } catch (error: any) {
       logger.error('[WorkflowRoutes] Failed to get workflow set', { error: error.message });
       res.status(500).json({ error: 'Failed to get workflow set' });
+    }
+  }) as any);
+
+  // GET /api/workflow-sets/presets — List available presets
+  router.get('/presets', (async (_req: DualAuthRequest, res: Response): Promise<any> => {
+    res.json({ presets: WORKFLOW_PRESET_LIST });
+  }) as any);
+
+  // POST /api/workflow-sets/presets/:presetId — Create workflow set from preset
+  router.post('/presets/:presetId', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const preset = getWorkflowPreset(req.params.presetId);
+    if (!preset) {
+      return res.status(404).json({
+        error: `Preset "${req.params.presetId}" not found`,
+        available: WORKFLOW_PRESET_LIST.map(p => p.id),
+      });
+    }
+
+    try {
+      const workflowSet = await workflowService.createWorkflowSet({
+        userId,
+        title: preset.title,
+        description: preset.description,
+        sourceQuery: `[preset:${req.params.presetId}] ${preset.title}`,
+        metadata: { preset: req.params.presetId },
+        workflows: preset.workflows.map(wf => ({
+          sequenceNumber: wf.sequenceNumber,
+          title: wf.title,
+          description: wf.description,
+          plan: wf.plan,
+        })),
+      });
+
+      logger.info('[WorkflowRoutes] Created workflow set from preset', {
+        presetId: req.params.presetId,
+        workflowSetId: workflowSet.id,
+        workflowCount: preset.workflows.length,
+      });
+
+      res.json(workflowSet);
+    } catch (error: any) {
+      logger.error('[WorkflowRoutes] Failed to create from preset', { error: error.message });
+      res.status(500).json({ error: 'Failed to create workflow set from preset' });
     }
   }) as any);
 
