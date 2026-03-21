@@ -11,6 +11,7 @@ import { MinioService } from '../services/minio-service.js';
 import { BannerService } from '../services/banner-service.js';
 import type { ICachePort } from '../domain/ports/index.js';
 import type { ReferralService } from '../services/referral-service.js';
+import type { BillingService } from '../services/billing-service.js';
 
 // ---------------------------------------------------------------------------
 // Module-level singletons (shared across all auth sub-modules)
@@ -21,6 +22,7 @@ let authEmailService: EmailService | null = null;
 let authMinioService: MinioService | null = null;
 let authBannerService: BannerService | null = null;
 let authReferralService: ReferralService | null = null;
+let authBillingService: BillingService | null = null;
 
 // Accessors for sub-modules
 export function getAuthCache(): ICachePort | null { return authCache; }
@@ -28,6 +30,7 @@ export function getAuthEmailService(): EmailService | null { return authEmailSer
 export function getAuthMinioService(): MinioService | null { return authMinioService; }
 export function getAuthBannerService(): BannerService | null { return authBannerService; }
 export function getAuthReferralService(): ReferralService | null { return authReferralService; }
+export function getAuthBillingService(): BillingService | null { return authBillingService; }
 
 /** Set the cache port for WebAuthn challenge storage. Call from composition root. */
 export function setAuthCache(cache: ICachePort): void {
@@ -52,6 +55,11 @@ export function setAuthBannerService(svc: BannerService): void {
 /** Set the referral service for linking referrals on registration. Call from composition root. */
 export function setAuthReferralService(svc: ReferralService): void {
   authReferralService = svc;
+}
+
+/** Set the billing service for welcome bonus on registration. Call from composition root. */
+export function setAuthBillingService(svc: BillingService): void {
+  authBillingService = svc;
 }
 
 // ---------------------------------------------------------------------------
