@@ -185,15 +185,22 @@ export function extractFromToolResult(
 
     // get_court_decision — single decision with sections
     if (parsed.sections && Array.isArray(parsed.sections) && (parsed.doc_id || parsed.case_number)) {
-      const summarySection = parsed.sections.find((s: any) => s.type === 'DECISION' || s.type === 'COURT_REASONING');
+      // Pick best summary: DECISION > COURT_REASONING > FACTS > HEADER > full_text fallback
+      const summarySection = parsed.sections.find((s: any) => s.type === 'DECISION')
+        || parsed.sections.find((s: any) => s.type === 'COURT_REASONING')
+        || parsed.sections.find((s: any) => s.type === 'FACTS')
+        || parsed.sections.find((s: any) => s.type === 'HEADER');
+      const summaryText = summarySection?.text?.slice(0, 500)
+        || (parsed.full_text ? parsed.full_text.slice(0, 500) : '');
       decisions.push({
         id: `gcd-${parsed.doc_id || Date.now()}`,
         number: parsed.case_number || String(parsed.doc_id) || 'N/A',
-        court: '',
-        date: '',
-        summary: summarySection?.text?.slice(0, 300) || '',
+        court: parsed.court_name || '',
+        date: parsed.adjudication_date || '',
+        summary: summaryText,
         relevance: 100,
         status: 'active',
+        documentType: classifyDocumentType({ judgment_form: parsed.judgment_form }),
         externalUrl: courtDocUrl(parsed.doc_id),
       });
     }
