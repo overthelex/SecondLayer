@@ -213,6 +213,7 @@ export function createAppServices(
     billing.monobankService
   );
   consultationPaymentService.setPayoutService(attorneyPayoutService);
+  consultationPaymentService.setBillingService(billing.billingService);
   consultationService.setEmailService(billing.emailService);
   logger.info('Attorney consultation services initialized (with payout tracking and email notifications)');
 
