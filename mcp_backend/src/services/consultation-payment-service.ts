@@ -317,6 +317,19 @@ export class ConsultationPaymentService {
     });
 
     if (payment) {
+      // Cancel the hold on the client's card via Monobank API
+      if (payment.payment_provider === 'monobank' && payment.payment_provider_id) {
+        try {
+          await this.monobankService.cancelInvoice(payment.payment_provider_id);
+        } catch (err: any) {
+          logger.error('Failed to cancel Monobank invoice during refund', {
+            paymentId: payment.id,
+            invoiceId: payment.payment_provider_id,
+            error: err.message,
+          });
+        }
+      }
+
       logger.info('Consultation payment refunded', {
         paymentId: payment.id,
         consultationId,
