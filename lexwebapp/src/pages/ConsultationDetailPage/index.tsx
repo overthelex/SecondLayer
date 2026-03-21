@@ -138,7 +138,11 @@ export function ConsultationDetailPage() {
         }
         case 'pay': {
           const payResult = await consultationService.initiatePayment(id);
-          if (payResult.paymentUrl) window.location.href = payResult.paymentUrl;
+          if (payResult.paymentUrl) {
+            window.location.href = payResult.paymentUrl;
+          } else {
+            showToast.error('Не вдалося отримати посилання на оплату від Monobank');
+          }
           return;
         }
         default: return;
@@ -388,9 +392,23 @@ export function ConsultationDetailPage() {
                 <span className="text-gray-500">Послуга</span>
                 <span className="font-medium text-gray-800">{consultation.request_title}</span>
               </div>
-              <div className="border-t pt-2 mt-2 flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700">Сума резервування</span>
-                <span className="text-xl font-bold text-gray-900">{consultation.agreed_fee_uah} грн</span>
+              <div className="border-t pt-2 mt-2 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Сума резервування</span>
+                  <span className="text-xl font-bold text-gray-900">{consultation.agreed_fee_uah} грн</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Виплата адвокату (70%)</span>
+                  <span>{(consultation.agreed_fee_uah! * 0.7).toFixed(2)} грн</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Комісія платформи (30%)</span>
+                  <span>{(consultation.agreed_fee_uah! * 0.3).toFixed(2)} грн</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>Еквайрінг Monobank</span>
+                  <span>включено</span>
+                </div>
               </div>
             </div>
 

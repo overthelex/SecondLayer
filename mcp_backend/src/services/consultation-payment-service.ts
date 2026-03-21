@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ConsultationService } from './consultation-service.js';
 import { AttorneyPayoutService } from './attorney-payout-service.js';
 
-const PLATFORM_FEE_PERCENT = 10; // 10% platform fee
+const PLATFORM_FEE_PERCENT = 30; // 30% platform fee
 const AUTO_RELEASE_DAYS = 7; // Days after completion to auto-release escrow
 
 export interface ConsultationPayment {

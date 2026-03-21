@@ -89,8 +89,9 @@ export function EscrowStatusBadge({ consultationId, consultationStatus, onPaymen
   useEffect(() => {
     fetchPayment();
 
-    // Poll for status while payment is in-progress
-    if (['accepted', 'paid'].includes(consultationStatus)) {
+    // Poll for status only while payment exists and is in non-terminal state
+    // Don't poll if consultation is only 'accepted' (payment not created yet)
+    if (consultationStatus === 'paid' || consultationStatus === 'in_progress') {
       pollRef.current = setInterval(fetchPayment, 5000);
     }
 
