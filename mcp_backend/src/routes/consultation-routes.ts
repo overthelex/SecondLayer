@@ -5,6 +5,8 @@ import { ConsultationPaymentService } from '../services/consultation-payment-ser
 import { AttorneyPayoutService } from '../services/attorney-payout-service.js';
 import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
+import { MinioService } from '../services/minio-service.js';
+import { v4 as uuidv4 } from 'uuid';
 
 /** Optional callback for SSE connection metrics */
 export type SseMetricsCallback = (type: 'user_stream' | 'message_stream', delta: 1 | -1) => void;
@@ -14,7 +16,8 @@ export function createConsultationRoutes(
   consultationPaymentService: ConsultationPaymentService,
   payoutService?: AttorneyPayoutService,
   db?: IDatabase,
-  sseMetrics?: SseMetricsCallback
+  sseMetrics?: SseMetricsCallback,
+  minioService?: MinioService
 ): Router {
   const router = Router();
 
@@ -573,6 +576,112 @@ export function createConsultationRoutes(
     } catch (error: any) {
       logger.error('Failed to process payout', { error: error.message });
       res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
+  // POST /:id/messages/:messageId/save-to-vault — save chat attachment to attorney's vault
+  router.post('/:id/messages/:messageId/save-to-vault', (async (req: DualAuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'Не авторизовано' });
+      if (!db || !minioService) return res.status(500).json({ error: 'Сервіс недоступний' });
+
+      const { id: consultationId, messageId } = req.params;
+
+      // Verify user is a party to the consultation
+      const consultation = await db.query(
+        'SELECT * FROM consultations WHERE id = $1 AND (client_user_id = $2 OR attorney_user_id = $2)',
+        [consultationId, userId]
+      );
+      if (consultation.rows.length === 0) return res.status(403).json({ error: 'Немає доступу' });
+
+      // Get the message with attachment
+      const msgResult = await db.query(
+        'SELECT * FROM consultation_messages WHERE id = $1 AND consultation_id = $2',
+        [messageId, consultationId]
+      );
+      if (msgResult.rows.length === 0) return res.status(404).json({ error: 'Повідомлення не знайдено' });
+
+      const msg = msgResult.rows[0];
+      if (!msg.attachment_url) return res.status(400).json({ error: 'Повідомлення не містить вкладення' });
+
+      // Extract uploadId from attachment_url: /api/documents/{uploadId}/download
+      const uploadIdMatch = msg.attachment_url.match(/\/api\/documents\/([^/]+)\/download/);
+      if (!uploadIdMatch) return res.status(400).json({ error: 'Невідомий формат вкладення' });
+      const uploadId = uploadIdMatch[1];
+
+      // Find the source document record (uploaded by sender)
+      const sourceDoc = await db.query(
+        `SELECT id, user_id, title, storage_type, storage_path, mime_type, file_size, full_text, metadata
+         FROM documents WHERE zakononline_id = $1 OR id::text = $1 LIMIT 1`,
+        [uploadId]
+      );
+
+      if (sourceDoc.rows.length === 0) return res.status(404).json({ error: 'Документ не знайдено' });
+      const src = sourceDoc.rows[0];
+
+      // Check if already saved by this user
+      const existing = await db.query(
+        `SELECT id FROM documents WHERE user_id = $1 AND metadata->>'sourceConsultationMessageId' = $2 AND deleted_at IS NULL LIMIT 1`,
+        [userId, messageId]
+      );
+      if (existing.rows.length > 0) {
+        return res.json({ documentId: existing.rows[0].id, alreadyExists: true });
+      }
+
+      // Copy file in MinIO: source bucket → target bucket
+      const srcStoragePath = src.storage_path || '';
+      const srcParts = srcStoragePath.split('/');
+      const srcBucket = srcParts[0];
+      const srcKey = srcParts.slice(1).join('/');
+
+      let newStoragePath = '';
+      let fileSize = src.file_size || msg.attachment_size || 0;
+
+      if (srcBucket && srcKey) {
+        const buffer = await minioService.getFileBuffer(src.user_id, srcKey);
+        const newKey = MinioService.generateObjectKey(msg.attachment_name || src.title || 'document');
+        const result = await minioService.uploadBuffer(userId, newKey, buffer, msg.attachment_type || src.mime_type || 'application/octet-stream');
+        newStoragePath = `${result.bucket}/${result.key}`;
+        fileSize = result.size;
+      }
+
+      // Create new document record for the user
+      const newId = uuidv4();
+      const metadata = {
+        ...(src.metadata || {}),
+        sourceConsultationId: consultationId,
+        sourceConsultationMessageId: messageId,
+        sourceDocumentId: src.id,
+        savedAt: new Date().toISOString(),
+        originalFilename: msg.attachment_name || src.title,
+        minioKey: newStoragePath.split('/').slice(1).join('/'),
+        minioBucket: newStoragePath.split('/')[0],
+        fileSize,
+        mimeType: msg.attachment_type || src.mime_type,
+      };
+
+      await db.query(
+        `INSERT INTO documents (id, zakononline_id, type, title, full_text, metadata, storage_type, storage_path, file_size, mime_type, user_id)
+         VALUES ($1, $1, $2, $3, $4, $5, 'minio', $6, $7, $8, $9)`,
+        [
+          newId,
+          src.type || 'other',
+          msg.attachment_name || src.title || 'Документ з консультації',
+          src.full_text || null,
+          JSON.stringify(metadata),
+          newStoragePath,
+          fileSize,
+          msg.attachment_type || src.mime_type || 'application/octet-stream',
+          userId,
+        ]
+      );
+
+      logger.info('[Consultation] Attachment saved to vault', { userId, documentId: newId, messageId, consultationId });
+      res.json({ documentId: newId, title: msg.attachment_name || src.title });
+    } catch (error: any) {
+      logger.error('[Consultation] save-to-vault failed', { error: error.message });
+      res.status(500).json({ error: 'Не вдалося зберегти документ' });
     }
   }) as any);
 
