@@ -467,6 +467,34 @@ export class MonobankService {
   }
 
   /**
+   * Cancel (reverse) a held Monobank invoice, releasing the hold on the client's card.
+   */
+  async cancelInvoice(invoiceId: string): Promise<void> {
+    const key = this.apiKey;
+
+    logger.info('[MonobankService] Cancelling invoice (reversing hold)', { invoiceId });
+
+    const response = await fetch(
+      'https://api.monobank.ua/api/merchant/invoice/cancel',
+      {
+        method: 'POST',
+        headers: {
+          'X-Token': key,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ invoiceId }),
+      }
+    );
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Monobank cancel API error: ${response.status} ${body}`);
+    }
+
+    logger.info('[MonobankService] Invoice cancelled successfully', { invoiceId });
+  }
+
+  /**
    * Get the status of a Monobank invoice.
    */
   async getPaymentStatus(invoiceId: string): Promise<MonobankPaymentStatus> {
