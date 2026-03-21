@@ -3,6 +3,7 @@ import { logger } from '../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 import { ConsultationService } from './consultation-service.js';
 import { AttorneyPayoutService } from './attorney-payout-service.js';
+import type { BillingService } from './billing-service.js';
 
 const PLATFORM_FEE_PERCENT = 30; // 30% platform fee
 const AUTO_RELEASE_DAYS = 7; // Days after completion to auto-release escrow
@@ -27,6 +28,7 @@ export interface ConsultationPayment {
 
 export class ConsultationPaymentService {
   private payoutService?: AttorneyPayoutService;
+  private billingService?: BillingService;
 
   constructor(
     private db: IDatabase,
@@ -36,6 +38,10 @@ export class ConsultationPaymentService {
 
   setPayoutService(payoutService: AttorneyPayoutService): void {
     this.payoutService = payoutService;
+  }
+
+  setBillingService(billingService: BillingService): void {
+    this.billingService = billingService;
   }
 
   async createPayment(consultationId: string, payerUserId: string): Promise<ConsultationPayment> {
@@ -162,11 +168,37 @@ export class ConsultationPaymentService {
     );
 
     if (result.rows.length > 0) {
+      const payment = result.rows[0];
       logger.info('Consultation payment released', {
-        paymentId: result.rows[0].id,
+        paymentId: payment.id,
         consultationId,
-        amount: result.rows[0].attorney_payout_uah,
+        amount: payment.attorney_payout_uah,
       });
+
+      // Credit attorney's platform balance with their share
+      if (this.billingService && payment.payee_user_id && payment.attorney_payout_uah > 0) {
+        try {
+          const amountUah = parseFloat(payment.attorney_payout_uah);
+          const amountUsd = await this.billingService.convertFromUah(amountUah);
+          await this.billingService.getOrCreateUserBilling(payment.payee_user_id);
+          await this.billingService.topUpBalance({
+            userId: payment.payee_user_id,
+            amountUsd,
+            amountUah,
+            description: `Виплата за консультацію (${amountUah} грн)`,
+            paymentProvider: 'consultation_escrow',
+            paymentId: payment.id,
+          });
+          logger.info('Attorney balance credited from escrow', {
+            attorneyUserId: payment.payee_user_id,
+            amountUah,
+            amountUsd,
+            consultationId,
+          });
+        } catch (err: any) {
+          logger.error('Failed to credit attorney balance', { consultationId, error: err.message });
+        }
+      }
 
       // Auto-create payout record for admin to process
       if (this.payoutService) {
