@@ -24,21 +24,6 @@ EXCEPTION WHEN character_not_in_repertoire THEN
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
--- 2. Clean invalid UTF-8 bytes from edrsr_fulltext
--- convert_from(convert_to(..., 'UTF8'), 'UTF8') will fail on bad bytes,
--- so we use a regex to strip control characters and then re-encode.
--- This handles the most common case: stray 0x00 bytes and broken multi-byte sequences.
-DO $$
-DECLARE
-  cleaned_count int;
-BEGIN
-  -- Strip null bytes (most common cause of 22021 in imported RTF data)
-  UPDATE edrsr_fulltext
-  SET full_text = regexp_replace(full_text, E'\\x00', '', 'g')
-  WHERE full_text LIKE E'%\x00%';
-
-  GET DIAGNOSTICS cleaned_count = ROW_COUNT;
-  IF cleaned_count > 0 THEN
-    RAISE NOTICE 'Cleaned null bytes from % rows', cleaned_count;
-  END IF;
-END $$;
+-- 2. Note: null byte cleanup removed — PostgreSQL text columns cannot contain
+-- literal 0x00 bytes, so the encoding errors come from other invalid sequences.
+-- safe_ts_headline handles these per-row at query time.
