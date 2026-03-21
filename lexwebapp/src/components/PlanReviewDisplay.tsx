@@ -123,7 +123,7 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="my-3 border border-claude-border rounded-lg overflow-hidden bg-white"
+      className="my-3 border border-claude-border rounded-lg overflow-hidden bg-white max-h-[70vh] flex flex-col"
     >
       {/* Header */}
       <div className="p-3 border-b border-claude-border/30 bg-claude-bg/30">
@@ -138,8 +138,8 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
         </p>
       </div>
 
-      {/* Steps */}
-      <div className="p-3 space-y-2">
+      {/* Steps — scrollable on mobile when many steps */}
+      <div className="p-3 space-y-2 overflow-y-auto flex-1 min-h-0">
         {steps.map((step) => {
           const isDepthCapable = DEPTH_CAPABLE_TOOLS.has(step.tool);
           const isDeep = step.depth === 'deep';
@@ -150,7 +150,7 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
           return (
             <div
               key={step.id}
-              className="flex items-center justify-between gap-3 py-1.5"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3 py-1.5"
             >
               <div className="flex items-start gap-2 flex-1 min-w-0">
                 <span className="text-[11px] text-claude-subtext/60 font-mono mt-0.5 w-4 flex-shrink-0 text-right">
@@ -167,7 +167,7 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
               </div>
 
               {/* Cost + Depth toggle */}
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0 pl-6 sm:pl-0">
                 <span className="text-[10px] text-claude-subtext/50 font-mono tabular-nums w-[60px] text-right" title={calls > 1 ? `~${calls} викликів` : undefined}>
                   {formatUah(cost)}{calls > 1 && <span className="text-claude-subtext/30 ml-0.5">×{calls}</span>}
                 </span>
@@ -205,33 +205,35 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
       </div>
 
       {/* Footer: bulk actions + total cost + confirm */}
-      <div className="p-3 border-t border-claude-border/30 bg-claude-bg/20 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={setAllDeep}
-            className="text-[11px] text-claude-subtext hover:text-claude-text transition-colors"
-          >
-            Усі глибокі
-          </button>
-          <span className="text-[11px] text-claude-subtext/30">|</span>
-          <button
-            onClick={setAllStandard}
-            className="text-[11px] text-claude-subtext hover:text-claude-text transition-colors"
-          >
-            Усі стандартні
-          </button>
-          {deepCount > 0 && (
-            <span className="text-[11px] text-amber-600 ml-1">
-              ({deepCount} глибоких)
+      <div className="p-3 border-t border-claude-border/30 bg-claude-bg/20 flex-shrink-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={setAllDeep}
+              className="text-[11px] text-claude-subtext hover:text-claude-text transition-colors"
+            >
+              Усі глибокі
+            </button>
+            <span className="text-[11px] text-claude-subtext/30">|</span>
+            <button
+              onClick={setAllStandard}
+              className="text-[11px] text-claude-subtext hover:text-claude-text transition-colors"
+            >
+              Усі стандартні
+            </button>
+            {deepCount > 0 && (
+              <span className="text-[11px] text-amber-600 ml-1">
+                ({deepCount} глибоких)
+              </span>
+            )}
+            <span className="text-[11px] text-claude-subtext/30 ml-1">|</span>
+            <span className="text-[11px] text-claude-subtext font-mono tabular-nums">
+              ~{formatUah(totalCost)}
             </span>
-          )}
-          <span className="text-[11px] text-claude-subtext/30 ml-1">|</span>
-          <span className="text-[11px] text-claude-subtext font-mono tabular-nums">
-            ~{formatUah(totalCost)}
-          </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2 mt-2">
           <button
             onClick={onSkip}
             disabled={isLoading}
