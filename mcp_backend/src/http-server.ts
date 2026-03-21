@@ -108,6 +108,14 @@ class HTTPMCPServer {
         logger.error('[Cron] Auto-release escrow failed', { error: (err as Error).message });
       });
     }, { timezone: 'Europe/Kyiv' });
+
+    // Cron: reconcile pending Monobank payments every 30 minutes
+    cron.schedule('*/30 * * * *', () => {
+      logger.info('[Cron] Running Monobank payment reconciliation');
+      this.billing.monobankService.reconcilePendingPayments().catch(err => {
+        logger.error('[Cron] Monobank reconciliation failed', { error: (err as Error).message });
+      });
+    }, { timezone: 'Europe/Kyiv' });
   }
 
   private setupMiddleware() {

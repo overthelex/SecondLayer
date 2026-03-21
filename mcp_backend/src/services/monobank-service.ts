@@ -370,6 +370,103 @@ export class MonobankService {
   }
 
   /**
+   * Reconcile pending payment intents older than 1 hour.
+   * Checks their real status via Monobank API and processes accordingly.
+   */
+  async reconcilePendingPayments(): Promise<{ checked: number; resolved: number }> {
+    const result = await this.db.query(
+      `SELECT * FROM payment_intents
+       WHERE provider = 'monobank'
+         AND status = 'pending'
+         AND created_at < NOW() - INTERVAL '1 hour'
+       ORDER BY created_at ASC
+       LIMIT 50`
+    );
+
+    let resolved = 0;
+
+    for (const pi of result.rows) {
+      try {
+        const statusData = await this.getInvoiceStatusRaw(pi.external_id);
+        if (!statusData) {
+          logger.warn('[Reconciliation] Could not fetch invoice status', { invoiceId: pi.external_id });
+          continue;
+        }
+
+        const monoStatus = statusData.status as string;
+
+        if (monoStatus === 'success') {
+          // Webhook was missed — credit balance directly
+          logger.info('[Reconciliation] Found missed successful payment, crediting', {
+            paymentIntentId: pi.id,
+            invoiceId: pi.external_id,
+          });
+
+          await this.db.query(
+            `UPDATE payment_intents SET status = 'succeeded', updated_at = NOW() WHERE id = $1 AND status = 'pending'`,
+            [pi.id]
+          );
+
+          const amountUah = parseFloat(pi.amount_uah) || (statusData.amount / 100);
+          let amountUsd = 0;
+          if (this.currencyService) {
+            try {
+              const { amountUsd: converted } = await this.currencyService.convertUahToUsd(amountUah);
+              amountUsd = converted;
+            } catch { /* fallback to 0 */ }
+          }
+
+          await this.billingService.getOrCreateUserBilling(pi.user_id);
+          await this.billingService.topUpBalance({
+            userId: pi.user_id,
+            amountUsd,
+            amountUah,
+            description: `Поповнення через Monobank (reconciliation): ${amountUah} ₴`,
+            paymentProvider: 'monobank',
+            paymentId: pi.id,
+            metadata: { invoiceId: pi.external_id, reconciled: true },
+          });
+
+          if (this.auditService) {
+            this.auditService.log({
+              userId: pi.user_id,
+              action: 'payment.reconciled',
+              resourceType: 'payment_intent',
+              resourceId: pi.id,
+              details: { invoiceId: pi.external_id, amountUah, amountUsd },
+            }).catch(() => {});
+          }
+
+          resolved++;
+        } else if (['failure', 'reversed', 'expired'].includes(monoStatus)) {
+          // Terminal state — mark accordingly
+          await this.db.query(
+            `UPDATE payment_intents SET status = $1, updated_at = NOW() WHERE id = $2`,
+            [monoStatus === 'failure' ? 'failed' : monoStatus, pi.id]
+          );
+          logger.info('[Reconciliation] Marked stale payment as terminal', {
+            paymentIntentId: pi.id,
+            status: monoStatus,
+          });
+          resolved++;
+        }
+        // 'created', 'processing', 'hold' — still in progress, skip
+      } catch (err: any) {
+        logger.error('[Reconciliation] Error checking payment', {
+          paymentIntentId: pi.id,
+          error: err.message,
+        });
+      }
+    }
+
+    if (result.rows.length > 0) {
+      logger.info('[Reconciliation] Completed', { checked: result.rows.length, resolved });
+    }
+
+    return { checked: result.rows.length, resolved };
+  }
+
+  /**
    * Get the status of a Monobank invoice.
    */
   async getPaymentStatus(invoiceId: string): Promise<MonobankPaymentStatus> {
