@@ -70,14 +70,14 @@ export function AssistantMessage({
       badgeVariant: decision.status as 'active' | 'overturned' | 'modified',
       content: decision.summary || 'Завантаження повного тексту...',
       relevance: decision.relevance,
-      externalUrl: (decision as any).externalUrl,
+      externalUrl: decision.externalUrl,
     });
     setIsDocViewerOpen(true);
 
-    // Extract numeric EDRSR doc_id from decision id (format: "d-{doc_id}" or from externalUrl)
-    const edsrDocId = (decision as any).docId
-      || decision.id.replace(/^d-/, '')
-      || (decision as any).externalUrl?.match(/\/Review\/(\d+)/)?.[1];
+    // Extract numeric EDRSR doc_id from decision id (prefixes: d-, sc-, chain-, pc-, gcd-) or from externalUrl
+    const edsrDocId = decision.docId
+      || decision.id.replace(/^(?:d|sc|chain|pc|gcd)-/, '')
+      || decision.externalUrl?.match(/\/Review\/(\d+)/)?.[1];
 
     if (edsrDocId && /^\d+$/.test(String(edsrDocId))) {
       // Prevent duplicate fetches
@@ -91,6 +91,13 @@ export function AssistantMessage({
             ...prev,
             content: result.full_text!,
             subtitle: [result.court_name || decision.court, result.judgment_form, decision.date].filter(Boolean).join(' • '),
+          } : prev);
+        } else {
+          setDocViewerItem(prev => prev ? {
+            ...prev,
+            content: prev.content === 'Завантаження повного тексту...'
+              ? (decision.summary || 'Повний текст рішення недоступний.')
+              : prev.content,
           } : prev);
         }
       }).finally(() => {
