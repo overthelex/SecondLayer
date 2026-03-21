@@ -66,13 +66,10 @@ router.post('/reset-password', authRateLimit as any, authController.resetPasswor
  */
 /**
  * Build callback URL dynamically from request host.
- * This allows OAuth to work from both legal.org.ua and stage.legal.org.ua.
- * The redirect URI must also be registered in Google Cloud Console.
+ * This allows OAuth to work from legal.org.ua, platform.legal.org.ua, etc.
+ * Each redirect URI must also be registered in Google Cloud Console.
  */
 function getCallbackURL(req: any): string {
-  if (process.env.GOOGLE_CALLBACK_URL) {
-    return process.env.GOOGLE_CALLBACK_URL;
-  }
   const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   return `${protocol}://${host}/auth/google/callback`;
@@ -169,6 +166,32 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
    * @access  Public
    */
   router.get('/diia/status/:sessionId', authController.diiaAuthStatus as any);
+  // ----- Дія.Підпис (Signing) routes -----
+
+  /**
+   * @route   POST /auth/diia/sign
+   * @desc    Initiate Дія.Підпис signing session
+   *          Body: { files: [{ fileName, fileHash }], returnUrl? }
+   *          Returns: { sessionId, deeplink }
+   * @access  Protected (JWT required — user must be authenticated)
+   */
+  router.post('/diia/sign', authController.diiaSignInit as any);
+
+  /**
+   * @route   POST /auth/diia/sign/callback
+   * @desc    Diia webhook — called after user signs documents in the app
+   *          Header: X-Document-Request-Trace-Id = hashedRequestId
+   *          Must respond { success: true } within 30s
+   * @access  Public (webhook from Diia)
+   */
+  router.post('/diia/sign/callback', authController.diiaSignCallback as any);
+
+  /**
+   * @route   GET /auth/diia/sign/status/:sessionId
+   * @desc    Poll for Дія.Підпис signing session completion
+   * @access  Protected (JWT required)
+   */
+  router.get('/diia/sign/status/:sessionId', authController.diiaSignStatus as any);
 } else {
   router.get('/diia', (_req, res) => {
     res.status(501).json({ error: 'Diia auth is not configured' });
@@ -178,6 +201,15 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
   });
   router.get('/diia/status/:sessionId', (_req, res) => {
     res.status(501).json({ error: 'Diia auth is not configured' });
+  });
+  router.post('/diia/sign', (_req, res) => {
+    res.status(501).json({ error: 'Diia signing is not configured' });
+  });
+  router.post('/diia/sign/callback', (_req, res) => {
+    res.status(501).json({ error: 'Diia signing is not configured' });
+  });
+  router.get('/diia/sign/status/:sessionId', (_req, res) => {
+    res.status(501).json({ error: 'Diia signing is not configured' });
   });
 }
 

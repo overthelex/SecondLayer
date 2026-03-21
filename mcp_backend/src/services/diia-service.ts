@@ -46,6 +46,11 @@ export interface DiiaDeeplinkResult {
   hashedRequestId: string;  // SHA256(requestId) — Diia sends this in X-Document-Request-Trace-Id
 }
 
+export interface DiiaSignFile {
+  fileName: string;
+  fileHash: string;  // SHA256 hash of file content, base64-encoded
+}
+
 /** Thrown when the Diia acquirer lacks required scope permissions. */
 export class DiiaPermissionError extends Error {
   constructor(message: string) {
@@ -122,7 +127,7 @@ export class DiiaService {
       location: 'м. Київ',
       street: 'вул. Хрещатик',
       house: '1',
-      customFullName: 'ТОВ "Лекс ЕйАй" — юридична AI-платформа',
+      customFullName: 'ФОП Кириченко І.В. — юридична AI-платформа',
       customFullAddress: 'м. Київ, вул. Хрещатик, 1',
       deliveryTypes: ['api'],
       offerRequestType: 'dynamic',
@@ -278,6 +283,173 @@ export class DiiaService {
     }
 
     return this.getAuthDeeplink(branchId, offerId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Дія.Підпис (Signing) — hashedFilesSigning scope
+  // ---------------------------------------------------------------------------
+
+  /** POST /api/v2/acquirers/branch — create branch for document signing */
+  async createSigningBranch(): Promise<string> {
+    const token = await this.getSessionToken();
+
+    const branchBody = {
+      name: 'LexAI Підпис',
+      email: 'admin@legal.org.ua',
+      region: 'м. Київ',
+      district: 'Шевченківський р-н',
+      location: 'м. Київ',
+      street: 'вул. Хрещатик',
+      house: '1',
+      customFullName: 'ФОП Кириченко І.В. — юридична AI-платформа',
+      customFullAddress: 'м. Київ, вул. Хрещатик, 1',
+      deliveryTypes: ['api'],
+      offerRequestType: 'dynamic',
+      scopes: { diiaId: ['hashedFilesSigning'] },
+    };
+
+    const response = await fetch(`${DIIA_BASE_URL}/api/v2/acquirers/branch`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(branchBody),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      if (response.status === 403 && body.includes('forbidden')) {
+        throw new DiiaPermissionError(
+          `Diia acquirer не має дозволу на scope diiaId:hashedFilesSigning. Зверніться до Diia Business для активації. (${body})`
+        );
+      }
+      throw new Error(`Diia createSigningBranch failed: ${response.status} ${body}`);
+    }
+
+    const data = await response.json() as { _id: string };
+    logger.info('[Diia] Signing branch created', { branchId: data._id });
+    return data._id;
+  }
+
+  /** POST /api/v1/acquirers/branch/{branchId}/offer — create signing offer */
+  async createSigningOffer(branchId: string, returnLink: string): Promise<string> {
+    const token = await this.getSessionToken();
+
+    const offerBody = {
+      name: 'Підписання документів LexAI',
+      returnLink,
+      scopes: { diiaId: ['hashedFilesSigning'] },
+    };
+
+    const response = await fetch(`${DIIA_BASE_URL}/api/v1/acquirers/branch/${branchId}/offer`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(offerBody),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      if (response.status === 403 && body.includes('forbidden')) {
+        throw new DiiaPermissionError(
+          `Diia acquirer не має дозволу на scope diiaId:hashedFilesSigning. Зверніться до Diia Business для активації. (${body})`
+        );
+      }
+      throw new Error(`Diia createSigningOffer failed: ${response.status} ${body}`);
+    }
+
+    const data = await response.json() as { _id: string };
+    logger.info('[Diia] Signing offer created', { offerId: data._id, branchId });
+    return data._id;
+  }
+
+  /**
+   * POST /api/v2/acquirers/branch/{branchId}/offer-request/dynamic
+   * Returns deeplink for document signing with file hashes.
+   */
+  async getSigningDeeplink(
+    branchId: string,
+    offerId: string,
+    files: DiiaSignFile[],
+  ): Promise<DiiaDeeplinkResult> {
+    const token = await this.getSessionToken();
+
+    const requestId = crypto.randomUUID();
+    const hashedRequestId = crypto.createHash('sha256').update(requestId).digest('base64');
+
+    const response = await fetch(
+      `${DIIA_BASE_URL}/api/v2/acquirers/branch/${branchId}/offer-request/dynamic`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          offerId,
+          requestId: hashedRequestId,
+          signAlgo: 'ECDSA',
+          data: {
+            hashedFilesSigning: {
+              hashedFiles: files,
+            },
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(`Diia getSigningDeeplink failed: ${response.status} ${body}`);
+    }
+
+    const data = await response.json() as { deeplink: string };
+    logger.info('[Diia] Signing deeplink created', { branchId, offerId, fileCount: files.length });
+
+    return { deeplink: data.deeplink, requestId, hashedRequestId };
+  }
+
+  /**
+   * Initialize a full signing session.
+   * Auto-discovers (or creates) branch and offer for hashedFilesSigning scope.
+   * Uses DIIA_SIGN_BRANCH_ID / DIIA_SIGN_OFFER_ID env vars as cache.
+   */
+  async initSigningSession(
+    returnUrl: string,
+    files: DiiaSignFile[],
+  ): Promise<DiiaDeeplinkResult> {
+    let branchId = process.env.DIIA_SIGN_BRANCH_ID || '';
+    let offerId = process.env.DIIA_SIGN_OFFER_ID || '';
+
+    if (!branchId) {
+      const branches = await this.getBranches();
+      const signingBranch = branches.find(b =>
+        b.scopes && typeof b.scopes === 'object' && 'diiaId' in b.scopes &&
+        Array.isArray((b.scopes as any).diiaId) &&
+        (b.scopes as any).diiaId.includes('hashedFilesSigning')
+      );
+      if (signingBranch) {
+        branchId = signingBranch.id || signingBranch._id || '';
+      } else {
+        branchId = await this.createSigningBranch();
+      }
+      logger.info('[Diia] Using signing branch', { branchId });
+    }
+
+    if (!offerId) {
+      const offers = await this.getOffers(branchId);
+      if (offers.length > 0) {
+        offerId = offers[0].id || offers[0]._id || '';
+      } else {
+        offerId = await this.createSigningOffer(branchId, returnUrl);
+      }
+      logger.info('[Diia] Using signing offer', { offerId });
+    }
+
+    return this.getSigningDeeplink(branchId, offerId, files);
   }
 
   /** Whether Diia is configured (acquirer token present). */

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, MessageSquare, Loader2, Paperclip, FileText, Download, X, Check, CheckCheck, Image as ImageIcon } from 'lucide-react';
+import { Send, MessageSquare, Loader2, Paperclip, FileText, Download, FolderDown, X, Check, CheckCheck, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services';
 import { uploadService } from '../../services/api/UploadService';
+import { useConsultationStore } from '../../stores/consultationStore';
 import type { ConsultationMessage } from '../../services/api/ConsultationService';
 
 interface ConsultationChatTabProps {
@@ -36,11 +37,42 @@ function MessageStatus({ message, isMine }: { message: ConsultationMessage; isMi
   return <Check size={12} className="text-white/50 inline-block ml-1" />;
 }
 
-function AttachmentDisplay({ message }: { message: ConsultationMessage }) {
+function AttachmentDisplay({ message, consultationId, isMine }: { message: ConsultationMessage; consultationId?: string; isMine?: boolean }) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
   if (!message.attachment_url) return null;
 
   const isImage = isImageType(message.attachment_type);
   const attachmentUrl = message.attachment_url;
+
+  const handleSaveToVault = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!consultationId || saving || saved) return;
+    setSaving(true);
+    try {
+      const res = await consultationService.saveAttachmentToVault(consultationId, message.id);
+      if (res.documentId) {
+        setSaved(true);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveButton = !isMine && consultationId && (
+    <button
+      onClick={handleSaveToVault}
+      disabled={saving || saved}
+      className="flex-shrink-0 opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30"
+      title={saved ? 'Збережено' : 'Зберегти до моїх документів'}
+    >
+      {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} className="text-green-500" /> : <FolderDown size={14} />}
+    </button>
+  );
 
   if (isImage) {
     return (
@@ -53,30 +85,36 @@ function AttachmentDisplay({ message }: { message: ConsultationMessage }) {
             loading="lazy"
           />
         </a>
-        {message.attachment_name && (
-          <p className="text-[10px] opacity-60 mt-0.5 truncate">{message.attachment_name}</p>
-        )}
+        <div className="flex items-center justify-between mt-0.5">
+          {message.attachment_name && (
+            <p className="text-[10px] opacity-60 truncate">{message.attachment_name}</p>
+          )}
+          {saveButton}
+        </div>
       </div>
     );
   }
 
   // Non-image file
   return (
-    <a
-      href={attachmentUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="mt-1.5 flex items-center gap-2 p-2 rounded-lg bg-black/10 hover:bg-black/15 transition-colors max-w-[240px]"
-    >
-      <FileText size={16} className="flex-shrink-0 opacity-70" />
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium truncate">{message.attachment_name || 'Файл'}</p>
-        {message.attachment_size && (
-          <p className="text-[10px] opacity-60">{formatFileSize(message.attachment_size)}</p>
-        )}
-      </div>
-      <Download size={14} className="flex-shrink-0 opacity-50" />
-    </a>
+    <div className="mt-1.5 flex items-center gap-2 p-2 rounded-lg bg-black/10 max-w-[240px]">
+      <a
+        href={attachmentUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-80 transition-opacity"
+      >
+        <FileText size={16} className="flex-shrink-0 opacity-70" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium truncate">{message.attachment_name || 'Файл'}</p>
+          {message.attachment_size && (
+            <p className="text-[10px] opacity-60">{formatFileSize(message.attachment_size)}</p>
+          )}
+        </div>
+        <Download size={14} className="flex-shrink-0 opacity-50" />
+      </a>
+      {saveButton}
+    </div>
   );
 }
 
@@ -89,9 +127,12 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [typingUser, setTypingUser] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentRef = useRef<number>(0);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -162,6 +203,30 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
       }
     });
 
+    // Handle typing indicators
+    es.addEventListener('typing', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.userId !== user?.id) {
+          setTypingUser(data.userName || 'Співрозмовник');
+          // Clear after 4s (sender sends every 3s while typing)
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 4000);
+        }
+      } catch {}
+    });
+
+    // Handle consultation status changes
+    es.addEventListener('consultation_status', (event) => {
+      try {
+        const updated = JSON.parse(event.data);
+        // Dispatch with full consultation data for other components
+        window.dispatchEvent(new CustomEvent('consultation-updated', { detail: updated }));
+      } catch {
+        window.dispatchEvent(new CustomEvent('consultation-updated'));
+      }
+    });
+
     es.onerror = () => {
       // EventSource will auto-reconnect
     };
@@ -169,13 +234,41 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
     return () => {
       es.close();
       eventSourceRef.current = null;
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, [consultationId, onUnreadCountChange, scrollToBottom, user?.id]);
+
+  // Polling fallback: SSE through Cloudflare is unreliable, poll every 5s
+  useEffect(() => {
+    if (!consultationId) return;
+    const poll = setInterval(() => {
+      consultationService.getMessages(consultationId, { limit: 100 }).then((result) => {
+        setMessages(prev => {
+          if (result.messages.length === prev.length) return prev;
+          // Merge: keep all messages, deduplicate by id
+          const ids = new Set(prev.map(m => m.id));
+          const newMsgs = result.messages.filter(m => !ids.has(m.id));
+          if (newMsgs.length === 0) return prev;
+          const merged = [...prev, ...newMsgs];
+          setTimeout(scrollToBottom, 100);
+          return merged;
+        });
+      }).catch(() => {});
+    }, 5000);
+    return () => clearInterval(poll);
+  }, [consultationId, scrollToBottom]);
 
   // Mark messages as read when chat becomes visible
   useEffect(() => {
     if (consultationId && messages.length > 0) {
-      consultationService.markMessagesRead(consultationId).catch(() => {});
+      consultationService.markMessagesRead(consultationId)
+        .then(() => {
+          // Re-fetch global unread to get accurate count
+          consultationService.getGlobalUnreadCount()
+            .then(r => useConsultationStore.getState().setGlobalUnreadCount(r.count))
+            .catch(() => {});
+        })
+        .catch(() => {});
     }
   }, [consultationId, messages.length]);
 
@@ -286,6 +379,15 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
     }
   };
 
+  const sendTypingIndicator = useCallback(() => {
+    if (!consultationId) return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current > 3000) {
+      lastTypingSentRef.current = now;
+      consultationService.sendTyping(consultationId);
+    }
+  }, [consultationId]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -348,7 +450,7 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
                 {msg.content && (
                   <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                 )}
-                <AttachmentDisplay message={msg} />
+                <AttachmentDisplay message={msg} consultationId={consultationId ?? undefined} isMine={isMine} />
                 <div className={`flex items-center justify-end gap-0.5 mt-1 ${isMine ? 'text-white/60' : 'text-claude-subtext'}`}>
                   <span className="text-[9px]">
                     {new Date(msg.created_at).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}
@@ -359,6 +461,13 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
             </div>
           );
         })}
+        {typingUser && (
+          <div className="flex justify-start">
+            <div className="bg-claude-user text-claude-subtext rounded-xl rounded-bl-sm px-3 py-2">
+              <p className="text-[11px] italic">{typingUser} пише...</p>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -414,7 +523,7 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
             </button>
             <textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => { setInput(e.target.value); sendTypingIndicator(); }}
               onKeyDown={handleKeyDown}
               placeholder="Написати повідомлення..."
               rows={1}

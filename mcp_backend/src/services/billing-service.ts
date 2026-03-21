@@ -7,6 +7,7 @@ import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
 import { PricingService, PricingTier, PriceCalculation } from './pricing-service.js';
 import type { CurrencyService } from './currency-service.js';
+import type { AuditService } from './audit-service.js';
 
 export interface UserBilling {
   id: string;
@@ -36,8 +37,10 @@ export interface BillingTransaction {
   request_id?: string;
   payment_provider?: string;
   payment_id?: string;
+  reference_transaction_id?: string;
   description?: string;
   metadata?: any;
+  status?: string;
   created_at: Date;
 }
 
@@ -77,10 +80,15 @@ export interface EmailPreferences {
 export class BillingService {
   private pricingService: PricingService;
   private currencyService?: CurrencyService;
+  private auditService?: AuditService;
   private referralRewardCallback?: (userId: string, amountUsd: number, amountUah: number, transactionId: string) => Promise<void>;
 
   constructor(private db: IDatabase, pricingService?: PricingService) {
     this.pricingService = pricingService || new PricingService(db);
+  }
+
+  setAuditService(auditService: AuditService): void {
+    this.auditService = auditService;
   }
 
   setCurrencyService(currencyService: CurrencyService): void {
@@ -106,6 +114,20 @@ export class BillingService {
     } catch (err) {
       logger.warn('Failed to convert USD to UAH for billing', { amountUsd, error: (err as Error).message });
       return 0;
+    }
+  }
+
+  /**
+   * Convert UAH to USD using CurrencyService. Falls back to approximate rate if unavailable.
+   */
+  async convertFromUah(amountUah: number): Promise<number> {
+    if (!this.currencyService || amountUah <= 0) return 0;
+    try {
+      const { amountUsd } = await this.currencyService.convertUahToUsd(amountUah);
+      return amountUsd;
+    } catch (err) {
+      logger.warn('Failed to convert UAH to USD', { amountUah, error: (err as Error).message });
+      return Math.round((amountUah / 41.5) * 100) / 100; // fallback approximate rate
     }
   }
 
@@ -263,7 +285,7 @@ export class BillingService {
     description?: string;
     toolName?: string;
   }): Promise<BillingTransaction & { pricing_details?: PriceCalculation }> {
-    return this.db.transaction(async (client) => {
+    const result = await this.db.transaction(async (client) => {
       // Get current billing account (with row lock)
       const billingResult = await client.query(
         'SELECT * FROM user_billing WHERE user_id = $1 FOR UPDATE',
@@ -305,23 +327,23 @@ export class BillingService {
 
       const balanceBefore = parseFloat(billing.balance_usd);
       const balanceAfter = balanceBefore - chargeAmount;
+      const balanceBeforeUah = parseFloat(billing.balance_uah) || 0;
 
-      // Auto-convert USD charge to UAH if not provided
-      const chargeAmountUah = params.amountUah != null
-        ? params.amountUah
-        : await this.convertToUah(chargeAmount);
+      // Recalculate entire UAH balance from new USD balance using current NBU rate
+      const balanceAfterUah = await this.convertToUah(balanceAfter);
+      const chargeAmountUah = balanceBeforeUah - balanceAfterUah;
 
-      // Update balance and statistics
+      // Update balance and statistics — set balance_uah to recalculated value
       await client.query(
         `UPDATE user_billing
          SET balance_usd = balance_usd - $1,
-             balance_uah = balance_uah - $2,
+             balance_uah = $2,
              total_spent_usd = total_spent_usd + $1,
-             total_spent_uah = total_spent_uah + $2,
+             total_spent_uah = total_spent_uah + $3,
              total_requests = total_requests + 1,
              updated_at = NOW()
-         WHERE user_id = $3`,
-        [chargeAmount, chargeAmountUah, params.userId]
+         WHERE user_id = $4`,
+        [chargeAmount, balanceAfterUah, chargeAmountUah > 0 ? chargeAmountUah : 0, params.userId]
       );
 
       // Record transaction with pricing metadata
@@ -339,8 +361,9 @@ export class BillingService {
         `INSERT INTO billing_transactions (
           user_id, type, amount_usd, amount_uah,
           balance_before_usd, balance_after_usd,
+          balance_before_uah, balance_after_uah,
           request_id, description, metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *`,
         [
           params.userId,
@@ -349,6 +372,8 @@ export class BillingService {
           chargeAmountUah,
           balanceBefore,
           balanceAfter,
+          balanceBeforeUah,
+          balanceAfterUah,
           params.requestId,
           params.description || `Request ${params.requestId}`,
           JSON.stringify(transactionMetadata),
@@ -398,6 +423,19 @@ export class BillingService {
         pricing_details: priceCalc,
       };
     });
+
+    // Audit: balance.charge
+    if (this.auditService) {
+      this.auditService.log({
+        userId: params.userId,
+        action: 'balance.charge',
+        resourceType: 'billing_transaction',
+        resourceId: result.id,
+        details: { amountUsd: result.amount_usd, requestId: params.requestId, toolName: params.toolName },
+      }).catch(err => logger.warn('[Audit] Failed to log balance.charge', { error: (err as Error).message }));
+    }
+
+    return result;
   }
 
   /**
@@ -426,20 +464,20 @@ export class BillingService {
       const billing = billingResult.rows[0];
       const balanceBefore = parseFloat(billing.balance_usd);
       const balanceAfter = balanceBefore + params.amountUsd;
+      const balanceBeforeUah = parseFloat(billing.balance_uah) || 0;
 
-      // Auto-convert USD to UAH if not provided
-      const topUpAmountUah = params.amountUah != null
-        ? params.amountUah
-        : await this.convertToUah(params.amountUsd);
+      // Recalculate entire UAH balance from new USD balance using current NBU rate
+      const balanceAfterUah = await this.convertToUah(balanceAfter);
+      const topUpAmountUah = balanceAfterUah - balanceBeforeUah;
 
-      // Update balance
+      // Update balance — set balance_uah to recalculated value
       await client.query(
         `UPDATE user_billing
          SET balance_usd = balance_usd + $1,
-             balance_uah = balance_uah + $2,
+             balance_uah = $2,
              updated_at = NOW()
          WHERE user_id = $3`,
-        [params.amountUsd, topUpAmountUah, params.userId]
+        [params.amountUsd, balanceAfterUah, params.userId]
       );
 
       // Record transaction
@@ -447,8 +485,9 @@ export class BillingService {
         `INSERT INTO billing_transactions (
           user_id, type, amount_usd, amount_uah,
           balance_before_usd, balance_after_usd,
+          balance_before_uah, balance_after_uah,
           description, payment_provider, payment_id, metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *`,
         [
           params.userId,
@@ -457,6 +496,8 @@ export class BillingService {
           topUpAmountUah,
           balanceBefore,
           balanceAfter,
+          balanceBeforeUah,
+          balanceAfterUah,
           params.description || `Top up $${params.amountUsd}`,
           params.paymentProvider,
           params.paymentId,
@@ -475,6 +516,17 @@ export class BillingService {
 
       return transaction;
     });
+
+    // Audit: balance.topup
+    if (this.auditService) {
+      this.auditService.log({
+        userId: params.userId,
+        action: 'balance.topup',
+        resourceType: 'billing_transaction',
+        resourceId: result.id,
+        details: { amountUsd: params.amountUsd, amountUah: params.amountUah, provider: params.paymentProvider },
+      }).catch(err => logger.warn('[Audit] Failed to log balance.topup', { error: (err as Error).message }));
+    }
 
     // Process referral reward outside the transaction (fire and forget)
     if (this.referralRewardCallback && result.type === 'topup' && params.paymentProvider !== 'referral') {
@@ -567,11 +619,12 @@ export class BillingService {
       notify_monthly_report?: boolean;
       low_balance_threshold_usd?: number;
     }
-  ): Promise<void> {
+  ): Promise<{ refund_uah?: number; refund_usd?: number }> {
     try {
       const updates: string[] = [];
       const params: any[] = [];
       let paramIndex = 1;
+      let refundResult: { refund_uah?: number; refund_usd?: number } = {};
 
       if (settings.dailyLimitUsd !== undefined) {
         updates.push(`daily_limit_usd = $${paramIndex++}`);
@@ -598,6 +651,54 @@ export class BillingService {
         if (!this.pricingService.isValidTier(settings.pricingTier)) {
           throw new Error(`Invalid pricing tier: ${settings.pricingTier}`);
         }
+
+        // Check for downgrade → issue prorated refund
+        const currentBilling = await this.getOrCreateUserBilling(userId);
+        const oldTier = currentBilling.pricing_tier || 'free';
+        const newTier = settings.pricingTier;
+
+        if (oldTier !== newTier) {
+          const allTiers = this.pricingService.getAllTiers();
+          const oldTierConfig = allTiers.find(t => t.tier === oldTier);
+          const newTierConfig = allTiers.find(t => t.tier === newTier);
+          const oldPrice = oldTierConfig?.monthly_price_usd || 0;
+          const newPrice = newTierConfig?.monthly_price_usd || 0;
+
+          if (oldPrice > newPrice) {
+            // Downgrade: refund the monthly price difference to balance
+            const refundUsd = oldPrice - newPrice;
+            const refundUah = await this.convertToUah(refundUsd);
+
+            if (refundUsd > 0) {
+              const balanceBefore = parseFloat(String(currentBilling.balance_usd)) || 0;
+              const balanceAfter = balanceBefore + refundUsd;
+
+              await this.db.query(
+                `UPDATE user_billing
+                 SET balance_usd = balance_usd + $1,
+                     balance_uah = balance_uah + $2,
+                     updated_at = NOW()
+                 WHERE user_id = $3`,
+                [refundUsd, refundUah, userId]
+              );
+
+              // Record refund transaction
+              await this.db.query(
+                `INSERT INTO billing_transactions
+                  (user_id, type, amount_usd, amount_uah, balance_before_usd, balance_after_usd, description)
+                 VALUES ($1, 'refund', $2, $3, $4, $5, $6)`,
+                [userId, refundUsd, refundUah, balanceBefore, balanceAfter,
+                 `Повернення за зміну тарифу: ${oldTier} → ${newTier}`]
+              );
+
+              refundResult = { refund_usd: refundUsd, refund_uah: refundUah };
+              logger.info('Plan downgrade refund issued', {
+                userId, oldTier, newTier, refundUsd, refundUah,
+              });
+            }
+          }
+        }
+
         updates.push(`pricing_tier = $${paramIndex++}`);
         params.push(settings.pricingTier);
       }
@@ -633,7 +734,7 @@ export class BillingService {
       }
 
       if (updates.length === 0) {
-        return;
+        return refundResult;
       }
 
       params.push(userId);
@@ -646,6 +747,7 @@ export class BillingService {
       await this.db.query(query, params);
 
       logger.info('Billing settings updated', { userId, settings });
+      return refundResult;
     } catch (error: any) {
       logger.error('Failed to update billing settings', {
         userId,
@@ -951,16 +1053,57 @@ export class BillingService {
   }
 
   /**
+   * Save a payment method (upsert by user + provider + last4 to avoid duplicates)
+   */
+  async savePaymentMethod(userId: string, data: {
+    provider: string;
+    cardLast4?: string;
+    cardBrand?: string;
+    cardBank?: string;
+    label?: string;
+  }): Promise<void> {
+    try {
+      // Upsert: if same card (provider + last4) already exists, update it
+      await this.db.query(
+        `INSERT INTO billing_payment_methods (id, user_id, provider, card_last4, card_brand, card_bank, label, is_primary)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6,
+           NOT EXISTS(SELECT 1 FROM billing_payment_methods WHERE user_id = $1)
+         )
+         ON CONFLICT ON CONSTRAINT billing_payment_methods_user_provider_card_unique
+         DO UPDATE SET card_brand = EXCLUDED.card_brand, card_bank = EXCLUDED.card_bank, label = EXCLUDED.label, updated_at = NOW()`,
+        [userId, data.provider, data.cardLast4 || null, data.cardBrand || null, data.cardBank || null, data.label || null]
+      );
+    } catch (error: any) {
+      // Non-critical — don't fail the payment
+      logger.warn('Failed to save payment method', { userId, error: error.message });
+    }
+  }
+
+  /**
    * Remove a saved payment method
    */
   async removePaymentMethod(userId: string, methodId: string): Promise<void> {
-    const result = await this.db.query(
-      'DELETE FROM billing_payment_methods WHERE id = $1 AND user_id = $2',
-      [methodId, userId]
-    );
-    if (result.rowCount === 0) {
-      throw new Error('Payment method not found');
-    }
+    await this.db.transaction(async (client) => {
+      const result = await client.query(
+        'DELETE FROM billing_payment_methods WHERE id = $1 AND user_id = $2 RETURNING is_primary',
+        [methodId, userId]
+      );
+      if (result.rowCount === 0) {
+        throw new Error('Payment method not found');
+      }
+      // If deleted card was primary, promote the most recent remaining card
+      if (result.rows[0].is_primary) {
+        await client.query(
+          `UPDATE billing_payment_methods SET is_primary = true
+           WHERE id = (
+             SELECT id FROM billing_payment_methods
+             WHERE user_id = $1
+             ORDER BY created_at DESC LIMIT 1
+           )`,
+          [userId]
+        );
+      }
+    });
   }
 
   /**
@@ -982,6 +1125,68 @@ export class BillingService {
         throw new Error('Payment method not found');
       }
     });
+  }
+
+  /**
+   * Get billing info (company details for invoicing)
+   */
+  async getBillingInfo(userId: string): Promise<{
+    companyName: string;
+    edrpou: string;
+    address: string;
+    city: string;
+    postalCode: string;
+    country: string;
+    email: string;
+    phone: string;
+  }> {
+    const result = await this.db.query(
+      `SELECT company_name, edrpou, billing_address, billing_city,
+              billing_postal_code, billing_country, billing_email, billing_phone
+       FROM user_billing WHERE user_id = $1`,
+      [userId]
+    );
+    const row = result.rows[0];
+    return {
+      companyName: row?.company_name || '',
+      edrpou: row?.edrpou || '',
+      address: row?.billing_address || '',
+      city: row?.billing_city || '',
+      postalCode: row?.billing_postal_code || '',
+      country: row?.billing_country || 'Ukraine',
+      email: row?.billing_email || '',
+      phone: row?.billing_phone || '',
+    };
+  }
+
+  /**
+   * Update billing info (company details for invoicing)
+   */
+  async updateBillingInfo(userId: string, data: {
+    companyName?: string;
+    edrpou?: string;
+    address?: string;
+    city?: string;
+    postalCode?: string;
+    country?: string;
+    email?: string;
+    phone?: string;
+  }): Promise<void> {
+    await this.db.query(
+      `UPDATE user_billing SET
+        company_name = COALESCE($2, company_name),
+        edrpou = COALESCE($3, edrpou),
+        billing_address = COALESCE($4, billing_address),
+        billing_city = COALESCE($5, billing_city),
+        billing_postal_code = COALESCE($6, billing_postal_code),
+        billing_country = COALESCE($7, billing_country),
+        billing_email = COALESCE($8, billing_email),
+        billing_phone = COALESCE($9, billing_phone),
+        updated_at = NOW()
+       WHERE user_id = $1`,
+      [userId, data.companyName, data.edrpou, data.address, data.city,
+       data.postalCode, data.country, data.email, data.phone]
+    );
   }
 
   /**

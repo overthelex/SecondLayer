@@ -170,8 +170,20 @@ export class ConsultationService extends BaseService {
     return eventSource;
   }
 
+  async saveAttachmentToVault(consultationId: string, messageId: string): Promise<{ documentId: string; alreadyExists?: boolean }> {
+    return this.request(() => this.client.post(`/api/consultations/${consultationId}/messages/${messageId}/save-to-vault`));
+  }
+
   async submitReview(id: string, data: SubmitReviewRequest): Promise<{ success: boolean }> {
     return this.request(() => this.client.post(`/api/consultations/${id}/review`, data));
+  }
+
+  async getGlobalUnreadCount(): Promise<{ count: number }> {
+    return this.request(() => this.client.get<{ count: number }>('/api/consultations/unread-total'));
+  }
+
+  sendTyping(id: string): void {
+    this.client.post(`/api/consultations/${id}/typing`).catch(() => {});
   }
 
   async getUnseenPending(): Promise<{ consultations: Consultation[]; count: number }> {
@@ -185,6 +197,24 @@ export class ConsultationService extends BaseService {
   async getMyClients(): Promise<{ clients: AttorneyClient[] }> {
     return this.request(() => this.client.get('/api/consultations/my-clients'));
   }
+
+  async getMyPayouts(): Promise<AttorneyPayout[]> {
+    return this.request(
+      () => this.client.get<{ payouts: AttorneyPayout[] }>('/api/consultations/my-payouts'),
+      (data) => data.payouts,
+    );
+  }
+}
+
+export interface AttorneyPayout {
+  id: string;
+  attorney_user_id: string;
+  consultation_payment_id: string;
+  amount_uah: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+  consultation_id?: string;
+  request_title?: string;
 }
 
 export interface AttorneyClient {

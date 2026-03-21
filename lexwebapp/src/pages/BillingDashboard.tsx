@@ -13,16 +13,18 @@ import {
   ArrowLeft,
   Zap,
   TrendingUp,
+  FileText,
 } from 'lucide-react';
 import { TopUpModal } from '../components/billing/TopUpModal';
 
-type BillingTab = 'overview' | 'tariffs' | 'history' | 'analytics' | 'settings';
+type BillingTab = 'overview' | 'tariffs' | 'history' | 'analytics' | 'b2b-invoices' | 'settings';
 
 const tabs = [
   { id: 'overview' as const, label: 'Огляд', icon: DollarSign },
   { id: 'tariffs' as const, label: 'Тарифи', icon: Zap },
   { id: 'history' as const, label: 'Історія', icon: Receipt },
   { id: 'analytics' as const, label: 'Аналітика', icon: TrendingUp },
+  { id: 'b2b-invoices' as const, label: 'Рахунки B2B', icon: FileText },
   { id: 'settings' as const, label: 'Налаштування', icon: Settings },
 ];
 
@@ -64,7 +66,7 @@ export function BillingDashboard() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-claude-bg">
+    <div className="flex flex-col h-full bg-claude-bg">
       {/* Header */}
       <div className="bg-white border-b border-claude-border px-6 py-4">
         <div className="flex items-center gap-4">

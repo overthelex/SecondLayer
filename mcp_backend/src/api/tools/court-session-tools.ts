@@ -6,13 +6,13 @@
  * - bulk_ingest_court_sessions
  */
 
-import { ZOAdapter } from '../../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
 import { logger } from '../../utils/logger.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 
 export class CourtSessionTools extends BaseToolHandler {
   constructor(
-    private zoSessionsAdapter: ZOAdapter,
+    private zoSessionsAdapter: EdsrLocalAdapter,
     private db: any
   ) {
     super();

@@ -555,7 +555,7 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-https://stage.legal.org.ua/auth/google/callback}
       # Diia (Дія) Auth
-      DIIA_BASE_URL: ${DIIA_BASE_URL:-https://api2t.diia.gov.ua}
+      DIIA_BASE_URL: ${DIIA_BASE_URL:-https://api2s.diia.gov.ua}
       DIIA_ACQUIRER_TOKEN: ${DIIA_ACQUIRER_TOKEN:-}
       DIIA_AUTH_ACQUIRER_TOKEN: ${DIIA_AUTH_ACQUIRER_TOKEN:-}
       FRONTEND_URL: ${FRONTEND_URL:-https://stage.legal.org.ua}
@@ -585,6 +585,12 @@ services:
 
       # Prometheus (for admin metrics dashboard)
       PROMETHEUS_URL: http://prometheus-stage:9090
+
+      # Payment gateways
+      MOCK_PAYMENTS: ${MOCK_PAYMENTS:-true}
+      PUBLIC_URL: https://stage.legal.org.ua
+      MONOBANK_API_KEY: ${MONOBANK_API_KEY:-}
+      MONOBANK_REDIRECT_URL: ${MONOBANK_REDIRECT_URL:-https://stage.legal.org.ua}
 
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: Europe/Kiev

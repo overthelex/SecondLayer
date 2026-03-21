@@ -860,7 +860,19 @@ export class LLMClientManager {
       });
     }
 
-    return { system, messages: bedrockMessages };
+    // Bedrock requires strict user/assistant alternation.
+    // Merge consecutive same-role messages to avoid "Error in input stream".
+    const merged: BedrockMessage[] = [];
+    for (const msg of bedrockMessages) {
+      const prev = merged[merged.length - 1];
+      if (prev && prev.role === msg.role && Array.isArray(prev.content) && Array.isArray(msg.content)) {
+        prev.content.push(...msg.content);
+      } else {
+        merged.push(msg);
+      }
+    }
+
+    return { system, messages: merged };
   }
 
   private buildBedrockToolConfig(request: UnifiedChatRequest): ToolConfiguration | undefined {
@@ -900,7 +912,8 @@ export class LLMClientManager {
     // Add inference config
     const inferenceConfig: any = {};
     if (request.max_tokens) {
-      inferenceConfig.maxTokens = request.max_tokens;
+      const modelMaxTokens = model.includes('nova') ? 10000 : request.max_tokens;
+      inferenceConfig.maxTokens = Math.min(request.max_tokens, modelMaxTokens);
     }
     if (request.temperature !== undefined && ModelSelector.supportsTemperature(model)) {
       inferenceConfig.temperature = request.temperature;
@@ -973,7 +986,8 @@ export class LLMClientManager {
 
     const inferenceConfig: any = {};
     if (request.max_tokens) {
-      inferenceConfig.maxTokens = request.max_tokens;
+      const modelMaxTokens = model.includes('nova') ? 10000 : request.max_tokens;
+      inferenceConfig.maxTokens = Math.min(request.max_tokens, modelMaxTokens);
     }
     if (request.temperature !== undefined && ModelSelector.supportsTemperature(model)) {
       inferenceConfig.temperature = request.temperature;

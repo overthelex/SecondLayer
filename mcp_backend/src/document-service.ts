@@ -7,7 +7,7 @@ import { LegalPatternStore } from './services/legal-pattern-store.js';
 import { CitationValidator } from './services/citation-validator.js';
 import { EmbeddingService } from './services/embedding-service.js';
 import { DocumentService } from './services/document-service.js';
-import { ZOAdapter } from './adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from './adapters/edrsr-local-adapter.js';
 import { ScrapeWorkerService } from './services/scrape-worker-service.js';
 import { Database } from './database/database.js';
 import { logger } from './utils/logger.js';
@@ -58,8 +58,8 @@ class DocumentAnalysisServer {
       llmAdapter
     );
 
-    // Initialize ZOAdapter for court decision scraping
-    const zoAdapter = new ZOAdapter(this.documentService, undefined, this.embeddingService, undefined, sectionizer);
+    // Initialize EdsrLocalAdapter for court decision scraping
+    const zoAdapter = new EdsrLocalAdapter(this.documentService, undefined, this.embeddingService, undefined, sectionizer);
 
     // Initialize scrape worker service
     this.scrapeWorker = new ScrapeWorkerService(
@@ -85,7 +85,7 @@ class DocumentAnalysisServer {
     });
 
     // Ready check (includes dependencies)
-    this.app.get('/ready', async (_req, res) => {
+    this.app.get(['/ready', '/health/ready'], async (_req, res) => {
       try {
         res.json({
           status: 'ready',

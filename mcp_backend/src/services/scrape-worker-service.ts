@@ -17,8 +17,9 @@ import { CourtDecisionHTMLParser } from '../utils/html-parser.js';
 import { SemanticSectionizer } from '../services/semantic-sectionizer.js';
 import type { IEmbeddingPort } from '../domain/ports/index.js';
 import { DocumentService } from '../services/document-service.js';
-import { ZOAdapter } from '../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../adapters/edrsr-local-adapter.js';
 import { logger } from '../utils/logger.js';
+import { Semaphore } from '../utils/semaphore.js';
 import { SectionType } from '../types/index.js';
 
 // --- Types ---
@@ -55,42 +56,6 @@ export interface BulkScrapeJob {
   completed_at?: string;
 }
 
-// --- Semaphore ---
-
-class Semaphore {
-  private current = 0;
-  private queue: Array<() => void> = [];
-
-  constructor(private max: number) {}
-
-  async acquire(): Promise<() => void> {
-    if (this.current < this.max) {
-      this.current++;
-      return () => this.release();
-    }
-    return new Promise<() => void>((resolve) => {
-      this.queue.push(() => {
-        this.current++;
-        resolve(() => this.release());
-      });
-    });
-  }
-
-  private release(): void {
-    this.current = Math.max(0, this.current - 1);
-    const next = this.queue.shift();
-    if (next) next();
-  }
-
-  get pending(): number {
-    return this.queue.length;
-  }
-
-  get inFlight(): number {
-    return this.current;
-  }
-}
-
 // --- Service ---
 
 export class ScrapeWorkerService {
@@ -103,7 +68,7 @@ export class ScrapeWorkerService {
   constructor(
     private documentService: DocumentService,
     private embeddingService: IEmbeddingPort,
-    private zoAdapter: ZOAdapter,
+    private zoAdapter: EdsrLocalAdapter,
     sectionizer?: SemanticSectionizer,
   ) {
     const maxConcurrent = parseInt(process.env.SCRAPE_MAX_CONCURRENT || '10', 10);

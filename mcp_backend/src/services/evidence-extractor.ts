@@ -127,10 +127,12 @@ export function extractFromToolResult(
       decisions.push({
         id: `d-${c.doc_id || c.id || rndId()}`,
         number: c.cause_num || c.case_number || c.number || 'N/A',
-        court: c.court_code || c.court || '',
+        court: c.court_name || c.court_code || c.court || '',
         date: c.adjudication_date || c.date || '',
         summary: c.title || c.resolution || c.summary || c.similarity_reason
-          || (Array.isArray(c.snippets) ? c.snippets.join(' ') : '') || '',
+          || (Array.isArray(c.snippets) ? c.snippets.join(' ') : '')
+          || (c.full_text ? c.full_text.slice(0, 300) : '')
+          || (c.judgment_form ? `${c.judgment_form} у справі ${c.cause_num || ''}`.trim() : '') || '',
         relevance: c.similarity
           ? Math.round(c.similarity * 100)
           : c.relevance
@@ -153,9 +155,11 @@ export function extractFromToolResult(
       decisions.push({
         id: `chain-${doc.doc_id || rndId()}`,
         number: doc.case_number || parsed.case_number || doc.title || 'N/A',
-        court: doc.court || doc.instance || '',
-        date: doc.date || '',
-        summary: doc.resolution || doc.title || '',
+        court: doc.court_name || doc.court || doc.instance || '',
+        date: doc.adjudication_date || doc.date || '',
+        summary: doc.resolution || doc.title
+          || (doc.full_text ? doc.full_text.slice(0, 300) : '')
+          || (doc.judgment_form ? `${doc.judgment_form} у справі ${doc.case_number || parsed.case_number || ''}`.trim() : '') || '',
         relevance: 80,
         status: 'active',
         documentType: classifyDocumentType(doc),
@@ -181,15 +185,22 @@ export function extractFromToolResult(
 
     // get_court_decision — single decision with sections
     if (parsed.sections && Array.isArray(parsed.sections) && (parsed.doc_id || parsed.case_number)) {
-      const summarySection = parsed.sections.find((s: any) => s.type === 'DECISION' || s.type === 'COURT_REASONING');
+      // Pick best summary: DECISION > COURT_REASONING > FACTS > HEADER > full_text fallback
+      const summarySection = parsed.sections.find((s: any) => s.type === 'DECISION')
+        || parsed.sections.find((s: any) => s.type === 'COURT_REASONING')
+        || parsed.sections.find((s: any) => s.type === 'FACTS')
+        || parsed.sections.find((s: any) => s.type === 'HEADER');
+      const summaryText = summarySection?.text?.slice(0, 500)
+        || (parsed.full_text ? parsed.full_text.slice(0, 500) : '');
       decisions.push({
         id: `gcd-${parsed.doc_id || Date.now()}`,
         number: parsed.case_number || String(parsed.doc_id) || 'N/A',
-        court: '',
-        date: '',
-        summary: summarySection?.text?.slice(0, 300) || '',
+        court: parsed.court_name || '',
+        date: parsed.adjudication_date || '',
+        summary: summaryText,
         relevance: 100,
         status: 'active',
+        documentType: classifyDocumentType({ judgment_form: parsed.judgment_form }),
         externalUrl: courtDocUrl(parsed.doc_id),
       });
     }

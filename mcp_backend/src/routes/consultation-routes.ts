@@ -2,11 +2,22 @@ import { Router, Response, NextFunction } from 'express';
 import { AuthenticatedRequest as DualAuthRequest } from '../middleware/dual-auth.js';
 import { ConsultationService } from '../services/consultation-service.js';
 import { ConsultationPaymentService } from '../services/consultation-payment-service.js';
+import { AttorneyPayoutService } from '../services/attorney-payout-service.js';
+import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
+import { MinioService } from '../services/minio-service.js';
+import { v4 as uuidv4 } from 'uuid';
+
+/** Optional callback for SSE connection metrics */
+export type SseMetricsCallback = (type: 'user_stream' | 'message_stream', delta: 1 | -1) => void;
 
 export function createConsultationRoutes(
   consultationService: ConsultationService,
-  consultationPaymentService: ConsultationPaymentService
+  consultationPaymentService: ConsultationPaymentService,
+  payoutService?: AttorneyPayoutService,
+  db?: IDatabase,
+  sseMetrics?: SseMetricsCallback,
+  minioService?: MinioService
 ): Router {
   const router = Router();
 
@@ -48,6 +59,56 @@ export function createConsultationRoutes(
     }
   }) as any);
 
+  // GET /api/consultations/user-stream — SSE stream for user-level events
+  router.get('/user-stream', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const userId = req.user.id;
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders();
+
+      res.write('event: connected\ndata: {}\n\n');
+      sseMetrics?.('user_stream', 1);
+
+      const { getConsultationMessageBus } = await import('../services/consultation-message-bus.js');
+      const bus = getConsultationMessageBus();
+      const unsubscribe = bus.subscribeUser(userId, (event) => {
+        res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+      });
+
+      const heartbeat = setInterval(() => {
+        res.write('event: heartbeat\ndata: {}\n\n');
+      }, 30000);
+
+      req.on('close', () => {
+        unsubscribe();
+        clearInterval(heartbeat);
+        sseMetrics?.('user_stream', -1);
+      });
+    } catch (error: any) {
+      logger.error('Failed to setup user stream', { error: error.message });
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to setup user stream' });
+      }
+    }
+  }) as any);
+
+  // GET /api/consultations/unread-total — global unread message count
+  router.get('/unread-total', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const count = await consultationService.getGlobalUnreadCount(req.user.id);
+      res.json({ count });
+    } catch (error: any) {
+      logger.error('Failed to get global unread count', { error: error.message });
+      res.status(500).json({ error: 'Failed to get unread count' });
+    }
+  }) as any);
+
   // GET /api/consultations/pending-unseen — unseen pending requests for attorney
   router.get('/pending-unseen', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {
@@ -86,6 +147,19 @@ export function createConsultationRoutes(
     }
   }) as any);
 
+  // GET /api/consultations/my-payouts — attorney's payout history
+  router.get('/my-payouts', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      if (!payoutService) return res.status(500).json({ error: 'Payout service not configured' });
+      const payouts = await payoutService.getAttorneyPayoutHistory(req.user.id);
+      res.json({ payouts });
+    } catch (error: any) {
+      logger.error('Failed to get attorney payouts', { error: error.message });
+      res.status(500).json({ error: 'Failed to get payouts' });
+    }
+  }) as any);
+
   // GET /api/consultations/:id — get detail
   router.get('/:id', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {
@@ -103,8 +177,12 @@ export function createConsultationRoutes(
   router.put('/:id/accept', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {
       if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const { agreedFee } = req.body;
+      if (agreedFee === undefined || agreedFee === null || Number(agreedFee) <= 0) {
+        return res.status(400).json({ error: 'agreedFee is required and must be greater than 0' });
+      }
       const consultation = await consultationService.acceptConsultation(
-        req.params.id as string, req.user.id, req.body.agreedFee
+        req.params.id as string, req.user.id, Number(agreedFee)
       );
       res.json(consultation);
     } catch (error: any) {
@@ -146,6 +224,14 @@ export function createConsultationRoutes(
       const consultation = await consultationService.completeConsultation(
         req.params.id as string, req.user.id, req.body.summary
       );
+
+      // Auto-release escrow payment on completion
+      try {
+        await consultationPaymentService.releasePayment(req.params.id as string);
+      } catch (err: any) {
+        logger.warn('Failed to release escrow payment on completion (non-critical)', { error: err.message });
+      }
+
       res.json(consultation);
     } catch (error: any) {
       logger.error('Failed to complete consultation', { error: error.message });
@@ -160,6 +246,14 @@ export function createConsultationRoutes(
       const consultation = await consultationService.cancelConsultation(
         req.params.id as string, req.user.id, req.body.reason
       );
+
+      // Auto-refund escrow payment on cancellation
+      try {
+        await consultationPaymentService.refundPayment(req.params.id as string);
+      } catch (err: any) {
+        logger.warn('Failed to refund escrow payment on cancellation (non-critical)', { error: err.message });
+      }
+
       res.json(consultation);
     } catch (error: any) {
       logger.error('Failed to cancel consultation', { error: error.message });
@@ -171,11 +265,19 @@ export function createConsultationRoutes(
   router.post('/:id/pay', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {
       if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      logger.info('Initiating consultation payment', { consultationId: req.params.id, userId: req.user.id });
       const payment = await consultationPaymentService.createPayment(req.params.id as string, req.user.id);
+      logger.info('Payment record created', { paymentId: payment.id, amount: payment.amount_uah });
       const result = await consultationPaymentService.initiatePayment(payment.id);
+      logger.info('Monobank invoice created', { paymentId: payment.id, hasUrl: !!result.paymentUrl });
       res.json(result);
     } catch (error: any) {
-      logger.error('Failed to initiate consultation payment', { error: error.message });
+      logger.error('Failed to initiate consultation payment', {
+        error: error.message,
+        consultationId: req.params.id,
+        userId: req.user?.id,
+        stack: error.stack?.substring(0, 500),
+      });
       res.status(400).json({ error: error.message });
     }
   }) as any);
@@ -212,14 +314,41 @@ export function createConsultationRoutes(
 
       // Send initial heartbeat
       res.write('event: connected\ndata: {}\n\n');
+      sseMetrics?.('message_stream', 1);
+
+      // Replay missed messages if Last-Event-ID is present (SSE reconnection)
+      const lastEventId = req.headers['last-event-id'] as string | undefined;
+      if (lastEventId) {
+        try {
+          const missed = await consultationService.getMessagesSince(consultationId, lastEventId);
+          for (const msg of missed) {
+            res.write(`id: ${msg.id}\nevent: message\ndata: ${JSON.stringify(msg)}\n\n`);
+          }
+          logger.info('SSE replay: sent missed messages', { consultationId, lastEventId, count: missed.length });
+        } catch (err: any) {
+          logger.warn('SSE replay failed (non-critical)', { error: err.message, lastEventId });
+        }
+      }
 
       // Subscribe to message bus
-      const { consultationMessageBus } = await import('../services/consultation-message-bus.js');
-      const unsubscribeMsg = consultationMessageBus.subscribe(consultationId, (message) => {
-        res.write(`event: message\ndata: ${JSON.stringify(message)}\n\n`);
+      const { getConsultationMessageBus } = await import('../services/consultation-message-bus.js');
+      const bus = getConsultationMessageBus();
+      const unsubscribeMsg = bus.subscribe(consultationId, (message) => {
+        // Include id: field for Last-Event-ID support
+        const eventId = (message as any).id || '';
+        res.write(`id: ${eventId}\nevent: message\ndata: ${JSON.stringify(message)}\n\n`);
       });
-      const unsubscribeStatus = consultationMessageBus.subscribeStatus(consultationId, (payload) => {
+      const unsubscribeStatus = bus.subscribeStatus(consultationId, (payload) => {
         res.write(`event: message_status\ndata: ${JSON.stringify(payload)}\n\n`);
+      });
+      const unsubscribeConsultationStatus = bus.subscribeConsultationStatus(consultationId, (updatedConsultation) => {
+        res.write(`event: consultation_status\ndata: ${JSON.stringify(updatedConsultation)}\n\n`);
+      });
+      const unsubscribeTyping = bus.subscribeTyping(consultationId, (data) => {
+        // Don't echo typing back to the sender
+        if (data.userId !== req.user!.id) {
+          res.write(`event: typing\ndata: ${JSON.stringify(data)}\n\n`);
+        }
       });
 
       // Mark existing messages as delivered when client connects
@@ -238,7 +367,10 @@ export function createConsultationRoutes(
       req.on('close', () => {
         unsubscribeMsg();
         unsubscribeStatus();
+        unsubscribeConsultationStatus();
+        unsubscribeTyping();
         clearInterval(heartbeat);
+        sseMetrics?.('message_stream', -1);
       });
     } catch (error: any) {
       logger.error('Failed to setup message stream', { error: error.message });
@@ -309,6 +441,18 @@ export function createConsultationRoutes(
     }
   }) as any);
 
+  // POST /api/consultations/:id/typing — fire-and-forget typing indicator
+  router.post('/:id/typing', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const { getConsultationMessageBus } = await import('../services/consultation-message-bus.js');
+      getConsultationMessageBus().publishTyping(req.params.id as string, req.user.id, req.user.name);
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
   // POST /api/consultations/:id/review — submit review
   router.post('/:id/review', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {
@@ -318,6 +462,234 @@ export function createConsultationRoutes(
     } catch (error: any) {
       logger.error('Failed to submit review', { error: error.message });
       res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
+  // ─── Dispute Routes ──────────────────────────────────────
+
+  // POST /api/consultations/:id/dispute — raise a dispute
+  router.post('/:id/dispute', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const { reason } = req.body;
+      if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+        return res.status(400).json({ error: 'reason is required' });
+      }
+      const result = await consultationService.raiseDispute(
+        req.params.id as string, req.user.id, reason.trim()
+      );
+      res.status(201).json(result);
+    } catch (error: any) {
+      logger.error('Failed to raise dispute', { error: error.message });
+      res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
+  // GET /api/consultations/:id/dispute — get dispute details
+  router.get('/:id/dispute', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      const dispute = await consultationService.getDispute(req.params.id as string, req.user.id);
+      if (!dispute) return res.status(404).json({ error: 'No dispute found' });
+      res.json(dispute);
+    } catch (error: any) {
+      logger.error('Failed to get dispute', { error: error.message });
+      res.status(500).json({ error: 'Failed to get dispute' });
+    }
+  }) as any);
+
+  // ─── Payout Routes ───────────────────────────────────────
+
+  // GET /api/consultations/my-payouts — attorney's payout history
+  // Note: registered AFTER /:id routes won't conflict because Express matches in order,
+  // and this is already after parametric routes. We need to add it before /:id.
+  // Actually we already have it registered here; the path 'my-payouts' won't match '/:id/dispute'.
+
+  // ─── Admin Routes (require admin check) ──────────────────
+
+  // Admin middleware for consultation admin routes
+  const requireAdmin = async (req: DualAuthRequest, res: Response, next: NextFunction): Promise<any> => {
+    if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+    if (!db) return res.status(500).json({ error: 'Admin routes not configured' });
+    try {
+      const result = await db.query('SELECT is_admin, role FROM users WHERE id = $1', [req.user.id]);
+      if (!result.rows[0]?.is_admin && result.rows[0]?.role !== 'administrator') {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+      next();
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to verify admin access' });
+    }
+  };
+
+  // GET /api/consultations/admin/disputes — list open disputes (admin)
+  router.get('/admin/disputes', requireAdmin as any, (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      const disputes = await consultationService.listOpenDisputes();
+      res.json({ disputes });
+    } catch (error: any) {
+      logger.error('Failed to list disputes', { error: error.message });
+      res.status(500).json({ error: 'Failed to list disputes' });
+    }
+  }) as any);
+
+  // PUT /api/consultations/admin/disputes/:disputeId/resolve — resolve dispute (admin)
+  router.put('/admin/disputes/:disputeId/resolve', requireAdmin as any, (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      const { resolution, notes } = req.body;
+      const validResolutions = ['refund_full', 'refund_partial', 'dismissed'];
+      if (!resolution || !validResolutions.includes(resolution)) {
+        return res.status(400).json({ error: 'resolution must be one of: refund_full, refund_partial, dismissed' });
+      }
+      const dispute = await consultationService.resolveDispute(
+        req.params.disputeId as string, req.user!.id, resolution, notes
+      );
+
+      // Handle refund if resolution is refund
+      if (resolution === 'refund_full' || resolution === 'refund_partial') {
+        try {
+          await consultationPaymentService.refundPayment(dispute.consultation_id);
+        } catch (err: any) {
+          logger.warn('Failed to refund payment after dispute resolution', { error: err.message });
+        }
+      }
+
+      res.json(dispute);
+    } catch (error: any) {
+      logger.error('Failed to resolve dispute', { error: error.message });
+      res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
+  // GET /api/consultations/admin/payouts — pending payouts (admin)
+  router.get('/admin/payouts', requireAdmin as any, (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!payoutService) return res.status(500).json({ error: 'Payout service not configured' });
+      const payouts = await payoutService.listPendingPayouts();
+      res.json({ payouts });
+    } catch (error: any) {
+      logger.error('Failed to list payouts', { error: error.message });
+      res.status(500).json({ error: 'Failed to list payouts' });
+    }
+  }) as any);
+
+  // PUT /api/consultations/admin/payouts/:id/process — mark payout as processed (admin)
+  router.put('/admin/payouts/:id/process', requireAdmin as any, (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!payoutService) return res.status(500).json({ error: 'Payout service not configured' });
+      const payout = await payoutService.markPayoutProcessed(
+        req.params.id as string, req.user!.id, req.body.notes
+      );
+      res.json(payout);
+    } catch (error: any) {
+      logger.error('Failed to process payout', { error: error.message });
+      res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
+  // POST /:id/messages/:messageId/save-to-vault — save chat attachment to attorney's vault
+  router.post('/:id/messages/:messageId/save-to-vault', (async (req: DualAuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'Не авторизовано' });
+      if (!db || !minioService) return res.status(500).json({ error: 'Сервіс недоступний' });
+
+      const { id: consultationId, messageId } = req.params;
+
+      // Verify user is a party to the consultation
+      const consultation = await db.query(
+        'SELECT * FROM consultations WHERE id = $1 AND (client_user_id = $2 OR attorney_user_id = $2)',
+        [consultationId, userId]
+      );
+      if (consultation.rows.length === 0) return res.status(403).json({ error: 'Немає доступу' });
+
+      // Get the message with attachment
+      const msgResult = await db.query(
+        'SELECT * FROM consultation_messages WHERE id = $1 AND consultation_id = $2',
+        [messageId, consultationId]
+      );
+      if (msgResult.rows.length === 0) return res.status(404).json({ error: 'Повідомлення не знайдено' });
+
+      const msg = msgResult.rows[0];
+      if (!msg.attachment_url) return res.status(400).json({ error: 'Повідомлення не містить вкладення' });
+
+      // Extract uploadId from attachment_url: /api/documents/{uploadId}/download
+      const uploadIdMatch = msg.attachment_url.match(/\/api\/documents\/([^/]+)\/download/);
+      if (!uploadIdMatch) return res.status(400).json({ error: 'Невідомий формат вкладення' });
+      const uploadId = uploadIdMatch[1];
+
+      // Find the source document record (uploaded by sender)
+      const sourceDoc = await db.query(
+        `SELECT id, user_id, title, storage_type, storage_path, mime_type, file_size, full_text, metadata
+         FROM documents WHERE zakononline_id = $1 OR id::text = $1 LIMIT 1`,
+        [uploadId]
+      );
+
+      if (sourceDoc.rows.length === 0) return res.status(404).json({ error: 'Документ не знайдено' });
+      const src = sourceDoc.rows[0];
+
+      // Check if already saved by this user
+      const existing = await db.query(
+        `SELECT id FROM documents WHERE user_id = $1 AND metadata->>'sourceConsultationMessageId' = $2 AND deleted_at IS NULL LIMIT 1`,
+        [userId, messageId]
+      );
+      if (existing.rows.length > 0) {
+        return res.json({ documentId: existing.rows[0].id, alreadyExists: true });
+      }
+
+      // Copy file in MinIO: source bucket → target bucket
+      const srcStoragePath = src.storage_path || '';
+      const srcParts = srcStoragePath.split('/');
+      const srcBucket = srcParts[0];
+      const srcKey = srcParts.slice(1).join('/');
+
+      let newStoragePath = '';
+      let fileSize = src.file_size || msg.attachment_size || 0;
+
+      if (srcBucket && srcKey) {
+        const buffer = await minioService.getFileBuffer(src.user_id, srcKey);
+        const newKey = MinioService.generateObjectKey(msg.attachment_name || src.title || 'document');
+        const result = await minioService.uploadBuffer(userId, newKey, buffer, msg.attachment_type || src.mime_type || 'application/octet-stream');
+        newStoragePath = `${result.bucket}/${result.key}`;
+        fileSize = result.size;
+      }
+
+      // Create new document record for the user
+      const newId = uuidv4();
+      const metadata = {
+        ...(src.metadata || {}),
+        sourceConsultationId: consultationId,
+        sourceConsultationMessageId: messageId,
+        sourceDocumentId: src.id,
+        savedAt: new Date().toISOString(),
+        originalFilename: msg.attachment_name || src.title,
+        minioKey: newStoragePath.split('/').slice(1).join('/'),
+        minioBucket: newStoragePath.split('/')[0],
+        fileSize,
+        mimeType: msg.attachment_type || src.mime_type,
+      };
+
+      await db.query(
+        `INSERT INTO documents (id, zakononline_id, type, title, full_text, metadata, storage_type, storage_path, file_size, mime_type, user_id)
+         VALUES ($1, $1, $2, $3, $4, $5, 'minio', $6, $7, $8, $9)`,
+        [
+          newId,
+          src.type || 'other',
+          msg.attachment_name || src.title || 'Документ з консультації',
+          src.full_text || null,
+          JSON.stringify(metadata),
+          newStoragePath,
+          fileSize,
+          msg.attachment_type || src.mime_type || 'application/octet-stream',
+          userId,
+        ]
+      );
+
+      logger.info('[Consultation] Attachment saved to vault', { userId, documentId: newId, messageId, consultationId });
+      res.json({ documentId: newId, title: msg.attachment_name || src.title });
+    } catch (error: any) {
+      logger.error('[Consultation] save-to-vault failed', { error: error.message });
+      res.status(500).json({ error: 'Не вдалося зберегти документ' });
     }
   }) as any);
 

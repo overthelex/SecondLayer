@@ -1,142 +1,70 @@
-import express, { Request, Response, Router } from 'express';
+import express, { Request, Response } from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { v4 as uuidv4 } from 'uuid';
 import { logger } from './utils/logger.js';
-import { dualAuth, requireJWT, optionalJWT, initializeDualAuth, initializeWebAuthn, AuthenticatedRequest as DualAuthRequest } from './middleware/dual-auth.js';
-import { configurePassport } from './config/passport.js';
+import { dualAuth, requireJWT, optionalJWT, AuthenticatedRequest as DualAuthRequest } from './middleware/dual-auth.js';
 import authRouter from './routes/auth.js';
-import { setAuthCache, setAuthEmailService, setAuthMinioService, setAuthBannerService, setAuthReferralService } from './controllers/auth.js';
+import { setAuthCache } from './controllers/auth.js';
 import { setOidcCache } from './services/oidc-service.js';
-import { BannerService } from './services/banner-service.js';
-import { setPassportBannerService } from './config/passport.js';
 import { createBackendCoreServices, BackendCoreServices } from './factories/core-services.js';
-import { DocumentAnalysisTools } from './api/document-analysis-tools.js';
-import { BatchDocumentTools } from './api/batch-document-tools.js';
-import { DocumentParser } from './services/document-parser.js';
+import { createToolServices, ToolServices } from './factories/tool-services.js';
+import { createAppServices, AppServices } from './factories/app-services.js';
 import { createRestAPIRouter } from './routes/rest-api.js';
-import { MetadataExtractor } from './services/metadata-extractor.js';
-import path from 'path';
-// import { createEULARouter } from './routes/eula.js'; // REMOVED: EULA not needed
-import { CostTracker } from './services/cost-tracker.js';
-import { CurrencyService } from './services/currency-service.js';
-import { BillingService } from './services/billing-service.js';
-import { MonobankService } from './services/monobank-service.js';
-import { MetaMaskService } from './services/metamask-service.js';
-import { BinancePayService } from './services/binance-pay-service.js';
-import { NOWPaymentsService } from './services/nowpayments-service.js';
-import { EmailService } from './services/email-service.js';
-import { MockMonobankService } from './services/__mocks__/monobank-service-mock.js';
-import { MockMetaMaskService } from './services/__mocks__/metamask-service-mock.js';
-import { MockBinancePayService } from './services/__mocks__/binance-pay-service-mock.js';
-import { MockNOWPaymentsService } from './services/__mocks__/nowpayments-service-mock.js';
-import { initializeCryptoTagMiddleware } from './middleware/crypto-tag-required.js';
-import { createBalanceCheckMiddleware } from './middleware/balance-check.js';
-import { InvoiceService } from './services/invoice-service.js';
+import { createBillingInlineRoutes } from './routes/billing-inline-routes.js';
+import { createChatInlineRoutes } from './routes/chat-inline-routes.js';
+import { createMiscInlineRoutes } from './routes/misc-inline-routes.js';
+import { createMCPSSERoutes } from './routes/mcp-sse-routes.js';
+import { createToolExecutionRoutes } from './routes/tool-execution-routes.js';
 import { createPaymentRouter, createWebhookRouter } from './routes/payment-routes.js';
 import { createBillingRoutes } from './routes/billing-routes.js';
 import { createAdminRoutes } from './routes/admin-routes.js';
+import { createB2BInvoiceRoutes } from './routes/b2b-invoice-routes.js';
+import { createBillingServices, BillingServices } from './factories/billing-services.js';
+import { createEncryptionRoutes } from './routes/encryption-routes.js';
 import { createWorkerHeartbeatRoute } from './routes/worker-heartbeat-routes.js';
 import { createDecisionsRoutes } from './routes/decisions-routes.js';
 import { createERAUProxyRoutes } from './routes/erau-proxy-routes.js';
+import { createNewsRoutes } from './routes/news-routes.js';
+import { NewsArticleService } from './services/news-article-service.js';
 import { ERAUCacheService } from './services/erau-cache-service.js';
 import { attachTerminalWebSocket } from './routes/terminal-routes.js';
 import { createTeamRoutes } from './routes/team-routes.js';
 import { createTeamService } from './services/team-service.js';
 import { createTestEmailRoute } from './routes/test-email-route.js';
-import { requestContext } from './utils/openai-client.js';
-import { getOpenAIManager } from './utils/openai-client.js';
 import passport from 'passport';
-import { MCPSSEServer } from './api/mcp-sse-server.js';
-import { ApiKeyService } from './services/api-key-service.js';
-import { CreditService } from './services/credit-service.js';
 import { createApiKeyRouter } from './routes/api-key-routes.js';
 import { getRedisClient } from './utils/redis-client.js';
 import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
 import { LLMAdapter } from './infrastructure/adapters/llm-adapter.js';
 import { createTemplateRoutes } from './routes/template-routes.js';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createOAuthRouter } from './routes/oauth-routes.js';
-import { OAuthService } from './services/oauth-service.js';
 // createHybridAuthMiddleware available from './middleware/oauth-auth.js' if needed
-import { mcpDiscoveryRateLimit, healthCheckRateLimit, webhookRateLimit, chatRateLimit, globalApiRateLimit } from './middleware/rate-limit.js';
-import { ToolRegistry } from './api/tool-registry.js';
-import { BusinessRegistryTools } from './api/tools/business-registry-tools.js';
-import { CourtDecisionTools } from './api/tools/court-decision-tools.js';
-import { ProceduralTools } from './api/tools/procedural-tools.js';
-import { LegalAdviceTools } from './api/tools/legal-advice-tools.js';
-import { DueDiligenceTools } from './api/due-diligence-tools.js';
-import { DueDiligenceService } from './services/due-diligence-service.js';
-import { CourtSessionTools } from './api/tools/court-session-tools.js';
-import { LegalActsTools } from './api/tools/legal-acts-tools.js';
-import { ECHRPracticeTools } from './api/tools/echr-practice-tools.js';
-import { EdsrSearchTools } from './api/tools/edrsr-search-tools.js';
-import { EdsrSemanticTools } from './api/tools/edrsr-semantic-tools.js';
-import { EdsrFtsService } from './services/edrsr-fts-service.js';
-import { EdsrVectorizerService } from './services/edrsr-vectorizer-service.js';
-import { ServiceProxy } from './services/service-proxy.js';
-import { ServiceType } from './types/gateway.js';
-import { UploadService } from './services/upload-service.js';
-import { MinioService } from './services/minio-service.js';
-import { NextcloudService } from './services/nextcloud-service.js';
-import { NextcloudTools } from './api/tools/nextcloud-tools.js';
-import { StateRegistryTools } from './api/tools/state-registry-tools.js';
+import { healthCheckRateLimit, webhookRateLimit, globalApiRateLimit } from './middleware/rate-limit.js';
 import { createUploadRouter } from './routes/upload-routes.js';
-import { VaultTools } from './api/vault-tools.js';
-import { ConversationService } from './services/conversation-service.js';
-import { GdprService } from './services/gdpr-service.js';
 import { createConversationRouter } from './routes/conversation-routes.js';
+import { createEvidenceRoutes } from './routes/evidence-routes.js';
+import { createEdsrRoutes } from './routes/edrsr-routes.js';
 import { createGdprRouter } from './routes/gdpr-routes.js';
 import { createBlogCommentsRouter } from './routes/blog-comments.js';
-import { AuditService } from './services/audit-service.js';
-import { MatterService } from './services/matter-service.js';
-import { ConflictCheckService } from './services/conflict-check-service.js';
-import { LegalHoldService } from './services/legal-hold-service.js';
-import { initializeMatterAccess } from './middleware/matter-access.js';
 import { createMatterRoutes } from './routes/matter-routes.js';
-import { ContractService } from './services/contract-service.js';
 import { createContractRoutes } from './routes/contract-routes.js';
-import { UploadRecoveryService } from './services/upload-recovery-service.js';
-import { UploadQueueService } from './services/upload-queue-service.js';
 import { getUploadProcessingMetrics } from './routes/upload-routes.js';
-import { MetricsService } from './services/metrics-service.js';
-import { TimeEntryService } from './services/time-entry-service.js';
-import { MatterInvoiceService } from './services/matter-invoice-service.js';
 import { createTimeEntryRoutes } from './routes/time-entry-routes.js';
 import { createInvoiceRoutes } from './routes/invoice-routes.js';
-import { ChatService, ChatEvent } from './services/chat-service.js';
 import { getLLMManager } from './utils/llm-client-manager.js';
-import { ChatSearchCacheService } from './services/chat-search-cache-service.js';
-import { PricingService } from './services/pricing-service.js';
-import { SubscriptionService } from './services/subscription-service.js';
-import { UserPreferencesService } from './services/user-preferences-service.js';
-import { PrometheusService } from './services/prometheus-service.js';
-import { UserService } from './services/user-service.js';
-import { WebAuthnService } from './services/webauthn-service.js';
 import { setRateLimitCache } from './middleware/rate-limit.js';
 import { setUploadRateLimitCache } from './middleware/upload-rate-limit.js';
-import { ConfigService } from './services/config-service.js';
-import { DocumentClassificationService } from './services/document-classification-service.js';
 import { createClassificationRoutes } from './routes/classification-routes.js';
-import { WorkflowService } from './services/workflow-service.js';
-import { WorkflowGeneratorService } from './services/workflow-generator-service.js';
-import { WorkflowExecutorService } from './services/workflow-executor-service.js';
-import { createWorkflowRoutes } from './routes/workflow-routes.js';
-import { AttorneyProfileService } from './services/attorney-profile-service.js';
-import { ConsultationService } from './services/consultation-service.js';
-import { ConsultationPaymentService } from './services/consultation-payment-service.js';
+import { createWorkflowSetRoutes, createWorkflowRoutes } from './routes/workflow-routes.js';
 import { createAttorneyRoutes } from './routes/attorney-routes.js';
 import { createConsultationRoutes } from './routes/consultation-routes.js';
 import { JudgesService } from './services/judges-service.js';
 import { createJudgesRoutes } from './routes/judges-routes.js';
 import { JudgeAnalyticsService } from './services/judge-analytics-service.js';
 import { createJudgeAnalyticsRoutes } from './routes/judge-analytics-routes.js';
-import { ReferralService } from './services/referral-service.js';
 import { createReferralRoutes } from './routes/referral-routes.js';
-import { sanitizeId, maskSensitive } from './utils/sanitize-log.js';
 import rateLimit from 'express-rate-limit';
 import cron from 'node-cron';
 
@@ -145,56 +73,10 @@ dotenv.config();
 class HTTPMCPServer {
   private app: express.Application;
   private services: BackendCoreServices;
-  private documentParser: DocumentParser;
-  private documentAnalysisTools: DocumentAnalysisTools;
-  private batchDocumentTools: BatchDocumentTools;
-  private costTracker: CostTracker;
-  private billingService: BillingService;
-  private pricingService: PricingService;
-  private subscriptionService: SubscriptionService;
-  private userPreferencesService: UserPreferencesService;
-  private prometheusService: PrometheusService;
-  private monobankService: MonobankService | MockMonobankService;
-  private metamaskService: MetaMaskService | MockMetaMaskService;
-  private binancePayService: BinancePayService | MockBinancePayService;
-  private nowpaymentsService: NOWPaymentsService | MockNOWPaymentsService;
-  private emailService: EmailService;
-  private invoiceService: InvoiceService;
-  private mcpSSEServer: MCPSSEServer;
-  private apiKeyService: ApiKeyService;
-  private creditService: CreditService;
-  private oauthService: OAuthService;
+  private billing: BillingServices;
+  private tools: ToolServices;
+  private app_: AppServices;
   private mcpSseSessions: Map<string, SSEServerTransport> = new Map();
-  private toolRegistry: ToolRegistry;
-  private serviceProxy: ServiceProxy;
-  private uploadService: UploadService;
-  private minioService: MinioService;
-  private vaultTools: VaultTools;
-  private conversationService: ConversationService;
-  private gdprService: GdprService;
-  private auditService: AuditService;
-  private matterService: MatterService;
-  private llmAdapter: any;
-  private contractService: ContractService;
-  private conflictCheckService: ConflictCheckService;
-  private legalHoldService: LegalHoldService;
-  private uploadRecoveryService: UploadRecoveryService;
-  private uploadQueueService: UploadQueueService;
-  private metricsService: MetricsService;
-  private timeEntryService: TimeEntryService;
-  private matterInvoiceService: MatterInvoiceService;
-  private chatService: ChatService;
-  private chatSearchCache: ChatSearchCacheService;
-  private configService: ConfigService;
-  private classificationService: DocumentClassificationService;
-  private workflowService: WorkflowService;
-  private workflowGeneratorService: WorkflowGeneratorService;
-  private workflowExecutorService: WorkflowExecutorService;
-  private attorneyProfileService: AttorneyProfileService;
-  private consultationService: ConsultationService;
-  private consultationPaymentService: ConsultationPaymentService;
-  private currencyService: CurrencyService;
-  private referralService: ReferralService;
 
   constructor() {
     this.app = express();
@@ -205,391 +87,43 @@ class HTTPMCPServer {
 
     // Create LLM adapter for dependency injection
     const llmAdapter = new LLMAdapter(getLLMManager());
-    this.llmAdapter = llmAdapter;
 
-    // Initialize document parser with Vision API credentials
-    // Use env var if set (for Docker), otherwise fallback to local path
-    const visionKeyPath = process.env.VISION_CREDENTIALS_PATH ||
-                         process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-                         path.resolve(process.cwd(), '../vision-ocr-credentials.json');
-    this.documentParser = new DocumentParser(visionKeyPath, llmAdapter);
-    this.documentAnalysisTools = new DocumentAnalysisTools(
-      this.documentParser,
-      this.services.sectionizer,
-      this.services.patternStore,
-      this.services.citationValidator,
-      this.services.embeddingService,
-      this.services.documentService,
-      llmAdapter
-    );
+    // Initialize billing, payment, and cost tracking services via factory
+    this.billing = createBillingServices(this.services.db, this.services.embeddingService);
 
-    // Initialize batch document tools
-    this.batchDocumentTools = new BatchDocumentTools(
-      this.documentParser,
-      this.documentAnalysisTools
-    );
-    logger.info('Batch document processing tools initialized');
+    // Initialize tool registry, service proxy, document tools, upload/minio/vault via factory
+    this.tools = createToolServices(this.services, this.billing.costTracker, llmAdapter);
 
-    // Initialize cost tracker, billing service, and currency service
-    this.costTracker = new CostTracker(this.services.db);
-    this.billingService = new BillingService(this.services.db);
-    this.currencyService = new CurrencyService();
-
-    // Fetch NBU exchange rate on startup
-    this.currencyService.refreshRate().catch(err => {
-      logger.warn('[HTTPMCPServer] Initial NBU rate fetch failed', { error: (err as Error).message });
-    });
-
-    // Schedule daily NBU rate refresh at 6:00 AM Kyiv time
-    cron.schedule('0 6 * * *', () => {
-      logger.info('[HTTPMCPServer] Running scheduled NBU rate refresh');
-      this.currencyService.refreshRate().catch(err => {
-        logger.error('[HTTPMCPServer] Scheduled NBU rate refresh failed', { error: (err as Error).message });
-      });
-    }, { timezone: 'Europe/Kyiv' });
-
-    this.pricingService = new PricingService(this.services.db);
-    this.subscriptionService = new SubscriptionService(this.services.db);
-    this.userPreferencesService = new UserPreferencesService(this.services.db);
-    this.prometheusService = new PrometheusService(process.env.PROMETHEUS_URL);
-    this.invoiceService = new InvoiceService();
-    this.billingService.setCurrencyService(this.currencyService);
-    this.costTracker.setBillingService(this.billingService);
-    this.referralService = new ReferralService(this.services.db, this.billingService);
-    setAuthReferralService(this.referralService);
-    this.billingService.setReferralRewardCallback(
-      (userId, amountUsd, amountUah, transactionId) =>
-        this.referralService.processReward(userId, amountUsd, amountUah, transactionId)
-    );
-
-    // Register VoyageAI token usage callback on EmbeddingService
-    this.services.embeddingService.setTokenUsageCallback((tokens, model, task) => {
-      this.costTracker.recordVoyageCall({ model, totalTokens: tokens, task }).catch((err) => {
-        logger.warn('Failed to record VoyageAI tokens in monthly stats', { error: err.message });
-      });
-    });
-
-    // Initialize Phase 2 billing services (API keys & credits)
-    this.apiKeyService = new ApiKeyService(this.services.db);
-    this.creditService = new CreditService(this.services.db);
-    logger.info('Phase 2 billing services initialized (API keys & credits)');
-
-    // Initialize OAuth 2.0 service for ChatGPT integration
-    this.oauthService = new OAuthService(this.services.db);
-    logger.info('OAuth 2.0 service initialized');
-
-    // Initialize Unified Gateway components
-    this.toolRegistry = new ToolRegistry();
-    this.serviceProxy = new ServiceProxy(this.costTracker);
-    logger.info('Unified Gateway initialized (Tool Registry + Service Proxy)');
-
-    // Register all tool handlers with the central registry
-    this.toolRegistry.registerHandler(this.services.legislationTools);
-    this.toolRegistry.registerHandler(this.documentAnalysisTools);
-    this.toolRegistry.registerHandler(this.batchDocumentTools);
-    this.toolRegistry.registerHandler(new BusinessRegistryTools());
-    const ddService = new DueDiligenceService(
-      this.services.sectionizer,
-      this.services.patternStore,
-      this.services.citationValidator,
-      this.services.documentService,
-      llmAdapter
-    );
-    this.toolRegistry.registerHandler(new DueDiligenceTools(ddService));
-    this.toolRegistry.registerHandler(this.services.mcpAPI);
-    this.toolRegistry.registerHandler(new CourtDecisionTools(
-      this.services.zoAdapter,
-      this.services.zoPracticeAdapter,
-      this.services.sectionizer,
-      this.services.embeddingService,
-      this.services.patternStore
-    ));
-    this.toolRegistry.registerHandler(new ProceduralTools(
-      this.services.zoAdapter,
-      this.services.zoPracticeAdapter,
-      this.services.sectionizer,
-      this.services.embeddingService,
-      this.services.patternStore,
-      llmAdapter
-    ));
-    this.toolRegistry.registerHandler(new LegalAdviceTools(
-      this.services.queryPlanner,
-      this.services.zoAdapter,
-      this.services.zoPracticeAdapter,
-      this.services.sectionizer,
-      this.services.embeddingService,
-      this.services.patternStore,
-      this.services.citationValidator,
-      this.services.shepardizationService,
-      llmAdapter
-    ));
-    this.toolRegistry.registerHandler(new CourtSessionTools(
-      this.services.zoSessionsAdapter,
-      this.services.db
-    ));
-    this.toolRegistry.registerHandler(new LegalActsTools(this.services.zoLegalActsAdapter));
-    this.toolRegistry.registerHandler(new ECHRPracticeTools(this.services.zoECHRAdapter));
-    this.toolRegistry.registerHandler(new StateRegistryTools(this.services.db));
-    this.toolRegistry.registerHandler(new EdsrSearchTools(this.services.db));
-
-    // EDRSR FTS + semantic search + on-demand vectorization
-    const edsrFtsService = new EdsrFtsService();
-    let edsrVectorizer: EdsrVectorizerService | undefined;
-    try {
-      edsrVectorizer = new EdsrVectorizerService();
-      edsrVectorizer.setTokenUsageCallback((tokens, model, task) => {
-        this.costTracker.recordVoyageCall({ model, totalTokens: tokens, task }).catch((err) => {
-          logger.warn('Failed to record Voyage cost', { error: err.message });
-        });
-      });
-    } catch (err: any) {
-      logger.warn('EdsrVectorizerService not available (VOYAGEAI_API_KEY missing?)', { error: err.message });
-    }
-    if (edsrVectorizer) {
-      this.toolRegistry.registerHandler(new EdsrSemanticTools(this.services.db, edsrFtsService, edsrVectorizer));
-    }
-    logger.info('Core tool handlers registered with ToolRegistry');
-
-    // Initialize Nextcloud integration
-    const nextcloudService = new NextcloudService();
-    this.toolRegistry.registerHandler(new NextcloudTools(nextcloudService));
-    logger.info('Nextcloud tools registered');
-
-    // Initialize upload and storage services
-    this.uploadService = new UploadService(this.services.db);
-    this.minioService = new MinioService();
-    const metadataExtractor = new MetadataExtractor(llmAdapter);
-    this.vaultTools = new VaultTools(
-      this.documentParser,
-      this.services.sectionizer,
-      this.services.patternStore,
-      this.services.embeddingService,
-      this.services.documentService,
-      metadataExtractor
-    );
-    this.vaultTools.setMinioService(this.minioService);
-    this.toolRegistry.registerHandler(this.vaultTools);
-    this.conversationService = new ConversationService(this.services.db);
-    this.gdprService = new GdprService(this.services.db, this.minioService, this.services.embeddingService);
-    setAuthMinioService(this.minioService);
-    const bannerService = new BannerService(this.minioService, this.services.db);
-    setAuthBannerService(bannerService);
-    setPassportBannerService(bannerService);
-    logger.info('Upload, MinIO, and Banner services initialized');
-    logger.info('Conversation and GDPR services initialized');
-
-    // Initialize Client-Matter segregation services
-    this.auditService = new AuditService(this.services.db);
-    this.matterService = new MatterService(this.services.db, this.auditService);
-    this.contractService = new ContractService(this.services.db);
-    this.conflictCheckService = new ConflictCheckService(this.services.db, this.auditService);
-    this.legalHoldService = new LegalHoldService(this.services.db, this.auditService);
-    initializeMatterAccess(this.matterService);
-    logger.info('Client-Matter segregation and legal hold services initialized');
-
-    // Initialize Time Tracking and Billing services
-    this.timeEntryService = new TimeEntryService(this.services.db, this.auditService);
-    this.matterInvoiceService = new MatterInvoiceService(this.services.db, this.auditService);
-    logger.info('Time tracking and billing services initialized');
-
-    // Initialize workflow services
-    this.workflowService = new WorkflowService(this.services.db);
-    this.workflowGeneratorService = new WorkflowGeneratorService(this.toolRegistry, llmAdapter);
-    this.workflowExecutorService = new WorkflowExecutorService(this.toolRegistry, this.workflowService, this.costTracker);
-    logger.info('Workflow services initialized');
-
-    // Initialize ChatService (agentic LLM loop) with search cache
-    this.chatSearchCache = new ChatSearchCacheService(
-      this.services.zoAdapter,
-      this.services.documentService
-    );
-    this.chatService = new ChatService(
-      this.toolRegistry,
-      this.services.queryPlanner,
-      this.costTracker,
-      llmAdapter,
-      this.chatSearchCache,
-      this.conversationService,
-      this.services.shepardizationService,
-      this.services.embeddingService,
-      this.workflowGeneratorService,
-      this.workflowService
-    );
-    logger.info('ChatService initialized with search cache, conversation persistence, shepardization, embedding, and workflows');
-
-    // Initialize config service
-    this.configService = new ConfigService(this.services.db);
-
-    // Initialize document classification service
-    this.classificationService = new DocumentClassificationService(
-      this.services.db,
-      llmAdapter,
-      this.costTracker
-    );
-
-    // Initialize BullMQ upload queue service
-    this.uploadQueueService = new UploadQueueService(
-      this.uploadService,
-      this.minioService,
-      this.vaultTools,
-      this.services.db,
-      this.services.documentService
-    );
-    this.uploadQueueService.startWorker();
-    logger.info('BullMQ upload queue service initialized');
-
-    // Initialize Prometheus metrics service
-    this.metricsService = new MetricsService();
-
-    // Bind PG pool metrics collector
-    this.services.db.setMetricsCollector((stats) => this.metricsService.updatePgPool(stats));
-
-    // Bind upload queue metrics collector (every 10s)
-    this.uploadQueueService.setMetricsCollector((metrics) => this.metricsService.updateUploadQueue(metrics));
-
-    // Bind per-job processing duration to Prometheus histogram
-    this.uploadQueueService.setProcessingDurationCallback((durationSeconds, status) => {
-      this.metricsService.uploadProcessingDuration.observe({ status }, durationSeconds);
-    });
-
-    // Wire cost tracker to Prometheus counter
-    this.costTracker.setMetricsCallback((toolName, costUsd) => {
-      this.metricsService.costTrackingTotalUsd.inc({ tool_name: toolName }, costUsd);
-    });
-
-    // Bind CPU adaptive concurrency metrics collector
-    const cpuAdaptiveManager = this.uploadQueueService.getCpuAdaptiveManager();
-    if (cpuAdaptiveManager) {
-      cpuAdaptiveManager.setMetricsCallback((metrics) => this.metricsService.updateCpuAdaptive(metrics));
-    }
-
-    // Bind external API metrics collectors
-    const externalApiMetricsCallback = (service: string, status: string, durationSec: number) => {
-      this.metricsService.externalApiCallsTotal.inc({ service, status });
-      if (durationSec > 0) {
-        this.metricsService.externalApiDuration.observe({ service }, durationSec);
-      }
-    };
-    this.services.zoAdapter.setExternalApiMetrics(externalApiMetricsCallback);
-    this.services.zoPracticeAdapter.setExternalApiMetrics(externalApiMetricsCallback);
-    this.services.zoSessionsAdapter.setExternalApiMetrics(externalApiMetricsCallback);
-    this.serviceProxy.setExternalApiMetrics(externalApiMetricsCallback);
-    getLLMManager().setExternalApiMetrics(externalApiMetricsCallback);
-    this.services.legislationTools.getLegislationService().getAdapter().setExternalApiMetrics(externalApiMetricsCallback);
-
-    logger.info('Prometheus metrics service initialized');
-
-    // Initialize upload recovery service (uses BullMQ for re-enqueuing)
-    this.uploadRecoveryService = new UploadRecoveryService(
-      this.uploadService,
-      this.minioService,
-      this.vaultTools,
-      this.services.db,
-      this.services.documentService
-    );
-    this.uploadRecoveryService.setQueueService(this.uploadQueueService);
-
-    // Initialize payment services
-    this.emailService = new EmailService();
-    this.emailService.setPreferenceFetcher((userId: string) =>
-      this.billingService.getEmailPreferences(userId)
-    );
-    setAuthEmailService(this.emailService);
-
-    // Use mock services if MOCK_PAYMENTS=true or keys not configured
-    const mockPaymentsEnabled = process.env.MOCK_PAYMENTS === 'true';
-
-    const useMockMonobank = mockPaymentsEnabled ||
-                            !process.env.MONOBANK_API_KEY ||
-                            process.env.MONOBANK_API_KEY.includes('mock') ||
-                            process.env.MONOBANK_API_KEY.includes('test');
-    if (useMockMonobank) {
-      this.monobankService = new MockMonobankService(this.billingService, this.emailService, this.services.db);
-      logger.warn('🧪 Using MOCK Monobank service (no real payments will be processed)');
-    } else {
-      this.monobankService = new MonobankService(this.billingService, this.emailService, this.services.db);
-      logger.info('💳 Using REAL Monobank service');
-    }
-
-    const useMockMetaMask = mockPaymentsEnabled || !process.env.CRYPTO_RECEIVING_WALLET || !process.env.ETHEREUM_RPC_URL;
-    if (useMockMetaMask) {
-      this.metamaskService = new MockMetaMaskService(this.billingService, this.emailService);
-      logger.warn('Using MOCK MetaMask service');
-    } else {
-      this.metamaskService = new MetaMaskService(this.billingService, this.emailService, this.services.db);
-      logger.info('Using REAL MetaMask service');
-    }
-
-    const useMockBinancePay = mockPaymentsEnabled || !process.env.BINANCE_PAY_API_KEY || !process.env.BINANCE_PAY_SECRET_KEY;
-    if (useMockBinancePay) {
-      this.binancePayService = new MockBinancePayService(this.billingService, this.emailService);
-      logger.warn('Using MOCK Binance Pay service');
-    } else {
-      this.binancePayService = new BinancePayService(this.billingService, this.emailService, this.services.db);
-      logger.info('Using REAL Binance Pay service');
-    }
-
-    const useMockNOWPayments = mockPaymentsEnabled || !process.env.NOWPAYMENTS_API_KEY || !process.env.NOWPAYMENTS_IPN_SECRET;
-    if (useMockNOWPayments) {
-      this.nowpaymentsService = new MockNOWPaymentsService(this.billingService, this.emailService);
-      logger.warn('Using MOCK NOWPayments service');
-    } else {
-      this.nowpaymentsService = new NOWPaymentsService(this.billingService, this.emailService, this.services.db);
-      logger.info('💰 Using REAL NOWPayments service');
-    }
-
-    initializeCryptoTagMiddleware(this.services.db);
-
-    logger.info('Payment services initialized', {
-      mockPayments: mockPaymentsEnabled,
-      monobankMode: useMockMonobank ? 'MOCK' : 'REAL',
-      metamaskMode: useMockMetaMask ? 'MOCK' : 'REAL',
-      binancePayMode: useMockBinancePay ? 'MOCK' : 'REAL',
-      nowpaymentsMode: useMockNOWPayments ? 'MOCK' : 'REAL',
-    });
-
-    // Initialize Attorney Consultation services (after payment services)
-    this.attorneyProfileService = new AttorneyProfileService(this.services.db);
-    this.consultationService = new ConsultationService(
-      this.services.db,
-      this.matterService,
-      this.auditService,
-      this.attorneyProfileService
-    );
-    this.consultationPaymentService = new ConsultationPaymentService(
-      this.services.db,
-      this.consultationService,
-      this.monobankService
-    );
-    logger.info('Attorney consultation services initialized');
-
-    const openaiManager = getOpenAIManager();
-    openaiManager.setCostTracker(this.costTracker);
-    this.services.zoAdapter.setCostTracker(this.costTracker);
-    this.services.zoPracticeAdapter.setCostTracker(this.costTracker);
-
-    // Wire cost metrics to Prometheus (callback set after metricsService init below)
-    logger.info('Cost tracking and billing initialized');
-
-    // Initialize MCP SSE Server for ChatGPT integration
-    this.mcpSSEServer = new MCPSSEServer(
-      this.toolRegistry,
-      this.costTracker,
-      this.creditService
-    );
-    logger.info('MCP SSE Server initialized with Phase 2 billing support');
-
-    // Initialize authentication
-    configurePassport(this.services.db);
-    const userService = new UserService(this.services.db);
-    const webAuthnService = new WebAuthnService(this.services.db);
-    initializeDualAuth(userService, this.apiKeyService);
-    initializeWebAuthn(webAuthnService);
-    logger.info('Authentication configured (Google OAuth2 + dual auth + WebAuthn)');
+    // Initialize all application services via factory
+    this.app_ = createAppServices(this.services, this.billing, this.tools, llmAdapter);
 
     // Setup middleware and routes AFTER services are initialized
     this.setupMiddleware();
     this.setupRoutes();
+
+    // Cron: auto-release stale escrow payments daily at 07:00 Kyiv time
+    cron.schedule('0 7 * * *', () => {
+      logger.info('[Cron] Running auto-release stale escrow payments');
+      this.app_.consultationPaymentService.autoReleaseStaleCompletedPayments().catch(err => {
+        logger.error('[Cron] Auto-release escrow failed', { error: (err as Error).message });
+      });
+    }, { timezone: 'Europe/Kyiv' });
+
+    // Cron: reconcile pending Monobank payments every 30 minutes
+    cron.schedule('*/30 * * * *', () => {
+      logger.info('[Cron] Running Monobank payment reconciliation');
+      this.billing.monobankService.reconcilePendingPayments().catch(err => {
+        logger.error('[Cron] Monobank reconciliation failed', { error: (err as Error).message });
+      });
+    }, { timezone: 'Europe/Kyiv' });
+
+    // Cron: flag stuck consultations + alert on failed payouts daily at 08:00 Kyiv time
+    cron.schedule('0 8 * * *', () => {
+      logger.info('[Cron] Running stuck escrow and failed payout check');
+      this.app_.consultationPaymentService.flagStuckConsultationsAndPayouts().catch(err => {
+        logger.error('[Cron] Stuck escrow check failed', { error: (err as Error).message });
+      });
+    }, { timezone: 'Europe/Kyiv' });
   }
 
   private setupMiddleware() {
@@ -629,7 +163,7 @@ class HTTPMCPServer {
       '/webhooks',
       webhookRateLimit as any,
       express.raw({ type: 'application/json', limit: '10mb' }),
-      createWebhookRouter(this.monobankService, this.binancePayService, this.nowpaymentsService, this.consultationPaymentService)
+      createWebhookRouter(this.billing.monobankService, this.billing.binancePayService, this.billing.nowpaymentsService, this.app_.consultationPaymentService)
     );
 
     // JSON parsing with UTF-8 support (for all other routes)
@@ -655,10 +189,10 @@ class HTTPMCPServer {
       res.on('finish', () => {
         const durationNs = Number(process.hrtime.bigint() - start);
         const durationSec = durationNs / 1e9;
-        const route = this.metricsService.normalizeRoute(req.route?.path || req.path);
+        const route = this.app_.metricsService.normalizeRoute(req.route?.path || req.path);
         const labels = { method: req.method, route, status_code: String(res.statusCode) };
-        this.metricsService.httpRequestDuration.observe(labels, durationSec);
-        this.metricsService.httpRequestsTotal.inc(labels);
+        this.app_.metricsService.httpRequestDuration.observe(labels, durationSec);
+        this.app_.metricsService.httpRequestsTotal.inc(labels);
       });
       next();
     });
@@ -674,409 +208,12 @@ class HTTPMCPServer {
     });
   }
 
-  /**
-   * Create versioned tool router (v1)
-   * Mounted at /api/v1/tools (canonical) and /api/tools (backward compat)
-   */
-  private createToolRouter(): Router {
-    const router = Router();
-    const balanceCheckMiddleware = createBalanceCheckMiddleware(this.billingService, this.costTracker);
-
-    // Inject apiVersion into all JSON responses from this router
-    router.use((_req: Request, res: Response, next) => {
-      const originalJson = res.json.bind(res);
-      res.json = (body: any) => {
-        if (body && typeof body === 'object' && !Array.isArray(body)) {
-          body.apiVersion = 'v1';
-        }
-        return originalJson(body);
-      };
-      next();
-    });
-
-    // GET / — List available tools
-    router.get('/', dualAuth as any, (async (_req: DualAuthRequest, res: Response) => {
-      try {
-        const gatewayEnabled = process.env.ENABLE_UNIFIED_GATEWAY === 'true';
-
-        if (gatewayEnabled) {
-          const allTools = await this.toolRegistry.getAllTools(
-            this.toolRegistry.getLocalToolDefinitions(),
-            process.env.RADA_MCP_URL,
-            process.env.RADA_API_KEY,
-            process.env.OPENREYESTR_MCP_URL,
-            process.env.OPENREYESTR_API_KEY
-          );
-
-          const counts = this.toolRegistry.getToolCounts();
-
-          res.json({
-            tools: allTools,
-            count: allTools.length,
-            gateway: {
-              enabled: true,
-              services: counts,
-            },
-          });
-        } else {
-          const tools = this.toolRegistry.getLocalToolDefinitions();
-
-          res.json({
-            tools,
-            count: tools.length,
-            gateway: {
-              enabled: false,
-            },
-          });
-        }
-      } catch (error: any) {
-        logger.error('Error listing tools:', error);
-        res.status(500).json({
-          error: 'Internal server error',
-          message: error.message,
-        });
-      }
-    }) as any);
-
-    // POST /batch — Batch tool calls (must be before /:toolName)
-    router.post('/batch', dualAuth as any, balanceCheckMiddleware as any, (async (req: DualAuthRequest, res: Response): Promise<void> => {
-      try {
-        const { calls } = req.body;
-
-        if (!Array.isArray(calls)) {
-          res.status(400).json({
-            error: 'Invalid request',
-            message: 'Expected array of tool calls in "calls" field',
-          });
-          return;
-        }
-
-        const results = await Promise.all(
-          calls.map(async (call: { name: string; arguments?: any }) => {
-            try {
-              const result = await this.toolRegistry.executeTool(
-                call.name,
-                call.arguments || {}
-              );
-              if (result === null || result === undefined) {
-                return {
-                  tool: call.name,
-                  success: false,
-                  error: `No handler registered for tool: ${call.name}`,
-                };
-              }
-              return {
-                tool: call.name,
-                success: true,
-                result,
-              };
-            } catch (error: any) {
-              return {
-                tool: call.name,
-                success: false,
-                error: error.message,
-              };
-            }
-          })
-        );
-
-        res.json({
-          success: true,
-          results,
-        });
-      } catch (error: any) {
-        logger.error('Batch tool call error:', error);
-        res.status(500).json({
-          error: 'Batch execution failed',
-          message: error.message,
-        });
-      }
-    }) as any);
-
-    // POST /:toolName/stream — Dedicated SSE streaming endpoint
-    router.post('/:toolName/stream', dualAuth as any, balanceCheckMiddleware as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const toolName = Array.isArray(req.params.toolName) ? req.params.toolName[0] : req.params.toolName;
-        if (!toolName) {
-          return res.status(400).json({ error: 'Tool name is required' });
-        }
-        const args = req.body.arguments || req.body;
-
-        logger.info('Streaming tool call request', {
-          tool: toolName,
-          clientKey: req.clientKey?.substring(0, 8) + '...',
-        });
-
-        await this.handleStreamingToolCall(req, res, toolName, args);
-      } catch (error: any) {
-        logger.error('Streaming tool call error:', error);
-        if (!res.headersSent) {
-          res.status(500).json({
-            error: 'Tool execution failed',
-            message: error.message,
-            tool: req.params.toolName,
-          });
-        }
-      }
-    }) as any);
-
-    // POST /:toolName — Execute MCP tool (with SSE support and cost tracking)
-    router.post('/:toolName', dualAuth as any, balanceCheckMiddleware as any, (async (req: DualAuthRequest, res: Response) => {
-      const requestId = uuidv4();
-      const startTime = Date.now();
-
-      try {
-        const toolName = Array.isArray(req.params.toolName) ? req.params.toolName[0] : req.params.toolName;
-        if (!toolName) {
-          return res.status(400).json({ error: 'Tool name is required' });
-        }
-        const args = req.body.arguments || req.body;
-        const acceptHeader = req.headers.accept || '';
-
-        logger.info('Tool call request', {
-          requestId,
-          tool: toolName,
-          clientKey: req.clientKey?.substring(0, 8) + '...',
-          streaming: acceptHeader.includes('text/event-stream'),
-        });
-
-        // 1. Check credits BEFORE execution (for API key users)
-        if (req.authType === 'apikey' && req.user?.id) {
-          try {
-            const creditsRequired = await this.creditService.calculateCreditsForTool(toolName, req.user.id);
-
-            if (creditsRequired > 0) {
-              const balance = await this.creditService.checkBalance(req.user.id, creditsRequired);
-
-              if (!balance.hasCredits) {
-                logger.warn('[HTTP API] Insufficient credits, blocking request', {
-                  userId: req.user.id,
-                  tool: toolName,
-                  creditsRequired,
-                  currentBalance: balance.currentBalance,
-                });
-
-                return res.status(402).json({
-                  error: 'Insufficient credits',
-                  code: 'INSUFFICIENT_CREDITS',
-                  currentBalance: balance.currentBalance,
-                  creditsRequired,
-                  message: 'Your credit balance is too low to perform this operation. Please purchase more credits.',
-                });
-              }
-
-              logger.debug('[HTTP API] Credit check passed', {
-                userId: req.user.id,
-                tool: toolName,
-                creditsRequired,
-                currentBalance: balance.currentBalance,
-              });
-            }
-          } catch (creditError: any) {
-            logger.error('[HTTP API] Error checking credits', {
-              userId: req.user.id,
-              tool: toolName,
-              error: creditError.message,
-            });
-            // On error, allow the request to proceed (fail open)
-          }
-        }
-
-        // 2. Create tracking record (pending)
-        await this.costTracker.createTrackingRecord({
-          requestId,
-          toolName,
-          clientKey: req.clientKey,
-          userId: req.user?.id,
-          userQuery: args.query || JSON.stringify(args),
-          queryParams: args,
-        });
-
-        // 3. Estimate cost BEFORE execution
-        const estimate = await this.costTracker.estimateCost({
-          toolName,
-          queryLength: (args.query || '').length,
-          reasoningBudget: args.reasoning_budget || 'standard',
-        });
-
-        logger.info('Cost estimate before execution', {
-          requestId,
-          toolName,
-          estimate,
-        });
-
-        // 4. Route to appropriate service (GATEWAY LOGIC)
-        const gatewayEnabled = process.env.ENABLE_UNIFIED_GATEWAY === 'true';
-        const route = gatewayEnabled ? this.toolRegistry.getRoute(toolName) : null;
-
-        let result: any;
-
-        if (gatewayEnabled && route && !route.local) {
-          // PROXIED EXECUTION - call remote service (RADA or OpenReyestr)
-          logger.info('[Gateway] Proxying to remote service', {
-            requestId,
-            tool: toolName,
-            service: route.service,
-            serviceName: route.serviceName,
-          });
-
-          // Check if client wants SSE streaming
-          if (acceptHeader.includes('text/event-stream')) {
-            return await this.handleStreamingProxyCall(
-              req,
-              res,
-              route.service,
-              route.serviceName,
-              args,
-              requestId
-            );
-          }
-
-          // Regular JSON request to remote service
-          const remoteResult = await this.serviceProxy.callRemoteService({
-            service: route.service,
-            serviceName: route.serviceName,
-            args,
-            requestId,
-          });
-
-          result = remoteResult.result || remoteResult;
-
-        } else {
-          // LOCAL EXECUTION - backend tools
-          logger.debug('[Gateway] Executing locally', {
-            requestId,
-            tool: toolName,
-            gatewayEnabled,
-            routeFound: !!route,
-          });
-
-          // Check if client wants SSE streaming
-          if (acceptHeader.includes('text/event-stream')) {
-            return this.handleStreamingToolCall(req, res, toolName, args);
-          }
-
-          // Execute in request context
-          result = await requestContext.run(
-            { requestId, task: toolName },
-            async () => {
-              const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
-              const httpToolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId: req.user?.id } : args;
-              return await this.toolRegistry.executeTool(toolName, httpToolArgs);
-            }
-          );
-        }
-
-        // 4.5. Guard: if executeTool returned null, the tool doesn't exist
-        if (result === null || result === undefined) {
-          res.status(404).json({
-            success: false,
-            error: 'Tool not found',
-            message: `No handler registered for tool: ${toolName}`,
-          });
-          return;
-        }
-
-        // 5. Complete tracking and get breakdown
-        const executionTime = Date.now() - startTime;
-        const breakdown = await this.costTracker.completeTrackingRecord({
-          requestId,
-          executionTimeMs: executionTime,
-          status: 'completed',
-        });
-
-        logger.info('Request completed with cost tracking', {
-          requestId,
-          toolName,
-          totalCostUsd: breakdown.totals.cost_usd.toFixed(6),
-        });
-
-        // 6. Deduct credits after successful execution (for API key users)
-        if (req.authType === 'apikey' && req.user?.id) {
-          try {
-            const creditsRequired = await this.creditService.calculateCreditsForTool(toolName, req.user.id);
-
-            if (creditsRequired > 0) {
-              const deduction = await this.creditService.deductCredits(
-                req.user.id,
-                creditsRequired,
-                toolName,
-                requestId,
-                `Tool execution: ${toolName}`
-              );
-
-              if (deduction.success) {
-                logger.info('[HTTP API] Credits deducted', {
-                  userId: req.user.id,
-                  tool: toolName,
-                  creditsDeducted: creditsRequired,
-                  newBalance: deduction.newBalance,
-                });
-              } else {
-                logger.error('[HTTP API] Failed to deduct credits after execution', {
-                  userId: req.user.id,
-                  tool: toolName,
-                  creditsRequired,
-                  message: 'Balance was sufficient before execution but deduction failed',
-                });
-              }
-            }
-          } catch (creditError: any) {
-            logger.error('[HTTP API] Error deducting credits', {
-              userId: req.user.id,
-              tool: toolName,
-              error: creditError.message,
-            });
-          }
-        }
-
-        // 7. Return result with cost tracking info
-        res.json({
-          success: true,
-          tool: toolName,
-          service: route?.service || 'backend',
-          result,
-          cost_tracking: {
-            request_id: requestId,
-            estimate_before: estimate,
-            actual_cost: breakdown,
-          },
-        });
-      } catch (error: any) {
-        logger.error('Tool call error:', error);
-
-        const executionTime = Date.now() - startTime;
-        try {
-          await this.costTracker.completeTrackingRecord({
-            requestId,
-            executionTimeMs: executionTime,
-            status: 'failed',
-            errorMessage: error.message,
-          });
-        } catch (trackingError) {
-          logger.error('Failed to record error in cost tracking:', trackingError);
-        }
-
-        res.status(500).json({
-          error: 'Tool execution failed',
-          message: error.message,
-          tool: req.params.toolName,
-          cost_tracking: {
-            request_id: requestId,
-          },
-        });
-      }
-    }) as any);
-
-    return router;
-  }
-
   private setupRoutes() {
     // Prometheus metrics endpoint (no auth - internal Docker network only)
     this.app.get('/metrics', async (_req, res) => {
       try {
-        const metrics = await this.metricsService.getMetrics();
-        res.set('Content-Type', this.metricsService.getContentType());
+        const metrics = await this.app_.metricsService.getMetrics();
+        res.set('Content-Type', this.app_.metricsService.getContentType());
         res.end(metrics);
       } catch (err: any) {
         res.status(500).end(err.message);
@@ -1088,23 +225,11 @@ class HTTPMCPServer {
       res.json({ status: 'ok' });
     });
 
-    // Readiness probe — DB is accessible (200/503)
-    this.app.get('/health/ready', healthCheckRateLimit as any, async (_req, res) => {
-      try {
-        const start = Date.now();
-        await this.services.db.query('SELECT 1');
-        const latencyMs = Date.now() - start;
-        res.json({ status: 'ok', latencyMs });
-      } catch (err: any) {
-        logger.warn('Healthcheck /ready failed', { error: err.message });
-        res.status(503).json({ status: 'unavailable', error: err.message });
-      }
-    });
-
-    // Full health check with dependency status (public - no auth, rate limited)
-    this.app.get('/health', healthCheckRateLimit as any, async (_req, res) => {
+    // Readiness probe + full health — always 200 for Docker healthcheck,
+    // returns detailed dependency checks array.
+    // Works even during startup (reports initialized: false).
+    const healthHandler = async (_req: any, res: any) => {
       const checks: Record<string, { ok: boolean; latencyMs?: number; error?: string }> = {};
-      let degraded = false;
 
       // PostgreSQL
       try {
@@ -1113,7 +238,6 @@ class HTTPMCPServer {
         checks.postgres = { ok: true, latencyMs: Date.now() - start };
       } catch (err: any) {
         checks.postgres = { ok: false, error: err.message };
-        degraded = true;
       }
 
       // Redis
@@ -1125,11 +249,9 @@ class HTTPMCPServer {
           checks.redis = { ok: true, latencyMs: Date.now() - start };
         } else {
           checks.redis = { ok: false, error: 'not connected' };
-          degraded = true;
         }
       } catch (err: any) {
         checks.redis = { ok: false, error: err.message };
-        degraded = true;
       }
 
       // Qdrant
@@ -1137,764 +259,79 @@ class HTTPMCPServer {
         const start = Date.now();
         const qdrantResult = await this.services.embeddingService.healthCheck();
         checks.qdrant = { ...qdrantResult, latencyMs: Date.now() - start };
-        if (!qdrantResult.ok) degraded = true;
       } catch (err: any) {
         checks.qdrant = { ok: false, error: err.message };
-        degraded = true;
       }
 
       // MinIO
       try {
         const start = Date.now();
-        const minioResult = await this.minioService.healthCheck();
+        const minioResult = await this.tools.minioService.healthCheck();
         checks.minio = { ...minioResult, latencyMs: Date.now() - start };
-        if (!minioResult.ok) degraded = true;
       } catch (err: any) {
         checks.minio = { ok: false, error: err.message };
-        degraded = true;
       }
 
-      const status = degraded ? 'degraded' : 'ok';
-
-      if (degraded) {
-        const failedChecks = Object.entries(checks)
-          .filter(([, v]) => !v.ok)
-          .map(([k, v]) => `${k}: ${v.error}`);
-        logger.warn('Healthcheck degraded', { failedChecks });
+      // Payout reconciliation (non-blocking)
+      try {
+        const recon = await this.app_.consultationPaymentService.getPayoutReconciliation();
+        checks.payout_reconciliation = {
+          ok: recon.ok,
+          ...(recon.ok ? {} : { error: `Mismatch: ${recon.mismatch.toFixed(2)} UAH (released: ${recon.releasedTotal}, payouts: ${recon.payoutsTotal})` }),
+        };
+      } catch (err: any) {
+        checks.payout_reconciliation = { ok: false, error: err.message };
       }
 
-      res.status(degraded ? 503 : 200).json({
-        status,
+      const allOk = Object.values(checks).every(c => c.ok);
+
+      // Always 200 — Docker healthcheck must not kill container during slow init
+      res.json({
+        status: allOk ? 'ok' : 'degraded',
+        initialized: (this as any)._initialized === true,
         service: 'secondlayer-mcp-http',
         uptime: Math.round(process.uptime()),
         memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
         checks,
       });
-    });
+    };
 
-    // OPTIONS handler for /sse - returns OAuth configuration
-    // This allows ChatGPT to discover OAuth endpoints
-    this.app.options('/sse', (req: Request, res: Response) => {
-      const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-      const host = req.headers['x-forwarded-host'] || req.headers.host;
-      const baseUrl = process.env.PUBLIC_URL || `${proto}://${host}`;
+    this.app.get('/health/ready', healthHandler);
+    this.app.get('/health', healthCheckRateLimit as any, healthHandler);
 
-      res.setHeader('MCP-Auth-Type', 'oauth2');
-      res.setHeader('MCP-Auth-Authorization-Endpoint', `${baseUrl}/oauth/authorize`);
-      res.setHeader('MCP-Auth-Token-Endpoint', `${baseUrl}/oauth/token`);
-      res.setHeader('MCP-Auth-Scopes', 'mcp');
-      res.setHeader('Allow', 'GET, POST, OPTIONS');
-      res.status(200).send();
-    });
-
-    // GET handler for /sse - returns OAuth configuration as JSON
-    // ChatGPT may use this for discovery
-    this.app.get('/sse', (req: Request, res: Response) => {
-      const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-      const host = req.headers['x-forwarded-host'] || req.headers.host;
-      const baseUrl = process.env.PUBLIC_URL || `${proto}://${host}`;
-
-      res.json({
-        protocol: 'mcp',
-        version: '1.0',
-        auth: {
-          type: 'oauth2',
-          authorization_endpoint: `${baseUrl}/oauth/authorize`,
-          token_endpoint: `${baseUrl}/oauth/token`,
-          scopes: ['mcp'],
-        },
-        capabilities: {
-          tools: true,
-        },
-      });
-    });
-
-    // OAuth 2.0 Authorization Server Metadata (RFC 8414)
-    // ChatGPT checks this for OAuth discovery
-    this.app.get('/sse/.well-known/oauth-authorization-server', (req: Request, res: Response) => {
-      const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-      const host = req.headers['x-forwarded-host'] || req.headers.host;
-      const baseUrl = process.env.PUBLIC_URL || `${proto}://${host}`;
-
-      res.json({
-        issuer: baseUrl,
-        authorization_endpoint: `${baseUrl}/oauth/authorize`,
-        token_endpoint: `${baseUrl}/oauth/token`,
-        registration_endpoint: `${baseUrl}/oauth/register`,
-        revocation_endpoint: `${baseUrl}/oauth/revoke`,
-        response_types_supported: ['code'],
-        grant_types_supported: ['authorization_code'],
-        token_endpoint_auth_methods_supported: ['none', 'client_secret_post'],
-        scopes_supported: ['mcp', 'claudeai'],
-        code_challenge_methods_supported: ['S256', 'plain'],
-      });
-    });
-
-    // OpenID Connect Discovery (for compatibility)
-    this.app.get('/sse/.well-known/openid-configuration', (req: Request, res: Response) => {
-      const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-      const host = req.headers['x-forwarded-host'] || req.headers.host;
-      const baseUrl = process.env.PUBLIC_URL || `${proto}://${host}`;
-
-      res.json({
-        issuer: baseUrl,
-        authorization_endpoint: `${baseUrl}/oauth/authorize`,
-        token_endpoint: `${baseUrl}/oauth/token`,
-        registration_endpoint: `${baseUrl}/oauth/register`,
-        revocation_endpoint: `${baseUrl}/oauth/revoke`,
-        response_types_supported: ['code'],
-        grant_types_supported: ['authorization_code'],
-        token_endpoint_auth_methods_supported: ['none', 'client_secret_post'],
-        scopes_supported: ['mcp', 'claudeai'],
-        code_challenge_methods_supported: ['S256', 'plain'],
-      });
-    });
-
-    // MCP SSE endpoint for ChatGPT web integration (REQUIRED auth)
-    // Endpoint: POST /sse
-    // This implements the Model Context Protocol over Server-Sent Events
-    // Reference: https://platform.openai.com/docs/mcp
-    this.app.post('/sse', (async (req: DualAuthRequest, res: Response) => {
-      try {
-        // CRITICAL: Authentication is REQUIRED for usage tracking
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          logger.warn('[MCP SSE] Missing or invalid Authorization header');
-          return res.status(401).json({
-            error: 'Unauthorized',
-            message: 'Authorization header with Bearer token is required',
-            code: 'MISSING_AUTH',
-          });
-        }
-
-        const token = authHeader.replace('Bearer ', '');
-        let userId: string | undefined;
-        let clientKey: string | undefined;
-
-        // Authenticate (JWT, OAuth, or API key)
-        try {
-          if (token.includes('.')) {
-            // JWT token - verify and extract userId
-            const jwt = await import('jsonwebtoken');
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'change-this-secret-in-production') as any;
-            userId = decoded.userId;
-            logger.debug('[MCP SSE] Authenticated with JWT', { userId });
-          } else if (token.startsWith('mcp_token_')) {
-            // OAuth 2.0 access token - verify with OAuth service
-            const tokenData = await this.oauthService.verifyAccessToken(token);
-
-            if (!tokenData) {
-              logger.warn('[MCP SSE] Invalid OAuth token', {
-                tokenPrefix: maskSensitive(token, 15),
-              });
-              return res.status(401).json({
-                error: 'Unauthorized',
-                message: 'Invalid or expired OAuth access token',
-                code: 'INVALID_OAUTH_TOKEN',
-              });
-            }
-
-            userId = tokenData.userId;
-            clientKey = tokenData.clientId;
-            logger.debug('[MCP SSE] Authenticated with OAuth token', {
-              userId,
-              clientId: tokenData.clientId,
-              scope: tokenData.scope,
-            });
-          } else {
-            // API key - validate and get user info
-            clientKey = token;
-            const keyInfo = await this.apiKeyService.validateApiKey(token);
-
-            if (!keyInfo) {
-              logger.warn('[MCP SSE] Invalid API key', {
-                keyPrefix: maskSensitive(token, 12),
-              });
-              return res.status(401).json({
-                error: 'Unauthorized',
-                message: 'Invalid API key',
-                code: 'INVALID_API_KEY',
-              });
-            }
-
-            // Valid API key - check rate limits
-            const rateLimit = await this.apiKeyService.checkRateLimit(token);
-
-            if (!rateLimit.allowed) {
-              logger.warn('[MCP SSE] Rate limit exceeded', {
-                keyId: keyInfo.id,
-                reason: rateLimit.reason,
-              });
-              return res.status(429).json({
-                error: 'Rate limit exceeded',
-                code: 'RATE_LIMIT_EXCEEDED',
-                reason: rateLimit.reason,
-                requestsToday: rateLimit.requestsToday,
-                rateLimitPerDay: rateLimit.rateLimitPerDay,
-              });
-            }
-
-            // Get userId from API key
-            userId = keyInfo.userId;
-            logger.debug('[MCP SSE] Authenticated with API key', {
-              userId,
-              keyId: keyInfo.id,
-              userEmail: keyInfo.userEmail,
-            });
-
-            // Update API key usage (async, don't wait)
-            this.apiKeyService.updateUsage(token).catch((err) => {
-              logger.error('[MCP SSE] Failed to update API key usage', { error: err.message });
-            });
-          }
-        } catch (error) {
-          // Auth failed - return 401
-          logger.warn('[MCP SSE] Authentication failed', { error: (error as Error).message });
-          return res.status(401).json({
-            error: 'Unauthorized',
-            message: 'Authentication failed: ' + (error as Error).message,
-            code: 'AUTH_FAILED',
-          });
-        }
-
-        // Authentication successful - set SSE headers and handle connection
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache, no-transform');
-        res.setHeader('Connection', 'keep-alive');
-        res.setHeader('X-Accel-Buffering', 'no');
-
-        // Pass userId and clientKey to SSE handler
-        await this.mcpSSEServer.handleSSEConnection(req, res, userId, clientKey);
-      } catch (error: any) {
-        logger.error('[MCP SSE] Connection error:', error);
-        if (!res.headersSent) {
-          res.status(500).json({
-            error: 'MCP SSE connection failed',
-            message: error.message,
-          });
-        }
-      }
-    }) as any);
-
-    // Standard MCP SSE endpoint for MCP clients (Claude Desktop, Jan chat, etc.)
-    // Endpoint: GET/POST /v1/sse (SSE stream + client messages)
-    // This implements the standard Model Context Protocol over SSE Transport
-    // Reference: https://spec.modelcontextprotocol.io/specification/transports/#server-sent-events
-
-    // POST handler: route messages to existing SSE sessions
-    this.app.post('/v1/sse', (async (req: DualAuthRequest, res: Response) => {
-      const sessionId = req.query.sessionId as string;
-      if (!sessionId) {
-        return res.status(400).json({ error: 'Missing sessionId query parameter' });
-      }
-
-      const transport = this.mcpSseSessions.get(sessionId);
-      if (!transport) {
-        return res.status(404).json({ error: 'Session not found', sessionId });
-      }
-
-      await transport.handlePostMessage(req, res, req.body);
-    }) as any);
-
-    // GET handler: establish new SSE stream
-    this.app.get('/v1/sse', (async (req: DualAuthRequest, res: Response) => {
-      try {
-        logger.info('[MCP v1/sse] New standard MCP SSE connection');
-
-        // REQUIRED authentication for usage tracking
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          logger.warn('[MCP v1/sse] Missing or invalid Authorization header');
-          return res.status(401).json({
-            error: 'Unauthorized',
-            message: 'Authorization header with Bearer token is required',
-            code: 'MISSING_AUTH',
-          });
-        }
-
-        const token = authHeader.replace('Bearer ', '');
-        let userId: string | undefined;
-        let clientKey: string | undefined;
-
-        // Authenticate (JWT, OAuth access token, or API key)
-        try {
-          if (token.includes('.')) {
-            // JWT token
-            const jwt = await import('jsonwebtoken');
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'change-this-secret-in-production') as any;
-            userId = decoded.userId;
-            logger.debug('[MCP v1/sse] Authenticated with JWT', { userId });
-          } else {
-            // Try OAuth access token first, then API key
-            const oauthToken = await this.oauthService.verifyAccessToken(token);
-            if (oauthToken) {
-              userId = oauthToken.userId;
-              logger.debug('[MCP v1/sse] Authenticated with OAuth token', { userId: sanitizeId(userId || ''), clientId: sanitizeId(oauthToken.clientId) });
-            } else {
-              // API key
-              clientKey = token;
-              const keyInfo = await this.apiKeyService.validateApiKey(token);
-
-              if (!keyInfo) {
-                logger.warn('[MCP v1/sse] Invalid API key', {
-                  keyPrefix: maskSensitive(token, 8),
-                });
-                return res.status(401).json({
-                  error: 'Unauthorized',
-                  message: 'Invalid API key',
-                  code: 'INVALID_API_KEY',
-                });
-              }
-
-              // Check rate limits
-              const rateLimit = await this.apiKeyService.checkRateLimit(token);
-
-              if (!rateLimit.allowed) {
-                logger.warn('[MCP v1/sse] Rate limit exceeded', {
-                  keyId: keyInfo.id,
-                  reason: rateLimit.reason,
-                });
-                return res.status(429).json({
-                  error: 'Rate limit exceeded',
-                  code: 'RATE_LIMIT_EXCEEDED',
-                  reason: rateLimit.reason,
-                });
-              }
-
-              userId = keyInfo.userId;
-              logger.debug('[MCP v1/sse] Authenticated with API key', {
-                userId,
-                keyId: keyInfo.id,
-              });
-
-              // Update API key usage
-              this.apiKeyService.updateUsage(token).catch((err) => {
-                logger.error('[MCP v1/sse] Failed to update API key usage', { error: err.message });
-              });
-            }
-          }
-        } catch (error) {
-          // Auth failed - return 401
-          logger.warn('[MCP v1/sse] Authentication failed', { error: (error as Error).message });
-          return res.status(401).json({
-            error: 'Unauthorized',
-            message: 'Authentication failed: ' + (error as Error).message,
-            code: 'AUTH_FAILED',
-          });
-        }
-
-        // Create MCP Server instance for this connection
-        const mcpServer = new Server(
-          {
-            name: 'secondlayer-mcp',
-            version: '1.0.0',
-          },
-          {
-            capabilities: {
-              tools: {},
-            },
-          }
-        );
-
-        // Setup tools/list handler
-        mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
-          return {
-            tools: this.toolRegistry.getLocalToolDefinitions(),
-          };
-        });
-
-        // Setup tools/call handler with billing integration
-        mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
-          const toolName = request.params.name;
-          const args = request.params.arguments || {};
-          const requestId = `mcp-v1-${uuidv4()}`;
-          const startTime = Date.now();
-
-          try {
-            logger.info('[MCP v1/sse] Tool call', {
-              tool: toolName,
-              userId: sanitizeId(userId || 'anonymous'),
-            });
-
-            // Phase 2 Billing: Check credits BEFORE execution
-            if (userId && this.creditService) {
-              const creditsRequired = await this.creditService.calculateCreditsForTool(toolName, userId);
-
-              if (creditsRequired > 0) {
-                const balance = await this.creditService.checkBalance(userId, creditsRequired);
-
-                if (!balance.hasCredits) {
-                  logger.warn('[MCP v1/sse] Insufficient credits', {
-                    userId: sanitizeId(userId),
-                    tool: toolName,
-                    creditsRequired,
-                  });
-
-                  return {
-                    content: [
-                      {
-                        type: 'text',
-                        text: `Error: Insufficient credits. Required: ${creditsRequired}, Current balance: ${balance.currentBalance}`,
-                      },
-                    ],
-                    isError: true,
-                  };
-                }
-              }
-            }
-
-            // Create cost tracking record
-            await this.costTracker.createTrackingRecord({
-              requestId,
-              toolName,
-              clientKey,
-              userId,
-              userQuery: String(args.query || JSON.stringify(args)),
-              queryParams: args,
-            });
-
-            // Execute tool in request context
-            const result = await requestContext.run(
-              { requestId, task: toolName },
-              async () => {
-                // Route to appropriate tool handler via centralized registry
-                // Inject userId for all vault tools (user isolation)
-                const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
-                const toolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId } : args;
-                const registryResult = await this.toolRegistry.executeTool(toolName, toolArgs);
-                if (registryResult) {
-                  return registryResult;
-                }
-                throw new Error(`Unknown tool: ${toolName}`);
-              }
-            );
-
-            // Complete cost tracking
-            const executionTime = Date.now() - startTime;
-            await this.costTracker.completeTrackingRecord({
-              requestId,
-              executionTimeMs: executionTime,
-              status: 'completed',
-            });
-
-            // Phase 2 Billing: Deduct credits after successful execution
-            if (userId && this.creditService) {
-              const creditsRequired = await this.creditService.calculateCreditsForTool(toolName, userId);
-
-              if (creditsRequired > 0) {
-                const deduction = await this.creditService.deductCredits(
-                  userId,
-                  creditsRequired,
-                  toolName,
-                  requestId,
-                  `Tool execution: ${toolName}`
-                );
-
-                if (deduction.success) {
-                  logger.info('[MCP v1/sse] Credits deducted', {
-                    userId: sanitizeId(userId),
-                    tool: toolName,
-                    creditsDeducted: creditsRequired,
-                    newBalance: deduction.newBalance,
-                  });
-                }
-              }
-            }
-
-            // Return result in MCP format
-            return {
-              content: result.content || [
-                {
-                  type: 'text',
-                  text: JSON.stringify(result, null, 2),
-                },
-              ],
-            };
-
-          } catch (error: any) {
-            logger.error('[MCP v1/sse] Tool execution error', {
-              tool: toolName,
-              error: error.message,
-            });
-
-            // Record failure
-            const executionTime = Date.now() - startTime;
-            await this.costTracker.completeTrackingRecord({
-              requestId,
-              executionTimeMs: executionTime,
-              status: 'failed',
-              errorMessage: error.message,
-            });
-
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: `Error: ${error.message}`,
-                },
-              ],
-              isError: true,
-            };
-          }
-        });
-
-        // Create SSE transport
-        const transport = new SSEServerTransport('/v1/sse', res);
-
-        // Store session for POST message routing
-        this.mcpSseSessions.set(transport.sessionId, transport);
-
-        // Connect MCP server to transport
-        await mcpServer.connect(transport);
-
-        logger.info('[MCP v1/sse] Connection established', { sessionId: transport.sessionId });
-
-        // Handle client disconnect
-        req.on('close', () => {
-          logger.info('[MCP v1/sse] Client disconnected', { sessionId: transport.sessionId });
-          this.mcpSseSessions.delete(transport.sessionId);
-          mcpServer.close();
-        });
-
-      } catch (error: any) {
-        logger.error('[MCP v1/sse] Connection error:', error);
-        if (!res.headersSent) {
-          res.status(500).json({
-            error: 'Failed to establish MCP SSE connection',
-            message: error.message,
-          });
-        }
-      }
-    }) as any);
-
-    // MCP discovery endpoint (public - lists available tools, rate limited)
-    // GET /mcp - Returns MCP server info and capabilities
-    this.app.get('/mcp', mcpDiscoveryRateLimit as any, (_req: Request, res: Response) => {
-      const tools = this.mcpSSEServer.getAllTools();
-      res.json({
-        protocolVersion: '2024-11-05',
-        serverInfo: {
-          name: 'SecondLayer Legal MCP Server',
-          version: '1.0.0',
-          description: 'Ukrainian legal research and document analysis platform',
-        },
-        capabilities: {
-          tools: {
-            count: tools.length,
-            listChanged: false,
-          },
-          prompts: {},
-          resources: {},
-        },
-        endpoints: {
-          sse: '/sse',
-          'sse-standard': '/v1/sse',
-          http: '/api/tools',
-        },
-        tools: tools.map(t => ({
-          name: t.name,
-          description: t.description,
-        })),
-      });
-    });
+    // MCP SSE routes (SSE endpoints, OAuth discovery, redirects)
+    this.app.use(createMCPSSERoutes({
+      mcpSSEServer: this.app_.mcpSSEServer,
+      toolRegistry: this.tools.toolRegistry,
+      oauthService: this.app_.oauthService,
+      apiKeyService: this.billing.apiKeyService,
+      costTracker: this.billing.costTracker,
+      creditService: this.billing.creditService,
+      mcpSseSessions: this.mcpSseSessions,
+    }));
 
     // Authentication routes (public - OAuth endpoints, optional JWT for /auth/me etc.)
     this.app.use('/auth', optionalJWT as any, authRouter);
 
-    // Redirect /authorize to /oauth/authorize (for Claude.ai compatibility)
-    this.app.get('/authorize', (req: Request, res: Response) => {
-      const queryString = new URLSearchParams(req.query as any).toString();
-      res.redirect(301, `/oauth/authorize?${queryString}`);
-    });
-
-    this.app.post('/authorize', (req: Request, res: Response) => {
-      res.redirect(307, '/oauth/authorize');
-    });
-
-    // Redirect /token to /oauth/token (for Claude.ai compatibility)
-    this.app.post('/token', (req: Request, res: Response) => {
-      res.redirect(307, '/oauth/token');
-    });
-
-    // Root-level .well-known endpoints for OAuth discovery (Claude.ai compatibility)
-    this.app.get('/.well-known/oauth-authorization-server', (req: Request, res: Response) => {
-      const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-      const host = req.headers['x-forwarded-host'] || req.headers.host;
-      const baseUrl = process.env.PUBLIC_URL || `${proto}://${host}`;
-      res.json({
-        issuer: baseUrl,
-        authorization_endpoint: `${baseUrl}/oauth/authorize`,
-        token_endpoint: `${baseUrl}/oauth/token`,
-        registration_endpoint: `${baseUrl}/oauth/register`,
-        revocation_endpoint: `${baseUrl}/oauth/revoke`,
-        response_types_supported: ['code'],
-        grant_types_supported: ['authorization_code'],
-        token_endpoint_auth_methods_supported: ['none', 'client_secret_post'],
-        scopes_supported: ['mcp', 'claudeai'],
-        code_challenge_methods_supported: ['S256', 'plain'],
-      });
-    });
-
-    this.app.get('/.well-known/openid-configuration', (req: Request, res: Response) => {
-      const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-      const host = req.headers['x-forwarded-host'] || req.headers.host;
-      const baseUrl = process.env.PUBLIC_URL || `${proto}://${host}`;
-      res.json({
-        issuer: baseUrl,
-        authorization_endpoint: `${baseUrl}/oauth/authorize`,
-        token_endpoint: `${baseUrl}/oauth/token`,
-        registration_endpoint: `${baseUrl}/oauth/register`,
-        revocation_endpoint: `${baseUrl}/oauth/revoke`,
-        response_types_supported: ['code'],
-        grant_types_supported: ['authorization_code'],
-        token_endpoint_auth_methods_supported: ['none', 'client_secret_post'],
-        scopes_supported: ['mcp', 'claudeai'],
-        code_challenge_methods_supported: ['S256', 'plain'],
-      });
-    });
-
-    // Redirect /register to /oauth/register (for MCP client compatibility)
-    this.app.post('/register', (req: Request, res: Response) => {
-      res.redirect(307, '/oauth/register');
-    });
-
     // OAuth 2.0 routes for ChatGPT integration (public)
-    this.app.use('/oauth', createOAuthRouter(this.oauthService));
+    this.app.use('/oauth', createOAuthRouter(this.app_.oauthService));
     logger.info('OAuth 2.0 routes registered at /oauth');
 
     // Global API rate limiter — baseline protection for all /api/ routes (120 req/min per IP).
     // More specific per-endpoint limiters (auth, chat, upload, etc.) still apply additionally.
     this.app.use('/api', globalApiRateLimit as any);
 
-    // Document classification & stats endpoints - must come before /api/documents generic REST route
-    this.app.use('/api/documents/classify', requireJWT as any, createClassificationRoutes(this.classificationService));
-    this.app.get('/api/documents/stats', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const stats = await this.classificationService.getUserDocumentStats(userId);
-        res.json(stats);
-      } catch (error: any) {
-        logger.error('Failed to get document stats', { error: error.message });
-        res.status(500).json({ error: 'Failed to get stats', message: error.message });
-      }
-    }) as any);
+    // Document classification routes - must come before /api/documents generic REST route
+    this.app.use('/api/documents/classify', requireJWT as any, createClassificationRoutes(this.app_.classificationService));
 
-    // Document folders endpoint - must come before /api/documents generic REST route
-    this.app.get('/api/documents/folders', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const prefix = (req.query.prefix as string) || '';
-        const result = await this.vaultTools.listFolders({ prefix, userId });
-        res.json(result);
-      } catch (error: any) {
-        logger.error('Failed to list folders', { error: error.message });
-        res.status(500).json({ error: 'Failed to list folders', message: error.message });
-      }
-    }) as any);
-
-    // Delete folder - soft-deletes all documents within a folder path
-    this.app.delete('/api/documents/folders/:folderPath', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const folderPath = decodeURIComponent(req.params.folderPath as string);
-
-        if (!folderPath) {
-          res.status(400).json({ error: 'folderPath is required' });
-          return;
-        }
-
-        const result = await this.services.db.query(
-          `UPDATE documents
-           SET deleted_at = NOW()
-           WHERE user_id = $1
-             AND deleted_at IS NULL
-             AND metadata->>'folderPath' LIKE $2`,
-          [userId, folderPath + '%']
-        );
-
-        res.json({ deleted: result.rowCount || 0 });
-      } catch (error: any) {
-        logger.error('Failed to delete folder', { error: error.message, folderPath: req.params.folderPath });
-        res.status(500).json({ error: 'Failed to delete folder', message: error.message });
-      }
-    }) as any);
-
-    // Document preview endpoint - returns presigned MinIO URL for binary files
-    this.app.get('/api/documents/:id/preview', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const { id } = req.params;
-
-        const result = await this.services.db.query(
-          'SELECT storage_type, storage_path, mime_type, metadata FROM documents WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL',
-          [id, userId]
-        );
-
-        if (result.rows.length === 0) {
-          res.status(404).json({ error: 'Document not found' });
-          return;
-        }
-
-        const doc = result.rows[0];
-
-        if (doc.storage_type === 'minio' && doc.metadata?.minioKey) {
-          const isPreviewable = doc.mime_type === 'application/pdf' || doc.mime_type?.startsWith('image/') || doc.mime_type?.startsWith('video/') || !!doc.metadata?.previewKey;
-          const bucket = doc.metadata?.minioBucket || `user-${userId}`;
-
-          // For documents with a previewKey (JPG thumbnail from PDF/DOCX), serve that instead
-          let previewUrl: string;
-          let previewMime = doc.mime_type;
-          if (doc.metadata?.previewKey) {
-            previewUrl = await this.minioService.getFileUrlFromBucket(bucket, doc.metadata.previewKey, 3600, true);
-            previewMime = 'image/jpeg';
-          } else {
-            previewUrl = await this.minioService.getFileUrlFromBucket(bucket, doc.metadata.minioKey, 3600, isPreviewable);
-          }
-
-          res.json({ previewUrl, mimeType: previewMime, storageType: 'minio' });
-        } else {
-          // Vault document — no binary preview, content is text
-          res.json({ previewUrl: null, mimeType: doc.mime_type, storageType: doc.storage_type || 'vault' });
-        }
-      } catch (error: any) {
-        logger.error('Failed to get document preview', { error: error.message });
-        res.status(500).json({ error: 'Failed to get preview', message: error.message });
-      }
-    }) as any);
-
-    // Move document to different folder - updates metadata.folderPath via jsonb_set
-    this.app.post('/api/documents/:id/move', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const { id } = req.params;
-        const { folderPath } = req.body;
-
-        if (folderPath === undefined) {
-          res.status(400).json({ error: 'folderPath is required' });
-          return;
-        }
-
-        const sanitized = typeof folderPath === 'string' ? folderPath : '';
-        const result = await this.services.db.query(
-          `UPDATE documents
-           SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{folderPath}', $3::jsonb),
-               updated_at = NOW()
-           WHERE id = $1 AND user_id = $2
-           RETURNING id, title, metadata`,
-          [id, userId, JSON.stringify(sanitized)]
-        );
-
-        if (result.rows.length === 0) {
-          res.status(404).json({ error: 'Document not found' });
-          return;
-        }
-
-        res.json(result.rows[0]);
-      } catch (error: any) {
-        logger.error('Failed to move document', { error: error.message });
-        res.status(500).json({ error: 'Failed to move document', message: error.message });
-      }
-    }) as any);
+    // Misc document routes (stats, folders, preview, move) - must come before generic /:id REST route
+    this.app.use('/api', createMiscInlineRoutes({
+      db: this.services.db,
+      classificationService: this.app_.classificationService,
+      vaultTools: this.tools.vaultTools,
+      minioService: this.tools.minioService,
+      legislationTools: this.services.legislationTools,
+    }));
 
     // REST API for admin panel (CRUD operations) - require JWT (user login)
     this.app.use('/api/documents', requireJWT as any, createRestAPIRouter(this.services.db));
@@ -1905,7 +342,7 @@ class HTTPMCPServer {
     this.app.use('/api/auth', requireJWT as any, authRouter);
 
     // Phase 2 Billing: API key management - require JWT (user login)
-    this.app.use('/api/keys', requireJWT as any, createApiKeyRouter(this.apiKeyService, this.creditService));
+    this.app.use('/api/keys', requireJWT as any, createApiKeyRouter(this.billing.apiKeyService, this.billing.creditService));
     logger.info('API key management routes registered at /api/keys');
 
     // EULA endpoints - REMOVED: not needed
@@ -1946,10 +383,9 @@ class HTTPMCPServer {
     }) as any);
 
     // Currency exchange rate endpoint (public, no auth required)
-    // GET /api/currency/rate - Get current USD->UAH rate
     this.app.get('/api/currency/rate', (async (_req: Request, res: Response) => {
       try {
-        const rateInfo = await this.currencyService.getUsdToUahRate();
+        const rateInfo = await this.billing.currencyService.getUsdToUahRate();
         res.json(rateInfo);
       } catch (error: any) {
         logger.error('[CurrencyAPI] Failed to get exchange rate', { error: error.message });
@@ -1957,459 +393,25 @@ class HTTPMCPServer {
       }
     }) as any);
 
-    // Billing endpoints - require JWT (user login)
-    // GET /api/billing/balance - Get current balance and limits
-    this.app.get('/api/billing/balance', requireJWT as any, (async (req: DualAuthRequest, res: Response): Promise<any> => {
-      try {
-        const userId = req.user!.id;
-        const summary = await this.billingService.getBillingSummary(userId);
-
-        if (!summary) {
-          return res.status(404).json({
-            error: 'Billing account not found',
-          });
-        }
-
-        res.json({
-          balance_usd: summary.balance_usd,
-          balance_uah: summary.balance_uah,
-          total_spent_usd: summary.total_spent_usd,
-          total_requests: summary.total_requests,
-          daily_limit_usd: summary.daily_limit_usd,
-          monthly_limit_usd: summary.monthly_limit_usd,
-          today_spending_usd: summary.today_spent_usd,
-          monthly_spending_usd: summary.month_spent_usd,
-          last_request_at: summary.last_request_at,
-          is_active: summary.is_active,
-          pricing_tier: summary.pricing_tier,
-        });
-      } catch (error: any) {
-        logger.error('Failed to get billing balance', { error: error.message });
-        res.status(500).json({
-          error: 'Failed to get billing balance',
-          message: error.message,
-        });
-      }
-    }) as any);
-
-    // GET /api/billing/history - Get transaction history
-    this.app.get('/api/billing/history', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const limit = parseInt(req.query.limit as string) || 50;
-        const offset = parseInt(req.query.offset as string) || 0;
-        const type = req.query.type as string;
-
-        const transactions = await this.billingService.getTransactionHistory(userId, {
-          limit,
-          offset,
-          type,
-        });
-
-        res.json({
-          success: true,
-          transactions,
-          pagination: {
-            limit,
-            offset,
-            count: transactions.length,
-          },
-        });
-      } catch (error: any) {
-        logger.error('Failed to get billing history', { error: error.message });
-        res.status(500).json({
-          error: 'Failed to get billing history',
-          message: error.message,
-        });
-      }
-    }) as any);
-
-    // POST /api/billing/topup - Top up balance (admin or payment integration)
-    this.app.post('/api/billing/topup', requireJWT as any, (async (req: DualAuthRequest, res: Response): Promise<any> => {
-      try {
-        const userId = req.user!.id;
-        const { amount_usd, amount_uah, description, payment_provider, payment_id } = req.body;
-
-        if (!amount_usd || amount_usd <= 0) {
-          return res.status(400).json({
-            error: 'Invalid amount',
-            message: 'amount_usd must be positive',
-          });
-        }
-
-        const transaction = await this.billingService.topUpBalance({
-          userId,
-          amountUsd: amount_usd,
-          amountUah: amount_uah || 0,
-          description: description || `Top up $${amount_usd}`,
-          paymentProvider: payment_provider,
-          paymentId: payment_id,
-        });
-
-        // Generate invoice number for the transaction
-        const invoiceNumber = this.invoiceService.generateInvoiceNumber(transaction.id);
-        await this.billingService.setTransactionInvoiceNumber(transaction.id, invoiceNumber);
-
-        res.json({
-          success: true,
-          message: 'Balance topped up successfully',
-          transaction: { ...transaction, invoice_number: invoiceNumber },
-        });
-      } catch (error: any) {
-        logger.error('Failed to top up balance', { error: error.message });
-        res.status(500).json({
-          error: 'Failed to top up balance',
-          message: error.message,
-        });
-      }
-    }) as any);
-
-    // GET /api/billing/settings - Get billing settings
-    this.app.get('/api/billing/settings', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const summary = await this.billingService.getBillingSummary(userId);
-        const emailPrefs = await this.billingService.getEmailPreferences(userId);
-
-        res.json({
-          daily_limit_usd: summary?.daily_limit_usd ?? 50,
-          monthly_limit_usd: summary?.monthly_limit_usd ?? 1000,
-          email_notifications: emailPrefs?.email_notifications ?? true,
-          notify_low_balance: emailPrefs?.notify_low_balance ?? true,
-          notify_payment_success: emailPrefs?.notify_payment_success ?? true,
-          notify_payment_failure: emailPrefs?.notify_payment_failure ?? false,
-          notify_monthly_report: emailPrefs?.notify_monthly_report ?? true,
-          low_balance_threshold_usd: emailPrefs?.low_balance_threshold_usd ?? 20,
-        });
-      } catch (error: any) {
-        logger.error('Failed to get billing settings', { error: error.message });
-        res.status(500).json({ error: 'Failed to get billing settings' });
-      }
-    }) as any);
-
-    // GET /api/billing/statistics - Get billing statistics
-    this.app.get('/api/billing/statistics', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const period = (req.query.period as string) || '30d';
-
-        // Query cost_tracking for aggregated stats
-        let intervalSql = '30 days';
-        if (period === '7d') intervalSql = '7 days';
-        else if (period === '90d') intervalSql = '90 days';
-        else if (period === 'year') intervalSql = '365 days';
-
-        const statsQuery = `
-          SELECT
-            COUNT(*) as total_requests,
-            COALESCE(SUM(total_cost_usd), 0) as total_cost,
-            COALESCE(SUM(openai_prompt_tokens + openai_completion_tokens), 0) as total_tokens,
-            COALESCE(AVG(total_cost_usd), 0) as avg_cost_per_request
-          FROM cost_tracking
-          WHERE user_id = $1
-            AND created_at >= NOW() - INTERVAL '${intervalSql}'
-        `;
-        const statsResult = await this.services.db.query(statsQuery, [userId]);
-        const stats = statsResult.rows[0] || {};
-
-        const dailyQuery = `
-          SELECT
-            TO_CHAR(created_at::date, 'Mon DD') as date,
-            COUNT(*) as requests,
-            COALESCE(SUM(total_cost_usd), 0) as cost
-          FROM cost_tracking
-          WHERE user_id = $1
-            AND created_at >= NOW() - INTERVAL '${intervalSql}'
-          GROUP BY created_at::date
-          ORDER BY created_at::date
-        `;
-        const dailyResult = await this.services.db.query(dailyQuery, [userId]);
-
-        const toolsQuery = `
-          SELECT
-            tool_name as name,
-            COUNT(*) as count,
-            COALESCE(SUM(total_cost_usd), 0) as cost
-          FROM cost_tracking
-          WHERE user_id = $1
-            AND created_at >= NOW() - INTERVAL '${intervalSql}'
-            AND tool_name IS NOT NULL
-          GROUP BY tool_name
-          ORDER BY count DESC
-          LIMIT 10
-        `;
-        const toolsResult = await this.services.db.query(toolsQuery, [userId]);
-
-        // Cost breakdown by tool
-        const costByServiceQuery = `
-          SELECT
-            tool_name as name,
-            COALESCE(SUM(total_cost_usd), 0) as value
-          FROM cost_tracking
-          WHERE user_id = $1
-            AND created_at >= NOW() - INTERVAL '${intervalSql}'
-            AND tool_name IS NOT NULL
-          GROUP BY tool_name
-          ORDER BY value DESC
-          LIMIT 8
-        `;
-        const costByServiceResult = await this.services.db.query(costByServiceQuery, [userId]);
-
-        // Previous period comparison
-        const prevStatsQuery = `
-          SELECT
-            COUNT(*) as total_requests,
-            COALESCE(SUM(total_cost_usd), 0) as total_cost
-          FROM cost_tracking
-          WHERE user_id = $1
-            AND created_at >= NOW() - INTERVAL '${intervalSql}' * 2
-            AND created_at < NOW() - INTERVAL '${intervalSql}'
-        `;
-        const prevStatsResult = await this.services.db.query(prevStatsQuery, [userId]);
-        const prevStats = prevStatsResult.rows[0] || {};
-
-        const totalReqs = parseInt(stats.total_requests) || 0;
-        const prevTotalReqs = parseInt(prevStats.total_requests) || 0;
-        const prevTotalCost = parseFloat(prevStats.total_cost) || 0;
-
-        const topTools = toolsResult.rows.map((t: any) => ({
-          name: t.name,
-          count: parseInt(t.count),
-          cost: parseFloat(t.cost) || 0,
-          percentage: totalReqs > 0 ? Math.round((parseInt(t.count) / totalReqs) * 100) : 0,
-        }));
-
-        const serviceColors = ['#D97757', '#C66345', '#B55133', '#A43F21', '#932D0F', '#823C1E', '#6B2E15', '#54200C'];
-        const costByService = costByServiceResult.rows.map((s: any, idx: number) => ({
-          name: s.name,
-          value: parseFloat(s.value) || 0,
-          color: serviceColors[idx % serviceColors.length],
-        }));
-
-        res.json({
-          period,
-          totalRequests: totalReqs,
-          totalCost: parseFloat(stats.total_cost) || 0,
-          openaiTokens: parseInt(stats.total_tokens) || 0,
-          avgCostPerRequest: parseFloat(stats.avg_cost_per_request) || 0,
-          costByService,
-          topTools,
-          dailyData: dailyResult.rows.map((d: any) => ({
-            date: d.date,
-            requests: parseInt(d.requests),
-            cost: parseFloat(d.cost) || 0,
-          })),
-          previousPeriod: {
-            totalRequests: prevTotalReqs,
-            totalCost: prevTotalCost,
-            requestsChange: prevTotalReqs > 0 ? Math.round(((totalReqs - prevTotalReqs) / prevTotalReqs) * 100) : 0,
-            costChange: prevTotalCost > 0 ? Math.round(((parseFloat(stats.total_cost) - prevTotalCost) / prevTotalCost) * 100) : 0,
-          },
-        });
-      } catch (error: any) {
-        logger.error('Failed to get billing statistics', { error: error.message });
-        res.status(500).json({ error: 'Failed to get billing statistics' });
-      }
-    }) as any);
-
-    // GET /api/billing/payment-methods - List saved payment methods (stub)
-    this.app.get('/api/billing/payment-methods', requireJWT as any, (async (_req: DualAuthRequest, res: Response) => {
-      // Payment methods storage not yet implemented — return empty list
-      res.json({ paymentMethods: [] });
-    }) as any);
-
-    // PUT /api/billing/settings - Update billing settings
-    this.app.put('/api/billing/settings', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const {
-          daily_limit_usd,
-          monthly_limit_usd,
-          email_notifications,
-          notify_low_balance,
-          notify_payment_success,
-          notify_payment_failure,
-          notify_monthly_report,
-          low_balance_threshold_usd,
-        } = req.body;
-
-        const settings: any = {};
-        if (daily_limit_usd !== undefined) settings.dailyLimitUsd = daily_limit_usd;
-        if (monthly_limit_usd !== undefined) settings.monthlyLimitUsd = monthly_limit_usd;
-        if (email_notifications !== undefined) settings.email_notifications = email_notifications;
-        if (notify_low_balance !== undefined) settings.notify_low_balance = notify_low_balance;
-        if (notify_payment_success !== undefined) settings.notify_payment_success = notify_payment_success;
-        if (notify_payment_failure !== undefined) settings.notify_payment_failure = notify_payment_failure;
-        if (notify_monthly_report !== undefined) settings.notify_monthly_report = notify_monthly_report;
-        if (low_balance_threshold_usd !== undefined) settings.low_balance_threshold_usd = low_balance_threshold_usd;
-
-        await this.billingService.updateBillingSettings(userId, settings);
-
-        res.json({
-          success: true,
-          message: 'Billing settings updated',
-        });
-      } catch (error: any) {
-        logger.error('Failed to update billing settings', { error: error.message });
-        res.status(500).json({
-          error: 'Failed to update billing settings',
-          message: error.message,
-        });
-      }
-    }) as any);
-
-    // GET /api/billing/email-preferences - Get email notification preferences
-    this.app.get('/api/billing/email-preferences', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const preferences = await this.billingService.getEmailPreferences(userId);
-        res.json(preferences);
-      } catch (error: any) {
-        logger.error('Failed to get email preferences', { error: error.message });
-        res.status(500).json({
-          error: 'Failed to get email preferences',
-          message: error.message,
-        });
-      }
-    }) as any);
-
-    // GET /api/billing/invoices - Get invoice list for authenticated user
-    this.app.get('/api/billing/invoices', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const limit = parseInt(req.query.limit as string) || 50;
-        const offset = parseInt(req.query.offset as string) || 0;
-
-        const query = `
-          SELECT
-            bt.id as transaction_id,
-            bt.invoice_number,
-            bt.created_at as date,
-            bt.amount_usd,
-            bt.amount_uah,
-            bt.description,
-            bt.payment_provider,
-            bt.payment_id,
-            bt.invoice_generated_at,
-            u.name as user_name,
-            u.email as user_email
-          FROM billing_transactions bt
-          JOIN users u ON bt.user_id = u.id
-          WHERE bt.user_id = $1
-            AND bt.type = 'topup'
-            AND bt.invoice_number IS NOT NULL
-          ORDER BY bt.created_at DESC
-          LIMIT $2 OFFSET $3
-        `;
-        const result = await this.services.db.query(query, [userId, limit, offset]);
-
-        const invoices = result.rows.map((row: any) => {
-          const amount = parseFloat(row.amount_usd) || parseFloat(row.amount_uah) || 0;
-          const currency = parseFloat(row.amount_usd) > 0 ? 'USD' : 'UAH';
-          return {
-            invoiceNumber: row.invoice_number,
-            date: row.date,
-            customerName: row.user_name || 'Customer',
-            customerEmail: row.user_email || '',
-            amount,
-            currency,
-            paymentMethod: row.payment_provider || 'Unknown',
-            status: 'paid',
-            transactionId: row.transaction_id,
-            paymentId: row.payment_id,
-          };
-        });
-
-        const countQuery = `
-          SELECT COUNT(*) FROM billing_transactions
-          WHERE user_id = $1 AND type = 'topup' AND invoice_number IS NOT NULL
-        `;
-        const countResult = await this.services.db.query(countQuery, [userId]);
-        const total = parseInt(countResult.rows[0].count);
-
-        res.json({
-          invoices,
-          total,
-          hasMore: offset + result.rows.length < total,
-        });
-      } catch (error: any) {
-        logger.error('Failed to get invoices', { error: error.message });
-        res.status(500).json({ error: 'Failed to retrieve invoices' });
-      }
-    }) as any);
-
-    // GET /api/billing/invoices/:invoiceNumber/pdf - Download invoice as PDF
-    this.app.get('/api/billing/invoices/:invoiceNumber/pdf', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const { invoiceNumber } = req.params;
-
-        const query = `
-          SELECT
-            bt.id,
-            bt.amount_usd,
-            bt.amount_uah,
-            bt.payment_provider,
-            bt.payment_id,
-            bt.created_at,
-            bt.invoice_number,
-            u.name as user_name,
-            u.email as user_email
-          FROM billing_transactions bt
-          JOIN users u ON bt.user_id = u.id
-          WHERE bt.invoice_number = $1 AND bt.user_id = $2
-        `;
-        const result = await this.services.db.query(query, [invoiceNumber, userId]);
-
-        if (result.rows.length === 0) {
-          return res.status(404).json({ error: 'Invoice not found' });
-        }
-
-        const tx = result.rows[0];
-        const amount = parseFloat(tx.amount_usd) || parseFloat(tx.amount_uah) || 0;
-        const currency: 'USD' | 'UAH' = parseFloat(tx.amount_usd) > 0 ? 'USD' : 'UAH';
-
-        const invoiceData = this.invoiceService.createInvoiceFromTransaction(
-          tx.id,
-          tx.invoice_number,
-          tx.user_name || 'Customer',
-          tx.user_email || '',
-          amount,
-          currency,
-          tx.payment_provider || 'Unknown',
-          new Date(tx.created_at),
-          tx.payment_id
-        );
-
-        const pdfBuffer = await this.invoiceService.generateInvoicePDF(invoiceData);
-
-        // Update generation timestamp
-        await this.services.db.query(
-          `UPDATE billing_transactions SET invoice_generated_at = NOW() WHERE id = $1`,
-          [tx.id]
-        );
-
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${invoiceNumber}.pdf"`);
-        res.send(pdfBuffer);
-
-        logger.info('Invoice PDF generated', { invoiceNumber, userId });
-      } catch (error: any) {
-        logger.error('Failed to generate invoice PDF', { error: error.message });
-        res.status(500).json({ error: 'Failed to generate invoice' });
-      }
-    }) as any);
+    // Billing inline routes (balance, history, topup, settings, statistics, invoices)
+    this.app.use('/api/billing', requireJWT as any, createBillingInlineRoutes({
+      billingService: this.billing.billingService,
+      costTracker: this.billing.costTracker,
+      invoiceService: this.billing.invoiceService,
+      currencyService: this.billing.currencyService,
+      db: this.services.db,
+    }));
 
     // Payment routes - require JWT (user login)
     // POST /api/billing/payment/monobank/create - Create Monobank invoice
     // POST /api/billing/payment/nowpayments/create - Create NOWPayments invoice
     // GET /api/billing/payment/monobank/:invoiceId/status - Check Monobank status
     // GET /api/billing/payment/:provider/:paymentId/status - Check payment status
-    this.app.use('/api/billing/payment', requireJWT as any, createPaymentRouter(this.monobankService, this.metamaskService, this.binancePayService, this.nowpaymentsService, this.services.db));
+    this.app.use('/api/billing/payment', requireJWT as any, createPaymentRouter(this.billing.monobankService, this.billing.metamaskService, this.billing.binancePayService, this.billing.nowpaymentsService, this.services.db));
 
     // Test email route - require JWT (user login)
     // POST /api/billing/test-email - Send test email
-    this.app.use('/api/billing/test-email', requireJWT as any, createTestEmailRoute(this.emailService));
+    this.app.use('/api/billing/test-email', requireJWT as any, createTestEmailRoute(this.billing.emailService));
 
     // Billing and user preferences routes
     // GET /api/billing/preferences - Get user request preferences
@@ -2420,7 +422,10 @@ class HTTPMCPServer {
     // GET /api/billing/full-settings - Get combined billing and preferences
     // GET /api/billing/pricing-info - Get pricing tier information
     // POST /api/billing/estimate-price - Estimate price with user's tier
-    this.app.use('/api/billing', requireJWT as any, createBillingRoutes(this.billingService, this.userPreferencesService, this.pricingService));
+    this.app.use('/api/billing', requireJWT as any, createBillingRoutes(this.billing.billingService, this.billing.userPreferencesService, this.billing.pricingService));
+
+    // B2B Invoice routes - bank transfer invoicing for legal entities
+    this.app.use('/api/b2b-invoices', requireJWT as any, createB2BInvoiceRoutes(this.billing.b2bInvoiceService, this.billing.billingService, this.billing.subscriptionService, this.services.db));
 
     // Team management routes
     // GET /api/team/members - Get team members
@@ -2433,15 +438,20 @@ class HTTPMCPServer {
     this.app.use('/api/team', requireJWT as any, createTeamRoutes(teamService));
 
     // Conversation routes - server-side chat persistence
-    this.app.use('/api/conversations', requireJWT as any, createConversationRouter(this.conversationService));
-    logger.info('Conversation routes registered at /api/conversations');
+    this.app.use('/api/conversations', requireJWT as any, createConversationRouter(this.app_.conversationService));
+    this.app.use('/api/conversations', requireJWT as any, createEvidenceRoutes(this.app_.evidenceService));
+    logger.info('Conversation and evidence routes registered at /api/conversations');
+
+    // EDRSR direct access routes
+    this.app.use('/api/edrsr', requireJWT as any, createEdsrRoutes(this.services.db));
+    logger.info('EDRSR routes registered at /api/edrsr');
 
     // Blog comments - GET is public, POST/DELETE require JWT (checked inside handler)
     this.app.use('/api/blog', optionalJWT as any, createBlogCommentsRouter(this.services.db.getPool()));
     logger.info('Blog comments routes registered at /api/blog/comments');
 
     // GDPR routes - data export and deletion
-    this.app.use('/api/gdpr', requireJWT as any, createGdprRouter(this.gdprService));
+    this.app.use('/api/gdpr', requireJWT as any, createGdprRouter(this.app_.gdprService));
     logger.info('GDPR routes registered at /api/gdpr');
 
     // Upload routes - chunked file upload with MinIO storage
@@ -2452,28 +462,28 @@ class HTTPMCPServer {
     // DELETE /api/upload/:uploadId - Cancel
     // GET /api/upload/active - List active sessions
     this.app.use('/api/upload', requireJWT as any, createUploadRouter(
-      this.uploadService,
-      this.minioService,
-      this.vaultTools,
+      this.tools.uploadService,
+      this.tools.minioService,
+      this.tools.vaultTools,
       this.services.db,
-      this.uploadQueueService,
+      this.app_.uploadQueueService,
       this.services.documentService
     ));
     logger.info('Upload routes registered at /api/upload');
 
     // Client-Matter segregation routes (matters, clients, legal holds, audit)
     this.app.use('/api/matters', requireJWT as any, createMatterRoutes(
-      this.matterService, this.conflictCheckService, this.legalHoldService, this.auditService,
-      this.services.db, this.llmAdapter
+      this.app_.matterService, this.app_.conflictCheckService, this.app_.legalHoldService, this.app_.auditService,
+      this.services.db, this.app_.llmAdapter
     ));
     logger.info('Matter routes registered at /api/matters');
 
     // Contract acceptance routes
-    this.app.use('/api/contracts', requireJWT as any, createContractRoutes(this.contractService));
+    this.app.use('/api/contracts', requireJWT as any, createContractRoutes(this.app_.contractService));
     logger.info('Contract routes registered at /api/contracts');
 
     // Referral system routes
-    this.app.use('/api/referral', createReferralRoutes(this.referralService));
+    this.app.use('/api/referral', createReferralRoutes(this.billing.referralService));
     logger.info('Referral routes registered at /api/referral');
 
     // Judges routes - search judges from VKKS data
@@ -2489,6 +499,11 @@ class HTTPMCPServer {
     this.app.use('/api/decisions', requireJWT as any, createDecisionsRoutes(this.services.reyestrDownloadService));
     logger.info('Decisions routes registered at /api/decisions');
 
+    // News article routes - fetch KMU articles with AI analysis
+    const newsArticleService = new NewsArticleService(this.services.db);
+    this.app.use('/api/news', requireJWT as any, createNewsRoutes(newsArticleService));
+    logger.info('News article routes registered at /api/news');
+
     // ERAU proxy - Ukrainian Bar Registry (public, no auth required)
     const erauCacheService = new ERAUCacheService(this.services.db);
     this.app.use('/api/erau', optionalJWT as any, createERAUProxyRoutes(erauCacheService, this.services.db));
@@ -2502,24 +517,41 @@ class HTTPMCPServer {
     // Workflow routes - workflow sets, workflow execution, cancellation
     // IMPORTANT: Use specific prefixes, NOT '/api' — a catch-all '/api' prefix with requireJWT
     // would block API key auth for all /api/* routes (including /api/tools with dualAuth)
-    this.app.use('/api/workflow-sets', requireJWT as any, createWorkflowRoutes(this.workflowService, this.workflowExecutorService));
-    this.app.use('/api/workflows', requireJWT as any, createWorkflowRoutes(this.workflowService, this.workflowExecutorService));
+    this.app.use('/api/workflow-sets', requireJWT as any, createWorkflowSetRoutes(this.app_.workflowService));
+    this.app.use('/api/workflows', requireJWT as any, createWorkflowRoutes(this.app_.workflowService, this.app_.workflowExecutorService));
     logger.info('Workflow routes registered at /api/workflow-sets, /api/workflows');
 
     // Time tracking and billing routes
-    this.app.use('/api/time', requireJWT as any, createTimeEntryRoutes(this.timeEntryService));
+    this.app.use('/api/time', requireJWT as any, createTimeEntryRoutes(this.app_.timeEntryService));
     logger.info('Time tracking routes registered at /api/time');
 
-    this.app.use('/api/invoicing', requireJWT as any, createInvoiceRoutes(this.matterInvoiceService));
+    this.app.use('/api/invoicing', requireJWT as any, createInvoiceRoutes(this.app_.matterInvoiceService));
     logger.info('Invoicing routes registered at /api/invoicing');
 
     // Attorney routes - search is public (optionalJWT), profile management requires JWT
-    this.app.use('/api/attorneys', optionalJWT as any, createAttorneyRoutes(this.attorneyProfileService));
+    this.app.use('/api/attorneys', optionalJWT as any, createAttorneyRoutes(this.app_.attorneyProfileService));
     logger.info('Attorney routes registered at /api/attorneys');
 
+    // E2EE encryption key management routes - all require JWT
+    this.app.use('/api/encryption', requireJWT as any, createEncryptionRoutes(this.billing.encryptionKeyService, this.services.db));
+    logger.info('Encryption routes registered at /api/encryption');
+
     // Consultation routes - all require JWT
-    this.app.use('/api/consultations', requireJWT as any, createConsultationRoutes(
-      this.consultationService, this.consultationPaymentService
+    // SSE endpoints use query param token (EventSource API doesn't support custom headers)
+    this.app.use('/api/consultations', ((req: any, _res: any, next: any) => {
+      if (!req.headers.authorization && req.query.token) {
+        req.headers.authorization = `Bearer ${req.query.token}`;
+      }
+      next();
+    }) as any, requireJWT as any, createConsultationRoutes(
+      this.app_.consultationService,
+      this.app_.consultationPaymentService,
+      this.app_.attorneyPayoutService,
+      this.services.db,
+      (type, delta) => {
+        this.app_.metricsService.sseActiveConnections.inc({ type }, delta);
+      },
+      this.tools.minioService
     ));
     logger.info('Consultation routes registered at /api/consultations');
 
@@ -2538,12 +570,12 @@ class HTTPMCPServer {
     // GET /api/admin/analytics/usage - Usage analytics
     // GET /api/admin/api-keys - List API keys
     // GET /api/admin/settings - Get system settings
-    this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billingService, this.userPreferencesService, this.prometheusService, this.pricingService, this.subscriptionService, this.configService));
+    this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billing.billingService, this.billing.userPreferencesService, this.billing.prometheusService, this.billing.pricingService, this.billing.subscriptionService, this.app_.configService, this.app_.auditService));
 
     // Upload metrics endpoint (admin)
     this.app.get('/api/admin/upload-metrics', requireJWT as any, (async (_req: DualAuthRequest, res: express.Response) => {
       try {
-        const queueMetrics = await this.uploadQueueService.getMetrics();
+        const queueMetrics = await this.app_.uploadQueueService.getMetrics();
         const processingMetrics = getUploadProcessingMetrics();
         res.json({
           queue: queueMetrics,
@@ -2551,6 +583,28 @@ class HTTPMCPServer {
         });
       } catch (error: any) {
         logger.error('[Admin] Upload metrics failed', { error: error.message });
+        res.status(500).json({ error: error.message });
+      }
+    }) as any);
+
+    // EDRSR vectorization status endpoint (admin)
+    this.app.get('/api/admin/edrsr-vectorization-status', requireJWT as any, (async (_req: DualAuthRequest, res: express.Response) => {
+      try {
+        const preVectorizer = (this as any)._preVectorizer;
+        if (!preVectorizer) {
+          return res.json({ status: 'not_configured', message: 'Pre-vectorizer not running (VOYAGEAI_API_KEY missing or Redis unavailable)' });
+        }
+        const workerStatus = await preVectorizer.getStatus();
+
+        // Also get Qdrant collection stats
+        let qdrantStats = null;
+        if (this.tools.edsrVectorizer) {
+          qdrantStats = await this.tools.edsrVectorizer.getVectorizationStats();
+        }
+
+        res.json({ worker: workerStatus, qdrant: qdrantStats });
+      } catch (error: any) {
+        logger.error('[Admin] EDRSR vectorization status failed', { error: error.message });
         res.status(500).json({ error: error.message });
       }
     }) as any);
@@ -2577,57 +631,6 @@ class HTTPMCPServer {
     // POST /api/templates/metrics/aggregate - Aggregate metrics (admin)
     this.app.use('/api/templates', requireJWT as any, createTemplateRoutes(this.services.db));
 
-    // ============ Legislation listing endpoint ============
-    this.app.get('/api/legislation', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
-        const offset = parseInt(req.query.offset as string) || 0;
-        const search = (req.query.search as string) || undefined;
-
-        const legislationService = this.services.legislationTools.getLegislationService();
-        const result = await legislationService.listLegislation(limit, offset, search);
-
-        res.json(result);
-      } catch (error: any) {
-        logger.error('Error listing legislation:', error.message);
-        res.status(500).json({ error: 'Failed to list legislation' });
-      }
-    }) as any);
-
-    this.app.get('/api/legislation/:radaId/structure', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const radaId = req.params.radaId as string;
-        const legislationService = this.services.legislationTools.getLegislationService();
-        const structure = await legislationService.getLegislationStructure(radaId);
-
-        if (!structure) {
-          return res.status(404).json({ error: 'Legislation not found' });
-        }
-
-        res.json(structure);
-      } catch (error: any) {
-        logger.error('Error getting legislation structure:', error.message);
-        res.status(500).json({ error: 'Failed to get legislation structure' });
-      }
-    }) as any);
-
-    this.app.get('/api/legislation/:radaId/article/:articleNumber', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const radaId = req.params.radaId as string;
-        const articleNumber = req.params.articleNumber as string;
-        const legislationService = this.services.legislationTools.getLegislationService();
-        const article = await legislationService.getArticle(radaId, articleNumber);
-
-        if (!article) {
-          return res.status(404).json({ error: 'Article not found' });
-        }
-
-        res.json(article);
-      } catch (error: any) {
-        logger.error('Error getting legislation article:', error.message);
-        res.status(500).json({ error: 'Failed to get article' });
-      }
-    }) as any);
 
     // ============ KMU RSS Proxy ============
     // GET /api/proxy/kmu-rss - Proxy KMU government news RSS feed via headless browser (bypasses Radware bot protection)
@@ -2702,456 +705,32 @@ class HTTPMCPServer {
     }) as any);
     logger.info('KMU RSS Proxy endpoint registered at GET /api/proxy/kmu-rss');
 
-    // ============ Chat Plan Review endpoint ============
-    // POST /api/chat/plan - Returns execution plan for user review before running
-    this.app.post('/api/chat/plan', chatRateLimit as any, requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      const userId = req.user?.id;
-      const requestId = `plan-${uuidv4()}`;
-
-      try {
-        const { query, budget } = req.body;
-
-        if (!query || typeof query !== 'string') {
-          return res.status(400).json({ error: 'query is required' });
-        }
-
-        const result = await this.chatService.generatePlanForReview(
-          query,
-          budget || 'standard',
-          userId,
-          requestId
-        );
-
-        if (!result) {
-          return res.json({ plan: null, planSessionId: null, message: 'Simple query — no plan needed' });
-        }
-
-        res.json({
-          plan: result.plan,
-          planSessionId: result.planSessionId,
-        });
-      } catch (error: any) {
-        logger.error('[ChatPlan] Endpoint error', { error: error.message, requestId });
-        res.status(500).json({ error: 'Plan generation failed', message: error.message });
-      }
-    }) as any);
-    logger.info('Chat Plan Review endpoint registered at POST /api/chat/plan');
-
-    // ============ AI Chat endpoint (agentic LLM loop with SSE) ============
-    // POST /api/chat - Streams thinking steps, tool results, and final answer
-    this.app.post('/api/chat', chatRateLimit as any, requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      const userId = req.user?.id;
-      const requestId = `chat-${uuidv4()}`;
-
-      try {
-        const { query, history, budget, conversationId, approvedPlan, planSessionId } = req.body;
-
-        if (!query || typeof query !== 'string') {
-          return res.status(400).json({ error: 'query is required' });
-        }
-
-        // Set SSE headers EARLY — before balance check — so client gets first byte faster
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache, no-transform');
-        res.setHeader('Connection', 'keep-alive');
-        res.setHeader('X-Accel-Buffering', 'no');
-
-        // Emit response_id as the very first SSE event for request traceability
-        res.write(`event: response_id\n`);
-        res.write(`data: ${JSON.stringify({ response_id: requestId })}\n\n`);
-
-        // Pre-flight balance check — use BillingService (USD-based)
-        // Now runs AFTER SSE is established; failures sent as SSE error events
-        if (userId) {
-          const billing = await this.billingService.getOrCreateUserBilling(userId);
-          if (billing.billing_enabled) {
-            const estimatedCost = await this.costTracker.estimateCost({
-              toolName: 'ai_chat',
-              queryLength: JSON.stringify(req.body).length,
-              reasoningBudget: (budget || 'standard') as 'quick' | 'standard' | 'deep',
-            });
-            const balanceCheck = await this.billingService.checkBalance(userId, estimatedCost.total_estimated_cost_usd);
-            if (!balanceCheck.hasBalance) {
-              res.write(`event: error\n`);
-              res.write(`data: ${JSON.stringify({
-                error: 'Insufficient balance',
-                message: `Недостатньо коштів на балансі. Поточний баланс: $${balanceCheck.currentBalance.toFixed(2)}. Поповніть баланс для продовження роботи.`,
-                code: 'INSUFFICIENT_BALANCE',
-                required_usd: estimatedCost.total_estimated_cost_usd,
-                current_balance_usd: balanceCheck.currentBalance,
-              })}\n\n`);
-              res.end();
-              return;
-            }
-          }
-        }
-
-        // Abort controller for cancellation propagation
-        const abortController = new AbortController();
-
-        // SSE heartbeat to prevent proxy timeouts during long tool calls
-        const heartbeat = setInterval(() => {
-          if (!res.writableEnded) res.write(': heartbeat\n\n');
-        }, 15000);
-
-        req.on('close', () => {
-          clearInterval(heartbeat);
-          abortController.abort();
-        });
-
-        let chatCompleted = false;
-        let chatTotalCostUsd = 0;
-        const chatRequest = {
-            query,
-            history,
-            budget: (budget || 'standard') as 'quick' | 'standard' | 'deep',
-            conversationId,
-            userId,
-            requestId,
-            signal: abortController.signal,
-            approvedPlan,
-            planSessionId,
-        };
-        try {
-          for await (const event of this.chatService.chat(chatRequest)) {
-            if (abortController.signal.aborted) break;
-
-            if (event.type === 'complete') {
-              chatCompleted = true;
-              chatTotalCostUsd = event.data?.total_cost_usd || 0;
-              event.data.response_id = requestId;
-              // Include auto-created conversationId so the client can track it
-              if (chatRequest.conversationId && chatRequest.conversationId !== conversationId) {
-                event.data.conversationId = chatRequest.conversationId;
-              }
-            }
-
-            res.write(`event: ${event.type}\n`);
-            res.write(`data: ${JSON.stringify(event.data)}\n\n`);
-          }
-        } finally {
-          clearInterval(heartbeat);
-        }
-
-        // Emit cost_summary SSE event — billing was already handled by CostTracker.onTrackingComplete()
-        if (chatCompleted && userId && chatTotalCostUsd > 0 && !res.writableEnded) {
-          try {
-            const [summary, trackingRow] = await Promise.all([
-              this.billingService.getBillingSummary(userId),
-              // chargeUser() already updated total_cost_usd to the marked-up amount
-              this.services.db.query(
-                'SELECT total_cost_usd, markup_percentage FROM cost_tracking WHERE request_id = $1',
-                [requestId]
-              ),
-            ]);
-            const chargedUsd = trackingRow.rows[0]?.total_cost_usd
-              ? parseFloat(trackingRow.rows[0].total_cost_usd)
-              : chatTotalCostUsd;
-            const costSummaryFull = {
-              total_cost_usd: chatTotalCostUsd,
-              charged_usd: chargedUsd,
-              balance_usd: summary?.balance_usd ?? 0,
-              response_id: requestId,
-            };
-            res.write(`event: cost_summary\n`);
-            res.write(`data: ${JSON.stringify({
-              ...costSummaryFull,
-              markup_percentage: trackingRow.rows[0]?.markup_percentage ?? 0,
-            })}\n\n`);
-
-            // Persist charged_usd back to conversation_messages so reload shows correct cost
-            if (conversationId) {
-              this.services.db.query(
-                `UPDATE conversation_messages SET cost_summary = $1
-                 WHERE id = (
-                   SELECT id FROM conversation_messages
-                   WHERE conversation_id = $2 AND role = 'assistant'
-                   ORDER BY created_at DESC LIMIT 1
-                 )`,
-                [JSON.stringify(costSummaryFull), conversationId]
-              ).catch(e => logger.warn('[ChatService] Failed to persist charged_usd', { error: e.message }));
-            }
-          } catch (e: any) {
-            logger.warn('[ChatService] Failed to emit cost_summary', { error: e.message, requestId });
-          }
-        }
-
-        if (!res.writableEnded) {
-          res.end();
-        }
-      } catch (error: any) {
-        logger.error('[ChatService] Endpoint error', { error: error.message, requestId });
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Chat failed', message: error.message });
-        } else if (!res.writableEnded) {
-          res.write(`event: error\n`);
-          res.write(`data: ${JSON.stringify({ message: error.message })}\n\n`);
-          res.end();
-        }
-      }
-    }) as any);
-    logger.info('AI Chat endpoint registered at POST /api/chat');
+    // Chat routes (plan review + AI chat with SSE streaming)
+    this.app.use('/api/chat', requireJWT as any, createChatInlineRoutes({
+      chatService: this.app_.chatService,
+      billingService: this.billing.billingService,
+      costTracker: this.billing.costTracker,
+      db: this.services.db,
+    }));
+    logger.info('Chat routes registered at /api/chat');
 
 
-    // Query history endpoint - require JWT (user login)
-    this.app.get('/api/history', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user!.id;
-        const limit = parseInt(req.query.limit as string) || 50;
-        const offset = parseInt(req.query.offset as string) || 0;
-
-        // Get user's query history from cost_tracking (filtered by user_id)
-        const result = await this.services.db.query(
-          `SELECT
-            id,
-            request_id,
-            tool_name,
-            user_query,
-            query_params,
-            status,
-            created_at,
-            completed_at,
-            execution_time_ms,
-            total_cost_usd
-          FROM cost_tracking
-          WHERE user_id = $1
-            AND status IN ('completed', 'failed')
-            AND user_query IS NOT NULL
-            AND user_query != ''
-          ORDER BY created_at DESC
-          LIMIT $2 OFFSET $3`,
-          [userId, limit, offset]
-        );
-
-        // Get total count
-        const countResult = await this.services.db.query(
-          `SELECT COUNT(*)
-          FROM cost_tracking
-          WHERE user_id = $1
-            AND status IN ('completed', 'failed')
-            AND user_query IS NOT NULL
-            AND user_query != ''`,
-          [userId]
-        );
-
-        res.json({
-          history: result.rows,
-          total: parseInt(countResult.rows[0].count),
-          limit,
-          offset,
-        });
-      } catch (error: any) {
-        logger.error('Error getting query history:', error);
-        res.status(500).json({
-          error: 'Failed to get query history',
-          message: error.message,
-        });
-      }
-    }) as any);
 
     // MCP tool endpoints - versioned API (v1)
     // Mount at /api/v1/tools (canonical) and /api/tools (backward compat alias)
-    const toolRouter = this.createToolRouter();
+    const toolRouter = createToolExecutionRoutes({
+      toolRegistry: this.tools.toolRegistry,
+      serviceProxy: this.tools.serviceProxy,
+      billingService: this.billing.billingService,
+      costTracker: this.billing.costTracker,
+      creditService: this.billing.creditService,
+      batchDocumentTools: this.tools.batchDocumentTools,
+    });
     this.app.use('/api/v1/tools', toolRouter);
     this.app.use('/api/tools', toolRouter);
     logger.info('Tool routes registered at /api/v1/tools and /api/tools (backward compat)');
 
 
-    // Internal service-to-service endpoint for DB stats (used by local→stage db-compare)
-    // Accepts API key auth (dualAuth) so the local backend can call stage without a JWT
-    this.app.get('/api/internal/db-stats', dualAuth as any, (async (_req: DualAuthRequest, res: Response) => {
-      const tableList = [
-        'documents', 'document_sections', 'legislation', 'legislation_articles',
-        'legislation_chunks', 'users', 'conversations', 'upload_sessions', 'zo_dictionaries',
-      ];
-      const openreyestrUrl = process.env.OPENREYESTR_MCP_URL || 'http://openreyestr-app-local:3004';
-      const openreyestrKey = process.env.OPENREYESTR_API_KEY || 'test-key-123';
-      const radaUrl = process.env.RADA_MCP_URL || 'http://rada-mcp-app-local:3001';
-      const radaKey = process.env.RADA_API_KEY || 'test-key-123';
-
-      async function fetchServiceStats(baseUrl: string, apiKey: string) {
-        try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 15000);
-          const resp = await fetch(`${baseUrl}/api/stats`, {
-            headers: { 'x-api-key': apiKey },
-            signal: controller.signal,
-          });
-          clearTimeout(timer);
-          return await resp.json();
-        } catch {
-          return null;
-        }
-      }
-
-      try {
-        const mainTables: Record<string, number> = {};
-        for (const t of tableList) {
-          try {
-            const r = await this.services.db.query(`SELECT COUNT(*) as cnt FROM ${t}`);
-            mainTables[t] = parseInt(r.rows[0]?.cnt || '0');
-          } catch {
-            mainTables[t] = -1;
-          }
-        }
-        const [openreyestrStats, radaStats] = await Promise.all([
-          fetchServiceStats(openreyestrUrl, openreyestrKey),
-          fetchServiceStats(radaUrl, radaKey),
-        ]);
-        res.json({
-          local: {
-            openreyestr: openreyestrStats,
-            rada: radaStats,
-            main: mainTables,
-            timestamp: new Date().toISOString(),
-          },
-        });
-      } catch (error: any) {
-        res.status(500).json({ error: 'Failed to collect db stats' });
-      }
-    }) as any);
-
-    // Internal EDRSR stats endpoint (used by pg-monitoring cross-env queries)
-    this.app.get('/api/internal/edrsr-stats', dualAuth as any, (async (_req: DualAuthRequest, res: Response) => {
-      try {
-        // Check if tables exist
-        const tablesExist = await this.services.db.query(`
-          SELECT
-            EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='edrsr_documents') AS has_docs,
-            EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='edrsr_fulltext') AS has_ft
-        `);
-        const { has_docs, has_ft } = tablesExist.rows[0];
-
-        let edrsrByYear: Array<{ year: number | null; total: number; with_fulltext: number }> = [];
-
-        if (has_docs && has_ft) {
-          const result = await this.services.db.query(`
-            SELECT
-              EXTRACT(YEAR FROM e.adjudication_date)::int AS year,
-              COUNT(*)::int AS total,
-              COUNT(f.doc_id)::int AS with_fulltext
-            FROM edrsr_documents e
-            LEFT JOIN edrsr_fulltext f ON f.doc_id = e.doc_id
-            GROUP BY year
-            ORDER BY year NULLS LAST
-          `);
-          edrsrByYear = result.rows;
-        } else if (has_docs) {
-          const result = await this.services.db.query(`
-            SELECT
-              EXTRACT(YEAR FROM adjudication_date)::int AS year,
-              COUNT(*)::int AS total,
-              0 AS with_fulltext
-            FROM edrsr_documents
-            GROUP BY year
-            ORDER BY year NULLS LAST
-          `);
-          edrsrByYear = result.rows;
-        }
-
-        // Also get standalone fulltext records not in edrsr_documents
-        let standaloneFulltext = 0;
-        if (has_ft) {
-          const ftOnly = await this.services.db.query(`
-            SELECT COUNT(*)::int AS cnt FROM edrsr_fulltext f
-            WHERE NOT EXISTS (SELECT 1 FROM edrsr_documents e WHERE e.doc_id = f.doc_id)
-          `);
-          standaloneFulltext = ftOnly.rows[0]?.cnt || 0;
-        }
-
-        // Get total counts
-        let totalDocs = 0;
-        let totalFulltext = 0;
-        if (has_docs) {
-          const r = await this.services.db.query('SELECT COUNT(*)::int AS cnt FROM edrsr_documents');
-          totalDocs = r.rows[0]?.cnt || 0;
-        }
-        if (has_ft) {
-          const r = await this.services.db.query('SELECT COUNT(*)::int AS cnt FROM edrsr_fulltext');
-          totalFulltext = r.rows[0]?.cnt || 0;
-        }
-
-        res.json({
-          byYear: edrsrByYear,
-          totalDocuments: totalDocs,
-          totalFulltext: totalFulltext,
-          standaloneFulltext,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (error: any) {
-        logger.error('internal/edrsr-stats failed', { error: error.message });
-        res.status(500).json({ error: 'Failed to collect EDRSR stats' });
-      }
-    }) as any);
-
-    // User prompts (save/load)
-    this.app.get('/api/prompts', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user?.id;
-        const result = await this.services.db.query(
-          'SELECT id, name, content, is_favorite, created_at FROM user_prompts WHERE user_id = $1 ORDER BY is_favorite DESC, created_at DESC',
-          [userId]
-        );
-        res.json({ prompts: result.rows });
-      } catch (error: any) {
-        logger.error('Failed to list prompts:', error);
-        res.status(500).json({ error: 'Failed to list prompts' });
-      }
-    }) as any);
-
-    this.app.post('/api/prompts', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user?.id;
-        const { name, content } = req.body;
-        if (!name || !content) {
-          return res.status(400).json({ error: 'name and content are required' });
-        }
-        const result = await this.services.db.query(
-          'INSERT INTO user_prompts (user_id, name, content) VALUES ($1, $2, $3) RETURNING id, name, content, created_at',
-          [userId, name.trim(), content.trim()]
-        );
-        res.status(201).json({ prompt: result.rows[0] });
-      } catch (error: any) {
-        logger.error('Failed to save prompt:', error);
-        res.status(500).json({ error: 'Failed to save prompt' });
-      }
-    }) as any);
-
-    this.app.patch('/api/prompts/:id/favorite', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user?.id;
-        const { id } = req.params;
-        const result = await this.services.db.query(
-          'UPDATE user_prompts SET is_favorite = NOT is_favorite WHERE id = $1 AND user_id = $2 RETURNING id, is_favorite',
-          [id, userId]
-        );
-        if (result.rowCount === 0) {
-          return res.status(404).json({ error: 'Prompt not found' });
-        }
-        res.json({ prompt: result.rows[0] });
-      } catch (error: any) {
-        logger.error('Failed to toggle favorite:', error);
-        res.status(500).json({ error: 'Failed to toggle favorite' });
-      }
-    }) as any);
-
-    this.app.delete('/api/prompts/:id', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
-      try {
-        const userId = req.user?.id;
-        const { id } = req.params;
-        const result = await this.services.db.query(
-          'DELETE FROM user_prompts WHERE id = $1 AND user_id = $2 RETURNING id',
-          [id, userId]
-        );
-        if (result.rowCount === 0) {
-          return res.status(404).json({ error: 'Prompt not found' });
-        }
-        res.json({ success: true });
-      } catch (error: any) {
-        logger.error('Failed to delete prompt:', error);
-        res.status(500).json({ error: 'Failed to delete prompt' });
-      }
-    }) as any);
 
     // 404 handler
     this.app.use((req, res) => {
@@ -3175,7 +754,19 @@ class HTTPMCPServer {
     try {
       await this.services.db.connect();
       await this.services.embeddingService.initialize();
-      await this.documentParser.initialize();
+      await this.tools.documentParser.initialize();
+
+      // Initialize Redis-backed consultation message bus (falls back to in-memory)
+      const { createConsultationMessageBus, getConsultationMessageBus } = await import('./services/consultation-message-bus.js');
+      await createConsultationMessageBus();
+
+      // Wire message bus metrics
+      const bus = getConsultationMessageBus();
+      if (bus.setMetricsCallback) {
+        bus.setMetricsCallback((channel) => {
+          this.app_.metricsService.consultationBusMessages.inc({ channel });
+        });
+      }
 
       // Initialize Redis cache for services (optional)
       const redis = await getRedisClient();
@@ -3188,11 +779,25 @@ class HTTPMCPServer {
         this.services.zoLegalActsAdapter.setCachePort(cache);
         this.services.zoECHRAdapter.setCachePort(cache);
         this.services.shepardizationService.setCachePort(cache);
-        this.chatSearchCache.setCachePort(cache);
+        this.app_.chatSearchCache.setCachePort(cache);
+        this.app_.evidenceService.setCachePort(cache);
         setAuthCache(cache);
         setOidcCache(cache);
         setRateLimitCache(cache);
         setUploadRateLimitCache(cache);
+        // EDRSR cache service (fulltext, metadata, FTS results)
+        const { EdsrCacheService } = await import('./services/edrsr-cache-service.js');
+        const edsrCache = new EdsrCacheService(cache);
+        edsrCache.setMetricsCallback((operation, result) => {
+          this.app_.metricsService.edsrCacheOps.inc({ operation, result });
+        });
+        if (this.tools.edsrFtsService) {
+          this.tools.edsrFtsService.setEdsrCache(edsrCache);
+        }
+
+        // EDRSR pre-vectorization disabled — vectorization happens on-demand only
+        // (background worker was too expensive for 110M+ documents)
+
         logger.info('Redis connected - caching enabled for all services');
       } else {
         logger.info('Redis not available - services will work without caching');
@@ -3200,26 +805,27 @@ class HTTPMCPServer {
 
       // Cleanup expired upload sessions every hour
       setInterval(() => {
-        this.uploadService.cleanupExpired().catch((err) => {
+        this.tools.uploadService.cleanupExpired().catch((err) => {
           logger.error('Upload cleanup failed', { error: err.message });
         });
       }, 60 * 60 * 1000);
 
       // Cleanup stale pending/uploading sessions every 5 minutes
       setInterval(() => {
-        this.uploadService.cleanupStale(30).catch((err) => {
+        this.tools.uploadService.cleanupStale(30).catch((err) => {
           logger.error('Upload stale cleanup failed', { error: err.message });
         });
       }, 5 * 60 * 1000);
       // Run once on startup too
-      this.uploadService.cleanupStale(30).catch((err) => {
+      this.tools.uploadService.cleanupStale(30).catch((err) => {
         logger.error('Upload stale cleanup on startup failed', { error: err.message });
       });
 
       // Start upload recovery service (30s delay, then every 5 min)
-      this.uploadRecoveryService.start();
+      this.app_.uploadRecoveryService.start();
       logger.info('Upload recovery service started');
 
+      (this as any)._initialized = true;
       logger.info('HTTP MCP Server services initialized');
     } catch (error) {
       logger.error('Failed to initialize server:', error);
@@ -3227,165 +833,7 @@ class HTTPMCPServer {
     }
   }
 
-  private async handleStreamingProxyCall(
-    _req: DualAuthRequest,
-    res: Response,
-    service: ServiceType,
-    serviceName: string,
-    args: any,
-    requestId: string
-  ): Promise<void> {
-    // Validate service is not backend
-    if (service === 'backend') {
-      throw new Error('Cannot proxy backend service');
-    }
-    // Set SSE headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-
-    try {
-      logger.info('[Gateway SSE] Proxying stream from remote service', {
-        requestId,
-        service,
-        tool: serviceName,
-      });
-
-      // Get remote service stream
-      const stream = await this.serviceProxy.callRemoteService({
-        service,
-        serviceName,
-        args,
-        requestId,
-        acceptHeader: 'text/event-stream',
-      });
-
-      // Forward SSE events from remote service to client
-      stream.on('data', (chunk: Buffer) => {
-        res.write(chunk);
-      });
-
-      stream.on('end', () => {
-        logger.info('[Gateway SSE] Stream completed', { requestId, service });
-        res.end();
-      });
-
-      stream.on('error', (error: Error) => {
-        logger.error('[Gateway SSE] Stream error', {
-          requestId,
-          service,
-          error: error.message,
-        });
-        res.write(`event: error\n`);
-        res.write(`data: ${JSON.stringify({ message: error.message })}\n\n`);
-        res.end();
-      });
-    } catch (error: any) {
-      logger.error('[Gateway SSE] Proxy failed', {
-        requestId,
-        service,
-        error: error.message,
-      });
-
-      // Send error event
-      res.write(`event: error\n`);
-      res.write(`data: ${JSON.stringify({ message: error.message })}\n\n`);
-      res.end();
-    }
-  }
-
-  private async handleStreamingToolCall(
-    _req: DualAuthRequest,
-    res: Response,
-    toolName: string,
-    args: any
-  ): Promise<void> {
-    // Set SSE headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
-
-    // Send initial connection event
-    this.sendSSEEvent(res, {
-      type: 'connected',
-      data: { tool: toolName, timestamp: new Date().toISOString() },
-      id: 'connection',
-    });
-
-    try {
-      // Streaming support for different tools
-      if (this.toolRegistry.supportsStreaming(toolName)) {
-        await this.toolRegistry.executeToolStream(toolName, args, (event: any) => {
-          this.sendSSEEvent(res, event);
-        });
-      } else if (toolName === 'batch_process_documents') {
-        // Batch document processing with real-time progress
-        await this.batchDocumentTools.processBatch(args, (event) => {
-          this.sendSSEEvent(res, event);
-        });
-      } else {
-        // For other tools, stream the regular result
-        const result = await this.toolRegistry.executeTool(toolName, args);
-        if (result === null || result === undefined) {
-          this.sendSSEEvent(res, {
-            type: 'error',
-            data: { message: `No handler registered for tool: ${toolName}` },
-            id: 'error',
-          });
-        } else {
-          this.sendSSEEvent(res, {
-            type: 'progress',
-            data: { message: 'Processing...', progress: 0.5 },
-            id: 'processing',
-          });
-          this.sendSSEEvent(res, {
-            type: 'complete',
-            data: result,
-            id: 'final',
-          });
-        }
-      }
-    } catch (error: any) {
-      this.sendSSEEvent(res, {
-        type: 'error',
-        data: {
-          message: error.message,
-          error: error.toString(),
-        },
-        id: 'error',
-      });
-    } finally {
-      // Send end event and close connection
-      this.sendSSEEvent(res, {
-        type: 'end',
-        data: { message: 'Stream completed' },
-        id: 'end',
-      });
-      res.end();
-    }
-  }
-
-  private sendSSEEvent(res: Response, event: {
-    type: string;
-    data: any;
-    id?: string;
-  }): void {
-    try {
-      if (event.id) {
-        res.write(`id: ${event.id}\n`);
-      }
-      res.write(`event: ${event.type}\n`);
-      res.write(`data: ${JSON.stringify(event.data)}\n\n`);
-    } catch (error) {
-      logger.error('Error sending SSE event:', error);
-    }
-  }
-
   async start() {
-    await this.initialize();
-
     const port = parseInt(process.env.HTTP_PORT || '3000', 10);
     const host = process.env.HTTP_HOST || '0.0.0.0';
 
@@ -3394,31 +842,13 @@ class HTTPMCPServer {
     // Attach admin terminal WebSocket
     attachTerminalWebSocket(httpServer, this.services.db);
 
-    httpServer.listen(port, host, () => {
-      logger.info(`HTTP MCP Server started on http://${host}:${port}`);
-      logger.info('Available endpoints:');
-      logger.info('  GET  /health - Health check');
-      logger.info('  GET  /mcp - MCP server info and capabilities');
-      logger.info('  POST /sse - MCP SSE endpoint for ChatGPT web');
-      logger.info('  GET  /api/tools - List available tools');
-      logger.info('  POST /api/tools/:toolName - Call a tool (JSON or SSE)');
-      logger.info('  POST /api/tools/:toolName/stream - Stream tool execution (SSE)');
-      logger.info('  POST /api/tools/batch - Batch tool calls');
-      logger.info('  WS   /api/admin/terminal - Admin bash terminal');
-      logger.info('');
-      logger.info('ChatGPT Web Integration:');
-      logger.info('  - MCP Server URL: https://mcp.legal.org.ua/sse');
-      logger.info('  - Discovery: https://mcp.legal.org.ua/mcp');
-      logger.info('  - Protocol: MCP over SSE (Model Context Protocol)');
-      logger.info('');
-      logger.info('SSE Streaming:');
-      logger.info('  - Add Accept: text/event-stream header for streaming');
-      logger.info('  - Or use /api/tools/:toolName/stream endpoint');
-      logger.info('  - Tools with streaming support are auto-detected');
-      logger.info('');
-      logger.info('Authentication: Use Authorization header with Bearer token');
-      logger.info('  Example: Authorization: Bearer <SECONDARY_LAYER_KEY>');
-    });
+    // Listen BEFORE initialize so healthcheck responds during slow startup
+    await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));
+    logger.info(`HTTP server listening on http://${host}:${port} (initializing services...)`);
+
+    this.initialize()
+      .then(() => logger.info(`HTTP MCP Server fully initialized on http://${host}:${port}`))
+      .catch((error) => logger.error('Failed to initialize services:', error));
   }
 }
 

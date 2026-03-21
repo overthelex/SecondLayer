@@ -55,7 +55,13 @@ export class EdsrSearchTools extends BaseToolHandler {
             },
             category_code: {
               type: 'number',
-              description: 'Код категорії справи (з таблиці edrsr_cause_categories)',
+              description: `Код категорії справи (з таблиці edrsr_cause_categories).
+Найважливіші категорії для військових справ:
+  40851=Самовільне залишення частини, 40852=Дезертирство, 40846=Непокора,
+  40847=Невиконання наказу, 40752=Ухилення від мобілізації,
+  40853=Ухилення (самокалічення), 40867=Недбале ставлення,
+  40869=Перевищення влади, 40875=Мародерство,
+  40845=Військові кримінальні правопорушення (загальна)`,
             },
             date_from: {
               type: 'string',
@@ -84,6 +90,21 @@ export class EdsrSearchTools extends BaseToolHandler {
               type: 'number',
               default: 0,
               description: 'Зміщення для пагінації',
+            },
+            military_preset: {
+              type: 'string',
+              description: `Пресет для військових справ. Автоматично додає justice_kind=2 (кримінальне) та відповідний category_code.
+Доступні пресети:
+  "awol" — Самовільне залишення частини (ст.407 КК, category_code=40851)
+  "desertion" — Дезертирство (ст.408 КК, category_code=40852)
+  "insubordination" — Непокора (ст.402 КК, category_code=40846)
+  "disobedience" — Невиконання наказу (ст.403 КК, category_code=40847)
+  "draft_evasion" — Ухилення від мобілізації (category_code=40752)
+  "self_harm" — Ухилення через самокалічення (ст.409 КК, category_code=40853)
+  "negligence" — Недбале ставлення (ст.425 КК, category_code=40867)
+  "abuse_of_power" — Перевищення влади (ст.426 КК, category_code=40869)
+  "looting" — Мародерство (ст.432 КК, category_code=40875)
+  "all_military" — Всі військові злочини (category_code IN (40845-40875))`,
             },
           },
           required: [],
@@ -120,9 +141,33 @@ export class EdsrSearchTools extends BaseToolHandler {
     }
   }
 
+  // Military preset category codes mapping
+  private static readonly MILITARY_PRESETS: Record<string, { category_codes: number[]; label: string }> = {
+    'awol':             { category_codes: [40851, 5459, 10660, 12440], label: 'Самовільне залишення частини (ст.407 КК)' },
+    'desertion':        { category_codes: [40852, 2050], label: 'Дезертирство (ст.408 КК)' },
+    'insubordination':  { category_codes: [40846, 5456], label: 'Непокора (ст.402 КК)' },
+    'disobedience':     { category_codes: [40847, 5457], label: 'Невиконання наказу (ст.403 КК)' },
+    'draft_evasion':    { category_codes: [40752, 40751, 5390], label: 'Ухилення від мобілізації' },
+    'self_harm':        { category_codes: [40853, 5460], label: 'Ухилення через самокалічення (ст.409 КК)' },
+    'negligence':       { category_codes: [40867, 2042, 10683], label: 'Недбале ставлення до військової служби (ст.425 КК)' },
+    'abuse_of_power':   { category_codes: [40869, 2043, 10682, 11320], label: 'Перевищення влади (ст.426 КК)' },
+    'looting':          { category_codes: [40875, 5476], label: 'Мародерство (ст.432 КК)' },
+    'all_military':     { category_codes: [40845, 40846, 40847, 40850, 40851, 40852, 40853, 40854, 40855, 40856, 40857, 40862, 40865, 40866, 40867, 40868, 40869, 40871, 40872, 40874, 40875, 40877, 40752, 2039, 2049, 2050, 5459], label: 'Всі військові кримінальні правопорушення' },
+  };
+
   private async searchDecisions(args: any): Promise<ToolResult> {
     const limit = Math.min(Math.max(args.limit || 20, 1), 100);
     const offset = Math.max(args.offset || 0, 0);
+
+    // Apply military preset
+    if (args.military_preset && EdsrSearchTools.MILITARY_PRESETS[args.military_preset]) {
+      const preset = EdsrSearchTools.MILITARY_PRESETS[args.military_preset];
+      args._military_category_codes = preset.category_codes;
+      args._military_label = preset.label;
+      if (!args.justice_kind) {
+        args.justice_kind = 2; // Кримінальне судочинство
+      }
+    }
 
     const conditions: string[] = [];
     const params: any[] = [];
@@ -185,7 +230,11 @@ export class EdsrSearchTools extends BaseToolHandler {
       paramIdx++;
     }
 
-    if (args.category_code) {
+    if (args._military_category_codes && args._military_category_codes.length > 0) {
+      conditions.push(`d.category_code = ANY($${paramIdx})`);
+      params.push(args._military_category_codes);
+      paramIdx++;
+    } else if (args.category_code) {
       conditions.push(`d.category_code = $${paramIdx}`);
       params.push(args.category_code);
       paramIdx++;
@@ -227,24 +276,50 @@ export class EdsrSearchTools extends BaseToolHandler {
       d.doc_url, d.status, d.date_publ
       ${includeFulltext ? ', LEFT(f.full_text, 10000) as full_text' : ''}`;
 
-    try {
-      // Count query (with timeout for safety on large result sets)
-      const countSql = `SELECT COUNT(*)::int as total FROM ${fromClause} WHERE ${whereClause}`;
+    const executeSearch = async (withFulltext: boolean) => {
+      const actualFromClause = `edrsr_documents d
+      ${needsCourtJoin ? 'LEFT JOIN edrsr_courts c ON c.court_code = d.court_code' : ''}
+      ${withFulltext ? 'LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id' : ''}`;
+
+      const actualSelectFields = `
+      d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+      d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+      d.doc_url, d.status, d.date_publ
+      ${withFulltext ? ', LEFT(f.full_text, 10000) as full_text' : ''}`;
+
+      const countSql = `SELECT COUNT(*)::int as total FROM ${actualFromClause} WHERE ${whereClause}`;
       const countResult = await this.db.query(countSql, params);
       const total = countResult.rows[0]?.total || 0;
 
-      // Data query
       const dataSql = `
-        SELECT ${selectFields}
-        FROM ${fromClause}
+        SELECT ${actualSelectFields}
+        FROM ${actualFromClause}
         WHERE ${whereClause}
         ORDER BY d.adjudication_date DESC NULLS LAST
         LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
 
       const dataResult = await this.db.query(dataSql, [...params, limit, offset]);
+      return { total, rows: dataResult.rows };
+    };
+
+    try {
+      let total: number;
+      let rows: any[];
+
+      try {
+        ({ total, rows } = await executeSearch(includeFulltext));
+      } catch (err: any) {
+        // Retry without fulltext JOIN if encoding error (some records have invalid UTF-8 bytes)
+        if (includeFulltext && err.code === '22021') {
+          logger.warn('[EdsrSearchTools] Retrying without fulltext due to encoding error', { cause_num: args.cause_num });
+          ({ total, rows } = await executeSearch(false));
+        } else {
+          throw err;
+        }
+      }
 
       // Enrich with reference data
-      const enriched = await this.enrichResults(dataResult.rows);
+      const enriched = await this.enrichResults(rows);
 
       logger.info('[EdsrSearchTools] search_edrsr_decisions', {
         filters: Object.keys(args).filter(k => args[k] !== undefined && k !== 'limit' && k !== 'offset'),
@@ -253,7 +328,8 @@ export class EdsrSearchTools extends BaseToolHandler {
       });
 
       return this.wrapResponse({
-        query: args,
+        query: { ...args, _military_category_codes: undefined },
+        ...(args._military_label ? { military_filter: args._military_label } : {}),
         total,
         returned: enriched.length,
         offset,

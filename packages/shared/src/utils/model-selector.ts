@@ -27,9 +27,9 @@ export class ModelSelector {
   private static readonly BEDROCK_STANDARD = process.env.BEDROCK_MODEL_STANDARD || 'eu.anthropic.claude-sonnet-4-6';
   private static readonly BEDROCK_DEEP = process.env.BEDROCK_MODEL_DEEP || 'eu.anthropic.claude-opus-4-6-v1';
 
-  private static readonly BEDROCK_FALLBACK_QUICK = process.env.BEDROCK_FALLBACK_MODEL_QUICK || 'eu.amazon.nova-micro-v1:0';
-  private static readonly BEDROCK_FALLBACK_STANDARD = process.env.BEDROCK_FALLBACK_MODEL_STANDARD || 'eu.amazon.nova-pro-v1:0';
-  private static readonly BEDROCK_FALLBACK_DEEP = process.env.BEDROCK_FALLBACK_MODEL_DEEP || 'eu.amazon.nova-pro-v1:0';
+  private static readonly BEDROCK_FALLBACK_QUICK = process.env.BEDROCK_FALLBACK_MODEL_QUICK || 'eu.anthropic.claude-haiku-4-5-20251001-v1:0';
+  private static readonly BEDROCK_FALLBACK_STANDARD = process.env.BEDROCK_FALLBACK_MODEL_STANDARD || 'anthropic.claude-sonnet-4-5-20250929-v1:0';
+  private static readonly BEDROCK_FALLBACK_DEEP = process.env.BEDROCK_FALLBACK_MODEL_DEEP || 'anthropic.claude-sonnet-4-6';
 
   private static readonly ANTHROPIC_QUICK = process.env.ANTHROPIC_MODEL_QUICK || 'claude-haiku-4-5-20251001';
   private static readonly ANTHROPIC_STANDARD = process.env.ANTHROPIC_MODEL_STANDARD || 'claude-sonnet-4-6-20250514';

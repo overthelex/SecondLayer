@@ -35,6 +35,7 @@ interface Transaction {
   amount_usd: number;
   amount_uah: number;
   balance_after_usd: number;
+  balance_after_uah?: number;
   description: string;
   payment_provider?: string;
   payment_id?: string;
@@ -93,7 +94,7 @@ export function TransactionsTab() {
       TYPE_LABELS[t.type] || t.type,
       csvEscape(t.description),
       Number(t.amount_uah || 0).toFixed(2),
-      Number(t.balance_after_usd || 0).toFixed(2),
+      t.balance_after_uah != null ? Number(t.balance_after_uah).toFixed(2) : Number(t.balance_after_usd || 0).toFixed(2),
       t.payment_provider || 'N/A',
     ]);
 
@@ -285,7 +286,9 @@ export function TransactionsTab() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="text-sm text-claude-text font-medium">
-                        {formatUah(Number(transaction.balance_after_usd) || 0)}
+                        {transaction.balance_after_uah != null
+                          ? `${Number(transaction.balance_after_uah).toFixed(2)} \u20B4`
+                          : formatUah(Number(transaction.balance_after_usd) || 0)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

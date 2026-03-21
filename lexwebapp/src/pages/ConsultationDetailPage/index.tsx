@@ -4,7 +4,12 @@ import { ArrowLeft, Loader2, Star, CreditCard, CheckCircle, XCircle, Play, Messa
 import { consultationService, type Consultation } from '../../services/api/ConsultationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { getErrorMessage } from '../../utils/errors';
+import showToast from '../../utils/toast';
 import { ConsultationChatTab } from '../../components/chat/ConsultationChatTab';
+import { EscrowStatusBadge } from '../../components/consultation/EscrowStatusBadge';
+import { SharedDocumentsSection } from '../../components/consultation/SharedDocumentsSection';
+import { ConfirmModal } from '../../components/ui/ConfirmModal';
+import { useConsultationStore } from '../../stores/consultationStore';
 
 const STATUS_STEPS = ['pending', 'accepted', 'paid', 'in_progress', 'completed'];
 const STATUS_LABELS: Record<string, string> = {
@@ -23,6 +28,11 @@ export function ConsultationDetailPage() {
   const [showEscrow, setShowEscrow] = useState(false);
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [acceptFee, setAcceptFee] = useState('');
+  const [activeModal, setActiveModal] = useState<'decline' | 'complete' | 'cancel' | null>(null);
+
+  const addStatusListener = useConsultationStore(s => s.addStatusListener);
 
   const isClient = consultation?.client_user_id === user?.id;
   const isAttorney = consultation?.attorney_user_id === user?.id;
@@ -45,39 +55,101 @@ export function ConsultationDetailPage() {
     if (id) sessionStorage.setItem('lastConsultationId', id);
   }, [id]);
 
-  const handleAction = async (action: string) => {
+  // Subscribe to real-time consultation status changes (user-level SSE)
+  useEffect(() => {
+    if (!id) return;
+    const unsub = addStatusListener(id, (updated) => {
+      setConsultation(updated);
+    });
+    return unsub;
+  }, [id, addStatusListener]);
+
+  // Fallback: listen to per-conversation SSE via window event
+  useEffect(() => {
+    if (!id) return;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail && detail.id === id) {
+        setConsultation(detail);
+      } else {
+        load();
+      }
+    };
+    window.addEventListener('consultation-updated', handler);
+    return () => window.removeEventListener('consultation-updated', handler);
+  }, [id]);
+
+  // Polling fallback: refetch consultation every 5s to catch status/fee changes
+  // SSE through Cloudflare is unreliable
+  useEffect(() => {
+    if (!id) return;
+    const poll = setInterval(() => {
+      consultationService.getConsultation(id).then((c) => {
+        if (!c) return;
+        setConsultation(prev => {
+          if (!prev) return c;
+          // Only update if something changed
+          if (prev.status !== c.status || prev.agreed_fee_uah !== c.agreed_fee_uah || prev.updated_at !== c.updated_at) {
+            return c;
+          }
+          return prev;
+        });
+      }).catch(() => {});
+    }, 15000);
+    return () => clearInterval(poll);
+  }, [id]);
+
+  const handleAction = async (action: string, inputValue?: string) => {
     if (!id) return;
     setActionLoading(action);
     try {
       let result: Consultation;
       switch (action) {
-        case 'accept': result = await consultationService.acceptConsultation(id); break;
-        case 'decline': {
-          const reason = prompt('Причина відмови:');
-          result = await consultationService.declineConsultation(id, reason || undefined);
+        case 'accept': {
+          const fee = parseFloat(acceptFee);
+          if (!fee || fee <= 0) { showToast.error('Вкажіть коректну суму гонорару'); return; }
+          result = await consultationService.acceptConsultation(id, fee);
+          setShowAcceptModal(false);
+          showToast.success('Консультацію прийнято');
           break;
         }
-        case 'start': result = await consultationService.startConsultation(id); break;
+        case 'decline': {
+          result = await consultationService.declineConsultation(id, inputValue || undefined);
+          setActiveModal(null);
+          showToast.success('Консультацію відхилено');
+          break;
+        }
+        case 'start': {
+          result = await consultationService.startConsultation(id);
+          showToast.success('Консультацію розпочато');
+          break;
+        }
         case 'complete': {
-          const summary = prompt('Підсумок консультації:');
-          result = await consultationService.completeConsultation(id, summary || undefined);
+          result = await consultationService.completeConsultation(id, inputValue || undefined);
+          setActiveModal(null);
+          showToast.success('Консультацію завершено');
           break;
         }
         case 'cancel': {
-          const reason = prompt('Причина скасування:');
-          result = await consultationService.cancelConsultation(id, reason || undefined);
+          result = await consultationService.cancelConsultation(id, inputValue || undefined);
+          setActiveModal(null);
+          showToast.success('Консультацію скасовано');
           break;
         }
         case 'pay': {
           const payResult = await consultationService.initiatePayment(id);
-          if (payResult.paymentUrl) window.location.href = payResult.paymentUrl;
+          if (payResult.paymentUrl) {
+            window.location.href = payResult.paymentUrl;
+          } else {
+            showToast.error('Не вдалося отримати посилання на оплату від Monobank');
+          }
           return;
         }
         default: return;
       }
       setConsultation(result);
     } catch (err: unknown) {
-      alert(getErrorMessage(err));
+      showToast.error(getErrorMessage(err));
     } finally {
       setActionLoading('');
     }
@@ -88,9 +160,9 @@ export function ConsultationDetailPage() {
     try {
       await consultationService.submitReview(id, { rating, reviewText: reviewText || undefined });
       setShowReview(false);
-      alert('Дякуємо за відгук!');
+      showToast.success('Дякуємо за відгук!');
     } catch (err: unknown) {
-      alert(getErrorMessage(err));
+      showToast.error(getErrorMessage(err));
     }
   };
 
@@ -167,16 +239,35 @@ export function ConsultationDetailPage() {
             </div>
           )}
 
+          {/* Escrow payment status */}
+          {consultation.agreed_fee_uah && consultation.agreed_fee_uah > 0 && !['pending', 'declined'].includes(consultation.status) && (
+            <EscrowStatusBadge
+              consultationId={consultation.id}
+              consultationStatus={consultation.status}
+              onPaymentConfirmed={load}
+            />
+          )}
+
+          {/* Shared documents */}
+          {consultation.document_ids?.length > 0 && (
+            <SharedDocumentsSection
+              documentIds={consultation.document_ids}
+              attorneyUserId={consultation.attorney_user_id}
+              isClient={isClient}
+              consultationStatus={consultation.status}
+            />
+          )}
+
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
             {isAttorney && consultation.status === 'pending' && (
               <>
-                <button onClick={() => handleAction('accept')} disabled={!!actionLoading}
+                <button onClick={() => { setAcceptFee(''); setShowAcceptModal(true); }} disabled={!!actionLoading}
                   className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
                   {actionLoading === 'accept' ? <Loader2 className="w-4 h-4 animate-spin inline" /> : <CheckCircle className="w-4 h-4 inline mr-1" />}
                   Прийняти
                 </button>
-                <button onClick={() => handleAction('decline')} disabled={!!actionLoading}
+                <button onClick={() => setActiveModal('decline')} disabled={!!actionLoading}
                   className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50">
                   Відхилити
                 </button>
@@ -197,13 +288,13 @@ export function ConsultationDetailPage() {
               </button>
             )}
             {isAttorney && consultation.status === 'in_progress' && (
-              <button onClick={() => handleAction('complete')} disabled={!!actionLoading}
+              <button onClick={() => setActiveModal('complete')} disabled={!!actionLoading}
                 className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
                 Завершити
               </button>
             )}
             {!isTerminal && consultation.status !== 'completed' && (
-              <button onClick={() => handleAction('cancel')} disabled={!!actionLoading}
+              <button onClick={() => setActiveModal('cancel')} disabled={!!actionLoading}
                 className="px-3 py-1.5 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
                 <XCircle className="w-4 h-4 inline mr-1" />
                 Скасувати
@@ -237,6 +328,47 @@ export function ConsultationDetailPage() {
         </div>
       </div>
 
+      {/* Decline modal */}
+      <ConfirmModal
+        isOpen={activeModal === 'decline'}
+        title="Відхилити консультацію"
+        description="Ви впевнені, що хочете відхилити цей запит?"
+        confirmLabel="Відхилити"
+        variant="danger"
+        inputLabel="Причина відмови"
+        inputPlaceholder="Вкажіть причину відмови (необов'язково)..."
+        loading={actionLoading === 'decline'}
+        onConfirm={(reason) => handleAction('decline', reason)}
+        onCancel={() => setActiveModal(null)}
+      />
+
+      {/* Complete modal */}
+      <ConfirmModal
+        isOpen={activeModal === 'complete'}
+        title="Завершити консультацію"
+        description="Після завершення клієнт зможе залишити відгук, а кошти будуть звільнені."
+        confirmLabel="Завершити"
+        inputLabel="Підсумок консультації"
+        inputPlaceholder="Опишіть результати консультації..."
+        loading={actionLoading === 'complete'}
+        onConfirm={(summary) => handleAction('complete', summary)}
+        onCancel={() => setActiveModal(null)}
+      />
+
+      {/* Cancel modal */}
+      <ConfirmModal
+        isOpen={activeModal === 'cancel'}
+        title="Скасувати консультацію"
+        description="Ви впевнені? Якщо оплата вже здійснена, кошти будуть повернені."
+        confirmLabel="Скасувати консультацію"
+        variant="danger"
+        inputLabel="Причина скасування"
+        inputPlaceholder="Вкажіть причину скасування..."
+        loading={actionLoading === 'cancel'}
+        onConfirm={(reason) => handleAction('cancel', reason)}
+        onCancel={() => setActiveModal(null)}
+      />
+
       {/* Escrow confirmation modal */}
       {showEscrow && consultation && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowEscrow(false)}>
@@ -260,9 +392,23 @@ export function ConsultationDetailPage() {
                 <span className="text-gray-500">Послуга</span>
                 <span className="font-medium text-gray-800">{consultation.request_title}</span>
               </div>
-              <div className="border-t pt-2 mt-2 flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700">Сума резервування</span>
-                <span className="text-xl font-bold text-gray-900">{consultation.agreed_fee_uah} грн</span>
+              <div className="border-t pt-2 mt-2 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Сума резервування</span>
+                  <span className="text-xl font-bold text-gray-900">{consultation.agreed_fee_uah} грн</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Виплата адвокату (70%)</span>
+                  <span>{(consultation.agreed_fee_uah! * 0.7).toFixed(2)} грн</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Комісія платформи (30%)</span>
+                  <span>{(consultation.agreed_fee_uah! * 0.3).toFixed(2)} грн</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>Еквайрінг Monobank</span>
+                  <span>включено</span>
+                </div>
               </div>
             </div>
 
@@ -280,10 +426,6 @@ export function ConsultationDetailPage() {
                 </p>
               </div>
             </div>
-
-            <p className="text-xs text-gray-400 text-center mb-4">
-              Тестовий режим — реальне списання не відбувається
-            </p>
 
             <div className="flex gap-3">
               <button
@@ -304,6 +446,46 @@ export function ConsultationDetailPage() {
                   <CreditCard className="w-4 h-4" />
                 )}
                 Підтвердити та оплатити
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Accept fee modal */}
+      {showAcceptModal && consultation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAcceptModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Прийняти консультацію</h3>
+            <p className="text-sm text-gray-500 mb-4">Вкажіть суму гонорару, яку буде зарезервовано на картці клієнта</p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Сума гонорару (грн)</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={acceptFee}
+                onChange={e => setAcceptFee(e.target.value)}
+                placeholder="Наприклад: 2000"
+                className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') handleAction('accept'); }}
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowAcceptModal(false)}
+                className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Скасувати
+              </button>
+              <button
+                onClick={() => handleAction('accept')}
+                disabled={!!actionLoading || !acceptFee || parseFloat(acceptFee) <= 0}
+                className="flex-1 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {actionLoading === 'accept' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                Прийняти за {acceptFee ? `${acceptFee} грн` : '...'}
               </button>
             </div>
           </div>

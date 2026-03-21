@@ -106,6 +106,15 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
         },
 
         onThinking: (data) => {
+          // Flush any pending RAF before clearing — prevents race condition
+          // where accumulated answer_delta text gets wiped before RAF commits it
+          if (rafPendingRef.current) {
+            cancelAnimationFrame(rafPendingRef.current);
+            rafPendingRef.current = null;
+            if (contentRef.current) {
+              updateMessage(assistantMessageId, { content: contentRef.current });
+            }
+          }
           contentRef.current = '';
 
           if (planRef.current) {
@@ -129,8 +138,8 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
 
         onToolResult: (data) => {
           const toolPreview = typeof data.result === 'string'
-            ? data.result.slice(0, 500)
-            : JSON.stringify(data.result, null, 2).slice(0, 500);
+            ? data.result
+            : JSON.stringify(data.result, null, 2);
 
           const costSuffix = data.cost_usd ? ` · ${formatUah(data.cost_usd)}` : '';
           addThinkingStep(assistantMessageId, {

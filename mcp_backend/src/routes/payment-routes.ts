@@ -58,10 +58,10 @@ export function createPaymentRouter(
       const userId = req.user?.userId || req.user?.id;
       const { amount_uah, redirect_url } = req.body;
 
-      if (!amount_uah || typeof amount_uah !== 'number') {
+      if (!amount_uah || typeof amount_uah !== 'number' || amount_uah < 1) {
         return res.status(400).json({
           error: 'Invalid request',
-          message: 'amount_uah is required and must be a number',
+          message: 'amount_uah is required and must be a number >= 1',
         });
       }
 
@@ -218,9 +218,9 @@ export function createWebhookRouter(
       if (!signature) {
         return res.status(400).json({ error: 'Missing X-Sign header' });
       }
-      // req.body is a Buffer here (raw body parser is used for /webhooks)
-      const rawBody: Buffer = req.body;
-      const parsed = JSON.parse(rawBody.toString('utf8'));
+      // req.body is a Buffer when raw body parser works, or already parsed object
+      const rawBody: Buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body));
+      const parsed = Buffer.isBuffer(req.body) ? JSON.parse(req.body.toString('utf8')) : req.body;
       const result = await monobankService.handleWebhook(rawBody, parsed, signature);
 
       // Check if this is a consultation payment and handle accordingly

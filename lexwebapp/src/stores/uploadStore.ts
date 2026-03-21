@@ -12,6 +12,8 @@ import {
 import { uploadService, ActiveSession } from '../services/api/UploadService';
 import { matterService } from '../services/api/MatterService';
 import { showToast } from '../utils/toast';
+import { useEncryptionStore } from './encryptionStore';
+import { encryptUploadedDocuments } from '../services/crypto/PostUploadEncryptor';
 
 export interface RecoveredSession {
   uploadId: string;
@@ -134,6 +136,26 @@ export const useUploadStore = create<UploadState>((set) => {
           }
         }
       }
+
+      // Post-upload encryption: always encrypt completed documents (E2EE mandatory)
+      const encState = useEncryptionStore.getState();
+      if (encState.isUnlocked && encState.publicKey) {
+        const docIds = completedItems.map(i => i.documentId).filter(Boolean) as string[];
+        if (docIds.length > 0) {
+          encryptUploadedDocuments(docIds, encState.publicKey).then(results => {
+            const succeeded = results.filter(r => r.success).length;
+            const failed = results.filter(r => !r.success).length;
+            if (succeeded > 0) {
+              showToast.success(`Зашифровано ${succeeded} документів`);
+            }
+            if (failed > 0) {
+              showToast.error(`Не вдалося зашифрувати ${failed} документів`);
+            }
+          }).catch(err => {
+            console.warn('[UploadStore] Post-upload encryption failed', err);
+          });
+        }
+      }
     } else if (event.type === 'throttle-changed') {
       set({
         ...sync,
@@ -162,7 +184,12 @@ export const useUploadStore = create<UploadState>((set) => {
     isRecovering: false,
 
     addFiles: (files) => {
-      uploadManager.addFiles(files);
+      // E2EE is mandatory — always encrypt uploads
+      const filesWithEncrypt = files.map(f => ({
+        ...f,
+        encrypt: true,
+      }));
+      uploadManager.addFiles(filesWithEncrypt);
       set(syncFromManager(uploadManager));
     },
 

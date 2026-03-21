@@ -11,6 +11,7 @@ import { processUploadFile, ProcessorDeps } from '../services/upload-processor.j
 import { AuthenticatedRequest as DualAuthRequest } from '../middleware/dual-auth.js';
 import { uploadInitRateLimit, uploadBatchInitRateLimit, uploadChunkRateLimit } from '../middleware/upload-rate-limit.js';
 import { UploadQueueService } from '../services/upload-queue-service.js';
+import { encryptDocumentContent } from '../services/document-encryption.js';
 import type { IDatabase } from '../domain/ports/index.js';
 
 // Validate UUID format to prevent path traversal
@@ -170,7 +171,7 @@ export function createUploadRouter(
         });
       }
 
-      const { fileName, fileSize, mimeType, docType, relativePath, metadata, matterId } = req.body;
+      const { fileName, fileSize, mimeType, docType, relativePath, metadata, matterId, encrypt } = req.body;
 
       if (!fileName || !fileSize || !mimeType) {
         return res.status(400).json({
@@ -183,6 +184,7 @@ export function createUploadRouter(
         relativePath,
         metadata,
         matterId,
+        encrypt: encrypt === true,
       });
 
       addBackpressureHeaders(res);
@@ -276,6 +278,7 @@ export function createUploadRouter(
             relativePath: f.relativePath,
             metadata: f.metadata,
             matterId: f.matterId,
+            encrypt: f.encrypt === true,
           });
           sessions.push({
             uploadId: session.id,
@@ -457,6 +460,7 @@ export function createUploadRouter(
         uploadedChunks: session.uploadedChunks,
         totalChunks: session.totalChunks,
         errorMessage: session.errorMessage,
+        isEncrypted: session.encrypt === true,
       });
     } catch (error: any) {
       logger.error('[Upload] Status check failed', { error: error.message });
@@ -640,6 +644,25 @@ async function processUpload(
     const assembledPath = await uploadService.assembleFile(session.id);
 
     const documentId = await processUploadFile(session, assembledPath, deps, extraMetadata);
+
+    // Encrypt content after parse/embed (E2EE mandatory — encrypt both text and source)
+    if (session.encrypt) {
+      try {
+        const encrypted = await encryptDocumentContent(db, documentId, session.userId, minioService);
+        if (encrypted) {
+          logger.info('[Upload] Document encrypted after processing', {
+            sessionId: session.id,
+            documentId,
+          });
+        }
+      } catch (encErr: any) {
+        logger.error('[Upload] Post-processing encryption failed (document saved unencrypted)', {
+          sessionId: session.id,
+          documentId,
+          error: encErr.message,
+        });
+      }
+    }
 
     // Mark session as completed
     await uploadService.setDocumentId(session.id, documentId);

@@ -187,7 +187,7 @@ export function createBillingRoutes(
       const dailyVal = dailyLimitUsd ?? daily_limit_usd;
       const monthlyVal = monthlyLimitUsd ?? monthly_limit_usd;
 
-      await billingService.updateBillingSettings(userId, {
+      const result = await billingService.updateBillingSettings(userId, {
         dailyLimitUsd: dailyVal !== undefined ? Number(dailyVal) : undefined,
         monthlyLimitUsd: monthlyVal !== undefined ? Number(monthlyVal) : undefined,
         pricingTier,
@@ -199,7 +199,7 @@ export function createBillingRoutes(
         low_balance_threshold_usd: low_balance_threshold_usd !== undefined ? Number(low_balance_threshold_usd) : undefined,
       });
 
-      res.json({ success: true, message: 'Billing settings updated' });
+      res.json({ success: true, message: 'Billing settings updated', ...result });
     } catch (error: any) {
       logger.error('Failed to update billing settings', { error: error.message });
       res.status(400).json({ error: error.message });
@@ -287,6 +287,42 @@ export function createBillingRoutes(
     } catch (error: any) {
       logger.error('Failed to get billing statistics', { error: error.message });
       res.status(500).json({ error: 'Failed to retrieve statistics' });
+    }
+  });
+
+  /**
+   * GET /api/billing/billing-info
+   * Get user's billing info (company details for invoicing)
+   */
+  router.get('/billing-info', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      const info = await billingService.getBillingInfo(userId);
+      res.json(info);
+    } catch (error: any) {
+      logger.error('Failed to get billing info', { error: error.message });
+      res.status(500).json({ error: 'Не вдалося отримати платіжну інформацію' });
+    }
+  });
+
+  /**
+   * PUT /api/billing/billing-info
+   * Update user's billing info (company details for invoicing)
+   */
+  router.put('/billing-info', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      await billingService.updateBillingInfo(userId, req.body);
+      res.json({ success: true, message: 'Платіжну інформацію збережено' });
+    } catch (error: any) {
+      logger.error('Failed to update billing info', { error: error.message });
+      res.status(500).json({ error: 'Не вдалося зберегти платіжну інформацію' });
     }
   });
 

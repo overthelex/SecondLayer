@@ -88,8 +88,8 @@ const CITATION_CHECK_TIMEOUT_MS = 5_000;
 // Tools where deduplication hashes only on the primary key (e.g. caseNumber),
 // ignoring secondary params like groupByInstance, includeFullText, maxDocs.
 const COARSE_HASH_TOOLS: Record<string, string[]> = {
-  get_case_documents_chain: ['caseNumber'],
-  get_court_decision: ['caseNumber'],
+  get_case_documents_chain: ['case_number'],
+  get_court_decision: ['doc_id', 'case_number'],
   load_full_texts: ['doc_ids'],
 };
 
@@ -208,6 +208,7 @@ export class ChatService {
   private resultCompactor: ResultCompactor;
   private contextBuilder: ChatContextBuilder;
   private nameVariationService: NameVariationService;
+  private toolGroupMetricsCallback?: (groups: string) => void;
 
   constructor(
     private toolRegistry: ToolRegistry,
@@ -244,6 +245,10 @@ export class ChatService {
     }, 2 * 60 * 1000);
   }
 
+  setToolGroupMetricsCallback(cb: (groups: string) => void): void {
+    this.toolGroupMetricsCallback = cb;
+  }
+
   /**
    * Phase 1: Generate execution plan for user review.
    * Returns plan + session ID that can be passed to chat() for execution.
@@ -256,6 +261,18 @@ export class ChatService {
   ): Promise<{ plan: ExecutionPlan; planSessionId: string; queryType: QueryType } | null> {
     const classification = await this.intentClassifier.classify(query, requestId);
     const toolDefs = await this.intentClassifier.filterTools(classification.domains, classification.slots, classification.queryType);
+
+    // Fast plan queries (case_number, EDRPOU, legislation, deputy) skip plan review —
+    // they're deterministic and don't need user confirmation
+    const fastPlan = this.fastPlanLookup(classification, toolDefs);
+    if (fastPlan) {
+      logger.info('[ChatService] Fast plan detected in generatePlanForReview, skipping review', {
+        queryType: classification.queryType,
+        steps: fastPlan.steps.map(s => s.tool),
+      });
+      return null;
+    }
+
     const plan = await this.generateExecutionPlan(query, classification, toolDefs, requestId);
 
     if (!plan) return null;
@@ -1557,6 +1574,35 @@ export class ChatService {
   ): Promise<{ call: ToolCall; result: any; cached: boolean }> {
     let toolResult: any;
     let cached = false;
+
+    // Meta-tool: request_additional_tools — returns available tools by group
+    if (call.name === 'request_additional_tools') {
+      const { resolveToolGroupsByIds } = await import('../prompts/tool-registry-catalog.js');
+      const groupIds = call.arguments?.groups;
+      if (Array.isArray(groupIds)) {
+        const toolNames = resolveToolGroupsByIds(groupIds);
+        const allDefs = await this.toolRegistry.getAllToolDefinitions();
+        const matchedTools = allDefs
+          .filter(d => toolNames.includes(d.name))
+          .map(d => ({ name: d.name, description: d.description }));
+        toolResult = {
+          message: `Додаткові інструменти для груп [${groupIds.join(', ')}]:`,
+          tools: matchedTools,
+          hint: 'Тепер ви можете використовувати ці інструменти у наступних кроках.',
+        };
+        logger.info('[ChatService] Meta-tool request_additional_tools invoked', {
+          groups: groupIds,
+          toolsReturned: matchedTools.length,
+        });
+        this.toolGroupMetricsCallback?.(groupIds.join(','));
+      } else {
+        toolResult = { error: 'Параметр groups має бути масивом ідентифікаторів груп (edrsr_search, court_practice, legislation, registry, parliament, vault, procedural, due_diligence, echr)' };
+        logger.warn('[ChatService] Meta-tool request_additional_tools called with invalid args', {
+          args: call.arguments,
+        });
+      }
+      return { call, result: toolResult, cached: false };
+    }
 
     // Check cache for court search tools
     if (this.searchCache && isCourtSearchTool(call.name)) {

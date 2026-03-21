@@ -135,7 +135,7 @@ curl -s https://stage.legal.org.ua/ | head -10
 **Routes**:
 - `/auth` - Google OAuth, JWT authentication
 - `/api` - REST API endpoints (tools, billing, admin)
-- `/webhooks` - Payment webhooks (Stripe, Fondy)
+- `/webhooks` - Payment webhooks (Monobank, NOWPayments)
 
 **Used by**: Web frontend, mobile apps, payment providers
 

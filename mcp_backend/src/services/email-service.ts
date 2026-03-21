@@ -4,6 +4,8 @@
  */
 
 import nodemailer from 'nodemailer';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { logger } from '../utils/logger.js';
 import { maskSensitive } from '../utils/sanitize-log.js';
 import type { EmailPreferences } from './billing-service.js';
@@ -46,13 +48,25 @@ export interface LowBalanceParams {
   currency: string;
 }
 
+export interface ReferralData {
+  referralCode: string | null;
+  totalReferrals: number;
+  totalEarnedUsd: number;
+  totalEarnedUah: number;
+  isVerified: boolean;
+}
+
 export type PreferenceFetcher = (userId: string) => Promise<EmailPreferences>;
+export type ReferralDataFetcher = (userId: string) => Promise<ReferralData>;
 
 export class EmailService {
   private transporter: nodemailer.Transporter;
   private config: EmailConfig;
   private frontendUrl: string;
   private getPreferences?: PreferenceFetcher;
+  private getReferralData?: ReferralDataFetcher;
+  private logoBuffer: Buffer | null = null;
+  private fractalBuffer: Buffer | null = null;
 
   constructor() {
     this.frontendUrl = process.env.FRONTEND_URL || 'https://billing.legal.org.ua';
@@ -70,6 +84,22 @@ export class EmailService {
         },
       },
     };
+
+    // Load logo and fractal banner for email templates
+    try {
+      const logoPath = join(__dirname, '..', '..', 'assets', 'logolex_dark.png');
+      this.logoBuffer = readFileSync(logoPath);
+      logger.info('LEX logo loaded for email templates');
+    } catch {
+      logger.warn('LEX logo not found at assets/logolex_dark.png — emails will render without logo');
+    }
+    try {
+      const fractalPath = join(__dirname, '..', '..', 'assets', 'email-header-fractal.png');
+      this.fractalBuffer = readFileSync(fractalPath);
+      logger.info('Fractal header banner loaded for email templates');
+    } catch {
+      logger.warn('Fractal banner not found at assets/email-header-fractal.png — emails will use plain header');
+    }
 
     // Create transporter
     if (this.config.smtp.auth.user && this.config.smtp.auth.pass) {
@@ -106,7 +136,14 @@ export class EmailService {
   }
 
   /**
-   * Send payment success notification
+   * Set the referral data fetcher (called after construction to avoid circular deps)
+   */
+  setReferralDataFetcher(fetcher: ReferralDataFetcher): void {
+    this.getReferralData = fetcher;
+  }
+
+  /**
+   * Send payment success notification with LEX branding and referral data
    */
   async sendPaymentSuccess(params: PaymentSuccessParams & { userId?: string }): Promise<void> {
     try {
@@ -119,19 +156,47 @@ export class EmailService {
         }
       }
 
-      const html = this.generatePaymentSuccessTemplate(params);
+      // Fetch referral data if available
+      let referralData: ReferralData | null = null;
+      if (params.userId && this.getReferralData) {
+        try {
+          referralData = await this.getReferralData(params.userId);
+        } catch (err: any) {
+          logger.warn('Failed to fetch referral data for payment email', { userId: params.userId, error: err.message });
+        }
+      }
+
+      const html = this.generatePaymentSuccessTemplate(params, referralData);
+
+      const attachments: nodemailer.SendMailOptions['attachments'] = [];
+      if (this.logoBuffer) {
+        attachments.push({
+          filename: 'logolex.png',
+          content: this.logoBuffer,
+          cid: 'lexlogo@legal.org.ua',
+        });
+      }
+      if (this.fractalBuffer) {
+        attachments.push({
+          filename: 'email-header-fractal.png',
+          content: this.fractalBuffer,
+          cid: 'fractal-header@legal.org.ua',
+        });
+      }
 
       await this.transporter.sendMail({
         from: `"${this.config.fromName}" <${this.config.from}>`,
         to: params.email,
-        subject: `Payment Successful - ${params.currency} ${params.amount.toFixed(2)}`,
+        subject: `LEX — Оплата успішна: ${params.currency} ${params.amount.toFixed(2)}`,
         html,
+        attachments,
       });
 
       logger.info('Payment success email sent', {
         email: maskSensitive(params.email, 4),
         amount: params.amount,
         currency: params.currency,
+        hasReferralData: !!referralData,
       });
     } catch (error: any) {
       logger.error('Failed to send payment success email', {
@@ -268,6 +333,298 @@ export class EmailService {
     }
   }
 
+  // ─── Consultation Email Notifications ───────────────────────
+
+  /**
+   * Send notification about a new consultation request (to attorney)
+   */
+  async sendConsultationRequestEmail(params: {
+    email: string;
+    attorneyName: string;
+    clientName: string;
+    requestTitle: string;
+    consultationId: string;
+  }): Promise<void> {
+    try {
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Нова заявка на консультацію від ${params.clientName}`,
+        heading: 'Нова заявка на консультацію',
+        body: `<p>Шановний(-а) ${params.attorneyName},</p>
+               <p>Ви отримали нову заявку на консультацію:</p>
+               <p><strong>${params.requestTitle}</strong></p>
+               <p>Від клієнта: ${params.clientName}</p>`,
+        actionUrl: `${this.frontendUrl}/consultations/${params.consultationId}`,
+        actionText: 'Переглянути заявку',
+      });
+      logger.info('Consultation request email sent', { consultationId: params.consultationId });
+    } catch (error: any) {
+      logger.error('Failed to send consultation request email', { error: error.message });
+    }
+  }
+
+  /**
+   * Send notification that attorney accepted consultation (to client)
+   */
+  async sendConsultationAcceptedEmail(params: {
+    email: string;
+    clientName: string;
+    attorneyName: string;
+    requestTitle: string;
+    agreedFeeUah: number;
+    consultationId: string;
+  }): Promise<void> {
+    try {
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Адвокат ${params.attorneyName} прийняв вашу заявку`,
+        heading: 'Заявку прийнято',
+        body: `<p>Вітаємо, ${params.clientName}!</p>
+               <p>Адвокат <strong>${params.attorneyName}</strong> прийняв вашу заявку «${params.requestTitle}».</p>
+               <p>Узгоджена вартість: <strong>${params.agreedFeeUah} грн</strong></p>
+               <p>Для продовження необхідно здійснити оплату.</p>`,
+        actionUrl: `${this.frontendUrl}/consultations/${params.consultationId}`,
+        actionText: 'Перейти до оплати',
+      });
+      logger.info('Consultation accepted email sent', { consultationId: params.consultationId });
+    } catch (error: any) {
+      logger.error('Failed to send consultation accepted email', { error: error.message });
+    }
+  }
+
+  /**
+   * Send notification that attorney declined consultation (to client)
+   */
+  async sendConsultationDeclinedEmail(params: {
+    email: string;
+    clientName: string;
+    attorneyName: string;
+    requestTitle: string;
+    reason?: string;
+    consultationId: string;
+  }): Promise<void> {
+    try {
+      const reasonText = params.reason
+        ? `<p>Причина: ${params.reason}</p>`
+        : '';
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Адвокат відхилив заявку «${params.requestTitle}»`,
+        heading: 'Заявку відхилено',
+        body: `<p>Шановний(-а) ${params.clientName},</p>
+               <p>На жаль, адвокат <strong>${params.attorneyName}</strong> відхилив вашу заявку «${params.requestTitle}».</p>
+               ${reasonText}
+               <p>Ви можете звернутися до іншого адвоката на платформі.</p>`,
+        actionUrl: `${this.frontendUrl}/attorneys`,
+        actionText: 'Знайти адвоката',
+      });
+      logger.info('Consultation declined email sent', { consultationId: params.consultationId });
+    } catch (error: any) {
+      logger.error('Failed to send consultation declined email', { error: error.message });
+    }
+  }
+
+  /**
+   * Send notification that payment was confirmed/held in escrow (to both parties)
+   */
+  async sendConsultationPaidEmail(params: {
+    email: string;
+    recipientName: string;
+    otherPartyName: string;
+    requestTitle: string;
+    amountUah: number;
+    consultationId: string;
+    isAttorney: boolean;
+  }): Promise<void> {
+    try {
+      const body = params.isAttorney
+        ? `<p>Шановний(-а) ${params.recipientName},</p>
+           <p>Клієнт ${params.otherPartyName} здійснив оплату <strong>${params.amountUah} грн</strong> за консультацію «${params.requestTitle}».</p>
+           <p>Кошти утримуються на ескроу-рахунку. Ви можете розпочати консультацію.</p>`
+        : `<p>Вітаємо, ${params.recipientName}!</p>
+           <p>Ваша оплата <strong>${params.amountUah} грн</strong> за консультацію «${params.requestTitle}» підтверджена.</p>
+           <p>Кошти утримуються на ескроу-рахунку до завершення консультації.</p>`;
+
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Оплату підтверджено: ${params.requestTitle}`,
+        heading: 'Оплату підтверджено',
+        body,
+        actionUrl: `${this.frontendUrl}/consultations/${params.consultationId}`,
+        actionText: params.isAttorney ? 'Розпочати консультацію' : 'Переглянути консультацію',
+      });
+      logger.info('Consultation paid email sent', { consultationId: params.consultationId, isAttorney: params.isAttorney });
+    } catch (error: any) {
+      logger.error('Failed to send consultation paid email', { error: error.message });
+    }
+  }
+
+  /**
+   * Send notification that consultation was completed (to client)
+   */
+  async sendConsultationCompletedEmail(params: {
+    email: string;
+    clientName: string;
+    attorneyName: string;
+    requestTitle: string;
+    consultationId: string;
+  }): Promise<void> {
+    try {
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Консультацію завершено: ${params.requestTitle}`,
+        heading: 'Консультацію завершено',
+        body: `<p>Вітаємо, ${params.clientName}!</p>
+               <p>Адвокат <strong>${params.attorneyName}</strong> завершив консультацію «${params.requestTitle}».</p>
+               <p>Кошти з ескроу-рахунку буде перераховано адвокату.</p>
+               <p>Будь ласка, залиште відгук про якість консультації.</p>`,
+        actionUrl: `${this.frontendUrl}/consultations/${params.consultationId}`,
+        actionText: 'Залишити відгук',
+      });
+      logger.info('Consultation completed email sent', { consultationId: params.consultationId });
+    } catch (error: any) {
+      logger.error('Failed to send consultation completed email', { error: error.message });
+    }
+  }
+
+  /**
+   * Send notification that consultation was cancelled (to other party)
+   */
+  async sendConsultationCancelledEmail(params: {
+    email: string;
+    recipientName: string;
+    cancelledByName: string;
+    requestTitle: string;
+    reason?: string;
+    consultationId: string;
+  }): Promise<void> {
+    try {
+      const reasonText = params.reason
+        ? `<p>Причина: ${params.reason}</p>`
+        : '';
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Консультацію скасовано: ${params.requestTitle}`,
+        heading: 'Консультацію скасовано',
+        body: `<p>Шановний(-а) ${params.recipientName},</p>
+               <p>Консультацію «${params.requestTitle}» було скасовано користувачем ${params.cancelledByName}.</p>
+               ${reasonText}
+               <p>Якщо було здійснено оплату, кошти буде повернено на ваш рахунок.</p>`,
+        actionUrl: `${this.frontendUrl}/consultations/${params.consultationId}`,
+        actionText: 'Переглянути деталі',
+      });
+      logger.info('Consultation cancelled email sent', { consultationId: params.consultationId });
+    } catch (error: any) {
+      logger.error('Failed to send consultation cancelled email', { error: error.message });
+    }
+  }
+
+  /**
+   * Send notification that a dispute was opened (to other party)
+   */
+  async sendConsultationDisputeEmail(params: {
+    email: string;
+    recipientName: string;
+    raisedByName: string;
+    requestTitle: string;
+    reason: string;
+    consultationId: string;
+  }): Promise<void> {
+    try {
+      await this.sendConsultationEmail({
+        to: params.email,
+        subject: `LEX — Відкрито спір: ${params.requestTitle}`,
+        heading: 'Відкрито спір',
+        body: `<p>Шановний(-а) ${params.recipientName},</p>
+               <p>Користувач ${params.raisedByName} відкрив спір щодо консультації «${params.requestTitle}».</p>
+               <p><strong>Причина:</strong> ${params.reason}</p>
+               <p>Адміністрація платформи розгляне спір та прийме рішення.</p>`,
+        actionUrl: `${this.frontendUrl}/consultations/${params.consultationId}`,
+        actionText: 'Переглянути деталі',
+      });
+      logger.info('Consultation dispute email sent', { consultationId: params.consultationId });
+    } catch (error: any) {
+      logger.error('Failed to send consultation dispute email', { error: error.message });
+    }
+  }
+
+  /**
+   * Generic consultation email sender with LEX branding
+   */
+  private async sendConsultationEmail(params: {
+    to: string;
+    subject: string;
+    heading: string;
+    body: string;
+    actionUrl: string;
+    actionText: string;
+  }): Promise<void> {
+    const logoImg = this.logoBuffer
+      ? '<img src="cid:lexlogo@legal.org.ua" alt="LEX" width="40" height="40" style="display:inline-block;vertical-align:middle;margin-right:8px;" />'
+      : '<span style="font-size:22px;font-weight:bold;color:#1e293b;letter-spacing:3px;vertical-align:middle;">LEX</span>';
+
+    const html = `
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background: #f1f5f9; }
+    .wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .card { background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.07); }
+    .header { background: #e8effa; padding: 24px 30px; }
+    .content { padding: 30px; }
+    .btn { display: inline-block; background: #1e293b; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; }
+    .btn-center { text-align: center; margin: 24px 0; }
+    .footer { text-align: center; padding: 20px; font-size: 12px; color: #94a3b8; }
+    .footer a { color: #64748b; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <div style="margin-bottom:12px;">${logoImg}</div>
+        <h1 style="color:#1e293b;font-size:20px;margin:0;font-weight:700;">${params.heading}</h1>
+      </div>
+      <div class="content">
+        ${params.body}
+        <div class="btn-center">
+          <a href="${params.actionUrl}" class="btn">${params.actionText}</a>
+        </div>
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;" />
+        <p style="font-size:13px;color:#64748b;text-align:center;">
+          Якщо у вас виникли питання — напишіть нам на <a href="mailto:support@legal.org.ua" style="color:#1e293b;">support@legal.org.ua</a>
+        </p>
+      </div>
+      <div class="footer">
+        <p>&copy; ${new Date().getFullYear()} LEX Legal Platform. Усі права захищено.</p>
+        <p><a href="${this.frontendUrl}">legal.org.ua</a></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`.trim();
+
+    const attachments: nodemailer.SendMailOptions['attachments'] = [];
+    if (this.logoBuffer) {
+      attachments.push({
+        filename: 'logolex.png',
+        content: this.logoBuffer,
+        cid: 'lexlogo@legal.org.ua',
+      });
+    }
+
+    await this.transporter.sendMail({
+      from: `"${this.config.fromName}" <${this.config.from}>`,
+      to: params.to,
+      subject: params.subject,
+      html,
+      attachments,
+    });
+  }
+
   /**
    * Generate verification email template
    */
@@ -355,54 +712,172 @@ export class EmailService {
   }
 
   /**
-   * Generate payment success email template
+   * Generate LEX-branded payment success email template with referral data
    */
-  private generatePaymentSuccessTemplate(params: PaymentSuccessParams): string {
+  private generatePaymentSuccessTemplate(params: PaymentSuccessParams, referralData: ReferralData | null): string {
+    const logoImg = this.logoBuffer
+      ? '<img src="cid:lexlogo@legal.org.ua" alt="LEX" width="50" height="50" style="display:inline-block;vertical-align:middle;margin-right:8px;" />'
+      : '<span style="font-size:26px;font-weight:bold;color:#1e293b;letter-spacing:3px;vertical-align:middle;">LEX</span>';
+
+    const referralSection = this.generateReferralSection(referralData);
+
+    // Fractal header: real Mandelbrot PNG (CID attachment) or solid bg fallback
+    const headerBgStyle = this.fractalBuffer
+      ? 'background:#e8effa url(cid:fractal-header@legal.org.ua) no-repeat center center;background-size:cover;'
+      : 'background:#e8effa;';
+
     return `
 <!DOCTYPE html>
-<html>
+<html lang="uk">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: #4CAF50; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 5px 5px; }
-    .amount { font-size: 32px; font-weight: bold; color: #4CAF50; margin: 20px 0; }
-    .details { background: white; padding: 15px; border-radius: 5px; margin: 20px 0; }
-    .button { display: inline-block; background: #2196F3; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-    .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background: #f1f5f9; }
+    .wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .card { background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.07); }
+    .header h1 { color: #1e293b; font-size: 20px; margin: 0 0 10px; font-weight: 700; text-align: left; }
+    .success-badge { display: inline-block; background: #22c55e; color: #fff; padding: 5px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .content { padding: 30px; }
+    .amount-block { text-align: center; margin: 24px 0; }
+    .amount { font-size: 36px; font-weight: 700; color: #1e293b; }
+    .amount-label { font-size: 13px; color: #64748b; margin-top: 4px; }
+    .details-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    .details-table td { padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+    .details-table td:first-child { color: #64748b; }
+    .details-table td:last-child { text-align: right; font-weight: 600; color: #1e293b; }
+    .details-table tr:last-child td { border-bottom: none; }
+    .btn { display: inline-block; background: #1e293b; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; }
+    .btn-center { text-align: center; margin: 24px 0; }
+    .referral-box { background: #fefce8; border: 1px solid #fde047; border-radius: 10px; padding: 20px; margin: 24px 0; }
+    .referral-box h3 { margin: 0 0 8px; font-size: 16px; color: #854d0e; }
+    .referral-box p { margin: 4px 0; font-size: 14px; color: #713f12; }
+    .referral-code { display: inline-block; background: #ffffff; border: 2px dashed #eab308; padding: 8px 20px; border-radius: 6px; font-size: 20px; font-weight: 700; letter-spacing: 2px; color: #854d0e; margin: 10px 0; }
+    .referral-stats { display: flex; gap: 16px; margin-top: 12px; }
+    .referral-stat { flex: 1; background: #fff; border-radius: 6px; padding: 10px; text-align: center; }
+    .referral-stat-value { font-size: 18px; font-weight: 700; color: #854d0e; }
+    .referral-stat-label { font-size: 11px; color: #a16207; margin-top: 2px; }
+    .referral-btn { display: inline-block; background: #eab308; color: #ffffff; padding: 10px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 13px; margin-top: 12px; }
+    .divider { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+    .footer { text-align: center; padding: 20px; font-size: 12px; color: #94a3b8; }
+    .footer a { color: #64748b; text-decoration: none; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>✓ Payment Successful</h1>
-    </div>
-    <div class="content">
-      <p>Hi ${params.name},</p>
-      <p>Your payment has been successfully processed!</p>
-
-      <div class="amount">${params.currency} ${params.amount.toFixed(2)}</div>
-
-      <div class="details">
-        <p><strong>Payment ID:</strong> ${params.paymentId}</p>
-        <p><strong>New Balance:</strong> $${params.newBalance.toFixed(2)} USD</p>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header" style="${headerBgStyle}padding:28px 30px 24px;text-align:left;">
+        <div style="margin-bottom:14px;">${logoImg}</div>
+        <h1 style="color:#1e293b;font-size:21px;margin:0 0 12px;font-weight:700;">Оплата пройшла успішно</h1>
+        <div class="success-badge">Підтверджено</div>
       </div>
+      <div class="content">
+        <p>Вітаємо, ${params.name}!</p>
+        <p>Ваш платіж успішно оброблено. Кошти зараховано на баланс.</p>
 
-      <p>Your account has been credited and you can now use the SecondLayer API.</p>
+        <div class="amount-block">
+          <div class="amount">${params.currency} ${params.amount.toFixed(2)}</div>
+          <div class="amount-label">сума поповнення</div>
+        </div>
 
-      <a href="${this.frontendUrl}/dashboard" class="button">View Dashboard</a>
+        <table class="details-table">
+          <tr>
+            <td>Номер платежу</td>
+            <td>${params.paymentId}</td>
+          </tr>
+          <tr>
+            <td>Поточний баланс</td>
+            <td>$${Number(params.newBalance).toFixed(2)} USD</td>
+          </tr>
+          <tr>
+            <td>Дата</td>
+            <td>${new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
+          </tr>
+        </table>
 
-      <p>If you have any questions, please contact our support team.</p>
-    </div>
-    <div class="footer">
-      <p>© ${new Date().getFullYear()} SecondLayer Legal Platform. All rights reserved.</p>
+        <div class="btn-center">
+          <a href="${this.frontendUrl}/dashboard" class="btn">Перейти до кабінету</a>
+        </div>
+
+        ${referralSection}
+
+        <hr class="divider" />
+        <p style="font-size:13px; color:#64748b; text-align:center;">
+          Якщо у вас виникли питання — напишіть нам на <a href="mailto:support@legal.org.ua" style="color:#1e293b;">support@legal.org.ua</a>
+        </p>
+      </div>
+      <div class="footer">
+        <p>&copy; ${new Date().getFullYear()} LEX Legal Platform. Усі права захищено.</p>
+        <p><a href="${this.frontendUrl}">legal.org.ua</a></p>
+      </div>
     </div>
   </div>
 </body>
 </html>
     `.trim();
+  }
+
+  /**
+   * Generate referral program section for payment email
+   */
+  private generateReferralSection(referralData: ReferralData | null): string {
+    if (!referralData) {
+      // Show generic referral CTA even without data
+      return `
+        <div class="referral-box">
+          <h3>Запрошуйте колег — заробляйте 20%</h3>
+          <p>Приєднуйтеся до реферальної програми LEX та отримуйте <strong>20% від кожного поповнення</strong> запрошених користувачів — довічно!</p>
+          <div style="text-align:center; margin-top:12px;">
+            <a href="${this.frontendUrl}/referral" class="referral-btn">Дізнатися більше</a>
+          </div>
+        </div>
+      `;
+    }
+
+    if (!referralData.isVerified || !referralData.referralCode) {
+      // User not verified yet — encourage to join
+      return `
+        <div class="referral-box">
+          <h3>Запрошуйте колег — заробляйте 20%</h3>
+          <p>Верифікуйте свій акаунт (ФОП, ТОВ або адвокат) та отримайте персональний реферальний код.</p>
+          <p>Ви отримуватимете <strong>20% від кожного поповнення</strong> запрошених вами користувачів — довічно!</p>
+          <div style="text-align:center; margin-top:12px;">
+            <a href="${this.frontendUrl}/referral" class="referral-btn">Приєднатися до програми</a>
+          </div>
+        </div>
+      `;
+    }
+
+    // Verified user with referral code — show code and stats
+    return `
+      <div class="referral-box">
+        <h3>Ваша реферальна програма</h3>
+        <p>Діліться вашим кодом з колегами та отримуйте <strong>20% від кожного їхнього поповнення</strong> — довічно!</p>
+        <div style="text-align:center;">
+          <div class="referral-code">${referralData.referralCode}</div>
+        </div>
+        <!--[if mso]><table role="presentation" width="100%"><tr><td width="50%" style="padding:5px"><![endif]-->
+        <div style="text-align:center;">
+          <table role="presentation" style="margin:12px auto;border-collapse:collapse;">
+            <tr>
+              <td style="background:#fff;border-radius:6px;padding:10px 20px;text-align:center;">
+                <div class="referral-stat-value">${referralData.totalReferrals}</div>
+                <div class="referral-stat-label">запрошених</div>
+              </td>
+              <td style="width:16px;"></td>
+              <td style="background:#fff;border-radius:6px;padding:10px 20px;text-align:center;">
+                <div class="referral-stat-value">$${referralData.totalEarnedUsd.toFixed(2)}</div>
+                <div class="referral-stat-label">зароблено</div>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <p style="text-align:center; font-size:13px;">Посилання для запрошення: <a href="${this.frontendUrl}/register?ref=${referralData.referralCode}" style="color:#854d0e; font-weight:600;">${this.frontendUrl}/register?ref=${referralData.referralCode}</a></p>
+        <div style="text-align:center; margin-top:8px;">
+          <a href="${this.frontendUrl}/referral" class="referral-btn">Переглянути статистику</a>
+        </div>
+      </div>
+    `;
   }
 
   /**

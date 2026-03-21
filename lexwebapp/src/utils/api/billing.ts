@@ -25,6 +25,17 @@ export const billingApi = {
     apiClient.get(`/api/billing/statistics?period=${period}`),
   getUsageChart: (days: number = 30) =>
     apiClient.get(`/api/billing/usage-chart?days=${days}`),
+  getBillingInfo: () => apiClient.get('/api/billing/billing-info'),
+  updateBillingInfo: (data: {
+    companyName?: string;
+    edrpou?: string;
+    address?: string;
+    city?: string;
+    postalCode?: string;
+    country?: string;
+    email?: string;
+    phone?: string;
+  }) => apiClient.put('/api/billing/billing-info', data),
   getPaymentMethods: () => apiClient.get('/api/billing/payment-methods'),
   addPaymentMethod: (data: Record<string, unknown>) =>
     apiClient.post('/api/billing/payment-methods', data),
@@ -35,6 +46,23 @@ export const billingApi = {
   upgradePlan: (planId: string) =>
     apiClient.put('/api/billing/settings', { pricingTier: planId }),
   getPricingInfo: () => apiClient.get('/api/billing/pricing-info'),
+};
+
+export const b2bInvoiceApi = {
+  create: (data: { invoice_type: string; tier_key?: string; billing_cycle?: string; amount_uah?: number; notes?: string }) =>
+    apiClient.post('/api/b2b-invoices', data),
+  list: (params?: { status?: string; limit?: number; offset?: number }) =>
+    apiClient.get('/api/b2b-invoices', { params }),
+  get: (id: string) =>
+    apiClient.get(`/api/b2b-invoices/${id}`),
+  downloadPDF: (id: string) =>
+    apiClient.get(`/api/b2b-invoices/${id}/pdf`, { responseType: 'blob' }),
+  cancel: (id: string, reason?: string) =>
+    apiClient.post(`/api/b2b-invoices/${id}/cancel`, { reason }),
+  getOrgInfo: () =>
+    apiClient.get('/api/b2b-invoices/org-info'),
+  updateOrgInfo: (data: { edrpou?: string; legal_address?: string; name?: string; billing_email?: string }) =>
+    apiClient.patch('/api/b2b-invoices/org-info', data),
 };
 
 export const paymentApi = {

@@ -11,6 +11,9 @@ import { processEmlContent } from '../../utils/eml-parser';
 import type { VaultDocument, DocType, SortField, SortOrder } from './types';
 import { isPreviewableBinary } from './types';
 import { DOC_TYPE_LABELS } from './constants';
+import { useEncryptionStore } from '../../stores/encryptionStore';
+import { encryptionService } from '../../services/api/EncryptionService';
+import { decryptContent, unwrapDEK } from '../../services/crypto';
 
 export interface PreviewDocData {
   type: 'document';
@@ -57,6 +60,25 @@ export function useDocumentPreview(options: UseDocumentPreviewOptions) {
   const [previewIndex, setPreviewIndex] = useState<number>(-1);
   const [previewDeletePending, setPreviewDeletePending] = useState(false);
 
+  /**
+   * Decrypt document content if it's encrypted.
+   * Fetches wrapped DEK from server, unwraps with private key, decrypts content.
+   */
+  const decryptDocumentContent = useCallback(async (
+    documentId: string,
+    encryptedContent: string
+  ): Promise<string> => {
+    const { privateKey, isUnlocked } = useEncryptionStore.getState();
+    if (!isUnlocked || !privateKey) {
+      throw new Error('Сейф заблоковано. Розблокуйте шифрування для перегляду.');
+    }
+
+    // Fetch wrapped DEK for this document
+    const keyData = await encryptionService.getDocumentKey(documentId);
+    const dek = await unwrapDEK(keyData.encrypted_dek, privateKey);
+    return decryptContent(encryptedContent, dek);
+  }, []);
+
   const handleDocumentClick = useCallback(async (doc: VaultDocument, index?: number) => {
     if (index != null) setPreviewIndex(index);
     else setPreviewIndex(documents.findIndex((d) => d.id === doc.id));
@@ -74,9 +96,18 @@ export function useDocumentPreview(options: UseDocumentPreviewOptions) {
 
         const { previewUrl, mimeType: serverMime } = previewResp.data;
         const badge = DOC_TYPE_LABELS[doc.type] || doc.type;
-        const ocrText = docResp?.data?.full_text ?? undefined;
+        let ocrText = docResp?.data?.full_text ?? undefined;
         const effectiveMime = serverMime || mimeType;
         const isImagePreview = effectiveMime?.startsWith('image/');
+
+        // Decrypt OCR text if the document is encrypted
+        if (doc.is_encrypted && ocrText) {
+          try {
+            ocrText = await decryptDocumentContent(doc.id, ocrText);
+          } catch {
+            ocrText = undefined; // Can't decrypt — show binary preview only
+          }
+        }
 
         if (previewUrl) {
           setPreviewDoc({
@@ -133,7 +164,18 @@ export function useDocumentPreview(options: UseDocumentPreviewOptions) {
         ? JSON.parse(result.result.content[0].text)
         : result?.result || result;
 
-      const rawContent = parsed.content || parsed.text || parsed.sections?.map((s: any) => s.content).join('\n\n') || 'Вміст недоступний';
+      let rawContent = parsed.content || parsed.text || parsed.sections?.map((s: any) => s.content).join('\n\n') || 'Вміст недоступний';
+
+      // Decrypt if document is encrypted
+      const isEncrypted = doc.is_encrypted || parsed.is_encrypted;
+      if (isEncrypted && rawContent && rawContent !== 'Вміст недоступний') {
+        try {
+          rawContent = await decryptDocumentContent(doc.id, rawContent);
+        } catch (decryptErr: any) {
+          rawContent = `🔒 ${decryptErr.message || 'Не вдалося розшифрувати документ. Розблокуйте сейф.'}`;
+        }
+      }
+
       const content = processEmlContent(rawContent);
       const badge = DOC_TYPE_LABELS[doc.type] || doc.type;
 

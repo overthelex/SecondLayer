@@ -153,6 +153,46 @@ export class MinioService {
     }
   }
 
+  /**
+   * Download a file from MinIO as a Buffer.
+   */
+  async getFileBuffer(userId: string, objectKey: string): Promise<Buffer> {
+    const bucket = this.getBucketName(userId);
+    try {
+      const stream = await this.client.getObject(bucket, objectKey);
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      return Buffer.concat(chunks);
+    } catch (error: any) {
+      logger.error('[MinIO] getFileBuffer failed', { bucket, key: objectKey, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Upload a Buffer to MinIO (overwrite existing object).
+   */
+  async uploadBuffer(
+    userId: string,
+    objectKey: string,
+    data: Buffer,
+    mimeType: string
+  ): Promise<MinioUploadResult> {
+    const bucket = await this.ensureBucket(userId);
+    try {
+      const result = await this.client.putObject(bucket, objectKey, data, data.length, {
+        'Content-Type': mimeType,
+      });
+      logger.info('[MinIO] Buffer uploaded', { bucket, key: objectKey, size: data.length });
+      return { bucket, key: objectKey, etag: result.etag, size: data.length };
+    } catch (error: any) {
+      logger.error('[MinIO] Buffer upload failed', { bucket, key: objectKey, error: error.message });
+      throw error;
+    }
+  }
+
   async deleteFile(userId: string, objectKey: string): Promise<void> {
     const bucket = this.getBucketName(userId);
     try {

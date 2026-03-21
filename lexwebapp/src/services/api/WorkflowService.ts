@@ -33,13 +33,24 @@ export class WorkflowService extends BaseService {
     return this.requestVoid(() => this.client.delete(`/api/workflow-sets/${id}`));
   }
 
+  async listPresets(): Promise<Array<{ id: string; title: string; description: string; icon: string; category: string; tags: string[]; stepsCount: number }>> {
+    return this.request(
+      () => this.client.get('/api/workflow-sets/presets'),
+      (data: { presets?: Array<{ id: string; title: string; description: string; icon: string; category: string; tags: string[]; stepsCount: number }> }) => data.presets || []
+    );
+  }
+
+  async createFromPreset(presetId: string): Promise<WorkflowSet> {
+    return this.request(() => this.client.post(`/api/workflow-sets/presets/${presetId}`));
+  }
+
   async cancelWorkflow(id: string): Promise<void> {
     return this.requestVoid(() => this.client.post(`/api/workflows/${id}/cancel`));
   }
 
   executeWorkflow(id: string, callbacks: WorkflowSSECallbacks): () => void {
     const token = localStorage.getItem('auth_token');
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://stage.legal.org.ua';
+    const baseUrl = import.meta.env.VITE_API_URL || '';
 
     const abortController = new AbortController();
 

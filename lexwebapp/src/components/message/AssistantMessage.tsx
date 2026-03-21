@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Copy, RotateCw, Star, ThumbsUp, ThumbsDown, ChevronDown } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Decision } from '../DecisionCard';
@@ -14,6 +14,7 @@ import { isRawJsonContent } from './utils';
 import showToast from '../../utils/toast';
 import type { ExecutionPlan, CitationWarning, CostSummary as CostSummaryType } from '../../types/models/Message';
 import { useChatStore } from '../../stores';
+import { EvidenceService } from '../../services/api/EvidenceService';
 
 interface AssistantMessageProps {
   content: string;
@@ -48,24 +49,61 @@ export function AssistantMessage({
 
   const allMessages = useChatStore(state => state.messages);
 
+  const [isDocLoading, setIsDocLoading] = useState(false);
+  const loadingDocRef = useRef<string | null>(null);
+
   const openDocByRef = useCallback((docId: string) => {
     const allDecisions = allMessages.flatMap(m => (m as any).decisions ?? []) as Decision[];
     const decision = allDecisions.find(d =>
       d.id.includes(docId) || (d as any).externalUrl?.includes(`/Review/${docId}`)
     );
-    if (decision) {
-      const STATUS_LABELS: Record<string, string> = { active: 'Чинне', overturned: 'Скасовано', modified: 'Змінено' };
-      setDocViewerItem({
-        type: 'decision',
-        title: decision.number,
-        subtitle: [decision.court, decision.date].filter(Boolean).join(' • '),
-        badge: STATUS_LABELS[decision.status] || decision.status,
-        badgeVariant: decision.status as 'active' | 'overturned' | 'modified',
-        content: decision.summary || 'Текст рішення не завантажено.',
-        relevance: decision.relevance,
-        externalUrl: (decision as any).externalUrl,
+    if (!decision) return;
+
+    const STATUS_LABELS: Record<string, string> = { active: 'Чинне', overturned: 'Скасовано', modified: 'Змінено' };
+
+    // Show modal immediately with summary
+    setDocViewerItem({
+      type: 'decision',
+      title: decision.number,
+      subtitle: [decision.court, decision.date].filter(Boolean).join(' • '),
+      badge: STATUS_LABELS[decision.status] || decision.status,
+      badgeVariant: decision.status as 'active' | 'overturned' | 'modified',
+      content: decision.summary || 'Завантаження повного тексту...',
+      relevance: decision.relevance,
+      externalUrl: decision.externalUrl,
+    });
+    setIsDocViewerOpen(true);
+
+    // Extract numeric EDRSR doc_id from decision id (prefixes: d-, sc-, chain-, pc-, gcd-) or from externalUrl
+    const edsrDocId = decision.docId
+      || decision.id.replace(/^(?:d|sc|chain|pc|gcd)-/, '')
+      || decision.externalUrl?.match(/\/Review\/(\d+)/)?.[1];
+
+    if (edsrDocId && /^\d+$/.test(String(edsrDocId))) {
+      // Prevent duplicate fetches
+      if (loadingDocRef.current === String(edsrDocId)) return;
+      loadingDocRef.current = String(edsrDocId);
+      setIsDocLoading(true);
+
+      EvidenceService.getEdsrFulltext(edsrDocId).then(result => {
+        if (result?.full_text) {
+          setDocViewerItem(prev => prev ? {
+            ...prev,
+            content: result.full_text!,
+            subtitle: [result.court_name || decision.court, result.judgment_form, decision.date].filter(Boolean).join(' • '),
+          } : prev);
+        } else {
+          setDocViewerItem(prev => prev ? {
+            ...prev,
+            content: prev.content === 'Завантаження повного тексту...'
+              ? (decision.summary || 'Повний текст рішення недоступний.')
+              : prev.content,
+          } : prev);
+        }
+      }).finally(() => {
+        setIsDocLoading(false);
+        loadingDocRef.current = null;
       });
-      setIsDocViewerOpen(true);
     }
   }, [allMessages]);
 
@@ -218,6 +256,7 @@ export function AssistantMessage({
         isOpen={isDocViewerOpen}
         onClose={() => setIsDocViewerOpen(false)}
         item={docViewerItem}
+        isLoading={isDocLoading}
       />
     </>
   );

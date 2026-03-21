@@ -762,8 +762,10 @@ deploy_to_server() {
     local backup_id
     backup_id=$(create_backup "$env" "$target_server" "$REPO_ROOT")
 
-    # Phase 2b: Show maintenance page while services are down
-    enable_cf_maintenance "$env"
+    # Phase 2b: Show maintenance page while services are down (stage only — prod uses blue-green)
+    if [ "$env" != "prod" ]; then
+        enable_cf_maintenance "$env"
+    fi
 
     # Phase 3: Deploy
     local deploy_failed=false
@@ -813,142 +815,358 @@ deploy_to_server() {
         COMPOSE_FILE="docker-compose.${ENV_SUFFIX}.yml"
         ENV_FILE=".env.${ENV_SUFFIX}"
         DC="docker compose -f $COMPOSE_FILE --env-file $ENV_FILE"
+        COLOR_FILE="$REMOTE_REPO/deployment/.deploy-color"
 
-        # Step 1: Stop app containers only (keep infra: postgres, redis, qdrant, minio running)
-        echo "Stopping app containers (keeping databases running)..."
-        $DC stop \
-            nginx-${ENV_SUFFIX} \
-            app-${ENV_SUFFIX} rada-mcp-app-${ENV_SUFFIX} app-openreyestr-${ENV_SUFFIX} \
-            document-service-${ENV_SUFFIX} lexwebapp-${ENV_SUFFIX} \
-            prometheus-${ENV_SUFFIX} grafana-${ENV_SUFFIX} \
-            2>/dev/null || true
-        $DC rm -f \
-            nginx-${ENV_SUFFIX} \
-            app-${ENV_SUFFIX} rada-mcp-app-${ENV_SUFFIX} app-openreyestr-${ENV_SUFFIX} \
-            document-service-${ENV_SUFFIX} lexwebapp-${ENV_SUFFIX} \
-            migrate-${ENV_SUFFIX} rada-migrate-${ENV_SUFFIX} migrate-openreyestr-${ENV_SUFFIX} \
-            rada-db-init-${ENV_SUFFIX} \
-            prometheus-${ENV_SUFFIX} grafana-${ENV_SUFFIX} \
-            2>/dev/null || true
+        # ── Blue-Green deploy (prod only) ──────────────────────────────────
+        if [ "$ENV_SUFFIX" = "prod" ]; then
 
-        # Step 2: Cleanup exited/dead containers and dangling images
-        echo "Cleaning up stopped containers..."
-        docker ps -a --filter "name=-${ENV_SUFFIX}" --filter "status=exited" -q | xargs -r docker rm -f
-        docker ps -a --filter "name=-${ENV_SUFFIX}" --filter "status=dead" -q | xargs -r docker rm -f
-        echo "Removing dangling images..."
-        docker image prune -f
+            # Detect current active color
+            ACTIVE_COLOR="blue"
+            if [ -f "$COLOR_FILE" ]; then
+                ACTIVE_COLOR=$(cat "$COLOR_FILE")
+            fi
+            if [ "$ACTIVE_COLOR" = "green" ]; then
+                TARGET_COLOR="blue"
+            else
+                TARGET_COLOR="green"
+            fi
+            echo "=== Blue-Green Deploy: active=$ACTIVE_COLOR, target=$TARGET_COLOR ==="
 
-        # Step 3: Pre-build shared + all service dists
-        echo "Building shared package and all service dists..."
-        cd "$REMOTE_REPO"
-        npm --prefix packages/shared install && npm --prefix packages/shared run build
-        npm --prefix mcp_backend install && npm --prefix mcp_backend run build
-        npm --prefix mcp_rada install && npm --prefix mcp_rada run build
-        npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build
-        cd "$REMOTE_REPO/deployment"
+            # Blue service names (default, no profile)
+            BLUE_SERVICES="app-prod rada-mcp-app-prod app-openreyestr-prod document-service-prod lexwebapp-prod"
+            # Green service names (profile: green)
+            GREEN_SERVICES="app-prod-green rada-mcp-app-prod-green app-openreyestr-prod-green document-service-prod-green lexwebapp-prod-green"
 
-        # Step 4: Build images (use --no-cache flag for full rebuild)
-        if [ -n "$NO_CACHE" ]; then
-            echo "Building all images without cache..."
-        else
-            echo "Building all images (cached)..."
-        fi
-        GIT_SHA_ENV="GIT_SHA=${GIT_SHA:-$(git -C "$REMOTE_REPO" rev-parse HEAD 2>/dev/null || echo unknown)}"
-        $DC build $NO_CACHE --build-arg "$GIT_SHA_ENV" \
-            app-${ENV_SUFFIX} \
-            rada-mcp-app-${ENV_SUFFIX} \
-            app-openreyestr-${ENV_SUFFIX} \
-            migrate-${ENV_SUFFIX} \
-            rada-migrate-${ENV_SUFFIX} \
-            migrate-openreyestr-${ENV_SUFFIX} \
-            document-service-${ENV_SUFFIX} \
-            lexwebapp-${ENV_SUFFIX}
+            if [ "$TARGET_COLOR" = "green" ]; then
+                TARGET_SERVICES="$GREEN_SERVICES"
+                OLD_SERVICES="$BLUE_SERVICES"
+                TARGET_BACKEND="app-prod-green"
+                TARGET_FRONTEND="lexwebapp-prod-green"
+            else
+                TARGET_SERVICES="$BLUE_SERVICES"
+                OLD_SERVICES="$GREEN_SERVICES"
+                TARGET_BACKEND="app-prod"
+                TARGET_FRONTEND="lexwebapp-prod"
+            fi
 
-        # Step 5: Ensure infrastructure services are running
-        echo "Ensuring infrastructure services are running..."
-        INFRA_FLAGS=""
-        if [ -n "$NO_CACHE" ]; then
-            INFRA_FLAGS="--force-recreate"
-        fi
-        $DC up -d $INFRA_FLAGS \
-            postgres-${ENV_SUFFIX} \
-            redis-${ENV_SUFFIX} \
-            qdrant-${ENV_SUFFIX} \
-            postgres-openreyestr-${ENV_SUFFIX} \
-            minio-${ENV_SUFFIX}
+            # Step 1: Cleanup exited/dead containers and dangling images
+            echo "Cleaning up stopped containers..."
+            docker ps -a --filter "name=-prod" --filter "status=exited" -q | xargs -r docker rm -f
+            docker ps -a --filter "name=-prod" --filter "status=dead" -q | xargs -r docker rm -f
+            $DC rm -f migrate-prod rada-migrate-prod migrate-openreyestr-prod rada-db-init-prod seed-admin-prod 2>/dev/null || true
+            docker image prune -f
 
-        # Step 5b: Start pgbouncer if it exists in this compose file
-        $DC up -d pgbouncer-${ENV_SUFFIX} 2>/dev/null || true
+            # Step 2: Pre-build shared + all service dists
+            echo "Building shared package and all service dists..."
+            cd "$REMOTE_REPO"
+            npm --prefix packages/shared install && npm --prefix packages/shared run build
+            npm --prefix mcp_backend install && npm --prefix mcp_backend run build
+            npm --prefix mcp_rada install && npm --prefix mcp_rada run build
+            npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build
+            cd "$REMOTE_REPO/deployment"
 
-        # Step 6: Wait for databases to be healthy, then run RADA DB init
-        echo "Waiting for databases..."
-        sleep 5
-        echo "Running RADA DB init..."
-        $DC up rada-db-init-${ENV_SUFFIX}
+            # Step 3: Build images
+            if [ -n "$NO_CACHE" ]; then
+                echo "Building all images without cache..."
+            else
+                echo "Building all images (cached)..."
+            fi
+            GIT_SHA_ENV="GIT_SHA=${GIT_SHA:-$(git -C "$REMOTE_REPO" rev-parse HEAD 2>/dev/null || echo unknown)}"
+            $DC build $NO_CACHE --build-arg "$GIT_SHA_ENV" \
+                app-prod rada-mcp-app-prod app-openreyestr-prod \
+                migrate-prod rada-migrate-prod migrate-openreyestr-prod \
+                document-service-prod lexwebapp-prod
 
-        # Step 7: Run migrations (backend first, then rada + openreyestr in parallel)
-        echo "Running backend migrations..."
-        $DC up migrate-${ENV_SUFFIX}
-        echo "Running RADA + OpenReyestr migrations in parallel..."
-        $DC up rada-migrate-${ENV_SUFFIX} migrate-openreyestr-${ENV_SUFFIX}
+            # Step 4: Ensure infrastructure services are running
+            echo "Ensuring infrastructure services are running..."
+            INFRA_FLAGS=""
+            if [ -n "$NO_CACHE" ]; then
+                INFRA_FLAGS="--force-recreate"
+            fi
+            $DC up -d $INFRA_FLAGS \
+                postgres-prod redis-prod qdrant-prod \
+                postgres-openreyestr-prod minio-prod
+            $DC up -d pgbouncer-prod 2>/dev/null || true
 
-        # Step 7b: Seed admin users
-        echo "Seeding admin users..."
-        $DC up seed-admin-${ENV_SUFFIX} 2>/dev/null || echo "  (seed-admin not defined for this env)"
+            # Step 5: Run migrations (old services still serving traffic)
+            echo "Waiting for databases..."
+            sleep 5
+            echo "Running RADA DB init..."
+            $DC up rada-db-init-prod
+            echo "Running backend migrations..."
+            $DC up migrate-prod
+            echo "Running RADA + OpenReyestr migrations in parallel..."
+            $DC up rada-migrate-prod migrate-openreyestr-prod
+            echo "Seeding admin users..."
+            $DC up seed-admin-prod 2>/dev/null || echo "  (seed-admin not defined)"
 
-        # Step 8: Start application services
-        echo "Starting application services..."
-        $DC up -d \
-            app-${ENV_SUFFIX} \
-            rada-mcp-app-${ENV_SUFFIX} \
-            app-openreyestr-${ENV_SUFFIX} \
-            document-service-${ENV_SUFFIX} \
-            lexwebapp-${ENV_SUFFIX}
+            # Step 6: Start target color services (old services still serving traffic)
+            echo "Starting $TARGET_COLOR services..."
+            if [ "$TARGET_COLOR" = "green" ]; then
+                $DC --profile green up -d $TARGET_SERVICES
+            else
+                $DC up -d $TARGET_SERVICES
+            fi
 
-        # Step 8b: Start nginx reverse proxy (after app services are up)
-        echo "Starting nginx reverse proxy..."
-        $DC up -d nginx-${ENV_SUFFIX}
-
-        # Step 9: Start monitoring services
-        echo "Starting monitoring services..."
-        $DC up -d \
-            prometheus-${ENV_SUFFIX} \
-            grafana-${ENV_SUFFIX} \
-            cadvisor-${ENV_SUFFIX} \
-            2>/dev/null || echo "  (some monitoring services may not exist in this environment)"
-        # Stage-specific monitoring exporters
-        if [ "$ENV_SUFFIX" = "stage" ]; then
-            $DC up -d \
-                postgres-exporter-backend \
-                postgres-exporter-openreyestr \
-                redis-exporter \
-                node-exporter \
-                2>/dev/null || true
-        fi
-
-        # Step 10: Verify nginx routing per domain (bypass Cloudflare — maintenance still active)
-        echo "Waiting for nginx and services to initialize..."
-        sleep 10
-        echo "Verifying domain health (direct nginx on :${NGINX_CHECK_PORT})..."
-        for domain in $HEALTH_DOMAINS; do
-            ok=false
-            for attempt in 1 2 3; do
-                if curl -sf --max-time 10 -H "Host: ${domain}" "http://localhost:${NGINX_CHECK_PORT}/health" > /dev/null 2>&1; then
-                    echo "  [OK] ${domain}"
-                    ok=true
+            # Step 7: Wait for target services to become healthy
+            echo "Waiting for $TARGET_COLOR services health checks..."
+            HEALTH_TIMEOUT=120
+            HEALTH_INTERVAL=5
+            ELAPSED=0
+            ALL_HEALTHY=false
+            while [ $ELAPSED -lt $HEALTH_TIMEOUT ]; do
+                HEALTHY_COUNT=0
+                TOTAL=0
+                for svc in $TARGET_SERVICES; do
+                    TOTAL=$((TOTAL + 1))
+                    CONTAINER=$(docker compose -f $COMPOSE_FILE --env-file $ENV_FILE ps -q "$svc" 2>/dev/null || true)
+                    if [ -n "$CONTAINER" ]; then
+                        STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$CONTAINER" 2>/dev/null || echo "unknown")
+                        if [ "$STATUS" = "healthy" ]; then
+                            HEALTHY_COUNT=$((HEALTHY_COUNT + 1))
+                        fi
+                    fi
+                done
+                echo "  Health check: $HEALTHY_COUNT/$TOTAL healthy (${ELAPSED}s/${HEALTH_TIMEOUT}s)"
+                if [ "$HEALTHY_COUNT" -eq "$TOTAL" ]; then
+                    ALL_HEALTHY=true
                     break
                 fi
-                sleep 5
+                sleep $HEALTH_INTERVAL
+                ELAPSED=$((ELAPSED + HEALTH_INTERVAL))
             done
-            if [ "$ok" = false ]; then
-                echo "  [WARN] ${domain} nginx routing not ready after 3 attempts"
-                echo "    Checking direct backend health..."
-                curl -sf --max-time 5 "http://localhost:${DIRECT_BACKEND_PORT}/health" 2>/dev/null && echo "    Backend is up on :${DIRECT_BACKEND_PORT} — nginx config issue" || echo "    Backend not responding on :${DIRECT_BACKEND_PORT} either"
-            fi
-        done
 
-        echo "Container deployment complete"
-        $DC ps
+            if [ "$ALL_HEALTHY" = false ]; then
+                echo "ERROR: $TARGET_COLOR services failed health checks after ${HEALTH_TIMEOUT}s"
+                echo "Stopping $TARGET_COLOR services (old services still running)..."
+                if [ "$TARGET_COLOR" = "green" ]; then
+                    $DC --profile green stop $TARGET_SERVICES 2>/dev/null || true
+                    $DC --profile green rm -f $TARGET_SERVICES 2>/dev/null || true
+                else
+                    $DC stop $TARGET_SERVICES 2>/dev/null || true
+                    $DC rm -f $TARGET_SERVICES 2>/dev/null || true
+                fi
+                echo "ROLLBACK: $ACTIVE_COLOR services still active, no downtime occurred"
+                exit 1
+            fi
+            echo "All $TARGET_COLOR services are healthy!"
+
+            # Step 8: Switch nginx upstreams to target color
+            echo "Switching nginx upstreams to $TARGET_COLOR ($TARGET_BACKEND / $TARGET_FRONTEND)..."
+            cat > "$REMOTE_REPO/deployment/nginx/includes/prod-upstreams.conf" << UPSTREAM_EOF
+# Active upstreams — managed by deploy script (blue-green switching)
+# Active color: $TARGET_COLOR — switched at $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+upstream prod_mcp_backend {
+    server ${TARGET_BACKEND}:3000;
+    keepalive 128;
+}
+
+upstream prod_frontend {
+    server ${TARGET_FRONTEND}:80;
+    keepalive 32;
+}
+UPSTREAM_EOF
+
+            # Ensure nginx is running
+            $DC up -d nginx-prod
+
+            # Validate and reload nginx config (retry up to 5 times — Docker DNS may need a moment)
+            NGINX_OK=false
+            for NGINX_TRY in 1 2 3 4 5; do
+                if docker exec nginx-prod nginx -t 2>&1; then
+                    NGINX_OK=true
+                    break
+                fi
+                echo "nginx -t attempt $NGINX_TRY/5 failed — waiting 3s for Docker DNS..."
+                sleep 3
+            done
+            if [ "$NGINX_OK" != "true" ]; then
+                echo "ERROR: nginx config validation failed! Reverting upstream..."
+                # Revert to old color upstream
+                if [ "$ACTIVE_COLOR" = "blue" ]; then
+                    OLD_BACKEND="app-prod"; OLD_FRONTEND="lexwebapp-prod"
+                else
+                    OLD_BACKEND="app-prod-green"; OLD_FRONTEND="lexwebapp-prod-green"
+                fi
+                cat > "$REMOTE_REPO/deployment/nginx/includes/prod-upstreams.conf" << REVERT_EOF
+upstream prod_mcp_backend {
+    server ${OLD_BACKEND}:3000;
+    keepalive 128;
+}
+
+upstream prod_frontend {
+    server ${OLD_FRONTEND}:80;
+    keepalive 32;
+}
+REVERT_EOF
+                exit 1
+            fi
+            docker exec nginx-prod nginx -s reload
+            echo "Nginx reloaded — traffic now flowing to $TARGET_COLOR"
+
+            # Step 9: Brief pause for connections to drain from old services
+            sleep 5
+
+            # Step 10: Verify traffic through nginx
+            echo "Verifying domain health (direct nginx on :${NGINX_CHECK_PORT})..."
+            for domain in $HEALTH_DOMAINS; do
+                ok=false
+                for attempt in 1 2 3; do
+                    if curl -sf --max-time 10 -H "Host: ${domain}" "http://localhost:${NGINX_CHECK_PORT}/health" > /dev/null 2>&1; then
+                        echo "  [OK] ${domain}"
+                        ok=true
+                        break
+                    fi
+                    sleep 5
+                done
+                if [ "$ok" = false ]; then
+                    echo "  [WARN] ${domain} nginx routing not ready after 3 attempts"
+                    curl -sf --max-time 5 "http://localhost:${DIRECT_BACKEND_PORT}/health" 2>/dev/null \
+                        && echo "    Backend is up on :${DIRECT_BACKEND_PORT} — nginx config issue" \
+                        || echo "    Backend not responding on :${DIRECT_BACKEND_PORT} either"
+                fi
+            done
+
+            # Step 11: Stop old color services
+            echo "Stopping old $ACTIVE_COLOR services..."
+            if [ "$ACTIVE_COLOR" = "green" ]; then
+                $DC --profile green stop $OLD_SERVICES 2>/dev/null || true
+                $DC --profile green rm -f $OLD_SERVICES 2>/dev/null || true
+            else
+                $DC stop $OLD_SERVICES 2>/dev/null || true
+                $DC rm -f $OLD_SERVICES 2>/dev/null || true
+            fi
+
+            # Step 12: Update state file
+            echo "$TARGET_COLOR" > "$COLOR_FILE"
+            echo "Deploy color updated: $TARGET_COLOR"
+
+            # Step 13: Start monitoring services
+            echo "Starting monitoring services..."
+            $DC up -d prometheus-prod grafana-prod cadvisor-prod 2>/dev/null \
+                || echo "  (some monitoring services may not exist)"
+            $DC up -d postgres-exporter-backend postgres-exporter-openreyestr redis-exporter node-exporter 2>/dev/null || true
+
+            echo "=== Blue-Green deploy complete: $TARGET_COLOR is now active ==="
+            $DC --profile green ps
+
+        # ── Standard deploy (stage) ────────────────────────────────────────
+        else
+            # Step 1: Stop app containers only (keep infra running)
+            echo "Stopping app containers (keeping databases running)..."
+            $DC stop \
+                nginx-${ENV_SUFFIX} \
+                app-${ENV_SUFFIX} rada-mcp-app-${ENV_SUFFIX} app-openreyestr-${ENV_SUFFIX} \
+                document-service-${ENV_SUFFIX} lexwebapp-${ENV_SUFFIX} \
+                prometheus-${ENV_SUFFIX} grafana-${ENV_SUFFIX} \
+                2>/dev/null || true
+            $DC rm -f \
+                nginx-${ENV_SUFFIX} \
+                app-${ENV_SUFFIX} rada-mcp-app-${ENV_SUFFIX} app-openreyestr-${ENV_SUFFIX} \
+                document-service-${ENV_SUFFIX} lexwebapp-${ENV_SUFFIX} \
+                migrate-${ENV_SUFFIX} rada-migrate-${ENV_SUFFIX} migrate-openreyestr-${ENV_SUFFIX} \
+                rada-db-init-${ENV_SUFFIX} \
+                prometheus-${ENV_SUFFIX} grafana-${ENV_SUFFIX} \
+                2>/dev/null || true
+
+            # Step 2: Cleanup
+            echo "Cleaning up stopped containers..."
+            docker ps -a --filter "name=-${ENV_SUFFIX}" --filter "status=exited" -q | xargs -r docker rm -f
+            docker ps -a --filter "name=-${ENV_SUFFIX}" --filter "status=dead" -q | xargs -r docker rm -f
+            docker image prune -f
+
+            # Step 3: Pre-build
+            echo "Building shared package and all service dists..."
+            cd "$REMOTE_REPO"
+            npm --prefix packages/shared install && npm --prefix packages/shared run build
+            npm --prefix mcp_backend install && npm --prefix mcp_backend run build
+            npm --prefix mcp_rada install && npm --prefix mcp_rada run build
+            npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build
+            cd "$REMOTE_REPO/deployment"
+
+            # Step 4: Build images
+            if [ -n "$NO_CACHE" ]; then
+                echo "Building all images without cache..."
+            else
+                echo "Building all images (cached)..."
+            fi
+            GIT_SHA_ENV="GIT_SHA=${GIT_SHA:-$(git -C "$REMOTE_REPO" rev-parse HEAD 2>/dev/null || echo unknown)}"
+            $DC build $NO_CACHE --build-arg "$GIT_SHA_ENV" \
+                app-${ENV_SUFFIX} rada-mcp-app-${ENV_SUFFIX} app-openreyestr-${ENV_SUFFIX} \
+                migrate-${ENV_SUFFIX} rada-migrate-${ENV_SUFFIX} migrate-openreyestr-${ENV_SUFFIX} \
+                document-service-${ENV_SUFFIX} lexwebapp-${ENV_SUFFIX}
+
+            # Step 5: Ensure infrastructure
+            echo "Ensuring infrastructure services are running..."
+            INFRA_FLAGS=""
+            if [ -n "$NO_CACHE" ]; then
+                INFRA_FLAGS="--force-recreate"
+            fi
+            $DC up -d $INFRA_FLAGS \
+                postgres-${ENV_SUFFIX} redis-${ENV_SUFFIX} qdrant-${ENV_SUFFIX} \
+                postgres-openreyestr-${ENV_SUFFIX} minio-${ENV_SUFFIX}
+            $DC up -d pgbouncer-${ENV_SUFFIX} 2>/dev/null || true
+
+            # Step 6: Migrations
+            echo "Waiting for databases..."
+            sleep 5
+            echo "Running RADA DB init..."
+            $DC up rada-db-init-${ENV_SUFFIX}
+            echo "Running backend migrations..."
+            $DC up migrate-${ENV_SUFFIX}
+            echo "Running RADA + OpenReyestr migrations in parallel..."
+            $DC up rada-migrate-${ENV_SUFFIX} migrate-openreyestr-${ENV_SUFFIX}
+            echo "Seeding admin users..."
+            $DC up seed-admin-${ENV_SUFFIX} 2>/dev/null || echo "  (seed-admin not defined)"
+
+            # Step 7: Start app services
+            echo "Starting application services..."
+            $DC up -d \
+                app-${ENV_SUFFIX} rada-mcp-app-${ENV_SUFFIX} app-openreyestr-${ENV_SUFFIX} \
+                document-service-${ENV_SUFFIX} lexwebapp-${ENV_SUFFIX}
+
+            # Step 8: Start nginx
+            echo "Starting nginx reverse proxy..."
+            $DC up -d nginx-${ENV_SUFFIX}
+
+            # Step 9: Start monitoring
+            echo "Starting monitoring services..."
+            $DC up -d \
+                prometheus-${ENV_SUFFIX} grafana-${ENV_SUFFIX} cadvisor-${ENV_SUFFIX} \
+                2>/dev/null || echo "  (some monitoring services may not exist)"
+            if [ "$ENV_SUFFIX" = "stage" ]; then
+                $DC up -d \
+                    postgres-exporter-backend postgres-exporter-openreyestr \
+                    redis-exporter node-exporter \
+                    2>/dev/null || true
+            fi
+
+            # Step 10: Verify health
+            echo "Waiting for nginx and services to initialize..."
+            sleep 10
+            echo "Verifying domain health (direct nginx on :${NGINX_CHECK_PORT})..."
+            for domain in $HEALTH_DOMAINS; do
+                ok=false
+                for attempt in 1 2 3; do
+                    if curl -sf --max-time 10 -H "Host: ${domain}" "http://localhost:${NGINX_CHECK_PORT}/health" > /dev/null 2>&1; then
+                        echo "  [OK] ${domain}"
+                        ok=true
+                        break
+                    fi
+                    sleep 5
+                done
+                if [ "$ok" = false ]; then
+                    echo "  [WARN] ${domain} nginx routing not ready after 3 attempts"
+                    curl -sf --max-time 5 "http://localhost:${DIRECT_BACKEND_PORT}/health" 2>/dev/null \
+                        && echo "    Backend is up on :${DIRECT_BACKEND_PORT} — nginx config issue" \
+                        || echo "    Backend not responding on :${DIRECT_BACKEND_PORT} either"
+                fi
+            done
+
+            echo "Container deployment complete"
+            $DC ps
+        fi
 EOF
     then
         deploy_failed=true
@@ -957,14 +1175,18 @@ EOF
     if [ "$deploy_failed" = true ]; then
         print_msg "$RED" "Remote deploy failed, rolling back..."
         rollback_to_backup "$env" "$target_server" "$compose_file" "$env_file"
-        disable_cf_maintenance "$env"
+        if [ "$env" != "prod" ]; then
+            disable_cf_maintenance "$env"
+        fi
         generate_deploy_report "$env" "rollback" "$backup_id" "$deploy_start" "$REPO_ROOT"
         DEPLOY_USER="$ORIG_DEPLOY_USER"
         exit 1
     fi
 
-    # Services are up — remove maintenance page before smoke tests
-    disable_cf_maintenance "$env"
+    # Services are up — remove maintenance page before smoke tests (stage only)
+    if [ "$env" != "prod" ]; then
+        disable_cf_maintenance "$env"
+    fi
 
     # Phase 4: Smoke tests
     if ! run_smoke_tests "$env" "$target_server" "$compose_file" "$env_file"; then

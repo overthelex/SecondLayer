@@ -12,7 +12,7 @@
 
 import { logger } from '../utils/logger.js';
 import { generateCaseNumberVariations } from '../api/tool-utils.js';
-import type { ZOAdapter } from '../adapters/zo-adapter.js';
+import type { EdsrLocalAdapter } from '../adapters/edrsr-local-adapter.js';
 import type { IDatabase, ICachePort } from '../domain/ports/index.js';
 import type { PrecedentStatusType } from '../types/index.js';
 
@@ -185,7 +185,7 @@ export class ShepardizationService {
   private cache: ICachePort | null = null;
 
   constructor(
-    private zoAdapter: ZOAdapter,
+    private zoAdapter: EdsrLocalAdapter,
     private db: IDatabase,
     cache?: ICachePort
   ) {

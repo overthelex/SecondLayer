@@ -13,8 +13,6 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
-  Crown,
-  Sparkles,
 } from 'lucide-react';
 import { BillingLoadingState, BillingErrorState } from './shared';
 import { api } from '../../utils/api-client';
@@ -47,31 +45,6 @@ interface FAQItem {
   question: string;
   answer: string;
 }
-
-// Display config per tier for UI (icons, colors, CTA text)
-const TIER_UI: Record<string, {
-  icon: typeof Zap;
-  gradient?: string;
-  borderColor: string;
-}> = {
-  free: {
-    icon: Zap,
-    borderColor: 'border-claude-border',
-  },
-  startup: {
-    icon: Sparkles,
-    borderColor: 'border-blue-400',
-  },
-  business: {
-    icon: Crown,
-    borderColor: 'border-purple-400',
-  },
-  enterprise: {
-    icon: Crown,
-    gradient: 'from-purple-600 to-indigo-600',
-    borderColor: 'border-indigo-400',
-  },
-};
 
 const TIER_LABELS: Record<string, string> = {
   free: 'Free',
@@ -246,13 +219,8 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
       return;
     }
 
-    const tierOrder = ['free', 'startup', 'business', 'enterprise'];
-    const currentIdx = tierOrder.indexOf(currentTier);
-    const targetIdx = tierOrder.indexOf(tierId);
-    const isUpgrade = targetIdx > currentIdx;
-
-    if (isUpgrade) {
-      // Calculate cost difference
+    if (isUpgradeTo(tierId)) {
+      // Upgrade — calculate cost difference and redirect to top-up
       const currentTierData = tiers.find((t) => t.tier === currentTier);
       const targetTierData = tiers.find((t) => t.tier === tierId);
 
@@ -265,20 +233,32 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
 
       const priceDifference = targetPrice - currentPrice;
 
-      if (priceDifference > 0) {
-        if (onUpgradeTopUp) {
-          onUpgradeTopUp(priceDifference, tierId);
-        }
-        return;
+      if (priceDifference > 0 && onUpgradeTopUp) {
+        onUpgradeTopUp(priceDifference, tierId);
       }
+      return;
     }
 
-    // Downgrade or free tier — apply directly
+    // Downgrade — confirm with refund info before applying
+    const switchInfo = getPlanSwitchInfo(tierId);
+    const confirmMsg = switchInfo
+      ? `Ви впевнені, що хочете знизити тариф до ${TIER_LABELS[tierId] || tierId}?\n\n${switchInfo}`
+      : `Ви впевнені, що хочете знизити тариф до ${TIER_LABELS[tierId] || tierId}?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
     setIsUpgrading(tierId);
     try {
-      await api.billing.upgradePlan(tierId);
+      const response = await api.billing.upgradePlan(tierId);
       setCurrentTier(tierId);
-      showToast.success(`Тариф ${TIER_LABELS[tierId] || tierId} успішно активовано`);
+      const refundUah = response?.data?.refund_uah;
+      if (refundUah && refundUah > 0) {
+        showToast.success(
+          `Тариф ${TIER_LABELS[tierId] || tierId} активовано. Повернено ${Math.round(refundUah)} ₴ на баланс`
+        );
+      } else {
+        showToast.success(`Тариф ${TIER_LABELS[tierId] || tierId} успішно активовано`);
+      }
     } catch (error) {
       console.error('Upgrade failed:', error);
       showToast.error('Не вдалося змінити тариф');
@@ -287,7 +267,28 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
     }
   };
 
-  const getUpgradeCost = (tierId: string): number => {
+
+  /** Determine if switching to tierId is an upgrade (costs more) based on price, not tier order */
+  const isUpgradeTo = (tierId: string): boolean => {
+    const currentTierData = tiers.find((t) => t.tier === currentTier);
+    const targetTierData = tiers.find((t) => t.tier === tierId);
+    const currentPrice = currentTierData?.monthly_price_usd || 0;
+    const targetPrice = targetTierData?.monthly_price_usd || 0;
+    return targetPrice > currentPrice;
+  };
+
+  const getCtaText = (tierId: string): string => {
+    if (tierId === currentTier) return 'Поточний план';
+    if (tierId === 'enterprise') return "Зв'язатися з нами";
+    return isUpgradeTo(tierId)
+      ? `Перейти на ${TIER_LABELS[tierId] || tierId}`
+      : `Знизити до ${TIER_LABELS[tierId] || tierId}`;
+  };
+
+  /** Returns a description of what happens financially when switching plans */
+  const getPlanSwitchInfo = (tierId: string): string | null => {
+    if (tierId === currentTier || tierId === 'enterprise') return null;
+
     const currentTierData = tiers.find((t) => t.tier === currentTier);
     const targetTierData = tiers.find((t) => t.tier === tierId);
     const currentPrice = billingCycle === 'monthly'
@@ -296,21 +297,23 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
     const targetPrice = billingCycle === 'monthly'
       ? (targetTierData?.monthly_price_usd || 0)
       : (targetTierData?.annual_price_usd || 0);
-    return targetPrice - currentPrice;
-  };
+    const period = billingCycle === 'monthly' ? 'міс' : 'рік';
 
-  const getCtaText = (tierId: string): string => {
-    if (tierId === currentTier) return 'Поточний план';
-    if (tierId === 'enterprise') return "Зв'язатися з нами";
-    const tierOrder = ['free', 'startup', 'business', 'enterprise'];
-    const currentIdx = tierOrder.indexOf(currentTier);
-    const targetIdx = tierOrder.indexOf(tierId);
-    if (targetIdx > currentIdx) {
-      const cost = getUpgradeCost(tierId);
-      if (cost > 0) return `Перейти за ${toUah(cost).toFixed(0)} \u20B4${billingCycle === 'monthly' ? '/міс' : '/рік'}`;
-      return `Перейти на ${TIER_LABELS[tierId] || tierId}`;
+    if (targetPrice > currentPrice) {
+      // Upgrade — user pays more
+      const surcharge = targetPrice - currentPrice;
+      if (currentPrice === 0) {
+        return `Оплата: ${toUah(targetPrice).toFixed(0)} \u20B4/${period}`;
+      }
+      return `Доплата: ${toUah(surcharge).toFixed(0)} \u20B4/${period} (різниця тарифів)`;
+    } else {
+      // Downgrade — user gets refund
+      const refund = currentPrice - targetPrice;
+      if (targetPrice === 0) {
+        return `Повернення: ${toUah(refund).toFixed(0)} \u20B4 на баланс`;
+      }
+      return `Повернення різниці: ${toUah(refund).toFixed(0)} \u20B4/${period} на баланс`;
     }
-    return `Знизити до ${TIER_LABELS[tierId] || tierId}`;
   };
 
   const isPopular = (tierId: string): boolean => {
@@ -331,9 +334,9 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-center gap-4">
+        className="bg-white border border-claude-border rounded-xl p-4 shadow-sm flex items-center justify-center gap-4">
         <span
-          className={`text-sm font-medium ${
+          className={`text-sm font-medium transition-colors ${
             billingCycle === 'monthly' ? 'text-claude-text' : 'text-claude-subtext'
           }`}>
           Щомісяця
@@ -344,30 +347,28 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
             billingCycle === 'yearly' ? 'bg-claude-accent' : 'bg-claude-border'
           }`}>
           <motion.div
-            layout
             className="inline-block h-6 w-6 transform rounded-full bg-white shadow-lg"
-            style={{
-              marginLeft: billingCycle === 'yearly' ? '24px' : '4px',
-            }}
+            animate={{ marginLeft: billingCycle === 'yearly' ? 24 : 4 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
           />
         </button>
         <div className="flex items-center gap-2">
           <span
-            className={`text-sm font-medium ${
+            className={`text-sm font-medium transition-colors ${
               billingCycle === 'yearly' ? 'text-claude-text' : 'text-claude-subtext'
             }`}>
             Щорічно
           </span>
-          {billingCycle === 'yearly' && (
-            <span className="text-xs font-semibold bg-green-100 text-green-700 px-2 py-1 rounded-full">
-              Заощаджуйте ~17%
-            </span>
-          )}
+          <span className={`text-xs font-semibold bg-green-100 text-green-700 px-2 py-1 rounded-full transition-opacity ${
+            billingCycle === 'yearly' ? 'opacity-100' : 'opacity-0'
+          }`}>
+            -17%
+          </span>
         </div>
       </motion.div>
 
       {/* Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
         {tiers.map((tier, index) => {
           const popular = isPopular(tier.tier);
           const isCurrent = tier.tier === currentTier;
@@ -376,7 +377,7 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
             ? tier.monthly_price_usd || 0
             : tier.annual_price_usd || 0;
           const isCustomPrice = tier.tier === 'enterprise';
-          const ui = TIER_UI[tier.tier] || TIER_UI.free;
+          const switchInfo = getPlanSwitchInfo(tier.tier);
 
           return (
             <motion.div
@@ -384,34 +385,36 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className={`rounded-xl border-2 transition-all relative ${
+              className={`rounded-xl border shadow-sm transition-all relative ${
                 isCurrent
-                  ? 'border-green-400 bg-green-50/30 shadow-lg'
+                  ? 'border-green-400 bg-green-50/30 shadow-md ring-1 ring-green-200'
                   : popular
-                  ? 'border-claude-accent bg-claude-accent/5 shadow-lg scale-105'
-                  : `${ui.borderColor} bg-white`
+                  ? 'border-claude-accent bg-white shadow-md ring-1 ring-claude-accent/20'
+                  : `border-claude-border bg-white`
               }`}>
-              {/* Badges */}
-              {isCurrent && (
-                <div className="bg-green-500 text-white px-4 py-2 text-center text-xs font-bold rounded-t-lg">
-                  ВАШ ПОТОЧНИЙ ПЛАН
-                </div>
-              )}
-              {!isCurrent && popular && (
-                <div className="bg-claude-accent text-white px-4 py-2 text-center text-xs font-bold rounded-t-lg">
-                  НАЙПОПУЛЯРНІШИЙ
-                </div>
-              )}
-              {!isCurrent && !popular && isRecommended && (
-                <div className="bg-blue-500 text-white px-4 py-2 text-center text-xs font-bold rounded-t-lg">
-                  РЕКОМЕНДОВАНИЙ
-                </div>
-              )}
+              {/* Badges — fixed height slot to prevent layout shift */}
+              <div className="h-8">
+                {isCurrent && (
+                  <div className="bg-green-500 text-white px-4 py-1.5 text-center text-xs font-bold rounded-t-[11px]">
+                    ВАШ ПОТОЧНИЙ ПЛАН
+                  </div>
+                )}
+                {!isCurrent && popular && (
+                  <div className="bg-claude-accent text-white px-4 py-1.5 text-center text-xs font-bold rounded-t-[11px]">
+                    НАЙПОПУЛЯРНІШИЙ
+                  </div>
+                )}
+                {!isCurrent && !popular && isRecommended && (
+                  <div className="bg-blue-500 text-white px-4 py-1.5 text-center text-xs font-bold rounded-t-[11px]">
+                    РЕКОМЕНДОВАНИЙ
+                  </div>
+                )}
+              </div>
 
-              <div className="p-6 flex flex-col h-full">
+              <div className="p-6 pt-2 flex flex-col">
                 {/* Plan Header */}
                 <div className="mb-4">
-                  <h3 className="text-2xl font-bold text-claude-text mb-1">
+                  <h3 className="text-xl font-bold text-claude-text mb-1">
                     {tier.display_name || TIER_LABELS[tier.tier] || tier.tier}
                   </h3>
                   <p className="text-sm text-claude-subtext">
@@ -419,19 +422,19 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
                   </p>
                 </div>
 
-                {/* Pricing */}
-                <div className="mb-6">
+                {/* Pricing — fixed min-height to prevent jumping on toggle */}
+                <div className="mb-6 min-h-[72px]">
                   {isCustomPrice ? (
-                    <p className="text-2xl font-bold text-claude-text">Індивідуальна ціна</p>
+                    <p className="text-xl font-bold text-claude-text">Індивідуальна ціна</p>
                   ) : price === 0 ? (
                     <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-bold text-claude-text">0 &#8372;</span>
+                      <span className="text-3xl font-bold text-claude-text">0 &#8372;</span>
                       <span className="text-sm text-claude-subtext">/міс</span>
                     </div>
                   ) : (
                     <>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-bold text-claude-text">
+                        <span className="text-3xl font-bold text-claude-text">
                           {toUah(price).toFixed(0)} &#8372;
                         </span>
                         <span className="text-sm text-claude-subtext">
@@ -461,7 +464,7 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
                 <button
                   onClick={() => handleUpgrade(tier.tier)}
                   disabled={isCurrent || isUpgrading === tier.tier}
-                  className={`w-full py-3 px-4 rounded-lg font-semibold transition-all mb-6 ${
+                  className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
                     isCurrent
                       ? 'bg-green-100 text-green-700 border border-green-300 cursor-default'
                       : popular
@@ -471,18 +474,27 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
                   {isUpgrading === tier.tier ? 'Обробка...' : getCtaText(tier.tier)}
                 </button>
 
-                {/* Trial info */}
-                {!isCurrent && tier.trial_days && tier.trial_days > 0 && (
-                  <p className="text-xs text-blue-600 text-center mb-4 -mt-4">
-                    {tier.trial_days} днів безкоштовно
-                  </p>
-                )}
+                {/* Plan switch cost/refund explanation */}
+                <div className="h-10 flex items-center justify-center">
+                  {switchInfo && (
+                    <p className={`text-xs text-center ${
+                      isUpgradeTo(tier.tier) ? 'text-claude-subtext' : 'text-green-600'
+                    }`}>
+                      {switchInfo}
+                    </p>
+                  )}
+                  {!switchInfo && !isCurrent && tier.trial_days && tier.trial_days > 0 && (
+                    <p className="text-xs text-blue-600 text-center">
+                      {tier.trial_days} днів безкоштовно
+                    </p>
+                  )}
+                </div>
 
                 {/* Features List */}
-                <div className="space-y-3 flex-1">
+                <div className="space-y-3 pt-4 border-t border-claude-border flex-1">
                   {tier.features.map((feature, idx) => (
                     <div key={idx} className="flex items-start gap-3">
-                      <Check size={18} className="text-green-500 flex-shrink-0 mt-0.5" />
+                      <Check size={16} className="text-green-500 flex-shrink-0 mt-0.5" />
                       <span className="text-sm text-claude-text">{feature}</span>
                     </div>
                   ))}

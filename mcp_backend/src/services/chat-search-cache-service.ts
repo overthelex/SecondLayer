@@ -11,7 +11,7 @@
 import crypto from 'crypto';
 import { logger } from '../utils/logger.js';
 import type { ICachePort } from '../domain/ports/index.js';
-import { ZOAdapter } from '../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../adapters/edrsr-local-adapter.js';
 import { DocumentService } from './document-service.js';
 
 const CACHE_TTL = parseInt(process.env.CHAT_SEARCH_CACHE_TTL || '1800', 10); // 30 min
@@ -26,6 +26,18 @@ const COURT_SEARCH_TOOLS = new Set([
   'compare_practice_pro_contra',
   'get_case_documents_chain',
   'count_cases_by_party',
+  'search_edrsr_decisions',
+  'search_edrsr_fulltext',
+  'search_edrsr_semantic',
+  'get_edrsr_decision_fulltext',
+]);
+
+/** EDRSR tools have fulltext locally — no need for background ZO downloads */
+const EDRSR_TOOLS = new Set([
+  'search_edrsr_decisions',
+  'search_edrsr_fulltext',
+  'search_edrsr_semantic',
+  'get_edrsr_decision_fulltext',
 ]);
 
 export function isCourtSearchTool(toolName: string): boolean {
@@ -36,7 +48,7 @@ export class ChatSearchCacheService {
   private cache: ICachePort | null = null;
 
   constructor(
-    private zoAdapter: ZOAdapter,
+    private zoAdapter: EdsrLocalAdapter,
     private documentService: DocumentService,
     cache?: ICachePort
   ) {
@@ -160,8 +172,10 @@ export class ChatSearchCacheService {
   /**
    * Fire-and-forget: download full text for documents that don't have it yet.
    */
-  triggerBackgroundDownloads(docIds: string[]): void {
+  triggerBackgroundDownloads(docIds: string[], toolName?: string): void {
     if (docIds.length === 0) return;
+    // EDRSR tools have fulltext in local PostgreSQL — no need for ZO downloads
+    if (toolName && EDRSR_TOOLS.has(toolName)) return;
 
     setImmediate(async () => {
       try {

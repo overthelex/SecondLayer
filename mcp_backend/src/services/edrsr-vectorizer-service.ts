@@ -12,6 +12,7 @@
 import { QdrantClient } from '@qdrant/js-client-rest';
 import { VoyageAIClient, VoyageBatchResult } from '../utils/voyage-client.js';
 import { logger } from '../utils/logger.js';
+import { Semaphore } from '../utils/semaphore.js';
 import { v4 as uuidv4 } from 'uuid';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -86,45 +87,21 @@ function chunkText(text: string, maxChars = MAX_CHUNK_CHARS, overlapWords = CHUN
 
     chunks.push(text.slice(start, end));
 
+    if (end >= text.length) break;
+
     // Overlap: go back by overlapWords words
     const words = text.slice(start, end).split(/\s+/);
     const overlapText = words.slice(-overlapWords).join(' ');
-    start = end - overlapText.length;
+    const newStart = end - overlapText.length;
+
+    // Safety: always advance by at least half the chunk size to prevent infinite loops
+    // (can happen when text has ≤50 very long words, making overlap ≥ chunk size)
+    start = Math.max(newStart, start + Math.floor(maxChars / 2));
 
     if (start >= text.length - 100) break; // Don't create tiny last chunk
   }
 
   return chunks;
-}
-
-// ── Semaphore ────────────────────────────────────────────────────────────────
-
-class Semaphore {
-  private current = 0;
-  private queue: Array<() => void> = [];
-
-  constructor(private max: number) {}
-
-  async acquire(): Promise<void> {
-    if (this.current < this.max) {
-      this.current++;
-      return;
-    }
-    return new Promise<void>((resolve) => {
-      this.queue.push(() => {
-        this.current++;
-        resolve();
-      });
-    });
-  }
-
-  release(): void {
-    this.current--;
-    if (this.queue.length > 0) {
-      const next = this.queue.shift()!;
-      next();
-    }
-  }
 }
 
 // ── Service ──────────────────────────────────────────────────────────────────
@@ -270,7 +247,7 @@ export class EdsrVectorizerService {
     for (let i = 0; i < docs.length; i += batchSize) {
       const batch = docs.slice(i, i + batchSize);
       const promise = (async () => {
-        await semaphore.acquire();
+        const release = await semaphore.acquire();
         try {
           const pointIds = await this._vectorizeBatch(batch);
           // Collect results
@@ -278,7 +255,7 @@ export class EdsrVectorizerService {
             result.set(docId, ids);
           });
         } finally {
-          semaphore.release();
+          release();
         }
       })();
       vectorizePromises.push(promise);
@@ -308,11 +285,11 @@ export class EdsrVectorizerService {
     for (let i = 0; i < docs.length; i += batchSize) {
       const batch = docs.slice(i, i + batchSize);
       const promise = (async () => {
-        await semaphore.acquire();
+        const release = await semaphore.acquire();
         try {
           await this._vectorizeBatch(batch);
         } finally {
-          semaphore.release();
+          release();
         }
       })();
       promises.push(promise);

@@ -463,8 +463,11 @@ export function createMatterRoutes(
       }
 
       // 1. Fetch document texts (first 5 docs, first 2000 chars each)
+      //    Skip LEFT() on encrypted docs — their full_text contains binary data that breaks UTF-8 functions
       const docResult = await db.query(
-        `SELECT id, title, LEFT(full_text, 2000) as snippet, mime_type,
+        `SELECT id, title,
+                CASE WHEN COALESCE(is_encrypted, false) THEN NULL ELSE LEFT(full_text, 2000) END as snippet,
+                mime_type,
                 metadata->>'folderPath' as folder_path,
                 metadata->>'originalFilename' as original_filename
          FROM documents

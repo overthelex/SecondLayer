@@ -129,11 +129,19 @@ Recommendations for users:
 
 **6.2. Security measures:**
 - data encryption in transit (TLS 1.2+);
+- end-to-end document encryption (E2EE) at the User's option — document content is encrypted in the browser using AES-256-GCM, keys are stored exclusively on the User's side (X25519 + Argon2id KDF), the Company has no technical ability to decrypt such documents;
 - JWT token authentication;
 - role-based access control;
 - audit log with hash chain for access tracking;
 - data isolation between clients (matter segregation);
 - regular backups.
+
+**6.2.1. End-to-End Document Encryption (E2EE):**
+At the User's option, documents may be protected with end-to-end encryption. In this case:
+- document metadata (title, type, date) is stored in plaintext to enable search and filtering;
+- semantic embeddings are stored in Qdrant for semantic search;
+- document content (full text) is encrypted and stored in encrypted form;
+- if the encryption password and backup key file are lost, access to encrypted documents cannot be recovered.
 
 **6.3. Retention periods:**
 - account data — duration of the account + 30 days after deletion;

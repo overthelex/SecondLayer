@@ -371,7 +371,7 @@ export function LegalPageLayout({
             <div className="flex items-center gap-3">
               <span className="font-serif text-sm font-semibold text-claude-text">LEX AI</span>
               <span className="text-xs text-claude-subtext">
-                &copy; {new Date().getFullYear()} ТОВ «Лекс ЕйАй»
+                &copy; {new Date().getFullYear()} ФОП Кириченко І.В.
               </span>
             </div>
             <a

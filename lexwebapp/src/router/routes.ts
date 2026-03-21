@@ -94,11 +94,7 @@ export const ROUTES = {
 
   // Legislation & Analysis
   LEGISLATION_MONITORING: '/legislation/monitoring',
-  LEGISLATION_STATISTICS: '/legislation/statistics',
-  LEGAL_INITIATIVES: '/legislation/initiatives',
   LEGAL_CODES_LIBRARY: '/legislation/library',
-  VOTING_ANALYSIS: '/legislation/voting',
-  HISTORICAL_ANALYSIS: '/legislation/historical',
   COURT_PRACTICE_ANALYSIS: '/analysis/court-practice',
 
   // Attorney Consultations
@@ -107,6 +103,7 @@ export const ROUTES = {
   ATTORNEY_PROFILE_EDIT: '/attorney/profile',
   ATTORNEY_CLIENTS: '/attorney/clients',
   CONSULTATIONS: '/consultations',
+  CONSULTATIONS_PAYOUTS: '/consultations/payouts',
   CONSULTATION_DETAIL: '/consultations/:id',
 
   // Workflows

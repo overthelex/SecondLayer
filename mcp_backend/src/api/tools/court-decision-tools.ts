@@ -11,7 +11,7 @@
  * - count_cases_by_party
  */
 
-import { ZOAdapter } from '../../adapters/zo-adapter.js';
+import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
 import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
 import type { IEmbeddingPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
@@ -22,11 +22,12 @@ import { generateCaseNumberVariations, extractSnippets } from '../tool-utils.js'
 
 export class CourtDecisionTools extends BaseToolHandler {
   constructor(
-    private zoAdapter: ZOAdapter,
-    private zoPracticeAdapter: ZOAdapter,
+    private zoAdapter: EdsrLocalAdapter,
+    private zoPracticeAdapter: EdsrLocalAdapter,
     private sectionizer: SemanticSectionizer,
     private embeddingService: IEmbeddingPort,
-    private patternStore: LegalPatternStore
+    private patternStore: LegalPatternStore,
+    private db?: any
   ) {
     super();
   }
@@ -287,39 +288,69 @@ export class CourtDecisionTools extends BaseToolHandler {
       if (!Number.isNaN(n) && Number.isFinite(n)) docId = n;
     }
 
-    let doc: any = null;
-    let fullTextData: any = null;
-    let metadata: any = null;
-
-    if (docId) {
-      const searchResult = await this.zoAdapter.searchCourtDecisions({
-        meta: { search: String(docId) },
-        limit: 1,
-        fulldata: 1,
-      });
-
-      if (searchResult?.data && searchResult.data.length > 0) {
-        metadata = searchResult.data[0];
-      }
-
-      fullTextData = await this.zoAdapter.getDocumentFullText(docId);
-      doc = {
-        ...metadata,
-        text: fullTextData?.text,
-        html: fullTextData?.html,
-        case_number: fullTextData?.case_number || metadata?.case_number,
-      };
-    } else if (caseNumber) {
-      doc = await this.zoAdapter.getDocumentByCaseNumber(caseNumber);
-    } else {
+    if (!docId && !caseNumber) {
       throw new Error('Provide doc_id (preferred) or case_number');
     }
 
-    const fullText = typeof doc?.full_text === 'string' ? doc.full_text : (typeof doc?.text === 'string' ? doc.text : '');
-    const url = typeof doc?.url === 'string' ? doc.url : (docId ? `https://zakononline.ua/court-decisions/show/${docId}` : undefined);
+    if (!this.db) {
+      return this.wrapError('Database not configured');
+    }
 
-    const actualDocId = doc?.doc_id || doc?.zakononline_id || docId || null;
-    const actualCaseNumber = doc?.case_number || caseNumber || undefined;
+    let row: any = null;
+
+    if (docId) {
+      const result = await this.db.query(`
+        SELECT
+          d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+          d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+          d.doc_url, d.status, d.date_publ,
+          f.full_text
+        FROM edrsr_documents d
+        LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
+        WHERE d.doc_id = $1
+      `, [docId]);
+
+      if (result.rows.length > 0) {
+        row = result.rows[0];
+      } else {
+        // Try fulltext-only
+        const ftResult = await this.db.query(
+          `SELECT doc_id, full_text FROM edrsr_fulltext WHERE doc_id = $1`, [docId]
+        );
+        if (ftResult.rows.length > 0) {
+          row = { doc_id: docId, full_text: ftResult.rows[0].full_text };
+        }
+      }
+    } else if (caseNumber) {
+      // Find most recent decision for this case number
+      const result = await this.db.query(`
+        SELECT
+          d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+          d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+          d.doc_url, d.status, d.date_publ,
+          f.full_text
+        FROM edrsr_documents d
+        LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
+        WHERE d.cause_num = $1
+        ORDER BY d.adjudication_date DESC NULLS LAST
+        LIMIT 1
+      `, [caseNumber]);
+
+      if (result.rows.length > 0) {
+        row = result.rows[0];
+      }
+    }
+
+    if (!row) {
+      return this.wrapError(`Рішення не знайдено в ЄДРСР (doc_id=${docId || 'N/A'}, cause_num=${caseNumber || 'N/A'})`);
+    }
+
+    // Enrich with court/judge names
+    const courtName = row.court_code ? await this.lookupName('edrsr_courts', 'court_code', row.court_code) : null;
+    const judgmentForm = row.judgment_code ? await this.lookupName('edrsr_judgment_forms', 'judgment_code', row.judgment_code) : null;
+
+    const fullText = row.full_text || '';
+    const url = `https://reyestr.court.gov.ua/Review/${row.doc_id}`;
 
     const extractedSections = fullText
       ? await this.sectionizer.extractSections(fullText, budget === 'deep')
@@ -336,8 +367,12 @@ export class CourtDecisionTools extends BaseToolHandler {
       : [];
 
     const payload: any = {
-      doc_id: actualDocId || undefined,
-      case_number: actualCaseNumber || undefined,
+      doc_id: row.doc_id,
+      case_number: row.cause_num || caseNumber || undefined,
+      judge: row.judge || undefined,
+      court_name: courtName || undefined,
+      judgment_form: judgmentForm || undefined,
+      adjudication_date: row.adjudication_date || undefined,
       url,
       depth,
       sections: sections.slice(0, depth),
@@ -346,6 +381,16 @@ export class CourtDecisionTools extends BaseToolHandler {
     };
 
     return this.wrapResponse(payload);
+  }
+
+  private async lookupName(table: string, idColumn: string, id: number): Promise<string | null> {
+    if (!this.db) return null;
+    try {
+      const result = await this.db.query(`SELECT name FROM ${table} WHERE ${idColumn} = $1 LIMIT 1`, [id]);
+      return result.rows.length > 0 ? result.rows[0].name : null;
+    } catch {
+      return null;
+    }
   }
 
   private async getCaseDocumentsChain(args: any): Promise<ToolResult> {
@@ -358,6 +403,10 @@ export class CourtDecisionTools extends BaseToolHandler {
       throw new Error('case_number parameter is required');
     }
 
+    if (!this.db) {
+      throw new Error('Database connection not available for get_case_documents_chain');
+    }
+
     logger.info('[MCP Tool] get_case_documents_chain started', {
       caseNumber,
       includeFullText,
@@ -368,129 +417,90 @@ export class CourtDecisionTools extends BaseToolHandler {
     const caseVariations = generateCaseNumberVariations(caseNumber);
     logger.info('Generated case number variations', { variations: caseVariations });
 
-    const allDocs: any[] = [];
-    const seenDocIds = new Set<string>();
-    const variationsSet = new Set(caseVariations.map(v => v.toLowerCase()));
-    const searchStats = {
-      byTitle: 0,
-      duplicates: 0,
-      filteredOut: 0,
-    };
+    // Query edrsr_documents directly with all case number variations
+    const fulltextJoin = includeFullText
+      ? 'LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id'
+      : '';
+    const fulltextField = includeFullText
+      ? ', f.full_text'
+      : '';
 
-    for (const variation of caseVariations) {
-      try {
-        const titleSearchResult = await this.zoAdapter.searchCourtDecisions({
-          meta: { search: variation },
-          target: 'title',
-          limit: maxDocs,
-          fulldata: 1,
-          orderBy: {
-            field: 'adjudication_date',
-            direction: 'asc',
-          },
-        });
+    const sql = `
+      SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+             d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+             d.doc_url, d.status, d.date_publ,
+             c.name AS court_name, c.instance_code
+             ${fulltextField}
+      FROM edrsr_documents d
+      LEFT JOIN edrsr_courts c ON c.court_code = d.court_code
+      ${fulltextJoin}
+      WHERE d.cause_num = ANY($1)
+      ORDER BY d.adjudication_date ASC NULLS LAST
+      LIMIT $2
+    `;
 
-        const normalized = await this.zoAdapter.normalizeResponse(titleSearchResult);
-        const docs = normalized.data || [];
+    const result = await this.db.query(sql, [caseVariations, maxDocs]);
+    const rows = result.rows || [];
 
-        for (const doc of docs) {
-          const docId = doc?.doc_id || doc?.zakononline_id;
-          if (!docId || seenDocIds.has(String(docId))) {
-            if (docId) searchStats.duplicates++;
-            continue;
-          }
-          seenDocIds.add(String(docId));
-
-          const docCaseNum = (doc?.cause_num || doc?.case_number || '').trim().toLowerCase();
-          if (docCaseNum && !variationsSet.has(docCaseNum)) {
-            searchStats.filteredOut++;
-            continue;
-          }
-
-          allDocs.push(doc);
-          searchStats.byTitle++;
-        }
-
-        if (searchStats.byTitle > 10) break;
-      } catch (err) {
-        logger.warn(`Title search failed for variation "${variation}"`, { error: err });
-      }
-    }
-
-    allDocs.sort((a, b) => {
-      const dateA = a?.adjudication_date || a?.date || '';
-      const dateB = b?.adjudication_date || b?.date || '';
-      return dateA.localeCompare(dateB);
+    logger.info('[MCP Tool] get_case_documents_chain DB result', {
+      caseNumber,
+      variationsCount: caseVariations.length,
+      rowsFound: rows.length
     });
 
-    if (allDocs.length === 0) {
+    if (rows.length === 0) {
       return this.wrapResponse({
         case_number: caseNumber,
         total_documents: 0,
         documents: [],
-        search_stats: searchStats,
-        message: `No documents found for case number: ${caseNumber} (tried variations: ${caseVariations.join(', ')})`,
+        search_stats: { variations_tried: caseVariations },
+        message: `Документів не знайдено за номером справи: ${caseNumber} (перевірено варіації: ${caseVariations.join(', ')})`,
       });
     }
 
-    const classifyDocumentType = (doc: any): string => {
-      const form = doc?.judgment_form || doc?.form_name || doc?.judgment_form_name || doc?.metadata?.judgment_form || '';
-      const formLower = String(form).toLowerCase();
-      if (formLower.includes('постанова')) return 'Постанова';
-      if (formLower.includes('рішення')) return 'Рішення';
-      if (formLower.includes('ухвала')) return 'Ухвала';
-      if (formLower.includes('вирок')) return 'Вирок';
-      if (formLower.includes('окрема')) return 'Окрема ухвала';
-      const title = doc?.title || '';
-      const snippet = doc?.snippet || '';
-      if (title.includes('Постанова') || snippet.includes('Постанова')) return 'Постанова';
-      if (title.includes('Рішення') || snippet.includes('Рішення')) return 'Рішення';
-      if (title.includes('Ухвала') || snippet.includes('Ухвала')) return 'Ухвала';
-      if (title.includes('Окрема думка') || snippet.includes('Окрема думка')) return 'Окрема думка';
+    // Batch lookup judgment form names
+    const judgmentCodes = new Set<number>();
+    for (const row of rows) {
+      if (row.judgment_code != null) judgmentCodes.add(row.judgment_code);
+    }
+    const judgmentMap = new Map<number, string>();
+    if (judgmentCodes.size > 0) {
+      try {
+        const jfResult = await this.db.query(
+          'SELECT judgment_code, name FROM edrsr_judgment_forms WHERE judgment_code = ANY($1)',
+          [Array.from(judgmentCodes)]
+        );
+        for (const r of jfResult.rows) {
+          judgmentMap.set(r.judgment_code, r.name);
+        }
+      } catch { /* non-critical */ }
+    }
+
+    const classifyInstance = (row: any): string => {
+      const courtName = (row.court_name || '').toLowerCase();
+      if (courtName.includes('велика палата')) return 'Велика Палата ВС';
+      if (row.instance_code === 1) {
+        if (courtName.includes('касаційний цивільний')) return 'Касація (КЦС ВС)';
+        if (courtName.includes('касаційний господарський')) return 'Касація (КГС ВС)';
+        if (courtName.includes('касаційний адміністративний')) return 'Касація (КАС ВС)';
+        if (courtName.includes('касаційний кримінальний')) return 'Касація (ККС ВС)';
+        return 'Касація';
+      }
+      if (row.instance_code === 2) return 'Апеляція';
+      if (row.instance_code === 3) return 'Перша інстанція';
       return 'Невідомо';
     };
 
-    const extractCourtFromSnippet = (snippet: string): string | null => {
-      if (!snippet) return null;
-      const match = snippet.match(/по справі №.*?\d+\/\d+\/\d+[^\s]*\s+(.+?)(?:<|$)/i);
-      if (match && match[1]) return match[1].trim();
-      return null;
-    };
-
-    const classifyInstance = (doc: any): string => {
-      const court = (doc?.court || doc?.court_name || '').toLowerCase();
-      const chamber = (doc?.chamber || '').toLowerCase();
-      const title = (doc?.title || '').toLowerCase();
-      const snippet = (doc?.snippet || '').toLowerCase();
-      if (chamber.includes('велика палата') || chamber.includes('вп вс')) return 'Велика Палата ВС';
-      if (chamber.includes('кцс') || chamber.includes('касаційний цивільний')) return 'Касація (КЦС ВС)';
-      if (chamber.includes('кгс') || chamber.includes('касаційний господарський')) return 'Касація (КГС ВС)';
-      if (chamber.includes('кас') || chamber.includes('касаційний адміністративний')) return 'Касація (КАС ВС)';
-      if (chamber.includes('ккс') || chamber.includes('касаційний кримінальний')) return 'Касація (ККС ВС)';
-      const courtText = court || snippet;
-      if (courtText.includes('велика палата') || courtText.includes('вп вс') || courtText.includes('велика палата верховного суду')) return 'Велика Палата ВС';
-      if (courtText.includes('касаці') || courtText.includes('верховн')) return 'Касація';
-      if (courtText.includes('апеляці')) return 'Апеляція';
-      if (courtText.includes('окружний') || courtText.includes('районний') || courtText.includes('міськ')) return 'Перша інстанція';
-      if (courtText.match(/господарський суд .*(області|міста)|цивільний суд .*(області|міста)|адміністративний суд/)) return 'Перша інстанція';
-      if (title.includes('касаці')) return 'Касація';
-      if (title.includes('апеляці')) return 'Апеляція';
-      return 'Невідомо';
-    };
-
-    const mappedDocs = allDocs.map((doc: any) => ({
-      doc_id: doc?.doc_id || doc?.zakononline_id,
-      case_number: doc?.cause_num || doc?.case_number || caseNumber,
-      document_type: classifyDocumentType(doc),
-      instance: classifyInstance(doc),
-      court: doc?.court || doc?.court_name || extractCourtFromSnippet(doc?.snippet),
-      chamber: doc?.chamber,
-      judge: doc?.judge,
-      date: doc?.adjudication_date || doc?.date,
-      url: doc?.url || (doc?.doc_id ? `https://zakononline.ua/court-decisions/show/${doc.doc_id}` : undefined),
-      resolution: doc?.resolution,
-      snippet: doc?.snippet,
-      ...(includeFullText && doc?.full_text ? { full_text: doc.full_text } : {}),
+    const mappedDocs = rows.map((row: any) => ({
+      doc_id: row.doc_id,
+      case_number: row.cause_num || caseNumber,
+      document_type: judgmentMap.get(row.judgment_code) || 'Невідомо',
+      instance: classifyInstance(row),
+      court: row.court_name || null,
+      judge: row.judge,
+      date: row.adjudication_date,
+      url: `https://reyestr.court.gov.ua/Review/${row.doc_id}`,
+      ...(includeFullText && row.full_text ? { full_text: row.full_text } : {}),
     }));
 
     let groupedDocs: any = null;
@@ -523,14 +533,9 @@ export class CourtDecisionTools extends BaseToolHandler {
       total_documents: mappedDocs.length,
       documents: groupByInstance ? undefined : mappedDocs,
       grouped_documents: groupByInstance ? groupedDocs : undefined,
-      search_strategy: {
+      search_stats: {
         variations_tried: caseVariations,
-        sources: {
-          by_title: searchStats.byTitle,
-          filtered_out: searchStats.filteredOut,
-          duplicates_removed: searchStats.duplicates,
-        },
-        note: 'Title search with exact case number post-filtering to ensure only documents belonging to this case are returned',
+        source: 'edrsr_documents',
       },
       summary: {
         instances: {

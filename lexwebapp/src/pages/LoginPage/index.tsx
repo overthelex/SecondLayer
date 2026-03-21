@@ -400,6 +400,26 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </motion.div>
         </div>
 
+        {/* Beta Promo Banner */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="mb-6 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl text-center cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            localStorage.setItem('referral_code', 'beta2026');
+            setIsLogin(false);
+            showToast.success('Промокод активовано! Зареєструйтесь для отримання 400 грн');
+          }}
+        >
+          <p className="text-lg font-bold text-emerald-800 mb-1">
+            Першим 20-ти бетатестерам — 400 грн на рахунок!
+          </p>
+          <p className="text-sm text-emerald-600">
+            Натисніть та зареєструйтесь для отримання безкоштовного доступу до AI-юриста
+          </p>
+        </motion.div>
+
         {/* Error Banner */}
         {error && (
           <motion.div
@@ -544,13 +564,12 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleDiiaAuth}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-[#1A4DC2] hover:bg-[#1540A8] text-white rounded-xl font-medium transition-all shadow-sm mb-3 font-sans"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white border-2 border-claude-border hover:border-claude-accent hover:bg-claude-bg rounded-xl font-medium text-claude-text transition-all shadow-sm mb-3 font-sans"
           >
             {/* Official Diia logo */}
             <svg width="22" height="22" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="32" height="32" rx="6" fill="white" fillOpacity="0.15"/>
-              <path d="M8 7h7.5C19.09 7 22 9.91 22 13.5S19.09 20 15.5 20H11v5H8V7zm3 3v7h4.5c1.93 0 3.5-1.57 3.5-3.5S17.43 10 15.5 10H11z" fill="white"/>
-              <path d="M23 7h3v18h-3V7z" fill="white"/>
+              <rect width="32" height="32" rx="7" fill="black"/>
+              <text x="16" y="22" textAnchor="middle" fill="white" fontSize="15" fontWeight="700" fontFamily="'e-Ukraine', Arial, Helvetica, sans-serif" letterSpacing="-0.5">Дія</text>
             </svg>
             {isLogin ? 'Увійти через Дію' : 'Зареєструватися через Дію'}
           </motion.button>
@@ -860,10 +879,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               </button>
 
               {/* Diia logo */}
-              <div className="w-16 h-16 bg-[#1A4DC2] rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <svg width="36" height="36" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M8 7h7.5C19.09 7 22 9.91 22 13.5S19.09 20 15.5 20H11v5H8V7zm3 3v7h4.5c1.93 0 3.5-1.57 3.5-3.5S17.43 10 15.5 10H11z" fill="white"/>
-                  <path d="M23 7h3v18h-3V7z" fill="white"/>
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="32" height="32" rx="7" fill="black"/>
+                  <text x="16" y="22" textAnchor="middle" fill="white" fontSize="15" fontWeight="700" fontFamily="'e-Ukraine', Arial, Helvetica, sans-serif" letterSpacing="-0.5">Дія</text>
                 </svg>
               </div>
 

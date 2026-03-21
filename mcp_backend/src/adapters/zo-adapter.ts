@@ -64,6 +64,11 @@ function sanitizeSearchQuery(query: string): string {
   return q;
 }
 
+/**
+ * @deprecated ZakonOnline API is fully disabled. Use {@link EdsrLocalAdapter} instead.
+ * This class is kept only for backward compatibility with batch scripts in scripts/.
+ * All tool handlers and services should import EdsrLocalAdapter.
+ */
 export class ZOAdapter {
   private client: AxiosInstance;
   private cache: ICachePort | null = null;
@@ -89,6 +94,12 @@ export class ZOAdapter {
   private persistTimer: NodeJS.Timeout | null = null;
   private persistInFlight: boolean = false;
 
+  /**
+   * ZakonOnline API is deprecated — all court decision data is in local EDRSR database.
+   * This flag disables all HTTP calls to ZakonOnline and returns empty results immediately.
+   */
+  private static readonly API_DISABLED = true;
+
   constructor(
     domainOrDocService?: ZakonOnlineDomainName | DocumentService,
     documentService?: DocumentService,
@@ -101,14 +112,11 @@ export class ZOAdapter {
     let docService: DocumentService | null = null;
 
     if (domainOrDocService instanceof DocumentService) {
-      // Old signature: new ZOAdapter(documentService)
       docService = domainOrDocService;
     } else if (typeof domainOrDocService === 'string') {
-      // New signature: new ZOAdapter('domain_name', documentService)
       domain = domainOrDocService;
       docService = documentService || null;
     } else {
-      // No arguments
       docService = documentService || null;
     }
 
@@ -117,25 +125,10 @@ export class ZOAdapter {
     this.sectionizer = sectionizer || new SemanticSectionizer();
     this.embeddingService = embeddingService || null;
 
-    // Support primary and secondary tokens
-    const primaryToken = process.env.ZAKONONLINE_API_TOKEN || '';
-    const secondaryToken = process.env.ZAKONONLINE_API_TOKEN2 || '';
-    this.apiTokens = [primaryToken, secondaryToken].filter(t => t.length > 0);
-
-    if (this.apiTokens.length === 0) {
-      logger.warn(`ZOAdapter (${this.domainConfig.displayName}): no API tokens configured — adapter disabled`);
-    }
-
-    // If we have multiple tokens, prefer starting with the second one (TOKEN2)
-    // This allows using a different token when the first one has issues
-    if (this.apiTokens.length > 1 && secondaryToken) {
-      // Start with second token if available
-      this.currentTokenIndex = 1;
-      logger.info(`Using secondary Zakononline token for ${this.domainConfig.displayName}`);
-    } else {
-      this.currentTokenIndex = 0;
-      logger.info(`Using primary Zakononline token for ${this.domainConfig.displayName}`);
-    }
+    // ZakonOnline API disabled — tokens not needed
+    this.apiTokens = [];
+    this.currentTokenIndex = 0;
+    logger.info(`ZOAdapter (${this.domainConfig.displayName}): API disabled — using local EDRSR data`);
 
     // Initialize token round-robin starting point
     this.nextTokenIndex = this.currentTokenIndex;
@@ -743,10 +736,11 @@ export class ZOAdapter {
             continue;
           }
 
-          // If it's an auth error and we have multiple tokens, try next token
-          if (isAuthError &&
-              this.apiTokens.length > 1 && tokenAttempt < maxTokenRotations - 1) {
-            break; // Break inner loop to try with new token
+          // Auth errors (401/403): fail fast — ZakonOnline API is deprecated,
+          // no point retrying with expired/blocked tokens
+          if (isAuthError) {
+            logger.warn('ZakonOnline auth error (API deprecated) — failing fast, no retries', { status, endpoint });
+            throw error;
           }
 
           // For 500 errors, log more details
@@ -773,6 +767,9 @@ export class ZOAdapter {
   }
 
   async searchCourtDecisions(params: ZOSearchParams): Promise<ZOSearchResponse> {
+    if (ZOAdapter.API_DISABLED) {
+      return { data: [], total: 0 };
+    }
     // Validate target if provided
     const target = params.target || this.domainConfig.defaultTarget;
     if (!isValidTarget(this.domainConfig.name, target)) {
@@ -948,6 +945,7 @@ export class ZOAdapter {
    * Uses /v1/document/by/id/{id} endpoint
    */
   async getDocumentById(id: string | number): Promise<any | null> {
+    if (ZOAdapter.API_DISABLED) return null;
     try {
       const safeId = this.validateResourceId(id);
       const endpoint = `/v1/document/by/id/${safeId}`;
@@ -979,6 +977,7 @@ export class ZOAdapter {
    * Flow: Redis cache → PG cache → document-service (or inline scrape)
    */
   async getDocumentFullText(docId: string | number): Promise<{ html: string; text: string; case_number?: string } | null> {
+    if (ZOAdapter.API_DISABLED) return null;
     const cacheKey = `zo:fulltext:${docId}`;
 
     // Check cache first
@@ -1194,6 +1193,7 @@ export class ZOAdapter {
    * First searches for the case, then fetches full text from HTML page
    */
   async getDocumentByCaseNumber(caseNumber: string): Promise<any> {
+    if (ZOAdapter.API_DISABLED) return null;
     try {
       // Search for the case to get doc_id and metadata
       const searchResult = await this.searchCourtDecisions({
@@ -1291,6 +1291,7 @@ export class ZOAdapter {
    * Saves in batches during loading for better performance
    */
   async saveDocumentsToDatabase(docs: any[], maxDocs: number = 1000): Promise<void> {
+    if (ZOAdapter.API_DISABLED) return;
     if (!this.documentService || !docs.length) {
       return;
     }
@@ -1586,6 +1587,7 @@ export class ZOAdapter {
    * @returns Metadata including total count and facets
    */
   async getSearchMetadata(params: ZOSearchParams): Promise<any> {
+    if (ZOAdapter.API_DISABLED) return { total: 0, facets: {} };
     // Validate target if provided
     const target = params.target || this.domainConfig.defaultTarget;
     if (!isValidTarget(this.domainConfig.name, target)) {

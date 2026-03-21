@@ -14,6 +14,7 @@
  */
 
 import { logger } from '../utils/logger.js';
+import type { EdsrCacheService } from './edrsr-cache-service.js';
 
 export interface EdsrFtsFilters {
   court_code?: number;
@@ -55,6 +56,12 @@ export interface EdsrIndexProgress {
 }
 
 export class EdsrFtsService {
+  private edsrCache: EdsrCacheService | null = null;
+
+  setEdsrCache(cache: EdsrCacheService): void {
+    this.edsrCache = cache;
+  }
+
   /**
    * Full text search over edrsr_fulltext with optional metadata filters from edrsr_documents.
    *
@@ -70,6 +77,15 @@ export class EdsrFtsService {
   ): Promise<EdsrFtsSearchResponse> {
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     const safeOffset = Math.max(offset, 0);
+
+    // Check cache first
+    if (this.edsrCache) {
+      const cached = await this.edsrCache.getCachedFtsResults(query, filters, safeLimit, safeOffset);
+      if (cached) {
+        logger.debug('[EdsrFtsService] Cache hit for FTS query', { query });
+        return cached;
+      }
+    }
 
     const conditions: string[] = [];
     const params: any[] = [];
@@ -140,19 +156,26 @@ export class EdsrFtsService {
       }
     }
 
-    const selectFields = hasMetadataFilter
-      ? `f.doc_id,
-         ts_rank_cd(f.tsv, plainto_tsquery('simple', $1)) AS rank,
-         ts_headline('simple', LEFT(f.full_text, 2000), plainto_tsquery('simple', $1),
-           'MaxWords=60, MinWords=20, StartSel=**, StopSel=**') AS headline,
-         d.adjudication_date, d.cause_num, d.judge, d.court_code,
-         d.justice_kind, d.judgment_code`
-      : `f.doc_id,
-         ts_rank_cd(f.tsv, plainto_tsquery('simple', $1)) AS rank,
-         ts_headline('simple', LEFT(f.full_text, 2000), plainto_tsquery('simple', $1),
-           'MaxWords=60, MinWords=20, StartSel=**, StopSel=**') AS headline`;
+    const buildSelectFields = (withHeadline: boolean) => {
+      const headlineExpr = withHeadline
+        ? `safe_ts_headline('simple'::regconfig, LEFT(f.full_text, 2000), plainto_tsquery('simple', $1),
+           'MaxWords=60, MinWords=20, StartSel=**, StopSel=**') AS headline`
+        : `NULL AS headline`;
 
-    try {
+      return hasMetadataFilter
+        ? `f.doc_id,
+           ts_rank_cd(f.tsv, plainto_tsquery('simple', $1)) AS rank,
+           ${headlineExpr},
+           d.adjudication_date, d.cause_num, d.judge, d.court_code,
+           d.justice_kind, d.judgment_code`
+        : `f.doc_id,
+           ts_rank_cd(f.tsv, plainto_tsquery('simple', $1)) AS rank,
+           ${headlineExpr}`;
+    };
+
+    const executeQuery = async (withHeadline: boolean) => {
+      const selectFields = buildSelectFields(withHeadline);
+
       // Count query
       const countSql = `SELECT COUNT(*)::int AS total FROM ${fromClause}${extraJoin} WHERE ${whereClause}`;
       const countResult = await dbPool.query(countSql, params);
@@ -167,6 +190,24 @@ export class EdsrFtsService {
         LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
 
       const dataResult = await dbPool.query(dataSql, [...params, safeLimit, safeOffset]);
+      return { total, dataResult };
+    };
+
+    try {
+      let total: number;
+      let dataResult: any;
+
+      try {
+        ({ total, dataResult } = await executeQuery(true));
+      } catch (headlineErr: any) {
+        // Retry without ts_headline if encoding error (some records have invalid UTF-8 bytes)
+        if (headlineErr.code === '22021') {
+          logger.warn('[EdsrFtsService] Retrying without ts_headline due to encoding error', { query });
+          ({ total, dataResult } = await executeQuery(false));
+        } else {
+          throw headlineErr;
+        }
+      }
 
       logger.info('[EdsrFtsService] searchFulltext', {
         query,
@@ -175,7 +216,7 @@ export class EdsrFtsService {
         returned: dataResult.rows.length,
       });
 
-      return {
+      const response = {
         query,
         total,
         returned: dataResult.rows.length,
@@ -193,6 +234,13 @@ export class EdsrFtsService {
           ...(row.judgment_code !== undefined ? { judgment_code: row.judgment_code } : {}),
         })),
       };
+
+      // Cache the result
+      if (this.edsrCache) {
+        this.edsrCache.setCachedFtsResults(query, filters, safeLimit, safeOffset, response).catch(() => {});
+      }
+
+      return response;
     } catch (err: any) {
       logger.error('[EdsrFtsService] searchFulltext failed', { error: err.message, query });
       throw new Error(`FTS search failed: ${err.message}`);

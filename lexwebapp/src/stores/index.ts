@@ -10,3 +10,4 @@ export { useUploadStore } from './uploadStore';
 export { useClientMatterStore } from './clientMatterStore';
 export { useTimerStore, getTimerForMatter, hasMatterTimer } from './timerStore';
 export { useDecisionsSearchStore } from './decisionsSearchStore';
+export { useConsultationStore } from './consultationStore';

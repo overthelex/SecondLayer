@@ -1,6 +1,6 @@
 import {
   Gavel, BookOpen, TrendingUp, CheckCircle, Scale, Briefcase,
-  Bell, FileCode, BarChart3, Vote, History, Newspaper,
+  BarChart3, Newspaper,
   Clock, FileText, Search, Activity, Database, Users, DollarSign,
   Server, Boxes, Globe, CreditCard, Settings, Terminal, Tag, Zap,
   Layers, HardDrive,
@@ -17,11 +17,8 @@ export const researchSections = [
 ];
 
 export const legislationSections = [
-  { id: 'monitoring', label: 'Моніторинг змін', icon: Bell, route: ROUTES.LEGISLATION_MONITORING },
-  { id: 'initiatives', label: 'Відстеження ініціатив', icon: FileCode, route: ROUTES.LEGAL_INITIATIVES },
-  { id: 'statistics', label: 'Статистика прийняття законів', icon: BarChart3, route: ROUTES.LEGISLATION_STATISTICS },
-  { id: 'voting', label: 'Аналіз голосувань', icon: Vote, route: ROUTES.VOTING_ANALYSIS },
-  { id: 'historical', label: 'Історичний аналіз', icon: History, route: ROUTES.HISTORICAL_ANALYSIS },
+  { id: 'legislation-db', label: 'База законодавства', icon: BookOpen, route: ROUTES.LEGISLATION_MONITORING },
+  { id: 'codes', label: 'Кодекси та закони', icon: Scale, route: ROUTES.LEGAL_CODES_LIBRARY },
   { id: 'news', label: 'Новини КМУ', icon: Newspaper, route: ROUTES.NEWS },
   { id: 'lex-news', label: 'Новини LEX', icon: Globe, route: ROUTES.LEX_NEWS },
 ];

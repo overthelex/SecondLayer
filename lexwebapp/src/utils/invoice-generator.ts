@@ -192,8 +192,8 @@ export function generateInvoicePDF(invoice: InvoiceData): void {
   yPos = doc.internal.pageSize.getHeight() - 30;
   doc.setFontSize(9);
   doc.setTextColor(107, 107, 107); // claude-subtext color
-  doc.text('SecondLayer Legal Platform', pageWidth / 2, yPos, { align: 'center' });
-  doc.text('https://legal.org.ua', pageWidth / 2, yPos + 5, { align: 'center' });
+  doc.text('FOP Kyrychenko I.V. | EDRPOU: 2967214056', pageWidth / 2, yPos, { align: 'center' });
+  doc.text('IBAN: UA613220010000026006330050699 | AT "UNIVERSAL BANK"', pageWidth / 2, yPos + 5, { align: 'center' });
   doc.text('For questions, contact: billing@legal.org.ua', pageWidth / 2, yPos + 10, {
     align: 'center',
   });

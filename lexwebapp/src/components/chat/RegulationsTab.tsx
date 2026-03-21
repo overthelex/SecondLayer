@@ -2,9 +2,9 @@
  * RegulationsTab — renders legislation/norm citation cards.
  */
 
-import { useState } from 'react';
 import { BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { ExpandableCard, EmptyTabState } from './ExpandableCard';
+import { useExpandableCards } from '../../hooks/useExpandableCards';
 
 interface Citation {
   text: string;
@@ -17,16 +17,7 @@ interface RegulationsTabProps {
 }
 
 export function RegulationsTab({ citations, onOpenModal }: RegulationsTabProps) {
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
-
-  const toggleCard = (id: string) => {
-    setExpandedCards(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const { isExpanded, toggleCard } = useExpandableCards();
 
   if (citations.length === 0) {
     return <EmptyTabState icon={BookOpen} text="Нормативні акти з'являться після аналізу" />;
@@ -36,7 +27,7 @@ export function RegulationsTab({ citations, onOpenModal }: RegulationsTabProps) 
     <div className="space-y-2">
       {citations.map((citation, idx) => {
         const cardId = `citation-${idx}`;
-        const isExpanded = expandedCards.has(cardId);
+        const expanded = isExpanded(cardId);
         // Safeguard: citation.text may arrive as an object/array from MCP content blocks
         const safeText = typeof citation.text === 'string' ? citation.text : JSON.stringify(citation.text);
 
@@ -46,7 +37,7 @@ export function RegulationsTab({ citations, onOpenModal }: RegulationsTabProps) 
             id={cardId}
             index={idx}
             icon={BookOpen}
-            isExpanded={isExpanded}
+            isExpanded={expanded}
             onToggle={() => toggleCard(cardId)}
             content={safeText || 'Немає тексту.'}
             onOpenModal={() => onOpenModal(citation)}
@@ -60,7 +51,7 @@ export function RegulationsTab({ citations, onOpenModal }: RegulationsTabProps) 
                     <div className="font-medium text-[13px] text-claude-text mb-1 leading-tight">
                       {citation.source}
                     </div>
-                    {isExpanded ? <ChevronUp size={14} className="text-claude-subtext flex-shrink-0 ml-2" /> : <ChevronDown size={14} className="text-claude-subtext flex-shrink-0 ml-2" />}
+                    {expanded ? <ChevronUp size={14} className="text-claude-subtext flex-shrink-0 ml-2" /> : <ChevronDown size={14} className="text-claude-subtext flex-shrink-0 ml-2" />}
                   </div>
                 </div>
               </div>

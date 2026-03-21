@@ -82,6 +82,7 @@ const BillingTariffsTab = lazyWithRetry(() => import('../components/billing/Tari
 const BillingHistoryTab = lazyWithRetry(() => import('../components/billing/HistoryTab').then(m => ({ default: m.HistoryTab })));
 const BillingAnalyticsTab = lazyWithRetry(() => import('../components/billing/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })));
 const BillingSettingsTab = lazyWithRetry(() => import('../components/billing/SettingsTab').then(m => ({ default: m.SettingsTab })));
+const B2BInvoicesTab = lazyWithRetry(() => import('../components/billing/B2BInvoicesTab').then(m => ({ default: m.B2BInvoicesTab })));
 const TeamPage = lazyWithRetry(() => import('../pages/TeamPage').then(m => ({ default: m.TeamPage })));
 const DocumentsPage = lazyWithRetry(() => import('../pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
 const HistoryPage = lazyWithRetry(() => import('../pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
@@ -105,11 +106,7 @@ const CaseAnalysisPage = lazyWithRetry(() => import('../pages/CaseAnalysisPage')
 const DecisionsSearchPage = lazyWithRetry(() => import('../pages/DecisionsSearchPage').then(m => ({ default: m.DecisionsSearchPage })));
 const LegislationMonitoringPage = lazyWithRetry(() => import('../pages/LegislationMonitoringPage').then(m => ({ default: m.LegislationMonitoringPage })));
 const CourtPracticeAnalysisPage = lazyWithRetry(() => import('../pages/CourtPracticeAnalysisPage').then(m => ({ default: m.CourtPracticeAnalysisPage })));
-const LegalInitiativesPage = lazyWithRetry(() => import('../pages/LegalInitiativesPage').then(m => ({ default: m.LegalInitiativesPage })));
-const LegislationStatisticsPage = lazyWithRetry(() => import('../pages/LegislationStatisticsPage').then(m => ({ default: m.LegislationStatisticsPage })));
-const VotingAnalysisPage = lazyWithRetry(() => import('../pages/VotingAnalysisPage').then(m => ({ default: m.VotingAnalysisPage })));
 const LegalCodesLibraryPage = lazyWithRetry(() => import('../pages/LegalCodesLibraryPage').then(m => ({ default: m.LegalCodesLibraryPage })));
-const HistoricalAnalysisPage = lazyWithRetry(() => import('../pages/HistoricalAnalysisPage').then(m => ({ default: m.HistoricalAnalysisPage })));
 
 // -- News --
 const NewsPage = lazyWithRetry(() => import('../pages/NewsPage').then(m => ({ default: m.NewsPage })));
@@ -306,6 +303,10 @@ export const router = createBrowserRouter([
                 element: S(BillingAnalyticsTab),
               },
               {
+                path: 'b2b-invoices',
+                element: S(B2BInvoicesTab),
+              },
+              {
                 path: 'settings',
                 element: S(BillingSettingsTab),
               },
@@ -400,24 +401,8 @@ export const router = createBrowserRouter([
             element: S(LegislationMonitoringPage),
           },
           {
-            path: ROUTES.LEGISLATION_STATISTICS,
-            element: S(LegislationStatisticsPage),
-          },
-          {
-            path: ROUTES.LEGAL_INITIATIVES,
-            element: S(LegalInitiativesPage),
-          },
-          {
             path: ROUTES.LEGAL_CODES_LIBRARY,
             element: S(LegalCodesLibraryPage),
-          },
-          {
-            path: ROUTES.VOTING_ANALYSIS,
-            element: S(VotingAnalysisPage),
-          },
-          {
-            path: ROUTES.HISTORICAL_ANALYSIS,
-            element: S(HistoricalAnalysisPage),
           },
           {
             path: ROUTES.COURT_PRACTICE_ANALYSIS,
@@ -441,6 +426,10 @@ export const router = createBrowserRouter([
           },
           {
             path: ROUTES.CONSULTATIONS,
+            element: S(ConsultationsPage),
+          },
+          {
+            path: ROUTES.CONSULTATIONS_PAYOUTS,
             element: S(ConsultationsPage),
           },
           {

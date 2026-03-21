@@ -3,7 +3,7 @@
  *
  * Tests cover:
  * - createInvoice: invoice creation via Monobank API, kopeck conversion, payment_intent storage
- * - validateSignature: HMAC-SHA256 signature verification
+ * - validateSignature: ECDSA P-256 signature verification via Monobank public key
  * - handleWebhook: webhook processing, signature check, balance credit, idempotency, email
  * - getPaymentStatus: status polling with kopeck→UAH conversion
  * - MockMonobankService: mock mode behaviour with balance crediting
@@ -19,11 +19,16 @@ import { MockMonobankService } from '../__mocks__/monobank-service-mock';
 
 const TEST_API_KEY = 'test_monobank_api_key_12345';
 
-function makeSignature(body: string | Buffer): string {
-  return crypto
-    .createHmac('sha256', TEST_API_KEY)
-    .update(typeof body === 'string' ? body : body)
-    .digest('base64');
+// Generate a test ECDSA P-256 key pair for signature tests
+const testKeyPair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+const testPubKeyPem = testKeyPair.publicKey.export({ format: 'pem', type: 'spki' }) as string;
+const testPubKeyBase64 = Buffer.from(testPubKeyPem).toString('base64');
+
+function makeEcdsaSignature(body: string | Buffer): string {
+  const sign = crypto.createSign('SHA256');
+  sign.update(typeof body === 'string' ? body : body);
+  sign.end();
+  return sign.sign(testKeyPair.privateKey, 'base64');
 }
 
 function makeBillingService(overrides: any = {}) {
@@ -244,10 +249,62 @@ describe('MonobankService — createInvoice', () => {
     const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(callBody.webHookUrl).toBe('https://api.legal.org.ua/webhooks/monobank');
   });
+
+  it('uses MONOBANK_REDIRECT_URL when set', async () => {
+    process.env.MONOBANK_REDIRECT_URL = 'https://custom-redirect.com/done';
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ invoiceId: 'inv-008', pageUrl: 'https://pay.mbnk.biz/inv-008' }),
+    });
+    global.fetch = mockFetch as any;
+
+    await service.createInvoice('user-abc12345', 100, 'Top-up');
+
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(callBody.redirectUrl).toBe('https://custom-redirect.com/done/payment/success');
+  });
+
+  it('uses custom redirectUrl parameter when provided', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ invoiceId: 'inv-009', pageUrl: 'https://pay.mbnk.biz/inv-009' }),
+    });
+    global.fetch = mockFetch as any;
+
+    await service.createInvoice('user-abc12345', 100, 'Top-up', 'https://myapp.com/callback');
+
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(callBody.redirectUrl).toBe('https://myapp.com/callback');
+  });
+
+  it('rounds kopecks correctly for fractional amounts', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ invoiceId: 'inv-010', pageUrl: 'https://pay.mbnk.biz/inv-010' }),
+    });
+    global.fetch = mockFetch as any;
+
+    await service.createInvoice('user-abc12345', 99.99, 'Top-up');
+
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(callBody.amount).toBe(9999);
+  });
+
+  it('rejects amount equal to 0', async () => {
+    await expect(
+      service.createInvoice('user-1', 0, 'Test')
+    ).rejects.toThrow('Мінімальна сума поповнення');
+  });
+
+  it('rejects negative amount', async () => {
+    await expect(
+      service.createInvoice('user-1', -10, 'Test')
+    ).rejects.toThrow('Мінімальна сума поповнення');
+  });
 });
 
 // ──────────────────────────────────────────────────────────────────────────
-// MonobankService — webhook signature validation
+// MonobankService — webhook signature validation (ECDSA)
 // ──────────────────────────────────────────────────────────────────────────
 
 describe('MonobankService — webhook signature validation', () => {
@@ -263,36 +320,56 @@ describe('MonobankService — webhook signature validation', () => {
       makeEmailService() as any,
       db as any
     );
+    // Mock the public key fetch to return our test key
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ key: testPubKeyBase64 }),
+    }) as any;
   });
 
   afterEach(() => {
     process.env = { ...origEnv };
+    jest.restoreAllMocks();
   });
 
-  it('accepts a valid HMAC-SHA256 signature', () => {
+  it('accepts a valid ECDSA signature', async () => {
     const bodyStr = JSON.stringify({ invoiceId: 'inv-100', status: 'created', amount: 10000, ccy: 980 });
     const rawBody = Buffer.from(bodyStr);
-    const signature = makeSignature(rawBody);
-    expect(service.validateSignature(rawBody, signature)).toBe(true);
+    const signature = makeEcdsaSignature(rawBody);
+    expect(await service.validateSignature(rawBody, signature)).toBe(true);
   });
 
-  it('rejects an invalid signature', () => {
+  it('rejects an invalid signature', async () => {
     const bodyStr = JSON.stringify({ invoiceId: 'inv-101', status: 'success', amount: 10000, ccy: 980 });
     const rawBody = Buffer.from(bodyStr);
-    expect(service.validateSignature(rawBody, 'invalid_signature_base64')).toBe(false);
+    expect(await service.validateSignature(rawBody, 'invalid_signature_base64')).toBe(false);
   });
 
-  it('rejects a tampered body with valid-looking signature', () => {
+  it('rejects a tampered body with valid-looking signature', async () => {
     const originalBody = JSON.stringify({ invoiceId: 'inv-102', status: 'success', amount: 10000, ccy: 980 });
-    const signature = makeSignature(originalBody);
+    const signature = makeEcdsaSignature(originalBody);
     const tamperedBody = JSON.stringify({ invoiceId: 'inv-102', status: 'success', amount: 99999, ccy: 980 });
-    expect(service.validateSignature(Buffer.from(tamperedBody), signature)).toBe(false);
+    expect(await service.validateSignature(Buffer.from(tamperedBody), signature)).toBe(false);
   });
 
-  it('handles string rawBody in signature validation', () => {
+  it('handles string rawBody in signature validation', async () => {
     const bodyStr = JSON.stringify({ invoiceId: 'inv-103', status: 'created', amount: 5000, ccy: 980 });
-    const signature = makeSignature(bodyStr);
-    expect(service.validateSignature(bodyStr, signature)).toBe(true);
+    const signature = makeEcdsaSignature(bodyStr);
+    expect(await service.validateSignature(bodyStr, signature)).toBe(true);
+  });
+
+  it('caches public key and only fetches once', async () => {
+    const bodyStr = JSON.stringify({ test: true });
+    const sig = makeEcdsaSignature(bodyStr);
+
+    await service.validateSignature(Buffer.from(bodyStr), sig);
+    await service.validateSignature(Buffer.from(bodyStr), sig);
+
+    // pubkey fetch should be called only once (cached)
+    const fetchCalls = (global.fetch as jest.Mock).mock.calls.filter(
+      (c: any[]) => c[0]?.includes?.('pubkey')
+    );
+    expect(fetchCalls.length).toBe(1);
   });
 });
 
@@ -313,10 +390,16 @@ describe('MonobankService — handleWebhook processing', () => {
     email = makeEmailService();
     db = makeDb();
     service = new MonobankService(billing as any, email as any, db as any);
+    // Mock the pubkey fetch for all webhook tests
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ key: testPubKeyBase64 }),
+    }) as any;
   });
 
   afterEach(() => {
     process.env = { ...origEnv };
+    jest.restoreAllMocks();
   });
 
   it('rejects invalid signature', async () => {
@@ -331,7 +414,7 @@ describe('MonobankService — handleWebhook processing', () => {
   it('returns received:true for non-success statuses without crediting', async () => {
     const body = { invoiceId: 'inv-201', status: 'processing', amount: 5000, ccy: 980 };
     const bodyStr = JSON.stringify(body);
-    const signature = makeSignature(bodyStr);
+    const signature = makeEcdsaSignature(bodyStr);
 
     const result = await service.handleWebhook(Buffer.from(bodyStr), body as MonobankWebhookBody, signature);
     expect(result).toEqual({ received: true });
@@ -341,7 +424,7 @@ describe('MonobankService — handleWebhook processing', () => {
   it('updates status for terminal failure statuses', async () => {
     const body = { invoiceId: 'inv-fail', status: 'failure', amount: 5000, ccy: 980 };
     const bodyStr = JSON.stringify(body);
-    const signature = makeSignature(bodyStr);
+    const signature = makeEcdsaSignature(bodyStr);
 
     await service.handleWebhook(Buffer.from(bodyStr), body as MonobankWebhookBody, signature);
 
@@ -354,7 +437,7 @@ describe('MonobankService — handleWebhook processing', () => {
   it('credits balance on successful payment', async () => {
     const body = { invoiceId: 'inv-202', status: 'success', amount: 15000, ccy: 980, reference: 'SL-user-abc-1710000000' };
     const bodyStr = JSON.stringify(body);
-    const signature = makeSignature(bodyStr);
+    const signature = makeEcdsaSignature(bodyStr);
 
     // First query: find payment_intent
     db.query
@@ -380,7 +463,7 @@ describe('MonobankService — handleWebhook processing', () => {
   it('sends confirmation email on success', async () => {
     const body = { invoiceId: 'inv-203', status: 'success', amount: 15000, ccy: 980 };
     const bodyStr = JSON.stringify(body);
-    const signature = makeSignature(bodyStr);
+    const signature = makeEcdsaSignature(bodyStr);
 
     db.query
       .mockResolvedValueOnce({ rows: [PI_ROW] })
@@ -400,7 +483,7 @@ describe('MonobankService — handleWebhook processing', () => {
   it('is idempotent — skips already-succeeded payments', async () => {
     const body = { invoiceId: 'inv-204', status: 'success', amount: 15000, ccy: 980 };
     const bodyStr = JSON.stringify(body);
-    const signature = makeSignature(bodyStr);
+    const signature = makeEcdsaSignature(bodyStr);
 
     db.query.mockResolvedValueOnce({ rows: [{ ...PI_ROW, status: 'succeeded' }] });
 
@@ -412,7 +495,7 @@ describe('MonobankService — handleWebhook processing', () => {
   it('handles unknown invoiceId gracefully', async () => {
     const body = { invoiceId: 'unknown', status: 'success', amount: 10000, ccy: 980 };
     const bodyStr = JSON.stringify(body);
-    const signature = makeSignature(bodyStr);
+    const signature = makeEcdsaSignature(bodyStr);
 
     db.query.mockResolvedValueOnce({ rows: [] });
 
@@ -425,7 +508,7 @@ describe('MonobankService — handleWebhook processing', () => {
     const piWithoutEmail = { ...PI_ROW, metadata: JSON.stringify({}) };
     const body = { invoiceId: 'inv-205', status: 'success', amount: 15000, ccy: 980 };
     const bodyStr = JSON.stringify(body);
-    const signature = makeSignature(bodyStr);
+    const signature = makeEcdsaSignature(bodyStr);
 
     db.query
       .mockResolvedValueOnce({ rows: [piWithoutEmail] })
@@ -440,7 +523,7 @@ describe('MonobankService — handleWebhook processing', () => {
   it('marks payment_intent as succeeded in DB', async () => {
     const body = { invoiceId: 'inv-206', status: 'success', amount: 15000, ccy: 980 };
     const bodyStr = JSON.stringify(body);
-    const signature = makeSignature(bodyStr);
+    const signature = makeEcdsaSignature(bodyStr);
 
     db.query
       .mockResolvedValueOnce({ rows: [PI_ROW] })
@@ -451,6 +534,90 @@ describe('MonobankService — handleWebhook processing', () => {
     expect(db.query).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE payment_intents SET status'),
       expect.arrayContaining(['succeeded', PI_ROW.id])
+    );
+  });
+
+  it('updates status to "reversed" for reversed webhooks', async () => {
+    const body = { invoiceId: 'inv-reversed', status: 'reversed', amount: 5000, ccy: 980 };
+    const bodyStr = JSON.stringify(body);
+    const signature = makeEcdsaSignature(bodyStr);
+
+    await service.handleWebhook(Buffer.from(bodyStr), body as MonobankWebhookBody, signature);
+
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE payment_intents SET status'),
+      expect.arrayContaining(['reversed', 'inv-reversed', 'monobank'])
+    );
+    expect(billing.topUpBalance).not.toHaveBeenCalled();
+  });
+
+  it('updates status to "expired" for expired webhooks', async () => {
+    const body = { invoiceId: 'inv-expired', status: 'expired', amount: 5000, ccy: 980 };
+    const bodyStr = JSON.stringify(body);
+    const signature = makeEcdsaSignature(bodyStr);
+
+    await service.handleWebhook(Buffer.from(bodyStr), body as MonobankWebhookBody, signature);
+
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE payment_intents SET status'),
+      expect.arrayContaining(['expired', 'inv-expired', 'monobank'])
+    );
+    expect(billing.topUpBalance).not.toHaveBeenCalled();
+  });
+
+  it('does not update DB for non-terminal "hold" status', async () => {
+    const body = { invoiceId: 'inv-hold', status: 'hold', amount: 5000, ccy: 980 };
+    const bodyStr = JSON.stringify(body);
+    const signature = makeEcdsaSignature(bodyStr);
+
+    const result = await service.handleWebhook(Buffer.from(bodyStr), body as MonobankWebhookBody, signature);
+    expect(result).toEqual({ received: true });
+    expect(db.query).not.toHaveBeenCalled();
+    expect(billing.topUpBalance).not.toHaveBeenCalled();
+  });
+
+  it('does not update DB for "created" status', async () => {
+    const body = { invoiceId: 'inv-created', status: 'created', amount: 5000, ccy: 980 };
+    const bodyStr = JSON.stringify(body);
+    const signature = makeEcdsaSignature(bodyStr);
+
+    const result = await service.handleWebhook(Buffer.from(bodyStr), body as MonobankWebhookBody, signature);
+    expect(result).toEqual({ received: true });
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('continues processing even if email sending fails', async () => {
+    email.sendPaymentSuccess.mockRejectedValueOnce(new Error('SMTP down'));
+    const body = { invoiceId: 'inv-emailfail', status: 'success', amount: 15000, ccy: 980 };
+    const bodyStr = JSON.stringify(body);
+    const signature = makeEcdsaSignature(bodyStr);
+
+    db.query
+      .mockResolvedValueOnce({ rows: [PI_ROW] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await service.handleWebhook(Buffer.from(bodyStr), body as MonobankWebhookBody, signature);
+    expect(result).toEqual({ received: true });
+    expect(billing.topUpBalance).toHaveBeenCalled();
+    expect(billing.setTransactionInvoiceNumber).toHaveBeenCalled();
+  });
+
+  it('falls back to body.amount / 100 when pi.amount_uah is null', async () => {
+    const piWithoutAmount = { ...PI_ROW, amount_uah: null };
+    const body = { invoiceId: 'inv-fallback', status: 'success', amount: 20000, ccy: 980 };
+    const bodyStr = JSON.stringify(body);
+    const signature = makeEcdsaSignature(bodyStr);
+
+    db.query
+      .mockResolvedValueOnce({ rows: [piWithoutAmount] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await service.handleWebhook(Buffer.from(bodyStr), body as MonobankWebhookBody, signature);
+
+    expect(billing.topUpBalance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amountUah: 200, // 20000 / 100
+      })
     );
   });
 });
