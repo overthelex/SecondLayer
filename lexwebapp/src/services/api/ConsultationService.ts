@@ -197,6 +197,21 @@ export class ConsultationService extends BaseService {
   async getMyClients(): Promise<{ clients: AttorneyClient[] }> {
     return this.request(() => this.client.get('/api/consultations/my-clients'));
   }
+
+  async getMyPayouts(): Promise<AttorneyPayout[]> {
+    return this.request(() => this.client.get('/api/consultations/my-payouts'));
+  }
+}
+
+export interface AttorneyPayout {
+  id: string;
+  attorney_user_id: string;
+  consultation_payment_id: string;
+  amount_uah: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+  consultation_id?: string;
+  request_title?: string;
 }
 
 export interface AttorneyClient {
