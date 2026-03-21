@@ -22,6 +22,11 @@ class ConsultationRepository {
         .toList();
   }
 
+  Future<Consultation> getConsultation(String consultationId) async {
+    final response = await _api.get('/api/consultations/$consultationId');
+    return Consultation.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<List<ConsultationMessage>> getMessages(String consultationId) async {
     final response =
         await _api.get('/api/consultations/$consultationId/messages');
@@ -61,24 +66,53 @@ class ConsultationRepository {
   }
 
   Future<void> markAsRead(String consultationId) async {
-    await _api.post('/api/consultations/$consultationId/read');
+    await _api.put('/api/consultations/$consultationId/read');
+  }
+
+  Future<void> sendTyping(String consultationId) async {
+    await _api.post('/api/consultations/$consultationId/typing');
+  }
+
+  Future<Map<String, dynamic>> saveAttachmentToVault({
+    required String consultationId,
+    required String messageId,
+    required String attachmentId,
+  }) async {
+    final response = await _api.post(
+      '/api/consultations/$consultationId/messages/$messageId/attachments/$attachmentId/vault',
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<ConsultationPayment?> getPaymentStatus(
+      String consultationId) async {
+    try {
+      final response =
+          await _api.get('/api/consultations/$consultationId/payment');
+      return ConsultationPayment.fromJson(
+          response.data as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<AttorneyPayout>> getMyPayouts() async {
+    final response = await _api.get('/api/consultations/payouts/me');
+    final list = response.data as List? ?? [];
+    return list
+        .map((e) => AttorneyPayout.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<StreamSubscription?> streamMessages({
     required String consultationId,
-    required void Function(ConsultationMessage message) onMessage,
+    required void Function(SSEEvent event) onEvent,
     required void Function() onDone,
     required void Function(dynamic error) onError,
   }) {
-    return _sse.stream(
+    return _sse.streamGet(
       path: '/api/consultations/$consultationId/messages/stream',
-      body: {},
-      onEvent: (event) {
-        if (event.event == 'message' && event.data is Map<String, dynamic>) {
-          onMessage(ConsultationMessage.fromJson(
-              event.data as Map<String, dynamic>));
-        }
-      },
+      onEvent: onEvent,
       onDone: onDone,
       onError: onError,
     );
