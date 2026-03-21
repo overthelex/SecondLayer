@@ -559,7 +559,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleDiiaAuth}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-[#1A4DC2] hover:bg-[#1540A8] text-white rounded-xl font-medium transition-all shadow-sm mb-3 font-sans"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white border-2 border-claude-border hover:border-claude-accent hover:bg-claude-bg rounded-xl font-medium text-claude-text transition-all shadow-sm mb-3 font-sans"
           >
             {/* Official Diia logo */}
             <svg width="22" height="22" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
