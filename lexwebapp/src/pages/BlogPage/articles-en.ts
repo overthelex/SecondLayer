@@ -2294,4 +2294,194 @@ This migration confirmed a principle we follow at LEX AI: data should be structu
 
 The fallback layer makes the migration safe: even if server-side extraction is temporarily unavailable, the user will see evidence. Just a bit slower.`,
   },
+  'developer-platform-api': {
+    title: 'Developer Platform: 56 Legal AI Tools via a Single API',
+    punchline: 'We launched platform.legal.org.ua — a portal for developers who want to integrate legal AI into their products. API keys, usage analytics, documentation for 56 tools, examples for Python and TypeScript. MCP SSE, REST, batch — three transports to choose from. From signup to first request — 5 minutes.',
+    readTime: '7 min',
+    content: `# Developer Platform: 56 Legal AI Tools via a Single API
+
+*How we built a portal for developers who want to integrate legal AI into their products.*
+
+---
+
+## Why a Separate Portal
+
+LEX AI started as a tool for lawyers. But developers also want access to our data: court case search, counterparty verification, legislation analysis — all of this is needed not only in our UI, but in third-party products too.
+
+Previously, integration looked like this: message us on Telegram, get a token, read the README on GitHub, figure out response formats through trial and error. That doesn't scale.
+
+Now there's [platform.legal.org.ua](https://platform.legal.org.ua) — a full-featured developer portal with everything needed for integration.
+
+## What's Inside
+
+### Dashboard
+
+After login, developers see a panel with key metrics:
+
+| Metric | Description |
+|--------|-------------|
+| **Active API Keys** | Number of created keys |
+| **Balance** | Remaining balance in USD |
+| **Requests (30 days)** | Total number of calls |
+| **API Status** | Current availability |
+
+Right there — a Quick Start section with a ready-made command for connecting via Claude Code:
+
+\`\`\`bash
+claude mcp add secondlayer \\
+  --transport sse \\
+  --url https://mcp.legal.org.ua/v1/sse \\
+  --header "Authorization: Bearer YOUR_API_KEY"
+\`\`\`
+
+### API Key Management
+
+Full CRUD for keys:
+
+- **Creation** — enter a name, get a key. Format: \`sl_<32 characters>_<8 checksum>\`.
+- **Security** — the key is shown only once after creation. Save it immediately.
+- **Tracking** — for each key you can see call count, creation date, and last used date.
+- **Revocation** — instant, with confirmation.
+
+### Usage Analytics
+
+The Usage page shows detailed statistics:
+
+- **Daily calls chart** — bar chart for 7, 30, or 90 days
+- **Usage by tool** — table with call count, cost, tokens, average response time
+- **Financial dashboard** — current balance, transaction history (top-ups / usage)
+
+Every API call is tracked down to the token. Developers can see how much each tool costs and optimize spending.
+
+## 56 Tools in 12 Categories
+
+The full tool catalog is available in the documentation with search and category filtering:
+
+| Category | Count | Examples |
+|----------|-------|----------|
+| **Pipeline** | 4 | Full query analysis, intent classification |
+| **Court** | 4 | Court decision search, case details |
+| **Analysis** | 10 | Decision comparison, pattern extraction |
+| **Documents** | 8 | Upload, parsing, document analysis |
+| **Legislation** | 7 | Article search, full law text |
+| **Procedural** | 3 | Deadlines, jurisdiction, procedural actions |
+| **Parsing** | 5 | Decision text decomposition |
+| **Vault** | 3 | User document storage |
+| **RADA** | 4 | Deputies, bills, voting |
+| **Registry** | 5 | Business registry, beneficiaries, debtors |
+| **Statistics** | 2 | Court and category statistics |
+| **Main** | 1 | Main orchestration tool |
+
+Each tool includes: description, category, cost range.
+
+## Three Transports
+
+Developer Platform supports three integration methods:
+
+### MCP SSE (recommended)
+
+Server-Sent Events via MCP protocol. Supported by Claude Desktop, Claude Code, and other MCP clients out of the box.
+
+\`\`\`
+Endpoint: https://mcp.legal.org.ua/v1/sse
+\`\`\`
+
+### REST API
+
+Classic HTTP for any programming language.
+
+\`\`\`bash
+curl -X POST https://mcp.legal.org.ua/api/tools/search_court_decisions \\
+  -H "Authorization: Bearer sl_your_key" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query": "invalidation of a legal transaction"}'
+\`\`\`
+
+### Batch Processing
+
+Multiple tools in a single request:
+
+\`\`\`bash
+POST /api/tools/batch
+\`\`\`
+
+## Quick Start: 5 Minutes to Your First Request
+
+Documentation includes examples for five integration scenarios:
+
+1. **Claude Code** — one command in the terminal
+2. **Claude Desktop** — JSON config in a file
+3. **cURL** — REST API directly
+4. **Python** — client wrapper with requests
+5. **TypeScript/Node.js** — axios client with types
+
+Python example:
+
+\`\`\`python
+import requests
+
+API_KEY = "sl_your_api_key"
+BASE_URL = "https://mcp.legal.org.ua/api/tools"
+
+response = requests.post(
+    f"{BASE_URL}/search_court_decisions",
+    headers={"Authorization": f"Bearer {API_KEY}"},
+    json={"query": "debt collection under credit agreement"}
+)
+
+decisions = response.json()
+\`\`\`
+
+## Rate Limits and Security
+
+| Parameter | Value |
+|-----------|-------|
+| Requests per minute | 60 |
+| Requests per day | 10,000 |
+| Max request size | 10 MB |
+| Execution timeout | 120 seconds |
+
+Every response includes \`X-RateLimit-Limit\`, \`X-RateLimit-Remaining\`, \`X-RateLimit-Reset\` headers. On exceeding — 429 with exponential backoff recommendation.
+
+Authentication — Bearer token in the \`Authorization\` header. Keys are tied to accounts, every usage is logged. If a key is compromised — instant revocation through the panel.
+
+## Billing
+
+Pay-as-you-go model. Each tool call has its own cost depending on complexity: simple queries (registry lookup) cost less than deep analysis using LLMs.
+
+On the Usage page you can see:
+
+- Current balance
+- Total top-ups
+- Total usage
+- Transaction history with type (purchase / usage) and description
+
+## Portal Architecture
+
+Developer Platform is a separate React SPA, independent from the main legal.org.ua:
+
+| Component | Technology |
+|-----------|-----------|
+| Frontend | React 19, Vite, TailwindCSS |
+| Charts | Recharts |
+| Auth | Google OAuth + email/password |
+| API | mcp_backend (shared with the main app) |
+| Deploy | Docker + Nginx, port 8094 |
+
+The backend is shared — same endpoints, same database, same cost tracking. The portal is a different interface to the same infrastructure.
+
+## Who Needs This
+
+**LegalTech startups** — integrate court case search into your product without building your own index.
+
+**Law firms with IT departments** — automate due diligence, legislation monitoring, procedural document preparation.
+
+**AI developers** — connect legal tools to your agents via the MCP protocol.
+
+**Researchers** — bulk court case analysis via batch API.
+
+---
+
+One portal. Three transports. 56 tools. From signup to first request — 5 minutes. [platform.legal.org.ua](https://platform.legal.org.ua)`,
+  },
 };
