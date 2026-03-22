@@ -240,6 +240,10 @@ export class ToolRegistry {
       { clientName: 'openreyestr_search_legal_acts', serviceName: 'search_legal_acts' },
       { clientName: 'openreyestr_search_administrative_units', serviceName: 'search_administrative_units' },
       { clientName: 'openreyestr_search_streets', serviceName: 'search_streets' },
+      { clientName: 'openreyestr_search_vat_payers', serviceName: 'search_vat_payers' },
+      { clientName: 'openreyestr_search_single_tax_payers', serviceName: 'search_single_tax_payers' },
+      { clientName: 'openreyestr_search_tax_debt', serviceName: 'search_tax_debt' },
+      { clientName: 'openreyestr_search_esv_debt', serviceName: 'search_esv_debt' },
     ];
 
     for (const tool of openreyestrTools) {
