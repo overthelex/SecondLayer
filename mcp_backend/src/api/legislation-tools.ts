@@ -511,7 +511,66 @@ export class LegislationTools extends BaseToolHandler {
           required: ['rada_id'],
         },
       },
+      {
+        name: 'get_legislation_history',
+        description: `Отримати історію змін (редакцій) законодавчого акту. Показує які статті змінювались, коли і в якій редакції.
+
+Використовуй коли потрібно:
+- Простежити як змінювалась конкретна норма з часом
+- Знайти які постанови/закони вносили зміни до акту
+- Проаналізувати еволюцію правового регулювання
+
+💰 Вартість: $0.00 (тільки PostgreSQL запит)`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            rada_id: {
+              type: 'string',
+              description: 'ID законодавчого акту на zakon.rada.gov.ua (наприклад, "1388-98-п" для Постанови КМУ №1388, "435-15" для ЦК)',
+            },
+          },
+          required: ['rada_id'],
+        },
+      },
     ];
+  }
+
+  async getLegislationHistory(args: { rada_id: string }): Promise<any> {
+    if (!args.rada_id) {
+      throw new Error('rada_id is required');
+    }
+
+    const radaId = normalizeRadaId(args.rada_id);
+    logger.info('[MCP Tool] get_legislation_history started', { rada_id: radaId });
+
+    // Get amendment history (non-current article versions)
+    const history = await this.service.getAmendmentHistory(radaId);
+
+    // Also get current legislation metadata
+    const structure = await this.service.getLegislationStructure(radaId);
+
+    if (!structure && history.length === 0) {
+      return {
+        rada_id: radaId,
+        error: `Законодавчий акт ${radaId} не знайдено в базі даних`,
+        suggestion: 'Перевірте правильність rada_id. Для постанов КМУ формат: "1388-98-п", для законів: "435-15"',
+        url: `https://zakon.rada.gov.ua/laws/show/${radaId}`,
+      };
+    }
+
+    return {
+      rada_id: radaId,
+      title: structure?.title || null,
+      type: structure?.type || null,
+      total_current_articles: structure?.total_articles || null,
+      url: `https://zakon.rada.gov.ua/laws/show/${radaId}`,
+      amendment_history: history,
+      total_amendments: history.length,
+      amended_articles: [...new Set(history.map(h => h.article_number))],
+      note: history.length === 0
+        ? 'Історія змін порожня — можливо акт ще не був змінений або попередні редакції не збережено в базі. Перевірте актуальний текст на zakon.rada.gov.ua'
+        : undefined,
+    };
   }
 
   async executeTool(name: string, args: any): Promise<ToolResult | null> {
@@ -526,6 +585,8 @@ export class LegislationTools extends BaseToolHandler {
         return this.wrapResponse(await this.searchLegislation(args));
       case 'get_legislation_structure':
         return this.wrapResponse(await this.getLegislationStructure(args));
+      case 'get_legislation_history':
+        return this.wrapResponse(await this.getLegislationHistory(args));
       default:
         return null;
     }
