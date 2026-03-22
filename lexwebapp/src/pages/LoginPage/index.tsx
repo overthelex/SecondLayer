@@ -56,21 +56,133 @@ const FADE_UP = {
   transition: { duration: 0.5, ease: 'easeOut' as const },
 };
 
-// Subtle geometric background pattern for left panel
-function GridPattern() {
+// Animated Julia-set fractal on canvas — dark theme with teal/indigo
+function FractalBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId: number;
+    const startTime = Date.now();
+
+    const MAX_ITER = 35;
+
+    // Full resolution — devicePixelRatio for crisp display
+    const resize = () => {
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (w > 0 && h > 0) {
+        canvas.width = Math.floor(w * 0.5);
+        canvas.height = Math.floor(h * 0.5);
+      }
+    };
+    // Delay initial resize to ensure layout is complete
+    setTimeout(resize, 100);
+    window.addEventListener('resize', resize);
+
+    function julia(zx: number, zy: number, cx: number, cy: number): number {
+      for (let i = 0; i < MAX_ITER; i++) {
+        if (zx * zx + zy * zy > 4) {
+          return (i + 1 - Math.log(Math.log(Math.sqrt(zx * zx + zy * zy))) / Math.LN2) / MAX_ITER;
+        }
+        const t = zx * zx - zy * zy + cx;
+        zy = 2 * zx * zy + cy;
+        zx = t;
+      }
+      return 0;
+    }
+
+    // Render full-res frame in chunks to avoid blocking UI
+    let currentRow = 0;
+    let imgData: ImageData | null = null;
+    let frameJcx = 0;
+    let frameJcy = 0;
+    const ROWS_PER_TICK = 100; // render N rows per rAF — more rows = faster frames
+
+    function startNewFrame() {
+      const w = canvas!.width;
+      const h = canvas!.height;
+      if (w === 0 || h === 0) return;
+
+      const elapsed = (Date.now() - startTime) / 1000;
+      frameJcx = -0.7 + 0.18 * Math.sin(elapsed * 0.25);
+      frameJcy = 0.27015 + 0.14 * Math.cos(elapsed * 0.19);
+      imgData = ctx!.createImageData(w, h);
+      currentRow = 0;
+    }
+
+    function renderChunk() {
+      animId = requestAnimationFrame(renderChunk);
+
+      const w = canvas!.width;
+      const h = canvas!.height;
+      if (w === 0 || h === 0) return;
+
+      // Start new frame if needed
+      if (!imgData || imgData.width !== w || imgData.height !== h) {
+        startNewFrame();
+      }
+      if (!imgData) return;
+
+      const d = imgData.data;
+      const aspect = w / h;
+      const span = 3.0;
+      const endRow = Math.min(currentRow + ROWS_PER_TICK, h);
+
+      for (let y = currentRow; y < endRow; y++) {
+        for (let x = 0; x < w; x++) {
+          const fx = (x / w - 0.5) * span * aspect;
+          const fy = (y / h - 0.5) * span;
+
+          const v = julia(fx, fy, frameJcx, frameJcy);
+          const idx = (y * w + x) * 4;
+
+          if (v > 0) {
+            const t = v * 3;
+            const r = Math.min(255, Math.floor(t * 25 + v * v * 80));
+            const g = Math.min(255, Math.floor(t * 55 + v * 40));
+            const b = Math.min(255, Math.floor(t * 90 + v * v * 120));
+            d[idx] = r;
+            d[idx + 1] = g;
+            d[idx + 2] = b;
+          } else {
+            d[idx] = 8;
+            d[idx + 1] = 8;
+            d[idx + 2] = 10;
+          }
+          d[idx + 3] = 255;
+        }
+      }
+
+      currentRow = endRow;
+
+      // Frame complete — draw and start next
+      if (currentRow >= h) {
+        ctx!.putImageData(imgData, 0, 0);
+        startNewFrame();
+      }
+    }
+
+    startNewFrame();
+    animId = requestAnimationFrame(renderChunk);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
   return (
-    <svg
-      className="absolute inset-0 w-full h-full opacity-[0.03]"
-      xmlns="http://www.w3.org/2000/svg"
+    <canvas
+      ref={canvasRef}
+      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', imageRendering: 'auto' }}
       aria-hidden="true"
-    >
-      <defs>
-        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5" />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#grid)" />
-    </svg>
+    />
   );
 }
 
@@ -412,21 +524,17 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#080808] flex">
+    <div className="min-h-screen bg-[#080808] flex relative">
+
+      {/* ── Full-page fractal background ── */}
+      <FractalBackground />
 
       {/* ── Left panel: brand identity ── */}
       <div
         className="hidden lg:flex lg:w-[480px] xl:w-[560px] flex-shrink-0 flex-col justify-between relative overflow-hidden"
-        style={{ background: 'linear-gradient(160deg, #0e0e0e 0%, #080808 60%, #0a0c10 100%)' }}
       >
-        {/* Subtle grid texture */}
-        <GridPattern />
-
-        {/* Very subtle top-left ambient glow */}
-        <div
-          className="absolute -top-32 -left-32 w-96 h-96 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.025) 0%, transparent 70%)' }}
-        />
+        {/* Semi-transparent backdrop for readability */}
+        <div className="absolute inset-0" style={{ background: 'rgba(8,8,8,0.55)' }} />
 
         {/* Divider on the right edge */}
         <PanelDivider />
@@ -534,11 +642,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       {/* ── Right panel: auth form ── */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 lg:px-16 xl:px-24 relative">
 
-        {/* Subtle right-side ambient */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 60% 50% at 80% 20%, rgba(255,255,255,0.012) 0%, transparent 60%)' }}
-        />
+        {/* Semi-transparent backdrop for readability */}
+        <div className="absolute inset-0" style={{ background: 'rgba(8,8,8,0.65)' }} />
 
         {/* Mobile logo */}
         <div className="lg:hidden mb-10 self-start relative z-10">
