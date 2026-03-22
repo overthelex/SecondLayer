@@ -1,15 +1,14 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Gavel, BookOpen, Archive } from 'lucide-react';
+import { Gavel, BookOpen, Archive } from 'lucide-react';
 import { useOnboardingStore } from '../../stores/onboardingStore';
+import { LexLogo3D } from '../LexLogo3D';
 
 interface TourStep {
   target: string;
   title: string;
   description: string;
-  icon: React.ElementType;
-  iconBg: string;
-  iconColor: string;
+  icon: React.ElementType | 'logo';
   position: 'above' | 'right';
 }
 
@@ -19,9 +18,7 @@ const STEPS: TourStep[] = [
     title: 'Привіт! Це LEX',
     description:
       'AI-асистент для юристів. Задайте будь-яке юридичне питання — отримайте відповідь з посиланнями на судову практику та законодавство.',
-    icon: Sparkles,
-    iconBg: 'bg-amber-50',
-    iconColor: 'text-amber-500',
+    icon: 'logo',
     position: 'above',
   },
   {
@@ -30,8 +27,6 @@ const STEPS: TourStep[] = [
     description:
       'Шукайте серед усіх рішень українських судів. AI аналізує практику, знаходить прецеденти та правові позиції Верховного Суду.',
     icon: Gavel,
-    iconBg: 'bg-indigo-50',
-    iconColor: 'text-indigo-500',
     position: 'right',
   },
   {
@@ -40,8 +35,6 @@ const STEPS: TourStep[] = [
     description:
       'Миттєвий доступ до повних текстів кодексів, законів та нормативних актів. Пошук по статтях з AI-розпізнаванням посилань.',
     icon: BookOpen,
-    iconBg: 'bg-emerald-50',
-    iconColor: 'text-emerald-500',
     position: 'right',
   },
   {
@@ -50,8 +43,6 @@ const STEPS: TourStep[] = [
     description:
       'Завантажуйте документи для AI-аналізу. LEX витягне ключові положення, порівняє з практикою та підготує висновки.',
     icon: Archive,
-    iconBg: 'bg-violet-50',
-    iconColor: 'text-violet-500',
     position: 'right',
   },
 ];
@@ -139,7 +130,6 @@ export function OnboardingTour() {
   if (!isActive || currentStep >= STEPS.length || !targetRect) return null;
 
   const step = STEPS[currentStep];
-  const Icon = step.icon;
   const isLast = currentStep === STEPS.length - 1;
 
   const sx = targetRect.left - SPOTLIGHT_PADDING;
@@ -195,15 +185,21 @@ export function OnboardingTour() {
           style={cardStyle}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 p-6 max-w-[340px]">
+          <div className="bg-white rounded-xl shadow-2xl border border-claude-border p-6 max-w-[340px]">
             {/* Icon */}
-            <div className={`w-10 h-10 rounded-xl ${step.iconBg} flex items-center justify-center mb-3`}>
-              <Icon size={20} strokeWidth={2} className={step.iconColor} />
-            </div>
+            {step.icon === 'logo' ? (
+              <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center mb-3">
+                <LexLogo3D size={36} />
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center mb-3">
+                {(() => { const Icon = step.icon as React.ElementType; return <Icon size={20} strokeWidth={1.8} className="text-zinc-600" />; })()}
+              </div>
+            )}
 
             {/* Content */}
-            <h3 className="text-[17px] font-bold text-gray-900 mb-1.5">{step.title}</h3>
-            <p className="text-[13px] text-gray-500 leading-relaxed mb-5">{step.description}</p>
+            <h3 className="text-[17px] font-bold text-claude-text mb-1.5">{step.title}</h3>
+            <p className="text-[13px] text-claude-subtext leading-relaxed mb-5">{step.description}</p>
 
             {/* Footer */}
             <div className="flex items-center justify-between">
@@ -213,7 +209,7 @@ export function OnboardingTour() {
                   <div
                     key={i}
                     className={`h-1.5 rounded-full transition-all duration-300 ${
-                      i === currentStep ? 'w-6 bg-indigo-500' : 'w-2 bg-gray-200'
+                      i === currentStep ? 'w-6 bg-claude-accent' : 'w-2 bg-zinc-200'
                     }`}
                   />
                 ))}
@@ -223,13 +219,13 @@ export function OnboardingTour() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={skipTour}
-                  className="text-gray-400 hover:text-gray-600 text-[12px] transition-colors"
+                  className="text-claude-subtext hover:text-claude-text text-[12px] transition-colors"
                 >
                   Пропустити
                 </button>
                 <button
                   onClick={handleNext}
-                  className="bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2 rounded-lg text-[13px] font-medium transition-colors"
+                  className="bg-claude-accent hover:bg-zinc-700 text-white px-5 py-2 rounded-lg text-[13px] font-medium transition-colors"
                 >
                   {isLast ? 'Почати роботу' : 'Далі'}
                 </button>
