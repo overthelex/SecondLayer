@@ -115,6 +115,10 @@ async function importXmlInMemory(
     ignoreAttributes: false,
     parseTagValue: false,
     trimValues: true,
+    processEntities: {
+      enabled: true,
+      maxTotalExpansions: 100000,
+    },
   });
   const result = parser.parse(xmlContent);
 
