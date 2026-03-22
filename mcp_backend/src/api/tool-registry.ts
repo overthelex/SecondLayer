@@ -244,6 +244,7 @@ export class ToolRegistry {
       { clientName: 'openreyestr_search_single_tax_payers', serviceName: 'search_single_tax_payers' },
       { clientName: 'openreyestr_search_tax_debt', serviceName: 'search_tax_debt' },
       { clientName: 'openreyestr_search_esv_debt', serviceName: 'search_esv_debt' },
+      { clientName: 'openreyestr_search_prozorro', serviceName: 'search_prozorro' },
     ];
 
     for (const tool of openreyestrTools) {

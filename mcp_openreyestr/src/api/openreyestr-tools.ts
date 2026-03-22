@@ -1097,6 +1097,61 @@ export class OpenReyestrTools {
     return result.rows;
   }
 
+  /**
+   * Search Prozorro public procurement tenders
+   */
+  async searchProzorro(params: { query?: string; buyer_edrpou?: string; buyer_name?: string; status?: string; cpv_code?: string; limit?: number; offset?: number }): Promise<any[]> {
+    const { query, buyer_edrpou, buyer_name, status, cpv_code, limit = 50, offset = 0 } = params;
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (buyer_edrpou) {
+      conditions.push(`buyer_edrpou = $${paramIndex}`);
+      values.push(buyer_edrpou);
+      paramIndex++;
+    }
+    if (query) {
+      conditions.push(`title ILIKE $${paramIndex}`);
+      values.push(`%${query}%`);
+      paramIndex++;
+    }
+    if (buyer_name) {
+      conditions.push(`buyer_name ILIKE $${paramIndex}`);
+      values.push(`%${buyer_name}%`);
+      paramIndex++;
+    }
+    if (status) {
+      conditions.push(`status = $${paramIndex}`);
+      values.push(status);
+      paramIndex++;
+    }
+    if (cpv_code) {
+      conditions.push(`cpv_code LIKE $${paramIndex}`);
+      values.push(`${cpv_code}%`);
+      paramIndex++;
+    }
+
+    if (conditions.length === 0) {
+      return [{ found: false, message: 'Вкажіть параметри пошуку тендерів' }];
+    }
+
+    values.push(limit, offset);
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const result = await this.pool.query(
+      `SELECT id, tender_id, tender_number, title, status, procurement_method_type, buyer_name, buyer_edrpou, buyer_region, amount, currency, cpv_code, cpv_description, date_created, tender_start, tender_end
+       FROM prozorro_tenders ${whereClause}
+       ORDER BY date_created DESC
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return [{ found: false, query: query || buyer_edrpou || buyer_name || '', message: 'Тендерів не знайдено' }];
+    }
+    return result.rows;
+  }
+
   private async findEntityType(record: string): Promise<'UO' | 'FOP' | 'FSU' | null> {
     const uoResult = await this.pool.query(
       'SELECT 1 FROM legal_entities WHERE record = $1',
