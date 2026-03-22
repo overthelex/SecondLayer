@@ -509,7 +509,15 @@ export class LegislationService {
     }));
   }
 
-  async getLegislationStructure(radaId: string): Promise<any> {
+  async getLegislationStructure(radaId: string, forceRefresh?: boolean): Promise<any> {
+    radaId = normalizeRadaId(radaId);
+
+    if (forceRefresh) {
+      logger.info(`Force refreshing legislation ${radaId}`);
+      await this.db.query('DELETE FROM legislation_articles WHERE legislation_id IN (SELECT id FROM legislation WHERE rada_id = $1)', [radaId]);
+      await this.db.query('DELETE FROM legislation WHERE rada_id = $1', [radaId]);
+    }
+
     await this.ensureLegislationExists(radaId);
 
     const result = await this.db.query(
@@ -527,7 +535,8 @@ export class LegislationService {
              'section_title', la.section_title,
              'chapter_number', la.chapter_number,
              'chapter_title', la.chapter_title,
-             'byte_size', la.byte_size
+             'byte_size', la.byte_size,
+             'metadata', la.metadata
            ) ORDER BY (regexp_match(la.article_number, '^\d+'))[1]::integer NULLS LAST, la.article_number
          ) as articles
        FROM legislation l
@@ -556,21 +565,78 @@ export class LegislationService {
 
   private buildTableOfContents(articles: any[]): any[] {
     const toc: any[] = [];
+    let currentBook: any = null;
     let currentSection: any = null;
+    let currentSubsection: any = null;
     let currentChapter: any = null;
+    let currentParagraph: any = null;
 
     for (const article of articles) {
+      const meta = article.metadata || {};
+
+      // Handle book level
+      const bookNumber = meta.book_number;
+      if (bookNumber && (!currentBook || currentBook.number !== bookNumber)) {
+        currentBook = {
+          type: 'book',
+          number: bookNumber,
+          title: meta.book_title || undefined,
+          children: [],
+        };
+        toc.push(currentBook);
+        currentSection = null;
+        currentSubsection = null;
+        currentChapter = null;
+        currentParagraph = null;
+      }
+
+      // Handle section level (section_number may include book prefix like "1.2")
       if (article.section_number && (!currentSection || currentSection.number !== article.section_number)) {
+        // Extract display number (strip book prefix for display)
+        const displayNumber = article.section_number.includes('.')
+          ? article.section_number.split('.').pop()
+          : article.section_number;
+
         currentSection = {
           type: 'section',
-          number: article.section_number,
+          number: displayNumber,
           title: article.section_title || undefined,
           articles: [],
         };
-        toc.push(currentSection);
+
+        if (currentBook) {
+          currentBook.children.push(currentSection);
+        } else {
+          toc.push(currentSection);
+        }
+        currentSubsection = null;
         currentChapter = null;
+        currentParagraph = null;
       }
 
+      // Handle subsection level
+      const subsectionNumber = meta.subsection_number;
+      if (subsectionNumber && (!currentSubsection || currentSubsection.number !== subsectionNumber)) {
+        currentSubsection = {
+          type: 'subsection',
+          number: subsectionNumber,
+          title: meta.subsection_title || undefined,
+          articles: [],
+          chapters: [],
+        };
+        if (currentSection) {
+          currentSection.subsections = currentSection.subsections || [];
+          currentSection.subsections.push(currentSubsection);
+        } else if (currentBook) {
+          currentBook.children.push(currentSubsection);
+        } else {
+          toc.push(currentSubsection);
+        }
+        currentChapter = null;
+        currentParagraph = null;
+      }
+
+      // Handle chapter level
       if (article.chapter_number && (!currentChapter || currentChapter.number !== article.chapter_number)) {
         currentChapter = {
           type: 'chapter',
@@ -578,11 +644,39 @@ export class LegislationService {
           title: article.chapter_title || undefined,
           articles: [],
         };
-        if (currentSection) {
+        if (currentSubsection) {
+          currentSubsection.chapters.push(currentChapter);
+        } else if (currentSection) {
           currentSection.chapters = currentSection.chapters || [];
           currentSection.chapters.push(currentChapter);
+        } else if (currentBook) {
+          currentBook.children.push(currentChapter);
         } else {
           toc.push(currentChapter);
+        }
+        currentParagraph = null;
+      }
+
+      // Handle paragraph (§) level
+      const paragraphNumber = meta.paragraph_number;
+      if (paragraphNumber && (!currentParagraph || currentParagraph.number !== paragraphNumber)) {
+        currentParagraph = {
+          type: 'paragraph',
+          number: paragraphNumber,
+          title: meta.paragraph_title || undefined,
+          articles: [],
+        };
+        if (currentChapter) {
+          currentChapter.paragraphs = currentChapter.paragraphs || [];
+          currentChapter.paragraphs.push(currentParagraph);
+        } else if (currentSubsection) {
+          currentSubsection.paragraphs = currentSubsection.paragraphs || [];
+          currentSubsection.paragraphs.push(currentParagraph);
+        } else if (currentSection) {
+          currentSection.paragraphs = currentSection.paragraphs || [];
+          currentSection.paragraphs.push(currentParagraph);
+        } else {
+          toc.push(currentParagraph);
         }
       }
 
@@ -592,39 +686,19 @@ export class LegislationService {
         byte_size: article.byte_size,
       };
 
-      if (currentChapter) {
+      // Place article in the deepest available container
+      if (currentParagraph) {
+        currentParagraph.articles.push(articleEntry);
+      } else if (currentChapter) {
         currentChapter.articles.push(articleEntry);
+      } else if (currentSubsection) {
+        currentSubsection.articles.push(articleEntry);
       } else if (currentSection) {
         currentSection.articles.push(articleEntry);
+      } else if (currentBook) {
+        currentBook.children.push(articleEntry);
       } else {
         toc.push(articleEntry);
-      }
-    }
-
-    // Sort sections and chapters numerically (1, 2, 3 instead of 1, 10, 2)
-    const numericSort = (a: any, b: any) => {
-      const numA = parseInt(a.number, 10);
-      const numB = parseInt(b.number, 10);
-      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-      return (a.number || '').localeCompare(b.number || '', undefined, { numeric: true });
-    };
-
-    // Sort chapters within sections
-    for (const item of toc) {
-      if (item.type === 'section' && item.chapters && item.chapters.length > 1) {
-        item.chapters.sort(numericSort);
-      }
-    }
-
-    // Rebuild toc with sections sorted numerically, preserving non-section items in place
-    const sections = toc.filter((item: any) => item.type === 'section');
-    if (sections.length > 1) {
-      sections.sort(numericSort);
-      let si = 0;
-      for (let i = 0; i < toc.length; i++) {
-        if (toc[i].type === 'section') {
-          toc[i] = sections[si++];
-        }
       }
     }
 

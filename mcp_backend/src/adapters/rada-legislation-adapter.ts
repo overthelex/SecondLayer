@@ -160,10 +160,20 @@ export class RadaLegislationAdapter {
       // Find which section/chapter this article belongs to
       const structure = this.findStructureForPosition(structureMap, articlePosition);
 
+      // Build unique section number with book prefix to avoid duplication
+      const sectionNumber = structure.bookNumber && structure.sectionNumber
+        ? `${structure.bookNumber}.${structure.sectionNumber}`
+        : structure.sectionNumber;
+      const sectionTitle = structure.sectionTitle;
+
+      // Build unique subsection number with section context
+      const subsectionNumber = structure.subsectionNumber;
+      const subsectionTitle = structure.subsectionTitle;
+
       articles.push({
         article_number: articleNumber,
-        section_number: structure.sectionNumber,
-        section_title: structure.sectionTitle,
+        section_number: sectionNumber,
+        section_title: sectionTitle,
         chapter_number: structure.chapterNumber,
         chapter_title: structure.chapterTitle,
         title: title,
@@ -174,6 +184,12 @@ export class RadaLegislationAdapter {
           rada_id: radaId,
           extraction_date: new Date().toISOString(),
           extraction_method: 'print_endpoint',
+          book_number: structure.bookNumber,
+          book_title: structure.bookTitle,
+          subsection_number: subsectionNumber,
+          subsection_title: subsectionTitle,
+          paragraph_number: structure.paragraphNumber,
+          paragraph_title: structure.paragraphTitle,
         },
       });
     }
@@ -189,65 +205,118 @@ export class RadaLegislationAdapter {
 
   private extractStructureMap(bodyHtml: string): Array<{
     position: number;
-    type: 'section' | 'chapter';
+    type: 'book' | 'section' | 'subsection' | 'chapter' | 'paragraph';
     number: string;
     title: string;
   }> {
     const entries: Array<{
       position: number;
-      type: 'section' | 'chapter';
+      type: 'book' | 'section' | 'subsection' | 'chapter' | 'paragraph';
       number: string;
       title: string;
     }> = [];
 
-    // Match section/chapter headers: <span class=rvts15>Розділ X </span> followed by <span class=rvts15>TITLE</span>
-    // Sections use Roman or Arabic numerals
-    const headerRegex = /<span\s+class=["']?rvts15["']?>(Розділ|Глава)\s+([^<]+?)\s*<\/span>\s*(?:<br\s*\/?>)?\s*<span\s+class=["']?rvts15["']?>([^<]+?)<\/span>/gi;
-
+    // Match Книга (Book) headers: <span class=rvts23>КНИГА ПЕРША </span><br><span class=rvts23>TITLE</span>
+    const bookRegex = /<span\s+class=["']?rvts23["']?>КНИГА\s+([^<]+?)\s*<\/span>\s*(?:<br\s*\/?>)?\s*<span\s+class=["']?rvts23["']?>([^<]+?)<\/span>/gi;
     let match;
+    while ((match = bookRegex.exec(bodyHtml)) !== null) {
+      const rawNumber = match[1].trim();
+      const title = match[2].trim();
+      const number = this.ukrainianOrdinalToArabic(rawNumber) || rawNumber;
+      entries.push({ position: match.index, type: 'book', number, title });
+    }
+
+    // Match Розділ/Глава/Підрозділ headers: <span class=rvts15>X N </span><br><span class=rvts15>TITLE</span>
+    const headerRegex = /<span\s+class=["']?rvts15["']?>(Розділ|Глава|Підрозділ)\s+([^<]+?)\s*<\/span>\s*(?:<br\s*\/?>)?\s*<span\s+class=["']?rvts15["']?>([^<]+?)<\/span>/gi;
     while ((match = headerRegex.exec(bodyHtml)) !== null) {
-      const type = match[1].toLowerCase().startsWith('розділ') ? 'section' as const : 'chapter' as const;
+      const keyword = match[1].toLowerCase();
+      const type = keyword.startsWith('розділ') ? 'section' as const
+        : keyword.startsWith('підрозділ') ? 'subsection' as const
+        : 'chapter' as const;
       const rawNumber = match[2].trim();
       const title = match[3].trim();
-
-      // Convert Roman numerals to Arabic for consistent ordering
       const number = this.romanToArabic(rawNumber) || rawNumber;
-
-      entries.push({
-        position: match.index,
-        type,
-        number,
-        title,
-      });
+      entries.push({ position: match.index, type, number, title });
     }
+
+    // Match § (paragraph) headers: <span class=rvts15>§ N. TITLE</span> (number and title in same span)
+    const paragraphRegex = /<span\s+class=["']?rvts15["']?>§\s*(\d+)\.?\s*([^<]*?)\s*<\/span>/gi;
+    while ((match = paragraphRegex.exec(bodyHtml)) !== null) {
+      const number = match[1].trim();
+      const title = match[2].trim();
+      entries.push({ position: match.index, type: 'paragraph', number, title });
+    }
+
+    // Sort all entries by position in HTML
+    entries.sort((a, b) => a.position - b.position);
 
     return entries;
   }
 
+  private ukrainianOrdinalToArabic(str: string): string | null {
+    const ordinals: Record<string, string> = {
+      'ПЕРША': '1', 'ПЕРШИЙ': '1', 'ПЕРШЕ': '1',
+      'ДРУГА': '2', 'ДРУГИЙ': '2', 'ДРУГЕ': '2',
+      'ТРЕТЯ': '3', 'ТРЕТІЙ': '3', 'ТРЕТЄ': '3',
+      'ЧЕТВЕРТА': '4', 'ЧЕТВЕРТИЙ': '4', 'ЧЕТВЕРТЕ': '4',
+      "П'ЯТА": '5', "П'ЯТИЙ": '5', "П'ЯТЕ": '5',
+      'ШОСТА': '6', 'ШОСТИЙ': '6', 'ШОСТЕ': '6',
+      'СЬОМА': '7', 'СЬОМИЙ': '7', 'СЬОМЕ': '7',
+      'ВОСЬМА': '8', 'ВОСЬМИЙ': '8', 'ВОСЬМЕ': '8',
+      "ДЕВ'ЯТА": '9', "ДЕВ'ЯТИЙ": '9', "ДЕВ'ЯТЕ": '9',
+      'ДЕСЯТА': '10', 'ДЕСЯТИЙ': '10', 'ДЕСЯТЕ': '10',
+    };
+    const cleaned = str.trim().toUpperCase();
+    return ordinals[cleaned] || null;
+  }
+
   private findStructureForPosition(
-    structureMap: Array<{ position: number; type: 'section' | 'chapter'; number: string; title: string }>,
+    structureMap: Array<{ position: number; type: 'book' | 'section' | 'subsection' | 'chapter' | 'paragraph'; number: string; title: string }>,
     articlePosition: number,
-  ): { sectionNumber?: string; sectionTitle?: string; chapterNumber?: string; chapterTitle?: string } {
+  ): { bookNumber?: string; bookTitle?: string; sectionNumber?: string; sectionTitle?: string; subsectionNumber?: string; subsectionTitle?: string; chapterNumber?: string; chapterTitle?: string; paragraphNumber?: string; paragraphTitle?: string } {
+    let bookNumber: string | undefined;
+    let bookTitle: string | undefined;
     let sectionNumber: string | undefined;
     let sectionTitle: string | undefined;
+    let subsectionNumber: string | undefined;
+    let subsectionTitle: string | undefined;
     let chapterNumber: string | undefined;
     let chapterTitle: string | undefined;
+    let paragraphNumber: string | undefined;
+    let paragraphTitle: string | undefined;
 
     for (const entry of structureMap) {
       if (entry.position > articlePosition) break;
-      if (entry.type === 'section') {
+      if (entry.type === 'book') {
+        bookNumber = entry.number;
+        bookTitle = entry.title;
+        // Reset all sub-levels
+        sectionNumber = undefined; sectionTitle = undefined;
+        subsectionNumber = undefined; subsectionTitle = undefined;
+        chapterNumber = undefined; chapterTitle = undefined;
+        paragraphNumber = undefined; paragraphTitle = undefined;
+      } else if (entry.type === 'section') {
         sectionNumber = entry.number;
         sectionTitle = entry.title;
-        // Reset chapter when entering a new section
-        chapterNumber = undefined;
-        chapterTitle = undefined;
+        subsectionNumber = undefined; subsectionTitle = undefined;
+        chapterNumber = undefined; chapterTitle = undefined;
+        paragraphNumber = undefined; paragraphTitle = undefined;
+      } else if (entry.type === 'subsection') {
+        subsectionNumber = entry.number;
+        subsectionTitle = entry.title;
+        chapterNumber = undefined; chapterTitle = undefined;
+        paragraphNumber = undefined; paragraphTitle = undefined;
       } else if (entry.type === 'chapter') {
         chapterNumber = entry.number;
         chapterTitle = entry.title;
+        paragraphNumber = undefined; paragraphTitle = undefined;
+      } else if (entry.type === 'paragraph') {
+        paragraphNumber = entry.number;
+        paragraphTitle = entry.title;
       }
     }
 
-    return { sectionNumber, sectionTitle, chapterNumber, chapterTitle };
+    return { bookNumber, bookTitle, sectionNumber, sectionTitle, subsectionNumber, subsectionTitle, chapterNumber, chapterTitle, paragraphNumber, paragraphTitle };
   }
 
   private romanToArabic(str: string): string | null {
