@@ -34,6 +34,8 @@ async function runMigrations() {
       '008_add_content_hash.sql',
       '009_due_diligence_tables.sql',
       '010_rnbo_sanctions_and_prozorro.sql',
+      '011_tax_registries.sql',
+      '012_street_renamings.sql',
     ];
 
     for (const migrationFile of migrations) {
