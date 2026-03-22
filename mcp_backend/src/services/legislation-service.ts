@@ -104,12 +104,44 @@ export function parseLegislationReference(text: string): { radaId: string; artic
     'ПРО ОДНОРАЗОВУ ГРОШОВУ ДОПОМОГУ ВІЙСЬКОВОСЛУЖБОВЦЯМ': '975-2013-п',
     'КМУ 975': '975-2013-п',
     'РЕФОРМА МОБІЛІЗАЦІЇ 2024': '3633-20',
+    'ПРО ДОРОЖНІЙ РУХ': '3353-12',
+    'ЗАКОН ПРО ДОРОЖНІЙ РУХ': '3353-12',
   };
 
   const normalized = input
     .replace(/\s+/g, ' ')
     .replace(/\u00A0/g, ' ')
     .trim();
+
+  // Try to match "постанова КМУ №1388" / "ПКМУ 1388" / "КМУ №1388" patterns
+  // These resolve to rada_id format like "1388-98-п" (most common КМУ suffix)
+  const kmuMatch = normalized.match(
+    /(?:постанов[аиі]?\s+(?:Кабінету?\s+Міністрів|КМУ|кабміну?)|ПКМУ|КМУ\s*№?\s*)\s*№?\s*(\d+)(?:\s*(?:від\s+\d{1,2}[./]\d{1,2}[./](\d{4}|\d{2})))?/iu
+  );
+  if (kmuMatch) {
+    const kmuNumber = kmuMatch[1];
+    // Extract article/punkt if present
+    const punktMatch = normalized.match(/(?:пункт|п\.?)\s*(\d+(?:\.\d+)?(?:-\d+)?)/iu);
+    const articleNumber = punktMatch ? punktMatch[1] : '';
+
+    // Try common year suffixes for КМУ постанови
+    // Format: {number}-{year}-п (e.g. 1388-98-п, 704-2017-п)
+    const yearSuffixes = ['98', '99', '2000', '2001', '2002', '2003', '2004', '2005',
+      '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015',
+      '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'];
+
+    // If year is explicitly mentioned, use it
+    if (kmuMatch[2]) {
+      const year = kmuMatch[2].length === 4 ? kmuMatch[2] : (parseInt(kmuMatch[2]) < 50 ? `20${kmuMatch[2]}` : `19${kmuMatch[2]}`);
+      const yearSuffix = year.length === 4 && parseInt(year) >= 2000 ? year : year.slice(-2);
+      const radaId = `${kmuNumber}-${yearSuffix}-п`;
+      return articleNumber ? { radaId, articleNumber } : { radaId, articleNumber: '' };
+    }
+
+    // No year — return partial match (radaId pattern without year, will be resolved later)
+    // Store as special marker for downstream resolution
+    return { radaId: `KMU:${kmuNumber}`, articleNumber };
+  }
 
   const patterns: Array<{ regex: RegExp; codeGroupIndex: number; articleGroupIndex: number } | { regex: RegExp; radaIdIndex: number; articleIndex: number }> = [
     // Note: don't use \b for Cyrillic words (JS \b is ASCII-centric)
@@ -193,7 +225,10 @@ export async function parseLegislationReferenceWithAI(
 
     const aiResult = await classifier.classify(text, 'quick');
 
-    if (aiResult.rada_id && aiResult.article_number && aiResult.confidence >= confidenceThreshold) {
+    // Lower threshold for KMU: patterns — they need downstream resolution anyway
+    const effectiveThreshold = aiResult.rada_id?.startsWith('KMU:') ? 0.4 : confidenceThreshold;
+
+    if (aiResult.rada_id && (aiResult.article_number || aiResult.rada_id.startsWith('KMU:')) && aiResult.confidence >= effectiveThreshold) {
       logger.info('[parseLegislationReferenceWithAI] AI classification successful', {
         rada_id: aiResult.rada_id,
         article: aiResult.article_number,
@@ -203,7 +238,7 @@ export async function parseLegislationReferenceWithAI(
 
       return {
         radaId: aiResult.rada_id,
-        articleNumber: aiResult.article_number,
+        articleNumber: aiResult.article_number || '',
         source: 'ai',
         confidence: aiResult.confidence,
       };
@@ -271,7 +306,73 @@ export class LegislationService {
     }
   }
 
+  /**
+   * Resolves KMU:{number} pattern to actual rada_id by trying year suffixes
+   * against the RADA API in parallel batches. Returns resolved rada_id or null.
+   */
+  async resolveKmuRadaId(kmuNumber: string): Promise<string | null> {
+    // First check if we already have it in DB with any year suffix
+    const dbResult = await this.db.query(
+      `SELECT rada_id FROM legislation WHERE rada_id LIKE $1 LIMIT 1`,
+      [`${kmuNumber}-%`]
+    );
+    if (dbResult.rows.length > 0) {
+      logger.info(`[resolveKmuRadaId] Found KMU:${kmuNumber} in DB: ${dbResult.rows[0].rada_id}`);
+      return dbResult.rows[0].rada_id;
+    }
+
+    // Generate candidate rada_ids with year suffixes in batches (parallel within batch)
+    // Most КМУ постанови are from 1993-2026, format: {number}-{YY}-п or {number}-{YYYY}-п
+    const yearSuffixes = [
+      // Most common recent years first
+      '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015',
+      '2014', '2013', '2012', '2011', '2010', '2009', '2008', '2007', '2006', '2005',
+      '2004', '2003', '2002', '2001', '2000',
+      // 90s use 2-digit format
+      '99', '98', '97', '96', '95', '94', '93',
+      '2025', '2026',
+    ];
+
+    // Try in parallel batches of 5 to avoid hammering the API
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < yearSuffixes.length; i += BATCH_SIZE) {
+      const batch = yearSuffixes.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async (suffix) => {
+          const candidateId = `${kmuNumber}-${suffix}-п`;
+          const result = await this.adapter.fetchLegislation(candidateId);
+          if (result && result.metadata && result.metadata.title) {
+            return { candidateId, result };
+          }
+          throw new Error('not found');
+        })
+      );
+
+      for (const res of results) {
+        if (res.status === 'fulfilled' && res.value) {
+          const { candidateId, result } = res.value;
+          logger.info(`[resolveKmuRadaId] Resolved KMU:${kmuNumber} → ${candidateId}`, {
+            title: result.metadata.title,
+          });
+          await this.adapter.saveLegislationToDatabase(result.metadata, result.articles);
+          await this.indexArticlesForVectorSearch(candidateId);
+          return candidateId;
+        }
+      }
+    }
+
+    logger.warn(`[resolveKmuRadaId] Could not resolve KMU:${kmuNumber} — no valid year suffix found`);
+    return null;
+  }
+
   async ensureLegislationExists(radaId: string): Promise<boolean> {
+    // Handle KMU:{number} pattern from regexp parser
+    if (radaId.startsWith('KMU:')) {
+      const kmuNumber = radaId.substring(4);
+      const resolved = await this.resolveKmuRadaId(kmuNumber);
+      return resolved !== null;
+    }
+
     radaId = normalizeRadaId(radaId);
     const result = await this.db.query(
       'SELECT id FROM legislation WHERE rada_id = $1',
@@ -305,6 +406,12 @@ export class LegislationService {
   }
 
   async getArticle(radaId: string, articleNumber: string): Promise<LegislationReference | null> {
+    // Resolve KMU:{number} to actual rada_id
+    if (radaId.startsWith('KMU:')) {
+      const resolved = await this.resolveKmuRadaId(radaId.substring(4));
+      if (!resolved) return null;
+      radaId = resolved;
+    }
     radaId = normalizeRadaId(radaId);
     await this.ensureLegislationExists(radaId);
 
