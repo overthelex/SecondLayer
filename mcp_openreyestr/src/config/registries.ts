@@ -313,14 +313,27 @@ export const REGISTRIES: Record<string, RegistryConfig> = {
     uniqueKey: ['settlement_koatuu', 'street_name', 'street_type'],
     recordPath: 'DATA.RECORD',
     fieldMap: {
-      street_id: 'STREET_ID',
-      settlement_koatuu: 'KOATUU',
-      street_type: 'STREET_TYPE',
+      // Hierarchical XML: OBL_NAME > CITY_NAME > CITY_REGION_NAME > STREET_NAME
+      // Each RECORD has all parent fields populated (empty = inherit from context)
+      street_id: () => null,
+      settlement_koatuu: (_v: string, r: Record<string, unknown>) => {
+        const obl = String(r['OBL_NAME'] || '');
+        const city = String(r['CITY_NAME'] || '');
+        const district = String(r['CITY_REGION_NAME'] || '');
+        return [obl, city, district].filter(Boolean).join('|');
+      },
+      street_type: (_v: string, r: Record<string, unknown>) => {
+        const name = String(r['STREET_NAME'] || '');
+        const match = name.match(/^(вул|пров|просп|бульв|пл|узвіз|шосе|наб|тупик|дорога|алея|майдан)\./i);
+        return match ? match[1] : null;
+      },
       street_name: 'STREET_NAME',
-      full_address: 'FULL_ADDRESS',
-      region: 'REGION',
-      district: 'DISTRICT',
-      settlement: 'SETTLEMENT',
+      full_address: (_v: string, r: Record<string, unknown>) =>
+        [r['OBL_NAME'], r['CITY_NAME'], r['CITY_REGION_NAME'], r['STREET_NAME']]
+          .map(v => String(v || '')).filter(Boolean).join(', '),
+      region: 'OBL_NAME',
+      district: 'CITY_REGION_NAME',
+      settlement: 'CITY_NAME',
     },
     updateFrequency: 'weekly',
     sizeCategory: 'large',
