@@ -10,7 +10,6 @@ import { RemoteServiceClient } from '../services/remote-service-client.js';
 import { UploadService } from '../services/upload-service.js';
 import { MinioService } from '../services/minio-service.js';
 import { VaultTools } from '../api/vault-tools.js';
-import { BusinessRegistryTools } from '../api/tools/business-registry-tools.js';
 import { CourtDecisionTools } from '../api/tools/court-decision-tools.js';
 import { ProceduralTools } from '../api/tools/procedural-tools.js';
 import { LegalAdviceTools } from '../api/tools/legal-advice-tools.js';
@@ -81,8 +80,6 @@ export function createToolServices(
   toolRegistry.registerHandler(coreServices.legislationTools);
   toolRegistry.registerHandler(documentAnalysisTools);
   toolRegistry.registerHandler(batchDocumentTools);
-  toolRegistry.registerHandler(new BusinessRegistryTools());
-
   const ddService = new DueDiligenceService(
     coreServices.sectionizer,
     coreServices.patternStore,
