@@ -117,7 +117,8 @@ CRITICAL: You MUST ALWAYS return a plan with at least 1 step. NEVER return an em
 7. depends_on = list of step ids that must complete first
 8. purpose in Ukrainian, max 10 words
 9. For court practice analysis: use search_edrsr_fulltext and/or search_edrsr_semantic steps with different queries. Do NOT use search_legal_precedents (deprecated, returns 0 results)
-10. ALWAYS include a get_legislation_article or search_legislation step when the query involves legal norms, articles of law, or legal analysis. The UI has a "Норми" panel that is populated ONLY from legislation tool results — without calling these tools, the panel stays empty${queryTypeRule ? '\n' + queryTypeRule : ''}
+10. ALWAYS include a get_legislation_article or search_legislation step when the query involves legal norms, articles of law, or legal analysis. The UI has a "Норми" panel that is populated ONLY from legislation tool results — without calling these tools, the panel stays empty
+10a. When the query asks about amendment history or changes to a law over time, include a get_legislation_history step${queryTypeRule ? '\n' + queryTypeRule : ''}
 
 ## JSON schema
 {
@@ -289,7 +290,8 @@ export const CHAT_INTENT_CLASSIFICATION_PROMPT = `Ти — класифікат�
 - search_legislation — пошук законів за темою
 - get_legislation_article — конкретна стаття закону (наприклад "ст. 16 ЦК")
 - get_legislation_section — розділ/глава закону
-- find_relevant_law_articles — знайти статті за описом ситуації
+- find_relevant_law_articles — знайти статті за ОПИСОМ СИТУАЦІЇ (коли конкретний закон невідомий, семантичний пошук по всьому законодавству)
+- get_legislation_history — історія змін (редакцій) законодавчого акту за rada_id
 - search_procedural_norms — пошук процесуальних норм
 
 ### registry — Державні реєстри (OpenReyestr / data.gov.ua / НАІС / НБУ / Мін'юст)
@@ -426,7 +428,7 @@ export const DOMAIN_TOOL_MAP: Record<string, string[]> = {
     'vectorize_edrsr_results', 'get_edrsr_decision_fulltext',
     'search_legal_precedents', 'count_cases_by_party', 'search_supreme_court_practice',
     'get_case_documents_chain', 'analyze_case_pattern', 'find_similar_fact_pattern_cases',
-    'search_legislation', 'find_relevant_law_articles',
+    'search_legislation', 'find_relevant_law_articles', 'get_legislation_history',
   ],
   // Ensure registry tools that don't appear in catalog scenarios are still mapped
   registry: [

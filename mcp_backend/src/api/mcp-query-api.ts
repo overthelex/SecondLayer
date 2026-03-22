@@ -263,11 +263,41 @@ export class MCPQueryAPI extends BaseToolHandler {
   }
 
   private async findRelevantLawArticles(args: any) {
-    const patterns = await this.patternStore.findPatterns(args.intent);
-    const articles = new Set<string>();
+    const query = String(args?.query || args?.intent || '').trim();
+    if (!query) {
+      throw new Error('query parameter is required');
+    }
+    const limit = args.limit || 10;
 
-    for (const pattern of patterns) {
-      pattern.law_articles.forEach((a) => articles.add(a));
+    logger.info('[MCP Tool] find_relevant_law_articles started', {
+      query: query.substring(0, 100),
+      limit,
+    });
+
+    // Primary: semantic search in legislation via LegislationTools
+    const searchResult = await this.legislationTools.searchLegislation({
+      query,
+      limit,
+    } as any);
+
+    const articles = searchResult?.articles || [];
+
+    // Secondary: supplement with legal patterns from court practice
+    let patternsInfo: any = null;
+    try {
+      const patterns = await this.patternStore.findPatterns(query);
+      if (patterns.length > 0) {
+        const patternArticles = new Set<string>();
+        for (const pattern of patterns) {
+          pattern.law_articles.forEach((a: string) => patternArticles.add(a));
+        }
+        patternsInfo = {
+          from_court_practice: Array.from(patternArticles).slice(0, 5),
+          patterns_count: patterns.length,
+        };
+      }
+    } catch {
+      // Pattern store is optional — don't fail if unavailable
     }
 
     return {
@@ -276,8 +306,19 @@ export class MCPQueryAPI extends BaseToolHandler {
           type: 'text',
           text: JSON.stringify(
             {
-              articles: Array.from(articles).slice(0, args.limit || 10),
-              patterns_count: patterns.length,
+              query,
+              total_found: articles.length,
+              articles: articles.map((a: any) => ({
+                rada_id: a.rada_id,
+                article_number: a.article_number,
+                title: a.title,
+                full_text: a.full_text,
+                url: a.url,
+              })),
+              ...(patternsInfo ? { court_practice_references: patternsInfo } : {}),
+              suggestion: articles.length === 0
+                ? 'Спробуйте уточнити запит або вказати конкретний закон. Наприклад: "постанова КМУ про реєстрацію транспортних засобів"'
+                : undefined,
             },
             null,
             2
@@ -363,17 +404,22 @@ export class MCPQueryAPI extends BaseToolHandler {
       },
       {
         name: 'find_relevant_law_articles',
-        description: `Находит статьи законов, которые часто применяются в делах по теме
+        description: `Знаходить статті законів та підзаконних актів за ОПИСОМ СИТУАЦІЇ. Використовуй коли користувач описує ситуацію без назви конкретного закону.
 
-💰 Примерная стоимость: $0.01-$0.02 USD
-Запрос к базе данных legal patterns. Минимальная стоимость (только PostgreSQL запросы).`,
+Приклади: "реєстрація авто з кількома власниками", "звільнення без попередження", "затоплення квартири сусідом".
+Повертає: релевантні статті з повним текстом і посиланням на джерело.
+
+💰 Вартість: $0.01-$0.05 USD (семантичний пошук + OpenAI embedding)`,
         inputSchema: {
           type: 'object',
           properties: {
-            intent: { type: 'string' },
-            limit: { type: 'number', default: 10 },
+            query: {
+              type: 'string',
+              description: 'Опис юридичної ситуації українською мовою (наприклад: "реєстрація транспортного засобу що належить кільком власникам нотаріальне засвідчення")',
+            },
+            limit: { type: 'number', default: 10, description: 'Максимальна кількість результатів' },
           },
-          required: ['intent'],
+          required: ['query'],
         },
       },
       {
