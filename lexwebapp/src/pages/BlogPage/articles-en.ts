@@ -2484,4 +2484,124 @@ The backend is shared — same endpoints, same database, same cost tracking. The
 
 One portal. Three transports. 56 tools. From signup to first request — 5 minutes. [platform.legal.org.ua](https://platform.legal.org.ua)`,
   },
+  'nais-41m-open-data': {
+    title: '41.8 Million Records from Ukrainian State Registries — Now Available via AI',
+    punchline: '11 state registries from data.gov.ua imported into the platform: enforcement proceedings, debtors, notaries, bankruptcy, legal acts and more — all accessible to lawyers through AI chat.',
+    readTime: '7 min',
+    content: `# 41.8 Million Records from Ukrainian State Registries — Now Available via AI
+
+Today we completed the full import of 11 state registries from data.gov.ua into our SecondLayer platform. 41.8 million records — from enforcement proceedings to notaries — are now available to lawyers through AI chat.
+
+## What We Imported
+
+| Registry | Records | Source |
+|----------|---------|--------|
+| Enforcement Proceedings (ASVP) | 29,060,072 | data.gov.ua |
+| Debtors Registry | 10,363,352 | data.gov.ua |
+| Notarial Special Forms | 1,224,003 | data.gov.ua |
+| Administrative-Territorial Units | 500,704 | data.gov.ua |
+| Streets Dictionary | 497,464 | data.gov.ua |
+| EDRNPA (Legal Acts Registry) | 140,930 | data.gov.ua |
+| Bankruptcy Cases | 35,439 | data.gov.ua |
+| Court Experts | 14,730 | data.gov.ua |
+| Notaries | 5,799 | data.gov.ua |
+| Arbitration Managers | 3,420 | data.gov.ua |
+| Forensic Methods | 1,546 | data.gov.ua |
+| **Total** | **41,847,459** | |
+
+These are NAIS registries alone. Combined with other sources, the platform already contains:
+
+- 8.8M court decisions (EDRSR)
+- 1.26M international sanctions records (OpenSanctions)
+- Complete Verkhovna Rada legislation database
+- Parliament data: deputies, factions, voting records, bills
+- Legal entities and entrepreneurs registry (EDR)
+
+## How It Works for Lawyers
+
+A lawyer types a question in natural language — the AI model automatically selects the right registry and returns structured data. No need to know APIs, SQL, or table names.
+
+**"Find notary Ivanov"** — the system searches the notaries registry and returns:
+
+\`\`\`
+Ivanov Valeriy Oleksandrovych
+Private Notary, Ivano-Frankivsk region
+Kolomyia, Teatralna St., 2a
+\`\`\`
+
+**"Show legal acts about personal data protection"** — searches EDRNPA (140,930 acts):
+
+\`\`\`
+VRU Resolution №4729-IX dated 17.12.2025
+"On the preparation for the second reading of the Draft Law
+ of Ukraine on Personal Data Protection"
+Status: Active
+\`\`\`
+
+**"Find PrivatBank by EDRPOU"** — instant lookup by code 14360570:
+
+\`\`\`
+JSC CB "PRIVATBANK"
+EDRPOU: 14360570
+Status: Registered
+Registration: 19.03.1992
+\`\`\`
+
+## 16 Tools — One Interface
+
+Each registry is a separate MCP tool (Model Context Protocol) that the AI model calls automatically:
+
+1. \`search_entities\` — legal entities, entrepreneurs, public organizations
+2. \`get_by_edrpou\` — lookup by EDRPOU code
+3. \`get_entity_details\` — full company information
+4. \`search_beneficiaries\` — ultimate beneficial owners
+5. \`get_statistics\` — statistics across all registries
+6. \`search_notaries\` — notaries registry
+7. \`search_court_experts\` — certified court experts
+8. \`search_arbitration_managers\` — arbitration managers
+9. \`search_debtors\` — debtors registry (10.3M)
+10. \`search_enforcement_proceedings\` — enforcement proceedings (29M)
+11. \`search_bankruptcy_cases\` — bankruptcy cases
+12. \`search_special_forms\` — notarial special forms
+13. \`search_forensic_methods\` — forensic examination methods
+14. \`search_legal_acts\` — EDRNPA (legal acts)
+15. \`search_administrative_units\` — administrative-territorial units
+16. \`search_streets\` — streets dictionary
+
+## Why Lawyers Need This
+
+Imagine a typical due diligence check. A lawyer needs to verify a counterparty. Previously, this meant:
+
+1. Visit the EDR website — check registration
+2. Visit data.gov.ua — check enforcement proceedings
+3. Check the debtors registry
+4. Check bankruptcy cases
+5. Check court decisions on EDRSR
+6. Check sanctions lists
+
+With SecondLayer — one question in chat: **"Check company by EDRPOU 12345678"**. The system automatically checks all registries and returns a comprehensive report.
+
+## Technical Details
+
+The entire import is automated:
+
+- 11 registries downloaded in parallel in a single run
+- XML and CSV files streamed and imported into PostgreSQL
+- Conflicts resolved via ON CONFLICT DO UPDATE
+- Support for Windows-1251 and UTF-8 encodings
+- Automatic retry with exponential backoff
+
+Synchronization runs daily or weekly depending on the registry.
+
+## What's Next
+
+- 18.5M court session records (court.gov.ua) — in progress
+- PROZORRO (public procurement) — planned
+- NAPC declarations — planned
+- NSDC sanctions lists — planned
+
+---
+
+Register: [legal.org.ua](https://legal.org.ua)`,
+  },
 };
