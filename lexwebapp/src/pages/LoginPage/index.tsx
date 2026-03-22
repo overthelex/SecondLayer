@@ -19,6 +19,8 @@ import {
   X,
   TrendingUp,
   ChevronRight,
+  Gift,
+  UserPlus,
 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { hasRecentArticles } from '../BlogPage/articles';
@@ -207,6 +209,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showGDPR, setShowGDPR] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [acceptedDpa, setAcceptedDpa] = useState(false);
@@ -584,20 +587,16 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               ))}
             </div>
 
-            {/* Beta promo */}
+            {/* Welcome & referral promo */}
             <button
-              onClick={() => {
-                localStorage.setItem('referral_code', 'beta2026');
-                setIsLogin(false);
-                showToast.success('Промокод активовано! Зареєструйтесь для отримання 400 грн');
-              }}
+              onClick={() => setShowWelcome(true)}
               className="group flex items-center gap-3 text-left w-full"
             >
               <div className="flex-shrink-0 px-2 py-0.5 rounded border border-emerald-800/40 bg-emerald-950/30">
-                <span className="text-[8px] font-bold text-emerald-700 tracking-[0.2em] uppercase">Beta</span>
+                <span className="text-[8px] font-bold text-emerald-700 tracking-[0.2em] uppercase">Новим</span>
               </div>
               <span className="text-[12px] text-zinc-600 group-hover:text-zinc-400 transition-colors duration-200 leading-snug">
-                Перші 20 бетатестерів отримають 400 грн на рахунок
+                Дізнайтесь про умови та реферальну програму
               </span>
               <ChevronRight
                 size={12}
@@ -1145,6 +1144,121 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       {/* GDPR Info Modal */}
       <AnimatePresence>
         {showGDPR && <GDPRModal onClose={() => setShowGDPR(false)} />}
+      </AnimatePresence>
+
+      {/* Welcome & Offers Modal */}
+      <AnimatePresence>
+        {showWelcome && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setShowWelcome(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.97, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.97, opacity: 0, y: 8 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative bg-zinc-950 border border-zinc-800/80 rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto"
+            >
+              <button
+                onClick={() => setShowWelcome(false)}
+                className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-md text-zinc-700 hover:text-zinc-400 hover:bg-zinc-900 transition-colors z-10"
+              >
+                <X size={14} />
+              </button>
+
+              <div className="p-8">
+                {/* Header */}
+                <div className="mb-6">
+                  <h3 className="text-xl font-semibold text-white mb-1.5">Ласкаво просимо</h3>
+                  <p className="text-sm text-zinc-500">Ознайомтесь з умовами платформи та реферальною програмою</p>
+                </div>
+
+                {/* Documents section */}
+                <div className="mb-6">
+                  <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.18em] mb-3">
+                    Правові документи
+                  </p>
+                  <div className="space-y-2">
+                    {[
+                      { href: '/ua/offer', label: 'Публічна оферта', desc: 'Договір між вами та платформою' },
+                      { href: '/ua/terms', label: 'Умови використання', desc: 'Правила користування сервісом' },
+                      { href: '/ua/privacy', label: 'Політика конфіденційності', desc: 'Як ми захищаємо ваші дані' },
+                      { href: '/ua/dpa', label: 'Угода про обробку даних (DPA)', desc: 'Відповідність GDPR' },
+                      { href: '/ua/refund', label: 'Політика повернення коштів', desc: 'Умови повернення оплати' },
+                    ].map((doc) => (
+                      <a
+                        key={doc.href}
+                        href={doc.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900 transition-colors group"
+                      >
+                        <div>
+                          <p className="text-sm text-zinc-300 group-hover:text-white transition-colors">{doc.label}</p>
+                          <p className="text-[11px] text-zinc-600">{doc.desc}</p>
+                        </div>
+                        <ChevronRight size={14} className="text-zinc-700 group-hover:text-zinc-400 flex-shrink-0 transition-colors" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-zinc-800/60 mb-6" />
+
+                {/* Referral program */}
+                <div className="mb-6">
+                  <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.18em] mb-3">
+                    Реферальна програма
+                  </p>
+                  <div className="px-4 py-4 rounded-lg bg-zinc-900/60 border border-zinc-800/60">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-emerald-950/50 border border-emerald-800/30 flex items-center justify-center">
+                        <Gift size={14} className="text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-zinc-300 font-medium mb-0.5">Запрошуйте колег — отримуйте бонуси</p>
+                        <p className="text-[11px] text-zinc-600 leading-relaxed">
+                          Поділіться реферальним посиланням з колегами-юристами. За кожного нового користувача, який зареєструється та поповнить рахунок, ви отримаєте бонус на баланс платформи.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5 ml-11">
+                      {[
+                        'Реферальне посилання доступне після реєстрації',
+                        'Бонус нараховується автоматично',
+                        'Для участі потрібна верифікація ФОП, ТОВ або адвоката',
+                      ].map((item, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <div className="w-1 h-1 rounded-full bg-emerald-700 flex-shrink-0" />
+                          <span className="text-[11px] text-zinc-500">{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* CTA */}
+                <button
+                  onClick={() => {
+                    setShowWelcome(false);
+                    setIsLogin(false);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-100 transition-colors"
+                >
+                  <UserPlus size={14} />
+                  Зареєструватися
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Diia QR Modal */}
