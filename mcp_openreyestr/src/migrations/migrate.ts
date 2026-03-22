@@ -33,6 +33,7 @@ async function runMigrations() {
       '007_add_creditor_name_fts_index.sql',
       '008_add_content_hash.sql',
       '009_due_diligence_tables.sql',
+      '010_rnbo_sanctions_and_prozorro.sql',
     ];
 
     for (const migrationFile of migrations) {
