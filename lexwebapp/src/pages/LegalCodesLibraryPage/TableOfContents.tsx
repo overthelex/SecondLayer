@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
-import type { TOCEntry, TOCArticleEntry, TOCSection, TOCChapter, LegislationStructure } from './types';
+import type { TOCEntry, TOCArticleEntry, TOCSection, TOCChapter, TOCBook, TOCSubsection, TOCParagraph, LegislationStructure } from './types';
 
 interface TableOfContentsProps {
   showTableOfContents: boolean;
@@ -40,6 +40,45 @@ function renderTOCArticle(
   );
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  book: 'Книга',
+  section: 'Розділ',
+  subsection: 'Підрозділ',
+  chapter: 'Глава',
+  paragraph: '§',
+};
+
+function getChildItems(item: TOCBook | TOCSection | TOCSubsection | TOCChapter | TOCParagraph): TOCEntry[] {
+  const children: TOCEntry[] = [];
+
+  // Direct articles
+  if ('articles' in item && item.articles?.length) {
+    children.push(...item.articles);
+  }
+
+  // Book children (mixed array)
+  if (item.type === 'book' && (item as TOCBook).children?.length) {
+    children.push(...(item as TOCBook).children);
+  }
+
+  // Subsections (within sections)
+  if ('subsections' in item && (item as TOCSection).subsections?.length) {
+    children.push(...(item as TOCSection).subsections!);
+  }
+
+  // Chapters (within sections or subsections)
+  if ('chapters' in item && item.chapters?.length) {
+    children.push(...item.chapters);
+  }
+
+  // Paragraphs (§)
+  if ('paragraphs' in item && item.paragraphs?.length) {
+    children.push(...item.paragraphs);
+  }
+
+  return children;
+}
+
 function renderTOCItems(
   items: TOCEntry[],
   selectedArticleNumber: string | null,
@@ -57,37 +96,28 @@ function renderTOCItems(
       return renderTOCArticle(item as TOCArticleEntry, key, level, selectedArticleNumber, fetchArticle);
     }
 
-    // Section or chapter
-    const typed = item as TOCSection | TOCChapter;
+    // Structural entry (book, section, subsection, chapter, paragraph)
+    const typed = item as TOCBook | TOCSection | TOCSubsection | TOCChapter | TOCParagraph;
     const isExpanded = expandedSections.includes(key);
-    const prefix = typed.type === 'section'
-      ? `Розділ ${typed.number}`
-      : `Глава ${typed.number}`;
-    const label = typed.title ? `${prefix}. ${typed.title}` : prefix;
+    const prefix = TYPE_LABELS[typed.type] || typed.type;
+    const label = typed.title
+      ? `${prefix} ${typed.number}. ${typed.title}`
+      : `${prefix} ${typed.number}`;
 
     const children: React.ReactNode[] = [];
     if (isExpanded) {
-      // Render direct articles first (articles without a chapter), then chapters
-      if (typed.articles && typed.articles.length > 0) {
-        children.push(
-          ...typed.articles.map((a, ai) =>
-            renderTOCArticle(a, `${key}-art-${ai}`, level + 1, selectedArticleNumber, fetchArticle)
-          )
-        );
-      }
-      if (typed.type === 'section' && (typed as TOCSection).chapters) {
-        children.push(
-          ...renderTOCItems(
-            (typed as TOCSection).chapters!,
-            selectedArticleNumber,
-            expandedSections,
-            toggleSection,
-            fetchArticle,
-            level + 1,
-            key,
-          )
-        );
-      }
+      const childItems = getChildItems(typed);
+      children.push(
+        ...renderTOCItems(
+          childItems,
+          selectedArticleNumber,
+          expandedSections,
+          toggleSection,
+          fetchArticle,
+          level + 1,
+          key,
+        )
+      );
     }
 
     return (
