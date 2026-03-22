@@ -936,6 +936,167 @@ export class OpenReyestrTools {
     return result.rows;
   }
 
+  /**
+   * Search VAT payers registry
+   */
+  async searchVatPayers(params: { query?: string; vat_code?: string; limit?: number; offset?: number }): Promise<any[]> {
+    const { query, vat_code, limit = 50, offset = 0 } = params;
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (vat_code) {
+      conditions.push(`vat_code = $${paramIndex}`);
+      values.push(vat_code);
+      paramIndex++;
+    } else if (query) {
+      conditions.push(`name ILIKE $${paramIndex}`);
+      values.push(`%${query}%`);
+      paramIndex++;
+    }
+
+    if (conditions.length === 0) {
+      return [{ found: false, message: 'Вкажіть назву або код ПДВ для пошуку' }];
+    }
+
+    values.push(limit, offset);
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const result = await this.pool.query(
+      `SELECT id, name, vat_code, registration_date, termination_date
+       FROM vat_payers ${whereClause}
+       ORDER BY name ASC
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return [{ found: false, query: query || vat_code || '', message: 'Платників ПДВ не знайдено' }];
+    }
+    return result.rows;
+  }
+
+  /**
+   * Search single tax payers registry
+   */
+  async searchSingleTaxPayers(params: { query?: string; tin?: string; tax_group?: string; limit?: number; offset?: number }): Promise<any[]> {
+    const { query, tin, tax_group, limit = 50, offset = 0 } = params;
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (tin) {
+      conditions.push(`tin = $${paramIndex}`);
+      values.push(tin);
+      paramIndex++;
+    } else if (query) {
+      conditions.push(`name ILIKE $${paramIndex}`);
+      values.push(`%${query}%`);
+      paramIndex++;
+    }
+    if (tax_group) {
+      conditions.push(`tax_group = $${paramIndex}`);
+      values.push(tax_group);
+      paramIndex++;
+    }
+
+    if (conditions.length === 0) {
+      return [{ found: false, message: 'Вкажіть назву або ІПН для пошуку' }];
+    }
+
+    values.push(limit, offset);
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const result = await this.pool.query(
+      `SELECT id, name, tin, start_date, rate, tax_group, activity_codes, end_date
+       FROM single_tax_payers ${whereClause}
+       ORDER BY name ASC
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return [{ found: false, query: query || tin || '', message: 'Платників єдиного податку не знайдено' }];
+    }
+    return result.rows;
+  }
+
+  /**
+   * Search tax debt registry
+   */
+  async searchTaxDebt(params: { query?: string; tin?: string; limit?: number; offset?: number }): Promise<any[]> {
+    const { query, tin, limit = 50, offset = 0 } = params;
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (tin) {
+      conditions.push(`tin = $${paramIndex}`);
+      values.push(tin);
+      paramIndex++;
+    } else if (query) {
+      conditions.push(`name ILIKE $${paramIndex}`);
+      values.push(`%${query}%`);
+      paramIndex++;
+    }
+
+    if (conditions.length === 0) {
+      return [{ found: false, message: 'Вкажіть назву або ІПН для пошуку податкового боргу' }];
+    }
+
+    values.push(limit, offset);
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const result = await this.pool.query(
+      `SELECT id, report_date, tin, name, chief_name, tax_office_name, tax_name, debt_total, debt_tax, debt_penalty, debt_fine
+       FROM tax_debt ${whereClause}
+       ORDER BY debt_total DESC NULLS LAST
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return [{ found: false, query: query || tin || '', message: 'Податкового боргу не знайдено' }];
+    }
+    return result.rows;
+  }
+
+  /**
+   * Search ESV (social contribution) debt registry
+   */
+  async searchEsvDebt(params: { query?: string; tin?: string; limit?: number; offset?: number }): Promise<any[]> {
+    const { query, tin, limit = 50, offset = 0 } = params;
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (tin) {
+      conditions.push(`tin = $${paramIndex}`);
+      values.push(tin);
+      paramIndex++;
+    } else if (query) {
+      conditions.push(`name ILIKE $${paramIndex}`);
+      values.push(`%${query}%`);
+      paramIndex++;
+    }
+
+    if (conditions.length === 0) {
+      return [{ found: false, message: 'Вкажіть назву або ІПН для пошуку боргу ЄСВ' }];
+    }
+
+    values.push(limit, offset);
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const result = await this.pool.query(
+      `SELECT id, name, tin, tax_office, tax_office_chief, debt_amount
+       FROM esv_debt ${whereClause}
+       ORDER BY debt_amount DESC NULLS LAST
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return [{ found: false, query: query || tin || '', message: 'Боргу зі сплати ЄСВ не знайдено' }];
+    }
+    return result.rows;
+  }
+
   private async findEntityType(record: string): Promise<'UO' | 'FOP' | 'FSU' | null> {
     const uoResult = await this.pool.query(
       'SELECT 1 FROM legal_entities WHERE record = $1',
@@ -982,4 +1143,33 @@ export const SearchBeneficiariesSchema = z.object({
 
 export const GetByEdrpouSchema = z.object({
   edrpou: z.string(),
+});
+
+export const SearchVatPayersSchema = z.object({
+  query: z.string().optional(),
+  vat_code: z.string().optional(),
+  limit: z.number().min(1).max(100).optional(),
+  offset: z.number().min(0).optional(),
+});
+
+export const SearchSingleTaxPayersSchema = z.object({
+  query: z.string().optional(),
+  tin: z.string().optional(),
+  tax_group: z.string().optional(),
+  limit: z.number().min(1).max(100).optional(),
+  offset: z.number().min(0).optional(),
+});
+
+export const SearchTaxDebtSchema = z.object({
+  query: z.string().optional(),
+  tin: z.string().optional(),
+  limit: z.number().min(1).max(100).optional(),
+  offset: z.number().min(0).optional(),
+});
+
+export const SearchEsvDebtSchema = z.object({
+  query: z.string().optional(),
+  tin: z.string().optional(),
+  limit: z.number().min(1).max(100).optional(),
+  offset: z.number().min(0).optional(),
 });

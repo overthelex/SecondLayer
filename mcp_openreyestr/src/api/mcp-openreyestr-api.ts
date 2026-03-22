@@ -333,6 +333,71 @@ export class MCPOpenReyestrAPI {
           },
         },
       },
+      {
+        name: 'search_vat_payers',
+        description: `Пошук у реєстрі платників ПДВ (ДПС)
+
+💰 Примерная стоимость: $0.001-$0.003 USD
+Пошук за назвою компанії або кодом ПДВ. Дані станом на 23.02.2022.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Назва компанії або частина назви' },
+            vat_code: { type: 'string', description: 'Код ПДВ' },
+            limit: { type: 'number', default: 50, maximum: 100, minimum: 1 },
+            offset: { type: 'number', default: 0 },
+          },
+        },
+      },
+      {
+        name: 'search_single_tax_payers',
+        description: `Пошук у реєстрі платників єдиного податку (ДПС)
+
+💰 Примерная стоимость: $0.001-$0.003 USD
+Пошук за назвою, ІПН або групою єдиного податку.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Назва ФОП/компанії' },
+            tin: { type: 'string', description: 'ІПН або ЄДРПОУ' },
+            tax_group: { type: 'string', description: 'Група єдиного податку (1, 2, 3, 4)' },
+            limit: { type: 'number', default: 50, maximum: 100, minimum: 1 },
+            offset: { type: 'number', default: 0 },
+          },
+        },
+      },
+      {
+        name: 'search_tax_debt',
+        description: `Пошук у реєстрі податкового боргу (ДПС)
+
+💰 Примерная стоимость: $0.001-$0.003 USD
+Пошук боржників за назвою або ІПН/ЄДРПОУ. Показує суму боргу, пені та штрафи.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Назва компанії або ФОП' },
+            tin: { type: 'string', description: 'ІПН або ЄДРПОУ' },
+            limit: { type: 'number', default: 50, maximum: 100, minimum: 1 },
+            offset: { type: 'number', default: 0 },
+          },
+        },
+      },
+      {
+        name: 'search_esv_debt',
+        description: `Пошук у реєстрі боргу зі сплати ЄСВ
+
+💰 Примерная стоимость: $0.001-$0.003 USD
+Пошук боржників зі сплати єдиного внеску за назвою або ІПН.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Назва компанії або ФОП' },
+            tin: { type: 'string', description: 'ІПН або ЄДРПОУ' },
+            limit: { type: 'number', default: 50, maximum: 100, minimum: 1 },
+            offset: { type: 'number', default: 0 },
+          },
+        },
+      },
     ];
   }
 
@@ -390,6 +455,18 @@ export class MCPOpenReyestrAPI {
           break;
         case 'search_streets':
           result = await this.tools.searchStreets(args);
+          break;
+        case 'search_vat_payers':
+          result = await this.tools.searchVatPayers(args);
+          break;
+        case 'search_single_tax_payers':
+          result = await this.tools.searchSingleTaxPayers(args);
+          break;
+        case 'search_tax_debt':
+          result = await this.tools.searchTaxDebt(args);
+          break;
+        case 'search_esv_debt':
+          result = await this.tools.searchEsvDebt(args);
           break;
         default:
           throw new Error(`Unknown tool: ${name}`);
