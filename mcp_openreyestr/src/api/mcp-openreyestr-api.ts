@@ -398,6 +398,25 @@ export class MCPOpenReyestrAPI {
           },
         },
       },
+      {
+        name: 'search_prozorro',
+        description: `Пошук тендерів у системі ProZorro (публічні закупівлі)
+
+💰 Примерная стоимость: $0.001-$0.005 USD
+Пошук за назвою тендеру, ЄДРПОУ замовника, назвою замовника, статусом або кодом CPV. 662K тендерів з 2015.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Назва або предмет закупівлі' },
+            buyer_edrpou: { type: 'string', description: 'ЄДРПОУ замовника' },
+            buyer_name: { type: 'string', description: 'Назва замовника' },
+            status: { type: 'string', description: 'Статус (complete, active, cancelled, unsuccessful)' },
+            cpv_code: { type: 'string', description: 'Код CPV класифікатора' },
+            limit: { type: 'number', default: 50, maximum: 100, minimum: 1 },
+            offset: { type: 'number', default: 0 },
+          },
+        },
+      },
     ];
   }
 
@@ -467,6 +486,9 @@ export class MCPOpenReyestrAPI {
           break;
         case 'search_esv_debt':
           result = await this.tools.searchEsvDebt(args);
+          break;
+        case 'search_prozorro':
+          result = await this.tools.searchProzorro(args);
           break;
         default:
           throw new Error(`Unknown tool: ${name}`);
