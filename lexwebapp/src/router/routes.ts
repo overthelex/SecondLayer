@@ -128,6 +128,7 @@ export const ROUTES = {
   ADMIN_BULK_SCRAPE: '/admin/bulk-scrape',
   ADMIN_OPEN_DATA_CATALOG: '/admin/open-data-catalog',
   ADMIN_PG_MONITORING: '/admin/pg-monitoring',
+  ADMIN_LIMITS: '/admin/limits',
 } as const;
 
 // Helper function to generate dynamic routes

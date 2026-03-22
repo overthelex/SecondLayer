@@ -3,7 +3,7 @@ import {
   BarChart3, Newspaper,
   Clock, FileText, Search, Activity, Database, Users, DollarSign,
   Server, Boxes, Globe, CreditCard, Settings, Terminal, Tag, Zap,
-  Layers, HardDrive,
+  Layers, HardDrive, Gauge,
 } from 'lucide-react';
 import { ROUTES } from '../../router/routes';
 
@@ -60,4 +60,5 @@ export const monitoringSections = [
   { id: 'user-activity', label: 'Активність юзерів', icon: Zap, route: ROUTES.ADMIN_USER_ACTIVITY },
   { id: 'bulk-scrape', label: 'Пайплайн збору', icon: Database, route: ROUTES.ADMIN_BULK_SCRAPE },
   { id: 'pg-monitoring', label: 'PG Моніторинг', icon: HardDrive, route: ROUTES.ADMIN_PG_MONITORING },
+  { id: 'limits', label: 'Ліміти системи', icon: Gauge, route: ROUTES.ADMIN_LIMITS },
 ];
