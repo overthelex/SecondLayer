@@ -16,11 +16,28 @@ export interface TOCArticleEntry {
   byte_size?: number;
 }
 
+export interface TOCParagraph {
+  type: 'paragraph';
+  number: string;
+  title?: string;
+  articles: TOCArticleEntry[];
+}
+
 export interface TOCChapter {
   type: 'chapter';
   number: string;
   title?: string;
   articles: TOCArticleEntry[];
+  paragraphs?: TOCParagraph[];
+}
+
+export interface TOCSubsection {
+  type: 'subsection';
+  number: string;
+  title?: string;
+  articles: TOCArticleEntry[];
+  chapters?: TOCChapter[];
+  paragraphs?: TOCParagraph[];
 }
 
 export interface TOCSection {
@@ -29,9 +46,18 @@ export interface TOCSection {
   title?: string;
   articles: TOCArticleEntry[];
   chapters?: TOCChapter[];
+  subsections?: TOCSubsection[];
+  paragraphs?: TOCParagraph[];
 }
 
-export type TOCEntry = TOCSection | TOCChapter | TOCArticleEntry;
+export interface TOCBook {
+  type: 'book';
+  number: string;
+  title?: string;
+  children: TOCEntry[];
+}
+
+export type TOCEntry = TOCBook | TOCSection | TOCSubsection | TOCChapter | TOCParagraph | TOCArticleEntry;
 
 export interface LegislationStructure {
   rada_id: string;

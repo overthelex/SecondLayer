@@ -317,14 +317,14 @@ export class LegislationTools extends BaseToolHandler {
     return response;
   }
 
-  async getLegislationStructure(args: LegislationToolArgs): Promise<any> {
+  async getLegislationStructure(args: LegislationToolArgs & { force_refresh?: boolean }): Promise<any> {
     if (!args.rada_id) {
       throw new Error('rada_id is required');
     }
 
-    logger.info(`Getting structure for ${args.rada_id}`);
+    logger.info(`Getting structure for ${args.rada_id}`, { force_refresh: args.force_refresh });
 
-    const structure = await this.service.getLegislationStructure(args.rada_id);
+    const structure = await this.service.getLegislationStructure(args.rada_id, args.force_refresh);
 
     if (!structure) {
       return {
