@@ -454,16 +454,20 @@ export const SCENARIO_CATALOG: ScenarioCatalogEntry[] = [
     exampleQueries: [
       'Мене звільнили без попередження, які мої права?',
       'Сусід заливає квартиру, що робити за законом?',
+      'Є норма яка вимагає нотаріальне засвідчення при реєстрації авто з кількома власниками',
     ],
     dataSources: [
       { name: 'Rada API', provides: 'норми що регулюють ситуацію' },
     ],
     toolChain: [
-      { tool: 'find_relevant_law_articles', purpose: 'знайти застосовні норми за описом ситуації' },
+      { tool: 'find_relevant_law_articles', purpose: 'знайти застосовні норми за описом ситуації (семантичний пошук по законодавству)' },
+      { tool: 'get_legislation_article', purpose: 'отримати повний текст знайденої статті', optional: true },
+      { tool: 'get_legislation_history', purpose: 'переглянути історію змін до знайденого акту', optional: true },
     ],
     responseTemplate: [
       { heading: 'Ситуація', instruction: 'переформулювання запиту юридичною мовою' },
       { heading: 'Застосовні норми', instruction: 'конкретні статті з цитатами' },
+      { heading: 'Історія змін', instruction: 'як змінювалась норма з часом (якщо запитували)', optional: true },
       { heading: 'Порядок дій', instruction: 'покрокові рекомендації' },
       { heading: 'Джерела', instruction: 'посилання на закони' },
     ],
