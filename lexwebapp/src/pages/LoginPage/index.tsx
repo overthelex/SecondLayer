@@ -470,6 +470,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         if (!response.ok) throw new Error(data.message || 'Registration failed');
 
         localStorage.removeItem('referral_code');
+        // Track registration as Google Ads conversion
+        if (typeof window.gtag === 'function') {
+          window.gtag('event', 'conversion', { send_to: 'AW-18033840618/registration' });
+        }
         showToast.success('Реєстрацію завершено! Перевірте email для підтвердження акаунту.');
         setIsLogin(true);
         setEmail('');
