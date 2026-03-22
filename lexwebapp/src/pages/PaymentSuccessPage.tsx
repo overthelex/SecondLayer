@@ -28,11 +28,22 @@ export function PaymentSuccessPage() {
     const currency = searchParams.get('currency') || 'UAH';
 
     if (orderId) {
+      const amountNum = amount ? parseInt(amount, 10) / 100 : 0;
       setOrderInfo({
         orderId,
-        amount: amount ? (parseInt(amount, 10) / 100).toFixed(2) : undefined,
+        amount: amountNum ? amountNum.toFixed(2) : undefined,
         currency,
       });
+
+      // Track as Google Ads Purchase conversion
+      if (typeof window.gtag === 'function') {
+        window.gtag('event', 'conversion', {
+          send_to: 'AW-18033840618/bnTSCJqpwI0cEOqjmpdD',
+          value: amountNum || 1.0,
+          currency: currency,
+          transaction_id: orderId,
+        });
+      }
     }
   }, [searchParams]);
 
