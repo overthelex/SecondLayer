@@ -197,7 +197,8 @@ export const useChatStore = create<ChatState>()(
 
         // Switch to existing conversation
         switchConversation: async (conversationId: string) => {
-          if (!isAuthenticated()) return;
+          console.log('[ChatStore] switchConversation called', { conversationId, isAuth: isAuthenticated() });
+          if (!isAuthenticated()) { console.warn('[ChatStore] Not authenticated, aborting switch'); return; }
           const { conversationId: currentId, messages, isStreaming } = get();
 
           // Save current conversation messages to cache before switching
@@ -248,6 +249,8 @@ export const useChatStore = create<ChatState>()(
             }));
           } catch (err) {
             console.error('[ChatStore] Failed to load conversation messages', conversationId, err);
+            // Clear messages on error so user sees empty state, not stale data
+            set({ messages: [] });
           }
         },
 
