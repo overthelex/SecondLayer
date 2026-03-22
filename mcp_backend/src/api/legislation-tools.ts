@@ -132,6 +132,19 @@ export class LegislationTools extends BaseToolHandler {
       throw new Error('Provide either (rada_id + article_number), (rada_id + query), or query like "ст. 625 ЦК" or "стаття 44 податкового кодексу"');
     }
 
+    // Resolve KMU: prefix
+    if (resolved.radaId.startsWith('KMU:')) {
+      const resolvedId = await this.service.resolveKmuRadaId(resolved.radaId.substring(4));
+      if (resolvedId) {
+        resolved.radaId = resolvedId;
+      } else {
+        return {
+          error: `Постанову КМУ №${resolved.radaId.substring(4)} не знайдено на zakon.rada.gov.ua`,
+          suggestion: 'Перевірте номер постанови',
+        };
+      }
+    }
+
     logger.info('[MCP Tool] get_legislation_section started', {
       rada_id: resolved.radaId,
       article_number: resolved.articleNumber,
@@ -234,44 +247,102 @@ export class LegislationTools extends BaseToolHandler {
     // Пытаемся определить прямую ссылку на статью с помощью AI
     const directRef = await this.service.parseArticleReferenceWithAI(args.query);
     if (directRef) {
-      const article = await this.service.getArticle(directRef.radaId, directRef.articleNumber);
-      if (!article) {
+      // Resolve KMU: prefix to actual rada_id
+      let resolvedRadaId = directRef.radaId;
+      if (resolvedRadaId.startsWith('KMU:')) {
+        const kmuNumber = resolvedRadaId.substring(4);
+        const resolved = await this.service.resolveKmuRadaId(kmuNumber);
+        if (resolved) {
+          resolvedRadaId = resolved;
+        } else {
+          return {
+            query: args.query,
+            total_found: 0,
+            articles: [],
+            suggestion: `Постанову КМУ №${kmuNumber} не знайдено на zakon.rada.gov.ua. Перевірте номер постанови.`,
+          };
+        }
+      }
+
+      // If we have an article/punkt number, fetch it directly
+      if (directRef.articleNumber) {
+        const article = await this.service.getArticle(resolvedRadaId, directRef.articleNumber);
+        if (!article) {
+          // Article not found but legislation exists — return structure
+          const structure = await this.service.getLegislationStructure(resolvedRadaId);
+          return {
+            query: args.query,
+            total_found: 0,
+            articles: [],
+            legislation_found: structure ? {
+              rada_id: resolvedRadaId,
+              title: structure.title,
+              total_articles: structure.total_articles,
+              url: `https://zakon.rada.gov.ua/laws/show/${resolvedRadaId}`,
+            } : undefined,
+            suggestion: `Пункт/стаття ${directRef.articleNumber} не знайдено в ${resolvedRadaId}. Перевірте номер.`,
+          };
+        }
+
+        const response: any = {
+          query: args.query,
+          resolved_reference: {
+            rada_id: resolvedRadaId,
+            article_number: directRef.articleNumber,
+            source: directRef.source,
+            confidence: directRef.confidence,
+          },
+          total_found: 1,
+          articles: [
+            {
+              rada_id: article.rada_id,
+              article_number: article.article_number,
+              title: article.title,
+              full_text: article.full_text,
+              url: article.url,
+            },
+          ],
+        };
+
+        if (args.include_html) {
+          response.html = this.renderer.renderArticleHTML(article, {
+            theme: args.theme || 'light',
+            format: 'full',
+          });
+        }
+
+        return response;
+      }
+
+      // No article number — return legislation structure/overview
+      await this.service.ensureLegislationExists(resolvedRadaId);
+      const structure = await this.service.getLegislationStructure(resolvedRadaId);
+      if (structure) {
         return {
           query: args.query,
-          total_found: 0,
-          articles: [],
-          suggestion: `Article ${directRef.articleNumber} not found in ${directRef.radaId}`,
+          resolved_reference: {
+            rada_id: resolvedRadaId,
+            source: directRef.source,
+            confidence: directRef.confidence,
+          },
+          total_found: structure.total_articles || 0,
+          legislation: {
+            rada_id: resolvedRadaId,
+            title: structure.title,
+            type: structure.type,
+            total_articles: structure.total_articles,
+            url: `https://zakon.rada.gov.ua/laws/show/${resolvedRadaId}`,
+            table_of_contents: structure.table_of_contents,
+          },
+          articles: structure.articles.slice(0, limit).map((a: any) => ({
+            rada_id: resolvedRadaId,
+            article_number: a.article_number,
+            title: a.title,
+            full_text: a.full_text ? a.full_text.substring(0, 500) + '...' : '',
+            url: `https://zakon.rada.gov.ua/laws/show/${resolvedRadaId}#n${a.article_number}`,
+          })),
         };
       }
-
-      const response: any = {
-        query: args.query,
-        resolved_reference: {
-          rada_id: directRef.radaId,
-          article_number: directRef.articleNumber,
-          source: directRef.source,
-          confidence: directRef.confidence,
-        },
-        total_found: 1,
-        articles: [
-          {
-            rada_id: article.rada_id,
-            article_number: article.article_number,
-            title: article.title,
-            full_text: article.full_text,
-            url: article.url,
-          },
-        ],
-      };
-
-      if (args.include_html) {
-        response.html = this.renderer.renderArticleHTML(article, {
-          theme: args.theme || 'light',
-          format: 'full',
-        });
-      }
-
-      return response;
     }
 
     const articles = await this.service.findRelevantArticles(
@@ -322,9 +393,23 @@ export class LegislationTools extends BaseToolHandler {
       throw new Error('rada_id is required');
     }
 
-    logger.info(`Getting structure for ${args.rada_id}`, { force_refresh: args.force_refresh });
+    let radaId = args.rada_id;
+    // Resolve KMU: prefix
+    if (radaId.startsWith('KMU:')) {
+      const resolved = await this.service.resolveKmuRadaId(radaId.substring(4));
+      if (resolved) {
+        radaId = resolved;
+      } else {
+        return {
+          error: `Постанову КМУ №${radaId.substring(4)} не знайдено`,
+          suggestion: 'Перевірте номер постанови',
+        };
+      }
+    }
 
-    const structure = await this.service.getLegislationStructure(args.rada_id, args.force_refresh);
+    logger.info(`Getting structure for ${radaId}`, { force_refresh: args.force_refresh });
+
+    const structure = await this.service.getLegislationStructure(radaId, args.force_refresh);
 
     if (!structure) {
       return {
@@ -540,7 +625,22 @@ export class LegislationTools extends BaseToolHandler {
       throw new Error('rada_id is required');
     }
 
-    const radaId = normalizeRadaId(args.rada_id);
+    let radaId = normalizeRadaId(args.rada_id);
+
+    // Resolve KMU: prefix
+    if (radaId.startsWith('KMU:')) {
+      const resolved = await this.service.resolveKmuRadaId(radaId.substring(4));
+      if (resolved) {
+        radaId = resolved;
+      } else {
+        return {
+          rada_id: radaId,
+          error: `Постанову КМУ №${radaId.substring(4)} не знайдено на zakon.rada.gov.ua`,
+          suggestion: 'Перевірте номер постанови',
+        };
+      }
+    }
+
     logger.info('[MCP Tool] get_legislation_history started', { rada_id: radaId });
 
     // Get amendment history (non-current article versions)
