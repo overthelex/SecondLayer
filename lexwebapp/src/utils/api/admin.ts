@@ -185,4 +185,8 @@ export const adminApi = {
   // PG Monitoring — EDRSR stats
   getPGMonitoring: () =>
     apiClient.get('/api/admin/pg-monitoring'),
+
+  // System limits
+  getLimits: () =>
+    apiClient.get('/api/admin/limits'),
 };
