@@ -1035,16 +1035,32 @@ export class ChatService {
             content: fullContent || '',
             tool_calls: toolCalls,
           });
+          // Build per-tool nudge with alternative suggestions
           for (const call of toolCalls) {
+            let note = 'Цей інструмент вже було викликано з такими параметрами. Використай наявні результати.';
+            if (call.name === 'get_legislation_article') {
+              note += ' Якщо потрібний закон не знайдено — спробуй search_legislation або find_relevant_law_articles для пошуку за описом ситуації.';
+            } else if (call.name === 'get_court_decision' || call.name === 'get_case_documents_chain') {
+              note += ' Якщо потрібна справа не знайдена — спробуй search_edrsr_fulltext з іншими ключовими словами.';
+            }
             messages.push({
               role: 'tool',
-              content: JSON.stringify({ note: 'Цей інструмент вже було викликано з такими параметрами. Використай наявні результати.' }),
+              content: JSON.stringify({ note }),
               tool_call_id: call.id,
             });
           }
+          // Detect if duplicate calls include legislation lookups without prior search
+          const hasLegislationDupes = duplicateToolCalls.some(c => c.name === 'get_legislation_article');
+          const hasUsedSearch = collectedToolCalls.some(c =>
+            c.name === 'search_legislation' || c.name === 'find_relevant_law_articles'
+          );
+          let nudge = 'Дані вже отримано. Перейди до аналізу на основі зібраних результатів. Не повторюй виклики інструментів.';
+          if (hasLegislationDupes && !hasUsedSearch) {
+            nudge = 'get_legislation_article не дав результату. Спочатку визнач потрібний закон через find_relevant_law_articles або search_legislation, а потім виклич get_legislation_article з отриманим rada_id. Не повторюй попередні виклики.';
+          }
           messages.push({
             role: 'user',
-            content: 'Дані вже отримано. Перейди до аналізу на основі зібраних результатів. Не повторюй виклики інструментів.',
+            content: nudge,
           });
           // Continue to next iteration — the model should now produce a text answer
           iteration++;
