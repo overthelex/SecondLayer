@@ -7,4 +7,5 @@ export { createAdminMetricsRoutes } from './admin-metrics.js';
 export { createAdminDataSourcesRoutes } from './admin-data-sources.js';
 export { createAdminScrapingRoutes } from './admin-scraping.js';
 export { createAdminImportRoutes } from './admin-import.js';
+export { createAdminLimitsRoutes } from './admin-limits.js';
 export { createRequireAdmin, createLogAdminAction } from './admin-middleware.js';
