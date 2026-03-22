@@ -17,6 +17,8 @@ export function createAdminLimitsRoutes(db: IDatabase): express.Router {
         todayTokens,
         pendingPayments,
         activeUsers24h,
+        concurrentUsersNow,
+        pgConnections,
       ] = await Promise.all([
         db.query(`SELECT COUNT(*) as count FROM upload_sessions WHERE status = 'active'`).catch(() => ({ rows: [{ count: 0 }] })),
         db.query(`
@@ -30,6 +32,13 @@ export function createAdminLimitsRoutes(db: IDatabase): express.Router {
         `).catch(() => ({ rows: [{ total_tokens: 0, bedrock_tokens: 0, openai_tokens: 0, total_requests: 0 }] })),
         db.query(`SELECT COUNT(*) as count, COALESCE(SUM(amount_uah), 0) as total_uah FROM consultation_payments WHERE status = 'held'`).catch(() => ({ rows: [{ count: 0, total_uah: 0 }] })),
         db.query(`SELECT COUNT(DISTINCT user_id) as count FROM cost_tracking WHERE created_at >= NOW() - INTERVAL '24 hours'`).catch(() => ({ rows: [{ count: 0 }] })),
+        // Concurrent users — distinct users who made requests in the last 5 minutes
+        db.query(`SELECT COUNT(DISTINCT user_id) as count FROM cost_tracking WHERE created_at >= NOW() - INTERVAL '5 minutes'`).catch(() => ({ rows: [{ count: 0 }] })),
+        // PostgreSQL active connections
+        db.query(`SELECT
+          (SELECT count(*) FROM pg_stat_activity WHERE state = 'active') as active,
+          (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') as max
+        `).catch(() => ({ rows: [{ active: 0, max: 100 }] })),
       ]);
 
       const usage = {
@@ -41,6 +50,9 @@ export function createAdminLimitsRoutes(db: IDatabase): express.Router {
         escrowPayments: parseInt(pendingPayments.rows[0]?.count || '0'),
         escrowTotalUah: parseFloat(pendingPayments.rows[0]?.total_uah || '0'),
         activeUsers24h: parseInt(activeUsers24h.rows[0]?.count || '0'),
+        concurrentUsersNow: parseInt(concurrentUsersNow.rows[0]?.count || '0'),
+        pgActiveConnections: parseInt(pgConnections.rows[0]?.active || '0'),
+        pgMaxConnections: parseInt(pgConnections.rows[0]?.max || '100'),
       };
 
       const limits = {
@@ -165,6 +177,15 @@ export function createAdminLimitsRoutes(db: IDatabase): express.Router {
             description: 'Rate limit Anthropic API. Клієнт автоматично робить 3 retry з backoff. Має ротацію ключів (primary + secondary).',
             severity: 'high',
           },
+          {
+            id: 'voyage-embedding',
+            name: 'VoyageAI Embeddings',
+            max: 50,
+            current: null,
+            unit: 'текстів/batch',
+            description: 'VoyageAI дозволяє до 128 текстів за батч, але ми обмежуємо до 50. 3 retry з backoff при 429. Модель: voyage-3.5, розмірність: 1024.',
+            severity: 'medium',
+          },
         ],
         chatLimits: [
           {
@@ -193,6 +214,104 @@ export function createAdminLimitsRoutes(db: IDatabase): express.Router {
             maxContextChars: 100000,
             maxResultChars: 40000,
             description: 'Глибокий аналіз. Максимальне використання інструментів, великий контекст. Найдорожчий режим.',
+          },
+        ],
+        connectionLimits: [
+          {
+            id: 'pg-connections',
+            name: 'PostgreSQL з\'єднання',
+            max: usage.pgMaxConnections,
+            current: usage.pgActiveConnections,
+            description: 'Активні з\'єднання до PostgreSQL. PgBouncer проксує з\'єднання, тому реальне навантаження може бути вищим.',
+            severity: usage.pgActiveConnections > usage.pgMaxConnections * 0.8 ? 'critical' : 'low',
+          },
+          {
+            id: 'pg-idle-timeout',
+            name: 'PG idle timeout',
+            max: 30,
+            unit: 'секунд',
+            description: 'Час до закриття простоюючого з\'єднання в пулі. Деякі скрипти використовують 60с.',
+          },
+          {
+            id: 'pg-connect-timeout',
+            name: 'PG connect timeout',
+            max: 2,
+            unit: 'секунд',
+            description: 'Максимальний час очікування нового з\'єднання з БД.',
+          },
+          {
+            id: 'jwt-expiry',
+            name: 'JWT термін дії',
+            max: 7,
+            unit: 'днів',
+            description: 'Термін дії JWT токена авторизації. Після закінчення потрібен повторний логін.',
+          },
+        ],
+        concurrencyLimits: [
+          {
+            id: 'upload-processing',
+            name: 'Обробка завантажень',
+            max: 100,
+            unit: 'воркерів',
+            description: 'MAX_CONCURRENT_PROCESSING: максимум одночасних задач обробки файлів. Адаптивна конкурентність автоматично регулює від 5 до 100.',
+          },
+          {
+            id: 'edrsr-vectorizer',
+            name: 'EDRSR векторизація',
+            max: 5,
+            unit: 'воркерів',
+            description: 'Паралельні воркери для векторизації судових рішень ЄДРСР.',
+          },
+          {
+            id: 'search-cache-download',
+            name: 'Кеш пошуку (завантаження)',
+            max: 3,
+            unit: 'паралельних',
+            description: 'Максимум паралельних завантажень повних текстів при кешуванні пошукових результатів.',
+          },
+          {
+            id: 'reyestr-tabs',
+            name: 'Реєстр (browser tabs)',
+            max: 3,
+            unit: 'вкладок',
+            description: 'Максимум паралельних браузерних вкладок для скрейпінгу реєстрів.',
+          },
+        ],
+        processingLimits: [
+          {
+            id: 'embedding-chunk',
+            name: 'Embedding chunk size',
+            max: 512,
+            unit: 'токенів',
+            description: 'Максимальний розмір чанку для embedding (~2048 символів). Перевищення — чанк розбивається.',
+          },
+          {
+            id: 'ocr-pages-full',
+            name: 'OCR повний документ',
+            max: 50,
+            unit: 'сторінок',
+            description: 'Максимум сторінок для OCR-обробки одного документа.',
+          },
+          {
+            id: 'ocr-pages-html',
+            name: 'OCR HTML→screenshot',
+            max: 10,
+            unit: 'сторінок',
+            description: 'Максимум сторінок при конвертації HTML в скріншоти для OCR.',
+          },
+          {
+            id: 'template-batch',
+            name: 'Template matching batch',
+            max: 100,
+            unit: 'питань',
+            description: 'Максимум питань в одному батч-запиті на відповідність шаблонів.',
+          },
+          {
+            id: 'search-results-safety',
+            name: 'Ліміт пошуку (безпека)',
+            max: 100000,
+            unit: 'результатів',
+            description: 'Жорсткий ліміт на кількість результатів пошуку судових рішень. Захист від надмірних запитів.',
           },
         ],
         uploadLimits: [
@@ -254,6 +373,64 @@ export function createAdminLimitsRoutes(db: IDatabase): express.Router {
             unit: ':1',
             description: 'Захист від zip-bomb: якщо ratio > 100:1, архів відхиляється.',
           },
+          {
+            id: 'max-nesting-depth',
+            name: 'Вкладеність архівів',
+            max: 2,
+            unit: 'рівнів',
+            description: 'Максимальна глибина вкладених архівів (архів в архіві).',
+          },
+        ],
+        cacheTtls: [
+          {
+            id: 'cache-deputies',
+            name: 'Депутати (РАДА)',
+            max: 7,
+            unit: 'днів',
+            description: 'Кеш даних народних депутатів від API Верховної Ради.',
+          },
+          {
+            id: 'cache-bills',
+            name: 'Законопроєкти (РАДА)',
+            max: 1,
+            unit: 'день',
+            description: 'Кеш законопроєктів. Оновлюються щодня.',
+          },
+          {
+            id: 'cache-legislation',
+            name: 'Законодавство (РАДА)',
+            max: 30,
+            unit: 'днів',
+            description: 'Кеш текстів законодавства. Рідко змінюється.',
+          },
+          {
+            id: 'cache-edrsr-fulltext',
+            name: 'ЄДРСР повні тексти',
+            max: 24,
+            unit: 'години',
+            description: 'Кеш повних текстів судових рішень ЄДРСР.',
+          },
+          {
+            id: 'cache-edrsr-metadata',
+            name: 'ЄДРСР метадані',
+            max: 7,
+            unit: 'днів',
+            description: 'Кеш метаданих судових рішень ЄДРСР.',
+          },
+          {
+            id: 'cache-currency',
+            name: 'Курс валют',
+            max: 24,
+            unit: 'години',
+            description: 'Кеш курсу UAH/USD для конвертації.',
+          },
+          {
+            id: 'cache-pricing',
+            name: 'Тарифи (Pricing)',
+            max: 5,
+            unit: 'хвилин',
+            description: 'Кеш тарифних планів PricingService.',
+          },
         ],
         billingLimits: [
           {
@@ -267,6 +444,13 @@ export function createAdminLimitsRoutes(db: IDatabase): express.Router {
             name: 'Місячний ліміт витрат (на користувача)',
             description: 'Адміністратор може встановити monthly_limit_usd. Attorney tier: $50/день, $500/місяць. Enterprise: без лімітів.',
             severity: 'high',
+          },
+          {
+            id: 'monobank-min-payment',
+            name: 'Мінімальний платіж Monobank',
+            max: 1,
+            unit: 'грн',
+            description: 'Мінімальна сума оплати через Monobank Acquiring.',
           },
         ],
         scrapingLimits: [
@@ -289,6 +473,20 @@ export function createAdminLimitsRoutes(db: IDatabase): express.Router {
             max: 2000,
             unit: 'мс',
             description: 'Випадкова затримка між запитами скрейпера для уникнення блокувань.',
+          },
+          {
+            id: 'zo-timeout',
+            name: 'ZakonOnline API timeout',
+            max: 120,
+            unit: 'секунд',
+            description: 'Таймаут запитів до ZakonOnline API (30с стандартний, 120с для фільтрів по даті).',
+          },
+          {
+            id: 'court-pages',
+            name: 'Сторінки за запит (discovery)',
+            max: 40,
+            unit: 'сторінок',
+            description: 'Максимум сторінок результатів за один запит при discovery судових рішень.',
           },
         ],
         escrow: {
