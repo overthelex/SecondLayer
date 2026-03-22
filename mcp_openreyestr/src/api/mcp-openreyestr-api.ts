@@ -334,6 +334,23 @@ export class MCPOpenReyestrAPI {
         },
       },
       {
+        name: 'search_street_renamings',
+        description: `Пошук історії перейменувань вулиць України (дані OpenStreetMap)
+
+💰 Примерная стоимость: $0.001-$0.003 USD
+Пошук за поточною або старою назвою вулиці. Показує всі попередні назви.
+Джерело: OpenStreetMap (old_name теги). ~64K вулиць з історією перейменувань.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Назва вулиці (поточна або стара)' },
+            min_renames: { type: 'number', default: 1, minimum: 1, maximum: 10, description: 'Мінімальна кількість перейменувань (2+ для вулиць з кількома перейменуваннями)' },
+            limit: { type: 'number', default: 50, maximum: 100, minimum: 1, description: 'Максимальна кількість результатів' },
+            offset: { type: 'number', default: 0, description: 'Зміщення для пагінації' },
+          },
+        },
+      },
+      {
         name: 'search_vat_payers',
         description: `Пошук у реєстрі платників ПДВ (ДПС)
 
@@ -474,6 +491,9 @@ export class MCPOpenReyestrAPI {
           break;
         case 'search_streets':
           result = await this.tools.searchStreets(args);
+          break;
+        case 'search_street_renamings':
+          result = await this.tools.searchStreetRenamings(args);
           break;
         case 'search_vat_payers':
           result = await this.tools.searchVatPayers(args);

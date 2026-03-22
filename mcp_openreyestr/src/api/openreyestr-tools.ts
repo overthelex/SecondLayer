@@ -1152,6 +1152,49 @@ export class OpenReyestrTools {
     return result.rows;
   }
 
+  /**
+   * Search street renamings (OpenStreetMap data)
+   */
+  async searchStreetRenamings(params: { query?: string; min_renames?: number; limit?: number; offset?: number }): Promise<any[]> {
+    const { query, min_renames = 1, limit = 50, offset = 0 } = params;
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (query) {
+      conditions.push(`(
+        to_tsvector('simple', current_name) @@ plainto_tsquery('simple', $${paramIndex})
+        OR to_tsvector('simple', array_to_string(old_names, ' ')) @@ plainto_tsquery('simple', $${paramIndex})
+        OR current_name ILIKE $${paramIndex + 1}
+        OR EXISTS (SELECT 1 FROM unnest(old_names) AS old WHERE old ILIKE $${paramIndex + 1})
+      )`);
+      values.push(query, `%${query}%`);
+      paramIndex += 2;
+    }
+
+    if (min_renames > 1) {
+      conditions.push(`rename_count >= $${paramIndex}`);
+      values.push(min_renames);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    values.push(limit, offset);
+
+    const result = await this.pool.query(
+      `SELECT osm_id, current_name, current_name_uk, old_names, rename_count
+       FROM street_renamings ${whereClause}
+       ORDER BY rename_count DESC, current_name ASC
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return [{ found: false, query: query || '', message: 'Перейменованих вулиць не знайдено' }];
+    }
+    return result.rows;
+  }
+
   private async findEntityType(record: string): Promise<'UO' | 'FOP' | 'FSU' | null> {
     const uoResult = await this.pool.query(
       'SELECT 1 FROM legal_entities WHERE record = $1',
