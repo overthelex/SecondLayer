@@ -48,8 +48,8 @@ export const QUERY_TYPE_CONFIG: Record<QueryType, QueryTypeConfig> = {
   legal_consultation: {
     defaultBudget: 'standard',
     requiresGrounding: true,
-    preferredScenarios: ['comprehensive_legal_advice', 'relevant_articles_by_situation', 'legislation_search'],
-    groundingNote: 'Відповідь має посилатися на конкретні статті законів та/або судову практику. Загальні поради без правового обґрунтування неприпустимі.',
+    preferredScenarios: ['relevant_articles_by_situation', 'legislation_search', 'comprehensive_legal_advice'],
+    groundingNote: 'СПОЧАТКУ знайди відповідний закон через find_relevant_law_articles або search_legislation. НІКОЛИ не викликай get_legislation_article без відомого rada_id — спочатку визнач закон. Відповідь має посилатися на конкретні статті законів та/або судову практику. Загальні поради без правового обґрунтування неприпустимі.',
     thinkingPrefix: 'Готую юридичну консультацію',
   },
 

@@ -89,8 +89,8 @@ export function buildPlanGenerationMessages(
     const qtRules: Partial<Record<QueryType, string>> = {
       case_lookup: '11. queryType=case_lookup: start with get_case_documents_chain, max 2 steps',
       practice_analysis: '11. queryType=practice_analysis: use search_edrsr_fulltext (full-text search in 110M+ court decisions) and/or search_edrsr_semantic (vector similarity) with different queries and limit=20-50, then include legislation lookups. Do NOT use search_legal_precedents (deprecated).',
-      legislation_lookup: '11. queryType=legislation_lookup: start with get_legislation_article or search_legislation, max 2 steps',
-      legal_consultation: '11. queryType=legal_consultation: combine legislation + practice search tools',
+      legislation_lookup: '11. queryType=legislation_lookup: if law_reference slot is present, start with get_legislation_article; otherwise start with search_legislation or find_relevant_law_articles to identify the law first, max 3 steps',
+      legal_consultation: '11. queryType=legal_consultation: ALWAYS start with find_relevant_law_articles or search_legislation to identify relevant laws FIRST. Only THEN call get_legislation_article for specific articles. Never guess rada_id. Combine with practice search tools after finding legislation.',
       registry_lookup: '11. queryType=registry_lookup: start with openreyestr_get_by_edrpou or openreyestr_search_entities. For debtors/enforcement proceedings use search_erb_debtors (10M+ records from Minjust). For bank info use search_nbu_banks. Max 3 steps',
       parliament_query: '11. queryType=parliament_query: use rada_ tools, max 2 steps',
       document_query: '11. queryType=document_query: ALWAYS start with list_documents(query="", limit=50) to get ALL user documents. Then use semantic_search for content-relevant fragments. For analysis: also use get_document to read full text of relevant docs. For delete/update by name: first list_documents to find the doc, then delete_document/update_document with the ID. Max 5 steps.',
@@ -244,6 +244,12 @@ export const CHAT_SYSTEM_PROMPT = `Ти — юридичний асистент 
 - Пропозиції повторити запит для отримання тих самих даних
 - Рекомендації викликати той самий інструмент з "більш детальними параметрами"
 - Розлогий опис чого немає і чому — тільки одне речення про відсутні поля
+
+## Стратегія пошуку законодавства
+- Коли користувач описує ситуацію БЕЗ назви конкретного закону чи статті — ЗАВЖДИ починай з find_relevant_law_articles або search_legislation щоб СПОЧАТКУ визначити який саме закон регулює це питання
+- НІКОЛИ не викликай get_legislation_article без відомого rada_id або назви закону. Цей інструмент потребує конкретне посилання (наприклад "ст. 16 ЦК" або rada_id). Якщо закон невідомий — спочатку знайди його через search_legislation або find_relevant_law_articles
+- Після того як знайшов закон через search_legislation / find_relevant_law_articles — виклич get_legislation_article для отримання тексту конкретних статей
+- Якщо запит стосується змін до закону в різні роки — використай search_legislation для пошуку редакцій та пов'язаних законів-змін
 
 ## Правила
 - НЕ використовуй емодзі у відповідях. Відповідь повинна бути суворо текстовою — без 📋, 🔍, ✓, ⚠️ та будь-яких інших символів-емодзі.
