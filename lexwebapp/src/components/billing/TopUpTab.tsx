@@ -61,6 +61,16 @@ function MonobankPaymentForm({ amountUah, uahRate, onSuccess }: { amountUah: num
         return;
       }
 
+      // Track Google Ads Purchase conversion before redirect
+      if (typeof window.gtag === 'function') {
+        window.gtag('event', 'conversion', {
+          send_to: 'AW-18033840618/bnTSCJqpwI0cEOqjmpdD',
+          value: amountUah / 100,
+          currency: 'UAH',
+          transaction_id: data.invoiceId || '',
+        });
+      }
+
       // Redirect to Monobank hosted payment page
       window.location.href = data.pageUrl;
     } catch (err: unknown) {
@@ -294,15 +304,15 @@ function MetaMaskPaymentForm({ amount, onSuccess }: { amount: number; onSuccess:
   if (!hasMetaMask) {
     return (
       <div className="space-y-4">
-        <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg text-center space-y-3">
-          <Wallet size={32} className="text-orange-400 mx-auto" />
-          <p className="text-sm font-medium text-orange-800">MetaMask не знайдено</p>
-          <p className="text-sm text-orange-700">Встановіть розширення MetaMask для вашого браузера, щоб здійснювати крипто-платежі.</p>
+        <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-lg text-center space-y-3">
+          <Wallet size={32} className="text-zinc-400 mx-auto" />
+          <p className="text-sm font-medium text-zinc-800">MetaMask не знайдено</p>
+          <p className="text-sm text-zinc-600">Встановіть розширення MetaMask для вашого браузера, щоб здійснювати крипто-платежі.</p>
           <a
             href="https://chromewebstore.google.com/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors font-medium text-sm"
           >
             <ExternalLink size={16} /> Встановіть MetaMask
           </a>
@@ -315,16 +325,16 @@ function MetaMaskPaymentForm({ amount, onSuccess }: { amount: number; onSuccess:
   if (!connectedAddress) {
     return (
       <div className="space-y-4">
-        <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg text-center space-y-3">
-          <Wallet size={32} className="text-orange-400 mx-auto" />
-          <p className="text-sm font-medium text-orange-800">MetaMask не підключено</p>
-          <p className="text-sm text-orange-700">Підключіть гаманець, щоб здійснити оплату криптовалютою.</p>
+        <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-lg text-center space-y-3">
+          <Wallet size={32} className="text-zinc-400 mx-auto" />
+          <p className="text-sm font-medium text-zinc-800">MetaMask не підключено</p>
+          <p className="text-sm text-zinc-600">Підключіть гаманець, щоб здійснити оплату криптовалютою.</p>
         </div>
         {error && <p className="text-sm text-red-600 flex items-center gap-1"><AlertCircle size={14} />{error}</p>}
         <button
           onClick={handleConnectWallet}
           disabled={isConnecting}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 font-medium"
+          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-50 font-medium"
         >
           {isConnecting ? (
             <><Loader2 size={18} className="animate-spin" /> Підключення...</>
@@ -420,7 +430,7 @@ function MetaMaskPaymentForm({ amount, onSuccess }: { amount: number; onSuccess:
           </div>
           {error && <p className="text-sm text-red-600 flex items-center gap-1"><AlertCircle size={14} />{error}</p>}
           <button onClick={handleSendViaMetaMask} disabled={verifying}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 font-medium">
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-50 font-medium">
             {verifying ? <><Loader2 size={18} className="animate-spin" /> Верифікація...</> : <><Wallet size={18} /> Відправити через MetaMask</>}
           </button>
         </>
@@ -591,9 +601,9 @@ export function TopUpTab({ initialAmount }: TopUpTabProps) {
           {cryptoEnabled && (
             <>
               <button onClick={() => handleProviderChange('metamask')}
-                className={`p-4 border-2 rounded-xl transition-all ${provider === 'metamask' ? 'border-orange-500 bg-orange-50' : 'border-claude-border hover:border-orange-300'}`}>
+                className={`p-4 border-2 rounded-xl transition-all ${provider === 'metamask' ? 'border-zinc-900 bg-zinc-50' : 'border-claude-border hover:border-zinc-400'}`}>
                 <div className="flex items-center gap-3 mb-2">
-                  <Wallet size={24} className={provider === 'metamask' ? 'text-orange-500' : 'text-claude-subtext'} />
+                  <Wallet size={24} className={provider === 'metamask' ? 'text-zinc-900' : 'text-claude-subtext'} />
                   <h4 className="font-semibold text-claude-text">MetaMask</h4>
                 </div>
                 <p className="text-sm text-claude-subtext text-left">ETH / USDT / USDC</p>
