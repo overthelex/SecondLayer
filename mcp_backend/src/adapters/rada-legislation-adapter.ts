@@ -344,6 +344,11 @@ export class RadaLegislationAdapter {
 
   private extractArticlesFallback($: cheerio.CheerioAPI, radaId: string): LegislationArticle[] {
     const articles: LegislationArticle[] = [];
+    // Cheerio .text() strips newlines between block elements (p, div, br),
+    // so we inject newlines before extracting text to preserve paragraph boundaries
+    $('p, div, br').each((_i, el) => {
+      $(el).before('\n');
+    });
     const bodyText = $('body').text();
 
     // Try Стаття pattern first (laws, codes)
