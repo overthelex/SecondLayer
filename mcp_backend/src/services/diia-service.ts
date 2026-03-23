@@ -115,11 +115,9 @@ export class DiiaService {
     return data.branches || [];
   }
 
-  /** POST /api/v2/acquirers/branch — create branch for auth */
-  async createBranch(): Promise<string> {
-    const token = await this.getSessionToken();
-
-    const branchBody = {
+  /** Common branch details shared between create and update */
+  private getAuthBranchBody() {
+    return {
       name: 'Авторизація в застосунку Lex / legal.org.ua',
       email: 'admin@legal.org.ua',
       region: 'м. Київ',
@@ -133,6 +131,11 @@ export class DiiaService {
       offerRequestType: 'dynamic',
       scopes: { diiaId: ['auth'] },
     };
+  }
+
+  /** POST /api/v2/acquirers/branch — create branch for auth */
+  async createBranch(): Promise<string> {
+    const token = await this.getSessionToken();
 
     const response = await fetch(`${DIIA_BASE_URL}/api/v2/acquirers/branch`, {
       method: 'POST',
@@ -140,7 +143,7 @@ export class DiiaService {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(branchBody),
+      body: JSON.stringify(this.getAuthBranchBody()),
     });
 
     if (!response.ok) {
@@ -154,6 +157,27 @@ export class DiiaService {
     const data = await response.json() as { _id: string };
     logger.info('[Diia] Branch created', { branchId: data._id });
     return data._id;
+  }
+
+  /** PUT /api/v2/acquirers/branch/{branchId} — update existing branch */
+  async updateBranch(branchId: string, body: Record<string, unknown>): Promise<void> {
+    const token = await this.getSessionToken();
+
+    const response = await fetch(`${DIIA_BASE_URL}/api/v2/acquirers/branch/${branchId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      logger.warn('[Diia] updateBranch failed (non-critical)', { branchId, status: response.status, text });
+    } else {
+      logger.info('[Diia] Branch updated', { branchId });
+    }
   }
 
   /** GET /api/v1/acquirers/branch/{branchId}/offers */
@@ -260,6 +284,8 @@ export class DiiaService {
       );
       if (authBranch) {
         branchId = authBranch.id || authBranch._id || '';
+        // Update branch details in background (name, address, etc.)
+        this.updateBranch(branchId, this.getAuthBranchBody()).catch(() => {});
       } else if (branches.length > 0) {
         // No branch with auth scopes — try the first one, createOffer will fail if scope is missing
         logger.warn('[Diia] No branch with diiaId scope found, using first branch');
@@ -289,11 +315,9 @@ export class DiiaService {
   // Дія.Підпис (Signing) — hashedFilesSigning scope
   // ---------------------------------------------------------------------------
 
-  /** POST /api/v2/acquirers/branch — create branch for document signing */
-  async createSigningBranch(): Promise<string> {
-    const token = await this.getSessionToken();
-
-    const branchBody = {
+  /** Common signing branch details */
+  private getSigningBranchBody() {
+    return {
       name: 'Підпис документів Lex / legal.org.ua',
       email: 'admin@legal.org.ua',
       region: 'м. Київ',
@@ -307,6 +331,11 @@ export class DiiaService {
       offerRequestType: 'dynamic',
       scopes: { diiaId: ['hashedFilesSigning'] },
     };
+  }
+
+  /** POST /api/v2/acquirers/branch — create branch for document signing */
+  async createSigningBranch(): Promise<string> {
+    const token = await this.getSessionToken();
 
     const response = await fetch(`${DIIA_BASE_URL}/api/v2/acquirers/branch`, {
       method: 'POST',
@@ -314,7 +343,7 @@ export class DiiaService {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(branchBody),
+      body: JSON.stringify(this.getSigningBranchBody()),
     });
 
     if (!response.ok) {
@@ -433,6 +462,7 @@ export class DiiaService {
       );
       if (signingBranch) {
         branchId = signingBranch.id || signingBranch._id || '';
+        this.updateBranch(branchId, this.getSigningBranchBody()).catch(() => {});
       } else {
         branchId = await this.createSigningBranch();
       }
