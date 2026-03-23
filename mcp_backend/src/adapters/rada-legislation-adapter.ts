@@ -345,21 +345,22 @@ export class RadaLegislationAdapter {
   private extractArticlesFallback($: cheerio.CheerioAPI, radaId: string): LegislationArticle[] {
     const articles: LegislationArticle[] = [];
     const bodyText = $('body').text();
-    
+
+    // Try Стаття pattern first (laws, codes)
     const articlePattern = /Стаття\s+(\d+(?:-\d+)?)\.\s*([^\n]+)/gi;
     let match;
-    
+
     while ((match = articlePattern.exec(bodyText)) !== null) {
       const articleNumber = match[1];
       const title = match[2].trim();
-      
+
       const startIndex = match.index;
       const nextMatch = articlePattern.exec(bodyText);
       const endIndex = nextMatch ? nextMatch.index : bodyText.length;
       articlePattern.lastIndex = nextMatch ? nextMatch.index : bodyText.length;
-      
+
       const fullText = bodyText.substring(startIndex, endIndex).trim();
-      
+
       if (fullText.length > 20) {
         articles.push({
           article_number: articleNumber,
@@ -373,7 +374,50 @@ export class RadaLegislationAdapter {
         });
       }
     }
-    
+
+    // If no articles found, try пункт pattern (КМУ постанови, порядки, правила)
+    // Format: "1. Text..." at line start, numbered sequentially
+    if (articles.length === 0) {
+      const punktPattern = /(?:^|\n)\s*(\d+)\.\s+([А-ЯІЇЄҐ][^\n]{10,})/g;
+      const punktMatches: Array<{ number: string; title: string; index: number }> = [];
+
+      while ((match = punktPattern.exec(bodyText)) !== null) {
+        const num = parseInt(match[1], 10);
+        // Only consider reasonable punkt numbers (1-999) and skip footnotes/references
+        if (num > 0 && num < 1000) {
+          punktMatches.push({
+            number: match[1],
+            title: match[2].trim().substring(0, 200),
+            index: match.index,
+          });
+        }
+      }
+
+      // Extract text between consecutive punkts
+      for (let i = 0; i < punktMatches.length; i++) {
+        const startIdx = punktMatches[i].index;
+        const endIdx = i + 1 < punktMatches.length ? punktMatches[i + 1].index : bodyText.length;
+        const fullText = bodyText.substring(startIdx, endIdx).trim();
+
+        if (fullText.length > 20) {
+          articles.push({
+            article_number: punktMatches[i].number,
+            title: punktMatches[i].title.split(/[.;]/)[0].trim(),
+            full_text: fullText,
+            byte_size: Buffer.byteLength(fullText, 'utf8'),
+            metadata: {
+              rada_id: radaId,
+              extraction_method: 'fallback_punkt',
+            },
+          });
+        }
+      }
+
+      if (articles.length > 0) {
+        logger.info(`Extracted ${articles.length} punkts (not articles) from ${radaId} via fallback`);
+      }
+    }
+
     return articles;
   }
 
