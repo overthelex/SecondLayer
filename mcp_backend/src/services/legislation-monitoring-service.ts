@@ -62,7 +62,7 @@ export class LegislationMonitoringService {
   async subscribe(userId: string, radaId: string, preferences?: { notify_email?: boolean; notify_inapp?: boolean }): Promise<Subscription> {
     // Get legislation_id from rada_id
     const legResult = await this.db.query(
-      'SELECT id FROM legislation WHERE rada_id = $1',
+      'SELECT id FROM legislation WHERE LOWER(rada_id) = LOWER($1)',
       [radaId]
     );
 
@@ -102,7 +102,7 @@ export class LegislationMonitoringService {
   async unsubscribe(userId: string, radaId: string): Promise<boolean> {
     const result = await this.db.query(
       `DELETE FROM legislation_subscriptions
-       WHERE user_id = $1 AND legislation_id = (SELECT id FROM legislation WHERE rada_id = $2)`,
+       WHERE user_id = $1 AND legislation_id = (SELECT id FROM legislation WHERE LOWER(rada_id) = LOWER($2))`,
       [userId, radaId]
     );
     return (result.rowCount ?? 0) > 0;
@@ -124,7 +124,7 @@ export class LegislationMonitoringService {
     const result = await this.db.query(
       `SELECT 1 FROM legislation_subscriptions ls
        JOIN legislation l ON l.id = ls.legislation_id
-       WHERE ls.user_id = $1 AND l.rada_id = $2`,
+       WHERE ls.user_id = $1 AND LOWER(l.rada_id) = LOWER($2)`,
       [userId, radaId]
     );
     return result.rows.length > 0;
@@ -133,7 +133,7 @@ export class LegislationMonitoringService {
   async checkForChanges(radaId: string): Promise<LegislationChange[]> {
     // Get legislation record
     const legResult = await this.db.query(
-      'SELECT id FROM legislation WHERE rada_id = $1',
+      'SELECT id FROM legislation WHERE LOWER(rada_id) = LOWER($1)',
       [radaId]
     );
     if (legResult.rows.length === 0) return [];
@@ -142,7 +142,7 @@ export class LegislationMonitoringService {
     // Get current articles from DB
     const currentResult = await this.db.query(
       `SELECT article_number, full_text FROM legislation_articles
-       WHERE rada_id = $1 AND is_current = true
+       WHERE LOWER(rada_id) = LOWER($1) AND is_current = true
        ORDER BY article_number`,
       [radaId]
     );
@@ -224,7 +224,7 @@ export class LegislationMonitoringService {
 
     // Update DB articles: mark old as not current, save fresh via adapter
     await this.db.query(
-      `UPDATE legislation_articles SET is_current = false WHERE rada_id = $1 AND is_current = true`,
+      `UPDATE legislation_articles SET is_current = false WHERE LOWER(rada_id) = LOWER($1) AND is_current = true`,
       [radaId]
     );
     await this.adapter.saveLegislationToDatabase(freshData.metadata, freshData.articles);
@@ -259,7 +259,7 @@ export class LegislationMonitoringService {
   private async notifySubscribers(radaId: string, changes: LegislationChange[]): Promise<void> {
     // Get legislation info
     const legResult = await this.db.query(
-      'SELECT id, title, short_title FROM legislation WHERE rada_id = $1',
+      'SELECT id, title, short_title FROM legislation WHERE LOWER(rada_id) = LOWER($1)',
       [radaId]
     );
     if (legResult.rows.length === 0) return;
