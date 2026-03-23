@@ -91,6 +91,20 @@ export async function getCurrentUser(req: AuthenticatedRequest, res: Response): 
       }
     }
 
+    // Check developer offer acceptance
+    let developerOfferAccepted = false;
+    try {
+      const userService = getUserService();
+      const db = (userService as any).db;
+      const devResult = await db.query(
+        `SELECT 1 FROM eula_acceptances WHERE user_id = $1 AND eula_version = $2 LIMIT 1`,
+        [user.id, 'developer-offer-1.0']
+      );
+      developerOfferAccepted = devResult.rows.length > 0;
+    } catch (err: any) {
+      logger.warn('Failed to check developer offer acceptance', { userId: user.id, error: err.message });
+    }
+
     // Return user profile without sensitive data
     return res.json({
       user: {
@@ -104,6 +118,7 @@ export async function getCurrentUser(req: AuthenticatedRequest, res: Response): 
         createdAt: user.created_at,
         role: user.role,
         userType: user.user_type || 'individual',
+        developerOfferAccepted,
         ...(user.user_type === 'attorney' && {
           attorneyOfferAccepted,
           ...(attorneyContractNumber && { attorneyContractNumber }),
@@ -178,6 +193,66 @@ export async function acceptAttorneyOffer(req: AuthenticatedRequest, res: Respon
     return res.json({ success: true, message: 'Оферту прийнято', contractNumber, contractDate });
   } catch (error: any) {
     logger.error('Error accepting attorney offer:', error);
+    return res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+}
+
+/**
+ * Accept developer public offer
+ */
+export async function acceptDeveloperOffer(req: AuthenticatedRequest, res: Response): Promise<Response> {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const userService = getUserService();
+    const db = (userService as any).db;
+
+    const existing = await db.query(
+      `SELECT contract_number, contract_date FROM eula_acceptances WHERE user_id = $1 AND eula_version = $2 LIMIT 1`,
+      [user.id, 'developer-offer-1.0']
+    );
+
+    if (existing.rows.length > 0) {
+      return res.json({
+        success: true,
+        message: 'Оферту вже прийнято',
+        contractNumber: existing.rows[0].contract_number,
+        contractDate: existing.rows[0].contract_date,
+      });
+    }
+
+    const year = new Date().getFullYear();
+    const seqResult = await db.query(
+      `SELECT COALESCE(
+        (SELECT nextval('developer_offer_contract_seq')),
+        (SELECT MAX(CAST(SUBSTRING(contract_number FROM '\\d+$') AS INTEGER)) + 1 FROM eula_acceptances WHERE eula_version LIKE 'developer-%')
+      ) AS seq`
+    );
+    const seq = String(seqResult.rows[0]?.seq || 1).padStart(4, '0');
+    const contractNumber = `DEV-${year}-${seq}`;
+    const contractDate = new Date().toISOString().split('T')[0];
+
+    await db.query(
+      `INSERT INTO eula_acceptances (user_id, eula_version, ip_address, user_agent, contract_number, contract_date)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        user.id,
+        'developer-offer-1.0',
+        req.ip || req.headers['x-forwarded-for'] || 'unknown',
+        req.headers['user-agent'] || 'unknown',
+        contractNumber,
+        contractDate,
+      ]
+    );
+
+    logger.info('Developer accepted offer', { userId: user.id, email: user.email, contractNumber });
+
+    return res.json({ success: true, message: 'Оферту прийнято', contractNumber, contractDate });
+  } catch (error: any) {
+    logger.error('Error accepting developer offer:', error);
     return res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 }

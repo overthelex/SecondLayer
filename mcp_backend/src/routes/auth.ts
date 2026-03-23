@@ -260,6 +260,13 @@ router.post('/logout', authController.logout as any);
 router.post('/accept-attorney-offer', requireJWT as any, authController.acceptAttorneyOffer as any);
 
 /**
+ * @route   POST /auth/accept-developer-offer
+ * @desc    Accept developer public offer
+ * @access  Protected (JWT required)
+ */
+router.post('/accept-developer-offer', requireJWT as any, authController.acceptDeveloperOffer as any);
+
+/**
  * @route   GET /auth/my-contracts
  * @desc    Get all signed contracts/acceptances for current user
  * @access  Protected (JWT required)
