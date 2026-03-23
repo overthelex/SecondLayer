@@ -26,7 +26,7 @@ export interface User {
 }
 
 export interface UserCreate {
-  googleId: string;
+  googleId: string | null;
   email: string;
   name?: string;
   picture?: string;
