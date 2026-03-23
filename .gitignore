@@ -57,8 +57,11 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# IDE
+# IDE & Editor
 .idea/
+.vscode/
+.cursor/
+.cursorrules
 *.swp
 *.swo
 *~
@@ -97,6 +100,7 @@ redis_data/
 
 # MCP client configs (may contain tokens)
 config/jan-chat-mcp-config.json
+.mcp.json
 
 # Claude Code
 .claude/
@@ -104,17 +108,38 @@ config/jan-chat-mcp-config.json
 # Cleanup backups (temporary)
 .cleanup_backup/
 vulnerability-fix-backup/
-.cursor/keys/
-.cursor/settings/
 pip
+
+# Deployment secrets
 deployment/nginx/certs/
-.mcp.json
-
-
-# WireGuard secrets
 deployment/.env.wireguard
+
+# Internal planning docs
 docs/IGOR_LINEAR_TASKS.md
 docs/LEG-52_IMPLEMENTATION_PLAN.md
 docs/security/LEGAL_TECH_COMPLIANCE_AUDIT.md
+
+# Lock files (managed per workspace)
 package-lock.json
+
+# Data downloads (large binary files)
+scripts/judges/downloads/
 scripts/nsdc-sanctions/data/
+
+# Demo output
+demo-output/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Linear exports (internal project data)
+linear-export.csv
+
+# Archived docs with screenshots
+docs/archived/
+
+# Marketing materials (store externally)
+docs/*.pdf
+docs/linkedin-*.png
