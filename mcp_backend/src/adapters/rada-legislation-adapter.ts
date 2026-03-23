@@ -97,9 +97,22 @@ export class RadaLegislationAdapter {
   }
 
   private extractMetadata($: cheerio.CheerioAPI, radaId: string, url: string): LegislationMetadata {
-    const titleElement = $('.title, .doc-title, h1').first();
-    const title = titleElement.text().trim();
-    
+    let title = $('.title, .doc-title, h1').first().text().trim();
+
+    // Fallback: RADA /print pages use og:title or span.rvts23 for КМУ resolutions
+    if (!title) {
+      title = $('meta[property="og:title"]').attr('content')?.trim() || '';
+    }
+    if (!title) {
+      // Find the longest rvts23 span that looks like a title (skip "КАБІНЕТ МІНІСТРІВ УКРАЇНИ" etc.)
+      $('span.rvts23, .rvts23').each((_i, el) => {
+        const text = $(el).text().trim();
+        if (text.length > 20 && text.length > title.length && /^(Про |ПОРЯДОК |ПРАВИЛА |ПОЛОЖЕННЯ )/i.test(text)) {
+          title = text;
+        }
+      });
+    }
+
     const shortTitle = this.extractShortTitle(title);
     const type = this.determineDocumentType(title, radaId);
     
