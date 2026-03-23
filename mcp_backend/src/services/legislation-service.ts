@@ -312,13 +312,25 @@ export class LegislationService {
    */
   async resolveKmuRadaId(kmuNumber: string): Promise<string | null> {
     // First check if we already have it in DB with any year suffix
+    // Only trust DB entries that have title (non-empty = successfully fetched)
     const dbResult = await this.db.query(
-      `SELECT rada_id FROM legislation WHERE rada_id LIKE $1 LIMIT 1`,
+      `SELECT rada_id FROM legislation WHERE rada_id LIKE $1 AND title IS NOT NULL AND title != '' AND total_articles > 0 LIMIT 1`,
       [`${kmuNumber}-%`]
     );
     if (dbResult.rows.length > 0) {
       logger.info(`[resolveKmuRadaId] Found KMU:${kmuNumber} in DB: ${dbResult.rows[0].rada_id}`);
       return dbResult.rows[0].rada_id;
+    }
+
+    // Clean up stale/empty DB entries for this KMU number
+    const staleResult = await this.db.query(
+      `DELETE FROM legislation WHERE rada_id LIKE $1 AND (title IS NULL OR title = '' OR total_articles = 0) RETURNING rada_id`,
+      [`${kmuNumber}-%`]
+    );
+    if (staleResult.rows.length > 0) {
+      logger.info(`[resolveKmuRadaId] Cleaned up ${staleResult.rows.length} stale entries for KMU:${kmuNumber}`, {
+        cleaned: staleResult.rows.map((r: any) => r.rada_id),
+      });
     }
 
     // Generate candidate rada_ids with year suffixes in batches (parallel within batch)
