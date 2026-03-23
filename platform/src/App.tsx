@@ -15,6 +15,7 @@ import { McpToolsPage } from './pages/docs/McpToolsPage';
 import { ApiReferencePage } from './pages/docs/ApiReferencePage';
 import { RateLimitsPage } from './pages/docs/RateLimitsPage';
 import { IntegrationsPage } from './pages/docs/IntegrationsPage';
+import { ContractPage } from './pages/ContractPage';
 
 export function App() {
   return (
@@ -33,6 +34,7 @@ export function App() {
           <Route path="keys" element={<ApiKeysPage />} />
           <Route path="usage" element={<UsagePage />} />
           <Route path="playground" element={<PlaygroundPage />} />
+          <Route path="contract" element={<ContractPage />} />
 
           <Route path="docs" element={<DocsLayout />}>
             <Route index element={<IntroductionPage />} />

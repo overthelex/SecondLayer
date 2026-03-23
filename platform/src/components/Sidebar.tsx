@@ -11,6 +11,7 @@ import {
   Gauge,
   Cable,
   Play,
+  FileText,
   X,
 } from 'lucide-react';
 
@@ -19,6 +20,7 @@ const navItems = [
   { to: '/keys', icon: Key, label: 'API Keys' },
   { to: '/usage', icon: BarChart3, label: 'Usage' },
   { to: '/playground', icon: Play, label: 'Playground' },
+  { to: '/contract', icon: FileText, label: 'Договір' },
 ];
 
 const docsItems = [
