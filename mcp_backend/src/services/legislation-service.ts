@@ -335,18 +335,18 @@ export class LegislationService {
 
     // Generate candidate rada_ids with year suffixes in batches (parallel within batch)
     // Most КМУ постанови are from 1993-2026, format: {number}-{YY}-п or {number}-{YYYY}-п
+    // Order: oldest first — legal references typically cite established (older) regulations
     const yearSuffixes = [
-      // Most common recent years first
-      '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015',
-      '2014', '2013', '2012', '2011', '2010', '2009', '2008', '2007', '2006', '2005',
-      '2004', '2003', '2002', '2001', '2000',
-      // 90s use 2-digit format
-      '99', '98', '97', '96', '95', '94', '93',
-      '2025', '2026',
+      // 90s use 2-digit format (oldest first)
+      '93', '94', '95', '96', '97', '98', '99',
+      '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009',
+      '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019',
+      '2020', '2021', '2022', '2023', '2024', '2025', '2026',
     ];
 
-    // Try in parallel batches of 5 to avoid hammering the API
-    const BATCH_SIZE = 5;
+    // Try ALL year suffixes in parallel batches, collect all found, save all, return oldest
+    const allFound: Array<{ candidateId: string; result: any; yearNum: number }> = [];
+    const BATCH_SIZE = 8;
     for (let i = 0; i < yearSuffixes.length; i += BATCH_SIZE) {
       const batch = yearSuffixes.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
@@ -354,7 +354,8 @@ export class LegislationService {
           const candidateId = `${kmuNumber}-${suffix}-п`;
           const result = await this.adapter.fetchLegislation(candidateId);
           if (result && result.metadata && result.metadata.title) {
-            return { candidateId, result };
+            const yearNum = suffix.length === 2 ? 1900 + parseInt(suffix) : parseInt(suffix);
+            return { candidateId, result, yearNum };
           }
           throw new Error('not found');
         })
@@ -362,19 +363,40 @@ export class LegislationService {
 
       for (const res of results) {
         if (res.status === 'fulfilled' && res.value) {
-          const { candidateId, result } = res.value;
-          logger.info(`[resolveKmuRadaId] Resolved KMU:${kmuNumber} → ${candidateId}`, {
-            title: result.metadata.title,
-          });
-          await this.adapter.saveLegislationToDatabase(result.metadata, result.articles);
-          await this.indexArticlesForVectorSearch(candidateId);
-          return candidateId;
+          allFound.push(res.value);
         }
+      }
+
+      // If we found at least one in the oldest batches, stop searching newer years
+      if (allFound.length > 0 && i >= 14) break;
+    }
+
+    if (allFound.length === 0) {
+      logger.warn(`[resolveKmuRadaId] Could not resolve KMU:${kmuNumber} — no valid year suffix found`);
+      return null;
+    }
+
+    // Save all found variants to DB
+    // Sort by year (oldest first) — legal references typically cite older base regulations
+    allFound.sort((a, b) => a.yearNum - b.yearNum);
+
+    for (const found of allFound) {
+      logger.info(`[resolveKmuRadaId] Found KMU:${kmuNumber} variant: ${found.candidateId}`, {
+        title: found.result.metadata.title,
+        year: found.yearNum,
+      });
+      try {
+        await this.adapter.saveLegislationToDatabase(found.result.metadata, found.result.articles);
+        await this.indexArticlesForVectorSearch(found.candidateId);
+      } catch (e: any) {
+        logger.warn(`[resolveKmuRadaId] Failed to save ${found.candidateId}: ${e.message}`);
       }
     }
 
-    logger.warn(`[resolveKmuRadaId] Could not resolve KMU:${kmuNumber} — no valid year suffix found`);
-    return null;
+    // Return the oldest variant (most likely the one being referenced)
+    const chosen = allFound[0];
+    logger.info(`[resolveKmuRadaId] Resolved KMU:${kmuNumber} → ${chosen.candidateId} (oldest of ${allFound.length} variants)`);
+    return chosen.candidateId;
   }
 
   async ensureLegislationExists(radaId: string): Promise<boolean> {
