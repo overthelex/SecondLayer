@@ -59,6 +59,17 @@ export async function diiaAuthInit(req: Request, res: Response): Promise<void> {
       diia_session: requestId,
       diia_deeplink: deeplink,
     });
+
+    // Persist session ID in cookie so GET /auth/diia/callback can resume polling
+    // after Diia app redirects back (mobile same-device flow loses the original tab)
+    res.cookie('diia_session', requestId, {
+      httpOnly: false,
+      secure: true,
+      sameSite: 'lax',
+      maxAge: DIIA_SESSION_TTL * 1000,
+      path: '/',
+    });
+
     res.redirect(`${baseUrl}/login?${params.toString()}`);
   } catch (error: any) {
     logger.error('[Diia] Auth init failed:', error);

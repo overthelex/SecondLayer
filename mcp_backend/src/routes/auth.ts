@@ -160,10 +160,20 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
    */
   router.post('/diia/callback', authController.diiaAuthCallback as any);
 
-  // Diia redirects the user's browser here via GET after auth — redirect to login page
+  // Diia redirects the user's browser here via GET after auth.
+  // On mobile same-device flow the original polling tab is lost,
+  // so pass the session ID from cookie so the login page can resume polling.
   router.get('/diia/callback', (_req, res) => {
     const frontendUrl = `${_req.headers['x-forwarded-proto'] || _req.protocol}://${_req.headers['x-forwarded-host'] || _req.headers.host}`;
-    res.redirect(`${frontendUrl}/login`);
+    const cookieHeader = _req.headers.cookie || '';
+    const match = cookieHeader.match(/(?:^|;\s*)diia_session=([^;]+)/);
+    const diiaSession = match ? decodeURIComponent(match[1]) : null;
+    if (diiaSession) {
+      res.clearCookie('diia_session', { path: '/' });
+      res.redirect(`${frontendUrl}/login?diia_session=${encodeURIComponent(diiaSession)}`);
+    } else {
+      res.redirect(`${frontendUrl}/login?diia_callback=success`);
+    }
   });
 
   /**
