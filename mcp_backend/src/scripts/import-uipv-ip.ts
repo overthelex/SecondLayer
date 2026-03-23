@@ -2,26 +2,28 @@
  * Import intellectual property data from UIPV/NIPO (sis.nipo.gov.ua) into PostgreSQL.
  *
  * Downloads trademarks, patents, utility models, and industrial designs via paginated API.
- * Supports checkpoint/resume for long-running imports (~32h for full dataset).
+ * Supports checkpoint/resume and LOCAL_ADDRESS binding for multi-IP parallelism.
  *
  * Usage:
  *   npx tsx src/scripts/import-uipv-ip.ts [trademarks|patents|utility_models|designs|all]
- *   CONCURRENCY=3 PAGE_SIZE=10 npx tsx src/scripts/import-uipv-ip.ts all
+ *   LOCAL_ADDRESS=172.31.21.255 npx tsx src/scripts/import-uipv-ip.ts trademarks
  *
  * Env vars:
  *   DATABASE_URL or POSTGRES_HOST/PORT/USER/PASSWORD/DB
+ *   LOCAL_ADDRESS — source IP to bind outgoing requests (for multi-IP parallelism)
+ *   RATE_LIMIT — ms between requests (default 1100)
  */
 
 import { Pool } from 'pg';
 import * as fs from 'fs';
 import * as https from 'https';
+import { URL } from 'url';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const API_BASE = 'https://sis.nipo.gov.ua/api/v1/open-data/';
-const RATE_LIMIT_MS = 1100; // 1 req/sec + margin
-const BATCH_INSERT_SIZE = 50;
+const RATE_LIMIT_MS = parseInt(process.env.RATE_LIMIT || '1100');
 const CHECKPOINT_DIR = '/tmp/uipv-import-checkpoints';
-const CONCURRENCY = parseInt(process.env.CONCURRENCY || '1'); // stay at 1 for rate limit
+const LOCAL_ADDRESS = process.env.LOCAL_ADDRESS || undefined;
 
 const OBJ_TYPES: Record<string, { type: number; table: 'trademarks' | 'patents' }> = {
   trademarks:     { type: 4, table: 'trademarks' },
@@ -41,6 +43,13 @@ const pool = new Pool({
   max: 5,
 });
 
+// ── HTTPS agent with localAddress binding ───────────────────────────────────
+const httpsAgent = new https.Agent({
+  localAddress: LOCAL_ADDRESS,
+  keepAlive: true,
+  maxSockets: 2,
+});
+
 // ── Checkpoint ──────────────────────────────────────────────────────────────
 function getCheckpoint(name: string): number {
   const file = `${CHECKPOINT_DIR}/${name}.json`;
@@ -56,45 +65,81 @@ function saveCheckpoint(name: string, page: number, imported: number): void {
   fs.writeFileSync(`${CHECKPOINT_DIR}/${name}.json`, JSON.stringify({ page, imported, ts: new Date().toISOString() }));
 }
 
-// ── HTTP fetch with retry ───────────────────────────────────────────────────
-async function fetchJSON(url: string, retries = 3): Promise<any> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(url, {
-        headers: { 'Accept': 'application/json', 'User-Agent': 'SecondLayer-Legal-Platform/1.0' },
-        signal: AbortSignal.timeout(30000),
-      });
-      if (response.status === 429) {
-        console.warn(`  ⏳ Rate limited, waiting 5s (attempt ${attempt}/${retries})`);
-        await sleep(5000);
-        continue;
-      }
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      return await response.json();
-    } catch (err: any) {
-      if (attempt === retries) throw err;
-      console.warn(`  ⚠️ Fetch error (attempt ${attempt}/${retries}): ${err.message}`);
-      await sleep(2000 * attempt);
-    }
-  }
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ── HTTP fetch with localAddress binding ────────────────────────────────────
+function fetchJSON(url: string, retries = 3): Promise<any> {
+  return new Promise(async (resolve, reject) => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const result = await doFetch(url);
+        return resolve(result);
+      } catch (err: any) {
+        if (err.statusCode === 429) {
+          console.warn(`  ⏳ Rate limited, waiting 5s (attempt ${attempt}/${retries})`);
+          await sleep(5000);
+          continue;
+        }
+        if (attempt === retries) return reject(err);
+        console.warn(`  ⚠️ Fetch error (attempt ${attempt}/${retries}): ${err.message}`);
+        await sleep(2000 * attempt);
+      }
+    }
+    reject(new Error('All retries exhausted'));
+  });
+}
+
+function doFetch(url: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const options: https.RequestOptions = {
+      hostname: parsed.hostname,
+      path: parsed.pathname + parsed.search,
+      method: 'GET',
+      agent: httpsAgent,
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'SecondLayer-Legal-Platform/1.0',
+      },
+      timeout: 30000,
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode === 429) {
+          return reject(Object.assign(new Error('Rate limited'), { statusCode: 429 }));
+        }
+        if (res.statusCode && res.statusCode >= 400) {
+          return reject(new Error(`HTTP ${res.statusCode}: ${data.slice(0, 200)}`));
+        }
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(new Error(`JSON parse error: ${data.slice(0, 200)}`));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+    req.end();
+  });
 }
 
 // ── Extract trademark fields ────────────────────────────────────────────────
 function extractTrademark(record: any): any[] {
   const data = record.data || {};
 
-  // Mark text
   let markText = '';
   const wordMark = record.WordMarkSpecification?.MarkSignificantVerbalElement;
   if (Array.isArray(wordMark)) {
     markText = wordMark.map((w: any) => w['#text'] || '').filter(Boolean).join(' ');
   }
 
-  // Holder
   let holderName = '', holderEdrpou = '', holderCountry = '';
   const holders = data.HolderDetails?.Holder;
   if (Array.isArray(holders) && holders.length > 0) {
@@ -104,7 +149,6 @@ function extractTrademark(record: any): any[] {
     holderCountry = h?.Address?.AddressCountryCode || '';
   }
 
-  // Applicant
   let applicantName = '', applicantEdrpou = '';
   const applicants = data.ApplicantDetails?.Applicant;
   if (Array.isArray(applicants) && applicants.length > 0) {
@@ -113,7 +157,6 @@ function extractTrademark(record: any): any[] {
     applicantEdrpou = a?.Name?.FreeFormatName?.EDRPOU || '';
   }
 
-  // Nice classes
   const classDescs = data.GoodsServicesDetails?.GoodsServices?.ClassDescriptionDetails?.ClassDescription;
   let niceClasses: number[] = [];
   let niceDescriptions = '';
@@ -150,7 +193,6 @@ function extractTrademark(record: any): any[] {
 function extractPatent(record: any, objType: number): any[] {
   const data = record.data || {};
 
-  // Title
   const titles = data['I_54'];
   let titleUa = '', titleEn = '';
   if (Array.isArray(titles) && titles.length > 0) {
@@ -158,7 +200,6 @@ function extractPatent(record: any, objType: number): any[] {
     titleEn = titles[0]?.['I_54.E'] || '';
   }
 
-  // Abstract
   let abstractUa = '';
   const abs = data['AB'];
   if (Array.isArray(abs)) {
@@ -166,10 +207,8 @@ function extractPatent(record: any, objType: number): any[] {
     abstractUa = uaAbs?.['AB.T'] || '';
   }
 
-  // IPC codes
   const ipcCodes = Array.isArray(data['IPC']) ? data['IPC'] : [];
 
-  // Owner
   let ownerName = '', ownerCountry = '';
   const owners = data['I_73'];
   if (Array.isArray(owners) && owners.length > 0) {
@@ -177,14 +216,11 @@ function extractPatent(record: any, objType: number): any[] {
     ownerCountry = owners[0]?.['I_73.C'] || '';
   }
 
-  // Inventors
   const inventors = data['I_72'];
   let inventorNames: string[] = [];
   if (Array.isArray(inventors)) {
     inventorNames = inventors.map((i: any) => i['I_72.N.U'] || i['I_72.N.R'] || '').filter(Boolean);
   }
-
-  const status = data.registration_status_color || null;
 
   return [
     objType,
@@ -200,7 +236,7 @@ function extractPatent(record: any, objType: number): any[] {
     ownerName || null,
     ownerCountry || null,
     inventorNames.length > 0 ? inventorNames : null,
-    status,
+    data.registration_status_color || null,
     record.last_update || null,
     JSON.stringify(data),
   ];
@@ -209,20 +245,14 @@ function extractPatent(record: any, objType: number): any[] {
 // ── Batch insert ────────────────────────────────────────────────────────────
 async function insertTrademarks(rows: any[][]): Promise<number> {
   if (rows.length === 0) return 0;
-
   const values: any[] = [];
   const placeholders: string[] = [];
   let idx = 1;
-
   for (const r of rows) {
     const ph = [];
-    for (const val of r) {
-      ph.push(`$${idx++}`);
-      values.push(val);
-    }
+    for (const val of r) { ph.push(`$${idx++}`); values.push(val); }
     placeholders.push(`(${ph.join(',')})`);
   }
-
   const sql = `
     INSERT INTO opendata_trademarks
       (app_number, app_date, registration_number, registration_date, expiry_date,
@@ -248,20 +278,14 @@ async function insertTrademarks(rows: any[][]): Promise<number> {
 
 async function insertPatents(rows: any[][]): Promise<number> {
   if (rows.length === 0) return 0;
-
   const values: any[] = [];
   const placeholders: string[] = [];
   let idx = 1;
-
   for (const r of rows) {
     const ph = [];
-    for (const val of r) {
-      ph.push(`$${idx++}`);
-      values.push(val);
-    }
+    for (const val of r) { ph.push(`$${idx++}`); values.push(val); }
     placeholders.push(`(${ph.join(',')})`);
   }
-
   const sql = `
     INSERT INTO opendata_patents
       (obj_type, obj_type_name, app_number, app_date, registration_number, registration_date,
@@ -293,9 +317,8 @@ async function importDataset(name: string): Promise<void> {
   let page = getCheckpoint(checkpointName);
   let totalImported = 0;
 
-  // First request to get total count
   const firstUrl = `${API_BASE}?obj_type=${config.type}&obj_state=2&page=${page}`;
-  console.log(`\n📦 Starting ${name} (obj_type=${config.type}) from page ${page}...`);
+  console.log(`\n📦 ${name} (obj_type=${config.type}) from page ${page}, IP: ${LOCAL_ADDRESS || 'default'}`);
   const firstResp = await fetchJSON(firstUrl);
   const totalRecords = firstResp.count;
   const resultsPerPage = firstResp.results?.length || 10;
@@ -304,12 +327,12 @@ async function importDataset(name: string): Promise<void> {
 
   let currentResp = firstResp;
   const startTime = Date.now();
+  const startPage = page;
 
   while (currentResp) {
     const records = currentResp.results || [];
     if (records.length === 0) break;
 
-    // Extract and batch insert
     const batch: any[][] = [];
     for (const record of records) {
       try {
@@ -319,7 +342,7 @@ async function importDataset(name: string): Promise<void> {
           batch.push(extractPatent(record, config.type));
         }
       } catch (err: any) {
-        console.warn(`  ⚠️ Skip record ${record.app_number}: ${err.message}`);
+        console.warn(`  ⚠️ Skip ${record.app_number}: ${err.message}`);
       }
     }
 
@@ -328,25 +351,22 @@ async function importDataset(name: string): Promise<void> {
       : await insertPatents(batch);
     totalImported += inserted;
 
-    // Progress
-    if (page % 100 === 0 || page === 1) {
+    if (page % 200 === 0 || page === startPage) {
       const elapsed = (Date.now() - startTime) / 1000;
-      const pagesPerSec = (page - getCheckpoint(checkpointName) + 1) / elapsed;
+      const pagesPerSec = Math.max(0.01, (page - startPage + 1) / elapsed);
       const remaining = (totalPages - page) / pagesPerSec;
       console.log(
         `   Page ${page.toLocaleString()}/${totalPages.toLocaleString()} | ` +
-        `Imported: ${totalImported.toLocaleString()} | ` +
-        `Speed: ${pagesPerSec.toFixed(1)} pages/s | ` +
+        `${totalImported.toLocaleString()} rows | ` +
+        `${pagesPerSec.toFixed(2)} p/s | ` +
         `ETA: ${(remaining / 3600).toFixed(1)}h`
       );
     }
 
-    // Checkpoint every 500 pages
     if (page % 500 === 0) {
       saveCheckpoint(checkpointName, page, totalImported);
     }
 
-    // Next page
     if (!currentResp.next) break;
     await sleep(RATE_LIMIT_MS);
     page++;
@@ -355,45 +375,39 @@ async function importDataset(name: string): Promise<void> {
   }
 
   saveCheckpoint(checkpointName, page, totalImported);
-  console.log(`✅ ${name}: imported ${totalImported.toLocaleString()} records (${page} pages)`);
+  console.log(`✅ ${name}: ${totalImported.toLocaleString()} records (${page} pages)`);
 }
 
 // ── Entry point ─────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
   const arg = process.argv[2] || 'all';
   console.log('═══════════════════════════════════════════════════════════════');
-  console.log('🏛️  UIPV/NIPO Intellectual Property Import');
+  console.log(`🏛️  UIPV Import | IP: ${LOCAL_ADDRESS || 'default'} | Rate: ${RATE_LIMIT_MS}ms`);
   console.log('═══════════════════════════════════════════════════════════════');
 
-  const datasets = arg === 'all'
-    ? Object.keys(OBJ_TYPES)
-    : [arg];
+  const datasets = arg === 'all' ? Object.keys(OBJ_TYPES) : arg.split(',');
 
   for (const ds of datasets) {
-    if (!OBJ_TYPES[ds]) {
-      console.error(`❌ Unknown dataset: ${ds}. Options: ${Object.keys(OBJ_TYPES).join(', ')}, all`);
+    if (!OBJ_TYPES[ds.trim()]) {
+      console.error(`❌ Unknown: ${ds}. Options: ${Object.keys(OBJ_TYPES).join(', ')}, all`);
       process.exit(1);
     }
   }
 
   try {
-    // Test DB connection
-    const { rows } = await pool.query('SELECT 1');
-    console.log('✅ Database connected');
-
+    await pool.query('SELECT 1');
+    console.log('✅ DB connected');
     for (const ds of datasets) {
-      await importDataset(ds);
+      await importDataset(ds.trim());
     }
   } finally {
     await pool.end();
   }
 
-  console.log('\n═══════════════════════════════════════════════════════════════');
-  console.log('🎉 Import complete!');
-  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('\n🎉 Import complete!');
 }
 
 main().catch(err => {
-  console.error('❌ Fatal error:', err);
+  console.error('❌ Fatal:', err);
   process.exit(1);
 });
