@@ -760,6 +760,7 @@ services:
         - VITE_AUTO_EXPAND_THINKING=true
         - GIT_SHA=${GIT_SHA:-unknown}
         - APP_VERSION=${APP_VERSION:-dev}
+        - APP_FRONTEND_VERSION=${APP_FRONTEND_VERSION:-dev}
     image: lexwebapp-prod:latest
     container_name: lexwebapp-prod
     ports:
