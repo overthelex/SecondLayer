@@ -161,8 +161,12 @@ export class IntentClassifier {
 
       // Regex-based queryType coercions when LLM defaults to legal_consultation
       if (queryType === 'legal_consultation') {
+        // Legislation amendment history: "зміни до закону", "редакції", "історія змін", "еволюція норми"
+        if (/зміни?.{0,30}(?:закон|норм|стат|редакц|пункт|постанов)|редакці[яї]|історі[яї].{0,20}(?:змін|закон|норм)|еволюці[яї].{0,20}норм/i.test(query)) {
+          queryType = 'legislation_lookup';
+        }
         // Legislation: "ст. 16 ЦК", "стаття 382 КК", "ч. 3 ст. 16"
-        if (/ст(?:атт[яію])?\.?\s?\d+/i.test(query) || /(?:^|\s)(?:ЦК|КК|ГПК|ЦПК|КАС|ГК|ЗК|СК|КЗпП)(?:\s|$|[,.])/i.test(query)) {
+        else if (/ст(?:атт[яію])?\.?\s?\d+/i.test(query) || /(?:^|\s)(?:ЦК|КК|ГПК|ЦПК|КАС|ГК|ЗК|СК|КЗпП)(?:\s|$|[,.])/i.test(query)) {
           queryType = 'legislation_lookup';
         }
         // Registry: ЄДРПОУ, 8-digit code, ТОВ/ПАТ/ФОП lookup
@@ -252,11 +256,27 @@ export class IntentClassifier {
         }
       }
 
+      // Determine queryType from keywords instead of always defaulting to legal_consultation
+      let fallbackQueryType: QueryType = 'legal_consultation';
+      if (/зміни?.{0,30}(?:закон|норм|стат|редакц|пункт|постанов)|редакці[яї]|історі[яї].{0,20}(?:змін|закон|норм)|еволюці[яї].{0,20}норм/i.test(query)) {
+        fallbackQueryType = 'legislation_lookup';
+      } else if (/стат(?:т[яі]|ей).{0,20}(?:кодекс|закон|ЦК|ГК|КК|КПК|ЦПК|ГПК|КАС)/i.test(query) || /(?:кодекс|закон).{0,30}стат/i.test(query)) {
+        fallbackQueryType = 'legislation_lookup';
+      } else if (/практик[аи]|судов[аіі].{0,20}практик|як суди/i.test(query)) {
+        fallbackQueryType = 'practice_analysis';
+      } else if (/порівня|негаторн|віндикаційн|який спосіб захисту/i.test(query)) {
+        fallbackQueryType = 'comparative_analysis';
+      } else if (/ЄДРПОУ|edrpou|ТОВ |ПАТ |юридичн.{0,10}особ|компані|підприємств/i.test(query)) {
+        fallbackQueryType = 'registry_lookup';
+      } else if (fallbackSlots.case_number) {
+        fallbackQueryType = 'case_lookup';
+      }
+
       return {
         domains: intent.domains,
         keywords: query,
         slots: Object.keys(fallbackSlots).length > 0 ? fallbackSlots : undefined,
-        queryType: 'legal_consultation' as QueryType,
+        queryType: fallbackQueryType,
       };
     }
   }
