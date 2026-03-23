@@ -159,6 +159,8 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
    * @access  Public
    */
   router.post('/diia/callback', authController.diiaAuthCallback as any);
+
+  // Diia redirects the user's browser here via GET after auth — redirect to login page
   router.get('/diia/callback', (_req, res) => {
     const frontendUrl = `${_req.headers['x-forwarded-proto'] || _req.protocol}://${_req.headers['x-forwarded-host'] || _req.headers.host}`;
     res.redirect(`${frontendUrl}/login`);
