@@ -109,11 +109,10 @@ export async function diiaAuthCallback(req: Request, res: Response): Promise<Res
 
     const email = `diia_${traceId.substring(0, 16)}@diia.legal.org.ua`;
     const name = 'Дія Користувач';
-
     let user = await userService.findByEmail(email);
     if (!user) {
       user = await userService.createUser({
-        googleId: '',
+        googleId: null,
         email,
         name,
         emailVerified: true,
