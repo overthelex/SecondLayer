@@ -29,6 +29,34 @@ import { authService } from '../../services';
 import showToast from '../../utils/toast';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
 import { GDPRModal } from './GDPRModal';
+import { useLoginT, setLocale as setI18nLocale, type Locale } from '../../i18n/locales';
+
+function LanguageSwitcher() {
+  const { locale } = useLoginT();
+  const langs: { code: Locale; label: string }[] = [
+    { code: 'uk', label: 'UA' },
+    { code: 'en', label: 'EN' },
+    { code: 'de', label: 'DE' },
+    { code: 'es', label: 'ES' },
+  ];
+  return (
+    <div className="flex items-center gap-1">
+      {langs.map((l) => (
+        <button
+          key={l.code}
+          onClick={() => { setI18nLocale(l.code); window.location.reload(); }}
+          className={`px-2 py-1 text-[10px] tracking-wider uppercase rounded transition-colors ${
+            locale === l.code
+              ? 'text-white bg-zinc-800'
+              : 'text-zinc-600 hover:text-zinc-400'
+          }`}
+        >
+          {l.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const BASE_URL = API_URL.replace(/\/api$/, '');
@@ -224,6 +252,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLoginT();
 
   const getReturnUrl = (): string => {
     const saved = sessionStorage.getItem('login_return_url');
@@ -526,7 +555,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           <div className="w-10 h-10 rounded-full border border-zinc-800 flex items-center justify-center">
             <Loader2 size={18} className="text-zinc-500 animate-spin" />
           </div>
-          <p className="text-[10px] text-zinc-700 tracking-[0.2em] uppercase">Автентифікація</p>
+          <p className="text-[10px] text-zinc-700 tracking-[0.2em] uppercase">{t.authenticating}</p>
         </div>
       </div>
     );
@@ -563,25 +592,25 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <div>
               <div className="mb-4">
                 <span className="inline-block text-[9px] font-semibold tracking-[0.22em] uppercase text-zinc-600 border border-zinc-800/80 px-2.5 py-1 rounded-sm">
-                  Для юридичних фірм
+                  {t.tagline}
                 </span>
               </div>
               <h1 className="text-[2.6rem] xl:text-[2.9rem] font-semibold text-white leading-[1.1] tracking-tight">
-                Правовий аналіз.<br />
-                <span className="text-zinc-500">На рівні партнера.</span>
+                {t.headline1}<br />
+                <span className="text-zinc-500">{t.headline2}</span>
               </h1>
               <p className="mt-5 text-[0.875rem] text-zinc-500 leading-relaxed max-w-[340px]">
-                AI-платформа для юридичних фірм та корпоративних юристів: аналіз справ, пошук по рішеннях судів, моніторинг законодавства.
+                {t.description}
               </p>
             </div>
 
             {/* Feature list — architectural numbered style */}
             <div className="border-l border-zinc-800/80">
               {[
-                { label: 'Семантичний пошук по мільйонам судових рішень', number: '01' },
-                { label: 'Аналіз практики і правових позицій', number: '02' },
-                { label: 'Моніторинг змін у законодавстві', number: '03' },
-                { label: 'Підготовка правових позицій з джерелами', number: '04' },
+                { label: t.feature01, number: '01' },
+                { label: t.feature02, number: '02' },
+                { label: t.feature03, number: '03' },
+                { label: t.feature04, number: '04' },
               ].map((feature, i) => (
                 <div
                   key={feature.number}
@@ -650,6 +679,11 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         {/* Semi-transparent backdrop for readability */}
         <div className="absolute inset-0" style={{ background: 'rgba(8,8,8,0.65)' }} />
 
+        {/* Language switcher — top right */}
+        <div className="absolute top-6 right-6 z-20">
+          <LanguageSwitcher />
+        </div>
+
         {/* Mobile logo */}
         <div className="lg:hidden mb-10 self-start relative z-10">
           <img src="/Image.jpg" alt="SecondLayer" className="h-8 w-auto opacity-90" />
@@ -662,7 +696,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           {/* Heading */}
           <div className="mb-8">
             <h2 className="text-[1.5rem] font-semibold text-white tracking-tight leading-tight mb-2">
-              {isLogin ? 'Вхід до платформи' : 'Створити акаунт'}
+              {isLogin ? t.loginTitle : t.registerTitle}
             </h2>
             <p className="text-[0.775rem] text-zinc-600 tracking-wide">
               {isLogin
@@ -782,7 +816,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
             </svg>
-            {isLogin ? 'Увійти через Google' : 'Зареєструватися через Google'}
+            {t.googleAuth}
           </button>
 
           {/* Diia Auth */}
@@ -791,7 +825,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             className="w-full flex items-center justify-center gap-3 px-4 py-[11px] rounded-lg bg-[#080808] border border-zinc-800 text-zinc-300 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 active:bg-zinc-900/60 transition-colors duration-150 mb-2.5"
           >
             <img src="/diia-logo.png" alt="Дія" width="19" height="19" className="flex-shrink-0 rounded-[4px]" />
-            {isLogin ? 'Увійти через Дію' : 'Зареєструватися через Дію'}
+            {t.diiaAuth}
           </button>
 
           {/* SSO */}
@@ -800,7 +834,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             className={`w-full flex items-center justify-center gap-2.5 px-4 py-[11px] bg-[#080808] border border-zinc-800 text-zinc-600 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 hover:text-zinc-400 active:bg-zinc-900/60 transition-colors duration-150 ${showSSOForm ? 'rounded-t-lg' : 'rounded-lg mb-5'}`}
           >
             <ShieldCheck size={14} className="flex-shrink-0" />
-            {isLogin ? 'Увійти через SSO' : 'Зареєструватися через SSO'}
+            {t.ssoAuth}
           </button>
 
           <AnimatePresence>
@@ -1018,7 +1052,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     <Loader2 size={14} className="animate-spin" />
                   ) : (
                     <>
-                      {isLogin ? 'Увійти' : 'Зареєструватися'}
+                      {isLogin ? t.loginButton : t.registerButton}
                       <ArrowRight size={13} />
                     </>
                   )}
@@ -1079,12 +1113,12 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
           {/* Toggle login / register */}
           <p className="text-center text-[12px] text-zinc-700 mt-6">
-            {isLogin ? 'Немає акаунту?' : 'Вже є акаунт?'}{' '}
+            {isLogin ? t.noAccount : t.hasAccount}{' '}
             <button
               onClick={() => { setIsLogin(!isLogin); setError(null); setPassword(''); resetConsents(); }}
               className="text-zinc-400 hover:text-white transition-colors duration-150 font-medium"
             >
-              {isLogin ? 'Зареєструватися' : 'Увійти'}
+              {isLogin ? t.createAccount : t.signIn}
             </button>
           </p>
 
