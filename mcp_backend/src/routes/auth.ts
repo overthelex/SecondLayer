@@ -1,6 +1,6 @@
 /**
  * Authentication Routes
- * Handles Google OAuth, password auth, registration, email verification, and password reset
+ * Handles Google OAuth, Diia, password auth, registration, email verification, and password reset
  */
 
 import { Router } from 'express';
