@@ -62,6 +62,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
+    "@aws-sdk/client-bedrock": "^3.1014.0",
     "@aws-sdk/client-s3": "^3.1005.0",
     "@aws-sdk/client-sqs": "^3.1005.0",
     "@google-cloud/vision": "^5.3.4",
