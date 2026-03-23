@@ -98,11 +98,20 @@ async function fetchOwners(edrpou: string, reportDate: string, retries = 3): Pro
 async function insertOwners(records: any[]): Promise<number> {
   if (records.length === 0) return 0;
 
+  // Deduplicate within batch by unique key
+  const seen = new Set<string>();
+  const deduped = records.filter(r => {
+    const key = `${r.fid || REPORT_DATE}|${r.z_edre || ''}|${r.z_kedevl && r.z_kedevl !== '.' ? r.z_kedevl : ''}|${r.z_namev1 || ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
   const values: any[] = [];
   const placeholders: string[] = [];
   let idx = 1;
 
-  for (const r of records) {
+  for (const r of deduped) {
     const ph = [];
     const fields = [
       r.fid || REPORT_DATE,
