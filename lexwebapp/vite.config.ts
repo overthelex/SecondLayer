@@ -24,7 +24,12 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_APP_VERSION': JSON.stringify(
         process.env.APP_VERSION ||
         (() => { try { return execSync('git tag -l "v*" --sort=-version:refname 2>/dev/null').toString().trim().split('\n')[0]; } catch { return ''; } })() ||
-        (() => { try { return fs.readFileSync(path.resolve(__dirname, '..', 'VERSION'), 'utf8').trim(); } catch { return 'dev'; } })()
+        (() => { try { const v = fs.readFileSync(path.resolve(__dirname, '..', 'VERSION'), 'utf8'); const m = v.match(/BACKEND_VERSION=(.+)/); return m ? m[1] : v.trim(); } catch { return 'dev'; } })()
+      ),
+      'import.meta.env.VITE_APP_FRONTEND_VERSION': JSON.stringify(
+        process.env.APP_FRONTEND_VERSION ||
+        (() => { try { return execSync('git tag -l "fe-v*" --sort=-version:refname 2>/dev/null').toString().trim().split('\n')[0]; } catch { return ''; } })() ||
+        (() => { try { const v = fs.readFileSync(path.resolve(__dirname, '..', 'VERSION'), 'utf8'); const m = v.match(/FRONTEND_VERSION=(.+)/); return m ? m[1] : ''; } catch { return ''; } })()
       ),
     },
     build: {

@@ -212,10 +212,19 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
             <div className="h-12 flex items-center">
               <img src="/Image.jpg" alt="Lex" className="h-full w-auto object-contain" />
             </div>
-            {import.meta.env.VITE_APP_VERSION && (
-              <span className="text-[9px] text-claude-subtext/40 font-mono tracking-tight">
-                {import.meta.env.VITE_APP_VERSION}
-              </span>
+            {(import.meta.env.VITE_APP_VERSION || import.meta.env.VITE_APP_FRONTEND_VERSION) && (
+              <div className="flex flex-col">
+                {import.meta.env.VITE_APP_VERSION && (
+                  <span className="text-[9px] text-claude-subtext/40 font-mono tracking-tight">
+                    be {import.meta.env.VITE_APP_VERSION}
+                  </span>
+                )}
+                {import.meta.env.VITE_APP_FRONTEND_VERSION && (
+                  <span className="text-[9px] text-claude-subtext/40 font-mono tracking-tight">
+                    fe {import.meta.env.VITE_APP_FRONTEND_VERSION}
+                  </span>
+                )}
+              </div>
             )}
           </div>
           <button onClick={onClose} className="lg:hidden p-1.5 text-claude-subtext hover:text-claude-text hover:bg-zinc-200/60 rounded-md transition-colors duration-150">
