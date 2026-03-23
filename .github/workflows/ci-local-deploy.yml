@@ -86,13 +86,13 @@ jobs:
           node-version: 20
 
       - name: Build shared package
-        run: cd packages/shared && npm ci && npm run build
+        run: cd packages/shared && npm install && npm run build
 
       # Backend/RADA/OpenReyestr integration tests require running infrastructure (DB, Redis, MinIO).
       # CI runs TypeScript compilation + unit tests (mocked, no infra needed).
       - name: Build backend
         if: needs.detect-changes.outputs.backend == 'true'
-        run: cd mcp_backend && npm ci && npm run build
+        run: cd mcp_backend && npm install && npm run build
 
       - name: Unit test backend (controllers)
         if: needs.detect-changes.outputs.backend == 'true'
@@ -100,17 +100,17 @@ jobs:
 
       - name: Build RADA
         if: needs.detect-changes.outputs.rada == 'true'
-        run: cd mcp_rada && npm ci && npm run build
+        run: cd mcp_rada && npm install && npm run build
 
       - name: Build OpenReyestr
         if: needs.detect-changes.outputs.openreyestr == 'true'
-        run: cd mcp_openreyestr && npm ci && npm run build
+        run: cd mcp_openreyestr && npm install && npm run build
 
       - name: Test frontend
         if: needs.detect-changes.outputs.frontend == 'true'
         run: |
           cd lexwebapp
-          npm ci --install-strategy=nested
+          npm install
           npm test
           npm run build
         env:
