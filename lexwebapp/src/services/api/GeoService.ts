@@ -29,10 +29,12 @@ const TZ_COUNTRY_MAP: Record<string, string> = {
   'Europe/Prague': 'CZ', 'Europe/Bucharest': 'RO', 'Europe/Sofia': 'BG',
   'Europe/Helsinki': 'FI', 'Europe/Stockholm': 'SE', 'Europe/Oslo': 'NO',
   'Europe/Copenhagen': 'DK', 'Europe/Vienna': 'AT', 'Europe/Zurich': 'CH',
-  'Europe/Brussels': 'BE', 'Europe/Madrid': 'ES', 'Europe/Rome': 'IT',
+  'Europe/Brussels': 'BE', 'Europe/Madrid': 'ES', 'Atlantic/Canary': 'ES', 'Europe/Rome': 'IT',
   'Europe/Lisbon': 'PT', 'Europe/Athens': 'GR', 'Europe/Dublin': 'IE',
   'Europe/Vilnius': 'LT', 'Europe/Riga': 'LV', 'Europe/Zagreb': 'HR',
   'Europe/Ljubljana': 'SI', 'Europe/Bratislava': 'SK', 'Europe/Luxembourg': 'LU',
+  'America/Mexico_City': 'MX', 'America/Buenos_Aires': 'AR', 'America/Bogota': 'CO',
+  'America/Santiago': 'CL', 'America/Lima': 'PE',
 };
 
 const EURO_COUNTRIES = new Set([
@@ -117,8 +119,15 @@ class GeoServiceClass {
       }
     }
 
-    // Language: if browser says Ukrainian, use it
-    const language = (langCode === 'uk' || country === 'UA') ? 'uk' : 'en';
+    // Language: match browser language to supported locales
+    let language: string;
+    if (langCode === 'uk' || country === 'UA') {
+      language = 'uk';
+    } else if (langCode === 'es' || country === 'ES') {
+      language = 'es';
+    } else {
+      language = 'en';
+    }
 
     return {
       country,

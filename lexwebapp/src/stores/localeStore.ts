@@ -7,9 +7,9 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 
-export type AppLanguage = 'uk' | 'en' | 'ru';
+export type AppLanguage = 'uk' | 'en' | 'ru' | 'es';
 export type AppCurrency = 'UAH' | 'USD' | 'EUR';
-export type AppCountry = 'UA' | 'US' | 'GB' | 'DE' | 'FR' | 'NL' | 'EE' | 'OTHER';
+export type AppCountry = 'UA' | 'US' | 'GB' | 'DE' | 'FR' | 'NL' | 'EE' | 'ES' | 'OTHER';
 
 interface LocaleState {
   /** UI language */
@@ -48,8 +48,18 @@ function getDefaultsForCountry(countryCode: string): {
     return { language: 'ru', currency: 'USD', country: 'OTHER' };
   }
 
+  // Spain — Spanish locale
+  if (code === 'ES') {
+    return { language: 'es', currency: 'EUR', country: 'ES' };
+  }
+
+  // Latin America — Spanish locale, USD
+  if (['MX', 'AR', 'CO', 'CL', 'PE', 'EC', 'VE', 'UY', 'PY', 'BO', 'CR', 'PA', 'DO', 'GT', 'HN', 'SV', 'NI', 'CU'].includes(code)) {
+    return { language: 'es', currency: 'USD', country: 'OTHER' };
+  }
+
   // Euro zone
-  if (['DE', 'FR', 'NL', 'EE', 'AT', 'BE', 'ES', 'IT', 'PT', 'FI', 'IE', 'LU', 'SK', 'SI', 'LV', 'LT', 'MT', 'CY', 'GR', 'HR'].includes(code)) {
+  if (['DE', 'FR', 'NL', 'EE', 'AT', 'BE', 'IT', 'PT', 'FI', 'IE', 'LU', 'SK', 'SI', 'LV', 'LT', 'MT', 'CY', 'GR', 'HR'].includes(code)) {
     return { language: 'en', currency: 'EUR', country: (code as AppCountry) || 'OTHER' };
   }
 
