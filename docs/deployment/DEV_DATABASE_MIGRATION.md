@@ -107,7 +107,7 @@ All foreign keys configured with `ON DELETE CASCADE` for data integrity
 
 ## Migration File
 
-**Location:** `/Users/vovkes/ZOMCP/SecondLayer/mcp_backend/src/migrations/apply-all-dev.sql`
+**Location:** `<project-root>/mcp_backend/src/migrations/apply-all-dev.sql`
 
 **How to use:**
 ```bash

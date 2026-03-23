@@ -61,7 +61,7 @@ sudo bash ~/setup-nginx-on-gate.sh
 
 ```bash
 # Back on your local machine, in mcp_backend directory
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 
 # Deploy using the deployment script
 ./deploy.sh deploy
@@ -259,7 +259,7 @@ docker stats secondlayer-app-prod
 
 ```bash
 # From local machine
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 
 # Make your code changes
 # ...

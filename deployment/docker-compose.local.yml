@@ -968,7 +968,7 @@ services:
     ports:
       - "5436:5432"
     volumes:
-      - /home/vovkes/hudoc-storage/pgdata:/var/lib/postgresql/data
+      - ${HUDOC_DATA_PATH:-./hudoc-storage/pgdata}:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${HUDOC_POSTGRES_USER:-hudoc} -d ${HUDOC_POSTGRES_DB:-hudoc_local}"]
       interval: 5s

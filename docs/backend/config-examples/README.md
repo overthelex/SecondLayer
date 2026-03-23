@@ -102,7 +102,7 @@ curl https://mcp.legal.org.ua/health
 
 1. **Зібрати проект:**
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 npm run build
 ```
 
@@ -160,7 +160,7 @@ docker-compose up -d
 
 1. **Запустити HTTP сервер:**
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 npm run dev:http
 ```
 
@@ -271,7 +271,7 @@ curl -X POST http://localhost:3000/api/tools/search_legal_precedents \
 **Проблема:** Server not found
 ```bash
 # Перевірити шлях
-ls -la /Users/vovkes/ZOMCP/SecondLayer/mcp_backend/dist/index.js
+ls -la <project-root>/mcp_backend/dist/index.js
 
 # Зібрати якщо потрібно
 npm run build

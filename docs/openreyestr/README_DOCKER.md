@@ -193,7 +193,7 @@ SECONDARY_LAYER_KEYS=openreyestr-dev-key-2026,openreyestr-prod-key-2026
 JWT_SECRET=openreyestr-jwt-secret-change-in-production
 
 # Data Import
-OPENREYESTR_DATA_PATH=/home/vovkes/SecondLayer/OPENREYESTR
+OPENREYESTR_DATA_PATH=<project-root>/OPENREYESTR
 ```
 
 ## Database Backup and Restore

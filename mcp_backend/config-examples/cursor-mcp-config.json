@@ -4,7 +4,7 @@
     "secondlayer": {
       "command": "node",
       "args": [
-        "/Users/vovkes/ZOMCP/SecondLayer/mcp_backend/dist/index.js"
+        "<project-root>/mcp_backend/dist/index.js"
       ],
       "env": {
         "POSTGRES_HOST": "localhost",

@@ -68,7 +68,7 @@ curl -X POST https://mcp.legal.org.ua/v1/sse \
 To generate additional tokens (for different clients, users, or if the token expires):
 
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 
 # Generate token with default settings (365 days expiration)
 node scripts/generate-jwt-token.js

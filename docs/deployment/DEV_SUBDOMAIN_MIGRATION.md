@@ -26,7 +26,7 @@ Successfully migrated development environment from path-based URLs to subdomain-
 
 ### 1. Docker Compose Configuration Updated
 
-**File:** `/home/vovkes/secondlayer-deployment/docker-compose.dev.yml`
+**File:** `<deployment-root>/docker-compose.dev.yml`
 
 **Changed Environment Variables:**
 
@@ -153,7 +153,7 @@ If the frontend was built with the old URL, you may need to rebuild:
 
 ```bash
 # On your local machine
-cd /Users/vovkes/ZOMCP/SecondLayer/Lexwebapp
+cd <project-root>/lexwebapp
 npm run build
 
 # Copy to gate server

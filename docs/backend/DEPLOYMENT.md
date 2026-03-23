@@ -26,7 +26,7 @@ This guide explains how to deploy the SecondLayer MCP Backend to a production se
 Copy the production environment template and fill in your actual values:
 
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 cp .env.production.template .env.production
 ```
 
@@ -466,7 +466,7 @@ These volumes persist across container restarts.
 For issues or questions:
 - Check logs: `./deploy.sh logs`
 - Review this documentation
-- Check the main project documentation in `/Users/vovkes/ZOMCP/SecondLayer/CLAUDE.md`
+- Check the main project documentation in `<project-root>/CLAUDE.md`
 
 ## Additional Resources
 

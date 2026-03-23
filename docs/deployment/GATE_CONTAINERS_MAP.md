@@ -73,7 +73,7 @@ Stage поддомен временно проксируется на DEV окр
 |-----------|------|-------|-------|
 | **legal-nginx-proxy** | Роутинг между окружениями | 8085 | nginx:1.25-alpine |
 
-**Конфигурация:** `/home/vovkes/secondlayer-deployment/nginx-proxy.conf`
+**Конфигурация:** `<deployment-root>/nginx-proxy.conf`
 
 Этот контейнер получает все запросы от nginx на хосте (порты 80/443) и распределяет по окружениям на основе server_name:
 - `legal.org.ua` → PROD (3001, 8090)

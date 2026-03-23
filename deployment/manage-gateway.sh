@@ -18,16 +18,16 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration
-STAGE_SERVER="gate.lexapp.co.ua"  # For stage environment
-STAGE_USER="vovkes"
-STAGE_REMOTE_PATH="/home/vovkes/SecondLayer/deployment"
+# Configuration — override via environment variables or .env file
+STAGE_SERVER="${STAGE_SERVER:-stage.example.com}"
+STAGE_USER="${STAGE_USER:-deploy}"
+STAGE_REMOTE_PATH="${STAGE_REMOTE_PATH:-/home/${STAGE_USER}/SecondLayer/deployment}"
 DEPLOY_USER="$STAGE_USER"  # Default for lib scripts; overridden per-env in deploy
 
-PROD_SERVER="18.192.189.254"      # AWS EC2 (eu-central-1)
-PROD_USER="ubuntu"
-PROD_SSH_KEY="$HOME/.ssh/secondlayer-prod.pem"
-PROD_REMOTE_PATH="/home/ubuntu/SecondLayer/deployment"
+PROD_SERVER="${PROD_SERVER:-prod.example.com}"
+PROD_USER="${PROD_USER:-ubuntu}"
+PROD_SSH_KEY="${PROD_SSH_KEY:-$HOME/.ssh/secondlayer-prod.pem}"
+PROD_REMOTE_PATH="${PROD_REMOTE_PATH:-/home/${PROD_USER}/SecondLayer/deployment}"
 
 NO_CACHE=""  # Set to "--no-cache" via --no-cache flag
 

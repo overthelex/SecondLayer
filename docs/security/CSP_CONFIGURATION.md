@@ -215,7 +215,7 @@ docker build --platform linux/amd64 --no-cache -f Dockerfile.dev -t lexwebapp-le
 docker save lexwebapp-lexwebapp:dev | gzip > /tmp/lexwebapp-dev-csp.tar.gz
 scp /tmp/lexwebapp-dev-csp.tar.gz gate:/tmp/
 ssh gate "gunzip -c /tmp/lexwebapp-dev-csp.tar.gz | docker load"
-ssh gate "cd /home/vovkes/secondlayer-deployment && docker compose -f docker-compose.dev.yml up -d lexwebapp-dev"
+ssh gate "cd <deployment-root> && docker compose -f docker-compose.dev.yml up -d lexwebapp-dev"
 ```
 
 ### 4. Verified CSP Header

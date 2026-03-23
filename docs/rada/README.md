@@ -408,4 +408,4 @@ MIT
 
 ## Support
 
-For issues or questions, refer to the implementation plan at `/Users/vovkes/.claude/plans/sorted-floating-stardust.md`.
+For issues or questions, refer to the implementation plan at `<internal-plan-reference>`.
