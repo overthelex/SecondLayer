@@ -7,10 +7,10 @@ interface ApiKey {
   id: string;
   name: string;
   key: string;
-  created_at: string;
-  last_used_at: string | null;
-  usage_count: number;
-  is_active: boolean;
+  createdAt: string;
+  lastUsedAt: string | null;
+  usageCount: number;
+  isActive: boolean;
 }
 
 export function ApiKeysPage() {
@@ -159,13 +159,13 @@ export function ApiKeysPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-xs text-txt-muted">
-                    {new Date(key.created_at).toLocaleDateString('uk-UA')}
+                    {new Date(key.createdAt).toLocaleDateString('uk-UA')}
                   </td>
                   <td className="px-4 py-3 text-xs text-txt-muted">
-                    {key.last_used_at ? new Date(key.last_used_at).toLocaleDateString('uk-UA') : '—'}
+                    {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString('uk-UA') : '—'}
                   </td>
                   <td className="px-4 py-3 text-xs text-txt-muted text-right">
-                    {key.usage_count.toLocaleString()}
+                    {(key.usageCount ?? 0).toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
