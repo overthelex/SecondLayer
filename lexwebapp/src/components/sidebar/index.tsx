@@ -213,7 +213,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
               <img src="/Image.jpg" alt="Lex" className="h-full w-auto object-contain" />
             </div>
             {(import.meta.env.VITE_APP_VERSION || import.meta.env.VITE_APP_FRONTEND_VERSION) && (
-              <div className="flex flex-col">
+              <div className="flex flex-col leading-tight">
                 {import.meta.env.VITE_APP_VERSION && (
                   <span className="text-[9px] text-claude-subtext/40 font-mono tracking-tight">
                     be {import.meta.env.VITE_APP_VERSION}
