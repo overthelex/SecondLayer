@@ -31,6 +31,10 @@ export function useAuth() {
     validateToken();
   }, [validateToken]);
 
+  const revalidate = useCallback(() => {
+    validateToken();
+  }, [validateToken]);
+
   const logout = useCallback(() => {
     clearAuth();
     setUser(null);
@@ -42,5 +46,6 @@ export function useAuth() {
     loading,
     isAuthenticated: !!user,
     logout,
+    revalidate,
   };
 }

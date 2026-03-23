@@ -3,6 +3,7 @@ export interface User {
   email: string;
   name: string;
   picture?: string;
+  developerOfferAccepted?: boolean;
 }
 
 export function getToken(): string | null {
