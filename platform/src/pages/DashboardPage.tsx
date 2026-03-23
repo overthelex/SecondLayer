@@ -27,7 +27,7 @@ export function DashboardPage() {
         const keys = keysRes.data.keys || [];
         setData({
           keysCount: keys.length,
-          balance: balanceRes.data.balance || 0,
+          balance: Number(balanceRes.data.balance) || 0,
           firstKey: keys.length > 0 ? keys[0].key : null,
           totalCalls: usageRes.data.total_calls || 0,
         });
