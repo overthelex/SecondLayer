@@ -47,7 +47,7 @@ This document outlines the plan to ensure all production environments are runnin
 The Docker images need to be rebuilt with the updated package.json files that now enforce Node.js 20+.
 
 ```bash
-cd /home/vovkes/SecondLayer/deployment
+cd <project-root>/deployment
 
 # Build both images
 ./manage-gateway.sh build
@@ -110,7 +110,7 @@ Once images are updated on gate server, redeploy containers:
 
 ```bash
 # From local machine
-cd /home/vovkes/SecondLayer/deployment
+cd <project-root>/deployment
 
 # Deploy to all environments
 ./manage-gateway.sh deploy all
@@ -151,7 +151,7 @@ Verify all services are healthy:
 
 ```bash
 # From local machine
-cd /home/vovkes/SecondLayer/deployment
+cd <project-root>/deployment
 ./manage-gateway.sh health
 ```
 
@@ -189,7 +189,7 @@ If issues occur after deployment:
 ### Rollback Code
 ```bash
 # LOCAL
-cd /home/vovkes/SecondLayer
+cd <project-root>
 git revert 0d31ce9  # Node.js 20 upgrade commit
 git revert 6f1745b  # Security fixes commit (if Node 20 issues)
 git push origin main

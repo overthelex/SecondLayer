@@ -295,7 +295,7 @@ const response = await apiClient.executeTool(toolName, params);
 
 ### Build
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/Lexwebapp
+cd <project-root>/lexwebapp
 docker build --platform linux/amd64 -f Dockerfile.dev -t lexwebapp-lexwebapp:dev .
 ```
 
@@ -307,7 +307,7 @@ docker build --platform linux/amd64 -f Dockerfile.dev -t lexwebapp-lexwebapp:dev
 docker save lexwebapp-lexwebapp:dev | gzip > /tmp/lexwebapp-mcp-tools.tar.gz
 scp /tmp/lexwebapp-mcp-tools.tar.gz gate:/tmp/
 ssh gate "gunzip -c /tmp/lexwebapp-mcp-tools.tar.gz | docker load && \
-  cd /home/vovkes/secondlayer-deployment && \
+  cd <deployment-root> && \
   docker compose -f docker-compose.dev.yml up -d lexwebapp-dev"
 ```
 

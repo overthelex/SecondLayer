@@ -1,17 +1,40 @@
-# secondlayer_mobile
+# SecondLayer Mobile
 
-A new Flutter project.
+Mobile client for the SecondLayer legal tech platform, built with Flutter.
+
+## Stack
+
+- **Flutter** (Dart)
+- **Riverpod** — state management
+- **Go Router** — navigation
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+```bash
+# Install Flutter dependencies
+flutter pub get
 
-A few resources to get you started if this is your first Flutter project:
+# Copy environment config
+cp .env.example .env
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+# Run on connected device or emulator
+flutter run
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Environment Variables
+
+See [.env.example](.env.example) for configuration.
+
+- `API_URL` — Backend API base URL
+
+## Project Structure
+
+```
+lib/
+├── features/       # Feature modules (consultation, documents, etc.)
+│   ├── data/       # Repositories, data sources
+│   ├── domain/     # State notifiers, business logic
+│   └── presentation/ # Screens and widgets
+├── navigation/     # Router configuration
+└── shared/         # Common utilities and widgets
+```

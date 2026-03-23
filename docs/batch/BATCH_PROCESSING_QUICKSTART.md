@@ -5,7 +5,7 @@ Process 4000 images and 1000 PDFs with SecondLayer MCP in under 5 minutes.
 ## Step 1: Install Dependencies (1 min)
 
 ```bash
-cd /home/vovkes/SecondLayer
+cd <project-root>
 npm run install:all
 ```
 

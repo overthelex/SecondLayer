@@ -54,7 +54,7 @@ Full implementation of batch document processing system for SecondLayer MCP, opt
 ### 1. Install Dependencies
 
 ```bash
-cd /home/vovkes/SecondLayer
+cd <project-root>
 npm run install:all
 ```
 

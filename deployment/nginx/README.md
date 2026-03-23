@@ -21,7 +21,7 @@ nginx/
 
 ```bash
 # From local machine
-cd /home/vovkes/SecondLayer/deployment
+cd <project-root>/deployment
 
 # Copy to server
 scp -r nginx/ user@178.162.234.145:/tmp/

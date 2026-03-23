@@ -125,7 +125,7 @@ For **Claude Desktop** (claude_desktop_config.json):
     "secondlayer": {
       "command": "node",
       "args": [
-        "/Users/vovkes/ZOMCP/SecondLayer/mcp_backend/dist/index.js"
+        "<project-root>/mcp_backend/dist/index.js"
       ],
       "env": {
         "DATABASE_URL": "postgresql://secondlayer:secondlayer_password@localhost:5432/secondlayer_db",

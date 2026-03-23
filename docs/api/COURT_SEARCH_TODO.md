@@ -171,12 +171,12 @@ curl -X POST https://dev.legal.org.ua/api/tools/search_legal_precedents \
 Після виправлення фронтенду:
 
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/Lexwebapp
+cd <project-root>/lexwebapp
 docker build --platform linux/amd64 -f Dockerfile.dev -t lexwebapp-lexwebapp:dev .
 docker save lexwebapp-lexwebapp:dev | gzip > /tmp/lexwebapp-court-search.tar.gz
 scp /tmp/lexwebapp-court-search.tar.gz gate:/tmp/
 ssh gate "gunzip -c /tmp/lexwebapp-court-search.tar.gz | docker load && \
-  cd /home/vovkes/secondlayer-deployment && \
+  cd <deployment-root> && \
   docker compose -f docker-compose.dev.yml up -d lexwebapp-dev"
 ```
 
@@ -184,7 +184,7 @@ ssh gate "gunzip -c /tmp/lexwebapp-court-search.tar.gz | docker load && \
 
 ## 📚 Документація
 
-Повна документація: `/Users/vovkes/ZOMCP/SecondLayer/docs/COURT_SEARCH_INTEGRATION.md`
+Повна документація: `<project-root>/docs/COURT_SEARCH_INTEGRATION.md`
 
 ---
 

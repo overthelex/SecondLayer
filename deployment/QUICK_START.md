@@ -3,7 +3,7 @@
 ## TL;DR (30 seconds)
 
 ```bash
-cd /home/vovkes/SecondLayer/deployment
+cd <project-root>/deployment
 
 # 1. Create .env from template
 cp .env .env.local

@@ -63,7 +63,7 @@ All three MCP servers support a triple transport system:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/SecondLayer.git
+git clone https://github.com/overthelex/secondlayer.git
 cd SecondLayer
 
 # Install all dependencies

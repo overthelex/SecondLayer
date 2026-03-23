@@ -14,7 +14,7 @@ Since Claude Desktop requires a `command` field, we use a local stdio proxy that
     "SecondLayerMCP": {
       "command": "node",
       "args": [
-        "/Users/vovkes/ZOMCP/SecondLayer/mcp_backend/scripts/mcp-stdio-proxy.js"
+        "<project-root>/mcp_backend/scripts/mcp-stdio-proxy.js"
       ],
       "env": {
         "MCP_REMOTE_URL": "https://mcp.legal.org.ua",
@@ -50,7 +50,7 @@ The local proxy:
 Test the proxy script manually:
 
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 
 # Test with a sample request
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | node scripts/mcp-stdio-proxy.js
@@ -93,7 +93,7 @@ If you get the `command` field required error, stick with the stdio proxy config
 
 3. **Verify the script path** is correct:
    ```bash
-   ls -la /Users/vovkes/ZOMCP/SecondLayer/mcp_backend/scripts/mcp-stdio-proxy.js
+   ls -la <project-root>/mcp_backend/scripts/mcp-stdio-proxy.js
    ```
 
 4. **Restart Claude Desktop** completely (quit and reopen)
@@ -107,7 +107,7 @@ If you get the `command` field required error, stick with the stdio proxy config
 ### "Cannot find module 'axios'"
 
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 npm install axios
 ```
 
