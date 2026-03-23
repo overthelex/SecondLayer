@@ -1164,7 +1164,6 @@ export class OpenReyestrTools {
     if (query) {
       conditions.push(`(
         to_tsvector('simple', current_name) @@ plainto_tsquery('simple', $${paramIndex})
-        OR to_tsvector('simple', array_to_string(old_names, ' ')) @@ plainto_tsquery('simple', $${paramIndex})
         OR current_name ILIKE $${paramIndex + 1}
         OR EXISTS (SELECT 1 FROM unnest(old_names) AS old WHERE old ILIKE $${paramIndex + 1})
       )`);

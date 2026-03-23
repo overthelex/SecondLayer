@@ -15,5 +15,5 @@ CREATE TABLE IF NOT EXISTS street_renamings (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_street_renamings_osm_id ON street_renamings(osm_id);
 CREATE INDEX IF NOT EXISTS idx_street_renamings_current_name_fts ON street_renamings USING gin(to_tsvector('simple', current_name));
-CREATE INDEX IF NOT EXISTS idx_street_renamings_old_names_fts ON street_renamings USING gin(to_tsvector('simple', array_to_string(old_names, ' ')));
+CREATE INDEX IF NOT EXISTS idx_street_renamings_old_names ON street_renamings USING gin(old_names);
 CREATE INDEX IF NOT EXISTS idx_street_renamings_rename_count ON street_renamings(rename_count DESC);
