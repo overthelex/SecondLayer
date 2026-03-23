@@ -119,13 +119,13 @@ export class DiiaService {
   private getAuthBranchBody() {
     return {
       name: 'Авторизація в застосунку Lex / legal.org.ua',
-      email: 'admin@legal.org.ua',
+      email: 'hello@legal.org.ua',
       region: 'м. Київ',
       district: 'Деснянський р-н',
       location: 'м. Київ',
       street: 'вул. 47-а Садова',
       house: '1а',
-      customFullName: 'ФОП Кириченко І.В. — юридична AI-платформа',
+      customFullName: 'ТОВ "Лекс ЕйАй" — юридична AI-платформа',
       customFullAddress: '04132, Україна, м. Київ, вул. 47-а Садова, 1а',
       deliveryTypes: ['api'],
       offerRequestType: 'dynamic',
@@ -345,13 +345,13 @@ export class DiiaService {
   private getSigningBranchBody() {
     return {
       name: 'Підпис документів Lex / legal.org.ua',
-      email: 'admin@legal.org.ua',
+      email: 'hello@legal.org.ua',
       region: 'м. Київ',
       district: 'Деснянський р-н',
       location: 'м. Київ',
       street: 'вул. 47-а Садова',
       house: '1а',
-      customFullName: 'ФОП Кириченко І.В. — юридична AI-платформа',
+      customFullName: 'ТОВ "Лекс ЕйАй" — юридична AI-платформа',
       customFullAddress: '04132, Україна, м. Київ, вул. 47-а Садова, 1а',
       deliveryTypes: ['api'],
       offerRequestType: 'dynamic',
