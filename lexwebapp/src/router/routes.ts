@@ -61,6 +61,7 @@ export const ROUTES = {
   OFFER: '/:lang/offer',
   ATTORNEY_OFFER: '/:lang/attorney-offer',
   MARKETPLACE_RULES: '/:lang/marketplace-rules',
+  DEVELOPER_OFFER: '/:lang/developer-offer',
   OFERTA: '/oferta',
   TERMS: '/:lang/terms',
   PRIVACY: '/:lang/privacy',
@@ -74,6 +75,7 @@ export const ROUTES = {
 
   // Investor
   INVESTOR_LETTER: '/investor',
+  UK_INVESTOR: '/uk_investor',
 
   // Country-specific public pages
   US_DATA_SOURCES: '/us/data-sources',

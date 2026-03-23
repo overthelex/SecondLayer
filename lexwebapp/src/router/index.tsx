@@ -53,6 +53,7 @@ const PaymentSuccessPage = lazyWithRetry(() => import('../pages/PaymentSuccessPa
 const PaymentErrorPage = lazyWithRetry(() => import('../pages/PaymentErrorPage').then(m => ({ default: m.PaymentErrorPage })));
 const OfferPage = lazyWithRetry(() => import('../pages/OfferPage').then(m => ({ default: m.OfferPage })));
 const AttorneyOfferPage = lazyWithRetry(() => import('../pages/AttorneyOfferPage').then(m => ({ default: m.AttorneyOfferPage })));
+const DeveloperOfferPage = lazyWithRetry(() => import('../pages/DeveloperOfferPage').then(m => ({ default: m.DeveloperOfferPage })));
 const MarketplaceRulesPage = lazyWithRetry(() => import('../pages/MarketplaceRulesPage').then(m => ({ default: m.MarketplaceRulesPage })));
 const TermsPage = lazyWithRetry(() => import('../pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const PrivacyPolicyPage = lazyWithRetry(() => import('../pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
@@ -62,6 +63,7 @@ const AiTransparencyPage = lazyWithRetry(() => import('../pages/AiTransparencyPa
 const RefundPolicyPage = lazyWithRetry(() => import('../pages/RefundPolicyPage').then(m => ({ default: m.RefundPolicyPage })));
 const BlogPage = lazyWithRetry(() => import('../pages/BlogPage').then(m => ({ default: m.BlogPage })));
 const InvestorLetterPage = lazyWithRetry(() => import('../pages/InvestorLetterPage').then(m => ({ default: m.InvestorLetterPage })));
+const UKInvestorPage = lazyWithRetry(() => import('../pages/UKInvestorPage').then(m => ({ default: m.UKInvestorPage })));
 
 // -- Data Sources (country pages) --
 const USDataSourcesPage = lazyWithRetry(() => import('../pages/USDataSourcesPage').then(m => ({ default: m.USDataSourcesPage })));
@@ -182,6 +184,10 @@ export const router = createBrowserRouter([
     element: S(AttorneyOfferPage),
   },
   {
+    path: ROUTES.DEVELOPER_OFFER,
+    element: S(DeveloperOfferPage),
+  },
+  {
     path: ROUTES.MARKETPLACE_RULES,
     element: S(MarketplaceRulesPage),
   },
@@ -256,6 +262,10 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.INVESTOR_LETTER,
     element: S(InvestorLetterPage),
+  },
+  {
+    path: ROUTES.UK_INVESTOR,
+    element: S(UKInvestorPage),
   },
   {
     path: ROUTES.REFERRAL_LANDING,
