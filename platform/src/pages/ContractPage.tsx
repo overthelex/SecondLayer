@@ -3,7 +3,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { FileText, Loader2 } from 'lucide-react';
 import { api } from '@/utils/api-client';
-import { useAuth } from '@/hooks/useAuth';
 import content from '@/content/developer-offer-uk.md?raw';
 
 interface Contract {
@@ -15,7 +14,6 @@ interface Contract {
 }
 
 export function ContractPage() {
-  const { user } = useAuth();
   const [contract, setContract] = useState<Contract | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -48,11 +46,11 @@ export function ContractPage() {
           <FileText size={20} className="text-green-600 mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-green-800">
-              Договір №{contract.contractNumber} від {contract.contractDate}
+              Договір №{contract.contractNumber} від {new Date(contract.contractDate).toLocaleDateString('uk-UA')}
             </p>
             <p className="text-xs text-green-700 mt-1">
               Прийнято {new Date(contract.acceptedAt).toLocaleString('uk-UA')}
-              {user?.email && ` • ${user.email}`}
+              {' • contracts@legal.org.ua'}
             </p>
           </div>
         </div>
