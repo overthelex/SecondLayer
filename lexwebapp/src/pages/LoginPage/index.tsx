@@ -250,8 +250,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       const diiaDeeplinkParam = urlParams.get('diia_deeplink');
       const diiaSessionParam = urlParams.get('diia_session');
 
-      if (diiaDeeplinkParam && diiaSessionParam) {
-        setDiiaDeeplink(diiaDeeplinkParam);
+      if (diiaSessionParam) {
+        if (diiaDeeplinkParam) {
+          setDiiaDeeplink(diiaDeeplinkParam);
+        }
         setDiiaSessionId(diiaSessionParam);
         window.history.replaceState({}, '', window.location.pathname);
         return;
@@ -1257,6 +1259,49 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   Зареєструватися
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Diia completing — returned from Diia app, polling in progress */}
+      <AnimatePresence>
+        {diiaSessionId && !diiaDeeplink && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.97, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.97, opacity: 0, y: 8 }}
+              transition={{ duration: 0.2 }}
+              className="relative bg-zinc-950 border border-zinc-800/80 rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center"
+            >
+              <button
+                onClick={() => { setDiiaSessionId(null); }}
+                className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-md text-zinc-700 hover:text-zinc-400 hover:bg-zinc-900 transition-colors"
+              >
+                <X size={14} />
+              </button>
+
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-5">
+                <img src="/diia-logo.png" alt="Дія" width="44" height="44" className="rounded-xl" />
+              </div>
+
+              <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5">Завершення входу</h2>
+              <p className="text-[0.775rem] text-zinc-500 mb-6 leading-relaxed">
+                Обробка авторизації через Дію…
+              </p>
+
+              <Loader2 size={24} className="animate-spin text-zinc-500 mx-auto mb-4" />
+
+              <p className="text-[10px] text-zinc-700">
+                Очікування підтвердження від Дії
+              </p>
             </motion.div>
           </motion.div>
         )}
