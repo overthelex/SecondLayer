@@ -97,21 +97,21 @@ ssh gate "docker exec lexwebapp-dev sh -c 'cat /usr/share/nginx/html/assets/*.js
 ## Configuration Files
 
 ### Docker Compose
-**File:** `/home/vovkes/secondlayer-deployment/docker-compose.dev.yml`
+**File:** `<deployment-root>/docker-compose.dev.yml`
 
 **Key Changes:**
 - Backend: `GOOGLE_CALLBACK_URL`, `FRONTEND_URL`, `ALLOWED_ORIGINS` → `https://dev.legal.org.ua`
 - Frontend: Image changed to `lexwebapp-lexwebapp:dev`
 
 ### Frontend Dockerfile
-**File:** `/Users/vovkes/ZOMCP/SecondLayer/Lexwebapp/Dockerfile.dev`
+**File:** `<project-root>/lexwebapp/Dockerfile.dev`
 
 **Build Command:** `npm run build -- --mode development`
 - Automatically uses `.env.development` file
 - Bakes `VITE_API_URL=https://dev.legal.org.ua` into JavaScript bundle
 
 ### Environment File
-**File:** `/Users/vovkes/ZOMCP/SecondLayer/Lexwebapp/.env.development`
+**File:** `<project-root>/lexwebapp/.env.development`
 
 ```env
 VITE_API_URL=https://dev.legal.org.ua
@@ -210,7 +210,7 @@ If issues occur, rollback to path-based routing:
 
 3. Restart containers:
    ```bash
-   ssh gate "cd /home/vovkes/secondlayer-deployment && \
+   ssh gate "cd <deployment-root> && \
      docker compose -f docker-compose.dev.yml up -d"
    ```
 

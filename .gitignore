@@ -114,10 +114,23 @@ pip
 deployment/nginx/certs/
 deployment/.env.wireguard
 
-# Internal planning docs
+# Internal planning docs & operational guides
 docs/IGOR_LINEAR_TASKS.md
-docs/LEG-52_IMPLEMENTATION_PLAN.md
+docs/LEG-*_IMPLEMENTATION_PLAN.md
+docs/linear-task-*
+docs/linear_vsi_taski_*
 docs/security/LEGAL_TECH_COMPLIANCE_AUDIT.md
+docs/PROD_SSH_ACCESS.md
+
+# Sensitive scripts and configs
+scripts/edrsr/copy-*-to-prod*
+scripts/edrsr/upload-remaining-chunks.py
+
+# Compiled binaries
+scripts/edrsr/bulk-downloader/bulk-downloader
+mobile/android/app/google-services.json
+deployment/wireguard/*.conf
+mcp_backend/start-mcp-container.sh
 
 # Lock files (managed per workspace)
 package-lock.json

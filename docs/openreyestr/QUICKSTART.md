@@ -50,7 +50,7 @@ npm run import:all /path/to/20260126174103-69.zip
 
 Or set the path in `.env`:
 ```env
-OPENREYESTR_DATA_PATH=/home/vovkes/SecondLayer/OPENREYESTR
+OPENREYESTR_DATA_PATH=<project-root>/OPENREYESTR
 ```
 
 Then run:

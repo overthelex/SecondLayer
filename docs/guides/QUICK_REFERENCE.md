@@ -321,5 +321,5 @@ EOF
 ## 📚 Documentation
 
 - Full deployment guide: `OAUTH2_DEPLOYMENT.md`
-- Implementation plan: `/Users/vovkes/.claude/plans/valiant-exploring-taco.md`
+- Implementation plan: `<internal-plan-reference>`
 - Google OAuth docs: https://developers.google.com/identity/protocols/oauth2

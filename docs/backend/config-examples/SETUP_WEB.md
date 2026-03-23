@@ -6,7 +6,7 @@
 
 1. **Проект зібрано:**
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 npm run build
 ```
 

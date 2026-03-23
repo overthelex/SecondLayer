@@ -62,7 +62,7 @@ Set these in GitHub repo Settings → Secrets and variables → Actions:
 | `PROD_SSH_KEY_PATH` | Path to `~/.ssh/secondlayer-prod.pem` on runner | SSH key for prod server |
 
 > **Note**: Since runners are self-hosted, the SSH key already exists on the machine.
-> Set `PROD_SSH_KEY_PATH` to the absolute path, e.g., `/home/vovkes/.ssh/secondlayer-prod.pem`
+> Set `PROD_SSH_KEY_PATH` to the absolute path, e.g., `~/.ssh/secondlayer-prod.pem`
 
 ## GitHub Environment
 

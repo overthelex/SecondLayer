@@ -26,7 +26,7 @@ SecondLayer MCP підтримує два типи підключень:
 
 1. **Збудувати проект:**
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 npm run build
 ```
 
@@ -57,7 +57,7 @@ ls -la dist/index.js
     "secondlayer": {
       "command": "node",
       "args": [
-        "/Users/vovkes/ZOMCP/SecondLayer/mcp_backend/dist/index.js"
+        "<project-root>/mcp_backend/dist/index.js"
       ],
       "env": {
         "POSTGRES_HOST": "localhost",
@@ -115,8 +115,8 @@ tail -f ~/.config/Claude/logs/mcp*.log
 **Логи MCP сервера:**
 ```bash
 # Якщо використовується LOG_LEVEL=debug
-tail -f /Users/vovkes/ZOMCP/SecondLayer/mcp_backend/logs/error.log
-tail -f /Users/vovkes/ZOMCP/SecondLayer/mcp_backend/logs/combined.log
+tail -f <project-root>/mcp_backend/logs/error.log
+tail -f <project-root>/mcp_backend/logs/combined.log
 ```
 
 **Типові проблеми:**

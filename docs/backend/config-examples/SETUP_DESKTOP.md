@@ -9,7 +9,7 @@
 
 2. **Проект зібрано:**
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 npm run build
 ```
 
@@ -47,7 +47,7 @@ nano ~/.config/Claude/claude_desktop_config.json
     "secondlayer": {
       "command": "node",
       "args": [
-        "/Users/vovkes/ZOMCP/SecondLayer/mcp_backend/dist/index.js"
+        "<project-root>/mcp_backend/dist/index.js"
       ],
       "env": {
         "POSTGRES_HOST": "localhost",
@@ -108,7 +108,7 @@ tail -f ~/Library/Logs/Claude/mcp*.log
 
 **MCP Server логи:**
 ```bash
-tail -f /Users/vovkes/ZOMCP/SecondLayer/mcp_backend/logs/combined.log
+tail -f <project-root>/mcp_backend/logs/combined.log
 ```
 
 ## 🐛 Troubleshooting
@@ -120,7 +120,7 @@ tail -f /Users/vovkes/ZOMCP/SecondLayer/mcp_backend/logs/combined.log
 **Рішення:**
 ```bash
 # Перевірити чи файл існує
-ls -la /Users/vovkes/ZOMCP/SecondLayer/mcp_backend/dist/index.js
+ls -la <project-root>/mcp_backend/dist/index.js
 
 # Якщо немає - зібрати
 npm run build
@@ -132,7 +132,7 @@ npm run build
 
 **Рішення:**
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 docker-compose up -d
 docker-compose ps  # Перевірити статус
 ```

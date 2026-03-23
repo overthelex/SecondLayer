@@ -1,7 +1,7 @@
 {
   "name": "secondlayer",
   "version": "1.0.0",
-  "description": "Legal documents analysis platform with MCP server and admin panel",
+  "description": "AI-powered legal tech platform — MCP servers for Ukrainian law",
   "private": true,
   "workspaces": [
     "mcp_backend",
@@ -21,12 +21,19 @@
   },
   "keywords": [
     "mcp",
-    "legal",
-    "admin-panel",
-    "zakononline"
+    "legal-tech",
+    "ai",
+    "court-decisions",
+    "legislation",
+    "ukraine",
+    "semantic-search"
   ],
-  "author": "",
+  "author": "SecondLayer Team",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/overthelex/secondlayer.git"
+  },
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=9.0.0"

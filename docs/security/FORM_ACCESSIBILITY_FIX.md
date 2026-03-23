@@ -144,7 +144,7 @@ Full spec: [HTML autocomplete attribute](https://developer.mozilla.org/en-US/doc
 
 ### 1. Build Frontend
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/Lexwebapp
+cd <project-root>/lexwebapp
 docker build --platform linux/amd64 --no-cache -f Dockerfile.dev -t lexwebapp-lexwebapp:dev .
 ```
 
@@ -157,7 +157,7 @@ scp /tmp/lexwebapp-dev-form-fix.tar.gz gate:/tmp/
 ### 3. Load and Deploy
 ```bash
 ssh gate "gunzip -c /tmp/lexwebapp-dev-form-fix.tar.gz | docker load"
-ssh gate "cd /home/vovkes/secondlayer-deployment && \
+ssh gate "cd <deployment-root> && \
   docker compose -f docker-compose.dev.yml up -d lexwebapp-dev"
 ```
 

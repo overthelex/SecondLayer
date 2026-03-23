@@ -1,7 +1,7 @@
 {
   "name": "secondlayer-mcp",
   "version": "1.0.0",
-  "description": "Second Layer MCP for Zakononline - Semantic legal analysis layer",
+  "description": "SecondLayer MCP Backend — semantic legal analysis, court decisions, legislation",
   "main": "dist/index.js",
   "bin": {
     "secondlayer-mcp": "./bin/mcp-start.js"
@@ -49,11 +49,12 @@
   },
   "keywords": [
     "mcp",
-    "legal",
-    "zakononline",
-    "semantic-search"
+    "legal-tech",
+    "court-decisions",
+    "semantic-search",
+    "ukraine"
   ],
-  "author": "",
+  "author": "SecondLayer Team",
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0",

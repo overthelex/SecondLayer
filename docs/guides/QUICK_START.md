@@ -7,7 +7,7 @@
 ## 🚀 Передумови
 
 ```bash
-cd /Users/vovkes/ZOMCP/SecondLayer/mcp_backend
+cd <project-root>/mcp_backend
 
 # 1. Встановити залежності
 npm install
@@ -30,7 +30,7 @@ docker-compose up -d postgres qdrant redis
   "mcpServers": {
     "secondlayer": {
       "command": "node",
-      "args": ["/Users/vovkes/ZOMCP/SecondLayer/mcp_backend/dist/index.js"],
+      "args": ["<project-root>/mcp_backend/dist/index.js"],
       "env": {
         "POSTGRES_HOST": "localhost",
         "POSTGRES_PORT": "5432",
@@ -72,7 +72,7 @@ docker-compose up -d postgres qdrant redis
   "mcpServers": {
     "secondlayer": {
       "command": "node",
-      "args": ["/Users/vovkes/ZOMCP/SecondLayer/mcp_backend/dist/index.js"],
+      "args": ["<project-root>/mcp_backend/dist/index.js"],
       "env": {
         "POSTGRES_HOST": "localhost",
         "POSTGRES_PORT": "5432",
@@ -312,7 +312,7 @@ curl -H "Authorization: Bearer test-key-123" http://localhost:3000/api/tools | j
 
 ```bash
 # Перевірити чи файл існує
-ls -la /Users/vovkes/ZOMCP/SecondLayer/mcp_backend/dist/index.js
+ls -la <project-root>/mcp_backend/dist/index.js
 
 # Зібрати якщо потрібно
 npm run build
@@ -334,7 +334,7 @@ docker-compose up -d
 tail -f ~/Library/Logs/Claude/mcp*.log
 
 # MCP Server
-tail -f /Users/vovkes/ZOMCP/SecondLayer/mcp_backend/logs/combined.log
+tail -f <project-root>/mcp_backend/logs/combined.log
 ```
 
 ### Web API
