@@ -314,7 +314,7 @@ export class LegislationService {
     // First check if we already have it in DB with any year suffix
     // Only trust DB entries that have title (non-empty = successfully fetched)
     const dbResult = await this.db.query(
-      `SELECT rada_id FROM legislation WHERE rada_id LIKE $1 AND title IS NOT NULL AND title != '' AND total_articles > 0 LIMIT 1`,
+      `SELECT rada_id FROM legislation WHERE rada_id LIKE $1 AND title IS NOT NULL AND title != '' AND total_articles > 0 ORDER BY LENGTH(rada_id) ASC, rada_id ASC LIMIT 1`,
       [`${kmuNumber}-%`]
     );
     if (dbResult.rows.length > 0) {
