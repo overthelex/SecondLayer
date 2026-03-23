@@ -159,6 +159,10 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
    * @access  Public
    */
   router.post('/diia/callback', authController.diiaAuthCallback as any);
+  router.get('/diia/callback', (_req, res) => {
+    const frontendUrl = `${_req.headers['x-forwarded-proto'] || _req.protocol}://${_req.headers['x-forwarded-host'] || _req.headers.host}`;
+    res.redirect(`${frontendUrl}/login`);
+  });
 
   /**
    * @route   GET /auth/diia/status/:sessionId
@@ -198,6 +202,10 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
   });
   router.post('/diia/callback', (_req, res) => {
     res.status(501).json({ error: 'Diia auth is not configured' });
+  });
+  router.get('/diia/callback', (_req, res) => {
+    const frontendUrl = `${_req.headers['x-forwarded-proto'] || _req.protocol}://${_req.headers['x-forwarded-host'] || _req.headers.host}`;
+    res.redirect(`${frontendUrl}/login`);
   });
   router.get('/diia/status/:sessionId', (_req, res) => {
     res.status(501).json({ error: 'Diia auth is not configured' });
