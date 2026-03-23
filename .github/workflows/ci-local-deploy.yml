@@ -402,7 +402,8 @@ jobs:
       needs.local-deploy-and-test.result == 'success'
     environment: production
     outputs:
-      version: ${{ steps.version.outputs.next_version }}
+      backend_version: ${{ steps.version.outputs.backend_version }}
+      frontend_version: ${{ steps.version.outputs.frontend_version }}
     env:
       PROD_SERVER: '18.192.189.254'
       PROD_USER: 'ubuntu'
@@ -417,33 +418,66 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Compute next version
+      - name: Compute next versions (backend + frontend)
         id: version
         run: |
-          LAST_TAG=$(git tag -l "v*" --sort=-version:refname | head -1)
-          if [ -z "$LAST_TAG" ]; then
-            echo "next_version=v1.0.0" >> "$GITHUB_OUTPUT"
-          else
-            CURRENT="${LAST_TAG#v}"
-            MAJOR=$(echo "$CURRENT" | cut -d. -f1)
-            MINOR=$(echo "$CURRENT" | cut -d. -f2)
-            PATCH=$(echo "$CURRENT" | cut -d. -f3)
-            COMMITS=$(git log "${LAST_TAG}..HEAD" --oneline --no-merges)
-            if echo "$COMMITS" | grep -qiE "^[a-f0-9]+ (feat|refactor)!:|BREAKING CHANGE"; then
-              MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
-            elif echo "$COMMITS" | grep -qiE "^[a-f0-9]+ feat(\(|:)"; then
-              MINOR=$((MINOR + 1)); PATCH=0
+          # --- Backend version (v*) ---
+          LAST_BE_TAG=$(git tag -l "v*" --sort=-version:refname | head -1)
+          if [ "$BACKEND_CHANGED" = "true" ] || [ "$RADA_CHANGED" = "true" ] || [ "$OPENREYESTR_CHANGED" = "true" ]; then
+            if [ -z "$LAST_BE_TAG" ]; then
+              BE_VERSION="v1.0.0"
             else
-              PATCH=$((PATCH + 1))
+              CURRENT="${LAST_BE_TAG#v}"
+              MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+              MINOR=$(echo "$CURRENT" | cut -d. -f2)
+              PATCH=$(echo "$CURRENT" | cut -d. -f3)
+              COMMITS=$(git log "${LAST_BE_TAG}..HEAD" --oneline --no-merges -- packages/shared/ mcp_backend/ mcp_rada/ mcp_openreyestr/)
+              if echo "$COMMITS" | grep -qiE "^[a-f0-9]+ (feat|refactor)!:|BREAKING CHANGE"; then
+                MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+              elif echo "$COMMITS" | grep -qiE "^[a-f0-9]+ feat(\(|:)"; then
+                MINOR=$((MINOR + 1)); PATCH=0
+              else
+                PATCH=$((PATCH + 1))
+              fi
+              BE_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
             fi
-            echo "next_version=v${MAJOR}.${MINOR}.${PATCH}" >> "$GITHUB_OUTPUT"
+          else
+            BE_VERSION="${LAST_BE_TAG:-v1.0.0}"
           fi
-          echo "Next version: $(grep next_version "$GITHUB_OUTPUT" | cut -d= -f2)"
+          echo "backend_version=${BE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Backend version: ${BE_VERSION}"
+
+          # --- Frontend version (fe-v*) ---
+          LAST_FE_TAG=$(git tag -l "fe-v*" --sort=-version:refname | head -1)
+          if [ "$FRONTEND_CHANGED" = "true" ]; then
+            if [ -z "$LAST_FE_TAG" ]; then
+              FE_VERSION="fe-v1.0.0"
+            else
+              CURRENT="${LAST_FE_TAG#fe-v}"
+              MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+              MINOR=$(echo "$CURRENT" | cut -d. -f2)
+              PATCH=$(echo "$CURRENT" | cut -d. -f3)
+              COMMITS=$(git log "${LAST_FE_TAG}..HEAD" --oneline --no-merges -- lexwebapp/)
+              if echo "$COMMITS" | grep -qiE "^[a-f0-9]+ (feat|refactor)!:|BREAKING CHANGE"; then
+                MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+              elif echo "$COMMITS" | grep -qiE "^[a-f0-9]+ feat(\(|:)"; then
+                MINOR=$((MINOR + 1)); PATCH=0
+              else
+                PATCH=$((PATCH + 1))
+              fi
+              FE_VERSION="fe-v${MAJOR}.${MINOR}.${PATCH}"
+            fi
+          else
+            FE_VERSION="${LAST_FE_TAG:-fe-v0.0.0}"
+          fi
+          echo "frontend_version=${FE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Frontend version: ${FE_VERSION}"
 
       - name: Deploy changed services to prod (blue-green)
         env:
           PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
-          NEXT_VERSION: ${{ steps.version.outputs.next_version }}
+          BACKEND_VERSION: ${{ steps.version.outputs.backend_version }}
+          FRONTEND_VERSION: ${{ steps.version.outputs.frontend_version }}
         run: |
           SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}"
           REMOTE_REPO="/home/${PROD_USER}/SecondLayer"
@@ -453,8 +487,8 @@ jobs:
           # Pull latest code and tags
           $SSH_CMD "git -C ${REMOTE_REPO} fetch origin main --tags && git -C ${REMOTE_REPO} reset --hard origin/main"
 
-          # Write VERSION file for frontend build (uses computed next version)
-          $SSH_CMD "echo '${NEXT_VERSION}' > ${REMOTE_REPO}/VERSION"
+          # Write VERSION file with both versions
+          $SSH_CMD "printf 'BACKEND_VERSION=%s\nFRONTEND_VERSION=%s\n' '${BACKEND_VERSION}' '${FRONTEND_VERSION}' > ${REMOTE_REPO}/VERSION"
 
           # Build dist on prod
           $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix packages/shared install && npm --prefix packages/shared run build"
@@ -473,7 +507,8 @@ jobs:
           $SSH_CMD bash << DEPLOY_SCRIPT
             set -e
             cd ${REMOTE_REPO}/deployment
-            export APP_VERSION=\$(cat ${REMOTE_REPO}/VERSION 2>/dev/null || echo 'dev')
+            export APP_VERSION=\$(grep 'BACKEND_VERSION=' ${REMOTE_REPO}/VERSION 2>/dev/null | cut -d= -f2 || echo 'dev')
+            export APP_FRONTEND_VERSION=\$(grep 'FRONTEND_VERSION=' ${REMOTE_REPO}/VERSION 2>/dev/null | cut -d= -f2 || echo 'dev')
             DC="docker compose -f docker-compose.prod.yml --env-file .env.prod"
 
             # --- Determine active colors (per service group) ---
@@ -850,48 +885,78 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create release
+      - name: Create releases
         env:
           GH_TOKEN: ${{ github.token }}
           SERVICES_TO_DEPLOY: ${{ needs.detect-changes.outputs.services_to_deploy }}
-          NEXT_VERSION: ${{ needs.deploy-prod.outputs.version }}
+          BACKEND_VERSION: ${{ needs.deploy-prod.outputs.backend_version }}
+          FRONTEND_VERSION: ${{ needs.deploy-prod.outputs.frontend_version }}
+          BACKEND_CHANGED: ${{ needs.detect-changes.outputs.backend }}
+          RADA_CHANGED: ${{ needs.detect-changes.outputs.rada }}
+          OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
+          FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
         run: |
-          LAST_TAG=$(git tag -l "v*" --sort=-version:refname | head -1)
-
-          if [ -z "$LAST_TAG" ]; then
-            COMMITS=$(git log --oneline --no-merges -50)
-          else
-            COMMITS=$(git log "${LAST_TAG}..HEAD" --oneline --no-merges)
+          ANY_BACKEND=false
+          if [ "$BACKEND_CHANGED" = "true" ] || [ "$RADA_CHANGED" = "true" ] || [ "$OPENREYESTR_CHANGED" = "true" ]; then
+            ANY_BACKEND=true
           fi
 
-          # Build changelog grouped by type
-          FEATURES=$(echo "$COMMITS" | grep -iE "^[a-f0-9]+ feat(\(|:)" | sed 's/^[a-f0-9]* /- /' || true)
-          FIXES=$(echo "$COMMITS" | grep -iE "^[a-f0-9]+ fix(\(|:)" | sed 's/^[a-f0-9]* /- /' || true)
-          OTHER=$(echo "$COMMITS" | grep -viE "^[a-f0-9]+ (feat|fix)(\(|:)" | grep -v "^$" | sed 's/^[a-f0-9]* /- /' || true)
+          # --- Backend release ---
+          if [ "$ANY_BACKEND" = "true" ]; then
+            LAST_BE_TAG=$(git tag -l "v*" --sort=-version:refname | head -1)
+            if [ -z "$LAST_BE_TAG" ]; then
+              BE_COMMITS=$(git log --oneline --no-merges -50 -- packages/shared/ mcp_backend/ mcp_rada/ mcp_openreyestr/)
+            else
+              BE_COMMITS=$(git log "${LAST_BE_TAG}..HEAD" --oneline --no-merges -- packages/shared/ mcp_backend/ mcp_rada/ mcp_openreyestr/)
+            fi
 
-          # Build release body
-          BODY="## Deployed Services\n"
-          BODY="${BODY}\n\`${SERVICES_TO_DEPLOY}\`\n"
+            BE_FEATURES=$(echo "$BE_COMMITS" | grep -iE "^[a-f0-9]+ feat(\(|:)" | sed 's/^[a-f0-9]* /- /' || true)
+            BE_FIXES=$(echo "$BE_COMMITS" | grep -iE "^[a-f0-9]+ fix(\(|:)" | sed 's/^[a-f0-9]* /- /' || true)
+            BE_OTHER=$(echo "$BE_COMMITS" | grep -viE "^[a-f0-9]+ (feat|fix)(\(|:)" | grep -v "^$" | sed 's/^[a-f0-9]* /- /' || true)
 
-          if [ -n "$FEATURES" ]; then
-            BODY="${BODY}\n## Features\n${FEATURES}\n"
+            BODY="## Backend Release\n"
+            [ -n "$BE_FEATURES" ] && BODY="${BODY}\n### Features\n${BE_FEATURES}\n"
+            [ -n "$BE_FIXES" ] && BODY="${BODY}\n### Fixes\n${BE_FIXES}\n"
+            [ -n "$BE_OTHER" ] && BODY="${BODY}\n### Other\n${BE_OTHER}\n"
+            BODY="${BODY}\n---\n**Commit:** ${GITHUB_SHA:0:7} | **Runner:** local"
+
+            echo "Creating backend release ${BACKEND_VERSION}"
+            git tag "${BACKEND_VERSION}"
+            git push origin "${BACKEND_VERSION}"
+            printf "%b" "$BODY" | gh release create "${BACKEND_VERSION}" \
+              --title "${BACKEND_VERSION} (Backend)" \
+              --notes-file - \
+              --latest
           fi
-          if [ -n "$FIXES" ]; then
-            BODY="${BODY}\n## Fixes\n${FIXES}\n"
+
+          # --- Frontend release ---
+          if [ "$FRONTEND_CHANGED" = "true" ]; then
+            LAST_FE_TAG=$(git tag -l "fe-v*" --sort=-version:refname | head -1)
+            if [ -z "$LAST_FE_TAG" ]; then
+              FE_COMMITS=$(git log --oneline --no-merges -50 -- lexwebapp/)
+            else
+              FE_COMMITS=$(git log "${LAST_FE_TAG}..HEAD" --oneline --no-merges -- lexwebapp/)
+            fi
+
+            FE_FEATURES=$(echo "$FE_COMMITS" | grep -iE "^[a-f0-9]+ feat(\(|:)" | sed 's/^[a-f0-9]* /- /' || true)
+            FE_FIXES=$(echo "$FE_COMMITS" | grep -iE "^[a-f0-9]+ fix(\(|:)" | sed 's/^[a-f0-9]* /- /' || true)
+            FE_OTHER=$(echo "$FE_COMMITS" | grep -viE "^[a-f0-9]+ (feat|fix)(\(|:)" | grep -v "^$" | sed 's/^[a-f0-9]* /- /' || true)
+
+            BODY="## Frontend Release\n"
+            [ -n "$FE_FEATURES" ] && BODY="${BODY}\n### Features\n${FE_FEATURES}\n"
+            [ -n "$FE_FIXES" ] && BODY="${BODY}\n### Fixes\n${FE_FIXES}\n"
+            [ -n "$FE_OTHER" ] && BODY="${BODY}\n### Other\n${FE_OTHER}\n"
+            BODY="${BODY}\n---\n**Commit:** ${GITHUB_SHA:0:7} | **Runner:** local"
+
+            echo "Creating frontend release ${FRONTEND_VERSION}"
+            git tag "${FRONTEND_VERSION}"
+            git push origin "${FRONTEND_VERSION}"
+
+            # Frontend release is --latest only if no backend release was created
+            LATEST_FLAG=""
+            [ "$ANY_BACKEND" != "true" ] && LATEST_FLAG="--latest"
+            printf "%b" "$BODY" | gh release create "${FRONTEND_VERSION}" \
+              --title "${FRONTEND_VERSION} (Frontend)" \
+              --notes-file - \
+              $LATEST_FLAG
           fi
-          if [ -n "$OTHER" ]; then
-            BODY="${BODY}\n## Other\n${OTHER}\n"
-          fi
-
-          BODY="${BODY}\n---\n**Commit:** ${GITHUB_SHA:0:7} | **Runner:** local"
-
-          echo "Creating release $NEXT_VERSION"
-
-          # Create tag and release
-          git tag "$NEXT_VERSION"
-          git push origin "$NEXT_VERSION"
-
-          printf "%b" "$BODY" | gh release create "$NEXT_VERSION" \
-            --title "$NEXT_VERSION" \
-            --notes-file - \
-            --latest
