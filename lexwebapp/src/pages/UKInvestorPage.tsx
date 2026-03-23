@@ -1,3 +1,4 @@
+// UK Investor Memo — GBP pricing, expanded data assets, British English
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Users, Target, Database, BarChart3,
