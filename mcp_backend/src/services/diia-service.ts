@@ -120,15 +120,15 @@ export class DiiaService {
     const token = await this.getSessionToken();
 
     const branchBody = {
-      name: 'LexAI Auth',
+      name: 'Авторизація в застосунку Lex / legal.org.ua',
       email: 'admin@legal.org.ua',
       region: 'м. Київ',
-      district: 'Шевченківський р-н',
+      district: 'Деснянський р-н',
       location: 'м. Київ',
-      street: 'вул. Хрещатик',
-      house: '1',
+      street: 'вул. 47-а Садова',
+      house: '1а',
       customFullName: 'ФОП Кириченко І.В. — юридична AI-платформа',
-      customFullAddress: 'м. Київ, вул. Хрещатик, 1',
+      customFullAddress: '04132, Україна, м. Київ, вул. 47-а Садова, 1а',
       deliveryTypes: ['api'],
       offerRequestType: 'dynamic',
       scopes: { diiaId: ['auth'] },
@@ -178,7 +178,7 @@ export class DiiaService {
     const token = await this.getSessionToken();
 
     const offerBody = {
-      name: 'Авторизація LexAI',
+      name: 'Авторизація в застосунку Lex / legal.org.ua',
       returnLink,
       scopes: { diiaId: ['auth'] },
     };
@@ -294,15 +294,15 @@ export class DiiaService {
     const token = await this.getSessionToken();
 
     const branchBody = {
-      name: 'LexAI Підпис',
+      name: 'Підпис документів Lex / legal.org.ua',
       email: 'admin@legal.org.ua',
       region: 'м. Київ',
-      district: 'Шевченківський р-н',
+      district: 'Деснянський р-н',
       location: 'м. Київ',
-      street: 'вул. Хрещатик',
-      house: '1',
+      street: 'вул. 47-а Садова',
+      house: '1а',
       customFullName: 'ФОП Кириченко І.В. — юридична AI-платформа',
-      customFullAddress: 'м. Київ, вул. Хрещатик, 1',
+      customFullAddress: '04132, Україна, м. Київ, вул. 47-а Садова, 1а',
       deliveryTypes: ['api'],
       offerRequestType: 'dynamic',
       scopes: { diiaId: ['hashedFilesSigning'] },
@@ -337,7 +337,7 @@ export class DiiaService {
     const token = await this.getSessionToken();
 
     const offerBody = {
-      name: 'Підписання документів LexAI',
+      name: 'Підпис документів Lex / legal.org.ua',
       returnLink,
       scopes: { diiaId: ['hashedFilesSigning'] },
     };
