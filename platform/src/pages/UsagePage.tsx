@@ -32,9 +32,9 @@ export function UsagePage() {
         setByTool(toolRes.data.data || []);
         setTransactions(txRes.data.transactions || []);
         setBalance({
-          balance: balRes.data.balance || 0,
-          lifetimePurchased: balRes.data.lifetimePurchased || 0,
-          lifetimeUsed: balRes.data.lifetimeUsed || 0,
+          balance: Number(balRes.data.balance) || 0,
+          lifetimePurchased: Number(balRes.data.lifetimePurchased) || 0,
+          lifetimeUsed: Number(balRes.data.lifetimeUsed) || 0,
         });
       } catch { /* ignore */ } finally { setLoading(false); }
     }
