@@ -237,7 +237,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const returnUrl = urlParams.get('returnUrl');
-    if (returnUrl) {
+    if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
       sessionStorage.setItem('login_return_url', returnUrl);
     }
   }, []);
@@ -788,10 +788,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             onClick={handleDiiaAuth}
             className="w-full flex items-center justify-center gap-3 px-4 py-[11px] rounded-lg bg-[#080808] border border-zinc-800 text-zinc-300 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 active:bg-zinc-900/60 transition-colors duration-150 mb-2.5"
           >
-            <svg width="19" height="19" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
-              <rect width="32" height="32" rx="6" fill="white" />
-              <text x="16" y="22" textAnchor="middle" fill="black" fontSize="15" fontWeight="700" fontFamily="'e-Ukraine', Arial, Helvetica, sans-serif" letterSpacing="-0.5">Дія</text>
-            </svg>
+            <img src="/diia-logo.png" alt="Дія" width="19" height="19" className="flex-shrink-0 rounded-[4px]" />
             {isLogin ? 'Увійти через Дію' : 'Зареєструватися через Дію'}
           </button>
 
@@ -1291,10 +1288,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 <X size={14} />
               </button>
 
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-5 bg-white">
-                <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <text x="16" y="22" textAnchor="middle" fill="black" fontSize="15" fontWeight="700" fontFamily="'e-Ukraine', Arial, Helvetica, sans-serif" letterSpacing="-0.5">Дія</text>
-                </svg>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-5">
+                <img src="/diia-logo.png" alt="Дія" width="44" height="44" className="rounded-xl" />
               </div>
 
               <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5">Вхід через Дію</h2>
