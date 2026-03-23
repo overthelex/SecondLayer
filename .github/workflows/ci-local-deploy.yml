@@ -282,8 +282,8 @@ jobs:
 
       - name: Link env files from main repo
         run: |
-          ln -sf ${GITHUB_WORKSPACE}/deployment/.env.local deployment/.env.local
-          ln -sf ${GITHUB_WORKSPACE}/deployment/.env.prod deployment/.env.prod 2>/dev/null || true
+          ln -sf /home/vovkes/SecondLayer/deployment/.env.local deployment/.env.local
+          ln -sf /home/vovkes/SecondLayer/deployment/.env.prod deployment/.env.prod 2>/dev/null || true
 
       - name: Build & restart changed local services
         working-directory: deployment
