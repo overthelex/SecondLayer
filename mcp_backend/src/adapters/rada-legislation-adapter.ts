@@ -634,7 +634,7 @@ export class RadaLegislationAdapter {
       `SELECT la.* 
        FROM legislation_articles la
        JOIN legislation l ON la.legislation_id = l.id
-       WHERE l.rada_id = $1 AND la.article_number = $2 AND la.is_current = true
+       WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.is_current = true
        LIMIT 1`,
       [radaId, articleNumber]
     );
@@ -659,7 +659,7 @@ export class RadaLegislationAdapter {
     const params: any[] = [query, `%${query}%`];
 
     if (radaId) {
-      sql += ` AND l.rada_id = $3`;
+      sql += ` AND LOWER(l.rada_id) = LOWER($3)`;
       params.push(radaId);
     }
 

@@ -408,10 +408,15 @@ export class LegislationService {
     }
 
     radaId = normalizeRadaId(radaId);
+    // Case-insensitive lookup — RADA API may return different casing (e.g. 254к/96-ВР vs 254к/96-вр)
     const result = await this.db.query(
-      'SELECT id FROM legislation WHERE rada_id = $1',
+      'SELECT id, rada_id FROM legislation WHERE LOWER(rada_id) = LOWER($1)',
       [radaId]
     );
+    // If found with different case, use the DB version for consistency
+    if (result.rows.length > 0) {
+      return true;
+    }
 
     if (result.rows.length > 0) {
       // Legislation exists — no need to re-fetch.
@@ -472,7 +477,7 @@ export class LegislationService {
       `SELECT la.*, l.rada_id
        FROM legislation_articles la
        JOIN legislation l ON la.legislation_id = l.id
-       WHERE l.rada_id = $1 AND la.article_number = ANY($2) AND la.is_current = true`,
+       WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = ANY($2) AND la.is_current = true`,
       [radaId, articleNumbers]
     );
 
@@ -610,7 +615,7 @@ export class LegislationService {
       `SELECT la.article_number, la.title, la.metadata->>'version_date' AS version_date, la.created_at
        FROM legislation_articles la
        JOIN legislation l ON la.legislation_id = l.id
-       WHERE l.rada_id = $1 AND la.is_current = false
+       WHERE LOWER(l.rada_id) = LOWER($1) AND la.is_current = false
        ORDER BY la.article_number, la.created_at DESC`,
       [radaId]
     );
@@ -682,7 +687,7 @@ export class LegislationService {
          ) as articles
        FROM legislation l
        LEFT JOIN legislation_articles la ON l.id = la.legislation_id AND la.is_current = true
-       WHERE l.rada_id = $1
+       WHERE LOWER(l.rada_id) = LOWER($1)
        GROUP BY l.id`,
       [radaId]
     );
@@ -853,7 +858,7 @@ export class LegislationService {
       `SELECT la.id, la.article_number, la.full_text, la.section_number, la.chapter_number, la.title
        FROM legislation_articles la
        JOIN legislation l ON la.legislation_id = l.id
-       WHERE l.rada_id = $1 AND la.is_current = true`,
+       WHERE LOWER(l.rada_id) = LOWER($1) AND la.is_current = true`,
       [radaId]
     );
 
@@ -896,7 +901,7 @@ export class LegislationService {
              (article_id, legislation_id, chunk_index, text, vector_id, context_before, context_after, metadata)
              SELECT $1, l.id, $2, $3, $4, $5, $6, $7
              FROM legislation l
-             WHERE l.rada_id = $8
+             WHERE LOWER(l.rada_id) = LOWER($8)
              ON CONFLICT (article_id, chunk_index) DO UPDATE SET
                text = EXCLUDED.text,
                vector_id = EXCLUDED.vector_id`,
