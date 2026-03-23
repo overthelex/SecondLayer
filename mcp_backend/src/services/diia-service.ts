@@ -180,6 +180,27 @@ export class DiiaService {
     }
   }
 
+  /** PUT /api/v1/acquirers/branch/{branchId}/offer/{offerId} — update existing offer */
+  async updateOffer(branchId: string, offerId: string, body: Record<string, unknown>): Promise<void> {
+    const token = await this.getSessionToken();
+
+    const response = await fetch(`${DIIA_BASE_URL}/api/v1/acquirers/branch/${branchId}/offer/${offerId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      logger.warn('[Diia] updateOffer failed (non-critical)', { branchId, offerId, status: response.status, text });
+    } else {
+      logger.info('[Diia] Offer updated', { branchId, offerId });
+    }
+  }
+
   /** GET /api/v1/acquirers/branch/{branchId}/offers */
   async getOffers(branchId: string): Promise<DiiaOffer[]> {
     const token = await this.getSessionToken();
@@ -301,6 +322,11 @@ export class DiiaService {
       const offers = await this.getOffers(branchId);
       if (offers.length > 0) {
         offerId = offers[0].id || offers[0]._id || '';
+        // Update offer name in background
+        this.updateOffer(branchId, offerId, {
+          name: 'Авторизація в застосунку Lex / legal.org.ua',
+          scopes: { diiaId: ['auth'] },
+        }).catch(() => {});
       } else {
         // First-time setup: create offer
         offerId = await this.createOffer(branchId, returnUrl);
@@ -473,6 +499,10 @@ export class DiiaService {
       const offers = await this.getOffers(branchId);
       if (offers.length > 0) {
         offerId = offers[0].id || offers[0]._id || '';
+        this.updateOffer(branchId, offerId, {
+          name: 'Підпис документів Lex / legal.org.ua',
+          scopes: { diiaId: ['hashedFilesSigning'] },
+        }).catch(() => {});
       } else {
         offerId = await this.createSigningOffer(branchId, returnUrl);
       }
