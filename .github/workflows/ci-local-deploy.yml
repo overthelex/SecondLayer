@@ -86,7 +86,7 @@ jobs:
           node-version: 20
 
       - name: Build shared package
-        run: cd packages/shared && npm install && npm run build
+        run: cd packages/shared && npm install --legacy-peer-deps && npm run build
 
       # Backend/RADA/OpenReyestr integration tests require running infrastructure (DB, Redis, MinIO).
       # CI runs TypeScript compilation + unit tests (mocked, no infra needed).
@@ -110,7 +110,7 @@ jobs:
         if: needs.detect-changes.outputs.frontend == 'true'
         run: |
           cd lexwebapp
-          npm install
+          npm install --legacy-peer-deps
           npm test
           npm run build
         env:
