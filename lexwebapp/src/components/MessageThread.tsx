@@ -36,7 +36,7 @@ export function MessageThread({
 
   return <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto scroll-smooth">
       <div className="flex flex-col">
-        <div className="h-4 md:h-6" />
+        <div className="h-6 md:h-10" />
         {messages.map((message, idx) => {
           // For assistant messages, find the preceding user message for regeneration
           let handleRegenerate: (() => void) | undefined;

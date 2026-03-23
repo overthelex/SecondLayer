@@ -30,26 +30,26 @@ export const MarkdownContent = React.memo(function MarkdownContent({ content, is
 
   const components = useMemo(() => ({
     p: ({ children }: any) => (
-      <p className="whitespace-pre-wrap m-0 leading-[1.7] my-2 text-claude-text">
+      <p className="whitespace-pre-wrap m-0 leading-[1.72] my-2.5 text-zinc-800">
         {React.Children.map(children, (child: any) =>
           typeof child === 'string' ? highlightLegalCodes(child) : child
         )}
       </p>
     ),
     h1: ({ children }: any) => (
-      <h1 className="text-[20px] font-bold mt-7 mb-3 text-claude-text tracking-tight pb-2 border-b border-claude-border">{children}</h1>
+      <h1 className="text-[19px] font-semibold mt-8 mb-3 text-zinc-900 tracking-[-0.01em] pb-2.5 border-b border-zinc-200">{children}</h1>
     ),
     h2: ({ children }: any) => (
-      <h2 className="text-[17px] font-semibold mt-6 mb-3 text-claude-text tracking-tight pb-2 border-b border-claude-border/70">{children}</h2>
+      <h2 className="text-[16px] font-semibold mt-7 mb-2.5 text-zinc-900 tracking-[-0.01em] pb-2 border-b border-zinc-200/60">{children}</h2>
     ),
     h3: ({ children }: any) => (
-      <h3 className="flex items-baseline gap-2 text-[15px] font-semibold mt-5 mb-2 text-claude-text">
-        <span className="flex-shrink-0 w-[3px] h-[14px] self-center rounded-full bg-claude-accent/70" />
+      <h3 className="flex items-baseline gap-2 text-[14px] font-semibold mt-5 mb-2 text-zinc-900">
+        <span className="flex-shrink-0 w-[2px] h-[13px] self-center rounded-full bg-zinc-400" />
         <span>{children}</span>
       </h3>
     ),
     h4: ({ children }: any) => (
-      <h4 className="text-[14px] font-semibold mt-4 mb-1.5 text-claude-subtext uppercase tracking-wide">{children}</h4>
+      <h4 className="text-[12px] font-semibold mt-4 mb-1.5 text-zinc-500 uppercase tracking-[0.06em]">{children}</h4>
     ),
     ul: ({ children }: any) => (
       <ListTypeContext.Provider value="ul">
@@ -139,15 +139,15 @@ export const MarkdownContent = React.memo(function MarkdownContent({ content, is
   }), [openDocByRef]);
 
   return (
-    <div className="font-sans text-[16px] text-claude-text prose prose-sm max-w-none
+    <div className="font-sans text-[15px] text-claude-text prose prose-sm max-w-none
       prose-headings:font-sans prose-headings:text-claude-text prose-headings:tracking-tight
-      prose-p:leading-[1.7] prose-p:my-2
+      prose-p:leading-[1.72] prose-p:my-2
       prose-code:before:content-none prose-code:after:content-none
       prose-a:text-claude-text prose-a:underline prose-a:decoration-claude-subtext/30 hover:prose-a:decoration-claude-text
       prose-strong:text-claude-text prose-strong:font-semibold
     ">
       {prefix && (
-        <div className="whitespace-pre-wrap leading-[1.7] text-claude-text">{prefix}</div>
+        <div className="whitespace-pre-wrap leading-[1.72] text-claude-text">{prefix}</div>
       )}
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
@@ -155,7 +155,7 @@ export const MarkdownContent = React.memo(function MarkdownContent({ content, is
       >
         {markdownContent}
       </ReactMarkdown>
-      {isStreaming && <span className="inline-block w-[2px] h-[18px] ml-1 bg-claude-text/40 animate-pulse align-middle rounded-[1px]" />}
+      {isStreaming && <span className="inline-block w-[1.5px] h-[17px] ml-0.5 bg-zinc-400 animate-pulse align-middle rounded-sm" />}
     </div>
   );
 });
