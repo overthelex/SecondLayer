@@ -1,0 +1,626 @@
+event: response_id
+data: {"response_id":"chat-3bc9a3e6-d84f-45c7-b389-58086bc81470"}
+
+event: thinking
+data: {"step":0,"tool":"_init","description":"Аналізую запит..."}
+
+event: thinking
+data: {"step":0,"tool":"_classify","params":{"queryType":"case_lookup"},"description":"Шукаю справу в реєстрі"}
+
+event: plan
+data: {"goal":"Отримати документи справи 904/3256/23","steps":[{"id":1,"tool":"get_case_documents_chain","params":{"case_number":"904/3256/23","include_full_text":true},"purpose":"Отримати всі документи справи"}],"expected_iterations":2,"queryType":"case_lookup","thinkingPrefix":"Шукаю справу в реєстрі"}
+
+event: thinking
+data: {"step":1,"tool":"get_case_documents_chain","params":{"case_number":"904/3256/23","group_by_instance":true,"include_full_text":false,"max_docs":100},"description":"Будую ланцюг документів: 904/3256/23","cost_usd":0.043908}
+
+event: tool_result
+data: {"tool":"get_case_documents_chain","result":{"content":[{"type":"text","text":"{\n  \"case_number\": \"904/3256/23\",\n  \"total_documents\": 3,\n  \"grouped_documents\": {\n    \"Перша інстанція\": [\n      {\n        \"doc_id\": \"111767942\",\n        \"case_number\": \"904/3256/23\",\n        \"document_type\": \"Ухвала\",\n        \"instance\": \"Перша інстанція\",\n        \"court\": \"Господарський суд Дніпропетровської області\",\n        \"judge\": \"Бажанова Юлія Андріївна\",\n        \"date\": \"2023-06-25T21:00:00.000Z\",\n        \"url\": \"https://reyestr.court.gov.ua/Review/111767942\"\n      },\n      {\n        \"doc_id\": \"112663118\",\n        \"case_number\": \"904/3256/23\",\n        \"document_type\": \"Рішення\",\n        \"instance\": \"Перша інстанція\",\n        \"court\": \"Господарський суд Дніпропетровської області\",\n        \"judge\": \"Бажанова Юлія Андріївна\",\n        \"date\": \"2023-08-06T21:00:00.000Z\",\n        \"url\": \"https://reyestr.court.gov.ua/Review/112663118\"\n      },\n      {\n        \"doc_id\": \"113143493\",\n        \"case_number\": \"904/3256/23\",\n        \"document_type\": \"Судовий наказ\",\n        \"instance\": \"Перша інстанція\",\n        \"court\": \"Господарський суд Дніпропетровської області\",\n        \"judge\": \"Бажанова Юлія Андріївна\",\n        \"date\": \"2023-08-30T21:00:00.000Z\",\n        \"url\": \"https://reyestr.court.gov.ua/Review/113143493\"\n      }\n    ]\n  },\n  \"search_stats\": {\n    \"variations_tried\": [\n      \"904/3256/23\",\n      \"904/3256/2023\"\n    ],\n    \"source\": \"edrsr_documents\"\n  },\n  \"summary\": {\n    \"instances\": {\n      \"first_instance\": 3,\n      \"appeal\": 0,\n      \"cassation\": 0,\n      \"grand_chamber\": 0\n    },\n    \"document_types\": {\n      \"decisions\": 1,\n      \"rulings\": 0,\n      \"orders\": 1\n    }\n  }\n}"}]},"evidence":{"decisions":[{"id":"chain-111767942","number":"904/3256/23","court":"Господарський суд Дніпропетровської області","date":"2023-06-25T21:00:00.000Z","summary":"","relevance":80,"status":"active","documentType":"Ухвала","externalUrl":"https://reyestr.court.gov.ua/Review/111767942"},{"id":"chain-112663118","number":"904/3256/23","court":"Господарський суд Дніпропетровської області","date":"2023-08-06T21:00:00.000Z","summary":"","relevance":80,"status":"active","documentType":"Рішення","externalUrl":"https://reyestr.court.gov.ua/Review/112663118"},{"id":"chain-113143493","number":"904/3256/23","court":"Господарський суд Дніпропетровської області","date":"2023-08-30T21:00:00.000Z","summary":"","relevance":80,"status":"active","documentType":"","externalUrl":"https://reyestr.court.gov.ua/Review/113143493"}],"citations":[],"documents":[]},"cached":true,"cost_usd":0.043908}
+
+event: evidence_update
+data: {"decisions":[{"id":"chain-111767942","number":"904/3256/23","court":"Господарський суд Дніпропетровської області","date":"2023-06-25T21:00:00.000Z","summary":"","relevance":80,"status":"active","documentType":"Ухвала","externalUrl":"https://reyestr.court.gov.ua/Review/111767942"},{"id":"chain-112663118","number":"904/3256/23","court":"Господарський суд Дніпропетровської області","date":"2023-08-06T21:00:00.000Z","summary":"","relevance":80,"status":"active","documentType":"Рішення","externalUrl":"https://reyestr.court.gov.ua/Review/112663118"},{"id":"chain-113143493","number":"904/3256/23","court":"Господарський суд Дніпропетровської області","date":"2023-08-30T21:00:00.000Z","summary":"","relevance":80,"status":"active","documentType":"","externalUrl":"https://reyestr.court.gov.ua/Review/113143493"}],"citations":[],"documents":[]}
+
+event: answer_delta
+data: {"text":"По"}
+
+event: answer_delta
+data: {"text":" справ"}
+
+event: answer_delta
+data: {"text":"і №904/3256/23"}
+
+event: answer_delta
+data: {"text":" зн"}
+
+event: answer_delta
+data: {"text":"айдено **"}
+
+event: answer_delta
+data: {"text":"3 документи"}
+
+event: answer_delta
+data: {"text":"**,"}
+
+event: answer_delta
+data: {"text":" вс"}
+
+event: answer_delta
+data: {"text":"і у"}
+
+event: answer_delta
+data: {"text":" перш"}
+
+event: answer_delta
+data: {"text":"ій"}
+
+event: answer_delta
+data: {"text":" інстанції."}
+
+event: answer_delta
+data: {"text":"\n\n---"}
+
+event: answer_delta
+data: {"text":"\n\n##"}
+
+event: answer_delta
+data: {"text":" Справ"}
+
+event: answer_delta
+data: {"text":"а №904/3256/23"}
+
+event: answer_delta
+data: {"text":"\n\n**"}
+
+event: answer_delta
+data: {"text":"Су"}
+
+event: answer_delta
+data: {"text":"д:** Господ"}
+
+event: answer_delta
+data: {"text":"арський суд Дніп"}
+
+event: answer_delta
+data: {"text":"ропетровської області"}
+
+event: answer_delta
+data: {"text":"\n**Су"}
+
+event: answer_delta
+data: {"text":"дд"}
+
+event: answer_delta
+data: {"text":"я"}
+
+event: answer_delta
+data: {"text":":** Бажанова Ю"}
+
+event: answer_delta
+data: {"text":"лія Андріївна"}
+
+event: answer_delta
+data: {"text":"\n**Ін"}
+
+event: answer_delta
+data: {"text":"станції"}
+
+event: answer_delta
+data: {"text":":** л"}
+
+event: answer_delta
+data: {"text":"ише пер"}
+
+event: answer_delta
+data: {"text":"ша ("}
+
+event: answer_delta
+data: {"text":"ап"}
+
+event: answer_delta
+data: {"text":"еляцій"}
+
+event: answer_delta
+data: {"text":"ного"}
+
+event: answer_delta
+data: {"text":" та"}
+
+event: answer_delta
+data: {"text":" кас"}
+
+event: answer_delta
+data: {"text":"а"}
+
+event: answer_delta
+data: {"text":"ційного о"}
+
+event: answer_delta
+data: {"text":"ск"}
+
+event: answer_delta
+data: {"text":"арження"}
+
+event: answer_delta
+data: {"text":" не"}
+
+event: answer_delta
+data: {"text":" ви"}
+
+event: answer_delta
+data: {"text":"яв"}
+
+event: answer_delta
+data: {"text":"л"}
+
+event: answer_delta
+data: {"text":"ено)\n\n---\n\n## Документ"}
+
+event: answer_delta
+data: {"text":"и справ"}
+
+event: answer_delta
+data: {"text":"и\n\n###"}
+
+event: answer_delta
+data: {"text":" Перша інстанція"}
+
+event: answer_delta
+data: {"text":"\n\n| №"}
+
+event: answer_delta
+data: {"text":" | Д"}
+
+event: answer_delta
+data: {"text":"ата"}
+
+event: answer_delta
+data: {"text":" | Тип документ"}
+
+event: answer_delta
+data: {"text":"у"}
+
+event: answer_delta
+data: {"text":" | Су"}
+
+event: answer_delta
+data: {"text":"д | Су"}
+
+event: answer_delta
+data: {"text":"ддя |"}
+
+event: answer_delta
+data: {"text":"\n|---|------|--------------|"}
+
+event: answer_delta
+data: {"text":"--"}
+
+event: answer_delta
+data: {"text":"---|----"}
+
+event: answer_delta
+data: {"text":"---|\n| 1"}
+
+event: answer_delta
+data: {"text":" | 26"}
+
+event: answer_delta
+data: {"text":"."}
+
+event: answer_delta
+data: {"text":"06.2023 | "}
+
+event: answer_delta
+data: {"text":"Ухвала | Господ"}
+
+event: answer_delta
+data: {"text":"арський суд Дніп"}
+
+event: answer_delta
+data: {"text":"ропетровської області"}
+
+event: answer_delta
+data: {"text":" | Бажанова "}
+
+event: answer_delta
+data: {"text":"Ю.А. |\n| "}
+
+event: answer_delta
+data: {"text":"2 | 07"}
+
+event: answer_delta
+data: {"text":".08.2023 |"}
+
+event: answer_delta
+data: {"text":" Рішення | Господ"}
+
+event: answer_delta
+data: {"text":"арський суд Дніп"}
+
+event: answer_delta
+data: {"text":"ропетровської області"}
+
+event: answer_delta
+data: {"text":" | Бажанова "}
+
+event: answer_delta
+data: {"text":"Ю.А. |\n| "}
+
+event: answer_delta
+data: {"text":"3 | 31"}
+
+event: answer_delta
+data: {"text":".08.2023 |"}
+
+event: answer_delta
+data: {"text":" Судовий наказ |"}
+
+event: answer_delta
+data: {"text":" Господ"}
+
+event: answer_delta
+data: {"text":"арський суд Дніп"}
+
+event: answer_delta
+data: {"text":"ропетровської області | Б"}
+
+event: answer_delta
+data: {"text":"ажанова Ю.А"}
+
+event: answer_delta
+data: {"text":". |\n\n---"}
+
+event: answer_delta
+data: {"text":"\n\n##"}
+
+event: answer_delta
+data: {"text":" Х"}
+
+event: answer_delta
+data: {"text":"рон"}
+
+event: answer_delta
+data: {"text":"ологія"}
+
+event: answer_delta
+data: {"text":"\n\n1"}
+
+event: answer_delta
+data: {"text":". **26"}
+
+event: answer_delta
+data: {"text":".06.2023 "}
+
+event: answer_delta
+data: {"text":"—"}
+
+event: answer_delta
+data: {"text":" Ухвала** ["}
+
+event: answer_delta
+data: {"text":"904"}
+
+event: answer_delta
+data: {"text":"/3256/23](#"}
+
+event: answer_delta
+data: {"text":"doc-111"}
+
+event: answer_delta
+data: {"text":"767942)"}
+
+event: answer_delta
+data: {"text":" — від"}
+
+event: answer_delta
+data: {"text":"к"}
+
+event: answer_delta
+data: {"text":"ри"}
+
+event: answer_delta
+data: {"text":"ття пров"}
+
+event: answer_delta
+data: {"text":"ад"}
+
+event: answer_delta
+data: {"text":"ження або"}
+
+event: answer_delta
+data: {"text":" проц"}
+
+event: answer_delta
+data: {"text":"ес"}
+
+event: answer_delta
+data: {"text":"у"}
+
+event: answer_delta
+data: {"text":"альне"}
+
+event: answer_delta
+data: {"text":" р"}
+
+event: answer_delta
+data: {"text":"ішення на"}
+
+event: answer_delta
+data: {"text":" почат"}
+
+event: answer_delta
+data: {"text":"ку роз"}
+
+event: answer_delta
+data: {"text":"г"}
+
+event: answer_delta
+data: {"text":"ляду"}
+
+event: answer_delta
+data: {"text":" справ"}
+
+event: answer_delta
+data: {"text":"и."}
+
+event: answer_delta
+data: {"text":"\n2. **07.08.2"}
+
+event: answer_delta
+data: {"text":"023 — Рішення**"}
+
+event: answer_delta
+data: {"text":" [904/3256/23](#"}
+
+event: answer_delta
+data: {"text":"doc-112663118) — р"}
+
+event: answer_delta
+data: {"text":"ішення по"}
+
+event: answer_delta
+data: {"text":" су"}
+
+event: answer_delta
+data: {"text":"ті"}
+
+event: answer_delta
+data: {"text":" сп"}
+
+event: answer_delta
+data: {"text":"ору"}
+
+event: answer_delta
+data: {"text":".\n3. **31.08"}
+
+event: answer_delta
+data: {"text":".2023 — Судов"}
+
+event: answer_delta
+data: {"text":"ий наказ** [904/"}
+
+event: answer_delta
+data: {"text":"3256/23](#doc-113"}
+
+event: answer_delta
+data: {"text":"143493) — ви"}
+
+event: answer_delta
+data: {"text":"дан"}
+
+event: answer_delta
+data: {"text":"ий на"}
+
+event: answer_delta
+data: {"text":" під"}
+
+event: answer_delta
+data: {"text":"ставі р"}
+
+event: answer_delta
+data: {"text":"ішення"}
+
+event: answer_delta
+data: {"text":" для"}
+
+event: answer_delta
+data: {"text":" прим"}
+
+event: answer_delta
+data: {"text":"ус"}
+
+event: answer_delta
+data: {"text":"ового"}
+
+event: answer_delta
+data: {"text":" ви"}
+
+event: answer_delta
+data: {"text":"конання.\n\n---\n\n##"}
+
+event: answer_delta
+data: {"text":" По"}
+
+event: answer_delta
+data: {"text":"точ"}
+
+event: answer_delta
+data: {"text":"ний"}
+
+event: answer_delta
+data: {"text":" стат"}
+
+event: answer_delta
+data: {"text":"ус\n\nСправ"}
+
+event: answer_delta
+data: {"text":"а зав"}
+
+event: answer_delta
+data: {"text":"ершена на"}
+
+event: answer_delta
+data: {"text":" р"}
+
+event: answer_delta
+data: {"text":"ів"}
+
+event: answer_delta
+data: {"text":"ні перш"}
+
+event: answer_delta
+data: {"text":"ої інстанції. Р"}
+
+event: answer_delta
+data: {"text":"ішення наб"}
+
+event: answer_delta
+data: {"text":"р"}
+
+event: answer_delta
+data: {"text":"ало"}
+
+event: answer_delta
+data: {"text":" закон"}
+
+event: answer_delta
+data: {"text":"ної"}
+
+event: answer_delta
+data: {"text":" с"}
+
+event: answer_delta
+data: {"text":"или"}
+
+event: answer_delta
+data: {"text":", за"}
+
+event: answer_delta
+data: {"text":" "}
+
+event: answer_delta
+data: {"text":"ним вид"}
+
+event: answer_delta
+data: {"text":"ано"}
+
+event: answer_delta
+data: {"text":" судов"}
+
+event: answer_delta
+data: {"text":"ий наказ для"}
+
+event: answer_delta
+data: {"text":" ви"}
+
+event: answer_delta
+data: {"text":"конання."}
+
+event: answer_delta
+data: {"text":" Ап"}
+
+event: answer_delta
+data: {"text":"еляційного"}
+
+event: answer_delta
+data: {"text":" або"}
+
+event: answer_delta
+data: {"text":" касаційного оскарження"}
+
+event: answer_delta
+data: {"text":" в"}
+
+event: answer_delta
+data: {"text":" ре"}
+
+event: answer_delta
+data: {"text":"є"}
+
+event: answer_delta
+data: {"text":"стрі"}
+
+event: answer_delta
+data: {"text":" не з"}
+
+event: answer_delta
+data: {"text":"аф"}
+
+event: answer_delta
+data: {"text":"іксовано.\n\n---"}
+
+event: answer_delta
+data: {"text":"\n\nЯкщо потрібно"}
+
+event: answer_delta
+data: {"text":" пере"}
+
+event: answer_delta
+data: {"text":"гл"}
+
+event: answer_delta
+data: {"text":"ян"}
+
+event: answer_delta
+data: {"text":"ути пов"}
+
+event: answer_delta
+data: {"text":"ний"}
+
+event: answer_delta
+data: {"text":" текст буд"}
+
+event: answer_delta
+data: {"text":"ь-якого з документ"}
+
+event: answer_delta
+data: {"text":"ів —"}
+
+event: answer_delta
+data: {"text":" пов"}
+
+event: answer_delta
+data: {"text":"ід"}
+
+event: answer_delta
+data: {"text":"ом"}
+
+event: answer_delta
+data: {"text":"те"}
+
+event: answer_delta
+data: {"text":", зав"}
+
+event: answer_delta
+data: {"text":"ант"}
+
+event: answer_delta
+data: {"text":"ажу"}
+
+event: answer_delta
+data: {"text":" дет"}
+
+event: answer_delta
+data: {"text":"альний"}
+
+event: answer_delta
+data: {"text":" з"}
+
+event: answer_delta
+data: {"text":"мі"}
+
+event: answer_delta
+data: {"text":"ст"}
+
+event: answer_delta
+data: {"text":"."}
+
+event: answer
+data: {"text":"По справі №904/3256/23 знайдено **3 документи**, всі у першій інстанції.\n\n---\n\n## Справа №904/3256/23\n\n**Суд:** Господарський суд Дніпропетровської області\n**Суддя:** Бажанова Юлія Андріївна\n**Інстанції:** лише перша (апеляційного та касаційного оскарження не виявлено)\n\n---\n\n## Документи справи\n\n### Перша інстанція\n\n| № | Дата | Тип документу | Суд | Суддя |\n|---|------|--------------|-----|-------|\n| 1 | 26.06.2023 | Ухвала | Господарський суд Дніпропетровської області | Бажанова Ю.А. |\n| 2 | 07.08.2023 | Рішення | Господарський суд Дніпропетровської області | Бажанова Ю.А. |\n| 3 | 31.08.2023 | Судовий наказ | Господарський суд Дніпропетровської області | Бажанова Ю.А. |\n\n---\n\n## Хронологія\n\n1. **26.06.2023 — Ухвала** [904/3256/23](#doc-111767942) — відкриття провадження або процесуальне рішення на початку розгляду справи.\n2. **07.08.2023 — Рішення** [904/3256/23](#doc-112663118) — рішення по суті спору.\n3. **31.08.2023 — Судовий наказ** [904/3256/23](#doc-113143493) — виданий на підставі рішення для примусового виконання.\n\n---\n\n## Поточний статус\n\nСправа завершена на рівні першої інстанції. Рішення набрало законної сили, за ним видано судовий наказ для виконання. Апеляційного або касаційного оскарження в реєстрі не зафіксовано.\n\n---\n\nЯкщо потрібно переглянути повний текст будь-якого з документів — повідомте, завантажу детальний зміст.","provider":"bedrock","model":"eu.anthropic.claude-sonnet-4-6"}
+
+event: evidence_update
+data: {"decisions":[{"id":"chain-111767942","number":"904/3256/23","court":"Господарський суд Дніпропетровської області","date":"2023-06-25T21:00:00.000Z","summary":"","relevance":80,"status":"active","documentType":"Ухвала","externalUrl":"https://reyestr.court.gov.ua/Review/111767942"},{"id":"chain-112663118","number":"904/3256/23","court":"Господарський суд Дніпропетровської області","date":"2023-08-06T21:00:00.000Z","summary":"","relevance":80,"status":"active","documentType":"Рішення","externalUrl":"https://reyestr.court.gov.ua/Review/112663118"},{"id":"chain-113143493","number":"904/3256/23","court":"Господарський суд Дніпропетровської області","date":"2023-08-30T21:00:00.000Z","summary":"","relevance":80,"status":"active","documentType":"","externalUrl":"https://reyestr.court.gov.ua/Review/113143493"}],"citations":[],"documents":[]}
+
+event: complete
+data: {"iterations":1,"elapsed_ms":13700,"tools_used":["get_case_documents_chain"],"total_cost_usd":0.097194,"queryType":"case_lookup","response_id":"chat-3bc9a3e6-d84f-45c7-b389-58086bc81470","conversationId":"18d4304e-2e6b-42f5-8751-450675d87b50"}
+
+event: cost_summary
+data: {"total_cost_usd":0.097194,"charged_usd":0.334257,"balance_usd":"111.53","response_id":"chat-3bc9a3e6-d84f-45c7-b389-58086bc81470","markup_percentage":"230.00"}
