@@ -105,17 +105,28 @@ export const useLocaleStore = create<LocaleState>()(
             // Skip if already detected and not a force-locale country
             if (state.geoDetected && !forceLocale) return state;
 
-            // Always sync lex_locale for force-locale countries, or on first detection
-            try {
-              if (forceLocale || !localStorage.getItem('lex_locale')) {
-                localStorage.setItem('lex_locale', defaults.language);
-              }
-            } catch { /* ignore */ }
-            return {
-              ...defaults,
-              geoDetected: true,
-              cfCountry,
-            };
+            // Check if user already has an explicit locale (set via ?lang= or language switcher)
+            const existingLocale = localStorage.getItem('lex_locale');
+
+            if (forceLocale) {
+              // Force-locale countries always override
+              try { localStorage.setItem('lex_locale', defaults.language); } catch { /* ignore */ }
+              return { ...defaults, geoDetected: true, cfCountry };
+            }
+
+            if (existingLocale && ['uk', 'en', 'de', 'es'].includes(existingLocale)) {
+              // User has an explicit preference — respect it, only update currency/country
+              return {
+                ...defaults,
+                language: existingLocale as AppLanguage,
+                geoDetected: true,
+                cfCountry,
+              };
+            }
+
+            // First visit, no preference — apply geo defaults
+            try { localStorage.setItem('lex_locale', defaults.language); } catch { /* ignore */ }
+            return { ...defaults, geoDetected: true, cfCountry };
           }),
       }),
       {
