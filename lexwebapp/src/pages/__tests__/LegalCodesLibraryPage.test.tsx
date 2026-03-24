@@ -147,8 +147,10 @@ describe('LegalCodesLibraryPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Результати пошуку/)).toBeInTheDocument();
-        expect(screen.getByText('ст. 12. Тестова стаття')).toBeInTheDocument();
       });
+      expect(screen.getByText((_content, element) =>
+        element?.tagName === 'P' && element?.textContent === 'ст. 12. Тестова стаття'
+      )).toBeInTheDocument();
     });
 
     it('shows "nothing found" message for empty results', async () => {
