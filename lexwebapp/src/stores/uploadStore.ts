@@ -10,7 +10,6 @@ import {
   UploadEvent,
 } from '../services/upload/UploadManager';
 import { uploadService, ActiveSession } from '../services/api/UploadService';
-import { matterService } from '../services/api/MatterService';
 import { showToast } from '../utils/toast';
 import { toastTDynamic } from '../i18n/toast-i18n';
 import { useEncryptionStore } from './encryptionStore';
@@ -43,6 +42,11 @@ interface UploadState {
   // Recovery state
   recoveredSessions: RecoveredSession[];
   isRecovering: boolean;
+
+  // Post-upload destination picker
+  showDestinationPicker: boolean;
+  pendingDocumentIds: string[];
+  dismissDestinationPicker: () => void;
 
   // Actions
   addFiles: (
@@ -93,25 +97,24 @@ export const useUploadStore = create<UploadState>((set) => {
     if (event.type === 'all-completed') {
       set({ ...sync, isUploading: false });
 
-      // Auto-create matter from completed uploads (fire-and-forget)
+      // Show destination picker so user can choose where to put uploaded docs
       const completedItems = sync.items.filter(i => i.status === 'completed');
       if (completedItems.length >= 1) {
-        // Collect documentIds from completed items; some may not have documentId yet
         const knownIds = completedItems.map(i => i.documentId).filter(Boolean) as string[];
 
         if (knownIds.length > 0) {
-          matterService.autoCreateFromUpload(knownIds).then(result => {
-            showToast.success(
-              toastTDynamic('matterCreated', result.matter.matter_name, result.documentsAssigned)
-            );
-          }).catch(err => {
-            console.warn('[UploadStore] Auto-create matter failed (non-critical)', err);
+          set({ showDestinationPicker: true, pendingDocumentIds: knownIds });
+
+          // Auto-classify new uploads (fire-and-forget)
+          import('../utils/api-client').then(({ api }) => {
+            api.documents.startClassification({ documentIds: knownIds }).catch(err => {
+              console.warn('[UploadStore] Auto-classification failed (non-critical)', err);
+            });
           });
         } else {
-          // documentIds not yet available — fetch recent docs from upload sessions
+          // documentIds not yet available — fetch from upload sessions
           const uploadIds = completedItems.map(i => i.uploadId).filter(Boolean) as string[];
           if (uploadIds.length > 0) {
-            // Small delay to let backend finish processing
             setTimeout(() => {
               Promise.all(uploadIds.map(id => uploadService.getStatus(id).catch(() => null)))
                 .then(sessions => {
@@ -119,19 +122,16 @@ export const useUploadStore = create<UploadState>((set) => {
                     .filter(s => s && s.documentId)
                     .map(s => s!.documentId!) as string[];
                   if (docIds.length > 0) {
-                    return matterService.autoCreateFromUpload(docIds);
-                  }
-                  return null;
-                })
-                .then(result => {
-                  if (result) {
-                    showToast.success(
-                      `Створено справу "${result.matter.matter_name}" (${result.documentsAssigned} документів)`
-                    );
+                    set({ showDestinationPicker: true, pendingDocumentIds: docIds });
+
+                    // Auto-classify deferred docs
+                    import('../utils/api-client').then(({ api }) => {
+                      api.documents.startClassification({ documentIds: docIds }).catch(() => {});
+                    });
                   }
                 })
                 .catch(err => {
-                  console.warn('[UploadStore] Auto-create matter (deferred) failed', err);
+                  console.warn('[UploadStore] Deferred doc ID fetch failed', err);
                 });
             }, 5000);
           }
@@ -183,6 +183,9 @@ export const useUploadStore = create<UploadState>((set) => {
     isThrottled: false,
     recoveredSessions: [],
     isRecovering: false,
+    showDestinationPicker: false,
+    pendingDocumentIds: [],
+    dismissDestinationPicker: () => set({ showDestinationPicker: false, pendingDocumentIds: [] }),
 
     addFiles: (files) => {
       // E2EE is mandatory — always encrypt uploads
