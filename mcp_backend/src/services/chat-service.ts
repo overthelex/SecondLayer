@@ -13,6 +13,25 @@
 
 import { createHash, randomBytes } from 'crypto';
 import { logger } from '../utils/logger.js';
+
+/**
+ * Validate citation links in the answer text and log warnings for broken ones.
+ * Pattern: [label](#doc-ID) where ID should be non-empty and numeric.
+ */
+function validateCitationLinks(text: string): void {
+  const citationPattern = /\[([^\]]+)\]\(#doc-([^)]*)\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = citationPattern.exec(text)) !== null) {
+    const [fullMatch, label, docId] = match;
+    if (!docId || !/^\d+$/.test(docId)) {
+      logger.warn('[ChatService] Broken citation link detected', {
+        citation: fullMatch,
+        label,
+        docId: docId || '(empty)',
+      });
+    }
+  }
+}
 import { ToolRegistry, ToolDefinition } from '../api/tool-registry.js';
 import { QueryPlanner } from './query-planner.js';
 import { generateThinkingDescription } from './thinking-descriptions.js';
@@ -990,6 +1009,9 @@ export class ChatService {
             }
           }
 
+          // Validate citation links in the final answer
+          validateCitationLinks(fullContent);
+
           yield {
             type: 'answer',
             data: {
@@ -1490,10 +1512,30 @@ export class ChatService {
         step.params = step.params || {};
       }
 
+      // Validate tool names against registry — remove steps with non-existent tools
+      const validatedSteps = steps.filter((step: any) => {
+        const route = this.toolRegistry.getRoute(step.tool);
+        if (!route) {
+          logger.warn('[ChatService] Plan step references non-existent tool, removing', {
+            tool: step.tool,
+            purpose: step.purpose,
+          });
+          return false;
+        }
+        return true;
+      });
+
+      if (validatedSteps.length === 0) {
+        logger.warn('[ChatService] All plan steps had invalid tool names', {
+          originalSteps: steps.map((s: any) => s.tool),
+        });
+        throw new Error('All plan steps reference non-existent tools');
+      }
+
       const plan: ExecutionPlan = {
         goal: parsed.goal,
-        steps,
-        expected_iterations: parsed.expected_iterations || steps.length,
+        steps: validatedSteps,
+        expected_iterations: parsed.expected_iterations || validatedSteps.length,
       };
 
       logger.info('[ChatService] Execution plan generated', {
@@ -1648,7 +1690,22 @@ export class ChatService {
         const toolArgs = (userId && VAULT_TOOLS.has(call.name))
           ? { ...call.arguments, userId }
           : call.arguments;
-        toolResult = await this.toolRegistry.executeTool(call.name, toolArgs);
+        try {
+          toolResult = await this.toolRegistry.executeTool(call.name, toolArgs);
+        } catch (firstErr: any) {
+          // Retry once after 1s for non-client errors (skip 4xx)
+          const status = firstErr?.status || firstErr?.statusCode || firstErr?.response?.status;
+          const isClientError = status && status >= 400 && status < 500;
+          if (isClientError) {
+            throw firstErr;
+          }
+          logger.warn('[ChatService] Tool execution failed, retrying once after 1s', {
+            tool: call.name,
+            error: firstErr.message,
+          });
+          await new Promise(r => setTimeout(r, 1000));
+          toolResult = await this.toolRegistry.executeTool(call.name, toolArgs);
+        }
       } catch (err: any) {
         toolResult = { error: err.message };
       }
