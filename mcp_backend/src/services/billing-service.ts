@@ -219,6 +219,21 @@ export class BillingService {
   }
 
   /**
+   * Get the number of completed requests for a user today
+   */
+  async getDailyRequestCount(userId: string): Promise<number> {
+    const result = await this.db.query(
+      `SELECT COUNT(*) as cnt
+       FROM cost_tracking
+       WHERE user_id = $1
+         AND created_at >= CURRENT_DATE
+         AND status = 'completed'`,
+      [userId]
+    );
+    return parseInt(result.rows[0]?.cnt || '0', 10);
+  }
+
+  /**
    * Check if user is within daily and monthly limits
    */
   async checkLimits(userId: string, additionalCostUsd: number): Promise<{
