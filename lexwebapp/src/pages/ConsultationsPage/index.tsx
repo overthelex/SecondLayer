@@ -4,19 +4,23 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageSquare, Clock, CheckCircle, XCircle, AlertCircle, Loader2, CreditCard, Wallet } from 'lucide-react';
 import { consultationService } from '../../services/api/ConsultationService';
 import { generateRoute, ROUTES } from '../../router/routes';
+import { useMattersT } from '../../i18n/matters-i18n';
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  pending: { label: 'Очікує', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  accepted: { label: 'Прийнято', color: 'bg-blue-100 text-blue-700', icon: CheckCircle },
-  paid: { label: 'Оплачено', color: 'bg-indigo-100 text-indigo-700', icon: CreditCard },
-  in_progress: { label: 'В роботі', color: 'bg-purple-100 text-purple-700', icon: MessageSquare },
-  completed: { label: 'Завершено', color: 'bg-green-100 text-green-700', icon: CheckCircle },
-  cancelled: { label: 'Скасовано', color: 'bg-gray-100 text-gray-500', icon: XCircle },
-  declined: { label: 'Відхилено', color: 'bg-red-100 text-red-700', icon: XCircle },
-  disputed: { label: 'Спір', color: 'bg-orange-100 text-orange-700', icon: AlertCircle },
+type StatusConfig = { labelKey: string; color: string; icon: typeof Clock };
+
+const STATUS_CONFIG: Record<string, StatusConfig> = {
+  pending: { labelKey: 'cStatusPending', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
+  accepted: { labelKey: 'cStatusAccepted', color: 'bg-blue-100 text-blue-700', icon: CheckCircle },
+  paid: { labelKey: 'cStatusPaid', color: 'bg-indigo-100 text-indigo-700', icon: CreditCard },
+  in_progress: { labelKey: 'cStatusInProgress', color: 'bg-purple-100 text-purple-700', icon: MessageSquare },
+  completed: { labelKey: 'cStatusCompleted', color: 'bg-green-100 text-green-700', icon: CheckCircle },
+  cancelled: { labelKey: 'cStatusCancelled', color: 'bg-gray-100 text-gray-500', icon: XCircle },
+  declined: { labelKey: 'cStatusDeclined', color: 'bg-red-100 text-red-700', icon: XCircle },
+  disputed: { labelKey: 'cStatusDisputed', color: 'bg-orange-100 text-orange-700', icon: AlertCircle },
 };
 
 export function ConsultationsPage() {
+  const t = useMattersT();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -75,7 +79,7 @@ export function ConsultationsPage() {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <MessageSquare className="w-7 h-7 text-indigo-600" />
-          <h1 className="text-2xl font-bold text-gray-900">Консультації</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('consultationsTitle')}</h1>
         </div>
         <div className="flex bg-gray-100 rounded-lg p-1">
           <button
@@ -85,7 +89,7 @@ export function ConsultationsPage() {
             }`}
           >
             <MessageSquare className="w-4 h-4 inline mr-1.5" />
-            Список
+            {t('listTab')}
           </button>
           <button
             onClick={() => setActiveTab('payouts')}
@@ -94,7 +98,7 @@ export function ConsultationsPage() {
             }`}
           >
             <Wallet className="w-4 h-4 inline mr-1.5" />
-            Виплати
+            {t('payoutsTab')}
           </button>
         </div>
       </div>
@@ -104,11 +108,11 @@ export function ConsultationsPage() {
           {/* Summary cards */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-              <p className="text-sm text-emerald-600 mb-1">Зараховано</p>
+              <p className="text-sm text-emerald-600 mb-1">{t('credited')}</p>
               <p className="text-2xl font-bold text-emerald-800">{totalEarned.toFixed(2)} грн</p>
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <p className="text-sm text-amber-600 mb-1">Очікує</p>
+              <p className="text-sm text-amber-600 mb-1">{t('pending')}</p>
               <p className="text-2xl font-bold text-amber-800">{totalPending.toFixed(2)} грн</p>
             </div>
           </div>
@@ -120,19 +124,19 @@ export function ConsultationsPage() {
           ) : !payouts || payouts.length === 0 ? (
             <div className="text-center py-20">
               <Wallet className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-600 mb-2">Виплат поки немає</h3>
-              <p className="text-gray-400">Виплати з'являться після завершення консультацій</p>
+              <h3 className="text-lg font-medium text-gray-600 mb-2">{t('noPayoutsYet')}</h3>
+              <p className="text-gray-400">{t('payoutsAfterCompletion')}</p>
             </div>
           ) : (
             <div className="space-y-3">
               {payouts.map(p => {
-                const statusLabels: Record<string, { label: string; color: string }> = {
-                  pending: { label: 'Очікує', color: 'bg-yellow-100 text-yellow-700' },
-                  processing: { label: 'Обробка', color: 'bg-blue-100 text-blue-700' },
-                  completed: { label: 'Зараховано', color: 'bg-green-100 text-green-700' },
-                  failed: { label: 'Помилка', color: 'bg-red-100 text-red-700' },
+                const payoutStatusMap: Record<string, { label: string; color: string }> = {
+                  pending: { label: t('payoutStatusPending'), color: 'bg-yellow-100 text-yellow-700' },
+                  processing: { label: t('payoutStatusProcessing'), color: 'bg-blue-100 text-blue-700' },
+                  completed: { label: t('payoutStatusCompleted'), color: 'bg-green-100 text-green-700' },
+                  failed: { label: t('payoutStatusFailed'), color: 'bg-red-100 text-red-700' },
                 };
-                const cfg = statusLabels[p.status] || statusLabels.pending;
+                const cfg = payoutStatusMap[p.status] || payoutStatusMap.pending;
                 return (
                   <div
                     key={p.id}
@@ -141,7 +145,7 @@ export function ConsultationsPage() {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-gray-900">{p.request_title || 'Консультація'}</p>
+                        <p className="font-medium text-gray-900">{p.request_title || t('consultationsTitle')}</p>
                         <p className="text-xs text-gray-400 mt-1">
                           {new Date(p.created_at).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
@@ -167,18 +171,18 @@ export function ConsultationsPage() {
           value={role}
           onChange={e => setRole(e.target.value)}
         >
-          <option value="">Всі ролі</option>
-          <option value="client">Як клієнт</option>
-          <option value="attorney">Як адвокат</option>
+          <option value="">{t('allRoles')}</option>
+          <option value="client">{t('asClient')}</option>
+          <option value="attorney">{t('asAttorney')}</option>
         </select>
         <select
           className="px-3 py-2 border rounded-md text-sm bg-white"
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
         >
-          <option value="">Всі статуси</option>
+          <option value="">{t('allStatuses')}</option>
           {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-            <option key={key} value={key}>{cfg.label}</option>
+            <option key={key} value={key}>{t(cfg.labelKey)}</option>
           ))}
         </select>
       </div>
@@ -190,14 +194,14 @@ export function ConsultationsPage() {
       ) : consultations.length === 0 ? (
         <div className="text-center py-20">
           <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-600 mb-2">Консультацій поки немає</h3>
+          <h3 className="text-lg font-medium text-gray-600 mb-2">{t('noConsultationsYet')}</h3>
           <p className="text-gray-400 max-w-md mx-auto">
-            Знайдіть адвоката та створіть запит на консультацію
+            {t('findAttorneyPrompt')}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm text-gray-500">Всього: {total}</p>
+          <p className="text-sm text-gray-500">{t('totalCount')} {total}</p>
           {consultations.map(c => {
             const statusCfg = STATUS_CONFIG[c.status] || STATUS_CONFIG.pending;
             const StatusIcon = statusCfg.icon;
@@ -211,9 +215,9 @@ export function ConsultationsPage() {
                   <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-gray-900 truncate">{c.request_title}</h3>
                     <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
-                      <span>Клієнт: {c.client_name || 'N/A'}</span>
-                      <span>Адвокат: {c.attorney_name || 'N/A'}</span>
-                      {c.matter_name && <span>Справа: {c.matter_name}</span>}
+                      <span>{t('clientPrefix')} {c.client_name || 'N/A'}</span>
+                      <span>{t('attorneyPrefix')} {c.attorney_name || 'N/A'}</span>
+                      {c.matter_name && <span>{t('matterPrefix')} {c.matter_name}</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -222,14 +226,14 @@ export function ConsultationsPage() {
                     )}
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusCfg.color}`}>
                       <StatusIcon className="w-3.5 h-3.5" />
-                      {statusCfg.label}
+                      {t(statusCfg.labelKey)}
                     </span>
                   </div>
                 </div>
                 <p className="text-xs text-gray-400 mt-2">
                   {new Date(c.created_at).toLocaleDateString('uk-UA')}
-                  {c.consultation_type === 'representation' && ' | Представництво'}
-                  {c.consultation_type === 'document_review' && ' | Аналіз документів'}
+                  {c.consultation_type === 'representation' && ` | ${t('representation')}`}
+                  {c.consultation_type === 'document_review' && ` | ${t('documentReview')}`}
                 </p>
               </div>
             );

@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useAppT } from '../../i18n/app-i18n';
 import {
   FileText,
   Banknote,
@@ -42,15 +43,6 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
   void: <XCircle size={14} />,
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Чернетка',
-  sent: 'Надіслано',
-  paid: 'Оплачено',
-  overdue: 'Прострочено',
-  cancelled: 'Скасовано',
-  void: 'Анульовано',
-};
-
 export function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -64,6 +56,7 @@ export function InvoicesPage() {
     date_to: dateTo || undefined,
   };
 
+  const { t } = useAppT();
   const { formatUah } = useCurrencyRate();
   const { data, isLoading, error } = useInvoices(filters);
   const downloadPDF = useDownloadInvoicePDF();
@@ -193,12 +186,12 @@ export function InvoicesPage() {
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="w-full px-3 py-2 bg-claude-bg border border-claude-border rounded-lg text-claude-text text-sm font-sans focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent"
                 >
-                  <option value="all">Усі статуси</option>
-                  <option value="draft">Чернетка</option>
-                  <option value="sent">Надіслано</option>
-                  <option value="paid">Оплачено</option>
-                  <option value="overdue">Прострочено</option>
-                  <option value="cancelled">Скасовано</option>
+                  <option value="all">{t('billing.invoice.status.all')}</option>
+                  <option value="draft">{t('billing.invoice.status.draft')}</option>
+                  <option value="sent">{t('billing.invoice.status.sent')}</option>
+                  <option value="paid">{t('billing.invoice.status.paid')}</option>
+                  <option value="overdue">{t('billing.invoice.status.overdue')}</option>
+                  <option value="cancelled">{t('billing.invoice.status.cancelled')}</option>
                 </select>
               </div>
 
@@ -365,7 +358,7 @@ export function InvoicesPage() {
                           }`}
                         >
                           {STATUS_ICONS[invoice.status]}
-                          {STATUS_LABELS[invoice.status]}
+                          {t(`billing.invoice.status.${invoice.status}`)}
                         </span>
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap text-right">

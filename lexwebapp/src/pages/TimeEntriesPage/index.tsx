@@ -23,6 +23,7 @@ import { useTimerStore } from '../../stores';
 import { Spinner } from '../../components/ui/Spinner';
 import { CreateTimeEntryModal } from '../../components/time/CreateTimeEntryModal';
 import { TimeEntry } from '../../types/models';
+import { useAppT } from '../../i18n/app-i18n';
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -40,20 +41,21 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
   rejected: <XCircle size={14} />,
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Чернетка',
-  submitted: 'Надіслано',
-  approved: 'Затверджено',
-  invoiced: 'Рахунок',
-  rejected: 'Відхилено',
-};
-
 export function TimeEntriesPage() {
+  const { t } = useAppT();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [billableFilter, setBillableFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const STATUS_LABELS: Record<string, string> = {
+    draft: t('timeEntry.status.draft'),
+    submitted: t('timeEntry.status.submitted'),
+    approved: t('timeEntry.status.approved'),
+    invoiced: t('timeEntry.status.invoiced'),
+    rejected: t('timeEntry.status.rejected'),
+  };
 
   const { startTimer } = useTimerStore();
 
@@ -179,12 +181,12 @@ export function TimeEntriesPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-3 py-2.5 bg-white border border-claude-border rounded-xl text-claude-text text-sm font-sans focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all"
             >
-              <option value="all">Всі статуси</option>
-              <option value="draft">Чернетка</option>
-              <option value="submitted">Надіслано</option>
-              <option value="approved">Затверджено</option>
-              <option value="invoiced">Рахунок</option>
-              <option value="rejected">Відхилено</option>
+              <option value="all">{t('timeEntry.status.all')}</option>
+              <option value="draft">{t('timeEntry.status.draft')}</option>
+              <option value="submitted">{t('timeEntry.status.submitted')}</option>
+              <option value="approved">{t('timeEntry.status.approved')}</option>
+              <option value="invoiced">{t('timeEntry.status.invoiced')}</option>
+              <option value="rejected">{t('timeEntry.status.rejected')}</option>
             </select>
 
             <select
