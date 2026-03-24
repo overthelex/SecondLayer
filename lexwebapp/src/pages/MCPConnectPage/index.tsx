@@ -1,30 +1,32 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Plug, Cloud, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useMiscT } from '../../i18n/misc-i18n';
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 interface Connector {
   id: string;
   name: string;
-  description: string;
+  descriptionKey: 'mcpNextcloudDesc' | 'mcpGoogleDriveDesc';
   icon: React.ReactNode;
   status: ConnectionStatus;
 }
 
 export function MCPConnectPage() {
+  const { t } = useMiscT();
   const [connectors, setConnectors] = useState<Connector[]>([
     {
       id: 'nextcloud',
       name: 'Nextcloud',
-      description: 'Синхронізація документів та файлів з вашого Nextcloud сервера',
+      descriptionKey: 'mcpNextcloudDesc',
       icon: <NextcloudIcon />,
       status: 'disconnected',
     },
     {
       id: 'google-drive',
       name: 'Google Drive',
-      description: 'Доступ до файлів та документів з Google Drive',
+      descriptionKey: 'mcpGoogleDriveDesc',
       icon: <GoogleDriveIcon />,
       status: 'disconnected',
     },
@@ -56,11 +58,11 @@ export function MCPConnectPage() {
             <Plug size={22} className="text-claude-accent" />
           </div>
           <h1 className="text-xl font-semibold text-claude-text font-sans tracking-tight">
-            MCP конект
+            {t('mcpTitle')}
           </h1>
         </div>
         <p className="text-[13px] text-claude-subtext font-sans mb-8 ml-[46px]">
-          Підключіть зовнішні сервіси для роботи з документами
+          {t('mcpSubtitle')}
         </p>
 
         <div className="space-y-4">
@@ -68,6 +70,7 @@ export function MCPConnectPage() {
             <ConnectorCard
               key={connector.id}
               connector={connector}
+              description={t(connector.descriptionKey)}
               onConnect={() => handleConnect(connector.id)}
               onDisconnect={() => handleDisconnect(connector.id)}
             />
@@ -80,14 +83,17 @@ export function MCPConnectPage() {
 
 function ConnectorCard({
   connector,
+  description,
   onConnect,
   onDisconnect,
 }: {
   connector: Connector;
+  description: string;
   onConnect: () => void;
   onDisconnect: () => void;
 }) {
-  const { name, description, icon, status } = connector;
+  const { t } = useMiscT();
+  const { name, icon, status } = connector;
 
   return (
     <motion.div
@@ -113,7 +119,7 @@ function ConnectorCard({
             onClick={onDisconnect}
             className="px-4 py-2 text-[12px] font-medium text-claude-subtext bg-claude-bg hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors font-sans"
           >
-            Від'єднати
+            {t('disconnect')}
           </button>
         ) : (
           <button
@@ -129,12 +135,12 @@ function ConnectorCard({
                 >
                   <Cloud size={14} />
                 </motion.div>
-                З'єднання...
+                {t('connecting')}
               </>
             ) : (
               <>
                 <ExternalLink size={14} />
-                Підключити
+                {t('connect')}
               </>
             )}
           </button>
@@ -145,11 +151,12 @@ function ConnectorCard({
 }
 
 function StatusBadge({ status }: { status: ConnectionStatus }) {
+  const { t } = useMiscT();
   if (status === 'connected') {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-green-700 bg-green-50 rounded-full font-sans">
         <CheckCircle2 size={10} />
-        Підключено
+        {t('connected')}
       </span>
     );
   }
@@ -157,7 +164,7 @@ function StatusBadge({ status }: { status: ConnectionStatus }) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-red-700 bg-red-50 rounded-full font-sans">
         <AlertCircle size={10} />
-        Помилка
+        {t('errorStatus')}
       </span>
     );
   }

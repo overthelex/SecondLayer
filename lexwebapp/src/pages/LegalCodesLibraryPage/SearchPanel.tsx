@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2 } from 'lucide-react';
 import type { SearchResult } from './types';
+import { useLegalT } from '../../i18n/legal-i18n';
 
 interface SearchPanelProps {
   showSearch: boolean;
@@ -27,6 +28,7 @@ export function SearchPanel({
   fetchArticle,
   setShowSearch,
 }: SearchPanelProps) {
+  const { t } = useLegalT();
   return (
     <AnimatePresence>
       {showSearch && (
@@ -44,7 +46,7 @@ export function SearchPanel({
                   value={documentSearch}
                   onChange={(e) => setDocumentSearch(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="Знайти у документі..."
+                  placeholder={t.searchInDocument}
                   className="w-full px-4 py-2 bg-white border border-claude-border rounded-lg text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans"
                   autoFocus
                 />
@@ -66,7 +68,7 @@ export function SearchPanel({
                 className="px-4 py-2 bg-claude-accent text-white rounded-lg font-medium hover:bg-[#C66345] transition-colors font-sans disabled:opacity-50 flex items-center gap-2"
               >
                 {searchLoading && <Loader2 size={16} className="animate-spin" />}
-                Пошук
+                {t.search}
               </button>
             </div>
 
@@ -74,7 +76,7 @@ export function SearchPanel({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-claude-subtext font-sans">
-                    Знайдено: {searchTotal} результатів
+                    {t.foundResults}: {searchTotal} {t.results}
                   </span>
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-2">

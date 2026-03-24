@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Camera, Edit2, Loader2 } from 'lucide-react';
 import type { UseProfileReturn } from './types';
+import { useProfileT } from '../../i18n/profile-i18n';
 
 type ProfileHeaderProps = Pick<
   UseProfileReturn,
@@ -15,6 +16,7 @@ export function ProfileHeader({
   handleFileChange,
   handleEditProfile,
 }: ProfileHeaderProps) {
+  const t = useProfileT();
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -78,7 +80,7 @@ export function ProfileHeader({
           </h1>
           <p className="text-claude-subtext mt-1 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500" />
-            {user?.emailVerified && '✓ '}Підтверджено · Учасник з {user?.createdAt ? new Date(user.createdAt).getFullYear() : new Date().getFullYear()} р.
+            {user?.emailVerified && '✓ '}{t.verifiedMember} {user?.createdAt ? new Date(user.createdAt).getFullYear() : new Date().getFullYear()} {t.yearSuffix}
           </p>
         </div>
 
@@ -87,7 +89,7 @@ export function ProfileHeader({
             onClick={handleEditProfile}
             className="flex-1 md:flex-none px-4 py-2.5 bg-claude-accent text-white rounded-xl font-medium text-sm hover:bg-[#C66345] transition-colors shadow-sm active:scale-[0.98]"
           >
-            Редагувати
+            {t.editButton}
           </button>
         </div>
       </div>

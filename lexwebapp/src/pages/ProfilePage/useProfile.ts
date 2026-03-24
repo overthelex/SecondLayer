@@ -9,11 +9,13 @@ import showToast from '../../utils/toast';
 import { toastT } from '../../i18n/toast-i18n';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 import { getErrorMessage, hasName } from '../../utils/errors';
+import { useProfileT } from '../../i18n/profile-i18n';
 import type { EditFormState, UseProfileReturn } from './types';
 
 export function useProfile(): UseProfileReturn {
   const { user, isLoading, updateUser } = useAuth();
   const { formatUah } = useCurrencyRate();
+  const t = useProfileT();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -228,44 +230,44 @@ export function useProfile(): UseProfileReturn {
   };
 
   const stats = [{
-    label: 'Баланс',
+    label: t.balance,
     value: billing ? formatUah(Number(billing.balance_usd)) : '—',
     icon: Banknote
   }, {
-    label: 'Всього запитів',
+    label: t.totalRequests,
     value: billing ? String(billing.total_requests) : '—',
     icon: Activity
   }, {
-    label: 'Всього витрачено',
+    label: t.totalSpent,
     value: billing ? formatUah(Number(billing.total_spent_usd)) : '—',
     icon: Zap
   }];
 
   const settingsGroups = [{
-    title: 'Обліковий запис',
+    title: t.accountGroup,
     items: [{
       icon: Mail,
-      label: 'Електронна пошта',
-      value: user?.email || 'Не вказано'
+      label: t.emailSetting,
+      value: user?.email || t.notSpecified
     }, {
       icon: Shield,
-      label: 'Автентифікація',
+      label: t.authentication,
       value: 'Google OAuth'
     }, {
       icon: User,
-      label: 'ID користувача',
-      value: user?.id?.substring(0, 8) + '...' || 'Н/Д'
+      label: t.userId,
+      value: user?.id?.substring(0, 8) + '...' || t.na
     }]
   }, {
-    title: 'Додаток',
+    title: t.appGroup,
     items: [{
       icon: Settings,
-      label: 'Мова',
-      value: 'Українська'
+      label: t.language,
+      value: t.languageValue
     }, {
       icon: CreditCard,
-      label: 'Білінг',
-      value: billing ? `${formatUah(Number(billing.balance_usd))} • ${billing.pricing_tier}` : 'Завантаження...',
+      label: t.billing,
+      value: billing ? `${formatUah(Number(billing.balance_usd))} • ${billing.pricing_tier}` : t.loadingEllipsis,
       onClick: () => window.location.href = '/billing'
     }]
   }];

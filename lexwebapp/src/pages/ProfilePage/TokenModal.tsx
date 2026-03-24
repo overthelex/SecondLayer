@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, X, Copy, Check } from 'lucide-react';
 import type { UseProfileReturn } from './types';
+import { useProfileT } from '../../i18n/profile-i18n';
 
 type TokenModalProps = Pick<
   UseProfileReturn,
@@ -18,6 +19,7 @@ export function TokenModal({
   handleCreateMcpToken,
   handleCopyToken,
 }: TokenModalProps) {
+  const t = useProfileT();
   return (
     <AnimatePresence>
       {isTokenModalOpen && (
@@ -38,7 +40,7 @@ export function TokenModal({
           >
             <div className="border-b border-claude-border px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-serif text-claude-text">
-                {revealedToken ? 'Токен створено' : 'Новий MCP токен'}
+                {revealedToken ? t.tokenCreated : t.newMcpToken}
               </h2>
               <button
                 onClick={() => setIsTokenModalOpen(false)}
@@ -53,7 +55,7 @@ export function TokenModal({
                 <>
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
                     <p className="text-sm text-amber-800 font-medium">
-                      Збережіть цей токен — він більше не буде показаний!
+                      {t.saveTokenWarning}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -63,7 +65,7 @@ export function TokenModal({
                     <button
                       onClick={() => handleCopyToken(revealedToken)}
                       className="p-2.5 bg-claude-bg border border-claude-border rounded-lg hover:bg-claude-sidebar transition-colors flex-shrink-0"
-                      title="Копіювати"
+                      title={t.copy}
                     >
                       {copiedToken ? <Check size={18} className="text-green-600" /> : <Copy size={18} className="text-claude-subtext" />}
                     </button>
@@ -73,7 +75,7 @@ export function TokenModal({
                 <>
                   <div>
                     <label htmlFor="token-name" className="block text-sm font-medium text-claude-text mb-2">
-                      Назва токена
+                      {t.tokenNameLabel}
                     </label>
                     <input
                       id="token-name"
@@ -83,7 +85,7 @@ export function TokenModal({
                       onChange={(e) => setNewTokenName(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleCreateMcpToken()}
                       className="w-full px-4 py-2.5 border border-claude-border rounded-lg focus:outline-none focus:ring-2 focus:ring-claude-accent focus:border-transparent transition-all"
-                      placeholder="напр. Claude Code — MacBook"
+                      placeholder={t.tokenNamePlaceholder}
                       maxLength={100}
                       autoFocus
                     />
@@ -98,7 +100,7 @@ export function TokenModal({
                   onClick={() => setIsTokenModalOpen(false)}
                   className="flex-1 px-4 py-2.5 bg-claude-accent text-white rounded-xl font-medium text-sm hover:bg-[#C66345] transition-colors"
                 >
-                  Готово
+                  {t.done}
                 </button>
               ) : (
                 <>
@@ -106,7 +108,7 @@ export function TokenModal({
                     onClick={() => setIsTokenModalOpen(false)}
                     className="flex-1 px-4 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl font-medium text-sm hover:bg-claude-bg transition-colors"
                   >
-                    Скасувати
+                    {t.cancel}
                   </button>
                   <button
                     onClick={handleCreateMcpToken}
@@ -116,10 +118,10 @@ export function TokenModal({
                     {isCreatingToken ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
-                        Створення...
+                        {t.creating}
                       </>
                     ) : (
-                      'Створити'
+                      t.create
                     )}
                   </button>
                 </>

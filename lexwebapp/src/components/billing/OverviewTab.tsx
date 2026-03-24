@@ -19,6 +19,7 @@ import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
 import { toastT } from '../../i18n/toast-i18n';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
+import { useProfileT } from '../../i18n/profile-i18n';
 import type { BillingOutletContext } from '../../pages/BillingDashboard';
 
 interface BalanceData {
@@ -45,6 +46,7 @@ export function OverviewTab({ onTopUp: onTopUpProp }: OverviewTabProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const { formatUah, formatUahDirect } = useCurrencyRate();
+  const t = useProfileT();
 
   const fetchBalance = async () => {
     try {
@@ -84,11 +86,11 @@ export function OverviewTab({ onTopUp: onTopUpProp }: OverviewTabProps) {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <AlertCircle size={48} className="text-claude-subtext mx-auto mb-4" />
-          <p className="text-claude-text">Не вдалося завантажити дані балансу</p>
+          <p className="text-claude-text">{t.balanceLoadFailed}</p>
           <button
             onClick={fetchBalance}
             className="mt-4 px-4 py-2 bg-claude-accent text-white rounded-lg hover:bg-opacity-90">
-            Повторити
+            {t.retry}
           </button>
         </div>
       </div>
@@ -109,7 +111,7 @@ export function OverviewTab({ onTopUp: onTopUpProp }: OverviewTabProps) {
           animate={{ opacity: 1, y: 0 }}
           className="bg-gradient-to-br from-claude-accent to-[#C66345] rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium opacity-90">Баланс</h3>
+            <h3 className="text-sm font-medium opacity-90">{t.balanceTitle}</h3>
             <Banknote size={24} />
           </div>
           <p className="text-4xl font-bold mb-2">
@@ -118,12 +120,12 @@ export function OverviewTab({ onTopUp: onTopUpProp }: OverviewTabProps) {
               : formatUah(n(data.balance_usd))}
           </p>
           <div className="flex items-center justify-between">
-            <p className="text-sm opacity-75">Доступно для використання</p>
+            <p className="text-sm opacity-75">{t.availableForUse}</p>
             {onTopUp && (
               <button
                 onClick={onTopUp}
                 className="px-4 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition-colors backdrop-blur-sm">
-                Поповнити
+                {t.topUp}
               </button>
             )}
           </div>
@@ -136,11 +138,11 @@ export function OverviewTab({ onTopUp: onTopUpProp }: OverviewTabProps) {
           transition={{ delay: 0.2 }}
           className="bg-white border border-claude-border rounded-xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-claude-subtext">Всього запитів</h3>
+            <h3 className="text-sm font-medium text-claude-subtext">{t.totalRequestsTitle}</h3>
             <TrendingUp size={24} className="text-claude-accent" />
           </div>
           <p className="text-4xl font-bold text-claude-text mb-2">{data.total_requests}</p>
-          <p className="text-sm text-claude-subtext">Виконано API-запитів</p>
+          <p className="text-sm text-claude-subtext">{t.apiRequestsCompleted}</p>
         </motion.div>
       </div>
 
@@ -152,13 +154,13 @@ export function OverviewTab({ onTopUp: onTopUpProp }: OverviewTabProps) {
         className="bg-white border border-claude-border rounded-xl p-6 shadow-sm">
         <h3 className="text-lg font-semibold text-claude-text mb-4 flex items-center gap-2">
           <Calendar size={20} />
-          Ліміти витрат
+          {t.spendingLimits}
         </h3>
 
         {/* Daily Limit */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-claude-text">Денний ліміт</span>
+            <span className="text-sm font-medium text-claude-text">{t.dailyLimit}</span>
             <span className="text-sm text-claude-subtext">
               {formatUah(n(data.today_spending_usd))} / {formatUah(n(data.daily_limit_usd))}
             </span>
@@ -178,14 +180,14 @@ export function OverviewTab({ onTopUp: onTopUpProp }: OverviewTabProps) {
             />
           </div>
           <p className="text-xs text-claude-subtext mt-1">
-            {dailyPercentage.toFixed(1)}% використано сьогодні
+            {dailyPercentage.toFixed(1)}{t.usedToday}
           </p>
         </div>
 
         {/* Monthly Limit */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-claude-text">Місячний ліміт</span>
+            <span className="text-sm font-medium text-claude-text">{t.monthlyLimit}</span>
             <span className="text-sm text-claude-subtext">
               {formatUah(n(data.monthly_spending_usd))} / {formatUah(n(data.monthly_limit_usd))}
             </span>
@@ -205,7 +207,7 @@ export function OverviewTab({ onTopUp: onTopUpProp }: OverviewTabProps) {
             />
           </div>
           <p className="text-xs text-claude-subtext mt-1">
-            {monthlyPercentage.toFixed(1)}% використано цього місяця
+            {monthlyPercentage.toFixed(1)}{t.usedThisMonth}
           </p>
         </div>
       </motion.div>
@@ -219,18 +221,18 @@ export function OverviewTab({ onTopUp: onTopUpProp }: OverviewTabProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock size={18} className="text-claude-subtext" />
-            <span className="text-sm text-claude-subtext">Останній запит</span>
+            <span className="text-sm text-claude-subtext">{t.lastRequest}</span>
           </div>
           <span className="text-sm font-medium text-claude-text">
             {data.last_request_at
               ? new Date(data.last_request_at).toLocaleString()
-              : 'Запитів ще не було'}
+              : t.noRequestsYet}
           </span>
         </div>
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-2">
             <RefreshCw size={18} className="text-claude-subtext" />
-            <span className="text-sm text-claude-subtext">Останнє оновлення</span>
+            <span className="text-sm text-claude-subtext">{t.lastUpdate}</span>
           </div>
           <span className="text-sm font-medium text-claude-text">
             {lastUpdated.toLocaleTimeString()}
@@ -246,15 +248,15 @@ export function OverviewTab({ onTopUp: onTopUpProp }: OverviewTabProps) {
           className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-yellow-800 mb-1">Попередження про низький баланс</p>
+            <p className="text-sm font-medium text-yellow-800 mb-1">{t.lowBalanceWarning}</p>
             <p className="text-sm text-yellow-700">
-              Ваш баланс на вичерпанні. Поповніть рахунок, щоб уникнути перерви в обслуговуванні.
+              {t.lowBalanceMessage}
             </p>
           </div>
           <button
             onClick={() => onTopUp?.()}
             className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-medium whitespace-nowrap">
-            Поповнити зараз
+            {t.topUpNow}
           </button>
         </motion.div>
       )}

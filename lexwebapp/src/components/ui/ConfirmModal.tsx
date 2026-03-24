@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Loader2 } from 'lucide-react';
+import { miscT } from '../../i18n/misc-i18n';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -20,8 +21,8 @@ export function ConfirmModal({
   isOpen,
   title,
   description,
-  confirmLabel = 'Підтвердити',
-  cancelLabel = 'Скасувати',
+  confirmLabel = miscT('confirm'),
+  cancelLabel = miscT('cancel'),
   inputLabel,
   inputPlaceholder,
   variant = 'default',

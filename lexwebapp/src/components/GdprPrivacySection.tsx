@@ -4,6 +4,7 @@ import { api } from '../utils/api-client';
 import showToast from '../utils/toast';
 import { toastT } from '../i18n/toast-i18n';
 import { useConsentStore } from '../stores/consentStore';
+import { useMiscT } from '../i18n/misc-i18n';
 
 interface GdprRequest {
   id: string;
@@ -14,6 +15,7 @@ interface GdprRequest {
 }
 
 export function GdprPrivacySection() {
+  const { t } = useMiscT();
   const [requests, setRequests] = useState<GdprRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -99,7 +101,7 @@ export function GdprPrivacySection() {
       <div className="flex items-center gap-3 mb-4">
         <Shield size={20} className="text-claude-accent" />
         <h3 className="text-lg font-semibold text-claude-text font-sans">
-          Privacy & Data (GDPR)
+          {t('gdprTitle')}
         </h3>
       </div>
 
@@ -108,10 +110,10 @@ export function GdprPrivacySection() {
         <div className="flex items-start justify-between">
           <div>
             <h4 className="text-[14px] font-medium text-claude-text font-sans">
-              Export my data
+              {t('exportMyData')}
             </h4>
             <p className="text-[12px] text-claude-subtext mt-1 font-sans">
-              Download a copy of all your data including conversations, documents, and usage history.
+              {t('exportMyDataDesc')}
             </p>
           </div>
           <button
@@ -124,7 +126,7 @@ export function GdprPrivacySection() {
             ) : (
               <Download size={14} />
             )}
-            Export
+            {t('export')}
           </button>
         </div>
       </div>
@@ -133,7 +135,7 @@ export function GdprPrivacySection() {
       {requests.filter((r) => r.request_type === 'export').length > 0 && (
         <div className="space-y-2">
           <h4 className="text-[12px] font-semibold text-claude-subtext uppercase tracking-wider font-sans px-1">
-            Previous exports
+            {t('previousExports')}
           </h4>
           {requests
             .filter((r) => r.request_type === 'export')
@@ -162,7 +164,7 @@ export function GdprPrivacySection() {
                     disabled={loading}
                     className="text-[12px] text-claude-accent hover:underline font-sans"
                   >
-                    Download
+                    {t('download')}
                   </button>
                 )}
               </div>
@@ -175,10 +177,10 @@ export function GdprPrivacySection() {
         <div className="flex items-start justify-between">
           <div>
             <h4 className="text-[14px] font-medium text-claude-text font-sans">
-              Налаштування cookie
+              {t('cookiePreferences')}
             </h4>
             <p className="text-[12px] text-claude-subtext mt-1 font-sans">
-              Керуйте файлами cookie та налаштуваннями конфіденційності.
+              {t('cookiePreferencesDesc')}
             </p>
           </div>
           <button
@@ -186,7 +188,7 @@ export function GdprPrivacySection() {
             className="flex items-center gap-2 px-4 py-2 text-[13px] font-medium bg-claude-bg hover:bg-claude-border/50 border border-claude-border rounded-lg transition-colors"
           >
             <Cookie size={14} />
-            Налаштувати
+            {t('customize')}
           </button>
         </div>
       </div>
@@ -196,10 +198,10 @@ export function GdprPrivacySection() {
         <div className="flex items-start justify-between">
           <div>
             <h4 className="text-[14px] font-medium text-red-700 font-sans">
-              Delete my account
+              {t('deleteMyAccount')}
             </h4>
             <p className="text-[12px] text-red-600/70 mt-1 font-sans">
-              Permanently delete your account and all associated data. This action cannot be undone.
+              {t('deleteMyAccountDesc')}
             </p>
           </div>
           <button
@@ -207,7 +209,7 @@ export function GdprPrivacySection() {
             className="flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-red-600 bg-red-100 hover:bg-red-200 border border-red-200 rounded-lg transition-colors"
           >
             <Trash2 size={14} />
-            Delete
+            {t('deleteBtn')}
           </button>
         </div>
       </div>
@@ -221,24 +223,24 @@ export function GdprPrivacySection() {
                 <AlertTriangle size={20} className="text-red-600" />
               </div>
               <h3 className="text-lg font-semibold text-claude-text font-sans">
-                Delete Account?
+                {t('deleteAccountTitle')}
               </h3>
             </div>
             <p className="text-[13px] text-claude-subtext mb-6 font-sans leading-relaxed">
-              This will permanently delete your account and all data including:
+              {t('deleteAccountWarning')}
             </p>
             <ul className="text-[13px] text-claude-subtext mb-6 font-sans space-y-1 pl-4">
-              <li>All conversations and messages</li>
-              <li>Uploaded documents</li>
-              <li>Usage history and billing data</li>
-              <li>API keys</li>
+              <li>{t('deleteItem1')}</li>
+              <li>{t('deleteItem2')}</li>
+              <li>{t('deleteItem3')}</li>
+              <li>{t('deleteItem4')}</li>
             </ul>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 className="flex-1 py-2.5 text-[13px] font-medium border border-claude-border rounded-xl hover:bg-claude-bg transition-colors font-sans"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 onClick={handleDeleteAccount}
@@ -250,7 +252,7 @@ export function GdprPrivacySection() {
                 ) : (
                   <Trash2 size={14} />
                 )}
-                Delete forever
+                {t('deleteForever')}
               </button>
             </div>
           </div>

@@ -9,6 +9,7 @@ import {
   Library,
 } from 'lucide-react';
 import type { ArticleData, TOCArticleEntry } from './types';
+import { useLegalT } from '../../i18n/legal-i18n';
 
 interface ArticleViewerProps {
   loadingArticle: boolean;
@@ -43,6 +44,7 @@ export function ArticleViewer({
   handleCopyLink,
   handleSaveComment,
 }: ArticleViewerProps) {
+  const { t } = useLegalT();
   return (
     <div className="flex-1 overflow-y-auto p-8 bg-claude-bg">
       <div className="max-w-4xl mx-auto bg-white rounded-2xl border border-claude-border shadow-sm p-8">
@@ -59,8 +61,8 @@ export function ArticleViewer({
             <Library size={48} className="mx-auto text-claude-subtext/30 mb-4" />
             <p className="text-claude-subtext font-sans">
               {loadingStructure
-                ? 'Завантаження структури...'
-                : 'Оберіть статтю зі змісту'}
+                ? t.loadingStructureShort
+                : t.selectArticle}
             </p>
           </div>
         )}
@@ -69,7 +71,7 @@ export function ArticleViewer({
         {!loadingArticle && currentArticle && (
           <>
             <h2 className="text-2xl font-serif font-bold text-claude-text mb-6">
-              Стаття {currentArticle.article_number}. {currentArticle.title}
+              {t.articleLabel} {currentArticle.article_number}. {currentArticle.title}
             </h2>
 
             <div className="text-base text-claude-text font-sans leading-relaxed whitespace-pre-wrap">
@@ -85,8 +87,8 @@ export function ArticleViewer({
               >
                 <ChevronLeft size={16} />
                 {prevArticle
-                  ? `Ст. ${prevArticle.article_number}`
-                  : 'Попередня'}
+                  ? `${t.articlesAbbr} ${prevArticle.article_number}`
+                  : t.previous}
               </button>
               <span className="text-xs text-claude-subtext font-sans">
                 {currentArticleIndex + 1} / {allArticles.length}
@@ -97,8 +99,8 @@ export function ArticleViewer({
                 className="flex items-center gap-2 px-3 py-2 text-sm font-sans text-claude-text hover:bg-claude-bg rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {nextArticle
-                  ? `Ст. ${nextArticle.article_number}`
-                  : 'Наступна'}
+                  ? `${t.articlesAbbr} ${nextArticle.article_number}`
+                  : t.next}
                 <ChevronRight size={16} />
               </button>
             </div>
@@ -110,14 +112,14 @@ export function ArticleViewer({
                 className="flex items-center gap-2 px-4 py-2 bg-claude-bg hover:bg-claude-border text-claude-text rounded-lg text-sm font-medium font-sans transition-colors"
               >
                 <Copy size={16} />
-                Копіювати
+                {t.copy}
               </button>
               <button
                 onClick={handleCopyLink}
                 className="flex items-center gap-2 px-4 py-2 bg-claude-bg hover:bg-claude-border text-claude-text rounded-lg text-sm font-medium font-sans transition-colors"
               >
                 <LinkIcon size={16} />
-                Посилання
+                {t.link}
               </button>
               <button
                 onClick={() => setShowComment(!showComment)}
@@ -128,7 +130,7 @@ export function ArticleViewer({
                 }`}
               >
                 <MessageSquare size={16} />
-                Коментар
+                {t.comment}
               </button>
             </div>
 
@@ -145,12 +147,12 @@ export function ArticleViewer({
                     <textarea
                       value={commentText}
                       onChange={(e) => handleSaveComment(e.target.value)}
-                      placeholder="Додати нотатку до статті..."
+                      placeholder={t.addNoteToArticle}
                       className="w-full px-4 py-3 bg-claude-bg border border-claude-border rounded-lg text-sm font-sans text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent resize-y min-h-[80px]"
                       rows={3}
                     />
                     <p className="text-xs text-claude-subtext font-sans mt-1">
-                      Нотатка зберігається автоматично в браузері
+                      {t.noteAutoSaved}
                     </p>
                   </div>
                 </motion.div>
