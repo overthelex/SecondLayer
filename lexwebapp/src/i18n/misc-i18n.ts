@@ -31,6 +31,18 @@ const miscStrings: Record<string, Record<Locale, string>> = {
     de: 'Zugriff auf Dateien und Dokumente aus Google Drive',
     es: 'Acceda a archivos y documentos desde Google Drive',
   },
+  mcpComingSoon: {
+    uk: 'У розробці',
+    en: 'Coming soon',
+    de: 'In Entwicklung',
+    es: 'Próximamente',
+  },
+  mcpComingSoonNote: {
+    uk: 'OAuth-інтеграція для цього сервісу ще розробляється',
+    en: 'OAuth integration for this service is still in development',
+    de: 'OAuth-Integration für diesen Dienst ist noch in Entwicklung',
+    es: 'La integración OAuth para este servicio está en desarrollo',
+  },
   disconnect: {
     uk: "Від'єднати",
     en: 'Disconnect',

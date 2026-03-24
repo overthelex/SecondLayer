@@ -35,6 +35,7 @@ import { createTestEmailRoute } from './routes/test-email-route.js';
 import passport from 'passport';
 import { createApiKeyRouter } from './routes/api-key-routes.js';
 import { getRedisClient } from './utils/redis-client.js';
+import { getOpenAIManager } from '@secondlayer/shared';
 import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
 import { LLMAdapter } from './infrastructure/adapters/llm-adapter.js';
 import { createTemplateRoutes } from './routes/template-routes.js';
@@ -66,6 +67,7 @@ import { JudgeAnalyticsService } from './services/judge-analytics-service.js';
 import { createJudgeAnalyticsRoutes } from './routes/judge-analytics-routes.js';
 import { createReferralRoutes } from './routes/referral-routes.js';
 import { createLegislationMonitoringRoutes } from './routes/legislation-monitoring-routes.js';
+import { createUsageRoutes } from './routes/usage-routes.js';
 import rateLimit from 'express-rate-limit';
 import cron from 'node-cron';
 
@@ -281,6 +283,35 @@ class HTTPMCPServer {
         checks.minio = { ok: false, error: err.message };
       }
 
+      // DB pool stats (synchronous, no network call)
+      try {
+        const poolStats = this.services.db.getPoolStats();
+        checks.db_pool = { ok: true, ...poolStats } as any;
+      } catch (err: any) {
+        checks.db_pool = { ok: false, error: err.message };
+      }
+
+      // OpenAI API availability (non-blocking — degraded if down, not a hard failure)
+      try {
+        const openaiManager = getOpenAIManager();
+        if (!openaiManager.isAvailable()) {
+          checks.openai = { ok: false, error: 'no API keys configured' };
+        } else {
+          const start = Date.now();
+          const ac = new AbortController();
+          const timeout = setTimeout(() => ac.abort(), 2000);
+          try {
+            await openaiManager.getClient().models.list({ signal: ac.signal as any });
+            checks.openai = { ok: true, latencyMs: Date.now() - start };
+          } finally {
+            clearTimeout(timeout);
+          }
+        }
+      } catch (err: any) {
+        // Report as degraded, not a hard failure — OpenAI outages should not kill the health check
+        checks.openai = { ok: false, error: err.name === 'AbortError' ? 'timeout (2s)' : err.message };
+      }
+
       // Payout reconciliation (non-blocking)
       try {
         const recon = await this.app_.consultationPaymentService.getPayoutReconciliation();
@@ -354,9 +385,6 @@ class HTTPMCPServer {
     this.app.use('/api/keys', requireJWT as any, createApiKeyRouter(this.billing.apiKeyService, this.billing.creditService));
     logger.info('API key management routes registered at /api/keys');
 
-    // EULA endpoints - REMOVED: not needed
-    // this.app.use('/api/eula', createEULARouter(this.services.db.getPool()));
-
     // Geo detection endpoint (public, no auth required)
     // Returns country/language/currency defaults based on Cloudflare headers
     this.app.get('/api/geo', (async (req: Request, res: Response) => {
@@ -422,14 +450,15 @@ class HTTPMCPServer {
     // POST /api/billing/test-email - Send test email
     this.app.use('/api/billing/test-email', requireJWT as any, createTestEmailRoute(this.billing.emailService));
 
-    // Billing and user preferences routes
-    // GET /api/billing/preferences - Get user request preferences
-    // PUT /api/billing/preferences - Update user preferences
+    // Additional billing routes (supplements billing-inline-routes above, no overlapping paths):
+    // GET /api/billing/pricing-info - Pricing tier info
+    // GET|PUT /api/billing/billing-info - Company details for invoicing
+    // GET|DELETE|PUT /api/billing/payment-methods[/:id[/primary]] - Saved payment methods
+    // GET|PUT /api/billing/preferences - User request preferences
     // POST /api/billing/preferences/preset - Apply preset configuration
-    // GET /api/billing/presets - Get all available presets
+    // GET /api/billing/presets - All available presets
     // POST /api/billing/estimate-costs - Estimate costs for different presets
-    // GET /api/billing/full-settings - Get combined billing and preferences
-    // GET /api/billing/pricing-info - Get pricing tier information
+    // GET /api/billing/full-settings - Combined billing and preferences
     // POST /api/billing/estimate-price - Estimate price with user's tier
     this.app.use('/api/billing', requireJWT as any, createBillingRoutes(this.billing.billingService, this.billing.userPreferencesService, this.billing.pricingService));
 
@@ -540,6 +569,10 @@ class HTTPMCPServer {
 
     this.app.use('/api/invoicing', requireJWT as any, createInvoiceRoutes(this.app_.matterInvoiceService));
     logger.info('Invoicing routes registered at /api/invoicing');
+
+    // Usage analytics routes - aggregated API usage for authenticated user
+    this.app.use('/api/usage', requireJWT as any, createUsageRoutes(this.services.db));
+    logger.info('Usage analytics routes registered at /api/usage');
 
     // Attorney routes - search is public (optionalJWT), profile management requires JWT
     this.app.use('/api/attorneys', optionalJWT as any, createAttorneyRoutes(this.app_.attorneyProfileService));

@@ -1,96 +1,23 @@
 /**
  * Billing and User Preferences API Routes
- * Handles billing info, user preferences, and cost estimation
+ * Handles preferences, cost estimation, billing-info, and payment methods.
+ *
+ * NOTE: Routes for /balance, /history, /settings, /statistics, /invoices are
+ * handled by billing-inline-routes.ts (registered first at /api/billing).
+ * This router only adds routes that billing-inline-routes.ts does NOT define.
  */
 
 import express, { Request, Response } from 'express';
 import { BillingService } from '../services/billing-service.js';
 import { UserPreferencesService } from '../services/user-preferences-service.js';
-import { PricingService } from '../services/pricing-service.js';
 import { logger } from '../utils/logger.js';
 
 export function createBillingRoutes(
   billingService: BillingService,
   preferencesService: UserPreferencesService,
-  pricingService: PricingService
+  _pricingService: unknown
 ): express.Router {
   const router = express.Router();
-
-  /**
-   * GET /api/billing/balance
-   * Get user's current balance and billing info
-   */
-  router.get('/balance', async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      const summary = await billingService.getBillingSummary(userId);
-
-      if (!summary) {
-        return res.status(404).json({ error: 'Billing account not found' });
-      }
-
-      res.json({
-        user_id: summary.user_id,
-        balance_usd: summary.balance_usd,
-        balance_uah: summary.balance_uah,
-        total_spent_usd: summary.total_spent_usd,
-        total_requests: summary.total_requests,
-        daily_limit_usd: summary.daily_limit_usd,
-        monthly_limit_usd: summary.monthly_limit_usd,
-        pricing_tier: summary.pricing_tier,
-        today_spent_usd: summary.today_spent_usd,
-        month_spent_usd: summary.month_spent_usd,
-        // Aliases for frontend compatibility
-        today_spending_usd: summary.today_spent_usd,
-        monthly_spending_usd: summary.month_spent_usd,
-        last_request_at: summary.last_request_at,
-        is_active: summary.is_active,
-        low_balance_threshold_usd: summary.low_balance_threshold_usd,
-      });
-    } catch (error: any) {
-      logger.error('Failed to get balance', { error: error.message });
-      res.status(500).json({ error: 'Failed to retrieve balance' });
-    }
-  });
-
-  /**
-   * GET /api/billing/history
-   * Get user's transaction history
-   */
-  router.get('/history', async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      const limit = Math.min(100, Math.max(1, Number(req.query.limit || 50)));
-      const offset = Math.max(0, Number(req.query.offset || 0));
-      const type = req.query.type as string | undefined;
-
-      const transactions = await billingService.getTransactionHistory(userId, {
-        limit,
-        offset,
-        type,
-      });
-
-      res.json({
-        transactions,
-        pagination: {
-          limit,
-          offset,
-          count: transactions.length,
-        },
-      });
-    } catch (error: any) {
-      logger.error('Failed to get transaction history', { error: error.message });
-      res.status(500).json({ error: 'Failed to retrieve transaction history' });
-    }
-  });
 
   /**
    * GET /api/billing/pricing-info
@@ -116,177 +43,6 @@ export function createBillingRoutes(
     } catch (error: any) {
       logger.error('Failed to get pricing info', { error: error.message });
       res.status(500).json({ error: 'Failed to retrieve pricing information' });
-    }
-  });
-
-  /**
-   * GET /api/billing/settings
-   * Get user billing settings (limits, notifications)
-   */
-  router.get('/settings', async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      const summary = await billingService.getBillingSummary(userId);
-      if (!summary) {
-        return res.json({
-          daily_limit_usd: 10,
-          monthly_limit_usd: 100,
-          email_notifications: true,
-          notify_low_balance: true,
-          notify_payment_success: true,
-          notify_payment_failure: false,
-          notify_monthly_report: true,
-          low_balance_threshold_usd: 20,
-        });
-      }
-
-      res.json({
-        daily_limit_usd: summary.daily_limit_usd,
-        monthly_limit_usd: summary.monthly_limit_usd,
-        pricing_tier: summary.pricing_tier,
-        email_notifications: summary.email_notifications,
-        notify_low_balance: summary.notify_low_balance,
-        notify_payment_success: summary.notify_payment_success,
-        notify_payment_failure: summary.notify_payment_failure,
-        notify_monthly_report: summary.notify_monthly_report,
-        low_balance_threshold_usd: summary.low_balance_threshold_usd,
-      });
-    } catch (error: any) {
-      logger.error('Failed to get billing settings', { error: error.message });
-      res.status(500).json({ error: 'Failed to retrieve billing settings' });
-    }
-  });
-
-  /**
-   * PUT /api/billing/settings
-   * Update user billing settings (limits, tier)
-   */
-  router.put('/settings', async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      const {
-        dailyLimitUsd, daily_limit_usd,
-        monthlyLimitUsd, monthly_limit_usd,
-        pricingTier,
-        email_notifications,
-        notify_low_balance,
-        notify_payment_success,
-        notify_payment_failure,
-        notify_monthly_report,
-        low_balance_threshold_usd,
-      } = req.body;
-
-      const dailyVal = dailyLimitUsd ?? daily_limit_usd;
-      const monthlyVal = monthlyLimitUsd ?? monthly_limit_usd;
-
-      const result = await billingService.updateBillingSettings(userId, {
-        dailyLimitUsd: dailyVal !== undefined ? Number(dailyVal) : undefined,
-        monthlyLimitUsd: monthlyVal !== undefined ? Number(monthlyVal) : undefined,
-        pricingTier,
-        email_notifications,
-        notify_low_balance,
-        notify_payment_success,
-        notify_payment_failure,
-        notify_monthly_report,
-        low_balance_threshold_usd: low_balance_threshold_usd !== undefined ? Number(low_balance_threshold_usd) : undefined,
-      });
-
-      res.json({ success: true, message: 'Billing settings updated', ...result });
-    } catch (error: any) {
-      logger.error('Failed to update billing settings', { error: error.message });
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  /**
-   * GET /api/billing/invoices
-   * Get billing invoices (top-up transactions)
-   */
-  router.get('/invoices', async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      const limit = Math.min(100, Math.max(1, Number(req.query.limit || 50)));
-      const offset = Math.max(0, Number(req.query.offset || 0));
-      const status = req.query.status as string | undefined;
-
-      const { invoices, total } = await billingService.getBillingInvoices(userId, {
-        limit,
-        offset,
-        status,
-      });
-
-      res.json({
-        invoices,
-        pagination: { limit, offset, count: invoices.length, total },
-      });
-    } catch (error: any) {
-      logger.error('Failed to get billing invoices', { error: error.message });
-      res.status(500).json({ error: 'Failed to retrieve invoices' });
-    }
-  });
-
-  /**
-   * GET /api/billing/invoices/:invoiceNumber/pdf
-   * Generate PDF for a billing invoice
-   */
-  router.get('/invoices/:invoiceNumber/pdf', async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      // Find the transaction for this invoice
-      const { invoices } = await billingService.getBillingInvoices(userId, { limit: 200 });
-      const invoice = invoices.find((inv: any) =>
-        inv.invoiceNumber === req.params.invoiceNumber
-      );
-
-      if (!invoice) {
-        return res.status(404).json({ error: 'Invoice not found' });
-      }
-
-      // Return invoice data as JSON — frontend generates PDF client-side
-      res.json(invoice);
-    } catch (error: any) {
-      logger.error('Failed to get invoice', { error: error.message });
-      res.status(500).json({ error: 'Failed to retrieve invoice' });
-    }
-  });
-
-  /**
-   * GET /api/billing/statistics
-   * Get billing usage statistics for a period
-   */
-  router.get('/statistics', async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      const period = (req.query.period as string) || '30d';
-      if (!['7d', '30d', '90d', 'year'].includes(period)) {
-        return res.status(400).json({ error: 'Invalid period. Must be 7d, 30d, 90d, or year' });
-      }
-
-      const statistics = await billingService.getBillingStatistics(userId, period);
-      res.json(statistics);
-    } catch (error: any) {
-      logger.error('Failed to get billing statistics', { error: error.message });
-      res.status(500).json({ error: 'Failed to retrieve statistics' });
     }
   });
 

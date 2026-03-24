@@ -101,6 +101,17 @@ export class BaseDatabase {
   }
 
   /**
+   * Return current pg pool stats without any side effects.
+   */
+  getPoolStats(): { total: number; idle: number; waiting: number } {
+    return {
+      total: this.pool.totalCount,
+      idle: this.pool.idleCount,
+      waiting: this.pool.waitingCount,
+    };
+  }
+
+  /**
    * Register a callback that receives pool stats every 5 seconds.
    * The callback pattern decouples from prom-client.
    */
