@@ -70,7 +70,7 @@ export function CostSummary({ data }: CostSummaryProps) {
           >
             <div className="mt-2 px-3 py-2.5 rounded-lg border border-claude-border/50 bg-claude-bg/40 text-[12px] text-claude-subtext space-y-1.5">
               {/* Tools used */}
-              {data.tools_used.length > 0 && (
+              {data.tools_used && data.tools_used.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   <span className="font-medium text-claude-text">{t('tools')}</span>
                   {data.tools_used.map((tool) => (
