@@ -201,6 +201,23 @@ export class DiiaService {
     }
   }
 
+  /** DELETE /api/v1/acquirers/branch/{branchId}/offer/{offerId} — delete offer */
+  async deleteOffer(branchId: string, offerId: string): Promise<void> {
+    const token = await this.getSessionToken();
+
+    const response = await fetch(`${DIIA_BASE_URL}/api/v1/acquirers/branch/${branchId}/offer/${offerId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      logger.warn('[Diia] deleteOffer failed', { branchId, offerId, status: response.status, text });
+    } else {
+      logger.info('[Diia] Offer deleted', { branchId, offerId });
+    }
+  }
+
   /** GET /api/v1/acquirers/branch/{branchId}/offers */
   async getOffers(branchId: string): Promise<DiiaOffer[]> {
     const token = await this.getSessionToken();
@@ -319,14 +336,19 @@ export class DiiaService {
     }
 
     if (!offerId) {
+      const expectedName = 'Авторизація в застосунку Lex';
       const offers = await this.getOffers(branchId);
-      if (offers.length > 0) {
-        offerId = offers[0].id || offers[0]._id || '';
-        // Update offer name in background
-        this.updateOffer(branchId, offerId, {
-          name: 'Авторизація в застосунку Lex',
-          scopes: { diiaId: ['auth'] },
-        }).catch(() => {});
+      const existing = offers.length > 0 ? offers[0] : null;
+
+      if (existing && existing.name === expectedName) {
+        // Offer already has correct name
+        offerId = existing.id || existing._id || '';
+      } else if (existing) {
+        // Offer has stale name — delete and recreate
+        const staleId = existing.id || existing._id || '';
+        logger.info('[Diia] Offer has stale name, recreating', { staleId, oldName: existing.name });
+        await this.deleteOffer(branchId, staleId);
+        offerId = await this.createOffer(branchId, returnUrl);
       } else {
         // First-time setup: create offer
         offerId = await this.createOffer(branchId, returnUrl);
