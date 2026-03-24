@@ -26,6 +26,7 @@ import { NextcloudService } from '../services/nextcloud-service.js';
 import { NextcloudTools } from '../api/tools/nextcloud-tools.js';
 import { StateRegistryTools } from '../api/tools/state-registry-tools.js';
 import { CourtStatusTools } from '../api/tools/court-status-tools.js';
+import { OpenDataTools } from '../api/tools/opendata-tools.js';
 import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
 import { DecisionLayerTools } from '../api/tools/decision-layer-tools.js';
 import { logger } from '../utils/logger.js';
@@ -125,6 +126,7 @@ export function createToolServices(
   toolRegistry.registerHandler(new ECHRPracticeTools(coreServices.zoECHRAdapter));
   toolRegistry.registerHandler(new StateRegistryTools(coreServices.db));
   toolRegistry.registerHandler(new CourtStatusTools(coreServices.db));
+  toolRegistry.registerHandler(new OpenDataTools(coreServices.db));
   toolRegistry.registerHandler(new EdsrSearchTools(coreServices.db));
   toolRegistry.registerHandler(new DecisionLayerTools(llmAdapter));
 
