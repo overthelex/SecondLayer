@@ -156,3 +156,9 @@ docs/archived/
 # Marketing materials (store externally)
 docs/*.pdf
 docs/linkedin-*.png
+
+# Large data files (>100MB)
+scripts/hudoc/court-sessions-clean.csv
+scripts/hudoc/court-sessions-sample.csv
+scripts/hudoc/*.zip
+scripts/opendata/rnbo/ua_nsdc_sanctions.json
