@@ -77,6 +77,76 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
     strengthWeak: 'Слабкий',
     strengthMedium: 'Середній',
     strengthStrong: 'Надійний',
+    // Promo banner
+    promoNew: 'НОВИМ',
+    promoDesc: 'Дізнайтесь про умови та реферальну програму',
+    // Bottom nav
+    newsLink: 'Новини',
+    investorsLink: 'Для інвесторів',
+    // Auth subtitle
+    authSubtitleLogin: 'Оберіть зручний спосіб автентифікації',
+    authSubtitleRegister: 'Зареєструйтесь для початку роботи',
+    // Divider
+    orDivider: 'або',
+    // Auth method tabs
+    tabPassword: 'Пароль',
+    tabKey: 'Ключ',
+    tabPhone: 'Телефон',
+    // Form labels
+    nameLabel: "Ім'я",
+    namePlaceholderExample: 'Іван Петренко',
+    passwordLabel: 'Пароль',
+    // Password strength messages
+    strengthWeakDesc: 'Слабкий — додайте великі літери, цифри або спецсимволи',
+    strengthMediumDesc: 'Середній пароль',
+    strengthStrongDesc: 'Надійний пароль',
+    // Hardware key
+    hardwareKeyTitle: 'Підключіть ключ безпеки',
+    hardwareKeyDesc: 'Вставте USB-ключ або використайте NFC',
+    // Phone key
+    phoneKeyTitle: 'Вхід через телефон',
+    phoneKeyDesc: 'Браузер покаже QR-код для сканування',
+    // GDPR badge
+    gdprDesc: 'Захист персональних даних',
+    gdprCompliance: 'Відповідає Регламенту ЄС 2016/679',
+    // Footer legal links
+    footerTerms: 'Умови',
+    footerOffer: 'Оферта',
+    footerPrivacy: 'Конфіденційність',
+    footerDpa: 'DPA',
+    footerAiPolicy: 'Політика AI',
+    footerAiTransparency: 'Прозорість AI',
+    // Registration consent
+    consentRequired: 'Для реєстрації необхідно прийняти:',
+    consentTerms: 'Умови використання',
+    consentOffer: 'Публічну оферту',
+    consentAnd: ' та ',
+    consentPrivacy: 'Політику конфіденційності',
+    consentDpa: 'Угоду про обробку даних (DPA)',
+    // SSO form
+    ssoLoginButtonText: 'Увійти',
+    // Welcome modal
+    welcomeModalTitle: 'Ласкаво просимо',
+    welcomeModalDesc: 'Ознайомтесь з умовами платформи та реферальною програмою',
+    legalDocsTitle: 'Правові документи',
+    docOffer: 'Публічна оферта',
+    docOfferDesc: 'Договір між вами та платформою',
+    docTerms: 'Умови використання',
+    docTermsDesc: 'Правила користування сервісом',
+    docPrivacy: 'Політика конфіденційності',
+    docPrivacyDesc: 'Як ми захищаємо ваші дані',
+    docDpa: 'Угода про обробку даних (DPA)',
+    docDpaDesc: 'Відповідність GDPR',
+    docRefund: 'Політика повернення коштів',
+    docRefundDesc: 'Умови повернення оплати',
+    // Referral program
+    referralTitle: 'Реферальна програма',
+    referralHeadline: 'Запрошуйте колег — отримуйте бонуси',
+    referralDesc: 'Поділіться реферальним посиланням з колегами-юристами. За кожного нового користувача, який зареєструється та поповнить рахунок, ви отримаєте бонус на баланс платформи.',
+    referralItem1: 'Реферальне посилання доступне після реєстрації',
+    referralItem2: 'Бонус нараховується автоматично',
+    referralItem3: 'Для участі потрібна верифікація ФОП, ТОВ або адвоката',
+    referralCta: 'Зареєструватися',
   },
   en: {
     tagline: 'For Law Firms',
@@ -139,6 +209,75 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
     strengthWeak: 'Weak',
     strengthMedium: 'Medium',
     strengthStrong: 'Strong',
+    // Promo banner
+    promoNew: 'NEW',
+    promoDesc: 'Learn about terms and referral program',
+    // Bottom nav
+    newsLink: 'News',
+    investorsLink: 'For Investors',
+    // Auth subtitle
+    authSubtitleLogin: 'Choose your authentication method',
+    authSubtitleRegister: 'Register to get started',
+    // Divider
+    orDivider: 'or',
+    // Auth method tabs
+    tabPassword: 'Password',
+    tabKey: 'Key',
+    tabPhone: 'Phone',
+    // Form labels
+    nameLabel: 'Name',
+    namePlaceholderExample: 'John Doe',
+    passwordLabel: 'Password',
+    // Password strength messages
+    strengthWeakDesc: 'Weak — add uppercase letters, numbers or special characters',
+    strengthMediumDesc: 'Medium password',
+    strengthStrongDesc: 'Strong password',
+    // Hardware key
+    hardwareKeyTitle: 'Connect your security key',
+    hardwareKeyDesc: 'Insert USB key or use NFC',
+    // Phone key
+    phoneKeyTitle: 'Phone login',
+    phoneKeyDesc: 'Browser will show QR code to scan',
+    // GDPR badge
+    gdprDesc: 'Personal data protection',
+    gdprCompliance: 'Compliant with EU Regulation 2016/679',
+    // Footer legal links
+    footerTerms: 'Terms',
+    footerOffer: 'Offer',
+    footerPrivacy: 'Privacy',
+    footerDpa: 'DPA',
+    footerAiPolicy: 'AI Policy',
+    footerAiTransparency: 'AI Transparency',
+    // Registration consent
+    consentRequired: 'To register, you must accept:',
+    consentTerms: 'Terms of Use',
+    consentOffer: 'Public Offer',
+    consentAnd: ' and ',
+    consentPrivacy: 'Privacy Policy',
+    consentDpa: 'Data Processing Agreement (DPA)',
+    // SSO form
+    ssoLoginButtonText: 'Sign In',
+    // Welcome modal
+    welcomeModalTitle: 'Welcome',
+    welcomeModalDesc: 'Review platform terms and referral program',
+    legalDocsTitle: 'Legal Documents',
+    docOffer: 'Public Offer',
+    docOfferDesc: 'Agreement between you and the platform',
+    docTerms: 'Terms of Use',
+    docTermsDesc: 'Service usage rules',
+    docPrivacy: 'Privacy Policy',
+    docPrivacyDesc: 'How we protect your data',
+    docDpa: 'Data Processing Agreement (DPA)',
+    docDpaDesc: 'GDPR compliance',
+    docRefund: 'Refund Policy',
+    docRefundDesc: 'Payment refund conditions',
+    referralTitle: 'Referral Program',
+    referralHeadline: 'Invite colleagues — earn bonuses',
+    referralDesc: 'Share your referral link with fellow lawyers. For every new user who registers and tops up their account, you will receive a bonus to your platform balance.',
+    referralItem1: 'Referral link available after registration',
+    referralItem2: 'Bonus is credited automatically',
+    referralItem3: 'Verification as a sole proprietor, LLC or attorney required',
+    referralCta: 'Register',
   },
   de: {
     tagline: 'Fur Anwaltskanzleien',
@@ -201,6 +340,75 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
     strengthWeak: 'Schwach',
     strengthMedium: 'Mittel',
     strengthStrong: 'Stark',
+    // Promo banner
+    promoNew: 'NEU',
+    promoDesc: 'Erfahren Sie mehr über Bedingungen und Empfehlungsprogramm',
+    // Bottom nav
+    newsLink: 'Nachrichten',
+    investorsLink: 'Für Investoren',
+    // Auth subtitle
+    authSubtitleLogin: 'Wählen Sie Ihre Authentifizierungsmethode',
+    authSubtitleRegister: 'Registrieren Sie sich, um loszulegen',
+    // Divider
+    orDivider: 'oder',
+    // Auth method tabs
+    tabPassword: 'Passwort',
+    tabKey: 'Schlüssel',
+    tabPhone: 'Telefon',
+    // Form labels
+    nameLabel: 'Name',
+    namePlaceholderExample: 'Max Mustermann',
+    passwordLabel: 'Passwort',
+    // Password strength messages
+    strengthWeakDesc: 'Schwach — Großbuchstaben, Zahlen oder Sonderzeichen hinzufügen',
+    strengthMediumDesc: 'Mittleres Passwort',
+    strengthStrongDesc: 'Starkes Passwort',
+    // Hardware key
+    hardwareKeyTitle: 'Schließen Sie Ihren Sicherheitsschlüssel an',
+    hardwareKeyDesc: 'USB-Schlüssel einstecken oder NFC verwenden',
+    // Phone key
+    phoneKeyTitle: 'Anmeldung per Telefon',
+    phoneKeyDesc: 'Der Browser zeigt einen QR-Code zum Scannen an',
+    // GDPR badge
+    gdprDesc: 'Schutz personenbezogener Daten',
+    gdprCompliance: 'Konform mit EU-Verordnung 2016/679',
+    // Footer legal links
+    footerTerms: 'Bedingungen',
+    footerOffer: 'Angebot',
+    footerPrivacy: 'Datenschutz',
+    footerDpa: 'DPA',
+    footerAiPolicy: 'KI-Richtlinie',
+    footerAiTransparency: 'KI-Transparenz',
+    // Registration consent
+    consentRequired: 'Für die Registrierung müssen Sie akzeptieren:',
+    consentTerms: 'Nutzungsbedingungen',
+    consentOffer: 'Öffentliches Angebot',
+    consentAnd: ' und ',
+    consentPrivacy: 'Datenschutzerklärung',
+    consentDpa: 'Datenverarbeitungsvereinbarung (DPA)',
+    // SSO form
+    ssoLoginButtonText: 'Anmelden',
+    // Welcome modal
+    welcomeModalTitle: 'Willkommen',
+    welcomeModalDesc: 'Überprüfen Sie die Plattformbedingungen und das Empfehlungsprogramm',
+    legalDocsTitle: 'Rechtsdokumente',
+    docOffer: 'Öffentliches Angebot',
+    docOfferDesc: 'Vereinbarung zwischen Ihnen und der Plattform',
+    docTerms: 'Nutzungsbedingungen',
+    docTermsDesc: 'Regeln für die Nutzung des Dienstes',
+    docPrivacy: 'Datenschutzerklärung',
+    docPrivacyDesc: 'Wie wir Ihre Daten schützen',
+    docDpa: 'Datenverarbeitungsvereinbarung (DPA)',
+    docDpaDesc: 'GDPR-Konformität',
+    docRefund: 'Rückerstattungsrichtlinie',
+    docRefundDesc: 'Bedingungen für Rückerstattungen',
+    referralTitle: 'Empfehlungsprogramm',
+    referralHeadline: 'Laden Sie Kollegen ein — verdienen Sie Boni',
+    referralDesc: 'Teilen Sie Ihren Empfehlungslink mit Anwaltskollegen. Für jeden neuen Benutzer, der sich registriert und sein Konto auflädt, erhalten Sie einen Bonus auf Ihr Plattformguthaben.',
+    referralItem1: 'Empfehlungslink nach der Registrierung verfügbar',
+    referralItem2: 'Bonus wird automatisch gutgeschrieben',
+    referralItem3: 'Verifizierung als Einzelunternehmer, GmbH oder Anwalt erforderlich',
+    referralCta: 'Registrieren',
   },
   es: {
     tagline: 'Para Despachos de Abogados',
@@ -263,6 +471,75 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
     strengthWeak: 'Débil',
     strengthMedium: 'Medio',
     strengthStrong: 'Fuerte',
+    // Promo banner
+    promoNew: 'NUEVO',
+    promoDesc: 'Conozca los términos y el programa de referidos',
+    // Bottom nav
+    newsLink: 'Noticias',
+    investorsLink: 'Para inversores',
+    // Auth subtitle
+    authSubtitleLogin: 'Elija su método de autenticación',
+    authSubtitleRegister: 'Regístrese para comenzar',
+    // Divider
+    orDivider: 'o',
+    // Auth method tabs
+    tabPassword: 'Contraseña',
+    tabKey: 'Llave',
+    tabPhone: 'Teléfono',
+    // Form labels
+    nameLabel: 'Nombre',
+    namePlaceholderExample: 'Juan García',
+    passwordLabel: 'Contraseña',
+    // Password strength messages
+    strengthWeakDesc: 'Débil — agregue mayúsculas, números o caracteres especiales',
+    strengthMediumDesc: 'Contraseña media',
+    strengthStrongDesc: 'Contraseña fuerte',
+    // Hardware key
+    hardwareKeyTitle: 'Conecte su llave de seguridad',
+    hardwareKeyDesc: 'Inserte la llave USB o use NFC',
+    // Phone key
+    phoneKeyTitle: 'Inicio de sesión por teléfono',
+    phoneKeyDesc: 'El navegador mostrará un código QR para escanear',
+    // GDPR badge
+    gdprDesc: 'Protección de datos personales',
+    gdprCompliance: 'Cumple con el Reglamento UE 2016/679',
+    // Footer legal links
+    footerTerms: 'Términos',
+    footerOffer: 'Oferta',
+    footerPrivacy: 'Privacidad',
+    footerDpa: 'DPA',
+    footerAiPolicy: 'Política de IA',
+    footerAiTransparency: 'Transparencia IA',
+    // Registration consent
+    consentRequired: 'Para registrarse, debe aceptar:',
+    consentTerms: 'Términos de uso',
+    consentOffer: 'Oferta pública',
+    consentAnd: ' y ',
+    consentPrivacy: 'Política de privacidad',
+    consentDpa: 'Acuerdo de procesamiento de datos (DPA)',
+    // SSO form
+    ssoLoginButtonText: 'Iniciar sesión',
+    // Welcome modal
+    welcomeModalTitle: 'Bienvenido',
+    welcomeModalDesc: 'Revise los términos de la plataforma y el programa de referidos',
+    legalDocsTitle: 'Documentos legales',
+    docOffer: 'Oferta pública',
+    docOfferDesc: 'Acuerdo entre usted y la plataforma',
+    docTerms: 'Términos de uso',
+    docTermsDesc: 'Reglas de uso del servicio',
+    docPrivacy: 'Política de privacidad',
+    docPrivacyDesc: 'Cómo protegemos sus datos',
+    docDpa: 'Acuerdo de procesamiento de datos (DPA)',
+    docDpaDesc: 'Cumplimiento del RGPD',
+    docRefund: 'Política de reembolso',
+    docRefundDesc: 'Condiciones de reembolso',
+    referralTitle: 'Programa de referidos',
+    referralHeadline: 'Invite colegas — obtenga bonos',
+    referralDesc: 'Comparta su enlace de referido con colegas abogados. Por cada nuevo usuario que se registre y recargue su cuenta, recibirá un bono en su saldo de la plataforma.',
+    referralItem1: 'Enlace de referido disponible después del registro',
+    referralItem2: 'El bono se acredita automáticamente',
+    referralItem3: 'Se requiere verificación como autónomo, empresa o abogado',
+    referralCta: 'Registrarse',
   },
 };
 

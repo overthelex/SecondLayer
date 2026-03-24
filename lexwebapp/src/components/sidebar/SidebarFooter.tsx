@@ -4,6 +4,7 @@ import { User, LogOut, CreditCard, UsersRound, Plug, FileText, UserPlus, Code, C
 import { motion, AnimatePresence } from 'framer-motion';
 import { ROUTES } from '../../router/routes';
 import type { UserRole } from '../../types/models/User';
+import { appT } from '../../i18n/app-i18n';
 
 interface SidebarFooterProps {
   user: { name?: string; email?: string; picture?: string; role?: UserRole; userType?: string } | null;
@@ -35,7 +36,7 @@ export function SidebarFooter({
           rel="noopener noreferrer"
           className="text-[9.5px] text-zinc-700 hover:text-zinc-500 transition-colors tracking-wide"
         >
-          Оферта
+          {appT('nav.offer')}
         </a>
         <span className="text-zinc-800 text-[9px]">·</span>
         <a
@@ -44,7 +45,7 @@ export function SidebarFooter({
           rel="noopener noreferrer"
           className="text-[9.5px] text-zinc-700 hover:text-zinc-500 transition-colors tracking-wide"
         >
-          Конфіденційність
+          {appT('nav.privacy')}
         </a>
       </div>
 
@@ -60,7 +61,7 @@ export function SidebarFooter({
           >
             <button onClick={onProfileClick} className={`${menuItemClass} border-b border-white/[0.05]`}>
               <User size={13} className={menuIconClass} />
-              <span className={menuLabelClass}>Профіль</span>
+              <span className={menuLabelClass}>{appT('nav.profile')}</span>
             </button>
 
             {role !== 'administrator' && (
@@ -69,7 +70,7 @@ export function SidebarFooter({
                 className={`${menuItemClass} border-b border-white/[0.05]`}
               >
                 <CreditCard size={13} className={menuIconClass} />
-                <span className={menuLabelClass}>Біллінг</span>
+                <span className={menuLabelClass}>{appT('nav.profileBilling')}</span>
               </button>
             )}
 
@@ -78,7 +79,7 @@ export function SidebarFooter({
               className={`${menuItemClass} border-b border-white/[0.05]`}
             >
               <FileText size={13} className={menuIconClass} />
-              <span className={menuLabelClass}>Мої договори</span>
+              <span className={menuLabelClass}>{appT('nav.myContracts')}</span>
             </button>
 
             <button
@@ -86,7 +87,7 @@ export function SidebarFooter({
               className={`${menuItemClass} border-b border-white/[0.05]`}
             >
               <Code size={13} className={menuIconClass} />
-              <span className={menuLabelClass}>Оферта розробника</span>
+              <span className={menuLabelClass}>{appT('nav.devOffer')}</span>
             </button>
 
             <button
@@ -94,7 +95,7 @@ export function SidebarFooter({
               className={`${menuItemClass} border-b border-white/[0.05]`}
             >
               <UserPlus size={13} className={menuIconClass} />
-              <span className={menuLabelClass}>Запросити друга</span>
+              <span className={menuLabelClass}>{appT('nav.inviteFriend')}</span>
             </button>
 
             <button
@@ -102,7 +103,7 @@ export function SidebarFooter({
               className={`${menuItemClass} border-b border-white/[0.05]`}
             >
               <Plug size={13} className={menuIconClass} />
-              <span className={menuLabelClass}>MCP конект</span>
+              <span className={menuLabelClass}>{appT('nav.mcpConnect')}</span>
             </button>
 
             <button
@@ -110,7 +111,7 @@ export function SidebarFooter({
               className={`${menuItemClass} border-b border-white/[0.05]`}
             >
               <BookOpen size={13} className={menuIconClass} />
-              <span className={menuLabelClass}>API документація</span>
+              <span className={menuLabelClass}>{appT('nav.apiDocs')}</span>
             </button>
 
             {role === 'company' && (
@@ -119,7 +120,7 @@ export function SidebarFooter({
                 className={`${menuItemClass} border-b border-white/[0.05]`}
               >
                 <UsersRound size={13} className={menuIconClass} />
-                <span className={menuLabelClass}>Команда</span>
+                <span className={menuLabelClass}>{appT('nav.team')}</span>
               </button>
             )}
 
@@ -128,7 +129,7 @@ export function SidebarFooter({
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors duration-100 hover:bg-red-500/10"
             >
               <LogOut size={13} className="text-red-500/70 flex-shrink-0" />
-              <span className="text-[12.5px] font-normal text-red-400/80 font-sans tracking-[-0.01em]">Вихід</span>
+              <span className="text-[12.5px] font-normal text-red-400/80 font-sans tracking-[-0.01em]">{appT('nav.logout')}</span>
             </button>
           </motion.div>
         )}
@@ -152,7 +153,7 @@ export function SidebarFooter({
         )}
         <div className="flex-1 text-left min-w-0">
           <div className="text-[12px] font-medium text-zinc-300 tracking-[-0.01em] font-sans truncate leading-tight">
-            {user?.name || 'Користувач'}
+            {user?.name || appT('nav.defaultUser')}
           </div>
           <div className="text-[10.5px] text-zinc-600 font-sans truncate leading-tight">{user?.email || ''}</div>
         </div>
