@@ -931,6 +931,131 @@ const translations: TranslationMap = {
   'nav.logout': { uk: 'Вихід', en: 'Log out', de: 'Abmelden', es: 'Cerrar sesión' },
   'nav.defaultUser': { uk: 'Користувач', en: 'User', de: 'Benutzer', es: 'Usuario' },
 
+  // ═══════════════════════════════════════════════════════════
+  // Billing — B2B Invoice statuses
+  // ═══════════════════════════════════════════════════════════
+  'billing.invoice.status.all': {
+    uk: 'Усі статуси',
+    en: 'All statuses',
+    de: 'Alle Status',
+    es: 'Todos los estados',
+  },
+  'billing.invoice.status.draft': {
+    uk: 'Чернетка',
+    en: 'Draft',
+    de: 'Entwurf',
+    es: 'Borrador',
+  },
+  'billing.invoice.status.issued': {
+    uk: 'Виставлено',
+    en: 'Issued',
+    de: 'Ausgestellt',
+    es: 'Emitida',
+  },
+  'billing.invoice.status.sent': {
+    uk: 'Надіслано',
+    en: 'Sent',
+    de: 'Versendet',
+    es: 'Enviada',
+  },
+  'billing.invoice.status.paid': {
+    uk: 'Оплачено',
+    en: 'Paid',
+    de: 'Bezahlt',
+    es: 'Pagada',
+  },
+  'billing.invoice.status.cancelled': {
+    uk: 'Скасовано',
+    en: 'Cancelled',
+    de: 'Storniert',
+    es: 'Cancelada',
+  },
+  'billing.invoice.status.overdue': {
+    uk: 'Прострочено',
+    en: 'Overdue',
+    de: 'Überfällig',
+    es: 'Vencida',
+  },
+  'billing.invoice.status.void': {
+    uk: 'Анульовано',
+    en: 'Void',
+    de: 'Annulliert',
+    es: 'Anulada',
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // Billing — B2B Invoices tab UI
+  // ═══════════════════════════════════════════════════════════
+  'billing.invoices.title': { uk: 'Рахунки B2B', en: 'B2B Invoices', de: 'B2B-Rechnungen', es: 'Facturas B2B' },
+  'billing.invoices.subtitle': { uk: 'Рахунки на оплату для безготівкового розрахунку', en: 'Invoices for bank transfer payment', de: 'Rechnungen für bargeldlose Zahlung', es: 'Facturas para pago por transferencia bancaria' },
+  'billing.invoices.refresh': { uk: 'Оновити', en: 'Refresh', de: 'Aktualisieren', es: 'Actualizar' },
+  'billing.invoices.request': { uk: 'Запросити рахунок', en: 'Request invoice', de: 'Rechnung anfordern', es: 'Solicitar factura' },
+  'billing.invoices.filter.all': { uk: 'Всі', en: 'All', de: 'Alle', es: 'Todas' },
+  'billing.invoices.filter.issued': { uk: 'Виставлені', en: 'Issued', de: 'Ausgestellt', es: 'Emitidas' },
+  'billing.invoices.filter.paid': { uk: 'Оплачені', en: 'Paid', de: 'Bezahlt', es: 'Pagadas' },
+  'billing.invoices.filter.cancelled': { uk: 'Скасовані', en: 'Cancelled', de: 'Storniert', es: 'Canceladas' },
+  'billing.invoices.loading': { uk: 'Завантаження...', en: 'Loading...', de: 'Laden...', es: 'Cargando...' },
+  'billing.invoices.empty': { uk: 'Рахунків ще немає', en: 'No invoices yet', de: 'Noch keine Rechnungen', es: 'Aún no hay facturas' },
+  'billing.invoices.emptyHint': { uk: 'Натисніть «Запросити рахунок» для створення', en: 'Click "Request invoice" to create one', de: 'Klicken Sie auf „Rechnung anfordern", um eine zu erstellen', es: 'Haga clic en «Solicitar factura» para crear una' },
+  'billing.invoices.col.number': { uk: 'Номер', en: 'Number', de: 'Nummer', es: 'Número' },
+  'billing.invoices.col.date': { uk: 'Дата', en: 'Date', de: 'Datum', es: 'Fecha' },
+  'billing.invoices.col.type': { uk: 'Тип', en: 'Type', de: 'Typ', es: 'Tipo' },
+  'billing.invoices.col.amount': { uk: 'Сума, грн', en: 'Amount, UAH', de: 'Betrag, UAH', es: 'Importe, UAH' },
+  'billing.invoices.col.status': { uk: 'Статус', en: 'Status', de: 'Status', es: 'Estado' },
+  'billing.invoices.col.actions': { uk: 'Дії', en: 'Actions', de: 'Aktionen', es: 'Acciones' },
+  'billing.invoices.type.subscription': { uk: 'Підписка', en: 'Subscription', de: 'Abonnement', es: 'Suscripción' },
+  'billing.invoices.type.topup': { uk: 'Поповнення', en: 'Top-up', de: 'Aufladung', es: 'Recarga' },
+  'billing.invoices.total': { uk: 'Всього рахунків', en: 'Total invoices', de: 'Rechnungen gesamt', es: 'Total de facturas' },
+  'billing.invoices.action.preview': { uk: 'Переглянути', en: 'Preview', de: 'Vorschau', es: 'Vista previa' },
+  'billing.invoices.action.download': { uk: 'Завантажити PDF', en: 'Download PDF', de: 'PDF herunterladen', es: 'Descargar PDF' },
+  'billing.invoices.action.cancel': { uk: 'Скасувати', en: 'Cancel', de: 'Stornieren', es: 'Cancelar' },
+  'billing.invoices.action.cancelConfirm': { uk: 'Скасувати рахунок', en: 'Cancel invoice', de: 'Rechnung stornieren', es: 'Cancelar factura' },
+  'billing.invoices.error.downloadPdf': { uk: 'Помилка завантаження PDF', en: 'PDF download error', de: 'Fehler beim Herunterladen der PDF', es: 'Error al descargar PDF' },
+  'billing.invoices.error.cancel': { uk: 'Помилка скасування рахунку', en: 'Invoice cancellation error', de: 'Fehler beim Stornieren der Rechnung', es: 'Error al cancelar la factura' },
+  'billing.invoices.preview.title': { uk: 'Рахунок', en: 'Invoice', de: 'Rechnung', es: 'Factura' },
+  'billing.invoices.preview.download': { uk: 'Завантажити', en: 'Download', de: 'Herunterladen', es: 'Descargar' },
+  'billing.invoices.preview.loading': { uk: 'Завантаження PDF...', en: 'Loading PDF...', de: 'PDF wird geladen...', es: 'Cargando PDF...' },
+
+  // ═══════════════════════════════════════════════════════════
+  // Time Entry Statuses
+  // ═══════════════════════════════════════════════════════════
+  'timeEntry.status.all': {
+    uk: 'Всі статуси',
+    en: 'All statuses',
+    de: 'Alle Status',
+    es: 'Todos los estados',
+  },
+  'timeEntry.status.draft': {
+    uk: 'Чернетка',
+    en: 'Draft',
+    de: 'Entwurf',
+    es: 'Borrador',
+  },
+  'timeEntry.status.submitted': {
+    uk: 'Надіслано',
+    en: 'Submitted',
+    de: 'Eingereicht',
+    es: 'Enviado',
+  },
+  'timeEntry.status.approved': {
+    uk: 'Затверджено',
+    en: 'Approved',
+    de: 'Genehmigt',
+    es: 'Aprobado',
+  },
+  'timeEntry.status.invoiced': {
+    uk: 'Рахунок',
+    en: 'Invoiced',
+    de: 'In Rechnung gestellt',
+    es: 'Facturado',
+  },
+  'timeEntry.status.rejected': {
+    uk: 'Відхилено',
+    en: 'Rejected',
+    de: 'Abgelehnt',
+    es: 'Rechazado',
+  },
+
   // Folder delete modal
   'nav.deleteFolder': { uk: 'Видалити папку?', en: 'Delete folder?', de: 'Ordner löschen?', es: '¿Eliminar carpeta?' },
   'nav.deleteFolderDesc': { uk: 'будуть видалені. Цю дію можна скасувати через відновлення документів.', en: 'will be deleted. This can be undone via document recovery.', de: 'werden gelöscht. Dies kann über die Dokumentwiederherstellung rückgängig gemacht werden.', es: 'serán eliminados. Esto se puede deshacer a través de la recuperación de documentos.' },

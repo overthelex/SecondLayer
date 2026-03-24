@@ -1,54 +1,31 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plug, Cloud, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plug, Clock } from 'lucide-react';
 import { useMiscT } from '../../i18n/misc-i18n';
-
-type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 interface Connector {
   id: string;
   name: string;
   descriptionKey: 'mcpNextcloudDesc' | 'mcpGoogleDriveDesc';
   icon: React.ReactNode;
-  status: ConnectionStatus;
 }
+
+const CONNECTORS: Connector[] = [
+  {
+    id: 'nextcloud',
+    name: 'Nextcloud',
+    descriptionKey: 'mcpNextcloudDesc',
+    icon: <NextcloudIcon />,
+  },
+  {
+    id: 'google-drive',
+    name: 'Google Drive',
+    descriptionKey: 'mcpGoogleDriveDesc',
+    icon: <GoogleDriveIcon />,
+  },
+];
 
 export function MCPConnectPage() {
   const { t } = useMiscT();
-  const [connectors, setConnectors] = useState<Connector[]>([
-    {
-      id: 'nextcloud',
-      name: 'Nextcloud',
-      descriptionKey: 'mcpNextcloudDesc',
-      icon: <NextcloudIcon />,
-      status: 'disconnected',
-    },
-    {
-      id: 'google-drive',
-      name: 'Google Drive',
-      descriptionKey: 'mcpGoogleDriveDesc',
-      icon: <GoogleDriveIcon />,
-      status: 'disconnected',
-    },
-  ]);
-
-  const handleConnect = (id: string) => {
-    setConnectors(prev =>
-      prev.map(c => c.id === id ? { ...c, status: 'connecting' as ConnectionStatus } : c)
-    );
-    // TODO: implement actual OAuth/connection flow
-    setTimeout(() => {
-      setConnectors(prev =>
-        prev.map(c => c.id === id ? { ...c, status: 'connected' as ConnectionStatus } : c)
-      );
-    }, 1500);
-  };
-
-  const handleDisconnect = (id: string) => {
-    setConnectors(prev =>
-      prev.map(c => c.id === id ? { ...c, status: 'disconnected' as ConnectionStatus } : c)
-    );
-  };
 
   return (
     <div className="flex-1 h-full overflow-y-auto bg-claude-bg">
@@ -66,13 +43,11 @@ export function MCPConnectPage() {
         </p>
 
         <div className="space-y-4">
-          {connectors.map((connector) => (
+          {CONNECTORS.map((connector) => (
             <ConnectorCard
               key={connector.id}
               connector={connector}
               description={t(connector.descriptionKey)}
-              onConnect={() => handleConnect(connector.id)}
-              onDisconnect={() => handleDisconnect(connector.id)}
             />
           ))}
         </div>
@@ -84,16 +59,12 @@ export function MCPConnectPage() {
 function ConnectorCard({
   connector,
   description,
-  onConnect,
-  onDisconnect,
 }: {
   connector: Connector;
   description: string;
-  onConnect: () => void;
-  onDisconnect: () => void;
 }) {
   const { t } = useMiscT();
-  const { name, icon, status } = connector;
+  const { name, icon } = connector;
 
   return (
     <motion.div
@@ -101,74 +72,34 @@ function ConnectorCard({
       animate={{ opacity: 1, y: 0 }}
       className="bg-white rounded-xl border border-claude-border p-5 flex items-center gap-4"
     >
-      <div className="w-10 h-10 rounded-xl bg-claude-bg flex items-center justify-center shrink-0">
+      <div className="w-10 h-10 rounded-xl bg-claude-bg flex items-center justify-center shrink-0 opacity-60">
         {icon}
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-[14px] font-semibold text-claude-text font-sans">{name}</span>
-          <StatusBadge status={status} />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 rounded-full font-sans">
+            <Clock size={10} />
+            {t('mcpComingSoon')}
+          </span>
         </div>
         <p className="text-[12px] text-claude-subtext font-sans mt-0.5">{description}</p>
+        <p className="text-[11px] text-claude-subtext/70 font-sans mt-1 italic">
+          {t('mcpComingSoonNote')}
+        </p>
       </div>
 
       <div className="shrink-0">
-        {status === 'connected' ? (
-          <button
-            onClick={onDisconnect}
-            className="px-4 py-2 text-[12px] font-medium text-claude-subtext bg-claude-bg hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors font-sans"
-          >
-            {t('disconnect')}
-          </button>
-        ) : (
-          <button
-            onClick={onConnect}
-            disabled={status === 'connecting'}
-            className="px-4 py-2 text-[12px] font-medium text-white bg-claude-accent hover:bg-[#C66345] disabled:opacity-50 rounded-lg transition-colors font-sans flex items-center gap-1.5"
-          >
-            {status === 'connecting' ? (
-              <>
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                >
-                  <Cloud size={14} />
-                </motion.div>
-                {t('connecting')}
-              </>
-            ) : (
-              <>
-                <ExternalLink size={14} />
-                {t('connect')}
-              </>
-            )}
-          </button>
-        )}
+        <button
+          disabled
+          className="px-4 py-2 text-[12px] font-medium text-claude-subtext bg-claude-bg rounded-lg font-sans opacity-40 cursor-not-allowed"
+        >
+          {t('connect')}
+        </button>
       </div>
     </motion.div>
   );
-}
-
-function StatusBadge({ status }: { status: ConnectionStatus }) {
-  const { t } = useMiscT();
-  if (status === 'connected') {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-green-700 bg-green-50 rounded-full font-sans">
-        <CheckCircle2 size={10} />
-        {t('connected')}
-      </span>
-    );
-  }
-  if (status === 'error') {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-red-700 bg-red-50 rounded-full font-sans">
-        <AlertCircle size={10} />
-        {t('errorStatus')}
-      </span>
-    );
-  }
-  return null;
 }
 
 function NextcloudIcon() {

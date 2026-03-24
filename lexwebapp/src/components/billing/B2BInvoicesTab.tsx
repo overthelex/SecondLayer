@@ -8,14 +8,15 @@ import { FileText, Plus, Download, XCircle, RefreshCw, X, Eye, Loader2 } from 'l
 import { b2bInvoiceApi } from '../../utils/api/billing';
 import type { B2BInvoice } from '../../types/models/Billing';
 import { B2BInvoiceRequestModal } from './B2BInvoiceRequestModal';
+import { useAppT } from '../../i18n/app-i18n';
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: 'Чернетка', color: 'bg-gray-100 text-gray-700' },
-  issued: { label: 'Виставлено', color: 'bg-blue-100 text-blue-700' },
-  sent: { label: 'Надіслано', color: 'bg-indigo-100 text-indigo-700' },
-  paid: { label: 'Оплачено', color: 'bg-green-100 text-green-700' },
-  cancelled: { label: 'Скасовано', color: 'bg-red-100 text-red-700' },
-  overdue: { label: 'Прострочено', color: 'bg-orange-100 text-orange-700' },
+const statusColors: Record<string, string> = {
+  draft: 'bg-gray-100 text-gray-700',
+  issued: 'bg-blue-100 text-blue-700',
+  sent: 'bg-indigo-100 text-indigo-700',
+  paid: 'bg-green-100 text-green-700',
+  cancelled: 'bg-red-100 text-red-700',
+  overdue: 'bg-orange-100 text-orange-700',
 };
 
 function formatDate(dateStr: string): string {
@@ -37,6 +38,7 @@ function InvoicePreviewModal({
   invoice: B2BInvoice;
   onClose: () => void;
 }) {
+  const { t } = useAppT();
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -48,7 +50,7 @@ function InvoicePreviewModal({
       url = window.URL.createObjectURL(blob);
       setPdfUrl(url);
     }).catch(() => {
-      setError('Помилка завантаження PDF');
+      setError(t('billing.invoices.error.downloadPdf'));
     }).finally(() => {
       setLoading(false);
     });
@@ -75,7 +77,7 @@ function InvoicePreviewModal({
             <FileText size={20} className="text-claude-accent" />
             <div>
               <h2 className="text-lg font-semibold text-claude-text">
-                Рахунок {invoice.invoice_number}
+                {t('billing.invoices.preview.title')} {invoice.invoice_number}
               </h2>
               <p className="text-xs text-claude-subtext">
                 {formatDate(invoice.issue_date)} · {formatMoney(invoice.total_uah)} грн
@@ -87,9 +89,9 @@ function InvoicePreviewModal({
               onClick={handleDownload}
               disabled={!pdfUrl}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-claude-accent text-white rounded-lg text-sm font-medium hover:bg-claude-accent/90 transition-colors disabled:opacity-50"
-              title="Завантажити PDF">
+              title={t('billing.invoices.action.download')}>
               <Download size={14} />
-              Завантажити
+              {t('billing.invoices.preview.download')}
             </button>
             <button onClick={onClose} className="p-1.5 hover:bg-claude-bg rounded-lg">
               <X size={20} className="text-claude-subtext" />
@@ -102,7 +104,7 @@ function InvoicePreviewModal({
           {loading ? (
             <div className="h-full flex items-center justify-center text-claude-subtext">
               <Loader2 size={24} className="animate-spin mr-2" />
-              Завантаження PDF...
+              {t('billing.invoices.preview.loading')}
             </div>
           ) : error ? (
             <div className="h-full flex items-center justify-center text-red-500 text-sm">
@@ -112,7 +114,7 @@ function InvoicePreviewModal({
             <iframe
               src={pdfUrl}
               className="w-full h-full border-0"
-              title={`Рахунок ${invoice.invoice_number}`}
+              title={`${t('billing.invoices.preview.title')} ${invoice.invoice_number}`}
             />
           ) : null}
         </div>
@@ -122,6 +124,7 @@ function InvoicePreviewModal({
 }
 
 export function B2BInvoicesTab() {
+  const { t } = useAppT();
   const [invoices, setInvoices] = useState<B2BInvoice[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -160,17 +163,17 @@ export function B2BInvoicesTab() {
       a.click();
       window.URL.revokeObjectURL(url);
     } catch {
-      alert('Помилка завантаження PDF');
+      alert(t('billing.invoices.error.downloadPdf'));
     }
   };
 
   const handleCancel = async (invoice: B2BInvoice) => {
-    if (!confirm(`Скасувати рахунок ${invoice.invoice_number}?`)) return;
+    if (!confirm(`${t('billing.invoices.action.cancelConfirm')} ${invoice.invoice_number}?`)) return;
     try {
       await b2bInvoiceApi.cancel(invoice.id);
       fetchInvoices();
     } catch {
-      alert('Помилка скасування рахунку');
+      alert(t('billing.invoices.error.cancel'));
     }
   };
 
@@ -179,40 +182,42 @@ export function B2BInvoicesTab() {
     fetchInvoices();
   };
 
+  const statusFilters = [
+    { value: '', label: t('billing.invoices.filter.all') },
+    { value: 'issued', label: t('billing.invoices.filter.issued') },
+    { value: 'paid', label: t('billing.invoices.filter.paid') },
+    { value: 'cancelled', label: t('billing.invoices.filter.cancelled') },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-claude-text">Рахунки B2B</h2>
+          <h2 className="text-lg font-semibold text-claude-text">{t('billing.invoices.title')}</h2>
           <p className="text-sm text-claude-subtext mt-1">
-            Рахунки на оплату для безготівкового розрахунку
+            {t('billing.invoices.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => fetchInvoices()}
             className="p-2 hover:bg-claude-bg rounded-lg transition-colors"
-            title="Оновити">
+            title={t('billing.invoices.refresh')}>
             <RefreshCw size={18} className="text-claude-subtext" />
           </button>
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-claude-accent text-white rounded-lg hover:bg-claude-accent/90 transition-colors text-sm font-medium">
             <Plus size={16} />
-            Запросити рахунок
+            {t('billing.invoices.request')}
           </button>
         </div>
       </div>
 
       {/* Status filter */}
       <div className="flex gap-2">
-        {[
-          { value: '', label: 'Всі' },
-          { value: 'issued', label: 'Виставлені' },
-          { value: 'paid', label: 'Оплачені' },
-          { value: 'cancelled', label: 'Скасовані' },
-        ].map((f) => (
+        {statusFilters.map((f) => (
           <button
             key={f.value}
             onClick={() => setStatusFilter(f.value)}
@@ -231,29 +236,30 @@ export function B2BInvoicesTab() {
         {loading ? (
           <div className="p-8 text-center text-claude-subtext">
             <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
-            Завантаження...
+            {t('billing.invoices.loading')}
           </div>
         ) : invoices.length === 0 ? (
           <div className="p-8 text-center text-claude-subtext">
             <FileText size={32} className="mx-auto mb-3 opacity-40" />
-            <p>Рахунків ще немає</p>
-            <p className="text-xs mt-1">Натисніть «Запросити рахунок» для створення</p>
+            <p>{t('billing.invoices.empty')}</p>
+            <p className="text-xs mt-1">{t('billing.invoices.emptyHint')}</p>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-claude-border bg-claude-bg/50">
-                <th className="text-left px-4 py-3 font-medium text-claude-subtext">Номер</th>
-                <th className="text-left px-4 py-3 font-medium text-claude-subtext">Дата</th>
-                <th className="text-left px-4 py-3 font-medium text-claude-subtext">Тип</th>
-                <th className="text-right px-4 py-3 font-medium text-claude-subtext">Сума, грн</th>
-                <th className="text-center px-4 py-3 font-medium text-claude-subtext">Статус</th>
-                <th className="text-right px-4 py-3 font-medium text-claude-subtext">Дії</th>
+                <th className="text-left px-4 py-3 font-medium text-claude-subtext">{t('billing.invoices.col.number')}</th>
+                <th className="text-left px-4 py-3 font-medium text-claude-subtext">{t('billing.invoices.col.date')}</th>
+                <th className="text-left px-4 py-3 font-medium text-claude-subtext">{t('billing.invoices.col.type')}</th>
+                <th className="text-right px-4 py-3 font-medium text-claude-subtext">{t('billing.invoices.col.amount')}</th>
+                <th className="text-center px-4 py-3 font-medium text-claude-subtext">{t('billing.invoices.col.status')}</th>
+                <th className="text-right px-4 py-3 font-medium text-claude-subtext">{t('billing.invoices.col.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {invoices.map((inv) => {
-                const status = statusConfig[inv.status] || statusConfig.draft;
+                const statusColor = statusColors[inv.status] || statusColors.draft;
+                const statusLabel = t(`billing.invoice.status.${inv.status}`) || t('billing.invoice.status.draft');
                 const canCancel = ['draft', 'issued', 'sent'].includes(inv.status);
 
                 return (
@@ -264,13 +270,15 @@ export function B2BInvoicesTab() {
                     <td className="px-4 py-3 font-mono text-xs">{inv.invoice_number}</td>
                     <td className="px-4 py-3">{formatDate(inv.issue_date)}</td>
                     <td className="px-4 py-3">
-                      {inv.invoice_type === 'subscription' ? 'Підписка' : 'Поповнення'}
+                      {inv.invoice_type === 'subscription'
+                        ? t('billing.invoices.type.subscription')
+                        : t('billing.invoices.type.topup')}
                       {inv.tier_name && <span className="text-claude-subtext ml-1">({inv.tier_name})</span>}
                     </td>
                     <td className="px-4 py-3 text-right font-medium">{formatMoney(inv.total_uah)}</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
-                        {status.label}
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+                        {statusLabel}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -278,20 +286,20 @@ export function B2BInvoicesTab() {
                         <button
                           onClick={(e) => { e.stopPropagation(); setPreviewInvoice(inv); }}
                           className="p-1.5 hover:bg-claude-bg rounded-lg transition-colors"
-                          title="Переглянути">
+                          title={t('billing.invoices.action.preview')}>
                           <Eye size={15} className="text-claude-subtext" />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); }}
                           className="p-1.5 hover:bg-claude-bg rounded-lg transition-colors"
-                          title="Завантажити PDF">
+                          title={t('billing.invoices.action.download')}>
                           <Download size={15} className="text-claude-subtext" />
                         </button>
                         {canCancel && (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleCancel(inv); }}
                             className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Скасувати">
+                            title={t('billing.invoices.action.cancel')}>
                             <XCircle size={15} className="text-red-400" />
                           </button>
                         )}
@@ -307,7 +315,7 @@ export function B2BInvoicesTab() {
 
       {total > 0 && (
         <p className="text-xs text-claude-subtext text-right">
-          Всього рахунків: {total}
+          {t('billing.invoices.total')}: {total}
         </p>
       )}
 
