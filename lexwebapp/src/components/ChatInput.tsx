@@ -97,7 +97,7 @@ export function ChatInput({
 
   return (
     <>
-    <div className="max-w-3xl mx-auto px-4 md:px-6 pb-2" data-tour="chat-input">
+    <div className="max-w-3xl mx-auto px-4 md:px-8 pb-2" data-tour="chat-input">
       {/* Mode Selection */}
       {onToolChange && selectedTool && (
         <ToolSelector selectedTool={selectedTool} onToolChange={onToolChange} />
@@ -109,16 +109,16 @@ export function ChatInput({
       {/* Load / Save prompt buttons */}
       <PromptManager currentInput={input} onLoadPrompt={handleLoadPrompt} />
 
-      <div className="relative bg-white rounded-xl border border-zinc-200 shadow-elevation-1 focus-within:shadow-input-focus focus-within:border-zinc-400 transition-all duration-200">
-        <div className="flex items-end gap-1.5 p-1.5">
+      <div className="relative bg-white rounded-2xl border border-zinc-200/80 shadow-sm focus-within:shadow-md focus-within:border-zinc-300 transition-all duration-200">
+        <div className="flex items-end gap-1 p-2">
           {/* Plus / Attach button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors duration-150 flex-shrink-0"
+            className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 rounded-xl transition-colors duration-150 flex-shrink-0"
             aria-label="Додати вкладення"
           >
-            <Plus size={16} strokeWidth={2} />
+            <Plus size={16} strokeWidth={1.75} />
           </button>
           <input
             ref={fileInputRef}
@@ -139,38 +139,38 @@ export function ChatInput({
             placeholder="Напишіть повідомлення..."
             disabled={disabled || isStreaming}
             rows={1}
-            className="flex-1 py-2 px-1 bg-transparent border-none resize-none focus:ring-0 focus:outline-none text-zinc-900 placeholder:text-zinc-400 font-sans text-[14px] leading-relaxed max-h-[200px] overflow-hidden"
+            className="flex-1 py-2.5 px-1 bg-transparent border-none resize-none focus:ring-0 focus:outline-none text-zinc-900 placeholder:text-zinc-400 font-sans text-[14px] leading-[1.6] max-h-[200px] overflow-hidden"
             style={{
-              minHeight: '38px'
+              minHeight: '40px'
             }}
           />
 
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0 pb-0.5">
             {isStreaming ? (
               <button
                 type="button"
                 onClick={onCancel}
-                className="p-2 rounded-lg transition-colors duration-150 bg-zinc-900 text-white hover:bg-zinc-700 active:scale-95"
+                className="p-2 rounded-xl transition-all duration-150 bg-zinc-900 text-white hover:bg-zinc-700 active:scale-95"
                 aria-label="Зупинити генерацію"
                 title="Зупинити"
               >
-                <Square size={15} strokeWidth={2} fill="currentColor" />
+                <Square size={14} strokeWidth={2} fill="currentColor" />
               </button>
             ) : (
               <button
                 onClick={handleSubmit}
                 disabled={(!input.trim() && files.length === 0) || disabled || isUploadingFiles}
-                className={`p-2 rounded-lg transition-colors duration-150 ${
+                className={`p-2 rounded-xl transition-all duration-150 ${
                   (input.trim() || files.length > 0) && !disabled && !isUploadingFiles
-                    ? 'bg-zinc-900 text-white hover:bg-zinc-700 active:scale-95'
+                    ? 'bg-zinc-900 text-white hover:bg-zinc-700 active:scale-95 shadow-sm'
                     : 'bg-zinc-100 text-zinc-300 cursor-not-allowed'
                 }`}
                 aria-label="Надіслати повідомлення"
               >
                 {isUploadingFiles ? (
-                  <Loader2 size={15} strokeWidth={2} className="animate-spin" />
+                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
                 ) : (
-                  <Send size={15} strokeWidth={2} />
+                  <Send size={14} strokeWidth={2} />
                 )}
               </button>
             )}

@@ -165,40 +165,40 @@ export function MainLayout() {
 
       <main className="flex-1 flex flex-col min-w-0 relative h-full">
         {/* Desktop Header */}
-        <header className="hidden lg:flex items-center justify-between px-5 py-2.5 border-b border-claude-border bg-claude-bg sticky top-0 z-30">
+        <header className="hidden lg:flex items-center justify-between px-4 py-2 border-b border-claude-border/70 bg-claude-bg/95 backdrop-blur-sm sticky top-0 z-30">
           {/* Left: Toggle button */}
-          <div className="flex items-center gap-2 w-[180px]">
+          <div className="flex items-center gap-2 w-[200px]">
             <button
               onClick={toggleSidebar}
-              className="p-1.5 text-claude-subtext hover:text-claude-text hover:bg-zinc-100 rounded-md transition-colors duration-150"
+              className="p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-md transition-colors duration-150"
               title={isSidebarOpen ? 'Сховати меню' : 'Показати меню'}
             >
               {isSidebarOpen ? (
-                <X size={16} strokeWidth={2} />
+                <X size={15} strokeWidth={1.75} />
               ) : (
-                <Menu size={16} strokeWidth={2} />
+                <Menu size={15} strokeWidth={1.75} />
               )}
             </button>
           </div>
 
           {/* Center: Page title */}
           <div className="flex-1 flex items-center justify-center">
-            <h1 className="font-sans text-sm text-claude-subtext font-medium tracking-wide uppercase">
+            <h1 className="font-sans text-[11px] text-zinc-400 font-medium tracking-[0.12em] uppercase select-none">
               {pageTitle}
             </h1>
           </div>
 
           {/* Right: Toggle right panel button */}
-          <div className="flex items-center justify-end gap-2 w-[180px]">
+          <div className="flex items-center justify-end gap-2 w-[200px]">
             <button
               onClick={toggleRightPanel}
-              className="p-1.5 text-claude-subtext hover:text-claude-text hover:bg-zinc-100 rounded-md transition-colors duration-150"
+              className="p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-md transition-colors duration-150"
               title={isRightPanelOpen ? 'Сховати панель' : 'Показати панель'}
             >
               {isRightPanelOpen ? (
-                <X size={16} strokeWidth={2} />
+                <X size={15} strokeWidth={1.75} />
               ) : (
-                <PanelRightOpen size={16} strokeWidth={2} />
+                <PanelRightOpen size={15} strokeWidth={1.75} />
               )}
             </button>
           </div>

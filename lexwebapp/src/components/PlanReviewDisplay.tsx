@@ -123,23 +123,27 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="my-3 border border-claude-border rounded-lg overflow-hidden bg-white max-h-[70vh] flex flex-col"
+      className="my-3 border border-zinc-200/80 rounded-lg overflow-hidden bg-white max-h-[70vh] flex flex-col shadow-sm"
     >
       {/* Header */}
-      <div className="p-3 border-b border-claude-border/30 bg-claude-bg/30">
-        <div className="flex items-center gap-2">
-          <Target size={14} className="text-claude-text flex-shrink-0" strokeWidth={2} />
-          <span className="text-[13px] text-claude-text font-medium">
-            {plan.goal}
-          </span>
+      <div className="px-4 py-3 border-b border-zinc-200/60 bg-zinc-50">
+        <div className="flex items-start gap-2.5">
+          <div className="p-1 bg-zinc-900 rounded flex-shrink-0 mt-0.5">
+            <Target size={11} className="text-white" strokeWidth={2} />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[12.5px] text-zinc-900 font-medium leading-snug block">
+              {plan.goal}
+            </span>
+            <p className="text-[10.5px] text-zinc-400 mt-0.5 font-medium">
+              Оберіть глибину аналізу для кожного кроку
+            </p>
+          </div>
         </div>
-        <p className="text-[11px] text-claude-subtext mt-1">
-          Оберіть глибину аналізу для кожного кроку
-        </p>
       </div>
 
       {/* Steps — scrollable on mobile when many steps */}
-      <div className="p-3 space-y-2 overflow-y-auto flex-1 min-h-0">
+      <div className="px-4 py-2 space-y-0.5 overflow-y-auto flex-1 min-h-0 divide-y divide-zinc-100">
         {steps.map((step) => {
           const isDepthCapable = DEPTH_CAPABLE_TOOLS.has(step.tool);
           const isDeep = step.depth === 'deep';
@@ -150,17 +154,17 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
           return (
             <div
               key={step.id}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3 py-1.5"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-3 py-2.5"
             >
-              <div className="flex items-start gap-2 flex-1 min-w-0">
-                <span className="text-[11px] text-claude-subtext/60 font-mono mt-0.5 w-4 flex-shrink-0 text-right">
+              <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                <span className="text-[10px] text-zinc-300 font-mono mt-0.5 w-4 flex-shrink-0 text-right tabular-nums">
                   {step.id}
                 </span>
                 <div className="min-w-0">
-                  <span className="text-[13px] text-claude-text leading-relaxed">
+                  <span className="text-[12.5px] text-zinc-800 leading-snug">
                     {step.purpose}
                   </span>
-                  <span className="text-[11px] text-claude-subtext/60 ml-1.5">
+                  <span className="text-[10px] text-zinc-400 ml-1.5 font-medium">
                     {getToolLabel(step.tool)}
                   </span>
                 </div>
@@ -168,33 +172,33 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
 
               {/* Cost + Depth toggle */}
               <div className="flex items-center gap-2 flex-shrink-0 pl-6 sm:pl-0">
-                <span className="text-[10px] text-claude-subtext/50 font-mono tabular-nums w-[60px] text-right" title={calls > 1 ? `~${calls} викликів` : undefined}>
-                  {formatUah(cost)}{calls > 1 && <span className="text-claude-subtext/30 ml-0.5">×{calls}</span>}
+                <span className="text-[10px] text-zinc-400 font-mono tabular-nums w-[56px] text-right" title={calls > 1 ? `~${calls} викликів` : undefined}>
+                  {formatUah(cost)}{calls > 1 && <span className="text-zinc-300 ml-0.5">×{calls}</span>}
                 </span>
 
                 {isDepthCapable ? (
                   <button
                     onClick={() => toggleDepth(step.id)}
-                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors min-w-[105px] justify-center ${
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-tight transition-all duration-150 min-w-[100px] justify-center border ${
                       isDeep
-                        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    } ${isRecommended ? 'ring-1 ring-offset-1 ring-blue-300' : ''}`}
+                        ? 'bg-zinc-900 text-white border-zinc-900 hover:bg-zinc-800'
+                        : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300 hover:text-zinc-900'
+                    } ${isRecommended ? 'ring-1 ring-offset-1 ring-zinc-400' : ''}`}
                   >
                     {isDeep ? (
                       <>
-                        <Search size={10} strokeWidth={2.5} />
+                        <Search size={9} strokeWidth={2.5} />
                         Глибокий
                       </>
                     ) : (
                       <>
-                        <Zap size={10} strokeWidth={2.5} />
+                        <Zap size={9} strokeWidth={2.5} />
                         Стандартний
                       </>
                     )}
                   </button>
                 ) : (
-                  <span className="text-[11px] text-claude-subtext/40 min-w-[105px] text-center px-2">
+                  <span className="text-[10px] text-zinc-300 min-w-[100px] text-center px-2 font-medium">
                     фіксований
                   </span>
                 )}
@@ -205,50 +209,49 @@ export function PlanReviewDisplay({ plan, onConfirm, onSkip, isLoading }: PlanRe
       </div>
 
       {/* Footer: bulk actions + total cost + confirm */}
-      <div className="p-3 border-t border-claude-border/30 bg-claude-bg/20 flex-shrink-0">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+      <div className="px-4 py-3 border-t border-zinc-200/60 bg-zinc-50/70 flex-shrink-0">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <button
               onClick={setAllDeep}
-              className="text-[11px] text-claude-subtext hover:text-claude-text transition-colors"
+              className="text-[10.5px] text-zinc-500 hover:text-zinc-900 transition-colors font-medium"
             >
               Усі глибокі
             </button>
-            <span className="text-[11px] text-claude-subtext/30">|</span>
+            <span className="text-zinc-300 text-xs">·</span>
             <button
               onClick={setAllStandard}
-              className="text-[11px] text-claude-subtext hover:text-claude-text transition-colors"
+              className="text-[10.5px] text-zinc-500 hover:text-zinc-900 transition-colors font-medium"
             >
-              Усі стандартні
+              Стандартні
             </button>
             {deepCount > 0 && (
-              <span className="text-[11px] text-amber-600 ml-1">
-                ({deepCount} глибоких)
+              <span className="text-[10px] text-zinc-500 bg-zinc-100 border border-zinc-200 px-1.5 py-0.5 rounded font-medium">
+                {deepCount} глибоких
               </span>
             )}
-            <span className="text-[11px] text-claude-subtext/30 ml-1">|</span>
-            <span className="text-[11px] text-claude-subtext font-mono tabular-nums">
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-zinc-500 font-mono tabular-nums font-medium">
               ~{formatUah(totalCost)}
             </span>
+            <button
+              onClick={onSkip}
+              disabled={isLoading}
+              className="text-[11px] text-zinc-400 hover:text-zinc-700 transition-colors font-medium px-2 py-1"
+            >
+              Пропустити
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-900 text-white rounded-md text-[11.5px] font-semibold hover:bg-zinc-800 transition-colors duration-150 disabled:opacity-50"
+            >
+              <Play size={10} strokeWidth={2.5} />
+              {isLoading ? 'Запуск...' : 'Почати аналіз'}
+            </button>
           </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 mt-2">
-          <button
-            onClick={onSkip}
-            disabled={isLoading}
-            className="text-[11px] text-claude-subtext hover:text-claude-text transition-colors px-2 py-1"
-          >
-            Пропустити
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-claude-text text-white rounded-md text-[12px] font-medium hover:bg-claude-text/90 transition-colors disabled:opacity-50"
-          >
-            <Play size={11} strokeWidth={2.5} />
-            {isLoading ? 'Запуск...' : 'Почати аналіз'}
-          </button>
         </div>
       </div>
     </motion.div>

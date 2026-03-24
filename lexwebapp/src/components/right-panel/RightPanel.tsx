@@ -107,17 +107,20 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
       animate={{ x: isOpen ? 0 : rightPanelWidth }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       style={{ width: rightPanelWidth }}
-      className="fixed lg:static inset-y-0 right-0 z-50 bg-claude-sidebar border-l border-claude-border flex flex-col lg:translate-x-0 lg:h-full"
+      className="fixed lg:static inset-y-0 right-0 z-50 bg-zinc-50 border-l border-zinc-200/80 flex flex-col lg:translate-x-0 lg:h-full"
     >
       <ResizeHandle />
 
       {/* Header */}
-      <div className="px-4 py-3 border-b border-claude-border flex items-center justify-between">
-        <h2 className="font-sans font-medium text-[13px] text-zinc-500 tracking-widest uppercase">
-          Доказова база
-        </h2>
-        <button onClick={onClose} className="lg:hidden p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 rounded-md transition-colors duration-150">
-          <X size={16} strokeWidth={2} />
+      <div className="px-4 pt-4 pb-3 border-b border-zinc-200/60 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-1 h-4 bg-zinc-900 rounded-full flex-shrink-0" />
+          <h2 className="font-sans font-semibold text-[11px] text-zinc-900 tracking-[0.12em] uppercase">
+            Доказова база
+          </h2>
+        </div>
+        <button onClick={onClose} className="lg:hidden p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200/70 rounded-md transition-colors duration-150">
+          <X size={15} strokeWidth={2} />
         </button>
       </div>
 

@@ -50,12 +50,12 @@ export function Message({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="group w-full py-5 md:py-6"
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className={`group w-full ${isUser ? 'py-3 md:py-4' : 'py-6 md:py-8'}`}
     >
-      <div className="max-w-3xl mx-auto px-4 md:px-6">
+      <div className="max-w-3xl mx-auto px-4 md:px-8">
         {isUser ? (
           <UserMessage content={content} onEdit={onEdit} />
         ) : (

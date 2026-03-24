@@ -53,32 +53,25 @@ export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }:
             content={d.summary || 'Немає тексту.'}
             externalUrl={d.externalUrl}
             header={
-              <div className="flex items-start gap-2.5">
-                <div className="p-1 bg-claude-bg rounded-md flex-shrink-0 mt-0.5">
-                  <FileText size={12} className="text-claude-text" strokeWidth={2} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between">
-                    <div className="font-medium text-[13px] text-claude-text mb-1 truncate leading-tight">
-                      {d.number}
-                    </div>
-                    {expanded ? <ChevronUp size={14} className="text-claude-subtext flex-shrink-0 ml-2" /> : <ChevronDown size={14} className="text-claude-subtext flex-shrink-0 ml-2" />}
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0 pr-2">
+                  <div className="font-medium text-[11.5px] text-zinc-800 truncate leading-tight mb-1">
+                    {d.number}
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-claude-subtext">
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium border bg-amber-50 text-amber-700 border-amber-200">
+                  <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-zinc-400">
+                    <span className="px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 border border-zinc-200 font-medium text-[9px] uppercase tracking-[0.04em]">
                       {d.documentType}
                     </span>
                     {d.court && <span>{d.court}</span>}
-                    {d.date && <span>{formatDate(d.date)}</span>}
+                    {d.date && <><span className="text-zinc-300">·</span><span>{formatDate(d.date)}</span></>}
                   </div>
                 </div>
+                {expanded ? <ChevronUp size={13} className="text-zinc-400 flex-shrink-0 mt-0.5" strokeWidth={2} /> : <ChevronDown size={13} className="text-zinc-400 flex-shrink-0 mt-0.5" strokeWidth={2} />}
               </div>
             }
             preview={
               d.summary ? (
-                <div className="ml-[30px]">
-                  <p className="text-[11px] text-claude-subtext leading-relaxed mt-1.5 line-clamp-2">{d.summary}</p>
-                </div>
+                <p className="text-[11px] text-zinc-500 leading-relaxed mt-1.5 line-clamp-2">{d.summary}</p>
               ) : null
             }
           />
@@ -101,26 +94,20 @@ export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }:
             content={doc.metadata?.snippet || doc.metadata?.text || doc.metadata?.content || 'Немає вмісту для перегляду.'}
             onOpenModal={() => onOpenDocModal(doc)}
             header={
-              <div className="flex items-start gap-2.5">
-                <div className="p-1 bg-claude-bg rounded-md flex-shrink-0 mt-0.5">
-                  <FileText size={12} className="text-claude-text" strokeWidth={2} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between">
-                    <div className="font-medium text-[13px] text-claude-text mb-1 truncate leading-tight">
-                      {doc.title}
-                    </div>
-                    {expanded ? <ChevronUp size={14} className="text-claude-subtext flex-shrink-0 ml-2" /> : <ChevronDown size={14} className="text-claude-subtext flex-shrink-0 ml-2" />}
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0 pr-2">
+                  <div className="font-medium text-[11.5px] text-zinc-800 truncate leading-tight mb-1">
+                    {doc.title}
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-claude-subtext">
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                  <div className="flex items-center gap-1.5 text-[10px] text-zinc-400">
+                    <span className={`px-1.5 py-0.5 rounded font-medium border text-[9px] uppercase tracking-[0.04em] ${
                       doc.type === 'court_decision'
-                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                        ? 'bg-zinc-900 text-white border-zinc-900'
                         : doc.type === 'legislation'
-                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                        ? 'bg-zinc-100 text-zinc-600 border-zinc-200'
                         : doc.type === 'contract'
-                        ? 'bg-green-50 text-green-700 border-green-200'
-                        : 'bg-claude-bg text-claude-subtext border-claude-border'
+                        ? 'bg-zinc-100 text-zinc-600 border-zinc-200'
+                        : 'bg-zinc-100 text-zinc-500 border-zinc-200'
                     }`}>
                       {DOC_TYPE_LABELS[doc.type] || doc.type}
                     </span>
@@ -129,15 +116,14 @@ export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }:
                     )}
                   </div>
                 </div>
+                {expanded ? <ChevronUp size={13} className="text-zinc-400 flex-shrink-0 mt-0.5" strokeWidth={2} /> : <ChevronDown size={13} className="text-zinc-400 flex-shrink-0 mt-0.5" strokeWidth={2} />}
               </div>
             }
             preview={
               doc.metadata?.snippet ? (
-                <div className="ml-[30px]">
-                  <p className="text-[11px] text-claude-subtext leading-relaxed mt-1.5 line-clamp-2">
-                    {doc.metadata.snippet}
-                  </p>
-                </div>
+                <p className="text-[11px] text-zinc-500 leading-relaxed mt-1.5 line-clamp-2">
+                  {doc.metadata.snippet}
+                </p>
               ) : null
             }
           />
