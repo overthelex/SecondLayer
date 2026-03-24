@@ -87,58 +87,124 @@ const FADE_UP = {
   transition: { duration: 0.5, ease: 'easeOut' as const },
 };
 
-// Static architectural background — hairline grid with ambient gradients
-// No animation: stillness conveys authority and precision
-function ArchitecturalBackground() {
+// Animated Julia-set fractal on canvas — dark theme with teal/indigo
+function FractalBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId: number;
+    const startTime = Date.now();
+    const MAX_ITER = 35;
+
+    const resize = () => {
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (w > 0 && h > 0) {
+        canvas.width = Math.floor(w * 0.5);
+        canvas.height = Math.floor(h * 0.5);
+      }
+    };
+    setTimeout(resize, 100);
+    window.addEventListener('resize', resize);
+
+    function julia(zx: number, zy: number, cx: number, cy: number): number {
+      for (let i = 0; i < MAX_ITER; i++) {
+        if (zx * zx + zy * zy > 4) {
+          return (i + 1 - Math.log(Math.log(Math.sqrt(zx * zx + zy * zy))) / Math.LN2) / MAX_ITER;
+        }
+        const t = zx * zx - zy * zy + cx;
+        zy = 2 * zx * zy + cy;
+        zx = t;
+      }
+      return 0;
+    }
+
+    let currentRow = 0;
+    let imgData: ImageData | null = null;
+    let frameJcx = 0;
+    let frameJcy = 0;
+    const ROWS_PER_TICK = 100;
+
+    function startNewFrame() {
+      const w = canvas!.width;
+      const h = canvas!.height;
+      if (w === 0 || h === 0) return;
+
+      const elapsed = (Date.now() - startTime) / 1000;
+      frameJcx = -0.7 + 0.18 * Math.sin(elapsed * 0.25);
+      frameJcy = 0.27015 + 0.14 * Math.cos(elapsed * 0.19);
+      imgData = ctx!.createImageData(w, h);
+      currentRow = 0;
+    }
+
+    function renderChunk() {
+      animId = requestAnimationFrame(renderChunk);
+
+      const w = canvas!.width;
+      const h = canvas!.height;
+      if (w === 0 || h === 0) return;
+
+      if (!imgData || imgData.width !== w || imgData.height !== h) {
+        startNewFrame();
+      }
+      if (!imgData) return;
+
+      const d = imgData.data;
+      const aspect = w / h;
+      const span = 3.0;
+      const endRow = Math.min(currentRow + ROWS_PER_TICK, h);
+
+      for (let y = currentRow; y < endRow; y++) {
+        for (let x = 0; x < w; x++) {
+          const fx = (x / w - 0.5) * span * aspect;
+          const fy = (y / h - 0.5) * span;
+
+          const v = julia(fx, fy, frameJcx, frameJcy);
+          const idx = (y * w + x) * 4;
+
+          if (v > 0) {
+            const t = v * 3;
+            d[idx] = Math.min(255, Math.floor(t * 25 + v * v * 80));
+            d[idx + 1] = Math.min(255, Math.floor(t * 55 + v * 40));
+            d[idx + 2] = Math.min(255, Math.floor(t * 90 + v * v * 120));
+          } else {
+            d[idx] = 8;
+            d[idx + 1] = 8;
+            d[idx + 2] = 10;
+          }
+          d[idx + 3] = 255;
+        }
+      }
+
+      currentRow = endRow;
+
+      if (currentRow >= h) {
+        ctx!.putImageData(imgData, 0, 0);
+        startNewFrame();
+      }
+    }
+
+    startNewFrame();
+    animId = requestAnimationFrame(renderChunk);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
   return (
-    <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-      {/* Base void */}
-      <div className="absolute inset-0 bg-[#080808]" />
-
-      {/* Subtle radial ambient — top-left warmth */}
-      <div
-        className="absolute -top-[30%] -left-[10%] w-[70%] h-[70%] rounded-full"
-        style={{
-          background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.018) 0%, transparent 65%)',
-        }}
-      />
-
-      {/* Subtle radial ambient — bottom-right coolness */}
-      <div
-        className="absolute -bottom-[20%] -right-[5%] w-[55%] h-[55%] rounded-full"
-        style={{
-          background: 'radial-gradient(ellipse at center, rgba(100,120,180,0.022) 0%, transparent 65%)',
-        }}
-      />
-
-      {/* Hairline grid — 40×40px, very subtle */}
-      <svg
-        className="absolute inset-0 w-full h-full"
-        xmlns="http://www.w3.org/2000/svg"
-        style={{ opacity: 0.028 }}
-      >
-        <defs>
-          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grid)" />
-      </svg>
-
-      {/* Vertical gradient fade — top and bottom edges dissolve the grid */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: 'linear-gradient(to bottom, #080808 0%, transparent 12%, transparent 88%, #080808 100%)',
-        }}
-      />
-      <div
-        className="absolute inset-0"
-        style={{
-          background: 'linear-gradient(to right, #080808 0%, transparent 8%, transparent 92%, #080808 100%)',
-        }}
-      />
-    </div>
+    <canvas
+      ref={canvasRef}
+      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', imageRendering: 'auto' }}
+      aria-hidden="true"
+    />
   );
 }
 
@@ -477,7 +543,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   if (isLoading && !showForgotPassword) {
     return (
       <div className="min-h-screen bg-[#080808] flex items-center justify-center">
-        <ArchitecturalBackground />
+        <FractalBackground />
         <div className="relative z-10 flex flex-col items-center gap-6">
           <div className="w-10 h-10 rounded-full border border-zinc-800 flex items-center justify-center">
             <Loader2 size={16} className="text-zinc-600 animate-spin" />
@@ -492,24 +558,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     <div className="min-h-screen bg-[#080808] flex relative overflow-hidden">
 
       {/* ── Architectural background — static, authoritative ── */}
-      <ArchitecturalBackground />
+      <FractalBackground />
 
       {/* ── Left panel: brand identity ── */}
       <div className="hidden lg:flex lg:w-[480px] xl:w-[540px] flex-shrink-0 flex-col justify-between relative overflow-hidden">
 
-        {/* Left panel gets its own deeper overlay for legibility without animation */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(160deg, rgba(10,10,10,0.96) 0%, rgba(8,8,8,0.94) 60%, rgba(9,10,14,0.96) 100%)',
-          }}
-        />
-
-        {/* Subtle inner glow top-left — warmth source */}
-        <div
-          className="absolute -top-16 -left-16 w-80 h-80 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.03) 0%, transparent 70%)' }}
-        />
+        {/* Semi-transparent backdrop for readability over fractal */}
+        <div className="absolute inset-0" style={{ background: 'rgba(8,8,8,0.55)' }} />
 
         {/* Divider on the right edge */}
         <PanelDivider />
@@ -614,10 +669,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       {/* ── Right panel: auth form ── */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 lg:px-16 xl:px-24 relative">
 
-        {/* Right panel overlay — slightly transparent to show grid beneath */}
+        {/* Semi-transparent backdrop for readability over fractal */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'rgba(8,8,8,0.72)' }}
+          style={{ background: 'rgba(8,8,8,0.65)' }}
         />
 
         {/* Language switcher — top right */}
