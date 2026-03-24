@@ -466,7 +466,9 @@ export function createMatterRoutes(
       //    Skip LEFT() on encrypted docs — their full_text contains binary data that breaks UTF-8 functions
       const docResult = await db.query(
         `SELECT id, title,
-                CASE WHEN COALESCE(is_encrypted, false) THEN NULL ELSE LEFT(full_text, 2000) END as snippet,
+                CASE WHEN COALESCE(is_encrypted, false) OR full_text IS NULL THEN NULL
+                     ELSE LEFT(regexp_replace(full_text, '[^\\x20-\\x7E\\u0400-\\u04FF\\u0500-\\u052F\\s]', '', 'g'), 2000)
+                END as snippet,
                 mime_type,
                 metadata->>'folderPath' as folder_path,
                 metadata->>'originalFilename' as original_filename
