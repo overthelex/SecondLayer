@@ -98,6 +98,15 @@ jobs:
         if: needs.detect-changes.outputs.backend == 'true'
         run: cd mcp_backend && npx jest --no-cache src/controllers/__tests__/ --forceExit
 
+      - name: Unit test Diia auth & signing (regression guard)
+        if: needs.detect-changes.outputs.backend == 'true'
+        run: |
+          cd mcp_backend && npx jest --no-cache \
+            src/controllers/__tests__/diia-auth.test.ts \
+            src/controllers/__tests__/diia-sign.test.ts \
+            src/services/__tests__/diia-service.test.ts \
+            --forceExit
+
       - name: Build RADA
         if: needs.detect-changes.outputs.rada == 'true'
         run: cd mcp_rada && npm install && npm run build
