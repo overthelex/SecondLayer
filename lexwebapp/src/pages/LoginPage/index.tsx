@@ -1318,9 +1318,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 <X size={13} />
               </button>
 
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-5">
-                <img src="/diia-logo-stroke.png" alt="Дія" width="44" height="44" />
-              </div>
+              <img src="/diia-logo-stroke.png" alt="Дія" width="44" height="44" className="mx-auto mb-5" />
 
               <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5 tracking-tight">Завершення входу</h2>
               <p className="text-[0.75rem] text-zinc-500 mb-6 leading-relaxed">
@@ -1363,9 +1361,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 <X size={13} />
               </button>
 
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-5">
-                <img src="/diia-logo-stroke.png" alt="Дія" width="44" height="44" />
-              </div>
+              <img src="/diia-logo-stroke.png" alt="Дія" width="44" height="44" className="mx-auto mb-5" />
 
               <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5 tracking-tight">Вхід через Дію</h2>
               <p className="text-[0.75rem] text-zinc-500 mb-6 leading-relaxed">
