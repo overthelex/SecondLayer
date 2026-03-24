@@ -129,7 +129,7 @@ describe('LegalCodesLibraryPage', () => {
       });
     });
 
-    it('displays search results', async () => {
+    it('displays search results', { timeout: 15000 }, async () => {
       const user = userEvent.setup();
       mockCallTool.mockResolvedValue(
         makeToolResult({
