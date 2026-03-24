@@ -78,6 +78,7 @@ export const ROUTES = {
   // Investor
   INVESTOR_LETTER: '/investor',
   UK_INVESTOR: '/uk_investor',
+  UK_INVESTOR_SIMPLIFIED: '/uk_investor_simplified',
 
   // Country-specific public pages
   US_DATA_SOURCES: '/us/data-sources',
