@@ -247,8 +247,7 @@ export class DecisionLayerTools extends BaseToolHandler {
             { role: 'user', content: userMessage },
           ],
           temperature: 0.3,
-          max_tokens: 4000,
-          response_format: { type: 'json_object' },
+          max_tokens: 8000,
         },
         'deep',
       );
