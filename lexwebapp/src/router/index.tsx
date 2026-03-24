@@ -291,6 +291,10 @@ export const router = createBrowserRouter([
             element: S(ProfilePage),
           },
           {
+            path: ROUTES.USAGE,
+            element: <Navigate to={ROUTES.BILLING_ANALYTICS} replace />,
+          },
+          {
             path: ROUTES.BILLING,
             element: S(BillingDashboard),
             children: [

@@ -23,6 +23,7 @@ export const ROUTES = {
   BILLING_HISTORY: '/billing/history',
   BILLING_ANALYTICS: '/billing/analytics',
   BILLING_SETTINGS: '/billing/settings',
+  USAGE: '/usage',
   TEAM: '/team',
   MCP_CONNECT: '/mcp-connect',
   DEVELOPER_DOCS: '/developer/docs',
