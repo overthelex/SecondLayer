@@ -19,7 +19,7 @@ import { Section } from './Section';
 import { SidebarFooter } from './SidebarFooter';
 import {
   researchSections, legislationSections, getMattersSections,
-  externalSourcesSections, monitoringSections,
+  developerSections, externalSourcesSections, monitoringSections,
 } from './nav-config';
 
 interface SidebarProps {
@@ -41,7 +41,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   const [editTitle, setEditTitle] = useState('');
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
-    new Set(['conversations', 'research', 'legislation', 'vault', 'matters', 'attorneys', 'external-sources', 'monitoring'])
+    new Set(['conversations', 'research', 'legislation', 'vault', 'matters', 'attorneys', 'developer', 'external-sources', 'monitoring'])
   );
   const [vaultFolders, setVaultFolders] = useState<string[]>([]);
   const [vaultFoldersLoaded, setVaultFoldersLoaded] = useState(false);
@@ -60,7 +60,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
 
   const renderedSectionIds = useMemo(() => {
     if (role === 'administrator') return ['external-sources', 'monitoring'];
-    const ids = ['research', 'legislation', 'vault', 'matters', 'attorneys'];
+    const ids = ['research', 'legislation', 'vault', 'matters', 'attorneys', 'developer'];
     if (conversations.length > 0) ids.push('conversations');
     return ids;
   }, [role, conversations.length]);
@@ -363,9 +363,15 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                 )}
               </Section>
 
-              <div className="mb-6 mt-1">
+              <div className="mb-2 mt-1">
                 <NavItem icon={Zap} label="Workflows" route={ROUTES.WORKFLOWS} onClick={() => handleNavigation(ROUTES.WORKFLOWS)} />
               </div>
+
+              <Section id="developer" title="Розробникам" collapsed={collapsedSections.has('developer')} onToggle={toggleSection}>
+                {developerSections.map((s) => (
+                  <NavItem key={s.id} icon={s.icon} label={s.label} route={s.route} onClick={() => handleNavigation(s.route)} />
+                ))}
+              </Section>
             </>
           )}
 
