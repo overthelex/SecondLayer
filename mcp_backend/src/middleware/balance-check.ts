@@ -25,6 +25,9 @@ const FREE_TOOLS = new Set([
   'get_legislation_section',
 ]);
 
+/** Free tier: max requests per day with zero balance */
+const FREE_TIER_DAILY_LIMIT = 5;
+
 export function createBalanceCheckMiddleware(
   billingService: BillingService,
   costTracker: CostTracker
@@ -89,10 +92,23 @@ export function createBalanceCheckMiddleware(
       );
 
       if (!balanceCheck.hasBalance) {
+        // Free tier: allow up to FREE_TIER_DAILY_LIMIT requests per day with zero balance
+        const dailyCount = await billingService.getDailyRequestCount(userId);
+        if (dailyCount < FREE_TIER_DAILY_LIMIT) {
+          logger.info('Free tier request allowed', {
+            userId,
+            toolName,
+            dailyCount,
+            remaining: FREE_TIER_DAILY_LIMIT - dailyCount - 1,
+          });
+          return next();
+        }
+
         logger.warn('Insufficient balance', {
           userId,
           required: estimatedCost.total_estimated_cost_usd,
           available: balanceCheck.currentBalance,
+          dailyCount,
         });
 
         return res.status(402).json({
@@ -103,6 +119,11 @@ export function createBalanceCheckMiddleware(
             current_usd: balanceCheck.currentBalance,
             required_usd: estimatedCost.total_estimated_cost_usd,
             shortfall_usd: estimatedCost.total_estimated_cost_usd - balanceCheck.currentBalance,
+          },
+          free_tier: {
+            daily_limit: FREE_TIER_DAILY_LIMIT,
+            used_today: dailyCount,
+            remaining: 0,
           },
           topup_url: `${process.env.FRONTEND_URL || 'https://billing.legal.org.ua'}/topup`,
         });

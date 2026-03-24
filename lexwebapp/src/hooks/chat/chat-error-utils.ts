@@ -13,7 +13,7 @@ import { getErrorMessage } from '../../utils/errors';
  */
 export function handleStreamError(
   assistantMessageId: string,
-  error: { message?: string; code?: string; current_balance_usd?: number },
+  error: { message?: string; code?: string; current_balance_usd?: number; free_tier?: { daily_limit: number; used_today: number; remaining: number } },
   deps: {
     updateMessage: ReturnType<typeof useChatStore.getState>['updateMessage'];
     setStreaming: ReturnType<typeof useChatStore.getState>['setStreaming'];
@@ -31,8 +31,14 @@ export function handleStreamError(
     const balance = error.current_balance_usd != null
       ? `$${error.current_balance_usd.toFixed(2)}`
       : '';
-    content = `⚠️ **Недостатньо коштів на балансі**${balance ? ` (поточний баланс: ${balance})` : ''}.\n\nДля продовження роботи, будь ласка, [поповніть баланс](/billing).`;
-    toastMessage = 'Недостатньо коштів на балансі';
+    const freeTier = error.free_tier;
+    if (freeTier && freeTier.daily_limit > 0) {
+      content = `⚠️ **Вичерпано безкоштовні запити** (${freeTier.used_today}/${freeTier.daily_limit} за сьогодні).\n\nДля необмеженого доступу, будь ласка, [поповніть баланс](/billing).`;
+      toastMessage = `Безкоштовні запити вичерпано (${freeTier.used_today}/${freeTier.daily_limit})`;
+    } else {
+      content = `⚠️ **Недостатньо коштів на балансі**${balance ? ` (поточний баланс: ${balance})` : ''}.\n\nДля продовження роботи, будь ласка, [поповніть баланс](/billing).`;
+      toastMessage = 'Недостатньо коштів на балансі';
+    }
   } else {
     const msg = error.message || 'Невідома помилка';
     content = `Помилка: ${msg}`;
