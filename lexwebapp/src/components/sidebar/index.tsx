@@ -14,13 +14,14 @@ import { useChatStore } from '../../stores/chatStore';
 import { useConsultationStore } from '../../stores/consultationStore';
 import { api } from '../../utils/api-client';
 import type { UserRole } from '../../types/models/User';
+import { appT } from '../../i18n/app-i18n';
 
 import { NavItem } from './NavItem';
 import { Section } from './Section';
 import { SidebarFooter } from './SidebarFooter';
 import {
-  researchSections, legislationSections, getMattersSections,
-  developerSections, externalSourcesSections, monitoringSections,
+  getResearchSections, getLegislationSections, getMattersSections,
+  getDeveloperSections, getExternalSourcesSections, getMonitoringSections,
 } from './nav-config';
 
 interface SidebarProps {
@@ -35,7 +36,12 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   const { user } = useAuth();
   const role: UserRole = user?.role || 'user';
   const isAttorney = user?.userType === 'attorney';
+  const researchSections = getResearchSections();
+  const legislationSections = getLegislationSections();
   const mattersSections = getMattersSections(isAttorney);
+  const developerSections = getDeveloperSections();
+  const externalSourcesSections = getExternalSourcesSections();
+  const monitoringSections = getMonitoringSections();
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -181,13 +187,13 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
               transition={{ duration: 0.18 }}
               className="bg-[#1a1a1a] rounded-xl border border-white/[0.08] shadow-[0_16px_48px_rgba(0,0,0,0.6)] p-6 max-w-sm mx-4"
               onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-[14px] font-semibold text-zinc-200 mb-2 tracking-[-0.01em]">Видалити папку?</h3>
+              <h3 className="text-[14px] font-semibold text-zinc-200 mb-2 tracking-[-0.01em]">{appT('nav.deleteFolder')}</h3>
               <p className="text-[12.5px] text-zinc-500 mb-5 leading-relaxed">
-                Всі документи в папці <strong className="text-zinc-300 font-medium">{deletingFolder}</strong> будуть видалені. Цю дію можна скасувати через відновлення документів.
+                {appT('nav.deleteFolderPrefix')} <strong className="text-zinc-300 font-medium">{deletingFolder}</strong> {appT('nav.deleteFolderDesc')}
               </p>
               <div className="flex justify-end gap-2">
-                <button onClick={() => setDeletingFolder(null)} className="px-3.5 py-1.5 text-[12.5px] font-medium text-zinc-400 hover:text-zinc-200 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.06] rounded-md transition-colors">Скасувати</button>
-                <button onClick={() => handleDeleteFolder(deletingFolder)} className="px-3.5 py-1.5 text-[12.5px] font-medium text-white bg-red-500/80 hover:bg-red-500 rounded-md transition-colors">Видалити</button>
+                <button onClick={() => setDeletingFolder(null)} className="px-3.5 py-1.5 text-[12.5px] font-medium text-zinc-400 hover:text-zinc-200 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.06] rounded-md transition-colors">{appT('nav.cancel')}</button>
+                <button onClick={() => handleDeleteFolder(deletingFolder)} className="px-3.5 py-1.5 text-[12.5px] font-medium text-white bg-red-500/80 hover:bg-red-500 rounded-md transition-colors">{appT('nav.delete')}</button>
               </div>
             </motion.div>
           </motion.div>
@@ -237,7 +243,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
         <div className="px-3 pb-4">
           <button onClick={handleNewChat} className="w-full flex items-center gap-2 px-3 py-2 bg-white/[0.07] border border-white/[0.08] text-zinc-300 hover:bg-white/[0.10] hover:text-white rounded-md text-[12.5px] font-medium transition-all duration-150 group active:scale-[0.99] tracking-[-0.01em]">
             <Plus size={13} strokeWidth={2} className="text-zinc-500 group-hover:text-zinc-300 transition-colors duration-150" />
-            <span className="font-sans">Новий запит</span>
+            <span className="font-sans">{appT('nav.newQuery')}</span>
           </button>
         </div>
 
@@ -247,7 +253,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto px-2.5 py-0 scrollbar-hide">
           <div className="flex justify-end px-1 py-0.5 mb-1">
-            <button onClick={toggleAllSections} title={allCollapsed ? 'Розгорнути все' : 'Згорнути все'}
+            <button onClick={toggleAllSections} title={allCollapsed ? appT('nav.expandAll') : appT('nav.collapseAll')}
               className="p-1 text-zinc-800 hover:text-zinc-600 rounded transition-colors duration-150">
               <ChevronsUpDown size={12} strokeWidth={2} />
             </button>
@@ -257,7 +263,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
           {role !== 'administrator' && (
             <>
               {conversations.length > 0 && (
-                <Section id="conversations" title="Розмови" collapsed={collapsedSections.has('conversations')} onToggle={toggleSection}>
+                <Section id="conversations" title={appT('nav.section.conversations')} collapsed={collapsedSections.has('conversations')} onToggle={toggleSection}>
                   <div className="max-h-[280px] overflow-y-auto space-y-0.5 scrollbar-hide">
                     {conversations.map((conv) => (
                       <div
@@ -302,20 +308,20 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                 </Section>
               )}
 
-              <Section id="research" title="Дослідження" collapsed={collapsedSections.has('research')} onToggle={toggleSection}>
+              <Section id="research" title={appT('nav.section.research')} collapsed={collapsedSections.has('research')} onToggle={toggleSection}>
                 {researchSections.map((s) => (
                   <NavItem key={s.id} icon={s.icon} label={s.label} route={s.route} onClick={() => handleNavigation(s.route)} />
                 ))}
               </Section>
 
-              <Section id="legislation" title="Законодавство" collapsed={collapsedSections.has('legislation')} onToggle={toggleSection}>
+              <Section id="legislation" title={appT('nav.section.legislation')} collapsed={collapsedSections.has('legislation')} onToggle={toggleSection}>
                 {legislationSections.map((s) => (
                   <NavItem key={s.id} icon={s.icon} label={s.label} route={s.route} onClick={() => handleNavigation(s.route)} />
                 ))}
               </Section>
 
-              <Section id="vault" title="Vault" collapsed={collapsedSections.has('vault')} onToggle={toggleSection}>
-                <NavItem icon={Archive} label="Всі документи" route={ROUTES.DOCUMENTS} onClick={() => handleNavigation(ROUTES.DOCUMENTS)} />
+              <Section id="vault" title={appT('nav.section.vault')} collapsed={collapsedSections.has('vault')} onToggle={toggleSection}>
+                <NavItem icon={Archive} label={appT('nav.allDocuments')} route={ROUTES.DOCUMENTS} onClick={() => handleNavigation(ROUTES.DOCUMENTS)} />
                 {vaultFolders.map((folder) => {
                   const folderRoute = `/documents/folders/${folder}`;
                   const isActive = location.pathname === folderRoute || location.pathname.startsWith(folderRoute + '/');
@@ -348,19 +354,19 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                 })}
               </Section>
 
-              <Section id="matters" title="Справи" collapsed={collapsedSections.has('matters')} onToggle={toggleSection}>
+              <Section id="matters" title={appT('nav.section.matters')} collapsed={collapsedSections.has('matters')} onToggle={toggleSection}>
                 {mattersSections.map((s) => (
                   <NavItem key={s.id} icon={s.icon} label={s.label} route={s.route} onClick={() => handleNavigation(s.route)} />
                 ))}
               </Section>
 
-              <Section id="attorneys" title={isAttorney ? 'Консультації' : 'Адвокати'} collapsed={collapsedSections.has('attorneys')} onToggle={toggleSection}>
+              <Section id="attorneys" title={isAttorney ? appT('nav.section.consultations') : appT('nav.section.attorneys')} collapsed={collapsedSections.has('attorneys')} onToggle={toggleSection}>
                 {!isAttorney && (
-                  <NavItem icon={Search} label="Знайти адвоката" route={ROUTES.ATTORNEYS} onClick={() => handleNavigation(ROUTES.ATTORNEYS)} />
+                  <NavItem icon={Search} label={appT('nav.findAttorney')} route={ROUTES.ATTORNEYS} onClick={() => handleNavigation(ROUTES.ATTORNEYS)} />
                 )}
-                <NavItem icon={Briefcase} label="Мої консультації" route={ROUTES.CONSULTATIONS} onClick={() => handleNavigation(ROUTES.CONSULTATIONS)} badge={(pendingCount + globalUnreadCount) > 0 ? pendingCount + globalUnreadCount : undefined} />
+                <NavItem icon={Briefcase} label={appT('nav.myConsultations')} route={ROUTES.CONSULTATIONS} onClick={() => handleNavigation(ROUTES.CONSULTATIONS)} badge={(pendingCount + globalUnreadCount) > 0 ? pendingCount + globalUnreadCount : undefined} />
                 {isAttorney && (
-                  <NavItem icon={Users} label="Мої клієнти" route={ROUTES.ATTORNEY_CLIENTS} onClick={() => handleNavigation(ROUTES.ATTORNEY_CLIENTS)} />
+                  <NavItem icon={Users} label={appT('nav.myClients')} route={ROUTES.ATTORNEY_CLIENTS} onClick={() => handleNavigation(ROUTES.ATTORNEY_CLIENTS)} />
                 )}
               </Section>
 
@@ -368,7 +374,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                 <NavItem icon={Zap} label="Workflows" route={ROUTES.WORKFLOWS} onClick={() => handleNavigation(ROUTES.WORKFLOWS)} />
               </div>
 
-              <Section id="developer" title="Розробникам" collapsed={collapsedSections.has('developer')} onToggle={toggleSection}>
+              <Section id="developer" title={appT('nav.section.developer')} collapsed={collapsedSections.has('developer')} onToggle={toggleSection}>
                 {developerSections.map((s) => (
                   <NavItem key={s.id} icon={s.icon} label={s.label} route={s.route} onClick={() => handleNavigation(s.route)} />
                 ))}
@@ -379,13 +385,13 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
           {/* ADMIN MENU */}
           {role === 'administrator' && (
             <>
-              <Section id="external-sources" title="Зовнішні джерела" collapsed={collapsedSections.has('external-sources')} onToggle={toggleSection}>
+              <Section id="external-sources" title={appT('nav.section.externalSources')} collapsed={collapsedSections.has('external-sources')} onToggle={toggleSection}>
                 {externalSourcesSections.map((s) => (
                   <NavItem key={s.id} icon={s.icon} label={s.label} route={s.route} onClick={() => handleNavigation(s.route)} />
                 ))}
               </Section>
 
-              <Section id="monitoring" title="Моніторинг" collapsed={collapsedSections.has('monitoring')} onToggle={toggleSection}>
+              <Section id="monitoring" title={appT('nav.section.monitoring')} collapsed={collapsedSections.has('monitoring')} onToggle={toggleSection}>
                 {monitoringSections.map((s) => (
                   <NavItem key={s.id} icon={s.icon} label={s.label} route={s.route} onClick={() => handleNavigation(s.route)} />
                 ))}
