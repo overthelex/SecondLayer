@@ -587,6 +587,48 @@ function MCPClientsTab() {
       </Card>
 
       <Card>
+        <div className="flex items-center gap-2 mb-3">
+          <h2 className="text-[16px] font-semibold text-claude-text">ChatGPT</h2>
+          <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-semibold rounded tracking-wide uppercase">new</span>
+        </div>
+        <p className="text-[13px] text-claude-subtext mb-3">
+          ChatGPT підтримує MCP через SSE (Server-Sent Events) транспорт. Це дозволяє використовувати всі 56+ інструментів LEX AI безпосередньо у веб-інтерфейсі ChatGPT.
+        </p>
+        <div className="space-y-3">
+          <div>
+            <p className="text-[12px] font-medium text-claude-text mb-1.5">1. Відкрийте налаштування ChatGPT</p>
+            <p className="text-[12.5px] text-claude-subtext">
+              <code className="bg-claude-bg-secondary px-1.5 py-0.5 rounded text-[11px]">Settings → Features → MCP Servers → Add</code>
+            </p>
+          </div>
+          <div>
+            <p className="text-[12px] font-medium text-claude-text mb-1.5">2. Додайте SSE endpoint</p>
+            <CodeBlock language="text" code={`Server URL: https://platform.legal.org.ua/api/sse
+Label: LEX AI — Ukrainian Legal Platform`} />
+          </div>
+          <div>
+            <p className="text-[12px] font-medium text-claude-text mb-1.5">3. Автентифікація</p>
+            <p className="text-[12.5px] text-claude-subtext mb-2">
+              Згенеруйте API-токен у <a href="/profile" className="text-claude-accent hover:underline">Профілі → MCP Access Tokens</a>, потім додайте як Bearer токен:
+            </p>
+            <CodeBlock language="text" code={`Header: Authorization
+Value: Bearer YOUR_API_TOKEN`} />
+          </div>
+          <div>
+            <p className="text-[12px] font-medium text-claude-text mb-1.5">4. Готово</p>
+            <p className="text-[12.5px] text-claude-subtext">
+              Після підключення ChatGPT матиме доступ до всіх інструментів: пошук судових рішень, аналіз законодавства, реєстри, моніторинг — прямо в чаті.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 p-3 bg-amber-500/5 border border-amber-500/15 rounded-lg">
+          <p className="text-[12px] text-amber-600">
+            <strong>Примітка:</strong> MCP у ChatGPT доступний для Plus/Team/Enterprise підписок. Перевірте доступність у вашому акаунті.
+          </p>
+        </div>
+      </Card>
+
+      <Card>
         <h2 className="text-[16px] font-semibold text-claude-text mb-3">Continue.dev</h2>
         <p className="text-[13px] text-claude-subtext mb-3">
           Збережіть як <code className="bg-claude-bg-secondary px-1.5 py-0.5 rounded text-[11px]">.continue/mcpServers/secondlayer.yaml</code>:
