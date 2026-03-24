@@ -29,10 +29,10 @@ import { authService } from '../../services';
 import showToast from '../../utils/toast';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
 import { GDPRModal } from './GDPRModal';
-import { useLoginT, useLoginPageT, setLocale as setI18nLocale, type Locale } from '../../i18n/locales';
+import { useLoginPageT, setLocale as setI18nLocale, type Locale } from '../../i18n/locales';
 
 function LanguageSwitcher() {
-  const { locale } = useLoginT();
+  const { locale } = useLoginPageT();
   const langs: { code: Locale; label: string }[] = [
     { code: 'uk', label: 'UA' },
     { code: 'en', label: 'EN' },
@@ -177,8 +177,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { t } = useLoginT();
-  const { t: tp } = useLoginPageT();
+  const { t } = useLoginPageT();
 
   const getReturnUrl = (): string => {
     const saved = sessionStorage.getItem('login_return_url');

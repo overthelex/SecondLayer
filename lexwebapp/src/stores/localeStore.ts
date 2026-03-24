@@ -95,6 +95,12 @@ export const useLocaleStore = create<LocaleState>()(
             // Only apply defaults on first detection
             if (state.geoDetected) return state;
             const defaults = getDefaultsForCountry(cfCountry);
+            // Sync with login page locale (lex_locale) if not already set
+            try {
+              if (!localStorage.getItem('lex_locale')) {
+                localStorage.setItem('lex_locale', defaults.language);
+              }
+            } catch { /* ignore */ }
             return {
               ...defaults,
               geoDetected: true,
