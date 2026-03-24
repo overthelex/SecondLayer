@@ -566,10 +566,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               className="group flex items-center gap-3 text-left w-full"
             >
               <div className="flex-shrink-0 px-2 py-[3px] rounded border border-emerald-800/30 bg-emerald-950/20">
-                <span className="text-[8px] font-bold text-emerald-700 tracking-[0.2em] uppercase">Новим</span>
+                <span className="text-[8px] font-bold text-emerald-700 tracking-[0.2em] uppercase">{t.promoNew}</span>
               </div>
               <span className="text-[11px] text-zinc-600 group-hover:text-zinc-400 transition-colors duration-200 leading-snug">
-                Дізнайтесь про умови та реферальну програму
+                {t.promoDesc}
               </span>
               <ChevronRight
                 size={11}
@@ -586,7 +586,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               className="inline-flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors duration-200 tracking-wide"
             >
               <BookOpen size={10} />
-              <span>Blog</span>
+              <span>{t.readBlog}</span>
               {hasRecentArticles() && (
                 <span className="w-1 h-1 rounded-full bg-zinc-600 inline-block" />
               )}
@@ -596,7 +596,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               className="inline-flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors duration-200 tracking-wide"
             >
               <Newspaper size={10} />
-              <span>Новини</span>
+              <span>{t.newsLink}</span>
               <span className="w-1 h-1 rounded-full bg-emerald-700/70 inline-block" />
             </a>
             <a
@@ -604,7 +604,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               className="inline-flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors duration-200 tracking-wide"
             >
               <TrendingUp size={10} />
-              <span>Для інвесторів</span>
+              <span>{t.investorsLink}</span>
             </a>
           </div>
 
@@ -641,8 +641,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </h2>
             <p className="text-[0.75rem] text-zinc-600 tracking-wide">
               {isLogin
-                ? 'Оберіть зручний спосіб автентифікації'
-                : 'Зареєструйтесь для початку роботи'}
+                ? t.authSubtitleLogin
+                : t.authSubtitleRegister}
             </p>
           </div>
 
@@ -681,28 +681,28 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               >
                 <div className="space-y-2.5 px-4 py-4 rounded-lg bg-zinc-900/50 border border-zinc-800/60">
                   <p className="text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.2em] mb-3">
-                    Для реєстрації необхідно прийняти:
+                    {t.consentRequired}
                   </p>
                   {[
                     {
                       checked: acceptedTerms,
                       onChange: setAcceptedTerms,
                       links: [
-                        { href: '/ua/terms', label: 'Умови використання' },
-                        { href: '/ua/offer', label: 'Публічну оферту' },
+                        { href: '/ua/terms', label: t.consentTerms },
+                        { href: '/ua/offer', label: t.consentOffer },
                       ],
-                      separator: ' та ',
+                      separator: t.consentAnd,
                     },
                     {
                       checked: acceptedPrivacy,
                       onChange: setAcceptedPrivacy,
-                      links: [{ href: '/ua/privacy', label: 'Політику конфіденційності' }],
+                      links: [{ href: '/ua/privacy', label: t.consentPrivacy }],
                       separator: '',
                     },
                     {
                       checked: acceptedDpa,
                       onChange: setAcceptedDpa,
-                      links: [{ href: '/ua/dpa', label: 'Угоду про обробку даних (DPA)' }],
+                      links: [{ href: '/ua/dpa', label: t.consentDpa }],
                       separator: '',
                     },
                   ].map((item, i) => (
@@ -827,7 +827,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     disabled={ssoLoading}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-700/80 hover:bg-zinc-700 text-zinc-100 rounded-md text-sm font-medium transition-colors duration-150 disabled:opacity-40"
                   >
-                    {ssoLoading ? <Loader2 size={13} className="animate-spin" /> : <><ArrowRight size={12} />Увійти</>}
+                    {ssoLoading ? <Loader2 size={13} className="animate-spin" /> : <><ArrowRight size={12} />{t.ssoLoginButtonText}</>}
                   </button>
                 </div>
               </motion.div>
@@ -840,16 +840,16 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <div className="w-full border-t border-zinc-800/50" />
             </div>
             <div className="relative flex justify-center">
-              <span className="px-3 bg-[#080808] text-[9px] text-zinc-700 tracking-[0.18em] uppercase">або</span>
+              <span className="px-3 bg-[#080808] text-[9px] text-zinc-700 tracking-[0.18em] uppercase">{t.orDivider}</span>
             </div>
           </div>
 
           {/* Auth method tabs */}
           <div className="flex gap-px mb-5 rounded-lg overflow-hidden border border-zinc-800/50 bg-[#0a0a0a]">
             {([
-              { key: 'password', icon: Lock, label: 'Пароль' },
-              { key: 'hardware-key', icon: Key, label: 'Ключ' },
-              { key: 'phone-key', icon: Smartphone, label: 'Телефон' },
+              { key: 'password', icon: Lock, label: t.tabPassword },
+              { key: 'hardware-key', icon: Key, label: t.tabKey },
+              { key: 'phone-key', icon: Smartphone, label: t.tabPhone },
             ] as const).map(({ key, icon: Icon, label }) => (
               <button
                 key={key}
@@ -883,7 +883,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 {!isLogin && (
                   <div>
                     <label htmlFor="name" className="block text-[10px] font-medium text-zinc-600 mb-1.5 tracking-[0.08em] uppercase">
-                      Ім'я
+                      {t.nameLabel}
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -895,7 +895,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                         type="text"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="Іван Петренко"
+                        placeholder={t.namePlaceholderExample}
                         autoComplete="name"
                         className="block w-full pl-9 pr-4 py-2.5 bg-zinc-900/50 border border-zinc-800/70 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
                       />
@@ -927,7 +927,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label htmlFor="password" className="block text-[10px] font-medium text-zinc-600 tracking-[0.08em] uppercase">
-                      Пароль
+                      {t.passwordLabel}
                     </label>
                     {isLogin && (
                       <button
@@ -935,7 +935,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                         onClick={() => { setShowForgotPassword(true); setError(null); }}
                         className="text-[11px] text-zinc-700 hover:text-zinc-400 transition-colors duration-150"
                       >
-                        Забули пароль?
+                        {t.forgotPassword}
                       </button>
                     )}
                   </div>
@@ -976,9 +976,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                         })}
                       </div>
                       <p className="text-[10px] text-zinc-700 mt-1.5">
-                        {passwordStrength === 'weak' && 'Слабкий — додайте великі літери, цифри або спецсимволи'}
-                        {passwordStrength === 'medium' && 'Середній пароль'}
-                        {passwordStrength === 'strong' && 'Надійний пароль'}
+                        {passwordStrength === 'weak' && t.strengthWeakDesc}
+                        {passwordStrength === 'medium' && t.strengthMediumDesc}
+                        {passwordStrength === 'strong' && t.strengthStrongDesc}
                       </p>
                     </div>
                   )}
@@ -1013,15 +1013,15 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900/50 border border-zinc-800/70 mb-5">
                   <Shield size={20} className="text-zinc-600" />
                 </div>
-                <h3 className="text-[0.825rem] font-medium text-zinc-300 mb-1.5">Підключіть ключ безпеки</h3>
-                <p className="text-[0.75rem] text-zinc-600 mb-6 leading-relaxed">Вставте USB-ключ або використайте NFC</p>
+                <h3 className="text-[0.825rem] font-medium text-zinc-300 mb-1.5">{t.hardwareKeyTitle}</h3>
+                <p className="text-[0.75rem] text-zinc-600 mb-6 leading-relaxed">{t.hardwareKeyDesc}</p>
                 <button
                   onClick={() => handleWebAuthnLogin('cross-platform')}
                   disabled={isLoading}
                   className="px-6 py-2.5 bg-zinc-900/80 border border-zinc-700/80 text-zinc-400 rounded-lg text-sm font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-colors duration-150 disabled:opacity-40"
                 >
                   {isLoading ? <Loader2 size={13} className="animate-spin inline mr-2" /> : null}
-                  Автентифікація
+                  {t.authenticating}
                 </button>
               </motion.div>
             )}
@@ -1038,15 +1038,15 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900/50 border border-zinc-800/70 mb-5">
                   <Smartphone size={20} className="text-zinc-600" />
                 </div>
-                <h3 className="text-[0.825rem] font-medium text-zinc-300 mb-1.5">Вхід через телефон</h3>
-                <p className="text-[0.75rem] text-zinc-600 mb-6 leading-relaxed">Браузер покаже QR-код для сканування</p>
+                <h3 className="text-[0.825rem] font-medium text-zinc-300 mb-1.5">{t.phoneKeyTitle}</h3>
+                <p className="text-[0.75rem] text-zinc-600 mb-6 leading-relaxed">{t.phoneKeyDesc}</p>
                 <button
                   onClick={() => handleWebAuthnLogin()}
                   disabled={isLoading}
                   className="px-6 py-2.5 bg-zinc-900/80 border border-zinc-700/80 text-zinc-400 rounded-lg text-sm font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-colors duration-150 disabled:opacity-40"
                 >
                   {isLoading ? <Loader2 size={13} className="animate-spin inline mr-2" /> : null}
-                  Автентифікація
+                  {t.authenticating}
                 </button>
               </motion.div>
             )}
@@ -1075,10 +1075,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="text-[8px] font-bold text-[#4d6ef5] tracking-[0.2em] uppercase">GDPR</span>
                 <span className="w-px h-2 bg-zinc-800 inline-block" />
-                <span className="text-[10px] text-zinc-500">Захист персональних даних</span>
+                <span className="text-[10px] text-zinc-500">{t.gdprDesc}</span>
               </div>
               <p className="text-[9px] text-zinc-700 tracking-wide">
-                Відповідає Регламенту ЄС 2016/679
+                {t.gdprCompliance}
               </p>
             </div>
             <ChevronRight
@@ -1090,12 +1090,12 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           {/* Footer legal links */}
           <div className="mt-5 flex flex-wrap justify-center gap-x-3 gap-y-1">
             {[
-              { href: '/ua/terms', label: 'Умови' },
-              { href: '/ua/offer', label: 'Оферта' },
-              { href: '/ua/privacy', label: 'Конфіденційність' },
-              { href: '/ua/dpa', label: 'DPA' },
-              { href: '/ua/ai-usage', label: 'Політика AI' },
-              { href: '/ua/ai-transparency', label: 'Прозорість AI' },
+              { href: '/ua/terms', label: t.footerTerms },
+              { href: '/ua/offer', label: t.footerOffer },
+              { href: '/ua/privacy', label: t.footerPrivacy },
+              { href: '/ua/dpa', label: t.footerDpa },
+              { href: '/ua/ai-usage', label: t.footerAiPolicy },
+              { href: '/ua/ai-transparency', label: t.footerAiTransparency },
             ].map(({ href, label }) => (
               <a
                 key={href}
@@ -1153,22 +1153,22 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <div className="p-8">
                 {/* Header */}
                 <div className="mb-6">
-                  <h3 className="text-xl font-semibold text-white mb-1.5 tracking-tight">Ласкаво просимо</h3>
-                  <p className="text-sm text-zinc-500">Ознайомтесь з умовами платформи та реферальною програмою</p>
+                  <h3 className="text-xl font-semibold text-white mb-1.5 tracking-tight">{t.welcomeModalTitle}</h3>
+                  <p className="text-sm text-zinc-500">{t.welcomeModalDesc}</p>
                 </div>
 
                 {/* Documents section */}
                 <div className="mb-6">
                   <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.18em] mb-3">
-                    Правові документи
+                    {t.legalDocsTitle}
                   </p>
                   <div className="space-y-1.5">
                     {[
-                      { href: '/ua/offer', label: 'Публічна оферта', desc: 'Договір між вами та платформою' },
-                      { href: '/ua/terms', label: 'Умови використання', desc: 'Правила користування сервісом' },
-                      { href: '/ua/privacy', label: 'Політика конфіденційності', desc: 'Як ми захищаємо ваші дані' },
-                      { href: '/ua/dpa', label: 'Угода про обробку даних (DPA)', desc: 'Відповідність GDPR' },
-                      { href: '/ua/refund', label: 'Політика повернення коштів', desc: 'Умови повернення оплати' },
+                      { href: '/ua/offer', label: t.docOffer, desc: t.docOfferDesc },
+                      { href: '/ua/terms', label: t.docTerms, desc: t.docTermsDesc },
+                      { href: '/ua/privacy', label: t.docPrivacy, desc: t.docPrivacyDesc },
+                      { href: '/ua/dpa', label: t.docDpa, desc: t.docDpaDesc },
+                      { href: '/ua/refund', label: t.docRefund, desc: t.docRefundDesc },
                     ].map((doc) => (
                       <a
                         key={doc.href}
@@ -1193,7 +1193,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 {/* Referral program */}
                 <div className="mb-6">
                   <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.18em] mb-3">
-                    Реферальна програма
+                    {t.referralTitle}
                   </p>
                   <div className="px-4 py-4 rounded-lg bg-zinc-900/50 border border-zinc-800/50">
                     <div className="flex items-start gap-3 mb-3">
@@ -1201,17 +1201,17 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                         <Gift size={13} className="text-emerald-700" />
                       </div>
                       <div>
-                        <p className="text-sm text-zinc-300 font-medium mb-0.5">Запрошуйте колег — отримуйте бонуси</p>
+                        <p className="text-sm text-zinc-300 font-medium mb-0.5">{t.referralHeadline}</p>
                         <p className="text-[11px] text-zinc-600 leading-relaxed">
-                          Поділіться реферальним посиланням з колегами-юристами. За кожного нового користувача, який зареєструється та поповнить рахунок, ви отримаєте бонус на баланс платформи.
+                          {t.referralDesc}
                         </p>
                       </div>
                     </div>
                     <div className="space-y-1.5 ml-11">
                       {[
-                        'Реферальне посилання доступне після реєстрації',
-                        'Бонус нараховується автоматично',
-                        'Для участі потрібна верифікація ФОП, ТОВ або адвоката',
+                        t.referralItem1,
+                        t.referralItem2,
+                        t.referralItem3,
                       ].map((item, i) => (
                         <div key={i} className="flex items-center gap-2">
                           <div className="w-1 h-1 rounded-full bg-zinc-700 flex-shrink-0" />
@@ -1231,7 +1231,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-100 transition-colors"
                 >
                   <UserPlus size={14} />
-                  Зареєструватися
+                  {t.referralCta}
                 </button>
               </div>
             </motion.div>

@@ -845,6 +845,98 @@ const translations: TranslationMap = {
   'layout.showMenu': { uk: 'Показати меню', en: 'Show menu', de: 'Menü anzeigen', es: 'Mostrar menú' },
   'layout.hidePanel': { uk: 'Сховати панель', en: 'Hide panel', de: 'Panel ausblenden', es: 'Ocultar panel' },
   'layout.showPanel': { uk: 'Показати панель', en: 'Show panel', de: 'Panel anzeigen', es: 'Mostrar panel' },
+
+  // ═══════════════════════════════════════════════════════════
+  // Sidebar Navigation
+  // ═══════════════════════════════════════════════════════════
+  'nav.newQuery': { uk: 'Новий запит', en: 'New query', de: 'Neue Anfrage', es: 'Nueva consulta' },
+  'nav.expandAll': { uk: 'Розгорнути все', en: 'Expand all', de: 'Alle aufklappen', es: 'Expandir todo' },
+  'nav.collapseAll': { uk: 'Згорнути все', en: 'Collapse all', de: 'Alle zuklappen', es: 'Contraer todo' },
+
+  // Section titles
+  'nav.section.conversations': { uk: 'Розмови', en: 'Conversations', de: 'Gespräche', es: 'Conversaciones' },
+  'nav.section.research': { uk: 'Дослідження', en: 'Research', de: 'Forschung', es: 'Investigación' },
+  'nav.section.legislation': { uk: 'Законодавство', en: 'Legislation', de: 'Gesetzgebung', es: 'Legislación' },
+  'nav.section.vault': { uk: 'Vault', en: 'Vault', de: 'Tresor', es: 'Bóveda' },
+  'nav.section.matters': { uk: 'Справи', en: 'Matters', de: 'Fälle', es: 'Asuntos' },
+  'nav.section.consultations': { uk: 'Консультації', en: 'Consultations', de: 'Beratungen', es: 'Consultas' },
+  'nav.section.attorneys': { uk: 'Адвокати', en: 'Attorneys', de: 'Anwälte', es: 'Abogados' },
+  'nav.section.developer': { uk: 'Розробникам', en: 'Developers', de: 'Entwickler', es: 'Desarrolladores' },
+  'nav.section.externalSources': { uk: 'Зовнішні джерела', en: 'External Sources', de: 'Externe Quellen', es: 'Fuentes externas' },
+  'nav.section.monitoring': { uk: 'Моніторинг', en: 'Monitoring', de: 'Überwachung', es: 'Monitoreo' },
+
+  // Research items
+  'nav.decisions': { uk: 'Судові рішення', en: 'Court Decisions', de: 'Gerichtsentscheidungen', es: 'Resoluciones judiciales' },
+  'nav.regulations': { uk: 'Нормативні акти', en: 'Regulatory Acts', de: 'Rechtsvorschriften', es: 'Actos normativos' },
+  'nav.commentary': { uk: 'Коментарі та практика', en: 'Commentary & Practice', de: 'Kommentare & Praxis', es: 'Comentarios y práctica' },
+  'nav.verification': { uk: 'Перевірка актуальності', en: 'Relevance Check', de: 'Aktualitätsprüfung', es: 'Verificación de vigencia' },
+  'nav.judges': { uk: 'Судді', en: 'Judges', de: 'Richter', es: 'Jueces' },
+  'nav.lawyers': { uk: 'Адвокати', en: 'Lawyers', de: 'Anwälte', es: 'Abogados' },
+
+  // Legislation items
+  'nav.legislationDb': { uk: 'База законодавства', en: 'Legislation Database', de: 'Gesetzesdatenbank', es: 'Base de legislación' },
+  'nav.codes': { uk: 'Кодекси та закони', en: 'Codes & Laws', de: 'Gesetzbücher & Gesetze', es: 'Códigos y leyes' },
+  'nav.newsKmu': { uk: 'Новини КМУ', en: 'CMU News', de: 'KMU-Nachrichten', es: 'Noticias del Gobierno' },
+  'nav.newsLex': { uk: 'Новини LEX', en: 'LEX News', de: 'LEX-Nachrichten', es: 'Noticias LEX' },
+
+  // Vault
+  'nav.allDocuments': { uk: 'Всі документи', en: 'All Documents', de: 'Alle Dokumente', es: 'Todos los documentos' },
+
+  // Matters
+  'nav.matters': { uk: 'Справи', en: 'Matters', de: 'Fälle', es: 'Asuntos' },
+  'nav.timeEntries': { uk: 'Time Entries', en: 'Time Entries', de: 'Zeiteinträge', es: 'Registros de tiempo' },
+  'nav.invoices': { uk: 'Invoices', en: 'Invoices', de: 'Rechnungen', es: 'Facturas' },
+  'nav.caseAnalysis': { uk: 'Аналіз справ', en: 'Case Analysis', de: 'Fallanalyse', es: 'Análisis de casos' },
+
+  // Attorneys
+  'nav.findAttorney': { uk: 'Знайти адвоката', en: 'Find a Lawyer', de: 'Anwalt finden', es: 'Buscar abogado' },
+  'nav.myConsultations': { uk: 'Мої консультації', en: 'My Consultations', de: 'Meine Beratungen', es: 'Mis consultas' },
+  'nav.myClients': { uk: 'Мої клієнти', en: 'My Clients', de: 'Meine Mandanten', es: 'Mis clientes' },
+
+  // Developer
+  'nav.apiDocs': { uk: 'API документація', en: 'API Documentation', de: 'API-Dokumentation', es: 'Documentación API' },
+
+  // External sources (admin)
+  'nav.extMonitoring': { uk: 'Моніторинг', en: 'Monitoring', de: 'Überwachung', es: 'Monitoreo' },
+  'nav.extDataSources': { uk: 'Джерела даних', en: 'Data Sources', de: 'Datenquellen', es: 'Fuentes de datos' },
+  'nav.extOpenData': { uk: 'Каталог OpenData', en: 'OpenData Catalog', de: 'OpenData-Katalog', es: 'Catálogo OpenData' },
+
+  // Monitoring (admin)
+  'nav.systemOverview': { uk: 'Огляд системи', en: 'System Overview', de: 'Systemübersicht', es: 'Resumen del sistema' },
+  'nav.users': { uk: 'Користувачі', en: 'Users', de: 'Benutzer', es: 'Usuarios' },
+  'nav.apiCosts': { uk: 'Витрати API', en: 'API Costs', de: 'API-Kosten', es: 'Costos API' },
+  'nav.infrastructure': { uk: 'Інфраструктура', en: 'Infrastructure', de: 'Infrastruktur', es: 'Infraestructura' },
+  'nav.containers': { uk: 'Контейнери', en: 'Containers', de: 'Container', es: 'Contenedores' },
+  'nav.billing': { uk: 'Біллінг', en: 'Billing', de: 'Abrechnung', es: 'Facturación' },
+  'nav.config': { uk: 'Конфігурація', en: 'Configuration', de: 'Konfiguration', es: 'Configuración' },
+  'nav.dbCompare': { uk: 'Порівняння БД', en: 'DB Comparison', de: 'DB-Vergleich', es: 'Comparación de BD' },
+  'nav.servicePricing': { uk: 'Собівартість сервісів', en: 'Service Pricing', de: 'Servicepreise', es: 'Precios de servicios' },
+  'nav.terminal': { uk: 'Термінал', en: 'Terminal', de: 'Terminal', es: 'Terminal' },
+  'nav.zoStats': { uk: 'Статистика рішень', en: 'Decision Statistics', de: 'Entscheidungsstatistik', es: 'Estadísticas de resoluciones' },
+  'nav.userActivity': { uk: 'Активність юзерів', en: 'User Activity', de: 'Benutzeraktivität', es: 'Actividad de usuarios' },
+  'nav.bulkScrape': { uk: 'Пайплайн збору', en: 'Collection Pipeline', de: 'Sammlungspipeline', es: 'Pipeline de recopilación' },
+  'nav.pgMonitoring': { uk: 'PG Моніторинг', en: 'PG Monitoring', de: 'PG-Überwachung', es: 'Monitoreo PG' },
+  'nav.limits': { uk: 'Ліміти системи', en: 'System Limits', de: 'Systemlimits', es: 'Límites del sistema' },
+
+  // Sidebar footer / profile menu
+  'nav.offer': { uk: 'Оферта', en: 'Terms of Service', de: 'Nutzungsbedingungen', es: 'Términos de servicio' },
+  'nav.privacy': { uk: 'Конфіденційність', en: 'Privacy', de: 'Datenschutz', es: 'Privacidad' },
+  'nav.profile': { uk: 'Профіль', en: 'Profile', de: 'Profil', es: 'Perfil' },
+  'nav.profileBilling': { uk: 'Біллінг', en: 'Billing', de: 'Abrechnung', es: 'Facturación' },
+  'nav.myContracts': { uk: 'Мої договори', en: 'My Contracts', de: 'Meine Verträge', es: 'Mis contratos' },
+  'nav.devOffer': { uk: 'Оферта розробника', en: 'Developer Terms', de: 'Entwicklerbedingungen', es: 'Términos para desarrolladores' },
+  'nav.inviteFriend': { uk: 'Запросити друга', en: 'Invite a Friend', de: 'Freund einladen', es: 'Invitar a un amigo' },
+  'nav.mcpConnect': { uk: 'MCP конект', en: 'MCP Connect', de: 'MCP Connect', es: 'MCP Connect' },
+  'nav.team': { uk: 'Команда', en: 'Team', de: 'Team', es: 'Equipo' },
+  'nav.logout': { uk: 'Вихід', en: 'Log out', de: 'Abmelden', es: 'Cerrar sesión' },
+  'nav.defaultUser': { uk: 'Користувач', en: 'User', de: 'Benutzer', es: 'Usuario' },
+
+  // Folder delete modal
+  'nav.deleteFolder': { uk: 'Видалити папку?', en: 'Delete folder?', de: 'Ordner löschen?', es: '¿Eliminar carpeta?' },
+  'nav.deleteFolderDesc': { uk: 'будуть видалені. Цю дію можна скасувати через відновлення документів.', en: 'will be deleted. This can be undone via document recovery.', de: 'werden gelöscht. Dies kann über die Dokumentwiederherstellung rückgängig gemacht werden.', es: 'serán eliminados. Esto se puede deshacer a través de la recuperación de documentos.' },
+  'nav.deleteFolderPrefix': { uk: 'Всі документи в папці', en: 'All documents in folder', de: 'Alle Dokumente im Ordner', es: 'Todos los documentos en la carpeta' },
+  'nav.cancel': { uk: 'Скасувати', en: 'Cancel', de: 'Abbrechen', es: 'Cancelar' },
+  'nav.delete': { uk: 'Видалити', en: 'Delete', de: 'Löschen', es: 'Eliminar' },
 };
 
 /**

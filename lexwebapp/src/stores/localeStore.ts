@@ -92,12 +92,22 @@ export const useLocaleStore = create<LocaleState>()(
 
         applyGeoDefaults: (cfCountry: string) =>
           set((state) => {
-            // Only apply defaults on first detection
-            if (state.geoDetected) return state;
             const defaults = getDefaultsForCountry(cfCountry);
-            // Sync with login page locale (lex_locale) if not already set
+            const code = cfCountry.toUpperCase();
+
+            // Countries that force their locale on every visit (IP-based override)
+            const FORCE_LOCALE_COUNTRIES = new Set([
+              'ES', 'MX', 'AR', 'CO', 'CL', 'PE', 'EC', 'VE', 'UY', 'PY',
+              'BO', 'CR', 'PA', 'DO', 'GT', 'HN', 'SV', 'NI', 'CU',
+            ]);
+            const forceLocale = FORCE_LOCALE_COUNTRIES.has(code);
+
+            // Skip if already detected and not a force-locale country
+            if (state.geoDetected && !forceLocale) return state;
+
+            // Always sync lex_locale for force-locale countries, or on first detection
             try {
-              if (!localStorage.getItem('lex_locale')) {
+              if (forceLocale || !localStorage.getItem('lex_locale')) {
                 localStorage.setItem('lex_locale', defaults.language);
               }
             } catch { /* ignore */ }
