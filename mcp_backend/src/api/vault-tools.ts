@@ -998,7 +998,9 @@ Pipeline:
       const query = `
         SELECT id, type, title, metadata, storage_type, mime_type, created_at, updated_at,
                COALESCE(is_encrypted, false) AS is_encrypted,
-               LEFT(regexp_replace(full_text, '[^\\x20-\\x7E\\u0400-\\u04FF\\u0500-\\u052F\\s]', '', 'g'), 300) AS text_preview
+               CASE WHEN COALESCE(is_encrypted, false) THEN NULL
+                    ELSE LEFT(regexp_replace(full_text, '[^\\x20-\\x7E\\u0400-\\u04FF\\u0500-\\u052F\\s]', '', 'g'), 300)
+               END AS text_preview
         FROM documents
         WHERE ${whereClause}
         ORDER BY ${orderClause}
