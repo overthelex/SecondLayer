@@ -820,7 +820,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             onClick={handleDiiaAuth}
             className="w-full flex items-center justify-center gap-3 px-4 py-[11px] rounded-lg bg-[#0a0a0a] border border-zinc-800/80 text-zinc-300 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 active:opacity-80 transition-colors duration-150 mb-2"
           >
-            <img src="/diia-logo.png" alt="Дія" width="18" height="18" className="flex-shrink-0 rounded-[3px]" />
+            <img src="/diia-logo-stroke.png" alt="Дія" width="24" height="24" className="flex-shrink-0" />
             {t.diiaAuth}
           </button>
 
@@ -1319,7 +1319,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               </button>
 
               <div className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-5">
-                <img src="/diia-logo.png" alt="Дія" width="44" height="44" className="rounded-xl" />
+                <img src="/diia-logo-stroke.png" alt="Дія" width="44" height="44" />
               </div>
 
               <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5 tracking-tight">Завершення входу</h2>
@@ -1364,7 +1364,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               </button>
 
               <div className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-5">
-                <img src="/diia-logo.png" alt="Дія" width="44" height="44" className="rounded-xl" />
+                <img src="/diia-logo-stroke.png" alt="Дія" width="44" height="44" />
               </div>
 
               <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5 tracking-tight">Вхід через Дію</h2>
