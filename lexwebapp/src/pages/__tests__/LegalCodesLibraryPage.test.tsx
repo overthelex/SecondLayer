@@ -147,7 +147,7 @@ describe('LegalCodesLibraryPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Результати пошуку/)).toBeInTheDocument();
-        expect(screen.getByText('Ст. 12. Тестова стаття')).toBeInTheDocument();
+        expect(screen.getByText('ст. 12. Тестова стаття')).toBeInTheDocument();
       });
     });
 
@@ -533,7 +533,7 @@ describe('LegalCodesLibraryPage', () => {
       await openArticle();
 
       expect(screen.getByText('1 / 2')).toBeInTheDocument();
-      expect(screen.getByText('Ст. 2')).toBeInTheDocument();
+      expect(screen.getByText('ст. 2')).toBeInTheDocument();
     });
   });
 
