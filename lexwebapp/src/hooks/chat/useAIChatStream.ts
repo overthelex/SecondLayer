@@ -51,7 +51,8 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
       query: string,
       assistantMessageId: string,
       approvedPlan?: ExecutionPlan,
-      planSessionId?: string
+      planSessionId?: string,
+      allowDeepEscalation?: boolean
     ) => {
       // Reset accumulators
       accumulatedDecisions.current = [];
@@ -99,10 +100,19 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
         },
 
         onBudgetEscalated: (data) => {
-          showToast.info(
-            toastTDynamic('budgetEscalated', formatUah(data.estimatedCost.minUsd), formatUah(data.estimatedCost.maxUsd)),
-            6000
-          );
+          if (data.requiresConfirmation) {
+            useChatStore.getState().setPendingBudgetEscalation({
+              reason: data.reason,
+              estimatedCostMin: data.estimatedCost.minUsd,
+              estimatedCostMax: data.estimatedCost.maxUsd,
+              query,
+            });
+          } else {
+            showToast.info(
+              toastTDynamic('budgetEscalated', formatUah(data.estimatedCost.minUsd), formatUah(data.estimatedCost.maxUsd)),
+              6000
+            );
+          }
         },
 
         onThinking: (data) => {
@@ -311,7 +321,7 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
             costSummary: costSummaryRef.current as CostSummary,
           });
         },
-      }, 'standard', chatConversationId, approvedPlan, planSessionId);
+      }, 'standard', chatConversationId, approvedPlan, planSessionId, allowDeepEscalation);
 
       setStreamController(controller);
     },

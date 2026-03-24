@@ -66,6 +66,8 @@ export interface ChatRequest {
   approvedPlan?: ExecutionPlan;
   /** Session ID from a prior /api/chat/plan call — reuses cached classification */
   planSessionId?: string;
+  /** If true, allow auto-escalation to deep budget without user confirmation */
+  allowDeepEscalation?: boolean;
 }
 
 /** Cached result from /api/chat/plan for reuse during execution */
@@ -798,18 +800,27 @@ export class ChatService {
         classification.domains.includes('court') &&
         PRACTICE_ANALYSIS_KEYWORDS.test(query)
       ) {
-        effectiveBudget = 'deep';
-        logger.info('[ChatService] Auto-escalated to deep budget (court practice analysis query)', {
-          queryLength: query.length,
-          domains: classification.domains,
-        });
-        yield {
-          type: 'budget_escalated',
-          data: {
-            reason: 'court_practice_analysis',
-            estimatedCost: { minUsd: 0.30, maxUsd: 0.90 },
-          },
-        };
+        if (request.allowDeepEscalation) {
+          effectiveBudget = 'deep';
+          logger.info('[ChatService] Escalated to deep budget (user confirmed court practice analysis)', {
+            queryLength: query.length,
+            domains: classification.domains,
+          });
+        } else {
+          // Stay on standard, notify user they can re-run with deep
+          logger.info('[ChatService] Deep budget recommended but not confirmed, staying on standard', {
+            queryLength: query.length,
+            domains: classification.domains,
+          });
+          yield {
+            type: 'budget_escalated',
+            data: {
+              reason: 'court_practice_analysis',
+              estimatedCost: { minUsd: 0.30, maxUsd: 0.90 },
+              requiresConfirmation: true,
+            },
+          };
+        }
       }
 
       // Apply budget floor from queryType config (never downgrade below config minimum)

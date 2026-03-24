@@ -38,7 +38,7 @@ export interface ChatStreamCallbacks {
   onCitationWarning?: (data: CitationWarning) => void;
   onComplete?: (data: { iterations: number; elapsed_ms: number; tools_used?: string[]; total_cost_usd?: number; charged_usd?: number; response_id?: string; conversationId?: string }) => void;
   onCostSummary?: (data: { total_cost_usd: number; charged_usd: number; balance_usd: number | null }) => void;
-  onBudgetEscalated?: (data: { reason: string; estimatedCost: { minUsd: number; maxUsd: number } }) => void;
+  onBudgetEscalated?: (data: { reason: string; estimatedCost: { minUsd: number; maxUsd: number }; requiresConfirmation?: boolean }) => void;
   onError?: (data: { message?: string; code?: string; current_balance_usd?: number }) => void;
 }
 
@@ -145,7 +145,8 @@ export class MCPService extends BaseService {
     budget: string = 'standard',
     conversationId?: string,
     approvedPlan?: import('../../types/models/Message').ExecutionPlan,
-    planSessionId?: string
+    planSessionId?: string,
+    allowDeepEscalation?: boolean
   ): Promise<AbortController> {
     const controller = new AbortController();
 
@@ -156,7 +157,7 @@ export class MCPService extends BaseService {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.getAuthToken()}`,
         },
-        body: JSON.stringify({ query, history, budget, conversationId, approvedPlan, planSessionId }),
+        body: JSON.stringify({ query, history, budget, conversationId, approvedPlan, planSessionId, allowDeepEscalation }),
         signal: controller.signal,
       });
 
