@@ -818,7 +818,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           {/* Diia Auth */}
           <button
             onClick={handleDiiaAuth}
-            className="w-full flex items-center justify-center gap-3 px-4 py-[11px] rounded-lg bg-[#0a0a0a] border border-zinc-800/80 text-zinc-300 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 active:opacity-80 transition-colors duration-150 mb-2"
+            className="w-full flex items-center justify-center gap-1.5 px-4 py-[11px] rounded-lg bg-[#0a0a0a] border border-zinc-800/80 text-zinc-300 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 active:opacity-80 transition-colors duration-150 mb-2"
           >
             <img src="/diia-logo-stroke.png" alt="Дія" width="24" height="24" className="flex-shrink-0" />
             {t.diiaAuth}
