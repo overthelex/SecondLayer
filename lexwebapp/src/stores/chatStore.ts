@@ -23,6 +23,14 @@ export interface PendingPlanReview {
   assistantMessageId: string;
 }
 
+/** Pending budget escalation awaiting user confirmation */
+export interface PendingBudgetEscalation {
+  reason: string;
+  estimatedCostMin: number;
+  estimatedCostMax: number;
+  query: string;
+}
+
 interface ChatState {
   // State
   messages: Message[];
@@ -33,6 +41,9 @@ interface ChatState {
   // Plan review state
   pendingPlanReview: PendingPlanReview | null;
   isPlanLoading: boolean;
+
+  // Budget escalation state
+  pendingBudgetEscalation: PendingBudgetEscalation | null;
 
   // Conversation state
   conversationId: string | null;
@@ -60,6 +71,9 @@ interface ChatState {
   setPendingPlanReview: (review: PendingPlanReview | null) => void;
   setIsPlanLoading: (loading: boolean) => void;
 
+  // Budget escalation actions
+  setPendingBudgetEscalation: (escalation: PendingBudgetEscalation | null) => void;
+
   // Conversation actions
   loadConversations: () => Promise<void>;
   createConversation: (title?: string) => Promise<string>;
@@ -86,6 +100,7 @@ export const useChatStore = create<ChatState>()(
         currentTool: null,
         pendingPlanReview: null,
         isPlanLoading: false,
+        pendingBudgetEscalation: null,
         conversationId: null,
         conversations: [],
         conversationsLoading: false,
@@ -147,6 +162,7 @@ export const useChatStore = create<ChatState>()(
         // Plan review actions
         setPendingPlanReview: (review) => set({ pendingPlanReview: review }),
         setIsPlanLoading: (loading) => set({ isPlanLoading: loading }),
+        setPendingBudgetEscalation: (escalation) => set({ pendingBudgetEscalation: escalation }),
 
         // Cancel active stream
         cancelStream: () => {

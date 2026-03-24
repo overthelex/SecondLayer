@@ -60,7 +60,7 @@ export function createChatInlineRoutes(deps: {
     const requestId = `chat-${uuidv4()}`;
 
     try {
-      const { query, history, budget, conversationId, approvedPlan, planSessionId } = req.body;
+      const { query, history, budget, conversationId, approvedPlan, planSessionId, allowDeepEscalation } = req.body;
 
       if (!query || typeof query !== 'string') {
         return res.status(400).json({ error: 'query is required' });
@@ -149,6 +149,7 @@ export function createChatInlineRoutes(deps: {
         signal: abortController.signal,
         approvedPlan,
         planSessionId,
+        allowDeepEscalation: !!allowDeepEscalation,
       };
       try {
         for await (const event of deps.chatService.chat(chatRequest)) {
