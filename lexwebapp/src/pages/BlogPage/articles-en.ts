@@ -2604,4 +2604,171 @@ Synchronization runs daily or weekly depending on the registry.
 
 Register: [legal.org.ua](https://legal.org.ua)`,
   },
+  'ai-changes-lawyer-work-2026': {
+    title: 'How AI Is Changing the Work of Ukrainian Lawyers in 2026',
+    punchline: '56 tools instead of 12 browser tabs. Semantic search across 45M decisions. Full-text analysis in seconds. Due diligence in one query. Not a replacement for a lawyer — an exoskeleton for their mind.',
+    readTime: '10 min',
+    content: `# How AI Is Changing the Work of Ukrainian Lawyers in 2026
+
+*56 tools that turn hours of routine into 30-second queries.*
+
+---
+
+## A Lawyer's Day — Before and After
+
+### Before: 12 Tabs, 4 Hours
+
+Wednesday morning. A lawyer is preparing a position on a debt recovery case under a credit agreement. Steps: search EDRSR (45M decisions), browse Verkhovna Rada for legislation, check EDR for company registration, check debtors registry, bankruptcy registry, sanctions lists, return to EDRSR for Supreme Court positions. 4 hours. 12 tabs.
+
+### After: 1 Window, 30 Minutes
+
+Same lawyer. Same case. But now — with LEX:
+
+**Query 1:** *"Find Supreme Court practice on debt recovery under credit agreements since 2023"* → 847 cassation decisions.
+
+**Query 2:** *"Show articles 526, 530, 625 of the Civil Code"* → Three article texts in 2 seconds.
+
+**Query 3:** *"Check company by EDRPOU 12345678"* → Comprehensive report: registration, beneficiaries, enforcement proceedings, bankruptcy, sanctions — all in one response.
+
+30 minutes instead of 4 hours.
+
+---
+
+## 56 Tools: What's Available
+
+LEX is not a chatbot that "invents" answers. It's 56 specialized tools, each querying a specific data source.
+
+### Court Practice (14 tools)
+Search, full text, comparison, pattern extraction, appeal chains — across 45M+ decisions.
+
+### Legislation (7 tools)
+Article text, search, full law text — recognizes abbreviations: "CC", "Criminal Code", "CPC".
+
+### Registries & Due Diligence (16 tools)
+Legal entities, EDRPOU search, beneficiaries, debtors (10.3M), enforcement proceedings (29M), bankruptcy, notaries, court experts.
+
+### Parliament (4 tools)
+Deputies, factions, bills, voting — Verkhovna Rada data.
+
+### Documents & Vault (8 tools)
+Upload, text analysis, OCR, classification — PDF, DOCX, images.
+
+---
+
+## Hallucination Protection
+
+Every response passes through HallucinationGuard — verifying that cited decisions exist, case numbers match, and legislation is current.
+
+---
+
+56 tools. 45M+ decisions. 41.8M registry records. All through one chat. [legal.org.ua](https://legal.org.ua)`,
+  },
+  'spain-legal-expansion': {
+    title: 'Entering the Spanish Market: How a Ukrainian LegalTech Platform Adapts to European Law',
+    punchline: 'Importing Spanish legal data from BOE and CENDOJ. Geo-detection of locale. Automatic localization in 4 languages. New MCP tools for Spanish legislation. From Kyiv to Madrid — one codebase.',
+    readTime: '8 min',
+    content: `# Entering the Spanish Market: How a Ukrainian LegalTech Platform Adapts to European Law
+
+*From a single-market Ukrainian product to a multi-jurisdictional platform in 3 weeks.*
+
+---
+
+## Why Spain
+
+We built LEX for Ukrainian lawyers. But the architecture proved flexible enough to scale to other jurisdictions. Spain is the first step: 48M population, 155K+ registered attorneys, fully digitized BOE, and codified legal system (like Ukraine's).
+
+## Three Layers of Adaptation
+
+### Layer 1: Data — Spanish Legal Sources
+- **BOE** (Boletín Oficial del Estado) — official gazette, all legislation
+- **CENDOJ** — judicial decisions database (equivalent of EDRSR)
+
+### Layer 2: Tools — New MCP Tools
+\`search_spanish_legislation\`, \`get_spanish_article\`, \`search_spanish_court_decisions\`, \`get_spanish_decision_details\`
+
+### Layer 3: Localization — 4 Languages
+Ukrainian (default), English, Russian, Spanish — full i18n with geo-detection.
+
+## Geo-Detection
+IP geolocation on first visit → country → language mapping. Spain/Mexico/Argentina/Colombia → Spanish. 80% of users never change language manually.
+
+---
+
+One platform. Multiple jurisdictions. From Kyiv to Madrid — one chat. [legal.org.ua](https://legal.org.ua)`,
+  },
+  'developer-docs-api-guide': {
+    title: 'API for Developers: How to Integrate 56+ Legal MCP Tools into Your Product',
+    punchline: '6 documentation tabs: Overview, 56-tool catalog, authentication, code examples (curl/TS/Python/SSE), MCP client configs (Claude Desktop/Cursor/VS Code), pricing. From registration to first request — 5 minutes.',
+    readTime: '9 min',
+    content: `# API for Developers: How to Integrate 56+ Legal MCP Tools into Your Product
+
+*Complete guide to documentation, transports, and integration — from curl to Claude Desktop.*
+
+---
+
+## Why We Built /developer/docs
+
+We opened the API in February. But documentation was scattered across GitHub READMEs, Telegram support chats, and various docs files. Now everything is in one place: legal.org.ua/developer/docs — 6 tabs, from overview to pricing.
+
+## 3 Transports
+
+| Transport | Protocol | For Whom |
+|-----------|----------|----------|
+| **MCP SSE** | Server-Sent Events | Claude Desktop, Cursor, VS Code |
+| **REST** | HTTP POST | Any programming language |
+| **Batch** | HTTP POST | Bulk requests (up to 10 tools at once) |
+
+## 56 Tools in 12 Categories
+Full interactive catalog with search and filtering. Each tool has: name, description, category, cost range, input schema.
+
+## Code Examples
+curl, TypeScript, Python, SSE streaming, batch — ready-to-copy snippets for each transport.
+
+## MCP Client Configs
+Claude Desktop, Claude Code, Cursor, VS Code, Continue.dev — 2-minute setup guides with JSON configs.
+
+## Pricing
+Pay-as-you-go. Registry lookups: $0.002–0.01. Court search: $0.005–0.02. AI analysis: $0.02–0.05. Free $1 trial credit.
+
+---
+
+6 tabs. 56 tools. 3 transports. 5 minutes to first request. [legal.org.ua/developer/docs](https://legal.org.ua/developer/docs)`,
+  },
+  'diia-integration-challenges': {
+    title: 'Diia.Sign for Business: Technical Challenges of Government Service Integration',
+    punchline: 'ECDSA + SHA256 for hashing. Redis key mismatch between start and verify. QR code and deep link. Business data updates on every login. 4 fixes in 24 hours. A real integration story — unfiltered.',
+    readTime: '8 min',
+    content: `# Diia.Sign for Business: Technical Challenges of Government Service Integration
+
+*A real story: how we integrated Diia.Sign and what went wrong (and how we fixed it).*
+
+---
+
+## Why Diia.Sign
+
+Google OAuth is convenient but not legally significant. For a LegalTech platform, we need verified identity tied to tax ID / EDRPOU. Diia.Sign provides: verified identity, qualified electronic signature, QR code convenience.
+
+## Problem 1: ECDSA Hashing
+Diia requires requestId signed with ECDSA SHA-256 in Base64. Minimal documentation. First attempt used simple SHA-256 hash (wrong). Fix: proper ECDSA sign with PEM private key.
+
+## Problem 2: Redis Key Mismatch
+Different prefixes: \`diia:request:\` on start, \`diia:auth:\` on callback. Classic copy-paste bug. Callback arrived but Redis returned null. Fix: unified prefix constant.
+
+## Problem 3: Business Data Updates
+First login created business records but subsequent logins skipped updates. Stale addresses and names. Fix: 4 PRs in 24 hours — UPDATE on every login with ON CONFLICT DO UPDATE.
+
+## Problem 4: Nginx Proto Override
+Backend generated \`http://\` redirect URLs behind Cloudflare/Nginx. Fix: \`X-Forwarded-Proto\` header + Express \`trust proxy\`.
+
+## Lessons
+1. Diia documentation is minimal — prepare for reverse engineering
+2. Redis keys must be constants — one prefix, one file
+3. Business data must sync on every login
+4. Test the full e2e flow — unit tests won't catch cross-component mismatches
+5. Configure Nginx headers before going to production
+
+---
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
 };
