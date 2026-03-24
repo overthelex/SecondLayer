@@ -75,13 +75,21 @@ class GeoServiceClass {
       // CF detection failed, browser-only
     }
 
-    // Merge: browser language/timezone take priority (resistant to VPN)
-    // CF country used only if browser doesn't have a strong signal
+    // Merge: CF takes priority for locale-critical countries (real IP > browser settings),
+    // browser takes priority otherwise (resistant to VPN misdetection)
+    const CF_PRIORITY_COUNTRIES = new Set([
+      'ES', 'MX', 'AR', 'CO', 'CL', 'PE', 'EC', 'VE', 'UY', 'PY',
+      'BO', 'CR', 'PA', 'DO', 'GT', 'HN', 'SV', 'NI', 'CU',
+    ]);
+
     let result: GeoInfo;
 
     if (cfGeo && cfGeo.country === browserGeo.country) {
       // Both agree — high confidence
       result = { ...browserGeo, source: 'merged' };
+    } else if (cfGeo && CF_PRIORITY_COUNTRIES.has(cfGeo.country)) {
+      // CF detected a locale-critical country — trust IP over browser settings
+      result = { ...cfGeo, source: 'cloudflare' };
     } else if (browserGeo.country !== 'OTHER') {
       // Browser has a specific country signal (from timezone/language) — trust it
       result = { ...browserGeo, source: 'browser' };
