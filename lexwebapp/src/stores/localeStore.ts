@@ -91,40 +91,9 @@ export const useLocaleStore = create<LocaleState>()(
         setCountry: (country) => set({ country }),
 
         applyGeoDefaults: (cfCountry: string) =>
-          set((state) => {
+          set(() => {
             const defaults = getDefaultsForCountry(cfCountry);
-            const code = cfCountry.toUpperCase();
-
-            // Countries that force their locale on every visit (IP-based override)
-            const FORCE_LOCALE_COUNTRIES = new Set([
-              'ES', 'MX', 'AR', 'CO', 'CL', 'PE', 'EC', 'VE', 'UY', 'PY',
-              'BO', 'CR', 'PA', 'DO', 'GT', 'HN', 'SV', 'NI', 'CU',
-            ]);
-            const forceLocale = FORCE_LOCALE_COUNTRIES.has(code);
-
-            // Skip if already detected and not a force-locale country
-            if (state.geoDetected && !forceLocale) return state;
-
-            // Check if user already has an explicit locale (set via ?lang= or language switcher)
-            const existingLocale = localStorage.getItem('lex_locale');
-
-            if (forceLocale) {
-              // Force-locale countries always override
-              try { localStorage.setItem('lex_locale', defaults.language); } catch { /* ignore */ }
-              return { ...defaults, geoDetected: true, cfCountry };
-            }
-
-            if (existingLocale && ['uk', 'en', 'de', 'es'].includes(existingLocale)) {
-              // User has an explicit preference — respect it, only update currency/country
-              return {
-                ...defaults,
-                language: existingLocale as AppLanguage,
-                geoDetected: true,
-                cfCountry,
-              };
-            }
-
-            // First visit, no preference — apply geo defaults
+            // Always set locale based on IP — Spain sees Spanish, Ukraine sees Ukrainian
             try { localStorage.setItem('lex_locale', defaults.language); } catch { /* ignore */ }
             return { ...defaults, geoDetected: true, cfCountry };
           }),
