@@ -44,7 +44,7 @@ export function DeveloperDocsPage() {
           <div className="p-2 bg-claude-accent/10 rounded-xl">
             <BookOpen size={22} className="text-claude-accent" />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-semibold text-claude-text font-sans tracking-tight">
               API документація
             </h1>
@@ -52,6 +52,16 @@ export function DeveloperDocsPage() {
               LEX AI Platform &mdash; 56+ MCP інструментів для юридичного аналізу
             </p>
           </div>
+          <a
+            href="https://platform.legal.org.ua"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 bg-claude-accent text-white rounded-lg text-sm font-medium font-sans hover:bg-[#C66345] transition-colors shrink-0"
+          >
+            <Terminal size={16} />
+            Developer Console
+            <ExternalLink size={14} />
+          </a>
         </div>
 
         {/* Tabs */}
