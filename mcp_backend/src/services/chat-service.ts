@@ -532,7 +532,8 @@ export class ChatService {
               this.searchCache.cacheResult(
                 'get_case_documents_chain',
                 { case_number: caseNum, group_by_instance: false },
-                session.prefetchedChainResult
+                session.prefetchedChainResult,
+                request.userId
               ).catch(() => {});
             }
           }
@@ -847,7 +848,7 @@ export class ChatService {
 
       // Log estimated prompt size for rate-limit debugging
       const totalChars = messages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
-      const estimatedTokens = Math.ceil(totalChars / 3.5); // ~3.5 chars per token for multilingual
+      const estimatedTokens = Math.ceil(totalChars / 2.2); // ~2.2 chars per token for Cyrillic/Ukrainian
       logger.info('[ChatService] Prompt size estimate', {
         totalChars,
         estimatedTokens,
@@ -945,9 +946,9 @@ export class ChatService {
           if (iterationUsage.total_tokens > 0) {
             iterationCostUsd = ModelSelector.estimateCostAccurate(iterationModel, iterationUsage.prompt_tokens, iterationUsage.completion_tokens);
           } else {
-            // Estimate tokens from content length (~3.5 chars/token for multilingual)
-            const estPromptTokens = Math.ceil(messages.reduce((s, m) => s + (m.content?.length || 0), 0) / 3.5);
-            const estCompletionTokens = Math.ceil((fullContent.length + JSON.stringify(toolCalls).length) / 3.5);
+            // Estimate tokens from content length (~2.2 chars/token for Cyrillic/Ukrainian)
+            const estPromptTokens = Math.ceil(messages.reduce((s, m) => s + (m.content?.length || 0), 0) / 2.2);
+            const estCompletionTokens = Math.ceil((fullContent.length + JSON.stringify(toolCalls).length) / 2.2);
             iterationCostUsd = ModelSelector.estimateCostAccurate(iterationModel, estPromptTokens, estCompletionTokens);
             iterationUsage = { prompt_tokens: estPromptTokens, completion_tokens: estCompletionTokens, total_tokens: estPromptTokens + estCompletionTokens };
             logger.warn('[ChatService] No usage from streaming, estimated tokens', {
@@ -1410,7 +1411,7 @@ export class ChatService {
       const totalChars = planMessages.reduce((s, m) => s + m.content.length, 0);
       logger.debug('[ChatService] Execution plan prompt size', {
         chars: totalChars,
-        estimatedTokens: Math.ceil(totalChars / 3.5),
+        estimatedTokens: Math.ceil(totalChars / 2.2),
       });
 
       const startTime = Date.now();
@@ -1622,7 +1623,7 @@ export class ChatService {
 
     // Check cache for court search tools
     if (this.searchCache && isCourtSearchTool(call.name)) {
-      const hit = await this.searchCache.getCachedResult(call.name, call.arguments);
+      const hit = await this.searchCache.getCachedResult(call.name, call.arguments, userId);
       if (hit) {
         toolResult = hit;
         cached = true;
@@ -1648,7 +1649,7 @@ export class ChatService {
 
       // Post-execution: cache result & trigger background downloads
       if (this.searchCache && isCourtSearchTool(call.name) && !toolResult?.error) {
-        this.searchCache.cacheResult(call.name, call.arguments, toolResult);
+        this.searchCache.cacheResult(call.name, call.arguments, toolResult, userId);
         const docIds = this.searchCache.extractDocIds(toolResult);
         if (docIds.length > 0) {
           this.searchCache.triggerBackgroundDownloads(docIds);

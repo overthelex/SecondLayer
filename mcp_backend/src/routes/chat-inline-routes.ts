@@ -81,19 +81,33 @@ export function createChatInlineRoutes(deps: {
       if (userId) {
         const billing = await deps.billingService.getOrCreateUserBilling(userId);
         if (billing.billing_enabled) {
-          const estimatedCost = await deps.costTracker.estimateCost({
-            toolName: 'ai_chat',
-            queryLength: JSON.stringify(req.body).length,
-            reasoningBudget: (budget || 'standard') as 'quick' | 'standard' | 'deep',
-          });
-          const balanceCheck = await deps.billingService.checkBalance(userId, estimatedCost.total_estimated_cost_usd);
+          let estimatedCostUsd: number;
+
+          // If an approved plan with step-level cost estimates is available, use that
+          if (approvedPlan?.steps?.length > 0) {
+            const stepsCost = approvedPlan.steps.reduce(
+              (sum: number, s: any) => sum + (s.estimatedCost || 0),
+              0
+            );
+            const overheadCost = approvedPlan.overheadCost || 0;
+            estimatedCostUsd = stepsCost + overheadCost;
+          } else {
+            const estimatedCost = await deps.costTracker.estimateCost({
+              toolName: 'ai_chat',
+              queryLength: JSON.stringify(req.body).length,
+              reasoningBudget: (budget || 'standard') as 'quick' | 'standard' | 'deep',
+            });
+            estimatedCostUsd = estimatedCost.total_estimated_cost_usd;
+          }
+
+          const balanceCheck = await deps.billingService.checkBalance(userId, estimatedCostUsd);
           if (!balanceCheck.hasBalance) {
             res.write(`event: error\n`);
             res.write(`data: ${JSON.stringify({
               error: 'Insufficient balance',
               message: `Недостатньо коштів на балансі. Поточний баланс: $${balanceCheck.currentBalance.toFixed(2)}. Поповніть баланс для продовження роботи.`,
               code: 'INSUFFICIENT_BALANCE',
-              required_usd: estimatedCost.total_estimated_cost_usd,
+              required_usd: estimatedCostUsd,
               current_balance_usd: balanceCheck.currentBalance,
             })}\n\n`);
             res.end();
@@ -105,12 +119,20 @@ export function createChatInlineRoutes(deps: {
       // Abort controller for cancellation propagation
       const abortController = new AbortController();
 
+      // Absolute wall-clock timeout to prevent runaway agentic loops
+      const timeoutMs = (budget === 'deep') ? 180_000 : 90_000;
+      const requestTimeout = setTimeout(() => {
+        logger.warn('[ChatService] Request timed out', { requestId, timeoutMs, budget });
+        abortController.abort();
+      }, timeoutMs);
+
       // SSE heartbeat to prevent proxy timeouts during long tool calls
       const heartbeat = setInterval(() => {
         if (!res.writableEnded) res.write(': heartbeat\n\n');
       }, 15000);
 
       req.on('close', () => {
+        clearTimeout(requestTimeout);
         clearInterval(heartbeat);
         abortController.abort();
       });
@@ -146,6 +168,7 @@ export function createChatInlineRoutes(deps: {
           res.write(`data: ${JSON.stringify(event.data)}\n\n`);
         }
       } finally {
+        clearTimeout(requestTimeout);
         clearInterval(heartbeat);
       }
 

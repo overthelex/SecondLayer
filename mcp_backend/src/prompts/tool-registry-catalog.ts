@@ -1465,6 +1465,12 @@ export function buildEnrichedSystemPrompt(
     filtered = [...preferred, ...rest];
   }
 
+  // 2c. Limit to top 4 scenarios to reduce token bloat (~30-40% savings)
+  const MAX_SCENARIOS = 4;
+  if (filtered.length > MAX_SCENARIOS) {
+    filtered = filtered.slice(0, MAX_SCENARIOS);
+  }
+
   // 3. Serialize catalog
   const catalogText = serializeCatalogForPrompt(filtered);
 
