@@ -575,6 +575,7 @@ export function getLocale(): Locale {
 
 export function setLocale(locale: Locale) {
   localStorage.setItem('lex_locale', locale);
+  localStorage.setItem('lex_locale_user_chosen', 'true');
   const url = new URL(window.location.href);
   url.searchParams.set('lang', locale);
   window.history.replaceState({}, '', url.toString());

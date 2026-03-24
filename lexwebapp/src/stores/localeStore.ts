@@ -93,7 +93,15 @@ export const useLocaleStore = create<LocaleState>()(
         applyGeoDefaults: (cfCountry: string) =>
           set(() => {
             const defaults = getDefaultsForCountry(cfCountry);
-            // Always set locale based on IP — Spain sees Spanish, Ukraine sees Ukrainian
+            // If user manually chose a locale via language switcher, respect it
+            const userChosen = localStorage.getItem('lex_locale_user_chosen') === 'true';
+            if (userChosen) {
+              const chosen = localStorage.getItem('lex_locale') as AppLanguage | null;
+              if (chosen && ['uk', 'en', 'de', 'es'].includes(chosen)) {
+                return { ...defaults, language: chosen, geoDetected: true, cfCountry };
+              }
+            }
+            // Auto-set locale based on IP
             try { localStorage.setItem('lex_locale', defaults.language); } catch { /* ignore */ }
             return { ...defaults, geoDetected: true, cfCountry };
           }),
