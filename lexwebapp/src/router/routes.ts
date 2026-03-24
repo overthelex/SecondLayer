@@ -25,6 +25,7 @@ export const ROUTES = {
   BILLING_SETTINGS: '/billing/settings',
   TEAM: '/team',
   MCP_CONNECT: '/mcp-connect',
+  DEVELOPER_DOCS: '/developer/docs',
   MY_CONTRACTS: '/my-contracts',
 
   // Legal Entities
