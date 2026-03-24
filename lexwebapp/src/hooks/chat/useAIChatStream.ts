@@ -62,14 +62,13 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
       costSummaryRef.current = {};
       responseIdRef.current = null;
 
-      // Build history from prior messages
+      // Build full conversation history — backend handles compression via ChatContextBuilder
       const currentMessages = useChatStore.getState().messages;
       const history = currentMessages
         .filter((m) => m.id !== assistantMessageId && (m.role === 'user' || m.role === 'assistant'))
-        .slice(-6)
         .map((m) => ({
           role: m.role as 'user' | 'assistant',
-          content: m.content.slice(0, 1000),
+          content: m.content,
         }));
 
       const chatConversationId = useChatStore.getState().conversationId || undefined;
