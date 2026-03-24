@@ -8,6 +8,7 @@ import { useCallback, useRef } from 'react';
 import { useChatStore } from '../../stores';
 import { mcpService } from '../../services';
 import showToast from '../../utils/toast';
+import { toastTDynamic } from '../../i18n/toast-i18n';
 import type { Decision, Citation, VaultDocument, ExecutionPlan, CostSummary } from '../../types/models/Message';
 import { getToolLabel } from './tool-labels';
 import { extractEvidenceFromToolResult } from './evidence-extractor';
@@ -100,7 +101,7 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
 
         onBudgetEscalated: (data) => {
           showToast.info(
-            `Глибокий аналіз — орієнтовна вартість ${formatUah(data.estimatedCost.minUsd)}–${formatUah(data.estimatedCost.maxUsd)}`,
+            toastTDynamic('budgetEscalated', formatUah(data.estimatedCost.minUsd), formatUah(data.estimatedCost.maxUsd)),
             6000
           );
         },

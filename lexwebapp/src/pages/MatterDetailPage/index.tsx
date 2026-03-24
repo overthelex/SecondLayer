@@ -31,31 +31,40 @@ import { MatterDocuments } from '../../components/matters/MatterDocuments';
 import { AuditLogViewer } from '../../components/audit/AuditLogViewer';
 import { Spinner } from '../../components/ui/Spinner';
 import { generateRoute, ROUTES } from '../../router/routes';
+import { useMattersT } from '../../i18n/matters-i18n';
+import { getLocale } from '../../i18n/locales';
 import type { MatterTeamRole } from '../../types/models/Matter';
 
-const MATTER_TYPE_LABELS: Record<string, string> = {
-  litigation: 'Судовий процес',
-  advisory: 'Консультування',
-  transactional: 'Транзакційна',
-  regulatory: 'Регуляторна',
-  arbitration: 'Арбітраж',
-  other: 'Інше',
+const MATTER_TYPE_KEYS: Record<string, string> = {
+  litigation: 'typeLitigation',
+  advisory: 'typeAdvisory',
+  transactional: 'typeTransactional',
+  regulatory: 'typeRegulatory',
+  arbitration: 'typeArbitration',
+  other: 'typeOther',
 };
 
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  open: { label: 'Відкрита', color: 'bg-blue-100 text-blue-700' },
-  active: { label: 'Активна', color: 'bg-green-100 text-green-700' },
-  closed: { label: 'Закрита', color: 'bg-gray-100 text-gray-600' },
-  archived: { label: 'Архів', color: 'bg-amber-100 text-amber-700' },
+const STATUS_COLORS: Record<string, string> = {
+  open: 'bg-blue-100 text-blue-700',
+  active: 'bg-green-100 text-green-700',
+  closed: 'bg-gray-100 text-gray-600',
+  archived: 'bg-amber-100 text-amber-700',
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  lead_attorney: 'Головний адвокат',
-  associate: 'Асоціат',
-  paralegal: 'Паралегал',
-  counsel: 'Консультант',
-  admin: 'Адміністратор',
-  observer: 'Спостерігач',
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  open: 'statusOpen',
+  active: 'statusActive',
+  closed: 'statusClosed',
+  archived: 'statusArchived',
+};
+
+const ROLE_LABEL_KEYS: Record<string, string> = {
+  lead_attorney: 'roleLeadAttorney',
+  associate: 'roleAssociate',
+  paralegal: 'roleParalegal',
+  counsel: 'roleCounsel',
+  admin: 'roleAdmin',
+  observer: 'roleObserver',
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -69,17 +78,30 @@ const ROLE_COLORS: Record<string, string> = {
 
 type Tab = 'overview' | 'team' | 'holds' | 'documents' | 'activity';
 
-const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'overview', label: 'Огляд', icon: <Briefcase size={16} /> },
-  { id: 'team', label: 'Команда', icon: <Users size={16} /> },
-  { id: 'holds', label: 'Заборона знищення', icon: <Lock size={16} /> },
-  { id: 'documents', label: 'Документи', icon: <FileText size={16} /> },
-  { id: 'activity', label: 'Активність', icon: <Clock size={16} /> },
-];
+const TAB_IDS: Tab[] = ['overview', 'team', 'holds', 'documents', 'activity'];
+
+const TAB_ICONS: Record<Tab, React.ReactNode> = {
+  overview: <Briefcase size={16} />,
+  team: <Users size={16} />,
+  holds: <Lock size={16} />,
+  documents: <FileText size={16} />,
+  activity: <Clock size={16} />,
+};
+
+const TAB_LABEL_KEYS: Record<Tab, string> = {
+  overview: 'tabOverview',
+  team: 'tabTeam',
+  holds: 'tabHolds',
+  documents: 'tabDocuments',
+  activity: 'tabActivity',
+};
 
 export function MatterDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const t = useMattersT();
+  const locale = getLocale();
+  const dateLocale = locale === 'uk' ? 'uk-UA' : locale === 'de' ? 'de-DE' : locale === 'es' ? 'es-ES' : 'en-US';
   const { data: matter, isLoading, error } = useMatter(id || '');
   const matterDetailTab = useClientMatterStore(s => s.matterDetailTab);
   const setMatterDetailTab = useClientMatterStore(s => s.setMatterDetailTab);
@@ -107,12 +129,12 @@ export function MatterDetailPage() {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-claude-subtext font-sans">Справу не знайдено</p>
+          <p className="text-claude-subtext font-sans">{t('matterNotFound')}</p>
           <button
             onClick={onBack}
             className="mt-4 px-4 py-2 bg-claude-accent text-white rounded-lg font-sans text-sm"
           >
-            Повернутися до списку
+            {t('returnToList')}
           </button>
         </div>
       </div>
@@ -120,11 +142,12 @@ export function MatterDetailPage() {
   }
 
   const team = teamData?.members || [];
-  const statusConfig = STATUS_CONFIG[matter.status] || STATUS_CONFIG.open;
+  const statusColor = STATUS_COLORS[matter.status] || STATUS_COLORS.open;
+  const statusLabel = t(STATUS_LABEL_KEYS[matter.status] || 'statusOpen');
   const activeTab = matterDetailTab as Tab;
 
   const handleClose = async () => {
-    if (window.confirm('Ви впевнені, що хочете закрити цю справу?')) {
+    if (window.confirm(t('closeConfirm'))) {
       try {
         await closeMatter.mutateAsync(matter.id);
       } catch {
@@ -157,7 +180,7 @@ export function MatterDetailPage() {
           className="flex items-center gap-2 text-claude-subtext hover:text-claude-text transition-colors group"
         >
           <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-          <span className="font-sans text-sm">Назад до списку справ</span>
+          <span className="font-sans text-sm">{t('backToMatters')}</span>
         </button>
 
         {/* Header */}
@@ -171,13 +194,13 @@ export function MatterDetailPage() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-sm font-mono text-claude-subtext">{matter.matter_number}</span>
-                <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${statusConfig.color}`}>
-                  {statusConfig.label}
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${statusColor}`}>
+                  {statusLabel}
                 </span>
                 {matter.has_legal_hold && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-red-100 text-red-700">
                     <Shield size={12} />
-                    Заборона знищення
+                    {t('legalHold')}
                   </span>
                 )}
               </div>
@@ -205,7 +228,7 @@ export function MatterDetailPage() {
                   className="flex items-center gap-2 px-3 py-2 text-sm font-sans font-medium text-gray-700 bg-white border border-claude-border rounded-xl hover:bg-claude-bg transition-colors disabled:opacity-50"
                 >
                   {closeMatter.isPending ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
-                  Закрити справу
+                  {t('closeMatter')}
                 </button>
               )}
             </div>
@@ -214,19 +237,19 @@ export function MatterDetailPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 bg-white rounded-xl border border-claude-border p-1 shadow-sm overflow-x-auto">
-          {TABS.map((tab) => (
+          {TAB_IDS.map((tabId) => (
             <button
-              key={tab.id}
-              onClick={() => setMatterDetailTab(tab.id)}
+              key={tabId}
+              onClick={() => setMatterDetailTab(tabId)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-sans font-medium transition-all whitespace-nowrap ${
-                activeTab === tab.id
+                activeTab === tabId
                   ? 'bg-claude-accent text-white shadow-sm'
                   : 'text-claude-subtext hover:text-claude-text hover:bg-claude-bg'
               }`}
             >
-              {tab.icon}
-              {tab.label}
-              {tab.id === 'team' && team.length > 0 && (
+              {TAB_ICONS[tabId]}
+              {t(TAB_LABEL_KEYS[tabId])}
+              {tabId === 'team' && team.length > 0 && (
                 <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'team' ? 'bg-white/20' : 'bg-claude-subtext/10'}`}>
                   {team.length}
                 </span>
@@ -241,22 +264,22 @@ export function MatterDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Details */}
               <div className="bg-white rounded-2xl p-6 border border-claude-border shadow-sm">
-                <h2 className="text-xl font-serif text-claude-text mb-4">Деталі справи</h2>
+                <h2 className="text-xl font-serif text-claude-text mb-4">{t('matterDetails')}</h2>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 bg-claude-bg rounded-lg">
                     <div>
-                      <span className="text-sm text-claude-subtext font-sans">Тип</span>
-                      <p className="text-[11px] text-claude-subtext/60 font-sans">Категорія юридичної роботи за цією справою</p>
+                      <span className="text-sm text-claude-subtext font-sans">{t('typeLabel')}</span>
+                      <p className="text-[11px] text-claude-subtext/60 font-sans">{t('typeDescription')}</p>
                     </div>
                     <span className="text-sm font-medium text-claude-text font-sans">
-                      {MATTER_TYPE_LABELS[matter.matter_type] || matter.matter_type}
+                      {t(MATTER_TYPE_KEYS[matter.matter_type] || 'typeOther')}
                     </span>
                   </div>
                   {matter.responsible_attorney && (
                     <div className="flex items-center justify-between p-3 bg-claude-bg rounded-lg">
                       <div>
-                        <span className="text-sm text-claude-subtext font-sans">Відповідальний</span>
-                        <p className="text-[11px] text-claude-subtext/60 font-sans">Адвокат, який веде справу</p>
+                        <span className="text-sm text-claude-subtext font-sans">{t('responsibleLabel')}</span>
+                        <p className="text-[11px] text-claude-subtext/60 font-sans">{t('responsibleDescription')}</p>
                       </div>
                       <span className="text-sm font-medium text-claude-text font-sans flex items-center gap-2">
                         <User size={14} />
@@ -266,32 +289,32 @@ export function MatterDetailPage() {
                   )}
                   <div className="flex items-center justify-between p-3 bg-claude-bg rounded-lg">
                     <div>
-                      <span className="text-sm text-claude-subtext font-sans">Дата відкриття</span>
-                      <p className="text-[11px] text-claude-subtext/60 font-sans">Коли справу було створено в системі</p>
+                      <span className="text-sm text-claude-subtext font-sans">{t('openDate')}</span>
+                      <p className="text-[11px] text-claude-subtext/60 font-sans">{t('openDateDescription')}</p>
                     </div>
                     <span className="text-sm font-medium text-claude-text font-sans flex items-center gap-2">
                       <Calendar size={14} />
-                      {new Date(matter.opened_date).toLocaleDateString('uk-UA')}
+                      {new Date(matter.opened_date).toLocaleDateString(dateLocale)}
                     </span>
                   </div>
                   {matter.closed_date && (
                     <div className="flex items-center justify-between p-3 bg-claude-bg rounded-lg">
                       <div>
-                        <span className="text-sm text-claude-subtext font-sans">Дата закриття</span>
-                        <p className="text-[11px] text-claude-subtext/60 font-sans">Коли справу було завершено</p>
+                        <span className="text-sm text-claude-subtext font-sans">{t('closeDate')}</span>
+                        <p className="text-[11px] text-claude-subtext/60 font-sans">{t('closeDateDescription')}</p>
                       </div>
                       <span className="text-sm font-medium text-claude-text font-sans">
-                        {new Date(matter.closed_date).toLocaleDateString('uk-UA')}
+                        {new Date(matter.closed_date).toLocaleDateString(dateLocale)}
                       </span>
                     </div>
                   )}
                   <div className="flex items-center justify-between p-3 bg-claude-bg rounded-lg">
                     <div>
-                      <span className="text-sm text-claude-subtext font-sans">Строк зберігання</span>
-                      <p className="text-[11px] text-claude-subtext/60 font-sans">Мінімальний період зберігання документів після закриття</p>
+                      <span className="text-sm text-claude-subtext font-sans">{t('retentionPeriod')}</span>
+                      <p className="text-[11px] text-claude-subtext/60 font-sans">{t('retentionDescription')}</p>
                     </div>
                     <span className="text-sm font-medium text-claude-text font-sans">
-                      {matter.retention_period_years} р.
+                      {matter.retention_period_years} {t('yearsShort')}
                     </span>
                   </div>
                 </div>
@@ -299,14 +322,14 @@ export function MatterDetailPage() {
 
               {/* Court & Parties */}
               <div className="bg-white rounded-2xl p-6 border border-claude-border shadow-sm">
-                <h2 className="text-xl font-serif text-claude-text mb-4">Суд та сторони</h2>
+                <h2 className="text-xl font-serif text-claude-text mb-4">{t('courtAndParties')}</h2>
                 <div className="space-y-4">
                   {matter.court_name && (
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-claude-bg rounded-lg text-claude-subtext"><Gavel size={18} /></div>
                       <div>
-                        <div className="text-xs text-claude-subtext font-sans mb-0.5">Суд</div>
-                        <p className="text-[11px] text-claude-subtext/60 font-sans mb-1">Суд, в якому розглядається справа</p>
+                        <div className="text-xs text-claude-subtext font-sans mb-0.5">{t('courtLabel')}</div>
+                        <p className="text-[11px] text-claude-subtext/60 font-sans mb-1">{t('courtDescription')}</p>
                         <p className="text-sm text-claude-text font-sans">{matter.court_name}</p>
                       </div>
                     </div>
@@ -315,8 +338,8 @@ export function MatterDetailPage() {
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-claude-bg rounded-lg text-claude-subtext"><FileText size={18} /></div>
                       <div>
-                        <div className="text-xs text-claude-subtext font-sans mb-0.5">Номер справи в суді</div>
-                        <p className="text-[11px] text-claude-subtext/60 font-sans mb-1">Єдиний унікальний номер судової справи</p>
+                        <div className="text-xs text-claude-subtext font-sans mb-0.5">{t('courtCaseNumber')}</div>
+                        <p className="text-[11px] text-claude-subtext/60 font-sans mb-1">{t('courtCaseNumberDescription')}</p>
                         <p className="text-sm text-claude-text font-sans font-mono">{matter.court_case_number}</p>
                       </div>
                     </div>
@@ -325,8 +348,8 @@ export function MatterDetailPage() {
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-claude-bg rounded-lg text-claude-subtext"><Users size={18} /></div>
                       <div>
-                        <div className="text-xs text-claude-subtext font-sans mb-0.5">Протилежна сторона</div>
-                        <p className="text-[11px] text-claude-subtext/60 font-sans mb-1">Опонент у справі (відповідач, позивач тощо)</p>
+                        <div className="text-xs text-claude-subtext font-sans mb-0.5">{t('opposingParty')}</div>
+                        <p className="text-[11px] text-claude-subtext/60 font-sans mb-1">{t('opposingPartyDescription')}</p>
                         <p className="text-sm text-claude-text font-sans">{matter.opposing_party}</p>
                       </div>
                     </div>
@@ -335,8 +358,8 @@ export function MatterDetailPage() {
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-claude-bg rounded-lg text-claude-subtext"><Users size={18} /></div>
                       <div>
-                        <div className="text-xs text-claude-subtext font-sans mb-0.5">Пов'язані сторони</div>
-                        <p className="text-[11px] text-claude-subtext/60 font-sans mb-1">Треті особи, свідки або інші учасники справи</p>
+                        <div className="text-xs text-claude-subtext font-sans mb-0.5">{t('relatedParties')}</div>
+                        <p className="text-[11px] text-claude-subtext/60 font-sans mb-1">{t('relatedPartiesDescription')}</p>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {matter.related_parties.map((party, i) => (
                             <span key={i} className="px-2 py-0.5 bg-claude-bg rounded text-xs font-sans text-claude-text">
@@ -350,7 +373,7 @@ export function MatterDetailPage() {
                     </div>
                   )}
                   {!matter.court_name && !matter.court_case_number && !matter.opposing_party && (
-                    <p className="text-sm text-claude-subtext font-sans">Інформація про суд не заповнена</p>
+                    <p className="text-sm text-claude-subtext font-sans">{t('noCourtInfo')}</p>
                   )}
                 </div>
               </div>
@@ -360,7 +383,7 @@ export function MatterDetailPage() {
           {activeTab === 'team' && (
             <div className="bg-white rounded-2xl p-6 border border-claude-border shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-serif text-claude-text">Команда справи</h2>
+                <h2 className="text-xl font-serif text-claude-text">{t('matterTeam')}</h2>
               </div>
 
               {/* Add member form */}
@@ -371,7 +394,7 @@ export function MatterDetailPage() {
                   type="text"
                   value={addMemberId}
                   onChange={(e) => setAddMemberId(e.target.value)}
-                  placeholder="ID учасника"
+                  placeholder={t('memberIdPlaceholder')}
                   className="flex-1 px-3 py-2 bg-white border border-claude-border rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-claude-accent/20"
                 />
                 <select
@@ -381,8 +404,8 @@ export function MatterDetailPage() {
                   onChange={(e) => setAddMemberRole(e.target.value as MatterTeamRole)}
                   className="px-3 py-2 bg-white border border-claude-border rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-claude-accent/20"
                 >
-                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
+                  {Object.entries(ROLE_LABEL_KEYS).map(([value, key]) => (
+                    <option key={value} value={value}>{t(key)}</option>
                   ))}
                 </select>
                 <button
@@ -391,7 +414,7 @@ export function MatterDetailPage() {
                   className="flex items-center gap-1 px-3 py-2 bg-claude-accent text-white rounded-lg text-sm font-sans font-medium hover:bg-[#C66345] transition-colors disabled:opacity-50"
                 >
                   {addTeamMember.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                  Додати
+                  {t('addButton')}
                 </button>
               </form>
 
@@ -399,7 +422,7 @@ export function MatterDetailPage() {
               {team.length === 0 ? (
                 <div className="text-center py-8">
                   <Users size={24} className="mx-auto text-claude-subtext mb-2" />
-                  <p className="text-claude-subtext font-sans text-sm">Учасників ще немає</p>
+                  <p className="text-claude-subtext font-sans text-sm">{t('noTeamMembers')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -428,12 +451,12 @@ export function MatterDetailPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleColor}`}>
-                            {ROLE_LABELS[member.role] || member.role}
+                            {t(ROLE_LABEL_KEYS[member.role] || 'roleObserver')}
                           </span>
                           <button
                             onClick={() => removeTeamMember.mutate({ matterId: matter.id, userId: member.user_id })}
                             className="p-1.5 text-claude-subtext hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Видалити"
+                            title={t('removeTitle')}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -458,7 +481,7 @@ export function MatterDetailPage() {
 
           {activeTab === 'activity' && (
             <div className="bg-white rounded-2xl p-6 border border-claude-border shadow-sm">
-              <h2 className="text-xl font-serif text-claude-text mb-4">Історія дій</h2>
+              <h2 className="text-xl font-serif text-claude-text mb-4">{t('activityHistory')}</h2>
               <AuditLogViewer resourceType="matter" resourceId={matter.id} />
             </div>
           )}

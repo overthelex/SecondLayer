@@ -15,6 +15,7 @@
 import { useRef, useCallback } from 'react';
 import { Copy, FileText, FileDown } from 'lucide-react';
 import showToast from '../utils/toast';
+import { toastT } from '../i18n/toast-i18n';
 
 interface DocumentTemplateProps {
   content: string;
@@ -127,19 +128,19 @@ export function DocumentTemplate({ content }: DocumentTemplateProps) {
   const handleCopy = useCallback(() => {
     const cleanText = buildCleanText(lines);
     navigator.clipboard.writeText(cleanText).then(() => {
-      showToast.success('Документ скопійовано');
+      showToast.success(toastT('documentCopied'));
     }).catch(() => {
-      showToast.error('Не вдалося скопіювати');
+      showToast.error(toastT('copyFailed'));
     });
   }, [lines]);
 
   const handleSavePDF = useCallback(async () => {
     try {
-      showToast.info('Генерую PDF...');
+      showToast.info(toastT('generatingPdf'));
       const html = buildDocumentHTML(lines, title);
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
-        showToast.error('Дозвольте спливаючі вікна для збереження PDF');
+        showToast.error(toastT('allowPopupsForPdf'));
         return;
       }
       // Build DOM safely using DOMParser, then populate the new window
@@ -154,13 +155,13 @@ export function DocumentTemplate({ content }: DocumentTemplateProps) {
         printWindow.print();
       }, 300);
     } catch (err) {
-      showToast.error('Помилка при створенні PDF');
+      showToast.error(toastT('pdfCreationError'));
     }
   }, [lines, title]);
 
   const handleSaveDOCX = useCallback(async () => {
     try {
-      showToast.info('Генерую DOCX...');
+      showToast.info(toastT('generatingDocx'));
       const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } = await import('docx');
       const { saveAs } = await import('file-saver');
 
@@ -273,10 +274,10 @@ export function DocumentTemplate({ content }: DocumentTemplateProps) {
       const blob = await Packer.toBlob(doc);
       const filename = title.replace(/[^\w\u0400-\u04FF\s-]/g, '').trim().slice(0, 60) || 'Документ';
       saveAs(blob, `${filename}.docx`);
-      showToast.success('DOCX збережено');
+      showToast.success(toastT('docxSaved'));
     } catch (err) {
       console.error('DOCX export error:', err);
-      showToast.error('Помилка при створенні DOCX');
+      showToast.error(toastT('docxCreationError'));
     }
   }, [lines, title]);
 

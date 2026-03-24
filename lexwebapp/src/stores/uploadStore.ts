@@ -12,6 +12,7 @@ import {
 import { uploadService, ActiveSession } from '../services/api/UploadService';
 import { matterService } from '../services/api/MatterService';
 import { showToast } from '../utils/toast';
+import { toastTDynamic } from '../i18n/toast-i18n';
 import { useEncryptionStore } from './encryptionStore';
 import { encryptUploadedDocuments } from '../services/crypto/PostUploadEncryptor';
 
@@ -101,7 +102,7 @@ export const useUploadStore = create<UploadState>((set) => {
         if (knownIds.length > 0) {
           matterService.autoCreateFromUpload(knownIds).then(result => {
             showToast.success(
-              `Створено справу "${result.matter.matter_name}" (${result.documentsAssigned} документів)`
+              toastTDynamic('matterCreated', result.matter.matter_name, result.documentsAssigned)
             );
           }).catch(err => {
             console.warn('[UploadStore] Auto-create matter failed (non-critical)', err);
@@ -146,10 +147,10 @@ export const useUploadStore = create<UploadState>((set) => {
             const succeeded = results.filter(r => r.success).length;
             const failed = results.filter(r => !r.success).length;
             if (succeeded > 0) {
-              showToast.success(`Зашифровано ${succeeded} документів`);
+              showToast.success(toastTDynamic('encryptedDocuments', succeeded));
             }
             if (failed > 0) {
-              showToast.error(`Не вдалося зашифрувати ${failed} документів`);
+              showToast.error(toastTDynamic('encryptionFailed', failed));
             }
           }).catch(err => {
             console.warn('[UploadStore] Post-upload encryption failed', err);

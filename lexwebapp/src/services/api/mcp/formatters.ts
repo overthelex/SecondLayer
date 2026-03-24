@@ -2,6 +2,8 @@
  * MCP result formatters — convert tool results to human-readable strings
  */
 
+import { getLegalT } from '../../../i18n/legal-i18n';
+
 interface SearchCase {
   case_number?: string;
   number?: string;
@@ -65,27 +67,28 @@ interface LegislationResponse {
 }
 
 export function formatSearchResults(response: SearchResponse): string {
+  const t = getLegalT();
   if (response.cases && Array.isArray(response.cases)) {
-    return `Знайдено справ: ${response.total || response.cases.length}\n\n${response.cases
+    return `${t.casesFound}: ${response.total || response.cases.length}\n\n${response.cases
       .map(
         (c: SearchCase, i: number) =>
-          `${i + 1}. ${c.case_number || c.number || 'N/A'}\n   Суд: ${c.court || 'N/A'}\n   Дата: ${c.date || 'N/A'}\n   ${c.summary || c.category || ''}`
+          `${i + 1}. ${c.case_number || c.number || 'N/A'}\n   ${t.court}: ${c.court || 'N/A'}\n   ${t.date}: ${c.date || 'N/A'}\n   ${c.summary || c.category || ''}`
       )
       .join('\n\n')}`;
   }
 
   if (response.precedents && Array.isArray(response.precedents)) {
-    return `Знайдено прецедентів: ${response.total || response.precedents.length}\n\n${response.precedents
+    return `${t.precedentsFound}: ${response.total || response.precedents.length}\n\n${response.precedents
       .map(
         (p: SearchPrecedent, i: number) =>
-          `${i + 1}. ${p.case_number}\n   Схожість: ${Math.round(p.similarity * 100)}%\n   ${p.summary}`
+          `${i + 1}. ${p.case_number}\n   ${t.similarity}: ${Math.round(p.similarity * 100)}%\n   ${p.summary}`
       )
       .join('\n\n')}`;
   }
 
   if (response.legislation && Array.isArray(response.legislation)) {
-    return `Знайдено законів: ${response.legislation.length}\n\n${response.legislation
-      .map((l: LegislationItem, i: number) => `${i + 1}. ${l.title}\n   Тип: ${l.type}`)
+    return `${t.lawsFound}: ${response.legislation.length}\n\n${response.legislation
+      .map((l: LegislationItem, i: number) => `${i + 1}. ${l.title}\n   ${t.formatType}: ${l.type}`)
       .join('\n\n')}`;
   }
 
@@ -93,6 +96,7 @@ export function formatSearchResults(response: SearchResponse): string {
 }
 
 export function formatDocumentResults(response: DocumentResponse): string {
+  const t = getLegalT();
   if (response.text) {
     return response.text;
   }
@@ -105,7 +109,7 @@ export function formatDocumentResults(response: DocumentResponse): string {
 
   if (response.documents && Array.isArray(response.documents)) {
     return response.documents
-      .map((d: DocumentChunk) => `### Документ: ${d.document_id}\n\n${d.text}`)
+      .map((d: DocumentChunk) => `### ${t.document}: ${d.document_id}\n\n${d.text}`)
       .join('\n\n---\n\n');
   }
 
@@ -113,8 +117,9 @@ export function formatDocumentResults(response: DocumentResponse): string {
 }
 
 export function formatLegislationResults(response: LegislationResponse): string {
+  const t = getLegalT();
   if (response.text) {
-    return `# ${response.legislation_id} - Стаття ${response.article_number}\n\n${response.text}${response.context ? `\n\n---\n\n${response.context}` : ''}`;
+    return `# ${response.legislation_id} - ${t.articleLabel} ${response.article_number}\n\n${response.text}${response.context ? `\n\n---\n\n${response.context}` : ''}`;
   }
 
   if (response.content) {
@@ -125,7 +130,7 @@ export function formatLegislationResults(response: LegislationResponse): string 
     return response.articles
       .map(
         (a: LegislationArticle) =>
-          `## Стаття ${a.article_number}\n\n${a.text || a.content}`
+          `## ${t.articleLabel} ${a.article_number}\n\n${a.text || a.content}`
       )
       .join('\n\n---\n\n');
   }

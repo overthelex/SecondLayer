@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { useUploadStore } from '../../stores/uploadStore';
 import { showToast } from '../../utils/toast';
+import { toastTDynamic } from '../../i18n/toast-i18n';
 import { FolderNavigator } from './FolderNavigator';
 import { UploadQueuePanel } from './UploadQueuePanel';
 import { DocumentViewerModal } from '../../components/DocumentViewerModal';
@@ -229,7 +230,7 @@ export function DocumentsPage() {
 
   const handleStartUpload = () => {
     startUpload();
-    showToast.success(`Завантаження ${uploadItems.filter((i) => i.status === 'queued').length} файлів розпочато`);
+    showToast.success(toastTDynamic('uploadStarted', uploadItems.filter((i) => i.status === 'queued').length));
   };
 
   const handleSearch = () => { loadDocuments(); };

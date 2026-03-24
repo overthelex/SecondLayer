@@ -28,9 +28,11 @@ import { format } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import { getErrorMessage } from '../../utils/errors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
+import { useProfileT } from '../../i18n/profile-i18n';
 
 // --- Types ---
 
@@ -80,6 +82,7 @@ export function SettingsTab() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const { formatUah } = useCurrencyRate();
+  const t = useProfileT();
 
   // Payment methods state
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -193,7 +196,7 @@ export function SettingsTab() {
       });
     } catch (error) {
       console.error('Failed to load settings data:', error);
-      showToast.error('Не вдалося завантажити налаштування');
+      showToast.error(toastT('settingsLoadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -202,15 +205,15 @@ export function SettingsTab() {
   // --- Payment Methods Handlers ---
 
   const handleRemovePayment = async (id: string) => {
-    if (!confirm('Ви впевнені, що хочете видалити цей спосіб оплати?')) return;
+    if (!confirm(t.confirmDeletePayment)) return;
     setIsDeletingId(id);
     try {
       await api.billing.removePaymentMethod(id);
       setPaymentMethods(paymentMethods.filter((m) => m.id !== id));
-      showToast.success('Спосіб оплати видалено');
+      showToast.success(toastT('paymentMethodDeleted'));
     } catch (error) {
       console.error('Failed to remove payment method:', error);
-      showToast.error('Не вдалося видалити спосіб оплати');
+      showToast.error(toastT('paymentMethodDeleteFailed'));
     } finally {
       setIsDeletingId(null);
     }
@@ -220,10 +223,10 @@ export function SettingsTab() {
     try {
       await api.billing.setPrimaryPaymentMethod(id);
       setPaymentMethods(paymentMethods.map((m) => ({ ...m, isPrimary: m.id === id })));
-      showToast.success('Основний спосіб оплати оновлено');
+      showToast.success(toastT('defaultPaymentUpdated'));
     } catch (error) {
       console.error('Failed to set primary:', error);
-      showToast.error('Не вдалося оновити основний спосіб оплати');
+      showToast.error(toastT('defaultPaymentUpdateFailed'));
     }
   };
 
@@ -233,10 +236,10 @@ export function SettingsTab() {
     setIsSavingBilling(true);
     try {
       await api.billing.updateBillingInfo(billingInfo);
-      showToast.success('Платіжну інформацію збережено');
+      showToast.success(toastT('billingInfoSaved'));
     } catch (error) {
       console.error('Failed to save billing info:', error);
-      showToast.error('Не вдалося зберегти платіжну інформацію');
+      showToast.error(toastT('billingInfoSaveFailed'));
     } finally {
       setIsSavingBilling(false);
     }
@@ -262,10 +265,10 @@ export function SettingsTab() {
         daily_limit: limits.daily_limit_usd,
         monthly_limit: limits.monthly_limit_usd,
       }));
-      showToast.success('Ліміти оновлено');
+      showToast.success(toastT('limitsUpdated'));
     } catch (error) {
       console.error('Failed to save limits:', error);
-      showToast.error('Не вдалося оновити ліміти');
+      showToast.error(toastT('limitsUpdateFailed'));
     } finally {
       setIsSavingLimits(false);
     }
@@ -277,7 +280,7 @@ export function SettingsTab() {
     setIsSendingEmail(true);
     try {
       await api.billing.testEmail();
-      showToast.success('Тестовий лист надіслано! Перевірте вхідні.');
+      showToast.success(toastT('testEmailSent'));
     } catch (error: unknown) {
       showToast.error(getErrorMessage(error));
     } finally {
@@ -310,25 +313,25 @@ export function SettingsTab() {
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       {/* Section 1: Payment Methods */}
-      <CollapsibleSection title="Способи оплати" icon={CreditCard}>
+      <CollapsibleSection title={t.paymentMethods} icon={CreditCard}>
         <div className="flex items-center justify-end mb-4">
           <button
             onClick={() => setShowAddPayment(!showAddPayment)}
             className="flex items-center gap-2 px-4 py-2 bg-claude-accent text-white rounded-lg hover:bg-opacity-90 transition-all text-sm">
             <Plus size={16} />
-            Додати
+            {t.add}
           </button>
         </div>
 
         {showAddPayment && (
           <div className="mb-4 p-4 bg-claude-bg border border-claude-border rounded-lg">
             <p className="text-sm text-claude-subtext mb-3">
-              Для додавання картки скористайтесь кнопкою "Поповнити баланс" на вкладці Огляд — картка буде збережена автоматично під час першої оплати через Monobank.
+              {t.addPaymentHint}
             </p>
             <button
               onClick={() => setShowAddPayment(false)}
               className="px-3 py-1.5 text-sm bg-claude-bg border border-claude-border rounded-lg hover:border-claude-accent">
-              Закрити
+              {t.close}
             </button>
           </div>
         )}
@@ -337,9 +340,9 @@ export function SettingsTab() {
           {paymentMethods.length === 0 ? (
             <div className="text-center py-6">
               <Inbox size={36} className="text-claude-subtext mx-auto mb-2" />
-              <p className="text-claude-subtext text-sm">Способи оплати ще не додані</p>
+              <p className="text-claude-subtext text-sm">{t.noPaymentMethods}</p>
               <p className="text-xs text-claude-subtext mt-1">
-                Картка буде збережена автоматично після першої оплати
+                {t.cardAutoSaved}
               </p>
             </div>
           ) : (
@@ -365,7 +368,7 @@ export function SettingsTab() {
                   </div>
                   {method.isPrimary && (
                     <span className="px-2.5 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full mr-3">
-                      Основний
+                      {t.primary}
                     </span>
                   )}
                   <div className="flex items-center gap-2">
@@ -373,7 +376,7 @@ export function SettingsTab() {
                       <button
                         onClick={() => handleSetPrimary(method.id)}
                         className="px-3 py-1 text-xs text-claude-accent hover:bg-claude-bg rounded-lg transition-colors">
-                        Зробити основним
+                        {t.makePrimary}
                       </button>
                     )}
                     <button
@@ -391,22 +394,22 @@ export function SettingsTab() {
       </CollapsibleSection>
 
       {/* Section 2: Billing Info */}
-      <CollapsibleSection title="Платіжні дані" icon={Building2}>
+      <CollapsibleSection title={t.billingInfo} icon={Building2}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="settings-company-name" className="block text-sm font-medium text-claude-text mb-1.5">Назва компанії</label>
+            <label htmlFor="settings-company-name" className="block text-sm font-medium text-claude-text mb-1.5">{t.companyName}</label>
             <input
               id="settings-company-name"
               name="companyName"
               type="text"
               value={billingInfo.companyName}
               onChange={(e) => setBillingInfo({ ...billingInfo, companyName: e.target.value })}
-              placeholder="Назва вашої компанії"
+              placeholder={t.companyNamePlaceholder}
               className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm"
             />
           </div>
           <div>
-            <label htmlFor="settings-edrpou" className="block text-sm font-medium text-claude-text mb-1.5">ЄДРПОУ</label>
+            <label htmlFor="settings-edrpou" className="block text-sm font-medium text-claude-text mb-1.5">{t.edrpou}</label>
             <input
               id="settings-edrpou"
               name="edrpou"
@@ -418,31 +421,31 @@ export function SettingsTab() {
             />
           </div>
           <div className="md:col-span-2">
-            <label htmlFor="settings-address" className="block text-sm font-medium text-claude-text mb-1.5">Адреса</label>
+            <label htmlFor="settings-address" className="block text-sm font-medium text-claude-text mb-1.5">{t.address}</label>
             <input
               id="settings-address"
               name="address"
               type="text"
               value={billingInfo.address}
               onChange={(e) => setBillingInfo({ ...billingInfo, address: e.target.value })}
-              placeholder="Вулиця, будинок"
+              placeholder={t.addressPlaceholder}
               className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm"
             />
           </div>
           <div>
-            <label htmlFor="settings-city" className="block text-sm font-medium text-claude-text mb-1.5">Місто</label>
+            <label htmlFor="settings-city" className="block text-sm font-medium text-claude-text mb-1.5">{t.city}</label>
             <input
               id="settings-city"
               name="city"
               type="text"
               value={billingInfo.city}
               onChange={(e) => setBillingInfo({ ...billingInfo, city: e.target.value })}
-              placeholder="Київ"
+              placeholder={t.cityPlaceholder}
               className="w-full px-3 py-2 border border-claude-border rounded-lg text-sm"
             />
           </div>
           <div>
-            <label htmlFor="settings-postal-code" className="block text-sm font-medium text-claude-text mb-1.5">Поштовий індекс</label>
+            <label htmlFor="settings-postal-code" className="block text-sm font-medium text-claude-text mb-1.5">{t.postalCode}</label>
             <input
               id="settings-postal-code"
               name="postalCode"
@@ -454,7 +457,7 @@ export function SettingsTab() {
             />
           </div>
           <div>
-            <label htmlFor="settings-email" className="block text-sm font-medium text-claude-text mb-1.5">Електронна пошта</label>
+            <label htmlFor="settings-email" className="block text-sm font-medium text-claude-text mb-1.5">{t.email}</label>
             <input
               id="settings-email"
               name="email"
@@ -466,7 +469,7 @@ export function SettingsTab() {
             />
           </div>
           <div>
-            <label htmlFor="settings-phone" className="block text-sm font-medium text-claude-text mb-1.5">Телефон</label>
+            <label htmlFor="settings-phone" className="block text-sm font-medium text-claude-text mb-1.5">{t.phone}</label>
             <input
               id="settings-phone"
               name="phone"
@@ -482,16 +485,16 @@ export function SettingsTab() {
           onClick={handleSaveBillingInfo}
           disabled={isSavingBilling}
           className="mt-4 px-5 py-2 bg-claude-accent text-white rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 text-sm font-medium">
-          {isSavingBilling ? 'Збереження...' : 'Зберегти платіжну інформацію'}
+          {isSavingBilling ? t.savingEllipsis : t.saveBillingInfo}
         </button>
       </CollapsibleSection>
 
       {/* Section 3: Limits & Forecasting */}
-      <CollapsibleSection title="Ліміти витрат" icon={Target}>
+      <CollapsibleSection title={t.spendingLimitsSection} icon={Target}>
         {/* Current Usage Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
           <div className="bg-claude-bg border border-claude-border rounded-lg p-3">
-            <p className="text-xs text-claude-subtext mb-2">Денне використання</p>
+            <p className="text-xs text-claude-subtext mb-2">{t.dailyUsage}</p>
             <div className="flex items-baseline justify-between mb-1">
               <p className="text-xl font-bold text-claude-text">{formatUah(n(usage.daily_spent))}</p>
               <p className="text-xs text-claude-subtext">/ {formatUah(n(usage.daily_limit))}</p>
@@ -504,7 +507,7 @@ export function SettingsTab() {
             </div>
           </div>
           <div className="bg-claude-bg border border-claude-border rounded-lg p-3">
-            <p className="text-xs text-claude-subtext mb-2">Місячне використання</p>
+            <p className="text-xs text-claude-subtext mb-2">{t.monthlyUsage}</p>
             <div className="flex items-baseline justify-between mb-1">
               <p className="text-xl font-bold text-claude-text">{formatUah(n(usage.monthly_spent))}</p>
               <p className="text-xs text-claude-subtext">/ {formatUah(n(usage.monthly_limit))}</p>
@@ -517,18 +520,18 @@ export function SettingsTab() {
             </div>
           </div>
           <div className="bg-claude-bg border border-claude-border rounded-lg p-3">
-            <p className="text-xs text-claude-subtext mb-2">Прогноз на місяць</p>
+            <p className="text-xs text-claude-subtext mb-2">{t.monthlyForecast}</p>
             <p className="text-xl font-bold text-claude-text mb-1">
               {formatUah(n(usage.projected_monthly))}
             </p>
             {usage.projected_monthly > usage.monthly_limit ? (
               <span className="text-xs text-red-600 font-semibold flex items-center gap-1">
-                <AlertTriangle size={12} /> Перевищить ліміт
+                <AlertTriangle size={12} /> {t.willExceedLimit}
               </span>
             ) : usage.projected_monthly > 0 ? (
-              <span className="text-xs text-green-600 font-semibold">В межах плану</span>
+              <span className="text-xs text-green-600 font-semibold">{t.withinPlan}</span>
             ) : (
-              <span className="text-xs text-claude-subtext">Немає даних</span>
+              <span className="text-xs text-claude-subtext">{t.noData}</span>
             )}
           </div>
         </div>
@@ -536,7 +539,7 @@ export function SettingsTab() {
         {/* Limit Inputs */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label htmlFor="settings-daily-limit" className="block text-sm font-medium text-claude-text mb-1.5">Денний ліміт</label>
+            <label htmlFor="settings-daily-limit" className="block text-sm font-medium text-claude-text mb-1.5">{t.dailyLimitLabel}</label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-claude-subtext">$</span>
               <input
@@ -553,7 +556,7 @@ export function SettingsTab() {
             <p className="text-xs text-claude-subtext mt-1">≈ {formatUah(limits.daily_limit_usd)}</p>
           </div>
           <div>
-            <label htmlFor="settings-monthly-limit" className="block text-sm font-medium text-claude-text mb-1.5">Місячний ліміт</label>
+            <label htmlFor="settings-monthly-limit" className="block text-sm font-medium text-claude-text mb-1.5">{t.monthlyLimitLabel}</label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-claude-subtext">$</span>
               <input
@@ -570,7 +573,7 @@ export function SettingsTab() {
             <p className="text-xs text-claude-subtext mt-1">≈ {formatUah(limits.monthly_limit_usd)}</p>
           </div>
           <div>
-            <label htmlFor="settings-low-balance" className="block text-sm font-medium text-claude-text mb-1.5">Поріг низького балансу</label>
+            <label htmlFor="settings-low-balance" className="block text-sm font-medium text-claude-text mb-1.5">{t.lowBalanceThreshold}</label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-claude-subtext">$</span>
               <input
@@ -584,7 +587,7 @@ export function SettingsTab() {
                 className="flex-1 px-3 py-2 border border-claude-border rounded-lg text-sm"
               />
             </div>
-            <p className="text-xs text-claude-subtext mt-1">Сповіщення при балансі нижче цієї суми (≈ {formatUah(limits.low_balance_threshold_usd)})</p>
+            <p className="text-xs text-claude-subtext mt-1">{t.lowBalanceThresholdHint} (≈ {formatUah(limits.low_balance_threshold_usd)})</p>
           </div>
         </div>
 
@@ -593,19 +596,19 @@ export function SettingsTab() {
           <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
               <TrendingUp size={16} />
-              Прогноз витрат
+              {t.spendingForecast}
             </h4>
             <div className="space-y-1 text-sm text-blue-800">
-              <p>Середні щоденні витрати: <strong>{formatUah(avgDailySpend)}</strong></p>
+              <p>{t.avgDailySpending} <strong>{formatUah(avgDailySpend)}</strong></p>
               {daysUntilLimit < Infinity && daysUntilLimit > 0 ? (
                 <p>
-                  При поточному темпі ви досягнете ліміту за{' '}
-                  <strong>{daysUntilLimit} {daysUntilLimit === 1 ? 'день' : daysUntilLimit < 5 ? 'дні' : 'днів'}</strong>.
+                  {t.willReachLimitIn}{' '}
+                  <strong>{daysUntilLimit} {daysUntilLimit === 1 ? t.day : daysUntilLimit < 5 ? t.days2to4 : t.days5plus}</strong>.
                 </p>
               ) : daysUntilLimit <= 0 ? (
-                <p className="text-red-700 font-semibold">Місячний ліміт вже досягнуто або перевищено.</p>
+                <p className="text-red-700 font-semibold">{t.monthlyLimitReached}</p>
               ) : (
-                <p>Витрати в межах ліміту до кінця місяця.</p>
+                <p>{t.spendingWithinLimit}</p>
               )}
             </div>
           </div>
@@ -616,18 +619,18 @@ export function SettingsTab() {
           disabled={isSavingLimits}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-claude-accent text-white rounded-lg hover:bg-opacity-90 transition-colors disabled:opacity-50 text-sm font-medium">
           {isSavingLimits ? (
-            <><RefreshCw size={16} className="animate-spin" /> Збереження...</>
+            <><RefreshCw size={16} className="animate-spin" /> {t.savingEllipsis}</>
           ) : (
-            <><Save size={16} /> Зберегти ліміти</>
+            <><Save size={16} /> {t.saveLimits}</>
           )}
         </button>
       </CollapsibleSection>
 
       {/* Section 4: Notifications */}
-      <CollapsibleSection title="Сповіщення" icon={Bell}>
+      <CollapsibleSection title={t.notifications} icon={Bell}>
         <div className="space-y-3">
           <label className="flex items-center justify-between p-3 bg-claude-bg rounded-lg cursor-pointer hover:bg-opacity-80 transition-colors">
-            <span className="font-medium text-claude-text text-sm">Увімкнути email-сповіщення</span>
+            <span className="font-medium text-claude-text text-sm">{t.enableEmailNotifications}</span>
             <input
               id="settings-email-notifications"
               name="emailNotifications"
@@ -641,10 +644,10 @@ export function SettingsTab() {
           {limits.email_notifications && (
             <div className="space-y-2 pl-4 border-l-2 border-claude-accent">
               {[
-                { key: 'notify_low_balance', label: 'Попередження про низький баланс', icon: AlertCircle },
-                { key: 'notify_payment_success', label: 'Успішна оплата', icon: CheckCircle },
-                { key: 'notify_payment_failure', label: 'Невдала оплата', icon: AlertTriangle },
-                { key: 'notify_monthly_report', label: 'Щомісячний звіт', icon: TrendingUp },
+                { key: 'notify_low_balance', label: t.notifyLowBalance, icon: AlertCircle },
+                { key: 'notify_payment_success', label: t.notifyPaymentSuccess, icon: CheckCircle },
+                { key: 'notify_payment_failure', label: t.notifyPaymentFailure, icon: AlertTriangle },
+                { key: 'notify_monthly_report', label: t.notifyMonthlyReport, icon: TrendingUp },
               ].map((notif) => (
                 <label
                   key={notif.key}
@@ -671,36 +674,36 @@ export function SettingsTab() {
           onClick={handleSaveLimits}
           disabled={isSavingLimits}
           className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-claude-accent text-white rounded-lg hover:bg-opacity-90 transition-colors disabled:opacity-50 text-sm font-medium">
-          {isSavingLimits ? 'Збереження...' : 'Зберегти сповіщення'}
+          {isSavingLimits ? t.savingEllipsis : t.saveNotifications}
         </button>
       </CollapsibleSection>
 
       {/* Section 5: Account Info + Test Email */}
-      <CollapsibleSection title="Акаунт" icon={User}>
+      <CollapsibleSection title={t.account} icon={User}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
-            <label className="block text-sm font-medium text-claude-subtext mb-1">Електронна пошта</label>
+            <label className="block text-sm font-medium text-claude-subtext mb-1">{t.email}</label>
             <div className="flex items-center gap-2 text-sm text-claude-text">
               <Mail size={16} className="text-claude-subtext" />
-              {user?.email || 'Недоступно'}
+              {user?.email || t.notAvailable}
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-claude-subtext mb-1">Ім'я</label>
+            <label className="block text-sm font-medium text-claude-subtext mb-1">{t.name}</label>
             <div className="flex items-center gap-2 text-sm text-claude-text">
               <User size={16} className="text-claude-subtext" />
-              {user?.name || 'Недоступно'}
+              {user?.name || t.notAvailable}
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-claude-subtext mb-1">Акаунт створено</label>
+            <label className="block text-sm font-medium text-claude-subtext mb-1">{t.accountCreatedLabel}</label>
             <div className="flex items-center gap-2 text-sm text-claude-text">
               <Calendar size={16} className="text-claude-subtext" />
               {user?.createdAt ? format(new Date(user.createdAt), 'd MMM yyyy', { locale: uk }) : 'Н/д'}
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-claude-subtext mb-1">Останній вхід</label>
+            <label className="block text-sm font-medium text-claude-subtext mb-1">{t.lastLoginLabel}</label>
             <div className="flex items-center gap-2 text-sm text-claude-text">
               <Calendar size={16} className="text-claude-subtext" />
               {user?.lastLogin ? format(new Date(user.lastLogin), 'd MMM yyyy HH:mm', { locale: uk }) : 'Н/д'}
@@ -712,19 +715,19 @@ export function SettingsTab() {
         <div className="border-t border-claude-border pt-4">
           <h4 className="text-sm font-semibold text-claude-text mb-2 flex items-center gap-2">
             <Send size={16} />
-            Тестові email-сповіщення
+            {t.testEmailNotifications}
           </h4>
           <p className="text-sm text-claude-subtext mb-3">
-            Надіслати тестовий лист на <strong>{user?.email}</strong>, щоб перевірити email-сповіщення.
+            {t.testEmailDescription} <strong>{user?.email}</strong>{t.testEmailPurpose}
           </p>
           <button
             onClick={handleSendTestEmail}
             disabled={isSendingEmail}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-claude-accent text-claude-accent rounded-lg hover:bg-claude-accent hover:text-white transition-all disabled:opacity-50 text-sm font-medium">
             {isSendingEmail ? (
-              <><RefreshCw size={16} className="animate-spin" /> Надсилання...</>
+              <><RefreshCw size={16} className="animate-spin" /> {t.sendingEllipsis}</>
             ) : (
-              <><Send size={16} /> Надіслати тестовий лист</>
+              <><Send size={16} /> {t.sendTestEmail}</>
             )}
           </button>
           <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">

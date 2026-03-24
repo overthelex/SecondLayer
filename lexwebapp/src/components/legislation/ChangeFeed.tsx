@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Loader2, FileText, AlertCircle, ChevronDown } from 'lucide-react';
 import apiClient from '../../utils/api-client';
 import { DiffViewer } from './DiffViewer';
+import { useLegalT } from '../../i18n/legal-i18n';
 
 interface Change {
   id: number;
@@ -23,11 +24,13 @@ interface ChangeFeedProps {
   radaId?: string;
 }
 
-const changeTypeBadge: Record<string, { label: string; color: string }> = {
-  added: { label: 'Додано', color: 'bg-green-50 text-green-700 border-green-200' },
-  modified: { label: 'Змінено', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  removed: { label: 'Видалено', color: 'bg-red-50 text-red-700 border-red-200' },
-};
+function getChangeTypeBadge(t: Record<string, string>): Record<string, { label: string; color: string }> {
+  return {
+    added: { label: t.changeAdded, color: 'bg-green-50 text-green-700 border-green-200' },
+    modified: { label: t.changeModified, color: 'bg-amber-50 text-amber-700 border-amber-200' },
+    removed: { label: t.changeRemoved, color: 'bg-red-50 text-red-700 border-red-200' },
+  };
+}
 
 function formatDateTime(dateStr: string): string {
   try {
@@ -43,6 +46,8 @@ function formatDateTime(dateStr: string): string {
 }
 
 export function ChangeFeed({ radaId }: ChangeFeedProps) {
+  const { t, locale } = useLegalT();
+  const changeTypeBadge = getChangeTypeBadge(t);
   const [changes, setChanges] = useState<Change[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -97,7 +102,7 @@ export function ChangeFeed({ radaId }: ChangeFeedProps) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 size={24} className="animate-spin text-claude-accent" />
-        <span className="ml-2 text-sm text-claude-subtext font-sans">Завантаження змін...</span>
+        <span className="ml-2 text-sm text-claude-subtext font-sans">{t.loadingChanges}</span>
       </div>
     );
   }
@@ -108,8 +113,8 @@ export function ChangeFeed({ radaId }: ChangeFeedProps) {
         <FileText size={48} className="text-claude-subtext/30 mb-4" />
         <p className="text-claude-subtext font-sans text-sm">
           {radaId
-            ? 'Для цього документа ще не зафіксовано змін'
-            : 'Підпишіться на документи, щоб відстежувати зміни'}
+            ? t.noChangesForDoc
+            : t.subscribeToTrack}
         </p>
       </div>
     );
@@ -117,7 +122,7 @@ export function ChangeFeed({ radaId }: ChangeFeedProps) {
 
   // Group by detected_at date
   const grouped = changes.reduce<Record<string, Change[]>>((acc, change) => {
-    const dateKey = new Date(change.detected_at).toLocaleDateString('uk-UA');
+    const dateKey = new Date(change.detected_at).toLocaleDateString(locale === 'uk' ? 'uk-UA' : locale === 'de' ? 'de-DE' : locale === 'es' ? 'es-ES' : 'en-US');
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(change);
     return acc;
@@ -126,7 +131,7 @@ export function ChangeFeed({ radaId }: ChangeFeedProps) {
   return (
     <div className="space-y-6">
       <p className="text-sm text-claude-subtext font-sans">
-        Всього змін: {total}
+        {t.totalChanges}: {total}
       </p>
 
       {Object.entries(grouped).map(([dateStr, dateChanges]) => (
@@ -175,7 +180,7 @@ export function ChangeFeed({ radaId }: ChangeFeedProps) {
                       {detailLoading ? (
                         <div className="flex items-center py-4">
                           <Loader2 size={16} className="animate-spin text-claude-accent" />
-                          <span className="ml-2 text-sm text-claude-subtext">Завантаження...</span>
+                          <span className="ml-2 text-sm text-claude-subtext">{t.loadingDetail}</span>
                         </div>
                       ) : expandedChange ? (
                         <DiffViewer

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 
 interface NavItemProps {
   icon: React.ElementType;
@@ -22,7 +23,7 @@ export function NavItem({ icon: Icon, label, route, onClick, badge }: NavItemPro
         window.dispatchEvent(new CustomEvent('sidebar-navigate'));
       }
     } else {
-      showToast.info('Скоро буде доступно');
+      showToast.info(toastT('comingSoon'));
     }
   });
 

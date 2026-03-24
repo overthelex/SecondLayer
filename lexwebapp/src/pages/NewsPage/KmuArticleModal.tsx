@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { X, Loader2, ExternalLink, Sparkles, AlertCircle } from 'lucide-react';
+import { useMiscT } from '../../i18n/misc-i18n';
 
 interface KmuArticleModalProps {
   url: string;
@@ -17,6 +18,7 @@ interface ArticleData {
 }
 
 export function KmuArticleModal({ url, title, onClose }: KmuArticleModalProps) {
+  const { t } = useMiscT();
   const [data, setData] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export function KmuArticleModal({ url, title, onClose }: KmuArticleModalProps) {
         const result = await response.json();
         setData(result);
       } catch (err: any) {
-        setError(err.message || 'Не вдалося завантажити статтю');
+        setError(err.message || t('articleLoadError'));
       } finally {
         setLoading(false);
       }
@@ -73,7 +75,7 @@ export function KmuArticleModal({ url, title, onClose }: KmuArticleModalProps) {
               target="_blank"
               rel="noopener noreferrer"
               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-claude-bg text-claude-subtext hover:text-claude-text transition-colors"
-              title="Відкрити оригінал"
+              title={t('openOriginal')}
             >
               <ExternalLink size={16} />
             </a>
@@ -91,7 +93,7 @@ export function KmuArticleModal({ url, title, onClose }: KmuArticleModalProps) {
           {loading && (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <Loader2 size={28} className="animate-spin text-claude-accent" />
-              <p className="text-sm text-claude-subtext">Завантаження та аналіз статті...</p>
+              <p className="text-sm text-claude-subtext">{t('loadingArticle')}</p>
             </div>
           )}
 
@@ -125,7 +127,7 @@ export function KmuArticleModal({ url, title, onClose }: KmuArticleModalProps) {
                   <div className="flex items-center gap-2 mb-3">
                     <Sparkles size={18} className="text-amber-600" />
                     <h3 className="text-sm font-semibold text-amber-800">
-                      AI-аналіз
+                      {t('aiAnalysis')}
                     </h3>
                   </div>
                   <div className="prose prose-sm max-w-none
@@ -149,7 +151,7 @@ export function KmuArticleModal({ url, title, onClose }: KmuArticleModalProps) {
                   className="inline-flex items-center gap-1.5 text-xs text-claude-subtext hover:text-claude-accent transition-colors"
                 >
                   <ExternalLink size={12} />
-                  Джерело: kmu.gov.ua
+                  {t('sourceKmu')}
                 </a>
               </div>
             </>

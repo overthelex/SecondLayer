@@ -4,6 +4,7 @@
  */
 
 import toast from 'react-hot-toast';
+import { toastT } from '../i18n/toast-i18n';
 
 const baseStyle = {
   fontFamily: 'Inter, sans-serif',
@@ -128,7 +129,7 @@ export const showToast = {
               whiteSpace: 'nowrap',
             }}
           >
-            Скасувати
+            {toastT('undoAction')}
           </button>
         </div>
       ),

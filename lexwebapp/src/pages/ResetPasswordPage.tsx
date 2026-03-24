@@ -3,12 +3,54 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff, CheckCircle, Loader2 } from 'lucide-react';
 import showToast from '../utils/toast';
+import { toastT } from '../i18n/toast-i18n';
 import { getErrorMessage } from '../utils/errors';
+import { getLocale, Locale } from '../i18n/locales';
+
+const resetStrings: Record<Locale, Record<string, string>> = {
+  uk: {
+    title: 'Скидання паролю', subtitle: 'Введіть новий пароль',
+    newPassword: 'Новий пароль', confirmPassword: 'Підтвердіть пароль',
+    submit: 'Скинути пароль', fillAll: 'Заповніть всі поля',
+    mismatch: 'Паролі не співпадають', tooShort: 'Пароль повинен містити щонайменше 8 символів',
+    invalidLink: 'Недійсне посилання для скидання', resetError: 'Помилка скидання паролю',
+    successTitle: 'Пароль успішно скинуто!', successDesc: 'Тепер ви можете увійти з новим паролем.',
+    redirecting: 'Перенаправлення на сторінку входу...',
+  },
+  en: {
+    title: 'Reset Password', subtitle: 'Enter your new password',
+    newPassword: 'New password', confirmPassword: 'Confirm password',
+    submit: 'Reset password', fillAll: 'Fill in all fields',
+    mismatch: 'Passwords do not match', tooShort: 'Password must be at least 8 characters',
+    invalidLink: 'Invalid reset link', resetError: 'Password reset error',
+    successTitle: 'Password reset successfully!', successDesc: 'You can now sign in with your new password.',
+    redirecting: 'Redirecting to login page...',
+  },
+  de: {
+    title: 'Passwort zurücksetzen', subtitle: 'Geben Sie Ihr neues Passwort ein',
+    newPassword: 'Neues Passwort', confirmPassword: 'Passwort bestätigen',
+    submit: 'Passwort zurücksetzen', fillAll: 'Alle Felder ausfüllen',
+    mismatch: 'Passwörter stimmen nicht überein', tooShort: 'Passwort muss mindestens 8 Zeichen lang sein',
+    invalidLink: 'Ungültiger Reset-Link', resetError: 'Fehler beim Zurücksetzen des Passworts',
+    successTitle: 'Passwort erfolgreich zurückgesetzt!', successDesc: 'Sie können sich jetzt mit Ihrem neuen Passwort anmelden.',
+    redirecting: 'Weiterleitung zur Anmeldeseite...',
+  },
+  es: {
+    title: 'Restablecer contraseña', subtitle: 'Introduzca su nueva contraseña',
+    newPassword: 'Nueva contraseña', confirmPassword: 'Confirmar contraseña',
+    submit: 'Restablecer contraseña', fillAll: 'Complete todos los campos',
+    mismatch: 'Las contraseñas no coinciden', tooShort: 'La contraseña debe tener al menos 8 caracteres',
+    invalidLink: 'Enlace de restablecimiento no válido', resetError: 'Error al restablecer la contraseña',
+    successTitle: '¡Contraseña restablecida con éxito!', successDesc: 'Ahora puede iniciar sesión con su nueva contraseña.',
+    redirecting: 'Redirigiendo a la página de inicio de sesión...',
+  },
+};
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const BASE_URL = API_URL.replace(/\/api$/, '');
 
 export function ResetPasswordPage() {
+  const t = resetStrings[getLocale()];
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
@@ -22,24 +64,24 @@ export function ResetPasswordPage() {
     setError(null);
 
     if (!password || !confirmPassword) {
-      setError('Заповніть всі поля');
+      setError(t.fillAll);
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Паролі не співпадають');
+      setError(t.mismatch);
       return;
     }
 
     if (password.length < 8) {
-      setError('Пароль повинен містити щонайменше 8 символів');
+      setError(t.tooShort);
       return;
     }
 
     const token = searchParams.get('token');
 
     if (!token) {
-      setError('Недійсне посилання для скидання');
+      setError(t.invalidLink);
       return;
     }
 
@@ -55,18 +97,18 @@ export function ResetPasswordPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Помилка скидання паролю');
+        throw new Error(data.message || t.resetError);
       }
 
       setSuccess(true);
-      showToast.success('Пароль успішно скинуто!');
+      showToast.success(toastT('passwordResetSuccess'));
 
       setTimeout(() => {
         navigate('/login');
       }, 3000);
     } catch (err: unknown) {
       setError(getErrorMessage(err));
-      showToast.error('Помилка скидання паролю');
+      showToast.error(toastT('passwordResetError'));
     } finally {
       setIsLoading(false);
     }
@@ -81,9 +123,9 @@ export function ResetPasswordPage() {
           className="bg-white rounded-2xl shadow-xl border border-claude-border p-8 max-w-md w-full text-center"
         >
           <CheckCircle size={64} className="text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-sans text-claude-text mb-2">Пароль успішно скинуто!</h1>
-          <p className="text-claude-subtext mb-6">Тепер ви можете увійти з новим паролем.</p>
-          <p className="text-sm text-claude-subtext">Перенаправлення на сторінку входу...</p>
+          <h1 className="text-2xl font-sans text-claude-text mb-2">{t.successTitle}</h1>
+          <p className="text-claude-subtext mb-6">{t.successDesc}</p>
+          <p className="text-sm text-claude-subtext">{t.redirecting}</p>
         </motion.div>
       </div>
     );
@@ -96,8 +138,8 @@ export function ResetPasswordPage() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white rounded-2xl shadow-xl border border-claude-border p-8 max-w-md w-full"
       >
-        <h1 className="text-3xl font-sans text-claude-text mb-2 text-center">Скидання паролю</h1>
-        <p className="text-claude-subtext mb-6 text-center">Введіть новий пароль</p>
+        <h1 className="text-3xl font-sans text-claude-text mb-2 text-center">{t.title}</h1>
+        <p className="text-claude-subtext mb-6 text-center">{t.subtitle}</p>
 
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
@@ -107,7 +149,7 @@ export function ResetPasswordPage() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-2 font-sans">Новий пароль</label>
+            <label className="block text-sm font-medium text-claude-text mb-2 font-sans">{t.newPassword}</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock size={18} className="text-claude-subtext" />
@@ -133,7 +175,7 @@ export function ResetPasswordPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-claude-text mb-2 font-sans">Підтвердіть пароль</label>
+            <label className="block text-sm font-medium text-claude-text mb-2 font-sans">{t.confirmPassword}</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock size={18} className="text-claude-subtext" />
@@ -157,7 +199,7 @@ export function ResetPasswordPage() {
             disabled={isLoading}
             className="w-full px-4 py-3 bg-black text-white rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 font-sans flex items-center justify-center"
           >
-            {isLoading ? <Loader2 size={18} className="animate-spin" /> : 'Скинути пароль'}
+            {isLoading ? <Loader2 size={18} className="animate-spin" /> : t.submit}
           </button>
         </div>
       </motion.div>

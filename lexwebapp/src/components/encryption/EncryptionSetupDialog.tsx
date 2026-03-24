@@ -9,6 +9,7 @@ import { Modal } from '../ui/Modal/Modal';
 import { Shield, Download, Eye, EyeOff, Loader2, KeyRound, Lock, RefreshCw, Copy, Check } from 'lucide-react';
 import { useEncryptionStore, downloadKeyFile } from '../../stores/encryptionStore';
 import type { EncryptedKeyBundle } from '../../services/crypto';
+import { useAppT } from '../../i18n/app-i18n';
 
 interface EncryptionSetupDialogProps {
   isOpen: boolean;
@@ -217,6 +218,7 @@ export function EncryptionSetupDialog({ isOpen, onClose, mode }: EncryptionSetup
   const [keyBundle, setKeyBundle] = useState<EncryptedKeyBundle | null>(null);
   const [keyDownloaded, setKeyDownloaded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { t } = useAppT();
 
   const { setup, unlock, isLoading, error } = useEncryptionStore();
 
@@ -288,7 +290,7 @@ export function EncryptionSetupDialog({ isOpen, onClose, mode }: EncryptionSetup
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={isSetupMode ? 'Налаштування шифрування' : 'Розблокувати сейф'}
+      title={isSetupMode ? t('encryption.setupTitle') : t('encryption.unlockTitle')}
       size="md"
     >
       {showKeyDownload ? (
@@ -298,10 +300,10 @@ export function EncryptionSetupDialog({ isOpen, onClose, mode }: EncryptionSetup
             <Shield size={20} className="text-green-600 flex-shrink-0" />
             <div>
               <p className="text-sm font-medium text-green-800">
-                Ключі шифрування створено
+                {t('encryption.keysCreated')}
               </p>
               <p className="text-xs text-green-600 mt-0.5">
-                Завантажте резервний файл ключа. Без нього та пароля ви не зможете відновити доступ до зашифрованих документів.
+                {t('encryption.downloadWarning')}
               </p>
             </div>
           </div>
@@ -311,7 +313,7 @@ export function EncryptionSetupDialog({ isOpen, onClose, mode }: EncryptionSetup
             className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all"
           >
             <Download size={16} />
-            Завантажити файл ключа
+            {t('encryption.downloadKeyFile')}
           </button>
 
           {keyDownloaded && (
@@ -319,12 +321,12 @@ export function EncryptionSetupDialog({ isOpen, onClose, mode }: EncryptionSetup
               onClick={handleFinish}
               className="w-full px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition-all"
             >
-              Готово
+              {t('encryption.done')}
             </button>
           )}
 
           <p className="text-xs text-claude-subtext/60 text-center">
-            Збережіть файл у надійному місці. Він потрібен для відновлення доступу.
+            {t('encryption.saveKeyNote')}
           </p>
         </div>
       ) : (
@@ -345,8 +347,8 @@ export function EncryptionSetupDialog({ isOpen, onClose, mode }: EncryptionSetup
               )}
               <p className="text-sm text-blue-800">
                 {isSetupMode
-                  ? 'Згенеруйте секретну фразу з 12 слів для захисту ваших документів. Збережіть її у менеджері паролів браузера або запишіть у надійне місце.'
-                  : 'Введіть пароль шифрування для доступу до зашифрованих документів.'
+                  ? t('encryption.setupHint')
+                  : t('encryption.unlockHint')
                 }
               </p>
             </div>
@@ -367,7 +369,7 @@ export function EncryptionSetupDialog({ isOpen, onClose, mode }: EncryptionSetup
 
             <div>
               <label className="block text-sm font-medium text-claude-text mb-1.5">
-                {isSetupMode ? 'Секретна фраза (12 слів)' : 'Пароль'}
+                {isSetupMode ? t('encryption.secretPhraseLabel') : t('encryption.passwordLabel')}
               </label>
 
               {isSetupMode && (
@@ -378,7 +380,7 @@ export function EncryptionSetupDialog({ isOpen, onClose, mode }: EncryptionSetup
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
                   >
                     <RefreshCw size={12} />
-                    Згенерувати секретну фразу
+                    {t('encryption.generatePhrase')}
                   </button>
                   {password.length >= 8 && (
                     <button

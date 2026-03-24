@@ -7,6 +7,7 @@ import { DocumentViewerModal } from '../DocumentViewerModal';
 import { useUIStore, useDecisionsSearchStore, useChatStore } from '../../stores';
 import { useEvidenceAggregator } from '../../hooks/chat/useEvidenceAggregator';
 import { useDocumentViewer } from '../../hooks/useDocumentViewer';
+import { useLegalT, getLegalT } from '../../i18n/legal-i18n';
 import { DecisionsTab } from '../chat/DecisionsTab';
 import { RegulationsTab } from '../chat/RegulationsTab';
 import { DocumentsTab } from '../chat/DocumentsTab';
@@ -19,7 +20,7 @@ function mapDownloadedToDecision(d: DownloadedDecision): Decision {
   return {
     id: d.id,
     number: d.caseNumber || `ID ${d.docId}`,
-    court: d.court || 'Невідомий суд',
+    court: d.court || getLegalT().unknownCourt,
     date: d.date || '',
     summary: d.fullText.substring(0, 300) + (d.fullText.length > 300 ? '...' : ''),
     relevance: 100,
@@ -35,6 +36,7 @@ interface RightPanelProps {
 }
 
 export function RightPanel({ isOpen, onClose }: RightPanelProps) {
+  const { t } = useLegalT();
   const [activeTab, setActiveTab] = useState<TabId>('decisions');
   const userSelectedTab = useRef(false);
   const location = useLocation();
@@ -84,9 +86,9 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
   const viewer = useDocumentViewer({ downloadedDecisions });
 
   const tabs = [
-    { id: 'decisions' as const, label: 'Рішення', icon: Gavel, count: decisions.length },
-    { id: 'regulations' as const, label: 'Норми', icon: BookOpen, count: citations.length },
-    { id: 'documents' as const, label: 'Документи', icon: FileText, count: vaultDocuments.length + otherCourtDocs.length },
+    { id: 'decisions' as const, label: t.tabDecisions, icon: Gavel, count: decisions.length },
+    { id: 'regulations' as const, label: t.tabRegulations, icon: BookOpen, count: citations.length },
+    { id: 'documents' as const, label: t.tabDocumentsPanel, icon: FileText, count: vaultDocuments.length + otherCourtDocs.length },
   ];
 
   return <>
@@ -116,7 +118,7 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
         <div className="flex items-center gap-2.5">
           <div className="w-1 h-4 bg-zinc-900 rounded-full flex-shrink-0" />
           <h2 className="font-sans font-semibold text-[11px] text-zinc-900 tracking-[0.12em] uppercase">
-            Доказова база
+            {t.evidenceBase}
           </h2>
         </div>
         <button onClick={onClose} className="lg:hidden p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200/70 rounded-md transition-colors duration-150">

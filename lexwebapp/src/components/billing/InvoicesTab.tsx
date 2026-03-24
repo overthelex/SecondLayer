@@ -19,6 +19,7 @@ import { uk } from 'date-fns/locale';
 import { generateInvoicePDF, InvoiceData } from '../../utils/invoice-generator';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { toastT, toastTDynamic } from '../../i18n/toast-i18n';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
@@ -62,7 +63,7 @@ export function InvoicesTab() {
         setInvoices(invoiceList);
       } catch (error) {
         console.error('Failed to load invoices:', error);
-        showToast.error('Не вдалося завантажити рахунки');
+        showToast.error(toastT('invoicesLoadFailed'));
       } finally {
         setIsLoading(false);
       }
@@ -84,15 +85,15 @@ export function InvoicesTab() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      showToast.success(`Рахунок ${invoice.invoiceNumber} завантажено`);
+      showToast.success(toastTDynamic('invoiceDownloaded', invoice.invoiceNumber));
     } catch {
       // Fall back to client-side PDF generation
       try {
         generateInvoicePDF(invoice);
-        showToast.success(`Рахунок ${invoice.invoiceNumber} завантажено`);
+        showToast.success(toastTDynamic('invoiceDownloaded', invoice.invoiceNumber));
       } catch (error) {
         console.error('Failed to generate PDF:', error);
-        showToast.error('Не вдалося створити PDF рахунку');
+        showToast.error(toastT('invoicePdfFailed'));
       }
     }
   };

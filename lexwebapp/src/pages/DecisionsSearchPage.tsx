@@ -17,10 +17,12 @@ import {
 } from 'lucide-react';
 import { mcpService } from '../services';
 import showToast from '../utils/toast';
+import { toastT } from '../i18n/toast-i18n';
 import { useShallow } from 'zustand/react/shallow';
 import { useDecisionsSearchStore } from '../stores/decisionsSearchStore';
 import { useUIStore } from '../stores';
 import { getErrorMessage } from '../utils/errors';
+import { useLegalT } from '../i18n/legal-i18n';
 
 interface SearchFilters {
   query: string;
@@ -40,22 +42,29 @@ interface CourtDecision {
   snippets: string[];
 }
 
-const procedureCodes = [
-  { value: '', label: 'Всі кодекси' },
-  { value: 'gpc', label: 'Господарський (ГПК)' },
-  { value: 'cpc', label: 'Цивільний (ЦПК)' },
-  { value: 'cac', label: 'Адміністративний (КАС)' },
-  { value: 'crpc', label: 'Кримінальний (КПК)' },
-];
+function getProcedureCodes(t: Record<string, string>) {
+  return [
+    { value: '', label: t.allCodes },
+    { value: 'gpc', label: t.commercialCode },
+    { value: 'cpc', label: t.civilProcCode },
+    { value: 'cac', label: t.adminCode },
+    { value: 'crpc', label: t.criminalProcCode },
+  ];
+}
 
-const courtLevels = [
-  { value: '', label: 'Всі рівні' },
-  { value: 'SC', label: 'Верховний Суд' },
-  { value: 'AC', label: 'Апеляційні суди' },
-  { value: 'FC', label: 'Суди першої інстанції' },
-];
+function getCourtLevels(t: Record<string, string>) {
+  return [
+    { value: '', label: t.allLevels },
+    { value: 'SC', label: t.supremeCourt },
+    { value: 'AC', label: t.appealCourts },
+    { value: 'FC', label: t.firstInstanceCourts },
+  ];
+}
 
 export function DecisionsSearchPage() {
+  const { t, locale } = useLegalT();
+  const procedureCodes = getProcedureCodes(t);
+  const courtLevels = getCourtLevels(t);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [viewMode, setViewMode] = useState<'comfortable' | 'compact'>('comfortable');
   const [isSearching, setIsSearching] = useState(false);
@@ -88,7 +97,7 @@ export function DecisionsSearchPage() {
 
   const handleSearch = async () => {
     if (!filters.query.trim()) {
-      showToast.error('Введіть пошуковий запит');
+      showToast.error(toastT('enterSearchQuery'));
       return;
     }
 
@@ -195,7 +204,7 @@ export function DecisionsSearchPage() {
       .filter(id => downloadStatus[id] !== 'done' && downloadStatus[id] !== 'downloading');
 
     if (numericIds.length === 0) {
-      showToast.error('Всі рішення вже завантажено');
+      showToast.error(toastT('allDecisionsLoaded'));
       return;
     }
 
@@ -227,10 +236,10 @@ export function DecisionsSearchPage() {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
             <div>
               <h1 className="text-3xl md:text-4xl font-serif text-claude-text font-medium tracking-tight mb-2">
-                Пошук судових рішень
+                {t.decisionsTitle}
               </h1>
               <p className="text-claude-subtext font-sans text-sm">
-                Пошук в базі судових рішень України через ZakonOnline
+                {t.decisionsSubtitle}
               </p>
             </div>
           </div>
@@ -240,7 +249,7 @@ export function DecisionsSearchPage() {
             {/* Single Search Input */}
             <div>
               <label className="block text-sm font-medium text-claude-text font-sans mb-2">
-                Пошуковий запит
+                {t.searchQuery}
               </label>
               <input
                 id="decisions-search-query"
@@ -249,7 +258,7 @@ export function DecisionsSearchPage() {
                 value={filters.query}
                 onChange={(e) => updateFilter('query', e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="номер справи, ключові слова, тема спору..."
+                placeholder={t.searchPlaceholder}
                 className="w-full px-4 py-2.5 bg-white border border-claude-border rounded-lg text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans"
                 autoFocus
               />
@@ -261,7 +270,7 @@ export function DecisionsSearchPage() {
               className="flex items-center gap-2 text-sm font-medium text-claude-accent hover:text-[#C66345] transition-colors font-sans"
             >
               {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              Розширені фільтри
+              {t.advancedFilters}
             </button>
 
             {/* Advanced Filters */}
@@ -277,7 +286,7 @@ export function DecisionsSearchPage() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-claude-text font-sans mb-2">
-                        Процесуальний кодекс
+                        {t.procedureCode}
                       </label>
                       <select
                         id="decisions-procedure-code"
@@ -296,7 +305,7 @@ export function DecisionsSearchPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-claude-text font-sans mb-2">
-                        Рівень суду
+                        {t.courtLevel}
                       </label>
                       <select
                         id="decisions-court-level"
@@ -315,7 +324,7 @@ export function DecisionsSearchPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-claude-text font-sans mb-2">
-                        Дата від
+                        {t.dateFrom}
                       </label>
                       <input
                         id="decisions-date-from"
@@ -329,7 +338,7 @@ export function DecisionsSearchPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-claude-text font-sans mb-2">
-                        Дата до
+                        {t.dateTo}
                       </label>
                       <input
                         id="decisions-date-to"
@@ -357,13 +366,13 @@ export function DecisionsSearchPage() {
                 ) : (
                   <Search size={18} />
                 )}
-                {isSearching ? 'Пошук...' : 'Знайти рішення'}
+                {isSearching ? t.searching : t.findDecisions}
               </button>
               <button
                 onClick={resetFilters}
                 className="px-4 py-3 text-claude-text hover:bg-claude-bg rounded-xl transition-colors font-sans font-medium"
               >
-                Скинути
+                {t.reset}
               </button>
             </div>
           </div>
@@ -382,10 +391,10 @@ export function DecisionsSearchPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-serif text-claude-text font-medium">
-                Результати пошуку
+                {t.searchResults}
               </h2>
               <span className="text-sm text-claude-subtext font-sans">
-                {isSearching ? 'Пошук...' : `${totalResults} рішень знайдено`}
+                {isSearching ? t.searching : `${totalResults} ${t.decisionsFound}`}
               </span>
             </div>
 
@@ -395,10 +404,10 @@ export function DecisionsSearchPage() {
                 <button
                   onClick={handleBatchDownload}
                   className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-claude-accent hover:bg-claude-accent/10 rounded-lg transition-colors font-sans"
-                  title="Завантажити всі (до 10)"
+                  title={t.downloadAllTitle}
                 >
                   <DownloadCloud size={16} />
-                  <span className="hidden sm:inline">Завантажити всі</span>
+                  <span className="hidden sm:inline">{t.downloadAll}</span>
                 </button>
               )}
 
@@ -407,14 +416,14 @@ export function DecisionsSearchPage() {
                 <button
                   onClick={() => setViewMode('comfortable')}
                   className={`p-2 rounded-lg transition-colors ${viewMode === 'comfortable' ? 'bg-claude-accent text-white' : 'text-claude-subtext hover:text-claude-text'}`}
-                  title="Комфортний вигляд"
+                  title={t.comfortableView}
                 >
                   <LayoutGrid size={18} />
                 </button>
                 <button
                   onClick={() => setViewMode('compact')}
                   className={`p-2 rounded-lg transition-colors ${viewMode === 'compact' ? 'bg-claude-accent text-white' : 'text-claude-subtext hover:text-claude-text'}`}
-                  title="Компактний вигляд"
+                  title={t.compactView}
                 >
                   <List size={18} />
                 </button>
@@ -427,7 +436,7 @@ export function DecisionsSearchPage() {
         {isSearching && (
           <div className="flex flex-col items-center justify-center py-16">
             <Loader2 size={40} className="text-claude-accent animate-spin mb-4" />
-            <p className="text-claude-subtext font-sans text-sm">Шукаємо судові рішення...</p>
+            <p className="text-claude-subtext font-sans text-sm">{t.searchingDecisions}</p>
           </div>
         )}
 
@@ -435,9 +444,9 @@ export function DecisionsSearchPage() {
         {hasSearched && !isSearching && results.length === 0 && !error && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Gavel size={48} className="text-claude-border mb-4" />
-            <h3 className="text-lg font-serif text-claude-text mb-2">Нічого не знайдено</h3>
+            <h3 className="text-lg font-serif text-claude-text mb-2">{t.nothingFound}</h3>
             <p className="text-claude-subtext font-sans text-sm max-w-md">
-              Спробуйте змінити пошуковий запит або розширити фільтри
+              {t.tryChangingQuery}
             </p>
           </div>
         )}
@@ -479,7 +488,7 @@ export function DecisionsSearchPage() {
                             {(status === 'done' || status === 'cached') && (
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-green-700 bg-green-50 rounded-full">
                                 <CheckCircle2 size={10} />
-                                {status === 'cached' ? 'В базі' : 'Завантажено'}
+                                {status === 'cached' ? t.inDatabase : t.downloaded}
                               </span>
                             )}
                           </div>
@@ -502,7 +511,7 @@ export function DecisionsSearchPage() {
                               onClick={(e) => handleDownload(docIdStr, e)}
                               disabled={status === 'downloading'}
                               className="p-2 text-claude-accent hover:bg-claude-accent/10 rounded-lg transition-colors disabled:opacity-50"
-                              title="Завантажити повний текст"
+                              title={t.downloadFullText}
                             >
                               {status === 'downloading' ? (
                                 <Loader2 size={16} className="animate-spin" />
@@ -526,7 +535,7 @@ export function DecisionsSearchPage() {
                                 }
                               }}
                               className="p-2 text-claude-accent hover:bg-claude-accent/10 rounded-lg transition-colors"
-                              title="Переглянути"
+                              title={t.view}
                             >
                               <Eye size={16} />
                             </button>
@@ -539,7 +548,7 @@ export function DecisionsSearchPage() {
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                            title="Відкрити на ZakonOnline"
+                            title={t.openOnZakon}
                           >
                             <ExternalLink size={16} />
                           </a>
@@ -549,7 +558,7 @@ export function DecisionsSearchPage() {
                       <div className={`flex items-center gap-3 ${viewMode === 'compact' ? 'text-xs' : 'text-sm'}`}>
                         <span className="text-claude-subtext font-sans">
                           {decision.date
-                            ? new Date(decision.date).toLocaleDateString('uk-UA', {
+                            ? new Date(decision.date).toLocaleDateString(locale === 'uk' ? 'uk-UA' : locale === 'de' ? 'de-DE' : locale === 'es' ? 'es-ES' : 'en-US', {
                                 year: 'numeric',
                                 month: 'long',
                                 day: 'numeric',

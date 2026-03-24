@@ -17,6 +17,7 @@ import {
 import { BillingLoadingState, BillingErrorState } from './shared';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { toastT, toastTDynamic } from '../../i18n/toast-i18n';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 import type { BillingOutletContext } from '../../pages/BillingDashboard';
 
@@ -254,14 +255,14 @@ export function TariffsTab({ onUpgradeTopUp: onUpgradeTopUpProp }: TariffsTabPro
       const refundUah = response?.data?.refund_uah;
       if (refundUah && refundUah > 0) {
         showToast.success(
-          `Тариф ${TIER_LABELS[tierId] || tierId} активовано. Повернено ${Math.round(refundUah)} ₴ на баланс`
+          toastTDynamic('tariffActivatedWithRefund', TIER_LABELS[tierId] || tierId, refundUah)
         );
       } else {
-        showToast.success(`Тариф ${TIER_LABELS[tierId] || tierId} успішно активовано`);
+        showToast.success(toastTDynamic('tariffActivated', TIER_LABELS[tierId] || tierId));
       }
     } catch (error) {
       console.error('Upgrade failed:', error);
-      showToast.error('Не вдалося змінити тариф');
+      showToast.error(toastT('tariffChangeFailed'));
     } finally {
       setIsUpgrading(null);
     }

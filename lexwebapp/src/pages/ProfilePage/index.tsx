@@ -8,10 +8,12 @@ import { ApiTokensSection } from './ApiTokensSection';
 import { BillingSection } from './BillingSection';
 import { EditProfileModal } from './EditProfileModal';
 import { TokenModal } from './TokenModal';
+import { useProfileT } from '../../i18n/profile-i18n';
 
 export function ProfilePage() {
   const profile = useProfile();
   const { user, isLoading, billing, settingsGroups, stats } = profile;
+  const t = useProfileT();
 
   // Show loading state
   if (isLoading) {
@@ -19,7 +21,7 @@ export function ProfilePage() {
       <div className="flex-1 h-full flex items-center justify-center bg-claude-bg">
         <div className="text-center">
           <Loader2 size={48} className="text-claude-accent animate-spin mx-auto mb-4" />
-          <p className="text-claude-text font-sans">Завантаження профілю...</p>
+          <p className="text-claude-text font-sans">{t.loadingProfile}</p>
         </div>
       </div>
     );
@@ -30,12 +32,12 @@ export function ProfilePage() {
     return (
       <div className="flex-1 h-full flex items-center justify-center bg-claude-bg">
         <div className="text-center">
-          <p className="text-claude-text font-sans mb-4">Дані користувача недоступні</p>
+          <p className="text-claude-text font-sans mb-4">{t.userDataUnavailable}</p>
           <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-claude-accent text-white rounded-xl font-medium hover:bg-[#C66345] transition-colors"
           >
-            Перезавантажити
+            {t.reload}
           </button>
         </div>
       </div>
@@ -66,18 +68,18 @@ export function ProfilePage() {
             {/* Bio Section */}
             <section className="bg-white rounded-2xl p-6 border border-claude-border shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-serif text-claude-text">Інформація профілю</h2>
+                <h2 className="text-xl font-serif text-claude-text">{t.profileInfo}</h2>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-claude-subtext">Електронна пошта</label>
+                  <label className="text-sm font-medium text-claude-subtext">{t.emailLabel}</label>
                   <p className="text-claude-text mt-1 flex items-center gap-2">
                     <Mail size={16} className="text-claude-subtext" />
-                    {user?.email || 'Недоступно'}
+                    {user?.email || t.notAvailable}
                     {user?.emailVerified && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 border border-green-200 rounded-full text-xs text-green-700">
-                        ✓ Підтверджено
+                        ✓ {t.verified}
                       </span>
                     )}
                   </p>
@@ -85,7 +87,7 @@ export function ProfilePage() {
 
                 {(user as any).phone && (
                   <div>
-                    <label className="text-sm font-medium text-claude-subtext">Телефон</label>
+                    <label className="text-sm font-medium text-claude-subtext">{t.phoneLabel}</label>
                     <p className="text-claude-text mt-1 flex items-center gap-2">
                       <Phone size={16} className="text-claude-subtext" />
                       {(user as any).phone}
@@ -94,7 +96,7 @@ export function ProfilePage() {
                 )}
 
                 <div>
-                  <label className="text-sm font-medium text-claude-subtext">Останній вхід</label>
+                  <label className="text-sm font-medium text-claude-subtext">{t.lastLogin}</label>
                   <p className="text-claude-text mt-1">
                     {user?.lastLogin ? new Date(user.lastLogin).toLocaleString('uk-UA', {
                       year: 'numeric',
@@ -102,18 +104,18 @@ export function ProfilePage() {
                       day: 'numeric',
                       hour: '2-digit',
                       minute: '2-digit'
-                    }) : 'Недоступно'}
+                    }) : t.notAvailable}
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-claude-subtext">Обліковий запис створено</label>
+                  <label className="text-sm font-medium text-claude-subtext">{t.accountCreated}</label>
                   <p className="text-claude-text mt-1">
                     {user?.createdAt ? new Date(user.createdAt).toLocaleString('uk-UA', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric'
-                    }) : 'Недоступно'}
+                    }) : t.notAvailable}
                   </p>
                 </div>
               </div>

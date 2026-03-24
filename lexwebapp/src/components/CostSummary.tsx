@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { CostSummary as CostSummaryType } from '../types/models/Message';
 import { getToolLabel } from '../hooks/chat/tool-labels';
 import { useCurrencyRate } from '../hooks/useCurrencyRate';
+import { useMiscT } from '../i18n/misc-i18n';
 
 interface CostSummaryProps {
   data: CostSummaryType;
@@ -13,6 +14,7 @@ export function CostSummary({ data }: CostSummaryProps) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const { formatUah } = useCurrencyRate();
+  const { t } = useMiscT();
 
   const copyRequestId = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -44,7 +46,7 @@ export function CostSummary({ data }: CostSummaryProps) {
           <button
             onClick={copyRequestId}
             className="inline-flex items-center gap-1 text-claude-subtext/60 font-mono hover:text-claude-text transition-colors"
-            title="Копіювати request ID"
+            title={t('copyRequestId')}
           >
             {data.response_id}
             {copied ? <Check size={10} strokeWidth={2} /> : <Copy size={10} strokeWidth={2} />}
@@ -70,7 +72,7 @@ export function CostSummary({ data }: CostSummaryProps) {
               {/* Tools used */}
               {data.tools_used.length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  <span className="font-medium text-claude-text">Інструменти:</span>
+                  <span className="font-medium text-claude-text">{t('tools')}</span>
                   {data.tools_used.map((tool) => (
                     <span
                       key={tool}
@@ -85,13 +87,13 @@ export function CostSummary({ data }: CostSummaryProps) {
               {/* Cost breakdown */}
               <div className="flex items-center gap-3 flex-wrap">
                 {Number(data.total_cost_usd) > 0 && (
-                  <span>Вартість LLM: {formatUah(Number(data.total_cost_usd))}</span>
+                  <span>{t('llmCost')} {formatUah(Number(data.total_cost_usd))}</span>
                 )}
                 {data.charged_usd != null && Number(data.charged_usd) > 0 && (
-                  <span>Списано: {formatUah(Number(data.charged_usd))}</span>
+                  <span>{t('charged')} {formatUah(Number(data.charged_usd))}</span>
                 )}
                 {data.balance_usd != null && (
-                  <span>Баланс: {formatUah(Number(data.balance_usd))}</span>
+                  <span>{t('balance')} {formatUah(Number(data.balance_usd))}</span>
                 )}
               </div>
             </div>

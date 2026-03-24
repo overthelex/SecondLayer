@@ -17,8 +17,9 @@ import {
 import { conversationService, Conversation } from '../services/api/ConversationService';
 import { useChatStore } from '../stores/chatStore';
 import { ROUTES } from '../router/routes';
+import { useLegalT } from '../i18n/legal-i18n';
 
-function groupByDate(items: Conversation[]) {
+function groupByDate(items: Conversation[], t: Record<string, string>) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today);
@@ -29,25 +30,25 @@ function groupByDate(items: Conversation[]) {
   thisMonth.setMonth(thisMonth.getMonth() - 1);
 
   const groups: Record<string, Conversation[]> = {
-    'Сьогодні': [],
-    'Вчора': [],
-    'Цього тижня': [],
-    'Цього місяця': [],
-    'Раніше': [],
+    [t.today]: [],
+    [t.yesterday]: [],
+    [t.thisWeek]: [],
+    [t.thisMonth]: [],
+    [t.earlier]: [],
   };
 
   items.forEach((item) => {
     const itemDate = new Date(item.updated_at || item.created_at);
     if (itemDate >= today) {
-      groups['Сьогодні'].push(item);
+      groups[t.today].push(item);
     } else if (itemDate >= yesterday) {
-      groups['Вчора'].push(item);
+      groups[t.yesterday].push(item);
     } else if (itemDate >= thisWeek) {
-      groups['Цього тижня'].push(item);
+      groups[t.thisWeek].push(item);
     } else if (itemDate >= thisMonth) {
-      groups['Цього місяця'].push(item);
+      groups[t.thisMonth].push(item);
     } else {
-      groups['Раніше'].push(item);
+      groups[t.earlier].push(item);
     }
   });
 
@@ -55,6 +56,7 @@ function groupByDate(items: Conversation[]) {
 }
 
 export function HistoryPage() {
+  const { t, locale } = useLegalT();
   const navigate = useNavigate();
   const switchConversation = useChatStore((s) => s.switchConversation);
   const deleteConversation = useChatStore((s) => s.deleteConversation);
@@ -127,17 +129,19 @@ export function HistoryPage() {
     (conv.title || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const groupedConversations = groupByDate(filteredConversations);
+  const groupedConversations = groupByDate(filteredConversations, t);
+
+  const dateLocale = locale === 'uk' ? 'uk-UA' : locale === 'de' ? 'de-DE' : locale === 'es' ? 'es-ES' : 'en-US';
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString('uk-UA', {
+    return new Date(timestamp).toLocaleTimeString(dateLocale, {
       hour: '2-digit',
       minute: '2-digit',
     });
   };
 
   const formatDate = (timestamp: string) => {
-    return new Date(timestamp).toLocaleDateString('uk-UA', {
+    return new Date(timestamp).toLocaleDateString(dateLocale, {
       day: 'numeric',
       month: 'short',
     });
@@ -156,17 +160,17 @@ export function HistoryPage() {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <h1 className="text-3xl md:text-4xl font-serif text-claude-text font-medium tracking-tight mb-2">
-                Історія розмов
+                {t.historyTitle}
               </h1>
               <p className="text-claude-subtext font-sans text-sm">
-                Усі ваші попередні розмови з асистентом
+                {t.historySubtitle}
               </p>
             </div>
 
             <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-claude-border shadow-sm text-sm font-sans">
               <Clock size={16} className="text-claude-subtext" />
               <span className="text-claude-subtext">
-                {total} {total === 1 ? 'розмова' : total < 5 ? 'розмови' : 'розмов'}
+                {total} {total === 1 ? t.conversationSingular : total < 5 ? t.conversationFew : t.conversationMany}
               </span>
             </div>
           </div>
@@ -180,7 +184,7 @@ export function HistoryPage() {
               <input
                 type="text"
                 className="block w-full pl-11 pr-4 py-3 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all shadow-sm font-sans"
-                placeholder="Пошук в історії..."
+                placeholder={t.searchHistory}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -195,7 +199,7 @@ export function HistoryPage() {
                     ? 'bg-claude-accent text-white'
                     : 'text-claude-subtext hover:text-claude-text'
                 }`}
-                title="Зручний вигляд"
+                title={t.convenientView}
               >
                 <LayoutGrid size={18} />
               </button>
@@ -206,7 +210,7 @@ export function HistoryPage() {
                     ? 'bg-claude-accent text-white'
                     : 'text-claude-subtext hover:text-claude-text'
                 }`}
-                title="Компактний вигляд"
+                title={t.compactView}
               >
                 <List size={18} />
               </button>
@@ -300,7 +304,7 @@ export function HistoryPage() {
                                       viewMode === 'compact' ? 'text-sm' : 'text-base'
                                     }`}
                                   >
-                                    {conv.title || 'Без назви'}
+                                    {conv.title || t.untitled}
                                   </h3>
                                   <div
                                     className={`flex items-center gap-2 mt-1 ${
@@ -338,14 +342,14 @@ export function HistoryPage() {
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-claude-text hover:bg-claude-bg"
                                   >
                                     <Pencil size={14} />
-                                    Перейменувати
+                                    {t.rename}
                                   </button>
                                   <button
                                     onClick={(e) => handleDelete(conv.id, e)}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                                   >
                                     <Trash2 size={14} />
-                                    Видалити
+                                    {t.delete}
                                   </button>
                                 </div>
                               )}
@@ -372,12 +376,12 @@ export function HistoryPage() {
               {searchQuery ? <Search size={24} /> : <MessageSquare size={24} />}
             </div>
             <h3 className="text-lg font-serif text-claude-text mb-2">
-              {searchQuery ? 'Нічого не знайдено' : 'Немає розмов'}
+              {searchQuery ? t.nothingFoundHistory : t.noConversations}
             </h3>
             <p className="text-claude-subtext font-sans max-w-md mx-auto">
               {searchQuery
-                ? 'Спробуйте змінити параметри пошуку'
-                : 'Розпочніть нову розмову в чаті'}
+                ? t.tryDifferentSearch
+                : t.startNewConversation}
             </p>
           </motion.div>
         )}
