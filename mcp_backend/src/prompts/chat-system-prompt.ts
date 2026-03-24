@@ -87,15 +87,15 @@ export function buildPlanGenerationMessages(
   let queryTypeRule = '';
   if (classification.queryType) {
     const qtRules: Partial<Record<QueryType, string>> = {
-      case_lookup: '11. queryType=case_lookup: start with get_case_documents_chain, max 2 steps',
-      practice_analysis: '11. queryType=practice_analysis: use search_edrsr_fulltext (full-text search in 110M+ court decisions) and/or search_edrsr_semantic (vector similarity) with different queries and limit=20-50, then include legislation lookups. Do NOT use search_legal_precedents (deprecated).',
+      case_lookup: '11. queryType=case_lookup: start with get_case_documents_chain, max 2 steps. Always include check_precedent_status for key cited cases.',
+      practice_analysis: '11. queryType=practice_analysis: use search_edrsr_fulltext (full-text search in 110M+ court decisions) and/or search_edrsr_semantic (vector similarity) with different queries and limit=20-50, then include legislation lookups. Always include check_precedent_status for key cited cases. Do NOT use search_legal_precedents (deprecated).',
       legislation_lookup: '11. queryType=legislation_lookup: if law_reference slot is present, start with get_legislation_article; otherwise start with search_legislation or find_relevant_law_articles to identify the law first, max 3 steps',
       legal_consultation: '11. queryType=legal_consultation: ALWAYS start with find_relevant_law_articles or search_legislation to identify relevant laws FIRST. Only THEN call get_legislation_article for specific articles. Never guess rada_id. Combine with practice search tools after finding legislation.',
       registry_lookup: '11. queryType=registry_lookup: start with openreyestr_get_by_edrpou or openreyestr_search_entities. For debtors/enforcement proceedings use search_erb_debtors (10M+ records from Minjust). For bank info use search_nbu_banks. Max 3 steps',
       parliament_query: '11. queryType=parliament_query: use rada_ tools, max 2 steps',
       document_query: '11. queryType=document_query: ALWAYS start with list_documents(query="", limit=50) to get ALL user documents. Then use semantic_search for content-relevant fragments. For analysis: also use get_document to read full text of relevant docs. For delete/update by name: first list_documents to find the doc, then delete_document/update_document with the ID. Max 5 steps.',
       document_drafting: '11. queryType=document_drafting: first find_relevant_law_articles for legal basis, then generate document',
-      comparative_analysis: '11. queryType=comparative_analysis: search each competing approach separately with pro/contra, include legislation. ALWAYS finish with build_legal_decision to produce structured decision with scored positions, risk map, and recommendations.',
+      comparative_analysis: '11. queryType=comparative_analysis: search each competing approach separately with pro/contra, include legislation. Always include check_precedent_status for key cited cases. ALWAYS finish with build_legal_decision to produce structured decision with scored positions, risk map, and recommendations.',
       due_diligence: '11. queryType=due_diligence: start with registry lookup, add debtors/bankruptcy/enforcement checks, then court cases',
       institutional_analysis: '11. queryType=institutional_analysis: use search_edrsr_decisions (filter by judge/court/date), search_edrsr_fulltext, search_edrsr_semantic for different aspects (topics, time periods), include count_cases_by_party and legislation lookups. Do NOT use search_legal_precedents (deprecated).',
       calculation: '11. queryType=calculation: find relevant procedural norms first, then apply calculation logic',

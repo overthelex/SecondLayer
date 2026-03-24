@@ -29,8 +29,9 @@ interface CostRecorder {
 }
 
 export class ChatContextBuilder {
-  /** In-memory cache: conversationId → compressed summary of older history */
-  private historySummaryCache = new Map<string, { messageCount: number; summary: string }>();
+  /** In-memory cache: conversationId:queryType → compressed summary of older history */
+  private static readonly CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+  private historySummaryCache = new Map<string, { messageCount: number; summary: string; createdAt: number }>();
 
   constructor(
     private llm: ILLMPort,
@@ -111,7 +112,7 @@ ${stepsText}
 
     // Compress older history into a summary if it exists
     if (olderHistory.length > 0) {
-      const summary = await this.compressOlderHistory(olderHistory, conversationId, requestId);
+      const summary = await this.compressOlderHistory(olderHistory, conversationId, requestId, queryType);
       if (summary) {
         const summaryChars = summary.length + 20;
         if (availableChars - summaryChars > 0) {
@@ -143,7 +144,8 @@ ${stepsText}
   private async compressOlderHistory(
     olderMessages: Array<{ role: string; content: string }>,
     conversationId?: string,
-    requestId?: string
+    requestId?: string,
+    queryType?: QueryType
   ): Promise<string | null> {
     // If total content is small, just concatenate
     const totalChars = olderMessages.reduce((sum, m) => sum + m.content.length, 0);
@@ -152,10 +154,12 @@ ${stepsText}
       return `[Контекст попередніх повідомлень]: ${concat}`;
     }
 
-    // Check cache
-    if (conversationId) {
-      const cached = this.historySummaryCache.get(conversationId);
-      if (cached && cached.messageCount === olderMessages.length) {
+    // Check cache — key includes queryType so switching context triggers re-summarization
+    const cacheKey = conversationId ? `${conversationId}:${queryType || 'unknown'}` : undefined;
+    if (cacheKey) {
+      const cached = this.historySummaryCache.get(cacheKey);
+      const now = Date.now();
+      if (cached && cached.messageCount === olderMessages.length && (now - cached.createdAt) < ChatContextBuilder.CACHE_TTL_MS) {
         return cached.summary;
       }
     }
@@ -188,11 +192,12 @@ ${stepsText}
 
       const summary = `[Контекст попередніх повідомлень]: ${response.content || ''}`;
 
-      // Cache the summary
-      if (conversationId) {
-        this.historySummaryCache.set(conversationId, {
+      // Cache the summary (keyed by conversationId + queryType, with TTL)
+      if (cacheKey) {
+        this.historySummaryCache.set(cacheKey, {
           messageCount: olderMessages.length,
           summary,
+          createdAt: Date.now(),
         });
       }
 

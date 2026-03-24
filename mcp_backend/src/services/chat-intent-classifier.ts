@@ -67,7 +67,7 @@ export class IntentClassifier {
       const classifyChars = CHAT_INTENT_CLASSIFICATION_PROMPT.length + query.length;
       logger.debug('[IntentClassifier] Intent classification prompt size', {
         chars: classifyChars,
-        estimatedTokens: Math.ceil(classifyChars / 3.5),
+        estimatedTokens: Math.ceil(classifyChars / 2.2),
       });
 
       const response = await llm.chatCompletion(

@@ -61,20 +61,21 @@ export class ChatSearchCacheService {
 
   // ─── Query-level cache ───────────────────────────────────────
 
-  private cacheKey(toolName: string, args: Record<string, any>): string {
+  private cacheKey(toolName: string, args: Record<string, any>, userId?: string): string {
     const hash = crypto
       .createHash('sha256')
       .update(JSON.stringify(args))
       .digest('hex')
       .slice(0, 16);
-    return `chat:search:${toolName}:${hash}`;
+    const userPrefix = userId ? `u:${userId}:` : '';
+    return `chat:search:${userPrefix}${toolName}:${hash}`;
   }
 
-  async getCachedResult(toolName: string, args: Record<string, any>): Promise<any | null> {
+  async getCachedResult(toolName: string, args: Record<string, any>, userId?: string): Promise<any | null> {
     try {
       if (!this.cache) return null;
 
-      const raw = await this.cache.get(this.cacheKey(toolName, args));
+      const raw = await this.cache.get(this.cacheKey(toolName, args, userId));
       if (!raw) return null;
 
       logger.info('[ChatSearchCache] Cache hit', { toolName });
@@ -85,12 +86,12 @@ export class ChatSearchCacheService {
     }
   }
 
-  async cacheResult(toolName: string, args: Record<string, any>, result: any): Promise<void> {
+  async cacheResult(toolName: string, args: Record<string, any>, result: any, userId?: string): Promise<void> {
     try {
       if (!this.cache) return;
 
       await this.cache.set(
-        this.cacheKey(toolName, args),
+        this.cacheKey(toolName, args, userId),
         JSON.stringify(result),
         CACHE_TTL
       );
