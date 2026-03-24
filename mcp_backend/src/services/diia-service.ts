@@ -118,7 +118,7 @@ export class DiiaService {
   /** Common branch details shared between create and update */
   private getAuthBranchBody() {
     return {
-      name: 'Авторизація в застосунку Lex / legal.org.ua',
+      name: 'Авторизація в застосунку Lex',
       email: 'hello@legal.org.ua',
       region: 'м. Київ',
       district: 'Деснянський р-н',
@@ -223,7 +223,7 @@ export class DiiaService {
     const token = await this.getSessionToken();
 
     const offerBody = {
-      name: 'Авторизація в застосунку Lex / legal.org.ua',
+      name: 'Авторизація в застосунку Lex',
       returnLink,
       scopes: { diiaId: ['auth'] },
     };
@@ -324,7 +324,7 @@ export class DiiaService {
         offerId = offers[0].id || offers[0]._id || '';
         // Update offer name in background
         this.updateOffer(branchId, offerId, {
-          name: 'Авторизація в застосунку Lex / legal.org.ua',
+          name: 'Авторизація в застосунку Lex',
           scopes: { diiaId: ['auth'] },
         }).catch(() => {});
       } else {
