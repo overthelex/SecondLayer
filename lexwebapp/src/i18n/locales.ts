@@ -1,3 +1,5 @@
+import { useLocaleStore } from '../stores/localeStore';
+
 export type Locale = 'uk' | 'en' | 'de' | 'es';
 
 export const loginTranslations: Record<Locale, Record<string, string>> = {
@@ -264,17 +266,32 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
   },
 };
 
-// Get locale from URL query param ?lang=de or localStorage
+const SUPPORTED_LOCALES = ['uk', 'en', 'de', 'es'];
+
+// Get locale from: URL ?lang= → localStorage lex_locale → localeStore (geo-detected) → default 'uk'
 export function getLocale(): Locale {
   const params = new URLSearchParams(window.location.search);
   const langParam = params.get('lang');
-  if (langParam && ['uk', 'en', 'de', 'es'].includes(langParam)) {
+  if (langParam && SUPPORTED_LOCALES.includes(langParam)) {
     localStorage.setItem('lex_locale', langParam);
     return langParam as Locale;
   }
   const stored = localStorage.getItem('lex_locale');
-  if (stored && ['uk', 'en', 'de', 'es'].includes(stored)) {
+  if (stored && SUPPORTED_LOCALES.includes(stored)) {
     return stored as Locale;
+  }
+  // Fallback: read geo-detected language from localeStore (persisted in locale-storage)
+  try {
+    const localeStorage = localStorage.getItem('locale-storage');
+    if (localeStorage) {
+      const parsed = JSON.parse(localeStorage);
+      const geoLang = parsed?.state?.language;
+      if (geoLang && SUPPORTED_LOCALES.includes(geoLang)) {
+        return geoLang as Locale;
+      }
+    }
+  } catch {
+    // ignore parse errors
   }
   return 'uk';
 }
@@ -290,4 +307,145 @@ export function useLoginT() {
   const locale = getLocale();
   const t = loginTranslations[locale];
   return { t, locale, setLocale };
+}
+
+/**
+ * Reactive version that re-renders when geo detection sets language.
+ * Subscribes to localeStore so login page updates when async geo detection completes.
+ */
+export function useLoginPageT() {
+  const storeLanguage = useLocaleStore((s) => s.language);
+  const locale: Locale = SUPPORTED_LOCALES.includes(storeLanguage)
+    ? (storeLanguage as Locale)
+    : getLocale();
+  const t = loginTranslations[locale];
+  return { t, locale, setLocale };
+}
+
+/* ─── Forgot Password modal translations ─── */
+
+const forgotPasswordStrings: Record<Locale, Record<string, string>> = {
+  uk: {
+    title: 'Відновлення паролю',
+    description: 'Введіть email для отримання посилання на скидання паролю',
+    enterEmail: 'Введіть email',
+    sendError: 'Помилка надсилання',
+    sendSuccess: 'Лист надіслано! Перевірте пошту.',
+    sendFailedGeneric: 'Не вдалося надіслати лист',
+    sendErrorToast: 'Помилка надсилання листа',
+    cancel: 'Скасувати',
+    send: 'Надіслати',
+  },
+  en: {
+    title: 'Reset Password',
+    description: 'Enter your email to receive a password reset link',
+    enterEmail: 'Enter email',
+    sendError: 'Send error',
+    sendSuccess: 'Email sent! Check your inbox.',
+    sendFailedGeneric: 'Failed to send email',
+    sendErrorToast: 'Failed to send email',
+    cancel: 'Cancel',
+    send: 'Send',
+  },
+  de: {
+    title: 'Passwort zurücksetzen',
+    description: 'Geben Sie Ihre E-Mail ein, um einen Link zum Zurücksetzen zu erhalten',
+    enterEmail: 'E-Mail eingeben',
+    sendError: 'Sendefehler',
+    sendSuccess: 'E-Mail gesendet! Überprüfen Sie Ihr Postfach.',
+    sendFailedGeneric: 'E-Mail konnte nicht gesendet werden',
+    sendErrorToast: 'Fehler beim Senden der E-Mail',
+    cancel: 'Abbrechen',
+    send: 'Senden',
+  },
+  es: {
+    title: 'Restablecer contraseña',
+    description: 'Introduzca su correo para recibir un enlace de restablecimiento',
+    enterEmail: 'Introduzca correo electrónico',
+    sendError: 'Error de envío',
+    sendSuccess: '¡Correo enviado! Revise su bandeja de entrada.',
+    sendFailedGeneric: 'No se pudo enviar el correo',
+    sendErrorToast: 'Error al enviar el correo',
+    cancel: 'Cancelar',
+    send: 'Enviar',
+  },
+};
+
+export function useForgotPasswordT() {
+  const locale = getLocale();
+  return { t: forgotPasswordStrings[locale] };
+}
+
+/* ─── GDPR modal translations ─── */
+
+const gdprStrings: Record<Locale, Record<string, string>> = {
+  uk: {
+    title: 'Захист даних',
+    subtitle: 'GDPR Compliance',
+    intro: 'LEX AI відповідає вимогам',
+    gdprName: 'Загального регламенту захисту даних (GDPR)',
+    introEnd: 'Європейського Союзу.',
+    cp1Title: 'Правова основа обробки', cp1Desc: 'Обробка даних лише за згодою або законною підставою',
+    cp2Title: 'Право на доступ', cp2Desc: 'Запит копії ваших персональних даних',
+    cp3Title: 'Право на видалення', cp3Desc: 'Видалення ваших даних за запитом',
+    cp4Title: 'Портативність даних', cp4Desc: 'Експорт даних у машиночитаному форматі',
+    cp5Title: 'Захист за замовчуванням', cp5Desc: 'Конфіденційність вбудована в архітектуру',
+    cp6Title: 'Безпека даних', cp6Desc: 'Шифрування та контроль доступу',
+    officialDocs: 'Офіційні документи',
+    linkUkText: 'Регламент (ЄС) 2016/679 — Українська',
+    understood: 'Зрозуміло',
+  },
+  en: {
+    title: 'Data Protection',
+    subtitle: 'GDPR Compliance',
+    intro: 'LEX AI complies with the',
+    gdprName: 'General Data Protection Regulation (GDPR)',
+    introEnd: 'of the European Union.',
+    cp1Title: 'Lawful basis for processing', cp1Desc: 'Data processing only with consent or lawful basis',
+    cp2Title: 'Right of access', cp2Desc: 'Request a copy of your personal data',
+    cp3Title: 'Right to erasure', cp3Desc: 'Deletion of your data upon request',
+    cp4Title: 'Data portability', cp4Desc: 'Export your data in a machine-readable format',
+    cp5Title: 'Privacy by design', cp5Desc: 'Privacy built into the architecture',
+    cp6Title: 'Data security', cp6Desc: 'Encryption and access controls',
+    officialDocs: 'Official documents',
+    linkUkText: 'Regulation (EU) 2016/679 — Ukrainian',
+    understood: 'Understood',
+  },
+  de: {
+    title: 'Datenschutz',
+    subtitle: 'DSGVO-Konformität',
+    intro: 'LEX AI erfüllt die Anforderungen der',
+    gdprName: 'Datenschutz-Grundverordnung (DSGVO)',
+    introEnd: 'der Europäischen Union.',
+    cp1Title: 'Rechtsgrundlage der Verarbeitung', cp1Desc: 'Datenverarbeitung nur mit Einwilligung oder Rechtsgrundlage',
+    cp2Title: 'Auskunftsrecht', cp2Desc: 'Kopie Ihrer personenbezogenen Daten anfordern',
+    cp3Title: 'Recht auf Löschung', cp3Desc: 'Löschung Ihrer Daten auf Anfrage',
+    cp4Title: 'Datenübertragbarkeit', cp4Desc: 'Export Ihrer Daten in maschinenlesbarem Format',
+    cp5Title: 'Datenschutz durch Design', cp5Desc: 'Datenschutz in die Architektur eingebaut',
+    cp6Title: 'Datensicherheit', cp6Desc: 'Verschlüsselung und Zugriffskontrollen',
+    officialDocs: 'Offizielle Dokumente',
+    linkUkText: 'Verordnung (EU) 2016/679 — Ukrainisch',
+    understood: 'Verstanden',
+  },
+  es: {
+    title: 'Protección de datos',
+    subtitle: 'Cumplimiento RGPD',
+    intro: 'LEX AI cumple con el',
+    gdprName: 'Reglamento General de Protección de Datos (RGPD)',
+    introEnd: 'de la Unión Europea.',
+    cp1Title: 'Base legal del tratamiento', cp1Desc: 'Tratamiento de datos solo con consentimiento o base legal',
+    cp2Title: 'Derecho de acceso', cp2Desc: 'Solicite una copia de sus datos personales',
+    cp3Title: 'Derecho de supresión', cp3Desc: 'Eliminación de sus datos previa solicitud',
+    cp4Title: 'Portabilidad de datos', cp4Desc: 'Exporte sus datos en formato legible por máquina',
+    cp5Title: 'Privacidad por diseño', cp5Desc: 'Privacidad integrada en la arquitectura',
+    cp6Title: 'Seguridad de datos', cp6Desc: 'Cifrado y controles de acceso',
+    officialDocs: 'Documentos oficiales',
+    linkUkText: 'Reglamento (UE) 2016/679 — Ucraniano',
+    understood: 'Entendido',
+  },
+};
+
+export function useGdprT() {
+  const locale = getLocale();
+  return { t: gdprStrings[locale] };
 }
