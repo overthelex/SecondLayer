@@ -1,6 +1,6 @@
-# CONTRACTOR OFFER
+# CONTRACTOR OFFER AGREEMENT
 
-## Agreement on Software Development Services
+## Framework Agreement on Software Development Services
 
 *Last updated: March 24, 2026*
 
@@ -12,11 +12,11 @@ Email: hello@legal.org.ua
 
 ## 1. General Provisions
 
-1.1. This document is an official offer by LLC "Lex AI" (hereinafter — the **"Client"**), addressed to an individual entrepreneur or legal entity (hereinafter — the **"Developer"**), to enter into this Agreement on software development services (hereinafter — the **"Agreement"**) under the terms set forth below.
+1.1. This document is an official offer by LLC "Lex AI" (hereinafter — the **"Client"**), addressed to an individual entrepreneur or legal entity (hereinafter — the **"Developer"**), to enter into this framework Agreement on software development services (hereinafter — the **"Agreement"**) under the terms set forth below.
 
-1.2. This offer is addressed exclusively to business entities — individual entrepreneurs (FOP) and legal entities registered in accordance with Ukrainian law. Individuals without FOP status cannot accept this offer.
+1.2. This offer is addressed exclusively to business entities — individual entrepreneurs (FOP) and legal entities registered in accordance with Ukrainian law. Individuals without FOP status cannot accept this offer. This offer is not a public offer within the meaning of Article 633 of the Civil Code of Ukraine and is addressed to a defined group of persons — contractors engaged by the Client for Platform development.
 
-1.3. This Agreement is concluded in accordance with Articles 641 and 642 of the Civil Code of Ukraine.
+1.3. This Agreement is concluded in accordance with Articles 634, 641, and 642 of the Civil Code of Ukraine and constitutes an adhesion contract within the meaning of Article 634 of the Civil Code of Ukraine.
 
 1.4. Acceptance of this offer is:
 - clicking the "Accept" button in the personal account on the Platform; or
@@ -68,7 +68,7 @@ whichever occurs first (Article 642 of the Civil Code of Ukraine).
 
 a) **Monetary remuneration**, the amount and payment procedure of which is established in Appendix No. 1 to this Agreement. Appendix No. 1 is an integral part of the Agreement and is signed by both Parties.
 
-b) **Free access to the Platform** (Developer Access) — as an additional non-monetary bonus. The scope and terms of access are defined in Appendix No. 2 "Developer Access Policy." Free access does not replace monetary remuneration and is not consideration for development services.
+b) **Free access to the Platform** (Developer Access) — as an additional non-monetary bonus provided at the Client's discretion. The scope and terms of access are defined in Appendix No. 2 "Developer Access Policy." Free access is not part of remuneration, does not replace monetary payment, and is not consideration (Article 903 of the Civil Code of Ukraine) for development services. Termination or restriction of free access does not affect the Parties' obligations under this Agreement.
 
 4.2. Payment for development services is made in the national currency of Ukraine — hryvnia (UAH) in accordance with Article 524 of the Civil Code of Ukraine.
 
@@ -163,7 +163,7 @@ b) **Free access to the Platform** (Developer Access) — as an additional non-m
 
 8.1. The Developer acknowledges that in the course of providing services, they may gain access to End User data, including personal data, legal documents, and information constituting attorney-client privilege in accordance with Article 22 of the Law of Ukraine "On the Bar and Practice of Law."
 
-8.2. **Roles of the Parties.** The Client acts as the data controller, and the Developer acts as the data processor in accordance with the Law of Ukraine "On the Protection of Personal Data." The Developer processes personal data solely on behalf of the Client and to the extent necessary for providing services under this Agreement.
+8.2. **Roles of the Parties.** The Client acts as the data controller, and the Developer acts as the data processor in accordance with the Law of Ukraine "On the Protection of Personal Data." The Developer processes personal data solely on behalf of the Client and to the extent necessary for providing services under this Agreement. Detailed terms of personal data processing, including the list of operations, retention periods, and audit procedures, are defined in the Data Processing Agreement (DPA), which is an integral part of this Agreement (Appendix per clause 15.4).
 
 8.3. **Data Categories.** The Developer may gain access to the following categories of data:
 - personal data of End Users (full name, email, contact details);
@@ -268,7 +268,7 @@ b) **Free access to the Platform** (Developer Access) — as an additional non-m
 
 ## 14. Notices
 
-14.1. **Legally significant notices** — notices of termination of the Agreement, claims, certificates of completed works, security incident notifications — shall be sent exclusively by:
+14.1. **Legally significant notices** — notices of termination of the Agreement, amendment of Agreement terms, claims, certificates of completed works, security incident notifications, liability demands — shall be sent exclusively by:
 - email to the addresses specified in the Parties' details; or
 - through electronic document management systems (EDO) using a qualified electronic signature (QES).
 
@@ -278,7 +278,7 @@ b) **Free access to the Platform** (Developer Access) — as an additional non-m
 
 ## 15. Final Provisions
 
-15.1. This Agreement is drawn up in accordance with Articles 641, 642, 901-907 of the Civil Code of Ukraine and Articles 179-188 of the Commercial Code of Ukraine.
+15.1. This Agreement is drawn up in accordance with Articles 634, 641, 642, 901-907 of the Civil Code of Ukraine and Articles 179-188 of the Commercial Code of Ukraine.
 
 15.2. Amendments and additions to this Agreement shall be made in writing and signed by both Parties.
 
