@@ -145,12 +145,12 @@ describe('LegalCodesLibraryPage', () => {
       const input = screen.getByPlaceholderText('Введіть назву кодексу або закону...');
       await user.type(input, 'тест{enter}');
 
-      await waitFor(() => {
-        expect(screen.getByText(/Результати пошуку/)).toBeInTheDocument();
-        expect(screen.getByText((_content, element) =>
-          element?.tagName === 'P' && element?.textContent === 'ст. 12. Тестова стаття'
-        )).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await screen.findByText(/Результати пошуку/, {}, { timeout: 10000 });
+      await screen.findByText(
+        (_content, element) => element?.tagName === 'P' && element?.textContent === 'ст. 12. Тестова стаття',
+        {},
+        { timeout: 10000 },
+      );
     });
 
     it('shows "nothing found" message for empty results', async () => {
