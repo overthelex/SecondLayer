@@ -44,7 +44,7 @@ export function ImageOcrViewer({ item, onSaveOcrText }: ImageOcrViewerProps) {
   };
 
   return (
-    <div className="flex gap-4 h-full">
+    <div className="flex gap-5 h-full">
       {/* Left: Image preview with zoom/crop/follow */}
       <div className="flex-1 min-w-0">
         <ImageViewer
@@ -55,22 +55,22 @@ export function ImageOcrViewer({ item, onSaveOcrText }: ImageOcrViewerProps) {
       </div>
       {/* Right: Editable OCR text */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-claude-subtext uppercase tracking-wide">
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.1em]">
             Розпізнаний текст
           </span>
           {onSaveOcrText && item.documentId && (
             <button
               onClick={handleSaveOcr}
               disabled={ocrSaving || editedOcrText === item.ocrText}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all disabled:opacity-40 bg-claude-text text-white hover:bg-claude-text/90 disabled:hover:bg-claude-text"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-md transition-all duration-150 disabled:opacity-40 bg-zinc-900 text-white hover:bg-zinc-800 border border-zinc-900"
             >
               {ocrSaving ? (
-                <Loader2 size={12} className="animate-spin" />
+                <Loader2 size={11} className="animate-spin" />
               ) : ocrSaved ? (
-                <Check size={12} />
+                <Check size={11} />
               ) : (
-                <Save size={12} />
+                <Save size={11} />
               )}
               {ocrSaved ? 'Збережено' : 'Зберегти'}
             </button>
@@ -80,7 +80,7 @@ export function ImageOcrViewer({ item, onSaveOcrText }: ImageOcrViewerProps) {
           ref={ocrTextareaRef}
           value={editedOcrText}
           onChange={(e) => setEditedOcrText(e.target.value)}
-          className="flex-1 w-full p-3 border border-claude-border rounded-lg text-sm text-claude-text font-mono resize-none focus:outline-none focus:border-claude-subtext/40 transition-colors leading-relaxed"
+          className="flex-1 w-full px-3.5 py-3 border border-zinc-200 rounded-lg text-[12.5px] text-zinc-700 font-mono resize-none focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition-all duration-150 leading-relaxed bg-white"
           placeholder="Текст не розпізнано"
         />
       </div>

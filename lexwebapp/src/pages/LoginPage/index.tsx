@@ -29,7 +29,7 @@ import { authService } from '../../services';
 import showToast from '../../utils/toast';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
 import { GDPRModal } from './GDPRModal';
-import { useLoginT, setLocale as setI18nLocale, type Locale } from '../../i18n/locales';
+import { useLoginT, useLoginPageT, setLocale as setI18nLocale, type Locale } from '../../i18n/locales';
 
 function LanguageSwitcher() {
   const { locale } = useLoginT();
@@ -40,15 +40,15 @@ function LanguageSwitcher() {
     { code: 'es', label: 'ES' },
   ];
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5">
       {langs.map((l) => (
         <button
           key={l.code}
           onClick={() => { setI18nLocale(l.code); window.location.reload(); }}
-          className={`px-2 py-1 text-[10px] tracking-wider uppercase rounded transition-colors ${
+          className={`px-2 py-1 text-[10px] tracking-wider uppercase rounded transition-colors duration-150 ${
             locale === l.code
-              ? 'text-white bg-zinc-800'
-              : 'text-zinc-600 hover:text-zinc-400'
+              ? 'text-zinc-200 bg-zinc-800/80'
+              : 'text-zinc-700 hover:text-zinc-500'
           }`}
         >
           {l.label}
@@ -86,133 +86,58 @@ const FADE_UP = {
   transition: { duration: 0.5, ease: 'easeOut' as const },
 };
 
-// Animated Julia-set fractal on canvas — dark theme with teal/indigo
-function FractalBackground() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animId: number;
-    const startTime = Date.now();
-
-    const MAX_ITER = 35;
-
-    // Full resolution — devicePixelRatio for crisp display
-    const resize = () => {
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      if (w > 0 && h > 0) {
-        canvas.width = Math.floor(w * 0.5);
-        canvas.height = Math.floor(h * 0.5);
-      }
-    };
-    // Delay initial resize to ensure layout is complete
-    setTimeout(resize, 100);
-    window.addEventListener('resize', resize);
-
-    function julia(zx: number, zy: number, cx: number, cy: number): number {
-      for (let i = 0; i < MAX_ITER; i++) {
-        if (zx * zx + zy * zy > 4) {
-          return (i + 1 - Math.log(Math.log(Math.sqrt(zx * zx + zy * zy))) / Math.LN2) / MAX_ITER;
-        }
-        const t = zx * zx - zy * zy + cx;
-        zy = 2 * zx * zy + cy;
-        zx = t;
-      }
-      return 0;
-    }
-
-    // Render full-res frame in chunks to avoid blocking UI
-    let currentRow = 0;
-    let imgData: ImageData | null = null;
-    let frameJcx = 0;
-    let frameJcy = 0;
-    const ROWS_PER_TICK = 100; // render N rows per rAF — more rows = faster frames
-
-    function startNewFrame() {
-      const w = canvas!.width;
-      const h = canvas!.height;
-      if (w === 0 || h === 0) return;
-
-      const elapsed = (Date.now() - startTime) / 1000;
-      frameJcx = -0.7 + 0.18 * Math.sin(elapsed * 0.25);
-      frameJcy = 0.27015 + 0.14 * Math.cos(elapsed * 0.19);
-      imgData = ctx!.createImageData(w, h);
-      currentRow = 0;
-    }
-
-    function renderChunk() {
-      animId = requestAnimationFrame(renderChunk);
-
-      const w = canvas!.width;
-      const h = canvas!.height;
-      if (w === 0 || h === 0) return;
-
-      // Start new frame if needed
-      if (!imgData || imgData.width !== w || imgData.height !== h) {
-        startNewFrame();
-      }
-      if (!imgData) return;
-
-      const d = imgData.data;
-      const aspect = w / h;
-      const span = 3.0;
-      const endRow = Math.min(currentRow + ROWS_PER_TICK, h);
-
-      for (let y = currentRow; y < endRow; y++) {
-        for (let x = 0; x < w; x++) {
-          const fx = (x / w - 0.5) * span * aspect;
-          const fy = (y / h - 0.5) * span;
-
-          const v = julia(fx, fy, frameJcx, frameJcy);
-          const idx = (y * w + x) * 4;
-
-          if (v > 0) {
-            const t = v * 3;
-            const r = Math.min(255, Math.floor(t * 25 + v * v * 80));
-            const g = Math.min(255, Math.floor(t * 55 + v * 40));
-            const b = Math.min(255, Math.floor(t * 90 + v * v * 120));
-            d[idx] = r;
-            d[idx + 1] = g;
-            d[idx + 2] = b;
-          } else {
-            d[idx] = 8;
-            d[idx + 1] = 8;
-            d[idx + 2] = 10;
-          }
-          d[idx + 3] = 255;
-        }
-      }
-
-      currentRow = endRow;
-
-      // Frame complete — draw and start next
-      if (currentRow >= h) {
-        ctx!.putImageData(imgData, 0, 0);
-        startNewFrame();
-      }
-    }
-
-    startNewFrame();
-    animId = requestAnimationFrame(renderChunk);
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener('resize', resize);
-    };
-  }, []);
-
+// Static architectural background — hairline grid with ambient gradients
+// No animation: stillness conveys authority and precision
+function ArchitecturalBackground() {
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', imageRendering: 'auto' }}
-      aria-hidden="true"
-    />
+    <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+      {/* Base void */}
+      <div className="absolute inset-0 bg-[#080808]" />
+
+      {/* Subtle radial ambient — top-left warmth */}
+      <div
+        className="absolute -top-[30%] -left-[10%] w-[70%] h-[70%] rounded-full"
+        style={{
+          background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.018) 0%, transparent 65%)',
+        }}
+      />
+
+      {/* Subtle radial ambient — bottom-right coolness */}
+      <div
+        className="absolute -bottom-[20%] -right-[5%] w-[55%] h-[55%] rounded-full"
+        style={{
+          background: 'radial-gradient(ellipse at center, rgba(100,120,180,0.022) 0%, transparent 65%)',
+        }}
+      />
+
+      {/* Hairline grid — 40×40px, very subtle */}
+      <svg
+        className="absolute inset-0 w-full h-full"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ opacity: 0.028 }}
+      >
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+      </svg>
+
+      {/* Vertical gradient fade — top and bottom edges dissolve the grid */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(to bottom, #080808 0%, transparent 12%, transparent 88%, #080808 100%)',
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(to right, #080808 0%, transparent 8%, transparent 92%, #080808 100%)',
+        }}
+      />
+    </div>
   );
 }
 
@@ -220,7 +145,7 @@ function FractalBackground() {
 function PanelDivider() {
   return (
     <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-px">
-      <div className="h-full bg-gradient-to-b from-transparent via-zinc-700/40 to-transparent" />
+      <div className="h-full bg-gradient-to-b from-transparent via-zinc-700/35 to-transparent" />
     </div>
   );
 }
@@ -253,6 +178,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { t } = useLoginT();
+  const { t: tp } = useLoginPageT();
 
   const getReturnUrl = (): string => {
     const saved = sessionStorage.getItem('login_return_url');
@@ -551,28 +477,39 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   if (isLoading && !showForgotPassword) {
     return (
       <div className="min-h-screen bg-[#080808] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-5">
+        <ArchitecturalBackground />
+        <div className="relative z-10 flex flex-col items-center gap-6">
           <div className="w-10 h-10 rounded-full border border-zinc-800 flex items-center justify-center">
-            <Loader2 size={18} className="text-zinc-500 animate-spin" />
+            <Loader2 size={16} className="text-zinc-600 animate-spin" />
           </div>
-          <p className="text-[10px] text-zinc-700 tracking-[0.2em] uppercase">{t.authenticating}</p>
+          <p className="text-[10px] text-zinc-700 tracking-[0.22em] uppercase">{t.authenticating}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#080808] flex relative">
+    <div className="min-h-screen bg-[#080808] flex relative overflow-hidden">
 
-      {/* ── Full-page fractal background ── */}
-      <FractalBackground />
+      {/* ── Architectural background — static, authoritative ── */}
+      <ArchitecturalBackground />
 
       {/* ── Left panel: brand identity ── */}
-      <div
-        className="hidden lg:flex lg:w-[480px] xl:w-[560px] flex-shrink-0 flex-col justify-between relative overflow-hidden"
-      >
-        {/* Semi-transparent backdrop for readability */}
-        <div className="absolute inset-0" style={{ background: 'rgba(8,8,8,0.55)' }} />
+      <div className="hidden lg:flex lg:w-[480px] xl:w-[540px] flex-shrink-0 flex-col justify-between relative overflow-hidden">
+
+        {/* Left panel gets its own deeper overlay for legibility without animation */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(160deg, rgba(10,10,10,0.96) 0%, rgba(8,8,8,0.94) 60%, rgba(9,10,14,0.96) 100%)',
+          }}
+        />
+
+        {/* Subtle inner glow top-left — warmth source */}
+        <div
+          className="absolute -top-16 -left-16 w-80 h-80 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.03) 0%, transparent 70%)' }}
+        />
 
         {/* Divider on the right edge */}
         <PanelDivider />
@@ -586,26 +523,27 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </div>
 
           {/* Value proposition */}
-          <div className="space-y-12">
+          <div className="space-y-10">
 
-            {/* Headline */}
+            {/* Eyebrow + Headline */}
             <div>
-              <div className="mb-4">
-                <span className="inline-block text-[9px] font-semibold tracking-[0.22em] uppercase text-zinc-600 border border-zinc-800/80 px-2.5 py-1 rounded-sm">
+              <div className="mb-5">
+                <span className="inline-block text-[9px] font-semibold tracking-[0.22em] uppercase text-zinc-600 border border-zinc-800/80 px-2.5 py-[5px] rounded-sm">
                   {t.tagline}
                 </span>
               </div>
-              <h1 className="text-[2.6rem] xl:text-[2.9rem] font-semibold text-white leading-[1.1] tracking-tight">
-                {t.headline1}<br />
+              <h1 className="text-[2.5rem] xl:text-[2.75rem] font-semibold text-white leading-[1.08] tracking-[-0.02em]">
+                {t.headline1}
+                <br />
                 <span className="text-zinc-500">{t.headline2}</span>
               </h1>
-              <p className="mt-5 text-[0.875rem] text-zinc-500 leading-relaxed max-w-[340px]">
+              <p className="mt-5 text-[0.85rem] text-zinc-500 leading-[1.7] max-w-[320px]">
                 {t.description}
               </p>
             </div>
 
             {/* Feature list — architectural numbered style */}
-            <div className="border-l border-zinc-800/80">
+            <div className="border-l border-zinc-800/70">
               {[
                 { label: t.feature01, number: '01' },
                 { label: t.feature02, number: '02' },
@@ -614,10 +552,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               ].map((feature, i) => (
                 <div
                   key={feature.number}
-                  className={`flex items-start gap-4 px-5 py-3.5 ${i < 3 ? 'border-b border-zinc-800/60' : ''}`}
+                  className={`flex items-start gap-4 px-5 py-3.5 ${i < 3 ? 'border-b border-zinc-800/50' : ''}`}
                 >
-                  <span className="text-[10px] font-mono text-zinc-700 mt-0.5 flex-shrink-0 w-5 tabular-nums">{feature.number}</span>
-                  <span className="text-[0.8rem] text-zinc-400 leading-snug">{feature.label}</span>
+                  <span className="text-[10px] font-mono text-zinc-800 mt-0.5 flex-shrink-0 w-5 tabular-nums select-none">{feature.number}</span>
+                  <span className="text-[0.775rem] text-zinc-400 leading-snug">{feature.label}</span>
                 </div>
               ))}
             </div>
@@ -627,45 +565,45 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               onClick={() => setShowWelcome(true)}
               className="group flex items-center gap-3 text-left w-full"
             >
-              <div className="flex-shrink-0 px-2 py-0.5 rounded border border-emerald-800/40 bg-emerald-950/30">
+              <div className="flex-shrink-0 px-2 py-[3px] rounded border border-emerald-800/30 bg-emerald-950/20">
                 <span className="text-[8px] font-bold text-emerald-700 tracking-[0.2em] uppercase">Новим</span>
               </div>
-              <span className="text-[12px] text-zinc-600 group-hover:text-zinc-400 transition-colors duration-200 leading-snug">
+              <span className="text-[11px] text-zinc-600 group-hover:text-zinc-400 transition-colors duration-200 leading-snug">
                 Дізнайтесь про умови та реферальну програму
               </span>
               <ChevronRight
-                size={12}
-                className="text-zinc-700 group-hover:text-zinc-500 flex-shrink-0 transition-all duration-200 group-hover:translate-x-0.5"
+                size={11}
+                className="text-zinc-800 group-hover:text-zinc-600 flex-shrink-0 transition-all duration-200 group-hover:translate-x-0.5"
               />
             </button>
 
           </div>
 
           {/* Bottom navigation */}
-          <div className="flex items-center gap-6 flex-wrap">
+          <div className="flex items-center gap-5 flex-wrap">
             <a
               href="/blog"
               className="inline-flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors duration-200 tracking-wide"
             >
-              <BookOpen size={11} />
+              <BookOpen size={10} />
               <span>Blog</span>
               {hasRecentArticles() && (
-                <span className="w-1 h-1 rounded-full bg-zinc-500 inline-block" />
+                <span className="w-1 h-1 rounded-full bg-zinc-600 inline-block" />
               )}
             </a>
             <a
               href="/lex-news"
               className="inline-flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors duration-200 tracking-wide"
             >
-              <Newspaper size={11} />
+              <Newspaper size={10} />
               <span>Новини</span>
-              <span className="w-1 h-1 rounded-full bg-emerald-700 inline-block" />
+              <span className="w-1 h-1 rounded-full bg-emerald-700/70 inline-block" />
             </a>
             <a
               href="/investor"
               className="inline-flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors duration-200 tracking-wide"
             >
-              <TrendingUp size={11} />
+              <TrendingUp size={10} />
               <span>Для інвесторів</span>
             </a>
           </div>
@@ -676,8 +614,11 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       {/* ── Right panel: auth form ── */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 lg:px-16 xl:px-24 relative">
 
-        {/* Semi-transparent backdrop for readability */}
-        <div className="absolute inset-0" style={{ background: 'rgba(8,8,8,0.65)' }} />
+        {/* Right panel overlay — slightly transparent to show grid beneath */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'rgba(8,8,8,0.72)' }}
+        />
 
         {/* Language switcher — top right */}
         <div className="absolute top-6 right-6 z-20">
@@ -691,14 +632,14 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
         <motion.div
           {...FADE_UP}
-          className="w-full max-w-[400px] relative z-10"
+          className="w-full max-w-[392px] relative z-10"
         >
           {/* Heading */}
           <div className="mb-8">
-            <h2 className="text-[1.5rem] font-semibold text-white tracking-tight leading-tight mb-2">
+            <h2 className="text-[1.45rem] font-semibold text-white tracking-[-0.01em] leading-tight mb-2">
               {isLogin ? t.loginTitle : t.registerTitle}
             </h2>
-            <p className="text-[0.775rem] text-zinc-600 tracking-wide">
+            <p className="text-[0.75rem] text-zinc-600 tracking-wide">
               {isLogin
                 ? 'Оберіть зручний спосіб автентифікації'
                 : 'Зареєструйтесь для початку роботи'}
@@ -714,15 +655,15 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
-                className="mb-6 px-4 py-3 rounded-lg bg-red-950/25 border border-red-900/35 flex items-start gap-3"
+                className="mb-5 px-4 py-3 rounded-lg bg-red-950/20 border border-red-900/30 flex items-start gap-3"
               >
-                <AlertCircle size={13} className="text-red-500 flex-shrink-0 mt-0.5" />
-                <p className="text-[0.775rem] text-red-400 leading-snug flex-1">{error}</p>
+                <AlertCircle size={12} className="text-red-500 flex-shrink-0 mt-px" />
+                <p className="text-[0.75rem] text-red-400 leading-snug flex-1">{error}</p>
                 <button
                   onClick={() => setError(null)}
-                  className="text-red-800 hover:text-red-500 flex-shrink-0 transition-colors ml-1"
+                  className="text-red-900 hover:text-red-600 flex-shrink-0 transition-colors ml-1"
                 >
-                  <X size={13} />
+                  <X size={12} />
                 </button>
               </motion.div>
             )}
@@ -736,10 +677,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.25 }}
-                className="overflow-hidden mb-6"
+                className="overflow-hidden mb-5"
               >
-                <div className="space-y-2.5 px-4 py-4 rounded-lg bg-zinc-900/70 border border-zinc-800/70">
-                  <p className="text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.18em] mb-3">
+                <div className="space-y-2.5 px-4 py-4 rounded-lg bg-zinc-900/50 border border-zinc-800/60">
+                  <p className="text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.2em] mb-3">
                     Для реєстрації необхідно прийняти:
                   </p>
                   {[
@@ -808,7 +749,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           {/* Primary: Google OAuth */}
           <button
             onClick={handleGoogleAuth}
-            className="w-full flex items-center justify-center gap-3 px-4 py-[11px] rounded-lg bg-white text-zinc-900 text-[0.825rem] font-medium hover:bg-zinc-100 active:bg-zinc-200 transition-colors duration-150 mb-2.5 shadow-sm"
+            className="w-full flex items-center justify-center gap-3 px-4 py-[11px] rounded-lg bg-white text-zinc-900 text-[0.825rem] font-medium hover:bg-zinc-100 active:bg-zinc-200 transition-colors duration-150 mb-2 shadow-sm"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -822,18 +763,18 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           {/* Diia Auth */}
           <button
             onClick={handleDiiaAuth}
-            className="w-full flex items-center justify-center gap-3 px-4 py-[11px] rounded-lg bg-[#080808] border border-zinc-800 text-zinc-300 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 active:bg-zinc-900/60 transition-colors duration-150 mb-2.5"
+            className="w-full flex items-center justify-center gap-3 px-4 py-[11px] rounded-lg bg-[#0a0a0a] border border-zinc-800/80 text-zinc-300 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 active:opacity-80 transition-colors duration-150 mb-2"
           >
-            <img src="/diia-logo.png" alt="Дія" width="19" height="19" className="flex-shrink-0 rounded-[4px]" />
+            <img src="/diia-logo.png" alt="Дія" width="18" height="18" className="flex-shrink-0 rounded-[3px]" />
             {t.diiaAuth}
           </button>
 
           {/* SSO */}
           <button
             onClick={handleSSOAuth}
-            className={`w-full flex items-center justify-center gap-2.5 px-4 py-[11px] bg-[#080808] border border-zinc-800 text-zinc-600 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 hover:text-zinc-400 active:bg-zinc-900/60 transition-colors duration-150 ${showSSOForm ? 'rounded-t-lg' : 'rounded-lg mb-5'}`}
+            className={`w-full flex items-center justify-center gap-2.5 px-4 py-[11px] bg-[#0a0a0a] border border-zinc-800/80 text-zinc-600 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 hover:text-zinc-400 active:opacity-80 transition-colors duration-150 ${showSSOForm ? 'rounded-t-lg' : 'rounded-lg mb-5'}`}
           >
-            <ShieldCheck size={14} className="flex-shrink-0" />
+            <ShieldCheck size={13} className="flex-shrink-0" />
             {t.ssoAuth}
           </button>
 
@@ -846,10 +787,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden mb-5"
               >
-                <div className="bg-zinc-900/70 border border-t-0 border-zinc-800 rounded-b-lg p-4 space-y-3">
+                <div className="bg-zinc-900/60 border border-t-0 border-zinc-800/80 rounded-b-lg p-4 space-y-3">
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Mail size={13} className="text-zinc-600" />
+                      <Mail size={12} className="text-zinc-700" />
                     </div>
                     <input
                       type="email"
@@ -857,12 +798,12 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                       onChange={(e) => setSsoEmail(e.target.value)}
                       placeholder="SSO email"
                       autoComplete="username"
-                      className="block w-full pl-9 pr-4 py-2.5 bg-zinc-800/60 border border-zinc-700/60 rounded-md text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500 focus:border-zinc-500 transition-all"
+                      className="block w-full pl-9 pr-4 py-2.5 bg-zinc-800/50 border border-zinc-700/50 rounded-md text-sm text-zinc-200 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
                     />
                   </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Lock size={13} className="text-zinc-600" />
+                      <Lock size={12} className="text-zinc-700" />
                     </div>
                     <input
                       type={showSSOPassword ? 'text' : 'password'}
@@ -871,22 +812,22 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                       placeholder="SSO пароль"
                       autoComplete="current-password"
                       onKeyDown={(e) => { if (e.key === 'Enter') handleSSOLogin(); }}
-                      className="block w-full pl-9 pr-10 py-2.5 bg-zinc-800/60 border border-zinc-700/60 rounded-md text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500 focus:border-zinc-500 transition-all"
+                      className="block w-full pl-9 pr-10 py-2.5 bg-zinc-800/50 border border-zinc-700/50 rounded-md text-sm text-zinc-200 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
                     />
                     <button
                       type="button"
                       onClick={() => setShowSSOPassword(!showSSOPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-600 hover:text-zinc-400 transition-colors"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-700 hover:text-zinc-500 transition-colors"
                     >
-                      {showSSOPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                      {showSSOPassword ? <EyeOff size={12} /> : <Eye size={12} />}
                     </button>
                   </div>
                   <button
                     onClick={handleSSOLogin}
                     disabled={ssoLoading}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-100 rounded-md text-sm font-medium transition-colors duration-150 disabled:opacity-40"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-700/80 hover:bg-zinc-700 text-zinc-100 rounded-md text-sm font-medium transition-colors duration-150 disabled:opacity-40"
                   >
-                    {ssoLoading ? <Loader2 size={14} className="animate-spin" /> : <><ArrowRight size={13} />Увійти</>}
+                    {ssoLoading ? <Loader2 size={13} className="animate-spin" /> : <><ArrowRight size={12} />Увійти</>}
                   </button>
                 </div>
               </motion.div>
@@ -896,7 +837,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           {/* Divider */}
           <div className="relative mb-5">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-zinc-800/60" />
+              <div className="w-full border-t border-zinc-800/50" />
             </div>
             <div className="relative flex justify-center">
               <span className="px-3 bg-[#080808] text-[9px] text-zinc-700 tracking-[0.18em] uppercase">або</span>
@@ -904,7 +845,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </div>
 
           {/* Auth method tabs */}
-          <div className="flex gap-px mb-5 rounded-lg overflow-hidden border border-zinc-800/60 bg-zinc-900/30">
+          <div className="flex gap-px mb-5 rounded-lg overflow-hidden border border-zinc-800/50 bg-[#0a0a0a]">
             {([
               { key: 'password', icon: Lock, label: 'Пароль' },
               { key: 'hardware-key', icon: Key, label: 'Ключ' },
@@ -915,8 +856,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 onClick={() => setAuthMethod(key)}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-medium transition-all duration-150 ${
                   authMethod === key
-                    ? 'bg-zinc-800/90 text-zinc-200'
-                    : 'text-zinc-600 hover:text-zinc-500 hover:bg-zinc-900/50'
+                    ? 'bg-zinc-800/80 text-zinc-200'
+                    : 'text-zinc-600 hover:text-zinc-500 hover:bg-zinc-900/40'
                 }`}
               >
                 <Icon size={11} />
@@ -946,7 +887,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <User size={13} className="text-zinc-700" />
+                        <User size={12} className="text-zinc-700" />
                       </div>
                       <input
                         id="name"
@@ -956,7 +897,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Іван Петренко"
                         autoComplete="name"
-                        className="block w-full pl-9 pr-4 py-2.5 bg-zinc-900/50 border border-zinc-800/80 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
+                        className="block w-full pl-9 pr-4 py-2.5 bg-zinc-900/50 border border-zinc-800/70 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
                       />
                     </div>
                   </div>
@@ -968,7 +909,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Mail size={13} className="text-zinc-700" />
+                      <Mail size={12} className="text-zinc-700" />
                     </div>
                     <input
                       id="email"
@@ -978,7 +919,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="your@email.com"
                       autoComplete={isLogin ? 'username' : 'email'}
-                      className="block w-full pl-9 pr-4 py-2.5 bg-zinc-900/50 border border-zinc-800/80 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
+                      className="block w-full pl-9 pr-4 py-2.5 bg-zinc-900/50 border border-zinc-800/70 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
                     />
                   </div>
                 </div>
@@ -1000,7 +941,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Lock size={13} className="text-zinc-700" />
+                      <Lock size={12} className="text-zinc-700" />
                     </div>
                     <input
                       id="password"
@@ -1010,19 +951,19 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                       onChange={(e) => handlePasswordChange(e.target.value)}
                       placeholder="••••••••"
                       autoComplete={isLogin ? 'current-password' : 'new-password'}
-                      className="block w-full pl-9 pr-10 py-2.5 bg-zinc-900/50 border border-zinc-800/80 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
+                      className="block w-full pl-9 pr-10 py-2.5 bg-zinc-900/50 border border-zinc-800/70 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-700 hover:text-zinc-400 transition-colors"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-700 hover:text-zinc-500 transition-colors"
                     >
-                      {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                      {showPassword ? <EyeOff size={12} /> : <Eye size={12} />}
                     </button>
                   </div>
 
                   {!isLogin && password && (
-                    <div className="mt-2">
+                    <div className="mt-2.5">
                       <div className="flex gap-0.5">
                         {(['weak', 'medium', 'strong'] as const).map((level, i) => {
                           const filled = (
@@ -1046,14 +987,14 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 <button
                   type="submit"
                   disabled={isLoading || (!isLogin && !allConsentsAccepted)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-[11px] mt-1 bg-white text-zinc-900 rounded-lg text-[0.825rem] font-medium hover:bg-zinc-100 active:bg-zinc-200 transition-colors duration-150 disabled:opacity-25 disabled:cursor-not-allowed shadow-sm"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-[11px] mt-1 bg-white text-zinc-900 rounded-lg text-[0.825rem] font-medium hover:bg-zinc-100 active:bg-zinc-200 transition-colors duration-150 disabled:opacity-20 disabled:cursor-not-allowed shadow-sm"
                 >
                   {isLoading ? (
                     <Loader2 size={14} className="animate-spin" />
                   ) : (
                     <>
                       {isLogin ? t.loginButton : t.registerButton}
-                      <ArrowRight size={13} />
+                      <ArrowRight size={12} />
                     </>
                   )}
                 </button>
@@ -1069,17 +1010,17 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 transition={{ duration: 0.18 }}
                 className="py-10 text-center"
               >
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-zinc-900/60 border border-zinc-800 mb-5">
-                  <Shield size={22} className="text-zinc-500" />
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900/50 border border-zinc-800/70 mb-5">
+                  <Shield size={20} className="text-zinc-600" />
                 </div>
                 <h3 className="text-[0.825rem] font-medium text-zinc-300 mb-1.5">Підключіть ключ безпеки</h3>
-                <p className="text-[0.775rem] text-zinc-600 mb-6 leading-relaxed">Вставте USB-ключ або використайте NFC</p>
+                <p className="text-[0.75rem] text-zinc-600 mb-6 leading-relaxed">Вставте USB-ключ або використайте NFC</p>
                 <button
                   onClick={() => handleWebAuthnLogin('cross-platform')}
                   disabled={isLoading}
-                  className="px-6 py-2.5 bg-zinc-900 border border-zinc-700 text-zinc-400 rounded-lg text-sm font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-colors duration-150 disabled:opacity-40"
+                  className="px-6 py-2.5 bg-zinc-900/80 border border-zinc-700/80 text-zinc-400 rounded-lg text-sm font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-colors duration-150 disabled:opacity-40"
                 >
-                  {isLoading ? <Loader2 size={14} className="animate-spin inline mr-2" /> : null}
+                  {isLoading ? <Loader2 size={13} className="animate-spin inline mr-2" /> : null}
                   Автентифікація
                 </button>
               </motion.div>
@@ -1094,17 +1035,17 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 transition={{ duration: 0.18 }}
                 className="py-10 text-center"
               >
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-zinc-900/60 border border-zinc-800 mb-5">
-                  <Smartphone size={22} className="text-zinc-500" />
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900/50 border border-zinc-800/70 mb-5">
+                  <Smartphone size={20} className="text-zinc-600" />
                 </div>
                 <h3 className="text-[0.825rem] font-medium text-zinc-300 mb-1.5">Вхід через телефон</h3>
-                <p className="text-[0.775rem] text-zinc-600 mb-6 leading-relaxed">Браузер покаже QR-код для сканування</p>
+                <p className="text-[0.75rem] text-zinc-600 mb-6 leading-relaxed">Браузер покаже QR-код для сканування</p>
                 <button
                   onClick={() => handleWebAuthnLogin()}
                   disabled={isLoading}
-                  className="px-6 py-2.5 bg-zinc-900 border border-zinc-700 text-zinc-400 rounded-lg text-sm font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-colors duration-150 disabled:opacity-40"
+                  className="px-6 py-2.5 bg-zinc-900/80 border border-zinc-700/80 text-zinc-400 rounded-lg text-sm font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-colors duration-150 disabled:opacity-40"
                 >
-                  {isLoading ? <Loader2 size={14} className="animate-spin inline mr-2" /> : null}
+                  {isLoading ? <Loader2 size={13} className="animate-spin inline mr-2" /> : null}
                   Автентифікація
                 </button>
               </motion.div>
@@ -1125,10 +1066,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           {/* GDPR badge */}
           <button
             onClick={() => setShowGDPR(true)}
-            className="w-full mt-5 px-4 py-3 rounded-lg bg-zinc-900/50 border border-zinc-800/60 hover:border-zinc-700/80 flex items-center gap-3 transition-colors duration-150 text-left group"
+            className="w-full mt-5 px-4 py-3 rounded-lg bg-zinc-900/40 border border-zinc-800/50 hover:border-zinc-700/70 hover:bg-zinc-900/60 flex items-center gap-3 transition-colors duration-150 text-left group"
           >
-            <div className="flex-shrink-0 w-7 h-7 rounded-md bg-[#0d1627] border border-[#1a2d5a]/40 flex items-center justify-center">
-              <ShieldCheck size={12} className="text-[#4d6ef5]" />
+            <div className="flex-shrink-0 w-6 h-6 rounded-md bg-[#0c1524] border border-[#172645]/50 flex items-center justify-center">
+              <ShieldCheck size={11} className="text-[#4d6ef5]" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 mb-0.5">
@@ -1142,7 +1083,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </div>
             <ChevronRight
               size={11}
-              className="text-zinc-700 group-hover:text-zinc-500 flex-shrink-0 transition-all duration-200 group-hover:translate-x-0.5"
+              className="text-zinc-800 group-hover:text-zinc-600 flex-shrink-0 transition-all duration-200 group-hover:translate-x-0.5"
             />
           </button>
 
@@ -1200,19 +1141,19 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               exit={{ scale: 0.97, opacity: 0, y: 8 }}
               transition={{ duration: 0.2 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative bg-zinc-950 border border-zinc-800/80 rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto"
+              className="relative bg-zinc-950 border border-zinc-800/70 rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto"
             >
               <button
                 onClick={() => setShowWelcome(false)}
                 className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-md text-zinc-700 hover:text-zinc-400 hover:bg-zinc-900 transition-colors z-10"
               >
-                <X size={14} />
+                <X size={13} />
               </button>
 
               <div className="p-8">
                 {/* Header */}
                 <div className="mb-6">
-                  <h3 className="text-xl font-semibold text-white mb-1.5">Ласкаво просимо</h3>
+                  <h3 className="text-xl font-semibold text-white mb-1.5 tracking-tight">Ласкаво просимо</h3>
                   <p className="text-sm text-zinc-500">Ознайомтесь з умовами платформи та реферальною програмою</p>
                 </div>
 
@@ -1221,7 +1162,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.18em] mb-3">
                     Правові документи
                   </p>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {[
                       { href: '/ua/offer', label: 'Публічна оферта', desc: 'Договір між вами та платформою' },
                       { href: '/ua/terms', label: 'Умови використання', desc: 'Правила користування сервісом' },
@@ -1234,30 +1175,30 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                         href={doc.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900 transition-colors group"
+                        className="flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/50 border border-zinc-800/50 hover:border-zinc-700/80 hover:bg-zinc-900/80 transition-colors group"
                       >
                         <div>
                           <p className="text-sm text-zinc-300 group-hover:text-white transition-colors">{doc.label}</p>
                           <p className="text-[11px] text-zinc-600">{doc.desc}</p>
                         </div>
-                        <ChevronRight size={14} className="text-zinc-700 group-hover:text-zinc-400 flex-shrink-0 transition-colors" />
+                        <ChevronRight size={13} className="text-zinc-700 group-hover:text-zinc-500 flex-shrink-0 transition-colors" />
                       </a>
                     ))}
                   </div>
                 </div>
 
                 {/* Divider */}
-                <div className="h-px bg-zinc-800/60 mb-6" />
+                <div className="h-px bg-zinc-800/50 mb-6" />
 
                 {/* Referral program */}
                 <div className="mb-6">
                   <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.18em] mb-3">
                     Реферальна програма
                   </p>
-                  <div className="px-4 py-4 rounded-lg bg-zinc-900/60 border border-zinc-800/60">
+                  <div className="px-4 py-4 rounded-lg bg-zinc-900/50 border border-zinc-800/50">
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-emerald-950/50 border border-emerald-800/30 flex items-center justify-center">
-                        <Gift size={14} className="text-emerald-600" />
+                      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-emerald-950/40 border border-emerald-800/25 flex items-center justify-center">
+                        <Gift size={13} className="text-emerald-700" />
                       </div>
                       <div>
                         <p className="text-sm text-zinc-300 font-medium mb-0.5">Запрошуйте колег — отримуйте бонуси</p>
@@ -1273,7 +1214,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                         'Для участі потрібна верифікація ФОП, ТОВ або адвоката',
                       ].map((item, i) => (
                         <div key={i} className="flex items-center gap-2">
-                          <div className="w-1 h-1 rounded-full bg-emerald-700 flex-shrink-0" />
+                          <div className="w-1 h-1 rounded-full bg-zinc-700 flex-shrink-0" />
                           <span className="text-[11px] text-zinc-500">{item}</span>
                         </div>
                       ))}
@@ -1313,25 +1254,25 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.97, opacity: 0, y: 8 }}
               transition={{ duration: 0.2 }}
-              className="relative bg-zinc-950 border border-zinc-800/80 rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center"
+              className="relative bg-zinc-950 border border-zinc-800/70 rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center"
             >
               <button
                 onClick={() => { setDiiaSessionId(null); }}
                 className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-md text-zinc-700 hover:text-zinc-400 hover:bg-zinc-900 transition-colors"
               >
-                <X size={14} />
+                <X size={13} />
               </button>
 
               <div className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-5">
                 <img src="/diia-logo.png" alt="Дія" width="44" height="44" className="rounded-xl" />
               </div>
 
-              <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5">Завершення входу</h2>
-              <p className="text-[0.775rem] text-zinc-500 mb-6 leading-relaxed">
+              <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5 tracking-tight">Завершення входу</h2>
+              <p className="text-[0.75rem] text-zinc-500 mb-6 leading-relaxed">
                 Обробка авторизації через Дію…
               </p>
 
-              <Loader2 size={24} className="animate-spin text-zinc-500 mx-auto mb-4" />
+              <Loader2 size={22} className="animate-spin text-zinc-600 mx-auto mb-4" />
 
               <p className="text-[10px] text-zinc-700">
                 Очікування підтвердження від Дії
@@ -1358,21 +1299,21 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               exit={{ scale: 0.97, opacity: 0, y: 8 }}
               transition={{ duration: 0.2 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative bg-zinc-950 border border-zinc-800/80 rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center"
+              className="relative bg-zinc-950 border border-zinc-800/70 rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center"
             >
               <button
                 onClick={() => { setDiiaDeeplink(null); setDiiaSessionId(null); }}
                 className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-md text-zinc-700 hover:text-zinc-400 hover:bg-zinc-900 transition-colors"
               >
-                <X size={14} />
+                <X size={13} />
               </button>
 
               <div className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-5">
                 <img src="/diia-logo.png" alt="Дія" width="44" height="44" className="rounded-xl" />
               </div>
 
-              <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5">Вхід через Дію</h2>
-              <p className="text-[0.775rem] text-zinc-500 mb-6 leading-relaxed">
+              <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5 tracking-tight">Вхід через Дію</h2>
+              <p className="text-[0.75rem] text-zinc-500 mb-6 leading-relaxed">
                 Відкрийте застосунок Дія та відскануйте QR-код або натисніть кнопку нижче
               </p>
 
@@ -1387,7 +1328,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
               <a
                 href={diiaDeeplink}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 rounded-lg font-medium text-sm transition-colors mb-4"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 rounded-lg font-medium text-sm transition-colors mb-4"
               >
                 Відкрити в застосунку Дія
               </a>

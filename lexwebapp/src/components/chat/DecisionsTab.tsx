@@ -45,36 +45,33 @@ export function DecisionsTab({ decisions, onOpenModal }: DecisionsTabProps) {
             externalUrl={decision.externalUrl}
             header={
               <>
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="p-1 bg-claude-bg rounded-md flex-shrink-0">
-                      <Gavel size={12} className="text-claude-text" strokeWidth={2} />
-                    </div>
-                    <span className="font-mono text-[12px] font-semibold text-claude-text truncate">
+                <div className="flex items-start justify-between mb-1.5">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="font-mono text-[11.5px] font-semibold text-zinc-800 truncate leading-tight">
                       {decision.number}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide border ${
+                  <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-[0.04em] border ${
                       decision.status === 'active'
-                        ? 'bg-green-50 text-green-700 border-green-200'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         : decision.status === 'overturned'
                         ? 'bg-red-50 text-red-600 border-red-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-zinc-100 text-zinc-500 border-zinc-200'
                     }`}>
                       {STATUS_LABELS[decision.status] || decision.status}
                     </span>
-                    {expanded ? <ChevronUp size={14} className="text-claude-subtext" /> : <ChevronDown size={14} className="text-claude-subtext" />}
+                    {expanded ? <ChevronUp size={13} className="text-zinc-400" strokeWidth={2} /> : <ChevronDown size={13} className="text-zinc-400" strokeWidth={2} />}
                   </div>
                 </div>
-                <div className="text-[11px] text-claude-subtext mb-2">
-                  {decision.court} {decision.date && `• ${formatDate(decision.date)}`}
+                <div className="text-[10.5px] text-zinc-400 leading-tight">
+                  {decision.court}{decision.date && <span className="mx-1 text-zinc-300">·</span>}{decision.date && formatDate(decision.date)}
                 </div>
               </>
             }
             preview={
               decision.summary ? (
-                <p className="text-[12px] text-claude-text/80 leading-relaxed line-clamp-2">
+                <p className="text-[11px] text-zinc-500 leading-relaxed line-clamp-2 mt-1.5">
                   {decision.summary}
                 </p>
               ) : null

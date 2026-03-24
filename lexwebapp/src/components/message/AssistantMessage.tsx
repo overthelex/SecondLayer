@@ -134,11 +134,11 @@ export function AssistantMessage({
 
   return (
     <>
-      <div className="flex gap-3 md:gap-4">
+      <div className="flex gap-4 md:gap-5">
         {/* Avatar */}
-        <div className="flex-shrink-0 mt-1">
-          <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center">
-            <LexLogo3D spinning={!!isStreaming} size={32} />
+        <div className="flex-shrink-0 mt-0.5">
+          <div className="w-7 h-7 rounded-md overflow-hidden flex items-center justify-center bg-zinc-900 shadow-sm">
+            <LexLogo3D spinning={!!isStreaming} size={28} />
           </div>
         </div>
 
@@ -148,9 +148,9 @@ export function AssistantMessage({
 
           {thinkingSteps && thinkingSteps.length > 0 && (
             <div>
-              <button onClick={() => setShowThinking(!showThinking)} className="flex items-center gap-2 text-[12px] text-zinc-400 hover:text-zinc-700 transition-colors duration-150 mb-2">
-                <ChevronDown size={13} className={`transition-transform duration-200 ${showThinking ? 'rotate-180' : ''}`} strokeWidth={2} />
-                <span className="font-medium tracking-tight">
+              <button onClick={() => setShowThinking(!showThinking)} className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-400 hover:text-zinc-600 transition-colors duration-150 mb-2 tracking-wide uppercase">
+                <ChevronDown size={12} className={`transition-transform duration-200 ${showThinking ? 'rotate-180' : ''}`} strokeWidth={2.5} />
+                <span>
                   {thinkingSteps[0]?.title || 'Обдумую відповідь...'}
                 </span>
               </button>
@@ -163,28 +163,28 @@ export function AssistantMessage({
           <MarkdownContent content={displayContent} isStreaming={isStreaming} openDocByRef={openDocByRef} />
 
           {citationWarnings && citationWarnings.length > 0 && (
-            <div className="space-y-2 mt-4">
+            <div className="space-y-1.5 mt-4">
               {citationWarnings.map((warning, idx) => (
                 <motion.div
                   key={`cw-${idx}`}
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.25, delay: idx * 0.08 }}
-                  className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border ${
+                  className={`flex items-start gap-3 px-3.5 py-3 rounded-lg border ${
                     warning.status === 'explicitly_overruled'
-                      ? 'bg-orange-50 border-orange-200/70'
-                      : 'bg-amber-50 border-amber-200/70'
+                      ? 'bg-red-50/70 border-red-200/60'
+                      : 'bg-zinc-50 border-zinc-200/60'
                   }`}
                 >
                   <div className="flex-1 min-w-0">
                     <p className={`text-[13px] leading-relaxed ${
                       warning.status === 'explicitly_overruled'
-                        ? 'text-orange-700'
-                        : 'text-amber-700'
+                        ? 'text-red-700'
+                        : 'text-zinc-700'
                     }`}>
                       {warning.message}
                     </p>
-                    <p className="text-[11px] text-zinc-400 mt-1">
+                    <p className="text-[11px] text-zinc-400 mt-1 font-mono">
                       {warning.status === 'explicitly_overruled' ? 'Скасовано вищою інстанцією' : 'Частково змінено'} · впевненість: {Math.round(warning.confidence * 100)}%
                     </p>
                   </div>
@@ -200,7 +200,7 @@ export function AssistantMessage({
           )}
 
           {!isStreaming && content && (
-            <div className="flex items-center gap-0.5 pt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="flex items-center gap-0.5 pt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <button
                 onClick={handleCopy}
                 className="p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-md transition-colors duration-150"
@@ -227,7 +227,7 @@ export function AssistantMessage({
                   <RotateCw size={12} strokeWidth={2} />
                 </button>
               )}
-              <div className="w-px h-3 bg-zinc-200 mx-1" />
+              <div className="w-px h-3 bg-zinc-200 mx-1.5" />
               <button
                 onClick={() => handleFeedback('up')}
                 className={`p-1.5 hover:bg-zinc-100 rounded-md transition-colors duration-150 ${feedback === 'up' ? 'text-zinc-700' : 'text-zinc-400 hover:text-zinc-600'}`}

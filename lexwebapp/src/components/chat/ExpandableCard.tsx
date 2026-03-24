@@ -57,9 +57,9 @@ export function ExpandableCard({
       initial="hidden"
       animate="visible"
       layout
-      className="bg-white border border-zinc-200 rounded-lg overflow-hidden hover:border-zinc-300 hover:shadow-elevation-1 transition-all duration-150"
+      className="bg-white border border-zinc-200/90 rounded-md overflow-hidden hover:border-zinc-300 hover:shadow-sm transition-all duration-150"
     >
-      <div onClick={onToggle} className="p-3 cursor-pointer group">
+      <div onClick={onToggle} className="px-3 py-2.5 cursor-pointer select-none">
         {header}
         {!isExpanded && preview}
       </div>
@@ -74,32 +74,32 @@ export function ExpandableCard({
             className="overflow-hidden"
           >
             <div className="px-3 pb-3 border-t border-zinc-100">
-              <div className="mt-3 max-h-[280px] overflow-y-auto text-[12px] text-zinc-700 leading-relaxed prose prose-sm">
+              <div className="mt-3 max-h-[280px] overflow-y-auto text-[12px] text-zinc-600 leading-[1.7] prose prose-sm prose-p:my-1 prose-p:leading-[1.7]">
                 <ReactMarkdown>{content}</ReactMarkdown>
               </div>
-              <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-zinc-100">
+              <div className="flex items-center gap-0.5 mt-3 pt-2.5 border-t border-zinc-100">
                 <button
                   onClick={(e) => { e.stopPropagation(); copyContent(content); }}
-                  className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-zinc-700 px-2 py-1 rounded hover:bg-zinc-50 transition-colors duration-150"
+                  className="flex items-center gap-1.5 text-[10px] text-zinc-400 hover:text-zinc-800 px-2 py-1 rounded hover:bg-zinc-50 transition-colors duration-150 font-medium"
                 >
-                  {copiedId === id ? <Check size={10} /> : <Copy size={10} />}
+                  {copiedId === id ? <Check size={10} strokeWidth={2.5} /> : <Copy size={10} strokeWidth={2} />}
                   {copiedId === id ? 'Скопійовано' : 'Копіювати'}
                 </button>
                 {onOpenModal && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onOpenModal(); }}
-                    className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-zinc-700 px-2 py-1 rounded hover:bg-zinc-50 transition-colors duration-150"
+                    className="flex items-center gap-1.5 text-[10px] text-zinc-400 hover:text-zinc-800 px-2 py-1 rounded hover:bg-zinc-50 transition-colors duration-150 font-medium"
                   >
-                    <Maximize2 size={10} />
+                    <Maximize2 size={10} strokeWidth={2} />
                     Повний вигляд
                   </button>
                 )}
                 {externalUrl && onOpenModal && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onOpenModal(); }}
-                    className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-zinc-700 px-2 py-1 rounded hover:bg-zinc-50 transition-colors duration-150"
+                    className="flex items-center gap-1.5 text-[10px] text-zinc-400 hover:text-zinc-800 px-2 py-1 rounded hover:bg-zinc-50 transition-colors duration-150 font-medium"
                   >
-                    <ExternalLink size={10} />
+                    <ExternalLink size={10} strokeWidth={2} />
                     Відкрити
                   </button>
                 )}
@@ -114,9 +114,11 @@ export function ExpandableCard({
 
 export function EmptyTabState({ icon: Icon, text }: { icon: React.ElementType; text: string }) {
   return (
-    <div className="text-center py-10 text-zinc-400">
-      <Icon size={24} className="mx-auto mb-3 opacity-25" strokeWidth={1.5} />
-      <p className="text-[12px]">{text}</p>
+    <div className="text-center py-12 px-4">
+      <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center mx-auto mb-3">
+        <Icon size={18} className="text-zinc-400" strokeWidth={1.5} />
+      </div>
+      <p className="text-[11px] text-zinc-400 leading-relaxed font-medium">{text}</p>
     </div>
   );
 }

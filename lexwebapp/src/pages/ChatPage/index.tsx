@@ -149,7 +149,7 @@ export function ChatPage() {
         </div>
       )}
 
-      <div className="w-full bg-claude-bg pt-4 pb-4 z-20 border-t border-claude-border">
+      <div className="w-full bg-claude-bg pt-3 pb-5 z-20 border-t border-claude-border/60">
         <ChatInput
           onSend={handleSend}
           disabled={isStreaming || isPlanLoading || !!pendingPlanReview}
@@ -158,6 +158,9 @@ export function ChatPage() {
           selectedTool={selectedTool}
           onToolChange={setSelectedTool}
         />
+        <p className="text-center text-[11px] text-zinc-400 mt-2.5 font-sans">
+          Lex може допускати помилки. Перевіряйте важливу інформацію.
+        </p>
       </div>
     </>
   );
