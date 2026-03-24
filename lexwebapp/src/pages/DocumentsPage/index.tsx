@@ -7,7 +7,7 @@ import { toastTDynamic } from '../../i18n/toast-i18n';
 import { FolderNavigator } from './FolderNavigator';
 import { UploadQueuePanel } from './UploadQueuePanel';
 import { DocumentViewerModal } from '../../components/DocumentViewerModal';
-import { ClassificationPanel } from './ClassificationPanel';
+import { PostUploadDestination } from './PostUploadDestination';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { EditDocumentModal } from './EditDocumentModal';
 import { MoveDocumentModal } from './MoveDocumentModal';
@@ -24,7 +24,6 @@ import { useDocumentActions } from './useDocumentActions';
 import { useDocumentPreview } from './useDocumentPreview';
 import { useMultiSelect } from './useMultiSelect';
 import { useEditNavigation } from './useEditNavigation';
-import { RetroactiveEncryptionPanel } from '../../components/encryption/RetroactiveEncryptionPanel';
 
 const VIEW_MODE_KEY = 'documents-view-mode';
 
@@ -73,7 +72,6 @@ export function DocumentsPage() {
     loading,
     folders,
     foldersLoading,
-    docStats,
     loadDocuments,
     loadFolders,
     loadStats,
@@ -165,12 +163,13 @@ export function DocumentsPage() {
   });
 
   // Upload state from Zustand store
-  const { items: uploadItems, isUploading, completedFiles, recoveredSessions } = useUploadStore(
+  const { items: uploadItems, isUploading, completedFiles, recoveredSessions, showDestinationPicker } = useUploadStore(
     useShallow(s => ({
       items: s.items,
       isUploading: s.isUploading,
       completedFiles: s.completedFiles,
       recoveredSessions: s.recoveredSessions,
+      showDestinationPicker: s.showDestinationPicker,
     }))
   );
   const addFiles = useUploadStore(s => s.addFiles);
@@ -178,6 +177,7 @@ export function DocumentsPage() {
   const recoverSessions = useUploadStore(s => s.recoverSessions);
   const dismissRecoveredSession = useUploadStore(s => s.dismissRecoveredSession);
   const clearRecoveredSessions = useUploadStore(s => s.clearRecoveredSessions);
+  const dismissDestinationPicker = useUploadStore(s => s.dismissDestinationPicker);
 
   // Undo/redo
   const setOnActionExecuted = useUndoStore((s) => s.setOnActionExecuted);
@@ -293,14 +293,11 @@ export function DocumentsPage() {
             onStartUpload={handleStartUpload}
           />
 
-          <ClassificationPanel
-            stats={docStats}
-            onComplete={() => { loadDocuments(); loadStats(); }}
-          />
-
-          <div className="mb-4">
-            <RetroactiveEncryptionPanel />
-          </div>
+          {showDestinationPicker && (
+            <PostUploadDestination
+              onComplete={() => { dismissDestinationPicker(); loadDocuments(); loadStats(); }}
+            />
+          )}
 
           <DocumentSearchBar
             searchQuery={searchQuery}
