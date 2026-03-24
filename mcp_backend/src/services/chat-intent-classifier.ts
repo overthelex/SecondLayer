@@ -173,6 +173,14 @@ export class IntentClassifier {
         else if (hasEdrpouPattern || lowerQuery.includes('єдрпоу') || lowerQuery.includes('edrpou')) {
           queryType = 'registry_lookup';
         }
+        // Institutional analysis: judge/court statistics, deep analysis over time
+        else if (/рейтинг.{0,30}(?:судд|суд)|статистик.{0,30}(?:судд|суд)|відсот.{0,30}(?:задовол|відмов).{0,30}судд|тенденці.{0,30}(?:закрит|судд)/i.test(lowerQuery)) {
+          queryType = 'institutional_analysis';
+        }
+        // Institutional analysis: "аналіз рішень суддів суду за N років", "проаналізуй всі рішення суду"
+        else if (/аналіз.{0,30}рішень.{0,30}судд|проаналізу.{0,30}всі.{0,30}рішення.{0,30}суд|всі справи судді|аналіз суду за.{0,20}років|аналіз.{0,30}судді.{0,20}за.{0,10}рок/i.test(lowerQuery)) {
+          queryType = 'institutional_analysis';
+        }
         // Practice analysis: "аналіз практики", "судова практика", "як суди"
         else if (/проаналізу|аналіз практик|судова практика|знайти справи|знайти практику|огляд практики|яка практика|як суди|позиція судів/i.test(query)) {
           queryType = 'practice_analysis';
@@ -200,14 +208,6 @@ export class IntentClassifier {
         // Unsupported: non-legal queries
         else if (/(?:погод[аиу]|рецепт|футбол|спорт|кіно|фільм|музик|пісн)/i.test(lowerQuery) && !domains.some((d: string) => d !== 'court')) {
           queryType = 'unsupported';
-        }
-        // Institutional analysis: judge/court statistics, deep analysis over time
-        else if (/рейтинг.{0,30}(?:судд|суд)|статистик.{0,30}(?:судд|суд)|відсот.{0,30}(?:задовол|відмов).{0,30}судд|тенденці.{0,30}(?:закрит|судд)/i.test(lowerQuery)) {
-          queryType = 'institutional_analysis';
-        }
-        // Institutional analysis: "аналіз рішень суддів суду за N років", "проаналізуй всі рішення суду"
-        else if (/аналіз.{0,30}рішень.{0,30}судд|проаналізу.{0,30}всі.{0,30}рішення.{0,30}суд|всі справи судді|аналіз суду за.{0,20}років|аналіз.{0,30}судді.{0,20}за.{0,10}рок/i.test(lowerQuery)) {
-          queryType = 'institutional_analysis';
         }
       }
 
@@ -350,7 +350,8 @@ export class IntentClassifier {
       const priority = filtered.filter((d) => priorityTools.has(d.name));
       const rest = filtered.filter((d) => !priorityTools.has(d.name));
 
-      const combined = [...priority, ...rest].slice(0, 14);
+      // Dynamic tool cap: default 16, future: adjust based on plan complexity
+      const combined = [...priority, ...rest].slice(0, 16);
 
       // Always include request_additional_tools as safety valve
       combined.push(META_TOOL_DEF);
@@ -358,8 +359,9 @@ export class IntentClassifier {
       return combined;
     }
 
-    // Cap at 14 tools + meta-tool = 15
-    const result = filtered.slice(0, 14);
+    // Dynamic tool cap: default 16 + meta-tool = 17
+    // TODO: adjust dynamically based on plan step count (1-2 steps → 10, 3-4 → 14, 5+ → 18)
+    const result = filtered.slice(0, 16);
     result.push(META_TOOL_DEF);
 
     return result;
