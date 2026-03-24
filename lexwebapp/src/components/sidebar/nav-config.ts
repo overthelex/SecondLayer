@@ -3,7 +3,7 @@ import {
   BarChart3, Newspaper,
   Clock, FileText, Search, Activity, Database, Users, DollarSign,
   Server, Boxes, Globe, CreditCard, Settings, Terminal, Tag, Zap,
-  Layers, HardDrive, Gauge,
+  Layers, HardDrive, Gauge, Code,
 } from 'lucide-react';
 import { ROUTES } from '../../router/routes';
 
@@ -37,6 +37,10 @@ export function getMattersSections(isAttorney: boolean) {
 export const attorneyClientSections = [
   { id: 'attorney-search', label: 'Знайти адвоката', icon: Search, route: ROUTES.ATTORNEYS },
   { id: 'my-consultations', label: 'Мої консультації', icon: Briefcase, route: ROUTES.CONSULTATIONS },
+];
+
+export const developerSections = [
+  { id: 'dev-docs', label: 'API документація', icon: Code, route: ROUTES.DEVELOPER_DOCS },
 ];
 
 export const externalSourcesSections = [

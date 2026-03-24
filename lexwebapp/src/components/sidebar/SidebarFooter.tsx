@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, CreditCard, UsersRound, Plug, FileText, UserPlus, Code, ChevronUp } from 'lucide-react';
+import { User, LogOut, CreditCard, UsersRound, Plug, FileText, UserPlus, Code, ChevronUp, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ROUTES } from '../../router/routes';
 import type { UserRole } from '../../types/models/User';
@@ -103,6 +103,14 @@ export function SidebarFooter({
             >
               <Plug size={13} className={menuIconClass} />
               <span className={menuLabelClass}>MCP конект</span>
+            </button>
+
+            <button
+              onClick={() => { onProfileMenuClick(); navigate(ROUTES.DEVELOPER_DOCS); }}
+              className={`${menuItemClass} border-b border-white/[0.05]`}
+            >
+              <BookOpen size={13} className={menuIconClass} />
+              <span className={menuLabelClass}>API документація</span>
             </button>
 
             {role === 'company' && (
