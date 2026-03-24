@@ -199,7 +199,7 @@ export const useChatStore = create<ChatState>()(
         switchConversation: async (conversationId: string) => {
           console.log('[ChatStore] switchConversation called', { conversationId, isAuth: isAuthenticated() });
           if (!isAuthenticated()) { console.warn('[ChatStore] Not authenticated, aborting switch'); return; }
-          const { conversationId: currentId, messages, isStreaming } = get();
+          const { conversationId: currentId, messages, streamController } = get();
 
           // Save current conversation messages to cache before switching
           if (currentId && messages.length > 0) {
@@ -208,16 +208,24 @@ export const useChatStore = create<ChatState>()(
             }));
           }
 
+          // Cancel any active stream from the previous conversation
+          if (streamController) {
+            streamController.abort();
+          }
+
           // Restore cached messages for the target conversation immediately
           const cached = get().conversationCache[conversationId] || [];
-          const targetHasActiveStream = isStreaming && cached.some((m) => m.isStreaming);
 
-          // Set conversationId and show cached messages (or empty while loading)
-          set({ conversationId, messages: cached.length > 0 ? cached : [] });
-
-          // Skip server fetch if the target conversation is currently being streamed
-          // (stream will continue updating the restored cached messages)
-          if (targetHasActiveStream) return;
+          // Reset all per-conversation state to prevent leakage
+          set({
+            conversationId,
+            messages: cached.length > 0 ? cached : [],
+            isStreaming: false,
+            streamController: null,
+            currentTool: null,
+            pendingPlanReview: null,
+            isPlanLoading: false,
+          });
 
           try {
             const response = await api.conversations.get(conversationId);
@@ -293,9 +301,19 @@ export const useChatStore = create<ChatState>()(
 
         // Start a new empty conversation
         newConversation: () => {
+          const { streamController } = get();
+          // Cancel any active stream from the previous conversation
+          if (streamController) {
+            streamController.abort();
+          }
           set({
             messages: [],
             conversationId: null,
+            isStreaming: false,
+            streamController: null,
+            currentTool: null,
+            pendingPlanReview: null,
+            isPlanLoading: false,
           });
         },
 
