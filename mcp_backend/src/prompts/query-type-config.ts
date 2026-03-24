@@ -97,7 +97,7 @@ export const QUERY_TYPE_CONFIG: Record<QueryType, QueryTypeConfig> = {
     defaultBudget: 'deep',
     requiresGrounding: true,
     preferredScenarios: ['practice_pro_contra', 'court_practice_search', 'comprehensive_legal_advice'],
-    groundingNote: 'Порівняння МУСИТЬ базуватися на конкретних справах з результатів пошуку. Кожен підхід підкріплюй номерами справ. Обов\'язково побудуй порівняльну таблицю.',
+    groundingNote: 'Порівняння МУСИТЬ базуватися на конкретних справах з результатів пошуку. Кожен підхід підкріплюй номерами справ. Обов\'язково побудуй порівняльну таблицю. Завершуй аналіз викликом build_legal_decision для структурованого рішення з оцінкою позицій та картою ризиків.',
     thinkingPrefix: 'Порівнюю правові підходи',
   },
 

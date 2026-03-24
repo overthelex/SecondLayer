@@ -95,7 +95,7 @@ export function buildPlanGenerationMessages(
       parliament_query: '11. queryType=parliament_query: use rada_ tools, max 2 steps',
       document_query: '11. queryType=document_query: ALWAYS start with list_documents(query="", limit=50) to get ALL user documents. Then use semantic_search for content-relevant fragments. For analysis: also use get_document to read full text of relevant docs. For delete/update by name: first list_documents to find the doc, then delete_document/update_document with the ID. Max 5 steps.',
       document_drafting: '11. queryType=document_drafting: first find_relevant_law_articles for legal basis, then generate document',
-      comparative_analysis: '11. queryType=comparative_analysis: search each competing approach separately with pro/contra, include legislation',
+      comparative_analysis: '11. queryType=comparative_analysis: search each competing approach separately with pro/contra, include legislation. ALWAYS finish with build_legal_decision to produce structured decision with scored positions, risk map, and recommendations.',
       due_diligence: '11. queryType=due_diligence: start with registry lookup, add debtors/bankruptcy/enforcement checks, then court cases',
       institutional_analysis: '11. queryType=institutional_analysis: use search_edrsr_decisions (filter by judge/court/date), search_edrsr_fulltext, search_edrsr_semantic for different aspects (topics, time periods), include count_cases_by_party and legislation lookups. Do NOT use search_legal_precedents (deprecated).',
       calculation: '11. queryType=calculation: find relevant procedural norms first, then apply calculation logic',
