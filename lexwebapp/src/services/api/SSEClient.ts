@@ -51,6 +51,14 @@ export class SSEClient {
 
       if (!response.ok) {
         const errorText = await response.text();
+        // Parse structured error (402 balance, 429 rate limit)
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.code) {
+            handlers.onError?.(errorJson);
+            return controller;
+          }
+        } catch { /* not JSON, fall through */ }
         throw new Error(
           `SSE stream failed: ${response.status} ${response.statusText} - ${errorText}`
         );
