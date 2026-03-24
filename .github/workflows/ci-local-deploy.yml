@@ -389,5 +389,6 @@ jobs:
           [ "$FRONTEND_CHANGED" = "true" ] && wait_healthy "Frontend" "lexwebapp-local" 60
 
           check_health "Local (public)" "https://local.legal.org.ua/health"
+          check_health "Local Platform (public)" "https://local-platform.legal.org.ua/health"
 
           if [ "$FAILED" = "true" ]; then exit 1; fi
