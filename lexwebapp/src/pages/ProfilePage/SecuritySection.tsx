@@ -1,5 +1,6 @@
 import { Key, Smartphone, Loader2, Trash2 } from 'lucide-react';
 import type { UseProfileReturn } from './types';
+import { useProfileT } from '../../i18n/profile-i18n';
 
 type SecuritySectionProps = Pick<
   UseProfileReturn,
@@ -13,11 +14,12 @@ export function SecuritySection({
   handleRegisterPasskey,
   handleDeleteCredential,
 }: SecuritySectionProps) {
+  const t = useProfileT();
   return (
     <section className="bg-white rounded-2xl border border-claude-border shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-claude-border/50 bg-claude-bg/30">
         <h3 className="text-sm font-semibold text-claude-subtext uppercase tracking-wider">
-          Security Keys (Passkeys)
+          {t.securityKeys}
         </h3>
       </div>
       <div className="p-6 space-y-4">
@@ -36,8 +38,8 @@ export function SecuritySection({
                     </div>
                     <div className="text-xs text-claude-subtext">
                       {cred.lastUsedAt
-                        ? `Останнє використання: ${new Date(cred.lastUsedAt).toLocaleDateString('uk-UA')}`
-                        : `Додано: ${new Date(cred.createdAt).toLocaleDateString('uk-UA')}`}
+                        ? `${t.lastUsed} ${new Date(cred.lastUsedAt).toLocaleDateString('uk-UA')}`
+                        : `${t.added} ${new Date(cred.createdAt).toLocaleDateString('uk-UA')}`}
                     </div>
                   </div>
                 </div>
@@ -45,7 +47,7 @@ export function SecuritySection({
                   onClick={() => handleDeleteCredential(cred.id)}
                   disabled={isDeletingKey === cred.id}
                   className="p-2 text-claude-subtext hover:text-red-500 transition-colors disabled:opacity-50"
-                  title="Видалити ключ"
+                  title={t.deleteKey}
                 >
                   {isDeletingKey === cred.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                 </button>
@@ -54,7 +56,7 @@ export function SecuritySection({
           </div>
         ) : (
           <p className="text-sm text-claude-subtext text-center py-2">
-            Немає зареєстрованих ключів безпеки
+            {t.noSecurityKeys}
           </p>
         )}
 
@@ -66,7 +68,7 @@ export function SecuritySection({
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl font-medium text-sm hover:bg-claude-bg transition-colors disabled:opacity-50"
           >
             {isRegisteringKey ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />}
-            USB / NFC ключ
+            {t.usbNfcKey}
           </button>
           <button
             onClick={() => handleRegisterPasskey()}
@@ -74,7 +76,7 @@ export function SecuritySection({
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl font-medium text-sm hover:bg-claude-bg transition-colors disabled:opacity-50"
           >
             {isRegisteringKey ? <Loader2 size={16} className="animate-spin" /> : <Smartphone size={16} />}
-            Passkey (телефон)
+            {t.passkeyPhone}
           </button>
         </div>
       </div>

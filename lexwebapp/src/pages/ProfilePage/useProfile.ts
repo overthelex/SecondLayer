@@ -6,13 +6,16 @@ import { authService, billingService } from '../../services';
 import { api } from '../../utils/api-client';
 import { BillingBalance } from '../../types/models';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 import { getErrorMessage, hasName } from '../../utils/errors';
+import { useProfileT } from '../../i18n/profile-i18n';
 import type { EditFormState, UseProfileReturn } from './types';
 
 export function useProfile(): UseProfileReturn {
   const { user, isLoading, updateUser } = useAuth();
   const { formatUah } = useCurrencyRate();
+  const t = useProfileT();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -99,11 +102,11 @@ export function useProfile(): UseProfileReturn {
         picture: editForm.picture || undefined
       });
       updateUser(updatedUser);
-      showToast.success('Профіль успішно оновлено');
+      showToast.success(toastT('profileUpdated'));
       setIsEditModalOpen(false);
     } catch (error) {
       console.error('Failed to update profile:', error);
-      showToast.error('Не вдалося оновити профіль');
+      showToast.error(toastT('profileUpdateFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -124,12 +127,12 @@ export function useProfile(): UseProfileReturn {
     ];
 
     if (!file.type.startsWith('image/') && !supportedTypes.includes(file.type)) {
-      showToast.error('Непідтримуваний формат зображення');
+      showToast.error(toastT('unsupportedImageFormat'));
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      showToast.error('Розмір файлу не повинен перевищувати 10MB');
+      showToast.error(toastT('fileSizeExceeds10MB'));
       return;
     }
 
@@ -138,10 +141,10 @@ export function useProfile(): UseProfileReturn {
       const updatedUser = await authService.uploadAvatar(file);
       updateUser(updatedUser);
       setEditForm(prev => ({ ...prev, picture: updatedUser.picture || '' }));
-      showToast.success('Фото профілю оновлено');
+      showToast.success(toastT('profilePhotoUpdated'));
     } catch (error) {
       console.error('Failed to upload photo:', error);
-      showToast.error('Не вдалося завантажити фото');
+      showToast.error(toastT('profilePhotoUploadFailed'));
     } finally {
       setIsUploadingPhoto(false);
       // Reset input so same file can be re-selected
@@ -157,11 +160,11 @@ export function useProfile(): UseProfileReturn {
       const regResponse = await startRegistration({ optionsJSON: options });
       const friendlyName = attachment === 'cross-platform' ? 'Hardware Key' : 'Phone Passkey';
       await authService.webauthnRegisterVerify(regResponse, friendlyName, attachment);
-      showToast.success('Ключ безпеки зареєстровано!');
+      showToast.success(toastT('securityKeyRegistered'));
       await loadCredentials();
     } catch (err: unknown) {
       if (hasName(err) && err.name === 'NotAllowedError') {
-        showToast.error('Реєстрацію скасовано');
+        showToast.error(toastT('registrationCancelled'));
       } else {
         console.error('Passkey registration failed:', err);
         showToast.error(getErrorMessage(err));
@@ -175,11 +178,11 @@ export function useProfile(): UseProfileReturn {
     setIsDeletingKey(credentialId);
     try {
       await authService.webauthnDeleteCredential(credentialId);
-      showToast.success('Ключ видалено');
+      showToast.success(toastT('keyDeleted'));
       await loadCredentials();
     } catch (err: unknown) {
       console.error('Failed to delete credential:', err);
-      showToast.error('Не вдалося видалити ключ');
+      showToast.error(toastT('keyDeleteFailed'));
     } finally {
       setIsDeletingKey(null);
     }
@@ -187,7 +190,7 @@ export function useProfile(): UseProfileReturn {
 
   const handleCreateMcpToken = async () => {
     if (!newTokenName.trim()) {
-      showToast.error('Введіть назву токена');
+      showToast.error(toastT('enterTokenName'));
       return;
     }
     setIsCreatingToken(true);
@@ -198,7 +201,7 @@ export function useProfile(): UseProfileReturn {
       await loadMcpTokens();
     } catch (err: unknown) {
       console.error('Failed to create MCP token:', err);
-      showToast.error('Не вдалося створити токен');
+      showToast.error(toastT('tokenCreateFailed'));
     } finally {
       setIsCreatingToken(false);
     }
@@ -208,11 +211,11 @@ export function useProfile(): UseProfileReturn {
     setIsDeletingToken(keyId);
     try {
       await api.keys.revoke(keyId);
-      showToast.success('Токен відкликано');
+      showToast.success(toastT('tokenRevoked'));
       await loadMcpTokens();
     } catch (err: unknown) {
       console.error('Failed to revoke MCP token:', err);
-      showToast.error('Не вдалося відкликати токен');
+      showToast.error(toastT('tokenRevokeFailed'));
     } finally {
       setIsDeletingToken(null);
     }
@@ -221,50 +224,50 @@ export function useProfile(): UseProfileReturn {
   const handleCopyToken = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedToken(true);
-      showToast.success('Скопійовано');
+      showToast.success(toastT('copied'));
       setTimeout(() => setCopiedToken(false), 2000);
     });
   };
 
   const stats = [{
-    label: 'Баланс',
+    label: t.balance,
     value: billing ? formatUah(Number(billing.balance_usd)) : '—',
     icon: Banknote
   }, {
-    label: 'Всього запитів',
+    label: t.totalRequests,
     value: billing ? String(billing.total_requests) : '—',
     icon: Activity
   }, {
-    label: 'Всього витрачено',
+    label: t.totalSpent,
     value: billing ? formatUah(Number(billing.total_spent_usd)) : '—',
     icon: Zap
   }];
 
   const settingsGroups = [{
-    title: 'Обліковий запис',
+    title: t.accountGroup,
     items: [{
       icon: Mail,
-      label: 'Електронна пошта',
-      value: user?.email || 'Не вказано'
+      label: t.emailSetting,
+      value: user?.email || t.notSpecified
     }, {
       icon: Shield,
-      label: 'Автентифікація',
+      label: t.authentication,
       value: 'Google OAuth'
     }, {
       icon: User,
-      label: 'ID користувача',
-      value: user?.id?.substring(0, 8) + '...' || 'Н/Д'
+      label: t.userId,
+      value: user?.id?.substring(0, 8) + '...' || t.na
     }]
   }, {
-    title: 'Додаток',
+    title: t.appGroup,
     items: [{
       icon: Settings,
-      label: 'Мова',
-      value: 'Українська'
+      label: t.language,
+      value: t.languageValue
     }, {
       icon: CreditCard,
-      label: 'Білінг',
-      value: billing ? `${formatUah(Number(billing.balance_usd))} • ${billing.pricing_tier}` : 'Завантаження...',
+      label: t.billing,
+      value: billing ? `${formatUah(Number(billing.balance_usd))} • ${billing.pricing_tier}` : t.loadingEllipsis,
       onClick: () => window.location.href = '/billing'
     }]
   }];

@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { useConsentStore, type ConsentPreferences } from '../stores/consentStore';
+import { useMiscT } from '../i18n/misc-i18n';
 
 interface CategoryToggleProps {
   label: string;
@@ -59,6 +60,7 @@ export function CookieConsent() {
   const openSettings = useConsentStore(s => s.openSettings);
   const closeSettings = useConsentStore(s => s.closeSettings);
 
+  const { t } = useMiscT();
   const [localPrefs, setLocalPrefs] = useState<Omit<ConsentPreferences, 'essential'>>({
     functional: false,
     analytics: false,
@@ -100,38 +102,37 @@ export function CookieConsent() {
                 <div className="flex items-center gap-3 mb-4">
                   <Shield className="w-5 h-5 text-amber-600" />
                   <h2 className="text-lg font-semibold text-stone-800">
-                    Налаштування файлів cookie
+                    {t('cookieSettingsTitle')}
                   </h2>
                 </div>
 
                 <p className="text-sm text-stone-600 mb-4">
-                  Оберіть, які категорії файлів cookie ви дозволяєте. Необхідні файли cookie
-                  потрібні для роботи сайту і не можуть бути вимкнені.
+                  {t('cookieSettingsDesc')}
                 </p>
 
                 <div className="space-y-1">
                   <CategoryToggle
-                    label="Необхідні"
-                    description="Автентифікація, безпека, базова функціональність сайту"
+                    label={t('cookieEssential')}
+                    description={t('cookieEssentialDesc')}
                     checked={true}
                     disabled={true}
                     onChange={() => {}}
                   />
                   <CategoryToggle
-                    label="Функціональні"
-                    description="Мова інтерфейсу, валюта, регіональні налаштування, збереження вподобань"
+                    label={t('cookieFunctional')}
+                    description={t('cookieFunctionalDesc')}
                     checked={localPrefs.functional}
                     onChange={(v) => setLocalPrefs((p) => ({ ...p, functional: v }))}
                   />
                   <CategoryToggle
-                    label="Аналітичні"
-                    description="Статистика використання, виявлення помилок, покращення продукту"
+                    label={t('cookieAnalytics')}
+                    description={t('cookieAnalyticsDesc')}
                     checked={localPrefs.analytics}
                     onChange={(v) => setLocalPrefs((p) => ({ ...p, analytics: v }))}
                   />
                   <CategoryToggle
-                    label="Маркетингові"
-                    description="Персоналізовані рекомендації та рекламні повідомлення"
+                    label={t('cookieMarketing')}
+                    description={t('cookieMarketingDesc')}
                     checked={localPrefs.marketing}
                     onChange={(v) => setLocalPrefs((p) => ({ ...p, marketing: v }))}
                   />
@@ -142,13 +143,13 @@ export function CookieConsent() {
                     onClick={handleSaveCustom}
                     className="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-xl transition-colors"
                   >
-                    Зберегти вибір
+                    {t('saveSelection')}
                   </button>
                   <button
                     onClick={acceptAll}
                     className="flex-1 px-4 py-2.5 bg-stone-800 hover:bg-stone-900 text-white text-sm font-medium rounded-xl transition-colors"
                   >
-                    Прийняти всі
+                    {t('acceptAll')}
                   </button>
                 </div>
 
@@ -156,7 +157,7 @@ export function CookieConsent() {
                   onClick={closeSettings}
                   className="w-full mt-3 px-4 py-2 text-sm text-stone-500 hover:text-stone-700 transition-colors"
                 >
-                  Скасувати
+                  {t('cancel')}
                 </button>
               </div>
             </motion.div>
@@ -178,12 +179,10 @@ export function CookieConsent() {
                     <Shield className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <h3 className="text-sm font-semibold text-stone-800">
-                        Ми використовуємо файли cookie
+                        {t('weUseCookies')}
                       </h3>
                       <p className="text-xs text-stone-500 mt-1 leading-relaxed">
-                        SecondLayer використовує файли cookie для забезпечення роботи сайту,
-                        збереження ваших налаштувань та покращення сервісу. Ви можете обрати,
-                        якими саме даними ділитися з нами.
+                        {t('cookieBannerDesc')}
                       </p>
                     </div>
                   </div>
@@ -194,7 +193,7 @@ export function CookieConsent() {
                     className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 mb-3 transition-colors"
                   >
                     {expandedInfo ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                    Детальніше про категорії
+                    {t('moreAboutCategories')}
                   </button>
 
                   <AnimatePresence>
@@ -207,16 +206,16 @@ export function CookieConsent() {
                       >
                         <div className="text-xs text-stone-500 space-y-2 bg-stone-50 rounded-xl p-3">
                           <div>
-                            <span className="font-medium text-stone-700">Необхідні</span> — автентифікація, CSRF-захист, сесії. Завжди активні.
+                            <span className="font-medium text-stone-700">{t('cookieEssential')}</span> — {t('cookieCatEssentialDetail')}
                           </div>
                           <div>
-                            <span className="font-medium text-stone-700">Функціональні</span> — мова, валюта, тема оформлення, регіон пошуку.
+                            <span className="font-medium text-stone-700">{t('cookieFunctional')}</span> — {t('cookieCatFunctionalDetail')}
                           </div>
                           <div>
-                            <span className="font-medium text-stone-700">Аналітичні</span> — анонімна статистика використання для покращення продукту.
+                            <span className="font-medium text-stone-700">{t('cookieAnalytics')}</span> — {t('cookieCatAnalyticsDetail')}
                           </div>
                           <div>
-                            <span className="font-medium text-stone-700">Маркетингові</span> — персоналізовані рекомендації (наразі не використовуються).
+                            <span className="font-medium text-stone-700">{t('cookieMarketing')}</span> — {t('cookieCatMarketingDetail')}
                           </div>
                         </div>
                       </motion.div>
@@ -226,11 +225,11 @@ export function CookieConsent() {
                   {/* Policy links */}
                   <div className="flex items-center gap-3 text-xs text-stone-400 mb-4">
                     <a href="/ua/privacy" target="_blank" rel="noopener" className="hover:text-amber-600 flex items-center gap-1 transition-colors">
-                      Політика конфіденційності <ExternalLink className="w-3 h-3" />
+                      {t('privacyPolicy')} <ExternalLink className="w-3 h-3" />
                     </a>
                     <span>·</span>
                     <a href="/ua/terms" target="_blank" rel="noopener" className="hover:text-amber-600 flex items-center gap-1 transition-colors">
-                      Умови використання <ExternalLink className="w-3 h-3" />
+                      {t('termsOfUse')} <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
 
@@ -240,19 +239,19 @@ export function CookieConsent() {
                       onClick={rejectNonEssential}
                       className="px-4 py-2 text-sm text-stone-600 hover:text-stone-800 border border-stone-200 hover:border-stone-300 rounded-xl transition-colors"
                     >
-                      Лише необхідні
+                      {t('essentialOnly')}
                     </button>
                     <button
                       onClick={openSettings}
                       className="px-4 py-2 text-sm text-stone-600 hover:text-stone-800 border border-stone-200 hover:border-stone-300 rounded-xl transition-colors"
                     >
-                      Налаштувати
+                      {t('customize')}
                     </button>
                     <button
                       onClick={acceptAll}
                       className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-xl transition-colors"
                     >
-                      Прийняти всі
+                      {t('acceptAll')}
                     </button>
                   </div>
                 </div>

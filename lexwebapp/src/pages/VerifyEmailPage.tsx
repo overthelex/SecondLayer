@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import showToast from '../utils/toast';
+import { toastT } from '../i18n/toast-i18n';
 import { getErrorMessage } from '../utils/errors';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -39,7 +40,7 @@ export function VerifyEmailPage() {
 
         setStatus('success');
         setMessage('Email verified successfully! You can now login.');
-        showToast.success('Email verified!');
+        showToast.success(toastT('emailVerified'));
 
         setTimeout(() => {
           navigate('/login');
@@ -47,7 +48,7 @@ export function VerifyEmailPage() {
       } catch (err: unknown) {
         setStatus('error');
         setMessage(getErrorMessage(err));
-        showToast.error('Verification failed');
+        showToast.error(toastT('verificationFailed'));
       }
     };
 

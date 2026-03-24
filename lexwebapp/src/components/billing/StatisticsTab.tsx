@@ -35,6 +35,7 @@ import {
 import { BillingLoadingState, BillingErrorState } from './shared';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 interface StatisticsData {
@@ -105,7 +106,7 @@ export function StatisticsTab() {
     } catch (err: unknown) {
       console.error('Failed to fetch statistics:', err);
       setError('Не вдалося завантажити статистику');
-      showToast.error('Не вдалося завантажити статистику');
+      showToast.error(toastT('statisticsLoadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -131,7 +132,7 @@ export function StatisticsTab() {
     a.download = `statistics_${period}_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast.success('CSV-файл завантажено');
+    showToast.success(toastT('csvDownloaded'));
   };
 
   if (isLoading) {

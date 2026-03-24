@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { toastT, toastTDynamic } from '../../i18n/toast-i18n';
 import { getErrorMessage, hasCode } from '../../utils/errors';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
@@ -56,7 +57,7 @@ function MonobankPaymentForm({ amountUah, uahRate, onSuccess }: { amountUah: num
       const { data } = await api.payment.createMonobank({ amount_uah: amountUah });
 
       if (MOCK_PAYMENTS) {
-        showToast.success(`Тестова оплата ${amountUah} UAH успішна!`);
+        showToast.success(toastTDynamic('testPaymentSuccess', String(amountUah)));
         setTimeout(onSuccess, 1000);
         return;
       }
@@ -226,12 +227,12 @@ function MetaMaskPaymentForm({ amount, onSuccess }: { amount: number; onSuccess:
     try {
       const { data } = await api.payment.createMetaMask({ amount_usd: amount, network, token });
       if (MOCK_PAYMENTS) {
-        showToast.success(`Тестова крипто-оплата $${amount} створена!`);
+        showToast.success(toastTDynamic('testCryptoPaymentCreated', String(amount)));
         setPaymentData(data);
         setTimeout(async () => {
           try {
             await api.payment.verifyMetaMask({ paymentIntentId: data.paymentIntentId, txHash: '0x' + 'a'.repeat(64) });
-            showToast.success('Оплату підтверджено!');
+            showToast.success(toastT('paymentConfirmed'));
             onSuccess();
           } catch { /* mock */ }
         }, 2000);
@@ -278,14 +279,14 @@ function MetaMaskPaymentForm({ amount, onSuccess }: { amount: number; onSuccess:
         });
       }
 
-      showToast.info('Транзакцію відправлено. Верифікація...');
+      showToast.info(toastT('transactionSent'));
       const { data: verifyResult } = await api.payment.verifyMetaMask({ paymentIntentId: paymentData.paymentIntentId, txHash });
 
       if (verifyResult.status === 'succeeded') {
-        showToast.success('Оплату підтверджено! Баланс оновлено.');
+        showToast.success(toastT('paymentConfirmedBalanceUpdated'));
         onSuccess();
       } else if (verifyResult.status === 'pending') {
-        showToast.info('Транзакція ще обробляється.');
+        showToast.info(toastT('transactionProcessing'));
       } else {
         setError(verifyResult.message || 'Верифікація не пройшла');
       }
@@ -355,7 +356,7 @@ function MetaMaskPaymentForm({ amount, onSuccess }: { amount: number; onSuccess:
           <div className="w-2 h-2 bg-green-500 rounded-full" />
           <span className="text-sm font-medium text-green-800">{truncateAddress(connectedAddress)}</span>
           <button
-            onClick={() => { navigator.clipboard.writeText(connectedAddress); showToast.success('Адресу скопійовано'); }}
+            onClick={() => { navigator.clipboard.writeText(connectedAddress); showToast.success(toastT('addressCopied')); }}
             className="p-1 hover:bg-green-100 rounded"
           >
             <Copy size={14} className="text-green-600" />
@@ -424,7 +425,7 @@ function MetaMaskPaymentForm({ amount, onSuccess }: { amount: number; onSuccess:
             <p className="text-sm font-medium text-blue-800">Відправте {paymentData.cryptoAmount} {paymentData.token.toUpperCase()} на адресу:</p>
             <div className="flex items-center gap-2">
               <code className="flex-1 text-xs bg-white p-2 rounded border border-blue-200 break-all">{paymentData.walletAddress}</code>
-              <button onClick={() => { navigator.clipboard.writeText(paymentData.walletAddress); showToast.success('Скопійовано'); }} className="p-2 hover:bg-blue-100 rounded"><Copy size={16} className="text-blue-600" /></button>
+              <button onClick={() => { navigator.clipboard.writeText(paymentData.walletAddress); showToast.success(toastT('copied')); }} className="p-2 hover:bg-blue-100 rounded"><Copy size={16} className="text-blue-600" /></button>
             </div>
             <p className="text-xs text-blue-700">Мережа: {paymentData.network === 'ethereum' ? 'Ethereum' : 'Polygon'}{paymentData.token === 'eth' ? ` | Курс: $${paymentData.exchangeRate?.toFixed(2)}` : ''}</p>
           </div>
@@ -458,7 +459,7 @@ function BinancePayForm({ amount, onSuccess }: { amount: number; onSuccess: () =
     try {
       const { data } = await api.payment.createBinancePay({ amount_usd: amount });
       if (MOCK_PAYMENTS) {
-        showToast.success(`Тестове замовлення Binance Pay $${amount} створено!`);
+        showToast.success(toastTDynamic('testBinancePayCreated', String(amount)));
         setTimeout(onSuccess, 3000);
         return;
       }
@@ -468,7 +469,7 @@ function BinancePayForm({ amount, onSuccess }: { amount: number; onSuccess: () =
           const { data: statusData } = await api.payment.getStatus('binance_pay', data.paymentIntentId);
           if (statusData.status === 'succeeded') {
             if (pollRef.current) clearInterval(pollRef.current);
-            showToast.success('Binance Pay оплату підтверджено!');
+            showToast.success(toastT('binancePayConfirmed'));
             onSuccess();
           }
         } catch { /* ignore */ }

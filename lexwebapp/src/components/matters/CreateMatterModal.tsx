@@ -8,6 +8,7 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useCreateMatter } from '../../hooks/queries/useMatters';
 import { useClients } from '../../hooks/queries/useClients';
+import { useMattersT } from '../../i18n/matters-i18n';
 import type { MatterType } from '../../types/models/Matter';
 
 interface CreateMatterModalProps {
@@ -17,18 +18,19 @@ interface CreateMatterModalProps {
   clientName?: string;
 }
 
-const MATTER_TYPES: { value: MatterType; label: string }[] = [
-  { value: 'litigation', label: 'Судовий процес' },
-  { value: 'advisory', label: 'Консультування' },
-  { value: 'transactional', label: 'Транзакційна' },
-  { value: 'regulatory', label: 'Регуляторна' },
-  { value: 'arbitration', label: 'Арбітраж' },
-  { value: 'other', label: 'Інше' },
+const MATTER_TYPE_KEYS: { value: MatterType; key: string }[] = [
+  { value: 'litigation', key: 'typeLitigation' },
+  { value: 'advisory', key: 'typeAdvisory' },
+  { value: 'transactional', key: 'typeTransactional' },
+  { value: 'regulatory', key: 'typeRegulatory' },
+  { value: 'arbitration', key: 'typeArbitration' },
+  { value: 'other', key: 'typeOther' },
 ];
 
 export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClientId, clientName }: CreateMatterModalProps) {
   const createMatter = useCreateMatter();
   const { data: clientsData, isLoading: clientsLoading } = useClients({ limit: 200 });
+  const t = useMattersT();
 
   const clients = clientsData?.clients || [];
   const hasClients = clients.length > 0;
@@ -89,16 +91,16 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Нова справа" size="lg">
+    <Modal isOpen={isOpen} onClose={handleClose} title={t('newMatter')} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4 p-1">
         {/* No clients warning */}
         {!clientsLoading && !hasClients && (
           <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm font-sans">
             <AlertCircle size={18} className="flex-shrink-0" />
             <div>
-              <span className="font-medium">Немає клієнтів.</span>{' '}
-              Спочатку створіть клієнта на сторінці{' '}
-              <a href="/clients" className="underline font-medium hover:no-underline">Клієнти</a>.
+              <span className="font-medium">{t('noClientsWarning')}</span>{' '}
+              {t('createClientFirst')}{' '}
+              <a href="/clients" className="underline font-medium hover:no-underline">{t('clientsPageLink')}</a>.
             </div>
           </div>
         )}
@@ -106,18 +108,18 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
         {/* Client selector */}
         {isClientLocked ? (
           <div className="p-3 bg-claude-bg rounded-xl text-sm font-sans">
-            <span className="text-claude-subtext">Клієнт:</span>{' '}
+            <span className="text-claude-subtext">{t('clientLabel')}:</span>{' '}
             <span className="font-medium text-claude-text">{clientName}</span>
           </div>
         ) : (
           <div>
             <label htmlFor="matter-client" className="block text-sm font-medium text-claude-text font-sans mb-1">
-              Клієнт <span className="text-red-500">*</span>
+              {t('clientLabel')} <span className="text-red-500">*</span>
             </label>
             {clientsLoading ? (
               <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-claude-subtext">
                 <Loader2 size={14} className="animate-spin" />
-                Завантаження...
+                {t('loadingText')}
               </div>
             ) : (
               <select
@@ -128,7 +130,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
                 disabled={!hasClients}
                 className="w-full px-3 py-2.5 bg-white border border-claude-border rounded-xl text-claude-text text-sm font-sans focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {!hasClients && <option value="">— Клієнтів не знайдено —</option>}
+                {!hasClients && <option value="">{t('noClientsOption')}</option>}
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>{c.client_name}</option>
                 ))}
@@ -140,7 +142,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
         {/* Matter Name */}
         <div>
           <label className="block text-sm font-medium text-claude-text font-sans mb-1">
-            Назва справи <span className="text-red-500">*</span>
+            {t('matterNameLabel')} <span className="text-red-500">*</span>
           </label>
           <input
             id="matter-name"
@@ -149,7 +151,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Наприклад: Спір щодо договору оренди"
+            placeholder={t('matterNamePlaceholder')}
             className="w-full px-3 py-2.5 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans text-sm"
           />
         </div>
@@ -157,10 +159,10 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
         {/* Matter Type */}
         <div>
           <label className="block text-sm font-medium text-claude-text font-sans mb-1">
-            Тип справи
+            {t('matterTypeLabel')}
           </label>
           <div className="grid grid-cols-3 gap-2">
-            {MATTER_TYPES.map((mt) => (
+            {MATTER_TYPE_KEYS.map((mt) => (
               <button
                 key={mt.value}
                 type="button"
@@ -171,7 +173,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
                     : 'bg-white text-claude-text border border-claude-border hover:bg-claude-bg'
                 }`}
               >
-                {mt.label}
+                {t(mt.key)}
               </button>
             ))}
           </div>
@@ -180,7 +182,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
         {/* Responsible Attorney */}
         <div>
           <label className="block text-sm font-medium text-claude-text font-sans mb-1">
-            Відповідальний адвокат
+            {t('responsibleAttorney')}
           </label>
           <input
             id="matter-attorney"
@@ -188,7 +190,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
             type="text"
             value={attorney}
             onChange={(e) => setAttorney(e.target.value)}
-            placeholder="Прізвище Ім'я"
+            placeholder={t('attorneyPlaceholder')}
             className="w-full px-3 py-2.5 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans text-sm"
           />
         </div>
@@ -196,7 +198,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
         {/* Opposing Party */}
         <div>
           <label className="block text-sm font-medium text-claude-text font-sans mb-1">
-            Протилежна сторона
+            {t('opposingParty')}
           </label>
           <input
             id="matter-opposing-party"
@@ -204,7 +206,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
             type="text"
             value={opposingParty}
             onChange={(e) => setOpposingParty(e.target.value)}
-            placeholder="Назва або ПІБ"
+            placeholder={t('opposingPartyPlaceholder')}
             className="w-full px-3 py-2.5 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans text-sm"
           />
         </div>
@@ -213,7 +215,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-claude-text font-sans mb-1">
-              Номер справи в суді
+              {t('courtNumberLabel')}
             </label>
             <input
               id="matter-court-number"
@@ -227,7 +229,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
           </div>
           <div>
             <label className="block text-sm font-medium text-claude-text font-sans mb-1">
-              Назва суду
+              {t('courtNameLabel')}
             </label>
             <input
               id="matter-court-name"
@@ -235,7 +237,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
               type="text"
               value={courtName}
               onChange={(e) => setCourtName(e.target.value)}
-              placeholder="Господарський суд м. Києва"
+              placeholder={t('courtNamePlaceholder')}
               className="w-full px-3 py-2.5 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans text-sm"
             />
           </div>
@@ -248,7 +250,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
             onClick={handleClose}
             className="flex-1 px-4 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl font-medium text-sm font-sans hover:bg-claude-bg transition-colors"
           >
-            Скасувати
+            {t('cancelButton')}
           </button>
           <button
             type="submit"
@@ -256,7 +258,7 @@ export function CreateMatterModal({ isOpen, onClose, clientId: preselectedClient
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-claude-accent text-white rounded-xl font-medium text-sm font-sans hover:bg-[#C66345] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {createMatter.isPending && <Loader2 size={16} className="animate-spin" />}
-            Створити
+            {t('createButton')}
           </button>
         </div>
       </form>

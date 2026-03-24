@@ -18,19 +18,27 @@ import { useMatterHolds } from '../../hooks/queries/useMatters';
 import { Spinner } from '../ui/Spinner';
 import { CreateHoldModal } from './CreateHoldModal';
 import { ReleaseHoldConfirmation } from './ReleaseHoldConfirmation';
+import { useMattersT } from '../../i18n/matters-i18n';
+import { getLocale } from '../../i18n/locales';
 import type { LegalHold } from '../../types/models/Matter';
 
-const HOLD_TYPE_LABELS: Record<string, string> = {
-  litigation: 'Судовий процес',
-  regulatory: 'Регуляторне',
-  investigation: 'Розслідування',
-  preservation: 'Збереження',
+const HOLD_TYPE_KEYS: Record<string, string> = {
+  litigation: 'holdTypeLitigation',
+  regulatory: 'holdTypeRegulatory',
+  investigation: 'holdTypeInvestigation',
+  preservation: 'holdTypePreservation',
 };
 
-const HOLD_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  active: { label: 'Активне', color: 'bg-red-100 text-red-700' },
-  released: { label: 'Знято', color: 'bg-green-100 text-green-700' },
-  expired: { label: 'Завершено', color: 'bg-gray-100 text-gray-600' },
+const HOLD_STATUS_KEYS: Record<string, string> = {
+  active: 'holdStatusActive',
+  released: 'holdStatusReleased',
+  expired: 'holdStatusExpired',
+};
+
+const HOLD_STATUS_COLORS: Record<string, string> = {
+  active: 'bg-red-100 text-red-700',
+  released: 'bg-green-100 text-green-700',
+  expired: 'bg-gray-100 text-gray-600',
 };
 
 interface HoldsListProps {
@@ -41,6 +49,9 @@ export function HoldsList({ matterId }: HoldsListProps) {
   const { data, isLoading, error } = useMatterHolds(matterId);
   const [showCreate, setShowCreate] = useState(false);
   const [releasingHold, setReleasingHold] = useState<LegalHold | null>(null);
+  const t = useMattersT();
+  const locale = getLocale();
+  const dateLocale = locale === 'uk' ? 'uk-UA' : locale === 'de' ? 'de-DE' : locale === 'es' ? 'es-ES' : 'en-US';
 
   if (isLoading) {
     return (
@@ -54,7 +65,7 @@ export function HoldsList({ matterId }: HoldsListProps) {
     return (
       <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 font-sans text-sm">
         <AlertCircle size={18} />
-        Помилка завантаження заборон знищення
+        {t('holdsLoadError')}
       </div>
     );
   }
@@ -67,10 +78,10 @@ export function HoldsList({ matterId }: HoldsListProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-lg font-serif text-claude-text">Заборона знищення</h3>
+          <h3 className="text-lg font-serif text-claude-text">{t('legalHold')}</h3>
           {activeHolds.length > 0 && (
             <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full">
-              {activeHolds.length} активних
+              {activeHolds.length} {t('activeHoldsCount')}
             </span>
           )}
         </div>
@@ -79,7 +90,7 @@ export function HoldsList({ matterId }: HoldsListProps) {
           className="flex items-center gap-2 px-3 py-2 bg-claude-accent text-white rounded-xl font-medium text-xs font-sans hover:bg-[#C66345] transition-colors shadow-sm"
         >
           <Plus size={14} />
-          Створити заборону
+          {t('createHold')}
         </button>
       </div>
 
@@ -87,12 +98,13 @@ export function HoldsList({ matterId }: HoldsListProps) {
       {holds.length === 0 ? (
         <div className="text-center py-8">
           <Shield size={24} className="mx-auto text-claude-subtext mb-2" />
-          <p className="text-claude-subtext font-sans text-sm">Заборон знищення немає</p>
+          <p className="text-claude-subtext font-sans text-sm">{t('noHolds')}</p>
         </div>
       ) : (
         <div className="space-y-3">
           {holds.map((hold, index) => {
-            const statusConfig = HOLD_STATUS_CONFIG[hold.status] || HOLD_STATUS_CONFIG.active;
+            const statusColor = HOLD_STATUS_COLORS[hold.status] || HOLD_STATUS_COLORS.active;
+            const statusLabel = t(HOLD_STATUS_KEYS[hold.status] || 'holdStatusActive');
             return (
               <motion.div
                 key={hold.id}
@@ -109,11 +121,11 @@ export function HoldsList({ matterId }: HoldsListProps) {
                     <div>
                       <h4 className="font-medium text-claude-text font-sans text-sm">{hold.hold_name}</h4>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig.color}`}>
-                          {statusConfig.label}
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+                          {statusLabel}
                         </span>
                         <span className="text-xs text-claude-subtext font-sans">
-                          {HOLD_TYPE_LABELS[hold.hold_type] || hold.hold_type}
+                          {t(HOLD_TYPE_KEYS[hold.hold_type] || 'holdTypeLitigation')}
                         </span>
                       </div>
                       {hold.scope_description && (
@@ -122,12 +134,12 @@ export function HoldsList({ matterId }: HoldsListProps) {
                       <div className="flex items-center gap-3 mt-2 text-xs text-claude-subtext font-sans">
                         <span className="flex items-center gap-1">
                           <Clock size={11} />
-                          {new Date(hold.created_at).toLocaleDateString('uk-UA')}
+                          {new Date(hold.created_at).toLocaleDateString(dateLocale)}
                         </span>
                         {hold.custodians && hold.custodians.length > 0 && (
                           <span className="flex items-center gap-1">
                             <User size={11} />
-                            {hold.custodians.length} відповідальних
+                            {hold.custodians.length} {t('custodians')}
                           </span>
                         )}
                       </div>
@@ -140,14 +152,14 @@ export function HoldsList({ matterId }: HoldsListProps) {
                       className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium font-sans text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
                     >
                       <Unlock size={12} />
-                      Зняти
+                      {t('releaseHoldButton')}
                     </button>
                   )}
                 </div>
 
                 {hold.released_at && (
                   <div className="mt-3 pt-3 border-t border-claude-border/50 text-xs text-claude-subtext font-sans">
-                    Знято: {new Date(hold.released_at).toLocaleDateString('uk-UA')}
+                    {t('releasedAt')} {new Date(hold.released_at).toLocaleDateString(dateLocale)}
                   </div>
                 )}
               </motion.div>

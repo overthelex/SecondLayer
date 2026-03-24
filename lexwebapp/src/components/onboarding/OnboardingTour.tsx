@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Gavel, BookOpen, Archive } from 'lucide-react';
 import { useOnboardingStore } from '../../stores/onboardingStore';
 import { LexLogo3D } from '../LexLogo3D';
+import { useMiscT, type MiscKey } from '../../i18n/misc-i18n';
 
 interface TourStep {
   target: string;
-  title: string;
-  description: string;
+  titleKey: MiscKey;
+  descriptionKey: MiscKey;
   icon: React.ElementType | 'logo';
   position: 'above' | 'right';
 }
@@ -15,33 +16,29 @@ interface TourStep {
 const STEPS: TourStep[] = [
   {
     target: '[data-tour="chat-input"]',
-    title: 'Привіт! Це LEX',
-    description:
-      'AI-асистент для юристів. Задайте будь-яке юридичне питання — отримайте відповідь з посиланнями на судову практику та законодавство.',
+    titleKey: 'tourStep1Title',
+    descriptionKey: 'tourStep1Desc',
     icon: 'logo',
     position: 'above',
   },
   {
     target: '[data-tour="research"]',
-    title: '45M+ судових рішень',
-    description:
-      'Шукайте серед усіх рішень українських судів. AI аналізує практику, знаходить прецеденти та правові позиції Верховного Суду.',
+    titleKey: 'tourStep2Title',
+    descriptionKey: 'tourStep2Desc',
     icon: Gavel,
     position: 'right',
   },
   {
     target: '[data-tour="legislation"]',
-    title: 'Законодавство під рукою',
-    description:
-      'Миттєвий доступ до повних текстів кодексів, законів та нормативних актів. Пошук по статтях з AI-розпізнаванням посилань.',
+    titleKey: 'tourStep3Title',
+    descriptionKey: 'tourStep3Desc',
     icon: BookOpen,
     position: 'right',
   },
   {
     target: '[data-tour="vault"]',
-    title: 'Vault — ваше сховище',
-    description:
-      'Завантажуйте документи для AI-аналізу. LEX витягне ключові положення, порівняє з практикою та підготує висновки.',
+    titleKey: 'tourStep4Title',
+    descriptionKey: 'tourStep4Desc',
     icon: Archive,
     position: 'right',
   },
@@ -127,6 +124,8 @@ export function OnboardingTour() {
     };
   }, [isActive, measure, skipTour]);
 
+  const { t } = useMiscT();
+
   if (!isActive || currentStep >= STEPS.length || !targetRect) return null;
 
   const step = STEPS[currentStep];
@@ -198,8 +197,8 @@ export function OnboardingTour() {
             )}
 
             {/* Content */}
-            <h3 className="text-[17px] font-bold text-claude-text mb-1.5">{step.title}</h3>
-            <p className="text-[13px] text-claude-subtext leading-relaxed mb-5">{step.description}</p>
+            <h3 className="text-[17px] font-bold text-claude-text mb-1.5">{t(step.titleKey)}</h3>
+            <p className="text-[13px] text-claude-subtext leading-relaxed mb-5">{t(step.descriptionKey)}</p>
 
             {/* Footer */}
             <div className="flex items-center justify-between">
@@ -221,13 +220,13 @@ export function OnboardingTour() {
                   onClick={skipTour}
                   className="text-claude-subtext hover:text-claude-text text-[12px] transition-colors"
                 >
-                  Пропустити
+                  {t('skip')}
                 </button>
                 <button
                   onClick={handleNext}
                   className="bg-claude-accent hover:bg-zinc-700 text-white px-5 py-2 rounded-lg text-[13px] font-medium transition-colors"
                 >
-                  {isLast ? 'Почати роботу' : 'Далі'}
+                  {isLast ? t('startWorking') : t('next')}
                 </button>
               </div>
             </div>

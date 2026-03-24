@@ -5,6 +5,7 @@
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useReleaseHold } from '../../hooks/queries/useMatters';
+import { useMattersT } from '../../i18n/matters-i18n';
 import type { LegalHold } from '../../types/models/Matter';
 
 interface ReleaseHoldConfirmationProps {
@@ -15,6 +16,7 @@ interface ReleaseHoldConfirmationProps {
 
 export function ReleaseHoldConfirmation({ hold, matterId, onClose }: ReleaseHoldConfirmationProps) {
   const releaseHold = useReleaseHold();
+  const t = useMattersT();
 
   const handleRelease = async () => {
     try {
@@ -26,17 +28,16 @@ export function ReleaseHoldConfirmation({ hold, matterId, onClose }: ReleaseHold
   };
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Зняти заборону знищення" size="sm">
+    <Modal isOpen={true} onClose={onClose} title={t('releaseHoldTitle')} size="sm">
       <div className="space-y-4 p-1">
         <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
           <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-amber-800 font-sans">
-              Ви впевнені, що хочете зняти заборону знищення?
+              {t('releaseHoldConfirmText')}
             </p>
             <p className="text-xs text-amber-700 font-sans mt-1">
-              Заборону "{hold.hold_name}" буде знято. Документи, на які поширювалась ця
-              заборона, більше не будуть захищені від видалення.
+              "{hold.hold_name}" {t('releaseHoldWarning')}
             </p>
           </div>
         </div>
@@ -47,7 +48,7 @@ export function ReleaseHoldConfirmation({ hold, matterId, onClose }: ReleaseHold
             onClick={onClose}
             className="flex-1 px-4 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl font-medium text-sm font-sans hover:bg-claude-bg transition-colors"
           >
-            Скасувати
+            {t('cancelButton')}
           </button>
           <button
             onClick={handleRelease}
@@ -55,7 +56,7 @@ export function ReleaseHoldConfirmation({ hold, matterId, onClose }: ReleaseHold
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-xl font-medium text-sm font-sans hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {releaseHold.isPending && <Loader2 size={16} className="animate-spin" />}
-            Зняти заборону
+            {t('releaseHoldAction')}
           </button>
         </div>
       </div>

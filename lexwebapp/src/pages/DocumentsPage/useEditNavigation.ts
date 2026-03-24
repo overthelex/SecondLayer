@@ -5,6 +5,7 @@
 import { useCallback } from 'react';
 import { api } from '../../utils/api-client';
 import { showToast } from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import type { VaultDocument } from './types';
 
 interface UseEditNavigationOptions {
@@ -65,7 +66,7 @@ export function useEditNavigation({
       }
     } catch (err) {
       console.error('Failed to delete document:', err);
-      showToast.error('Не вдалося видалити документ');
+      showToast.error(toastT('documentDeleteFailed'));
     }
   }, [editTarget, documents]);
 

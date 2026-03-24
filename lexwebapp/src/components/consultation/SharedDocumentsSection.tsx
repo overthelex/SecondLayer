@@ -9,6 +9,7 @@ import { FileText, Lock, UserX, Loader2 } from 'lucide-react';
 import { mcpService } from '../../services';
 import { encryptionService } from '../../services/api/EncryptionService';
 import { showToast } from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import type { VaultDocument } from '../../pages/DocumentsPage/types';
 
 interface Props {
@@ -46,9 +47,9 @@ export function SharedDocumentsSection({ documentIds, attorneyUserId, isClient, 
     setRevoking(docId);
     try {
       await encryptionService.revokeAccess(docId, attorneyUserId);
-      showToast.success('Доступ до документа відкликано');
+      showToast.success(toastT('documentAccessRevoked'));
     } catch (err: any) {
-      showToast.error('Не вдалося відкликати доступ');
+      showToast.error(toastT('documentAccessRevokeFailed'));
     } finally {
       setRevoking(null);
     }

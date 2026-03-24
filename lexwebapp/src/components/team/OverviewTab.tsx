@@ -14,8 +14,10 @@ import { api } from '../../utils/api-client';
 import { TeamMember, TeamStats, PermissionRow } from '../../types/models/Team';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '../../utils/errors';
+import { useAppT } from '../../i18n/app-i18n';
 
 export function OverviewTab() {
+  const { t } = useAppT();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [stats, setStats] = useState<TeamStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +41,7 @@ export function OverviewTab() {
       setMembers(membersRes.data.data || []);
       setStats(statsRes.data.data || null);
     } catch (error) {
-      toast.error('Failed to load team data');
+      toast.error(t('team.loadError'));
       console.error('Error loading team data:', error);
     } finally {
       setLoading(false);
@@ -50,14 +52,14 @@ export function OverviewTab() {
     e.preventDefault();
 
     if (!inviteEmail) {
-      toast.error('Please enter an email address');
+      toast.error(t('team.enterEmail'));
       return;
     }
 
     try {
       setInviting(true);
       await api.team.inviteMember(inviteEmail, inviteRole);
-      toast.success(`Invitation sent to ${inviteEmail}`);
+      toast.success(`${t('team.inviteSent')} ${inviteEmail}`);
       setInviteEmail('');
       setShowInviteForm(false);
       await loadTeamData();
@@ -69,13 +71,13 @@ export function OverviewTab() {
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    if (!confirm('Are you sure you want to remove this member?')) {
+    if (!confirm(t('team.removeMemberConfirm'))) {
       return;
     }
 
     try {
       await api.team.removeMember(memberId);
-      toast.success('Member removed');
+      toast.success(t('team.memberRemoved'));
       await loadTeamData();
     } catch (error: unknown) {
       toast.error(getErrorMessage(error));
@@ -85,7 +87,7 @@ export function OverviewTab() {
   const handleResendInvite = async (memberId: string) => {
     try {
       await api.team.resendInvite(memberId);
-      toast.success('Invitation resent');
+      toast.success(t('team.inviteResent'));
     } catch (error: unknown) {
       toast.error(getErrorMessage(error));
     }
@@ -100,13 +102,13 @@ export function OverviewTab() {
   }
 
   const permissions: PermissionRow[] = [
-    { name: 'Використання API інструментів', owner: true, admin: true, user: true, observer: false },
-    { name: 'Перегляд статистики використання', owner: true, admin: true, user: true, observer: true },
-    { name: 'Керування API ключами', owner: true, admin: true, user: false, observer: false },
-    { name: 'Додавання/видалення користувачів', owner: true, admin: true, user: false, observer: false },
-    { name: 'Налаштування білінгу', owner: true, admin: true, user: false, observer: false },
-    { name: 'Зміна тарифного плану', owner: true, admin: false, user: false, observer: false },
-    { name: 'Видалення організації', owner: true, admin: false, user: false, observer: false },
+    { name: t('team.permApiTools'), owner: true, admin: true, user: true, observer: false },
+    { name: t('team.permViewStats'), owner: true, admin: true, user: true, observer: true },
+    { name: t('team.permManageKeys'), owner: true, admin: true, user: false, observer: false },
+    { name: t('team.permManageUsers'), owner: true, admin: true, user: false, observer: false },
+    { name: t('team.permBilling'), owner: true, admin: true, user: false, observer: false },
+    { name: t('team.permChangePlan'), owner: true, admin: false, user: false, observer: false },
+    { name: t('team.permDeleteOrg'), owner: true, admin: false, user: false, observer: false },
   ];
 
   return (
@@ -127,13 +129,13 @@ export function OverviewTab() {
 
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-semibold mb-1">Upgrade to Business Plan</h3>
+              <h3 className="text-lg font-semibold mb-1">{t('team.upgradeTitle')}</h3>
               <p className="text-blue-100">
-                Manage larger teams with advanced collaboration features
+                {t('team.upgradeDesc')}
               </p>
             </div>
             <button className="px-6 py-2 bg-white text-blue-600 font-medium rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap">
-              Upgrade for ₴2,999/month
+              {t('team.upgradeButton')}
             </button>
           </div>
         </motion.div>
@@ -142,10 +144,10 @@ export function OverviewTab() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total members', value: stats?.totalMembers || 0, unit: `/${10}` },
-          { label: 'Active users', value: stats?.activeUsers || 0, unit: 'last 7 days' },
-          { label: 'Team requests', value: stats?.teamRequests?.toLocaleString() || 0, unit: `/5,000` },
-          { label: 'Team cost', value: `₴${stats?.teamCost || 0}`, unit: 'this month' },
+          { label: t('team.totalMembers'), value: stats?.totalMembers || 0, unit: `/${10}` },
+          { label: t('team.activeUsers'), value: stats?.activeUsers || 0, unit: t('team.last7Days') },
+          { label: t('team.teamRequests'), value: stats?.teamRequests?.toLocaleString() || 0, unit: `/5,000` },
+          { label: t('team.teamCost'), value: `₴${stats?.teamCost || 0}`, unit: t('team.thisMonth') },
         ].map((stat, idx) => (
           <motion.div
             key={idx}
@@ -164,7 +166,7 @@ export function OverviewTab() {
       {/* Team Members Section */}
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Team Members</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t('team.membersTitle')}</h3>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -172,7 +174,7 @@ export function OverviewTab() {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
           >
             <Plus size={16} />
-            Invite Member
+            {t('team.inviteMember')}
           </motion.button>
         </div>
 
@@ -188,7 +190,7 @@ export function OverviewTab() {
             <div className="flex flex-col md:flex-row gap-4">
               <input
                 type="email"
-                placeholder="Enter email address"
+                placeholder={t('team.emailPlaceholder')}
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -200,16 +202,16 @@ export function OverviewTab() {
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={inviting}
               >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-                <option value="observer">Observer</option>
+                <option value="user">{t('team.roleUser')}</option>
+                <option value="admin">{t('team.roleAdmin')}</option>
+                <option value="observer">{t('team.roleObserver')}</option>
               </select>
               <button
                 type="submit"
                 disabled={inviting}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium"
               >
-                {inviting ? 'Sending...' : 'Send Invite'}
+                {inviting ? t('team.sending') : t('team.sendInvite')}
               </button>
             </div>
           </motion.form>
@@ -220,13 +222,13 @@ export function OverviewTab() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">User</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Requests</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Cost</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Last Active</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-900 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">{t('team.thUser')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">{t('team.thRole')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">{t('team.thRequests')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">{t('team.thCost')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">{t('team.thLastActive')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">{t('team.thStatus')}</th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-900 uppercase tracking-wider">{t('team.thActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -266,7 +268,7 @@ export function OverviewTab() {
                         ? 'bg-yellow-100 text-yellow-700'
                         : 'bg-gray-100 text-gray-600'
                     }`}>
-                      {member.status === 'active' ? 'Active' : member.status === 'pending' ? 'Pending' : 'Inactive'}
+                      {member.status === 'active' ? t('team.statusActive') : member.status === 'pending' ? t('team.statusPending') : t('team.statusInactive')}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -275,7 +277,7 @@ export function OverviewTab() {
                         <button
                           onClick={() => handleResendInvite(member.id)}
                           className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                          title="Resend invitation"
+                          title={t('team.resendInvite')}
                         >
                           <RotateCw size={18} />
                         </button>
@@ -283,7 +285,7 @@ export function OverviewTab() {
                       <button
                         onClick={() => handleRemoveMember(member.id)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Remove member"
+                        title={t('team.removeMember')}
                       >
                         <Trash2 size={18} />
                       </button>
@@ -297,7 +299,7 @@ export function OverviewTab() {
 
         {members.length === 0 && (
           <div className="px-6 py-12 text-center">
-            <p className="text-gray-500">No team members yet. Invite someone to get started.</p>
+            <p className="text-gray-500">{t('team.noMembers')}</p>
           </div>
         )}
       </div>
@@ -305,14 +307,14 @@ export function OverviewTab() {
       {/* Roles & Permissions Matrix */}
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Roles & Permissions</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t('team.rolesPermissions')}</h3>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Permission</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">{t('team.thPermission')}</th>
                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-900 uppercase tracking-wider">Owner</th>
                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-900 uppercase tracking-wider">Admin</th>
                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-900 uppercase tracking-wider">User</th>

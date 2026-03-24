@@ -4,6 +4,7 @@ import { X, Clock, FileText, MessageSquare, CheckCircle, Loader2 } from 'lucide-
 import { consultationService, type Consultation } from '../../services/api/ConsultationService';
 import { useConsultationStore } from '../../stores/consultationStore';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 
 interface PendingInvitationsModalProps {
   open: boolean;
@@ -55,7 +56,7 @@ export function PendingInvitationsModal({ open, consultations, onClose }: Pendin
   const handleAccept = async (id: string) => {
     const fee = parseFloat(feeValue);
     if (!fee || fee <= 0) {
-      showToast.error('Вкажіть коректну суму гонорару');
+      showToast.error(toastT('invalidFeeAmount'));
       return;
     }
     setProcessing(id);
@@ -64,9 +65,9 @@ export function PendingInvitationsModal({ open, consultations, onClose }: Pendin
       setItems(prev => prev.filter(c => c.id !== id));
       setExpandedId(null);
       setFeeValue('');
-      showToast.success('Запит прийнято');
+      showToast.success(toastT('requestAccepted'));
     } catch {
-      showToast.error('Не вдалося прийняти запит');
+      showToast.error(toastT('requestAcceptFailed'));
     } finally {
       setProcessing(null);
     }
@@ -79,9 +80,9 @@ export function PendingInvitationsModal({ open, consultations, onClose }: Pendin
       setItems(prev => prev.filter(c => c.id !== id));
       setDeclineId(null);
       setDeclineReason('');
-      showToast.success('Запит відхилено');
+      showToast.success(toastT('requestDeclined'));
     } catch {
-      showToast.error('Не вдалося відхилити запит');
+      showToast.error(toastT('requestDeclineFailed'));
     } finally {
       setProcessing(null);
     }

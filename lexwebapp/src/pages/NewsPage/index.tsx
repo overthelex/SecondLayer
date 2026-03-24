@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, ExternalLink, RefreshCw, AlertCircle, Calendar, Sparkles } from 'lucide-react';
 import { KmuArticleModal } from './KmuArticleModal';
+import { useMiscT } from '../../i18n/misc-i18n';
 
 interface NewsItem {
   title: string;
@@ -49,6 +50,7 @@ function stripHtml(text: string): string {
 }
 
 export function NewsPage() {
+  const { t } = useMiscT();
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export function NewsPage() {
       const items = parseRSS(xml);
       setNews(items);
     } catch {
-      setError('Не вдалося завантажити новини. Спробуйте пізніше.');
+      setError(t('newsLoadError'));
     } finally {
       setLoading(false);
     }
@@ -84,7 +86,7 @@ export function NewsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-sm text-claude-subtext mt-1">
-              Актуальні новини з офіційного сайту Кабінету Міністрів України
+              {t('newsSubtitle')}
             </p>
           </div>
           <button
@@ -93,7 +95,7 @@ export function NewsPage() {
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-claude-text bg-white border border-claude-border rounded-lg hover:bg-claude-bg transition-colors disabled:opacity-50"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Оновити
+            {t('refresh')}
           </button>
         </div>
 
@@ -101,7 +103,7 @@ export function NewsPage() {
         {loading && news.length === 0 && (
           <div className="flex items-center justify-center py-20">
             <Loader2 size={24} className="animate-spin text-claude-accent" />
-            <span className="ml-3 text-claude-subtext">Завантаження новин...</span>
+            <span className="ml-3 text-claude-subtext">{t('loadingNews')}</span>
           </div>
         )}
 
@@ -116,7 +118,7 @@ export function NewsPage() {
         {/* News List */}
         {!loading && !error && news.length === 0 && (
           <div className="text-center py-20 text-claude-subtext">
-            Новин не знайдено
+            {t('noNewsFound')}
           </div>
         )}
 
@@ -159,7 +161,7 @@ export function NewsPage() {
         {/* Source Attribution */}
         {news.length > 0 && (
           <div className="mt-8 pb-6 text-center text-xs text-claude-subtext/60">
-            Джерело:{' '}
+            {t('source')}{' '}
             <a
               href="https://www.kmu.gov.ua"
               target="_blank"

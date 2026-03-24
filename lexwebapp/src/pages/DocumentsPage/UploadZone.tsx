@@ -5,6 +5,7 @@ import type { DocType } from './types';
 import { useEncryptionStore } from '../../stores/encryptionStore';
 import { EncryptionSetupDialog } from '../../components/encryption/EncryptionSetupDialog';
 import { showToast } from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 
 const ACCEPTED_TYPES =
   '.pdf,.docx,.doc,.html,.htm,.txt,.rtf,.jpg,.jpeg,.png,.bmp,.gif,.xlsx,.xls,.csv,.mp4,.mov,.avi,.mkv,.webm,.eml,.zip,.gz,.tgz,.tar';
@@ -115,12 +116,12 @@ export function UploadZone({
   const ensureEncryptionReady = useCallback((): boolean => {
     if (!hasEncryption) {
       setShowEncryptionDialog(true);
-      showToast.info('Для завантаження документів потрібно створити ключ шифрування');
+      showToast.info(toastT('encryptionKeyRequired'));
       return false;
     }
     if (!isUnlocked) {
       setShowEncryptionDialog(true);
-      showToast.info('Розблокуйте шифрування для завантаження документів');
+      showToast.info(toastT('unlockEncryption'));
       return false;
     }
     return true;

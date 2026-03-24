@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useCreateHold } from '../../hooks/queries/useMatters';
+import { useMattersT } from '../../i18n/matters-i18n';
 import type { HoldType } from '../../types/models/Matter';
 
 interface CreateHoldModalProps {
@@ -14,15 +15,16 @@ interface CreateHoldModalProps {
   matterId: string;
 }
 
-const HOLD_TYPES: { value: HoldType; label: string }[] = [
-  { value: 'litigation', label: 'Судовий процес' },
-  { value: 'regulatory', label: 'Регуляторне' },
-  { value: 'investigation', label: 'Розслідування' },
-  { value: 'preservation', label: 'Збереження' },
+const HOLD_TYPE_KEYS: { value: HoldType; key: string }[] = [
+  { value: 'litigation', key: 'holdTypeLitigation' },
+  { value: 'regulatory', key: 'holdTypeRegulatory' },
+  { value: 'investigation', key: 'holdTypeInvestigation' },
+  { value: 'preservation', key: 'holdTypePreservation' },
 ];
 
 export function CreateHoldModal({ isOpen, onClose, matterId }: CreateHoldModalProps) {
   const createHold = useCreateHold();
+  const t = useMattersT();
 
   const [name, setName] = useState('');
   const [type, setType] = useState<HoldType>('litigation');
@@ -55,11 +57,11 @@ export function CreateHoldModal({ isOpen, onClose, matterId }: CreateHoldModalPr
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Нова заборона знищення" size="md">
+    <Modal isOpen={isOpen} onClose={handleClose} title={t('newHold')} size="md">
       <form onSubmit={handleSubmit} className="space-y-4 p-1">
         <div>
           <label className="block text-sm font-medium text-claude-text font-sans mb-1">
-            Назва <span className="text-red-500">*</span>
+            {t('holdNameLabel')} <span className="text-red-500">*</span>
           </label>
           <input
             id="hold-name"
@@ -68,15 +70,15 @@ export function CreateHoldModal({ isOpen, onClose, matterId }: CreateHoldModalPr
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Наприклад: Заборона знищення документів для суду"
+            placeholder={t('holdNamePlaceholder')}
             className="w-full px-3 py-2.5 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all font-sans text-sm"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-claude-text font-sans mb-1">Тип</label>
+          <label className="block text-sm font-medium text-claude-text font-sans mb-1">{t('holdTypeLabel')}</label>
           <div className="grid grid-cols-2 gap-2">
-            {HOLD_TYPES.map((ht) => (
+            {HOLD_TYPE_KEYS.map((ht) => (
               <button
                 key={ht.value}
                 type="button"
@@ -87,7 +89,7 @@ export function CreateHoldModal({ isOpen, onClose, matterId }: CreateHoldModalPr
                     : 'bg-white text-claude-text border border-claude-border hover:bg-claude-bg'
                 }`}
               >
-                {ht.label}
+                {t(ht.key)}
               </button>
             ))}
           </div>
@@ -95,14 +97,14 @@ export function CreateHoldModal({ isOpen, onClose, matterId }: CreateHoldModalPr
 
         <div>
           <label className="block text-sm font-medium text-claude-text font-sans mb-1">
-            Опис обсягу
+            {t('scopeLabel')}
           </label>
           <textarea
             id="hold-scope"
             name="scopeDescription"
             value={scope}
             onChange={(e) => setScope(e.target.value)}
-            placeholder="Описати документи та дані, на які поширюється заборона знищення..."
+            placeholder={t('scopePlaceholder')}
             rows={3}
             className="w-full px-3 py-2.5 bg-white border border-claude-border rounded-xl text-claude-text placeholder-claude-subtext/50 focus:outline-none focus:ring-2 focus:ring-claude-accent/20 focus:border-claude-accent transition-all resize-none font-sans text-sm"
           />
@@ -114,7 +116,7 @@ export function CreateHoldModal({ isOpen, onClose, matterId }: CreateHoldModalPr
             onClick={handleClose}
             className="flex-1 px-4 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl font-medium text-sm font-sans hover:bg-claude-bg transition-colors"
           >
-            Скасувати
+            {t('cancelButton')}
           </button>
           <button
             type="submit"
@@ -122,7 +124,7 @@ export function CreateHoldModal({ isOpen, onClose, matterId }: CreateHoldModalPr
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-claude-accent text-white rounded-xl font-medium text-sm font-sans hover:bg-[#C66345] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {createHold.isPending && <Loader2 size={16} className="animate-spin" />}
-            Створити
+            {t('createButton')}
           </button>
         </div>
       </form>

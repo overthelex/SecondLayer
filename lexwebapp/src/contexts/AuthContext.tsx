@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { authService } from '../services';
 import { User } from '../types/models';
 import showToast from '../utils/toast';
+import { toastT, toastTDynamic } from '../i18n/toast-i18n';
 
 interface AuthContextType {
   user: User | null;
@@ -95,7 +96,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
 
-      showToast.success(`Welcome, ${userData.name}!`);
+      showToast.success(toastTDynamic('welcomeUser', userData.name));
     } catch (error) {
       console.error('Login failed:', error);
       localStorage.removeItem('auth_token');
@@ -121,7 +122,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setToken(null);
     setUser(null);
 
-    showToast.info('Ви вийшли з системи');
+    showToast.info(toastT('loggedOut'));
   };
 
   const refreshToken = async () => {

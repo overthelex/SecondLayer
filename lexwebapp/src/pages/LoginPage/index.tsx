@@ -27,6 +27,7 @@ import { hasRecentArticles } from '../BlogPage/articles';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
 import { GDPRModal } from './GDPRModal';
 import { useLoginPageT, setLocale as setI18nLocale, type Locale } from '../../i18n/locales';
@@ -242,7 +243,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         } catch (err: unknown) {
           console.error('Login failed:', err);
           setError('Не вдалося завершити вхід. Спробуйте ще раз.');
-          showToast.error('Помилка входу');
+          showToast.error(toastT('loginError'));
         } finally {
           setIsLoading(false);
         }
@@ -321,14 +322,14 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       if (!response.ok) throw new Error(data.message || 'SSO login failed');
 
       await login(data.token);
-      showToast.success('Вхід через SSO виконано успішно!');
+      showToast.success(toastT('ssoLoginSuccess'));
       if (onLoginSuccess) onLoginSuccess();
       navigate(getReturnUrl(), { replace: true });
     } catch (err: unknown) {
       console.error('SSO login failed:', err);
       const msg = err instanceof Error ? err.message : 'Помилка автентифікації через SSO';
       setError(msg);
-      showToast.error('Помилка SSO');
+      showToast.error(toastT('ssoError'));
     } finally {
       setSsoLoading(false);
     }
@@ -389,14 +390,14 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         if (!response.ok) throw new Error(data.message || 'Помилка входу');
 
         await login(data.token);
-        showToast.success('Вхід виконано успішно!');
+        showToast.success(toastT('loginSuccess'));
         if (onLoginSuccess) onLoginSuccess();
         navigate(getReturnUrl(), { replace: true });
       } catch (err: unknown) {
         console.error('Password login failed:', err);
         const msg = err instanceof Error ? err.message : 'Невірний email або пароль';
         setError(msg);
-        showToast.error('Помилка входу');
+        showToast.error(toastT('loginError'));
       } finally {
         setIsLoading(false);
       }
@@ -430,7 +431,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         if (typeof window.gtag === 'function') {
           window.gtag('event', 'conversion', { send_to: 'AW-18033840618/60XJCI7zyo0cEOqjmpdD', value: 1.0, currency: 'UAH' });
         }
-        showToast.success('Реєстрацію завершено! Перевірте email для підтвердження акаунту.');
+        showToast.success(toastT('registrationSuccess'));
         setIsLogin(true);
         setEmail('');
         setPassword('');
@@ -439,7 +440,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         console.error('Registration failed:', err);
         const msg = err instanceof Error ? err.message : 'Помилка реєстрації. Спробуйте ще раз.';
         setError(msg);
-        showToast.error('Помилка реєстрації');
+        showToast.error(toastT('registrationError'));
       } finally {
         setIsLoading(false);
       }
@@ -456,7 +457,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       const result = await authService.webauthnAuthVerify(authResponse, options.challenge);
 
       await login(result.token);
-      showToast.success('Вхід виконано успішно!');
+      showToast.success(toastT('loginSuccess'));
       if (onLoginSuccess) onLoginSuccess();
       navigate('/chat', { replace: true });
     } catch (err: unknown) {
@@ -466,7 +467,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         console.error('WebAuthn login failed:', err);
         const msg = err instanceof Error ? err.message : 'Помилка автентифікації';
         setError(msg);
-        showToast.error('Помилка автентифікації');
+        showToast.error(toastT('authError'));
       }
     } finally {
       setIsLoading(false);

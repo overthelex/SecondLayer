@@ -7,6 +7,7 @@ import { useUploadStore } from '../../stores/uploadStore';
 import { matterService } from '../../services/api/MatterService';
 import { api } from '../../utils/api-client';
 import { showToast } from '../../utils/toast';
+import { toastT, toastTDynamic } from '../../i18n/toast-i18n';
 import type { Matter } from '../../types/models/Matter';
 
 type Destination = 'new-matter' | 'existing-matter' | 'new-folder' | 'existing-folder';
@@ -67,20 +68,20 @@ export function PostUploadDestination({ onComplete }: Props) {
         case 'new-matter': {
           const result = await matterService.autoCreateFromUpload(pendingDocumentIds);
           showToast.success(
-            `Створено справу "${result.matter.matter_name}" (${result.documentsAssigned} документів)`
+            toastTDynamic('matterCreated', result.matter.matter_name, result.documentsAssigned)
           );
           break;
         }
         case 'existing-matter': {
           if (!selectedMatterId) {
-            showToast.error('Оберіть справу');
+            showToast.error(toastT('selectMatter'));
             setSaving(false);
             return;
           }
           const result = await matterService.assignDocumentsToMatter(selectedMatterId, pendingDocumentIds);
           const matter = matters.find(m => m.id === selectedMatterId);
           showToast.success(
-            `Додано ${result.assigned} документів до "${matter?.matter_name || 'справи'}"`
+            toastTDynamic('documentsAssigned', result.assigned, matter?.matter_name || 'справи')
           );
           break;
         }
@@ -89,20 +90,20 @@ export function PostUploadDestination({ onComplete }: Props) {
           await Promise.all(
             pendingDocumentIds.map(id => api.documents.move(id, folderName + '/'))
           );
-          showToast.success(`Документи переміщено в папку "${folderName}"`);
+          showToast.success(toastTDynamic('documentsMovedToFolder', folderName));
           window.dispatchEvent(new CustomEvent('vault-folders-changed'));
           break;
         }
         case 'existing-folder': {
           if (!selectedFolder) {
-            showToast.error('Оберіть папку');
+            showToast.error(toastT('selectFolder'));
             setSaving(false);
             return;
           }
           await Promise.all(
             pendingDocumentIds.map(id => api.documents.move(id, selectedFolder + '/'))
           );
-          showToast.success(`Документи переміщено в папку "${selectedFolder}"`);
+          showToast.success(toastTDynamic('documentsMovedToFolder', selectedFolder));
           break;
         }
       }
@@ -111,7 +112,7 @@ export function PostUploadDestination({ onComplete }: Props) {
       onComplete();
     } catch (err) {
       console.error('[PostUploadDestination]', err);
-      showToast.error('Не вдалося зберегти. Спробуйте ще раз.');
+      showToast.error(toastT('saveFailed'));
     } finally {
       setSaving(false);
     }

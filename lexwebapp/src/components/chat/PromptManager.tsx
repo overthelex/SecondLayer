@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { AlignJustify, Save, Loader2, Trash2, Star } from 'lucide-react';
 import { promptService, SavedPrompt } from '../../services/api/PromptService';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 
 interface PromptManagerProps {
   currentInput: string;
@@ -25,7 +26,7 @@ export function PromptManager({ currentInput, onLoadPrompt }: PromptManagerProps
       const prompts = await promptService.list();
       setSavedPrompts(prompts);
     } catch {
-      showToast.error('Не вдалося завантажити промпти');
+      showToast.error(toastT('promptsLoadFailed'));
     } finally {
       setPromptsLoading(false);
     }
@@ -42,7 +43,7 @@ export function PromptManager({ currentInput, onLoadPrompt }: PromptManagerProps
       await promptService.delete(id);
       setSavedPrompts((prev) => prev.filter((p) => p.id !== id));
     } catch {
-      showToast.error('Не вдалося видалити промпт');
+      showToast.error(toastT('promptDeleteFailed'));
     }
   };
 
@@ -55,7 +56,7 @@ export function PromptManager({ currentInput, onLoadPrompt }: PromptManagerProps
         return [...updated].sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       });
     } catch {
-      showToast.error('Не вдалося оновити обране');
+      showToast.error(toastT('promptFavoriteFailed'));
     }
   };
 
@@ -65,9 +66,9 @@ export function PromptManager({ currentInput, onLoadPrompt }: PromptManagerProps
     setSavingPrompt(true);
     try {
       await promptService.save(autoName, currentInput.trim());
-      showToast.success('Промпт збережено');
+      showToast.success(toastT('promptSaved'));
     } catch {
-      showToast.error('Не вдалося зберегти промпт');
+      showToast.error(toastT('promptSaveFailed'));
     } finally {
       setSavingPrompt(false);
     }

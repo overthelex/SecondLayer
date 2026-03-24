@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useUndoStore } from '../stores/undoStore';
 import { showToast } from '../utils/toast';
+import { toastT } from '../i18n/toast-i18n';
 
 export function useUndoKeyboard() {
   const undo = useUndoStore((s) => s.undo);
@@ -26,7 +27,7 @@ export function useUndoKeyboard() {
         try {
           await redo();
         } catch {
-          showToast.error('Не вдалося повторити дію');
+          showToast.error(toastT('redoFailed'));
         }
         return;
       }
@@ -38,7 +39,7 @@ export function useUndoKeyboard() {
         try {
           await redo();
         } catch {
-          showToast.error('Не вдалося повторити дію');
+          showToast.error(toastT('redoFailed'));
         }
         return;
       }
@@ -50,7 +51,7 @@ export function useUndoKeyboard() {
         try {
           await undo();
         } catch {
-          showToast.error('Не вдалося скасувати дію');
+          showToast.error(toastT('undoFailed'));
         }
         return;
       }

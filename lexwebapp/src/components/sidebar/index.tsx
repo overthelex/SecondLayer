@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ROUTES } from '../../router/routes';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import {
   Plus, MessageSquare, X, Edit3, Trash2,
   ChevronsUpDown, Archive, Folder, FolderOpen,
@@ -160,9 +161,9 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
       await api.documents.deleteFolder(folder);
       setDeletingFolder(null);
       setVaultFoldersLoaded(false);
-      showToast.success('Папку видалено');
+      showToast.success(toastT('folderDeleted'));
     } catch {
-      showToast.error('Не вдалося видалити папку');
+      showToast.error(toastT('folderDeleteFailed'));
     }
   };
 

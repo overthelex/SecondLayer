@@ -9,13 +9,14 @@ import { Zap, Clock, CheckCircle, AlertCircle, Trash2, Loader2, Shield, UserX, S
 import { useShallow } from 'zustand/react/shallow';
 import { useWorkflowStore } from '../../stores/workflowStore';
 import { workflowService } from '../../services/api/WorkflowService';
+import { useAppT } from '../../i18n/app-i18n';
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
-  pending: { label: 'Очікує', color: 'bg-gray-100 text-gray-700', icon: Clock },
-  running: { label: 'Виконується', color: 'bg-blue-100 text-blue-700', icon: Loader2 },
-  completed: { label: 'Завершено', color: 'bg-green-100 text-green-700', icon: CheckCircle },
-  partial: { label: 'Частково', color: 'bg-yellow-100 text-yellow-700', icon: AlertCircle },
-  failed: { label: 'Помилка', color: 'bg-red-100 text-red-700', icon: AlertCircle },
+const STATUS_KEYS: Record<string, { key: string; color: string; icon: typeof CheckCircle }> = {
+  pending: { key: 'status.pending', color: 'bg-gray-100 text-gray-700', icon: Clock },
+  running: { key: 'status.running', color: 'bg-blue-100 text-blue-700', icon: Loader2 },
+  completed: { key: 'status.completed', color: 'bg-green-100 text-green-700', icon: CheckCircle },
+  partial: { key: 'status.partial', color: 'bg-yellow-100 text-yellow-700', icon: AlertCircle },
+  failed: { key: 'status.failed', color: 'bg-red-100 text-red-700', icon: AlertCircle },
 };
 
 const PRESET_ICONS: Record<string, typeof Shield> = {
@@ -24,8 +25,8 @@ const PRESET_ICONS: Record<string, typeof Shield> = {
   'shield-alert': ShieldAlert,
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  military: 'Військове право',
+const CATEGORY_KEYS: Record<string, string> = {
+  military: 'category.military',
 };
 
 type PresetItem = {
@@ -40,6 +41,7 @@ type PresetItem = {
 
 export function WorkflowsPage() {
   const navigate = useNavigate();
+  const { t, locale } = useAppT();
   const { workflowSets, isLoading, error } = useWorkflowStore(
     useShallow(s => ({ workflowSets: s.workflowSets, isLoading: s.isLoading, error: s.error }))
   );
@@ -59,7 +61,7 @@ export function WorkflowsPage() {
   // Derive unique categories from presets
   const categories = useMemo(() => {
     const cats = [...new Set(presets.map(p => p.category))];
-    return cats.map(c => ({ id: c, label: CATEGORY_LABELS[c] || c }));
+    return cats.map(c => ({ id: c, label: CATEGORY_KEYS[c] ? t(CATEGORY_KEYS[c]) : c }));
   }, [presets]);
 
   // Filter presets by search + category
@@ -94,7 +96,7 @@ export function WorkflowsPage() {
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (window.confirm('Видалити цей набір робочих процесів?')) {
+    if (window.confirm(t('workflows.deleteConfirm'))) {
       await deleteWorkflowSet(id);
     }
   };
@@ -104,10 +106,10 @@ export function WorkflowsPage() {
     <div className="max-w-6xl mx-auto p-6">
       <div className="flex items-center gap-3 mb-2">
         <Zap className="w-7 h-7 text-indigo-600" />
-        <h1 className="text-2xl font-bold text-gray-900">Workflows</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('workflows.title')}</h1>
       </div>
       <p className="text-sm text-gray-500 mb-8">
-        Готові аналітичні шаблони для юриста. Кожен workflow автоматично шукає судові рішення в ЄДРСР, збирає нормативну базу та аналізує правові позиції ВС.
+        {t('workflows.subtitle')}
       </p>
 
       {error && (
@@ -121,7 +123,7 @@ export function WorkflowsPage() {
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-4">
             <Plus className="w-5 h-5 text-indigo-500" />
-            <h2 className="text-lg font-semibold text-gray-800">Готові шаблони аналізу</h2>
+            <h2 className="text-lg font-semibold text-gray-800">{t('workflows.presetsTitle')}</h2>
           </div>
 
           {/* Search + Filters */}
@@ -133,7 +135,7 @@ export function WorkflowsPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Пошук шаблонів..."
+                placeholder={t('workflows.searchPlaceholder')}
                 className="w-full pl-10 pr-9 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-400 transition-colors"
               />
               {searchQuery && (
@@ -156,7 +158,7 @@ export function WorkflowsPage() {
                     : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
                 }`}
               >
-                Всі
+                {t('workflows.allCategories')}
               </button>
               {categories.map((cat) => (
                 <button
@@ -177,7 +179,7 @@ export function WorkflowsPage() {
           {/* Preset cards */}
           {filteredPresets.length === 0 ? (
             <div className="text-center py-8 text-gray-400 text-sm">
-              Шаблонів за запитом не знайдено
+              {t('workflows.noPresetsFound')}
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -227,15 +229,16 @@ export function WorkflowsPage() {
       ) : workflowSets.length === 0 ? (
         <div className="text-center py-20">
           <Zap className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-600 mb-2">Робочих процесів поки немає</h3>
+          <h3 className="text-lg font-medium text-gray-600 mb-2">{t('workflows.noWorkflowSets')}</h3>
           <p className="text-gray-400 max-w-md mx-auto">
-            Задайте в чаті запит на глибокий інституційний аналіз (наприклад, &quot;проаналізуй всі рішення суддів Оболонського суду за 15 років&quot;) — система автоматично створить набір робочих процесів.
+            {t('workflows.noWorkflowSetsDesc')}
           </p>
         </div>
       ) : (
         <div className="grid gap-4">
           {workflowSets.map((set) => {
-            const status = STATUS_CONFIG[set.status] || STATUS_CONFIG.pending;
+            const statusEntry = STATUS_KEYS[set.status] || STATUS_KEYS.pending;
+            const status = { label: t(statusEntry.key), color: statusEntry.color, icon: statusEntry.icon };
             const StatusIcon = status.icon;
             const workflowCount = (set as any).workflow_count || 0;
             const completedCount = (set as any).completed_count || 0;
@@ -259,14 +262,14 @@ export function WorkflowsPage() {
                       <p className="text-sm text-gray-500 mb-2 line-clamp-2">{set.description}</p>
                     )}
                     <div className="flex items-center gap-4 text-xs text-gray-400">
-                      <span>{workflowCount} процесів ({completedCount} завершено)</span>
-                      <span>{new Date(set.created_at).toLocaleDateString('uk-UA')}</span>
+                      <span>{workflowCount} {t('workflows.processCount')} ({completedCount} {t('workflows.completed')})</span>
+                      <span>{new Date(set.created_at).toLocaleDateString(locale === 'uk' ? 'uk-UA' : locale === 'de' ? 'de-DE' : locale === 'es' ? 'es-ES' : 'en-US')}</span>
                     </div>
                   </div>
                   <button
                     onClick={(e) => handleDelete(e, set.id)}
                     className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Видалити"
+                    title={t('workflows.deleteTooltip')}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

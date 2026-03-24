@@ -11,12 +11,19 @@ import { useMemo, useEffect, useState, useRef } from 'react';
 import { useChatStore } from '../../stores';
 import { EvidenceService } from '../../services/api/EvidenceService';
 import type { Decision, Citation } from '../../types/models/Message';
+import { getLegalT } from '../../i18n/legal-i18n';
 
-/** Proper court decisions — shown in the "Рішення" tab */
-const DECISION_TYPES = new Set(['Рішення', 'Вирок', 'Постанова']);
+/** Proper court decisions — shown in the "Decisions" tab */
+function getDecisionTypes(): Set<string> {
+  const t = getLegalT();
+  return new Set([t.decisionType, t.verdictType, t.resolutionType]);
+}
 
-/** Procedural court docs (ухвали, окремі думки) — shown in "Документи" tab */
-const PROCEDURAL_TYPES = new Set(['Ухвала', 'Окрема думка', 'Окрема ухвала']);
+/** Procedural court docs — shown in "Documents" tab */
+function getProceduralTypes(): Set<string> {
+  const t = getLegalT();
+  return new Set([t.rulingType, t.separateOpinion, t.separateRuling]);
+}
 
 export function useEvidenceAggregator(conversationId?: string) {
   const messages = useChatStore(state => state.messages);
@@ -65,7 +72,8 @@ export function useEvidenceAggregator(conversationId?: string) {
 
   // Merge SSE + API decisions with dedup
   const decisions = useMemo(() => {
-    const sseDecisions = allDecisions.filter(d => !d.documentType || DECISION_TYPES.has(d.documentType));
+    const decisionTypes = getDecisionTypes();
+    const sseDecisions = allDecisions.filter(d => !d.documentType || decisionTypes.has(d.documentType));
     if (apiDecisions.length === 0) return sseDecisions;
 
     const seen = new Set(sseDecisions.map(d => d.id));
@@ -80,7 +88,8 @@ export function useEvidenceAggregator(conversationId?: string) {
   }, [allDecisions, apiDecisions]);
 
   const otherCourtDocs = useMemo(() => {
-    const sseDocs = allDecisions.filter(d => d.documentType && PROCEDURAL_TYPES.has(d.documentType));
+    const proceduralTypes = getProceduralTypes();
+    const sseDocs = allDecisions.filter(d => d.documentType && proceduralTypes.has(d.documentType));
     if (apiCourtDocs.length === 0) return sseDocs;
 
     const seen = new Set(sseDocs.map(d => d.id));

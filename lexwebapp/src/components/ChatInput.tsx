@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Send, Plus, Square, Loader2 } from 'lucide-react';
 import showToast from '../utils/toast';
+import { toastT } from '../i18n/toast-i18n';
 import { ToolSelector } from './chat/ToolSelector';
 import { FileAttachments, SelectedFile } from './chat/FileAttachments';
 import { PromptManager } from './chat/PromptManager';
@@ -55,7 +56,7 @@ export function ChatInput({
       try {
         documentIds = await uploadFiles(files);
       } catch {
-        showToast.error('Помилка завантаження файлів');
+        showToast.error(toastT('uploadFilesError'));
       }
       setIsUploadingFiles(false);
     }
