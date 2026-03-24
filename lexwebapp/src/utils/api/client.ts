@@ -4,6 +4,7 @@
 
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { showToast } from '../toast';
+import { toastT } from '../../i18n/toast-i18n';
 
 // Validate API URL against allowed origins
 const ALLOWED_API_ORIGINS = [
@@ -75,7 +76,7 @@ apiClient.interceptors.response.use(
   async (error: AxiosError<{ message?: string }>) => {
     // Network error
     if (!error.response) {
-      showToast.error('Network error. Please check your connection.');
+      showToast.error(toastT('networkError'));
       return Promise.reject(error);
     }
 
@@ -136,7 +137,7 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        showToast.error('Session expired. Please login again.');
+        showToast.error(toastT('sessionExpired'));
         forceLogout();
         return Promise.reject(refreshError);
       } finally {
@@ -165,7 +166,7 @@ apiClient.interceptors.response.use(
 
     // 500+ Server errors
     if (status >= 500) {
-      showToast.error('Server error. Please try again later.');
+      showToast.error(toastT('serverError'));
       return Promise.reject(error);
     }
 
@@ -173,7 +174,7 @@ apiClient.interceptors.response.use(
     if (data?.message) {
       showToast.error(data.message);
     } else {
-      showToast.error('An error occurred. Please try again.');
+      showToast.error(toastT('genericError'));
     }
 
     return Promise.reject(error);

@@ -7,6 +7,7 @@ import { useState, useCallback } from 'react';
 import { mcpService } from '../../services';
 import { api } from '../../utils/api-client';
 import { showToast } from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import { processEmlContent } from '../../utils/eml-parser';
 import type { VaultDocument, DocType, SortField, SortOrder } from './types';
 import { isPreviewableBinary } from './types';
@@ -147,7 +148,7 @@ export function useDocumentPreview(options: UseDocumentPreviewOptions) {
         }
       } catch (err) {
         console.error('Failed to fetch preview URL:', err);
-        showToast.error('Не вдалося завантажити попередній перегляд');
+        showToast.error(toastT('previewLoadFailed'));
         setPreviewOpen(false);
       } finally {
         setPreviewLoading(false);
@@ -188,7 +189,7 @@ export function useDocumentPreview(options: UseDocumentPreviewOptions) {
       });
     } catch (err) {
       console.error('Failed to fetch document:', err);
-      showToast.error('Не вдалося завантажити документ');
+      showToast.error(toastT('documentDownloadFailed'));
       setPreviewOpen(false);
     } finally {
       setPreviewLoading(false);
@@ -260,7 +261,7 @@ export function useDocumentPreview(options: UseDocumentPreviewOptions) {
     // First press = arm, second press = delete
     if (!previewDeletePending) {
       setPreviewDeletePending(true);
-      showToast.success('Натисніть Delete ще раз для підтвердження');
+      showToast.success(toastT('pressDeleteToConfirm'));
       setTimeout(() => setPreviewDeletePending(false), 3000);
       return;
     }
@@ -287,7 +288,7 @@ export function useDocumentPreview(options: UseDocumentPreviewOptions) {
       }
     } catch (err) {
       console.error('Failed to delete document:', err);
-      showToast.error('Не вдалося видалити документ');
+      showToast.error(toastT('documentDeleteFailed'));
     }
   }, [previewIndex, documents, previewDeletePending]);
 

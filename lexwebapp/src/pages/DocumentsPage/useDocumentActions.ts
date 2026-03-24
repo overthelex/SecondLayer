@@ -7,6 +7,7 @@
 import { useRef, useCallback } from 'react';
 import { api } from '../../utils/api-client';
 import { showToast } from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import { useUndoStore } from '../../stores/undoStore';
 import { useDocumentModals } from './useDocumentModals';
 import type { VaultDocument } from './types';
@@ -71,7 +72,7 @@ export function useDocumentActions({ loadDocuments, loadFolders, currentFolderPa
       dispatch({ type: 'SET_EDIT_TEXT', text });
     } catch (err) {
       console.error('Failed to fetch document for editing:', err);
-      showToast.error('Не вдалося завантажити документ');
+      showToast.error(toastT('documentDownloadFailed'));
       dispatch({ type: 'CLOSE_EDIT' });
     } finally {
       dispatch({ type: 'SET_EDIT_LOADING', value: false });
@@ -93,7 +94,7 @@ export function useDocumentActions({ loadDocuments, loadFolders, currentFolderPa
           newText: modalState.editText,
         });
       }
-      showToast.success('Документ збережено');
+      showToast.success(toastT('documentSaved'));
       dispatch({ type: 'CLOSE_EDIT' });
       loadDocuments();
     } catch (err) {
@@ -150,7 +151,7 @@ export function useDocumentActions({ loadDocuments, loadFolders, currentFolderPa
       reload();
     } catch (err) {
       console.error('Failed to move document:', err);
-      showToast.error('Не вдалося перемістити документ');
+      showToast.error(toastT('documentMoveFailed'));
     } finally {
       dispatch({ type: 'SET_MOVE_LOADING', value: false });
     }
@@ -159,7 +160,7 @@ export function useDocumentActions({ loadDocuments, loadFolders, currentFolderPa
   // Save OCR text
   const handleSaveOcrText = useCallback(async (documentId: string, text: string) => {
     await api.documents.update(documentId, { full_text: text });
-    showToast.success('Текст збережено');
+    showToast.success(toastT('textSaved'));
   }, []);
 
   return {

@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { Copy, Check, UserPlus, Gift, Users, TrendingUp, Award, DollarSign, Link2, ShieldCheck, Building2, Briefcase, Scale } from 'lucide-react';
 import { ReferralService, ReferralStats, ReferralEntry, ReferrerStatus, ReferrerType } from '../../services/api/ReferralService';
 import { showToast } from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 
 const referralService = new ReferralService();
 
@@ -30,16 +31,16 @@ function VerificationForm({ onVerified }: { onVerified: () => void }) {
 
   const handleSubmit = async () => {
     if (!referrerType || !businessCode.trim()) {
-      showToast.error('Заповніть всі поля');
+      showToast.error(toastT('fillAllFields'));
       return;
     }
     setSubmitting(true);
     try {
       await referralService.submitVerification(referrerType, businessCode.trim());
-      showToast.success('Верифікацію пройдено');
+      showToast.success(toastT('verificationPassed'));
       onVerified();
     } catch {
-      showToast.error('Не вдалося пройти верифікацію');
+      showToast.error(toastT('referralVerificationFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -187,7 +188,7 @@ export function ReferralPage() {
       }
     } catch (err) {
       console.error('Failed to load referral data', err);
-      showToast.error('Не вдалося завантажити дані');
+      showToast.error(toastT('dataLoadFailed'));
     } finally {
       setLoading(false);
     }
@@ -204,10 +205,10 @@ export function ReferralPage() {
     try {
       await navigator.clipboard.writeText(stats.referralCode);
       setCopiedCode(true);
-      showToast.success('Код скопійовано');
+      showToast.success(toastT('codeCopied'));
       setTimeout(() => setCopiedCode(false), 2000);
     } catch {
-      showToast.error('Не вдалося скопіювати');
+      showToast.error(toastT('copyFailed'));
     }
   };
 
@@ -216,10 +217,10 @@ export function ReferralPage() {
     try {
       await navigator.clipboard.writeText(referralLink);
       setCopiedLink(true);
-      showToast.success('Посилання скопійовано');
+      showToast.success(toastT('linkCopied'));
       setTimeout(() => setCopiedLink(false), 2000);
     } catch {
-      showToast.error('Не вдалося скопіювати');
+      showToast.error(toastT('copyFailed'));
     }
   };
 

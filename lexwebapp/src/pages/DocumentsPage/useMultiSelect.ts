@@ -5,6 +5,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { api } from '../../utils/api-client';
 import { showToast } from '../../utils/toast';
+import { toastT, toastTDynamic } from '../../i18n/toast-i18n';
 import type { VaultDocument } from './types';
 
 interface UseMultiSelectOptions {
@@ -64,13 +65,13 @@ export function useMultiSelect({
         const doc = documents.find((d) => d.id === id);
         if (doc) pushAction({ type: 'delete', documentId: id, documentTitle: doc.title });
       });
-      showToast.success(`${count} документів видалено`);
+      showToast.success(toastTDynamic('documentsDeleted', count));
       setSelectedIds(new Set());
       loadDocuments();
       loadFolders(currentFolderPath);
     } catch (err) {
       console.error('Batch delete failed:', err);
-      showToast.error('Не вдалося видалити деякі документи');
+      showToast.error(toastT('someDocumentsDeleteFailed'));
     }
   }, [selectedIds, documents, pushAction, loadDocuments, loadFolders, currentFolderPath]);
 

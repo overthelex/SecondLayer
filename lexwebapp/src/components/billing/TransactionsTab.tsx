@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -66,7 +67,7 @@ export function TransactionsTab() {
       setHasMore(txns.length >= limit);
     } catch (error) {
       console.error('Failed to fetch transactions:', error);
-      showToast.error('Не вдалося завантажити історію транзакцій');
+      showToast.error(toastT('transactionsLoadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -107,7 +108,7 @@ export function TransactionsTab() {
     link.click();
     URL.revokeObjectURL(url);
 
-    showToast.success('Транзакції експортовано у CSV');
+    showToast.success(toastT('transactionsExported'));
   };
 
   const getTypeColor = (type: string) => {

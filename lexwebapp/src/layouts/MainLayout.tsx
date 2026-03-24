@@ -16,6 +16,7 @@ import { useUIStore, useConsultationStore } from '../stores';
 import { ROUTES } from '../router/routes';
 import { consultationService } from '../services/api/ConsultationService';
 import showToast from '../utils/toast';
+import { toastTDynamic } from '../i18n/toast-i18n';
 
 // Map routes to page titles
 const PAGE_TITLES: Record<string, string> = {
@@ -78,7 +79,7 @@ export function MainLayout() {
         setShowInvitationsModal(true);
         const count = pending.length;
         const word = count === 1 ? 'новий запит' : count < 5 ? 'нових запити' : 'нових запитів';
-        showToast.info(`У вас ${count} ${word} на консультацію`);
+        showToast.info(toastTDynamic('pendingConsultationRequests', count, word));
       }
     });
 
@@ -86,7 +87,7 @@ export function MainLayout() {
     const handleNewPending = (e: Event) => {
       const consultation = (e as CustomEvent).detail;
       if (consultation?.status === 'pending') {
-        showToast.info(`Новий запит на консультацію: ${consultation.request_title || 'без назви'}`);
+        showToast.info(toastTDynamic('newConsultationRequest', consultation.request_title || ''));
       }
     };
     window.addEventListener('consultation-updated', handleNewPending);

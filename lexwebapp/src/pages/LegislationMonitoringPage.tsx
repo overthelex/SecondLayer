@@ -25,6 +25,7 @@ import {
 'lucide-react';
 import apiClient from '../utils/api-client';
 import showToast from '../utils/toast';
+import { toastT } from '../i18n/toast-i18n';
 import { ChangeFeed } from '../components/legislation/ChangeFeed';
 
 interface LegislationDocument {
@@ -259,14 +260,14 @@ export function LegislationMonitoringPage({
       if (subscriptions.has(radaId)) {
         await apiClient.delete(`/api/legislation/monitoring/subscriptions/${encodeURIComponent(radaId)}`);
         setSubscriptions(prev => { const next = new Set(prev); next.delete(radaId); return next; });
-        showToast.success('Підписку скасовано');
+        showToast.success(toastT('subscriptionCancelled'));
       } else {
         await apiClient.post('/api/legislation/monitoring/subscriptions', { rada_id: radaId });
         setSubscriptions(prev => { const next = new Set(prev); next.add(radaId); return next; });
-        showToast.success('Підписано на зміни');
+        showToast.success(toastT('subscribedToChanges'));
       }
     } catch (err: any) {
-      showToast.error('Не вдалося змінити підписку');
+      showToast.error(toastT('subscriptionChangeFailed'));
     } finally {
       setSubscriptionLoading(null);
     }
@@ -333,9 +334,9 @@ export function LegislationMonitoringPage({
   const handleShare = () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url).then(() => {
-      showToast.success('Посилання скопійовано');
+      showToast.success(toastT('linkCopied'));
     }).catch(() => {
-      showToast.error('Не вдалося скопіювати посилання');
+      showToast.error(toastT('copyFailed'));
     });
   };
 

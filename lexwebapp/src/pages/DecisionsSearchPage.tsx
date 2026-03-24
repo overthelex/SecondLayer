@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { mcpService } from '../services';
 import showToast from '../utils/toast';
+import { toastT } from '../i18n/toast-i18n';
 import { useShallow } from 'zustand/react/shallow';
 import { useDecisionsSearchStore } from '../stores/decisionsSearchStore';
 import { useUIStore } from '../stores';
@@ -88,7 +89,7 @@ export function DecisionsSearchPage() {
 
   const handleSearch = async () => {
     if (!filters.query.trim()) {
-      showToast.error('Введіть пошуковий запит');
+      showToast.error(toastT('enterSearchQuery'));
       return;
     }
 
@@ -195,7 +196,7 @@ export function DecisionsSearchPage() {
       .filter(id => downloadStatus[id] !== 'done' && downloadStatus[id] !== 'downloading');
 
     if (numericIds.length === 0) {
-      showToast.error('Всі рішення вже завантажено');
+      showToast.error(toastT('allDecisionsLoaded'));
       return;
     }
 

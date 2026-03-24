@@ -12,6 +12,7 @@ import type { DocumentViewerItem } from '../DocumentViewerModal';
 import { MarkdownContent } from './MarkdownContent';
 import { isRawJsonContent } from './utils';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import type { ExecutionPlan, CitationWarning, CostSummary as CostSummaryType } from '../../types/models/Message';
 import { useChatStore } from '../../stores';
 import { EvidenceService } from '../../services/api/EvidenceService';
@@ -114,21 +115,21 @@ export function AssistantMessage({
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(content).then(() => {
-      showToast.success('Скопійовано');
+      showToast.success(toastT('copied'));
     }).catch(() => {
-      showToast.error('Не вдалося скопіювати');
+      showToast.error(toastT('copyFailed'));
     });
   }, [content]);
 
   const handleStar = useCallback(() => {
     setStarred((prev) => !prev);
-    showToast.info(starred ? 'Вилучено з обраного' : 'Збережено в обране');
+    showToast.info(starred ? toastT('removedFromFavorites') : toastT('savedToFavorites'));
   }, [starred]);
 
   const handleFeedback = useCallback((type: 'up' | 'down') => {
     setFeedback((prev) => prev === type ? null : type);
     if (feedback !== type) {
-      showToast.info(type === 'up' ? 'Дякуємо за відгук!' : 'Дякуємо, врахуємо');
+      showToast.info(type === 'up' ? toastT('feedbackThankYou') : toastT('feedbackNoted'));
     }
   }, [feedback]);
 

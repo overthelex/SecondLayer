@@ -5,6 +5,7 @@ import { consultationService, type Consultation } from '../../services/api/Consu
 import { useAuth } from '../../contexts/AuthContext';
 import { getErrorMessage } from '../../utils/errors';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import { ConsultationChatTab } from '../../components/chat/ConsultationChatTab';
 import { EscrowStatusBadge } from '../../components/consultation/EscrowStatusBadge';
 import { SharedDocumentsSection } from '../../components/consultation/SharedDocumentsSection';
@@ -107,33 +108,33 @@ export function ConsultationDetailPage() {
       switch (action) {
         case 'accept': {
           const fee = parseFloat(acceptFee);
-          if (!fee || fee <= 0) { showToast.error('Вкажіть коректну суму гонорару'); return; }
+          if (!fee || fee <= 0) { showToast.error(toastT('invalidFeeAmount')); return; }
           result = await consultationService.acceptConsultation(id, fee);
           setShowAcceptModal(false);
-          showToast.success('Консультацію прийнято');
+          showToast.success(toastT('consultationAccepted'));
           break;
         }
         case 'decline': {
           result = await consultationService.declineConsultation(id, inputValue || undefined);
           setActiveModal(null);
-          showToast.success('Консультацію відхилено');
+          showToast.success(toastT('consultationDeclined'));
           break;
         }
         case 'start': {
           result = await consultationService.startConsultation(id);
-          showToast.success('Консультацію розпочато');
+          showToast.success(toastT('consultationStarted'));
           break;
         }
         case 'complete': {
           result = await consultationService.completeConsultation(id, inputValue || undefined);
           setActiveModal(null);
-          showToast.success('Консультацію завершено');
+          showToast.success(toastT('consultationCompleted'));
           break;
         }
         case 'cancel': {
           result = await consultationService.cancelConsultation(id, inputValue || undefined);
           setActiveModal(null);
-          showToast.success('Консультацію скасовано');
+          showToast.success(toastT('consultationCancelled'));
           break;
         }
         case 'pay': {
@@ -141,7 +142,7 @@ export function ConsultationDetailPage() {
           if (payResult.paymentUrl) {
             window.location.href = payResult.paymentUrl;
           } else {
-            showToast.error('Не вдалося отримати посилання на оплату від Monobank');
+            showToast.error(toastT('monobankPaymentFailed'));
           }
           return;
         }
@@ -160,7 +161,7 @@ export function ConsultationDetailPage() {
     try {
       await consultationService.submitReview(id, { rating, reviewText: reviewText || undefined });
       setShowReview(false);
-      showToast.success('Дякуємо за відгук!');
+      showToast.success(toastT('thankYouForFeedback'));
     } catch (err: unknown) {
       showToast.error(getErrorMessage(err));
     }

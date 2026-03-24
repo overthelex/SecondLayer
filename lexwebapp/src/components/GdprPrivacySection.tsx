@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Shield, Download, Trash2, Loader2, AlertTriangle, CheckCircle, Cookie } from 'lucide-react';
 import { api } from '../utils/api-client';
 import showToast from '../utils/toast';
+import { toastT } from '../i18n/toast-i18n';
 import { useConsentStore } from '../stores/consentStore';
 
 interface GdprRequest {
@@ -36,10 +37,10 @@ export function GdprPrivacySection() {
     setExporting(true);
     try {
       const response = await api.gdpr.requestExport();
-      showToast.success('Data export requested. Check back shortly.');
+      showToast.success(toastT('dataExportRequested'));
       setRequests((prev) => [response.data, ...prev]);
     } catch {
-      showToast.error('Failed to request data export');
+      showToast.error(toastT('dataExportRequestFailed'));
     } finally {
       setExporting(false);
     }
@@ -61,14 +62,14 @@ export function GdprPrivacySection() {
         a.download = `my-data-export-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        showToast.success('Data downloaded');
+        showToast.success(toastT('dataDownloaded'));
       } else if (data.status === 'processing') {
-        showToast.info('Export is still processing. Try again in a minute.');
+        showToast.info(toastT('exportStillProcessing'));
       } else {
-        showToast.error('Export not available');
+        showToast.error(toastT('exportNotAvailable'));
       }
     } catch {
-      showToast.error('Failed to download export');
+      showToast.error(toastT('exportDownloadFailed'));
     } finally {
       setLoading(false);
     }
@@ -78,7 +79,7 @@ export function GdprPrivacySection() {
     setDeleting(true);
     try {
       await api.gdpr.requestDeletion('DELETE MY ACCOUNT');
-      showToast.success('Account deletion initiated. All data will be removed.');
+      showToast.success(toastT('accountDeletionInitiated'));
       setShowDeleteConfirm(false);
       // Logout after short delay
       setTimeout(() => {
@@ -87,7 +88,7 @@ export function GdprPrivacySection() {
         window.location.href = '/login';
       }, 2000);
     } catch {
-      showToast.error('Failed to request account deletion');
+      showToast.error(toastT('accountDeletionFailed'));
     } finally {
       setDeleting(false);
     }

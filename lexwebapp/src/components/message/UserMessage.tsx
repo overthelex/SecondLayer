@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Copy, Pencil, Check, X } from 'lucide-react';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 
 interface UserMessageProps {
   content: string;
@@ -44,9 +45,9 @@ export function UserMessage({ content, onEdit }: UserMessageProps) {
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(content).then(() => {
-      showToast.success('Скопійовано');
+      showToast.success(toastT('copied'));
     }).catch(() => {
-      showToast.error('Не вдалося скопіювати');
+      showToast.error(toastT('copyFailed'));
     });
   }, [content]);
 

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 import type { BillingOutletContext } from '../../pages/BillingDashboard';
 
@@ -52,7 +53,7 @@ export function OverviewTab({ onTopUp: onTopUpProp }: OverviewTabProps) {
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Failed to fetch balance:', error);
-      showToast.error('Не вдалося завантажити дані балансу');
+      showToast.error(toastT('balanceLoadFailed'));
     } finally {
       setIsLoading(false);
     }

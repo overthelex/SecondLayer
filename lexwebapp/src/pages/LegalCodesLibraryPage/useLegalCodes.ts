@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { mcpService } from '../../services';
 import { showToast } from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import { getErrorMessage } from '../../utils/errors';
 import {
   LegislationStructure,
@@ -75,7 +76,7 @@ export function useLegalCodes() {
   }, [handleGlobalSearch]);
 
   const handleDownloadCode = useCallback(async (codeNumber: string, codeName: string) => {
-    showToast.info('Завантаження структури...');
+    showToast.info(toastT('loadingStructure'));
     try {
       const result = await mcpService.callTool('get_legislation_structure', { rada_id: codeNumber });
       const data = parseToolResult(result);
@@ -93,7 +94,7 @@ export function useLegalCodes() {
       a.download = `${codeName.replace(/\s+/g, '_')}_зміст.txt`;
       a.click();
       URL.revokeObjectURL(url);
-      showToast.success('Завантажено');
+      showToast.success(toastT('loaded'));
     } catch (err: unknown) {
       showToast.error(getErrorMessage(err));
     }
@@ -225,21 +226,21 @@ export function useLegalCodes() {
     if (!currentArticle) return;
     const text = `${currentArticle.title}\n\n${currentArticle.full_text}`;
     navigator.clipboard.writeText(text).then(() => {
-      showToast.success('Скопійовано');
+      showToast.success(toastT('copied'));
     }).catch(() => {
-      showToast.error('Не вдалося скопіювати');
+      showToast.error(toastT('copyFailed'));
     });
   };
 
   const handleCopyLink = () => {
     if (!currentArticle?.url) {
-      showToast.info('Посилання недоступне');
+      showToast.info(toastT('linkUnavailable'));
       return;
     }
     navigator.clipboard.writeText(currentArticle.url).then(() => {
-      showToast.success('Посилання скопійовано');
+      showToast.success(toastT('linkCopied'));
     }).catch(() => {
-      showToast.error('Не вдалося скопіювати');
+      showToast.error(toastT('copyFailed'));
     });
   };
 

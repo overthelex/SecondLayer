@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { FileText, ExternalLink, Calendar, Hash, Shield } from 'lucide-react';
 import { authService } from '../../services/api/AuthService';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 
 interface Contract {
   id: string;
@@ -22,7 +23,7 @@ export function ContractsPage() {
   useEffect(() => {
     authService.getMyContracts()
       .then(data => setContracts(data.contracts))
-      .catch(() => showToast.error('Не вдалося завантажити договори'))
+      .catch(() => showToast.error(toastT('contractsLoadFailed')))
       .finally(() => setLoading(false));
   }, []);
 

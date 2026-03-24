@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff, CheckCircle, Loader2 } from 'lucide-react';
 import showToast from '../utils/toast';
+import { toastT } from '../i18n/toast-i18n';
 import { getErrorMessage } from '../utils/errors';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -59,14 +60,14 @@ export function ResetPasswordPage() {
       }
 
       setSuccess(true);
-      showToast.success('Пароль успішно скинуто!');
+      showToast.success(toastT('passwordResetSuccess'));
 
       setTimeout(() => {
         navigate('/login');
       }, 3000);
     } catch (err: unknown) {
       setError(getErrorMessage(err));
-      showToast.error('Помилка скидання паролю');
+      showToast.error(toastT('passwordResetError'));
     } finally {
       setIsLoading(false);
     }

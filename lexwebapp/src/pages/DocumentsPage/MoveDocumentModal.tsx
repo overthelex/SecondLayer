@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FolderInput, Folder, CornerLeftUp, ChevronDown, Loader2, X, Plus } from 'lucide-react';
 import { showToast } from '../../utils/toast';
+import { toastTDynamic } from '../../i18n/toast-i18n';
 import type { VaultDocument } from './types';
 
 interface MoveDocumentModalProps {
@@ -39,7 +40,7 @@ export function MoveDocumentModal({
     onMoveFolderChange(fullPath);
     setNewFolderName('');
     setShowNewFolder(false);
-    showToast.success(`Папку «${sanitized}» буде створено при переміщенні`);
+    showToast.success(toastTDynamic('folderWillBeCreated', sanitized));
   };
 
   return (

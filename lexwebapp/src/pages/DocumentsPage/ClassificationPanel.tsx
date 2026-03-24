@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../utils/api-client';
 import { showToast } from '../../utils/toast';
+import { toastT, toastTDynamic } from '../../i18n/toast-i18n';
 import type { ClassificationJob, DocumentStats } from './types';
 
 interface ClassificationPanelProps {
@@ -46,7 +47,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
         onComplete();
         if (jobData.status === 'completed') {
           showToast.success(
-            `Класифікацію завершено: ${jobData.completed} з ${jobData.total} документів`
+            toastTDynamic('classificationCompleted', jobData.completed, jobData.total)
           );
         }
       }
@@ -74,7 +75,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
       setJob(jobData);
 
       if (jobData.total === 0) {
-        showToast.success('Всі документи вже класифіковані');
+        showToast.success(toastT('classificationAllDone'));
         setStarting(false);
         return;
       }
@@ -82,7 +83,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
       // Start polling
       pollRef.current = setInterval(() => pollJob(jobData.jobId), 1500);
     } catch (err: unknown) {
-      showToast.error('Не вдалося запустити класифікацію');
+      showToast.error(toastT('classificationStartFailed'));
     } finally {
       setStarting(false);
     }
@@ -92,7 +93,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
     if (!job) return;
     try {
       await api.documents.cancelClassification(job.jobId);
-      showToast.success('Класифікацію скасовано');
+      showToast.success(toastT('classificationCancelled'));
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;
@@ -100,7 +101,7 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
       setJob((prev) => prev ? { ...prev, status: 'cancelled' } : null);
       onComplete();
     } catch {
-      showToast.error('Не вдалося скасувати');
+      showToast.error(toastT('classificationCancelFailed'));
     }
   };
 
@@ -114,10 +115,10 @@ export function ClassificationPanel({ stats, onComplete }: ClassificationPanelPr
     try {
       const resp = await api.documents.dismissClassification();
       const count = resp.data?.dismissed || 0;
-      showToast.success(`${count} документів позначено як оброблені`);
+      showToast.success(toastTDynamic('documentsMarkedProcessed', count));
       onComplete();
     } catch {
-      showToast.error('Не вдалося очистити чергу');
+      showToast.error(toastT('queueClearFailed'));
     } finally {
       setDismissing(false);
     }

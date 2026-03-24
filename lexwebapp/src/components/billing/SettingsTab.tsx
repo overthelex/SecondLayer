@@ -28,6 +28,7 @@ import { format } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { api } from '../../utils/api-client';
 import showToast from '../../utils/toast';
+import { toastT } from '../../i18n/toast-i18n';
 import { getErrorMessage } from '../../utils/errors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
@@ -193,7 +194,7 @@ export function SettingsTab() {
       });
     } catch (error) {
       console.error('Failed to load settings data:', error);
-      showToast.error('Не вдалося завантажити налаштування');
+      showToast.error(toastT('settingsLoadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -207,10 +208,10 @@ export function SettingsTab() {
     try {
       await api.billing.removePaymentMethod(id);
       setPaymentMethods(paymentMethods.filter((m) => m.id !== id));
-      showToast.success('Спосіб оплати видалено');
+      showToast.success(toastT('paymentMethodDeleted'));
     } catch (error) {
       console.error('Failed to remove payment method:', error);
-      showToast.error('Не вдалося видалити спосіб оплати');
+      showToast.error(toastT('paymentMethodDeleteFailed'));
     } finally {
       setIsDeletingId(null);
     }
@@ -220,10 +221,10 @@ export function SettingsTab() {
     try {
       await api.billing.setPrimaryPaymentMethod(id);
       setPaymentMethods(paymentMethods.map((m) => ({ ...m, isPrimary: m.id === id })));
-      showToast.success('Основний спосіб оплати оновлено');
+      showToast.success(toastT('defaultPaymentUpdated'));
     } catch (error) {
       console.error('Failed to set primary:', error);
-      showToast.error('Не вдалося оновити основний спосіб оплати');
+      showToast.error(toastT('defaultPaymentUpdateFailed'));
     }
   };
 
@@ -233,10 +234,10 @@ export function SettingsTab() {
     setIsSavingBilling(true);
     try {
       await api.billing.updateBillingInfo(billingInfo);
-      showToast.success('Платіжну інформацію збережено');
+      showToast.success(toastT('billingInfoSaved'));
     } catch (error) {
       console.error('Failed to save billing info:', error);
-      showToast.error('Не вдалося зберегти платіжну інформацію');
+      showToast.error(toastT('billingInfoSaveFailed'));
     } finally {
       setIsSavingBilling(false);
     }
@@ -262,10 +263,10 @@ export function SettingsTab() {
         daily_limit: limits.daily_limit_usd,
         monthly_limit: limits.monthly_limit_usd,
       }));
-      showToast.success('Ліміти оновлено');
+      showToast.success(toastT('limitsUpdated'));
     } catch (error) {
       console.error('Failed to save limits:', error);
-      showToast.error('Не вдалося оновити ліміти');
+      showToast.error(toastT('limitsUpdateFailed'));
     } finally {
       setIsSavingLimits(false);
     }
@@ -277,7 +278,7 @@ export function SettingsTab() {
     setIsSendingEmail(true);
     try {
       await api.billing.testEmail();
-      showToast.success('Тестовий лист надіслано! Перевірте вхідні.');
+      showToast.success(toastT('testEmailSent'));
     } catch (error: unknown) {
       showToast.error(getErrorMessage(error));
     } finally {
