@@ -302,27 +302,70 @@ export function UploadZone({
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleFileSelect(); }}
           >
-            <div className="text-center">
-              <div className="flex justify-center gap-3 mb-4">
+            {/* Show encryption setup prompt when keys are not configured */}
+            {!hasEncryption ? (
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-claude-accent/10 mb-4">
+                  <Lock size={22} className="text-claude-accent" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-claude-text mb-2 font-sans">
+                  Налаштуйте шифрування
+                </h3>
+                <p className="text-sm text-claude-subtext/70 font-sans mb-5 max-w-md mx-auto">
+                  Для завантаження документів необхідне наскрізне шифрування (E2EE).
+                  Згенеруйте ключ один раз — далі він працюватиме автоматично.
+                </p>
                 <button
-                  onClick={handleFileSelect}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all active:scale-[0.98] shadow-sm"
+                  onClick={() => setShowEncryptionDialog(true)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all active:scale-[0.98] shadow-sm font-sans"
                 >
-                  <Upload size={16} strokeWidth={2} />
-                  Завантажити файли
-                </button>
-                <button
-                  onClick={handleFolderSelect}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-medium hover:bg-claude-bg transition-all active:scale-[0.98] shadow-sm"
-                >
-                  <FolderUp size={16} strokeWidth={2} />
-                  Завантажити папку
+                  <Lock size={14} strokeWidth={2} />
+                  Згенерувати ключ шифрування
                 </button>
               </div>
-              <p className="text-sm text-claude-subtext/70 font-sans">
-                Перетягніть файли або папку сюди &middot; PDF, DOCX, HTML, TXT, зображення, відео &middot; до 2 ГБ &middot; Ctrl+U
-              </p>
-            </div>
+            ) : !isUnlocked ? (
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-amber-500/10 mb-4">
+                  <Lock size={22} className="text-amber-600" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-claude-text mb-2 font-sans">
+                  Розблокуйте шифрування
+                </h3>
+                <p className="text-sm text-claude-subtext/70 font-sans mb-5 max-w-md mx-auto">
+                  Введіть пароль шифрування для доступу до документів і завантаження нових файлів.
+                </p>
+                <button
+                  onClick={() => setShowEncryptionDialog(true)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all active:scale-[0.98] shadow-sm font-sans"
+                >
+                  <Lock size={14} strokeWidth={2} />
+                  Розблокувати
+                </button>
+              </div>
+            ) : (
+              /* Normal upload zone when encryption is ready */
+              <div className="text-center">
+                <div className="flex justify-center gap-3 mb-4">
+                  <button
+                    onClick={handleFileSelect}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all active:scale-[0.98] shadow-sm"
+                  >
+                    <Upload size={16} strokeWidth={2} />
+                    Завантажити файли
+                  </button>
+                  <button
+                    onClick={handleFolderSelect}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-medium hover:bg-claude-bg transition-all active:scale-[0.98] shadow-sm"
+                  >
+                    <FolderUp size={16} strokeWidth={2} />
+                    Завантажити папку
+                  </button>
+                </div>
+                <p className="text-sm text-claude-subtext/70 font-sans">
+                  Перетягніть файли або папку сюди &middot; PDF, DOCX, HTML, TXT, зображення, відео &middot; до 2 ГБ &middot; Ctrl+U
+                </p>
+              </div>
+            )}
 
             {/* Drag overlay */}
             <AnimatePresence>
