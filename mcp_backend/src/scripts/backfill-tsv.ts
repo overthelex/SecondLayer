@@ -134,30 +134,41 @@ async function worker(id: number, pool: PoolType): Promise<number> {
   let workerTotal = 0;
   workersActive++;
 
+  let consecutiveErrors = 0;
   try {
     while (!allDone) {
-      const result = await pool.query(`
-        WITH batch AS (
-          SELECT doc_id
-          FROM ${TABLE}
-          WHERE tsv IS NULL AND full_text IS NOT NULL
-          LIMIT $1
-          FOR UPDATE SKIP LOCKED
-        )
-        UPDATE ${TABLE} f
-        SET tsv = to_tsvector('simple', f.full_text)
-        FROM batch
-        WHERE f.doc_id = batch.doc_id
-      `, [BATCH_SIZE]);
+      try {
+        const result = await pool.query(`
+          WITH batch AS (
+            SELECT doc_id
+            FROM ${TABLE}
+            WHERE tsv IS NULL AND full_text IS NOT NULL
+            LIMIT $1
+            FOR UPDATE SKIP LOCKED
+          )
+          UPDATE ${TABLE} f
+          SET tsv = to_tsvector('simple', LEFT(f.full_text, 900000))
+          FROM batch
+          WHERE f.doc_id = batch.doc_id
+        `, [BATCH_SIZE]);
 
-      const count = result.rowCount || 0;
-      if (count === 0) break;
+        const count = result.rowCount || 0;
+        if (count === 0) break;
 
-      workerTotal += count;
-      totalIndexed += count;
+        workerTotal += count;
+        totalIndexed += count;
+        consecutiveErrors = 0;
+      } catch (err: any) {
+        consecutiveErrors++;
+        log(`Worker ${id} batch error (${consecutiveErrors}): ${err.message}`);
+        if (consecutiveErrors >= 5) {
+          log(`Worker ${id} giving up after ${consecutiveErrors} consecutive errors`);
+          break;
+        }
+      }
     }
   } catch (err: any) {
-    log(`Worker ${id} error: ${err.message}`);
+    log(`Worker ${id} fatal error: ${err.message}`);
   } finally {
     workersActive--;
   }
