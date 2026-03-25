@@ -449,8 +449,8 @@ services:
       NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_USER:-admin}
       NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_PASSWORD:-admin}
       NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud-prod localhost legal.org.ua"
-      OVERWRITEWEBROOT: /nextcloud
       OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: nextcloud.legal.org.ua
     ports:
       - "127.0.0.1:8890:80"
     volumes:
