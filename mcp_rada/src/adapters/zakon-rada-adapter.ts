@@ -75,7 +75,9 @@ export class ZakonRadaAdapter {
     if (/[^\p{L}\p{N}\-_\/\.]/u.test(lawNumber) || lawNumber.includes('..')) {
       throw new Error(`Invalid law number: ${lawNumber}`);
     }
-    const endpoint = `/laws/show/${encodeURIComponent(lawNumber)}`;
+    // Encode each path segment separately — slashes must remain literal for zakon.rada.gov.ua
+    const encodedParts = lawNumber.split('/').map(part => encodeURIComponent(part));
+    const endpoint = `/laws/show/${encodedParts.join('/')}`;
     logger.info('Fetching law text', { lawIdentifier, lawNumber });
 
     try {
