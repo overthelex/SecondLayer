@@ -30,7 +30,7 @@ export function NavItem({ icon: Icon, label, route, onClick, badge }: NavItemPro
   return (
     <button
       onClick={handleClick}
-      className={`w-full text-left pl-3 pr-2.5 py-[7px] rounded-md text-[12.5px] transition-all duration-150 flex items-center gap-2.5 group relative ${
+      className={`w-full text-left pl-3 pr-2.5 py-[7px] rounded-md text-[11px] transition-all duration-150 flex items-center gap-2.5 group relative ${
         isActive
           ? 'bg-white/[0.07] text-white'
           : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200'

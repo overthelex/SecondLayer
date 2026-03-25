@@ -268,7 +268,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                     {conversations.map((conv) => (
                       <div
                         key={conv.id}
-                        className={`group flex items-center gap-2 pl-3 pr-2 py-[7px] rounded-md text-[12.5px] cursor-pointer transition-all duration-150 relative ${
+                        className={`group flex items-center gap-2 pl-3 pr-2 py-[7px] rounded-md text-[11px] cursor-pointer transition-all duration-150 relative ${
                           activeConversationId === conv.id
                             ? 'bg-white/[0.07] text-white'
                             : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300'
@@ -328,7 +328,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                   return (
                     <div
                       key={folder}
-                      className={`relative flex items-center gap-2.5 pl-3 pr-2 py-[7px] rounded-md text-[12.5px] transition-all duration-150 group cursor-pointer ${
+                      className={`relative flex items-center gap-2.5 pl-3 pr-2 py-[7px] rounded-md text-[11px] transition-all duration-150 group cursor-pointer ${
                         isActive
                           ? 'bg-white/[0.07] text-white'
                           : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300'
