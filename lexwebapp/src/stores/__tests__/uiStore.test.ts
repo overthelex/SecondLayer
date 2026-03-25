@@ -2,7 +2,7 @@
  * uiStore Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 // Mock window.innerWidth before importing the store
 Object.defineProperty(window, 'innerWidth', { value: 1440, writable: true });
