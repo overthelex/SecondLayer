@@ -847,6 +847,8 @@ services:
       - ./nginx/includes/ssl-common.conf:/etc/nginx/includes/ssl-common.conf:ro
       - ./nginx/includes/prod-server-common.conf:/etc/nginx/includes/prod-server-common.conf:ro
       - ./nginx/includes/prod-upstreams.conf:/etc/nginx/includes/prod-upstreams.conf
+      - ./nginx/includes/preview-server-common.conf:/etc/nginx/includes/preview-server-common.conf:ro
+      - ./nginx/includes/preview-upstreams.conf:/etc/nginx/includes/preview-upstreams.conf
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/html:/var/www/html:ro
       - nginx_prod_logs:/var/log/nginx
