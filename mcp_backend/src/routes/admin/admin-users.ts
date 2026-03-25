@@ -10,10 +10,12 @@ import crypto from 'crypto';
 import type { IDatabase } from '../../domain/ports/index.js';
 import { logger } from '../../utils/logger.js';
 import { getStringParam, type LogAdminAction } from './admin-middleware.js';
+import type { EmailService } from '../../services/email-service.js';
 
 export function createAdminUsersRoutes(
   db: IDatabase,
   logAdminAction: LogAdminAction,
+  emailService?: EmailService,
 ): Router {
   const router = Router();
 
@@ -405,6 +407,29 @@ export function createAdminUsersRoutes(
         reason,
         admin: (req as any).user?.id
       });
+
+      // Send email notification for positive balance adjustments
+      if (amount > 0 && emailService) {
+        try {
+          const userRow = await db.query(
+            'SELECT email, name FROM users WHERE id = $1',
+            [userId]
+          );
+          if (userRow.rows.length > 0 && userRow.rows[0].email) {
+            const user = userRow.rows[0];
+            await emailService.sendAdminCredit({
+              email: user.email,
+              name: user.name || user.email,
+              amount,
+              currency: 'USD',
+              newBalance: balanceAfter,
+            });
+            logger.info('Admin balance adjustment email sent', { userId, email: user.email });
+          }
+        } catch (emailErr: any) {
+          logger.warn('Failed to send admin balance adjustment email', { userId, error: emailErr.message });
+        }
+      }
 
       res.json({
         success: true,

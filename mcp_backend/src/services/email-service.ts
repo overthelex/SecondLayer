@@ -41,6 +41,14 @@ export interface PaymentFailureParams {
   reason: string;
 }
 
+export interface AdminCreditParams {
+  email: string;
+  name: string;
+  amount: number;
+  currency: string;
+  newBalance: number;
+}
+
 export interface LowBalanceParams {
   email: string;
   name: string;
@@ -200,6 +208,50 @@ export class EmailService {
       });
     } catch (error: any) {
       logger.error('Failed to send payment success email', {
+        email: maskSensitive(params.email, 4),
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Send admin credit notification (test account invitation)
+   */
+  async sendAdminCredit(params: AdminCreditParams): Promise<void> {
+    try {
+      const html = this.generateAdminCreditTemplate(params);
+
+      const attachments: nodemailer.SendMailOptions['attachments'] = [];
+      if (this.logoBuffer) {
+        attachments.push({
+          filename: 'logolex.png',
+          content: this.logoBuffer,
+          cid: 'lexlogo@legal.org.ua',
+        });
+      }
+      if (this.fractalBuffer) {
+        attachments.push({
+          filename: 'email-header-fractal.png',
+          content: this.fractalBuffer,
+          cid: 'fractal-header@legal.org.ua',
+        });
+      }
+
+      await this.transporter.sendMail({
+        from: `"${this.config.fromName}" <${this.config.from}>`,
+        to: params.email,
+        subject: `LEX — Вам надано тестовий доступ: ${params.currency} ${params.amount.toFixed(2)}`,
+        html,
+        attachments,
+      });
+
+      logger.info('Admin credit email sent', {
+        email: maskSensitive(params.email, 4),
+        amount: params.amount,
+        currency: params.currency,
+      });
+    } catch (error: any) {
+      logger.error('Failed to send admin credit email', {
         email: maskSensitive(params.email, 4),
         error: error.message,
       });
@@ -911,6 +963,107 @@ export class EmailService {
         </div>
       </div>
     `;
+  }
+
+  /**
+   * Generate admin credit (test account) email template
+   */
+  private generateAdminCreditTemplate(params: AdminCreditParams): string {
+    const logoImg = this.logoBuffer
+      ? '<img src="cid:lexlogo@legal.org.ua" alt="LEX" width="50" height="50" style="display:inline-block;vertical-align:middle;margin-right:8px;" />'
+      : '<span style="font-size:26px;font-weight:bold;color:#1e293b;letter-spacing:3px;vertical-align:middle;">LEX</span>';
+
+    const headerBgStyle = this.fractalBuffer
+      ? 'background:#e8effa url(cid:fractal-header@legal.org.ua) no-repeat center center;background-size:cover;'
+      : 'background:#e8effa;';
+
+    return `
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background: #f1f5f9; }
+    .wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .card { background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.07); }
+    .content { padding: 30px; }
+    .invite-badge { display: inline-block; background: #3b82f6; color: #fff; padding: 5px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .amount-block { text-align: center; margin: 24px 0; padding: 20px; background: #eff6ff; border-radius: 10px; }
+    .amount { font-size: 36px; font-weight: 700; color: #1e40af; }
+    .amount-label { font-size: 13px; color: #64748b; margin-top: 4px; }
+    .details-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    .details-table td { padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+    .details-table td:first-child { color: #64748b; }
+    .details-table td:last-child { text-align: right; font-weight: 600; color: #1e293b; }
+    .details-table tr:last-child td { border-bottom: none; }
+    .btn { display: inline-block; background: #1e293b; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; }
+    .btn-center { text-align: center; margin: 24px 0; }
+    .features { background: #f8fafc; border-radius: 10px; padding: 20px; margin: 20px 0; }
+    .features h3 { margin: 0 0 12px; font-size: 15px; color: #1e293b; }
+    .features ul { margin: 0; padding-left: 20px; }
+    .features li { font-size: 14px; color: #475569; margin-bottom: 6px; }
+    .divider { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+    .footer { text-align: center; padding: 20px; font-size: 12px; color: #94a3b8; }
+    .footer a { color: #64748b; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header" style="${headerBgStyle}padding:28px 30px 24px;text-align:left;">
+        <div style="margin-bottom:14px;">${logoImg}</div>
+        <h1 style="color:#1e293b;font-size:21px;margin:0 0 12px;font-weight:700;">Запрошення до тестування платформи</h1>
+        <div class="invite-badge">Тестовий акаунт</div>
+      </div>
+      <div class="content">
+        <p>Вітаємо, ${params.name}!</p>
+        <p>Вас запрошено до тестування юридичної AI-платформи <strong>LEX</strong>. Це не поповнення рахунку — для вас створено тестовий акаунт з балансом для ознайомлення з можливостями системи.</p>
+
+        <div class="amount-block">
+          <div class="amount">${params.currency} ${params.amount.toFixed(2)}</div>
+          <div class="amount-label">тестовий баланс</div>
+        </div>
+
+        <table class="details-table">
+          <tr>
+            <td>Баланс акаунту</td>
+            <td>$${Number(params.newBalance).toFixed(2)} USD</td>
+          </tr>
+          <tr>
+            <td>Дата</td>
+            <td>${new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
+          </tr>
+        </table>
+
+        <div class="features">
+          <h3>Що можна протестувати:</h3>
+          <ul>
+            <li>Пошук судових рішень з AI-аналізом</li>
+            <li>Аналіз законодавства та нормативних актів</li>
+            <li>Семантичний пошук по правовій базі</li>
+            <li>Робота з документами та витягами</li>
+          </ul>
+        </div>
+
+        <div class="btn-center">
+          <a href="${this.frontendUrl}/dashboard" class="btn">Перейти до платформи</a>
+        </div>
+
+        <hr class="divider" />
+        <p style="font-size:13px; color:#64748b; text-align:center;">
+          Якщо у вас виникли питання — напишіть нам на <a href="mailto:support@legal.org.ua" style="color:#1e293b;">support@legal.org.ua</a>
+        </p>
+      </div>
+      <div class="footer">
+        <p>&copy; ${new Date().getFullYear()} LEX Legal Platform. Усі права захищено.</p>
+        <p><a href="${this.frontendUrl}">legal.org.ua</a></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
   }
 
   /**
