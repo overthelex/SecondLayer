@@ -20,5 +20,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/**/__tests__", "src/__tests__", "src/scripts/vectorize-opendata-titan.ts"]
+  "exclude": ["node_modules", "dist", "src/**/__tests__", "src/__tests__", "src/scripts/vectorize-opendata-titan.ts", "src/scripts/backfill-tsv.ts"]
 }
