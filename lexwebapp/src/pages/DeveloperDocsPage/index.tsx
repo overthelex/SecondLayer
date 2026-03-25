@@ -23,6 +23,7 @@ interface ToolCategory {
 }
 
 const API_BASE = 'https://platform.legal.org.ua/api/tools';
+const MCP_SSE_URL = 'https://mcp.legal.org.ua/api/v1/sse';
 
 export function DeveloperDocsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
@@ -146,9 +147,9 @@ function OverviewTab() {
           />
           <TransportRow
             icon={Terminal}
-            title="MCP stdio"
-            endpoint="node mcp_backend/dist/index.js"
-            description="Для Claude Desktop, Cursor, VS Code, Continue.dev"
+            title="MCP SSE (v1)"
+            endpoint={MCP_SSE_URL}
+            description="Для Claude Code, Claude Desktop, Cursor, VS Code, Continue.dev"
           />
           <TransportRow
             icon={Server}
@@ -522,6 +523,30 @@ function MCPClientsTab() {
   return (
     <div className="space-y-6">
       <Card>
+        <div className="flex items-center gap-2 mb-3">
+          <h2 className="text-[16px] font-semibold text-claude-text">Claude Code</h2>
+          <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-semibold rounded tracking-wide uppercase">рекомендовано</span>
+        </div>
+        <p className="text-[13px] text-claude-subtext mb-3">
+          Додайте до <code className="bg-claude-bg-secondary px-1.5 py-0.5 rounded text-[11px]">~/.claude/settings.json</code> або <code className="bg-claude-bg-secondary px-1.5 py-0.5 rounded text-[11px]">.mcp.json</code> в корені проєкту:
+        </p>
+        <CodeBlock language="json" code={`{
+  "mcpServers": {
+    "secondlayer": {
+      "type": "sse",
+      "url": "${MCP_SSE_URL}",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN"
+      }
+    }
+  }
+}`} />
+        <p className="text-[12px] text-claude-subtext mt-3">
+          Згенеруйте API-токен у <a href="/profile" className="text-claude-accent hover:underline">Профілі → MCP Access Tokens</a>. Після додавання перезапустіть Claude Code або виконайте <code className="bg-claude-bg-secondary px-1.5 py-0.5 rounded text-[11px]">/mcp</code> для перепідключення.
+        </p>
+      </Card>
+
+      <Card>
         <h2 className="text-[16px] font-semibold text-claude-text mb-3">Claude Desktop</h2>
         <p className="text-[13px] text-claude-subtext mb-3">
           Додайте до <code className="bg-claude-bg-secondary px-1.5 py-0.5 rounded text-[11px]">claude_desktop_config.json</code>:
@@ -529,17 +554,10 @@ function MCPClientsTab() {
         <CodeBlock language="json" code={`{
   "mcpServers": {
     "secondlayer": {
-      "command": "node",
-      "args": ["<project-root>/mcp_backend/dist/index.js"],
-      "env": {
-        "POSTGRES_HOST": "localhost",
-        "POSTGRES_PORT": "5432",
-        "POSTGRES_USER": "secondlayer",
-        "POSTGRES_PASSWORD": "YOUR_PASSWORD",
-        "POSTGRES_DB": "secondlayer_db",
-        "QDRANT_URL": "http://localhost:6333",
-        "REDIS_URL": "redis://localhost:6379",
-        "OPENAI_API_KEY": "YOUR_OPENAI_KEY"
+      "type": "sse",
+      "url": "${MCP_SSE_URL}",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN"
       }
     }
   }
@@ -554,17 +572,10 @@ function MCPClientsTab() {
         <CodeBlock language="json" code={`{
   "mcpServers": {
     "secondlayer": {
-      "command": "node",
-      "args": ["<project-root>/mcp_backend/dist/index.js"],
-      "env": {
-        "POSTGRES_HOST": "localhost",
-        "POSTGRES_PORT": "5432",
-        "POSTGRES_USER": "secondlayer",
-        "POSTGRES_PASSWORD": "YOUR_PASSWORD",
-        "POSTGRES_DB": "secondlayer_db",
-        "QDRANT_URL": "http://localhost:6333",
-        "REDIS_URL": "redis://localhost:6379",
-        "OPENAI_API_KEY": "YOUR_OPENAI_KEY"
+      "type": "sse",
+      "url": "${MCP_SSE_URL}",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN"
       }
     }
   }
@@ -579,17 +590,10 @@ function MCPClientsTab() {
         <CodeBlock language="json" code={`{
   "mcpServers": {
     "secondlayer": {
-      "command": "node",
-      "args": ["<project-root>/mcp_backend/dist/index.js"],
-      "env": {
-        "POSTGRES_HOST": "localhost",
-        "POSTGRES_PORT": "5432",
-        "POSTGRES_USER": "secondlayer",
-        "POSTGRES_PASSWORD": "YOUR_PASSWORD",
-        "POSTGRES_DB": "secondlayer_db",
-        "QDRANT_URL": "http://localhost:6333",
-        "REDIS_URL": "redis://localhost:6379",
-        "OPENAI_API_KEY": "YOUR_OPENAI_KEY"
+      "type": "sse",
+      "url": "${MCP_SSE_URL}",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN"
       }
     }
   }
@@ -599,10 +603,9 @@ function MCPClientsTab() {
       <Card>
         <div className="flex items-center gap-2 mb-3">
           <h2 className="text-[16px] font-semibold text-claude-text">ChatGPT</h2>
-          <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-semibold rounded tracking-wide uppercase">new</span>
         </div>
         <p className="text-[13px] text-claude-subtext mb-3">
-          ChatGPT підтримує MCP через SSE (Server-Sent Events) транспорт. Це дозволяє використовувати всі 56+ інструментів LEX AI безпосередньо у веб-інтерфейсі ChatGPT.
+          ChatGPT підтримує MCP через SSE (Server-Sent Events) транспорт. Це дозволяє використовувати всі інструменти LEX AI безпосередньо у веб-інтерфейсі ChatGPT.
         </p>
         <div className="space-y-3">
           <div>
@@ -613,7 +616,7 @@ function MCPClientsTab() {
           </div>
           <div>
             <p className="text-[12px] font-medium text-claude-text mb-1.5">2. Додайте SSE endpoint</p>
-            <CodeBlock language="text" code={`Server URL: https://platform.legal.org.ua/api/sse
+            <CodeBlock language="text" code={`Server URL: https://mcp.legal.org.ua/sse
 Label: LEX AI — Ukrainian Legal Platform`} />
           </div>
           <div>
@@ -644,19 +647,30 @@ Value: Bearer YOUR_API_TOKEN`} />
           Збережіть як <code className="bg-claude-bg-secondary px-1.5 py-0.5 rounded text-[11px]">.continue/mcpServers/secondlayer.yaml</code>:
         </p>
         <CodeBlock language="yaml" code={`name: secondlayer
-command: node
-args:
-  - /path/to/SecondLayer/mcp_backend/dist/index.js
+type: sse
+url: ${MCP_SSE_URL}
 
-env:
-  POSTGRES_HOST: localhost
-  POSTGRES_PORT: "5432"
-  POSTGRES_USER: secondlayer
-  POSTGRES_PASSWORD: YOUR_PASSWORD
-  POSTGRES_DB: secondlayer_db
-  QDRANT_URL: http://localhost:6333
-  REDIS_URL: redis://localhost:6379
-  OPENAI_API_KEY: YOUR_OPENAI_KEY`} />
+headers:
+  Authorization: "Bearer YOUR_API_TOKEN"`} />
+      </Card>
+
+      <Card>
+        <h2 className="text-[16px] font-semibold text-claude-text mb-3">API Версіонування</h2>
+        <p className="text-[13px] text-claude-subtext mb-3">
+          MCP SSE API використовує версіоновані ендпоінти для забезпечення зворотної сумісності.
+        </p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 p-2.5 bg-claude-bg-secondary rounded-lg">
+            <code className="text-[12px] font-mono font-semibold text-claude-accent">v1</code>
+            <span className="text-[12px] text-claude-subtext flex-1">Поточна стабільна версія — SSE транспорт (MCP SDK)</span>
+            <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-semibold rounded">stable</span>
+          </div>
+        </div>
+        <div className="mt-3 text-[12px] text-claude-subtext space-y-1">
+          <p><strong>Base URL:</strong> <code className="bg-claude-bg-secondary px-1.5 py-0.5 rounded text-[11px]">https://mcp.legal.org.ua/api/v1/sse</code></p>
+          <p><strong>Протокол:</strong> SSE (Server-Sent Events) — GET для підключення, POST для повідомлень</p>
+          <p><strong>Автентифікація:</strong> Bearer Token в заголовку <code className="bg-claude-bg-secondary px-1.5 py-0.5 rounded text-[11px]">Authorization</code></p>
+        </div>
       </Card>
     </div>
   );
