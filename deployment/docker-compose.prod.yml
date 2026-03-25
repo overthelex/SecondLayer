@@ -6,7 +6,7 @@ services:
       postgres
       -c max_connections=300
       -c shared_buffers=16GB
-      -c effective_cache_size=96GB
+      -c effective_cache_size=48GB
       -c work_mem=256MB
       -c maintenance_work_mem=4GB
       -c wal_buffers=64MB
@@ -46,7 +46,7 @@ services:
       resources:
         limits:
           cpus: "12"
-          memory: 64G
+          memory: 48G
         reservations:
           memory: 16G
 
