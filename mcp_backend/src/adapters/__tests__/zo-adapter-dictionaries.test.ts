@@ -61,10 +61,12 @@ describe('ZOAdapter - Dictionary Methods', () => {
       const available = courtAdapter.getAvailableDictionaries();
       expect(available).toContain('courts');
 
-      // Should not throw validation error (may fail on actual API call)
-      expect(() => {
-        courtAdapter.getDictionary('courts');
-      }).not.toThrow();
+      // getDictionary is async — verify it doesn't throw synchronous validation error
+      // (the async requestWithRetry rejection is expected since API is disabled)
+      const promise = courtAdapter.getDictionary('courts');
+      expect(promise).toBeInstanceOf(Promise);
+      // Suppress unhandled rejection from disabled API
+      promise.catch(() => {});
     });
   });
 
@@ -190,31 +192,28 @@ describe('ZOAdapter - Dictionary Methods', () => {
   describe('Dictionary Method Signatures', () => {
     test('courts dictionary should accept pagination params', () => {
       const params = { limit: 50, page: 2 };
-
-      // Should not throw (actual API call would happen)
-      expect(() => {
-        courtAdapter.getCourtsDictionary(params);
-      }).not.toThrow();
+      const promise = courtAdapter.getCourtsDictionary(params);
+      expect(promise).toBeInstanceOf(Promise);
+      promise.catch(() => {}); // suppress disabled API rejection
     });
 
     test('judges dictionary should accept pagination params', () => {
       const params = { limit: 100, page: 1 };
-
-      expect(() => {
-        courtAdapter.getJudgesDictionary(params);
-      }).not.toThrow();
+      const promise = courtAdapter.getJudgesDictionary(params);
+      expect(promise).toBeInstanceOf(Promise);
+      promise.catch(() => {});
     });
 
     test('instances dictionary should not require params', () => {
-      expect(() => {
-        courtAdapter.getInstancesDictionary();
-      }).not.toThrow();
+      const promise = courtAdapter.getInstancesDictionary();
+      expect(promise).toBeInstanceOf(Promise);
+      promise.catch(() => {});
     });
 
     test('types dictionary should support nolimits param', () => {
-      expect(() => {
-        practiceAdapter.getTypesDictionary();
-      }).not.toThrow();
+      const promise = practiceAdapter.getTypesDictionary();
+      expect(promise).toBeInstanceOf(Promise);
+      promise.catch(() => {});
     });
   });
 
@@ -242,21 +241,20 @@ describe('ZOAdapter - Dictionary Methods', () => {
 
   describe('Error Messages', () => {
     test('should provide helpful error for invalid dictionary', async () => {
+      await expect(courtAdapter.getDictionary('xyz')).rejects.toThrow(ZakonOnlineValidationError);
       try {
         await courtAdapter.getDictionary('xyz');
-        fail('Should have thrown error');
       } catch (error: any) {
-        expect(error).toBeInstanceOf(ZakonOnlineValidationError);
         expect(error.message).toContain('xyz');
-        expect(error.message).toContain('Судові рішення'); // Display name, not domain name
+        expect(error.message).toContain('Судові рішення');
         expect(error.message).toContain('Available dictionaries');
       }
     });
 
     test('should include domain display name in error message', async () => {
+      await expect(legalAdapter.getDictionary('courts')).rejects.toThrow(ZakonOnlineValidationError);
       try {
         await legalAdapter.getDictionary('courts');
-        fail('Should have thrown error');
       } catch (error: any) {
         expect(error.message).toContain('Нормативно-правові акти');
       }

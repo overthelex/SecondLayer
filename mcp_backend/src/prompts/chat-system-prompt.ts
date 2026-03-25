@@ -15,7 +15,7 @@ export type QueryType =
   | 'institutional_analysis'
   | 'unsupported';
 
-export const VALID_QUERY_TYPES: QueryType[] = [
+export const VALID_QUERY_TYPES: Set<QueryType> = new Set([
   'case_lookup',
   'practice_analysis',
   'legislation_lookup',
@@ -29,7 +29,7 @@ export const VALID_QUERY_TYPES: QueryType[] = [
   'due_diligence',
   'institutional_analysis',
   'unsupported',
-];
+]);
 
 export interface ChatIntentClassification {
   queryType: QueryType;

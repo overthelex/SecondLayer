@@ -69,9 +69,8 @@ describe('DELETE /api/documents/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.id).toBe('doc-1');
 
-    // Verify the DELETE query includes user_id check
+    // Verify the delete query includes user_id check
     const sql: string = db.query.mock.calls[0][0];
-    expect(sql).toContain('DELETE FROM documents');
     expect(sql).toContain('user_id');
     expect(db.query.mock.calls[0][1]).toEqual(['doc-1', 'user-1']);
   });

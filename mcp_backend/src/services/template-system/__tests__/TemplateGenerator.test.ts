@@ -49,7 +49,7 @@ describe('TemplateGenerator', () => {
     generator = new TemplateGenerator(
       mockDb as any,
       mockLlmManager,
-      mockCostTracker
+      mockCostTracker as any
     );
   });
 

@@ -63,7 +63,12 @@ function createApp(db: any) {
     req.user = { id: 'user-1', email: 'admin@test.com' };
     next();
   });
-  app.use('/api/admin', createAdminRoutes(db));
+  const mockBilling = {} as any;
+  const mockPreferences = {} as any;
+  const mockPrometheus = {} as any;
+  const mockPricing = {} as any;
+  const mockSubscriptions = {} as any;
+  app.use('/api/admin', createAdminRoutes(db, mockBilling, mockPreferences, mockPrometheus, mockPricing, mockSubscriptions));
   return app;
 }
 

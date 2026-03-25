@@ -189,7 +189,7 @@ describe('MinioService', () => {
 
       await service.getFileUrl('u', 'key', 7200);
 
-      expect(mockPresignedGetObject).toHaveBeenCalledWith('user-u', 'key', 7200);
+      expect(mockPresignedGetObject).toHaveBeenCalledWith('user-u', 'key', 7200, {});
     });
 
     it('should use default expiry of 3600 when none specified', async () => {
@@ -205,7 +205,7 @@ describe('MinioService', () => {
 
       await service.getFileUrl('u', 'key');
 
-      expect(mockPresignedGetObject).toHaveBeenCalledWith('user-u', 'key', 3600);
+      expect(mockPresignedGetObject).toHaveBeenCalledWith('user-u', 'key', 3600, {});
     });
 
     it('should use default endpoint and port when env vars are missing', async () => {
@@ -332,7 +332,7 @@ describe('MinioService', () => {
 
       await service.getFileUrl('ABC', 'key');
 
-      expect(mockPresignedGetObject).toHaveBeenCalledWith('user-abc', 'key', 3600);
+      expect(mockPresignedGetObject).toHaveBeenCalledWith('user-abc', 'key', 3600, {});
     });
 
     it('should replace underscores with hyphens in bucket name', async () => {
@@ -344,7 +344,7 @@ describe('MinioService', () => {
 
       await service.getFileUrl('some_user_id', 'key');
 
-      expect(mockPresignedGetObject).toHaveBeenCalledWith('user-some-user-id', 'key', 3600);
+      expect(mockPresignedGetObject).toHaveBeenCalledWith('user-some-user-id', 'key', 3600, {});
     });
   });
 

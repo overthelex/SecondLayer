@@ -3,7 +3,7 @@
 export class IntentClassifier {
   constructor(...args: any[]) {}
 
-  async classify(query: string, requestId?: string): Promise<unknown> {
+  async classify(query: string, requestId?: string): Promise<any> {
     return {
       queryType: 'unsupported',
       domains: [],
@@ -13,7 +13,7 @@ export class IntentClassifier {
     };
   }
 
-  async filterTools(domains: string[], slots?: Record<string, unknown>, queryType?: string): Promise<unknown[]> {
+  async filterTools(domains: string[], slots?: Record<string, unknown>, queryType?: string): Promise<any[]> {
     return [];
   }
 }

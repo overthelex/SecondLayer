@@ -171,7 +171,9 @@ export class BillingService {
     };
   }
 
-  async updateBillingSettings(userId: string, settings: unknown): Promise<void> {}
+  async updateBillingSettings(userId: string, settings: unknown): Promise<Record<string, unknown>> {
+    return {};
+  }
 
   async getDailyRequestCount(userId: string): Promise<number> {
     return 0;
