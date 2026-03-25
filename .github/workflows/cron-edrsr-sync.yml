@@ -48,7 +48,8 @@ jobs:
       - name: Check sync result
         if: always()
         run: |
-          YEAR="${{ inputs.year || '$(date +%Y)' }}"
+          YEAR="${{ inputs.year }}"
+          [ -z "$YEAR" ] && YEAR="$(date +%Y)"
           if [ -f "/tmp/edrsr_sync_${YEAR}.log" ]; then
             echo "=== Sync Log ==="
             cat "/tmp/edrsr_sync_${YEAR}.log"
