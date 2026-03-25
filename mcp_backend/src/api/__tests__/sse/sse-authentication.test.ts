@@ -100,104 +100,89 @@ describe('SSE Authentication Tests', () => {
     }, 15000);
 
     it('should require authentication for /api/tools/:name/stream endpoint', async () => {
-      try {
-        await axios.post(
-          `${BASE_URL}/api/tools/classify_intent/stream`,
-          {
-            arguments: { query: 'test' },
-          },
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 10000,
-          }
-        );
-        fail('Should have thrown 401 error');
-      } catch (error: any) {
-        expect(error.response.status).toBe(401);
-      }
+      const response = await axios.post(
+        `${BASE_URL}/api/tools/classify_intent/stream`,
+        {
+          arguments: { query: 'test' },
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000,
+          validateStatus: () => true,
+        }
+      );
+      expect(response.status).toBe(401);
     }, 15000);
 
     it('should require authentication for regular endpoint', async () => {
-      try {
-        await axios.post(
-          `${BASE_URL}/api/tools/classify_intent`,
-          {
-            arguments: { query: 'test' },
-          },
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 10000,
-          }
-        );
-        fail('Should have thrown 401 error');
-      } catch (error: any) {
-        expect(error.response.status).toBe(401);
-      }
+      const response = await axios.post(
+        `${BASE_URL}/api/tools/classify_intent`,
+        {
+          arguments: { query: 'test' },
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000,
+          validateStatus: () => true,
+        }
+      );
+      expect(response.status).toBe(401);
     }, 15000);
   });
 
   describe('Invalid Authentication', () => {
     it('should reject invalid API key for /stream endpoint', async () => {
-      try {
-        await axios.post(
-          `${BASE_URL}/api/tools/classify_intent/stream`,
-          {
-            arguments: { query: 'test' },
+      const response = await axios.post(
+        `${BASE_URL}/api/tools/classify_intent/stream`,
+        {
+          arguments: { query: 'test' },
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer invalid-key-12345',
           },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer invalid-key-12345',
-            },
-            timeout: 10000,
-          }
-        );
-        fail('Should have thrown 401 error');
-      } catch (error: any) {
-        expect(error.response.status).toBe(401);
-      }
+          timeout: 10000,
+          validateStatus: () => true,
+        }
+      );
+      expect(response.status).toBe(401);
     }, 15000);
 
     it('should reject malformed Authorization header', async () => {
-      try {
-        await axios.post(
-          `${BASE_URL}/api/tools/classify_intent/stream`,
-          {
-            arguments: { query: 'test' },
+      const response = await axios.post(
+        `${BASE_URL}/api/tools/classify_intent/stream`,
+        {
+          arguments: { query: 'test' },
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'InvalidFormat',
           },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'InvalidFormat',
-            },
-            timeout: 10000,
-          }
-        );
-        fail('Should have thrown 401 error');
-      } catch (error: any) {
-        expect(error.response.status).toBe(401);
-      }
+          timeout: 10000,
+          validateStatus: () => true,
+        }
+      );
+      expect(response.status).toBe(401);
     }, 15000);
 
     it('should reject empty Bearer token', async () => {
-      try {
-        await axios.post(
-          `${BASE_URL}/api/tools/classify_intent/stream`,
-          {
-            arguments: { query: 'test' },
+      const response = await axios.post(
+        `${BASE_URL}/api/tools/classify_intent/stream`,
+        {
+          arguments: { query: 'test' },
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ',
           },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ',
-            },
-            timeout: 10000,
-          }
-        );
-        fail('Should have thrown 401 error');
-      } catch (error: any) {
-        expect(error.response.status).toBe(401);
-      }
+          timeout: 10000,
+          validateStatus: () => true,
+        }
+      );
+      expect(response.status).toBe(401);
     }, 15000);
   });
 
@@ -346,39 +331,33 @@ describe('SSE Authentication Tests', () => {
 
   describe('Authorization with Different Endpoints', () => {
     it('should enforce auth on /api/tools/:name (no SSE)', async () => {
-      try {
-        await axios.post(
-          `${BASE_URL}/api/tools/classify_intent`,
-          {
-            arguments: { query: 'test' },
-          },
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 10000,
-          }
-        );
-        fail('Should require authentication');
-      } catch (error: any) {
-        expect(error.response.status).toBe(401);
-      }
+      const response = await axios.post(
+        `${BASE_URL}/api/tools/classify_intent`,
+        {
+          arguments: { query: 'test' },
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000,
+          validateStatus: () => true,
+        }
+      );
+      expect(response.status).toBe(401);
     }, 15000);
 
     it('should enforce auth on /api/tools/:name/stream', async () => {
-      try {
-        await axios.post(
-          `${BASE_URL}/api/tools/classify_intent/stream`,
-          {
-            arguments: { query: 'test' },
-          },
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 10000,
-          }
-        );
-        fail('Should require authentication');
-      } catch (error: any) {
-        expect(error.response.status).toBe(401);
-      }
+      const response = await axios.post(
+        `${BASE_URL}/api/tools/classify_intent/stream`,
+        {
+          arguments: { query: 'test' },
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000,
+          validateStatus: () => true,
+        }
+      );
+      expect(response.status).toBe(401);
     }, 15000);
 
     it('should allow anonymous on /sse for ChatGPT compatibility', async () => {

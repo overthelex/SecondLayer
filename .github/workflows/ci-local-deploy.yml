@@ -94,18 +94,15 @@ jobs:
         if: needs.detect-changes.outputs.backend == 'true'
         run: cd mcp_backend && npm install && npm run build
 
-      - name: Unit test backend (controllers)
-        if: needs.detect-changes.outputs.backend == 'true'
-        run: cd mcp_backend && npx jest --no-cache src/controllers/__tests__/ --forceExit
-
-      - name: Unit test Diia auth & signing (regression guard)
+      - name: Unit test backend
         if: needs.detect-changes.outputs.backend == 'true'
         run: |
-          cd mcp_backend && npx jest --no-cache \
-            src/controllers/__tests__/diia-auth.test.ts \
-            src/controllers/__tests__/diia-sign.test.ts \
+          cd mcp_backend && npx jest --no-cache --forceExit \
+            src/controllers/__tests__/ \
+            src/middleware/__tests__/ \
+            src/adapters/__tests__/ \
             src/services/__tests__/diia-service.test.ts \
-            --forceExit
+            src/services/__tests__/consultation-message-bus.test.ts
 
       - name: Build RADA
         if: needs.detect-changes.outputs.rada == 'true'
@@ -188,19 +185,27 @@ jobs:
 
           Your task:
           1. Read /tmp/ci-errors.log to understand the failure
-          2. Analyze the errors and identify the root cause
-          3. Fix the code — edit the minimal set of files needed
-          4. Run the TypeScript build (npm run build in the affected service) to verify your fix compiles
-          5. Stage ONLY the files you changed and commit with message: "fix: [ci-autofix] <description>"
-          6. Do NOT push — the pipeline will handle pushing and PR creation
+          2. Determine if this is a build error (TypeScript compilation) or a test failure
+          3. Analyze the errors and identify the root cause
+          4. Fix the code — edit the minimal set of files needed
+          5. If it's a test failure:
+             - Read the failing test file AND the source file it tests
+             - Determine if the test is wrong (outdated assertions) or the source code has a bug
+             - Fix whichever is actually incorrect
+             - Run the specific test to verify: npx jest --no-cache <test-file> --forceExit
+          6. If it's a build error:
+             - Fix the TypeScript errors
+             - Run npm run build in the affected service to verify
+          7. Stage ONLY the files you changed and commit with message: "fix: [ci-autofix] <description>"
+          8. Do NOT push — the pipeline will handle pushing and PR creation
 
           Rules:
-          - Do NOT change test expectations to make tests pass — fix the actual code
+          - Do NOT blindly change test expectations — understand WHY the test fails first
           - Do NOT modify CI workflow files
           - Do NOT install new dependencies unless absolutely necessary
           - Do NOT run git push
-          - If the error is in environment config (missing env vars, wrong URLs), fix it in the workflow env or skip
-          - If you cannot fix the issue, create a GitHub issue describing the problem instead of committing broken code
+          - If the error is in environment config (missing env vars, wrong URLs), skip — it's not a code fix
+          - If you cannot fix the issue, create a GitHub issue describing the problem
           PROMPT_END
 
           npx -y @anthropic-ai/claude-code@latest \

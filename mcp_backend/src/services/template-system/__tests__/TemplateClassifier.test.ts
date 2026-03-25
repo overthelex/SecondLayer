@@ -13,8 +13,15 @@ describe('TemplateClassifier', () => {
     const mockRedisClient = {
       get: jest.fn().mockResolvedValue(null),
       setex: jest.fn().mockResolvedValue('OK'),
+      set: jest.fn().mockResolvedValue(undefined),
+      del: jest.fn().mockResolvedValue(0),
+      increment: jest.fn().mockResolvedValue(1),
+      ping: jest.fn().mockResolvedValue(true),
+      isConnected: jest.fn().mockReturnValue(true),
+      connect: jest.fn().mockResolvedValue(undefined),
+      disconnect: jest.fn().mockResolvedValue(undefined),
     };
-    classifier = new TemplateClassifier(mockRedisClient);
+    classifier = new TemplateClassifier(mockRedisClient as any);
   });
 
   describe('normalizeQuestion', () => {
@@ -335,8 +342,15 @@ describe('TemplateClassifier', () => {
       const mockRedisClient = {
         get: jest.fn().mockResolvedValue(null),
         setex: jest.fn().mockResolvedValue('OK'),
+        set: jest.fn().mockResolvedValue(undefined),
+        del: jest.fn().mockResolvedValue(0),
+        increment: jest.fn().mockResolvedValue(1),
+        ping: jest.fn().mockResolvedValue(true),
+        isConnected: jest.fn().mockReturnValue(true),
+        connect: jest.fn().mockResolvedValue(undefined),
+        disconnect: jest.fn().mockResolvedValue(undefined),
       };
-      const classifierWithMock = new TemplateClassifier(mockRedisClient);
+      const classifierWithMock = new TemplateClassifier(mockRedisClient as any);
 
       const classification: QuestionClassification = {
         intent: 'test',
@@ -353,10 +367,10 @@ describe('TemplateClassifier', () => {
       const hash = (classifierWithMock as any).hashQuestion('test question');
       await (classifierWithMock as any).cacheClassification(hash, classification);
 
-      expect(mockRedisClient.setex).toHaveBeenCalledWith(
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
         `classification:${hash}`,
-        86400, // Cache TTL
-        expect.any(String)
+        expect.any(String),
+        86400 // Cache TTL
       );
     });
 
@@ -376,8 +390,15 @@ describe('TemplateClassifier', () => {
       const mockRedisClient = {
         get: jest.fn().mockResolvedValue(JSON.stringify(cachedData)),
         setex: jest.fn().mockResolvedValue('OK'),
+        set: jest.fn().mockResolvedValue(undefined),
+        del: jest.fn().mockResolvedValue(0),
+        increment: jest.fn().mockResolvedValue(1),
+        ping: jest.fn().mockResolvedValue(true),
+        isConnected: jest.fn().mockReturnValue(true),
+        connect: jest.fn().mockResolvedValue(undefined),
+        disconnect: jest.fn().mockResolvedValue(undefined),
       };
-      const classifierWithMock = new TemplateClassifier(mockRedisClient);
+      const classifierWithMock = new TemplateClassifier(mockRedisClient as any);
 
       const hash = (classifierWithMock as any).hashQuestion('test question');
       const cached = await (classifierWithMock as any).getCachedClassification(
@@ -391,8 +412,15 @@ describe('TemplateClassifier', () => {
       const mockRedisClient = {
         get: jest.fn().mockRejectedValue(new Error('Cache error')),
         setex: jest.fn().mockResolvedValue('OK'),
+        set: jest.fn().mockResolvedValue(undefined),
+        del: jest.fn().mockResolvedValue(0),
+        increment: jest.fn().mockResolvedValue(1),
+        ping: jest.fn().mockResolvedValue(true),
+        isConnected: jest.fn().mockReturnValue(true),
+        connect: jest.fn().mockResolvedValue(undefined),
+        disconnect: jest.fn().mockResolvedValue(undefined),
       };
-      const classifierWithMock = new TemplateClassifier(mockRedisClient);
+      const classifierWithMock = new TemplateClassifier(mockRedisClient as any);
 
       const hash = (classifierWithMock as any).hashQuestion('test question');
       const cached = await (classifierWithMock as any).getCachedClassification(

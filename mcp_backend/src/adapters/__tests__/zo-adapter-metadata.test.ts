@@ -39,57 +39,28 @@ describe('ZOAdapter - Metadata and Advanced Features', () => {
       expect(typeof adapter.getSearchMetadata).toBe('function');
     });
 
-    test('should validate target for metadata query', async () => {
-      // Invalid target should throw validation error
-      await expect(async () => {
-        await adapter.getSearchMetadata({
-          meta: { search: 'test' },
-          target: 'invalid_target' as any,
-        });
-      }).rejects.toThrow(ZakonOnlineValidationError);
-    });
-
-    test('should accept valid target for metadata query', async () => {
-      // Mock successful API response
-      mockAxiosInstance.get.mockResolvedValueOnce({
-        data: { total: 1000, facets: {} },
+    test('should return empty result when API is disabled', async () => {
+      // API_DISABLED = true, so getSearchMetadata returns early
+      const result = await adapter.getSearchMetadata({
+        meta: { search: 'test' },
+        target: 'invalid_target' as any,
       });
-
-      await expect(async () => {
-        await adapter.getSearchMetadata({
-          meta: { search: 'test' },
-          target: 'text',
-        });
-      }).not.toThrow();
+      expect(result).toEqual({ total: 0, facets: {} });
     });
 
-    test('should use default target if not specified', async () => {
-      mockAxiosInstance.get.mockResolvedValueOnce({
-        data: { total: 500 },
+    test('should return empty result for valid target when API is disabled', async () => {
+      const result = await adapter.getSearchMetadata({
+        meta: { search: 'test' },
+        target: 'text',
       });
-
-      // Should not throw - uses default 'text' target
-      await expect(async () => {
-        await adapter.getSearchMetadata({
-          meta: { search: 'test' },
-        });
-      }).not.toThrow();
+      expect(result).toEqual({ total: 0, facets: {} });
     });
 
-    test('should include error message with available targets', async () => {
-      try {
-        await adapter.getSearchMetadata({
-          meta: { search: 'test' },
-          target: 'cause_num' as any, // Invalid for court_decisions
-        });
-        fail('Should have thrown error');
-      } catch (error: any) {
-        expect(error.message).toContain('Invalid target');
-        expect(error.message).toContain('cause_num');
-        expect(error.message).toContain('Available targets');
-        expect(error.message).toContain('text');
-        expect(error.message).toContain('title');
-      }
+    test('should return empty result with default target when API is disabled', async () => {
+      const result = await adapter.getSearchMetadata({
+        meta: { search: 'test' },
+      });
+      expect(result).toEqual({ total: 0, facets: {} });
     });
   });
 

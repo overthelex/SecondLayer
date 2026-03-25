@@ -132,12 +132,177 @@ jobs:
             fi
           fi
 
-  # ─── Step 2: Deploy to production ───────────────────────────────────
-  deploy-prod:
-    name: Deploy to Production
+  # ─── Step 2: Pre-deploy tests ───────────────────────────────────────
+  pre-deploy-tests:
+    name: Pre-Deploy Tests
     runs-on: [self-hosted, local]
     needs: [detect-changes]
     if: needs.detect-changes.outputs.has_changes == 'true'
+    env:
+      BACKEND_CHANGED: ${{ needs.detect-changes.outputs.backend }}
+      FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure native build tools
+        run: |
+          if ! command -v make &>/dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq build-essential python3
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Build shared package
+        run: cd packages/shared && npm install --legacy-peer-deps && npm run build
+
+      - name: Build & test backend
+        if: needs.detect-changes.outputs.backend == 'true'
+        run: |
+          cd mcp_backend && npm install && npm run build
+          npx jest --no-cache --forceExit \
+            src/controllers/__tests__/ \
+            src/middleware/__tests__/ \
+            src/adapters/__tests__/ \
+            src/services/__tests__/diia-service.test.ts \
+            src/services/__tests__/consultation-message-bus.test.ts
+
+      - name: Build & test frontend
+        if: needs.detect-changes.outputs.frontend == 'true'
+        run: |
+          cd lexwebapp
+          npm install --legacy-peer-deps
+          npm test
+          npm run build
+        env:
+          VITE_API_URL: https://legal.org.ua
+
+  # ─── Step 2b: Self-heal test failures ────────────────────────────────
+  self-heal-tests:
+    name: Self-Heal Test Failures
+    runs-on: [self-hosted, local]
+    needs: [detect-changes, pre-deploy-tests]
+    if: |
+      always() &&
+      needs.pre-deploy-tests.result == 'failure'
+    env:
+      CLAUDE_CODE_USE_BEDROCK: '1'
+      CLAUDE_CODE_BEDROCK_MODEL: eu.anthropic.claude-sonnet-4-6
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: eu-central-1
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
+          token: ${{ github.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Guard against infinite loops
+        id: guard
+        run: |
+          AUTOFIX_COUNT=$(git log -5 --format='%s' | grep -c '\[ci-autofix\]' || true)
+          if [ "$AUTOFIX_COUNT" -ge 1 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Found $AUTOFIX_COUNT autofix commit(s) in last 5 — skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch test error logs
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          gh run view "${{ github.run_id }}" --log-failed 2>&1 | tail -150 > /tmp/ci-errors.log
+          echo "Captured $(wc -l < /tmp/ci-errors.log) lines of error logs"
+
+      - name: Claude Code — diagnose and fix test failures
+        if: steps.guard.outputs.skip == 'false'
+        id: claude-fix
+        continue-on-error: true
+        run: |
+          BRANCH_NAME="ci-autofix/tests-$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA:0:7}"
+          git checkout -b "$BRANCH_NAME"
+
+          cat > /tmp/ci-prompt.txt <<'PROMPT_END'
+          Pre-deploy tests failed. The error logs are in /tmp/ci-errors.log — read that file first.
+
+          Your task:
+          1. Read /tmp/ci-errors.log to understand the failure
+          2. Determine if this is a build error or a test failure
+          3. Read the failing test file AND the source file it tests
+          4. Determine if the test is wrong (outdated assertions) or the source code has a bug
+          5. Fix whichever is actually incorrect
+          6. Run the specific test to verify: npx jest --no-cache <test-file> --forceExit
+          7. Stage ONLY the files you changed and commit with message: "fix: [ci-autofix] <description>"
+          8. Do NOT push — the pipeline will handle pushing and PR creation
+
+          Rules:
+          - Do NOT blindly change test expectations — understand WHY the test fails first
+          - Do NOT modify CI workflow files
+          - Do NOT install new dependencies unless absolutely necessary
+          - Do NOT run git push
+          - If you cannot fix the issue, create a GitHub issue describing the problem
+          PROMPT_END
+
+          npx -y @anthropic-ai/claude-code@latest \
+            -p "$(cat /tmp/ci-prompt.txt)" \
+            --allowedTools "Bash,Read,Edit,Write,Glob,Grep" \
+            --max-turns 25
+        timeout-minutes: 10
+
+      - name: Check if fix was produced
+        if: steps.guard.outputs.skip == 'false'
+        id: check-fix
+        run: |
+          CURRENT_BRANCH=$(git branch --show-current)
+          if git log --oneline "main..$CURRENT_BRANCH" 2>/dev/null | grep -q .; then
+            echo "has_fix=true" >> "$GITHUB_OUTPUT"
+            echo "branch=$CURRENT_BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_fix=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Claude Code did not produce a fix"
+          fi
+
+      - name: Push branch and create PR
+        if: steps.guard.outputs.skip == 'false' && steps.check-fix.outputs.has_fix == 'true'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BRANCH="${{ steps.check-fix.outputs.branch }}"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "fix: [ci-autofix] Auto-fix for pre-deploy test failure" \
+            --body "$(cat <<EOF
+          ## Auto-generated fix for test failure
+
+          Claude Code analyzed the pre-deploy test failure and produced this fix automatically.
+
+          **Source run:** $RUN_URL
+
+          > Review carefully before merging — this is an automated fix.
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          EOF
+          )" \
+            --base main \
+            --head "$BRANCH"
+
+  # ─── Step 3: Deploy to production ──────────────────────────────────
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: [self-hosted, local]
+    needs: [detect-changes, pre-deploy-tests]
+    if: |
+      needs.detect-changes.outputs.has_changes == 'true' &&
+      needs.pre-deploy-tests.result == 'success'
     environment: production
     outputs:
       backend_version: ${{ steps.version.outputs.backend_version }}

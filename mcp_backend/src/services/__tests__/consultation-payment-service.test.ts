@@ -53,10 +53,16 @@ function makePaymentRow(overrides: any = {}): ConsultationPayment {
 }
 
 function makeDb(overrides: any = {}) {
-  return {
+  const db: any = {
     query: jest.fn().mockResolvedValue({ rows: [] }),
     ...overrides,
   };
+  // transaction(callback) calls the callback with a client that delegates to db.query
+  db.transaction = jest.fn().mockImplementation(async (callback: (client: any) => Promise<any>) => {
+    const client = { query: db.query };
+    return callback(client);
+  });
+  return db;
 }
 
 function makeConsultationService(overrides: any = {}) {

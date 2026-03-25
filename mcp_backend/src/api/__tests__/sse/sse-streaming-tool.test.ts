@@ -143,21 +143,18 @@ describe('Direct Streaming Endpoint Tests', () => {
 
   describe('Authentication', () => {
     it('should require authentication for streaming endpoint', async () => {
-      try {
-        await axios.post(
-          `${BASE_URL}/api/tools/classify_intent/stream`,
-          {
-            arguments: { query: 'test' },
-          },
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 10000,
-          }
-        );
-        fail('Should have thrown authentication error');
-      } catch (error: any) {
-        expect(error.response.status).toBe(401);
-      }
+      const response = await axios.post(
+        `${BASE_URL}/api/tools/classify_intent/stream`,
+        {
+          arguments: { query: 'test' },
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000,
+          validateStatus: () => true,
+        }
+      );
+      expect(response.status).toBe(401);
     }, 15000);
 
     it('should accept valid Bearer token', async () => {

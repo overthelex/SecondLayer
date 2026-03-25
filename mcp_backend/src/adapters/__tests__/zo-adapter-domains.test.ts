@@ -19,9 +19,9 @@ import {
 
 describe('Zakononline Domain Configuration', () => {
   describe('ZAKONONLINE_DOMAINS', () => {
-    test('should have 4 domains configured', () => {
+    test('should have 5 domains configured', () => {
       const domainNames = Object.keys(ZAKONONLINE_DOMAINS);
-      expect(domainNames).toHaveLength(4);
+      expect(domainNames).toHaveLength(5);
     });
 
     test('should include all expected domains', () => {
@@ -29,6 +29,7 @@ describe('Zakononline Domain Configuration', () => {
       expect(ZAKONONLINE_DOMAINS).toHaveProperty('court_sessions');
       expect(ZAKONONLINE_DOMAINS).toHaveProperty('legal_acts');
       expect(ZAKONONLINE_DOMAINS).toHaveProperty('court_practice');
+      expect(ZAKONONLINE_DOMAINS).toHaveProperty('echr_practice');
     });
 
     test('each domain should have required fields', () => {
@@ -290,20 +291,20 @@ describe('Zakononline Domain Configuration', () => {
       const baseURLs = Object.values(ZAKONONLINE_DOMAINS).map(d => d.baseURL);
       const uniqueURLs = new Set(baseURLs);
 
-      // court_decisions and court_sessions share base URL, so we expect 3 unique URLs
-      expect(uniqueURLs.size).toBe(3);
+      // court_decisions and court_sessions share base URL, so we expect 4 unique URLs
+      expect(uniqueURLs.size).toBe(4);
     });
 
     test('all domains should have unique names', () => {
       const names = Object.values(ZAKONONLINE_DOMAINS).map(d => d.name);
       const uniqueNames = new Set(names);
-      expect(uniqueNames.size).toBe(4);
+      expect(uniqueNames.size).toBe(5);
     });
 
     test('all domains should have unique display names', () => {
       const displayNames = Object.values(ZAKONONLINE_DOMAINS).map(d => d.displayName);
       const uniqueDisplayNames = new Set(displayNames);
-      expect(uniqueDisplayNames.size).toBe(4);
+      expect(uniqueDisplayNames.size).toBe(5);
     });
   });
 
