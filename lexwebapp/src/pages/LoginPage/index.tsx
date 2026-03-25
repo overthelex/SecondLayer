@@ -574,7 +574,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
           {/* Logo */}
           <div>
-            <img src="/Image.jpg" alt="SecondLayer" className="h-9 w-auto opacity-90" />
+            <img src="/logo-white.png" alt="SecondLayer" className="h-9 w-auto opacity-90" />
           </div>
 
           {/* Value proposition */}
@@ -682,7 +682,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
         {/* Mobile logo */}
         <div className="lg:hidden mb-10 self-start relative z-10">
-          <img src="/Image.jpg" alt="SecondLayer" className="h-8 w-auto opacity-90" />
+          <img src="/logo-white.png" alt="SecondLayer" className="h-8 w-auto opacity-90" />
         </div>
 
         <motion.div

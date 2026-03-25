@@ -103,7 +103,7 @@ export function InvestorDeckPage() {
       <Slide dark>
         <div className="text-center">
           <FadeIn>
-            <img src="/Image.jpg" alt="LEX" className="h-20 md:h-28 w-auto mx-auto mb-8 brightness-0 invert" />
+            <img src="/logo-white.png" alt="LEX" className="h-20 md:h-28 w-auto mx-auto mb-8" />
           </FadeIn>
           <FadeIn delay={0.15}>
             <h1 className="text-5xl md:text-7xl font-serif font-bold tracking-tight mb-6">
