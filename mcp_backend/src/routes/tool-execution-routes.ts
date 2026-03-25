@@ -472,7 +472,8 @@ export function createToolExecutionRoutes(deps: {
           { requestId, task: toolName },
           async () => {
             const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
-            const httpToolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId: req.user?.id } : args;
+            const vaultUserId = req.user?.id || process.env.DEFAULT_VAULT_USER_ID;
+            const httpToolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId: vaultUserId } : args;
             return await deps.toolRegistry.executeTool(toolName, httpToolArgs);
           }
         );
