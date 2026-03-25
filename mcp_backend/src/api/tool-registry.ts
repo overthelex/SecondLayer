@@ -246,6 +246,8 @@ export class ToolRegistry {
       { clientName: 'openreyestr_search_tax_debt', serviceName: 'search_tax_debt' },
       { clientName: 'openreyestr_search_esv_debt', serviceName: 'search_esv_debt' },
       { clientName: 'openreyestr_search_prozorro', serviceName: 'search_prozorro' },
+      { clientName: 'openreyestr_search_termination_started', serviceName: 'search_termination_started' },
+      { clientName: 'openreyestr_search_rnbo_sanctions', serviceName: 'search_rnbo_sanctions' },
     ];
 
     for (const tool of openreyestrTools) {
