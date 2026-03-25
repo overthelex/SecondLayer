@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Copy, Check, ChevronRight, ChevronDown } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Copy, Check } from 'lucide-react';
 
 /* ================================================================
    DATA
@@ -115,46 +115,16 @@ const toolGroups: ToolGroup[] = [
 ];
 
 /* ================================================================
-   SIDEBAR NAVIGATION STRUCTURE
+   TABLE OF CONTENTS
    ================================================================ */
 
-interface NavItem {
-  id: string;
-  label: string;
-  children?: NavItem[];
-}
-
-const navigation: NavItem[] = [
+const tocItems = [
   { id: 'overview', label: 'Огляд' },
-  {
-    id: 'getting-started', label: 'Початок роботи', children: [
-      { id: 'authentication', label: 'Автентифікація' },
-      { id: 'endpoints', label: 'Ендпоінти' },
-      { id: 'quick-start', label: 'Швидкий старт' },
-    ],
-  },
-  {
-    id: 'tools', label: 'Інструменти', children:
-      toolGroups.map((g, i) => ({ id: `tools-${i}`, label: g.title })),
-  },
-  {
-    id: 'examples', label: 'Приклади коду', children: [
-      { id: 'example-curl', label: 'cURL' },
-      { id: 'example-js', label: 'JavaScript' },
-      { id: 'example-python', label: 'Python' },
-      { id: 'example-sse', label: 'SSE Streaming' },
-    ],
-  },
-  {
-    id: 'mcp-clients', label: 'MCP клієнти', children: [
-      { id: 'mcp-claude-code', label: 'Claude Code' },
-      { id: 'mcp-claude-desktop', label: 'Claude Desktop' },
-      { id: 'mcp-cursor', label: 'Cursor' },
-      { id: 'mcp-vscode', label: 'VS Code' },
-      { id: 'mcp-chatgpt', label: 'ChatGPT' },
-      { id: 'mcp-continue', label: 'Continue.dev' },
-    ],
-  },
+  { id: 'authentication', label: 'Автентифікація' },
+  { id: 'endpoints', label: 'Ендпоінти' },
+  { id: 'tools', label: 'Інструменти' },
+  { id: 'examples', label: 'Приклади' },
+  { id: 'mcp-clients', label: 'MCP клієнти' },
   { id: 'pricing', label: 'Вартість' },
 ];
 
@@ -164,27 +134,14 @@ const navigation: NavItem[] = [
 
 export function DeveloperDocsPage() {
   const [activeSection, setActiveSection] = useState('overview');
-  const [expandedNav, setExpandedNav] = useState<Set<string>>(new Set(['getting-started', 'tools', 'examples', 'mcp-clients']));
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const toggleNav = useCallback((id: string) => {
-    setExpandedNav(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const scrollTo = useCallback((id: string) => {
-    setActiveSection(id);
-    setSidebarOpen(false);
+  const scrollTo = (id: string) => {
     const el = document.getElementById(id);
-    if (el && contentRef.current) {
-      const top = el.offsetTop - 24;
-      contentRef.current.scrollTo({ top, behavior: 'smooth' });
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, []);
+  };
 
   // Track active section on scroll
   useEffect(() => {
@@ -208,141 +165,46 @@ export function DeveloperDocsPage() {
   }, []);
 
   return (
-    <div className="flex h-full bg-white dark:bg-[#1d1d1f]">
-      {/* Mobile sidebar toggle */}
-      <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-white dark:bg-[#2d2d2f] border border-[#d2d2d7] dark:border-[#424245] lg:hidden"
-      >
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      </button>
+    <div ref={contentRef} className="flex-1 h-full overflow-y-auto">
+      <div className="max-w-[820px] mx-auto px-6 py-8 pb-32">
 
-      {/* Sidebar */}
-      <aside className={`
-        fixed lg:sticky top-0 left-0 z-40 h-full w-[260px] flex-shrink-0
-        border-r border-[#d2d2d7] dark:border-[#424245]
-        bg-[#fbfbfd] dark:bg-[#1d1d1f]
-        overflow-y-auto overscroll-contain
-        transition-transform lg:transition-none
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        <div className="px-5 pt-6 pb-3">
-          <div className="text-[11px] font-semibold tracking-wider uppercase text-[#86868b] dark:text-[#a1a1a6]">
-            Документація
+        {/* Sticky TOC bar */}
+        <nav className="sticky top-0 z-10 -mx-6 px-6 py-2.5 mb-6 bg-claude-bg/95 backdrop-blur-sm border-b border-claude-border/50 overflow-x-auto">
+          <div className="flex gap-1">
+            {tocItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => scrollTo(item.id)}
+                className={`
+                  px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors
+                  ${activeSection === item.id
+                    ? 'bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900'
+                    : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:hover:text-zinc-200 dark:hover:bg-zinc-800'
+                  }
+                `}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
-          <div className="text-[15px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7] mt-1">
-            LEX AI Platform
-          </div>
-        </div>
-        <nav className="px-3 pb-8">
-          {navigation.map(item => (
-            <SidebarItem
-              key={item.id}
-              item={item}
-              active={activeSection}
-              expanded={expandedNav}
-              onToggle={toggleNav}
-              onNavigate={scrollTo}
-            />
-          ))}
         </nav>
-      </aside>
 
-      {/* Backdrop for mobile */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/20 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Content */}
-      <main
-        ref={contentRef}
-        className="flex-1 h-full overflow-y-auto overscroll-contain"
-      >
-        <div className="max-w-[820px] mx-auto px-6 lg:px-10 py-10 pb-32">
-          <OverviewSection />
-          <Divider />
-          <GettingStartedSection />
-          <Divider />
-          <ToolsSection />
-          <Divider />
-          <ExamplesSection />
-          <Divider />
-          <MCPClientsSection />
-          <Divider />
-          <PricingSection />
-        </div>
-      </main>
+        <OverviewSection />
+        <Divider />
+        <GettingStartedSection />
+        <Divider />
+        <ToolsSection />
+        <Divider />
+        <ExamplesSection />
+        <Divider />
+        <MCPClientsSection />
+        <Divider />
+        <PricingSection />
+      </div>
     </div>
   );
 }
 
-/* ================================================================
-   SIDEBAR COMPONENTS
-   ================================================================ */
-
-function SidebarItem({ item, active, expanded, onToggle, onNavigate, depth = 0 }: {
-  item: NavItem;
-  active: string;
-  expanded: Set<string>;
-  onToggle: (id: string) => void;
-  onNavigate: (id: string) => void;
-  depth?: number;
-}) {
-  const hasChildren = item.children && item.children.length > 0;
-  const isExpanded = expanded.has(item.id);
-  const isActive = active === item.id;
-
-  return (
-    <div>
-      <button
-        onClick={() => {
-          if (hasChildren) onToggle(item.id);
-          onNavigate(item.id);
-        }}
-        className={`
-          w-full flex items-center gap-1.5 px-2 py-[6px] rounded-md text-left transition-colors
-          ${depth === 0 ? 'text-[13px] font-medium' : 'text-[12.5px]'}
-          ${isActive
-            ? 'bg-[#0071e3]/10 text-[#0071e3] dark:bg-[#0a84ff]/15 dark:text-[#4db8ff]'
-            : 'text-[#1d1d1f] dark:text-[#f5f5f7] hover:bg-[#e8e8ed] dark:hover:bg-[#2d2d2f]'
-          }
-        `}
-        style={{ paddingLeft: `${8 + depth * 12}px` }}
-      >
-        {hasChildren && (
-          <span className="w-3.5 flex-shrink-0">
-            {isExpanded
-              ? <ChevronDown size={11} className="text-[#86868b]" />
-              : <ChevronRight size={11} className="text-[#86868b]" />
-            }
-          </span>
-        )}
-        {!hasChildren && depth > 0 && <span className="w-3.5 flex-shrink-0" />}
-        <span className="truncate">{item.label}</span>
-      </button>
-      {hasChildren && isExpanded && (
-        <div>
-          {item.children!.map(child => (
-            <SidebarItem
-              key={child.id}
-              item={child}
-              active={active}
-              expanded={expanded}
-              onToggle={onToggle}
-              onNavigate={onNavigate}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ================================================================
    SECTION: OVERVIEW
@@ -351,21 +213,21 @@ function SidebarItem({ item, active, expanded, onToggle, onNavigate, depth = 0 }
 function OverviewSection() {
   return (
     <section id="overview" data-section>
-      <h1 className="text-[28px] font-bold text-[#1d1d1f] dark:text-[#f5f5f7] tracking-tight leading-tight">
+      <h1 className="text-[28px] font-bold text-claude-text tracking-tight leading-tight">
         LEX AI Platform API
       </h1>
-      <p className="mt-3 text-[15px] text-[#424245] dark:text-[#a1a1a6] leading-relaxed max-w-[640px]">
+      <p className="mt-3 text-[15px] text-claude-subtext leading-relaxed max-w-[640px]">
         Доступ до 56+ інструментів юридичного аналізу через уніфікований API.
         Судова практика, законодавство, реєстри, парламентські дані.
       </p>
 
-      <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-px bg-[#d2d2d7] dark:bg-[#424245] rounded-xl overflow-hidden border border-[#d2d2d7] dark:border-[#424245]">
+      <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-px bg-claude-border rounded-xl overflow-hidden border border-claude-border">
         <InfoCell label="Інструменти" value="56+" />
         <InfoCell label="Мікросервіси" value="3" />
         <InfoCell label="Транспорти" value="REST, MCP, SSE" />
       </div>
 
-      <h2 className="mt-10 text-[20px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Сервіси</h2>
+      <h2 className="mt-10 text-[20px] font-semibold text-claude-text">Сервіси</h2>
 
       <div className="mt-4 space-y-3">
         <ServiceRow name="mcp_backend" count={36} description="Судова практика, аналіз, законодавство, парсинг документів, vault" />
@@ -373,28 +235,28 @@ function OverviewSection() {
         <ServiceRow name="mcp_openreyestr" count={16} description="Юридичні особи, ФОП, бенефіціари, боржники, Prozorro" />
       </div>
 
-      <h2 className="mt-10 text-[20px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Транспорти</h2>
+      <h2 className="mt-10 text-[20px] font-semibold text-claude-text">Транспорти</h2>
 
       <table className="mt-4 w-full text-[13px]">
         <thead>
-          <tr className="border-b border-[#d2d2d7] dark:border-[#424245] text-left">
+          <tr className="border-b border-claude-border text-left">
             <Th>Протокол</Th>
             <Th>Ендпоінт</Th>
             <Th>Призначення</Th>
           </tr>
         </thead>
-        <tbody className="text-[#424245] dark:text-[#a1a1a6]">
-          <tr className="border-b border-[#e8e8ed] dark:border-[#333336]">
+        <tbody className="text-claude-subtext">
+          <tr className="border-b border-claude-border/50">
             <Td>HTTP REST</Td>
             <Td><Code>POST {API_BASE}/:tool</Code></Td>
             <Td>Вебдодатки, серверні інтеграції</Td>
           </tr>
-          <tr className="border-b border-[#e8e8ed] dark:border-[#333336]">
+          <tr className="border-b border-claude-border/50">
             <Td>MCP SSE</Td>
             <Td><Code>{MCP_SSE_URL}</Code></Td>
             <Td>Claude, Cursor, VS Code, Continue.dev</Td>
           </tr>
-          <tr className="border-b border-[#e8e8ed] dark:border-[#333336]">
+          <tr className="border-b border-claude-border/50">
             <Td>SSE Streaming</Td>
             <Td><Code>POST {API_BASE}/:tool/stream</Code></Td>
             <Td>Тривалі операції з поточною відповіддю</Td>
@@ -416,36 +278,36 @@ function GettingStartedSection() {
 
       {/* Authentication */}
       <div id="authentication" data-section>
-        <h2 className="text-[20px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Автентифікація</h2>
-        <p className="mt-2 text-[14px] text-[#424245] dark:text-[#a1a1a6] leading-relaxed">
+        <h2 className="text-[20px] font-semibold text-claude-text">Автентифікація</h2>
+        <p className="mt-2 text-[14px] text-claude-subtext leading-relaxed">
           Всі запити потребують автентифікації через Bearer Token. Згенеруйте API ключ
           у розділі <strong>Профіль &rarr; API токени</strong>.
         </p>
 
         <CodeBlock lang="http" code={`Authorization: Bearer YOUR_API_KEY`} />
 
-        <h3 className="mt-6 text-[15px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Методи автентифікації</h3>
+        <h3 className="mt-6 text-[15px] font-semibold text-claude-text">Методи автентифікації</h3>
         <table className="mt-3 w-full text-[13px]">
           <thead>
-            <tr className="border-b border-[#d2d2d7] dark:border-[#424245] text-left">
+            <tr className="border-b border-claude-border text-left">
               <Th>Метод</Th>
               <Th>Призначення</Th>
             </tr>
           </thead>
-          <tbody className="text-[#424245] dark:text-[#a1a1a6]">
-            <tr className="border-b border-[#e8e8ed] dark:border-[#333336]">
+          <tbody className="text-claude-subtext">
+            <tr className="border-b border-claude-border/50">
               <Td>Bearer Token</Td>
               <Td>API клієнти, MCP клієнти, скрипти</Td>
             </tr>
-            <tr className="border-b border-[#e8e8ed] dark:border-[#333336]">
+            <tr className="border-b border-claude-border/50">
               <Td>JWT / Google OAuth</Td>
               <Td>Вебдодатки з інтерактивною авторизацією</Td>
             </tr>
           </tbody>
         </table>
 
-        <h3 className="mt-6 text-[15px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Ліміти</h3>
-        <div className="mt-3 text-[13px] text-[#424245] dark:text-[#a1a1a6] space-y-1">
+        <h3 className="mt-6 text-[15px] font-semibold text-claude-text">Ліміти</h3>
+        <div className="mt-3 text-[13px] text-claude-subtext space-y-1">
           <p>Rate limit залежить від тарифного плану.</p>
           <p>Максимальний розмір тіла запиту: <Code>10 MB</Code></p>
           <p>Timeout: <Code>120 с</Code> (SSE streaming &mdash; без обмежень)</p>
@@ -454,17 +316,17 @@ function GettingStartedSection() {
 
       {/* Endpoints */}
       <div id="endpoints" data-section className="mt-10">
-        <h2 className="text-[20px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Ендпоінти</h2>
+        <h2 className="text-[20px] font-semibold text-claude-text">Ендпоінти</h2>
 
         <table className="mt-4 w-full text-[13px]">
           <thead>
-            <tr className="border-b border-[#d2d2d7] dark:border-[#424245] text-left">
+            <tr className="border-b border-claude-border text-left">
               <Th>Метод</Th>
               <Th>Шлях</Th>
               <Th>Опис</Th>
             </tr>
           </thead>
-          <tbody className="text-[#424245] dark:text-[#a1a1a6]">
+          <tbody className="text-claude-subtext">
             <EndpointTableRow method="POST" path="/api/tools/:toolName" desc="Виконати інструмент" />
             <EndpointTableRow method="POST" path="/api/tools/:toolName/stream" desc="Виконати з SSE streaming" />
             <EndpointTableRow method="POST" path="/api/tools/batch" desc="Пакетне виконання" />
@@ -476,8 +338,8 @@ function GettingStartedSection() {
 
       {/* Quick Start */}
       <div id="quick-start" data-section className="mt-10">
-        <h2 className="text-[20px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Швидкий старт</h2>
-        <p className="mt-2 text-[14px] text-[#424245] dark:text-[#a1a1a6] leading-relaxed">
+        <h2 className="text-[20px] font-semibold text-claude-text">Швидкий старт</h2>
+        <p className="mt-2 text-[14px] text-claude-subtext leading-relaxed">
           Отримайте API ключ та зробіть перший запит:
         </p>
         <CodeBlock lang="bash" code={`curl -X POST ${API_BASE}/search_legal_precedents \\
@@ -496,17 +358,17 @@ function GettingStartedSection() {
 function ToolsSection() {
   return (
     <section id="tools" data-section>
-      <h1 className="text-[24px] font-bold text-[#1d1d1f] dark:text-[#f5f5f7] tracking-tight">Інструменти</h1>
-      <p className="mt-2 text-[14px] text-[#424245] dark:text-[#a1a1a6] leading-relaxed">
+      <h1 className="text-[24px] font-bold text-claude-text tracking-tight">Інструменти</h1>
+      <p className="mt-2 text-[14px] text-claude-subtext leading-relaxed">
         Всі інструменти доступні через <Code>POST /api/tools/:toolName</Code> з тілом <Code>{`{"arguments": {...}}`}</Code>.
       </p>
 
       {toolGroups.map((group, i) => (
         <div key={i} id={`tools-${i}`} data-section className="mt-8">
-          <h2 className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7] pb-2 border-b border-[#d2d2d7] dark:border-[#424245]">
+          <h2 className="text-[17px] font-semibold text-claude-text pb-2 border-b border-claude-border">
             {group.title}
           </h2>
-          <div className="divide-y divide-[#e8e8ed] dark:divide-[#333336]">
+          <div className="divide-y divide-claude-border/50">
             {group.tools.map(tool => (
               <ToolEntry key={tool.name} tool={tool} />
             ))}
@@ -521,19 +383,19 @@ function ToolEntry({ tool }: { tool: ToolDef }) {
   return (
     <div className="py-4">
       <div className="flex items-baseline gap-3">
-        <code className="text-[13px] font-mono font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
+        <code className="text-[13px] font-mono font-semibold text-claude-text">
           {tool.name}
         </code>
         {tool.cost && (
-          <span className="text-[11px] text-[#86868b] dark:text-[#6e6e73]">{tool.cost}</span>
+          <span className="text-[11px] text-zinc-400">{tool.cost}</span>
         )}
       </div>
-      <p className="mt-1 text-[13px] text-[#424245] dark:text-[#a1a1a6]">{tool.description}</p>
+      <p className="mt-1 text-[13px] text-claude-subtext">{tool.description}</p>
       {tool.params && tool.params.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1">
           {tool.params.map(p => (
-            <span key={p.name} className="text-[12px] font-mono text-[#424245] dark:text-[#a1a1a6]">
-              {p.name}{p.required && <span className="text-[#bf5af2] dark:text-[#bf5af2] ml-0.5">*</span>}
+            <span key={p.name} className="text-[12px] font-mono text-claude-subtext">
+              {p.name}{p.required && <span className="text-claude-accent ml-0.5">*</span>}
             </span>
           ))}
         </div>
@@ -549,11 +411,11 @@ function ToolEntry({ tool }: { tool: ToolDef }) {
 function ExamplesSection() {
   return (
     <section id="examples" data-section>
-      <h1 className="text-[24px] font-bold text-[#1d1d1f] dark:text-[#f5f5f7] tracking-tight">Приклади коду</h1>
+      <h1 className="text-[24px] font-bold text-claude-text tracking-tight">Приклади коду</h1>
 
       <div id="example-curl" data-section className="mt-8">
-        <h2 className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">cURL</h2>
-        <h3 className="mt-4 text-[14px] font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">Пошук судових рішень</h3>
+        <h2 className="text-[17px] font-semibold text-claude-text">cURL</h2>
+        <h3 className="mt-4 text-[14px] font-medium text-claude-text">Пошук судових рішень</h3>
         <CodeBlock lang="bash" code={`curl -X POST ${API_BASE}/search_legal_precedents \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -565,7 +427,7 @@ function ExamplesSection() {
     }
   }'`} />
 
-        <h3 className="mt-6 text-[14px] font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">Юридичний аналіз</h3>
+        <h3 className="mt-6 text-[14px] font-medium text-claude-text">Юридичний аналіз</h3>
         <CodeBlock lang="bash" code={`curl -X POST ${API_BASE}/get_legal_advice \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -576,17 +438,17 @@ function ExamplesSection() {
     }
   }'`} />
 
-        <h3 className="mt-6 text-[14px] font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">Стаття закону</h3>
+        <h3 className="mt-6 text-[14px] font-medium text-claude-text">Стаття закону</h3>
         <CodeBlock lang="bash" code={`curl -X POST ${API_BASE}/get_legislation_article \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"arguments": {"rada_id": "435-15", "article_number": "625"}}'`} />
 
-        <div className="mt-3 text-[12px] text-[#86868b] dark:text-[#6e6e73]">
+        <div className="mt-3 text-[12px] text-zinc-400">
           Поширені <Code>rada_id</Code>: <Code>254к/96-вр</Code> (Конституція), <Code>435-15</Code> (ЦК), <Code>2341-14</Code> (ККУ), <Code>1618-15</Code> (ЦПК)
         </div>
 
-        <h3 className="mt-6 text-[14px] font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">Пошук у реєстрі</h3>
+        <h3 className="mt-6 text-[14px] font-medium text-claude-text">Пошук у реєстрі</h3>
         <CodeBlock lang="bash" code={`curl -X POST ${API_BASE}/openreyestr_search_entities \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -594,7 +456,7 @@ function ExamplesSection() {
       </div>
 
       <div id="example-js" data-section className="mt-10">
-        <h2 className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">JavaScript / TypeScript</h2>
+        <h2 className="text-[17px] font-semibold text-claude-text">JavaScript / TypeScript</h2>
         <CodeBlock lang="typescript" code={`const response = await fetch('${API_BASE}/search_legal_precedents', {
   method: 'POST',
   headers: {
@@ -614,7 +476,7 @@ console.log(data.result);`} />
       </div>
 
       <div id="example-python" data-section className="mt-10">
-        <h2 className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Python</h2>
+        <h2 className="text-[17px] font-semibold text-claude-text">Python</h2>
         <CodeBlock lang="python" code={`import requests
 
 response = requests.post(
@@ -635,8 +497,8 @@ print(response.json()['result'])`} />
       </div>
 
       <div id="example-sse" data-section className="mt-10">
-        <h2 className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">SSE Streaming</h2>
-        <p className="mt-2 text-[13px] text-[#424245] dark:text-[#a1a1a6] leading-relaxed">
+        <h2 className="text-[17px] font-semibold text-claude-text">SSE Streaming</h2>
+        <p className="mt-2 text-[13px] text-claude-subtext leading-relaxed">
           Для тривалих операцій використовуйте SSE endpoint. Відповідь надходить потоком подій.
         </p>
         <CodeBlock lang="typescript" code={`const response = await fetch('${API_BASE}/get_legal_advice/stream', {
@@ -688,52 +550,52 @@ function MCPClientsSection() {
 
   return (
     <section id="mcp-clients" data-section>
-      <h1 className="text-[24px] font-bold text-[#1d1d1f] dark:text-[#f5f5f7] tracking-tight">MCP клієнти</h1>
-      <p className="mt-2 text-[14px] text-[#424245] dark:text-[#a1a1a6] leading-relaxed">
-        LEX AI підтримує MCP SSE транспорт. Згенеруйте токен у <a href="/profile" className="text-[#0071e3] dark:text-[#4db8ff] hover:underline">Профілі &rarr; MCP Access Tokens</a>.
+      <h1 className="text-[24px] font-bold text-claude-text tracking-tight">MCP клієнти</h1>
+      <p className="mt-2 text-[14px] text-claude-subtext leading-relaxed">
+        LEX AI підтримує MCP SSE транспорт. Згенеруйте токен у <a href="/profile" className="text-claude-accent hover:underline">Профілі &rarr; MCP Access Tokens</a>.
       </p>
 
       <div id="mcp-claude-code" data-section className="mt-8">
-        <h2 className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Claude Code</h2>
-        <p className="mt-2 text-[13px] text-[#424245] dark:text-[#a1a1a6]">
+        <h2 className="text-[17px] font-semibold text-claude-text">Claude Code</h2>
+        <p className="mt-2 text-[13px] text-claude-subtext">
           Додайте до <Code>~/.claude/settings.json</Code> або <Code>.mcp.json</Code> в корені проєкту:
         </p>
         <CodeBlock lang="json" code={mcpConfig} />
-        <p className="mt-2 text-[12px] text-[#86868b] dark:text-[#6e6e73]">
+        <p className="mt-2 text-[12px] text-zinc-400">
           Після додавання перезапустіть Claude Code або виконайте <Code>/mcp</Code> для перепідключення.
         </p>
       </div>
 
       <div id="mcp-claude-desktop" data-section className="mt-8">
-        <h2 className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Claude Desktop</h2>
-        <p className="mt-2 text-[13px] text-[#424245] dark:text-[#a1a1a6]">
+        <h2 className="text-[17px] font-semibold text-claude-text">Claude Desktop</h2>
+        <p className="mt-2 text-[13px] text-claude-subtext">
           Додайте до <Code>claude_desktop_config.json</Code>:
         </p>
         <CodeBlock lang="json" code={mcpConfig} />
       </div>
 
       <div id="mcp-cursor" data-section className="mt-8">
-        <h2 className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Cursor</h2>
-        <p className="mt-2 text-[13px] text-[#424245] dark:text-[#a1a1a6]">
+        <h2 className="text-[17px] font-semibold text-claude-text">Cursor</h2>
+        <p className="mt-2 text-[13px] text-claude-subtext">
           Збережіть як <Code>.cursor/mcp.json</Code> в корені проєкту:
         </p>
         <CodeBlock lang="json" code={mcpConfig} />
       </div>
 
       <div id="mcp-vscode" data-section className="mt-8">
-        <h2 className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">VS Code</h2>
-        <p className="mt-2 text-[13px] text-[#424245] dark:text-[#a1a1a6]">
+        <h2 className="text-[17px] font-semibold text-claude-text">VS Code</h2>
+        <p className="mt-2 text-[13px] text-claude-subtext">
           Збережіть як <Code>.vscode/mcp.json</Code>. Увімкніть: <Code>chat.mcp.discovery.enabled: true</Code>
         </p>
         <CodeBlock lang="json" code={mcpConfig} />
       </div>
 
       <div id="mcp-chatgpt" data-section className="mt-8">
-        <h2 className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">ChatGPT</h2>
-        <p className="mt-2 text-[13px] text-[#424245] dark:text-[#a1a1a6] leading-relaxed">
+        <h2 className="text-[17px] font-semibold text-claude-text">ChatGPT</h2>
+        <p className="mt-2 text-[13px] text-claude-subtext leading-relaxed">
           ChatGPT підтримує MCP через SSE транспорт (Plus/Team/Enterprise).
         </p>
-        <ol className="mt-3 text-[13px] text-[#424245] dark:text-[#a1a1a6] space-y-2 list-decimal list-inside">
+        <ol className="mt-3 text-[13px] text-claude-subtext space-y-2 list-decimal list-inside">
           <li>Відкрийте <Code>Settings &rarr; Features &rarr; MCP Servers &rarr; Add</Code></li>
           <li>Server URL: <Code>https://mcp.legal.org.ua/sse</Code></li>
           <li>Authorization header: <Code>Bearer YOUR_API_TOKEN</Code></li>
@@ -741,8 +603,8 @@ function MCPClientsSection() {
       </div>
 
       <div id="mcp-continue" data-section className="mt-8">
-        <h2 className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Continue.dev</h2>
-        <p className="mt-2 text-[13px] text-[#424245] dark:text-[#a1a1a6]">
+        <h2 className="text-[17px] font-semibold text-claude-text">Continue.dev</h2>
+        <p className="mt-2 text-[13px] text-claude-subtext">
           Збережіть як <Code>.continue/mcpServers/secondlayer.yaml</Code>:
         </p>
         <CodeBlock lang="yaml" code={`name: secondlayer
@@ -754,17 +616,17 @@ headers:
       </div>
 
       <div className="mt-8">
-        <h2 className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Версіонування</h2>
+        <h2 className="text-[17px] font-semibold text-claude-text">Версіонування</h2>
         <table className="mt-3 w-full text-[13px]">
           <thead>
-            <tr className="border-b border-[#d2d2d7] dark:border-[#424245] text-left">
+            <tr className="border-b border-claude-border text-left">
               <Th>Версія</Th>
               <Th>URL</Th>
               <Th>Статус</Th>
             </tr>
           </thead>
-          <tbody className="text-[#424245] dark:text-[#a1a1a6]">
-            <tr className="border-b border-[#e8e8ed] dark:border-[#333336]">
+          <tbody className="text-claude-subtext">
+            <tr className="border-b border-claude-border/50">
               <Td>v1</Td>
               <Td><Code>{MCP_SSE_URL}</Code></Td>
               <Td>Stable</Td>
@@ -783,37 +645,37 @@ headers:
 function PricingSection() {
   return (
     <section id="pricing" data-section>
-      <h1 className="text-[24px] font-bold text-[#1d1d1f] dark:text-[#f5f5f7] tracking-tight">Вартість</h1>
-      <p className="mt-2 text-[14px] text-[#424245] dark:text-[#a1a1a6] leading-relaxed">
+      <h1 className="text-[24px] font-bold text-claude-text tracking-tight">Вартість</h1>
+      <p className="mt-2 text-[14px] text-claude-subtext leading-relaxed">
         Вартість залежить від складності інструменту та обсягу AI обробки.
         Включає OpenAI API виклики, векторний пошук, зовнішні API запити та кешування.
       </p>
 
       <table className="mt-6 w-full text-[13px]">
         <thead>
-          <tr className="border-b border-[#d2d2d7] dark:border-[#424245] text-left">
+          <tr className="border-b border-claude-border text-left">
             <Th>Категорія</Th>
             <Th>Діапазон</Th>
             <Th>Приклади</Th>
           </tr>
         </thead>
-        <tbody className="text-[#424245] dark:text-[#a1a1a6]">
-          <tr className="border-b border-[#e8e8ed] dark:border-[#333336] align-top">
+        <tbody className="text-claude-subtext">
+          <tr className="border-b border-claude-border/50 align-top">
             <Td>Мінімальна</Td>
             <Td>&lt;$0.01</Td>
             <Td>get_legislation_article, classify_intent, store_document, openreyestr_*</Td>
           </tr>
-          <tr className="border-b border-[#e8e8ed] dark:border-[#333336] align-top">
+          <tr className="border-b border-claude-border/50 align-top">
             <Td>Середня</Td>
             <Td>$0.01–0.05</Td>
             <Td>search_legal_precedents, get_court_decision, search_legislation</Td>
           </tr>
-          <tr className="border-b border-[#e8e8ed] dark:border-[#333336] align-top">
+          <tr className="border-b border-claude-border/50 align-top">
             <Td>Висока</Td>
             <Td>$0.05–0.15</Td>
             <Td>search_supreme_court_practice, compare_practice_pro_contra, analyze_court_trends</Td>
           </tr>
-          <tr className="border-b border-[#e8e8ed] dark:border-[#333336] align-top">
+          <tr className="border-b border-claude-border/50 align-top">
             <Td>Максимальна</Td>
             <Td>$0.10–0.30</Td>
             <Td>get_legal_advice (комплексний аналіз з антигалюцинацією)</Td>
@@ -821,7 +683,7 @@ function PricingSection() {
         </tbody>
       </table>
 
-      <h2 className="mt-8 text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Правові документи</h2>
+      <h2 className="mt-8 text-[17px] font-semibold text-claude-text">Правові документи</h2>
       <div className="mt-3 space-y-1.5 text-[13px]">
         <DocLink href="/ua/developer-offer" label="Оферта розробника" />
         <DocLink href="/en/api-terms" label="API Terms of Use (EN)" />
@@ -837,12 +699,12 @@ function PricingSection() {
    ================================================================ */
 
 function Divider() {
-  return <hr className="my-12 border-[#d2d2d7] dark:border-[#424245]" />;
+  return <hr className="my-12 border-claude-border" />;
 }
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="pb-2 pr-4 text-[12px] font-semibold text-[#86868b] dark:text-[#6e6e73] uppercase tracking-wider">
+    <th className="pb-2 pr-4 text-[12px] font-semibold text-zinc-400 uppercase tracking-wider">
       {children}
     </th>
   );
@@ -854,7 +716,7 @@ function Td({ children }: { children: React.ReactNode }) {
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className="text-[12px] font-mono bg-[#f5f5f7] dark:bg-[#2d2d2f] text-[#1d1d1f] dark:text-[#f5f5f7] px-1.5 py-0.5 rounded">
+    <code className="text-[12px] font-mono bg-claude-bg-secondary text-claude-text px-1.5 py-0.5 rounded">
       {children}
     </code>
   );
@@ -862,9 +724,9 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function InfoCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-[#fbfbfd] dark:bg-[#2d2d2f] px-5 py-4">
-      <div className="text-[11px] font-medium text-[#86868b] dark:text-[#6e6e73] uppercase tracking-wider">{label}</div>
-      <div className="text-[17px] font-semibold text-[#1d1d1f] dark:text-[#f5f5f7] mt-1">{value}</div>
+    <div className="bg-claude-bg-secondary px-5 py-4">
+      <div className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">{label}</div>
+      <div className="text-[17px] font-semibold text-claude-text mt-1">{value}</div>
     </div>
   );
 }
@@ -872,18 +734,18 @@ function InfoCell({ label, value }: { label: string; value: string }) {
 function ServiceRow({ name, count, description }: { name: string; count: number; description: string }) {
   return (
     <div className="flex items-baseline gap-4 py-2">
-      <code className="text-[13px] font-mono font-semibold text-[#1d1d1f] dark:text-[#f5f5f7] w-[160px] flex-shrink-0">{name}</code>
-      <span className="text-[12px] text-[#86868b] dark:text-[#6e6e73] w-[36px] flex-shrink-0">{count}+</span>
-      <span className="text-[13px] text-[#424245] dark:text-[#a1a1a6]">{description}</span>
+      <code className="text-[13px] font-mono font-semibold text-claude-text w-[160px] flex-shrink-0">{name}</code>
+      <span className="text-[12px] text-zinc-400 w-[36px] flex-shrink-0">{count}+</span>
+      <span className="text-[13px] text-claude-subtext">{description}</span>
     </div>
   );
 }
 
 function EndpointTableRow({ method, path, desc }: { method: string; path: string; desc: string }) {
   return (
-    <tr className="border-b border-[#e8e8ed] dark:border-[#333336]">
+    <tr className="border-b border-claude-border/50">
       <Td>
-        <span className={`text-[11px] font-mono font-semibold ${method === 'GET' ? 'text-[#248a3d]' : 'text-[#0071e3]'}`}>
+        <span className={`text-[11px] font-mono font-semibold ${method === 'GET' ? 'text-green-600' : 'text-claude-accent'}`}>
           {method}
         </span>
       </Td>
@@ -899,7 +761,7 @@ function DocLink({ href, label }: { href: string; label: string }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="block text-[#0071e3] dark:text-[#4db8ff] hover:underline"
+      className="block text-claude-accent hover:underline"
     >
       {label}
     </a>
@@ -916,19 +778,19 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   };
 
   return (
-    <div className="mt-3 rounded-lg border border-[#d2d2d7] dark:border-[#424245] overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-1.5 bg-[#f5f5f7] dark:bg-[#2d2d2f] border-b border-[#d2d2d7] dark:border-[#424245]">
-        <span className="text-[10px] font-mono text-[#86868b] dark:text-[#6e6e73] uppercase tracking-wider">{lang}</span>
+    <div className="mt-3 rounded-lg border border-claude-border overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-1.5 bg-claude-bg-secondary border-b border-claude-border">
+        <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">{lang}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 text-[11px] text-[#86868b] dark:text-[#6e6e73] hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7] transition-colors"
+          className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-claude-text transition-colors"
         >
           {copied ? <Check size={11} /> : <Copy size={11} />}
           {copied ? 'Скопійовано' : 'Копіювати'}
         </button>
       </div>
-      <pre className="px-4 py-3.5 bg-[#fafafa] dark:bg-[#1d1d1f] overflow-x-auto">
-        <code className="text-[12.5px] font-mono text-[#1d1d1f] dark:text-[#e5e5e5] leading-relaxed whitespace-pre">{code}</code>
+      <pre className="px-4 py-3.5 bg-claude-bg overflow-x-auto">
+        <code className="text-[12.5px] font-mono text-claude-text leading-relaxed whitespace-pre">{code}</code>
       </pre>
     </div>
   );
