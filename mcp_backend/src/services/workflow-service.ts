@@ -13,6 +13,7 @@ export interface WorkflowSetRow {
   description: string | null;
   source_query: string;
   status: string;
+  is_public: boolean;
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -153,6 +154,46 @@ export class WorkflowService {
       [id, JSON.stringify(results), costUsd]
     );
     await this.syncSetStatus(id);
+  }
+
+  async listPublicWorkflowSets(): Promise<WorkflowSetRow[]> {
+    const pool = this.db.getPool();
+    const result = await pool.query(
+      `SELECT ws.*,
+              (SELECT COUNT(*) FROM workflows w WHERE w.workflow_set_id = ws.id) as workflow_count,
+              (SELECT COUNT(*) FROM workflows w WHERE w.workflow_set_id = ws.id AND w.status = 'completed') as completed_count
+       FROM workflow_sets ws
+       WHERE ws.is_public = true
+       ORDER BY ws.created_at DESC
+       LIMIT 50`
+    );
+    return result.rows;
+  }
+
+  async getPublicWorkflowSet(id: string): Promise<(WorkflowSetRow & { workflows: WorkflowRow[] }) | null> {
+    const pool = this.db.getPool();
+    const setResult = await pool.query(
+      `SELECT * FROM workflow_sets WHERE id = $1 AND is_public = true`,
+      [id]
+    );
+    if (setResult.rows.length === 0) return null;
+
+    const workflowSet = setResult.rows[0] as WorkflowSetRow;
+    const wfResult = await pool.query(
+      `SELECT * FROM workflows WHERE workflow_set_id = $1 ORDER BY sequence_number`,
+      [id]
+    );
+
+    return { ...workflowSet, workflows: wfResult.rows as WorkflowRow[] };
+  }
+
+  async setPublic(id: string, userId: string, isPublic: boolean): Promise<boolean> {
+    const pool = this.db.getPool();
+    const result = await pool.query(
+      `UPDATE workflow_sets SET is_public = $3 WHERE id = $1 AND user_id = $2`,
+      [id, userId, isPublic]
+    );
+    return (result.rowCount || 0) > 0;
   }
 
   async deleteWorkflowSet(id: string, userId: string): Promise<boolean> {

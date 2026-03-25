@@ -29,32 +29,61 @@ export function createWorkflowSetRoutes(
     res.json({ presets: WORKFLOW_PRESET_LIST });
   }) as any);
 
-  // GET /api/workflow-sets — List user's workflow sets
+  // GET /api/workflow-sets — List user's workflow sets + public ones
   router.get('/', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
-      const sets = await workflowService.listWorkflowSets(userId);
-      res.json({ workflow_sets: sets });
+      const [userSets, publicSets] = await Promise.all([
+        workflowService.listWorkflowSets(userId),
+        workflowService.listPublicWorkflowSets(),
+      ]);
+      // Merge: user's own sets first, then public sets not owned by user
+      const userSetIds = new Set(userSets.map(s => s.id));
+      const mergedSets = [
+        ...userSets,
+        ...publicSets.filter(s => !userSetIds.has(s.id)),
+      ];
+      res.json({ workflow_sets: mergedSets });
     } catch (error: any) {
       logger.error('[WorkflowRoutes] Failed to list workflow sets', { error: error.message });
       res.status(500).json({ error: 'Failed to list workflow sets' });
     }
   }) as any);
 
-  // GET /api/workflow-sets/:id — Get workflow set with all workflows
+  // GET /api/workflow-sets/:id — Get workflow set with all workflows (own or public)
   router.get('/:id', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
-      const set = await workflowService.getWorkflowSet(req.params.id, userId);
+      // Try user's own first, then public
+      let set = await workflowService.getWorkflowSet(req.params.id, userId);
+      if (!set) {
+        set = await workflowService.getPublicWorkflowSet(req.params.id);
+      }
       if (!set) return res.status(404).json({ error: 'Workflow set not found' });
       res.json(set);
     } catch (error: any) {
       logger.error('[WorkflowRoutes] Failed to get workflow set', { error: error.message });
       res.status(500).json({ error: 'Failed to get workflow set' });
+    }
+  }) as any);
+
+  // PATCH /api/workflow-sets/:id/public — Toggle public visibility
+  router.patch('/:id/public', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const isPublic = req.body.is_public === true;
+    try {
+      const updated = await workflowService.setPublic(req.params.id, userId, isPublic);
+      if (!updated) return res.status(404).json({ error: 'Workflow set not found' });
+      res.json({ success: true, is_public: isPublic });
+    } catch (error: any) {
+      logger.error('[WorkflowRoutes] Failed to toggle public', { error: error.message });
+      res.status(500).json({ error: 'Failed to update workflow set' });
     }
   }) as any);
 
@@ -126,15 +155,22 @@ export function createWorkflowRoutes(
 ): Router {
   const router = Router();
 
-  // GET /api/workflows/:id — Get single workflow detail
+  // GET /api/workflows/:id — Get single workflow detail (own or from public set)
   router.get('/:id', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
       const workflow = await workflowService.getWorkflowWithOwner(req.params.id);
-      if (!workflow || workflow.user_id !== userId) {
+      if (!workflow) {
         return res.status(404).json({ error: 'Workflow not found' });
+      }
+      // Allow access if owner or if parent set is public
+      if (workflow.user_id !== userId) {
+        const parentSet = await workflowService.getPublicWorkflowSet(workflow.workflow_set_id);
+        if (!parentSet) {
+          return res.status(404).json({ error: 'Workflow not found' });
+        }
       }
       res.json(workflow);
     } catch (error: any) {
