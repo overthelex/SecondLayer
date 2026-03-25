@@ -1,7 +1,7 @@
 -- Migration 108: Add pricing for opendata registry tools
 -- 9 backend tools + 3 OpenReyestr tools
 
-INSERT INTO tool_pricing (tool_name, service, description, estimated_cost_usd, notes)
+INSERT INTO tool_pricing (tool_name, service, display_name, base_cost_usd, notes)
 VALUES
   ('search_public_organizations',    'backend',     'Реєстр громадських формувань',       0.00300000, '1.08M записів — ГО, партії, профспілки'),
   ('search_case_distribution',       'backend',     'Автоматичний розподіл справ',        0.00300000, '71K протоколів розподілу ДСАУ'),
@@ -16,6 +16,6 @@ VALUES
   ('openreyestr_search_exchange_data',       'openreyestr', 'Обмін даними з держорганами', 0.00100000, '23.2M записів обміну'),
   ('openreyestr_search_arma_seized_assets',  'openreyestr', 'Арештовані активи АРМА',    0.00300000, '725K записів реєстру АРМА')
 ON CONFLICT (tool_name) DO UPDATE SET
-  estimated_cost_usd = EXCLUDED.estimated_cost_usd,
-  description = EXCLUDED.description,
+  base_cost_usd = EXCLUDED.base_cost_usd,
+  display_name = EXCLUDED.display_name,
   notes = EXCLUDED.notes;
