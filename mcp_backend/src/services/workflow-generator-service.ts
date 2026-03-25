@@ -152,8 +152,7 @@ ${toolDescriptions}`,
         temperature: 0.3,
         response_format: { type: 'json_object' },
       },
-      'deep',
-      'openai'
+      'deep'
     );
 
     const content = response.content || '{}';

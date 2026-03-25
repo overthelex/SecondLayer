@@ -45,7 +45,8 @@
     "load:civil-cases": "npm run build && node dist/scripts/load-civil-property-cases.js",
     "backfill:reyestr": "npm run build && node dist/scripts/backfill-fulltext-reyestr.js",
     "discover:court": "npm run build && node dist/scripts/discover-court-decisions.js",
-    "compute:judge-analytics": "npx tsx src/scripts/compute-judge-analytics.ts"
+    "compute:judge-analytics": "npx tsx src/scripts/compute-judge-analytics.ts",
+    "backfill:tsv": "npx tsx src/scripts/backfill-tsv.ts"
   },
   "keywords": [
     "mcp",
