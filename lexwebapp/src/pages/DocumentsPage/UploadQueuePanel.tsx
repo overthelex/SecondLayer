@@ -1,10 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Upload,
   X,
-  ChevronDown,
-  Tag,
   Pause,
   Play,
   RotateCcw,
@@ -13,24 +10,16 @@ import {
 import { useShallow } from 'zustand/react/shallow';
 import { useUploadStore } from '../../stores/uploadStore';
 import { UploadItemRow } from './UploadItemRow';
-import { DOC_TYPE_LABELS } from './constants';
 import { formatFileSize } from './constants';
-import type { DocType } from './types';
 
 interface UploadQueuePanelProps {
   showUploadPanel: boolean;
   setShowUploadPanel: (show: boolean) => void;
-  defaultDocType: DocType;
-  setDefaultDocType: (type: DocType) => void;
-  onStartUpload: () => void;
 }
 
 export function UploadQueuePanel({
   showUploadPanel,
   setShowUploadPanel,
-  defaultDocType,
-  setDefaultDocType,
-  onStartUpload,
 }: UploadQueuePanelProps) {
   // State values via shallow selector to avoid full-store re-renders
   const {
@@ -42,7 +31,6 @@ export function UploadQueuePanel({
     failedFiles,
     totalBytes,
     uploadedBytes,
-    concurrency,
   } = useUploadStore(useShallow(s => ({
     items: s.items,
     isUploading: s.isUploading,
@@ -52,7 +40,6 @@ export function UploadQueuePanel({
     failedFiles: s.failedFiles,
     totalBytes: s.totalBytes,
     uploadedBytes: s.uploadedBytes,
-    concurrency: s.concurrency,
   })));
 
   // Actions (stable refs)
@@ -65,10 +52,7 @@ export function UploadQueuePanel({
   const removeFile = useUploadStore(s => s.removeFile);
   const clearFinished = useUploadStore(s => s.clearFinished);
   const updateDocType = useUploadStore(s => s.updateDocType);
-  const updateAllDocTypes = useUploadStore(s => s.updateAllDocTypes);
-  const setConcurrency = useUploadStore(s => s.setConcurrency);
 
-  const [showTypeDropdown, setShowTypeDropdown] = React.useState(false);
   const uploadQueueRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll upload queue to the first active item
@@ -111,58 +95,6 @@ export function UploadQueuePanel({
               </span>
             </div>
             <div className="flex items-center gap-2">
-              {/* Concurrent uploads selector */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-claude-subtext/50 font-sans">Потоки:</span>
-                <select
-                  value={concurrency}
-                  onChange={(e) => setConcurrency(Number(e.target.value))}
-                  className="text-xs border border-claude-border rounded-lg px-2 py-1.5 bg-white text-claude-text font-sans focus:outline-none focus:border-claude-subtext/40"
-                >
-                  {[1, 2, 3, 5, 8, 10, 15, 20, 30, 50, 100].map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Default doc type selector */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-claude-border rounded-lg hover:bg-claude-bg transition-colors font-sans"
-                >
-                  <Tag size={12} />
-                  {DOC_TYPE_LABELS[defaultDocType]}
-                  <ChevronDown size={12} />
-                </button>
-                <AnimatePresence>
-                  {showTypeDropdown && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -4 }}
-                      className="absolute right-0 top-full mt-1 bg-white border border-claude-border rounded-xl shadow-lg z-20 py-1 min-w-[160px]"
-                    >
-                      {(Object.keys(DOC_TYPE_LABELS) as DocType[]).map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => {
-                            setDefaultDocType(t);
-                            updateAllDocTypes(t);
-                            setShowTypeDropdown(false);
-                          }}
-                          className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-claude-bg transition-colors font-sans ${
-                            defaultDocType === t ? 'text-claude-accent' : 'text-claude-text'
-                          }`}
-                        >
-                          {DOC_TYPE_LABELS[t]}
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
               {/* Pause/Resume */}
               {isUploading && (
                 <button
@@ -257,19 +189,12 @@ export function UploadQueuePanel({
             ))}
           </div>
 
-          {/* Queue footer */}
+          {/* Queue footer — queued count (upload starts automatically) */}
           {queuedCount > 0 && !isUploading && (
-            <div className="px-5 py-3 border-t border-claude-border/50 flex items-center justify-between">
+            <div className="px-5 py-3 border-t border-claude-border/50">
               <span className="text-xs text-claude-subtext/60 font-sans">
-                {queuedCount} файлів готові до завантаження
+                {queuedCount} файлів в черзі
               </span>
-              <button
-                onClick={onStartUpload}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all active:scale-[0.98] shadow-sm font-sans"
-              >
-                <Upload size={14} />
-                Завантажити ({queuedCount})
-              </button>
             </div>
           )}
         </motion.div>

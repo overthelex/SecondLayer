@@ -2,12 +2,9 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { useUploadStore } from '../../stores/uploadStore';
-import { showToast } from '../../utils/toast';
-import { toastTDynamic } from '../../i18n/toast-i18n';
 import { FolderNavigator } from './FolderNavigator';
 import { UploadQueuePanel } from './UploadQueuePanel';
 import { DocumentViewerModal } from '../../components/DocumentViewerModal';
-import { PostUploadDestination } from './PostUploadDestination';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { EditDocumentModal } from './EditDocumentModal';
 import { MoveDocumentModal } from './MoveDocumentModal';
@@ -163,22 +160,18 @@ export function DocumentsPage() {
   });
 
   // Upload state from Zustand store
-  const { items: uploadItems, isUploading, completedFiles, recoveredSessions, showDestinationPicker } = useUploadStore(
+  const { items: uploadItems, isUploading, completedFiles, recoveredSessions } = useUploadStore(
     useShallow(s => ({
       items: s.items,
       isUploading: s.isUploading,
       completedFiles: s.completedFiles,
       recoveredSessions: s.recoveredSessions,
-      showDestinationPicker: s.showDestinationPicker,
     }))
   );
   const addFiles = useUploadStore(s => s.addFiles);
-  const startUpload = useUploadStore(s => s.startUpload);
   const recoverSessions = useUploadStore(s => s.recoverSessions);
   const dismissRecoveredSession = useUploadStore(s => s.dismissRecoveredSession);
   const clearRecoveredSessions = useUploadStore(s => s.clearRecoveredSessions);
-  const dismissDestinationPicker = useUploadStore(s => s.dismissDestinationPicker);
-
   // Undo/redo
   const setOnActionExecuted = useUndoStore((s) => s.setOnActionExecuted);
   useUndoKeyboard();
@@ -194,7 +187,6 @@ export function DocumentsPage() {
   // Local UI state
   const [isDragOver, setIsDragOver] = useState(false);
   const [showUploadPanel, setShowUploadPanel] = useState(false);
-  const [defaultDocType, setDefaultDocType] = useState<DocType>('other');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -227,11 +219,6 @@ export function DocumentsPage() {
     if (!folderPath) navigate('/documents');
     else navigate(`/documents/folders/${folderPath.replace(/\/+$/, '')}`);
   }, [navigate]);
-
-  const handleStartUpload = () => {
-    startUpload();
-    showToast.success(toastTDynamic('uploadStarted', uploadItems.filter((i) => i.status === 'queued').length));
-  };
 
   const handleSearch = () => { loadDocuments(); };
 
@@ -277,7 +264,7 @@ export function DocumentsPage() {
             showCompactUpload={showCompactUpload}
             setUploadZoneExpanded={setUploadZoneExpanded}
             currentFolderPath={currentFolderPath}
-            defaultDocType={defaultDocType}
+            defaultDocType="other"
             addFiles={addFiles}
             setShowUploadPanel={setShowUploadPanel}
             dropZoneRef={dropZoneRef}
@@ -288,16 +275,7 @@ export function DocumentsPage() {
           <UploadQueuePanel
             showUploadPanel={showUploadPanel}
             setShowUploadPanel={setShowUploadPanel}
-            defaultDocType={defaultDocType}
-            setDefaultDocType={setDefaultDocType}
-            onStartUpload={handleStartUpload}
           />
-
-          {showDestinationPicker && (
-            <PostUploadDestination
-              onComplete={() => { dismissDestinationPicker(); loadDocuments(); loadStats(); }}
-            />
-          )}
 
           <DocumentSearchBar
             searchQuery={searchQuery}

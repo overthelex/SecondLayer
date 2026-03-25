@@ -97,15 +97,12 @@ export const useUploadStore = create<UploadState>((set) => {
     if (event.type === 'all-completed') {
       set({ ...sync, isUploading: false });
 
-      // Show destination picker so user can choose where to put uploaded docs
+      // Auto-classify completed documents (fire-and-forget, no UI prompt)
       const completedItems = sync.items.filter(i => i.status === 'completed');
       if (completedItems.length >= 1) {
         const knownIds = completedItems.map(i => i.documentId).filter(Boolean) as string[];
 
         if (knownIds.length > 0) {
-          set({ showDestinationPicker: true, pendingDocumentIds: knownIds });
-
-          // Auto-classify new uploads (fire-and-forget)
           import('../utils/api-client').then(({ api }) => {
             api.documents.startClassification({ documentIds: knownIds }).catch(err => {
               console.warn('[UploadStore] Auto-classification failed (non-critical)', err);
@@ -122,9 +119,6 @@ export const useUploadStore = create<UploadState>((set) => {
                     .filter(s => s && s.documentId)
                     .map(s => s!.documentId!) as string[];
                   if (docIds.length > 0) {
-                    set({ showDestinationPicker: true, pendingDocumentIds: docIds });
-
-                    // Auto-classify deferred docs
                     import('../utils/api-client').then(({ api }) => {
                       api.documents.startClassification({ documentIds: docIds }).catch(() => {});
                     });
@@ -194,7 +188,20 @@ export const useUploadStore = create<UploadState>((set) => {
         encrypt: true,
       }));
       uploadManager.addFiles(filesWithEncrypt);
-      set(syncFromManager(uploadManager));
+
+      // Auto-select concurrency based on file count
+      const count = uploadManager.getItems().filter(i => i.status === 'queued').length;
+      let autoConcurrency: number;
+      if (count <= 3) autoConcurrency = 1;
+      else if (count <= 10) autoConcurrency = 3;
+      else if (count <= 50) autoConcurrency = 5;
+      else if (count <= 200) autoConcurrency = 10;
+      else autoConcurrency = 20;
+      uploadManager.setConcurrency(autoConcurrency);
+
+      // Auto-start upload immediately
+      uploadManager.start();
+      set({ isUploading: true, isPaused: false, concurrency: autoConcurrency, ...syncFromManager(uploadManager) });
     },
 
     startUpload: () => {
