@@ -5,19 +5,19 @@ services:
     command: >-
       postgres
       -c max_connections=300
-      -c shared_buffers=8GB
-      -c effective_cache_size=24GB
+      -c shared_buffers=16GB
+      -c effective_cache_size=96GB
       -c work_mem=256MB
-      -c maintenance_work_mem=2GB
+      -c maintenance_work_mem=4GB
       -c wal_buffers=64MB
-      -c max_wal_size=4GB
-      -c min_wal_size=1GB
+      -c max_wal_size=8GB
+      -c min_wal_size=2GB
       -c checkpoint_timeout=600
       -c checkpoint_completion_target=0.9
       -c random_page_cost=1.1
       -c effective_io_concurrency=200
-      -c max_parallel_workers_per_gather=3
-      -c max_parallel_maintenance_workers=3
+      -c max_parallel_workers_per_gather=6
+      -c max_parallel_maintenance_workers=8
       -c idle_in_transaction_session_timeout=60000
       -c statement_timeout=600000
       -c lock_timeout=30000
@@ -28,7 +28,7 @@ services:
       TZ: Europe/Kiev
     ports:
     - "127.0.0.1:5438:5432"
-    shm_size: '2g'
+    shm_size: '4g'
     volumes:
     - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:
@@ -45,10 +45,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "2"
-          memory: 20G
+          cpus: "12"
+          memory: 64G
         reservations:
-          memory: 8G
+          memory: 16G
 
   pgbouncer-prod:
     image: edoburu/pgbouncer:latest
