@@ -147,7 +147,7 @@ async function worker(id: number, pool: PoolType): Promise<number> {
             FOR UPDATE SKIP LOCKED
           )
           UPDATE ${TABLE} f
-          SET tsv = to_tsvector('simple', LEFT(f.full_text, 900000))
+          SET tsv = to_tsvector('simple', LEFT(f.full_text, 500000))
           FROM batch
           WHERE f.doc_id = batch.doc_id
         `, [BATCH_SIZE]);
