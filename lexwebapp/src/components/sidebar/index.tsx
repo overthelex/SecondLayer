@@ -217,7 +217,7 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
         <div className="px-4 pt-4 pb-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5 px-1">
             <div className="h-9 flex items-center">
-              <img src="/Image.jpg" alt="Lex" className="h-full w-auto object-contain opacity-90" />
+              <img src="/logo-white.png" alt="Lex" className="h-full w-auto object-contain opacity-90" />
             </div>
             {(import.meta.env.VITE_APP_VERSION || import.meta.env.VITE_APP_FRONTEND_VERSION) && (
               <div className="flex flex-col leading-tight">
