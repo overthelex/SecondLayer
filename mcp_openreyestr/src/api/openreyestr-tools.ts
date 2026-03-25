@@ -1194,6 +1194,222 @@ export class OpenReyestrTools {
     return result.rows;
   }
 
+  /**
+   * Search NAZK declarations (anti-corruption declarations)
+   */
+  async searchNazkDeclarations(params: { declarant_name?: string; declarant_workplace?: string; declaration_year?: number; declaration_type?: number; declarant_region?: string; min_income?: number; limit?: number; offset?: number }): Promise<any[]> {
+    const { declarant_name, declarant_workplace, declaration_year, declaration_type, declarant_region, min_income, limit = 50, offset = 0 } = params;
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (declarant_name) { conditions.push(`declarant_name ILIKE $${paramIndex}`); values.push(`%${declarant_name}%`); paramIndex++; }
+    if (declarant_workplace) { conditions.push(`declarant_workplace ILIKE $${paramIndex}`); values.push(`%${declarant_workplace}%`); paramIndex++; }
+    if (declaration_year) { conditions.push(`declaration_year = $${paramIndex}`); values.push(declaration_year); paramIndex++; }
+    if (declaration_type) { conditions.push(`declaration_type = $${paramIndex}`); values.push(declaration_type); paramIndex++; }
+    if (declarant_region) { conditions.push(`declarant_region ILIKE $${paramIndex}`); values.push(`%${declarant_region}%`); paramIndex++; }
+    if (min_income) { conditions.push(`total_income_declared >= $${paramIndex}`); values.push(min_income); paramIndex++; }
+
+    if (conditions.length === 0) {
+      return [{ found: false, message: 'Вкажіть ім\'я декларанта, місце роботи або рік для пошуку' }];
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    values.push(limit, offset);
+
+    const result = await this.pool.query(
+      `SELECT declaration_id, declarant_name, declarant_position, declarant_workplace,
+        declarant_region, declaration_year, declaration_type, post_type, post_category,
+        corruption_affected, submission_date, has_real_estate, has_vehicles,
+        has_securities, has_corporate_rights, has_income, total_income_declared
+      FROM nazk_declarations ${whereClause}
+      ORDER BY declaration_year DESC, submission_date DESC NULLS LAST
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return [{ found: false, query: declarant_name || declarant_workplace || '', message: 'Декларацій не знайдено' }];
+    }
+    return result.rows;
+  }
+
+  /**
+   * Search exchange data (government agency data exchanges)
+   */
+  async searchExchangeData(params: { entity_record?: string; entity_type?: string; tax_payer_type?: string; limit?: number; offset?: number }): Promise<any[]> {
+    const { entity_record, entity_type, tax_payer_type, limit = 50, offset = 0 } = params;
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (entity_record) { conditions.push(`entity_record = $${paramIndex}`); values.push(entity_record); paramIndex++; }
+    if (entity_type) { conditions.push(`entity_type = $${paramIndex}`); values.push(entity_type); paramIndex++; }
+    if (tax_payer_type) { conditions.push(`tax_payer_type ILIKE $${paramIndex}`); values.push(`%${tax_payer_type}%`); paramIndex++; }
+
+    if (conditions.length === 0) {
+      return [{ found: false, message: 'Вкажіть номер запису або тип суб\'єкта для пошуку' }];
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    values.push(limit, offset);
+
+    const result = await this.pool.query(
+      `SELECT entity_type, entity_record, tax_payer_type, start_date, start_num, end_date, end_num
+      FROM exchange_data ${whereClause}
+      ORDER BY start_date DESC NULLS LAST
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return [{ found: false, query: entity_record || '', message: 'Записів обміну даними не знайдено' }];
+    }
+    return result.rows;
+  }
+
+  /**
+   * Search ARMA seized assets registry
+   */
+  async searchArmaSeizedAssets(params: { owner_name?: string; owner_edrpou?: string; case_number?: string; asset_type?: string; status?: string; court_name?: string; region?: string; limit?: number; offset?: number }): Promise<any[]> {
+    const { owner_name, owner_edrpou, case_number, asset_type, status, court_name, region, limit = 50, offset = 0 } = params;
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (owner_name) { conditions.push(`owner_name ILIKE $${paramIndex}`); values.push(`%${owner_name}%`); paramIndex++; }
+    if (owner_edrpou) { conditions.push(`owner_edrpou = $${paramIndex}`); values.push(owner_edrpou); paramIndex++; }
+    if (case_number) { conditions.push(`case_number = $${paramIndex}`); values.push(case_number); paramIndex++; }
+    if (asset_type) { conditions.push(`asset_type ILIKE $${paramIndex}`); values.push(`%${asset_type}%`); paramIndex++; }
+    if (status) { conditions.push(`status ILIKE $${paramIndex}`); values.push(`%${status}%`); paramIndex++; }
+    if (court_name) { conditions.push(`court_name ILIKE $${paramIndex}`); values.push(`%${court_name}%`); paramIndex++; }
+    if (region) { conditions.push(`region ILIKE $${paramIndex}`); values.push(`%${region}%`); paramIndex++; }
+
+    if (conditions.length === 0) {
+      return [{ found: false, message: 'Вкажіть власника, ЄДРПОУ або номер справи для пошуку' }];
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    values.push(limit, offset);
+
+    const result = await this.pool.query(
+      `SELECT case_number, case_date, court_name, asset_type, asset_description,
+        owner_name, owner_type, owner_edrpou, region, status,
+        arrest_date, transfer_date, manager
+      FROM arma_assets ${whereClause}
+      ORDER BY arrest_date DESC NULLS LAST
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return [{ found: false, query: owner_name || owner_edrpou || '', message: 'Арештованих активів не знайдено' }];
+    }
+    return result.rows;
+  }
+
+  /**
+   * Search for entities with termination started
+   */
+  async searchTerminationStarted(params: { query: string; entity_type?: string; signer_name?: string; reason?: string; limit?: number; offset?: number }): Promise<any[]> {
+    const { query, entity_type, signer_name, reason, limit = 50, offset = 0 } = params;
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (query) {
+      conditions.push(`entity_record ILIKE $${paramIndex}`);
+      values.push(`%${query}%`);
+      paramIndex++;
+    }
+    if (entity_type) {
+      conditions.push(`entity_type = $${paramIndex}`);
+      values.push(entity_type);
+      paramIndex++;
+    }
+    if (signer_name) {
+      conditions.push(`signer_name ILIKE $${paramIndex}`);
+      values.push(`%${signer_name}%`);
+      paramIndex++;
+    }
+    if (reason) {
+      conditions.push(`reason ILIKE $${paramIndex}`);
+      values.push(`%${reason}%`);
+      paramIndex++;
+    }
+
+    if (conditions.length === 0) {
+      return [{ found: false, message: 'Вкажіть параметри пошуку' }];
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    values.push(limit, offset);
+
+    const result = await this.pool.query(
+      `SELECT id, entity_type, entity_record, op_date, reason, sbj_state, signer_name, creditor_req_end_date, created_at
+       FROM termination_started ${whereClause}
+       ORDER BY id DESC
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return [{ found: false, query, message: 'Записів про припинення не знайдено' }];
+    }
+    return result.rows;
+  }
+
+  /**
+   * Search RNBO sanctions lists
+   */
+  async searchRnboSanctions(params: { query: string; schema_type?: string; country?: string; identifier?: string; limit?: number; offset?: number }): Promise<any[]> {
+    const { query, schema_type, country, identifier, limit = 50, offset = 0 } = params;
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (query) {
+      conditions.push(`(name ILIKE $${paramIndex} OR aliases ILIKE $${paramIndex})`);
+      values.push(`%${query}%`);
+      paramIndex++;
+    }
+    if (schema_type) {
+      conditions.push(`schema_type = $${paramIndex}`);
+      values.push(schema_type);
+      paramIndex++;
+    }
+    if (country) {
+      conditions.push(`countries ILIKE $${paramIndex}`);
+      values.push(`%${country}%`);
+      paramIndex++;
+    }
+    if (identifier) {
+      conditions.push(`identifiers ILIKE $${paramIndex}`);
+      values.push(`%${identifier}%`);
+      paramIndex++;
+    }
+
+    if (conditions.length === 0) {
+      return [{ found: false, message: 'Вкажіть параметри пошуку' }];
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    values.push(limit, offset);
+
+    const result = await this.pool.query(
+      `SELECT id, entity_id, schema_type, name, aliases, birth_date, countries, addresses, identifiers, sanctions, phones, emails, program_ids, dataset, first_seen, last_seen, last_change
+       FROM rnbo_sanctions ${whereClause}
+       ORDER BY last_change DESC NULLS LAST, id DESC
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return [{ found: false, query, message: 'Санкціонованих осіб не знайдено' }];
+    }
+    return result.rows;
+  }
+
   private async findEntityType(record: string): Promise<'UO' | 'FOP' | 'FSU' | null> {
     const uoResult = await this.pool.query(
       'SELECT 1 FROM legal_entities WHERE record = $1',
@@ -1267,6 +1483,24 @@ export const SearchTaxDebtSchema = z.object({
 export const SearchEsvDebtSchema = z.object({
   query: z.string().optional(),
   tin: z.string().optional(),
+  limit: z.number().min(1).max(100).optional(),
+  offset: z.number().min(0).optional(),
+});
+
+export const SearchTerminationStartedSchema = z.object({
+  query: z.string(),
+  entity_type: z.string().optional(),
+  signer_name: z.string().optional(),
+  reason: z.string().optional(),
+  limit: z.number().min(1).max(100).optional(),
+  offset: z.number().min(0).optional(),
+});
+
+export const SearchRnboSanctionsSchema = z.object({
+  query: z.string(),
+  schema_type: z.string().optional(),
+  country: z.string().optional(),
+  identifier: z.string().optional(),
   limit: z.number().min(1).max(100).optional(),
   offset: z.number().min(0).optional(),
 });

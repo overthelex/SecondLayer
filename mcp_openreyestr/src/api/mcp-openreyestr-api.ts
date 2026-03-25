@@ -416,6 +416,64 @@ export class MCPOpenReyestrAPI {
         },
       },
       {
+        name: 'search_nazk_declarations',
+        description: `Пошук декларацій у реєстрі НАЗК (Національне агентство з питань запобігання корупції)
+
+💰 Примерная стоимость: $0.001-$0.005 USD
+322K декларацій. Пошук за ім'ям декларанта, місцем роботи, роком, типом, регіоном, доходом.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            declarant_name: { type: 'string', description: 'Ім\'я декларанта' },
+            declarant_workplace: { type: 'string', description: 'Місце роботи' },
+            declaration_year: { type: 'number', description: 'Рік декларації' },
+            declaration_type: { type: 'number', description: 'Тип: 1=щорічна, 2=перед звільненням, 3=після звільнення, 4=кандидата' },
+            declarant_region: { type: 'string', description: 'Регіон' },
+            min_income: { type: 'number', description: 'Мінімальний задекларований дохід (грн)' },
+            limit: { type: 'number', default: 50, maximum: 100, minimum: 1 },
+            offset: { type: 'number', default: 0 },
+          },
+        },
+      },
+      {
+        name: 'search_exchange_data',
+        description: `Пошук у реєстрі обміну даними з державними органами
+
+💰 Примерная стоимость: $0.001-$0.003 USD
+23.2M записів. Пошук за номером запису суб'єкта, типом (UO/FOP/FSU), типом платника.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            entity_record: { type: 'string', description: 'Номер запису суб\'єкта' },
+            entity_type: { type: 'string', enum: ['UO', 'FOP', 'FSU'], description: 'Тип суб\'єкта' },
+            tax_payer_type: { type: 'string', description: 'Тип платника' },
+            limit: { type: 'number', default: 50, maximum: 100, minimum: 1 },
+            offset: { type: 'number', default: 0 },
+          },
+        },
+      },
+      {
+        name: 'search_arma_seized_assets',
+        description: `Пошук у реєстрі АРМА — активи під арештом у кримінальних провадженнях (OpenReyestr)
+
+💰 Примерная стоимость: $0.001-$0.005 USD
+Пошук за власником, ЄДРПОУ, номером справи, типом активу, судом, статусом.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            owner_name: { type: 'string', description: 'Ім\'я / назва власника' },
+            owner_edrpou: { type: 'string', description: 'ЄДРПОУ власника' },
+            case_number: { type: 'string', description: 'Номер кримінального провадження' },
+            asset_type: { type: 'string', description: 'Тип активу' },
+            status: { type: 'string', description: 'Статус (arrested, transferred, returned)' },
+            court_name: { type: 'string', description: 'Назва суду' },
+            region: { type: 'string', description: 'Регіон' },
+            limit: { type: 'number', default: 50, maximum: 100, minimum: 1 },
+            offset: { type: 'number', default: 0 },
+          },
+        },
+      },
+      {
         name: 'search_prozorro',
         description: `Пошук тендерів у системі ProZorro (публічні закупівлі)
 
@@ -432,6 +490,44 @@ export class MCPOpenReyestrAPI {
             limit: { type: 'number', default: 50, maximum: 100, minimum: 1 },
             offset: { type: 'number', default: 0 },
           },
+        },
+      },
+      {
+        name: 'search_termination_started',
+        description: `Пошук юридичних осіб, щодо яких розпочато процедуру припинення
+
+💰 Примерная стоимость: $0.001-$0.003 USD
+Пошук за назвою/ЄДРПОУ, типом суб'єкта, підписантом або причиною припинення. 148K записів.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Назва або ЄДРПОУ суб\'єкта (пошук по entity_record)' },
+            entity_type: { type: 'string', description: 'Тип суб\'єкта' },
+            signer_name: { type: 'string', description: 'Ім\'я підписанта' },
+            reason: { type: 'string', description: 'Причина припинення' },
+            limit: { type: 'number', default: 50, maximum: 100, minimum: 1, description: 'Максимальна кількість результатів' },
+            offset: { type: 'number', default: 0, description: 'Зміщення для пагінації' },
+          },
+          required: ['query'],
+        },
+      },
+      {
+        name: 'search_rnbo_sanctions',
+        description: `Пошук у санкційних списках РНБО України
+
+💰 Примерная стоимость: $0.001-$0.003 USD
+Пошук санкціонованих осіб/компаній за ім'ям, псевдонімами, ідентифікаторами, типом або країною. 21K записів.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Ім\'я або псевдонім особи/компанії' },
+            schema_type: { type: 'string', description: 'Тип запису (Person, Company тощо)' },
+            country: { type: 'string', description: 'Країна' },
+            identifier: { type: 'string', description: 'Ідентифікатор (ІПН, ЄДРПОУ, паспорт тощо)' },
+            limit: { type: 'number', default: 50, maximum: 100, minimum: 1, description: 'Максимальна кількість результатів' },
+            offset: { type: 'number', default: 0, description: 'Зміщення для пагінації' },
+          },
+          required: ['query'],
         },
       },
     ];
@@ -507,8 +603,23 @@ export class MCPOpenReyestrAPI {
         case 'search_esv_debt':
           result = await this.tools.searchEsvDebt(args);
           break;
+        case 'search_nazk_declarations':
+          result = await this.tools.searchNazkDeclarations(args);
+          break;
+        case 'search_exchange_data':
+          result = await this.tools.searchExchangeData(args);
+          break;
+        case 'search_arma_seized_assets':
+          result = await this.tools.searchArmaSeizedAssets(args);
+          break;
         case 'search_prozorro':
           result = await this.tools.searchProzorro(args);
+          break;
+        case 'search_termination_started':
+          result = await this.tools.searchTerminationStarted(args);
+          break;
+        case 'search_rnbo_sanctions':
+          result = await this.tools.searchRnboSanctions(args);
           break;
         default:
           throw new Error(`Unknown tool: ${name}`);
