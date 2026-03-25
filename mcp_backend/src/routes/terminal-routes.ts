@@ -9,7 +9,6 @@
 import { IncomingMessage } from 'http';
 import { Server as WebSocketServer, WebSocket } from 'ws';
 import { WebSocket as WsClient } from 'ws';
-import * as pty from 'node-pty';
 import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger.js';
 import type { IDatabase } from '../domain/ports/index.js';
@@ -17,6 +16,19 @@ import type { Server as HttpServer } from 'http';
 
 const MAX_SESSIONS_PER_ADMIN = 2;
 const MAX_PTY_INPUT_LENGTH = 4096;
+
+// Lazy-load node-pty (optional native dep — only needed when TERMINAL_SERVICE_URL is not set)
+let pty: typeof import('node-pty') | null = null;
+async function getPty(): Promise<typeof import('node-pty')> {
+  if (!pty) {
+    try {
+      pty = await import('node-pty');
+    } catch {
+      throw new Error('node-pty is not available. Set TERMINAL_SERVICE_URL to use the proxy terminal.');
+    }
+  }
+  return pty;
+}
 
 /**
  * Sanitize PTY input: bound length and ensure only valid terminal data passes through.
@@ -188,9 +200,20 @@ export function attachTerminalWebSocket(httpServer: HttpServer, db: IDatabase): 
       });
     } else {
       // === Fallback: direct node-pty (for environments without terminal-service) ===
+      let ptyModule: typeof import('node-pty');
+      try {
+        ptyModule = await getPty();
+      } catch (err: any) {
+        ws.send(JSON.stringify({ type: 'error', data: err.message }));
+        ws.close(4500, 'node-pty unavailable');
+        sessions.delete(ws);
+        if (sessions.size === 0) activeSessions.delete(admin.id);
+        return;
+      }
+
       const cwd = process.env.TERMINAL_CWD || '/home/vovkes/SecondLayer';
 
-      const ptyProcess = pty.spawn('bash', [], {
+      const ptyProcess = ptyModule.spawn('bash', [], {
         name: 'xterm-256color',
         cols: 120,
         rows: 30,

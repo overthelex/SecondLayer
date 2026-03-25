@@ -217,7 +217,7 @@ jobs:
           echo "Built: $APK_PATH ($(du -sh $APK_PATH | cut -f1))"
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: secondlayer-android-${{ steps.version.outputs.version_name }}
           path: mobile/${{ steps.build.outputs.apk_path }}
@@ -235,7 +235,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download APK artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: secondlayer-android-${{ needs.build-release-apk.outputs.version_name }}
           path: ./release-apk
