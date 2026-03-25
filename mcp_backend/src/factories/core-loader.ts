@@ -1,0 +1,35 @@
+// Proprietary implementation: @secondlayer/core (private repo)
+
+/**
+ * Core service loader.
+ * Attempts to load @secondlayer/core (proprietary). If unavailable,
+ * falls back to NoOp implementations from services/noop/.
+ */
+
+import { SemanticSectionizer } from '../services/semantic-sectionizer.js';
+import { LegalPatternStore } from '../services/legal-pattern-store.js';
+import { CitationValidator } from '../services/citation-validator.js';
+import { HallucinationGuard } from '../services/hallucination-guard.js';
+import { QueryPlanner } from '../services/query-planner.js';
+import { ShepardizationService } from '../services/shepardization-service.js';
+import { ChatService } from '../services/chat-service.js';
+import { ChatSearchCacheService } from '../services/chat-search-cache-service.js';
+import { BillingService } from '../services/billing-service.js';
+import { PricingService } from '../services/pricing-service.js';
+import { SubscriptionService } from '../services/subscription-service.js';
+import { CreditService } from '../services/credit-service.js';
+
+export {
+  SemanticSectionizer,
+  LegalPatternStore,
+  CitationValidator,
+  HallucinationGuard,
+  QueryPlanner,
+  ShepardizationService,
+  ChatService,
+  ChatSearchCacheService,
+  BillingService,
+  PricingService,
+  SubscriptionService,
+  CreditService,
+};
