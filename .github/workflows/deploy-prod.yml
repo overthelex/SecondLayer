@@ -1,8 +1,9 @@
 ##############################################################################
-# Pipeline: Deploy to Production
+# Pipeline: Deploy to Production (with Preview)
 # - Runs on self-hosted runner (local.legal.org.ua)
-# - Blue-green deploy of changed services to production
-# - Triggered manually via workflow_dispatch
+# - Phase 1: Deploy to inactive color, make preview available
+# - Phase 2: After approval, switch production traffic to new color
+# - Triggered by successful CI or manually via workflow_dispatch
 ##############################################################################
 name: 'Deploy to Production'
 
@@ -14,6 +15,10 @@ on:
         required: false
         default: ''
         type: string
+  workflow_run:
+    workflows: ["CI/CD: Local Build & Test"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: write
@@ -29,6 +34,9 @@ jobs:
   detect-changes:
     name: Detect Changes
     runs-on: [self-hosted, local]
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     outputs:
       shared: ${{ steps.final.outputs.shared }}
       backend: ${{ steps.final.outputs.backend }}
@@ -316,15 +324,14 @@ jobs:
             --base main \
             --head "$BRANCH"
 
-  # ─── Step 3: Deploy to production ──────────────────────────────────
-  deploy-prod:
-    name: Deploy to Production
+  # ─── Step 3a: Deploy Preview (inactive color) ──────────────────────
+  deploy-preview:
+    name: Deploy Preview
     runs-on: [self-hosted, local]
     needs: [detect-changes, pre-deploy-tests]
     if: |
       needs.detect-changes.outputs.has_changes == 'true' &&
       needs.pre-deploy-tests.result == 'success'
-    environment: production
     outputs:
       backend_version: ${{ steps.version.outputs.backend_version }}
       frontend_version: ${{ steps.version.outputs.frontend_version }}
@@ -397,7 +404,7 @@ jobs:
           echo "frontend_version=${FE_VERSION}" >> "$GITHUB_OUTPUT"
           echo "Frontend version: ${FE_VERSION}"
 
-      - name: Deploy changed services to prod (blue-green)
+      - name: "Phase 1: Build, migrate, start inactive color, enable preview"
         env:
           PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
           BACKEND_VERSION: ${{ steps.version.outputs.backend_version }}
@@ -414,7 +421,7 @@ jobs:
           SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}"
           REMOTE_REPO="/home/${PROD_USER}/SecondLayer"
 
-          echo "=== Blue-green deploy to production ==="
+          echo "=== Phase 1: Deploy preview (inactive color) ==="
 
           # Pull latest code and tags
           $SSH_CMD "git -C ${REMOTE_REPO} fetch origin main --tags && git -C ${REMOTE_REPO} reset --hard origin/main"
@@ -435,7 +442,7 @@ jobs:
             $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build"
           fi
 
-          # Blue-green rolling deploy
+          # Phase 1: Build images, run migrations, start inactive color, write preview upstreams
           $SSH_CMD bash << DEPLOY_SCRIPT
             set -e
             cd ${REMOTE_REPO}/deployment
@@ -472,8 +479,6 @@ jobs:
             [ "${OPENREYESTR_CHANGED}" = "true" ] && { \$DC up migrate-openreyestr-prod || true; }
 
             # --- 3. Start new-color containers alongside old ones ---
-            # When any backend service changes, start ALL backend services in new color
-            # (green services form a self-contained cluster referencing each other)
             if [ "\$ANY_BACKEND" = "true" ]; then
               if [ "\$NEW_BACKEND" = "green" ]; then
                 \$DC --profile green up -d app-prod-green document-service-prod-green rada-mcp-app-prod-green app-openreyestr-prod-green
@@ -488,7 +493,6 @@ jobs:
                 \$DC up -d lexwebapp-prod
               fi
             fi
-            # Platform: simple restart (no blue-green needed for static SPA)
             if [ "${PLATFORM_CHANGED}" = "true" ]; then
               \$DC up -d platform-prod
             fi
@@ -535,7 +539,6 @@ jobs:
                 wait_healthy "lexwebapp-prod" 60 || HEALTH_OK=false
               fi
             fi
-
             if [ "${PLATFORM_CHANGED}" = "true" ]; then
               wait_healthy "platform-prod" 60 || HEALTH_OK=false
             fi
@@ -564,7 +567,101 @@ jobs:
               exit 1
             fi
 
-            # --- 5. Switch nginx upstreams to new color ---
+            # --- 5. Write preview upstreams pointing to new (inactive) color ---
+            if [ "\$ANY_BACKEND" = "true" ]; then
+              [ "\$NEW_BACKEND" = "green" ] && PREVIEW_BE_HOST="secondlayer-app-prod-green" || PREVIEW_BE_HOST="secondlayer-app-prod"
+            else
+              # No backend change — preview backend points to current prod backend
+              [ "\$BACKEND_COLOR" = "green" ] && PREVIEW_BE_HOST="secondlayer-app-prod-green" || PREVIEW_BE_HOST="secondlayer-app-prod"
+            fi
+            if [ "${FRONTEND_CHANGED}" = "true" ]; then
+              [ "\$NEW_FRONTEND" = "green" ] && PREVIEW_FE_HOST="lexwebapp-prod-green" || PREVIEW_FE_HOST="lexwebapp-prod"
+            else
+              # No frontend change — preview frontend points to current prod frontend
+              [ "\$FRONTEND_COLOR" = "green" ] && PREVIEW_FE_HOST="lexwebapp-prod-green" || PREVIEW_FE_HOST="lexwebapp-prod"
+            fi
+
+            printf '# Preview upstreams — managed by deploy script\n# Points to inactive color containers for pre-production preview\n# DO NOT EDIT MANUALLY\n\nupstream preview_mcp_backend {\n    server %s:3000;\n    keepalive 128;\n}\n\nupstream preview_frontend {\n    server %s:80;\n    keepalive 32;\n}\n' "\$PREVIEW_BE_HOST" "\$PREVIEW_FE_HOST" > nginx/includes/preview-upstreams.conf
+
+            # Recreate nginx to pick up preview upstreams (bind mount inode staleness)
+            \$DC up -d nginx-prod --force-recreate
+            echo "Preview enabled at preview.legal.org.ua"
+          DEPLOY_SCRIPT
+
+      - name: Verify preview health
+        env:
+          PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
+        run: |
+          SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${PROD_USER}@${PROD_SERVER}"
+
+          # Check preview backend health via nginx
+          for i in 1 2 3 4 5; do
+            HEALTH=$($SSH_CMD "docker exec nginx-prod wget -q -O- --timeout=10 'http://127.0.0.1:80' --header='Host: preview.legal.org.ua' 2>/dev/null | head -c 500") && {
+              echo "✓ Preview frontend is responding"
+              break
+            }
+            [ $i -eq 5 ] && echo "::warning::Preview frontend health check failed (non-blocking)"
+            sleep 5
+          done
+
+          echo ""
+          echo "=========================================="
+          echo "  Preview is ready at:"
+          echo "  https://preview.legal.org.ua"
+          echo ""
+          echo "  Waiting for approval to promote to prod"
+          echo "=========================================="
+
+  # ─── Step 3b: Promote to Production (requires approval) ───────────
+  promote-to-prod:
+    name: Promote to Production
+    runs-on: [self-hosted, local]
+    needs: [detect-changes, deploy-preview]
+    if: needs.deploy-preview.result == 'success'
+    environment: production
+    outputs:
+      backend_version: ${{ needs.deploy-preview.outputs.backend_version }}
+      frontend_version: ${{ needs.deploy-preview.outputs.frontend_version }}
+    env:
+      PROD_SERVER: ${{ secrets.PROD_SERVER_IP }}
+      PROD_USER: ${{ secrets.PROD_USER || 'ubuntu' }}
+      BACKEND_CHANGED: ${{ needs.detect-changes.outputs.backend }}
+      RADA_CHANGED: ${{ needs.detect-changes.outputs.rada }}
+      OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
+      FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+      PLATFORM_CHANGED: ${{ needs.detect-changes.outputs.platform }}
+      MONITORING_CHANGED: ${{ needs.detect-changes.outputs.monitoring }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Phase 2: Switch production traffic to new color"
+        env:
+          PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
+        run: |
+          SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}"
+          REMOTE_REPO="/home/${PROD_USER}/SecondLayer"
+
+          echo "=== Phase 2: Promote preview to production ==="
+
+          $SSH_CMD bash << PROMOTE_SCRIPT
+            set -e
+            cd ${REMOTE_REPO}/deployment
+            DC="docker compose -f docker-compose.prod.yml --env-file .env.prod"
+
+            # --- Determine colors ---
+            BACKEND_COLOR=\$(grep '^backend=' .active-colors 2>/dev/null | cut -d= -f2 || echo "blue")
+            FRONTEND_COLOR=\$(grep '^frontend=' .active-colors 2>/dev/null | cut -d= -f2 || echo "blue")
+            [ "\$BACKEND_COLOR" = "green" ] && NEW_BACKEND="blue" || NEW_BACKEND="green"
+            [ "\$FRONTEND_COLOR" = "green" ] && NEW_FRONTEND="blue" || NEW_FRONTEND="green"
+
+            ANY_BACKEND=false
+            if [ "${BACKEND_CHANGED}" = "true" ] || [ "${RADA_CHANGED}" = "true" ] || [ "${OPENREYESTR_CHANGED}" = "true" ]; then
+              ANY_BACKEND=true
+            fi
+
+            echo "Promoting: Backend \$BACKEND_COLOR → \$NEW_BACKEND, Frontend \$FRONTEND_COLOR → \$NEW_FRONTEND"
+
+            # --- 1. Switch prod upstreams to new color ---
             if [ "\$ANY_BACKEND" = "true" ]; then
               [ "\$NEW_BACKEND" = "green" ] && BE_HOST="secondlayer-app-prod-green" || BE_HOST="secondlayer-app-prod"
             else
@@ -578,14 +675,17 @@ jobs:
 
             printf '# Active upstreams — managed by deploy script (blue-green switching)\n# DO NOT EDIT MANUALLY — overwritten during zero-downtime deploy\n\nupstream prod_mcp_backend {\n    server %s:3000;\n    keepalive 128;\n}\n\nupstream prod_frontend {\n    server %s:80;\n    keepalive 32;\n}\n' "\$BE_HOST" "\$FE_HOST" > nginx/includes/prod-upstreams.conf
 
-            # Recreate nginx to pick up new upstreams (bind mount inode goes stale after git reset --hard)
+            # --- 2. Reset preview upstreams to placeholder ---
+            printf '# Preview upstreams — managed by deploy script\n# Points to inactive color containers for pre-production preview\n# DO NOT EDIT MANUALLY\n\nupstream preview_mcp_backend {\n    server 127.0.0.1:1;  # placeholder — returns 502 when no preview is active\n}\n\nupstream preview_frontend {\n    server 127.0.0.1:1;  # placeholder — returns 502 when no preview is active\n}\n' > nginx/includes/preview-upstreams.conf
+
+            # --- 3. Recreate nginx to pick up new upstreams ---
             \$DC up -d nginx-prod --force-recreate
-            echo "Nginx recreated — traffic switched to new containers"
+            echo "Nginx recreated — production traffic switched to new containers"
 
             # Allow in-flight requests to complete
             sleep 5
 
-            # --- 6. Stop old-color containers ---
+            # --- 4. Stop old-color containers ---
             if [ "\$ANY_BACKEND" = "true" ]; then
               if [ "\$BACKEND_COLOR" = "green" ]; then
                 \$DC --profile green stop app-prod-green document-service-prod-green rada-mcp-app-prod-green app-openreyestr-prod-green 2>/dev/null || true
@@ -607,7 +707,7 @@ jobs:
               FRONTEND_COLOR="\$NEW_FRONTEND"
             fi
 
-            # --- 7. Save active colors ---
+            # --- 5. Save active colors ---
             printf 'backend=%s\nfrontend=%s\n' "\$BACKEND_COLOR" "\$FRONTEND_COLOR" > .active-colors
 
             # Restart monitoring if needed
@@ -617,7 +717,7 @@ jobs:
             fi
 
             docker image prune -f
-          DEPLOY_SCRIPT
+          PROMOTE_SCRIPT
 
       - name: Prod health check
         env:
@@ -652,14 +752,14 @@ jobs:
             sleep 10
           done
 
-  # ─── Step 3: Self-heal deploy failures ─────────────────────────────
+  # ─── Step 3c: Self-heal deploy failures ─────────────────────────────
   self-heal-deploy:
     name: Self-Heal Deploy Failures
     runs-on: [self-hosted, local]
-    needs: [detect-changes, deploy-prod]
+    needs: [detect-changes, deploy-preview, promote-to-prod]
     if: |
       always() &&
-      needs.deploy-prod.result == 'failure'
+      (needs.deploy-preview.result == 'failure' || needs.promote-to-prod.result == 'failure')
     env:
       CLAUDE_CODE_USE_BEDROCK: '1'
       CLAUDE_CODE_BEDROCK_MODEL: eu.anthropic.claude-sonnet-4-6
@@ -817,7 +917,7 @@ jobs:
 
           **Source run:** $RUN_URL
 
-          > ⚠️ Production may be in a degraded state. Review and merge promptly, or rollback manually.
+          > Review and merge promptly, or rollback manually.
 
           🤖 Generated with [Claude Code](https://claude.com/claude-code)
           EOF
@@ -829,10 +929,10 @@ jobs:
   create-release:
     name: Create Release
     runs-on: [self-hosted, local]
-    needs: [detect-changes, deploy-prod]
+    needs: [detect-changes, deploy-preview, promote-to-prod]
     if: |
       always() &&
-      needs.deploy-prod.result == 'success'
+      needs.promote-to-prod.result == 'success'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -842,8 +942,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SERVICES_TO_DEPLOY: ${{ needs.detect-changes.outputs.services_to_deploy }}
-          BACKEND_VERSION: ${{ needs.deploy-prod.outputs.backend_version }}
-          FRONTEND_VERSION: ${{ needs.deploy-prod.outputs.frontend_version }}
+          BACKEND_VERSION: ${{ needs.deploy-preview.outputs.backend_version }}
+          FRONTEND_VERSION: ${{ needs.deploy-preview.outputs.frontend_version }}
           BACKEND_CHANGED: ${{ needs.detect-changes.outputs.backend }}
           RADA_CHANGED: ${{ needs.detect-changes.outputs.rada }}
           OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
