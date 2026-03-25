@@ -406,7 +406,8 @@ export function createMCPSSERoutes(deps: {
               // Route to appropriate tool handler via centralized registry
               // Inject userId for all vault tools (user isolation)
               const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
-              const toolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId } : args;
+              const vaultUserId = userId || process.env.DEFAULT_VAULT_USER_ID;
+              const toolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId: vaultUserId } : args;
               const registryResult = await deps.toolRegistry.executeTool(toolName, toolArgs);
               if (registryResult) {
                 return registryResult;
