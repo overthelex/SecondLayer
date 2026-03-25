@@ -227,6 +227,27 @@ jobs:
             echo "::warning::Claude Code did not produce a fix"
           fi
 
+      - name: Create issue if no fix produced
+        if: steps.guard.outputs.skip == 'false' && steps.check-fix.outputs.has_fix == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create \
+            --title "CI build failure needs manual fix ($(date +%Y-%m-%d))" \
+            --body "$(cat <<EOF
+          ## CI build failure — auto-fix failed
+
+          The self-heal agent could not produce a code fix for this build failure.
+
+          **Failed run:** $RUN_URL
+          **Commit:** ${GITHUB_SHA:0:7}
+
+          Please investigate manually.
+          EOF
+          )" \
+            --label "bug,ci"
+
       - name: Push branch and create PR
         if: steps.guard.outputs.skip == 'false' && steps.check-fix.outputs.has_fix == 'true'
         env:
@@ -331,9 +352,9 @@ jobs:
           [ -n "$STOP" ] && $DC rm -f $STOP 2>/dev/null || true
           [ -n "$BUILD" ] && $DC build $BUILD
 
-          [ "$BACKEND_CHANGED" = "true" ] && { $DC up migrate-local || true; }
-          [ "$RADA_CHANGED" = "true" ] && { $DC up rada-db-init-local || true; $DC up rada-migrate-local || true; }
-          [ "$OPENREYESTR_CHANGED" = "true" ] && { $DC up migrate-openreyestr-local || true; }
+          [ "$BACKEND_CHANGED" = "true" ] && { timeout 120 $DC up --abort-on-container-exit migrate-local || true; }
+          [ "$RADA_CHANGED" = "true" ] && { timeout 120 $DC up --abort-on-container-exit rada-db-init-local || true; timeout 120 $DC up --abort-on-container-exit rada-migrate-local || true; }
+          [ "$OPENREYESTR_CHANGED" = "true" ] && { timeout 120 $DC up --abort-on-container-exit migrate-openreyestr-local || true; }
 
           [ -n "$START" ] && $DC up -d $START
 

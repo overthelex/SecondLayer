@@ -270,6 +270,27 @@ jobs:
             echo "::warning::Claude Code did not produce a fix"
           fi
 
+      - name: Create issue if no fix produced
+        if: steps.guard.outputs.skip == 'false' && steps.check-fix.outputs.has_fix == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create \
+            --title "Pre-deploy test failure needs manual fix ($(date +%Y-%m-%d))" \
+            --body "$(cat <<EOF
+          ## Pre-deploy test failure — auto-fix failed
+
+          The self-heal agent could not produce a code fix for this test failure.
+
+          **Failed run:** $RUN_URL
+          **Commit:** ${GITHUB_SHA:0:7}
+
+          Please investigate manually.
+          EOF
+          )" \
+            --label "bug,ci"
+
       - name: Push branch and create PR
         if: steps.guard.outputs.skip == 'false' && steps.check-fix.outputs.has_fix == 'true'
         env:
@@ -308,8 +329,8 @@ jobs:
       backend_version: ${{ steps.version.outputs.backend_version }}
       frontend_version: ${{ steps.version.outputs.frontend_version }}
     env:
-      PROD_SERVER: '18.192.189.254'
-      PROD_USER: 'ubuntu'
+      PROD_SERVER: ${{ secrets.PROD_SERVER_IP }}
+      PROD_USER: ${{ secrets.PROD_USER || 'ubuntu' }}
       BACKEND_CHANGED: ${{ needs.detect-changes.outputs.backend }}
       RADA_CHANGED: ${{ needs.detect-changes.outputs.rada }}
       OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
@@ -382,6 +403,14 @@ jobs:
           BACKEND_VERSION: ${{ steps.version.outputs.backend_version }}
           FRONTEND_VERSION: ${{ steps.version.outputs.frontend_version }}
         run: |
+          if [ -z "$PROD_SSH_KEY_PATH" ]; then
+            echo "::error::PROD_SSH_KEY_PATH secret is not set"
+            exit 1
+          fi
+          if [ -z "$PROD_SERVER" ]; then
+            echo "::error::PROD_SERVER_IP secret is not set"
+            exit 1
+          fi
           SSH_CMD="ssh -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER}"
           REMOTE_REPO="/home/${PROD_USER}/SecondLayer"
 
@@ -637,8 +666,8 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: eu-central-1
-      PROD_SERVER: '18.192.189.254'
-      PROD_USER: 'ubuntu'
+      PROD_SERVER: ${{ secrets.PROD_SERVER_IP }}
+      PROD_USER: ${{ secrets.PROD_USER || 'ubuntu' }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -749,6 +778,27 @@ jobs:
             echo "has_fix=false" >> "$GITHUB_OUTPUT"
             echo "::warning::Claude Code did not produce a fix — manual intervention needed"
           fi
+
+      - name: Create issue if no fix produced
+        if: steps.guard.outputs.skip == 'false' && steps.check-fix.outputs.has_fix == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create \
+            --title "Deploy failure needs manual fix ($(date +%Y-%m-%d))" \
+            --body "$(cat <<EOF
+          ## Production deploy failure — auto-fix failed
+
+          The self-heal agent could not produce a code fix for this deploy failure.
+
+          **Failed run:** $RUN_URL
+          **Commit:** ${GITHUB_SHA:0:7}
+
+          > Production may be in a degraded state. Investigate promptly.
+          EOF
+          )" \
+            --label "bug,ci,urgent"
 
       - name: Push branch and create PR
         if: steps.guard.outputs.skip == 'false' && steps.check-fix.outputs.has_fix == 'true'
