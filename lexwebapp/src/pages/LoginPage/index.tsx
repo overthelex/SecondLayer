@@ -1363,7 +1363,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
               <img src="/diia-logo-stroke.png" alt="Дія" width="44" height="44" className="mx-auto mb-5" />
 
-              <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5 tracking-tight">Вхід через Дію</h2>
+              <h2 className="text-[0.9rem] font-semibold text-zinc-100 mb-1.5 tracking-tight">Авторизація через Дія.Підпис</h2>
               <p className="text-[0.75rem] text-zinc-500 mb-6 leading-relaxed">
                 Відкрийте застосунок Дія та відскануйте QR-код або натисніть кнопку нижче
               </p>
