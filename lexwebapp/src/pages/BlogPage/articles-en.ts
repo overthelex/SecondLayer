@@ -2959,4 +2959,191 @@ Backend generated \`http://\` redirect URLs behind Cloudflare/Nginx. Fix: \`X-Fo
 
 Registration: [legal.org.ua](https://legal.org.ua)`,
   },
+  'sample-queries-86-tools': {
+    title: '86 Ready-Made Queries for LEX AI: One Per Tool',
+    punchline: 'We compiled 66 queries, each activating a specific platform tool — from court decision search to trademark verification. Plus 20 complex queries using 2–3 tools simultaneously. All designed for minimal LLM usage — maximum precision, minimum cost.',
+    readTime: '12 min',
+    content: `# 86 Ready-Made Queries for LEX AI: One Per Tool
+
+LEX AI is not a single AI chatbot — it's an orchestrator with **86+ specialized tools**. Each tool does something specific: searches a registry, retrieves a law article, calculates deadlines, checks sanctions. The AI only decides which tool to call and formats the response.
+
+We compiled **66 queries** (one per tool) and **20 complex queries** (2–3 tools at once). All designed for **minimal LLM involvement** — maximum precision, minimum token cost.
+
+---
+
+## How It Works
+
+When you write a query in LEX AI chat, the system:
+
+1. **Classifies intent** — determines what you want (search, calculation, analysis)
+2. **Selects tool(s)** — the most relevant from 86 available
+3. **Executes** — direct query to database, registry, or API
+4. **Formats** — AI minimally processes the result for readability
+
+The more precise your query, the less the AI "thinks" and the faster the response.
+
+---
+
+## Court Practice (11 tools)
+
+| Query | Tool |
+|-------|------|
+| Find court decisions where defendant is Nova Poshta LLC | search_legal_precedents |
+| Show full text of court decision in case #910/12345/23 | get_court_decision |
+| Show all instances and decisions in case #757/1234/24 | get_case_documents_chain |
+| Find cases with similar circumstances: pedestrian accident at crosswalk | find_similar_fact_pattern_cases |
+| Collect practice "for" and "against" moral damages for contract breach | compare_practice_pro_contra |
+| How many cases does Ukrzaliznytsia LLC have as defendant? | count_cases_by_party |
+| Search EDRSR decisions by case number 916/2345/24 | search_edrsr_decisions |
+| Full-text search in EDRSR: "invalidation of sham transaction" | search_edrsr_fulltext |
+| Semantic search in EDRSR: director liability for company debts | search_edrsr_semantic |
+| Court session schedule for case #910/5678/24 | search_court_sessions |
+| Status of case #757/12345/24 | search_court_case_status |
+
+---
+
+## Analysis (4 tools)
+
+| Query | Tool |
+|-------|------|
+| Pattern analysis: how courts resolve surety disputes | analyze_case_pattern |
+| Find decisions with similar reasoning on Art. 625 Civil Code | get_similar_reasoning |
+| Build citation graph for Supreme Court decision in case 910/1111/22 | get_citation_graph |
+| Check if the SC Commercial Court decision in case 916/2222/21 is still valid | check_precedent_status |
+
+---
+
+## Legislation (7 tools)
+
+| Query | Tool |
+|-------|------|
+| What norms regulate limitation periods in civil cases? | search_legislation |
+| Show articles 256–268 of the Civil Code | get_legislation_articles |
+| Article 625 of the Civil Code of Ukraine | get_legislation_section |
+| Structure of the Commercial Procedure Code | get_legislation_structure |
+| History of changes to Article 80 of the Land Code | get_legislation_history |
+| Find procedural norms on interim measures | search_procedural_norms |
+| Search legal acts: Cabinet resolutions on minimum wage | search_legal_acts |
+
+---
+
+## Procedural (3 tools)
+
+| Query | Tool |
+|-------|------|
+| Calculate appeal deadline for decision dated 01.03.2026 | calculate_procedural_deadlines |
+| Checklist for filing cassation appeal in commercial proceedings | build_procedural_checklist |
+| Calculate 3% annual interest and inflation for 01.01.2024–01.01.2026 on 500,000 UAH | calculate_monetary_claims |
+
+---
+
+## Parliament (4 tools)
+
+| Query | Tool |
+|-------|------|
+| Bills on land reform in the Verkhovna Rada | rada_search_parliament_bills |
+| Information about deputy Stefanchuk Ruslan | rada_get_deputy_info |
+| Text of the Law "On Enforcement Proceedings" | rada_search_legislation_text |
+| Voting on bill #3524 on mobilization | rada_analyze_voting_record |
+
+---
+
+## Business Registries (10 tools)
+
+| Query | Tool |
+|-------|------|
+| Information about legal entity by EDRPOU 00032112 | openreyestr_get_by_edrpou |
+| Find legal entities named "Naftogaz" | openreyestr_search_entities |
+| Who are the beneficiaries of Prominvest LLC? | openreyestr_search_beneficiaries |
+| Enforcement proceedings against Budinvest LLC | openreyestr_search_enforcement_proceedings |
+| Bankruptcy cases in Kyiv region | openreyestr_search_bankruptcy_cases |
+| Notaries in Lviv region | openreyestr_search_notaries |
+| Court experts in valuation | openreyestr_search_court_experts |
+| Arbitration managers in Kharkiv region | openreyestr_search_arbitration_managers |
+| ProZorro tenders: road repairs Kyiv 2025 | openreyestr_search_prozorro |
+| NAZK declarations: Tkachenko | openreyestr_search_nazk_declarations |
+
+---
+
+## State Registries (23 tools)
+
+Direct access to 23 state registries with **340M+ records** total.
+
+| Query | Tool | Records |
+|-------|------|---------|
+| Find judge Ivanov Oleksandr | search_judges | HQCJ |
+| Lawyer Petrenko in lawyers registry | search_lawyers | 73K |
+| Handwriting court experts | search_court_experts_registry | MoJ |
+| Corruption offenses registry: Kyiv | search_corruption_register | 58K |
+| Missing persons search: Kovalenko | search_missing_persons | 112K |
+| Wanted persons: Sydorenko | search_wanted_persons | 71K |
+| Vehicle search by plate AA1234BB | search_wanted_vehicles | 78K |
+| Environmental NGOs Kyiv | search_public_organizations | 1.08M |
+| Sanctions against Gazprom | search_sanctions | 1.25M |
+| Banks with NBU license | search_nbu_banks | 60 |
+| Large taxpayers Kharkiv region | search_large_taxpayers | 1.3K |
+| Check VAT payer by code 12345678 | search_vat_payers_registry | 264K |
+| Pharmaceutical patents | search_patents | 119K |
+| Trademark "Roshen" | search_trademarks | 182K |
+| Debtor Alpha LLC in enforcement proceedings | search_erb_debtors | 10M+ |
+| Companies with wage arrears | search_wage_debtors | 1.3K |
+| Securities owners of Ukrnafta | search_securities_owners | 128K |
+| Case distribution protocols at Pechersk Court | search_case_distribution | 71K |
+| NAZK declaration checks: Shevchenko | search_declaration_checks | 2K |
+| HQCJ data on Dnipro court judges | search_vkks | HQCJ |
+| HCJ decisions on judicial discipline | search_vrp_decisions | HCJ |
+| Dismissed judges per HCJ data | search_vrp_judges_discipline | HCJ |
+| ECHR practice on right to fair trial | search_echr_practice | ECHR |
+
+---
+
+## 20 Complex Queries (2–3 tools at once)
+
+These queries activate multiple tools in parallel:
+
+1. **Art. 625 Civil Code + court practice on it** — legislation + precedents
+2. **Articles 256–268 CC (limitation) + SC practice** — articles + precedents
+3. **Full-text search "unauthorized construction" + CC norms** — EDRSR + legislation
+4. **Art. 16 CC + ECHR practice on effective remedy** — legislation + ECHR
+5. **Decision in case 757/5678/24, all instances + validity check** — decision + chain + status
+6. **SC practice on surety: pro/contra + pattern analysis** — comparison + analysis
+7. **SC decision in case 910/1234/24 + session schedule** — EDRSR + sessions
+8. **Check LLC by EDRPOU: beneficiaries + enforcement** — entity + beneficiaries + proceedings
+9. **Check "Budinvest": registry, debts, bankruptcy** — entity + debtors + bankruptcy
+10. **Sanctions + NSDC registry check** — sanctions + RNBO sanctions
+11. **Pharma company patents + EDRPOU check** — patents + entity
+12. **Judge Ivanov — HQCJ data + HCJ discipline** — judges + VKKS + discipline
+13. **Lawyer Petrenko — registry + cases as representative** — lawyers + precedents
+14. **Deputy Stefanchuk info + voting record** — deputy info + voting
+15. **Interim measures norms in CPC + application checklist** — norms + checklist
+16. **Appeal deadline + CPC procedural norms** — deadlines + norms
+17. **3% annual interest for 2 years on 1M UAH + SC practice on Art. 625** — calculation + precedents
+18. **Structure of Enforcement Proceedings Law + articles on asset seizure** — structure + articles
+19. **Lviv notaries + real estate valuation experts** — notaries + experts
+20. **Land lease bills + Land Code section X** — bills + legislation
+
+---
+
+## Summary
+
+| Category | Tools | Queries |
+|----------|-------|---------|
+| Court Practice | 11 | 11 |
+| Analysis | 4 | 4 |
+| Legislation | 7 | 7 |
+| Procedural | 3 | 3 |
+| Parliament | 4 | 4 |
+| Business Registries | 10 | 10 |
+| State Registries | 23 | 23 |
+| ECHR | 1 | 1 |
+| **Single-tool** | **63** | **63** |
+| **Complex** | — | **20** |
+| **Total** | **63** | **86** |
+
+All 86 queries now rotate on the chat start screen. Try it — every page load shows a different combination.
+
+---
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
 };
