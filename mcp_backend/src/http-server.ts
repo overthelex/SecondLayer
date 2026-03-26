@@ -68,6 +68,8 @@ import { createJudgeAnalyticsRoutes } from './routes/judge-analytics-routes.js';
 import { createReferralRoutes } from './routes/referral-routes.js';
 import { createLegislationMonitoringRoutes } from './routes/legislation-monitoring-routes.js';
 import { createUsageRoutes } from './routes/usage-routes.js';
+import { createSessionReplayRoutes, createAdminSessionReplayRoutes } from './routes/session-replay-routes.js';
+import { SessionReplayService } from './services/session-replay-service.js';
 import rateLimit from 'express-rate-limit';
 import cron from 'node-cron';
 
@@ -648,6 +650,29 @@ class HTTPMCPServer {
     // GET /api/admin/api-keys - List API keys
     // GET /api/admin/settings - Get system settings
     this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billing.billingService, this.billing.userPreferencesService, this.billing.prometheusService, this.billing.pricingService, this.billing.subscriptionService, this.app_.configService, this.app_.auditService, this.billing.emailService));
+
+    // Session replay: rrweb recording + admin playback
+    const sessionReplayService = new SessionReplayService(this.services.db, this.tools.minioService);
+    this.app.use('/api/session-replay', requireJWT as any, createSessionReplayRoutes(sessionReplayService));
+    this.app.use('/api/admin/session-replay', requireJWT as any, createAdminSessionReplayRoutes(sessionReplayService));
+    logger.info('Session replay routes registered');
+
+    // Server-side request logging middleware (correlates with session replay)
+    this.app.use('/api', ((req: DualAuthRequest, res: express.Response, next: any) => {
+      const sessionId = req.headers['x-session-id'] as string;
+      if (sessionId && req.user?.id) {
+        const start = Date.now();
+        res.on('finish', () => {
+          sessionReplayService.logServerEvent(sessionId, req.user!.id, 'api_call', {
+            method: req.method,
+            path: req.path,
+            statusCode: res.statusCode,
+            durationMs: Date.now() - start,
+          }).catch(() => {}); // fire-and-forget
+        });
+      }
+      next();
+    }) as any);
 
     // Upload metrics endpoint (admin)
     this.app.get('/api/admin/upload-metrics', requireJWT as any, (async (_req: DualAuthRequest, res: express.Response) => {

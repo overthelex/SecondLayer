@@ -35,3 +35,4 @@ export { documentsApi } from './documents';
 export { teamApi } from './team';
 export { conversationsApi } from './conversations';
 export { decisionsApi, keysApi, gdprApi, toolsApi } from './misc';
+export { sessionReplayApi } from './session-replay';
