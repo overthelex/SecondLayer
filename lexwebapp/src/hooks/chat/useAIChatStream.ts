@@ -52,7 +52,8 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
       assistantMessageId: string,
       approvedPlan?: ExecutionPlan,
       planSessionId?: string,
-      allowDeepEscalation?: boolean
+      allowDeepEscalation?: boolean,
+      internetEnabled?: boolean
     ) => {
       // Reset accumulators
       accumulatedDecisions.current = [];
@@ -334,7 +335,7 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
             setCurrentTool(null);
           }
         },
-      }, 'standard', chatConversationId, approvedPlan, planSessionId, allowDeepEscalation);
+      }, 'standard', chatConversationId, approvedPlan, planSessionId, allowDeepEscalation, internetEnabled);
 
       setStreamController(controller);
     },

@@ -4,21 +4,20 @@
  * Now using MCP streaming with all 43 tools support
  */
 
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { ChatInput } from '../../components/ChatInput';
 import { MessageThread } from '../../components/MessageThread';
 import { EmptyState } from '../../components/EmptyState';
 import { PlanReviewDisplay } from '../../components/PlanReviewDisplay';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
-import { useChatStore } from '../../stores';
-import { useMCPTool, useAIChat } from '../../hooks/useMCPTool';
-import { AI_CHAT_MODE } from '../../hooks/chat/tool-categories';
+import { useChatStore, useSettingsStore } from '../../stores';
+import { useAIChat } from '../../hooks/useMCPTool';
 import showToast from '../../utils/toast';
 import { getErrorMessage } from '../../utils/errors';
 
 export function ChatPage() {
-  const [selectedTool, setSelectedTool] = useState(AI_CHAT_MODE);
+  const internetEnabled = useSettingsStore(s => s.internetEnabled);
 
   // Zustand stores — individual selectors to avoid full-store re-renders
   const messages = useChatStore(s => s.messages);
@@ -30,11 +29,6 @@ export function ChatPage() {
   const pendingBudgetEscalation = useChatStore(s => s.pendingBudgetEscalation);
   const setPendingBudgetEscalation = useChatStore(s => s.setPendingBudgetEscalation);
 
-  // MCP Tool hook (for manual tool mode)
-  const { executeTool } = useMCPTool(selectedTool === AI_CHAT_MODE ? 'search_legal_precedents' : selectedTool, {
-    enableStreaming: import.meta.env.VITE_ENABLE_SSE_STREAMING !== 'false',
-  });
-
   // AI Chat hook (agentic mode)
   const { executeChat, confirmPlanAndExecute, skipPlanReview } = useAIChat();
   const { formatUah } = useCurrencyRate();
@@ -44,78 +38,18 @@ export function ChatPage() {
     if (!esc) return;
     setPendingBudgetEscalation(null);
     // Re-send the same query with allowDeepEscalation
-    executeChat(esc.query, undefined, true);
-  }, [executeChat, setPendingBudgetEscalation]);
+    executeChat(esc.query, undefined, true, internetEnabled);
+  }, [executeChat, setPendingBudgetEscalation, internetEnabled]);
 
   const handleSkipDeepBudget = useCallback(() => {
     setPendingBudgetEscalation(null);
   }, [setPendingBudgetEscalation]);
 
-  /**
-   * Parse content to tool-specific parameters
-   */
-  const parseContentToToolParams = (toolName: string, content: string, documentIds?: string[]): any => {
-    const base: any = {};
-    if (documentIds && documentIds.length > 0) {
-      base.document_ids = documentIds;
-    }
-
-    switch (toolName) {
-      case 'search_legal_precedents':
-        return {
-          ...base,
-          query: content,
-          limit: 10,
-        };
-
-      case 'search_legislation':
-        return {
-          ...base,
-          query: content,
-          limit: 5,
-        };
-
-      case 'classify_intent':
-        return {
-          ...base,
-          query: content,
-        };
-
-      case 'rada_get_deputy_info':
-        return {
-          ...base,
-          query: content,
-          limit: 10,
-        };
-
-      case 'openreyestr_search_entities':
-        return {
-          ...base,
-          query: content,
-          entity_type: 'all',
-          limit: 10,
-        };
-
-      default:
-        // Generic fallback
-        return { ...base, query: content };
-    }
-  };
-
-  const handleSend = async (content: string, toolName?: string, documentIds?: string[]) => {
-    const tool = toolName || selectedTool;
-
+  const handleSend = async (content: string, _toolName?: string, documentIds?: string[]) => {
     try {
-      if (tool === AI_CHAT_MODE) {
-        // AI Chat mode — agentic LLM loop
-        await executeChat(content, documentIds);
-      } else {
-        // Manual tool mode — direct tool call
-        const params = parseContentToToolParams(tool, content, documentIds);
-        await executeTool(params);
-      }
+      await executeChat(content, documentIds, undefined, internetEnabled);
     } catch (error: unknown) {
-      console.error('MCP tool execution error:', error);
+      console.error('Chat execution error:', error);
       showToast.error(getErrorMessage(error));
     }
   };
@@ -134,7 +68,7 @@ export function ChatPage() {
     }
     // Re-send the query
     handleSend(userQuery);
-  }, [selectedTool, removeMessage]);
+  }, [removeMessage, internetEnabled]);
 
   const handleEdit = useCallback((messageId: string, newContent: string) => {
     // Remove the edited message and all messages after it, then re-send
@@ -144,7 +78,7 @@ export function ChatPage() {
     // Remove from the edited message onwards
     msgs.slice(idx).forEach((m) => removeMessage(m.id));
     handleSend(newContent);
-  }, [selectedTool, removeMessage]);
+  }, [removeMessage, internetEnabled]);
 
   return (
     <>
@@ -201,8 +135,6 @@ export function ChatPage() {
           disabled={isStreaming || isPlanLoading || !!pendingPlanReview}
           isStreaming={isStreaming || isPlanLoading}
           onCancel={cancelStream}
-          selectedTool={selectedTool}
-          onToolChange={setSelectedTool}
         />
         <p className="text-center text-[11px] text-zinc-400 mt-2.5 font-sans">
           Lex може допускати помилки. Перевіряйте важливу інформацію.
