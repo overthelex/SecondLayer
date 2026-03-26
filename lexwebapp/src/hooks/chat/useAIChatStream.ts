@@ -321,6 +321,19 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
             costSummary: costSummaryRef.current as CostSummary,
           });
         },
+
+        onStreamEnd: () => {
+          // Safety net: if the stream ended without an 'answer' event
+          // (e.g. backend timeout, abort, or crash), reset the UI streaming state
+          // so the chat input is not permanently disabled.
+          if (useChatStore.getState().isStreaming) {
+            console.warn('[AIChat] Stream ended without answer event — resetting streaming state');
+            updateMessage(assistantMessageId, { isStreaming: false });
+            setStreaming(false);
+            setStreamController(null);
+            setCurrentTool(null);
+          }
+        },
       }, 'standard', chatConversationId, approvedPlan, planSessionId, allowDeepEscalation);
 
       setStreamController(controller);

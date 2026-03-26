@@ -40,6 +40,8 @@ export interface ChatStreamCallbacks {
   onCostSummary?: (data: { total_cost_usd: number; charged_usd: number; balance_usd: number | null }) => void;
   onBudgetEscalated?: (data: { reason: string; estimatedCost: { minUsd: number; maxUsd: number }; requiresConfirmation?: boolean }) => void;
   onError?: (data: { message?: string; code?: string; current_balance_usd?: number }) => void;
+  /** Called when the SSE stream ends (reader done), regardless of whether an answer was received */
+  onStreamEnd?: () => void;
 }
 
 export class MCPService extends BaseService {
@@ -213,6 +215,10 @@ export class MCPService extends BaseService {
           if (!isAbortError(err)) {
             callbacks.onError?.({ message: getErrorMessage(err) });
           }
+        } finally {
+          // Always notify that the stream has ended so the UI can reset streaming state,
+          // even if the stream ended without an 'answer' event (e.g. backend timeout/abort)
+          callbacks.onStreamEnd?.();
         }
       };
 
