@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useConsentStore } from '../stores/consentStore';
 import { CheckCircle, ArrowRight, MessageSquare } from 'lucide-react';
 import { ROUTES } from '../router/routes';
 
@@ -35,8 +36,8 @@ export function PaymentSuccessPage() {
         currency,
       });
 
-      // Track as Google Ads Purchase conversion
-      if (typeof window.gtag === 'function') {
+      // Track as Google Ads Purchase conversion (only with analytics consent)
+      if (typeof window.gtag === 'function' && useConsentStore.getState().isAllowed('analytics')) {
         window.gtag('event', 'conversion', {
           send_to: 'AW-18033840618/bnTSCJqpwI0cEOqjmpdD',
           value: amountNum || 1.0,

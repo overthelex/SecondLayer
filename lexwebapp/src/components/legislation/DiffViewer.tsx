@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import DOMPurify from 'dompurify';
 
 interface DiffViewerProps {
   diffHtml: string | null;
@@ -38,7 +39,7 @@ export function DiffViewer({ diffHtml, oldText, newText, articleNumber, changeTy
         {changeType === 'modified' && diffHtml ? (
           <div
             className="text-sm font-sans text-claude-text leading-relaxed whitespace-pre-wrap diff-content"
-            dangerouslySetInnerHTML={{ __html: diffHtml }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(diffHtml) }}
           />
         ) : changeType === 'added' && newText ? (
           <div className="text-sm font-sans text-claude-text leading-relaxed whitespace-pre-wrap">

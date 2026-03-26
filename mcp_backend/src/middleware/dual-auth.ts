@@ -11,7 +11,11 @@ import { WebAuthnService } from '../services/webauthn-service.js';
 import { logger } from '../utils/logger.js';
 import { maskSensitive } from '../utils/sanitize-log.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
+const _jwtSecret = process.env.JWT_SECRET;
+if (!_jwtSecret) {
+  throw new Error('FATAL: JWT_SECRET environment variable is required');
+}
+const JWT_SECRET: string = _jwtSecret;
 
 // Read API keys dynamically to support runtime updates
 function getSecondaryLayerKeys(): string[] {

@@ -122,9 +122,10 @@ export function createRestAPIRouter(db: IDatabase): Router {
         res.status(401).json({ error: 'Authentication required' });
         return;
       }
-      const ownerCheck = ` AND user_id = '${userId}'`;
+      values.push(userId);
+      const userParamIdx = values.length;
       const result = await db.query(
-        `UPDATE documents SET ${setClause}, updated_at = NOW() WHERE id = $1${ownerCheck} RETURNING *`,
+        `UPDATE documents SET ${setClause}, updated_at = NOW() WHERE id = $1 AND user_id = $${userParamIdx} RETURNING *`,
         values
       );
 

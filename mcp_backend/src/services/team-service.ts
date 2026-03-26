@@ -4,6 +4,7 @@
  */
 
 import { logger } from '@secondlayer/shared';
+import { maskEmail } from '../utils/sanitize-log.js';
 import type { IDatabase } from '../domain/ports/index.js';
 
 export interface TeamMember {
@@ -218,7 +219,7 @@ export class TeamService {
       [org.id, email, role]
     );
 
-    logger.info(`Invited ${email} to organization ${org.id}`);
+    logger.info(`Invited ${maskEmail(email)} to organization ${org.id}`);
 
     // TODO: Send email invitation
 
@@ -322,7 +323,7 @@ export class TeamService {
 
     // TODO: Send email invitation
 
-    logger.info(`Resent invitation to ${member.rows[0].email}`);
+    logger.info(`Resent invitation to ${maskEmail(member.rows[0].email)}`);
   }
 
   /**

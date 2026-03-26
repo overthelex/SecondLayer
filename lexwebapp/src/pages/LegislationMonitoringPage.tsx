@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
+import DOMPurify from 'dompurify';
 import {
   Search,
   Filter,
@@ -566,7 +567,7 @@ export function LegislationMonitoringPage({
                       {selectedArticle.full_text_html ? (
                         <div
                           className="text-sm font-sans text-claude-text leading-relaxed"
-                          dangerouslySetInnerHTML={{ __html: selectedArticle.full_text_html }}
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedArticle.full_text_html) }}
                         />
                       ) : (
                         <pre className="text-sm font-sans text-claude-text leading-relaxed whitespace-pre-wrap">

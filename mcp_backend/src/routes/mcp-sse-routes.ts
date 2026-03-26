@@ -125,7 +125,9 @@ export function createMCPSSERoutes(deps: {
         if (token.includes('.')) {
           // JWT token - verify and extract userId
           const jwt = await import('jsonwebtoken');
-          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'change-this-secret-in-production') as any;
+          const jwtSecret = process.env.JWT_SECRET;
+          if (!jwtSecret) throw new Error('JWT_SECRET not configured');
+          const decoded = jwt.verify(token, jwtSecret) as any;
           userId = decoded.userId;
           logger.debug('[MCP SSE] Authenticated with JWT', { userId });
         } else if (token.startsWith('mcp_token_')) {
@@ -267,7 +269,9 @@ export function createMCPSSERoutes(deps: {
         if (token.includes('.')) {
           // JWT token
           const jwt = await import('jsonwebtoken');
-          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'change-this-secret-in-production') as any;
+          const jwtSecret = process.env.JWT_SECRET;
+          if (!jwtSecret) throw new Error('JWT_SECRET not configured');
+          const decoded = jwt.verify(token, jwtSecret) as any;
           userId = decoded.userId;
           logger.debug('[MCP v1/sse] Authenticated with JWT', { userId });
         } else {

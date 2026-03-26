@@ -436,9 +436,17 @@ export class EdsrSearchTools extends BaseToolHandler {
     }));
   }
 
+  private static readonly ALLOWED_LOOKUP_TABLES: Record<string, Set<string>> = {
+    edrsr_courts: new Set(['court_code']),
+    edrsr_justice_kinds: new Set(['justice_kind']),
+    edrsr_judgment_forms: new Set(['judgment_code']),
+  };
+
   private async batchLookup(table: string, idColumn: string, ids: number[]): Promise<Map<number, string>> {
     const map = new Map<number, string>();
     if (ids.length === 0) return map;
+    const allowed = EdsrSearchTools.ALLOWED_LOOKUP_TABLES[table];
+    if (!allowed || !allowed.has(idColumn)) return map;
 
     try {
       const result = await this.db.query(

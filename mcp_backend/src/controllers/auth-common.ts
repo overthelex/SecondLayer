@@ -66,7 +66,11 @@ export function setAuthBillingService(svc: BillingService): void {
 // Constants
 // ---------------------------------------------------------------------------
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
+const _jwtSecret = process.env.JWT_SECRET;
+if (!_jwtSecret) {
+  throw new Error('FATAL: JWT_SECRET environment variable is required');
+}
+export const JWT_SECRET: string = _jwtSecret;
 export const JWT_EXPIRES_IN = '7d'; // 7 days
 export const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 

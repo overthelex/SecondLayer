@@ -191,15 +191,22 @@ export class CourtDecisionTools extends BaseToolHandler {
       },
       {
         name: 'analyze_case_pattern',
-        description: `Анализирует паттерны судебной практики: аргументы, риски, статистика исходов
+        description: `Аналіз патернів судової практики: аргументи, ризики, статистика результатів.
+
+Підтримує два методи:
+- text (за замовчуванням) — пошук патернів за текстовим запитом
+- embedding — семантичний пошук через vectorні embeddings (знаходить success_arguments / risk_factors)
 
 💰 Примерная стоимость: $0.02-$0.08 USD
 Анализ существующих дел в базе данных. Включает OpenAI API (анализ паттернов) и доступ к PostgreSQL.`,
         inputSchema: {
           type: 'object',
           properties: {
-            intent: { type: 'string' },
-            case_ids: { type: 'array', items: { type: 'string' } },
+            intent: { type: 'string', description: 'Текстовий опис наміру / ситуації для аналізу' },
+            query: { type: 'string', description: 'Альтернативна назва для intent' },
+            case_ids: { type: 'array', items: { type: 'string' }, description: 'ID справ для витягу нових паттернів' },
+            documents: { type: 'array', items: { type: 'object' }, description: 'Документи для контексту (embedding метод)' },
+            method: { type: 'string', enum: ['text', 'embedding', 'auto'], default: 'auto', description: 'Метод аналізу' },
           },
           required: ['intent'],
         },
@@ -261,6 +268,7 @@ export class CourtDecisionTools extends BaseToolHandler {
       case 'bulk_ingest_court_decisions':
         return await this.bulkIngestCourtDecisions(args);
       case 'analyze_case_pattern':
+      case 'analyze_legal_patterns': // backward-compat alias
         return await this.analyzeCasePattern(args);
       case 'count_cases_by_party':
         return await this.countCasesByParty(args);
@@ -383,8 +391,17 @@ export class CourtDecisionTools extends BaseToolHandler {
     return this.wrapResponse(payload);
   }
 
+  private static readonly ALLOWED_LOOKUP_TABLES: Record<string, Set<string>> = {
+    edrsr_courts: new Set(['court_code']),
+    edrsr_judgment_forms: new Set(['judgment_code']),
+    edrsr_justice_kinds: new Set(['justice_kind']),
+    edrsr_cause_categories: new Set(['cause_cat_code']),
+  };
+
   private async lookupName(table: string, idColumn: string, id: number): Promise<string | null> {
     if (!this.db) return null;
+    const allowed = CourtDecisionTools.ALLOWED_LOOKUP_TABLES[table];
+    if (!allowed || !allowed.has(idColumn)) return null;
     try {
       const result = await this.db.query(`SELECT name FROM ${table} WHERE ${idColumn} = $1 LIMIT 1`, [id]);
       return result.rows.length > 0 ? result.rows[0].name : null;
@@ -724,17 +741,48 @@ export class CourtDecisionTools extends BaseToolHandler {
   }
 
   private async analyzeCasePattern(args: any): Promise<ToolResult> {
-    const patterns = await this.patternStore.findPatterns(args.intent);
+    const intent = String(args.intent || args.query || '').trim();
+    if (!intent) throw new Error('intent (or query) parameter is required');
 
+    const method = args.method || 'auto';
+    const docs = Array.isArray(args.documents) ? args.documents : [];
+    const useEmbedding = method === 'embedding' || (method === 'auto' && docs.length > 0);
+
+    // Text-based pattern search
+    const patterns = await this.patternStore.findPatterns(intent);
+
+    // Extract new patterns from case_ids if provided
     if (args.case_ids && args.case_ids.length > 0) {
-      const newPattern = await this.patternStore.extractPatterns(args.case_ids, args.intent);
+      const newPattern = await this.patternStore.extractPatterns(args.case_ids, intent);
       if (newPattern) {
         await this.patternStore.savePattern(newPattern);
         patterns.unshift(newPattern);
       }
     }
 
-    return this.wrapResponse({ patterns });
+    // Embedding-based analysis (merged from analyze_legal_patterns)
+    let embeddingAnalysis: any = null;
+    if (useEmbedding) {
+      try {
+        const queryText = intent || (docs.length > 0 ? JSON.stringify(docs[0]).slice(0, 500) : '');
+        if (queryText) {
+          const emb = await this.embeddingService.generateEmbedding(queryText);
+          const matched = await this.patternStore.matchPatterns(emb, 'general_search');
+          embeddingAnalysis = {
+            success_arguments: matched.flatMap((p: any) => Array.isArray(p?.success_arguments) ? p.success_arguments : []).slice(0, 15),
+            risk_factors: matched.flatMap((p: any) => Array.isArray(p?.risk_factors) ? p.risk_factors : []).slice(0, 15),
+            confidence: matched.length > 0 ? 0.7 : 0.35,
+          };
+        }
+      } catch (err: any) {
+        logger.warn('Embedding-based analysis failed, falling back to text', { error: err.message });
+      }
+    }
+
+    return this.wrapResponse({
+      patterns,
+      ...(embeddingAnalysis ? { embedding_analysis: embeddingAnalysis } : {}),
+    });
   }
 
   private async countCasesByParty(args: any): Promise<ToolResult> {

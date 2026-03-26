@@ -53,6 +53,24 @@ const DEFAULT_PREFERENCES: ConsentPreferences = {
   marketing: false,
 };
 
+// Load Google Ads tag only after analytics consent (GDPR compliance)
+function syncGtagConsent(analytics: boolean): void {
+  if (typeof window === 'undefined') return;
+  if (analytics) {
+    (window as any).__loadGtag?.();
+  }
+}
+
+// Hydrate: if user previously consented to analytics, load gtag on page load
+if (typeof window !== 'undefined') {
+  try {
+    const stored = JSON.parse(localStorage.getItem('consent-storage') || '{}');
+    if (stored?.state?.preferences?.analytics) {
+      syncGtagConsent(true);
+    }
+  } catch { /* ignore */ }
+}
+
 export const useConsentStore = create<ConsentState>()(
   devtools(
     persist(
@@ -64,7 +82,8 @@ export const useConsentStore = create<ConsentState>()(
         showBanner: true,
         showSettings: false,
 
-        acceptAll: () =>
+        acceptAll: () => {
+          syncGtagConsent(true);
           set({
             hasConsented: true,
             consentedAt: new Date().toISOString(),
@@ -77,7 +96,8 @@ export const useConsentStore = create<ConsentState>()(
             },
             showBanner: false,
             showSettings: false,
-          }),
+          });
+        },
 
         rejectNonEssential: () =>
           set({
@@ -89,7 +109,9 @@ export const useConsentStore = create<ConsentState>()(
             showSettings: false,
           }),
 
-        savePreferences: (prefs) =>
+        savePreferences: (prefs) => {
+          const analytics = prefs.analytics ?? get().preferences.analytics;
+          syncGtagConsent(analytics);
           set((state) => ({
             hasConsented: true,
             consentedAt: new Date().toISOString(),
@@ -101,7 +123,8 @@ export const useConsentStore = create<ConsentState>()(
             },
             showBanner: false,
             showSettings: false,
-          })),
+          }));
+        },
 
         openSettings: () => set({ showSettings: true }),
         closeSettings: () => set({ showSettings: false }),
