@@ -1025,8 +1025,8 @@ describe('DOMAIN_TOOL_MAP', () => {
     expect(DOMAIN_TOOL_MAP.court).toContain('search_legal_precedents');
   });
 
-  it('legislation domain should include get_legislation_article', () => {
-    expect(DOMAIN_TOOL_MAP.legislation).toContain('get_legislation_article');
+  it('legislation domain should include get_legislation_section', () => {
+    expect(DOMAIN_TOOL_MAP.legislation).toContain('get_legislation_section');
   });
 
   it('registry domain should include openreyestr_get_by_edrpou', () => {

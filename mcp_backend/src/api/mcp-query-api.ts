@@ -1,13 +1,15 @@
 /**
  * MCPQueryAPI - Core query routing tools
  *
- * After extraction, this class keeps only 6 lightweight routing/validation tools:
+ * After extraction, this class keeps only 4 lightweight routing/validation tools:
  * - classify_intent
  * - retrieve_legal_sources
- * - analyze_legal_patterns
  * - validate_response
- * - find_relevant_law_articles
  * - check_precedent_status
+ *
+ * Consolidated tools:
+ * - analyze_legal_patterns → merged into analyze_patterns (pattern-analysis-tools.ts)
+ * - find_relevant_law_articles → merged into search_legislation (legislation-tools.ts)
  *
  * Domain tools have been extracted to:
  * - CourtDecisionTools (tools/court-decision-tools.ts)
@@ -185,45 +187,6 @@ export class MCPQueryAPI extends BaseToolHandler {
     };
   }
 
-  private async analyzeLegalPatternsTool(args: any) {
-    const query = typeof args?.query === 'string' ? args.query.trim() : '';
-    const docs = Array.isArray(args?.documents) ? args.documents : [];
-
-    const queryText = query || (docs.length > 0 ? JSON.stringify(docs[0]).slice(0, 500) : '');
-    if (!queryText) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({ success_arguments: [], risk_factors: [], confidence: 0.2 }, null, 2),
-          },
-        ],
-      };
-    }
-
-    const emb = await this.embeddingService.generateEmbedding(queryText);
-    const matched = await this.patternStore.matchPatterns(emb, 'general_search');
-    const success_arguments = matched.flatMap((p: any) => Array.isArray(p?.success_arguments) ? p.success_arguments : []).slice(0, 15);
-    const risk_factors = matched.flatMap((p: any) => Array.isArray(p?.risk_factors) ? p.risk_factors : []).slice(0, 15);
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(
-            {
-              success_arguments,
-              risk_factors,
-              confidence: matched.length > 0 ? 0.7 : 0.35,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-    };
-  }
-
   private async validateResponseTool(args: any) {
     const answer = String(args?.answer || '').trim();
     if (!answer) {
@@ -253,72 +216,6 @@ export class MCPQueryAPI extends BaseToolHandler {
               is_valid: Boolean(validation.is_valid),
               confidence: typeof validation.confidence === 'number' ? validation.confidence : 0.5,
               issues,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-    };
-  }
-
-  private async findRelevantLawArticles(args: any) {
-    const query = String(args?.query || args?.intent || '').trim();
-    if (!query) {
-      throw new Error('query parameter is required');
-    }
-    const limit = args.limit || 10;
-
-    logger.info('[MCP Tool] find_relevant_law_articles started', {
-      query: query.substring(0, 100),
-      limit,
-    });
-
-    // Primary: semantic search in legislation via LegislationTools
-    const searchResult = await this.legislationTools.searchLegislation({
-      query,
-      limit,
-    } as any);
-
-    const articles = searchResult?.articles || [];
-
-    // Secondary: supplement with legal patterns from court practice
-    let patternsInfo: any = null;
-    try {
-      const patterns = await this.patternStore.findPatterns(query);
-      if (patterns.length > 0) {
-        const patternArticles = new Set<string>();
-        for (const pattern of patterns) {
-          pattern.law_articles.forEach((a: string) => patternArticles.add(a));
-        }
-        patternsInfo = {
-          from_court_practice: Array.from(patternArticles).slice(0, 5),
-          patterns_count: patterns.length,
-        };
-      }
-    } catch {
-      // Pattern store is optional — don't fail if unavailable
-    }
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(
-            {
-              query,
-              total_found: articles.length,
-              articles: articles.map((a: any) => ({
-                rada_id: a.rada_id,
-                article_number: a.article_number,
-                title: a.title,
-                full_text: a.full_text,
-                url: a.url,
-              })),
-              ...(patternsInfo ? { court_practice_references: patternsInfo } : {}),
-              suggestion: articles.length === 0
-                ? 'Спробуйте уточнити запит або вказати конкретний закон. Наприклад: "постанова КМУ про реєстрацію транспортних засобів"'
-                : undefined,
             },
             null,
             2
@@ -379,18 +276,6 @@ export class MCPQueryAPI extends BaseToolHandler {
         },
       },
       {
-        name: 'analyze_legal_patterns',
-        description: 'Выделяет success_arguments/risk_factors по источникам/контексту',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            documents: { type: 'array', items: { type: 'object' } },
-            query: { type: 'string' },
-          },
-          required: [],
-        },
-      },
-      {
         name: 'validate_response',
         description: 'Trust layer: проверка, что ответ опирается на источники (anti-hallucination)',
         inputSchema: {
@@ -400,26 +285,6 @@ export class MCPQueryAPI extends BaseToolHandler {
             sources: { type: 'array', items: { type: 'object' } },
           },
           required: ['answer', 'sources'],
-        },
-      },
-      {
-        name: 'find_relevant_law_articles',
-        description: `Знаходить статті законів та підзаконних актів за ОПИСОМ СИТУАЦІЇ. Використовуй коли користувач описує ситуацію без назви конкретного закону.
-
-Приклади: "реєстрація авто з кількома власниками", "звільнення без попередження", "затоплення квартири сусідом".
-Повертає: релевантні статті з повним текстом і посиланням на джерело.
-
-💰 Вартість: $0.01-$0.05 USD (семантичний пошук + OpenAI embedding)`,
-        inputSchema: {
-          type: 'object',
-          properties: {
-            query: {
-              type: 'string',
-              description: 'Опис юридичної ситуації українською мовою (наприклад: "реєстрація транспортного засобу що належить кільком власникам нотаріальне засвідчення")',
-            },
-            limit: { type: 'number', default: 10, description: 'Максимальна кількість результатів' },
-          },
-          required: ['query'],
         },
       },
       {
@@ -464,14 +329,8 @@ export class MCPQueryAPI extends BaseToolHandler {
         case 'retrieve_legal_sources':
           result = await this.retrieveLegalSourcesTool(args);
           break;
-        case 'analyze_legal_patterns':
-          result = await this.analyzeLegalPatternsTool(args);
-          break;
         case 'validate_response':
           result = await this.validateResponseTool(args);
-          break;
-        case 'find_relevant_law_articles':
-          result = await this.findRelevantLawArticles(args);
           break;
         case 'check_precedent_status':
           result = await this.checkPrecedentStatus(args);

@@ -1,6 +1,7 @@
 import type { ICachePort } from '../domain/ports/index.js';
 import { LegislationService, normalizeRadaId } from '../services/legislation-service';
 import { LegislationRenderer } from '../services/legislation-renderer';
+import { LegalPatternStore } from '../services/legal-pattern-store.js';
 import { logger } from '../utils/logger';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
 
@@ -11,20 +12,24 @@ export interface LegislationToolArgs {
   query?: string;
   limit?: number;
   include_html?: boolean;
+  include_court_practice?: boolean;
   theme?: 'light' | 'dark';
 }
 
 export class LegislationTools extends BaseToolHandler {
   private service: LegislationService;
   private renderer: LegislationRenderer;
+  private patternStore?: LegalPatternStore;
 
   constructor(
     service: LegislationService,
-    renderer?: LegislationRenderer
+    renderer?: LegislationRenderer,
+    patternStore?: LegalPatternStore
   ) {
     super();
     this.service = service;
     this.renderer = renderer || new LegislationRenderer();
+    this.patternStore = patternStore;
   }
 
   getLegislationService(): LegislationService {
@@ -36,45 +41,6 @@ export class LegislationTools extends BaseToolHandler {
    */
   setRedisClient(redis: ICachePort | null): void {
     this.service.setRedisClient(redis);
-  }
-
-  async getLegislationArticle(args: LegislationToolArgs): Promise<any> {
-    if (!args.rada_id || !args.article_number) {
-      throw new Error('rada_id and article_number are required');
-    }
-
-    logger.info('[MCP Tool] get_legislation_article started', {
-      rada_id: args.rada_id,
-      article_number: args.article_number,
-      include_html: args.include_html
-    });
-
-    const article = await this.service.getArticle(args.rada_id, args.article_number);
-    
-    if (!article) {
-      return {
-        error: `Article ${args.article_number} not found in legislation ${args.rada_id}`,
-        suggestion: 'Check if the article number is correct or if the legislation is loaded in the database',
-      };
-    }
-
-    const response: any = {
-      rada_id: article.rada_id,
-      article_number: article.article_number,
-      title: article.title,
-      full_text: article.full_text,
-      url: article.url,
-      metadata: article.metadata,
-    };
-
-    if (args.include_html) {
-      response.html = this.renderer.renderArticleHTML(article, {
-        theme: args.theme || 'light',
-        format: 'full',
-      });
-    }
-
-    return response;
   }
 
   async getLegislationSection(args: LegislationToolArgs): Promise<any> {
@@ -372,6 +338,25 @@ export class LegislationTools extends BaseToolHandler {
       })),
     };
 
+    // Supplement with court practice references if requested
+    if (args.include_court_practice && this.patternStore) {
+      try {
+        const patterns = await this.patternStore.findPatterns(args.query);
+        if (patterns.length > 0) {
+          const patternArticles = new Set<string>();
+          for (const pattern of patterns) {
+            pattern.law_articles.forEach((a: string) => patternArticles.add(a));
+          }
+          response.court_practice_references = {
+            from_court_practice: Array.from(patternArticles).slice(0, 5),
+            patterns_count: patterns.length,
+          };
+        }
+      } catch {
+        // Pattern store is optional
+      }
+    }
+
     if (args.include_html && articles.length > 0) {
       const firstRadaId = articles[0].rada_id;
       const structure = await this.service.getLegislationStructure(firstRadaId);
@@ -472,33 +457,6 @@ export class LegislationTools extends BaseToolHandler {
   getToolDefinitions() {
     return [
       {
-        name: 'get_legislation_article',
-        description: 'Отримати повний текст конкретної статті законодавчого акту (ЦПК, ГПК, КАС, КПК). Використовуйте для отримання точного тексту норми права.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            rada_id: {
-              type: 'string',
-              description: 'ID законодавчого акту на zakon.rada.gov.ua (наприклад, "1618-15" для ЦПК, "435-15" для ГПК, "2747-15" для КАС, "4651-17" для КПК)',
-            },
-            article_number: {
-              type: 'string',
-              description: 'Номер статті (наприклад, "354", "354-1")',
-            },
-            include_html: {
-              type: 'boolean',
-              description: 'Чи включати форматований HTML (за замовчуванням false)',
-            },
-            theme: {
-              type: 'string',
-              enum: ['light', 'dark'],
-              description: 'Тема для HTML (за замовчуванням light)',
-            },
-          },
-          required: ['rada_id', 'article_number'],
-        },
-      },
-      {
         name: 'get_legislation_section',
         description: 'Отримати точний фрагмент/статтю за посиланням (наприклад, "ст. 625 ЦК") або за (rada_id + article_number). Повертає повний текст статті та посилання на джерело.',
         inputSchema: {
@@ -558,13 +516,17 @@ export class LegislationTools extends BaseToolHandler {
       },
       {
         name: 'search_legislation',
-        description: 'Семантичний пошук релевантних статей законодавства за запитом. Використовує векторний пошук для знаходження найбільш релевантних норм.',
+        description: `Семантичний пошук релевантних статей законодавства за запитом або описом ситуації. Використовує векторний пошук для знаходження найбільш релевантних норм.
+
+Приклади: "поновлення пропущеного строку", "підстави для залишення позову без розгляду", "реєстрація авто з кількома власниками", "затоплення квартири сусідом".
+
+💰 Вартість: $0.01-$0.05 USD (семантичний пошук + OpenAI embedding)`,
         inputSchema: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: 'Пошуковий запит (наприклад, "поновлення пропущеного строку", "підстави для залишення позову без розгляду")',
+              description: 'Пошуковий запит або опис юридичної ситуації українською мовою',
             },
             rada_id: {
               type: 'string',
@@ -577,6 +539,11 @@ export class LegislationTools extends BaseToolHandler {
             include_html: {
               type: 'boolean',
               description: 'Чи включати форматований HTML',
+            },
+            include_court_practice: {
+              type: 'boolean',
+              default: false,
+              description: 'Додати посилання з судової практики (які статті згадуються в аналогічних справах)',
             },
           },
           required: ['query'],
@@ -675,12 +642,13 @@ export class LegislationTools extends BaseToolHandler {
 
   async executeTool(name: string, args: any): Promise<ToolResult | null> {
     switch (name) {
-      case 'get_legislation_article':
-        return this.wrapResponse(await this.getLegislationArticle(args));
+      case 'get_legislation_article': // backward-compat alias
       case 'get_legislation_section':
         return this.wrapResponse(await this.getLegislationSection(args));
       case 'get_legislation_articles':
         return this.wrapResponse(await this.getLegislationArticles(args));
+      case 'find_relevant_law_articles': // backward-compat alias
+        return this.wrapResponse(await this.searchLegislation({ ...args, include_court_practice: true }));
       case 'search_legislation':
         return this.wrapResponse(await this.searchLegislation(args));
       case 'get_legislation_structure':

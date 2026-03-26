@@ -165,7 +165,7 @@ export function useLegalCodes() {
     setSelectedArticleNumber(articleNumber);
     setShowComment(false);
     try {
-      const result = await mcpService.callTool('get_legislation_article', {
+      const result = await mcpService.callTool('get_legislation_section', {
         rada_id: selectedCode,
         article_number: articleNumber,
       });

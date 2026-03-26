@@ -19,7 +19,6 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
     label: 'Судові справи',
     tools: [
       { name: 'search_legal_precedents', label: 'Пошук справ' },
-      { name: 'search_supreme_court_practice', label: 'Практика ВС' },
       { name: 'get_court_decision', label: 'Рішення суду' },
       { name: 'get_case_documents_chain', label: 'Ланцюг документів' },
       { name: 'find_similar_fact_pattern_cases', label: 'Схожі справи' },
@@ -43,12 +42,10 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
     label: 'Законодавство',
     tools: [
       { name: 'search_legislation', label: 'Пошук законів' },
-      { name: 'get_legislation_article', label: 'Стаття закону' },
       { name: 'get_legislation_articles', label: 'Статті закону' },
       { name: 'get_legislation_section', label: 'Розділ закону' },
       { name: 'get_legislation_structure', label: 'Структура закону' },
       { name: 'search_procedural_norms', label: 'Процесуальні норми' },
-      { name: 'find_relevant_law_articles', label: 'Релевантні статті' },
     ],
   },
   {

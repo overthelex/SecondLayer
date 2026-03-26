@@ -22,22 +22,45 @@ export class CourtSessionTools extends BaseToolHandler {
     return [
       {
         name: 'search_court_sessions',
-        description: `Пошук судових засідань за номером справи або учасниками
+        description: `Пошук судових засідань за номером справи, учасниками, суддею або назвою суду
 
-💰 Примерная стоимость: $0.005-$0.01 USD
-Пошук запланованих та завершених судових засідань. Пошук за номером справи або ім'ям учасника.`,
+💰 Примерная стоимость: $0.001-$0.01 USD
+Пошук запланованих та завершених судових засідань. Підтримує пошук по API (query) та локальній базі (структуровані фільтри).
+Джерела: source=api (ZakonOnline API), source=opendata (481K засідань з відкритих даних), source=all (обидва).`,
         inputSchema: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: 'Пошуковий запит (номер справи або ім\'я учасника)',
+              description: 'Пошуковий запит (номер справи або ім\'я учасника). Обов\'язковий для source=api.',
+            },
+            source: {
+              type: 'string',
+              enum: ['api', 'opendata', 'all'],
+              default: 'all',
+              description: 'Джерело: api (ZakonOnline), opendata (локальна БД відкритих даних), all (обидва)',
             },
             target: {
               type: 'string',
               enum: ['cause_num', 'case_involved'],
               default: 'case_involved',
-              description: 'Тип пошуку: cause_num (номер справи) або case_involved (учасники)',
+              description: 'Тип пошуку для API: cause_num (номер справи) або case_involved (учасники)',
+            },
+            case_number: {
+              type: 'string',
+              description: 'Номер справи (для opendata пошуку)',
+            },
+            judge: {
+              type: 'string',
+              description: 'Прізвище судді (для opendata пошуку)',
+            },
+            participant: {
+              type: 'string',
+              description: 'Прізвище або назва учасника справи (для opendata пошуку)',
+            },
+            court_name: {
+              type: 'string',
+              description: 'Назва суду (для opendata пошуку)',
             },
             date_from: {
               type: 'string',
@@ -54,7 +77,6 @@ export class CourtSessionTools extends BaseToolHandler {
               description: 'Максимальна кількість результатів',
             },
           },
-          required: ['query'],
         },
       },
       {
@@ -99,6 +121,7 @@ export class CourtSessionTools extends BaseToolHandler {
   async executeTool(name: string, args: any): Promise<ToolResult | null> {
     switch (name) {
       case 'search_court_sessions':
+      case 'search_court_schedule': // backward-compat alias
         return this.searchCourtSessions(args);
       case 'bulk_ingest_court_sessions':
         return this.bulkIngestCourtSessions(args);
@@ -109,59 +132,130 @@ export class CourtSessionTools extends BaseToolHandler {
 
   private async searchCourtSessions(args: any): Promise<ToolResult> {
     const query = String(args.query || '').trim();
-    if (!query) throw new Error('query parameter is required');
-
-    const target = args.target || 'case_involved';
+    const source = String(args.source || 'all').trim();
     const limit = Math.min(1000, Math.max(1, Number(args.limit || 50)));
 
-    const searchParams: any = {
-      meta: { search: query, target },
-      limit,
-      offset: 0,
-    };
+    const apiResults: any[] = [];
+    const opendataResults: any[] = [];
 
-    // Add date filter if provided
-    if (args.date_from) {
-      searchParams.date_session_from = args.date_from;
+    // Source: API (ZakonOnline)
+    if ((source === 'api' || source === 'all') && query) {
+      const target = args.target || 'case_involved';
+      const searchParams: any = {
+        meta: { search: query, target },
+        limit,
+        offset: 0,
+      };
+      if (args.date_from) searchParams.date_session_from = args.date_from;
+      if (args.date_to) searchParams.date_session_to = args.date_to;
+
+      const rawResponse = await this.zoSessionsAdapter.searchCourtDecisions(searchParams);
+      const responseData = Array.isArray(rawResponse)
+        ? rawResponse
+        : (rawResponse?.data && Array.isArray(rawResponse.data) ? rawResponse.data : []);
+
+      // Save to local DB for caching
+      for (const session of responseData) {
+        try { await this.saveSessionToDb(session); } catch (_) { /* skip duplicates */ }
+      }
+      apiResults.push(...responseData);
     }
-    if (args.date_to) {
-      searchParams.date_session_to = args.date_to;
+
+    // Source: OpenData (local PostgreSQL)
+    if (source === 'opendata' || source === 'all') {
+      const odResults = await this.searchScheduleFromOpendata(args, limit);
+      opendataResults.push(...odResults);
     }
 
-    const rawResponse = await this.zoSessionsAdapter.searchCourtDecisions(searchParams);
-
-    const responseData = Array.isArray(rawResponse)
-      ? rawResponse
-      : (rawResponse?.data && Array.isArray(rawResponse.data) ? rawResponse.data : []);
-
-    if (responseData.length === 0) {
+    const totalFound = apiResults.length + opendataResults.length;
+    if (totalFound === 0) {
+      if (!query && source !== 'opendata') {
+        return this.wrapResponse('Вкажіть query для пошуку через API або використайте source=opendata з фільтрами (case_number, judge, participant, court_name)');
+      }
       return this.wrapResponse({
-        query,
+        query: query || undefined,
         sessions_found: 0,
         message: 'Судових засідань не знайдено за вашим запитом',
       });
     }
 
-    // Save to local DB for caching
-    let savedCount = 0;
-    for (const session of responseData) {
-      try {
-        await this.saveSessionToDb(session);
-        savedCount++;
-      } catch (err) {
-        // Skip duplicates silently
-      }
+    const response: any = {
+      query: query || undefined,
+      source,
+      sessions_found: totalFound,
+    };
+
+    if (apiResults.length > 0) {
+      response.api_results = apiResults.slice(0, 20);
+      if (apiResults.length > 20) response.api_total = apiResults.length;
+    }
+    if (opendataResults.length > 0) {
+      response.opendata_results = opendataResults.slice(0, limit);
     }
 
-    return this.wrapResponse({
-      query,
-      sessions_found: responseData.length,
-      sessions_saved: savedCount,
-      sessions: responseData.slice(0, 20), // Return first 20 in response
-      note: responseData.length > 20
-        ? `Показано перші 20 з ${responseData.length} засідань. Всі збережені в локальній базі.`
-        : undefined,
-    });
+    return this.wrapResponse(response);
+  }
+
+  private async searchScheduleFromOpendata(args: any, limit: number): Promise<any[]> {
+    const { case_number, judge, participant, court_name, date_from, date_to, query } = args;
+
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let pi = 1;
+
+    if (case_number) {
+      conditions.push(`case_number = $${pi}`);
+      values.push(case_number);
+      pi++;
+    }
+    if (judge) {
+      conditions.push(`judges ILIKE $${pi}`);
+      values.push(`%${judge}%`);
+      pi++;
+    }
+    if (participant) {
+      conditions.push(`case_involved ILIKE $${pi}`);
+      values.push(`%${participant}%`);
+      pi++;
+    } else if (query && !case_number) {
+      // Use query as participant search fallback for opendata
+      conditions.push(`case_involved ILIKE $${pi}`);
+      values.push(`%${query}%`);
+      pi++;
+    }
+    if (court_name) {
+      conditions.push(`court_name ILIKE $${pi}`);
+      values.push(`%${court_name}%`);
+      pi++;
+    }
+    if (date_from) {
+      conditions.push(`hearing_date >= $${pi}`);
+      values.push(date_from);
+      pi++;
+    }
+    if (date_to) {
+      conditions.push(`hearing_date <= $${pi}`);
+      values.push(date_to);
+      pi++;
+    }
+
+    if (conditions.length === 0) return [];
+
+    values.push(Math.min(Number(limit) || 50, 100));
+
+    const sql = `SELECT hearing_date, court_name, case_number, judges, court_room, case_involved, case_description
+      FROM opendata_court_schedule
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY hearing_date DESC
+      LIMIT $${pi}`;
+
+    try {
+      const result = await this.db.query(sql, values);
+      return result.rows;
+    } catch (error: any) {
+      logger.error('search_court_schedule opendata error', { error: error.message });
+      return [];
+    }
   }
 
   private async bulkIngestCourtSessions(args: any): Promise<ToolResult> {

@@ -1,14 +1,15 @@
 /**
  * Procedural Tools - Handlers for procedural law analysis
  *
- * 7 tools:
+ * 6 tools:
  * - search_procedural_norms
- * - search_supreme_court_practice
  * - compare_practice_pro_contra
  * - find_similar_fact_pattern_cases
  * - calculate_procedural_deadlines
  * - build_procedural_checklist
  * - calculate_monetary_claims
+ *
+ * Note: search_supreme_court_practice was merged into search_legal_precedents (legal-advice-tools.ts)
  */
 
 import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
@@ -91,27 +92,6 @@ export class ProceduralTools extends BaseToolHandler {
           },
           required: ['code']
         }
-      },
-      {
-        name: 'search_supreme_court_practice',
-        description: `Поиск практики Верховного Суду (в т.ч. ВП/КЦС/КГС/КАС/ККС) с краткими выдержками`,
-        inputSchema: {
-          type: 'object',
-          properties: {
-            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'] },
-            query: { type: 'string' },
-            time_range: {
-              oneOf: [
-                { type: 'string' },
-                { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } },
-              ],
-            },
-            court_level: { type: 'string', enum: ['SC', 'GrandChamber'], default: 'SC' },
-            section_focus: { type: 'array', items: { type: 'string', enum: Object.values(SectionType) } },
-            limit: { type: 'number', default: 10 },
-          },
-          required: ['query'],
-        },
       },
       {
         name: 'compare_practice_pro_contra',
@@ -215,8 +195,6 @@ export class ProceduralTools extends BaseToolHandler {
     switch (name) {
       case 'search_procedural_norms':
         return await this.searchProceduralNorms(args);
-      case 'search_supreme_court_practice':
-        return await this.searchSupremeCourtPractice(args);
       case 'compare_practice_pro_contra':
         return await this.comparePracticeProContra(args);
       case 'find_similar_fact_pattern_cases':
@@ -304,6 +282,10 @@ export class ProceduralTools extends BaseToolHandler {
     return lines.join('\n');
   }
 
+  /**
+   * Internal SC practice search (used by calculateProceduralDeadlines).
+   * Kept as private helper after search_supreme_court_practice tool was merged into search_legal_precedents.
+   */
   private async searchSupremeCourtPractice(args: any): Promise<ToolResult> {
     const procedureCode = mapProcedureCodeToShort(args.procedure_code || args.code);
     const query = typeof args.query === 'string' ? args.query.trim() : '';
@@ -314,8 +296,6 @@ export class ProceduralTools extends BaseToolHandler {
     if (!query) throw new Error('query parameter is required');
 
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
-
-    // Build where-filters for SC instance and justice_kind (procedure type)
     const whereFilters: any[] = [
       ...(courtLevel ? buildSupremeCourtWhereFilter(courtLevel) : []),
     ];
@@ -329,7 +309,7 @@ export class ProceduralTools extends BaseToolHandler {
     const searchParams: any = {
       meta: { search: query },
       where: whereFilters.length > 0 ? whereFilters : undefined,
-      limit: Math.max(limit, 20), // fetch more to allow post-filtering
+      limit: Math.max(limit, 20),
       offset: 0,
       ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
       ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
@@ -338,16 +318,12 @@ export class ProceduralTools extends BaseToolHandler {
     const response = await this.zoAdapter.searchCourtDecisions(searchParams);
     const normalized = await this.zoAdapter.normalizeResponse(response);
 
-    // SC court codes: 99xx pattern (9901=ВП ВС, 9911=КГС, 9921=КАС, 9931=КЦС, 9941=ККС)
     const scCourtCodePrefix = '99';
     const filtered = normalized.data.filter((d: any) => {
       if (courtLevel !== 'SC' && courtLevel !== 'GrandChamber') return true;
       const code = String(d?.court_code || '');
       if (!code.startsWith(scCourtCodePrefix)) return false;
-      if (courtLevel === 'GrandChamber') {
-        // ВП ВС court_code = 9901
-        return code === '9901';
-      }
+      if (courtLevel === 'GrandChamber') return code === '9901';
       return true;
     });
 
@@ -366,21 +342,12 @@ export class ProceduralTools extends BaseToolHandler {
       };
     });
 
-    const payload: any = {
+    return this.wrapResponse({
       procedure_code: procedureCode || 'all',
       query,
-      time_range: args.time_range,
-      applied_filters: {
-        court_level: courtLevel || 'all',
-        ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
-        ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
-      },
       results,
       total_returned: results.length,
-    };
-    if (timeRangeParsed.warning) payload.warning = timeRangeParsed.warning;
-
-    return this.wrapResponse(payload);
+    });
   }
 
   private async comparePracticeProContra(args: any): Promise<ToolResult> {

@@ -3,10 +3,9 @@ import type { EvidenceResult, ToolResultData } from './types';
 
 const LEGISLATION_TOOLS = [
   'search_legislation',
-  'get_legislation_article',
   'get_legislation_articles',
   'get_legislation_section',
-  'find_relevant_law_articles',
+  'find_relevant_law_articles', // backward-compat alias
 ];
 
 export function extractLegislationEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
