@@ -549,7 +549,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           <div className="w-10 h-10 rounded-full border border-zinc-800 flex items-center justify-center">
             <Loader2 size={16} className="text-zinc-600 animate-spin" />
           </div>
-          <p className="text-[10px] text-zinc-700 tracking-[0.22em] uppercase">{t.authenticating}</p>
+          <p className="text-[10px] text-zinc-500 tracking-[0.22em] uppercase">{t.authenticating}</p>
         </div>
       </div>
     );
@@ -584,16 +584,16 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             {/* Eyebrow + Headline */}
             <div>
               <div className="mb-5">
-                <span className="inline-block text-[9px] font-semibold tracking-[0.22em] uppercase text-zinc-600 border border-zinc-800/80 px-2.5 py-[5px] rounded-sm">
+                <span className="inline-block text-[9px] font-semibold tracking-[0.22em] uppercase text-zinc-400 border border-zinc-700/80 px-2.5 py-[5px] rounded-sm">
                   {t.tagline}
                 </span>
               </div>
               <h1 className="text-[2.5rem] xl:text-[2.75rem] font-semibold text-white leading-[1.08] tracking-[-0.02em]">
                 {t.headline1}
                 <br />
-                <span className="text-zinc-500">{t.headline2}</span>
+                <span className="text-zinc-400">{t.headline2}</span>
               </h1>
-              <p className="mt-5 text-[0.85rem] text-zinc-500 leading-[1.7] max-w-[320px]">
+              <p className="mt-5 text-[0.85rem] text-zinc-400 leading-[1.7] max-w-[320px]">
                 {t.description}
               </p>
             </div>
@@ -610,8 +610,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   key={feature.number}
                   className={`flex items-start gap-4 px-5 py-3.5 ${i < 3 ? 'border-b border-zinc-800/50' : ''}`}
                 >
-                  <span className="text-[10px] font-mono text-zinc-800 mt-0.5 flex-shrink-0 w-5 tabular-nums select-none">{feature.number}</span>
-                  <span className="text-[0.775rem] text-zinc-400 leading-snug">{feature.label}</span>
+                  <span className="text-[10px] font-mono text-zinc-600 mt-0.5 flex-shrink-0 w-5 tabular-nums select-none">{feature.number}</span>
+                  <span className="text-[0.775rem] text-zinc-300 leading-snug">{feature.label}</span>
                 </div>
               ))}
             </div>
@@ -624,7 +624,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <div className="flex-shrink-0 px-2 py-[3px] rounded border border-emerald-800/30 bg-emerald-950/20">
                 <span className="text-[8px] font-bold text-emerald-700 tracking-[0.2em] uppercase">{t.promoNew}</span>
               </div>
-              <span className="text-[11px] text-zinc-600 group-hover:text-zinc-400 transition-colors duration-200 leading-snug">
+              <span className="text-[11px] text-zinc-500 group-hover:text-zinc-300 transition-colors duration-200 leading-snug">
                 {t.promoDesc}
               </span>
               <ChevronRight
@@ -639,7 +639,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           <div className="flex items-center gap-5 flex-wrap">
             <a
               href="/blog"
-              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors duration-200 tracking-wide"
+              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors duration-200 tracking-wide"
             >
               <BookOpen size={10} />
               <span>{t.readBlog}</span>
@@ -649,7 +649,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </a>
             <a
               href="/lex-news"
-              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors duration-200 tracking-wide"
+              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors duration-200 tracking-wide"
             >
               <Newspaper size={10} />
               <span>{t.newsLink}</span>
@@ -657,7 +657,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </a>
             <a
               href="/investor"
-              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors duration-200 tracking-wide"
+              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors duration-200 tracking-wide"
             >
               <TrendingUp size={10} />
               <span>{t.investorsLink}</span>
@@ -668,7 +668,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       </div>
 
       {/* ── Right panel: auth form ── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 lg:px-16 xl:px-24 relative">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 sm:px-6 sm:py-12 lg:px-16 xl:px-24 relative">
 
         {/* Semi-transparent backdrop for readability over fractal */}
         <div
@@ -677,25 +677,28 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         />
 
         {/* Language switcher — top right */}
-        <div className="absolute top-6 right-6 z-20">
+        <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
           <LanguageSwitcher />
         </div>
 
-        {/* Mobile logo */}
-        <div className="lg:hidden mb-10 self-start relative z-10">
-          <img src="/logo-white.png" alt="SecondLayer" className="h-8 w-auto opacity-90" />
+        {/* Mobile logo & tagline */}
+        <div className="lg:hidden mb-8 self-start relative z-10">
+          <img src="/logo-white.png" alt="SecondLayer" className="h-7 sm:h-8 w-auto opacity-90 mb-3" />
+          <p className="text-[0.8rem] text-zinc-400 leading-relaxed max-w-[300px]">
+            {t.description}
+          </p>
         </div>
 
         <motion.div
           {...FADE_UP}
-          className="w-full max-w-[392px] relative z-10"
+          className="w-full max-w-[392px] sm:max-w-[392px] relative z-10"
         >
           {/* Heading */}
           <div className="mb-8">
             <h2 className="text-[1.45rem] font-semibold text-white tracking-[-0.01em] leading-tight mb-2">
               {isLogin ? t.loginTitle : t.registerTitle}
             </h2>
-            <p className="text-[0.75rem] text-zinc-600 tracking-wide">
+            <p className="text-[0.75rem] text-zinc-400 tracking-wide">
               {isLogin
                 ? t.authSubtitleLogin
                 : t.authSubtitleRegister}
@@ -736,7 +739,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 className="overflow-hidden mb-5"
               >
                 <div className="space-y-2.5 px-4 py-4 rounded-lg bg-zinc-900/50 border border-zinc-800/60">
-                  <p className="text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.2em] mb-3">
+                  <p className="text-[9px] font-semibold text-zinc-400 uppercase tracking-[0.2em] mb-3">
                     {t.consentRequired}
                   </p>
                   {[
@@ -828,7 +831,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           {/* SSO */}
           <button
             onClick={handleSSOAuth}
-            className={`w-full flex items-center justify-center gap-2.5 px-4 py-[11px] bg-[#0a0a0a] border border-zinc-800/80 text-zinc-600 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 hover:text-zinc-400 active:opacity-80 transition-colors duration-150 ${showSSOForm ? 'rounded-t-lg' : 'rounded-lg mb-5'}`}
+            className={`w-full flex items-center justify-center gap-2.5 px-4 py-[11px] bg-[#0a0a0a] border border-zinc-800/80 text-zinc-400 text-[0.825rem] font-medium hover:bg-zinc-900 hover:border-zinc-700 hover:text-zinc-300 active:opacity-80 transition-colors duration-150 ${showSSOForm ? 'rounded-t-lg' : 'rounded-lg mb-5'}`}
           >
             <ShieldCheck size={13} className="flex-shrink-0" />
             {t.ssoAuth}
@@ -896,7 +899,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <div className="w-full border-t border-zinc-800/50" />
             </div>
             <div className="relative flex justify-center">
-              <span className="px-3 bg-[#080808] text-[9px] text-zinc-700 tracking-[0.18em] uppercase">{t.orDivider}</span>
+              <span className="px-3 bg-[#080808] text-[9px] text-zinc-500 tracking-[0.18em] uppercase">{t.orDivider}</span>
             </div>
           </div>
 
@@ -913,7 +916,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-medium transition-all duration-150 ${
                   authMethod === key
                     ? 'bg-zinc-800/80 text-zinc-200'
-                    : 'text-zinc-600 hover:text-zinc-500 hover:bg-zinc-900/40'
+                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/40'
                 }`}
               >
                 <Icon size={11} />
@@ -938,7 +941,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               >
                 {!isLogin && (
                   <div>
-                    <label htmlFor="name" className="block text-[10px] font-medium text-zinc-600 mb-1.5 tracking-[0.08em] uppercase">
+                    <label htmlFor="name" className="block text-[10px] font-medium text-zinc-400 mb-1.5 tracking-[0.08em] uppercase">
                       {t.nameLabel}
                     </label>
                     <div className="relative">
@@ -960,7 +963,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 )}
 
                 <div>
-                  <label htmlFor="email" className="block text-[10px] font-medium text-zinc-600 mb-1.5 tracking-[0.08em] uppercase">
+                  <label htmlFor="email" className="block text-[10px] font-medium text-zinc-400 mb-1.5 tracking-[0.08em] uppercase">
                     Email
                   </label>
                   <div className="relative">
@@ -982,14 +985,14 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label htmlFor="password" className="block text-[10px] font-medium text-zinc-600 tracking-[0.08em] uppercase">
+                    <label htmlFor="password" className="block text-[10px] font-medium text-zinc-400 tracking-[0.08em] uppercase">
                       {t.passwordLabel}
                     </label>
                     {isLogin && (
                       <button
                         type="button"
                         onClick={() => { setShowForgotPassword(true); setError(null); }}
-                        className="text-[11px] text-zinc-700 hover:text-zinc-400 transition-colors duration-150"
+                        className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150"
                       >
                         {t.forgotPassword}
                       </button>
@@ -1031,7 +1034,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                           return <div key={level} className={`h-px flex-1 ${filled ? color : 'bg-zinc-800'} transition-colors duration-200`} />;
                         })}
                       </div>
-                      <p className="text-[10px] text-zinc-700 mt-1.5">
+                      <p className="text-[10px] text-zinc-500 mt-1.5">
                         {passwordStrength === 'weak' && t.strengthWeakDesc}
                         {passwordStrength === 'medium' && t.strengthMediumDesc}
                         {passwordStrength === 'strong' && t.strengthStrongDesc}
@@ -1070,7 +1073,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   <Shield size={20} className="text-zinc-600" />
                 </div>
                 <h3 className="text-[0.825rem] font-medium text-zinc-300 mb-1.5">{t.hardwareKeyTitle}</h3>
-                <p className="text-[0.75rem] text-zinc-600 mb-6 leading-relaxed">{t.hardwareKeyDesc}</p>
+                <p className="text-[0.75rem] text-zinc-400 mb-6 leading-relaxed">{t.hardwareKeyDesc}</p>
                 <button
                   onClick={() => handleWebAuthnLogin('cross-platform')}
                   disabled={isLoading}
@@ -1095,7 +1098,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   <Smartphone size={20} className="text-zinc-600" />
                 </div>
                 <h3 className="text-[0.825rem] font-medium text-zinc-300 mb-1.5">{t.phoneKeyTitle}</h3>
-                <p className="text-[0.75rem] text-zinc-600 mb-6 leading-relaxed">{t.phoneKeyDesc}</p>
+                <p className="text-[0.75rem] text-zinc-400 mb-6 leading-relaxed">{t.phoneKeyDesc}</p>
                 <button
                   onClick={() => handleWebAuthnLogin()}
                   disabled={isLoading}
@@ -1109,7 +1112,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </AnimatePresence>
 
           {/* Toggle login / register */}
-          <p className="text-center text-[12px] text-zinc-700 mt-6">
+          <p className="text-center text-[12px] text-zinc-500 mt-6">
             {isLogin ? t.noAccount : t.hasAccount}{' '}
             <button
               onClick={() => { setIsLogin(!isLogin); setError(null); setPassword(''); resetConsents(); }}
@@ -1131,9 +1134,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="text-[8px] font-bold text-[#4d6ef5] tracking-[0.2em] uppercase">GDPR</span>
                 <span className="w-px h-2 bg-zinc-800 inline-block" />
-                <span className="text-[10px] text-zinc-500">{t.gdprDesc}</span>
+                <span className="text-[10px] text-zinc-400">{t.gdprDesc}</span>
               </div>
-              <p className="text-[9px] text-zinc-700 tracking-wide">
+              <p className="text-[9px] text-zinc-500 tracking-wide">
                 {t.gdprCompliance}
               </p>
             </div>
@@ -1144,7 +1147,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </button>
 
           {/* Footer legal links */}
-          <div className="mt-5 flex flex-wrap justify-center gap-x-3 gap-y-1">
+          <div className="mt-5 pb-4 sm:pb-0 flex flex-wrap justify-center gap-x-3 gap-y-1.5">
             {[
               { href: '/ua/terms', label: t.footerTerms },
               { href: '/ua/offer', label: t.footerOffer },
@@ -1156,7 +1159,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <a
                 key={href}
                 href={href}
-                className="text-[10px] text-zinc-800 hover:text-zinc-500 transition-colors duration-150"
+                className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors duration-150"
               >
                 {label}
               </a>
