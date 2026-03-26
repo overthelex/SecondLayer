@@ -2,9 +2,28 @@ import type { Decision } from '../../../types/models/Message';
 import type { EvidenceResult, ToolResultData } from './types';
 import { classifyDocumentType, courtDocUrl } from './parse';
 
+/** Extract a summary from a court case object, trying all known field names */
+function extractSummary(c: ToolResultData): string {
+  if (c.title) return String(c.title);
+  if (c.resolution) return String(c.resolution);
+  if (c.summary) return String(c.summary);
+  if (c.similarity_reason) return String(c.similarity_reason);
+  if (Array.isArray(c.snippets) && c.snippets.length > 0) return c.snippets.join(' ');
+  if (c.description) return String(c.description);
+  if (typeof c.text === 'string' && c.text.length > 0) return c.text.slice(0, 500);
+  if (typeof c.content === 'string' && c.content.length > 0) return c.content.slice(0, 500);
+  if (c.snippet) return String(c.snippet);
+  // Try to build from document type + case number
+  const docType = c.doc_type || c.document_type || c.judgment_code || '';
+  const caseNum = c.cause_num || c.case_number || '';
+  if (docType && caseNum) return `${docType} у справі ${caseNum}`;
+  if (docType) return String(docType);
+  return '';
+}
+
 const COURT_TOOLS = [
   'search_legal_precedents',
-  'search_supreme_court_practice',
+  'search_supreme_court_practice', // backward-compat alias
   'get_case_documents_chain',
   'find_similar_fact_pattern_cases',
   'compare_practice_pro_contra',
@@ -12,6 +31,7 @@ const COURT_TOOLS = [
   'count_cases_by_party',
   'check_precedent_status',
   'analyze_case_pattern',
+  'analyze_legal_patterns', // backward-compat alias
   'get_similar_reasoning',
   'get_citation_graph',
   'get_case_text',
@@ -31,7 +51,7 @@ export function extractCourtEvidence(toolName: string, parsed: ToolResultData): 
       number: sc.cause_num || sc.case_number || 'N/A',
       court: sc.court_code || sc.court || '',
       date: sc.adjudication_date || sc.date || '',
-      summary: sc.title || sc.resolution || '',
+      summary: extractSummary(sc),
       relevance: 100,
       status: 'active',
       documentType: classifyDocumentType(sc),
@@ -48,8 +68,7 @@ export function extractCourtEvidence(toolName: string, parsed: ToolResultData): 
       number: c.cause_num || c.case_number || c.number || 'N/A',
       court: c.court_code || c.court || '',
       date: c.adjudication_date || c.date || '',
-      summary: c.title || c.resolution || c.summary || c.similarity_reason
-        || (Array.isArray(c.snippets) ? c.snippets.join(' ') : '') || '',
+      summary: extractSummary(c),
       relevance: c.similarity
         ? Math.round(c.similarity * 100)
         : c.relevance
@@ -75,7 +94,7 @@ export function extractCourtEvidence(toolName: string, parsed: ToolResultData): 
       number: doc.case_number || parsed.case_number || doc.title || 'N/A',
       court: doc.court || doc.instance || '',
       date: doc.date || '',
-      summary: doc.resolution || doc.title || '',
+      summary: extractSummary(doc),
       relevance: 80,
       status: 'active',
       documentType: classifyDocumentType(doc),
@@ -92,7 +111,7 @@ export function extractCourtEvidence(toolName: string, parsed: ToolResultData): 
       number: c.case_number || 'N/A',
       court: c.court || c.chamber || '',
       date: c.date || '',
-      summary: c.snippet || '',
+      summary: extractSummary(c),
       relevance: 70,
       status: 'active',
       documentType: classifyDocumentType(c),
@@ -109,7 +128,7 @@ export function extractCourtEvidence(toolName: string, parsed: ToolResultData): 
       number: parsed.case_number || String(parsed.doc_id) || 'N/A',
       court: '',
       date: '',
-      summary: summarySection?.text?.slice(0, 300) || '',
+      summary: summarySection?.text?.slice(0, 500) || parsed.title || parsed.resolution || '',
       relevance: 100,
       status: 'active',
       externalUrl: courtDocUrl(parsed.doc_id),
