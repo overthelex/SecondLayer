@@ -143,6 +143,8 @@ export const MarkdownContent = React.memo(function MarkdownContent({ content, is
       prose-headings:font-sans prose-headings:text-claude-text prose-headings:tracking-tight
       prose-p:leading-[1.72] prose-p:my-2
       prose-code:before:content-none prose-code:after:content-none
+      prose-pre:bg-gray-900 prose-pre:rounded-xl prose-pre:text-gray-100
+      [&_pre_code]:text-gray-100 [&_pre_code]:bg-transparent [&_pre_code]:p-0
       prose-a:text-claude-text prose-a:underline prose-a:decoration-claude-subtext/30 hover:prose-a:decoration-claude-text
       prose-strong:text-claude-text prose-strong:font-semibold
     ">
