@@ -106,14 +106,14 @@ runs:
           OPENREYESTR=true
         fi
 
-        # If deployment infra changed (Dockerfiles, compose, nginx), rebuild everything
+        # If deployment infra changed (Dockerfiles, compose, nginx), rebuild backend services
         # Monitoring-only changes (grafana, prometheus) don't require service rebuilds
+        # Platform is a static SPA — only rebuild when platform/ source actually changes
         if [ "$DEPLOY_INFRA" = "true" ]; then
           BACKEND=true
           RADA=true
           OPENREYESTR=true
           FRONTEND=true
-          PLATFORM=true
         fi
 
         ANY_BACKEND=false

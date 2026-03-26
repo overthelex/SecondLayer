@@ -4,11 +4,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app/platform
 
-# Copy package files
-COPY platform/package.json platform/package-lock.json* ./
+# Copy package files (lock file required for deterministic builds)
+COPY platform/package.json platform/package-lock.json ./
 
-# Install dependencies
-RUN npm install --legacy-peer-deps
+# Install dependencies deterministically from lock file
+RUN npm ci
 
 # Accept build arguments
 ARG BUILD_ENV=production
