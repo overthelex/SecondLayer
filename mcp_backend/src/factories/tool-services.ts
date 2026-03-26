@@ -30,6 +30,7 @@ import { OpenDataTools } from '../api/tools/opendata-tools.js';
 import { OpenDataRegistriesTools } from '../api/tools/opendata-registries-tools.js';
 import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
 import { DecisionLayerTools } from '../api/tools/decision-layer-tools.js';
+import { ImportTaskTools } from '../api/tools/import-task-tools.js';
 import { logger } from '../utils/logger.js';
 import path from 'path';
 
@@ -148,6 +149,9 @@ export function createToolServices(
   if (edsrVectorizer) {
     toolRegistry.registerHandler(new EdsrSemanticTools(coreServices.db, edsrFtsService, edsrVectorizer));
   }
+  // Import task manager (multi-IP downloads)
+  toolRegistry.registerHandler(new ImportTaskTools(coreServices.importTaskService));
+
   logger.info('Core tool handlers registered with ToolRegistry');
 
   // Nextcloud integration
