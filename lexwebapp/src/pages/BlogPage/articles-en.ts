@@ -50,25 +50,15 @@ gtag('consent', 'default', {
 
 **2. JWT Secret with fallback to a known string**
 
-Three files contained:
-\`\`\`typescript
-const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
-\`\`\`
+Several files contained a hardcoded fallback value for the JWT secret. If the environment variable wasn't set during deployment, the app would silently operate with a predictable secret, allowing anyone to forge valid JWTs.
 
-If \`JWT_SECRET\` wasn't set during deployment, the app would silently operate with a publicly known secret. Anyone could forge a valid JWT for any user.
+**Fix:** The app now crashes on startup if the JWT secret is not set via environment variable. All fallback values have been removed.
 
-**Fix:** The app now crashes on startup if \`JWT_SECRET\` is missing.
+**3. SQL Injection via parameter interpolation**
 
-**3. SQL Injection via userId interpolation**
+Several places in the code used direct string interpolation for SQL parameters instead of parameterized queries. Combined with #2, this created a direct SQL injection vector.
 
-\`\`\`typescript
-// Before — userId injected directly into SQL string
-const ownerCheck = \` AND user_id = '\${userId}'\`;
-\`\`\`
-
-While \`userId\` comes from JWT, a compromised JWT secret (see #2) would turn this into a direct SQL injection vector.
-
-**Fix:** Parameterized query with \`$N\` placeholder.
+**Fix:** All SQL queries now use parameterized placeholders.
 
 ### High Priority (Fixed)
 
@@ -78,13 +68,13 @@ While \`userId\` comes from JWT, a compromised JWT secret (see #2) would turn th
 
 **6. XSS via dangerouslySetInnerHTML** — 3 components rendered HTML from the database without sanitization. Added DOMPurify.
 
-**7. Dynamic SQL tables without whitelist** — \`lookupName()\` and \`batchLookup()\` accepted table names as parameters. Added an allowlist of permitted tables and columns.
+**7. Dynamic SQL tables without whitelist** — some functions accepted table names as parameters without validation. Added a strict allowlist of permitted tables and columns.
 
-**8. Cleanup functions never ran** — \`cleanupExpiredSessions()\`, \`purge_soft_deleted_documents()\`, and \`cleanup_expired_oauth_data()\` existed but were never scheduled. Added three cron jobs.
+**8. Cleanup functions never ran** — data cleanup functions (expired sessions, soft-deleted documents, expired tokens) existed but were never scheduled. Added automated cron jobs.
 
 **9. Emails logged in plaintext** — 9+ locations in auth controllers. Added \`maskEmail()\`: \`user@example.com\` → \`us***@example.com\`.
 
-**10. OAuth registration without rate limiting** — the \`/oauth/register\` endpoint (RFC 7591) allowed unlimited OAuth client registration. Added rate limit: 5 requests per 15 minutes per IP.
+**10. OAuth registration without rate limiting** — the OAuth client registration endpoint allowed unlimited requests. Added IP-based rate limiting.
 
 ---
 
@@ -121,15 +111,7 @@ All traffic passes through Cloudflare before reaching our servers:
 
 ### Layer 4: Application Security (Express.js)
 
-**Multi-layer rate limiting:**
-
-| Endpoint | Limit | Key |
-|----------|-------|-----|
-| Auth (login, register) | 10 / 15 min | IP |
-| Password reset | 3 / hour | IP |
-| Chat | 60 / min | User ID |
-| Global API | 1500 / min | IP |
-| OAuth registration | 5 / 15 min | IP |
+**Multi-layer rate limiting** — each endpoint type (auth, chat, API, password reset) has separate limits by IP or User ID.
 
 ### Layer 5: Authentication (6 Methods)
 
@@ -143,21 +125,21 @@ All traffic passes through Cloudflare before reaching our servers:
 ### Layer 6: Database Security
 
 - **PgBouncer** with SCRAM-SHA-256 authentication
-- Connection pooling: 500 max clients, 50 pool size
-- Statement timeout: 600s (protection against slow query DoS)
+- Connection pooling with restricted client and pool sizes
+- Statement timeout for protection against slow query DoS
 - Docker bridge network isolates DB from external access
-- Parameterized queries everywhere (PostgreSQL \`$1, $2\` placeholders)
+- Parameterized queries everywhere
 
 ### Layer 7: Data Protection (GDPR)
 
 **Implemented rights:**
 - **Art. 15 (Access)** — full JSON export of all user data
-- **Art. 17 (Erasure)** — cascading deletion from PostgreSQL, Qdrant, MinIO, cost_tracking anonymization
+- **Art. 17 (Erasure)** — cascading deletion from all data stores, tracking anonymization
 - **Art. 20 (Portability)** — machine-readable JSON format
 
 **Cookie Consent:** 4 categories with privacy-by-default. **E2EE for documents:** AES-256-GCM with X25519 ECDH key exchange.
 
-**Automated cleanup:** sessions (every 6 hours), soft-deleted documents (daily, 30-day retention), OAuth tokens (daily).
+**Automated cleanup** — regular purging of expired sessions, soft-deleted documents, and OAuth tokens at configured intervals.
 
 ---
 

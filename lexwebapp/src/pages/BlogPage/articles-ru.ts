@@ -33,13 +33,13 @@ export const ruTranslations: TranslationMap = {
 
 **1. Google Ads загружался ДО cookie consent** — скрипт выполнялся при каждой загрузке страницы до показа баннера. Исправлено: динамическая загрузка только после согласия + Google Consent Mode v2.
 
-**2. JWT Secret с fallback на известную строку** — \`'change-this-secret-in-production'\`. Исправлено: приложение крашится при старте без \`JWT_SECRET\`.
+**2. JWT Secret с fallback на известную строку** — несколько файлов содержали предсказуемый fallback-секрет. Исправлено: приложение крашится при старте без переменной окружения. Fallback удалён.
 
-**3. SQL Injection через интерполяцию userId** — userId вставлялся напрямую в SQL строку. Исправлено: параметризованный запрос.
+**3. SQL Injection через интерполяцию параметров** — параметры вставлялись напрямую в SQL строку. Исправлено: все запросы переведены на параметризованные плейсхолдеры.
 
 ### Высокие (исправлены)
 
-**4–10:** Конверсионный трекинг без consent, Nginx CORS отражал любой Origin, XSS через dangerouslySetInnerHTML (добавлен DOMPurify), динамические SQL таблицы без whitelist, cleanup-функции никогда не запускались (добавлены cron-задачи), email в логах в plaintext (добавлен maskEmail), OAuth регистрация без rate limiting.
+**4–10:** Конверсионный трекинг без consent, Nginx CORS отражал любой Origin (заменён на строгий whitelist), XSS через dangerouslySetInnerHTML (добавлен DOMPurify), динамические SQL таблицы без whitelist (добавлен allowlist), cleanup-функции никогда не запускались (добавлены cron-задачи), email в логах в plaintext (добавлена маскировка), OAuth регистрация без rate limiting (добавлен лимит по IP).
 
 ---
 
@@ -48,7 +48,7 @@ export const ruTranslations: TranslationMap = {
 ### Уровень 1: Cloudflare — DDoS Protection, WAF, Bot Management, Origin CA
 ### Уровень 2: TLS 1.3 — ECDHE Forward Secrecy, HSTS 1 год
 ### Уровень 3: Nginx — Security Headers (HSTS, X-Frame-Options, CSP, Referrer-Policy)
-### Уровень 4: Express.js — Multi-layer rate limiting (от 3/час до 1500/мин)
+### Уровень 4: Express.js — Multi-layer rate limiting по IP и User ID
 ### Уровень 5: Аутентификация — 6 методов (Password, Google OAuth, WebAuthn, Diia, OIDC, API Keys)
 ### Уровень 6: База данных — PgBouncer + SCRAM-SHA-256, Docker network isolation
 ### Уровень 7: GDPR — Export/Delete/Portability, Cookie Consent, E2EE (AES-256-GCM + X25519)

@@ -82,68 +82,34 @@ gtag('consent', 'default', {
 
 **2. JWT Secret з fallback на відомий рядок**
 
-Три файли містили:
-\`\`\`typescript
-const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
-\`\`\`
+Декілька файлів містили fallback-значення для JWT-секрету. Якщо при деплої змінна оточення не встановлена — додаток тихо працював з передбачуваним секретом, що дозволяло генерувати валідні JWT для будь-якого користувача.
 
-Якщо при деплої \`JWT_SECRET\` не встановлений — додаток тихо працює з публічно відомим секретом. Будь-хто може згенерувати валідний JWT для будь-якого користувача.
+**Виправлення:** Додаток тепер крашиться при старті, якщо JWT-секрет не встановлений через змінну оточення. Fallback-значення повністю видалені.
 
-**Виправлення:** Додаток тепер крашиться при старті, якщо \`JWT_SECRET\` не встановлений:
-\`\`\`typescript
-const _jwtSecret = process.env.JWT_SECRET;
-if (!_jwtSecret) {
-  throw new Error('FATAL: JWT_SECRET environment variable is required');
-}
-\`\`\`
+**3. SQL Injection через інтерполяцію параметрів**
 
-**3. SQL Injection через інтерполяцію userId**
+Кілька місць у коді використовували пряму інтерполяцію параметрів у SQL-рядки замість параметризованих запитів. У поєднанні з п.2 це створювало прямий вектор SQL Injection.
 
-\`\`\`typescript
-// Було — userId вставлявся напряму в SQL рядок
-const ownerCheck = \` AND user_id = '\${userId}'\`;
-\`\`\`
-
-Хоча \`userId\` приходить з JWT, при компрометації JWT-секрету (див. п.2) це ставало прямим вектором SQL Injection.
-
-**Виправлення:** Параметризований запит:
-\`\`\`typescript
-values.push(userId);
-const userParamIdx = values.length;
-// user_id = $N — безпечний параметр
-\`\`\`
+**Виправлення:** Всі SQL-запити переведено на параметризовані плейсхолдери (\`$1, $2, ...\`).
 
 ### Високі (виправлені)
 
 **4. Конверсійний трекінг без перевірки consent** — всі \`gtag('event', 'conversion')\` виклики (реєстрація, оплата, top-up) тепер перевіряють \`consentStore.isAllowed('analytics')\` перед відправкою.
 
-**5. Nginx CORS відображав будь-який Origin** — SSE-ендпоінти використовували \`$http_origin\` напряму, що дозволяло будь-якому сайту робити запити з credentials. Замінено на whitelist:
-\`\`\`nginx
-set $cors_origin "";
-if ($http_origin ~* "^https://(legal\\.org\\.ua|stage\\.legal\\.org\\.ua)$") {
-    set $cors_origin $http_origin;
-}
-\`\`\`
+**5. Nginx CORS відображав будь-який Origin** — SSE-ендпоінти використовували \`$http_origin\` напряму, що дозволяло будь-якому сайту робити запити з credentials. Замінено на строгий whitelist дозволених доменів.
 
 **6. XSS через dangerouslySetInnerHTML** — 3 компоненти рендерили HTML з бази без санітизації. Додано DOMPurify:
 \`\`\`tsx
 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
 \`\`\`
 
-**7. Динамічні SQL-таблиці без whitelist** — функції \`lookupName()\` і \`batchLookup()\` приймали імена таблиць як параметри. Додано allowlist:
-\`\`\`typescript
-private static readonly ALLOWED_LOOKUP_TABLES: Record<string, Set<string>> = {
-  edrsr_courts: new Set(['court_code']),
-  edrsr_judgment_forms: new Set(['judgment_code']),
-  edrsr_justice_kinds: new Set(['justice_kind']),
-};
-\`\`\`
+**7. Динамічні SQL-таблиці без whitelist** — деякі функції приймали імена таблиць як параметри без валідації. Додано строгий allowlist дозволених таблиць і колонок.
 
-**8. Cleanup-функції ніколи не запускались** — \`cleanupExpiredSessions()\`, \`purge_soft_deleted_documents()\`, \`cleanup_expired_oauth_data()\` існували, але не були прив'язані до cron. Додано три cron-задачі.
+**8. Cleanup-функції ніколи не запускались** — функції очищення застарілих даних (сесії, видалені документи, токени) існували, але не були прив'язані до cron. Додано автоматичні cron-задачі.
 
 **9. Email-адреси логувались у plaintext** — 9+ місць в auth-контролерах. Додано \`maskEmail()\`: \`user@example.com\` → \`us***@example.com\`.
 
-**10. OAuth реєстрація без rate limiting** — ендпоінт \`/oauth/register\` (RFC 7591) дозволяв необмежену реєстрацію OAuth-клієнтів. Додано rate limit: 5 запитів за 15 хвилин на IP.
+**10. OAuth реєстрація без rate limiting** — ендпоінт реєстрації OAuth-клієнтів дозволяв необмежену кількість запитів. Додано rate limiting по IP.
 
 ---
 
@@ -163,14 +129,7 @@ private static readonly ALLOWED_LOOKUP_TABLES: Record<string, Set<string>> = {
 
 ### Рівень 2: TLS 1.3 (Transport Encryption)
 
-\`\`\`
-ssl_protocols TLSv1.2 TLSv1.3;
-ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256
-            :ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384
-            :ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
-\`\`\`
-
-- TLS 1.0/1.1 вимкнено
+- TLS 1.0/1.1 вимкнено, тільки TLS 1.2/1.3
 - Тільки ECDHE-сюїти (Forward Secrecy)
 - HSTS з 1-річним max-age і includeSubDomains
 - SSL session cache для продуктивності без компромісів
@@ -195,22 +154,9 @@ Nginx — перший сервер, який бачить запит після
 
 ### Рівень 4: Application Security (Express.js)
 
-**Multi-layer rate limiting:**
+**Multi-layer rate limiting** — кожен тип ендпоінту (auth, chat, API, password reset) має окремі ліміти по IP або User ID. При падінні Redis rate limiting працює через in-memory fallback.
 
-| Ендпоінт | Ліміт | Ключ |
-|----------|-------|------|
-| Auth (login, register) | 10 / 15 хв | IP |
-| Password reset | 3 / год | IP |
-| Chat | 60 / хв | User ID |
-| Global API | 1500 / хв | IP |
-| OAuth registration | 5 / 15 хв | IP |
-
-**Fail-safe:** при падінні Redis rate limiting працює через in-memory express-rate-limit як backup.
-
-**CORS:** Express-рівень валідує origins незалежно від Nginx:
-\`\`\`typescript
-const allowedOrigins = ['https://legal.org.ua', 'https://stage.legal.org.ua'];
-\`\`\`
+**CORS** — Express-рівень валідує origins незалежно від Nginx через строгий whitelist дозволених доменів.
 
 ### Рівень 5: Authentication (6 методів)
 
@@ -223,24 +169,21 @@ LEX AI підтримує 6 методів автентифікації:
 5. **OIDC / Authentik** — SSO через Authentik
 6. **API Keys** — для MCP-клієнтів (Claude Desktop, Claude Code), database-backed з audit log
 
-**Dual Auth Middleware** автоматично визначає тип токена:
-- Містить крапку → JWT (user session)
-- Починається з \`mcp_token_\` → OAuth access token
-- Інше → API key
+**Dual Auth Middleware** автоматично визначає тип токена і застосовує відповідну стратегію верифікації для кожного методу автентифікації.
 
 ### Рівень 6: Database Security
 
 - **PgBouncer** з SCRAM-SHA-256 автентифікацією
-- Connection pooling: 500 max clients, 50 pool size
-- Statement timeout: 600с (захист від DOS через повільні запити)
+- Connection pooling з обмеженнями на кількість клієнтів та розмір пулу
+- Statement timeout для захисту від DOS через повільні запити
 - Docker bridge network ізолює БД від зовнішнього доступу
-- Parameterized queries скрізь (PostgreSQL \`$1, $2\` плейсхолдери)
+- Parameterized queries скрізь (PostgreSQL плейсхолдери)
 
 ### Рівень 7: Data Protection (GDPR)
 
 **Реалізовані права:**
 - **Art. 15 (Доступ)** — повний JSON-експорт всіх даних користувача
-- **Art. 17 (Видалення)** — каскадне видалення з PostgreSQL, Qdrant, MinIO, anonymization cost_tracking
+- **Art. 17 (Видалення)** — каскадне видалення з усіх сховищ даних, анонімізація трекінгу
 - **Art. 20 (Портабельність)** — машинно-зчитуваний JSON формат
 
 **Cookie Consent:**
@@ -253,10 +196,7 @@ LEX AI підтримує 6 методів автентифікації:
 - X25519 ECDH key exchange (envelope encryption)
 - Зашифровані документи недоступні для AI-аналізу (by design)
 
-**Автоматичне очищення:**
-- Сесії: кожні 6 годин
-- Soft-deleted документи: щоденно (30-день retention)
-- OAuth токени: щоденно
+**Автоматичне очищення** — регулярне видалення застарілих сесій, soft-deleted документів та OAuth токенів за налаштованими інтервалами.
 
 ---
 
