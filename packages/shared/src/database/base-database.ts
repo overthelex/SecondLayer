@@ -11,8 +11,6 @@ export interface DatabaseConfig {
   max?: number;
   idleTimeoutMillis?: number;
   connectionTimeoutMillis?: number;
-  /** PostgreSQL statement_timeout in ms (default: 60000). Prevents indefinite slow queries. */
-  statementTimeoutMs?: number;
 }
 
 /**
@@ -46,12 +44,10 @@ export class BaseDatabase {
       connectionTimeoutMillis: config.connectionTimeoutMillis ?? 2000,
     };
 
-    // Prevent indefinite slow queries (e.g. full table scans on large tables)
-    const statementTimeout = config.statementTimeoutMs ?? 60000;
-    const searchPathOption = config.schema
-      ? `-c search_path=${sanitizeIdentifier(config.schema)},public`
-      : '';
-    poolConfig.options = `${searchPathOption} -c statement_timeout=${statementTimeout}`.trim();
+    if (config.schema) {
+      const safeSchema = sanitizeIdentifier(config.schema);
+      poolConfig.options = `-c search_path=${safeSchema},public`;
+    }
 
     this.pool = new Pool(poolConfig);
 
