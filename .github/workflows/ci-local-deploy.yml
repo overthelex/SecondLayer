@@ -92,7 +92,10 @@ jobs:
       # CI runs TypeScript compilation + unit tests (mocked, no infra needed).
       - name: Build backend
         if: needs.detect-changes.outputs.backend == 'true'
-        run: cd mcp_backend && npm install && npm run build
+        run: |
+          ./scripts/preserve-proprietary-dist.sh backup
+          cd mcp_backend && npm install && npm run build
+          cd .. && ./scripts/preserve-proprietary-dist.sh restore
 
       - name: Unit test backend
         if: needs.detect-changes.outputs.backend == 'true'
@@ -306,7 +309,9 @@ jobs:
           npm --prefix packages/shared install && npm --prefix packages/shared run build
 
           if [ "$BACKEND_CHANGED" = "true" ]; then
+            ./scripts/preserve-proprietary-dist.sh backup
             npm --prefix mcp_backend install && npm --prefix mcp_backend run build
+            ./scripts/preserve-proprietary-dist.sh restore
           fi
           if [ "$RADA_CHANGED" = "true" ]; then
             npm --prefix mcp_rada install && npm --prefix mcp_rada run build

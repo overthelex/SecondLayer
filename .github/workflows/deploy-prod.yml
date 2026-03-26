@@ -169,8 +169,10 @@ jobs:
       - name: Build & test backend
         if: needs.detect-changes.outputs.backend == 'true'
         run: |
+          ./scripts/preserve-proprietary-dist.sh backup
           cd mcp_backend && npm install && npm run build
-          npx jest --no-cache --forceExit \
+          cd .. && ./scripts/preserve-proprietary-dist.sh restore
+          cd mcp_backend && npx jest --no-cache --forceExit \
             src/controllers/__tests__/ \
             src/middleware/__tests__/ \
             src/adapters/__tests__/ \
@@ -433,7 +435,7 @@ jobs:
           $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix packages/shared install && npm --prefix packages/shared run build"
 
           if [ "$BACKEND_CHANGED" = "true" ]; then
-            $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix mcp_backend install && npm --prefix mcp_backend run build"
+            $SSH_CMD "cd ${REMOTE_REPO} && ./scripts/preserve-proprietary-dist.sh backup && npm --prefix mcp_backend install && npm --prefix mcp_backend run build && ./scripts/preserve-proprietary-dist.sh restore"
           fi
           if [ "$RADA_CHANGED" = "true" ]; then
             $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix mcp_rada install && npm --prefix mcp_rada run build"
