@@ -148,7 +148,8 @@ export class MCPService extends BaseService {
     conversationId?: string,
     approvedPlan?: import('../../types/models/Message').ExecutionPlan,
     planSessionId?: string,
-    allowDeepEscalation?: boolean
+    allowDeepEscalation?: boolean,
+    internetEnabled?: boolean
   ): Promise<AbortController> {
     const controller = new AbortController();
 
@@ -159,7 +160,7 @@ export class MCPService extends BaseService {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.getAuthToken()}`,
         },
-        body: JSON.stringify({ query, history, budget, conversationId, approvedPlan, planSessionId, allowDeepEscalation }),
+        body: JSON.stringify({ query, history, budget, conversationId, approvedPlan, planSessionId, allowDeepEscalation, internetEnabled }),
         signal: controller.signal,
       });
 

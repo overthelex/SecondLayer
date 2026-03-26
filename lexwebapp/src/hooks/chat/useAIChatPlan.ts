@@ -16,7 +16,8 @@ export interface UseAIChatPlanOptions {
     assistantMessageId: string,
     approvedPlan?: ExecutionPlan,
     planSessionId?: string,
-    allowDeepEscalation?: boolean
+    allowDeepEscalation?: boolean,
+    internetEnabled?: boolean
   ) => Promise<void>;
   onError?: (error: Error) => void;
 }
@@ -37,7 +38,7 @@ export function useAIChatPlan(options: UseAIChatPlanOptions) {
    * Phase 1: Request plan for user review, then pause.
    */
   const executeChat = useCallback(
-    async (query: string, _documentIds?: string[], allowDeepEscalation?: boolean) => {
+    async (query: string, _documentIds?: string[], allowDeepEscalation?: boolean, internetEnabled?: boolean) => {
       const userMessage = {
         id: Date.now().toString(),
         role: 'user' as const,
@@ -87,7 +88,7 @@ export function useAIChatPlan(options: UseAIChatPlanOptions) {
       setCurrentTool('ai_chat');
 
       try {
-        await runChatStream(query, assistantMessageId, undefined, undefined, allowDeepEscalation);
+        await runChatStream(query, assistantMessageId, undefined, undefined, allowDeepEscalation, internetEnabled);
       } catch (error: unknown) {
         handleCatchError(assistantMessageId, error, {
           updateMessage, setStreaming, setCurrentTool, onError,

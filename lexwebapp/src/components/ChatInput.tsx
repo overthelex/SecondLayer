@@ -14,8 +14,6 @@ interface ChatInputProps {
   disabled?: boolean;
   isStreaming?: boolean;
   onCancel?: () => void;
-  selectedTool?: string;
-  onToolChange?: (tool: string) => void;
 }
 
 export function ChatInput({
@@ -23,8 +21,6 @@ export function ChatInput({
   disabled,
   isStreaming,
   onCancel,
-  selectedTool,
-  onToolChange,
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [files, setFiles] = useState<SelectedFile[]>([]);
@@ -99,10 +95,8 @@ export function ChatInput({
   return (
     <>
     <div className="max-w-3xl mx-auto px-4 md:px-8 pb-2" data-tour="chat-input">
-      {/* Mode Selection */}
-      {onToolChange && selectedTool && (
-        <ToolSelector selectedTool={selectedTool} onToolChange={onToolChange} />
-      )}
+      {/* Internet toggle */}
+      <ToolSelector />
 
       {/* File Badges */}
       <FileAttachments files={files} onRemove={(idx) => setFiles((prev) => prev.filter((_, i) => i !== idx))} />
