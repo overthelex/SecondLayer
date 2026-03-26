@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useConsentStore } from '../../stores/consentStore';
 import {
   Mail,
   Lock,
@@ -493,8 +494,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         if (!response.ok) throw new Error(data.message || 'Registration failed');
 
         localStorage.removeItem('referral_code');
-        // Track registration as Google Ads conversion
-        if (typeof window.gtag === 'function') {
+        // Track registration as Google Ads conversion (only with analytics consent)
+        if (typeof window.gtag === 'function' && useConsentStore.getState().isAllowed('analytics')) {
           window.gtag('event', 'conversion', { send_to: 'AW-18033840618/60XJCI7zyo0cEOqjmpdD', value: 1.0, currency: 'UAH' });
         }
         showToast.success(toastT('registrationSuccess'));

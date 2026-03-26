@@ -5,6 +5,7 @@
 
 import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
+import { maskEmail } from '../utils/sanitize-log.js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
@@ -138,7 +139,7 @@ export class UserService {
       );
 
       const user = result.rows[0] as User;
-      logger.info('Created new user:', { userId: user.id, email: user.email });
+      logger.info('Created new user:', { userId: user.id, email: maskEmail(user.email) });
       return user;
     } catch (error) {
       logger.error('Error creating user:', error);
@@ -160,7 +161,7 @@ export class UserService {
       );
 
       const user = result.rows[0] as User;
-      logger.info('Linked Google account to user:', { userId, email: user.email });
+      logger.info('Linked Google account to user:', { userId, email: maskEmail(user.email) });
       return user;
     } catch (error) {
       logger.error('Error linking Google account:', error);
@@ -331,7 +332,7 @@ export class UserService {
       );
 
       const user = result.rows[0] as User;
-      logger.info('Created new user with password:', { userId: user.id, email: user.email });
+      logger.info('Created new user with password:', { userId: user.id, email: maskEmail(user.email) });
       return user;
     } catch (error) {
       logger.error('Error creating user with password:', error);

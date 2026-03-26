@@ -9,6 +9,7 @@
  */
 
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { OAuthService } from '../services/oauth-service.js';
 import { logger } from '../utils/logger.js';
 import bcrypt from 'bcryptjs';
@@ -660,6 +661,15 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
     }
   });
 
+  // Rate limit for dynamic client registration (RFC 7591) — prevent abuse
+  const registrationRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // max 5 registrations per IP per 15 minutes
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'too_many_requests', error_description: 'Too many client registration attempts, please try again later' },
+  });
+
   /**
    * POST /oauth/register
    * Dynamic Client Registration (RFC 7591)
@@ -667,7 +677,7 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
    * Allows MCP clients (Claude Code, Claude Desktop) to register themselves
    * automatically as OAuth clients without pre-registration.
    */
-  router.post('/register', async (req: Request, res: Response) => {
+  router.post('/register', registrationRateLimit, async (req: Request, res: Response) => {
     try {
       const {
         client_name,

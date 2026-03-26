@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import DOMPurify from 'dompurify';
 import {
   RefreshCw,
   XCircle,
@@ -78,7 +79,7 @@ export function DocumentModal({ documentId, isOpen, onClose }: DocumentModalProp
                 </div>
               ) : document.full_text_html ? (
                 <div className="text-sm text-claude-text bg-gray-50 rounded-lg p-4 max-h-96 overflow-auto"
-                  dangerouslySetInnerHTML={{ __html: document.full_text_html }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(document.full_text_html) }}
                 />
               ) : (
                 <div className="text-center py-8 text-claude-subtext">

@@ -5,6 +5,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { logger } from '../utils/logger.js';
+import { maskEmail } from '../utils/sanitize-log.js';
 import { getUserService } from '../middleware/dual-auth.js';
 import { provisionAuthentikUser } from '../services/authentik-service.js';
 import { provisionNextcloudUser } from '../services/nextcloud-provisioning.js';
@@ -71,7 +72,7 @@ export async function loginWithPassword(req: Request, res: Response): Promise<Re
 
     if (!isPasswordValid) {
       await userService.recordFailedLogin(email);
-      logger.warn('Failed login attempt', { email });
+      logger.warn('Failed login attempt', { email: maskEmail(email) });
       return res.status(401).json({
         error: 'Unauthorized',
         message: 'Invalid email or password',
@@ -213,7 +214,7 @@ export async function registerWithPassword(req: Request, res: Response): Promise
       await authEmailService.sendVerificationEmail(email, verificationToken);
     }
 
-    logger.info('User registered', { userId: user.id, email });
+    logger.info('User registered', { userId: user.id, email: maskEmail(email) });
 
     return res.status(201).json({
       success: true,
@@ -295,7 +296,7 @@ export async function forgotPassword(req: Request, res: Response): Promise<Respo
     const authEmailService = getAuthEmailService();
     if (token && authEmailService) {
       await authEmailService.sendPasswordResetEmail(email, token);
-      logger.info('Password reset requested', { email });
+      logger.info('Password reset requested', { email: maskEmail(email) });
     }
 
     return res.json({

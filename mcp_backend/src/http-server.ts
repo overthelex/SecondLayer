@@ -135,6 +135,37 @@ class HTTPMCPServer {
         logger.error('[Cron] Legislation change detection failed', { error: (err as Error).message });
       });
     }, { timezone: 'Europe/Kyiv' });
+
+    // Cron: cleanup expired user sessions every 6 hours (GDPR Art.5(1)(c) data minimization)
+    cron.schedule('0 */6 * * *', async () => {
+      try {
+        const { getUserService } = await import('./middleware/dual-auth.js');
+        const count = await getUserService().cleanupExpiredSessions();
+        if (count > 0) logger.info('[Cron] Cleaned up expired sessions', { count });
+      } catch (err) {
+        logger.error('[Cron] Session cleanup failed', { error: (err as Error).message });
+      }
+    }, { timezone: 'Europe/Kyiv' });
+
+    // Cron: purge soft-deleted documents older than 30 days, daily at 03:00
+    cron.schedule('0 3 * * *', async () => {
+      try {
+        await this.services.db.query('SELECT purge_soft_deleted_documents(30)');
+        logger.info('[Cron] Purged soft-deleted documents');
+      } catch (err) {
+        logger.error('[Cron] Soft-delete purge failed', { error: (err as Error).message });
+      }
+    }, { timezone: 'Europe/Kyiv' });
+
+    // Cron: cleanup expired OAuth tokens/codes, daily at 04:00
+    cron.schedule('0 4 * * *', async () => {
+      try {
+        await this.services.db.query('SELECT cleanup_expired_oauth_data()');
+        logger.info('[Cron] Cleaned up expired OAuth data');
+      } catch (err) {
+        logger.error('[Cron] OAuth cleanup failed', { error: (err as Error).message });
+      }
+    }, { timezone: 'Europe/Kyiv' });
   }
 
   private setupMiddleware() {

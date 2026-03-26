@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { useConsentStore } from '../../stores/consentStore';
 import {
   CreditCard,
   CheckCircle,
@@ -62,8 +63,8 @@ function MonobankPaymentForm({ amountUah, uahRate, onSuccess }: { amountUah: num
         return;
       }
 
-      // Track Google Ads Purchase conversion before redirect
-      if (typeof window.gtag === 'function') {
+      // Track Google Ads Purchase conversion before redirect (only with analytics consent)
+      if (typeof window.gtag === 'function' && useConsentStore.getState().isAllowed('analytics')) {
         window.gtag('event', 'conversion', {
           send_to: 'AW-18033840618/bnTSCJqpwI0cEOqjmpdD',
           value: amountUah / 100,

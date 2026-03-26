@@ -1,21 +1,27 @@
 /**
  * Sanitize sensitive values for logging.
- * Builds a new string character-by-character to break CodeQL taint tracking.
  */
 export function maskSensitive(value: string, visibleChars: number = 4): string {
   if (!value || value.length <= visibleChars) return '***';
-  const chars: string[] = [];
-  for (let i = 0; i < Math.min(visibleChars, value.length); i++) {
-    chars.push(value.charAt(i));
-  }
-  return chars.join('') + '***';
+  return value.substring(0, visibleChars) + '***';
 }
 
+/**
+ * Mask an email address for logging: show first 2 chars + domain.
+ * e.g. "user@example.com" → "us***@example.com"
+ */
+export function maskEmail(email: string): string {
+  if (!email || !email.includes('@')) return '***';
+  const [local, domain] = email.split('@');
+  const visible = Math.min(2, local.length);
+  return local.substring(0, visible) + '***@' + domain;
+}
+
+/**
+ * Sanitize an ID for logging — returns only the first 8 chars of UUIDs.
+ */
 export function sanitizeId(id: string | number): string {
   const s = String(id);
-  const chars: string[] = [];
-  for (let i = 0; i < s.length; i++) {
-    chars.push(s.charAt(i));
-  }
-  return chars.join('');
+  if (s.length > 8) return s.substring(0, 8) + '...';
+  return s;
 }
