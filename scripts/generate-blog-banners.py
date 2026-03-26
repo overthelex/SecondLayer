@@ -497,6 +497,28 @@ if __name__ == '__main__':
             'fractal_type': 'julia',
             'seed': 3,
         },
+        {
+            'article_id': 'security-audit-gdpr-owasp',
+            'scheme_name': 'tech-coral',
+            'category_label': 'Security',
+            'title_lines': ['GDPR Audit:', '10 Fixes &', '7 Layers of Protection'],
+            'accent_words': ['10', '7'],
+            'subtitle': '5 white-hat agents. 23 vulnerabilities. Cloudflare, TLS 1.3, CSP.',
+            'keywords': ['GDPR', 'OWASP', 'WebAuthn', 'E2EE'],
+            'fractal_type': 'mandelbrot',
+            'seed': 4,
+        },
+        {
+            'article_id': 'sample-queries-86-tools',
+            'scheme_name': 'tech-teal',
+            'category_label': 'Tools',
+            'title_lines': ['86 Ready-Made', 'Queries: One Per', 'MCP Tool'],
+            'accent_words': ['86', 'MCP'],
+            'subtitle': '66 single-tool + 20 multi-tool queries. Minimal LLM. Max precision.',
+            'keywords': ['MCP', 'Prompts', 'Registries', 'EDRSR'],
+            'fractal_type': 'julia',
+            'seed': 5,
+        },
     ]
 
     print(f'Generating {len(banners)} banners...')
