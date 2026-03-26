@@ -17,6 +17,7 @@ import { ROUTES } from '../router/routes';
 import { consultationService } from '../services/api/ConsultationService';
 import showToast from '../utils/toast';
 import { toastTDynamic } from '../i18n/toast-i18n';
+import { useSessionRecorder } from '../hooks/useSessionRecorder';
 
 // Map routes to page titles
 const PAGE_TITLES: Record<string, string> = {
@@ -54,6 +55,7 @@ const PAGE_TITLES: Record<string, string> = {
   [ROUTES.ADMIN_OPEN_DATA_CATALOG]: 'Каталог OpenData',
   [ROUTES.ADMIN_PG_MONITORING]: 'PG Моніторинг',
   [ROUTES.ADMIN_LIMITS]: 'Ліміти системи',
+  [ROUTES.ADMIN_SESSION_REPLAY]: 'Запис сесій',
   [ROUTES.ATTORNEY_CLIENTS]: 'Мої клієнти',
 };
 
@@ -63,6 +65,9 @@ export function MainLayout() {
   const location = useLocation();
   const { logout, user } = useAuth();
   const [showInvitationsModal, setShowInvitationsModal] = useState(false);
+
+  // rrweb session recording — starts on login, stops on logout
+  useSessionRecorder();
   const pendingConsultations = useConsultationStore(s => s.pendingConsultations);
   const connect = useConsultationStore(s => s.connect);
   const disconnect = useConsultationStore(s => s.disconnect);
