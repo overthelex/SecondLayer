@@ -141,6 +141,7 @@ export function RightPanel({ isOpen, onClose }: RightPanelProps) {
             otherCourtDocs={otherCourtDocs}
             vaultDocuments={vaultDocuments}
             onOpenDocModal={viewer.openDocumentModal}
+            onOpenDecisionModal={viewer.openDecisionModal}
           />
         )}
       </div>

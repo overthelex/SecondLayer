@@ -26,9 +26,10 @@ interface DocumentsTabProps {
   otherCourtDocs: Decision[];
   vaultDocuments: VaultDocument[];
   onOpenDocModal: (doc: VaultDocument) => void;
+  onOpenDecisionModal?: (decision: Decision) => void;
 }
 
-export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }: DocumentsTabProps) {
+export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal, onOpenDecisionModal }: DocumentsTabProps) {
   const { isExpanded, toggleCard } = useExpandableCards();
 
   if (vaultDocuments.length === 0 && otherCourtDocs.length === 0) {
@@ -51,6 +52,7 @@ export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal }:
             isExpanded={expanded}
             onToggle={() => toggleCard(cardId)}
             content={d.summary || 'Немає тексту.'}
+            onOpenModal={onOpenDecisionModal ? () => onOpenDecisionModal(d) : undefined}
             externalUrl={d.externalUrl}
             header={
               <div className="flex items-start justify-between">
