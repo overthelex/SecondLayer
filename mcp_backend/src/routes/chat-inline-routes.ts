@@ -168,6 +168,14 @@ export function createChatInlineRoutes(deps: {
           res.write(`event: ${event.type}\n`);
           res.write(`data: ${JSON.stringify(event.data)}\n\n`);
         }
+
+        // If aborted (timeout) and no answer was sent, emit an error event
+        // so the frontend knows to reset streaming state
+        if (abortController.signal.aborted && !chatCompleted && !res.writableEnded) {
+          logger.warn('[ChatService] Sending timeout error to client', { requestId });
+          res.write(`event: error\n`);
+          res.write(`data: ${JSON.stringify({ message: 'Час очікування вичерпано. Спробуйте уточнити запит.' })}\n\n`);
+        }
       } finally {
         clearTimeout(requestTimeout);
         clearInterval(heartbeat);
