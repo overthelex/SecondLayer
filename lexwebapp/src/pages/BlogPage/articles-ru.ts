@@ -1,6 +1,73 @@
 import type { TranslationMap } from './articles';
 
 export const ruTranslations: TranslationMap = {
+  'security-audit-gdpr-owasp': {
+    title: 'Безопасность LEX AI: GDPR-аудит, 10 исправлений и 7 уровней защиты',
+    punchline: '5 параллельных white-hat агентов проверили платформу на соответствие GDPR и OWASP Top 10. Нашли 23 уязвимости — от SQL-инъекций до Google Ads без consent. Исправили 10 критичных за одну сессию. Полная архитектура безопасности: Cloudflare, TLS 1.3, CSP, rate limiting, WebAuthn, E2EE.',
+    readTime: '15 мин',
+    content: `# Безопасность LEX AI: GDPR-аудит, 10 исправлений и 7 уровней защиты
+
+Юридическая платформа обрабатывает самые чувствительные данные: судебные дела, контракты, персональную информацию клиентов. Безопасность — не фича, а фундамент. Мы провели полный security audit силами 5 параллельных AI-агентов и исправили все критические находки за одну сессию.
+
+Эта статья — прозрачный разбор: что нашли, что исправили, и как устроена полная архитектура защиты LEX AI.
+
+---
+
+## Как проводили аудит
+
+Вместо классического ручного пентеста мы запустили **5 специализированных white-hat агентов параллельно**, каждый со своей зоной ответственности:
+
+| Агент | Фокус | Файлов проверено |
+|-------|-------|------------------|
+| 🔍 Data Collection | Cookie consent, трекинг, OAuth scopes | 42 |
+| 💾 Data Storage | БД-схемы, retention, Redis, Qdrant, MinIO | 53 |
+| 👤 User Rights | GDPR Art. 15-22 (доступ, удаление, портабельность) | 25 |
+| 🛡️ OWASP Top 10 | Injection, XSS, Auth, CORS, CSRF, rate limiting | 45 |
+| 🌐 Data Transfers | Third-party API, sub-processors, cross-border | 48 |
+
+---
+
+## Что нашли: 23 уязвимости
+
+### Критические (исправлены)
+
+**1. Google Ads загружался ДО cookie consent** — скрипт выполнялся при каждой загрузке страницы до показа баннера. Исправлено: динамическая загрузка только после согласия + Google Consent Mode v2.
+
+**2. JWT Secret с fallback на известную строку** — \`'change-this-secret-in-production'\`. Исправлено: приложение крашится при старте без \`JWT_SECRET\`.
+
+**3. SQL Injection через интерполяцию userId** — userId вставлялся напрямую в SQL строку. Исправлено: параметризованный запрос.
+
+### Высокие (исправлены)
+
+**4–10:** Конверсионный трекинг без consent, Nginx CORS отражал любой Origin, XSS через dangerouslySetInnerHTML (добавлен DOMPurify), динамические SQL таблицы без whitelist, cleanup-функции никогда не запускались (добавлены cron-задачи), email в логах в plaintext (добавлен maskEmail), OAuth регистрация без rate limiting.
+
+---
+
+## 7 уровней защиты LEX AI
+
+### Уровень 1: Cloudflare — DDoS Protection, WAF, Bot Management, Origin CA
+### Уровень 2: TLS 1.3 — ECDHE Forward Secrecy, HSTS 1 год
+### Уровень 3: Nginx — Security Headers (HSTS, X-Frame-Options, CSP, Referrer-Policy)
+### Уровень 4: Express.js — Multi-layer rate limiting (от 3/час до 1500/мин)
+### Уровень 5: Аутентификация — 6 методов (Password, Google OAuth, WebAuthn, Diia, OIDC, API Keys)
+### Уровень 6: База данных — PgBouncer + SCRAM-SHA-256, Docker network isolation
+### Уровень 7: GDPR — Export/Delete/Portability, Cookie Consent, E2EE (AES-256-GCM + X25519)
+
+---
+
+## Выводы
+
+1. **AI-агенты для security audit** — 5 параллельных агентов покрыли больше поверхности атаки за 3 минуты, чем ручной review за день
+2. **Defense in depth работает** — ни одна уязвимость не давала полный доступ
+3. **GDPR — это код, не документ** — права пользователей должны быть реализованы в коде
+4. **Прозрачность строит доверие** — мы публикуем результаты аудита открыто
+
+Все исправления: PR [#1224](https://github.com/overthelex/secondlayer/pull/1224).
+
+---
+
+Регистрация: [legal.org.ua](https://legal.org.ua)`,
+  },
   'attorney-marketplace': {
     title: 'Маркетплейс юридических консультаций: от реестра ЕРАУ до оплаты через Monobank',
     punchline: 'Верификация адвоката через реестр ЕРАУ за 2 секунды. Онбординг в 3 шага. Запрос консультации с документами из хранилища. Real-time чат между клиентом и адвокатом. Escrow-платёж через Monobank. 10% комиссия платформы. Полный цикл — от «мне нужен адвокат» до оплаченной консультации.',
