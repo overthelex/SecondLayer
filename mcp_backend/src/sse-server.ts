@@ -136,9 +136,7 @@ class SSEServer {
             if (toolName.startsWith('get_legislation_') || toolName === 'search_legislation') {
               let result;
               switch (toolName) {
-                case 'get_legislation_article':
-                  result = await this.services.legislationTools.getLegislationArticle(args as any);
-                  break;
+                case 'get_legislation_article': // backward-compat alias
                 case 'get_legislation_section':
                   result = await this.services.legislationTools.getLegislationSection(args as any);
                   break;

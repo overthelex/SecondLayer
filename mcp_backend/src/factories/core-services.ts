@@ -52,7 +52,7 @@ export function createBackendCoreServices(): BackendCoreServices {
   const citationValidator = new CitationValidator(db, shepardizationService);
   const hallucinationGuard = new HallucinationGuard(db, shepardizationService);
   const legislationService = new LegislationService(db, embeddingService, undefined, llmAdapter);
-  const legislationTools = new LegislationTools(legislationService);
+  const legislationTools = new LegislationTools(legislationService, undefined, patternStore);
   const reyestrDownloadService = new ReyestrDownloadService(db, documentService, sectionizer, embeddingService);
 
   const mcpAPI = new MCPQueryAPI(

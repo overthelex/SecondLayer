@@ -20,7 +20,7 @@ import { SectionType } from '../../types/index.js';
 import { logger } from '../../utils/logger.js';
 import { CourtDecisionHTMLParser, extractSearchTermsWithAI } from '../../utils/html-parser.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
-import { countAllResults } from '../tool-utils.js';
+import { countAllResults, buildSupremeCourtWhereFilter, mapProcedureCodeToJusticeKind, extractSnippets } from '../tool-utils.js';
 
 /** Max cases to enrich with precedent status per search (cost/latency guard) */
 const MAX_SHEPARDIZATION_BATCH = 15;
@@ -59,18 +59,31 @@ export class LegalAdviceTools extends BaseToolHandler {
       },
       {
         name: 'search_legal_precedents',
-        description: `Поиск юридических прецедентов с семантическим анализом
+        description: `Пошук юридичних прецедентів із семантичним аналізом.
+
+Підтримує фільтрацію за рівнем суду (court_level) для пошуку практики Верховного Суду (ВП/КЦС/КГС/КАС/ККС) та за видом судочинства (procedure_code).
 
 💰 Примерная стоимость: $0.03-$0.10 USD
 Стоимость зависит от сложности запроса и количества результатов. Включает OpenAI API (embeddings), ZakonOnline API (поиск), SecondLayer MCP (обработка документов).`,
         inputSchema: {
           type: 'object',
           properties: {
-            query: { type: 'string', description: 'Поисковый запрос' },
+            query: { type: 'string', description: 'Поисковий запит' },
             domain: {
               type: 'string',
               enum: ['court', 'npa', 'echr', 'all'],
               default: 'all',
+            },
+            court_level: {
+              type: 'string',
+              enum: ['all', 'SC', 'GrandChamber'],
+              default: 'all',
+              description: 'Фільтр за рівнем суду: all (всі), SC (Верховний Суд: КЦС/КГС/КАС/ККС), GrandChamber (Велика Палата ВС)',
+            },
+            procedure_code: {
+              type: 'string',
+              enum: ['cpc', 'gpc', 'cac', 'crpc'],
+              description: 'Вид судочинства: cpc (цивільне), gpc (господарське), cac (адміністративне), crpc (кримінальне)',
             },
             time_range: {
               type: 'object',
@@ -81,11 +94,16 @@ export class LegalAdviceTools extends BaseToolHandler {
             count_all: {
               type: 'boolean',
               default: false,
-              description: 'Подсчитать ВСЕ результаты через пагинацию (может быть дорого и долго).',
+              description: 'Підрахувати ВСІ результати через пагінацію (може бути дорого).',
             },
             sections: {
               type: 'array',
               items: { type: 'string', enum: Object.values(SectionType) },
+            },
+            section_focus: {
+              type: 'array',
+              items: { type: 'string', enum: Object.values(SectionType) },
+              description: 'Секції рішень для витягу сніпетів (коли court_level != all)',
             },
           },
           required: ['query'],
@@ -139,6 +157,7 @@ export class LegalAdviceTools extends BaseToolHandler {
       case 'format_answer_pack':
         return await this.formatAnswerPack(args);
       case 'search_legal_precedents':
+      case 'search_supreme_court_practice': // backward-compat alias
         return await this.searchLegalPrecedents(args);
       case 'get_similar_reasoning':
         return await this.getSimilarReasoning(args);
@@ -368,6 +387,9 @@ export class LegalAdviceTools extends BaseToolHandler {
 
     const limit = Math.min(50, Math.max(1, Number(args.limit || 10)));
     const offset = Math.max(0, Number(args.offset || 0));
+    const courtLevel = args.court_level ? String(args.court_level) : undefined;
+    const procedureCode = args.procedure_code ? String(args.procedure_code) : undefined;
+    const sectionFocus = Array.isArray(args.section_focus) ? args.section_focus : undefined;
 
     const budget = query.length < 30 ? 'quick' : 'standard';
     const intent = await this.queryPlanner.classifyIntent(query, budget as 'quick' | 'standard');
@@ -376,6 +398,29 @@ export class LegalAdviceTools extends BaseToolHandler {
       ? await this.queryPlanner.generateOptimizedSearchQuery(query, intent, budget as 'quick' | 'standard')
       : query;
     const queryParams = this.queryPlanner.buildQueryParams(intent, searchQuery);
+
+    // Apply court_level and procedure_code filters (from merged search_supreme_court_practice)
+    if (courtLevel && courtLevel !== 'all') {
+      queryParams.where = [
+        ...(queryParams.where || []),
+        ...buildSupremeCourtWhereFilter(courtLevel),
+      ];
+    }
+    if (procedureCode) {
+      const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
+      if (justiceKind !== null) {
+        queryParams.where = [
+          ...(queryParams.where || []),
+          { field: 'justice_kind', operator: '=', value: justiceKind },
+        ];
+      }
+    }
+
+    // Fetch more results when filtering by court level to compensate post-filtering
+    if (courtLevel && courtLevel !== 'all') {
+      queryParams.limit = Math.max(limit * 3, 30);
+    }
+
     const endpoints = this.queryPlanner.selectEndpoints(intent).filter(e => e === 'court');
 
     const results: any[] = [];
@@ -440,13 +485,37 @@ export class LegalAdviceTools extends BaseToolHandler {
       }
     }
 
-    const enriched = await this.enrichWithPrecedentStatus(results);
+    // Post-filter by SC court codes if court_level is specified
+    let filtered = results;
+    if (courtLevel && courtLevel !== 'all') {
+      const scCourtCodePrefix = '99';
+      filtered = results.filter((d: any) => {
+        const code = String(d?.court_code || '');
+        if (!code.startsWith(scCourtCodePrefix)) return false;
+        if (courtLevel === 'GrandChamber') return code === '9901';
+        return true;
+      }).slice(0, limit);
+    }
+
+    // Add snippets for SC results if section_focus is set
+    if (sectionFocus && filtered.length > 0) {
+      for (const r of filtered) {
+        const fullText = typeof r.full_text === 'string' ? r.full_text : '';
+        if (fullText) {
+          r.snippets = extractSnippets(fullText, query, 2);
+        }
+      }
+    }
+
+    const enriched = await this.enrichWithPrecedentStatus(filtered);
 
     return this.wrapResponse({
       results: enriched,
       intent,
       search_method: 'text_based',
       total: enriched.length,
+      ...(courtLevel && courtLevel !== 'all' ? { court_level: courtLevel } : {}),
+      ...(procedureCode ? { procedure_code: procedureCode } : {}),
       ...(errors.length > 0 && { warnings: errors }),
     });
   }

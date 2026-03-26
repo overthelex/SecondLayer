@@ -1,9 +1,10 @@
 /**
- * Court Case Status & Schedule Tools
+ * Court Case Status Tools
  *
- * 2 tools:
+ * 1 tool:
  * - search_court_case_status — пошук статусів судових справ (1.25M записів)
- * - search_court_schedule — пошук розкладу засідань (481K записів)
+ *
+ * Note: search_court_schedule was merged into search_court_sessions (court-session-tools.ts)
  */
 
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
@@ -50,48 +51,6 @@ export class CourtStatusTools extends BaseToolHandler {
           },
         },
       },
-      {
-        name: 'search_court_schedule',
-        description: `Пошук розкладу судових засідань
-
-💰 Примерная стоимость: $0.001-$0.005 USD
-Пошук за номером справи, суддею, учасниками або назвою суду. 481K засідань (2026).`,
-        inputSchema: {
-          type: 'object',
-          properties: {
-            case_number: {
-              type: 'string',
-              description: 'Номер справи',
-            },
-            judge: {
-              type: 'string',
-              description: 'Прізвище судді',
-            },
-            participant: {
-              type: 'string',
-              description: 'Прізвище або назва учасника справи',
-            },
-            court_name: {
-              type: 'string',
-              description: 'Назва суду',
-            },
-            date_from: {
-              type: 'string',
-              description: 'Дата від (ДД.ММ.РРРР)',
-            },
-            date_to: {
-              type: 'string',
-              description: 'Дата до (ДД.ММ.РРРР)',
-            },
-            limit: {
-              type: 'number',
-              default: 50,
-              maximum: 100,
-              description: 'Максимальна кількість результатів',
-            },
-          },
-        },
-      },
     ];
   }
 
@@ -99,8 +58,6 @@ export class CourtStatusTools extends BaseToolHandler {
     switch (name) {
       case 'search_court_case_status':
         return this.searchCaseStatus(args);
-      case 'search_court_schedule':
-        return this.searchSchedule(args);
       default:
         return null;
     }
@@ -158,65 +115,4 @@ export class CourtStatusTools extends BaseToolHandler {
     }
   }
 
-  private async searchSchedule(args: Record<string, unknown>): Promise<ToolResult> {
-    const { case_number, judge, participant, court_name, date_from, date_to, limit = 50 } = args as any;
-
-    const conditions: string[] = [];
-    const values: any[] = [];
-    let pi = 1;
-
-    if (case_number) {
-      conditions.push(`case_number = $${pi}`);
-      values.push(case_number);
-      pi++;
-    }
-    if (judge) {
-      conditions.push(`judges ILIKE $${pi}`);
-      values.push(`%${judge}%`);
-      pi++;
-    }
-    if (participant) {
-      conditions.push(`case_involved ILIKE $${pi}`);
-      values.push(`%${participant}%`);
-      pi++;
-    }
-    if (court_name) {
-      conditions.push(`court_name ILIKE $${pi}`);
-      values.push(`%${court_name}%`);
-      pi++;
-    }
-    if (date_from) {
-      conditions.push(`hearing_date >= $${pi}`);
-      values.push(date_from);
-      pi++;
-    }
-    if (date_to) {
-      conditions.push(`hearing_date <= $${pi}`);
-      values.push(date_to);
-      pi++;
-    }
-
-    if (conditions.length === 0) {
-      return this.wrapResponse('Вкажіть номер справи, суддю або учасника для пошуку розкладу');
-    }
-
-    values.push(Math.min(Number(limit) || 50, 100));
-
-    const sql = `SELECT hearing_date, court_name, case_number, judges, court_room, case_involved, case_description
-      FROM opendata_court_schedule
-      WHERE ${conditions.join(' AND ')}
-      ORDER BY hearing_date DESC
-      LIMIT $${pi}`;
-
-    try {
-      const result = await this.db.query(sql, values);
-      if (result.rows.length === 0) {
-        return this.wrapResponse('Засідань не знайдено за вашим запитом');
-      }
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
-    } catch (error: any) {
-      logger.error('search_court_schedule error', { error: error.message });
-      return this.wrapError(`Помилка пошуку: ${error.message}`);
-    }
-  }
 }

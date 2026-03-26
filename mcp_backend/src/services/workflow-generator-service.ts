@@ -49,8 +49,8 @@ const WORKFLOW_GENERATION_PROMPT = `You are a workflow planner for SecondLayer l
 - **Topic distribution**: Multiple search_legal_precedents calls with different legal topics
 - **Appeal statistics**: Use get_case_documents_chain to trace appeal chains
 - **Temporal trends**: Use search_legal_precedents with date_from/date_to filters for different periods
-- **Key precedents**: Use search_supreme_court_practice to find binding decisions
-- **Legislation basis**: Use search_legislation or find_relevant_law_articles for legal framework
+- **Key precedents**: Use search_legal_precedents with court_level filter to find binding decisions
+- **Legislation basis**: Use search_legislation for legal framework
 
 ## JSON schema
 {
@@ -208,12 +208,11 @@ ${toolDescriptions}`,
 
   private isRelevantTool(name: string): boolean {
     const relevant = [
-      'search_legal_precedents', 'search_supreme_court_practice',
+      'search_legal_precedents',
       'get_court_decision', 'get_case_documents_chain', 'load_full_texts',
       'find_similar_fact_pattern_cases', 'compare_practice_pro_contra',
-      'count_cases_by_party', 'search_legislation', 'get_legislation_article',
-      'find_relevant_law_articles', 'search_procedural_norms',
-      'analyze_case_pattern', 'bulk_ingest_court_decisions',
+      'count_cases_by_party', 'search_legislation', 'get_legislation_section',
+      'search_procedural_norms', 'bulk_ingest_court_decisions',
     ];
     return relevant.includes(name);
   }
