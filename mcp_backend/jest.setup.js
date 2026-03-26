@@ -2,6 +2,11 @@
 // Load environment variables
 require('dotenv').config();
 
+// Provide test-only JWT secret (required by auth modules at import time)
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'test-jwt-secret-do-not-use-in-production';
+}
+
 // Ensure console output is not buffered
 if (typeof process.stdout.setEncoding === 'function') process.stdout.setEncoding('utf8');
 if (typeof process.stderr.setEncoding === 'function') process.stderr.setEncoding('utf8');
