@@ -650,9 +650,34 @@ jobs:
             cd ${REMOTE_REPO}/deployment
             DC="docker compose -f docker-compose.prod.yml --env-file .env.prod"
 
-            # --- Determine colors ---
+            # --- Determine colors (with reality check) ---
             BACKEND_COLOR=\$(grep '^backend=' .active-colors 2>/dev/null | cut -d= -f2 || echo "blue")
             FRONTEND_COLOR=\$(grep '^frontend=' .active-colors 2>/dev/null | cut -d= -f2 || echo "blue")
+
+            # Safety: verify .active-colors matches actually running containers
+            # If mismatch, trust docker over the file (handles partial deploy failures)
+            if docker inspect secondlayer-app-prod-green --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+              if ! docker inspect secondlayer-app-prod --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+                BACKEND_COLOR="green"
+                echo "WARNING: .active-colors disagrees with docker state, correcting backend=green"
+              fi
+            elif docker inspect secondlayer-app-prod --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+              BACKEND_COLOR="blue"
+              echo "WARNING: .active-colors disagrees with docker state, correcting backend=blue"
+            fi
+            if docker inspect lexwebapp-prod-green --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+              if ! docker inspect lexwebapp-prod --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+                FRONTEND_COLOR="green"
+                echo "WARNING: .active-colors disagrees with docker state, correcting frontend=green"
+              fi
+            elif docker inspect lexwebapp-prod --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+              FRONTEND_COLOR="blue"
+              echo "WARNING: .active-colors disagrees with docker state, correcting frontend=blue"
+            fi
+
+            # Save corrected colors before proceeding
+            printf 'backend=%s\nfrontend=%s\n' "\$BACKEND_COLOR" "\$FRONTEND_COLOR" > .active-colors
+
             [ "\$BACKEND_COLOR" = "green" ] && NEW_BACKEND="blue" || NEW_BACKEND="green"
             [ "\$FRONTEND_COLOR" = "green" ] && NEW_FRONTEND="blue" || NEW_FRONTEND="green"
 
@@ -680,7 +705,25 @@ jobs:
             # --- 2. Reset preview upstreams to placeholder ---
             printf '# Preview upstreams — managed by deploy script\n# Points to inactive color containers for pre-production preview\n# DO NOT EDIT MANUALLY\n\nupstream preview_mcp_backend {\n    server 127.0.0.1:1;  # placeholder — returns 502 when no preview is active\n}\n\nupstream preview_frontend {\n    server 127.0.0.1:1;  # placeholder — returns 502 when no preview is active\n}\n' > nginx/includes/preview-upstreams.conf
 
-            # --- 3. Recreate nginx to pick up new upstreams ---
+            # --- 3. Verify upstreams point to running containers ---
+            UPSTREAM_BE=\$(grep 'server ' nginx/includes/prod-upstreams.conf | head -1 | awk '{print \$2}' | cut -d: -f1)
+            if ! docker inspect "\$UPSTREAM_BE" --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+              echo "ERROR: upstream \$UPSTREAM_BE is not running! Regenerating upstreams..."
+              # Fallback: find whichever backend is actually running
+              if docker inspect secondlayer-app-prod-green --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+                BE_HOST="secondlayer-app-prod-green"
+              else
+                BE_HOST="secondlayer-app-prod"
+              fi
+              if docker inspect lexwebapp-prod-green --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+                FE_HOST="lexwebapp-prod-green"
+              else
+                FE_HOST="lexwebapp-prod"
+              fi
+              printf '# Active upstreams — managed by deploy script (blue-green switching)\n# DO NOT EDIT MANUALLY — overwritten during zero-downtime deploy\n\nupstream prod_mcp_backend {\n    server %s:3000;\n    keepalive 128;\n}\n\nupstream prod_frontend {\n    server %s:80;\n    keepalive 32;\n}\n' "\$BE_HOST" "\$FE_HOST" > nginx/includes/prod-upstreams.conf
+            fi
+
+            # Recreate nginx to pick up new upstreams
             \$DC up -d nginx-prod --force-recreate
             echo "Nginx recreated — production traffic switched to new containers"
 
