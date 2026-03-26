@@ -141,7 +141,8 @@ export function ArticleModal({ article, onClose }: ArticleModalProps) {
             prose-strong:text-claude-text
             prose-em:text-claude-subtext
             prose-code:text-claude-accent prose-code:bg-claude-accent/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
-            prose-pre:bg-gray-900 prose-pre:rounded-xl
+            prose-pre:bg-gray-900 prose-pre:rounded-xl prose-pre:text-gray-100
+            [&_pre_code]:text-gray-100 [&_pre_code]:bg-transparent [&_pre_code]:p-0
             prose-blockquote:border-claude-accent prose-blockquote:bg-claude-accent/5 prose-blockquote:rounded-r-xl prose-blockquote:py-1
             prose-a:text-claude-accent prose-a:no-underline hover:prose-a:underline
             prose-table:font-sans
