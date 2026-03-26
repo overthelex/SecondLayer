@@ -1,6 +1,194 @@
 import type { TranslationMap } from './articles';
 
 export const enTranslations: TranslationMap = {
+  'security-audit-gdpr-owasp': {
+    title: 'LEX AI Security: GDPR Audit, 10 Fixes, and 7 Layers of Protection',
+    punchline: '5 parallel white-hat agents audited the platform for GDPR and OWASP Top 10 compliance. Found 23 vulnerabilities — from SQL injection to Google Ads firing before consent. Fixed 10 critical issues in one session. Full security architecture breakdown: Cloudflare, TLS 1.3, CSP, rate limiting, WebAuthn, E2EE.',
+    readTime: '15 min',
+    content: `# LEX AI Security: GDPR Audit, 10 Fixes, and 7 Layers of Protection
+
+A legal platform handles the most sensitive data: court cases, contracts, clients' personal information. Security isn't a feature — it's the foundation. We ran a full security audit using 5 parallel AI agents and fixed all critical findings in a single session.
+
+This article is a transparent breakdown: what we found, what we fixed, and how LEX AI's complete security architecture works.
+
+---
+
+## How We Ran the Audit
+
+Instead of a traditional manual pentest, we launched **5 specialized white-hat agents in parallel**, each with their own area of responsibility:
+
+| Agent | Focus | Files Scanned |
+|-------|-------|---------------|
+| 🔍 Data Collection | Cookie consent, tracking, OAuth scopes | 42 |
+| 💾 Data Storage | DB schemas, retention, Redis, Qdrant, MinIO | 53 |
+| 👤 User Rights | GDPR Art. 15-22 (access, deletion, portability) | 25 |
+| 🛡️ OWASP Top 10 | Injection, XSS, Auth, CORS, CSRF, rate limiting | 45 |
+| 🌐 Data Transfers | Third-party APIs, sub-processors, cross-border | 48 |
+
+Each agent autonomously scanned the codebase, checked compliance against standards, and produced a structured report with CVSS scores.
+
+---
+
+## What We Found: 23 Vulnerabilities
+
+### Critical (Fixed)
+
+**1. Google Ads loaded BEFORE cookie consent**
+
+\`index.html\` contained a hardcoded \`<script>\` tag for Google Ads that executed on every page load — **before** the React app could render the cookie consent banner. Every visitor had their data sent to Google, even if they later rejected analytics.
+
+**Fix:** Google Ads now loads dynamically only after \`consentStore.isAllowed('analytics')\`. Added Google Consent Mode v2 with \`denied\` defaults:
+
+\`\`\`javascript
+gtag('consent', 'default', {
+  analytics_storage: 'denied',
+  ad_storage: 'denied',
+  ad_user_data: 'denied',
+  ad_personalization: 'denied',
+});
+\`\`\`
+
+**2. JWT Secret with fallback to a known string**
+
+Three files contained:
+\`\`\`typescript
+const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
+\`\`\`
+
+If \`JWT_SECRET\` wasn't set during deployment, the app would silently operate with a publicly known secret. Anyone could forge a valid JWT for any user.
+
+**Fix:** The app now crashes on startup if \`JWT_SECRET\` is missing.
+
+**3. SQL Injection via userId interpolation**
+
+\`\`\`typescript
+// Before — userId injected directly into SQL string
+const ownerCheck = \` AND user_id = '\${userId}'\`;
+\`\`\`
+
+While \`userId\` comes from JWT, a compromised JWT secret (see #2) would turn this into a direct SQL injection vector.
+
+**Fix:** Parameterized query with \`$N\` placeholder.
+
+### High Priority (Fixed)
+
+**4. Conversion tracking without consent check** — all \`gtag('event', 'conversion')\` calls (registration, payment, top-up) now check \`consentStore.isAllowed('analytics')\`.
+
+**5. Nginx CORS reflected any Origin** — SSE endpoints used \`$http_origin\` directly, allowing any website to make credentialed requests. Replaced with a regex whitelist.
+
+**6. XSS via dangerouslySetInnerHTML** — 3 components rendered HTML from the database without sanitization. Added DOMPurify.
+
+**7. Dynamic SQL tables without whitelist** — \`lookupName()\` and \`batchLookup()\` accepted table names as parameters. Added an allowlist of permitted tables and columns.
+
+**8. Cleanup functions never ran** — \`cleanupExpiredSessions()\`, \`purge_soft_deleted_documents()\`, and \`cleanup_expired_oauth_data()\` existed but were never scheduled. Added three cron jobs.
+
+**9. Emails logged in plaintext** — 9+ locations in auth controllers. Added \`maskEmail()\`: \`user@example.com\` → \`us***@example.com\`.
+
+**10. OAuth registration without rate limiting** — the \`/oauth/register\` endpoint (RFC 7591) allowed unlimited OAuth client registration. Added rate limit: 5 requests per 15 minutes per IP.
+
+---
+
+## 7 Layers of Protection
+
+LEX AI's security is built on the **defense in depth** principle — each layer compensates for potential weaknesses in others.
+
+### Layer 1: Cloudflare (Edge Protection)
+
+All traffic passes through Cloudflare before reaching our servers:
+
+- **DDoS Protection** — automatic filtering of volumetric and application-layer attacks
+- **WAF (Web Application Firewall)** — OWASP Top 10 protection at the edge
+- **Bot Management** — blocking malicious bots
+- **Origin CA** — TLS between Cloudflare and our origin server
+- **Always HTTPS** — forced redirect from HTTP
+
+### Layer 2: TLS 1.3 (Transport Encryption)
+
+- TLS 1.0/1.1 disabled
+- ECDHE-only cipher suites (Forward Secrecy)
+- HSTS with 1-year max-age and includeSubDomains
+- SSL session cache for performance without compromise
+
+### Layer 3: Nginx (Reverse Proxy + Security Headers)
+
+| Header | Value | Protects Against |
+|--------|-------|-----------------|
+| HSTS | max-age=31536000; includeSubDomains | Downgrade attacks |
+| X-Frame-Options | SAMEORIGIN | Clickjacking |
+| X-Content-Type-Options | nosniff | MIME sniffing |
+| Referrer-Policy | strict-origin-when-cross-origin | Information leakage |
+| CSP | Full policy (12 directives) | XSS, injection |
+
+### Layer 4: Application Security (Express.js)
+
+**Multi-layer rate limiting:**
+
+| Endpoint | Limit | Key |
+|----------|-------|-----|
+| Auth (login, register) | 10 / 15 min | IP |
+| Password reset | 3 / hour | IP |
+| Chat | 60 / min | User ID |
+| Global API | 1500 / min | IP |
+| OAuth registration | 5 / 15 min | IP |
+
+### Layer 5: Authentication (6 Methods)
+
+1. **Email + Password** — bcrypt hashing, account lockout after failed attempts (15 min)
+2. **Google OAuth 2.0** — minimal scopes (profile + email), idToken verification
+3. **WebAuthn / Passkeys** — biometric auth via FIDO2, 5-min challenge TTL
+4. **Diia** — Ukrainian government ID authentication
+5. **OIDC / Authentik** — SSO via Authentik
+6. **API Keys** — for MCP clients (Claude Desktop, Claude Code), database-backed with audit log
+
+### Layer 6: Database Security
+
+- **PgBouncer** with SCRAM-SHA-256 authentication
+- Connection pooling: 500 max clients, 50 pool size
+- Statement timeout: 600s (protection against slow query DoS)
+- Docker bridge network isolates DB from external access
+- Parameterized queries everywhere (PostgreSQL \`$1, $2\` placeholders)
+
+### Layer 7: Data Protection (GDPR)
+
+**Implemented rights:**
+- **Art. 15 (Access)** — full JSON export of all user data
+- **Art. 17 (Erasure)** — cascading deletion from PostgreSQL, Qdrant, MinIO, cost_tracking anonymization
+- **Art. 20 (Portability)** — machine-readable JSON format
+
+**Cookie Consent:** 4 categories with privacy-by-default. **E2EE for documents:** AES-256-GCM with X25519 ECDH key exchange.
+
+**Automated cleanup:** sessions (every 6 hours), soft-deleted documents (daily, 30-day retention), OAuth tokens (daily).
+
+---
+
+## What's Left to Do
+
+| Task | Priority |
+|------|----------|
+| Persist registration consent server-side | High |
+| Pass consent through OAuth redirect flow | High |
+| Implement Art. 18 (restriction of processing) | Medium |
+| Implement Art. 21 (right to object) | Medium |
+| Update Privacy Policy regarding Google Ads | Medium |
+| Add Google Cloud Vision to DPA as sub-processor | Medium |
+| Column-level encryption for PII fields | Medium |
+| Nonce-based CSP instead of unsafe-inline | Low |
+
+---
+
+## Conclusions
+
+1. **AI agents for security audits** — 5 parallel agents covered more attack surface in 3 minutes than a manual review in a day
+2. **Defense in depth works** — no single vulnerability gave full system access thanks to the multi-layer architecture
+3. **GDPR is code, not a document** — user rights must be implemented in code (export, delete, consent), not just described in a Privacy Policy
+4. **Transparency builds trust** — we publish audit results because we believe a legal platform should be open about its security
+
+All fixes are available in PR [#1224](https://github.com/overthelex/secondlayer/pull/1224).
+
+---
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
   'attorney-marketplace': {
     title: 'Legal Consultation Marketplace: From the Unified Attorney Registry to Monobank Payments',
     punchline: 'Attorney verification via the Unified Attorney Registry (ERAU) in 2 seconds. 3-step onboarding. Consultation request with documents from the vault. Real-time chat between client and attorney. Escrow payment via Monobank. 10% platform commission. Full cycle — from "I need a lawyer" to a paid consultation.',

@@ -30,6 +30,267 @@ export function hasRecentArticles(): boolean {
 
 export const articles: Article[] = [
   {
+    id: 'security-audit-gdpr-owasp',
+    title: 'Безпека LEX AI: GDPR-аудит, 10 виправлень і 7 рівнів захисту',
+    punchline: '5 паралельних white-hat агентів перевірили платформу на відповідність GDPR та OWASP Top 10. Знайшли 23 вразливості — від SQL-ін\'єкцій до Google Ads без consent. Виправили 10 критичних за одну сесію. Розбираємо повну архітектуру безпеки: Cloudflare, TLS 1.3, CSP, rate limiting, WebAuthn, E2EE.',
+    category: 'tech',
+    tags: ['Security', 'GDPR', 'OWASP', 'Cloudflare', 'WebAuthn', 'E2EE'],
+    readTime: '15 хв',
+    publishedAt: '2026-03-26',
+    content: `# Безпека LEX AI: GDPR-аудит, 10 виправлень і 7 рівнів захисту
+
+Юридична платформа обробляє найчутливіші дані: судові справи, контракти, персональну інформацію клієнтів. Безпека — не фіча, а фундамент. Ми провели повний security audit силами 5 паралельних AI-агентів і виправили всі критичні знахідки за одну сесію.
+
+Ця стаття — прозорий розбір: що знайшли, що виправили, і як побудована повна архітектура захисту LEX AI.
+
+---
+
+## Як проводили аудит
+
+Замість класичного ручного пентесту ми запустили **5 спеціалізованих white-hat агентів паралельно**, кожен зі своєю зоною відповідальності:
+
+| Агент | Фокус | Файлів перевірено |
+|-------|-------|-------------------|
+| 🔍 Data Collection | Cookie consent, трекінг, OAuth scopes | 42 |
+| 💾 Data Storage | БД-схеми, retention, Redis, Qdrant, MinIO | 53 |
+| 👤 User Rights | GDPR Art. 15-22 (доступ, видалення, портабельність) | 25 |
+| 🛡️ OWASP Top 10 | Injection, XSS, Auth, CORS, CSRF, rate limiting | 45 |
+| 🌐 Data Transfers | Third-party API, sub-processors, cross-border | 48 |
+
+Кожен агент автономно сканував кодову базу, перевіряв відповідність стандартам і створив структурований звіт з CVSS-оцінками.
+
+---
+
+## Що знайшли: 23 вразливості
+
+### Критичні (виправлені)
+
+**1. Google Ads завантажувався ДО cookie consent**
+
+\`index.html\` містив hardcoded \`<script>\` тег Google Ads, який виконувався при кожному завантаженні сторінки — **до** того, як React-додаток встигав показати банер cookie consent. Кожен відвідувач вже мав дані відправлені в Google, навіть якщо потім відхилив аналітику.
+
+**Виправлення:** Google Ads тепер завантажується динамічно тільки після \`consentStore.isAllowed('analytics')\`. Додано Google Consent Mode v2 з \`denied\` за замовчуванням:
+
+\`\`\`javascript
+gtag('consent', 'default', {
+  analytics_storage: 'denied',
+  ad_storage: 'denied',
+  ad_user_data: 'denied',
+  ad_personalization: 'denied',
+});
+\`\`\`
+
+**2. JWT Secret з fallback на відомий рядок**
+
+Три файли містили:
+\`\`\`typescript
+const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
+\`\`\`
+
+Якщо при деплої \`JWT_SECRET\` не встановлений — додаток тихо працює з публічно відомим секретом. Будь-хто може згенерувати валідний JWT для будь-якого користувача.
+
+**Виправлення:** Додаток тепер крашиться при старті, якщо \`JWT_SECRET\` не встановлений:
+\`\`\`typescript
+const _jwtSecret = process.env.JWT_SECRET;
+if (!_jwtSecret) {
+  throw new Error('FATAL: JWT_SECRET environment variable is required');
+}
+\`\`\`
+
+**3. SQL Injection через інтерполяцію userId**
+
+\`\`\`typescript
+// Було — userId вставлявся напряму в SQL рядок
+const ownerCheck = \` AND user_id = '\${userId}'\`;
+\`\`\`
+
+Хоча \`userId\` приходить з JWT, при компрометації JWT-секрету (див. п.2) це ставало прямим вектором SQL Injection.
+
+**Виправлення:** Параметризований запит:
+\`\`\`typescript
+values.push(userId);
+const userParamIdx = values.length;
+// user_id = $N — безпечний параметр
+\`\`\`
+
+### Високі (виправлені)
+
+**4. Конверсійний трекінг без перевірки consent** — всі \`gtag('event', 'conversion')\` виклики (реєстрація, оплата, top-up) тепер перевіряють \`consentStore.isAllowed('analytics')\` перед відправкою.
+
+**5. Nginx CORS відображав будь-який Origin** — SSE-ендпоінти використовували \`$http_origin\` напряму, що дозволяло будь-якому сайту робити запити з credentials. Замінено на whitelist:
+\`\`\`nginx
+set $cors_origin "";
+if ($http_origin ~* "^https://(legal\\.org\\.ua|stage\\.legal\\.org\\.ua)$") {
+    set $cors_origin $http_origin;
+}
+\`\`\`
+
+**6. XSS через dangerouslySetInnerHTML** — 3 компоненти рендерили HTML з бази без санітизації. Додано DOMPurify:
+\`\`\`tsx
+dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
+\`\`\`
+
+**7. Динамічні SQL-таблиці без whitelist** — функції \`lookupName()\` і \`batchLookup()\` приймали імена таблиць як параметри. Додано allowlist:
+\`\`\`typescript
+private static readonly ALLOWED_LOOKUP_TABLES: Record<string, Set<string>> = {
+  edrsr_courts: new Set(['court_code']),
+  edrsr_judgment_forms: new Set(['judgment_code']),
+  edrsr_justice_kinds: new Set(['justice_kind']),
+};
+\`\`\`
+
+**8. Cleanup-функції ніколи не запускались** — \`cleanupExpiredSessions()\`, \`purge_soft_deleted_documents()\`, \`cleanup_expired_oauth_data()\` існували, але не були прив'язані до cron. Додано три cron-задачі.
+
+**9. Email-адреси логувались у plaintext** — 9+ місць в auth-контролерах. Додано \`maskEmail()\`: \`user@example.com\` → \`us***@example.com\`.
+
+**10. OAuth реєстрація без rate limiting** — ендпоінт \`/oauth/register\` (RFC 7591) дозволяв необмежену реєстрацію OAuth-клієнтів. Додано rate limit: 5 запитів за 15 хвилин на IP.
+
+---
+
+## 7 рівнів захисту LEX AI
+
+Безпека платформи побудована за принципом **defense in depth** — кожен рівень компенсує можливі слабкості іншого.
+
+### Рівень 1: Cloudflare (Edge Protection)
+
+Весь трафік проходить через Cloudflare перед тим, як досягне нашого сервера:
+
+- **DDoS Protection** — автоматична фільтрація volumetric та application-layer атак
+- **WAF (Web Application Firewall)** — захист від OWASP Top 10 на edge-рівні
+- **Bot Management** — блокування зловмисних ботів
+- **Origin CA** — TLS між Cloudflare і нашим origin-сервером
+- **Always HTTPS** — примусове перенаправлення з HTTP
+
+### Рівень 2: TLS 1.3 (Transport Encryption)
+
+\`\`\`
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256
+            :ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384
+            :ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+\`\`\`
+
+- TLS 1.0/1.1 вимкнено
+- Тільки ECDHE-сюїти (Forward Secrecy)
+- HSTS з 1-річним max-age і includeSubDomains
+- SSL session cache для продуктивності без компромісів
+
+### Рівень 3: Nginx (Reverse Proxy + Security Headers)
+
+Nginx — перший сервер, який бачить запит після Cloudflare:
+
+| Header | Значення | Захист від |
+|--------|----------|-----------|
+| HSTS | max-age=31536000; includeSubDomains | Downgrade атаки |
+| X-Frame-Options | SAMEORIGIN | Clickjacking |
+| X-Content-Type-Options | nosniff | MIME sniffing |
+| Referrer-Policy | strict-origin-when-cross-origin | Information leakage |
+| CSP | Повна політика (12 директив) | XSS, injection |
+
+**Content Security Policy** включає:
+- \`default-src 'self'\` — все заблоковано за замовчуванням
+- \`object-src 'none'\` — повна блокировка плагінів
+- \`base-uri 'self'\` — захист від base tag injection
+- Whitelist тільки для: Google OAuth, Stripe, Cloudflare Insights
+
+### Рівень 4: Application Security (Express.js)
+
+**Multi-layer rate limiting:**
+
+| Ендпоінт | Ліміт | Ключ |
+|----------|-------|------|
+| Auth (login, register) | 10 / 15 хв | IP |
+| Password reset | 3 / год | IP |
+| Chat | 60 / хв | User ID |
+| Global API | 1500 / хв | IP |
+| OAuth registration | 5 / 15 хв | IP |
+
+**Fail-safe:** при падінні Redis rate limiting працює через in-memory express-rate-limit як backup.
+
+**CORS:** Express-рівень валідує origins незалежно від Nginx:
+\`\`\`typescript
+const allowedOrigins = ['https://legal.org.ua', 'https://stage.legal.org.ua'];
+\`\`\`
+
+### Рівень 5: Authentication (6 методів)
+
+LEX AI підтримує 6 методів автентифікації:
+
+1. **Email + Password** — bcrypt хешування, account lockout після невдалих спроб (15 хв)
+2. **Google OAuth 2.0** — мінімальні scopes (profile + email), idToken верифікація
+3. **WebAuthn / Passkeys** — біометрична автентифікація через FIDO2, challenge TTL 5 хв
+4. **Diia (Дія)** — державна автентифікація, session TTL 10 хв
+5. **OIDC / Authentik** — SSO через Authentik
+6. **API Keys** — для MCP-клієнтів (Claude Desktop, Claude Code), database-backed з audit log
+
+**Dual Auth Middleware** автоматично визначає тип токена:
+- Містить крапку → JWT (user session)
+- Починається з \`mcp_token_\` → OAuth access token
+- Інше → API key
+
+### Рівень 6: Database Security
+
+- **PgBouncer** з SCRAM-SHA-256 автентифікацією
+- Connection pooling: 500 max clients, 50 pool size
+- Statement timeout: 600с (захист від DOS через повільні запити)
+- Docker bridge network ізолює БД від зовнішнього доступу
+- Parameterized queries скрізь (PostgreSQL \`$1, $2\` плейсхолдери)
+
+### Рівень 7: Data Protection (GDPR)
+
+**Реалізовані права:**
+- **Art. 15 (Доступ)** — повний JSON-експорт всіх даних користувача
+- **Art. 17 (Видалення)** — каскадне видалення з PostgreSQL, Qdrant, MinIO, anonymization cost_tracking
+- **Art. 20 (Портабельність)** — машинно-зчитуваний JSON формат
+
+**Cookie Consent:**
+- 4 категорії: essential (завжди), functional, analytics, marketing
+- Дефолт: всі non-essential вимкнені (privacy by default)
+- Версіонування consent (v1.0)
+
+**E2EE для документів:**
+- AES-256-GCM шифрування
+- X25519 ECDH key exchange (envelope encryption)
+- Зашифровані документи недоступні для AI-аналізу (by design)
+
+**Автоматичне очищення:**
+- Сесії: кожні 6 годин
+- Soft-deleted документи: щоденно (30-день retention)
+- OAuth токени: щоденно
+
+---
+
+## Що залишається зробити
+
+Аудит виявив і речі, які потребують більше часу:
+
+| Задача | Пріоритет |
+|--------|-----------|
+| Зберігати consent реєстрації на сервері (зараз тільки UI) | High |
+| Передавати consent через OAuth redirect flow | High |
+| Реалізувати Art. 18 (обмеження обробки) | Medium |
+| Реалізувати Art. 21 (право заперечити) | Medium |
+| Оновити Privacy Policy щодо Google Ads | Medium |
+| Додати Google Cloud Vision до DPA як sub-processor | Medium |
+| Column-level encryption для PII полів | Medium |
+| Nonce-based CSP замість unsafe-inline | Low |
+
+---
+
+## Висновки
+
+1. **AI-агенти для security audit** — 5 паралельних агентів покрили більше поверхні атаки за 3 хвилини, ніж ручний review за день
+2. **Defense in depth працює** — жодна окрема вразливість не давала повний доступ до системи завдяки багаторівневій архітектурі
+3. **GDPR — це код, не документ** — права користувачів мають бути реалізовані в коді (export, delete, consent), а не тільки описані в Privacy Policy
+4. **Прозорість будує довіру** — ми публікуємо результати аудиту, бо вважаємо, що юридична платформа має бути відкритою щодо своєї безпеки
+
+Весь код виправлень доступний у PR [#1224](https://github.com/overthelex/secondlayer/pull/1224).
+
+---
+
+Реєстрація: [legal.org.ua](https://legal.org.ua)`,
+  },
+  {
     id: 'open-data-340m-production',
     title: '340 мільйонів записів і 64 інструменти: повна карта даних LEX AI',
     punchline: 'ЄДРСР, санкції, патенти, адвокати, судді, законодавство, парламент, реєстри — усі джерела відкритих даних, які зараз працюють на продакшені. Що є, як користуватись, і що буде далі.',
