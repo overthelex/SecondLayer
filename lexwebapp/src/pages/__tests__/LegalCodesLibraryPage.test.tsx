@@ -413,7 +413,7 @@ describe('LegalCodesLibraryPage', () => {
       );
       await user.click(articleBtns[0]);
 
-      expect(mockCallTool).toHaveBeenCalledWith('get_legislation_article', {
+      expect(mockCallTool).toHaveBeenCalledWith('get_legislation_section', {
         rada_id: '435-15',
         article_number: '1',
       });
@@ -470,7 +470,7 @@ describe('LegalCodesLibraryPage', () => {
         expect(screen.getByText('ЗМІСТ')).toBeInTheDocument();
       });
 
-      // Second call: get_legislation_article
+      // Second call: get_legislation_section
       mockCallTool.mockResolvedValueOnce(
         makeToolResult({
           rada_id: '435-15',
