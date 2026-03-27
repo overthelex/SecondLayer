@@ -37,8 +37,7 @@ export function createChatInlineRoutes(deps: {
         query,
         budget || 'standard',
         userId,
-        requestId,
-        internetEnabled !== false
+        requestId
       );
 
       if (!result) {

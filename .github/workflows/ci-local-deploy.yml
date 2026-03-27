@@ -90,12 +90,19 @@ jobs:
 
       # Backend/RADA/OpenReyestr integration tests require running infrastructure (DB, Redis, MinIO).
       # CI runs TypeScript compilation + unit tests (mocked, no infra needed).
+      - name: Overlay proprietary source
+        if: needs.detect-changes.outputs.backend == 'true'
+        run: |
+          CORE_TMP=$(mktemp -d)
+          gh repo clone overthelex/secondlayer-core "$CORE_TMP" -- --depth 1
+          cp -f "$CORE_TMP"/src/services/* mcp_backend/src/services/
+          cp -f "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
+          rm -rf "$CORE_TMP"
+
       - name: Build backend
         if: needs.detect-changes.outputs.backend == 'true'
         run: |
-          ./scripts/preserve-proprietary-dist.sh backup
           cd mcp_backend && npm install && npm run build
-          cd .. && ./scripts/preserve-proprietary-dist.sh restore
 
       - name: Unit test backend
         if: needs.detect-changes.outputs.backend == 'true'
@@ -309,9 +316,12 @@ jobs:
           npm --prefix packages/shared install && npm --prefix packages/shared run build
 
           if [ "$BACKEND_CHANGED" = "true" ]; then
-            ./scripts/preserve-proprietary-dist.sh backup
+            CORE_TMP=$(mktemp -d)
+            gh repo clone overthelex/secondlayer-core "$CORE_TMP" -- --depth 1
+            cp -f "$CORE_TMP"/src/services/* mcp_backend/src/services/
+            cp -f "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
+            rm -rf "$CORE_TMP"
             npm --prefix mcp_backend install && npm --prefix mcp_backend run build
-            ./scripts/preserve-proprietary-dist.sh restore
           fi
           if [ "$RADA_CHANGED" = "true" ]; then
             npm --prefix mcp_rada install && npm --prefix mcp_rada run build
