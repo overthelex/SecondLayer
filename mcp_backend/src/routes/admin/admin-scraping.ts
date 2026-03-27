@@ -132,23 +132,6 @@ export function createAdminScrapingRoutes(
 
   async function getLiveCompletenessStats() {
     const kindNames: Record<string, string> = {};
-    try {
-      const dictResult = await db.query(`
-        SELECT data FROM zo_dictionaries
-        WHERE dictionary_name = 'justiceKinds' AND domain = 'court_decisions'
-        LIMIT 1
-      `);
-      if (dictResult.rows[0]?.data) {
-        const items = dictResult.rows[0].data;
-        if (Array.isArray(items)) {
-          for (const item of items) {
-            if (item.justice_kind != null && item.name) {
-              kindNames[String(item.justice_kind)] = item.name;
-            }
-          }
-        }
-      }
-    } catch { /* dictionary not available */ }
 
     const result = await db.query(`
       SELECT
@@ -487,23 +470,6 @@ export function createAdminScrapingRoutes(
       const years = Math.min(5, Math.max(1, Number(req.query.years || 3)));
 
       const kindNames: Record<string, string> = {};
-      try {
-        const dictResult = await db.query(`
-          SELECT data FROM zo_dictionaries
-          WHERE dictionary_name = 'justiceKinds' AND domain = 'court_decisions'
-          LIMIT 1
-        `);
-        if (dictResult.rows[0]?.data) {
-          const items = dictResult.rows[0].data;
-          if (Array.isArray(items)) {
-            for (const item of items) {
-              if (item.justice_kind != null && item.name) {
-                kindNames[String(item.justice_kind)] = item.name;
-              }
-            }
-          }
-        }
-      } catch { /* dictionary not available */ }
 
       const FALLBACK_NAMES: Record<string, string> = {
         '1': 'Цивільне', '2': 'Адміністративне', '3': 'Господарське',

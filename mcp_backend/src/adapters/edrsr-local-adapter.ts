@@ -480,30 +480,6 @@ export class EdsrLocalAdapter {
 
   // ==================== COST TRACKING ====================
 
-  private async trackZOUsage(endpoint: string, cached: boolean): Promise<void> {
-    const context = requestContext.getStore();
-    if (!context || !this.costTracker) {
-      return;
-    }
-
-    try {
-      await this.costTracker.recordZOCall({
-        requestId: context.requestId,
-        endpoint: endpoint,
-        cached: cached,
-      });
-
-      if (!cached) {
-        logger.debug('ZO API call tracked', {
-          requestId: context.requestId,
-          endpoint,
-        });
-      }
-    } catch (error) {
-      logger.error('Failed to track ZO usage:', error);
-    }
-  }
-
   private async trackSecondLayerUsage(
     operation: string,
     docId: string | number,

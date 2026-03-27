@@ -654,8 +654,6 @@ export class ZOAdapter {
 
     if (cached) {
       logger.debug('Cache hit', { endpoint });
-      // Track cached request (won't count in API calls)
-      await this.trackZOUsage(endpoint, true);
       return cached;
     }
 
@@ -698,9 +696,6 @@ export class ZOAdapter {
 
             const data = response.data;
             await this.setCache(cacheKey, data);
-
-            // Track successful API call (not cached)
-            await this.trackZOUsage(endpoint, false);
 
             return data;
           } finally {
@@ -1519,31 +1514,6 @@ export class ZOAdapter {
       data: [response],
       total: 1,
     };
-  }
-
-  private async trackZOUsage(endpoint: string, cached: boolean): Promise<void> {
-    const context = requestContext.getStore();
-    if (!context || !this.costTracker) {
-      return;
-    }
-
-    try {
-      await this.costTracker.recordZOCall({
-        requestId: context.requestId,
-        endpoint: endpoint,
-        cached: cached,
-      });
-
-      if (!cached) {
-        logger.debug('ZO API call tracked', {
-          requestId: context.requestId,
-          endpoint,
-        });
-      }
-    } catch (error) {
-      logger.error('Failed to track ZO usage:', error);
-      // Don't throw - we don't want to interrupt the main request
-    }
   }
 
   private async trackSecondLayerUsage(

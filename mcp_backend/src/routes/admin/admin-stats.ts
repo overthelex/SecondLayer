@@ -254,10 +254,9 @@ export function createAdminStatsRoutes(
         SELECT
           COALESCE(SUM(openai_cost_usd), 0) as openai_cost,
           COALESCE(SUM(anthropic_cost_usd), 0) as anthropic_cost,
-          COALESCE(SUM(zakononline_cost_usd), 0) as zakononline_cost,
           COALESCE(SUM(secondlayer_cost_usd), 0) as secondlayer_cost,
           COALESCE(SUM(openai_cost_usd), 0) + COALESCE(SUM(anthropic_cost_usd), 0) +
-            COALESCE(SUM(zakononline_cost_usd), 0) + COALESCE(SUM(secondlayer_cost_usd), 0) as total_cost,
+            COALESCE(SUM(secondlayer_cost_usd), 0) as total_cost,
           COUNT(*) as total_requests
         FROM cost_tracking
         WHERE created_at >= NOW() - $1::interval
@@ -297,13 +296,6 @@ export function createAdminStatsRoutes(
           AND status = 'completed'
       `, [interval]);
 
-      const zoCallsResult = await db.query(`
-        SELECT COALESCE(SUM(zakononline_api_calls), 0) as calls
-        FROM cost_tracking
-        WHERE created_at >= NOW() - $1::interval
-          AND status = 'completed'
-      `, [interval]);
-
       const byProvider = [
         {
           provider: 'OpenAI',
@@ -321,11 +313,6 @@ export function createAdminStatsRoutes(
           provider: 'VoyageAI',
           cost_usd: parseFloat(voyageTotals.voyage_cost),
           tokens: parseInt(voyageTotals.voyage_tokens || '0'),
-        },
-        {
-          provider: 'ZakonOnline',
-          cost_usd: parseFloat(totals.zakononline_cost),
-          calls: parseInt(zoCallsResult.rows[0]?.calls || '0'),
         },
         {
           provider: 'SecondLayer API',
@@ -428,7 +415,6 @@ export function createAdminStatsRoutes(
           DATE(created_at) as date,
           COALESCE(SUM(openai_cost_usd), 0) as openai,
           COALESCE(SUM(anthropic_cost_usd), 0) as anthropic,
-          COALESCE(SUM(zakononline_cost_usd), 0) as zakononline,
           COALESCE(SUM(secondlayer_cost_usd), 0) as secondlayer,
           COALESCE(SUM(voyage_cost_usd), 0) as voyage
         FROM cost_tracking
@@ -442,7 +428,6 @@ export function createAdminStatsRoutes(
         date: row.date,
         openai: parseFloat(row.openai),
         anthropic: parseFloat(row.anthropic),
-        zakononline: parseFloat(row.zakononline),
         secondlayer: parseFloat(row.secondlayer),
         voyage: parseFloat(row.voyage),
       }));
@@ -456,7 +441,6 @@ export function createAdminStatsRoutes(
         totals: {
           openai_cost_usd: parseFloat(totals.openai_cost),
           anthropic_cost_usd: parseFloat(totals.anthropic_cost),
-          zakononline_cost_usd: parseFloat(totals.zakononline_cost),
           secondlayer_cost_usd: parseFloat(totals.secondlayer_cost),
           voyage_cost_usd: voyageCostUsd,
           total_cost_usd: parseFloat(totals.total_cost) + voyageCostUsd,
@@ -491,7 +475,6 @@ export function createAdminStatsRoutes(
           COALESCE(SUM(ct.total_cost_usd), 0)::float as total_cost_usd,
           COALESCE(SUM(ct.openai_cost_usd), 0)::float as openai_cost_usd,
           COALESCE(SUM(ct.anthropic_cost_usd), 0)::float as anthropic_cost_usd,
-          COALESCE(SUM(ct.zakononline_cost_usd), 0)::float as zakononline_cost_usd,
           COALESCE(SUM(ct.voyage_cost_usd), 0)::float as voyage_cost_usd,
           COALESCE(SUM(ct.secondlayer_cost_usd), 0)::float as secondlayer_cost_usd,
           MAX(ct.created_at) as last_request_at

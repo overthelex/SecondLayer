@@ -147,32 +147,6 @@ export function createAdminImportRoutes(
         });
       }
 
-      // 5. ZO Dictionaries
-      const dictUpdates = await db.query(`
-        SELECT
-          id, dictionary_name, domain,
-          updated_at, created_at
-        FROM zo_dictionaries
-        WHERE updated_at >= NOW() - $1::integer * INTERVAL '1 hour'
-        ORDER BY updated_at DESC
-        LIMIT $2
-      `, [hours, samplesPerSource]);
-
-      if (dictUpdates.rows.length > 0) {
-        samples.push({
-          source: 'dictionaries',
-          source_name: 'Довідники',
-          count: dictUpdates.rows.length,
-          last_import: dictUpdates.rows[0]?.updated_at,
-          records: dictUpdates.rows.map((r: any) => ({
-            id: r.id,
-            name: r.dictionary_name,
-            domain: r.domain,
-            updated_at: r.updated_at,
-          })),
-        });
-      }
-
       // Summary stats
       const summaryResult = await db.query(`
         SELECT
@@ -221,7 +195,7 @@ export function createAdminImportRoutes(
     async function fetchMainDbStats(dbInstance: IDatabase) {
       const tableList = [
         'documents', 'document_sections', 'legislation', 'legislation_articles',
-        'legislation_chunks', 'users', 'conversations', 'upload_sessions', 'zo_dictionaries',
+        'legislation_chunks', 'users', 'conversations', 'upload_sessions',
       ];
       const tables: Record<string, number> = {};
       for (const t of tableList) {

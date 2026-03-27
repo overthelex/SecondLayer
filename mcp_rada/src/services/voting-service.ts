@@ -397,7 +397,20 @@ Only return the JSON array, no additional text.
           $8, $9, $10, $11, $12,
           $13, $14, $15, NOW()
         )
-        ON CONFLICT (id) DO NOTHING
+        ON CONFLICT (session_date, question_number) WHERE question_number IS NOT NULL
+        DO UPDATE SET
+          session_number     = EXCLUDED.session_number,
+          question_text      = EXCLUDED.question_text,
+          bill_number        = EXCLUDED.bill_number,
+          question_type      = EXCLUDED.question_type,
+          total_voted        = EXCLUDED.total_voted,
+          voted_for          = EXCLUDED.voted_for,
+          voted_against      = EXCLUDED.voted_against,
+          voted_abstain      = EXCLUDED.voted_abstain,
+          voted_not_present  = EXCLUDED.voted_not_present,
+          result             = EXCLUDED.result,
+          votes              = EXCLUDED.votes,
+          metadata           = EXCLUDED.metadata
         RETURNING id
       `;
 
@@ -474,7 +487,6 @@ Only return the JSON array, no additional text.
         }
 
         records.push({
-          id: uuidv4(),
           session_date: new Date(date),
           question_number: raw.id_question ? Number(raw.id_question) : undefined,
           question_text: raw.name_question || undefined,
@@ -494,7 +506,6 @@ Only return the JSON array, no additional text.
     // Fallback: if no events had results, create one record from the question itself
     if (records.length === 0 && raw.id_question) {
       records.push({
-        id: uuidv4(),
         session_date: new Date(date),
         question_number: raw.id_question ? Number(raw.id_question) : undefined,
         question_text: raw.name_question || undefined,

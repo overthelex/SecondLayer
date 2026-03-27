@@ -1,15 +1,8 @@
 /**
- * ZakonOnline Dictionary Sync Script
- * Fetches all 10 dictionaries from ZakonOnline API and stores in PostgreSQL + Redis cache
+ * ZakonOnline Dictionary Sync Script — DEPRECATED
  *
- * Usage:
- *   npm run sync:dictionaries       # Build and run
- *   npm run sync:dictionaries:dev   # Run with ts-node-dev
- *
- * Dictionaries by domain:
- *   court_decisions: courts, instances, judgmentForms, justiceKinds, regions, judges
- *   legal_acts: documentTypes, authors (extracted from search results — API returns 403 on dictionary endpoints)
- *   court_practice: categories, types
+ * ZakonOnline API is no longer used. The zo_dictionaries table has been dropped.
+ * This script is kept for historical reference only and will exit immediately.
  */
 
 import { Database } from '../database/database.js';
@@ -429,11 +422,5 @@ async function syncDictionaries() {
   }
 }
 
-syncDictionaries()
-  .then(() => {
-    process.exit(0);
-  })
-  .catch((error) => {
-    logger.error('Fatal error:', error);
-    process.exit(1);
-  });
+logger.warn('sync-dictionaries: ZakonOnline API is deprecated. zo_dictionaries table has been dropped. This script is a no-op.');
+process.exit(0);

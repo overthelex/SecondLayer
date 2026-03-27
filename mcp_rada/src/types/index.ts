@@ -101,7 +101,7 @@ export interface LawChapter {
 }
 
 export interface VotingRecord {
-  id: string;
+  id?: string;
   session_date: Date;
   session_number?: number;
   question_number?: number;

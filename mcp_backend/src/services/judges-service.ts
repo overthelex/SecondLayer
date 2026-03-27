@@ -260,38 +260,9 @@ export class JudgesService {
     );
     const court_history: CourtHistoryEntry[] = historyResult.rows;
 
-    // 3. Match judge to ZO dictionary
-    let zo_id: number | null = null;
-    try {
-      const dictResult = await pool.query(
-        `SELECT data FROM zo_dictionaries WHERE domain = 'court_decisions' AND dictionary_name = 'judges' LIMIT 1`
-      );
-      if (dictResult.rows.length > 0) {
-        const judges: Array<{ id: number; title: string }> = dictResult.rows[0].data;
-        const normalizedName = basic.full_name.trim().toLowerCase();
-        const match = judges.find((j) => j.title.trim().toLowerCase() === normalizedName);
-        if (match) {
-          zo_id = match.id;
-          logger.info('[Judges] ZO match found', { identifier, zo_id, name: basic.full_name });
-        } else {
-          logger.info('[Judges] No ZO match for judge', { identifier, name: basic.full_name });
-        }
-      }
-    } catch (err) {
-      logger.warn('[Judges] ZO dictionary lookup failed', { error: (err as Error).message });
-    }
-
-    // 4. Fetch ZO stats if we have a match and adapter
-    let stats: JudgeStats | null = null;
-    if (zo_id && this.zoAdapter) {
-      try {
-        stats = await this.fetchZoStats(zo_id);
-      } catch (err) {
-        logger.warn('[Judges] ZO stats fetch failed, returning profile without stats', {
-          identifier, zo_id, error: (err as Error).message,
-        });
-      }
-    }
+    // ZO dictionary lookup removed — ZakonOnline API deprecated
+    const zo_id: number | null = null;
+    const stats: JudgeStats | null = null;
 
     const profile: JudgeProfile = { basic, court_history, zo_id, stats };
 

@@ -540,7 +540,7 @@ export function createAdminMetricsRoutes(
       const lastHourResult = await db.query(`
         SELECT COALESCE(SUM(
           COALESCE(openai_cost_usd, 0) + COALESCE(anthropic_cost_usd, 0) +
-          COALESCE(zakononline_cost_usd, 0) + COALESCE(secondlayer_cost_usd, 0)
+          COALESCE(secondlayer_cost_usd, 0)
         ), 0) as total
         FROM cost_tracking
         WHERE created_at >= NOW() - INTERVAL '1 hour'
@@ -586,7 +586,7 @@ export function createAdminMetricsRoutes(
           tool_name,
           SUM(
             COALESCE(openai_cost_usd, 0) + COALESCE(anthropic_cost_usd, 0) +
-            COALESCE(zakononline_cost_usd, 0) + COALESCE(secondlayer_cost_usd, 0)
+            COALESCE(secondlayer_cost_usd, 0)
           ) as total_cost
         FROM cost_tracking
         WHERE created_at >= NOW() - INTERVAL '7 days'

@@ -1,5 +1,5 @@
 import { BaseCostTracker, AdditionalCostResult } from '@secondlayer/shared';
-import { CostEstimate, CostBreakdown, ZOCallRecord } from '@secondlayer/shared';
+import { CostEstimate, CostBreakdown } from '@secondlayer/shared';
 import { Database } from '../database/database.js';
 import { logger } from '../utils/logger.js';
 import { maskSensitive, sanitizeId } from '../utils/sanitize-log.js';
@@ -12,7 +12,6 @@ export class CostTracker extends BaseCostTracker {
   constructor(db: Database) {
     super(db, {
       enableOpenAI: true,
-      enableZakonOnline: true,
       enableSecondLayer: true,
     });
   }
@@ -29,32 +28,6 @@ export class CostTracker extends BaseCostTracker {
     this.metricsCallback = callback;
   }
 
-  private calculateZOCostPerCall(monthlyTotal: number): number {
-    if (monthlyTotal < 10000) {
-      return 0.00714;
-    } else if (monthlyTotal < 20000) {
-      return 0.00690;
-    } else if (monthlyTotal < 30000) {
-      return 0.00667;
-    } else if (monthlyTotal < 50000) {
-      return 0.00643;
-    } else {
-      return 0.00238;
-    }
-  }
-
-  async getMonthlyZOCallCount(): Promise<number> {
-    const now = new Date();
-    const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-    const result = await this.db.query(
-      'SELECT zakononline_total_calls FROM monthly_api_usage WHERE year_month = $1',
-      [yearMonth]
-    );
-
-    return result.rows[0]?.zakononline_total_calls || 0;
-  }
-
   override async createTrackingRecord(params: {
     requestId: string;
     toolName: string;
@@ -63,13 +36,11 @@ export class CostTracker extends BaseCostTracker {
     userQuery: string;
     queryParams: any;
   }): Promise<void> {
-    const monthlyTotal = await this.getMonthlyZOCallCount();
-
     await this.db.query(
       `INSERT INTO cost_tracking (
         request_id, tool_name, client_key, user_id, user_query, query_params,
-        zakononline_monthly_total, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         params.requestId,
         params.toolName,
@@ -77,7 +48,6 @@ export class CostTracker extends BaseCostTracker {
         params.userId || null,
         (params.userQuery?.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') || '').substring(0, 500),
         JSON.stringify(params.queryParams),
-        monthlyTotal,
         'pending',
       ]
     );
@@ -88,61 +58,6 @@ export class CostTracker extends BaseCostTracker {
       userId: sanitizeId(params.userId || ''),
       clientKeyPrefix: maskedKey,
     });
-  }
-
-  async recordZOCall(params: {
-    requestId: string;
-    endpoint: string;
-    cached: boolean;
-  }): Promise<void> {
-    if (params.cached) {
-      logger.debug('Skipping cached ZO call', {
-        requestId: params.requestId,
-        endpoint: params.endpoint,
-      });
-      return;
-    }
-
-    const monthlyTotal = await this.getMonthlyZOCallCount();
-    const costPerCall = this.calculateZOCostPerCall(monthlyTotal);
-
-    const callRecord: ZOCallRecord = {
-      endpoint: params.endpoint,
-      timestamp: new Date().toISOString(),
-      cached: params.cached,
-    };
-
-    try {
-      await this.db.query(
-        `UPDATE cost_tracking
-         SET zakononline_api_calls = zakononline_api_calls + 1,
-             zakononline_cost_usd = zakononline_cost_usd + $1,
-             zakononline_calls = zakononline_calls || $2::jsonb
-         WHERE request_id = $3`,
-        [costPerCall, JSON.stringify([callRecord]), params.requestId]
-      );
-
-      const now = new Date();
-      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-      await this.db.query(
-        `INSERT INTO monthly_api_usage (year_month, zakononline_total_calls, zakononline_total_cost_usd)
-         VALUES ($1, 1, $2)
-         ON CONFLICT (year_month) DO UPDATE
-         SET zakononline_total_calls = monthly_api_usage.zakononline_total_calls + 1,
-             zakononline_total_cost_usd = monthly_api_usage.zakononline_total_cost_usd + $2,
-             updated_at = NOW()`,
-        [yearMonth, costPerCall]
-      );
-
-      logger.debug('ZO API call recorded', {
-        requestId: params.requestId,
-        endpoint: params.endpoint,
-        cost: `$${costPerCall.toFixed(6)}`,
-      });
-    } catch (error) {
-      logger.error('Failed to record ZO call:', error);
-    }
   }
 
   async recordRemoteServiceCall(params: {
@@ -194,36 +109,26 @@ export class CostTracker extends BaseCostTracker {
   }): Promise<CostEstimate> {
     const notes: string[] = [];
     let estimatedTokens = 0;
-    let estimatedZOCalls = 0;
 
     switch (params.reasoningBudget) {
       case 'quick':
         estimatedTokens = 1000;
-        estimatedZOCalls = 1;
         break;
       case 'standard':
         estimatedTokens = 3000;
-        estimatedZOCalls = 2;
         break;
       case 'deep':
         estimatedTokens = 5000;
-        estimatedZOCalls = 5;
         break;
     }
 
     estimatedTokens += Math.floor(params.queryLength / 4);
 
     if (params.toolName === 'search_legal_precedents') {
-      estimatedZOCalls += 1;
       notes.push('Basic precedent search');
     } else if (params.toolName.includes('search')) {
-      estimatedZOCalls += 1;
       notes.push('Search operation');
     }
-
-    const monthlyZOTotal = await this.getMonthlyZOCallCount();
-    const zoCostPerCall = this.calculateZOCostPerCall(monthlyZOTotal);
-    const zoEstimatedCost = estimatedZOCalls * zoCostPerCall;
 
     let estimatedSecondLayerCalls = 0;
     if (params.toolName === 'search_legal_precedents' || params.toolName.includes('search')) {
@@ -237,13 +142,11 @@ export class CostTracker extends BaseCostTracker {
     const avgCostPer1kTokens = 0.002;
     const openaiEstimatedCost = (estimatedTokens / 1000) * avgCostPer1kTokens;
 
-    const totalUsd = openaiEstimatedCost + zoEstimatedCost + secondLayerEstimatedCost;
+    const totalUsd = openaiEstimatedCost + secondLayerEstimatedCost;
 
     return {
       openai_estimated_tokens: estimatedTokens,
       openai_estimated_cost_usd: openaiEstimatedCost,
-      zakononline_estimated_calls: estimatedZOCalls,
-      zakononline_estimated_cost_usd: zoEstimatedCost,
       secondlayer_estimated_calls: estimatedSecondLayerCalls,
       secondlayer_estimated_cost_usd: secondLayerEstimatedCost,
       total_estimated_cost_usd: totalUsd,
@@ -252,21 +155,9 @@ export class CostTracker extends BaseCostTracker {
   }
 
   protected override async calculateAdditionalCosts(record: any): Promise<AdditionalCostResult> {
-    const zakononlineCostUsd = Number(record.zakononline_cost_usd || 0);
-    const zoMonthlyTotal = record.zakononline_monthly_total || 0;
-
     return {
-      additionalCostUsd: zakononlineCostUsd,
+      additionalCostUsd: 0,
       additionalBreakdownSections: {
-        zakononline: {
-          total_calls: record.zakononline_api_calls || 0,
-          monthly_total_before: zoMonthlyTotal,
-          monthly_total_after: zoMonthlyTotal + (record.zakononline_api_calls || 0),
-          total_cost_usd: zakononlineCostUsd,
-          current_tier: this.getTierName(zoMonthlyTotal),
-          next_tier_at: this.getNextTierThreshold(zoMonthlyTotal),
-          calls: record.zakononline_calls || [],
-        },
         secondlayer: {
           total_calls: record.secondlayer_api_calls || 0,
           monthly_total_before: record.secondlayer_monthly_total || 0,

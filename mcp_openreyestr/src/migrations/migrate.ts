@@ -1,7 +1,8 @@
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import dotenv from 'dotenv';
 import { Database } from '../database/database';
+import { logger } from '../utils/logger';
 
 dotenv.config();
 
@@ -9,67 +10,72 @@ async function runMigrations() {
   const db = new Database();
 
   try {
-    console.log('Running migrations...');
+    await db.connect();
+    logger.info('Connected to database, running migrations...');
 
-    const pool = db.getPool();
-
-    // Create migrations tracking table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS migrations (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) UNIQUE NOT NULL,
-        executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+    // Create migration tracking table if it doesn't exist
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        filename TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ DEFAULT NOW()
+      )
     `);
 
-    // Read migration files
-    const migrations = [
-      '001_initial_schema.sql',
-      '002_add_cost_tracking.sql',
-      '003_add_notaries_experts_arbitration.sql',
-      '004_add_remaining_registries.sql',
-      '005_widen_varchar_columns.sql',
-      '006_widen_remaining_varchar_columns.sql',
-      '007_add_creditor_name_fts_index.sql',
-      '008_add_content_hash.sql',
-      '009_due_diligence_tables.sql',
-      '010_rnbo_sanctions_and_prozorro.sql',
-      '011_tax_registries.sql',
-      '012_street_renamings.sql',
-      '013_fix_fts_language.sql',
-    ];
+    // Auto-discover all .sql files in the migrations directory, sorted alphabetically
+    const migrationsDir = __dirname;
+    const files = readdirSync(migrationsDir)
+      .filter(f => f.endsWith('.sql'))
+      .sort();
 
-    for (const migrationFile of migrations) {
-      // Check if migration was already executed
-      const result = await pool.query(
-        'SELECT * FROM migrations WHERE name = $1',
-        [migrationFile]
+    logger.info(`Found ${files.length} migration files`);
+
+    for (const file of files) {
+      // Check if migration was already applied
+      const result = await db.query(
+        'SELECT 1 FROM schema_migrations WHERE filename = $1',
+        [file]
       );
 
       if (result.rows.length > 0) {
-        console.log(`Migration ${migrationFile} already executed, skipping...`);
+        logger.info(`Migration ${file} already applied, skipping...`);
         continue;
       }
 
-      console.log(`Executing migration: ${migrationFile}`);
-      const sql = readFileSync(join(__dirname, migrationFile), 'utf-8');
+      const migrationPath = join(migrationsDir, file);
+      const sql = readFileSync(migrationPath, 'utf-8');
 
-      await pool.query(sql);
-      await pool.query(
-        'INSERT INTO migrations (name) VALUES ($1)',
-        [migrationFile]
-      );
-
-      console.log(`Migration ${migrationFile} completed successfully`);
+      try {
+        await db.query(sql);
+        await db.query(
+          'INSERT INTO schema_migrations (filename) VALUES ($1)',
+          [file]
+        );
+        logger.info(`Migration ${file} completed successfully`);
+      } catch (error: any) {
+        // Log but don't fail on "already exists" errors (safety net for pre-tracking migrations)
+        if (
+          error.message.includes('already exists') ||
+          error.message.includes('duplicate') ||
+          error.message.includes('is not unique')
+        ) {
+          await db.query(
+            'INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING',
+            [file]
+          );
+          logger.info(`Migration ${file} already applied (skipped duplicate), marking as done`);
+        } else {
+          throw error;
+        }
+      }
     }
 
-    console.log('All migrations completed!');
-  } catch (error) {
-    console.error('Migration error:', error);
-    throw error;
-  } finally {
+    logger.info('All migrations completed!');
     await db.close();
+  } catch (error) {
+    logger.error('Migration failed:', error);
+    await db.close();
+    process.exit(1);
   }
 }
 
-runMigrations().catch(console.error);
+runMigrations();

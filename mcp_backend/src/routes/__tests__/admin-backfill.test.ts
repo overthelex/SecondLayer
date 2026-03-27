@@ -39,8 +39,6 @@ function createMockDb(overrides: Record<string, any> = {}) {
     },
     // UPDATE documents
     'UPDATE documents': { rows: [], rowCount: 1 },
-    // zo_dictionaries
-    zo_dictionaries: { rows: [] },
     ...overrides,
   };
 
