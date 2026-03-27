@@ -91,7 +91,7 @@ function splitIntoChunks(text: string): string[] {
 
 async function main() {
   const pool = new pg.Pool({ connectionString: DATABASE_URL });
-  const qdrant = new QdrantClient({ url: QDRANT_URL });
+  const qdrant = new QdrantClient({ url: QDRANT_URL, ...(process.env.QDRANT_API_KEY && { apiKey: process.env.QDRANT_API_KEY }) });
 
   // 1. Get all active docs with text for this user
   const { rows: docs } = await pool.query(

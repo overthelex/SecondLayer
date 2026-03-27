@@ -121,7 +121,8 @@ export class EdsrVectorizerService {
     this.voyageClient = new VoyageAIClient(apiKey);
 
     const qdrantUrl = process.env.QDRANT_URL || 'http://localhost:6333';
-    this.qdrant = new QdrantClient({ url: qdrantUrl });
+    const qdrantApiKey = process.env.QDRANT_API_KEY;
+    this.qdrant = new QdrantClient({ url: qdrantUrl, ...(qdrantApiKey && { apiKey: qdrantApiKey }) });
 
     this.concurrency = concurrency;
   }
