@@ -469,7 +469,7 @@ Pipeline:
 
       // Store full document embedding
       const embeddingTasks = [];
-      const fullTextTask = this.embeddingService.storeChunk({
+      const fullTextTask = this.embeddingService.storeVaultChunk({
         id: documentId,
         source: 'zakononline',
         doc_id: documentId,
@@ -487,7 +487,7 @@ Pipeline:
 
       // Store section embeddings (all generated above in batch)
       for (let i = 0; i < sections.length; i++) {
-        const sectionTask = this.embeddingService.storeChunk({
+        const sectionTask = this.embeddingService.storeVaultChunk({
           id: uuidv4(), // Must be a valid UUID for Qdrant
           source: 'zakononline',
           doc_id: documentId,
@@ -506,7 +506,7 @@ Pipeline:
 
       // Store chunk embeddings (for large documents)
       for (let i = 0; i < chunks.length; i++) {
-        const chunkTask = this.embeddingService.storeChunk({
+        const chunkTask = this.embeddingService.storeVaultChunk({
           id: uuidv4(),
           source: 'zakononline',
           doc_id: documentId,
@@ -1171,7 +1171,7 @@ Pipeline:
       const queryEmbedding = await this.embeddingService.generateEmbedding(args.query);
 
       // Search using embedding service
-      const searchResults = await this.embeddingService.searchSimilar(
+      const searchResults = await this.embeddingService.searchVaultSimilar(
         queryEmbedding,
         {}, // No filters at embedding level, we'll filter below
         limit * 2 // Get more for filtering
@@ -1358,7 +1358,7 @@ Pipeline:
         const embeddingTasks = [];
 
         // Store full document embedding
-        const fullTextTask = this.embeddingService.storeChunk({
+        const fullTextTask = this.embeddingService.storeVaultChunk({
           id: args.documentId,
           source: 'zakononline',
           doc_id: args.documentId,
@@ -1376,7 +1376,7 @@ Pipeline:
 
         // Store section embeddings
         for (let i = 0; i < sections.length; i++) {
-          const sectionTask = this.embeddingService.storeChunk({
+          const sectionTask = this.embeddingService.storeVaultChunk({
             id: uuidv4(),
             source: 'zakononline',
             doc_id: args.documentId,
@@ -1395,7 +1395,7 @@ Pipeline:
 
         // Store chunk embeddings
         for (let i = 0; i < chunks.length; i++) {
-          const chunkTask = this.embeddingService.storeChunk({
+          const chunkTask = this.embeddingService.storeVaultChunk({
             id: uuidv4(),
             source: 'zakononline',
             doc_id: args.documentId,
@@ -1479,7 +1479,7 @@ Pipeline:
 
       // Cleanup Qdrant vectors
       try {
-        await this.embeddingService.deleteByDocId(args.documentId);
+        await this.embeddingService.deleteVaultByDocId(args.documentId);
         logger.info('[Vault] Vectors deleted for document', { documentId: args.documentId });
       } catch (err: any) {
         logger.warn('[Vault] Failed to delete vectors', { documentId: args.documentId, error: err.message });

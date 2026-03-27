@@ -188,7 +188,7 @@ export class DocumentService {
   async getDocumentByZoId(zakononline_id: string): Promise<Document | null> {
     try {
       const result = await this.db.query(
-        'SELECT * FROM documents WHERE zakononline_id = $1',
+        'SELECT * FROM documents WHERE zakononline_id = $1 AND deleted_at IS NULL',
         [zakononline_id]
       );
 
@@ -212,7 +212,7 @@ export class DocumentService {
   async getDocumentById(id: string): Promise<Document | null> {
     try {
       const result = await this.db.query(
-        'SELECT * FROM documents WHERE id = $1',
+        'SELECT * FROM documents WHERE id = $1 AND deleted_at IS NULL',
         [id]
       );
 
@@ -269,7 +269,7 @@ export class DocumentService {
   async documentExists(zakononline_id: string): Promise<boolean> {
     try {
       const result = await this.db.query(
-        'SELECT 1 FROM documents WHERE zakononline_id = $1 LIMIT 1',
+        'SELECT 1 FROM documents WHERE zakononline_id = $1 AND deleted_at IS NULL LIMIT 1',
         [zakononline_id]
       );
       return result.rows.length > 0;
@@ -295,6 +295,7 @@ export class DocumentService {
           MIN(created_at) as oldest_document,
           MAX(created_at) as newest_document
         FROM documents
+        WHERE deleted_at IS NULL
       `);
 
       return result.rows[0];
@@ -313,7 +314,7 @@ export class DocumentService {
   ): Promise<{ documents: Document[]; total: number }> {
     const limit = options.limit || 20;
     const offset = options.offset || 0;
-    const conditions = ['user_id = $1'];
+    const conditions = ['user_id = $1', 'deleted_at IS NULL'];
     const params: any[] = [userId];
     let paramIndex = 2;
 
@@ -353,7 +354,7 @@ export class DocumentService {
    */
   async getDocumentForUser(id: string, userId: string): Promise<Document | null> {
     const result = await this.db.query(
-      `SELECT * FROM documents WHERE id = $1 AND user_id = $2`,
+      `SELECT * FROM documents WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
       [id, userId]
     );
     return result.rows[0] || null;

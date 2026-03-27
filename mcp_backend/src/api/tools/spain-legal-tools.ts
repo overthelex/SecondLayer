@@ -189,7 +189,7 @@ Util para analizar tendencias en la aplicacion del RGPD en Espana.`,
       // Full-text search across title and full_text
       conditions.push(`(
         to_tsvector('spanish', coalesce(title, '')) || to_tsvector('spanish', coalesce(full_text, ''))
-      ) @@ to_tsquery('spanish', $${paramIdx})`);
+      ) @@ plainto_tsquery('spanish', $${paramIdx})`);
       params.push(tsqueryWords);
       paramIdx++;
 
@@ -346,7 +346,7 @@ Util para analizar tendencias en la aplicacion del RGPD en Espana.`,
       const params: any[] = [];
       let paramIdx = 1;
 
-      conditions.push(`to_tsvector('spanish', coalesce(extracto, '')) @@ to_tsquery('spanish', $${paramIdx})`);
+      conditions.push(`to_tsvector('spanish', coalesce(extracto, '')) @@ plainto_tsquery('spanish', $${paramIdx})`);
       params.push(tsqueryWords);
       paramIdx++;
 

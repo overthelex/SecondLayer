@@ -104,7 +104,7 @@ services:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis_local_data:/data
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction --requirepass ${REDIS_PASSWORD:-local_redis_pass}
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy volatile-lru --requirepass ${REDIS_PASSWORD:-local_redis_pass}
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-local_redis_pass}", "ping"]
       interval: 5s

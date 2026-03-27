@@ -106,4 +106,22 @@ export interface IEmbeddingPort {
 
   /** Register a callback for tracking token usage. */
   setTokenUsageCallback(cb: TokenUsageCallback | undefined): void;
+
+  // ─── Vault collection (private attorney documents, separate from legislation) ───
+
+  /** Ensure the vault_documents collection exists with payload indexes. */
+  ensureVaultCollection(): Promise<void>;
+
+  /** Store a chunk in the vault collection. */
+  storeVaultChunk(chunk: import('../../types/index.js').EmbeddingChunk): Promise<string>;
+
+  /** Search vault collection with optional filters. */
+  searchVaultSimilar(
+    queryEmbedding: number[],
+    filters?: { doc_id?: string; matter_id?: string; user_id?: string; section_type?: SectionType },
+    limit?: number,
+  ): Promise<any[]>;
+
+  /** Delete all vault vectors for a document. */
+  deleteVaultByDocId(docId: string): Promise<void>;
 }

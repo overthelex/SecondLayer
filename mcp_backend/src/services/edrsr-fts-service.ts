@@ -148,12 +148,9 @@ export class EdsrFtsService {
     let extraJoin = '';
     if (filters.instance_code) {
       extraJoin = ` LEFT JOIN edrsr_courts c ON c.court_code = d.court_code`;
-      // instance_code condition already added above but references c.instance_code
-      // Fix: we need edrsr_documents for this, so force the join
-      if (!hasMetadataFilter) {
-        // Unlikely path — instance_code without other metadata filters
-        // Re-build from clause
-      }
+      conditions.push(`c.instance_code = $${paramIdx}`);
+      params.push(filters.instance_code);
+      paramIdx++;
     }
 
     const buildSelectFields = (withHeadline: boolean) => {
