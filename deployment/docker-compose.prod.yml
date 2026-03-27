@@ -639,6 +639,9 @@ services:
       NOWPAYMENTS_API_KEY: ${NOWPAYMENTS_API_KEY:-}
       NOWPAYMENTS_IPN_SECRET: ${NOWPAYMENTS_IPN_SECRET:-}
       NOWPAYMENTS_PUBLIC_KEY: ${NOWPAYMENTS_PUBLIC_KEY:-}
+      TURN_SERVER_URL: ${TURN_SERVER_URL:-}
+      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:-}
+      STUN_SERVER_URL: ${STUN_SERVER_URL:-stun:stun.l.google.com:19302}
 
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: Europe/Kiev
@@ -999,6 +1002,9 @@ services:
       NOWPAYMENTS_API_KEY: ${NOWPAYMENTS_API_KEY:-}
       NOWPAYMENTS_IPN_SECRET: ${NOWPAYMENTS_IPN_SECRET:-}
       NOWPAYMENTS_PUBLIC_KEY: ${NOWPAYMENTS_PUBLIC_KEY:-}
+      TURN_SERVER_URL: ${TURN_SERVER_URL:-}
+      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:-}
+      STUN_SERVER_URL: ${STUN_SERVER_URL:-stun:stun.l.google.com:19302}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: Europe/Kiev
     depends_on:
@@ -1413,8 +1419,7 @@ services:
     network_mode: host
     volumes:
       - ./coturn/turnserver.conf:/etc/turnserver.conf:ro
-    environment:
-      - TURN_SHARED_SECRET=${TURN_SHARED_SECRET}
+    command: ["-c", "/etc/turnserver.conf", "--static-auth-secret=${TURN_SHARED_SECRET}"]
     restart: unless-stopped
 
 volumes:
