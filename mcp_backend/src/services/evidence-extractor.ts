@@ -1,40 +1,42 @@
 // Proprietary implementation: @secondlayer/core (private repo)
 
-export interface ExtractedEvidence {
-  decisions: Array<{
-    id: string;
-    number: string;
-    court: string;
-    date: string;
-    summary: string;
-  }>;
-  citations: Array<{
-    law: string;
-    article: string;
-    text?: string;
-  }>;
-  vault_documents: Array<{
-    id: string;
-    name: string;
-    type: string;
-  }>;
+export interface Decision {
+  id: string;
+  number: string;
+  court: string;
+  date: string;
+  summary: string;
 }
 
-export class EvidenceExtractor {
-  constructor(...args: any[]) {}
+export interface Citation {
+  law: string;
+  article: string;
+  text?: string;
+}
 
-  extractFromToolResult(toolName: string, rawResult: unknown): ExtractedEvidence {
-    return { decisions: [], citations: [], vault_documents: [] };
-  }
+export interface VaultDocument {
+  id: string;
+  name: string;
+  type: string;
+}
 
-  extractNormsFromAnswer(answerText: string): Array<{ law: string; article: string; text?: string }> {
-    return [];
-  }
+export interface ExtractedEvidence {
+  decisions: Decision[];
+  citations: Citation[];
+  vault_documents: VaultDocument[];
+}
 
-  extractAllEvidence(
-    thinkingSteps: Array<{ tool: string; params: unknown; result: unknown }>,
-    answerText?: string
-  ): ExtractedEvidence {
-    return { decisions: [], citations: [], vault_documents: [] };
-  }
+export function extractFromToolResult(toolName: string, rawResult: unknown): ExtractedEvidence {
+  return { decisions: [], citations: [], vault_documents: [] };
+}
+
+export function extractNormsFromAnswer(answerText: string): Citation[] {
+  return [];
+}
+
+export function extractAllEvidence(
+  thinkingSteps: Array<{ tool: string; params: unknown; result: unknown }>,
+  answerText?: string
+): ExtractedEvidence {
+  return { decisions: [], citations: [], vault_documents: [] };
 }

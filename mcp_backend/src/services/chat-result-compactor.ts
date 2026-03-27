@@ -1,6 +1,6 @@
 // Proprietary implementation: @secondlayer/core (private repo)
 
-export class ChatResultCompactor {
+export class ResultCompactor {
   constructor(...args: any[]) {}
 
   summarize(result: unknown, limits: unknown): unknown {

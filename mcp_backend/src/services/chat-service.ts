@@ -35,8 +35,7 @@ export class ChatService {
     query: string,
     budget: string,
     userId?: string,
-    requestId?: string,
-    internetEnabled?: boolean
+    requestId?: string
   ): Promise<ChatPlanResult | null> {
     return null;
   }
