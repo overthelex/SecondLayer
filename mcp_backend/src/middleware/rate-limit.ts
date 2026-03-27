@@ -175,9 +175,9 @@ export const consultationRateLimit = createRateLimiter({
 });
 
 // Global API rate limiter — covers all /api/ routes as a baseline.
-// Raised to 1500/min to handle 20+ concurrent users behind Cloudflare (shared IP).
+// Raised to 3000/min to handle 20+ concurrent users behind Cloudflare (shared IP).
 export const globalApiRateLimit = createRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 1500,
+  maxRequests: 3000,
   keyPrefix: 'ratelimit:global-api',
 });
