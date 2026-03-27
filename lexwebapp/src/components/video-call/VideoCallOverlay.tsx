@@ -1,28 +1,28 @@
 import React, { useEffect, useRef } from 'react';
 import { useVideoCallStore } from '../../stores/videoCallStore';
-import { useVideoSignaling } from '../../hooks/useVideoSignaling';
 import { useWebRTC } from '../../hooks/useWebRTC';
 import { useSpeechTranscription } from '../../hooks/useSpeechTranscription';
 import { VideoCallControls } from './VideoCallControls';
 import { TranscriptionPanel } from './TranscriptionPanel';
-import { CallNotification } from './CallNotification';
+import type { useVideoSignaling } from '../../hooks/useVideoSignaling';
 
-export const VideoCallOverlay: React.FC = () => {
+interface VideoCallOverlayProps {
+  signaling: ReturnType<typeof useVideoSignaling>;
+}
+
+export const VideoCallOverlay: React.FC<VideoCallOverlayProps> = ({ signaling }) => {
   const {
     callState,
     callType,
-    consultationId,
     localStream,
     remoteStream,
     remoteUserName,
     callDuration,
     transcriptionEnabled,
-    incomingCall,
     incrementDuration,
   } = useVideoCallStore();
 
-  // Wire up signaling, WebRTC, and transcription hooks
-  const signaling = useVideoSignaling(consultationId);
+  // Wire up WebRTC and transcription hooks (signaling comes from parent)
   useWebRTC(signaling);
   useSpeechTranscription(signaling);
 
@@ -71,12 +71,7 @@ export const VideoCallOverlay: React.FC = () => {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  // Render incoming call notification
-  if (incomingCall && callState === 'idle') {
-    return <CallNotification />;
-  }
-
-  // Don't render overlay when idle
+  // Don't render overlay when idle (incoming call notification is handled by parent)
   if (callState === 'idle') {
     return null;
   }

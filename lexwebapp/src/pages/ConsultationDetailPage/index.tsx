@@ -12,7 +12,9 @@ import { SharedDocumentsSection } from '../../components/consultation/SharedDocu
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
 import { useConsultationStore } from '../../stores/consultationStore';
 import { VideoCallOverlay } from '../../components/video-call/VideoCallOverlay';
+import { CallNotification } from '../../components/video-call/CallNotification';
 import { useVideoCallStore } from '../../stores/videoCallStore';
+import { useVideoSignaling } from '../../hooks/useVideoSignaling';
 
 const STATUS_STEPS = ['pending', 'accepted', 'paid', 'in_progress', 'completed'];
 const STATUS_LABELS: Record<string, string> = {
@@ -36,6 +38,7 @@ export function ConsultationDetailPage() {
   const [activeModal, setActiveModal] = useState<'decline' | 'complete' | 'cancel' | null>(null);
 
   const callState = useVideoCallStore(s => s.callState);
+  const incomingCall = useVideoCallStore(s => s.incomingCall);
   const setConsultationIdForCall = useVideoCallStore(s => s.setConsultationId);
 
   // Set consultation ID in video call store
@@ -43,6 +46,43 @@ export function ConsultationDetailPage() {
     if (id) setConsultationIdForCall(id);
     return () => setConsultationIdForCall(null);
   }, [id, setConsultationIdForCall]);
+
+  // Always connect signaling WebSocket when viewing a consultation
+  const signaling = useVideoSignaling(id || null);
+
+  // When caller clicks call button and state goes to 'initiating', send the call-initiate message
+  const prevCallStateRef = useRef(callState);
+  useEffect(() => {
+    if (prevCallStateRef.current === 'idle' && callState === 'initiating' && consultation) {
+      const { remoteUserId, callType } = useVideoCallStore.getState();
+      if (remoteUserId && signaling.isConnected) {
+        signaling.initiateCall(callType, remoteUserId);
+      }
+    }
+    prevCallStateRef.current = callState;
+  }, [callState, consultation, signaling, signaling.isConnected]);
+
+  // Handle accept/reject events from CallNotification
+  useEffect(() => {
+    const handleAccept = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.sessionId) {
+        signaling.acceptCall(detail.sessionId);
+      }
+    };
+    const handleReject = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.sessionId) {
+        signaling.rejectCall(detail.sessionId);
+      }
+    };
+    window.addEventListener('video-call-accept', handleAccept);
+    window.addEventListener('video-call-reject', handleReject);
+    return () => {
+      window.removeEventListener('video-call-accept', handleAccept);
+      window.removeEventListener('video-call-reject', handleReject);
+    };
+  }, [signaling]);
 
   const handleStartVideoCall = () => {
     if (!consultation || !id) return;
@@ -607,9 +647,14 @@ export function ConsultationDetailPage() {
         </div>
       )}
 
-      {/* Video/Audio call overlay */}
+      {/* Incoming call notification (shown even when idle) */}
+      {incomingCall && callState === 'idle' && (
+        <CallNotification />
+      )}
+
+      {/* Video/Audio call overlay (active call) */}
       {id && callState !== 'idle' && (
-        <VideoCallOverlay />
+        <VideoCallOverlay signaling={signaling} />
       )}
     </div>
   );
