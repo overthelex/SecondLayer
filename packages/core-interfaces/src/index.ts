@@ -23,6 +23,7 @@ export interface ChatRequest {
   budget?: BudgetKey;
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
   requestId?: string;
+  internetEnabled?: boolean;
 }
 
 export interface ChatPlanRequest {
@@ -31,6 +32,7 @@ export interface ChatPlanRequest {
   userId?: string;
   budget?: BudgetKey;
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  internetEnabled?: boolean;
 }
 
 export interface ChatPlan {

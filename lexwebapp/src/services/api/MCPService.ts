@@ -121,7 +121,8 @@ export class MCPService extends BaseService {
 
   async requestPlan(
     query: string,
-    budget: string = 'standard'
+    budget: string = 'standard',
+    internetEnabled?: boolean
   ): Promise<{ plan: import('../../types/models/Message').ExecutionPlan | null; planSessionId: string | null }> {
     const response = await fetch(`${this.API_URL}/chat/plan`, {
       method: 'POST',
@@ -129,7 +130,7 @@ export class MCPService extends BaseService {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.getAuthToken()}`,
       },
-      body: JSON.stringify({ query, budget }),
+      body: JSON.stringify({ query, budget, internetEnabled }),
     });
 
     if (!response.ok) {
