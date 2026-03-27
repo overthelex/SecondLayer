@@ -172,7 +172,7 @@ jobs:
           CORE_TMP=$(mktemp -d)
           gh repo clone overthelex/secondlayer-core "$CORE_TMP" -- --depth 1
           cp -f "$CORE_TMP"/src/services/* mcp_backend/src/services/
-          cp -f "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
+          cp -rf "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
           rm -rf "$CORE_TMP"
 
       - name: Build & test backend
