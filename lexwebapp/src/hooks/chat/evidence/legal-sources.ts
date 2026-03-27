@@ -1,7 +1,6 @@
 import type { Decision, Citation } from '../../../types/models/Message';
-import type { EvidenceResult } from './types';
-
-import type { ToolResultData } from './types';
+import type { EvidenceResult, ToolResultData } from './types';
+import { formatLegislationText } from './format-legislation';
 
 export function extractRetrieveLegalSourcesEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
   if (toolName !== 'retrieve_legal_sources') {
@@ -26,7 +25,7 @@ export function extractRetrieveLegalSourcesEvidence(toolName: string, parsed: To
   if (parsed.laws && Array.isArray(parsed.laws)) {
     for (const l of parsed.laws) {
       citations.push({
-        text: l.text || l.full_text || l.title || '',
+        text: formatLegislationText(l.text || l.full_text || l.title || ''),
         source: l.article ? `${l.title || l.rada_id || ''}, ст. ${l.article}` : (l.title || 'Норма'),
       });
     }

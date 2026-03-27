@@ -1,5 +1,6 @@
 import type { Citation } from '../../../types/models/Message';
 import type { EvidenceResult, ToolResultData } from './types';
+import { formatLegislationText } from './format-legislation';
 
 const PROCEDURAL_NORM_TOOLS = [
   'search_procedural_norms',
@@ -20,7 +21,7 @@ export function extractProceduralNormEvidence(toolName: string, rawResult: ToolR
       toolName === 'search_procedural_norms' ? 'Процесуальна норма' :
       toolName === 'calculate_procedural_deadlines' ? 'Процесуальні строки' :
       'Процесуальний чеклист';
-    citations.push({ text: textContent, source: sourceLabel });
+    citations.push({ text: formatLegislationText(textContent), source: sourceLabel });
   }
 
   return { decisions: [], citations, documents: [] };
