@@ -58,8 +58,8 @@ export class OpenReyestrTools {
       let paramIndex = 1;
 
       if (query) {
-        conditions.push(`(name ILIKE $${paramIndex} OR short_name ILIKE $${paramIndex})`);
-        values.push(`%${query}%`);
+        conditions.push(`to_tsvector('simple', name) @@ plainto_tsquery('simple', $${paramIndex})`);
+        values.push(query);
         paramIndex++;
       }
 
@@ -83,12 +83,16 @@ export class OpenReyestrTools {
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+      const orderBy = query
+        ? `ORDER BY ts_rank(to_tsvector('simple', name), plainto_tsquery('simple', $1)) DESC`
+        : `ORDER BY id DESC`;
+
       values.push(limit, offset);
       const result = await this.pool.query(
         `SELECT id, record, edrpou, name, short_name, opf, stan, registration, 'UO' as entity_type
          FROM legal_entities
          ${whereClause}
-         ORDER BY id DESC
+         ${orderBy}
          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
         values
       );
@@ -103,8 +107,8 @@ export class OpenReyestrTools {
       let paramIndex = 1;
 
       if (query) {
-        conditions.push(`name ILIKE $${paramIndex}`);
-        values.push(`%${query}%`);
+        conditions.push(`to_tsvector('simple', name) @@ plainto_tsquery('simple', $${paramIndex})`);
+        values.push(query);
         paramIndex++;
       }
 
@@ -122,12 +126,16 @@ export class OpenReyestrTools {
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+      const orderBy = query
+        ? `ORDER BY ts_rank(to_tsvector('simple', name), plainto_tsquery('simple', $1)) DESC`
+        : `ORDER BY id DESC`;
+
       values.push(limit, offset);
       const result = await this.pool.query(
         `SELECT id, record, name, stan, registration, 'FOP' as entity_type
          FROM individual_entrepreneurs
          ${whereClause}
-         ORDER BY id DESC
+         ${orderBy}
          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
         values
       );
@@ -142,8 +150,8 @@ export class OpenReyestrTools {
       let paramIndex = 1;
 
       if (query) {
-        conditions.push(`(name ILIKE $${paramIndex} OR short_name ILIKE $${paramIndex})`);
-        values.push(`%${query}%`);
+        conditions.push(`to_tsvector('simple', name) @@ plainto_tsquery('simple', $${paramIndex})`);
+        values.push(query);
         paramIndex++;
       }
 
@@ -167,12 +175,16 @@ export class OpenReyestrTools {
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+      const orderBy = query
+        ? `ORDER BY ts_rank(to_tsvector('simple', name), plainto_tsquery('simple', $1)) DESC`
+        : `ORDER BY id DESC`;
+
       values.push(limit, offset);
       const result = await this.pool.query(
         `SELECT id, record, edrpou, name, short_name, type_subject, type_branch, stan, registration, 'FSU' as entity_type
          FROM public_associations
          ${whereClause}
-         ORDER BY id DESC
+         ${orderBy}
          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
         values
       );
@@ -357,9 +369,9 @@ export class OpenReyestrTools {
        LEFT JOIN legal_entities le ON b.entity_type = 'UO' AND b.entity_record = le.record
        LEFT JOIN individual_entrepreneurs ie ON b.entity_type = 'FOP' AND b.entity_record = ie.record
        LEFT JOIN public_associations pa ON b.entity_type = 'FSU' AND b.entity_record = pa.record
-       WHERE b.beneficiary_info ILIKE $1
+       WHERE to_tsvector('simple', b.beneficiary_info) @@ plainto_tsquery('simple', $1)
        LIMIT $2`,
-      [`%${query}%`, limit]
+      [query, limit]
     );
 
     return result.rows;
@@ -590,7 +602,7 @@ export class OpenReyestrTools {
     let paramIndex = 1;
 
     if (query) {
-      conditions.push(`to_tsvector('russian', debtor_name) @@ plainto_tsquery('russian', $${paramIndex})`);
+      conditions.push(`to_tsvector('simple', debtor_name) @@ plainto_tsquery('simple', $${paramIndex})`);
       values.push(query);
       paramIndex++;
     }
@@ -632,7 +644,7 @@ export class OpenReyestrTools {
     let paramIndex = 1;
 
     if (query) {
-      conditions.push(`to_tsvector('russian', debtor_name) @@ plainto_tsquery('russian', $${paramIndex})`);
+      conditions.push(`to_tsvector('simple', debtor_name) @@ plainto_tsquery('simple', $${paramIndex})`);
       values.push(query);
       paramIndex++;
     }
@@ -642,7 +654,7 @@ export class OpenReyestrTools {
       paramIndex++;
     }
     if (creditor_name) {
-      conditions.push(`to_tsvector('russian', creditor_name) @@ plainto_tsquery('russian', $${paramIndex})`);
+      conditions.push(`to_tsvector('simple', creditor_name) @@ plainto_tsquery('simple', $${paramIndex})`);
       values.push(creditor_name);
       paramIndex++;
     }
@@ -679,7 +691,7 @@ export class OpenReyestrTools {
     let paramIndex = 1;
 
     if (query) {
-      conditions.push(`to_tsvector('russian', debtor_name) @@ plainto_tsquery('russian', $${paramIndex})`);
+      conditions.push(`to_tsvector('simple', debtor_name) @@ plainto_tsquery('simple', $${paramIndex})`);
       values.push(query);
       paramIndex++;
     }
@@ -773,7 +785,7 @@ export class OpenReyestrTools {
     let paramIndex = 1;
 
     if (query) {
-      conditions.push(`to_tsvector('russian', method_name) @@ plainto_tsquery('russian', $${paramIndex})`);
+      conditions.push(`to_tsvector('simple', method_name) @@ plainto_tsquery('simple', $${paramIndex})`);
       values.push(query);
       paramIndex++;
     }
@@ -810,7 +822,7 @@ export class OpenReyestrTools {
     let paramIndex = 1;
 
     if (query) {
-      conditions.push(`to_tsvector('russian', act_title) @@ plainto_tsquery('russian', $${paramIndex})`);
+      conditions.push(`to_tsvector('simple', act_title) @@ plainto_tsquery('simple', $${paramIndex})`);
       values.push(query);
       paramIndex++;
     }
@@ -857,7 +869,7 @@ export class OpenReyestrTools {
     let paramIndex = 1;
 
     if (query) {
-      conditions.push(`to_tsvector('russian', settlement_name) @@ plainto_tsquery('russian', $${paramIndex})`);
+      conditions.push(`to_tsvector('simple', settlement_name) @@ plainto_tsquery('simple', $${paramIndex})`);
       values.push(query);
       paramIndex++;
     }
@@ -899,7 +911,7 @@ export class OpenReyestrTools {
     let paramIndex = 1;
 
     if (query) {
-      conditions.push(`to_tsvector('russian', street_name) @@ plainto_tsquery('russian', $${paramIndex})`);
+      conditions.push(`to_tsvector('simple', street_name) @@ plainto_tsquery('simple', $${paramIndex})`);
       values.push(query);
       paramIndex++;
     }

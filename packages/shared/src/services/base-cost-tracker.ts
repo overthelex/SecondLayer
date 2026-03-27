@@ -131,6 +131,20 @@ export abstract class BaseCostTracker {
         ]
       );
 
+      // Record in monthly aggregates
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+      await this.db.query(
+        `INSERT INTO monthly_api_usage (year_month, openai_total_tokens, openai_total_cost_usd)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (year_month) DO UPDATE
+         SET openai_total_tokens = monthly_api_usage.openai_total_tokens + $2,
+             openai_total_cost_usd = monthly_api_usage.openai_total_cost_usd + $3,
+             updated_at = NOW()`,
+        [yearMonth, params.totalTokens, params.costUsd]
+      );
+
       logger.debug('OpenAI call recorded', {
         requestId: params.requestId,
         model: params.model,

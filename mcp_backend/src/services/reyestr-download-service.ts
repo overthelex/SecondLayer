@@ -69,7 +69,7 @@ export class ReyestrDownloadService {
     const zakonIds = docIds.map(id => `court_${id}`);
     const placeholders = zakonIds.map((_, i) => `$${i + 1}`).join(',');
     const rows = await this.db.query(
-      `SELECT zakononline_id FROM documents WHERE zakononline_id IN (${placeholders})`,
+      `SELECT zakononline_id FROM documents WHERE zakononline_id IN (${placeholders}) AND deleted_at IS NULL`,
       zakonIds
     );
 
@@ -136,7 +136,7 @@ export class ReyestrDownloadService {
   private async getCachedDecision(docId: string): Promise<DownloadedDecision | null> {
     const rows = await this.db.query(
       `SELECT d.id, d.title, d.case_number, d.court, d.date, d.dispute_category, d.full_text
-       FROM documents d WHERE d.zakononline_id = $1`,
+       FROM documents d WHERE d.zakononline_id = $1 AND d.deleted_at IS NULL`,
       [`court_${docId}`]
     );
     if (rows.rows.length === 0) return null;

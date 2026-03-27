@@ -231,8 +231,10 @@ export class DatabaseImporter {
     const data = JSON.stringify({
       n: entity.name, sn: entity.short_name, e: entity.edrpou, o: entity.opf,
       s: entity.stan, ac: entity.authorized_capital, r: entity.registration,
-      ti: entity.terminated_info, f: entity.founders?.length,
-      b: entity.beneficiaries?.length, sg: entity.signers?.length,
+      ti: entity.terminated_info,
+      f: entity.founders ? [...entity.founders].sort() : [],
+      b: entity.beneficiaries ? [...entity.beneficiaries].sort() : [],
+      sg: entity.signers ? [...entity.signers].sort() : [],
     });
     return createHash('sha256').update(data).digest('hex').slice(0, 32);
   }
@@ -249,7 +251,8 @@ export class DatabaseImporter {
     const data = JSON.stringify({
       n: entity.name, sn: entity.short_name, e: entity.edrpou, ts: entity.type_subject,
       tb: entity.type_branch, s: entity.stan, r: entity.registration,
-      ti: entity.terminated_info, f: entity.founders?.length,
+      ti: entity.terminated_info,
+      f: entity.founders ? [...entity.founders].sort() : [],
     });
     return createHash('sha256').update(data).digest('hex').slice(0, 32);
   }

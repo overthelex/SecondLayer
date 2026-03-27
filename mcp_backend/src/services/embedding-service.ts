@@ -8,6 +8,7 @@ const EMBEDDING_DIMENSION = 1024; // VoyageAI voyage-3.5
 const VOYAGE_MODEL = process.env.VOYAGEAI_EMBEDDING_MODEL || 'voyage-3.5';
 const MAX_CHUNK_TOKENS = 512;
 const CHUNK_OVERLAP = 50;
+const VAULT_COLLECTION = 'vault_documents';
 
 export type VoyageTokensCallback = (tokens: number, model: string, task: string) => void;
 
@@ -18,6 +19,7 @@ export class EmbeddingService implements IEmbeddingPort {
   private qdrant: QdrantClient;
   private collectionName = 'legal_sections';
   private initialized = false;
+  private vaultInitialized = false;
   private tokenUsageCallback?: VoyageTokensCallback;
 
   constructor() {
@@ -419,5 +421,110 @@ export class EmbeddingService implements IEmbeddingPort {
     } catch (error: any) {
       return { ok: false, error: error.message };
     }
+  }
+
+  // ─── Vault-specific methods (separate collection for private attorney documents) ───
+
+  async ensureVaultCollection(): Promise<void> {
+    if (this.vaultInitialized) return;
+
+    try {
+      const collections = await this.qdrant.getCollections();
+      const exists = collections.collections.some(c => c.name === VAULT_COLLECTION);
+
+      if (!exists) {
+        await this.qdrant.createCollection(VAULT_COLLECTION, {
+          vectors: { size: EMBEDDING_DIMENSION, distance: 'Cosine' },
+        });
+        logger.info(`Qdrant vault collection "${VAULT_COLLECTION}" created`);
+      }
+
+      // Ensure payload indexes for efficient filtering
+      const indexFields = ['doc_id', 'section_type', 'matter_id', 'user_id'];
+      for (const field of indexFields) {
+        try {
+          await this.qdrant.createPayloadIndex(VAULT_COLLECTION, {
+            field_name: field,
+            field_schema: 'keyword',
+          });
+        } catch {
+          // Index may already exist — safe to ignore
+        }
+      }
+
+      this.vaultInitialized = true;
+    } catch (error) {
+      logger.error('Failed to ensure vault collection:', error);
+      throw error;
+    }
+  }
+
+  async storeVaultChunk(chunk: EmbeddingChunk): Promise<string> {
+    await this.ensureVaultCollection();
+
+    const vectorId = chunk.id || uuidv4();
+    const payload: Record<string, any> = {
+      doc_id: chunk.doc_id,
+      section_type: chunk.section_type,
+      text: chunk.text,
+      date: chunk.metadata.date,
+      matter_id: (chunk.metadata as any).matter_id || null,
+      user_id: (chunk.metadata as any).user_id || null,
+    };
+
+    await this.qdrant.upsert(VAULT_COLLECTION, {
+      wait: true,
+      points: [{ id: vectorId, vector: chunk.embedding, payload }],
+    });
+
+    return vectorId;
+  }
+
+  async searchVaultSimilar(
+    queryEmbedding: number[],
+    filters?: { doc_id?: string; matter_id?: string; user_id?: string; section_type?: SectionType },
+    limit: number = 10,
+  ): Promise<any[]> {
+    await this.ensureVaultCollection();
+
+    const must: any[] = [];
+    if (filters) {
+      for (const [key, value] of Object.entries(filters)) {
+        if (value !== undefined && value !== null) {
+          must.push({ key, match: { value } });
+        }
+      }
+    }
+
+    const filter = must.length > 0 ? { must } : undefined;
+
+    const results = await this.qdrant.search(VAULT_COLLECTION, {
+      vector: queryEmbedding,
+      limit,
+      filter,
+      with_payload: true,
+    });
+
+    return results.map(r => ({
+      id: r.id,
+      score: r.score,
+      text: r.payload?.text,
+      doc_id: r.payload?.doc_id,
+      section_type: r.payload?.section_type,
+      metadata: {
+        date: r.payload?.date,
+        matter_id: r.payload?.matter_id,
+        user_id: r.payload?.user_id,
+      },
+    }));
+  }
+
+  async deleteVaultByDocId(docId: string): Promise<void> {
+    await this.ensureVaultCollection();
+
+    await this.qdrant.delete(VAULT_COLLECTION, {
+      filter: { must: [{ key: 'doc_id', match: { value: docId } }] },
+    });
+    logger.info('Deleted vault vectors for document', { docId });
   }
 }

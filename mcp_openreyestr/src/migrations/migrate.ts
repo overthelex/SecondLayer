@@ -36,6 +36,7 @@ async function runMigrations() {
       '010_rnbo_sanctions_and_prozorro.sql',
       '011_tax_registries.sql',
       '012_street_renamings.sql',
+      '013_fix_fts_language.sql',
     ];
 
     for (const migrationFile of migrations) {

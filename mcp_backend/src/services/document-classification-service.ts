@@ -81,7 +81,7 @@ export class DocumentClassificationService {
     if (documentIds && documentIds.length > 0) {
       query = `SELECT id, title, full_text, type, metadata
                FROM documents
-               WHERE user_id = $1 AND id = ANY($2)
+               WHERE user_id = $1 AND id = ANY($2) AND deleted_at IS NULL
                ORDER BY created_at DESC`;
       params = [userId, documentIds];
     } else {
@@ -480,7 +480,7 @@ export class DocumentClassificationService {
            COUNT(*) FILTER (WHERE type = 'internal') as type_internal,
            COUNT(*) FILTER (WHERE type = 'other') as type_other
          FROM documents
-         WHERE user_id = $1`,
+         WHERE user_id = $1 AND deleted_at IS NULL`,
         [userId]
       ),
       this.db.query(
