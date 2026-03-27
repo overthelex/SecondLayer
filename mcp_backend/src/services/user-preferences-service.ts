@@ -57,7 +57,6 @@ export interface CostEstimate {
   estimated_api_calls: number;
   breakdown: {
     openai_tokens: number;
-    zakononline_calls: number;
     secondlayer_docs: number;
   };
 }
@@ -265,24 +264,21 @@ export class UserPreferencesService {
       );
 
       // Estimate API calls
-      const zakononlineCalls = Math.ceil(preset.max_search_results / 10); // ~10 results per API call
       const secondlayerDocs = preset.enable_semantic_search ? preset.max_search_results : 0;
 
       // Estimate costs (using pricing from cost-tracker.ts)
       const openaiCost = (totalTokens / 1000) * 0.002; // $0.002 per 1k tokens average
-      const zakononlineCost = zakononlineCalls * 0.00714;
       const secondlayerCost = secondlayerDocs * 0.00714;
 
-      const totalCost = openaiCost + zakononlineCost + secondlayerCost;
+      const totalCost = openaiCost + secondlayerCost;
 
       return {
         preset: preset.preset_name,
         estimated_cost_usd: Number(totalCost.toFixed(6)),
         estimated_tokens: totalTokens,
-        estimated_api_calls: zakononlineCalls + secondlayerDocs,
+        estimated_api_calls: secondlayerDocs,
         breakdown: {
           openai_tokens: totalTokens,
-          zakononline_calls: zakononlineCalls,
           secondlayer_docs: secondlayerDocs,
         },
       };

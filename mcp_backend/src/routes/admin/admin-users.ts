@@ -769,7 +769,6 @@ export function createAdminUsersRoutes(
           user_query,
           openai_cost_usd::float,
           anthropic_cost_usd::float,
-          zakononline_cost_usd::float,
           secondlayer_cost_usd::float,
           voyage_cost_usd::float,
           total_cost_usd::float,
@@ -780,7 +779,6 @@ export function createAdminUsersRoutes(
           execution_time_ms,
           status,
           openai_total_tokens,
-          zakononline_api_calls,
           created_at,
           completed_at
         FROM cost_tracking

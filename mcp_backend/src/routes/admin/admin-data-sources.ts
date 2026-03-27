@@ -4,7 +4,6 @@
  */
 
 import { Router, Request, Response } from 'express';
-import axios from 'axios';
 import type { IDatabase } from '../../domain/ports/index.js';
 import { logger } from '../../utils/logger.js';
 import { SQSClient, GetQueueAttributesCommand } from '@aws-sdk/client-sqs';
@@ -24,8 +23,7 @@ export function createAdminDataSourcesRoutes(
       { id: 'embedding_chunks', name: 'Вектори (embeddings)', query: "SELECT COUNT(*) as cnt, MAX(created_at) as lu, COUNT(*) FILTER (WHERE created_at::date = (SELECT MAX(created_at)::date FROM embedding_chunks)) as lb FROM embedding_chunks", source: 'OpenAI text-embedding-3-small', sourceUrl: 'https://platform.openai.com', frequency: 'При обробці документа' },
       { id: 'legislation', name: 'Кодекси та закони', query: "SELECT COUNT(*) as cnt, MAX(updated_at) as lu, COUNT(*) FILTER (WHERE updated_at::date = (SELECT MAX(updated_at)::date FROM legislation)) as lb FROM legislation", source: 'Верховна Рада API', sourceUrl: 'https://zakon.rada.gov.ua/api', frequency: 'Ручний синхр. (кеш 30 днів)' },
       { id: 'legislation_articles', name: 'Статті законодавства', query: "SELECT COUNT(*) as cnt, MAX(updated_at) as lu, COUNT(*) FILTER (WHERE updated_at::date = (SELECT MAX(updated_at)::date FROM legislation_articles)) as lb FROM legislation_articles", source: 'Верховна Рада API', sourceUrl: 'https://zakon.rada.gov.ua/api', frequency: 'Ручний синхр. (get_legislation_structure)' },
-      { id: 'zo_dictionaries', name: 'Довідники ZakonOnline', query: "SELECT COUNT(*) as cnt, MAX(updated_at) as lu, COUNT(*) FILTER (WHERE updated_at::date = (SELECT MAX(updated_at)::date FROM zo_dictionaries)) as lb FROM zo_dictionaries", source: 'ZakonOnline API', sourceUrl: 'https://zakononline.com.ua', frequency: 'Ручний синхр. (sync-dictionaries.ts)' },
-      { id: 'conversations', name: 'Розмови (чат)', query: "SELECT COUNT(*) as cnt, MAX(updated_at) as lu, COUNT(*) FILTER (WHERE updated_at::date = (SELECT MAX(updated_at)::date FROM conversations)) as lb FROM conversations", source: 'Дії користувачів', sourceUrl: '', frequency: 'Реальний час' },
+{ id: 'conversations', name: 'Розмови (чат)', query: "SELECT COUNT(*) as cnt, MAX(updated_at) as lu, COUNT(*) FILTER (WHERE updated_at::date = (SELECT MAX(updated_at)::date FROM conversations)) as lb FROM conversations", source: 'Дії користувачів', sourceUrl: '', frequency: 'Реальний час' },
       { id: 'conversation_messages', name: 'Повідомлення чату', query: "SELECT COUNT(*) as cnt, MAX(created_at) as lu, COUNT(*) FILTER (WHERE created_at::date = (SELECT MAX(created_at)::date FROM conversation_messages)) as lb FROM conversation_messages", source: 'AI + користувачі', sourceUrl: '', frequency: 'Реальний час' },
       { id: 'users', name: 'Користувачі', query: "SELECT COUNT(*) as cnt, MAX(created_at) as lu, COUNT(*) FILTER (WHERE created_at::date = (SELECT MAX(created_at)::date FROM users)) as lb FROM users", source: 'Google OAuth', sourceUrl: '', frequency: 'При реєстрації' },
       { id: 'cost_tracking', name: 'Трекінг витрат API', query: "SELECT COUNT(*) as cnt, MAX(created_at) as lu, COUNT(*) FILTER (WHERE created_at::date = (SELECT MAX(created_at)::date FROM cost_tracking)) as lb FROM cost_tracking", source: 'CostTracker (автоматично)', sourceUrl: '', frequency: 'Кожен API виклик' },
@@ -120,23 +118,6 @@ export function createAdminDataSourcesRoutes(
       const limitPerCategory = Math.min(20, Math.max(1, Number(req.query.limit || 5)));
 
       const kindNames: Record<string, string> = {};
-      try {
-        const dictResult = await db.query(`
-          SELECT data FROM zo_dictionaries
-          WHERE dictionary_name = 'justiceKinds' AND domain = 'court_decisions'
-          LIMIT 1
-        `);
-        if (dictResult.rows[0]?.data) {
-          const items = dictResult.rows[0].data;
-          if (Array.isArray(items)) {
-            for (const item of items) {
-              if (item.justice_kind != null && item.name) {
-                kindNames[String(item.justice_kind)] = item.name;
-              }
-            }
-          }
-        }
-      } catch { /* dictionary not available */ }
 
       const summaryResult = await db.query(`
         SELECT
@@ -247,23 +228,6 @@ export function createAdminDataSourcesRoutes(
       completenessRunCounts.set(today, runsToday + 1);
 
       const kindNames: Record<string, string> = {};
-      try {
-        const dictResult = await db.query(`
-          SELECT data FROM zo_dictionaries
-          WHERE dictionary_name = 'justiceKinds' AND domain = 'court_decisions'
-          LIMIT 1
-        `);
-        if (dictResult.rows[0]?.data) {
-          const items = dictResult.rows[0].data;
-          if (Array.isArray(items)) {
-            for (const item of items) {
-              if (item.justice_kind != null && item.name) {
-                kindNames[String(item.justice_kind)] = item.name;
-              }
-            }
-          }
-        }
-      } catch { /* dictionary not available */ }
 
       const result = await db.query(`
         SELECT
@@ -325,143 +289,6 @@ export function createAdminDataSourcesRoutes(
       logger.error('Failed to run document completeness check', { error: error.message });
       res.status(500).json({ error: 'Failed to run document completeness check' });
     }
-  });
-
-  // ========================================
-  // ZAKONONLINE DOCUMENT STATISTICS
-  // ========================================
-
-  const ZO_BASE_URL = 'https://court.searcher.api.zakononline.com.ua';
-  const ZO_SEARCH_ENDPOINT = '/v1/search';
-  const ZO_JUDGMENT_FORMS_ENDPOINT = '/v1/judgment_forms';
-
-  const JUSTICE_KINDS: Record<number, string> = {
-    1: 'Цивільне',
-    2: 'Кримінальне',
-    3: 'Господарське',
-    4: 'Адміністративне',
-  };
-
-  async function zoQueryCount(
-    year: number,
-    justiceKind: number | null,
-    judgmentForm: number | null,
-    token: string
-  ): Promise<number> {
-    const params: Record<string, any> = {
-      target: 'text',
-      mode: 'sph04',
-      limit: 1,
-      'where[adjudication_date][op]': 'between',
-      'where[adjudication_date][value][0]': `${year}-01-01`,
-      'where[adjudication_date][value][1]': `${year}-12-31`,
-    };
-    if (justiceKind !== null) {
-      params['where[justice_kind][op]'] = '$eq';
-      params['where[justice_kind][value]'] = justiceKind;
-    }
-    if (judgmentForm !== null) {
-      params['where[judgment_form][op]'] = '$eq';
-      params['where[judgment_form][value]'] = judgmentForm;
-    }
-    const response = await axios.get(`${ZO_BASE_URL}${ZO_SEARCH_ENDPOINT}`, {
-      params,
-      headers: { 'X-App-Token': token },
-      timeout: 15000,
-    });
-    return response.data?.total ?? 0;
-  }
-
-  async function sleep(ms: number) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  router.get('/zo-stats', async (req: Request, res: Response) => {
-    const token = process.env.ZAKONONLINE_API_TOKEN || '';
-    if (!token) {
-      return res.status(503).json({ error: 'ZAKONONLINE_API_TOKEN not configured' });
-    }
-
-    const yearFrom = Math.max(2000, Math.min(2030, parseInt(req.query.yearFrom as string) || 2020));
-    const yearTo   = Math.max(yearFrom, Math.min(2030, parseInt(req.query.yearTo as string) || 2025));
-
-    const requestedKindsParam = req.query.justiceKind as string | undefined;
-    const requestedKinds: number[] = requestedKindsParam
-      ? requestedKindsParam.split(',').map(Number).filter(n => n >= 1 && n <= 4)
-      : [1, 2, 3, 4];
-
-    let judgmentForms: Array<{ id: number; name: string }> = [];
-    try {
-      const fmResp = await axios.get(`${ZO_BASE_URL}${ZO_JUDGMENT_FORMS_ENDPOINT}`, {
-        headers: { 'X-App-Token': token },
-        timeout: 10000,
-      });
-      const rawForms = fmResp.data?.data || fmResp.data || [];
-      judgmentForms = Array.isArray(rawForms)
-        ? rawForms.map((f: any) => ({ id: Number(f.id), name: String(f.name || f.title || f.value || f.id) }))
-        : [];
-    } catch (err: any) {
-      logger.warn('Failed to fetch judgment forms dictionary', { error: err.message });
-    }
-
-    const years: number[] = [];
-    for (let y = yearFrom; y <= yearTo; y++) years.push(y);
-
-    const matrix: Array<{
-      year: number;
-      total: number;
-      byKind: Record<number, number>;
-      byForm?: Record<number, number>;
-    }> = [];
-
-    const DELAY_MS = 220;
-
-    for (const year of years) {
-      const byKind: Record<number, number> = {};
-
-      for (const kind of requestedKinds) {
-        try {
-          byKind[kind] = await zoQueryCount(year, kind, null, token);
-        } catch (err: any) {
-          logger.warn('ZO stats query failed', { year, kind, error: err.message });
-          byKind[kind] = -1;
-        }
-        await sleep(DELAY_MS);
-      }
-
-      let total = 0;
-      try {
-        total = await zoQueryCount(year, null, null, token);
-      } catch (err: any) {
-        logger.warn('ZO stats total query failed', { year, error: err.message });
-        total = -1;
-      }
-      await sleep(DELAY_MS);
-
-      let byForm: Record<number, number> | undefined;
-      if (requestedKinds.length === 1 && judgmentForms.length > 0) {
-        byForm = {};
-        const singleKind = requestedKinds[0];
-        for (const form of judgmentForms) {
-          try {
-            byForm[form.id] = await zoQueryCount(year, singleKind, form.id, token);
-          } catch (err: any) {
-            byForm[form.id] = -1;
-          }
-          await sleep(DELAY_MS);
-        }
-      }
-
-      matrix.push({ year, total, byKind, ...(byForm ? { byForm } : {}) });
-    }
-
-    res.json({
-      matrix,
-      years,
-      justiceKinds: requestedKinds.map(id => ({ id, label: JUSTICE_KINDS[id] || `Kind ${id}` })),
-      judgmentForms: requestedKinds.length === 1 ? judgmentForms : [],
-      params: { yearFrom, yearTo, justiceKinds: requestedKinds },
-    });
   });
 
   // =========== BULK SCRAPE STATUS ===========
