@@ -6,7 +6,7 @@ import { toastT } from '../../i18n/toast-i18n';
 import {
   Plus, MessageSquare, X, Edit3, Trash2,
   ChevronsUpDown, Archive, Folder, FolderOpen,
-  Zap, Briefcase, Users, Search,
+  Briefcase, Users, Search,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
@@ -370,9 +370,6 @@ export function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                 )}
               </Section>
 
-              <div className="mb-2 mt-1">
-                <NavItem icon={Zap} label="Workflows" route={ROUTES.WORKFLOWS} onClick={() => handleNavigation(ROUTES.WORKFLOWS)} />
-              </div>
 
               <Section id="developer" title={appT('nav.section.developer')} collapsed={collapsedSections.has('developer')} onToggle={toggleSection}>
                 {developerSections.map((s) => (
