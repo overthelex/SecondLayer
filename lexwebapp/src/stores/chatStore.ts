@@ -45,6 +45,9 @@ interface ChatState {
   // Budget escalation state
   pendingBudgetEscalation: PendingBudgetEscalation | null;
 
+  // Query queue — holds next query to execute after current stream ends
+  queuedQuery: { content: string; documentIds?: string[] } | null;
+
   // Conversation state
   conversationId: string | null;
   conversations: ConversationSummary[];
@@ -74,6 +77,9 @@ interface ChatState {
   // Budget escalation actions
   setPendingBudgetEscalation: (escalation: PendingBudgetEscalation | null) => void;
 
+  // Queue actions
+  setQueuedQuery: (query: { content: string; documentIds?: string[] } | null) => void;
+
   // Conversation actions
   loadConversations: () => Promise<void>;
   createConversation: (title?: string) => Promise<string>;
@@ -101,6 +107,7 @@ export const useChatStore = create<ChatState>()(
         pendingPlanReview: null,
         isPlanLoading: false,
         pendingBudgetEscalation: null,
+        queuedQuery: null,
         conversationId: null,
         conversations: [],
         conversationsLoading: false,
@@ -163,6 +170,7 @@ export const useChatStore = create<ChatState>()(
         setPendingPlanReview: (review) => set({ pendingPlanReview: review }),
         setIsPlanLoading: (loading) => set({ isPlanLoading: loading }),
         setPendingBudgetEscalation: (escalation) => set({ pendingBudgetEscalation: escalation }),
+        setQueuedQuery: (query) => set({ queuedQuery: query }),
 
         // Cancel active stream
         cancelStream: () => {
@@ -173,6 +181,7 @@ export const useChatStore = create<ChatState>()(
               streamController: null,
               isStreaming: false,
               currentTool: null,
+              queuedQuery: null,
             });
           }
         },
@@ -241,6 +250,7 @@ export const useChatStore = create<ChatState>()(
             currentTool: null,
             pendingPlanReview: null,
             isPlanLoading: false,
+            queuedQuery: null,
           });
 
           try {
@@ -330,6 +340,7 @@ export const useChatStore = create<ChatState>()(
             currentTool: null,
             pendingPlanReview: null,
             isPlanLoading: false,
+            queuedQuery: null,
           });
         },
 

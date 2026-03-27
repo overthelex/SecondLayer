@@ -4,7 +4,7 @@
  * Now using MCP streaming with all 43 tools support
  */
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { ChatInput } from '../../components/ChatInput';
 import { MessageThread } from '../../components/MessageThread';
@@ -28,6 +28,8 @@ export function ChatPage() {
   const removeMessage = useChatStore(s => s.removeMessage);
   const pendingBudgetEscalation = useChatStore(s => s.pendingBudgetEscalation);
   const setPendingBudgetEscalation = useChatStore(s => s.setPendingBudgetEscalation);
+  const queuedQuery = useChatStore(s => s.queuedQuery);
+  const setQueuedQuery = useChatStore(s => s.setQueuedQuery);
 
   // AI Chat hook (agentic mode)
   const { executeChat, confirmPlanAndExecute, skipPlanReview } = useAIChat();
@@ -46,6 +48,11 @@ export function ChatPage() {
   }, [setPendingBudgetEscalation]);
 
   const handleSend = async (content: string, _toolName?: string, documentIds?: string[]) => {
+    // If streaming is active, queue the message for execution after current stream ends
+    if (isStreaming || isPlanLoading) {
+      setQueuedQuery({ content, documentIds });
+      return;
+    }
     try {
       await executeChat(content, documentIds, undefined, internetEnabled);
     } catch (error: unknown) {
@@ -53,6 +60,24 @@ export function ChatPage() {
       showToast.error(getErrorMessage(error));
     }
   };
+
+  // Auto-execute queued query when streaming ends
+  const executingQueueRef = useRef(false);
+  useEffect(() => {
+    if (!isStreaming && !isPlanLoading && queuedQuery && !executingQueueRef.current) {
+      executingQueueRef.current = true;
+      const { content, documentIds } = queuedQuery;
+      setQueuedQuery(null);
+      executeChat(content, documentIds, undefined, internetEnabled)
+        .catch((error: unknown) => {
+          console.error('Queued chat execution error:', error);
+          showToast.error(getErrorMessage(error));
+        })
+        .finally(() => {
+          executingQueueRef.current = false;
+        });
+    }
+  }, [isStreaming, isPlanLoading, queuedQuery, setQueuedQuery, executeChat, internetEnabled]);
 
   const handleRegenerate = useCallback((userQuery: string) => {
     // Find the last assistant message and remove it
@@ -132,8 +157,9 @@ export function ChatPage() {
       <div className="w-full bg-claude-bg pt-3 pb-5 z-20 border-t border-claude-border/60">
         <ChatInput
           onSend={handleSend}
-          disabled={isStreaming || isPlanLoading || !!pendingPlanReview}
+          disabled={!!pendingPlanReview}
           isStreaming={isStreaming || isPlanLoading}
+          hasQueuedQuery={!!queuedQuery}
           onCancel={cancelStream}
         />
         <p className="text-center text-[11px] text-zinc-400 mt-2.5 font-sans">
