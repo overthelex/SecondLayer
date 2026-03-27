@@ -108,16 +108,19 @@ export function createRestAPIRouter(db: IDatabase): Router {
       const userId = req.user?.id;
       const updates = req.body;
 
-      const fields = Object.keys(updates).filter(k => k !== 'id' && k !== 'user_id');
-      const setClause = fields.map((field, idx) => `${field} = $${idx + 2}`).join(', ');
-      const values = [id, ...fields.map(f => updates[f])];
-
+      const ALLOWED_DOCUMENT_COLUMNS = new Set([
+        'type', 'title', 'date', 'full_text', 'full_text_html', 'metadata',
+        'zakononline_id', 'status', 'notes', 'tags'
+      ]);
+      const fields = Object.keys(updates).filter(k => ALLOWED_DOCUMENT_COLUMNS.has(k));
       if (fields.length === 0) {
-        res.status(400).json({ error: 'No fields to update' });
+        res.status(400).json({ error: 'No valid fields to update' });
         return;
       }
+      const setClause = fields.map((field, idx) => `"${field}" = $${idx + 2}`).join(', ');
+      const values = [id, ...fields.map(f => updates[f])];
 
-      // Only allow updating own documents (or public if no userId)
+      // Only allow updating own documents
       if (!userId) {
         res.status(401).json({ error: 'Authentication required' });
         return;
@@ -291,14 +294,18 @@ export function createRestAPIRouter(db: IDatabase): Router {
       const { id } = req.params;
       const updates = req.body;
 
-      const fields = Object.keys(updates).filter(k => k !== 'id');
-      const setClause = fields.map((field, idx) => `${field} = $${idx + 2}`).join(', ');
-      const values = [id, ...fields.map(f => updates[f])];
-
+      const ALLOWED_PATTERN_COLUMNS = new Set([
+        'category', 'subcategory', 'description', 'law_articles',
+        'decision_outcome', 'frequency', 'confidence', 'example_cases',
+        'risk_factors', 'success_arguments', 'anti_patterns'
+      ]);
+      const fields = Object.keys(updates).filter(k => ALLOWED_PATTERN_COLUMNS.has(k));
       if (fields.length === 0) {
-        res.status(400).json({ error: 'No fields to update' });
+        res.status(400).json({ error: 'No valid fields to update' });
         return;
       }
+      const setClause = fields.map((field, idx) => `"${field}" = $${idx + 2}`).join(', ');
+      const values = [id, ...fields.map(f => updates[f])];
 
       const result = await db.query(
         `UPDATE legal_patterns SET ${setClause}, updated_at = NOW() WHERE id = $1 RETURNING *`,

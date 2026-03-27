@@ -179,8 +179,8 @@ class HTTPMCPServer {
         if (!origin) return callback(null, true);
         // Allow configured origins
         if (allowedOrigins.includes(origin)) return callback(null, true);
-        // Allow localhost in development
-        if (origin.match(/^https?:\/\/localhost(:\d+)?$/)) return callback(null, true);
+        // Allow localhost only in development
+        if (process.env.NODE_ENV !== 'production' && origin.match(/^https?:\/\/localhost(:\d+)?$/)) return callback(null, true);
         callback(new Error(`CORS not allowed for origin: ${origin}`));
       },
       credentials: true,
@@ -369,7 +369,16 @@ class HTTPMCPServer {
       });
     };
 
-    this.app.get('/health/ready', healthHandler);
+    // Lightweight readiness probe for Docker healthcheck — no infra details exposed
+    this.app.get('/health/ready', (_req: any, res: any) => {
+      res.json({
+        status: 'ok',
+        initialized: (this as any)._initialized === true,
+        service: 'secondlayer-mcp-http',
+        uptime: Math.round(process.uptime()),
+      });
+    });
+    // Full health check — detailed dependency info, rate-limited
     this.app.get('/health', healthCheckRateLimit as any, healthHandler);
 
     // MCP SSE routes (SSE endpoints, OAuth discovery, redirects)

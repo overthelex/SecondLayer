@@ -69,9 +69,17 @@ router.post('/reset-password', authRateLimit as any, authController.resetPasswor
  * This allows OAuth to work from legal.org.ua, platform.legal.org.ua, etc.
  * Each redirect URI must also be registered in Google Cloud Console.
  */
+const ALLOWED_CALLBACK_HOSTS = new Set([
+  'legal.org.ua',
+  'platform.legal.org.ua',
+  'mcp.legal.org.ua',
+  'preview.legal.org.ua',
+]);
+
 function getCallbackURL(req: any): string {
   const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const rawHost = (req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0];
+  const host = ALLOWED_CALLBACK_HOSTS.has(rawHost) ? rawHost : 'legal.org.ua';
   return `${protocol}://${host}/auth/google/callback`;
 }
 

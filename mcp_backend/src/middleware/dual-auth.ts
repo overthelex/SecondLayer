@@ -4,6 +4,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { UserService, User } from '../services/user-service.js';
 import { ApiKeyService } from '../services/api-key-service.js';
@@ -173,7 +174,11 @@ async function authenticateWithAPIKey(req: AuthenticatedRequest, apiKey: string)
   // Fall back to legacy env-based API keys
   const validKeys = getSecondaryLayerKeys();
 
-  if (!validKeys.includes(apiKey)) {
+  const keyMatch = validKeys.some(k => {
+    if (k.length !== apiKey.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(k), Buffer.from(apiKey));
+  });
+  if (!keyMatch) {
     logger.warn('Invalid API key attempt (not found in Phase 2 or legacy keys)', {
       keyPrefix: maskSensitive(apiKey, 8),
       validKeysCount: validKeys.length,
