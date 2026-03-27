@@ -21,6 +21,6 @@ export const QUERY_TYPE_CONFIG: Record<string, QueryTypeConfigEntry> = {
   document_drafting: { defaultBudget: 'standard', requiresGrounding: false, description: '', maxToolCalls: 5, thinkingPrefix: 'Складаю документ', preferredScenarios: ['drafting'] },
   comparative_analysis: { defaultBudget: 'deep', requiresGrounding: true, description: '', maxToolCalls: 10, thinkingPrefix: 'Порівнюю', preferredScenarios: ['comparison'] },
   due_diligence: { defaultBudget: 'deep', requiresGrounding: true, description: '', maxToolCalls: 10, thinkingPrefix: 'Виконую due diligence', preferredScenarios: ['due_diligence'] },
-  institutional_analysis: { defaultBudget: 'standard', requiresGrounding: true, description: '', maxToolCalls: 5, thinkingPrefix: 'Аналізую інституцію', preferredScenarios: ['institutional'] },
+  institutional_analysis: { defaultBudget: 'deep', requiresGrounding: true, description: '', maxToolCalls: 10, thinkingPrefix: 'Аналізую інституцію', preferredScenarios: ['practice_search'] },
   unsupported: { defaultBudget: 'quick', requiresGrounding: false, description: '', maxToolCalls: 0, thinkingPrefix: '', preferredScenarios: [] },
 };
