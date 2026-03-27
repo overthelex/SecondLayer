@@ -19,6 +19,7 @@ export function getActiveSessionId(): string | null {
 
 const FLUSH_INTERVAL_MS = 10_000; // 10 seconds
 const MAX_BUFFER_SIZE = 500; // flush early if buffer gets large
+const MAX_CHUNK_BYTES = 5_000_000; // 5MB — stay well under the 10MB body-parser limit
 
 export function useSessionRecorder() {
   const { user, isAuthenticated } = useAuth();
@@ -129,15 +130,51 @@ export function useSessionRecorder() {
 
     const events = [...bufferRef.current];
     bufferRef.current = [];
-    const chunkIndex = chunkIndexRef.current++;
 
-    // Fire-and-forget — don't block UI on network errors
-    sessionReplayApi.sendChunk(sessionId, chunkIndex, events).catch((err) => {
-      console.warn('[SessionRecorder] Failed to send chunk', chunkIndex, err);
-      // Put events back in buffer for retry on next flush
-      bufferRef.current.unshift(...events);
-      chunkIndexRef.current--; // reuse chunk index
-    });
+    // Split events into chunks that fit under the body-parser limit
+    const batches: any[][] = [];
+    let currentBatch: any[] = [];
+    let currentSize = 0;
+
+    for (const event of events) {
+      const eventSize = JSON.stringify(event).length;
+
+      // If a single event exceeds the limit, skip it (e.g. huge FullSnapshot)
+      if (eventSize > MAX_CHUNK_BYTES) {
+        console.warn('[SessionRecorder] Dropping oversized event', event.type, eventSize);
+        continue;
+      }
+
+      if (currentSize + eventSize > MAX_CHUNK_BYTES && currentBatch.length > 0) {
+        batches.push(currentBatch);
+        currentBatch = [];
+        currentSize = 0;
+      }
+
+      currentBatch.push(event);
+      currentSize += eventSize;
+    }
+
+    if (currentBatch.length > 0) {
+      batches.push(currentBatch);
+    }
+
+    // Send each batch as a separate chunk
+    for (const batch of batches) {
+      const chunkIndex = chunkIndexRef.current++;
+
+      sessionReplayApi.sendChunk(sessionId, chunkIndex, batch).catch((err) => {
+        // Only retry on transient errors (5xx, network). Drop on 413/4xx to prevent snowball.
+        const status = err?.response?.status;
+        if (status && status >= 400 && status < 500) {
+          console.warn('[SessionRecorder] Dropping chunk (client error)', chunkIndex, status);
+          return;
+        }
+        console.warn('[SessionRecorder] Failed to send chunk (will retry)', chunkIndex, err);
+        bufferRef.current.unshift(...batch);
+        chunkIndexRef.current--;
+      });
+    }
   }
 
   // Also flush on page unload (best-effort with sendBeacon)
