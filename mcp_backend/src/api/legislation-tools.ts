@@ -304,7 +304,7 @@ export class LegislationTools extends BaseToolHandler {
             rada_id: resolvedRadaId,
             article_number: a.article_number,
             title: a.title,
-            full_text: a.full_text ? a.full_text.substring(0, 500) + '...' : '',
+            full_text: a.full_text || '',
             url: `https://zakon.rada.gov.ua/laws/show/${resolvedRadaId}#n${a.article_number}`,
           })),
         };
@@ -333,7 +333,7 @@ export class LegislationTools extends BaseToolHandler {
         rada_id: a.rada_id,
         article_number: a.article_number,
         title: a.title,
-        full_text: a.full_text.substring(0, 500) + '...',
+        full_text: a.full_text || '',
         url: a.url,
       })),
     };
