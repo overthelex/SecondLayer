@@ -112,8 +112,7 @@ export function attachTerminalWebSocket(httpServer: HttpServer, db: IDatabase): 
   httpServer.on('upgrade', (req: IncomingMessage, socket, head) => {
     const url = new URL(req.url || '', `http://${req.headers.host}`);
     if (url.pathname !== '/api/admin/terminal') {
-      socket.destroy();
-      return;
+      return; // Let other upgrade handlers (e.g. video-signaling) handle this path
     }
     wss.handleUpgrade(req, socket, head, (ws) => {
       wss.emit('connection', ws, req);
