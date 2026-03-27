@@ -166,10 +166,10 @@ export const passwordResetRateLimit = createRateLimiter({
 });
 
 // Consultation rate limiter — keyed by userId to avoid Cloudflare shared IP issues.
-// 300/min: handles multiple open tabs with polling + SSE reconnects.
+// 600/min: handles multiple open tabs/consultations with polling + SSE reconnects.
 export const consultationRateLimit = createRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 300,
+  maxRequests: 600,
   keyPrefix: 'ratelimit:consultation',
   keyByUserId: true,
 });
