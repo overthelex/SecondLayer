@@ -100,9 +100,9 @@ export function createRateLimiter(options: RateLimitOptions) {
     try {
       if (!rateCache) {
         // Redis unavailable — fall back to in-memory rate limiting
-        return checkLimit(req, res, next, true);
+        return await checkLimit(req, res, next, true);
       }
-      return checkLimit(req, res, next, false);
+      return await checkLimit(req, res, next, false);
     } catch (error) {
       logger.error('[RateLimit] Redis error, falling back to memory', {
         error: (error as Error).message,
