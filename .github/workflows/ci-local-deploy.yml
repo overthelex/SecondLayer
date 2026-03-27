@@ -130,7 +130,7 @@ jobs:
           npm run build
         env:
           VITE_API_URL: https://local.legal.org.ua
-          NODE_OPTIONS: --max-old-space-size=4096
+          NODE_OPTIONS: --max-old-space-size=8192
 
       - name: Build platform
         if: needs.detect-changes.outputs.platform == 'true'
