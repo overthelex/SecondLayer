@@ -7,8 +7,8 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS video_call_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   consultation_id UUID NOT NULL REFERENCES consultations(id) ON DELETE CASCADE,
-  caller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  callee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  caller_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  callee_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   status VARCHAR(20) NOT NULL DEFAULT 'pending',
   call_type VARCHAR(10) NOT NULL DEFAULT 'video',
   started_at TIMESTAMPTZ,
@@ -56,7 +56,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS call_transcripts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   call_session_id UUID NOT NULL REFERENCES video_call_sessions(id) ON DELETE CASCADE,
-  speaker_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  speaker_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   text TEXT NOT NULL,
   language VARCHAR(5) DEFAULT 'uk',
   is_final BOOLEAN DEFAULT false,
