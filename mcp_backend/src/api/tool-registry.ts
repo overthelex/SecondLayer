@@ -248,6 +248,9 @@ export class ToolRegistry {
       { clientName: 'openreyestr_search_prozorro', serviceName: 'search_prozorro' },
       { clientName: 'openreyestr_search_termination_started', serviceName: 'search_termination_started' },
       { clientName: 'openreyestr_search_rnbo_sanctions', serviceName: 'search_rnbo_sanctions' },
+      { clientName: 'openreyestr_search_arma_seized_assets', serviceName: 'search_arma_seized_assets' },
+      { clientName: 'openreyestr_search_nazk_declarations', serviceName: 'search_nazk_declarations' },
+      { clientName: 'openreyestr_search_exchange_data', serviceName: 'search_exchange_data' },
     ];
 
     for (const tool of openreyestrTools) {
