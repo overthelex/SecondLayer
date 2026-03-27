@@ -24,10 +24,9 @@ export function extractLegislationEvidence(toolName: string, parsed: ToolResultD
     });
   }
 
-  // Array of legislation results
-  const legislationArray = parsed.legislation || (toolName === 'search_legislation' ? parsed.articles : null);
-  if (legislationArray && Array.isArray(legislationArray)) {
-    for (const l of legislationArray) {
+  // Array of legislation results (legislation can be object or array)
+  if (parsed.legislation && Array.isArray(parsed.legislation)) {
+    for (const l of parsed.legislation) {
       citations.push({
         text: l.full_text || l.text || l.snippet || l.title || '',
         source: l.article_number
@@ -51,11 +50,14 @@ export function extractLegislationEvidence(toolName: string, parsed: ToolResultD
       }
     }
   } else if (parsed.articles && Array.isArray(parsed.articles)) {
+    const legTitle = parsed.legislation?.title || '';
     for (const a of parsed.articles) {
       if (typeof a === 'object' && a !== null) {
         citations.push({
           text: a.full_text || a.text || a.content || '',
-          source: `Стаття ${a.article_number || ''}`,
+          source: a.article_number
+            ? `${a.title || legTitle || a.rada_id || 'Норма'}, ст. ${a.article_number}`
+            : `Стаття ${a.article_number || ''}`,
         });
       }
     }
