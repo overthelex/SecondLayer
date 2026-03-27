@@ -138,10 +138,9 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
             }
           }
 
-          const costSuffix = data.cost_usd ? ` · ${formatUah(data.cost_usd)}` : '';
           addThinkingStep(assistantMessageId, {
             id: `step-${data.step}`,
-            title: (data.description || `${getToolLabel(data.tool)}`) + costSuffix,
+            title: (data.description || `${getToolLabel(data.tool)}`),
             content: JSON.stringify(data.params, null, 2),
             isComplete: false,
           });
@@ -152,10 +151,9 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
             ? data.result
             : JSON.stringify(data.result, null, 2);
 
-          const costSuffix = data.cost_usd ? ` · ${formatUah(data.cost_usd)}` : '';
           addThinkingStep(assistantMessageId, {
             id: `result-${data.tool}`,
-            title: `${getToolLabel(data.tool)}` + costSuffix,
+            title: `${getToolLabel(data.tool)}`,
             content: toolPreview,
             isComplete: true,
           });
