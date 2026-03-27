@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import axios, { AxiosInstance } from 'axios';
 import { CourtDecisionHTMLParser } from '../utils/html-parser.js';
 import { logger } from '../utils/logger.js';
@@ -521,7 +522,10 @@ export class ZOAdapter {
   }
 
   private generateCacheKey(endpoint: string, params: any): string {
-    return `zo:${endpoint}:${JSON.stringify(params)}`;
+    // Hash params so keys are bounded in size and field order doesn't matter
+    const stable = JSON.stringify(params, params && typeof params === 'object' ? Object.keys(params).sort() : undefined);
+    const hash = createHash('sha256').update(stable).digest('hex').slice(0, 24);
+    return `zo:${endpoint}:${hash}`;
   }
 
   /**

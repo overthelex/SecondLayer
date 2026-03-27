@@ -230,10 +230,10 @@ async function importNazk() {
                     declarant_name, declarant_position, declarant_workplace, declarant_region,
                     post_type, post_category, corruption_affected, submission_date,
                     has_real_estate, has_vehicles, has_securities, has_corporate_rights,
-                    has_income, total_income_declared, raw_data
-                  ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+                    has_income, total_income_declared
+                  ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
                   ON CONFLICT (declaration_id) DO UPDATE SET
-                    raw_data = EXCLUDED.raw_data, updated_at = CURRENT_TIMESTAMP
+                    updated_at = CURRENT_TIMESTAMP
                   RETURNING (xmax = 0) AS is_insert`,
                   [
                     String(declId),
@@ -253,8 +253,7 @@ async function importNazk() {
                     info.hasSecurities,
                     info.hasCorporateRights,
                     info.hasIncome,
-                    info.totalIncome,
-                    JSON.stringify(doc)
+                    info.totalIncome
                   ]
                 );
 

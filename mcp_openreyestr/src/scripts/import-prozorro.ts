@@ -6,7 +6,7 @@
  * 1. Paginate through /tenders list (100 per page, offset-based)
  * 2. For each batch, fetch individual tender details (N concurrent)
  * 3. Extract key DD fields: buyer, amount, status, CPV
- * 4. Store metadata + compact raw_data (no documents/bids)
+ * 4. Store metadata (no documents/bids)
  *
  * Usage:
  *   node dist/scripts/import-prozorro.js                          # From beginning (2015)
@@ -132,25 +132,6 @@ function extractTenderData(tender: any): any | null {
 
   const tenderPeriod = d.tenderPeriod || {};
 
-  // Compact raw_data: exclude heavy fields
-  const compact: any = {
-    tenderID: d.tenderID,
-    status: d.status,
-    procurementMethod: d.procurementMethod,
-    procurementMethodType: d.procurementMethodType,
-    title: d.title,
-    value: d.value,
-    procuringEntity: {
-      name: buyerName,
-      identifier: buyer.identifier,
-      address: buyer.address,
-    },
-    awardCriteria: d.awardCriteria,
-    dateCreated: d.dateCreated,
-    dateModified: d.dateModified,
-    numberOfBids: d.numberOfBids,
-  };
-
   return {
     tender_id: d.id,
     tender_number: d.tenderID || null,
@@ -170,7 +151,6 @@ function extractTenderData(tender: any): any | null {
     tender_start: tenderPeriod.startDate?.substring(0, 10) || null,
     tender_end: tenderPeriod.endDate?.substring(0, 10) || null,
     award_criteria: d.awardCriteria || null,
-    raw_data: compact,
   };
 }
 
@@ -251,11 +231,11 @@ async function importProzorro() {
                 tender_id, tender_number, title, status, procurement_method, procurement_method_type,
                 buyer_name, buyer_edrpou, buyer_region, amount, currency,
                 cpv_code, cpv_description, date_created, date_modified,
-                tender_start, tender_end, award_criteria, raw_data
-              ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+                tender_start, tender_end, award_criteria
+              ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
               ON CONFLICT (tender_id) DO UPDATE SET
                 status = EXCLUDED.status, date_modified = EXCLUDED.date_modified,
-                raw_data = EXCLUDED.raw_data, updated_at = CURRENT_TIMESTAMP
+                updated_at = CURRENT_TIMESTAMP
               RETURNING (xmax = 0) AS is_insert`,
               [
                 r.tender_id, r.tender_number, r.title, r.status,
@@ -264,8 +244,7 @@ async function importProzorro() {
                 r.amount, r.currency,
                 r.cpv_code, r.cpv_description,
                 r.date_created, r.date_modified,
-                r.tender_start, r.tender_end, r.award_criteria,
-                JSON.stringify(r.raw_data)
+                r.tender_start, r.tender_end, r.award_criteria
               ]
             );
             if (result.rows[0]?.is_insert) totalImported++;
