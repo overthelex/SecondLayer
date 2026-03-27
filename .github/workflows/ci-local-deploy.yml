@@ -437,7 +437,9 @@ jobs:
           [ "$OPENREYESTR_CHANGED" = "true" ] && wait_healthy "OpenReyestr" "openreyestr-app-local" 120
           [ "$FRONTEND_CHANGED" = "true" ] && wait_healthy "Frontend" "lexwebapp-local" 60
 
-          # Check nginx routes locally (skip public DNS — runner may not resolve it)
-          check_health "Local via nginx" "http://localhost:80/health"
+          # Check nginx routes locally — only when backend is running (nginx proxies /health to backend)
+          if [ "$BACKEND_CHANGED" = "true" ]; then
+            check_health "Local via nginx" "http://localhost:80/health"
+          fi
 
           if [ "$FAILED" = "true" ]; then exit 1; fi
