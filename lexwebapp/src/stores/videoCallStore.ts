@@ -100,23 +100,25 @@ export const useVideoCallStore = create<VideoCallState>((set) => ({
   setLocalStream: (localStream) => set({ localStream }),
   setRemoteStream: (remoteStream) => set({ remoteStream }),
 
-  toggleMute: () => set((state) => {
-    if (state.localStream) {
-      state.localStream.getAudioTracks().forEach((track) => {
-        track.enabled = state.isMuted;
+  toggleMute: () => {
+    const { localStream, isMuted } = useVideoCallStore.getState();
+    if (localStream) {
+      localStream.getAudioTracks().forEach((track) => {
+        track.enabled = isMuted; // isMuted=true means re-enable
       });
     }
-    return { isMuted: !state.isMuted };
-  }),
+    set({ isMuted: !isMuted });
+  },
 
-  toggleVideo: () => set((state) => {
-    if (state.localStream) {
-      state.localStream.getVideoTracks().forEach((track) => {
-        track.enabled = state.isVideoOff;
+  toggleVideo: () => {
+    const { localStream, isVideoOff } = useVideoCallStore.getState();
+    if (localStream) {
+      localStream.getVideoTracks().forEach((track) => {
+        track.enabled = isVideoOff; // isVideoOff=true means re-enable
       });
     }
-    return { isVideoOff: !state.isVideoOff };
-  }),
+    set({ isVideoOff: !isVideoOff });
+  },
 
   toggleScreenSharing: () => set((state) => ({ isScreenSharing: !state.isScreenSharing })),
 

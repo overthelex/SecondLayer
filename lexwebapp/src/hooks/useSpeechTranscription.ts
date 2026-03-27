@@ -41,20 +41,22 @@ export function useSpeechTranscription(signaling: Signaling) {
       ...(mimeType ? { mimeType } : {}),
     });
 
-    recorder.ondataavailable = async (event) => {
+    recorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
-        try {
-          const buffer = await event.data.arrayBuffer();
-          const bytes = new Uint8Array(buffer);
-          let binary = '';
-          for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          try {
+            // result is "data:<mime>;base64,<data>" — extract the base64 part
+            const dataUrl = reader.result as string;
+            const base64 = dataUrl.split(',')[1];
+            if (base64) {
+              signaling.sendAudioData(base64);
+            }
+          } catch {
+            // ignore encoding errors
           }
-          const base64 = btoa(binary);
-          signaling.sendAudioData(base64);
-        } catch {
-          // ignore encoding errors
-        }
+        };
+        reader.readAsDataURL(event.data);
       }
     };
 

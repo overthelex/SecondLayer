@@ -59,6 +59,7 @@ export class SttService {
       },
     });
 
+    const MAX_PENDING_BUFFERS = 20;
     let isOpen = false;
     const pendingBuffers: Buffer[] = [];
 
@@ -131,6 +132,9 @@ export class SttService {
         if (isOpen && dgWs.readyState === WebSocket.OPEN) {
           dgWs.send(audioBuffer);
         } else if (!isOpen) {
+          if (pendingBuffers.length >= MAX_PENDING_BUFFERS) {
+            pendingBuffers.shift(); // drop oldest chunk
+          }
           pendingBuffers.push(audioBuffer);
         }
       },
@@ -150,6 +154,14 @@ export class SttService {
 
     this.activeTranscriptions.set(key, handle);
     return handle;
+  }
+
+  hasActiveTranscription(sessionId: string, speakerId: string): boolean {
+    return this.activeTranscriptions.has(`${sessionId}:${speakerId}`);
+  }
+
+  getHandle(sessionId: string, speakerId: string): DeepgramHandle | undefined {
+    return this.activeTranscriptions.get(`${sessionId}:${speakerId}`);
   }
 
   stopTranscription(sessionId: string, speakerId: string): void {
