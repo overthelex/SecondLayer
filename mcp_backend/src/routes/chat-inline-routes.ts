@@ -27,7 +27,7 @@ export function createChatInlineRoutes(deps: {
     const requestId = `plan-${uuidv4()}`;
 
     try {
-      const { query, budget } = req.body;
+      const { query, budget, internetEnabled } = req.body;
 
       if (!query || typeof query !== 'string') {
         return res.status(400).json({ error: 'query is required' });
@@ -37,7 +37,8 @@ export function createChatInlineRoutes(deps: {
         query,
         budget || 'standard',
         userId,
-        requestId
+        requestId,
+        internetEnabled !== false
       );
 
       if (!result) {
@@ -60,7 +61,7 @@ export function createChatInlineRoutes(deps: {
     const requestId = `chat-${uuidv4()}`;
 
     try {
-      const { query, history, budget, conversationId, approvedPlan, planSessionId, allowDeepEscalation } = req.body;
+      const { query, history, budget, conversationId, approvedPlan, planSessionId, allowDeepEscalation, internetEnabled } = req.body;
 
       if (!query || typeof query !== 'string') {
         return res.status(400).json({ error: 'query is required' });
@@ -150,6 +151,7 @@ export function createChatInlineRoutes(deps: {
         approvedPlan,
         planSessionId,
         allowDeepEscalation: !!allowDeepEscalation,
+        internetEnabled: internetEnabled !== false,
       };
       try {
         for await (const event of deps.chatService.chat(chatRequest)) {

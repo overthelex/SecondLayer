@@ -65,7 +65,7 @@ export function useAIChatPlan(options: UseAIChatPlanOptions) {
 
       setIsPlanLoading(true);
       try {
-        const planResult = await mcpService.requestPlan(query, 'standard');
+        const planResult = await mcpService.requestPlan(query, 'standard', internetEnabled);
 
         if (planResult.plan && planResult.planSessionId) {
           setIsPlanLoading(false);

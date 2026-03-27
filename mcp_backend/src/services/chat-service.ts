@@ -11,6 +11,7 @@ export interface ChatRequest {
   approvedPlan?: unknown;
   planSessionId?: string;
   allowDeepEscalation?: boolean;
+  internetEnabled?: boolean;
 }
 
 export interface ChatEvent {
@@ -34,7 +35,8 @@ export class ChatService {
     query: string,
     budget: string,
     userId?: string,
-    requestId?: string
+    requestId?: string,
+    internetEnabled?: boolean
   ): Promise<ChatPlanResult | null> {
     return null;
   }
