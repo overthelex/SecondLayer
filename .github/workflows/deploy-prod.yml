@@ -183,8 +183,7 @@ jobs:
             src/controllers/__tests__/ \
             src/middleware/__tests__/ \
             src/adapters/__tests__/ \
-            src/services/__tests__/diia-service.test.ts \
-            src/services/__tests__/consultation-message-bus.test.ts
+            src/services/__tests__/
 
       - name: Build & test frontend
         if: needs.detect-changes.outputs.frontend == 'true'

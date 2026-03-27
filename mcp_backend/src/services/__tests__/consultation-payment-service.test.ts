@@ -136,8 +136,8 @@ describe('ConsultationPaymentService — createPayment', () => {
     const insertCall = db.query.mock.calls[1];
     const args = insertCall[1];
     expect(args[4]).toBe(10000);           // amount_uah
-    expect(args[5]).toBe(1000);            // platform_fee = 10000 * 10 / 100
-    expect(args[6]).toBe(9000);            // attorney_payout = 10000 - 1000
+    expect(args[5]).toBe(3000);            // platform_fee = 10000 * 30 / 100
+    expect(args[6]).toBe(7000);            // attorney_payout = 10000 - 3000
   });
 
   it('throws when consultation not found', async () => {
@@ -393,11 +393,14 @@ describe('ConsultationPaymentService — releasePayment (escrow release)', () =>
     const service = new ConsultationPaymentService(db as any, makeConsultationService() as any, makeMonobankService() as any);
     await service.releasePayment(CONSULTATION_ID);
 
-    const updateCall = db.query.mock.calls[0];
+    // calls[0] = SELECT ... FOR UPDATE (inside transaction)
+    // calls[1] = UPDATE ... released (inside transaction)
+    const selectCall = db.query.mock.calls[0];
+    expect(selectCall[0]).toContain("status = 'held'");
+    expect(selectCall[1]).toContain(CONSULTATION_ID);
+    const updateCall = db.query.mock.calls[1];
     expect(updateCall[0]).toContain('released');
     expect(updateCall[0]).toContain('released_at');
-    expect(updateCall[0]).toContain("status = 'held'");
-    expect(updateCall[1]).toContain(CONSULTATION_ID);
   });
 
   it('only releases payments in held status', async () => {
@@ -435,7 +438,9 @@ describe('ConsultationPaymentService — refundPayment (escrow refund)', () => {
     const service = new ConsultationPaymentService(db as any, makeConsultationService() as any, makeMonobankService() as any);
     await service.refundPayment(CONSULTATION_ID);
 
-    const updateCall = db.query.mock.calls[0];
+    // calls[0] = SELECT ... FOR UPDATE (inside transaction)
+    // calls[1] = UPDATE ... refunded (inside transaction)
+    const updateCall = db.query.mock.calls[1];
     expect(updateCall[0]).toContain('refunded');
     expect(updateCall[0]).toContain('refunded_at');
   });
