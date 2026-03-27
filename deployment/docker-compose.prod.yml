@@ -852,6 +852,7 @@ services:
       - ./nginx/prod.legal.org.ua.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/includes/ssl-common.conf:/etc/nginx/includes/ssl-common.conf:ro
       - ./nginx/includes/prod-server-common.conf:/etc/nginx/includes/prod-server-common.conf:ro
+      - ./nginx/includes/security-headers.conf:/etc/nginx/includes/security-headers.conf:ro
       - ./nginx/includes/prod-upstreams.conf:/etc/nginx/includes/prod-upstreams.conf
       - ./nginx/includes/preview-server-common.conf:/etc/nginx/includes/preview-server-common.conf:ro
       - ./nginx/includes/preview-upstreams.conf:/etc/nginx/includes/preview-upstreams.conf
