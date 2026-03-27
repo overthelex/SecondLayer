@@ -13,6 +13,7 @@ interface ChatInputProps {
   onSend: (message: string, toolName?: string, documentIds?: string[]) => void;
   disabled?: boolean;
   isStreaming?: boolean;
+  hasQueuedQuery?: boolean;
   onCancel?: () => void;
 }
 
@@ -20,6 +21,7 @@ export function ChatInput({
   onSend,
   disabled,
   isStreaming,
+  hasQueuedQuery,
   onCancel,
 }: ChatInputProps) {
   const [input, setInput] = useState('');
@@ -43,7 +45,7 @@ export function ChatInput({
   }, [input]);
 
   const handleSubmit = async () => {
-    if ((!input.trim() && files.length === 0) || disabled || isStreaming) return;
+    if ((!input.trim() && files.length === 0) || disabled) return;
 
     let documentIds: string[] = [];
 
@@ -132,7 +134,7 @@ export function ChatInput({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Напишіть повідомлення..."
-            disabled={disabled || isStreaming}
+            disabled={disabled}
             rows={1}
             className="flex-1 py-2.5 px-1 bg-transparent border-none resize-none focus:ring-0 focus:outline-none text-zinc-900 placeholder:text-zinc-400 font-sans text-[14px] leading-[1.6] max-h-[200px] overflow-hidden"
             style={{
@@ -141,7 +143,7 @@ export function ChatInput({
           />
 
           <div className="flex items-center gap-1.5 flex-shrink-0 pb-0.5">
-            {isStreaming ? (
+            {isStreaming && (
               <button
                 type="button"
                 onClick={onCancel}
@@ -151,27 +153,35 @@ export function ChatInput({
               >
                 <Square size={14} strokeWidth={2} fill="currentColor" />
               </button>
-            ) : (
-              <button
-                onClick={handleSubmit}
-                disabled={(!input.trim() && files.length === 0) || disabled || isUploadingFiles}
-                className={`p-2 rounded-xl transition-all duration-150 ${
-                  (input.trim() || files.length > 0) && !disabled && !isUploadingFiles
-                    ? 'bg-zinc-900 text-white hover:bg-zinc-700 active:scale-95 shadow-sm'
-                    : 'bg-zinc-100 text-zinc-300 cursor-not-allowed'
-                }`}
-                aria-label="Надіслати повідомлення"
-              >
-                {isUploadingFiles ? (
-                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
-                ) : (
-                  <Send size={14} strokeWidth={2} />
-                )}
-              </button>
             )}
+            <button
+              onClick={handleSubmit}
+              disabled={(!input.trim() && files.length === 0) || disabled || isUploadingFiles}
+              className={`p-2 rounded-xl transition-all duration-150 ${
+                (input.trim() || files.length > 0) && !disabled && !isUploadingFiles
+                  ? 'bg-zinc-900 text-white hover:bg-zinc-700 active:scale-95 shadow-sm'
+                  : 'bg-zinc-100 text-zinc-300 cursor-not-allowed'
+              }`}
+              aria-label={isStreaming ? 'Додати в чергу' : 'Надіслати повідомлення'}
+              title={isStreaming ? 'Буде виконано після поточної відповіді' : undefined}
+            >
+              {isUploadingFiles ? (
+                <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+              ) : (
+                <Send size={14} strokeWidth={2} />
+              )}
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Queued query indicator */}
+      {hasQueuedQuery && (
+        <div className="mt-1.5 px-3 py-1 text-[11px] text-zinc-500 flex items-center gap-1.5">
+          <Loader2 size={10} className="animate-spin" />
+          <span>Запит в черзі — буде виконано після поточної відповіді</span>
+        </div>
+      )}
     </div>
     </>
   );
