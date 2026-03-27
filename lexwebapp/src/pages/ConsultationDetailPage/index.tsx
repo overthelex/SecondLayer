@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, Star, CreditCard, CheckCircle, XCircle, Play, MessageSquare, Shield, Lock } from 'lucide-react';
 import { consultationService, type Consultation } from '../../services/api/ConsultationService';
@@ -32,6 +32,41 @@ export function ConsultationDetailPage() {
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [acceptFee, setAcceptFee] = useState('');
   const [activeModal, setActiveModal] = useState<'decline' | 'complete' | 'cancel' | null>(null);
+
+  // Resizable divider state
+  const [topPanelHeight, setTopPanelHeight] = useState(45); // percentage of container
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+
+  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
+      if (!isDragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const clientY = 'touches' in moveEvent ? moveEvent.touches[0].clientY : moveEvent.clientY;
+      const pct = ((clientY - rect.top) / rect.height) * 100;
+      setTopPanelHeight(Math.min(Math.max(pct, 15), 80));
+    };
+
+    const handleEnd = () => {
+      isDragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove);
+      document.removeEventListener('touchend', handleEnd);
+    };
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove);
+    document.addEventListener('touchend', handleEnd);
+  }, []);
 
   const addStatusListener = useConsultationStore(s => s.addStatusListener);
 
@@ -185,8 +220,8 @@ export function ConsultationDetailPage() {
   const isChatDisabled = isTerminal || consultation.status === 'completed';
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex-shrink-0 overflow-y-auto max-h-[45vh] border-b border-gray-200">
+    <div ref={containerRef} className="h-full flex flex-col overflow-hidden">
+      <div className="overflow-y-auto flex-shrink-0" style={{ height: `${topPanelHeight}%` }}>
         <div className="max-w-4xl mx-auto p-6">
           <Link to="/consultations?list" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4">
             <ArrowLeft className="w-4 h-4" /> Назад до консультацій
@@ -310,6 +345,15 @@ export function ConsultationDetailPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Drag handle */}
+      <div
+        onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
+        className="flex-shrink-0 h-2 bg-gray-100 border-y border-gray-200 cursor-row-resize hover:bg-indigo-100 active:bg-indigo-200 transition-colors flex items-center justify-center group"
+      >
+        <div className="w-8 h-0.5 rounded-full bg-gray-300 group-hover:bg-indigo-400 transition-colors" />
       </div>
 
       {/* Chat section — takes remaining space */}
