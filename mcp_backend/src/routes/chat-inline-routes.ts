@@ -120,7 +120,7 @@ export function createChatInlineRoutes(deps: {
       const abortController = new AbortController();
 
       // Absolute wall-clock timeout to prevent runaway agentic loops
-      const timeoutMs = (budget === 'deep') ? 300_000 : 180_000;
+      const timeoutMs = (budget === 'deep') ? 300_000 : 240_000;
       const requestTimeout = setTimeout(() => {
         logger.warn('[ChatService] Request timed out', { requestId, timeoutMs, budget });
         abortController.abort();
