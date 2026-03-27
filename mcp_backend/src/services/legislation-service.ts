@@ -677,6 +677,7 @@ export class LegislationService {
            json_build_object(
              'article_number', la.article_number,
              'title', la.title,
+             'full_text', la.full_text,
              'section_number', la.section_number,
              'section_title', la.section_title,
              'chapter_number', la.chapter_number,
