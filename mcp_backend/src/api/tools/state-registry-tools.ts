@@ -1,9 +1,11 @@
 /**
- * State Registry Tools - ERB (Єдиний реєстр боржників) + NBU bank registry
+ * State Registry Tools - NBU bank registry
  *
- * 2 tools:
- * - search_erb_debtors — пошук у Єдиному реєстрі боржників (Мін'юст)
+ * 1 tool:
  * - search_nbu_banks — пошук банків з ліцензією НБУ
+ *
+ * Note: search_erb_debtors removed — debtors data lives in OpenReyestr DB,
+ * accessible via openreyestr_search_debtors tool.
  */
 
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
@@ -16,42 +18,6 @@ export class StateRegistryTools extends BaseToolHandler {
 
   getToolDefinitions(): ToolDefinition[] {
     return [
-      {
-        name: 'search_erb_debtors',
-        description: `Пошук у Єдиному реєстрі боржників (Міністерство юстиції України)
-
-Реєстр містить 10+ млн записів про боржників з відкритими виконавчими провадженнями.
-Пошук за кодом ЄДРПОУ, ПІБ боржника або номером виконавчого провадження.
-Джерело: data.gov.ua / erb.minjust.gov.ua`,
-        inputSchema: {
-          type: 'object',
-          properties: {
-            debtor_name: {
-              type: 'string',
-              description: 'ПІБ фізичної особи або назва юридичної особи (пошук по вхожденню)',
-            },
-            debtor_code: {
-              type: 'string',
-              description: 'Код ЄДРПОУ юридичної особи',
-            },
-            vp_ordernum: {
-              type: 'string',
-              description: 'Номер виконавчого провадження',
-            },
-            vd_cat: {
-              type: 'string',
-              description: 'Категорія стягнення (наприклад: "стягнення коштів", "аліменти")',
-            },
-            limit: {
-              type: 'number',
-              default: 20,
-              maximum: 100,
-              description: 'Максимальна кількість результатів (за замовчуванням 20)',
-            },
-          },
-          required: [],
-        },
-      },
       {
         name: 'search_nbu_banks',
         description: `Пошук банків з ліцензією Національного банку України
@@ -84,90 +50,10 @@ export class StateRegistryTools extends BaseToolHandler {
 
   async executeTool(name: string, args: any): Promise<ToolResult | null> {
     switch (name) {
-      case 'search_erb_debtors':
-        return await this.searchErbDebtors(args);
       case 'search_nbu_banks':
         return await this.searchNbuBanks(args);
       default:
         return null;
-    }
-  }
-
-  private async searchErbDebtors(args: any): Promise<ToolResult> {
-    const debtorName = args.debtor_name?.trim();
-    const debtorCode = args.debtor_code?.trim();
-    const vpOrdernum = args.vp_ordernum?.trim();
-    const vdCat = args.vd_cat?.trim();
-    const limit = Math.min(Number(args.limit) || 20, 100);
-
-    if (!debtorName && !debtorCode && !vpOrdernum) {
-      return this.wrapError('Потрібно вказати хоча б один параметр: debtor_name, debtor_code або vp_ordernum');
-    }
-
-    logger.info('[MCP Tool] search_erb_debtors', { debtorName, debtorCode, vpOrdernum, limit });
-
-    try {
-      const conditions: string[] = [];
-      const params: any[] = [];
-      let paramIdx = 1;
-
-      if (debtorCode) {
-        conditions.push(`debtor_code = $${paramIdx++}`);
-        params.push(debtorCode);
-      }
-
-      if (vpOrdernum) {
-        conditions.push(`vp_ordernum = $${paramIdx++}`);
-        params.push(vpOrdernum);
-      }
-
-      if (debtorName) {
-        conditions.push(`debtor_name ILIKE $${paramIdx++}`);
-        params.push(`%${debtorName}%`);
-      }
-
-      if (vdCat) {
-        conditions.push(`vd_cat ILIKE $${paramIdx++}`);
-        params.push(`%${vdCat}%`);
-      }
-
-      const countQuery = `SELECT count(*) AS total FROM erb_debtors WHERE ${conditions.join(' AND ')}`;
-      const countResult = await this.db.query(countQuery, params);
-      const total = parseInt(countResult.rows[0].total, 10);
-
-      params.push(limit);
-      const dataQuery = `
-        SELECT debtor_name, debtor_birthdate, debtor_code, publisher, org_name,
-               org_phone_num, emp_full_fio, emp_phone_num, email_addr, vp_ordernum, vd_cat
-        FROM erb_debtors
-        WHERE ${conditions.join(' AND ')}
-        ORDER BY id DESC
-        LIMIT $${paramIdx}
-      `;
-      const result = await this.db.query(dataQuery, params);
-
-      return this.wrapResponse({
-        source: 'Єдиний реєстр боржників (Мін\'юст, data.gov.ua)',
-        total_found: total,
-        returned: result.rows.length,
-        limit,
-        debtors: result.rows.map((r: any) => ({
-          debtor_name: r.debtor_name,
-          debtor_birthdate: r.debtor_birthdate || null,
-          debtor_code: r.debtor_code || null,
-          publisher: r.publisher,
-          org_name: r.org_name,
-          org_phone: r.org_phone_num || null,
-          executor: r.emp_full_fio || null,
-          executor_phone: r.emp_phone_num || null,
-          executor_email: r.email_addr || null,
-          vp_number: r.vp_ordernum,
-          category: r.vd_cat,
-        })),
-      });
-    } catch (error: any) {
-      logger.error('[MCP Tool] search_erb_debtors failed', { error: error.message });
-      return this.wrapError(`Помилка пошуку в реєстрі боржників: ${error.message}`);
     }
   }
 
