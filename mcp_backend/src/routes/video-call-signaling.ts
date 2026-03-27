@@ -188,23 +188,25 @@ export function attachVideoCallSignaling(
           }
 
           case 'call-offer': {
-            const { sdp, sessionId } = msg;
+            const { sdp, sessionId, fingerprintSig } = msg;
             sendToOther({
               type: 'call-offer',
               sdp,
               sessionId,
               from: user!.id,
+              fingerprintSig,
             });
             break;
           }
 
           case 'call-answer': {
-            const { sdp, sessionId } = msg;
+            const { sdp, sessionId, fingerprintSig } = msg;
             sendToOther({
               type: 'call-answer',
               sdp,
               sessionId,
               from: user!.id,
+              fingerprintSig,
             });
             break;
           }

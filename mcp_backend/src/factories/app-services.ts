@@ -26,6 +26,7 @@ import { AttorneyProfileService } from '../services/attorney-profile-service.js'
 import { ConsultationService } from '../services/consultation-service.js';
 import { ConsultationPaymentService } from '../services/consultation-payment-service.js';
 import { AttorneyPayoutService } from '../services/attorney-payout-service.js';
+import { ConsultationE2eeService } from '../services/consultation-e2ee-service.js';
 import { OAuthService } from '../services/oauth-service.js';
 import { LegislationMonitoringService } from '../services/legislation-monitoring-service.js';
 import { MCPSSEServer } from '../api/mcp-sse-server.js';
@@ -63,6 +64,7 @@ export interface AppServices {
   metricsService: MetricsService;
   attorneyProfileService: AttorneyProfileService;
   consultationService: ConsultationService;
+  consultationE2eeService: ConsultationE2eeService;
   consultationPaymentService: ConsultationPaymentService;
   attorneyPayoutService: AttorneyPayoutService;
   oauthService: OAuthService;
@@ -208,6 +210,7 @@ export function createAppServices(
     auditService,
     attorneyProfileService
   );
+  const consultationE2eeService = new ConsultationE2eeService(coreServices.db);
   const attorneyPayoutService = new AttorneyPayoutService(coreServices.db);
   const consultationPaymentService = new ConsultationPaymentService(
     coreServices.db,
@@ -280,6 +283,7 @@ export function createAppServices(
     metricsService,
     attorneyProfileService,
     consultationService,
+    consultationE2eeService,
     consultationPaymentService,
     attorneyPayoutService,
     oauthService,

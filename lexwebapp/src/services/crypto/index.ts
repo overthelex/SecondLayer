@@ -46,3 +46,34 @@ export {
   encryptUploadedDocument,
   encryptUploadedDocuments,
 } from './PostUploadEncryptor';
+
+export {
+  establishKeys,
+  restoreKeys,
+  getSession,
+  hasSession,
+  clearKeys,
+  clearAll as clearAllConsultationKeys,
+  getPeerPublicKey,
+  type ConsultationSession,
+} from './ConsultationKeyManager';
+
+export {
+  encryptMessage,
+  decryptMessage,
+  needsRotation,
+  getSendCounter,
+} from './MessageRatchet';
+
+export {
+  encryptAttachment,
+  decryptAttachment,
+} from './AttachmentEncryptor';
+
+export {
+  extractSdpFingerprint,
+  signFingerprint,
+  verifyFingerprint,
+  generateSafetyNumber,
+  generateShortSafetyCode,
+} from './CallVerification';

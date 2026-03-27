@@ -1,13 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, MessageSquare, Loader2, Paperclip, FileText, Download, FolderDown, X, Check, CheckCheck, Image as ImageIcon } from 'lucide-react';
+import { Send, MessageSquare, Loader2, Paperclip, FileText, Download, FolderDown, X, Check, CheckCheck, Image as ImageIcon, Lock, LockOpen, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services';
 import { uploadService } from '../../services/api/UploadService';
 import { useConsultationStore } from '../../stores/consultationStore';
+import { useConsultationE2ee } from '../../hooks/useConsultationE2ee';
+import { ConsultationE2eeStatus } from '../encryption/ConsultationE2eeStatus';
 import type { ConsultationMessage } from '../../services/api/ConsultationService';
 
 interface ConsultationChatTabProps {
   consultationId: string | null;
+  clientUserId?: string;
+  attorneyUserId?: string;
   onUnreadCountChange: (count: number) => void;
   disabled?: boolean;
 }
@@ -118,7 +122,7 @@ function AttachmentDisplay({ message, consultationId, isMine }: { message: Consu
   );
 }
 
-export function ConsultationChatTab({ consultationId, onUnreadCountChange, disabled }: ConsultationChatTabProps) {
+export function ConsultationChatTab({ consultationId, clientUserId, attorneyUserId, onUnreadCountChange, disabled }: ConsultationChatTabProps) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ConsultationMessage[]>([]);
   const [input, setInput] = useState('');
@@ -134,9 +138,29 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef<number>(0);
 
+  // E2EE hook
+  const e2ee = useConsultationE2ee(
+    consultationId ?? undefined,
+    clientUserId,
+    attorneyUserId,
+    user?.id
+  );
+  const e2eeReady = e2ee.status === 'ready';
+
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
+
+  // Decrypt an encrypted message in-place (returns a copy with plaintext content)
+  const decryptMessageIfNeeded = useCallback(async (msg: ConsultationMessage): Promise<ConsultationMessage> => {
+    if (!msg.is_encrypted || !e2eeReady || msg.msg_counter === undefined) return msg;
+    try {
+      const plaintext = await e2ee.decryptMessage(msg.content, msg.msg_counter, msg.key_version);
+      return { ...msg, content: plaintext };
+    } catch {
+      return { ...msg, content: '[Не вдалося розшифрувати]' };
+    }
+  }, [e2ee, e2eeReady]);
 
   // Load initial messages
   useEffect(() => {
@@ -148,9 +172,13 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
     let cancelled = false;
     setIsLoading(true);
 
-    consultationService.getMessages(consultationId, { limit: 100 }).then((result) => {
+    consultationService.getMessages(consultationId, { limit: 100 }).then(async (result) => {
       if (!cancelled) {
-        setMessages(result.messages);
+        // Decrypt encrypted messages if E2EE is ready
+        const decrypted = e2eeReady
+          ? await Promise.all(result.messages.map(decryptMessageIfNeeded))
+          : result.messages;
+        setMessages(decrypted);
         setIsLoading(false);
         onUnreadCountChange(0);
         setTimeout(scrollToBottom, 100);
@@ -160,7 +188,7 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
     });
 
     return () => { cancelled = true; };
-  }, [consultationId, onUnreadCountChange, scrollToBottom]);
+  }, [consultationId, onUnreadCountChange, scrollToBottom, e2eeReady, decryptMessageIfNeeded]);
 
   // Connect SSE stream
   useEffect(() => {
@@ -170,32 +198,45 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
     eventSourceRef.current = es;
 
     es.addEventListener('message', (event) => {
-      try {
-        const message: ConsultationMessage = JSON.parse(event.data);
-        setMessages((prev) => {
-          // Already have this exact message by server ID
-          if (prev.some((m) => m.id === message.id)) return prev;
-          // Replace optimistic message if it matches (same sender + content)
-          const optimisticIdx = prev.findIndex(
-            (m) => m.id.startsWith('optimistic-') && m.sender_id === message.sender_id && m.content === message.content
-          );
-          if (optimisticIdx >= 0) {
-            const updated = [...prev];
-            updated[optimisticIdx] = message;
-            return updated;
-          }
-          return [...prev, message];
-        });
-        onUnreadCountChange(0);
-        setTimeout(scrollToBottom, 100);
+      (async () => {
+        try {
+          let message: ConsultationMessage = JSON.parse(event.data);
 
-        // Mark as read if the message is from the other party
-        if (message.sender_id !== user?.id && consultationId) {
-          consultationService.markMessagesRead(consultationId).catch(() => {});
+          // Decrypt if encrypted and E2EE is ready
+          if (message.is_encrypted && e2eeReady && message.msg_counter !== undefined) {
+            try {
+              const plaintext = await e2ee.decryptMessage(message.content, message.msg_counter, message.key_version);
+              message = { ...message, content: plaintext };
+            } catch {
+              message = { ...message, content: '[Не вдалося розшифрувати]' };
+            }
+          }
+
+          setMessages((prev) => {
+            // Already have this exact message by server ID
+            if (prev.some((m) => m.id === message.id)) return prev;
+            // Replace optimistic message if it matches (same sender)
+            const optimisticIdx = prev.findIndex(
+              (m) => m.id.startsWith('optimistic-') && m.sender_id === message.sender_id
+            );
+            if (optimisticIdx >= 0) {
+              const updated = [...prev];
+              updated[optimisticIdx] = message;
+              return updated;
+            }
+            return [...prev, message];
+          });
+          onUnreadCountChange(0);
+          setTimeout(scrollToBottom, 100);
+
+          // Mark as read if the message is from the other party
+          if (message.sender_id !== user?.id && consultationId) {
+            consultationService.markMessagesRead(consultationId).catch(() => {});
+          }
+        } catch {
+          // ignore parse errors
         }
-      } catch {
-        // ignore parse errors
-      }
+      })();
     });
 
     // Handle message status updates
@@ -245,7 +286,7 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
       eventSourceRef.current = null;
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-  }, [consultationId, onUnreadCountChange, scrollToBottom, user?.id]);
+  }, [consultationId, onUnreadCountChange, scrollToBottom, user?.id, e2eeReady, e2ee]);
 
   // Polling fallback: SSE through Cloudflare is unreliable, poll every 30s
   useEffect(() => {
@@ -371,11 +412,30 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
         attachment = uploaded;
       }
 
+      // Encrypt content if E2EE is ready
+      let finalContent = content || (file?.name || '');
+      let e2eePayload: { isEncrypted: boolean; msgCounter?: number; keyVersion?: number } | undefined;
+
+      if (e2eeReady && finalContent) {
+        try {
+          const encrypted = await e2ee.encryptMessage(finalContent);
+          finalContent = encrypted.ciphertext;
+          e2eePayload = {
+            isEncrypted: true,
+            msgCounter: encrypted.counter,
+            keyVersion: encrypted.keyVersion,
+          };
+        } catch (err) {
+          console.error('E2EE encryption failed, sending plaintext:', err);
+        }
+      }
+
       const sent = await consultationService.sendMessage(
         consultationId,
-        content || (file?.name || ''),
+        finalContent,
         undefined,
-        attachment
+        attachment,
+        e2eePayload
       );
       // Replace optimistic with real message (SSE may have already replaced it)
       setMessages((prev) => {
@@ -439,6 +499,34 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
 
   return (
     <div className="flex flex-col h-full">
+      {/* E2EE status indicator */}
+      {e2ee.status !== 'locked' && (
+        <div className={`flex items-center justify-between px-3 py-1.5 text-[10px] border-b border-claude-border/30 ${
+          e2eeReady ? 'text-green-600 bg-green-50/50' :
+          e2ee.status === 'establishing' ? 'text-yellow-600 bg-yellow-50/50' :
+          e2ee.status === 'no_peer_encryption' ? 'text-orange-500 bg-orange-50/50' :
+          'text-red-500 bg-red-50/50'
+        }`}>
+          <div className="flex items-center gap-1.5">
+            {e2eeReady ? (
+              <><Lock size={10} /> Наскрізне шифрування активне</>
+            ) : e2ee.status === 'establishing' ? (
+              <><Loader2 size={10} className="animate-spin" /> Встановлення шифрування...</>
+            ) : e2ee.status === 'no_peer_encryption' ? (
+              <><LockOpen size={10} /> Співрозмовник не налаштував шифрування</>
+            ) : e2ee.status === 'error' ? (
+              <><ShieldAlert size={10} /> {e2ee.error || 'Помилка шифрування'}</>
+            ) : null}
+          </div>
+          {e2eeReady && (
+            <ConsultationE2eeStatus
+              isEstablished={true}
+              peerId={user?.id === clientUserId ? attorneyUserId : clientUserId}
+            />
+          )}
+        </div>
+      )}
+
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.length === 0 && (

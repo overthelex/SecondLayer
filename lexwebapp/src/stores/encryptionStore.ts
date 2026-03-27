@@ -11,6 +11,7 @@ import {
   setupEncryption,
   unlockPrivateKey,
   exportKeyFile,
+  clearAllConsultationKeys,
   type EncryptedKeyBundle,
   type KdfParams,
 } from '../services/crypto';
@@ -143,6 +144,7 @@ export const useEncryptionStore = create<EncryptionState>()(
         if (privateKey) {
           privateKey.fill(0);
         }
+        clearAllConsultationKeys();
         set({
           isUnlocked: false,
           privateKey: null,
@@ -155,6 +157,7 @@ export const useEncryptionStore = create<EncryptionState>()(
       reset: () => {
         const { privateKey } = get();
         if (privateKey) privateKey.fill(0);
+        clearAllConsultationKeys();
         set({
           hasEncryption: false,
           isUnlocked: false,

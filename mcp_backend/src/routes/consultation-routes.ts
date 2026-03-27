@@ -2,6 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { AuthenticatedRequest as DualAuthRequest } from '../middleware/dual-auth.js';
 import { ConsultationService } from '../services/consultation-service.js';
 import { ConsultationPaymentService } from '../services/consultation-payment-service.js';
+import { ConsultationE2eeService } from '../services/consultation-e2ee-service.js';
 import { AttorneyPayoutService } from '../services/attorney-payout-service.js';
 import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
@@ -17,7 +18,8 @@ export function createConsultationRoutes(
   payoutService?: AttorneyPayoutService,
   db?: IDatabase,
   sseMetrics?: SseMetricsCallback,
-  minioService?: MinioService
+  minioService?: MinioService,
+  e2eeService?: ConsultationE2eeService
 ): Router {
   const router = Router();
 
@@ -424,15 +426,25 @@ export function createConsultationRoutes(
   router.post('/:id/messages', (async (req: DualAuthRequest, res: Response): Promise<any> => {
     try {
       if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
-      const { content, messageType, attachmentUrl, attachmentName, attachmentType, attachmentSize } = req.body;
+      const {
+        content, messageType, attachmentUrl, attachmentName, attachmentType, attachmentSize,
+        isEncrypted, msgCounter, keyVersion, attachmentEncryptedDek, attachmentIv,
+      } = req.body;
       const attachment = attachmentUrl ? {
         url: attachmentUrl,
         name: attachmentName || 'file',
         type: attachmentType || 'application/octet-stream',
         size: attachmentSize || 0,
       } : undefined;
+      const e2ee = isEncrypted ? {
+        isEncrypted: true as const,
+        msgCounter,
+        keyVersion,
+        attachmentEncryptedDek,
+        attachmentIv,
+      } : undefined;
       const message = await consultationService.sendMessage(
-        req.params.id as string, req.user.id, content, messageType, attachment
+        req.params.id as string, req.user.id, content, messageType, attachment, e2ee
       );
       res.status(201).json(message);
     } catch (error: any) {
@@ -449,6 +461,77 @@ export function createConsultationRoutes(
       getConsultationMessageBus().publishTyping(req.params.id as string, req.user.id, req.user.name);
       res.json({ ok: true });
     } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
+  // ─── E2EE Routes ───────────────────────────────────────
+
+  // POST /api/consultations/:id/e2ee-setup — establish E2EE keys for consultation
+  router.post('/:id/e2ee-setup', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      if (!e2eeService) return res.status(500).json({ error: 'E2EE service not configured' });
+      const { wrappedForClient, wrappedForAttorney } = req.body;
+      if (!wrappedForClient || !wrappedForAttorney) {
+        return res.status(400).json({ error: 'wrappedForClient та wrappedForAttorney обов\'язкові' });
+      }
+      await e2eeService.setupKeys(req.params.id as string, req.user.id, {
+        wrappedForClient,
+        wrappedForAttorney,
+      });
+      res.json({ ok: true });
+    } catch (error: any) {
+      logger.error('Failed to setup E2EE keys', { error: error.message });
+      res.status(400).json({ error: error.message });
+    }
+  }) as any);
+
+  // GET /api/consultations/:id/e2ee-keys — get my wrapped root key
+  router.get('/:id/e2ee-keys', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      if (!e2eeService) return res.status(500).json({ error: 'E2EE service not configured' });
+      const keyVersion = req.query.version ? parseInt(req.query.version as string, 10) : undefined;
+      const keys = await e2eeService.getKeys(req.params.id as string, req.user.id, keyVersion);
+      if (!keys) return res.status(404).json({ error: 'E2EE ключі не знайдено' });
+      res.json(keys);
+    } catch (error: any) {
+      logger.error('Failed to get E2EE keys', { error: error.message });
+      res.status(500).json({ error: error.message });
+    }
+  }) as any);
+
+  // GET /api/consultations/:id/e2ee-status — get E2EE status for consultation
+  router.get('/:id/e2ee-status', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      if (!e2eeService) return res.status(500).json({ error: 'E2EE service not configured' });
+      const status = await e2eeService.getStatus(req.params.id as string, req.user.id);
+      res.json(status);
+    } catch (error: any) {
+      logger.error('Failed to get E2EE status', { error: error.message });
+      res.status(500).json({ error: error.message });
+    }
+  }) as any);
+
+  // POST /api/consultations/:id/e2ee-rotate — rotate root key
+  router.post('/:id/e2ee-rotate', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+      if (!e2eeService) return res.status(500).json({ error: 'E2EE service not configured' });
+      const { wrappedForClient, wrappedForAttorney, counterCheckpoint } = req.body;
+      if (!wrappedForClient || !wrappedForAttorney || counterCheckpoint === undefined) {
+        return res.status(400).json({ error: 'wrappedForClient, wrappedForAttorney та counterCheckpoint обов\'язкові' });
+      }
+      const newVersion = await e2eeService.rotateKeys(req.params.id as string, req.user.id, {
+        wrappedForClient,
+        wrappedForAttorney,
+        counterCheckpoint,
+      });
+      res.json({ ok: true, keyVersion: newVersion });
+    } catch (error: any) {
+      logger.error('Failed to rotate E2EE keys', { error: error.message });
       res.status(400).json({ error: error.message });
     }
   }) as any);

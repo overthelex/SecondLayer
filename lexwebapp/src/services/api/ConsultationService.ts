@@ -50,6 +50,12 @@ export interface ConsultationMessage {
   attachment_name?: string;
   attachment_type?: string;
   attachment_size?: number;
+  // E2EE fields
+  is_encrypted?: boolean;
+  msg_counter?: number;
+  key_version?: number;
+  attachment_encrypted_dek?: string;
+  attachment_iv?: string;
 }
 
 export interface ConsultationPayment {
@@ -138,7 +144,8 @@ export class ConsultationService extends BaseService {
     id: string,
     content: string,
     messageType?: string,
-    attachment?: { url: string; name: string; type: string; size: number }
+    attachment?: { url: string; name: string; type: string; size: number },
+    e2ee?: { isEncrypted: boolean; msgCounter?: number; keyVersion?: number; attachmentEncryptedDek?: string; attachmentIv?: string }
   ): Promise<ConsultationMessage> {
     return this.request(() => this.client.post<ConsultationMessage>(`/api/consultations/${id}/messages`, {
       content,
@@ -147,6 +154,13 @@ export class ConsultationService extends BaseService {
       attachmentName: attachment?.name,
       attachmentType: attachment?.type,
       attachmentSize: attachment?.size,
+      ...(e2ee ? {
+        isEncrypted: e2ee.isEncrypted,
+        msgCounter: e2ee.msgCounter,
+        keyVersion: e2ee.keyVersion,
+        attachmentEncryptedDek: e2ee.attachmentEncryptedDek,
+        attachmentIv: e2ee.attachmentIv,
+      } : {}),
     }));
   }
 
