@@ -51,11 +51,11 @@ export class RemoteServiceClient {
         apiKey: '',
       },
       rada: {
-        baseUrl: process.env.RADA_MCP_URL || 'http://rada-mcp-app-stage:3001',
+        baseUrl: process.env.RADA_MCP_URL || '',
         apiKey: process.env.RADA_API_KEY || '',
       },
       openreyestr: {
-        baseUrl: process.env.OPENREYESTR_MCP_URL || 'http://app-openreyestr-stage:3005',
+        baseUrl: process.env.OPENREYESTR_MCP_URL || '',
         apiKey: process.env.OPENREYESTR_API_KEY || '',
       },
     };

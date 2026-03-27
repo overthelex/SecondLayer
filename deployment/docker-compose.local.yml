@@ -101,12 +101,12 @@ services:
     image: redis:7-alpine
     container_name: secondlayer-redis-local
     ports:
-      - "6379:6379"  # Standard Redis port
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_local_data:/data
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction --requirepass ${REDIS_PASSWORD:-local_redis_pass}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-local_redis_pass}", "ping"]
       interval: 5s
       timeout: 2s
       retries: 5
@@ -240,9 +240,10 @@ services:
       QDRANT_URL: http://qdrant-local:6333
 
       # Cache
-      REDIS_URL: redis://redis-local:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-local_redis_pass}@redis-local:6379
       REDIS_HOST: redis-local
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local_redis_pass}
 
       # OpenAI Configuration
       OPENAI_API_KEY: ${OPENAI_API_KEY:-local-dev-openai-key}
@@ -424,9 +425,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
       POSTGRES_SCHEMA: ${RADA_POSTGRES_SCHEMA:-rada}
       DATABASE_URL: postgresql://${RADA_POSTGRES_USER:-rada_mcp}:${RADA_POSTGRES_PASSWORD:-rada_password}@postgres-local:5432/${POSTGRES_DB:-secondlayer_local}
-      REDIS_URL: redis://redis-local:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-local_redis_pass}@redis-local:6379
       REDIS_HOST: redis-local
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local_redis_pass}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-local-dev-openai-key}
       OPENAI_API_KEY2: ${OPENAI_API_KEY2:-}
       OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
@@ -489,9 +491,10 @@ services:
       QDRANT_URL: http://qdrant-local:6333
 
       # Cache
-      REDIS_URL: redis://redis-local:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-local_redis_pass}@redis-local:6379
       REDIS_HOST: redis-local
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local_redis_pass}
 
       # OpenAI Configuration
       OPENAI_API_KEY: ${OPENAI_API_KEY:-local-dev-openai-key}
@@ -696,9 +699,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_password}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
-      REDIS_URL: redis://redis-local:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-local_redis_pass}@redis-local:6379
       REDIS_HOST: redis-local
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local_redis_pass}
       QDRANT_URL: http://qdrant-local:6333
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}

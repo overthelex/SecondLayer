@@ -58,8 +58,9 @@ export class UploadQueueService {
 
     const redisHost = process.env.REDIS_HOST || 'localhost';
     const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
+    const redisPassword = process.env.REDIS_PASSWORD || undefined;
 
-    const connection = { host: redisHost, port: redisPort };
+    const connection = { host: redisHost, port: redisPort, password: redisPassword };
 
     this.queue = new Queue(QUEUE_NAME, {
       connection,
@@ -88,7 +89,8 @@ export class UploadQueueService {
   startWorker(): void {
     const redisHost = process.env.REDIS_HOST || 'localhost';
     const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
-    const connection = { host: redisHost, port: redisPort };
+    const redisPassword = process.env.REDIS_PASSWORD || undefined;
+    const connection = { host: redisHost, port: redisPort, password: redisPassword };
     const concurrency = DEFAULT_CONCURRENCY;
 
     this.worker = new Worker(
