@@ -7,6 +7,8 @@ function extractSummary(c: ToolResultData): string {
   if (c.title) return String(c.title);
   if (c.resolution) return String(c.resolution);
   if (c.summary) return String(c.summary);
+  if (c.headline) return String(c.headline);
+  if (c.text_snippet) return String(c.text_snippet);
   if (c.similarity_reason) return String(c.similarity_reason);
   if (Array.isArray(c.snippets) && c.snippets.length > 0) return c.snippets.join(' ');
   if (c.description) return String(c.description);
@@ -14,7 +16,7 @@ function extractSummary(c: ToolResultData): string {
   if (typeof c.content === 'string' && c.content.length > 0) return c.content.slice(0, 500);
   if (c.snippet) return String(c.snippet);
   // Try to build from document type + case number
-  const docType = c.doc_type || c.document_type || c.judgment_code || '';
+  const docType = c.doc_type || c.document_type || c.judgment_form || c.judgment_code || '';
   const caseNum = c.cause_num || c.case_number || '';
   if (docType && caseNum) return `${docType} у справі ${caseNum}`;
   if (docType) return String(docType);
@@ -35,6 +37,11 @@ const COURT_TOOLS = [
   'get_similar_reasoning',
   'get_citation_graph',
   'get_case_text',
+  'search_edrsr_decisions',
+  'search_edrsr_fulltext',
+  'search_edrsr_semantic',
+  'get_edrsr_decision_fulltext',
+  'search_vrp_decisions',
 ];
 
 export function extractCourtEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
@@ -49,7 +56,7 @@ export function extractCourtEvidence(toolName: string, parsed: ToolResultData): 
     decisions.push({
       id: `sc-${sc.doc_id || Date.now()}`,
       number: sc.cause_num || sc.case_number || 'N/A',
-      court: sc.court_code || sc.court || '',
+      court: sc.court_code || sc.court_name || sc.court || '',
       date: sc.adjudication_date || sc.date || '',
       summary: extractSummary(sc),
       relevance: 100,
@@ -66,14 +73,16 @@ export function extractCourtEvidence(toolName: string, parsed: ToolResultData): 
     decisions.push({
       id: `d-${c.doc_id || c.id || Math.random().toString(36).slice(2, 8)}`,
       number: c.cause_num || c.case_number || c.number || 'N/A',
-      court: c.court_code || c.court || '',
+      court: c.court_code || c.court_name || c.court || '',
       date: c.adjudication_date || c.date || '',
       summary: extractSummary(c),
       relevance: c.similarity
         ? Math.round(c.similarity * 100)
         : c.relevance
           ? Math.round(c.relevance * 100)
-          : 70,
+          : c.score
+            ? Math.round(c.score * 100)
+            : 70,
       status: 'active',
       documentType: classifyDocumentType(c),
       externalUrl: courtDocUrl(c.doc_id),
@@ -117,6 +126,22 @@ export function extractCourtEvidence(toolName: string, parsed: ToolResultData): 
       documentType: classifyDocumentType(c),
       externalUrl: courtDocUrl(c.doc_id),
       docId: c.doc_id ? String(c.doc_id) : undefined,
+    });
+  }
+
+  // get_edrsr_decision_fulltext — single decision with full_text (no sections/results wrapper)
+  if (parsed.full_text && parsed.doc_id && !parsed.sections && !cases.length) {
+    decisions.push({
+      id: `gcd-${parsed.doc_id}`,
+      number: parsed.cause_num || parsed.case_number || String(parsed.doc_id),
+      court: parsed.court_code || parsed.court_name || '',
+      date: parsed.adjudication_date || '',
+      summary: typeof parsed.full_text === 'string' ? parsed.full_text.slice(0, 500) : '',
+      relevance: 100,
+      status: 'active',
+      documentType: classifyDocumentType(parsed),
+      externalUrl: courtDocUrl(parsed.doc_id),
+      docId: String(parsed.doc_id),
     });
   }
 
