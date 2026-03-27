@@ -100,6 +100,12 @@ export function useWebRTC(signaling: Signaling) {
       pcRef.current = null;
     }
 
+    // Stop screen share track if active
+    if (originalVideoTrackRef.current) {
+      originalVideoTrackRef.current.stop();
+      originalVideoTrackRef.current = null;
+    }
+
     const { localStream: currentStream } = useVideoCallStore.getState();
     if (currentStream) {
       currentStream.getTracks().forEach((track) => track.stop());

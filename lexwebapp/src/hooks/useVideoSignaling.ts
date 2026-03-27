@@ -70,21 +70,28 @@ export function useVideoSignaling(consultationId: string | null) {
     } = store.getState();
 
     switch (msg.type) {
-      case 'call-incoming': {
+      case 'incoming-call': {
+        const session = msg.session as any;
         setIncomingCall({
-          sessionId: msg.sessionId as string,
-          callerId: msg.callerId as string,
+          sessionId: session?.id as string,
+          callerId: session?.caller_id as string,
           callerName: msg.callerName as string,
-          callType: msg.callType as 'video' | 'audio',
-          consultationId: msg.consultationId as string,
+          callType: session?.call_type as 'video' | 'audio',
+          consultationId: session?.consultation_id as string,
         });
+        break;
+      }
+
+      case 'call-created': {
+        const session = msg.session as any;
+        setSessionId(session?.id as string);
         break;
       }
 
       case 'call-accepted': {
         setCallState('connecting');
         setSessionId(msg.sessionId as string);
-        setRemoteUser(msg.userId as string, msg.userName as string);
+        setRemoteUser(msg.by as string, null);
         break;
       }
 
@@ -98,12 +105,12 @@ export function useVideoSignaling(consultationId: string | null) {
         break;
       }
 
-      case 'offer': {
+      case 'call-offer': {
         window.dispatchEvent(new CustomEvent('webrtc-offer', { detail: msg }));
         break;
       }
 
-      case 'answer': {
+      case 'call-answer': {
         window.dispatchEvent(new CustomEvent('webrtc-answer', { detail: msg }));
         break;
       }
@@ -143,37 +150,39 @@ export function useVideoSignaling(consultationId: string | null) {
   }, []);
 
   const sendOffer = useCallback((offer: RTCSessionDescriptionInit) => {
-    send({ type: 'offer', sdp: offer.sdp, sdpType: offer.type });
-  }, [send]);
+    const { sessionId } = store.getState();
+    send({ type: 'call-offer', sdp: offer.sdp, sdpType: offer.type, sessionId });
+  }, [send, store]);
 
   const sendAnswer = useCallback((answer: RTCSessionDescriptionInit) => {
-    send({ type: 'answer', sdp: answer.sdp, sdpType: answer.type });
-  }, [send]);
+    const { sessionId } = store.getState();
+    send({ type: 'call-answer', sdp: answer.sdp, sdpType: answer.type, sessionId });
+  }, [send, store]);
 
   const sendIceCandidate = useCallback((candidate: RTCIceCandidateInit) => {
     send({ type: 'ice-candidate', candidate });
   }, [send]);
 
   const initiateCall = useCallback((callType: 'video' | 'audio', calleeId: string) => {
-    send({ type: 'initiate-call', callType, calleeId, consultationId });
+    send({ type: 'call-initiate', callType, calleeId, consultationId });
     store.getState().setCallState('initiating');
     store.getState().setCallType(callType);
   }, [send, consultationId, store]);
 
   const acceptCall = useCallback((sessionId: string) => {
-    send({ type: 'accept-call', sessionId });
+    send({ type: 'call-accept', sessionId });
     store.getState().setCallState('connecting');
     store.getState().setIncomingCall(null);
   }, [send, store]);
 
   const rejectCall = useCallback((sessionId: string) => {
-    send({ type: 'reject-call', sessionId });
+    send({ type: 'call-reject', sessionId });
     store.getState().setIncomingCall(null);
   }, [send, store]);
 
   const hangup = useCallback(() => {
     const { sessionId } = store.getState();
-    send({ type: 'hangup', sessionId });
+    send({ type: 'call-hangup', sessionId });
     store.getState().setCallState('ended');
   }, [send, store]);
 

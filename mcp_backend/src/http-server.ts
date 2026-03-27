@@ -30,6 +30,7 @@ import { NewsArticleService } from './services/news-article-service.js';
 import { ERAUCacheService } from './services/erau-cache-service.js';
 import { attachTerminalWebSocket } from './routes/terminal-routes.js';
 import { attachVideoCallSignaling } from './routes/video-call-signaling.js';
+import { SttService } from './services/stt-service.js';
 import { VideoCallService } from './services/video-call-service.js';
 import { createVideoCallRoutes } from './routes/video-call-routes.js';
 import { getConsultationMessageBus } from './services/consultation-message-bus.js';
@@ -965,7 +966,8 @@ class HTTPMCPServer {
     // Attach video call signaling WebSocket
     const messageBus = getConsultationMessageBus();
     const videoCallSvc = new VideoCallService(this.services.db, messageBus);
-    attachVideoCallSignaling(httpServer, this.services.db, videoCallSvc, messageBus);
+    const sttSvc = new SttService(videoCallSvc);
+    attachVideoCallSignaling(httpServer, this.services.db, videoCallSvc, messageBus, sttSvc);
 
     // Listen BEFORE initialize so healthcheck responds during slow startup
     await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));

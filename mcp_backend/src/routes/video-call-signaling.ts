@@ -5,6 +5,7 @@ import { logger } from '../utils/logger.js';
 import type { IDatabase } from '../domain/ports/index.js';
 import type { IConsultationMessageBus } from '../services/consultation-message-bus.js';
 import type { VideoCallService } from '../services/video-call-service.js';
+import type { SttService } from '../services/stt-service.js';
 import type { Server as HttpServer } from 'http';
 
 interface AuthenticatedUser {
@@ -48,6 +49,7 @@ export function attachVideoCallSignaling(
   db: IDatabase,
   videoCallService: VideoCallService,
   messageBus: IConsultationMessageBus,
+  sttService?: SttService,
 ): void {
   const wss = new WebSocketServer({ noServer: true });
 
@@ -268,13 +270,53 @@ export function attachVideoCallSignaling(
           }
 
           case 'audio-data': {
-            // Placeholder for STT integration
-            logger.debug('[VideoSignaling] Received audio data', {
-              sessionId: msg.sessionId,
-              userId: user!.id,
-              language: msg.language,
-              dataLength: msg.data?.length || 0,
-            });
+            if (!sttService) break;
+
+            const activeSession = await videoCallService.getActiveSession(consultationId!);
+            if (!activeSession) break;
+
+            const lang = (msg.language as string) || 'uk';
+
+            // Lazily start transcription for this speaker
+            if (!sttService.hasActiveTranscription(activeSession.id, user!.id)) {
+              sttService.startTranscription(
+                activeSession.id,
+                user!.id,
+                lang,
+                (text: string, isFinal: boolean, timestampMs: number) => {
+                  // Forward transcript to both parties
+                  const transcriptMsg = {
+                    type: 'transcription',
+                    sessionId: activeSession.id,
+                    speakerId: user!.id,
+                    speakerName: user!.name,
+                    segmentId: `${activeSession.id}-${user!.id}-${timestampMs}`,
+                    text,
+                    language: lang,
+                    isFinal,
+                    timestampMs,
+                  };
+
+                  // Send to caller
+                  if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify(transcriptMsg));
+                  }
+                  // Send to other party
+                  sendToOther(transcriptMsg);
+                },
+              );
+            }
+
+            // Decode base64 audio and forward to Deepgram
+            try {
+              const audioBuffer = Buffer.from(msg.audio as string, 'base64');
+              const handle = sttService.getHandle(activeSession.id, user!.id);
+              if (handle) {
+                handle.sendAudio(audioBuffer);
+              }
+            } catch {
+              // ignore decode errors
+            }
             break;
           }
 
@@ -331,6 +373,16 @@ export function attachVideoCallSignaling(
         if (room.size === 0) {
           rooms.delete(consultationId!);
         }
+      }
+
+      // Stop any active STT transcription for this user
+      try {
+        const sessionForStt = await videoCallService.getActiveSession(consultationId!);
+        if (sessionForStt && sttService) {
+          sttService.stopTranscription(sessionForStt.id, user.id);
+        }
+      } catch {
+        // ignore
       }
 
       // End any active session this user was in
