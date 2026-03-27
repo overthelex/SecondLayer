@@ -10,6 +10,9 @@ export interface WorkflowSSECallbacks {
   onStepComplete?: (data: { workflowId: string; stepId: number; stepIndex: number; tool: string; result: unknown }) => void;
   onStepError?: (data: { workflowId: string; stepId?: number; tool?: string; error: string }) => void;
   onWorkflowComplete?: (data: { workflowId: string; status: string; stepCount: number; costUsd: number }) => void;
+  onAnalysisStart?: (data: { workflowId: string }) => void;
+  onAnalysisDelta?: (data: { workflowId: string; text: string }) => void;
+  onAnalysisComplete?: (data: { workflowId: string; analysis: string }) => void;
   onError?: (error: string) => void;
 }
 
@@ -122,6 +125,15 @@ export class WorkflowService extends BaseService {
         break;
       case 'workflow_complete':
         callbacks.onWorkflowComplete?.(data as Parameters<NonNullable<WorkflowSSECallbacks['onWorkflowComplete']>>[0]);
+        break;
+      case 'analysis_start':
+        callbacks.onAnalysisStart?.(data as Parameters<NonNullable<WorkflowSSECallbacks['onAnalysisStart']>>[0]);
+        break;
+      case 'analysis_delta':
+        callbacks.onAnalysisDelta?.(data as Parameters<NonNullable<WorkflowSSECallbacks['onAnalysisDelta']>>[0]);
+        break;
+      case 'analysis_complete':
+        callbacks.onAnalysisComplete?.(data as Parameters<NonNullable<WorkflowSSECallbacks['onAnalysisComplete']>>[0]);
         break;
       case 'error':
         callbacks.onError?.(String(data.error || 'Unknown error'));

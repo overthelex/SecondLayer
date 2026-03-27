@@ -111,7 +111,7 @@ export function createAppServices(
   // Workflow services
   const workflowService = new WorkflowService(coreServices.db);
   const workflowGeneratorService = new WorkflowGeneratorService(tools.toolRegistry, llmAdapter);
-  const workflowExecutorService = new WorkflowExecutorService(tools.toolRegistry, workflowService, billing.costTracker);
+  const workflowExecutorService = new WorkflowExecutorService(tools.toolRegistry, workflowService, billing.costTracker, llmAdapter);
   logger.info('Workflow services initialized');
 
   // ChatService (agentic LLM loop) with search cache

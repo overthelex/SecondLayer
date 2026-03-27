@@ -45,6 +45,10 @@ export interface Workflow {
   };
   plan: WorkflowPlan;
   results: Record<string, any> | null;
+  /** Streaming analysis text (accumulated during execution) */
+  analysis?: string;
+  /** Whether analysis is currently streaming */
+  analysisStreaming?: boolean;
   error_message: string | null;
   cost_usd: number;
   created_at: string;
