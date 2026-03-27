@@ -171,14 +171,14 @@ async function importArma() {
           const result = await client.query(
             `INSERT INTO arma_assets (case_number, case_date, court_name, asset_type, asset_description,
               owner_name, owner_type, owner_edrpou, region, status, arrest_date, transfer_date, manager,
-              raw_data, source_url, content_hash)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+              source_url, content_hash)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
              ON CONFLICT (content_hash) DO UPDATE SET
-               raw_data = EXCLUDED.raw_data, updated_at = CURRENT_TIMESTAMP
+               updated_at = CURRENT_TIMESTAMP
              RETURNING (xmax = 0) AS is_insert`,
             [caseNumber, caseDate, courtName, assetType, assetDesc,
              ownerName, null, numerdr, region, status, arrestDate, null, judgeName,
-             JSON.stringify(record), ARMA_URL, hash]
+             ARMA_URL, hash]
           );
 
           if (result.rows[0]?.is_insert) imported++;
