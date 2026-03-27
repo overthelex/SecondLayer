@@ -50,7 +50,7 @@ const AWS_CONFIG = {
 // ── Clients ─────────────────────────────────────────────────────────────────
 const s3 = new S3Client(AWS_CONFIG);
 const bedrock = new BedrockClient(AWS_CONFIG);
-const qdrant = new QdrantClient({ url: process.env.QDRANT_URL || 'http://localhost:6333' });
+const qdrant = new QdrantClient({ url: process.env.QDRANT_URL || 'http://localhost:6333', ...(process.env.QDRANT_API_KEY && { apiKey: process.env.QDRANT_API_KEY }) });
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   host: process.env.POSTGRES_HOST || 'localhost',

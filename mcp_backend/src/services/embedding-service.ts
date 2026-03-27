@@ -25,7 +25,8 @@ export class EmbeddingService implements IEmbeddingPort {
   constructor() {
 
     const qdrantUrl = process.env.QDRANT_URL || 'http://localhost:6333';
-    this.qdrant = new QdrantClient({ url: qdrantUrl });
+    const qdrantApiKey = process.env.QDRANT_API_KEY;
+    this.qdrant = new QdrantClient({ url: qdrantUrl, ...(qdrantApiKey && { apiKey: qdrantApiKey }) });
   }
 
   /** Register a callback to receive VoyageAI token usage (for cost tracking). */

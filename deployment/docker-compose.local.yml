@@ -28,7 +28,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_password}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
     ports:
-      - "5432:5432"  # Standard PostgreSQL port
+      - "127.0.0.1:5432:5432"  # Standard PostgreSQL port
     volumes:
       - postgres_local_data:/var/lib/postgresql/data
     healthcheck:
@@ -75,10 +75,12 @@ services:
     image: qdrant/qdrant:latest
     container_name: secondlayer-qdrant-local
     ports:
-      - "6333:6333"  # HTTP API
-      - "6334:6334"  # gRPC
+      - "127.0.0.1:6333:6333"  # HTTP API
+      - "127.0.0.1:6334:6334"  # gRPC
     volumes:
       - qdrant_local_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-local_qdrant_key}
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
       interval: 10s
@@ -104,7 +106,18 @@ services:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis_local_data:/data
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy volatile-lru --requirepass ${REDIS_PASSWORD:-local_redis_pass}
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy volatile-lru
+      --requirepass ${REDIS_PASSWORD:-local_redis_pass}
+      --rename-command CONFIG ""
+      --rename-command DEBUG ""
+      --rename-command SLAVEOF ""
+      --rename-command REPLICAOF ""
+      --rename-command FLUSHDB ""
+      --rename-command FLUSHALL ""
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-local_redis_pass}", "ping"]
       interval: 5s
@@ -238,6 +251,7 @@ services:
 
       # Vector DB
       QDRANT_URL: http://qdrant-local:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-local_qdrant_key}
 
       # Cache
       REDIS_URL: redis://:${REDIS_PASSWORD:-local_redis_pass}@redis-local:6379
@@ -489,6 +503,7 @@ services:
 
       # Vector DB
       QDRANT_URL: http://qdrant-local:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-local_qdrant_key}
 
       # Cache
       REDIS_URL: redis://:${REDIS_PASSWORD:-local_redis_pass}@redis-local:6379
@@ -571,7 +586,7 @@ services:
       POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD:-openreyestr_dev_password}
       POSTGRES_DB: ${OPENREYESTR_POSTGRES_DB:-openreyestr_local}
     ports:
-      - "5437:5432"
+      - "127.0.0.1:5437:5432"
     volumes:
       - postgres_openreyestr_local_data:/var/lib/postgresql/data
     healthcheck:
@@ -704,6 +719,7 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-local_redis_pass}
       QDRANT_URL: http://qdrant-local:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-local_qdrant_key}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
       OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
@@ -739,8 +755,8 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_PROMETHEUS_AUTH_TYPE: public
     ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Web console
+      - "127.0.0.1:9000:9000"   # S3 API
+      - "127.0.0.1:9001:9001"   # Web console
     volumes:
       - minio_local_data:/data
     healthcheck:
@@ -785,7 +801,7 @@ services:
       NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud-local localhost local.legal.org.ua"
       OVERWRITEPROTOCOL: https
     ports:
-      - "8888:80"
+      - "127.0.0.1:8888:80"
     volumes:
       - nextcloud_local_data:/var/www/html
     depends_on:
@@ -917,7 +933,7 @@ services:
       - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_local_data:/prometheus
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     networks:
       - secondlayer-local
     restart: unless-stopped
@@ -939,7 +955,7 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "3100:3000"
+      - "127.0.0.1:3100:3000"
     networks:
       - secondlayer-local
     restart: unless-stopped
@@ -995,7 +1011,7 @@ services:
       POSTGRES_PASSWORD: ${HUDOC_POSTGRES_PASSWORD:-hudoc_local_pass}
       POSTGRES_DB: ${HUDOC_POSTGRES_DB:-hudoc_local}
     ports:
-      - "5436:5432"
+      - "127.0.0.1:5436:5432"
     volumes:
       - ${HUDOC_DATA_PATH:-./hudoc-storage/pgdata}:/var/lib/postgresql/data
     healthcheck:
@@ -1022,7 +1038,7 @@ services:
     environment:
       REDIS_ADDR: "redis://redis-local:6379"
     ports:
-      - "9121:9121"
+      - "127.0.0.1:9121:9121"
     networks:
       - secondlayer-local
     restart: unless-stopped

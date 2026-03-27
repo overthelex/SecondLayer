@@ -27,7 +27,7 @@ const CHUNK_OVERLAP_WORDS = 50;
 
 // ── Clients ─────────────────────────────────────────────────────────────────
 const voyageClient = new VoyageAIClient(process.env.VOYAGEAI_API_KEY!);
-const qdrant = new QdrantClient({ url: process.env.QDRANT_URL || 'http://localhost:6333' });
+const qdrant = new QdrantClient({ url: process.env.QDRANT_URL || 'http://localhost:6333', ...(process.env.QDRANT_API_KEY && { apiKey: process.env.QDRANT_API_KEY }) });
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   host: process.env.POSTGRES_HOST || 'localhost',
