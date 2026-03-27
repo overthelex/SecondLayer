@@ -134,7 +134,7 @@ async function worker(id: number, pool: PoolType, rangeStart: number, rangeEnd: 
         try {
           const result = await client.query(`
             UPDATE ${TABLE}
-            SET tsv = to_tsvector('simple', LEFT(full_text, 500000))
+            SET tsv = to_tsvector('simple', full_text)
             WHERE doc_id >= $1 AND doc_id < $2
               AND tsv IS NULL AND full_text IS NOT NULL
           `, [offset, batchEnd]);

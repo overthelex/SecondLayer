@@ -274,7 +274,7 @@ export class EdsrSearchTools extends BaseToolHandler {
       d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
       d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
       d.doc_url, d.status, d.date_publ
-      ${includeFulltext ? ', LEFT(f.full_text, 10000) as full_text' : ''}`;
+      ${includeFulltext ? ', f.full_text' : ''}`;
 
     const executeSearch = async (withFulltext: boolean) => {
       const actualFromClause = `edrsr_documents d
@@ -285,7 +285,7 @@ export class EdsrSearchTools extends BaseToolHandler {
       d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
       d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
       d.doc_url, d.status, d.date_publ
-      ${withFulltext ? ', LEFT(f.full_text, 10000) as full_text' : ''}`;
+      ${withFulltext ? ', f.full_text' : ''}`;
 
       const countSql = `SELECT COUNT(*)::int as total FROM ${actualFromClause} WHERE ${whereClause}`;
       const countResult = await this.db.query(countSql, params);
