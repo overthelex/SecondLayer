@@ -1404,6 +1404,19 @@ services:
         reservations:
           memory: 64M
 
+  # ==========================================
+  # Coturn TURN server (WebRTC NAT traversal)
+  # ==========================================
+  coturn:
+    image: coturn/coturn:4.6
+    container_name: sl-coturn
+    network_mode: host
+    volumes:
+      - ./coturn/turnserver.conf:/etc/turnserver.conf:ro
+    environment:
+      - TURN_SHARED_SECRET=${TURN_SHARED_SECRET}
+    restart: unless-stopped
+
 volumes:
   postgres_prod_data:
     driver: local
