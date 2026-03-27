@@ -258,12 +258,12 @@ describe('useVideoSignaling', () => {
       window.addEventListener('webrtc-offer', listener);
 
       act(() => {
-        ws.triggerMessage({ type: 'offer', sdp: 'v=0...', sdpType: 'offer' });
+        ws.triggerMessage({ type: 'call-offer', sdp: 'v=0...', sdpType: 'offer' });
       });
 
       expect(listener).toHaveBeenCalledTimes(1);
       const detail = (listener.mock.calls[0][0] as CustomEvent).detail;
-      expect(detail.type).toBe('offer');
+      expect(detail.type).toBe('call-offer');
       window.removeEventListener('webrtc-offer', listener);
     });
 
@@ -273,7 +273,7 @@ describe('useVideoSignaling', () => {
       window.addEventListener('webrtc-answer', listener);
 
       act(() => {
-        ws.triggerMessage({ type: 'answer', sdp: 'v=0...', sdpType: 'answer' });
+        ws.triggerMessage({ type: 'call-answer', sdp: 'v=0...', sdpType: 'answer' });
       });
 
       expect(listener).toHaveBeenCalledTimes(1);
@@ -293,16 +293,18 @@ describe('useVideoSignaling', () => {
       window.removeEventListener('webrtc-ice-candidate', listener);
     });
 
-    it('sets store incomingCall on call-incoming message', () => {
+    it('sets store incomingCall on incoming-call message', () => {
       const ws = setupConnected();
       act(() => {
         ws.triggerMessage({
-          type: 'call-incoming',
-          sessionId: 'sess-1',
-          callerId: 'user-x',
+          type: 'incoming-call',
+          session: {
+            id: 'sess-1',
+            caller_id: 'user-x',
+            call_type: 'video',
+            consultation_id: 'consult-1',
+          },
           callerName: 'Alice',
-          callType: 'video',
-          consultationId: 'consult-1',
         });
       });
 
@@ -319,8 +321,7 @@ describe('useVideoSignaling', () => {
         ws.triggerMessage({
           type: 'call-accepted',
           sessionId: 'sess-2',
-          userId: 'user-y',
-          userName: 'Bob',
+          by: 'user-y',
         });
       });
 
@@ -328,7 +329,7 @@ describe('useVideoSignaling', () => {
       expect(state.callState).toBe('connecting');
       expect(state.sessionId).toBe('sess-2');
       expect(state.remoteUserId).toBe('user-y');
-      expect(state.remoteUserName).toBe('Bob');
+      expect(state.remoteUserName).toBeNull();
     });
 
     it('sets callState to ended on call-rejected', () => {
@@ -411,7 +412,7 @@ describe('useVideoSignaling', () => {
       });
 
       expect(ws.send).toHaveBeenCalledWith(
-        expect.stringContaining('"type":"initiate-call"')
+        expect.stringContaining('"type":"call-initiate"')
       );
       const sent = JSON.parse(ws.send.mock.calls[0][0]);
       expect(sent.callType).toBe('video');
@@ -430,7 +431,7 @@ describe('useVideoSignaling', () => {
 
       expect(ws.send).toHaveBeenCalled();
       const sent = JSON.parse(ws.send.mock.calls[0][0]);
-      expect(sent.type).toBe('hangup');
+      expect(sent.type).toBe('call-hangup');
       expect(sent.sessionId).toBe('sess-active');
       expect(useVideoCallStore.getState().callState).toBe('ended');
     });
@@ -443,7 +444,7 @@ describe('useVideoSignaling', () => {
       });
 
       const sent = JSON.parse(ws.send.mock.calls[0][0]);
-      expect(sent.type).toBe('accept-call');
+      expect(sent.type).toBe('call-accept');
       expect(sent.sessionId).toBe('sess-abc');
       expect(useVideoCallStore.getState().incomingCall).toBeNull();
       expect(useVideoCallStore.getState().callState).toBe('connecting');
@@ -466,7 +467,7 @@ describe('useVideoSignaling', () => {
       });
 
       const sent = JSON.parse(ws.send.mock.calls[0][0]);
-      expect(sent.type).toBe('reject-call');
+      expect(sent.type).toBe('call-reject');
       expect(useVideoCallStore.getState().incomingCall).toBeNull();
     });
 
