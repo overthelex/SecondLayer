@@ -334,6 +334,17 @@ jobs:
           ln -sf /home/vovkes/SecondLayer/deployment/.env.local deployment/.env.local
           ln -sf /home/vovkes/SecondLayer/deployment/.env.prod deployment/.env.prod 2>/dev/null || true
 
+      - name: Safety check — prod containers untouched
+        run: |
+          # Verify prod nginx and backend are running before we touch local env
+          for c in nginx-prod secondlayer-app-prod-green secondlayer-app-prod-blue; do
+            STATUS=$(docker inspect --format='{{.State.Status}}' "$c" 2>/dev/null || echo "absent")
+            if [ "$STATUS" = "running" ]; then
+              echo "✓ Prod container $c is running"
+            fi
+          done
+          echo "PROD_NGINX_BEFORE=$(docker inspect --format='{{.State.StartedAt}}' nginx-prod 2>/dev/null || echo none)" >> "$GITHUB_ENV"
+
       - name: Build & restart changed local services
         working-directory: deployment
         run: |
@@ -440,6 +451,18 @@ jobs:
           # Check nginx routes locally — only when backend is running (nginx proxies /health to backend)
           if [ "$BACKEND_CHANGED" = "true" ]; then
             check_health "Local via nginx" "http://localhost:80/health"
+          fi
+
+          # Verify prod was not affected by local deploy
+          PROD_NGINX_NOW=$(docker inspect --format='{{.State.Status}}' nginx-prod 2>/dev/null || echo "absent")
+          PROD_NGINX_STARTED=$(docker inspect --format='{{.State.StartedAt}}' nginx-prod 2>/dev/null || echo none)
+          if [ "$PROD_NGINX_NOW" != "running" ]; then
+            echo "::error::CRITICAL: prod nginx is $PROD_NGINX_NOW after local deploy!"
+            FAILED=true
+          elif [ "$PROD_NGINX_STARTED" != "$PROD_NGINX_BEFORE" ] && [ "$PROD_NGINX_BEFORE" != "none" ]; then
+            echo "::warning::Prod nginx was restarted during local deploy (was: $PROD_NGINX_BEFORE, now: $PROD_NGINX_STARTED)"
+          else
+            echo "✓ Prod nginx untouched"
           fi
 
           if [ "$FAILED" = "true" ]; then exit 1; fi
