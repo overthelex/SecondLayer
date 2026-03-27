@@ -173,8 +173,17 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
       try {
         const message: ConsultationMessage = JSON.parse(event.data);
         setMessages((prev) => {
-          // Avoid duplicates (optimistic send)
+          // Already have this exact message by server ID
           if (prev.some((m) => m.id === message.id)) return prev;
+          // Replace optimistic message if it matches (same sender + content)
+          const optimisticIdx = prev.findIndex(
+            (m) => m.id.startsWith('optimistic-') && m.sender_id === message.sender_id && m.content === message.content
+          );
+          if (optimisticIdx >= 0) {
+            const updated = [...prev];
+            updated[optimisticIdx] = message;
+            return updated;
+          }
           return [...prev, message];
         });
         onUnreadCountChange(0);
@@ -244,13 +253,13 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
     const poll = setInterval(() => {
       consultationService.getMessages(consultationId, { limit: 100 }).then((result) => {
         setMessages(prev => {
-          if (result.messages.length === prev.length) return prev;
-          // Merge: keep all messages, deduplicate by id
-          const ids = new Set(prev.map(m => m.id));
-          const newMsgs = result.messages.filter(m => !ids.has(m.id));
-          if (newMsgs.length === 0) return prev;
-          const merged = [...prev, ...newMsgs];
-          setTimeout(scrollToBottom, 100);
+          // Keep only unresolved optimistic messages (no matching server message yet)
+          const pendingOptimistic = prev.filter(m =>
+            m.id.startsWith('optimistic-') &&
+            !result.messages.some(sm => sm.sender_id === m.sender_id && sm.content === m.content)
+          );
+          const merged = [...result.messages, ...pendingOptimistic];
+          if (merged.length !== prev.length) setTimeout(scrollToBottom, 100);
           return merged;
         });
       }).catch(() => {});
@@ -368,8 +377,15 @@ export function ConsultationChatTab({ consultationId, onUnreadCountChange, disab
         undefined,
         attachment
       );
-      // Replace optimistic with real message
-      setMessages((prev) => prev.map((m) => m.id === optimistic.id ? sent : m));
+      // Replace optimistic with real message (SSE may have already replaced it)
+      setMessages((prev) => {
+        const hasReal = prev.some((m) => m.id === sent.id);
+        if (hasReal) {
+          // SSE already delivered — just remove leftover optimistic if any
+          return prev.filter((m) => m.id !== optimistic.id);
+        }
+        return prev.map((m) => m.id === optimistic.id ? sent : m);
+      });
     } catch {
       // Remove optimistic on failure
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
