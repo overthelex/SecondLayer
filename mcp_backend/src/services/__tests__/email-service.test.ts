@@ -115,7 +115,7 @@ describe('EmailService', () => {
     });
 
     it('should skip when user preferences disable notifications', async () => {
-      service.setPreferenceFetcher(async () => ({
+      service.setPreferenceFetcher(async (): Promise<any> => ({
         payment_receipts: true,
         low_balance_alerts: true,
         monthly_summary: true,
@@ -140,7 +140,7 @@ describe('EmailService', () => {
     });
 
     it('should skip when payment success notifications disabled', async () => {
-      service.setPreferenceFetcher(async () => ({
+      service.setPreferenceFetcher(async (): Promise<any> => ({
         payment_receipts: true,
         low_balance_alerts: true,
         monthly_summary: true,
@@ -221,7 +221,7 @@ describe('EmailService', () => {
     });
 
     it('should skip if balance above custom threshold', async () => {
-      service.setPreferenceFetcher(async () => ({
+      service.setPreferenceFetcher(async (): Promise<any> => ({
         payment_receipts: true,
         low_balance_alerts: true,
         monthly_summary: true,
