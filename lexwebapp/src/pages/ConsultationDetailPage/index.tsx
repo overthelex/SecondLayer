@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Loader2, Star, CreditCard, CheckCircle, XCircle, Play, MessageSquare, Shield, Lock } from 'lucide-react';
+import { ArrowLeft, Loader2, Star, CreditCard, CheckCircle, XCircle, Play, MessageSquare, Shield, Lock, Video, Phone } from 'lucide-react';
 import { consultationService, type Consultation } from '../../services/api/ConsultationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { getErrorMessage } from '../../utils/errors';
@@ -11,6 +11,8 @@ import { EscrowStatusBadge } from '../../components/consultation/EscrowStatusBad
 import { SharedDocumentsSection } from '../../components/consultation/SharedDocumentsSection';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
 import { useConsultationStore } from '../../stores/consultationStore';
+import { VideoCallOverlay } from '../../components/video-call/VideoCallOverlay';
+import { useVideoCallStore } from '../../stores/videoCallStore';
 
 const STATUS_STEPS = ['pending', 'accepted', 'paid', 'in_progress', 'completed'];
 const STATUS_LABELS: Record<string, string> = {
@@ -32,6 +34,32 @@ export function ConsultationDetailPage() {
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [acceptFee, setAcceptFee] = useState('');
   const [activeModal, setActiveModal] = useState<'decline' | 'complete' | 'cancel' | null>(null);
+
+  const callState = useVideoCallStore(s => s.callState);
+  const setConsultationIdForCall = useVideoCallStore(s => s.setConsultationId);
+
+  // Set consultation ID in video call store
+  useEffect(() => {
+    if (id) setConsultationIdForCall(id);
+    return () => setConsultationIdForCall(null);
+  }, [id, setConsultationIdForCall]);
+
+  const handleStartVideoCall = () => {
+    if (!consultation || !id) return;
+    const otherUserId = isClient ? consultation.attorney_user_id : consultation.client_user_id;
+    const otherUserName = isClient ? consultation.attorney_name : consultation.client_name;
+    useVideoCallStore.getState().setRemoteUser(otherUserId, otherUserName || null);
+    useVideoCallStore.getState().setCallState('initiating');
+  };
+
+  const handleStartAudioCall = () => {
+    if (!consultation || !id) return;
+    const otherUserId = isClient ? consultation.attorney_user_id : consultation.client_user_id;
+    const otherUserName = isClient ? consultation.attorney_name : consultation.client_name;
+    useVideoCallStore.getState().setRemoteUser(otherUserId, otherUserName || null);
+    useVideoCallStore.getState().setCallState('initiating');
+    useVideoCallStore.getState().toggleVideo(); // start as audio-only
+  };
 
   // Resizable divider state
   const [topPanelHeight, setTopPanelHeight] = useState(45); // percentage of container
@@ -329,6 +357,21 @@ export function ConsultationDetailPage() {
                 Завершити
               </button>
             )}
+            {/* Video/Audio call buttons — available when consultation is paid or in_progress */}
+            {['paid', 'in_progress'].includes(consultation.status) && callState === 'idle' && (
+              <>
+                <button onClick={handleStartVideoCall}
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 flex items-center gap-1.5">
+                  <Video className="w-4 h-4" />
+                  Відеодзвінок
+                </button>
+                <button onClick={handleStartAudioCall}
+                  className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 flex items-center gap-1.5">
+                  <Phone className="w-4 h-4" />
+                  Аудіодзвінок
+                </button>
+              </>
+            )}
             {!isTerminal && consultation.status !== 'completed' && (
               <button onClick={() => setActiveModal('cancel')} disabled={!!actionLoading}
                 className="px-3 py-1.5 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
@@ -562,6 +605,11 @@ export function ConsultationDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Video/Audio call overlay */}
+      {id && callState !== 'idle' && (
+        <VideoCallOverlay />
       )}
     </div>
   );

@@ -29,6 +29,10 @@ import { createNewsRoutes } from './routes/news-routes.js';
 import { NewsArticleService } from './services/news-article-service.js';
 import { ERAUCacheService } from './services/erau-cache-service.js';
 import { attachTerminalWebSocket } from './routes/terminal-routes.js';
+import { attachVideoCallSignaling } from './routes/video-call-signaling.js';
+import { VideoCallService } from './services/video-call-service.js';
+import { createVideoCallRoutes } from './routes/video-call-routes.js';
+import { getConsultationMessageBus } from './services/consultation-message-bus.js';
 import { createTeamRoutes } from './routes/team-routes.js';
 import { createTeamService } from './services/team-service.js';
 import { createTestEmailRoute } from './routes/test-email-route.js';
@@ -643,6 +647,11 @@ class HTTPMCPServer {
     ));
     logger.info('Consultation routes registered at /api/consultations');
 
+    // Video call routes (nested under consultations)
+    const videoCallService = new VideoCallService(this.services.db, getConsultationMessageBus());
+    this.app.use('/api/consultations/:consultationId/call', requireJWT as any, createVideoCallRoutes(videoCallService));
+    logger.info('Video call routes registered at /api/consultations/:consultationId/call');
+
     // Admin routes - require JWT + admin privileges
     // GET /api/admin/stats/overview - Dashboard statistics
     // GET /api/admin/stats/revenue-chart - Revenue chart data
@@ -952,6 +961,11 @@ class HTTPMCPServer {
 
     // Attach admin terminal WebSocket
     attachTerminalWebSocket(httpServer, this.services.db);
+
+    // Attach video call signaling WebSocket
+    const messageBus = getConsultationMessageBus();
+    const videoCallSvc = new VideoCallService(this.services.db, messageBus);
+    attachVideoCallSignaling(httpServer, this.services.db, videoCallSvc, messageBus);
 
     // Listen BEFORE initialize so healthcheck responds during slow startup
     await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));
