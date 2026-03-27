@@ -1,5 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useVideoCallStore } from '../stores/videoCallStore';
+import { useEncryptionStore } from '../stores/encryptionStore';
+import { extractSdpFingerprint, signFingerprint } from '../services/crypto/CallVerification';
 
 interface SignalingMessage {
   type: string;
@@ -151,12 +153,32 @@ export function useVideoSignaling(consultationId: string | null) {
 
   const sendOffer = useCallback((offer: RTCSessionDescriptionInit) => {
     const { sessionId } = store.getState();
-    send({ type: 'call-offer', sdp: offer.sdp, sdpType: offer.type, sessionId });
+    const { privateKey, isUnlocked } = useEncryptionStore.getState();
+
+    let fingerprintSig: string | undefined;
+    if (isUnlocked && privateKey && offer.sdp && sessionId) {
+      const fp = extractSdpFingerprint(offer.sdp);
+      if (fp) {
+        fingerprintSig = signFingerprint(fp, sessionId, privateKey);
+      }
+    }
+
+    send({ type: 'call-offer', sdp: offer.sdp, sdpType: offer.type, sessionId, fingerprintSig });
   }, [send, store]);
 
   const sendAnswer = useCallback((answer: RTCSessionDescriptionInit) => {
     const { sessionId } = store.getState();
-    send({ type: 'call-answer', sdp: answer.sdp, sdpType: answer.type, sessionId });
+    const { privateKey, isUnlocked } = useEncryptionStore.getState();
+
+    let fingerprintSig: string | undefined;
+    if (isUnlocked && privateKey && answer.sdp && sessionId) {
+      const fp = extractSdpFingerprint(answer.sdp);
+      if (fp) {
+        fingerprintSig = signFingerprint(fp, sessionId, privateKey);
+      }
+    }
+
+    send({ type: 'call-answer', sdp: answer.sdp, sdpType: answer.type, sessionId, fingerprintSig });
   }, [send, store]);
 
   const sendIceCandidate = useCallback((candidate: RTCIceCandidateInit) => {

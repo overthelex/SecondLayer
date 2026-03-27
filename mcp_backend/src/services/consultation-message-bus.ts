@@ -25,7 +25,18 @@ export interface TypingEvent {
   userName?: string;
 }
 
-export type UserEvent = ConsultationStatusEvent | NewMessageEvent | TypingEvent;
+export interface E2eeKeysReadyEvent {
+  type: 'e2ee_keys_ready';
+  consultationId: string;
+}
+
+export interface E2eeKeyRotatedEvent {
+  type: 'e2ee_key_rotated';
+  consultationId: string;
+  keyVersion: number;
+}
+
+export type UserEvent = ConsultationStatusEvent | NewMessageEvent | TypingEvent | E2eeKeysReadyEvent | E2eeKeyRotatedEvent;
 type UserEventCallback = (event: UserEvent) => void;
 
 // ── Interface ─────────────────────────────────────────────────────────────────

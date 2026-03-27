@@ -450,6 +450,8 @@ export function ConsultationDetailPage() {
         <div className="flex-1 min-h-0">
           <ConsultationChatTab
             consultationId={id || null}
+            clientUserId={consultation?.client_user_id}
+            attorneyUserId={consultation?.attorney_user_id}
             onUnreadCountChange={() => {}}
             disabled={isChatDisabled}
           />

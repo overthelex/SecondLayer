@@ -30,4 +30,28 @@ declare module 'tweetnacl' {
     scalarLength: number;
     groupElementLength: number;
   };
+
+  export interface SignKeyPair {
+    publicKey: Uint8Array;
+    secretKey: Uint8Array;
+  }
+
+  export const sign: {
+    (msg: Uint8Array, secretKey: Uint8Array): Uint8Array;
+    open(signedMsg: Uint8Array, publicKey: Uint8Array): Uint8Array | null;
+    detached(msg: Uint8Array, secretKey: Uint8Array): Uint8Array;
+    detached: {
+      (msg: Uint8Array, secretKey: Uint8Array): Uint8Array;
+      verify(msg: Uint8Array, sig: Uint8Array, publicKey: Uint8Array): boolean;
+    };
+    keyPair: {
+      (): SignKeyPair;
+      fromSecretKey(secretKey: Uint8Array): SignKeyPair;
+      fromSeed(seed: Uint8Array): SignKeyPair;
+    };
+    publicKeyLength: number;
+    secretKeyLength: number;
+    seedLength: number;
+    signatureLength: number;
+  };
 }

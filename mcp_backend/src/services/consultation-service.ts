@@ -58,6 +58,12 @@ export interface ConsultationMessage {
   attachment_name?: string;
   attachment_type?: string;
   attachment_size?: number;
+  // E2EE fields
+  is_encrypted?: boolean;
+  msg_counter?: number;
+  key_version?: number;
+  attachment_encrypted_dek?: string;
+  attachment_iv?: string;
 }
 
 export interface CreateConsultationData {
@@ -612,19 +618,22 @@ export class ConsultationService {
     senderId: string,
     content: string,
     messageType?: string,
-    attachment?: { url: string; name: string; type: string; size: number }
+    attachment?: { url: string; name: string; type: string; size: number },
+    e2ee?: { isEncrypted: boolean; msgCounter?: number; keyVersion?: number; attachmentEncryptedDek?: string; attachmentIv?: string }
   ): Promise<ConsultationMessage> {
     // Verify sender is a party to this consultation
     const consultation = await this.requireConsultation(consultationId, senderId);
 
     const id = uuidv4();
     const result = await this.db.query(
-      `INSERT INTO consultation_messages (id, consultation_id, sender_id, content, message_type, attachment_url, attachment_name, attachment_type, attachment_size)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO consultation_messages (id, consultation_id, sender_id, content, message_type, attachment_url, attachment_name, attachment_type, attachment_size, is_encrypted, msg_counter, key_version, attachment_encrypted_dek, attachment_iv)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
       [
         id, consultationId, senderId, content, messageType || (attachment ? 'file' : 'text'),
         attachment?.url || null, attachment?.name || null, attachment?.type || null, attachment?.size || null,
+        e2ee?.isEncrypted || false, e2ee?.msgCounter ?? null, e2ee?.keyVersion ?? null,
+        e2ee?.attachmentEncryptedDek || null, e2ee?.attachmentIv || null,
       ]
     );
 
