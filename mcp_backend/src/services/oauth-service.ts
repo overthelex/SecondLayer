@@ -109,7 +109,9 @@ export class OAuthService {
       return false;
     }
 
-    return result.rows[0].client_secret === clientSecret;
+    const stored = result.rows[0].client_secret;
+    if (stored.length !== clientSecret.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(stored), Buffer.from(clientSecret));
   }
 
   /**

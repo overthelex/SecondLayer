@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { logger } from '../utils/logger.js';
 
 export interface AuthenticatedRequest extends Request {
@@ -42,7 +43,12 @@ export function authenticateClient(
     });
   }
 
-  if (!validKeys.includes(clientKey.trim())) {
+  const trimmedKey = clientKey.trim();
+  const keyMatch = validKeys.some(k => {
+    if (k.length !== trimmedKey.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(k), Buffer.from(trimmedKey));
+  });
+  if (!keyMatch) {
     logger.warn('Unauthorized request - invalid client key', {
       ip: req.ip,
       path: req.path,

@@ -62,7 +62,6 @@
     "npm": ">=9.0.0"
   },
   "dependencies": {
-    "@secondlayer/core-interfaces": "file:../packages/core-interfaces",
     "@anthropic-ai/sdk": "^0.78.0",
     "@aws-sdk/client-bedrock": "^3.1014.0",
     "@aws-sdk/client-s3": "^3.1005.0",
@@ -70,6 +69,7 @@
     "@google-cloud/vision": "^5.3.4",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@qdrant/js-client-rest": "^1.17.0",
+    "@secondlayer/core-interfaces": "file:../packages/core-interfaces",
     "@secondlayer/shared": "file:../packages/shared",
     "@simplewebauthn/server": "^13.2.3",
     "@types/bcryptjs": "^3.0.0",
@@ -96,7 +96,7 @@
     "minio": "^8.0.6",
     "multer": "^2.1.0",
     "node-cron": "^4.2.1",
-    "nodemailer": "^8.0.2",
+    "nodemailer": "^8.0.4",
     "openai": "^6.27.0",
     "openid-client": "^5.7.1",
     "passport": "^0.7.0",

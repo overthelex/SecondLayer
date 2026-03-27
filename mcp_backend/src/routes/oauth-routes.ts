@@ -696,6 +696,33 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
         });
       }
 
+      // Validate each redirect URI: must be a valid URL with https (or http://localhost for dev)
+      for (const uri of redirect_uris) {
+        try {
+          const parsed = new URL(uri);
+          const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+          if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && isLocalhost)) {
+            return res.status(400).json({
+              error: 'invalid_redirect_uri',
+              error_description: `redirect_uri must use https (or http for localhost): ${uri}`,
+            });
+          }
+        } catch {
+          return res.status(400).json({
+            error: 'invalid_redirect_uri',
+            error_description: `Invalid redirect_uri format: ${uri}`,
+          });
+        }
+      }
+
+      // Limit number of redirect URIs per client
+      if (redirect_uris.length > 10) {
+        return res.status(400).json({
+          error: 'invalid_client_metadata',
+          error_description: 'Maximum 10 redirect_uris allowed per client',
+        });
+      }
+
       // Register the client
       const name = client_name || `MCP Client ${new Date().toISOString().slice(0, 10)}`;
       const client = await oauthService.registerClient({

@@ -124,7 +124,8 @@ export class NOWPaymentsService {
       .update(sortedBody)
       .digest('hex');
 
-    return expected === signature;
+    if (expected.length !== signature.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
   }
 
   /**

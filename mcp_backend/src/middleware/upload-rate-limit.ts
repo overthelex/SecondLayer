@@ -16,6 +16,20 @@ interface UserRateLimitOptions {
   keyPrefix: string;
 }
 
+// In-memory fallback for upload rate limiting when Redis is unavailable
+const uploadMemoryStore = new Map<string, { count: number; expiresAt: number }>();
+
+function uploadMemoryIncrement(key: string, windowMs: number): number {
+  const now = Date.now();
+  const existing = uploadMemoryStore.get(key);
+  if (existing && existing.expiresAt > now) {
+    existing.count++;
+    return existing.count;
+  }
+  uploadMemoryStore.set(key, { count: 1, expiresAt: now + windowMs });
+  return 1;
+}
+
 function createUserRateLimiter(options: UserRateLimitOptions) {
   const { windowMs, maxRequests, keyPrefix } = options;
 
@@ -26,15 +40,20 @@ function createUserRateLimiter(options: UserRateLimitOptions) {
         return next(); // Let auth middleware handle unauthenticated requests
       }
 
+      const key = `${keyPrefix}:${userId}`;
+      let currentCount: number;
+
       if (!uploadRateCache) {
-        return next(); // Cache unavailable, skip rate limiting
+        // Redis unavailable — fall back to in-memory rate limiting
+        currentCount = uploadMemoryIncrement(key, windowMs);
+      } else {
+        const current = await uploadRateCache.get(key);
+        currentCount = current ? parseInt(current, 10) : 0;
+        await uploadRateCache.increment(key, Math.ceil(windowMs / 1000));
+        currentCount++;
       }
 
-      const key = `${keyPrefix}:${userId}`;
-      const current = await uploadRateCache.get(key);
-      const currentCount = current ? parseInt(current, 10) : 0;
-
-      if (currentCount >= maxRequests) {
+      if (currentCount > maxRequests) {
         const retryAfter = Math.ceil(windowMs / 1000);
         logger.warn('[UploadRateLimit] User rate limit exceeded', {
           userId,
@@ -52,16 +71,26 @@ function createUserRateLimiter(options: UserRateLimitOptions) {
         });
       }
 
-      await uploadRateCache.increment(key, Math.ceil(windowMs / 1000));
-
       res.setHeader('X-RateLimit-Limit', maxRequests.toString());
-      res.setHeader('X-RateLimit-Remaining', (maxRequests - currentCount - 1).toString());
+      res.setHeader('X-RateLimit-Remaining', (maxRequests - currentCount).toString());
 
       next();
     } catch (error) {
-      logger.error('[UploadRateLimit] Cache error, allowing request', {
+      logger.error('[UploadRateLimit] Redis error, falling back to memory', {
         error: (error as Error).message,
       });
+      // Fall back to memory instead of allowing unlimited
+      const userId = req.user?.id;
+      if (userId) {
+        const key = `${keyPrefix}:${userId}`;
+        const count = uploadMemoryIncrement(key, windowMs);
+        if (count > maxRequests) {
+          return res.status(429).json({
+            error: 'Too Many Requests',
+            code: 'UPLOAD_RATE_LIMIT_EXCEEDED',
+          });
+        }
+      }
       next();
     }
   };

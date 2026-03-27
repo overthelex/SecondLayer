@@ -4,6 +4,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { OAuthService } from '../services/oauth-service.js';
 import { logger } from '../utils/logger.js';
 
@@ -127,7 +128,11 @@ export function createHybridAuthMiddleware(oauthService: OAuthService) {
       }
 
       // Try API key authentication
-      if (apiKeys.includes(token)) {
+      const apiKeyMatch = apiKeys.some(k => {
+        if (k.length !== token.length) return false;
+        return crypto.timingSafeEqual(Buffer.from(k), Buffer.from(token));
+      });
+      if (apiKeyMatch) {
         // Valid API key - no user ID attached
         logger.debug('API key authentication successful');
         return next();
