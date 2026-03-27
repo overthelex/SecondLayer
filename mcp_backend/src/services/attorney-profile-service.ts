@@ -238,12 +238,12 @@ export class AttorneyProfileService {
 
     const [result, countResult] = await Promise.all([
       this.db.query(
-        `SELECT ap.id, ap.user_id, ap.display_name, ap.bio, ap.specializations,
+        `SELECT ap.id, ap.user_id, ap.bio, ap.specializations,
                 ap.region, ap.city, ap.court_types, ap.languages,
-                ap.years_experience, ap.education, ap.certifications,
+                ap.years_experience, ap.education,
                 ap.consultation_fee_uah, ap.free_initial_consultation,
-                ap.serves_remotely, ap.average_rating, ap.review_count,
-                ap.is_available, ap.avatar_url, ap.website,
+                ap.serves_remotely, ap.average_rating, ap.rating_count,
+                ap.is_available, ap.photo_url,
                 u.name as user_name,
                 o.name as organization_name, o.org_type
          FROM attorney_profiles ap
