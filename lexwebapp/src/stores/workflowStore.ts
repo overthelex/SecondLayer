@@ -111,6 +111,36 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         );
         set({ activeWorkflowSet: { ...activeWorkflowSet, workflows } });
       },
+      onAnalysisStart: (data) => {
+        const { activeWorkflowSet } = get();
+        if (!activeWorkflowSet?.workflows) return;
+        const workflows = activeWorkflowSet.workflows.map((w) =>
+          w.id === data.workflowId
+            ? { ...w, analysisStreaming: true, analysis: '', progress: { ...w.progress, currentTool: 'bedrock_analysis' } }
+            : w
+        );
+        set({ activeWorkflowSet: { ...activeWorkflowSet, workflows } });
+      },
+      onAnalysisDelta: (data) => {
+        const { activeWorkflowSet } = get();
+        if (!activeWorkflowSet?.workflows) return;
+        const workflows = activeWorkflowSet.workflows.map((w) =>
+          w.id === data.workflowId
+            ? { ...w, analysis: (w.analysis || '') + data.text }
+            : w
+        );
+        set({ activeWorkflowSet: { ...activeWorkflowSet, workflows } });
+      },
+      onAnalysisComplete: (data) => {
+        const { activeWorkflowSet } = get();
+        if (!activeWorkflowSet?.workflows) return;
+        const workflows = activeWorkflowSet.workflows.map((w) =>
+          w.id === data.workflowId
+            ? { ...w, analysisStreaming: false, analysis: data.analysis }
+            : w
+        );
+        set({ activeWorkflowSet: { ...activeWorkflowSet, workflows } });
+      },
       onError: (error) => {
         set({ error, executingWorkflowId: null });
       },

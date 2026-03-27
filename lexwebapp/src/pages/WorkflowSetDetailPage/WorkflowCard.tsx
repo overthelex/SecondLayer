@@ -2,8 +2,10 @@
  * WorkflowCard — Individual workflow card with status, progress, and actions.
  */
 
-import { useState } from 'react';
-import { Play, Square, ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Play, Square, ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, Loader2, Brain } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Workflow } from '../../types/models/Workflow';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
 import { useAppT } from '../../i18n/app-i18n';
@@ -30,6 +32,8 @@ export function WorkflowCard({ workflow, onExecute, onCancel, isExecuting }: Wor
   const statusEntry = STATUS_BADGE_KEYS[workflow.status] || STATUS_BADGE_KEYS.pending;
   const status = { label: t(statusEntry.key), color: statusEntry.color, icon: statusEntry.icon };
   const StatusIcon = status.icon;
+
+  const isAnalysisPhase = workflow.analysisStreaming || workflow.progress?.currentTool === 'bedrock_analysis';
 
   const progress = workflow.progress;
   const progressPercent = progress.totalSteps
@@ -61,11 +65,18 @@ export function WorkflowCard({ workflow, onExecute, onCancel, isExecuting }: Wor
           <div className="mb-3">
             <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
               <span>{t('workflowCard.step')} {progress.currentStep || 0} / {progress.totalSteps}</span>
-              {progress.currentTool && <span className="font-mono text-indigo-600">{progress.currentTool}</span>}
+              {isAnalysisPhase ? (
+                <span className="inline-flex items-center gap-1 font-medium text-purple-600">
+                  <Brain className="w-3 h-3" />
+                  Аналіз Bedrock
+                </span>
+              ) : (
+                progress.currentTool && <span className="font-mono text-indigo-600">{progress.currentTool}</span>
+              )}
             </div>
             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                className={`h-full rounded-full transition-all duration-500 ${isAnalysisPhase ? 'bg-purple-500' : 'bg-indigo-500'}`}
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -140,16 +151,89 @@ export function WorkflowCard({ workflow, onExecute, onCancel, isExecuting }: Wor
             ))}
           </div>
 
-          {/* Results */}
+          {/* Analysis (streaming or complete) */}
+          {(workflow.analysis || workflow.analysisStreaming) && (
+            <AnalysisSection
+              analysis={workflow.analysis || ''}
+              isStreaming={workflow.analysisStreaming}
+            />
+          )}
+          {/* Also show analysis from persisted results */}
+          {!workflow.analysis && workflow.results?.analysis && typeof workflow.results.analysis === 'string' && workflow.status === 'completed' && (
+            <AnalysisSection
+              analysis={workflow.results.analysis}
+              isStreaming={false}
+            />
+          )}
+
+          {/* Raw results (collapsible) */}
           {workflow.results && workflow.status === 'completed' && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <h5 className="text-xs font-semibold text-gray-500 uppercase mb-2">{t('workflowCard.results')}</h5>
-              <pre className="text-xs text-gray-600 bg-white p-3 rounded-lg overflow-auto max-h-60">
-                {JSON.stringify(workflow.results, null, 2)}
-              </pre>
-            </div>
+            <RawResultsSection results={workflow.results} t={t} />
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Renders the Bedrock analysis as formatted markdown */
+function AnalysisSection({ analysis, isStreaming }: { analysis: string; isStreaming?: boolean }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isStreaming && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [analysis, isStreaming]);
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-200">
+      <div className="flex items-center gap-2 mb-3">
+        <Brain className="w-4 h-4 text-purple-600" />
+        <h5 className="text-xs font-semibold text-purple-700 uppercase">
+          Інституційний аналіз
+        </h5>
+        {isStreaming && (
+          <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />
+        )}
+      </div>
+      <div
+        ref={scrollRef}
+        className="prose prose-sm max-w-none bg-white p-4 rounded-lg border border-purple-100 overflow-auto max-h-[600px]"
+      >
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {analysis || '...'}
+        </ReactMarkdown>
+        {isStreaming && <span className="inline-block w-2 h-4 bg-purple-500 animate-pulse ml-0.5" />}
+      </div>
+    </div>
+  );
+}
+
+/** Collapsible raw JSON results */
+function RawResultsSection({ results, t }: { results: Record<string, any>; t: (key: string) => string }) {
+  const [showRaw, setShowRaw] = useState(false);
+
+  // Filter out the analysis text from raw results to avoid duplication
+  const rawResults = Object.fromEntries(
+    Object.entries(results).filter(([key]) => key !== 'analysis')
+  );
+
+  if (Object.keys(rawResults).length === 0) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100">
+      <button
+        onClick={() => setShowRaw(!showRaw)}
+        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
+      >
+        {showRaw ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        {t('workflowCard.results')} (JSON)
+      </button>
+      {showRaw && (
+        <pre className="text-xs text-gray-600 bg-white p-3 rounded-lg overflow-auto max-h-60 mt-2">
+          {JSON.stringify(rawResults, null, 2)}
+        </pre>
       )}
     </div>
   );
