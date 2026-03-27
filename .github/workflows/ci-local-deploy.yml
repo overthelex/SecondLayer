@@ -344,7 +344,8 @@ jobs:
               echo "✓ Prod container $c is running"
             fi
           done
-          echo "PROD_NGINX_BEFORE=$(docker inspect --format='{{.State.StartedAt}}' nginx-prod 2>/dev/null || echo none)" >> "$GITHUB_ENV"
+          NGINX_STARTED=$(docker inspect --format='{{.State.StartedAt}}' nginx-prod 2>/dev/null || true)
+          echo "PROD_NGINX_BEFORE=${NGINX_STARTED:-none}" >> "$GITHUB_ENV"
 
       - name: Build & restart changed local services
         working-directory: deployment
