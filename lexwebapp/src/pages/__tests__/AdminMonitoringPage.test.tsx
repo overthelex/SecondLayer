@@ -233,12 +233,21 @@ describe('AdminMonitoringPage', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Оновити').length).toBeGreaterThanOrEqual(1);
     });
-    // Initial load calls getDataSources for backend/rada/openreyestr
-    const initialCalls = mockGetDataSources.mock.calls.length;
+    // Wait for initial load to complete
+    await waitFor(() => {
+      expect(mockGetDataSources.mock.calls.length).toBeGreaterThanOrEqual(3);
+    });
+    // Reset mock to track only new calls after refresh
+    mockGetDataSources.mockClear();
+    mockGetDataSources.mockImplementation((section?: string) => {
+      if (section === 'backend') return Promise.resolve({ data: mockBackendData });
+      if (section === 'rada') return Promise.resolve({ data: mockRadaData });
+      return Promise.resolve({ data: { tables: {}, dbSizeMb: 0 } });
+    });
     // Click the first "Оновити" (header refresh button)
     fireEvent.click(screen.getAllByText('Оновити')[0]);
     await waitFor(() => {
-      expect(mockGetDataSources.mock.calls.length).toBeGreaterThan(initialCalls);
+      expect(mockGetDataSources.mock.calls.length).toBeGreaterThanOrEqual(1);
     });
   });
 
