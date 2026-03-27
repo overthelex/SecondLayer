@@ -29,6 +29,12 @@ export interface Document {
   updated_at?: Date;
 }
 
+/** Strip null bytes that PostgreSQL TEXT columns reject */
+function sanitizeText(value: string | undefined | null): string | null {
+  if (!value) return null;
+  return value.replace(/\0/g, '');
+}
+
 export class DocumentService {
   constructor(private db: IDatabase) {}
 
@@ -73,7 +79,7 @@ export class DocumentService {
         id,
         doc.zakononline_id,
         doc.type,
-        doc.title || null,
+        sanitizeText(doc.title),
         doc.date || null,
         doc.case_number || null,
         doc.court || null,
@@ -81,8 +87,8 @@ export class DocumentService {
         doc.dispute_category || null,
         doc.outcome || null,
         doc.deviation_flag ?? null,
-        doc.full_text || null,
-        doc.full_text_html || null,
+        sanitizeText(doc.full_text),
+        sanitizeText(doc.full_text_html),
         JSON.stringify(doc.metadata || {}),
         doc.user_id || null,
         doc.matter_id || null,
@@ -240,7 +246,7 @@ export class DocumentService {
          SET full_text = $1, updated_at = NOW() 
          WHERE zakononline_id = $2
          RETURNING id`,
-        [full_text, zakononline_id]
+        [sanitizeText(full_text), zakononline_id]
       );
 
       if (result.rows.length === 0) {
@@ -388,7 +394,7 @@ export class DocumentService {
               uuidv4(),
               documentId,
               section.type,
-              section.text,
+              sanitizeText(section.text),
               section.start_index || null,
               section.end_index || null,
               section.confidence || 0.0,

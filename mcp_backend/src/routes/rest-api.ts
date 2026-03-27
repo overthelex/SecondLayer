@@ -91,7 +91,7 @@ export function createRestAPIRouter(db: IDatabase): Router {
         `INSERT INTO documents (zakononline_id, type, title, date, full_text, full_text_html, metadata, user_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *`,
-        [zakononline_id, type, title, date, full_text, full_text_html, metadata || {}, userId || null]
+        [zakononline_id, type, title, date, full_text?.replace(/\0/g, '') || null, full_text_html?.replace(/\0/g, '') || null, metadata || {}, userId || null]
       );
 
       res.status(201).json(result.rows[0]);
