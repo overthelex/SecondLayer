@@ -51,7 +51,7 @@ ONLY_OPENDATA = True
 # Tables not listed default to 7 days (weekly)
 
 UPDATE_FREQ_DAYS = {
-    # ── SecondLayer: daily sources ──
+    # ── SecondLayer: щоденні джерела ──
     "opendata_missing_persons": 1,
     "opendata_wanted_persons": 1,
     "opendata_wanted_vehicles": 1,
@@ -63,13 +63,7 @@ UPDATE_FREQ_DAYS = {
     "opendata_financial_statements": 1,
     "opendata_state_aid": 1,
     "opendata_lustration": 1,
-    "cost_tracking": 1,
-    "monthly_api_usage": 1,
-    "conversation_messages": 1,
-    "conversations": 1,
-    "session_recordings": 1,
-    "session_recording_chunks": 1,
-    # ── SecondLayer: weekly sources ──
+    # ── SecondLayer: щотижневі джерела ──
     "opendata_patents": 7,
     "opendata_trademarks": 7,
     "opendata_advocates": 7,
@@ -104,7 +98,7 @@ UPDATE_FREQ_DAYS = {
     "echr_cases": 7,
     "supreme_court_reviews": 7,
     "dsa_case_distribution": 7,
-    # ── SecondLayer: monthly / rare sources ──
+    # ── SecondLayer: щомісячні / рідкі ──
     "court_sessions": 30,
     "opendata_edrnpa_texts": 30,
     "opendata_edrnpa_cards": 30,
@@ -113,15 +107,12 @@ UPDATE_FREQ_DAYS = {
     "opendata_judge_candidates": 30,
     "opendata_terrorism_orgs": 90,
     "opendata_terrorism_persons": 90,
-    "documents": 90,
-    "document_sections": 90,
     "judges": 90,
     "judges_current": 90,
-    "judge_efficiency": 90,
-    # ── OpenReyestr: daily sources ──
+    # ── OpenReyestr: щоденні ──
     "debtors": 1,
     "enforcement_proceedings": 1,
-    # ── OpenReyestr: weekly sources ──
+    # ── OpenReyestr: щотижневі ──
     "arbitration_managers": 7,
     "bankruptcy_cases": 7,
     "court_experts": 7,
@@ -131,7 +122,7 @@ UPDATE_FREQ_DAYS = {
     "streets": 7,
     "administrative_units": 7,
     "legal_acts": 7,
-    # ── OpenReyestr: monthly / quarterly ──
+    # ── OpenReyestr: щомісячні / квартальні ──
     "legal_entities": 30,
     "individual_entrepreneurs": 30,
     "founders": 30,
@@ -156,6 +147,113 @@ UPDATE_FREQ_DAYS = {
     "dssu_financial_reports": 30,
     "street_renamings": 30,
     "prozorro_tenders": 30,
+}
+
+# ── Ukrainian display names for tables ──
+
+TABLE_NAMES_UK = {
+    # SecondLayer: МВС
+    "opendata_missing_persons": "МВС — Безвісно зниклі особи",
+    "opendata_wanted_persons": "МВС — Особи, які переховуються",
+    "opendata_wanted_vehicles": "МВС — Транспорт у розшуку",
+    # SecondLayer: НАЗК
+    "opendata_corruption": "НАЗК — Реєстр корупціонерів",
+    "opendata_corruption_offenders": "НАЗК — Правопорушники",
+    "opendata_declaration_checks": "НАЗК — Перевірки декларацій",
+    # SecondLayer: документи
+    "opendata_invalid_passports": "ДМС — Недійсні паспорти",
+    "opendata_invalid_passports_foreign": "ДМС — Недійсні закордонні паспорти",
+    "opendata_vehicle_registrations": "МВС — Реєстрація транспортних засобів",
+    "opendata_financial_statements": "ДССУ — Фінзвітність підприємств",
+    "opendata_state_aid": "АМКУ — Державна допомога",
+    "opendata_lustration": "Мін'юст — Реєстр люстрованих осіб",
+    # SecondLayer: інтелектуальна власність
+    "opendata_patents": "УІПВ — Патенти на винаходи",
+    "opendata_trademarks": "УІПВ — Торговельні марки",
+    # SecondLayer: юристи
+    "opendata_advocates": "ЄРАУ — Реєстр адвокатів",
+    "opendata_lawyers": "ЄРАР — Реєстр адвокатів (розширений)",
+    "opendata_court_experts": "Мін'юст — Атестовані судові експерти",
+    # SecondLayer: банкрутство / фінанси
+    "opendata_bankruptcy": "ВГСУ — Реєстр банкрутств",
+    "opendata_bankruptcy_cases": "ВГСУ — Справи про банкрутство",
+    "opendata_securities_owners": "НКЦПФР — Власники цінних паперів",
+    "opendata_vat_payers": "ДПС — Реєстр платників ПДВ",
+    "opendata_large_taxpayers": "ДПС — Великі платники податків",
+    "opendata_wage_debtors": "Держпраці — Боржники із зарплати",
+    "opendata_public_organizations": "Мін'юст — Громадські об'єднання",
+    "opensanctions_entities": "OpenSanctions — Міжнародні санкції",
+    # SecondLayer: публічні фінанси
+    "spending_acts": "Казначейство — Акти (spending.gov.ua)",
+    "spending_addendums": "Казначейство — Додатки (spending.gov.ua)",
+    "spending_contracts": "Казначейство — Договори (spending.gov.ua)",
+    "spending_peny": "Казначейство — Пені (spending.gov.ua)",
+    # SecondLayer: Верховна Рада
+    "bills": "ВРУ — Законопроєкти",
+    "deputies": "ВРУ — Народні депутати",
+    "voting_records": "ВРУ — Результати голосувань",
+    "legislation": "ВРУ — Тексти законодавства",
+    "legislation_articles": "ВРУ — Статті законодавства",
+    "legislation_chunks": "ВРУ — Секції законодавства",
+    # SecondLayer: судова система
+    "judge_analytics": "Аналітика суддів",
+    "vkks_judges": "ВККС — Реєстр суддів",
+    "vkks_evaluations": "ВККС — Оцінювання суддів",
+    "vkks_declarations": "ВККС — Декларації суддів",
+    "vkks_judge_efficiency": "ВККС — Ефективність суддів",
+    "vkks_vacancies": "ВККС — Вакансії суддів",
+    "vrp_decisions": "ВРП — Рішення Вищої ради правосуддя",
+    "echr_cases": "ЄСПЛ — Рішення Європейського суду",
+    "supreme_court_reviews": "ВС — Огляди Верховного Суду",
+    "dsa_case_distribution": "ДСА — Автоматичний розподіл справ",
+    "court_sessions": "Судові засідання",
+    # SecondLayer: нормативна база
+    "opendata_edrnpa_texts": "ЄДРНПА — Тексти нормативних актів",
+    "opendata_edrnpa_cards": "ЄДРНПА — Картки нормативних актів",
+    "opendata_court_case_status": "Судова влада — Стан справ",
+    "opendata_court_schedule": "Судова влада — Розклад засідань",
+    "opendata_judge_candidates": "ВККС — Кандидати на посаду судді",
+    # SecondLayer: безпека
+    "opendata_terrorism_orgs": "ДСФМУ — Терористичні організації",
+    "opendata_terrorism_persons": "ДСФМУ — Терористичні особи",
+    "judges": "Судова влада — Реєстр суддів",
+    "judges_current": "Судова влада — Діючі судді",
+    # ── OpenReyestr ──
+    "debtors": "НАІС — Єдиний реєстр боржників",
+    "enforcement_proceedings": "НАІС — Виконавчі провадження (АСВП)",
+    "arbitration_managers": "НАІС — Арбітражні керуючі",
+    "bankruptcy_cases": "НАІС — Реєстр банкрутства",
+    "court_experts": "НАІС — Атестовані судові експерти",
+    "forensic_methods": "НАІС — Методики судових експертиз",
+    "notaries": "НАІС — Єдиний реєстр нотаріусів",
+    "special_forms": "НАІС — Спеціальні бланки нотаріальних документів",
+    "streets": "НАІС — Словник вулиць",
+    "administrative_units": "НАІС — Адміністративно-територіальний устрій",
+    "legal_acts": "НАІС — ЄДРНПА (нормативно-правові акти)",
+    "legal_entities": "ЄДР — Юридичні особи",
+    "individual_entrepreneurs": "ЄДР — Фізичні особи-підприємці",
+    "founders": "ЄДР — Засновники",
+    "signers": "ЄДР — Підписанти",
+    "beneficiaries": "ЄДР — Кінцеві бенефіціарні власники",
+    "exchange_data": "ЄДР — Дані обміну",
+    "members": "ЄДР — Учасники",
+    "predecessors": "ЄДР — Попередники",
+    "assignees": "ЄДР — Правонаступники",
+    "termination_started": "ЄДР — Припинення (в процесі)",
+    "executive_power": "ЄДР — Органи виконавчої влади",
+    "public_associations": "ЄДР — Громадські формування",
+    "bankruptcy_info": "ЄДР — Інформація про банкрутство",
+    "arma_assets": "АРМА — Реєстр активів",
+    "nazk_declarations": "НАЗК — Декларації",
+    "tax_debt": "ДПС — Податковий борг",
+    "esv_debt": "ДПС — Борг з ЄСВ",
+    "vat_payers": "ДПС — Платники ПДВ",
+    "single_tax_payers": "ДПС — Платники єдиного податку",
+    "rnbo_sanctions": "РНБО — Санкційні списки",
+    "inspection_plans": "Держнагляд — Плани перевірок",
+    "dssu_financial_reports": "ДССУ — Фінансова звітність",
+    "street_renamings": "Перейменування вулиць",
+    "prozorro_tenders": "Prozorro — Тендери",
 }
 
 DEFAULT_FREQ_DAYS = 7
@@ -417,12 +515,12 @@ def print_db_section(db_key: str, label: str, tables: list, import_info: dict,
 
     if fmt == "csv":
         print(f"\n# {label}")
-        print("table,rows,size,last_activity,time_ago,writes_total")
+        print("table,name_uk,rows,size,last_activity,time_ago")
         for r in tables:
             imp = import_info.get(r["table"], {})
             last = imp.get("completed_at", "") or r["last_activity"]
-            writes = r["n_ins"] + r["n_upd"]
-            print(f"{r['table']},{r['rows']},{r['size_bytes']},{last},{time_ago(last)},{writes}")
+            name_uk = TABLE_NAMES_UK.get(r["table"], r["table"])
+            print(f"{r['table']},{name_uk},{r['rows']},{r['size_bytes']},{last},{time_ago(last)}")
         return
 
     W = 108
@@ -430,17 +528,16 @@ def print_db_section(db_key: str, label: str, tables: list, import_info: dict,
     print(f"  {'═' * W}")
     print(f"  📦 {label}  —  {len(tables)} таблиць, {fmt_size(db_size)} загалом")
     print(f"  {'═' * W}")
-    print(f"  {'#':<4} {'Таблиця':<38} {'Рядків':>12} {'Розмір':>9} {'Записів':>10}  {'Норма':>6} {'Давність':>14} {'':>2}")
+    print(f"  {'#':<4} {'Реєстр':<48} {'Рядків':>12} {'Розмір':>9}  {'Норма':>6} {'Давність':>14} {'':>2}")
     print(f"  {'─' * W}")
 
     for i, r in enumerate(tables):
         imp = import_info.get(r["table"], {})
         last_ts = imp.get("completed_at", "") or r["last_activity"]
-        writes = r["n_ins"] + r["n_upd"]
         ago = time_ago(last_ts)
         icon = freshness_icon(last_ts, r["table"])
         row_str = fmt_num(r["rows"]) if r["rows"] > 0 else "—"
-        writes_str = fmt_num(writes) if writes > 0 else "—"
+        display_name = TABLE_NAMES_UK.get(r["table"], r["table"])
 
         # Expected frequency label
         freq = UPDATE_FREQ_DAYS.get(r["table"], DEFAULT_FREQ_DAYS)
@@ -460,7 +557,7 @@ def print_db_section(db_key: str, label: str, tables: list, import_info: dict,
         elif imp.get("status") == "running":
             imp_status = " 🔄"
 
-        print(f"  {i + 1:<4} {r['table']:<38} {row_str:>12} {fmt_size(r['size_bytes']):>9} {writes_str:>10}  {freq_lbl:>6} {ago:>14} {icon}{imp_status}")
+        print(f"  {i + 1:<4} {display_name:<48} {row_str:>12} {fmt_size(r['size_bytes']):>9}  {freq_lbl:>6} {ago:>14} {icon}{imp_status}")
 
         if (i + 1) % page_size == 0 and i + 1 < len(tables):
             remaining = len(tables) - i - 1
@@ -468,7 +565,7 @@ def print_db_section(db_key: str, label: str, tables: list, import_info: dict,
             print(f"  ... ще {remaining} таблиць")
             wait_for_key()
             print(f"  {'─' * W}")
-            print(f"  {'#':<4} {'Таблиця':<38} {'Рядків':>12} {'Розмір':>9} {'Записів':>10}  {'Норма':>6} {'Давність':>14} {'':>2}")
+            print(f"  {'#':<4} {'Реєстр':<48} {'Рядків':>12} {'Розмір':>9}  {'Норма':>6} {'Давність':>14} {'':>2}")
             print(f"  {'─' * W}")
 
     print(f"  {'─' * W}")
