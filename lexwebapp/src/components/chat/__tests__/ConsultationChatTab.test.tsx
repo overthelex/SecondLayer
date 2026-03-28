@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 // Mock AuthContext
 const mockUser = { id: 'user-1', name: 'Test User', email: 'test@test.com', role: 'user' as const };
@@ -66,7 +66,6 @@ describe('ConsultationChatTab', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     currentMockES = createMockEventSource();
     mockGetMessages.mockResolvedValue({ messages: [], total: 0 });
     mockConnectMessageStream.mockReturnValue(currentMockES);
@@ -75,8 +74,9 @@ describe('ConsultationChatTab', () => {
   });
 
   afterEach(() => {
+    // Unmount all rendered components to trigger useEffect cleanups (clearInterval)
+    cleanup();
     currentMockES.close();
-    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
