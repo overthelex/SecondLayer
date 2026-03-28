@@ -129,17 +129,15 @@ jobs:
         if: needs.detect-changes.outputs.frontend == 'true'
         run: |
           cd lexwebapp
-          npm test -- --reporter=json --outputFile=/tmp/vitest-results.json 2>&1 || true
-          # Check actual test results — fail only if tests failed, not worker OOM at teardown
-          if [ -f /tmp/vitest-results.json ]; then
-            FAILED=$(node -e "const r=require('/tmp/vitest-results.json'); console.log(r.numFailedTests || 0)")
-            if [ "$FAILED" != "0" ]; then
-              echo "::error::$FAILED test(s) failed"
-              exit 1
-            fi
+          npm test 2>&1 | tee /tmp/vitest-output.txt || true
+          # Check actual test results from stdout — worker OOM at teardown is not a test failure
+          if grep -q "Tests.*failed" /tmp/vitest-output.txt; then
+            echo "::error::Some tests failed"
+            exit 1
+          elif grep -q "Test Files.*passed" /tmp/vitest-output.txt; then
             echo "All tests passed (worker teardown issues ignored)"
           else
-            echo "::error::Vitest did not produce results file"
+            echo "::error::Could not determine test results"
             exit 1
           fi
         env:
