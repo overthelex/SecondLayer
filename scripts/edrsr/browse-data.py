@@ -18,9 +18,9 @@ Usage:
 import curses
 import json
 import os
-import subprocess
 import sys
 import textwrap
+import threading
 
 # ── Import table config from db-status.py ──
 
@@ -36,26 +36,71 @@ _db = _load_db_status()
 TABLE_NAMES_UK = _db.TABLE_NAMES_UK
 UPDATE_FREQ_DAYS = _db.UPDATE_FREQ_DAYS
 
-# ── DB config ──
+# ── DB config (direct psycopg2 via .env.prod) ──
+
+def _load_env_prod():
+    env = {}
+    env_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env.prod")
+    if os.path.exists(env_path):
+        for line in open(env_path):
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                env[k] = v
+    return env
+
+_env = _load_env_prod()
 
 DATABASES = {
     "secondlayer": {
-        "container": "secondlayer-postgres-prod",
-        "user": "secondlayer",
-        "db": "secondlayer_prod",
+        "host": _env.get("PROD_DB_HOST", "18.158.242.206"),
+        "port": int(_env.get("PROD_DB_PORT", "5438")),
+        "user": _env.get("PROD_DB_USER", "secondlayer"),
+        "password": _env.get("PROD_DB_PASSWORD", ""),
+        "dbname": _env.get("PROD_DB_NAME", "secondlayer_prod"),
+        "schema": "public",
     },
     "openreyestr": {
-        "container": "openreyestr-postgres-prod",
-        "user": "openreyestr",
-        "db": "openreyestr_prod",
+        "host": _env.get("PROD_DB_HOST", "18.158.242.206"),
+        "port": int(_env.get("PROD_OPENREYESTR_DB_PORT", "5440")),
+        "user": _env.get("PROD_OPENREYESTR_DB_USER", "openreyestr"),
+        "password": _env.get("PROD_OPENREYESTR_DB_PASSWORD", ""),
+        "dbname": _env.get("PROD_OPENREYESTR_DB_NAME", "openreyestr_prod"),
+        "schema": "public",
     },
     "rada": {
-        "container": "secondlayer-postgres-prod",
-        "user": "secondlayer",
-        "db": "secondlayer_prod",
+        "host": _env.get("PROD_DB_HOST", "18.158.242.206"),
+        "port": int(_env.get("PROD_DB_PORT", "5438")),
+        "user": _env.get("PROD_DB_USER", "secondlayer"),
+        "password": _env.get("PROD_DB_PASSWORD", ""),
+        "dbname": _env.get("PROD_DB_NAME", "secondlayer_prod"),
         "schema": "rada",
     },
 }
+
+# Connection pool (reuse connections)
+_connections: dict = {}
+
+def _get_conn(db_key: str):
+    import psycopg2
+    if db_key in _connections:
+        try:
+            _connections[db_key].cursor().execute("SELECT 1")
+            return _connections[db_key]
+        except Exception:
+            try: _connections[db_key].close()
+            except: pass
+            del _connections[db_key]
+    cfg = DATABASES[db_key]
+    conn = psycopg2.connect(
+        host=cfg["host"], port=cfg["port"], user=cfg["user"],
+        password=cfg["password"], dbname=cfg["dbname"],
+        connect_timeout=10,
+        options=f"-c search_path={cfg['schema']},public" if cfg["schema"] != "public" else "",
+    )
+    conn.autocommit = True
+    _connections[db_key] = conn
+    return conn
 
 # Which tables belong to which DB
 RADA_TABLES = {"bills", "deputies", "voting_records"}
@@ -180,67 +225,51 @@ PREVIEW_COLUMNS = {
 }
 
 
-def prod_psql(container: str, user: str, db: str, sql: str) -> str:
-    flat_sql = " ".join(sql.strip().split())
-    shell_cmd = f'docker exec {container} psql -U {user} -d {db} -t -A -c "{flat_sql}"'
-    cmd = ["ssh", "prod", shell_cmd]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-    if r.returncode != 0:
-        return ""
-    return r.stdout.strip()
-
-
-def get_db_config(table: str):
+def _db_key_for(table: str) -> str:
     if table in RADA_TABLES:
-        return DATABASES["rada"]
+        return "rada"
     if table in OPENREYESTR_TABLES:
-        return DATABASES["openreyestr"]
-    return DATABASES["secondlayer"]
-
-
-def _qualified_table(table: str, cfg: dict) -> str:
-    schema = cfg.get("schema", "public")
-    return f"{schema}.{table}" if schema != "public" else table
-
-
-def _info_schema(table: str, cfg: dict) -> str:
-    return cfg.get("schema", "public")
+        return "openreyestr"
+    return "secondlayer"
 
 
 def fetch_row_count(table: str) -> int:
-    cfg = get_db_config(table)
-    schema = cfg.get("schema", "public")
-    raw = prod_psql(cfg["container"], cfg["user"], cfg["db"],
-                    f"SELECT reltuples::bigint FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relname = '{table}' AND n.nspname = '{schema}'")
-    return int(raw) if raw else 0
+    db_key = _db_key_for(table)
+    try:
+        conn = _get_conn(db_key)
+        cur = conn.cursor()
+        cur.execute("SELECT reltuples::bigint FROM pg_class WHERE relname = %s", (table,))
+        row = cur.fetchone()
+        return int(row[0]) if row else 0
+    except Exception:
+        return 0
 
 
 def fetch_records(table: str, limit: int = 1, offset: int = 0) -> list[dict]:
-    cfg = get_db_config(table)
-    schema = _info_schema(table, cfg)
-    qualified = _qualified_table(table, cfg)
+    db_key = _db_key_for(table)
     cols = PREVIEW_COLUMNS.get(table)
     if not cols:
-        # Fallback: get first 8 columns from information_schema
-        raw_cols = prod_psql(cfg["container"], cfg["user"], cfg["db"],
-            f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table}' AND table_schema = '{schema}' ORDER BY ordinal_position LIMIT 8")
-        cols = [c.strip() for c in raw_cols.split("\n") if c.strip()]
+        try:
+            conn = _get_conn(db_key)
+            cur = conn.cursor()
+            schema = DATABASES[db_key]["schema"]
+            cur.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = %s AND table_schema = %s ORDER BY ordinal_position LIMIT 8",
+                (table, schema))
+            cols = [r[0] for r in cur.fetchall()]
+        except Exception:
+            return []
     if not cols:
         return []
 
     col_list = ", ".join(cols)
-    raw = prod_psql(cfg["container"], cfg["user"], cfg["db"],
-        f"SELECT row_to_json(t) FROM (SELECT {col_list} FROM {qualified} LIMIT {limit} OFFSET {offset}) t")
-    rows = []
-    for line in raw.split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            rows.append(json.loads(line))
-        except json.JSONDecodeError:
-            pass
-    return rows
+    try:
+        conn = _get_conn(db_key)
+        cur = conn.cursor()
+        cur.execute(f"SELECT row_to_json(t) FROM (SELECT {col_list} FROM {table} LIMIT %s OFFSET %s) t", (limit, offset))
+        return [row[0] for row in cur.fetchall()]
+    except Exception:
+        return []
 
 
 def format_record(record: dict, width: int = 80) -> list[str]:
@@ -262,6 +291,10 @@ def format_record(record: dict, width: int = 80) -> list[str]:
 
 # ── Curses UI ──
 
+BATCH_SIZE = 20
+PREFETCH_TRIGGER = 15  # start loading next batch when reaching this index within current batch
+
+
 class DataBrowser:
     def __init__(self, stdscr):
         self.stdscr = stdscr
@@ -271,14 +304,20 @@ class DataBrowser:
         )
         self.cursor = 0
         self.scroll_offset = 0
-        self.mode = "list"  # list | records | detail
+        self.mode = "list"  # list | detail
         self.current_table = ""
-        self.records = []
         self.record_idx = 0
         self.record_total = 0
         self.detail_lines = []
         self.detail_scroll = 0
         self.status_msg = ""
+
+        # Batch cache: {global_index: record_dict}
+        self._cache: dict[int, dict] = {}
+        self._cache_start = 0  # first loaded index
+        self._cache_end = 0    # last loaded index + 1
+        self._prefetch_lock = threading.Lock()
+        self._prefetch_thread: threading.Thread | None = None
 
         curses.curs_set(0)
         curses.start_color()
@@ -377,41 +416,83 @@ class DataBrowser:
         elif key in (curses.KEY_ENTER, 10, 13):
             self.open_table()
 
+    def _load_batch(self, start: int, size: int = BATCH_SIZE) -> list[dict]:
+        """Load a batch of records starting from `start`."""
+        return fetch_records(self.current_table, limit=size, offset=start)
+
+    def _prefetch_next(self):
+        """Background prefetch: load next batch into cache."""
+        start = self._cache_end
+        if start >= self.record_total:
+            return
+        records = self._load_batch(start)
+        with self._prefetch_lock:
+            for i, rec in enumerate(records):
+                self._cache[start + i] = rec
+            self._cache_end = start + len(records)
+
+    def _maybe_prefetch(self):
+        """Trigger async prefetch when approaching cache boundary."""
+        idx_in_batch = self.record_idx - self._cache_start
+        remaining_in_cache = self._cache_end - self.record_idx - 1
+        if remaining_in_cache <= (BATCH_SIZE - PREFETCH_TRIGGER) and self._cache_end < self.record_total:
+            if self._prefetch_thread is None or not self._prefetch_thread.is_alive():
+                self._prefetch_thread = threading.Thread(target=self._prefetch_next, daemon=True)
+                self._prefetch_thread.start()
+
     def open_table(self):
         table = self.tables[self.cursor]
         self.current_table = table
         self.record_idx = 0
         self.detail_scroll = 0
+        self._cache.clear()
+        self._cache_start = 0
+        self._cache_end = 0
         self.status_msg = f"Завантаження {TABLE_NAMES_UK.get(table, table)}..."
         self.draw_list()
 
-        # Fetch count and first record
         self.record_total = fetch_row_count(table)
-        records = fetch_records(table, limit=1, offset=0)
+        records = self._load_batch(0)
 
         if records:
-            self.records = records
+            with self._prefetch_lock:
+                for i, rec in enumerate(records):
+                    self._cache[i] = rec
+                self._cache_end = len(records)
             h, w = self.stdscr.getmaxyx()
             self.detail_lines = format_record(records[0], width=w - 4)
             self.mode = "detail"
-            self.status_msg = ""
+            cached = len(self._cache)
+            self.status_msg = f"Завантажено {cached} записів"
+            self._maybe_prefetch()
         else:
-            self.status_msg = f"Порожній реєстр або помилка з'єднання"
+            self.status_msg = "Порожній реєстр або помилка з'єднання"
 
-    def load_record(self, idx: int):
-        self.status_msg = f"Завантаження запису {idx + 1}..."
-        self.draw_detail()
+    def _show_record(self, idx: int):
+        """Display record from cache, or fetch if missing."""
+        rec = self._cache.get(idx)
+        if rec is None:
+            self.status_msg = f"Завантаження запису {idx + 1}..."
+            self.draw_detail()
+            records = self._load_batch(idx, size=BATCH_SIZE)
+            if records:
+                with self._prefetch_lock:
+                    for i, r in enumerate(records):
+                        self._cache[idx + i] = r
+                    self._cache_start = min(self._cache_start, idx)
+                    self._cache_end = max(self._cache_end, idx + len(records))
+                rec = records[0]
+            else:
+                self.status_msg = "Не вдалося завантажити запис"
+                return
 
-        records = fetch_records(self.current_table, limit=1, offset=idx)
-        if records:
-            self.records = records
-            self.record_idx = idx
-            self.detail_scroll = 0
-            h, w = self.stdscr.getmaxyx()
-            self.detail_lines = format_record(records[0], width=w - 4)
-            self.status_msg = ""
-        else:
-            self.status_msg = "Не вдалося завантажити запис"
+        self.record_idx = idx
+        self.detail_scroll = 0
+        h, w = self.stdscr.getmaxyx()
+        self.detail_lines = format_record(rec, width=w - 4)
+        cached = len(self._cache)
+        self.status_msg = f"[кеш: {cached}]"
+        self._maybe_prefetch()
 
     def draw_detail(self):
         self.stdscr.clear()
@@ -495,11 +576,11 @@ class DataBrowser:
         elif key == curses.KEY_RIGHT:
             # Next record
             if self.record_idx < self.record_total - 1:
-                self.load_record(self.record_idx + 1)
+                self._show_record(self.record_idx + 1)
         elif key == curses.KEY_LEFT:
             # Previous record
             if self.record_idx > 0:
-                self.load_record(self.record_idx - 1)
+                self._show_record(self.record_idx - 1)
 
 
 def main():
