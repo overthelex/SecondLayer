@@ -425,6 +425,148 @@ class HTTPOpenReyestrServer {
       }
     }) as any);
 
+    // Admin: trigger NAIS registry sync (called by opendata-sync scheduler)
+    this.app.post('/api/admin/sync-registry', requireAPIKey as any, (async (req: AuthenticatedRequest, res: Response) => {
+      const { registry } = req.body;
+      if (!registry || typeof registry !== 'string') {
+        res.status(400).json({ error: 'Missing "registry" parameter' });
+        return;
+      }
+
+      logger.info('Admin sync-registry triggered', { registry, clientKey: req.clientKey?.substring(0, 8) });
+
+      try {
+        // Import and run sync for the specified registry
+        const { REGISTRIES } = await import('./config/registries');
+        const config = REGISTRIES[registry];
+        if (!config) {
+          res.status(404).json({ error: `Unknown registry: ${registry}`, available: Object.keys(REGISTRIES) });
+          return;
+        }
+
+        // Run sync in background — return immediately with 202
+        res.status(202).json({
+          status: 'accepted',
+          message: `Sync started for ${config.title} (${registry})`,
+          registry,
+        });
+
+        // Execute sync after responding
+        const { Pool } = await import('pg');
+        const pool = new Pool({
+          host: process.env.POSTGRES_HOST || 'localhost',
+          port: parseInt(process.env.POSTGRES_PORT || '5432'),
+          user: process.env.POSTGRES_USER || 'openreyestr',
+          password: process.env.POSTGRES_PASSWORD,
+          database: process.env.POSTGRES_DB || 'openreyestr_prod',
+        });
+
+        try {
+          const { importXml } = await import('./services/generic-xml-importer');
+          const { importCsv } = await import('./services/csv-importer');
+          const fs = await import('fs');
+          const path = await import('path');
+          const https = await import('https');
+          const http = await import('http');
+
+          const dataDir = process.env.NAIS_DATA_DIR || '/tmp/nais-sync';
+          const registryDir = path.join(dataDir, registry);
+          fs.mkdirSync(registryDir, { recursive: true });
+          const zipPath = path.join(dataDir, `${registry}.zip`);
+
+          // Download
+          logger.info(`Downloading ${registry} from ${config.datasetUrl}`);
+          await new Promise<void>((resolve, reject) => {
+            const proto = config.datasetUrl.startsWith('https') ? https : http;
+            const doGet = (url: string) => {
+              (proto as any).get(url, { timeout: 30 * 60 * 1000 }, (response: any) => {
+                if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                  doGet(response.headers.location.startsWith('http') ? response.headers.location : new URL(response.headers.location, url).href);
+                  return;
+                }
+                if (response.statusCode !== 200) { reject(new Error(`HTTP ${response.statusCode}`)); return; }
+                const ws = fs.createWriteStream(zipPath);
+                response.pipe(ws);
+                ws.on('finish', () => { ws.close(); resolve(); });
+                ws.on('error', reject);
+              }).on('error', reject);
+            };
+            doGet(config.datasetUrl);
+          });
+
+          // Extract
+          const { execFileSync } = await import('child_process');
+          try {
+            execFileSync('unzip', ['-o', '-q', zipPath, '-d', registryDir], { timeout: 10 * 60 * 1000 });
+          } catch { /* fallback handled by sync-all-registries */ }
+
+          // Find data file
+          const ext = config.format === 'csv' ? '.csv' : '.xml';
+          const files = fs.readdirSync(registryDir);
+          const dataFile = config.innerFileName
+            ? files.find((f: string) => f.includes(config.innerFileName))
+            : files.find((f: string) => f.toLowerCase().endsWith(ext));
+
+          if (!dataFile) {
+            logger.error(`No ${ext} file found for ${registry}`);
+            return;
+          }
+
+          const dataFilePath = path.join(registryDir, dataFile);
+
+          // Log import
+          await pool.query(
+            `INSERT INTO import_log (registry_name, file_name, status) VALUES ($1, $2, 'in_progress')`,
+            [registry, dataFile],
+          );
+
+          // Import
+          let imported = 0;
+          let errors = 0;
+          if (config.format === 'xml') {
+            const stats = await importXml(pool, config, dataFilePath, dataFile);
+            imported = stats.imported;
+            errors = stats.errors;
+          } else {
+            const stats = await importCsv(pool, config, dataFilePath, dataFile);
+            imported = stats.imported;
+            errors = stats.errors;
+          }
+
+          // Update metadata
+          await pool.query(
+            `UPDATE registry_metadata SET last_update_date = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP WHERE registry_name = $1`,
+            [registry],
+          );
+          await pool.query(
+            `UPDATE import_log SET import_completed_at = CURRENT_TIMESTAMP, records_imported = $1, records_failed = $2, status = 'completed' WHERE registry_name = $3 AND status = 'in_progress'`,
+            [imported, errors, registry],
+          );
+
+          // Cleanup
+          try { fs.unlinkSync(zipPath); } catch { /* ok */ }
+          try { fs.rmSync(registryDir, { recursive: true, force: true }); } catch { /* ok */ }
+
+          logger.info(`Sync complete: ${registry} — ${imported} imported, ${errors} errors`);
+        } catch (syncErr: any) {
+          logger.error(`Sync failed for ${registry}:`, syncErr);
+          try {
+            await pool.query(
+              `UPDATE import_log SET import_completed_at = CURRENT_TIMESTAMP, status = 'failed', error_message = $1 WHERE registry_name = $2 AND status = 'in_progress'`,
+              [syncErr.message, registry],
+            );
+          } catch { /* ok */ }
+        } finally {
+          await pool.end();
+        }
+      } catch (err: any) {
+        if (!res.headersSent) {
+          res.status(500).json({ error: err.message });
+        }
+        logger.error('sync-registry error:', err);
+      }
+    }) as any);
+
     // 404 handler
     this.app.use((req, res) => {
       res.status(404).json({
