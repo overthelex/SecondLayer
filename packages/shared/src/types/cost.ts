@@ -93,6 +93,12 @@ export interface CostBreakdown {
     calls: AnthropicCallRecord[];
   };
 
+  voyage?: {
+    total_tokens: number;
+    total_cost_usd: number;
+    calls: VoyageCallRecord[];
+  };
+
   zakononline?: {
     total_calls: number;
     monthly_total_before: number;

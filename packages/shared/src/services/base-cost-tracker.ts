@@ -196,6 +196,20 @@ export abstract class BaseCostTracker {
         ]
       );
 
+      // Record in monthly aggregates
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+      await this.db.query(
+        `INSERT INTO monthly_api_usage (year_month, anthropic_total_tokens, anthropic_total_cost_usd)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (year_month) DO UPDATE
+         SET anthropic_total_tokens = monthly_api_usage.anthropic_total_tokens + $2,
+             anthropic_total_cost_usd = monthly_api_usage.anthropic_total_cost_usd + $3,
+             updated_at = NOW()`,
+        [yearMonth, params.totalTokens, params.costUsd]
+      );
+
       logger.debug('Anthropic call recorded', {
         requestId: params.requestId,
         model: params.model,
@@ -241,8 +255,7 @@ export abstract class BaseCostTracker {
           `UPDATE cost_tracking
            SET voyage_total_tokens = voyage_total_tokens + $1,
                voyage_cost_usd = voyage_cost_usd + $2,
-               voyage_calls = voyage_calls || $3::jsonb,
-               total_cost_usd = total_cost_usd + $2
+               voyage_calls = voyage_calls || $3::jsonb
            WHERE request_id = $4`,
           [params.totalTokens, costUsd, JSON.stringify([callRecord]), params.requestId]
         );
@@ -380,13 +393,14 @@ export abstract class BaseCostTracker {
 
     const openaiCostUsd = Number(record.openai_cost_usd || 0);
     const anthropicCostUsd = Number(record.anthropic_cost_usd || 0);
+    const voyageCostUsd = Number(record.voyage_cost_usd || 0);
     const secondlayerCostUsd = Number(record.secondlayer_cost_usd || 0);
 
     // Get server-specific additional costs
     const { additionalCostUsd, additionalBreakdownSections } =
       await this.calculateAdditionalCosts(record);
 
-    const totalCostUsd = openaiCostUsd + anthropicCostUsd + secondlayerCostUsd + additionalCostUsd;
+    const totalCostUsd = openaiCostUsd + anthropicCostUsd + voyageCostUsd + secondlayerCostUsd + additionalCostUsd;
 
     await this.db.query(
       `UPDATE cost_tracking
@@ -420,6 +434,15 @@ export abstract class BaseCostTracker {
       // Merge server-specific breakdown sections
       ...additionalBreakdownSections,
     };
+
+    // Add voyage section if data exists
+    if (voyageCostUsd > 0 || (record.voyage_total_tokens || 0) > 0) {
+      breakdown.voyage = {
+        total_tokens: record.voyage_total_tokens || 0,
+        total_cost_usd: voyageCostUsd,
+        calls: record.voyage_calls || [],
+      };
+    }
 
     // Add anthropic section if enabled and data exists
     if (this.config.enableAnthropic || Number(record.anthropic_cost_usd || 0) > 0) {

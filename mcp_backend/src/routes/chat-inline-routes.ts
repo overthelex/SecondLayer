@@ -12,6 +12,7 @@ import { BillingService } from '../services/billing-service.js';
 import { CostTracker } from '../services/cost-tracker.js';
 import { Database } from '../database/database.js';
 import { v4 as uuidv4 } from 'uuid';
+import { requestContext } from '../utils/openai-client.js';
 
 export function createChatInlineRoutes(deps: {
   chatService: ChatService;
@@ -25,6 +26,7 @@ export function createChatInlineRoutes(deps: {
   router.post('/plan', chatRateLimit as any, (async (req: DualAuthRequest, res: Response) => {
     const userId = req.user?.id;
     const requestId = `plan-${uuidv4()}`;
+    const startTime = Date.now();
 
     try {
       const { query, budget, internetEnabled } = req.body;
@@ -33,12 +35,30 @@ export function createChatInlineRoutes(deps: {
         return res.status(400).json({ error: 'query is required' });
       }
 
-      const result = await deps.chatService.generatePlanForReview(
-        query,
-        budget || 'standard',
+      await deps.costTracker.createTrackingRecord({
+        requestId,
+        toolName: 'chat_plan',
+        clientKey: undefined,
         userId,
-        requestId
+        userQuery: query.substring(0, 500),
+        queryParams: { budget, internetEnabled },
+      });
+
+      const result = await requestContext.run(
+        { requestId, task: 'chat_plan' },
+        () => deps.chatService.generatePlanForReview(
+          query,
+          budget || 'standard',
+          userId,
+          requestId
+        )
       );
+
+      await deps.costTracker.completeTrackingRecord({
+        requestId,
+        executionTimeMs: Date.now() - startTime,
+        status: 'completed',
+      });
 
       if (!result) {
         return res.json({ plan: null, planSessionId: null, message: 'Simple query — no plan needed' });
@@ -50,6 +70,16 @@ export function createChatInlineRoutes(deps: {
       });
     } catch (error: any) {
       logger.error('[ChatPlan] Endpoint error', { error: error.message, requestId });
+      try {
+        await deps.costTracker.completeTrackingRecord({
+          requestId,
+          executionTimeMs: Date.now() - startTime,
+          status: 'failed',
+          errorMessage: error.message,
+        });
+      } catch (_trackErr) {
+        logger.error('[ChatPlan] Failed to record error in cost tracking', { requestId });
+      }
       res.status(500).json({ error: 'Plan generation failed', message: error.message });
     }
   }) as any);
