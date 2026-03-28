@@ -523,12 +523,13 @@ def print_db_section(db_key: str, label: str, tables: list, import_info: dict,
             print(f"{r['table']},{name_uk},{r['rows']},{r['size_bytes']},{last},{time_ago(last)}")
         return
 
-    W = 108
+    W = 120
     print()
     print(f"  {'═' * W}")
     print(f"  📦 {label}  —  {len(tables)} таблиць, {fmt_size(db_size)} загалом")
     print(f"  {'═' * W}")
-    print(f"  {'#':<4} {'Реєстр':<48} {'Рядків':>12} {'Розмір':>9}  {'Норма':>6} {'Давність':>14} {'':>2}")
+    HDR = f"  {'#':<4} {'Реєстр':<48} {'Рядків':>12} {'Розмір':>9} {'Оновл.':>10}  {'Норма':>6} {'Давність':>14} {'':>2}"
+    print(HDR)
     print(f"  {'─' * W}")
 
     for i, r in enumerate(tables):
@@ -538,6 +539,10 @@ def print_db_section(db_key: str, label: str, tables: list, import_info: dict,
         icon = freshness_icon(last_ts, r["table"])
         row_str = fmt_num(r["rows"]) if r["rows"] > 0 else "—"
         display_name = TABLE_NAMES_UK.get(r["table"], r["table"])
+
+        # Last import size
+        last_imported = imp.get("records_imported", 0)
+        imported_str = fmt_num(last_imported) if last_imported > 0 else "—"
 
         # Expected frequency label
         freq = UPDATE_FREQ_DAYS.get(r["table"], DEFAULT_FREQ_DAYS)
@@ -557,7 +562,7 @@ def print_db_section(db_key: str, label: str, tables: list, import_info: dict,
         elif imp.get("status") == "running":
             imp_status = " 🔄"
 
-        print(f"  {i + 1:<4} {display_name:<48} {row_str:>12} {fmt_size(r['size_bytes']):>9}  {freq_lbl:>6} {ago:>14} {icon}{imp_status}")
+        print(f"  {i + 1:<4} {display_name:<48} {row_str:>12} {fmt_size(r['size_bytes']):>9} {imported_str:>10}  {freq_lbl:>6} {ago:>14} {icon}{imp_status}")
 
         if (i + 1) % page_size == 0 and i + 1 < len(tables):
             remaining = len(tables) - i - 1
@@ -565,7 +570,7 @@ def print_db_section(db_key: str, label: str, tables: list, import_info: dict,
             print(f"  ... ще {remaining} таблиць")
             wait_for_key()
             print(f"  {'─' * W}")
-            print(f"  {'#':<4} {'Реєстр':<48} {'Рядків':>12} {'Розмір':>9}  {'Норма':>6} {'Давність':>14} {'':>2}")
+            print(HDR)
             print(f"  {'─' * W}")
 
     print(f"  {'─' * W}")
@@ -712,7 +717,7 @@ def main():
     if args.format == "table":
         print(f"  📋 Легенда: 🟢 в нормі  🟡 злегка прострочено  🟠 прострочено  🔴 сильно прострочено  ⚪ невідомо  ⛔ імпорт failed  🔄 running")
         print(f"  📋 Норма залежить від джерела: щоденні (МВС, паспорти), щотижневі (УІПВ, НАІС), щомісячні (ЄДР, ЄДРПОУ)")
-        print(f"  📋 Записів = кількість INSERT + UPDATE з моменту запуску PostgreSQL")
+        print(f"  📋 Оновл. = кількість записів завантажених при останньому імпорті")
         print()
 
 
