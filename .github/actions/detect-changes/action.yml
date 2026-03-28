@@ -26,6 +26,9 @@ outputs:
   platform:
     description: 'Whether platform/ developer console changed'
     value: ${{ steps.changes.outputs.platform }}
+  opendata_sync:
+    description: 'Whether opendata-sync scheduler changed'
+    value: ${{ steps.changes.outputs.opendata_sync }}
   any_backend:
     description: 'Whether any backend service changed (shared/backend/rada/openreyestr)'
     value: ${{ steps.changes.outputs.any_backend }}
@@ -82,6 +85,8 @@ runs:
         MOBILE=false
         PLATFORM=false
 
+        OPENDATA_SYNC=false
+
         DEPLOY_INFRA=false  # Dockerfiles, compose files, nginx — triggers full rebuild
         DEPLOY_MONITORING=false  # Grafana, prometheus — deploy-only, no rebuild
 
@@ -96,6 +101,7 @@ runs:
             deployment/*) DEPLOY_INFRA=true; DEPLOYMENT=true ;;
             mobile/*) MOBILE=true ;;
             platform/*) PLATFORM=true ;;
+            opendata-sync/*) OPENDATA_SYNC=true ;;
           esac
         done <<< "$CHANGED_FILES"
 
@@ -147,6 +153,10 @@ runs:
           BUILD_LIST="${BUILD_LIST}\"platform\","
           DEPLOY_LIST="${DEPLOY_LIST}\"platform\","
         fi
+        if [ "$OPENDATA_SYNC" = "true" ]; then
+          BUILD_LIST="${BUILD_LIST}\"opendata-sync\","
+          DEPLOY_LIST="${DEPLOY_LIST}\"opendata-sync\","
+        fi
 
         # Remove trailing comma and wrap in array
         BUILD_LIST="${BUILD_LIST%,}"
@@ -163,6 +173,7 @@ runs:
         echo "monitoring=$DEPLOY_MONITORING" >> "$GITHUB_OUTPUT"
         echo "mobile=$MOBILE" >> "$GITHUB_OUTPUT"
         echo "platform=$PLATFORM" >> "$GITHUB_OUTPUT"
+        echo "opendata_sync=$OPENDATA_SYNC" >> "$GITHUB_OUTPUT"
         echo "any_backend=$ANY_BACKEND" >> "$GITHUB_OUTPUT"
         echo "services_to_build=$SERVICES_TO_BUILD" >> "$GITHUB_OUTPUT"
         echo "services_to_deploy=$SERVICES_TO_DEPLOY" >> "$GITHUB_OUTPUT"
@@ -178,5 +189,6 @@ runs:
         echo "  monitoring:  $DEPLOY_MONITORING"
         echo "  mobile:      $MOBILE"
         echo "  platform:    $PLATFORM"
+        echo "  opendata_sync: $OPENDATA_SYNC"
         echo "  services_to_build: $SERVICES_TO_BUILD"
         echo "  services_to_deploy: $SERVICES_TO_DEPLOY"
