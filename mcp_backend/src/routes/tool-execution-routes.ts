@@ -37,6 +37,7 @@ async function handleStreamingProxyCall(
   requestId: string,
   deps: {
     serviceProxy: ServiceProxy;
+    costTracker: CostTracker;
   }
 ): Promise<void> {
   // Validate service is not backend
@@ -65,13 +66,58 @@ async function handleStreamingProxyCall(
       acceptHeader: 'text/event-stream',
     });
 
+    // Parse SSE events to extract cost_tracking from 'complete' event
+    let extractedCostUsd = 0;
+    let extractedCostDetails: any = null;
+    let sseBuffer = '';
+
     // Forward SSE events from remote service to client
     stream.on('data', (chunk: Buffer) => {
+      const chunkStr = chunk.toString();
       res.write(chunk);
+
+      // Buffer SSE data to parse complete events for cost extraction
+      sseBuffer += chunkStr;
+      const events = sseBuffer.split('\n\n');
+      sseBuffer = events.pop() || ''; // Keep incomplete event in buffer
+
+      for (const event of events) {
+        if (event.includes('event: complete') || event.includes('event:complete')) {
+          const dataMatch = event.match(/data:\s*(.+)/);
+          if (dataMatch) {
+            try {
+              const parsed = JSON.parse(dataMatch[1]);
+              const costData = parsed?.cost_tracking?.actual_cost;
+              if (costData) {
+                extractedCostUsd = costData.totals?.cost_usd || costData.total_cost_usd || 0;
+                extractedCostDetails = costData;
+              }
+            } catch { /* ignore parse errors */ }
+          }
+        }
+      }
     });
 
-    stream.on('end', () => {
+    stream.on('end', async () => {
       logger.info('[Gateway SSE] Stream completed', { requestId, service });
+
+      // Record extracted cost from remote SSE stream
+      if (extractedCostUsd > 0) {
+        try {
+          await deps.costTracker.recordRemoteServiceCall({
+            requestId,
+            service: service as 'rada' | 'openreyestr',
+            toolName: serviceName,
+            costUsd: extractedCostUsd,
+            details: extractedCostDetails,
+          });
+        } catch (costErr: any) {
+          logger.error('[Gateway SSE] Failed to record stream cost', {
+            requestId, error: costErr.message,
+          });
+        }
+      }
+
       res.end();
     });
 
@@ -257,28 +303,61 @@ export function createToolExecutionRoutes(deps: {
 
       const results = await Promise.all(
         calls.map(async (call: { name: string; arguments?: any }) => {
+          const callRequestId = `batch-${uuidv4()}`;
+          const callStartTime = Date.now();
+
           try {
-            const result = await deps.toolRegistry.executeTool(
-              call.name,
-              call.arguments || {}
+            await deps.costTracker.createTrackingRecord({
+              requestId: callRequestId,
+              toolName: call.name,
+              clientKey: req.clientKey,
+              userId: req.user?.id,
+              userQuery: JSON.stringify(call.arguments || {}),
+              queryParams: call.arguments || {},
+            });
+
+            const result = await requestContext.run(
+              { requestId: callRequestId, task: call.name },
+              () => deps.toolRegistry.executeTool(call.name, call.arguments || {})
             );
+
+            const breakdown = await deps.costTracker.completeTrackingRecord({
+              requestId: callRequestId,
+              executionTimeMs: Date.now() - callStartTime,
+              status: result !== null && result !== undefined ? 'completed' : 'failed',
+              errorMessage: result === null || result === undefined ? `No handler registered for tool: ${call.name}` : undefined,
+            });
+
             if (result === null || result === undefined) {
               return {
                 tool: call.name,
                 success: false,
                 error: `No handler registered for tool: ${call.name}`,
+                cost_tracking: { request_id: callRequestId, actual_cost: breakdown },
               };
             }
             return {
               tool: call.name,
               success: true,
               result,
+              cost_tracking: { request_id: callRequestId, actual_cost: breakdown },
             };
           } catch (error: any) {
+            try {
+              await deps.costTracker.completeTrackingRecord({
+                requestId: callRequestId,
+                executionTimeMs: Date.now() - callStartTime,
+                status: 'failed',
+                errorMessage: error.message,
+              });
+            } catch (_trackErr) {
+              logger.error('Failed to record batch call error in cost tracking', { callRequestId });
+            }
             return {
               tool: call.name,
               success: false,
               error: error.message,
+              cost_tracking: { request_id: callRequestId },
             };
           }
         })
@@ -299,6 +378,9 @@ export function createToolExecutionRoutes(deps: {
 
   // POST /:toolName/stream — Dedicated SSE streaming endpoint
   router.post('/:toolName/stream', dualAuth as any, balanceCheckMiddleware as any, (async (req: DualAuthRequest, res: Response) => {
+    const streamRequestId = `stream-${uuidv4()}`;
+    const streamStartTime = Date.now();
+
     try {
       const toolName = Array.isArray(req.params.toolName) ? req.params.toolName[0] : req.params.toolName;
       if (!toolName) {
@@ -307,16 +389,45 @@ export function createToolExecutionRoutes(deps: {
       const args = req.body.arguments || req.body;
 
       logger.info('Streaming tool call request', {
+        requestId: streamRequestId,
         tool: toolName,
         clientKey: req.clientKey?.substring(0, 8) + '...',
       });
 
-      await handleStreamingToolCall(req, res, toolName, args, {
-        toolRegistry: deps.toolRegistry,
-        batchDocumentTools: deps.batchDocumentTools,
+      await deps.costTracker.createTrackingRecord({
+        requestId: streamRequestId,
+        toolName,
+        clientKey: req.clientKey,
+        userId: req.user?.id,
+        userQuery: args.query || JSON.stringify(args),
+        queryParams: args,
+      });
+
+      await requestContext.run(
+        { requestId: streamRequestId, task: toolName },
+        () => handleStreamingToolCall(req, res, toolName, args, {
+          toolRegistry: deps.toolRegistry,
+          batchDocumentTools: deps.batchDocumentTools,
+        })
+      );
+
+      await deps.costTracker.completeTrackingRecord({
+        requestId: streamRequestId,
+        executionTimeMs: Date.now() - streamStartTime,
+        status: 'completed',
       });
     } catch (error: any) {
       logger.error('Streaming tool call error:', error);
+      try {
+        await deps.costTracker.completeTrackingRecord({
+          requestId: streamRequestId,
+          executionTimeMs: Date.now() - streamStartTime,
+          status: 'failed',
+          errorMessage: error.message,
+        });
+      } catch (_trackErr) {
+        logger.error('Failed to record stream error in cost tracking', { streamRequestId });
+      }
       if (!res.headersSent) {
         res.status(500).json({
           error: 'Tool execution failed',
@@ -436,7 +547,7 @@ export function createToolExecutionRoutes(deps: {
             route.serviceName,
             args,
             requestId,
-            { serviceProxy: deps.serviceProxy }
+            { serviceProxy: deps.serviceProxy, costTracker: deps.costTracker }
           );
         }
 
