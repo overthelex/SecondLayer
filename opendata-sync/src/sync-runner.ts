@@ -124,7 +124,8 @@ async function triggerBackendImport(
     let message: string;
     try {
       const data = JSON.parse(res.body);
-      message = data?.content?.[0]?.text || data?.result || `HTTP ${res.statusCode}`;
+      const raw = data?.content?.[0]?.text || data?.result || data?.message || `HTTP ${res.statusCode}`;
+      message = typeof raw === 'string' ? raw : JSON.stringify(raw);
     } catch {
       message = `HTTP ${res.statusCode}: ${res.body.slice(0, 200)}`;
     }
@@ -188,7 +189,7 @@ async function triggerOpenreyestrSync(
         success,
         message: success
           ? `NAIS sync triggered via tool: ${source.sourceName}`
-          : `HTTP ${toolRes.statusCode}: ${toolRes.body.slice(0, 200)}`,
+          : `HTTP ${toolRes.statusCode}: ${String(toolRes.body).slice(0, 200)}`,
         durationMs: Date.now() - start,
         startedAt,
       };
@@ -200,7 +201,7 @@ async function triggerOpenreyestrSync(
       success,
       message: success
         ? `NAIS sync OK: ${source.sourceName}`
-        : `HTTP ${res.statusCode}: ${res.body.slice(0, 200)}`,
+        : `HTTP ${res.statusCode}: ${String(res.body).slice(0, 200)}`,
       durationMs: Date.now() - start,
       startedAt,
     };
