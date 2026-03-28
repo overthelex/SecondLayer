@@ -3128,6 +3128,289 @@ All 86 queries now rotate on the chat start screen. Try it — every page load s
 
 Registration: [legal.org.ua](https://legal.org.ua)`,
   },
+  'opendata-sync-pipeline-engineering': {
+    title: 'How We Sync 340M+ Records from 15 Government APIs That Keep Crashing',
+    punchline: 'Multi-IP import, automated scheduler, freshness monitoring — data pipeline engineering for Ukraine\'s open data. From the first 404 to stable nightly updates of 64 tables.',
+    readTime: '15 min',
+    content: `# How We Sync 340M+ Records from 15 Government APIs That Keep Crashing
+
+When building a legal AI platform on Ukraine's open data, the biggest challenge isn't AI or search. It's **reliably fetching data** from dozens of government sources, each with its own limitations, formats, and stability issues.
+
+This article is an engineering deep-dive into how we built a fully automated sync pipeline for 340+ million records from 15 sources. From multi-IP import architecture to cron scheduler and freshness monitoring.
+
+---
+
+## The Problem: Government APIs Are Not Stripe
+
+When working with data.gov.ua, NAIS, UIPV, or spending.gov.ua APIs, you face reality:
+
+- **Undocumented rate limits** — one service blocks after 100 req/min, another after 10
+- **Format changes** — a JSON field suddenly becomes null instead of a string, or the response comes as an HTML error page instead of JSON
+- **Timeouts** — a 200MB ZIP archive of the debtors registry might download for 20 minutes, or not at all
+- **No idempotency** — no \`ETag\`, \`Last-Modified\`, or diff endpoints. Every sync is a full rewrite
+- **Disappearing URLs** — data.gov.ua resources move without notice, returning 404
+
+We can't afford manual imports. Lawyers rely on data freshness: the wanted persons registry must update daily, not monthly.
+
+---
+
+## Architecture: Three Layers of Reliability
+
+Our pipeline consists of three independent components:
+
+\`\`\`
+┌─────────────────────────────────────────┐
+│  opendata-sync (Docker container)       │
+│  ├─ node-cron scheduler                 │
+│  ├─ 15 sources on schedule              │
+│  └─ Triggers → backend / openreyestr    │
+└───────────┬─────────────────┬───────────┘
+            │                 │
+            ▼                 ▼
+┌───────────────────┐ ┌──────────────────┐
+│  ImportTaskService │ │  OpenReyestr     │
+│  (mcp_backend)     │ │  sync-registry   │
+│  ├─ 10 source IPs  │ │  ├─ ZIP download │
+│  ├─ round-robin    │ │  ├─ XML parsing  │
+│  ├─ retry logic    │ │  └─ UPSERT       │
+│  └─ progress track │ │                  │
+└────────┬──────────┘ └────────┬─────────┘
+         │                     │
+         ▼                     ▼
+┌─────────────────────────────────────────┐
+│  PostgreSQL: 64 opendata_* tables       │
+│  Monitoring: db-status.py + freshness   │
+└─────────────────────────────────────────┘
+\`\`\`
+
+---
+
+## Layer 1: Scheduler — opendata-sync
+
+The first layer is a lightweight Node.js microservice that **doesn't download data itself**. It's only responsible for scheduling and triggering.
+
+### Source Configuration
+
+Each source is declared declaratively:
+
+\`\`\`typescript
+{
+  name: 'mvs_wanted_persons',
+  title: 'MVS — Wanted Persons',
+  cron: '0 3 * * *',           // 03:00 daily
+  target: 'backend',           // where to send the trigger
+  sourceName: 'mvs_wanted_persons',
+  enabled: true
+}
+\`\`\`
+
+### Sync Schedule
+
+| Time | Sources | Target Service |
+|------|---------|----------------|
+| 03:00 daily | MVS wanted, MVS missing, MVS vehicles, NAZK corruption | backend |
+| 04:00–05:00 daily | Arbitration managers, bankruptcy, enforcement, debtors | openreyestr |
+| Sunday 02:00 | UIPV patents, trademarks, models, designs | backend |
+| Monday 02:00–05:00 | Notaries, court experts, special forms, streets, ATU | openreyestr |
+
+### Deduplication Protection
+
+Before each trigger, the scheduler checks if an import is already running for that source. If status is \`running\`, no new task is created.
+
+---
+
+## Layer 2: ImportTaskService — Multi-IP Import
+
+This is the heart of the pipeline. When the scheduler sends a trigger, ImportTaskService handles all the downloading.
+
+### Three Import Modes
+
+Government sources use different formats, so we support three strategies:
+
+| Mode | Sources | How It Works |
+|------|---------|-------------|
+| \`api_paginated\` | UIPV (patents, trademarks) | Page-by-page API traversal, 1100ms between requests |
+| \`json_array\` | MVS, NAZK | Single HTTP request → JSON array |
+| \`file_download\` | NAIS registries | ZIP → XML → parsing → UPSERT |
+
+### Multi-IP: 10 Addresses × 5 Threads = 50 Concurrent Downloads
+
+For sources with per-IP rate limits, we use a pool of **10 network interfaces** (AWS ENI). Pages are distributed round-robin:
+
+\`\`\`
+Page 1  → IP 172.31.x.1
+Page 2  → IP 172.31.x.2
+...
+Page 10 → IP 172.31.x.10
+Page 11 → IP 172.31.x.1  (back to first)
+\`\`\`
+
+With 5 threads per IP, we get **50 concurrent connections**. For UIPV with a 1100ms/request rate limit, this gives ~45 pages/second instead of 0.9.
+
+### Retry with Exponential Backoff
+
+Each request has up to 5 attempts with increasing delays:
+
+\`\`\`
+Attempt 1: immediately
+Attempt 2: after 2 seconds
+Attempt 3: after 4 seconds
+Attempt 4: after 8 seconds
+Attempt 5: after 16 seconds
+\`\`\`
+
+For 429 (Too Many Requests) errors — separate logic: we respect \`Retry-After\` from the server response.
+
+### Progress Tracking Without Database Load
+
+Progress is stored **in memory** and flushed to PostgreSQL every 100 pages:
+
+\`\`\`typescript
+// In-memory — updated every page (microseconds)
+taskProgress.set(taskId, {
+  pagesDone: 4521,
+  recordsImported: 45210,
+  currentPage: 4522,
+  lastError: null
+});
+
+// To DB — flush every 100 pages
+// UPDATE import_tasks SET pages_done=$2, records_imported=$3 WHERE id=$1
+\`\`\`
+
+This provides real-time progress via API without overwhelming the database with thousands of UPDATE queries.
+
+### MCP Tools for Control
+
+The entire process is managed through 4 MCP tools:
+
+| Tool | Purpose |
+|------|---------|
+| \`list_import_sources\` | Catalog of all sources: URL, type, table, rate limit |
+| \`start_import\` | Launch background task: source_name → task_id |
+| \`get_import_status\` | Progress: %, ETA, speed, errors |
+| \`cancel_import\` | Stop via AbortController, preserving progress |
+
+This means the AI assistant can launch an import, monitor progress, and notify the lawyer when data is updated.
+
+---
+
+## Layer 3: Freshness Monitoring
+
+Data without monitoring is a ticking bomb. We built a system that shows **how fresh** the data is in each table.
+
+### Expected Frequency Matrix
+
+| Frequency | Tables | Examples |
+|-----------|--------|----------|
+| Daily (1d) | 18 | MVS wanted, NAZK corruption, debtors, enforcement |
+| Weekly (7d) | 42 | Patents, trademarks, lawyers, deputies, judges, bills |
+| Monthly (30d) | 4 | Session schedules, case statuses |
+
+### Freshness Indicators
+
+\`\`\`
+🟢 within norm (freq × 1.5)           — all good
+🟡 slightly overdue (freq × 1.5–2.5)  — worth checking
+🟠 overdue (freq × 2.5–4)             — something went wrong
+🔴 critical (> freq × 4)              — needs intervention
+⛔ import completed with error
+🔄 import currently running
+\`\`\`
+
+### Dashboard: db-status.py
+
+The script connects to the production database via SSH and shows the full picture:
+
+\`\`\`
+═══════════════════════════════════════════════════════════════
+  📦 SecondLayer (main) — 64 tables, 247.3 GB total
+═══════════════════════════════════════════════════════════════
+  #   Table                              Rows   Size   Norm  Age
+  ──────────────────────────────────────────────────────────────
+  1   opendata_wanted_persons             71K   85 MB    1d   2m ago   🟢
+  2   opendata_missing_persons           112K  138 MB    1d   12m ago  🟢
+  3   opendata_corruption                 58K   42 MB    1d   3h ago   🟢
+  4   opendata_patents                   119K  180 MB    7d   2d ago   🟢
+  5   spending_acts                     9.45M  8.2 GB    7d   5d ago   🟢
+  ...
+\`\`\`
+
+---
+
+## Real Problems and How We Solved Them
+
+### Problem 1: Docker Can't Bind to ENI IP
+
+\`json_array\` sources (MVS, NAZK) are a single HTTP request, not pagination. When we passed ENI IP for bind, the Docker container got \`EADDRNOTAVAIL\` — it can't see the host network.
+
+**Solution:** multi-IP is only needed for paginated sources. For \`json_array\` — regular fetch without bind.
+
+### Problem 2: URLs Disappear Without Warning
+
+data.gov.ua periodically updates resource IDs for MVS and NAZK. Old URLs return 404.
+
+**Solution:** URLs are stored in the \`import_source_catalog\` table, not hardcoded. Updating a URL is a single UPDATE query, no code rebuild needed.
+
+### Problem 3: NULL Bytes in PDF/XML
+
+Some registries contain \`\\x00\` characters that PostgreSQL rejects:
+
+\`\`\`
+ERROR: invalid byte sequence for encoding "UTF8": 0x00
+\`\`\`
+
+**Solution:** strip null bytes during parsing, before INSERT.
+
+### Problem 4: Response Is Not JSON
+
+When servers are overloaded, some APIs return an HTML error page or empty string instead of JSON.
+
+**Solution:** parsing wrapped in try/catch with \`Content-Type\` checking. If response isn't JSON — retry from next IP.
+
+### Problem 5: Memory Leak on Large Imports
+
+Importing 9.45M spending_acts records kept all records in memory.
+
+**Solution:** streaming parsing — processing in chunks of 1000 records, UPSERT, release memory.
+
+---
+
+## Numbers
+
+| Metric | Value |
+|--------|-------|
+| Total data volume | 340M+ records, 247 GB |
+| Number of sources | 15 automated |
+| Number of tables | 64 opendata tables |
+| MCP search tools | 26 (opendata + spending + registries) |
+| Daily sync | 8 sources (03:00–05:00 UTC) |
+| Weekly sync | 11 sources (weekends) |
+| Concurrent connections | up to 50 (10 IPs × 5 threads) |
+| Full UIPV import time | ~45 min (182K records) |
+| MVS wanted import time | ~30 sec (71K records, single request) |
+
+---
+
+## What's Next
+
+1. **Alerting** — Telegram bot for failed import notifications instead of manual db-status checks
+2. **Incremental sync** — for sources supporting \`modified_since\`, download only changes
+3. **Data quality checks** — automated verification: if record count drops >20% after import, something went wrong
+4. **More sources** — DRRP (property registry), Ministry of Justice (encumbrances), DFS (tax debtors)
+
+---
+
+## Conclusion
+
+Building a pipeline for Ukraine's open data isn't about \`fetch → insert\`. It's about reliability engineering: retry, rate limits, multi-IP, freshness monitoring, graceful degradation.
+
+Each of the 15 sources is its own story with unique problems. But when the pipeline runs stable, a lawyer asks a question in chat and gets fresh data from MVS, NAZK, UIPV, NAIS, and spending.gov.ua — without ever thinking about how much engineering work stands behind each response.
+
+---
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
   'ci-cd-blue-green-self-healing-tests': {
     title: 'CI/CD with Blue-Green Preview and Self-Healing Tests',
     punchline: 'How we built a pipeline that doesn\'t crash at 3 AM: blue-green with approval gate, prod safety guard, and 8 PRs in 3 hours to tame Vitest OOM.',
