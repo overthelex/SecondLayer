@@ -232,7 +232,7 @@ export async function processUploadFile(
         documentId,
         session.docType || 'other',
         session.fileName.replace(/\.[^/.]+$/, ''),
-        fullText,
+        fullText ? fullText.replace(/\0/g, '') : null,
         JSON.stringify({
           ...session.metadata,
           originalFilename: session.fileName,
