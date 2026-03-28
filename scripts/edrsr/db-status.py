@@ -42,6 +42,10 @@ EXCLUDE_TABLES = {
     "system_config", "tool_usage_stats",
 }
 
+# Only show tables that are open data sources (listed in UPDATE_FREQ_DAYS).
+# App tables (billing, users, oauth, etc.) are filtered out.
+ONLY_OPENDATA = True
+
 # ── Expected update frequency (in days) per table ──
 # green = within expected window, yellow = 1.5x, orange = 2x, red = 3x+
 # Tables not listed default to 7 days (weekly)
@@ -486,9 +490,15 @@ def main():
     sl_size_raw = psql("secondlayer", Q_DB_SIZE)
     sl_import_raw = psql("secondlayer", Q_IMPORT_TASKS)
 
-    sl_tables = parse_table_stats(sl_raw, EXCLUDE_PREFIXES, EXCLUDE_TABLES)
+    sl_tables_all = parse_table_stats(sl_raw, EXCLUDE_PREFIXES, EXCLUDE_TABLES)
     sl_db_size = int(sl_size_raw.strip()) if sl_size_raw.strip() else 0
     sl_imports = parse_import_tasks(sl_import_raw)
+
+    # Filter to open data tables only
+    if ONLY_OPENDATA:
+        sl_tables = [r for r in sl_tables_all if r["table"] in UPDATE_FREQ_DAYS]
+    else:
+        sl_tables = sl_tables_all
 
     # Map import source → target table for lookup
     src_catalog_raw = psql("secondlayer",
@@ -513,9 +523,15 @@ def main():
     or_size_raw = psql("openreyestr", Q_DB_SIZE)
     or_import_raw = psql("openreyestr", Q_IMPORT_LOG)
 
-    or_tables = parse_table_stats(or_raw, exclude_tables=EXCLUDE_TABLES)
+    or_tables_all = parse_table_stats(or_raw, exclude_tables=EXCLUDE_TABLES)
     or_db_size = int(or_size_raw.strip()) if or_size_raw.strip() else 0
     or_imports = parse_import_log(or_import_raw)
+
+    # Filter to open data tables only
+    if ONLY_OPENDATA:
+        or_tables = [r for r in or_tables_all if r["table"] in UPDATE_FREQ_DAYS]
+    else:
+        or_tables = or_tables_all
 
     # Map import log registry_name → table
     or_import_by_table = {}
@@ -536,6 +552,10 @@ def main():
     edrsr_pct = round(edrsr_ft / edrsr_docs * 100, 1) if edrsr_docs > 0 else 0
 
     # ── Output ──
+    # Use all tables for JSON (full picture) or filtered for table view
+    sl_tables_json = sl_tables_all if args.format == "json" else sl_tables
+    or_tables_json = or_tables_all if args.format == "json" else or_tables
+
     if args.format == "json":
         out = {
             "edrsr": {
@@ -549,7 +569,7 @@ def main():
                     "size": fmt_size(r["size_bytes"]),
                     "last_activity": r["last_activity"],
                     "writes": r["n_ins"] + r["n_upd"],
-                } for r in sl_tables],
+                } for r in sl_tables_json],
             },
             "openreyestr": {
                 "db_size": fmt_size(or_db_size),
@@ -558,7 +578,7 @@ def main():
                     "size": fmt_size(r["size_bytes"]),
                     "last_activity": r["last_activity"],
                     "writes": r["n_ins"] + r["n_upd"],
-                } for r in or_tables],
+                } for r in or_tables_json],
             },
         }
         print(json.dumps(out, ensure_ascii=False, indent=2))
