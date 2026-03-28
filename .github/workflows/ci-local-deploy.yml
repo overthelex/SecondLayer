@@ -476,11 +476,14 @@ jobs:
 
           # Verify prod was not affected by local deploy
           PROD_NGINX_NOW=$(docker inspect --format='{{.State.Status}}' nginx-prod 2>/dev/null || echo "absent")
-          PROD_NGINX_STARTED=$(docker inspect --format='{{.State.StartedAt}}' nginx-prod 2>/dev/null || echo none)
-          if [ "$PROD_NGINX_NOW" != "running" ]; then
-            echo "::error::CRITICAL: prod nginx is $PROD_NGINX_NOW after local deploy!"
+          PROD_NGINX_STARTED=$(docker inspect --format='{{.State.StartedAt}}' nginx-prod 2>/dev/null || echo "none")
+          if [ "$PROD_NGINX_BEFORE" = "none" ] || [ "$PROD_NGINX_BEFORE" = "" ]; then
+            # Prod nginx wasn't running before deploy — nothing to protect
+            echo "✓ Prod nginx not present on this runner — skipping safety check"
+          elif [ "$PROD_NGINX_NOW" != "running" ]; then
+            echo "::error::CRITICAL: prod nginx was running before deploy but is now $PROD_NGINX_NOW!"
             FAILED=true
-          elif [ "$PROD_NGINX_STARTED" != "$PROD_NGINX_BEFORE" ] && [ "$PROD_NGINX_BEFORE" != "none" ]; then
+          elif [ "$PROD_NGINX_STARTED" != "$PROD_NGINX_BEFORE" ]; then
             echo "::warning::Prod nginx was restarted during local deploy (was: $PROD_NGINX_BEFORE, now: $PROD_NGINX_STARTED)"
           else
             echo "✓ Prod nginx untouched"
