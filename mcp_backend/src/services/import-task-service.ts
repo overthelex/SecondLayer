@@ -350,7 +350,7 @@ export class ImportTaskService {
 
   private async runJsonArrayImport(taskId: number, source: SourceCatalog, ips: string[], signal: AbortSignal): Promise<void> {
     logger.info(`[ImportTask ${taskId}] Downloading JSON array from ${source.source_url}`);
-    const data = await this.fetchJson(source.source_url, ips[0], signal);
+    const data = await this.fetchJson(source.source_url, null, signal);
     if (!data) throw new Error('Cannot download JSON');
 
     const records = Array.isArray(data) ? data : (data.results || data.data || []);
