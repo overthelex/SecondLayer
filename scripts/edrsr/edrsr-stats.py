@@ -254,7 +254,16 @@ def print_edrsr_section(args):
 
 
 def print_all_tables_section(args, page_size=30):
-    """Fetch and print all non-EDRSR, non-Spain tables."""
+    """Fetch and print all non-EDRSR, non-Spain open data tables with Ukrainian names."""
+    # Import table names from db-status.py (same directory)
+    import importlib.util
+    db_status_path = os.path.join(os.path.dirname(__file__), "db-status.py")
+    spec = importlib.util.spec_from_file_location("db_status", db_status_path)
+    db_status = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(db_status)
+    TABLE_NAMES_UK = db_status.TABLE_NAMES_UK
+    OPENDATA_TABLES = set(db_status.UPDATE_FREQ_DAYS.keys())
+
     raw = prod_psql(QUERY_ALL_TABLES)
 
     rows = []
@@ -266,11 +275,14 @@ def print_all_tables_section(args, page_size=30):
             continue
         parts = line.split("|")
         name = parts[0]
+        if name not in OPENDATA_TABLES:
+            continue
         row_est = int(parts[1])
         size_bytes = int(parts[2])
 
         rows.append({
             "table": name,
+            "display_name": TABLE_NAMES_UK.get(name, name),
             "rows": max(row_est, 0),
             "size_bytes": size_bytes,
             "size": fmt_size(size_bytes),
@@ -286,35 +298,36 @@ def print_all_tables_section(args, page_size=30):
         }
 
     if args.format == "csv":
-        print("table,rows,size_bytes,size")
+        print("table,name_uk,rows,size_bytes,size")
         for r in rows:
-            print(f"{r['table']},{r['rows']},{r['size_bytes']},{r['size']}")
-        print(f"TOTAL ({len(rows)} tables),{total_rows},{total_size},{fmt_size(total_size)}")
+            print(f"{r['table']},{r['display_name']},{r['rows']},{r['size_bytes']},{r['size']}")
+        print(f"TOTAL ({len(rows)} tables),,{total_rows},{total_size},{fmt_size(total_size)}")
         return None
 
     # Table format with pagination
+    W = 85
     print()
-    print(f"  📋 Усі таблиці (без ЄДРСР та Іспанії) — {len(rows)} таблиць, {fmt_size(total_size)} загалом")
-    print(f"  {'─' * 75}")
-    print(f"  {'#':<4} {'Таблиця':<45} {'Рядків':>14} {'Розмір':>10}")
-    print(f"  {'─' * 75}")
+    print(f"  📋 Відкриті дані (без ЄДРСР) — {len(rows)} таблиць, {fmt_size(total_size)} загалом")
+    print(f"  {'─' * W}")
+    HDR = f"  {'#':<4} {'Реєстр':<50} {'Рядків':>14} {'Розмір':>10}"
+    print(HDR)
+    print(f"  {'─' * W}")
 
     for i, r in enumerate(rows):
         row_str = fmt_num(r["rows"]) if r["rows"] > 0 else "—"
-        print(f"  {i + 1:<4} {r['table']:<45} {row_str:>14} {r['size']:>10}")
+        print(f"  {i + 1:<4} {r['display_name']:<50} {row_str:>14} {r['size']:>10}")
 
-        # Paginate every page_size rows (but not on the last row)
         if (i + 1) % page_size == 0 and i + 1 < len(rows):
             remaining = len(rows) - i - 1
-            print(f"  {'─' * 75}")
+            print(f"  {'─' * W}")
             print(f"  ... ще {remaining} таблиць")
             wait_for_key()
-            print(f"  {'─' * 75}")
-            print(f"  {'#':<4} {'Таблиця':<45} {'Рядків':>14} {'Розмір':>10}")
-            print(f"  {'─' * 75}")
+            print(f"  {'─' * W}")
+            print(HDR)
+            print(f"  {'─' * W}")
 
-    print(f"  {'─' * 75}")
-    print(f"  {'':4} {'РАЗОМ: ' + str(len(rows)) + ' таблиць':<45} {fmt_num(total_rows):>14} {fmt_size(total_size):>10}")
+    print(f"  {'─' * W}")
+    print(f"  {'':4} {'РАЗОМ: ' + str(len(rows)) + ' реєстрів':<50} {fmt_num(total_rows):>14} {fmt_size(total_size):>10}")
     print()
     return None
 
