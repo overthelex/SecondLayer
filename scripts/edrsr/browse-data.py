@@ -49,9 +49,17 @@ DATABASES = {
         "user": "openreyestr",
         "db": "openreyestr_prod",
     },
+    "rada": {
+        "container": "secondlayer-postgres-prod",
+        "user": "secondlayer",
+        "db": "secondlayer_prod",
+        "schema": "rada",
+    },
 }
 
 # Which tables belong to which DB
+RADA_TABLES = {"bills", "deputies", "voting_records"}
+
 OPENREYESTR_TABLES = {
     "debtors", "enforcement_proceedings", "arbitration_managers", "bankruptcy_cases",
     "court_experts", "forensic_methods", "notaries", "special_forms", "streets",
@@ -70,70 +78,70 @@ PREVIEW_COLUMNS = {
     "opendata_wanted_persons": ["last_name_u", "first_name_u", "middle_name_u", "birth_date", "sex", "ovd", "category", "lost_date", "lost_place", "article_crim", "restraint"],
     "opendata_missing_persons": ["last_name_u", "first_name_u", "middle_name_u", "birth_date", "sex", "ovd", "category", "lost_date", "lost_place", "contact"],
     "opendata_wanted_vehicles": ["brand_model", "car_type", "color", "vehicle_number", "body_number", "chassis_number", "engine_number", "organ_unit", "insert_date"],
-    "opendata_vehicle_registrations": ["brand", "model", "make_year", "color", "kind", "body", "purpose", "fuel", "oper_name", "reg_addr_koatuu", "d_reg"],
+    "opendata_vehicle_registrations": ["brand", "model", "make_year", "color", "kind", "body", "purpose", "fuel", "oper_name", "d_reg"],
     # НАЗК
     "opendata_corruption": ["last_name", "first_name", "patronymic", "offense_name", "codex_articles", "punishment_type", "punishment", "court_name", "sentence_date"],
-    "opendata_corruption_offenders": ["last_name", "first_name", "patronymic", "offense_type", "court_name", "sentence_date"],
+    "opendata_corruption_offenders": ["last_name", "first_name", "patronymic", "punishment_type", "offense_name", "punishment", "court_case_number", "sentence_date"],
     # Санкції
     "opensanctions_entities": ["id", "schema", "name", "aliases", "birth_date", "countries", "sanctions", "datasets"],
-    "rnbo_sanctions": ["name", "name_en", "entity_type", "sanction_type", "decree_number", "decree_date", "reason"],
+    "rnbo_sanctions": ["name", "aliases", "schema_type", "birth_date", "countries", "sanctions"],
     # Інтелектуальна власність
     "opendata_trademarks": ["registration_number", "app_number", "mark_text", "holder_name", "nice_classes", "status", "registration_date", "expiry_date"],
     "opendata_patents": ["registration_number", "obj_type_name", "title_ua", "title_en", "owner_name", "status", "registration_date"],
     # Юристи
-    "opendata_advocates": ["full_name", "certificate_number", "status", "region", "bar_association"],
-    "opendata_lawyers": ["full_name", "certificate_number", "status", "region"],
-    "opendata_court_experts": ["full_name", "region", "organization", "status"],
+    "opendata_advocates": ["family_name", "name", "additional_name", "ra_name", "certificate_num", "certificate_date", "authority_name"],
+    "opendata_lawyers": ["last_name", "first_name", "patronymic", "ra_name", "certificate_num", "certificate_date", "email"],
+    "opendata_court_experts": ["surname", "first_name", "patronymic", "org_name", "region", "exp_type", "specialization", "license_num"],
     # ВРП / ВККС
     "vrp_decisions": ["date_time", "authority", "decision_num", "voting_title", "voting_result"],
-    "vkks_judges": ["full_name", "court_name", "status"],
-    "vkks_evaluations": ["judge_name", "court_name", "evaluation_date", "result"],
-    "vkks_declarations": ["judge_name", "court_name", "year", "declaration_type"],
-    "vkks_judge_efficiency": ["judge_name", "court_name", "period", "cases_resolved", "avg_duration_days"],
-    "vkks_vacancies": ["court_name", "position", "announced_date", "status"],
-    # Верховна Рада
-    "bills": ["bill_number", "title", "registration_date", "status", "stage", "main_committee_name"],
-    "deputies": ["full_name", "faction_name", "region", "committee_name"],
-    "voting_records": ["session_date", "question_number", "question_text", "total_voted", "voted_for", "voted_against", "result"],
-    "legislation": ["law_number", "title", "law_type", "adoption_date", "status"],
-    "legislation_articles": ["law_number", "article_number", "title", "text"],
-    "legislation_chunks": ["law_number", "section_type", "section_number", "title"],
+    "vkks_judges": ["dossier_number", "full_name", "gender", "court_name", "source_date"],
+    "vkks_evaluations": ["judge_name", "court_name", "total_score", "collegium_decision_date", "collegium_decision_essence", "evaluation_type"],
+    "vkks_declarations": ["judge_name", "court_name", "declaration_type", "year"],
+    "vkks_judge_efficiency": ["judge_name", "court_name", "court_level", "year", "workload_criminal_judge", "workload_civil_judge"],
+    "vkks_vacancies": ["court_name", "court_level", "region", "positions_limit", "positions_filled", "positions_vacant", "report_date"],
+    # Верховна Рада (rada DB — окрема база, columns auto-detected)
+    "bills": [],
+    "deputies": [],
+    "voting_records": [],
+    "legislation": ["rada_id", "type", "title", "short_title", "adoption_date", "status", "total_articles"],
+    "legislation_articles": ["legislation_id", "article_number", "section_number", "title", "full_text"],
+    "legislation_chunks": ["legislation_id", "article_id", "chunk_index", "text"],
     # Фінанси
-    "spending_acts": ["doc_number", "doc_date", "payer_name", "payer_edrpou", "recipient_name", "amount", "purpose"],
-    "spending_addendums": ["doc_number", "doc_date", "payer_name", "recipient_name", "amount"],
-    "spending_contracts": ["contract_number", "contract_date", "customer_name", "executor_name", "amount"],
-    "spending_peny": ["doc_number", "doc_date", "payer_name", "recipient_name", "amount"],
-    # Документи / ЄДРНПА
-    "opendata_edrnpa_cards": ["act_id", "publisher", "act_type", "act_number", "act_date", "act_title", "status"],
-    "opendata_edrnpa_texts": ["act_id", "act_title", "publisher"],
+    "spending_acts": ["edrpou", "document_number", "document_date", "amount", "currency", "sign_date"],
+    "spending_addendums": ["edrpou", "document_number", "document_date", "amount", "currency", "sign_date"],
+    "spending_contracts": ["edrpou", "document_number", "document_date", "amount", "currency", "subject", "from_date", "to_date"],
+    "spending_peny": ["edrpou", "document_number", "document_date", "amount", "currency", "sign_date"],
+    # ЄДРНПА
+    "opendata_edrnpa_cards": ["publisher", "doc_type", "number", "date_acc", "name", "status", "reestr_code"],
+    "opendata_edrnpa_texts": ["id", "reestr_code"],
     # Судова система
-    "court_sessions": ["court_name", "judge", "case_number", "session_date", "session_form", "participants"],
-    "opendata_court_case_status": ["case_number", "court_name", "judge", "status", "category"],
-    "opendata_court_schedule": ["court_name", "judge", "case_number", "hearing_date", "hearing_type"],
+    "court_sessions": ["court_name", "judge_name", "case_number", "session_date", "session_time", "session_form", "involved_parties"],
+    "opendata_court_case_status": ["court_name", "case_number", "judge", "judges", "registration_date", "stage_name", "cause_result"],
+    "opendata_court_schedule": ["court_name", "judges", "case_number", "hearing_date", "court_room", "case_description"],
     "dsa_case_distribution": ["cause_number", "court_name", "presiding_judge", "case_category", "case_essence", "distribution_start"],
     "judges": ["full_name", "court_name", "gender"],
     "judges_current": ["full_name", "court_name", "gender"],
-    "judge_analytics": ["judge_name", "court_name", "total_cases", "avg_duration"],
-    "echr_cases": ["case_number", "title", "judgment_date", "importance_level", "respondent_state"],
-    "supreme_court_reviews": ["title", "review_date", "category"],
+    "judge_analytics": ["judge_name", "court_name", "instance_name", "total_decisions", "unique_cases", "appeal_rate"],
+    "echr_cases": ["app_no", "doc_name", "doc_type", "article", "conclusion", "importance", "judgment_date"],
+    "supreme_court_reviews": ["chamber_short", "title", "category", "period", "year"],
     # Паспорти / Люстрація / Держдопомога
-    "opendata_invalid_passports": ["series", "number", "insert_date"],
-    "opendata_invalid_passports_foreign": ["series", "number", "insert_date"],
-    "opendata_lustration": ["full_name", "position", "authority", "lustration_date"],
-    "opendata_state_aid": ["recipient_name", "recipient_edrpou", "aid_form", "amount", "decision_date"],
-    "opendata_financial_statements": ["entity_name", "edrpou", "year", "total_assets", "net_income"],
+    "opendata_invalid_passports": ["d_series", "d_number", "d_type", "d_status", "ovd", "theft_date", "insert_date"],
+    "opendata_invalid_passports_foreign": ["d_series", "d_number", "d_type", "d_status", "ovd", "theft_date", "insert_date"],
+    "opendata_lustration": ["fio", "job", "judgment", "period"],
+    "opendata_state_aid": ["provider_name", "recipient_name", "recipient_edrpou", "program_name", "amount", "decision_date"],
+    "opendata_financial_statements": ["tin", "c_doc", "period_year", "period_month", "form_type"],
     # Банкрутство / НКЦПФР
-    "opendata_bankruptcy": ["debtor_name", "debtor_edrpou", "court_name", "status"],
-    "opendata_bankruptcy_cases": ["debtor_name", "debtor_edrpou", "case_number", "court_name", "proceeding_status"],
+    "opendata_bankruptcy": ["firm_name", "firm_edrpou", "case_number", "court_name", "case_type", "publish_date"],
+    "opendata_bankruptcy_cases": ["firm_name", "firm_edrpou", "case_number", "court_name", "record_type", "record_date"],
     "opendata_securities_owners": ["issuer_name", "issuer_edrpou", "owner_name", "share_percent", "report_date"],
     "opendata_vat_payers": ["name", "kod_pdv", "dat_reestr"],
-    "opendata_declaration_checks": ["declarant_name", "check_type", "status", "check_date"],
-    "opendata_large_taxpayers": ["name", "edrpou", "inclusion_date"],
-    "opendata_wage_debtors": ["name", "edrpou", "debt_amount", "region"],
+    "opendata_declaration_checks": ["family_name", "name", "additional_name", "position", "reporting_period", "status", "result"],
+    "opendata_large_taxpayers": ["edrpou", "name"],
+    "opendata_wage_debtors": ["region", "company_name", "ownership_form", "economic_activity", "debt_reason"],
     "opendata_public_organizations": ["name", "edrpou", "registry_type", "state", "address"],
-    "opendata_judge_candidates": ["full_name", "court_name", "competition_date", "status"],
-    "opendata_terrorism_orgs": ["name", "sanction_type"],
-    "opendata_terrorism_persons": ["name", "sanction_type"],
+    "opendata_judge_candidates": ["full_name", "gender", "total_score", "test_score", "practical_score", "approval_date"],
+    "opendata_terrorism_orgs": ["name_ua", "name_en", "org_country", "report_date", "report_num"],
+    "opendata_terrorism_persons": ["name_ua", "name_en", "doc_type", "sanctions_type"],
     # OpenReyestr
     "notaries": ["full_name", "certificate_number", "region", "organization", "status"],
     "court_experts": ["full_name", "region", "organization", "status"],
@@ -142,9 +150,9 @@ PREVIEW_COLUMNS = {
     "debtors": ["proceeding_number", "debtor_name", "debtor_edrpou", "collection_category", "executor_name"],
     "legal_entities": ["name", "edrpou", "short_name", "stan"],
     "individual_entrepreneurs": ["name", "stan"],
-    "founders": ["entity_edrpou", "founder_name", "founder_role"],
-    "signers": ["entity_edrpou", "signer_name"],
-    "beneficiaries": ["entity_edrpou", "beneficiary_name", "ownership_type"],
+    "founders": ["entity_type", "entity_record", "founder_info"],
+    "signers": ["entity_type", "entity_record", "signer_info"],
+    "beneficiaries": ["entity_type", "entity_record", "beneficiary_info"],
     "special_forms": ["series", "form_number", "recipient", "document_type", "usage_date"],
     "streets": ["street_name", "full_address", "region", "settlement"],
     "administrative_units": ["full_name", "region", "district", "settlement_name"],
@@ -152,23 +160,23 @@ PREVIEW_COLUMNS = {
     "bankruptcy_cases": ["registration_number", "debtor_name", "debtor_edrpou", "case_number", "court_name", "proceeding_status"],
     "forensic_methods": ["registration_code", "method_name", "expertise_type", "developer", "status"],
     "public_associations": ["name", "edrpou", "type_subject", "stan"],
-    "arma_assets": ["asset_name", "asset_type", "owner_name", "seizure_date", "status"],
-    "nazk_declarations": ["declarant_name", "declaration_type", "year", "status"],
-    "tax_debt": ["entity_name", "edrpou", "tax_type", "debt_amount"],
-    "esv_debt": ["entity_name", "edrpou", "debt_amount"],
-    "vat_payers": ["name", "ind_pdv", "reg_date"],
-    "single_tax_payers": ["name", "edrpou", "tax_group", "reg_date"],
-    "inspection_plans": ["entity_name", "authority", "planned_date", "inspection_type"],
-    "dssu_financial_reports": ["entity_name", "report_type", "period", "total_assets"],
-    "street_renamings": ["old_name", "new_name", "settlement", "decision_date"],
-    "prozorro_tenders": ["tender_id", "title", "procuring_entity", "expected_cost", "status"],
-    "exchange_data": ["entity_edrpou", "entity_name"],
-    "members": ["entity_edrpou", "member_name"],
-    "predecessors": ["entity_edrpou", "predecessor_name"],
-    "assignees": ["entity_edrpou", "assignee_name"],
-    "termination_started": ["entity_edrpou", "entity_name", "termination_date"],
-    "executive_power": ["entity_edrpou", "entity_name", "authority_type"],
-    "bankruptcy_info": ["entity_edrpou", "entity_name", "status"],
+    "arma_assets": ["case_number", "case_date", "court_name", "asset_type", "asset_description", "owner_name", "status"],
+    "nazk_declarations": ["declarant_name", "declaration_type", "declaration_year", "declarant_position", "declarant_workplace"],
+    "tax_debt": ["name", "tin", "tax_office_name", "tax_name", "report_date"],
+    "esv_debt": ["name", "tin", "tax_office", "debt_amount"],
+    "vat_payers": ["name", "vat_code", "registration_date", "termination_date"],
+    "single_tax_payers": ["name", "tin", "tax_group", "start_date", "rate"],
+    "inspection_plans": ["business_name", "supervision_area", "start_date", "duration_days", "supervisory_body", "plan_year"],
+    "dssu_financial_reports": ["firm_name", "firm_edrpou", "firm_kved_name", "report_year", "report_period", "form_code"],
+    "street_renamings": ["current_name_uk", "old_names", "rename_count", "data_source"],
+    "prozorro_tenders": ["tender_id", "title", "buyer_name", "buyer_edrpou", "amount", "status", "procurement_method_type"],
+    "exchange_data": ["entity_type", "entity_record", "tax_payer_type", "start_date", "start_num"],
+    "members": ["entity_record", "member_info"],
+    "predecessors": ["entity_record", "predecessor_name", "predecessor_code"],
+    "assignees": ["entity_record", "assignee_name", "assignee_code"],
+    "termination_started": ["entity_record", "op_date", "reason", "sbj_state", "signer_name"],
+    "executive_power": ["entity_record", "name", "code"],
+    "bankruptcy_info": ["entity_record", "op_date", "reason", "sbj_state", "head_name"],
 }
 
 
@@ -183,32 +191,46 @@ def prod_psql(container: str, user: str, db: str, sql: str) -> str:
 
 
 def get_db_config(table: str):
+    if table in RADA_TABLES:
+        return DATABASES["rada"]
     if table in OPENREYESTR_TABLES:
         return DATABASES["openreyestr"]
     return DATABASES["secondlayer"]
 
 
+def _qualified_table(table: str, cfg: dict) -> str:
+    schema = cfg.get("schema", "public")
+    return f"{schema}.{table}" if schema != "public" else table
+
+
+def _info_schema(table: str, cfg: dict) -> str:
+    return cfg.get("schema", "public")
+
+
 def fetch_row_count(table: str) -> int:
     cfg = get_db_config(table)
+    schema = cfg.get("schema", "public")
     raw = prod_psql(cfg["container"], cfg["user"], cfg["db"],
-                    f"SELECT reltuples::bigint FROM pg_class WHERE relname = '{table}'")
+                    f"SELECT reltuples::bigint FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relname = '{table}' AND n.nspname = '{schema}'")
     return int(raw) if raw else 0
 
 
 def fetch_records(table: str, limit: int = 1, offset: int = 0) -> list[dict]:
     cfg = get_db_config(table)
+    schema = _info_schema(table, cfg)
+    qualified = _qualified_table(table, cfg)
     cols = PREVIEW_COLUMNS.get(table)
     if not cols:
         # Fallback: get first 8 columns from information_schema
         raw_cols = prod_psql(cfg["container"], cfg["user"], cfg["db"],
-            f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table}' AND table_schema = 'public' ORDER BY ordinal_position LIMIT 8")
+            f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table}' AND table_schema = '{schema}' ORDER BY ordinal_position LIMIT 8")
         cols = [c.strip() for c in raw_cols.split("\n") if c.strip()]
     if not cols:
         return []
 
     col_list = ", ".join(cols)
     raw = prod_psql(cfg["container"], cfg["user"], cfg["db"],
-        f"SELECT row_to_json(t) FROM (SELECT {col_list} FROM {table} LIMIT {limit} OFFSET {offset}) t")
+        f"SELECT row_to_json(t) FROM (SELECT {col_list} FROM {qualified} LIMIT {limit} OFFSET {offset}) t")
     rows = []
     for line in raw.split("\n"):
         line = line.strip()
