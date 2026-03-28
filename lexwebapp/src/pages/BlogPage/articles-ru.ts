@@ -2802,4 +2802,126 @@ Backend генерировал \`http://\` редиректы за Cloudflare. �
 
 Регистрация: [legal.org.ua](https://legal.org.ua)`,
   },
+  'ci-cd-blue-green-self-healing-tests': {
+    title: 'CI/CD с blue-green preview и самоисцеляющимися тестами',
+    punchline: 'Как мы построили pipeline, который не падает в 3 ночи: blue-green с approval gate, prod safety guard и 8 PR за 3 часа чтобы укротить Vitest OOM.',
+    readTime: '18 мин',
+    content: `# CI/CD с blue-green preview и самоисцеляющимися тестами
+
+Как мы сделали CI/CD, который не падает в 3 ночи — и почему Vitest жрёт память.
+
+Эта статья — не теоретический гайд. Это хроника 4 дней (25–28 марта 2026), за которые мы превратили наш deploy pipeline из «push and pray» в систему с preview-средой, approval gate, prod safety guard и тестами, которые чинят себя сами. 17 PR, 422 теста, одна эпическая битва с OOM.
+
+---
+
+## Архитектура: что мы имели на старте
+
+SecondLayer — монорепо с 3 MCP-серверами (backend, rada, openreyestr), React-фронтендом и PostgreSQL/Redis/Qdrant инфраструктурой. Деплой на прод — через self-hosted GitHub Actions runner, который физически стоит на той же машине, что и прод.
+
+Да, вы правильно прочитали. CI runner и прод — одна машина. Это как жить с тигром в одной комнате: можно, но нужно очень аккуратно.
+
+---
+
+## День 1: Фундамент — 93 теста + blue-green preview
+
+### 93 новых юнит-теста за один PR (#1204)
+
+Первый шаг — покрытие. 58 backend-тестов (auth, JWT, dual-auth, balance check, rate limiting) + 35 frontend-тестов (uiStore, undoStore, localeStore). Но просто написать тесты — мало. Мы добавили:
+
+- **Self-heal job**: если тесты падают в CI, Claude Code автоматически анализирует ошибку, фиксит тест и создаёт fix-PR
+- **Pre-deploy gate**: прод-деплой блокируется, если тесты не прошли
+- **Jest 30 совместимость**: убрали \`fail()\`, переписали async assertions
+
+### Blue-green deployment с approval gate (#1213)
+
+Главная фича. Разделили прод-деплой на две фазы:
+
+**Фаза 1 — автоматическая (после CI)**:
+1. Сборка новой версии
+2. Запуск миграций
+3. Старт неактивного цвета (blue или green)
+4. Активация \`preview.legal.org.ua\`
+
+**Фаза 2 — manual approval**:
+1. Ревьюер проверяет preview
+2. Нажимает Approve в GitHub Environment
+3. Nginx переключает трафик на новый цвет
+4. Drain connections со старого цвета
+5. Остановка старого цвета
+6. Создание GitHub Release
+
+---
+
+## День 3: Prod Safety Guard — уроки из инцидента
+
+### Инцидент: CI сломал прод (#1290)
+
+Поскольку CI runner и прод живут на одной машине, локальный деплой случайно зацепил прод-nginx. Результат: 502 на проде. В 3 ночи. Классика.
+
+### Решение: Prod Safety Guard
+
+Логика простая: записываем статус и время старта прод-nginx до деплоя, проверяем после. Если контейнер рестартнулся или упал — pipeline кричит CRITICAL.
+
+---
+
+## День 4: Vitest OOM Saga — 8 PR за 3 часа
+
+Самая интересная часть. Хронология того, как один тест сломал CI.
+
+### Проблема
+
+\`ConsultationChatTab.test.tsx\` — тест для основного чат-компонента. Он импортирует \`articles.ts\` (4745 строк), рендерит тяжёлый React-компонент и стабильно убивает Vitest worker через OOM.
+
+### Эволюция решения
+
+| PR | Подход | Результат |
+|----|--------|-----------|
+| #1302 | maxForks: 2 | OOM в одном форке |
+| #1303 | heap 4GB | OOM на teardown |
+| #1304 | threads pool | Зависание SSE моков |
+| #1305 | teardownTimeout | Exit code 1 |
+| #1306 | cleanup() | OOM всё равно на teardown |
+| #1309 | JSON reporter | Файл не записывается |
+| #1311 | **stdout parsing** | **Работает** |
+| #1315 | +8GB heap для prod | **Стабильно** |
+
+### Финальное решение
+
+Парсим stdout Vitest на "Tests.*failed" или "Test Files.*passed" вместо доверия exit code. Worker OOM происходит при teardown ПОСЛЕ того как все тесты прошли — поэтому exit code врёт.
+
+### Почему Vitest жрёт память
+
+1. **Большое дерево импортов**: ConsultationChatTab импортирует articles.ts на 4745 строк — каждый форк создаёт полную копию
+2. **V8 error stack trace**: При закрытии worker V8 строит полный stack trace, съедая heap
+3. **threads vs forks**: worker_threads делят heap с main process, но \`execArgv\` не передаёт \`--max-old-space-size\` в threads
+4. **Reporter race condition**: JSON reporter пишет в \`process.exit\` hook, но OOM убивает до выполнения hooks
+
+### Рекомендации
+
+1. **Всегда \`cleanup()\`** в afterEach — React render без unmount = утечка интервалов
+2. **Не доверяйте exit code** — Vitest worker OOM ≠ тесты упали
+3. **stdout parsing** — самый надёжный способ определить результат в CI
+4. **forks > threads** для больших test suites — execArgv работает только с forks
+
+---
+
+## Результат
+
+| До | После |
+|----|-------|
+| Push → pray → проверить через 10 мин | Push → CI → preview → approve → prod |
+| Тесты падают в CI → ручной фикс | Self-heal: Claude Code фиксит автоматически |
+| CI сломал прод (502) | Prod Safety Guard: pre/post проверка |
+| Vitest OOM = все тесты «упали» | stdout parsing: реальный результат |
+| 0 тестов | 422 теста (93 новых) |
+| Один деплой = всё-или-ничего | Blue-green с preview и rollback |
+
+---
+
+CI/CD — это не конфигурация. Это живой организм, который нужно кормить тестами и защищать от самого себя.
+
+---
+
+Регистрация: [legal.org.ua](https://legal.org.ua)`,
+  },
 };

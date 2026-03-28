@@ -3128,4 +3128,126 @@ All 86 queries now rotate on the chat start screen. Try it — every page load s
 
 Registration: [legal.org.ua](https://legal.org.ua)`,
   },
+  'ci-cd-blue-green-self-healing-tests': {
+    title: 'CI/CD with Blue-Green Preview and Self-Healing Tests',
+    punchline: 'How we built a pipeline that doesn\'t crash at 3 AM: blue-green with approval gate, prod safety guard, and 8 PRs in 3 hours to tame Vitest OOM.',
+    readTime: '18 min',
+    content: `# CI/CD with Blue-Green Preview and Self-Healing Tests
+
+How we built a CI/CD that doesn't crash at 3 AM — and why Vitest eats memory.
+
+This article isn't a theoretical guide. It's a chronicle of 4 days (March 25–28, 2026) during which we transformed our deploy pipeline from "push and pray" into a system with a preview environment, approval gate, prod safety guard, and tests that fix themselves. 17 PRs, 422 tests, one epic battle with OOM.
+
+---
+
+## Architecture: What We Started With
+
+SecondLayer is a monorepo with 3 MCP servers (backend, rada, openreyestr), a React frontend, and PostgreSQL/Redis/Qdrant infrastructure. Deployment to prod goes through a self-hosted GitHub Actions runner that physically sits on the same machine as prod.
+
+Yes, you read that right. CI runner and prod — same machine. It's like living with a tiger in the same room: possible, but you need to be very careful.
+
+---
+
+## Day 1: Foundation — 93 Tests + Blue-Green Preview
+
+### 93 New Unit Tests in One PR (#1204)
+
+First step — coverage. 58 backend tests (auth, JWT, dual-auth, balance check, rate limiting) + 35 frontend tests (uiStore, undoStore, localeStore). But just writing tests isn't enough. We added:
+
+- **Self-heal job**: when tests fail in CI, Claude Code automatically analyzes the error, fixes the test, and creates a fix PR
+- **Pre-deploy gate**: prod deploy is blocked if tests don't pass
+- **Jest 30 compatibility**: removed \`fail()\`, rewrote async assertions
+
+### Blue-Green Deployment with Approval Gate (#1213)
+
+The main feature. We split prod deploy into two phases:
+
+**Phase 1 — automatic (after CI)**:
+1. Build new version
+2. Run migrations
+3. Start inactive color (blue or green)
+4. Activate \`preview.legal.org.ua\`
+
+**Phase 2 — manual approval**:
+1. Reviewer checks preview
+2. Clicks Approve in GitHub Environment
+3. Nginx switches traffic to new color
+4. Drain connections from old color
+5. Stop old color
+6. Create GitHub Release
+
+---
+
+## Day 3: Prod Safety Guard — Lessons from an Incident
+
+### The Incident: CI Broke Prod (#1290)
+
+Since the CI runner and prod live on the same machine, a local deploy accidentally touched prod nginx. Result: 502 in prod. At 3 AM. Classic.
+
+### The Solution: Prod Safety Guard
+
+Logic is simple: record prod nginx status and start time before deploy, verify after. If the container restarted or crashed — pipeline screams CRITICAL.
+
+---
+
+## Day 4: Vitest OOM Saga — 8 PRs in 3 Hours
+
+The most interesting part. A chronology of how one test broke CI and what it took to fix it.
+
+### The Problem
+
+\`ConsultationChatTab.test.tsx\` — a test for the main chat component. It imports \`articles.ts\` (4,745 lines), renders a heavy React component, and consistently kills the Vitest worker via OOM.
+
+### The Journey (8 Iterations)
+
+| PR | Approach | Result |
+|----|----------|--------|
+| #1302 | maxForks: 2 | OOM in single fork |
+| #1303 | 4GB heap | OOM on teardown |
+| #1304 | threads pool | SSE mock hang |
+| #1305 | teardownTimeout | Exit code 1 |
+| #1306 | cleanup() | OOM still on teardown |
+| #1309 | JSON reporter | File never written |
+| #1311 | **stdout parsing** | **Works** |
+| #1315 | +8GB heap for prod | **Stable** |
+
+### The Final Solution
+
+Parse Vitest stdout for "Tests.*failed" or "Test Files.*passed" instead of trusting the exit code. The worker OOM happens during teardown AFTER all tests have passed — so the exit code lies.
+
+### Why Vitest Eats Memory
+
+1. **Large import tree**: ConsultationChatTab imports a 4,745-line articles.ts — each fork creates a full copy
+2. **V8 error stack trace**: On worker shutdown, V8 builds full stack traces consuming the heap
+3. **threads vs forks**: worker_threads share heap with main process but \`execArgv\` doesn't pass \`--max-old-space-size\` to threads
+4. **Reporter race condition**: JSON reporter writes in \`process.exit\` hook, but OOM kills before hooks execute
+
+### Recommendations
+
+1. **Always \`cleanup()\`** in afterEach — React render without unmount = leaked intervals
+2. **Don't trust exit code** — Vitest worker OOM ≠ test failure
+3. **stdout parsing** — most reliable CI pass/fail detection
+4. **forks > threads** for large test suites — execArgv only works with forks
+
+---
+
+## Results
+
+| Before | After |
+|--------|-------|
+| Push → pray → check in 10 min | Push → CI → preview → approve → prod |
+| Tests fail in CI → manual fix | Self-heal: Claude Code fixes automatically |
+| CI broke prod (502) | Prod Safety Guard: pre/post verification |
+| Vitest OOM = all tests "failed" | stdout parsing: real results |
+| 0 tests | 422 tests (93 new) |
+| Single deploy = all-or-nothing | Blue-green with preview and rollback |
+
+---
+
+CI/CD isn't configuration. It's a living organism that needs to be fed with tests and protected from itself.
+
+---
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
 };
