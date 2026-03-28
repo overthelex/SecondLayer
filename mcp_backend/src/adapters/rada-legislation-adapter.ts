@@ -141,13 +141,14 @@ export class RadaLegislationAdapter {
     // Chapters: <span class=rvts15>Глава 1 </span><br><span class=rvts15>TITLE</span>
     const structureMap = this.extractStructureMap(bodyHtml);
 
-    // Parse articles: <span class=rvts9>Стаття N.</span>
-    const articleRegex = /<span\s+class=["']?rvts9["']?>Стаття\s+(\d+(?:-\d+)?)\.?\s*<\/span>\s*(.*?)(?=<span\s+class=["']?rvts9|$)/gs;
+    // Parse articles: handles both <span class=rvts9>Стаття N. Title</span> and <span class=rvts9>Стаття N.</span>
+    const articleRegex = /<span\s+class=["']?rvts9["']?>Стаття\s+(\d+(?:-\d+)?)\.?\s*([^<]*)<\/span>\s*(.*?)(?=<span\s+class=["']?rvts9["']?>Стаття\s+\d|$)/gs;
 
     let match;
     while ((match = articleRegex.exec(bodyHtml)) !== null) {
       const articleNumber = match[1];
-      const articleHtml = match[2];
+      const inlineTitle = match[2]?.trim(); // Title text inside the <span> tag
+      const articleHtml = match[3];
       const articlePosition = match.index;
 
       // Load the article HTML into cheerio for text extraction
@@ -163,11 +164,15 @@ export class RadaLegislationAdapter {
 
       if (fullText.length < 10) continue;
 
-      // Try to extract article title from first sentence
+      // Use inline title from span if available, otherwise extract from body text
       let title: string | undefined;
-      const firstSentence = fullText.split(/[.;]/)[0];
-      if (firstSentence && firstSentence.length < 200) {
-        title = firstSentence.trim();
+      if (inlineTitle && inlineTitle.length > 2) {
+        title = inlineTitle;
+      } else {
+        const firstSentence = fullText.split(/[.;]/)[0];
+        if (firstSentence && firstSentence.length < 200) {
+          title = firstSentence.trim();
+        }
       }
 
       // Find which section/chapter this article belongs to
@@ -207,10 +212,15 @@ export class RadaLegislationAdapter {
       });
     }
 
-    // Fallback to old method if no articles found
-    if (articles.length === 0) {
-      logger.warn(`No articles found with print endpoint parser, trying fallback for ${radaId}`);
-      articles.push(...this.extractArticlesFallback($, radaId));
+    // Fallback to old method if too few articles found (likely regex mismatch)
+    if (articles.length < 5) {
+      logger.warn(`Only ${articles.length} articles found with print endpoint parser, trying fallback for ${radaId}`);
+      const fallbackArticles = this.extractArticlesFallback($, radaId);
+      if (fallbackArticles.length > articles.length) {
+        logger.info(`Fallback found ${fallbackArticles.length} articles vs ${articles.length}, using fallback for ${radaId}`);
+        articles.length = 0;
+        articles.push(...fallbackArticles);
+      }
     }
 
     return articles;
