@@ -62,13 +62,22 @@ function createMockEventSource() {
 
 describe('ConsultationChatTab', () => {
   const mockOnUnreadCountChange = vi.fn();
+  let currentMockES: ReturnType<typeof createMockEventSource>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    currentMockES = createMockEventSource();
     mockGetMessages.mockResolvedValue({ messages: [], total: 0 });
-    mockConnectMessageStream.mockReturnValue(createMockEventSource());
+    mockConnectMessageStream.mockReturnValue(currentMockES);
     mockMarkMessagesRead.mockResolvedValue(undefined);
     mockGetGlobalUnreadCount.mockResolvedValue({ count: 0 });
+  });
+
+  afterEach(() => {
+    currentMockES.close();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   describe('Empty state', () => {
