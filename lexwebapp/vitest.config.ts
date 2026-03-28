@@ -8,13 +8,13 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/__tests__/setup.ts'],
-    pool: 'threads',
+    pool: 'forks',
     poolOptions: {
-      threads: {
-        maxThreads: 2,
+      forks: {
+        maxForks: 2,
+        execArgv: ['--max-old-space-size=4096'],
       },
     },
-    teardownTimeout: 3000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
