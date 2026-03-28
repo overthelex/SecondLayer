@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "npx vite preview",
     "preview:staging": "npx vite preview --mode staging",
-    "test": "vitest",
+    "test": "vitest run",
     "test:ui": "vitest --ui",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage"

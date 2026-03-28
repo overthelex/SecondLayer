@@ -14,6 +14,7 @@ export default defineConfig({
         maxThreads: 2,
       },
     },
+    teardownTimeout: 3000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
