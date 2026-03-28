@@ -42,6 +42,120 @@ EXCLUDE_TABLES = {
     "system_config", "tool_usage_stats",
 }
 
+# ── Expected update frequency (in days) per table ──
+# green = within expected window, yellow = 1.5x, orange = 2x, red = 3x+
+# Tables not listed default to 7 days (weekly)
+
+UPDATE_FREQ_DAYS = {
+    # ── SecondLayer: daily sources ──
+    "opendata_missing_persons": 1,
+    "opendata_wanted_persons": 1,
+    "opendata_wanted_vehicles": 1,
+    "opendata_corruption": 1,
+    "opendata_corruption_offenders": 1,
+    "opendata_invalid_passports": 1,
+    "opendata_invalid_passports_foreign": 1,
+    "opendata_vehicle_registrations": 1,
+    "opendata_financial_statements": 1,
+    "opendata_state_aid": 1,
+    "opendata_lustration": 1,
+    "cost_tracking": 1,
+    "monthly_api_usage": 1,
+    "conversation_messages": 1,
+    "conversations": 1,
+    "session_recordings": 1,
+    "session_recording_chunks": 1,
+    # ── SecondLayer: weekly sources ──
+    "opendata_patents": 7,
+    "opendata_trademarks": 7,
+    "opendata_advocates": 7,
+    "opendata_lawyers": 7,
+    "opendata_court_experts": 7,
+    "opendata_bankruptcy": 7,
+    "opendata_bankruptcy_cases": 7,
+    "opendata_securities_owners": 7,
+    "opendata_vat_payers": 7,
+    "opendata_declaration_checks": 7,
+    "opendata_large_taxpayers": 7,
+    "opendata_wage_debtors": 7,
+    "opendata_public_organizations": 7,
+    "opensanctions_entities": 7,
+    "spending_acts": 7,
+    "spending_addendums": 7,
+    "spending_contracts": 7,
+    "spending_peny": 7,
+    "bills": 7,
+    "deputies": 7,
+    "voting_records": 7,
+    "legislation": 7,
+    "legislation_articles": 7,
+    "legislation_chunks": 7,
+    "judge_analytics": 7,
+    "vkks_judges": 7,
+    "vkks_evaluations": 7,
+    "vkks_declarations": 7,
+    "vkks_judge_efficiency": 7,
+    "vkks_vacancies": 7,
+    "vrp_decisions": 7,
+    "echr_cases": 7,
+    "supreme_court_reviews": 7,
+    "dsa_case_distribution": 7,
+    # ── SecondLayer: monthly / rare sources ──
+    "court_sessions": 30,
+    "opendata_edrnpa_texts": 30,
+    "opendata_edrnpa_cards": 30,
+    "opendata_court_case_status": 30,
+    "opendata_court_schedule": 30,
+    "opendata_judge_candidates": 30,
+    "opendata_terrorism_orgs": 90,
+    "opendata_terrorism_persons": 90,
+    "documents": 90,
+    "document_sections": 90,
+    "judges": 90,
+    "judges_current": 90,
+    "judge_efficiency": 90,
+    # ── OpenReyestr: daily sources ──
+    "debtors": 1,
+    "enforcement_proceedings": 1,
+    # ── OpenReyestr: weekly sources ──
+    "arbitration_managers": 7,
+    "bankruptcy_cases": 7,
+    "court_experts": 7,
+    "forensic_methods": 7,
+    "notaries": 7,
+    "special_forms": 7,
+    "streets": 7,
+    "administrative_units": 7,
+    "legal_acts": 7,
+    # ── OpenReyestr: monthly / quarterly ──
+    "legal_entities": 30,
+    "individual_entrepreneurs": 30,
+    "founders": 30,
+    "signers": 30,
+    "beneficiaries": 30,
+    "exchange_data": 30,
+    "members": 30,
+    "predecessors": 30,
+    "assignees": 30,
+    "termination_started": 30,
+    "executive_power": 30,
+    "public_associations": 30,
+    "bankruptcy_info": 30,
+    "arma_assets": 30,
+    "nazk_declarations": 30,
+    "tax_debt": 30,
+    "esv_debt": 30,
+    "vat_payers": 30,
+    "single_tax_payers": 30,
+    "rnbo_sanctions": 30,
+    "inspection_plans": 30,
+    "dssu_financial_reports": 30,
+    "street_renamings": 30,
+    "prozorro_tenders": 30,
+}
+
+DEFAULT_FREQ_DAYS = 7
+
 # ── Queries ──
 
 Q_TABLE_STATS = """
@@ -174,21 +288,28 @@ def time_ago(ts_str: str) -> str:
         return ts_str[:16]
 
 
-def freshness_icon(ts_str: str) -> str:
-    """Return icon based on how fresh data is."""
+def freshness_icon(ts_str: str, table_name: str = "") -> str:
+    """Return icon based on how fresh data is relative to expected update frequency.
+
+    🟢 within expected window (freq * 1.5)
+    🟡 slightly overdue (freq * 1.5 .. freq * 2.5)
+    🟠 overdue (freq * 2.5 .. freq * 4)
+    🔴 very overdue (> freq * 4)
+    """
     if not ts_str:
         return "⚪"
     dt = _parse_ts(ts_str)
     if not dt:
         return "⚪"
 
+    freq = UPDATE_FREQ_DAYS.get(table_name, DEFAULT_FREQ_DAYS)
     days = (datetime.now(timezone.utc) - dt).total_seconds() / 86400
 
-    if days < 1:
+    if days <= freq * 1.5:
         return "🟢"
-    elif days < 7:
+    elif days <= freq * 2.5:
         return "🟡"
-    elif days < 30:
+    elif days <= freq * 4:
         return "🟠"
     else:
         return "🔴"
@@ -300,12 +421,12 @@ def print_db_section(db_key: str, label: str, tables: list, import_info: dict,
             print(f"{r['table']},{r['rows']},{r['size_bytes']},{last},{time_ago(last)},{writes}")
         return
 
-    W = 100
+    W = 108
     print()
     print(f"  {'═' * W}")
     print(f"  📦 {label}  —  {len(tables)} таблиць, {fmt_size(db_size)} загалом")
     print(f"  {'═' * W}")
-    print(f"  {'#':<4} {'Таблиця':<38} {'Рядків':>12} {'Розмір':>9} {'Записів':>10}  {'Давність':>14} {'':>2}")
+    print(f"  {'#':<4} {'Таблиця':<38} {'Рядків':>12} {'Розмір':>9} {'Записів':>10}  {'Норма':>6} {'Давність':>14} {'':>2}")
     print(f"  {'─' * W}")
 
     for i, r in enumerate(tables):
@@ -313,9 +434,20 @@ def print_db_section(db_key: str, label: str, tables: list, import_info: dict,
         last_ts = imp.get("completed_at", "") or r["last_activity"]
         writes = r["n_ins"] + r["n_upd"]
         ago = time_ago(last_ts)
-        icon = freshness_icon(last_ts)
+        icon = freshness_icon(last_ts, r["table"])
         row_str = fmt_num(r["rows"]) if r["rows"] > 0 else "—"
         writes_str = fmt_num(writes) if writes > 0 else "—"
+
+        # Expected frequency label
+        freq = UPDATE_FREQ_DAYS.get(r["table"], DEFAULT_FREQ_DAYS)
+        if freq <= 1:
+            freq_lbl = "1д"
+        elif freq <= 7:
+            freq_lbl = "7д"
+        elif freq <= 30:
+            freq_lbl = "30д"
+        else:
+            freq_lbl = f"{freq}д"
 
         # Show import status if failed
         imp_status = ""
@@ -324,7 +456,7 @@ def print_db_section(db_key: str, label: str, tables: list, import_info: dict,
         elif imp.get("status") == "running":
             imp_status = " 🔄"
 
-        print(f"  {i + 1:<4} {r['table']:<38} {row_str:>12} {fmt_size(r['size_bytes']):>9} {writes_str:>10}  {ago:>14} {icon}{imp_status}")
+        print(f"  {i + 1:<4} {r['table']:<38} {row_str:>12} {fmt_size(r['size_bytes']):>9} {writes_str:>10}  {freq_lbl:>6} {ago:>14} {icon}{imp_status}")
 
         if (i + 1) % page_size == 0 and i + 1 < len(tables):
             remaining = len(tables) - i - 1
@@ -332,7 +464,7 @@ def print_db_section(db_key: str, label: str, tables: list, import_info: dict,
             print(f"  ... ще {remaining} таблиць")
             wait_for_key()
             print(f"  {'─' * W}")
-            print(f"  {'#':<4} {'Таблиця':<38} {'Рядків':>12} {'Розмір':>9} {'Записів':>10}  {'Давність':>14} {'':>2}")
+            print(f"  {'#':<4} {'Таблиця':<38} {'Рядків':>12} {'Розмір':>9} {'Записів':>10}  {'Норма':>6} {'Давність':>14} {'':>2}")
             print(f"  {'─' * W}")
 
     print(f"  {'─' * W}")
@@ -461,7 +593,8 @@ def main():
 
     # ── Legend ──
     if args.format == "table":
-        print(f"  📋 Легенда: 🟢 <24год  🟡 <7д  🟠 <30д  🔴 >30д  ⛔ імпорт failed  🔄 running")
+        print(f"  📋 Легенда: 🟢 в нормі  🟡 злегка прострочено  🟠 прострочено  🔴 сильно прострочено  ⚪ невідомо  ⛔ імпорт failed  🔄 running")
+        print(f"  📋 Норма залежить від джерела: щоденні (МВС, паспорти), щотижневі (УІПВ, НАІС), щомісячні (ЄДР, ЄДРПОУ)")
         print(f"  📋 Записів = кількість INSERT + UPDATE з моменту запуску PostgreSQL")
         print()
 
