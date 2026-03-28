@@ -1422,6 +1422,47 @@ services:
     command: ["-c", "/etc/turnserver.conf", "--static-auth-secret=${TURN_SHARED_SECRET}"]
     restart: unless-stopped
 
+  # OpenData Sync — cron scheduler for government data sources
+  opendata-sync-prod:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.opendata-sync
+    image: opendata-sync-prod:latest
+    container_name: opendata-sync-prod
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    depends_on:
+      app-prod:
+        condition: service_healthy
+      app-openreyestr-prod:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      BACKEND_URL: http://app-prod:3000
+      BACKEND_API_KEY: ${SECONDARY_LAYER_KEYS:-}
+      OPENREYESTR_URL: http://app-openreyestr-prod:3005
+      OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEYS:-}
+      HEALTH_PORT: "3010"
+      TZ: Europe/Kiev
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3010/health', r => { process.exit(r.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - secondlayer-prod-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
 volumes:
   postgres_prod_data:
     driver: local
