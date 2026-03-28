@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       services:
-        description: 'Services to deploy (comma-separated: backend,rada,openreyestr,frontend,platform,monitoring). Leave empty to auto-detect from latest changes.'
+        description: 'Services to deploy (comma-separated: backend,rada,openreyestr,frontend,platform,opendata-sync,monitoring). Leave empty to auto-detect from latest changes.'
         required: false
         default: ''
         type: string
@@ -49,6 +49,7 @@ jobs:
       services_to_deploy: ${{ steps.final.outputs.services_to_deploy }}
       monitoring: ${{ steps.final.outputs.monitoring }}
       platform: ${{ steps.final.outputs.platform }}
+      opendata_sync: ${{ steps.final.outputs.opendata_sync }}
       has_changes: ${{ steps.final.outputs.has_changes }}
     steps:
       - uses: actions/checkout@v4
@@ -68,7 +69,7 @@ jobs:
             # Manual override: parse comma-separated service names
             echo "Using manual service selection: $INPUT_SERVICES"
 
-            BACKEND=false RADA=false OPENREYESTR=false FRONTEND=false PLATFORM=false MONITORING=false
+            BACKEND=false RADA=false OPENREYESTR=false FRONTEND=false PLATFORM=false MONITORING=false OPENDATA_SYNC=false
             IFS=',' read -ra SVCS <<< "$INPUT_SERVICES"
             for svc in "${SVCS[@]}"; do
               svc=$(echo "$svc" | xargs)  # trim whitespace
@@ -79,6 +80,7 @@ jobs:
                 frontend) FRONTEND=true ;;
                 platform) PLATFORM=true ;;
                 monitoring) MONITORING=true ;;
+                opendata-sync) OPENDATA_SYNC=true ;;
                 *) echo "::warning::Unknown service: $svc" ;;
               esac
             done
@@ -88,6 +90,7 @@ jobs:
             echo "openreyestr=$OPENREYESTR" >> "$GITHUB_OUTPUT"
             echo "frontend=$FRONTEND" >> "$GITHUB_OUTPUT"
             echo "platform=$PLATFORM" >> "$GITHUB_OUTPUT"
+            echo "opendata_sync=$OPENDATA_SYNC" >> "$GITHUB_OUTPUT"
             echo "monitoring=$MONITORING" >> "$GITHUB_OUTPUT"
             echo "shared=${{ steps.changes.outputs.shared }}" >> "$GITHUB_OUTPUT"
             echo "deployment=${{ steps.changes.outputs.deployment }}" >> "$GITHUB_OUTPUT"
@@ -106,6 +109,7 @@ jobs:
             [ "$OPENREYESTR" = "true" ] && SERVICES_LIST="${SERVICES_LIST:+$SERVICES_LIST,}\"openreyestr\""
             [ "$FRONTEND" = "true" ] && SERVICES_LIST="${SERVICES_LIST:+$SERVICES_LIST,}\"frontend\""
             [ "$PLATFORM" = "true" ] && SERVICES_LIST="${SERVICES_LIST:+$SERVICES_LIST,}\"platform\""
+            [ "$OPENDATA_SYNC" = "true" ] && SERVICES_LIST="${SERVICES_LIST:+$SERVICES_LIST,}\"opendata-sync\""
             echo "services_to_build=[${SERVICES_LIST}]" >> "$GITHUB_OUTPUT"
             echo "services_to_deploy=[${SERVICES_LIST}]" >> "$GITHUB_OUTPUT"
 
@@ -123,6 +127,7 @@ jobs:
             echo "openreyestr=${{ steps.changes.outputs.openreyestr }}" >> "$GITHUB_OUTPUT"
             echo "frontend=${{ steps.changes.outputs.frontend }}" >> "$GITHUB_OUTPUT"
             echo "platform=${{ steps.changes.outputs.platform }}" >> "$GITHUB_OUTPUT"
+            echo "opendata_sync=${{ steps.changes.outputs.opendata_sync }}" >> "$GITHUB_OUTPUT"
             echo "monitoring=${{ steps.changes.outputs.monitoring }}" >> "$GITHUB_OUTPUT"
             echo "shared=${{ steps.changes.outputs.shared }}" >> "$GITHUB_OUTPUT"
             echo "deployment=${{ steps.changes.outputs.deployment }}" >> "$GITHUB_OUTPUT"
@@ -351,6 +356,7 @@ jobs:
       OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
       FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
       PLATFORM_CHANGED: ${{ needs.detect-changes.outputs.platform }}
+      OPENDATA_SYNC_CHANGED: ${{ needs.detect-changes.outputs.opendata_sync }}
       MONITORING_CHANGED: ${{ needs.detect-changes.outputs.monitoring }}
     steps:
       - uses: actions/checkout@v4
@@ -487,6 +493,7 @@ jobs:
             [ "${OPENREYESTR_CHANGED}" = "true" ] && BUILD="\$BUILD app-openreyestr-prod migrate-openreyestr-prod"
             [ "${FRONTEND_CHANGED}" = "true" ] && BUILD="\$BUILD lexwebapp-prod"
             [ "${PLATFORM_CHANGED}" = "true" ] && BUILD="\$BUILD platform-prod"
+            [ "${OPENDATA_SYNC_CHANGED}" = "true" ] && BUILD="\$BUILD opendata-sync-prod"
             [ -n "\$BUILD" ] && \$DC build \$BUILD
 
             # --- 2. Run migrations (idempotent, safe while old containers serve) ---
@@ -511,6 +518,9 @@ jobs:
             fi
             if [ "${PLATFORM_CHANGED}" = "true" ]; then
               \$DC up -d platform-prod
+            fi
+            if [ "${OPENDATA_SYNC_CHANGED}" = "true" ]; then
+              \$DC up -d opendata-sync-prod
             fi
 
             # --- 4. Wait for new containers to be healthy ---
@@ -646,6 +656,7 @@ jobs:
       OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
       FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
       PLATFORM_CHANGED: ${{ needs.detect-changes.outputs.platform }}
+      OPENDATA_SYNC_CHANGED: ${{ needs.detect-changes.outputs.opendata_sync }}
       MONITORING_CHANGED: ${{ needs.detect-changes.outputs.monitoring }}
     steps:
       - uses: actions/checkout@v4
