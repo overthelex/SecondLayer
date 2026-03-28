@@ -510,7 +510,7 @@ class DataBrowser:
         self.stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
 
         # Help
-        help_text = " ←→ документи  ↑↓ скрол  Esc назад  q вихід"
+        help_text = " ←→ документи  Shift+←→ ×100  ↑↓ скрол  Esc назад  q вихід"
         self.stdscr.attron(curses.color_pair(3))
         self.stdscr.addnstr(3, 0, help_text, w - 1)
         self.stdscr.attroff(curses.color_pair(3))
@@ -577,10 +577,20 @@ class DataBrowser:
             # Next record
             if self.record_idx < self.record_total - 1:
                 self._show_record(self.record_idx + 1)
+        elif key == curses.KEY_SRIGHT or key == 561:
+            # Shift+Right: jump 100 records forward
+            new_idx = min(self.record_total - 1, self.record_idx + 100)
+            if new_idx != self.record_idx:
+                self._show_record(new_idx)
         elif key == curses.KEY_LEFT:
             # Previous record
             if self.record_idx > 0:
                 self._show_record(self.record_idx - 1)
+        elif key == curses.KEY_SLEFT or key == 560:
+            # Shift+Left: jump 100 records back
+            new_idx = max(0, self.record_idx - 100)
+            if new_idx != self.record_idx:
+                self._show_record(new_idx)
 
 
 def main():
