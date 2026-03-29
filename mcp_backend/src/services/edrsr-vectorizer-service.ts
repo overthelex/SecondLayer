@@ -118,7 +118,7 @@ export class EdsrVectorizerService {
     if (!apiKey) {
       throw new Error('VOYAGEAI_API_KEY is required for EdsrVectorizerService');
     }
-    this.voyageClient = new VoyageAIClient(apiKey);
+    this.voyageClient = new VoyageAIClient(apiKey, process.env.VOYAGEAI_API_KEY_2 || '');
 
     const qdrantUrl = process.env.QDRANT_URL || 'http://localhost:6333';
     const qdrantApiKey = process.env.QDRANT_API_KEY;

@@ -26,7 +26,7 @@ const MAX_CHUNK_CHARS = 2048; // ~512 tokens at 4 chars/token
 const CHUNK_OVERLAP_WORDS = 50;
 
 // ── Clients ─────────────────────────────────────────────────────────────────
-const voyageClient = new VoyageAIClient(process.env.VOYAGEAI_API_KEY!);
+const voyageClient = new VoyageAIClient(process.env.VOYAGEAI_API_KEY!, process.env.VOYAGEAI_API_KEY_2 || '');
 const qdrant = new QdrantClient({ url: process.env.QDRANT_URL || 'http://localhost:6333', ...(process.env.QDRANT_API_KEY && { apiKey: process.env.QDRANT_API_KEY }) });
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,

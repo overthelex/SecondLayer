@@ -15,7 +15,7 @@ export type VoyageTokensCallback = (tokens: number, model: string, task: string)
 import type { IEmbeddingPort } from '../domain/ports/index.js';
 
 export class EmbeddingService implements IEmbeddingPort {
-  private voyageClient = new VoyageAIClient(process.env.VOYAGEAI_API_KEY!);
+  private voyageClient = new VoyageAIClient(process.env.VOYAGEAI_API_KEY!, process.env.VOYAGEAI_API_KEY_2 || '');
   private qdrant: QdrantClient;
   private collectionName = 'legal_sections';
   private initialized = false;

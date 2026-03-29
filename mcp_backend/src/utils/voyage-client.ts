@@ -21,10 +21,21 @@ export interface VoyageBatchResult {
 }
 
 export class VoyageAIClient {
-  constructor(private apiKey: string) {
+  private apiKeys: string[];
+  private keyIndex = 0;
+
+  constructor(apiKey: string, ...extraKeys: string[]) {
     if (!apiKey) {
       throw new Error('VOYAGEAI_API_KEY is required');
     }
+    this.apiKeys = [apiKey, ...extraKeys.filter(Boolean)];
+  }
+
+  /** Round-robin key selection for rate-limit distribution. */
+  private nextKey(): string {
+    const key = this.apiKeys[this.keyIndex % this.apiKeys.length];
+    this.keyIndex++;
+    return key;
   }
 
   async generateEmbedding(text: string, model: string = 'voyage-3.5'): Promise<number[]> {
@@ -61,7 +72,7 @@ export class VoyageAIClient {
         lastError = err;
 
         if (err.status === 429) {
-          // Rate limited — exponential backoff
+          // Rate limited — rotate key and exponential backoff
           const delay = Math.pow(2, attempt) * 1000;
           await new Promise((r) => setTimeout(r, delay));
           continue;
@@ -80,7 +91,7 @@ export class VoyageAIClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${this.nextKey()}`,
       },
       body: JSON.stringify({ input: texts, model }),
     });
