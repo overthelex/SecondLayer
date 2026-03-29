@@ -1,4 +1,6 @@
-# 🎉 Multi-Environment Setup Complete
+> **ARCHIVED:** This document describes a historical 4-environment setup. Current deployment: only local and prod with CI/CD blue-green deploy. No stage/dev gateway environments.
+
+# Multi-Environment Setup Complete (Historical)
 
 ## Summary
 

@@ -1,4 +1,8 @@
-# Database Schema Overview
+# Database Schema Overview (Legacy)
+
+> **Увага:** Цей документ описує початкову схему БД.
+> Актуальна схема визначається міграціями: `mcp_openreyestr/src/migrations/001-014`.
+> Див. [/mcp_openreyestr/README.md](../../README.md).
 
 ## Tables Summary
 

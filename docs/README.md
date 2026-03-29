@@ -18,7 +18,7 @@ Complete documentation for SecondLayer legal analysis platform - Ukrainian legal
 
 ## 🏛️ Backend Services
 
-### MCP Backend (Court Cases & Documents) - 36 Tools
+### MCP Backend (Court Cases & Documents) - 87 Tools
 - **[Backend README](backend/README.md)** - Main backend documentation
 - [Client Integration](backend/CLIENT_INTEGRATION.md) - How to integrate with backend
 - **[SSE Streaming](backend/SSE_STREAMING.md)** - Server-Sent Events streaming guide
@@ -28,7 +28,7 @@ Complete documentation for SecondLayer legal analysis platform - Ukrainian legal
 ### MCP Rada (Parliament Data) - 4 Tools
 - [Rada README](rada/README.md) - Parliament data service documentation
 
-### MCP OpenReyestr (Open Registries) - 5 Tools
+### MCP OpenReyestr (Open Registries) - 27 Tools
 - [OpenReyestr README](openreyestr/README.md) - Open registries service
 - [Quickstart](openreyestr/QUICKSTART.md) - Quick start guide
 - [Database Setup](openreyestr/DATABASE_SETUP.md) - Database configuration
@@ -42,7 +42,7 @@ Complete documentation for SecondLayer legal analysis platform - Ukrainian legal
 
 ## 📚 API Documentation
 
-- **[ALL MCP TOOLS](ALL_MCP_TOOLS.md) - Complete list of all 45 MCP tools** ⭐
+- **[ALL MCP TOOLS](ALL_MCP_TOOLS.md) - Complete list of all 118 MCP tools** ⭐
 - [MCP Tools Schema](api/MCP_TOOLS_SCHEMA.json) - JSON schema for MCP tools
 - [MCP Tools Summary](api/MCP_TOOLS_SUMMARY.md) - Tools summary
 - [MCP Client Config](api/MCP_CLIENT_CONFIG.md) - Client configuration
@@ -81,5 +81,6 @@ Key files in project root:
 
 ---
 
-**Last Updated:** 2026-02-12  
-**Total MCP Tools:** 45 (mcp_backend: 36, mcp_rada: 4, mcp_openreyestr: 5)
+**Last Updated:** 2026-03-28
+**Total MCP Tools:** 118 (mcp_backend: 87, mcp_rada: 4, mcp_openreyestr: 27)
+**Environments:** local, prod (no stage). Deploy via CI/CD (merge PR to main, blue-green deploy).

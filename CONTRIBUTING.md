@@ -47,12 +47,13 @@ Thank you for your interest in contributing to SecondLayer! This guide will help
 
 ```
 SecondLayer/
-├── mcp_backend/        # Primary MCP server (court cases, legal docs)
-├── mcp_rada/           # Parliament data server (deputies, bills)
-├── mcp_openreyestr/    # State Register server (business entities)
+├── mcp_backend/        # Primary MCP server (court decisions, legislation, registries, payments)
+├── mcp_rada/           # Parliament data server (deputies, bills, voting)
+├── mcp_openreyestr/    # State Register server (entities, beneficiaries, enforcement)
 ├── lexwebapp/          # Web frontend (React 19, Vite, TailwindCSS)
 ├── packages/shared/    # Shared TypeScript utilities
-├── deployment/         # Docker, nginx, deploy scripts
+├── deployment/         # Docker, nginx, CI/CD scripts
+├── tests/              # E2E tests (Playwright)
 └── scripts/            # Utility and data import scripts
 ```
 

@@ -1,3 +1,6 @@
+> **NOTE:** ZakonOnline references below are legacy. The env var `ZAKONONLINE_API_TOKEN` is being deprecated.
+> There is no staging environment -- only local and prod.
+
 # MCP Client Configuration for SecondLayer
 
 ## Valid MCP Server Configurations
@@ -132,7 +135,7 @@ For **Claude Desktop** (claude_desktop_config.json):
         "QDRANT_URL": "http://localhost:6333",
         "REDIS_URL": "redis://localhost:6379",
         "OPENAI_API_KEY": "sk-proj-...",
-        "ZAKONONLINE_API_TOKEN": "YOUR_ZAKONONLINE_TOKEN"
+        "ZAKONONLINE_API_TOKEN": "YOUR_ZAKONONLINE_TOKEN (legacy, optional)"
       }
     }
   }

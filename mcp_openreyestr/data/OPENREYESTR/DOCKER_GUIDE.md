@@ -1,4 +1,8 @@
-# NAIS Open Data - Docker Guide
+# NAIS Open Data - Docker Guide (Legacy)
+
+> **Увага:** Цей документ описує legacy Docker-налаштування для дослідження даних.
+> Актуальний деплой MCP-сервера -- через `deployment/` директорію монорепо.
+> Див. [/mcp_openreyestr/README.md](../../README.md).
 
 Complete Docker setup for the NAIS (Ministry of Justice Ukraine) Open Data registries system.
 

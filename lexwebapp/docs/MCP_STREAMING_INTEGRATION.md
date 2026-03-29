@@ -23,12 +23,12 @@
 
 ## Overview
 
-This integration provides real-time Server-Sent Events (SSE) streaming support for all 43 MCP tools in the lexwebapp frontend. It enables progressive rendering of AI thinking steps, similar to ChatGPT's streaming interface.
+This integration provides real-time Server-Sent Events (SSE) streaming support for all 45 MCP tools in the lexwebapp frontend. It enables progressive rendering of AI thinking steps, similar to ChatGPT's streaming interface.
 
 ### Features
 
 - ✅ **Real-time Streaming** - Progressive thinking steps and incremental updates
-- ✅ **43 MCP Tools** - Full support for all backend, RADA, and OpenReyestr tools
+- ✅ **45 MCP Tools** - Full support for all backend, RADA, and OpenReyestr tools
 - ✅ **Type-Safe** - Complete TypeScript coverage with auto-completion
 - ✅ **Error Handling** - Automatic retry with exponential backoff
 - ✅ **Stream Control** - Cancel streams, pause/resume support
@@ -45,7 +45,7 @@ This integration provides real-time Server-Sent Events (SSE) streaming support f
 | Complex Operations | get_legal_advice, packaged_lawyer_answer, validate_citations, etc. | 10+ |
 | RADA | search_deputies, get_deputy_info, search_bills, etc. | 4 |
 | OpenReyestr | search_entities, get_beneficiaries, etc. | 5 |
-| **TOTAL** | | **43** |
+| **TOTAL** | | **45** |
 
 ---
 
@@ -119,13 +119,12 @@ npm install
 
 ### 2. Configure Environment
 
-Create or update `.env.staging`:
+Create or update `.env.local`:
 
 ```bash
-VITE_API_URL=https://stage.legal.org.ua/api
+VITE_API_URL=http://localhost:3000/api
 VITE_API_KEY=your-api-key-here
 VITE_ENABLE_SSE_STREAMING=true
-VITE_ENABLE_ALL_MCP_TOOLS=true
 ```
 
 ### 3. Use in Components
@@ -158,10 +157,10 @@ export function MyComponent() {
 npm run dev
 
 # Production build
-npm run build:staging
+npm run build
 
 # Preview
-npm run preview:staging
+npm run preview
 ```
 
 ---
@@ -211,7 +210,7 @@ class SSEClient {
 
 **File:** `src/services/api/MCPService.ts`
 
-Service for calling all 43 MCP tools.
+Service for calling all 45 MCP tools.
 
 **Key Features:**
 - Universal `callTool()` and `streamTool()` methods
@@ -477,29 +476,19 @@ export function CancelButton() {
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `VITE_API_URL` | Yes | - | Backend API URL (e.g., `https://stage.legal.org.ua/api`) |
-| `VITE_API_KEY` | Yes | - | API authentication key |
+| `VITE_API_URL` | Yes | - | Backend API URL (e.g., `http://localhost:3000/api`) |
+| `VITE_API_KEY` | Yes | - | API authentication key (must match `SECONDARY_LAYER_KEYS` in backend) |
 | `VITE_ENABLE_SSE_STREAMING` | No | `true` | Enable/disable SSE streaming |
-| `VITE_ENABLE_ALL_MCP_TOOLS` | No | `true` | Enable all 43 tools |
-| `VITE_SHOW_TOOL_SELECTOR` | No | `false` | Show tool selector UI (future) |
-| `VITE_ENABLE_THINKING_STEPS` | No | `true` | Display thinking steps |
-| `VITE_AUTO_EXPAND_THINKING` | No | `false` | Auto-expand thinking steps during streaming |
+| `VITE_MOCK_PAYMENTS` | No | `true` | Mock payment processing in development |
 
 ### Example Configurations
 
-**Development (.env.development):**
+**Local development (.env.local):**
 ```bash
 VITE_API_URL=http://localhost:3000/api
-VITE_API_KEY=dev-key-123
+VITE_API_KEY=your-api-key-here
 VITE_ENABLE_SSE_STREAMING=true
-```
-
-**Staging (.env.staging):**
-```bash
-VITE_API_URL=https://stage.legal.org.ua/api
-VITE_API_KEY=REDACTED_SL_KEY_STAGE
-VITE_ENABLE_SSE_STREAMING=true
-VITE_ENABLE_ALL_MCP_TOOLS=true
+VITE_MOCK_PAYMENTS=true
 ```
 
 **Production (.env.production):**
@@ -660,7 +649,7 @@ test('useMCPTool executes tool and updates store', async () => {
 3. Check browser console for SSE errors
 4. Test with curl:
    ```bash
-   curl -N -X POST https://stage.legal.org.ua/api/tools/get_legal_advice/stream \
+   curl -N -X POST http://localhost:3000/api/tools/get_legal_advice/stream \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer YOUR_KEY" \
      -d '{"query":"test"}'
@@ -673,14 +662,7 @@ test('useMCPTool executes tool and updates store', async () => {
 **Solutions:**
 1. Backend must include CORS headers for SSE
 2. Check `ALLOWED_ORIGINS` in backend `.env`
-3. For development, use proxy in `vite.config.ts`:
-   ```typescript
-   server: {
-     proxy: {
-       '/api': 'https://stage.legal.org.ua',
-     },
-   }
-   ```
+3. For development, the Vite proxy is already configured in `vite.config.ts`
 
 ### Issue: Messages duplicated
 
@@ -825,7 +807,7 @@ const virtualizer = useVirtualizer({
 - Never commit API keys to Git
 - Use environment variables
 - Rotate keys regularly
-- Use different keys for dev/staging/prod
+- Use different keys for dev/prod
 
 ### 2. Input Validation
 
@@ -931,11 +913,7 @@ const params: GetLegalAdviceParams = {
 
 - **Documentation:** `/docs/MCP_CLIENT_INTEGRATION_GUIDE.md`
 - **API Explorer:** `/mcp_backend/docs/api-explorer.html`
-- **Issues:** https://github.com/anthropics/claude-code/issues
-- **Email:** support@legal.org.ua
 
 ---
 
-**Last Updated:** 2026-02-06
-**Version:** 1.0.0
-**License:** MIT
+**Last Updated:** 2026-03-28

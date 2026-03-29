@@ -1,5 +1,8 @@
 # Production Deployment Checklist
 
+> **NOTE:** Production deployment is now handled via CI/CD (merge PR to main, blue-green deploy).
+> This checklist is useful for initial server provisioning and verification, not for routine deploys.
+
 **Use this checklist to ensure a smooth production deployment.**
 
 ---
@@ -19,7 +22,7 @@
 
 - [ ] OpenAI API key obtained (production account)
 - [ ] OpenAI API key #2 obtained (for rotation)
-- [ ] Legal data source API tokens obtained
+- [ ] Legal data source API tokens obtained (ZakonOnline legacy, being deprecated)
 - [ ] Secondary layer keys generated (use: `openssl rand -hex 32`)
 - [ ] PostgreSQL password generated (use: `openssl rand -base64 32`)
 - [ ] All credentials stored securely (e.g., password manager)
@@ -67,7 +70,7 @@ OPENAI_EMBEDDING_MODEL=text-embedding-ada-002
 OPENAI_API_KEY=sk-prod-key-1
 OPENAI_API_KEY2=sk-prod-key-2
 
-# Legal API
+# Legal API (legacy, being deprecated)
 ZAKONONLINE_API_TOKEN=prod-token-1
 ZAKONONLINE_API_TOKEN2=prod-token-2
 
@@ -470,7 +473,7 @@ curl https://yourdomain.com/health
 **Checklist:**
 - [ ] Previous Docker images backed up
 - [ ] Database backup available
-- [ ] Rollback tested in staging
+- [ ] Rollback tested (blue-green switch back)
 - [ ] DNS TTL short enough for quick changes
 
 ---

@@ -1,49 +1,61 @@
 # Frontend Unit Tests
 
-This directory contains unit tests for the MCP Streaming Integration.
+This directory contains root-level integration tests. Unit tests are co-located with source code in `__tests__/` directories throughout `src/`.
 
 ## Overview
 
 Tests are written using:
-- **Vitest** - Fast unit test framework for Vite projects
+- **Vitest 4** - Fast unit test framework for Vite projects
 - **React Testing Library** - React component testing
 - **jsdom** - DOM simulation for Node.js
 
-## Test Coverage
+## Test Locations
 
-### Core Services
+Tests are distributed across the codebase:
 
-- **SSEClient.test.ts** - SSE client streaming tests
-  - Connection establishment
-  - Event parsing (connected, progress, complete, error, end)
-  - Stream cancellation
-  - Retry logic
-  - Error handling
-
-- **MCPService.test.ts** - MCP service tests
-  - Synchronous tool calls
-  - Streaming tool calls
-  - Response transformation
-  - Fallback mode
-  - Tool listing
-
-### Hooks
-
-- **useMCPTool.test.tsx** - MCP tool hook tests
-  - Tool execution
-  - Message management
-  - Streaming callbacks
-  - Error handling
-  - Specialized hooks
-
-### Stores
-
-- **chatStore.test.ts** - Chat store tests
-  - Message CRUD operations
-  - Streaming state management
-  - Thinking steps
-  - Stream controller management
-  - Persistence
+```
+src/
+├── __tests__/                              # Root-level integration tests
+│   ├── setup.ts                            # Global test setup
+│   └── consultation-escrow.test.tsx
+├── services/
+│   ├── api/__tests__/
+│   │   ├── SSEClient.test.ts              # SSE client streaming tests
+│   │   └── MCPService.test.ts             # MCP service tests
+│   └── crypto/__tests__/
+│       ├── e2ee-integration.test.ts       # E2EE integration tests
+│       └── crypto.test.ts                 # Crypto utility tests
+├── stores/__tests__/
+│   ├── chatStore.test.ts                  # Chat store tests
+│   ├── uiStore.test.ts                    # UI store tests
+│   ├── localeStore.test.ts                # Locale store tests
+│   ├── undoStore.test.ts                  # Undo store tests
+│   └── videoCallStore.test.ts             # Video call store tests
+├── hooks/__tests__/
+│   ├── useMCPTool.test.tsx                # MCP tool hook tests
+│   └── useVideoSignaling.test.ts          # Video signaling tests
+├── pages/__tests__/
+│   ├── AdminUsersPage.test.tsx
+│   ├── AdminMonitoringPage.test.tsx
+│   ├── AdminMonitoringBackfill.test.tsx
+│   ├── AdminOverviewPage.test.tsx
+│   ├── AdminCostsPage.test.tsx
+│   ├── ConsultationDetailPage.test.tsx
+│   ├── ConsultationsPage.test.tsx
+│   └── LegalCodesLibraryPage.test.tsx
+└── components/
+    ├── video-call/__tests__/
+    │   ├── VideoCallControls.test.tsx
+    │   └── CallNotification.test.tsx
+    ├── organization/__tests__/
+    │   └── OrganizationSetupModal.test.tsx
+    ├── chat/__tests__/
+    │   └── ConsultationChatTab.test.tsx
+    ├── attorney/__tests__/
+    │   └── PendingInvitationsModal.test.tsx
+    └── ui/__tests__/
+        └── ConfirmModal.test.tsx
+```
 
 ## Running Tests
 
@@ -61,20 +73,17 @@ npm run test:ui
 npm run test:coverage
 ```
 
-## Test Structure
+## Running Specific Tests
 
-```
-src/__tests__/
-├── setup.ts                           # Global test setup
-├── README.md                          # This file
-├── services/
-│   └── api/
-│       ├── SSEClient.test.ts         # SSE client tests
-│       └── MCPService.test.ts        # MCP service tests
-├── hooks/
-│   └── useMCPTool.test.tsx           # Hook tests
-└── stores/
-    └── chatStore.test.ts             # Store tests
+```bash
+# Single test file
+npx vitest run src/services/api/__tests__/SSEClient.test.ts
+
+# By name pattern
+npx vitest run -t "should parse progress events"
+
+# All tests in a directory
+npx vitest run src/stores/__tests__/
 ```
 
 ## Writing Tests
@@ -96,7 +105,6 @@ test('renders correctly', () => {
 
 ```typescript
 import { expect, test, vi } from 'vitest';
-import { mcpService } from '../services';
 
 test('calls API correctly', async () => {
   global.fetch = vi.fn().mockResolvedValue({
@@ -105,7 +113,6 @@ test('calls API correctly', async () => {
   });
 
   const result = await mcpService.callTool('test_tool', {});
-
   expect(result).toEqual({ result: 'success' });
 });
 ```
@@ -172,26 +179,7 @@ global.fetch = vi.fn().mockResolvedValue({
 5. **Mock External Dependencies**: Don't make real API calls
 6. **Test Behavior, Not Implementation**: Focus on what, not how
 
-## Coverage Goals
-
-| Component | Target Coverage |
-|-----------|----------------|
-| Services  | > 80% |
-| Hooks     | > 85% |
-| Stores    | > 90% |
-| Components| > 75% |
-
 ## Debugging Tests
-
-### Run specific test file
-```bash
-npm test SSEClient.test.ts
-```
-
-### Run specific test
-```bash
-npm test -t "should parse progress events"
-```
 
 ### Debug in VS Code
 Add to `.vscode/launch.json`:
@@ -204,17 +192,6 @@ Add to `.vscode/launch.json`:
   "runtimeArgs": ["test"],
   "console": "integratedTerminal"
 }
-```
-
-## CI/CD Integration
-
-Tests run automatically in GitHub Actions:
-
-```yaml
-- name: Run tests
-  run: npm test -- --coverage
-- name: Upload coverage
-  uses: codecov/codecov-action@v3
 ```
 
 ## Troubleshooting
@@ -250,8 +227,7 @@ afterEach(() => {
 
 - [Vitest Documentation](https://vitest.dev/)
 - [React Testing Library](https://testing-library.com/react)
-- [Testing Best Practices](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library)
 
 ---
 
-**Last Updated:** 2026-02-06
+**Last Updated:** 2026-03-28

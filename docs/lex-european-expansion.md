@@ -28,7 +28,7 @@ LEX is an AI-powered legal intelligence platform that combines **structured open
 
 **Document Vault** — Upload contracts, court filings, correspondence. AI analyzes, classifies, and cross-references with the legal database. Find which law applies to your document, which court decisions are relevant.
 
-**MCP Protocol (Model Context Protocol)** — Every data source is an AI-callable tool. Any LLM (Claude, GPT-4, Gemini) can use LEX data. 45 tools today, 200+ planned across 12 jurisdictions.
+**MCP Protocol (Model Context Protocol)** — Every data source is an AI-callable tool. Any LLM (Claude, GPT-4, Gemini) can use LEX data. 118 tools today, 200+ planned across 12 jurisdictions.
 
 ### Platform Numbers (Ukraine, as of March 2026)
 
@@ -320,7 +320,7 @@ LEX is built on the **Model Context Protocol (MCP)** — the open standard for c
 - **Composable queries** — AI agents chain tools together for complex multi-step analysis
 - **Real-time streaming** — results stream via SSE as they're found, not batch-returned
 
-Currently: **45 MCP tools** for Ukraine. Target: **200+ tools** across 12 jurisdictions.
+Currently: **118 MCP tools** for Ukraine. Target: **200+ tools** across 12 jurisdictions.
 
 ---
 

@@ -99,6 +99,9 @@ def convert_one(doc_id: int) -> tuple[int, str] | None:
     return (doc_id, text) if text else None
 
 
+MAX_TEXT_SIZE = 5_000_000  # 5MB max per document
+
+
 def psql_copy_upsert(csv_data: str) -> int:
     """COPY CSV into edrsr_fulltext via stdin with temp table + ON CONFLICT."""
     lines = []
@@ -106,6 +109,8 @@ def psql_copy_upsert(csv_data: str) -> int:
     for row in reader:
         if len(row) == 2:
             doc_id, text = row
+            if len(text) > MAX_TEXT_SIZE:
+                text = text[:MAX_TEXT_SIZE]
             text = text.replace('\\', '\\\\').replace('\t', '\\t').replace('\n', '\\n').replace('\r', '')
             lines.append(f"{doc_id}\t{text}")
 
@@ -124,7 +129,14 @@ ON CONFLICT (doc_id) DO NOTHING;
 DROP TABLE _ft_tmp;
 """
     cmd = ["docker", "exec", "-i", CONTAINER, "psql", "-U", PGUSER, "-d", PGDB]
-    r = subprocess.run(cmd, input=sql_script, capture_output=True, text=True)
+    try:
+        r = subprocess.run(cmd, input=sql_script, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        print(f"  psql timeout on batch", file=sys.stderr)
+        return 0
+    except Exception as e:
+        print(f"  psql exception: {e}", file=sys.stderr)
+        return 0
 
     if r.returncode != 0 and 'ERROR' in r.stderr:
         print(f"  psql error: {r.stderr[:300]}", file=sys.stderr)

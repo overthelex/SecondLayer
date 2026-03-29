@@ -25,14 +25,14 @@ export class EdsrSemanticTools extends BaseToolHandler {
     return [
       {
         name: 'search_edrsr_fulltext',
-        description: `Повнотекстовий пошук у ЄДРСР (96М+ судових рішень).
+        description: `Повнотекстовий пошук у ЄДРСР (96М+ судових рішень). ОСНОВНИЙ інструмент пошуку по ЄДРСР.
 
 Пошук за ключовими словами з ранжуванням релевантності.
 Підтримує фільтрацію за судом, суддею, датою, видом судочинства, формою рішення, категорією.
 Повертає фрагменти тексту з підсвіченими збігами.
 
-Використовуйте для: пошуку рішень за темою ("земельний спір", "оренда"), ключовими словами, юридичними термінами.
-Для семантичного пошуку (за змістом, а не точними словами) використовуйте search_edrsr_semantic.`,
+Використовуйте для БУДЬ-ЯКОГО пошуку по ЄДРСР: за темою, ключовими словами, юридичними термінами, змістом рішень.
+(Семантичний пошук тимчасово недоступний — база Qdrant наповнюється.)`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -89,13 +89,11 @@ export class EdsrSemanticTools extends BaseToolHandler {
       },
       {
         name: 'search_edrsr_semantic',
-        description: `Семантичний пошук у ЄДРСР — пошук за змістом, а не точними словами.
+        description: `⚠️ ТИМЧАСОВО НЕДОСТУПНИЙ — база Qdrant ще наповнюється.
+Використовуйте search_edrsr_fulltext замість цього інструмента для БУДЬ-ЯКОГО пошуку по ЄДРСР.
 
-Використовує векторні embeddings (Voyage AI) для знаходження семантично схожих рішень.
-Працює тільки по вже векторизованих документах (векторизація відбувається автоматично при пошуку).
-
-Підтримує фільтрацію за судом, суддею, датою, видом судочинства.
-Ідеально для: "знайди рішення з подібною аргументацією", "схожі справи про самовільне зайняття".`,
+Семантичний пошук у ЄДРСР — пошук за змістом, а не точними словами.
+Буде доступний після завершення векторизації бази ЄДРСР.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -221,61 +219,23 @@ export class EdsrSemanticTools extends BaseToolHandler {
   private async searchSemantic(args: any): Promise<ToolResult> {
     if (!args.query) return this.wrapError('query є обов\'язковим параметром');
 
-    try {
-      // If auto_vectorize, first do FTS search and vectorize results
-      if (args.auto_vectorize !== false) {
-        const ftsResults = await this.ftsService.searchFulltext(
-          args.query,
-          this.db,
-          {
-            court_code: args.court_code,
-            justice_kind: args.justice_kind,
-            judge: args.judge,
-            date_from: args.date_from,
-            date_to: args.date_to,
-          },
-          100, // Get more results for vectorization pool
-          0,
-        );
+    // TEMP: Redirect to FTS while Qdrant DB is being populated
+    logger.info('[EdsrSemanticTools] Semantic search temporarily redirected to FTS (Qdrant populating)');
+    const ftsResult = await this.searchFulltext({
+      ...args,
+      limit: args.limit || 10,
+    });
 
-        if (ftsResults.results.length > 0) {
-          const docIds = ftsResults.results.map(r => r.doc_id);
-          await this.vectorizer.ensureVectorized(docIds, this.db);
-        }
-      }
-
-      // Semantic search in Qdrant
-      const results = await this.vectorizer.semanticSearch(
-        args.query,
-        {
-          court_code: args.court_code,
-          justice_kind: args.justice_kind,
-          judge: args.judge,
-          date_from: args.date_from,
-          date_to: args.date_to,
-        },
-        args.limit || 10,
-      );
-
-      const stats = await this.vectorizer.getVectorizationStats();
-
-      return this.wrapResponse({
-        query: args.query,
-        total_vectorized: stats.total_points,
-        returned: results.length,
-        results: results.map(r => ({
-          doc_id: r.doc_id,
-          score: Math.round(r.score * 1000) / 1000,
-          text_snippet: r.text.slice(0, 500),
-          chunk_index: r.chunk_index,
-          ...r.metadata,
-          external_url: `https://reyestr.court.gov.ua/Review/${r.doc_id}`,
-        })),
-      });
-    } catch (err: any) {
-      logger.error('[EdsrSemanticTools] searchSemantic failed', { error: err.message });
-      return this.wrapError(`Помилка семантичного пошуку: ${err.message}`);
+    // Add notice about redirect
+    if (ftsResult.content?.[0]?.text) {
+      try {
+        const parsed = JSON.parse(ftsResult.content[0].text);
+        parsed._notice = 'Семантичний пошук тимчасово недоступний (база Qdrant наповнюється). Результати отримано через FTS.';
+        ftsResult.content[0].text = JSON.stringify(parsed);
+      } catch { /* keep original */ }
     }
+
+    return ftsResult;
   }
 
   private async vectorizeResults(args: any): Promise<ToolResult> {

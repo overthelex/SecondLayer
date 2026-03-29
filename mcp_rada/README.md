@@ -5,7 +5,7 @@ Ukrainian Parliament (Verkhovna Rada) data analysis server implementing the Mode
 ## Overview
 
 RADA MCP Server provides AI-powered analysis of Ukrainian parliamentary data including:
-- **Deputies** - Member information, voting records, committee work
+- **Deputies** - Member information, factions, committees, assistants, voting records
 - **Bills** - Legislative proposals with status tracking
 - **Legislation** - Full text of laws, codes, and Constitution
 - **Voting Records** - Session votes with pattern analysis
@@ -13,11 +13,13 @@ RADA MCP Server provides AI-powered analysis of Ukrainian parliamentary data inc
 
 ## Architecture
 
-- **Dual Mode**: MCP stdio + HTTP REST API
+- **Dual Transport**: MCP stdio + HTTP REST API (with SSE streaming)
 - **Database**: PostgreSQL with intelligent caching (TTL-based)
 - **Cache Strategy**: Redis + PostgreSQL (deputies 7d, bills 1d, laws 30d)
-- **AI Analysis**: OpenAI/Anthropic with budget-based model selection
+- **AI Analysis**: OpenAI/Anthropic with budget-based model selection (via `@secondlayer/shared` LLMManager)
 - **Cost Tracking**: Comprehensive API usage monitoring
+- **Prometheus Metrics**: Built-in `/metrics` endpoint for monitoring
+- **Factory Pattern**: Service composition via `createRadaCoreServices()`
 
 ## Quick Start
 
@@ -31,7 +33,6 @@ RADA MCP Server provides AI-powered analysis of Ukrainian parliamentary data inc
 ### Installation
 
 ```bash
-# Clone and setup
 cd mcp_rada
 npm install
 
@@ -58,6 +59,7 @@ npm run dev
 # Sync initial data
 npm run sync:deputies
 npm run sync:laws
+npm run sync:reference
 ```
 
 ### Production
@@ -67,13 +69,13 @@ npm run sync:laws
 npm run build
 
 # Start with Docker
-docker-compose up -d
+docker compose up -d
 
 # Or start directly
 npm run start:http
 ```
 
-## Phase 1 MCP Tools
+## MCP Tools (4)
 
 ### 1. search_parliament_bills
 
@@ -89,21 +91,22 @@ Search and filter legislative bills with semantic analysis.
 }
 ```
 
-**Cost:** $0.01-$0.05 USD
+**Parameters:** `query` (required), `status` (enum: registered, first_reading, second_reading, adopted, rejected, all), `initiator`, `committee`, `date_from`, `date_to`, `limit`
 
 ### 2. get_deputy_info
 
-Get detailed deputy information with optional voting history.
+Get detailed deputy information with optional voting history and assistants.
 
 **Input:**
 ```json
 {
   "name": "Зеленський",
-  "include_voting_record": true
+  "include_voting_record": true,
+  "include_assistants": false
 }
 ```
 
-**Cost:** $0.005-$0.01 USD (mostly cached)
+**Parameters:** `name`, `rada_id`, `faction`, `include_voting_record`, `include_assistants` (at least one of name/rada_id/faction required)
 
 ### 3. search_legislation_text
 
@@ -118,9 +121,9 @@ Search Ukrainian laws with full-text search and court citations.
 }
 ```
 
-**Aliases supported:** constitution, цивільний кодекс, кримінальний кодекс, кпк, etc.
+**Parameters:** `law_identifier` (required), `article`, `search_text`, `include_court_citations`
 
-**Cost:** $0.005-$0.02 USD
+**Aliases supported:** constitution, цивільний кодекс, кримінальний кодекс, кпк, etc.
 
 ### 4. analyze_voting_record
 
@@ -135,47 +138,50 @@ Analyze deputy voting patterns with AI insights.
 }
 ```
 
-**Cost:** $0.02-$0.10 USD (includes AI analysis)
+**Parameters:** `deputy_name` (required), `date_from`, `date_to`, `bill_number`, `analyze_patterns`
 
 ## API Endpoints
 
-All endpoints except `/health` require `Authorization: Bearer <API_KEY>` header.
+### Health & Monitoring (no auth required)
 
-### HTTP REST API
+```
+GET  /health          # Full health check (postgres + redis status)
+GET  /health/live     # Liveness probe
+GET  /health/ready    # Readiness probe (DB connectivity)
+GET  /metrics         # Prometheus metrics
+GET  /api/stats       # Data statistics (table row counts, sources, update times)
+```
+
+### Tool Endpoints (require `Authorization: Bearer <RADA_API_KEY>`)
+
+```
+GET  /api/tools                    # List available tools
+POST /api/tools/:toolName          # Execute tool (JSON response)
+POST /api/tools/:toolName/stream   # Execute tool (SSE streaming)
+```
+
+**SSE streaming** is also available via the main tool endpoint by setting `Accept: text/event-stream` header.
+
+### Example
 
 ```bash
-# Health check
-GET /health
-
-# List available tools
-GET /api/tools
-
-# Execute tool (JSON response)
-POST /api/tools/:toolName
-Content-Type: application/json
-Authorization: Bearer test-key-123
-
-{
-  "arguments": {
-    "query": "tax reform"
-  }
-}
-
-# Execute tool (SSE streaming)
-POST /api/tools/:toolName/stream
-Accept: text/event-stream
-Authorization: Bearer test-key-123
+curl -X POST http://localhost:3001/api/tools/get_deputy_info \
+  -H "Authorization: Bearer test-key-123" \
+  -H "Content-Type: application/json" \
+  -d '{"arguments": {"name": "Зеленський"}}'
 ```
 
 ## Database Schema
 
-### Core Tables
+### Core Tables (rada schema)
 
 - **deputies** - Parliament members (7d cache TTL)
+- **deputy_assistants** - Deputy assistants
 - **bills** - Legislative proposals (1d cache TTL)
 - **legislation** - Law texts (30d cache TTL)
 - **voting_records** - Session votes
-- **factions** / **committees** - Metadata
+- **factions** - Parliamentary factions
+- **committees** - Parliamentary committees
 
 ### Cost Tracking
 
@@ -189,6 +195,15 @@ Authorization: Bearer test-key-123
 - **bill_court_impact** - Bill impact analysis
 - **deputy_court_mentions** - Deputy mentions in cases
 
+### Migrations
+
+5 migrations in `src/migrations/`:
+1. `001_initial_schema.sql` - Core tables
+2. `002_add_cost_tracking.sql` - Cost tracking
+3. `003_add_cross_reference.sql` - SecondLayer integration
+4. `004_fix_fts_language.sql` - Full-text search language fix
+5. `005_fix_voting_dedup.sql` - Voting deduplication fix
+
 ## Data Sync Scripts
 
 ```bash
@@ -198,67 +213,136 @@ npm run sync:deputies
 # Sync law texts (run monthly)
 npm run sync:laws
 
+# Sync reference data (factions, committees)
+npm run sync:reference
+
 # Cleanup expired cache
 npm run cleanup:cache
 ```
+
+Additional scripts in `src/scripts/`:
+- `import-json-data.ts` - Import data from JSON files
+- `sync-week-data.ts` - Weekly data sync
 
 ## Configuration
 
 ### Environment Variables
 
-See `.env.example` for all available options.
+See `.env.example` for all available options. Key settings:
 
-**Key settings:**
-- `POSTGRES_PORT=5433` (avoids conflict with SecondLayer on 5432)
-- `HTTP_PORT=3001` (avoids conflict with SecondLayer on 3000)
-- `REDIS_PORT=6380` (avoids conflict with SecondLayer on 6379)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_PORT` | `5433` | PostgreSQL port (avoids conflict with mcp_backend on 5432) |
+| `HTTP_PORT` | `3001` | HTTP server port |
+| `REDIS_PORT` | `6380` | Redis port |
+| `RADA_API_KEYS` | - | Comma-separated API keys for auth |
+| `OPENAI_API_KEY` | - | OpenAI API key |
+| `ANTHROPIC_API_KEY` | - | Anthropic API key (optional) |
+| `LLM_PROVIDER_STRATEGY` | `openai-first` | LLM provider preference |
+| `SECONDLAYER_URL` | `http://localhost:3000` | SecondLayer backend URL |
+| `SECONDLAYER_API_KEY` | - | SecondLayer API key for cross-referencing |
 
 ### Cache TTL
 
-Configure in `.env`:
 ```bash
 CACHE_TTL_DEPUTIES=604800   # 7 days
 CACHE_TTL_BILLS=86400       # 1 day
 CACHE_TTL_LAWS=2592000      # 30 days
+CACHE_TTL_VOTING=259200     # 3 days
 ```
 
 ### Model Selection
 
-**Budget-based** (recommended):
+Budget-based (uses `@secondlayer/shared` LLMManager):
 ```bash
 OPENAI_MODEL_QUICK=gpt-4o-mini      # Simple tasks
 OPENAI_MODEL_STANDARD=gpt-4o-mini   # Moderate complexity
 OPENAI_MODEL_DEEP=gpt-4o            # Complex analysis
 ```
 
-**Single model** (simpler):
-```bash
-OPENAI_MODEL=gpt-4o-mini
-```
-
 ## Docker Deployment
 
-```yaml
-# docker-compose.yml includes:
-- postgres (port 5433)
-- redis (port 6380)
+The `docker-compose.yml` in this directory includes:
+- PostgreSQL 15 (port 5433)
+- Redis 7 (port 6380)
 - rada-mcp-app (port 3001)
-```
 
 ```bash
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f app
-
-# Stop services
-docker-compose down
+docker compose up -d
+docker compose logs -f app
+docker compose down
 ```
+
+For production deployment via the monorepo, use the deployment configs in `deployment/`.
+
+## Project Structure
+
+```
+mcp_rada/
+├── src/
+│   ├── index.ts              # MCP stdio entry point
+│   ├── http-server.ts        # HTTP/SSE server entry point
+│   ├── api/
+│   │   ├── mcp-rada-api.ts   # MCP tools definition and routing
+│   │   └── __tests__/        # Integration and smoke tests
+│   ├── adapters/
+│   │   ├── rada-api-adapter.ts    # data.rada.gov.ua API client
+│   │   └── zakon-rada-adapter.ts  # zakon.rada.gov.ua adapter
+│   ├── database/
+│   │   └── database.ts       # PostgreSQL connection pool
+│   ├── factories/
+│   │   └── rada-services.ts  # Service composition factory
+│   ├── middleware/
+│   │   ├── dual-auth.ts      # API key authentication
+│   │   └── rate-limit.ts     # Rate limiting middleware
+│   ├── migrations/           # SQL migrations (001-005)
+│   ├── scripts/
+│   │   ├── import-json-data.ts
+│   │   ├── sync-laws.ts
+│   │   ├── sync-reference-data.ts
+│   │   └── sync-week-data.ts
+│   ├── services/
+│   │   ├── bill-service.ts
+│   │   ├── committee-service.ts
+│   │   ├── cost-tracker.ts
+│   │   ├── cross-reference-service.ts
+│   │   ├── deputy-service.ts
+│   │   ├── faction-service.ts
+│   │   ├── legislation-service.ts
+│   │   ├── metrics-service.ts    # Prometheus metrics
+│   │   └── voting-service.ts
+│   ├── types/
+│   │   ├── index.ts          # Core RADA types
+│   │   ├── cost.ts           # Cost tracking types
+│   │   └── rada.ts           # RADA API types and known laws mapping
+│   └── utils/
+│       ├── llm-client-manager.ts  # LLM client management
+│       ├── logger.ts              # Winston logger
+│       ├── model-selector.ts      # Budget-based model selection
+│       ├── openai-client.ts       # OpenAI client with request context
+│       └── redis-client.ts        # Redis client singleton
+├── scripts/
+│   └── create-db.sh          # Database creation script
+├── data/
+│   └── RADA/                 # Reference data and documentation
+├── docker-compose.yml        # Local Docker orchestration
+├── Dockerfile                # Node.js 20 Alpine container
+└── logs/                     # Application logs
+```
+
+## Testing
+
+```bash
+npm test              # Run all tests
+npm run test:watch    # Watch mode
+npm run lint          # ESLint
+```
+
+Test files are in `src/api/__tests__/`.
 
 ## SecondLayer Integration
 
-Enable cross-referencing with court cases:
+Cross-referencing with court cases:
 
 ```bash
 # In .env
@@ -271,141 +355,28 @@ Then use `include_court_citations: true` in `search_legislation_text` tool.
 ## Cost Tracking
 
 Every API call is tracked with:
-- OpenAI token usage and cost
-- Anthropic token usage and cost (if used)
+- OpenAI/Anthropic token usage and cost
 - RADA API calls (free but bandwidth tracked)
 - SecondLayer API calls (when cross-referencing)
 - Execution time
 
-View cost breakdown in response:
+Cost breakdown is included in HTTP responses:
 ```json
 {
-  "result": {...},
+  "result": {},
   "cost_tracking": {
     "request_id": "abc-123",
-    "totals": {
-      "cost_usd": 0.0234,
-      "execution_time_ms": 1245
-    },
-    "openai": {
-      "total_tokens": 1523,
-      "total_cost_usd": 0.0234
+    "estimate_before": {},
+    "actual_cost": {
+      "totals": {
+        "cost_usd": 0.0234,
+        "execution_time_ms": 1245
+      }
     }
   }
 }
 ```
-
-## Development
-
-### Project Structure
-
-```
-mcp_rada/
-├── src/
-│   ├── index.ts              # MCP stdio entry
-│   ├── http-server.ts        # HTTP server entry
-│   ├── database/             # PostgreSQL connection
-│   ├── migrations/           # SQL migrations (001, 002, 003)
-│   ├── adapters/             # RADA API clients
-│   ├── services/             # Business logic
-│   ├── api/                  # MCP tools
-│   ├── utils/                # Helpers
-│   ├── middleware/           # Auth middleware
-│   └── types/                # TypeScript types
-├── scripts/                  # Data sync scripts
-├── docker/                   # Docker configs
-└── logs/                     # Application logs
-```
-
-### Testing
-
-```bash
-# Run all tests
-npm test
-
-# Watch mode
-npm test:watch
-
-# Lint
-npm run lint
-```
-
-### Manual Testing
-
-```bash
-# Test HTTP API
-curl -X POST http://localhost:3001/api/tools/get_deputy_info \
-  -H "Authorization: Bearer test-key-123" \
-  -H "Content-Type: application/json" \
-  -d '{"arguments": {"name": "Зеленський"}}'
-
-# Test MCP stdio (from Claude Desktop)
-# Add to claude_desktop_config.json:
-{
-  "mcpServers": {
-    "rada": {
-      "command": "node",
-      "args": ["/path/to/mcp_rada/dist/index.js"]
-    }
-  }
-}
-```
-
-## Troubleshooting
-
-### Port conflicts
-
-If ports 5433, 6380, or 3001 are in use:
-```bash
-lsof -i :5433
-# Change POSTGRES_PORT in .env
-```
-
-### Database connection fails
-
-```bash
-# Check PostgreSQL is running
-pg_isready -h localhost -p 5433
-
-# Recreate database
-npm run db:create
-npm run migrate
-```
-
-### Cache not working
-
-```bash
-# Check Redis is running
-redis-cli -p 6380 ping
-# Should return "PONG"
-```
-
-### High costs
-
-- Use `OPENAI_MODEL=gpt-4o-mini` for lower costs
-- Enable caching: check `cache_expires_at` in database
-- Review `cost_tracking` table for usage patterns
-
-## Roadmap
-
-### Phase 1 (Current)
-- ✅ Core infrastructure
-- ✅ 4 basic MCP tools
-- ✅ Cost tracking
-- ✅ Cross-referencing with SecondLayer
-
-### Phase 2 (Future)
-- Bill impact predictions with ML
-- Faction discipline analysis
-- Historical convocation comparisons
-- Full-text search with embeddings
-- Advanced voting pattern analysis
-- Plenary session stenogram search
 
 ## License
 
 MIT
-
-## Support
-
-For issues or questions, refer to the implementation plan at `/Users/vovkes/.claude/plans/sorted-floating-stardust.md`.

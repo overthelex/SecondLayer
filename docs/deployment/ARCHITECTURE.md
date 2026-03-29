@@ -1,6 +1,10 @@
-# 3-Environment Gateway Architecture
+# Gateway Architecture
 
-Visual overview of the SecondLayer 3-environment gateway deployment.
+> **IMPORTANT:** This document describes a historical 3-environment setup (prod/stage/dev).
+> The current deployment uses only **local** and **prod** environments with CI/CD blue-green deploy.
+> Staging and development gateway environments have been removed.
+
+Visual overview of the SecondLayer gateway deployment (historical reference).
 
 ## Network Architecture
 
@@ -163,8 +167,8 @@ Backend Node.js App
     ├─→ OpenAI API (External)
     │       └─→ Embeddings, GPT analysis
     │
-    └─→ ZakonOnline API (External)
-            └─→ Court document retrieval
+    └─→ EDRSR (reyestr.court.gov.ua)
+            └─→ Court document retrieval (ZakonOnline legacy, being deprecated)
 ```
 
 ## Port Matrix
@@ -321,7 +325,7 @@ Consider:
 - Database query performance
 - Cache hit rates
 - Resource utilization (CPU, memory, disk)
-- API quota usage (OpenAI, ZakonOnline)
+- API quota usage (OpenAI)
 
 ### Logging
 - Application logs: `../mcp_backend/logs/`

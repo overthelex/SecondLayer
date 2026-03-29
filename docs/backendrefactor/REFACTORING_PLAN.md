@@ -219,7 +219,7 @@
 
 ## Связанные документы
 
-- [`docs/ALL_MCP_TOOLS.md`](../ALL_MCP_TOOLS.md) — полный список 45 MCP инструментов
+- [`docs/ALL_MCP_TOOLS.md`](../ALL_MCP_TOOLS.md) — полный список 118 MCP инструментов
 - [`docs/UNIFIED_GATEWAY_IMPLEMENTATION.md`](../UNIFIED_GATEWAY_IMPLEMENTATION.md) — архитектура шлюза
 - [`deployment/LOCAL_DEVELOPMENT.md`](../../deployment/LOCAL_DEVELOPMENT.md) — локальная разработка
 - [`CLAUDE.md`](../../CLAUDE.md) — правила разработки в проекте

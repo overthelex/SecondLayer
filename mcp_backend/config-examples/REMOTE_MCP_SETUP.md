@@ -197,20 +197,19 @@ curl -X POST https://mcp.legal.org.ua/v1/sse \
 
 ---
 
-## 🔧 Доступні інструменти
+## Доступні інструменти
 
-Віддалений MCP сервер надає всі 10 інструментів:
+Віддалений MCP сервер надає 80+ інструментів. Основні:
 
-1. **search_legal_precedents** - Пошук юридичних прецедентів
-2. **analyze_case_pattern** - Аналіз паттернів судової практики
-3. **get_similar_reasoning** - Пошук схожих обґрунтувань
-4. **extract_document_sections** - Витягування секцій з документів
-5. **count_cases_by_party** - Підрахунок справ за стороною
-6. **find_relevant_law_articles** - Релевантні статті законів
-7. **check_precedent_status** - Перевірка статусу прецеденту
-8. **load_full_texts** - Завантаження повних текстів
-9. **get_citation_graph** - Граф цитувань
-10. **get_legal_advice** - Комплексна юридична консультація
+- **Court Decisions** -- `get_court_decision`, `search_edrsr_decisions`, `search_edrsr_fulltext`, `analyze_case_pattern`, `extract_document_sections`, `load_full_texts`
+- **Legal Advice** -- `search_legal_precedents`, `get_similar_reasoning`, `get_citation_graph`, `format_answer_pack`
+- **Core Query** -- `classify_intent`, `retrieve_legal_sources`, `validate_response`, `check_precedent_status`
+- **Legislation** -- `get_legislation_section`, `search_legal_acts`, `search_procedural_norms`
+- **Document Analysis** -- `parse_document`, `summarize_document`, `compare_documents`
+- **Vault** -- `store_document`, `get_document`, `list_documents`, `semantic_search`
+- **Due Diligence** -- `bulk_review_runner`, `risk_scoring`, `generate_dd_report`
+- **OpenData** -- `search_sanctions`, `search_trademarks`, `search_lawyers`, `search_judges` та інші
+- **Remote (RADA)** -- 4 tools, **Remote (OpenReyestr)** -- 27 tools
 
 **Перевірити список інструментів:**
 

@@ -23,7 +23,7 @@ We have one of the largest legal databases in Ukraine — over 120 million recor
 - 200,000+ pieces of legislation
 - 12,000+ judge profiles with performance analytics — something nobody else offers
 
-We're also the first and only platform in Ukraine with native MCP protocol support — that's 45 AI tools that plug directly into Claude, GPT, and other LLMs. This is the future standard for AI-tool integration, and we already support it.
+We're also the first and only platform in Ukraine with native MCP protocol support — that's 118 AI tools that plug directly into Claude, GPT, and other LLMs. This is the future standard for AI-tool integration, and we already support it.
 
 **The Team**
 

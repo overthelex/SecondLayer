@@ -1,4 +1,6 @@
-# Development Environment - Subdomain Migration ✅
+> **ARCHIVED:** Historical document. Dev environment on gate server no longer exists. Only local and prod environments are active.
+
+# Development Environment - Subdomain Migration (Historical)
 
 **Date:** 2026-01-21
 **Status:** Complete

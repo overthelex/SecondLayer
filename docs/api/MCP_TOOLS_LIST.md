@@ -1,6 +1,10 @@
-# SecondLayer MCP Tools Reference
+> **OUTDATED:** This document was a snapshot from 2026-01-18 listing only 10 tools.
+> The current system has **118 tools**. See [ALL_MCP_TOOLS.md](../ALL_MCP_TOOLS.md) for the full list.
+> ZakonOnline API references are legacy -- primary court data source is now EDRSR.
 
-Повний список інструментів MCP сервера з контейнера **secondlayer-app**
+# SecondLayer MCP Tools Reference (Historical Snapshot)
+
+Список інструментів MCP сервера з контейнера **secondlayer-app** (зйомка 2026-01-18)
 
 Оновлено: 2026-01-18 18:55:22
 
@@ -8,7 +12,7 @@
 
 ## 📊 Загальна інформація
 
-- **Всього інструментів:** 10
+- **Інструментів у зйомці:** 10 (з 118 поточних)
 - **API версія:** 
 - **Сервер:** 
 

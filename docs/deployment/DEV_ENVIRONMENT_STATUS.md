@@ -1,4 +1,6 @@
-# Development Environment - Status Report
+> **ARCHIVED:** Historical snapshot. Dev environment on gate server no longer exists.
+
+# Development Environment - Status Report (Historical)
 
 **Date:** 2026-01-21 14:17 UTC
 **Environment:** dev.legal.org.ua

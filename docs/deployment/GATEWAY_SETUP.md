@@ -1,7 +1,12 @@
 
-# SecondLayer 3-Environment Gateway Setup
+# SecondLayer Gateway Setup
 
-Complete guide for deploying Production, Staging, and Development environments on a single gateway server.
+> **OUTDATED:** This document describes a historical 3-environment setup (prod/stage/dev).
+> The current deployment uses only **local** and **prod** with CI/CD blue-green deploy.
+> Staging and development gateway environments no longer exist.
+> Deploy to prod by merging PRs to main -- never via manual SSH.
+
+Historical guide for the multi-environment gateway deployment.
 ## Architecture Overview
 ### Environment Separation
 
@@ -73,7 +78,7 @@ nano .env.dev  # Edit with development values
 - `POSTGRES_PASSWORD` - Strong password for PostgreSQL
 - `JWT_SECRET` - Random 64-character secret for JWT tokens
 - `OPENAI_API_KEY` - OpenAI API key(s) for embeddings and LLM
-- `ZAKONONLINE_API_TOKEN` - ZakonOnline API token(s)
+- `ZAKONONLINE_API_TOKEN` - ZakonOnline API token(s) (legacy, being deprecated)
 - `SECONDARY_LAYER_KEYS` - Comma-separated API keys for HTTP auth
 - `GOOGLE_CLIENT_ID` & `GOOGLE_CLIENT_SECRET` - Google OAuth credentials
 ### 2. Build Docker Images

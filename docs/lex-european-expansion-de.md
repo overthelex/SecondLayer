@@ -28,7 +28,7 @@ LEX ist eine KI-gestutzte Plattform fur Rechtsintelligenz, die **strukturierte o
 
 **Dokumententresor** — Laden Sie Vertrage, Schriftsatze, Korrespondenz hoch. Die KI analysiert, klassifiziert und vergleicht mit der Rechtsdatenbank. Finden Sie, welches Gesetz fur Ihr Dokument gilt, welche Gerichtsentscheidungen relevant sind.
 
-**MCP-Protokoll (Model Context Protocol)** — Jede Datenquelle ist ein KI-aufrufbares Werkzeug. Jedes LLM (Claude, GPT-4, Gemini) kann LEX-Daten nutzen. Heute 45 Tools, uber 200 geplant uber 12 Jurisdiktionen.
+**MCP-Protokoll (Model Context Protocol)** — Jede Datenquelle ist ein KI-aufrufbares Werkzeug. Jedes LLM (Claude, GPT-4, Gemini) kann LEX-Daten nutzen. Heute 118 Tools, uber 200 geplant uber 12 Jurisdiktionen.
 
 ### Plattformzahlen (Ukraine, Stand Marz 2026)
 
@@ -225,7 +225,7 @@ LEX basiert auf dem **Model Context Protocol (MCP)** — dem offenen Standard zu
 - **Komponierbare Abfragen** — KI-Agenten verketten Tools fur komplexe mehrstufige Analysen
 - **Echtzeit-Streaming** — Ergebnisse werden per SSE gestreamt, nicht stapelweise zuruckgegeben
 
-Aktuell: **45 MCP-Tools** fur die Ukraine. Ziel: **200+ Tools** uber 12 Jurisdiktionen.
+Aktuell: **118 MCP-Tools** fur die Ukraine. Ziel: **200+ Tools** uber 12 Jurisdiktionen.
 
 ---
 

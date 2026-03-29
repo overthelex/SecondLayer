@@ -7,7 +7,7 @@
 SecondLayer поддерживает **два типа аутентификации**:
 
 ### 1. Simple API Keys (SECONDARY_LAYER_KEYS)
-- **Использование**: Быстрая настройка для dev/stage/prod
+- **Использование**: Быстрая настройка для local/prod
 - **Хранение**: Environment variable
 - **Ограничения**: Нет rate limiting, tracking, expiration
 - **Подходит для**: Тестирования, малого числа клиентов
@@ -264,7 +264,7 @@ ORDER BY ak.requests_today DESC;
 
 ```bash
 curl -H "Authorization: Bearer sl_k2Lx5QAOIJwXxvF4q2azudZaiF1tocDR_9caebd71" \
-     https://stage.legal.org.ua/api/tools
+     https://legal.org.ua/api/tools
 ```
 
 ### В Claude Desktop config
@@ -272,8 +272,8 @@ curl -H "Authorization: Bearer sl_k2Lx5QAOIJwXxvF4q2azudZaiF1tocDR_9caebd71" \
 ```json
 {
   "mcpServers": {
-    "secondlayer-stage": {
-      "url": "https://stage.mcp.legal.org.ua/sse",
+    "secondlayer": {
+      "url": "https://mcp.legal.org.ua/sse",
       "transport": {
         "type": "sse"
       },
@@ -291,7 +291,7 @@ curl -H "Authorization: Bearer sl_k2Lx5QAOIJwXxvF4q2azudZaiF1tocDR_9caebd71" \
 import { MCP } from '@modelcontextprotocol/sdk';
 
 const client = new MCP.Client({
-  url: 'https://stage.legal.org.ua/sse',
+  url: 'https://legal.org.ua/sse',
   headers: {
     'Authorization': 'Bearer sl_k2Lx5QAOIJwXxvF4q2azudZaiF1tocDR_9caebd71'
   }
@@ -377,42 +377,21 @@ npm run create-api-keys -- --batch users-batch.csv
 - ✅ Rate limit check использует PostgreSQL function (быстро)
 - ✅ Daily counters автоматически сбрасываются
 
-## 🔧 Настройка Stage окружения
+## Налаштування оточення
 
-### 1. Убедитесь, что миграция выполнена
+### 1. Переконайтесь, що міграція виконана
 
+Для local:
 ```bash
-ssh mail "docker exec secondlayer-postgres-stage psql -U secondlayer -d secondlayer_stage -c '\\df generate_api_key'"
+cd mcp_backend && npm run migrate
 ```
 
-Должна вернуть функцию `generate_api_key`.
+Для production: міграції застосовуються автоматично через CI/CD при merge PR to main.
 
-### 2. Создайте тестового пользователя (если нужно)
-
-```bash
-ssh mail "docker exec -i secondlayer-postgres-stage psql -U secondlayer -d secondlayer_stage" <<EOF
-INSERT INTO users (email, name, password_hash, email_verified)
-VALUES (
-  'test@example.com',
-  'Test User',
-  'not-used-for-api-keys',
-  true
-)
-ON CONFLICT (email) DO NOTHING
-RETURNING id, email;
-EOF
-```
-
-### 3. Создайте API ключ
+### 2. Створіть API ключ
 
 ```bash
-# Локально (подключается к stage БД через SSH tunnel)
-export POSTGRES_HOST=localhost
-export POSTGRES_PORT=5434  # stage port
-export POSTGRES_DB=secondlayer_stage
-export POSTGRES_USER=secondlayer
-export POSTGRES_PASSWORD=<stage-password>
-
+# Локально
 npm run create-api-keys -- --email test@example.com --name "Test Key"
 ```
 
@@ -463,28 +442,18 @@ SELECT is_active, expires_at FROM api_keys WHERE key = 'sl_...';
 SELECT * FROM check_api_key_rate_limit('sl_...');
 ```
 
-### Функция generate_api_key не существует
+### Функція generate_api_key не існує
 
 ```bash
-# Установите pgcrypto extension
-ssh mail "docker exec secondlayer-postgres-stage psql -U secondlayer -d secondlayer_stage -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto;'"
-
-# Создайте функцию
-cat /home/vovkes/SecondLayer/mcp_backend/src/migrations/015_add_api_keys.sql | \
-ssh mail "docker exec -i secondlayer-postgres-stage psql -U secondlayer -d secondlayer_stage"
+# Запустіть міграції, які створять необхідні функції
+cd mcp_backend && npm run migrate
 ```
 
-### CLI tool не работает
+### CLI tool не працює
 
 ```bash
-# Проверьте NODE_ENV и database connection
-export POSTGRES_HOST=localhost
-export POSTGRES_PORT=5434
-export POSTGRES_DB=secondlayer_stage
-export POSTGRES_PASSWORD=<password>
-
-# Используйте SSH tunnel если нужен удаленный доступ
-ssh -L 5434:localhost:5434 mail
+# Перевірте DATABASE_URL або POSTGRES_* змінні в .env
+cat .env | grep POSTGRES
 ```
 
 ## 📚 Дополнительные ресурсы

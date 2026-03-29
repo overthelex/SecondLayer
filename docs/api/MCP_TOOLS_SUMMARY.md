@@ -1,15 +1,19 @@
-# SecondLayer MCP Tools - Звіт з контейнера
+> **OUTDATED:** This document was generated from a container snapshot (2026-01-18) and only lists 10 of the original tools.
+> The current system has **118 tools** (87 backend + 4 RADA + 27 OpenReyestr).
+> See [ALL_MCP_TOOLS.md](../ALL_MCP_TOOLS.md) for the full current list.
+> ZakonOnline API references below are legacy -- primary court data source is now EDRSR.
+
+# SecondLayer MCP Tools - Звіт з контейнера (Historical Snapshot)
 
 **Контейнер:** `secondlayer-app`
-**Статус:** ✅ Running (8 hours uptime)
 **Порт:** 3000 (HTTP API)
-**Дата:** 2026-01-18
+**Дата зйомки:** 2026-01-18
 
 ---
 
-## 📊 Загальна статистика
+## 📊 Загальна статистика (на момент зйомки)
 
-- **Всього інструментів:** 10
+- **Інструментів у зйомці:** 10 (з 118 поточних)
 - **Сервер:** secondlayer-mcp-http
 - **API версія:** 1.0.0
 - **Протокол:** MCP (Model Context Protocol)

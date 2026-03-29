@@ -1,4 +1,9 @@
-# OPENREYESTR Data Sources Schema
+# OPENREYESTR Data Sources Schema (Legacy)
+
+> **Увага:** Цей документ описує початкову схему джерел даних.
+> Актуальна конфігурація реєстрів: `mcp_openreyestr/src/config/registries.ts`.
+> Зараз сервер підтримує значно більше джерел (АРМА, ProZorro, НАЗК, РНБО, ДПС тощо).
+> Див. [/mcp_openreyestr/README.md](../../README.md).
 
 ## Overview
 11 registries from NAIS (National Information Systems of Ukraine) + 2 auxiliary tables

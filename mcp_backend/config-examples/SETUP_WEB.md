@@ -12,7 +12,7 @@ npm run build
 
 2. **Інфраструктура запущена:**
 ```bash
-docker-compose up -d
+cd deployment && docker compose -f docker-compose.local.yml --env-file .env.local up -d
 ```
 
 ## 🚀 Крок 1: Запустити HTTP сервер
@@ -343,16 +343,24 @@ const eventSource = new EventSource(
 | `/api/tools/:toolName/stream` | POST/GET | Execute tool (SSE) |
 | `/api/tools/batch` | POST | Batch execution |
 
-## 📚 Available Tools
+## Available Tools
 
-1. `search_legal_precedents` - Пошук судових рішень
-2. `analyze_case_pattern` - Аналіз паттернів
-3. `get_similar_reasoning` - Схоже обґрунтування
-4. `extract_document_sections` - Витяг секцій
-5. `find_relevant_law_articles` - Статті закону
-6. `check_precedent_status` - Статус прецеденту
-7. `get_citation_graph` - Граф цитувань
-8. `get_legal_advice` - Юридична порада
+Доступні 80+ інструментів. Основні:
+
+- `classify_intent` -- Класифікація запиту
+- `search_legal_precedents` -- Пошук прецедентів
+- `search_edrsr_decisions` -- Пошук рішень в ЄДРСР
+- `search_edrsr_fulltext` -- Повнотекстовий пошук ЄДРСР
+- `get_court_decision` -- Отримати рішення суду
+- `analyze_case_pattern` -- Аналіз паттернів
+- `get_similar_reasoning` -- Схоже обґрунтування
+- `extract_document_sections` -- Витяг секцій
+- `check_precedent_status` -- Статус прецеденту
+- `get_citation_graph` -- Граф цитувань
+- `parse_document` / `summarize_document` -- Аналіз документів
+- `search_sanctions` / `search_trademarks` / `search_lawyers` -- OpenData
+- `store_document` / `semantic_search` -- Vault
+- `bulk_review_runner` / `risk_scoring` -- Due Diligence
 
 **Детальна документація кожного інструменту:**
 ```bash
@@ -364,8 +372,11 @@ curl -H "Authorization: Bearer test-key-123" \
 
 ### Docker Compose
 ```bash
-docker-compose -f docker-compose.prod.yml up -d
+cd deployment
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 ```
+
+**Note:** Production deploy is via CI/CD (merge PR to main), not manual commands.
 
 ### Nginx Reverse Proxy
 ```nginx

@@ -4,13 +4,13 @@
 
 ```
 SecondLayer/                          # Монорепозиторий юридической платформы
-├── mcp_backend/                     # Основной MCP сервер (36 инструментов)
+├── mcp_backend/                     # Основной MCP сервер (87 инструментов)
 │   ├── src/api/                    # MCP инструменты и API
 │   ├── src/services/                # Бизнес-логика и сервисы
-│   ├── src/adapters/                # Адаптеры к внешним API
+│   ├── src/adapters/                # Адаптеры к внешним API (EDRSR, и др.)
 │   └── docs/                       # Документация MCP сервера
 ├── mcp_rada/                        # MCP сервер данных Рады (4 инструмента)
-├── mcp_openreyestr/                  # MCP сервер реестров (5 инструментов)
+├── mcp_openreyestr/                  # MCP сервер реестров (27 инструментов)
 ├── lexwebapp/                       # Веб-интерфейс (React 19 + Vite)
 │   ├── src/                        # React компоненты
 │   ├── src/pages/                  # Страницы приложения
@@ -90,13 +90,14 @@ VITE_SECONDARY_LAYER_KEY=test-key-123
 
 ## 🔄 Что изменилось в структуре
 
-✅ **MCP сервер:** перенесен в `mcp_backend/` (36 инструментов)  
+✅ **MCP сервер:** перенесен в `mcp_backend/` (87 инструментов)  
 ✅ **Rada сервис:** выделен в `mcp_rada/` (4 инструмента)  
-✅ **Reyestr сервис:** выделен в `mcp_openreyestr/` (5 инструментов)  
-✅ **Frontend:** переименован в `lexwebapp/` (React 19 + Vite)  
-✅ **Shared пакет:** общие типы в `packages/shared/`  
-✅ **Unified Gateway:** все 45 инструментов в одной точке (порт 3004)  
-✅ **Docker deployment:** полная контейнеризация всех сервисов  
+✅ **Reyestr сервис:** выделен в `mcp_openreyestr/` (27 инструментов)
+✅ **Frontend:** переименован в `lexwebapp/` (React 19 + Vite)
+✅ **Shared пакет:** общие типы в `packages/shared/`
+✅ **Unified Gateway:** все 118 инструментов в одной точке
+✅ **Docker deployment:** полная контейнеризация всех сервисов
+✅ **CI/CD:** деплой через merge PR в main, blue-green deploy  
 
 ## 🐳 Docker развертывание
 

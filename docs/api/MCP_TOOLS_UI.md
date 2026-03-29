@@ -2,7 +2,7 @@
 
 **Date:** 2026-01-21
 **Status:** ✅ Deployed
-**Environment:** Development (dev.legal.org.ua)
+**Environment:** Production (legal.org.ua)
 
 ---
 
@@ -16,7 +16,7 @@ Replaced the "Court Decisions Search" page with a comprehensive **MCP Tools Inte
 
 ### Previous Implementation
 - **Page:** "Пошук судових рішень" (Court Decisions Search)
-- **Functionality:** Specialized search for Ukrainian court decisions via Zakononline API
+- **Functionality:** Specialized search for Ukrainian court decisions via EDRSR (legacy: Zakononline API)
 - **Icon:** Gavel (⚖️)
 - **Limitation:** Single-purpose tool, not extensible
 

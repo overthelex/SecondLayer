@@ -1,267 +1,131 @@
-# Modular Nginx Configuration for stage.legal.org.ua
+# Nginx Configuration
 
-This directory contains a modular nginx configuration for the SecondLayer MCP Stage environment.
+Nginx configs for SecondLayer environments.
 
-## Structure
+## Files
+
+| File | Environment | Purpose |
+|------|-------------|---------|
+| `prod.legal.org.ua.conf` | Production | Main prod config (legal.org.ua, preview.legal.org.ua, plane.legal.org.ua) |
+| `local-docker.conf` | Local | Local dev config (local.legal.org.ua with self-signed TLS) |
+| `localdev.legal.org.ua.conf` | Local | Alternative local config |
+| `stage.legal.org.ua.conf` | Legacy | Stage config (not actively used) |
+
+## Includes (shared partials)
 
 ```
-nginx/
-├── stage.legal.org.ua.conf          # Main server configuration
-├── includes/
-│   ├── oauth-endpoints.conf         # OAuth 2.0 discovery and authorization
-│   ├── mcp-endpoints.conf           # MCP protocol endpoints (SSE)
-│   ├── api-endpoints.conf           # REST API and webhooks
-│   └── frontend-routes.conf         # Frontend SPA routes
-└── README.md                        # This file
+includes/
+  prod-upstreams.conf          # Active production upstreams (managed by deploy script)
+  preview-upstreams.conf       # Preview upstreams (managed by deploy script)
+  prod-server-common.conf      # Shared production server block config
+  preview-server-common.conf   # Preview server block config
+  api-endpoints.conf           # REST API and webhook routes
+  mcp-endpoints.conf           # MCP protocol endpoints (SSE)
+  oauth-endpoints.conf         # OAuth 2.0 authorization flow
+  frontend-routes.conf         # React SPA routes and static assets
+  ssl-common.conf              # TLS settings
+  security-headers.conf        # Security headers
+  server-common.conf           # Shared server block directives
+  nextcloud-proxy.conf         # Nextcloud reverse proxy
 ```
 
-## Installation
+## Production Architecture
 
-### 1. Copy Files to Server
+The production nginx container (`nginx-prod`) serves all domains:
+
+- **legal.org.ua** / **mcp.legal.org.ua** - Main application (frontend + API)
+- **preview.legal.org.ua** - Blue-green preview (points to inactive color)
+- **plane.legal.org.ua** - Plane project management
+
+### Blue-Green Upstream Switching
+
+Production uses blue-green deployments. The upstream files are **managed by the CI/CD deploy script** and must not be edited manually:
+
+- `includes/prod-upstreams.conf` - Points to the active color containers
+- `includes/preview-upstreams.conf` - Points to the inactive color (for preview)
+
+During deployment:
+1. New containers start alongside existing ones
+2. `preview-upstreams.conf` is updated to point to new containers
+3. Nginx is force-recreated to pick up changes
+4. Preview is verified at `preview.legal.org.ua`
+5. After approval, `prod-upstreams.conf` switches to new containers
+6. Nginx is force-recreated again
+7. Old containers are stopped
+
+Nginx must be `--force-recreated` after ANY upstream change because Docker bind mounts can become stale (inode caching).
+
+### Key Routes
+
+| Route | Backend |
+|-------|---------|
+| `/health` | Backend API health check |
+| `/api/*` | REST API endpoints |
+| `/auth/*` | Google OAuth, JWT auth |
+| `/sse`, `/v1/sse` | MCP over SSE |
+| `/mcp` | MCP server discovery |
+| `/webhooks/*` | Payment webhooks (Monobank) |
+| `/.well-known/oauth-*` | OAuth discovery |
+| `/*` | Frontend SPA (fallback) |
+
+## Local Development
+
+Local nginx (`nginx-local`) uses `local-docker.conf` with self-signed TLS certificates:
+
+```
+certs/
+  fullchain.pem / privkey.pem                # Production TLS (if present)
+  localdev.legal.org.ua+2.pem               # Local mkcert certificate
+  localdev.legal.org.ua+2-key.pem           # Local mkcert key
+```
+
+To regenerate local certificates:
 
 ```bash
-# From local machine
-cd <project-root>/deployment
+# Install mkcert
+brew install mkcert   # macOS
+# or: sudo apt install mkcert  # Ubuntu
 
-# Copy to server
-scp -r nginx/ user@178.162.234.145:/tmp/
-```
-
-### 2. Install on Server
-
-```bash
-# SSH to server
-ssh user@178.162.234.145
-
-# Create includes directory
-sudo mkdir -p /etc/nginx/includes
-
-# Copy include files
-sudo cp /tmp/nginx/includes/*.conf /etc/nginx/includes/
-
-# Copy main config
-sudo cp /tmp/nginx/stage.legal.org.ua.conf /etc/nginx/sites-available/
-
-# Create symlink
-sudo ln -sf /etc/nginx/sites-available/stage.legal.org.ua /etc/nginx/sites-enabled/
-
-# Test configuration
-sudo nginx -t
-```
-
-Expected output:
-```
-nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
-nginx: configuration file /etc/nginx/nginx.conf test is successful
-```
-
-### 3. Reload Nginx
-
-```bash
-sudo systemctl reload nginx
-```
-
-## Verification
-
-Test all endpoints:
-
-```bash
-# OAuth discovery
-curl -s https://stage.legal.org.ua/.well-known/oauth-authorization-server | jq
-
-# MCP discovery
-curl -s https://stage.legal.org.ua/mcp | jq
-
-# Health check
-curl -s https://stage.legal.org.ua/health
-
-# Frontend
-curl -s https://stage.legal.org.ua/ | head -10
-```
-
-## Modular Configuration Benefits
-
-### 1. **Easier Maintenance**
-   - Each module handles one concern
-   - Changes don't affect other modules
-   - Clear separation of responsibilities
-
-### 2. **Better Organization**
-   - OAuth endpoints in one file
-   - MCP endpoints in another
-   - API routes separate from frontend
-   - Easy to find and modify specific routes
-
-### 3. **Reusability**
-   - Include files can be shared across environments
-   - Easy to create dev/stage/prod variants
-   - Common patterns in one place
-
-### 4. **Troubleshooting**
-   - Test individual modules
-   - Isolate issues quickly
-   - Comment out entire modules if needed
-
-## Module Descriptions
-
-### oauth-endpoints.conf
-**Purpose**: OAuth 2.0 authorization flow
-
-**Routes**:
-- `/.well-known/oauth-authorization-server` - OAuth discovery (RFC 8414)
-- `/.well-known/openid-configuration` - OpenID Connect discovery
-- `/oauth/authorize` - Authorization page
-- `/oauth/token` - Token exchange
-- `/oauth/revoke` - Token revocation
-- `/authorize` → redirects to `/oauth/authorize`
-- `/token` → redirects to `/oauth/token`
-
-**Used by**: Claude.ai, ChatGPT Custom Connectors
-
-### mcp-endpoints.conf
-**Purpose**: Model Context Protocol endpoints
-
-**Routes**:
-- `/health` - Health check
-- `/mcp` - MCP server discovery
-- `/sse` - MCP over SSE (ChatGPT Web, Claude.ai)
-- `/v1/sse` - Standard MCP SSE (Claude Desktop, Jan AI)
-
-**Used by**: Claude Desktop, ChatGPT, Jan AI, Cherry Studio
-
-### api-endpoints.conf
-**Purpose**: REST API and webhooks
-
-**Routes**:
-- `/auth` - Google OAuth, JWT authentication
-- `/api` - REST API endpoints (tools, billing, admin)
-- `/webhooks` - Payment webhooks (Monobank, NOWPayments)
-
-**Used by**: Web frontend, mobile apps, payment providers
-
-### frontend-routes.conf
-**Purpose**: React SPA frontend
-
-**Routes**:
-- `/*.{js,css,png,jpg,...}` - Static assets (cached)
-- `/` - SPA fallback (all other routes)
-
-**Used by**: Web users visiting stage.legal.org.ua
-
-## Customization
-
-### Change Backend Port
-
-Edit `stage.legal.org.ua.conf`:
-
-```nginx
-upstream stage_mcp_backend {
-    server localhost:3004;  # ← Change port here
-    keepalive 128;
-}
-```
-
-### Change Frontend Port
-
-Edit `stage.legal.org.ua.conf`:
-
-```nginx
-upstream stage_frontend {
-    server localhost:8092;  # ← Change port here
-    keepalive 32;
-}
-```
-
-### Disable a Module
-
-Comment out the include line in `stage.legal.org.ua.conf`:
-
-```nginx
-# include /etc/nginx/includes/oauth-endpoints.conf;  # ← Disabled
-include /etc/nginx/includes/mcp-endpoints.conf;
-include /etc/nginx/includes/api-endpoints.conf;
-include /etc/nginx/includes/frontend-routes.conf;
-```
-
-### Add Custom Routes
-
-Create new include file:
-
-```bash
-sudo nano /etc/nginx/includes/custom-routes.conf
-```
-
-Add your routes, then include in main config:
-
-```nginx
-include /etc/nginx/includes/custom-routes.conf;
+mkcert -install
+mkcert -cert-file nginx/certs/localdev.legal.org.ua+2.pem \
+       -key-file nginx/certs/localdev.legal.org.ua+2-key.pem \
+       local.legal.org.ua "*.local.legal.org.ua" localhost
 ```
 
 ## Troubleshooting
 
-### Check if includes are loaded
+### Test configuration
 
 ```bash
-sudo nginx -T | grep -A 5 "oauth-endpoints"
+# Production (via SSH)
+ssh prod "docker exec nginx-prod nginx -t"
+
+# Local
+docker exec nginx-local nginx -t
 ```
 
-### Test specific module
-
-Comment out other includes, keep only one:
-
-```nginx
-include /etc/nginx/includes/oauth-endpoints.conf;  # ← Test this
-# include /etc/nginx/includes/mcp-endpoints.conf;
-# include /etc/nginx/includes/api-endpoints.conf;
-# include /etc/nginx/includes/frontend-routes.conf;
-```
-
-Then reload and test.
-
-### View effective configuration
+### View effective config
 
 ```bash
-sudo nginx -T | less
+docker exec nginx-prod nginx -T | less
 ```
 
-## Backup
-
-Before making changes:
+### Reload after manual config change
 
 ```bash
-# Backup main config
-sudo cp /etc/nginx/sites-available/stage.legal.org.ua \
-       /etc/nginx/sites-available/stage.legal.org.ua.backup.$(date +%Y%m%d)
+# Production — force recreate (required for bind mount changes)
+ssh prod "cd /home/ubuntu/SecondLayer/deployment && docker compose -f docker-compose.prod.yml --env-file .env.prod up -d nginx-prod --force-recreate"
 
-# Backup includes
-sudo tar -czf /tmp/nginx-includes-backup-$(date +%Y%m%d).tar.gz /etc/nginx/includes/
+# Local
+docker exec nginx-local nginx -s reload
 ```
 
-## Rollback
+### Logs
 
 ```bash
-# Restore from backup
-sudo cp /etc/nginx/sites-available/stage.legal.org.ua.backup.YYYYMMDD \
-       /etc/nginx/sites-available/stage.legal.org.ua
+# Production
+ssh prod "docker logs --tail=100 nginx-prod"
 
-# Or restore includes
-sudo tar -xzf /tmp/nginx-includes-backup-YYYYMMDD.tar.gz -C /
-
-# Reload
-sudo nginx -t && sudo systemctl reload nginx
+# Local
+docker logs --tail=100 nginx-local
 ```
-
-## Next Steps
-
-1. Deploy this configuration to stage server
-2. Test OAuth flow with Claude.ai
-3. If successful, create similar configs for dev/prod
-4. Document any environment-specific changes
-
-## Support
-
-**Error logs**: `/var/log/nginx/stage.legal.org.ua-error.log`
-**Access logs**: `/var/log/nginx/stage.legal.org.ua-access.log`
-
-**Check backend**: `curl http://localhost:3004/health`
-**Check frontend**: `curl http://localhost:8092/`

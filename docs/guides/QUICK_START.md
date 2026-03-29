@@ -40,8 +40,7 @@ docker-compose up -d postgres qdrant redis
         "QDRANT_URL": "http://localhost:6333",
         "REDIS_URL": "redis://localhost:6379",
         "OPENAI_API_KEY": "sk-...",
-        "ZAKONONLINE_API_TOKEN": "ваш-токен",
-        "OPENAI_MODEL_QUICK": "gpt-4o-mini",
+                "OPENAI_MODEL_QUICK": "gpt-4o-mini",
         "OPENAI_MODEL_DEEP": "gpt-4o"
       }
     }

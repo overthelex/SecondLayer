@@ -1,4 +1,6 @@
-# Node.js 20 Production Upgrade Plan
+> **ARCHIVED:** Completed upgrade plan. Node.js 20+ is now the standard across all services.
+
+# Node.js 20 Production Upgrade Plan (Completed)
 
 ## Overview
 

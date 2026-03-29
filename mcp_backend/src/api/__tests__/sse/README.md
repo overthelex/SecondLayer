@@ -55,7 +55,7 @@ Comprehensive test suite for SSE endpoints in the mcp_backend project.
 ### For Integration Tests
 - HTTP server must be running on `TEST_BASE_URL` (default: http://localhost:3000)
 - Valid API key in `TEST_API_KEY` (default: test-key-123)
-- External services (OpenAI, ZakonOnline) should be available
+- External services (OpenAI) should be available
 
 ## Running Tests
 
@@ -96,8 +96,8 @@ npm test -- sse-error-handling.test.ts
 ### Run Against Different Environments
 
 ```bash
-# Test against dev environment
-TEST_BASE_URL=https://dev.mcp.legal.org.ua npm test -- src/api/__tests__/sse/
+# Test against local
+TEST_BASE_URL=http://localhost:3000 npm test -- src/api/__tests__/sse/
 
 # Test against production
 TEST_BASE_URL=https://mcp.legal.org.ua npm test -- src/api/__tests__/sse/
@@ -201,7 +201,7 @@ Key files to cover:
 
 ### Tests timeout
 - Increase timeout for slow tools: adjust timeout in test (default: 60s)
-- Check external services (OpenAI, ZakonOnline) are available
+- Check external services (OpenAI) are available
 
 ### Authentication errors
 - Verify TEST_API_KEY matches SECONDARY_LAYER_KEYS in .env
@@ -266,17 +266,17 @@ jobs:
 
 ```bash
 # Initialize
-curl -N -X POST https://dev.mcp.legal.org.ua/sse \
+curl -N -X POST https://mcp.legal.org.ua/sse \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-05","clientInfo":{"name":"test","version":"1.0"}}}'
 
 # List tools
-curl -N -X POST https://dev.mcp.legal.org.ua/sse \
+curl -N -X POST https://mcp.legal.org.ua/sse \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
 
 # Call tool
-curl -N -X POST https://dev.mcp.legal.org.ua/sse \
+curl -N -X POST https://mcp.legal.org.ua/sse \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer test-key-123" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"classify_intent","arguments":{"query":"тест"}}}'
@@ -286,7 +286,7 @@ curl -N -X POST https://dev.mcp.legal.org.ua/sse \
 
 ```bash
 # Streaming tool call
-curl -N -X POST https://dev.mcp.legal.org.ua/api/tools/classify_intent/stream \
+curl -N -X POST https://mcp.legal.org.ua/api/tools/classify_intent/stream \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer test-key-123" \
   -d '{"arguments":{"query":"Хочу оскаржити рішення суду"}}'
@@ -296,14 +296,14 @@ curl -N -X POST https://dev.mcp.legal.org.ua/api/tools/classify_intent/stream \
 
 ```bash
 # Request SSE via Accept header
-curl -N -X POST https://dev.mcp.legal.org.ua/api/tools/classify_intent \
+curl -N -X POST https://mcp.legal.org.ua/api/tools/classify_intent \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer test-key-123" \
   -H "Accept: text/event-stream" \
   -d '{"arguments":{"query":"тест"}}'
 
 # Request JSON (default)
-curl -X POST https://dev.mcp.legal.org.ua/api/tools/classify_intent \
+curl -X POST https://mcp.legal.org.ua/api/tools/classify_intent \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer test-key-123" \
   -d '{"arguments":{"query":"тест"}}'
@@ -311,7 +311,7 @@ curl -X POST https://dev.mcp.legal.org.ua/api/tools/classify_intent \
 
 ## Next Steps
 
-1. **Run integration tests** against dev.mcp.legal.org.ua
+1. **Run integration tests** against mcp.legal.org.ua
 2. **Generate coverage report** and verify 90%+ coverage
 3. **Add to CI/CD pipeline** for automated testing
 4. **Monitor test results** in production deployments

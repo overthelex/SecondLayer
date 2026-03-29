@@ -15,7 +15,7 @@ npm run build
 
 3. **Інфраструктура запущена:**
 ```bash
-docker-compose up -d postgres qdrant redis
+cd deployment && docker compose -f docker-compose.local.yml --env-file .env.local up -d postgres qdrant redis
 ```
 
 ## 📝 Крок 1: Знайти конфігураційний файл
@@ -58,7 +58,6 @@ nano ~/.config/Claude/claude_desktop_config.json
         "QDRANT_URL": "http://localhost:6333",
         "REDIS_URL": "redis://localhost:6379",
         "OPENAI_API_KEY": "YOUR_OPENAI_API_KEY",
-        "ZAKONONLINE_API_TOKEN": "YOUR_ZAKONONLINE_TOKEN",
         "OPENAI_MODEL_QUICK": "gpt-4o-mini",
         "OPENAI_MODEL_STANDARD": "gpt-4o-mini",
         "OPENAI_MODEL_DEEP": "gpt-4o",
@@ -133,8 +132,8 @@ npm run build
 **Рішення:**
 ```bash
 cd <project-root>/mcp_backend
-docker-compose up -d
-docker-compose ps  # Перевірити статус
+cd deployment && docker compose -f docker-compose.local.yml --env-file .env.local up -d
+docker compose ps  # Перевірити статус
 ```
 
 ### Помилка: "Authentication failed"
@@ -143,7 +142,6 @@ docker-compose ps  # Перевірити статус
 
 **Рішення:**
 1. Перевірити що OPENAI_API_KEY валідний
-2. Перевірити що ZAKONONLINE_API_TOKEN активний
 
 ### Сервер запускається але не відповідає
 
@@ -201,7 +199,7 @@ tail -f ~/Library/Logs/Claude/mcp*.log
 Якщо виникли проблеми:
 
 1. Перевірити логи (див. вище)
-2. Перевірити що всі сервіси запущені: `docker-compose ps`
+2. Перевірити що всі сервіси запущені: `docker compose ps`
 3. Перевірити що проект зібрано: `ls dist/index.js`
 4. Створити issue на GitHub
 

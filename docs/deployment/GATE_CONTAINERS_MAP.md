@@ -1,4 +1,6 @@
-# Gate Server - Карта контейнеров по окружениям
+> **ARCHIVED:** This document describes a historical multi-environment gate server setup. Current production uses blue-green deploy with CI/CD. No stage/dev gateway environments.
+
+# Gate Server - Карта контейнеров по окружениям (Historical)
 
 ## 🔴 PRODUCTION Окружение (legal.org.ua)
 
