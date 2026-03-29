@@ -160,11 +160,11 @@ Data as of 23 February 2022 (last available dump prior to full-scale invasion).
 
 ### 4.1 Platform Capabilities
 
-LEX delivers 45 MCP tools across three integrated servers:
+LEX delivers 118 MCP tools across three integrated servers:
 
-- **36 backend tools** — court case search, semantic search, legislation, citation verification, judge analytics, document vault
+- **87 backend tools** — court case search, semantic search, EDRSR, legislation, citation verification, judge analytics, document vault, OpenData registries, Spain legal, ECHR practice, procedural tools
 - **4 RADA tools** — deputies, bills, legislation text, voting records
-- **5 OpenReyestr tools** — entity search, beneficiaries, debtor checks
+- **27 OpenReyestr tools** — entity search, beneficiaries, debtor checks, notaries, sanctions, ProZorro, enforcement, tax data, and more
 
 ### 4.2 Key Differentiators
 
@@ -191,7 +191,7 @@ LEX delivers 45 MCP tools across three integrated servers:
 ### 4.4 Technology Moat
 
 1. **Data moat** — 119M+ structured records and 53M full-text files. Replicating this corpus would require months of crawling, parsing, and indexing.
-2. **MCP protocol** — First and only Ukrainian platform with native MCP support. 45 tools callable by Claude, GPT, and other LLMs. This is the emerging industry standard.
+2. **MCP protocol** — First and only Ukrainian platform with native MCP support. 118 tools callable by Claude, GPT, and other LLMs. This is the emerging industry standard.
 3. **AI pipeline** — Semantic search, citation verification, pattern analysis, and decision classification — fully automated. Competitors would need to build this from scratch.
 4. **Domain expertise in code** — A PhD lawyer as co-founder means legal logic is architected into the platform, not bolted on after the fact.
 

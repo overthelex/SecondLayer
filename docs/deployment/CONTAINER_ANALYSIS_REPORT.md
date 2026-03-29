@@ -1,4 +1,6 @@
-# Container Analysis Report: secondlayer-app-dev
+> **ARCHIVED:** Historical analysis of a dev container that no longer exists. Dev gateway environment has been removed.
+
+# Container Analysis Report: secondlayer-app-dev (Historical)
 
 **Container ID:** `e6f82aa50200186e95868792168383a2b64a36731f61ea51fc2ec074d412ac7e`
 **Container Name:** `secondlayer-app-dev`

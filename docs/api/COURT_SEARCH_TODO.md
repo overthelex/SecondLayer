@@ -1,4 +1,6 @@
-# Court Search Integration - TODO
+> **ARCHIVED:** Historical TODO list from early development. Court search is fully implemented and operational.
+
+# Court Search Integration - TODO (Historical)
 
 ## Завдання для інтеграції пошуку судових рішень
 

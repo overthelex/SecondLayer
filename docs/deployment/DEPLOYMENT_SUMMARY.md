@@ -1,47 +1,39 @@
-
 # SecondLayer Deployment Summary
+
 ## Current Deployment System
+
 ### Active Environments
 
-- **Development**: `https://dev.legal.org.ua/`
-- **Production**: `https://legal.org.ua/`
-- **Staging**: `https://stage.legal.org.ua/`
-### Current Scripts
+- **Local**: `http://localhost:3000` (development)
+- **Production**: `https://legal.org.ua/` (blue-green deploy via CI/CD)
 
-- `deploy-to-gate.sh` - Main production deployment
-- `deploy-local.sh` - Local development setup
-### Current Documentation
+There is **no staging environment**.
 
-- `deployment/` - Complete gateway system documentation
-- `QUICK_REFERENCE.md` - Production URLs and commands
-### Gateway Management
+### Deployment Method
 
-All environments are managed through the gateway system:
+Production deploys via CI/CD pipeline only (merge PR to main):
+- Pipeline: `.github/workflows/deploy-prod.yml`
+- Runner: self-hosted (local.legal.org.ua)
+- Pattern: blue-green deployment
+- Never deploy manually via SSH
 
-```bash
-cd deployment
-./manage-gateway.sh <command> <environment>
-```
-## Quick Commands
-### Production Deployment
+### Quick Commands
 
-```bash
-./deploy-to-gate.sh
-```
-### Local Development
-
-```bash
-./deploy-local.sh
-```
-### Gateway Management
+#### Local Development
 
 ```bash
 cd deployment
-./manage-gateway.sh status
-./manage-gateway.sh deploy all
+docker compose -f docker-compose.local.yml --env-file .env.local up -d
 ```
-## Documentation Index
 
-- `deployment/INDEX.md` - Complete file index
-- `deployment/QUICK_START.md` - Gateway deployment guide
-- `deployment/GATEWAY_SETUP.md` - Complete setup guide
+#### Production Deploy
+
+1. Create PR to `main`
+2. Get approval and merge
+3. CI/CD handles the rest automatically
+
+### Documentation Index
+
+- `deployment/README.md` - Deployment overview
+- `deployment/LOCAL_DEVELOPMENT.md` - Local development setup
+- `.github/workflows/deploy-prod.yml` - CI/CD pipeline

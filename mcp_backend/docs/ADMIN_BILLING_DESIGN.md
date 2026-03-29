@@ -1,5 +1,5 @@
 # Admin Billing System - GUI Design
-**URL:** dev.billing.legal.org.ua
+**URL:** legal.org.ua (admin panel integrated into lexwebapp)
 **Purpose:** Административная панель для управления биллингом всех пользователей MCP сервера
 
 ---
@@ -805,8 +805,7 @@ Text: #111827 (Dark gray)
 
 ---
 
-**Deployment URL:** dev.billing.legal.org.ua
-**Production URL:** billing.legal.org.ua
+**URL:** legal.org.ua (admin section integrated into main app)
 
 **Authentication:** Google OAuth2 + Role-based access (admin only)
 **Security:** HTTPS, JWT tokens, CORS, rate limiting

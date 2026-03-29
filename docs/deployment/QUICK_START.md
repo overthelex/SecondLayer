@@ -1,12 +1,14 @@
-# Quick Start Guide - 3-Environment Gateway
+> **OUTDATED:** This document describes a historical 3-environment gateway setup.
+> Current deployment: only local and prod. Deploy to prod via CI/CD (merge PR to main).
 
-Fast setup guide for SecondLayer 3-environment gateway.
+# Quick Start Guide - Gateway (Historical)
+
+Fast setup guide for SecondLayer gateway (historical 3-environment version).
 
 ## Prerequisites
 
 - Docker and Docker Compose installed
-- SSH access to gate server (for remote deployment)
-- API keys: OpenAI, ZakonOnline, Google OAuth
+- API keys: OpenAI, Google OAuth
 
 ## 5-Minute Local Setup
 

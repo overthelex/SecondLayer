@@ -1,6 +1,6 @@
 # Admin API Quick Reference
 
-**Base URL:** `https://dev.legal.org.ua/api/admin`
+**Base URL:** `https://legal.org.ua/api/admin` (production) або `http://localhost:3000/api/admin` (local)
 **Auth:** Bearer JWT token (requires `is_admin = true`)
 
 ---
@@ -9,7 +9,7 @@
 
 ```bash
 # Set your environment
-export API="https://dev.legal.org.ua"
+export API="https://legal.org.ua"  # production, або http://localhost:3000 для local
 export JWT="your-jwt-token-here"
 
 # Test authentication
@@ -362,7 +362,7 @@ Add to `~/.bashrc`:
 
 ```bash
 # Admin API helpers
-export ADMIN_API="https://dev.legal.org.ua/api/admin"
+export ADMIN_API="https://legal.org.ua/api/admin"  # production
 export ADMIN_JWT="your-jwt-token"
 
 admin_stats() {

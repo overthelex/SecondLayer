@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-01
 **Status:** ✅ Backend Complete | ⏳ Frontend Pending
-**Location:** `dev.billing.legal.org.ua` (to be deployed)
+**Location:** `legal.org.ua` (production)
 
 ---
 
@@ -287,11 +287,11 @@ await logAdminAction(
 ### Quick Test with HTML Demo
 
 1. Open `mcp_backend/docs/admin-api-demo.html` in browser
-2. Enter API URL: `https://dev.legal.org.ua`
+2. Enter API URL: `https://legal.org.ua`
 3. Get JWT token:
    ```bash
    # Login and get token
-   curl -X POST https://dev.legal.org.ua/auth/google/callback
+   curl -X POST https://legal.org.ua/auth/google/callback
    ```
 4. Paste JWT token in demo
 5. Test all features:
@@ -305,7 +305,7 @@ await logAdminAction(
 
 ```bash
 JWT="your-jwt-token-here"
-API="https://dev.legal.org.ua"
+API="https://legal.org.ua"
 
 # Get dashboard
 curl -H "Authorization: Bearer $JWT" "$API/api/admin/stats/overview" | jq
@@ -325,42 +325,28 @@ curl -X POST \
 
 ## Deployment Checklist
 
-### Phase 1: Apply Database Migration ⏳
+### Phase 1: Apply Database Migration
 
+Міграції застосовуються автоматично під час деплою (`npm run migrate`).
+
+Для локального середовища:
 ```bash
-# SSH to gate server
-ssh gate
-
-# Enter DEV container
-docker exec -it secondlayer-postgres-dev psql -U secondlayer -d secondlayer_dev
-
-# Apply migration
-\i /path/to/015_add_admin_role.sql
-
-# Verify
-SELECT column_name, data_type FROM information_schema.columns
-WHERE table_name = 'users' AND column_name = 'is_admin';
-
-# Grant yourself admin access
-UPDATE users SET is_admin = true WHERE email = 'your-email@example.com';
+cd mcp_backend && npm run migrate
 ```
 
-### Phase 2: Deploy Backend Code ⏳
+Для production: міграції виконуються CI/CD pipeline при merge PR to main.
 
+### Phase 2: Deploy Backend Code
+
+Деплой через CI/CD:
+1. Створити PR з потрібними змінами
+2. Merge PR to main
+3. CI/CD pipeline автоматично виконає build + deploy
+
+Для локального тестування:
 ```bash
-# On gate server
-cd /home/vovkes/secondlayer/mcp_backend
-
-# Pull latest code
-git pull
-
-# Rebuild and restart DEV environment
-cd ../deployment
-./manage-gateway.sh restart dev
-
-# Test admin API
-curl -H "Authorization: Bearer $JWT" \
-  https://dev.legal.org.ua/api/admin/stats/overview
+cd deployment
+docker compose -f docker-compose.local.yml --env-file .env.local up -d --build
 ```
 
 ### Phase 3: Build React Frontend ⏳
@@ -376,7 +362,7 @@ npm install axios recharts react-router-dom @types/recharts
 # Copy components from admin-dashboard-frontend.tsx
 
 # Configure API URL
-echo "REACT_APP_API_URL=https://dev.legal.org.ua" > .env
+echo "REACT_APP_API_URL=https://legal.org.ua" > .env
 
 # Build
 npm run build
@@ -391,19 +377,13 @@ npm install -g netlify-cli
 netlify deploy --prod --dir=build
 ```
 
-**Option B: Nginx on gate server**
-```bash
-# Copy build to server
-scp -r build/* gate:/var/www/admin-dashboard/
+**Option B: Deploy via CI/CD**
 
-# Configure nginx (see ADMIN_DEPLOYMENT.md)
-# Add SSL cert for dev.billing.legal.org.ua
-ssh gate "sudo certbot --nginx -d dev.billing.legal.org.ua"
-```
+Admin dashboard is integrated into the main lexwebapp frontend. Deploy by merging PR to main.
 
 ### Phase 5: Test End-to-End ⏳
 
-1. Visit `https://dev.billing.legal.org.ua`
+1. Visit `https://legal.org.ua`
 2. Login with Google OAuth
 3. Verify admin access
 4. Test all features:
@@ -444,14 +424,14 @@ ssh gate "sudo certbot --nginx -d dev.billing.legal.org.ua"
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│          dev.billing.legal.org.ua                   │
+│          legal.org.ua                   │
 │         (React Frontend - To Deploy)                │
 └────────────────┬────────────────────────────────────┘
                  │ HTTPS
                  │ JWT Auth
                  ▼
 ┌─────────────────────────────────────────────────────┐
-│         Nginx Gateway (gate server)                 │
+│         Nginx Gateway (production server)            │
 │         SSL Termination                             │
 └────────────────┬────────────────────────────────────┘
                  │
@@ -524,24 +504,21 @@ admin@legal.org.ua  | refund_tx       | user3@test.com   | {"amount":5.50,"reaso
 
 ### Immediate (To Deploy)
 
-1. ⏳ **Apply Migration 015** to DEV database
-2. ⏳ **Set admin user**: `UPDATE users SET is_admin = true WHERE email = 'your-email'`
-3. ⏳ **Rebuild mcp_backend** on DEV environment
-4. ⏳ **Test API** using admin-api-demo.html
+1. **Apply migrations**: `cd mcp_backend && npm run migrate`
+2. **Set admin user**: `UPDATE users SET is_admin = true WHERE email = 'your-email'`
+3. **Rebuild locally**: `cd deployment && docker compose -f docker-compose.local.yml --env-file .env.local up -d --build`
+4. **Test API** using admin-api-demo.html or curl
 
 ### Short-term (This Week)
 
-5. ⏳ **Build React frontend** from template
-6. ⏳ **Deploy to dev.billing.legal.org.ua**
-7. ⏳ **Configure Nginx** for admin subdomain
-8. ⏳ **Test end-to-end** workflow
+5. ⏳ **Integrate admin dashboard** into lexwebapp
+6. ⏳ **Test end-to-end** workflow
 
-### Long-term (This Month)
+### Long-term
 
-9. ⏳ **Add rate limiting** to admin endpoints
-10. ⏳ **Implement API key management** (currently placeholder)
-11. ⏳ **Add admin dashboard** to lexwebapp (alternative to separate app)
-12. ⏳ **Deploy to production** (billing.legal.org.ua)
+7. ⏳ **Add rate limiting** to admin endpoints
+8. ⏳ **Implement API key management** (currently placeholder)
+9. ⏳ **Deploy to production** via CI/CD (merge PR to main)
 
 ---
 
@@ -555,7 +532,7 @@ admin@legal.org.ua  | refund_tx       | user3@test.com   | {"amount":5.50,"reaso
 - Tests passing
 
 ⏳ **Frontend Complete** when:
-- React app deployed to dev.billing.legal.org.ua
+- React app deployed to legal.org.ua
 - All components functional
 - User can view dashboard
 - User can manage users

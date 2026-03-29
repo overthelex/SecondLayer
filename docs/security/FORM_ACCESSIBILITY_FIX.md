@@ -1,3 +1,5 @@
+> **NOTE:** References to dev.legal.org.ua below are historical. Only local and prod environments exist now.
+
 # Form Accessibility Fix
 
 **Issues:**

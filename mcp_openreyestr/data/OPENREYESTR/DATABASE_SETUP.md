@@ -1,4 +1,8 @@
-# Database Setup Guide
+# Database Setup Guide (Legacy)
+
+> **Увага:** Цей документ описує початкове налаштування БД для дослідження даних.
+> Актуальне налаштування -- через MCP-сервер: `cd mcp_openreyestr && npm run db:setup`.
+> Див. [/mcp_openreyestr/README.md](../../README.md).
 
 This guide explains how to set up the PostgreSQL database for NAIS Open Data.
 

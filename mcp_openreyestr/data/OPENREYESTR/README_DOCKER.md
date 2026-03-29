@@ -1,4 +1,8 @@
-# OPENREYESTR Docker Setup Guide
+# OPENREYESTR Docker Setup Guide (Legacy)
+
+> **Увага:** Цей документ описує legacy Docker-налаштування.
+> Актуальний деплой -- через `deployment/` директорію монорепо.
+> Див. [/mcp_openreyestr/README.md](../../README.md).
 
 This guide explains how to set up and use the OPENREYESTR database with Docker.
 

@@ -1,4 +1,6 @@
-# Document Analysis Service - Deployment Guide
+> **NOTE:** Document analysis is now integrated into the main mcp_backend service. This guide describes the historical standalone microservice approach.
+
+# Document Analysis Service - Deployment Guide (Historical)
 
 ## Architecture
 

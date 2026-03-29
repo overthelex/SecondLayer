@@ -10,13 +10,20 @@ This server provides access to the Ukrainian state registry data through the Mod
 - **Individual Entrepreneurs (FOP)** - Фізичні особи-підприємці
 - **Public Associations (FSU)** - Громадські формування та відокремлені підрозділи
 
-## Features
+## Features (27 Tools)
 
 - **Search entities** by name, EDRPOU code, record number, or status
 - **Get full entity details** including founders, beneficiaries, signers, branches
 - **Search beneficial owners** across all entities
 - **Query by EDRPOU** identification code
 - **Registry statistics** - total and active entities by type
+- **Search debtors, notaries, bankruptcy cases, enforcement proceedings**
+- **Search ProZorro public procurement**
+- **Search RNBO sanctions, NAZK declarations**
+- **Search court experts, arbitration managers**
+- **Search ARMA seized assets, ESV debt, tax debt**
+- **Search VAT payers, single tax payers, large taxpayers**
+- **Search street renamings, administrative units**
 - **Dual transport** - MCP stdio and HTTP API
 
 ## Installation

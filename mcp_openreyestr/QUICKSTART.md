@@ -1,83 +1,107 @@
-# OPENREYESTR Quick Start Guide
+# OpenReyestr -- Швидкий старт
 
-## Prerequisites
+## Передумови
 
 - Node.js 20+
 - PostgreSQL 15+
-- Downloaded OPENREYESTR data from https://data.gov.ua/dataset/1c7f3815-3259-45e0-bdf1-64dca07ddc10
 
-## Quick Setup (5 steps)
+## Налаштування (4 кроки)
 
-### 1. Install Dependencies
+### 1. Встановити залежності
 
 ```bash
 cd mcp_openreyestr
 npm install
 ```
 
-### 2. Configure Environment
+### 2. Налаштувати оточення
 
 ```bash
 cp .env.example .env
-nano .env  # Edit with your database credentials
+nano .env  # Задати POSTGRES_PASSWORD та SECONDARY_LAYER_KEYS
 ```
 
-Minimum required settings:
+Мінімально необхідні змінні:
 ```env
 POSTGRES_PASSWORD=your-password
 SECONDARY_LAYER_KEYS=your-api-key
 ```
 
-### 3. Create Database
+### 3. Створити базу даних
 
 ```bash
 npm run db:setup
 ```
 
-This will:
-- Create the `openreyestr` database
-- Run all migrations
-- Set up tables and indexes
+Ця команда створить БД `openreyestr` та виконає всі 14 міграцій.
 
-### 4. Import Data
-
-Place your downloaded ZIP file in a known location, then:
+### 4. Імпортувати дані
 
 ```bash
-# Import all entity types (recommended)
-npm run import:all /path/to/20260126174103-69.zip
+# Завантажити та імпортувати всі реєстри НАІС автоматично
+npm run import:nais
+
+# Або синхронізувати всі реєстри (завантаження + імпорт)
+npm run sync:registries
+
+# Або синхронізувати конкретний реєстр
+npm run sync:registry -- --only=notaries
 ```
 
-Or set the path in `.env`:
-```env
-OPENREYESTR_DATA_PATH=/home/vovkes/SecondLayer/OPENREYESTR
-```
-
-Then run:
+Доступні окремі імпорти:
 ```bash
-npm run import:all $OPENREYESTR_DATA_PATH/20260126174103-69.zip
+npm run import:entities           # Юридичні особи / ФОП з XML
+npm run import:debtors            # Боржники з CSV
+npm run sync:edrpou               # ЄДРПОУ
+npm run import:street-renamings   # Перейменування вулиць (OpenStreetMap)
 ```
 
-**Note:** Import may take 1-3 hours depending on your hardware. The dataset contains millions of records.
+## Запуск сервера
 
-### 5. Start Server
-
-**MCP stdio mode (for Claude Desktop):**
+**MCP stdio (для Claude Desktop):**
 ```bash
 npm run build
 npm start
 ```
 
-**HTTP API mode:**
+**HTTP API:**
 ```bash
 npm run dev:http
 ```
 
-## Test the Server
+Сервер стартує на http://localhost:3004
 
-### MCP Mode
+## Перевірка
 
-Configure in Claude Desktop's `claude_desktop_config.json`:
+### HTTP API
+
+```bash
+# Список інструментів (27 штук)
+curl http://localhost:3004/api/tools \
+  -H "Authorization: Bearer your-api-key"
+
+# Пошук юридичних осіб
+curl -X POST http://localhost:3004/api/tools/search_entities \
+  -H "Authorization: Bearer your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"arguments": {"query": "Приватбанк", "limit": 5}}'
+
+# Статистика реєстру
+curl -X POST http://localhost:3004/api/tools/get_statistics \
+  -H "Authorization: Bearer your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"arguments": {}}'
+
+# Перевірка здоров'я
+curl http://localhost:3004/health
+
+# Статистика по таблицях (без автентифікації)
+curl http://localhost:3004/api/stats
+```
+
+### Claude Desktop
+
+Налаштувати `claude_desktop_config.json`:
 
 ```json
 {
@@ -93,103 +117,30 @@ Configure in Claude Desktop's `claude_desktop_config.json`:
 }
 ```
 
-### HTTP Mode
+## Вирішення проблем
 
-Test with curl:
+### Помилка підключення до БД
 
 ```bash
-# Search for entities
-curl -X POST http://localhost:3004/api/search \
-  -H "Authorization: Bearer your-api-key" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Приватбанк", "limit": 5}'
-
-# Get statistics
-curl http://localhost:3004/api/statistics \
-  -H "Authorization: Bearer your-api-key"
-```
-
-## Usage Examples
-
-### Search by Name
-
-```json
-{
-  "query": "ТОВ Будівельна компанія",
-  "entityType": "UO",
-  "limit": 10
-}
-```
-
-### Search by EDRPOU
-
-```json
-{
-  "edrpou": "14360570"
-}
-```
-
-### Get Entity Details
-
-```json
-{
-  "record": "14426646"
-}
-```
-
-### Search Beneficiaries
-
-```json
-{
-  "query": "Іванов Іван",
-  "limit": 20
-}
-```
-
-## Troubleshooting
-
-### Database Connection Error
-
-Check that PostgreSQL is running:
-```bash
+# Перевірити, що PostgreSQL працює
 sudo systemctl status postgresql
+# Перевірити параметри в .env
 ```
 
-Verify connection settings in `.env`.
+### HTTP-сервер не стартує
 
-### Import Fails
+```bash
+# Перевірити, чи порт 3004 вільний
+lsof -i :3004
+# Змінити порт в .env: HTTP_PORT=3005
+```
 
-- Ensure the ZIP file contains `UO_FULL_out.xml`, `FOP_FULL_out.xml`, and `FSU_FULL_out.xml`
-- Check disk space (import requires ~10-20GB free space)
-- Increase PostgreSQL memory settings if needed
+### Імпорт не працює
 
-### HTTP Server Won't Start
+- Перевірити наявність місця на диску (імпорт потребує ~10-20 ГБ)
+- Перевірити мережеве з'єднання (для download-nais)
+- Переглянути логи: `npm run import:nais 2>&1 | tee import.log`
 
-- Check if port 3004 is already in use: `lsof -i :3004`
-- Change port in `.env`: `HTTP_PORT=3005`
+## Детальна документація
 
-## Next Steps
-
-- Integrate with Claude Desktop for AI-powered queries
-- Set up automatic data updates (daily refresh)
-- Add Redis caching for improved performance
-- Configure Nginx reverse proxy for production deployment
-
-## Data Updates
-
-To update with fresh data:
-
-1. Download new ZIP from data.gov.ua
-2. Run import again: `npm run import:all /path/to/new-data.zip`
-3. The importer uses `ON CONFLICT` upserts, so existing records will be updated
-
-## Performance Tips
-
-- Use `limit` parameter to avoid large result sets
-- Create additional indexes for frequently searched fields
-- Consider partitioning large tables by year
-- Enable PostgreSQL query caching
-
-## Support
-
-See main README.md for detailed documentation.
+Див. [README.md](README.md) -- повний список 27 інструментів, схема БД, API-ендпоінти.

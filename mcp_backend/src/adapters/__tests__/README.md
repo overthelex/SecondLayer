@@ -1,6 +1,8 @@
-# ZOAdapter Test Suite
+# ZOAdapter Test Suite (DEPRECATED)
 
-Comprehensive tests for the ZOAdapter (Zakononline API adapter).
+> **Note:** ZakonOnline API is no longer used in production. These tests cover the legacy ZOAdapter which remains in the codebase but is not actively used. All court decision data now comes from EDRSR (Єдиний державний реєстр судових рішень).
+
+Comprehensive tests for the ZOAdapter (legacy Zakononline API adapter).
 
 ## Test Files
 

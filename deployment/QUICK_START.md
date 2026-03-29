@@ -1,119 +1,95 @@
-# Quick Start: Local Deployment with Fixed Credentials
+# Quick Start: Local Development
 
-## TL;DR (30 seconds)
+## 5-Minute Setup
 
 ```bash
-cd <project-root>/deployment
+cd deployment
 
-# 1. Create .env from template
-cp .env .env.local
+# 1. Create environment file from template
+cp .env.local.example .env.local
 
-# 2. Edit credentials (IMPORTANT!)
+# 2. Set required credentials
 nano .env.local
-# Set: POSTGRES_SUPERUSER_PASSWORD, POSTGRES_PASSWORD
+# Required: OPENAI_API_KEY, POSTGRES_PASSWORD
 
-# 3. Check credentials
-bash check-credentials.sh
+# 3. Start all services
+./manage-gateway.sh start local
 
-# 4. Deploy!
-docker compose up -d
-
-# 5. Verify
-docker compose ps
-```
-
-## What Changed?
-
-The deployment now **automatically**:
-- ✅ Validates all credentials before starting
-- ✅ Creates PostgreSQL user and database automatically
-- ✅ Prevents "password authentication failed" errors
-- ✅ Provides detailed error messages if something is wrong
-
-## The 4 Required Passwords
-
-Edit `.env.local` and set these 4 passwords:
-
-```bash
-# Superuser (PostgreSQL admin) - used only during initialization
-POSTGRES_SUPERUSER_PASSWORD=choose_a_strong_password_123
-
-# Application user (used by MCP server)
-POSTGRES_PASSWORD=another_strong_password_456
-
-# Optional: Change these if you want
-POSTGRES_SUPERUSER=postgres  # Usually don't change
-POSTGRES_USER=secondlayer     # Usually don't change
-POSTGRES_DB=secondlayer_local # Usually don't change
-```
-
-## Commands
-
-```bash
-# Check credentials (before deploying)
-bash check-credentials.sh
-
-# Deploy (automatic credential check)
-bash build-local.sh test
-
-# Full build pipeline
-bash build-local.sh full
-
-# Interactive menu
-bash build-local.sh
+# 4. Open application
+# https://local.legal.org.ua
 ```
 
 ## Verify It Works
 
 ```bash
-# Check containers are running
-docker compose ps
+# Check all containers are running
+docker ps --filter "name=-local" --format "table {{.Names}}\t{{.Status}}"
 
-# Check PostgreSQL user exists
-docker exec $(docker ps -q -f 'ancestor=postgres:15-alpine') \
-  psql -U secondlayer -d secondlayer_local -c "SELECT 1;"
+# Backend health check
+curl http://localhost:3000/health
 
-# Expected output:
-# ?column?
-#----------
-#        1
-# (1 row)
+# Database connection
+docker exec secondlayer-postgres-local pg_isready -U secondlayer
+```
+
+## Required Credentials
+
+Edit `.env.local` and set:
+
+```bash
+# PostgreSQL
+POSTGRES_PASSWORD=your_password_here
+
+# OpenAI API
+OPENAI_API_KEY=sk-proj-your-key-here
+
+# API authentication
+SECONDARY_LAYER_KEYS=local-dev-key
+JWT_SECRET=your-64-char-secret-here
+```
+
+Database initialization (user creation, migrations) happens automatically on first start.
+
+## Common Commands
+
+```bash
+cd deployment
+
+# Start/stop/restart
+./manage-gateway.sh start local
+./manage-gateway.sh stop local
+./manage-gateway.sh restart local
+
+# Logs
+./manage-gateway.sh logs local
+docker logs -f secondlayer-app-local    # Backend only
+
+# Status
+./manage-gateway.sh status
+
+# Full rebuild (after code changes)
+./manage-gateway.sh deploy local --no-cache
 ```
 
 ## If Something Goes Wrong
 
 ```bash
-# 1. Run credential check first
-bash check-credentials.sh
+# 1. Check logs
+docker logs secondlayer-app-local
+docker logs secondlayer-postgres-local
 
-# 2. View PostgreSQL logs
-docker compose logs postgres --tail=50
+# 2. Check container status
+docker ps --filter "name=-local" --format "table {{.Names}}\t{{.Status}}"
 
-# 3. View MCP server logs
-docker compose logs mcp-server --tail=50
-
-# 4. Reset everything (WARNING: deletes data!)
-docker compose down -v
-# Edit .env.local, then:
-docker compose up -d
+# 3. Reset everything (WARNING: deletes all data)
+./manage-gateway.sh stop local
+docker volume ls | grep local | awk '{print $2}' | xargs -r docker volume rm
+./manage-gateway.sh start local
 ```
 
-## Files Changed
+## Next Steps
 
-- ✅ `docker-compose.yml` - Added auto-init script
-- ✅ `build-local.sh` - Added credential check
-- ✅ `docker/init-postgres.sh` - NEW: Auto-create user/db
-- ✅ `docker/init-db.sql` - NEW: SQL template
-- ✅ `check-credentials.sh` - NEW: Validates credentials
-- ✅ `CREDENTIALS_SETUP.md` - NEW: Full guide
-- ✅ `QUICK_START.md` - NEW: This file
-
-## No More Manual Fixes! 🎉
-
-Before: You had to manually run SQL commands to create users
-
-Now: Everything happens automatically during `docker compose up`
-
-## Next: Read Full Guide
-
-For details, see: `CREDENTIALS_SETUP.md`
+- Full guide: `LOCAL_DEVELOPMENT.md`
+- Testing: `TESTING.md`
+- Credentials details: `CREDENTIALS_SETUP.md`
+- Production deployment: see CI/CD in `.github/workflows/deploy-prod.yml`

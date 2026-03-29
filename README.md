@@ -6,22 +6,25 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**AI-powered legal tech platform for Ukrainian law.** Semantic search over court decisions, legislation retrieval, parliament data, and business registry lookups — all exposed as [MCP](https://modelcontextprotocol.io/) tools for LLM integration.
+**AI-powered legal tech platform for Ukrainian law.** Court decision search, legislation retrieval, parliament data, business registries, open data registries, ECHR practice, and more — all exposed as [MCP](https://modelcontextprotocol.io/) tools for LLM integration.
 
 ## Overview
 
-SecondLayer is a monorepo containing three MCP (Model Context Protocol) servers, a web frontend, and shared utilities. It provides 45 AI-powered tools for legal research and analysis.
+SecondLayer is a monorepo containing three MCP (Model Context Protocol) servers, a web frontend, and shared utilities. It provides **95+ AI-powered tools** for legal research and analysis.
 
 ### What it does
 
-- **Semantic search** over millions of Ukrainian court decisions
-- **Legislation retrieval** with intelligent article-level sectioning (Constitution, codes, laws)
+- **Court decisions** — search, full-text retrieval, and semantic analysis over the Ukrainian court registry (EDRSR)
+- **Legislation** — retrieval with intelligent article-level sectioning (Constitution, codes, laws)
 - **Parliament data** — deputies, bills, voting records from Verkhovna Rada
-- **Business registry** — entity search, beneficiaries, debtors (EDRPOU)
-- **Document vault** — secure storage with encryption
-- **Legal pattern analysis** — store and retrieve legal reasoning patterns
-- **Citation validation** — verify legal references against source documents
-- **Hallucination guard** — prevent AI from generating unsupported claims
+- **Business registry** — entity search, beneficiaries, debtors, bankruptcy, enforcement proceedings (EDRPOU/OpenReyestr)
+- **Open data registries** — sanctions, corruption register, patents, trademarks, lawyers, judges, court experts, public spending, NBU banks, wage debtors, and more
+- **ECHR practice** — search and retrieval of European Court of Human Rights case law
+- **Spain legal tools** — BOE legislation and AEPD data protection resolutions
+- **Procedural tools** — deadline calculation, monetary claims, checklists, norm search
+- **Legal advice** — precedent search, citation graphs, similar reasoning, answer formatting
+- **Payments** — Monobank integration for UAH/USD billing
+- **Diia integration** — digital identity verification via Diia (Ukrainian digital services platform)
 
 ### Architecture
 
@@ -34,20 +37,26 @@ All three MCP servers support a triple transport system:
 | **SSE** | Remote MCP over HTTPS for distributed clients |
 
 ```
-┌─────────────────────────────────────────────────┐
-│                   Clients                        │
-│  Claude Desktop  │  Web App  │  Remote MCP       │
-└────────┬─────────┴─────┬────┴────────┬──────────┘
-         │ stdio         │ HTTP       │ SSE
-┌────────┴───────────────┴────────────┴──────────┐
-│              Unified Gateway (45 tools)          │
-├─────────────────┬──────────────┬────────────────┤
-│  mcp_backend    │  mcp_rada    │ mcp_openreyestr│
-│  36 tools       │  4 tools     │  5 tools       │
-├─────────────────┴──────────────┴────────────────┤
-│  PostgreSQL  │  Redis  │  Qdrant  │  OpenAI API  │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                     Clients                           │
+│  Claude Desktop  │  Web App  │  Remote MCP            │
+└────────┬─────────┴─────┬─────┴────────┬──────────────┘
+         │ stdio         │ HTTP        │ SSE
+┌────────┴───────────────┴─────────────┴───────────────┐
+│              Unified Gateway (95+ tools)              │
+├──────────────────┬──────────────┬─────────────────────┤
+│  mcp_backend     │  mcp_rada    │  mcp_openreyestr    │
+│  64 tools        │  4 tools     │  27 tools           │
+├──────────────────┴──────────────┴─────────────────────┤
+│  PostgreSQL  │  Redis  │  Qdrant  │  OpenAI API       │
+└──────────────────────────────────────────────────────┘
 ```
+
+### Deployment
+
+- **Production**: `https://legal.org.ua` — blue-green deployment via CI/CD (merge PR to `main`)
+- **Local dev**: Docker Compose
+- CI/CD runs on a self-hosted GitHub Actions runner; deploy pipeline auto-detects changed services
 
 ## Quick Start
 
@@ -82,7 +91,7 @@ cp mcp_backend/.env.example mcp_backend/.env
 cp mcp_rada/.env.example mcp_rada/.env
 cp mcp_openreyestr/.env.example mcp_openreyestr/.env
 cp lexwebapp/.env.example lexwebapp/.env.local
-cp deployment/.env.example deployment/.env.local
+cp deployment/.env.local.example deployment/.env.local
 ```
 
 At minimum, set `OPENAI_API_KEY`, `POSTGRES_*`, and `SECONDARY_LAYER_KEYS`.
@@ -91,7 +100,7 @@ At minimum, set `OPENAI_API_KEY`, `POSTGRES_*`, and `SECONDARY_LAYER_KEYS`.
 
 ```bash
 cd deployment
-./manage-gateway.sh start local
+docker compose -f docker-compose.local.yml --env-file .env.local up -d
 ```
 
 ### Run without Docker
@@ -122,14 +131,16 @@ cd mcp_openreyestr && npm run db:setup && npm run migrate
 
 ```
 SecondLayer/
-├── mcp_backend/        # Primary MCP server — court cases, legislation, vault
+├── mcp_backend/        # Primary MCP server — court decisions, legislation, registries, payments
 ├── mcp_rada/           # Parliament data — deputies, bills, voting
-├── mcp_openreyestr/    # Business registry — entities, beneficiaries
+├── mcp_openreyestr/    # Business registry — entities, beneficiaries, enforcement
 ├── lexwebapp/          # Web frontend (React 19, Vite, TailwindCSS)
 ├── packages/shared/    # Shared TypeScript types and utilities
-├── deployment/         # Docker configs, compose files, nginx
+├── deployment/         # Docker configs, compose files, nginx, CI/CD scripts
 ├── scripts/            # Data import and utility scripts
-└── docs/               # Documentation (100+ files)
+├── tests/              # E2E tests (Playwright)
+├── docs/               # Documentation
+└── legacy/             # Archived code (not in active use)
 ```
 
 ### Key Technologies
@@ -141,18 +152,21 @@ SecondLayer/
 | **Frontend** | React 19, Vite, TailwindCSS 3, Zustand, TanStack Query |
 | **Databases** | PostgreSQL 15, Redis 7, Qdrant |
 | **AI** | OpenAI (GPT-4o, embeddings), optional Anthropic |
-| **Infra** | Docker Compose, nginx |
+| **Payments** | Monobank (UAH/USD) |
+| **Auth** | Google OAuth, Diia, JWT |
+| **Infra** | Docker Compose, nginx, GitHub Actions (self-hosted runner) |
+| **Deploy** | Blue-green deployment via CI/CD |
 
-## MCP Tools (45 total)
+## MCP Tools (95+)
 
-### Backend (36 tools)
-Court case search, semantic search, legislation retrieval, document analysis, legal patterns, citation validation, vault operations, cost tracking, and more.
+### Backend (64 tools)
+Court decision search (EDRSR), full-text retrieval, semantic search, legislation, ECHR practice, procedural tools (deadlines, checklists, monetary claims), legal advice (precedents, citation graphs), open data registries (sanctions, corruption, patents, trademarks, lawyers, judges, spending, NBU banks, etc.), court sessions, case status, Spain legal tools, Nextcloud integration, import management.
 
-### RADA (4 tools, `rada_*` prefix)
+### RADA (4 tools)
 Deputies, bills, legislation text, voting records from Verkhovna Rada Open Data API.
 
-### OpenReyestr (5 tools, `openreyestr_*` prefix)
-Entity search by name/EDRPOU, beneficiary lookup, debtor registry.
+### OpenReyestr (27 tools)
+Entity search by name/EDRPOU, entity details, beneficiaries, debtors, bankruptcy cases, enforcement proceedings, arbitration managers, ARMA seized assets, ESV debt, tax debt, single tax payers, VAT payers, notaries, court experts, forensic methods, NAZK declarations, legal acts, Prozorro procurement, RNBO sanctions, special forms, streets, street renamings, administrative units, exchange data, statistics.
 
 Full tool list: [docs/ALL_MCP_TOOLS.md](docs/ALL_MCP_TOOLS.md)
 
@@ -165,7 +179,7 @@ Full tool list: [docs/ALL_MCP_TOOLS.md](docs/ALL_MCP_TOOLS.md)
 curl http://localhost:3000/api/tools
 
 # Execute a tool
-curl -X POST http://localhost:3000/api/tools/search_court_cases \
+curl -X POST http://localhost:3000/api/tools/search_edrsr_decisions \
   -H "Authorization: Bearer your-api-key" \
   -H "Content-Type: application/json" \
   -d '{"query": "відшкодування моральної шкоди"}'

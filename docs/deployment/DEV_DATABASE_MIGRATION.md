@@ -1,4 +1,6 @@
-# Development Database Migration - Completed ✓
+> **ARCHIVED:** Historical document. Dev gateway environment no longer exists.
+
+# Development Database Migration - Completed (Historical)
 
 ## Summary
 

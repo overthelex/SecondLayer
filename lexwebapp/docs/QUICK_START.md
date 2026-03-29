@@ -5,7 +5,7 @@
 ## Prerequisites
 
 - Node.js 20+
-- npm or yarn
+- npm
 - Access to MCP backend API
 
 ## Installation
@@ -17,10 +17,10 @@ npm install
 
 ## Configuration
 
-Create `.env.staging`:
+Create `.env.local`:
 
 ```bash
-VITE_API_URL=https://stage.legal.org.ua/api
+VITE_API_URL=http://localhost:3000/api
 VITE_API_KEY=your-api-key-here
 VITE_ENABLE_SSE_STREAMING=true
 ```
@@ -100,7 +100,7 @@ useMCPTool('search_deputies')
 useMCPTool('search_entities')
 ```
 
-### All 43 Tools
+### All 45 Tools
 
 See `docs/MCP_STREAMING_INTEGRATION.md` for complete list.
 
@@ -113,8 +113,8 @@ npm run dev
 # Run tests
 npm test
 
-# Build
-npm run build:staging
+# Production build
+npm run build
 ```
 
 ## Docker Deployment
@@ -123,30 +123,21 @@ npm run build:staging
 cd deployment
 
 # Build
-docker compose -f docker-compose.stage.yml build lexwebapp-stage
+docker compose -f docker-compose.prod.yml --env-file .env.prod build lexwebapp
 
 # Deploy
-docker compose -f docker-compose.stage.yml up -d lexwebapp-stage
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d lexwebapp
 
 # Check logs
-docker logs lexwebapp-stage -f
+docker logs lexwebapp -f
 ```
 
 ## Debugging
 
-### Enable Debug Logging
-
-```typescript
-import { mcpService } from '../services';
-
-// In browser console
-localStorage.setItem('debug', 'mcp:*');
-```
-
 ### Check SSE Connection
 
 ```bash
-curl -N -X POST https://stage.legal.org.ua/api/tools/get_legal_advice/stream \
+curl -N -X POST http://localhost:3000/api/tools/get_legal_advice/stream \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_KEY" \
   -d '{"query":"test"}'
@@ -161,7 +152,7 @@ curl -N -X POST https://stage.legal.org.ua/api/tools/get_legal_advice/stream \
 
 **Issue: CORS errors**
 - Update backend `ALLOWED_ORIGINS`
-- Use proxy in development
+- The Vite dev proxy is configured in `vite.config.ts`
 
 **Issue: Types not working**
 - Run `npm install`
@@ -173,13 +164,3 @@ curl -N -X POST https://stage.legal.org.ua/api/tools/get_legal_advice/stream \
 - Browse API: `mcp_backend/docs/api-explorer.html`
 - See examples: `docs/ALL_MCP_TOOLS.md`
 - Run tests: `npm test`
-
-## Support
-
-- Issues: https://github.com/anthropics/claude-code/issues
-- Email: support@legal.org.ua
-- Docs: `/docs/`
-
----
-
-**Ready to go!** 🚀

@@ -15,16 +15,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Deployment
 
-- When asked to deploy to prod, ALWAYS merge the PR to main first unless explicitly told otherwise. Never deploy a branch directly to production.
-- Production environment: deployment is done by merging PR to main, then running the deploy script locally. The deploy script may hang on interactive prompts — pipe input or use non-interactive flags. Check the local deployment directory for current env vars and secrets, not the remote server.
-- When deploying, always use SSH to the remote server (gate/staging/prod) — never run docker compose commands locally unless explicitly asked for local deployment.
-- The staging server is accessed via SSH. Always confirm which environment (local/stage/prod) before running deploy commands.
+- Production deployment is fully automated via CI/CD. Merge PR to main triggers the pipeline. NEVER deploy manually via SSH.
+- CI/CD runs on a self-hosted runner (`local.legal.org.ua`). Two pipelines:
+  - `ci-local-deploy.yml` — triggered on push to main: builds, tests, deploys to local environment
+  - `deploy-prod.yml` — triggered after successful local CI or manually via workflow_dispatch: blue-green deploy to prod via SSH
+- Blue-green deployment: prod uses `.active-colors` file in `deployment/` to track which color (blue/green) is active per service group (backend, frontend). New deploys go to the inactive color, then traffic is switched.
+- Nginx must be `--force-recreated` after ANY upstream/backend change (bind mount staleness).
+- Never manually recreate prod containers; use the deploy pipeline.
+- There is NO stage environment — only local and prod.
 - After deploying, always check container health and logs for errors.
 - After making code changes, always rebuild Docker images before testing (`docker compose build <service>` then `docker compose up -d`). Never test against stale containers.
 - Local dev runs in Docker. Do NOT attempt to restart backend processes directly — always use docker compose commands.
 - Compose files have NO `env_file:` directives — secrets are injected via shell env substitution. **Always pass `--env-file`**:
   - Local: `docker compose -f docker-compose.local.yml --env-file .env.local up -d`
-  - Stage: `docker compose -f docker-compose.stage.yml --env-file .env.stage up -d`
   - Prod: `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d`
 
 ## Git Workflow
@@ -49,7 +52,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Monorepo with shared/backend/frontend packages
 - Language: TypeScript (primary), YAML for configs, Shell for deploy scripts
 - Infrastructure: Docker Compose for local dev, MinIO for storage, Nginx as reverse proxy
-- Auth: Google OAuth
+- Auth: Google OAuth, Authentik (OIDC), Diia, password, WebAuthn
+- Payments: Monobank (live, dual UAH/USD balance system)
 - Architecture: MCP tools pattern with LLM orchestration
 
 ## Session Scope
@@ -64,9 +68,10 @@ When the user asks for a specific task (e.g., 'commit frontend changes'), do exa
 ## Infrastructure Notes
 
 - Primary stack: TypeScript, Docker Compose, PostgreSQL (with PgBouncer), Redis, Qdrant.
-- Staging and prod use different env files and API URLs — always double-check VITE_API_URL and similar env vars match the target environment.
+- Only two environments: local and prod — always double-check VITE_API_URL and similar env vars match the target environment.
 - When changing PostgreSQL auth or connection pooling config, verify auth method compatibility (MD5 vs SCRAM-SHA-256).
 - Never change SSH-related paths (home directory, authorized_keys) on remote servers without explicit confirmation.
+- SSH to prod as `ubuntu`, not root. Use `ssh prod` alias (key at `~/.ssh/secondlayer-prod`).
 
 ## Debugging Approach
 
@@ -90,23 +95,27 @@ After completing code changes, always: 1) Build and verify no errors, 2) Create 
 
 ## Project Defaults
 
-Primary stack: JavaScript, Shell, HTML, YAML, Markdown. When creating new files, default to JavaScript (not TypeScript) unless the project already uses TypeScript.
+Primary stack: TypeScript, YAML, Shell. When creating new files, default to TypeScript (the project already uses TypeScript throughout).
 
 Before implementing non-trivial features, use a task agent to investigate: (1) current state of the system/service, (2) exact API limits or format requirements, (3) existing configs or files that would conflict. Report findings before writing any code.
 
 ## Repository Overview
 
-SecondLayer is a monorepo for a Ukrainian legal tech platform. It provides AI-powered legal document analysis, semantic search over court decisions, legislation retrieval, parliament data, and business registry lookups via MCP (Model Context Protocol) servers.
+SecondLayer is a monorepo for a Ukrainian legal tech platform. It provides AI-powered legal document analysis, semantic search over court decisions (via EDRSR — state court decision registry), legislation retrieval, parliament data, business registry lookups, consultations, billing, and payments via MCP (Model Context Protocol) servers.
 
 ### Workspace Structure
 
 ```
 SecondLayer/
-├── mcp_backend/        # Primary MCP server - court cases, legal docs (ZakonOnline)
+├── mcp_backend/        # Primary MCP server - court cases, legal docs, consultations, billing
 ├── mcp_rada/           # Parliament data server (deputies, bills, legislation)
-├── mcp_openreyestr/    # State Register server (business entities, beneficiaries)
-├── lexwebapp/          # Web frontend/admin panel (React 19, Vite, TailwindCSS)
+├── mcp_openreyestr/    # State Register server (business entities, beneficiaries, debtors)
+├── lexwebapp/          # Web frontend (React 19, Vite, TailwindCSS)
 ├── packages/shared/    # Shared TypeScript types and utilities (@secondlayer/shared)
+├── platform/           # Platform service (separate frontend)
+├── mobile/             # Mobile app (Flutter)
+├── opendata-sync/      # Open data synchronization service
+├── terminal-service/   # Terminal service
 ├── deployment/         # Docker configs, compose files, nginx, manage-gateway.sh
 ├── scripts/            # Utility scripts (deploy, rada sync, testing, conversion)
 ├── tests/              # E2E tests (Playwright), test fixtures
@@ -131,18 +140,20 @@ All three MCP servers support:
 - **Runtime**: Node.js 20+ (`.nvmrc: 20`) with TypeScript 5.3
 - **Databases**: PostgreSQL 15, Redis 7, Qdrant (vector DB)
 - **AI**: OpenAI API (GPT-4o, text-embedding-ada-002), optional Anthropic (Claude)
-- **External APIs**: ZakonOnline (court DB), Verkhovna Rada Open Data, data.gov.ua (OpenReyestr)
+- **External APIs**: EDRSR (state court decision registry), Verkhovna Rada Open Data, data.gov.ua (OpenReyestr)
 - **Framework**: Express.js, MCP SDK (`@modelcontextprotocol/sdk`)
 - **Frontend**: React 19, Vite, TailwindCSS 3, Zustand (state), TanStack Query (data fetching), Vitest
+- **Payments**: Monobank API (dual UAH/USD balance)
+- **Mobile**: Flutter (Dart)
 
-### Unified Gateway (45 MCP Tools)
+### Unified Gateway
 
-Stage environment aggregates all services behind a single endpoint (`ENABLE_UNIFIED_GATEWAY=true`):
-- **36 backend tools** (no prefix) - court cases, semantic search, legislation, patterns, citations, vault
-- **4 RADA tools** (`rada_*`) - deputies, bills, legislation, voting
-- **5 OpenReyestr tools** (`openreyestr_*`) - entity search, beneficiaries, debtors
+Production aggregates all services behind a single endpoint (`ENABLE_UNIFIED_GATEWAY=true`):
+- **Backend tools** (no prefix) - court cases, semantic search, legislation, patterns, citations, vault
+- **RADA tools** (`rada_*`) - deputies, bills, legislation, voting
+- **OpenReyestr tools** (`openreyestr_*`) - entity search, beneficiaries, debtors
 
-Tool registry: `mcp_backend/src/api/tool-registry.ts` maps all 44 tool names to handler classes.
+Tool registry: `mcp_backend/src/api/tool-registry.ts` maps tool names to handler classes.
 
 ### Shared Package (`@secondlayer/shared`)
 
@@ -161,26 +172,34 @@ Build shared before other services: `cd packages/shared && npm run build`
 ### Service Initialization (Factory Pattern)
 
 - `mcp_backend/src/factories/core-services.ts` → `createBackendCoreServices()` composes all backend services
-- `mcp_rada/src/factories/` → `createRadaCoreServices()` composes RADA services
-- Both factories wire up database, Redis, Qdrant, embedding service, cost tracker
+- `mcp_backend/src/factories/app-services.ts` → application-level services (auth, billing, etc.)
+- `mcp_backend/src/factories/billing-services.ts` → billing and payment services
+- `mcp_rada/src/factories/rada-services.ts` → composes RADA services
+- Factories wire up database, Redis, Qdrant, embedding service, cost tracker
 
 ### Key Services (mcp_backend/src/services/)
 
 - **QueryPlanner** - Classifies user intent, selects search strategy
-- **DocumentService** - Document retrieval and caching from ZakonOnline
+- **DocumentService** - Document retrieval and caching
 - **EmbeddingService** - Vector embeddings via OpenAI text-embedding-ada-002
 - **SemanticSectionizer** - Breaks documents into logical sections (articles, parts)
-- **LegalPatternStore** - Stores/retrieves legal reasoning patterns in Qdrant
-- **CitationValidator** - Validates legal citations against source documents
-- **HallucinationGuard** - Prevents AI from generating unsupported claims
+- **ChatService** - Chat orchestration with intent classification and context building
+- **ConsultationService** - Legal consultation management with E2EE
+- **BillingService** - Subscription and credit management
+- **MonobankService** - Payment processing via Monobank API
 - **CostTracker** - Tracks OpenAI/Anthropic/RADA API costs per request
 - **LegislationService** - Legislation text retrieval with intelligent sectioning
 - **VaultService** - Secure document storage and retrieval
+- **DiiaService** - Diia digital identity integration
+- **AuthentikService** - OIDC authentication via Authentik
+- **EdsrFtsService** - Full-text search over EDRSR court decisions
+- **EdsrCacheService** - Caching layer for EDRSR data
 
 ### Adapter Pattern (mcp_backend/src/adapters/)
 
-- **ZOAdapter** - Two instances: one for court cases search, one for legal practice database (different ZakonOnline endpoints)
+- **EDRSRLocalAdapter** - Local EDRSR court decision registry adapter
 - **RadaLegislationAdapter** - Fetches legislation from Verkhovna Rada API (zakon.rada.gov.ua)
+- **ZOAdapter** - Legacy adapter (ZakonOnline API is deprecated and being removed)
 
 ### Frontend Architecture (lexwebapp/)
 
@@ -189,7 +208,7 @@ Build shared before other services: `cd packages/shared && npm run build`
 - **Services**: API client layer (`src/services/`) wrapping backend HTTP endpoints
 - **Routing**: React Router with protected routes
 - **UI**: TailwindCSS + custom component library (`src/components/ui/`)
-- **Build**: Vite with separate staging (`npm run build:staging`) and production configs
+- **Build**: Vite with production config
 
 ## Development Commands
 
@@ -229,6 +248,7 @@ npm run dev          # MCP stdio mode
 npm run db:setup && npm run migrate
 npm run import:entities   # Import legal entities from XML
 npm run import:debtors    # Import debtors registry
+npm run sync:registries   # Sync all NAIS registries
 npm run build && npm test
 ```
 
@@ -238,7 +258,6 @@ npm run build && npm test
 cd lexwebapp
 npm run dev            # Vite dev server
 npm run build          # Production build
-npm run build:staging  # Staging build
 npm run test           # Vitest
 npm run test:coverage
 npm run lint
@@ -261,8 +280,8 @@ npm run frontend       # Start lexwebapp dev server
 | mcp_openreyestr | 3005 | 5435 | 6382 | - |
 
 **Deployment environments**:
-- Local: `localhost:3000`
-- Stage: `https://stage.legal.org.ua` (Unified Gateway on port 3004, all 45 tools)
+- Local: `localhost:3000` / `https://local.legal.org.ua`
+- Prod: `https://legal.org.ua`
 
 ## Environment Variables
 
@@ -273,9 +292,10 @@ Each service has `.env.example` with all required variables. Key vars:
 - `OPENAI_API_KEY` - AI embeddings and analysis
 - `SECONDARY_LAYER_KEYS` - API authentication tokens (comma-separated)
 - `OPENAI_MODEL_QUICK/STANDARD/DEEP` - Budget-aware model selection
-- `ZAKONONLINE_API_TOKEN` - ZakonOnline court database API
 - `JWT_SECRET` - JWT authentication secret
-- `ENABLE_UNIFIED_GATEWAY` - Enable unified gateway mode (stage)
+- `ENABLE_UNIFIED_GATEWAY` - Enable unified gateway mode
+- `MONOBANK_TOKEN` - Monobank payment API token
+- `PUBLIC_URL` - Public URL for payment callbacks
 
 ## Database Migrations
 
@@ -300,17 +320,32 @@ cd deployment
 ./manage-gateway.sh logs local
 ./manage-gateway.sh stop local
 
-# Remote deployment (git pull, migrate, rebuild, restart)
-./manage-gateway.sh deploy stage    # → gate.lexapp.co.ua
-
 # Status
 ./manage-gateway.sh status
 ./manage-gateway.sh health
 ```
 
-Dockerfiles: `Dockerfile.mono-backend`, `Dockerfile.mono-rada`, `Dockerfile.mono-openreyestr`, `Dockerfile.document-service`
+Dockerfiles: `Dockerfile.mono-backend`, `Dockerfile.mono-rada`, `Dockerfile.mono-openreyestr`, `Dockerfile.document-service`, `Dockerfile.opendata-sync`, `Dockerfile.terminal-service`
 
-Deploy process pre-builds `packages/shared` and `mcp_backend` dist on remote before Docker build.
+## CI/CD Pipeline
+
+Two GitHub Actions workflows on self-hosted runner:
+
+1. **`ci-local-deploy.yml`** (on push to main):
+   - Detects which services changed
+   - Builds shared package, then changed services
+   - Runs unit tests (Jest for backend, Vitest for frontend)
+   - Deploys to local Docker environment
+   - Health checks all deployed services
+   - Self-heals build failures via Claude Code agent (creates autofix PRs)
+
+2. **`deploy-prod.yml`** (after successful local CI, or manual trigger):
+   - Pre-deploy tests (build + test changed services)
+   - Blue-green deploy: builds inactive color on prod via SSH, runs migrations, starts new containers
+   - Preview phase: new version accessible alongside old one
+   - Switch phase: updates nginx upstreams to point to new color
+   - Tags releases with semantic versioning (backend: `v*`, frontend: `fe-v*`)
+   - Self-heals test failures via Claude Code agent
 
 ## Testing
 
@@ -337,9 +372,9 @@ cd tests && npx playwright test e2e/specific-test.spec.ts
 
 ### Adding a new MCP tool
 
-1. Define tool schema in `mcp_backend/src/api/mcp-query-api.ts` or new file in `src/api/`
-2. Implement handler method in the API class
-3. Register in `getTools()` and add to `src/api/tool-registry.ts`
+1. Create tool handler file in `mcp_backend/src/api/tools/`
+2. Implement handler method extending the tool pattern
+3. Register in `src/api/tool-registry.ts`
 4. Add HTTP route in `http-server.ts` if needed
 5. Write tests in `src/api/__tests__/`
 
@@ -356,7 +391,7 @@ Every tool execution tracks: OpenAI tokens (prompt + completion), model/tier, ex
 ## HTTP Server Structure (all services)
 
 Express app with:
-- **Auth**: Bearer token (`SECONDARY_LAYER_KEYS`) + optional JWT/OAuth
+- **Auth**: Bearer token (`SECONDARY_LAYER_KEYS`) + JWT/OAuth/OIDC/Diia/WebAuthn
 - **Tool execution**: `POST /api/tools/:toolName`
 - **SSE streaming**: `POST /api/tools/:toolName/stream`
 - **Batch**: `POST /api/tools/batch`
@@ -364,27 +399,25 @@ Express app with:
 
 ## Important Notes
 
-- **Two ZOAdapter instances**: Different ZakonOnline endpoints (court cases vs practice)
 - **Cache TTLs**: Deputies 7d, Bills 1d, Laws 30d (RADA server)
 - **Model selection**: `ModelSelector` from shared package for budget-aware choice
-- **Gateway routing**: Nginx at port 8080 routes to stage environment
 - **SSE streaming**: For long-running ops, use SSE endpoints (works through gateway)
-- **Dual-auth**: Bearer token (API clients) + JWT/OAuth (web users)
+- **Multi-auth**: Bearer token (API clients) + JWT/OAuth/OIDC/Diia/password/WebAuthn (web users)
+- **Monobank payments**: Live with dual UAH/USD balance system, PUBLIC_URL required for callbacks
+- **Blue-green prod**: Check `.active-colors` in deployment/ for current active color per service
 
 ## Scripts
 
 - `scripts/deploy/` - Deployment automation
 - `scripts/rada/` - RADA data sync and import (deputies, laws)
-- `scripts/testing/` - 14 test runner scripts for various scenarios
-- `scripts/utilities/` - File conversion (DOCX→text, PDF processing)
-
-## Deployment
-
-- Before deploying, always verify the target port is free with `ss -tlnp | grep <port>` and kill any conflicting process. Never assume a port is available.
-- Never force-move or overwrite docker-compose files, Dockerfiles, or lock files without first checking `git diff` or `git status`. Always preserve the newest version and confirm with the user before overwriting.
+- `scripts/edrsr/` - Court registry (EDRSR) data: download, import, sync
+- `scripts/opendata/` - Open data imports (NIPO patents/trademarks, etc.)
+- `scripts/testing/` - Test runner scripts for various scenarios
+- `scripts/utilities/` - File conversion (DOCX/PDF to text), MinIO cleanup
 
 ## Remote Servers
 
+- SSH to prod as `ubuntu` user: `ssh prod` (key at `~/.ssh/secondlayer-prod`).
 - Always try SSH before HTTPS for git clones on servers.
 - Use port 587 for mail relay instead of 25.
 - Verify correct server hostname/IP before attempting connections. Don't waste attempts on wrong hosts.
@@ -406,7 +439,7 @@ Before modifying shared configuration values (env vars like VITE_API_URL, API ba
 
 ## Task Management
 
-- When asked to create Linear issues, create NEW issues for untracked work. Do not list existing issues unless explicitly asked to audit.
+- Task management is via Nextcloud (Deck boards). Linear is fully deprecated.
 
 ## Frontend Conventions
 
@@ -420,15 +453,3 @@ Search results, documents, and evidence MUST render in the right side panel — 
 
 - When writing SQL in JavaScript string literals, use double-dollar quoting ($$) or parameterized queries instead of single quotes to avoid JS string escaping issues.
 - For PostgreSQL migrations, always use `IF NOT EXISTS` / `CREATE OR REPLACE` / `DO $$ BEGIN ... EXCEPTION WHEN ... END $$` patterns to make migrations idempotent.
-
-## Related Documentation
-
-- `docs/ALL_MCP_TOOLS.md` - Complete list of all 45 MCP tools
-- `docs/UNIFIED_GATEWAY_IMPLEMENTATION.md` - Unified gateway architecture
-- `docs/MCP_CLIENT_INTEGRATION_GUIDE.md` - Connecting LLM clients
-- `docs/api/mcp_api_docs.html` - Interactive API Explorer
-- `mcp_backend/docs/CLIENT_INTEGRATION.md` - Client integration quick start
-- `mcp_backend/docs/SSE_STREAMING.md` - SSE streaming protocol
-- `mcp_backend/docs/DATABASE_SETUP.md` - PostgreSQL, Redis, Qdrant setup
-- `deployment/LOCAL_DEVELOPMENT.md` - Local development setup
-- `deployment/GATEWAY_SETUP.md` - Multi-environment gateway config

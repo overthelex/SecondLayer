@@ -14,7 +14,7 @@ npm run install:all
 ```bash
 # Create .env file or export directly
 export SECONDLAYER_API_KEY=your-api-key-here
-export SECONDLAYER_API_URL=http://localhost:3000  # or https://stage.legal.org.ua
+export SECONDLAYER_API_URL=http://localhost:3000  # or https://legal.org.ua
 ```
 
 ## Step 3: Start Backend (30 sec)

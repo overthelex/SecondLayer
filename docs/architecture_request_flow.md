@@ -14,14 +14,14 @@
                                     │ HTTPS
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│  NGINX (stage / local)                                                           │
+│  NGINX (prod / local)                                                            │
 │  /api, /auth → proxy_pass → mcp_backend                                          │
 │  SSE: proxy_buffering off, proxy_read_timeout 86400s                              │
 └───────────────────────────────────┬─────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│  mcp_backend (Express, port 3000 / stage 3004)                                    │
+│  mcp_backend (Express, port 3000)                                                 │
 │  • Аутентификация: dualAuth (JWT или API key) / requireJWT для чата и биллинга   │
 │  • Биллинг: balanceCheck перед вызовом инструментов                               │
 │  • Маршруты: POST /api/chat, POST /api/tools/:toolName, GET /api/tools            │
@@ -30,7 +30,7 @@
         │ /api/chat                    │ /api/tools/:toolName         │ GET /api/tools
         ▼                             ▼                             ▼
 ┌───────────────┐           ┌──────────────────────┐           ┌─────────────────┐
-│ ChatService   │           │ ToolRegistry         │           │ Список 45 tools │
+│ ChatService   │           │ ToolRegistry         │           │ Список 118 tools│
 │ (agentic loop)│           │ (маршрутизация)      │           │ (local + remote)│
 └───────┬───────┘           └──────────┬───────────┘           └─────────────────┘
         │                             │
@@ -56,7 +56,7 @@
 | Вызвать инструмент вручную | `useMCPTool` → `MCPService.streamTool()` или `api.tools.execute()` | `POST /api/tools/:toolName` или `POST /api/tools/:toolName/stream` | `http-server` → ToolRegistry |
 | Список инструментов | `api.tools` / MCPService | `GET /api/tools` | ToolRegistry.getToolDefinitions() |
 
-- **Base URL**: `VITE_API_URL` (например `https://stage.legal.org.ua` или `http://localhost:3000`).
+- **Base URL**: `VITE_API_URL` (например `https://legal.org.ua` или `http://localhost:3000`).
 - **Авторизация**: в запросах уходит `Authorization: Bearer <token>` — JWT из `localStorage.auth_token` (приоритет) или API key из `VITE_API_KEY`.
 
 ---
@@ -75,7 +75,7 @@
 1. **Вход**: `query`, `history`, `budget` (quick/standard/deep), опционально `conversationId`.
 2. **ChatService.chat()** (agentic loop):
    - Классификация намерения (LLM) → домены и слоты.
-   - Фильтрация инструментов по доменам → подмножество из 45 tools.
+   - Фильтрация инструментов по доменам → подмножество из 118 tools.
    - Генерация плана выполнения (execution plan) → отправка клиенту как SSE `plan`.
    - Сборка контекста (история + план), лимиты по бюджету (tokens, tool calls).
    - Цикл:
@@ -116,7 +116,7 @@
 
 | Назначение | Где используется | Пример |
 |------------|-------------------|--------|
-| Судові рішення, засідання, практика, НПА | mcp_backend (ZOAdapter) | ZakonOnline API (court.searcher.api.zakononline.com.ua, searcher.api.zakononline.com.ua), при необходимости скрапинг zakononline.ua |
+| Судові рішення, засідання, практика, НПА | mcp_backend (EDRSR local adapter, ZOAdapter legacy) | EDRSR (reyestr.court.gov.ua) — основний джерело; ZakonOnline API (legacy, на етапі виведення) |
 | Депутати, законопроекти, законодавство (РАДА) | mcp_rada | data.rada.gov.ua, zakon.rada.gov.ua |
 | Юрлица, бенефіціари, реєстри | mcp_openreyestr | data.gov.ua (OpenReyestr) |
 | Эмбеддинги, LLM | mcp_backend (и при необходимости другие) | OpenAI / Anthropic (через @secondlayer/shared) |
@@ -132,9 +132,11 @@
 | **lexwebapp** | UI: чат, выбор инструмента, запросы через apiClient / MCPService (fetch + SSE). |
 | **Nginx** | Проксирование на mcp_backend, настройки SSE. |
 | **mcp_backend** | Единая точка входа: auth, биллинг, /api/chat, /api/tools; ChatService; ToolRegistry + ServiceProxy. |
-| **ToolRegistry** | Реестр 45 инструментов, маршрутизация local vs rada_* / openreyestr_*. |
+| **ToolRegistry** | Реестр 118 инструментов, маршрутизация local vs rada_* / openreyestr_*. |
 | **ChatService** | Agentic loop: классификация → план → цикл LLM + tool_calls через ToolRegistry. |
 | **ServiceProxy** | HTTP-вызовы к mcp_rada и mcp_openreyestr при gateway. |
 | **mcp_rada / mcp_openreyestr** | Отдельные MCP-серверы за gateway; вызываются только через бэкенд при ENABLE_UNIFIED_GATEWAY. |
 
-Итог: запрос из UI идёт в один бэкенд (напрямую или через Nginx). Чат и вызовы инструментов обрабатываются там; инструменты с префиксами `rada_*` и `openreyestr_*` при включённом gateway проксируются на соответствующие сервисы, остальные выполняются локально с использованием ZakonOnline и других внутренних сервисов.
+Итог: запрос из UI идёт в один бэкенд (напрямую или через Nginx). Чат и вызовы инструментов обрабатываются там; инструменты с префиксами `rada_*` и `openreyestr_*` при включённом gateway проксируются на соответствующие сервисы, остальные выполняются локально с использованием EDRSR, OpenData реєстрів и других внутренних сервисов.
+
+> **Среды:** Только local и prod. Деплой на прод через CI/CD (merge PR в main → blue-green deploy).

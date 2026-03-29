@@ -143,7 +143,7 @@ cp config-examples/continue-mcp-config.yaml .continue/mcpServers/secondlayer.yam
 
 3. **Запустити інфраструктуру:**
 ```bash
-docker-compose up -d
+cd deployment && docker compose -f docker-compose.local.yml --env-file .env.local up -d
 ```
 
 4. **Перезапустити клієнт** (Claude Desktop, Cursor, VSCode)
@@ -280,10 +280,10 @@ npm run build
 **Проблема:** Connection timeout
 ```bash
 # Перевірити сервіси
-docker-compose ps
+docker compose ps
 
 # Запустити якщо потрібно
-docker-compose up -d
+cd deployment && docker compose -f docker-compose.local.yml --env-file .env.local up -d
 ```
 
 ### Web
@@ -317,16 +317,18 @@ app.use(cors({
 
 Після підключення доступні такі інструменти:
 
-1. **search_legal_precedents** - Семантичний пошук судових рішень
-2. **analyze_case_pattern** - Аналіз паттернів у судовій практиці
-3. **get_similar_reasoning** - Знайти схоже обґрунтування
-4. **extract_document_sections** - Витягти секції з документа
-5. **count_cases_by_party** - Підрахунок справ за стороною
-6. **find_relevant_law_articles** - Релевантні статті закону
-7. **check_precedent_status** - Статус прецеденту
-8. **load_full_texts** - Завантажити повні тексти
-9. **get_citation_graph** - Граф цитувань
-10. **get_legal_advice** - Комплексна юридична порада
+Доступні 80+ інструментів. Основні категорії:
+
+- **Court Decisions** -- `get_court_decision`, `search_edrsr_decisions`, `search_edrsr_fulltext`, `analyze_case_pattern`, `extract_document_sections`, `load_full_texts`, `count_cases_by_party`
+- **Legal Advice** -- `search_legal_precedents`, `get_similar_reasoning`, `get_citation_graph`, `format_answer_pack`
+- **Core Query** -- `classify_intent`, `retrieve_legal_sources`, `validate_response`, `check_precedent_status`
+- **Legislation** -- `get_legislation_section`, `search_legal_acts`, `search_procedural_norms`
+- **Procedural** -- `calculate_procedural_deadlines`, `build_procedural_checklist`, `calculate_monetary_claims`
+- **Document Analysis** -- `parse_document`, `summarize_document`, `compare_documents`, `extract_key_clauses`
+- **Vault** -- `store_document`, `get_document`, `list_documents`, `semantic_search`
+- **Due Diligence** -- `bulk_review_runner`, `risk_scoring`, `generate_dd_report`
+- **OpenData** -- `search_sanctions`, `search_trademarks`, `search_lawyers`, `search_judges` та 20+ інших
+- **Remote (RADA)** -- 4 tools, **Remote (OpenReyestr)** -- 27 tools
 
 **Детальна документація:**
 ```bash
@@ -406,12 +408,10 @@ eventSource.onmessage = (event) => {
 
 ### Для Web
 ```bash
-# Docker compose production
-docker-compose -f docker-compose.prod.yml up -d
+# Локально
+cd deployment && docker compose -f docker-compose.local.yml --env-file .env.local up -d
 
-# Або ручний запуск
-npm run build
-NODE_ENV=production npm run start:http
+# Production — через CI/CD (merge PR to main)
 ```
 
 **Nginx reverse proxy:**
@@ -458,8 +458,8 @@ tail -f logs/combined.log
 
 2. **Перевірити сервіси:**
 ```bash
-docker-compose ps
-docker-compose logs -f
+docker compose ps
+docker compose logs -f
 ```
 
 3. **Перевірити збірку:**

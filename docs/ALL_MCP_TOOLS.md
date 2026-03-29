@@ -1,9 +1,11 @@
 # Полный список всех MCP инструментов SecondLayer
 
-**Всего инструментов: 45**
-- **mcp_backend**: 36 инструментов (порт 3000-3004) 
+**Всего инструментов: 118**
+- **mcp_backend**: 87 инструментов (порт 3000)
 - **mcp_rada**: 4 инструмента (порт 3001)
-- **mcp_openreyestr**: 5 инструментов (порт 3005)
+- **mcp_openreyestr**: 27 инструментов (порт 3005)
+
+> **Примечание:** Среды — только local и prod. Деплой на прод через CI/CD (merge PR в main, blue-green deploy).
 
 ## 📚 Related Documentation
 
@@ -15,7 +17,10 @@
 
 ---
 
-## 🏛️ MCP_BACKEND - Юридический анализ и судебная практика (36 инструментов)
+## 🏛️ MCP_BACKEND - Юридический анализ и судебная практика (87 инструментов)
+
+> **Примечание:** Ниже перечислены основные инструменты. Полный актуальный список можно получить через `GET /api/tools` endpoint.
+> Многие инструменты добавлены после первоначального описания (opendata, EDRSR, Spain legal, court sessions, и др.).
 
 ### Базовые инструменты конвейера
 
@@ -43,7 +48,7 @@ Trust layer: проверка, что ответ опирается на ист�
 Поиск юридических прецедентов с семантическим анализом
 - **Параметры:** query, domain, time_range, limit, offset, count_all, sections
 - **Стоимость:** $0.03-$0.10 USD
-- Включает OpenAI embeddings, ZakonOnline API, обработку документов
+- Включает OpenAI embeddings, EDRSR (reyestr.court.gov.ua), обработку документов
 
 #### 6. **search_supreme_court_practice**
 Поиск практики Верховного Суду (ВП/КЦС/КГС/КАС/ККС)
@@ -159,7 +164,7 @@ Trust layer: проверка, что ответ опирается на ист�
 Подсчитывает точное количество судебных дел по названию стороны
 - **Параметры:** party_name, party_type (plaintiff/defendant/any), date_from, date_to
 - **Стоимость:** ~$0.007 за страницу (1000 дел)
-- Использует пагинацию ZakonOnline API
+- Использует пагинацию API (EDRSR)
 
 ---
 
@@ -340,7 +345,7 @@ Trust layer: проверка, что ответ опирается на ист�
 #### 47. **get_legal_advice** ⭐ ГЛАВНЫЙ ИНСТРУМЕНТ
 Комплексный юридический анализ ситуации с проверкой источников и детекцией галлюцинаций
 - **Параметры:** query, reasoning_budget (quick/standard/deep)
-- **Включает:** Множественные вызовы OpenAI, ZakonOnline, SecondLayer, проверка галлюцинаций
+- **Включает:** Множественные вызовы OpenAI, EDRSR, SecondLayer, проверка галлюцинаций
 - **Стоимость:**
   - quick: ~$0.10
   - standard: ~$0.15-$0.20 (рекомендуется)
@@ -349,13 +354,11 @@ Trust layer: проверка, что ответ опирается на ист�
 
 ---
 
-**📊 Итого:** 56 инструментов (реализовано: ~45, в разработке: ~11)
+**📊 Итого:** 118 инструментов
 
-- **mcp_backend:** 36 инструментов (из них 1 в разработке)
-- **mcp_rada:** 4 инструмента  
-- **mcp_openreyestr:** 5 инструментов
-- **document_service:** 5 инструментов (парсинг документов)
-- **vault_tools:** 4 инструмента (хранение документов)
+- **mcp_backend:** 87 инструментов (включая court decisions, EDRSR, opendata registries, Spain legal, procedural, vault, due diligence, legislation, ECHR, и др.)
+- **mcp_rada:** 4 инструмента (deputies, bills, legislation text, voting)
+- **mcp_openreyestr:** 27 инструментов (entities, beneficiaries, debtors, notaries, sanctions, ProZorro, enforcement, и др.)
 
 ---
 
@@ -390,7 +393,9 @@ Trust layer: проверка, что ответ опирается на ист�
 
 ---
 
-## 🏢 MCP_OPENREYESTR - Единый государственный реестр (5 инструментов)
+## 🏢 MCP_OPENREYESTR - Единый государственный реестр (27 инструментов)
+
+> **Примечание:** OpenReyestr существенно расширен. Помимо базовых 5 инструментов (search_entities, get_entity_details, search_beneficiaries, get_by_edrpou, get_statistics) добавлены: search_debtors, search_notaries, search_beneficiaries, search_bankruptcy_cases, search_enforcement_proceedings, search_prozorro, search_rnbo_sanctions, search_nazk_declarations, search_court_experts, search_arbitration_managers, search_arma_seized_assets, search_esv_debt, search_exchange_data, search_forensic_methods, search_legal_acts, search_single_tax_payers, search_special_forms, search_street_renamings, search_streets, search_tax_debt, search_termination_started, search_vat_payers, search_administrative_units.
 
 ### 52. **search_entities**
 Поиск субъектов хозяйствования в государственном реестре
@@ -444,9 +449,9 @@ Trust layer: проверка, что ответ опирается на ист�
 
 | Сервер | Порт (dev) | Инструментов | Основное назначение | Средняя стоимость |
 |--------|-----------|--------------|---------------------|-------------------|
-| **mcp_backend** | 3003 | 35 | Судебная практика, юридический анализ, парсинг документов | $0.01-$0.30 |
+| **mcp_backend** | 3000 | 87 | Судебная практика, юридический анализ, парсинг документов, opendata, EDRSR, ECHR, Spain legal | $0.01-$0.30 |
 | **mcp_rada** | 3001 | 4 | Парламентские данные, законопроекты, депутаты | $0.005-$0.10 |
-| **mcp_openreyestr** | 3005 | 5 | Реестр юридических лиц, ФЛП, бенефициары | $0.001-$0.005 |
+| **mcp_openreyestr** | 3005 | 27 | Реєстри юридических лиц, ФЛП, бенефициары, боржники, нотаріуси, санкції, ProZorro та ін. | $0.001-$0.005 |
 
 ---
 
@@ -553,9 +558,10 @@ curl -X POST http://localhost:3005/api/search \
    - OpenReyestr: PostgreSQL только
 
 2. **Источники данных:**
-   - Backend: ZakonOnline API (платный)
+   - Backend: EDRSR (reyestr.court.gov.ua) — основной источник судебных решений, OpenData реєстри (data.gov.ua)
    - RADA: data.rada.gov.ua (бесплатный)
    - OpenReyestr: data.gov.ua (бесплатный)
+   - ZakonOnline API (устаревший, на этапе вывода из эксплуатации)
 
 3. **AI модели:**
    - OpenAI: gpt-4o-mini (quick), gpt-4o (deep)

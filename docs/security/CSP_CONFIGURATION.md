@@ -1,3 +1,5 @@
+> **NOTE:** References to dev.legal.org.ua below are historical. Only local and prod environments exist now.
+
 # Content Security Policy (CSP) Configuration
 
 **Issue:** "Content Security Policy blocks the use of 'eval' in JavaScript"

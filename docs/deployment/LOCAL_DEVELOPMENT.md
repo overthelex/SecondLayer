@@ -39,7 +39,6 @@ nano .env.local  # or use your favorite editor
 
 **Minimum required configuration:**
 - `OPENAI_API_KEY` - Your OpenAI API key
-- `ZAKONONLINE_API_TOKEN` - Your ZakonOnline API token
 
 ### 3. Start Services
 

@@ -1,8 +1,10 @@
 # Admin Billing System Deployment Guide
 
-**Purpose:** Deploy the admin billing dashboard to `dev.billing.legal.org.ua` for managing all MCP server users.
+**Purpose:** Admin billing dashboard for managing all MCP server users.
 
 **Status:** ✅ Backend API Implemented | ⏳ Frontend Pending
+
+**Note:** No stage environment exists. Only local (`localhost:3000`) and production (`legal.org.ua`). Deployment to production is via CI/CD (merge PR to main), not manual SSH.
 
 ---
 
@@ -64,7 +66,7 @@ All endpoints are mounted at `/api/admin/*` and require JWT authentication.
 
 3. **Testing:**
    - Open `mcp_backend/docs/admin-api-demo.html` in browser
-   - Enter API URL: `https://dev.legal.org.ua`
+   - Enter API URL: `https://legal.org.ua`
    - Enter JWT token from login
    - Test all endpoints
 
@@ -75,7 +77,7 @@ Currently, admin routes accept any authenticated user. We need to:
 1. **Add `is_admin` column to `users` table:**
 
 ```sql
--- Run on DEV database
+-- Run on local database (migrations applied automatically via npm run migrate)
 ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT false;
 
 -- Set your user as admin
@@ -154,7 +156,7 @@ admin-dashboard/
 In `src/services/api.ts`:
 
 ```typescript
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://dev.legal.org.ua';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://legal.org.ua';
 ```
 
 4. **Build and Deploy:**
@@ -162,9 +164,9 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://dev.legal.org.ua'
 ```bash
 npm run build
 
-# Deploy to dev.billing.legal.org.ua
+# Deploy to legal.org.ua
 # Option 1: Static hosting (Netlify, Vercel)
-# Option 2: Nginx on gate server
+# Option 2: Nginx on production server
 ```
 
 #### Option B: Integrate into Existing lexwebapp
@@ -187,13 +189,13 @@ npm run build
 
 ### For Separate React App
 
-Add to gateway server nginx config:
+Add to production nginx config:
 
 ```nginx
 # Admin Dashboard
 server {
     listen 443 ssl http2;
-    server_name dev.billing.legal.org.ua;
+    server_name legal.org.ua;
 
     ssl_certificate /etc/letsencrypt/live/legal.org.ua/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/legal.org.ua/privkey.pem;
@@ -229,15 +231,14 @@ server {
 ### Apply Configuration
 
 ```bash
-# Test config
-ssh gate "sudo nginx -t"
+# Test config (production via SSH)
+ssh prod "sudo nginx -t"
 
 # Reload
-ssh gate "sudo systemctl reload nginx"
-
-# Get SSL cert (if not exists)
-ssh gate "sudo certbot --nginx -d dev.billing.legal.org.ua"
+ssh prod "sudo systemctl reload nginx"
 ```
+
+**Note:** Nginx config changes are applied via CI/CD pipeline. Manual SSH should be avoided.
 
 ---
 
@@ -247,9 +248,9 @@ ssh gate "sudo certbot --nginx -d dev.billing.legal.org.ua"
 
 Open `mcp_backend/docs/admin-api-demo.html` in browser:
 
-1. Enter API URL: `https://dev.legal.org.ua`
+1. Enter API URL: `https://legal.org.ua`
 2. Get JWT token:
-   - Login at `https://dev.legal.org.ua/auth/google`
+   - Login at `https://legal.org.ua/auth/google`
    - Check response for `access_token`
 3. Paste JWT token
 4. Click "Load Dashboard"
@@ -260,7 +261,7 @@ Open `mcp_backend/docs/admin-api-demo.html` in browser:
 ```bash
 # Set your JWT token
 JWT="your-jwt-token-here"
-API="https://dev.legal.org.ua"
+API="https://legal.org.ua"
 
 # Get dashboard stats
 curl -H "Authorization: Bearer $JWT" \
@@ -324,7 +325,7 @@ Import collection:
   "variable": [
     {
       "key": "base_url",
-      "value": "https://dev.legal.org.ua",
+      "value": "https://legal.org.ua",
       "type": "string"
     },
     {
@@ -431,7 +432,7 @@ Restrict CORS to admin domain:
 
 ```typescript
 const adminCorsOptions = {
-  origin: 'https://dev.billing.legal.org.ua',
+  origin: 'https://legal.org.ua',
   credentials: true,
 };
 
@@ -479,7 +480,7 @@ Track admin activity:
 **Cause:** Invalid or expired JWT token
 
 **Fix:**
-1. Login again at `https://dev.legal.org.ua/auth/google`
+1. Login again at `https://legal.org.ua/auth/google`
 2. Copy new access_token
 3. Update JWT in demo page or curl commands
 
@@ -505,8 +506,8 @@ UPDATE users SET is_admin = true WHERE email = 'your-email@example.com';
 // In http-server.ts
 this.app.use(cors({
   origin: [
-    'https://dev.legal.org.ua',
-    'https://dev.billing.legal.org.ua',  // Add this
+    'https://legal.org.ua',
+    'https://legal.org.ua',  // Add this
   ],
   credentials: true,
 }));
@@ -518,14 +519,13 @@ this.app.use(cors({
 
 **Fix:**
 ```bash
-# Check backend status
-ssh gate "docker ps | grep secondlayer"
+# Check backend status (production via SSH)
+ssh prod "docker ps | grep secondlayer"
 
 # Check logs
-ssh gate "docker logs secondlayer-backend-dev"
+ssh prod "docker logs <container-name>"
 
-# Restart if needed
-ssh gate "cd /home/vovkes/deployment && ./manage-gateway.sh restart dev"
+# Redeploy via CI/CD (merge PR to main triggers deploy pipeline)
 ```
 
 ---
@@ -535,7 +535,7 @@ ssh gate "cd /home/vovkes/deployment && ./manage-gateway.sh restart dev"
 1. ✅ **Backend API** - Implemented
 2. ⏳ **Add admin role check** - See Phase 2
 3. ⏳ **Build React frontend** - See Phase 3
-4. ⏳ **Deploy to dev.billing.legal.org.ua**
+4. ⏳ **Deploy to legal.org.ua**
 5. ⏳ **Test all features**
 6. ⏳ **Add audit logging**
 7. ⏳ **Setup monitoring & alerts**

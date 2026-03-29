@@ -1,71 +1,102 @@
-# OPENREYESTR MCP Server
+# OpenReyestr MCP Server
 
-MCP server for querying the Ukrainian Unified State Register of Legal Entities, Individual Entrepreneurs and Public Associations (OPENREYESTR / Єдиний державний реєстр юридичних осіб, фізичних осіб – підприємців та громадських формувань).
+MCP-сервер для доступу до реєстрів НАІС (Національні інформаційні системи) та інших відкритих джерел даних України через Model Context Protocol.
 
-## Overview
+## Огляд
 
-This server provides access to the Ukrainian state registry data through the Model Context Protocol (MCP), allowing AI assistants to search and retrieve information about:
+Сервер надає 27 MCP-інструментів для пошуку у державних реєстрах:
 
-- **Legal Entities (UO)** - Юридичні особи (companies, corporations, etc.)
-- **Individual Entrepreneurs (FOP)** - Фізичні особи-підприємці
-- **Public Associations (FSU)** - Громадські формування та відокремлені підрозділи
+### Реєстри НАІС (ЄДР)
+- **Юридичні особи (UO)** -- пошук, деталі, бенефіціари
+- **ФОП (FOP)** -- фізичні особи-підприємці
+- **Громадські формування (FSU)** -- громадські організації та відокремлені підрозділи
 
-## Features
+### Реєстри НАІС (додаткові)
+- **Нотаріуси** -- Єдиний реєстр нотаріусів
+- **Судові експерти** -- атестовані судові експерти
+- **Арбітражні керуючі** -- реєстр арбітражних керуючих
+- **Боржники** -- Єдиний реєстр боржників
+- **Виконавчі провадження** -- автоматизована система виконавчого провадження
+- **Справи про банкрутство** -- реєстр підприємств-банкрутів
+- **Спеціальні бланки** -- бланки нотаріальних документів
+- **Методики судових експертиз** -- зареєстровані методики
+- **Нормативно-правові акти** -- ЄДРНПА
+- **Адміністративно-територіальний устрій** -- словник АТУ (КОАТУУ)
+- **Вулиці** -- словник вулиць населених пунктів
+- **Дані обміну з держорганами** -- 23.2M записів
 
-- **Search entities** by name, EDRPOU code, record number, or status
-- **Get full entity details** including founders, beneficiaries, signers, branches
-- **Search beneficial owners** across all entities
-- **Query by EDRPOU** identification code
-- **Registry statistics** - total and active entities by type
-- **Dual transport** - MCP stdio and HTTP API
+### Інші джерела
+- **АРМА** -- активи під арештом у кримінальних провадженнях
+- **ProZorro** -- тендери публічних закупівель (662K тендерів з 2015)
+- **НАЗК** -- декларації чиновників (322K декларацій)
+- **РНБО** -- санкційні списки (21K записів)
+- **ДПС** -- реєстр платників ПДВ, єдиного податку, податковий борг, борг з ЄСВ
+- **Перейменування вулиць** -- історія перейменувань (дані OpenStreetMap, ~64K вулиць)
+- **Процедури припинення** -- юридичні особи у процедурі припинення (148K записів)
 
-## Installation
+## Транспорт
+
+- **MCP stdio** -- для Claude Desktop та інших MCP-клієнтів
+- **HTTP API** -- REST-ендпоінти з Bearer-автентифікацією
+- **SSE** -- Server-Sent Events для стрімінгу
+
+## Встановлення
 
 ```bash
 cd mcp_openreyestr
 npm install
 ```
 
-## Database Setup
-
-1. Create PostgreSQL database:
+## Налаштування бази даних
 
 ```bash
-# Copy environment template
+# Скопіювати шаблон .env
 cp .env.example .env
 
-# Edit .env with your database credentials
+# Відредагувати .env з вашими параметрами
 nano .env
 
-# Create database and run migrations
+# Створити БД та виконати міграції
 npm run db:setup
 ```
 
-2. Import OPENREYESTR data from XML files:
+## Імпорт даних
+
+### Автоматичний синхронізація всіх реєстрів НАІС
 
 ```bash
-# Download data from https://data.gov.ua/dataset/1c7f3815-3259-45e0-bdf1-64dca07ddc10
+# Завантажити та імпортувати всі реєстри НАІС
+npm run import:nais
 
-# Import all data types at once
-npm run import:all /path/to/OPENREYESTR.zip
+# Синхронізувати всі реєстри (завантаження + імпорт)
+npm run sync:registries
 
-# Or import separately
-npm run import:uo /path/to/OPENREYESTR.zip
-npm run import:fop /path/to/OPENREYESTR.zip
-npm run import:fsu /path/to/OPENREYESTR.zip
+# Синхронізувати лише щотижневі реєстри
+npm run sync:weekly
+
+# Синхронізувати конкретний реєстр
+npm run sync:registry -- --only=notaries
 ```
 
-## Usage
-
-### MCP Protocol (stdio)
-
-Start the MCP server:
+### Окремі імпорти
 
 ```bash
-npm run dev
+# Імпорт юридичних осіб / ФОП / громадських організацій з XML
+npm run import:entities
+
+# Імпорт боржників з CSV
+npm run import:debtors
+
+# Імпорт ЄДРПОУ
+npm run sync:edrpou
+
+# Імпорт перейменувань вулиць (OpenStreetMap)
+npm run import:street-renamings
 ```
 
-For production:
+## Запуск
+
+### MCP stdio (для Claude Desktop)
 
 ```bash
 npm run build
@@ -74,151 +105,161 @@ npm start
 
 ### HTTP API
 
-Start the HTTP server:
-
 ```bash
+# Розробка з авто-перезавантаженням
 npm run dev:http
+
+# Продакшн
+npm run build
+npm run start:http
 ```
 
-The server will run on port 3004 (configurable via `HTTP_PORT` env variable).
+Сервер стартує на порту 3004 (налаштовується через `HTTP_PORT`).
 
-#### API Endpoints
+## API-ендпоінти
 
-All endpoints require Bearer token authentication (set in `SECONDARY_LAYER_KEYS` env variable).
+Всі ендпоінти вимагають Bearer-токен автентифікації (`SECONDARY_LAYER_KEYS` або `OPENREYESTR_API_KEYS`).
 
-**Search entities:**
+| Метод | Шлях | Опис |
+|-------|------|------|
+| `GET` | `/health` | Повна перевірка здоров'я (PostgreSQL) |
+| `GET` | `/health/live` | Liveness probe |
+| `GET` | `/health/ready` | Readiness probe (перевірка БД) |
+| `GET` | `/metrics` | Prometheus-метрики (без автентифікації) |
+| `GET` | `/api/stats` | Статистика по всіх таблицях (без автентифікації) |
+| `GET` | `/api/tools` | Список доступних інструментів |
+| `POST` | `/api/tools/:toolName` | Виклик інструменту (JSON або SSE) |
+| `POST` | `/api/tools/:toolName/stream` | Стрімінг виконання (SSE) |
+| `POST` | `/api/admin/sync-registry` | Тригер синхронізації реєстру |
+
+### Приклади
+
 ```bash
-curl -X POST http://localhost:3004/api/search \
+# Пошук юридичних осіб
+curl -X POST http://localhost:3004/api/tools/search_entities \
   -H "Authorization: Bearer your-api-key" \
   -H "Content-Type: application/json" \
-  -d '{
-    "query": "Приватбанк",
-    "entityType": "UO",
-    "limit": 10
-  }'
-```
+  -d '{"arguments": {"query": "Приватбанк", "entityType": "UO", "limit": 10}}'
 
-**Get entity by record:**
-```bash
-curl http://localhost:3004/api/entity/14426646 \
-  -H "Authorization: Bearer your-api-key"
-```
-
-**Get entity by EDRPOU:**
-```bash
-curl http://localhost:3004/api/edrpou/14360570 \
-  -H "Authorization: Bearer your-api-key"
-```
-
-**Search beneficiaries:**
-```bash
-curl -X POST http://localhost:3004/api/beneficiaries/search \
+# Деталі за номером запису
+curl -X POST http://localhost:3004/api/tools/get_entity_details \
   -H "Authorization: Bearer your-api-key" \
   -H "Content-Type: application/json" \
-  -d '{
-    "query": "Коломойський",
-    "limit": 50
-  }'
+  -d '{"arguments": {"record": "14426646"}}'
+
+# Пошук за ЄДРПОУ
+curl -X POST http://localhost:3004/api/tools/get_by_edrpou \
+  -H "Authorization: Bearer your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"arguments": {"edrpou": "14360570"}}'
+
+# Пошук бенефіціарів
+curl -X POST http://localhost:3004/api/tools/search_beneficiaries \
+  -H "Authorization: Bearer your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"arguments": {"query": "Коломойський", "limit": 50}}'
+
+# Пошук нотаріусів
+curl -X POST http://localhost:3004/api/tools/search_notaries \
+  -H "Authorization: Bearer your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"arguments": {"region": "Київська", "limit": 20}}'
+
+# Статистика реєстру
+curl -X POST http://localhost:3004/api/tools/get_statistics \
+  -H "Authorization: Bearer your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"arguments": {}}'
 ```
 
-**Get statistics:**
-```bash
-curl http://localhost:3004/api/statistics \
-  -H "Authorization: Bearer your-api-key"
-```
+## MCP-інструменти (27)
 
-## MCP Tools
+### ЄДР (5 інструментів)
 
-### search_entities
+| Інструмент | Опис |
+|------------|------|
+| `search_entities` | Пошук юридичних осіб, ФОП, громадських організацій |
+| `get_entity_details` | Повна інформація про суб'єкт (засновники, бенефіціари, керівники, філії) |
+| `search_beneficiaries` | Пошук кінцевих бенефіціарних власників |
+| `get_by_edrpou` | Пошук за кодом ЄДРПОУ |
+| `get_statistics` | Статистика реєстру за типами та статусами |
 
-Search for entities in the registry by various criteria.
+### Реєстри НАІС (11 інструментів)
 
-**Parameters:**
-- `query` (string, optional) - Name or partial name of entity
-- `edrpou` (string, optional) - EDRPOU identification code
-- `record` (string, optional) - Registry record number
-- `entityType` (enum, optional) - Type: "UO", "FOP", "FSU", or "ALL" (default: "ALL")
-- `stan` (string, optional) - Status: "зареєстровано", "припинено", etc.
-- `limit` (number, optional) - Maximum results (1-100, default: 50)
-- `offset` (number, optional) - Pagination offset (default: 0)
+| Інструмент | Опис |
+|------------|------|
+| `search_notaries` | Пошук нотаріусів за ім'ям, регіоном, статусом |
+| `search_court_experts` | Пошук судових експертів за ім'ям, типом експертизи |
+| `search_arbitration_managers` | Пошук арбітражних керуючих |
+| `search_debtors` | Пошук боржників за ім'ям, ЄДРПОУ, категорією |
+| `search_enforcement_proceedings` | Пошук виконавчих проваджень |
+| `search_bankruptcy_cases` | Пошук справ про банкрутство |
+| `search_special_forms` | Пошук спеціальних бланків нотаріальних документів |
+| `search_forensic_methods` | Пошук методик судових експертиз |
+| `search_legal_acts` | Пошук НПА за назвою, типом, видавником |
+| `search_administrative_units` | Пошук адміністративно-територіальних одиниць (КОАТУУ) |
+| `search_streets` | Пошук вулиць за назвою, населеним пунктом |
 
-**Example:**
-```json
-{
-  "query": "ТОВ Будівельна",
-  "entityType": "UO",
-  "stan": "зареєстровано",
-  "limit": 20
-}
-```
+### Інші реєстри (11 інструментів)
 
-### get_entity_details
+| Інструмент | Опис |
+|------------|------|
+| `search_exchange_data` | Дані обміну з державними органами (23.2M записів) |
+| `search_arma_seized_assets` | Активи під арештом АРМА |
+| `search_prozorro` | Тендери ProZorro |
+| `search_nazk_declarations` | Декларації НАЗК (322K) |
+| `search_rnbo_sanctions` | Санкційні списки РНБО (21K) |
+| `search_vat_payers` | Реєстр платників ПДВ (дані станом на 23.02.2022) |
+| `search_single_tax_payers` | Реєстр платників єдиного податку |
+| `search_tax_debt` | Реєстр податкового боргу |
+| `search_esv_debt` | Реєстр боргу з ЄСВ |
+| `search_street_renamings` | Історія перейменувань вулиць (OpenStreetMap, ~64K) |
+| `search_termination_started` | Юридичні особи у процедурі припинення (148K) |
 
-Get complete information about an entity including all related data.
+## Схема бази даних
 
-**Parameters:**
-- `record` (string, required) - Registry record number
-- `entityType` (enum, optional) - Type: "UO", "FOP", or "FSU" (auto-detected if not provided)
+### Основні таблиці ЄДР
 
-**Returns:** Full entity details including:
-- Main information (name, EDRPOU, status, etc.)
-- Founders (засновники)
-- Beneficial owners (бенефіціари)
-- Signers/directors (керівники)
-- Members of governing bodies (члени органів управління)
-- Branches (філії)
-- Predecessors (правопопередники)
-- Assignees (правонаступники)
-- Termination info (дані про припинення)
-- Exchange data (дані обміну з держорганами)
+| Таблиця | Опис |
+|---------|------|
+| `legal_entities` | Юридичні особи (UO) |
+| `individual_entrepreneurs` | ФОП (FOP) |
+| `public_associations` | Громадські формування (FSU) |
+| `founders` | Засновники / учасники |
+| `beneficiaries` | Бенефіціарні власники |
+| `signers` | Керівники та підписанти |
+| `members` | Члени органів управління |
+| `branches` | Філії |
+| `predecessors` | Правопопередники |
+| `assignees` | Правонаступники |
+| `termination_started` | Дані про припинення |
+| `exchange_data` | Дані обміну з держорганами |
 
-### search_beneficiaries
+### Реєстри НАІС
 
-Search for beneficial owners by name across all entities.
+| Таблиця | Опис |
+|---------|------|
+| `notaries` | Нотаріуси |
+| `court_experts` | Судові експерти |
+| `arbitration_managers` | Арбітражні керуючі |
+| `debtors` | Боржники |
+| `enforcement_proceedings` | Виконавчі провадження |
+| `bankruptcy_cases` | Справи про банкрутство |
+| `special_forms` | Спеціальні бланки |
+| `forensic_methods` | Методики судових експертиз |
+| `legal_acts` | Нормативно-правові акти |
+| `administrative_units` | Адмін-територіальний устрій |
+| `streets` | Вулиці населених пунктів |
 
-**Parameters:**
-- `query` (string, required) - Name or partial name
-- `limit` (number, optional) - Maximum results (1-100, default: 50)
+### Службові таблиці
 
-### get_by_edrpou
+| Таблиця | Опис |
+|---------|------|
+| `registry_metadata` | Метадані реєстрів |
+| `import_log` | Журнал імпорту |
+| `cost_tracking` | Відстеження витрат API |
 
-Get entity information by EDRPOU code.
-
-**Parameters:**
-- `edrpou` (string, required) - EDRPOU identification code
-
-### get_statistics
-
-Get registry statistics.
-
-**Returns:**
-- Total entities count by type
-- Active entities count by type
-- Overall totals
-
-## Database Schema
-
-### Main Tables
-
-- `legal_entities` - Legal entities (UO)
-- `individual_entrepreneurs` - Individual entrepreneurs (FOP)
-- `public_associations` - Public associations/separated divisions (FSU)
-
-### Related Tables
-
-- `founders` - Founders/participants
-- `beneficiaries` - Beneficial owners
-- `signers` - Directors and authorized persons
-- `members` - Members of governing bodies
-- `branches` - Branches and representative offices
-- `predecessors` - Predecessor entities
-- `assignees` - Successor entities
-- `executive_power` - Executive power bodies (for state enterprises)
-- `termination_started` - Termination proceedings data
-- `bankruptcy_info` - Bankruptcy/reorganization data
-- `exchange_data` - Data from state authorities (tax, social security)
-
-## Environment Variables
+## Змінні оточення
 
 ```bash
 # PostgreSQL
@@ -229,80 +270,67 @@ POSTGRES_PASSWORD=your-password
 POSTGRES_DB=openreyestr
 DATABASE_URL=postgresql://openreyestr:password@localhost:5435/openreyestr
 
-# Redis (optional, for future caching)
+# Redis (для кешування)
 REDIS_HOST=localhost
-REDIS_PORT=6381
+REDIS_PORT=6382
 
-# HTTP Server
+# HTTP-сервер
 HTTP_PORT=3004
+HTTP_HOST=0.0.0.0
 NODE_ENV=development
 
-# Security
-SECONDARY_LAYER_KEYS=key1,key2,key3
+# Автентифікація
+SECONDARY_LAYER_KEYS=key1,key2
+OPENREYESTR_API_KEYS=key1,key2
 JWT_SECRET=your-jwt-secret
 
-# Data Import
-OPENREYESTR_DATA_PATH=/path/to/data
+# OpenAI (для AI-аналізу)
+OPENAI_API_KEY=sk-...
+
+# Дозволені CORS origins
+ALLOWED_ORIGINS=https://legal.org.ua
 ```
 
-## Data Source
+## Джерело даних
 
-Data is obtained from the official Ukrainian open data portal:
+Дані з реєстрів НАІС: https://nais.gov.ua/pass_opendata
 
-**Dataset:** Єдиний державний реєстр юридичних осіб, фізичних осіб – підприємців та громадських формувань
+Додаткові джерела: data.gov.ua (АРМА, ProZorro, НАЗК, РНБО, ДПС), OpenStreetMap (перейменування вулиць).
 
-**URL:** https://data.gov.ua/dataset/1c7f3815-3259-45e0-bdf1-64dca07ddc10
+## Структура проєкту
 
-**Update frequency:** Daily
+```
+src/
+  api/              -- MCP-інструменти та API-обробники
+    mcp-openreyestr-api.ts  -- визначення 27 інструментів та роутинг
+    openreyestr-tools.ts    -- реалізація інструментів (SQL-запити)
+  config/
+    registries.ts   -- конфігурація всіх реєстрів НАІС (URL, формат, маппінг полів)
+  database/
+    database.ts     -- підключення до PostgreSQL
+  middleware/
+    dual-auth.ts    -- Bearer-токен + JWT автентифікація
+    rate-limit.ts   -- rate limiting
+  migrations/       -- SQL-міграції (001-014)
+  scripts/          -- скрипти імпорту (download-nais, sync-all, import-*)
+  services/         -- бізнес-логіка (XML/CSV парсери, імпортери, метрики)
+  types/            -- TypeScript типи
+  utils/
+    logger.ts       -- Winston логування
+  http-server.ts    -- HTTP REST entry point
+  index.ts          -- MCP stdio entry point
+```
 
-**Format:** XML files in ZIP archive
-
-## Architecture
-
-This server follows the SecondLayer monorepo architecture:
-
-- `src/api/` - MCP tools and API handlers
-- `src/services/` - Business logic (XML parser, database importer)
-- `src/migrations/` - Database migrations
-- `src/scripts/` - Import scripts
-- `src/utils/` - Utility functions
-
-## Performance Considerations
-
-- **Large dataset:** The registry contains millions of entities. Initial import may take several hours.
-- **Batch processing:** Import uses batched transactions (1000 records per batch) for optimal performance.
-- **Indexes:** Full-text search indexes on entity names for fast queries.
-- **Pagination:** Always use `limit` and `offset` parameters for large result sets.
-
-## Integration with SecondLayer
-
-This server can be integrated with the main SecondLayer legal analysis system to:
-
-- Look up company information during legal research
-- Verify beneficial owners in court cases
-- Check entity status and registration history
-- Cross-reference court case participants with registry data
-
-## Development
+## Розробка
 
 ```bash
-# Install dependencies
-npm install
-
-# Run tests
-npm test
-
-# Lint code
-npm run lint
-
-# Development mode with auto-reload
-npm run dev:http
+npm install       # Встановити залежності
+npm test          # Запустити тести (Jest)
+npm run lint      # Перевірка коду (ESLint)
+npm run dev:http  # Розробка з авто-перезавантаженням
+npm run build     # Збірка TypeScript
 ```
 
-## License
+## Ліцензія
 
 MIT
-
-## Support
-
-For issues and questions, please open an issue on the SecondLayer GitHub repository.

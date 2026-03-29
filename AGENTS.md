@@ -5,15 +5,19 @@ This file provides guidance for AI coding agents operating in this repository.
 ## Project Overview
 
 SecondLayer is a Ukrainian legal tech monorepo with 3 MCP backend servers + React frontend:
-- `mcp_backend/` — primary server: court cases, legal docs, chat, uploads (port 3000)
+- `mcp_backend/` — primary server: court decisions (EDRSR), legislation, registries, payments, ECHR (port 3000)
 - `mcp_rada/` — parliament data: deputies, bills, legislation (port 3001)
-- `mcp_openreyestr/` — state register: businesses, beneficiaries (port 3005)
+- `mcp_openreyestr/` — state register: businesses, beneficiaries, enforcement (port 3005)
 - `lexwebapp/` — React 19 + Vite + TailwindCSS frontend
 - `packages/shared/` — shared TypeScript types and utilities
-- `deployment/` — Docker Compose configs, nginx, scripts
+- `deployment/` — Docker Compose configs, nginx, CI/CD scripts
 - `tests/` — Playwright E2E tests
 
 **Tech Stack**: TypeScript 5.3, Node.js 20, Express.js, MCP SDK, React 19, PostgreSQL, Redis, Qdrant
+
+**Environments**: Local (Docker Compose) and Production (`https://legal.org.ua`). No staging environment.
+
+**Deployment**: Blue-green via CI/CD — merge PR to `main`, GitHub Actions (self-hosted runner) auto-deploys.
 
 ---
 
@@ -68,7 +72,6 @@ npm run import:debtors             # Import debtors registry
 ```bash
 cd lexwebapp
 npm run build              # Production build
-npm run build:staging      # Staging build
 npm run lint               # ESLint
 npm run test               # All tests
 npm run test:watch         # Watch mode
@@ -90,9 +93,9 @@ npx playwright show-report              # View report
 ### Docker (Local Dev)
 ```bash
 cd deployment
-./manage-gateway.sh start local        # Start all services
-./manage-gateway.sh logs local         # View logs
-docker compose -f docker-compose.local.yml build  # Rebuild after code changes
+docker compose -f docker-compose.local.yml --env-file .env.local up -d
+docker compose -f docker-compose.local.yml --env-file .env.local logs -f
+docker compose -f docker-compose.local.yml --env-file .env.local build  # Rebuild after code changes
 ```
 
 ---
@@ -100,8 +103,7 @@ docker compose -f docker-compose.local.yml build  # Rebuild after code changes
 ## Code Style Guidelines
 
 ### General Principles
-- **Language**: TypeScript (primary), JavaScript for configs, YAML for configs, Shell for deploy scripts
-- **Default to JavaScript** for new files unless project uses TypeScript
+- **Language**: TypeScript throughout the monorepo
 - **No comments** unless explicitly requested
 - Use existing patterns from neighboring files
 
@@ -142,10 +144,11 @@ docker compose -f docker-compose.local.yml build  # Rebuild after code changes
 - **Data fetching**: Use TanStack React Query with configured stale times
 - **Components**: Functional components with hooks, no class components
 - **TailwindCSS**: Use utility classes, avoid custom CSS
+- **UI text**: Ukrainian (uk-UA) for all user-facing strings
 
 ### Architecture Patterns
 - **Factory pattern** for service initialization (e.g., `createBackendCoreServices()`)
-- **Adapter pattern** for external APIs (e.g., `ZOAdapter`, `RadaLegislationAdapter`)
+- **Adapter pattern** for external APIs (e.g., `EdrsrLocalAdapter`, `RadaLegislationAdapter`)
 - **Service layer** for business logic, keep controllers thin
 - **Shared package** (`@secondlayer/shared`) for common types and utilities
 
@@ -162,19 +165,21 @@ docker compose -f docker-compose.local.yml build  # Rebuild after code changes
 
 ### Service Structure
 - `src/api/` — HTTP endpoints and MCP tools
+- `src/api/tools/` — Tool handler classes (one file per domain)
 - `src/services/` — Business logic
 - `src/adapters/` — External API integrations
 - `src/factories/` — Service initialization
 - `src/migrations/` — Database migrations
+- `src/routes/` — Express route definitions
 
 ### Configuration
 - Environment variables in `.env.example` files per service
 - Key vars: `DATABASE_URL`, `REDIS_HOST`, `OPENAI_API_KEY`, `SECONDARY_LAYER_KEYS`
 
-### 45 MCP Tools (Unified Gateway)
-- **Backend (36)**: search, documents, legislation, analysis, vault
-- **RADA (4)**: rada_search_deputies, rada_get_deputy_info, rada_search_bills, rada_get_legislation
-- **Registry (5)**: openreyestr_search_entities, openreyestr_get_entity, openreyestr_search_beneficiaries
+### 95+ MCP Tools (Unified Gateway)
+- **Backend (64)**: court decisions (EDRSR), semantic search, legislation, ECHR, procedural tools, legal advice, open data registries, court sessions, case status, Spain legal, Nextcloud, imports
+- **RADA (4)**: get_deputy_info, search_legislation_text, search_parliament_bills, analyze_voting_record
+- **OpenReyestr (27)**: search_entities, get_entity_details, get_by_edrpou, search_beneficiaries, search_debtors, search_bankruptcy_cases, search_enforcement_proceedings, search_notaries, search_prozorro, and more
 
 ---
 
@@ -182,6 +187,9 @@ docker compose -f docker-compose.local.yml build  # Rebuild after code changes
 
 1. **Backend runs in Docker** — do NOT try to start services locally outside Docker
 2. **After code changes**: rebuild with `docker compose build` before testing
-3. **Stage URL**: https://stage.legal.org.ua
+3. **Production URL**: https://legal.org.ua
 4. **Local URL**: http://localhost:3000
-5. **Dual auth**: Bearer token (API clients) + JWT/OAuth (web users)
+5. **No staging environment** — only local and prod
+6. **Dual auth**: Bearer token (API clients) + JWT/OAuth/Diia (web users)
+7. **Deploy**: merge PR to main triggers CI/CD blue-green deploy (never deploy manually via SSH)
+8. **`legacy/`**: archived code, not in active use

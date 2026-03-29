@@ -10,7 +10,7 @@
 
 - [HTTP Envelope](#http-envelope)
 - [MCP ToolResult Envelope](#mcp-toolresult-envelope)
-- [Backend Tools (36)](#backend-tools)
+- [Backend Tools (87)](#backend-tools)
   - [Pipeline Tools](#pipeline-tools)
   - [Court Decision Tools](#court-decision-tools)
   - [Procedural Tools](#procedural-tools)
@@ -20,7 +20,7 @@
   - [Due Diligence Tools](#due-diligence-tools)
   - [Batch Tools](#batch-tools)
 - [RADA Tools (4)](#rada-tools)
-- [OpenReyestr Tools (5)](#openreyestr-tools)
+- [OpenReyestr Tools (27)](#openreyestr-tools)
 - [Common Patterns](#common-patterns)
 - [Change Policy](#change-policy)
 
@@ -120,8 +120,8 @@ To get the typed data, parse: `JSON.parse(result.content[0].text)`.
 ```typescript
 {
   cases: Array<{
-    id: string;                 // ZakonOnline doc_id
-    source: string;             // "zakononline"
+    id: string;                 // EDRSR doc_id (legacy: ZakonOnline doc_id)
+    source: string;             // "edrsr" | "zakononline" (legacy)
     title: string;
     url?: string;
     date?: string;              // YYYY-MM-DD
@@ -1372,7 +1372,7 @@ Array<{
 | Date | ISO 8601 `YYYY-MM-DD` | `"2024-01-15"` |
 | Timestamp | ISO 8601 full | `"2024-01-15T10:30:00.000Z"` |
 | Internal ID | UUID v4 | `"550e8400-e29b-41d4-a716-446655440000"` |
-| ZO doc_id | number | `12345678` |
+| EDRSR/ZO doc_id | number | `12345678` |
 | Confidence | float 0.0–1.0 | `0.85` |
 | Cost USD | float | `0.0234` |
 | URL | absolute URL string | `"https://reyestr.court.gov.ua/..."` |

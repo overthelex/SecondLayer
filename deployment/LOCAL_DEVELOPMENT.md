@@ -4,40 +4,27 @@ Quick start guide for running SecondLayer on your local development machine.
 
 ## Overview
 
-The local environment is optimized for developer productivity with:
-- **Standard ports**: PostgreSQL (5432), Redis (6379), Backend (3000), Frontend (5173)
-- **Hot reload**: Frontend runs with Vite dev server for instant updates
-- **Simplified config**: Minimal setup, sensible defaults
-- **No gateway**: Direct access to services, no nginx proxy needed
-- **Debug mode**: Verbose logging for troubleshooting
+The local environment runs all services in Docker, including frontend behind nginx with TLS:
+- **HTTPS access**: `https://local.legal.org.ua` (self-signed TLS via mkcert)
+- **Hot reload**: Frontend (Vite) runs in Docker with hot module replacement
+- **All services**: PostgreSQL, Redis, Qdrant, Backend API, RADA MCP, OpenReyestr, Document Service
 - **Auto-migrations**: Database migrations run automatically on startup
-- **Multi-service**: Includes Document Service (OCR) and optional RADA MCP
+- **Nginx reverse proxy**: Same architecture as production
 
-## What's New in This Setup
-
-**Recent improvements for reliable local deployment:**
-
-1. **Automatic Database Migrations** - New `migrate-local` service runs all SQL migrations on startup
-2. **Document Service** - Separate OCR/document processing service on port 3002
-3. **RADA MCP Support** - Optional parliament data service (requires `--profile rada`)
-4. **Fixed Dockerfile** - SQL migrations now properly included in container images
-5. **Better Volume Management** - Credentials mounted via volumes instead of /dev/null
-
-## Quick Start (5 minutes)
-
-### 1. Prerequisites
+## Prerequisites
 
 ```bash
-# Check you have Docker installed
+# Docker 24+ with Compose V2
 docker --version
 docker compose version
 
-# Check Node.js version (20+ required)
+# Node.js 20+ (for shared package builds)
 node --version
-npm --version
 ```
 
-### 2. Configure Environment
+## Quick Start
+
+### 1. Configure Environment
 
 ```bash
 cd deployment
@@ -45,91 +32,81 @@ cd deployment
 # Copy environment template
 cp .env.local.example .env.local
 
-# Edit and add your API keys (REQUIRED)
-nano .env.local  # or use your favorite editor
+# Edit and add your API keys
+nano .env.local
 ```
 
-**Minimum required configuration:**
-- `OPENAI_API_KEY` - Your OpenAI API key
-- `ZAKONONLINE_API_TOKEN` - Your ZakonOnline API token
+**Minimum required:**
+- `OPENAI_API_KEY` - OpenAI API key
+- `POSTGRES_PASSWORD` - Database password
 
-### 3. Start Services
+### 2. Start Services
 
 ```bash
-# Start all backend services (PostgreSQL, Redis, Qdrant, Backend API)
+cd deployment
+
+# Start all services (builds images, runs migrations, starts containers)
 ./manage-gateway.sh start local
 
-# Wait ~30 seconds for services to initialize
 # Check status
 ./manage-gateway.sh status
 ```
 
-### 4. Start Frontend (separate terminal)
+### 3. Access Application
 
-```bash
-cd frontend
-
-# Install dependencies (first time only)
-npm install
-
-# Start Vite dev server with hot reload
-npm run dev
-```
-
-### 5. Access Application
-
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:3000
+- **Application**: https://local.legal.org.ua (frontend + API via nginx)
+- **Backend API direct**: http://localhost:3000
 - **Health Check**: http://localhost:3000/health
-- **PostgreSQL**: localhost:5432
-- **Redis**: localhost:6379
-- **Qdrant**: http://localhost:6333
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Local Development Environment                          │
-└─────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│  Local Development Environment (Docker)                    │
+└────────────────────────────────────────────────────────────┘
 
-Frontend (Vite Dev Server)          Backend Services (Docker)
-┌──────────────────────┐            ┌────────────────────────┐
-│  http://localhost:5173│            │ migrate-local          │
-│  React + Hot Reload  │            │ (runs once & exits)    │
-└──────────────────────┘            └────────┬───────────────┘
-         │                                   │
-         │ API Calls                         ▼
-         │                          ┌────────────────────────┐
-         └─────────────────────────►│ secondlayer-app-local  │
-                                    │ http://localhost:3000  │
-                                    └────────────────────────┘
-                                              │
-                                              ├─► PostgreSQL (5432)
-                                              ├─► Redis (6379)
-                                              ├─► Qdrant (6333)
-                                              └─► Document Service (3002)
+  Browser
+    │
+    ▼
+┌──────────────────────────┐
+│  nginx-local (TLS)       │
+│  https://local.legal.org.ua
+└──────────┬───────────────┘
+           │
+     ┌─────┴──────────────────────────┐
+     │                                │
+     ▼                                ▼
+┌──────────────────┐    ┌──────────────────────┐
+│  lexwebapp-local │    │  secondlayer-app-local│
+│  Vite Dev Server │    │  Backend API (:3000)  │
+└──────────────────┘    └──────────┬────────────┘
+                                   │
+                        ┌──────────┼──────────────┐
+                        │          │              │
+                        ▼          ▼              ▼
+                   PostgreSQL    Redis         Qdrant
+                    (:5432)     (:6379)       (:6333)
 
-Optional RADA MCP (with --profile rada):
-                                    ┌────────────────────────┐
-                                    │ rada-mcp-app-local     │
-                                    │ http://localhost:3001  │
-                                    └────────────────────────┘
+Optional services (profiles):
+  - rada-mcp-app-local (:3001) — Parliament data
+  - openreyestr-app-local (:3005) — Business registry
+  - document-service-local (:3002) — OCR/PDF processing
 ```
 
 ## Port Reference
 
-| Service | Port | Container Name | URL |
-|---------|------|----------------|-----|
-| Frontend (Dev) | 5173 | (host process) | http://localhost:5173 |
-| Backend API | 3000 | secondlayer-app-local | http://localhost:3000 |
-| Document Service | 3002 | document-service-local | http://localhost:3002 |
-| RADA MCP* | 3001 | rada-mcp-app-local | http://localhost:3001 |
-| PostgreSQL | 5432 | secondlayer-postgres-local | postgresql://localhost:5432 |
-| Redis | 6379 | secondlayer-redis-local | redis://localhost:6379 |
-| Qdrant HTTP | 6333 | secondlayer-qdrant-local | http://localhost:6333 |
-| Qdrant gRPC | 6334 | secondlayer-qdrant-local | - |
-
-*RADA MCP requires `--profile rada` flag to start
+| Service | Port | Container Name |
+|---------|------|----------------|
+| Nginx (HTTPS) | 443 | nginx-local |
+| Backend API | 3000 | secondlayer-app-local |
+| Document Service | 3002 | document-service-local |
+| RADA MCP | 3001 | rada-mcp-app-local |
+| OpenReyestr | 3005 | openreyestr-app-local |
+| PostgreSQL | 5432 | secondlayer-postgres-local |
+| Redis | 6379 | secondlayer-redis-local |
+| Qdrant HTTP | 6333 | secondlayer-qdrant-local |
+| Qdrant gRPC | 6334 | secondlayer-qdrant-local |
+| MinIO | 9000/9001 | minio-local |
 
 ## Common Commands
 
@@ -138,11 +115,8 @@ Optional RADA MCP (with --profile rada):
 ```bash
 cd deployment
 
-# Start local environment (backend only)
+# Start local environment
 ./manage-gateway.sh start local
-
-# Start with RADA MCP support (parliament data)
-docker compose -f docker-compose.local.yml --profile rada up -d
 
 # Stop local environment
 ./manage-gateway.sh stop local
@@ -154,10 +128,9 @@ docker compose -f docker-compose.local.yml --profile rada up -d
 ./manage-gateway.sh logs local
 
 # View specific service logs
-docker logs -f secondlayer-migrate-local  # Migrations (runs once)
 docker logs -f secondlayer-app-local      # Backend
-docker logs -f document-service-local     # Document/OCR service
-docker logs -f rada-mcp-app-local         # RADA MCP (if started)
+docker logs -f lexwebapp-local            # Frontend (Vite)
+docker logs -f nginx-local                # Nginx
 docker logs -f secondlayer-postgres-local # Database
 docker logs -f secondlayer-redis-local    # Cache
 docker logs -f secondlayer-qdrant-local   # Vector DB
@@ -167,8 +140,8 @@ docker logs -f secondlayer-qdrant-local   # Vector DB
 
 # Health checks
 curl http://localhost:3000/health         # Main backend
-curl http://localhost:3002/health         # Document service
-curl http://localhost:3001/health         # RADA MCP (if started)
+curl http://localhost:3001/health         # RADA MCP
+curl http://localhost:3005/health         # OpenReyestr
 ```
 
 ### Database Operations
@@ -177,57 +150,50 @@ curl http://localhost:3001/health         # RADA MCP (if started)
 # Connect to PostgreSQL
 PGPASSWORD=local_dev_password psql -h localhost -U secondlayer -d secondlayer_local
 
-# Migrations are run automatically on startup via migrate-local service
+# Migrations run automatically on startup via migrate-local service
 # To manually re-run migrations:
-docker compose -f docker-compose.local.yml up migrate-local
+docker compose -f docker-compose.local.yml --env-file .env.local up migrate-local
 
 # View tables
 docker exec -it secondlayer-postgres-local psql -U secondlayer -d secondlayer_local -c "\dt"
 
-# View migration status
+# View migration logs
 docker logs secondlayer-migrate-local
 ```
 
 ### Frontend Development
 
+The frontend (lexwebapp) runs inside Docker with Vite hot reload:
+
 ```bash
-cd frontend
+# Logs from Vite dev server
+docker logs -f lexwebapp-local
 
-# Start dev server (hot reload)
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Lint
+# If you need to run frontend commands locally:
+cd lexwebapp
+npm install --legacy-peer-deps
+npm run dev          # Local dev server (outside Docker)
+npm run build        # Production build
+npm run test         # Vitest
 npm run lint
-
-# Type check
-npm run type-check
 ```
 
 ### Backend Development
 
 ```bash
 cd mcp_backend
-
-# Build TypeScript
-npm run build
-
-# Run in dev mode (with nodemon)
-npm run dev:http
-
-# Run tests
-npm test
-
-# Run tests in watch mode
-npm test:watch
-
-# Lint
+npm run build        # Build TypeScript
+npm run dev:http     # Dev mode with nodemon (outside Docker)
+npm test             # Jest tests
 npm run lint
+```
+
+After backend code changes, rebuild and restart:
+
+```bash
+cd deployment
+docker compose -f docker-compose.local.yml --env-file .env.local build app-local
+docker compose -f docker-compose.local.yml --env-file .env.local up -d app-local
 ```
 
 ## Environment Variables
@@ -239,62 +205,34 @@ Copy `.env.local.example` to `.env.local` and configure:
 ```bash
 # OpenAI API (REQUIRED)
 OPENAI_API_KEY=sk-proj-your-key-here
-OPENAI_API_KEY2=sk-proj-fallback-key  # Optional
 
-# ZakonOnline API (REQUIRED)
-ZAKONONLINE_API_TOKEN=your-token-here
-ZAKONONLINE_API_TOKEN2=fallback-token  # Optional
-
-# Database (has sensible defaults)
+# Database
 POSTGRES_PASSWORD=local_dev_password_CHANGE_ME
 
-# JWT Secret (has default, change for security)
+# JWT Secret
 JWT_SECRET=your-64-char-secret-here
+
+# API authentication
+SECONDARY_LAYER_KEYS=local-dev-key,test-key-123
 ```
 
 ### Optional Configuration
 
 ```bash
-# Anthropic/Claude (for multi-provider support)
+# Anthropic/Claude (multi-provider support)
 ANTHROPIC_API_KEY=sk-ant-your-key-here
-LLM_PROVIDER_STRATEGY=openai-first  # or anthropic-first
+LLM_PROVIDER_STRATEGY=openai-first
 
-***REMOVED*** (optional for local dev)
+# Google OAuth (optional for local dev)
 GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-secret
 GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
 
-# Google Cloud Vision API (for OCR in Document Service)
-# If not provided, OCR features will be disabled
-VISION_CREDENTIALS_PATH=/path/to/your/vision-credentials.json
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/vision-credentials.json
-
 # Model selection (cost optimization)
-OPENAI_MODEL_QUICK=gpt-4o-mini       # $0.15/1M tokens
+OPENAI_MODEL_QUICK=gpt-4o-mini
 OPENAI_MODEL_STANDARD=gpt-4o-mini
-OPENAI_MODEL_DEEP=gpt-4o             # $2.50/1M tokens
+OPENAI_MODEL_DEEP=gpt-4o
 ```
-
-## Development Workflow
-
-### Making Changes to Backend
-
-1. **Edit code** in `mcp_backend/src/`
-2. **Build TypeScript**: `cd mcp_backend && npm run build`
-3. **Restart container**: `cd ../deployment && ./manage-gateway.sh restart local`
-4. **View logs**: `./manage-gateway.sh logs local`
-
-### Making Changes to Frontend
-
-1. **Edit code** in `frontend/src/`
-2. **Hot reload**: Vite automatically reloads (no manual restart needed)
-3. **View in browser**: http://localhost:5173
-
-### Database Changes
-
-1. **Create migration** in `mcp_backend/src/migrations/NNN_description.sql`
-2. **Run migration**: `cd mcp_backend && npm run migrate`
-3. **Restart backend**: `cd ../deployment && ./manage-gateway.sh restart local`
 
 ## Troubleshooting
 
@@ -302,13 +240,11 @@ OPENAI_MODEL_DEEP=gpt-4o             # $2.50/1M tokens
 
 ```bash
 # Check what's using a port
-lsof -i :3000   # Backend
-lsof -i :5432   # PostgreSQL
-lsof -i :6379   # Redis
-lsof -i :6333   # Qdrant
+ss -tlnp | grep 3000
+ss -tlnp | grep 5432
 
-# Kill process on port
-kill -9 $(lsof -t -i:3000)
+# Stop local environment cleanly
+./manage-gateway.sh stop local
 ```
 
 ### Services Not Starting
@@ -317,14 +253,11 @@ kill -9 $(lsof -t -i:3000)
 # View detailed logs
 docker logs secondlayer-app-local
 
-# Check if containers are running
-docker ps | grep secondlayer-.*-local
+# Check container status
+docker ps --filter "name=-local" --format "table {{.Names}}\t{{.Status}}"
 
-# Check if services are healthy
-docker ps --format "table {{.Names}}\t{{.Status}}"
-
-# Restart specific service
-docker restart secondlayer-app-local
+# Full rebuild
+./manage-gateway.sh deploy local --no-cache
 ```
 
 ### Database Connection Issues
@@ -332,9 +265,6 @@ docker restart secondlayer-app-local
 ```bash
 # Check if PostgreSQL is ready
 docker exec secondlayer-postgres-local pg_isready -U secondlayer
-
-# View PostgreSQL logs
-docker logs secondlayer-postgres-local
 
 # Reset database (WARNING: deletes all data)
 ./manage-gateway.sh stop local
@@ -344,244 +274,84 @@ docker volume rm deployment_postgres_local_data
 
 ### Migration Failures
 
-**Problem**: Backend starts but migrations didn't run
-
-**Solution 1**: Check migration logs
 ```bash
+# Check migration logs
 docker logs secondlayer-migrate-local
+
+# Manually re-run migrations
+docker compose -f docker-compose.local.yml --env-file .env.local up migrate-local --force-recreate
 ```
 
-**Solution 2**: Manually run migrations
-```bash
-# From deployment directory
-docker compose -f docker-compose.local.yml up migrate-local --force-recreate
-```
-
-**Solution 3**: Verify migrations are in container
-```bash
-docker exec secondlayer-app-local ls -la src/migrations/
-```
-
-### Frontend 401 Errors
-
-**Problem**: API calls return 401 Unauthorized
-
-**Solution 1**: Check API key configuration
-```bash
-# In frontend/.env
-VITE_SECONDARY_LAYER_KEY=local-dev-key
-
-# In deployment/.env.local
-SECONDARY_LAYER_KEYS=local-dev-key,test-key-123
-```
-
-**Solution 2**: Verify backend is running
-```bash
-curl http://localhost:3000/health
-```
-
-**Solution 3**: Check CORS settings in `.env.local`
-```bash
-ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
-```
-
-### Qdrant Not Ready
-
-**Problem**: "Qdrant is not ready" errors
-
-**Solution**: Qdrant takes ~20-30s to start
-```bash
-# Wait for Qdrant to be ready
-curl http://localhost:6333/
-
-# If it times out, check logs
-docker logs secondlayer-qdrant-local
-
-# Restart Qdrant
-docker restart secondlayer-qdrant-local
-```
-
-### Hot Reload Not Working (Frontend)
+### Frontend Not Loading
 
 ```bash
-# Clear Vite cache
-cd frontend
-rm -rf node_modules/.vite
+# Check nginx is running
+docker ps --filter "name=nginx-local"
 
-# Reinstall dependencies
-npm install
+# Check Vite dev server
+docker logs -f lexwebapp-local
 
-# Restart dev server
-npm run dev
+# Verify TLS certificates exist
+ls deployment/nginx/certs/
 ```
 
 ## Clean Slate Reset
 
-If you want to start fresh with a clean environment:
-
 ```bash
 cd deployment
 
-# Stop all local services (including RADA if running)
+# Stop all local services
 ./manage-gateway.sh stop local
-docker compose -f docker-compose.local.yml --profile rada down
 
 # Remove all local volumes (WARNING: deletes all data!)
-docker volume rm deployment_postgres_local_data
-docker volume rm deployment_redis_local_data
-docker volume rm deployment_qdrant_local_data
-docker volume rm deployment_app_local_data
-docker volume rm deployment_document_service_credentials
+docker volume ls | grep local | awk '{print $2}' | xargs -r docker volume rm
 
-# Start fresh (backend only)
+# Start fresh
 ./manage-gateway.sh start local
-
-# Or start with RADA MCP
-docker compose -f docker-compose.local.yml --profile rada up -d
 ```
 
-## Best Practices
+## Environment Comparison
 
-### 1. Keep Frontend Running with Hot Reload
+| Feature | Local | Production |
+|---------|-------|------------|
+| **Location** | Your machine | AWS EC2 |
+| **Domain** | local.legal.org.ua | legal.org.ua |
+| **TLS** | Self-signed (mkcert) | Cloudflare |
+| **Deploy method** | `manage-gateway.sh start local` | CI/CD (merge PR to main) |
+| **Blue-green** | No | Yes (.active-colors) |
+| **Hot reload** | Yes (Vite in Docker) | No |
+| **Database** | secondlayer_local | secondlayer_prod |
 
-- Run frontend with `npm run dev` (not in Docker) for instant updates
-- Docker is only for backend services (PostgreSQL, Redis, Qdrant, API)
+## Deploying to Production
 
-### 2. Use Different Databases per Environment
+Production deployment is fully automated via CI/CD:
 
-- Local: `secondlayer_local`
-- Dev: `secondlayer_dev`
-- Stage: `secondlayer_stage`
-- Prod: `secondlayer_db`
+1. Create a feature branch and make changes
+2. Open a Pull Request to `main`
+3. Get review approval and merge
+4. CI pipeline (`ci-local-deploy.yml`) builds and tests on self-hosted runner
+5. Deploy pipeline (`deploy-prod.yml`) does blue-green deployment to prod
+6. Preview is available at `preview.legal.org.ua` before promotion
+7. After approval, traffic switches to new containers
 
-### 3. Use Cost-Optimized Models
+Never manually recreate production containers or SSH to prod for deployments.
 
-Default configuration uses `gpt-4o-mini` for most tasks to save costs:
-- Quick tasks: `gpt-4o-mini` ($0.15/1M tokens)
-- Standard tasks: `gpt-4o-mini`
-- Deep analysis: `gpt-4o` ($2.50/1M tokens)
-
-### 4. Don't Commit Secrets
-
-Never commit these files:
-- `.env.local`
-- `.env.prod`
-- `.env.stage`
-- `.env.dev`
-
-They are already in `.gitignore`.
-
-### 5. Use API Keys for Local Auth
-
-For local development, skip OAuth and use API keys:
-```bash
-# In deployment/.env.local
-SECONDARY_LAYER_KEYS=local-dev-key
-
-# In frontend/.env
-VITE_SECONDARY_LAYER_KEY=local-dev-key
-```
-
-## Switching to Other Environments
-
-### From Local to Dev/Stage/Prod
-
-```bash
-# Stop local
-./manage-gateway.sh stop local
-
-# Start gateway environments (requires gate server access)
-./manage-gateway.sh start dev    # Development on gate server
-./manage-gateway.sh start stage  # Staging on gate server
-./manage-gateway.sh start prod   # Production on gate server
-
-# Or start all gateway environments
-./manage-gateway.sh start all
-./manage-gateway.sh gateway start
-```
-
-### Environment Comparison
-
-| Feature | Local | Dev | Stage | Prod |
-|---------|-------|-----|-------|------|
-| **Location** | Your machine | Gate server | Gate server | Gate server |
-| **Port** | 3000 | 3003 | 3002 | 3001 |
-| **URL** | localhost:3000 | legal.org.ua/development | legal.org.ua/staging | legal.org.ua |
-| **Gateway** | No | Yes | Yes | Yes |
-| **Hot Reload** | Yes (frontend) | No | No | No |
-| **OAuth** | Optional | Yes | Yes | Yes |
-| **Database** | secondlayer_local | secondlayer_dev | secondlayer_stage | secondlayer_db |
-
-## Next Steps
-
-After setting up local environment:
-
-1. **Explore the codebase**
-   - Backend: `mcp_backend/src/`
-   - Frontend: `frontend/src/`
-   - Documentation: `docs/`
-
-2. **Try MCP tools**
-   - See `docs/MCP_TOOLS_LIST.md` for available tools
-   - Test with: `curl -X POST http://localhost:3000/api/tools/get_legal_advice -H "Authorization: Bearer local-dev-key" -H "Content-Type: application/json" -d '{"query":"test"}'`
-
-3. **Read architecture docs**
-   - `CLAUDE.md` - Project overview
-   - `docs/MODEL_SELECTION_GUIDE.md` - LLM model selection
-
- 4. **Deploy to gateway environments**
-   - `deployment/QUICK_START.md` - 5-minute deployment guide
+See `.github/workflows/deploy-prod.yml` for the full pipeline.
 
 ## Testing
 
-After starting services, verify everything works by running tests:
-
 ```bash
-# Quick smoke tests (30 seconds) - Recommended first run
-./run-local-tests.sh --quick
+# Backend tests
+cd mcp_backend && npm test
 
-# Full test suite (~15 minutes) - Before committing changes
-./run-local-tests.sh
+# Frontend tests
+cd lexwebapp && npm test
 
-# Verbose output for debugging
-./run-local-tests.sh --verbose
+# Specific test file
+cd mcp_backend && npx jest --no-cache path/to/file.test.ts
 
-# Backend tests only
-./run-local-tests.sh --backend
-
-# RADA MCP tests only
-./run-local-tests.sh --rada
+# E2E tests
+cd tests && npx playwright test
 ```
-
-**Test coverage:**
-- Backend: API, adapters, services (12 test files)
-- RADA MCP: Parliament data tools (2 test files)
-- Document Service: OCR, parsing (integrated in backend)
 
 See `TESTING.md` for complete testing documentation.
-
-## Support
-
-**Documentation**:
-- This guide: `deployment/LOCAL_DEVELOPMENT.md`
-- Testing guide: `deployment/TESTING.md`
-- Recent fixes: `deployment/LOCAL_DEVELOPMENT_FIXES.md`
-- Quick start: `deployment/QUICK_START.md`
-
-**Common Issues**:
-- Port conflicts: See "Port Already in Use" above
-- Database issues: See "Database Connection Issues" above
-- Frontend errors: See "Frontend 401 Errors" above
-
-**Check logs**:
-```bash
-# All services
-./manage-gateway.sh logs local
-
-# Specific service
-docker logs -f secondlayer-app-local
-```
-
----
-
-**Happy coding! 🚀**

@@ -1,6 +1,6 @@
 # SecondLayer MCP Server
 
-Model Context Protocol server для работы с юридическими документами из Zakononline.
+Model Context Protocol server для роботи з юридичними документами (EDRSR, OpenData реєстри, законодавство РАДИ).
 
 ## Описание
 
@@ -45,8 +45,8 @@ QDRANT_URL=http://localhost:6333
 # OpenAI
 OPENAI_API_KEY=your-key
 
-# Zakononline API
-ZAKONONLINE_API_TOKEN=your-token
+# Zakononline API (legacy, being deprecated)
+# ZAKONONLINE_API_TOKEN=your-token
 
 # Security (для HTTP mode)
 SECONDARY_LAYER_KEYS=test-key-123,dev-key-456
