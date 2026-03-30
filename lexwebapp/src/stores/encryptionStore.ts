@@ -12,9 +12,75 @@ import {
   unlockPrivateKey,
   exportKeyFile,
   clearAllConsultationKeys,
+  clearChatDEKCache,
+  encodeBase64,
+  decodeBase64,
   type EncryptedKeyBundle,
   type KdfParams,
 } from '../services/crypto';
+
+// --- Session persistence helpers ---
+// After unlock, we store the private key encrypted with a random session key
+// in sessionStorage so page refresh doesn't require password re-entry.
+// sessionStorage is cleared when the tab/browser closes.
+
+const SESSION_KEY_NAME = 'e2ee_session_key';
+const SESSION_PK_NAME = 'e2ee_session_pk';
+const SESSION_PUB_NAME = 'e2ee_session_pub';
+
+async function encryptForSession(privateKey: Uint8Array): Promise<{ sessionKey: string; encryptedPk: string }> {
+  const sk = crypto.getRandomValues(new Uint8Array(32));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const cryptoKey = await crypto.subtle.importKey('raw', sk.buffer as ArrayBuffer, 'AES-GCM', false, ['encrypt']);
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, privateKey.buffer as ArrayBuffer);
+  // Store iv + ciphertext together
+  const combined = new Uint8Array(12 + ct.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ct), 12);
+  return { sessionKey: encodeBase64(sk), encryptedPk: encodeBase64(combined) };
+}
+
+async function decryptFromSession(sessionKey: string, encryptedPk: string): Promise<Uint8Array> {
+  const sk = decodeBase64(sessionKey);
+  const combined = decodeBase64(encryptedPk);
+  const iv = combined.slice(0, 12);
+  const ct = combined.slice(12);
+  const cryptoKey = await crypto.subtle.importKey('raw', sk.buffer as ArrayBuffer, 'AES-GCM', false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, ct.buffer as ArrayBuffer);
+  return new Uint8Array(pt);
+}
+
+function saveToSession(sessionKey: string, encryptedPk: string, publicKey: string) {
+  try {
+    sessionStorage.setItem(SESSION_KEY_NAME, sessionKey);
+    sessionStorage.setItem(SESSION_PK_NAME, encryptedPk);
+    sessionStorage.setItem(SESSION_PUB_NAME, publicKey);
+  } catch {
+    // sessionStorage may be unavailable (private mode in some browsers)
+  }
+}
+
+function clearSession() {
+  try {
+    sessionStorage.removeItem(SESSION_KEY_NAME);
+    sessionStorage.removeItem(SESSION_PK_NAME);
+    sessionStorage.removeItem(SESSION_PUB_NAME);
+  } catch {
+    // Ignore
+  }
+}
+
+function getSessionData(): { sessionKey: string; encryptedPk: string; publicKey: string } | null {
+  try {
+    const sessionKey = sessionStorage.getItem(SESSION_KEY_NAME);
+    const encryptedPk = sessionStorage.getItem(SESSION_PK_NAME);
+    const publicKey = sessionStorage.getItem(SESSION_PUB_NAME);
+    if (sessionKey && encryptedPk && publicKey) return { sessionKey, encryptedPk, publicKey };
+  } catch {
+    // Ignore
+  }
+  return null;
+}
 
 interface EncryptionState {
   /** Whether the user has encryption keys set up on the server */
@@ -29,8 +95,12 @@ interface EncryptionState {
   isLoading: boolean;
   /** Error message from last operation */
   error: string | null;
+  /** Whether status check has been performed */
+  statusChecked: boolean;
   // Actions
   checkStatus: () => Promise<void>;
+  /** Try to restore private key from sessionStorage (no password needed) */
+  trySessionRestore: () => Promise<boolean>;
   setup: (password: string) => Promise<EncryptedKeyBundle>;
   unlock: (password: string) => Promise<void>;
   lock: () => void;
@@ -46,6 +116,7 @@ export const useEncryptionStore = create<EncryptionState>()(
       publicKey: null,
       isLoading: false,
       error: null,
+      statusChecked: false,
 
       /**
        * Check if the current user has encryption set up.
@@ -53,9 +124,32 @@ export const useEncryptionStore = create<EncryptionState>()(
       checkStatus: async () => {
         try {
           const { has_encryption } = await encryptionService.getStatus();
-          set({ hasEncryption: has_encryption });
+          set({ hasEncryption: has_encryption, statusChecked: true });
         } catch {
           // Silently fail — user may not be authenticated yet
+          set({ statusChecked: true });
+        }
+      },
+
+      /**
+       * Try to restore private key from sessionStorage (after page refresh).
+       * Returns true if restoration succeeded.
+       */
+      trySessionRestore: async () => {
+        const data = getSessionData();
+        if (!data) return false;
+        try {
+          const privateKey = await decryptFromSession(data.sessionKey, data.encryptedPk);
+          set({
+            isUnlocked: true,
+            privateKey,
+            publicKey: data.publicKey,
+            hasEncryption: true,
+          });
+          return true;
+        } catch {
+          clearSession();
+          return false;
         }
       },
 
@@ -93,6 +187,11 @@ export const useEncryptionStore = create<EncryptionState>()(
             isLoading: false,
           });
 
+          // Persist to sessionStorage for page-refresh recovery
+          encryptForSession(pk).then(({ sessionKey, encryptedPk }) => {
+            saveToSession(sessionKey, encryptedPk, bundle.publicKey);
+          }).catch(() => {});
+
           return bundle;
         } catch (error: any) {
           set({
@@ -117,15 +216,22 @@ export const useEncryptionStore = create<EncryptionState>()(
             myKey.kdf_algorithm,
           );
 
-          // Also fetch public key
-          const status = await encryptionService.getStatus();
+          const pubKey = myKey.public_key || null;
 
           set({
             isUnlocked: true,
             privateKey,
-            hasEncryption: status.has_encryption,
+            publicKey: pubKey,
+            hasEncryption: true,
             isLoading: false,
           });
+
+          // Persist to sessionStorage for page-refresh recovery
+          if (pubKey) {
+            encryptForSession(privateKey).then(({ sessionKey, encryptedPk }) => {
+              saveToSession(sessionKey, encryptedPk, pubKey);
+            }).catch(() => {});
+          }
         } catch (error: any) {
           set({
             isLoading: false,
@@ -145,6 +251,8 @@ export const useEncryptionStore = create<EncryptionState>()(
           privateKey.fill(0);
         }
         clearAllConsultationKeys();
+        clearChatDEKCache();
+        clearSession();
         set({
           isUnlocked: false,
           privateKey: null,
@@ -158,6 +266,8 @@ export const useEncryptionStore = create<EncryptionState>()(
         const { privateKey } = get();
         if (privateKey) privateKey.fill(0);
         clearAllConsultationKeys();
+        clearChatDEKCache();
+        clearSession();
         set({
           hasEncryption: false,
           isUnlocked: false,
@@ -165,6 +275,7 @@ export const useEncryptionStore = create<EncryptionState>()(
           publicKey: null,
           isLoading: false,
           error: null,
+          statusChecked: false,
         });
       },
     }),

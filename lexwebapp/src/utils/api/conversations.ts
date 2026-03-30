@@ -23,5 +23,10 @@ export const conversationsApi = {
     citations?: ConversationCitation[];
     documents?: ConversationDocument[];
     cost_summary?: ConversationCostSummary;
+    is_encrypted?: boolean;
   }) => apiClient.post(`/api/conversations/${conversationId}/messages`, message),
+  saveConversationKey: (conversationId: string, encryptedDek: string) =>
+    apiClient.post(`/api/conversations/${conversationId}/encryption-key`, { encrypted_dek: encryptedDek }),
+  getConversationKey: (conversationId: string) =>
+    apiClient.get(`/api/conversations/${conversationId}/encryption-key`),
 };

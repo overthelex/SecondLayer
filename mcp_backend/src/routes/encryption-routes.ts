@@ -117,6 +117,7 @@ export function createEncryptionRoutes(
 
       res.json({
         encrypted_private_key: key.encrypted_private_key,
+        public_key: key.public_key,
         kdf_algorithm: key.kdf_algorithm,
         kdf_params: key.kdf_params,
         key_version: key.key_version,

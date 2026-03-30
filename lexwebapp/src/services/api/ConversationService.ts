@@ -65,6 +65,7 @@ export interface ConversationMessage {
   citations?: ConversationCitation[];
   tool_calls?: ConversationToolCall[];
   cost_tracking_id?: string;
+  is_encrypted?: boolean;
   created_at: string;
 }
 
@@ -108,12 +109,30 @@ export class ConversationService extends BaseService {
       tool_calls?: ConversationToolCall[];
       cost_tracking_id?: string;
       cost_summary?: ConversationCostSummary;
+      is_encrypted?: boolean;
     }
   ): Promise<ConversationMessage> {
     return this.request(() => this.client.post<ConversationMessage>(
       `/api/conversations/${conversationId}/messages`,
       message
     ));
+  }
+
+  async saveConversationKey(conversationId: string, encryptedDek: string): Promise<void> {
+    return this.requestVoid(() =>
+      this.client.post(`/api/conversations/${conversationId}/encryption-key`, { encrypted_dek: encryptedDek })
+    );
+  }
+
+  async getConversationKey(conversationId: string): Promise<string | null> {
+    try {
+      const result = await this.request(() =>
+        this.client.get<{ encrypted_dek: string }>(`/api/conversations/${conversationId}/encryption-key`)
+      );
+      return result.encrypted_dek;
+    } catch {
+      return null;
+    }
   }
 
 }
