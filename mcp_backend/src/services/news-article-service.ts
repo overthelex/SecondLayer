@@ -109,7 +109,7 @@ export class NewsArticleService {
       });
       const page = await context.newPage();
 
-      await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
       const html = await page.content();
       await context.close();
 

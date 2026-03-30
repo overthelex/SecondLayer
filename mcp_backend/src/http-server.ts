@@ -799,7 +799,7 @@ class HTTPMCPServer {
             }
           });
 
-          await page.goto(KMU_RSS_URL, { waitUntil: 'networkidle', timeout: 30000 });
+          await page.goto(KMU_RSS_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
           await context.close();
 
           if (!rawXml || (!rawXml.includes('<rss') && !rawXml.includes('<channel>'))) {
