@@ -68,9 +68,8 @@ CREATE TEMP TABLE edrsr_import (LIKE edrsr_documents INCLUDING DEFAULTS);
 COPY edrsr_import(doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ)
   FROM '/tmp/import.csv' WITH (FORMAT csv, DELIMITER E'\t', QUOTE '"', NULL '');
 INSERT INTO edrsr_documents
-  SELECT i.* FROM edrsr_import i
-  LEFT JOIN edrsr_documents d ON d.doc_id = i.doc_id AND d.adjudication_date = i.adjudication_date
-  WHERE d.doc_id IS NULL;
+  SELECT * FROM edrsr_import
+  ON CONFLICT (doc_id) DO NOTHING;
 DROP TABLE edrsr_import;
 SQLEOF
     ssh -T "$SSH_HOST" "docker cp ${sql_file} secondlayer-postgres-prod:/tmp/import.sql && rm -f ${sql_file}"
