@@ -36,6 +36,7 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
     phoneKeyMethod: 'Ключ в телефоні',
     // OAuth
     googleAuth: 'Google',
+    webviewGoogleWarning: 'Google не дозволяє вхід із вбудованого браузера. Відкрийте сайт у Safari або Chrome.',
     diiaAuth: 'Увійти через Дія.Підпис',
     ssoAuth: 'SSO',
     // Errors
@@ -176,6 +177,7 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
     hardwareKeyMethod: 'Hardware Key',
     phoneKeyMethod: 'Phone Key',
     googleAuth: 'Google',
+    webviewGoogleWarning: 'Google does not allow sign-in from in-app browsers. Please open the site in Safari or Chrome.',
     diiaAuth: 'Sign in via Diia.Signature',
     ssoAuth: 'SSO',
     enterEmailPassword: 'Enter email and password',
@@ -307,6 +309,7 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
     hardwareKeyMethod: 'Hardware-Schlussel',
     phoneKeyMethod: 'Telefon-Schlussel',
     googleAuth: 'Google',
+    webviewGoogleWarning: 'Google erlaubt keine Anmeldung über In-App-Browser. Bitte öffnen Sie die Seite in Safari oder Chrome.',
     diiaAuth: 'Anmelden über Diia.Signature',
     ssoAuth: 'SSO',
     enterEmailPassword: 'E-Mail und Passwort eingeben',
@@ -438,6 +441,7 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
     hardwareKeyMethod: 'Llave física',
     phoneKeyMethod: 'Llave del teléfono',
     googleAuth: 'Google',
+    webviewGoogleWarning: 'Google no permite iniciar sesión desde navegadores integrados. Abra el sitio en Safari o Chrome.',
     diiaAuth: 'Iniciar sesión vía Diia.Signature',
     ssoAuth: 'SSO',
     enterEmailPassword: 'Introduzca correo electrónico y contraseña',
