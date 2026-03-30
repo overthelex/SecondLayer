@@ -60,6 +60,13 @@ function LanguageSwitcher() {
   );
 }
 
+function isInAppBrowser(): boolean {
+  const ua = navigator.userAgent || '';
+  return /LinkedInApp|FBAN|FBAV|Instagram|Twitter|Line\/|Snapchat|TikTok|Telegram|Viber/i.test(ua)
+    || (/(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(ua))
+    || (/Android.*wv\b/.test(ua));
+}
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const BASE_URL = API_URL.replace(/\/api$/, '');
 
@@ -402,9 +409,15 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
   };
 
+  const [showWebViewWarning, setShowWebViewWarning] = useState(false);
+
   const handleGoogleAuth = () => {
     if (!isLogin && !allConsentsAccepted) {
       setError('Для реєстрації необхідно прийняти всі документи');
+      return;
+    }
+    if (isInAppBrowser()) {
+      setShowWebViewWarning(true);
       return;
     }
     setError(null);
@@ -818,6 +831,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </svg>
             {t.googleAuth}
           </button>
+
+          {showWebViewWarning && (
+            <div className="flex items-start gap-2 px-3 py-2.5 mb-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[0.78rem] leading-snug">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>{t.webviewGoogleWarning}</span>
+            </div>
+          )}
 
           {/* Diia Auth */}
           <button
