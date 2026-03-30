@@ -833,20 +833,20 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </button>
 
           {showWebViewWarning && (
-            <div className="flex items-start gap-2 px-3 py-2.5 mb-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[0.78rem] leading-snug">
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <div>
+            <div className="flex flex-col gap-2 px-3 py-2.5 mb-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[0.78rem] leading-snug">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>{t.webviewGoogleWarning}</span>
-                {' '}
-                <a
-                  href={window.location.origin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline text-amber-200 font-medium"
-                >
-                  {t.webviewOpenInBrowser} →
-                </a>
               </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.origin);
+                  showToast.success(t.webviewLinkCopied);
+                }}
+                className="w-full py-2 rounded-md bg-amber-500/20 hover:bg-amber-500/30 active:bg-amber-500/40 text-amber-200 font-medium text-[0.8rem] transition-colors"
+              >
+                {t.webviewCopyLink}
+              </button>
             </div>
           )}
 
