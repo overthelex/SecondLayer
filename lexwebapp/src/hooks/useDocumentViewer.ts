@@ -5,6 +5,9 @@ import type { DownloadedDecision } from '../stores/decisionsSearchStore';
 import { STATUS_LABELS, DOC_TYPE_LABELS, SECTION_TYPE_LABELS } from '../components/right-panel/constants';
 import { mcpService } from '../services/api/MCPService';
 import { getErrorMessage } from '../utils/errors';
+import { useEncryptionStore } from '../stores/encryptionStore';
+import { encryptionService } from '../services/api/EncryptionService';
+import { decryptContent, unwrapDEK } from '../services/crypto';
 
 /** Parse MCP tool result wrapper to get the inner JSON payload. */
 function parseToolResult(data: any): any {
@@ -111,17 +114,61 @@ export function useDocumentViewer({ downloadedDecisions }: UseDocumentViewerOpti
     setIsViewerOpen(true);
   }, []);
 
-  const openDocumentModal = useCallback((doc: { id: string; title: string; type: string; uploadedAt?: string; metadata?: Record<string, any> }) => {
+  const openDocumentModal = useCallback(async (doc: { id: string; title: string; type: string; uploadedAt?: string; metadata?: Record<string, any> }) => {
+    const snippet = doc.metadata?.snippet || doc.metadata?.text || doc.metadata?.content || '';
     setViewerItem({
       type: 'document',
       title: doc.title,
       subtitle: doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('uk-UA') : undefined,
       badge: DOC_TYPE_LABELS[doc.type] || doc.type,
       badgeVariant: 'default',
-      content: doc.metadata?.snippet || doc.metadata?.text || doc.metadata?.content || 'Немає вмісту для перегляду.',
+      content: snippet || 'Завантаження...',
       relevance: doc.metadata?.relevance != null ? Math.round(doc.metadata.relevance * 100) : undefined,
     });
     setIsViewerOpen(true);
+    setIsViewerLoading(true);
+    setViewerError(null);
+
+    try {
+      const result = await mcpService.callTool('get_document', { documentId: doc.id });
+      const parsed = parseToolResult(result);
+
+      let content = parsed?.content || parsed?.text || '';
+      if (!content && parsed?.sections && Array.isArray(parsed.sections) && parsed.sections.length > 0) {
+        content = formatSections(parsed.sections);
+      }
+
+      // Decrypt if document is encrypted
+      const isEncrypted = parsed?.is_encrypted;
+      if (isEncrypted && content) {
+        const { privateKey, isUnlocked } = useEncryptionStore.getState();
+        if (!isUnlocked || !privateKey) {
+          content = '\u{1F512} Сейф заблоковано. Розблокуйте шифрування для перегляду.';
+        } else {
+          try {
+            const keyData = await encryptionService.getDocumentKey(doc.id);
+            const dek = await unwrapDEK(keyData.encrypted_dek, privateKey);
+            content = await decryptContent(content, dek);
+          } catch {
+            content = '\u{1F512} Не вдалося розшифрувати документ. Розблокуйте сейф.';
+          }
+        }
+      }
+
+      if (content) {
+        setViewerItem(prev => prev ? { ...prev, content } : prev);
+      } else {
+        setViewerItem(prev => prev ? { ...prev, content: snippet || 'Немає вмісту для перегляду.' } : prev);
+      }
+    } catch (err: unknown) {
+      console.error('Failed to fetch vault document:', err);
+      // Fall back to snippet if available
+      if (!snippet) {
+        setViewerItem(prev => prev ? { ...prev, content: 'Не вдалося завантажити вміст документа.' } : prev);
+      }
+    } finally {
+      setIsViewerLoading(false);
+    }
   }, []);
 
   return {

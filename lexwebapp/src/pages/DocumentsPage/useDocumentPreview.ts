@@ -127,7 +127,18 @@ export function useDocumentPreview(options: UseDocumentPreviewOptions) {
             const parsed = result?.result?.content?.[0]?.text
               ? JSON.parse(result.result.content[0].text)
               : result?.result || result;
-            const rawContent = parsed.content || parsed.text || parsed.sections?.map((s: any) => s.content).join('\n\n') || 'Вміст недоступний';
+            let rawContent = parsed.content || parsed.text || parsed.sections?.map((s: any) => s.content).join('\n\n') || 'Вміст недоступний';
+
+            // Decrypt if document is encrypted
+            const isEncrypted = doc.is_encrypted || parsed.is_encrypted;
+            if (isEncrypted && rawContent && rawContent !== 'Вміст недоступний') {
+              try {
+                rawContent = await decryptDocumentContent(doc.id, rawContent);
+              } catch (decryptErr: any) {
+                rawContent = `\u{1F512} ${decryptErr.message || 'Не вдалося розшифрувати документ. Розблокуйте сейф.'}`;
+              }
+            }
+
             const content = processEmlContent(rawContent);
             setPreviewDoc({
               type: 'document',
