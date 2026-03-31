@@ -160,12 +160,13 @@ export function DocumentsPage() {
   });
 
   // Upload state from Zustand store
-  const { items: uploadItems, isUploading, completedFiles, recoveredSessions } = useUploadStore(
+  const { items: uploadItems, isUploading, completedFiles, recoveredSessions, encryptionDoneCounter } = useUploadStore(
     useShallow(s => ({
       items: s.items,
       isUploading: s.isUploading,
       completedFiles: s.completedFiles,
       recoveredSessions: s.recoveredSessions,
+      encryptionDoneCounter: s.encryptionDoneCounter,
     }))
   );
   const addFiles = useUploadStore(s => s.addFiles);
@@ -213,6 +214,13 @@ export function DocumentsPage() {
       loadStats();
     }
   }, [completedFiles, isUploading]);
+
+  // Reload docs when post-upload encryption finishes (E2EE badges)
+  useEffect(() => {
+    if (encryptionDoneCounter > 0) {
+      loadDocuments();
+    }
+  }, [encryptionDoneCounter]);
 
   // Navigation helpers
   const navigateToFolder = useCallback((folderPath: string) => {

@@ -43,6 +43,9 @@ interface UploadState {
   recoveredSessions: RecoveredSession[];
   isRecovering: boolean;
 
+  // Bumped when post-upload encryption finishes (signals list reload)
+  encryptionDoneCounter: number;
+
   // Post-upload destination picker
   showDestinationPicker: boolean;
   pendingDocumentIds: string[];
@@ -146,6 +149,8 @@ export const useUploadStore = create<UploadState>((set) => {
             if (failed > 0) {
               showToast.error(toastTDynamic('encryptionFailed', failed));
             }
+            // Signal DocumentsPage to reload (E2EE badges now visible)
+            set(state => ({ encryptionDoneCounter: state.encryptionDoneCounter + 1 }));
           }).catch(err => {
             console.warn('[UploadStore] Post-upload encryption failed', err);
           });
@@ -177,6 +182,7 @@ export const useUploadStore = create<UploadState>((set) => {
     isThrottled: false,
     recoveredSessions: [],
     isRecovering: false,
+    encryptionDoneCounter: 0,
     showDestinationPicker: false,
     pendingDocumentIds: [],
     dismissDestinationPicker: () => set({ showDestinationPicker: false, pendingDocumentIds: [] }),
