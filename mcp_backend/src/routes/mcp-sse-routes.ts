@@ -93,6 +93,18 @@ export function createMCPSSERoutes(deps: {
     });
   });
 
+  // GET /sse/.well-known/oauth-protected-resource - RFC 9728 Protected Resource Metadata
+  // ChatGPT checks this FIRST to discover the OAuth authorization server
+  router.get('/sse/.well-known/oauth-protected-resource', (req: Request, res: Response) => {
+    const baseUrl = getBaseUrl(req);
+    res.json({
+      resource: `${baseUrl}/sse`,
+      authorization_servers: [baseUrl],
+      scopes_supported: ['mcp'],
+      bearer_methods_supported: ['header'],
+    });
+  });
+
   // GET /sse/.well-known/oauth-authorization-server - RFC 8414 OAuth metadata
   router.get('/sse/.well-known/oauth-authorization-server', (req: Request, res: Response) => {
     res.json(oauthMetadata(getBaseUrl(req)));
@@ -575,6 +587,17 @@ export function createMCPSSERoutes(deps: {
 
   router.get('/.well-known/openid-configuration', (req: Request, res: Response) => {
     res.json(oauthMetadata(getBaseUrl(req)));
+  });
+
+  // RFC 9728 Protected Resource Metadata (root-level)
+  router.get('/.well-known/oauth-protected-resource', (req: Request, res: Response) => {
+    const baseUrl = getBaseUrl(req);
+    res.json({
+      resource: `${baseUrl}/sse`,
+      authorization_servers: [baseUrl],
+      scopes_supported: ['mcp'],
+      bearer_methods_supported: ['header'],
+    });
   });
 
   // Redirect /register to /oauth/register (MCP client compatibility)
