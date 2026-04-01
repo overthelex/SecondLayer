@@ -380,6 +380,65 @@ export class OAuthService {
   }
 
   /**
+   * Sign MCP OAuth params into a tamper-proof state string for Google OAuth flow.
+   * Uses HMAC-SHA256 to prevent parameter tampering (e.g. redirect_uri swap).
+   */
+  signMcpState(params: {
+    client_id: string;
+    redirect_uri: string;
+    scope: string;
+    state?: string;
+    code_challenge?: string;
+    code_challenge_method?: string;
+  }): string {
+    const nonce = crypto.randomBytes(16).toString('hex');
+    const payload = { ...params, nonce, ts: Date.now() };
+    const payloadStr = JSON.stringify(payload);
+    const secret = process.env.JWT_SECRET || 'oauth-state-secret';
+    const sig = crypto.createHmac('sha256', secret).update(payloadStr).digest('base64url');
+    return Buffer.from(JSON.stringify({ p: payloadStr, s: sig })).toString('base64url');
+  }
+
+  /**
+   * Verify and decode a signed MCP state string. Returns null if invalid or expired (10 min).
+   */
+  verifyMcpState(state: string): {
+    client_id: string;
+    redirect_uri: string;
+    scope: string;
+    state?: string;
+    code_challenge?: string;
+    code_challenge_method?: string;
+  } | null {
+    try {
+      const decoded = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
+      const secret = process.env.JWT_SECRET || 'oauth-state-secret';
+      const expectedSig = crypto.createHmac('sha256', secret).update(decoded.p).digest('base64url');
+      if (expectedSig !== decoded.s) {
+        logger.warn('MCP state signature mismatch');
+        return null;
+      }
+      const payload = JSON.parse(decoded.p);
+      // Expire after 10 minutes
+      if (Date.now() - payload.ts > 10 * 60 * 1000) {
+        logger.warn('MCP state expired');
+        return null;
+      }
+      return {
+        client_id: payload.client_id,
+        redirect_uri: payload.redirect_uri,
+        scope: payload.scope,
+        state: payload.state,
+        code_challenge: payload.code_challenge,
+        code_challenge_method: payload.code_challenge_method,
+      };
+    } catch (err) {
+      logger.warn('Failed to verify MCP state', { error: (err as Error).message });
+      return null;
+    }
+  }
+
+  /**
    * Verify PKCE code_verifier against code_challenge
    * Implements RFC 7636 - Proof Key for Code Exchange
    */
