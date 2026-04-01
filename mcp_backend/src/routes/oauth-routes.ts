@@ -969,7 +969,7 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
   router.get('/.well-known/oauth-authorization-server', (req: Request, res: Response) => {
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host;
-    const baseUrl = process.env.PUBLIC_URL || `${proto}://${host}`;
+    const baseUrl = `${proto}://${host}`;
 
     res.json({
       issuer: baseUrl,
@@ -994,7 +994,7 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
   router.get('/.well-known/openid-configuration', (req: Request, res: Response) => {
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host;
-    const baseUrl = process.env.PUBLIC_URL || `${proto}://${host}`;
+    const baseUrl = `${proto}://${host}`;
 
     res.json({
       issuer: baseUrl,
