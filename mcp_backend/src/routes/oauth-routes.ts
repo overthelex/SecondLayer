@@ -10,6 +10,7 @@
 
 import { Router, Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
+import passport from 'passport';
 import { OAuthService } from '../services/oauth-service.js';
 import { logger } from '../utils/logger.js';
 import bcrypt from 'bcryptjs';
@@ -275,6 +276,50 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
       border-left: 4px solid #dc2626;
     }
 
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 24px 0;
+      color: #9ca3af;
+      font-size: 13px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e5e7eb;
+    }
+
+    .divider span {
+      padding: 0 12px;
+    }
+
+    .google-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 12px;
+      background: #fff;
+      color: #374151;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .google-btn:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
     .footer {
       text-align: center;
       margin-top: 24px;
@@ -340,12 +385,37 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
       </button>
     </form>
 
+    <div class="divider"><span>або</span></div>
+
+    <a id="googleBtn" class="google-btn" href="#">
+      <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+        <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 2.58 9 2.58z" fill="#EA4335"/>
+      </svg>
+      Увійти через Google
+    </a>
+
     <div class="footer">
       Secure OAuth 2.0 Authentication
     </div>
   </div>
 
   <script>
+    // Build Google OAuth link with MCP params
+    (function() {
+      const params = new URLSearchParams({
+        client_id: '${escapeJsString(String(client_id))}',
+        redirect_uri: '${escapeJsString(String(redirect_uri))}',
+        scope: '${escapeJsString(String(scope))}',
+        state: '${escapeJsString(String(state || ''))}',
+        code_challenge: '${escapeJsString(String(code_challenge || ''))}',
+        code_challenge_method: '${escapeJsString(String(code_challenge_method || ''))}',
+      });
+      document.getElementById('googleBtn').href = '/oauth/google?' + params.toString();
+    })();
+
     async function handleSubmit(event) {
       event.preventDefault();
 
@@ -755,6 +825,138 @@ export function createOAuthRouter(oauthService: OAuthService): Router {
         error: 'server_error',
         error_description: 'Failed to register client',
       });
+    }
+  });
+
+  // ==========================================
+  // Google OAuth for MCP authorization
+  // ==========================================
+
+  const ALLOWED_CALLBACK_HOSTS = new Set([
+    'legal.org.ua',
+    'platform.legal.org.ua',
+    'mcp.legal.org.ua',
+    'preview.legal.org.ua',
+  ]);
+
+  function getOAuthCallbackURL(req: Request): string {
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const rawHost = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0];
+    const host = ALLOWED_CALLBACK_HOSTS.has(rawHost) ? rawHost : 'legal.org.ua';
+    return `${protocol}://${host}/oauth/google/callback`;
+  }
+
+  /**
+   * GET /oauth/google
+   * Initiates Google OAuth flow with MCP params encoded in state
+   */
+  router.get('/google', async (req: Request, res: Response) => {
+    try {
+      const { client_id, redirect_uri, scope = 'mcp', state, code_challenge, code_challenge_method } = req.query;
+
+      if (!client_id || typeof client_id !== 'string' || !redirect_uri || typeof redirect_uri !== 'string') {
+        return res.status(400).json({ error: 'invalid_request', error_description: 'client_id and redirect_uri are required' });
+      }
+
+      // Verify client exists and redirect_uri is valid
+      const client = await oauthService.getClient(client_id);
+      if (!client) {
+        return res.status(401).json({ error: 'invalid_client', error_description: 'Client not found' });
+      }
+      const isValidRedirect = await oauthService.validateRedirectUri(client_id, redirect_uri);
+      if (!isValidRedirect) {
+        return res.status(400).json({ error: 'invalid_request', error_description: 'Invalid redirect_uri for this client' });
+      }
+
+      // Sign MCP params into state
+      const signedState = oauthService.signMcpState({
+        client_id,
+        redirect_uri,
+        scope: String(scope),
+        state: state ? String(state) : undefined,
+        code_challenge: code_challenge ? String(code_challenge) : undefined,
+        code_challenge_method: code_challenge_method ? String(code_challenge_method) : undefined,
+      });
+
+      // Redirect to Google OAuth with signed state
+      passport.authenticate('google', {
+        scope: ['profile', 'email'],
+        session: false,
+        state: signedState,
+        callbackURL: getOAuthCallbackURL(req),
+      } as any)(req, res);
+    } catch (error: any) {
+      logger.error('Error in /oauth/google:', error);
+      res.status(500).json({ error: 'server_error', error_description: 'Internal server error' });
+    }
+  });
+
+  /**
+   * GET /oauth/google/callback
+   * Google OAuth callback — creates MCP authorization code and redirects to MCP client
+   */
+  router.get('/google/callback', (req: Request, res: Response, next) => {
+    const callbackURL = getOAuthCallbackURL(req);
+    passport.authenticate('google', {
+      session: false,
+      failureRedirect: '/oauth/authorize?error=google_auth_failed',
+      callbackURL,
+    } as any)(req, res, next);
+  }, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).send('Google authentication failed');
+      }
+
+      // Verify and decode MCP state
+      const signedState = req.query.state as string;
+      if (!signedState) {
+        return res.status(400).send('Missing state parameter');
+      }
+
+      const mcpParams = oauthService.verifyMcpState(signedState);
+      if (!mcpParams) {
+        return res.status(400).send('Invalid or expired state');
+      }
+
+      // Re-validate client and redirect_uri
+      const client = await oauthService.getClient(mcpParams.client_id);
+      if (!client) {
+        return res.status(401).send('Invalid OAuth client');
+      }
+      const isValidRedirect = await oauthService.validateRedirectUri(mcpParams.client_id, mcpParams.redirect_uri);
+      if (!isValidRedirect) {
+        return res.status(400).send('Invalid redirect_uri');
+      }
+
+      // Generate MCP authorization code
+      const code = await oauthService.createAuthorizationCode({
+        clientId: mcpParams.client_id,
+        userId: user.id,
+        redirectUri: mcpParams.redirect_uri,
+        scope: mcpParams.scope,
+        codeChallenge: mcpParams.code_challenge,
+        codeChallengeMethod: mcpParams.code_challenge_method,
+      });
+
+      // Redirect to MCP client with authorization code
+      const redirectUrl = new URL(mcpParams.redirect_uri);
+      redirectUrl.searchParams.set('code', code);
+      if (mcpParams.state) {
+        redirectUrl.searchParams.set('state', mcpParams.state);
+      }
+
+      logger.info('MCP authorization via Google OAuth granted', {
+        userId: user.id,
+        email: user.email,
+        clientId: mcpParams.client_id,
+      });
+
+      res.redirect(redirectUrl.toString());
+    } catch (error: any) {
+      logger.error('Error in /oauth/google/callback:', error);
+      res.status(500).send('Internal server error');
     }
   });
 
