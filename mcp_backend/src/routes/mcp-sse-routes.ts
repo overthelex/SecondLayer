@@ -37,10 +37,11 @@ export function createMCPSSERoutes(deps: {
   const router = Router();
 
   // Helper: compute base URL from request headers
+  // Use request host (not PUBLIC_URL) so mcp.legal.org.ua returns correct OAuth URLs
   function getBaseUrl(req: Request): string {
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host;
-    return process.env.PUBLIC_URL || `${proto}://${host}`;
+    return `${proto}://${host}`;
   }
 
   // Helper: build standard OAuth metadata JSON
