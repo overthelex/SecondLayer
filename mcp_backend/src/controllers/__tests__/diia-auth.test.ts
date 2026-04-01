@@ -101,7 +101,7 @@ jest.mock('../../utils/logger.js', () => ({
 import {
   setAuthCache,
   diiaAuthInit,
-  diiaAuthCallback,
+  diiaCallback,
   diiaAuthStatus,
 } from '../auth.js';
 
@@ -196,7 +196,7 @@ describe('Diia Auth Flow', () => {
     });
   });
 
-  describe('diiaAuthCallback', () => {
+  describe('diiaCallback', () => {
     beforeEach(async () => {
       // Simulate a prior init that created both keys
       mockCache['diia:session:plain-uuid-abc'] = JSON.stringify({ status: 'pending' });
@@ -212,7 +212,7 @@ describe('Diia Auth Flow', () => {
       });
       const res = makeRes();
 
-      await diiaAuthCallback(req, res);
+      await diiaCallback(req, res);
 
       // Both keys should be 'complete'
       const plainData = JSON.parse(mockCache['diia:session:plain-uuid-abc']);
@@ -230,7 +230,7 @@ describe('Diia Auth Flow', () => {
       });
       const res = makeRes();
 
-      await diiaAuthCallback(req, res);
+      await diiaCallback(req, res);
 
       expect(res._json).toEqual({ success: true });
     });
@@ -239,7 +239,7 @@ describe('Diia Auth Flow', () => {
       const req = makeReq({ headers: {} });
       const res = makeRes();
 
-      await diiaAuthCallback(req, res);
+      await diiaCallback(req, res);
 
       expect(res._status).toBe(400);
       expect(res._json.success).toBe(false);
@@ -253,7 +253,7 @@ describe('Diia Auth Flow', () => {
       });
       const res = makeRes();
 
-      await diiaAuthCallback(req, res);
+      await diiaCallback(req, res);
 
       expect(fakeUserService.createUser).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -272,7 +272,7 @@ describe('Diia Auth Flow', () => {
       });
       const res = makeRes();
 
-      await diiaAuthCallback(req, res);
+      await diiaCallback(req, res);
 
       expect(fakeUserService.updateLastLogin).toHaveBeenCalledWith('user-uuid-123');
       expect(fakeUserService.createUser).not.toHaveBeenCalled();
@@ -382,7 +382,7 @@ describe('Diia Auth Flow', () => {
     });
   });
 
-  describe('diiaAuthCallback — edge cases', () => {
+  describe('diiaCallback — edge cases', () => {
     beforeEach(() => {
       mockCache['diia:session:plain-uuid-abc'] = JSON.stringify({ status: 'pending' });
       mockCache['diia:session:hashed-base64-xyz=='] = JSON.stringify({
@@ -399,7 +399,7 @@ describe('Diia Auth Flow', () => {
       });
       const res = makeRes();
 
-      await diiaAuthCallback(req, res);
+      await diiaCallback(req, res);
 
       expect(res._status).toBe(503);
     });
@@ -412,7 +412,7 @@ describe('Diia Auth Flow', () => {
       });
       const res = makeRes();
 
-      await diiaAuthCallback(req, res);
+      await diiaCallback(req, res);
 
       expect(fakeUserService.findByEmail).toHaveBeenCalledWith(
         expect.stringMatching(/^diia_.*@diia\.legal\.org\.ua$/),
@@ -426,7 +426,7 @@ describe('Diia Auth Flow', () => {
       });
       const res = makeRes();
 
-      await diiaAuthCallback(req, res);
+      await diiaCallback(req, res);
 
       // Should not crash — webhook must be idempotent
       expect(res._json.success).toBe(true);
@@ -502,7 +502,7 @@ describe('Diia Auth Flow', () => {
         headers: { 'x-document-request-trace-id': 'hashed-base64-xyz==' },
       });
       const callbackRes = makeRes();
-      await diiaAuthCallback(callbackReq, callbackRes);
+      await diiaCallback(callbackReq, callbackRes);
       expect(callbackRes._json).toEqual({ success: true });
 
       // Step 4: Frontend polls again — should get token

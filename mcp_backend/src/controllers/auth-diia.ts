@@ -82,9 +82,11 @@ export async function diiaAuthInit(req: Request, res: Response): Promise<void> {
 
 /**
  * POST /auth/diia/callback
- * Diia sends the signed auth package to this webhook after user completes auth in the app.
+ * Unified Diia webhook — handles both auth and sign callbacks.
+ * Diia sends the signed package here after user completes auth or signs documents.
+ * Distinguishes auth vs sign by checking which Redis session key exists for the traceId.
  */
-export async function diiaAuthCallback(req: Request, res: Response): Promise<Response> {
+export async function diiaCallback(req: Request, res: Response): Promise<Response> {
   const traceId = (req.headers['x-document-request-trace-id'] as string) || '';
   logger.info('[Diia] Webhook received', { traceId, contentType: req.headers['content-type'] });
 
@@ -93,57 +95,102 @@ export async function diiaAuthCallback(req: Request, res: Response): Promise<Res
       return res.status(400).json({ success: false, error: 'Missing X-Document-Request-Trace-Id' });
     }
 
-    const userService = getUserService();
-    if (!userService) {
-      return res.status(503).json({ success: false, error: 'Service unavailable' });
-    }
-
     const authCache = getAuthCache();
-    const hashedKey = `diia:session:${traceId}`;
-    let sessionData: { status: string; plainRequestId?: string } | null = null;
 
+    // Check if this is a sign session
+    let signSessionRaw: string | null = null;
     if (authCache) {
-      const raw = await authCache.get(hashedKey);
-      if (raw) sessionData = JSON.parse(raw);
+      signSessionRaw = await authCache.get(`diia:sign:${traceId}`);
     }
 
-    const email = `diia_${traceId.substring(0, 16)}@diia.legal.org.ua`;
-    const name = 'Дія Користувач';
-    let user = await userService.findByEmail(email);
-    if (!user) {
-      user = await userService.createUser({
-        googleId: null,
-        email,
-        name,
-        emailVerified: true,
-      });
-      logger.info('[Diia] Created user from webhook', { userId: user.id, traceId });
-      generateBannerAsync(user.id, name);
-      provisionAuthentikUser({ email, name }).catch(() => {});
-      provisionNextcloudUser({ email, name }).catch(() => {});
-    } else {
-      await userService.updateLastLogin(user.id);
-      logger.info('[Diia] Existing user webhook auth', { userId: user.id, traceId });
+    if (signSessionRaw) {
+      // --- Sign callback flow ---
+      return handleSignCallback(req, res, traceId, signSessionRaw);
     }
 
-    if (authCache) {
-      const completeData = JSON.stringify({ status: 'complete', userId: user.id });
-      await authCache.set(hashedKey, completeData, DIIA_SESSION_TTL);
-
-      if (sessionData?.plainRequestId) {
-        await authCache.set(
-          `diia:session:${sessionData.plainRequestId}`,
-          completeData,
-          DIIA_SESSION_TTL,
-        );
-      }
-    }
-
-    return res.json({ success: true });
+    // --- Auth callback flow ---
+    return handleAuthCallback(req, res, traceId);
   } catch (error: any) {
     logger.error('[Diia] Webhook failed:', error);
     return res.json({ success: true });
   }
+}
+
+async function handleAuthCallback(req: Request, res: Response, traceId: string): Promise<Response> {
+  const userService = getUserService();
+  if (!userService) {
+    return res.status(503).json({ success: false, error: 'Service unavailable' });
+  }
+
+  const authCache = getAuthCache();
+  const hashedKey = `diia:session:${traceId}`;
+  let sessionData: { status: string; plainRequestId?: string } | null = null;
+
+  if (authCache) {
+    const raw = await authCache.get(hashedKey);
+    if (raw) sessionData = JSON.parse(raw);
+  }
+
+  const email = `diia_${traceId.substring(0, 16)}@diia.legal.org.ua`;
+  const name = 'Дія Користувач';
+  let user = await userService.findByEmail(email);
+  if (!user) {
+    user = await userService.createUser({
+      googleId: null,
+      email,
+      name,
+      emailVerified: true,
+    });
+    logger.info('[Diia] Created user from webhook', { userId: user.id, traceId });
+    generateBannerAsync(user.id, name);
+    provisionAuthentikUser({ email, name }).catch(() => {});
+    provisionNextcloudUser({ email, name }).catch(() => {});
+  } else {
+    await userService.updateLastLogin(user.id);
+    logger.info('[Diia] Existing user webhook auth', { userId: user.id, traceId });
+  }
+
+  if (authCache) {
+    const completeData = JSON.stringify({ status: 'complete', userId: user.id });
+    await authCache.set(hashedKey, completeData, DIIA_SESSION_TTL);
+
+    if (sessionData?.plainRequestId) {
+      await authCache.set(
+        `diia:session:${sessionData.plainRequestId}`,
+        completeData,
+        DIIA_SESSION_TTL,
+      );
+    }
+  }
+
+  return res.json({ success: true });
+}
+
+async function handleSignCallback(_req: Request, res: Response, traceId: string, signSessionRaw: string): Promise<Response> {
+  const authCache = getAuthCache();
+  const hashedKey = `diia:sign:${traceId}`;
+  const sessionData: { status: string; plainRequestId?: string; files?: DiiaSignFile[] } = JSON.parse(signSessionRaw);
+  const signedData = _req.body;
+
+  if (authCache) {
+    const completeData = JSON.stringify({
+      status: 'complete',
+      signedData,
+      files: sessionData?.files,
+    });
+    await authCache.set(hashedKey, completeData, DIIA_SIGN_SESSION_TTL);
+
+    if (sessionData?.plainRequestId) {
+      await authCache.set(
+        `diia:sign:${sessionData.plainRequestId}`,
+        completeData,
+        DIIA_SIGN_SESSION_TTL,
+      );
+    }
+  }
+
+  logger.info('[Diia] Sign webhook processed', { traceId });
+  return res.json({ success: true });
 }
 
 /**
@@ -214,7 +261,7 @@ export async function diiaSignInit(req: Request, res: Response): Promise<Respons
     const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const baseUrl = `${protocol}://${host}`;
-    const callbackUrl = `${baseUrl}/auth/diia/sign/callback`;
+    const callbackUrl = `${baseUrl}/auth/diia/callback`;
     const effectiveReturnUrl = returnUrl || `${baseUrl}/documents`;
 
     const session = await diiaService.initSigningSession(effectiveReturnUrl, files);
@@ -242,56 +289,6 @@ export async function diiaSignInit(req: Request, res: Response): Promise<Respons
     logger.error('[Diia] Sign init failed:', error);
     const errorCode = error instanceof DiiaPermissionError ? 'scope_forbidden' : 'sign_failed';
     return res.status(500).json({ error: errorCode, message: error.message });
-  }
-}
-
-/**
- * POST /auth/diia/sign/callback
- * Diia webhook — called after user signs documents in the app.
- */
-export async function diiaSignCallback(req: Request, res: Response): Promise<Response> {
-  const traceId = (req.headers['x-document-request-trace-id'] as string) || '';
-  logger.info('[Diia] Sign webhook received', { traceId, contentType: req.headers['content-type'] });
-
-  try {
-    if (!traceId) {
-      return res.status(400).json({ success: false, error: 'Missing X-Document-Request-Trace-Id' });
-    }
-
-    const authCache = getAuthCache();
-    const hashedKey = `diia:sign:${traceId}`;
-    let sessionData: { status: string; plainRequestId?: string; files?: DiiaSignFile[] } | null = null;
-
-    if (authCache) {
-      const raw = await authCache.get(hashedKey);
-      if (raw) sessionData = JSON.parse(raw);
-    }
-
-    const signedData = req.body;
-
-    if (authCache) {
-      const completeData = JSON.stringify({
-        status: 'complete',
-        signedData,
-        files: sessionData?.files,
-      });
-      await authCache.set(hashedKey, completeData, DIIA_SIGN_SESSION_TTL);
-
-      if (sessionData?.plainRequestId) {
-        await authCache.set(
-          `diia:sign:${sessionData.plainRequestId}`,
-          completeData,
-          DIIA_SIGN_SESSION_TTL,
-        );
-      }
-    }
-
-    logger.info('[Diia] Sign webhook processed', { traceId });
-
-    return res.json({ success: true });
-  } catch (error: any) {
-    logger.error('[Diia] Sign webhook failed:', error);
-    return res.json({ success: true });
   }
 }
 
