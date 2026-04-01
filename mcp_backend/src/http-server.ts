@@ -789,17 +789,17 @@ class HTTPMCPServer {
           });
           const page = await context.newPage();
 
-          // Intercept the RSS response to get raw body (browser wraps XML in HTML viewer)
-          let rawXml = '';
-          page.on('response', async (resp) => {
-            if (resp.url().includes('/api/rss') && resp.status() === 200) {
-              try {
-                rawXml = await resp.text();
-              } catch { /* ignore */ }
-            }
-          });
+          // Use waitForResponse to properly await the RSS response body before closing
+          const [rssResponse] = await Promise.all([
+            page.waitForResponse(resp => resp.url().includes('/api/rss') && resp.status() === 200, { timeout: 30000 }),
+            page.goto(KMU_RSS_URL, { waitUntil: 'domcontentloaded', timeout: 30000 }),
+          ]);
 
-          await page.goto(KMU_RSS_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          let rawXml = '';
+          try {
+            rawXml = await rssResponse.text();
+          } catch { /* ignore */ }
+
           await context.close();
 
           if (!rawXml || (!rawXml.includes('<rss') && !rawXml.includes('<channel>'))) {
