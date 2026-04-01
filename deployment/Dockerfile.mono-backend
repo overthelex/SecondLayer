@@ -54,12 +54,9 @@ RUN cd mcp_backend \
   && npm run build \
   && npm prune --omit=dev
 
-# Overwrite stub-compiled dist with pre-built dist from host context.
-# The CI pipeline runs preserve-proprietary-dist.sh (backup → build → restore)
-# before Docker build, so mcp_backend/dist/ in the context contains the real
-# proprietary implementations. This COPY overlays them on top of the tsc output,
-# replacing any stubs that tsc compiled from the public source.
-COPY mcp_backend/dist mcp_backend/dist
+# NOTE: CI overlays proprietary .ts sources into mcp_backend/src/ BEFORE
+# Docker build, so tsc above already compiles real implementations.
+# No need to copy host dist/ — that caused stale files to overwrite fresh builds.
 
 # Replace file: symlink for @secondlayer/shared with a real directory so runtime doesn't need ../packages/shared
 # Must be done AFTER npm prune to prevent symlink recreation
