@@ -110,6 +110,7 @@ export class MCPSSEServer {
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+    res.setHeader('Mcp-Session-Id', sessionId); // Required by MCP Streamable HTTP transport
 
     // Don't send server/initialized notification here
     // According to MCP spec, this notification is sent by CLIENT after receiving initialize response
@@ -135,6 +136,21 @@ export class MCPSSEServer {
     if (req.body && Object.keys(req.body).length > 0) {
       try {
         const mcpRequest = req.body as MCPRequest;
+
+        // MCP notifications (no id) are fire-and-forget — accept silently
+        if (mcpRequest.method?.startsWith('notifications/') || mcpRequest.id === undefined) {
+          logger.debug('[MCP SSE] Received notification', {
+            sessionId,
+            method: mcpRequest.method,
+          });
+          clearInterval(pingInterval);
+          if (!res.headersSent) {
+            // Streamable HTTP: notifications get 202 Accepted with no body
+            res.status(202).end();
+          }
+          return;
+        }
+
         await this.handleMCPRequest(res, mcpRequest, sessionId);
 
         // OpenAI makes separate POST for each message, so close after response
@@ -582,7 +598,8 @@ export class MCPSSEServer {
   private sendSSEMessage(res: Response, message: MCPResponse | MCPNotification): void {
     try {
       const data = JSON.stringify(message);
-      res.write(`data: ${data}\n\n`);
+      // MCP Streamable HTTP requires 'event: message' prefix for SSE events
+      res.write(`event: message\ndata: ${data}\n\n`);
     } catch (error) {
       logger.error('[MCP SSE] Error sending message', { error });
     }
