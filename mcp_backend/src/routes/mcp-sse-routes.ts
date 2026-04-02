@@ -118,10 +118,14 @@ export function createMCPSSERoutes(deps: {
   // POST /sse - MCP SSE endpoint for ChatGPT web integration (REQUIRED auth)
   router.post('/sse', (async (req: DualAuthRequest, res: Response) => {
     try {
+      const baseUrl = getBaseUrl(req);
+      const resourceMetadataUrl = `${baseUrl}/.well-known/oauth-protected-resource`;
+
       // CRITICAL: Authentication is REQUIRED for usage tracking
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         logger.warn('[MCP SSE] Missing or invalid Authorization header');
+        res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadataUrl}"`);
         return res.status(401).json({
           error: 'Unauthorized',
           message: 'Authorization header with Bearer token is required',
@@ -151,6 +155,7 @@ export function createMCPSSERoutes(deps: {
             logger.warn('[MCP SSE] Invalid OAuth token', {
               tokenPrefix: maskSensitive(token, 15),
             });
+            res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadataUrl}"`);
             return res.status(401).json({
               error: 'Unauthorized',
               message: 'Invalid or expired OAuth access token',
@@ -174,6 +179,7 @@ export function createMCPSSERoutes(deps: {
             logger.warn('[MCP SSE] Invalid API key', {
               keyPrefix: maskSensitive(token, 12),
             });
+            res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadataUrl}"`);
             return res.status(401).json({
               error: 'Unauthorized',
               message: 'Invalid API key',
@@ -214,6 +220,7 @@ export function createMCPSSERoutes(deps: {
       } catch (error) {
         // Auth failed - return 401
         logger.warn('[MCP SSE] Authentication failed', { error: (error as Error).message });
+        res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadataUrl}"`);
         return res.status(401).json({
           error: 'Unauthorized',
           message: 'Authentication failed: ' + (error as Error).message,
@@ -591,6 +598,17 @@ export function createMCPSSERoutes(deps: {
 
   // RFC 9728 Protected Resource Metadata (root-level)
   router.get('/.well-known/oauth-protected-resource', (req: Request, res: Response) => {
+    const baseUrl = getBaseUrl(req);
+    res.json({
+      resource: `${baseUrl}/sse`,
+      authorization_servers: [baseUrl],
+      scopes_supported: ['mcp'],
+      bearer_methods_supported: ['header'],
+    });
+  });
+
+  // RFC 9728 with resource path suffix (ChatGPT uses /.well-known/oauth-protected-resource/sse)
+  router.get('/.well-known/oauth-protected-resource/sse', (req: Request, res: Response) => {
     const baseUrl = getBaseUrl(req);
     res.json({
       resource: `${baseUrl}/sse`,
