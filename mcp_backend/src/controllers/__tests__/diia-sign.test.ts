@@ -82,7 +82,7 @@ jest.mock('../../utils/logger.js', () => ({
 import {
   setAuthCache,
   diiaSignInit,
-  diiaSignCallback,
+  diiaCallback,
   diiaSignStatus,
 } from '../auth.js';
 
@@ -241,7 +241,7 @@ describe('Дія.Підпис (Signing) Flow', () => {
     });
   });
 
-  describe('diiaSignCallback', () => {
+  describe('diiaCallback', () => {
     beforeEach(() => {
       mockCache['diia:sign:sign-uuid-abc'] = JSON.stringify({
         status: 'pending',
@@ -262,7 +262,7 @@ describe('Дія.Підпис (Signing) Flow', () => {
       });
       const res = makeRes();
 
-      await diiaSignCallback(req, res);
+      await diiaCallback(req, res);
 
       const plainData = JSON.parse(mockCache['diia:sign:sign-uuid-abc']);
       expect(plainData.status).toBe('complete');
@@ -281,7 +281,7 @@ describe('Дія.Підпис (Signing) Flow', () => {
       });
       const res = makeRes();
 
-      await diiaSignCallback(req, res);
+      await diiaCallback(req, res);
 
       expect(res._json).toEqual({ success: true });
     });
@@ -290,22 +290,24 @@ describe('Дія.Підпис (Signing) Flow', () => {
       const req = makeReq({ headers: {} });
       const res = makeRes();
 
-      await diiaSignCallback(req, res);
+      await diiaCallback(req, res);
 
       expect(res._status).toBe(400);
       expect(res._json.success).toBe(false);
     });
 
-    it('still returns { success: true } even for unknown traceId (no crash)', async () => {
+    it('falls through to auth flow for unknown traceId (no sign session)', async () => {
       const req = makeReq({
         headers: { 'x-document-request-trace-id': 'unknown-trace-id' },
         body: { signed: true },
       });
       const res = makeRes();
 
-      await diiaSignCallback(req, res);
+      await diiaCallback(req, res);
 
-      expect(res._json).toEqual({ success: true });
+      // Unknown traceId with no sign session falls through to auth flow,
+      // which returns 503 when userService is unavailable in this test context
+      expect(res._status).toBe(503);
     });
   });
 
@@ -407,7 +409,7 @@ describe('Дія.Підпис (Signing) Flow', () => {
         body: signedPayload,
       });
       const callbackRes = makeRes();
-      await diiaSignCallback(callbackReq, callbackRes);
+      await diiaCallback(callbackReq, callbackRes);
       expect(callbackRes._json).toEqual({ success: true });
 
       // Step 4: Frontend polls again — should get signed data

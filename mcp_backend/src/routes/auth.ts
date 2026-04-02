@@ -161,12 +161,12 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
 
   /**
    * @route   POST /auth/diia/callback
-   * @desc    Diia webhook — called after user authenticates in the app
+   * @desc    Unified Diia webhook — handles both auth and sign callbacks
    *          Header: X-Document-Request-Trace-Id = requestId
    *          Must respond { success: true } within 30s
    * @access  Public
    */
-  router.post('/diia/callback', authController.diiaAuthCallback as any);
+  router.post('/diia/callback', authController.diiaCallback as any);
 
   // Diia redirects the user's browser here via GET after auth.
   // On mobile same-device flow the original polling tab is lost,
@@ -202,15 +202,6 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
   router.post('/diia/sign', authController.diiaSignInit as any);
 
   /**
-   * @route   POST /auth/diia/sign/callback
-   * @desc    Diia webhook — called after user signs documents in the app
-   *          Header: X-Document-Request-Trace-Id = hashedRequestId
-   *          Must respond { success: true } within 30s
-   * @access  Public (webhook from Diia)
-   */
-  router.post('/diia/sign/callback', authController.diiaSignCallback as any);
-
-  /**
    * @route   GET /auth/diia/sign/status/:sessionId
    * @desc    Poll for Дія.Підпис signing session completion
    * @access  Protected (JWT required)
@@ -231,9 +222,6 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
     res.status(501).json({ error: 'Diia auth is not configured' });
   });
   router.post('/diia/sign', (_req, res) => {
-    res.status(501).json({ error: 'Diia signing is not configured' });
-  });
-  router.post('/diia/sign/callback', (_req, res) => {
     res.status(501).json({ error: 'Diia signing is not configured' });
   });
   router.get('/diia/sign/status/:sessionId', (_req, res) => {
