@@ -3581,4 +3581,16 @@ This article is available in Ukrainian. Please switch to Ukrainian language to r
 
 Registration: [legal.org.ua](https://legal.org.ua)`,
   },
+  'legaltech-llm-constitution': {
+    title: 'LegalTech LLM Constitution: A Rulebook for Legal AI Models',
+    punchline: '30 articles, 9 sections, open license. Lex AI initiates an industry standard for LegalTech models — from presumption of innocence to wartime protections, with direct implementation in the reward model.',
+    readTime: '24 min',
+    content: `# LegalTech LLM Constitution: A Rulebook for Legal AI Models
+
+This article is available in Ukrainian. Please switch to Ukrainian language to read the full version.
+
+---
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
 };
