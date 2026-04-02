@@ -3533,4 +3533,52 @@ CI/CD isn't configuration. It's a living organism that needs to be fed with test
 
 Registration: [legal.org.ua](https://legal.org.ua)`,
   },
+  'ai-safety-open-registries': {
+    title: 'AI Model Safety on Open Registries: Asimov\'s Laws as an Ethical Framework',
+    punchline: 'How to ensure that a model with access to 50M+ records doesn\'t become a tool for pressuring the innocent? Asimov\'s Three Laws adapted for legal AI, threat scenarios, and architectural solutions for RLHF training on GCP.',
+    readTime: '18 min',
+    content: `# AI Model Safety on Open Registries: Asimov's Laws as an Ethical Framework
+
+This article is available in Ukrainian. Please switch to Ukrainian language to read the full version.
+
+---
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
+  'rlhf-longtail-problem': {
+    title: 'The Long Tail Problem in RLHF Training of Legal AI Models',
+    punchline: '5 categories cover 90% of the EDRSR corpus. How Long Tail destroys RLHF, why the model becomes a "civilist", and what strategies we implement on GCP for $240K over 6 months.',
+    readTime: '16 min',
+    content: `# The Long Tail Problem in RLHF Training of Legal AI Models
+
+This article is available in Ukrainian. Please switch to Ukrainian language to read the full version.
+
+---
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
+  'constitutional-rlhf': {
+    title: 'Constitution of Ukraine as Reward Signal: Constitutional RLHF',
+    punchline: 'How Articles 3, 28, 32, 62 of the Constitution become reward functions in RLHF training. Presumption of innocence as a hardcoded rule, constitutional collisions, and a benchmark of 500+ scenarios.',
+    readTime: '20 min',
+    content: `# Constitution of Ukraine as Reward Signal: Constitutional RLHF
+
+This article is available in Ukrainian. Please switch to Ukrainian language to read the full version.
+
+---
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
+  'ai-experimental-court': {
+    title: 'Experimental AI Court: Simulating Legal Proceedings Across All Instances',
+    punchline: 'Three separate models — judge, prosecutor, advocate — with information isolation reproduce adversarial proceedings. Instance specialization, result trees, and adversarial training on GCP.',
+    readTime: '22 min',
+    content: `# Experimental AI Court: Simulating Legal Proceedings Across All Instances
+
+This article is available in Ukrainian. Please switch to Ukrainian language to read the full version.
+
+---
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
 };
