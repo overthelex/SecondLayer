@@ -86,6 +86,7 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
     // Bottom nav
     newsLink: 'Новини',
     investorsLink: 'Для інвесторів',
+    docsLink: 'Документація',
     // Auth subtitle
     authSubtitleLogin: 'Оберіть зручний спосіб автентифікації',
     authSubtitleRegister: 'Зареєструйтесь для початку роботи',
@@ -221,6 +222,7 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
     // Bottom nav
     newsLink: 'News',
     investorsLink: 'For Investors',
+    docsLink: 'Documentation',
     // Auth subtitle
     authSubtitleLogin: 'Choose your authentication method',
     authSubtitleRegister: 'Register to get started',
@@ -355,6 +357,7 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
     // Bottom nav
     newsLink: 'Nachrichten',
     investorsLink: 'Für Investoren',
+    docsLink: 'Dokumentation',
     // Auth subtitle
     authSubtitleLogin: 'Wählen Sie Ihre Authentifizierungsmethode',
     authSubtitleRegister: 'Registrieren Sie sich, um loszulegen',
@@ -489,6 +492,7 @@ export const loginTranslations: Record<Locale, Record<string, string>> = {
     // Bottom nav
     newsLink: 'Noticias',
     investorsLink: 'Para inversores',
+    docsLink: 'Documentación',
     // Auth subtitle
     authSubtitleLogin: 'Elija su método de autenticación',
     authSubtitleRegister: 'Regístrese para comenzar',
