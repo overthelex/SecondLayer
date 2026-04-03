@@ -215,14 +215,12 @@ jobs:
           VITE_API_URL: https://legal.org.ua
           NODE_OPTIONS: --max-old-space-size=8192
 
-  # ─── Step 2b: Self-heal test failures ────────────────────────────────
+  # ─── Step 2b: Self-heal test failures (DISABLED) ────────────────────
   self-heal-tests:
     name: Self-Heal Test Failures
     runs-on: [self-hosted, local]
     needs: [detect-changes, pre-deploy-tests]
-    if: |
-      always() &&
-      needs.pre-deploy-tests.result == 'failure'
+    if: false  # temporarily disabled — not producing useful fixes
     env:
       CLAUDE_CODE_USE_BEDROCK: '1'
       CLAUDE_CODE_BEDROCK_MODEL: eu.anthropic.claude-sonnet-4-6
@@ -837,14 +835,12 @@ jobs:
             sleep 10
           done
 
-  # ─── Step 3c: Self-heal deploy failures ─────────────────────────────
+  # ─── Step 3c: Self-heal deploy failures (DISABLED) ─────────────────
   self-heal-deploy:
     name: Self-Heal Deploy Failures
     runs-on: [self-hosted, local]
     needs: [detect-changes, deploy-preview, promote-to-prod]
-    if: |
-      always() &&
-      (needs.deploy-preview.result == 'failure' || needs.promote-to-prod.result == 'failure')
+    if: false  # temporarily disabled — not producing useful fixes
     env:
       CLAUDE_CODE_USE_BEDROCK: '1'
       CLAUDE_CODE_BEDROCK_MODEL: eu.anthropic.claude-sonnet-4-6

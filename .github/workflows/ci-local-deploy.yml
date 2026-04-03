@@ -155,14 +155,12 @@ jobs:
         if: needs.detect-changes.outputs.platform == 'true'
         run: cd platform && npm install --legacy-peer-deps && npm run build
 
-  # ─── Step 2b: Self-heal build failures with Claude Code ─────────────
+  # ─── Step 2b: Self-heal build failures with Claude Code (DISABLED) ──
   self-heal-build:
     name: Self-Heal Build Failures
     runs-on: [self-hosted, local]
     needs: [detect-changes, build-and-test]
-    if: |
-      always() &&
-      needs.build-and-test.result == 'failure'
+    if: false  # temporarily disabled — not producing useful fixes
     env:
       CLAUDE_CODE_USE_BEDROCK: '1'
       CLAUDE_CODE_BEDROCK_MODEL: eu.anthropic.claude-sonnet-4-6
