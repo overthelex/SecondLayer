@@ -29,6 +29,7 @@ import { CourtStatusTools } from '../api/tools/court-status-tools.js';
 import { OpenDataTools } from '../api/tools/opendata-tools.js';
 import { SpendingTools } from '../api/tools/spending-tools.js';
 import { OpenDataRegistriesTools } from '../api/tools/opendata-registries-tools.js';
+import { Tier1OpenDataTools } from '../api/tools/tier1-opendata-tools.js';
 import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
 import { DecisionLayerTools } from '../api/tools/decision-layer-tools.js';
 import { ImportTaskTools } from '../api/tools/import-task-tools.js';
@@ -132,6 +133,7 @@ export function createToolServices(
   toolRegistry.registerHandler(new OpenDataTools(coreServices.db));
   toolRegistry.registerHandler(new SpendingTools(coreServices.db));
   toolRegistry.registerHandler(new OpenDataRegistriesTools(coreServices.db));
+  toolRegistry.registerHandler(new Tier1OpenDataTools(coreServices.db));
   toolRegistry.registerHandler(new EdsrSearchTools(coreServices.db));
   toolRegistry.registerHandler(new DecisionLayerTools(llmAdapter));
 
