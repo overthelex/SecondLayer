@@ -593,7 +593,7 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_CALLBACK_URL: https://legal.org.ua/auth/google/callback
       # Diia (Дія) Auth
-      DIIA_BASE_URL: ${DIIA_BASE_URL:-https://api2s.diia.gov.ua}
+      DIIA_BASE_URL: ${DIIA_BASE_URL:-https://api2.diia.gov.ua}
       DIIA_ACQUIRER_TOKEN: ${DIIA_ACQUIRER_TOKEN:-}
       DIIA_AUTH_ACQUIRER_TOKEN: ${DIIA_AUTH_ACQUIRER_TOKEN:-}
       FRONTEND_URL: https://legal.org.ua
@@ -972,7 +972,7 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_CALLBACK_URL: https://legal.org.ua/auth/google/callback
-      DIIA_BASE_URL: ${DIIA_BASE_URL:-https://api2s.diia.gov.ua}
+      DIIA_BASE_URL: ${DIIA_BASE_URL:-https://api2.diia.gov.ua}
       DIIA_ACQUIRER_TOKEN: ${DIIA_ACQUIRER_TOKEN:-}
       DIIA_AUTH_ACQUIRER_TOKEN: ${DIIA_AUTH_ACQUIRER_TOKEN:-}
       FRONTEND_URL: https://legal.org.ua
