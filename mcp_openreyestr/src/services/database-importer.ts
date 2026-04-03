@@ -358,10 +358,14 @@ export class DatabaseImporter {
     }
 
     if (entity.executive_power) {
-      await client.query(
-        'INSERT INTO executive_power (entity_record, name, code) VALUES ($1, $2, $3)',
-        [entity.record, entity.executive_power.name, entity.executive_power.code]
-      );
+      const epName = entity.executive_power.NAME || entity.executive_power.name;
+      const epCode = entity.executive_power.CODE || entity.executive_power.code;
+      if (epName || epCode) {
+        await client.query(
+          'INSERT INTO executive_power (entity_record, name, code) VALUES ($1, $2, $3)',
+          [entity.record, epName, epCode]
+        );
+      }
     }
 
     if (entity.termination_started) {

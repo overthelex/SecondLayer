@@ -265,7 +265,10 @@ export class StreamingXMLParser {
       termination_cancel_info: subject.TERMINATION_CANCEL_INFO,
     };
 
-    if (subject.EXECUTIVE_POWER) entity.executive_power = subject.EXECUTIVE_POWER;
+    if (subject.EXECUTIVE_POWER) {
+      const ep = subject.EXECUTIVE_POWER;
+      entity.executive_power = { name: ep.NAME || ep.name, code: ep.CODE || ep.code };
+    }
     if (subject.FOUNDERS?.FOUNDER) entity.founders = subject.FOUNDERS.FOUNDER;
     if (subject.BENEFICIARIES?.BENEFICIARY) entity.beneficiaries = subject.BENEFICIARIES.BENEFICIARY;
     if (subject.SIGNERS?.SIGNER) entity.signers = subject.SIGNERS.SIGNER;
