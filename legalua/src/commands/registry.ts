@@ -51,6 +51,7 @@ export const registryCommand = new Command('registry')
     try {
       const result = await apiClient.callTool(reg.tool, {
         query,
+        name: query,
         limit: parseInt(opts.limit),
       });
       spinner.stop();
