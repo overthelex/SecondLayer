@@ -13,7 +13,7 @@ export const deputyCommand = new Command('deputy')
 
     try {
       const result = await apiClient.callTool('rada_get_deputy_info', {
-        query: name,
+        name,
       });
       spinner.stop();
 

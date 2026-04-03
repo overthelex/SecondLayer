@@ -69,7 +69,8 @@ class ApiClient {
       return { success: false, error: `${response.status}: ${await response.text()}` };
     }
 
-    const data = await response.json() as ToolDefinition[];
+    const raw = await response.json() as Record<string, unknown>;
+    const data = (Array.isArray(raw) ? raw : (raw.tools as ToolDefinition[])) || [];
     return { success: true, data };
   }
 
