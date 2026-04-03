@@ -155,7 +155,7 @@ export class EdsrFtsService {
 
     const buildSelectFields = (withHeadline: boolean) => {
       const headlineExpr = withHeadline
-        ? `safe_ts_headline('simple'::regconfig, LEFT(f.full_text, 2000), plainto_tsquery('simple', $1),
+        ? `safe_ts_headline('simple'::regconfig, f.full_text, plainto_tsquery('simple', $1),
            'MaxWords=60, MinWords=20, StartSel=**, StopSel=**') AS headline`
         : `NULL AS headline`;
 
