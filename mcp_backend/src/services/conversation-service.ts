@@ -115,6 +115,7 @@ export class ConversationService {
       tool_calls?: any[];
       cost_tracking_id?: string;
       cost_summary?: { total_cost_usd: number; tools_used: string[]; response_id?: string; charged_usd?: number; balance_usd?: number } | null;
+      is_encrypted?: boolean;
     }
   ): Promise<ConversationMessage | null> {
     // Verify ownership
@@ -124,8 +125,8 @@ export class ConversationService {
     const id = uuidv4();
     const result = await this.db.query(
       `INSERT INTO conversation_messages
-         (id, conversation_id, role, content, thinking_steps, decisions, citations, documents, tool_calls, cost_tracking_id, cost_summary)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         (id, conversation_id, role, content, thinking_steps, decisions, citations, documents, tool_calls, cost_tracking_id, cost_summary, is_encrypted)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         id,
@@ -139,6 +140,7 @@ export class ConversationService {
         message.tool_calls ? JSON.stringify(message.tool_calls) : null,
         message.cost_tracking_id || null,
         message.cost_summary ? JSON.stringify(message.cost_summary) : null,
+        message.is_encrypted || false,
       ]
     );
 
@@ -149,6 +151,27 @@ export class ConversationService {
     );
 
     return result.rows[0];
+  }
+
+  // --- Conversation encryption key management ---
+
+  async saveConversationKey(conversationId: string, userId: string, encryptedDek: string): Promise<void> {
+    await this.db.query(
+      `INSERT INTO conversation_keys (conversation_id, user_id, encrypted_dek)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (conversation_id, user_id)
+       DO UPDATE SET encrypted_dek = EXCLUDED.encrypted_dek`,
+      [conversationId, userId, encryptedDek]
+    );
+  }
+
+  async getConversationKey(conversationId: string, userId: string): Promise<string | null> {
+    const result = await this.db.query<{ encrypted_dek: string }>(
+      `SELECT encrypted_dek FROM conversation_keys
+       WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, userId]
+    );
+    return result.rows[0]?.encrypted_dek || null;
   }
 
   async getMessages(

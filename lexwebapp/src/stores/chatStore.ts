@@ -8,6 +8,8 @@ import { devtools, persist } from 'zustand/middleware';
 import { Message, ThinkingStep, ExecutionPlan } from '../types/models';
 import { api } from '../utils/api-client';
 import type { ConversationThinkingStep } from '../services/api/ConversationService';
+import { useEncryptionStore } from './encryptionStore';
+import { encryptChatMessage, decryptChatMessage, decodeBase64 } from '../services/crypto';
 
 interface ConversationSummary {
   id: string;
@@ -258,25 +260,51 @@ export const useChatStore = create<ChatState>()(
             // User may have switched again while we were fetching — bail out
             if (get().conversationId !== conversationId) return;
             const data = response.data;
-            const fetchedMessages: Message[] = (data.messages || []).map((m: { id: string; role: 'user' | 'assistant'; content: string; thinking_steps?: ConversationThinkingStep[]; decisions?: Message['decisions']; citations?: Message['citations']; documents?: Message['documents']; cost_summary?: Message['costSummary'] }) => ({
-              id: m.id,
-              role: m.role,
-              content: m.content,
-              thinkingSteps: Array.isArray(m.thinking_steps)
-                ? m.thinking_steps.map((s: ConversationThinkingStep, i: number) => ({
-                    id: `step-${i}`,
-                    title: `✓ ${s.tool || 'tool'}`,
-                    content: typeof s.result === 'string'
-                      ? s.result
-                      : (JSON.stringify(s.result ?? '', null, 2) || ''),
-                    isComplete: true,
-                  }))
-                : undefined,
-              decisions: m.decisions,
-              citations: m.citations,
-              documents: m.documents,
-              costSummary: m.cost_summary ?? undefined,
-            }));
+
+            // Decrypt encrypted messages if E2EE is unlocked
+            const encState = useEncryptionStore.getState();
+            const canDecrypt = encState.isUnlocked && encState.privateKey && encState.publicKey;
+
+            const fetchedMessages: Message[] = await Promise.all(
+              (data.messages || []).map(async (m: { id: string; role: 'user' | 'assistant'; content: string; is_encrypted?: boolean; thinking_steps?: ConversationThinkingStep[]; decisions?: Message['decisions']; citations?: Message['citations']; documents?: Message['documents']; cost_summary?: Message['costSummary'] }) => {
+                let content = m.content;
+                if (m.is_encrypted && canDecrypt) {
+                  try {
+                    const pubKeyBytes = decodeBase64(encState.publicKey!);
+                    content = await decryptChatMessage(
+                      m.content,
+                      conversationId,
+                      pubKeyBytes,
+                      encState.privateKey!,
+                    );
+                  } catch {
+                    content = '[Зашифроване повідомлення — не вдалося розшифрувати]';
+                  }
+                } else if (m.is_encrypted && !canDecrypt) {
+                  content = '[Зашифроване повідомлення — розблокуйте шифрування]';
+                }
+
+                return {
+                  id: m.id,
+                  role: m.role,
+                  content,
+                  thinkingSteps: Array.isArray(m.thinking_steps)
+                    ? m.thinking_steps.map((s: ConversationThinkingStep, i: number) => ({
+                        id: `step-${i}`,
+                        title: `\u2713 ${s.tool || 'tool'}`,
+                        content: typeof s.result === 'string'
+                          ? s.result
+                          : (JSON.stringify(s.result ?? '', null, 2) || ''),
+                        isComplete: true,
+                      }))
+                    : undefined,
+                  decisions: m.decisions,
+                  citations: m.citations,
+                  documents: m.documents,
+                  costSummary: m.cost_summary ?? undefined,
+                };
+              })
+            );
             set((state) => ({
               messages: fetchedMessages,
               conversationCache: { ...state.conversationCache, [conversationId]: fetchedMessages },
@@ -344,25 +372,49 @@ export const useChatStore = create<ChatState>()(
           });
         },
 
-        // Sync message to server (fire-and-forget)
+        // Sync message to server (fire-and-forget, encrypts if E2EE is unlocked)
         syncMessage: (message: Message) => {
           if (!isAuthenticated()) return;
           const { conversationId } = get();
           if (!conversationId) return;
 
-          api.conversations
-            .addMessage(conversationId, {
+          const encState = useEncryptionStore.getState();
+          const shouldEncrypt = encState.isUnlocked && encState.privateKey && encState.publicKey;
+
+          const doSync = async () => {
+            let content = message.content;
+            let isEncrypted = false;
+
+            if (shouldEncrypt && content) {
+              try {
+                const pubKeyBytes = decodeBase64(encState.publicKey!);
+                content = await encryptChatMessage(
+                  content,
+                  conversationId,
+                  pubKeyBytes,
+                  encState.privateKey!,
+                );
+                isEncrypted = true;
+              } catch (err) {
+                console.error('[ChatStore] Message encryption failed, syncing plaintext:', err);
+              }
+            }
+
+            await api.conversations.addMessage(conversationId, {
               role: message.role,
-              content: message.content,
+              content,
               thinking_steps: message.thinkingSteps?.map(s => ({ tool: s.title, result: s.content })),
               decisions: message.decisions,
               citations: message.citations,
               documents: message.documents,
               cost_summary: message.costSummary,
-            })
-            .catch(() => {
-              // Silent fail - localStorage backup remains
+              is_encrypted: isEncrypted,
             });
+          };
+
+          doSync().catch(() => {
+            // Silent fail - localStorage backup remains
+          });
         },
 
       }),

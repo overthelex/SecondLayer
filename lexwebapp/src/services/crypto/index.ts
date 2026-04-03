@@ -77,3 +77,10 @@ export {
   generateSafetyNumber,
   generateShortSafetyCode,
 } from './CallVerification';
+
+export {
+  encryptChatMessage,
+  decryptChatMessage,
+  clearChatDEKCache,
+  getConversationDEK,
+} from './ChatEncryptor';

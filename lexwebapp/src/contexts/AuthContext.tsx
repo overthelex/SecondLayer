@@ -8,6 +8,7 @@ import { authService } from '../services';
 import { User } from '../types/models';
 import showToast from '../utils/toast';
 import { toastT, toastTDynamic } from '../i18n/toast-i18n';
+import { useEncryptionStore } from '../stores/encryptionStore';
 
 interface AuthContextType {
   user: User | null;
@@ -117,6 +118,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Clear local storage
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
+
+    // Clear encryption state + sessionStorage
+    useEncryptionStore.getState().reset();
 
     // Clear state
     setToken(null);

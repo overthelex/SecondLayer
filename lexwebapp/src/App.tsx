@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CookieConsent } from './components/CookieConsent';
 import { GeoDetector } from './components/GeoDetector';
+import { EncryptionGuard } from './components/encryption/EncryptionGuard';
 import { router } from './router';
 
 export function App() {
@@ -13,6 +14,7 @@ export function App() {
       <QueryProvider>
         <AuthProvider>
           <GeoDetector />
+          <EncryptionGuard />
           <RouterProvider router={router} />
           <CookieConsent />
         <Toaster

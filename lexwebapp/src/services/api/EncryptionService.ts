@@ -23,6 +23,7 @@ export interface PublicKeyResponse {
 
 export interface MyKeyResponse {
   encrypted_private_key: string;
+  public_key: string;
   kdf_algorithm: string;
   kdf_params: Record<string, unknown>;
   key_version: number;

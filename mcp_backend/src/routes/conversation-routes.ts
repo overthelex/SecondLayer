@@ -97,7 +97,7 @@ export function createConversationRouter(conversationService: ConversationServic
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: 'User not authenticated' });
 
-      const { role, content, thinking_steps, decisions, citations, documents, tool_calls, cost_tracking_id, cost_summary } = req.body;
+      const { role, content, thinking_steps, decisions, citations, documents, tool_calls, cost_tracking_id, cost_summary, is_encrypted } = req.body;
       if (!role || !content) return res.status(400).json({ error: 'role and content required' });
 
       const message = await conversationService.addMessage(req.params.id as string, userId, {
@@ -110,6 +110,7 @@ export function createConversationRouter(conversationService: ConversationServic
         tool_calls,
         cost_tracking_id,
         cost_summary,
+        is_encrypted,
       });
 
       if (!message) return res.status(404).json({ error: 'Conversation not found' });
@@ -133,6 +134,39 @@ export function createConversationRouter(conversationService: ConversationServic
       res.json({ messages });
     } catch (error: any) {
       logger.error('[Conversations] Get messages failed', { error: error.message });
+      res.status(500).json({ error: error.message });
+    }
+  }) as any);
+
+  // POST /:id/encryption-key - Save wrapped DEK for conversation
+  router.post('/:id/encryption-key', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+
+      const { encrypted_dek } = req.body;
+      if (!encrypted_dek) return res.status(400).json({ error: 'encrypted_dek required' });
+
+      await conversationService.saveConversationKey(req.params.id as string, userId, encrypted_dek);
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error('[Conversations] Save encryption key failed', { error: error.message });
+      res.status(500).json({ error: error.message });
+    }
+  }) as any);
+
+  // GET /:id/encryption-key - Get wrapped DEK for conversation
+  router.get('/:id/encryption-key', (async (req: DualAuthRequest, res: Response): Promise<any> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+
+      const encryptedDek = await conversationService.getConversationKey(req.params.id as string, userId);
+      if (!encryptedDek) return res.status(404).json({ error: 'No encryption key found' });
+
+      res.json({ encrypted_dek: encryptedDek });
+    } catch (error: any) {
+      logger.error('[Conversations] Get encryption key failed', { error: error.message });
       res.status(500).json({ error: error.message });
     }
   }) as any);
