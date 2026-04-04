@@ -82,6 +82,10 @@ interface ChatState {
   // Queue actions
   setQueuedQuery: (query: { content: string; documentIds?: string[] } | null) => void;
 
+  // Draft input — allows external components to prefill the chat input
+  draftInput: string | null;
+  setDraftInput: (text: string | null) => void;
+
   // Conversation actions
   loadConversations: () => Promise<void>;
   createConversation: (title?: string) => Promise<string>;
@@ -110,6 +114,7 @@ export const useChatStore = create<ChatState>()(
         isPlanLoading: false,
         pendingBudgetEscalation: null,
         queuedQuery: null,
+        draftInput: null,
         conversationId: null,
         conversations: [],
         conversationsLoading: false,
@@ -173,6 +178,7 @@ export const useChatStore = create<ChatState>()(
         setIsPlanLoading: (loading) => set({ isPlanLoading: loading }),
         setPendingBudgetEscalation: (escalation) => set({ pendingBudgetEscalation: escalation }),
         setQueuedQuery: (query) => set({ queuedQuery: query }),
+        setDraftInput: (text) => set({ draftInput: text }),
 
         // Cancel active stream
         cancelStream: () => {

@@ -6,6 +6,7 @@ import { ToolSelector } from './chat/ToolSelector';
 import { FileAttachments, SelectedFile } from './chat/FileAttachments';
 import { PromptManager } from './chat/PromptManager';
 import { useChatFileUpload } from '../hooks/useChatFileUpload';
+import { useChatStore } from '../stores';
 
 const ACCEPTED_FILE_TYPES = '.pdf,.docx,.doc,.txt,.rtf,.html';
 
@@ -29,6 +30,18 @@ export function ChatInput({
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Consume draft input from store (e.g. from selection toolbar)
+  const draftInput = useChatStore(s => s.draftInput);
+  const setDraftInput = useChatStore(s => s.setDraftInput);
+
+  useEffect(() => {
+    if (draftInput !== null) {
+      setInput(draftInput);
+      setDraftInput(null);
+      setTimeout(() => textareaRef.current?.focus(), 0);
+    }
+  }, [draftInput, setDraftInput]);
 
   const uploadFiles = useChatFileUpload(setFiles);
 
