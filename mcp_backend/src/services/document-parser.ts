@@ -214,7 +214,7 @@ if (!Map.prototype.getOrInsertComputed) {
 </script>
 <script type="module">
 import { getDocument, GlobalWorkerOptions } from './pdf.min.mjs';
-GlobalWorkerOptions.workerSrc = '';
+GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
 
 window.renderPDF = async function(base64Data, maxPages, scale) {
   const binary = atob(base64Data);
