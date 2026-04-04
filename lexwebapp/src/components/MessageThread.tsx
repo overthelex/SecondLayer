@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Message, MessageProps } from './message';
+import { SelectionToolbar } from './chat/SelectionToolbar';
 
 interface MessageThreadProps {
   messages: MessageProps[];
@@ -61,5 +62,6 @@ export function MessageThread({
         })}
         <div ref={bottomRef} className="h-4" />
       </div>
+      <SelectionToolbar />
     </div>;
 }
