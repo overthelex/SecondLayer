@@ -27,15 +27,8 @@ export function createTestEmailRoute(emailService: EmailService): Router {
         });
       }
 
-      // Send test email using payment success template
-      await emailService.sendPaymentSuccess({
-        email: userEmail,
-        name: userName,
-        amount: 25.00,
-        currency: 'USD',
-        paymentId: 'TEST-' + Date.now(),
-        newBalance: 100.00,
-      });
+      // Send test email — uses dedicated method that throws on SMTP failure
+      await emailService.sendTestEmailTo(userEmail, userName);
 
       logger.info('Test email sent successfully', { email: userEmail });
 
