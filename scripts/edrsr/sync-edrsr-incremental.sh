@@ -1,6 +1,6 @@
 #!/bin/bash
 # Incremental EDRSR sync from data.gov.ua → prod PostgreSQL
-# Downloads current year ZIP, extracts documents.csv, imports new records via ON CONFLICT DO NOTHING
+# Downloads current year ZIP, extracts documents.csv, imports new records via NOT EXISTS (partitioned table)
 #
 # Usage:
 #   ./sync-edrsr-incremental.sh              # Sync current year (2026)
@@ -56,20 +56,27 @@ run_sql() {
 
 copy_to_db() {
   local file="$1"
+  # Use NOT EXISTS instead of ON CONFLICT — edrsr_documents is a partitioned table
+  # and PostgreSQL requires the partition key in any parent-level unique constraint.
+  # Per-partition unique indexes on doc_id exist, so NOT EXISTS uses them efficiently.
   if [ -n "${SSH_HOST:-}" ]; then
-    # Copy CSV to server → container, write SQL script, execute
-    local remote_file="/tmp/edrsr_import_$(basename "$file")"
+    # Compress before SCP to avoid connection drops on large files
+    local compressed_file="${file}.gz"
+    gzip -c "$file" > "$compressed_file"
+    local remote_file="/tmp/edrsr_import_$(basename "$file").gz"
     local sql_file="/tmp/edrsr_import.sql"
-    scp -q "$file" "${SSH_HOST}:${remote_file}"
-    ssh -T "$SSH_HOST" "docker cp ${remote_file} secondlayer-postgres-prod:/tmp/import.csv && rm -f ${remote_file}"
+    scp -q "$compressed_file" "${SSH_HOST}:${remote_file}"
+    rm -f "$compressed_file"
+    ssh -T "$SSH_HOST" "gunzip -c ${remote_file} > /tmp/edrsr_import.csv && docker cp /tmp/edrsr_import.csv secondlayer-postgres-prod:/tmp/import.csv && rm -f ${remote_file} /tmp/edrsr_import.csv"
     # Create SQL script on remote
     ssh -T "$SSH_HOST" "cat > ${sql_file}" <<'SQLEOF'
 CREATE TEMP TABLE edrsr_import (LIKE edrsr_documents INCLUDING DEFAULTS);
 COPY edrsr_import(doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ)
   FROM '/tmp/import.csv' WITH (FORMAT csv, DELIMITER E'\t', QUOTE '"', NULL '');
-INSERT INTO edrsr_documents
-  SELECT * FROM edrsr_import
-  ON CONFLICT (doc_id) DO NOTHING;
+INSERT INTO edrsr_documents (doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ)
+  SELECT doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ
+  FROM edrsr_import ei
+  WHERE NOT EXISTS (SELECT 1 FROM edrsr_documents ed WHERE ed.doc_id = ei.doc_id);
 DROP TABLE edrsr_import;
 SQLEOF
     ssh -T "$SSH_HOST" "docker cp ${sql_file} secondlayer-postgres-prod:/tmp/import.sql && rm -f ${sql_file}"
@@ -80,7 +87,10 @@ SQLEOF
     psql -h "${PGHOST:-localhost}" -p "${PGPORT:-5432}" -U "${PGUSER:-secondlayer}" -d "${PGDATABASE:-secondlayer_prod}" -v ON_ERROR_STOP=1 <<SQLEOF
 CREATE TEMP TABLE edrsr_import (LIKE edrsr_documents INCLUDING DEFAULTS);
 \COPY edrsr_import(doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ) FROM '$file' WITH (FORMAT csv, DELIMITER E'$TAB', QUOTE '"', NULL '');
-INSERT INTO edrsr_documents SELECT * FROM edrsr_import ON CONFLICT (doc_id) DO NOTHING;
+INSERT INTO edrsr_documents (doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ)
+  SELECT doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ
+  FROM edrsr_import ei
+  WHERE NOT EXISTS (SELECT 1 FROM edrsr_documents ed WHERE ed.doc_id = ei.doc_id);
 DROP TABLE edrsr_import;
 SQLEOF
   fi
