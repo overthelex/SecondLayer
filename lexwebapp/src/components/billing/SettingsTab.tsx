@@ -81,7 +81,7 @@ interface CurrentUsage {
 export function SettingsTab() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
-  const { formatUah } = useCurrencyRate();
+  const { formatUah, toUah, rate } = useCurrencyRate();
   const t = useProfileT();
 
   // Payment methods state
@@ -541,53 +541,51 @@ export function SettingsTab() {
           <div>
             <label htmlFor="settings-daily-limit" className="block text-sm font-medium text-claude-text mb-1.5">{t.dailyLimitLabel}</label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-claude-subtext">$</span>
               <input
                 id="settings-daily-limit"
                 name="dailyLimit"
                 type="number"
                 min="0"
-                step="1"
-                value={limits.daily_limit_usd}
-                onChange={(e) => setLimits({ ...limits, daily_limit_usd: parseFloat(e.target.value) || 0 })}
+                step="100"
+                value={Math.round(toUah(limits.daily_limit_usd))}
+                onChange={(e) => setLimits({ ...limits, daily_limit_usd: (parseFloat(e.target.value) || 0) / rate })}
                 className="flex-1 px-3 py-2 border border-claude-border rounded-lg text-sm"
               />
+              <span className="text-sm text-claude-subtext">₴</span>
             </div>
-            <p className="text-xs text-claude-subtext mt-1">≈ {formatUah(limits.daily_limit_usd)}</p>
           </div>
           <div>
             <label htmlFor="settings-monthly-limit" className="block text-sm font-medium text-claude-text mb-1.5">{t.monthlyLimitLabel}</label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-claude-subtext">$</span>
               <input
                 id="settings-monthly-limit"
                 name="monthlyLimit"
                 type="number"
                 min="0"
-                step="10"
-                value={limits.monthly_limit_usd}
-                onChange={(e) => setLimits({ ...limits, monthly_limit_usd: parseFloat(e.target.value) || 0 })}
+                step="1000"
+                value={Math.round(toUah(limits.monthly_limit_usd))}
+                onChange={(e) => setLimits({ ...limits, monthly_limit_usd: (parseFloat(e.target.value) || 0) / rate })}
                 className="flex-1 px-3 py-2 border border-claude-border rounded-lg text-sm"
               />
+              <span className="text-sm text-claude-subtext">₴</span>
             </div>
-            <p className="text-xs text-claude-subtext mt-1">≈ {formatUah(limits.monthly_limit_usd)}</p>
           </div>
           <div>
             <label htmlFor="settings-low-balance" className="block text-sm font-medium text-claude-text mb-1.5">{t.lowBalanceThreshold}</label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-claude-subtext">$</span>
               <input
                 id="settings-low-balance"
                 name="lowBalance"
                 type="number"
                 min="0"
-                step="1"
-                value={limits.low_balance_threshold_usd}
-                onChange={(e) => setLimits({ ...limits, low_balance_threshold_usd: parseFloat(e.target.value) || 0 })}
+                step="100"
+                value={Math.round(toUah(limits.low_balance_threshold_usd))}
+                onChange={(e) => setLimits({ ...limits, low_balance_threshold_usd: (parseFloat(e.target.value) || 0) / rate })}
                 className="flex-1 px-3 py-2 border border-claude-border rounded-lg text-sm"
               />
+              <span className="text-sm text-claude-subtext">₴</span>
             </div>
-            <p className="text-xs text-claude-subtext mt-1">{t.lowBalanceThresholdHint} (≈ {formatUah(limits.low_balance_threshold_usd)})</p>
+            <p className="text-xs text-claude-subtext mt-1">{t.lowBalanceThresholdHint}</p>
           </div>
         </div>
 
