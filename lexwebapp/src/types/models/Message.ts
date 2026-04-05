@@ -79,6 +79,14 @@ export interface Decision {
 export interface Citation {
   text: string;
   source: string;
+  /** Full NPA (нормативно-правовий акт) title, e.g. "Цивільний кодекс України" */
+  npaTitle?: string;
+  /** Article/section number, e.g. "625", "44" */
+  articleNumber?: string;
+  /** Direct URL to the article on zakon.rada.gov.ua */
+  url?: string;
+  /** rada_id for the legislation, e.g. "435-15" */
+  radaId?: string;
 }
 
 export interface VaultDocument {
