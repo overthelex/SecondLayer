@@ -122,15 +122,17 @@ export function ContractsPage() {
                     </div>
                   </div>
 
-                  <a
-                    href={contract.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-shrink-0 p-2 text-claude-subtext hover:text-claude-accent hover:bg-claude-accent/5 rounded-lg transition-colors"
-                    title="Відкрити документ"
-                  >
-                    <ExternalLink size={16} />
-                  </a>
+                  {contract.url && contract.url !== '#' && (
+                    <a
+                      href={contract.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0 p-2 text-claude-subtext hover:text-claude-accent hover:bg-claude-accent/5 rounded-lg transition-colors"
+                      title="Відкрити документ"
+                    >
+                      <ExternalLink size={16} />
+                    </a>
+                  )}
                 </div>
               </div>
             ))}

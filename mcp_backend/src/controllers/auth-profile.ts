@@ -283,6 +283,7 @@ export async function getMyContracts(req: AuthenticatedRequest, res: Response): 
       'attorney-offer-1.0': { title: 'Публічна оферта для адвокатів', type: 'attorney_offer', url: '/ua/attorney-offer' },
       'client-offer-1.0': { title: 'Публічна оферта для клієнтів', type: 'client_offer', url: '/ua/offer' },
       'marketplace-rules-1.0': { title: 'Правила маркетплейсу', type: 'marketplace_rules', url: '/ua/terms' },
+      'developer-offer-1.0': { title: 'Оферта розробника', type: 'developer_offer', url: '/ua/developer-offer' },
     };
 
     const contracts = result.rows.map((row: any) => {
