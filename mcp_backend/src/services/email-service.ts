@@ -151,6 +151,53 @@ export class EmailService {
   }
 
   /**
+   * Send test email — throws on failure so the caller can report the error.
+   * All other send methods swallow errors to avoid disrupting payment flows;
+   * this method is intentionally different so the /api/billing/test-email route
+   * can surface SMTP failures to the user.
+   */
+  async sendTestEmailTo(email: string, name: string): Promise<void> {
+    const html = this.generatePaymentSuccessTemplate(
+      {
+        email,
+        name,
+        amount: 25.00,
+        currency: 'USD',
+        paymentId: 'TEST-' + Date.now(),
+        newBalance: 100.00,
+      },
+      null,
+    );
+
+    const attachments: nodemailer.SendMailOptions['attachments'] = [];
+    if (this.logoBuffer) {
+      attachments.push({
+        filename: 'logolex.png',
+        content: this.logoBuffer,
+        cid: 'lexlogo@legal.org.ua',
+      });
+    }
+    if (this.fractalBuffer) {
+      attachments.push({
+        filename: 'email-header-fractal.png',
+        content: this.fractalBuffer,
+        cid: 'fractal-header@legal.org.ua',
+      });
+    }
+
+    // Throws on SMTP error — intentionally not caught here
+    await this.transporter.sendMail({
+      from: `"${this.config.fromName}" <${this.config.from}>`,
+      to: email,
+      subject: 'LEX — Тестовий лист (перевірка сповіщень)',
+      html,
+      attachments,
+    });
+
+    logger.info('Test email sent successfully', { email });
+  }
+
+  /**
    * Send payment success notification with LEX branding and referral data
    */
   async sendPaymentSuccess(params: PaymentSuccessParams & { userId?: string }): Promise<void> {
