@@ -442,7 +442,7 @@ export function createAdminLimitsRoutes(db: IDatabase): express.Router {
           {
             id: 'billing-monthly',
             name: 'Місячний ліміт витрат (на користувача)',
-            description: 'Адміністратор може встановити monthly_limit_usd. Attorney tier: $50/день, $500/місяць. Enterprise: без лімітів.',
+            description: 'Адміністратор може встановити monthly_limit_usd. Attorney tier: ₴2075/день, ₴20750/місяць. Enterprise: без лімітів.',
             severity: 'high',
           },
           {

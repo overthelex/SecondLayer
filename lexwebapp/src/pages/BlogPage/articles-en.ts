@@ -229,7 +229,7 @@ For attorneys — a dedicated pricing plan:
 |---|---|---|
 | Price | $9/mo | $49/mo |
 | MCP tools markup | 0% | 30% |
-| Limits | $10/$100 | $50/$500 |
+| Limits | ₴415/₴4150 | ₴2075/₴20750 |
 | Support | 48 hours | 12 hours |
 | Trial | 7 days | 14 days |
 
