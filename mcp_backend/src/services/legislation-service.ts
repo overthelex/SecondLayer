@@ -13,6 +13,14 @@ export interface LegislationReference {
   full_text_html?: string;
   url: string;
   metadata?: any;
+  /** НПА title, e.g. "Цивільний кодекс України" */
+  npa_title?: string;
+  /** Hierarchy: section (Розділ) */
+  section_number?: string;
+  section_title?: string;
+  /** Hierarchy: chapter (Глава) */
+  chapter_number?: string;
+  chapter_title?: string;
 }
 
 export interface LegislationSearchResult {
@@ -459,6 +467,13 @@ export class LegislationService {
       return null;
     }
 
+    // Fetch NPA title from legislation table
+    const legResult = await this.db.query(
+      `SELECT title FROM legislation WHERE LOWER(rada_id) = LOWER($1) LIMIT 1`,
+      [radaId]
+    );
+    const npaTitle = legResult.rows[0]?.title || undefined;
+
     return {
       rada_id: radaId,
       article_number: articleNumber,
@@ -467,6 +482,11 @@ export class LegislationService {
       full_text_html: article.full_text_html,
       url: `https://zakon.rada.gov.ua/laws/show/${radaId}#n${articleNumber}`,
       metadata: article.metadata,
+      npa_title: npaTitle,
+      section_number: article.section_number,
+      section_title: article.section_title,
+      chapter_number: article.chapter_number,
+      chapter_title: article.chapter_title,
     };
   }
 
@@ -474,7 +494,7 @@ export class LegislationService {
     await this.ensureLegislationExists(radaId);
 
     const result = await this.db.query(
-      `SELECT la.*, l.rada_id
+      `SELECT la.*, l.rada_id, l.title as npa_title
        FROM legislation_articles la
        JOIN legislation l ON la.legislation_id = l.id
        WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = ANY($2) AND la.is_current = true`,
@@ -489,6 +509,11 @@ export class LegislationService {
       full_text_html: row.full_text_html,
       url: `https://zakon.rada.gov.ua/laws/show/${radaId}#n${row.article_number}`,
       metadata: row.metadata,
+      npa_title: row.npa_title,
+      section_number: row.section_number,
+      section_title: row.section_title,
+      chapter_number: row.chapter_number,
+      chapter_title: row.chapter_title,
     }));
   }
 
@@ -952,13 +977,18 @@ export class LegislationService {
           full_text_html: a.full_text_html,
           url: `https://zakon.rada.gov.ua/laws/show/${r.rada_id}#n${a.article_number}`,
           metadata: a.metadata,
+          npa_title: r.legislation_title,
+          section_number: a.section_number,
+          section_title: a.section_title,
+          chapter_number: a.chapter_number,
+          chapter_title: a.chapter_title,
         })));
       }
 
       const articleIds = [...new Set(searchResults.map((r: any) => r.payload.article_id))].slice(0, limit);
 
       const result = await this.db.query(
-        `SELECT la.*, l.rada_id
+        `SELECT la.*, l.rada_id, l.title as npa_title
          FROM legislation_articles la
          JOIN legislation l ON la.legislation_id = l.id
          WHERE la.id = ANY($1)`,
@@ -973,6 +1003,11 @@ export class LegislationService {
         full_text_html: row.full_text_html,
         url: `https://zakon.rada.gov.ua/laws/show/${row.rada_id}#n${row.article_number}`,
         metadata: row.metadata,
+        npa_title: row.npa_title,
+        section_number: row.section_number,
+        section_title: row.section_title,
+        chapter_number: row.chapter_number,
+        chapter_title: row.chapter_title,
       }));
     } catch (error: any) {
       logger.error('Vector search failed, falling back to text search:', error.message);
@@ -985,6 +1020,11 @@ export class LegislationService {
         full_text_html: a.full_text_html,
         url: `https://zakon.rada.gov.ua/laws/show/${r.rada_id}#n${a.article_number}`,
         metadata: a.metadata,
+        npa_title: r.legislation_title,
+        section_number: a.section_number,
+        section_title: a.section_title,
+        chapter_number: a.chapter_number,
+        chapter_title: a.chapter_title,
       })));
     }
   }

@@ -135,6 +135,11 @@ export class LegislationTools extends BaseToolHandler {
       full_text: article.full_text,
       url: article.url,
       metadata: article.metadata,
+      npa_title: article.npa_title,
+      section_number: article.section_number,
+      section_title: article.section_title,
+      chapter_number: article.chapter_number,
+      chapter_title: article.chapter_title,
       resolved_from: query && !(radaId && articleNumber) ? {
         query,
         method: resolved.source || 'explicit',
@@ -180,6 +185,11 @@ export class LegislationTools extends BaseToolHandler {
         title: a.title,
         full_text: a.full_text,
         url: a.url,
+        npa_title: a.npa_title,
+        section_number: a.section_number,
+        section_title: a.section_title,
+        chapter_number: a.chapter_number,
+        chapter_title: a.chapter_title,
       })),
     };
 
@@ -266,6 +276,11 @@ export class LegislationTools extends BaseToolHandler {
               title: article.title,
               full_text: article.full_text,
               url: article.url,
+              npa_title: article.npa_title,
+              section_number: article.section_number,
+              section_title: article.section_title,
+              chapter_number: article.chapter_number,
+              chapter_title: article.chapter_title,
             },
           ],
         };
@@ -335,6 +350,11 @@ export class LegislationTools extends BaseToolHandler {
         title: a.title,
         full_text: a.full_text || '',
         url: a.url,
+        npa_title: a.npa_title,
+        section_number: a.section_number,
+        section_title: a.section_title,
+        chapter_number: a.chapter_number,
+        chapter_title: a.chapter_title,
       })),
     };
 

@@ -13,6 +13,7 @@ const LEGISLATION_TOOLS = [
 /** Resolve a human-readable NPA title from multiple possible fields. */
 function resolveNpaTitle(obj: ToolResultData, legTitle?: string): string {
   return (
+    obj.npa_title ||
     obj.title ||
     legTitle ||
     obj.legislation?.title ||
@@ -21,12 +22,37 @@ function resolveNpaTitle(obj: ToolResultData, legTitle?: string): string {
   );
 }
 
-/** Build a citation source label combining NPA title and article number. */
-function buildSource(npaTitle: string, articleNumber: string | undefined): string {
-  if (npaTitle && articleNumber) return `${npaTitle}, ст. ${articleNumber}`;
-  if (npaTitle) return npaTitle;
-  if (articleNumber) return `Стаття ${articleNumber}`;
+/** Build a hierarchy label: НПА, Розділ X "Title", Глава Y "Title", ст. Z */
+function buildSource(npaTitle: string, articleNumber: string | undefined, obj?: ToolResultData): string {
+  const parts: string[] = [];
+  if (npaTitle) parts.push(npaTitle);
+
+  if (obj?.section_number || obj?.section_title) {
+    const sec = obj.section_number ? `Розділ ${obj.section_number}` : '';
+    const secTitle = obj.section_title ? `«${obj.section_title}»` : '';
+    parts.push([sec, secTitle].filter(Boolean).join(' '));
+  }
+
+  if (obj?.chapter_number || obj?.chapter_title) {
+    const ch = obj.chapter_number ? `Глава ${obj.chapter_number}` : '';
+    const chTitle = obj.chapter_title ? `«${obj.chapter_title}»` : '';
+    parts.push([ch, chTitle].filter(Boolean).join(' '));
+  }
+
+  if (articleNumber) parts.push(`ст. ${articleNumber}`);
+
+  if (parts.length > 0) return parts.join(', ');
   return 'Норма';
+}
+
+/** Extract hierarchy fields from a tool result object. */
+function extractHierarchy(obj: ToolResultData) {
+  return {
+    sectionNumber: obj.section_number ? String(obj.section_number) : undefined,
+    sectionTitle: obj.section_title ? String(obj.section_title) : undefined,
+    chapterNumber: obj.chapter_number ? String(obj.chapter_number) : undefined,
+    chapterTitle: obj.chapter_title ? String(obj.chapter_title) : undefined,
+  };
 }
 
 export function extractLegislationEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
@@ -47,11 +73,12 @@ export function extractLegislationEvidence(toolName: string, parsed: ToolResultD
     const npaTitle = resolveNpaTitle(parsed, topLegTitle);
     citations.push({
       text: formatLegislationText(parsed.full_text || parsed.text || parsed.content || ''),
-      source: buildSource(npaTitle, articleNum || undefined),
+      source: buildSource(npaTitle, articleNum || undefined, parsed),
       npaTitle: npaTitle || undefined,
       articleNumber: articleNum || undefined,
       url: parsed.url || undefined,
       radaId: parsed.rada_id || undefined,
+      ...extractHierarchy(parsed),
     });
   }
 
@@ -62,11 +89,12 @@ export function extractLegislationEvidence(toolName: string, parsed: ToolResultD
       const articleNum = String(l.article_number || '');
       citations.push({
         text: formatLegislationText(l.full_text || l.text || l.snippet || l.title || ''),
-        source: buildSource(npaTitle, articleNum || undefined),
+        source: buildSource(npaTitle, articleNum || undefined, l),
         npaTitle: npaTitle || undefined,
         articleNumber: articleNum || undefined,
         url: l.url || undefined,
         radaId: l.rada_id || undefined,
+        ...extractHierarchy(l),
       });
     }
   }
@@ -82,11 +110,12 @@ export function extractLegislationEvidence(toolName: string, parsed: ToolResultD
         const articleNum = String(r.article_number || '');
         citations.push({
           text: formatLegislationText(r.text || r.content || r.description || r.article || r.reference || r.norm || ''),
-          source: buildSource(npaTitle, articleNum || undefined) || r.article || r.reference || r.norm || 'Норма',
+          source: buildSource(npaTitle, articleNum || undefined, r) || r.article || r.reference || r.norm || 'Норма',
           npaTitle: npaTitle || undefined,
           articleNumber: articleNum || undefined,
           url: r.url || undefined,
           radaId: r.rada_id || undefined,
+          ...extractHierarchy(r),
         });
       }
     }
@@ -99,11 +128,12 @@ export function extractLegislationEvidence(toolName: string, parsed: ToolResultD
         const articleNum = String(a.article_number || '');
         citations.push({
           text: formatLegislationText(a.full_text || a.text || a.content || ''),
-          source: buildSource(npaTitle, articleNum || undefined),
+          source: buildSource(npaTitle, articleNum || undefined, a),
           npaTitle: npaTitle || undefined,
           articleNumber: articleNum || undefined,
           url: a.url || undefined,
           radaId: a.rada_id || parsed.rada_id || undefined,
+          ...extractHierarchy(a),
         });
       }
     }
