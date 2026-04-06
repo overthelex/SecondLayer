@@ -105,11 +105,13 @@ export function useDocumentViewer({ downloadedDecisions }: UseDocumentViewerOpti
     }
   }, [downloadedDecisions]);
 
-  const openCitationModal = useCallback((c: { text: string; source: string }) => {
+  const openCitationModal = useCallback((c: { text: string; source: string; npaTitle?: string; url?: string }) => {
     setViewerItem({
       type: 'citation',
       title: c.source,
+      subtitle: c.npaTitle && c.source !== c.npaTitle ? c.npaTitle : undefined,
       content: c.text || 'Немає тексту.',
+      externalUrl: c.url || undefined,
     });
     setIsViewerOpen(true);
   }, []);

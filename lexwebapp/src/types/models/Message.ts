@@ -87,6 +87,14 @@ export interface Citation {
   url?: string;
   /** rada_id for the legislation, e.g. "435-15" */
   radaId?: string;
+  /** Hierarchy: section (Розділ) number */
+  sectionNumber?: string;
+  /** Hierarchy: section (Розділ) title */
+  sectionTitle?: string;
+  /** Hierarchy: chapter (Глава) number */
+  chapterNumber?: string;
+  /** Hierarchy: chapter (Глава) title */
+  chapterTitle?: string;
 }
 
 export interface VaultDocument {
