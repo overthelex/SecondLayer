@@ -10,8 +10,8 @@ export default defineConfig({
     setupFiles: ['./src/__tests__/setup.ts'],
     pool: 'forks',
     forks: {
-      maxForks: 2,
-      execArgv: ['--max-old-space-size=6144'],
+      maxForks: 1,
+      execArgv: ['--max-old-space-size=4096'],
     },
     coverage: {
       provider: 'v8',
