@@ -9,11 +9,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/__tests__/setup.ts'],
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        maxForks: 2,
-        execArgv: ['--max-old-space-size=6144'],
-      },
+    forks: {
+      maxForks: 2,
+      execArgv: ['--max-old-space-size=6144', '--experimental-require-module'],
     },
     coverage: {
       provider: 'v8',
