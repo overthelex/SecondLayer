@@ -20,7 +20,7 @@ vi.stubEnv('VITE_ENABLE_SSE_STREAMING', 'true');
 // Mock fetch globally
 global.fetch = vi.fn();
 
-// Mock scrollIntoView (not available in jsdom)
+// Mock scrollIntoView (not available in all test environments)
 Element.prototype.scrollIntoView = vi.fn();
 
 // Mock AbortController if not available

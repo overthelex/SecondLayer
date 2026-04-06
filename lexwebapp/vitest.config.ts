@@ -6,12 +6,12 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    environment: 'jsdom',
+    environment: 'happy-dom',
     setupFiles: ['./src/__tests__/setup.ts'],
     pool: 'forks',
     forks: {
       maxForks: 2,
-      execArgv: ['--max-old-space-size=6144', '--experimental-require-module'],
+      execArgv: ['--max-old-space-size=6144'],
     },
     coverage: {
       provider: 'v8',
