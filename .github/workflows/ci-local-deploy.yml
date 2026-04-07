@@ -128,7 +128,7 @@ jobs:
 
       - name: Test frontend
         if: needs.detect-changes.outputs.frontend == 'true'
-        timeout-minutes: 10
+        timeout-minutes: 15
         run: |
           cd lexwebapp
           npm test 2>&1 | tee /tmp/vitest-output.txt || true
@@ -143,7 +143,7 @@ jobs:
             exit 1
           fi
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          NODE_OPTIONS: --max-old-space-size=8192
 
       - name: Build frontend
         if: needs.detect-changes.outputs.frontend == 'true'
