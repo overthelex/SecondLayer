@@ -677,6 +677,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <span>{t.investorsLink}</span>
             </a>
             <a
+              href="/uk_investor"
+              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors duration-200 tracking-wide"
+            >
+              <Shield size={10} />
+              <span>UK Investors</span>
+            </a>
+            <a
               href="https://github.com/overthelex/aishield/blob/master/docs/01_system_overview.md"
               target="_blank"
               rel="noopener noreferrer"
