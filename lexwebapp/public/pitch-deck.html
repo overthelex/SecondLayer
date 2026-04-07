@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LEX — AI Legal Analytics Platform</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: 1280px 720px;
+    margin: 0;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0a0a0a;
+    color: #f5f5f5;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .slide {
+    width: 1280px;
+    height: 720px;
+    padding: 60px 80px;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+    page-break-inside: avoid;
+    background: #0c0c1a;
+  }
+
+  .slide::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .slide-number {
+    position: absolute;
+    bottom: 30px;
+    right: 50px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.25);
+    font-weight: 500;
+    letter-spacing: 1px;
+  }
+
+  .logo-bar {
+    position: absolute;
+    bottom: 30px;
+    left: 80px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.3);
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ===== SLIDE 1: Cover ===== */
+  .cover {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    background: linear-gradient(135deg, #0c0c1a 0%, #0f172a 50%, #0c0c1a 100%);
+  }
+
+  .cover .badge {
+    display: inline-block;
+    padding: 6px 18px;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #60a5fa;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 30px;
+  }
+
+  .cover h1 {
+    font-size: 72px;
+    font-weight: 800;
+    line-height: 1.05;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .cover h1 span {
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .cover .subtitle {
+    font-size: 22px;
+    font-weight: 300;
+    color: #94a3b8;
+    line-height: 1.5;
+    max-width: 650px;
+    margin-bottom: 40px;
+  }
+
+  .cover .url {
+    font-size: 16px;
+    font-weight: 500;
+    color: #60a5fa;
+    letter-spacing: 0.5px;
+  }
+
+  .cover .glow-orb {
+    position: absolute;
+    right: -80px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, rgba(139,92,246,0.08) 40%, transparent 70%);
+  }
+
+  /* ===== SLIDE 2: Problem ===== */
+  .slide h2 {
+    font-size: 40px;
+    font-weight: 700;
+    margin-bottom: 40px;
+    line-height: 1.2;
+  }
+
+  .slide h2 span {
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .problem-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 10px;
+  }
+
+  .problem-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 30px;
+    transition: all 0.3s;
+  }
+
+  .problem-card .icon {
+    font-size: 28px;
+    margin-bottom: 14px;
+  }
+
+  .problem-card h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #f1f5f9;
+  }
+
+  .problem-card p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #94a3b8;
+  }
+
+  /* ===== SLIDE 3: Solution ===== */
+  .solution-main {
+    display: flex;
+    gap: 50px;
+    align-items: flex-start;
+  }
+
+  .solution-left {
+    flex: 1.2;
+  }
+
+  .solution-right {
+    flex: 1;
+  }
+
+  .solution-left p {
+    font-size: 17px;
+    line-height: 1.7;
+    color: #cbd5e1;
+    margin-bottom: 24px;
+  }
+
+  .feature-pill {
+    display: inline-block;
+    padding: 8px 16px;
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #93c5fd;
+    margin: 0 6px 10px 0;
+  }
+
+  .case-study {
+    background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.06));
+    border: 1px solid rgba(59,130,246,0.15);
+    border-radius: 16px;
+    padding: 30px;
+  }
+
+  .case-study h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #60a5fa;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 16px;
+  }
+
+  .case-study .stat {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .case-study .stat .num {
+    font-size: 32px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .case-study .stat .label {
+    font-size: 14px;
+    color: #94a3b8;
+  }
+
+  /* ===== SLIDE 4: Data Moat ===== */
+  .data-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-top: 10px;
+  }
+
+  .data-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 28px;
+    text-align: center;
+  }
+
+  .data-card .number {
+    font-size: 38px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+
+  .data-card .unit {
+    font-size: 14px;
+    font-weight: 500;
+    color: #60a5fa;
+    margin-bottom: 10px;
+  }
+
+  .data-card .desc {
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+
+  /* ===== SLIDE 5: Tech ===== */
+  .tech-layout {
+    display: flex;
+    gap: 40px;
+  }
+
+  .tech-left {
+    flex: 1;
+  }
+
+  .tech-right {
+    flex: 1;
+  }
+
+  .arch-box {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 14px;
+  }
+
+  .arch-box h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #f1f5f9;
+    margin-bottom: 6px;
+  }
+
+  .arch-box p {
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+
+  .tech-stack-list {
+    list-style: none;
+  }
+
+  .tech-stack-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 14px;
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .tech-stack-list li .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #3b82f6;
+    flex-shrink: 0;
+  }
+
+  /* ===== SLIDE 6: Market ===== */
+  .market-layout {
+    display: flex;
+    gap: 50px;
+    align-items: flex-start;
+  }
+
+  .market-circles {
+    flex: 0.8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .circle {
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    width: 100%;
+  }
+
+  .circle-tam {
+    background: rgba(59,130,246,0.06);
+    border: 1px solid rgba(59,130,246,0.15);
+  }
+
+  .circle-sam {
+    background: rgba(59,130,246,0.10);
+    border: 1px solid rgba(59,130,246,0.25);
+  }
+
+  .circle-som {
+    background: rgba(59,130,246,0.18);
+    border: 1px solid rgba(59,130,246,0.35);
+  }
+
+  .circle .c-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #60a5fa;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  .circle .c-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: #f1f5f9;
+  }
+
+  .market-details {
+    flex: 1;
+  }
+
+  .market-item {
+    margin-bottom: 24px;
+  }
+
+  .market-item h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #60a5fa;
+    margin-bottom: 6px;
+  }
+
+  .market-item p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #94a3b8;
+  }
+
+  .market-item .highlight {
+    color: #f1f5f9;
+    font-weight: 600;
+  }
+
+  /* ===== SLIDE 7: Business Model ===== */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-top: 10px;
+  }
+
+  .pricing-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 30px;
+    position: relative;
+  }
+
+  .pricing-card.featured {
+    border-color: rgba(59,130,246,0.3);
+    background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.04));
+  }
+
+  .pricing-card h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+
+  .pricing-card .price {
+    font-size: 36px;
+    font-weight: 800;
+    color: #f1f5f9;
+    margin-bottom: 4px;
+  }
+
+  .pricing-card .price span {
+    font-size: 16px;
+    font-weight: 400;
+    color: #64748b;
+  }
+
+  .pricing-card .desc {
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.5;
+    margin-top: 12px;
+  }
+
+  .unit-econ {
+    display: flex;
+    gap: 40px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .unit-econ-item {
+    text-align: center;
+  }
+
+  .unit-econ-item .val {
+    font-size: 28px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .unit-econ-item .lbl {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ===== SLIDE 8: Traction ===== */
+  .traction-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-bottom: 30px;
+  }
+
+  .traction-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .traction-card .t-val {
+    font-size: 30px;
+    font-weight: 800;
+    color: #f1f5f9;
+    margin-bottom: 4px;
+  }
+
+  .traction-card .t-label {
+    font-size: 12px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .milestones {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+
+  .milestone {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 22px;
+  }
+
+  .milestone .m-period {
+    font-size: 12px;
+    font-weight: 600;
+    color: #60a5fa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .milestone p {
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+
+  .milestone .m-highlight {
+    color: #f1f5f9;
+    font-weight: 600;
+  }
+
+  /* ===== SLIDE 9: Team ===== */
+  .team-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+    margin-bottom: 30px;
+  }
+
+  .team-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 30px;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+
+  .team-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .team-avatar.vo { background: linear-gradient(135deg, #3b82f6, #8b5cf6); }
+  .team-avatar.ik { background: linear-gradient(135deg, #06b6d4, #3b82f6); }
+
+  .team-info h4 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: 2px;
+  }
+
+  .team-info .role {
+    font-size: 13px;
+    font-weight: 500;
+    color: #60a5fa;
+    margin-bottom: 10px;
+  }
+
+  .team-info p {
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.6;
+  }
+
+  .why-us {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+
+  .why-item {
+    background: rgba(59,130,246,0.04);
+    border: 1px solid rgba(59,130,246,0.1);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .why-item h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #f1f5f9;
+    margin-bottom: 6px;
+  }
+
+  .why-item p {
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+
+  /* ===== SLIDE 10: The Ask ===== */
+  .ask-layout {
+    display: flex;
+    gap: 50px;
+  }
+
+  .ask-left {
+    flex: 1.2;
+  }
+
+  .ask-right {
+    flex: 1;
+  }
+
+  .ask-box {
+    background: linear-gradient(135deg, rgba(59,130,246,0.10), rgba(139,92,246,0.06));
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: 16px;
+    padding: 30px;
+    margin-bottom: 24px;
+  }
+
+  .ask-box h3 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: 6px;
+  }
+
+  .ask-box .valuation {
+    font-size: 14px;
+    color: #94a3b8;
+  }
+
+  .use-of-funds {
+    list-style: none;
+  }
+
+  .use-of-funds li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 14px;
+    color: #cbd5e1;
+  }
+
+  .fund-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  }
+
+  .fund-pct {
+    font-weight: 700;
+    color: #60a5fa;
+    min-width: 36px;
+  }
+
+  .contact-box {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 28px;
+  }
+
+  .contact-box h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #60a5fa;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 16px;
+  }
+
+  .contact-line {
+    font-size: 14px;
+    color: #cbd5e1;
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+
+  .contact-line strong {
+    color: #f1f5f9;
+  }
+
+  .contact-url {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 10px 24px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: Cover -->
+<div class="slide cover">
+  <div class="glow-orb"></div>
+  <div class="badge">AI-Powered Legal Analytics</div>
+  <h1>LEX<br><span>Legal Intelligence</span><br>for Ukraine</h1>
+  <div class="subtitle">
+    The AI layer over 120M+ legal records. Court decisions, legislation, registries — unified, searchable, analyzable.
+  </div>
+  <div class="url">legal.org.ua</div>
+  <div class="slide-number">01</div>
+</div>
+
+<!-- SLIDE 2: Problem -->
+<div class="slide">
+  <h2>The <span>Problem</span></h2>
+  <div class="problem-grid">
+    <div class="problem-card">
+      <div class="icon">&#x23F3;</div>
+      <h3>Days of Manual Research</h3>
+      <p>A lawyer doing case research spends 2-3 full business days manually digging through court records. Legacy tools from the 2000s offer no AI, no semantic search, no analytics.</p>
+    </div>
+    <div class="problem-card">
+      <div class="icon">&#x26A0;</div>
+      <h3>AI Hallucinations</h3>
+      <p>Standard LLM chatbots hallucinate legal citations, ignore Ukrainian legal specifics, and produce answers that cannot be verified or reproduced.</p>
+    </div>
+    <div class="problem-card">
+      <div class="icon">&#x1F50D;</div>
+      <h3>Fragmented Data</h3>
+      <p>Court decisions, parliament data, business registries — scattered across multiple government systems with no unified interface or consistent quality.</p>
+    </div>
+    <div class="problem-card">
+      <div class="icon">&#x1F4B0;</div>
+      <h3>Rising Costs</h3>
+      <p>60,000+ lawyers, 5,000 law firms, 10,000 corporate legal departments — all using LIGA:ZAKON and ZakonOnline, paying for tools that haven't evolved in 20 years.</p>
+    </div>
+  </div>
+  <div class="logo-bar">LEX</div>
+  <div class="slide-number">02</div>
+</div>
+
+<!-- SLIDE 3: Solution -->
+<div class="slide">
+  <h2>The <span>Solution</span></h2>
+  <div class="solution-main">
+    <div class="solution-left">
+      <p>LEX is an AI-powered legal analytics platform. We do what takes lawyers days — in minutes. Our system searches court decisions, analyzes judge performance, verifies legal citations, monitors legislation changes, and generates defense strategies.</p>
+      <p>First and only platform in Ukraine with native MCP protocol support — 118 AI tools that plug directly into Claude, GPT, and other LLMs.</p>
+      <div>
+        <span class="feature-pill">Semantic Search</span>
+        <span class="feature-pill">Citation Verification</span>
+        <span class="feature-pill">Judge Analytics</span>
+        <span class="feature-pill">118 MCP Tools</span>
+        <span class="feature-pill">Defense Strategies</span>
+        <span class="feature-pill">Legislation Monitoring</span>
+      </div>
+    </div>
+    <div class="solution-right">
+      <div class="case-study">
+        <h4>Real Case Study</h4>
+        <div class="stat">
+          <span class="num">473</span>
+          <span class="label">documents analyzed</span>
+        </div>
+        <div class="stat">
+          <span class="num">9</span>
+          <span class="label">defense strategies identified</span>
+        </div>
+        <div class="stat">
+          <span class="num">15</span>
+          <span class="label">minutes vs. 1 week manually</span>
+        </div>
+        <p style="font-size:13px;color:#94a3b8;margin-top:12px;line-height:1.5;">11-year-old debt enforcement case, UAH 11.9M. AI analyzed documents across multiple government registries.</p>
+      </div>
+    </div>
+  </div>
+  <div class="logo-bar">LEX</div>
+  <div class="slide-number">03</div>
+</div>
+
+<!-- SLIDE 4: Data Moat -->
+<div class="slide">
+  <h2>Our <span>Data Moat</span></h2>
+  <div class="data-grid">
+    <div class="data-card">
+      <div class="number">115M</div>
+      <div class="unit">Court Decision Metadata</div>
+      <div class="desc">Complete index of all Ukrainian court decisions from the State Court Registry (EDRSR)</div>
+    </div>
+    <div class="data-card">
+      <div class="number">5M</div>
+      <div class="unit">Full-Text Decisions</div>
+      <div class="desc">Downloaded, parsed, and indexed for instant full-text and semantic search</div>
+    </div>
+    <div class="data-card">
+      <div class="number">2M</div>
+      <div class="unit">Vector Embeddings</div>
+      <div class="desc">Semantic search over court decisions using AI-generated embeddings</div>
+    </div>
+    <div class="data-card">
+      <div class="number">200K+</div>
+      <div class="unit">Legislation Records</div>
+      <div class="desc">Laws, codes, decrees with article-level sectioning and cross-references</div>
+    </div>
+    <div class="data-card">
+      <div class="number">12K+</div>
+      <div class="unit">Judge Profiles</div>
+      <div class="desc">Performance analytics, ruling patterns, case statistics — unique in Ukraine</div>
+    </div>
+    <div class="data-card">
+      <div class="number">118</div>
+      <div class="unit">MCP AI Tools</div>
+      <div class="desc">Specialized legal instruments for search, analysis, generation, and validation</div>
+    </div>
+  </div>
+  <div class="logo-bar">LEX</div>
+  <div class="slide-number">04</div>
+</div>
+
+<!-- SLIDE 5: Technology -->
+<div class="slide">
+  <h2><span>Technology</span> Architecture</h2>
+  <div class="tech-layout">
+    <div class="tech-left">
+      <div class="arch-box">
+        <h4>MCP Backend</h4>
+        <p>Court cases, documents, semantic search, AI analysis, billing, consultations. Primary intelligence layer.</p>
+      </div>
+      <div class="arch-box">
+        <h4>MCP Rada</h4>
+        <p>Parliament data: deputies, bills, active legislation, voting records, legislative history.</p>
+      </div>
+      <div class="arch-box">
+        <h4>MCP OpenReyestr</h4>
+        <p>Business registries: companies, beneficiaries, debtors, public registry data from data.gov.ua.</p>
+      </div>
+      <div class="arch-box">
+        <h4>Unified Gateway</h4>
+        <p>Single API endpoint aggregating all services. Production-ready with blue-green deployment.</p>
+      </div>
+    </div>
+    <div class="tech-right">
+      <h4 style="font-size:14px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;">Tech Stack</h4>
+      <ul class="tech-stack-list">
+        <li><span class="dot"></span>TypeScript / Node.js 20</li>
+        <li><span class="dot"></span>PostgreSQL + PgBouncer</li>
+        <li><span class="dot"></span>Qdrant Vector Database</li>
+        <li><span class="dot"></span>Redis Cache Layer</li>
+        <li><span class="dot"></span>OpenAI GPT-4o + Embeddings</li>
+        <li><span class="dot"></span>React 19 + Vite + TailwindCSS</li>
+        <li><span class="dot"></span>Docker + Blue-Green Deploy</li>
+        <li><span class="dot"></span>MCP Protocol (Model Context Protocol)</li>
+        <li><span class="dot"></span>CI/CD with Self-Healing</li>
+        <li><span class="dot"></span>Diia Digital Identity Integration</li>
+      </ul>
+    </div>
+  </div>
+  <div class="logo-bar">LEX</div>
+  <div class="slide-number">05</div>
+</div>
+
+<!-- SLIDE 6: LLM Training & AI Research -->
+<div class="slide">
+  <h2>LLM <span>Training</span> Vision</h2>
+  <div style="display:flex;gap:40px;">
+    <div style="flex:1.3;">
+      <p style="font-size:16px;color:#cbd5e1;line-height:1.7;margin-bottom:20px;">
+        Building a <strong style="color:#f1f5f9;">Harvey-class legal AI model</strong> for Ukrainian law. Three-phase roadmap using open-weight models (DeepSeek-V3 685B) on cloud infrastructure, trained on the largest open court corpus in Europe.
+      </p>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px;">
+          <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Phase 1: Foundation</div>
+          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">Fine-tune embeddings + LoRA on 10.9M KUpAP decisions. Target: >75% preference vs GPT-4o.</p>
+          <div style="font-size:11px;color:#64748b;margin-top:8px;">Budget: ~$15K</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px;">
+          <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Phase 2: Scale</div>
+          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">Continued pre-training on 100M decisions (50-80B tokens). Jurisdiction-specific LoRA adapters.</p>
+          <div style="font-size:11px;color:#64748b;margin-top:8px;">Budget: ~$80-120K</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px;">
+          <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Phase 3: Harvey-class</div>
+          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">Multi-model orchestration, RLHF with lawyers. Target: >95% preference, <0.2% hallucination.</p>
+          <div style="font-size:11px;color:#64748b;margin-top:8px;">Budget: ~$100-130K</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <span class="feature-pill">Constitutional RLHF</span>
+        <span class="feature-pill">DeepSeek-V3 685B</span>
+        <span class="feature-pill">Long Tail Mitigation</span>
+        <span class="feature-pill">Calibrated Uncertainty</span>
+      </div>
+    </div>
+
+    <div style="flex:0.7;">
+      <div style="background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.06));border:1px solid rgba(59,130,246,0.15);border-radius:16px;padding:24px;margin-bottom:16px;">
+        <h4 style="font-size:13px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Constitutional RLHF</h4>
+        <p style="font-size:13px;color:#94a3b8;line-height:1.6;">Ukraine's Constitution as reward signal. Each response evaluated against constitutional principles: presumption of innocence, privacy, equality, human dignity.</p>
+        <p style="font-size:13px;color:#cbd5e1;line-height:1.6;margin-top:10px;font-weight:500;">30-article LegalTech LLM Constitution published as open industry standard.</p>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:24px;">
+        <h4 style="font-size:13px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Key Innovation</h4>
+        <p style="font-size:13px;color:#94a3b8;line-height:1.6;">Harvey.ai spent $100M+ training with OpenAI. We achieve comparable results at a fraction of cost using open-weight models on cloud silicon — focused on a unique dataset no competitor can replicate.</p>
+      </div>
+    </div>
+  </div>
+  <div class="logo-bar">LEX</div>
+  <div class="slide-number">06</div>
+</div>
+
+<!-- SLIDE 7: Market -->
+<div class="slide">
+  <h2>Market <span>Opportunity</span></h2>
+  <div class="market-layout">
+    <div class="market-circles">
+      <div class="circle circle-tam">
+        <span class="c-label">TAM</span>
+        <span class="c-value">$500M+</span>
+      </div>
+      <div class="circle circle-sam">
+        <span class="c-label">SAM</span>
+        <span class="c-value">$50M</span>
+      </div>
+      <div class="circle circle-som">
+        <span class="c-label">SOM</span>
+        <span class="c-value">$5M</span>
+      </div>
+    </div>
+    <div class="market-details">
+      <div class="market-item">
+        <h4>TAM — Global Legal AI</h4>
+        <p>The global legal AI market exceeds <span class="highlight">$500M</span> and is growing rapidly as firms adopt AI-powered research and analytics tools.</p>
+      </div>
+      <div class="market-item">
+        <h4>SAM — Ukraine & CEE</h4>
+        <p>Our serviceable market in Ukraine and Central/Eastern Europe represents <span class="highlight">$50M</span> in legal technology spending.</p>
+      </div>
+      <div class="market-item">
+        <h4>SOM — Realistic Target</h4>
+        <p>We target <span class="highlight">$2-5M ARR</span> in the first two years. Even 1% of Ukrainian lawyers gives us 600+ paying customers.</p>
+      </div>
+      <div class="market-item">
+        <h4>Zero Direct Competitors</h4>
+        <p>No one in Ukraine has AI legal analytics. LIGA:ZAKON and ZakonOnline are <span class="highlight">legacy databases</span> with no AI, no API, no semantic search.</p>
+      </div>
+    </div>
+  </div>
+  <div class="logo-bar">LEX</div>
+  <div class="slide-number">07</div>
+</div>
+
+<!-- SLIDE 8: Business Model -->
+<div class="slide">
+  <h2>Business <span>Model</span></h2>
+  <div class="pricing-grid">
+    <div class="pricing-card">
+      <h4>Individual</h4>
+      <div class="price">$29<span>/mo</span></div>
+      <div class="desc">Solo practitioners and independent lawyers. Full access to search, analysis, and AI tools.</div>
+    </div>
+    <div class="pricing-card featured">
+      <h4>Law Firm</h4>
+      <div class="price">$99+<span>/mo</span></div>
+      <div class="desc">Multi-user access for firms. Shared workspaces, team analytics, priority support.</div>
+    </div>
+    <div class="pricing-card">
+      <h4>API / Enterprise</h4>
+      <div class="price">Custom</div>
+      <div class="desc">Pay-per-query API access. On-premise deployment. White-label integrations for legaltech platforms.</div>
+    </div>
+  </div>
+  <div class="unit-econ">
+    <div class="unit-econ-item">
+      <div class="val">$0.02</div>
+      <div class="lbl">Avg Query Cost</div>
+    </div>
+    <div class="unit-econ-item">
+      <div class="val">$0.05</div>
+      <div class="lbl">Avg Query Price</div>
+    </div>
+    <div class="unit-econ-item">
+      <div class="val">60%</div>
+      <div class="lbl">Gross Margin</div>
+    </div>
+    <div class="unit-econ-item">
+      <div class="val">5.9x</div>
+      <div class="lbl">LTV/CAC Ratio</div>
+    </div>
+    <div class="unit-econ-item">
+      <div class="val">2 mo</div>
+      <div class="lbl">Payback Period</div>
+    </div>
+  </div>
+  <div class="logo-bar">LEX</div>
+  <div class="slide-number">08</div>
+</div>
+
+<!-- SLIDE 9: Traction & Roadmap -->
+<div class="slide">
+  <h2>Traction & <span>Roadmap</span></h2>
+  <div class="traction-grid">
+    <div class="traction-card">
+      <div class="t-val">120M+</div>
+      <div class="t-label">Records Indexed</div>
+    </div>
+    <div class="traction-card">
+      <div class="t-val">3</div>
+      <div class="t-label">MCP Servers Live</div>
+    </div>
+    <div class="traction-card">
+      <div class="t-val">118</div>
+      <div class="t-label">AI Tools Built</div>
+    </div>
+    <div class="traction-card">
+      <div class="t-val">Prod</div>
+      <div class="t-label">In Production</div>
+    </div>
+  </div>
+  <div class="milestones">
+    <div class="milestone">
+      <div class="m-period">Months 1-2</div>
+      <p><span class="m-highlight">100 paying customers.</span> Launch marketing campaigns. Legal conference presence. Content marketing.</p>
+    </div>
+    <div class="milestone">
+      <div class="m-period">Months 3-4</div>
+      <p><span class="m-highlight">250+ customers.</span> B2B plans launch. Law firm partnerships. Mobile app beta. API marketplace.</p>
+    </div>
+    <div class="milestone">
+      <div class="m-period">Months 5-6</div>
+      <p><span class="m-highlight">500+ customers, $15-25K MRR.</span> Seed round preparation. European expansion research.</p>
+    </div>
+  </div>
+  <div class="logo-bar">LEX</div>
+  <div class="slide-number">09</div>
+</div>
+
+<!-- SLIDE 10: Team -->
+<div class="slide">
+  <h2>The <span>Team</span></h2>
+  <div class="team-grid">
+    <div class="team-card">
+      <div class="team-avatar vo">VO</div>
+      <div class="team-info">
+        <h4>Volodymyr Ovcharov</h4>
+        <div class="role">Co-Founder & CTO</div>
+        <p>15+ years building scalable data platforms. Background from Glushkov Institute of Cybernetics (KPI). AI/ML, high-load systems, backend architecture.</p>
+      </div>
+    </div>
+    <div class="team-card">
+      <div class="team-avatar ik">IK</div>
+      <div class="team-info">
+        <h4>Igor Kyrychenko</h4>
+        <div class="role">Co-Founder & CEO</div>
+        <p>PhD in Law. Deep expertise in Ukrainian and international legal practice. Bridges domain knowledge with technology. AQA/programming background.</p>
+      </div>
+    </div>
+  </div>
+  <div class="why-us">
+    <div class="why-item">
+      <h4>Domain Expertise</h4>
+      <p>Legal PhD + tech CTO. Domain logic is baked into architecture, not bolted on.</p>
+    </div>
+    <div class="why-item">
+      <h4>Data Moat</h4>
+      <p>120M+ records took months to build. Any competitor starts from scratch.</p>
+    </div>
+    <div class="why-item">
+      <h4>First Mover</h4>
+      <p>Only AI legal analytics platform in Ukraine. Zero direct competitors.</p>
+    </div>
+  </div>
+  <div class="logo-bar">LEX</div>
+  <div class="slide-number">10</div>
+</div>
+
+<!-- SLIDE 11: The Ask -->
+<div class="slide">
+  <h2>The <span>Ask</span></h2>
+  <div class="ask-layout">
+    <div class="ask-left">
+      <div class="ask-box">
+        <h3>$50,000 for 5% equity</h3>
+        <div class="valuation">$1M pre-money valuation</div>
+      </div>
+      <h4 style="font-size:14px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;">Use of Funds</h4>
+      <ul class="use-of-funds">
+        <li>
+          <span class="fund-pct">50%</span>
+          <div>
+            <div>Marketing & Customer Acquisition</div>
+            <div style="margin-top:4px;"><div class="fund-bar" style="width:200px;"></div></div>
+          </div>
+        </li>
+        <li>
+          <span class="fund-pct">25%</span>
+          <div>
+            <div>Infrastructure & AI Costs</div>
+            <div style="margin-top:4px;"><div class="fund-bar" style="width:100px;"></div></div>
+          </div>
+        </li>
+        <li>
+          <span class="fund-pct">15%</span>
+          <div>
+            <div>Product Development</div>
+            <div style="margin-top:4px;"><div class="fund-bar" style="width:60px;"></div></div>
+          </div>
+        </li>
+        <li>
+          <span class="fund-pct">10%</span>
+          <div>
+            <div>Legal & Operations</div>
+            <div style="margin-top:4px;"><div class="fund-bar" style="width:40px;"></div></div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="ask-right">
+      <div class="contact-box">
+        <h4>Get in Touch</h4>
+        <div class="contact-line"><strong>Volodymyr Ovcharov</strong> — CTO</div>
+        <div class="contact-line">volodymyr@legal.org.ua</div>
+        <div class="contact-line" style="margin-bottom:16px;">linkedin.com/in/volodymir-ovcharov</div>
+        <div class="contact-line"><strong>Igor Kyrychenko</strong> — CEO</div>
+        <div class="contact-line">igor@legal.org.ua</div>
+        <div class="contact-line">+380 67 720 63 53</div>
+        <div class="contact-line" style="margin-bottom:16px;">linkedin.com/in/ihor-kyrychenko</div>
+        <a class="contact-url" href="https://legal.org.ua" style="text-decoration:none;">legal.org.ua</a>
+      </div>
+      <div style="margin-top:20px;text-align:center;">
+        <p style="font-size:13px;color:#64748b;font-weight:500;">Target: 500 customers | $25K MRR | 488% ROI in 12 months</p>
+      </div>
+    </div>
+  </div>
+  <div class="logo-bar">LEX</div>
+  <div class="slide-number">11</div>
+</div>
+
+</body>
+</html>

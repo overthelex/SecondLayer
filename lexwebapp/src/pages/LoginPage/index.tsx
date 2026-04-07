@@ -684,13 +684,11 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <span>UK Investors</span>
             </a>
             <a
-              href="https://github.com/overthelex/aishield/blob/master/docs/01_system_overview.md"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/pitch-deck.html"
               className="inline-flex items-center gap-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors duration-200 tracking-wide"
             >
               <FileText size={10} />
-              <span>{t.docsLink}</span>
+              <span>Pitch Deck</span>
             </a>
           </div>
 
