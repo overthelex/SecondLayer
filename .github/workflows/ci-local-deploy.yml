@@ -129,16 +129,18 @@ jobs:
 
       - name: Test frontend
         if: needs.detect-changes.outputs.frontend_tests_needed == 'true'
-        timeout-minutes: 10
+        timeout-minutes: 5
         run: |
           cd lexwebapp
-          npm test 2>&1 | tee /tmp/vitest-output.txt || true
-          # Check actual test results from stdout — worker OOM at teardown is not a test failure
+          # Run vitest with a background watchdog that kills it if it hangs after tests complete
+          timeout 180 npm test 2>&1 | tee /tmp/vitest-output.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          # Check actual test results from stdout — worker OOM/hang at teardown is not a test failure
           if grep -q "Tests.*failed" /tmp/vitest-output.txt; then
             echo "::error::Some tests failed"
             exit 1
           elif grep -q "Test Files.*passed" /tmp/vitest-output.txt; then
-            echo "All tests passed (worker teardown issues ignored)"
+            echo "All tests passed (exit code $EXIT_CODE ignored — teardown hang is not a failure)"
           else
             echo "::error::Could not determine test results"
             exit 1
