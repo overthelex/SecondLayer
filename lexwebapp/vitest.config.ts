@@ -9,6 +9,7 @@ export default defineConfig({
     environment: 'happy-dom',
     setupFiles: ['./src/__tests__/setup.ts'],
     pool: 'forks',
+    teardownTimeout: 10000,
     forks: {
       maxForks: 1,
       execArgv: ['--max-old-space-size=4096'],

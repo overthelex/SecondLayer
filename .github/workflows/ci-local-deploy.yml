@@ -38,6 +38,7 @@ jobs:
       services_to_deploy: ${{ steps.changes.outputs.services_to_deploy }}
       monitoring: ${{ steps.changes.outputs.monitoring }}
       platform: ${{ steps.changes.outputs.platform }}
+      frontend_tests_needed: ${{ steps.changes.outputs.frontend_tests_needed }}
       has_changes: ${{ steps.check.outputs.has_changes }}
     steps:
       - uses: actions/checkout@v4
@@ -127,8 +128,8 @@ jobs:
         run: cd lexwebapp && npm install --legacy-peer-deps
 
       - name: Test frontend
-        if: needs.detect-changes.outputs.frontend == 'true'
-        timeout-minutes: 15
+        if: needs.detect-changes.outputs.frontend_tests_needed == 'true'
+        timeout-minutes: 10
         run: |
           cd lexwebapp
           npm test 2>&1 | tee /tmp/vitest-output.txt || true
