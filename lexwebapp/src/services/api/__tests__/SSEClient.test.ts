@@ -321,6 +321,14 @@ describe('SSEClient', () => {
   });
 
   describe('streamToolWithRetry', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it('should retry on failure', async () => {
       mockFetch
         .mockRejectedValueOnce(new Error('Network error'))
@@ -340,8 +348,8 @@ describe('SSEClient', () => {
 
       await sseClient.streamToolWithRetry('test_tool', {}, callbacks);
 
-      // Wait for retry delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Advance past retry delay
+      await vi.advanceTimersByTimeAsync(2000);
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
@@ -356,11 +364,11 @@ describe('SSEClient', () => {
       // The promise resolves (returns AbortController) but onError is called
       await sseClient.streamToolWithRetry('test_tool', {}, callbacks);
 
-      // Wait for all retries
-      await new Promise(resolve => setTimeout(resolve, 8000));
+      // Advance through all retry delays
+      await vi.advanceTimersByTimeAsync(10000);
 
       expect(mockFetch).toHaveBeenCalledTimes(4); // Initial + 3 retries
       expect(callbacks.onError).toHaveBeenCalled(); // Error callback invoked
-    }, 10000);
+    });
   });
 });
