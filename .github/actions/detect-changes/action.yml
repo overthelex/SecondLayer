@@ -41,6 +41,9 @@ outputs:
   monitoring:
     description: 'Whether monitoring configs changed (grafana, prometheus)'
     value: ${{ steps.changes.outputs.monitoring }}
+  frontend_tests_needed:
+    description: 'Whether frontend changes require running tests (false for static-only like public/)'
+    value: ${{ steps.changes.outputs.frontend_tests_needed }}
 
 runs:
   using: 'composite'
@@ -86,6 +89,7 @@ runs:
         PLATFORM=false
 
         OPENDATA_SYNC=false
+        FRONTEND_SRC=false  # true when lexwebapp src/tests/config changed (needs tests)
 
         DEPLOY_INFRA=false  # Dockerfiles, compose files, nginx — triggers full rebuild
         DEPLOY_MONITORING=false  # Grafana, prometheus — deploy-only, no rebuild
@@ -96,7 +100,8 @@ runs:
             mcp_backend/*) BACKEND=true ;;
             mcp_rada/*) RADA=true ;;
             mcp_openreyestr/*) OPENREYESTR=true ;;
-            lexwebapp/*) FRONTEND=true ;;
+            lexwebapp/public/*) FRONTEND=true ;;
+            lexwebapp/*) FRONTEND=true; FRONTEND_SRC=true ;;
             deployment/grafana/*|deployment/prometheus/*) DEPLOY_MONITORING=true; DEPLOYMENT=true ;;
             deployment/*) DEPLOY_INFRA=true; DEPLOYMENT=true ;;
             mobile/*) MOBILE=true ;;
@@ -164,6 +169,13 @@ runs:
         SERVICES_TO_BUILD="[${BUILD_LIST}]"
         SERVICES_TO_DEPLOY="[${DEPLOY_LIST}]"
 
+        # Frontend tests only needed when source code changed, not just static assets
+        FRONTEND_TESTS_NEEDED=$FRONTEND_SRC
+        if [ "$DEPLOY_INFRA" = "true" ]; then
+          FRONTEND_TESTS_NEEDED=true
+        fi
+
+        echo "frontend_tests_needed=$FRONTEND_TESTS_NEEDED" >> "$GITHUB_OUTPUT"
         echo "shared=$SHARED" >> "$GITHUB_OUTPUT"
         echo "backend=$BACKEND" >> "$GITHUB_OUTPUT"
         echo "rada=$RADA" >> "$GITHUB_OUTPUT"
