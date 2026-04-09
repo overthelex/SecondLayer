@@ -52,17 +52,29 @@ runs:
       id: last_deploy
       shell: bash
       run: |
-        # Try to get the last successful deploy tag; fall back to previous commit
+        # Find the most recent deploy marker tag (created after each successful prod deploy)
         LAST_SHA=""
-        if git tag -l "deploy-prod-*" | tail -1 > /dev/null 2>&1; then
-          LAST_TAG=$(git tag -l "deploy-prod-*" --sort=-creatordate | head -1)
+        LAST_TAG=$(git tag -l "deploy-prod-*" --sort=-creatordate | head -1)
+        if [ -n "$LAST_TAG" ]; then
+          LAST_SHA=$(git rev-parse "$LAST_TAG" 2>/dev/null || echo "")
+          echo "Using deploy marker tag: $LAST_TAG ($LAST_SHA)"
+        fi
+
+        # Fallback: use the most recent release tag (v* or fe-v*)
+        if [ -z "$LAST_SHA" ]; then
+          LAST_TAG=$(git tag -l --sort=-creatordate "v*" "fe-v*" | head -1)
           if [ -n "$LAST_TAG" ]; then
             LAST_SHA=$(git rev-parse "$LAST_TAG" 2>/dev/null || echo "")
+            echo "Using release tag as fallback: $LAST_TAG ($LAST_SHA)"
           fi
         fi
+
+        # Last resort: first parent of HEAD (works correctly for merge commits)
         if [ -z "$LAST_SHA" ]; then
           LAST_SHA=$(git rev-parse HEAD~1)
+          echo "WARNING: No deploy/release tags found, using HEAD~1 ($LAST_SHA)"
         fi
+
         echo "last_sha=$LAST_SHA" >> "$GITHUB_OUTPUT"
         echo "Comparing changes since: $LAST_SHA"
 

@@ -1094,3 +1094,13 @@ jobs:
               --notes-file - \
               $LATEST_FLAG
           fi
+
+      - name: Tag deploy marker
+        run: |
+          # Create a lightweight tag marking this commit as successfully deployed to prod.
+          # detect-changes uses this to compare against the next deploy, ensuring no
+          # changes are skipped between deploys.
+          DEPLOY_TAG="deploy-prod-$(date -u +%Y%m%d-%H%M%S)"
+          git tag "$DEPLOY_TAG"
+          git push origin "$DEPLOY_TAG"
+          echo "Created deploy marker tag: $DEPLOY_TAG"
