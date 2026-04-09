@@ -93,11 +93,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 2G
+          cpus: '4.0'
+          memory: 64G
         reservations:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '1.0'
+          memory: 4G
 
   redis-local:
     image: redis:7-alpine
@@ -343,7 +343,7 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-https://local.legal.org.ua}
 
     ports:
-      - "3000:3000"  # Standard backend port
+      - "127.0.0.1:3000:3000"  # Standard backend port
 
     depends_on:
       migrate-local:
@@ -456,7 +456,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     healthcheck:
       test:
         [
@@ -546,7 +546,7 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
 
     ports:
-      - "3002:3002"
+      - "127.0.0.1:3002:3002"
 
     volumes:
       # Vision API credentials for OCR
@@ -659,7 +659,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-debug}
 
     ports:
-      - "3004:3004"
+      - "127.0.0.1:3004:3004"
 
     depends_on:
       postgres-openreyestr-local:
