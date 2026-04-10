@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Allow: /blog
+Allow: /blog/*
+Allow: /lex-news
+Allow: /investor
+Allow: /uk_investor
+Allow: /pitch-deck.html
+Allow: /developer/docs
+Allow: /sitemap.xml
+
+Sitemap: https://legal.org.ua/sitemap.xml
