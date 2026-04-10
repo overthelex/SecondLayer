@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Users, Target, Database, Calculator, BarChart3, TrendingUp, ExternalLink, FileText, Shield, DollarSign, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { translations, type Lang } from './investor-letter-translations';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 const LANGS: { key: Lang; label: string }[] = [
   { key: 'ua', label: 'UA' },
@@ -34,6 +35,13 @@ export function InvestorLetterPage() {
   const navigate = useNavigate();
   const [lang, setLang] = useState<Lang>('ua');
   const t = translations[lang];
+
+  useDocumentMeta({
+    title: 'LEX AI — Investor Memo | Legal AI Platform Ukraine',
+    description: 'Investment opportunity in LEX, the AI-powered legal platform for Ukrainian law. Market data, traction, and competitive analysis.',
+    ogTitle: 'LEX AI — Investor Memo',
+    ogDescription: 'Investment opportunity in LEX, the AI-powered legal platform for Ukrainian law.',
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-claude-bg via-white to-claude-sidebar">

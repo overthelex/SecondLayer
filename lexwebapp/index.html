@@ -7,6 +7,14 @@
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#1a1b2e" />
+
+    <!-- DNS Prefetch & Preconnect for external resources -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+
     <title>LEX — AI Legal Platform for Law Firms</title>
     <meta name="description" content="AI-powered legal platform for law firms and corporate counsel. Semantic search across 110M+ court decisions, case law analysis, legislative monitoring across 12 jurisdictions. Built on AWS (EC2, Bedrock, ALB, WAF)." />
 
@@ -63,6 +71,31 @@
         "Parliament data and voting records",
         "Business registry and beneficiary lookups"
       ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "SecondLayer",
+      "url": "https://legal.org.ua",
+      "logo": "https://legal.org.ua/icon-192x192.png",
+      "description": "AI-powered legal technology company building tools for law firms and corporate counsel.",
+      "foundingDate": "2024",
+      "sameAs": [
+        "https://github.com/overthelex"
+      ],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "url": "https://legal.org.ua"
+      },
+      "product": {
+        "@type": "SoftwareApplication",
+        "name": "LEX",
+        "applicationCategory": "LegalService",
+        "url": "https://legal.org.ua"
+      }
     }
     </script>
 

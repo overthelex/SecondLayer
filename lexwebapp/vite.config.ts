@@ -1,8 +1,97 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import path from 'path'
 import { execSync } from 'child_process'
+
+/**
+ * Vite plugin that regenerates sitemap.xml at build time
+ * by extracting article IDs/dates from articles.ts via regex.
+ */
+function sitemapPlugin(): Plugin {
+  return {
+    name: 'generate-sitemap',
+    buildStart() {
+      try {
+        // Dynamic import won't work here for .ts, so we inline the minimal logic
+        const root = path.resolve(__dirname)
+        const articlesPath = path.resolve(root, 'src/pages/BlogPage/articles.ts')
+        const src = fs.readFileSync(articlesPath, 'utf-8')
+
+        const BASE_URL = 'https://legal.org.ua'
+
+        // Extract article ids and dates
+        const ids: string[] = []
+        const dates: string[] = []
+        let m: RegExpExecArray | null
+        const idRe = /id:\s*'([^']+)'/g
+        const dateRe = /publishedAt:\s*'([^']+)'/g
+        while ((m = idRe.exec(src)) !== null) ids.push(m[1])
+        while ((m = dateRe.exec(src)) !== null) dates.push(m[1])
+        const count = Math.min(ids.length, dates.length)
+
+        interface Entry { loc: string; changefreq: string; priority: string; lastmod?: string }
+
+        const staticPages: Entry[] = [
+          { loc: '/', changefreq: 'daily', priority: '1.0' },
+          { loc: '/blog', changefreq: 'weekly', priority: '0.9' },
+          { loc: '/lex-news', changefreq: 'weekly', priority: '0.7' },
+          { loc: '/investor', changefreq: 'monthly', priority: '0.6' },
+          { loc: '/uk_investor', changefreq: 'monthly', priority: '0.6' },
+          { loc: '/uk_investor_simplified', changefreq: 'monthly', priority: '0.6' },
+          { loc: '/pitch-deck.html', changefreq: 'monthly', priority: '0.6' },
+          { loc: '/developer/docs', changefreq: 'monthly', priority: '0.7' },
+        ]
+
+        const blogArticles: Entry[] = []
+        for (let i = 0; i < count; i++) {
+          blogArticles.push({ loc: `/blog/${ids[i]}`, changefreq: 'monthly', priority: '0.8', lastmod: dates[i] })
+        }
+
+        const legalSlugs = ['offer', 'terms', 'privacy', 'dpa', 'ai-usage', 'ai-transparency', 'refund-policy', 'attorney-offer', 'developer-offer', 'marketplace-rules']
+        const legalLangs = ['en', 'ua']
+        const legalPages: Entry[] = []
+        for (const slug of legalSlugs) {
+          for (const lang of legalLangs) {
+            legalPages.push({ loc: `/${lang}/${slug}`, changefreq: 'monthly', priority: '0.5' })
+          }
+        }
+
+        const dataSourcePages: Entry[] = [
+          '/us/data-sources', '/uk/data-sources', '/de/data-sources',
+          '/fr/data-sources', '/nl/data-sources', '/ee/data-sources',
+          '/ua/data-sources', '/eu/comparison',
+        ].map(loc => ({ loc, changefreq: 'monthly', priority: '0.6' }))
+
+        const allEntries = [...staticPages, ...blogArticles, ...legalPages, ...dataSourcePages]
+
+        const urls = allEntries.map(e => {
+          const parts = [
+            `    <loc>${BASE_URL}${e.loc}</loc>`,
+            e.lastmod ? `    <lastmod>${e.lastmod}</lastmod>` : null,
+            `    <changefreq>${e.changefreq}</changefreq>`,
+            `    <priority>${e.priority}</priority>`,
+          ].filter(Boolean)
+          return `  <url>\n${parts.join('\n')}\n  </url>`
+        }).join('\n')
+
+        const xml = [
+          '<?xml version="1.0" encoding="UTF-8"?>',
+          '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+          urls,
+          '</urlset>',
+          '',
+        ].join('\n')
+
+        const outputPath = path.resolve(root, 'public/sitemap.xml')
+        fs.writeFileSync(outputPath, xml)
+        console.log(`[sitemap] Generated sitemap.xml with ${allEntries.length} URLs (${blogArticles.length} blog articles)`)
+      } catch (err) {
+        console.error('[sitemap] Failed to generate sitemap:', err)
+      }
+    },
+  }
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -13,7 +102,7 @@ export default defineConfig(({ mode }) => {
   const hasLocalCerts = !isDocker && fs.existsSync(certFile) && fs.existsSync(keyFile)
 
   return {
-    plugins: [react()],
+    plugins: [react(), sitemapPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, 'src'),

@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useDocumentMeta } from '../../hooks/useDocumentMeta';
+import { useHreflang } from '../../hooks/useHreflang';
 import {
   ArrowLeft,
   BookOpen,
@@ -28,6 +30,19 @@ export function BlogPage() {
     () => getLocalizedArticles(articles, language, translationMaps),
     [language]
   );
+
+  useDocumentMeta({
+    title: 'LEX Blog — AI Legal Tech Articles | LEX',
+    description: 'Articles on AI in law, legal technology, court decision analysis, and digital transformation of legal practice.',
+    ogTitle: 'LEX Blog — AI Legal Tech Articles',
+    ogDescription: 'Articles on AI in law, legal technology, court decision analysis, and digital transformation of legal practice.',
+  });
+
+  useHreflang([
+    { lang: 'uk', href: 'https://legal.org.ua/blog' },
+    { lang: 'en', href: 'https://legal.org.ua/blog?lang=en' },
+    { lang: 'ru', href: 'https://legal.org.ua/blog?lang=ru' },
+  ]);
 
   // Auto-open article from ?article= query param (used after login redirect)
   useEffect(() => {
@@ -133,13 +148,16 @@ export function BlogPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
               className="bg-white rounded-2xl border border-claude-border overflow-hidden hover:shadow-lg hover:border-claude-accent/30 transition-all cursor-pointer group"
-              onClick={() => setSelectedArticle(article)}
+              onClick={() => navigate('/blog/' + article.id)}
             >
               <div className="relative w-full h-52 sm:h-60 overflow-hidden">
                 <div className={`absolute inset-0 ${article.category === 'tech' ? 'bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-700' : 'bg-gradient-to-br from-claude-accent via-amber-600 to-orange-700'}`} />
                 <img
                   src={`/blog-banners/${article.id}.png`}
                   alt={article.title}
+                  width={1200}
+                  height={630}
+                  loading="lazy"
                   className="relative w-full h-full object-cover object-top"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />

@@ -4,6 +4,7 @@
  */
 
 import { ArrowLeft, Scale, TrendingUp, Database, Building2, FileText, Clock, CheckCircle, AlertCircle, MinusCircle } from 'lucide-react';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 type Status = 'yes' | 'partial' | 'no';
 
@@ -219,6 +220,13 @@ function MaturityBar({ score, className: cls }: { score: number | null; classNam
 const statusLabels: Record<Status, string> = { yes: 'Free', partial: 'Partial', no: 'No' };
 
 export function EUComparisonPage() {
+  useDocumentMeta({
+    title: 'EU Open Data Comparison — Legal Data Maturity by Country | LEX',
+    description: 'Compare European countries on legal open data maturity: court decisions, business registries, FOI laws, and data portals across the EU and Ukraine.',
+    ogTitle: 'EU Open Data Comparison — Legal Data Maturity',
+    ogDescription: 'Compare European countries on legal open data maturity across courts, registries, and data portals.',
+  });
+
   const sorted = [...countries].sort((a, b) => (b.maturityScore ?? 0) - (a.maturityScore ?? 0));
 
   return (
