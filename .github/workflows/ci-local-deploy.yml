@@ -83,7 +83,7 @@ jobs:
           fi
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
@@ -181,7 +181,7 @@ jobs:
           token: ${{ github.token }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
@@ -330,7 +330,7 @@ jobs:
           fi
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
