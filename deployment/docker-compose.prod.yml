@@ -877,6 +877,7 @@ services:
       - ./nginx/includes/preview-upstreams.conf:/etc/nginx/includes/preview-upstreams.conf
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/html:/var/www/html:ro
+      - ./static/opendata:/var/www/opendata:ro
       - nginx_prod_logs:/var/log/nginx
     healthcheck:
       test: ["CMD-SHELL", "nginx -t 2>/dev/null"]
