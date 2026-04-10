@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:ui": "vitest --ui",
     "test:watch": "vitest --watch",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "generate:sitemap": "node --import tsx scripts/generate-sitemap.ts"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.2.2",

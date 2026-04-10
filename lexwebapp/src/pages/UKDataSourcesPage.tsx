@@ -4,6 +4,7 @@
  */
 
 import { ArrowLeft, ExternalLink, Scale, BookOpen, FileText, Building2, Database, Shield } from 'lucide-react';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 interface DataSource {
   name: string;
@@ -160,6 +161,13 @@ const categories: Category[] = [
 ];
 
 export function UKDataSourcesPage() {
+  useDocumentMeta({
+    title: 'UK Legal Open Data Sources | LEX',
+    description: 'Curated directory of free and open data sources for UK courts, legislation, case law, business registries, and public records.',
+    ogTitle: 'UK Legal Open Data Sources',
+    ogDescription: 'Curated directory of free UK legal open data sources — courts, legislation, and public records.',
+  });
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">

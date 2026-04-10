@@ -26,7 +26,7 @@ export function ArticleModal({ article, onClose }: ArticleModalProps) {
   const ui = getBlogUI(language);
 
   const getArticleUrl = () =>
-    `${window.location.origin}/blog?article=${article.id}`;
+    `${window.location.origin}/blog/${article.id}`;
 
   const shareOnLinkedIn = () => {
     const url = encodeURIComponent(getArticleUrl());
@@ -124,6 +124,9 @@ export function ArticleModal({ article, onClose }: ArticleModalProps) {
           <img
             src={`/blog-banners/${article.id}.png`}
             alt={article.title}
+            width={1200}
+            height={630}
+            loading="lazy"
             className="relative w-full h-full object-cover object-top"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />

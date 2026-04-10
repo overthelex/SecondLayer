@@ -3,6 +3,8 @@ import { ArrowLeft, Globe, ChevronRight, List, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { useHreflang } from '../hooks/useHreflang';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 interface LegalPageLayoutProps {
   icon: React.ReactNode;
@@ -110,15 +112,34 @@ export function LegalPageLayout({
   const content = currentLang === 'ua' ? contentUk : contentEn;
   const switchTo = currentLang === 'ua' ? 'en' : 'ua';
 
+  useHreflang([
+    { lang: 'uk', href: `https://legal.org.ua/ua/${routePath}` },
+    { lang: 'en', href: `https://legal.org.ua/en/${routePath}` },
+    { lang: 'es', href: `https://legal.org.ua/es/${routePath}` },
+  ]);
+
   const { toc, title, subtitle, meta } = useMemo(() => extractToc(content), [content]);
   const strippedContent = useMemo(() => stripTitleFromContent(content), [content]);
 
-  const [mobileTocOpen, setMobileTocOpen] = useState(false);
-
   const currentPage = LEGAL_PAGES.find(p => p.path === routePath);
-  const breadcrumbLabel = currentLang === 'ua'
+  const pageLabel = currentLang === 'ua'
     ? (currentPage?.labelUk || routePath)
     : (currentPage?.labelEn || routePath);
+
+  useDocumentMeta({
+    title: `${pageLabel} | LEX`,
+    description: currentLang === 'ua'
+      ? `${pageLabel} — правовий документ платформи LEX AI. ${subtitle || ''}`
+      : `${pageLabel} — legal document for the LEX AI platform. ${subtitle || ''}`,
+    ogTitle: `${pageLabel} | LEX`,
+    ogDescription: currentLang === 'ua'
+      ? `${pageLabel} — правовий документ LEX AI`
+      : `${pageLabel} — LEX AI legal document`,
+  });
+
+  const [mobileTocOpen, setMobileTocOpen] = useState(false);
+
+  const breadcrumbLabel = pageLabel;
 
   const scrollToSection = useCallback((id: string) => {
     const el = document.getElementById(id);

@@ -4,6 +4,7 @@
  */
 
 import { ArrowLeft, ExternalLink, Scale, BookOpen, FileText, Building2, Database, Shield, Landmark, DollarSign, BarChart3, Heart, GraduationCap, Leaf, Users, Receipt, Briefcase } from 'lucide-react';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 interface DataSource {
   name: string;
@@ -674,6 +675,13 @@ const categories: Category[] = [
 ];
 
 export function UADataSourcesPage() {
+  useDocumentMeta({
+    title: 'Відкриті дані правової системи України | LEX',
+    description: 'Каталог відкритих джерел правової інформації України — судові рішення, законодавство, реєстри, держзакупівлі та публічні дані.',
+    ogTitle: 'Відкриті дані правової системи України',
+    ogDescription: 'Каталог відкритих джерел правової інформації України — судові рішення, законодавство, реєстри.',
+  });
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}

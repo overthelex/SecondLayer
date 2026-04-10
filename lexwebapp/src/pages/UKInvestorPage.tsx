@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { gbp as t } from './investor-letter-translations.gbp';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 const COMPETITOR_FLAGS: [boolean, boolean, boolean, boolean][] = [
   [true, false, false, false],
@@ -30,6 +31,13 @@ const Cross = () => <span className="inline-flex items-center justify-center w-6
 
 export function UKInvestorPage() {
   const navigate = useNavigate();
+
+  useDocumentMeta({
+    title: 'LEX AI — UK Investor Memo | AI Legal Platform',
+    description: 'Investment opportunity in LEX, the AI-powered legal intelligence platform. GBP pricing, data assets, and market analysis.',
+    ogTitle: 'LEX AI — UK Investor Memo',
+    ogDescription: 'Investment opportunity in LEX, the AI-powered legal intelligence platform.',
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-claude-bg via-white to-claude-sidebar">

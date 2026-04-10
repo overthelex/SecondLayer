@@ -9,6 +9,7 @@ import {
   DollarSign, Briefcase, Globe, ChevronDown,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 /* ------------------------------------------------------------------ */
 /*  Slide wrapper                                                     */
@@ -79,6 +80,13 @@ function FadeIn({
 /* ------------------------------------------------------------------ */
 export function InvestorDeckPage() {
   const navigate = useNavigate();
+
+  useDocumentMeta({
+    title: 'LEX AI — Investor Deck | AI Legal Platform',
+    description: 'LEX AI pitch deck. AI-powered legal intelligence platform for Ukrainian law firms and legal professionals.',
+    ogTitle: 'LEX AI — Investor Deck',
+    ogDescription: 'AI-powered legal intelligence platform for Ukrainian law firms.',
+  });
 
   return (
     <div className="snap-y snap-mandatory h-screen overflow-y-auto scroll-smooth">

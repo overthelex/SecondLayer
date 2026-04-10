@@ -74,6 +74,7 @@ export const ROUTES = {
 
   // Blog
   BLOG: '/blog',
+  BLOG_ARTICLE: '/blog/:slug',
 
   // Investor
   INVESTOR_LETTER: '/investor',

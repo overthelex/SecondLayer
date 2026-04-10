@@ -5,9 +5,10 @@
  */
 
 import { Suspense, lazy } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { ROUTES } from './routes';
 import { AuthGuard } from './guards/AuthGuard';
+import { useCanonical } from '../hooks/useCanonical';
 
 // Layouts
 import { MainLayout } from '../layouts/MainLayout';
@@ -62,6 +63,7 @@ const AiUsagePolicyPage = lazyWithRetry(() => import('../pages/AiUsagePolicyPage
 const AiTransparencyPage = lazyWithRetry(() => import('../pages/AiTransparencyPage').then(m => ({ default: m.AiTransparencyPage })));
 const RefundPolicyPage = lazyWithRetry(() => import('../pages/RefundPolicyPage').then(m => ({ default: m.RefundPolicyPage })));
 const BlogPage = lazyWithRetry(() => import('../pages/BlogPage').then(m => ({ default: m.BlogPage })));
+const BlogArticlePage = lazyWithRetry(() => import('../pages/BlogPage/BlogArticlePage').then(m => ({ default: m.BlogArticlePage })));
 const InvestorLetterPage = lazyWithRetry(() => import('../pages/InvestorLetterPage').then(m => ({ default: m.InvestorLetterPage })));
 const UKInvestorPage = lazyWithRetry(() => import('../pages/UKInvestorPage').then(m => ({ default: m.UKInvestorPage })));
 const InvestorDeckPage = lazyWithRetry(() => import('../pages/InvestorDeckPage').then(m => ({ default: m.InvestorDeckPage })));
@@ -157,7 +159,16 @@ const AdminPGMonitoringPage = lazyWithRetry(() => import('../pages/AdminPGMonito
 const AdminLimitsPage = lazyWithRetry(() => import('../pages/AdminLimitsPage').then(m => ({ default: m.AdminLimitsPage })));
 const AdminSessionReplayPage = lazyWithRetry(() => import('../pages/AdminSessionReplayPage').then(m => ({ default: m.AdminSessionReplayPage })));
 
+// Root layout that applies global route-level effects (canonical URL, og:url)
+function RootLayout() {
+  useCanonical();
+  return <Outlet />;
+}
+
 export const router = createBrowserRouter([
+  {
+    element: <RootLayout />,
+    children: [
   {
     path: ROUTES.LOGIN,
     element: <LoginPage />,
@@ -253,6 +264,10 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.EU_COMPARISON,
     element: S(EUComparisonPage),
+  },
+  {
+    path: ROUTES.BLOG_ARTICLE,
+    element: S(BlogArticlePage),
   },
   {
     path: ROUTES.BLOG,
@@ -553,5 +568,7 @@ export const router = createBrowserRouter([
   {
     path: '*',
     element: <Navigate to={ROUTES.CHAT} replace />,
+  },
+    ],
   },
 ]);
