@@ -24,12 +24,14 @@ export function extractVaultEvidence(toolName: string, parsed: ToolResultData): 
   // list_documents
   if (parsed.documents && Array.isArray(parsed.documents)) {
     for (const doc of parsed.documents) {
+      const meta = doc.metadata || {};
+      const snippet = doc.text_preview || doc.content || meta.snippet || '';
       documents.push({
         id: doc.id || `vd-${Math.random().toString(36).slice(2, 8)}`,
         title: doc.title || doc.name || 'Без назви',
         type: doc.type || 'other',
         uploadedAt: doc.created_at || doc.uploadedAt || doc.uploaded_at || '',
-        metadata: doc.metadata || {},
+        metadata: { ...meta, ...(snippet ? { snippet } : {}) },
       });
     }
   }
@@ -48,12 +50,14 @@ export function extractVaultEvidence(toolName: string, parsed: ToolResultData): 
 
   // get_document / store_document — single
   if (parsed.id && parsed.title && !parsed.documents) {
+    const meta = parsed.metadata || {};
+    const snippet = parsed.content?.slice(0, 300) || parsed.text?.slice(0, 300) || meta.snippet || '';
     documents.push({
       id: parsed.id,
       title: parsed.title,
       type: parsed.type || 'other',
       uploadedAt: parsed.created_at || parsed.uploadedAt || '',
-      metadata: parsed.metadata || {},
+      metadata: { ...meta, ...(snippet ? { snippet } : {}) },
     });
   }
 
