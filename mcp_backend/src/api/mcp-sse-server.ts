@@ -105,11 +105,20 @@ export class MCPSSEServer {
       userAgent: req.headers['user-agent'],
     });
 
-    // Set SSE headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+    // Check Accept header — ChatGPT Streamable HTTP sends Accept: application/json
+    const acceptHeader = req.headers.accept || '';
+    const wantsJson = acceptHeader.includes('application/json') && !acceptHeader.includes('text/event-stream');
+
+    if (wantsJson) {
+      // Streamable HTTP mode — respond with JSON
+      res.setHeader('Content-Type', 'application/json');
+    } else {
+      // SSE mode
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+    }
     res.setHeader('Mcp-Session-Id', sessionId); // Required by MCP Streamable HTTP transport
 
     // Don't send server/initialized notification here
@@ -598,8 +607,17 @@ export class MCPSSEServer {
   private sendSSEMessage(res: Response, message: MCPResponse | MCPNotification): void {
     try {
       const data = JSON.stringify(message);
-      // MCP Streamable HTTP requires 'event: message' prefix for SSE events
-      res.write(`event: message\ndata: ${data}\n\n`);
+
+      // Check if client prefers JSON (Streamable HTTP) vs SSE
+      // ChatGPT sends Accept: application/json and expects plain JSON-RPC response
+      const contentType = res.getHeader('Content-Type') as string || '';
+      if (contentType.includes('application/json')) {
+        // Plain JSON response (Streamable HTTP mode)
+        res.write(data);
+      } else {
+        // SSE format
+        res.write(`event: message\ndata: ${data}\n\n`);
+      }
     } catch (error) {
       logger.error('[MCP SSE] Error sending message', { error });
     }
