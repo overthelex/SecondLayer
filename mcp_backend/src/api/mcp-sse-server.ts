@@ -613,9 +613,14 @@ export class MCPSSEServer {
       const contentType = res.getHeader('Content-Type') as string || '';
       if (contentType.includes('application/json')) {
         // Plain JSON response (Streamable HTTP mode)
-        res.write(data);
+        // Skip notifications — only send final result (messages with 'id')
+        // Concatenating notifications + result creates invalid JSON
+        if ('id' in message) {
+          res.write(data);
+        }
+        // Notifications are silently dropped in JSON mode
       } else {
-        // SSE format
+        // SSE format — all messages including notifications
         res.write(`event: message\ndata: ${data}\n\n`);
       }
     } catch (error) {
