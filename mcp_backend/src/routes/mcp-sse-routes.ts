@@ -121,16 +121,23 @@ export function createMCPSSERoutes(deps: {
           clientKey = tokenData.clientId;
         } else {
           clientKey = token;
+          // Try Phase 2 API key (DB) first, then legacy env keys
           const keyInfo = await deps.apiKeyService.validateApiKey(token);
-          if (!keyInfo) {
-            res.setHeader(
-              'WWW-Authenticate',
-              `Bearer error="invalid_token", error_description="Invalid API key", resource_metadata="${resourceMetadataUrl}"`
-            );
-            return res.status(401).json({ error: 'Unauthorized', code: 'INVALID_API_KEY' });
+          if (keyInfo) {
+            userId = keyInfo.userId;
+            deps.apiKeyService.updateUsage(token).catch(() => {});
+          } else {
+            // Fallback: check legacy SECONDARY_LAYER_KEYS
+            const legacyKeys = (process.env.SECONDARY_LAYER_KEYS || '').split(',').map(k => k.trim()).filter(k => k.length > 0);
+            if (!legacyKeys.includes(token)) {
+              res.setHeader(
+                'WWW-Authenticate',
+                `Bearer error="invalid_token", error_description="Invalid API key", resource_metadata="${resourceMetadataUrl}"`
+              );
+              return res.status(401).json({ error: 'Unauthorized', code: 'INVALID_API_KEY' });
+            }
+            logger.debug('[MCP SSE GET] Authenticated with legacy API key');
           }
-          userId = keyInfo.userId;
-          deps.apiKeyService.updateUsage(token).catch(() => {});
         }
       } catch (error) {
         logger.warn('[MCP SSE GET] Authentication failed', { error: (error as Error).message });
