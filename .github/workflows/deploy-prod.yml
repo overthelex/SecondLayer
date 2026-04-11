@@ -793,6 +793,23 @@ jobs:
             # --- 5. Save active colors ---
             printf 'backend=%s\nfrontend=%s\n' "\$BACKEND_COLOR" "\$FRONTEND_COLOR" > .active-colors
 
+            # --- 5a. Add canonical DNS aliases for opendata-sync ---
+            # opendata-sync connects to app-prod:3000 and app-openreyestr-prod:3005
+            # but blue-green containers have color suffixes — add aliases so DNS resolves
+            NETWORK="deployment_secondlayer-prod-network"
+            if [ "\$BACKEND_COLOR" = "green" ]; then
+              BE_CONTAINER="secondlayer-app-prod-green"
+              OR_CONTAINER="openreyestr-app-prod-green"
+            else
+              BE_CONTAINER="secondlayer-app-prod"
+              OR_CONTAINER="openreyestr-app-prod"
+            fi
+            echo "Adding canonical DNS aliases (app-prod, app-openreyestr-prod) to \$BE_CONTAINER, \$OR_CONTAINER"
+            docker network disconnect "\$NETWORK" "\$BE_CONTAINER" 2>/dev/null || true
+            docker network connect --alias app-prod "\$NETWORK" "\$BE_CONTAINER" || true
+            docker network disconnect "\$NETWORK" "\$OR_CONTAINER" 2>/dev/null || true
+            docker network connect --alias app-openreyestr-prod "\$NETWORK" "\$OR_CONTAINER" || true
+
             # Restart monitoring if needed
             if [ "${MONITORING_CHANGED}" = "true" ]; then
               echo "=== Restarting monitoring services ==="
