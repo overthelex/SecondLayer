@@ -332,49 +332,31 @@ export function createMCPSSERoutes(deps: {
             scope: tokenData.scope,
           });
         } else {
-          // API key - validate and get user info
+          // API key - validate: try Phase 2 (DB) first, then legacy env keys
           clientKey = token;
           const keyInfo = await deps.apiKeyService.validateApiKey(token);
 
-          if (!keyInfo) {
-            logger.warn('[MCP SSE] Invalid API key', {
-              keyPrefix: maskSensitive(token, 12),
-            });
-            res.setHeader(
-              'WWW-Authenticate',
-              `Bearer error="invalid_token", error_description="Invalid API key", resource_metadata="${resourceMetadataUrl}"`
-            );
-            return res.status(401).json({
-              error: 'Unauthorized',
-              message: 'Invalid API key',
-              code: 'INVALID_API_KEY',
-            });
+          if (keyInfo) {
+            userId = keyInfo.userId;
+          } else {
+            // Fallback: check legacy SECONDARY_LAYER_KEYS
+            const legacyKeys = (process.env.SECONDARY_LAYER_KEYS || '').split(',').map(k => k.trim()).filter(k => k.length > 0);
+            if (!legacyKeys.includes(token)) {
+              logger.warn('[MCP SSE POST] Invalid API key', {
+                keyPrefix: maskSensitive(token, 12),
+              });
+              res.setHeader(
+                'WWW-Authenticate',
+                `Bearer error="invalid_token", error_description="Invalid API key", resource_metadata="${resourceMetadataUrl}"`
+              );
+              return res.status(401).json({
+                error: 'Unauthorized',
+                message: 'Invalid API key',
+                code: 'INVALID_API_KEY',
+              });
+            }
+            logger.debug('[MCP SSE POST] Authenticated with legacy API key');
           }
-
-          // Valid API key - check rate limits
-          const rateLimit = await deps.apiKeyService.checkRateLimit(token);
-
-          if (!rateLimit.allowed) {
-            logger.warn('[MCP SSE] Rate limit exceeded', {
-              keyId: keyInfo.id,
-              reason: rateLimit.reason,
-            });
-            return res.status(429).json({
-              error: 'Rate limit exceeded',
-              code: 'RATE_LIMIT_EXCEEDED',
-              reason: rateLimit.reason,
-              requestsToday: rateLimit.requestsToday,
-              rateLimitPerDay: rateLimit.rateLimitPerDay,
-            });
-          }
-
-          // Get userId from API key
-          userId = keyInfo.userId;
-          logger.debug('[MCP SSE] Authenticated with API key', {
-            userId,
-            keyId: keyInfo.id,
-            userEmail: keyInfo.userEmail,
-          });
 
           // Update API key usage (async, don't wait)
           deps.apiKeyService.updateUsage(token).catch((err) => {
