@@ -77,7 +77,23 @@ export function createMCPSSERoutes(deps: {
   // GET /sse - Returns OAuth configuration as JSON
   router.get('/sse', (req: Request, res: Response) => {
     const baseUrl = getBaseUrl(req);
+    const resourceMetadataUrl = `${baseUrl}/.well-known/oauth-protected-resource`;
 
+    // If no Authorization header, return 401 to trigger OAuth flow (RFC 6750 + MCP spec)
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.setHeader(
+        'WWW-Authenticate',
+        `Bearer resource_metadata="${resourceMetadataUrl}"`
+      );
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authorization required. Use OAuth 2.0 to obtain an access token.',
+        code: 'MISSING_AUTH',
+      });
+    }
+
+    // With valid auth header, return capabilities info
     res.json({
       protocol: 'mcp',
       version: '1.0',
@@ -125,7 +141,10 @@ export function createMCPSSERoutes(deps: {
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         logger.warn('[MCP SSE] Missing or invalid Authorization header');
-        res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadataUrl}"`);
+        res.setHeader(
+          'WWW-Authenticate',
+          `Bearer error="missing_token", error_description="Authorization required", resource_metadata="${resourceMetadataUrl}"`
+        );
         return res.status(401).json({
           error: 'Unauthorized',
           message: 'Authorization header with Bearer token is required',
@@ -155,7 +174,10 @@ export function createMCPSSERoutes(deps: {
             logger.warn('[MCP SSE] Invalid OAuth token', {
               tokenPrefix: maskSensitive(token, 15),
             });
-            res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadataUrl}"`);
+            res.setHeader(
+              'WWW-Authenticate',
+              `Bearer error="invalid_token", error_description="Invalid or expired OAuth access token", resource_metadata="${resourceMetadataUrl}"`
+            );
             return res.status(401).json({
               error: 'Unauthorized',
               message: 'Invalid or expired OAuth access token',
@@ -179,7 +201,10 @@ export function createMCPSSERoutes(deps: {
             logger.warn('[MCP SSE] Invalid API key', {
               keyPrefix: maskSensitive(token, 12),
             });
-            res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadataUrl}"`);
+            res.setHeader(
+              'WWW-Authenticate',
+              `Bearer error="invalid_token", error_description="Invalid API key", resource_metadata="${resourceMetadataUrl}"`
+            );
             return res.status(401).json({
               error: 'Unauthorized',
               message: 'Invalid API key',
@@ -220,7 +245,10 @@ export function createMCPSSERoutes(deps: {
       } catch (error) {
         // Auth failed - return 401
         logger.warn('[MCP SSE] Authentication failed', { error: (error as Error).message });
-        res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadataUrl}"`);
+        res.setHeader(
+          'WWW-Authenticate',
+          `Bearer error="invalid_token", error_description="Authentication failed", resource_metadata="${resourceMetadataUrl}"`
+        );
         return res.status(401).json({
           error: 'Unauthorized',
           message: 'Authentication failed: ' + (error as Error).message,
