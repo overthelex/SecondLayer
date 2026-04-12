@@ -840,7 +840,7 @@ jobs:
 
           # Health check via docker exec on prod (port 3000 is not exposed on host)
           for i in 1 2 3 4 5; do
-            HEALTH=$($SSH_CMD "docker exec $CONTAINER wget -q -O- --timeout=10 http://127.0.0.1:3000/health 2>/dev/null") && {
+            HEALTH=$($SSH_CMD "docker exec $CONTAINER wget -q -O- --timeout=10 http://127.0.0.1:3000/health/ready 2>/dev/null") && {
               echo "=== Production health (docker exec via SSH) ==="
               echo "$HEALTH" | jq . 2>/dev/null || echo "$HEALTH"
               STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null)
