@@ -109,9 +109,9 @@ export class MCPSSEServer {
       accept: acceptHeader,
       method: req.body?.method || 'unknown',
     });
-    // Determine response format based on Accept header
-    // ChatGPT MCP client expects text/event-stream for tool registration
-    const wantsJson = acceptHeader.includes('application/json') && !acceptHeader.includes('text/event-stream');
+    // POST = Streamable HTTP = always JSON response
+    // GET = SSE transport = event-stream
+    const wantsJson = req.method === 'POST';
 
     if (wantsJson) {
       // Streamable HTTP mode — respond with JSON
