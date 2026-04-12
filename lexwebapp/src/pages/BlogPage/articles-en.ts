@@ -3593,4 +3593,129 @@ This article is available in Ukrainian. Please switch to Ukrainian language to r
 
 Registration: [legal.org.ua](https://legal.org.ua)`,
   },
+  'claude-code-building-startups': {
+    title: 'How I Made 735 Commits in 25 Days: Claude Code as a Full Engineering Partner',
+    punchline: '486 sessions, 5,612 messages, 193,000 lines of code, 22,326 bash commands — and zero hired developers. Real usage statistics of Claude Code for building a legal tech platform, data pipelines processing 340M+ records, and MCP integrations.',
+    readTime: '12 min',
+    content: `# How I Made 735 Commits in 25 Days: Claude Code as a Full Engineering Partner
+
+*This is not a promotional article. It's a transparent breakdown of real Claude Code usage statistics while building a legal tech platform, data pipelines, and infrastructure. With numbers, mistakes, and conclusions.*
+
+---
+
+## Context: What I'm Building and Why I'm Alone
+
+SecondLayer (LEX AI) is a Ukrainian legal tech platform: AI-powered court decision analysis, semantic search, legislation, registries, consultations. A monorepo with three MCP servers, React frontend, Flutter mobile app, and data pipelines for 340M+ records from 15 government APIs.
+
+I'm the sole developer. Instead of a team of 5-10 engineers, I work with Claude Code as a full-fledged partner: from writing code to deploying to production.
+
+---
+
+## Numbers Over 25 Days (March 18 — April 12, 2026)
+
+| Metric | Value |
+|--------|-------|
+| Sessions | 486 (285 analyzed) |
+| Messages | 5,612 |
+| Commits | 735 |
+| Lines written | +193,340 |
+| Lines deleted | -14,259 |
+| Files changed | 1,811 |
+| Bash commands | 22,326 |
+| Edit operations | 3,782 |
+| Sub-agents | 864 |
+| Parallel sessions | 41% of messages |
+
+This isn't theoretical productivity. This is real git log.
+
+---
+
+## What Exactly I Built
+
+### 1. Legal Tech Platform (28 sessions)
+
+Core product: bug fixes, new features (Diia authentication, developer contracts, email notifications, Spanish localization with geo-detection), UI redesign, 93+ tests.
+
+Claude Code worked as a full-stack developer: multi-file changes, PR creation, merge, deploy — all in one session.
+
+### 2. Open Data Pipelines (18 sessions)
+
+Scale:
+- 44K documents from the Verkhovna Rada
+- 11.6M+ records from spending.gov.ua
+- 190K+ trademarks from UKRPATENT
+- 58K+ court decisions
+
+Claude Code orchestrated multi-server, multi-IP parallel download scripts. Debugged rate limiting and WAF blocks. Managed PostgreSQL bulk imports with repartitioning and GIN indexes on 63M rows.
+
+### 3. Infrastructure & DevOps (16 sessions)
+
+EC2 provisioning across regions (Paris, Spain), CI/CD pipeline fixes, blue-green deployments with preview environments, Docker/nginx debugging, server migrations.
+
+### 4. MCP Server Ecosystem (14 sessions)
+
+Building and configuring MCP servers for Nextcloud Deck/Tables, Thunderbird email, and ChatGPT integration. Migrating 180 tasks from Linear to Nextcloud Deck.
+
+### 5. Content & Side Projects (8 sessions)
+
+Investor memos, legal documents, blog articles, and a Telegram bot with Bender quotes from Futurama featuring a multilingual database.
+
+---
+
+## What a Typical Work Session Looks Like
+
+I don't write detailed prompts. My style is **launch Claude at a task, watch what it does, course-correct in real time**.
+
+Statistics confirm: 106 instances where Claude started with the wrong approach, which I quickly redirected. This isn't a bug — it's a feature of working with an AI partner.
+
+**Result: 89% of sessions completed successfully.**
+
+---
+
+## What Works Best
+
+### Multi-file Changes — 56 sessions
+
+When you need to change a type in a shared package, update the backend handler, frontend component, and tests simultaneously — Claude Code does it in one iteration. For a human, that's 30-60 minutes of context switching.
+
+### MCP Integrations as Operational Infrastructure
+
+Nextcloud Deck for tasks, AWS API for infrastructure, Thunderbird for email — Claude Code becomes a full operational hub.
+
+---
+
+## Where It Doesn't Work (Honestly)
+
+### Wrong Approach — 106 instances
+
+Claude often starts with the wrong approach: searches in the wrong directory, uses SSH instead of MCP tools, picks slow strategies for DB operations.
+
+### Buggy Code — 102 instances
+
+Code doesn't always work on the first try. But with TypeScript and tests, issues get caught quickly.
+
+---
+
+## Economics: AI Partner vs Team
+
+| | AI Partner | Team of 3 |
+|--|-----------|-----------|
+| Cost/month | ~$200 (Claude Pro) | $15,000-30,000 |
+| Availability | 24/7, parallel sessions | Business hours |
+| Onboarding | 0 (CLAUDE.md) | 2-4 weeks |
+
+**One experienced engineer with an AI partner can do the work of a small team.**
+
+---
+
+## Conclusions
+
+735 commits in 25 days isn't science fiction. It's the result of systematic work with an AI partner, where CLAUDE.md replaces onboarding, MCP integrations replace tool-switching, and TypeScript + tests compensate for errors.
+
+Will AI replace developers? No. But one developer with a properly configured AI partner is no longer just one developer.
+
+---
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
 };
