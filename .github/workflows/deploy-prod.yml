@@ -740,6 +740,9 @@ jobs:
 
             printf '# Active upstreams — managed by deploy script (blue-green switching)\n# DO NOT EDIT MANUALLY — overwritten during zero-downtime deploy\n\nupstream prod_mcp_backend {\n    server %s:3000;\n    keepalive 128;\n}\n\nupstream prod_frontend {\n    server %s:80;\n    keepalive 32;\n}\n' "\$BE_HOST" "\$FE_HOST" > nginx/includes/prod-upstreams.conf
 
+            # --- 1b. Update dynamic DNS vars (resolver-based, no restart needed) ---
+            printf '# Backend hostname variables for dynamic DNS resolution\n# Managed by deploy script (blue-green switching)\n\nset \$prod_backend_host %s;\nset \$prod_backend http://\$prod_backend_host:3000;\nset \$prod_frontend_host %s;\nset \$prod_frontend http://\$prod_frontend_host:80;\n' "\$BE_HOST" "\$FE_HOST" > nginx/includes/prod-backend-vars.conf
+
             # --- 2. Reset preview upstreams to placeholder ---
             printf '# Preview upstreams — managed by deploy script\n# Points to inactive color containers for pre-production preview\n# DO NOT EDIT MANUALLY\n\nupstream preview_mcp_backend {\n    server 127.0.0.1:1;  # placeholder — returns 502 when no preview is active\n}\n\nupstream preview_frontend {\n    server 127.0.0.1:1;  # placeholder — returns 502 when no preview is active\n}\n' > nginx/includes/preview-upstreams.conf
 
@@ -759,6 +762,7 @@ jobs:
                 FE_HOST="lexwebapp-prod"
               fi
               printf '# Active upstreams — managed by deploy script (blue-green switching)\n# DO NOT EDIT MANUALLY — overwritten during zero-downtime deploy\n\nupstream prod_mcp_backend {\n    server %s:3000;\n    keepalive 128;\n}\n\nupstream prod_frontend {\n    server %s:80;\n    keepalive 32;\n}\n' "\$BE_HOST" "\$FE_HOST" > nginx/includes/prod-upstreams.conf
+              printf '# Backend hostname variables for dynamic DNS resolution\n# Managed by deploy script (blue-green switching)\n\nset \$prod_backend_host %s;\nset \$prod_backend http://\$prod_backend_host:3000;\nset \$prod_frontend_host %s;\nset \$prod_frontend http://\$prod_frontend_host:80;\n' "\$BE_HOST" "\$FE_HOST" > nginx/includes/prod-backend-vars.conf
             fi
 
             # Recreate nginx to pick up new upstreams
