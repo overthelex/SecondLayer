@@ -97,17 +97,21 @@ export class MCPSSEServer {
     // Store session context
     this.sessions.set(sessionId, { userId, clientKey });
 
+    // Check Accept header — ChatGPT Streamable HTTP sends Accept: application/json
+    const acceptHeader = req.headers.accept || '';
+
     logger.info('[MCP SSE] New connection', {
       sessionId,
       userId: userId || 'anonymous',
       clientKey: clientKey ? clientKey.substring(0, 8) + '...' : 'none',
       ip: req.ip,
       userAgent: req.headers['user-agent'],
+      accept: acceptHeader,
+      method: req.body?.method || 'unknown',
     });
-
-    // Check Accept header — ChatGPT Streamable HTTP sends Accept: application/json
-    const acceptHeader = req.headers.accept || '';
-    const wantsJson = acceptHeader.includes('application/json') && !acceptHeader.includes('text/event-stream');
+    // POST requests are Streamable HTTP — always respond with JSON
+    // GET requests are SSE — respond with event-stream
+    const wantsJson = req.method === 'POST' || (acceptHeader.includes('application/json') && !acceptHeader.includes('text/event-stream'));
 
     if (wantsJson) {
       // Streamable HTTP mode — respond with JSON
