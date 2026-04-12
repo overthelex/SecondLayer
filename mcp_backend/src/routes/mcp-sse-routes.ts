@@ -82,9 +82,13 @@ export function createMCPSSERoutes(deps: {
       const baseUrl = getBaseUrl(req);
       const resourceMetadataUrl = `${baseUrl}/.well-known/oauth-protected-resource`;
 
-      // If no Authorization header, return 401 to trigger OAuth flow (RFC 6750 + MCP spec)
+      // Check Authorization header
+      // If client already did OAuth via POST (has Mcp-Session-Id), allow GET without auth
+      // GET /sse is for SSE event stream — auth was already done during POST handshake
       const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      const mcpSessionId = req.headers['mcp-session-id'] as string;
+      if (!authHeader?.startsWith('Bearer ') && !mcpSessionId) {
+        // No auth and no session — return 401 to trigger OAuth flow
         res.setHeader(
           'WWW-Authenticate',
           `Bearer resource_metadata="${resourceMetadataUrl}"`
@@ -96,56 +100,51 @@ export function createMCPSSERoutes(deps: {
         });
       }
 
-      const token = authHeader.replace('Bearer ', '');
       let userId: string | undefined;
       let clientKey: string | undefined;
 
-      // Authenticate (JWT, OAuth access token, or API key)
-      try {
-        if (token.includes('.')) {
-          const jwt = await import('jsonwebtoken');
-          const jwtSecret = process.env.JWT_SECRET;
-          if (!jwtSecret) throw new Error('JWT_SECRET not configured');
-          const decoded = jwt.verify(token, jwtSecret) as any;
-          userId = decoded.userId;
-        } else if (token.startsWith('mcp_token_')) {
-          const tokenData = await deps.oauthService.verifyAccessToken(token);
-          if (!tokenData) {
-            res.setHeader(
-              'WWW-Authenticate',
-              `Bearer error="invalid_token", error_description="Invalid or expired OAuth access token", resource_metadata="${resourceMetadataUrl}"`
-            );
-            return res.status(401).json({ error: 'Unauthorized', code: 'INVALID_OAUTH_TOKEN' });
-          }
-          userId = tokenData.userId;
-          clientKey = tokenData.clientId;
-        } else {
-          clientKey = token;
-          // Try Phase 2 API key (DB) first, then legacy env keys
-          const keyInfo = await deps.apiKeyService.validateApiKey(token);
-          if (keyInfo) {
-            userId = keyInfo.userId;
-            deps.apiKeyService.updateUsage(token).catch(() => {});
-          } else {
-            // Fallback: check legacy SECONDARY_LAYER_KEYS
-            const legacyKeys = (process.env.SECONDARY_LAYER_KEYS || '').split(',').map(k => k.trim()).filter(k => k.length > 0);
-            if (!legacyKeys.includes(token)) {
+      // Authenticate if Bearer token provided; skip if session-only GET
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.replace('Bearer ', '');
+        try {
+          if (token.includes('.')) {
+            const jwt = await import('jsonwebtoken');
+            const jwtSecret = process.env.JWT_SECRET;
+            if (!jwtSecret) throw new Error('JWT_SECRET not configured');
+            const decoded = jwt.verify(token, jwtSecret) as any;
+            userId = decoded.userId;
+          } else if (token.startsWith('mcp_token_')) {
+            const tokenData = await deps.oauthService.verifyAccessToken(token);
+            if (!tokenData) {
               res.setHeader(
                 'WWW-Authenticate',
-                `Bearer error="invalid_token", error_description="Invalid API key", resource_metadata="${resourceMetadataUrl}"`
+                `Bearer error="invalid_token", error_description="Invalid or expired OAuth access token", resource_metadata="${resourceMetadataUrl}"`
               );
-              return res.status(401).json({ error: 'Unauthorized', code: 'INVALID_API_KEY' });
+              return res.status(401).json({ error: 'Unauthorized', code: 'INVALID_OAUTH_TOKEN' });
             }
-            logger.debug('[MCP SSE GET] Authenticated with legacy API key');
+            userId = tokenData.userId;
+            clientKey = tokenData.clientId;
+          } else {
+            clientKey = token;
+            const keyInfo = await deps.apiKeyService.validateApiKey(token);
+            if (keyInfo) {
+              userId = keyInfo.userId;
+              deps.apiKeyService.updateUsage(token).catch(() => {});
+            } else {
+              const legacyKeys = (process.env.SECONDARY_LAYER_KEYS || '').split(',').map(k => k.trim()).filter(k => k.length > 0);
+              if (!legacyKeys.includes(token)) {
+                res.setHeader(
+                  'WWW-Authenticate',
+                  `Bearer error="invalid_token", error_description="Invalid API key", resource_metadata="${resourceMetadataUrl}"`
+                );
+                return res.status(401).json({ error: 'Unauthorized', code: 'INVALID_API_KEY' });
+              }
+            }
           }
+        } catch (error) {
+          logger.warn('[MCP SSE GET] Authentication failed', { error: (error as Error).message });
+          return res.status(401).json({ error: 'Unauthorized', code: 'AUTH_FAILED' });
         }
-      } catch (error) {
-        logger.warn('[MCP SSE GET] Authentication failed', { error: (error as Error).message });
-        res.setHeader(
-          'WWW-Authenticate',
-          `Bearer error="invalid_token", error_description="Authentication failed", resource_metadata="${resourceMetadataUrl}"`
-        );
-        return res.status(401).json({ error: 'Unauthorized', code: 'AUTH_FAILED' });
       }
 
       // Create MCP Server instance for this connection
