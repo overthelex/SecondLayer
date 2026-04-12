@@ -109,9 +109,9 @@ export class MCPSSEServer {
       accept: acceptHeader,
       method: req.body?.method || 'unknown',
     });
-    // POST requests are Streamable HTTP — always respond with JSON
-    // GET requests are SSE — respond with event-stream
-    const wantsJson = req.method === 'POST' || (acceptHeader.includes('application/json') && !acceptHeader.includes('text/event-stream'));
+    // Determine response format based on Accept header
+    // ChatGPT MCP client expects text/event-stream for tool registration
+    const wantsJson = acceptHeader.includes('application/json') && !acceptHeader.includes('text/event-stream');
 
     if (wantsJson) {
       // Streamable HTTP mode — respond with JSON
