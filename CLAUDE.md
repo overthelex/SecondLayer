@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## MCP & External Tools
+
+- When working with MCP servers, always verify which MCP server is connected and use the correct one before attempting operations. Check `mcp__` tool availability first rather than falling back to SSH or codebase search.
+- Available MCP servers: `mcp_backend`, `mcp_rada`, `mcp_openreyestr`, Nextcloud (Deck/Tables/Calendar), Thunderbird, AWS API. Use the correct prefix (`mcp__nextcloud__`, `mcp__thunderbird__`, `mcp__awslabs-aws-api-mcp-server__`).
+- Never use SSH or codebase grep as a workaround when the appropriate MCP tool is available.
+
 ## Architecture
 
 - This is a monorepo with shared/backend/frontend packages. The app runs in Docker locally (nginx, backend, frontend, DB, MinIO).
@@ -22,6 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Blue-green deployment: prod uses `.active-colors` file in `deployment/` to track which color (blue/green) is active per service group (backend, frontend). New deploys go to the inactive color, then traffic is switched.
 - Nginx must be `--force-recreated` after ANY upstream/backend change (bind mount staleness).
 - Never manually recreate prod containers; use the deploy pipeline.
+- After making changes to CI/CD workflows or Dockerfiles, verify the build passes locally or check for missing dependencies (e.g., `npm ci` requires lock files, volume mounts in docker-compose). Never assume CI will pass without validation.
 - There is NO stage environment — only local and prod.
 - After deploying, always check container health and logs for errors.
 - After making code changes, always rebuild Docker images before testing (`docker compose build <service>` then `docker compose up -d`). Never test against stale containers.
@@ -72,6 +79,7 @@ When the user asks for a specific task (e.g., 'commit frontend changes'), do exa
 - When changing PostgreSQL auth or connection pooling config, verify auth method compatibility (MD5 vs SCRAM-SHA-256).
 - Never change SSH-related paths (home directory, authorized_keys) on remote servers without explicit confirmation.
 - SSH to prod as `ubuntu`, not root. Use `ssh prod` alias (key at `~/.ssh/secondlayer-prod`).
+- When deploying to production or working with infrastructure, verify SSH keys match the target region/instance before proceeding. For multi-server setups, confirm IP bindings and firewall rules (ufw, postfix mynetworks) for each new service.
 
 ## Debugging Approach
 
@@ -448,6 +456,17 @@ Before modifying shared configuration values (env vars like VITE_API_URL, API ba
 ### UI Display Rules
 
 Search results, documents, and evidence MUST render in the right side panel — never in the chat window. When implementing features that return structured data, always verify the rendering target matches the design intent.
+
+## Database Operations
+
+- For large PostgreSQL operations (migrations, bulk imports, index creation), always: 1) Set appropriate `statement_timeout`, 2) Use bulk INSERT strategies over batch DELETE+INSERT, 3) Account for competing queries and locks, 4) Use screen/tmux with reconnection plans.
+- For production DB operations on large tables (millions of rows), prefer `CREATE INDEX CONCURRENTLY`, partition-based strategies, and off-peak scheduling.
+
+## Data Import & Scraping
+
+- When scraping external APIs (spending.gov.ua, Rada, UIPV), expect rate limiting and global throttling. Design scripts with: configurable concurrency, per-IP rate limits, resume capability, and graceful error handling from the start.
+- Always implement checkpoint/resume logic so interrupted imports can continue without re-downloading.
+- Test with a small batch first to discover rate limits and schema issues before scaling up.
 
 ## Code Patterns
 
