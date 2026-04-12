@@ -75,166 +75,45 @@ export function createMCPSSERoutes(deps: {
   });
 
   // GET /sse - Returns OAuth configuration as JSON
-  // GET /sse - Establish MCP SSE stream (ChatGPT / Claude.ai)
-  // Must return text/event-stream with endpoint event, NOT JSON
-  router.get('/sse', (async (req: DualAuthRequest, res: Response) => {
-    try {
-      const baseUrl = getBaseUrl(req);
-      const resourceMetadataUrl = `${baseUrl}/.well-known/oauth-protected-resource`;
+  // GET /sse - SSE keepalive stream for Streamable HTTP clients
+  // ChatGPT authenticates via POST (Streamable HTTP), then opens GET /sse for server→client events.
+  // This is just a notification channel — tools are served via POST /sse handler.
+  router.get('/sse', (req: Request, res: Response) => {
+    const baseUrl = getBaseUrl(req);
+    const resourceMetadataUrl = `${baseUrl}/.well-known/oauth-protected-resource`;
 
-      // Check Authorization header
-      // If client already did OAuth via POST (has Mcp-Session-Id), allow GET without auth
-      // GET /sse is for SSE event stream — auth was already done during POST handshake
-      const authHeader = req.headers.authorization;
-      const mcpSessionId = req.headers['mcp-session-id'] as string;
-      if (!authHeader?.startsWith('Bearer ') && !mcpSessionId) {
-        // No auth and no session — return 401 to trigger OAuth flow
-        res.setHeader(
-          'WWW-Authenticate',
-          `Bearer resource_metadata="${resourceMetadataUrl}"`
-        );
-        return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'Authorization required. Use OAuth 2.0 to obtain an access token.',
-          code: 'MISSING_AUTH',
-        });
-      }
+    // If no auth AND no prior session context, return 401 to trigger OAuth
+    const authHeader = req.headers.authorization;
+    const mcpSessionId = req.headers['mcp-session-id'] as string;
+    const userAgent = req.headers['user-agent'] || '';
+    const isKnownMcpClient = userAgent.includes('openai-mcp') || userAgent.includes('ChatGPT');
 
-      let userId: string | undefined;
-      let clientKey: string | undefined;
-
-      // Authenticate if Bearer token provided; skip if session-only GET
-      if (authHeader?.startsWith('Bearer ')) {
-        const token = authHeader.replace('Bearer ', '');
-        try {
-          if (token.includes('.')) {
-            const jwt = await import('jsonwebtoken');
-            const jwtSecret = process.env.JWT_SECRET;
-            if (!jwtSecret) throw new Error('JWT_SECRET not configured');
-            const decoded = jwt.verify(token, jwtSecret) as any;
-            userId = decoded.userId;
-          } else if (token.startsWith('mcp_token_')) {
-            const tokenData = await deps.oauthService.verifyAccessToken(token);
-            if (!tokenData) {
-              res.setHeader(
-                'WWW-Authenticate',
-                `Bearer error="invalid_token", error_description="Invalid or expired OAuth access token", resource_metadata="${resourceMetadataUrl}"`
-              );
-              return res.status(401).json({ error: 'Unauthorized', code: 'INVALID_OAUTH_TOKEN' });
-            }
-            userId = tokenData.userId;
-            clientKey = tokenData.clientId;
-          } else {
-            clientKey = token;
-            const keyInfo = await deps.apiKeyService.validateApiKey(token);
-            if (keyInfo) {
-              userId = keyInfo.userId;
-              deps.apiKeyService.updateUsage(token).catch(() => {});
-            } else {
-              const legacyKeys = (process.env.SECONDARY_LAYER_KEYS || '').split(',').map(k => k.trim()).filter(k => k.length > 0);
-              if (!legacyKeys.includes(token)) {
-                res.setHeader(
-                  'WWW-Authenticate',
-                  `Bearer error="invalid_token", error_description="Invalid API key", resource_metadata="${resourceMetadataUrl}"`
-                );
-                return res.status(401).json({ error: 'Unauthorized', code: 'INVALID_API_KEY' });
-              }
-            }
-          }
-        } catch (error) {
-          logger.warn('[MCP SSE GET] Authentication failed', { error: (error as Error).message });
-          return res.status(401).json({ error: 'Unauthorized', code: 'AUTH_FAILED' });
-        }
-      }
-
-      // Create MCP Server instance for this connection
-      const mcpServer = new Server(
-        { name: 'secondlayer-mcp', version: '1.0.0' },
-        { capabilities: { tools: {} } }
-      );
-
-      // Setup tools/list handler
-      mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
-        return { tools: deps.toolRegistry.getLocalToolDefinitions() };
+    if (!authHeader?.startsWith('Bearer ') && !mcpSessionId && !isKnownMcpClient) {
+      res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadataUrl}"`);
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authorization required. Use OAuth 2.0 to obtain an access token.',
+        code: 'MISSING_AUTH',
       });
-
-      // Setup tools/call handler with billing
-      mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
-        const toolName = request.params.name;
-        const args = request.params.arguments || {};
-        const requestId = `mcp-sse-${uuidv4()}`;
-        const startTime = Date.now();
-
-        try {
-          logger.info('[MCP SSE] Tool call', { tool: toolName, userId: sanitizeId(userId || 'anonymous') });
-
-          // Check credits
-          if (userId && deps.creditService) {
-            const creditsRequired = await deps.creditService.calculateCreditsForTool(toolName, userId);
-            if (creditsRequired > 0) {
-              const balance = await deps.creditService.checkBalance(userId, creditsRequired);
-              if (!balance.hasCredits) {
-                return {
-                  content: [{ type: 'text', text: `Error: Insufficient credits. Required: ${creditsRequired}, Balance: ${balance.currentBalance}` }],
-                  isError: true,
-                };
-              }
-            }
-          }
-
-          await deps.costTracker.createTrackingRecord({
-            requestId, toolName, clientKey, userId,
-            userQuery: String(args.query || JSON.stringify(args)),
-            queryParams: args,
-          });
-
-          // Execute tool in request context
-          const result = await requestContext.run(
-            { requestId, task: toolName },
-            async () => deps.toolRegistry.executeTool(toolName, args)
-          );
-
-          const executionTime = Date.now() - startTime;
-          await deps.costTracker.completeTrackingRecord({ requestId, executionTimeMs: executionTime, status: 'completed' });
-
-          // Deduct credits
-          if (userId && deps.creditService) {
-            const creditsRequired = await deps.creditService.calculateCreditsForTool(toolName, userId);
-            if (creditsRequired > 0) {
-              await deps.creditService.deductCredits(userId, creditsRequired, toolName, requestId, `Tool: ${toolName}`);
-            }
-          }
-
-          return {
-            content: result?.content || [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-          };
-        } catch (error: any) {
-          logger.error('[MCP SSE] Tool error', { tool: toolName, error: error.message });
-          const executionTime = Date.now() - startTime;
-          await deps.costTracker.completeTrackingRecord({ requestId, executionTimeMs: executionTime, status: 'failed', errorMessage: error.message });
-          return { content: [{ type: 'text', text: `Error: ${error.message}` }], isError: true };
-        }
-      });
-
-      // Create SSE transport — endpoint must be /sse (not /v1/sse) for ChatGPT
-      const transport = new SSEServerTransport('/sse', res);
-      deps.mcpSseSessions.set(transport.sessionId, transport);
-      await mcpServer.connect(transport);
-
-      logger.info('[MCP SSE] Connection established', { sessionId: transport.sessionId, userId: sanitizeId(userId || 'anonymous') });
-
-      req.on('close', () => {
-        logger.info('[MCP SSE] Client disconnected', { sessionId: transport.sessionId });
-        deps.mcpSseSessions.delete(transport.sessionId);
-        mcpServer.close();
-      });
-    } catch (error: any) {
-      logger.error('[MCP SSE GET] Connection error:', error);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to establish MCP SSE connection', message: error.message });
-      }
     }
-  }) as any);
+
+    // Open SSE keepalive stream
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    // Send keepalive pings
+    const pingInterval = setInterval(() => {
+      if (res.writableEnded) { clearInterval(pingInterval); return; }
+      res.write(': ping\n\n');
+    }, 30000);
+
+    req.on('close', () => {
+      clearInterval(pingInterval);
+      logger.debug('[MCP SSE GET] Client disconnected');
+    });
+  });
 
   // GET /sse/.well-known/oauth-protected-resource - RFC 9728 Protected Resource Metadata
   // ChatGPT checks this FIRST to discover the OAuth authorization server
