@@ -317,10 +317,15 @@ export class MCPSSEServer {
    * Handle tools/list request
    */
   private async handleToolsList(res: Response, request: MCPRequest): Promise<void> {
-    const tools = this.getAllTools();
+    const allTools = this.getAllTools();
+
+    // Limit tools for ChatGPT compatibility — large tool lists may fail to register
+    const MAX_TOOLS = 15;
+    const tools = allTools.slice(0, MAX_TOOLS);
 
     logger.info('[MCP SSE] Tools list requested', {
       count: tools.length,
+      total: allTools.length,
     });
 
     this.sendSSEMessage(res, {
