@@ -1,6 +1,6 @@
 /**
- * Ukraine Open Data Sources Page
- * Public informational page listing Ukrainian legal and government open data sources
+ * Open Data Sources Page
+ * Public informational page listing legal and government open data sources across 15+ jurisdictions
  */
 
 import { ArrowLeft, ExternalLink, Scale, BookOpen, FileText, Building2, Database, Shield, Landmark, DollarSign, BarChart3, Heart, GraduationCap, Leaf, Users, Receipt, Briefcase } from 'lucide-react';
@@ -676,10 +676,10 @@ const categories: Category[] = [
 
 export function UADataSourcesPage() {
   useDocumentMeta({
-    title: 'Відкриті дані правової системи України | LEX',
-    description: 'Каталог відкритих джерел правової інформації України — судові рішення, законодавство, реєстри, держзакупівлі та публічні дані.',
-    ogTitle: 'Відкриті дані правової системи України',
-    ogDescription: 'Каталог відкритих джерел правової інформації України — судові рішення, законодавство, реєстри.',
+    title: 'Відкриті дані — Україна, ЄС та офшорні юрисдикції | LEX',
+    description: 'Каталог відкритих джерел правової інформації — Україна, ЄС, Швейцарія, BVI, Кайманові острови, Панама, Кіпр та ще 10+ юрисдикцій. Судові рішення, реєстри компаній, бенефіціари.',
+    ogTitle: 'Відкриті дані — Україна, ЄС та офшорні юрисдикції',
+    ogDescription: 'Каталог відкритих джерел правової інформації — 15+ юрисдикцій, судові рішення, реєстри компаній, бенефіціари.',
   });
 
   return (
@@ -701,17 +701,17 @@ export function UADataSourcesPage() {
       {/* Hero */}
       <div className="bg-gradient-to-b from-blue-50 to-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16 text-center">
-          <div className="text-4xl mb-4">&#127482;&#127462;</div>
+          <div className="text-4xl mb-4">&#127482;&#127462; &#127466;&#127482; &#127464;&#127469; &#127475;&#127473; &#127468;&#127463;</div>
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-            Ukraine Open Data Sources
+            Open Data Sources
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            80,000+ datasets, ranked 3rd in Europe for open data maturity (97%).
-            Courts, legislation, procurement, registries, budgets, and more.
+            Ukraine, EU, Switzerland, Netherlands, BVI, Cayman Islands, Panama, Cyprus, and 10+ more jurisdictions.
+            Courts, company registries, beneficial owners, legislation, and financial regulators.
           </p>
           <div className="flex flex-wrap justify-center gap-3 mt-6">
             <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full bg-green-50 text-green-700 font-medium">
-              #3 in Europe
+              15+ jurisdictions
             </span>
             <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 font-medium">
               80,000+ datasets
@@ -720,7 +720,7 @@ export function UADataSourcesPage() {
               100M+ court decisions
             </span>
             <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 font-medium">
-              ProZorro — $6B saved
+              800K+ offshore entities (ICIJ)
             </span>
           </div>
         </div>
