@@ -55,6 +55,38 @@ const backendDailySources: DataSourceSchedule[] = [
     sourceName: 'nazk_corruption',
     enabled: true,
   },
+  {
+    name: 'invalid_passports',
+    title: 'МВС — Недійсні паспорти',
+    cron: '0 4 * * *', // 04:00 daily
+    target: 'backend',
+    sourceName: 'invalid_passports',
+    enabled: true,
+  },
+  {
+    name: 'invalid_passports_foreign',
+    title: 'МВС — Недійсні закордонні паспорти',
+    cron: '15 4 * * *', // 04:15 daily
+    target: 'backend',
+    sourceName: 'invalid_passports_foreign',
+    enabled: true,
+  },
+  {
+    name: 'nazk_corruption_offenders',
+    title: 'НАЗК — Корупційні правопорушники',
+    cron: '45 3 * * *', // 03:45 daily
+    target: 'backend',
+    sourceName: 'nazk_corruption_offenders',
+    enabled: true,
+  },
+  {
+    name: 'nazk_declaration_checks',
+    title: 'НАЗК — Перевірки декларацій',
+    cron: '0 6 * * *', // 06:00 daily
+    target: 'backend',
+    sourceName: 'nazk_declaration_checks',
+    enabled: true,
+  },
 ];
 
 const backendWeeklySources: DataSourceSchedule[] = [
@@ -88,6 +120,78 @@ const backendWeeklySources: DataSourceSchedule[] = [
     cron: '0 4 * * 0', // Sunday 04:00
     target: 'backend',
     sourceName: 'nipo_designs',
+    enabled: true,
+  },
+  {
+    name: 'dsfmu_terrorism',
+    title: 'ДСФМУ — Перелік терористів',
+    cron: '0 6 * * 0', // Sunday 06:00
+    target: 'backend',
+    sourceName: 'dsfmu_terrorism',
+    enabled: true,
+  },
+  {
+    name: 'lustration',
+    title: 'Мін\'юст — Реєстр люстрованих',
+    cron: '15 6 * * 0', // Sunday 06:15
+    target: 'backend',
+    sourceName: 'lustration',
+    enabled: true,
+  },
+  {
+    name: 'state_aid',
+    title: 'АМКУ — Реєстр держдопомоги',
+    cron: '30 6 * * 0', // Sunday 06:30
+    target: 'backend',
+    sourceName: 'state_aid',
+    enabled: true,
+  },
+  {
+    name: 'advocates',
+    title: 'Мін\'юст — Реєстр адвокатів (ЄРАУ)',
+    cron: '45 6 * * 0', // Sunday 06:45
+    target: 'backend',
+    sourceName: 'advocates',
+    enabled: true,
+  },
+  {
+    name: 'court_case_status',
+    title: 'Судова влада — Стан розгляду справ',
+    cron: '0 7 * * 0', // Sunday 07:00
+    target: 'backend',
+    sourceName: 'court_case_status',
+    enabled: true,
+  },
+  {
+    name: 'court_schedule',
+    title: 'Судова влада — Розклад засідань',
+    cron: '30 7 * * 0', // Sunday 07:30
+    target: 'backend',
+    sourceName: 'court_schedule',
+    enabled: true,
+  },
+  {
+    name: 'large_taxpayers',
+    title: 'ДПС — Великі платники податків',
+    cron: '0 8 * * 0', // Sunday 08:00
+    target: 'backend',
+    sourceName: 'large_taxpayers',
+    enabled: true,
+  },
+  {
+    name: 'wage_debtors',
+    title: 'Держпраці — Боржники по зарплаті',
+    cron: '15 8 * * 0', // Sunday 08:15
+    target: 'backend',
+    sourceName: 'wage_debtors',
+    enabled: true,
+  },
+  {
+    name: 'judge_candidates',
+    title: 'ВККС — Кандидати на посади суддів',
+    cron: '30 8 * * 0', // Sunday 08:30
+    target: 'backend',
+    sourceName: 'judge_candidates',
     enabled: true,
   },
 ];
