@@ -294,6 +294,10 @@ export const router = createBrowserRouter([
     element: S(ReferralLanding),
   },
   {
+    path: ROUTES.DEVELOPER_DOCS,
+    element: S(DeveloperDocsPage),
+  },
+  {
     element: <AuthGuard />,
     children: [
       {
@@ -356,10 +360,6 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.MCP_CONNECT,
             element: S(MCPConnectPage),
-          },
-          {
-            path: ROUTES.DEVELOPER_DOCS,
-            element: S(DeveloperDocsPage),
           },
           {
             path: ROUTES.MY_CONTRACTS,
