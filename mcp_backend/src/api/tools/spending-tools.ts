@@ -130,6 +130,7 @@ export class SpendingTools extends BaseToolHandler {
         : Object.entries(TABLE_MAP);
 
     const allResults: any[] = [];
+    const QUERY_TIMEOUT_MS = 15000;
 
     for (const [dtype, tableName] of tables) {
       try {
@@ -141,7 +142,12 @@ export class SpendingTools extends BaseToolHandler {
           ORDER BY sign_date DESC NULLS LAST
           LIMIT ${maxRows}`;
 
-        const result = await this.db.query(sql, values);
+        const result = await Promise.race([
+          this.db.query(sql, values),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`Timeout: запит до ${tableName} перевищив ${QUERY_TIMEOUT_MS / 1000}с`)), QUERY_TIMEOUT_MS)
+          ),
+        ]);
         for (const row of result.rows) {
           allResults.push({
             ...row,
@@ -163,6 +169,16 @@ export class SpendingTools extends BaseToolHandler {
     });
 
     const trimmed = allResults.slice(0, maxRows);
+
+    if (trimmed.length === 0) {
+      return this.wrapResponse(JSON.stringify({
+        query: { edrpou, contractor_name, contractor_edrpou, date_from, date_to, min_amount, max_amount, doc_type },
+        total: 0,
+        returned: 0,
+        results: [],
+        note: 'Результатів не знайдено. Можливо, запит був надто широким і перевищив timeout. Спробуйте уточнити параметри (вказати edrpou, звузити діапазон дат).',
+      }, null, 2));
+    }
 
     return this.wrapResponse(JSON.stringify({
       query: { edrpou, contractor_name, contractor_edrpou, date_from, date_to, min_amount, max_amount, doc_type },

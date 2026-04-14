@@ -13,6 +13,39 @@ import axios from 'axios';
 // ========================= Pure Functions =========================
 
 /**
+ * Parse JSON from LLM response, stripping markdown fences if present.
+ * Handles: ```json {...} ```, ```{...}```, or raw JSON.
+ */
+export function parseLLMJson<T = any>(text: string | null | undefined, fallback: T): T {
+  if (!text) return fallback;
+
+  let cleaned = text.trim();
+
+  // Strip markdown code fences: ```json ... ``` or ``` ... ```
+  const fenceMatch = cleaned.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/);
+  if (fenceMatch) {
+    cleaned = fenceMatch[1].trim();
+  }
+
+  // Try direct parse first
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Fallback: extract first JSON object/array
+    const jsonMatch = cleaned.match(/[\[{][\s\S]*[\]}]/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch {
+        // give up
+      }
+    }
+  }
+
+  return fallback;
+}
+
+/**
  * Extract source strings from mixed sources array (strings, objects with id/url/title).
  */
 export function extractSourceStrings(sources: any): string[] {

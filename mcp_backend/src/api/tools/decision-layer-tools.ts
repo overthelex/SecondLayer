@@ -7,6 +7,7 @@
  */
 
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
+import { parseLLMJson } from '../tool-utils.js';
 import { logger } from '../../utils/logger.js';
 import type { ILLMPort } from '../../domain/ports/index.js';
 
@@ -256,16 +257,14 @@ export class DecisionLayerTools extends BaseToolHandler {
 
       // Try to parse as JSON
       let decision: LegalDecision;
-      try {
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        decision = JSON.parse(jsonMatch?.[0] || text);
-      } catch {
-        // LLM returned non-JSON — wrap as text response
+      const parsed = parseLLMJson<LegalDecision | null>(text, null);
+      if (!parsed) {
         return this.wrapResponse({
           error: 'Failed to generate structured decision',
           raw_analysis: text,
         });
       }
+      decision = parsed;
 
       // Validate minimum structure
       if (!decision.positions || !decision.scores || !decision.reasoning) {

@@ -577,15 +577,26 @@ export class CourtDecisionTools extends BaseToolHandler {
     const docId = args.doc_id || args.document_id;
 
     if (!text && docId) {
-      logger.info('Fetching document by doc_id', { docId });
+      logger.info('Fetching document full text from DB', { docId });
+      if (!this.db) {
+        throw new Error('Database not available for document lookup');
+      }
       try {
-        const fullTextData = await this.zoAdapter.getDocumentFullText(docId);
-        if (fullTextData && fullTextData.text) {
-          text = fullTextData.text;
+        const result = await this.db.query(
+          `SELECT full_text, full_text_html FROM documents WHERE zakononline_id = $1 OR id::text = $1 LIMIT 1`,
+          [String(docId)]
+        );
+        const row = result.rows?.[0];
+        if (row?.full_text) {
+          text = row.full_text;
+        } else if (row?.full_text_html) {
+          // Strip HTML tags as fallback
+          text = row.full_text_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         } else {
-          throw new Error(`Failed to load document ${docId}: no text returned`);
+          throw new Error(`Документ ${docId} не має повного тексту в базі. Спочатку завантажте текст через get_court_decision або load_full_texts.`);
         }
       } catch (error: any) {
+        if (error.message.includes('не має повного тексту')) throw error;
         throw new Error(`Failed to fetch document ${docId}: ${error.message}`);
       }
     }
