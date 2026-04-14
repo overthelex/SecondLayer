@@ -649,6 +649,28 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
           </div>
 
+          {/* AWS Startups Logo */}
+          <div className="text-center mt-6">
+            <motion.a
+              href="https://aws.amazon.com/startups/showcase/startup-details/aa3724a2-2ad3-429d-a762-4415407bbd86"
+              target="_blank"
+              rel="noopener noreferrer"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="inline-flex flex-col items-center gap-2 opacity-70 hover:opacity-100 transition-opacity"
+            >
+              <span className="text-[10px] text-claude-subtext tracking-wide uppercase">Backed by AWS Activate</span>
+              <img
+                src="/aws.starups_dark.svg"
+                alt="Backed by AWS Activate — LexApp отримав підтримку від AWS Activate для розвитку масштабованої AI-інфраструктури та обробки великих масивів правових даних"
+                className="h-8 w-auto"
+              />
+            </motion.a>
+          </div>
+
           {/* Bottom navigation */}
           <div className="flex items-center gap-5 flex-wrap">
             <a
