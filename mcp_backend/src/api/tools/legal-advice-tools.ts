@@ -139,11 +139,13 @@ export class LegalAdviceTools extends BaseToolHandler {
         description: `Строит граф цитирований между делами: прямые и обратные связи
 
 💰 Примерная стоимость: $0.005-$0.02 USD
-Построение графа из базы данных. Минимальная стоимость (только PostgreSQL запросы).`,
+Построение графа из базы данных. Минимальная стоимость (только PostgreSQL запросы).
+
+Приймає case_id (UUID документа з БД) або case_number (номер справи, наприклад "756/1234/23").`,
         inputSchema: {
           type: 'object',
           properties: {
-            case_id: { type: 'string' },
+            case_id: { type: 'string', description: 'UUID документа або номер справи' },
             depth: { type: 'number', default: 2 },
           },
           required: ['case_id'],
@@ -210,7 +212,18 @@ export class LegalAdviceTools extends BaseToolHandler {
   }
 
   private async getCitationGraph(args: any): Promise<ToolResult> {
-    const graph = await this.citationValidator.buildCitationGraph(args.case_id, args.depth || 2);
+    const caseId = String(args.case_id).trim();
+
+    // Validate UUID format to prevent PostgreSQL "invalid input syntax for type uuid" error
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(caseId)) {
+      return this.wrapResponse({
+        error: `Параметр case_id має бути UUID документа (наприклад "a1b2c3d4-e5f6-7890-abcd-ef1234567890"), а не номер справи. Спочатку знайдіть документ через search_legal_precedents або get_court_decision, потім використайте його UUID.`,
+        provided_value: caseId,
+      });
+    }
+
+    const graph = await this.citationValidator.buildCitationGraph(caseId, args.depth || 2);
     return this.wrapResponse({ graph });
   }
 

@@ -7,6 +7,7 @@ import { DocumentService } from '../services/document-service.js';
 import { logger } from '../utils/logger.js';
 import * as Diff from 'diff';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
+import { parseLLMJson } from './tool-utils.js';
 
 export interface ExtractedClause {
   type: string;
@@ -254,7 +255,7 @@ ${args.documentText.slice(0, 15000)}`;
         'standard'
       );
 
-      const parsed = JSON.parse(response.content || '{"clauses":[]}');
+      const parsed = parseLLMJson(response.content, { clauses: [] });
       const clauses: ExtractedClause[] = parsed.clauses || [];
 
       // Step 2: Create simple risk report
@@ -332,8 +333,8 @@ ${args.documentText.slice(0, 20000)}`;
         detailLevel
       );
 
-      const summary: DocumentSummary = JSON.parse(
-        response.content || '{"executiveSummary":"","detailedSummary":"","keyFacts":{}}'
+      const summary: DocumentSummary = parseLLMJson(
+        response.content, { executiveSummary: '', detailedSummary: '', keyFacts: {} }
       );
 
       logger.info('[MCP Tool] summarize_document completed', {
