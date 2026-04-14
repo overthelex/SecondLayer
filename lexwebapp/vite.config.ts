@@ -40,7 +40,7 @@ function sitemapPlugin(): Plugin {
           { loc: '/uk_investor', changefreq: 'monthly', priority: '0.6' },
           { loc: '/uk_investor_simplified', changefreq: 'monthly', priority: '0.6' },
           { loc: '/pitch-deck.html', changefreq: 'monthly', priority: '0.6' },
-          { loc: '/developer/docs', changefreq: 'monthly', priority: '0.7' },
+          { loc: '/developer/docs', changefreq: 'weekly', priority: '0.9' },
         ]
 
         const blogArticles: Entry[] = []
@@ -93,6 +93,163 @@ function sitemapPlugin(): Plugin {
   }
 }
 
+/**
+ * Vite plugin that generates a static HTML shell for /developer/docs
+ * so crawlers can index meta tags and content without executing JavaScript.
+ * The React SPA still boots and takes over for interactive users.
+ */
+function prerenderDocsPlugin(): Plugin {
+  return {
+    name: 'prerender-developer-docs',
+    closeBundle() {
+      try {
+        const root = path.resolve(__dirname)
+        const distDir = path.resolve(root, 'dist')
+        const indexHtml = fs.readFileSync(path.resolve(distDir, 'index.html'), 'utf-8')
+
+        // Extract tool groups from source to build semantic HTML
+        const toolsSrc = fs.readFileSync(
+          path.resolve(root, 'src/pages/DeveloperDocsPage/index.tsx'), 'utf-8'
+        )
+
+        // Extract tool names and descriptions via regex
+        const toolEntries: { name: string; desc: string }[] = []
+        const toolRe = /name:\s*'([^']+)',\s*description:\s*'([^']+)'/g
+        let tm: RegExpExecArray | null
+        while ((tm = toolRe.exec(toolsSrc)) !== null) {
+          toolEntries.push({ name: tm[1], desc: tm[2] })
+        }
+
+        // Extract group titles
+        const groupTitles: string[] = []
+        const groupRe = /title:\s*'([^']+)'/g
+        let gm: RegExpExecArray | null
+        while ((gm = groupRe.exec(toolsSrc)) !== null) {
+          groupTitles.push(gm[1])
+        }
+
+        const title = 'LEX AI API — документація MCP сервера | 100+ юридичних інструментів'
+        const description = 'Підключіть Claude Desktop, Cursor, VS Code або ChatGPT до MCP сервера LEX AI (mcp.legal.org.ua/sse). 100+ інструментів: судова практика, законодавство, реєстри, відкриті дані, due diligence. REST API та MCP SSE транспорт.'
+        const ogDescription = 'Підключіть Claude, Cursor або ChatGPT до 100+ інструментів юридичного аналізу через MCP SSE. Судова практика, законодавство, реєстри України.'
+        const canonical = 'https://legal.org.ua/developer/docs'
+
+        // Build semantic HTML for crawlers
+        const toolsHtml = toolEntries.map(t =>
+          `<li><code>${t.name}</code> — ${t.desc}</li>`
+        ).join('\n          ')
+
+        const categoriesHtml = groupTitles.map(g => `<li>${g}</li>`).join('\n          ')
+
+        const semanticContent = `
+    <div id="developer-docs-seo" style="max-width:820px;margin:40px auto;font-family:system-ui,sans-serif;padding:0 24px">
+      <h1>LEX AI Platform API — документація MCP сервера</h1>
+      <p>${description}</p>
+
+      <h2>Підключення MCP клієнта</h2>
+      <p>SSE URL: <code>https://mcp.legal.org.ua/api/v1/sse</code></p>
+      <p>REST API: <code>https://platform.legal.org.ua/api/tools/:toolName</code></p>
+      <p>Підтримувані клієнти: Claude Desktop, Claude Code, Cursor, VS Code, ChatGPT, Continue.dev</p>
+      <pre><code>{
+  "mcpServers": {
+    "secondlayer": {
+      "type": "sse",
+      "url": "https://mcp.legal.org.ua/api/v1/sse",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN"
+      }
+    }
+  }
+}</code></pre>
+
+      <h2>Категорії інструментів</h2>
+      <ul>
+        ${categoriesHtml}
+      </ul>
+
+      <h2>Всі інструменти (${toolEntries.length})</h2>
+      <ul>
+        ${toolsHtml}
+      </ul>
+
+      <h2>Автентифікація</h2>
+      <p>Всі запити потребують Bearer Token. Згенеруйте API ключ у розділі Профіль → API токени.</p>
+
+      <h2>Правові документи</h2>
+      <ul>
+        <li><a href="/ua/developer-offer">Оферта розробника</a></li>
+        <li><a href="/ua/privacy">Політика конфіденційності</a></li>
+        <li><a href="/ua/dpa">DPA (обробка даних)</a></li>
+      </ul>
+    </div>`
+
+        const jsonLd = JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebAPI",
+          "name": "LEX AI MCP Server",
+          "description": "MCP сервер для юридичного аналізу: 100+ інструментів — судова практика (110M+ рішень), законодавство, реєстри юридичних осіб, відкриті дані, due diligence. Підключається через SSE до Claude Desktop, Cursor, VS Code, ChatGPT.",
+          "url": "https://mcp.legal.org.ua/sse",
+          "documentation": canonical,
+          "provider": { "@type": "Organization", "name": "SecondLayer", "url": "https://legal.org.ua" },
+          "termsOfService": "https://legal.org.ua/ua/developer-offer"
+        })
+
+        // Replace head meta tags in the index.html shell
+        let html = indexHtml
+          .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
+          .replace(
+            /<meta name="description" content="[^"]*"\s*\/?>/,
+            `<meta name="description" content="${description}" />`
+          )
+          .replace(
+            /<meta property="og:title" content="[^"]*"\s*\/?>/,
+            `<meta property="og:title" content="${title}" />`
+          )
+          .replace(
+            /<meta property="og:description" content="[^"]*"\s*\/?>/,
+            `<meta property="og:description" content="${ogDescription}" />`
+          )
+          .replace(
+            /<meta property="og:url" content="[^"]*"\s*\/?>/,
+            `<meta property="og:url" content="${canonical}" />`
+          )
+          .replace(
+            /<meta name="twitter:title" content="[^"]*"\s*\/?>/,
+            `<meta name="twitter:title" content="${title}" />`
+          )
+          .replace(
+            /<meta name="twitter:description" content="[^"]*"\s*\/?>/,
+            `<meta name="twitter:description" content="${ogDescription}" />`
+          )
+          .replace(
+            /<link rel="canonical" href="[^"]*"\s*\/?>/,
+            `<link rel="canonical" href="${canonical}" />`
+          )
+
+        // Add WebAPI JSON-LD before closing </head>
+        html = html.replace(
+          '</head>',
+          `<script type="application/ld+json">${jsonLd}</script>\n  </head>`
+        )
+
+        // Add semantic content before <div id="root"> so crawlers see it
+        // React will render into #root and the SPA takes over
+        html = html.replace(
+          '<div id="root"></div>',
+          `${semanticContent}\n    <div id="root"></div>\n    <script>document.getElementById('developer-docs-seo')?.remove()</script>`
+        )
+
+        // Write to dist/developer/docs/index.html
+        const outDir = path.resolve(distDir, 'developer', 'docs')
+        fs.mkdirSync(outDir, { recursive: true })
+        fs.writeFileSync(path.resolve(outDir, 'index.html'), html)
+        console.log(`[prerender] Generated developer/docs/index.html (${toolEntries.length} tools)`)
+      } catch (err) {
+        console.error('[prerender] Failed to generate developer/docs page:', err)
+      }
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const isDocker = !!process.env.DOCKER_ENV
@@ -102,7 +259,7 @@ export default defineConfig(({ mode }) => {
   const hasLocalCerts = !isDocker && fs.existsSync(certFile) && fs.existsSync(keyFile)
 
   return {
-    plugins: [react(), sitemapPlugin()],
+    plugins: [react(), sitemapPlugin(), prerenderDocsPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, 'src'),
