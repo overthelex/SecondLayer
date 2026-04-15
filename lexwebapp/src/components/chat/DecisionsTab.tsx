@@ -40,7 +40,7 @@ export function DecisionsTab({ decisions, onOpenModal }: DecisionsTabProps) {
             icon={Gavel}
             isExpanded={expanded}
             onToggle={() => toggleCard(cardId)}
-            content={decision.summary || 'Немає тексту рішення.'}
+            content={decision.summary || (decision.documentType && decision.number ? `${decision.documentType} у справі ${decision.number}` : 'Немає тексту рішення.')}
             onOpenModal={() => onOpenModal(decision)}
             externalUrl={decision.externalUrl}
             header={

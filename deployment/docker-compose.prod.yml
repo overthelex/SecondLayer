@@ -1428,6 +1428,54 @@ services:
     command: ["-c", "/etc/turnserver.conf", "--static-auth-secret=${TURN_SHARED_SECRET}"]
     restart: unless-stopped
 
+  # EDRSR Fulltext Worker — continuously fills missing fulltext from od.reyestr.court.gov.ua
+  edrsr-fulltext-worker:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.edrsr-fulltext-worker
+    image: edrsr-fulltext-worker:latest
+    container_name: edrsr-fulltext-worker
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    depends_on:
+      postgres-prod:
+        condition: service_healthy
+      migrate-prod:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_HOST: postgres-prod
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
+      HEALTH_PORT: "3011"
+      WORKERS: "50"
+      CHUNK_SIZE: "2000"
+      BATCH_INSERT_SIZE: "500"
+      IDLE_SLEEP: "3600"
+      YEAR_START: "2005"
+      LOG_LEVEL: info
+      TZ: Europe/Kiev
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3011/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - secondlayer-prod-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          memory: 128M
+
   # OpenData Sync — cron scheduler for government data sources
   opendata-sync-prod:
     build:
