@@ -39,6 +39,11 @@ BATCH_INSERT_SIZE = int(os.environ.get("BATCH_INSERT_SIZE", "500"))
 REQUEST_TIMEOUT = int(os.environ.get("REQUEST_TIMEOUT", "30"))
 MAX_RETRIES = int(os.environ.get("MAX_RETRIES", "3"))
 
+# Source IPs for multi-IP download (comma-separated private IPs)
+# Empty = use default route (single IP)
+SOURCE_IPS = [ip.strip() for ip in os.environ.get("SOURCE_IPS", "").split(",") if ip.strip()]
+WORKERS_PER_IP = int(os.environ.get("WORKERS_PER_IP", "15"))
+
 # How long to sleep when no work found across all years (seconds)
 IDLE_SLEEP = int(os.environ.get("IDLE_SLEEP", "3600"))
 # How long to sleep between year scans (seconds)
@@ -223,21 +228,53 @@ async def download_one(session, doc_id, adj_year, url, semaphore):
 
 async def download_chunk(docs: list[tuple], workers: int) -> tuple[list[tuple], list[tuple]]:
     """Returns (successes, failures) where successes are (doc_id, adj_year, text)
-    and failures are (doc_id, reason)."""
-    semaphore = asyncio.Semaphore(workers)
-    connector = aiohttp.TCPConnector(
-        limit=workers, limit_per_host=workers, ttl_dns_cache=300
-    )
+    and failures are (doc_id, reason).
+    When SOURCE_IPS is configured, distributes downloads across multiple source IPs."""
     successes = []
     failures = []
-    async with aiohttp.ClientSession(connector=connector) as session:
-        tasks = [download_one(session, d, y, u, semaphore) for d, y, u in docs]
-        for coro in asyncio.as_completed(tasks):
-            result = await coro
-            if result and result[1] is not None:
-                successes.append(result)
-            elif result:
-                failures.append((result[0], result[2]))
+
+    if SOURCE_IPS:
+        # Multi-IP mode: create a session per IP, distribute docs round-robin
+        sessions = []
+        semaphores = []
+        for ip in SOURCE_IPS:
+            connector = aiohttp.TCPConnector(
+                limit=WORKERS_PER_IP, limit_per_host=WORKERS_PER_IP,
+                ttl_dns_cache=300, local_addr=(ip, 0),
+            )
+            sessions.append(aiohttp.ClientSession(connector=connector))
+            semaphores.append(asyncio.Semaphore(WORKERS_PER_IP))
+
+        try:
+            tasks = []
+            for i, (d, y, u) in enumerate(docs):
+                idx = i % len(SOURCE_IPS)
+                tasks.append(download_one(sessions[idx], d, y, u, semaphores[idx]))
+
+            for coro in asyncio.as_completed(tasks):
+                result = await coro
+                if result and result[1] is not None:
+                    successes.append(result)
+                elif result:
+                    failures.append((result[0], result[2]))
+        finally:
+            for s in sessions:
+                await s.close()
+    else:
+        # Single-IP mode
+        semaphore = asyncio.Semaphore(workers)
+        connector = aiohttp.TCPConnector(
+            limit=workers, limit_per_host=workers, ttl_dns_cache=300
+        )
+        async with aiohttp.ClientSession(connector=connector) as session:
+            tasks = [download_one(session, d, y, u, semaphore) for d, y, u in docs]
+            for coro in asyncio.as_completed(tasks):
+                result = await coro
+                if result and result[1] is not None:
+                    successes.append(result)
+                elif result:
+                    failures.append((result[0], result[2]))
+
     return successes, failures
 
 
@@ -504,7 +541,11 @@ def main():
 
     log.info("=" * 60)
     log.info("  EDRSR Fulltext Worker")
-    log.info("  Years: %d-%d | Workers: %d | Chunk: %d", YEAR_START, YEAR_END, WORKERS, CHUNK_SIZE)
+    if SOURCE_IPS:
+        log.info("  IPs: %d (%s) | %d workers/IP | Chunk: %d",
+                 len(SOURCE_IPS), ", ".join(SOURCE_IPS), WORKERS_PER_IP, CHUNK_SIZE)
+    else:
+        log.info("  Years: %d-%d | Workers: %d | Chunk: %d", YEAR_START, YEAR_END, WORKERS, CHUNK_SIZE)
     log.info("  DB: %s@%s:%d/%s", POSTGRES_USER, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB)
     log.info("=" * 60)
 

@@ -1429,30 +1429,28 @@ services:
     restart: unless-stopped
 
   # EDRSR Fulltext Worker — continuously fills missing fulltext from od.reyestr.court.gov.ua
+  # Uses network_mode: host to bind to multiple source IPs for parallel downloads
   edrsr-fulltext-worker:
     build:
       context: ..
       dockerfile: deployment/Dockerfile.edrsr-fulltext-worker
     image: edrsr-fulltext-worker:latest
     container_name: edrsr-fulltext-worker
+    network_mode: host
     logging:
       driver: json-file
       options:
         max-size: "20m"
         max-file: "5"
-    depends_on:
-      postgres-prod:
-        condition: service_healthy
-      migrate-prod:
-        condition: service_completed_successfully
     environment:
-      POSTGRES_HOST: postgres-prod
-      POSTGRES_PORT: 5432
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: 5438
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
       HEALTH_PORT: "3011"
-      WORKERS: "50"
+      SOURCE_IPS: "172.31.29.20,172.31.21.255,172.31.31.40,172.31.22.206"
+      WORKERS_PER_IP: "15"
       CHUNK_SIZE: "2000"
       BATCH_INSERT_SIZE: "500"
       IDLE_SLEEP: "3600"
@@ -1466,8 +1464,6 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
-    networks:
-      - secondlayer-prod-network
     deploy:
       resources:
         limits:
