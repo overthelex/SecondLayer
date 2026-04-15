@@ -212,43 +212,75 @@ export class LegalAdviceTools extends BaseToolHandler {
     return this.wrapResponse({ similar });
   }
 
-  private async getCitationGraph(args: any): Promise<ToolResult> {
-    let caseId = String(args.case_id).trim();
+  /**
+   * Resolve any case identifier (UUID, numeric doc_id, case_number) to
+   * the documents.id UUID used by citation_links.
+   *
+   * Chain: case_number → edrsr_documents.doc_id → documents.zakononline_id → documents.id (UUID)
+   */
+  private async resolveToDocumentsUUID(input: string): Promise<string | null> {
+    if (!this.db) return null;
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const isUUID = uuidRegex.test(caseId);
-    const isNumericDocId = /^\d+$/.test(caseId);
+    if (uuidRegex.test(input)) return input;
 
-    if (!isUUID && !isNumericDocId) {
-      // Looks like a case_number (e.g. "176/973/26") — resolve to doc_id
-      if (!this.db) {
-        return this.wrapResponse({
-          error: `Параметр case_id "${caseId}" не є UUID/doc_id, а БД недоступна для пошуку по номеру справи.`,
-          provided_value: caseId,
-        });
-      }
+    // Numeric doc_id or case_number — both need documents.id lookup
+    let zoId = input;
 
-      const result = await this.db.query(
+    if (!/^\d+$/.test(input)) {
+      // Case number (e.g. "176/973/26") → find doc_id in edrsr_documents
+      const edrsr = await this.db.query(
         `SELECT doc_id::text AS doc_id FROM edrsr_documents WHERE cause_num = $1 ORDER BY adjudication_date DESC NULLS LAST LIMIT 1`,
-        [caseId]
+        [input]
       );
+      if (edrsr.rows.length === 0) return null;
+      zoId = edrsr.rows[0].doc_id;
+    }
 
-      if (result.rows.length === 0) {
+    // Numeric doc_id → documents.id UUID via zakononline_id
+    const doc = await this.db.query(
+      `SELECT id FROM documents WHERE zakononline_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [zoId]
+    );
+    if (doc.rows.length > 0) return doc.rows[0].id;
+
+    // Fallback: return numeric doc_id as-is (citation_links may not have it, but at least won't crash on UUID cast)
+    return zoId;
+  }
+
+  private async getCitationGraph(args: any): Promise<ToolResult> {
+    const input = String(args.case_id).trim();
+
+    if (!this.db) {
+      // No DB — only UUID passthrough works
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(input)) {
         return this.wrapResponse({
-          error: `Справу з номером "${caseId}" не знайдено в ЄДРСР. Перевірте формат номера або скористайтесь search_legal_precedents для пошуку.`,
-          provided_value: caseId,
+          error: `Параметр case_id "${input}" не є UUID, а БД недоступна для конвертації.`,
+          provided_value: input,
         });
       }
+      const graph = await this.citationValidator.buildCitationGraph(input, args.depth || 2);
+      return this.wrapResponse({ graph });
+    }
 
-      caseId = result.rows[0].doc_id;
-      logger.info('[LegalAdviceTools] Resolved case_number to doc_id', {
-        case_number: args.case_id,
-        doc_id: caseId,
+    const resolvedId = await this.resolveToDocumentsUUID(input);
+
+    if (!resolvedId) {
+      return this.wrapResponse({
+        error: `Справу "${input}" не знайдено в ЄДРСР. Перевірте формат номера або скористайтесь search_legal_precedents для пошуку.`,
+        provided_value: input,
       });
     }
 
-    // caseId is now either a UUID, a numeric doc_id, or a resolved doc_id
-    const graph = await this.citationValidator.buildCitationGraph(caseId, args.depth || 2);
+    if (resolvedId !== input) {
+      logger.info('[LegalAdviceTools] Resolved case_id to documents UUID', {
+        input,
+        resolved: resolvedId,
+      });
+    }
+
+    const graph = await this.citationValidator.buildCitationGraph(resolvedId, args.depth || 2);
     return this.wrapResponse({ graph });
   }
 
