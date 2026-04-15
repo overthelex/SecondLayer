@@ -51,7 +51,7 @@ export function DocumentsTab({ otherCourtDocs, vaultDocuments, onOpenDocModal, o
             icon={FileText}
             isExpanded={expanded}
             onToggle={() => toggleCard(cardId)}
-            content={d.summary || 'Немає тексту.'}
+            content={d.summary || (d.documentType && d.number ? `${d.documentType} у справі ${d.number}` : 'Немає тексту.')}
             onOpenModal={onOpenDecisionModal ? () => onOpenDecisionModal(d) : undefined}
             externalUrl={d.externalUrl}
             header={
