@@ -24,6 +24,7 @@ permissions:
   contents: write
   pull-requests: write
   actions: read
+  packages: write
 
 concurrency:
   group: deploy-prod
@@ -350,14 +351,148 @@ jobs:
             --base main \
             --head "$BRANCH"
 
-  # ─── Step 3a: Deploy Preview (inactive color) ──────────────────────
-  deploy-preview:
-    name: Deploy Preview
+  # ─── Step 2c: Build Docker images and push to GHCR ──────────────────
+  build-and-push-images:
+    name: Build & Push Images to GHCR
     runs-on: [self-hosted, local]
     needs: [detect-changes, pre-deploy-tests]
     if: |
       needs.detect-changes.outputs.has_changes == 'true' &&
       needs.pre-deploy-tests.result == 'success'
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_PREFIX: ghcr.io/overthelex
+      BACKEND_CHANGED: ${{ needs.detect-changes.outputs.backend }}
+      RADA_CHANGED: ${{ needs.detect-changes.outputs.rada }}
+      OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
+      FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+      PLATFORM_CHANGED: ${{ needs.detect-changes.outputs.platform }}
+      OPENDATA_SYNC_CHANGED: ${{ needs.detect-changes.outputs.opendata_sync }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build shared package (needed for document-service context)
+        run: cd packages/shared && npm install --legacy-peer-deps && npm run build
+
+      - name: Overlay proprietary source
+        if: needs.detect-changes.outputs.backend == 'true'
+        run: |
+          CORE_TMP=$(mktemp -d)
+          gh repo clone overthelex/secondlayer-core "$CORE_TMP" -- --depth 1
+          cp -f "$CORE_TMP"/src/services/* mcp_backend/src/services/
+          cp -rf "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
+          rm -rf "$CORE_TMP"
+
+      - name: Build backend dist (needed for document-service Dockerfile)
+        if: needs.detect-changes.outputs.backend == 'true'
+        run: cd mcp_backend && npm install && npm run build
+
+      - name: Build & push backend image
+        if: needs.detect-changes.outputs.backend == 'true'
+        run: |
+          docker build \
+            -t $IMAGE_PREFIX/sl-backend:${{ github.sha }} \
+            -t $IMAGE_PREFIX/sl-backend:latest \
+            -f deployment/Dockerfile.mono-backend .
+          docker push $IMAGE_PREFIX/sl-backend:${{ github.sha }}
+          docker push $IMAGE_PREFIX/sl-backend:latest
+
+      - name: Build & push document-service image
+        if: needs.detect-changes.outputs.backend == 'true'
+        run: |
+          docker build \
+            -t $IMAGE_PREFIX/sl-document-service:${{ github.sha }} \
+            -t $IMAGE_PREFIX/sl-document-service:latest \
+            -f deployment/Dockerfile.document-service .
+          docker push $IMAGE_PREFIX/sl-document-service:${{ github.sha }}
+          docker push $IMAGE_PREFIX/sl-document-service:latest
+
+      - name: Build & push RADA image
+        if: needs.detect-changes.outputs.rada == 'true'
+        run: |
+          docker build \
+            -t $IMAGE_PREFIX/sl-rada:${{ github.sha }} \
+            -t $IMAGE_PREFIX/sl-rada:latest \
+            -f deployment/Dockerfile.mono-rada .
+          docker push $IMAGE_PREFIX/sl-rada:${{ github.sha }}
+          docker push $IMAGE_PREFIX/sl-rada:latest
+
+      - name: Build & push OpenReyestr image
+        if: needs.detect-changes.outputs.openreyestr == 'true'
+        run: |
+          docker build \
+            -t $IMAGE_PREFIX/sl-openreyestr:${{ github.sha }} \
+            -t $IMAGE_PREFIX/sl-openreyestr:latest \
+            -f deployment/Dockerfile.mono-openreyestr .
+          docker push $IMAGE_PREFIX/sl-openreyestr:${{ github.sha }}
+          docker push $IMAGE_PREFIX/sl-openreyestr:latest
+
+      - name: Build & push frontend image
+        if: needs.detect-changes.outputs.frontend == 'true'
+        run: |
+          docker build \
+            --build-arg BUILD_ENV=production \
+            --build-arg VITE_API_URL=https://legal.org.ua \
+            --build-arg VITE_API_KEY=${VITE_API_KEY_PROD:-REDACTED_SL_KEY_PROD} \
+            --build-arg VITE_ENABLE_SSE_STREAMING=true \
+            --build-arg VITE_ENABLE_ALL_MCP_TOOLS=true \
+            --build-arg VITE_SHOW_TOOL_SELECTOR=true \
+            --build-arg VITE_ENABLE_THINKING_STEPS=true \
+            --build-arg VITE_AUTO_EXPAND_THINKING=true \
+            --build-arg GIT_SHA=${{ github.sha }} \
+            --build-arg APP_VERSION=${APP_VERSION:-dev} \
+            --build-arg APP_FRONTEND_VERSION=${APP_FRONTEND_VERSION:-dev} \
+            -t $IMAGE_PREFIX/sl-frontend:${{ github.sha }} \
+            -t $IMAGE_PREFIX/sl-frontend:latest \
+            -f lexwebapp/Dockerfile .
+          docker push $IMAGE_PREFIX/sl-frontend:${{ github.sha }}
+          docker push $IMAGE_PREFIX/sl-frontend:latest
+        env:
+          VITE_API_KEY_PROD: ${{ secrets.VITE_API_KEY_PROD }}
+
+      - name: Build & push platform image
+        if: needs.detect-changes.outputs.platform == 'true'
+        run: |
+          docker build \
+            --build-arg BUILD_ENV=production \
+            --build-arg VITE_API_URL=https://platform.legal.org.ua \
+            --build-arg GIT_SHA=${{ github.sha }} \
+            -t $IMAGE_PREFIX/sl-platform:${{ github.sha }} \
+            -t $IMAGE_PREFIX/sl-platform:latest \
+            -f platform/Dockerfile .
+          docker push $IMAGE_PREFIX/sl-platform:${{ github.sha }}
+          docker push $IMAGE_PREFIX/sl-platform:latest
+
+      - name: Build & push opendata-sync image
+        if: needs.detect-changes.outputs.opendata_sync == 'true'
+        run: |
+          docker build \
+            -t $IMAGE_PREFIX/sl-opendata-sync:${{ github.sha }} \
+            -t $IMAGE_PREFIX/sl-opendata-sync:latest \
+            -f deployment/Dockerfile.opendata-sync .
+          docker push $IMAGE_PREFIX/sl-opendata-sync:${{ github.sha }}
+          docker push $IMAGE_PREFIX/sl-opendata-sync:latest
+
+      - name: Clean up local images
+        if: always()
+        run: docker image prune -f
+
+  # ��── Step 3a: Deploy Preview (inactive color) ──────────────────────
+  deploy-preview:
+    name: Deploy Preview
+    runs-on: [self-hosted, local]
+    needs: [detect-changes, pre-deploy-tests, build-and-push-images]
+    if: |
+      needs.detect-changes.outputs.has_changes == 'true' &&
+      needs.build-and-push-images.result == 'success'
     outputs:
       backend_version: ${{ steps.version.outputs.backend_version }}
       frontend_version: ${{ steps.version.outputs.frontend_version }}
@@ -431,7 +566,7 @@ jobs:
           echo "frontend_version=${FE_VERSION}" >> "$GITHUB_OUTPUT"
           echo "Frontend version: ${FE_VERSION}"
 
-      - name: "Phase 1: Build, migrate, start inactive color, enable preview"
+      - name: "Phase 1: Pull images, migrate, start inactive color, enable preview"
         env:
           PROD_SSH_KEY_PATH: ${{ secrets.PROD_SSH_KEY_PATH }}
           BACKEND_VERSION: ${{ steps.version.outputs.backend_version }}
@@ -450,34 +585,30 @@ jobs:
 
           echo "=== Phase 1: Deploy preview (inactive color) ==="
 
-          # Pull latest code and tags
+          # Pull latest code (for compose file, nginx configs, migration scripts)
           $SSH_CMD "git -C ${REMOTE_REPO} fetch origin main --tags && git -C ${REMOTE_REPO} reset --hard origin/main"
 
           # Write VERSION file with both versions
           $SSH_CMD "printf 'BACKEND_VERSION=%s\nFRONTEND_VERSION=%s\n' '${BACKEND_VERSION}' '${FRONTEND_VERSION}' > ${REMOTE_REPO}/VERSION"
 
-          # Build dist on prod
-          $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix packages/shared install && npm --prefix packages/shared run build"
+          # Login to GHCR and pull pre-built images (built on runner, pushed in previous job)
+          $SSH_CMD bash << PULL_SCRIPT
+            set -e
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-          if [ "$BACKEND_CHANGED" = "true" ]; then
-            # Overlay proprietary source from private repo before building
-            CORE_TMP=$(mktemp -d)
-            gh repo clone overthelex/secondlayer-core "$CORE_TMP" -- --depth 1 2>/dev/null
-            SCP_CMD="scp -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no"
-            $SCP_CMD -r "$CORE_TMP"/src/services/* "${PROD_USER}@${PROD_SERVER}:${REMOTE_REPO}/mcp_backend/src/services/"
-            $SCP_CMD -r "$CORE_TMP"/src/prompts/* "${PROD_USER}@${PROD_SERVER}:${REMOTE_REPO}/mcp_backend/src/prompts/"
-            rm -rf "$CORE_TMP"
+            [ "${BACKEND_CHANGED}" = "true" ] && {
+              docker pull ghcr.io/overthelex/sl-backend:latest
+              docker pull ghcr.io/overthelex/sl-document-service:latest
+            }
+            [ "${RADA_CHANGED}" = "true" ] && docker pull ghcr.io/overthelex/sl-rada:latest
+            [ "${OPENREYESTR_CHANGED}" = "true" ] && docker pull ghcr.io/overthelex/sl-openreyestr:latest
+            [ "${FRONTEND_CHANGED}" = "true" ] && docker pull ghcr.io/overthelex/sl-frontend:latest
+            [ "${PLATFORM_CHANGED}" = "true" ] && docker pull ghcr.io/overthelex/sl-platform:latest
+            [ "${OPENDATA_SYNC_CHANGED}" = "true" ] && docker pull ghcr.io/overthelex/sl-opendata-sync:latest
+            echo "All required images pulled from GHCR"
+          PULL_SCRIPT
 
-            $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix mcp_backend install && npm --prefix mcp_backend run build"
-          fi
-          if [ "$RADA_CHANGED" = "true" ]; then
-            $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix mcp_rada install && npm --prefix mcp_rada run build"
-          fi
-          if [ "$OPENREYESTR_CHANGED" = "true" ]; then
-            $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build"
-          fi
-
-          # Phase 1: Build images, run migrations, start inactive color, write preview upstreams
+          # Run migrations, start inactive color, write preview upstreams
           $SSH_CMD bash << DEPLOY_SCRIPT
             set -e
             cd ${REMOTE_REPO}/deployment
@@ -499,44 +630,34 @@ jobs:
             echo "Backend: \$BACKEND_COLOR → \$NEW_BACKEND (changed: \$ANY_BACKEND)"
             echo "Frontend: \$FRONTEND_COLOR → \$NEW_FRONTEND (changed: ${FRONTEND_CHANGED})"
 
-            # --- 1. Build images (old containers still serving traffic) ---
-            BUILD=""
-            [ "${BACKEND_CHANGED}" = "true" ] && BUILD="\$BUILD app-prod document-service-prod migrate-prod"
-            [ "${RADA_CHANGED}" = "true" ] && BUILD="\$BUILD rada-mcp-app-prod rada-db-init-prod rada-migrate-prod"
-            [ "${OPENREYESTR_CHANGED}" = "true" ] && BUILD="\$BUILD app-openreyestr-prod migrate-openreyestr-prod"
-            [ "${FRONTEND_CHANGED}" = "true" ] && BUILD="\$BUILD lexwebapp-prod"
-            [ "${PLATFORM_CHANGED}" = "true" ] && BUILD="\$BUILD platform-prod"
-            [ "${OPENDATA_SYNC_CHANGED}" = "true" ] && BUILD="\$BUILD opendata-sync-prod"
-            [ -n "\$BUILD" ] && \$DC build \$BUILD
+            # --- 1. Run migrations (idempotent, safe while old containers serve) ---
+            [ "${BACKEND_CHANGED}" = "true" ] && { \$DC up --no-build migrate-prod || true; }
+            [ "${RADA_CHANGED}" = "true" ] && { \$DC up --no-build rada-db-init-prod || true; \$DC up --no-build rada-migrate-prod || true; }
+            [ "${OPENREYESTR_CHANGED}" = "true" ] && { \$DC up --no-build migrate-openreyestr-prod || true; }
 
-            # --- 2. Run migrations (idempotent, safe while old containers serve) ---
-            [ "${BACKEND_CHANGED}" = "true" ] && { \$DC up migrate-prod || true; }
-            [ "${RADA_CHANGED}" = "true" ] && { \$DC up rada-db-init-prod || true; \$DC up rada-migrate-prod || true; }
-            [ "${OPENREYESTR_CHANGED}" = "true" ] && { \$DC up migrate-openreyestr-prod || true; }
-
-            # --- 3. Start new-color containers alongside old ones ---
+            # --- 2. Start new-color containers alongside old ones (images already pulled) ---
             if [ "\$ANY_BACKEND" = "true" ]; then
               if [ "\$NEW_BACKEND" = "green" ]; then
-                \$DC --profile green up -d app-prod-green document-service-prod-green rada-mcp-app-prod-green app-openreyestr-prod-green
+                \$DC --profile green up -d --no-build app-prod-green document-service-prod-green rada-mcp-app-prod-green app-openreyestr-prod-green
               else
-                \$DC up -d app-prod document-service-prod rada-mcp-app-prod app-openreyestr-prod
+                \$DC up -d --no-build app-prod document-service-prod rada-mcp-app-prod app-openreyestr-prod
               fi
             fi
             if [ "${FRONTEND_CHANGED}" = "true" ]; then
               if [ "\$NEW_FRONTEND" = "green" ]; then
-                \$DC --profile green up -d lexwebapp-prod-green
+                \$DC --profile green up -d --no-build lexwebapp-prod-green
               else
-                \$DC up -d lexwebapp-prod
+                \$DC up -d --no-build lexwebapp-prod
               fi
             fi
             if [ "${PLATFORM_CHANGED}" = "true" ]; then
-              \$DC up -d platform-prod
+              \$DC up -d --no-build platform-prod
             fi
             if [ "${OPENDATA_SYNC_CHANGED}" = "true" ]; then
-              \$DC up -d opendata-sync-prod
+              \$DC up -d --no-build opendata-sync-prod
             fi
 
-            # --- 4. Wait for new containers to be healthy ---
+            # --- 3. Wait for new containers to be healthy ---
             wait_healthy() {
               local container=\$1 max_wait=\${2:-120} elapsed=0
               echo "Waiting for \$container to be healthy..."
@@ -606,7 +727,7 @@ jobs:
               exit 1
             fi
 
-            # --- 5. Write preview upstreams pointing to new (inactive) color ---
+            # --- 4. Write preview upstreams pointing to new (inactive) color ---
             if [ "\$ANY_BACKEND" = "true" ]; then
               [ "\$NEW_BACKEND" = "green" ] && PREVIEW_BE_HOST="secondlayer-app-prod-green" || PREVIEW_BE_HOST="secondlayer-app-prod"
             else

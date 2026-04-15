@@ -221,7 +221,7 @@ services:
     build:
       context: ..
       dockerfile: deployment/Dockerfile.mono-backend
-    image: secondlayer-app-prod:latest
+    image: ${SL_BACKEND_IMAGE:-ghcr.io/overthelex/sl-backend:latest}
     container_name: secondlayer-migrate-prod
     depends_on:
       postgres-prod:
@@ -247,7 +247,7 @@ services:
     - secondlayer-prod-network
 
   seed-admin-prod:
-    image: secondlayer-app-prod:latest
+    image: ${SL_BACKEND_IMAGE:-ghcr.io/overthelex/sl-backend:latest}
     container_name: secondlayer-seed-admin-prod
     depends_on:
       migrate-prod:
@@ -273,7 +273,7 @@ services:
     build:
       context: ..
       dockerfile: deployment/Dockerfile.mono-rada
-    image: rada-mcp-prod:latest
+    image: ${SL_RADA_IMAGE:-ghcr.io/overthelex/sl-rada:latest}
     container_name: rada-mcp-migrate-prod
     depends_on:
       rada-db-init-prod:
@@ -300,7 +300,7 @@ services:
       - secondlayer-prod-network
 
   rada-mcp-app-prod:
-    image: rada-mcp-prod:latest
+    image: ${SL_RADA_IMAGE:-ghcr.io/overthelex/sl-rada:latest}
     container_name: rada-mcp-app-prod
     command: ["node", "--max-old-space-size=1536", "dist/http-server.js"]
     logging:
@@ -356,7 +356,7 @@ services:
           memory: 512M
 
   migrate-openreyestr-prod:
-    image: openreyestr-app-prod:latest
+    image: ${SL_OPENREYESTR_IMAGE:-ghcr.io/overthelex/sl-openreyestr:latest}
     build:
       context: ..
       dockerfile: deployment/Dockerfile.mono-openreyestr
@@ -380,7 +380,7 @@ services:
       - secondlayer-prod-network
 
   app-openreyestr-prod:
-    image: openreyestr-app-prod:latest
+    image: ${SL_OPENREYESTR_IMAGE:-ghcr.io/overthelex/sl-openreyestr:latest}
     container_name: openreyestr-app-prod
     command: ["node", "dist/http-server.js"]
     logging:
@@ -511,7 +511,7 @@ services:
     build:
       context: ..
       dockerfile: deployment/Dockerfile.mono-backend
-    image: secondlayer-app-prod:latest
+    image: ${SL_BACKEND_IMAGE:-ghcr.io/overthelex/sl-backend:latest}
     container_name: secondlayer-app-prod
     command:
     - node
@@ -683,7 +683,7 @@ services:
     build:
       context: ..
       dockerfile: deployment/Dockerfile.document-service
-    image: document-service-prod:latest
+    image: ${SL_DOCSVC_IMAGE:-ghcr.io/overthelex/sl-document-service:latest}
     container_name: document-service-prod
     command: ["node", "--max-old-space-size=2048", "--expose-gc", "dist/document-service.js"]
     logging:
@@ -786,7 +786,7 @@ services:
         - GIT_SHA=${GIT_SHA:-unknown}
         - APP_VERSION=${APP_VERSION:-dev}
         - APP_FRONTEND_VERSION=${APP_FRONTEND_VERSION:-dev}
-    image: lexwebapp-prod:latest
+    image: ${SL_FRONTEND_IMAGE:-ghcr.io/overthelex/sl-frontend:latest}
     container_name: lexwebapp-prod
     ports:
     - "127.0.0.1:8093:80"
@@ -825,7 +825,7 @@ services:
         - BUILD_ENV=production
         - VITE_API_URL=https://platform.legal.org.ua
         - GIT_SHA=${GIT_SHA:-unknown}
-    image: platform-prod:latest
+    image: ${SL_PLATFORM_IMAGE:-ghcr.io/overthelex/sl-platform:latest}
     container_name: platform-prod
     ports:
     - "127.0.0.1:8094:80"
@@ -903,7 +903,7 @@ services:
   # ==========================================
 
   app-prod-green:
-    image: secondlayer-app-prod:latest
+    image: ${SL_BACKEND_IMAGE:-ghcr.io/overthelex/sl-backend:latest}
     container_name: secondlayer-app-prod-green
     profiles: ["green"]
     command:
@@ -1042,7 +1042,7 @@ services:
           memory: 4G
 
   rada-mcp-app-prod-green:
-    image: rada-mcp-prod:latest
+    image: ${SL_RADA_IMAGE:-ghcr.io/overthelex/sl-rada:latest}
     container_name: rada-mcp-app-prod-green
     profiles: ["green"]
     command: ["node", "--max-old-space-size=1536", "dist/http-server.js"]
@@ -1097,7 +1097,7 @@ services:
           memory: 512M
 
   app-openreyestr-prod-green:
-    image: openreyestr-app-prod:latest
+    image: ${SL_OPENREYESTR_IMAGE:-ghcr.io/overthelex/sl-openreyestr:latest}
     container_name: openreyestr-app-prod-green
     profiles: ["green"]
     command: ["node", "dist/http-server.js"]
@@ -1146,7 +1146,7 @@ services:
           memory: 512M
 
   document-service-prod-green:
-    image: document-service-prod:latest
+    image: ${SL_DOCSVC_IMAGE:-ghcr.io/overthelex/sl-document-service:latest}
     container_name: document-service-prod-green
     profiles: ["green"]
     command: ["node", "--max-old-space-size=2048", "--expose-gc", "dist/document-service.js"]
@@ -1233,7 +1233,7 @@ services:
           memory: 512M
 
   lexwebapp-prod-green:
-    image: lexwebapp-prod:latest
+    image: ${SL_FRONTEND_IMAGE:-ghcr.io/overthelex/sl-frontend:latest}
     container_name: lexwebapp-prod-green
     profiles: ["green"]
     environment:
@@ -1433,7 +1433,7 @@ services:
     build:
       context: ..
       dockerfile: deployment/Dockerfile.opendata-sync
-    image: opendata-sync-prod:latest
+    image: ${SL_OPENDATA_IMAGE:-ghcr.io/overthelex/sl-opendata-sync:latest}
     container_name: opendata-sync-prod
     logging:
       driver: json-file
