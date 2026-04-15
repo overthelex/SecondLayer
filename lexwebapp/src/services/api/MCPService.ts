@@ -82,6 +82,7 @@ export class MCPService extends BaseService {
           Authorization: `Bearer ${this.getAuthToken()}`,
         },
         body: JSON.stringify(params),
+        signal: AbortSignal.timeout(120_000),
       });
 
       if (!response.ok) {

@@ -21,8 +21,9 @@ export function parseLLMJson<T = any>(text: string | null | undefined, fallback:
 
   let cleaned = text.trim();
 
-  // Strip markdown code fences: ```json ... ``` or ``` ... ```
-  const fenceMatch = cleaned.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/);
+  // Strip markdown code fences anywhere in text (not just anchored to start/end).
+  // Handles: ```json\n{...}\n```, ```\n{...}\n```, and fences with surrounding text.
+  const fenceMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
   if (fenceMatch) {
     cleaned = fenceMatch[1].trim();
   }

@@ -34,7 +34,7 @@ export class RemoteServiceClient {
 
   constructor() {
     this.axiosClient = axios.create({
-      timeout: 60000,
+      timeout: 120000,
       headers: {
         'Content-Type': 'application/json',
       },

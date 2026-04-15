@@ -120,7 +120,8 @@ export function createToolServices(
     coreServices.patternStore,
     coreServices.citationValidator,
     coreServices.shepardizationService,
-    llmAdapter
+    llmAdapter,
+    coreServices.db
   ));
   toolRegistry.registerHandler(new CourtSessionTools(
     coreServices.zoSessionsAdapter,
