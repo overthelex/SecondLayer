@@ -15,11 +15,17 @@ function extractSummary(c: ToolResultData): string {
   if (typeof c.text === 'string' && c.text.length > 0) return c.text.slice(0, 500);
   if (typeof c.content === 'string' && c.content.length > 0) return c.content.slice(0, 500);
   if (c.snippet) return String(c.snippet);
+  if (typeof c.full_text === 'string' && c.full_text.length > 0) return c.full_text.slice(0, 300);
   // Try to build from document type + case number
-  const docType = c.doc_type || c.document_type || c.judgment_form || c.judgment_code || '';
+  const docType = c.doc_type || c.document_type || c.judgment_form || c.judgment_form_name || '';
   const caseNum = c.cause_num || c.case_number || '';
   if (docType && caseNum) return `${docType} у справі ${caseNum}`;
   if (docType) return String(docType);
+  // Last resort: use classified document type
+  const classified = classifyDocumentType(c);
+  if (classified && caseNum) return `${classified} у справі ${caseNum}`;
+  if (classified) return classified;
+  if (caseNum) return `Документ у справі ${caseNum}`;
   return '';
 }
 
