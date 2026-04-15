@@ -216,12 +216,14 @@ export class LegalAdviceTools extends BaseToolHandler {
     let caseId = String(args.case_id).trim();
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUUID = uuidRegex.test(caseId);
+    const isNumericDocId = /^\d+$/.test(caseId);
 
-    if (!uuidRegex.test(caseId)) {
-      // Not a UUID — treat as case_number (e.g. "176/973/26") and resolve to doc_id
+    if (!isUUID && !isNumericDocId) {
+      // Looks like a case_number (e.g. "176/973/26") — resolve to doc_id
       if (!this.db) {
         return this.wrapResponse({
-          error: `Параметр case_id "${caseId}" не є UUID, а БД недоступна для пошуку по номеру справи.`,
+          error: `Параметр case_id "${caseId}" не є UUID/doc_id, а БД недоступна для пошуку по номеру справи.`,
           provided_value: caseId,
         });
       }
@@ -245,6 +247,7 @@ export class LegalAdviceTools extends BaseToolHandler {
       });
     }
 
+    // caseId is now either a UUID, a numeric doc_id, or a resolved doc_id
     const graph = await this.citationValidator.buildCitationGraph(caseId, args.depth || 2);
     return this.wrapResponse({ graph });
   }
