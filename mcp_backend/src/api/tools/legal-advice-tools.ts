@@ -35,7 +35,8 @@ export class LegalAdviceTools extends BaseToolHandler {
     private patternStore: LegalPatternStore,
     private citationValidator: CitationValidator,
     private shepardizationService?: ShepardizationService,
-    private readonly llm?: ILLMPort
+    private readonly llm?: ILLMPort,
+    private readonly db?: { query: (sql: string, params?: any[]) => Promise<any> }
   ) {
     super();
   }
@@ -141,11 +142,11 @@ export class LegalAdviceTools extends BaseToolHandler {
 💰 Примерная стоимость: $0.005-$0.02 USD
 Построение графа из базы данных. Минимальная стоимость (только PostgreSQL запросы).
 
-Приймає case_id (UUID документа з БД) або case_number (номер справи, наприклад "756/1234/23").`,
+Приймає case_id — UUID/doc_id документа з БД або номер справи (наприклад "756/1234/23"). Якщо передано номер справи, він автоматично конвертується в doc_id.`,
         inputSchema: {
           type: 'object',
           properties: {
-            case_id: { type: 'string', description: 'UUID документа або номер справи' },
+            case_id: { type: 'string', description: 'UUID/doc_id документа або номер справи (cause_num)' },
             depth: { type: 'number', default: 2 },
           },
           required: ['case_id'],
@@ -212,14 +213,35 @@ export class LegalAdviceTools extends BaseToolHandler {
   }
 
   private async getCitationGraph(args: any): Promise<ToolResult> {
-    const caseId = String(args.case_id).trim();
+    let caseId = String(args.case_id).trim();
 
-    // Validate UUID format to prevent PostgreSQL "invalid input syntax for type uuid" error
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
     if (!uuidRegex.test(caseId)) {
-      return this.wrapResponse({
-        error: `Параметр case_id має бути UUID документа (наприклад "a1b2c3d4-e5f6-7890-abcd-ef1234567890"), а не номер справи. Спочатку знайдіть документ через search_legal_precedents або get_court_decision, потім використайте його UUID.`,
-        provided_value: caseId,
+      // Not a UUID — treat as case_number (e.g. "176/973/26") and resolve to doc_id
+      if (!this.db) {
+        return this.wrapResponse({
+          error: `Параметр case_id "${caseId}" не є UUID, а БД недоступна для пошуку по номеру справи.`,
+          provided_value: caseId,
+        });
+      }
+
+      const result = await this.db.query(
+        `SELECT doc_id::text AS doc_id FROM edrsr_documents WHERE cause_num = $1 ORDER BY adjudication_date DESC NULLS LAST LIMIT 1`,
+        [caseId]
+      );
+
+      if (result.rows.length === 0) {
+        return this.wrapResponse({
+          error: `Справу з номером "${caseId}" не знайдено в ЄДРСР. Перевірте формат номера або скористайтесь search_legal_precedents для пошуку.`,
+          provided_value: caseId,
+        });
+      }
+
+      caseId = result.rows[0].doc_id;
+      logger.info('[LegalAdviceTools] Resolved case_number to doc_id', {
+        case_number: args.case_id,
+        doc_id: caseId,
       });
     }
 

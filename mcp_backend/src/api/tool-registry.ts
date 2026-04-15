@@ -24,6 +24,14 @@ export interface RemoteServiceConfig {
   apiKey: string;
 }
 
+/** Per-tool timeout overrides (ms). Tools not listed use DEFAULT_TOOL_TIMEOUT_MS. */
+const TOOL_TIMEOUT_OVERRIDES: Record<string, number> = {
+  search_edrsr_fulltext: 120_000,
+  build_legal_decision: 120_000,
+  search_public_spending: 120_000,
+};
+const DEFAULT_TOOL_TIMEOUT_MS = 60_000;
+
 export class ToolRegistry {
   private routes: Map<string, ToolRoute>;
   private handlers: BaseToolHandler[] = [];
@@ -70,7 +78,13 @@ export class ToolRegistry {
     // 1. Try local handler
     const handler = this.handlerMap.get(name);
     if (handler) {
-      return await handler.executeTool(name, args);
+      const timeoutMs = TOOL_TIMEOUT_OVERRIDES[name] ?? DEFAULT_TOOL_TIMEOUT_MS;
+      return await Promise.race([
+        handler.executeTool(name, args),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Tool "${name}" перевищив ліміт часу ${timeoutMs / 1000}с`)), timeoutMs)
+        ),
+      ]);
     }
 
     // 2. Try remote proxy for RADA / OpenReyestr tools
