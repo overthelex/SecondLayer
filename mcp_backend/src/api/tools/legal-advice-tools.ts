@@ -244,8 +244,8 @@ export class LegalAdviceTools extends BaseToolHandler {
     );
     if (doc.rows.length > 0) return doc.rows[0].id;
 
-    // Fallback: return numeric doc_id as-is (citation_links may not have it, but at least won't crash on UUID cast)
-    return zoId;
+    // No matching UUID in documents table — return null to avoid passing integer as UUID
+    return null;
   }
 
   private async getCitationGraph(args: any): Promise<ToolResult> {
@@ -268,8 +268,9 @@ export class LegalAdviceTools extends BaseToolHandler {
 
     if (!resolvedId) {
       return this.wrapResponse({
-        error: `Справу "${input}" не знайдено в ЄДРСР. Перевірте формат номера або скористайтесь search_legal_precedents для пошуку.`,
+        error: `Справу "${input}" знайдено в ЄДРСР, але вона ще не імпортована до бази цитувань (documents). Граф цитувань поки недоступний для цього рішення.`,
         provided_value: input,
+        hint: 'Використовуйте get_court_decision або get_case_documents_chain для перегляду рішення.',
       });
     }
 
