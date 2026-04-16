@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import path from 'path'
 import { execSync } from 'child_process'
+import { marked } from 'marked'
 
 /**
  * Vite plugin that regenerates sitemap.xml at build time
@@ -250,6 +251,233 @@ function prerenderDocsPlugin(): Plugin {
   }
 }
 
+/**
+ * Vite plugin that generates static HTML for /blog and /blog/:slug
+ * so crawlers can index blog content without executing JavaScript.
+ */
+function prerenderBlogPlugin(): Plugin {
+  return {
+    name: 'prerender-blog',
+    closeBundle() {
+      try {
+        const root = path.resolve(__dirname)
+        const distDir = path.resolve(root, 'dist')
+        const indexHtml = fs.readFileSync(path.resolve(distDir, 'index.html'), 'utf-8')
+        const articlesPath = path.resolve(root, 'src/pages/BlogPage/articles.ts')
+        const src = fs.readFileSync(articlesPath, 'utf-8')
+
+        const BASE_URL = 'https://legal.org.ua'
+
+        // Parse articles from source via regex (same approach as sitemap plugin)
+        interface ParsedArticle {
+          id: string
+          title: string
+          punchline: string
+          category: string
+          tags: string[]
+          readTime: string
+          publishedAt: string
+          content: string
+        }
+
+        const articles: ParsedArticle[] = []
+
+        // Split by article object boundaries
+        const articleBlocks = src.split(/\n  \{[\s]*\n/).slice(1) // skip before first article
+        for (const block of articleBlocks) {
+          const get = (key: string) => {
+            const m = block.match(new RegExp(`${key}:\\s*'([^']*)'`))
+            return m ? m[1] : ''
+          }
+          const id = get('id')
+          const title = get('title')
+          const punchline = get('punchline')
+          const category = get('category')
+          const readTime = get('readTime')
+          const publishedAt = get('publishedAt')
+
+          // Extract tags array
+          const tagsMatch = block.match(/tags:\s*\[([^\]]*)\]/)
+          const tags = tagsMatch
+            ? tagsMatch[1].match(/'([^']+)'/g)?.map(t => t.replace(/'/g, '')) || []
+            : []
+
+          // Extract content (between backticks)
+          const contentMatch = block.match(/content:\s*`([\s\S]*?)`/)
+          const content = contentMatch ? contentMatch[1] : ''
+
+          if (id && title) {
+            articles.push({ id, title, punchline, category, tags, readTime, publishedAt, content })
+          }
+        }
+
+        if (articles.length === 0) {
+          console.warn('[prerender-blog] No articles parsed, skipping')
+          return
+        }
+
+        // Helper to replace meta tags in the HTML shell
+        function replaceMeta(html: string, opts: {
+          title: string, description: string, ogTitle: string, ogDescription: string,
+          ogUrl: string, ogImage?: string, canonical: string
+        }): string {
+          return html
+            .replace(/<title>[^<]*<\/title>/, `<title>${opts.title}</title>`)
+            .replace(/<meta name="description" content="[^"]*"\s*\/?>/, `<meta name="description" content="${opts.description.replace(/"/g, '&quot;')}" />`)
+            .replace(/<meta property="og:title" content="[^"]*"\s*\/?>/, `<meta property="og:title" content="${opts.ogTitle.replace(/"/g, '&quot;')}" />`)
+            .replace(/<meta property="og:description" content="[^"]*"\s*\/?>/, `<meta property="og:description" content="${opts.ogDescription.replace(/"/g, '&quot;')}" />`)
+            .replace(/<meta property="og:url" content="[^"]*"\s*\/?>/, `<meta property="og:url" content="${opts.ogUrl}" />`)
+            .replace(/<meta name="twitter:title" content="[^"]*"\s*\/?>/, `<meta name="twitter:title" content="${opts.ogTitle.replace(/"/g, '&quot;')}" />`)
+            .replace(/<meta name="twitter:description" content="[^"]*"\s*\/?>/, `<meta name="twitter:description" content="${opts.ogDescription.replace(/"/g, '&quot;')}" />`)
+            .replace(/<link rel="canonical" href="[^"]*"\s*\/?>/, `<link rel="canonical" href="${opts.canonical}" />`)
+            // Update og:image if provided
+            .replace(/<meta property="og:image" content="[^"]*"\s*\/?>/, `<meta property="og:image" content="${opts.ogImage || `${BASE_URL}/og-image.png`}" />`)
+            .replace(/<meta name="twitter:image" content="[^"]*"\s*\/?>/, `<meta name="twitter:image" content="${opts.ogImage || `${BASE_URL}/og-image.png`}" />`)
+        }
+
+        // --- Generate /blog/index.html (article listing) ---
+        const blogListTitle = 'LEX Blog — AI Legal Tech Articles'
+        const blogListDesc = 'Статті про AI в юриспруденції, юридичні технології, аналіз судових рішень, fine-tuning LLM на судовій практиці та цифрову трансформацію правничої практики.'
+        const articleListHtml = articles
+          .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+          .map(a => `
+        <article>
+          <h2><a href="/blog/${a.id}">${a.title}</a></h2>
+          <p>${a.punchline}</p>
+          <div>
+            <span>${a.category === 'tech' ? 'TECH' : 'LEGAL'}</span>
+            <time datetime="${a.publishedAt}">${a.publishedAt}</time>
+            <span>${a.readTime}</span>
+          </div>
+          <div>${a.tags.map(t => `<span>#${t}</span>`).join(' ')}</div>
+        </article>`).join('\n')
+
+        const blogListJsonLd = JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Blog",
+          "name": "LEX AI Blog",
+          "description": blogListDesc,
+          "url": `${BASE_URL}/blog`,
+          "publisher": { "@type": "Organization", "name": "SecondLayer", "url": BASE_URL },
+          "blogPost": articles.slice(0, 20).map(a => ({
+            "@type": "BlogPosting",
+            "headline": a.title,
+            "description": a.punchline,
+            "url": `${BASE_URL}/blog/${a.id}`,
+            "datePublished": a.publishedAt,
+            "keywords": a.tags.join(', '),
+          }))
+        })
+
+        let blogListPage = replaceMeta(indexHtml, {
+          title: blogListTitle,
+          description: blogListDesc,
+          ogTitle: blogListTitle,
+          ogDescription: blogListDesc,
+          ogUrl: `${BASE_URL}/blog`,
+          canonical: `${BASE_URL}/blog`,
+        })
+        blogListPage = blogListPage.replace('</head>', `<script type="application/ld+json">${blogListJsonLd}</script>\n  </head>`)
+        blogListPage = blogListPage.replace(
+          '<div id="root"></div>',
+          `<div id="blog-seo" style="max-width:820px;margin:40px auto;font-family:system-ui,sans-serif;padding:0 24px">
+      <h1>LEX AI Blog</h1>
+      <p>${blogListDesc}</p>
+      ${articleListHtml}
+    </div>
+    <div id="root"></div>
+    <script>document.getElementById('blog-seo')?.remove()</script>`
+        )
+
+        const blogDir = path.resolve(distDir, 'blog')
+        fs.mkdirSync(blogDir, { recursive: true })
+        fs.writeFileSync(path.resolve(blogDir, 'index.html'), blogListPage)
+
+        // --- Generate /blog/:slug/index.html for each article ---
+        let articleCount = 0
+        for (const article of articles) {
+          const articleUrl = `${BASE_URL}/blog/${article.id}`
+          const ogImage = `${BASE_URL}/blog-banners/${article.id}.png`
+          const truncatedPunchline = article.punchline.length > 200
+            ? article.punchline.slice(0, 197) + '...'
+            : article.punchline
+
+          let articlePage = replaceMeta(indexHtml, {
+            title: `${article.title} | LEX Blog`,
+            description: truncatedPunchline,
+            ogTitle: article.title,
+            ogDescription: truncatedPunchline,
+            ogUrl: articleUrl,
+            ogImage,
+            canonical: articleUrl,
+          })
+
+          // Add og:type article
+          articlePage = articlePage.replace(
+            '<meta property="og:type" content="website" />',
+            '<meta property="og:type" content="article" />'
+          )
+
+          // JSON-LD BlogPosting
+          const articleJsonLd = JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BlogPosting",
+            "headline": article.title,
+            "description": article.punchline,
+            "url": articleUrl,
+            "image": ogImage,
+            "datePublished": article.publishedAt,
+            "keywords": article.tags.join(', '),
+            "articleSection": article.category === 'tech' ? 'Technology' : 'Legal',
+            "inLanguage": "uk",
+            "publisher": { "@type": "Organization", "name": "SecondLayer", "url": BASE_URL },
+            "mainEntityOfPage": { "@type": "WebPage", "@id": articleUrl }
+          })
+
+          articlePage = articlePage.replace('</head>', `<script type="application/ld+json">${articleJsonLd}</script>\n  </head>`)
+
+          // Convert markdown content to HTML for crawlers
+          let contentHtml = ''
+          try {
+            contentHtml = marked.parse(article.content) as string
+          } catch {
+            contentHtml = `<pre>${article.content.replace(/</g, '&lt;')}</pre>`
+          }
+
+          const semanticArticle = `<article id="blog-article-seo" style="max-width:820px;margin:40px auto;font-family:system-ui,sans-serif;padding:0 24px">
+      <header>
+        <span>${article.category === 'tech' ? 'TECH' : 'LEGAL'}</span>
+        <time datetime="${article.publishedAt}">${article.publishedAt}</time>
+        <span>${article.readTime}</span>
+      </header>
+      <h1>${article.title}</h1>
+      <p><em>${article.punchline}</em></p>
+      ${contentHtml}
+      <footer>
+        <div>${article.tags.map(t => `<span>#${t}</span>`).join(' ')}</div>
+        <nav><a href="/blog">← Всі статті</a></nav>
+      </footer>
+    </article>`
+
+          articlePage = articlePage.replace(
+            '<div id="root"></div>',
+            `${semanticArticle}\n    <div id="root"></div>\n    <script>document.getElementById('blog-article-seo')?.remove()</script>`
+          )
+
+          const articleDir = path.resolve(blogDir, article.id)
+          fs.mkdirSync(articleDir, { recursive: true })
+          fs.writeFileSync(path.resolve(articleDir, 'index.html'), articlePage)
+          articleCount++
+        }
+
+        console.log(`[prerender-blog] Generated blog/index.html + ${articleCount} article pages`)
+      } catch (err) {
+        console.error('[prerender-blog] Failed to generate blog pages:', err)
+      }
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const isDocker = !!process.env.DOCKER_ENV
@@ -259,7 +487,7 @@ export default defineConfig(({ mode }) => {
   const hasLocalCerts = !isDocker && fs.existsSync(certFile) && fs.existsSync(keyFile)
 
   return {
-    plugins: [react(), sitemapPlugin(), prerenderDocsPlugin()],
+    plugins: [react(), sitemapPlugin(), prerenderDocsPlugin(), prerenderBlogPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, 'src'),
