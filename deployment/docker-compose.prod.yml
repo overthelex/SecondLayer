@@ -28,7 +28,7 @@ services:
       TZ: Europe/Kiev
     ports:
     - "127.0.0.1:5438:5432"
-    shm_size: '4g'
+    shm_size: '16g'
     volumes:
     - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:
@@ -46,9 +46,9 @@ services:
       resources:
         limits:
           cpus: "6"
-          memory: 12G
+          memory: 24G
         reservations:
-          memory: 4G
+          memory: 8G
 
   pgbouncer-prod:
     image: edoburu/pgbouncer:latest
