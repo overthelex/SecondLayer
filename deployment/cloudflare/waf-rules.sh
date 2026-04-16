@@ -124,6 +124,16 @@ build_waf_rules() {
       "enabled": true
     },
     {
+      "description": "SKIP: Plane API requests (own auth, WAF false positives on HTML body)",
+      "expression": "(http.host eq \"plane.legal.org.ua\" and http.request.uri.path contains \"/api/\")",
+      "action": "skip",
+      "action_parameters": {
+        "ruleset": "current"
+      },
+      "logging": { "enabled": true },
+      "enabled": true
+    },
+    {
       "description": "BLOCK: Known bad bots and scanners",
       "expression": "(cf.client.bot) or (http.user_agent contains \"sqlmap\") or (http.user_agent contains \"nikto\") or (http.user_agent contains \"nmap\") or (http.user_agent contains \"masscan\") or (http.user_agent contains \"dirbuster\") or (http.user_agent contains \"gobuster\") or (http.user_agent contains \"nuclei\") or (http.user_agent contains \"zgrab\") or (http.user_agent contains \"httpx\") or (http.user_agent contains \"semrush\") or (http.user_agent contains \"ahref\") or (http.user_agent contains \"dotbot\") or (http.user_agent contains \"mj12bot\") or (http.user_agent eq \"\")",
       "action": "block",
@@ -578,14 +588,15 @@ print_summary() {
     echo ""
     echo -e "  ${CYAN}Custom WAF Rules:${NC}"
     echo "    1. Skip all rules for allowlisted IPs"
-    echo "    2. Block known bad bots & scanners"
-    echo "    3. Challenge high threat score (>25)"
-    echo "    4. Block SQL injection patterns"
-    echo "    5. Block XSS patterns"
-    echo "    6. Block path traversal & CMS probing"
-    echo "    7. Block suspicious HTTP methods"
-    echo "    8. Challenge non-UA/EU on auth/chat/admin"
-    echo "    9. Monitor /metrics and /health access"
+    echo "    2. Skip WAF for Plane API (own auth layer)"
+    echo "    3. Block known bad bots & scanners"
+    echo "    4. Challenge high threat score (>25)"
+    echo "    5. Block SQL injection patterns"
+    echo "    6. Block XSS patterns"
+    echo "    7. Block path traversal & CMS probing"
+    echo "    8. Block suspicious HTTP methods"
+    echo "    9. Challenge non-UA/EU on auth/chat/admin"
+    echo "   10. Monitor /metrics and /health access"
     echo ""
     echo -e "  ${CYAN}Rate Limits:${NC}"
     echo "    Auth endpoints:   10 req/min per IP"
