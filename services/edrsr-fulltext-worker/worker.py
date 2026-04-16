@@ -39,10 +39,11 @@ BATCH_INSERT_SIZE = int(os.environ.get("BATCH_INSERT_SIZE", "500"))
 REQUEST_TIMEOUT = int(os.environ.get("REQUEST_TIMEOUT", "30"))
 MAX_RETRIES = int(os.environ.get("MAX_RETRIES", "3"))
 
-# Source IPs for multi-IP download (comma-separated private IPs)
-# Empty = use default route (single IP)
+# Source IPs for multi-IP download (comma-separated private IPs, used with local_addr binding)
 SOURCE_IPS = [ip.strip() for ip in os.environ.get("SOURCE_IPS", "").split(",") if ip.strip()]
-WORKERS_PER_IP = int(os.environ.get("WORKERS_PER_IP", "15"))
+# HTTP proxies for remote-IP download (comma-separated http://ip:port)
+PROXY_URLS = [p.strip() for p in os.environ.get("PROXY_URLS", "").split(",") if p.strip()]
+WORKERS_PER_IP = int(os.environ.get("WORKERS_PER_IP", "10"))
 
 # How long to sleep when no work found across all years (seconds)
 IDLE_SLEEP = int(os.environ.get("IDLE_SLEEP", "3600"))
@@ -226,30 +227,85 @@ async def download_one(session, doc_id, adj_year, url, semaphore):
     return (doc_id, None, "max_retries")
 
 
+def _build_channels() -> list[dict]:
+    """Build download channels: each channel is a (session, semaphore) pair.
+    Channels come from SOURCE_IPS (local_addr binding) + PROXY_URLS (HTTP proxies)."""
+    channels = []
+
+    # Local source IPs (direct binding)
+    for ip in SOURCE_IPS:
+        connector = aiohttp.TCPConnector(
+            limit=WORKERS_PER_IP, limit_per_host=WORKERS_PER_IP,
+            ttl_dns_cache=300, local_addr=(ip, 0),
+        )
+        channels.append({
+            "session": aiohttp.ClientSession(connector=connector),
+            "semaphore": asyncio.Semaphore(WORKERS_PER_IP),
+            "label": f"local:{ip}",
+        })
+
+    # Remote proxies
+    for proxy_url in PROXY_URLS:
+        connector = aiohttp.TCPConnector(
+            limit=WORKERS_PER_IP, limit_per_host=WORKERS_PER_IP,
+            ttl_dns_cache=300,
+        )
+        channels.append({
+            "session": aiohttp.ClientSession(connector=connector),
+            "semaphore": asyncio.Semaphore(WORKERS_PER_IP),
+            "proxy": proxy_url,
+            "label": f"proxy:{proxy_url}",
+        })
+
+    return channels
+
+
+async def download_one_via(channel: dict, doc_id, adj_year, url, semaphore):
+    """Download through a specific channel (direct or proxy)."""
+    session = channel["session"]
+    proxy = channel.get("proxy")
+    async with semaphore:
+        for attempt in range(MAX_RETRIES):
+            try:
+                async with session.get(
+                    url, timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT),
+                    proxy=proxy,
+                ) as resp:
+                    if resp.status == 200:
+                        raw = await resp.read()
+                        text = rtf_bytes_to_text(raw)
+                        if text:
+                            return (doc_id, adj_year, text)
+                        return (doc_id, None, "empty_rtf")
+                    elif resp.status == 404:
+                        return (doc_id, None, "404")
+                    elif resp.status == 429:
+                        await asyncio.sleep(10 * (attempt + 1))
+                    elif resp.status >= 500:
+                        await asyncio.sleep(3 * (attempt + 1))
+                    else:
+                        return (doc_id, None, f"http_{resp.status}")
+            except (asyncio.TimeoutError, aiohttp.ClientError) as e:
+                if attempt == MAX_RETRIES - 1:
+                    return (doc_id, None, f"error:{type(e).__name__}")
+                await asyncio.sleep(3 * (attempt + 1))
+    return (doc_id, None, "max_retries")
+
+
 async def download_chunk(docs: list[tuple], workers: int) -> tuple[list[tuple], list[tuple]]:
-    """Returns (successes, failures) where successes are (doc_id, adj_year, text)
-    and failures are (doc_id, reason).
-    When SOURCE_IPS is configured, distributes downloads across multiple source IPs."""
+    """Returns (successes, failures). Distributes across all available channels."""
     successes = []
     failures = []
 
-    if SOURCE_IPS:
-        # Multi-IP mode: create a session per IP, distribute docs round-robin
-        sessions = []
-        semaphores = []
-        for ip in SOURCE_IPS:
-            connector = aiohttp.TCPConnector(
-                limit=WORKERS_PER_IP, limit_per_host=WORKERS_PER_IP,
-                ttl_dns_cache=300, local_addr=(ip, 0),
-            )
-            sessions.append(aiohttp.ClientSession(connector=connector))
-            semaphores.append(asyncio.Semaphore(WORKERS_PER_IP))
+    channels = _build_channels()
 
+    if channels:
+        # Multi-channel mode (local IPs + proxies)
         try:
             tasks = []
             for i, (d, y, u) in enumerate(docs):
-                idx = i % len(SOURCE_IPS)
-                tasks.append(download_one(sessions[idx], d, y, u, semaphores[idx]))
+                ch = channels[i % len(channels)]
+                tasks.append(download_one_via(ch, d, y, u, ch["semaphore"]))
 
             for coro in asyncio.as_completed(tasks):
                 result = await coro
@@ -258,10 +314,10 @@ async def download_chunk(docs: list[tuple], workers: int) -> tuple[list[tuple], 
                 elif result:
                     failures.append((result[0], result[2]))
         finally:
-            for s in sessions:
-                await s.close()
+            for ch in channels:
+                await ch["session"].close()
     else:
-        # Single-IP mode
+        # Single-IP fallback
         semaphore = asyncio.Semaphore(workers)
         connector = aiohttp.TCPConnector(
             limit=workers, limit_per_host=workers, ttl_dns_cache=300
@@ -358,26 +414,42 @@ async def get_missing_batch(pool: asyncpg.Pool, year: int, limit: int, after_doc
 
 
 async def insert_batch(pool: asyncpg.Pool, rows: list[tuple]) -> int:
-    """Insert batch of (doc_id, adj_year, full_text) into edrsr_fulltext.
-    Uses INSERT ... WHERE NOT EXISTS for partitioned table compatibility."""
+    """Insert batch into edrsr_fulltext via temp table + INSERT SELECT (fast bulk insert)."""
     if not rows:
         return 0
     inserted = 0
-    for i in range(0, len(rows), BATCH_INSERT_SIZE):
-        batch = rows[i : i + BATCH_INSERT_SIZE]
-        # Insert one-by-one with WHERE NOT EXISTS (partitioned tables don't support ON CONFLICT on parent)
-        for doc_id, adj_year, text in batch:
+    async with pool.acquire() as conn:
+        async with conn.transaction():
             try:
-                result = await pool.execute(
-                    """INSERT INTO edrsr_fulltext (doc_id, adj_year, full_text)
-                       SELECT $1, $2, $3
-                       WHERE NOT EXISTS (SELECT 1 FROM edrsr_fulltext WHERE doc_id = $1)""",
-                    doc_id, adj_year, text,
+                await conn.execute("CREATE TEMP TABLE _ft_stage (doc_id BIGINT, adj_year INT, full_text TEXT) ON COMMIT DROP")
+                await conn.copy_records_to_table(
+                    "_ft_stage", records=[(r[0], r[1], r[2]) for r in rows],
+                    columns=["doc_id", "adj_year", "full_text"],
                 )
-                if result.endswith("1"):
-                    inserted += 1
+                result = await conn.execute("""
+                    INSERT INTO edrsr_fulltext (doc_id, adj_year, full_text)
+                    SELECT s.doc_id, s.adj_year, s.full_text FROM _ft_stage s
+                    WHERE NOT EXISTS (SELECT 1 FROM edrsr_fulltext f WHERE f.doc_id = s.doc_id)
+                """)
+                inserted = int(result.split()[-1])
             except Exception as e:
-                log.error("Insert error doc_id=%s: %s", doc_id, e)
+                log.error("Bulk insert error: %s. Falling back to one-by-one.", e)
+                raise  # transaction will rollback
+    if inserted == 0 and rows:
+        # Fallback: one-by-one outside failed transaction
+        async with pool.acquire() as conn:
+            for doc_id, adj_year, text in rows:
+                try:
+                    r = await conn.execute(
+                        """INSERT INTO edrsr_fulltext (doc_id, adj_year, full_text)
+                           SELECT $1, $2, $3
+                           WHERE NOT EXISTS (SELECT 1 FROM edrsr_fulltext WHERE doc_id = $1)""",
+                        doc_id, adj_year, text,
+                    )
+                    if r.endswith("1"):
+                        inserted += 1
+                except Exception:
+                    pass
     return inserted
 
 
@@ -541,9 +613,14 @@ def main():
 
     log.info("=" * 60)
     log.info("  EDRSR Fulltext Worker")
-    if SOURCE_IPS:
-        log.info("  IPs: %d (%s) | %d workers/IP | Chunk: %d",
-                 len(SOURCE_IPS), ", ".join(SOURCE_IPS), WORKERS_PER_IP, CHUNK_SIZE)
+    total_channels = len(SOURCE_IPS) + len(PROXY_URLS)
+    if total_channels:
+        log.info("  Channels: %d (%d local IPs + %d proxies) | %d workers/channel | Chunk: %d",
+                 total_channels, len(SOURCE_IPS), len(PROXY_URLS), WORKERS_PER_IP, CHUNK_SIZE)
+        if SOURCE_IPS:
+            log.info("  Local IPs: %s", ", ".join(SOURCE_IPS))
+        if PROXY_URLS:
+            log.info("  Proxies: %s", ", ".join(PROXY_URLS))
     else:
         log.info("  Years: %d-%d | Workers: %d | Chunk: %d", YEAR_START, YEAR_END, WORKERS, CHUNK_SIZE)
     log.info("  DB: %s@%s:%d/%s", POSTGRES_USER, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB)
