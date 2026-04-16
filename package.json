@@ -67,7 +67,7 @@
     "picomatch": ">=2.3.2",
     "undici": ">=6.24.0",
     "@tootallnate/once": ">=3.0.1",
-    "dompurify": ">=3.3.3"
+    "dompurify": ">=3.4.0"
   },
   "dependencies": {
     "@withgraphite/graphite-cli": "^1.7.20"
