@@ -54,6 +54,7 @@ config
 # Docker and deployment artifacts
 deployment/backups
 deployment/nginx/certs
+deployment/hudoc-storage
 
 # Misc
 *.md
