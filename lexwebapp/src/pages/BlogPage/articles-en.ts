@@ -3718,4 +3718,312 @@ Will AI replace developers? No. But one developer with a properly configured AI 
 
 Registration: [legal.org.ua](https://legal.org.ua)`,
   },
+  'fast-builds-aws': {
+    title: 'Fast Builds in AWS: Moving CI/CD Runners to the Cloud and Saying Goodbye to Laptop OOM',
+    punchline: 'Your laptop is not a 32-CPU machine. npm install competes with Docker for disk. TypeScript OOMs on a large monorepo, and Playwright cannot exploit parallelism. We break down how to move GitHub Actions runners to AWS — from c7g Spot to actions-runner-controller on EKS — and get a 3-5× build speedup without local hell.',
+    readTime: '12 min',
+    content: `# Fast Builds in AWS: Moving CI/CD Runners to the Cloud and Saying Goodbye to Laptop OOM
+
+*Your MacBook Pro is running at 98°C. The fan is at maximum. It's the sixth time this morning you've seen "JavaScript heap out of memory." Docker ate all 16 GB, npm install is still chugging, TS compile died. And you need to deploy before lunch.*
+
+*Sound familiar? Let's move the builds to AWS.*
+
+---
+
+## Why the Local Machine Is the Bottleneck
+
+A typical developer laptop in 2026: 8-12 physical cores, 16-32 GB RAM, 512 GB-1 TB NVMe. On paper — plenty of power. In practice, during a monorepo build, here is what happens:
+
+| Resource | Problem |
+|----------|---------|
+| **CPU** | TypeScript compile (\`tsc\`), webpack/vite, Docker build, ESLint — all want cores at once |
+| **RAM** | Node processes, Docker Desktop (4-8 GB), IDE, browser, Slack — OOM is inevitable |
+| **Disk** | 2+ GB \`node_modules\`, Docker layer cache, test snapshots — IOPS contention |
+| **Thermal throttling** | CPU drops frequency 30-50% after 5 minutes of full load |
+| **Network** | npm registry, Docker Hub, GitHub — all funneled through home Wi-Fi |
+
+Now add a self-hosted GitHub Actions runner on the same laptop. Or, as in our case, on a dedicated server that simultaneously runs builds, tests, Playwright, DB migrations, and prod blue-green builds.
+
+**Result:** a build that should take 3 minutes takes 15. Once a week the runner dies with OOM, and you're debugging why \`vitest\` crashed without a stack trace.
+
+---
+
+## Three Sources of Pain in Monorepo Builds
+
+### 1. The OOM Killer Arrives at the Worst Moment
+
+Vitest with 400+ tests, ts-jest with \`maxWorkers=1\`, webpack production build — each of them easily eats 4-6 GB of RAM. When a Docker build with a 2 GB multi-stage image is running in parallel, the kernel OOM-kills the "fattest" process. Almost always that's your test runner.
+
+\`\`\`
+# The classic
+FATAL ERROR: Reached heap limit Allocation failed -
+  JavaScript heap out of memory
+\`\`\`
+
+The \`NODE_OPTIONS="--max-old-space-size=8192"\` workaround only buys time. The real problem is that you physically don't have enough memory.
+
+### 2. Disk Contention
+
+SSDs are fast, but not infinite. When simultaneously:
+- \`npm ci\` unpacks 200k files into \`node_modules\`
+- \`tsc\` writes 50k \`.d.ts\` and \`.js.map\` files
+- Docker buildx builds layers via COPY of the full repo
+- Vitest writes coverage reports
+
+… NVMe IOPS run out, and everything slows down 3-5×. Especially painful on macOS with Docker Desktop (which virtualizes FS via virtiofs/9p).
+
+### 3. Thermal Throttling Kills Long Builds
+
+The first 2 minutes of a build — full speed. After that, the CPU heats up and the controller drops frequency. On a MacBook Air, that's a fall from 3.5 GHz to 2.0 GHz. A test suite that takes 4 minutes on a cold machine takes 9 on a hot one.
+
+---
+
+## Options: Where to Run Runners
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Local laptop** | Zero setup | Everything above |
+| **Self-hosted on home server** | Control, cache | Single point of failure, upgrade = buy hardware |
+| **GitHub-hosted (standard)** | Zero maintenance | 4 CPU / 16 GB — too small for large builds |
+| **GitHub-hosted (large)** | 16-64 CPU | $0.008-0.032/min — pricey at scale |
+| **AWS EC2 on-demand** | Any size, SSD | Must configure runner, pay for idle |
+| **AWS EC2 Spot** | -70% on cost | Interruptions, need ephemeral runners |
+| **AWS Fargate/ECS** | Serverless, no VM management | Slower cold start, disk limits |
+| **EKS + actions-runner-controller (ARC)** | Auto-scale, warm pool, cost-efficient | Complex setup, need Kubernetes |
+
+In this guide I focus on AWS, because that's what we configured CI on for SecondLayer.
+
+---
+
+## Architecture 1: EC2 Spot + Ephemeral Runners
+
+The simplest option for a team of 1-10 engineers.
+
+### The idea
+
+For each workflow job, GitHub Actions spins up a fresh EC2 Spot instance, registers it as an ephemeral runner, runs the job, and self-terminates. You pay only during the build.
+
+### Components
+
+\`\`\`
+┌─────────────────┐
+│  GitHub Action  │
+│  workflow       │
+└────────┬────────┘
+         │ webhook
+         ▼
+┌─────────────────┐       ┌──────────────────┐
+│  AWS Lambda     │──────▶│  EC2 Spot Fleet  │
+│  (runner boot)  │       │  c7g.4xlarge     │
+└─────────────────┘       │  (ARM, Graviton) │
+                          └──────────────────┘
+                                   │
+                                   ▼
+                          ┌──────────────────┐
+                          │  ephemeral       │
+                          │  GHA runner      │
+                          │  (1 job → self-  │
+                          │   terminate)     │
+                          └──────────────────┘
+\`\`\`
+
+### Key settings
+
+**Instance type:** \`c7g.4xlarge\` (16 vCPU ARM Graviton3, 32 GB RAM, $0.0544/hr Spot in eu-central-1 at the time of writing). For x86 builds — \`c7i.4xlarge\`. Graviton gives ~30% better price/performance if your stack is compatible (Node.js 20, Docker multi-arch — they are).
+
+**Storage:** gp3 EBS with \`iops=6000, throughput=500 MB/s\`. Critical: default gp3 gives 3000 IOPS, which immediately becomes a bottleneck during builds.
+
+**AMI:** a custom AMI with Node 20, Docker, gh-runner, and pnpm/npm cache from the previous build preinstalled. Saves 40-90 seconds on boot.
+
+**IAM:** GitHub → AWS via OIDC (no long-lived keys). \`sts:AssumeRoleWithWebIdentity\` scoped to \`repo:overthelex/secondlayer:ref:refs/heads/main\`.
+
+### Real numbers from our experiments
+
+| Metric | Self-hosted on local server | AWS c7g.4xlarge Spot |
+|--------|-----------------------------|---------------------|
+| \`npm ci\` (cold cache) | 94 s | 28 s |
+| \`tsc --build\` (monorepo) | 142 s | 47 s |
+| Vitest 422 tests | 78 s | 31 s |
+| Docker build \`mono-backend\` | 186 s | 71 s |
+| Full pipeline (incl. deploy) | 11 min 40 s | 4 min 10 s |
+| Cost | $0 (but OOM 2×/week) | $0.004 per build (Spot) |
+
+**3× speedup for ~$0.10/day at medium activity.** That's cheaper than one junior hour spent waiting on a build.
+
+---
+
+## Architecture 2: actions-runner-controller on EKS
+
+For a team of 10+ and high parallel build volume.
+
+### The idea
+
+A Kubernetes controller (ARC) listens to GitHub webhooks and spins up runner pods in your EKS cluster on demand. Pods can have a warm pool (2-4 runners always ready), so cold start is near zero.
+
+### Advantages over option 1
+
+- **Warm pool** — 0 seconds to start a job (vs 40-60 s for EC2 boot)
+- **Ephemeral pods** — each job in a clean environment, no shared state
+- **Horizontal scaling** — 50 parallel jobs = 50 pods on Spot nodes
+- **Shared cache via EFS/S3** — \`node_modules\`, Docker layers, Playwright browsers
+
+### Minimal config
+
+\`\`\`yaml
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: legal-org-ua-runners
+spec:
+  replicas: 4
+  template:
+    spec:
+      repository: overthelex/secondlayer
+      labels:
+        - aws-eks
+        - graviton
+      resources:
+        limits:
+          cpu: "8"
+          memory: "16Gi"
+      dockerdWithinRunnerContainer: true
+      nodeSelector:
+        karpenter.sh/capacity-type: spot
+        kubernetes.io/arch: arm64
+\`\`\`
+
+Karpenter auto-provisions Spot nodes of the right type when a pending pod appears. When builds finish, nodes sleep after 30 seconds.
+
+### Real case
+
+A company with ~80 engineers, 200-300 PRs/day:
+- Before: GitHub-hosted large runners, $4800/month
+- After: ARC on EKS with Spot, ~$900/month
+- Speed: identical, thanks to the warm pool
+- Overhead: one DevOps engineer spent 2 weeks on setup
+
+---
+
+## Typical Optimizations That Pay Off the Most
+
+### 1. Layer cache via ECR + BuildKit
+
+\`\`\`yaml
+- uses: docker/build-push-action@v5
+  with:
+    cache-from: type=registry,ref=ACCOUNT.dkr.ecr.REGION.amazonaws.com/backend:buildcache
+    cache-to: type=registry,ref=ACCOUNT.dkr.ecr.REGION.amazonaws.com/backend:buildcache,mode=max
+\`\`\`
+
+On our \`Dockerfile.mono-backend\`: first build 186 s, subsequent (with cache) — 24 s.
+
+### 2. npm/pnpm cache via S3 or actions/cache with AWS backend
+
+Instead of fetching 2 GB \`node_modules\` from npm registry every time — we store it in S3, mount it at \`~/.npm\`. At 10 Gbit/s inside AWS, that's ~5 seconds vs 60+ from npm registry.
+
+### 3. Matrix test parallelism
+
+\`\`\`yaml
+strategy:
+  matrix:
+    shard: [1, 2, 3, 4]
+steps:
+  - run: npx vitest run --shard=\${{ matrix.shard }}/4
+\`\`\`
+
+422 tests on 4 shards — 31 s instead of 78 s. Sharding only works when you have resources for parallelism — on AWS, that's cheap.
+
+### 4. Warm image (custom AMI or prebaked container)
+
+Pre-install: Node 20, pnpm, Docker, gh, AWS CLI, Playwright browsers, Chrome deps. Saves 60-120 s on cold start.
+
+### 5. Ephemeral runners for security
+
+Every job in a fresh runner = zero leaked credentials, zero state from a previous build. Mandatory for public forks.
+
+---
+
+## What People Skip but Shouldn't
+
+**1. Ignoring data transfer costs.** If your runner pulls 10 GB from Docker Hub on every build, and you run 300 builds/day — that's 3 TB/day × $0.09/GB egress = $270/day. Fix: ECR pull-through cache scoped to your AWS region.
+
+**2. Secrets via GitHub Secrets instead of AWS Secrets Manager.** GitHub Secrets are capped at 64 KB, don't auto-rotate, and are visible in the audit log. The right way: GitHub OIDC → IAM role → Secrets Manager.
+
+**3. One large runner instead of many small ones.** \`c7g.16xlarge\` is more expensive than 4× \`c7g.4xlarge\` and offers less parallelism. Horizontal scaling almost always wins.
+
+**4. Forgetting about GitHub Actions runner version drift.** Ephemeral runners must auto-update at boot, otherwise GitHub will disable jobs after a year.
+
+**5. No Spot interruption handler.** Spot can reclaim an instance with a 2-minute warning. You need: graceful runner shutdown, retry on another runner.
+
+---
+
+## The Economics: When Does Migration Make Sense?
+
+### Formula
+
+\`\`\`
+Savings (USD/mo) = (old_avg_time - new_avg_time)
+                 × builds_per_day × 22 days × eng_hourly_cost / 3600
+\`\`\`
+
+### Example for SecondLayer
+
+- Before: 11 min 40 s average pipeline on self-hosted
+- After: 4 min 10 s on AWS c7g Spot
+- Savings: 7 min 30 s × 15 builds/day × 22 days = 41 hours/month
+- At $40/hr engineer = **$1640/month saved**
+- AWS cost (Spot + EBS + data): ~$80/month
+
+**20× ROI. And that's before counting the engineer's laptop not hitting 98°C during yet another iteration.**
+
+---
+
+## When AWS Runners Are *Not* the Right Idea
+
+- **A project with 2-3 builds per week** — setup overhead won't pay back. Use GitHub-hosted standard.
+- **Secret data that can't leave on-prem** — e.g., HIPAA / military data. Self-hosted on-prem.
+- **Physical hardware testing** — iOS builds need macOS runners (available via MacStadium, but that's a separate pain).
+- **Team without Kubernetes expertise** — ARC on EKS without experience quickly becomes a "black box."
+
+For everything else — AWS runners win.
+
+---
+
+## How to Get Started Tomorrow
+
+Minimum path (1-2 hours of setup):
+
+1. **Create a GitHub OIDC provider in IAM** — no long-lived keys.
+2. **Create an IAM role** trusting \`token.actions.githubusercontent.com\` with permissions for \`ec2:RunInstances\`, \`ec2:TerminateInstances\`.
+3. **Spin up one EC2 self-hosted runner** using \`actions/runner\` on \`c7g.4xlarge\` Spot. Download runner binary, register with \`--ephemeral\`.
+4. **In the workflow, replace** \`runs-on: ubuntu-latest\` with \`runs-on: [self-hosted, aws, arm64]\`.
+5. **Measure** build time. If you see savings — automate via Terraform/Pulumi/CDK.
+
+Next steps (a week):
+- Layer cache via ECR
+- S3 backend for \`actions/cache\`
+- Test sharding
+- Custom AMI with prewarm
+
+Later (a month):
+- ARC on EKS + Karpenter
+- Warm pool
+- Observability via CloudWatch + Prometheus
+
+---
+
+## Conclusion
+
+Local builds on a laptop are the most expensive option by any measure: time spent, nerves, hardware wear. A self-hosted runner on a dedicated server is better, but still bottlenecks on hardware.
+
+AWS runners are not "moving to the cloud for fashion." It's a simple engineering decision: 16 cores at $0.05/hr run faster than 8 cores of a thermal-throttled laptop. And ephemeral runners solve a heap of security problems you don't think about on a local machine until the first incident.
+
+For SecondLayer we started with a self-hosted runner on \`local.legal.org.ua\`. It's still alive for the blue-green preview phase because it needs access to the prod network. But heavy builds, tests, and Docker — all of that is on AWS Spot now. **Every week we save 40+ minutes of an engineer's life.** And with every new service in the monorepo, that gap only grows.
+
+If your laptop is noisy during \`npm run build\` — you're already paying. The only question is who gets your money.
+
+---
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
 };
