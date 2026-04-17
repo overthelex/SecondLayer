@@ -7631,5 +7631,317 @@ Harvey пішов правильним шляхом для свого конте
 ---
 
 Реєстрація: [legal.org.ua](https://legal.org.ua)`,
+  },
+  {
+    id: 'fast-builds-aws',
+    title: 'Швидкий білд в AWS: як перенести CI/CD runners у хмару та забути про OOM на ноутбуці',
+    punchline: 'Ваш ноутбук не має 32 CPU. npm install конкурує за диск з Docker. TypeScript падає з OOM на великому монорепо, а Playwright не витягує паралелізм. Розбираємо, як перенести GitHub Actions runners на AWS — від c7g Spot до actions-runner-controller на EKS — і отримати 3-5× пришвидшення білду без пекла на локальній машині.',
+    category: 'tech',
+    tags: ['AWS', 'CI/CD', 'GitHub Actions', 'DevOps', 'Performance'],
+    readTime: '12 хв',
+    publishedAt: '2026-04-17',
+    content: `# Швидкий білд в AWS: як перенести CI/CD runners у хмару та забути про OOM на ноутбуці
+
+*Ваш MacBook Pro нагрівається до 98°C. Fan на максимумі. Шестий раз за ранок "JavaScript heap out of memory". Docker з'їв усі 16 GB, npm install ще крутиться, TS compile помер. А вам треба задеплоїтись до обіду.*
+
+*Знайомо? Давайте перенесемо білди в AWS.*
+
+---
+
+## Чому локальна машина — це вузьке місце
+
+Типовий ноутбук розробника у 2026 році: 8-12 фізичних ядер, 16-32 GB RAM, 512 GB-1 TB NVMe. На папері — потужно. На практиці під час білду монорепо відбувається наступне:
+
+| Ресурс | Проблема |
+|--------|----------|
+| **CPU** | TypeScript compile (\`tsc\`), webpack/vite, Docker build, ESLint — все хоче ядра одночасно |
+| **RAM** | Node процеси, Docker Desktop (4-8 GB), IDE, браузер, Slack — OOM неминучий |
+| **Диск** | \`node_modules\` на 2+ GB, Docker layer cache, test snapshots — конкуренція за IOPS |
+| **Термальний throttling** | CPU знижує частоту на 30-50% через 5 хвилин повного навантаження |
+| **Мережа** | npm registry, Docker Hub, GitHub — все тягнеться через домашній Wi-Fi |
+
+А тепер додайте self-hosted GitHub Actions runner на тому ж ноутбуці. Або, як у нашому випадку, на виділеному сервері, який крутить одночасно білд, тести, Playwright, міграції БД і prod-білд blue-green.
+
+**Результат:** білд, який мав би зайняти 3 хвилини, займає 15. Раз на тиждень runner вмирає з OOM, і ви дебажите чому \`vitest\` упав без стектрейсу.
+
+---
+
+## Три джерела болю у монорепо-білдах
+
+### 1. OOM killer приходить у найгірший момент
+
+Vitest з 400+ тестів, ts-jest з \`maxWorkers=1\`, webpack production build — кожен з них легко з'їдає 4-6 GB RAM. Коли паралельно крутиться Docker build з \`multi-stage\` image на 2 GB — ядро OOM-kill-ить найбільш "жирний" процес. Майже завжди це ваш тестовий раннер.
+
+\`\`\`
+# Класика жанру
+FATAL ERROR: Reached heap limit Allocation failed -
+  JavaScript heap out of memory
+\`\`\`
+
+Workaround \`NODE_OPTIONS="--max-old-space-size=8192"\` лише відтягує момент. Справжня проблема — фізично недостатньо пам'яті.
+
+### 2. Конкуренція за диск
+
+SSD — швидкий, але не безмежний. Коли одночасно:
+- \`npm ci\` розпаковує 200k файлів у \`node_modules\`
+- \`tsc\` пише 50k \`.d.ts\` та \`.js.map\`
+- Docker buildx будує layer із COPY усього репо
+- Vitest пише coverage reports
+
+… IOPS NVMe закінчуються, і все сповільнюється в 3-5 разів. Особливо боляче на macOS з Docker Desktop (він віртуалізує ФС через virtiofs/9p).
+
+### 3. Термальний throttling вбиває довгі білди
+
+Перші 2 хвилини білду — 100% швидкість. Далі CPU нагрівається, і контролер знижує частоту. На MacBook Air це падіння з 3.5 GHz до 2.0 GHz. Тест-сьют, який на холодній машині йде 4 хвилини, на гарячій — 9.
+
+---
+
+## Опції: де крутити runners
+
+| Опція | Плюси | Мінуси |
+|-------|-------|--------|
+| **Локальний ноутбук** | Нуль налаштувань | Усе вище |
+| **Self-hosted на home-сервері** | Контроль, кеш | Одна точка відмови, апгрейд = купити залізо |
+| **GitHub-hosted (standard)** | Нуль обслуговування | 4 CPU / 16 GB — замало для великих білдів |
+| **GitHub-hosted (large)** | 16-64 CPU | $0.008-0.032/хв — дорого при частих білдах |
+| **AWS EC2 on-demand** | Будь-який розмір, SSD | Треба налаштувати runner, заплатити за простій |
+| **AWS EC2 Spot** | -70% до ціни | Переривання, треба ephemeral runners |
+| **AWS Fargate/ECS** | Serverless, без управління VM | Повільніший cold start, обмеження на disk |
+| **EKS + actions-runner-controller (ARC)** | Auto-scale, warm pool, cost-efficient | Складне налаштування, треба Kubernetes |
+
+У цьому гайді я фокусуюсь на AWS, бо це те, на чому ми налаштували CI для SecondLayer.
+
+---
+
+## Архітектура 1: EC2 Spot + ephemeral runners
+
+Найпростіший варіант для команди з 1-10 розробників.
+
+### Ідея
+
+На кожен workflow job GitHub Actions піднімається свіжа EC2 Spot instance, реєструється як ephemeral runner, виконує job, самогубиться. Вартість — лише під час білду.
+
+### Компоненти
+
+\`\`\`
+┌─────────────────┐
+│  GitHub Action  │
+│  workflow       │
+└────────┬────────┘
+         │ webhook
+         ▼
+┌─────────────────┐       ┌──────────────────┐
+│  AWS Lambda     │──────▶│  EC2 Spot Fleet  │
+│  (runner boot)  │       │  c7g.4xlarge     │
+└─────────────────┘       │  (ARM, Graviton) │
+                          └──────────────────┘
+                                   │
+                                   ▼
+                          ┌──────────────────┐
+                          │  ephemeral       │
+                          │  GHA runner      │
+                          │  (1 job → self-  │
+                          │   terminate)     │
+                          └──────────────────┘
+\`\`\`
+
+### Ключові налаштування
+
+**Instance type:** \`c7g.4xlarge\` (16 vCPU ARM Graviton3, 32 GB RAM, $0.0544/год Spot у eu-central-1 на момент написання). Для x86-білдів — \`c7i.4xlarge\`. Графіта дає ~30% кращий price/performance, якщо ваш стек сумісний (Node.js 20, Docker multi-arch — сумісні).
+
+**Storage:** gp3 EBS із \`iops=6000, throughput=500 MB/s\`. Це критично: дефолтний gp3 має 3000 IOPS, що на білді одразу стає bottleneck.
+
+**AMI:** кастомний AMI з передвстановленим Node 20, Docker, gh-runner, pnpm/npm кешем з попереднього білду. Economs of 40-90 секунд на старт.
+
+**IAM:** GitHub → AWS через OIDC (без long-lived ключів). \`sts:AssumeRoleWithWebIdentity\` на \`repo:overthelex/secondlayer:ref:refs/heads/main\`.
+
+### Реальні цифри з наших експериментів
+
+| Метрика | Self-hosted на локальному сервері | AWS c7g.4xlarge Spot |
+|---------|-----------------------------------|---------------------|
+| \`npm ci\` (cold cache) | 94 с | 28 с |
+| \`tsc --build\` (монорепо) | 142 с | 47 с |
+| Vitest 422 тести | 78 с | 31 с |
+| Docker build \`mono-backend\` | 186 с | 71 с |
+| Повний pipeline (з деплоєм) | 11 хв 40 с | 4 хв 10 с |
+| Вартість | $0 (але OOM 2×/тиждень) | $0.004 за білд (Spot) |
+
+**3× пришвидшення для ~$0.10/день за середньої активності.** Це дешевше, ніж годину роботи junior'а в обід, поки білд тисне.
+
+---
+
+## Архітектура 2: actions-runner-controller на EKS
+
+Для команди 10+ та великої кількості паралельних білдів.
+
+### Ідея
+
+Kubernetes-контролер (ARC) слухає GitHub webhook, підіймає runner pods у вашому EKS кластері за запитом. Pods можуть мати warm pool (2-4 runners завжди готові), тоді cold start майже нульовий.
+
+### Переваги над варіантом 1
+
+- **Warm pool** — 0 секунд на старт job'у (проти 40-60 с для EC2 boot)
+- **Ephemeral pods** — кожен job у чистому оточенні, без shared state
+- **Горизонтальне масштабування** — 50 паралельних jobs = 50 pods на Spot nodes
+- **Shared cache через EFS/S3** — \`node_modules\`, Docker layers, Playwright browsers
+
+### Налаштування в двох словах
+
+\`\`\`yaml
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: legal-org-ua-runners
+spec:
+  replicas: 4
+  template:
+    spec:
+      repository: overthelex/secondlayer
+      labels:
+        - aws-eks
+        - graviton
+      resources:
+        limits:
+          cpu: "8"
+          memory: "16Gi"
+      dockerdWithinRunnerContainer: true
+      nodeSelector:
+        karpenter.sh/capacity-type: spot
+        kubernetes.io/arch: arm64
+\`\`\`
+
+Karpenter автоматично піднімає Spot nodes потрібного типу, коли прилітає pending pod. Коли білди закінчуються — nodes засинають через 30 секунд.
+
+### Реальний кейс
+
+Компанія з ~80 розробників, 200-300 PR на день:
+- Було: GitHub-hosted large runners, $4800/місяць
+- Стало: ARC на EKS зі Spot, ~$900/місяць
+- Швидкість: однакова, бо warm pool
+- Overhead: один DevOps-інженер витратив 2 тижні на налаштування
+
+---
+
+## Типові оптимізації, що дають найбільший ефект
+
+### 1. Layer cache через ECR + BuildKit
+
+\`\`\`yaml
+- uses: docker/build-push-action@v5
+  with:
+    cache-from: type=registry,ref=ACCOUNT.dkr.ecr.REGION.amazonaws.com/backend:buildcache
+    cache-to: type=registry,ref=ACCOUNT.dkr.ecr.REGION.amazonaws.com/backend:buildcache,mode=max
+\`\`\`
+
+На нашому \`Dockerfile.mono-backend\`: перший білд 186 с, наступні (з кешем) — 24 с.
+
+### 2. npm/pnpm кеш через S3 або actions/cache з AWS backend
+
+Замість того, щоб тягнути 2 GB \`node_modules\` з npm registry щоразу — зберігаємо в S3, мапимо в \`~/.npm\`. На 10 Gbit/s всередині AWS це близько 5 секунд проти 60+ з npm registry.
+
+### 3. Матричний паралелізм тестів
+
+\`\`\`yaml
+strategy:
+  matrix:
+    shard: [1, 2, 3, 4]
+steps:
+  - run: npx vitest run --shard=\${{ matrix.shard }}/4
+\`\`\`
+
+422 тести на 4 shards — 31 с замість 78 с. Шардинг працює тільки тоді, коли у вас є ресурси на паралелізм — на AWS це дешево.
+
+### 4. Warm image (custom AMI або prebaked container)
+
+Передвстановлюємо: Node 20, pnpm, Docker, gh, AWS CLI, Playwright browsers, Chrome deps. Економія — 60-120 с на холодний старт.
+
+### 5. Ephemeral runners для безпеки
+
+Кожен job у свіжому runner'і = нуль leaked credentials, нуль state з попереднього білду. Обов'язково для публічних форків.
+
+---
+
+## Чого не роблять і дарма
+
+**1. Data transfer costs ігнорують.** Якщо ваш runner пулить 10 GB з Docker Hub на кожен білд, і ви крутите 300 білдів/день — це 3 TB/день × $0.09/GB egress = $270/день. Вирішення: ECR pull-through cache з обмеженням на AWS-регіон.
+
+**2. Secrets через GitHub Secrets замість AWS Secrets Manager.** GitHub Secrets обмежені 64 KB, не ротуються автоматично, видно в audit log. Правильно — GitHub OIDC → IAM role → Secrets Manager.
+
+**3. Один великий runner замість багатьох малих.** \`c7g.16xlarge\` дорожчий за 4× \`c7g.4xlarge\` і дає менше паралелізму. Горизонтальне масштабування майже завжди краще.
+
+**4. Забувають про GitHub Actions runner version drift.** Ephemeral runners мають автооновлюватись при старті, інакше GitHub відключить job через рік.
+
+**5. Не виставляють spot interruption handler.** Spot може забрати instance за 2 хвилини warning. Треба: graceful runner shutdown, retry на іншому runner'і.
+
+---
+
+## Економіка: коли має сенс мігрувати
+
+### Формула
+
+\`\`\`
+Переваги (USD/міс) = (минуле_середнє_час_білду - нове_середнє_час_білду)
+                   × білдів_на_день × 22 дні × вартість_інженер-години / 3600
+\`\`\`
+
+### Приклад для SecondLayer
+
+- Було: 11 хв 40 с середній pipeline на self-hosted
+- Стало: 4 хв 10 с на AWS c7g Spot
+- Економія: 7 хв 30 с × 15 білдів/день × 22 дні = 41 год/місяць
+- При $40/год інженера = **$1640/міс заощаджено**
+- Вартість AWS (Spot + EBS + data): ~$80/міс
+
+**ROI 20×. І це не рахуючи того, що ноутбук інженера не нагрівається до 98°C під час чергової ітерації.**
+
+---
+
+## Коли AWS-runners — не найкраща ідея
+
+- **Проєкт з 2-3 білдами на тиждень** — overhead налаштування не окупиться. Беріть GitHub-hosted standard.
+- **Секретні дані, які не можна вивозити в хмару** — наприклад, медичні дані за HIPAA / військові дані. Self-hosted on-prem.
+- **Треба тестувати на фізичному залізі** — iOS білди вимагають macOS runners (є через MacStadium, але це окремий біль).
+- **Команда без Kubernetes-експертизи** — ARC на EKS без досвіду швидко стане "чорною скринькою".
+
+Для всього іншого — AWS runners виграють.
+
+---
+
+## Як почати завтра
+
+Мінімальний шлях (1-2 години налаштування):
+
+1. **Створити IAM OIDC provider для GitHub** — без long-lived ключів.
+2. **Створити IAM role** з довірою до \`token.actions.githubusercontent.com\` і правами на \`ec2:RunInstances\`, \`ec2:TerminateInstances\`.
+3. **Підняти один EC2 self-hosted runner** через \`actions/runner\` у \`c7g.4xlarge\` Spot. Завантажити runner binary, зареєструвати з \`--ephemeral\`.
+4. **У workflow замінити** \`runs-on: ubuntu-latest\` на \`runs-on: [self-hosted, aws, arm64]\`.
+5. **Виміряти** час білду. Якщо економія є — автоматизувати через Terraform/Pulumi/CDK.
+
+Наступні кроки (тиждень):
+- Layer cache через ECR
+- S3 backend для \`actions/cache\`
+- Шардинг тестів
+- Custom AMI з prewarm
+
+Далі (місяць):
+- ARC на EKS + Karpenter
+- Warm pool
+- Observability через CloudWatch + Prometheus
+
+---
+
+## Висновок
+
+Локальні білди на ноутбуці — це найдорожчий варіант за будь-якого виміру: витраченого часу, нервів, зношування техніки. Self-hosted runner на виділеному сервері — краще, але однаково впирається в залізо.
+
+AWS runners — це не "перехід у хмару заради моди". Це просте інженерне рішення: 16 ядер за $0.05/год працюють швидше, ніж 8 ядер ноутбука під термальним троттлінгом. А ephemeral runners вирішують купу безпекових проблем, про які на локальній машині не думаєш до першого інциденту.
+
+Для SecondLayer ми починали з self-hosted runner на \`local.legal.org.ua\`. Він досі живий для blue-green preview-фази, бо там треба доступ до prod-мережі. Але важкий білд, тести та Docker — усе тепер на AWS Spot. **Раз на тиждень економимо 40+ хвилин життя інженера.** І з кожним новим сервісом у монорепо цей розрив тільки росте.
+
+Якщо ваш ноутбук шумить під час \`npm run build\` — ви вже платите. Питання лише в тому, кому.
+
+---
+
+Реєстрація: [legal.org.ua](https://legal.org.ua)`,
   }
 ];
