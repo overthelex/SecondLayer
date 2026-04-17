@@ -1,6 +1,205 @@
 import type { TranslationMap } from './articles';
 
 export const ruTranslations: TranslationMap = {
+  'sneakypiper-due-diligence-platform': {
+    title: 'SneakyPiper: 16.7M сущностей, 31K тем с darknet-форумов, 30+ OSINT-источников в проде',
+    punchline: 'Наш OSINT-продукт SneakyPiper.com делает due diligence для американского бизнеса. Под капотом — 16.7M сущностей OpenSanctions, 31K AI-классифицированных тем с darknet-форумов, живой поток ransomware-жертв и GitHub credential leaks. Разбираем что лежит в проде, с цифрами.',
+    readTime: '10 мин',
+    content: `# SneakyPiper: 16.7M сущностей, 31K тем с darknet-форумов, 30+ OSINT-источников в проде
+
+*SneakyPiper.com — наш второй продукт после LEX AI. Это AI-powered due diligence и OSINT-платформа для американского бизнеса: санкции, corporate intelligence, мониторинг darknet, корпоративные реестры, threat intel. Разбираем, что конкретно лежит в production-базе и как это работает.*
+
+---
+
+## Что такое SneakyPiper
+
+Когда американский бизнес вступает в новую сделку — партнёрство, инвестицию, contractor hire, acquisition — возникает стандартный чек-лист: нет ли компании в санкционных списках, не банкрот ли её владелец, не появлялись ли её домены/IP в breach databases, нет ли её руководителей в Red Notices INTERPOL. В крупных корпорациях этим занимаются специализированные compliance-команды, платя LexisNexis, Dun & Bradstreet, Thomson Reuters десятки тысяч долларов в год.
+
+SneakyPiper делает то же самое для малого и среднего бизнеса за копейки — автоматизированно через агрегацию открытых данных и AI-анализ. Платформа построена на четырёх слоях:
+
+1. **Live OSINT-запросы к 30+ внешним сервисам** — OpenSanctions, INTERPOL, HIBP, Dehashed, IntelX, AbuseIPDB, VirusTotal, Companies House, LeakCheck, и дальше
+2. **Собственная агрегированная база sanctions/PEP/crime** — yente (локальный OpenSanctions instance) с полным catalog
+3. **Собственный dark-web collector** — живой мониторинг tor-форумов, ransomware-сайтов, paste-сервисов, github leak detection
+4. **Orchestration layer** — классификация запросов, кэширование, AI-brief через интеграцию с LEX AI
+
+Всё это обёрнуто в FastAPI-бэкенд (Python 3.11) + React/Vite фронтенд. Деплой на AWS EC2 во Франкфурте.
+
+---
+
+## Что конкретно лежит в production-базе (снимок на сегодня)
+
+### Слой 1: OpenSanctions через yente (локальный instance)
+
+Yente — официальный self-hostable API OpenSanctions. Мы крутим его локально и синхронизируем ежедневно. На сегодня:
+
+- **344 отдельных датасета** (санкционные списки, PEP-реестры, crime, debarment, securities)
+- **16,708,788 сущностей суммарно** по всем датасетам
+
+Топ-20 датасетов по объёму:
+
+| # | Dataset | Entities |
+|---|---------|----------|
+| 1 | default (all merged) | 4,146,759 |
+| 2 | peps (Politically Exposed Persons) | 1,791,470 |
+| 3 | enrichers | 1,341,668 |
+| 4 | wd_categories (Wikidata) | 656,644 |
+| 5 | ext_ru_egrul (Russian Unified State Register) | 593,892 |
+| 6 | debarment (World Bank, US SAM etc.) | 579,305 |
+| 7 | wd_peps (Wikidata PEPs) | 574,984 |
+| 8 | crime (criminal records, wanted) | 510,744 |
+| 9 | ann_pep_positions | 502,929 |
+| 10 | securities | 501,862 |
+| 11 | regulatory | 385,412 |
+| 12 | wikidata | 360,730 |
+| 13 | ext_gleif (LEI Reference Data) | 330,791 |
+| 14 | sanctions (consolidated) | 278,647 |
+| 15 | us_sam_exclusions | 267,806 |
+| 16 | maritime | 264,941 |
+| 17 | br_pep (Brazilian PEPs) | 253,827 |
+| 18 | ext_gb_fca_firds (UK Financial Instruments) | 215,197 |
+| 19 | ext_eu_esma_firds (EU Financial Instruments) | 214,946 |
+| 20 | special_interest | 174,829 |
+
+Другие заметные источники: US OFAC SDN (69,526), US Sanctions (86,910), Ukrainian NSDC Sanctions (60,741), Singapore gov directors (55,144), Polish wanted (53,631), EU Sanctions (38,089), Iranian UANI entities, Israeli MOD terrorists list, Monaco fund freezes, French treasury asset freezes.
+
+**Зачем локальный instance:** публичный OpenSanctions API — 100 req/sec rate limit и 200–400ms латентности. Свой instance — sub-50ms без лимитов. Плюс полнотекстовый поиск с fuzzy-matching.
+
+### Слой 2: Dark-web Intelligence Collector
+
+Отдельный микросервис, тянущий данные с tor-форумов, ransomware-сайтов, github repositories, paste-сервисов. Весь traffic — через Tor SOCKS proxy (для deep-web) и residential proxy pool (для INTERPOL и некоторых sanctions-сайтов, блокирующих datacenter IPs).
+
+**На сегодня:**
+
+- **31,035 forum subjects** — посты с tor-форумов, каждый классифицирован AI-моделью по категории/риску
+- **16,391 ransomware victims** — жертвы публичных ransomware-групп (LockBit, Cl0p, BlackCat, Rhysida и др.)
+- **594 GitHub leaks** — публичные коммиты с credentials (API keys, DB passwords, private keys), найденные нашим сканером
+
+**Классификация forum subjects:**
+
+- **По риску:** critical — 5,825, high — 10,200, medium — 5,304, low — 9,706
+- **По категории:** ransomware — 4,271, data_leak — 3,763, carding — 3,534, fraud — 2,571, credentials — 2,329, malware — 2,143, services — 1,835, exploit — 1,352, access_sale — 108, drugs/weapons — 13
+
+**Darknet-источники, которые мы мониторим:**
+
+BFD Forum (5,445 постов), Darknet Army (4,662), LockBit 3.0 mirror (3,478), Breach Forums dark (2,193), Orion (1,858), Dark Forums (1,384), Rehub (289), Spear (166), Dragon Force (47), Nitrogen (43), Insomnia (26), Krybit (25+), Genesis (18), RansomEXX (11), DaiXin (21), Rhysida (5), Brain Cipher (9), Scattered Spider, SafePay, FunkSec, Medusa, Anubis — и дальше. Большинство — через offline mirrors, потому что сами onion-сайты часто падают.
+
+**Активные crawlers (обновляются в реальном времени):**
+
+- \`forum_monitor\` — скрапинг tor-форумов (каждые 3–5 мин)
+- \`forum_classifier\` — AI-классификация новых тем по категории/риску
+- \`forum_body_fetcher\` — подтягивание полного текста топиков
+- \`ransomlook\` — агрегация публичных ransomware leak-сайтов
+- \`github_leaks\` — сканирование публичных github repositories на утекшие secrets
+- \`paste_monitor\` — pastebin/privatebin/justpaste.it мониторинг
+- \`darksearch\` — Tor search engine
+- \`ahmia\` — Tor search engine (clearnet mirror)
+
+Пример последнего запуска (17 апреля 2026, 14:44 UTC):
+
+\`\`\`
+forum_classifier   → ok, 7 records added
+forum_body_fetcher → ok, 4 records added
+forum_monitor      → ok, 1,229 records added
+github_leaks       → ok, 240 records added
+ransomlook         → ok, 141 records added
+\`\`\`
+
+Это только за последние 30 минут.
+
+### Слой 3: Live-адаптеры к внешним сервисам
+
+15 адаптеров в \`backend/app/adapters/\`:
+
+- **opensanctions.py** — запросы к локальному yente
+- **hibp.py** — Have I Been Pwned (breach-проверки по email/домену)
+- **dehashed.py** — Dehashed API (commercial breach DB)
+- **leakcheck.py** — LeakCheck API (credential checks)
+- **pwndb.py** — pwndb (legacy breach DB)
+- **intelx.py** — IntelX (deep-web search engine)
+- **companies_house.py** — UK Companies House (corporate registry, 600 req/5min free tier)
+- **interpol_worldbank.py** — INTERPOL Red Notices + World Bank Debarment List (через residential relay)
+- **ip_reputation.py** — AbuseIPDB + VirusTotal + GreyNoise (IP threat score)
+- **domain_reputation.py** — domain reputation и GSB-проверки
+- **threat_intel.py** — NVD (CVE database) + CISA KEV + EPSS (exploit prediction)
+- **socmint.py** — social media intelligence (GDELT, crt.sh и прочее)
+- **corporate.py** — агрегированный corporate lookup (US EDGAR, OpenCorporates mirrors)
+- **local_index.py** — вызовы к нашему dark-web collector
+- **secondlayer.py** — интеграция с LEX AI для legal context
+
+### Слой 4: Orchestration и кэш
+
+- **Request cache** — локальная SQLite (\`/var/lib/sneakypiper/cache.db\`), TTL 72 часа. 304 KB на момент снимка (стартовый volume после 24 часов live-трафика)
+- **Orchestrator** — принимает запрос "проверь company X", определяет какие адаптеры вызвать (по типу данных: email → breach DBs, IP → reputation stack, company name → sanctions + corporate), выполняет параллельно, агрегирует и проводит через AI-summarizer (Claude через LEX AI proxy)
+- **Severity scoring** — собственный алгоритм, выставляющий overall risk score (low/medium/high/critical) на базе взвешенных сигналов из всех источников
+
+---
+
+## Как это всё живёт в проде
+
+### Инфраструктура
+
+- **EC2 instance:** \`i-05da283e047167978\`, t3.small, eu-central-1b (Франкфурт, Германия)
+- **IP:** 18.185.127.10
+- **OS:** Ubuntu, Docker Compose с host networking
+- **Frontend:** статические файлы из \`/var/www/sneakypiper/\`, обслуживаются nginx
+- **Backend:** один FastAPI-контейнер (\`sneakypiper-backend-1\`), порт 8001
+- **SSL:** Let\'s Encrypt через certbot
+- **Network:** WireGuard tunnel до collector host (10.77.0.0/24) — там крутятся yente и dark-web collector, на отдельном сервере с residential proxy chain
+
+### Deploy pipeline
+
+Self-hosted GitHub Actions runner, CI/CD из 4 шагов:
+
+1. **Lint frontend** — \`tsc -b\`
+2. **Build & push backend** — Docker image → GHCR (\`ghcr.io/overthelex/sneakypiper-backend\`)
+3. **Build frontend** — Vite production bundle
+4. **Deploy** — \`scp\` фронт + pull latest image на EC2, \`docker compose up -d\`
+
+Плюс health check после деплоя: frontend response + \`/api/v1/health\` на backend. Если что-то падает — CI fail.
+
+Тег релиза — автоматический по дате: \`2026.04.17\`, \`2026.04.17-1\`, и дальше.
+
+### Что НЕ живёт на этом EC2
+
+- **Yente (OpenSanctions):** отдельный host через WireGuard — там 100+ GB данных
+- **Dark-web collector:** отдельный host — ему нужен Tor и residential proxy chain
+- **LEX AI:** отдельный monorepo и инфраструктура (legal.org.ua)
+
+Это правильный trade-off: compute-heavy вещи там, где им удобно, а presentation-layer — близко к пользователям во Франкфурте.
+
+---
+
+## Лицензирование и авторское право
+
+Все данные, которые мы собираем и показываем — **открытые публичные источники**. Ни один из адаптеров не скрейпит платный контент, не обходит paywall, не врёт user-agent\'ом о том, что мы не бот. Мы делаем то, что делает любой compliance-офицер в банке вручную — просто быстрее и с лучшей агрегацией.
+
+OpenSanctions — CC-BY 4.0. INTERPOL Red Notices — публичная база. World Bank Debarment — публичная. NVD/CISA — public domain. Forum posts — публичные в tor-сети, мы не логинимся и не обходим reg-walls.
+
+Наша ценность не в "секретных данных", а в **агрегации, скорости, классификации и evidence-based scoring**.
+
+---
+
+## Почему это интересно open-source контрибьютору
+
+SneakyPiper — часть нашей открытой экосистемы. Хотя у него свой отдельный репозиторий (не в \`overthelex/secondlayer\`), паттерны там те же:
+
+- Adapter pattern для десятков внешних API
+- Aggregation layer с severity scoring
+- Dark-web data engineering (rate limiting, proxy rotation, resume logic)
+- Real-time intelligence pipelines
+
+Если вам интересно писать новые адаптеры (regulatory registries, национальные sanctions lists, sector-specific intel), добавлять поддержку новых dark-web источников, или строить scoring-алгоритмы — пишите. Обсудим, как подключаться напрямую к SneakyPiper или через смежные задачи в LEX AI (некоторые адаптеры переиспользуются).
+
+---
+
+**Сайт:** https://sneakypiper.com
+**Сам продукт:** AI-powered due diligence для американского бизнеса
+**Контакт для partnership/contribution:** vladimir@legal.org.ua
+
+---
+
+*Следующее: разговор с основателями — зачем компании из Киева делать OSINT-продукт для американского рынка, и как мы пришли к архитектуре "30+ adapters + yente + dark-web collector".*`,
+  },
   'ml-engineer-competencies': {
     title: 'Какие компетенции нам нужны от ML инженера: 9 пунктов, которые мы ждём в резюме',
     punchline: 'Google Cloud перед выделением GPU задаёт 5 вопросов. Мы разобрали их в 9 ML-компетенций — от LoRA на 70B и continued pre-training DeepSeek-V3 685B до RLHF с конституционным alignment и capacity planning для $200K+ training run. Конкретные примеры из нашего стека.',
