@@ -20,6 +20,7 @@ const DEFAULT_IPS = [
 
 const MAX_RETRIES = 5;
 const REQUEST_TIMEOUT = 30_000;
+const JSON_ARRAY_TIMEOUT = 300_000;
 
 interface SourceCatalog {
   id: number;
@@ -350,21 +351,133 @@ export class ImportTaskService {
 
   private async runJsonArrayImport(taskId: number, source: SourceCatalog, ips: string[], signal: AbortSignal): Promise<void> {
     logger.info(`[ImportTask ${taskId}] Downloading JSON array from ${source.source_url}`);
-    const data = await this.fetchJson(source.source_url, null, signal);
+    const data = await this.fetchJson(source.source_url, null, signal, JSON_ARRAY_TIMEOUT);
     if (!data) throw new Error('Cannot download JSON');
 
-    const records = Array.isArray(data) ? data : (data.results || data.data || []);
-    const mem = taskProgress.get(taskId);
-
-    await this.db.query('UPDATE import_tasks SET total_items = $2, total_pages = 1 WHERE id = $1', [taskId, records.length]);
-
-    if (mem) {
-      mem.recordsImported = records.length;
-      mem.pagesDone = 1;
+    const config = source.source_config || {};
+    const rootPath: string | undefined = config.root_path;
+    let records: any[];
+    if (rootPath) {
+      records = this.getJsonPath(data, rootPath) || [];
+    } else {
+      records = Array.isArray(data) ? data : (data.results || data.data || []);
     }
 
-    // TODO: actual upsert into target_table
-    logger.info(`[ImportTask ${taskId}] Downloaded ${records.length} records from JSON array`);
+    const mem = taskProgress.get(taskId);
+    await this.db.query('UPDATE import_tasks SET total_items = $2, total_pages = 1 WHERE id = $1', [taskId, records.length]);
+    logger.info(`[ImportTask ${taskId}] Downloaded ${records.length} records`);
+
+    const mapping = config.mapping as Record<string, string> | undefined;
+    const uniqueKey = (config.unique_key as string[] | undefined) || undefined;
+
+    if (!mapping || !uniqueKey?.length || !source.target_table) {
+      const reason = 'upsert skipped: source_config.mapping / unique_key not configured';
+      logger.warn(`[ImportTask ${taskId}] ${reason}`);
+      if (mem) { mem.recordsImported = records.length; mem.pagesDone = 1; mem.lastError = reason; }
+      return;
+    }
+
+    const { imported, failed } = await this.upsertJsonBatches(
+      taskId, source.target_table, mapping, uniqueKey, records, signal
+    );
+
+    if (mem) {
+      mem.recordsImported = imported;
+      mem.recordsFailed = failed;
+      mem.pagesDone = 1;
+    }
+  }
+
+  private async upsertJsonBatches(
+    taskId: number,
+    table: string,
+    mapping: Record<string, string>,
+    uniqueKey: string[],
+    records: any[],
+    signal: AbortSignal,
+  ): Promise<{ imported: number; failed: number }> {
+    const cols = Object.keys(mapping);
+    const paths = Object.values(mapping);
+
+    // Pre-dedup by unique_key (last record wins) to avoid
+    // "ON CONFLICT DO UPDATE cannot affect row a second time" inside a batch.
+    const seen = new Map<string, any>();
+    for (const rec of records) {
+      const k = uniqueKey.map(col => {
+        const v = this.getJsonPath(rec, mapping[col]);
+        return v == null ? '' : String(v);
+      }).join('\u0001');
+      seen.set(k, rec);
+    }
+    const deduped = Array.from(seen.values());
+    if (deduped.length !== records.length) {
+      logger.info(`[ImportTask ${taskId}] Dedup by ${uniqueKey.join('+')}: ${records.length} → ${deduped.length}`);
+    }
+
+    const updateCols = cols.filter(c => !uniqueKey.includes(c));
+    const updateSet = updateCols.map(c => `${c} = EXCLUDED.${c}`).concat(['imported_at = NOW()']).join(', ');
+    const batchSize = 1000;
+    let imported = 0;
+    let failed = 0;
+
+    for (let i = 0; i < deduped.length; i += batchSize) {
+      if (signal.aborted) break;
+
+      const batch = deduped.slice(i, i + batchSize);
+      const params: any[] = [];
+      const rowsSql: string[] = [];
+
+      for (const rec of batch) {
+        const placeholders = cols.map((_, c) => `$${params.length + c + 1}`).join(',');
+        rowsSql.push(`(${placeholders})`);
+        for (const p of paths) {
+          const raw = this.getJsonPath(rec, p);
+          params.push(this.normalizeValue(raw));
+        }
+      }
+
+      const sql =
+        `INSERT INTO ${table} (${cols.join(',')}) VALUES ${rowsSql.join(',')} ` +
+        `ON CONFLICT (${uniqueKey.join(',')}) DO UPDATE SET ${updateSet}`;
+
+      try {
+        await this.db.query(sql, params);
+        imported += batch.length;
+      } catch (err: any) {
+        failed += batch.length;
+        logger.error(`[ImportTask ${taskId}] Upsert batch failed`, {
+          table, offset: i, size: batch.length, error: err.message,
+        });
+      }
+
+      const mem = taskProgress.get(taskId);
+      if (mem) { mem.recordsImported = imported; mem.recordsFailed = failed; }
+      if ((i / batchSize) % 10 === 0) {
+        await this.db.query(
+          `UPDATE import_tasks SET records_imported = $2, records_failed = $3, last_activity_at = NOW(), updated_at = NOW() WHERE id = $1`,
+          [taskId, imported, failed],
+        ).catch(() => {});
+      }
+    }
+
+    return { imported, failed };
+  }
+
+  private getJsonPath(obj: any, path: string): any {
+    if (!path) return obj;
+    let v: any = obj;
+    for (const part of path.split('.')) {
+      if (v == null) return null;
+      v = (v as any)[part];
+    }
+    return v;
+  }
+
+  private normalizeValue(v: any): any {
+    if (v === undefined || v === null) return null;
+    if (v instanceof Date) return v.toISOString();
+    if (typeof v === 'object') return JSON.stringify(v);
+    return v;
   }
 
   // ---- File Download (ZIP/CSV/XML) ----
@@ -383,12 +496,12 @@ export class ImportTaskService {
 
   // ========================= HTTP Fetcher =========================
 
-  private async fetchJson(url: string, localAddress: string | null, signal: AbortSignal): Promise<any> {
+  private async fetchJson(url: string, localAddress: string | null, signal: AbortSignal, timeoutMs: number = REQUEST_TIMEOUT): Promise<any> {
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       if (signal.aborted) return null;
 
       try {
-        const data = await this.httpGet(url, localAddress, signal);
+        const data = await this.httpGet(url, localAddress, signal, timeoutMs);
         return JSON.parse(data);
       } catch (err: any) {
         if (signal.aborted) return null;
@@ -413,7 +526,7 @@ export class ImportTaskService {
     return null;
   }
 
-  private httpGet(url: string, localAddress: string | null, signal: AbortSignal): Promise<string> {
+  private httpGet(url: string, localAddress: string | null, signal: AbortSignal, timeoutMs: number = REQUEST_TIMEOUT): Promise<string> {
     return new Promise((resolve, reject) => {
       const parsed = new URL(url);
       const isHttps = parsed.protocol === 'https:';
@@ -424,7 +537,7 @@ export class ImportTaskService {
         port: parsed.port || (isHttps ? 443 : 80),
         path: parsed.pathname + parsed.search,
         method: 'GET',
-        timeout: REQUEST_TIMEOUT,
+        timeout: timeoutMs,
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'SecondLayer-Legal-Platform/2.0',
@@ -438,7 +551,7 @@ export class ImportTaskService {
       const req = mod.request(opts, (res) => {
         // Follow redirects
         if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          this.httpGet(res.headers.location, localAddress, signal).then(resolve).catch(reject);
+          this.httpGet(res.headers.location, localAddress, signal, timeoutMs).then(resolve).catch(reject);
           return;
         }
 
