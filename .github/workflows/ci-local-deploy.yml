@@ -94,12 +94,18 @@ jobs:
       # CI runs TypeScript compilation + unit tests (mocked, no infra needed).
       - name: Overlay proprietary source
         if: needs.detect-changes.outputs.backend == 'true'
+        env:
+          CORE_REPO_SSH_KEY: ${{ secrets.CORE_REPO_SSH_KEY }}
         run: |
           CORE_TMP=$(mktemp -d)
-          gh repo clone overthelex/secondlayer-core "$CORE_TMP" -- --depth 1
+          KEY_FILE=$(mktemp)
+          trap 'shred -u "$KEY_FILE" 2>/dev/null || rm -f "$KEY_FILE"; rm -rf "$CORE_TMP"' EXIT
+          printf '%s\n' "$CORE_REPO_SSH_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+          GIT_SSH_COMMAND="ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes" \
+            git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
           cp -f "$CORE_TMP"/src/services/* mcp_backend/src/services/
           cp -rf "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
-          rm -rf "$CORE_TMP"
 
       - name: Build backend
         if: needs.detect-changes.outputs.backend == 'true'
@@ -335,15 +341,21 @@ jobs:
           node-version: 20
 
       - name: Build dist for changed services
+        env:
+          CORE_REPO_SSH_KEY: ${{ secrets.CORE_REPO_SSH_KEY }}
         run: |
           npm --prefix packages/shared install && npm --prefix packages/shared run build
 
           if [ "$BACKEND_CHANGED" = "true" ]; then
             CORE_TMP=$(mktemp -d)
-            gh repo clone overthelex/secondlayer-core "$CORE_TMP" -- --depth 1
+            KEY_FILE=$(mktemp)
+            trap 'shred -u "$KEY_FILE" 2>/dev/null || rm -f "$KEY_FILE"; rm -rf "$CORE_TMP"' EXIT
+            printf '%s\n' "$CORE_REPO_SSH_KEY" > "$KEY_FILE"
+            chmod 600 "$KEY_FILE"
+            GIT_SSH_COMMAND="ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes" \
+              git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
             cp -f "$CORE_TMP"/src/services/* mcp_backend/src/services/
             cp -rf "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
-            rm -rf "$CORE_TMP"
             npm --prefix mcp_backend install && npm --prefix mcp_backend run build
           fi
           if [ "$RADA_CHANGED" = "true" ]; then
