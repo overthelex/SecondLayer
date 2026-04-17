@@ -10,6 +10,7 @@
 
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { logger } from '../../utils/logger.js';
+import { EDRSR_METADATA_SEARCH_ORDER } from '../../services/search-ranking-config.js';
 
 export class EdsrSearchTools extends BaseToolHandler {
   constructor(private db: any) {
@@ -295,7 +296,7 @@ export class EdsrSearchTools extends BaseToolHandler {
         SELECT ${actualSelectFields}
         FROM ${actualFromClause}
         WHERE ${whereClause}
-        ORDER BY d.adjudication_date DESC NULLS LAST
+        ORDER BY ${EDRSR_METADATA_SEARCH_ORDER}
         LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
 
       const dataResult = await this.db.query(dataSql, [...params, limit, offset]);
