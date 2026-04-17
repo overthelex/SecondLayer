@@ -37,6 +37,48 @@ def _escape_copy(v) -> str:
              .replace("\r", " "))
 
 
+_TYPE_CACHE: dict[tuple, dict[str, str]] = {}
+
+
+def _column_types(table: str, columns: list[str], ssh_host: str, container: str,
+                  dbuser: str, dbname: str) -> dict[str, str]:
+    """Returns map column_name -> PostgreSQL type. Cached per (host, db, table)."""
+    key = (ssh_host, container, dbname, table)
+    if key in _TYPE_CACHE:
+        return _TYPE_CACHE[key]
+    cmd = _ssh_cmd(ssh_host) + [
+        f"docker exec {container} psql -U {dbuser} -d {dbname} -tAc "
+        f"\"SELECT column_name||':'||udt_name FROM information_schema.columns "
+        f"WHERE table_name='{table}' AND table_schema='public'\""]
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    if proc.returncode != 0:
+        log.warning(f"could not introspect {table}: {proc.stderr[-500:]}")
+        return {c: "text" for c in columns}
+    types = {}
+    for line in proc.stdout.strip().splitlines():
+        if ":" in line:
+            n, t = line.split(":", 1)
+            types[n.strip()] = t.strip()
+    _TYPE_CACHE[key] = types
+    return types
+
+
+_PG_TYPE_ALIASES = {
+    "varchar": "text", "char": "text", "bpchar": "text", "name": "text",
+    "int2": "smallint", "int4": "integer", "int8": "bigint",
+    "float4": "real", "float8": "double precision",
+    "bool": "boolean", "timestamptz": "timestamp with time zone",
+}
+
+
+def _stage_type(udt: str) -> str:
+    udt = udt.lower()
+    if udt.startswith("_"):  # array
+        elem = udt[1:]
+        return f"{_PG_TYPE_ALIASES.get(elem, elem)}[]"
+    return _PG_TYPE_ALIASES.get(udt, udt)
+
+
 def copy_into(table: str, columns: list[str], rows: Iterable[tuple],
               ssh_host: str = "prod",
               container: str = "secondlayer-postgres-prod",
@@ -46,6 +88,8 @@ def copy_into(table: str, columns: list[str], rows: Iterable[tuple],
               pk_columns: list[str] | None = None) -> int:
     """COPY rows into a temp table, then INSERT ... ON CONFLICT into target.
 
+    The temp table mirrors the target's column types so PostgreSQL casts
+    text-format COPY inputs into DATE / JSONB / etc. natively.
     Returns the number of rows inserted (0 if all conflicted with DO NOTHING).
     Raises subprocess.CalledProcessError on psql failure.
     """
@@ -53,11 +97,12 @@ def copy_into(table: str, columns: list[str], rows: Iterable[tuple],
     if not rows:
         return 0
 
+    types = _column_types(table, columns, ssh_host, container, dbuser, dbname)
     col_csv = ", ".join(columns)
     payload_lines = ["\t".join(_escape_copy(c) for c in r) for r in rows]
     payload = "\n".join(payload_lines) + "\n"
 
-    coldefs = ", ".join(f"{c} TEXT" for c in columns)
+    coldefs = ", ".join(f"{c} {_stage_type(types.get(c, 'text'))}" for c in columns)
     conflict_clause = ""
     if on_conflict and pk_columns:
         if on_conflict == "do_nothing":
