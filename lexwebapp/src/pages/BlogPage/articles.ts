@@ -30,6 +30,127 @@ export function hasRecentArticles(): boolean {
 
 export const articles: Article[] = [
   {
+    id: 'open-source-welcome-engineers',
+    title: 'Відкриваємо двері: шукаємо незалежних AI/ML інженерів і open-source контрибʼюторів',
+    punchline: 'LEX AI відкриває платформу як open source. Запрошуємо сильних інженерів — AI/ML, backend, data, frontend — долучатися контрибʼюторами або приєднуватися до команди. Що вже відкрито, кого шукаємо, і як долучитися.',
+    category: 'tech',
+    tags: ['Open Source', 'Hiring', 'Community', 'AI/ML', 'Careers'],
+    readTime: '6 хв',
+    publishedAt: '2026-04-17',
+    content: `# Відкриваємо двері: шукаємо незалежних AI/ML інженерів і open-source контрибʼюторів
+
+*LEX AI будується з 2024 року невеликою командою. Зараз ми відкриваємо частину платформи як open source і хочемо, щоб до проєкту долучались незалежні інженери — як контрибʼютори і як майбутні члени команди.*
+
+---
+
+## Що таке LEX AI
+
+LEX — українська юридична AI-платформа. Семантичний пошук по 100+ млн судових рішень (EDRSR — найбільший відкритий реєстр судових рішень у Європі), законодавство з Верховної Ради, OSINT і due diligence, консультації, білінг. Увесь стек зібрано як MCP (Model Context Protocol) сервери з уніфікованим gateway.
+
+Наш окремий продукт — **Panoptic** (panoptic.com.ua) — OSINT-платформа з 18+ джерел intelligence-даних: санкції, корпоративне володіння, credential breaches, IP/domain reputation, GDELT, INTERPOL, World Bank Debarment.
+
+Будуємо Harvey.ai-рівень якості для української юриспруденції на відкритих моделях — DeepSeek-V3, Llama, Qwen — бо дані унікальні (таких корпусів у ЄС немає), а open-weight моделі після continued pre-training дають 90%+ від flagship LLM на доменних задачах за долю вартості.
+
+---
+
+## Що вже відкрито
+
+Монорепо \`overthelex/secondlayer\` містить три MCP-сервери, фронтенд, shared-пакет і всі deployment-скрипти. Публічно доступно:
+
+- **Архітектуру платформи** — MCP tools, triple transport (stdio / HTTP / SSE), unified gateway
+- **Адаптери до відкритих джерел** — EDRSR, Верховна Рада, НАЗК, OpenReyestr, OpenSanctions, GLEIF, ICIJ Offshore Leaks, HIBP, NVD, INTERPOL
+- **Data pipelines** — imports для 340M+ записів з 15 державних API, multi-IP scheduler, freshness-моніторинг
+- **Blue-green CI/CD** — self-hosted runner, Claude Code auto-fix агенти, blue-green deploy через SSH
+- **Frontend** — React 19 + Vite + TailwindCSS + Zustand + TanStack Query
+
+Все що стосується юридичних даних, OSINT-піплайнів, імпортерів, архітектури MCP — у публічному репо. Пропрієтарним залишається лише ML-шар з продуктовими промптами і оркестрацією (\`secondlayer-core\`).
+
+---
+
+## Кого шукаємо
+
+Ми не наймаємо за назвою посади. Ми шукаємо людей, які вже роблять сильні речі — і хочуть робити їх на осмисленому домені, з реальними даними і реальними користувачами.
+
+**AI/ML engineers:**
+
+- LoRA fine-tuning великих моделей (70B+), continued pre-training
+- Embeddings fine-tuning (BGE-M3, custom encoders) для ретривалу
+- RLHF, constitutional alignment, adversarial training setups
+- Практика з Vertex AI / SageMaker HyperPod / Trainium / TPU v5p на multi-node clusters
+- Retrieval-augmented generation, citation verification, hallucination guards
+
+**Backend / distributed systems:**
+
+- PostgreSQL на мільярди рядків (pgvector, partitioning, TOAST-оптимізації)
+- Event-driven архітектури, черги, реплікація, PgBouncer
+- MCP servers, tool orchestration, LLM gateways, cost tracking
+
+**Data engineering / OSINT:**
+
+- Scraping на scale (rate-limiting, проксі-ротація, resume logic, checkpointing)
+- ETL для державних відкритих реєстрів
+- Sanctions screening, KYC/AML, due diligence pipelines
+
+**Frontend:**
+
+- React 19 + TypeScript на продакшн-рівні
+- Складні UI для юридичної аналітики (data-heavy dashboards, evidence panels)
+- Ukrainian i18n, accessibility, performance optimization
+
+---
+
+## Філософія
+
+- **Відкрито все, що не ламає бізнес.** Ми не приховуємо архітектуру — вона не є конкурентною перевагою. Перевага — дані, доменна якість моделей і швидкість ітерацій.
+- **Прагматизм над хайпом.** Distributed monolith сьогодні може бути правильною відповіддю. Мікросервіси ≠ чеснота. Фреймворк ≠ відповідь на задачу.
+- **Юридична сфера заслуговує серйозної AI-розробки.** Не "чатбот із законами", а справжнє моделювання юриспруденції: конституційне alignment, перевірка цитат, юрисдикційна спеціалізація.
+- **Open source як дефолт.** Якщо код не містить пропрієтарних промптів, API-ключів чи клієнтських даних — він публічний.
+
+---
+
+## Як долучитися
+
+**Як contributor:**
+
+1. Подивіться відкриті issues на GitHub (\`github.com/overthelex/secondlayer\`)
+2. Запропонуйте PR — ми робимо review протягом 48 годин
+3. Для великих змін — відкрийте discussion першим
+
+**Як кандидат на роль:**
+
+Напишіть на \`vladimir@legal.org.ua\` з коротким резюме. Cover letter на сторінку не потрібен — покажіть три речі:
+
+1. Що ви робили раніше (GitHub, посилання на конкретний проєкт із деталями)
+2. Чому вам цікавий саме цей домен — юридична AI, open data, OSINT
+3. Що хочете побудувати в наступні 6 місяців
+
+Ми відповідаємо швидко. Interview — технічна дискусія (без LeetCode), pair-programming сесія на реальній задачі з бекапу, coffee chat із командою.
+
+---
+
+## Наша обіцянка
+
+- **Повністю remote.** Команда розподілена Європою.
+- **Без micromanagement.** Довіра за замовчуванням. Результат важливіший за присутність у Slack.
+- **Prod-доступ з першого дня.** Ніяких "пробних місяців" у read-only.
+- **Бюджет на обчислення.** Якщо для ідеї потрібен GPU-кластер — ми говоримо з Google Cloud, AWS, Nebius і знаходимо ресурс.
+- **Публікації під вашим імʼям.** Ваша робота — ваша заслуга. Ми не приховуємо контрибʼюторів.
+
+---
+
+## Про контекст
+
+Ми зараз у активних переговорах із Google Cloud і AWS про sponsorship на 12-місячний ML training план ($195K–$265K, DeepSeek-V3 685B continued pre-training на 50–80B токенів корпусу EDRSR). Маємо платящих користувачів і B2B-клієнтів. Не startup-у-гаражі і не ще один enterprise-клон. Щось посередині — і це робить роботу цікавою.
+
+Якщо вас запалює ідея побудувати реальну AI-інфраструктуру для юриспруденції на найбільшому відкритому корпусі судових рішень у Європі — давайте поговоримо.
+
+---
+
+**Репо:** github.com/overthelex/secondlayer
+**Контакт:** vladimir@legal.org.ua
+**Сайт:** legal.org.ua`,
+  },
+  {
     id: 'distributed-monolith',
     title: 'Distributed Monolith: коли мікросервіси — це моноліт із мережевими затримками',
     punchline: '3 сервіси, 1 PostgreSQL, спільний Redis, один docker-compose — і ілюзія незалежності. Як розпізнати distributed monolith у власній архітектурі, коли він корисний, і коли настає час справжнього розділення.',

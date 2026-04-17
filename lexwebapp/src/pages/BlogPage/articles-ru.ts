@@ -1,6 +1,123 @@
 import type { TranslationMap } from './articles';
 
 export const ruTranslations: TranslationMap = {
+  'open-source-welcome-engineers': {
+    title: 'Открываем двери: ищем независимых AI/ML инженеров и open-source контрибьюторов',
+    punchline: 'LEX AI открывает платформу как open source. Приглашаем сильных инженеров — AI/ML, backend, data, frontend — подключаться контрибьюторами или присоединяться к команде. Что уже открыто, кого ищем, и как подключиться.',
+    readTime: '6 мин',
+    content: `# Открываем двери: ищем независимых AI/ML инженеров и open-source контрибьюторов
+
+*LEX AI строится с 2024 года небольшой командой. Сейчас мы открываем часть платформы как open source и приглашаем независимых инженеров — как контрибьюторов и будущих членов команды.*
+
+---
+
+## Что такое LEX AI
+
+LEX — украинская юридическая AI-платформа. Семантический поиск по 100+ млн судебных решений (EDRSR — крупнейший открытый реестр судебных решений в Европе), законодательство от Верховной Рады, OSINT и due diligence, консультации, биллинг. Весь стек собран как MCP (Model Context Protocol) серверы за унифицированным gateway.
+
+Наш второй продукт — **Panoptic** (panoptic.com.ua) — OSINT-платформа, агрегирующая 18+ источников intelligence-данных: санкции, корпоративное владение, credential breaches, IP/domain reputation, GDELT, INTERPOL, World Bank Debarment.
+
+Строим уровень качества Harvey.ai для украинской юриспруденции на открытых моделях — DeepSeek-V3, Llama, Qwen — потому что данные уникальны (такого корпуса в ЕС нет), а open-weight модели после continued pre-training дают 90%+ от flagship LLM на доменных задачах за долю стоимости.
+
+---
+
+## Что уже открыто
+
+Монорепо \`overthelex/secondlayer\` содержит три MCP-сервера, фронтенд, shared-пакет и все deployment-скрипты. Публично доступно:
+
+- **Архитектура платформы** — MCP tools, triple transport (stdio / HTTP / SSE), unified gateway
+- **Адаптеры к открытым источникам** — EDRSR, Верховная Рада, НАПК, OpenReyestr, OpenSanctions, GLEIF, ICIJ Offshore Leaks, HIBP, NVD, INTERPOL
+- **Data pipelines** — импорты 340M+ записей из 15 государственных API, multi-IP scheduler, freshness-мониторинг
+- **Blue-green CI/CD** — self-hosted runner, Claude Code auto-fix агенты, blue-green deploy через SSH
+- **Frontend** — React 19 + Vite + TailwindCSS + Zustand + TanStack Query
+
+Всё, что касается юридических данных, OSINT-пайплайнов, импортёров, архитектуры MCP — в публичном репо. Проприетарным остаётся только ML-слой с продуктовыми промптами и оркестрацией (\`secondlayer-core\`).
+
+---
+
+## Кого ищем
+
+Мы не нанимаем по названию должности. Мы ищем людей, которые уже делают сильные вещи — и хотят делать их на осмысленном домене, с реальными данными и реальными пользователями.
+
+**AI/ML engineers:**
+
+- LoRA fine-tuning больших моделей (70B+), continued pre-training
+- Embeddings fine-tuning (BGE-M3, custom encoders) для ретривала
+- RLHF, constitutional alignment, adversarial training setups
+- Практика с Vertex AI / SageMaker HyperPod / Trainium / TPU v5p на multi-node clusters
+- Retrieval-augmented generation, citation verification, hallucination guards
+
+**Backend / distributed systems:**
+
+- PostgreSQL на миллиарды строк (pgvector, partitioning, TOAST-оптимизации)
+- Event-driven архитектуры, очереди, репликация, PgBouncer
+- MCP servers, tool orchestration, LLM gateways, cost tracking
+
+**Data engineering / OSINT:**
+
+- Scraping на scale (rate-limiting, прокси-ротация, resume logic, checkpointing)
+- ETL для государственных открытых реестров
+- Sanctions screening, KYC/AML, due diligence pipelines
+
+**Frontend:**
+
+- React 19 + TypeScript на продакшн-уровне
+- Сложный UI для юридической аналитики (data-heavy dashboards, evidence panels)
+- Ukrainian i18n, accessibility, performance optimization
+
+---
+
+## Философия
+
+- **Открыто всё, что не ломает бизнес.** Мы не скрываем архитектуру — она не является конкурентным преимуществом. Преимущество — данные, доменное качество моделей и скорость итераций.
+- **Прагматизм важнее хайпа.** Distributed monolith сегодня может быть правильным ответом. Микросервисы ≠ добродетель. Фреймворк ≠ ответ на задачу.
+- **Юридическая сфера заслуживает серьёзной AI-разработки.** Не "чатбот с законами", а настоящее моделирование юриспруденции: конституционное alignment, проверка цитат, юрисдикционная специализация.
+- **Open source по умолчанию.** Если код не содержит проприетарных промптов, API-ключей или клиентских данных — он публичный.
+
+---
+
+## Как подключиться
+
+**Как contributor:**
+
+1. Посмотрите открытые issues на GitHub (\`github.com/overthelex/secondlayer\`)
+2. Предложите PR — ревью в течение 48 часов
+3. Для крупных изменений — откройте discussion первым
+
+**Как кандидат на роль:**
+
+Напишите на \`vladimir@legal.org.ua\` с кратким резюме. Cover letter на страницу не нужен — покажите три вещи:
+
+1. Что делали раньше (GitHub, ссылка на конкретный проект с деталями)
+2. Почему интересен именно этот домен — юридическая AI, open data, OSINT
+3. Что хотите построить в ближайшие 6 месяцев
+
+Мы отвечаем быстро. Interview — техническая дискуссия (без LeetCode), pair-programming сессия на реальной задаче из бэклога, coffee chat с командой.
+
+---
+
+## Наше обещание
+
+- **Полностью remote.** Команда распределена по Европе.
+- **Без micromanagement.** Доверие по умолчанию. Результат важнее присутствия в Slack.
+- **Prod-доступ с первого дня.** Никаких "испытательных месяцев" в read-only.
+- **Бюджет на вычисления.** Если для идеи нужен GPU-кластер — мы говорим с Google Cloud, AWS, Nebius и находим ресурс.
+- **Публикации под вашим именем.** Ваша работа — ваша заслуга. Мы не скрываем контрибьюторов.
+
+---
+
+## О контексте
+
+Сейчас мы в активных переговорах с Google Cloud и AWS о sponsorship на 12-месячный ML training план ($195K–$265K, DeepSeek-V3 685B continued pre-training на 50–80B токенов корпуса EDRSR). Есть платящие пользователи и B2B-клиенты. Не startup-в-гараже и не очередной enterprise-клон. Что-то посередине — и это делает работу интересной.
+
+Если вас зажигает идея построить реальную AI-инфраструктуру для юриспруденции на крупнейшем открытом корпусе судебных решений в Европе — давайте поговорим.
+
+---
+
+**Репо:** github.com/overthelex/secondlayer
+**Контакт:** vladimir@legal.org.ua
+**Сайт:** legal.org.ua`,
+  },
   'security-audit-gdpr-owasp': {
     title: 'Безопасность LEX AI: GDPR-аудит, 10 исправлений и 7 уровней защиты',
     punchline: '5 параллельных white-hat агентов проверили платформу на соответствие GDPR и OWASP Top 10. Нашли 23 уязвимости — от SQL-инъекций до Google Ads без consent. Исправили 10 критичных за одну сессию. Полная архитектура безопасности: Cloudflare, TLS 1.3, CSP, rate limiting, WebAuthn, E2EE.',
