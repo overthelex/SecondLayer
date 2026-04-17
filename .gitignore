@@ -164,3 +164,9 @@ scripts/hudoc/court-sessions-clean.csv
 scripts/hudoc/court-sessions-sample.csv
 scripts/hudoc/*.zip
 scripts/opendata/rnbo/ua_nsdc_sanctions.json
+
+# Nested projects with their own git repos
+mcplane/
+
+# Opendata importer runtime state (resume checkpoints, temp data)
+services/opendata-importers/_data/
