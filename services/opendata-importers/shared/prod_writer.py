@@ -1,10 +1,29 @@
 """Bulk writer to prod PostgreSQL via SSH + docker exec + COPY."""
 import logging
+import os
 import subprocess
 from typing import Iterable
 
 
 log = logging.getLogger(__name__)
+
+
+def _ssh_cmd(host: str) -> list[str]:
+    """Build ssh argv. Honors PROD_SSH_USER, PROD_SSH_KEY env vars to
+    bypass ~/.ssh/config (which may have permissions issues in containers).
+    """
+    user = os.environ.get("PROD_SSH_USER", "")
+    key = os.environ.get("PROD_SSH_KEY", "")
+    target = f"{user}@{host}" if user else host
+    base = ["ssh", "-F", "/dev/null",
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "LogLevel=ERROR",
+            "-o", "ServerAliveInterval=30"]
+    if key:
+        base += ["-i", key]
+    base.append(target)
+    return base
 
 
 def _escape_copy(v) -> str:
@@ -60,8 +79,8 @@ COMMIT;
 """
     full = sql + payload + "\\.\n" + upsert
 
-    cmd = ["ssh", ssh_host,
-           f"docker exec -i {container} psql -U {dbuser} -d {dbname} -v ON_ERROR_STOP=1"]
+    cmd = _ssh_cmd(ssh_host) + [
+        f"docker exec -i {container} psql -U {dbuser} -d {dbname} -v ON_ERROR_STOP=1"]
     proc = subprocess.run(cmd, input=full, capture_output=True, text=True, timeout=600)
     if proc.returncode != 0:
         log.error(f"prod COPY failed: {proc.stderr[-2000:]}")
@@ -81,8 +100,8 @@ def query_count(table: str,
                 container: str = "secondlayer-postgres-prod",
                 dbuser: str = "secondlayer",
                 dbname: str = "secondlayer_prod") -> int:
-    cmd = ["ssh", ssh_host,
-           f"docker exec {container} psql -U {dbuser} -d {dbname} -tAc 'SELECT COUNT(*) FROM {table}'"]
+    cmd = _ssh_cmd(ssh_host) + [
+        f"docker exec {container} psql -U {dbuser} -d {dbname} -tAc 'SELECT COUNT(*) FROM {table}'"]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     if proc.returncode != 0:
         return -1

@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from shared.base import BaseImporter, setup_logging  # noqa: E402
 from shared.http_client import MultiIPSessionPool  # noqa: E402
+from shared.prod_writer import _ssh_cmd  # noqa: E402
 
 
 ATOM_NS = {"a": "http://www.w3.org/2005/Atom"}
@@ -40,9 +41,9 @@ class NLRechtspraakImporter(BaseImporter):
     CONTENT_URL = "https://data.rechtspraak.nl/uitspraken/content"
 
     def _get_max_date_on_prod(self) -> str:
-        cmd = ["ssh", self.ssh_host,
-               f"docker exec {self.container} psql -U {self.dbuser} -d {self.dbname} -tAc "
-               f"\"SELECT COALESCE(MAX(decision_date)::text, '2000-01-01') FROM {self.TARGET_TABLE}\""]
+        cmd = _ssh_cmd(self.ssh_host) + [
+            f"docker exec {self.container} psql -U {self.dbuser} -d {self.dbname} -tAc "
+            f"\"SELECT COALESCE(MAX(decision_date)::text, '2000-01-01') FROM {self.TARGET_TABLE}\""]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         if proc.returncode != 0:
             self.log.warning(f"Could not read max date: {proc.stderr[-500:]}")

@@ -10,7 +10,9 @@ x-importer-base: &importer-base
     - ${SSH_KEY_DIR:-${HOME}/.ssh}:/root/.ssh:ro
 
 x-importer-env: &importer-env
-  PROD_SSH_HOST: ${PROD_SSH_HOST:-prod}
+  PROD_SSH_HOST: ${PROD_SSH_HOST:-18.192.189.254}
+  PROD_SSH_USER: ${PROD_SSH_USER:-ubuntu}
+  PROD_SSH_KEY: ${PROD_SSH_KEY:-/root/.ssh/secondlayer-prod}
   PG_CONTAINER: ${PG_CONTAINER:-secondlayer-postgres-prod}
   PG_USER: ${PG_USER:-secondlayer}
   PG_DB: ${PG_DB:-secondlayer_prod}
