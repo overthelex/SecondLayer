@@ -15,6 +15,11 @@
 
 import { logger } from '../utils/logger.js';
 import type { EdsrCacheService } from './edrsr-cache-service.js';
+import {
+  EDRSR_FTS_SEARCH_ORDER,
+  FTS_HEADLINE_MAX_WORDS,
+  FTS_HEADLINE_MIN_WORDS,
+} from './search-ranking-config.js';
 
 export interface EdsrFtsFilters {
   court_code?: number;
@@ -156,7 +161,7 @@ export class EdsrFtsService {
     const buildSelectFields = (withHeadline: boolean) => {
       const headlineExpr = withHeadline
         ? `safe_ts_headline('simple'::regconfig, f.full_text, plainto_tsquery('simple', $1),
-           'MaxWords=60, MinWords=20, StartSel=**, StopSel=**') AS headline`
+           'MaxWords=${FTS_HEADLINE_MAX_WORDS}, MinWords=${FTS_HEADLINE_MIN_WORDS}, StartSel=**, StopSel=**') AS headline`
         : `NULL AS headline`;
 
       return hasMetadataFilter
@@ -183,7 +188,7 @@ export class EdsrFtsService {
         SELECT ${selectFields}
         FROM ${fromClause}${extraJoin}
         WHERE ${whereClause}
-        ORDER BY rank DESC
+        ORDER BY ${EDRSR_FTS_SEARCH_ORDER}
         LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
 
       const dataResult = await dbPool.query(dataSql, [...params, safeLimit, safeOffset]);
