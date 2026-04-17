@@ -64,7 +64,7 @@ jobs:
   # ─── Step 2: Build & test on local environment ─────────────────────
   build-and-test:
     name: Build & Test on Local
-    runs-on: [self-hosted, local]
+    runs-on: [self-hosted, local-build]
     needs: detect-changes
     if: needs.detect-changes.outputs.has_changes == 'true'
     env:
