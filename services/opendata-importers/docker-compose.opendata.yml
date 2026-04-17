@@ -1,0 +1,60 @@
+x-importer-base: &importer-base
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: secondlayer-opendata-importer:latest
+  network_mode: host          # use all host IPs for outbound
+  restart: unless-stopped
+  volumes:
+    - ./_data:/data           # checkpoints persist
+    - ${SSH_KEY_DIR:-${HOME}/.ssh}:/root/.ssh:ro
+
+x-importer-env: &importer-env
+  PROD_SSH_HOST: ${PROD_SSH_HOST:-prod}
+  PG_CONTAINER: ${PG_CONTAINER:-secondlayer-postgres-prod}
+  PG_USER: ${PG_USER:-secondlayer}
+  PG_DB: ${PG_DB:-secondlayer_prod}
+  WORKERS_PER_IP: ${WORKERS_PER_IP:-8}
+  SLEEP_BETWEEN_RUNS: ${SLEEP_BETWEEN_RUNS:-3600}
+  RUN_ONCE: ${RUN_ONCE:-0}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  # Optional: SOURCE_IPS=178.150.37.129,178.150.37.162,178.150.37.146
+
+services:
+  nl_rechtspraak:
+    <<: *importer-base
+    container_name: opendata-nl_rechtspraak
+    command: ["importers.nl_rechtspraak"]
+    environment:
+      <<: *importer-env
+      WALK_DAYS: ${RECHTSPRAAK_WALK_DAYS:-30}
+
+  nl_dnb:
+    <<: *importer-base
+    container_name: opendata-nl_dnb
+    command: ["importers.nl_dnb"]
+    environment: *importer-env
+
+  nl_afm:
+    <<: *importer-base
+    container_name: opendata-nl_afm
+    command: ["importers.nl_afm"]
+    environment: *importer-env
+
+  ie_central_bank:
+    <<: *importer-base
+    container_name: opendata-ie_central_bank
+    command: ["importers.ie_central_bank"]
+    environment: *importer-env
+
+  ch_finma:
+    <<: *importer-base
+    container_name: opendata-ch_finma
+    command: ["importers.ch_finma"]
+    environment: *importer-env
+
+  eu_echr:
+    <<: *importer-base
+    container_name: opendata-eu_echr
+    command: ["importers.eu_echr"]
+    environment: *importer-env
