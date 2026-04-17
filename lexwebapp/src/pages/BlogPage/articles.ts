@@ -30,6 +30,175 @@ export function hasRecentArticles(): boolean {
 
 export const articles: Article[] = [
   {
+    id: 'tasks-for-independent-contributors',
+    title: 'Що ми делегуємо незалежним розробникам: PR замість інтервʼю, Claude Code вітається',
+    punchline: 'Конкретні бакети задач, які чекають контрибʼюторів: OpenData-адаптери, ML-експерименти, frontend, performance, тести. Наш єдиний "інтервʼю" — ваш перший pull request. AI-assisted код вітається — ми самі щодня пишемо з Claude Code.',
+    category: 'tech',
+    tags: ['Open Source', 'Hiring', 'Community', 'Claude Code', 'Contributing'],
+    readTime: '8 хв',
+    publishedAt: '2026-04-17',
+    content: `# Що ми делегуємо незалежним розробникам: PR замість інтервʼю, Claude Code вітається
+
+*У попередній статті ми оголосили, що відкриваємо LEX AI як open source. Тепер конкретика: які задачі лежать у backlog, як вони оформлені, чому наш єдиний "interview" — це перший pull request, і чому ми любимо Claude Code.*
+
+---
+
+## PR замість інтервʼю
+
+Ми не віримо в LeetCode, HackerRank і тригодинні собеси з whiteboard-алгоритмами. Це тестує здатність вирішувати задачі під стресом — а не здатність доставити робочий код у реальну кодобазу.
+
+Наш фільтр простіший: візьміть issue з мітки \`good-first-issue\` або \`help-wanted\`, зробіть PR, пройдіть review. Це і є наше "інтервʼю". Тільки з реальним результатом, який залишається в проді — і з оплатою, якщо задача у прайс-листі.
+
+Якщо PR зайшов, ми вже знаємо, що:
+
+- Ви читаєте чужий код і відповідаєте стилю проєкту
+- Ви пишете TypeScript без костилів і без \`any\`-каст
+- Ви локально тестуєте зміни перед push
+- Ви ревʼюєте себе до того, як надіслати
+- Ви спокійно дискутуєте у PR-коментарях
+
+Більше нам не потрібно нічого. Далі — контракт, ставка, обсяг.
+
+---
+
+## Ми самі пишемо з Claude Code. AI-assisted PR'и вітаються
+
+Ми не проти AI-написаного коду. Навпаки — ми самі щодня відправляємо в прод десятки PR'ів, написаних разом із **Claude Code**. Наш CI/CD включає Claude-агентів, які автоматично фіксять падаючі білди на кожному push до main. Так що ваш workflow із Cursor, Claude Code, Copilot чи Codex — не проблема, а радше плюс.
+
+Що ми перевіряємо:
+
+- Ви розумієте **кожен рядок**, який відправляєте — навіть якщо його згенерував агент
+- Ви локально протестували зміни (\`docker compose up\`, не "агент сказав що норм")
+- Ви не копіпастите generic React-код, який не вписується в архітектуру
+- Ви видаляєте мертвий код і placeholder-коментарі перед commit
+
+LLM-помічник — такий самий інструмент, як IDE. Він не робить вас гіршим інженером, але й кращим не робить — він лише пришвидшує того, ким ви вже є.
+
+---
+
+## Бакет 1 — OpenData-адаптери і ETL
+
+У нас інтегровані 15+ державних джерел: EDRSR, Верховна Рада, НАЗК, OpenReyestr, OpenSanctions, GLEIF, ICIJ Offshore Leaks, HIBP, NVD, INTERPOL, World Bank. Бажані наступні:
+
+- **Європейські суди:** rechtspraak.nl (Нідерланди, є частково), justice.cz (Чехія), domstol.se (Швеція), curia.europa.eu (Суд ЄС)
+- **Регуляторні реєстри:** FINMA (Швейцарія), BaFin (Німеччина), AFM (Нідерланди), CSSF (Люксембург)
+- **LATAM:** DNRPA (Аргентина), JusBrasil (Бразилія), InfoTec (Мексика)
+- **Sanctions delta-sync:** інкрементальна синхронізація OFAC із діфами замість повного download
+
+Стандартна задача — 3–5 днів:
+
+1. Написати адаптер у \`services/opendata-importers/importers/\`
+2. Додати checkpoint + resume logic (base class уже є)
+3. Написати тест із fixture
+4. Додати у scheduler конфіг
+
+**Стек:** Python 3.11 async або Node.js, PostgreSQL COPY, shared-модулі base/checkpoint/http_client/ip_pool уже готові.
+
+---
+
+## Бакет 2 — ML експерименти
+
+Найцікавіше і найдорожче. Шукаємо контрибʼюторів на:
+
+- **LoRA fine-tuning** jurisdiction-specific моделей (цивільна, кримінальна, адміністративна) на 1–10M анотованих пар Q&A
+- **Custom embeddings** — fine-tune BGE-M3 на парах \`(правова теза, релевантне рішення)\` з нашого ретриврал-логу
+- **Citation verification** — окрема модель, яка перевіряє чи цитована стаття кодексу справді містить заявлений текст
+- **Router model** — класифікатор "який tool викликати" на базі запиту, що замінить поточний rule-based gateway
+
+**Стек:** HuggingFace, PyTorch, vLLM, optional Vertex AI / SageMaker. GPU виділяємо з нашого credit-pool з Google Cloud / AWS.
+
+Оплата: фікс + бонус за досягнення метрики (наприклад, >X% preference rate vs baseline).
+
+---
+
+## Бакет 3 — Frontend і UX
+
+lexwebapp — React 19 + Vite + TailwindCSS + Zustand + TanStack Query. Чекають:
+
+- **Evidence panel refactor** — результати пошуку мають рендеритись у правій панелі, не в чаті (кілька issues відкрито)
+- **Диф-вʼюер для судових рішень** — side-by-side порівняння двох рішень із підсвіткою схожих частин
+- **Timeline view** — хронологія справ по одній стороні (ФОП / ТОВ)
+- **Dashboard для юрфірм** — багатокористувацький view на справи команди
+- **Accessibility audit** — WCAG AA для всіх ключових сторінок
+
+Складність — від **3-денної задачі** (timeline view) до **2-тижневого проєкту** (dashboard).
+
+---
+
+## Бакет 4 — Performance і infra
+
+- **PostgreSQL оптимізація** — база 1.17 TB, деякі запити тягнуться 5–10 с; потрібне партиціонування по роках для таблиці \`cases\`
+- **pgvector HNSW tuning** — 65M векторизованих рішень, оптимізація ef_search vs recall
+- **Redis cache layer** — фронт-кеш для тяжких агрегацій статистики справ по юрисдикціях
+- **Docker image slimming** — деякі образи по 2 GB, треба multi-stage + distroless
+- **CI/CD speedup** — local runner будує монорепо за 12 хв, ціль — 4 хв
+
+---
+
+## Бакет 5 — Тести і документація
+
+- **Playwright E2E** для критичних flows: реєстрація → Diia-auth → пошук → експорт → платіж
+- **Jest coverage** для \`services/\` у mcp_backend (зараз ~45%, ціль — 75%)
+- **OpenAPI spec** для HTTP API всіх трьох MCP-серверів
+- **Architecture diagrams** у Mermaid у \`docs/\`
+- **API examples** на Python / cURL / JS для розробників
+
+Ці задачі — ідеальні для першого PR. Низький ризик, швидкий review, ми завжди на звʼязку.
+
+---
+
+## Що ми НЕ делегуємо
+
+Щоб не було непорозумінь:
+
+- **Продуктові промпти** — живуть у закритому \`secondlayer-core\`
+- **Бізнес-логіку білінгу** — Monobank callback handlers, credit deduction, subscription tier resolution
+- **Anti-abuse heuristics** — rate-limiting стратегії, поведінковий аналіз
+- **Прямий контакт із клієнтами** — enterprise-юрфірми, держ-партнери
+- **Юридичні рішення у контенті** — що модель відповідає щодо чутливих тем (це разом із юристами)
+
+Усе інше — чесна гра.
+
+---
+
+## Як почати
+
+1. **Склонуйте** \`github.com/overthelex/secondlayer\`, запустіть \`docker compose -f docker-compose.local.yml --env-file .env.local up -d\`
+2. **Подивіться issues** з мітками \`good-first-issue\`, \`help-wanted\`, \`bounty\`
+3. **Напишіть коментар** в issue, що берете задачу (щоб не дублюватись)
+4. **Зробіть PR** — ми ревʼюємо протягом 48 годин
+5. **Отримайте оплату** — UAH банком або USDT, якщо задача з прайсом
+
+Якщо задача у бакеті ML, OSINT або performance — рекомендуємо перед початком написати Discussion, щоб ми синхронізувалися по підходу. Інакше є ризик зробити PR, який ми попросимо переписати.
+
+---
+
+## Часті запитання
+
+**Q: А якщо я новачок і ніколи не робив PR у відкритий код?**
+A: Є Бакет 5 (тести і документація). Перший PR на доповнення README або новий Playwright-тест — чудова точка входу. Допоможемо з ревʼю і порадою.
+
+**Q: Як оплата?**
+A: Перед тим, як брати задачу, перевірте чи має вона лейбл \`bounty\` або \`paid\`. Якщо так — сума в описі. Інакше це community-contribution без оплати, але зі згадкою у CHANGELOG і credit у README.
+
+**Q: Чи можу взяти велику ML-задачу як перший внесок?**
+A: Краще ні. Почніть із задачі на 1–3 дні, щоб ми обидва побачили, як вам працюється з нашим кодом. Далі — усе ваше.
+
+**Q: Ви підпишете NDA?**
+A: Якщо задача з \`secondlayer-core\` — так, простий mutual NDA. Для open-source задач NDA не потрібен.
+
+---
+
+**Відкрите репо:** https://github.com/overthelex/secondlayer
+**Issues для контрибʼюторів:** https://github.com/overthelex/secondlayer/labels/good-first-issue
+**Discussions:** https://github.com/overthelex/secondlayer/discussions
+**Контакт:** vladimir@legal.org.ua
+
+---
+
+*Пишіть PR, а не cover letter.*`,
+  },
+  {
     id: 'open-source-welcome-engineers',
     title: 'Відкриваємо двері: шукаємо незалежних AI/ML інженерів і open-source контрибʼюторів',
     punchline: 'LEX AI відкриває платформу як open source. Запрошуємо сильних інженерів — AI/ML, backend, data, frontend — долучатися контрибʼюторами або приєднуватися до команди. Що вже відкрито, кого шукаємо, і як долучитися.',
