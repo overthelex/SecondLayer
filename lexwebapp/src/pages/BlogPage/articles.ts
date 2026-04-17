@@ -30,6 +30,274 @@ export function hasRecentArticles(): boolean {
 
 export const articles: Article[] = [
   {
+    id: 'ml-engineer-competencies',
+    title: 'Які компетенції нам потрібні від ML інженера: 9 пунктів, які ми чекаємо у резюме',
+    punchline: 'Google Cloud перед виділенням GPU ставить 5 питань. Ми розібрали їх у 9 ML-компетенцій — від LoRA на 70B і continued pre-training DeepSeek-V3 685B до RLHF із конституційним alignment і capacity planning для $200K+ training run. Конкретні приклади з нашого stack.',
+    category: 'tech',
+    tags: ['Machine Learning', 'LLM', 'Hiring', 'RLHF', 'Fine-tuning', 'Vertex AI'],
+    readTime: '12 хв',
+    publishedAt: '2026-04-17',
+    content: `# Які компетенції нам потрібні від ML інженера
+
+*Google Cloud перед виділенням GPU ставить п'ять запитань. AWS — свої. Nebius — свої. Будь-який ML-інженер, якому ми довіримо тренування моделі, має знати відповіді на всі з них і розуміти trade-offs за кожним. Ось детальний розбір компетенцій, які ми шукаємо — з прикладами з нашого реального стеку.*
+
+---
+
+## Контекст: п'ять питань від Google Cloud
+
+На зустрічі Dawid Szymula, Startup Territory Lead Google Cloud (Польща і Україна), попросив від нас конкретику:
+
+1. **Training / Fine-tuning / Inference** — що саме, і як розподілено у часі?
+2. **Model specs** — яка модель, скільки параметрів, скільки тренувальних токенів?
+3. **Concurrent users** на пікові моменти?
+4. **Input/Output volume** — середній промпт, довжина відповіді?
+5. **TTFT** (Time to First Token) — цільовий показник?
+
+За цими п'ятьма питаннями стоїть уся дисципліна ML-інфраструктури: від розрахунку ефективної моделі тренування до sizing GPU під inference. Від кандидата на ML-роль у нас ми очікуємо володіння цими питаннями без підказок — з подальшою конкретикою нижче.
+
+---
+
+## 1. Fine-tuning LLM 70B+ параметрів
+
+### Що має бути за плечима
+
+- **LoRA / QLoRA** на моделях 7B, 13B, 32B, 70B — розуміння rank, alpha, target modules, quantization
+- **Full fine-tuning** vs PEFT — коли обрати що, як виміряти trade-off
+- **Multi-node training** — DDP, FSDP, DeepSpeed ZeRO stages, tensor/pipeline parallelism
+- **Continued pre-training** на домені — практика з 10B+ токенів специфічного корпусу
+
+### Наш стек
+
+- Головна ціль Phase 2: **continued pre-training DeepSeek-V3 685B (MoE, 37B active)** на 50–80B токенів корпусу EDRSR
+- Proxy-ціль для feasibility у Phase 1: LoRA fine-tune **DeepSeek-R1-Distill 70B** і **Qwen-32B** на 5–10K анотованих пар Q&A
+
+### Що перевіримо на pair-programming
+
+- Ви тренували 70B модель самі (не API wrap)?
+- Скільки часу зайняв один training run, на якому hardware?
+- Eval-методологія: perplexity, downstream tasks, human preference?
+- Як впоралися з memory fragmentation на multi-node?
+
+---
+
+## 2. Custom Embeddings Fine-tuning
+
+### Що має бути за плечима
+
+- Bi-encoder архітектури: BERT, MPNet, BGE, E5, jina-embeddings
+- **Contrastive learning** — InfoNCE, triplet loss, MultipleNegativesRankingLoss
+- **Hard negative mining** — BM25-based, vector-based, LLM-generated
+- Domain adaptation: generative pseudo-labeling (GPL), MSMARCO transfer
+
+### Наш стек
+
+- **BGE-M3** як базова модель (multi-vector: dense + sparse + ColBERT-style)
+- Ціль: fine-tune на \`(правова теза → релевантні рішення)\` парах із нашого retrieval-логу
+- Baseline: нинішній Voyage AI — у 10 разів дорожчий у runtime за зіставну якість
+
+### Що перевіримо
+
+- Ваш останній embedding fine-tune — що тренували, на якому датасеті, яким loss?
+- Як формуєте hard negatives для юридичного корпусу?
+- Як оцінювали покращення — nDCG@10, MRR, Recall@k?
+
+---
+
+## 3. RLHF і Constitutional Alignment
+
+### Що має бути за плечима
+
+- **Reward modeling** — Bradley-Terry, preference datasets, DPO/IPO/KTO
+- **PPO variants** — TRL, RLHFlow, Nemotron-RL pipelines
+- **Constitutional AI** — Anthropic-style self-critique, critique-revision loops
+- **Adversarial RLHF** — multi-agent setups, red-teaming
+
+### Наш стек
+
+- **Constitutional RLHF із юридичною жорсткою логікою** — правила з конкретних статей Конституції України (презумпція невинуватості, право на судовий захист, пропорційність privacy) як формальні reward constraints, а не абстрактні етичні принципи
+- **Adversarial training**: три окремі role-specific моделі (advocate, prosecutor, judge), що тренуються одна проти одної на симульованих справах
+- 6 спеціалізованих reward-моделей: General, Civil, Criminal, Administrative, Rare categories, Temporal
+
+### Що перевіримо
+
+- Ви робили RLHF із нуля — reward model train + PPO loop?
+- Як боролися з reward hacking?
+- Досвід із DPO як альтернативою PPO?
+
+---
+
+## 4. Cloud ML Infrastructure
+
+### Що має бути за плечима
+
+- **Vertex AI** — Training, Pipelines, Model Registry, Endpoints
+- **SageMaker HyperPod** — recipes для DeepSeek, Llama, Mistral
+- **Kubernetes для ML** — Ray, Kubeflow, NVIDIA GPU Operator
+- **TPU v5p / v5e** vs **H100/H200** vs **Trainium2** — практичне розуміння, коли що
+
+### Наш стек
+
+- Phase 2 обдумуємо на **Vertex AI** (Google пропонує TPU v5p pods) або **SageMaker HyperPod + Trainium2** на AWS
+- Inference: **L4** (Vertex) або **Inferentia2** (AWS) + **vLLM** для шардингу
+- Запит до обох cloud: підказати оптимальну конфігурацію для continued pre-training на 685B parameters
+
+### Що перевіримо
+
+- Ви запускали multi-node training на TPU v5p або H100 8-GPU cluster?
+- Що робили, коли training job падав на 60% через OOM в одному воркері?
+- Які checkpointing стратегії використовували для tolerance?
+
+---
+
+## 5. Inference Optimization
+
+### Що має бути за плечима
+
+- **vLLM, TGI, SGLang** — PagedAttention, continuous batching, speculative decoding
+- **Quantization** — AWQ, GPTQ, FP8, INT8, INT4 для inference
+- **Distillation** — TinyLlama-class моделі для high-volume роутинга
+- **KV-cache optimization** — prefix caching, chunked prefill
+
+### Наш стек
+
+- Ціль TTFT: **<500ms** на production inference
+- Peak concurrent users: **500–1,000**
+- Input: 8–16K tokens, Output: 2–8K tokens (середній legal query з контекстом)
+- Stack: **vLLM** + **FP8 quant** + **prefix cache**, fallback — Bedrock Claude для reasoning-overflow
+
+### Що перевіримо
+
+- Як довести TTFT з 1.2s до 400ms на 70B моделі?
+- Коли distillation краще за quantization?
+- Prefix caching — реальна економія на нашому workload?
+
+---
+
+## 6. Retrieval, RAG і Citation Verification
+
+### Що має бути за плечима
+
+- **pgvector** vs **Qdrant** vs **Milvus** — практичний вибір під масштаб
+- **HNSW tuning** — M, ef_construction, ef_search, quantization
+- **Hybrid search** — BM25 + dense, reranking з cross-encoders
+- **Citation grounding** — перевірка цитат у базі замість галюцинації
+
+### Наш стек
+
+- **Qdrant** + **pgvector** (дублювання для консистентності)
+- **65M векторизованих** рішень із 100M повнотекстових (1.17 TB PostgreSQL)
+- Ціль Phase 3: **citation verification model** — окрема модель, яка cross-references кожен вихід основної моделі проти нашої БД, щоб не пропустити сфабриковану цитату статті кодексу
+
+### Що перевіримо
+
+- Ви будували retrieval на scale 10M+ документів?
+- Як боретесь із false positives у recall?
+- Цитатна верифікація — ваш підхід?
+
+---
+
+## 7. Capacity Planning і Cost Modeling
+
+### Що має бути за плечима
+
+- Розрахунок **TFLOPS-годин** для training run заданого розміру
+- GPU-hours vs TPU-hours — коли яке економічніше для workload
+- **Cost-per-token** для inference з урахуванням utilization, batching, quantization
+- Хмарний арбітраж: Vertex AI vs SageMaker vs Nebius vs on-prem
+
+### Наш стек
+
+- Total estimated cloud spend: **$195K–$265K** за 12 місяців
+- Phase 1 ~$15K (fine-tune), Phase 2 ~$80–120K (continued pre-training), Phase 3 ~$100–130K (train + inference)
+- Паралельні переговори з Google Cloud, AWS, Nebius для sponsor-кредитів
+
+### Що перевіримо
+
+- Ви робили capacity plan для реального проєкту?
+- Як би ви переконали CFO підвищити бюджет на 30%?
+- Де ваша точка перетину між commercial LLM (Claude Bedrock) і self-hosted?
+
+---
+
+## 8. Evaluation Methodology
+
+### Що має бути за плечима
+
+- **LLM-as-a-judge** із калібруванням на людських оцінках
+- **Domain benchmarks** — LegalBench, CaseHOLD, не лише MMLU
+- **Hallucination measurement** — для моделей із фактчеком (як наш)
+- **Preference rate** vs baselines — Harvey-style метрика: "% часу, коли юрист обирає нашу відповідь над GPT-4"
+
+### Наш стек
+
+- Цільові метрики Phase 3:
+  - **>95% preference rate** vs GPT-4o на юридичних задачах
+  - **<0.2% hallucination rate** (через citation verification)
+  - **>85% citation accuracy** — чи правильно модель послалася на конкретні статті
+- Evaluation panel: 20+ практикуючих українських адвокатів
+
+### Що перевіримо
+
+- Які eval-пайплайни ви будували?
+- Як боролися з judge-bias в LLM-as-a-judge?
+- Чи робили human eval на scale, як організовували?
+
+---
+
+## 9. Data Engineering для великих корпусів
+
+### Що має бути за плечима
+
+- **Deduplication at scale** — MinHash, SimHash, fuzzy dedup на 100M+ документів
+- **Filtering pipelines** — quality scoring, PII detection, toxic content
+- **Tokenization** — BPE, tiktoken, domain-specific vocabularies
+- **Chunking** — семантичне, sliding window, document-aware (наприклад, по статтях юридичних документів)
+
+### Наш стек
+
+- **EDRSR**: 100.5M рішень, 1.17 TB — потрібен dedupe (багато бойлерплейту)
+- **Dutch courts**: 488K повних текстів з rechtspraak.nl для cross-jurisdiction transfer
+- **Legislation**: 76K секцій із Верховної Ради, звʼязані з case law
+- Власний \`SemanticSectionizer\` для розбивки документів на логічні секції (статті, частини, пункти)
+
+### Що перевіримо
+
+- Ви робили dedup на 10M+ docs?
+- Як підходили до filtering, щоб не викинути корисні edge cases?
+- Чанкінг юридичних документів — ваші підходи?
+
+---
+
+## Bonus: що ми НЕ шукаємо
+
+- Kaggle medals без production ML досвіду
+- "Prompt engineer" без fine-tuning права
+- Тільки академічний research без ship-it-to-prod історії
+- Сертифікати Coursera як єдиний доказ навичок
+
+---
+
+## Як почати
+
+Якщо ви почуваєтесь упевнено хоча б у 4 з 9 пунктів вище — напишіть на \`vladimir@legal.org.ua\`. Покажіть:
+
+1. **Один training run**, яким ви пишаєтесь — що тренували, на якому datascale, які метрики
+2. **Один inference-optimization win** — що зменшили, на скільки, як
+3. Чому вам цікавий юридичний домен — чесно, без пафосу
+
+Ми відповідаємо протягом 48 годин. Перший крок — pair-programming на реальній ML-задачі з нашого backlog (Bucket 2 у попередній статті).
+
+---
+
+**Відкрите репо:** https://github.com/overthelex/secondlayer
+**Issues для контрибʼюторів:** https://github.com/overthelex/secondlayer/labels/good-first-issue
+**Контакт:** vladimir@legal.org.ua
+
+---
+
+*Claude Code welcome. Але відповіді на технічні питання — ваші, не агента.*`,
+  },
+  {
     id: 'tasks-for-independent-contributors',
     title: 'Що ми делегуємо незалежним розробникам: PR замість інтервʼю, Claude Code вітається',
     punchline: 'Конкретні бакети задач, які чекають контрибʼюторів: OpenData-адаптери, ML-експерименти, frontend, performance, тести. Наш єдиний "інтервʼю" — ваш перший pull request. AI-assisted код вітається — ми самі щодня пишемо з Claude Code.',
