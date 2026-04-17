@@ -21,17 +21,43 @@ We\'re building Harvey.ai-level quality for Ukrainian jurisprudence on open-weig
 
 ---
 
-## What\'s Already Open
+## Our Repository Layout
 
-The \`overthelex/secondlayer\` monorepo contains three MCP servers, the frontend, the shared package, and all deployment scripts. Publicly available:
+We maintain two repositories, and this is important to understand up front.
 
-- **Platform architecture** — MCP tools, triple transport (stdio / HTTP / SSE), unified gateway
-- **Adapters to open sources** — EDRSR, Verkhovna Rada, NACP, OpenReyestr, OpenSanctions, GLEIF, ICIJ Offshore Leaks, HIBP, NVD, INTERPOL
-- **Data pipelines** — imports for 340M+ records from 15 government APIs, multi-IP scheduler, freshness monitoring
-- **Blue-green CI/CD** — self-hosted runner, Claude Code auto-fix agents, blue-green deploy over SSH
-- **Frontend** — React 19 + Vite + TailwindCSS + Zustand + TanStack Query
+### 1. \`overthelex/secondlayer\` — public, open source
 
-Everything related to legal data, OSINT pipelines, importers, MCP architecture — in the public repo. Only the ML layer with product prompts and orchestration remains proprietary (\`secondlayer-core\`).
+The main monorepo, now public:
+
+**https://github.com/overthelex/secondlayer**
+
+Almost the entire platform is there:
+
+- Three MCP servers (\`mcp_backend\`, \`mcp_rada\`, \`mcp_openreyestr\`) — court cases, parliament, business registry
+- Web frontend (\`lexwebapp\`) — React 19, Vite, TailwindCSS, Zustand, TanStack Query
+- Shared TypeScript package (\`packages/shared\`) — LLM manager, logger, cost tracker, SSE handler, database base class
+- Developer Console (\`platform\`) — **platform.legal.org.ua**, the developer portal: API keys, documentation, integration examples
+- Data importers for 340M+ records from 15 government APIs — EDRSR, Verkhovna Rada, NACP, OpenReyestr, OpenSanctions, GLEIF, ICIJ Offshore Leaks, HIBP, NVD, INTERPOL, World Bank
+- Full CI/CD — self-hosted GitHub Actions runner, blue-green deploy over SSH, Claude Code auto-fix agents for failing builds
+- All deployment configuration — Docker Compose for local, blue-green compose for production, nginx, manage-gateway script
+- Playwright E2E + Jest/Vitest unit tests
+- Migrations for three PostgreSQL instances
+- Internal documentation, architecture notes
+
+Clone it, read it, run it locally. Everything needed for a working instance is there.
+
+### 2. \`overthelex/secondlayer-core\` — private, closed source
+
+A separate repository we deliberately keep private. It contains:
+
+- **Chat and orchestration logic** — how user queries are classified, routed between tools, and composed into multi-step responses
+- **Production prompts** — exact templates, few-shot examples, system messages used in production for classification, summarization, citation checks, tool selection
+- **Billing and payment business logic** — credit deduction rules, subscription tier resolution, Monobank callback handlers
+- **Anti-abuse and rate-limiting heuristics** we don\'t want adversaries to enumerate
+
+This is the minimum closed surface that protects our product positioning without holding back the open parts. **The whole "chat logic" — prompt engineering, tool orchestration, model cascading, response composition — lives here, and it is not public.** The open repository expects this layer as a dependency but ships fully functional stub implementations for contributors.
+
+If you join the team, you get access to \`secondlayer-core\` from day one. If you contribute externally, you work against the open repo and the stubs — that already covers everything except production prompt engineering.
 
 ---
 
@@ -114,9 +140,10 @@ If you\'re excited by building real AI infrastructure for jurisprudence on the l
 
 ---
 
-**Repo:** github.com/overthelex/secondlayer
+**Open repo:** https://github.com/overthelex/secondlayer
+**Closed core (chat logic):** \`overthelex/secondlayer-core\` — private, granted on hire
 **Contact:** vladimir@legal.org.ua
-**Site:** legal.org.ua`,
+**Site:** https://legal.org.ua`,
   },
   'security-audit-gdpr-owasp': {
     title: 'LEX AI Security: GDPR Audit, 10 Fixes, and 7 Layers of Protection',

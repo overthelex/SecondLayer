@@ -53,17 +53,43 @@ LEX — українська юридична AI-платформа. Семан�
 
 ---
 
-## Що вже відкрито
+## Структура наших репозиторіїв
 
-Монорепо \`overthelex/secondlayer\` містить три MCP-сервери, фронтенд, shared-пакет і всі deployment-скрипти. Публічно доступно:
+Ми підтримуємо два репозиторії — і це важливо розуміти з самого початку.
 
-- **Архітектуру платформи** — MCP tools, triple transport (stdio / HTTP / SSE), unified gateway
-- **Адаптери до відкритих джерел** — EDRSR, Верховна Рада, НАЗК, OpenReyestr, OpenSanctions, GLEIF, ICIJ Offshore Leaks, HIBP, NVD, INTERPOL
-- **Data pipelines** — imports для 340M+ записів з 15 державних API, multi-IP scheduler, freshness-моніторинг
-- **Blue-green CI/CD** — self-hosted runner, Claude Code auto-fix агенти, blue-green deploy через SSH
-- **Frontend** — React 19 + Vite + TailwindCSS + Zustand + TanStack Query
+### 1. \`overthelex/secondlayer\` — публічний, open source
 
-Все що стосується юридичних даних, OSINT-піплайнів, імпортерів, архітектури MCP — у публічному репо. Пропрієтарним залишається лише ML-шар з продуктовими промптами і оркестрацією (\`secondlayer-core\`).
+Основне монорепо, тепер публічне:
+
+**https://github.com/overthelex/secondlayer**
+
+Майже вся платформа там:
+
+- Три MCP-сервери (\`mcp_backend\`, \`mcp_rada\`, \`mcp_openreyestr\`) — судова практика, парламент, бізнес-реєстри
+- Веб-фронтенд (\`lexwebapp\`) — React 19, Vite, TailwindCSS, Zustand, TanStack Query
+- Shared TypeScript-пакет (\`packages/shared\`) — LLM manager, logger, cost tracker, SSE handler, database base class
+- Developer Console (\`platform\`) — **platform.legal.org.ua**, портал для розробників: API ключі, документація, приклади інтеграцій
+- Data importers для 340M+ записів з 15 державних API — EDRSR, Верховна Рада, НАЗК, OpenReyestr, OpenSanctions, GLEIF, ICIJ Offshore Leaks, HIBP, NVD, INTERPOL, World Bank
+- Повний CI/CD — self-hosted GitHub Actions runner, blue-green deploy через SSH, Claude Code auto-fix агенти для падаючих білдів
+- Вся deployment-конфігурація — Docker Compose локально, blue-green compose на проді, nginx, manage-gateway script
+- Playwright E2E + Jest/Vitest unit tests
+- Міграції для трьох PostgreSQL-інстансів
+- Внутрішня документація, архітектурні нотатки
+
+Клонуйте, читайте, запускайте локально. Все необхідне для робочого інстансу — там.
+
+### 2. \`overthelex/secondlayer-core\` — приватний, closed source
+
+Окремий репозиторій, який ми свідомо залишаємо приватним. Містить:
+
+- **Логіку чату та оркестрації** — як запити користувача класифікуються, маршрутизуються між tools і компонуються в багатокрокові відповіді
+- **Продуктові промпти** — конкретні шаблони, few-shot приклади, system messages для класифікації, сумаризації, перевірки цитат, вибору tool
+- **Білінг та бізнес-логіку платежів** — правила списання кредитів, розвʼязання підписочних тарифів, Monobank callback handlers
+- **Anti-abuse і rate-limiting евристики**, які ми не хочемо віддавати адверсаріям
+
+Це мінімальна закрита поверхня, яка захищає наше продуктове позиціонування без стримування відкритих частин. **Уся "chat logic" — prompt engineering, tool orchestration, каскадування моделей, композиція відповідей — живе тут, і вона не публічна.** Відкритий репозиторій очікує цей шар як залежність, але постачає повнофункціональні stub-реалізації для контрибʼюторів.
+
+Якщо ви приєднуєтесь до команди — отримуєте доступ до \`secondlayer-core\` з першого дня. Якщо контрибʼютите ззовні — працюєте з відкритим репо і стабами, що вже покриває все окрім продуктового prompt engineering.
 
 ---
 
@@ -146,9 +172,10 @@ LEX — українська юридична AI-платформа. Семан�
 
 ---
 
-**Репо:** github.com/overthelex/secondlayer
+**Відкрите репо:** https://github.com/overthelex/secondlayer
+**Закритий core (chat logic):** \`overthelex/secondlayer-core\` — приватний, надається при наймі
 **Контакт:** vladimir@legal.org.ua
-**Сайт:** legal.org.ua`,
+**Сайт:** https://legal.org.ua`,
   },
   {
     id: 'distributed-monolith',

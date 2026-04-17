@@ -21,17 +21,43 @@ LEX — украинская юридическая AI-платформа. Се�
 
 ---
 
-## Что уже открыто
+## Структура наших репозиториев
 
-Монорепо \`overthelex/secondlayer\` содержит три MCP-сервера, фронтенд, shared-пакет и все deployment-скрипты. Публично доступно:
+Мы поддерживаем два репозитория — и это важно понимать с самого начала.
 
-- **Архитектура платформы** — MCP tools, triple transport (stdio / HTTP / SSE), unified gateway
-- **Адаптеры к открытым источникам** — EDRSR, Верховная Рада, НАПК, OpenReyestr, OpenSanctions, GLEIF, ICIJ Offshore Leaks, HIBP, NVD, INTERPOL
-- **Data pipelines** — импорты 340M+ записей из 15 государственных API, multi-IP scheduler, freshness-мониторинг
-- **Blue-green CI/CD** — self-hosted runner, Claude Code auto-fix агенты, blue-green deploy через SSH
-- **Frontend** — React 19 + Vite + TailwindCSS + Zustand + TanStack Query
+### 1. \`overthelex/secondlayer\` — публичный, open source
 
-Всё, что касается юридических данных, OSINT-пайплайнов, импортёров, архитектуры MCP — в публичном репо. Проприетарным остаётся только ML-слой с продуктовыми промптами и оркестрацией (\`secondlayer-core\`).
+Основное монорепо, теперь публичное:
+
+**https://github.com/overthelex/secondlayer**
+
+Почти вся платформа там:
+
+- Три MCP-сервера (\`mcp_backend\`, \`mcp_rada\`, \`mcp_openreyestr\`) — судебная практика, парламент, бизнес-реестры
+- Веб-фронтенд (\`lexwebapp\`) — React 19, Vite, TailwindCSS, Zustand, TanStack Query
+- Shared TypeScript-пакет (\`packages/shared\`) — LLM manager, logger, cost tracker, SSE handler, database base class
+- Developer Console (\`platform\`) — **platform.legal.org.ua**, портал для разработчиков: API ключи, документация, примеры интеграций
+- Data importers для 340M+ записей из 15 государственных API — EDRSR, Верховная Рада, НАПК, OpenReyestr, OpenSanctions, GLEIF, ICIJ Offshore Leaks, HIBP, NVD, INTERPOL, World Bank
+- Полный CI/CD — self-hosted GitHub Actions runner, blue-green deploy через SSH, Claude Code auto-fix агенты для падающих билдов
+- Вся deployment-конфигурация — Docker Compose локально, blue-green compose на проде, nginx, manage-gateway script
+- Playwright E2E + Jest/Vitest unit tests
+- Миграции для трёх PostgreSQL-инстансов
+- Внутренняя документация, архитектурные заметки
+
+Клонируйте, читайте, запускайте локально. Всё необходимое для рабочего инстанса — там.
+
+### 2. \`overthelex/secondlayer-core\` — приватный, closed source
+
+Отдельный репозиторий, который мы сознательно оставляем приватным. Содержит:
+
+- **Логику чата и оркестрации** — как запросы пользователя классифицируются, маршрутизируются между tools и компонуются в многошаговые ответы
+- **Продуктовые промпты** — конкретные шаблоны, few-shot примеры, system messages для классификации, суммаризации, проверки цитат, выбора tool
+- **Биллинг и бизнес-логику платежей** — правила списания кредитов, разрешение тарифов подписок, Monobank callback handlers
+- **Anti-abuse и rate-limiting эвристики**, которые мы не хотим раскрывать адверсариям
+
+Это минимальная закрытая поверхность, которая защищает наше продуктовое позиционирование без торможения открытых частей. **Вся "chat logic" — prompt engineering, tool orchestration, каскадирование моделей, композиция ответов — живёт здесь, и она не публичная.** Открытый репозиторий ожидает этот слой как зависимость, но поставляет полнофункциональные stub-реализации для контрибьюторов.
+
+Если вы присоединяетесь к команде — получаете доступ к \`secondlayer-core\` с первого дня. Если контрибьютите извне — работаете с открытым репо и стабами, что уже покрывает всё кроме продуктового prompt engineering.
 
 ---
 
@@ -114,9 +140,10 @@ LEX — украинская юридическая AI-платформа. Се�
 
 ---
 
-**Репо:** github.com/overthelex/secondlayer
+**Открытое репо:** https://github.com/overthelex/secondlayer
+**Закрытый core (chat logic):** \`overthelex/secondlayer-core\` — приватный, предоставляется при найме
 **Контакт:** vladimir@legal.org.ua
-**Сайт:** legal.org.ua`,
+**Сайт:** https://legal.org.ua`,
   },
   'security-audit-gdpr-owasp': {
     title: 'Безопасность LEX AI: GDPR-аудит, 10 исправлений и 7 уровней защиты',
