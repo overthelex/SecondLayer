@@ -39,7 +39,7 @@ For scale: a typical RAG project holds 100K — 1M vectors. Ours is two orders o
 
 ## Stack
 
-**Embedding model.** \`voyage-3.5\` from Voyage AI. 1024-dimensional output, $0.06 per 1M tokens. We tested Voyage 3 Large and OpenAI text-embedding-3-large, but the quality gain on legal text didn\'t justify the cost difference (Voyage 3 Large is 3x more expensive). We already had an index on 3.5 for prior jurisdictions, so we stay on it for compatibility.
+**Embedding model.** \`voyage-3.5\` from Voyage AI. 1024-dimensional output, 6 cents per million tokens. We tested Voyage 3 Large and OpenAI text-embedding-3-large, but the quality gain on legal text didn\'t justify the cost difference (Voyage 3 Large is 3x more expensive). We already had an index on 3.5 for prior jurisdictions, so we stay on it for compatibility.
 
 **Vector DB.** Qdrant, self-hosted in Docker. One collection \`edrsr_decisions\` with HNSW index. Payload carries doc_id, court_code, judge, cause_num, justice_kind, adjudication_date, judgment_code, category_code, plus chunk_index/total_chunks and chunk text.
 
@@ -93,9 +93,9 @@ We also bumped swap on the local dev machine from 8GB to 24GB — heavy Voyage A
 
 ## Cost
 
-One civil document averages: 2.7 chunks × 850 tokens = 2300 tokens. At $0.06/1M tokens that\'s **$0.000138 per document**.
+One civil document averages 2.7 chunks × 850 tokens = 2300 tokens. At voyage-3.5 pricing of 6 cents per million tokens, one document costs **0.014 cents** — roughly 138 microdollars.
 
-On 10% (3.37M documents) we spent $467.50 over 14.8 hours. Remaining 30.33M documents = roughly **$3,100** more and **130 hours** (about 5.4 days of continuous processing). Total cost of the full CPC cohort vectorization — around **$3,600**.
+On 10% (3.37M documents) we spent **467 dollars** over 14.8 hours. Remaining 30.33M documents cost roughly **3,100 dollars** more and **130 hours** (about 5.4 days of continuous processing). Total cost of the full CPC cohort vectorization — around **3,600 dollars**.
 
 For scale: the same budget on OpenAI text-embedding-3-large would get us only a quarter of the volume. Voyage wins specifically at this scale.
 
@@ -113,7 +113,7 @@ That\'s a different class of product compared to FTS. FTS finds documents where 
 
 - 33.7M civil EDRSR cases → Voyage voyage-3.5 → Qdrant
 - 63 docs/sec, concurrency 50, two API keys round-robin
-- ~$3,600 total cost for full CPC vectorization
+- ~3,600 dollars total cost for full CPC vectorization
 - Checkpoint/resume JSON, survived two incidents already
 - After completion — 195M vectors in one collection, unified semantic search over all Ukrainian judicial practice
 
