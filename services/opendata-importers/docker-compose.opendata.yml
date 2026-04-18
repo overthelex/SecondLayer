@@ -93,3 +93,38 @@ services:
     environment:
       <<: *importer-env
       MAX_ACTS: ${FEDLEX_MAX_ACTS:-500}
+
+  spain_consejo_estado:
+    <<: *importer-base
+    container_name: opendata-spain_consejo_estado
+    command: ["importers.spain_consejo_estado"]
+    environment:
+      <<: *importer-env
+      CE_MAX_PER_YEAR: ${CE_MAX_PER_YEAR:-500}
+      CE_YEARS: ${CE_YEARS:-}
+
+  spain_boe_sumarios:
+    <<: *importer-base
+    container_name: opendata-spain_boe_sumarios
+    command: ["importers.spain_boe_sumarios"]
+    environment:
+      <<: *importer-env
+      BOE_BACKFILL_DAYS: ${BOE_BACKFILL_DAYS:-0}
+      BOE_MAX_DAYS: ${BOE_MAX_DAYS:-30}
+
+  spain_contratos:
+    <<: *importer-base
+    container_name: opendata-spain_contratos
+    command: ["importers.spain_contratos"]
+    environment:
+      <<: *importer-env
+      CONTRATOS_MAX_PAGES: ${CONTRATOS_MAX_PAGES:-10}
+      CONTRATOS_SOURCES: ${CONTRATOS_SOURCES:-federal,ccaa,local}
+
+  spain_congreso:
+    <<: *importer-base
+    container_name: opendata-spain_congreso
+    command: ["importers.spain_congreso"]
+    environment:
+      <<: *importer-env
+      CONGRESO_LEGS: ${CONGRESO_LEGS:-15,14,13}
