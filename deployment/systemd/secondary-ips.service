@@ -1,0 +1,12 @@
+[Unit]
+Description=Assign AWS-secondary private IPs to ens5
+After=network-online.target cloud-final.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/secondary-ips.sh
+
+[Install]
+WantedBy=multi-user.target
