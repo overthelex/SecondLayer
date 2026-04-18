@@ -30,6 +30,7 @@ services:
     environment:
       <<: *importer-env
       WALK_DAYS: ${RECHTSPRAAK_WALK_DAYS:-30}
+      BACKFILL_DAYS: ${BACKFILL_DAYS:-0}
 
   nl_dnb:
     <<: *importer-base
@@ -60,3 +61,35 @@ services:
     container_name: opendata-eu_echr
     command: ["importers.eu_echr"]
     environment: *importer-env
+
+  ch_seco:
+    <<: *importer-base
+    container_name: opendata-ch_seco
+    command: ["importers.ch_seco"]
+    environment: *importer-env
+
+  ch_kantonsblatt:
+    <<: *importer-base
+    container_name: opendata-ch_kantonsblatt
+    command: ["importers.ch_kantonsblatt"]
+    environment:
+      <<: *importer-env
+      MAX_PAGES_PER_RUBRIC: ${KB_MAX_PAGES:-10}
+      BACKFILL_DAYS: ${KB_BACKFILL_DAYS:-30}
+
+  ch_entscheidsuche:
+    <<: *importer-base
+    container_name: opendata-ch_entscheidsuche
+    command: ["importers.ch_entscheidsuche"]
+    environment:
+      <<: *importer-env
+      MAX_DOCS_PER_SPIDER: ${ES_MAX_DOCS:-2000}
+      SPIDERS: ${ES_SPIDERS:-CH_BGer,CH_BVGer,CH_BStGer}
+
+  ch_fedlex:
+    <<: *importer-base
+    container_name: opendata-ch_fedlex
+    command: ["importers.ch_fedlex"]
+    environment:
+      <<: *importer-env
+      MAX_ACTS: ${FEDLEX_MAX_ACTS:-500}
