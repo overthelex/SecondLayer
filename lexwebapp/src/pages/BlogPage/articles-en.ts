@@ -1,6 +1,124 @@
 import type { TranslationMap } from './articles';
 
 export const enTranslations: TranslationMap = {
+  'edrsr-vectorization-voyage': {
+    title: 'How We Vectorize 33.7M Ukrainian Court Decisions via Voyage AI',
+    punchline: 'EDRSR is the open-access Unified State Register of all Ukrainian court decisions. We\'re currently vectorizing the last large cohort — 33.7M civil cases — via Voyage AI voyage-3.5. Here\'s the pipeline: chunking, concurrency, checkpoint/resume, a postgres OOM incident in prod, and the cost math.',
+    readTime: '7 min',
+    content: `# How We Vectorize 33.7M Ukrainian Court Decisions via Voyage AI
+
+*EDRSR — the Unified State Register of Court Decisions — is effectively all of Ukraine\'s judicial practice in open access. We\'ve already vectorized criminal, administrative, commercial, and misdemeanor decisions. Right now the last big cohort is running in production — civil cases (CPC, justice_kind=1), 33.7 million documents. Here\'s what\'s under the hood: models, pipeline, cost, and where we stepped on rakes.*
+
+---
+
+## Why Vectorize Courts
+
+When a lawyer searches "is there case law on recovering bank prepayment fees" — they don\'t want to open 40 decisions and read them through. They want the system to surface the top 5 most relevant ones, pull out key paragraphs, and show how courts reasoned. Full-text search (FTS) over keywords doesn\'t give that — it returns every document containing the word "fee", and there are thousands.
+
+For this semantic task you need vector representations of text. The model turns a paragraph from a decision into a point in a 1024-dimensional space; semantically similar paragraphs sit near each other. A kNN search in Qdrant returns the top K nearest, and an LLM composes the answer from exactly those relevant fragments.
+
+The only problem: the register is big. Very big.
+
+---
+
+## Scale
+
+Our prod database holds full texts of decisions starting from 2006. Breakdown by procedural type:
+
+- **Civil (CPC)** — 33.7M documents. The largest category. Consumer, housing, labor, family.
+- **Criminal (CrPC)** — 12M+
+- **Administrative (CAS)** — 14M+
+- **Commercial (CC)** — 6M+
+- **Misdemeanors (CUaP)** — 6M+
+
+The Qdrant collection \`edrsr_decisions\` currently holds **76.3M vectors** — criminal, admin, commercial, misdemeanor, and the first 3.37M CPC. After CPC completes there will be roughly **195M vectors** in a single collection.
+
+For scale: a typical RAG project holds 100K — 1M vectors. Ours is two orders of magnitude bigger.
+
+---
+
+## Stack
+
+**Embedding model.** \`voyage-3.5\` from Voyage AI. 1024-dimensional output, $0.06 per 1M tokens. We tested Voyage 3 Large and OpenAI text-embedding-3-large, but the quality gain on legal text didn\'t justify the cost difference (Voyage 3 Large is 3x more expensive). We already had an index on 3.5 for prior jurisdictions, so we stay on it for compatibility.
+
+**Vector DB.** Qdrant, self-hosted in Docker. One collection \`edrsr_decisions\` with HNSW index. Payload carries doc_id, court_code, judge, cause_num, justice_kind, adjudication_date, judgment_code, category_code, plus chunk_index/total_chunks and chunk text.
+
+**Source-of-truth.** PostgreSQL 15, partitioned tables: RANGE by adjudication_date, LIST by adj_year. Full texts live in \`edrsr_fulltext\`, metadata in \`edrsr_documents\`. A JOIN across all partitions is 30M+ rows, so the pipeline walks year by year.
+
+**Runtime.** Python 3.11, asyncio, aiohttp. No frameworks — direct HTTP to Voyage and Qdrant. 440 lines of code, one file.
+
+---
+
+## Chunking
+
+Court decisions are long. Average CPC ruling is 8–12K characters, longest reach 200K. Voyage accepts up to 32K tokens per input, but quality falls off on long contexts, and one long vector is poor for retrieval — the LLM can\'t tell which paragraph is relevant.
+
+So we chunk: up to 2048 characters per chunk, 50-word overlap between neighbors. We split on paragraph boundaries to keep semantic coherence. On average one decision yields 2.7 chunks.
+
+Each chunk in Qdrant gets a composite ID (doc_id × 1000 + chunk_index) — no collisions, and a single payload filter query pulls all chunks of a specific decision.
+
+---
+
+## Concurrency and Throttling
+
+Voyage has a rate limit — 2000 RPM per key for voyage-3.5. We have two keys and round-robin between them, giving a theoretical 4000 RPM ceiling. In practice we hold concurrency 50 and get a steady **63 documents per second**. That\'s ~170 requests per minute per key — comfortably under the rate limit.
+
+We tried concurrency 70 — first two million were fine, then the process stalled on the GIL (13% CPU, no progress, no errors — just stuck on a thread lock). Dropped to 50 — ran smooth, no deadlocks, no 429s.
+
+Every 100 documents triggers a batch to Voyage (batch_size=500 chunks/request), gets embeddings, composes Qdrant points, and does one upsert. On Voyage error (429, network) — exponential backoff with jitter, max 5 retries. On Qdrant error — retry the same batch.
+
+---
+
+## Checkpoint and Resume
+
+At 33.7M documents any failure — network, OOM, container crash — means hours of lost work. So:
+
+- Every 1000 processed documents the pipeline writes a checkpoint JSON: \`{last_doc_id, processed_docs, total_chunks, total_tokens, timestamp}\`
+- On startup — reads checkpoint, resumes with \`WHERE doc_id > last_doc_id\`
+- All metrics (docs, chunks, tokens, cost) accumulate across checkpoints
+
+This has saved us twice. First time — when postgres-prod ran out of memory (more on that below). Second time — when Qdrant restarted and lost its API key from env. Both times we just restarted from the same checkpoint with no duplicated work.
+
+---
+
+## Prod Incident: Postgres OOM
+
+At 2.86M documents postgres-prod fell into recovery mode. Root cause: config mismatch — \`shared_buffers=16GB\`, container memory limit 12G. PG tried to allocate more than it had; OOM killer killed the process.
+
+Fix in PR #1453: \`mem_limit: 24G\`, \`shm_size: 16g\`. After restarting the container with the new limits PG came up in 4 seconds and stopped falling over. The episode highlighted an infra pattern: postgresql.conf parameters (shared_buffers, work_mem, maintenance_work_mem) must align with container limits. Otherwise the system runs fine until the first load spike, then falls into recovery.
+
+We also bumped swap on the local dev machine from 8GB to 24GB — heavy Voyage API traffic generates a lot of temporary objects in the Python process memory, especially while Qdrant is rebuilding its index in the background.
+
+---
+
+## Cost
+
+One civil document averages: 2.7 chunks × 850 tokens = 2300 tokens. At $0.06/1M tokens that\'s **$0.000138 per document**.
+
+On 10% (3.37M documents) we spent $467.50 over 14.8 hours. Remaining 30.33M documents = roughly **$3,100** more and **130 hours** (about 5.4 days of continuous processing). Total cost of the full CPC cohort vectorization — around **$3,600**.
+
+For scale: the same budget on OpenAI text-embedding-3-large would get us only a quarter of the volume. Voyage wins specifically at this scale.
+
+---
+
+## What It Gives Users
+
+Once the civil cohort is fully indexed, semantic search in LEX AI will see all 195M chunks in one collection. A lawyer types a natural-language query — "case law on voiding a sale contract due to seller incapacity" — and the system returns the most relevant decisions from the right jurisdiction, with key paragraph extracts and EDRSR links.
+
+That\'s a different class of product compared to FTS. FTS finds documents where a phrase appears. Semantic search finds documents where your situation is being discussed — even when the court used entirely different words.
+
+---
+
+## TL;DR
+
+- 33.7M civil EDRSR cases → Voyage voyage-3.5 → Qdrant
+- 63 docs/sec, concurrency 50, two API keys round-robin
+- ~$3,600 total cost for full CPC vectorization
+- Checkpoint/resume JSON, survived two incidents already
+- After completion — 195M vectors in one collection, unified semantic search over all Ukrainian judicial practice
+
+Runs in tmux in prod, checkpoint fires every 1000 docs, monitoring is \`tail -1 /tmp/vectorize-cpk.log\`. Boring reliable engineering, not heroics.`,
+  },
   'sneakypiper-due-diligence-platform': {
     title: 'SneakyPiper: 16.7M Entities, 31K Dark-Web Subjects, 30+ OSINT Sources in Production',
     punchline: 'Our OSINT product SneakyPiper.com runs due diligence for US businesses. Under the hood: 16.7M OpenSanctions entities, 31K AI-classified dark-web forum subjects, a live feed of ransomware victims and GitHub credential leaks. Here\'s what lives in production — by the numbers.',
