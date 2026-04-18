@@ -27,11 +27,16 @@ import aiofiles
 import aiohttp
 
 ALL_SOURCE_IPS = [
-    "172.31.29.20",
-    "172.31.21.255",
-    "172.31.31.40",
-    "172.31.22.206",
-    "172.31.28.109",
+    "172.31.21.255",   # 0: working
+    "172.31.31.40",    # 1: working
+    "172.31.22.206",   # 2: working
+    "172.31.27.31",    # 3: working (new EIP)
+    "172.31.19.142",   # 4: working (new EIP)
+    "172.31.19.20",    # 5: working (new EIP)
+    "172.31.17.145",   # 6: working (new EIP)
+    "172.31.16.240",   # 7: working (new EIP)
+    "172.31.29.20",    # 8: EDRSR-blocked (do not use)
+    "172.31.28.109",   # 9: no public IP (do not use)
 ]
 
 RTF_DIR_BASE = Path("/home/ubuntu/edrsr-rtf-gaps")
@@ -189,35 +194,57 @@ class Stats:
         )
 
 
+REVIEW_URL_TEMPLATE = "https://reyestr.court.gov.ua/Review/{doc_id}"
+
+
+async def _fetch(session, url, timeout=REQUEST_TIMEOUT):
+    """Single GET; returns (status, bytes). Returns (-1, None) on exception."""
+    try:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+            if resp.status == 200:
+                return 200, await resp.read()
+            return resp.status, None
+    except Exception:
+        return -1, None
+
+
 async def download_one(session, doc_id, url, rtf_dir, stats, semaphore, source_ip):
     outpath = rtf_dir / f"{doc_id}.rtf"
     if outpath.exists() and outpath.stat().st_size > 0:
         await stats.inc('skipped')
         return
+    review_url = REVIEW_URL_TEMPLATE.format(doc_id=doc_id)
     async with semaphore:
         for attempt in range(MAX_RETRIES):
-            try:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)) as resp:
-                    if resp.status == 200:
-                        data = await resp.read()
-                        if len(data) > 100:
-                            async with aiofiles.open(outpath, 'wb') as f:
-                                await f.write(data)
-                            await stats.inc('downloaded', source_ip)
-                            return
-                        await stats.inc('failed')
-                        return
-                    elif resp.status == 429:
-                        await asyncio.sleep(min(60, 5 * (2 ** attempt)))
-                        continue
-                    elif resp.status >= 500:
-                        await asyncio.sleep(min(30, 2 * (2 ** attempt)))
-                        continue
-                    else:
-                        await stats.inc('failed')
-                        return
-            except Exception:
+            # 1) Try RTF file URL
+            status, data = await _fetch(session, url)
+            if status == 200 and data and len(data) > 100:
+                async with aiofiles.open(outpath, 'wb') as f:
+                    await f.write(data)
+                await stats.inc('downloaded', source_ip)
+                return
+            if status == 429:
+                await asyncio.sleep(min(60, 5 * (2 ** attempt)))
+                continue
+            if status >= 500:
+                await asyncio.sleep(min(30, 2 * (2 ** attempt)))
+                continue
+            # 2) On 404/non-200/exception: fallback to Review HTML endpoint
+            hstatus, hdata = await _fetch(session, review_url)
+            if hstatus == 200 and hdata and len(hdata) > 1000:
+                async with aiofiles.open(outpath, 'wb') as f:
+                    await f.write(hdata)
+                await stats.inc('downloaded', source_ip)
+                return
+            if hstatus == 429:
+                await asyncio.sleep(min(60, 5 * (2 ** attempt)))
+                continue
+            if hstatus == -1 or hstatus >= 500:
                 await asyncio.sleep(min(15, 2 * (2 ** attempt)))
+                continue
+            # definitive failure (e.g. both endpoints 404) — stop retrying
+            await stats.inc('failed')
+            return
         await stats.inc('failed')
 
 
