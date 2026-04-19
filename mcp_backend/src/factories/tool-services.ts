@@ -19,6 +19,7 @@ import { CourtSessionTools } from '../api/tools/court-session-tools.js';
 import { LegalActsTools } from '../api/tools/legal-acts-tools.js';
 import { ECHRPracticeTools } from '../api/tools/echr-practice-tools.js';
 import { EdsrSearchTools } from '../api/tools/edrsr-search-tools.js';
+import { EdsrExtendedTools } from '../api/tools/edrsr-extended-tools.js';
 import { EdsrSemanticTools } from '../api/tools/edrsr-semantic-tools.js';
 import { EdsrFtsService } from '../services/edrsr-fts-service.js';
 import { EdsrVectorizerService } from '../services/edrsr-vectorizer-service.js';
@@ -136,6 +137,7 @@ export function createToolServices(
   toolRegistry.registerHandler(new OpenDataRegistriesTools(coreServices.db));
   toolRegistry.registerHandler(new Tier1OpenDataTools(coreServices.db));
   toolRegistry.registerHandler(new EdsrSearchTools(coreServices.db));
+  toolRegistry.registerHandler(new EdsrExtendedTools(coreServices.db));
   toolRegistry.registerHandler(new DecisionLayerTools(llmAdapter));
 
   // EDRSR FTS + semantic search + on-demand vectorization
