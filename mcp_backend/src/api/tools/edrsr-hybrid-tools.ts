@@ -306,6 +306,30 @@ snippet з FTS, найкращий chunk з Qdrant). Dedup по doc_id (Qdrant �
   private async enrich(hits: FusedHit[]): Promise<any[]> {
     if (hits.length === 0) return [];
 
+    // Backfill missing metadata from edrsr_documents.
+    // EdsrFtsService returns only {doc_id, headline, rank} when no metadata filter
+    // is present (it skips the JOIN for speed). Qdrant returns metadata in payload,
+    // but falls over when its collection is still indexing. So we top up from DB
+    // unconditionally — it's one indexed ANY($1) query, ~5-10ms for 10-20 docs.
+    const docsNeedingMetadata = hits
+      .filter((h) => !h.metadata.court_code && !h.metadata.cause_num)
+      .map((h) => h.doc_id);
+    if (docsNeedingMetadata.length > 0) {
+      const docMetaMap = await this.fetchDocumentMetadata(docsNeedingMetadata);
+      for (const h of hits) {
+        const meta = docMetaMap.get(h.doc_id);
+        if (!meta) continue;
+        h.metadata.cause_num = h.metadata.cause_num || meta.cause_num;
+        h.metadata.judge = h.metadata.judge || meta.judge;
+        h.metadata.court_code = h.metadata.court_code ?? meta.court_code;
+        h.metadata.justice_kind = h.metadata.justice_kind ?? meta.justice_kind;
+        h.metadata.judgment_code = h.metadata.judgment_code ?? meta.judgment_code;
+        h.metadata.category_code = h.metadata.category_code ?? meta.category_code;
+        h.metadata.adjudication_date =
+          h.metadata.adjudication_date || meta.adjudication_date;
+      }
+    }
+
     const courtCodes = new Set<number>();
     const justiceKinds = new Set<number>();
     const judgmentCodes = new Set<number>();
@@ -343,6 +367,43 @@ snippet з FTS, найкращий chunk з Qdrant). Dedup по doc_id (Qdrant �
       qdrant_best_chunk_text: h.qdrant_best_chunk_text,
       external_url: `https://reyestr.court.gov.ua/Review/${h.doc_id}`,
     }));
+  }
+
+  private async fetchDocumentMetadata(
+    docIds: number[]
+  ): Promise<Map<number, FusedHit['metadata']>> {
+    const map = new Map<number, FusedHit['metadata']>();
+    if (docIds.length === 0) return map;
+    try {
+      const result = await this.db.query(
+        `SELECT doc_id, court_code, cause_num, judge, justice_kind, judgment_code,
+                category_code, adjudication_date
+         FROM edrsr_documents
+         WHERE doc_id = ANY($1)`,
+        [docIds]
+      );
+      for (const row of result.rows) {
+        map.set(Number(row.doc_id), {
+          cause_num: row.cause_num ?? undefined,
+          judge: row.judge ?? undefined,
+          court_code: row.court_code ?? undefined,
+          justice_kind: row.justice_kind ?? undefined,
+          judgment_code: row.judgment_code ?? undefined,
+          category_code: row.category_code ?? undefined,
+          adjudication_date: row.adjudication_date
+            ? (typeof row.adjudication_date === 'string'
+                ? row.adjudication_date
+                : row.adjudication_date.toISOString())
+            : undefined,
+        });
+      }
+    } catch (err: any) {
+      logger.warn('[EdsrHybridTools] fetchDocumentMetadata failed (continuing with partial metadata)', {
+        error: err.message,
+        doc_count: docIds.length,
+      });
+    }
+    return map;
   }
 
   private static readonly ALLOWED_LOOKUP_TABLES: Record<string, Set<string>> = {

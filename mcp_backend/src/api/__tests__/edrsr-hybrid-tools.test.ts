@@ -287,6 +287,124 @@ describe('EdsrHybridTools', () => {
     });
   });
 
+  describe('metadata backfill', () => {
+    it('backfills missing metadata from edrsr_documents when FTS returns only doc_id/headline/rank', async () => {
+      // FTS service returns only minimal fields (happens when no metadata filter is passed —
+      // service skips JOIN for speed).
+      ftsService.searchFulltext.mockResolvedValue({
+        query: 'x',
+        total: 2,
+        returned: 2,
+        offset: 0,
+        has_more: false,
+        results: [
+          { doc_id: 100, headline: 'h1', rank: 0.9 },
+          { doc_id: 200, headline: 'h2', rank: 0.8 },
+        ],
+      });
+      vectorizer.semanticSearch.mockResolvedValue([]);
+
+      db.query = jest.fn((sql: string, params?: any[]) => {
+        if (sql.includes('FROM edrsr_documents') && sql.includes('doc_id = ANY')) {
+          return Promise.resolve({
+            rows: [
+              {
+                doc_id: 100,
+                court_code: 2605,
+                cause_num: 'case/100',
+                judge: 'Ткаченко',
+                justice_kind: 4,
+                judgment_code: 3,
+                category_code: null,
+                adjudication_date: '2025-10-20T00:00:00.000Z',
+              },
+              {
+                doc_id: 200,
+                court_code: 2605,
+                cause_num: 'case/200',
+                judge: 'Тихонова',
+                justice_kind: 4,
+                judgment_code: 3,
+                category_code: null,
+                adjudication_date: '2025-12-19T00:00:00.000Z',
+              },
+            ],
+          });
+        }
+        if (sql.includes('edrsr_courts')) {
+          return Promise.resolve({
+            rows: [{ court_code: 2605, name: 'Оболонський районний суд м. Києва' }],
+          });
+        }
+        if (sql.includes('edrsr_justice_kinds')) {
+          return Promise.resolve({ rows: [{ justice_kind: 4, name: 'Адміністративне' }] });
+        }
+        if (sql.includes('edrsr_judgment_forms')) {
+          return Promise.resolve({ rows: [{ judgment_code: 3, name: 'Рішення' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const result = await tool.executeTool('edrsr_hybrid_search', { query: 'test' });
+      const payload = JSON.parse(result!.content[0].text);
+
+      expect(payload.results[0].doc_id).toBe(100);
+      expect(payload.results[0].court_code).toBe(2605);
+      expect(payload.results[0].court_name).toBe('Оболонський районний суд м. Києва');
+      expect(payload.results[0].cause_num).toBe('case/100');
+      expect(payload.results[0].judge).toBe('Ткаченко');
+      expect(payload.results[0].justice_kind_name).toBe('Адміністративне');
+      expect(payload.results[0].judgment_form).toBe('Рішення');
+
+      expect(payload.results[1].court_name).toBe('Оболонський районний суд м. Києва');
+      expect(payload.results[1].cause_num).toBe('case/200');
+    });
+
+    it('skips backfill query when metadata is already present from FTS', async () => {
+      ftsService.searchFulltext.mockResolvedValue(makeFts([100])); // makeFts returns full metadata
+      vectorizer.semanticSearch.mockResolvedValue([]);
+
+      const queryCalls: string[] = [];
+      db.query = jest.fn((sql: string) => {
+        queryCalls.push(sql);
+        if (sql.includes('edrsr_courts')) {
+          return Promise.resolve({ rows: [{ court_code: 2605, name: 'Suit' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await tool.executeTool('edrsr_hybrid_search', { query: 'x' });
+
+      // No backfill query should have fired — FTS already provided court_code + cause_num
+      const backfillCalls = queryCalls.filter((s) =>
+        s.includes('FROM edrsr_documents') && s.includes('doc_id = ANY')
+      );
+      expect(backfillCalls.length).toBe(0);
+    });
+
+    it('handles backfill query failure gracefully (returns without metadata)', async () => {
+      ftsService.searchFulltext.mockResolvedValue({
+        query: 'x', total: 1, returned: 1, offset: 0, has_more: false,
+        results: [{ doc_id: 100, headline: 'h', rank: 0.5 }],
+      });
+      vectorizer.semanticSearch.mockResolvedValue([]);
+
+      db.query = jest.fn((sql: string) => {
+        if (sql.includes('FROM edrsr_documents')) {
+          return Promise.reject(new Error('DB down'));
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const result = await tool.executeTool('edrsr_hybrid_search', { query: 'x' });
+      expect(result?.isError).toBeFalsy();
+      const payload = JSON.parse(result!.content[0].text);
+      expect(payload.results[0].doc_id).toBe(100);
+      expect(payload.results[0].court_name).toBeNull();
+      expect(payload.results[0].cause_num).toBeNull();
+    });
+  });
+
   describe('enrichment', () => {
     it('enriches with court_name from edrsr_courts', async () => {
       ftsService.searchFulltext.mockResolvedValue(makeFts([100]));
