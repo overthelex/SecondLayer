@@ -65,6 +65,7 @@ const RefundPolicyPage = lazyWithRetry(() => import('../pages/RefundPolicyPage')
 const BlogPage = lazyWithRetry(() => import('../pages/BlogPage').then(m => ({ default: m.BlogPage })));
 const BlogArticlePage = lazyWithRetry(() => import('../pages/BlogPage/BlogArticlePage').then(m => ({ default: m.BlogArticlePage })));
 const InvestorLetterPage = lazyWithRetry(() => import('../pages/InvestorLetterPage').then(m => ({ default: m.InvestorLetterPage })));
+const CareerPage = lazyWithRetry(() => import('../pages/CareerPage').then(m => ({ default: m.CareerPage })));
 const UKInvestorPage = lazyWithRetry(() => import('../pages/UKInvestorPage').then(m => ({ default: m.UKInvestorPage })));
 const InvestorDeckPage = lazyWithRetry(() => import('../pages/InvestorDeckPage').then(m => ({ default: m.InvestorDeckPage })));
 
@@ -276,6 +277,10 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.LEX_NEWS,
     element: S(LexNewsPage),
+  },
+  {
+    path: ROUTES.CAREER,
+    element: S(CareerPage),
   },
   {
     path: ROUTES.INVESTOR_LETTER,
