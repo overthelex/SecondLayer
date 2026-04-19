@@ -21,6 +21,7 @@ import { ECHRPracticeTools } from '../api/tools/echr-practice-tools.js';
 import { EdsrSearchTools } from '../api/tools/edrsr-search-tools.js';
 import { EdsrExtendedTools } from '../api/tools/edrsr-extended-tools.js';
 import { EdsrSemanticTools } from '../api/tools/edrsr-semantic-tools.js';
+import { EdsrHybridTools } from '../api/tools/edrsr-hybrid-tools.js';
 import { EdsrFtsService } from '../services/edrsr-fts-service.js';
 import { EdsrVectorizerService } from '../services/edrsr-vectorizer-service.js';
 import { NextcloudService } from '../services/nextcloud-service.js';
@@ -155,6 +156,7 @@ export function createToolServices(
   }
   if (edsrVectorizer) {
     toolRegistry.registerHandler(new EdsrSemanticTools(coreServices.db, edsrFtsService, edsrVectorizer));
+    toolRegistry.registerHandler(new EdsrHybridTools(coreServices.db, edsrFtsService, edsrVectorizer));
   }
   // Import task manager (multi-IP downloads)
   toolRegistry.registerHandler(new ImportTaskTools(coreServices.importTaskService));
