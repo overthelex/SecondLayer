@@ -29,6 +29,7 @@ const TOOL_TIMEOUT_OVERRIDES: Record<string, number> = {
   search_edrsr_fulltext: 120_000,
   edrsr_court_decisions_by_court: 90_000,
   edrsr_get_decision_dispositive: 15_000,
+  edrsr_hybrid_search: 120_000,
   build_legal_decision: 120_000,
   search_public_spending: 120_000,
 };
