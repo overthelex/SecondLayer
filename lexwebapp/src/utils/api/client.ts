@@ -41,10 +41,36 @@ function processQueue(error: unknown, token: string | null = null) {
   failedQueue = [];
 }
 
+// Public routes that must remain accessible even when a stored token is invalid.
+// Keep in sync with the non-AuthGuard branch of router/index.tsx.
+const PUBLIC_ROUTE_PATTERNS: RegExp[] = [
+  /^\/login$/,
+  /^\/verify-email/,
+  /^\/reset-password/,
+  /^\/payment\//,
+  /^\/oferta$/,
+  /^\/[a-z]{2}\/(offer|attorney-offer|developer-offer|marketplace-rules|terms|privacy|dpa|ai-usage|ai-transparency|refund-policy|data-sources)/,
+  /^\/eu\/comparison/,
+  /^\/blog(\/|$)/,
+  /^\/lex-news/,
+  /^\/news$/,
+  /^\/career(\/|$)/,
+  /^\/investor(\/|$)/,
+  /^\/uk_investor/,
+  /^\/r\//,
+  /^\/developer\/docs/,
+];
+
+function isPublicRoute(pathname: string): boolean {
+  return PUBLIC_ROUTE_PATTERNS.some((p) => p.test(pathname));
+}
+
 function forceLogout() {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('user');
-  window.location.href = '/login';
+  if (!isPublicRoute(window.location.pathname)) {
+    window.location.href = '/login';
+  }
 }
 
 // Create axios instance
@@ -137,7 +163,9 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        showToast.error(toastT('sessionExpired'));
+        if (!isPublicRoute(window.location.pathname)) {
+          showToast.error(toastT('sessionExpired'));
+        }
         forceLogout();
         return Promise.reject(refreshError);
       } finally {
