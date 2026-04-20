@@ -267,16 +267,18 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
             (m) => m.id === assistantMessageId
           );
           const existing = currentMsg?.citationWarnings || [];
+          const normalized: import('../../types/models/Message').CitationWarning =
+            data.reason === 'fabricated_case_numbers'
+              ? { kind: 'fabricated', fabricated: data.fabricated, message: data.message }
+              : {
+                  kind: 'overruled',
+                  case_number: data.case_number,
+                  status: data.status,
+                  confidence: data.confidence,
+                  message: data.message,
+                };
           updateMessage(assistantMessageId, {
-            citationWarnings: [
-              ...existing,
-              {
-                case_number: data.case_number,
-                status: data.status,
-                confidence: data.confidence,
-                message: data.message,
-              },
-            ],
+            citationWarnings: [...existing, normalized],
           });
         },
 
