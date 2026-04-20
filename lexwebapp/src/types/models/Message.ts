@@ -2,12 +2,27 @@
  * Message Domain Model
  */
 
-export interface CitationWarning {
-  case_number: string;
-  status: 'explicitly_overruled' | 'limited';
-  confidence: number;
-  message: string;
-}
+/**
+ * Per-message warning about one of two distinct problems:
+ * - `overruled`: shepardization found the cited case was overruled/modified
+ *   by a higher court (legacy path, emitted by ShepardizationService).
+ * - `fabricated`: LEXAI-637 — the model cited a case number that never
+ *   appeared in any tool result of the current turn. Pulled from prior
+ *   messages' context or from training memory.
+ */
+export type CitationWarning =
+  | {
+      kind: 'overruled';
+      case_number: string;
+      status: 'explicitly_overruled' | 'limited';
+      confidence: number;
+      message: string;
+    }
+  | {
+      kind: 'fabricated';
+      fabricated: string[];
+      message: string;
+    };
 
 export interface CostSummary {
   tools_used: string[];

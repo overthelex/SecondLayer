@@ -11,13 +11,21 @@ import { transformToolResultToMessage } from './mcp/response-transformers';
 import type { Message } from '../../types/models';
 import { StreamingCallbacks } from '../../types/api/sse';
 
-export interface CitationWarning {
-  case_number: string;
-  status: 'explicitly_overruled' | 'limited';
-  confidence: number;
-  affecting_decisions: Array<{ doc_id: string; instance: string; court: string; date?: string; outcome: string; effect: string }>;
-  message: string;
-}
+/** Raw SSE shape — backend emits either shape under the same event type. */
+export type CitationWarning =
+  | {
+      reason?: undefined;
+      case_number: string;
+      status: 'explicitly_overruled' | 'limited';
+      confidence: number;
+      affecting_decisions?: Array<{ doc_id: string; instance: string; court: string; date?: string; outcome: string; effect: string }>;
+      message: string;
+    }
+  | {
+      reason: 'fabricated_case_numbers';
+      fabricated: string[];
+      message: string;
+    };
 
 import type { Decision, Citation, VaultDocument } from '../../types/models/Message';
 

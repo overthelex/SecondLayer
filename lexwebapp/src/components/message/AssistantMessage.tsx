@@ -165,32 +165,54 @@ export function AssistantMessage({
 
           {citationWarnings && citationWarnings.length > 0 && (
             <div className="space-y-1.5 mt-4">
-              {citationWarnings.map((warning, idx) => (
-                <motion.div
-                  key={`cw-${idx}`}
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, delay: idx * 0.08 }}
-                  className={`flex items-start gap-3 px-3.5 py-3 rounded-lg border ${
-                    warning.status === 'explicitly_overruled'
-                      ? 'bg-red-50/70 border-red-200/60'
-                      : 'bg-zinc-50 border-zinc-200/60'
-                  }`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-[13px] leading-relaxed ${
+              {citationWarnings.map((warning, idx) => {
+                if (warning.kind === 'fabricated') {
+                  return (
+                    <motion.div
+                      key={`cw-${idx}`}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: idx * 0.08 }}
+                      className="flex items-start gap-3 px-3.5 py-3 rounded-lg border bg-amber-50/70 border-amber-200/60"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] leading-relaxed text-amber-800">
+                          {warning.message}
+                        </p>
+                        <p className="text-[11px] text-amber-700/80 mt-1 font-mono">
+                          Не підтверджено пошуком: {warning.fabricated.join(', ')}
+                        </p>
+                      </div>
+                    </motion.div>
+                  );
+                }
+                return (
+                  <motion.div
+                    key={`cw-${idx}`}
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: idx * 0.08 }}
+                    className={`flex items-start gap-3 px-3.5 py-3 rounded-lg border ${
                       warning.status === 'explicitly_overruled'
-                        ? 'text-red-700'
-                        : 'text-zinc-700'
-                    }`}>
-                      {warning.message}
-                    </p>
-                    <p className="text-[11px] text-zinc-400 mt-1 font-mono">
-                      {warning.status === 'explicitly_overruled' ? 'Скасовано вищою інстанцією' : 'Частково змінено'} · впевненість: {Math.round(warning.confidence * 100)}%
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
+                        ? 'bg-red-50/70 border-red-200/60'
+                        : 'bg-zinc-50 border-zinc-200/60'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[13px] leading-relaxed ${
+                        warning.status === 'explicitly_overruled'
+                          ? 'text-red-700'
+                          : 'text-zinc-700'
+                      }`}>
+                        {warning.message}
+                      </p>
+                      <p className="text-[11px] text-zinc-400 mt-1 font-mono">
+                        {warning.status === 'explicitly_overruled' ? 'Скасовано вищою інстанцією' : 'Частково змінено'} · впевненість: {Math.round(warning.confidence * 100)}%
+                      </p>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           )}
 
