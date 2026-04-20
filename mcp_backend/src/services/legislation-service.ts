@@ -474,13 +474,17 @@ export class LegislationService {
     );
     const npaTitle = legResult.rows[0]?.title || undefined;
 
+    // Use the actual article_number from the DB row, not the input arg —
+    // header and body must come from the same record (LEXAI-823).
+    const actualArticleNumber = article.article_number || articleNumber;
+
     return {
       rada_id: radaId,
-      article_number: articleNumber,
+      article_number: actualArticleNumber,
       title: article.title,
       full_text: article.full_text,
       full_text_html: article.full_text_html,
-      url: `https://zakon.rada.gov.ua/laws/show/${radaId}#n${articleNumber}`,
+      url: `https://zakon.rada.gov.ua/laws/show/${radaId}#n${actualArticleNumber}`,
       metadata: article.metadata,
       npa_title: npaTitle,
       section_number: article.section_number,
@@ -493,11 +497,13 @@ export class LegislationService {
   async getMultipleArticles(radaId: string, articleNumbers: string[]): Promise<LegislationReference[]> {
     await this.ensureLegislationExists(radaId);
 
+    // DISTINCT ON picks the latest version per article when duplicate rows exist (LEXAI-823).
     const result = await this.db.query(
-      `SELECT la.*, l.rada_id, l.title as npa_title
+      `SELECT DISTINCT ON (la.article_number) la.*, l.rada_id, l.title as npa_title
        FROM legislation_articles la
        JOIN legislation l ON la.legislation_id = l.id
-       WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = ANY($2) AND la.is_current = true`,
+       WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = ANY($2) AND la.is_current = true
+       ORDER BY la.article_number, la.version_date DESC NULLS LAST, la.id DESC`,
       [radaId, articleNumbers]
     );
 

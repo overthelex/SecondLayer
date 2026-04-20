@@ -289,6 +289,28 @@ describe('LegislationService', () => {
       expect(result).toBeNull();
     });
 
+    it('should return actual article_number from DB row (LEXAI-823)', async () => {
+      // Simulates the data bug where the adapter returns a row whose article_number
+      // differs from the input (e.g. "33-5" stored under article_number "33-5" but
+      // requested as "33"). The response must reflect the real row so the header
+      // and body stay consistent.
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ id: 1, rada_id: '435-15' }],
+        rowCount: 1,
+      });
+      mockAdapter.getArticleByNumber.mockResolvedValueOnce({
+        article_number: '33-5',
+        title: 'Real title of 33-5',
+        full_text: 'Real text of article 33-5',
+      });
+
+      const result = await service.getArticle('435-15', '33');
+
+      expect(result?.article_number).toBe('33-5');
+      expect(result?.url).toBe('https://zakon.rada.gov.ua/laws/show/435-15#n33-5');
+      expect(result?.title).toBe('Real title of 33-5');
+    });
+
     it('should resolve KMU: pattern before fetching article', async () => {
       mockDb.query
         .mockResolvedValueOnce({ rows: [{ rada_id: '1388-93-п' }], rowCount: 1 }) // resolveKmuRadaId
