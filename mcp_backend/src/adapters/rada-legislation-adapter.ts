@@ -640,11 +640,14 @@ export class RadaLegislationAdapter {
   }
 
   async getArticleByNumber(radaId: string, articleNumber: string): Promise<LegislationArticle | null> {
+    // Deterministic pick of the latest version when duplicate rows exist
+    // (see LEXAI-823: multiple is_current rows per article caused random body/title mismatch).
     const result = await this.db.query(
-      `SELECT la.* 
+      `SELECT la.*
        FROM legislation_articles la
        JOIN legislation l ON la.legislation_id = l.id
        WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.is_current = true
+       ORDER BY la.version_date DESC NULLS LAST, la.id DESC
        LIMIT 1`,
       [radaId, articleNumber]
     );
