@@ -43,6 +43,17 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
   const responseIdRef = useRef<string | null>(null);
   const rafPendingRef = useRef<number | null>(null);
 
+  // Preamble suppression (LEXAI-861): the model sometimes streams a self-correcting
+  // "preamble" before a tool_use block ("я вигадав деталі, зараз перевірю..."). We
+  // buffer answer_delta while it's ambiguous whether a tool call is coming. Phases:
+  //   'uncertain' — buffer deltas; discard if thinking/plan arrives, else flush via timer
+  //   'tool'      — tool call in progress; deltas (rare) are buffered for later discard
+  //   'streaming' — committed to rendering deltas directly (post-timer or post-answer)
+  const streamPhaseRef = useRef<'uncertain' | 'tool' | 'streaming'>('uncertain');
+  const preambleBufferRef = useRef('');
+  const preambleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const PREAMBLE_SUPPRESS_MS = 500;
+
   /**
    * Run the SSE chat stream (shared between direct and approved-plan flows).
    */
@@ -63,6 +74,12 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
       planRef.current = null;
       costSummaryRef.current = {};
       responseIdRef.current = null;
+      streamPhaseRef.current = 'uncertain';
+      preambleBufferRef.current = '';
+      if (preambleTimerRef.current) {
+        clearTimeout(preambleTimerRef.current);
+        preambleTimerRef.current = null;
+      }
 
       // Build full conversation history — backend handles compression via ChatContextBuilder
       const currentMessages = useChatStore.getState().messages;
@@ -81,6 +98,14 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
         },
 
         onPlan: (data) => {
+          // Plan implies tool calls will follow — any preamble buffered so far is discarded
+          if (preambleTimerRef.current) {
+            clearTimeout(preambleTimerRef.current);
+            preambleTimerRef.current = null;
+          }
+          preambleBufferRef.current = '';
+          streamPhaseRef.current = 'tool';
+
           const plan: ExecutionPlan = {
             goal: data.goal,
             steps: data.steps.map((s) => ({ ...s, completed: false })),
@@ -117,16 +142,27 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
         },
 
         onThinking: (data) => {
-          // Flush any pending RAF before clearing — prevents race condition
-          // where accumulated answer_delta text gets wiped before RAF commits it
+          // Tool call starts — discard any buffered preamble and ALSO clear any
+          // preamble that may already have been rendered (LEXAI-861). Previously
+          // this handler explicitly committed contentRef to the UI before clearing,
+          // which made the hallucination-admission preamble visible until the final
+          // answer arrived.
+          if (preambleTimerRef.current) {
+            clearTimeout(preambleTimerRef.current);
+            preambleTimerRef.current = null;
+          }
+          preambleBufferRef.current = '';
+          streamPhaseRef.current = 'tool';
+
           if (rafPendingRef.current) {
             cancelAnimationFrame(rafPendingRef.current);
             rafPendingRef.current = null;
-            if (contentRef.current) {
-              updateMessage(assistantMessageId, { content: contentRef.current });
-            }
           }
+          const hadContent = contentRef.current.length > 0;
           contentRef.current = '';
+          if (hadContent) {
+            updateMessage(assistantMessageId, { content: '' });
+          }
 
           if (planRef.current) {
             const matchingStep = planRef.current.steps.find((s) => s.tool === data.tool);
@@ -184,9 +220,37 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
               documents: [...accumulatedDocuments.current],
             });
           }
+
+          // Re-enter 'uncertain' — the next answer_delta may be a preamble before
+          // another tool call, or the start of the final answer. We can't tell yet.
+          streamPhaseRef.current = 'uncertain';
+          preambleBufferRef.current = '';
+          if (preambleTimerRef.current) {
+            clearTimeout(preambleTimerRef.current);
+            preambleTimerRef.current = null;
+          }
         },
 
         onAnswerDelta: (data) => {
+          // In 'uncertain' or 'tool' phase we buffer deltas so a potential
+          // preamble-before-tool-use never reaches the UI (LEXAI-861). The timer
+          // flushes the buffer if no tool-call signal arrives within the window.
+          if (streamPhaseRef.current !== 'streaming') {
+            preambleBufferRef.current += data.text;
+            if (!preambleTimerRef.current) {
+              preambleTimerRef.current = setTimeout(() => {
+                preambleTimerRef.current = null;
+                if (streamPhaseRef.current === 'streaming') return;
+                streamPhaseRef.current = 'streaming';
+                if (preambleBufferRef.current) {
+                  contentRef.current += preambleBufferRef.current;
+                  preambleBufferRef.current = '';
+                  updateMessage(assistantMessageId, { content: contentRef.current });
+                }
+              }, PREAMBLE_SUPPRESS_MS);
+            }
+            return;
+          }
           contentRef.current += data.text;
           if (!rafPendingRef.current) {
             rafPendingRef.current = requestAnimationFrame(() => {
@@ -202,6 +266,14 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
             cancelAnimationFrame(rafPendingRef.current);
             rafPendingRef.current = null;
           }
+          // Clear any pending preamble buffer/timer — the server-authoritative
+          // final text replaces whatever we had (LEXAI-861).
+          if (preambleTimerRef.current) {
+            clearTimeout(preambleTimerRef.current);
+            preambleTimerRef.current = null;
+          }
+          preambleBufferRef.current = '';
+          streamPhaseRef.current = 'streaming';
           contentRef.current = data.text;
 
           // Use server-side norms if available, fall back to client-side extraction
@@ -283,6 +355,11 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
         },
 
         onError: (error) => {
+          if (preambleTimerRef.current) {
+            clearTimeout(preambleTimerRef.current);
+            preambleTimerRef.current = null;
+          }
+          preambleBufferRef.current = '';
           handleStreamError(assistantMessageId, error, {
             updateMessage, setStreaming, setStreamController, setCurrentTool, onError,
           });
@@ -324,6 +401,19 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
         },
 
         onStreamEnd: () => {
+          if (preambleTimerRef.current) {
+            clearTimeout(preambleTimerRef.current);
+            preambleTimerRef.current = null;
+          }
+          // If the stream ended while we were still buffering a preamble, flush
+          // it to the UI — better to show late text than lose a legit answer.
+          if (streamPhaseRef.current !== 'streaming' && preambleBufferRef.current) {
+            contentRef.current += preambleBufferRef.current;
+            preambleBufferRef.current = '';
+            updateMessage(assistantMessageId, { content: contentRef.current });
+          }
+          streamPhaseRef.current = 'streaming';
+
           // Safety net: if the stream ended without an 'answer' event
           // (e.g. backend timeout, abort, or crash), reset the UI streaming state
           // so the chat input is not permanently disabled.
