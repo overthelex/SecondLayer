@@ -488,6 +488,31 @@ jobs:
             # --- Determine active colors (per service group) ---
             BACKEND_COLOR=\$(grep '^backend=' .active-colors 2>/dev/null | cut -d= -f2 || echo "blue")
             FRONTEND_COLOR=\$(grep '^frontend=' .active-colors 2>/dev/null | cut -d= -f2 || echo "blue")
+
+            # Reality check: if .active-colors disagrees with actual running containers,
+            # trust docker state. Prevents cascading from a stale/half-failed prior deploy.
+            if docker inspect secondlayer-app-prod-green --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+              if ! docker inspect secondlayer-app-prod --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+                [ "\$BACKEND_COLOR" != "green" ] && echo "WARNING: .active-colors=\$BACKEND_COLOR but only -green backend is running — correcting to green"
+                BACKEND_COLOR="green"
+              fi
+            elif docker inspect secondlayer-app-prod --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+              [ "\$BACKEND_COLOR" != "blue" ] && echo "WARNING: .active-colors=\$BACKEND_COLOR but only blue backend is running — correcting to blue"
+              BACKEND_COLOR="blue"
+            fi
+            if docker inspect lexwebapp-prod-green --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+              if ! docker inspect lexwebapp-prod --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+                [ "\$FRONTEND_COLOR" != "green" ] && echo "WARNING: .active-colors=\$FRONTEND_COLOR but only -green frontend is running — correcting to green"
+                FRONTEND_COLOR="green"
+              fi
+            elif docker inspect lexwebapp-prod --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+              [ "\$FRONTEND_COLOR" != "blue" ] && echo "WARNING: .active-colors=\$FRONTEND_COLOR but only blue frontend is running — correcting to blue"
+              FRONTEND_COLOR="blue"
+            fi
+
+            # Persist corrected colors so promote phase (and any rerun) sees consistent state
+            printf 'backend=%s\nfrontend=%s\n' "\$BACKEND_COLOR" "\$FRONTEND_COLOR" > .active-colors
+
             [ "\$BACKEND_COLOR" = "green" ] && NEW_BACKEND="blue" || NEW_BACKEND="green"
             [ "\$FRONTEND_COLOR" = "green" ] && NEW_FRONTEND="blue" || NEW_FRONTEND="green"
 
@@ -768,6 +793,28 @@ jobs:
             # Recreate nginx to pick up new upstreams
             \$DC up -d nginx-prod --force-recreate
             echo "Nginx recreated — production traffic switched to new containers"
+
+            # --- 3b. Verify /health through nginx BEFORE stopping old containers ---
+            # If new color is unreachable, revert upstreams to old color and re-recreate nginx.
+            # Old containers are still running at this point — rollback is zero-downtime.
+            HEALTH_OK=false
+            for i in 1 2 3 4 5 6; do
+              sleep 3
+              if docker exec nginx-prod wget -q -O- --timeout=5 http://127.0.0.1/health --header="Host: legal.org.ua" 2>/dev/null | grep -q '"status":"ok"'; then
+                HEALTH_OK=true; break
+              fi
+            done
+            if [ "\$HEALTH_OK" != "true" ]; then
+              echo "::error::Post-switch /health check failed — rolling back to \$BACKEND_COLOR/\$FRONTEND_COLOR"
+              [ "\$BACKEND_COLOR" = "green" ] && ROLL_BE="secondlayer-app-prod-green" || ROLL_BE="secondlayer-app-prod"
+              [ "\$FRONTEND_COLOR" = "green" ] && ROLL_FE="lexwebapp-prod-green" || ROLL_FE="lexwebapp-prod"
+              printf '# Active upstreams — managed by deploy script (blue-green switching)\n# DO NOT EDIT MANUALLY — overwritten during zero-downtime deploy\n\nupstream prod_mcp_backend {\n    server %s:3000;\n    keepalive 128;\n}\n\nupstream prod_frontend {\n    server %s:80;\n    keepalive 32;\n}\n' "\$ROLL_BE" "\$ROLL_FE" > nginx/includes/prod-upstreams.conf
+              printf '# Backend hostname variables for dynamic DNS resolution\n# Managed by deploy script (blue-green switching)\n\nset \$prod_backend_host %s;\nset \$prod_backend http://\$prod_backend_host:3000;\nset \$prod_frontend_host %s;\nset \$prod_frontend http://\$prod_frontend_host:80;\n' "\$ROLL_BE" "\$ROLL_FE" > nginx/includes/prod-backend-vars.conf
+              \$DC up -d nginx-prod --force-recreate
+              printf 'backend=%s\nfrontend=%s\n' "\$BACKEND_COLOR" "\$FRONTEND_COLOR" > .active-colors
+              exit 1
+            fi
+            echo "✓ Post-switch /health check passed"
 
             # Allow in-flight requests to complete
             sleep 5
