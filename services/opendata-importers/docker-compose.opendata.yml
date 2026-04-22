@@ -74,8 +74,9 @@ services:
     command: ["importers.ch_kantonsblatt"]
     environment:
       <<: *importer-env
-      MAX_PAGES_PER_RUBRIC: ${KB_MAX_PAGES:-10}
-      BACKFILL_DAYS: ${KB_BACKFILL_DAYS:-30}
+      WORKERS_PER_IP: "2"
+      MAX_PAGES_PER_RUBRIC: ${KB_MAX_PAGES:-100}
+      BACKFILL_DAYS: ${KB_BACKFILL_DAYS:-365}
 
   ch_entscheidsuche:
     <<: *importer-base
@@ -83,8 +84,9 @@ services:
     command: ["importers.ch_entscheidsuche"]
     environment:
       <<: *importer-env
-      MAX_DOCS_PER_SPIDER: ${ES_MAX_DOCS:-2000}
-      SPIDERS: ${ES_SPIDERS:-CH_BGer,CH_BVGer,CH_BStGer}
+      WORKERS_PER_IP: "2"
+      MAX_DOCS_PER_SPIDER: ${ES_MAX_DOCS:-10000}
+      SPIDERS: ${ES_SPIDERS:-}
 
   ch_fedlex:
     <<: *importer-base
@@ -100,7 +102,8 @@ services:
     command: ["importers.spain_consejo_estado"]
     environment:
       <<: *importer-env
-      CE_MAX_PER_YEAR: ${CE_MAX_PER_YEAR:-500}
+      WORKERS_PER_IP: "2"
+      CE_MAX_PER_YEAR: ${CE_MAX_PER_YEAR:-1500}
       CE_YEARS: ${CE_YEARS:-}
 
   spain_boe_sumarios:
@@ -109,8 +112,9 @@ services:
     command: ["importers.spain_boe_sumarios"]
     environment:
       <<: *importer-env
-      BOE_BACKFILL_DAYS: ${BOE_BACKFILL_DAYS:-0}
-      BOE_MAX_DAYS: ${BOE_MAX_DAYS:-30}
+      WORKERS_PER_IP: "2"
+      BOE_BACKFILL_DAYS: ${BOE_BACKFILL_DAYS:-90}
+      BOE_MAX_DAYS: ${BOE_MAX_DAYS:-90}
 
   spain_contratos:
     <<: *importer-base
@@ -118,7 +122,8 @@ services:
     command: ["importers.spain_contratos"]
     environment:
       <<: *importer-env
-      CONTRATOS_MAX_PAGES: ${CONTRATOS_MAX_PAGES:-10}
+      WORKERS_PER_IP: "2"
+      CONTRATOS_MAX_PAGES: ${CONTRATOS_MAX_PAGES:-200}
       CONTRATOS_SOURCES: ${CONTRATOS_SOURCES:-federal,ccaa,local}
 
   spain_congreso:
