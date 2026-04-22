@@ -48,10 +48,23 @@ log() {
 
 run_sql() {
   if [ -n "${SSH_HOST:-}" ]; then
-    ssh -T "$SSH_HOST" "docker exec secondlayer-postgres-prod psql -U secondlayer -d secondlayer_prod -c \"$1\""
+    ssh -T "$SSH_HOST" "docker exec secondlayer-postgres-prod psql -U secondlayer -d secondlayer_prod -v ON_ERROR_STOP=1 -c \"$1\""
   else
     psql -h "${PGHOST:-localhost}" -p "${PGPORT:-5432}" -U "${PGUSER:-secondlayer}" -d "${PGDATABASE:-secondlayer_prod}" -v ON_ERROR_STOP=1 -c "$1"
   fi
+}
+
+# Extract first integer from run_sql output. Fails loudly if run_sql failed or
+# produced no number — prevents silent "0" that masks SSH/DB errors.
+count_sql() {
+  local out num
+  out=$(run_sql "$1") || { log "ERROR: count query failed: $1"; exit 1; }
+  num=$(printf '%s' "$out" | grep -oP '\d+' | head -1)
+  if [ -z "$num" ]; then
+    log "ERROR: count query returned no number. Output: $out"
+    exit 1
+  fi
+  printf '%s' "$num"
 }
 
 copy_to_db() {
@@ -60,12 +73,24 @@ copy_to_db() {
   # and PostgreSQL requires the partition key in any parent-level unique constraint.
   # Per-partition unique indexes on doc_id exist, so NOT EXISTS uses them efficiently.
   if [ -n "${SSH_HOST:-}" ]; then
-    # Compress before SCP to avoid connection drops on large files
+    # Compress before transfer to shrink payload on large files
     local compressed_file="${file}.gz"
     gzip -c "$file" > "$compressed_file"
     local remote_file="/tmp/edrsr_import_$(basename "$file").gz"
     local sql_file="/tmp/edrsr_import.sql"
-    scp -q "$compressed_file" "${SSH_HOST}:${remote_file}"
+    # rsync --partial resumes from where the previous attempt died instead of
+    # restarting the 100+ MB transfer; scp has no resume and was dropping
+    # connection mid-transfer on current-year data (~2.8M rows).
+    local attempt
+    for attempt in 1 2 3; do
+      if rsync -q --partial --timeout=120 -e 'ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=3' \
+        "$compressed_file" "${SSH_HOST}:${remote_file}"; then
+        break
+      fi
+      log "rsync attempt $attempt failed, retrying..."
+      [ "$attempt" = "3" ] && { log "ERROR: rsync failed after 3 attempts"; rm -f "$compressed_file"; exit 1; }
+      sleep $((attempt * 10))
+    done
     rm -f "$compressed_file"
     ssh -T "$SSH_HOST" "gunzip -c ${remote_file} > /tmp/edrsr_import.csv && docker cp /tmp/edrsr_import.csv secondlayer-postgres-prod:/tmp/import.csv && rm -f ${remote_file} /tmp/edrsr_import.csv"
     # Create SQL script on remote
@@ -117,7 +142,7 @@ log "EDRSR Incremental Sync: year=$YEAR, dry_run=$DRY_RUN"
 log "URL: $ZIP_URL"
 
 # ── Step 1: Get count before ──────────────────────────────────────────
-COUNT_BEFORE=$(run_sql "SELECT count(*) FROM edrsr_documents WHERE EXTRACT(YEAR FROM receipt_date) = $YEAR;" 2>/dev/null | grep -oP '\d+' | head -1 || echo "0")
+COUNT_BEFORE=$(count_sql "SELECT count(*) FROM edrsr_documents WHERE EXTRACT(YEAR FROM receipt_date) = $YEAR;")
 log "Records before: $COUNT_BEFORE"
 
 # ── Step 2: Download ZIP ──────────────────────────────────────────────
@@ -158,7 +183,7 @@ log "Importing into edrsr_documents (ON CONFLICT DO NOTHING)..."
 copy_to_db "$WORK_DIR/docs_noheader.csv"
 
 # ── Step 5: Get count after ───────────────────────────────────────────
-COUNT_AFTER=$(run_sql "SELECT count(*) FROM edrsr_documents WHERE EXTRACT(YEAR FROM receipt_date) = $YEAR;" 2>/dev/null | grep -oP '\d+' | head -1 || echo "0")
+COUNT_AFTER=$(count_sql "SELECT count(*) FROM edrsr_documents WHERE EXTRACT(YEAR FROM receipt_date) = $YEAR;")
 NEW_RECORDS=$((COUNT_AFTER - COUNT_BEFORE))
 
 log "Records after: $COUNT_AFTER"
