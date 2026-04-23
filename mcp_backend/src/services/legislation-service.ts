@@ -418,19 +418,18 @@ export class LegislationService {
     radaId = normalizeRadaId(radaId);
     // Case-insensitive lookup — RADA API may return different casing (e.g. 254к/96-ВР vs 254к/96-вр)
     const result = await this.db.query(
-      'SELECT id, rada_id FROM legislation WHERE LOWER(rada_id) = LOWER($1)',
+      'SELECT id, rada_id, total_articles FROM legislation WHERE LOWER(rada_id) = LOWER($1)',
       [radaId]
     );
-    // If found with different case, use the DB version for consistency
     if (result.rows.length > 0) {
-      return true;
-    }
-
-    if (result.rows.length > 0) {
-      // Legislation exists — no need to re-fetch.
-      // Previously we re-fetched when section_number was missing, but some laws
-      // (e.g. Кримінальний кодекс 1618-15) don't have section structure in RADA API,
-      // causing an infinite re-fetch loop on every request.
+      const row = result.rows[0];
+      // If metadata was saved but parser failed to extract any text
+      // (total_articles = 0), retry the fetch. Previously this record
+      // was considered "present" and user got an empty document.
+      if (row.total_articles === 0 || row.total_articles === null) {
+        logger.info(`Legislation ${radaId} exists but has no articles (total_articles=${row.total_articles}), refetching...`);
+        return this.refetchLegislation(radaId);
+      }
       return true;
     }
 

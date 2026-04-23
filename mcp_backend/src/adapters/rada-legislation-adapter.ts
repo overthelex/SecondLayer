@@ -367,6 +367,9 @@ export class RadaLegislationAdapter {
 
   private extractArticlesFallback($: cheerio.CheerioAPI, radaId: string): LegislationArticle[] {
     const articles: LegislationArticle[] = [];
+    // Strip RADA's print-page chrome so we don't capture "Друкувати"/"Допомога"/
+    // keyboard hints when falling back to whole-document extraction.
+    $('#prnpanel, script, style, noscript, header, footer, nav').remove();
     // Cheerio .text() strips newlines between block elements (p, div, br),
     // so we inject newlines before extracting text to preserve paragraph boundaries
     $('p, div, br').each((_i, el) => {
@@ -443,6 +446,31 @@ export class RadaLegislationAdapter {
 
       if (articles.length > 0) {
         logger.info(`Extracted ${articles.length} punkts (not articles) from ${radaId} via fallback`);
+      }
+    }
+
+    // Last-resort fallback: short documents without Стаття/numbered punkts
+    // (КМУ розпорядження, накази, короткі постанови з додатками-таблицями).
+    // Store the whole document body as a single "article" so the text is at
+    // least retrievable instead of yielding total_articles = 0.
+    if (articles.length === 0) {
+      const wholeText = bodyText
+        .replace(/ /g, ' ')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+      if (wholeText.length > 50) {
+        articles.push({
+          article_number: '1',
+          full_text: wholeText,
+          byte_size: Buffer.byteLength(wholeText, 'utf8'),
+          metadata: {
+            rada_id: radaId,
+            extraction_method: 'fallback_whole_document',
+          },
+        });
+        logger.info(`Extracted whole document as single article for ${radaId} via fallback_whole_document (${wholeText.length} chars)`);
       }
     }
 
