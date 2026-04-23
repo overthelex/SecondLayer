@@ -1,5 +1,5 @@
 import type { ICachePort } from '../domain/ports/index.js';
-import { LegislationService, normalizeRadaId } from '../services/legislation-service';
+import { LegislationService, normalizeRadaId, parseKmuPrefix } from '../services/legislation-service';
 import { LegislationRenderer } from '../services/legislation-renderer';
 import { LegalPatternStore } from '../services/legal-pattern-store.js';
 import { logger } from '../utils/logger';
@@ -98,15 +98,17 @@ export class LegislationTools extends BaseToolHandler {
       throw new Error('Provide either (rada_id + article_number), (rada_id + query), or query like "ст. 625 ЦК" or "стаття 44 податкового кодексу"');
     }
 
-    // Resolve KMU: prefix
-    if (resolved.radaId.startsWith('KMU:')) {
-      const resolvedId = await this.service.resolveKmuRadaId(resolved.radaId.substring(4));
+    // Resolve KMU:/KMU-Р: prefix
+    const kmuPrefix = parseKmuPrefix(resolved.radaId);
+    if (kmuPrefix) {
+      const resolvedId = await this.service.resolveKmuRadaId(kmuPrefix.kmuNumber, kmuPrefix.docType);
       if (resolvedId) {
         resolved.radaId = resolvedId;
       } else {
+        const docLabel = kmuPrefix.docType === '-р' ? 'Розпорядження' : 'Постанову';
         return {
-          error: `Постанову КМУ №${resolved.radaId.substring(4)} не знайдено на zakon.rada.gov.ua`,
-          suggestion: 'Перевірте номер постанови',
+          error: `${docLabel} КМУ №${kmuPrefix.kmuNumber} не знайдено на zakon.rada.gov.ua`,
+          suggestion: `Перевірте номер ${kmuPrefix.docType === '-р' ? 'розпорядження' : 'постанови'}`,
         };
       }
     }
@@ -223,19 +225,20 @@ export class LegislationTools extends BaseToolHandler {
     // Пытаемся определить прямую ссылку на статью с помощью AI
     const directRef = await this.service.parseArticleReferenceWithAI(args.query);
     if (directRef) {
-      // Resolve KMU: prefix to actual rada_id
+      // Resolve KMU:/KMU-Р: prefix to actual rada_id
       let resolvedRadaId = directRef.radaId;
-      if (resolvedRadaId.startsWith('KMU:')) {
-        const kmuNumber = resolvedRadaId.substring(4);
-        const resolved = await this.service.resolveKmuRadaId(kmuNumber);
+      const kmuPrefix = parseKmuPrefix(resolvedRadaId);
+      if (kmuPrefix) {
+        const resolved = await this.service.resolveKmuRadaId(kmuPrefix.kmuNumber, kmuPrefix.docType);
         if (resolved) {
           resolvedRadaId = resolved;
         } else {
+          const docLabel = kmuPrefix.docType === '-р' ? 'Розпорядження' : 'Постанову';
           return {
             query: args.query,
             total_found: 0,
             articles: [],
-            suggestion: `Постанову КМУ №${kmuNumber} не знайдено на zakon.rada.gov.ua. Перевірте номер постанови.`,
+            suggestion: `${docLabel} КМУ №${kmuPrefix.kmuNumber} не знайдено на zakon.rada.gov.ua. Перевірте номер.`,
           };
         }
       }
@@ -399,15 +402,17 @@ export class LegislationTools extends BaseToolHandler {
     }
 
     let radaId = args.rada_id;
-    // Resolve KMU: prefix
-    if (radaId.startsWith('KMU:')) {
-      const resolved = await this.service.resolveKmuRadaId(radaId.substring(4));
+    // Resolve KMU:/KMU-Р: prefix
+    const structKmuPrefix = parseKmuPrefix(radaId);
+    if (structKmuPrefix) {
+      const resolved = await this.service.resolveKmuRadaId(structKmuPrefix.kmuNumber, structKmuPrefix.docType);
       if (resolved) {
         radaId = resolved;
       } else {
+        const docLabel = structKmuPrefix.docType === '-р' ? 'Розпорядження' : 'Постанову';
         return {
-          error: `Постанову КМУ №${radaId.substring(4)} не знайдено`,
-          suggestion: 'Перевірте номер постанови',
+          error: `${docLabel} КМУ №${structKmuPrefix.kmuNumber} не знайдено`,
+          suggestion: `Перевірте номер ${structKmuPrefix.docType === '-р' ? 'розпорядження' : 'постанови'}`,
         };
       }
     }
@@ -614,16 +619,18 @@ export class LegislationTools extends BaseToolHandler {
 
     let radaId = normalizeRadaId(args.rada_id);
 
-    // Resolve KMU: prefix
-    if (radaId.startsWith('KMU:')) {
-      const resolved = await this.service.resolveKmuRadaId(radaId.substring(4));
+    // Resolve KMU:/KMU-Р: prefix
+    const historyKmuPrefix = parseKmuPrefix(radaId);
+    if (historyKmuPrefix) {
+      const resolved = await this.service.resolveKmuRadaId(historyKmuPrefix.kmuNumber, historyKmuPrefix.docType);
       if (resolved) {
         radaId = resolved;
       } else {
+        const docLabel = historyKmuPrefix.docType === '-р' ? 'Розпорядження' : 'Постанову';
         return {
           rada_id: radaId,
-          error: `Постанову КМУ №${radaId.substring(4)} не знайдено на zakon.rada.gov.ua`,
-          suggestion: 'Перевірте номер постанови',
+          error: `${docLabel} КМУ №${historyKmuPrefix.kmuNumber} не знайдено на zakon.rada.gov.ua`,
+          suggestion: `Перевірте номер ${historyKmuPrefix.docType === '-р' ? 'розпорядження' : 'постанови'}`,
         };
       }
     }

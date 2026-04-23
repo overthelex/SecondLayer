@@ -24,6 +24,8 @@ jest.mock('../legislation-classifier', () => ({
 import {
   normalizeRadaId,
   parseLegislationReferenceWithAI,
+  parseKmuPrefix,
+  hasKmuPrefix,
   LegislationService,
 } from '../legislation-service';
 
@@ -72,6 +74,33 @@ describe('normalizeRadaId', () => {
   it('should return unchanged ID when no mapping exists', () => {
     expect(normalizeRadaId('435-15')).toBe('435-15');
     expect(normalizeRadaId('1798-12')).toBe('1798-12');
+  });
+});
+
+describe('parseKmuPrefix / hasKmuPrefix (LEXAI-865)', () => {
+  it('parses KMU: prefix as постанова (-п)', () => {
+    expect(parseKmuPrefix('KMU:1388')).toEqual({ kmuNumber: '1388', docType: '-п' });
+    expect(parseKmuPrefix('KMU:265')).toEqual({ kmuNumber: '265', docType: '-п' });
+  });
+
+  it('parses KMU-Р: prefix as розпорядження (-р)', () => {
+    expect(parseKmuPrefix('KMU-Р:265')).toEqual({ kmuNumber: '265', docType: '-р' });
+    expect(parseKmuPrefix('KMU-Р:1588')).toEqual({ kmuNumber: '1588', docType: '-р' });
+  });
+
+  it('returns null for non-KMU rada_ids', () => {
+    expect(parseKmuPrefix('435-15')).toBeNull();
+    expect(parseKmuPrefix('265-2019-р')).toBeNull();
+    expect(parseKmuPrefix('1388-98-п')).toBeNull();
+    expect(parseKmuPrefix('')).toBeNull();
+  });
+
+  it('hasKmuPrefix matches both variants', () => {
+    expect(hasKmuPrefix('KMU:1388')).toBe(true);
+    expect(hasKmuPrefix('KMU-Р:265')).toBe(true);
+    expect(hasKmuPrefix('435-15')).toBe(false);
+    expect(hasKmuPrefix(null)).toBe(false);
+    expect(hasKmuPrefix(undefined)).toBe(false);
   });
 });
 
@@ -324,6 +353,27 @@ describe('LegislationService', () => {
       const result = await service.getArticle('KMU:1388', '5');
 
       expect(result?.rada_id).toBe('1388-93-п');
+    });
+
+    it('should resolve KMU-Р: pattern for розпорядження (LEXAI-865)', async () => {
+      // DB lookup for 265-%-р finds the розпорядження, not any 265-%-п
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ rada_id: '265-2019-р' }], rowCount: 1 }) // resolveKmuRadaId with -р
+        .mockResolvedValueOnce({ rows: [{ id: 1, rada_id: '265-2019-р', total_articles: 1 }], rowCount: 1 }); // ensureLegislationExists
+
+      mockAdapter.getArticleByNumber.mockResolvedValueOnce({
+        article_number: '1',
+        full_text: 'Весь текст розпорядження про креативні індустрії...',
+      });
+
+      const result = await service.getArticle('KMU-Р:265', '1');
+
+      expect(result?.rada_id).toBe('265-2019-р');
+      // Verify the LIKE pattern filtered by -р suffix, not any 265-% match
+      expect(mockDb.query).toHaveBeenCalledWith(
+        expect.stringContaining('LIKE $1'),
+        ['265-%-р']
+      );
     });
   });
 

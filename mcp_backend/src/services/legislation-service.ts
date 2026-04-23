@@ -233,10 +233,10 @@ export async function parseLegislationReferenceWithAI(
 
     const aiResult = await classifier.classify(text, 'quick');
 
-    // Lower threshold for KMU: patterns — they need downstream resolution anyway
-    const effectiveThreshold = aiResult.rada_id?.startsWith('KMU:') ? 0.4 : confidenceThreshold;
+    // Lower threshold for KMU: / KMU-Р: patterns — they need downstream resolution anyway
+    const effectiveThreshold = hasKmuPrefix(aiResult.rada_id) ? 0.4 : confidenceThreshold;
 
-    if (aiResult.rada_id && (aiResult.article_number || aiResult.rada_id.startsWith('KMU:')) && aiResult.confidence >= effectiveThreshold) {
+    if (aiResult.rada_id && (aiResult.article_number || hasKmuPrefix(aiResult.rada_id)) && aiResult.confidence >= effectiveThreshold) {
       logger.info('[parseLegislationReferenceWithAI] AI classification successful', {
         rada_id: aiResult.rada_id,
         article: aiResult.article_number,
@@ -280,6 +280,25 @@ export function normalizeRadaId(radaId: string): string {
   return radaId;
 }
 
+/**
+ * Parses KMU prefix patterns — "KMU:{N}" for постанови (-п)
+ * and "KMU-Р:{N}" for розпорядження (-р). Returns null if no prefix match.
+ */
+export function parseKmuPrefix(radaId: string): { kmuNumber: string; docType: '-п' | '-р' } | null {
+  if (radaId.startsWith('KMU-Р:')) {
+    return { kmuNumber: radaId.substring(6), docType: '-р' };
+  }
+  if (radaId.startsWith('KMU:')) {
+    return { kmuNumber: radaId.substring(4), docType: '-п' };
+  }
+  return null;
+}
+
+/** Matches either "KMU:" or "KMU-Р:" prefix. */
+export function hasKmuPrefix(radaId: string | null | undefined): boolean {
+  return !!radaId && (radaId.startsWith('KMU:') || radaId.startsWith('KMU-Р:'));
+}
+
 export class LegislationService {
   private adapter: RadaLegislationAdapter;
   private embeddingService: IEmbeddingPort;
@@ -317,26 +336,33 @@ export class LegislationService {
   /**
    * Resolves KMU:{number} pattern to actual rada_id by trying year suffixes
    * against the RADA API in parallel batches. Returns resolved rada_id or null.
+   *
+   * @param kmuNumber — document number (e.g. "1388", "265")
+   * @param docType — "-п" for постанови (default), "-р" for розпорядження КМУ
    */
-  async resolveKmuRadaId(kmuNumber: string): Promise<string | null> {
+  async resolveKmuRadaId(kmuNumber: string, docType: '-п' | '-р' = '-п'): Promise<string | null> {
+    // Match DB entries with the correct suffix type so "KMU:265" doesn't
+    // accidentally resolve to "265-2019-р" when the user meant постанова,
+    // and "KMU-Р:265" doesn't match "265-2017-п".
+    const likePattern = `${kmuNumber}-%${docType}`;
     // First check if we already have it in DB with any year suffix
     // Only trust DB entries that have title (non-empty = successfully fetched)
     const dbResult = await this.db.query(
       `SELECT rada_id FROM legislation WHERE rada_id LIKE $1 AND title IS NOT NULL AND title != '' AND total_articles > 0 ORDER BY LENGTH(rada_id) ASC, rada_id ASC LIMIT 1`,
-      [`${kmuNumber}-%`]
+      [likePattern]
     );
     if (dbResult.rows.length > 0) {
-      logger.info(`[resolveKmuRadaId] Found KMU:${kmuNumber} in DB: ${dbResult.rows[0].rada_id}`);
+      logger.info(`[resolveKmuRadaId] Found KMU${docType === '-р' ? '-Р' : ''}:${kmuNumber} in DB: ${dbResult.rows[0].rada_id}`);
       return dbResult.rows[0].rada_id;
     }
 
-    // Clean up stale/empty DB entries for this KMU number
+    // Clean up stale/empty DB entries for this KMU number (matching this docType)
     const staleResult = await this.db.query(
       `DELETE FROM legislation WHERE rada_id LIKE $1 AND (title IS NULL OR title = '' OR total_articles = 0) RETURNING rada_id`,
-      [`${kmuNumber}-%`]
+      [likePattern]
     );
     if (staleResult.rows.length > 0) {
-      logger.info(`[resolveKmuRadaId] Cleaned up ${staleResult.rows.length} stale entries for KMU:${kmuNumber}`, {
+      logger.info(`[resolveKmuRadaId] Cleaned up ${staleResult.rows.length} stale entries for KMU${docType === '-р' ? '-Р' : ''}:${kmuNumber}`, {
         cleaned: staleResult.rows.map((r: any) => r.rada_id),
       });
     }
@@ -359,7 +385,7 @@ export class LegislationService {
       const batch = yearSuffixes.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
         batch.map(async (suffix) => {
-          const candidateId = `${kmuNumber}-${suffix}-п`;
+          const candidateId = `${kmuNumber}-${suffix}${docType}`;
           const result = await this.adapter.fetchLegislation(candidateId);
           if (result && result.metadata && result.metadata.title) {
             const yearNum = suffix.length === 2 ? 1900 + parseInt(suffix) : parseInt(suffix);
@@ -380,7 +406,7 @@ export class LegislationService {
     }
 
     if (allFound.length === 0) {
-      logger.warn(`[resolveKmuRadaId] Could not resolve KMU:${kmuNumber} — no valid year suffix found`);
+      logger.warn(`[resolveKmuRadaId] Could not resolve KMU${docType === '-р' ? '-Р' : ''}:${kmuNumber} — no valid year suffix found`);
       return null;
     }
 
@@ -403,15 +429,14 @@ export class LegislationService {
 
     // Return the oldest variant (most likely the one being referenced)
     const chosen = allFound[0];
-    logger.info(`[resolveKmuRadaId] Resolved KMU:${kmuNumber} → ${chosen.candidateId} (oldest of ${allFound.length} variants)`);
+    logger.info(`[resolveKmuRadaId] Resolved KMU${docType === '-р' ? '-Р' : ''}:${kmuNumber} → ${chosen.candidateId} (oldest of ${allFound.length} variants)`);
     return chosen.candidateId;
   }
 
   async ensureLegislationExists(radaId: string): Promise<boolean> {
-    // Handle KMU:{number} pattern from regexp parser
-    if (radaId.startsWith('KMU:')) {
-      const kmuNumber = radaId.substring(4);
-      const resolved = await this.resolveKmuRadaId(kmuNumber);
+    const kmuPrefix = parseKmuPrefix(radaId);
+    if (kmuPrefix) {
+      const resolved = await this.resolveKmuRadaId(kmuPrefix.kmuNumber, kmuPrefix.docType);
       return resolved !== null;
     }
 
@@ -452,9 +477,9 @@ export class LegislationService {
   }
 
   async getArticle(radaId: string, articleNumber: string): Promise<LegislationReference | null> {
-    // Resolve KMU:{number} to actual rada_id
-    if (radaId.startsWith('KMU:')) {
-      const resolved = await this.resolveKmuRadaId(radaId.substring(4));
+    const kmuPrefix = parseKmuPrefix(radaId);
+    if (kmuPrefix) {
+      const resolved = await this.resolveKmuRadaId(kmuPrefix.kmuNumber, kmuPrefix.docType);
       if (!resolved) return null;
       radaId = resolved;
     }
