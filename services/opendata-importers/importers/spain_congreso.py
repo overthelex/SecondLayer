@@ -55,30 +55,21 @@ class SpainCongresoImporter(BaseImporter):
     ON_CONFLICT = "do_nothing"
     BATCH_SIZE = 2000
 
-    async def import_dataset(self, pool: MultiIPSessionPool):
-        # Iterate recent legislaturas; current is 15
-        legislaturas = [int(x) for x in os.environ.get("CONGRESO_LEGS", "15").split(",")]
-        max_sesiones = int(os.environ.get("CONGRESO_MAX_SESIONES", "10"))
-        max_votaciones_per_sesion = int(os.environ.get("CONGRESO_MAX_VOTES_PER_SESION", "30"))
+    # Browser UA — congreso.es (Akamai-fronted) blocks default aiohttp UA.
+    USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-        rows = []
+    async def import_dataset(self, pool: MultiIPSessionPool):
+        # The opendata portlet ignores the legislatura param and always returns
+        # the current session of the current legislatura. Iterating older legs
+        # produced 10× duplicates of the same recent votes labelled with bogus
+        # legislatura values (data-quality bug). Restrict to the current Leg.
+        current_leg = int(os.environ.get("CONGRESO_CURRENT_LEG", "15"))
+        rows: list = []
         seen = self.ckpt.done_set
 
-        for leg in legislaturas:
-            self.log.info(f"=== Legislatura {leg} ===")
-            # Discover sessions via crawling — try sequential session numbers
-            for sesion_num in range(1, max_sesiones + 1):
-                # Try probing votacion XMLs by URL pattern walk for known dates
-                # Simplified: probe Vot_*.xml under guessed dates skipping if 404
-                # For full backfill we rely on a separate index download (TODO)
-                discovered_count = 0
-                for vote_num in range(1, max_votaciones_per_sesion + 1):
-                    # We don't know date a priori; skip date-driven discovery for now
-                    # and use: GET the legislatura listing page once, parse session/votes
-                    break  # placeholder — full discovery requires HTML parse of opendata page
-
-            # Fallback: parse the listing page once per legislatura
-            await self._import_via_listing(pool, leg, rows, seen)
+        self.log.info(f"=== Legislatura {current_leg} (incremental, current session only) ===")
+        await self._import_via_listing(pool, current_leg, rows, seen)
 
         if rows:
             self.write_batch(rows)

@@ -137,4 +137,5 @@ services:
     command: ["importers.spain_congreso"]
     environment:
       <<: *importer-env
-      CONGRESO_LEGS: ${CONGRESO_LEGS:-15,14,13}
+      WORKERS_PER_IP: "2"
+      CONGRESO_CURRENT_LEG: ${CONGRESO_CURRENT_LEG:-15}
