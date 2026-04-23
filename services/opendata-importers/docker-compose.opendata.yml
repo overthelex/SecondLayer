@@ -54,13 +54,18 @@ services:
     <<: *importer-base
     container_name: opendata-ch_finma
     command: ["importers.ch_finma"]
-    environment: *importer-env
+    environment:
+      <<: *importer-env
+      WORKERS_PER_IP: "2"
 
   eu_echr:
     <<: *importer-base
     container_name: opendata-eu_echr
     command: ["importers.eu_echr"]
-    environment: *importer-env
+    environment:
+      <<: *importer-env
+      WORKERS_PER_IP: "2"
+      ECHR_MAX_RECORDS: ${ECHR_MAX_RECORDS:-10000}
 
   ch_seco:
     <<: *importer-base
