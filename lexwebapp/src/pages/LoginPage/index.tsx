@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Gift,
   UserPlus,
+  Heart,
 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { hasRecentArticles } from '../BlogPage/articles';
@@ -222,6 +223,88 @@ function PanelDivider() {
   return (
     <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-px">
       <div className="h-full bg-gradient-to-b from-transparent via-zinc-700/35 to-transparent" />
+    </div>
+  );
+}
+
+const DONATION_AMOUNTS_USD = [5, 10, 20] as const;
+
+function DonateCard() {
+  const [selected, setSelected] = useState<number>(10);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleDonate = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${BASE_URL}/api/donations/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount_usd: selected }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Не вдалося створити донат');
+      }
+
+      window.location.href = data.pageUrl;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Помилка донату';
+      setError(msg);
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="w-full mt-4 px-4 py-4 rounded-lg bg-zinc-900/40 border border-zinc-800/50 hover:border-zinc-700/70 transition-colors duration-150">
+      <div className="flex items-center gap-2 mb-3">
+        <Heart size={11} className="text-rose-500/80" />
+        <span className="text-[9px] font-bold text-zinc-400 tracking-[0.2em] uppercase">
+          Підтримати проект
+        </span>
+      </div>
+      <p className="text-[10px] text-zinc-500 leading-relaxed mb-3">
+        Донат через Monobank допомагає розвивати платформу для всіх.
+      </p>
+      <div className="grid grid-cols-3 gap-1.5 mb-3">
+        {DONATION_AMOUNTS_USD.map((amount) => (
+          <button
+            key={amount}
+            type="button"
+            onClick={() => setSelected(amount)}
+            className={`py-2 rounded-md text-[11px] font-medium tracking-wide transition-all duration-150 ${
+              selected === amount
+                ? 'bg-zinc-100 text-zinc-900 border border-zinc-100'
+                : 'bg-zinc-900/60 text-zinc-400 border border-zinc-800/70 hover:border-zinc-700 hover:text-zinc-200'
+            }`}
+          >
+            ${amount}
+          </button>
+        ))}
+      </div>
+      {error && (
+        <p className="text-[10px] text-red-400 mb-2 flex items-center gap-1">
+          <AlertCircle size={10} />
+          {error}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={handleDonate}
+        disabled={isLoading}
+        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-zinc-800/80 hover:bg-zinc-800 border border-zinc-700/70 hover:border-zinc-600 text-zinc-200 text-[11px] font-medium transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {isLoading ? (
+          <Loader2 size={11} className="animate-spin" />
+        ) : (
+          <>
+            <Heart size={11} className="text-rose-500/80" />
+            Задонатити ${selected}
+          </>
+        )}
+      </button>
     </div>
   );
 }
@@ -1213,6 +1296,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               className="text-zinc-800 group-hover:text-zinc-600 flex-shrink-0 transition-all duration-200 group-hover:translate-x-0.5"
             />
           </button>
+
+          {/* Donate */}
+          <DonateCard />
 
           {/* Footer legal links */}
           <div className="mt-5 pb-4 sm:pb-0 flex flex-wrap justify-center gap-x-3 gap-y-1.5">
