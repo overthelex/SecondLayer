@@ -905,6 +905,27 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: mode === 'staging' ? 'dist-staging' : 'dist',
       sourcemap: mode === 'staging' || mode === 'development',
+      rollupOptions: {
+        output: {
+          // Pin shared libraries and base utilities into dedicated vendor
+          // chunks. Otherwise rolldown places axios + apiClient + BaseService
+          // alongside the main chunk, while service classes that extend
+          // BaseService end up in feature chunks, producing circular imports
+          // (feature -> index -> feature). At module init the imported binding
+          // is undefined and the app crashes ("Cannot read properties of
+          // undefined (reading 'create')", "Class extends value undefined").
+          manualChunks(id: string) {
+            if (id.includes('/node_modules/axios/')) return 'vendor-axios'
+            if (
+              id.includes('/src/utils/api/') ||
+              id.includes('/src/utils/api-client') ||
+              id.includes('/src/services/base/')
+            ) {
+              return 'vendor-api'
+            }
+          },
+        },
+      },
     },
     server: {
       host: true,
