@@ -1,4 +1,7 @@
 User-agent: *
+Allow: /about
+Allow: /about/team
+Allow: /product
 Allow: /blog
 Allow: /blog/*
 Allow: /lex-news

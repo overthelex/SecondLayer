@@ -35,6 +35,9 @@ function sitemapPlugin(): Plugin {
 
         const staticPages: Entry[] = [
           { loc: '/', changefreq: 'daily', priority: '1.0' },
+          { loc: '/product', changefreq: 'weekly', priority: '0.95' },
+          { loc: '/about', changefreq: 'monthly', priority: '0.85' },
+          { loc: '/about/team', changefreq: 'monthly', priority: '0.8' },
           { loc: '/blog', changefreq: 'weekly', priority: '0.9' },
           { loc: '/lex-news', changefreq: 'weekly', priority: '0.7' },
           { loc: '/investor', changefreq: 'monthly', priority: '0.6' },
@@ -874,6 +877,339 @@ function prerenderInvestorAndNewsPlugin(): Plugin {
   }
 }
 
+/**
+ * Vite plugin that generates static HTML shells for the public marketing pages
+ * /about, /about/team, /product so crawlers (Google, Bing, social media bots)
+ * can index real meta tags and content without executing JavaScript. The React
+ * SPA still hydrates and takes over for interactive users; the visible SEO
+ * block is removed on hydration to avoid double-rendering.
+ */
+function prerenderAboutAndProductPlugin(): Plugin {
+  return {
+    name: 'prerender-about-product',
+    closeBundle() {
+      try {
+        const root = path.resolve(__dirname)
+        const distDir = path.resolve(root, 'dist')
+        const indexHtml = fs.readFileSync(path.resolve(distDir, 'index.html'), 'utf-8')
+        const BASE_URL = 'https://legal.org.ua'
+
+        function replaceMeta(html: string, opts: {
+          title: string; description: string; ogUrl: string; canonical: string;
+          ogLocale?: string; ogImage?: string;
+        }): string {
+          const esc = (s: string) => s.replace(/"/g, '&quot;')
+          return html
+            .replace(/<title>[^<]*<\/title>/, `<title>${opts.title}</title>`)
+            .replace(/<meta name="description" content="[^"]*"\s*\/?>/, `<meta name="description" content="${esc(opts.description)}" />`)
+            .replace(/<meta property="og:title" content="[^"]*"\s*\/?>/, `<meta property="og:title" content="${esc(opts.title)}" />`)
+            .replace(/<meta property="og:description" content="[^"]*"\s*\/?>/, `<meta property="og:description" content="${esc(opts.description)}" />`)
+            .replace(/<meta property="og:url" content="[^"]*"\s*\/?>/, `<meta property="og:url" content="${opts.ogUrl}" />`)
+            .replace(/<meta property="og:locale" content="[^"]*"\s*\/?>/, `<meta property="og:locale" content="${opts.ogLocale || 'en_US'}" />`)
+            .replace(/<meta property="og:image" content="[^"]*"\s*\/?>/, `<meta property="og:image" content="${opts.ogImage || `${BASE_URL}/og-image.png`}" />`)
+            .replace(/<meta name="twitter:title" content="[^"]*"\s*\/?>/, `<meta name="twitter:title" content="${esc(opts.title)}" />`)
+            .replace(/<meta name="twitter:description" content="[^"]*"\s*\/?>/, `<meta name="twitter:description" content="${esc(opts.description)}" />`)
+            .replace(/<meta name="twitter:image" content="[^"]*"\s*\/?>/, `<meta name="twitter:image" content="${opts.ogImage || `${BASE_URL}/og-image.png`}" />`)
+            .replace(/<link rel="canonical" href="[^"]*"\s*\/?>/, `<link rel="canonical" href="${opts.canonical}" />`)
+        }
+
+        function writePage(route: string, html: string) {
+          const outDir = route === '/' ? distDir : path.resolve(distDir, route.replace(/^\//, ''))
+          fs.mkdirSync(outDir, { recursive: true })
+          fs.writeFileSync(path.resolve(outDir, 'index.html'), html)
+        }
+
+        function injectSeoBlock(html: string, seoBlockHtml: string, seoId: string): string {
+          return html.replace(
+            '<div id="root"></div>',
+            `${seoBlockHtml}\n    <div id="root"></div>\n    <script>document.getElementById('${seoId}')?.remove()</script>`
+          )
+        }
+
+        function injectHreflang(html: string, route: string): string {
+          const links = [
+            `<link rel="alternate" hreflang="en" href="${BASE_URL}${route}?lang=en" />`,
+            `<link rel="alternate" hreflang="uk" href="${BASE_URL}${route}?lang=uk" />`,
+            `<link rel="alternate" hreflang="x-default" href="${BASE_URL}${route}" />`,
+          ].join('\n    ')
+          return html.replace('</head>', `${links}\n  </head>`)
+        }
+
+        function injectJsonLd(html: string, jsonLd: object | object[]): string {
+          const arr = Array.isArray(jsonLd) ? jsonLd : [jsonLd]
+          const tags = arr
+            .map(j => `<script type="application/ld+json">${JSON.stringify(j)}</script>`)
+            .join('\n    ')
+          return html.replace('</head>', `${tags}\n  </head>`)
+        }
+
+        const organizationJsonLd = {
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: 'SecondLayer',
+          legalName: 'LEX AI LLC',
+          alternateName: 'LEX',
+          url: BASE_URL,
+          logo: `${BASE_URL}/icon-192x192.png`,
+          description: 'AI-powered legal technology company building tools for law firms and corporate counsel. Semantic search across 110M+ Ukrainian court decisions, AI-queryable registry data, MCP integration for Claude/GPT.',
+          foundingDate: '2024',
+          founders: [
+            {
+              '@type': 'Person',
+              name: 'Volodymyr Ovcharov',
+              jobTitle: 'Co-founder & CTO',
+              alumniOf: 'Kyiv Polytechnic Institute (KPI), Faculty of Applied Mathematics',
+              sameAs: ['https://www.linkedin.com/in/volodymir-ovcharov/'],
+            },
+            {
+              '@type': 'Person',
+              name: 'Igor Kyrychenko',
+              jobTitle: 'Co-founder & CEO',
+              description: 'PhD in Law',
+              sameAs: ['https://www.linkedin.com/in/ihor-kyrychenko-90503890/'],
+            },
+          ],
+          contactPoint: {
+            '@type': 'ContactPoint',
+            email: 'info@legal.org.ua',
+            contactType: 'Business',
+          },
+        }
+
+        // ---------------------------------------------------------------
+        // /about — Business Description
+        // ---------------------------------------------------------------
+        const aboutTitle = 'About — LEX | AI legal intelligence for Ukraine and beyond'
+        const aboutDesc = 'LEX is the AI platform built by SecondLayer that turns 120M+ Ukrainian court decisions, full legislation, parliament records and 41M+ open-data registry records into structured, citation-backed answers in seconds.'
+        const aboutSeo = `
+    <main id="about-seo" lang="en" style="max-width:900px;margin:40px auto;font-family:system-ui,sans-serif;padding:0 24px;color:#e4e4e7;background:#0a0a0b">
+      <h1>About SecondLayer / LEX</h1>
+      <p>LEX is the AI platform built and operated by SecondLayer, a Ukrainian legal-tech company. We turn the entire Ukrainian legal corpus — 120 million court decisions, the full legislative code with amendment history, parliament voting records, and 41 million open-data registry records — into structured, citation-backed answers that arrive in seconds instead of days.</p>
+
+      <h2>The problem we solve</h2>
+      <p>Ukrainian legal practice runs on tools designed in the 2000s. The two largest incumbents (LIGA:ZAKON and ZakonOnline) are keyword databases with no semantic search, no AI, no analytics, no API. A practising lawyer who needs to research case law for a single matter spends 2–3 full business days digging through court records by hand. Generic LLM chatbots fill some of that gap but hallucinate, do not understand Ukrainian legal specifics, and cannot cite sources reliably.</p>
+
+      <h2>Who we serve</h2>
+      <ul>
+        <li><strong>Law firms and solo practitioners</strong> — semantic search, judge analytics, case-strategy generation, document drafting.</li>
+        <li><strong>In-house and corporate counsel</strong> — compliance research, contract analysis, regulatory monitoring.</li>
+        <li><strong>Compliance and legal-ops teams</strong> — reproducible, auditable AI-assisted analysis with source citations.</li>
+        <li><strong>Legal-tech and fintech platforms</strong> — embedded AI legal layer via API and MCP (Model Context Protocol).</li>
+        <li><strong>Government and public-sector</strong> — court analytics, beneficial-ownership investigation, sanctions screening.</li>
+        <li><strong>Academic and research institutions</strong> — bulk access to Ukrainian case law and legislation for empirical legal research.</li>
+      </ul>
+
+      <h2>Market context</h2>
+      <p>Ukraine has 60,000+ practising lawyers, ~6,000 licensed attorneys, ~5,000 law firms, and 10,000+ corporate legal departments. The global legal-AI market is $500M+ and growing 28% YoY. Our serviceable market in Ukraine and CEE is conservatively $50M. We are the first and only platform in Ukraine to combine AI-native semantic search with the full national legal corpus and live state-registry integration.</p>
+
+      <h2>How we are different</h2>
+      <p>We are not a generic chatbot wrapper. Every recommendation drills down to the underlying court decision or legislative article. A built-in HallucinationGuard validates every citation against the source before it reaches the user. Authority weighting (instance, citation graph, motivation density, overrule status) ranks results so the lawyer immediately sees which positions are load-bearing and which are noise.</p>
+
+      <h2>Where we operate</h2>
+      <p>Headquartered in Kyiv, Ukraine. Live production deployment on AWS (eu-central-1, Frankfurt), with active expansion into European jurisdictions (UK, Spain, Germany, Netherlands, France, Estonia — country-specific data-source pages already shipped).</p>
+
+      <p><a href="${BASE_URL}/about/team">Meet the team →</a> · <a href="${BASE_URL}/product">See the product →</a></p>
+    </main>`
+        const aboutJsonLd = {
+          '@context': 'https://schema.org',
+          '@type': 'AboutPage',
+          name: aboutTitle,
+          description: aboutDesc,
+          url: `${BASE_URL}/about`,
+          mainEntity: organizationJsonLd,
+        }
+        let aboutPage = replaceMeta(indexHtml, {
+          title: aboutTitle,
+          description: aboutDesc,
+          ogUrl: `${BASE_URL}/about`,
+          canonical: `${BASE_URL}/about`,
+        })
+        aboutPage = injectHreflang(aboutPage, '/about')
+        aboutPage = injectJsonLd(aboutPage, [organizationJsonLd, aboutJsonLd])
+        aboutPage = injectSeoBlock(aboutPage, aboutSeo, 'about-seo')
+        writePage('/about', aboutPage)
+
+        // ---------------------------------------------------------------
+        // /about/team — Founders & Team
+        // ---------------------------------------------------------------
+        const teamTitle = 'Team — LEX | Founders & Engineering'
+        const teamDesc = 'The team behind LEX: Volodymyr Ovcharov (Co-founder & CTO, 15+ years in data platforms and AI/ML) and Igor Kyrychenko (Co-founder & CEO, PhD in Law).'
+        const teamSeo = `
+    <main id="team-seo" lang="en" style="max-width:900px;margin:40px auto;font-family:system-ui,sans-serif;padding:0 24px;color:#e4e4e7;background:#0a0a0b">
+      <h1>The team behind LEX</h1>
+      <p>A Ukrainian-founded company combining 15+ years of large-scale data-platform engineering with deep Ukrainian legal-domain expertise. The platform is built end-to-end in-house: data-ingestion pipelines, AI orchestration, frontend, and infrastructure.</p>
+
+      <section>
+        <h2>Volodymyr Ovcharov — Co-founder &amp; CTO</h2>
+        <img src="${BASE_URL}/team/volodymyr.jpg" alt="Volodymyr Ovcharov, Co-founder and CTO of SecondLayer" width="200" height="200" />
+        <p>15+ years building scalable data platforms, AI/ML systems, and OSINT infrastructure. As CTO of SecondLayer, designed and shipped the platform that processes 120M+ court records via 118 AI tools using LLM orchestration, vector search, and autonomous agents.</p>
+        <p><strong>Selected expertise:</strong> production RAG pipelines (Qdrant, Voyage AI, OpenAI embeddings); multi-provider LLM orchestration (OpenAI GPT-4o, Anthropic Claude Opus/Sonnet, AWS Bedrock); autonomous agentic systems with intent classification and query planning; OSINT engineering across 20+ registries; Ukrainian-language NLP; E2EE (X25519 + AES-256-GCM); WebAuthn/FIDO2; Diia digital-identity integration; blue-green CI/CD on self-hosted runners.</p>
+        <p><strong>Education:</strong> BSc Applied Mathematics, Igor Sikorsky Kyiv Polytechnic Institute (KPI). Researcher, V.M. Glushkov Institute of Cybernetics, National Academy of Sciences of Ukraine.</p>
+        <p><a href="https://linkedin.com/in/volodymir-ovcharov">LinkedIn</a> · <a href="mailto:volodymyr@legal.org.ua">volodymyr@legal.org.ua</a></p>
+      </section>
+
+      <section>
+        <h2>Igor Kyrychenko — Co-founder &amp; CEO</h2>
+        <img src="${BASE_URL}/team/igor.jpg" alt="Igor Kyrychenko, Co-founder and CEO of SecondLayer" width="200" height="200" />
+        <p>PhD in Law, with deep expertise in Ukrainian and international legal practice. Director of the operating Ukrainian entity and COO of SecondLayer. Responsible for product direction, legal-domain modelling (the taxonomy of 118 MCP tools, the workflow templates for litigation, and the doctrinal weighting used in retrieval), business development, and partnerships with law firms, bar associations, and the government sector.</p>
+        <p><strong>Selected expertise:</strong> Ukrainian civil, commercial, and criminal procedure; Supreme Court doctrinal analysis; legal-domain ontology design; legal-tech go-to-market in Ukraine; partnerships with the Ukrainian Bar Association and Diia (Ministry of Digital Transformation).</p>
+        <p><a href="https://www.linkedin.com/in/ihor-kyrychenko-90503890/">LinkedIn</a> · <a href="mailto:igor@legal.org.ua">igor@legal.org.ua</a> · <a href="tel:+380677206353">+380 67 720 63 53</a></p>
+      </section>
+
+      <h2>The wider team</h2>
+      <p>In-house engineers and contributors across backend (TypeScript / Node.js), frontend (React 19), data engineering (PostgreSQL, Qdrant, Redis), DevOps (AWS, Docker, blue-green CI/CD), and legal review by practising Ukrainian lawyers. We actively collaborate with independent open-source contributors.</p>
+
+      <p><a href="${BASE_URL}/about">← About SecondLayer</a> · <a href="${BASE_URL}/product">See the product →</a></p>
+    </main>`
+        const teamJsonLd = {
+          '@context': 'https://schema.org',
+          '@type': 'AboutPage',
+          name: teamTitle,
+          description: teamDesc,
+          url: `${BASE_URL}/about/team`,
+          about: [
+            {
+              '@type': 'Person',
+              name: 'Volodymyr Ovcharov',
+              jobTitle: 'Co-founder & CTO',
+              image: `${BASE_URL}/team/volodymyr.jpg`,
+              alumniOf: 'Igor Sikorsky Kyiv Polytechnic Institute (KPI)',
+              email: 'volodymyr@legal.org.ua',
+              sameAs: ['https://linkedin.com/in/volodymir-ovcharov'],
+              worksFor: { '@type': 'Organization', name: 'SecondLayer', url: BASE_URL },
+            },
+            {
+              '@type': 'Person',
+              name: 'Igor Kyrychenko',
+              jobTitle: 'Co-founder & CEO',
+              image: `${BASE_URL}/team/igor.jpg`,
+              email: 'igor@legal.org.ua',
+              telephone: '+380677206353',
+              description: 'PhD in Law',
+              sameAs: ['https://www.linkedin.com/in/ihor-kyrychenko-90503890/'],
+              worksFor: { '@type': 'Organization', name: 'SecondLayer', url: BASE_URL },
+            },
+          ],
+        }
+        let teamPage = replaceMeta(indexHtml, {
+          title: teamTitle,
+          description: teamDesc,
+          ogUrl: `${BASE_URL}/about/team`,
+          canonical: `${BASE_URL}/about/team`,
+          ogImage: `${BASE_URL}/team/volodymyr.jpg`,
+        })
+        teamPage = injectHreflang(teamPage, '/about/team')
+        teamPage = injectJsonLd(teamPage, [organizationJsonLd, teamJsonLd])
+        teamPage = injectSeoBlock(teamPage, teamSeo, 'team-seo')
+        writePage('/about/team', teamPage)
+
+        // ---------------------------------------------------------------
+        // /product — Product / Service Details
+        // ---------------------------------------------------------------
+        const productTitle = 'Product — LEX | AI legal platform for Ukraine'
+        const productDesc = 'LEX bundles five products around the Ukrainian legal corpus: AI research & drafting, state-registry OSINT, parliament analytics, attorney marketplace, and MCP Connect for any LLM client. Live in production on AWS.'
+        const productHeroImage = `${BASE_URL}/product-screenshots/01-hero-workflow-plan.png`
+        const productSeo = `
+    <main id="product-seo" lang="en" style="max-width:900px;margin:40px auto;font-family:system-ui,sans-serif;padding:0 24px;color:#e4e4e7;background:#0a0a0b">
+      <h1>LEX — AI legal platform for Ukraine</h1>
+      <p>A single AI platform, five products, one legal corpus. LEX is a production AI platform that turns the entire Ukrainian legal corpus into citation-backed answers.</p>
+      <img src="${productHeroImage}" alt="LEX AI legal research platform — auto-generated workflow plan from a single sentence" width="900" height="500" />
+
+      <h2>1. AI Legal Research &amp; Drafting (live)</h2>
+      <p>A web app where the lawyer asks a natural-language question and receives a structured, citation-backed answer in seconds.</p>
+      <ul>
+        <li>Semantic search across 120M+ court decisions (entire ЄДРСР, since 2006).</li>
+        <li>Article-level legislation retrieval with full amendment history and word-level diff.</li>
+        <li>AI-generated litigation strategies. Real client case: 11-year-old enforcement matter (UAH 11.9M) — 473 documents analysed, 9 defence strategies in 15 minutes.</li>
+        <li>Judge analytics — 12,000+ judge profiles with overturn rate, decision volume, peer ranking. No other Ukrainian platform offers this.</li>
+        <li>Citation graph and Shepardization — track whether a precedent is still good law.</li>
+        <li>Legislative monitoring with word-level diffs and customer notifications.</li>
+      </ul>
+
+      <h2>2. State Registry &amp; OSINT (live)</h2>
+      <p>Built into LEX and exposed via API. Live, fuzzy lookup across the Ukrainian state-registry stack.</p>
+      <ul>
+        <li>Business entities — full ЄДРПОУ corporate registry with beneficial-ownership chains.</li>
+        <li>Debtors and enforcement proceedings — official Ministry-of-Justice data.</li>
+        <li>Notaries, judges, attorneys — official registries indexed and searchable.</li>
+        <li>Open-data lookups — invalidated passports (3.1M), public-procurement spending (12.6M+), vehicle registrations (19.5M), NGOs (1.08M), financial reports (504K), VAT payers (264K), corruption / sanctions / wanted-persons / lustration / terrorist-list registries.</li>
+      </ul>
+
+      <h2>3. Parliament &amp; Voting Analytics (live)</h2>
+      <p>Bills, deputies, and voting records of the Verkhovna Rada — live and queryable. Deputy profiles with voting history and party-loyalty metrics. Bill tracking with notifications when watched bills change status.</p>
+
+      <h2>4. Marketplace for Legal Consultations (beta)</h2>
+      <p>A two-sided marketplace connecting clients with verified Ukrainian attorneys. E2EE messaging (X25519 + AES-256-GCM), Monobank payments (UAH and USD), escrow, and audit trails. Anchored in the official ЄРАУ (Unified Registry of Ukrainian Attorneys).</p>
+
+      <h2>5. MCP Connect — AI tools for any LLM client (live)</h2>
+      <p>LEX is the first and only Ukrainian legal platform with native MCP (Model Context Protocol) support. All 118 of our legal tools plug directly into Claude Desktop, ChatGPT, Cursor, and any MCP-compatible client. Free for individual developers; metered for enterprise.</p>
+
+      <h2>Security and compliance</h2>
+      <ul>
+        <li>GDPR-compliant — full export, deletion, and legal-hold pipelines.</li>
+        <li>DPA available for enterprise customers.</li>
+        <li>E2EE for documents and consultations (X25519 + AES-256-GCM).</li>
+        <li>WebAuthn / FIDO2 / multi-factor authentication.</li>
+        <li>Diia digital-ID auth — first legal-tech platform in Ukraine to support the national digital identity.</li>
+        <li>Independent security audit completed in March 2026 — 10 OWASP findings remediated, 7-layer defence-in-depth architecture.</li>
+      </ul>
+
+      <h2>Infrastructure</h2>
+      <p>AWS (eu-central-1, Frankfurt), backed by AWS Activate. TypeScript / Node.js 20, React 19, PostgreSQL 15 with PgBouncer, Redis 7, Qdrant, Docker, Nginx. AI providers: OpenAI GPT-4o, Anthropic Claude (via Amazon Bedrock), Voyage AI embeddings. Blue-green CI/CD with self-healing test agents on a self-hosted runner.</p>
+
+      <h2>Pricing</h2>
+      <ul>
+        <li>Individual lawyer — $29 / month</li>
+        <li>Law firm — from $99 / month</li>
+        <li>Pay-per-query API — $0.05 / query</li>
+        <li>Enterprise / on-prem / VPC — custom</li>
+      </ul>
+      <p>Free tier — 50 credits on signup, no credit card required.</p>
+
+      <p><a href="${BASE_URL}">Try LEX →</a> · <a href="${BASE_URL}/about">About SecondLayer</a> · <a href="${BASE_URL}/about/team">Meet the team</a> · <a href="${BASE_URL}/developer/docs">Developer API</a></p>
+    </main>`
+        const productJsonLd = {
+          '@context': 'https://schema.org',
+          '@type': 'SoftwareApplication',
+          name: 'LEX — AI legal platform',
+          applicationCategory: 'LegalService',
+          operatingSystem: 'Web, iOS, Android',
+          description: productDesc,
+          url: `${BASE_URL}/product`,
+          image: productHeroImage,
+          screenshot: [
+            `${BASE_URL}/product-screenshots/01-hero-workflow-plan.png`,
+            `${BASE_URL}/product-screenshots/03-structured-legal-analysis.png`,
+            `${BASE_URL}/product-screenshots/09-judge-profile.png`,
+            `${BASE_URL}/product-screenshots/14-chatgpt-mcp-connected.png`,
+          ],
+          offers: [
+            { '@type': 'Offer', name: 'Individual lawyer', price: '29.00', priceCurrency: 'USD', availability: 'https://schema.org/InStock' },
+            { '@type': 'Offer', name: 'Law firm', price: '99.00', priceCurrency: 'USD', availability: 'https://schema.org/InStock' },
+            { '@type': 'Offer', name: 'Pay-per-query API', price: '0.05', priceCurrency: 'USD', availability: 'https://schema.org/InStock' },
+          ],
+          publisher: organizationJsonLd,
+        }
+        let productPage = replaceMeta(indexHtml, {
+          title: productTitle,
+          description: productDesc,
+          ogUrl: `${BASE_URL}/product`,
+          canonical: `${BASE_URL}/product`,
+          ogImage: productHeroImage,
+        })
+        productPage = injectHreflang(productPage, '/product')
+        productPage = injectJsonLd(productPage, [organizationJsonLd, productJsonLd])
+        productPage = injectSeoBlock(productPage, productSeo, 'product-seo')
+        writePage('/product', productPage)
+
+        console.log('[prerender-about-product] Generated /about, /about/team, /product')
+      } catch (err) {
+        console.error('[prerender-about-product] Failed:', err)
+      }
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const isDocker = !!process.env.DOCKER_ENV
@@ -883,7 +1219,7 @@ export default defineConfig(({ mode }) => {
   const hasLocalCerts = !isDocker && fs.existsSync(certFile) && fs.existsSync(keyFile)
 
   return {
-    plugins: [react(), sitemapPlugin(), prerenderDocsPlugin(), prerenderBlogPlugin(), prerenderInvestorAndNewsPlugin()],
+    plugins: [react(), sitemapPlugin(), prerenderDocsPlugin(), prerenderBlogPlugin(), prerenderInvestorAndNewsPlugin(), prerenderAboutAndProductPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, 'src'),
