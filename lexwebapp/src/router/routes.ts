@@ -79,6 +79,11 @@ export const ROUTES = {
   // Career
   CAREER: '/career',
 
+  // About / Product (public marketing surfaces)
+  ABOUT: '/about',
+  ABOUT_TEAM: '/about/team',
+  PRODUCT: '/product',
+
   // Investor
   INVESTOR_LETTER: '/investor',
   UK_INVESTOR: '/uk_investor',
