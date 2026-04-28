@@ -24,6 +24,8 @@ import {
   Gift,
   UserPlus,
   Heart,
+  Sparkles,
+  Building2,
 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { hasRecentArticles } from '../BlogPage/articles';
@@ -825,6 +827,20 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             >
               <Shield size={10} />
               <span>UK Investors</span>
+            </a>
+            <a
+              href="/product"
+              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors duration-200 tracking-wide"
+            >
+              <Sparkles size={10} />
+              <span>Product</span>
+            </a>
+            <a
+              href="/about"
+              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors duration-200 tracking-wide"
+            >
+              <Building2 size={10} />
+              <span>About</span>
             </a>
             <a
               href="/pitch-deck.html"

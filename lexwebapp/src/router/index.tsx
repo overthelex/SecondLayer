@@ -66,6 +66,9 @@ const BlogPage = lazyWithRetry(() => import('../pages/BlogPage').then(m => ({ de
 const BlogArticlePage = lazyWithRetry(() => import('../pages/BlogPage/BlogArticlePage').then(m => ({ default: m.BlogArticlePage })));
 const InvestorLetterPage = lazyWithRetry(() => import('../pages/InvestorLetterPage').then(m => ({ default: m.InvestorLetterPage })));
 const CareerPage = lazyWithRetry(() => import('../pages/CareerPage').then(m => ({ default: m.CareerPage })));
+const AboutPage = lazyWithRetry(() => import('../pages/AboutPage').then(m => ({ default: m.AboutPage })));
+const AboutTeamPage = lazyWithRetry(() => import('../pages/AboutPage').then(m => ({ default: m.AboutTeamPage })));
+const ProductPage = lazyWithRetry(() => import('../pages/ProductPage').then(m => ({ default: m.ProductPage })));
 const UKInvestorPage = lazyWithRetry(() => import('../pages/UKInvestorPage').then(m => ({ default: m.UKInvestorPage })));
 const InvestorDeckPage = lazyWithRetry(() => import('../pages/InvestorDeckPage').then(m => ({ default: m.InvestorDeckPage })));
 
@@ -281,6 +284,18 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.CAREER,
     element: S(CareerPage),
+  },
+  {
+    path: ROUTES.ABOUT,
+    element: S(AboutPage),
+  },
+  {
+    path: ROUTES.ABOUT_TEAM,
+    element: S(AboutTeamPage),
+  },
+  {
+    path: ROUTES.PRODUCT,
+    element: S(ProductPage),
   },
   {
     path: ROUTES.INVESTOR_LETTER,
