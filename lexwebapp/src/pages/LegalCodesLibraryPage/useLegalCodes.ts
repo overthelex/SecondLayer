@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { mcpService } from '../../services';
 import { showToast } from '../../utils/toast';
 import { toastT } from '../../i18n/toast-i18n';
@@ -35,6 +35,10 @@ export function useLegalCodes() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchTotal, setSearchTotal] = useState(0);
+
+  // Tracks the article number currently being fetched, so duplicate clicks
+  // (and any stale re-renders) don't fire a second request for the same article.
+  const inFlightArticleRef = useRef<string | null>(null);
 
   // Favorites
   const [favorites, setFavorites] = useState<Set<string>>(loadFavorites);
@@ -161,6 +165,9 @@ export function useLegalCodes() {
 
   const fetchArticle = useCallback(async (articleNumber: string) => {
     if (!selectedCode) return;
+    if (inFlightArticleRef.current === articleNumber) return;
+
+    inFlightArticleRef.current = articleNumber;
     setLoadingArticle(true);
     setSelectedArticleNumber(articleNumber);
     setShowComment(false);
@@ -169,6 +176,7 @@ export function useLegalCodes() {
         rada_id: selectedCode,
         article_number: articleNumber,
       });
+      if (inFlightArticleRef.current !== articleNumber) return;
       const data = parseToolResult(result);
       if (data.error) {
         showToast.error(data.error);
@@ -177,10 +185,14 @@ export function useLegalCodes() {
         setCurrentArticle(data);
       }
     } catch (err: unknown) {
+      if (inFlightArticleRef.current !== articleNumber) return;
       showToast.error(getErrorMessage(err));
       setCurrentArticle(null);
     } finally {
-      setLoadingArticle(false);
+      if (inFlightArticleRef.current === articleNumber) {
+        inFlightArticleRef.current = null;
+        setLoadingArticle(false);
+      }
     }
   }, [selectedCode]);
 
