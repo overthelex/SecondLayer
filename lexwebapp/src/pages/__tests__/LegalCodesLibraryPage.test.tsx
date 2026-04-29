@@ -423,6 +423,46 @@ describe('LegalCodesLibraryPage', () => {
       });
     });
 
+    it('does not fire a duplicate request when the same article is clicked while loading', async () => {
+      const user = await openCodeViewer();
+
+      let resolveSection: (v: unknown) => void = () => {};
+      mockCallTool.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSection = resolve;
+          })
+      );
+
+      const articleBtns = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.textContent?.includes('Ст. 1. Перша стаття'));
+
+      const callsBefore = mockCallTool.mock.calls.length;
+      await user.click(articleBtns[0]);
+      await user.click(articleBtns[0]);
+      await user.click(articleBtns[0]);
+
+      const sectionCalls = mockCallTool.mock.calls
+        .slice(callsBefore)
+        .filter(([toolName]) => toolName === 'get_legislation_section');
+      expect(sectionCalls).toHaveLength(1);
+
+      resolveSection(
+        makeToolResult({
+          rada_id: '435-15',
+          article_number: '1',
+          title: 'Перша стаття',
+          full_text: 'Текст',
+          url: 'https://example.com/article/1',
+        })
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Текст')).toBeInTheDocument();
+      });
+    });
+
     it('navigates back to listing on back button', async () => {
       const user = await openCodeViewer();
 
