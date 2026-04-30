@@ -395,4 +395,122 @@ describe('EmailService', () => {
       ).resolves.not.toThrow();
     });
   });
+
+  // ── sendSupportMessage (LEXAI-869) ─────────────────────────────────────
+
+  describe('sendSupportMessage', () => {
+    const baseParams = {
+      type: 'feedback' as const,
+      message: 'Знайшов баг на сторінці адвокатів',
+      fromEmail: 'user@test.com',
+      fromName: 'Іван Тест',
+      userId: 'user-001',
+    };
+
+    it('sends email to the SUPPORT_EMAIL env variable', async () => {
+      process.env.SUPPORT_EMAIL = 'support@legal.org.ua';
+      service = new EmailService();
+
+      await service.sendSupportMessage(baseParams);
+
+      expect(mockSendMail).toHaveBeenCalledTimes(1);
+      const mail = mockSendMail.mock.calls[0][0];
+      expect(mail.to).toBe('support@legal.org.ua');
+    });
+
+    it('falls back to info@legal.org.ua when SUPPORT_EMAIL is not set', async () => {
+      delete process.env.SUPPORT_EMAIL;
+      service = new EmailService();
+
+      await service.sendSupportMessage(baseParams);
+
+      const mail = mockSendMail.mock.calls[0][0];
+      expect(mail.to).toBe('info@legal.org.ua');
+    });
+
+    it('sets replyTo to the sender email', async () => {
+      await service.sendSupportMessage(baseParams);
+
+      const mail = mockSendMail.mock.calls[0][0];
+      expect(mail.replyTo).toBe('user@test.com');
+    });
+
+    it('includes "Зауваження" in subject for type="feedback"', async () => {
+      await service.sendSupportMessage({ ...baseParams, type: 'feedback' });
+
+      const mail = mockSendMail.mock.calls[0][0];
+      expect(mail.subject).toContain('Зауваження');
+    });
+
+    it('includes "Питання" in subject for type="question"', async () => {
+      await service.sendSupportMessage({ ...baseParams, type: 'question' });
+
+      const mail = mockSendMail.mock.calls[0][0];
+      expect(mail.subject).toContain('Питання');
+    });
+
+    it('includes sender name in the subject', async () => {
+      await service.sendSupportMessage(baseParams);
+
+      const mail = mockSendMail.mock.calls[0][0];
+      expect(mail.subject).toContain('Іван Тест');
+    });
+
+    it('includes message content in the HTML body', async () => {
+      await service.sendSupportMessage(baseParams);
+
+      const mail = mockSendMail.mock.calls[0][0];
+      expect(mail.html).toContain('Знайшов баг на сторінці адвокатів');
+    });
+
+    it('includes sender name and email in the HTML body', async () => {
+      await service.sendSupportMessage(baseParams);
+
+      const mail = mockSendMail.mock.calls[0][0];
+      expect(mail.html).toContain('Іван Тест');
+      expect(mail.html).toContain('user@test.com');
+    });
+
+    it('includes userId in the HTML body', async () => {
+      await service.sendSupportMessage(baseParams);
+
+      const mail = mockSendMail.mock.calls[0][0];
+      expect(mail.html).toContain('user-001');
+    });
+
+    it('includes pageUrl in the HTML body when provided', async () => {
+      await service.sendSupportMessage({
+        ...baseParams,
+        pageUrl: 'https://legal.org.ua/attorneys',
+      });
+
+      const mail = mockSendMail.mock.calls[0][0];
+      expect(mail.html).toContain('https://legal.org.ua/attorneys');
+    });
+
+    it('does not include pageUrl row in HTML when omitted', async () => {
+      await service.sendSupportMessage(baseParams);
+
+      const mail = mockSendMail.mock.calls[0][0];
+      // The template uses conditional rendering — <b>Сторінка:</b> should be absent
+      expect(mail.html).not.toContain('<b>Сторінка:</b>');
+    });
+
+    it('escapes HTML special characters in the message', async () => {
+      await service.sendSupportMessage({
+        ...baseParams,
+        message: '<script>alert("xss")</script>',
+      });
+
+      const mail = mockSendMail.mock.calls[0][0];
+      expect(mail.html).not.toContain('<script>');
+      expect(mail.html).toContain('&lt;script&gt;');
+    });
+
+    it('throws when sendMail rejects (not swallowed)', async () => {
+      mockSendMail.mockRejectedValueOnce(new Error('SMTP unavailable'));
+
+      await expect(service.sendSupportMessage(baseParams)).rejects.toThrow('SMTP unavailable');
+    });
+  });
 });
