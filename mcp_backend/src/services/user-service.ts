@@ -24,6 +24,8 @@ export interface User {
   password_hash?: string;
   role: 'user' | 'company' | 'administrator';
   user_type?: 'individual' | 'attorney' | 'company_admin';
+  is_beta_tester?: boolean;
+  is_admin?: boolean;
 }
 
 export interface UserCreate {

@@ -4,6 +4,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { logger } from './utils/logger.js';
 import { dualAuth, requireJWT, optionalJWT, AuthenticatedRequest as DualAuthRequest } from './middleware/dual-auth.js';
+import { createAccessGate } from './middleware/access-gate-middleware.js';
+import { createAccessRoutes } from './routes/access-routes.js';
 import authRouter from './routes/auth.js';
 import { setAuthCache } from './controllers/auth.js';
 import { setOidcCache } from './services/oidc-service.js';
@@ -587,14 +589,19 @@ class HTTPMCPServer {
     // GET /api/upload/:uploadId/status - Check status
     // DELETE /api/upload/:uploadId - Cancel
     // GET /api/upload/active - List active sessions
-    this.app.use('/api/upload', requireJWT as any, createUploadRouter(
-      this.tools.uploadService,
-      this.tools.minioService,
-      this.tools.vaultTools,
-      this.services.db,
-      this.app_.uploadQueueService,
-      this.services.documentService
-    ));
+    this.app.use(
+      '/api/upload',
+      requireJWT as any,
+      createAccessGate(this.services.db, { feature: 'upload' }) as any,
+      createUploadRouter(
+        this.tools.uploadService,
+        this.tools.minioService,
+        this.tools.vaultTools,
+        this.services.db,
+        this.app_.uploadQueueService,
+        this.services.documentService
+      )
+    );
     logger.info('Upload routes registered at /api/upload');
 
     // Client-Matter segregation routes (matters, clients, legal holds, audit)
@@ -872,13 +879,22 @@ class HTTPMCPServer {
     }) as any);
     logger.info('KMU RSS Proxy endpoint registered at GET /api/proxy/kmu-rss');
 
+    // Access status — frontend uses this to render the beta-restricted modal proactively
+    this.app.use('/api/access', requireJWT as any, createAccessRoutes(this.services.db));
+    logger.info('Access status routes registered at /api/access');
+
     // Chat routes (plan review + AI chat with SSE streaming)
-    this.app.use('/api/chat', requireJWT as any, createChatInlineRoutes({
-      chatService: this.app_.chatService,
-      billingService: this.billing.billingService,
-      costTracker: this.billing.costTracker,
-      db: this.services.db,
-    }));
+    this.app.use(
+      '/api/chat',
+      requireJWT as any,
+      createAccessGate(this.services.db, { feature: 'chat' }) as any,
+      createChatInlineRoutes({
+        chatService: this.app_.chatService,
+        billingService: this.billing.billingService,
+        costTracker: this.billing.costTracker,
+        db: this.services.db,
+      })
+    );
     logger.info('Chat routes registered at /api/chat');
 
 

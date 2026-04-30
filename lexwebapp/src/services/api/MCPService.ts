@@ -176,6 +176,21 @@ export class MCPService extends BaseService {
 
       if (!response.ok) {
         const errorText = await response.text();
+        // Surface the beta-restricted modal when the chat endpoint blocks
+        // the request because the user has not topped up via Monobank.
+        if (response.status === 403) {
+          try {
+            const parsed = JSON.parse(errorText) as { code?: string; message?: string };
+            if (parsed?.code === 'BETA_RESTRICTED') {
+              const m = await import('../../stores/accessGateStore');
+              m.useAccessGateStore.getState().markRestricted();
+              callbacks.onError?.({ message: parsed.message, code: 'BETA_RESTRICTED' });
+              return controller;
+            }
+          } catch {
+            // Fall through to the generic error path below.
+          }
+        }
         callbacks.onError?.({ message: `API Error: ${response.status} - ${errorText}` });
         return controller;
       }

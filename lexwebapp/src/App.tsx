@@ -6,6 +6,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { CookieConsent } from './components/CookieConsent';
 import { GeoDetector } from './components/GeoDetector';
 import { EncryptionGuard } from './components/encryption/EncryptionGuard';
+import { BetaRestrictedModal } from './components/BetaRestrictedModal/BetaRestrictedModal';
+import { AccessGateBootstrap } from './components/BetaRestrictedModal/AccessGateBootstrap';
 import { router } from './router';
 
 export function App() {
@@ -15,7 +17,9 @@ export function App() {
         <AuthProvider>
           <GeoDetector />
           <EncryptionGuard />
+          <AccessGateBootstrap />
           <RouterProvider router={router} />
+          <BetaRestrictedModal />
           <CookieConsent />
         <Toaster
           position="top-right"
