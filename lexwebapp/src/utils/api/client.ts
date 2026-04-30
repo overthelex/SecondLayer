@@ -181,6 +181,22 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // 403 BETA_RESTRICTED - app is restricted to beta testers and users with a Monobank top-up
+    if (status === 403 && (data as { code?: string } | undefined)?.code === 'BETA_RESTRICTED') {
+      // Lazy import to avoid a hard cycle between api/client and the store.
+      import('../../stores/accessGateStore')
+        .then((m) => m.useAccessGateStore.getState().markRestricted())
+        .catch(() => {
+          // If the store can't load for any reason, surface a toast so the
+          // user still sees a clear message rather than a silent failure.
+          showToast.error(
+            (data as { message?: string } | undefined)?.message ||
+              'Доступ обмежено для бета-тестування'
+          );
+        });
+      return Promise.reject(error);
+    }
+
     // 429 Too Many Requests - rate limit exceeded
     if (status === 429) {
       // Skip toast for upload endpoints — UploadManager handles 429 retry internally

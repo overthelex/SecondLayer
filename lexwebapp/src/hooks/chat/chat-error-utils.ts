@@ -27,7 +27,10 @@ export function handleStreamError(
   let content: string;
   let toastMessage: string;
 
-  if (error.code === 'INSUFFICIENT_BALANCE') {
+  if (error.code === 'BETA_RESTRICTED') {
+    content = `⚠️ **Доступ обмежено**\n\nЦя версія застосунку доступна лише учасникам бета-тестування або користувачам, які поповнили баланс через Monobank. [Поповнити баланс](/billing).`;
+    toastMessage = 'Доступ обмежено для бета-тестування';
+  } else if (error.code === 'INSUFFICIENT_BALANCE') {
     const balance = error.current_balance_usd != null
       ? `$${error.current_balance_usd.toFixed(2)}`
       : '';
