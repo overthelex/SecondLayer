@@ -11,6 +11,7 @@ import { RightPanel } from '../components/right-panel';
 import { TimeTrackerWidget } from '../components/time/TimeTrackerWidget';
 import { OnboardingTour } from '../components/onboarding/OnboardingTour';
 import { PendingInvitationsModal } from '../components/attorney/PendingInvitationsModal';
+import { SupportWidget } from '../components/support';
 import { useAuth } from '../contexts/AuthContext';
 import { useUIStore, useConsultationStore } from '../stores';
 import { ROUTES } from '../router/routes';
@@ -262,6 +263,9 @@ export function MainLayout() {
 
       {/* Onboarding Tour */}
       <OnboardingTour />
+
+      {/* Support Widget — floating help/feedback FAB (LEXAI-869) */}
+      <SupportWidget />
 
       {/* Pending Invitations Modal for attorneys */}
       <PendingInvitationsModal

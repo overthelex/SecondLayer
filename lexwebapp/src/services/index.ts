@@ -35,3 +35,6 @@ export { ConsultationService, consultationService } from './api/ConsultationServ
 
 // Encryption service (E2EE)
 export { EncryptionService, encryptionService } from './api/EncryptionService';
+
+// Support widget (in-app feedback/questions)
+export { SupportService, supportService } from './api/SupportService';
