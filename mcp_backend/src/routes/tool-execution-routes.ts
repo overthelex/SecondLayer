@@ -496,7 +496,11 @@ export function createToolExecutionRoutes(deps: {
             tool: toolName,
             error: creditError.message,
           });
-          // On error, allow the request to proceed (fail open)
+          return res.status(503).json({
+            error: 'Service temporarily unavailable',
+            message: 'Credit check system is temporarily unavailable. Please try again later.',
+            code: 'BILLING_UNAVAILABLE',
+          });
         }
       }
 
