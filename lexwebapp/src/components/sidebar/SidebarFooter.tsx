@@ -47,6 +47,15 @@ export function SidebarFooter({
         >
           {appT('nav.privacy')}
         </a>
+        <span className="text-zinc-800 text-[9px]">·</span>
+        <a
+          href="/abuse"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[9.5px] text-zinc-700 hover:text-zinc-500 transition-colors tracking-wide"
+        >
+          {appT('nav.abuseReport')}
+        </a>
       </div>
 
       {/* Profile menu popup */}

@@ -30,6 +30,7 @@ const LEGAL_PAGES = [
   { path: 'ai-transparency', labelUk: 'Прозорість AI', labelEn: 'AI Transparency' },
   { path: 'marketplace-rules', labelUk: 'Правила маркетплейсу', labelEn: 'Marketplace Rules' },
   { path: 'refund-policy', labelUk: 'Повернення коштів', labelEn: 'Refund Policy' },
+  { path: 'aup', labelUk: 'Допустиме використання', labelEn: 'Acceptable Use Policy' },
 ];
 
 function extractToc(markdown: string): { toc: TocItem[]; title: string; subtitle: string; meta: string } {
@@ -395,12 +396,20 @@ export function LegalPageLayout({
                 &copy; {new Date().getFullYear()} ФОП Кириченко І.В.
               </span>
             </div>
-            <a
-              href="mailto:info@legal.org.ua"
-              className="text-sm text-claude-subtext hover:text-claude-text transition-colors"
-            >
-              info@legal.org.ua
-            </a>
+            <div className="flex items-center gap-4">
+              <Link
+                to="/abuse"
+                className="text-sm text-claude-subtext hover:text-claude-text transition-colors"
+              >
+                {currentLang === 'ua' ? 'Повідомити про порушення' : 'Report Abuse'}
+              </Link>
+              <a
+                href="mailto:info@legal.org.ua"
+                className="text-sm text-claude-subtext hover:text-claude-text transition-colors"
+              >
+                info@legal.org.ua
+              </a>
+            </div>
           </div>
         </div>
       </footer>

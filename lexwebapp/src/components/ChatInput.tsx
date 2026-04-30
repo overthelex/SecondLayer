@@ -6,6 +6,8 @@ import { ToolSelector } from './chat/ToolSelector';
 import { FileAttachments, SelectedFile } from './chat/FileAttachments';
 import { PromptManager } from './chat/PromptManager';
 import { useChatFileUpload } from '../hooks/useChatFileUpload';
+import { useAupConsent } from '../hooks/useAupConsent';
+import { AupConsentModal } from './AupConsentModal';
 import { useChatStore } from '../stores';
 
 const ACCEPTED_FILE_TYPES = '.pdf,.docx,.doc,.txt,.rtf,.html';
@@ -28,8 +30,11 @@ export function ChatInput({
   const [input, setInput] = useState('');
   const [files, setFiles] = useState<SelectedFile[]>([]);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const [showAupModal, setShowAupModal] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { accepted: aupAccepted, accept: acceptAup } = useAupConsent();
 
   // Consume draft input from store (e.g. from selection toolbar)
   const draftInput = useChatStore(s => s.draftInput);
@@ -87,19 +92,43 @@ export function ChatInput({
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    if (selectedFiles.length === 0) return;
-
-    const newFiles: SelectedFile[] = selectedFiles.map((file) => ({
+  const addFilesToState = (rawFiles: File[]) => {
+    const newFiles: SelectedFile[] = rawFiles.map((file) => ({
       file,
       uploading: false,
     }));
     setFiles((prev) => [...prev, ...newFiles]);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+
+    if (!aupAccepted) {
+      // Store files and show AUP modal
+      setPendingFiles(selectedFiles);
+      setShowAupModal(true);
+    } else {
+      addFilesToState(selectedFiles);
+    }
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const handleAupAccept = () => {
+    acceptAup();
+    setShowAupModal(false);
+    if (pendingFiles.length > 0) {
+      addFilesToState(pendingFiles);
+      setPendingFiles([]);
+    }
+  };
+
+  const handleAupCancel = () => {
+    setShowAupModal(false);
+    setPendingFiles([]);
   };
 
   const handleLoadPrompt = (content: string) => {
@@ -109,6 +138,11 @@ export function ChatInput({
 
   return (
     <>
+    <AupConsentModal
+      isOpen={showAupModal}
+      onAccept={handleAupAccept}
+      onCancel={handleAupCancel}
+    />
     <div className="max-w-3xl mx-auto px-4 md:px-8 pb-2" data-tour="chat-input">
       {/* Internet toggle */}
       <ToolSelector />

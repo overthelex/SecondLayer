@@ -2,7 +2,7 @@ import { BaseCostTracker, AdditionalCostResult } from '@secondlayer/shared';
 import { CostEstimate, CostBreakdown } from '@secondlayer/shared';
 import { Database } from '../database/database.js';
 import { logger } from '../utils/logger.js';
-import { maskSensitive, sanitizeId } from '../utils/sanitize-log.js';
+import { maskSensitive, sanitizeId, sanitizeClassified } from '../utils/sanitize-log.js';
 import { BillingService } from './billing-service.js';
 
 export class CostTracker extends BaseCostTracker {
@@ -46,7 +46,7 @@ export class CostTracker extends BaseCostTracker {
         params.toolName,
         params.clientKey || null,
         params.userId || null,
-        (params.userQuery?.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') || '').substring(0, 500),
+        sanitizeClassified((params.userQuery?.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') || '').substring(0, 500)),
         JSON.stringify(params.queryParams),
         'pending',
       ]

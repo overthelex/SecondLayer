@@ -64,6 +64,7 @@ import { createInvoiceRoutes } from './routes/invoice-routes.js';
 import { getLLMManager } from './utils/llm-client-manager.js';
 import { setRateLimitCache } from './middleware/rate-limit.js';
 import { setUploadRateLimitCache } from './middleware/upload-rate-limit.js';
+import { requireEmailVerified } from './middleware/require-email-verified.js';
 import { createClassificationRoutes } from './routes/classification-routes.js';
 import { createWorkflowSetRoutes, createWorkflowRoutes } from './routes/workflow-routes.js';
 import { createAttorneyRoutes } from './routes/attorney-routes.js';
@@ -74,6 +75,7 @@ import { JudgeAnalyticsService } from './services/judge-analytics-service.js';
 import { createJudgeAnalyticsRoutes } from './routes/judge-analytics-routes.js';
 import { createReferralRoutes } from './routes/referral-routes.js';
 import { createSupportRoutes } from './routes/support-routes.js';
+import { createAbuseRoutes } from './routes/abuse-routes.js';
 import { createLegislationMonitoringRoutes } from './routes/legislation-monitoring-routes.js';
 import { createUsageRoutes } from './routes/usage-routes.js';
 import { createSessionReplayRoutes, createAdminSessionReplayRoutes } from './routes/session-replay-routes.js';
@@ -592,6 +594,7 @@ class HTTPMCPServer {
     this.app.use(
       '/api/upload',
       requireJWT as any,
+      requireEmailVerified as any,
       createAccessGate(this.services.db, { feature: 'upload' }) as any,
       createUploadRouter(
         this.tools.uploadService,
@@ -622,6 +625,10 @@ class HTTPMCPServer {
     // Support widget (FAB) — feedback / question submissions
     this.app.use('/api/support', createSupportRoutes(this.billing.emailService, this.services.db));
     logger.info('Support widget routes registered at /api/support');
+
+    // Abuse report — public form, no auth required
+    this.app.use('/api/abuse-report', createAbuseRoutes(this.services.db, this.billing.emailService));
+    logger.info('Abuse report routes registered at /api/abuse-report');
 
     // Legislation monitoring routes - subscriptions, changes, notifications
     this.app.use('/api/legislation/monitoring', requireJWT as any, createLegislationMonitoringRoutes(this.app_.legislationMonitoringService));
@@ -878,6 +885,35 @@ class HTTPMCPServer {
       }
     }) as any);
     logger.info('KMU RSS Proxy endpoint registered at GET /api/proxy/kmu-rss');
+
+    // AUP consent — records user acceptance of Acceptable Use Policy before file uploads
+    this.app.post('/api/user/aup-consent', requireJWT as any, (async (req: DualAuthRequest, res: Response) => {
+      try {
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+        const aupVersion = typeof req.body?.aup_version === 'string'
+          ? req.body.aup_version.slice(0, 20)
+          : '1.0';
+
+        const ip = req.headers['cf-connecting-ip'] as string
+          || req.headers['x-forwarded-for'] as string
+          || req.ip
+          || null;
+
+        await this.services.db.query(
+          `INSERT INTO user_aup_consents (user_id, aup_version, ip_address)
+           VALUES ($1, $2, $3::inet)`,
+          [userId, aupVersion, ip]
+        );
+
+        res.json({ ok: true });
+      } catch (err: any) {
+        logger.error('[AUP] Failed to record consent', { error: err.message });
+        res.json({ ok: true });
+      }
+    }) as any);
+    logger.info('AUP consent route registered at POST /api/user/aup-consent');
 
     // Access status — frontend uses this to render the beta-restricted modal proactively
     this.app.use('/api/access', requireJWT as any, createAccessRoutes(this.services.db));

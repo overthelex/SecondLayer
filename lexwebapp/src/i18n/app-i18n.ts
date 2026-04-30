@@ -921,6 +921,7 @@ const translations: TranslationMap = {
   // Sidebar footer / profile menu
   'nav.offer': { uk: 'Оферта', en: 'Terms of Service', de: 'Nutzungsbedingungen', es: 'Términos de servicio' },
   'nav.privacy': { uk: 'Конфіденційність', en: 'Privacy', de: 'Datenschutz', es: 'Privacidad' },
+  'nav.abuseReport': { uk: 'Порушення', en: 'Report Abuse', de: 'Missbrauch melden', es: 'Reportar abuso' },
   'nav.profile': { uk: 'Профіль', en: 'Profile', de: 'Profil', es: 'Perfil' },
   'nav.profileBilling': { uk: 'Біллінг', en: 'Billing', de: 'Abrechnung', es: 'Facturación' },
   'nav.myContracts': { uk: 'Мої договори', en: 'My Contracts', de: 'Meine Verträge', es: 'Mis contratos' },

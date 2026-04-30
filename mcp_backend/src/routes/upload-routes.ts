@@ -179,12 +179,19 @@ export function createUploadRouter(
         });
       }
 
+      // Force encryption for JWT consumer uploads — prevent plaintext bypass via API
+      const isJwtConsumer = req.authType === 'jwt';
+      const effectiveEncrypt = isJwtConsumer ? true : encrypt === true;
+      if (isJwtConsumer && encrypt !== true) {
+        logger.info('[Upload] Forced encryption for JWT consumer upload', { userId, fileName });
+      }
+
       const session = await uploadService.createSession(userId, fileName, fileSize, mimeType, {
         docType,
         relativePath,
         metadata,
         matterId,
-        encrypt: encrypt === true,
+        encrypt: effectiveEncrypt,
       });
 
       addBackpressureHeaders(res);
@@ -266,6 +273,12 @@ export function createUploadRouter(
         });
       }
 
+      // Force encryption for JWT consumer uploads — prevent plaintext bypass via API
+      const isJwtConsumer = req.authType === 'jwt';
+      if (isJwtConsumer) {
+        logger.info('[Upload] Forced encryption for JWT consumer batch upload', { userId, fileCount: files.length });
+      }
+
       const sessions = [];
       for (const f of files) {
         if (!f.fileName || !f.fileSize || !f.mimeType) {
@@ -273,12 +286,13 @@ export function createUploadRouter(
           continue;
         }
         try {
+          const effectiveEncrypt = isJwtConsumer ? true : f.encrypt === true;
           const session = await uploadService.createSession(userId, f.fileName, f.fileSize, f.mimeType, {
             docType: f.docType,
             relativePath: f.relativePath,
             metadata: f.metadata,
             matterId: f.matterId,
-            encrypt: f.encrypt === true,
+            encrypt: effectiveEncrypt,
           });
           sessions.push({
             uploadId: session.id,

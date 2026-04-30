@@ -4,6 +4,7 @@ import fsSync from 'fs';
 import path from 'path';
 import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
+import { sanitizeClassified } from '../utils/sanitize-log.js';
 
 export interface UploadSession {
   id: string;
@@ -121,7 +122,7 @@ export class UploadService {
     logger.info('[Upload] Session created', {
       sessionId: id,
       userId,
-      fileName,
+      fileName: sanitizeClassified(fileName),
       fileSize,
       totalChunks,
     });
