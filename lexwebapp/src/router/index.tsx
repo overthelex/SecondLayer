@@ -62,6 +62,8 @@ const DpaPage = lazyWithRetry(() => import('../pages/DpaPage').then(m => ({ defa
 const AiUsagePolicyPage = lazyWithRetry(() => import('../pages/AiUsagePolicyPage').then(m => ({ default: m.AiUsagePolicyPage })));
 const AiTransparencyPage = lazyWithRetry(() => import('../pages/AiTransparencyPage').then(m => ({ default: m.AiTransparencyPage })));
 const RefundPolicyPage = lazyWithRetry(() => import('../pages/RefundPolicyPage').then(m => ({ default: m.RefundPolicyPage })));
+const AupPage = lazyWithRetry(() => import('../pages/AupPage').then(m => ({ default: m.AupPage })));
+const AbuseReportPage = lazyWithRetry(() => import('../pages/AbuseReportPage').then(m => ({ default: m.AbuseReportPage })));
 const BlogPage = lazyWithRetry(() => import('../pages/BlogPage').then(m => ({ default: m.BlogPage })));
 const BlogArticlePage = lazyWithRetry(() => import('../pages/BlogPage/BlogArticlePage').then(m => ({ default: m.BlogArticlePage })));
 const InvestorLetterPage = lazyWithRetry(() => import('../pages/InvestorLetterPage').then(m => ({ default: m.InvestorLetterPage })));
@@ -238,6 +240,10 @@ export const router = createBrowserRouter([
     element: S(RefundPolicyPage),
   },
   {
+    path: ROUTES.AUP,
+    element: S(AupPage),
+  },
+  {
     path: ROUTES.US_DATA_SOURCES,
     element: S(USDataSourcesPage),
   },
@@ -268,6 +274,10 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.EU_COMPARISON,
     element: S(EUComparisonPage),
+  },
+  {
+    path: ROUTES.ABUSE_REPORT,
+    element: S(AbuseReportPage),
   },
   {
     path: ROUTES.BLOG_ARTICLE,

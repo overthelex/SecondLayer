@@ -4,6 +4,7 @@ import { Upload, FolderUp, Lock } from 'lucide-react';
 import type { DocType } from './types';
 import { useEncryptionStore } from '../../stores/encryptionStore';
 import { EncryptionSetupDialog } from '../../components/encryption/EncryptionSetupDialog';
+import { useAupConsent } from '../../hooks/useAupConsent';
 import { showToast } from '../../utils/toast';
 import { toastT } from '../../i18n/toast-i18n';
 
@@ -108,6 +109,7 @@ export function UploadZone({
 }: UploadZoneProps) {
   const { hasEncryption, isUnlocked } = useEncryptionStore();
   const [showEncryptionDialog, setShowEncryptionDialog] = useState(false);
+  const { accepted: aupAccepted, accept: acceptAup } = useAupConsent();
 
   /**
    * E2EE is mandatory. If user has no keys or keys are locked,
@@ -129,6 +131,12 @@ export function UploadZone({
 
   const handleFilesSelected = useCallback(
     (files: FileList | File[]) => {
+      // AUP consent mandatory: block upload if not accepted
+      if (!aupAccepted) {
+        showToast.info('Необхідно прийняти Політику допустимого використання');
+        return;
+      }
+
       // E2EE mandatory: block upload if encryption not ready
       if (!ensureEncryptionReady()) return;
 
@@ -145,7 +153,7 @@ export function UploadZone({
       addFiles(newItems);
       setShowUploadPanel(true);
     },
-    [defaultDocType, addFiles, currentFolderPath, setShowUploadPanel, ensureEncryptionReady]
+    [defaultDocType, addFiles, currentFolderPath, setShowUploadPanel, ensureEncryptionReady, aupAccepted]
   );
 
   const handleFileSelect = () => fileInputRef.current?.click();
@@ -161,6 +169,7 @@ export function UploadZone({
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!aupAccepted) return; // Don't show drag state when AUP not accepted
     setIsDragOver(true);
     setUploadZoneExpanded(true);
   };
@@ -239,18 +248,47 @@ export function UploadZone({
       >
         {showCompactUpload ? (
           /* Compact upload toolbar */
-          <div className={`mb-4 transition-all ${isDragOver ? 'ring-2 ring-claude-accent ring-offset-2 rounded-xl' : ''}`}>
-            <div className="flex items-center gap-2">
+          <div className={`mb-4 transition-all ${isDragOver && aupAccepted ? 'ring-2 ring-claude-accent ring-offset-2 rounded-xl' : ''}`}>
+            {/* AUP consent checkbox (compact) */}
+            {!aupAccepted && (
+              <label className="flex items-start gap-2.5 mb-3 p-3 bg-amber-50/70 border border-amber-200 rounded-xl cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={aupAccepted}
+                  onChange={() => acceptAup()}
+                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-claude-accent focus:ring-claude-accent cursor-pointer flex-shrink-0"
+                />
+                <span className="text-xs text-gray-700 leading-relaxed">
+                  Я підтверджую, що маю правомірні підстави завантажувати ці документи та що вони
+                  не містять інформації з обмеженим доступом, державної таємниці, матеріалів
+                  досудового розслідування, персональних даних третіх осіб без їхньої згоди або
+                  іншого забороненого контенту згідно з{' '}
+                  <a
+                    href="/aup"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-claude-accent hover:underline font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Політикою допустимого використання
+                  </a>
+                </span>
+              </label>
+            )}
+
+            <div className={`flex items-center gap-2 ${!aupAccepted ? 'opacity-50 pointer-events-none' : ''}`}>
               <button
                 onClick={handleFileSelect}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all active:scale-[0.98] shadow-sm font-sans"
+                disabled={!aupAccepted}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all active:scale-[0.98] shadow-sm font-sans disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Upload size={14} strokeWidth={2} />
                 Завантажити
               </button>
               <button
                 onClick={handleFolderSelect}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-claude-border text-claude-subtext rounded-xl text-sm font-medium hover:bg-claude-bg transition-all active:scale-[0.98] font-sans"
+                disabled={!aupAccepted}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-claude-border text-claude-subtext rounded-xl text-sm font-medium hover:bg-claude-bg transition-all active:scale-[0.98] font-sans disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FolderUp size={14} strokeWidth={2} />
                 Папку
@@ -345,25 +383,56 @@ export function UploadZone({
             ) : (
               /* Normal upload zone when encryption is ready */
               <div className="text-center">
-                <div className="flex justify-center gap-3 mb-4">
-                  <button
-                    onClick={handleFileSelect}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all active:scale-[0.98] shadow-sm"
-                  >
-                    <Upload size={16} strokeWidth={2} />
-                    Завантажити файли
-                  </button>
-                  <button
-                    onClick={handleFolderSelect}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-medium hover:bg-claude-bg transition-all active:scale-[0.98] shadow-sm"
-                  >
-                    <FolderUp size={16} strokeWidth={2} />
-                    Завантажити папку
-                  </button>
+                {/* AUP consent checkbox (full zone) */}
+                {!aupAccepted && (
+                  <label className="flex items-start gap-2.5 mb-5 p-3 bg-amber-50/70 border border-amber-200 rounded-xl cursor-pointer select-none text-left max-w-lg mx-auto">
+                    <input
+                      type="checkbox"
+                      checked={aupAccepted}
+                      onChange={() => acceptAup()}
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-claude-accent focus:ring-claude-accent cursor-pointer flex-shrink-0"
+                    />
+                    <span className="text-xs text-gray-700 leading-relaxed">
+                      Я підтверджую, що маю правомірні підстави завантажувати ці документи та що вони
+                      не містять інформації з обмеженим доступом, державної таємниці, матеріалів
+                      досудового розслідування, персональних даних третіх осіб без їхньої згоди або
+                      іншого забороненого контенту згідно з{' '}
+                      <a
+                        href="/aup"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-claude-accent hover:underline font-medium"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Політикою допустимого використання
+                      </a>
+                    </span>
+                  </label>
+                )}
+
+                <div className={`${!aupAccepted ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className="flex justify-center gap-3 mb-4">
+                    <button
+                      onClick={handleFileSelect}
+                      disabled={!aupAccepted}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-claude-text text-white rounded-xl text-sm font-medium hover:bg-claude-text/90 transition-all active:scale-[0.98] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Upload size={16} strokeWidth={2} />
+                      Завантажити файли
+                    </button>
+                    <button
+                      onClick={handleFolderSelect}
+                      disabled={!aupAccepted}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-claude-border text-claude-text rounded-xl text-sm font-medium hover:bg-claude-bg transition-all active:scale-[0.98] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <FolderUp size={16} strokeWidth={2} />
+                      Завантажити папку
+                    </button>
+                  </div>
+                  <p className="text-sm text-claude-subtext/70 font-sans">
+                    Перетягніть файли або папку сюди &middot; PDF, DOCX, HTML, TXT, зображення, відео &middot; до 2 ГБ &middot; Ctrl+U
+                  </p>
                 </div>
-                <p className="text-sm text-claude-subtext/70 font-sans">
-                  Перетягніть файли або папку сюди &middot; PDF, DOCX, HTML, TXT, зображення, відео &middot; до 2 ГБ &middot; Ctrl+U
-                </p>
               </div>
             )}
 

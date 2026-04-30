@@ -38,3 +38,6 @@ export { EncryptionService, encryptionService } from './api/EncryptionService';
 
 // Support widget (in-app feedback/questions)
 export { SupportService, supportService } from './api/SupportService';
+
+// Abuse report (public violation reporting)
+export { AbuseService, abuseService } from './api/AbuseService';

@@ -25,3 +25,15 @@ export function sanitizeId(id: string | number): string {
   if (s.length > 8) return s.substring(0, 8) + '...';
   return s;
 }
+
+const CYR = '[а-яА-ЯіїєґІЇЄҐ\'ʼ]';
+const CLASSIFIED_PATTERN = new RegExp(
+  `цілком\\s*таємн${CYR}*|таємн${CYR}*|секретн${CYR}*|досудов${CYR}*|розслідуванн${CYR}*|оперативно[\\s-]*розшук${CYR}*|слідч${CYR}*|інсайдер${CYR}*|військов${CYR}*`,
+  'gi'
+);
+const DSK_PATTERN = new RegExp(`(?<!${CYR})дск(?!${CYR})`, 'gi');
+
+export function sanitizeClassified(text: string): string {
+  if (!text) return text;
+  return text.replace(CLASSIFIED_PATTERN, '[REDACTED]').replace(DSK_PATTERN, '[REDACTED]');
+}
