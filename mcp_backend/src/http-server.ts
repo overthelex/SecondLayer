@@ -71,6 +71,7 @@ import { createJudgesRoutes } from './routes/judges-routes.js';
 import { JudgeAnalyticsService } from './services/judge-analytics-service.js';
 import { createJudgeAnalyticsRoutes } from './routes/judge-analytics-routes.js';
 import { createReferralRoutes } from './routes/referral-routes.js';
+import { createSupportRoutes } from './routes/support-routes.js';
 import { createLegislationMonitoringRoutes } from './routes/legislation-monitoring-routes.js';
 import { createUsageRoutes } from './routes/usage-routes.js';
 import { createSessionReplayRoutes, createAdminSessionReplayRoutes } from './routes/session-replay-routes.js';
@@ -610,6 +611,10 @@ class HTTPMCPServer {
     // Referral system routes
     this.app.use('/api/referral', createReferralRoutes(this.billing.referralService));
     logger.info('Referral routes registered at /api/referral');
+
+    // Support widget (FAB) — feedback / question submissions
+    this.app.use('/api/support', createSupportRoutes(this.billing.emailService, this.services.db));
+    logger.info('Support widget routes registered at /api/support');
 
     // Legislation monitoring routes - subscriptions, changes, notifications
     this.app.use('/api/legislation/monitoring', requireJWT as any, createLegislationMonitoringRoutes(this.app_.legislationMonitoringService));

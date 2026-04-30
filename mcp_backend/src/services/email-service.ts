@@ -1212,4 +1212,66 @@ export class EmailService {
 </html>
     `.trim();
   }
+
+  // ─── Support Widget (FAB) ───────────────────────────────
+
+  /**
+   * Send a support widget message (feedback or question) from a logged-in user
+   * to the support inbox.
+   */
+  async sendSupportMessage(params: {
+    type: 'feedback' | 'question';
+    message: string;
+    fromEmail: string;
+    fromName: string;
+    userId: string;
+    pageUrl?: string;
+    userAgent?: string;
+  }): Promise<void> {
+    const supportInbox = process.env.SUPPORT_EMAIL || 'info@legal.org.ua';
+    const typeLabel = params.type === 'feedback' ? 'Зауваження' : 'Питання';
+    const subject = `LEX — ${typeLabel} від ${params.fromName || params.fromEmail}`;
+
+    const escape = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const messageHtml = escape(params.message).replace(/\n/g, '<br>');
+
+    const html = `
+<!DOCTYPE html>
+<html lang="uk">
+<head><meta charset="utf-8"></head>
+<body style="font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #f1f5f9; margin: 0; padding: 20px;">
+  <div style="max-width:600px; margin: 0 auto; background:#fff; border-radius:12px; padding:24px;">
+    <h2 style="margin-top:0; color:#1e293b;">${typeLabel} з Support Widget</h2>
+    <table style="width:100%; font-size:13px; color:#475569; border-collapse:collapse;">
+      <tr><td style="padding:4px 0; width:130px;"><b>Користувач:</b></td><td>${escape(params.fromName)} &lt;${escape(params.fromEmail)}&gt;</td></tr>
+      <tr><td style="padding:4px 0;"><b>User ID:</b></td><td>${escape(params.userId)}</td></tr>
+      ${params.pageUrl ? `<tr><td style="padding:4px 0;"><b>Сторінка:</b></td><td>${escape(params.pageUrl)}</td></tr>` : ''}
+      ${params.userAgent ? `<tr><td style="padding:4px 0;"><b>User-Agent:</b></td><td style="font-family:monospace;font-size:11px;">${escape(params.userAgent)}</td></tr>` : ''}
+    </table>
+    <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0;">
+    <div style="white-space:pre-wrap; line-height:1.6; font-size:14px; color:#1e293b;">${messageHtml}</div>
+    <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0;">
+    <p style="font-size:12px;color:#94a3b8;margin:0;">
+      Reply directly to this email to respond to ${escape(params.fromEmail)}.
+    </p>
+  </div>
+</body>
+</html>`.trim();
+
+    await this.transporter.sendMail({
+      from: `"${this.config.fromName}" <${this.config.from}>`,
+      to: supportInbox,
+      replyTo: params.fromEmail,
+      subject,
+      html,
+    });
+
+    logger.info('Support message sent', {
+      type: params.type,
+      userId: params.userId,
+      to: supportInbox,
+    });
+  }
 }
