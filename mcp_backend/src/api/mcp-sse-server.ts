@@ -424,7 +424,19 @@ export class MCPSSEServer {
             tool: name,
             error: creditError.message,
           });
-          // On error, allow the request to proceed (fail open)
+          this.sendSSEMessage(res, {
+            jsonrpc: '2.0',
+            id: request.id,
+            error: {
+              code: -32000,
+              message: 'Service temporarily unavailable',
+              data: {
+                code: 'BILLING_UNAVAILABLE',
+                message: 'Credit check system is temporarily unavailable. Please try again later.',
+              },
+            },
+          });
+          return;
         }
       }
 

@@ -12,39 +12,20 @@ import { AuthenticatedRequest as DualAuthRequest } from './dual-auth.js';
 /**
  * Create balance check middleware
  */
-// Tools that are read-only and incur no cost (no LLM/external API calls)
-const FREE_TOOLS = new Set([
-  'list_documents',
-  'get_document',
-  'get_document_sections',
-  'list_conversations',
-  'get_conversation',
-  'get_legislation_structure',
-  'get_legislation_articles',
-  'get_legislation_section',
-]);
-
-/** Free tier: max requests per day with zero balance */
-const FREE_TIER_DAILY_LIMIT = 5;
-
 export function createBalanceCheckMiddleware(
   billingService: BillingService,
   costTracker: CostTracker
 ) {
   return async (req: DualAuthRequest, res: Response, next: NextFunction) => {
     try {
-      // Skip balance check for API key authentication
-      if (req.authType === 'apikey') {
-        logger.debug('Skipping balance check for API key auth');
+      // Skip balance check for legacy/internal API keys (no user_id)
+      // Phase 2 API keys have user_id and must be subject to balance checks
+      if (req.authType === 'apikey' && !req.user?.id) {
+        logger.debug('Skipping balance check for legacy API key (no user_id)');
         return next();
       }
 
-      // Skip balance check for free read-only tools
       const toolName = req.params.toolName || req.body.toolName || 'unknown';
-      if (FREE_TOOLS.has(toolName)) {
-        logger.debug('Skipping balance check for free tool', { toolName });
-        return next();
-      }
 
       // Reject if no user - all requests must be attributed to an account
       if (!req.user || !req.user.id) {
@@ -91,23 +72,10 @@ export function createBalanceCheckMiddleware(
       );
 
       if (!balanceCheck.hasBalance) {
-        // Free tier: allow up to FREE_TIER_DAILY_LIMIT requests per day with zero balance
-        const dailyCount = await billingService.getDailyRequestCount(userId);
-        if (dailyCount < FREE_TIER_DAILY_LIMIT) {
-          logger.info('Free tier request allowed', {
-            userId,
-            toolName,
-            dailyCount,
-            remaining: FREE_TIER_DAILY_LIMIT - dailyCount - 1,
-          });
-          return next();
-        }
-
         logger.warn('Insufficient balance', {
           userId,
           required: estimatedCost.total_estimated_cost_usd,
           available: balanceCheck.currentBalance,
-          dailyCount,
         });
 
         return res.status(402).json({
@@ -118,11 +86,6 @@ export function createBalanceCheckMiddleware(
             current_usd: balanceCheck.currentBalance,
             required_usd: estimatedCost.total_estimated_cost_usd,
             shortfall_usd: estimatedCost.total_estimated_cost_usd - balanceCheck.currentBalance,
-          },
-          free_tier: {
-            daily_limit: FREE_TIER_DAILY_LIMIT,
-            used_today: dailyCount,
-            remaining: 0,
           },
           topup_url: `${process.env.FRONTEND_URL || 'https://billing.legal.org.ua'}/topup`,
         });
@@ -163,8 +126,17 @@ export function createBalanceCheckMiddleware(
         userId: req.user?.id,
       });
 
-      // Don't block request on middleware errors - log and continue
-      next();
+      // Legacy API keys (no user_id) fail open — they are internal service keys
+      if (req.authType === 'apikey' && !req.user?.id) {
+        return next();
+      }
+
+      // Authenticated users fail closed — don't allow access when billing system is unavailable
+      return res.status(503).json({
+        error: 'Service temporarily unavailable',
+        message: 'Billing system is temporarily unavailable. Please try again later.',
+        code: 'BILLING_UNAVAILABLE',
+      });
     }
   };
 }
