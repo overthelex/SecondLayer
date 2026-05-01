@@ -21,6 +21,7 @@ import showToast from '../../utils/toast';
 import { toastT, toastTDynamic } from '../../i18n/toast-i18n';
 import { getErrorMessage, hasCode } from '../../utils/errors';
 import { useCurrencyRate } from '../../hooks/useCurrencyRate';
+import { ClosedBetaModal } from '../ClosedBetaModal';
 
 const MOCK_PAYMENTS = import.meta.env.VITE_MOCK_PAYMENTS === 'true';
 
@@ -50,6 +51,7 @@ function truncateAddress(addr: string): string {
 function MonobankPaymentForm({ amountUah, uahRate, onSuccess }: { amountUah: number; uahRate: number; onSuccess: () => void }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showBetaModal, setShowBetaModal] = useState(false);
 
   const handleCreateInvoice = async () => {
     setIsProcessing(true);
@@ -77,6 +79,10 @@ function MonobankPaymentForm({ amountUah, uahRate, onSuccess }: { amountUah: num
       window.location.href = data.pageUrl;
     } catch (err: unknown) {
       const message = getErrorMessage(err);
+      if (message.includes('FORBIDDEN') || message.includes('terminal')) {
+        setShowBetaModal(true);
+        return;
+      }
       setError(message);
       showToast.error(message);
     } finally {
@@ -121,6 +127,7 @@ function MonobankPaymentForm({ amountUah, uahRate, onSuccess }: { amountUah: num
           <p className="text-xs text-yellow-800"><strong>Mock Mode:</strong> Payments are simulated.</p>
         </div>
       )}
+      <ClosedBetaModal isOpen={showBetaModal} onClose={() => setShowBetaModal(false)} variant="light" />
     </div>
   );
 }
