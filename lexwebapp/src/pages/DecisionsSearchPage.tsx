@@ -33,13 +33,14 @@ interface SearchFilters {
 }
 
 interface CourtDecision {
-  doc_id: number;
-  court: string;
-  chamber: string;
-  date: string;
-  case_number: string;
-  url: string;
-  snippets: string[];
+  doc_id: number | string;
+  cause_num: string;
+  judge: string;
+  court_name: string;
+  justice_kind_name: string;
+  judgment_form: string;
+  adjudication_date: string;
+  external_url: string;
 }
 
 function getProcedureCodes(t: Record<string, string>) {
@@ -107,25 +108,24 @@ export function DecisionsSearchPage() {
 
     try {
       const params: any = {
-        query: filters.query.trim(),
+        cause_num: filters.query.trim(),
         limit: 20,
       };
 
       if (filters.procedureCode) {
-        params.procedure_code = filters.procedureCode;
+        const kindMap: Record<string, number> = { cpc: 1, gpc: 3, cac: 4, crpc: 2 };
+        params.justice_kind = kindMap[filters.procedureCode];
       }
 
       if (filters.courtLevel) {
-        params.court_level = filters.courtLevel;
+        const instanceMap: Record<string, number> = { SC: 1, AC: 2, FC: 3 };
+        params.instance_code = instanceMap[filters.courtLevel];
       }
 
-      if (filters.dateFrom || filters.dateTo) {
-        params.time_range = {};
-        if (filters.dateFrom) params.time_range.from = filters.dateFrom;
-        if (filters.dateTo) params.time_range.to = filters.dateTo;
-      }
+      if (filters.dateFrom) params.date_from = filters.dateFrom;
+      if (filters.dateTo) params.date_to = filters.dateTo;
 
-      const response = await mcpService.callTool('search_legal_precedents', params);
+      const response = await mcpService.callTool('search_edrsr_decisions', params);
 
       let parsed: any = null;
       if (response?.result?.content?.[0]?.text) {
@@ -134,7 +134,7 @@ export function DecisionsSearchPage() {
 
       if (parsed?.results) {
         setResults(parsed.results);
-        setTotalResults(parsed.total_returned || parsed.results.length);
+        setTotalResults(parsed.total || parsed.returned || parsed.results.length);
 
         // Check which results are already cached in DB
         const docIds = parsed.results
@@ -483,7 +483,7 @@ export function DecisionsSearchPage() {
                             <h3
                               className={`font-serif font-medium text-claude-text group-hover:text-claude-accent transition-colors ${viewMode === 'compact' ? 'text-base' : 'text-lg'}`}
                             >
-                              {decision.case_number}
+                              {decision.cause_num}
                             </h3>
                             {(status === 'done' || status === 'cached') && (
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-green-700 bg-green-50 rounded-full">
@@ -493,12 +493,12 @@ export function DecisionsSearchPage() {
                             )}
                           </div>
                           <p className={`text-claude-text font-sans ${viewMode === 'compact' ? 'text-xs' : 'text-sm'}`}>
-                            {decision.court}
-                            {decision.chamber && decision.chamber !== decision.court && ` • ${decision.chamber}`}
+                            {decision.court_name}
+                            {decision.judgment_form && ` • ${decision.judgment_form}`}
                           </p>
-                          {decision.snippets?.length > 0 && viewMode === 'comfortable' && (
-                            <p className="text-sm text-claude-subtext font-sans mt-1 line-clamp-2">
-                              {decision.snippets[0]}
+                          {decision.judge && viewMode === 'comfortable' && (
+                            <p className="text-sm text-claude-subtext font-sans mt-1">
+                              {t.judge || 'Суддя'}: {decision.judge}
                             </p>
                           )}
                         </div>
@@ -543,12 +543,12 @@ export function DecisionsSearchPage() {
 
                           {/* External link */}
                           <a
-                            href={decision.url}
+                            href={decision.external_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             className="p-2 text-claude-subtext hover:text-claude-text hover:bg-claude-bg rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                            title={t.openOnZakon}
+                            title={t.openOnEdrsr}
                           >
                             <ExternalLink size={16} />
                           </a>
@@ -557,8 +557,8 @@ export function DecisionsSearchPage() {
 
                       <div className={`flex items-center gap-3 ${viewMode === 'compact' ? 'text-xs' : 'text-sm'}`}>
                         <span className="text-claude-subtext font-sans">
-                          {decision.date
-                            ? new Date(decision.date).toLocaleDateString(locale === 'uk' ? 'uk-UA' : locale === 'de' ? 'de-DE' : locale === 'es' ? 'es-ES' : 'en-US', {
+                          {decision.adjudication_date
+                            ? new Date(decision.adjudication_date).toLocaleDateString(locale === 'uk' ? 'uk-UA' : locale === 'de' ? 'de-DE' : locale === 'es' ? 'es-ES' : 'en-US', {
                                 year: 'numeric',
                                 month: 'long',
                                 day: 'numeric',
