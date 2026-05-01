@@ -62,6 +62,12 @@ COPY --from=builder /app/mcp_rada/dist ./dist
 COPY --from=builder /app/mcp_rada/scripts ./scripts
 COPY --from=builder /app/mcp_rada/src/migrations ./src/migrations
 
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 && \
+    chown -R nodejs:nodejs /app
+
+USER nodejs
+
 EXPOSE 3001
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
