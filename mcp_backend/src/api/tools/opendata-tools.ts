@@ -287,7 +287,7 @@ export class OpenDataTools extends BaseToolHandler {
     let pi = 1;
 
     if (name) {
-      conditions.push(`name ILIKE $${pi}`);
+      conditions.push(`(name ILIKE $${pi} OR aliases ILIKE $${pi})`);
       values.push(`%${name}%`);
       pi++;
     }
