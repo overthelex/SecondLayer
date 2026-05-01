@@ -27,6 +27,7 @@ import {
   Sparkles,
   Building2,
 } from 'lucide-react';
+import { ClosedBetaModal } from '../../components/ClosedBetaModal';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { hasRecentArticles } from '../BlogPage/articles';
 import { useAuth } from '../../contexts/AuthContext';
@@ -237,6 +238,7 @@ function DonateCard() {
   const [customAmount, setCustomAmount] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showBetaModal, setShowBetaModal] = useState(false);
 
   const amountUah = selected === 'custom'
     ? Math.floor(parseFloat(customAmount) || 0)
@@ -259,12 +261,22 @@ function DonateCard() {
 
       const data = await response.json();
       if (!response.ok) {
+        if (response.status === 403 || data.errCode === 'FORBIDDEN' || (data.message || data.error || '').includes('terminal')) {
+          setShowBetaModal(true);
+          setIsLoading(false);
+          return;
+        }
         throw new Error(data.message || data.error || 'Не вдалося створити донат');
       }
 
       window.location.href = data.pageUrl;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Помилка донату';
+      if (msg.includes('FORBIDDEN') || msg.includes('terminal')) {
+        setShowBetaModal(true);
+        setIsLoading(false);
+        return;
+      }
       setError(msg);
       setIsLoading(false);
     }
@@ -345,6 +357,7 @@ function DonateCard() {
           </>
         )}
       </button>
+      <ClosedBetaModal isOpen={showBetaModal} onClose={() => setShowBetaModal(false)} variant="dark" />
     </div>
   );
 }
