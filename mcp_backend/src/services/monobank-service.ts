@@ -87,7 +87,21 @@ export class MonobankService {
 
     // Amount in kopecks (1 UAH = 100 kopecks)
     const amountKopecks = Math.round(amountUah * 100);
-    const finalRedirectUrl = redirectUrl || `${this.redirectUrl}/payment/success`;
+    const defaultRedirect = `${this.redirectUrl}/payment/success`;
+    let finalRedirectUrl = defaultRedirect;
+    if (redirectUrl) {
+      try {
+        const parsed = new URL(redirectUrl);
+        const ALLOWED_REDIRECT_HOSTS = new Set(['legal.org.ua', 'platform.legal.org.ua']);
+        if (ALLOWED_REDIRECT_HOSTS.has(parsed.hostname)) {
+          finalRedirectUrl = redirectUrl;
+        } else {
+          logger.warn('[MonobankService] Blocked redirect_url with disallowed host', { host: parsed.hostname });
+        }
+      } catch {
+        logger.warn('[MonobankService] Invalid redirect_url, using default');
+      }
+    }
     const orderRef = `SL-${userId.substring(0, 8)}-${Date.now()}`;
 
     logger.info('[MonobankService] Creating invoice', { userId, amountUah, amountKopecks });

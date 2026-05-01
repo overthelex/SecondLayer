@@ -389,8 +389,17 @@ class HTTPMCPServer {
         uptime: Math.round(process.uptime()),
       });
     });
-    // Full health check — detailed dependency info, rate-limited
-    this.app.get('/health', healthCheckRateLimit as any, healthHandler);
+    // Public health check — minimal info only (no infra details)
+    this.app.get('/health', healthCheckRateLimit as any, (_req: any, res: any) => {
+      res.json({
+        status: 'ok',
+        initialized: (this as any)._initialized === true,
+        service: 'secondlayer-mcp-http',
+        uptime: Math.round(process.uptime()),
+      });
+    });
+    // Detailed health check — admin only (exposes dependency statuses)
+    this.app.get('/api/admin/health', requireJWT as any, healthHandler);
 
     // MCP SSE routes (SSE endpoints, OAuth discovery, redirects)
     this.app.use(createMCPSSERoutes({
@@ -518,7 +527,6 @@ class HTTPMCPServer {
         logger.error('[DonationAPI] Failed to create donation invoice', { error: error.message });
         res.status(500).json({
           error: 'Не вдалося створити рахунок для донату',
-          message: error.message,
         });
       }
     }) as any);
