@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -22,31 +22,70 @@ export function KmuArticleModal({ url, title, onClose }: KmuArticleModalProps) {
   const [data, setData] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    const fetchArticle = async () => {
-      setLoading(true);
-      setError(null);
+  const fetchArticle = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const params = new URLSearchParams({ url, title });
+      const response = await fetch(`/api/news/article?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${response.status}`);
+      }
+      const result = await response.json();
+      setData(result);
+      if (result.content && !result.analysis) {
+        pollForAnalysis();
+      }
+    } catch (err: any) {
+      setError(err.message || t('articleLoadError'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pollForAnalysis = () => {
+    setAnalysisLoading(true);
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > 6) {
+        clearInterval(interval);
+        pollRef.current = null;
+        setAnalysisLoading(false);
+        return;
+      }
       try {
         const token = localStorage.getItem('auth_token');
         const params = new URLSearchParams({ url, title });
         const response = await fetch(`/api/news/article?${params}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
-          throw new Error(body.error || `HTTP ${response.status}`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.analysis) {
+            setData(result);
+            clearInterval(interval);
+            pollRef.current = null;
+            setAnalysisLoading(false);
+          }
         }
-        const result = await response.json();
-        setData(result);
-      } catch (err: any) {
-        setError(err.message || t('articleLoadError'));
-      } finally {
-        setLoading(false);
-      }
-    };
+      } catch { /* ignore polling errors */ }
+    }, 10000);
+    pollRef.current = interval;
+  };
 
+  useEffect(() => {
     fetchArticle();
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [url, title]);
 
   return (
@@ -122,7 +161,7 @@ export function KmuArticleModal({ url, title, onClose }: KmuArticleModalProps) {
               </div>
 
               {/* AI Analysis */}
-              {data.analysis && (
+              {data.analysis ? (
                 <div className="mt-8 p-5 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl">
                   <div className="flex items-center gap-2 mb-3">
                     <Sparkles size={18} className="text-amber-600" />
@@ -140,7 +179,14 @@ export function KmuArticleModal({ url, title, onClose }: KmuArticleModalProps) {
                     </ReactMarkdown>
                   </div>
                 </div>
-              )}
+              ) : analysisLoading ? (
+                <div className="mt-8 p-5 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <Loader2 size={16} className="animate-spin text-amber-600" />
+                    <span className="text-sm text-amber-800">{t('generatingAnalysis')}</span>
+                  </div>
+                </div>
+              ) : null}
 
               {/* Source link */}
               <div className="mt-6 pt-4 border-t border-claude-border text-center">
