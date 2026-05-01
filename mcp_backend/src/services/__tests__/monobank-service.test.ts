@@ -271,10 +271,10 @@ describe('MonobankService — createInvoice', () => {
     });
     global.fetch = mockFetch as any;
 
-    await service.createInvoice('user-abc12345', 100, 'Top-up', 'https://myapp.com/callback');
+    await service.createInvoice('user-abc12345', 100, 'Top-up', 'https://legal.org.ua/payment/custom');
 
     const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(callBody.redirectUrl).toBe('https://myapp.com/callback');
+    expect(callBody.redirectUrl).toBe('https://legal.org.ua/payment/custom');
   });
 
   it('rounds kopecks correctly for fractional amounts', async () => {
