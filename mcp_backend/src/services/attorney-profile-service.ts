@@ -162,7 +162,7 @@ export class AttorneyProfileService {
 
   async getPublicProfile(profileIdOrUserId: string): Promise<AttorneyProfile | null> {
     const result = await this.db.query(
-      `SELECT ap.*, u.name as user_name, u.email as user_email,
+      `SELECT ap.*, u.name as user_name,
               o.name as organization_name, o.org_type
        FROM attorney_profiles ap
        JOIN users u ON u.id = ap.user_id

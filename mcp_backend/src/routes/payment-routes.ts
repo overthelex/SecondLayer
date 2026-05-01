@@ -74,7 +74,7 @@ export function createPaymentRouter(
       logger.error('Failed to create Monobank invoice', { error: error.message });
       return res.status(500).json({
         error: 'Payment creation failed',
-        message: error.message,
+        message: 'An unexpected error occurred',
       });
     }
   });
@@ -188,7 +188,7 @@ export function createPaymentRouter(
       logger.error('Failed to get payment status', { error: error.message });
       return res.status(500).json({
         error: 'Failed to get payment status',
-        message: error.message,
+        message: 'An unexpected error occurred',
       });
     }
   });
@@ -238,7 +238,7 @@ export function createWebhookRouter(
       logger.error('Monobank webhook failed', { error: error.message });
       return res.status(400).json({
         error: 'Webhook processing failed',
-        message: error.message,
+        message: 'An unexpected error occurred',
       });
     }
   });

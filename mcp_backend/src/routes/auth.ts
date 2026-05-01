@@ -83,6 +83,13 @@ function getCallbackURL(req: any): string {
   return `${protocol}://${host}/auth/google/callback`;
 }
 
+function getSafeFrontendUrl(req: any): string {
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const rawHost = (req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0];
+  const host = ALLOWED_CALLBACK_HOSTS.has(rawHost) ? rawHost : 'legal.org.ua';
+  return `${protocol}://${host}`;
+}
+
 /**
  * @route   POST /auth/google/mobile
  * @desc    Authenticate via Google idToken from mobile SDK
@@ -172,7 +179,7 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
   // On mobile same-device flow the original polling tab is lost,
   // so pass the session ID from cookie so the login page can resume polling.
   router.get('/diia/callback', (_req, res) => {
-    const frontendUrl = `${_req.headers['x-forwarded-proto'] || _req.protocol}://${_req.headers['x-forwarded-host'] || _req.headers.host}`;
+    const frontendUrl = getSafeFrontendUrl(_req);
     const cookieHeader = _req.headers.cookie || '';
     const match = cookieHeader.match(/(?:^|;\s*)diia_session=([^;]+)/);
     const diiaSession = match ? decodeURIComponent(match[1]) : null;
@@ -215,8 +222,7 @@ if (process.env.DIIA_AUTH_ACQUIRER_TOKEN) {
     res.status(501).json({ error: 'Diia auth is not configured' });
   });
   router.get('/diia/callback', (_req, res) => {
-    const frontendUrl = `${_req.headers['x-forwarded-proto'] || _req.protocol}://${_req.headers['x-forwarded-host'] || _req.headers.host}`;
-    res.redirect(`${frontendUrl}/login`);
+    res.redirect(`${getSafeFrontendUrl(_req)}/login`);
   });
   router.get('/diia/status/:sessionId', (_req, res) => {
     res.status(501).json({ error: 'Diia auth is not configured' });
