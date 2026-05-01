@@ -483,6 +483,7 @@ export class LegislationTools extends BaseToolHandler {
     return [
       {
         name: 'get_legislation_section',
+        annotations: { title: 'Стаття закону', readOnlyHint: true, idempotentHint: true },
         description: 'Отримати точний фрагмент/статтю за посиланням (наприклад, "ст. 625 ЦК") або за (rada_id + article_number). Повертає повний текст статті та посилання на джерело.',
         inputSchema: {
           type: 'object',
@@ -514,6 +515,7 @@ export class LegislationTools extends BaseToolHandler {
       },
       {
         name: 'get_legislation_articles',
+        annotations: { title: 'Статті закону (діапазон)', readOnlyHint: true, idempotentHint: true },
         description: 'Отримати кілька статей законодавчого акту одночасно. Корисно для отримання повного контексту (наприклад, статті 354-356 ЦПК про апеляційне оскарження).',
         inputSchema: {
           type: 'object',
@@ -541,6 +543,7 @@ export class LegislationTools extends BaseToolHandler {
       },
       {
         name: 'search_legislation',
+        annotations: { title: 'Пошук законодавства', readOnlyHint: true },
         description: `Семантичний пошук релевантних статей законодавства за запитом або описом ситуації. Використовує векторний пошук для знаходження найбільш релевантних норм.
 
 Приклади: "поновлення пропущеного строку", "підстави для залишення позову без розгляду", "реєстрація авто з кількома власниками", "затоплення квартири сусідом".
@@ -576,6 +579,7 @@ export class LegislationTools extends BaseToolHandler {
       },
       {
         name: 'get_legislation_structure',
+        annotations: { title: 'Структура закону', readOnlyHint: true, idempotentHint: true },
         description: 'Отримати структуру законодавчого акту (зміст, розділи, глави, список статей). Корисно для навігації по великому документу.',
         inputSchema: {
           type: 'object',
@@ -590,6 +594,7 @@ export class LegislationTools extends BaseToolHandler {
       },
       {
         name: 'get_legislation_history',
+        annotations: { title: 'Історія змін закону', readOnlyHint: true },
         description: `Отримати історію змін (редакцій) законодавчого акту. Показує які статті змінювались, коли і в якій редакції.
 
 Використовуй коли потрібно:

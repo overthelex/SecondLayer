@@ -17,6 +17,13 @@ export interface ToolDefinition {
   name: string;
   description: string;
   inputSchema: any;
+  annotations?: {
+    title?: string;
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  };
 }
 
 export interface RemoteServiceConfig {
@@ -239,7 +246,11 @@ export class ToolRegistry {
       });
     }
 
-    // ========== OpenReyestr Tools (16 tools) - Prefix 'openreyestr_', HTTP proxy ==========
+    // ========== OpenReyestr Tools - Prefix 'openreyestr_', HTTP proxy ==========
+    // Excluded duplicates already served locally:
+    //   search_legal_acts → local: search_edrnpa (opendata-tools.ts)
+    //   search_court_experts → local: search_court_experts_registry (opendata-registries-tools.ts)
+    //   search_vat_payers → local: search_vat_payers_registry (opendata-registries-tools.ts)
     const openreyestrTools = [
       { clientName: 'openreyestr_search_entities', serviceName: 'search_entities' },
       { clientName: 'openreyestr_get_entity_details', serviceName: 'get_entity_details' },
@@ -247,18 +258,15 @@ export class ToolRegistry {
       { clientName: 'openreyestr_get_by_edrpou', serviceName: 'get_by_edrpou' },
       { clientName: 'openreyestr_get_statistics', serviceName: 'get_statistics' },
       { clientName: 'openreyestr_search_notaries', serviceName: 'search_notaries' },
-      { clientName: 'openreyestr_search_court_experts', serviceName: 'search_court_experts' },
       { clientName: 'openreyestr_search_arbitration_managers', serviceName: 'search_arbitration_managers' },
       { clientName: 'openreyestr_search_debtors', serviceName: 'search_debtors' },
       { clientName: 'openreyestr_search_enforcement_proceedings', serviceName: 'search_enforcement_proceedings' },
       { clientName: 'openreyestr_search_bankruptcy_cases', serviceName: 'search_bankruptcy_cases' },
       { clientName: 'openreyestr_search_special_forms', serviceName: 'search_special_forms' },
       { clientName: 'openreyestr_search_forensic_methods', serviceName: 'search_forensic_methods' },
-      { clientName: 'openreyestr_search_legal_acts', serviceName: 'search_legal_acts' },
       { clientName: 'openreyestr_search_administrative_units', serviceName: 'search_administrative_units' },
       { clientName: 'openreyestr_search_streets', serviceName: 'search_streets' },
       { clientName: 'openreyestr_search_street_renamings', serviceName: 'search_street_renamings' },
-      { clientName: 'openreyestr_search_vat_payers', serviceName: 'search_vat_payers' },
       { clientName: 'openreyestr_search_single_tax_payers', serviceName: 'search_single_tax_payers' },
       { clientName: 'openreyestr_search_tax_debt', serviceName: 'search_tax_debt' },
       { clientName: 'openreyestr_search_esv_debt', serviceName: 'search_esv_debt' },

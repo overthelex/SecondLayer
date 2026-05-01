@@ -41,6 +41,7 @@ export class EdsrExtendedTools extends BaseToolHandler {
     return [
       {
         name: 'edrsr_court_decisions_by_court',
+        annotations: { title: 'Рішення конкретного суду (ЄДРСР)', readOnlyHint: true, openWorldHint: true },
         description: `Пошук судових рішень конкретного суду за FTS-запитом у заданому вікні дат.
 
 Оптимізовано для отримання прецедентів одного суду (напр., усі виграні адмінпозови проти ТЦК
@@ -89,6 +90,7 @@ export class EdsrExtendedTools extends BaseToolHandler {
       },
       {
         name: 'edrsr_get_decision_dispositive',
+        annotations: { title: 'Резолютивна частина рішення', readOnlyHint: true, idempotentHint: true },
         description: `Повертає лише резолютивну частину судового рішення (ВИРІШИВ / УХВАЛИВ / ПОСТАНОВИВ / ВИРОК).
 
 Економить контекст LLM при аналізі багатьох рішень одночасно: замість 50-500 KB повного тексту

@@ -66,6 +66,7 @@ export class BatchDocumentTools extends BaseToolHandler {
     return [
       {
         name: 'batch_process_documents',
+        annotations: { title: 'Пакетна обробка документів' },
         description: `Пакетна обробка великої кількості документів (PDF, зображення, DOCX) з прогресом в реальному часі.
 
 Підтримує:

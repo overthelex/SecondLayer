@@ -19,6 +19,7 @@ export class CourtStatusTools extends BaseToolHandler {
     return [
       {
         name: 'search_court_case_status',
+        annotations: { title: 'Статус судової справи', readOnlyHint: true },
         description: `Пошук статусів судових справ (Касаційний суд та інші)
 
 💰 Примерная стоимость: $0.001-$0.005 USD

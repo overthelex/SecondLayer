@@ -55,20 +55,21 @@ export class DocumentAnalysisTools extends BaseToolHandler {
     return [
       {
         name: 'parse_document',
-        description: `Парсинг документа (PDF/DOCX/HTML) с извлечением текста и метаданных.
+        annotations: { title: 'Парсинг документа' },
+        description: `Парсинг документа (PDF/DOCX/HTML) з витягом тексту та метаданих
 
-Стратегия:
-- PDF: сначала нативное извлечение текста, затем OCR через Playwright + Google Vision API
-- DOCX: сначала mammoth, затем OCR
+Стратегія:
+- PDF: нативне витягнення тексту, потім OCR через Google Vision API
+- DOCX: mammoth, потім OCR
 - HTML: screenshot + OCR
 
-Поддерживает языки: украинский, русский, английский`,
+Підтримує мови: українська, англійська, інші.`,
         inputSchema: {
           type: 'object',
           properties: {
             fileBase64: {
               type: 'string',
-              description: 'Base64-encoded содержимое файла',
+              description: 'Base64-encoded вміст файлу',
             },
             mimeType: {
               type: 'string',
@@ -76,7 +77,7 @@ export class DocumentAnalysisTools extends BaseToolHandler {
             },
             filename: {
               type: 'string',
-              description: 'Имя файла (опционально, для логирования)',
+              description: 'Назва файлу (опціонально, для логування)',
             },
           },
           required: ['fileBase64'],
@@ -84,28 +85,29 @@ export class DocumentAnalysisTools extends BaseToolHandler {
       },
       {
         name: 'extract_key_clauses',
-        description: `Извлечение ключевых положений из контракта/соглашения.
+        annotations: { title: 'Витяг ключових клауз', readOnlyHint: true },
+        description: `Витяг ключових положень з контракту/договору
 
-Выделяет и классифицирует клаузы по типам:
-- Стороны и предмет договора
-- Права и обязательства
-- Сроки и условия
-- Платежи и финансы
-- Ответственность и штрафы
-- Форс-мажор и прекращение
-- Конфиденциальность
+Виділяє та класифікує клаузи за типами:
+- Сторони та предмет договору
+- Права та обов'язки
+- Строки та умови
+- Платежі та фінанси
+- Відповідальність та штрафи
+- Форс-мажор та припинення
+- Конфіденційність
 
-Анализирует риски через analyze_legal_patterns.`,
+Використовуйте після parse_document для аналізу договорів.`,
         inputSchema: {
           type: 'object',
           properties: {
             documentText: {
               type: 'string',
-              description: 'Текст документа (можно получить через parse_document)',
+              description: 'Текст документа (можна отримати через parse_document)',
             },
             documentId: {
               type: 'string',
-              description: 'ID документа из БД (опционально)',
+              description: 'ID документа з БД (опціонально)',
             },
           },
           required: ['documentText'],
@@ -113,14 +115,15 @@ export class DocumentAnalysisTools extends BaseToolHandler {
       },
       {
         name: 'summarize_document',
-        description: `Создание краткого и детального резюме документа.
+        annotations: { title: 'Резюме документа', readOnlyHint: true },
+        description: `Створення резюме документа (коротке та детальне)
 
-Включает:
-- Executive summary (2-3 абзаца для руководства)
-- Detailed summary (по секциям)
-- Ключевые факты: стороны, даты, суммы
+Включає:
+- Executive summary (2-3 абзаци)
+- Detailed summary (за секціями)
+- Ключові факти: сторони, дати, суми
 
-Использует budget-aware model selection (quick/standard/deep).`,
+Підтримує різну глибину аналізу (quick/standard/deep).`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -131,7 +134,7 @@ export class DocumentAnalysisTools extends BaseToolHandler {
             detailLevel: {
               type: 'string',
               enum: ['quick', 'standard', 'deep'],
-              description: 'Уровень детализации (quick = executive only, deep = с анализом)',
+              description: 'Рівень деталізації: quick (лише executive summary), deep (з повним аналізом)',
             },
           },
           required: ['documentText'],
@@ -139,24 +142,25 @@ export class DocumentAnalysisTools extends BaseToolHandler {
       },
       {
         name: 'compare_documents',
-        description: `Семантическое сравнение двух версий документа.
+        annotations: { title: 'Порівняння документів', readOnlyHint: true },
+        description: `Семантичне порівняння двох версій документа
 
-Находит и классифицирует изменения:
-- Критические: изменения сумм, сроков, обязательств
-- Значительные: новые клаузы, изменения прав
-- Незначительные: форматирование, опечатки
+Знаходить та класифікує зміни:
+- Критичні: зміни сум, строків, зобов'язань
+- Значні: нові клаузи, зміни прав
+- Незначні: форматування, друкарські помилки
 
-Использует векторные эмбеддинги для семантического анализа.`,
+Використовує векторні ембедінги для семантичного аналізу.`,
         inputSchema: {
           type: 'object',
           properties: {
             oldDocumentText: {
               type: 'string',
-              description: 'Текст старой версии документа',
+              description: 'Текст старої версії документа',
             },
             newDocumentText: {
               type: 'string',
-              description: 'Текст новой версии документа',
+              description: 'Текст нової версії документа',
             },
           },
           required: ['oldDocumentText', 'newDocumentText'],

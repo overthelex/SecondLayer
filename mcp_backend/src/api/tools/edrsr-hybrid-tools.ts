@@ -55,6 +55,7 @@ export class EdsrHybridTools extends BaseToolHandler {
     return [
       {
         name: 'edrsr_hybrid_search',
+        annotations: { title: 'Гібридний пошук ЄДРСР', readOnlyHint: true, openWorldHint: true },
         description: `Гібридний пошук судових рішень ЄДРСР: семантика (Qdrant, ~88M векторів, Voyage-3-large 1024-dim)
 + лексика (PG tsvector FTS) з мерджем через Reciprocal Rank Fusion.
 

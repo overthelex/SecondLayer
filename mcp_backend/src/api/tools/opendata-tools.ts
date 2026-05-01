@@ -28,6 +28,7 @@ export class OpenDataTools extends BaseToolHandler {
     return [
       {
         name: 'search_sanctions',
+        annotations: { title: 'Санкційні списки', readOnlyHint: true, openWorldHint: true },
         description: `Пошук у міжнародних санкційних списках (OpenSanctions, 346 датасетів)
 
 Включає: РНБО, OFAC, EU, UN, UK та 340+ інших санкційних програм.
@@ -47,6 +48,7 @@ export class OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_trademarks',
+        annotations: { title: 'Торговельні марки (Укрпатент)', readOnlyHint: true },
         description: `Пошук торговельних марок (UIPV — Укрпатент)
 
 182K записів. Пошук за текстом марки, власником, ЄДРПОУ, класом NICE, статусом.`,
@@ -65,6 +67,7 @@ export class OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_patents',
+        annotations: { title: 'Патенти (Укрпатент)', readOnlyHint: true },
         description: `Пошук патентів, корисних моделей та промислових зразків (UIPV — Укрпатент)
 
 119K записів. Пошук за назвою, власником, кодом МПК, номером заявки.`,
@@ -83,6 +86,7 @@ export class OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_edrnpa',
+        annotations: { title: 'НПА (ЄДРНПА)', readOnlyHint: true },
         description: `Пошук нормативно-правових актів у ЄДРНПА
 
 141K записів. Пошук за назвою, номером, видавником, типом, ключовими словами.
@@ -102,6 +106,7 @@ export class OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_corruption_register',
+        annotations: { title: 'Реєстр корупціонерів', readOnlyHint: true },
         description: `Пошук у Єдиному реєстрі осіб, які вчинили корупційні правопорушення
 
 58K записів. Пошук за прізвищем, статтею КК, назвою суду, видом покарання.`,
@@ -119,6 +124,7 @@ export class OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_lawyers',
+        annotations: { title: 'Реєстр адвокатів', readOnlyHint: true },
         description: `Пошук у Єдиному реєстрі адвокатів України
 
 73K записів. Пошук за прізвищем, радою адвокатів, статусом, номером свідоцтва.`,
@@ -136,6 +142,7 @@ export class OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_vrp_decisions',
+        annotations: { title: 'Рішення ВРП', readOnlyHint: true },
         description: `Пошук рішень Вищої ради правосуддя (ВРП)
 
 16.5K записів. Пошук за назвою, органом, номером рішення, датою.
@@ -154,6 +161,7 @@ export class OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_vrp_judges_discipline',
+        annotations: { title: 'Дисциплінарні дані суддів (ВРП)', readOnlyHint: true },
         description: `Пошук дисциплінарних даних суддів з ВРП
 
 Об'єднаний пошук по 3 реєстрах:
@@ -173,6 +181,7 @@ export class OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_vkks',
+        annotations: { title: 'Дані ВККС', readOnlyHint: true },
         description: `Пошук даних Вищої кваліфікаційної комісії суддів (ВККС)
 
 5 категорій:
@@ -200,6 +209,7 @@ export class OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_declaration_checks',
+        annotations: { title: 'Перевірки декларацій (НАЗК)', readOnlyHint: true },
         description: `Пошук результатів перевірок декларацій (НАЗК)
 
 2K записів. Пошук за прізвищем, посадою, статусом перевірки, результатом.`,
@@ -217,6 +227,7 @@ export class OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_wage_debtors',
+        annotations: { title: 'Боржники із зарплати', readOnlyHint: true },
         description: `Пошук боржників із заробітної плати
 
 1.3K записів. Пошук за назвою підприємства, регіоном, формою власності, видом діяльності.`,
@@ -233,6 +244,7 @@ export class OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_large_taxpayers',
+        annotations: { title: 'Великі платники податків', readOnlyHint: true },
         description: `Пошук у реєстрі великих платників податків
 
 1.3K записів. Пошук за ЄДРПОУ або назвою підприємства.`,
@@ -304,9 +316,10 @@ export class OpenDataTools extends BaseToolHandler {
       return this.wrapResponse('Вкажіть ім\'я, країну, датасет або ідентифікатор для пошуку');
     }
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
 
-    const sql = `SELECT id, schema, name, aliases, birth_date, countries, identifiers, sanctions, datasets, first_seen, last_seen
+    const sql = `SELECT id, schema, name, aliases, birth_date, countries, identifiers, sanctions, datasets, first_seen, last_seen, COUNT(*) OVER() AS _total_count
       FROM opensanctions_entities
       WHERE ${conditions.join(' AND ')}
       ORDER BY last_seen DESC NULLS LAST
@@ -315,7 +328,7 @@ export class OpenDataTools extends BaseToolHandler {
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Записів у санкційних списках не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_sanctions error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -339,16 +352,17 @@ export class OpenDataTools extends BaseToolHandler {
 
     if (conditions.length === 0) return this.wrapResponse('Вкажіть текст марки, власника або ЄДРПОУ для пошуку');
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
     const sql = `SELECT app_number, app_date, registration_number, registration_date, expiry_date,
-        mark_text, holder_name, holder_edrpou, holder_country, nice_classes, status
+        mark_text, holder_name, holder_edrpou, holder_country, nice_classes, status, COUNT(*) OVER() AS _total_count
       FROM opendata_trademarks WHERE ${conditions.join(' AND ')}
       ORDER BY registration_date DESC NULLS LAST LIMIT $${pi}`;
 
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Торговельних марок не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_trademarks error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -372,7 +386,8 @@ export class OpenDataTools extends BaseToolHandler {
 
     if (conditions.length === 0) return this.wrapResponse('Вкажіть назву, власника або код МПК для пошуку');
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
     const sql = `SELECT app_number, app_date, registration_number, registration_date,
         obj_type_name, title_ua, title_en, abstract_ua, ipc_codes, owner_name, owner_country, status
       FROM opendata_patents WHERE ${conditions.join(' AND ')}
@@ -381,7 +396,7 @@ export class OpenDataTools extends BaseToolHandler {
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Патентів не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_patents error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -404,7 +419,8 @@ export class OpenDataTools extends BaseToolHandler {
 
     if (conditions.length === 0) return this.wrapResponse('Вкажіть назву, номер або видавника для пошуку');
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
 
     const textJoin = include_text
       ? `LEFT JOIN opendata_edrnpa_texts t ON t.id = c.id`
@@ -422,7 +438,7 @@ export class OpenDataTools extends BaseToolHandler {
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Нормативних актів не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_edrnpa error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -445,7 +461,8 @@ export class OpenDataTools extends BaseToolHandler {
 
     if (conditions.length === 0) return this.wrapResponse('Вкажіть прізвище, статтю або суд для пошуку');
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
     const sql = `SELECT last_name, first_name, patronymic, entity_type, offense_name,
         punishment_type, punishment, codex_articles, court_case_number, sentence_date, court_name
       FROM opendata_corruption WHERE ${conditions.join(' AND ')}
@@ -454,7 +471,7 @@ export class OpenDataTools extends BaseToolHandler {
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Записів у реєстрі корупціонерів не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_corruption_register error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -477,7 +494,8 @@ export class OpenDataTools extends BaseToolHandler {
 
     if (conditions.length === 0) return this.wrapResponse('Вкажіть прізвище, раду або номер свідоцтва для пошуку');
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
     const sql = `SELECT lawyer_id, last_name, first_name, patronymic, ra_name,
         certificate_num, certificate_date, decision_num, decision_date,
         authority_name, email, status, status_description, work_address, org_forms
@@ -487,7 +505,7 @@ export class OpenDataTools extends BaseToolHandler {
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Адвокатів не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_lawyers error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -510,16 +528,17 @@ export class OpenDataTools extends BaseToolHandler {
 
     if (conditions.length === 0) return this.wrapResponse('Вкажіть назву, орган, номер або дату для пошуку');
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
     const sql = `SELECT id, date_time, authority, title, decision_num, proceeding_ids,
-        voting_title, voting_for, voting_against, voting_type, voting_result, texts
+        voting_title, voting_for, voting_against, voting_type, voting_result, texts, COUNT(*) OVER() AS _total_count
       FROM vrp_decisions WHERE ${conditions.join(' AND ')}
       ORDER BY date_time DESC NULLS LAST LIMIT $${pi}`;
 
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Рішень ВРП не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_vrp_decisions error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -582,7 +601,14 @@ export class OpenDataTools extends BaseToolHandler {
       }
 
       if (allRows.length === 0) return this.wrapResponse('Дисциплінарних записів не знайдено');
-      return this.wrapResponse(JSON.stringify(allRows.slice(0, maxRows), null, 2));
+      const sliced = allRows.slice(0, maxRows);
+      return this.wrapResponse({
+        results: sliced,
+        total_count: allRows.length,
+        has_more: allRows.length > maxRows,
+        limit: maxRows,
+        offset: 0,
+      });
     } catch (error: any) {
       logger.error('search_vrp_judges_discipline error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -621,14 +647,14 @@ export class OpenDataTools extends BaseToolHandler {
     if (conditions.length === 0) return this.wrapResponse('Вкажіть ПІБ судді, суд або номер досьє');
 
     values.push(limit);
-    const sql = `SELECT id, dossier_number, full_name, gender, court_name, source_date
+    const sql = `SELECT id, dossier_number, full_name, gender, court_name, source_date, COUNT(*) OVER() AS _total_count
       FROM vkks_judges WHERE ${conditions.join(' AND ')}
       ORDER BY full_name LIMIT $${pi}`;
 
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Суддів у ВККС не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, limit);
     } catch (error: any) {
       logger.error('search_vkks_judges error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -650,14 +676,14 @@ export class OpenDataTools extends BaseToolHandler {
     values.push(limit);
     const sql = `SELECT id, dossier_number, judge_name, court_name, collegium_decision_date,
         collegium_decision_number, total_score, collegium_decision_essence, plenary_decision_date,
-        plenary_decision_number, plenary_decision_essence, evaluation_type, decision_url, notes
+        plenary_decision_number, plenary_decision_essence, evaluation_type, decision_url, notes, COUNT(*) OVER() AS _total_count
       FROM vkks_evaluations WHERE ${conditions.join(' AND ')}
       ORDER BY collegium_decision_date DESC NULLS LAST LIMIT $${pi}`;
 
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Оцінювань суддів не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, limit);
     } catch (error: any) {
       logger.error('search_vkks_evaluations error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -677,14 +703,14 @@ export class OpenDataTools extends BaseToolHandler {
     if (conditions.length === 0) return this.wrapResponse('Вкажіть ПІБ судді, суд або рік');
 
     values.push(limit);
-    const sql = `SELECT id, judge_name, court_name, declaration_type, year, source
+    const sql = `SELECT id, judge_name, court_name, declaration_type, year, source, COUNT(*) OVER() AS _total_count
       FROM vkks_declarations WHERE ${conditions.join(' AND ')}
       ORDER BY year DESC, judge_name LIMIT $${pi}`;
 
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Декларацій суддів не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, limit);
     } catch (error: any) {
       logger.error('search_vkks_declarations error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -705,14 +731,14 @@ export class OpenDataTools extends BaseToolHandler {
 
     values.push(limit);
     const sql = `SELECT id, court_name, court_level, region, positions_limit, positions_filled,
-        positions_vacant, positions_in_process, report_date
+        positions_vacant, positions_in_process, report_date, COUNT(*) OVER() AS _total_count
       FROM vkks_vacancies WHERE ${conditions.join(' AND ')}
       ORDER BY report_date DESC NULLS LAST LIMIT $${pi}`;
 
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Вакансій у судах не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, limit);
     } catch (error: any) {
       logger.error('search_vkks_vacancies error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -737,14 +763,14 @@ export class OpenDataTools extends BaseToolHandler {
         workload_total_judge, workload_total_court, workload_total_region,
         workload_criminal_judge, workload_civil_judge, workload_admin_judge,
         workload_commercial_judge, workload_offense_judge,
-        annulled_total, changed_total, overdue_cases_total
+        annulled_total, changed_total, overdue_cases_total, COUNT(*) OVER() AS _total_count
       FROM vkks_judge_efficiency WHERE ${conditions.join(' AND ')}
       ORDER BY year DESC, judge_name LIMIT $${pi}`;
 
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Даних про ефективність суддів не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, limit);
     } catch (error: any) {
       logger.error('search_vkks_efficiency error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -767,7 +793,8 @@ export class OpenDataTools extends BaseToolHandler {
 
     if (conditions.length === 0) return this.wrapResponse('Вкажіть прізвище, посаду або статус для пошуку');
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
     const sql = `SELECT id, declaration_uid, family_name, name, additional_name, position,
         position_category, reporting_period, status, result, result_url, measures, completion_year
       FROM opendata_declaration_checks WHERE ${conditions.join(' AND ')}
@@ -776,7 +803,7 @@ export class OpenDataTools extends BaseToolHandler {
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Перевірок декларацій не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_declaration_checks error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -798,7 +825,8 @@ export class OpenDataTools extends BaseToolHandler {
 
     if (conditions.length === 0) return this.wrapResponse('Вкажіть назву, регіон або вид діяльності для пошуку');
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
     const sql = `SELECT id, region, company_name, ownership_form, economic_activity,
         debt_2018_01, debt_2019_01, debt_2019_02_25, debt_reason
       FROM opendata_wage_debtors WHERE ${conditions.join(' AND ')}
@@ -807,7 +835,7 @@ export class OpenDataTools extends BaseToolHandler {
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Боржників із зарплати не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_wage_debtors error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -827,7 +855,8 @@ export class OpenDataTools extends BaseToolHandler {
 
     if (conditions.length === 0) return this.wrapResponse('Вкажіть ЄДРПОУ або назву для пошуку');
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
     const sql = `SELECT id, edrpou, name
       FROM opendata_large_taxpayers WHERE ${conditions.join(' AND ')}
       ORDER BY name LIMIT $${pi}`;
@@ -835,7 +864,7 @@ export class OpenDataTools extends BaseToolHandler {
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Великих платників податків не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_large_taxpayers error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);

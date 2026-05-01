@@ -20,6 +20,7 @@ export class StateRegistryTools extends BaseToolHandler {
     return [
       {
         name: 'search_nbu_banks',
+        annotations: { title: 'Банки з ліцензією НБУ', readOnlyHint: true },
         description: `Пошук банків з ліцензією Національного банку України
 
 Реєстр містить усі банки України з банківською ліцензією НБУ (60 банків).

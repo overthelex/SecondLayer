@@ -45,7 +45,8 @@ export class LegalAdviceTools extends BaseToolHandler {
     return [
       {
         name: 'format_answer_pack',
-        description: `Упаковщик результата в структуру norm/position/conclusion/risks (структурно, без генерации текста)`,
+        annotations: { title: 'Пакування відповіді' },
+        description: `Пакування результату в структуру norm/position/conclusion/risks (структурне, без генерації тексту)`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -60,12 +61,12 @@ export class LegalAdviceTools extends BaseToolHandler {
       },
       {
         name: 'search_legal_precedents',
-        description: `Пошук юридичних прецедентів із семантичним аналізом.
+        annotations: { title: 'Пошук прецедентів', readOnlyHint: true, openWorldHint: true },
+        description: `Пошук юридичних прецедентів із семантичним аналізом
 
 Підтримує фільтрацію за рівнем суду (court_level) для пошуку практики Верховного Суду (ВП/КЦС/КГС/КАС/ККС) та за видом судочинства (procedure_code).
-
-💰 Примерная стоимость: $0.03-$0.10 USD
-Стоимость зависит от сложности запроса и количества результатов. Включает OpenAI API (embeddings), ZakonOnline API (поиск), SecondLayer MCP (обработка документов).`,
+Повертає: релевантні рішення з цитатами, оцінкою релевантності, секціями мотивувальної частини.
+Використовуйте для побудови правової позиції на основі усталеної практики.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -112,10 +113,12 @@ export class LegalAdviceTools extends BaseToolHandler {
       },
       {
         name: 'get_similar_reasoning',
-        description: `Находит похожие судебные обоснования по векторному сходству
+        annotations: { title: 'Схожі обґрунтування', readOnlyHint: true },
+        description: `Пошук схожих судових обґрунтувань за векторною подібністю
 
-💰 Примерная стоимость: $0.01-$0.03 USD
-Векторный поиск по эмбеддингам. Включает OpenAI API (embeddings) и Qdrant (векторная БД).`,
+Векторний пошук по ембедінгах через Qdrant. Знаходить рішення зі схожою аргументацією суду.
+Використовуйте для пошуку рішень, де суд використав аналогічну логіку обґрунтування.
+Підтримує фільтри: дата, суд, палата, категорія спору, результат.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -137,12 +140,12 @@ export class LegalAdviceTools extends BaseToolHandler {
       },
       {
         name: 'get_citation_graph',
-        description: `Строит граф цитирований между делами: прямые и обратные связи
+        annotations: { title: 'Граф цитувань', readOnlyHint: true, idempotentHint: true },
+        description: `Побудова графа цитувань між судовими справами: прямі та зворотні зв'язки
 
-💰 Примерная стоимость: $0.005-$0.02 USD
-Построение графа из базы данных. Минимальная стоимость (только PostgreSQL запросы).
-
-Приймає case_id — UUID/doc_id документа з БД або номер справи (наприклад "756/1234/23"). Якщо передано номер справи, він автоматично конвертується в doc_id.`,
+Знаходить які рішення цитує дана справа та які справи цитують її.
+Приймає case_id — UUID/doc_id документа або номер справи (наприклад "756/1234/23"). Номер справи автоматично конвертується в doc_id.
+Використовуйте для аналізу впливовості рішення та відстеження ланцюжка прецедентів.`,
         inputSchema: {
           type: 'object',
           properties: {

@@ -19,6 +19,7 @@ export class LegalActsTools extends BaseToolHandler {
     return [
       {
         name: 'search_legal_acts',
+        annotations: { title: 'Пошук правових актів', readOnlyHint: true },
         description: `Пошук нормативно-правових актів (НПА): законів, кодексів, указів, постанов, наказів тощо
 
 Шукає в базі НПА ZakonOnline. Можна шукати за назвою або текстом документа.
@@ -52,6 +53,7 @@ export class LegalActsTools extends BaseToolHandler {
       },
       {
         name: 'get_legal_act_meta',
+        annotations: { title: 'Метадані правового акта', readOnlyHint: true, idempotentHint: true },
         description: `Отримати метадані/кількість НПА за запитом без завантаження результатів
 
 Швидкий запит для перевірки кількості результатів та фасетів.`,

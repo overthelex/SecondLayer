@@ -72,37 +72,32 @@ export class DueDiligenceTools extends BaseToolHandler {
     return [
       {
         name: 'bulk_review_runner',
-        description: `Пакетная проверка документов для due diligence (Этап 5).
+        annotations: { title: 'Пакетна DD-перевірка', readOnlyHint: true },
+        description: `Пакетна перевірка документів для due diligence
 
-Запускает batch orchestration для массовой проверки документов:
-1. Загружает документы параллельно (max concurrency: 5)
-2. Извлекает секции через extract_document_sections
-3. Анализирует риски через analyze_legal_patterns
-4. Проверяет наличие критических клауз
-5. Агрегирует findings с anchors (ссылки на места в документах)
+Запускає batch orchestration:
+1. Завантажує документи паралельно
+2. Витягує секції (extract_document_sections)
+3. Аналізує ризики (analyze_legal_patterns)
+4. Перевіряє критичні клаузи
+5. Агрегує findings з anchors (посилання на місця в документах)
 
-Acceptance criteria (spec.txt):
-- Формирует DD findings table
-- Каждый finding имеет ссылку на document+anchor
-
-Возвращает:
-- findings[]: массив находок с категориями, рисками, anchors
-- riskScores[]: оценки рисков по документам`,
+Повертає: findings[] (знахідки з категоріями, ризиками, anchors), riskScores[] (оцінки ризиків).`,
         inputSchema: {
           type: 'object',
           properties: {
             documentIds: {
               type: 'array',
               items: { type: 'string' },
-              description: 'UUID документов для проверки (из vault или БД)',
+              description: 'UUID документів для перевірки (з vault або БД)',
             },
             maxConcurrency: {
               type: 'number',
-              description: 'Макс. кол-во параллельных проверок (default: 5)',
+              description: 'Макс. паралельних перевірок (за замовчуванням 5)',
             },
             trace_id: {
               type: 'string',
-              description: 'Trace ID для observability (опционально)',
+              description: 'Trace ID для observability (опціонально)',
             },
           },
           required: ['documentIds'],
@@ -110,34 +105,19 @@ Acceptance criteria (spec.txt):
       },
       {
         name: 'risk_scoring',
-        description: `Расчет risk score для документов на основе findings.
+        annotations: { title: 'Скоринг ризиків', readOnlyHint: true },
+        description: `Розрахунок risk score для документів на основі findings
 
-Алгоритм скоринга:
-- Critical finding: +25 баллов
-- High finding: +15 баллов
-- Medium finding: +8 баллов
-- Low finding: +3 баллов
-- Максимум: 100 баллов
-
-Breakdown по категориям:
-- contractual: договорные обязательства
-- financial: финансовые риски
-- compliance: соответствие требованиям
-- legal: юридические риски
-- operational: операционные риски
-
-Возвращает:
-- overallRisk: critical/high/medium/low
-- score: числовой балл 0-100
-- breakdown: оценки по категориям
-- counts: количество findings по уровням`,
+Алгоритм: Critical +25, High +15, Medium +8, Low +3 (макс. 100).
+Категорії: contractual, financial, compliance, legal, operational.
+Повертає: overallRisk (critical/high/medium/low), score (0-100), breakdown за категоріями.`,
         inputSchema: {
           type: 'object',
           properties: {
             documentIds: {
               type: 'array',
               items: { type: 'string' },
-              description: 'UUID документов для скоринга',
+              description: 'UUID документів для скорингу',
             },
             findings: {
               type: 'array',
@@ -145,7 +125,7 @@ Breakdown по категориям:
                 type: 'object',
               },
               description:
-                'Findings из bulk_review_runner (опционально, если не указаны - загрузятся из БД)',
+                'Findings з bulk_review_runner (опціонально, якщо не вказані — завантажаться з БД)',
             },
             trace_id: {
               type: 'string',
@@ -157,24 +137,17 @@ Breakdown по категориям:
       },
       {
         name: 'generate_dd_report',
-        description: `Генерация отчета DD с таблицей findings и executive summary.
+        annotations: { title: 'DD-звіт', readOnlyHint: true },
+        description: `Генерація DD-звіту з таблицею findings та executive summary
 
-Формат отчета:
-A. Executive Summary (для руководства, 2-3 абзаца)
-B. Детальное резюме (статистика, основные риски)
-C. Findings Table (таблица находок):
-   - Document | Category | Risk | Finding | Recommendation | Anchor
-D. Risk Scores (оценки по документам)
-E. Recommendations (рекомендации для руководства)
+Формат звіту:
+A. Executive Summary (2-3 абзаци)
+B. Детальне резюме (статистика, основні ризики)
+C. Findings Table: Document | Category | Risk | Finding | Recommendation | Anchor
+D. Risk Scores (оцінки за документами)
+E. Recommendations (рекомендації)
 
-Использует:
-- analyze_legal_patterns для извлечения рисков
-- validate_response для проверки рекомендаций
-- AI для генерации executive summary
-
-Acceptance criteria:
-- Стабильный формат для разных типов вопросов
-- Таблица findings с anchors (ссылки на документы)`,
+Використовує analyze_legal_patterns + AI для генерації summary.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -193,7 +166,7 @@ Acceptance criteria:
             format: {
               type: 'string',
               enum: ['json', 'markdown', 'html'],
-              description: 'Формат вывода (default: json)',
+              description: 'Формат виводу (за замовчуванням json)',
             },
             trace_id: {
               type: 'string',
