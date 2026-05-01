@@ -10,7 +10,7 @@ const legalStrings: Record<Locale, Record<string, string>> = {
   uk: {
     // === DecisionsSearchPage ===
     decisionsTitle: 'Пошук судових рішень',
-    decisionsSubtitle: 'Пошук в базі судових рішень України через ZakonOnline',
+    decisionsSubtitle: 'Пошук в базі судових рішень України (ЄДРСР)',
     searchQuery: 'Пошуковий запит',
     searchPlaceholder: 'номер справи, ключові слова, тема спору...',
     advancedFilters: 'Розширені фільтри',
@@ -232,7 +232,7 @@ const legalStrings: Record<Locale, Record<string, string>> = {
 
   en: {
     decisionsTitle: 'Court Decisions Search',
-    decisionsSubtitle: 'Search the database of Ukrainian court decisions via ZakonOnline',
+    decisionsSubtitle: 'Search the database of Ukrainian court decisions (EDRSR)',
     searchQuery: 'Search query',
     searchPlaceholder: 'case number, keywords, dispute topic...',
     advancedFilters: 'Advanced filters',
@@ -439,7 +439,7 @@ const legalStrings: Record<Locale, Record<string, string>> = {
 
   de: {
     decisionsTitle: 'Suche nach Gerichtsentscheidungen',
-    decisionsSubtitle: 'Suche in der Datenbank ukrainischer Gerichtsentscheidungen',
+    decisionsSubtitle: 'Suche in der Datenbank ukrainischer Gerichtsentscheidungen (EDRSR)',
     searchQuery: 'Suchanfrage',
     searchPlaceholder: 'Aktenzeichen, Schlusselworter, Streitgegenstand...',
     advancedFilters: 'Erweiterte Filter',
@@ -646,7 +646,7 @@ const legalStrings: Record<Locale, Record<string, string>> = {
 
   es: {
     decisionsTitle: 'Busqueda de resoluciones judiciales',
-    decisionsSubtitle: 'Busqueda en la base de datos de resoluciones judiciales de Ucrania a traves de ZakonOnline',
+    decisionsSubtitle: 'Búsqueda en la base de datos de resoluciones judiciales de Ucrania (EDRSR)',
     searchQuery: 'Consulta de busqueda',
     searchPlaceholder: 'numero de caso, palabras clave, tema de la disputa...',
     advancedFilters: 'Filtros avanzados',
