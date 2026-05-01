@@ -24,6 +24,8 @@ export class NewsArticleService {
 
   /**
    * Get article with analysis — from DB cache or scrape + analyze on the fly.
+   * For cache misses, returns content immediately and generates analysis in the background
+   * to avoid Cloudflare/ALB timeouts (~100s) during Playwright scrape + LLM analysis.
    */
   async getArticle(url: string, title: string): Promise<NewsArticleResult> {
     // 1. Check DB cache
@@ -45,20 +47,18 @@ export class NewsArticleService {
           analyzed_at: row.analyzed_at,
         };
       }
-      // If we have content but no analysis, generate analysis
+      // If we have content but no analysis, kick off analysis in background and return content now
       if (row.content && !row.analysis) {
-        logger.info('[NewsArticle] Cache hit (content only), generating analysis', { url });
-        const analysis = await this.generateAnalysis(row.title, row.content);
-        await this.db.query(
-          'UPDATE news_articles SET analysis = $1, analyzed_at = NOW() WHERE url = $2',
-          [analysis, url]
+        logger.info('[NewsArticle] Cache hit (content only), generating analysis in background', { url });
+        this.generateAndSaveAnalysis(url, row.title, row.content).catch(err =>
+          logger.error('[NewsArticle] Background analysis failed', { url, error: err instanceof Error ? err.message : String(err) })
         );
         return {
           title: row.title,
           content: row.content,
-          analysis,
+          analysis: '',
           scraped_at: row.scraped_at,
-          analyzed_at: new Date().toISOString(),
+          analyzed_at: null,
         };
       }
     }
@@ -67,29 +67,38 @@ export class NewsArticleService {
     logger.info('[NewsArticle] Cache miss, scraping', { url });
     const content = await this.scrapeArticle(url);
 
-    // 3. Analyze
-    const analysis = await this.generateAnalysis(title, content);
-
-    // 4. Upsert into DB
+    // 3. Save content immediately (without analysis)
     await this.db.query(
-      `INSERT INTO news_articles (url, title, content, analysis, scraped_at, analyzed_at)
-       VALUES ($1, $2, $3, $4, NOW(), NOW())
+      `INSERT INTO news_articles (url, title, content, scraped_at)
+       VALUES ($1, $2, $3, NOW())
        ON CONFLICT (url) DO UPDATE SET
          title = EXCLUDED.title,
          content = EXCLUDED.content,
-         analysis = EXCLUDED.analysis,
-         scraped_at = NOW(),
-         analyzed_at = NOW()`,
-      [url, title, content, analysis]
+         scraped_at = NOW()`,
+      [url, title, content]
+    );
+
+    // 4. Generate analysis in background — don't block the response
+    this.generateAndSaveAnalysis(url, title, content).catch(err =>
+      logger.error('[NewsArticle] Background analysis failed', { url, error: err instanceof Error ? err.message : String(err) })
     );
 
     return {
       title,
       content,
-      analysis,
+      analysis: '',
       scraped_at: new Date().toISOString(),
-      analyzed_at: new Date().toISOString(),
+      analyzed_at: null,
     };
+  }
+
+  private async generateAndSaveAnalysis(url: string, title: string, content: string): Promise<void> {
+    const analysis = await this.generateAnalysis(title, content);
+    await this.db.query(
+      'UPDATE news_articles SET analysis = $1, analyzed_at = NOW() WHERE url = $2',
+      [analysis, url]
+    );
+    logger.info('[NewsArticle] Background analysis complete', { url });
   }
 
   /**

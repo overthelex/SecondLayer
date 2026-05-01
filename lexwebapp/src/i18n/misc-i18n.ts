@@ -137,6 +137,12 @@ const miscStrings: Record<string, Record<Locale, string>> = {
     de: 'KI-Analyse',
     es: 'Análisis IA',
   },
+  generatingAnalysis: {
+    uk: 'Генерується AI-аналіз...',
+    en: 'Generating AI analysis...',
+    de: 'KI-Analyse wird erstellt...',
+    es: 'Generando análisis IA...',
+  },
   sourceKmu: {
     uk: 'Джерело: kmu.gov.ua',
     en: 'Source: kmu.gov.ua',
