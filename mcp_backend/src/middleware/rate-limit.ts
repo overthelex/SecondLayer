@@ -181,3 +181,9 @@ export const globalApiRateLimit = createRateLimiter({
   maxRequests: 3000,
   keyPrefix: 'ratelimit:global-api',
 });
+
+export const publicSearchRateLimit = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 30,
+  keyPrefix: 'ratelimit:public-search',
+});

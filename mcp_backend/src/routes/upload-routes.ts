@@ -179,6 +179,14 @@ export function createUploadRouter(
         });
       }
 
+      if (relativePath && (typeof relativePath !== 'string' || relativePath.includes('..') || relativePath.startsWith('/') || relativePath.includes('\0'))) {
+        return res.status(400).json({ error: 'Invalid relativePath' });
+      }
+
+      if (metadata && (typeof metadata !== 'object' || Array.isArray(metadata))) {
+        return res.status(400).json({ error: 'Invalid metadata — must be an object' });
+      }
+
       // Force encryption for JWT consumer uploads — prevent plaintext bypass via API
       const isJwtConsumer = req.authType === 'jwt';
       const effectiveEncrypt = isJwtConsumer ? true : encrypt === true;
