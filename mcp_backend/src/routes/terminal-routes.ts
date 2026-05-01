@@ -48,24 +48,15 @@ function sanitizePtyInput(raw: string): string {
 // Track active sessions per admin
 const activeSessions = new Map<string, Set<WebSocket>>();
 
-const SENSITIVE_ENV_VARS = [
-  'OPENAI_API_KEY',
-  'SECONDARY_LAYER_KEYS',
-  'ZAKONONLINE_API_TOKEN',
-  'JWT_SECRET',
-  'POSTGRES_PASSWORD',
-  'REDIS_PASSWORD',
-  'ANTHROPIC_API_KEY',
-];
+const SENSITIVE_PATTERN = /SECRET|PASSWORD|KEY|TOKEN|CREDENTIALS|PASS/i;
 
 function buildPtyEnv(): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
-    if (!SENSITIVE_ENV_VARS.includes(key) && value !== undefined) {
+    if (!SENSITIVE_PATTERN.test(key) && value !== undefined) {
       env[key] = value;
     }
   }
-  // Ensure sensible terminal defaults
   env.TERM = 'xterm-256color';
   env.COLORTERM = 'truecolor';
   return env;
@@ -79,7 +70,7 @@ async function verifyAdminFromToken(
     const secret = process.env.JWT_SECRET;
     if (!secret) return null;
 
-    const decoded = jwt.verify(token, secret) as any;
+    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as any;
     const userId = decoded?.id || decoded?.userId || decoded?.sub;
     if (!userId) return null;
 
@@ -210,7 +201,7 @@ export function attachTerminalWebSocket(httpServer: HttpServer, db: IDatabase): 
         return;
       }
 
-      const cwd = process.env.TERMINAL_CWD || '/home/vovkes/SecondLayer';
+      const cwd = process.env.TERMINAL_CWD || process.cwd();
 
       const ptyProcess = ptyModule.spawn('bash', [], {
         name: 'xterm-256color',

@@ -106,7 +106,7 @@ export function generateToken(user: User): string {
       googleId: user.google_id,
     },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
+    { expiresIn: JWT_EXPIRES_IN, algorithm: 'HS256' }
   );
 }
 

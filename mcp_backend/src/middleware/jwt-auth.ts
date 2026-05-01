@@ -61,7 +61,7 @@ export function authenticateJWT(req: AuthenticatedRequest, res: Response, next: 
 
   try {
     // Verify and decode JWT token
-    const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
+    const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as JWTPayload;
 
     // Attach JWT payload to request
     req.jwt = decoded;

@@ -352,7 +352,7 @@ export async function refreshToken(req: Request, res: Response): Promise<Respons
     const token = authHeader.replace('Bearer ', '');
 
     // Verify existing token
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
 
     // Create new token with same payload but fresh expiry
     const newToken = jwt.sign(
@@ -362,7 +362,7 @@ export async function refreshToken(req: Request, res: Response): Promise<Respons
         googleId: decoded.googleId,
       },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { expiresIn: JWT_EXPIRES_IN, algorithm: 'HS256' }
     );
 
     logger.info('Token refreshed', { userId: decoded.userId });
