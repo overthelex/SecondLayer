@@ -448,15 +448,11 @@ export class OAuthService {
     codeChallengeMethod: string
   ): boolean {
     if (codeChallengeMethod === 'S256') {
-      // SHA256 hash of code_verifier, base64url encoded
       const hash = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
       return hash === codeChallenge;
-    } else if (codeChallengeMethod === 'plain') {
-      // Plain comparison
-      return codeVerifier === codeChallenge;
     }
 
-    logger.warn('Unsupported PKCE code_challenge_method', {
+    logger.warn('Rejected PKCE method (only S256 allowed)', {
       method: codeChallengeMethod,
     });
     return false;

@@ -81,7 +81,7 @@ export function getWebAuthnService(): WebAuthnService {
 async function authenticateWithJWT(req: AuthenticatedRequest, token: string): Promise<void> {
   try {
     // Verify JWT signature and expiry
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
 
     // Fetch user from database
     if (!userService) {

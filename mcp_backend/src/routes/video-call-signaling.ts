@@ -22,7 +22,7 @@ async function verifyUserFromToken(
     const secret = process.env.JWT_SECRET;
     if (!secret) return null;
 
-    const decoded = jwt.verify(token, secret) as any;
+    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as any;
     const userId = decoded?.id || decoded?.userId || decoded?.sub;
     if (!userId) return null;
 
