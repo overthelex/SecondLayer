@@ -191,7 +191,8 @@ class HTTPMCPServer {
         if (allowedOrigins.includes(origin)) return callback(null, true);
         // Allow localhost only in development
         if (process.env.NODE_ENV !== 'production' && origin.match(/^https?:\/\/localhost(:\d+)?$/)) return callback(null, true);
-        callback(new Error(`CORS not allowed for origin: ${origin}`));
+        logger.warn(`CORS blocked origin: ${origin}`);
+        callback(null, false);
       },
       credentials: true,
       exposedHeaders: ['X-Upload-Queue-Depth', 'X-Upload-Throttle', 'Retry-After', 'X-Total-Count'],
