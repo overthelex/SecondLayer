@@ -125,7 +125,7 @@ export function DecisionsSearchPage() {
         if (filters.dateTo) params.time_range.to = filters.dateTo;
       }
 
-      const response = await mcpService.callTool('search_supreme_court_practice', params);
+      const response = await mcpService.callTool('search_legal_precedents', params);
 
       let parsed: any = null;
       if (response?.result?.content?.[0]?.text) {
