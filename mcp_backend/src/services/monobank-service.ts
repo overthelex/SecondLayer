@@ -343,8 +343,19 @@ export class MonobankService {
       ['succeeded', pi.id]
     );
 
-    // Credit user balance (both UAH and USD equivalent)
-    const amountUah = parseFloat(pi.amount_uah) || (body.amount / 100);
+    // Verify amount matches stored invoice
+    const storedAmountUah = parseFloat(pi.amount_uah);
+    const webhookAmountUah = body.amount / 100;
+    if (storedAmountUah > 0 && Math.abs(storedAmountUah - webhookAmountUah) > 0.01) {
+      logger.error('[MonobankService] Amount mismatch in webhook', {
+        stored: storedAmountUah, webhook: webhookAmountUah, invoiceId: body.invoiceId,
+      });
+      await this.db.query(
+        "UPDATE payment_intents SET metadata = metadata || $1::jsonb WHERE id = $2",
+        [JSON.stringify({ amount_mismatch: true, webhook_amount: webhookAmountUah }), pi.id]
+      );
+    }
+    const amountUah = storedAmountUah > 0 ? storedAmountUah : webhookAmountUah;
     let amountUsd = 0;
     if (this.currencyService) {
       try {

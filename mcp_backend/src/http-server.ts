@@ -49,7 +49,7 @@ import { createTemplateRoutes } from './routes/template-routes.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { createOAuthRouter } from './routes/oauth-routes.js';
 // createHybridAuthMiddleware available from './middleware/oauth-auth.js' if needed
-import { healthCheckRateLimit, webhookRateLimit, globalApiRateLimit, consultationRateLimit } from './middleware/rate-limit.js';
+import { healthCheckRateLimit, webhookRateLimit, globalApiRateLimit, consultationRateLimit, publicSearchRateLimit } from './middleware/rate-limit.js';
 import { createUploadRouter } from './routes/upload-routes.js';
 import { createConversationRouter } from './routes/conversation-routes.js';
 import { createEvidenceRoutes } from './routes/evidence-routes.js';
@@ -663,7 +663,7 @@ class HTTPMCPServer {
 
     // ERAU proxy - Ukrainian Bar Registry (public, no auth required)
     const erauCacheService = new ERAUCacheService(this.services.db);
-    this.app.use('/api/erau', optionalJWT as any, createERAUProxyRoutes(erauCacheService, this.services.db));
+    this.app.use('/api/erau', publicSearchRateLimit as any, optionalJWT as any, createERAUProxyRoutes(erauCacheService, this.services.db));
     logger.info('ERAU proxy routes registered at /api/erau');
 
     // Worker heartbeat (uses dualAuth so EC2 workers can auth with SECONDARY_LAYER_KEYS)
@@ -690,7 +690,7 @@ class HTTPMCPServer {
     logger.info('Usage analytics routes registered at /api/usage');
 
     // Attorney routes - search is public (optionalJWT), profile management requires JWT
-    this.app.use('/api/attorneys', optionalJWT as any, createAttorneyRoutes(this.app_.attorneyProfileService));
+    this.app.use('/api/attorneys', publicSearchRateLimit as any, optionalJWT as any, createAttorneyRoutes(this.app_.attorneyProfileService));
     logger.info('Attorney routes registered at /api/attorneys');
 
     // E2EE encryption key management routes - all require JWT
