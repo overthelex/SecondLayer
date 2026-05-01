@@ -83,20 +83,12 @@ export class VaultTools extends BaseToolHandler {
     return [
       {
         name: 'store_document',
-        description: `Сохранить документ в Vault с автоматической обработкой.
+        annotations: { title: 'Зберегти в Vault' },
+        description: `Зберегти документ у Vault з автоматичною обробкою
 
-Pipeline:
-1. Parse document (PDF/DOCX/HTML → text)
-2. Extract sections (semantic sectionizer)
-3. Generate embeddings (vector index)
-4. Analyze legal patterns (risks/arguments)
-5. Save with metadata
-
-Поддерживает:
-- Контракты, законодательство, судебные решения
-- Автоматическое извлечение метаданных
-- Тегирование и категоризация
-- Семантический поиск`,
+Pipeline: парсинг → витяг секцій → генерація ембедінгів → аналіз патернів → збереження.
+Підтримує контракти, законодавство, судові рішення.
+Автоматично витягує метадані, тегує, індексує для семантичного пошуку.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -110,7 +102,7 @@ Pipeline:
             },
             title: {
               type: 'string',
-              description: 'Название документа',
+              description: 'Назва документа',
             },
             type: {
               type: 'string',
@@ -119,7 +111,7 @@ Pipeline:
             },
             metadata: {
               type: 'object',
-              description: 'Дополнительные метаданные (tags, category, uploadedBy, etc)',
+              description: 'Додаткові метадані (tags, category, uploadedBy тощо)',
             },
           },
           required: ['fileBase64', 'title', 'type'],
@@ -127,28 +119,24 @@ Pipeline:
       },
       {
         name: 'get_document',
-        description: `Получить документ из Vault по ID.
+        annotations: { title: 'Отримати з Vault', readOnlyHint: true, idempotentHint: true },
+        description: `Отримати документ з Vault за ID
 
-Возвращает:
-- Полный текст документа
-- Метаданные и теги
-- Секции (если доступны)
-- Результаты анализа паттернов
-- История изменений`,
+Повертає: повний текст, метадані, теги, секції (опціонально), результати аналізу патернів.`,
         inputSchema: {
           type: 'object',
           properties: {
             documentId: {
               type: 'string',
-              description: 'UUID документа в vault',
+              description: 'UUID документа у vault',
             },
             includeSections: {
               type: 'boolean',
-              description: 'Включить секции документа',
+              description: 'Включити секції документа',
             },
             includePatterns: {
               type: 'boolean',
-              description: 'Включить результаты анализа паттернов',
+              description: 'Включити результати аналізу патернів',
             },
           },
           required: ['documentId'],
@@ -156,63 +144,57 @@ Pipeline:
       },
       {
         name: 'list_documents',
-        description: `Список документов в Vault с фильтрацией и текстовым поиском.
+        annotations: { title: 'Список документів Vault', readOnlyHint: true },
+        description: `Список документів у Vault з фільтрацією та текстовим пошуком
 
-Фильтры:
-- По ключевым словам (query) — полнотекстовый поиск по названию и содержимому
-- По типу документа
-- По тегам
-- По категории
-- По дате загрузки
-- По папке
-
-Поддерживает пагинацию и сортировку. При текстовом поиске результаты ранжируются по релевантности.`,
+Фільтри: за ключовими словами, типом, тегами, категорією, датою, папкою.
+Підтримує пагінацію та сортування. Текстовий пошук ранжує за релевантністю.`,
         inputSchema: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: 'Текстовий пошук по назві та змісту документа (keyword search)',
+              description: 'Текстовий пошук по назві та змісту документа',
             },
             type: {
               type: 'string',
               enum: ['contract', 'legislation', 'court_decision', 'internal', 'other'],
-              description: 'Фильтр по типу',
+              description: 'Фільтр за типом',
             },
             tags: {
               type: 'array',
               items: { type: 'string' },
-              description: 'Фильтр по тегам (любой из списка)',
+              description: 'Фільтр за тегами (будь-який зі списку)',
             },
             category: {
               type: 'string',
-              description: 'Фильтр по категории',
+              description: 'Фільтр за категорією',
             },
             uploadedAfter: {
               type: 'string',
-              description: 'Загружены после даты (ISO 8601)',
+              description: 'Завантажені після дати (ISO 8601)',
             },
             uploadedBefore: {
               type: 'string',
-              description: 'Загружены до даты (ISO 8601)',
+              description: 'Завантажені до дати (ISO 8601)',
             },
             limit: {
               type: 'number',
-              description: 'Количество результатов (default: 20)',
+              description: 'Кількість результатів (за замовчуванням 20)',
             },
             offset: {
               type: 'number',
-              description: 'Смещение для пагинации',
+              description: 'Зміщення для пагінації',
             },
             sortBy: {
               type: 'string',
               enum: ['uploadedAt', 'title', 'riskLevel'],
-              description: 'Поле сортировки',
+              description: 'Поле сортування',
             },
             sortOrder: {
               type: 'string',
               enum: ['asc', 'desc'],
-              description: 'Порядок сортировки',
+              description: 'Порядок сортування',
             },
             folderPath: {
               type: 'string',
@@ -227,44 +209,36 @@ Pipeline:
       },
       {
         name: 'semantic_search',
-        description: `Семантический поиск по документам в Vault.
+        annotations: { title: 'Семантичний пошук Vault', readOnlyHint: true },
+        description: `Семантичний пошук по документах у Vault
 
-Использует векторные эмбеддинги для поиска релевантных документов.
-
-Возможности:
-- Поиск по смыслу (не только ключевые слова)
-- Фильтрация по типу/категории/тегам
-- Ранжирование по релевантности
-- Возврат релевантных секций
-
-Примеры:
-- "договоры с условием форс-мажор"
-- "судебные решения о правах акционеров"
-- "риски в контрактах с иностранными контрагентами"`,
+Використовує векторні ембедінги для пошуку за змістом (не лише за ключовими словами).
+Фільтрація за типом/категорією/тегами, ранжування за релевантністю.
+Приклади запитів: "договори з форс-мажором", "судові рішення щодо прав акціонерів".`,
         inputSchema: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: 'Поисковый запрос (семантический)',
+              description: 'Пошуковий запит (семантичний, природною мовою)',
             },
             type: {
               type: 'string',
               enum: ['contract', 'legislation', 'court_decision', 'internal', 'other'],
-              description: 'Фильтр по типу документа',
+              description: 'Фільтр за типом документа',
             },
             tags: {
               type: 'array',
               items: { type: 'string' },
-              description: 'Фильтр по тегам',
+              description: 'Фільтр за тегами',
             },
             limit: {
               type: 'number',
-              description: 'Количество результатов (default: 10)',
+              description: 'Кількість результатів (за замовчуванням 10)',
             },
             threshold: {
               type: 'number',
-              description: 'Минимальная релевантность 0-1 (default: 0.7)',
+              description: 'Мінімальна релевантність 0-1 (за замовчуванням 0.7)',
             },
           },
           required: ['query'],
@@ -272,6 +246,7 @@ Pipeline:
       },
       {
         name: 'delete_document',
+        annotations: { title: 'Видалити з Vault', destructiveHint: true },
         description: `Видалити документ з Vault (soft-delete).
 
 Видаляє документ, його векторні ембеддінги та файл з MinIO (якщо є).
@@ -292,6 +267,7 @@ Pipeline:
       },
       {
         name: 'update_document',
+        annotations: { title: 'Оновити метадані документа' },
         description: `Оновити метадані документа в Vault.
 
 Можна змінити:

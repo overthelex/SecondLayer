@@ -5,10 +5,19 @@
  * All domain tool handlers must extend this class.
  */
 
+export interface ToolAnnotations {
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+}
+
 export interface ToolDefinition {
   name: string;
   description: string;
   inputSchema: { type: string; properties: Record<string, any>; required?: string[] };
+  annotations?: ToolAnnotations;
 }
 
 export interface ToolResult {
@@ -56,6 +65,22 @@ export abstract class BaseToolHandler {
         text: typeof data === 'string' ? data : JSON.stringify(data, null, 2),
       }],
     };
+  }
+
+  /**
+   * Wrap search results with pagination metadata.
+   * Expects rows from a query using COUNT(*) OVER() AS _total_count.
+   */
+  protected wrapSearchResults(rows: any[], limit: number, offset = 0): ToolResult {
+    const totalCount = rows.length > 0 ? Number(rows[0]._total_count ?? rows.length) : 0;
+    const cleaned = rows.map(({ _total_count, ...rest }) => rest);
+    return this.wrapResponse({
+      results: cleaned,
+      total_count: totalCount,
+      has_more: offset + cleaned.length < totalCount,
+      limit,
+      offset,
+    });
   }
 
   /**

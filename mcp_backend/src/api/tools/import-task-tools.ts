@@ -17,6 +17,7 @@ export class ImportTaskTools extends BaseToolHandler {
     return [
       {
         name: 'list_import_sources',
+        annotations: { title: 'Каталог джерел імпорту', readOnlyHint: true, idempotentHint: true },
         description: 'Показати каталог джерел даних для імпорту (data.gov.ua, НІПО тощо). Кожне джерело має тип, URL, цільову таблицю.',
         inputSchema: {
           type: 'object',
@@ -25,6 +26,7 @@ export class ImportTaskTools extends BaseToolHandler {
       },
       {
         name: 'start_import',
+        annotations: { title: 'Запустити імпорт даних' },
         description: 'Запустити фонову задачу імпорту з використанням 10 IP-адрес та багатопотокового завантаження. Повертає task_id для відстеження.',
         inputSchema: {
           type: 'object',
@@ -47,6 +49,7 @@ export class ImportTaskTools extends BaseToolHandler {
       },
       {
         name: 'get_import_status',
+        annotations: { title: 'Статус імпорту', readOnlyHint: true },
         description: 'Статус імпортних задач: прогрес, швидкість, ETA. Без параметрів — всі активні задачі.',
         inputSchema: {
           type: 'object',
@@ -64,6 +67,7 @@ export class ImportTaskTools extends BaseToolHandler {
       },
       {
         name: 'cancel_import',
+        annotations: { title: 'Скасувати імпорт', destructiveHint: true },
         description: 'Скасувати запущену задачу імпорту. Зупиняє всі потоки та зберігає прогрес.',
         inputSchema: {
           type: 'object',

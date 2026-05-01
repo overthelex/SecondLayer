@@ -62,32 +62,32 @@ export class ProceduralTools extends BaseToolHandler {
     return [
       {
         name: 'search_procedural_norms',
-        description: `Умный поиск процессуальных норм (ЦПК/ГПК) через RADA MCP
+        annotations: { title: 'Процесуальні норми (ЦПК/ГПК)', readOnlyHint: true },
+        description: `Пошук процесуальних норм у ЦПК/ГПК через RADA MCP
 
-Возвращает релевантные статьи/фрагменты и структурированную выжимку (сроки/условия/требования).
-
-💰 Примерная стоимость: $0.005-$0.03 USD
-Обычно дешево: вызывает RADA MCP (локальная БД/кэш) + опционально LLM (зависит от настроек RADA).`,
+Повертає релевантні статті/фрагменти та структуровану витяжку (строки, умови, вимоги).
+Використовуйте для пошуку конкретних норм процесуального права — строки оскарження, порядок подання, вимоги до документів.
+Джерело: RADA MCP (локальна БД/кеш).`,
         inputSchema: {
           type: 'object',
           properties: {
             code: {
               type: 'string',
               enum: ['cpc', 'gpc'],
-              description: 'Процессуальный кодекс: cpc (ЦПК) или gpc (ГПК)'
+              description: 'Процесуальний кодекс: cpc (ЦПК — цивільний), gpc (ГПК — господарський)'
             },
             query: {
               type: 'string',
-              description: 'Что найти (например: "строк апеляційного оскарження")'
+              description: 'Що шукати (наприклад: "строк апеляційного оскарження", "забезпечення позову")'
             },
             article: {
               type: ['string', 'number'],
-              description: 'Номер статьи (если известен)'
+              description: 'Номер статті (якщо відомий)'
             },
             limit: {
               type: 'number',
               default: 5,
-              description: 'Максимум результатов (если поддерживается провайдером)'
+              description: 'Макс. результатів'
             }
           },
           required: ['code']
@@ -95,60 +95,79 @@ export class ProceduralTools extends BaseToolHandler {
       },
       {
         name: 'compare_practice_pro_contra',
-        description: `Подборка практики "за/против" по тезе (две линии практики)`,
+        annotations: { title: 'Практика за/проти', readOnlyHint: true },
+        description: `Підбірка судової практики "за" і "проти" по правовій тезі
+
+Знаходить дві лінії практики — рішення, що підтверджують тезу, та рішення, що їй суперечать.
+Використовуйте для аналізу суперечливої практики або підготовки правової позиції.
+Повертає: списки справ pro/contra з цитатами з мотивувальної частини.`,
         inputSchema: {
           type: 'object',
           properties: {
-            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'] },
-            query: { type: 'string' },
+            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'], description: 'Вид судочинства: cpc (цивільне), gpc (господарське), cac (адміністративне), crpc (кримінальне)' },
+            query: { type: 'string', description: 'Правова теза для аналізу (наприклад: "поновлення строку апеляційного оскарження через несвоєчасне отримання повного тексту")' },
             time_range: {
               oneOf: [
                 { type: 'string' },
                 { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } },
               ],
+              description: 'Часовий діапазон: рядок або {from, to} у форматі YYYY-MM-DD',
             },
-            limit: { type: 'number', default: 7 },
+            limit: { type: 'number', default: 7, description: 'Макс. справ у кожній лінії практики' },
           },
           required: ['procedure_code', 'query'],
         },
       },
       {
         name: 'find_similar_fact_pattern_cases',
-        description: `Поиск дел по "похожим фактам" (приближенно: извлечение ключевых терминов + поиск)`,
+        annotations: { title: 'Схожі за фактами справи', readOnlyHint: true },
+        description: `Пошук судових справ зі схожими фактичними обставинами
+
+Витягує ключові терміни з опису фактів та шукає справи з аналогічними обставинами.
+Використовуйте для пошуку релевантної практики, коли є опис ситуації клієнта.
+Повертає: список справ з релевантністю та ключовими фрагментами.`,
         inputSchema: {
           type: 'object',
           properties: {
-            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'] },
-            facts_text: { type: 'string' },
+            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'], description: 'Вид судочинства: cpc (цивільне), gpc (господарське), cac (адміністративне), crpc (кримінальне)' },
+            facts_text: { type: 'string', description: 'Опис фактичних обставин справи (довільний текст)' },
             time_range: {
               oneOf: [
                 { type: 'string' },
                 { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } },
               ],
+              description: 'Часовий діапазон: рядок або {from, to} у форматі YYYY-MM-DD',
             },
-            limit: { type: 'number', default: 10 },
+            limit: { type: 'number', default: 10, description: 'Макс. результатів' },
           },
           required: ['procedure_code', 'facts_text'],
         },
       },
       {
         name: 'calculate_procedural_deadlines',
-        description: `Калькулятор процессуальных сроков (приближенно, требует проверки по норме)`,
+        annotations: { title: 'Калькулятор строків', readOnlyHint: true },
+        description: `Калькулятор процесуальних строків з аналізом практики
+
+Розраховує строки оскарження (апеляція, касація) на основі процесуального кодексу та дати події.
+Додатково шукає практику щодо поновлення/продовження строків.
+Повертає: розраховані дедлайни, релевантні норми, практику щодо строків.
+Результат орієнтовний — потребує перевірки за конкретною нормою.`,
         inputSchema: {
           type: 'object',
           properties: {
-            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'] },
-            event_type: { type: 'string' },
-            event_date: { type: 'string' },
-            received_full_text_date: { type: 'string' },
-            appeal_type: { type: 'string' },
+            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'], description: 'Вид судочинства: cpc (цивільне), gpc (господарське), cac (адміністративне), crpc (кримінальне)' },
+            event_type: { type: 'string', description: 'Тип процесуальної події (наприклад: "ухвалення рішення", "отримання повного тексту")' },
+            event_date: { type: 'string', description: 'Дата події (YYYY-MM-DD)' },
+            received_full_text_date: { type: 'string', description: 'Дата отримання повного тексту рішення (YYYY-MM-DD)' },
+            appeal_type: { type: 'string', description: 'Тип оскарження (наприклад: "апеляція", "касація")' },
             time_range: {
               oneOf: [
                 { type: 'string' },
                 { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } },
               ],
+              description: 'Часовий діапазон для пошуку практики',
             },
-            practice_limit: { type: 'number', default: 15 },
+            practice_limit: { type: 'number', default: 15, description: 'Макс. справ для аналізу практики' },
             practice_queries_max: { type: 'number', default: 4 },
             practice_broad_queries_max: { type: 'number', default: 2 },
             practice_disable_time_range: { type: 'boolean', default: false },
@@ -156,34 +175,44 @@ export class ProceduralTools extends BaseToolHandler {
             practice_case_map_max: { type: 'number', default: 8 },
             practice_expand_docs: { type: 'number', default: 3 },
             practice_expand_depth: { type: 'number', default: 2 },
-            reasoning_budget: { type: 'string', enum: ['quick', 'standard', 'deep'], default: 'standard' },
+            reasoning_budget: { type: 'string', enum: ['quick', 'standard', 'deep'], default: 'standard', description: 'Глибина аналізу: quick (швидкий), standard (стандартний), deep (глибокий)' },
           },
           required: ['procedure_code', 'event_date', 'appeal_type'],
         },
       },
       {
         name: 'build_procedural_checklist',
-        description: `Процессуальный чеклист (шаблон + ссылка на найденную норму через search_procedural_norms)`,
+        annotations: { title: 'Процесуальний чекліст', readOnlyHint: true },
+        description: `Генерація процесуального чеклісту для конкретної стадії справи
+
+Створює покроковий чеклист з посиланнями на норми (через search_procedural_norms).
+Використовуйте для перевірки повноти підготовки документів на конкретній стадії.
+Повертає: структурований чеклист з нормами, строками, вимогами до документів.`,
         inputSchema: {
           type: 'object',
           properties: {
-            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'] },
-            stage: { type: 'string' },
-            case_category: { type: 'string' },
+            procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'], description: 'Вид судочинства' },
+            stage: { type: 'string', description: 'Стадія справи (наприклад: "подання позову", "апеляційне оскарження", "виконавче провадження")' },
+            case_category: { type: 'string', description: 'Категорія справи (наприклад: "стягнення боргу", "визнання недійсним договору")' },
           },
           required: ['procedure_code', 'stage'],
         },
       },
       {
         name: 'calculate_monetary_claims',
-        description: `Расчеты по денежным требованиям (минимально: 3% годовых)`,
+        annotations: { title: 'Розрахунок грошових вимог', readOnlyHint: true, idempotentHint: true },
+        description: `Розрахунок грошових вимог (3% річних, інфляційні втрати)
+
+Розраховує суму боргу з урахуванням 3% річних (ст. 625 ЦК України) за вказаний період.
+Використовуйте для підготовки розрахунку до позовної заяви про стягнення заборгованості.
+Повертає: основну суму, нараховані відсотки, загальну суму вимог.`,
         inputSchema: {
           type: 'object',
           properties: {
-            amount: { type: 'number' },
-            date_from: { type: 'string' },
-            date_to: { type: 'string' },
-            claim_type: { type: 'string', default: 'three_percent' },
+            amount: { type: 'number', description: 'Сума основного боргу (грн)' },
+            date_from: { type: 'string', description: 'Дата початку нарахування (YYYY-MM-DD)' },
+            date_to: { type: 'string', description: 'Дата кінця нарахування (YYYY-MM-DD)' },
+            claim_type: { type: 'string', default: 'three_percent', description: 'Тип нарахування: three_percent (3% річних за ст.625 ЦК)' },
           },
           required: ['amount', 'date_from', 'date_to'],
         },

@@ -21,6 +21,7 @@ export class EdsrSearchTools extends BaseToolHandler {
     return [
       {
         name: 'search_edrsr_decisions',
+        annotations: { title: 'Пошук рішень ЄДРСР', readOnlyHint: true, openWorldHint: true },
         description: `Пошук судових рішень у Єдиному державному реєстрі судових рішень (ЄДРСР)
 
 Реєстр містить 82+ млн рішень усіх українських судів з 2006 року.
@@ -113,6 +114,7 @@ export class EdsrSearchTools extends BaseToolHandler {
       },
       {
         name: 'get_edrsr_decision_fulltext',
+        annotations: { title: 'Повний текст рішення ЄДРСР', readOnlyHint: true, idempotentHint: true },
         description: `Отримання повного тексту судового рішення з ЄДРСР за doc_id
 
 Повертає метадані рішення та повний текст (plain text, витягнутий з RTF).

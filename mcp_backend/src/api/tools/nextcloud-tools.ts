@@ -20,6 +20,7 @@ export class NextcloudTools extends BaseToolHandler {
     return [
       {
         name: 'nextcloud_upload',
+        annotations: { title: 'Завантаження в Nextcloud' },
         description: `Завантаження файлу в хмарне сховище Nextcloud
 
 Завантажує файл у Nextcloud через WebDAV. Підтримує завантаження з base64-кодованого вмісту або з локального файлу.`,
@@ -49,6 +50,7 @@ export class NextcloudTools extends BaseToolHandler {
       },
       {
         name: 'nextcloud_share',
+        annotations: { title: 'Поділитися через Nextcloud' },
         description: `Створення посилання для спільного доступу до файлу в Nextcloud
 
 Створює публічне посилання або надає доступ конкретному користувачу через OCS Share API.`,

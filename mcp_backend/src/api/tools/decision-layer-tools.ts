@@ -96,6 +96,7 @@ export class DecisionLayerTools extends BaseToolHandler {
     return [
       {
         name: 'build_legal_decision',
+        annotations: { title: 'Побудова правової позиції' },
         description: 'Decision Layer Protocol: приймає результати пошуку/аналізу і генерує структуроване юридичне рішення з scored позиціями, деревом рішень, картою ризиків та рекомендаціями. Використовувати ПІСЛЯ збору даних через інші інструменти.',
         inputSchema: {
           type: 'object',

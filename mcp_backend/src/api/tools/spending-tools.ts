@@ -31,6 +31,7 @@ export class SpendingTools extends BaseToolHandler {
     return [
       {
         name: 'search_public_spending',
+        annotations: { title: 'Публічні витрати (spending.gov.ua)', readOnlyHint: true, openWorldHint: true },
         description: `Пошук у реєстрі публічних витрат (spending.gov.ua)
 
 12.6M+ записів: акти виконаних робіт (9.45M), додаткові угоди (2.11M), пеня (40K), договори (2.8K).

@@ -25,6 +25,7 @@ export class EdsrSemanticTools extends BaseToolHandler {
     return [
       {
         name: 'search_edrsr_fulltext',
+        annotations: { title: 'Повнотекстовий пошук ЄДРСР', readOnlyHint: true, openWorldHint: true },
         description: `Повнотекстовий пошук у ЄДРСР (96М+ судових рішень). ОСНОВНИЙ інструмент пошуку по ЄДРСР.
 
 Пошук за ключовими словами з ранжуванням релевантності.
@@ -89,6 +90,7 @@ export class EdsrSemanticTools extends BaseToolHandler {
       },
       {
         name: 'search_edrsr_semantic',
+        annotations: { title: 'Семантичний пошук ЄДРСР', readOnlyHint: true, openWorldHint: true },
         description: `⚠️ ТИМЧАСОВО НЕДОСТУПНИЙ — база Qdrant ще наповнюється.
 Використовуйте search_edrsr_fulltext замість цього інструмента для БУДЬ-ЯКОГО пошуку по ЄДРСР.
 
@@ -138,6 +140,7 @@ export class EdsrSemanticTools extends BaseToolHandler {
       },
       {
         name: 'vectorize_edrsr_results',
+        annotations: { title: 'Векторизація результатів ЄДРСР' },
         description: `Векторизація конкретних ЄДРСР документів для подальшого семантичного пошуку.
 
 Приймає масив doc_id, перевіряє чи вже є вектори, і створює embeddings для відсутніх.

@@ -245,6 +245,7 @@ export class MCPQueryAPI extends BaseToolHandler {
     return [
       {
         name: 'classify_intent',
+        annotations: { title: 'Класифікація запиту', readOnlyHint: true },
         description: 'Класифікація запиту: service/task/depth (entry-point для роутингу pipeline)',
         inputSchema: {
           type: 'object',
@@ -258,7 +259,8 @@ export class MCPQueryAPI extends BaseToolHandler {
       },
       {
         name: 'retrieve_legal_sources',
-        description: 'RAG retrieval: вернет сырые источники (cases/laws/guidance) без анализа',
+        annotations: { title: 'RAG витяг джерел', readOnlyHint: true },
+        description: 'RAG retrieval: повертає сирі джерела (справи/закони/роз\'яснення) без аналізу',
         inputSchema: {
           type: 'object',
           properties: {
@@ -277,7 +279,8 @@ export class MCPQueryAPI extends BaseToolHandler {
       },
       {
         name: 'validate_response',
-        description: 'Trust layer: проверка, что ответ опирается на источники (anti-hallucination)',
+        annotations: { title: 'Валідація відповіді', readOnlyHint: true },
+        description: 'Trust layer: перевірка, що відповідь спирається на джерела (anti-hallucination)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -289,6 +292,7 @@ export class MCPQueryAPI extends BaseToolHandler {
       },
       {
         name: 'check_precedent_status',
+        annotations: { title: 'Статус прецеденту', readOnlyHint: true, idempotentHint: true },
         description: `Перевіряє актуальність судового рішення: чи не скасовано вищою інстанцією. Шукає ланцюг інстанцій у ZakonOnline, визначає статус: valid, explicitly_overruled, limited, unknown.
 
 Приймає: case_number (номер справи, наприклад 922/989/18), case_id (UUID документа) або doc_id (zakononline_id).

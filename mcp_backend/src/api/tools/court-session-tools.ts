@@ -22,6 +22,7 @@ export class CourtSessionTools extends BaseToolHandler {
     return [
       {
         name: 'search_court_sessions',
+        annotations: { title: 'Судові засідання', readOnlyHint: true },
         description: `Пошук судових засідань за номером справи, учасниками, суддею або назвою суду
 
 💰 Примерная стоимость: $0.001-$0.01 USD
@@ -81,6 +82,7 @@ export class CourtSessionTools extends BaseToolHandler {
       },
       {
         name: 'bulk_ingest_court_sessions',
+        annotations: { title: 'Масовий імпорт засідань' },
         description: `Масове завантаження судових засідань в локальну базу
 
 💰 Примерная стоимость: $0.01-$0.05 USD

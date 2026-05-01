@@ -19,6 +19,7 @@ export class ECHRPracticeTools extends BaseToolHandler {
     return [
       {
         name: 'search_echr_practice',
+        annotations: { title: 'Практика ЄСПЛ', readOnlyHint: true },
         description: `Пошук практики ЄСПЛ (Європейського суду з прав людини)
 
 Шукає правові позиції ЄСПЛ та КСУ в базі ZakonOnline.
@@ -47,6 +48,7 @@ export class ECHRPracticeTools extends BaseToolHandler {
       },
       {
         name: 'get_echr_document',
+        annotations: { title: 'Документ ЄСПЛ', readOnlyHint: true, idempotentHint: true },
         description: `Отримати повний текст документа ЄСПЛ за його ID
 
 Завантажує повний текст правової позиції або рішення ЄСПЛ.`,

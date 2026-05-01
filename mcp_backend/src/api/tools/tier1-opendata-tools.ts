@@ -22,6 +22,7 @@ export class Tier1OpenDataTools extends BaseToolHandler {
     return [
       {
         name: 'search_invalid_passports',
+        annotations: { title: 'Недійсні паспорти (МВС)', readOnlyHint: true },
         description: `Перевірка паспорта у реєстрі недійсних документів (МВС)
 
 2.9M внутрішніх + 195K закордонних паспортів. Статуси: ВТРАЧЕНО, ВИКРАДЕНО, ВЛАСНИК РОЗШУКУЄТЬСЯ тощо.
@@ -40,6 +41,7 @@ export class Tier1OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_vehicle_registrations',
+        annotations: { title: 'Реєстрація транспорту', readOnlyHint: true },
         description: `Пошук у реєстрі транспортних засобів та їх власників (МВС)
 
 19.5M записів з 2013 року. Дані: VIN, держномер, марка, модель, рік, колір, тип, реєстраційні операції.
@@ -59,6 +61,7 @@ export class Tier1OpenDataTools extends BaseToolHandler {
       },
       {
         name: 'search_terrorism_list',
+        annotations: { title: 'Перелік терористів', readOnlyHint: true },
         description: `Пошук у переліку осіб та організацій пов'язаних з тероризмом (ДСФМУ)
 
 AML/sanctions screening. Перелік ДСФМУ — першоджерело для банків та фінустанов.
@@ -74,6 +77,7 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
       },
       {
         name: 'search_lustration',
+        annotations: { title: 'Реєстр люстрації', readOnlyHint: true },
         description: `Пошук у реєстрі осіб, щодо яких застосовано Закон "Про очищення влади"
 
 587 записів. Люстровані особи — заборона обіймати публічні посади.
@@ -89,6 +93,7 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
       },
       {
         name: 'search_state_aid',
+        annotations: { title: 'Державна допомога', readOnlyHint: true },
         description: `Пошук у реєстрі державної допомоги (АМКУ)
 
 Програми держдопомоги з надавачами та отримувачами. Пошук за назвою надавача, отримувача або програми.`,
@@ -104,6 +109,7 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
       },
       {
         name: 'search_financial_statements',
+        annotations: { title: 'Фінансова звітність', readOnlyHint: true },
         description: `Пошук фінансової звітності підприємств за ЄДРПОУ (Держстат)
 
 504K XML-звітів. Баланси, звіти про фінрезультати (Форми 1-6) за ЄДРПОУ та рік.
@@ -172,7 +178,7 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
       }
 
       if (results.length === 0) return this.wrapResponse('Паспорт не знайдено у реєстрі недійсних документів');
-      return this.wrapResponse(JSON.stringify(results.slice(0, lim), null, 2));
+      const sliced = results.slice(0, lim); return this.wrapResponse({ results: sliced, total_count: results.length, has_more: results.length > lim, limit: lim, offset: 0 });
     } catch (error: any) {
       logger.error('search_invalid_passports error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -196,7 +202,8 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
 
     if (conditions.length === 0) return this.wrapResponse('Вкажіть VIN, держномер або марку для пошуку');
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
     const sql = `SELECT person_type, d_reg, oper_name, brand, model, vin, make_year,
         color, kind, body, purpose, fuel, capacity, n_reg_new, dep
       FROM opendata_vehicle_registrations
@@ -206,7 +213,7 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Транспортних засобів не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_vehicle_registrations error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -241,7 +248,13 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
 
       const results = [...personsResult.rows, ...orgsResult.rows];
       if (results.length === 0) return this.wrapResponse('Осіб/організацій у переліку ДСФМУ не знайдено');
-      return this.wrapResponse(JSON.stringify(results, null, 2));
+      return this.wrapResponse({
+        results,
+        total_count: results.length,
+        has_more: false,
+        limit: lim,
+        offset: 0,
+      });
     } catch (error: any) {
       logger.error('search_terrorism_list error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -261,7 +274,8 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
 
     if (conditions.length === 0) return this.wrapResponse('Вкажіть ПІБ або посаду для пошуку');
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
     const sql = `SELECT fio, job, judgment, period
       FROM opendata_lustration
       WHERE ${conditions.join(' AND ')}
@@ -270,7 +284,7 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Люстрованих осіб не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_lustration error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -291,7 +305,8 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
 
     if (conditions.length === 0) return this.wrapResponse('Вкажіть надавача, отримувача або програму для пошуку');
 
-    values.push(Math.min(Number(limit) || 50, 100));
+    const lim = Math.min(Number(limit) || 50, 100);
+    values.push(lim);
     const sql = `SELECT provider_name, recipient_name, program_name, row_data
       FROM opendata_state_aid
       WHERE ${conditions.join(' AND ')}
@@ -300,7 +315,7 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Записів держдопомоги не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_state_aid error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
@@ -321,9 +336,10 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
     if (form_type) { conditions.push(`form_type ILIKE $${pi}`); values.push(`%${form_type}%`); pi++; }
 
     const xmlCol = include_xml ? ', raw_xml' : '';
-    values.push(Math.min(Number(limit) || 20, 50));
+    const lim = Math.min(Number(limit) || 20, 50);
+    values.push(lim);
     const sql = `SELECT tin, c_doc, c_doc_sub, c_doc_ver, period_year, period_month,
-        period_type, c_reg, c_raj, form_type${xmlCol}
+        period_type, c_reg, c_raj, form_type${xmlCol}, COUNT(*) OVER() AS _total_count
       FROM opendata_financial_statements
       WHERE ${conditions.join(' AND ')}
       ORDER BY period_year DESC, form_type LIMIT $${pi}`;
@@ -331,7 +347,7 @@ AML/sanctions screening. Перелік ДСФМУ — першоджерело 
     try {
       const result = await this.db.query(sql, values);
       if (result.rows.length === 0) return this.wrapResponse('Фінансову звітність не знайдено');
-      return this.wrapResponse(JSON.stringify(result.rows, null, 2));
+      return this.wrapSearchResults(result.rows, lim);
     } catch (error: any) {
       logger.error('search_financial_statements error', { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
