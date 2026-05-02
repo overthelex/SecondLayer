@@ -51,7 +51,7 @@ services:
           memory: 8G
 
   pgbouncer-prod:
-    image: edoburu/pgbouncer:1.24.0
+    image: edoburu/pgbouncer:v1.24.0-p1
     container_name: secondlayer-pgbouncer-prod
     ports:
     - "127.0.0.1:5439:5432"
