@@ -26,12 +26,12 @@ import { EdsrFtsService } from '../services/edrsr-fts-service.js';
 import { EdsrVectorizerService } from '../services/edrsr-vectorizer-service.js';
 import { NextcloudService } from '../services/nextcloud-service.js';
 import { NextcloudTools } from '../api/tools/nextcloud-tools.js';
-import { StateRegistryTools } from '../api/tools/state-registry-tools.js';
 import { CourtStatusTools } from '../api/tools/court-status-tools.js';
 import { OpenDataTools } from '../api/tools/opendata-tools.js';
 import { SpendingTools } from '../api/tools/spending-tools.js';
 import { OpenDataRegistriesTools } from '../api/tools/opendata-registries-tools.js';
 import { Tier1OpenDataTools } from '../api/tools/tier1-opendata-tools.js';
+import { RegistrySearchTool } from '../api/tools/registry-search-tool.js';
 import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
 import { DecisionLayerTools } from '../api/tools/decision-layer-tools.js';
 import { ImportTaskTools } from '../api/tools/import-task-tools.js';
@@ -131,8 +131,9 @@ export function createToolServices(
   ));
   toolRegistry.registerHandler(new LegalActsTools(coreServices.zoLegalActsAdapter));
   toolRegistry.registerHandler(new ECHRPracticeTools(coreServices.zoECHRAdapter));
-  toolRegistry.registerHandler(new StateRegistryTools(coreServices.db));
   toolRegistry.registerHandler(new CourtStatusTools(coreServices.db));
+  toolRegistry.registerHandler(new RegistrySearchTool(coreServices.db));
+  // Bespoke tools with non-parametric query patterns
   toolRegistry.registerHandler(new OpenDataTools(coreServices.db));
   toolRegistry.registerHandler(new SpendingTools(coreServices.db));
   toolRegistry.registerHandler(new OpenDataRegistriesTools(coreServices.db));
