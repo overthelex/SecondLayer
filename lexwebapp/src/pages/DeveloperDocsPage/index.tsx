@@ -42,6 +42,7 @@ const toolGroups: ToolGroup[] = [
       { name: 'check_precedent_status', description: 'Перевіряє актуальність та статус прецеденту', params: [{ name: 'case_id', required: true }], cost: '₴0.21–0.62' },
       { name: 'count_cases_by_party', description: 'Кількість справ за назвою сторони', params: [{ name: 'party_name', required: true }], cost: '₴0.04–0.21' },
       { name: 'search_court_case_status', description: 'Пошук статусу судової справи', params: [{ name: 'case_number', required: true }], cost: '₴0.04–0.21' },
+      { name: 'analyze_data', description: 'Read-only SQL для аналітики: GROUP BY, COUNT, агрегати (таймаут 30с, макс. 500 рядків)', params: [{ name: 'sql', required: true }], cost: '₴0.04' },
     ],
   },
   {
