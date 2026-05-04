@@ -38,6 +38,7 @@ const TOOL_TIMEOUT_OVERRIDES: Record<string, number> = {
   edrsr_get_decision_dispositive: 15_000,
   build_legal_decision: 120_000,
   search_public_spending: 120_000,
+  analyze_data: 45_000,
 };
 const DEFAULT_TOOL_TIMEOUT_MS = 60_000;
 
