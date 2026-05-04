@@ -125,7 +125,7 @@ export function DecisionsSearchPage() {
       if (filters.dateFrom) params.date_from = filters.dateFrom;
       if (filters.dateTo) params.date_to = filters.dateTo;
 
-      const response = await mcpService.callTool('search_edrsr_decisions', params);
+      const response = await mcpService.callTool('search_court_decisions', { mode: 'structured', ...params });
 
       let parsed: any = null;
       if (response?.result?.content?.[0]?.text) {

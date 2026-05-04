@@ -46,10 +46,7 @@ const COURT_TOOLS = [
   'get_similar_reasoning',
   'get_citation_graph',
   'get_case_text',
-  'search_edrsr_decisions',
-  'search_edrsr_fulltext',
-  'search_edrsr_semantic',
-  'get_edrsr_decision_fulltext',
+  'search_court_decisions',
   'search_vrp_decisions',
 ];
 

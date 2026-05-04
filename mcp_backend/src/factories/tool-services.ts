@@ -18,10 +18,8 @@ import { DueDiligenceService } from '../services/due-diligence-service.js';
 import { CourtSessionTools } from '../api/tools/court-session-tools.js';
 import { LegalActsTools } from '../api/tools/legal-acts-tools.js';
 import { ECHRPracticeTools } from '../api/tools/echr-practice-tools.js';
-import { EdsrSearchTools } from '../api/tools/edrsr-search-tools.js';
 import { EdsrExtendedTools } from '../api/tools/edrsr-extended-tools.js';
-import { EdsrSemanticTools } from '../api/tools/edrsr-semantic-tools.js';
-import { EdsrHybridTools } from '../api/tools/edrsr-hybrid-tools.js';
+import { EdsrUnifiedSearchTool } from '../api/tools/edrsr-unified-search-tool.js';
 import { EdsrFtsService } from '../services/edrsr-fts-service.js';
 import { EdsrVectorizerService } from '../services/edrsr-vectorizer-service.js';
 import { NextcloudService } from '../services/nextcloud-service.js';
@@ -138,11 +136,10 @@ export function createToolServices(
   toolRegistry.registerHandler(new SpendingTools(coreServices.db));
   toolRegistry.registerHandler(new OpenDataRegistriesTools(coreServices.db));
   toolRegistry.registerHandler(new Tier1OpenDataTools(coreServices.db));
-  toolRegistry.registerHandler(new EdsrSearchTools(coreServices.db));
   toolRegistry.registerHandler(new EdsrExtendedTools(coreServices.db));
   toolRegistry.registerHandler(new DecisionLayerTools(llmAdapter));
 
-  // EDRSR FTS + semantic search + on-demand vectorization
+  // EDRSR unified search (structured + FTS + hybrid + semantic in one tool)
   const edsrFtsService = new EdsrFtsService();
   let edsrVectorizer: EdsrVectorizerService | undefined;
   try {
@@ -155,10 +152,7 @@ export function createToolServices(
   } catch (err: any) {
     logger.warn('EdsrVectorizerService not available (VOYAGEAI_API_KEY missing?)', { error: err.message });
   }
-  if (edsrVectorizer) {
-    toolRegistry.registerHandler(new EdsrSemanticTools(coreServices.db, edsrFtsService, edsrVectorizer));
-    toolRegistry.registerHandler(new EdsrHybridTools(coreServices.db, edsrFtsService, edsrVectorizer));
-  }
+  toolRegistry.registerHandler(new EdsrUnifiedSearchTool(coreServices.db, edsrFtsService, edsrVectorizer));
   // Import task manager (multi-IP downloads)
   toolRegistry.registerHandler(new ImportTaskTools(coreServices.importTaskService));
 
