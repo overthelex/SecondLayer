@@ -98,16 +98,18 @@ COPY --from=builder /app/mcp_backend/scripts ./scripts
 COPY --from=builder /app/mcp_backend/assets ./assets
 COPY --from=builder /app/mcp_backend/src/migrations ./src/migrations
 
-RUN mkdir -p /app/data && \
+RUN apk add --no-cache su-exec && \
+    mkdir -p /app/data /app/data/uploads /app/data/uploads/multer-tmp && \
     addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 && \
     chown -R nodejs:nodejs /app
 
-USER nodejs
+COPY deployment/scripts/backend-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 3000
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3000/health/ready', (r) => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); })"
 
-CMD ["node", "--max-old-space-size=2048", "dist/http-server.js"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
