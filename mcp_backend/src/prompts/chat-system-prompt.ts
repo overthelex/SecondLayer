@@ -1,4 +1,5 @@
 // Proprietary implementation: @secondlayer/core (private repo)
+// LEXAI-877: suppress empty results from irrelevant tools in answer
 
 export type QueryType =
   | 'case_lookup'
