@@ -308,10 +308,6 @@ export const router = createBrowserRouter([
     element: S(ProductPage),
   },
   {
-    path: ROUTES.TEAM,
-    element: S(TeamPage),
-  },
-  {
     path: ROUTES.INVESTOR_LETTER,
     element: S(InvestorLetterPage),
   },
@@ -386,6 +382,10 @@ export const router = createBrowserRouter([
                 element: S(BillingSettingsTab),
               },
             ],
+          },
+          {
+            path: ROUTES.TEAM,
+            element: S(TeamPage),
           },
           {
             path: ROUTES.MCP_CONNECT,
