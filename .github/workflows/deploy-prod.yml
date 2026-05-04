@@ -515,11 +515,16 @@ jobs:
             [ "${OPENREYESTR_CHANGED}" = "true" ] && { \$DC up migrate-openreyestr-prod || true; }
 
             # --- 3. Start new-color containers alongside old ones ---
+            # Ensure infra services are running WITHOUT recreating them.
+            # Qdrant holds vector indices and may be running long embedding jobs;
+            # recreating it interrupts indexing and takes 10+ min to recover.
+            \$DC up -d --no-recreate qdrant-prod redis-prod pgbouncer-prod
+
             if [ "\$ANY_BACKEND" = "true" ]; then
               if [ "\$NEW_BACKEND" = "green" ]; then
-                \$DC --profile green up -d app-prod-green document-service-prod-green rada-mcp-app-prod-green app-openreyestr-prod-green
+                \$DC --profile green up -d --no-deps app-prod-green document-service-prod-green rada-mcp-app-prod-green app-openreyestr-prod-green
               else
-                \$DC up -d app-prod document-service-prod rada-mcp-app-prod app-openreyestr-prod
+                \$DC up -d --no-deps app-prod document-service-prod rada-mcp-app-prod app-openreyestr-prod
               fi
             fi
             if [ "${FRONTEND_CHANGED}" = "true" ]; then
