@@ -9,4 +9,4 @@ for dir in $DIRS; do
   chown nodejs:nodejs "$dir"
 done
 
-exec su-exec nodejs node --max-old-space-size=2048 dist/http-server.js
+exec su-exec nodejs "$@"
