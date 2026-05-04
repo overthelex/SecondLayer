@@ -30,9 +30,7 @@ const toolGroups: ToolGroup[] = [
       { name: 'search_supreme_court_practice', description: 'Пошук практики Верховного Суду (ВП/КЦС/КГС/КАС/ККС)', params: [{ name: 'query', required: true }, { name: 'procedure_code' }, { name: 'court_level' }, { name: 'time_range' }, { name: 'limit' }], cost: '₴2.08–6.22' },
       { name: 'find_similar_fact_pattern_cases', description: 'Пошук справ за схожими фактами', params: [{ name: 'procedure_code', required: true }, { name: 'facts_text', required: true }, { name: 'time_range' }, { name: 'limit' }], cost: '₴1.25–4.15' },
       { name: 'compare_practice_pro_contra', description: 'Підбірка практики «за/проти» за тезою', params: [{ name: 'procedure_code', required: true }, { name: 'query', required: true }, { name: 'time_range' }, { name: 'limit' }], cost: '₴2.08–6.22' },
-      { name: 'search_edrsr_decisions', description: 'Пошук рішень у ЄДРСР за фільтрами', params: [{ name: 'query', required: true }, { name: 'court_name' }, { name: 'judge' }, { name: 'date_from' }, { name: 'date_to' }, { name: 'limit' }], cost: '₴0.21–0.83' },
-      { name: 'search_edrsr_fulltext', description: 'Повнотекстовий пошук по рішеннях ЄДРСР (96М+ документів, timeout: 120с)', params: [{ name: 'query', required: true }, { name: 'court_code' }, { name: 'court_name' }, { name: 'judge' }, { name: 'justice_kind' }, { name: 'judgment_code' }, { name: 'category_code' }, { name: 'date_from' }, { name: 'date_to' }, { name: 'limit' }, { name: 'offset' }], cost: '₴0.21–0.83' },
-      { name: 'search_edrsr_semantic', description: 'Семантичний пошук по рішеннях ЄДРСР через ембеддінги', params: [{ name: 'query', required: true }, { name: 'limit' }], cost: '₴0.42–1.25' },
+      { name: 'search_court_decisions', description: 'Єдиний пошук у ЄДРСР (82M+ рішень). Режими: structured (метадані), fulltext (FTS), hybrid (FTS+семантика), semantic', params: [{ name: 'mode', required: true }, { name: 'query' }, { name: 'cause_num' }, { name: 'judge' }, { name: 'court_name' }, { name: 'justice_kind' }, { name: 'date_from' }, { name: 'date_to' }, { name: 'military_preset' }, { name: 'limit' }], cost: '₴0.21–1.25' },
     ],
   },
   {
@@ -51,7 +49,7 @@ const toolGroups: ToolGroup[] = [
     tools: [
       { name: 'get_court_decision', description: 'Повний текст рішення з секціями: ФАКТИ, ОБҐРУНТУВАННЯ, РІШЕННЯ', params: [{ name: 'doc_id' }, { name: 'case_number' }, { name: 'depth' }], cost: '₴0.42–1.66' },
       { name: 'get_case_documents_chain', description: 'Всі документи справи через усі інстанції', params: [{ name: 'case_number', required: true }, { name: 'include_full_text' }, { name: 'max_docs' }], cost: '₴0.21–0.83' },
-      { name: 'get_edrsr_decision_fulltext', description: 'Повний текст рішення з ЄДРСР', params: [{ name: 'doc_id', required: true }], cost: '₴0.21–0.42' },
+      { name: 'edrsr_get_decision_dispositive', description: 'Резолютивна частина рішення (ВИРІШИВ/УХВАЛИВ/ПОСТАНОВИВ)', params: [{ name: 'doc_id', required: true }], cost: '₴0.04' },
       { name: 'extract_document_sections', description: 'Структуровані секції з тексту документа', params: [{ name: 'text', required: true }], cost: '₴0.21–2.08' },
       { name: 'parse_document', description: 'Парсинг PDF/DOCX/HTML з OCR', params: [{ name: 'fileBase64', required: true }, { name: 'mimeType', required: true }, { name: 'filename' }], cost: '₴0.42–4.15' },
       { name: 'extract_key_clauses', description: 'Витяг ключових положень з контракту', params: [{ name: 'documentText', required: true }, { name: 'documentId' }], cost: '₴1.25–4.15' },
