@@ -320,6 +320,33 @@ Pipeline: парсинг → витяг секцій → генерація ем
           required: ['documentId'],
         },
       },
+      {
+        name: 'auto_tag_vault_documents',
+        annotations: { title: 'Автотегування документів Vault' },
+        description: `Автоматично протегувати документи у Vault, які не мають тегів або мають мало тегів.
+
+Використовує Haiku для аналізу тексту та генерації релевантних тегів українською мовою.
+
+Параметри:
+- limit — скільки документів обробити за раз (до 50)
+- userId — ID користувача (обов'язково)
+- type — обробити тільки певний тип документів
+- force — перетегувати навіть документи, які вже мають теги`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            userId: { type: 'string', description: 'UUID користувача' },
+            limit: { type: 'number', default: 20, maximum: 50, description: 'Кількість документів для обробки' },
+            type: {
+              type: 'string',
+              enum: ['contract', 'legislation', 'court_decision', 'internal', 'other'],
+              description: 'Фільтр по типу документа',
+            },
+            force: { type: 'boolean', default: false, description: 'Перетегувати навіть документи з існуючими тегами' },
+          },
+          required: ['userId'],
+        },
+      },
     ];
   }
 
@@ -1596,8 +1623,102 @@ Pipeline: парсинг → витяг секцій → генерація ем
         return this.wrapResponse(await this.deleteDocument(args));
       case 'update_document':
         return this.wrapResponse(await this.updateDocument(args));
+      case 'auto_tag_vault_documents':
+        return this.wrapResponse(await this.autoTagDocuments(args));
       default:
         return null;
     }
+  }
+
+  private async autoTagDocuments(args: {
+    userId: string;
+    limit?: number;
+    type?: string;
+    force?: boolean;
+  }): Promise<{ tagged: number; skipped: number; failed: number; results: any[] }> {
+    const limit = Math.min(Math.max(args.limit || 20, 1), 50);
+    const force = args.force === true;
+
+    const conditions: string[] = ['deleted_at IS NULL', `user_id = $1`];
+    const params: any[] = [args.userId];
+    let paramIdx = 2;
+
+    if (args.type) {
+      conditions.push(`type = $${paramIdx}`);
+      params.push(args.type);
+      paramIdx++;
+    }
+
+    if (!force) {
+      conditions.push(`(
+        metadata IS NULL
+        OR metadata::jsonb -> 'tags' IS NULL
+        OR jsonb_array_length(COALESCE(metadata::jsonb -> 'tags', '[]'::jsonb)) < 2
+      )`);
+    }
+
+    const sql = `SELECT id, title, type, LEFT(full_text, 4000) as snippet,
+      metadata::jsonb -> 'tags' as existing_tags
+      FROM documents WHERE ${conditions.join(' AND ')}
+      ORDER BY created_at DESC LIMIT $${paramIdx}`;
+    params.push(limit);
+
+    const db = (this.documentService as any).db || (this.documentService as any).pool;
+    const { rows } = await db.query(sql, params);
+
+    let tagged = 0;
+    let skipped = 0;
+    let failed = 0;
+    const results: any[] = [];
+
+    for (const doc of rows) {
+      if (!doc.snippet || doc.snippet.trim().length < 20) {
+        skipped++;
+        results.push({ id: doc.id, title: doc.title, status: 'skipped', reason: 'no text' });
+        continue;
+      }
+
+      try {
+        const extracted = await this.metadataExtractor.extract(
+          doc.snippet,
+          doc.type || 'other',
+          doc.title || 'Без назви',
+        );
+
+        if (extracted.tags.length === 0 && !extracted.documentSubtype && !extracted.documentDate) {
+          skipped++;
+          results.push({ id: doc.id, title: doc.title, status: 'skipped', reason: 'no metadata extracted' });
+          continue;
+        }
+
+        const existingTags: string[] = Array.isArray(doc.existing_tags) ? doc.existing_tags : [];
+        const mergedTags = [...new Set([...existingTags, ...extracted.tags])];
+
+        const metaUpdates: Record<string, any> = {};
+        if (mergedTags.length > 0) metaUpdates.tags = mergedTags;
+        if (extracted.documentDate) metaUpdates.documentDate = extracted.documentDate;
+        if (extracted.parties.length > 0) metaUpdates.parties = extracted.parties;
+        if (extracted.jurisdiction) metaUpdates.jurisdiction = extracted.jurisdiction;
+        if (extracted.documentSubtype) metaUpdates.documentSubtype = extracted.documentSubtype;
+
+        await db.query(
+          `UPDATE documents SET metadata = COALESCE(metadata::jsonb, '{}'::jsonb) || $1::jsonb, updated_at = NOW() WHERE id = $2`,
+          [JSON.stringify(metaUpdates), doc.id],
+        );
+
+        tagged++;
+        results.push({
+          id: doc.id, title: doc.title, status: 'tagged',
+          newTags: mergedTags, previousTags: existingTags,
+        });
+      } catch (err: any) {
+        failed++;
+        results.push({ id: doc.id, title: doc.title, status: 'failed', error: err.message });
+      }
+    }
+
+    logger.info('[Vault] Auto-tagging complete', { tagged, skipped, failed, total: rows.length });
+
+    return { tagged, skipped, failed, results };
   }
 }
