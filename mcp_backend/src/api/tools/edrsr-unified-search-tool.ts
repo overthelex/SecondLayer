@@ -14,6 +14,7 @@
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { logger } from '../../utils/logger.js';
 import { EDRSR_METADATA_SEARCH_ORDER } from '../../services/search-ranking-config.js';
+import type { SearchResultFilter } from '../../services/search-result-filter.js';
 import type { EdsrFtsService, EdsrFtsFilters } from '../../services/edrsr-fts-service.js';
 import type { EdsrVectorizerService, EdrsrSearchFilters, EdrsrSearchResult } from '../../services/edrsr-vectorizer-service.js';
 
@@ -48,12 +49,18 @@ interface FusedHit {
 }
 
 export class EdsrUnifiedSearchTool extends BaseToolHandler {
+  private resultFilter?: SearchResultFilter;
+
   constructor(
     private db: any,
     private ftsService?: EdsrFtsService,
     private vectorizer?: EdsrVectorizerService,
   ) {
     super();
+  }
+
+  setResultFilter(filter: SearchResultFilter): void {
+    this.resultFilter = filter;
   }
 
   getToolDefinitions(): ToolDefinition[] {
@@ -284,8 +291,15 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       );
 
       const enriched = await this.enrichResults(result.results);
+      const output = await this.maybeFilter(enriched, args.query);
 
-      return this.wrapResponse({ mode: 'fulltext', ...result, results: enriched });
+      return this.wrapResponse({
+        mode: 'fulltext', ...result,
+        results: output.filtered,
+        ...(output.original_count !== output.filtered_count
+          ? { relevance_filter: { from: output.original_count, to: output.filtered_count } }
+          : {}),
+      });
     } catch (err: any) {
       logger.error('[EdsrUnifiedSearch] fulltext failed', { error: err.message });
       return this.wrapError(`Помилка FTS пошуку: ${err.message}`);
@@ -327,12 +341,16 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     const fused = this.fuseRRF(ftsResults, vectorHits, rrfK);
     const top = fused.slice(0, limit);
     const enriched = await this.enrichFusedHits(top);
+    const output = await this.maybeFilter(enriched, query);
 
     return this.wrapResponse({
       mode: 'hybrid', query, rrf_k: rrfK, oversample,
       legs: { fts_available: !!ftsResponse, vector_available: !!vectorResults, fts_candidates: ftsResults.length, vector_candidates: vectorHits.length },
-      total_fused: fused.length, returned: enriched.length,
-      results: enriched,
+      total_fused: fused.length, returned: output.filtered.length,
+      results: output.filtered,
+      ...(output.original_count !== output.filtered_count
+        ? { relevance_filter: { from: output.original_count, to: output.filtered_count } }
+        : {}),
     });
   }
 
@@ -353,6 +371,18 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       } catch { /* keep original */ }
     }
     return result;
+  }
+
+  // ── Pre-filter via Haiku ────────────────────────────────────────
+
+  private async maybeFilter(
+    results: any[],
+    query: string,
+  ): Promise<{ filtered: any[]; original_count: number; filtered_count: number }> {
+    if (!this.resultFilter) {
+      return { filtered: results, original_count: results.length, filtered_count: results.length };
+    }
+    return this.resultFilter.filterResults(results, query);
   }
 
   // ── RRF fusion ──────────────────────────────────────────────────
