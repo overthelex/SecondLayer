@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@tailwindcss/typography": "0.5.19",
-    "axios": "^1.15.0",
+    "axios": "^1.16.0",
     "date-fns": "4.1.0",
     "lucide-react": "0.577.0",
     "react": "19.2.4",
