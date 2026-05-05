@@ -21,7 +21,7 @@ export class Tier1OpenDataTools extends BaseToolHandler {
       {
         name: 'search_invalid_passports',
         annotations: { title: 'Недійсні паспорти (МВС)', readOnlyHint: true },
-        description: `Перевірка паспорта у реєстрі ��едійсних документів (МВС)
+        description: `Перевірка паспорта у реєстрі недійсних документів (МВС)
 
 2.9M внутрішніх + 195K закордонних паспортів. Статуси: ВТРАЧЕНО, ВИКРАДЕНО, ВЛАСНИК РОЗШУКУЄТЬСЯ тощо.
 Пошук за серією та номером, або за OВД.`,
@@ -40,9 +40,9 @@ export class Tier1OpenDataTools extends BaseToolHandler {
       {
         name: 'search_terrorism_list',
         annotations: { title: 'Перелік терористів', readOnlyHint: true },
-        description: `Пошук у переліку осіб та організацій пов'язаних з тероризм��м (ДСФМУ)
+        description: `Пошук у переліку осіб та організацій пов'язаних з тероризмом (ДСФМУ)
 
-AML/sanctions screening. Перелік ДСФМУ ��� першоджерело для банків та фінустанов.
+AML/sanctions screening. Перелік ДСФМУ — першоджерело для банків та фінустанов.
 Включає фізосіб під санкціями та терористичні організації.`,
         inputSchema: {
           type: 'object',
@@ -98,7 +98,7 @@ AML/sanctions screening. Перелік ДСФМУ ��� першоджер�
         results.push(...result.rows);
       }
 
-      if (results.length === 0) return this.wrapResponse('Паспорт н�� знайдено у реєстрі недійсних документів');
+      if (results.length === 0) return this.wrapResponse('Паспорт не знайдено у реєстрі недійсних документів');
       const sliced = results.slice(0, lim);
       return this.wrapResponse({ results: sliced, total_count: results.length, has_more: results.length > lim, limit: lim, offset: 0 });
     } catch (error: any) {
