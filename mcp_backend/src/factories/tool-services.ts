@@ -22,6 +22,7 @@ import { EdsrExtendedTools } from '../api/tools/edrsr-extended-tools.js';
 import { EdsrUnifiedSearchTool } from '../api/tools/edrsr-unified-search-tool.js';
 import { EdsrFtsService } from '../services/edrsr-fts-service.js';
 import { EdsrVectorizerService } from '../services/edrsr-vectorizer-service.js';
+import { SearchResultFilter } from '../services/search-result-filter.js';
 import { NextcloudService } from '../services/nextcloud-service.js';
 import { NextcloudTools } from '../api/tools/nextcloud-tools.js';
 import { CourtStatusTools } from '../api/tools/court-status-tools.js';
@@ -154,7 +155,9 @@ export function createToolServices(
   } catch (err: any) {
     logger.warn('EdsrVectorizerService not available (VOYAGEAI_API_KEY missing?)', { error: err.message });
   }
-  toolRegistry.registerHandler(new EdsrUnifiedSearchTool(coreServices.db, edsrFtsService, edsrVectorizer));
+  const edsrUnifiedSearch = new EdsrUnifiedSearchTool(coreServices.db, edsrFtsService, edsrVectorizer);
+  edsrUnifiedSearch.setResultFilter(new SearchResultFilter(llmAdapter));
+  toolRegistry.registerHandler(edsrUnifiedSearch);
   // Import task manager (multi-IP downloads)
   toolRegistry.registerHandler(new ImportTaskTools(coreServices.importTaskService));
 
