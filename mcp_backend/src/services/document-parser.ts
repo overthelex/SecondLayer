@@ -7,6 +7,7 @@ import ExcelJS from 'exceljs';
 import AdmZip from 'adm-zip';
 import { load as cheerioLoad } from 'cheerio';
 import { logger } from '../utils/logger.js';
+import { withLLMRetry } from '../utils/llm-retry.js';
 import type { ILLMPort } from '../domain/ports/index.js';
 import fs from 'fs/promises';
 import fsSync from 'fs';
@@ -1141,29 +1142,32 @@ window.renderPDF = async function(base64Data, maxPages, scale) {
       throw new Error('LLM port not configured — cannot parse unknown format');
     }
 
-    const response = await this.llm.chatCompletion({
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a document format analyst. Given a sample of file content, determine:\n' +
-            '1. What format/type is this file?\n' +
-            '2. Does it contain meaningful text data (legal docs, contracts, notes, etc.)?\n' +
-            '3. If yes, extract the clean text content.\n\n' +
-            'Respond in JSON format:\n' +
-            '{"format": "description", "has_text": true/false, "text": "extracted text or empty", "reason": "why it does/doesnt have text"}',
-        },
-        {
-          role: 'user',
-          content:
-            `MIME type: ${mimeType}\nFile size: ${fileBuffer.length} bytes\n\n` +
-            `--- File content sample (first ${sampleSize} bytes) ---\n${sample}`,
-        },
-      ],
-      temperature: 0.1,
-      max_tokens: 4096,
-      response_format: { type: 'json_object' },
-    }, 'quick');
+    const response = await withLLMRetry(
+      () => this.llm!.chatCompletion({
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a document format analyst. Given a sample of file content, determine:\n' +
+              '1. What format/type is this file?\n' +
+              '2. Does it contain meaningful text data (legal docs, contracts, notes, etc.)?\n' +
+              '3. If yes, extract the clean text content.\n\n' +
+              'Respond in JSON format:\n' +
+              '{"format": "description", "has_text": true/false, "text": "extracted text or empty", "reason": "why it does/doesnt have text"}',
+          },
+          {
+            role: 'user',
+            content:
+              `MIME type: ${mimeType}\nFile size: ${fileBuffer.length} bytes\n\n` +
+              `--- File content sample (first ${sampleSize} bytes) ---\n${sample}`,
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 4096,
+        response_format: { type: 'json_object' },
+      }, 'quick'),
+      { operationName: 'DocumentParser.parseWithLLM', timeoutMs: 15_000 },
+    );
 
     let result: { format: string; has_text: boolean; text: string; reason: string };
     try {

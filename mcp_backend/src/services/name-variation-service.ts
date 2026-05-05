@@ -7,6 +7,7 @@
  */
 
 import { logger } from '../utils/logger.js';
+import { withLLMRetry } from '../utils/llm-retry.js';
 import type { ILLMPort } from '../domain/ports/index.js';
 
 const NAME_VARIATION_PROMPT = `Ти — експерт з українського правопису та транслітерації. Користувач шукає назву компанії в державному реєстрі, але пошук не дав результатів.
@@ -40,17 +41,20 @@ export class NameVariationService {
     }
 
     try {
-      const response = await this.llm.chatCompletion(
-        {
-          messages: [
-            { role: 'system', content: NAME_VARIATION_PROMPT },
-            { role: 'user', content: `Назва компанії: "${companyName}"` },
-          ],
-          max_tokens: 300,
-          temperature: 0.3,
-          response_format: { type: 'json_object' },
-        },
-        'quick'
+      const response = await withLLMRetry(
+        () => this.llm.chatCompletion(
+          {
+            messages: [
+              { role: 'system', content: NAME_VARIATION_PROMPT },
+              { role: 'user', content: `Назва компанії: "${companyName}"` },
+            ],
+            max_tokens: 300,
+            temperature: 0.3,
+            response_format: { type: 'json_object' },
+          },
+          'quick'
+        ),
+        { operationName: 'NameVariationService.generateVariations', timeoutMs: 8_000 },
       );
 
       const content = response.content || '{}';

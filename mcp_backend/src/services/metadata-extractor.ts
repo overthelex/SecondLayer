@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger.js';
+import { withLLMRetry } from '../utils/llm-retry.js';
 import type { ILLMPort } from '../domain/ports/index.js';
 
 export interface ExtractedMetadata {
@@ -46,12 +47,13 @@ export class MetadataExtractor {
         return EMPTY_METADATA;
       }
 
-      const response = await this.llm.chatCompletion(
-        {
-          messages: [
-            {
-              role: 'system',
-              content: `Ти — юридичний асистент. Проаналізуй наданий текст документа і поверни JSON з такими полями:
+      const response = await withLLMRetry(
+        () => this.llm!.chatCompletion(
+          {
+            messages: [
+              {
+                role: 'system',
+                content: `Ти — юридичний асистент. Проаналізуй наданий текст документа і поверни JSON з такими полями:
 - "documentDate": дата документа у форматі ISO 8601 (YYYY-MM-DD), або null якщо не знайдено
 - "tags": масив до 5 ключових тегів українською (наприклад: "оренда", "нерухомість", "трудовий спір")
 - "parties": масив назв сторін/учасників (компанії, особи), до 5
@@ -59,17 +61,19 @@ export class MetadataExtractor {
 - "documentSubtype": підтип документа (наприклад: "договір оренди", "позовна заява", "постанова"), або null
 
 Відповідай ТІЛЬКИ валідним JSON без markdown.`,
-            },
-            {
-              role: 'user',
-              content: `Тип документа: ${docType}\nНазва: ${title}\n\nТекст:\n${snippet}`,
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 4096,
-          response_format: { type: 'json_object' },
-        },
-        'quick'
+              },
+              {
+                role: 'user',
+                content: `Тип документа: ${docType}\nНазва: ${title}\n\nТекст:\n${snippet}`,
+              },
+            ],
+            temperature: 0.1,
+            max_tokens: 4096,
+            response_format: { type: 'json_object' },
+          },
+          'quick'
+        ),
+        { operationName: 'MetadataExtractor.extract', timeoutMs: 10_000 },
       );
 
       rawContent = response.content;
