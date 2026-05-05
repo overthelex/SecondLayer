@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger';
+import { withLLMRetry } from '../utils/llm-retry.js';
 import type { ICachePort, ILLMPort } from '../domain/ports/index.js';
 
 export interface LegislationClassification {
@@ -175,17 +176,20 @@ ${availableCodes}
       throw new Error('LLM port not configured for legislation classification');
     }
 
-    const response = await this.llm.chatCompletion(
-      {
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: query },
-        ],
-        temperature: 0.2,
-        max_tokens: 300,
-        response_format: { type: 'json_object' },
-      },
-      budget
+    const response = await withLLMRetry(
+      () => this.llm!.chatCompletion(
+        {
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: query },
+          ],
+          temperature: 0.2,
+          max_tokens: 300,
+          response_format: { type: 'json_object' },
+        },
+        budget
+      ),
+      { operationName: 'LegislationClassifier.classify', timeoutMs: 10_000 },
     );
 
     let content = response.content || '{}';

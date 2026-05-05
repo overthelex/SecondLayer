@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger.js';
+import { withLLMRetry } from '../utils/llm-retry.js';
 import type { ILLMPort, IDatabase } from '../domain/ports/index.js';
 import { CostTracker } from './cost-tracker.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -259,20 +260,23 @@ export class DocumentClassificationService {
     });
 
     try {
-      const response = await this.llm.chatCompletion(
-        {
-          messages: [
-            { role: 'system', content: CLASSIFICATION_PROMPT },
-            {
-              role: 'user',
-              content: `Назва: ${doc.title || 'Без назви'}\nПоточний тип: ${doc.type}\n\nТекст:\n${snippet}`,
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 4096,
-          response_format: { type: 'json_object' },
-        },
-        'quick'
+      const response = await withLLMRetry(
+        () => this.llm.chatCompletion(
+          {
+            messages: [
+              { role: 'system', content: CLASSIFICATION_PROMPT },
+              {
+                role: 'user',
+                content: `Назва: ${doc.title || 'Без назви'}\nПоточний тип: ${doc.type}\n\nТекст:\n${snippet}`,
+              },
+            ],
+            temperature: 0.1,
+            max_tokens: 4096,
+            response_format: { type: 'json_object' },
+          },
+          'quick'
+        ),
+        { operationName: 'DocumentClassification.classify', timeoutMs: 10_000 },
       );
 
       const raw = response.content?.trim();
