@@ -15,6 +15,7 @@ import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handle
 import { logger } from '../../utils/logger.js';
 import { EDRSR_METADATA_SEARCH_ORDER } from '../../services/search-ranking-config.js';
 import type { SearchResultFilter } from '../../services/search-result-filter.js';
+import type { QueryReformulator } from '../../services/query-reformulator.js';
 import type { EdsrFtsService, EdsrFtsFilters } from '../../services/edrsr-fts-service.js';
 import type { EdsrVectorizerService, EdrsrSearchFilters, EdrsrSearchResult } from '../../services/edrsr-vectorizer-service.js';
 
@@ -50,6 +51,7 @@ interface FusedHit {
 
 export class EdsrUnifiedSearchTool extends BaseToolHandler {
   private resultFilter?: SearchResultFilter;
+  private queryReformulator?: QueryReformulator;
 
   constructor(
     private db: any,
@@ -61,6 +63,10 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
   setResultFilter(filter: SearchResultFilter): void {
     this.resultFilter = filter;
+  }
+
+  setQueryReformulator(reformulator: QueryReformulator): void {
+    this.queryReformulator = reformulator;
   }
 
   getToolDefinitions(): ToolDefinition[] {
@@ -323,12 +329,18 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       judge: args.judge, date_from: args.date_from, date_to: args.date_to,
     };
 
+    const reformulated = this.queryReformulator
+      ? await this.queryReformulator.reformulate(query).catch(() => null)
+      : null;
+    const ftsQuery = reformulated?.fts || query;
+    const semanticQuery = reformulated?.semantic || query;
+
     const ftsPromise = this.ftsService
-      .searchFulltext(query, this.db, filters, candidateLimit, 0)
+      .searchFulltext(ftsQuery, this.db, filters, candidateLimit, 0)
       .catch((err: any) => { logger.warn('[EdsrUnifiedSearch] FTS leg failed', { error: err.message }); return null; });
 
     const vectorPromise = this.vectorizer
-      ? this.vectorizer.semanticSearch(query, filters as unknown as EdrsrSearchFilters, candidateLimit)
+      ? this.vectorizer.semanticSearch(semanticQuery, filters as unknown as EdrsrSearchFilters, candidateLimit)
           .catch((err: any) => { logger.warn('[EdsrUnifiedSearch] Qdrant leg failed', { error: err.message }); return null; })
       : Promise.resolve(null);
 
@@ -345,6 +357,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
     return this.wrapResponse({
       mode: 'hybrid', query, rrf_k: rrfK, oversample,
+      ...(reformulated ? { reformulated: { fts: reformulated.fts, semantic: reformulated.semantic } } : {}),
       legs: { fts_available: !!ftsResponse, vector_available: !!vectorResults, fts_candidates: ftsResults.length, vector_candidates: vectorHits.length },
       total_fused: fused.length, returned: output.filtered.length,
       results: output.filtered,

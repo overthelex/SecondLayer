@@ -23,6 +23,7 @@ import { EdsrUnifiedSearchTool } from '../api/tools/edrsr-unified-search-tool.js
 import { EdsrFtsService } from '../services/edrsr-fts-service.js';
 import { EdsrVectorizerService } from '../services/edrsr-vectorizer-service.js';
 import { SearchResultFilter } from '../services/search-result-filter.js';
+import { QueryReformulator } from '../services/query-reformulator.js';
 import { NextcloudService } from '../services/nextcloud-service.js';
 import { NextcloudTools } from '../api/tools/nextcloud-tools.js';
 import { CourtStatusTools } from '../api/tools/court-status-tools.js';
@@ -157,6 +158,7 @@ export function createToolServices(
   }
   const edsrUnifiedSearch = new EdsrUnifiedSearchTool(coreServices.db, edsrFtsService, edsrVectorizer);
   edsrUnifiedSearch.setResultFilter(new SearchResultFilter(llmAdapter));
+  edsrUnifiedSearch.setQueryReformulator(new QueryReformulator(llmAdapter));
   toolRegistry.registerHandler(edsrUnifiedSearch);
   // Import task manager (multi-IP downloads)
   toolRegistry.registerHandler(new ImportTaskTools(coreServices.importTaskService));
