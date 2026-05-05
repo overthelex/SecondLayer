@@ -83,7 +83,7 @@ ${registryDescriptions}
 
     const maxLimit = def.maxLimit ?? 100;
     const defaultLimit = def.defaultLimit ?? 50;
-    const lim = Math.min(Number(limit) || defaultLimit, maxLimit);
+    const lim = Math.max(1, Math.min(Number(limit) || defaultLimit, maxLimit));
     values.push(lim);
 
     const sql = `SELECT ${def.selectColumns}, COUNT(*) OVER() AS _total_count

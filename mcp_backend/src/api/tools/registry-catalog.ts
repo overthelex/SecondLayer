@@ -230,7 +230,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
       { name: 'ipc_code', description: 'Код МПК (наприклад, A61K)', match: 'array_contains', columns: ['ipc_codes'] },
       { name: 'app_number', description: 'Номер заявки', match: 'exact', columns: ['app_number'] },
       { name: 'registration_number', description: 'Номер патенту', match: 'exact', columns: ['registration_number'] },
-      { name: 'obj_type', description: 'Тип: 1=винахід, 2=корисна модель, 3=промисл. зразок', match: 'exact', columns: ['obj_type'], type: 'number' },
+      { name: 'obj_type', description: 'Тип: 1=винахід, 2=корисна модель, 6=промисл. зразок', match: 'exact', columns: ['obj_type'], type: 'number' },
     ],
   },
 

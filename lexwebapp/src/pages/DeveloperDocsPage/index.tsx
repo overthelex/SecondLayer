@@ -139,13 +139,13 @@ const toolGroups: ToolGroup[] = [
   {
     title: 'Відкриті дані',
     tools: [
-      { name: 'search_registry', description: 'Єдиний інструмент для 22 реєстрів відкритих даних (санкції, адвокати, ТМ, патенти, корупціонери, банки НБУ та ін.)', params: [{ name: 'registry', required: true }, { name: 'filters', required: true }, { name: 'limit' }], cost: '₴0.04' },
+      { name: 'search_registry', description: 'Єдиний інструмент для 22 реєстрів відкритих даних (санкції, адвокати, ТМ, патенти, корупціонери, банки НБУ та ін.)', params: [{ name: 'registry', required: true }, { name: 'filters' }, { name: 'limit' }], cost: '₴0.04' },
       { name: 'search_judges', description: 'Реєстр суддів ВККС (з історією)', params: [{ name: 'full_name' }, { name: 'court_name' }, { name: 'include_history' }, { name: 'limit' }], cost: '₴0.04' },
       { name: 'search_edrnpa', description: 'Реєстр нормативно-правових актів', params: [{ name: 'name' }, { name: 'number' }, { name: 'publisher' }, { name: 'include_text' }, { name: 'limit' }], cost: '₴0.04' },
       { name: 'search_vkks', description: 'Дані ВККС (5 категорій: judges, evaluations, declarations, vacancies, efficiency)', params: [{ name: 'category', required: true }, { name: 'judge_name' }, { name: 'court_name' }, { name: 'limit' }], cost: '₴0.04' },
       { name: 'search_vrp_decisions', description: 'Рішення Вищої ради правосуддя', params: [{ name: 'title' }, { name: 'authority' }, { name: 'decision_num' }, { name: 'limit' }], cost: '₴0.04' },
       { name: 'search_vrp_judges_discipline', description: 'Дисциплінарні дані суддів (звільнені/відсторонені/втручання)', params: [{ name: 'judge_name' }, { name: 'court_name' }, { name: 'type' }, { name: 'limit' }], cost: '₴0.04' },
-      { name: 'search_public_spending', description: '��ошук державних витрат (timeout: 120с)', params: [{ name: 'edrpou' }, { name: 'contractor_name' }, { name: 'contractor_edrpou' }, { name: 'date_from' }, { name: 'date_to' }, { name: 'min_amount' }, { name: 'max_amount' }, { name: 'doc_type' }, { name: 'limit' }], cost: '₴0.04–0.21' },
+      { name: 'search_public_spending', description: 'Пошук державних витрат (timeout: 120с)', params: [{ name: 'edrpou' }, { name: 'contractor_name' }, { name: 'contractor_edrpou' }, { name: 'date_from' }, { name: 'date_to' }, { name: 'min_amount' }, { name: 'max_amount' }, { name: 'doc_type' }, { name: 'limit' }], cost: '₴0.04–0.21' },
       { name: 'search_invalid_passports', description: 'Перевірка недійсних паспортів (МВС)', params: [{ name: 'd_series' }, { name: 'd_number' }, { name: 'limit' }], cost: '₴0.04' },
       { name: 'search_terrorism_list', description: 'Перелік терористів ДСФМУ', params: [{ name: 'name', required: true }, { name: 'limit' }], cost: '₴0.04' },
     ],
