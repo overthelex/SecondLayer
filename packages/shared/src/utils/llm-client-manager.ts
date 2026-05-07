@@ -200,6 +200,9 @@ export class LLMClientManager {
     if (selection.provider === 'bedrock') {
       return await this.executeBedrockChatCompletion(request, selection.model);
     }
+    if (selection.provider === 'anthropic') {
+      return await this.executeAnthropicChatCompletion(request, selection.model);
+    }
     return await this.executeOpenAIChatCompletion(request, selection.model);
   }
 
@@ -426,6 +429,8 @@ export class LLMClientManager {
     try {
       if (selection.provider === 'bedrock') {
         yield* this.executeBedrockStreamCompletion(request, selection.model, signal);
+      } else if (selection.provider === 'anthropic') {
+        yield* this.executeAnthropicStreamCompletion(request, selection.model, signal);
       } else {
         yield* this.executeOpenAIStreamCompletion(request, selection.model, signal);
       }
@@ -460,6 +465,8 @@ export class LLMClientManager {
         try {
           if (fallbackSelection.provider === 'bedrock') {
             yield* this.executeBedrockStreamCompletion(request, fallbackSelection.model, signal);
+          } else if (fallbackSelection.provider === 'anthropic') {
+            yield* this.executeAnthropicStreamCompletion(request, fallbackSelection.model, signal);
           } else {
             yield* this.executeOpenAIStreamCompletion(request, fallbackSelection.model, signal);
           }

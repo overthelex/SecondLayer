@@ -124,16 +124,12 @@ export class ModelSelector {
       providers.push('bedrock');
     }
 
-    if (this.PROVIDER_STRATEGY === 'bedrock-first' && providers.includes('bedrock')) {
-      return providers;
+    if (process.env.OPENAI_API_KEY) {
+      providers.push('openai');
     }
 
     if (process.env.ANTHROPIC_API_KEY) {
       providers.push('anthropic');
-    }
-
-    if (process.env.OPENAI_API_KEY) {
-      providers.push('openai');
     }
 
     return providers;
