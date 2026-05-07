@@ -418,14 +418,54 @@ function prerenderBlogPlugin(): Plugin {
           ].join('\n    ')
         }
 
-        // --- Generate /blog/index.html (article listing) ---
-        const blogListTitle = 'LEX Blog — AI Legal Tech Articles'
-        const blogListDesc = 'Статті про AI в юриспруденції, юридичні технології, аналіз судових рішень, fine-tuning LLM на судовій практиці та цифрову трансформацію правничої практики.'
-        const articleListHtml = articles
-          .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
-          .map(a => `
+        // --- Generate /blog/index.html (+ /blog/en/ and /blog/ru/) ---
+        const blogDir = path.resolve(distDir, 'blog')
+        fs.mkdirSync(blogDir, { recursive: true })
+
+        const blogListMeta: Record<string, { title: string, desc: string, heading: string }> = {
+          uk: {
+            title: 'LEX Blog — AI Legal Tech Articles',
+            desc: 'Статті про AI в юриспруденції, юридичні технології, аналіз судових рішень, fine-tuning LLM на судовій практиці та цифрову трансформацію правничої практики.',
+            heading: 'LEX AI Blog',
+          },
+          en: {
+            title: 'LEX Blog — AI Legal Tech Articles',
+            desc: 'Articles on AI in law, legal technology, court decision analysis, fine-tuning LLMs on case law, and digital transformation of legal practice.',
+            heading: 'LEX AI Blog',
+          },
+          ru: {
+            title: 'LEX Blog — AI Legal Tech Articles',
+            desc: 'Статьи об AI в юриспруденции, юридических технологиях, анализе судебных решений, fine-tuning LLM на судебной практике и цифровой трансформации правовой практики.',
+            heading: 'LEX AI Blog',
+          },
+        }
+
+        const sortedArticles = [...articles].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+
+        for (const lang of ['uk', 'en', 'ru'] as const) {
+          const meta = blogListMeta[lang]
+          const langMeta = LANG_META[lang]
+          const langPrefix = lang === 'uk' ? '' : `${lang}/`
+          const blogUrl = `${BASE_URL}/blog${lang === 'uk' ? '' : `/${lang}`}`
+
+          const listArticles = sortedArticles.map(a => {
+            let title = a.title
+            let punchline = a.punchline
+            let readTime = a.readTime
+            if (lang !== 'uk') {
+              const tr = translationMaps[lang]?.[a.id]
+              if (tr?.title) {
+                title = tr.title
+                punchline = tr.punchline || punchline
+                readTime = tr.readTime || readTime
+              }
+            }
+            return { ...a, title, punchline, readTime }
+          })
+
+          const articleListHtml = listArticles.map(a => `
         <article>
-          <h2><a href="/blog/${a.id}">${a.title}</a></h2>
+          <h2><a href="/blog/${langPrefix}${a.id}">${a.title}</a></h2>
           <p>${a.punchline}</p>
           <div>
             <span>${a.category === 'tech' ? 'TECH' : 'LEGAL'}</span>
@@ -435,46 +475,57 @@ function prerenderBlogPlugin(): Plugin {
           <div>${a.tags.map(t => `<span>#${t}</span>`).join(' ')}</div>
         </article>`).join('\n')
 
-        const blogListJsonLd = JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "Blog",
-          "name": "LEX AI Blog",
-          "description": blogListDesc,
-          "url": `${BASE_URL}/blog`,
-          "publisher": { "@type": "Organization", "name": "SecondLayer", "url": BASE_URL },
-          "blogPost": articles.slice(0, 20).map(a => ({
-            "@type": "BlogPosting",
-            "headline": a.title,
-            "description": a.punchline,
-            "url": `${BASE_URL}/blog/${a.id}`,
-            "datePublished": a.publishedAt,
-            "keywords": a.tags.join(', '),
-          }))
-        })
+          const blogListJsonLd = JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Blog",
+            "name": meta.heading,
+            "description": meta.desc,
+            "url": blogUrl,
+            "inLanguage": langMeta.htmlLang,
+            "publisher": { "@type": "Organization", "name": "SecondLayer", "url": BASE_URL },
+            "blogPost": listArticles.slice(0, 20).map(a => ({
+              "@type": "BlogPosting",
+              "headline": a.title,
+              "description": a.punchline,
+              "url": `${BASE_URL}/blog/${langPrefix}${a.id}`,
+              "datePublished": a.publishedAt,
+              "keywords": a.tags.join(', '),
+            }))
+          })
 
-        let blogListPage = replaceMeta(indexHtml, {
-          title: blogListTitle,
-          description: blogListDesc,
-          ogTitle: blogListTitle,
-          ogDescription: blogListDesc,
-          ogUrl: `${BASE_URL}/blog`,
-          canonical: `${BASE_URL}/blog`,
-        })
-        blogListPage = blogListPage.replace('</head>', `<script type="application/ld+json">${blogListJsonLd}</script>\n  </head>`)
-        blogListPage = blogListPage.replace(
-          '<div id="root"></div>',
-          `<div id="blog-seo" style="max-width:820px;margin:40px auto;font-family:system-ui,sans-serif;padding:0 24px">
-      <h1>LEX AI Blog</h1>
-      <p>${blogListDesc}</p>
+          const blogHreflang = [
+            `<link rel="alternate" hreflang="uk" href="${BASE_URL}/blog" />`,
+            `<link rel="alternate" hreflang="en" href="${BASE_URL}/blog/en" />`,
+            `<link rel="alternate" hreflang="ru" href="${BASE_URL}/blog/ru" />`,
+            `<link rel="alternate" hreflang="x-default" href="${BASE_URL}/blog" />`,
+          ].join('\n    ')
+
+          let blogListPage = replaceMeta(indexHtml, {
+            title: meta.title,
+            description: meta.desc,
+            ogTitle: meta.title,
+            ogDescription: meta.desc,
+            ogUrl: blogUrl,
+            canonical: blogUrl,
+            ogLocale: langMeta.ogLocale,
+            htmlLang: langMeta.htmlLang,
+          })
+          blogListPage = blogListPage.replace('</head>', `    ${blogHreflang}\n  <script type="application/ld+json">${blogListJsonLd}</script>\n  </head>`)
+          blogListPage = blogListPage.replace(
+            '<div id="root"></div>',
+            `<div id="blog-seo" style="max-width:820px;margin:40px auto;font-family:system-ui,sans-serif;padding:0 24px">
+      <h1>${meta.heading}</h1>
+      <p>${meta.desc}</p>
       ${articleListHtml}
     </div>
     <div id="root"></div>
     <script>document.getElementById('blog-seo')?.remove()</script>`
-        )
+          )
 
-        const blogDir = path.resolve(distDir, 'blog')
-        fs.mkdirSync(blogDir, { recursive: true })
-        fs.writeFileSync(path.resolve(blogDir, 'index.html'), blogListPage)
+          const listDir = lang === 'uk' ? blogDir : path.resolve(blogDir, lang)
+          fs.mkdirSync(listDir, { recursive: true })
+          fs.writeFileSync(path.resolve(listDir, 'index.html'), blogListPage)
+        }
 
         // --- Generate /blog/:slug/index.html for each article (all languages) ---
         let articleCount = 0

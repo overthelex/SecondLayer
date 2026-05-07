@@ -39,13 +39,22 @@ export function BlogArticlePage() {
     [effectiveLang]
   );
 
+  // Handle /blog/en, /blog/ru — slug is actually a language code, show blog index
+  useEffect(() => {
+    if (slug && ['en', 'ru', 'es'].includes(slug) && !lang) {
+      setLanguage(slug as 'en' | 'ru' | 'es');
+      navigate('/blog', { replace: true });
+    }
+  }, [slug, lang, setLanguage, navigate]);
+
   const article = localizedArticles.find((a) => a.id === slug);
 
   useEffect(() => {
-    if (!article) {
+    if (!article && slug && !['en', 'ru', 'es'].includes(slug)) {
       navigate('/blog', { replace: true });
       return;
     }
+    if (!article) return;
     document.title = article.title + ' | LEX Blog';
 
     // Set meta description
