@@ -7,13 +7,10 @@
 import { useCallback, useRef } from 'react';
 import { useChatStore } from '../../stores';
 import { mcpService } from '../../services';
-import showToast from '../../utils/toast';
-import { toastTDynamic } from '../../i18n/toast-i18n';
 import type { Decision, Citation, VaultDocument, ExecutionPlan, CostSummary } from '../../types/models/Message';
 import { getToolLabel } from './tool-labels';
 import { extractEvidenceFromToolResult } from './evidence-extractor';
 import { extractNormsFromAnswer } from './chat-helpers';
-import { useCurrencyRate } from '../useCurrencyRate';
 import { handleStreamError, autoTitleConversation } from './chat-error-utils';
 
 export interface UseAIChatStreamOptions {
@@ -31,7 +28,6 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
   } = useChatStore();
 
   const { onSuccess, onError } = options;
-  const { formatUah } = useCurrencyRate();
 
   // Accumulate evidence across multiple tool calls in one chat session
   const accumulatedDecisions = useRef<Decision[]>([]);
@@ -63,7 +59,7 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
       assistantMessageId: string,
       approvedPlan?: ExecutionPlan,
       planSessionId?: string,
-      allowDeepEscalation?: boolean,
+      _allowDeepEscalation?: boolean,
       internetEnabled?: boolean
     ) => {
       // Reset accumulators
@@ -125,20 +121,8 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
           });
         },
 
-        onBudgetEscalated: (data) => {
-          if (data.requiresConfirmation) {
-            useChatStore.getState().setPendingBudgetEscalation({
-              reason: data.reason,
-              estimatedCostMin: data.estimatedCost.minUsd,
-              estimatedCostMax: data.estimatedCost.maxUsd,
-              query,
-            });
-          } else {
-            showToast.info(
-              toastTDynamic('budgetEscalated', formatUah(data.estimatedCost.minUsd), formatUah(data.estimatedCost.maxUsd)),
-              6000
-            );
-          }
+        onBudgetEscalated: () => {
+          // Budget escalation is now fully automatic — no UI confirmation needed
         },
 
         onThinking: (data) => {
@@ -425,11 +409,11 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
             setCurrentTool(null);
           }
         },
-      }, 'standard', chatConversationId, approvedPlan, planSessionId, allowDeepEscalation, internetEnabled);
+      }, 'standard', chatConversationId, approvedPlan, planSessionId, true, internetEnabled);
 
       setStreamController(controller);
     },
-    [addThinkingStep, updateMessage, setStreaming, setStreamController, setCurrentTool, onSuccess, onError, formatUah]
+    [addThinkingStep, updateMessage, setStreaming, setStreamController, setCurrentTool, onSuccess, onError]
   );
 
   return { runChatStream };
