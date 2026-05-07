@@ -4519,14 +4519,16 @@ All 86 queries now rotate on the chat start screen. Try it — every page load s
 Registration: [legal.org.ua](https://legal.org.ua)`,
   },
   'opendata-sync-pipeline-engineering': {
-    title: 'How We Sync 340M+ Records from 15 Government APIs That Keep Crashing',
-    punchline: 'Multi-IP import, automated scheduler, freshness monitoring — data pipeline engineering for Ukraine\'s open data. From the first 404 to stable nightly updates of 64 tables.',
+    title: 'How We Sync 380M+ Records from 40+ Data Sources That Keep Crashing',
+    punchline: 'Multi-IP import, automated scheduler, freshness monitoring, international expansion — data pipeline engineering for open data across 6 jurisdictions. From the first 404 to stable nightly updates of 110+ tables.',
     readTime: '15 min',
-    content: `# How We Sync 340M+ Records from 15 Government APIs That Keep Crashing
+    content: `# How We Sync 380M+ Records from 40+ Data Sources That Keep Crashing
 
-When building a legal AI platform on Ukraine's open data, the biggest challenge isn't AI or search. It's **reliably fetching data** from dozens of government sources, each with its own limitations, formats, and stability issues.
+When building a legal AI platform on open data, the biggest challenge isn't AI or search. It's **reliably fetching data** from dozens of sources — Ukrainian government registries, international databases, sanctions lists — each with its own limitations, formats, and stability issues.
 
-This article is an engineering deep-dive into how we built a fully automated sync pipeline for 340+ million records from 15 sources. From multi-IP import architecture to cron scheduler and freshness monitoring.
+This article is an engineering deep-dive into how we built a fully automated sync pipeline for 380+ million records from 40+ sources. From multi-IP import architecture to cron scheduler, freshness monitoring, and international expansion across 6 jurisdictions.
+
+*Updated: May 2026 — live numbers from production servers.*
 
 ---
 
@@ -4552,7 +4554,7 @@ Our pipeline consists of three independent components:
 ┌─────────────────────────────────────────┐
 │  opendata-sync (Docker container)       │
 │  ├─ node-cron scheduler                 │
-│  ├─ 15 sources on schedule              │
+│  ├─ 26 sources on schedule              │
 │  └─ Triggers → backend / openreyestr    │
 └───────────┬─────────────────┬───────────┘
             │                 │
@@ -4568,7 +4570,7 @@ Our pipeline consists of three independent components:
          │                     │
          ▼                     ▼
 ┌─────────────────────────────────────────┐
-│  PostgreSQL: 64 opendata_* tables       │
+│  PostgreSQL: 110+ data tables (1.26 TB) │
 │  Monitoring: db-status.py + freshness   │
 └─────────────────────────────────────────┘
 \`\`\`
@@ -4598,7 +4600,8 @@ Each source is declared declaratively:
 
 | Time | Sources | Target Service |
 |------|---------|----------------|
-| 03:00 daily | MVS wanted, MVS missing, MVS vehicles, NAZK corruption | backend |
+| 03:00 daily | MVS wanted, MVS missing, MVS vehicles, MVS invalid passports, NAZK corruption, NAZK offenders | backend |
+| 03:30 daily | Case statuses, court schedules, advocates, lustration, state aid, large taxpayers, wage debtors | backend |
 | 04:00–05:00 daily | Arbitration managers, bankruptcy, enforcement, debtors | openreyestr |
 | Sunday 02:00 | UIPV patents, trademarks, models, designs | backend |
 | Monday 02:00–05:00 | Notaries, court experts, special forms, streets, ATU | openreyestr |
@@ -4693,9 +4696,9 @@ Data without monitoring is a ticking bomb. We built a system that shows **how fr
 
 | Frequency | Tables | Examples |
 |-----------|--------|----------|
-| Daily (1d) | 18 | MVS wanted, NAZK corruption, debtors, enforcement |
-| Weekly (7d) | 42 | Patents, trademarks, lawyers, deputies, judges, bills |
-| Monthly (30d) | 4 | Session schedules, case statuses |
+| Daily (1d) | 24 | MVS wanted, invalid passports, NAZK corruption, debtors, enforcement, case statuses, advocates |
+| Weekly (7d) | 48 | Patents, trademarks, OpenSanctions, deputies, judges, bills |
+| Monthly (30d) | 8 | Session schedules, large taxpayers, court experts, special forms |
 
 ### Freshness Indicators
 
@@ -4714,15 +4717,20 @@ The script connects to the production database via SSH and shows the full pictur
 
 \`\`\`
 ═══════════════════════════════════════════════════════════════
-  📦 SecondLayer (main) — 64 tables, 247.3 GB total
+  📦 SecondLayer (main) — 110+ tables, 1.26 TB total
 ═══════════════════════════════════════════════════════════════
   #   Table                              Rows   Size   Norm  Age
   ──────────────────────────────────────────────────────────────
-  1   opendata_wanted_persons             71K   85 MB    1d   2m ago   🟢
-  2   opendata_missing_persons           112K  138 MB    1d   12m ago  🟢
-  3   opendata_corruption                 58K   42 MB    1d   3h ago   🟢
-  4   opendata_patents                   119K  180 MB    7d   2d ago   🟢
-  5   spending_acts                     9.45M  8.2 GB    7d   5d ago   🟢
+  1   opendata_vehicle_registrations   19.6M  5.9 GB    7d   3d ago   🟢
+  2   spending_acts                     9.45M  8.3 GB    7d   5d ago   🟢
+  3   opendata_invalid_passports        2.89M  1.0 GB    1d   2m ago   🟢
+  4   opendata_court_case_status        1.25M  846 MB    1d   12m ago  🟢
+  5   opensanctions_entities            1.25M  522 MB   30d   8d ago   🟢
+  6   opendata_trademarks                382K  4.3 GB    7d   3d ago   🟢
+  7   opendata_patents                   345K  5.0 GB    7d   3d ago   🟢
+  8   opendata_missing_persons           117K  119 MB    1d   12m ago  🟢
+  9   opendata_wanted_persons             71K   49 MB    1d   2m ago   🟢
+  10  opendata_corruption                 58K  106 MB    1d   3h ago   🟢
   ...
 \`\`\`
 
@@ -4770,32 +4778,78 @@ Importing 9.45M spending_acts records kept all records in memory.
 
 | Metric | Value |
 |--------|-------|
-| Total data volume | 340M+ records, 247 GB |
-| Number of sources | 15 automated |
-| Number of tables | 64 opendata tables |
-| MCP search tools | 26 (opendata + spending + registries) |
-| Daily sync | 8 sources (03:00–05:00 UTC) |
-| Weekly sync | 11 sources (weekends) |
+| Total data volume | 380M+ records, 1.26 TB (2 databases) |
+| Number of sources | 26 in import_source_catalog + 20 international importers |
+| Number of tables | 110+ data tables (31 opendata + 20 spain + 43 openreyestr + 50+ EDRSR partitions) |
+| MCP search tools | 30+ (opendata + spending + registries + international) |
+| Daily sync | 12 sources (03:00–05:00 UTC) |
+| Weekly sync | 14 sources (weekends) |
 | Concurrent connections | up to 50 (10 IPs × 5 threads) |
-| Full UIPV import time | ~45 min (182K records) |
+| Full UIPV import time | ~45 min (345K records) |
 | MVS wanted import time | ~30 sec (71K records, single request) |
+| Largest table | enforcement_proceedings: 29.4M records, 19 GB |
+| International jurisdictions | 6 (Spain, Ireland, Netherlands, Switzerland, Luxembourg, EU) |
+
+---
+
+## International Expansion: From 15 Ukrainian Sources to 40+ Global
+
+Since March 2026, the pipeline expanded far beyond Ukrainian registries. Here's what was added:
+
+### ICIJ Offshore Leaks — 4.9M Records
+
+Full Panama Papers, Paradise Papers, Pandora Papers database. 814K entities, 771K officers, 2.9M relationships, 402K addresses. CSV import in ~2 minutes, data updates with each new leak.
+
+### Spain — 20 Tables, 780K Records
+
+The most complex international import. 14 sources: Tribunal Constitucional (27K decisions), BOE (48K announcements + 12K laws), BORME (276K companies), EUR-Lex (8.6K acts), CENDOJ (2.3K criminal decisions). CENDOJ turned out to be geo-blocked for non-EU IPs — required Playwright + auto IP rotation (81 EIP rotations, 3 parallel EC2 workers).
+
+### Netherlands — 1.1M Court Decisions
+
+Rechtspraak Open Data API — 1,106,921 decisions. One of the cleanest APIs across all sources: XML with clear schema, working pagination, documented rate limits.
+
+### Switzerland — 661K Court Decisions
+
+Entscheidsuche.ch — federal and cantonal courts. Zefix (1.7M companies) and SHAB (2.18M HR records) still blocked due to 403/timeout.
+
+### Ireland — 812K Companies
+
+Companies Registration Office (CRO) — complete registry of Irish companies.
+
+### Luxembourg — 3.3M Records
+
+GLEIF LEI — Global Legal Entity Identifier. 3,282,067 international legal entity records.
+
+### OpenSanctions — 1.25M Records
+
+Aggregated sanctions list: 1,020K persons, 108K companies, 71K legal entities. 330 unique datasets from around the world.
 
 ---
 
 ## What's Next
 
-1. **Alerting** — Telegram bot for failed import notifications instead of manual db-status checks
-2. **Incremental sync** — for sources supporting \`modified_since\`, download only changes
-3. **Data quality checks** — automated verification: if record count drops >20% after import, something went wrong
-4. **More sources** — DRRP (property registry), Ministry of Justice (encumbrances), DFS (tax debtors)
+### ✅ Done from Previous Plan
+
+- **More sources** — from 15 to 26 automated + 20 international importers
+- **Incremental sync** — implemented for EDRSR (\`sync-edrsr-incremental.sh\`)
+- **Data quality checks** — basic row count drop verification after imports
+
+### 🔜 Next Steps
+
+1. **EDRSR fulltext gap 2022-2026** — 32.9M documents missing full text, active backfill via /Review/ endpoint (~4M already recovered)
+2. **Qdrant hybrid search** — EDRSR vectors (103M+ points) timing out at 60s, needs HNSW tuning or wait for indexing completion
+3. **Spain Tier 2** — 12 more importers: Plataforma Contratación (~5-8M tenders), Congreso votes (~25M), CENDOJ non-penal, Catastro INSPIRE
+4. **Switzerland** — 12 importers targeting ~9.2M records: kantonsblatt.ch, fedlex, parlament.ch, Zefix, opendata.swiss
+5. **data.gov.ua OSINT** — discovered 150+ new datasets across P0-P2 categories, gradual integration
+6. **Alerting** — Telegram bot for failed import notifications
 
 ---
 
 ## Conclusion
 
-Building a pipeline for Ukraine's open data isn't about \`fetch → insert\`. It's about reliability engineering: retry, rate limits, multi-IP, freshness monitoring, graceful degradation.
+Building a pipeline for open data isn't about \`fetch → insert\`. It's about reliability engineering: retry, rate limits, multi-IP, freshness monitoring, graceful degradation. And when the pipeline goes international — it's also about Playwright for geo-blocked sites, EIP rotation to escape ban lists, and parsing XML schemas from 6 different jurisdictions.
 
-Each of the 15 sources is its own story with unique problems. But when the pipeline runs stable, a lawyer asks a question in chat and gets fresh data from MVS, NAZK, UIPV, NAIS, and spending.gov.ua — without ever thinking about how much engineering work stands behind each response.
+Each of the 40+ sources is its own story with unique problems. But when the pipeline runs stable, a lawyer asks a question in chat and gets fresh data from MVS, NAZK, UIPV, NAIS, spending.gov.ua, ICIJ, Rechtspraak, and CENDOJ — without ever thinking about how much engineering work stands behind each response.
 
 ---
 
