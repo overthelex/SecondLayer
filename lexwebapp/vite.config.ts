@@ -50,6 +50,8 @@ function sitemapPlugin(): Plugin {
         const blogArticles: Entry[] = []
         for (let i = 0; i < count; i++) {
           blogArticles.push({ loc: `/blog/${ids[i]}`, changefreq: 'monthly', priority: '0.8', lastmod: dates[i] })
+          blogArticles.push({ loc: `/blog/en/${ids[i]}`, changefreq: 'monthly', priority: '0.7', lastmod: dates[i] })
+          blogArticles.push({ loc: `/blog/ru/${ids[i]}`, changefreq: 'monthly', priority: '0.7', lastmod: dates[i] })
         }
 
         const legalSlugs = ['offer', 'terms', 'privacy', 'dpa', 'ai-usage', 'ai-transparency', 'refund-policy', 'attorney-offer', 'developer-offer', 'marketplace-rules']
@@ -266,12 +268,15 @@ function prerenderBlogPlugin(): Plugin {
         const root = path.resolve(__dirname)
         const distDir = path.resolve(root, 'dist')
         const indexHtml = fs.readFileSync(path.resolve(distDir, 'index.html'), 'utf-8')
-        const articlesPath = path.resolve(root, 'src/pages/BlogPage/articles.ts')
-        const src = fs.readFileSync(articlesPath, 'utf-8')
 
         const BASE_URL = 'https://legal.org.ua'
 
-        // Parse articles from source via regex (same approach as sitemap plugin)
+        const LANG_META: Record<string, { ogLocale: string, htmlLang: string, backLabel: string }> = {
+          uk: { ogLocale: 'uk_UA', htmlLang: 'uk', backLabel: '← Всі статті' },
+          en: { ogLocale: 'en_US', htmlLang: 'en', backLabel: '← All articles' },
+          ru: { ogLocale: 'ru_RU', htmlLang: 'ru', backLabel: '← Все статьи' },
+        }
+
         interface ParsedArticle {
           id: string
           title: string
@@ -283,59 +288,104 @@ function prerenderBlogPlugin(): Plugin {
           content: string
         }
 
-        const articles: ParsedArticle[] = []
+        // --- Parse articles from a TS source file via regex ---
+        function parseArticlesFile(filePath: string, isTranslation: boolean): ParsedArticle[] | Record<string, Partial<ParsedArticle>> {
+          const src = fs.readFileSync(filePath, 'utf-8')
 
-        // Split by article object boundaries
-        const articleBlocks = src.split(/\n  \{[\s]*\n/).slice(1) // skip before first article
-        for (const block of articleBlocks) {
-          const get = (key: string) => {
-            const m = block.match(new RegExp(`${key}:\\s*'([^']*)'`))
-            return m ? m[1] : ''
+          if (isTranslation) {
+            // Translation files: { 'slug': { title, punchline, content, readTime } }
+            const map: Record<string, Partial<ParsedArticle>> = {}
+            // Match each slug entry
+            const slugPattern = /['"]([a-z0-9-]+)['"]\s*:\s*\{/g
+            let match
+            while ((match = slugPattern.exec(src)) !== null) {
+              const slug = match[1]
+              const startIdx = match.index + match[0].length
+              // Find the content boundaries for this slug
+              const remaining = src.slice(startIdx)
+              const titleMatch = remaining.match(/title:\s*'((?:[^'\\]|\\.)*)'/)
+              const punchlineMatch = remaining.match(/punchline:\s*'((?:[^'\\]|\\.)*)'/)
+              const readTimeMatch = remaining.match(/readTime:\s*'((?:[^'\\]|\\.)*)'/)
+              const contentMatch = remaining.match(/content:\s*`((?:\\[\s\S]|[^`])*)`/)
+
+              if (titleMatch) {
+                map[slug] = {
+                  title: titleMatch[1].replace(/\\'/g, "'"),
+                  punchline: punchlineMatch ? punchlineMatch[1].replace(/\\'/g, "'") : '',
+                  readTime: readTimeMatch ? readTimeMatch[1] : '',
+                  content: contentMatch
+                    ? contentMatch[1].replace(/\\`/g, '`').replace(/\\\$/g, '$').replace(/\\\\/g, '\\')
+                    : '',
+                }
+              }
+            }
+            return map
           }
-          const id = get('id')
-          const title = get('title')
-          const punchline = get('punchline')
-          const category = get('category')
-          const readTime = get('readTime')
-          const publishedAt = get('publishedAt')
 
-          // Extract tags array
-          const tagsMatch = block.match(/tags:\s*\[([^\]]*)\]/)
-          const tags = tagsMatch
-            ? tagsMatch[1].match(/'([^']+)'/g)?.map(t => t.replace(/'/g, '')) || []
-            : []
+          // Main articles file
+          const articles: ParsedArticle[] = []
+          const articleBlocks = src.split(/\n  \{[\s]*\n/).slice(1)
+          for (const block of articleBlocks) {
+            const get = (key: string) => {
+              const m = block.match(new RegExp(`${key}:\\s*'([^']*)'`))
+              return m ? m[1] : ''
+            }
+            const id = get('id')
+            const title = get('title')
+            const punchline = get('punchline')
+            const category = get('category')
+            const readTime = get('readTime')
+            const publishedAt = get('publishedAt')
 
-          // Extract content (between backticks).
-          // Articles contain markdown with escaped backticks (\`code\`) and \`\`\`code fences\`\`\`.
-          // A naive non-greedy match /content:\s*`([\s\S]*?)`/ stops at the first backtick —
-          // including escaped ones — and truncates every technical article to ~1400 chars.
-          // The pattern below consumes escape sequences (\`, \$, \\, \\n, etc.) before any
-          // backtick, so the regex only terminates on a real closing backtick.
-          const contentMatch = block.match(/content:\s*`((?:\\[\s\S]|[^`])*)`/)
-          // Unescape the template-literal escape sequences we just preserved.
-          const content = contentMatch
-            ? contentMatch[1]
-                .replace(/\\`/g, '`')
-                .replace(/\\\$/g, '$')
-                .replace(/\\\\/g, '\\')
-            : ''
+            const tagsMatch = block.match(/tags:\s*\[([^\]]*)\]/)
+            const tags = tagsMatch
+              ? tagsMatch[1].match(/'([^']+)'/g)?.map(t => t.replace(/'/g, '')) || []
+              : []
 
-          if (id && title) {
-            articles.push({ id, title, punchline, category, tags, readTime, publishedAt, content })
+            const contentMatch = block.match(/content:\s*`((?:\\[\s\S]|[^`])*)`/)
+            const content = contentMatch
+              ? contentMatch[1]
+                  .replace(/\\`/g, '`')
+                  .replace(/\\\$/g, '$')
+                  .replace(/\\\\/g, '\\')
+              : ''
+
+            if (id && title) {
+              articles.push({ id, title, punchline, category, tags, readTime, publishedAt, content })
+            }
           }
+          return articles
         }
+
+        // Parse all language versions
+        const articles = parseArticlesFile(
+          path.resolve(root, 'src/pages/BlogPage/articles.ts'), false
+        ) as ParsedArticle[]
+
+        const enMap = parseArticlesFile(
+          path.resolve(root, 'src/pages/BlogPage/articles-en.ts'), true
+        ) as Record<string, Partial<ParsedArticle>>
+
+        const ruMap = parseArticlesFile(
+          path.resolve(root, 'src/pages/BlogPage/articles-ru.ts'), true
+        ) as Record<string, Partial<ParsedArticle>>
 
         if (articles.length === 0) {
           console.warn('[prerender-blog] No articles parsed, skipping')
           return
         }
 
+        const translationMaps: Record<string, Record<string, Partial<ParsedArticle>>> = {
+          en: enMap,
+          ru: ruMap,
+        }
+
         // Helper to replace meta tags in the HTML shell
         function replaceMeta(html: string, opts: {
           title: string, description: string, ogTitle: string, ogDescription: string,
-          ogUrl: string, ogImage?: string, canonical: string
+          ogUrl: string, ogImage?: string, canonical: string, ogLocale?: string, htmlLang?: string
         }): string {
-          return html
+          let result = html
             .replace(/<title>[^<]*<\/title>/, `<title>${opts.title}</title>`)
             .replace(/<meta name="description" content="[^"]*"\s*\/?>/, `<meta name="description" content="${opts.description.replace(/"/g, '&quot;')}" />`)
             .replace(/<meta property="og:title" content="[^"]*"\s*\/?>/, `<meta property="og:title" content="${opts.ogTitle.replace(/"/g, '&quot;')}" />`)
@@ -344,9 +394,28 @@ function prerenderBlogPlugin(): Plugin {
             .replace(/<meta name="twitter:title" content="[^"]*"\s*\/?>/, `<meta name="twitter:title" content="${opts.ogTitle.replace(/"/g, '&quot;')}" />`)
             .replace(/<meta name="twitter:description" content="[^"]*"\s*\/?>/, `<meta name="twitter:description" content="${opts.ogDescription.replace(/"/g, '&quot;')}" />`)
             .replace(/<link rel="canonical" href="[^"]*"\s*\/?>/, `<link rel="canonical" href="${opts.canonical}" />`)
-            // Update og:image if provided
             .replace(/<meta property="og:image" content="[^"]*"\s*\/?>/, `<meta property="og:image" content="${opts.ogImage || `${BASE_URL}/og-image.png`}" />`)
             .replace(/<meta name="twitter:image" content="[^"]*"\s*\/?>/, `<meta name="twitter:image" content="${opts.ogImage || `${BASE_URL}/og-image.png`}" />`)
+          if (opts.ogLocale) {
+            result = result.replace(/<meta property="og:locale" content="[^"]*"\s*\/?>/, `<meta property="og:locale" content="${opts.ogLocale}" />`)
+          }
+          if (opts.htmlLang) {
+            result = result.replace(/<html lang="[^"]*"/, `<html lang="${opts.htmlLang}"`)
+          }
+          return result
+        }
+
+        // Helper to generate hreflang link tags for a given article slug
+        function hreflangTags(slug: string): string {
+          const ukUrl = `${BASE_URL}/blog/${slug}`
+          const enUrl = `${BASE_URL}/blog/en/${slug}`
+          const ruUrl = `${BASE_URL}/blog/ru/${slug}`
+          return [
+            `<link rel="alternate" hreflang="uk" href="${ukUrl}" />`,
+            `<link rel="alternate" hreflang="en" href="${enUrl}" />`,
+            `<link rel="alternate" hreflang="ru" href="${ruUrl}" />`,
+            `<link rel="alternate" hreflang="x-default" href="${ukUrl}" />`,
+          ].join('\n    ')
         }
 
         // --- Generate /blog/index.html (article listing) ---
@@ -407,84 +476,107 @@ function prerenderBlogPlugin(): Plugin {
         fs.mkdirSync(blogDir, { recursive: true })
         fs.writeFileSync(path.resolve(blogDir, 'index.html'), blogListPage)
 
-        // --- Generate /blog/:slug/index.html for each article ---
+        // --- Generate /blog/:slug/index.html for each article (all languages) ---
         let articleCount = 0
+        const languages = ['uk', 'en', 'ru'] as const
+
         for (const article of articles) {
-          const articleUrl = `${BASE_URL}/blog/${article.id}`
-          const ogImage = `${BASE_URL}/blog-banners/${article.id}.png`
-          const truncatedPunchline = article.punchline.length > 200
-            ? article.punchline.slice(0, 197) + '...'
-            : article.punchline
+          for (const lang of languages) {
+            // Resolve translated content
+            let title = article.title
+            let punchline = article.punchline
+            let content = article.content
+            let readTime = article.readTime
 
-          let articlePage = replaceMeta(indexHtml, {
-            title: `${article.title} | LEX Blog`,
-            description: truncatedPunchline,
-            ogTitle: article.title,
-            ogDescription: truncatedPunchline,
-            ogUrl: articleUrl,
-            ogImage,
-            canonical: articleUrl,
-          })
+            if (lang !== 'uk') {
+              const translation = translationMaps[lang]?.[article.id]
+              if (!translation?.title) continue // skip if no translation exists
+              title = translation.title || title
+              punchline = translation.punchline || punchline
+              content = translation.content || content
+              readTime = translation.readTime || readTime
+            }
 
-          // Add og:type article
-          articlePage = articlePage.replace(
-            '<meta property="og:type" content="website" />',
-            '<meta property="og:type" content="article" />'
-          )
+            const langMeta = LANG_META[lang]
+            const slugPath = lang === 'uk' ? article.id : `${lang}/${article.id}`
+            const articleUrl = `${BASE_URL}/blog/${slugPath}`
+            const ogImage = `${BASE_URL}/blog-banners/${article.id}.png`
+            const truncatedPunchline = punchline.length > 200
+              ? punchline.slice(0, 197) + '...'
+              : punchline
 
-          // JSON-LD BlogPosting
-          const articleJsonLd = JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "BlogPosting",
-            "headline": article.title,
-            "description": article.punchline,
-            "url": articleUrl,
-            "image": ogImage,
-            "datePublished": article.publishedAt,
-            "keywords": article.tags.join(', '),
-            "articleSection": article.category === 'tech' ? 'Technology' : 'Legal',
-            "inLanguage": "uk",
-            "publisher": { "@type": "Organization", "name": "SecondLayer", "url": BASE_URL },
-            "mainEntityOfPage": { "@type": "WebPage", "@id": articleUrl }
-          })
+            let articlePage = replaceMeta(indexHtml, {
+              title: `${title} | LEX Blog`,
+              description: truncatedPunchline,
+              ogTitle: title,
+              ogDescription: truncatedPunchline,
+              ogUrl: articleUrl,
+              ogImage,
+              canonical: articleUrl,
+              ogLocale: langMeta.ogLocale,
+              htmlLang: langMeta.htmlLang,
+            })
 
-          articlePage = articlePage.replace('</head>', `<script type="application/ld+json">${articleJsonLd}</script>\n  </head>`)
+            articlePage = articlePage.replace(
+              '<meta property="og:type" content="website" />',
+              '<meta property="og:type" content="article" />'
+            )
 
-          // Convert markdown content to HTML for crawlers
-          let contentHtml = ''
-          try {
-            contentHtml = marked.parse(article.content) as string
-          } catch {
-            contentHtml = `<pre>${article.content.replace(/</g, '&lt;')}</pre>`
-          }
+            // Add hreflang tags
+            articlePage = articlePage.replace('</head>', `    ${hreflangTags(article.id)}\n  </head>`)
 
-          const semanticArticle = `<article id="blog-article-seo" style="max-width:820px;margin:40px auto;font-family:system-ui,sans-serif;padding:0 24px">
+            const articleJsonLd = JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "BlogPosting",
+              "headline": title,
+              "description": punchline,
+              "url": articleUrl,
+              "image": ogImage,
+              "datePublished": article.publishedAt,
+              "keywords": article.tags.join(', '),
+              "articleSection": article.category === 'tech' ? 'Technology' : 'Legal',
+              "inLanguage": langMeta.htmlLang,
+              "publisher": { "@type": "Organization", "name": "SecondLayer", "url": BASE_URL },
+              "mainEntityOfPage": { "@type": "WebPage", "@id": articleUrl }
+            })
+
+            articlePage = articlePage.replace('</head>', `<script type="application/ld+json">${articleJsonLd}</script>\n  </head>`)
+
+            let contentHtml = ''
+            try {
+              contentHtml = marked.parse(content) as string
+            } catch {
+              contentHtml = `<pre>${content.replace(/</g, '&lt;')}</pre>`
+            }
+
+            const semanticArticle = `<article id="blog-article-seo" style="max-width:820px;margin:40px auto;font-family:system-ui,sans-serif;padding:0 24px">
       <header>
         <span>${article.category === 'tech' ? 'TECH' : 'LEGAL'}</span>
         <time datetime="${article.publishedAt}">${article.publishedAt}</time>
-        <span>${article.readTime}</span>
+        <span>${readTime}</span>
       </header>
-      <h1>${article.title}</h1>
-      <p><em>${article.punchline}</em></p>
+      <h1>${title}</h1>
+      <p><em>${punchline}</em></p>
       ${contentHtml}
       <footer>
         <div>${article.tags.map(t => `<span>#${t}</span>`).join(' ')}</div>
-        <nav><a href="/blog">← Всі статті</a></nav>
+        <nav><a href="/blog">${langMeta.backLabel}</a></nav>
       </footer>
     </article>`
 
-          articlePage = articlePage.replace(
-            '<div id="root"></div>',
-            `${semanticArticle}\n    <div id="root"></div>\n    <script>document.getElementById('blog-article-seo')?.remove()</script>`
-          )
+            articlePage = articlePage.replace(
+              '<div id="root"></div>',
+              `${semanticArticle}\n    <div id="root"></div>\n    <script>document.getElementById('blog-article-seo')?.remove()</script>`
+            )
 
-          const articleDir = path.resolve(blogDir, article.id)
-          fs.mkdirSync(articleDir, { recursive: true })
-          fs.writeFileSync(path.resolve(articleDir, 'index.html'), articlePage)
-          articleCount++
+            const articleDir = path.resolve(blogDir, slugPath)
+            fs.mkdirSync(articleDir, { recursive: true })
+            fs.writeFileSync(path.resolve(articleDir, 'index.html'), articlePage)
+            articleCount++
+          }
         }
 
-        console.log(`[prerender-blog] Generated blog/index.html + ${articleCount} article pages`)
+        console.log(`[prerender-blog] Generated blog/index.html + ${articleCount} article pages (uk/en/ru)`)
       } catch (err) {
         console.error('[prerender-blog] Failed to generate blog pages:', err)
       }

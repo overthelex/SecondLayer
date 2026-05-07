@@ -62,10 +62,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/rag-vs-training-legal-heterogeneity</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/rag-vs-training-legal-heterogeneity</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/deepseek-v3-860b-ukrainian-law</loc>
     <lastmod>2026-04-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/deepseek-v3-860b-ukrainian-law</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/deepseek-v3-860b-ukrainian-law</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/edrsr-vectorization-voyage</loc>
@@ -74,10 +98,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/edrsr-vectorization-voyage</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/edrsr-vectorization-voyage</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/sneakypiper-due-diligence-platform</loc>
     <lastmod>2026-04-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/sneakypiper-due-diligence-platform</loc>
+    <lastmod>2026-04-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/sneakypiper-due-diligence-platform</loc>
+    <lastmod>2026-04-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/ml-engineer-competencies</loc>
@@ -86,10 +134,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/ml-engineer-competencies</loc>
+    <lastmod>2026-04-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/ml-engineer-competencies</loc>
+    <lastmod>2026-04-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/tasks-for-independent-contributors</loc>
     <lastmod>2026-04-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/tasks-for-independent-contributors</loc>
+    <lastmod>2026-04-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/tasks-for-independent-contributors</loc>
+    <lastmod>2026-04-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/open-source-welcome-engineers</loc>
@@ -98,10 +170,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/open-source-welcome-engineers</loc>
+    <lastmod>2026-04-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/open-source-welcome-engineers</loc>
+    <lastmod>2026-04-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/distributed-monolith</loc>
     <lastmod>2026-04-01</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/distributed-monolith</loc>
+    <lastmod>2026-04-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/distributed-monolith</loc>
+    <lastmod>2026-04-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/opendata-sync-pipeline-engineering</loc>
@@ -110,10 +206,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/opendata-sync-pipeline-engineering</loc>
+    <lastmod>2026-03-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/opendata-sync-pipeline-engineering</loc>
+    <lastmod>2026-03-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/ci-cd-blue-green-self-healing-tests</loc>
     <lastmod>2026-03-28</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/ci-cd-blue-green-self-healing-tests</loc>
+    <lastmod>2026-03-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/ci-cd-blue-green-self-healing-tests</loc>
+    <lastmod>2026-03-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/court-practice-analysis-march-2026</loc>
@@ -122,10 +242,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/court-practice-analysis-march-2026</loc>
+    <lastmod>2026-03-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/court-practice-analysis-march-2026</loc>
+    <lastmod>2026-03-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/security-audit-gdpr-owasp</loc>
     <lastmod>2026-03-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/security-audit-gdpr-owasp</loc>
+    <lastmod>2026-03-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/security-audit-gdpr-owasp</loc>
+    <lastmod>2026-03-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/open-data-340m-production</loc>
@@ -134,10 +278,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/open-data-340m-production</loc>
+    <lastmod>2026-03-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/open-data-340m-production</loc>
+    <lastmod>2026-03-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/attorney-marketplace</loc>
     <lastmod>2026-03-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/attorney-marketplace</loc>
+    <lastmod>2026-03-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/attorney-marketplace</loc>
+    <lastmod>2026-03-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/mcp-tokens-claude-desktop</loc>
@@ -146,10 +314,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/mcp-tokens-claude-desktop</loc>
+    <lastmod>2026-03-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/mcp-tokens-claude-desktop</loc>
+    <lastmod>2026-03-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/round-robin-llm</loc>
     <lastmod>2026-02-28</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/round-robin-llm</loc>
+    <lastmod>2026-02-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/round-robin-llm</loc>
+    <lastmod>2026-02-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/mcp-server-architecture</loc>
@@ -158,10 +350,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/mcp-server-architecture</loc>
+    <lastmod>2026-02-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/mcp-server-architecture</loc>
+    <lastmod>2026-02-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/semantic-search-legislation</loc>
     <lastmod>2026-02-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/semantic-search-legislation</loc>
+    <lastmod>2026-02-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/semantic-search-legislation</loc>
+    <lastmod>2026-02-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/hallucination-guard</loc>
@@ -170,10 +386,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/hallucination-guard</loc>
+    <lastmod>2026-02-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/hallucination-guard</loc>
+    <lastmod>2026-02-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/monolith-to-mcp</loc>
     <lastmod>2026-02-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/monolith-to-mcp</loc>
+    <lastmod>2026-02-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/monolith-to-mcp</loc>
+    <lastmod>2026-02-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/diia-digital-identity</loc>
@@ -182,10 +422,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/diia-digital-identity</loc>
+    <lastmod>2026-02-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/diia-digital-identity</loc>
+    <lastmod>2026-02-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/mcp-connect-open-data</loc>
     <lastmod>2026-01-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/mcp-connect-open-data</loc>
+    <lastmod>2026-01-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/mcp-connect-open-data</loc>
+    <lastmod>2026-01-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/ai-wont-replace-lawyers</loc>
@@ -194,10 +458,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/ai-wont-replace-lawyers</loc>
+    <lastmod>2026-01-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/ai-wont-replace-lawyers</loc>
+    <lastmod>2026-01-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/semantic-vs-keyword-search</loc>
     <lastmod>2026-01-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/semantic-vs-keyword-search</loc>
+    <lastmod>2026-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/semantic-vs-keyword-search</loc>
+    <lastmod>2026-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/ai-analyzes-millions</loc>
@@ -206,10 +494,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/ai-analyzes-millions</loc>
+    <lastmod>2026-01-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/ai-analyzes-millions</loc>
+    <lastmod>2026-01-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/due-diligence-ai</loc>
     <lastmod>2026-01-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/due-diligence-ai</loc>
+    <lastmod>2026-01-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/due-diligence-ai</loc>
+    <lastmod>2026-01-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/data-privacy-ai</loc>
@@ -218,10 +530,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/data-privacy-ai</loc>
+    <lastmod>2026-01-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/data-privacy-ai</loc>
+    <lastmod>2026-01-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/gcp-cloud-scaling</loc>
     <lastmod>2026-03-08</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/gcp-cloud-scaling</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/gcp-cloud-scaling</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/edrsr-fulltext-pipeline</loc>
@@ -230,10 +566,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/edrsr-fulltext-pipeline</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/edrsr-fulltext-pipeline</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/chat-latency-optimization</loc>
     <lastmod>2026-03-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/chat-latency-optimization</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/chat-latency-optimization</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/bedrock-llm-fallback</loc>
@@ -242,10 +602,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/bedrock-llm-fallback</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/bedrock-llm-fallback</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/erb-nbu-due-diligence</loc>
     <lastmod>2026-03-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/erb-nbu-due-diligence</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/erb-nbu-due-diligence</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/server-side-evidence</loc>
@@ -254,10 +638,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/server-side-evidence</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/server-side-evidence</loc>
+    <lastmod>2026-03-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/developer-platform-api</loc>
     <lastmod>2026-03-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/developer-platform-api</loc>
+    <lastmod>2026-03-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/developer-platform-api</loc>
+    <lastmod>2026-03-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/military-lawyer-ai</loc>
@@ -266,10 +674,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/military-lawyer-ai</loc>
+    <lastmod>2026-03-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/military-lawyer-ai</loc>
+    <lastmod>2026-03-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/nais-41m-open-data</loc>
     <lastmod>2026-03-22</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/nais-41m-open-data</loc>
+    <lastmod>2026-03-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/nais-41m-open-data</loc>
+    <lastmod>2026-03-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/ai-changes-lawyer-work-2026</loc>
@@ -278,10 +710,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/ai-changes-lawyer-work-2026</loc>
+    <lastmod>2026-03-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/ai-changes-lawyer-work-2026</loc>
+    <lastmod>2026-03-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/spain-legal-expansion</loc>
     <lastmod>2026-03-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/spain-legal-expansion</loc>
+    <lastmod>2026-03-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/spain-legal-expansion</loc>
+    <lastmod>2026-03-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/developer-docs-api-guide</loc>
@@ -290,10 +746,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/developer-docs-api-guide</loc>
+    <lastmod>2026-03-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/developer-docs-api-guide</loc>
+    <lastmod>2026-03-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/diia-integration-challenges</loc>
     <lastmod>2026-03-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/diia-integration-challenges</loc>
+    <lastmod>2026-03-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/diia-integration-challenges</loc>
+    <lastmod>2026-03-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/sample-queries-86-tools</loc>
@@ -302,10 +782,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/sample-queries-86-tools</loc>
+    <lastmod>2026-03-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/sample-queries-86-tools</loc>
+    <lastmod>2026-03-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/ai-safety-open-registries</loc>
     <lastmod>2026-04-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/ai-safety-open-registries</loc>
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/ai-safety-open-registries</loc>
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/rlhf-longtail-problem</loc>
@@ -314,10 +818,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/rlhf-longtail-problem</loc>
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/rlhf-longtail-problem</loc>
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/constitutional-rlhf</loc>
     <lastmod>2026-04-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/constitutional-rlhf</loc>
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/constitutional-rlhf</loc>
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/ai-experimental-court</loc>
@@ -326,10 +854,34 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/ai-experimental-court</loc>
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/ai-experimental-court</loc>
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/legaltech-llm-constitution</loc>
     <lastmod>2026-04-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/legaltech-llm-constitution</loc>
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/legaltech-llm-constitution</loc>
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/blog/claude-code-building-startups</loc>
@@ -338,16 +890,52 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/claude-code-building-startups</loc>
+    <lastmod>2026-04-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/claude-code-building-startups</loc>
+    <lastmod>2026-04-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/opus-rag-vs-finetuned-llm</loc>
     <lastmod>2026-04-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/en/opus-rag-vs-finetuned-llm</loc>
+    <lastmod>2026-04-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/opus-rag-vs-finetuned-llm</loc>
+    <lastmod>2026-04-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/blog/fast-builds-aws</loc>
     <lastmod>2026-04-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/en/fast-builds-aws</loc>
+    <lastmod>2026-04-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/fast-builds-aws</loc>
+    <lastmod>2026-04-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/en/offer</loc>

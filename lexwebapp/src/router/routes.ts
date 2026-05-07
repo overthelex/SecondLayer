@@ -79,6 +79,7 @@ export const ROUTES = {
   // Blog
   BLOG: '/blog',
   BLOG_ARTICLE: '/blog/:slug',
+  BLOG_ARTICLE_LANG: '/blog/:lang/:slug',
 
   // Career
   CAREER: '/career',
