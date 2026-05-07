@@ -30,6 +30,228 @@ export function hasRecentArticles(): boolean {
 
 export const articles: Article[] = [
   {
+    id: 'recursive-workflow-signals-rlhf',
+    title: 'Recursive Workflow Signals as Training Data for RLHF',
+    punchline: 'When founders with skin in the game work compositionally with LLMs on consequential tasks, their natural editing behavior generates preference data qualitatively superior to crowd-sourced annotation. A methodology proposal for capturing this fourth category of RLHF signal.',
+    category: 'tech',
+    tags: ['RLHF', 'LLM', 'Preference Data', 'Recursive Workflow', 'Legal AI', 'Methodology'],
+    readTime: '15 min read',
+    publishedAt: '2026-05-07',
+    content: `# Recursive Workflow Signals as Training Data for RLHF
+
+**A Methodology Proposal**
+
+*Vladimir Ovcharov, Founder & CEO, LEX AI LLC*
+*May 2026*
+
+---
+
+## Abstract
+
+This document proposes a methodology for capturing high-quality preference signals from founders and domain experts who use Large Language Models recursively in production workflows. The core thesis: when practitioners with skin in the game, domain expertise, and real-world outcome accountability work compositionally with LLMs on consequential tasks, their natural editing behavior generates preference data that is qualitatively superior to existing RLHF data sources. We outline a three-phase pilot study to validate this hypothesis, beginning with a single-founder case study and progressing to multi-founder cohort analysis and a comparative RLHF training experiment.
+
+---
+
+## 1. Problem Statement
+
+### 1.1 Limitations of Current RLHF Data Sources
+
+Existing approaches to collecting preference data for RLHF training each face structural limitations:
+
+**Crowd-sourced annotation** (Mechanical Turk, Surge AI, Scale AI). Limitations: shallow domain expertise, weak motivation alignment with output quality, calibration drift across annotators, and rating tasks decoupled from real-world consequences.
+
+**Expert annotation.** Limitations: prohibitive cost at scale, scarce availability for specialized domains (legal, medical, financial), inconsistency across experts in nuanced cases.
+
+**Constitutional AI / RLAIF.** Limitations: AI judging AI bootstraps from initial principles, principle quality determines ceiling, recursive bias amplification when feedback model derives from same base distribution.
+
+**Synthetic preferences.** Limitations: distributional gap from real production usage, missing the long tail of actual user needs and edge cases.
+
+### 1.2 The Gap
+
+A fourth category of preference signal exists but has not been systematically captured: preferences from practitioners with genuine skin in the production game, expressed natively as part of their work rather than as separate annotation tasks.
+
+This document proposes that founders and domain experts who use LLMs recursively in production constitute this fourth category, and that their preference signals can be captured at scale without disrupting natural workflow.
+
+---
+
+## 2. Defining Recursive Workflow
+
+For purposes of this methodology, a workflow qualifies as "recursive use of LLM" when it satisfies three conditions:
+
+**Compositional layering.** The output of one LLM interaction serves as context, input, or feedback for subsequent interactions. The user is not making one-shot queries but maintaining ongoing computational threads.
+
+**Human-in-the-loop with judgment.** The practitioner accepts, edits, or rejects each output based on contextual judgment. They are not passive consumers but active editors who shape final artifacts.
+
+**Real-world outcome attribution.** Measurable consequences exist for output quality: responses that convert to meetings, communications that retain customers, code that ships and runs, content that generates engagement. These outcomes are temporally trackable and partially attributable to specific interaction sequences.
+
+This definition explicitly excludes: one-shot query usage (no composition), purely automated pipelines (no human judgment), and exploratory/learning use without outcome stakes (no attribution).
+
+---
+
+## 3. Data Collection Methodology
+
+### 3.1 Implicit Signal Capture
+
+The foundational layer captures founder behavior passively, without requiring additional annotation effort. For each LLM interaction, the system logs:
+
+- Prompt content and context
+- Generated response
+- User edits to the response (additions, deletions, rewrites, structural changes)
+- Time spent in the editing phase
+- Final action taken (sent, saved, deleted, shared, archived)
+- Session metadata (time of day, prior context, thread length)
+
+This data is collected as a natural side effect of using the workflow, requiring no annotation tax on the practitioner.
+
+### 3.2 Explicit Lightweight Tagging (Opt-in)
+
+Practitioners can optionally tag sessions with low-friction labels: high-stakes communication, internal note, client interaction, exploration, etc. These tags provide contextual stratification for later analysis without imposing significant overhead.
+
+### 3.3 Outcome Attribution
+
+At periodic intervals (weekly or monthly aggregation windows), automated systems attempt to attribute downstream outcomes to specific session sequences. Outcomes include:
+
+- Response received from a counterparty
+- Meeting scheduled or attended
+- Partnership agreement reached
+- Investment committed
+- Customer acquired or retained
+- Content distributed and engaged with
+
+Attribution involves several methodological decisions: appropriate temporal windows, multi-touch sequence handling, confounding factor identification, and causal versus correlational claim limits.
+
+---
+
+## 4. Signal Quality Assessment
+
+### 4.1 Predicted Advantages
+
+**Domain depth.** A practitioner working on legal AI brings substantively different judgment to "is this output factually correct" than a generic crowd worker.
+
+**Stakes calibration.** Rejecting a poor output has real cost (lost customer, missed opportunity, damaged relationship), producing more rigorous evaluation than $0.05-per-rating crowd tasks.
+
+**Temporal coherence.** Preferences captured over months reflect evolving understanding and contextual sophistication, not snapshot ratings.
+
+**Native distribution.** Captured preferences match actual production usage distribution, not annotation task distribution.
+
+### 4.2 Predicted Risks and Mitigations
+
+**Idiosyncratic preferences.** A single founder's taste is not universal. Mitigation: aggregating across diverse practitioners and identifying robust universal patterns versus context-specific preferences.
+
+**Sample bias.** Founders skew toward technical, educated, English-speaking demographics. Mitigation: explicit recruitment for diverse cohorts including non-Western, non-English-primary, multiple-domain practitioners.
+
+**Confounded outcomes.** A response leading to a meeting may succeed due to timing, recipient state, or external factors unrelated to output quality. Mitigation: treating outcome data as weak signal rather than strong reward, using it for stratification rather than direct optimization.
+
+**Privacy and consent.** Real production data contains sensitive content. Mitigation: comprehensive anonymization protocols, opt-in consent at session level, content filtering before any aggregation.
+
+---
+
+## 5. Pilot Study Design
+
+### Phase 1: Single-Founder Case Study (4–6 weeks)
+
+A single founder (the author) instruments their existing recursive workflow on a production legal AI platform (Legal.org.ua / LEX AI). Data collection covers all LLM interactions across:
+
+- Product development (Claude Code sessions, code review, architecture decisions)
+- Business development outreach (cold email composition, follow-up sequences, response handling)
+- Content creation (technical writing, manifesto-style posts, market commentary)
+- Legal and operational document preparation (contracts, privacy policies, regulatory correspondence)
+
+Outcomes tracked include partnership formations (Google for Startups acceptance, Deloitte introduction via GFS, NVIDIA Inception approval), business decisions (counterparty evaluations, contract negotiations), and content reception metrics.
+
+Analysis identifies preference signal patterns that distinguish high-outcome from low-outcome interaction sequences.
+
+### Phase 2: Multi-Founder Cohort (8–12 weeks)
+
+Recruit 5–10 founders working recursively with LLMs across diverse production contexts: legal tech, healthcare, fintech, creative tools, infrastructure, geographically distributed.
+
+Same data collection protocol. Cross-comparison analysis examines which preference patterns appear universal versus which are context-specific. Cohort diversity enables initial assessment of demographic and domain bias.
+
+### Phase 3: RLHF Training Experiment (12+ weeks)
+
+Using collected preference data from Phases 1–2, conduct controlled RLHF training experiments. Compare training outcomes against baselines:
+
+- Traditional crowd-sourced preference data on same domain
+- Constitutional AI feedback on same principles
+- Untrained baseline model
+
+Evaluation on held-out test sets including: domain expertise tasks, instruction following, harm avoidance, and held-out outcome prediction (does training on Phase 1–2 data improve performance on tasks similar to those that generated favorable real-world outcomes).
+
+---
+
+## 6. Methodology Paper Outputs
+
+The completed methodology produces:
+
+- Formal definition of recursive workflow signal with operationalized criteria
+- Reproducible data collection protocol with privacy and consent specifications
+- Pilot study results (single-founder case study and multi-founder cohort analysis)
+- Comparative RLHF training experiment results against established baselines
+- Anonymized open dataset release for replicability
+- Limitations analysis and future work directions
+
+---
+
+## 7. Connection to Existing Work
+
+This methodology builds directly on prior contributions:
+
+**LegalTech LLM Constitution** (LEX AI, 2026). Demonstrates capability to formalize domain principles into operationalizable framework — relevant for defining preference dimensions in domain-specific settings.
+
+**Constitutional RLHF on Ukrainian Civil Law** (LEX AI, 2026). Demonstrates RLHF methodology thinking applied to specific jurisdiction — provides foundation for understanding how preferences interact with constitutional principles.
+
+**Production-scale recursive workflow** (LEX AI, 2026). Documented case of 735 commits in 25 days using Claude Code, 340M+ records pipeline, 70 MCP tools in production — demonstrates infrastructure capacity for data collection at meaningful scale.
+
+**Open-source MCP infrastructure.** Existing toolchain provides natural instrumentation points for the data collection protocol described in Section 3.
+
+---
+
+## 8. Open Questions
+
+Honest acknowledgment of unresolved methodological questions:
+
+- **Scaling beyond solo practice.** How does the methodology adapt for teams of 5–10 working collectively with LLMs? Does collective recursive workflow generate compatible signal or fundamentally different patterns?
+
+- **Domain transferability.** Legal AI involves structured data and explicit reasoning chains. Recursive workflow in creative, scientific, or interpersonal domains may exhibit different characteristics. The methodology may require domain-specific adaptation.
+
+- **Long-term sustainability.** Recursive use at high intensity carries cognitive cost. The methodology assumes practitioners can sustain meaningful workflow over study periods; burnout dynamics require careful attention.
+
+- **Model capability evolution.** As underlying models improve, the recursive use patterns themselves shift. Preference signals captured on Claude 3.5 may be less informative for training Claude 5. The methodology must address this temporal stability question.
+
+- **Causal identification.** Distinguishing genuine preference signal from confounded outcome correlation requires rigorous experimental design beyond initial pilot study scope.
+
+---
+
+## 9. Resource Requirements (Provisional)
+
+For execution of complete methodology through Phase 3:
+
+- Compute for Phase 3 RLHF experiments: estimated \\$50–200K (potentially covered through NVIDIA Inception DGX Cloud credits, AWS Bedrock credits, or Anthropic Researcher Access Program)
+- Engineering effort: 6–9 months sustained work, primarily solo with selective collaboration
+- Cohort recruitment and coordination: modest budget for participant compensation in Phase 2
+- Publication and conference participation: standard academic publication costs
+
+---
+
+## 10. Status and Next Steps
+
+This document represents initial methodology scaffolding. Concrete next steps before formal proposal preparation:
+
+- Validate single-founder case study feasibility against existing workflow instrumentation
+- Identify potential cohort participants and assess recruitment realism
+- Engage with potential research collaborators or advisors
+- Refine outcome attribution methodology with appropriate statistical rigor
+- Develop privacy protocol for review
+
+Timeline assumes initiation after current commitments stabilize (Q3 2026), with completion targeted for Q2 2027 publication submission.
+
+---
+
+*LEX AI LLC, Kyiv, Ukraine*
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
+  {
     id: 'rag-vs-training-legal-heterogeneity',
     title: 'RAG підсвічує, тренінг орієнтує: що робити з неоднорідністю судової практики',
     punchline: 'Під попередньою статтею прийшов коментар: "задача змістилася від доступу до практики до управління її неоднорідністю". Точне формулювання. Розбираємо, чому ваги авторитетності у RAG — полмера, що саме додає тренінг власної моделі, і чому в проді потрібні обидва шари.',
