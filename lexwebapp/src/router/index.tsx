@@ -280,6 +280,10 @@ export const router = createBrowserRouter([
     element: S(AbuseReportPage),
   },
   {
+    path: ROUTES.BLOG_ARTICLE_LANG,
+    element: S(BlogArticlePage),
+  },
+  {
     path: ROUTES.BLOG_ARTICLE,
     element: S(BlogArticlePage),
   },

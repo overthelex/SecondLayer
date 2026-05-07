@@ -20,14 +20,23 @@ import { getBlogUI, getLocalizedArticles } from './blog-i18n';
 const translationMaps = { en: enTranslations, ru: ruTranslations };
 
 export function BlogArticlePage() {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug, lang } = useParams<{ slug: string; lang?: string }>();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const language = useLocaleStore((s) => s.language);
-  const ui = getBlogUI(language);
+  const setLanguage = useLocaleStore((s) => s.setLanguage);
+
+  useEffect(() => {
+    if (lang && ['en', 'ru', 'es'].includes(lang) && lang !== language) {
+      setLanguage(lang as 'en' | 'ru' | 'es');
+    }
+  }, [lang, language, setLanguage]);
+
+  const effectiveLang = (lang && ['en', 'ru', 'es', 'uk'].includes(lang)) ? lang as 'en' | 'ru' | 'es' | 'uk' : language;
+  const ui = getBlogUI(effectiveLang);
   const localizedArticles = useMemo(
-    () => getLocalizedArticles(articles, language, translationMaps),
-    [language]
+    () => getLocalizedArticles(articles, effectiveLang, translationMaps),
+    [effectiveLang]
   );
 
   const article = localizedArticles.find((a) => a.id === slug);
