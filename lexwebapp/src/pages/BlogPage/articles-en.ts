@@ -6151,12 +6151,14 @@ Thirty articles. Nine sections. One fundamental idea: **technology that works wi
 `,
   },
   'claude-code-building-startups': {
-    title: 'How I Made 735 Commits in 25 Days: Claude Code as a Full Engineering Partner',
-    punchline: '486 sessions, 5,612 messages, 193,000 lines of code, 22,326 bash commands — and zero hired developers. Real usage statistics of Claude Code for building a legal tech platform, data pipelines processing 340M+ records, and MCP integrations.',
-    readTime: '12 min',
-    content: `# How I Made 735 Commits in 25 Days: Claude Code as a Full Engineering Partner
+    title: 'How I Made 1,200+ Commits in 50 Days: Claude Code as a Full Engineering Partner',
+    punchline: '800+ sessions, 10,000+ messages, 1,200+ commits, 328,000 lines of code, 40,000+ bash commands — and zero hired developers. Real usage statistics of 50 days of continuous work with Claude Code building a legal tech platform.',
+    readTime: '15 min',
+    content: `# How I Made 1,200+ Commits in 50 Days: Claude Code as a Full Engineering Partner
 
 *This is not a promotional article. It's a transparent breakdown of real Claude Code usage statistics while building a legal tech platform, data pipelines, and infrastructure. With numbers, mistakes, and conclusions.*
+
+*Updated May 7, 2026 — added data from the second month of work.*
 
 ---
 
@@ -6168,34 +6170,47 @@ I'm the sole developer. Instead of a team of 5-10 engineers, I work with Claude 
 
 ---
 
-## Numbers Over 25 Days (March 18 — April 12, 2026)
+## Numbers Over 50 Days (March 18 — May 7, 2026)
 
-| Metric | Value |
-|--------|-------|
-| Sessions | 486 (285 analyzed) |
-| Messages | 5,612 |
-| Commits | 735 |
-| Lines written | +193,340 |
-| Lines deleted | -14,259 |
-| Files changed | 1,811 |
-| Bash commands | 22,326 |
-| Edit operations | 3,782 |
-| Sub-agents | 864 |
-| Parallel sessions | 41% of messages |
+| Metric | First 25 Days | Next 31 Days | Total |
+|--------|---------------|--------------|-------|
+| Sessions | 486 | 315 | 800+ |
+| Messages | 5,612 | 4,685 | 10,297 |
+| Commits | 735 | 472 | 1,207 |
+| Lines written | +193,340 | +134,836 | +328,176 |
+| Lines deleted | -14,259 | -8,294 | -22,553 |
+| Files changed | 1,811 | 1,663 | 3,474 |
+| Bash commands | 22,326 | 18,250 | 40,576 |
+| Edit operations | 3,782 | 2,724 | 6,506 |
+| Sub-agents | 864 | 597 | 1,461 |
+| Parallel sessions | 41% | 26% | ~34% |
 
-This isn't theoretical productivity. This is real git log.
+This isn't theoretical productivity. This is real git log over two months of continuous work.
+
+**1,875 hours** of Claude Code work time. 151 messages per day. This is the equivalent of a small engineering team working without weekends.
 
 ---
 
 ## What Exactly I Built
 
-### 1. Legal Tech Platform (28 sessions)
+### 1. Legal Tech Platform (~78 sessions)
 
-Core product: bug fixes, new features (Diia authentication, developer contracts, email notifications, Spanish localization with geo-detection), UI redesign, 93+ tests.
+Core product: bug fixes, new features (Diia authentication, developer contracts, email notifications, Spanish localization with geo-detection, beta-access gates, billing/auth audits, support widgets, Monobank donations, locale routing), UI redesign, 93+ tests.
 
-Claude Code worked as a full-stack developer: multi-file changes, PR creation, merge, deploy — all in one session.
+Claude Code works as a full-stack developer: multi-file changes, PR creation, merge, deploy, Plane task updates — all in one session.
 
-### 2. Open Data Pipelines (18 sessions)
+### 2. Production Operations & DevOps (~61 sessions)
+
+The biggest growth area in the second month. Claude became an SRE partner:
+- Diagnosing 502 errors, blue/green deploy incidents
+- EBS volume expansion, DNS misconfigurations, CI/CD cron failures
+- EC2 provisioning across regions (Paris, Spain)
+- Blue-green deployments with preview environments
+- Docker/nginx debugging, server migrations
+
+Full incident response cycle: from diagnosis through PR merge to prod verification — without my intervention.
+
+### 3. Open Data Pipelines (18 sessions)
 
 Scale:
 - 44K documents from the Verkhovna Rada
@@ -6205,71 +6220,128 @@ Scale:
 
 Claude Code orchestrated multi-server, multi-IP parallel download scripts. Debugged rate limiting and WAF blocks. Managed PostgreSQL bulk imports with repartitioning and GIN indexes on 63M rows.
 
-### 3. Infrastructure & DevOps (16 sessions)
+### 4. Security (~8 sessions)
 
-EC2 provisioning across regions (Paris, Spain), CI/CD pipeline fixes, blue-green deployments with preview environments, Docker/nginx debugging, server migrations.
+A new direction in the second month:
+- Security audits of localhost/production for hacking attempts
+- Threat analysis for document upload abuse
+- 6 Tier 1 mitigations in parallel with tests — in a single session
+- Dependabot security alerts (vite, uuid, postcss)
 
-### 4. MCP Server Ecosystem (14 sessions)
+### 5. MCP Server Ecosystem (14 sessions)
 
-Building and configuring MCP servers for Nextcloud Deck/Tables, Thunderbird email, and ChatGPT integration. Migrating 180 tasks from Linear to Nextcloud Deck.
+Building and configuring MCP servers for Nextcloud Deck/Tables, Thunderbird email, and ChatGPT integration. Migrating 180 tasks from Linear to Nextcloud Deck (then to Plane).
 
-### 5. Content & Side Projects (8 sessions)
+### 6. Content, Business Ops & Side Projects (~32 sessions)
 
-Investor memos, legal documents, blog articles, and a Telegram bot with Bender quotes from Futurama featuring a multilingual database.
+Email handling (Google/business correspondence in Ukrainian and English), accelerator applications, pitch decks, financial modeling, LinkedIn contacts from Sales Navigator, CFP submissions. Plus side projects: a Milky Way galaxy simulator, EPUB reader (books.s0me.uk), a Telegram bot with Bender quotes from Futurama.
 
 ---
 
 ## What a Typical Work Session Looks Like
 
-I don't write detailed prompts. My style is **launch Claude at a task, watch what it does, course-correct in real time**.
+I don't write detailed prompts. My style is **launch Claude at a task, watch what it does, course-correct in real time**. Prompts are terse and goal-oriented: "check prod", "merge PR #1489 then revert it", "take LEXAI-865 into work".
 
-Statistics confirm: 106 instances where Claude started with the wrong approach, which I quickly redirected. This isn't a bug — it's a feature of working with an AI partner.
+Claude Insights characterizes this pattern as: *"Terse, outcome-focused dispatcher who delegates entire ops-to-deploy pipelines and intervenes only when execution visibly diverges from intent."*
 
-**Result: 89% of sessions completed successfully.**
+Statistics over 50 days: **190 instances** of wrong approach (106 + 84), **177 instances** of buggy code (102 + 75). But only 44 rejected actions in the second month — meaning surgically precise corrections, not constant micromanagement.
+
+**Result: 84% of sessions completed successfully** (72 fully + 50 mostly achieved out of 145 analyzed in the second month).
 
 ---
 
 ## What Works Best
 
-### Multi-file Changes — 56 sessions
+### End-to-end Shipping with Task Tracking
+
+The strongest pattern over 50 days: implementation → PR → merge → prod deploy → verify → update Plane task — all in a single session. Features don't just get coded — they get shipped, verified in production, and tracked in Plane.
+
+### Incident Response Under Pressure
+
+Claude as first responder for production issues: 502s from half-switched blue/green deploys, full EBS volumes, white-screen circular imports, misrouted Cloudflare A-records. Root cause diagnosis instead of guessing, fixes deployed without rollback drama.
+
+### Parallel Security Work
+
+Threat modeling + 6 Tier 1 mitigations in parallel with tests, CI fix, PR merge, and task tracking — in one pass. Security as a batch-executable workflow, not a backlog.
+
+### Multi-file Changes — 56+ sessions
 
 When you need to change a type in a shared package, update the backend handler, frontend component, and tests simultaneously — Claude Code does it in one iteration. For a human, that's 30-60 minutes of context switching.
 
 ### MCP Integrations as Operational Infrastructure
 
-Nextcloud Deck for tasks, AWS API for infrastructure, Thunderbird for email — Claude Code becomes a full operational hub.
+Plane for task management, AWS API for infrastructure, Thunderbird for email, Nextcloud for boards/tables/calendar, SecondLayer MCP for legal tech operations — Claude Code becomes a full operational hub.
 
 ---
 
 ## Where It Doesn't Work (Honestly)
 
-### Wrong Approach — 106 instances
+### Wrong Approach — 190 instances over 50 days
 
 Claude often starts with the wrong approach: searches in the wrong directory, uses SSH instead of MCP tools, picks slow strategies for DB operations.
 
-### Buggy Code — 102 instances
+**New pattern:** Claude commits to an approach before verifying the target. The clearest example — a PR merged into the wrong repository (sneakypiper instead of secondlayer), requiring a revert and redeploy. Solution: always check \`git remote -v\` before merging.
 
-Code doesn't always work on the first try. But with TypeScript and tests, issues get caught quickly.
+**Another:** when diagnosing a white-screen in production, Claude first decided it was a minifier bug (switched to terser) when the real cause was a circular import. Burned several iterations before finding root cause.
+
+### Buggy Code — 177 instances
+
+Code doesn't always work on the first try. Type errors, missing imports, incorrect SQL queries. But with TypeScript and tests, issues get caught quickly. On complex bugs (coordinate systems, build tooling, import graphs), the first hypothesis is often wrong.
+
+### Scope Creep — a new problem
+
+Claude often expands scope without being asked: after a merge, starts checking open PRs; adds extra accounts to outreach; replies to emails without confirmation. Requires clear "done" boundaries.
 
 ---
 
 ## Economics: AI Partner vs Team
+
+Over 50 days:
 
 | | AI Partner | Team of 3 |
 |--|-----------|-----------|
 | Cost/month | ~$200 (Claude Pro) | $15,000-30,000 |
 | Availability | 24/7, parallel sessions | Business hours |
 | Onboarding | 0 (CLAUDE.md) | 2-4 weeks |
+| Scaling | Instant (more sessions) | Months of hiring |
+| Quality | 84-89% success rate | Depends on the team |
+| Roles | Full-stack + DevOps + SRE + PM | Need separate specialists |
+
+Over 50 days Claude filled the roles of: full-stack developer, DevOps engineer, SRE (incident response), project manager (Plane), business assistant (emails, pitch decks), security auditor. Hire 6 specialists? Or one engineer + Claude Code?
 
 **One experienced engineer with an AI partner can do the work of a small team.**
 
 ---
 
+## What Changed in the Second Month
+
+The main evolution: from "coder" to "operator." In the first month, Claude Code primarily wrote code. In the second, it became a full SRE partner:
+
+- **Incident response**: diagnosing 502s, white-screens, full EBS, misrouted DNS — from detection to fix without my intervention
+- **Security**: threat modeling + 6 parallel mitigations with tests in a single session
+- **Task management**: Plane integration — Claude updates task statuses after deployment
+- **Business ops**: emails, pitch decks, LinkedIn, accelerator applications — alongside production debugging
+
+Productivity remained stable: 151 messages/day, 15 commits/day. This isn't a sprint — it's a marathon.
+
+---
+
 ## Conclusions
 
-735 commits in 25 days isn't science fiction. It's the result of systematic work with an AI partner, where CLAUDE.md replaces onboarding, MCP integrations replace tool-switching, and TypeScript + tests compensate for errors.
+1,200+ commits in 50 days isn't science fiction. It's the result of systematic work with an AI partner, where:
 
-Will AI replace developers? No. But one developer with a properly configured AI partner is no longer just one developer.
+- **CLAUDE.md** replaces onboarding (and is continuously updated based on mistakes)
+- **MCP integrations** (Plane, AWS, Thunderbird, Nextcloud) replace tool-switching
+- **Parallel sessions** (~34% of messages) replace waiting
+- **TypeScript + tests** compensate for 177 buggy code instances
+- **Real-time correction** compensates for 190 wrong approaches
+- **Sub-agents** (1,461 over 50 days) enable parallel investigation of complex problems
+
+Will AI replace developers? No. But one developer with a properly configured AI partner is no longer just one developer. It's a small team that never sleeps, never gets sick, and can simultaneously deploy to prod, diagnose 502 errors, run security audits, and build a Milky Way galaxy simulator.
+
+---
+
+*P.S. This article was also written with Claude Code. Meta? Maybe. But 1,200+ commits are real. And Claude also photoshopped a "Top Voice" badge off a colleague's LinkedIn photo — multiple iterations of crop, blur, and clone-stamp.*
 
 ---
 
