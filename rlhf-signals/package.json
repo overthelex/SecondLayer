@@ -17,6 +17,7 @@
     "rlhf:outcome": "tsx src/attribution/manual-outcomes.ts",
     "rlhf:redact": "tsx src/redaction/content-redactor.ts",
     "rlhf:export": "tsx src/export/dataset-builder.ts",
+    "rlhf:experiment1:sample": "tsx src/experiment1/sample-for-crowd.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
