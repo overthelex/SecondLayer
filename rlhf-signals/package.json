@@ -12,6 +12,7 @@
     "rlhf:attribute": "tsx scripts/attribute-outcomes.ts",
     "rlhf:feasibility": "tsx scripts/generate-feasibility.ts",
     "rlhf:classify": "tsx scripts/classify-edits.ts",
+    "rlhf:link": "tsx scripts/link-transcripts.ts",
     "rlhf:ingest": "tsx src/capture/manual-ingest.ts",
     "rlhf:outcome": "tsx src/attribution/manual-outcomes.ts",
     "rlhf:redact": "tsx src/redaction/content-redactor.ts",
