@@ -42,6 +42,7 @@ export const articles: Article[] = [
 **A Methodology Proposal**
 
 *Vladimir Ovcharov, Founder & CEO, LEX AI LLC*
+*[LinkedIn](https://www.linkedin.com/in/overthelex/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
 *May 2026*
 
 ---
@@ -200,9 +201,20 @@ This methodology builds directly on prior contributions:
 
 **Constitutional RLHF on Ukrainian Civil Law** (LEX AI, 2026). Demonstrates RLHF methodology thinking applied to specific jurisdiction — provides foundation for understanding how preferences interact with constitutional principles.
 
-**Production-scale recursive workflow** (LEX AI, 2026). Documented case of 735 commits in 25 days using Claude Code, 340M+ records pipeline, 70 MCP tools in production — demonstrates infrastructure capacity for data collection at meaningful scale.
+**Production-scale recursive workflow** (LEX AI, 2026). Documented case of 1,200+ commits in 50 days using Claude Code, 380M+ records pipeline, 70+ MCP tools in production — demonstrates infrastructure capacity for data collection at meaningful scale.
 
 **Open-source MCP infrastructure.** Existing toolchain provides natural instrumentation points for the data collection protocol described in Section 3.
+
+---
+
+## 7.1 Academic References
+
+- Christiano, P., Leike, J., Brown, T., Marber, M., Lowe, S., & Amodei, D. (2017). Deep reinforcement learning from human preferences. *Advances in Neural Information Processing Systems*, 30.
+- Ouyang, L., Wu, J., Jiang, X., et al. (2022). Training language models to follow instructions with human feedback. *Advances in Neural Information Processing Systems*, 35.
+- Bai, Y., Jones, A., Ndousse, K., et al. (2022). Training a helpful and harmless assistant with reinforcement learning from human feedback. *arXiv preprint arXiv:2204.05862*.
+- Bai, Y., Kadavath, S., Kundu, S., et al. (2022). Constitutional AI: Harmlessness from AI feedback. *arXiv preprint arXiv:2212.08073*.
+- Rafailov, R., Sharma, A., Mitchell, E., et al. (2023). Direct preference optimization: Your language model is secretly a reward model. *Advances in Neural Information Processing Systems*, 36.
+- Ziegler, D. M., Stiennon, N., Wu, J., et al. (2019). Fine-tuning language models from human preferences. *arXiv preprint arXiv:1909.08593*.
 
 ---
 
@@ -247,6 +259,7 @@ Timeline assumes initiation after current commitments stabilize (Q3 2026), with 
 
 ---
 
+*Vladimir Ovcharov — [LinkedIn](https://www.linkedin.com/in/overthelex/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
 *LEX AI LLC, Kyiv, Ukraine*
 
 Registration: [legal.org.ua](https://legal.org.ua)`,
