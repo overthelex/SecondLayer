@@ -72,6 +72,7 @@ coverage/
 .nyc_output/
 test-results/
 tests/
+!rlhf-signals/tests/
 test_data/
 
 # Temp files
@@ -136,6 +137,7 @@ mcp_backend/start-mcp-container.sh
 # Lock files (managed per workspace)
 package-lock.json
 !platform/package-lock.json
+!rlhf-signals/package-lock.json
 
 # Data downloads (large binary files)
 scripts/judges/downloads/
