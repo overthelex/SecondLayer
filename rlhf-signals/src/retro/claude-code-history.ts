@@ -9,16 +9,30 @@ import levenshtein from 'js-levenshtein';
 
 const MAX_ARTIFACT_TOKENS = 50_000;
 
-interface TranscriptMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string | { type: string; text?: string; name?: string }[];
+interface TranscriptLine {
+  type: string;
+  message?: {
+    role?: string;
+    content?: string | ContentBlock[];
+    model?: string;
+    usage?: { input_tokens?: number; output_tokens?: number };
+  };
   timestamp?: string;
+  uuid?: string;
+  sessionId?: string;
 }
 
-function extractTextContent(content: TranscriptMessage['content']): string {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
+interface ContentBlock {
+  type: string;
+  text?: string;
+  name?: string;
+}
+
+export function extractTextContent(message: TranscriptLine['message']): string {
+  if (!message?.content) return '';
+  if (typeof message.content === 'string') return message.content;
+  if (Array.isArray(message.content)) {
+    return message.content
       .filter(c => c.type === 'text' && c.text)
       .map(c => c.text!)
       .join('\n');
@@ -26,9 +40,9 @@ function extractTextContent(content: TranscriptMessage['content']): string {
   return '';
 }
 
-function extractToolNames(content: TranscriptMessage['content']): string[] {
-  if (!Array.isArray(content)) return [];
-  return content
+export function extractToolNames(message: TranscriptLine['message']): string[] {
+  if (!message?.content || !Array.isArray(message.content)) return [];
+  return message.content
     .filter(c => c.type === 'tool_use' && c.name)
     .map(c => c.name!);
 }
@@ -45,8 +59,8 @@ function tokenLevenshtein(a: string, b: string): { distance: number; normalized:
   return { distance, normalized: maxLen > 0 ? distance / maxLen : 0 };
 }
 
-async function parseTranscriptFile(filePath: string): Promise<TranscriptMessage[]> {
-  const messages: TranscriptMessage[] = [];
+async function parseTranscriptFile(filePath: string): Promise<TranscriptLine[]> {
+  const messages: TranscriptLine[] = [];
   const fileStream = fs.createReadStream(filePath);
   const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
 
@@ -54,8 +68,10 @@ async function parseTranscriptFile(filePath: string): Promise<TranscriptMessage[
     const trimmed = line.trim();
     if (!trimmed) continue;
     try {
-      const msg = JSON.parse(trimmed) as TranscriptMessage;
-      if (msg.role) messages.push(msg);
+      const parsed = JSON.parse(trimmed) as TranscriptLine;
+      if (parsed.type === 'user' || parsed.type === 'assistant') {
+        messages.push(parsed);
+      }
     } catch {
       // skip malformed lines
     }
@@ -106,12 +122,16 @@ export async function extractClaudeCodeHistory(): Promise<void> {
 
     await processTranscript(filePath, messages);
     processed++;
+
+    if (processed % 100 === 0) {
+      logger.info(`Progress: ${processed} transcripts processed, ${skipped} skipped`);
+    }
   }
 
   logger.info(`Claude Code extraction complete: ${processed} sessions, ${skipped} skipped`);
 }
 
-async function processTranscript(filePath: string, messages: TranscriptMessage[]): Promise<void> {
+async function processTranscript(filePath: string, messages: TranscriptLine[]): Promise<void> {
   const relativePath = path.relative(config.claudeCodeProjectsDir, filePath);
   const stat = fs.statSync(filePath);
 
@@ -137,23 +157,21 @@ async function processTranscript(filePath: string, messages: TranscriptMessage[]
 
     let seqIdx = 0;
     const artifactIds: string[] = [];
-    let lastUserContent: string | null = null;
+    let hadUserMessage = false;
 
     for (const msg of messages) {
-      if (msg.role === 'system') continue;
-
-      const text = extractTextContent(msg.content);
+      const text = extractTextContent(msg.message);
       if (!text.trim()) continue;
 
       const tokenCount = simpleTokenize(text).length;
       const shouldStore = tokenCount <= MAX_ARTIFACT_TOKENS;
       const storedContent = shouldStore ? text : `[truncated: ${tokenCount} tokens, see file: ${relativePath}]`;
-      const toolNames = extractToolNames(msg.content);
+      const toolNames = extractToolNames(msg.message);
 
       let role: 'prompt' | 'llm_output' | 'edit';
-      if (msg.role === 'user') {
-        role = lastUserContent !== null ? 'edit' : 'prompt';
-        lastUserContent = text;
+      if (msg.type === 'user') {
+        role = !hadUserMessage ? 'prompt' : 'edit';
+        hadUserMessage = true;
       } else {
         role = 'llm_output';
       }
@@ -172,10 +190,10 @@ async function processTranscript(filePath: string, messages: TranscriptMessage[]
       artifactIds.push(id);
     }
 
-    // Add final artifact summarizing session
+    // Add final artifact
     if (artifactIds.length > 0) {
       const lastMsg = messages[messages.length - 1];
-      const lastText = extractTextContent(lastMsg.content);
+      const lastText = extractTextContent(lastMsg.message);
       if (lastText.trim()) {
         const finalContent = lastText.slice(0, 2000);
         const id = await upsertArtifact({
@@ -193,7 +211,7 @@ async function processTranscript(filePath: string, messages: TranscriptMessage[]
       }
     }
 
-    // Edits between consecutive artifacts
+    // Edits between consecutive artifacts (skip truncated)
     for (let i = 1; i < artifactIds.length; i++) {
       const fromResult = await client.query(
         'SELECT content_raw FROM workflow_artifacts WHERE artifact_id = $1',
