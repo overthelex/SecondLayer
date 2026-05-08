@@ -7073,12 +7073,12 @@ Different realities — different architectures. But the goal is one: to make ju
 Registration: [legal.org.ua](https://legal.org.ua)`,
   },
   'recursive-workflow-signals-rlhf': {
-    title: 'Recursive Workflow Signals as Training Data for RLHF',
-    punchline: 'When founders with skin in the game work compositionally with LLMs on consequential tasks, their natural editing behavior generates preference data qualitatively superior to crowd-sourced annotation. A methodology proposal for capturing this fourth category of RLHF signal.',
-    readTime: '15 min read',
-    content: `# Recursive Workflow Signals as Training Data for RLHF
+    title: 'Preferences from Shipping: Process-Aware RLHF Data from a CEO Who Built a Production LLM Product',
+    punchline: 'Existing RLHF preference data comes from annotators detached from real product construction. We propose a fundamentally different source: a shipping CEO whose 30,510 edits across 2,892 workflow sessions are validated by a product running in production with paying customers. Plus OS-level process instrumentation that captures how edits happen, not just what changed.',
+    readTime: '18 min read',
+    content: `# Preferences from Shipping: Process-Aware RLHF Data from a CEO Who Built a Production LLM Product
 
-**A Methodology Proposal**
+**Working Paper — arXiv Preprint Forthcoming**
 
 *Vladimir Ovcharov, Founder & CEO, LEX AI LLC*
 *[LinkedIn](https://www.linkedin.com/in/overthelex/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
@@ -7088,245 +7088,131 @@ Registration: [legal.org.ua](https://legal.org.ua)`,
 
 ## Abstract
 
-This document proposes a methodology for capturing high-quality preference signals from founders and domain experts who use Large Language Models recursively in production workflows. The core thesis: when practitioners with skin in the game, domain expertise, and real-world outcome accountability work compositionally with LLMs on consequential tasks, their natural editing behavior generates preference data that is qualitatively superior to existing RLHF data sources. We outline a three-phase pilot study to validate this hypothesis, beginning with a single-founder case study and progressing to multi-founder cohort analysis and a comparative RLHF training experiment.
+Existing sources of RLHF preference data — crowd workers, expert annotators, AI raters — all operate detached from real product construction. They evaluate LLM outputs in abstract annotation contexts, without feedback from reality. We propose a fundamentally different source: a CEO/founder who built a production LLM product from zero to paying customers. Their preferences during the shipping period are validated by a product running in production — converting preference signal from subjective rating into **outcome-validated revealed preference**.
+
+**Subject:** CEO of Legal.org.ua / LEX AI. Shipping period: 105 days (Jan 24 – May 8, 2026), 1,393 merged PRs, 70+ MCP tools in production, 380M+ records in the data pipeline. Validated outcomes: Google for Startups acceptance, NVIDIA Inception approval, paying customers.
+
+**Two-axis preference signal:** (1) artifact-level — what changed (30,510 edits, 80.7% substantive rewrites, median edit distance 0.84); (2) process-level — how it changed (OS-level activity tracking: keystroke timing, idle gaps, cross-app research, voice context). No existing preference dataset captures both.
+
+**Pilot dataset:** 2,892 workflow sessions, 30,510 edit pairs, 1,579 attributed outcomes (54.6% coverage, 88.1% strong confidence). Process-level enrichment via synchronized OS activity tracker covers 498 sessions (17.2%) with 9,254 edits.
+
+**Experiments:** 4 progressive experiments — from no-GPU signal quality characterization to flagship engagement-weighted DPO training on NVIDIA DGX Cloud (8\\u00d7H100). Experiment 1 Phase A (stratified sampling of 200 LLM outputs for crowd comparison) is complete.
 
 ---
 
-## 1. Problem Statement
+## 1. The Validation Gap in Preference Data
 
-### 1.1 Limitations of Current RLHF Data Sources
+### 1.1 The Structural Problem
 
-Existing approaches to collecting preference data for RLHF training each face structural limitations:
+Every existing source of RLHF preference data shares one property: **the annotator\\\'s preferences have not been validated by reality**. A Mechanical Turk worker bears no consequences for a poor rating. An expert annotator evaluates in a controlled environment, not in a shipped product. An RLAIF model evaluates based on principles supplied by its creators, without feedback from reality. They all express ratings, not demonstrated success.
 
-**Crowd-sourced annotation** (Mechanical Turk, Surge AI, Scale AI). Limitations: shallow domain expertise, weak motivation alignment with output quality, calibration drift across annotators, and rating tasks decoupled from real-world consequences.
+### 1.2 An Alternative: Builders Who Ship
 
-**Expert annotation.** Limitations: prohibitive cost at scale, scarce availability for specialized domains (legal, medical, financial), inconsistency across experts in nuanced cases.
+We propose an alternative validated by shipping: a CEO/founder who used LLMs as the key tool to build a production-grade product from concept to paying customers.
 
-**Constitutional AI / RLAIF.** Limitations: AI judging AI bootstraps from initial principles, principle quality determines ceiling, recursive bias amplification when feedback model derives from same base distribution.
+This subject\\\'s preferences have already passed shipping validation: every accepted piece of code shipped, every rejected decision did not. Reality applied the filter.
 
-**Synthetic preferences.** Limitations: distributional gap from real production usage, missing the long tail of actual user needs and edge cases.
+Two methodological innovations distinguish this from "expert annotation":
 
-### 1.2 The Gap
+**Outcome-validated revealed preference.** The subject makes binding decisions with real consequences. Accepted Claude Code suggestion \\u2192 ships \\u2192 passes/fails in production. This is revealed preference + ground truth.
 
-A fourth category of preference signal exists but has not been systematically captured: preferences from practitioners with genuine skin in the production game, expressed natively as part of their work rather than as separate annotation tasks.
+**Recursive composition under product accountability.** The subject builds compositional pipelines (Query Planner \\u2192 Semantic Sectionizer \\u2192 Hallucination Guard \\u2192 Citation Validator), where every preference decision affects the rest. Qualitatively more informative than isolated rating.
 
-This document proposes that founders and domain experts who use LLMs recursively in production constitute this fourth category, and that their preference signals can be captured at scale without disrupting natural workflow.
+### 1.3 Process-Level Signal
 
----
+Even sophisticated preference capture records only the artifact-level diff (chosen vs rejected). The cognitive process behind the diff \\u2014 time invested, external research, voice calls, window switches \\u2014 is lost. We capture this dimension through synchronized OS-level activity tracking, and show that process-level signal contains information not reducible to artifact diff.
 
-## 2. Defining Recursive Workflow
+### 1.4 Research Questions
 
-For purposes of this methodology, a workflow qualifies as "recursive use of LLM" when it satisfies three conditions:
-
-**Compositional layering.** The output of one LLM interaction serves as context, input, or feedback for subsequent interactions. The user is not making one-shot queries but maintaining ongoing computational threads.
-
-**Human-in-the-loop with judgment.** The practitioner accepts, edits, or rejects each output based on contextual judgment. They are not passive consumers but active editors who shape final artifacts.
-
-**Real-world outcome attribution.** Measurable consequences exist for output quality: responses that convert to meetings, communications that retain customers, code that ships and runs, content that generates engagement. These outcomes are temporally trackable and partially attributable to specific interaction sequences.
-
-This definition explicitly excludes: one-shot query usage (no composition), purely automated pipelines (no human judgment), and exploratory/learning use without outcome stakes (no attribution).
+- **RQ1:** Does artifact-level preference signal from a shipping CEO differ from crowd-sourced on matched LLM outputs?
+- **RQ2:** Does process-level signal contain information not reducible to artifact-level diff?
+- **RQ3:** Do shipping-validated preferences correlate with downstream outcomes more strongly than crowd-sourced?
+- **RQ4:** Does engagement-weighted RLHF training improve domain-specific performance vs uniform-weighted and crowd-sourced baselines?
 
 ---
 
-## 3. Data Collection Methodology
+## 2. Defining the Shipping CEO Signal
 
-### 3.1 Implicit Signal Capture
+### Two-Axis Definition
 
-The foundational layer captures founder behavior passively, without requiring additional annotation effort. For each LLM interaction, the system logs:
+The preference signal consists of two components:
 
-- Prompt content and context
-- Generated response
-- User edits to the response (additions, deletions, rewrites, structural changes)
-- Time spent in the editing phase
-- Final action taken (sent, saved, deleted, shared, archived)
-- Session metadata (time of day, prior context, thread length)
+**Artifact-level:** what changed between LLM output and final artifact \\u2014 edit distance, semantic change class, structural changes. This is what existing preference infrastructure captures.
 
-This data is collected as a natural side effect of using the workflow, requiring no annotation tax on the practitioner.
+**Process-level:** how the change happened \\u2014 keystroke timing patterns, idle gaps, app-switching trajectory, voice context. Captured only with OS-level instrumentation running in parallel.
 
-### 3.2 Explicit Lightweight Tagging (Opt-in)
+### Subject Criteria
 
-Practitioners can optionally tag sessions with low-friction labels: high-stakes communication, internal note, client interaction, exploration, etc. These tags provide contextual stratification for later analysis without imposing significant overhead.
+A subject qualifies as a "shipping CEO source" when **all** hold:
 
-### 3.3 Outcome Attribution
+- Product reached paying customer state or equivalent production validation
+- Product handles real workload (not demo or prototype)
+- Subject has CEO-level accountability
+- Compositional layering: LLM output feeds subsequent interactions
+- Judgment-based gating: subject accepts/edits/rejects each output
+- Real-world outcome attribution: measurable consequences for quality
+- Sustained recursive workflow over 4+ weeks
 
-At periodic intervals (weekly or monthly aggregation windows), automated systems attempt to attribute downstream outcomes to specific session sequences. Outcomes include:
+**What this is NOT:** one-shot LLM use, building without shipping validation, paid-per-rating annotation, research without product accountability.
 
-- Response received from a counterparty
-- Meeting scheduled or attended
-- Partnership agreement reached
-- Investment committed
-- Customer acquired or retained
-- Content distributed and engaged with
+### Edit Taxonomy
 
-Attribution involves several methodological decisions: appropriate temporal windows, multi-touch sequence handling, confounding factor identification, and causal versus correlational claim limits.
+Six semantic change classes: cosmetic / reorganization / factual_correction / tone_adjustment / substantive_rewrite / rejection.
 
 ---
 
-## 4. Signal Quality Assessment
+## 3. Data Collection Architecture
 
-### 4.1 Predicted Advantages
+### 3.1 Workflow-Level Capture
 
-**Domain depth.** A practitioner working on legal AI brings substantively different judgment to "is this output factually correct" than a generic crowd worker.
+Three retro-extractors feed the \`rlhf-signals/\` module:
 
-**Stakes calibration.** Rejecting a poor output has real cost (lost customer, missed opportunity, damaged relationship), producing more rigorous evaluation than \\$0.05-per-rating crowd tasks.
+- **GitHub PRs** (GraphQL API) \\u2014 commits, diffs, review comments, merge status
+- **Plane issues** (REST API) \\u2014 state transitions, comment threads, domain problem refinement
+- **Claude Code transcripts** (local JSONL) \\u2014 richest source, avg 26.8 artifacts/session
 
-**Temporal coherence.** Preferences captured over months reflect evolving understanding and contextual sophistication, not snapshot ratings.
+Schema: \`workflow_sessions\` \\u2192 \`workflow_artifacts\` \\u2192 \`workflow_edits\` \\u2192 \`workflow_outcomes\`.
 
-**Native distribution.** Captured preferences match actual production usage distribution, not annotation task distribution.
+**GitHub PR velocity:** 1,393 merged PRs over 105 days (87 active). Peak: March 790 PRs (25.5/day). Median time-to-merge: 30 seconds (77.8% under 5 min) \\u2014 solo-founder auto-merge pattern. PR timestamps do NOT reflect editing time; real duration reconstructed from OS-level activity.
 
-### 4.2 Predicted Risks and Mitigations
+### 3.2 OS-Level Activity Instrumentation
 
-**Idiosyncratic preferences.** A single founder\\\'s taste is not universal. Mitigation: aggregating across diverse practitioners and identifying robust universal patterns versus context-specific preferences.
+Parallel to workflow tracking, an OS-level activity tracker (XSISTANT-style) records 5-second activity buckets:
 
-**Sample bias.** Founders skew toward technical, educated, English-speaking demographics. Mitigation: explicit recruitment for diverse cohorts including non-Western, non-English-primary, multiple-domain practitioners.
+- \`activity_scores\` \\u2014 active/passive/idle classification + keystroke/mouse/click counts
+- \`input_activity\` \\u2014 keystroke and mouse counts per 5s bucket (never keystroke content)
+- \`window_sessions\` \\u2014 focused app + window title + start/end
+- \`idle_events\` \\u2014 gaps without input, with duration
+- \`mic_activity\` \\u2014 voice/call context detection
 
-**Confounded outcomes.** A response leading to a meeting may succeed due to timing, recipient state, or external factors unrelated to output quality. Mitigation: treating outcome data as weak signal rather than strong reward, using it for stratification rather than direct optimization.
+Storage: ~38 MB for 21 continuous days. Both databases store \`timestamptz\` in UTC \\u2014 cross-source alignment verified to <3 seconds.
 
-**Privacy and consent.** Real production data contains sensitive content. Mitigation: comprehensive anonymization protocols, opt-in consent at session level, content filtering before any aggregation.
+### 3.3 Cross-Source Linking
 
----
+For each edit with time window [T1, T2]: query activity in [T1-30s, T2+30s], aggregate process features, classify window sessions by category (code_editing / research / communication / documentation / unrelated).
 
-## 5. Pilot Study Design
+### 3.4 Outcome Attribution
 
-### Phase 1: Single-Founder Case Study (4\\u20136 weeks)
-
-A single founder (the author) instruments their existing recursive workflow on a production legal AI platform (Legal.org.ua / LEX AI). Data collection covers all LLM interactions across:
-
-- Product development (Claude Code sessions, code review, architecture decisions)
-- Business development outreach (cold email composition, follow-up sequences, response handling)
-- Content creation (technical writing, manifesto-style posts, market commentary)
-- Legal and operational document preparation (contracts, privacy policies, regulatory correspondence)
-
-Outcomes tracked include partnership formations (Google for Startups acceptance, Deloitte introduction via GFS, NVIDIA Inception approval), business decisions (counterparty evaluations, contract negotiations), and content reception metrics.
-
-Analysis identifies preference signal patterns that distinguish high-outcome from low-outcome interaction sequences.
-
-### Phase 2: Multi-Founder Cohort (8\\u201312 weeks)
-
-Recruit 5\\u201310 founders working recursively with LLMs across diverse production contexts: legal tech, healthcare, fintech, creative tools, infrastructure, geographically distributed.
-
-Same data collection protocol. Cross-comparison analysis examines which preference patterns appear universal versus which are context-specific. Cohort diversity enables initial assessment of demographic and domain bias.
-
-### Phase 3: RLHF Training Experiment (12+ weeks)
-
-Using collected preference data from Phases 1\\u20132, conduct controlled RLHF training experiments. Compare training outcomes against baselines:
-
-- Traditional crowd-sourced preference data on same domain
-- Constitutional AI feedback on same principles
-- Untrained baseline model
-
-Evaluation on held-out test sets including: domain expertise tasks, instruction following, harm avoidance, and held-out outcome prediction (does training on Phase 1\\u20132 data improve performance on tasks similar to those that generated favorable real-world outcomes).
+Automated attribution with confidence levels: **strong** (temporally proximate, causally linkable \\u2014 PR merged, no revert in 30d), **medium** (present but confounded), **weak** (causally tenuous).
 
 ---
 
-## 6. Methodology Paper Outputs
+## 4. Verified Pilot Dataset (as of 2026-05-08)
 
-The completed methodology produces:
+All numbers verified from production databases.
 
-- Formal definition of recursive workflow signal with operationalized criteria
-- Reproducible data collection protocol with privacy and consent specifications
-- Pilot study results (single-founder case study and multi-founder cohort analysis)
-- Comparative RLHF training experiment results against established baselines
-- Anonymized open dataset release for replicability
-- Limitations analysis and future work directions
-
----
-
-## 7. Connection to Existing Work
-
-This methodology builds directly on prior contributions:
-
-**LegalTech LLM Constitution** (LEX AI, 2026). Demonstrates capability to formalize domain principles into operationalizable framework \\u2014 relevant for defining preference dimensions in domain-specific settings.
-
-**Constitutional RLHF on Ukrainian Civil Law** (LEX AI, 2026). Demonstrates RLHF methodology thinking applied to specific jurisdiction \\u2014 provides foundation for understanding how preferences interact with constitutional principles.
-
-**Production-scale recursive workflow** (LEX AI, 2026). Documented case of 1,200+ commits in 50 days using Claude Code, 380M+ records pipeline, 70+ MCP tools in production \\u2014 demonstrates infrastructure capacity for data collection at meaningful scale.
-
-**Open-source MCP infrastructure.** Existing toolchain provides natural instrumentation points for the data collection protocol described in Section 3.
-
----
-
-## 7.1 Academic References
-
-- Christiano, P., Leike, J., Brown, T., Marber, M., Lowe, S., & Amodei, D. (2017). Deep reinforcement learning from human preferences. *Advances in Neural Information Processing Systems*, 30.
-- Ouyang, L., Wu, J., Jiang, X., et al. (2022). Training language models to follow instructions with human feedback. *Advances in Neural Information Processing Systems*, 35.
-- Bai, Y., Jones, A., Ndousse, K., et al. (2022). Training a helpful and harmless assistant with reinforcement learning from human feedback. *arXiv preprint arXiv:2204.05862*.
-- Bai, Y., Kadavath, S., Kundu, S., et al. (2022). Constitutional AI: Harmlessness from AI feedback. *arXiv preprint arXiv:2212.08073*.
-- Rafailov, R., Sharma, A., Mitchell, E., et al. (2023). Direct preference optimization: Your language model is secretly a reward model. *Advances in Neural Information Processing Systems*, 36.
-- Ziegler, D. M., Stiennon, N., Wu, J., et al. (2019). Fine-tuning language models from human preferences. *arXiv preprint arXiv:1909.08593*.
-
----
-
-## 8. Open Questions
-
-Honest acknowledgment of unresolved methodological questions:
-
-- **Scaling beyond solo practice.** How does the methodology adapt for teams of 5\\u201310 working collectively with LLMs? Does collective recursive workflow generate compatible signal or fundamentally different patterns?
-
-- **Domain transferability.** Legal AI involves structured data and explicit reasoning chains. Recursive workflow in creative, scientific, or interpersonal domains may exhibit different characteristics. The methodology may require domain-specific adaptation.
-
-- **Long-term sustainability.** Recursive use at high intensity carries cognitive cost. The methodology assumes practitioners can sustain meaningful workflow over study periods; burnout dynamics require careful attention.
-
-- **Model capability evolution.** As underlying models improve, the recursive use patterns themselves shift. Preference signals captured on Claude 3.5 may be less informative for training Claude 5. The methodology must address this temporal stability question.
-
-- **Causal identification.** Distinguishing genuine preference signal from confounded outcome correlation requires rigorous experimental design beyond initial pilot study scope.
-
----
-
-## 9. Resource Requirements (Provisional)
-
-For execution of complete methodology through Phase 3:
-
-- Compute for Phase 3 RLHF experiments: estimated \\$50\\u2013200K (potentially covered through NVIDIA Inception DGX Cloud credits, AWS Bedrock credits, or Anthropic Researcher Access Program)
-- Engineering effort: 6\\u20139 months sustained work, primarily solo with selective collaboration
-- Cohort recruitment and coordination: modest budget for participant compensation in Phase 2
-- Publication and conference participation: standard academic publication costs
-
----
-
-## 10. Status and Next Steps
-
-This document represents initial methodology scaffolding. Concrete next steps before formal proposal preparation:
-
-- Validate single-founder case study feasibility against existing workflow instrumentation
-- Identify potential cohort participants and assess recruitment realism
-- Engage with potential research collaborators or advisors
-- Refine outcome attribution methodology with appropriate statistical rigor
-- Develop privacy protocol for review
-
-Timeline assumes initiation after current commitments stabilize (Q3 2026), with completion targeted for Q2 2027 publication submission.
-
----
-
-## Appendix A: Phase 0 Feasibility Results
-
-*Added May 8, 2026 — empirical validation of methodology against real production data.*
-
-Phase 0 retrospective extraction was completed against the LEX AI production codebase to assess whether recursive workflow signal density is sufficient to proceed to Phase 1 live capture. The pipeline (\`rlhf-signals/\` module, [source code](https://github.com/overthelex/secondlayer)) ingested three data sources: GitHub Pull Requests (GraphQL API), Plane project management issues (REST API), and Claude Code session transcripts (local JSONL files).
-
-### Dataset Summary
+### 4.1 Workflow Data (rlhf-signals DB)
 
 | Metric | Value |
 |--------|-------|
-| Total workflow sessions | 2,892 |
-| Total artifacts | 33,402 |
+| Workflow sessions | 2,892 (Jan 26 \\u2013 May 8, 2026) |
+| Sources | Claude Code: 1,051 \\u2022 GitHub PRs: 1,013 \\u2022 Plane: 828 |
+| Total artifacts | 33,402 (21,477 LLM outputs) |
 | Total edit pairs | 30,510 |
-| Attributed outcomes | 1,411 |
-| Avg artifacts per session | 11.5 |
+| Attributed outcomes | 1,579 (54.6% session coverage) |
+| Outcome confidence | 88.1% strong, 5.1% medium, 6.8% weak |
 
-### Sessions by Source
-
-| Source | Sessions | Artifacts | Edits | Outcome Coverage |
-|--------|----------|-----------|-------|-----------------|
-| GitHub Pull Requests | 1,013 | 3,499 | 2,486 | 88.2% |
-| Plane Issues | 828 | 1,684 | 856 | 62.6% |
-| Claude Code Transcripts | 1,051 | 28,219 | 27,168 | 0.0%\\* |
-
-\\*Claude Code transcripts lack external outcome attribution paths. Transcript-to-PR linking is a Phase 1 task.
-
-### Edit Classification
-
-All 30,510 edit pairs were classified using a two-phase approach: rule-based boundaries (cosmetic < 5% normalized edit distance, substantive \\u2265 80%) followed by LLM classification (AWS Bedrock, Claude Sonnet 4.6) for the middle range. Classification achieved 99.96% coverage.
+### 4.2 Edit Distribution (Founder Signal)
 
 | Semantic Class | Count | % |
 |---------------|-------|---|
@@ -7337,56 +7223,177 @@ All 30,510 edit pairs were classified using a two-phase approach: rule-based bou
 | Factual correction | 307 | 1.0% |
 | Tone adjustment | 259 | 0.8% |
 
-The dominance of substantive rewrites (80.7%) confirms the core hypothesis: recursive founder workflows produce predominantly meaningful edits, not cosmetic touch-ups. The 3.6% rejection rate indicates cases where the LLM output was fundamentally abandoned — valuable negative signal for preference learning.
+Edit distance (normalized): mean=0.807, **median=0.839**, P25=0.743, P75=0.927, P95=0.987. The founder\\\'s default mode is near-total rewrite.
 
-### Outcome Attribution
+### 4.3 Process-Level Data (xsistant DB)
 
-| Outcome Type | Count | Confidence |
-|-------------|-------|------------|
-| Merged clean (>30d, no revert) | 801 | Strong |
-| Issue resolved | 508 | Strong |
-| Follow-up fix PR | 70 | Medium |
-| Closed unmerged | 22 | Strong |
-| Closed obsolete | 10 | Strong |
+| Table | Rows | Coverage |
+|-------|------|----------|
+| activity_scores | 52,451 | Apr 17 \\u2013 May 8 UTC |
+| input_activity | 46,543 | 176K keystrokes, 52% in terminal |
+| window_sessions | 16,901 | App + title + working directory |
+| idle_events | 54,974 | Avg idle: 51 min |
+| mic_activity | 1,869 | Apr 16 \\u2013 May 3 |
 
-96% of outcomes were attributed with strong confidence. Attribution windows: 504 outcomes within 8\\u201330 days, 877 within 31\\u201390 days.
+Bimodal work pattern: 07\\u201311 UTC primary peak (1,376 active windows), 19\\u201321 UTC secondary peak. ~13% real engagement time (6.7% active, 6.3% passive, 87% idle).
 
-### Transcript-to-PR Linking
+### 4.4 Overlap Window (xsistant \\u2229 rlhf-signals)
 
-Claude Code transcripts are the richest source (26.8 artifacts/session avg) but initially had 0% outcome coverage because transcripts lack external identifiers. We linked them to GitHub PRs via temporal proximity: for each SecondLayer transcript, we matched the nearest PR where the transcript start time fell within the PR\\u2019s active window (created \\u2212 4h to merged + 1h).
+| Metric | Value |
+|--------|-------|
+| Sessions in overlap | 498 (17.2%) |
+| Edits in overlap | 9,254 (30.3%) |
+| GitHub PRs in overlap | 75 / 1,393 (5.4%) |
+| Outcomes in overlap | 64 |
 
-| Link Confidence | Count | Criteria |
-|----------------|-------|----------|
-| Strong | 252 | < 1 hour apart |
-| Medium | 133 | 1\\u20134 hours apart |
-| Weak | 83 | 4+ hours apart |
+The main PR burst (Feb\\u2013Mar, 1,156 PRs at 25.5/day) occurred **before** xsistant launched. Process-level enrichment covers steady-state work (4.4 PRs/day), not peak sprint.
 
-468 of 473 SecondLayer transcripts were successfully linked. PR outcomes were propagated to linked transcripts, with confidence downgraded for weak links.
+---
 
-**Impact on usable dataset:**
+## 5. Experiments
 
-| Metric | Before linking | After linking | Change |
-|--------|---------------|--------------|--------|
-| Claude Code outcome coverage | 0.0% | 16.0% | +16pp |
-| Usable preference pairs | 2,668 | **5,354** | **+101%** |
-| Deep edit sessions with outcomes | 146 | **276** | **+89%** |
-| Total outcomes | 1,411 | **1,579** | +168 |
+Four experiments with progressively higher compute requirements. Experiments 1\\u20133 require no GPU.
 
-### Feasibility Verdict
+### Experiment 1: Artifact-Level Signal Quality (RQ1)
 
-The key metric from Section 3.3 of the methodology — sessions with non-cosmetic edits and attributable outcomes per monthly window:
+**Status: Phase A complete.**
 
-| Period | Sessions |
-|--------|----------|
-| Best month (March 2026) | **788** |
-| Average per month | **282** |
-| Total across all time | **1,579** |
+Sample N=200 LLM outputs (stratified by semantic class, min 10 per class), send to crowd annotation platform. Compare founder vs crowd: edit_distance_norm distributions (KS test), semantic class breakdown, inter-annotator agreement (Krippendorff\\\'s alpha).
 
-The GO threshold was set at \\u226550 sessions per month. The observed signal density of 788 sessions in the best month exceeds this threshold by **15.8x**. Transcript-PR linking doubled the usable preference pair count to 5,354.
+Phase A results (sampling completed 2026-05-08):
+- 19,455 eligible samples after PII filtering (from 21,461)
+- Stratified allocation: substantive=144, cosmetic=15, reorganization=11, rejection=10, factual=10, tone=10
+- Two JSONL exports: full metadata + platform-ready (no founder edits shown to annotators)
+- Deterministic seeded PRNG for reproducibility
 
-**Verdict: GO — proceed to Phase 1 live capture.**
+**Expected:** founder edits show heavier tail (80.7% substantive_rewrite already \\u2014 crowd workers unlikely to match this intensity).
 
-The retrospective data provides sufficient volume and quality for initial preference model experiments, with 5,354 usable preference pairs across all three data sources.
+### Experiment 2: Process-Level Signal Irreducibility (RQ2)
+
+Two predictive models on the 498-session overlap subset: Model A (artifact-only) vs Model B (artifact + process features). Compare AUC, SHAP feature importance, permutation test. With only 64 outcomes in overlap, use edit-class proxy labels for statistical power.
+
+**Expected:** Model B improves outcome prediction on medium edit_distance edits where artifact signal is ambiguous.
+
+### Experiment 3: Outcome\\u2013Preference Correlation (RQ3)
+
+Group by composite engagement score, compare outcome distributions. Control for confounds: session length, surface, time of day (bimodal peaks), prompt length.
+
+### Experiment 4: Engagement-Weighted DPO Training (RQ4) \\u2014 KEY
+
+The flagship experiment requiring NVIDIA DGX Cloud (8\\u00d7H100, ~$8\\u201312K).
+
+Five training conditions on Llama 3.1 8B or Qwen 2.5 7B (open-weight):
+- **A.** Recursive workflow, uniform-weighted (30,510 pairs)
+- **B.** Recursive workflow, engagement-weighted (\\u03b1 sweep: [0, 0.5, 1.0, 2.0])
+- **C.** Crowd-sourced preferences (matched volume)
+- **D.** Untrained instruct baseline
+- **E.** Anthropic HH-RLHF subset
+
+Method: DPO (Rafailov et al. 2023). Evaluation: win-rate (GPT-4 judge + human N=100), domain accuracy, AlpacaEval 2.0, length-controlled win rate. Primary metric: **B vs A delta**.
+
+---
+
+## 6. Limitations
+
+- **Single-subject case study** \\u2014 one CEO, not population-level claims. Phase 2 multi-CEO cohort is future work.
+- **Domain bias:** legal AI specifics may not transfer to coding, creative, or scientific domains.
+- **Survivorship bias:** we capture preferences of someone who shipped successfully. Preferences of failed attempts are absent.
+- **Process coverage:** only 17.2% of sessions / 30.3% of edits have process-level enrichment (xsistant launched after peak sprint).
+- **edit_seconds = 0** for all edits (retro-extracted) \\u2014 timing reconstructed from 5-second OS activity buckets.
+- **Conflict of interest:** first author is the study subject. Mitigated by: external baselines, open data release, Phase 2 plans.
+- **Keystroke content boundary:** we capture keystroke counts and timing, never content. Trades fine-grained edit-trace information for PII protection and Phase 2 cohort scalability.
+
+---
+
+## 7. Future Work
+
+- **Phase 2 multi-CEO cohort** (5\\u201310 shipping CEOs across domains) \\u2014 requires cross-platform standardized activity tracker
+- **Survivorship bias mitigation:** compare with preferences from founders who pivoted/shut down
+- **Eye-tracking integration:** captures reading-while-thinking, still without content capture
+- **Engagement-aware reward modeling:** explicit reward model trained on engagement features
+- **Process-level signal in multi-turn dialogues:** current methodology targets edit-based workflows
+
+---
+
+## 7.1 References
+
+- Christiano, P., Leike, J., Brown, T., Marber, M., Lowe, S., & Amodei, D. (2017). Deep reinforcement learning from human preferences. *Advances in Neural Information Processing Systems*, 30.
+- Ouyang, L., Wu, J., Jiang, X., et al. (2022). Training language models to follow instructions with human feedback. *Advances in Neural Information Processing Systems*, 35.
+- Bai, Y., Jones, A., Ndousse, K., et al. (2022). Training a helpful and harmless assistant with reinforcement learning from human feedback. *arXiv preprint arXiv:2204.05862*.
+- Bai, Y., Kadavath, S., Kundu, S., et al. (2022). Constitutional AI: Harmlessness from AI feedback. *arXiv preprint arXiv:2212.08073*.
+- Rafailov, R., Sharma, A., Mitchell, E., et al. (2023). Direct preference optimization: Your language model is secretly a reward model. *Advances in Neural Information Processing Systems*, 36.
+- Ziegler, D. M., Stiennon, N., Wu, J., et al. (2019). Fine-tuning language models from human preferences. *arXiv preprint arXiv:1909.08593*.
+
+---
+
+## 8. Current Status and Next Steps
+
+| Milestone | Status |
+|-----------|--------|
+| Phase 0 retrospective extraction | **Done** \\u2014 2,892 sessions, 30,510 edits |
+| Edit classification (Bedrock Sonnet) | **Done** \\u2014 99.96% coverage |
+| Outcome attribution + transcript linking | **Done** \\u2014 1,579 outcomes, 5,354 usable pairs |
+| Experiment 1 Phase A (sampling) | **Done** \\u2014 200 stratified samples exported |
+| Experiment 1 Phase B (crowd annotation) | Next \\u2014 send to Surge AI / Scale AI |
+| Experiment 2 (process irreducibility) | Planned \\u2014 cross-source linking script |
+| NVIDIA Inception extended grant | Planned \\u2014 after Exp 1+2 results |
+| Experiment 4 (DPO training) | Planned \\u2014 pending DGX Cloud credits |
+| arXiv submission | Target: ~T+18 weeks |
+
+---
+
+## 9. Compute Budget
+
+| Component | Cost |
+|-----------|------|
+| DPO training (5 conditions \\u00d7 7\\u20138B model) | $8\\u201312K (NVIDIA DGX Cloud) |
+| Evaluation (judge runs, MT-Bench) | $1\\u20132K |
+| Crowd annotation (Surge AI / Scale AI) | $500\\u20131K |
+| **Total (minimal)** | **$10\\u201315K** |
+| Extended (+ ablation, sample efficiency) | $20\\u201335K |
+
+Target venue: arXiv (cs.LG, cs.CL) \\u2192 NeurIPS Datasets and Benchmarks Track 2027 or ICLR Workshop on RLHF.
+
+---
+
+## Appendix A: Phase 0 Feasibility Results
+
+*May 8, 2026 — empirical validation against real production data.*
+
+Phase 0 retrospective extraction completed against the LEX AI production codebase. Pipeline: \`rlhf-signals/\` module ([source](https://github.com/overthelex/secondlayer)), three data sources: GitHub PRs (GraphQL), Plane issues (REST), Claude Code transcripts (local JSONL).
+
+**Dataset:** 2,892 sessions, 33,402 artifacts, 30,510 edit pairs, 1,579 outcomes (after transcript-PR linking). Edit classification via rule-based boundaries + AWS Bedrock Claude Sonnet, 99.96% coverage. 80.7% substantive rewrites. Transcript-PR linking doubled usable preference pairs from 2,668 to 5,354. GO threshold (\\u226550 sessions/month) exceeded 15.8\\u00d7.
+
+**Verdict: GO \\u2014 proceed to Phase 1 live capture and Experiment 1.**
+
+## Appendix B: Experiment 1 Phase A Results
+
+*May 9, 2026 — stratified sampling for crowd annotation baseline.*
+
+200 LLM outputs sampled from 19,455 eligible pairs (after PII filtering from 21,461). Stratified by semantic change class with minimum 10 per class. Deterministic seeded PRNG ensures reproducibility (identical output on re-run verified via checksum).
+
+| Class | Sampled | Population |
+|-------|---------|------------|
+| substantive_rewrite | 144 | 15,762 |
+| cosmetic | 15 | 1,676 |
+| reorganization | 11 | 1,148 |
+| rejection | 10 | 440 |
+| factual_correction | 10 | 217 |
+| tone_adjustment | 10 | 212 |
+
+Two JSONL exports produced:
+- **crowd-samples.jsonl** \\u2014 full record (LLM output + founder edit + metadata)
+- **crowd-platform.jsonl** \\u2014 platform-ready (sample_id + LLM output + task instruction only, no founder edit visible to annotators)
+
+Six paper-ready analysis figures generated (300 DPI):
+1. Edit distance distribution (histogram + CDF) \\u2014 heavy right skew, median 0.84
+2. Semantic class breakdown \\u2014 80.7% substantive rewrite dominance
+3. Edit distance per class (box plots) \\u2014 substantive median 0.88, cosmetic median 0.54
+4. Session source \\u00d7 class breakdown
+5. Summary statistics table
+6. Monthly volume heatmap
+
+**Next:** send crowd-platform.jsonl to Surge AI / Scale AI for crowd annotation (Phase B). Collect crowd edits, run KS test + bootstrap CI for distribution comparison.
 
 ---
 
