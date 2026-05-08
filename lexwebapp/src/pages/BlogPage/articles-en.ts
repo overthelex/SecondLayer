@@ -7298,6 +7298,77 @@ Timeline assumes initiation after current commitments stabilize (Q3 2026), with 
 
 ---
 
+## Appendix A: Phase 0 Feasibility Results
+
+*Added May 8, 2026 — empirical validation of methodology against real production data.*
+
+Phase 0 retrospective extraction was completed against the LEX AI production codebase to assess whether recursive workflow signal density is sufficient to proceed to Phase 1 live capture. The pipeline (\`rlhf-signals/\` module, [source code](https://github.com/overthelex/secondlayer)) ingested three data sources: GitHub Pull Requests (GraphQL API), Plane project management issues (REST API), and Claude Code session transcripts (local JSONL files).
+
+### Dataset Summary
+
+| Metric | Value |
+|--------|-------|
+| Total workflow sessions | 2,892 |
+| Total artifacts | 33,402 |
+| Total edit pairs | 30,510 |
+| Attributed outcomes | 1,411 |
+| Avg artifacts per session | 11.5 |
+
+### Sessions by Source
+
+| Source | Sessions | Artifacts | Edits | Outcome Coverage |
+|--------|----------|-----------|-------|-----------------|
+| GitHub Pull Requests | 1,013 | 3,499 | 2,486 | 88.2% |
+| Plane Issues | 828 | 1,684 | 856 | 62.6% |
+| Claude Code Transcripts | 1,051 | 28,219 | 27,168 | 0.0%\\* |
+
+\\*Claude Code transcripts lack external outcome attribution paths. Transcript-to-PR linking is a Phase 1 task.
+
+### Edit Classification
+
+All 30,510 edit pairs were classified using a two-phase approach: rule-based boundaries (cosmetic < 5% normalized edit distance, substantive \\u2265 80%) followed by LLM classification (AWS Bedrock, Claude Sonnet 4.6) for the middle range. Classification achieved 99.96% coverage.
+
+| Semantic Class | Count | % |
+|---------------|-------|---|
+| Substantive rewrite | 24,619 | 80.7% |
+| Reorganization | 2,106 | 6.9% |
+| Cosmetic | 2,098 | 6.9% |
+| Rejection | 1,110 | 3.6% |
+| Factual correction | 307 | 1.0% |
+| Tone adjustment | 259 | 0.8% |
+
+The dominance of substantive rewrites (80.7%) confirms the core hypothesis: recursive founder workflows produce predominantly meaningful edits, not cosmetic touch-ups. The 3.6% rejection rate indicates cases where the LLM output was fundamentally abandoned — valuable negative signal for preference learning.
+
+### Outcome Attribution
+
+| Outcome Type | Count | Confidence |
+|-------------|-------|------------|
+| Merged clean (>30d, no revert) | 801 | Strong |
+| Issue resolved | 508 | Strong |
+| Follow-up fix PR | 70 | Medium |
+| Closed unmerged | 22 | Strong |
+| Closed obsolete | 10 | Strong |
+
+96% of outcomes were attributed with strong confidence. Attribution windows: 504 outcomes within 8\\u201330 days, 877 within 31\\u201390 days.
+
+### Feasibility Verdict
+
+The key metric from Section 3.3 of the methodology — sessions with non-cosmetic edits and attributable outcomes per monthly window:
+
+| Period | Sessions |
+|--------|----------|
+| Best month (March 2026) | **788** |
+| Average per month | **282** |
+| Total across all time | **1,411** |
+
+The GO threshold was set at \\u226550 sessions per month. The observed signal density of 788 sessions in the best month exceeds this threshold by **15.8x**.
+
+**Verdict: GO — proceed to Phase 1 live capture.**
+
+The retrospective data alone provides sufficient volume and quality for initial preference model experiments. Phase 1 live instrumentation will add real-time MCP middleware capture and Claude Code transcript-to-outcome linking, further enriching the dataset.
+
+---
+
 *Vladimir Ovcharov — [LinkedIn](https://www.linkedin.com/in/overthelex/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
 *LEX AI LLC, Kyiv, Ukraine*
 
