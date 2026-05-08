@@ -101,6 +101,12 @@ export const useLocaleStore = create<LocaleState>()(
                 return { ...defaults, language: chosen, geoDetected: true, cfCountry };
               }
             }
+            // Respect language from URL path (e.g. /blog/en/..., /blog/ru/...)
+            const pathLangMatch = window.location.pathname.match(/^\/blog\/(en|ru|es)\b/);
+            if (pathLangMatch) {
+              const urlLang = pathLangMatch[1] as AppLanguage;
+              return { ...defaults, language: urlLang, geoDetected: true, cfCountry };
+            }
             // Auto-set locale based on IP
             try { localStorage.setItem('lex_locale', defaults.language); } catch { /* ignore */ }
             return { ...defaults, geoDetected: true, cfCountry };
