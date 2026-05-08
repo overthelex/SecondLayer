@@ -125,6 +125,11 @@ export async function insertOutcome(
       (session_id, outcome_type, outcome_value, observed_at,
        attribution_window_days, attribution_confidence, source, metadata)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    ON CONFLICT (session_id, outcome_type, source) DO UPDATE SET
+      observed_at = EXCLUDED.observed_at,
+      attribution_window_days = EXCLUDED.attribution_window_days,
+      attribution_confidence = EXCLUDED.attribution_confidence,
+      metadata = EXCLUDED.metadata
     RETURNING outcome_id
   `;
   const params = [

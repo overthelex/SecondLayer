@@ -51,6 +51,7 @@ export async function attributeGitHubOutcomes(): Promise<void> {
     SELECT session_id, external_ref, terminal_at, terminal_action
     FROM workflow_sessions
     WHERE source = 'github_pr' AND terminal_action = 'merged'
+    AND NOT EXISTS (SELECT 1 FROM workflow_outcomes WHERE session_id = workflow_sessions.session_id)
   `);
 
   let attributed = 0;
