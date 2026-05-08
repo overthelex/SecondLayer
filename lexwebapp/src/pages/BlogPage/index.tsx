@@ -14,7 +14,7 @@ import { articles, type Article } from './articles';
 import { enTranslations } from './articles-en';
 import { ruTranslations } from './articles-ru';
 import { ArticleModal } from './ArticleModal';
-import { useLocaleStore } from '../../stores/localeStore';
+
 import { getBlogUI, getLocalizedArticles } from './blog-i18n';
 
 const translationMaps = { en: enTranslations, ru: ruTranslations };
@@ -24,11 +24,12 @@ export function BlogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [filter, setFilter] = useState<'all' | 'tech' | 'legal'>('all');
-  const language = useLocaleStore((s) => s.language);
-  const ui = getBlogUI(language);
+  const blogLang = searchParams.get('lang') as 'en' | 'ru' | 'uk' | null;
+  const effectiveBlogLang = blogLang && ['en', 'ru', 'uk'].includes(blogLang) ? blogLang : 'en';
+  const ui = getBlogUI(effectiveBlogLang);
   const localizedArticles = useMemo(
-    () => getLocalizedArticles(articles, language, translationMaps),
-    [language]
+    () => getLocalizedArticles(articles, effectiveBlogLang, translationMaps),
+    [effectiveBlogLang]
   );
 
   useDocumentMeta({
@@ -36,11 +37,12 @@ export function BlogPage() {
     description: 'Articles on AI in law, legal technology, court decision analysis, and digital transformation of legal practice.',
     ogTitle: 'LEX Blog — AI Legal Tech Articles',
     ogDescription: 'Articles on AI in law, legal technology, court decision analysis, and digital transformation of legal practice.',
+    ogLocale: 'en_US',
   });
 
   useHreflang([
-    { lang: 'uk', href: 'https://legal.org.ua/blog' },
-    { lang: 'en', href: 'https://legal.org.ua/blog?lang=en' },
+    { lang: 'en', href: 'https://legal.org.ua/blog' },
+    { lang: 'uk', href: 'https://legal.org.ua/blog?lang=uk' },
     { lang: 'ru', href: 'https://legal.org.ua/blog?lang=ru' },
   ]);
 
@@ -148,7 +150,7 @@ export function BlogPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
               className="bg-white rounded-2xl border border-claude-border overflow-hidden hover:shadow-lg hover:border-claude-accent/30 transition-all cursor-pointer group"
-              onClick={() => navigate('/blog/' + article.id)}
+              onClick={() => navigate(effectiveBlogLang === 'en' ? `/blog/${article.id}` : `/blog/${effectiveBlogLang}/${article.id}`)}
             >
               <div className="relative w-full h-52 sm:h-60 overflow-hidden">
                 <div className={`absolute inset-0 ${article.category === 'tech' ? 'bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-700' : 'bg-gradient-to-br from-claude-accent via-amber-600 to-orange-700'}`} />

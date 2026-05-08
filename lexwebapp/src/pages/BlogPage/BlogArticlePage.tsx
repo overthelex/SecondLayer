@@ -32,18 +32,18 @@ export function BlogArticlePage() {
     }
   }, [lang, language, setLanguage]);
 
-  const effectiveLang = (lang && ['en', 'ru', 'es', 'uk'].includes(lang)) ? lang as 'en' | 'ru' | 'es' | 'uk' : language;
+  const effectiveLang = (lang && ['en', 'ru', 'es', 'uk'].includes(lang)) ? lang as 'en' | 'ru' | 'es' | 'uk' : 'en';
   const ui = getBlogUI(effectiveLang);
   const localizedArticles = useMemo(
     () => getLocalizedArticles(articles, effectiveLang, translationMaps),
     [effectiveLang]
   );
 
-  // Handle /blog/en, /blog/ru — slug is actually a language code, show blog index
+  // Handle /blog/uk, /blog/ru — slug is actually a language code, show blog index
   useEffect(() => {
-    if (slug && ['en', 'ru', 'es'].includes(slug) && !lang) {
-      setLanguage(slug as 'en' | 'ru' | 'es');
-      navigate('/blog', { replace: true });
+    if (slug && ['en', 'uk', 'ru', 'es'].includes(slug) && !lang) {
+      if (slug !== 'en') setLanguage(slug as 'en' | 'ru' | 'es');
+      navigate(slug === 'en' ? '/blog' : `/blog?lang=${slug}`, { replace: true });
     }
   }, [slug, lang, setLanguage, navigate]);
 
