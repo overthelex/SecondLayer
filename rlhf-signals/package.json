@@ -18,6 +18,7 @@
     "rlhf:redact": "tsx src/redaction/content-redactor.ts",
     "rlhf:export": "tsx src/export/dataset-builder.ts",
     "rlhf:experiment1:sample": "tsx src/experiment1/sample-for-crowd.ts",
+    "rlhf:experiment2:link": "tsx src/experiment2/cross-source-linker.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
