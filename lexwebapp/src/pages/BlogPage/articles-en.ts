@@ -7351,6 +7351,27 @@ The dominance of substantive rewrites (80.7%) confirms the core hypothesis: recu
 
 96% of outcomes were attributed with strong confidence. Attribution windows: 504 outcomes within 8\\u201330 days, 877 within 31\\u201390 days.
 
+### Transcript-to-PR Linking
+
+Claude Code transcripts are the richest source (26.8 artifacts/session avg) but initially had 0% outcome coverage because transcripts lack external identifiers. We linked them to GitHub PRs via temporal proximity: for each SecondLayer transcript, we matched the nearest PR where the transcript start time fell within the PR\\u2019s active window (created \\u2212 4h to merged + 1h).
+
+| Link Confidence | Count | Criteria |
+|----------------|-------|----------|
+| Strong | 252 | < 1 hour apart |
+| Medium | 133 | 1\\u20134 hours apart |
+| Weak | 83 | 4+ hours apart |
+
+468 of 473 SecondLayer transcripts were successfully linked. PR outcomes were propagated to linked transcripts, with confidence downgraded for weak links.
+
+**Impact on usable dataset:**
+
+| Metric | Before linking | After linking | Change |
+|--------|---------------|--------------|--------|
+| Claude Code outcome coverage | 0.0% | 16.0% | +16pp |
+| Usable preference pairs | 2,668 | **5,354** | **+101%** |
+| Deep edit sessions with outcomes | 146 | **276** | **+89%** |
+| Total outcomes | 1,411 | **1,579** | +168 |
+
 ### Feasibility Verdict
 
 The key metric from Section 3.3 of the methodology — sessions with non-cosmetic edits and attributable outcomes per monthly window:
@@ -7359,13 +7380,13 @@ The key metric from Section 3.3 of the methodology — sessions with non-cosmeti
 |--------|----------|
 | Best month (March 2026) | **788** |
 | Average per month | **282** |
-| Total across all time | **1,411** |
+| Total across all time | **1,579** |
 
-The GO threshold was set at \\u226550 sessions per month. The observed signal density of 788 sessions in the best month exceeds this threshold by **15.8x**.
+The GO threshold was set at \\u226550 sessions per month. The observed signal density of 788 sessions in the best month exceeds this threshold by **15.8x**. Transcript-PR linking doubled the usable preference pair count to 5,354.
 
 **Verdict: GO — proceed to Phase 1 live capture.**
 
-The retrospective data alone provides sufficient volume and quality for initial preference model experiments. Phase 1 live instrumentation will add real-time MCP middleware capture and Claude Code transcript-to-outcome linking, further enriching the dataset.
+The retrospective data provides sufficient volume and quality for initial preference model experiments, with 5,354 usable preference pairs across all three data sources.
 
 ---
 
