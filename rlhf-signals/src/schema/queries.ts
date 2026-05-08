@@ -92,6 +92,11 @@ export async function insertEdit(
       (session_id, from_artifact_id, to_artifact_id, edit_distance,
        edit_distance_norm, semantic_change_class, edit_seconds, inferred_class, metadata)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ON CONFLICT (from_artifact_id, to_artifact_id) DO UPDATE SET
+      edit_distance = EXCLUDED.edit_distance,
+      edit_distance_norm = EXCLUDED.edit_distance_norm,
+      semantic_change_class = COALESCE(EXCLUDED.semantic_change_class, workflow_edits.semantic_change_class),
+      metadata = EXCLUDED.metadata
     RETURNING edit_id
   `;
   const params = [
