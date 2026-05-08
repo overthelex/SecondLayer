@@ -50,7 +50,7 @@ function sitemapPlugin(): Plugin {
         const blogArticles: Entry[] = []
         for (let i = 0; i < count; i++) {
           blogArticles.push({ loc: `/blog/${ids[i]}`, changefreq: 'monthly', priority: '0.8', lastmod: dates[i] })
-          blogArticles.push({ loc: `/blog/en/${ids[i]}`, changefreq: 'monthly', priority: '0.7', lastmod: dates[i] })
+          blogArticles.push({ loc: `/blog/uk/${ids[i]}`, changefreq: 'monthly', priority: '0.7', lastmod: dates[i] })
           blogArticles.push({ loc: `/blog/ru/${ids[i]}`, changefreq: 'monthly', priority: '0.7', lastmod: dates[i] })
         }
 
@@ -407,14 +407,14 @@ function prerenderBlogPlugin(): Plugin {
 
         // Helper to generate hreflang link tags for a given article slug
         function hreflangTags(slug: string): string {
-          const ukUrl = `${BASE_URL}/blog/${slug}`
-          const enUrl = `${BASE_URL}/blog/en/${slug}`
+          const enUrl = `${BASE_URL}/blog/${slug}`
+          const ukUrl = `${BASE_URL}/blog/uk/${slug}`
           const ruUrl = `${BASE_URL}/blog/ru/${slug}`
           return [
-            `<link rel="alternate" hreflang="uk" href="${ukUrl}" />`,
             `<link rel="alternate" hreflang="en" href="${enUrl}" />`,
+            `<link rel="alternate" hreflang="uk" href="${ukUrl}" />`,
             `<link rel="alternate" hreflang="ru" href="${ruUrl}" />`,
-            `<link rel="alternate" hreflang="x-default" href="${ukUrl}" />`,
+            `<link rel="alternate" hreflang="x-default" href="${enUrl}" />`,
           ].join('\n    ')
         }
 
@@ -445,8 +445,8 @@ function prerenderBlogPlugin(): Plugin {
         for (const lang of ['uk', 'en', 'ru'] as const) {
           const meta = blogListMeta[lang]
           const langMeta = LANG_META[lang]
-          const langPrefix = lang === 'uk' ? '' : `${lang}/`
-          const blogUrl = `${BASE_URL}/blog${lang === 'uk' ? '' : `/${lang}`}`
+          const langPrefix = lang === 'en' ? '' : `${lang}/`
+          const blogUrl = `${BASE_URL}/blog${lang === 'en' ? '' : `/${lang}`}`
 
           const listArticles = sortedArticles.map(a => {
             let title = a.title
@@ -494,8 +494,8 @@ function prerenderBlogPlugin(): Plugin {
           })
 
           const blogHreflang = [
-            `<link rel="alternate" hreflang="uk" href="${BASE_URL}/blog" />`,
-            `<link rel="alternate" hreflang="en" href="${BASE_URL}/blog/en" />`,
+            `<link rel="alternate" hreflang="en" href="${BASE_URL}/blog" />`,
+            `<link rel="alternate" hreflang="uk" href="${BASE_URL}/blog/uk" />`,
             `<link rel="alternate" hreflang="ru" href="${BASE_URL}/blog/ru" />`,
             `<link rel="alternate" hreflang="x-default" href="${BASE_URL}/blog" />`,
           ].join('\n    ')
@@ -522,7 +522,7 @@ function prerenderBlogPlugin(): Plugin {
     <script>document.getElementById('blog-seo')?.remove()</script>`
           )
 
-          const listDir = lang === 'uk' ? blogDir : path.resolve(blogDir, lang)
+          const listDir = lang === 'en' ? blogDir : path.resolve(blogDir, lang)
           fs.mkdirSync(listDir, { recursive: true })
           fs.writeFileSync(path.resolve(listDir, 'index.html'), blogListPage)
         }
@@ -549,7 +549,7 @@ function prerenderBlogPlugin(): Plugin {
             }
 
             const langMeta = LANG_META[lang]
-            const slugPath = lang === 'uk' ? article.id : `${lang}/${article.id}`
+            const slugPath = lang === 'en' ? article.id : `${lang}/${article.id}`
             const articleUrl = `${BASE_URL}/blog/${slugPath}`
             const ogImage = `${BASE_URL}/blog-banners/${article.id}.png`
             const truncatedPunchline = punchline.length > 200
