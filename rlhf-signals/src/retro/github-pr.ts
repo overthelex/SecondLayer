@@ -5,7 +5,7 @@ import { logger } from '../lib/logger';
 import { upsertSession, upsertArtifact, insertEdit, contentHash } from '../schema/queries';
 import { withTransaction } from '../lib/db';
 
-interface PRNode {
+export interface PRNode {
   number: number;
   title: string;
   body: string;
@@ -98,7 +98,7 @@ const PR_QUERY = `
   }
 `;
 
-function isClaudeAssisted(pr: PRNode): boolean {
+export function isClaudeAssisted(pr: PRNode): boolean {
   const markers = ['co-authored-by: claude', 'claude-code', 'claude code', 'anthropic'];
   for (const commit of pr.commits.nodes) {
     const full = `${commit.commit.message} ${commit.commit.messageBody}`.toLowerCase();
@@ -107,7 +107,7 @@ function isClaudeAssisted(pr: PRNode): boolean {
   return false;
 }
 
-function hasMultipleHumanAuthors(pr: PRNode): boolean {
+export function hasMultipleHumanAuthors(pr: PRNode): boolean {
   const authors = new Set<string>();
   for (const commit of pr.commits.nodes) {
     const login = commit.commit.author?.user?.login;
@@ -116,11 +116,11 @@ function hasMultipleHumanAuthors(pr: PRNode): boolean {
   return authors.size > 1;
 }
 
-function isMinimalDiff(pr: PRNode): boolean {
+export function isMinimalDiff(pr: PRNode): boolean {
   return (pr.additions + pr.deletions) < 10;
 }
 
-function terminalAction(pr: PRNode): string {
+export function terminalAction(pr: PRNode): string {
   if (pr.mergedAt) return 'merged';
   if (pr.state === 'CLOSED') return 'closed';
   const lastActivity = new Date(pr.updatedAt);
@@ -129,7 +129,7 @@ function terminalAction(pr: PRNode): string {
   return pr.state.toLowerCase();
 }
 
-function surfaceTags(pr: PRNode): string[] {
+export function surfaceTags(pr: PRNode): string[] {
   const tags: string[] = [];
   if (pr.isDraft || /\[wip\]|\[draft\]/i.test(pr.title)) tags.push('wip');
   const labelNames = pr.labels.nodes.map(l => l.name.toLowerCase());
@@ -139,11 +139,11 @@ function surfaceTags(pr: PRNode): string[] {
   return tags;
 }
 
-function simpleTokenize(text: string): string[] {
+export function simpleTokenize(text: string): string[] {
   return text.split(/\s+/).filter(Boolean);
 }
 
-function tokenLevenshtein(a: string, b: string): { distance: number; normalized: number } {
+export function tokenLevenshtein(a: string, b: string): { distance: number; normalized: number } {
   const tokensA = simpleTokenize(a);
   const tokensB = simpleTokenize(b);
   const strA = tokensA.join(' ');
