@@ -11,6 +11,7 @@
     "rlhf:retro": "tsx scripts/extract-retro.ts",
     "rlhf:attribute": "tsx scripts/attribute-outcomes.ts",
     "rlhf:feasibility": "tsx scripts/generate-feasibility.ts",
+    "rlhf:classify": "tsx scripts/classify-edits.ts",
     "rlhf:ingest": "tsx src/capture/manual-ingest.ts",
     "rlhf:outcome": "tsx src/attribution/manual-outcomes.ts",
     "rlhf:redact": "tsx src/redaction/content-redactor.ts",
@@ -21,6 +22,7 @@
     "lint": "eslint src/ --ext .ts"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1045.0",
     "@octokit/graphql": "^8.2.1",
     "chokidar": "^4.0.3",
     "dotenv": "^16.4.7",
