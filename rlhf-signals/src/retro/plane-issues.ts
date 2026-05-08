@@ -8,23 +8,38 @@ interface PlaneIssue {
   id: string;
   sequence_id: number;
   name: string;
-  description_html: string;
-  description_stripped: string;
-  state: { name: string; group: string };
+  description_html: string | null;
   priority: string;
   created_at: string;
   updated_at: string;
   completed_at: string | null;
-  labels: { id: string; name: string }[];
-  link_count: number;
-  sub_issues_count: number;
+  state: string;
+  labels: string[];
+  parent: string | null;
+}
+
+interface PlaneState {
+  id: string;
+  name: string;
+  group: string;
+}
+
+interface PlaneLabel {
+  id: string;
+  name: string;
 }
 
 interface PlaneComment {
   id: string;
-  comment_stripped: string;
+  comment_html: string;
   created_at: string;
   actor_detail: { display_name: string } | null;
+}
+
+interface PaginatedResponse<T> {
+  results: T[];
+  next_cursor?: string;
+  next_page_results: boolean;
 }
 
 async function planeGet<T>(path: string): Promise<T> {
@@ -39,6 +54,24 @@ async function planeGet<T>(path: string): Promise<T> {
   return resp.json() as Promise<T>;
 }
 
+async function fetchStates(): Promise<Map<string, PlaneState>> {
+  const data = await planeGet<PaginatedResponse<PlaneState>>('/states/');
+  const map = new Map<string, PlaneState>();
+  for (const s of data.results) {
+    map.set(s.id, s);
+  }
+  return map;
+}
+
+async function fetchLabels(): Promise<Map<string, PlaneLabel>> {
+  const data = await planeGet<PaginatedResponse<PlaneLabel>>('/labels/');
+  const map = new Map<string, PlaneLabel>();
+  for (const l of data.results) {
+    map.set(l.id, l);
+  }
+  return map;
+}
+
 async function fetchAllIssues(): Promise<PlaneIssue[]> {
   const issues: PlaneIssue[] = [];
   let cursor: string | undefined;
@@ -46,7 +79,7 @@ async function fetchAllIssues(): Promise<PlaneIssue[]> {
 
   while (true) {
     const params = cursor ? `?cursor=${cursor}&per_page=100` : '?per_page=100';
-    const data = await planeGet<{ results: PlaneIssue[]; next_cursor?: string; next_page_results: boolean }>(`/issues/${params}`);
+    const data = await planeGet<PaginatedResponse<PlaneIssue>>(`/issues/${params}`);
     issues.push(...data.results);
     logger.info(`Fetched Plane issues page ${page}, total so far: ${issues.length}`);
 
@@ -60,18 +93,23 @@ async function fetchAllIssues(): Promise<PlaneIssue[]> {
 
 async function fetchComments(issueId: string): Promise<PlaneComment[]> {
   try {
-    const data = await planeGet<PlaneComment[]>(`/issues/${issueId}/comments/`);
-    return Array.isArray(data) ? data : [];
+    const data = await planeGet<PaginatedResponse<PlaneComment>>(`/issues/${issueId}/comments/`);
+    return Array.isArray(data.results) ? data.results : [];
   } catch {
     return [];
   }
 }
 
-function terminalAction(issue: PlaneIssue): string | null {
-  const group = issue.state.group.toLowerCase();
-  if (group === 'completed') return 'done';
-  if (group === 'cancelled') return 'cancelled';
-  return null;
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function simpleTokenize(text: string): string[] {
@@ -92,24 +130,39 @@ export async function extractPlaneIssues(): Promise<void> {
     return;
   }
 
+  const statesMap = await fetchStates();
+  const labelsMap = await fetchLabels();
   const issues = await fetchAllIssues();
   let processed = 0;
 
   for (const issue of issues) {
-    await processIssue(issue);
+    await processIssue(issue, statesMap, labelsMap);
     processed++;
   }
 
   logger.info(`Plane extraction complete: ${processed} sessions`);
 }
 
-async function processIssue(issue: PlaneIssue): Promise<void> {
+async function processIssue(
+  issue: PlaneIssue,
+  statesMap: Map<string, PlaneState>,
+  labelsMap: Map<string, PlaneLabel>,
+): Promise<void> {
   await withTransaction(async (client) => {
-    const ta = terminalAction(issue);
+    const state = statesMap.get(issue.state);
+    const stateGroup = state?.group?.toLowerCase();
+    let ta: string | null = null;
+    if (stateGroup === 'completed') ta = 'done';
+    else if (stateGroup === 'cancelled') ta = 'cancelled';
+
+    const labelNames = (issue.labels || [])
+      .map(id => labelsMap.get(id)?.name)
+      .filter((n): n is string => !!n);
+
     const sessionId = await upsertSession({
       source: 'plane_issue',
       external_ref: issue.id,
-      surface_tags: issue.labels.map(l => l.name),
+      surface_tags: labelNames,
       created_at: new Date(issue.created_at),
       terminal_at: issue.completed_at ? new Date(issue.completed_at) : null,
       terminal_action: ta,
@@ -120,16 +173,16 @@ async function processIssue(issue: PlaneIssue): Promise<void> {
         sequence_id: issue.sequence_id,
         name: issue.name,
         priority: issue.priority,
-        state: issue.state.name,
-        state_group: issue.state.group,
+        state: state?.name ?? null,
+        state_group: state?.group ?? null,
       },
     }, client);
 
     let seqIdx = 0;
     const artifactIds: string[] = [];
 
-    // Prompt: issue description
-    const promptContent = `${issue.name}\n\n${issue.description_stripped || ''}`.trim();
+    const descText = issue.description_html ? stripHtml(issue.description_html) : '';
+    const promptContent = `${issue.name}\n\n${descText}`.trim();
     if (promptContent) {
       const id = await upsertArtifact({
         session_id: sessionId,
@@ -145,26 +198,25 @@ async function processIssue(issue: PlaneIssue): Promise<void> {
       artifactIds.push(id);
     }
 
-    // Comments as edits
     const comments = await fetchComments(issue.id);
     for (const comment of comments) {
-      if (!comment.comment_stripped?.trim()) continue;
+      const commentText = comment.comment_html ? stripHtml(comment.comment_html) : '';
+      if (!commentText) continue;
       const id = await upsertArtifact({
         session_id: sessionId,
         role: 'edit',
         sequence_index: seqIdx++,
-        content_raw: comment.comment_stripped,
+        content_raw: commentText,
         content_redacted: null,
-        content_hash: contentHash(comment.comment_stripped),
-        token_count: simpleTokenize(comment.comment_stripped).length,
+        content_hash: contentHash(commentText),
+        token_count: simpleTokenize(commentText).length,
         timestamp: new Date(comment.created_at),
         metadata: { actor: comment.actor_detail?.display_name },
       }, client);
       artifactIds.push(id);
     }
 
-    // Final: terminal state description
-    const finalContent = `[${issue.state.name}] ${issue.name}`;
+    const finalContent = `[${state?.name ?? 'unknown'}] ${issue.name}`;
     const finalId = await upsertArtifact({
       session_id: sessionId,
       role: 'final',
@@ -178,7 +230,6 @@ async function processIssue(issue: PlaneIssue): Promise<void> {
     }, client);
     artifactIds.push(finalId);
 
-    // Edits between consecutive artifacts
     for (let i = 1; i < artifactIds.length; i++) {
       const fromResult = await client.query(
         'SELECT content_raw FROM workflow_artifacts WHERE artifact_id = $1',
