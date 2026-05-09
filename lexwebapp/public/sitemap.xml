@@ -974,6 +974,24 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://legal.org.ua/blog/tokenizer-fertility-zero-shot-ukrainian-legal</loc>
+    <lastmod>2026-05-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/uk/tokenizer-fertility-zero-shot-ukrainian-legal</loc>
+    <lastmod>2026-05-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/tokenizer-fertility-zero-shot-ukrainian-legal</loc>
+    <lastmod>2026-05-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://legal.org.ua/en/offer</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
