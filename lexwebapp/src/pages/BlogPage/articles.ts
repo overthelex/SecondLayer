@@ -147,6 +147,94 @@ Attribution involves several methodological decisions: appropriate temporal wind
 
 ---
 
+## 4.5 Workflow Memory Architecture for Long-Horizon Composition
+
+### The Context-Window Bottleneck
+
+Long-horizon co-execution — workflow tasks spanning weeks to months — is bottlenecked by context window mechanics, not model capability. Each new Claude Code session starts cold, re-reads files, accumulates redundant state, and loses prior reasoning when the session ends. At the 6-week horizon, the working set of relevant prior decisions exceeds what fits efficiently in any context window. Even at 1M tokens, attention degradation and inference cost make brute-force context loading unworkable.
+
+The accepted workaround — CLAUDE.md files, README dumps, manual context summaries — is flat, hand-curated, lossy compression of project state. It captures intent but not the texture of prior decisions: which alternatives were considered and rejected, which constitutional principles were invoked, which edits corrected which validator outputs.
+
+We propose replacing flat context dumps with a **structured, addressable, queryable workflow memory layer** that Claude Code retrieves from on every session, scoped to the current task.
+
+### Three-Layer Memory Architecture
+
+Workflow memory decomposes into three layers, each with distinct retrieval semantics:
+
+**Domain layer.** Legal data — laws, court decisions, regulations. Retrieved by semantic similarity. Already exists in production (Qdrant vector DB with 33.7M court decisions, legislation, registry data). The change is interface-level: route domain queries through the memory service for unified retrieval logging.
+
+**Workflow layer.** Architecture decisions, validator definitions, MCP tool contracts, constitution registry, ADR-style decision records, enriched git history. Retrieved by hybrid semantic + structured filters (component, surface, constitutional layer). New build: PostgreSQL + Qdrant collection, indexed with source type, component, and temporal metadata.
+
+**Practitioner layer.** Edit-traces, disambiguation labels, decision patterns, accept/reject history per surface, founder-specific operational principles. Retrieved by hybrid semantic + temporal + outcome-conditioned queries. Extension of the rlhf-signals schema described in Appendix A.
+
+A new task does not load "the project" — it issues a **memory query** that returns a compact, task-conditioned digest from all three layers. The model works with a small focused context plus access to retrieve more on demand via an MCP tool.
+
+### Empirical Case: The Open Data Workstream as First Slow-Loop
+
+The open data ingestion workstream on SecondLayer provides the concrete, already-completed long-horizon example that demonstrates both the need for workflow memory and the substrate for measuring its impact.
+
+**Scale:** 50 merged PRs across 6 weeks (March 27 — May 7, 2026), 19+ Plane tasks organized in a 3-level hierarchy, spanning 4 countries (Ukraine, Spain, Switzerland, Ireland) and 15+ offshore jurisdictions.
+
+**Task hierarchy:**
+
+- **Master Task (LEXAI-348):** orchestration dashboard tracking 32 automated data sources on production, an OSINT audit of data.gov.ua yielding ~120 new datasets, and 5 uncovered bulk datasets requiring a separate file-download pipeline
+- **Offshore Research (LEXAI-349):** 15-jurisdiction reconnaissance producing 4.9M ICIJ records, 811K Irish companies, 918K Dutch court decisions — with mid-stream blockers (Zefix 403, SHAB timeout, CENDOJ anti-bot) that forced architectural pivots
+- **Country-level ingestion plans (LEXAI-832, LEXAI-845):** Switzerland (12 importers, ~9.2M docs) and Spain (12 importers, already 446K decisions on prod), each decomposed into per-source sub-tasks with DoD, schema, and endpoint details
+
+**Phase progression across PRs:**
+
+| Phase | Period | PRs | Key work |
+|-------|--------|-----|----------|
+| Foundation | Mar 27-28 | 9 | 6 TIER-1 MCP tools, opendata-sync scheduler, CI/CD pipeline |
+| Quality | Mar 29 — Apr 5 | 4 | EDRSR OOM fix, partitioned table sync, TS build fixes |
+| Marketing | Apr 10-14 | 5 | opendata.legal.org.ua landing, 27-jurisdiction update, 13 datasets added |
+| Deep infra | Apr 15-19 | 14 | Multi-IP importer framework, +1M texts recovered, 4 CH + 4 ES importers, hybrid search (RRF) |
+| Hardening | Apr 22-23 | 4 | Resumable rsync, FINMA + ECHR importers, Spain data fixes |
+| Consolidation | May 1-7 | 7 | Frontend EDRSR switch, 29 tools consolidated into 1 meta-tool, 4 EDRSR tools into 1 |
+
+**Why this is the ideal slow-loop test case:**
+
+1. **Multi-layer dependencies.** Research fed into scraping infra (multi-IP, EIP rotation), which fed into data ingestion, which fed into DB migrations, which fed into MCP tools, which fed into tool consolidation, which fed into frontend — each phase required context from all prior phases.
+
+2. **Decision accumulation.** Blockers discovered mid-stream (Zefix returning 403, SHAB API timeout, CENDOJ anti-bot blocking after ~50 requests per IP) led to architectural pivots (multi-IP framework with 3 parallel IPs, Playwright-based scraping, opendata.swiss CKAN alternative). A cold session cannot recover this decision history.
+
+3. **Cross-session state.** The consolidation endgame (PR #1532: merging 29 SQL tools into 1 meta-tool) required knowledge of all tools created across the prior 5 weeks — their naming conventions, parameter schemas, table mappings, and behavioral nuances. This is exactly the cross-session reasoning that workflow memory makes retrievable.
+
+4. **State scattered across systems.** Plane tasks track intent, PRs track implementation, task descriptions track live status (DONE / BLOCKED / IN PROGRESS), and the Master Task is a hand-maintained dashboard. No single source tells the full story.
+
+### The Retrieval-Correction Edit Class
+
+Workflow memory instrumentation produces a fourth edit class beyond the three described in Section 3: **retrieval-correction edits** — cases where the model would have produced correct output if relevant prior context had been retrieved, but did not because the memory query missed it.
+
+Every memory query is logged. After a session closes, a reconciliation job examines:
+
+- Did the session edit files or components that no retrieved document covered? (potential retrieval miss)
+- Did the practitioner manually invoke a different query mid-session? (query refinement signal)
+- Did the final edit include silent corrections on principles whose documents were not retrieved? (constitutional retrieval miss)
+
+This produces empirical data on retrieval miss rate, stratified by component, surface, and constitutional layer — the first quantitative measure of how context-window limitations degrade agentic workflow quality.
+
+### Success Metrics
+
+| Metric | Baseline (current) | Target |
+|--------|-------------------|--------|
+| Session bootstrap (file reads) | ~25 | ≤ 8 |
+| Session bootstrap (input tokens) | ~30K+ | ≤ 10K |
+| Constitutional principle retrieval accuracy | n/a | ≥ 80% |
+| Cross-session decision continuity (manual eval) | frequent re-explanation | rare re-explanation |
+| Retrieval miss rate | n/a (establish baseline) | ≤ 25% |
+
+### Connection to the Research Program
+
+The workflow memory architecture is not a separate project — it is the infrastructure prerequisite for the long-horizon track of this research:
+
+- **This paper.** Phase 1 of the memory build produces empirical content for this section, replacing speculative architecture description with measured retrieval performance and a retrieval-miss dataset.
+- **Experiment 5 (Constitutional Stratification).** Practitioner layer indexing makes it trivial to construct training subsets stratified by constitutional layer and edit class, since these are first-class metadata.
+- **Long-horizon track.** Once operational, sustained 6+ week workflows become tractable without context-window degradation — the prerequisite for the long-horizon track described in Section 8 (Future Work).
+- **NVIDIA Inception.** The workflow memory architecture is production-grade, multi-turn, tool-using, persistent across long horizons — the type of agentic AI infrastructure that supports a grant application.
+
+---
+
 ## 5. Pilot Study Design
 
 ### Phase 1: Single-Founder Case Study (4–6 weeks)
@@ -189,6 +277,8 @@ The completed methodology produces:
 - Pilot study results (single-founder case study and multi-founder cohort analysis)
 - Comparative RLHF training experiment results against established baselines
 - Anonymized open dataset release for replicability
+- Workflow memory architecture specification with measured retrieval performance on the open data slow-loop (Section 4.5)
+- Retrieval-correction edit class dataset and analysis of retrieval miss rates
 - Limitations analysis and future work directions
 
 ---
@@ -232,6 +322,10 @@ Honest acknowledgment of unresolved methodological questions:
 
 - **Causal identification.** Distinguishing genuine preference signal from confounded outcome correlation requires rigorous experimental design beyond initial pilot study scope.
 
+- **Retrieval-correction attribution.** The fourth edit class introduced in Section 4.5 — retrieval-correction edits — depends on counterfactual reasoning: would the model have produced correct output if the relevant context had been retrieved? Establishing reliable attribution requires careful baseline comparison and may introduce circularity if the retrieval system itself is tuned on the same edits.
+
+- **Memory staleness vs. noise tradeoff.** Workflow memory documents decay at different rates: ADRs remain valid for months, while task status changes daily. Over-indexing on stale context may introduce more noise than under-retrieval. The optimal eviction and re-embedding strategy is an open empirical question.
+
 ---
 
 ## 9. Resource Requirements (Provisional)
@@ -254,8 +348,10 @@ This document represents initial methodology scaffolding. Concrete next steps be
 - Engage with potential research collaborators or advisors
 - Refine outcome attribution methodology with appropriate statistical rigor
 - Develop privacy protocol for review
+- **Build workflow memory infrastructure (Section 4.5).** Stand up the three-layer memory service, index the open data workstream as the first slow-loop, and measure retrieval performance against the baseline of manual context loading. Target: ≥50% reduction in session bootstrap cost within 8 weeks.
+- **Capture retrieval-correction edits.** Instrument the memory query path to log retrieval misses, producing the fourth edit class dataset needed for the constitutional stratification experiment.
 
-Timeline assumes initiation after current commitments stabilize (Q3 2026), with completion targeted for Q2 2027 publication submission.
+Timeline assumes initiation after current commitments stabilize (Q3 2026), with completion targeted for Q2 2027 publication submission. The workflow memory infrastructure (Section 4.5) is being built concurrently as production infrastructure for LEX AI, with empirical measurements feeding back into this paper.
 
 ---
 
