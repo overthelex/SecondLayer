@@ -1,0 +1,8 @@
+{
+  "zero_shot": 93.77289377289377,
+  "few_shot_variants": {
+    "original_uk": 49.08424908424908,
+    "english_instr": 60.07326007326007,
+    "verbose_uk": 60.07326007326007
+  }
+}

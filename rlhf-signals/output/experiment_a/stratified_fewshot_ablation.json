@@ -1,0 +1,50 @@
+{
+  "nemotron_120b": {
+    "accuracy": 80.2,
+    "correct": 219,
+    "total": 273,
+    "errors": 0,
+    "per_class": {
+      "задоволено": {
+        "correct": 186,
+        "total": 230
+      },
+      "залишено без розгляду": {
+        "correct": 18,
+        "total": 21
+      },
+      "закрито": {
+        "correct": 3,
+        "total": 7
+      },
+      "відмовлено": {
+        "correct": 12,
+        "total": 15
+      }
+    }
+  },
+  "qwen3_235b": {
+    "accuracy": 67.4,
+    "correct": 184,
+    "total": 273,
+    "errors": 0,
+    "per_class": {
+      "задоволено": {
+        "correct": 142,
+        "total": 230
+      },
+      "залишено без розгляду": {
+        "correct": 21,
+        "total": 21
+      },
+      "закрито": {
+        "correct": 6,
+        "total": 7
+      },
+      "відмовлено": {
+        "correct": 15,
+        "total": 15
+      }
+    }
+  }
+}
