@@ -1,0 +1,5679 @@
+{
+  "qwen3_32b": {
+    "model": "qwen3_32b",
+    "display_name": "Qwen3 32B (dense)",
+    "n_samples": 100,
+    "avg_fertility": 3.9019177697390846,
+    "std_fertility": 0.4688999385986339,
+    "median_fertility": 3.803877692994517,
+    "avg_chars_per_token": 1.912983894894453,
+    "samples": [
+      {
+        "sample_idx": 0,
+        "word_count": 822,
+        "char_count": 6000,
+        "input_tokens": 2911,
+        "fertility": 3.5413625304136254,
+        "chars_per_token": 2.0611473720371007
+      },
+      {
+        "sample_idx": 1,
+        "word_count": 867,
+        "char_count": 6000,
+        "input_tokens": 3129,
+        "fertility": 3.6089965397923875,
+        "chars_per_token": 1.9175455417066156
+      },
+      {
+        "sample_idx": 2,
+        "word_count": 366,
+        "char_count": 2858,
+        "input_tokens": 1492,
+        "fertility": 4.076502732240437,
+        "chars_per_token": 1.915549597855228
+      },
+      {
+        "sample_idx": 3,
+        "word_count": 812,
+        "char_count": 6000,
+        "input_tokens": 3035,
+        "fertility": 3.7376847290640396,
+        "chars_per_token": 1.9769357495881383
+      },
+      {
+        "sample_idx": 4,
+        "word_count": 227,
+        "char_count": 1529,
+        "input_tokens": 928,
+        "fertility": 4.0881057268722465,
+        "chars_per_token": 1.6476293103448276
+      },
+      {
+        "sample_idx": 5,
+        "word_count": 883,
+        "char_count": 6000,
+        "input_tokens": 3198,
+        "fertility": 3.621744054360136,
+        "chars_per_token": 1.876172607879925
+      },
+      {
+        "sample_idx": 6,
+        "word_count": 856,
+        "char_count": 6000,
+        "input_tokens": 2967,
+        "fertility": 3.4661214953271027,
+        "chars_per_token": 2.0222446916076846
+      },
+      {
+        "sample_idx": 7,
+        "word_count": 286,
+        "char_count": 2522,
+        "input_tokens": 1433,
+        "fertility": 5.010489510489511,
+        "chars_per_token": 1.759944173063503
+      },
+      {
+        "sample_idx": 8,
+        "word_count": 904,
+        "char_count": 6000,
+        "input_tokens": 3084,
+        "fertility": 3.411504424778761,
+        "chars_per_token": 1.9455252918287937
+      },
+      {
+        "sample_idx": 9,
+        "word_count": 813,
+        "char_count": 6000,
+        "input_tokens": 2847,
+        "fertility": 3.5018450184501844,
+        "chars_per_token": 2.107481559536354
+      },
+      {
+        "sample_idx": 10,
+        "word_count": 417,
+        "char_count": 2972,
+        "input_tokens": 1559,
+        "fertility": 3.738609112709832,
+        "chars_per_token": 1.9063502245028865
+      },
+      {
+        "sample_idx": 11,
+        "word_count": 791,
+        "char_count": 6000,
+        "input_tokens": 3198,
+        "fertility": 4.042983565107459,
+        "chars_per_token": 1.876172607879925
+      },
+      {
+        "sample_idx": 12,
+        "word_count": 914,
+        "char_count": 6000,
+        "input_tokens": 2985,
+        "fertility": 3.2658643326039387,
+        "chars_per_token": 2.0100502512562812
+      },
+      {
+        "sample_idx": 13,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 3150,
+        "fertility": 3.888888888888889,
+        "chars_per_token": 1.9047619047619047
+      },
+      {
+        "sample_idx": 14,
+        "word_count": 683,
+        "char_count": 4972,
+        "input_tokens": 2395,
+        "fertility": 3.506588579795022,
+        "chars_per_token": 2.075991649269311
+      },
+      {
+        "sample_idx": 15,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 3271,
+        "fertility": 3.898688915375447,
+        "chars_per_token": 1.8343014368694588
+      },
+      {
+        "sample_idx": 16,
+        "word_count": 516,
+        "char_count": 3768,
+        "input_tokens": 2033,
+        "fertility": 3.939922480620155,
+        "chars_per_token": 1.853418593212002
+      },
+      {
+        "sample_idx": 17,
+        "word_count": 376,
+        "char_count": 2838,
+        "input_tokens": 1548,
+        "fertility": 4.117021276595745,
+        "chars_per_token": 1.8333333333333333
+      },
+      {
+        "sample_idx": 18,
+        "word_count": 708,
+        "char_count": 4807,
+        "input_tokens": 2510,
+        "fertility": 3.5451977401129944,
+        "chars_per_token": 1.9151394422310757
+      },
+      {
+        "sample_idx": 19,
+        "word_count": 293,
+        "char_count": 2005,
+        "input_tokens": 1117,
+        "fertility": 3.8122866894197953,
+        "chars_per_token": 1.7949865711727842
+      },
+      {
+        "sample_idx": 20,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 3060,
+        "fertility": 3.5789473684210527,
+        "chars_per_token": 1.9607843137254901
+      },
+      {
+        "sample_idx": 21,
+        "word_count": 498,
+        "char_count": 3783,
+        "input_tokens": 2048,
+        "fertility": 4.112449799196787,
+        "chars_per_token": 1.84716796875
+      },
+      {
+        "sample_idx": 22,
+        "word_count": 462,
+        "char_count": 3299,
+        "input_tokens": 1661,
+        "fertility": 3.5952380952380953,
+        "chars_per_token": 1.9861529199277543
+      },
+      {
+        "sample_idx": 23,
+        "word_count": 643,
+        "char_count": 4636,
+        "input_tokens": 2408,
+        "fertility": 3.744945567651633,
+        "chars_per_token": 1.9252491694352158
+      },
+      {
+        "sample_idx": 24,
+        "word_count": 884,
+        "char_count": 6000,
+        "input_tokens": 3317,
+        "fertility": 3.752262443438914,
+        "chars_per_token": 1.8088634308109737
+      },
+      {
+        "sample_idx": 25,
+        "word_count": 272,
+        "char_count": 2634,
+        "input_tokens": 1256,
+        "fertility": 4.617647058823529,
+        "chars_per_token": 2.0971337579617835
+      },
+      {
+        "sample_idx": 26,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 3140,
+        "fertility": 3.7425506555423125,
+        "chars_per_token": 1.910828025477707
+      },
+      {
+        "sample_idx": 27,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 2971,
+        "fertility": 3.414942528735632,
+        "chars_per_token": 2.019522046449007
+      },
+      {
+        "sample_idx": 28,
+        "word_count": 903,
+        "char_count": 6000,
+        "input_tokens": 3229,
+        "fertility": 3.575858250276855,
+        "chars_per_token": 1.8581604211830287
+      },
+      {
+        "sample_idx": 29,
+        "word_count": 891,
+        "char_count": 6000,
+        "input_tokens": 2990,
+        "fertility": 3.355780022446689,
+        "chars_per_token": 2.0066889632107023
+      },
+      {
+        "sample_idx": 30,
+        "word_count": 391,
+        "char_count": 2820,
+        "input_tokens": 1579,
+        "fertility": 4.038363171355499,
+        "chars_per_token": 1.785940468651045
+      },
+      {
+        "sample_idx": 31,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 3114,
+        "fertility": 3.7204301075268815,
+        "chars_per_token": 1.9267822736030829
+      },
+      {
+        "sample_idx": 32,
+        "word_count": 713,
+        "char_count": 6000,
+        "input_tokens": 3288,
+        "fertility": 4.611500701262272,
+        "chars_per_token": 1.8248175182481752
+      },
+      {
+        "sample_idx": 33,
+        "word_count": 881,
+        "char_count": 6000,
+        "input_tokens": 3023,
+        "fertility": 3.431328036322361,
+        "chars_per_token": 1.9847833278200464
+      },
+      {
+        "sample_idx": 34,
+        "word_count": 486,
+        "char_count": 4564,
+        "input_tokens": 2274,
+        "fertility": 4.679012345679013,
+        "chars_per_token": 2.0070360598065085
+      },
+      {
+        "sample_idx": 35,
+        "word_count": 459,
+        "char_count": 3448,
+        "input_tokens": 1939,
+        "fertility": 4.224400871459695,
+        "chars_per_token": 1.778236204228984
+      },
+      {
+        "sample_idx": 36,
+        "word_count": 487,
+        "char_count": 3588,
+        "input_tokens": 1840,
+        "fertility": 3.7782340862423,
+        "chars_per_token": 1.95
+      },
+      {
+        "sample_idx": 37,
+        "word_count": 826,
+        "char_count": 6000,
+        "input_tokens": 3072,
+        "fertility": 3.719128329297821,
+        "chars_per_token": 1.953125
+      },
+      {
+        "sample_idx": 38,
+        "word_count": 849,
+        "char_count": 6000,
+        "input_tokens": 3023,
+        "fertility": 3.5606595995288575,
+        "chars_per_token": 1.9847833278200464
+      },
+      {
+        "sample_idx": 39,
+        "word_count": 832,
+        "char_count": 6000,
+        "input_tokens": 3037,
+        "fertility": 3.6502403846153846,
+        "chars_per_token": 1.9756338491932828
+      },
+      {
+        "sample_idx": 40,
+        "word_count": 393,
+        "char_count": 2976,
+        "input_tokens": 1456,
+        "fertility": 3.704834605597964,
+        "chars_per_token": 2.043956043956044
+      },
+      {
+        "sample_idx": 41,
+        "word_count": 897,
+        "char_count": 6000,
+        "input_tokens": 3538,
+        "fertility": 3.9442586399108137,
+        "chars_per_token": 1.695873374788016
+      },
+      {
+        "sample_idx": 42,
+        "word_count": 587,
+        "char_count": 4362,
+        "input_tokens": 2231,
+        "fertility": 3.8006814310051107,
+        "chars_per_token": 1.9551770506499329
+      },
+      {
+        "sample_idx": 43,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 2891,
+        "fertility": 3.5691358024691358,
+        "chars_per_token": 2.0754064337599445
+      },
+      {
+        "sample_idx": 44,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 3106,
+        "fertility": 3.632748538011696,
+        "chars_per_token": 1.931745009658725
+      },
+      {
+        "sample_idx": 45,
+        "word_count": 461,
+        "char_count": 3267,
+        "input_tokens": 1547,
+        "fertility": 3.355748373101952,
+        "chars_per_token": 2.111829347123465
+      },
+      {
+        "sample_idx": 46,
+        "word_count": 735,
+        "char_count": 5311,
+        "input_tokens": 2696,
+        "fertility": 3.668027210884354,
+        "chars_per_token": 1.9699554896142433
+      },
+      {
+        "sample_idx": 47,
+        "word_count": 847,
+        "char_count": 6000,
+        "input_tokens": 3226,
+        "fertility": 3.808736717827627,
+        "chars_per_token": 1.8598884066955983
+      },
+      {
+        "sample_idx": 48,
+        "word_count": 371,
+        "char_count": 3237,
+        "input_tokens": 1391,
+        "fertility": 3.7493261455525606,
+        "chars_per_token": 2.3271028037383177
+      },
+      {
+        "sample_idx": 49,
+        "word_count": 307,
+        "char_count": 2524,
+        "input_tokens": 1493,
+        "fertility": 4.863192182410423,
+        "chars_per_token": 1.6905559276624247
+      },
+      {
+        "sample_idx": 50,
+        "word_count": 490,
+        "char_count": 3604,
+        "input_tokens": 1822,
+        "fertility": 3.7183673469387757,
+        "chars_per_token": 1.978046103183315
+      },
+      {
+        "sample_idx": 51,
+        "word_count": 457,
+        "char_count": 3458,
+        "input_tokens": 1855,
+        "fertility": 4.059080962800875,
+        "chars_per_token": 1.8641509433962264
+      },
+      {
+        "sample_idx": 52,
+        "word_count": 848,
+        "char_count": 6000,
+        "input_tokens": 2989,
+        "fertility": 3.5247641509433962,
+        "chars_per_token": 2.0073603211776514
+      },
+      {
+        "sample_idx": 53,
+        "word_count": 426,
+        "char_count": 2959,
+        "input_tokens": 1576,
+        "fertility": 3.699530516431925,
+        "chars_per_token": 1.87753807106599
+      },
+      {
+        "sample_idx": 54,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 2955,
+        "fertility": 3.396551724137931,
+        "chars_per_token": 2.030456852791878
+      },
+      {
+        "sample_idx": 55,
+        "word_count": 857,
+        "char_count": 6000,
+        "input_tokens": 2848,
+        "fertility": 3.323220536756126,
+        "chars_per_token": 2.106741573033708
+      },
+      {
+        "sample_idx": 56,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 2930,
+        "fertility": 3.5005973715651133,
+        "chars_per_token": 2.04778156996587
+      },
+      {
+        "sample_idx": 57,
+        "word_count": 448,
+        "char_count": 3426,
+        "input_tokens": 1812,
+        "fertility": 4.044642857142857,
+        "chars_per_token": 1.890728476821192
+      },
+      {
+        "sample_idx": 58,
+        "word_count": 342,
+        "char_count": 2841,
+        "input_tokens": 1549,
+        "fertility": 4.529239766081871,
+        "chars_per_token": 1.8340865074241446
+      },
+      {
+        "sample_idx": 59,
+        "word_count": 332,
+        "char_count": 2351,
+        "input_tokens": 1326,
+        "fertility": 3.9939759036144578,
+        "chars_per_token": 1.7730015082956259
+      },
+      {
+        "sample_idx": 60,
+        "word_count": 851,
+        "char_count": 6000,
+        "input_tokens": 3108,
+        "fertility": 3.652173913043478,
+        "chars_per_token": 1.9305019305019304
+      },
+      {
+        "sample_idx": 61,
+        "word_count": 431,
+        "char_count": 3365,
+        "input_tokens": 1757,
+        "fertility": 4.076566125290023,
+        "chars_per_token": 1.915196357427433
+      },
+      {
+        "sample_idx": 62,
+        "word_count": 824,
+        "char_count": 6000,
+        "input_tokens": 2883,
+        "fertility": 3.4987864077669903,
+        "chars_per_token": 2.0811654526534857
+      },
+      {
+        "sample_idx": 63,
+        "word_count": 807,
+        "char_count": 6000,
+        "input_tokens": 3289,
+        "fertility": 4.075588599752169,
+        "chars_per_token": 1.8242626938279112
+      },
+      {
+        "sample_idx": 64,
+        "word_count": 687,
+        "char_count": 5538,
+        "input_tokens": 2752,
+        "fertility": 4.005822416302766,
+        "chars_per_token": 2.0123546511627906
+      },
+      {
+        "sample_idx": 65,
+        "word_count": 416,
+        "char_count": 2935,
+        "input_tokens": 1655,
+        "fertility": 3.9783653846153846,
+        "chars_per_token": 1.7734138972809668
+      },
+      {
+        "sample_idx": 66,
+        "word_count": 391,
+        "char_count": 3828,
+        "input_tokens": 1478,
+        "fertility": 3.7800511508951407,
+        "chars_per_token": 2.5899864682002707
+      },
+      {
+        "sample_idx": 67,
+        "word_count": 403,
+        "char_count": 3025,
+        "input_tokens": 1581,
+        "fertility": 3.923076923076923,
+        "chars_per_token": 1.9133459835547122
+      },
+      {
+        "sample_idx": 68,
+        "word_count": 924,
+        "char_count": 6000,
+        "input_tokens": 3097,
+        "fertility": 3.351731601731602,
+        "chars_per_token": 1.9373587342589602
+      },
+      {
+        "sample_idx": 69,
+        "word_count": 846,
+        "char_count": 6000,
+        "input_tokens": 2909,
+        "fertility": 3.438534278959811,
+        "chars_per_token": 2.0625644551392233
+      },
+      {
+        "sample_idx": 70,
+        "word_count": 436,
+        "char_count": 2981,
+        "input_tokens": 1631,
+        "fertility": 3.7408256880733943,
+        "chars_per_token": 1.8277130594727162
+      },
+      {
+        "sample_idx": 71,
+        "word_count": 874,
+        "char_count": 6000,
+        "input_tokens": 3199,
+        "fertility": 3.660183066361556,
+        "chars_per_token": 1.8755861206627071
+      },
+      {
+        "sample_idx": 72,
+        "word_count": 528,
+        "char_count": 4047,
+        "input_tokens": 2283,
+        "fertility": 4.323863636363637,
+        "chars_per_token": 1.7726675427069645
+      },
+      {
+        "sample_idx": 73,
+        "word_count": 311,
+        "char_count": 2844,
+        "input_tokens": 1184,
+        "fertility": 3.807073954983923,
+        "chars_per_token": 2.402027027027027
+      },
+      {
+        "sample_idx": 74,
+        "word_count": 334,
+        "char_count": 2519,
+        "input_tokens": 1305,
+        "fertility": 3.907185628742515,
+        "chars_per_token": 1.9302681992337165
+      },
+      {
+        "sample_idx": 75,
+        "word_count": 321,
+        "char_count": 2189,
+        "input_tokens": 1207,
+        "fertility": 3.7601246105919004,
+        "chars_per_token": 1.8135874067937034
+      },
+      {
+        "sample_idx": 76,
+        "word_count": 124,
+        "char_count": 1110,
+        "input_tokens": 688,
+        "fertility": 5.548387096774194,
+        "chars_per_token": 1.6133720930232558
+      },
+      {
+        "sample_idx": 77,
+        "word_count": 308,
+        "char_count": 2265,
+        "input_tokens": 1210,
+        "fertility": 3.9285714285714284,
+        "chars_per_token": 1.871900826446281
+      },
+      {
+        "sample_idx": 78,
+        "word_count": 606,
+        "char_count": 4574,
+        "input_tokens": 2408,
+        "fertility": 3.9735973597359737,
+        "chars_per_token": 1.899501661129568
+      },
+      {
+        "sample_idx": 79,
+        "word_count": 443,
+        "char_count": 3315,
+        "input_tokens": 1764,
+        "fertility": 3.981941309255079,
+        "chars_per_token": 1.879251700680272
+      },
+      {
+        "sample_idx": 80,
+        "word_count": 947,
+        "char_count": 6000,
+        "input_tokens": 3235,
+        "fertility": 3.416050686378036,
+        "chars_per_token": 1.8547140649149922
+      },
+      {
+        "sample_idx": 81,
+        "word_count": 774,
+        "char_count": 6000,
+        "input_tokens": 3447,
+        "fertility": 4.453488372093023,
+        "chars_per_token": 1.7406440382941688
+      },
+      {
+        "sample_idx": 82,
+        "word_count": 798,
+        "char_count": 6000,
+        "input_tokens": 3171,
+        "fertility": 3.973684210526316,
+        "chars_per_token": 1.8921475875118259
+      },
+      {
+        "sample_idx": 83,
+        "word_count": 778,
+        "char_count": 6000,
+        "input_tokens": 3220,
+        "fertility": 4.138817480719794,
+        "chars_per_token": 1.8633540372670807
+      },
+      {
+        "sample_idx": 84,
+        "word_count": 624,
+        "char_count": 4736,
+        "input_tokens": 2461,
+        "fertility": 3.9439102564102564,
+        "chars_per_token": 1.9244209670865502
+      },
+      {
+        "sample_idx": 85,
+        "word_count": 776,
+        "char_count": 6000,
+        "input_tokens": 3208,
+        "fertility": 4.134020618556701,
+        "chars_per_token": 1.8703241895261846
+      },
+      {
+        "sample_idx": 86,
+        "word_count": 265,
+        "char_count": 1946,
+        "input_tokens": 1109,
+        "fertility": 4.184905660377359,
+        "chars_per_token": 1.7547339945897205
+      },
+      {
+        "sample_idx": 87,
+        "word_count": 814,
+        "char_count": 6000,
+        "input_tokens": 3108,
+        "fertility": 3.8181818181818183,
+        "chars_per_token": 1.9305019305019304
+      },
+      {
+        "sample_idx": 88,
+        "word_count": 586,
+        "char_count": 4164,
+        "input_tokens": 2254,
+        "fertility": 3.84641638225256,
+        "chars_per_token": 1.8473824312333629
+      },
+      {
+        "sample_idx": 89,
+        "word_count": 677,
+        "char_count": 6000,
+        "input_tokens": 3820,
+        "fertility": 5.642540620384048,
+        "chars_per_token": 1.5706806282722514
+      },
+      {
+        "sample_idx": 90,
+        "word_count": 163,
+        "char_count": 1308,
+        "input_tokens": 807,
+        "fertility": 4.950920245398773,
+        "chars_per_token": 1.620817843866171
+      },
+      {
+        "sample_idx": 91,
+        "word_count": 811,
+        "char_count": 6000,
+        "input_tokens": 3094,
+        "fertility": 3.815043156596794,
+        "chars_per_token": 1.9392372333548804
+      },
+      {
+        "sample_idx": 92,
+        "word_count": 447,
+        "char_count": 3325,
+        "input_tokens": 1805,
+        "fertility": 4.038031319910514,
+        "chars_per_token": 1.8421052631578947
+      },
+      {
+        "sample_idx": 93,
+        "word_count": 714,
+        "char_count": 4955,
+        "input_tokens": 2656,
+        "fertility": 3.719887955182073,
+        "chars_per_token": 1.8655873493975903
+      },
+      {
+        "sample_idx": 94,
+        "word_count": 772,
+        "char_count": 5734,
+        "input_tokens": 3114,
+        "fertility": 4.033678756476684,
+        "chars_per_token": 1.8413615928066795
+      },
+      {
+        "sample_idx": 95,
+        "word_count": 432,
+        "char_count": 4323,
+        "input_tokens": 2539,
+        "fertility": 5.877314814814815,
+        "chars_per_token": 1.7026388341866876
+      },
+      {
+        "sample_idx": 96,
+        "word_count": 708,
+        "char_count": 4754,
+        "input_tokens": 2606,
+        "fertility": 3.6807909604519775,
+        "chars_per_token": 1.8242517267843439
+      },
+      {
+        "sample_idx": 97,
+        "word_count": 350,
+        "char_count": 2415,
+        "input_tokens": 1272,
+        "fertility": 3.6342857142857143,
+        "chars_per_token": 1.8985849056603774
+      },
+      {
+        "sample_idx": 98,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 3213,
+        "fertility": 3.8295589988081047,
+        "chars_per_token": 1.8674136321195145
+      },
+      {
+        "sample_idx": 99,
+        "word_count": 815,
+        "char_count": 6000,
+        "input_tokens": 3290,
+        "fertility": 4.03680981595092,
+        "chars_per_token": 1.8237082066869301
+      }
+    ]
+  },
+  "llama33_70b": {
+    "model": "llama33_70b",
+    "display_name": "Llama 3.3 70B",
+    "n_samples": 100,
+    "avg_fertility": 2.6523464886019097,
+    "std_fertility": 0.45204346540282003,
+    "median_fertility": 2.54473077003028,
+    "avg_chars_per_token": 2.839653654972451,
+    "samples": [
+      {
+        "sample_idx": 0,
+        "word_count": 822,
+        "char_count": 6000,
+        "input_tokens": 1911,
+        "fertility": 2.3248175182481754,
+        "chars_per_token": 3.1397174254317113
+      },
+      {
+        "sample_idx": 1,
+        "word_count": 867,
+        "char_count": 6000,
+        "input_tokens": 2141,
+        "fertility": 2.4694348327566322,
+        "chars_per_token": 2.802428771602055
+      },
+      {
+        "sample_idx": 2,
+        "word_count": 366,
+        "char_count": 2858,
+        "input_tokens": 1049,
+        "fertility": 2.866120218579235,
+        "chars_per_token": 2.724499523355577
+      },
+      {
+        "sample_idx": 3,
+        "word_count": 812,
+        "char_count": 6000,
+        "input_tokens": 1902,
+        "fertility": 2.3423645320197046,
+        "chars_per_token": 3.1545741324921135
+      },
+      {
+        "sample_idx": 4,
+        "word_count": 227,
+        "char_count": 1529,
+        "input_tokens": 697,
+        "fertility": 3.0704845814977975,
+        "chars_per_token": 2.193687230989957
+      },
+      {
+        "sample_idx": 5,
+        "word_count": 883,
+        "char_count": 6000,
+        "input_tokens": 2118,
+        "fertility": 2.3986409966024915,
+        "chars_per_token": 2.8328611898016995
+      },
+      {
+        "sample_idx": 6,
+        "word_count": 856,
+        "char_count": 6000,
+        "input_tokens": 1884,
+        "fertility": 2.2009345794392523,
+        "chars_per_token": 3.1847133757961785
+      },
+      {
+        "sample_idx": 7,
+        "word_count": 286,
+        "char_count": 2522,
+        "input_tokens": 1090,
+        "fertility": 3.8111888111888113,
+        "chars_per_token": 2.313761467889908
+      },
+      {
+        "sample_idx": 8,
+        "word_count": 904,
+        "char_count": 6000,
+        "input_tokens": 1915,
+        "fertility": 2.118362831858407,
+        "chars_per_token": 3.133159268929504
+      },
+      {
+        "sample_idx": 9,
+        "word_count": 813,
+        "char_count": 6000,
+        "input_tokens": 1847,
+        "fertility": 2.2718327183271834,
+        "chars_per_token": 3.2485110990795887
+      },
+      {
+        "sample_idx": 10,
+        "word_count": 417,
+        "char_count": 2972,
+        "input_tokens": 1051,
+        "fertility": 2.5203836930455634,
+        "chars_per_token": 2.827783063748811
+      },
+      {
+        "sample_idx": 11,
+        "word_count": 791,
+        "char_count": 6000,
+        "input_tokens": 2123,
+        "fertility": 2.6839443742098608,
+        "chars_per_token": 2.826189354686764
+      },
+      {
+        "sample_idx": 12,
+        "word_count": 914,
+        "char_count": 6000,
+        "input_tokens": 1911,
+        "fertility": 2.0908096280087527,
+        "chars_per_token": 3.1397174254317113
+      },
+      {
+        "sample_idx": 13,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 2117,
+        "fertility": 2.61358024691358,
+        "chars_per_token": 2.834199338686821
+      },
+      {
+        "sample_idx": 14,
+        "word_count": 683,
+        "char_count": 4972,
+        "input_tokens": 1625,
+        "fertility": 2.3792093704245976,
+        "chars_per_token": 3.0596923076923077
+      },
+      {
+        "sample_idx": 15,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 2180,
+        "fertility": 2.598331346841478,
+        "chars_per_token": 2.7522935779816513
+      },
+      {
+        "sample_idx": 16,
+        "word_count": 516,
+        "char_count": 3768,
+        "input_tokens": 1392,
+        "fertility": 2.697674418604651,
+        "chars_per_token": 2.706896551724138
+      },
+      {
+        "sample_idx": 17,
+        "word_count": 376,
+        "char_count": 2838,
+        "input_tokens": 1093,
+        "fertility": 2.9069148936170213,
+        "chars_per_token": 2.596523330283623
+      },
+      {
+        "sample_idx": 18,
+        "word_count": 708,
+        "char_count": 4807,
+        "input_tokens": 1634,
+        "fertility": 2.3079096045197742,
+        "chars_per_token": 2.941860465116279
+      },
+      {
+        "sample_idx": 19,
+        "word_count": 293,
+        "char_count": 2005,
+        "input_tokens": 772,
+        "fertility": 2.63481228668942,
+        "chars_per_token": 2.5971502590673574
+      },
+      {
+        "sample_idx": 20,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 1920,
+        "fertility": 2.245614035087719,
+        "chars_per_token": 3.125
+      },
+      {
+        "sample_idx": 21,
+        "word_count": 498,
+        "char_count": 3783,
+        "input_tokens": 1489,
+        "fertility": 2.9899598393574296,
+        "chars_per_token": 2.5406312961719273
+      },
+      {
+        "sample_idx": 22,
+        "word_count": 462,
+        "char_count": 3299,
+        "input_tokens": 1114,
+        "fertility": 2.411255411255411,
+        "chars_per_token": 2.961400359066427
+      },
+      {
+        "sample_idx": 23,
+        "word_count": 643,
+        "char_count": 4636,
+        "input_tokens": 1622,
+        "fertility": 2.5225505443234835,
+        "chars_per_token": 2.8581997533908754
+      },
+      {
+        "sample_idx": 24,
+        "word_count": 884,
+        "char_count": 6000,
+        "input_tokens": 2210,
+        "fertility": 2.5,
+        "chars_per_token": 2.7149321266968327
+      },
+      {
+        "sample_idx": 25,
+        "word_count": 272,
+        "char_count": 2634,
+        "input_tokens": 922,
+        "fertility": 3.389705882352941,
+        "chars_per_token": 2.8568329718004337
+      },
+      {
+        "sample_idx": 26,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 2164,
+        "fertility": 2.5792610250297976,
+        "chars_per_token": 2.7726432532347505
+      },
+      {
+        "sample_idx": 27,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 1918,
+        "fertility": 2.2045977011494253,
+        "chars_per_token": 3.1282586027111576
+      },
+      {
+        "sample_idx": 28,
+        "word_count": 903,
+        "char_count": 6000,
+        "input_tokens": 2082,
+        "fertility": 2.3056478405315612,
+        "chars_per_token": 2.881844380403458
+      },
+      {
+        "sample_idx": 29,
+        "word_count": 891,
+        "char_count": 6000,
+        "input_tokens": 1905,
+        "fertility": 2.138047138047138,
+        "chars_per_token": 3.1496062992125986
+      },
+      {
+        "sample_idx": 30,
+        "word_count": 391,
+        "char_count": 2820,
+        "input_tokens": 1174,
+        "fertility": 3.002557544757033,
+        "chars_per_token": 2.402044293015332
+      },
+      {
+        "sample_idx": 31,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 2023,
+        "fertility": 2.4169653524492234,
+        "chars_per_token": 2.9658922392486406
+      },
+      {
+        "sample_idx": 32,
+        "word_count": 713,
+        "char_count": 6000,
+        "input_tokens": 2457,
+        "fertility": 3.4460028050490883,
+        "chars_per_token": 2.442002442002442
+      },
+      {
+        "sample_idx": 33,
+        "word_count": 881,
+        "char_count": 6000,
+        "input_tokens": 1988,
+        "fertility": 2.2565266742338252,
+        "chars_per_token": 3.0181086519114686
+      },
+      {
+        "sample_idx": 34,
+        "word_count": 486,
+        "char_count": 4564,
+        "input_tokens": 1616,
+        "fertility": 3.325102880658436,
+        "chars_per_token": 2.8242574257425743
+      },
+      {
+        "sample_idx": 35,
+        "word_count": 459,
+        "char_count": 3448,
+        "input_tokens": 1352,
+        "fertility": 2.945533769063181,
+        "chars_per_token": 2.5502958579881656
+      },
+      {
+        "sample_idx": 36,
+        "word_count": 487,
+        "char_count": 3588,
+        "input_tokens": 1267,
+        "fertility": 2.6016427104722792,
+        "chars_per_token": 2.8318863456985004
+      },
+      {
+        "sample_idx": 37,
+        "word_count": 826,
+        "char_count": 6000,
+        "input_tokens": 1922,
+        "fertility": 2.3268765133171914,
+        "chars_per_token": 3.121748178980229
+      },
+      {
+        "sample_idx": 38,
+        "word_count": 849,
+        "char_count": 6000,
+        "input_tokens": 2001,
+        "fertility": 2.3568904593639575,
+        "chars_per_token": 2.998500749625187
+      },
+      {
+        "sample_idx": 39,
+        "word_count": 832,
+        "char_count": 6000,
+        "input_tokens": 1984,
+        "fertility": 2.3846153846153846,
+        "chars_per_token": 3.024193548387097
+      },
+      {
+        "sample_idx": 40,
+        "word_count": 393,
+        "char_count": 2976,
+        "input_tokens": 990,
+        "fertility": 2.519083969465649,
+        "chars_per_token": 3.006060606060606
+      },
+      {
+        "sample_idx": 41,
+        "word_count": 897,
+        "char_count": 6000,
+        "input_tokens": 2370,
+        "fertility": 2.6421404682274248,
+        "chars_per_token": 2.5316455696202533
+      },
+      {
+        "sample_idx": 42,
+        "word_count": 587,
+        "char_count": 4362,
+        "input_tokens": 1513,
+        "fertility": 2.577512776831346,
+        "chars_per_token": 2.883013879709187
+      },
+      {
+        "sample_idx": 43,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 1882,
+        "fertility": 2.3234567901234566,
+        "chars_per_token": 3.1880977683315623
+      },
+      {
+        "sample_idx": 44,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 2060,
+        "fertility": 2.409356725146199,
+        "chars_per_token": 2.912621359223301
+      },
+      {
+        "sample_idx": 45,
+        "word_count": 461,
+        "char_count": 3267,
+        "input_tokens": 1031,
+        "fertility": 2.2364425162689803,
+        "chars_per_token": 3.168768186226964
+      },
+      {
+        "sample_idx": 46,
+        "word_count": 735,
+        "char_count": 5311,
+        "input_tokens": 1852,
+        "fertility": 2.5197278911564625,
+        "chars_per_token": 2.8677105831533476
+      },
+      {
+        "sample_idx": 47,
+        "word_count": 847,
+        "char_count": 6000,
+        "input_tokens": 2118,
+        "fertility": 2.500590318772137,
+        "chars_per_token": 2.8328611898016995
+      },
+      {
+        "sample_idx": 48,
+        "word_count": 371,
+        "char_count": 3237,
+        "input_tokens": 944,
+        "fertility": 2.5444743935309972,
+        "chars_per_token": 3.4290254237288136
+      },
+      {
+        "sample_idx": 49,
+        "word_count": 307,
+        "char_count": 2524,
+        "input_tokens": 1071,
+        "fertility": 3.488599348534202,
+        "chars_per_token": 2.3566760037348273
+      },
+      {
+        "sample_idx": 50,
+        "word_count": 490,
+        "char_count": 3604,
+        "input_tokens": 1258,
+        "fertility": 2.5673469387755103,
+        "chars_per_token": 2.864864864864865
+      },
+      {
+        "sample_idx": 51,
+        "word_count": 457,
+        "char_count": 3458,
+        "input_tokens": 1286,
+        "fertility": 2.814004376367615,
+        "chars_per_token": 2.6889580093312597
+      },
+      {
+        "sample_idx": 52,
+        "word_count": 848,
+        "char_count": 6000,
+        "input_tokens": 1944,
+        "fertility": 2.292452830188679,
+        "chars_per_token": 3.0864197530864197
+      },
+      {
+        "sample_idx": 53,
+        "word_count": 426,
+        "char_count": 2959,
+        "input_tokens": 1086,
+        "fertility": 2.5492957746478875,
+        "chars_per_token": 2.7246777163904237
+      },
+      {
+        "sample_idx": 54,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 1874,
+        "fertility": 2.154022988505747,
+        "chars_per_token": 3.2017075773746
+      },
+      {
+        "sample_idx": 55,
+        "word_count": 857,
+        "char_count": 6000,
+        "input_tokens": 1791,
+        "fertility": 2.0898483080513417,
+        "chars_per_token": 3.3500837520938025
+      },
+      {
+        "sample_idx": 56,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 1909,
+        "fertility": 2.280764635603345,
+        "chars_per_token": 3.143006809848088
+      },
+      {
+        "sample_idx": 57,
+        "word_count": 448,
+        "char_count": 3426,
+        "input_tokens": 1252,
+        "fertility": 2.794642857142857,
+        "chars_per_token": 2.736421725239617
+      },
+      {
+        "sample_idx": 58,
+        "word_count": 342,
+        "char_count": 2841,
+        "input_tokens": 1010,
+        "fertility": 2.953216374269006,
+        "chars_per_token": 2.8128712871287127
+      },
+      {
+        "sample_idx": 59,
+        "word_count": 332,
+        "char_count": 2351,
+        "input_tokens": 900,
+        "fertility": 2.710843373493976,
+        "chars_per_token": 2.612222222222222
+      },
+      {
+        "sample_idx": 60,
+        "word_count": 851,
+        "char_count": 6000,
+        "input_tokens": 2129,
+        "fertility": 2.5017626321974147,
+        "chars_per_token": 2.8182245185533112
+      },
+      {
+        "sample_idx": 61,
+        "word_count": 431,
+        "char_count": 3365,
+        "input_tokens": 1254,
+        "fertility": 2.9095127610208817,
+        "chars_per_token": 2.68341307814992
+      },
+      {
+        "sample_idx": 62,
+        "word_count": 824,
+        "char_count": 6000,
+        "input_tokens": 1854,
+        "fertility": 2.25,
+        "chars_per_token": 3.236245954692557
+      },
+      {
+        "sample_idx": 63,
+        "word_count": 807,
+        "char_count": 6000,
+        "input_tokens": 2278,
+        "fertility": 2.8228004956629493,
+        "chars_per_token": 2.633889376646181
+      },
+      {
+        "sample_idx": 64,
+        "word_count": 687,
+        "char_count": 5538,
+        "input_tokens": 1859,
+        "fertility": 2.7059679767103346,
+        "chars_per_token": 2.979020979020979
+      },
+      {
+        "sample_idx": 65,
+        "word_count": 416,
+        "char_count": 2935,
+        "input_tokens": 1205,
+        "fertility": 2.8966346153846154,
+        "chars_per_token": 2.4356846473029043
+      },
+      {
+        "sample_idx": 66,
+        "word_count": 391,
+        "char_count": 3828,
+        "input_tokens": 977,
+        "fertility": 2.498721227621483,
+        "chars_per_token": 3.918116683725691
+      },
+      {
+        "sample_idx": 67,
+        "word_count": 403,
+        "char_count": 3025,
+        "input_tokens": 1119,
+        "fertility": 2.7766749379652604,
+        "chars_per_token": 2.7033065236818588
+      },
+      {
+        "sample_idx": 68,
+        "word_count": 924,
+        "char_count": 6000,
+        "input_tokens": 2043,
+        "fertility": 2.211038961038961,
+        "chars_per_token": 2.9368575624082234
+      },
+      {
+        "sample_idx": 69,
+        "word_count": 846,
+        "char_count": 6000,
+        "input_tokens": 1852,
+        "fertility": 2.189125295508274,
+        "chars_per_token": 3.239740820734341
+      },
+      {
+        "sample_idx": 70,
+        "word_count": 436,
+        "char_count": 2981,
+        "input_tokens": 1107,
+        "fertility": 2.5389908256880735,
+        "chars_per_token": 2.6928635953026197
+      },
+      {
+        "sample_idx": 71,
+        "word_count": 874,
+        "char_count": 6000,
+        "input_tokens": 2082,
+        "fertility": 2.3821510297482837,
+        "chars_per_token": 2.881844380403458
+      },
+      {
+        "sample_idx": 72,
+        "word_count": 528,
+        "char_count": 4047,
+        "input_tokens": 1688,
+        "fertility": 3.196969696969697,
+        "chars_per_token": 2.397511848341232
+      },
+      {
+        "sample_idx": 73,
+        "word_count": 311,
+        "char_count": 2844,
+        "input_tokens": 809,
+        "fertility": 2.6012861736334405,
+        "chars_per_token": 3.515451174289246
+      },
+      {
+        "sample_idx": 74,
+        "word_count": 334,
+        "char_count": 2519,
+        "input_tokens": 837,
+        "fertility": 2.5059880239520957,
+        "chars_per_token": 3.009557945041816
+      },
+      {
+        "sample_idx": 75,
+        "word_count": 321,
+        "char_count": 2189,
+        "input_tokens": 815,
+        "fertility": 2.5389408099688473,
+        "chars_per_token": 2.6858895705521473
+      },
+      {
+        "sample_idx": 76,
+        "word_count": 124,
+        "char_count": 1110,
+        "input_tokens": 539,
+        "fertility": 4.346774193548387,
+        "chars_per_token": 2.0593692022263452
+      },
+      {
+        "sample_idx": 77,
+        "word_count": 308,
+        "char_count": 2265,
+        "input_tokens": 848,
+        "fertility": 2.7532467532467533,
+        "chars_per_token": 2.670990566037736
+      },
+      {
+        "sample_idx": 78,
+        "word_count": 606,
+        "char_count": 4574,
+        "input_tokens": 1566,
+        "fertility": 2.5841584158415842,
+        "chars_per_token": 2.920817369093231
+      },
+      {
+        "sample_idx": 79,
+        "word_count": 443,
+        "char_count": 3315,
+        "input_tokens": 1244,
+        "fertility": 2.8081264108352144,
+        "chars_per_token": 2.664790996784566
+      },
+      {
+        "sample_idx": 80,
+        "word_count": 947,
+        "char_count": 6000,
+        "input_tokens": 2228,
+        "fertility": 2.3526927138331573,
+        "chars_per_token": 2.6929982046678638
+      },
+      {
+        "sample_idx": 81,
+        "word_count": 774,
+        "char_count": 6000,
+        "input_tokens": 2491,
+        "fertility": 3.2183462532299743,
+        "chars_per_token": 2.408671216378964
+      },
+      {
+        "sample_idx": 82,
+        "word_count": 798,
+        "char_count": 6000,
+        "input_tokens": 2123,
+        "fertility": 2.6604010025062657,
+        "chars_per_token": 2.826189354686764
+      },
+      {
+        "sample_idx": 83,
+        "word_count": 778,
+        "char_count": 6000,
+        "input_tokens": 1980,
+        "fertility": 2.544987146529563,
+        "chars_per_token": 3.0303030303030303
+      },
+      {
+        "sample_idx": 84,
+        "word_count": 624,
+        "char_count": 4736,
+        "input_tokens": 1629,
+        "fertility": 2.610576923076923,
+        "chars_per_token": 2.907305095150399
+      },
+      {
+        "sample_idx": 85,
+        "word_count": 776,
+        "char_count": 6000,
+        "input_tokens": 2199,
+        "fertility": 2.8337628865979383,
+        "chars_per_token": 2.728512960436562
+      },
+      {
+        "sample_idx": 86,
+        "word_count": 265,
+        "char_count": 1946,
+        "input_tokens": 779,
+        "fertility": 2.939622641509434,
+        "chars_per_token": 2.498074454428755
+      },
+      {
+        "sample_idx": 87,
+        "word_count": 814,
+        "char_count": 6000,
+        "input_tokens": 2065,
+        "fertility": 2.536855036855037,
+        "chars_per_token": 2.9055690072639226
+      },
+      {
+        "sample_idx": 88,
+        "word_count": 586,
+        "char_count": 4164,
+        "input_tokens": 1455,
+        "fertility": 2.4829351535836177,
+        "chars_per_token": 2.861855670103093
+      },
+      {
+        "sample_idx": 89,
+        "word_count": 677,
+        "char_count": 6000,
+        "input_tokens": 2856,
+        "fertility": 4.218611521418021,
+        "chars_per_token": 2.100840336134454
+      },
+      {
+        "sample_idx": 90,
+        "word_count": 163,
+        "char_count": 1308,
+        "input_tokens": 593,
+        "fertility": 3.638036809815951,
+        "chars_per_token": 2.205733558178752
+      },
+      {
+        "sample_idx": 91,
+        "word_count": 811,
+        "char_count": 6000,
+        "input_tokens": 2188,
+        "fertility": 2.6979038224414302,
+        "chars_per_token": 2.742230347349177
+      },
+      {
+        "sample_idx": 92,
+        "word_count": 447,
+        "char_count": 3325,
+        "input_tokens": 1159,
+        "fertility": 2.592841163310962,
+        "chars_per_token": 2.8688524590163933
+      },
+      {
+        "sample_idx": 93,
+        "word_count": 714,
+        "char_count": 4955,
+        "input_tokens": 1629,
+        "fertility": 2.2815126050420167,
+        "chars_per_token": 3.041743400859423
+      },
+      {
+        "sample_idx": 94,
+        "word_count": 772,
+        "char_count": 5734,
+        "input_tokens": 2006,
+        "fertility": 2.598445595854922,
+        "chars_per_token": 2.8584247258225326
+      },
+      {
+        "sample_idx": 95,
+        "word_count": 432,
+        "char_count": 4323,
+        "input_tokens": 1953,
+        "fertility": 4.520833333333333,
+        "chars_per_token": 2.2135176651305684
+      },
+      {
+        "sample_idx": 96,
+        "word_count": 708,
+        "char_count": 4754,
+        "input_tokens": 1676,
+        "fertility": 2.367231638418079,
+        "chars_per_token": 2.836515513126492
+      },
+      {
+        "sample_idx": 97,
+        "word_count": 350,
+        "char_count": 2415,
+        "input_tokens": 851,
+        "fertility": 2.4314285714285715,
+        "chars_per_token": 2.8378378378378377
+      },
+      {
+        "sample_idx": 98,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 2027,
+        "fertility": 2.4159713945172823,
+        "chars_per_token": 2.960039467192896
+      },
+      {
+        "sample_idx": 99,
+        "word_count": 815,
+        "char_count": 6000,
+        "input_tokens": 2158,
+        "fertility": 2.647852760736196,
+        "chars_per_token": 2.7803521779425395
+      }
+    ]
+  },
+  "mistral_large3": {
+    "model": "mistral_large3",
+    "display_name": "Mistral Large 3 (675B)",
+    "n_samples": 100,
+    "avg_fertility": 3.0570282453085627,
+    "std_fertility": 0.4439416894278817,
+    "median_fertility": 2.9783484117378434,
+    "avg_chars_per_token": 2.4516394834542727,
+    "samples": [
+      {
+        "sample_idx": 0,
+        "word_count": 822,
+        "char_count": 6000,
+        "input_tokens": 2241,
+        "fertility": 2.7262773722627736,
+        "chars_per_token": 2.677376171352075
+      },
+      {
+        "sample_idx": 1,
+        "word_count": 867,
+        "char_count": 6000,
+        "input_tokens": 2468,
+        "fertility": 2.8465974625144175,
+        "chars_per_token": 2.4311183144246353
+      },
+      {
+        "sample_idx": 2,
+        "word_count": 366,
+        "char_count": 2858,
+        "input_tokens": 1208,
+        "fertility": 3.300546448087432,
+        "chars_per_token": 2.365894039735099
+      },
+      {
+        "sample_idx": 3,
+        "word_count": 812,
+        "char_count": 6000,
+        "input_tokens": 2238,
+        "fertility": 2.7561576354679804,
+        "chars_per_token": 2.680965147453083
+      },
+      {
+        "sample_idx": 4,
+        "word_count": 227,
+        "char_count": 1529,
+        "input_tokens": 818,
+        "fertility": 3.60352422907489,
+        "chars_per_token": 1.86919315403423
+      },
+      {
+        "sample_idx": 5,
+        "word_count": 883,
+        "char_count": 6000,
+        "input_tokens": 2428,
+        "fertility": 2.7497168742921856,
+        "chars_per_token": 2.471169686985173
+      },
+      {
+        "sample_idx": 6,
+        "word_count": 856,
+        "char_count": 6000,
+        "input_tokens": 2201,
+        "fertility": 2.571261682242991,
+        "chars_per_token": 2.7260336210813265
+      },
+      {
+        "sample_idx": 7,
+        "word_count": 286,
+        "char_count": 2522,
+        "input_tokens": 1232,
+        "fertility": 4.3076923076923075,
+        "chars_per_token": 2.0470779220779223
+      },
+      {
+        "sample_idx": 8,
+        "word_count": 904,
+        "char_count": 6000,
+        "input_tokens": 2296,
+        "fertility": 2.5398230088495577,
+        "chars_per_token": 2.6132404181184667
+      },
+      {
+        "sample_idx": 9,
+        "word_count": 813,
+        "char_count": 6000,
+        "input_tokens": 2149,
+        "fertility": 2.6432964329643296,
+        "chars_per_token": 2.791996277338297
+      },
+      {
+        "sample_idx": 10,
+        "word_count": 417,
+        "char_count": 2972,
+        "input_tokens": 1207,
+        "fertility": 2.894484412470024,
+        "chars_per_token": 2.4623032311516155
+      },
+      {
+        "sample_idx": 11,
+        "word_count": 791,
+        "char_count": 6000,
+        "input_tokens": 2405,
+        "fertility": 3.0404551201011376,
+        "chars_per_token": 2.494802494802495
+      },
+      {
+        "sample_idx": 12,
+        "word_count": 914,
+        "char_count": 6000,
+        "input_tokens": 2267,
+        "fertility": 2.4803063457330414,
+        "chars_per_token": 2.646669607410675
+      },
+      {
+        "sample_idx": 13,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 2420,
+        "fertility": 2.9876543209876543,
+        "chars_per_token": 2.479338842975207
+      },
+      {
+        "sample_idx": 14,
+        "word_count": 683,
+        "char_count": 4972,
+        "input_tokens": 1874,
+        "fertility": 2.7437774524158125,
+        "chars_per_token": 2.6531483457844183
+      },
+      {
+        "sample_idx": 15,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 2445,
+        "fertility": 2.9141835518474375,
+        "chars_per_token": 2.4539877300613497
+      },
+      {
+        "sample_idx": 16,
+        "word_count": 516,
+        "char_count": 3768,
+        "input_tokens": 1589,
+        "fertility": 3.0794573643410854,
+        "chars_per_token": 2.3713027061044682
+      },
+      {
+        "sample_idx": 17,
+        "word_count": 376,
+        "char_count": 2838,
+        "input_tokens": 1279,
+        "fertility": 3.401595744680851,
+        "chars_per_token": 2.218921032056294
+      },
+      {
+        "sample_idx": 18,
+        "word_count": 708,
+        "char_count": 4807,
+        "input_tokens": 1906,
+        "fertility": 2.6920903954802258,
+        "chars_per_token": 2.5220356768100736
+      },
+      {
+        "sample_idx": 19,
+        "word_count": 293,
+        "char_count": 2005,
+        "input_tokens": 900,
+        "fertility": 3.0716723549488054,
+        "chars_per_token": 2.227777777777778
+      },
+      {
+        "sample_idx": 20,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 2274,
+        "fertility": 2.6596491228070174,
+        "chars_per_token": 2.638522427440633
+      },
+      {
+        "sample_idx": 21,
+        "word_count": 498,
+        "char_count": 3783,
+        "input_tokens": 1701,
+        "fertility": 3.4156626506024095,
+        "chars_per_token": 2.2239858906525574
+      },
+      {
+        "sample_idx": 22,
+        "word_count": 462,
+        "char_count": 3299,
+        "input_tokens": 1318,
+        "fertility": 2.8528138528138527,
+        "chars_per_token": 2.5030349013657056
+      },
+      {
+        "sample_idx": 23,
+        "word_count": 643,
+        "char_count": 4636,
+        "input_tokens": 1917,
+        "fertility": 2.981337480559876,
+        "chars_per_token": 2.418362023995827
+      },
+      {
+        "sample_idx": 24,
+        "word_count": 884,
+        "char_count": 6000,
+        "input_tokens": 2459,
+        "fertility": 2.7816742081447963,
+        "chars_per_token": 2.4400162667751117
+      },
+      {
+        "sample_idx": 25,
+        "word_count": 272,
+        "char_count": 2634,
+        "input_tokens": 1083,
+        "fertility": 3.9816176470588234,
+        "chars_per_token": 2.4321329639889195
+      },
+      {
+        "sample_idx": 26,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 2485,
+        "fertility": 2.961859356376639,
+        "chars_per_token": 2.414486921529175
+      },
+      {
+        "sample_idx": 27,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 2308,
+        "fertility": 2.6528735632183906,
+        "chars_per_token": 2.5996533795493932
+      },
+      {
+        "sample_idx": 28,
+        "word_count": 903,
+        "char_count": 6000,
+        "input_tokens": 2518,
+        "fertility": 2.788482834994463,
+        "chars_per_token": 2.3828435266084194
+      },
+      {
+        "sample_idx": 29,
+        "word_count": 891,
+        "char_count": 6000,
+        "input_tokens": 2303,
+        "fertility": 2.584736251402918,
+        "chars_per_token": 2.605297438124186
+      },
+      {
+        "sample_idx": 30,
+        "word_count": 391,
+        "char_count": 2820,
+        "input_tokens": 1317,
+        "fertility": 3.368286445012788,
+        "chars_per_token": 2.14123006833713
+      },
+      {
+        "sample_idx": 31,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 2258,
+        "fertility": 2.697729988052569,
+        "chars_per_token": 2.657218777679362
+      },
+      {
+        "sample_idx": 32,
+        "word_count": 713,
+        "char_count": 6000,
+        "input_tokens": 2827,
+        "fertility": 3.964936886395512,
+        "chars_per_token": 2.1223912274495933
+      },
+      {
+        "sample_idx": 33,
+        "word_count": 881,
+        "char_count": 6000,
+        "input_tokens": 2229,
+        "fertility": 2.5300794551645858,
+        "chars_per_token": 2.6917900403768504
+      },
+      {
+        "sample_idx": 34,
+        "word_count": 486,
+        "char_count": 4564,
+        "input_tokens": 1918,
+        "fertility": 3.9465020576131686,
+        "chars_per_token": 2.3795620437956204
+      },
+      {
+        "sample_idx": 35,
+        "word_count": 459,
+        "char_count": 3448,
+        "input_tokens": 1441,
+        "fertility": 3.139433551198257,
+        "chars_per_token": 2.3927827897293548
+      },
+      {
+        "sample_idx": 36,
+        "word_count": 487,
+        "char_count": 3588,
+        "input_tokens": 1449,
+        "fertility": 2.975359342915811,
+        "chars_per_token": 2.4761904761904763
+      },
+      {
+        "sample_idx": 37,
+        "word_count": 826,
+        "char_count": 6000,
+        "input_tokens": 2264,
+        "fertility": 2.7409200968523004,
+        "chars_per_token": 2.65017667844523
+      },
+      {
+        "sample_idx": 38,
+        "word_count": 849,
+        "char_count": 6000,
+        "input_tokens": 2346,
+        "fertility": 2.7632508833922262,
+        "chars_per_token": 2.557544757033248
+      },
+      {
+        "sample_idx": 39,
+        "word_count": 832,
+        "char_count": 6000,
+        "input_tokens": 2292,
+        "fertility": 2.7548076923076925,
+        "chars_per_token": 2.6178010471204187
+      },
+      {
+        "sample_idx": 40,
+        "word_count": 393,
+        "char_count": 2976,
+        "input_tokens": 1165,
+        "fertility": 2.964376590330789,
+        "chars_per_token": 2.5545064377682403
+      },
+      {
+        "sample_idx": 41,
+        "word_count": 897,
+        "char_count": 6000,
+        "input_tokens": 2833,
+        "fertility": 3.158305462653289,
+        "chars_per_token": 2.1178962230850686
+      },
+      {
+        "sample_idx": 42,
+        "word_count": 587,
+        "char_count": 4362,
+        "input_tokens": 1781,
+        "fertility": 3.0340715502555367,
+        "chars_per_token": 2.4491858506457045
+      },
+      {
+        "sample_idx": 43,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 2124,
+        "fertility": 2.6222222222222222,
+        "chars_per_token": 2.824858757062147
+      },
+      {
+        "sample_idx": 44,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 2459,
+        "fertility": 2.8760233918128657,
+        "chars_per_token": 2.4400162667751117
+      },
+      {
+        "sample_idx": 45,
+        "word_count": 461,
+        "char_count": 3267,
+        "input_tokens": 1203,
+        "fertility": 2.6095444685466376,
+        "chars_per_token": 2.71571072319202
+      },
+      {
+        "sample_idx": 46,
+        "word_count": 735,
+        "char_count": 5311,
+        "input_tokens": 2121,
+        "fertility": 2.8857142857142857,
+        "chars_per_token": 2.504007543611504
+      },
+      {
+        "sample_idx": 47,
+        "word_count": 847,
+        "char_count": 6000,
+        "input_tokens": 2467,
+        "fertility": 2.9126328217237307,
+        "chars_per_token": 2.432103769760843
+      },
+      {
+        "sample_idx": 48,
+        "word_count": 371,
+        "char_count": 3237,
+        "input_tokens": 1172,
+        "fertility": 3.1590296495956873,
+        "chars_per_token": 2.7619453924914676
+      },
+      {
+        "sample_idx": 49,
+        "word_count": 307,
+        "char_count": 2524,
+        "input_tokens": 1048,
+        "fertility": 3.413680781758958,
+        "chars_per_token": 2.4083969465648853
+      },
+      {
+        "sample_idx": 50,
+        "word_count": 490,
+        "char_count": 3604,
+        "input_tokens": 1465,
+        "fertility": 2.989795918367347,
+        "chars_per_token": 2.4600682593856655
+      },
+      {
+        "sample_idx": 51,
+        "word_count": 457,
+        "char_count": 3458,
+        "input_tokens": 1522,
+        "fertility": 3.3304157549234135,
+        "chars_per_token": 2.272010512483574
+      },
+      {
+        "sample_idx": 52,
+        "word_count": 848,
+        "char_count": 6000,
+        "input_tokens": 2257,
+        "fertility": 2.661556603773585,
+        "chars_per_token": 2.658396101019052
+      },
+      {
+        "sample_idx": 53,
+        "word_count": 426,
+        "char_count": 2959,
+        "input_tokens": 1274,
+        "fertility": 2.9906103286384975,
+        "chars_per_token": 2.3226059654631084
+      },
+      {
+        "sample_idx": 54,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 2240,
+        "fertility": 2.574712643678161,
+        "chars_per_token": 2.6785714285714284
+      },
+      {
+        "sample_idx": 55,
+        "word_count": 857,
+        "char_count": 6000,
+        "input_tokens": 2111,
+        "fertility": 2.4632438739789966,
+        "chars_per_token": 2.8422548555187115
+      },
+      {
+        "sample_idx": 56,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 2251,
+        "fertility": 2.6893667861409796,
+        "chars_per_token": 2.665482007996446
+      },
+      {
+        "sample_idx": 57,
+        "word_count": 448,
+        "char_count": 3426,
+        "input_tokens": 1480,
+        "fertility": 3.3035714285714284,
+        "chars_per_token": 2.3148648648648646
+      },
+      {
+        "sample_idx": 58,
+        "word_count": 342,
+        "char_count": 2841,
+        "input_tokens": 1197,
+        "fertility": 3.5,
+        "chars_per_token": 2.3734335839599
+      },
+      {
+        "sample_idx": 59,
+        "word_count": 332,
+        "char_count": 2351,
+        "input_tokens": 1081,
+        "fertility": 3.2560240963855422,
+        "chars_per_token": 2.174838112858464
+      },
+      {
+        "sample_idx": 60,
+        "word_count": 851,
+        "char_count": 6000,
+        "input_tokens": 2428,
+        "fertility": 2.853113983548766,
+        "chars_per_token": 2.471169686985173
+      },
+      {
+        "sample_idx": 61,
+        "word_count": 431,
+        "char_count": 3365,
+        "input_tokens": 1471,
+        "fertility": 3.4129930394431556,
+        "chars_per_token": 2.2875594833446633
+      },
+      {
+        "sample_idx": 62,
+        "word_count": 824,
+        "char_count": 6000,
+        "input_tokens": 2134,
+        "fertility": 2.5898058252427183,
+        "chars_per_token": 2.8116213683223994
+      },
+      {
+        "sample_idx": 63,
+        "word_count": 807,
+        "char_count": 6000,
+        "input_tokens": 2607,
+        "fertility": 3.2304832713754648,
+        "chars_per_token": 2.3014959723820483
+      },
+      {
+        "sample_idx": 64,
+        "word_count": 687,
+        "char_count": 5538,
+        "input_tokens": 2146,
+        "fertility": 3.12372634643377,
+        "chars_per_token": 2.580615097856477
+      },
+      {
+        "sample_idx": 65,
+        "word_count": 416,
+        "char_count": 2935,
+        "input_tokens": 1352,
+        "fertility": 3.25,
+        "chars_per_token": 2.1708579881656807
+      },
+      {
+        "sample_idx": 66,
+        "word_count": 391,
+        "char_count": 3828,
+        "input_tokens": 1273,
+        "fertility": 3.2557544757033248,
+        "chars_per_token": 3.007069913589945
+      },
+      {
+        "sample_idx": 67,
+        "word_count": 403,
+        "char_count": 3025,
+        "input_tokens": 1247,
+        "fertility": 3.094292803970223,
+        "chars_per_token": 2.425821972734563
+      },
+      {
+        "sample_idx": 68,
+        "word_count": 924,
+        "char_count": 6000,
+        "input_tokens": 2453,
+        "fertility": 2.6547619047619047,
+        "chars_per_token": 2.445984508764778
+      },
+      {
+        "sample_idx": 69,
+        "word_count": 846,
+        "char_count": 6000,
+        "input_tokens": 2230,
+        "fertility": 2.6359338061465722,
+        "chars_per_token": 2.690582959641256
+      },
+      {
+        "sample_idx": 70,
+        "word_count": 436,
+        "char_count": 2981,
+        "input_tokens": 1292,
+        "fertility": 2.963302752293578,
+        "chars_per_token": 2.307275541795666
+      },
+      {
+        "sample_idx": 71,
+        "word_count": 874,
+        "char_count": 6000,
+        "input_tokens": 2492,
+        "fertility": 2.851258581235698,
+        "chars_per_token": 2.407704654895666
+      },
+      {
+        "sample_idx": 72,
+        "word_count": 528,
+        "char_count": 4047,
+        "input_tokens": 1901,
+        "fertility": 3.600378787878788,
+        "chars_per_token": 2.1288795370857443
+      },
+      {
+        "sample_idx": 73,
+        "word_count": 311,
+        "char_count": 2844,
+        "input_tokens": 957,
+        "fertility": 3.077170418006431,
+        "chars_per_token": 2.9717868338557993
+      },
+      {
+        "sample_idx": 74,
+        "word_count": 334,
+        "char_count": 2519,
+        "input_tokens": 986,
+        "fertility": 2.9520958083832336,
+        "chars_per_token": 2.554766734279919
+      },
+      {
+        "sample_idx": 75,
+        "word_count": 321,
+        "char_count": 2189,
+        "input_tokens": 975,
+        "fertility": 3.0373831775700935,
+        "chars_per_token": 2.2451282051282053
+      },
+      {
+        "sample_idx": 76,
+        "word_count": 124,
+        "char_count": 1110,
+        "input_tokens": 559,
+        "fertility": 4.508064516129032,
+        "chars_per_token": 1.9856887298747763
+      },
+      {
+        "sample_idx": 77,
+        "word_count": 308,
+        "char_count": 2265,
+        "input_tokens": 993,
+        "fertility": 3.2240259740259742,
+        "chars_per_token": 2.280966767371601
+      },
+      {
+        "sample_idx": 78,
+        "word_count": 606,
+        "char_count": 4574,
+        "input_tokens": 1867,
+        "fertility": 3.080858085808581,
+        "chars_per_token": 2.4499196572040707
+      },
+      {
+        "sample_idx": 79,
+        "word_count": 443,
+        "char_count": 3315,
+        "input_tokens": 1364,
+        "fertility": 3.0790067720090293,
+        "chars_per_token": 2.4303519061583576
+      },
+      {
+        "sample_idx": 80,
+        "word_count": 947,
+        "char_count": 6000,
+        "input_tokens": 2498,
+        "fertility": 2.637803590285111,
+        "chars_per_token": 2.401921537229784
+      },
+      {
+        "sample_idx": 81,
+        "word_count": 774,
+        "char_count": 6000,
+        "input_tokens": 2698,
+        "fertility": 3.4857881136950906,
+        "chars_per_token": 2.223869532987398
+      },
+      {
+        "sample_idx": 82,
+        "word_count": 798,
+        "char_count": 6000,
+        "input_tokens": 2412,
+        "fertility": 3.0225563909774436,
+        "chars_per_token": 2.487562189054726
+      },
+      {
+        "sample_idx": 83,
+        "word_count": 778,
+        "char_count": 6000,
+        "input_tokens": 2237,
+        "fertility": 2.8753213367609254,
+        "chars_per_token": 2.682163611980331
+      },
+      {
+        "sample_idx": 84,
+        "word_count": 624,
+        "char_count": 4736,
+        "input_tokens": 1892,
+        "fertility": 3.032051282051282,
+        "chars_per_token": 2.503171247357294
+      },
+      {
+        "sample_idx": 85,
+        "word_count": 776,
+        "char_count": 6000,
+        "input_tokens": 2493,
+        "fertility": 3.2126288659793816,
+        "chars_per_token": 2.406738868832732
+      },
+      {
+        "sample_idx": 86,
+        "word_count": 265,
+        "char_count": 1946,
+        "input_tokens": 866,
+        "fertility": 3.267924528301887,
+        "chars_per_token": 2.2471131639722866
+      },
+      {
+        "sample_idx": 87,
+        "word_count": 814,
+        "char_count": 6000,
+        "input_tokens": 2316,
+        "fertility": 2.845208845208845,
+        "chars_per_token": 2.5906735751295336
+      },
+      {
+        "sample_idx": 88,
+        "word_count": 586,
+        "char_count": 4164,
+        "input_tokens": 1740,
+        "fertility": 2.969283276450512,
+        "chars_per_token": 2.393103448275862
+      },
+      {
+        "sample_idx": 89,
+        "word_count": 677,
+        "char_count": 6000,
+        "input_tokens": 2699,
+        "fertility": 3.9867060561299854,
+        "chars_per_token": 2.223045572434235
+      },
+      {
+        "sample_idx": 90,
+        "word_count": 163,
+        "char_count": 1308,
+        "input_tokens": 687,
+        "fertility": 4.214723926380368,
+        "chars_per_token": 1.9039301310043668
+      },
+      {
+        "sample_idx": 91,
+        "word_count": 811,
+        "char_count": 6000,
+        "input_tokens": 2422,
+        "fertility": 2.9864364981504314,
+        "chars_per_token": 2.477291494632535
+      },
+      {
+        "sample_idx": 92,
+        "word_count": 447,
+        "char_count": 3325,
+        "input_tokens": 1404,
+        "fertility": 3.140939597315436,
+        "chars_per_token": 2.368233618233618
+      },
+      {
+        "sample_idx": 93,
+        "word_count": 714,
+        "char_count": 4955,
+        "input_tokens": 1862,
+        "fertility": 2.607843137254902,
+        "chars_per_token": 2.6611170784103115
+      },
+      {
+        "sample_idx": 94,
+        "word_count": 772,
+        "char_count": 5734,
+        "input_tokens": 2367,
+        "fertility": 3.066062176165803,
+        "chars_per_token": 2.4224757076468104
+      },
+      {
+        "sample_idx": 95,
+        "word_count": 432,
+        "char_count": 4323,
+        "input_tokens": 2137,
+        "fertility": 4.9467592592592595,
+        "chars_per_token": 2.022929340196537
+      },
+      {
+        "sample_idx": 96,
+        "word_count": 708,
+        "char_count": 4754,
+        "input_tokens": 1991,
+        "fertility": 2.812146892655367,
+        "chars_per_token": 2.38774485183325
+      },
+      {
+        "sample_idx": 97,
+        "word_count": 350,
+        "char_count": 2415,
+        "input_tokens": 968,
+        "fertility": 2.7657142857142856,
+        "chars_per_token": 2.4948347107438016
+      },
+      {
+        "sample_idx": 98,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 2447,
+        "fertility": 2.9165673420738973,
+        "chars_per_token": 2.4519820187985286
+      },
+      {
+        "sample_idx": 99,
+        "word_count": 815,
+        "char_count": 6000,
+        "input_tokens": 2566,
+        "fertility": 3.1484662576687117,
+        "chars_per_token": 2.338269680436477
+      }
+    ]
+  },
+  "llama4_maverick": {
+    "model": "llama4_maverick",
+    "display_name": "Llama 4 Maverick (17B MoE)",
+    "n_samples": 100,
+    "avg_fertility": 2.4344166474662856,
+    "std_fertility": 0.39837994279631744,
+    "median_fertility": 2.349850671609951,
+    "avg_chars_per_token": 3.089594604389545,
+    "samples": [
+      {
+        "sample_idx": 0,
+        "word_count": 822,
+        "char_count": 6000,
+        "input_tokens": 1764,
+        "fertility": 2.145985401459854,
+        "chars_per_token": 3.401360544217687
+      },
+      {
+        "sample_idx": 1,
+        "word_count": 867,
+        "char_count": 6000,
+        "input_tokens": 1901,
+        "fertility": 2.192618223760092,
+        "chars_per_token": 3.156233561283535
+      },
+      {
+        "sample_idx": 2,
+        "word_count": 366,
+        "char_count": 2858,
+        "input_tokens": 976,
+        "fertility": 2.6666666666666665,
+        "chars_per_token": 2.92827868852459
+      },
+      {
+        "sample_idx": 3,
+        "word_count": 812,
+        "char_count": 6000,
+        "input_tokens": 1754,
+        "fertility": 2.1600985221674875,
+        "chars_per_token": 3.420752565564424
+      },
+      {
+        "sample_idx": 4,
+        "word_count": 227,
+        "char_count": 1529,
+        "input_tokens": 642,
+        "fertility": 2.828193832599119,
+        "chars_per_token": 2.3816199376947043
+      },
+      {
+        "sample_idx": 5,
+        "word_count": 883,
+        "char_count": 6000,
+        "input_tokens": 1934,
+        "fertility": 2.190260475651189,
+        "chars_per_token": 3.1023784901758016
+      },
+      {
+        "sample_idx": 6,
+        "word_count": 856,
+        "char_count": 6000,
+        "input_tokens": 1730,
+        "fertility": 2.0210280373831777,
+        "chars_per_token": 3.468208092485549
+      },
+      {
+        "sample_idx": 7,
+        "word_count": 286,
+        "char_count": 2522,
+        "input_tokens": 990,
+        "fertility": 3.4615384615384617,
+        "chars_per_token": 2.5474747474747477
+      },
+      {
+        "sample_idx": 8,
+        "word_count": 904,
+        "char_count": 6000,
+        "input_tokens": 1774,
+        "fertility": 1.9623893805309736,
+        "chars_per_token": 3.382187147688839
+      },
+      {
+        "sample_idx": 9,
+        "word_count": 813,
+        "char_count": 6000,
+        "input_tokens": 1690,
+        "fertility": 2.078720787207872,
+        "chars_per_token": 3.5502958579881656
+      },
+      {
+        "sample_idx": 10,
+        "word_count": 417,
+        "char_count": 2972,
+        "input_tokens": 982,
+        "fertility": 2.354916067146283,
+        "chars_per_token": 3.026476578411405
+      },
+      {
+        "sample_idx": 11,
+        "word_count": 791,
+        "char_count": 6000,
+        "input_tokens": 1882,
+        "fertility": 2.379266750948167,
+        "chars_per_token": 3.1880977683315623
+      },
+      {
+        "sample_idx": 12,
+        "word_count": 914,
+        "char_count": 6000,
+        "input_tokens": 1755,
+        "fertility": 1.9201312910284465,
+        "chars_per_token": 3.4188034188034186
+      },
+      {
+        "sample_idx": 13,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 1936,
+        "fertility": 2.3901234567901235,
+        "chars_per_token": 3.0991735537190084
+      },
+      {
+        "sample_idx": 14,
+        "word_count": 683,
+        "char_count": 4972,
+        "input_tokens": 1527,
+        "fertility": 2.2357247437774523,
+        "chars_per_token": 3.2560576293385726
+      },
+      {
+        "sample_idx": 15,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 1944,
+        "fertility": 2.3170441001191895,
+        "chars_per_token": 3.0864197530864197
+      },
+      {
+        "sample_idx": 16,
+        "word_count": 516,
+        "char_count": 3768,
+        "input_tokens": 1330,
+        "fertility": 2.5775193798449614,
+        "chars_per_token": 2.833082706766917
+      },
+      {
+        "sample_idx": 17,
+        "word_count": 376,
+        "char_count": 2838,
+        "input_tokens": 1030,
+        "fertility": 2.7393617021276597,
+        "chars_per_token": 2.7553398058252427
+      },
+      {
+        "sample_idx": 18,
+        "word_count": 708,
+        "char_count": 4807,
+        "input_tokens": 1501,
+        "fertility": 2.1200564971751414,
+        "chars_per_token": 3.2025316455696204
+      },
+      {
+        "sample_idx": 19,
+        "word_count": 293,
+        "char_count": 2005,
+        "input_tokens": 732,
+        "fertility": 2.4982935153583616,
+        "chars_per_token": 2.739071038251366
+      },
+      {
+        "sample_idx": 20,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 1769,
+        "fertility": 2.0690058479532163,
+        "chars_per_token": 3.391746749576032
+      },
+      {
+        "sample_idx": 21,
+        "word_count": 498,
+        "char_count": 3783,
+        "input_tokens": 1384,
+        "fertility": 2.7791164658634537,
+        "chars_per_token": 2.7333815028901736
+      },
+      {
+        "sample_idx": 22,
+        "word_count": 462,
+        "char_count": 3299,
+        "input_tokens": 1009,
+        "fertility": 2.183982683982684,
+        "chars_per_token": 3.269573835480674
+      },
+      {
+        "sample_idx": 23,
+        "word_count": 643,
+        "char_count": 4636,
+        "input_tokens": 1471,
+        "fertility": 2.2877138413685847,
+        "chars_per_token": 3.151597552685248
+      },
+      {
+        "sample_idx": 24,
+        "word_count": 884,
+        "char_count": 6000,
+        "input_tokens": 1951,
+        "fertility": 2.2070135746606336,
+        "chars_per_token": 3.0753459764223474
+      },
+      {
+        "sample_idx": 25,
+        "word_count": 272,
+        "char_count": 2634,
+        "input_tokens": 878,
+        "fertility": 3.2279411764705883,
+        "chars_per_token": 3.0
+      },
+      {
+        "sample_idx": 26,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 1995,
+        "fertility": 2.377830750893921,
+        "chars_per_token": 3.007518796992481
+      },
+      {
+        "sample_idx": 27,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 1786,
+        "fertility": 2.052873563218391,
+        "chars_per_token": 3.3594624860022395
+      },
+      {
+        "sample_idx": 28,
+        "word_count": 903,
+        "char_count": 6000,
+        "input_tokens": 1943,
+        "fertility": 2.15171650055371,
+        "chars_per_token": 3.0880082346886257
+      },
+      {
+        "sample_idx": 29,
+        "word_count": 891,
+        "char_count": 6000,
+        "input_tokens": 1767,
+        "fertility": 1.9831649831649831,
+        "chars_per_token": 3.395585738539898
+      },
+      {
+        "sample_idx": 30,
+        "word_count": 391,
+        "char_count": 2820,
+        "input_tokens": 1095,
+        "fertility": 2.8005115089514065,
+        "chars_per_token": 2.5753424657534247
+      },
+      {
+        "sample_idx": 31,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 1854,
+        "fertility": 2.21505376344086,
+        "chars_per_token": 3.236245954692557
+      },
+      {
+        "sample_idx": 32,
+        "word_count": 713,
+        "char_count": 6000,
+        "input_tokens": 2286,
+        "fertility": 3.2061711079943898,
+        "chars_per_token": 2.6246719160104988
+      },
+      {
+        "sample_idx": 33,
+        "word_count": 881,
+        "char_count": 6000,
+        "input_tokens": 1859,
+        "fertility": 2.1101021566401816,
+        "chars_per_token": 3.2275416890801507
+      },
+      {
+        "sample_idx": 34,
+        "word_count": 486,
+        "char_count": 4564,
+        "input_tokens": 1544,
+        "fertility": 3.1769547325102883,
+        "chars_per_token": 2.9559585492227978
+      },
+      {
+        "sample_idx": 35,
+        "word_count": 459,
+        "char_count": 3448,
+        "input_tokens": 1194,
+        "fertility": 2.6013071895424837,
+        "chars_per_token": 2.8877721943048575
+      },
+      {
+        "sample_idx": 36,
+        "word_count": 487,
+        "char_count": 3588,
+        "input_tokens": 1204,
+        "fertility": 2.4722792607802875,
+        "chars_per_token": 2.9800664451827243
+      },
+      {
+        "sample_idx": 37,
+        "word_count": 826,
+        "char_count": 6000,
+        "input_tokens": 1759,
+        "fertility": 2.12953995157385,
+        "chars_per_token": 3.411028993746447
+      },
+      {
+        "sample_idx": 38,
+        "word_count": 849,
+        "char_count": 6000,
+        "input_tokens": 1811,
+        "fertility": 2.133097762073027,
+        "chars_per_token": 3.3130866924351188
+      },
+      {
+        "sample_idx": 39,
+        "word_count": 832,
+        "char_count": 6000,
+        "input_tokens": 1818,
+        "fertility": 2.1850961538461537,
+        "chars_per_token": 3.3003300330033003
+      },
+      {
+        "sample_idx": 40,
+        "word_count": 393,
+        "char_count": 2976,
+        "input_tokens": 888,
+        "fertility": 2.2595419847328246,
+        "chars_per_token": 3.3513513513513513
+      },
+      {
+        "sample_idx": 41,
+        "word_count": 897,
+        "char_count": 6000,
+        "input_tokens": 2195,
+        "fertility": 2.447045707915273,
+        "chars_per_token": 2.733485193621868
+      },
+      {
+        "sample_idx": 42,
+        "word_count": 587,
+        "char_count": 4362,
+        "input_tokens": 1432,
+        "fertility": 2.4395229982964226,
+        "chars_per_token": 3.0460893854748603
+      },
+      {
+        "sample_idx": 43,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 1722,
+        "fertility": 2.1259259259259258,
+        "chars_per_token": 3.484320557491289
+      },
+      {
+        "sample_idx": 44,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 1925,
+        "fertility": 2.2514619883040936,
+        "chars_per_token": 3.116883116883117
+      },
+      {
+        "sample_idx": 45,
+        "word_count": 461,
+        "char_count": 3267,
+        "input_tokens": 958,
+        "fertility": 2.0780911062906724,
+        "chars_per_token": 3.4102296450939455
+      },
+      {
+        "sample_idx": 46,
+        "word_count": 735,
+        "char_count": 5311,
+        "input_tokens": 1679,
+        "fertility": 2.2843537414965986,
+        "chars_per_token": 3.1631923764145324
+      },
+      {
+        "sample_idx": 47,
+        "word_count": 847,
+        "char_count": 6000,
+        "input_tokens": 1966,
+        "fertility": 2.321133412042503,
+        "chars_per_token": 3.051881993896236
+      },
+      {
+        "sample_idx": 48,
+        "word_count": 371,
+        "char_count": 3237,
+        "input_tokens": 907,
+        "fertility": 2.444743935309973,
+        "chars_per_token": 3.5689084895259096
+      },
+      {
+        "sample_idx": 49,
+        "word_count": 307,
+        "char_count": 2524,
+        "input_tokens": 898,
+        "fertility": 2.9250814332247557,
+        "chars_per_token": 2.8106904231625833
+      },
+      {
+        "sample_idx": 50,
+        "word_count": 490,
+        "char_count": 3604,
+        "input_tokens": 1186,
+        "fertility": 2.4204081632653063,
+        "chars_per_token": 3.038785834738617
+      },
+      {
+        "sample_idx": 51,
+        "word_count": 457,
+        "char_count": 3458,
+        "input_tokens": 1222,
+        "fertility": 2.673960612691466,
+        "chars_per_token": 2.8297872340425534
+      },
+      {
+        "sample_idx": 52,
+        "word_count": 848,
+        "char_count": 6000,
+        "input_tokens": 1863,
+        "fertility": 2.196933962264151,
+        "chars_per_token": 3.2206119162640903
+      },
+      {
+        "sample_idx": 53,
+        "word_count": 426,
+        "char_count": 2959,
+        "input_tokens": 1023,
+        "fertility": 2.4014084507042255,
+        "chars_per_token": 2.89247311827957
+      },
+      {
+        "sample_idx": 54,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 1740,
+        "fertility": 2.0,
+        "chars_per_token": 3.4482758620689653
+      },
+      {
+        "sample_idx": 55,
+        "word_count": 857,
+        "char_count": 6000,
+        "input_tokens": 1648,
+        "fertility": 1.9229871645274212,
+        "chars_per_token": 3.6407766990291264
+      },
+      {
+        "sample_idx": 56,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 1751,
+        "fertility": 2.0919952210274793,
+        "chars_per_token": 3.426613363792119
+      },
+      {
+        "sample_idx": 57,
+        "word_count": 448,
+        "char_count": 3426,
+        "input_tokens": 1169,
+        "fertility": 2.609375,
+        "chars_per_token": 2.93071000855432
+      },
+      {
+        "sample_idx": 58,
+        "word_count": 342,
+        "char_count": 2841,
+        "input_tokens": 985,
+        "fertility": 2.8801169590643276,
+        "chars_per_token": 2.884263959390863
+      },
+      {
+        "sample_idx": 59,
+        "word_count": 332,
+        "char_count": 2351,
+        "input_tokens": 867,
+        "fertility": 2.61144578313253,
+        "chars_per_token": 2.7116493656286043
+      },
+      {
+        "sample_idx": 60,
+        "word_count": 851,
+        "char_count": 6000,
+        "input_tokens": 1953,
+        "fertility": 2.2949471210340775,
+        "chars_per_token": 3.0721966205837172
+      },
+      {
+        "sample_idx": 61,
+        "word_count": 431,
+        "char_count": 3365,
+        "input_tokens": 1199,
+        "fertility": 2.7819025522041763,
+        "chars_per_token": 2.8065054211843203
+      },
+      {
+        "sample_idx": 62,
+        "word_count": 824,
+        "char_count": 6000,
+        "input_tokens": 1669,
+        "fertility": 2.025485436893204,
+        "chars_per_token": 3.5949670461354106
+      },
+      {
+        "sample_idx": 63,
+        "word_count": 807,
+        "char_count": 6000,
+        "input_tokens": 2087,
+        "fertility": 2.5861214374225527,
+        "chars_per_token": 2.8749401054144705
+      },
+      {
+        "sample_idx": 64,
+        "word_count": 687,
+        "char_count": 5538,
+        "input_tokens": 1781,
+        "fertility": 2.5924308588064044,
+        "chars_per_token": 3.1094890510948905
+      },
+      {
+        "sample_idx": 65,
+        "word_count": 416,
+        "char_count": 2935,
+        "input_tokens": 1068,
+        "fertility": 2.5673076923076925,
+        "chars_per_token": 2.74812734082397
+      },
+      {
+        "sample_idx": 66,
+        "word_count": 391,
+        "char_count": 3828,
+        "input_tokens": 940,
+        "fertility": 2.4040920716112533,
+        "chars_per_token": 4.072340425531915
+      },
+      {
+        "sample_idx": 67,
+        "word_count": 403,
+        "char_count": 3025,
+        "input_tokens": 1070,
+        "fertility": 2.6550868486352357,
+        "chars_per_token": 2.8271028037383177
+      },
+      {
+        "sample_idx": 68,
+        "word_count": 924,
+        "char_count": 6000,
+        "input_tokens": 1883,
+        "fertility": 2.037878787878788,
+        "chars_per_token": 3.186404673393521
+      },
+      {
+        "sample_idx": 69,
+        "word_count": 846,
+        "char_count": 6000,
+        "input_tokens": 1742,
+        "fertility": 2.059101654846336,
+        "chars_per_token": 3.444316877152698
+      },
+      {
+        "sample_idx": 70,
+        "word_count": 436,
+        "char_count": 2981,
+        "input_tokens": 1043,
+        "fertility": 2.3922018348623855,
+        "chars_per_token": 2.8581016299137105
+      },
+      {
+        "sample_idx": 71,
+        "word_count": 874,
+        "char_count": 6000,
+        "input_tokens": 1947,
+        "fertility": 2.227688787185355,
+        "chars_per_token": 3.0816640986132513
+      },
+      {
+        "sample_idx": 72,
+        "word_count": 528,
+        "char_count": 4047,
+        "input_tokens": 1566,
+        "fertility": 2.965909090909091,
+        "chars_per_token": 2.5842911877394634
+      },
+      {
+        "sample_idx": 73,
+        "word_count": 311,
+        "char_count": 2844,
+        "input_tokens": 740,
+        "fertility": 2.379421221864952,
+        "chars_per_token": 3.843243243243243
+      },
+      {
+        "sample_idx": 74,
+        "word_count": 334,
+        "char_count": 2519,
+        "input_tokens": 768,
+        "fertility": 2.2994011976047903,
+        "chars_per_token": 3.2799479166666665
+      },
+      {
+        "sample_idx": 75,
+        "word_count": 321,
+        "char_count": 2189,
+        "input_tokens": 734,
+        "fertility": 2.2866043613707165,
+        "chars_per_token": 2.982288828337875
+      },
+      {
+        "sample_idx": 76,
+        "word_count": 124,
+        "char_count": 1110,
+        "input_tokens": 485,
+        "fertility": 3.911290322580645,
+        "chars_per_token": 2.288659793814433
+      },
+      {
+        "sample_idx": 77,
+        "word_count": 308,
+        "char_count": 2265,
+        "input_tokens": 766,
+        "fertility": 2.487012987012987,
+        "chars_per_token": 2.9569190600522193
+      },
+      {
+        "sample_idx": 78,
+        "word_count": 606,
+        "char_count": 4574,
+        "input_tokens": 1445,
+        "fertility": 2.3844884488448845,
+        "chars_per_token": 3.1653979238754326
+      },
+      {
+        "sample_idx": 79,
+        "word_count": 443,
+        "char_count": 3315,
+        "input_tokens": 1086,
+        "fertility": 2.4514672686230248,
+        "chars_per_token": 3.052486187845304
+      },
+      {
+        "sample_idx": 80,
+        "word_count": 947,
+        "char_count": 6000,
+        "input_tokens": 2055,
+        "fertility": 2.170010559662091,
+        "chars_per_token": 2.9197080291970803
+      },
+      {
+        "sample_idx": 81,
+        "word_count": 774,
+        "char_count": 6000,
+        "input_tokens": 2133,
+        "fertility": 2.755813953488372,
+        "chars_per_token": 2.8129395218002813
+      },
+      {
+        "sample_idx": 82,
+        "word_count": 798,
+        "char_count": 6000,
+        "input_tokens": 1923,
+        "fertility": 2.4097744360902253,
+        "chars_per_token": 3.1201248049921997
+      },
+      {
+        "sample_idx": 83,
+        "word_count": 778,
+        "char_count": 6000,
+        "input_tokens": 1752,
+        "fertility": 2.2519280205655527,
+        "chars_per_token": 3.4246575342465753
+      },
+      {
+        "sample_idx": 84,
+        "word_count": 624,
+        "char_count": 4736,
+        "input_tokens": 1534,
+        "fertility": 2.4583333333333335,
+        "chars_per_token": 3.08735332464146
+      },
+      {
+        "sample_idx": 85,
+        "word_count": 776,
+        "char_count": 6000,
+        "input_tokens": 2050,
+        "fertility": 2.6417525773195876,
+        "chars_per_token": 2.926829268292683
+      },
+      {
+        "sample_idx": 86,
+        "word_count": 265,
+        "char_count": 1946,
+        "input_tokens": 724,
+        "fertility": 2.732075471698113,
+        "chars_per_token": 2.6878453038674035
+      },
+      {
+        "sample_idx": 87,
+        "word_count": 814,
+        "char_count": 6000,
+        "input_tokens": 1832,
+        "fertility": 2.250614250614251,
+        "chars_per_token": 3.2751091703056767
+      },
+      {
+        "sample_idx": 88,
+        "word_count": 586,
+        "char_count": 4164,
+        "input_tokens": 1320,
+        "fertility": 2.2525597269624575,
+        "chars_per_token": 3.1545454545454548
+      },
+      {
+        "sample_idx": 89,
+        "word_count": 677,
+        "char_count": 6000,
+        "input_tokens": 2084,
+        "fertility": 3.0782865583456425,
+        "chars_per_token": 2.8790786948176583
+      },
+      {
+        "sample_idx": 90,
+        "word_count": 163,
+        "char_count": 1308,
+        "input_tokens": 540,
+        "fertility": 3.312883435582822,
+        "chars_per_token": 2.422222222222222
+      },
+      {
+        "sample_idx": 91,
+        "word_count": 811,
+        "char_count": 6000,
+        "input_tokens": 1983,
+        "fertility": 2.4451294697903823,
+        "chars_per_token": 3.02571860816944
+      },
+      {
+        "sample_idx": 92,
+        "word_count": 447,
+        "char_count": 3325,
+        "input_tokens": 1067,
+        "fertility": 2.3870246085011186,
+        "chars_per_token": 3.1162136832239926
+      },
+      {
+        "sample_idx": 93,
+        "word_count": 714,
+        "char_count": 4955,
+        "input_tokens": 1500,
+        "fertility": 2.100840336134454,
+        "chars_per_token": 3.3033333333333332
+      },
+      {
+        "sample_idx": 94,
+        "word_count": 772,
+        "char_count": 5734,
+        "input_tokens": 1777,
+        "fertility": 2.301813471502591,
+        "chars_per_token": 3.2267867191896453
+      },
+      {
+        "sample_idx": 95,
+        "word_count": 432,
+        "char_count": 4323,
+        "input_tokens": 1845,
+        "fertility": 4.270833333333333,
+        "chars_per_token": 2.343089430894309
+      },
+      {
+        "sample_idx": 96,
+        "word_count": 708,
+        "char_count": 4754,
+        "input_tokens": 1528,
+        "fertility": 2.15819209039548,
+        "chars_per_token": 3.1112565445026177
+      },
+      {
+        "sample_idx": 97,
+        "word_count": 350,
+        "char_count": 2415,
+        "input_tokens": 784,
+        "fertility": 2.24,
+        "chars_per_token": 3.080357142857143
+      },
+      {
+        "sample_idx": 98,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 1773,
+        "fertility": 2.113230035756853,
+        "chars_per_token": 3.3840947546531304
+      },
+      {
+        "sample_idx": 99,
+        "word_count": 815,
+        "char_count": 6000,
+        "input_tokens": 1911,
+        "fertility": 2.3447852760736194,
+        "chars_per_token": 3.1397174254317113
+      }
+    ]
+  },
+  "qwen3_235b": {
+    "model": "qwen3_235b",
+    "display_name": "Qwen3 235B (A22B MoE)",
+    "n_samples": 100,
+    "avg_fertility": 3.894257487715819,
+    "std_fertility": 0.4665138525042336,
+    "median_fertility": 3.7940396698017604,
+    "avg_chars_per_token": 1.9166515555626749,
+    "samples": [
+      {
+        "sample_idx": 0,
+        "word_count": 822,
+        "char_count": 6000,
+        "input_tokens": 2907,
+        "fertility": 3.5364963503649633,
+        "chars_per_token": 2.063983488132095
+      },
+      {
+        "sample_idx": 1,
+        "word_count": 867,
+        "char_count": 6000,
+        "input_tokens": 3125,
+        "fertility": 3.604382929642445,
+        "chars_per_token": 1.92
+      },
+      {
+        "sample_idx": 2,
+        "word_count": 366,
+        "char_count": 2858,
+        "input_tokens": 1488,
+        "fertility": 4.065573770491803,
+        "chars_per_token": 1.9206989247311828
+      },
+      {
+        "sample_idx": 3,
+        "word_count": 812,
+        "char_count": 6000,
+        "input_tokens": 3031,
+        "fertility": 3.7327586206896552,
+        "chars_per_token": 1.9795447047179149
+      },
+      {
+        "sample_idx": 4,
+        "word_count": 227,
+        "char_count": 1529,
+        "input_tokens": 924,
+        "fertility": 4.070484581497797,
+        "chars_per_token": 1.6547619047619047
+      },
+      {
+        "sample_idx": 5,
+        "word_count": 883,
+        "char_count": 6000,
+        "input_tokens": 3194,
+        "fertility": 3.6172140430351076,
+        "chars_per_token": 1.878522229179712
+      },
+      {
+        "sample_idx": 6,
+        "word_count": 856,
+        "char_count": 6000,
+        "input_tokens": 2963,
+        "fertility": 3.461448598130841,
+        "chars_per_token": 2.0249746878164023
+      },
+      {
+        "sample_idx": 7,
+        "word_count": 286,
+        "char_count": 2522,
+        "input_tokens": 1429,
+        "fertility": 4.996503496503497,
+        "chars_per_token": 1.7648705388383485
+      },
+      {
+        "sample_idx": 8,
+        "word_count": 904,
+        "char_count": 6000,
+        "input_tokens": 3080,
+        "fertility": 3.4070796460176993,
+        "chars_per_token": 1.948051948051948
+      },
+      {
+        "sample_idx": 9,
+        "word_count": 813,
+        "char_count": 6000,
+        "input_tokens": 2843,
+        "fertility": 3.4969249692496924,
+        "chars_per_token": 2.1104467112205416
+      },
+      {
+        "sample_idx": 10,
+        "word_count": 417,
+        "char_count": 2972,
+        "input_tokens": 1555,
+        "fertility": 3.7290167865707433,
+        "chars_per_token": 1.9112540192926044
+      },
+      {
+        "sample_idx": 11,
+        "word_count": 791,
+        "char_count": 6000,
+        "input_tokens": 3194,
+        "fertility": 4.037926675094817,
+        "chars_per_token": 1.878522229179712
+      },
+      {
+        "sample_idx": 12,
+        "word_count": 914,
+        "char_count": 6000,
+        "input_tokens": 2981,
+        "fertility": 3.261487964989059,
+        "chars_per_token": 2.012747400201275
+      },
+      {
+        "sample_idx": 13,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 3146,
+        "fertility": 3.8839506172839506,
+        "chars_per_token": 1.9071837253655435
+      },
+      {
+        "sample_idx": 14,
+        "word_count": 683,
+        "char_count": 4972,
+        "input_tokens": 2391,
+        "fertility": 3.500732064421669,
+        "chars_per_token": 2.0794646591384356
+      },
+      {
+        "sample_idx": 15,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 3267,
+        "fertility": 3.893921334922527,
+        "chars_per_token": 1.8365472910927456
+      },
+      {
+        "sample_idx": 16,
+        "word_count": 516,
+        "char_count": 3768,
+        "input_tokens": 2029,
+        "fertility": 3.932170542635659,
+        "chars_per_token": 1.8570724494825037
+      },
+      {
+        "sample_idx": 17,
+        "word_count": 376,
+        "char_count": 2838,
+        "input_tokens": 1544,
+        "fertility": 4.1063829787234045,
+        "chars_per_token": 1.8380829015544042
+      },
+      {
+        "sample_idx": 18,
+        "word_count": 708,
+        "char_count": 4807,
+        "input_tokens": 2506,
+        "fertility": 3.5395480225988702,
+        "chars_per_token": 1.918196328810854
+      },
+      {
+        "sample_idx": 19,
+        "word_count": 293,
+        "char_count": 2005,
+        "input_tokens": 1113,
+        "fertility": 3.7986348122866893,
+        "chars_per_token": 1.8014375561545373
+      },
+      {
+        "sample_idx": 20,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 3056,
+        "fertility": 3.5742690058479534,
+        "chars_per_token": 1.963350785340314
+      },
+      {
+        "sample_idx": 21,
+        "word_count": 498,
+        "char_count": 3783,
+        "input_tokens": 2044,
+        "fertility": 4.104417670682731,
+        "chars_per_token": 1.8507827788649707
+      },
+      {
+        "sample_idx": 22,
+        "word_count": 462,
+        "char_count": 3299,
+        "input_tokens": 1657,
+        "fertility": 3.5865800865800868,
+        "chars_per_token": 1.9909474954737478
+      },
+      {
+        "sample_idx": 23,
+        "word_count": 643,
+        "char_count": 4636,
+        "input_tokens": 2404,
+        "fertility": 3.738724727838258,
+        "chars_per_token": 1.9284525790349418
+      },
+      {
+        "sample_idx": 24,
+        "word_count": 884,
+        "char_count": 6000,
+        "input_tokens": 3313,
+        "fertility": 3.747737556561086,
+        "chars_per_token": 1.8110473890733474
+      },
+      {
+        "sample_idx": 25,
+        "word_count": 272,
+        "char_count": 2634,
+        "input_tokens": 1252,
+        "fertility": 4.602941176470588,
+        "chars_per_token": 2.1038338658146967
+      },
+      {
+        "sample_idx": 26,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 3136,
+        "fertility": 3.7377830750893923,
+        "chars_per_token": 1.913265306122449
+      },
+      {
+        "sample_idx": 27,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 2967,
+        "fertility": 3.410344827586207,
+        "chars_per_token": 2.0222446916076846
+      },
+      {
+        "sample_idx": 28,
+        "word_count": 903,
+        "char_count": 6000,
+        "input_tokens": 3225,
+        "fertility": 3.5714285714285716,
+        "chars_per_token": 1.8604651162790697
+      },
+      {
+        "sample_idx": 29,
+        "word_count": 891,
+        "char_count": 6000,
+        "input_tokens": 2986,
+        "fertility": 3.351290684624018,
+        "chars_per_token": 2.0093770931011385
+      },
+      {
+        "sample_idx": 30,
+        "word_count": 391,
+        "char_count": 2820,
+        "input_tokens": 1575,
+        "fertility": 4.028132992327365,
+        "chars_per_token": 1.7904761904761906
+      },
+      {
+        "sample_idx": 31,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 3110,
+        "fertility": 3.7156511350059738,
+        "chars_per_token": 1.9292604501607717
+      },
+      {
+        "sample_idx": 32,
+        "word_count": 713,
+        "char_count": 6000,
+        "input_tokens": 3284,
+        "fertility": 4.605890603085554,
+        "chars_per_token": 1.8270401948842874
+      },
+      {
+        "sample_idx": 33,
+        "word_count": 881,
+        "char_count": 6000,
+        "input_tokens": 3019,
+        "fertility": 3.4267877412031784,
+        "chars_per_token": 1.9874130506790328
+      },
+      {
+        "sample_idx": 34,
+        "word_count": 486,
+        "char_count": 4564,
+        "input_tokens": 2270,
+        "fertility": 4.670781893004115,
+        "chars_per_token": 2.0105726872246694
+      },
+      {
+        "sample_idx": 35,
+        "word_count": 459,
+        "char_count": 3448,
+        "input_tokens": 1935,
+        "fertility": 4.215686274509804,
+        "chars_per_token": 1.7819121447028423
+      },
+      {
+        "sample_idx": 36,
+        "word_count": 487,
+        "char_count": 3588,
+        "input_tokens": 1836,
+        "fertility": 3.7700205338809036,
+        "chars_per_token": 1.9542483660130718
+      },
+      {
+        "sample_idx": 37,
+        "word_count": 826,
+        "char_count": 6000,
+        "input_tokens": 3068,
+        "fertility": 3.7142857142857144,
+        "chars_per_token": 1.955671447196871
+      },
+      {
+        "sample_idx": 38,
+        "word_count": 849,
+        "char_count": 6000,
+        "input_tokens": 3019,
+        "fertility": 3.5559481743227326,
+        "chars_per_token": 1.9874130506790328
+      },
+      {
+        "sample_idx": 39,
+        "word_count": 832,
+        "char_count": 6000,
+        "input_tokens": 3033,
+        "fertility": 3.6454326923076925,
+        "chars_per_token": 1.9782393669634026
+      },
+      {
+        "sample_idx": 40,
+        "word_count": 393,
+        "char_count": 2976,
+        "input_tokens": 1452,
+        "fertility": 3.6946564885496183,
+        "chars_per_token": 2.049586776859504
+      },
+      {
+        "sample_idx": 41,
+        "word_count": 897,
+        "char_count": 6000,
+        "input_tokens": 3534,
+        "fertility": 3.939799331103679,
+        "chars_per_token": 1.697792869269949
+      },
+      {
+        "sample_idx": 42,
+        "word_count": 587,
+        "char_count": 4362,
+        "input_tokens": 2227,
+        "fertility": 3.7938671209540034,
+        "chars_per_token": 1.958688819039066
+      },
+      {
+        "sample_idx": 43,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 2887,
+        "fertility": 3.5641975308641975,
+        "chars_per_token": 2.0782819535850363
+      },
+      {
+        "sample_idx": 44,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 3102,
+        "fertility": 3.6280701754385967,
+        "chars_per_token": 1.9342359767891684
+      },
+      {
+        "sample_idx": 45,
+        "word_count": 461,
+        "char_count": 3267,
+        "input_tokens": 1543,
+        "fertility": 3.3470715835141,
+        "chars_per_token": 2.117303953337654
+      },
+      {
+        "sample_idx": 46,
+        "word_count": 735,
+        "char_count": 5311,
+        "input_tokens": 2692,
+        "fertility": 3.6625850340136052,
+        "chars_per_token": 1.972882615156018
+      },
+      {
+        "sample_idx": 47,
+        "word_count": 847,
+        "char_count": 6000,
+        "input_tokens": 3222,
+        "fertility": 3.8040141676505312,
+        "chars_per_token": 1.86219739292365
+      },
+      {
+        "sample_idx": 48,
+        "word_count": 371,
+        "char_count": 3237,
+        "input_tokens": 1387,
+        "fertility": 3.738544474393531,
+        "chars_per_token": 2.33381398702235
+      },
+      {
+        "sample_idx": 49,
+        "word_count": 307,
+        "char_count": 2524,
+        "input_tokens": 1489,
+        "fertility": 4.850162866449511,
+        "chars_per_token": 1.695097380792478
+      },
+      {
+        "sample_idx": 50,
+        "word_count": 490,
+        "char_count": 3604,
+        "input_tokens": 1818,
+        "fertility": 3.710204081632653,
+        "chars_per_token": 1.9823982398239823
+      },
+      {
+        "sample_idx": 51,
+        "word_count": 457,
+        "char_count": 3458,
+        "input_tokens": 1851,
+        "fertility": 4.050328227571116,
+        "chars_per_token": 1.868179362506753
+      },
+      {
+        "sample_idx": 52,
+        "word_count": 848,
+        "char_count": 6000,
+        "input_tokens": 2985,
+        "fertility": 3.520047169811321,
+        "chars_per_token": 2.0100502512562812
+      },
+      {
+        "sample_idx": 53,
+        "word_count": 426,
+        "char_count": 2959,
+        "input_tokens": 1572,
+        "fertility": 3.6901408450704225,
+        "chars_per_token": 1.8823155216284988
+      },
+      {
+        "sample_idx": 54,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 2951,
+        "fertility": 3.391954022988506,
+        "chars_per_token": 2.0332090816672315
+      },
+      {
+        "sample_idx": 55,
+        "word_count": 857,
+        "char_count": 6000,
+        "input_tokens": 2844,
+        "fertility": 3.3185530921820305,
+        "chars_per_token": 2.109704641350211
+      },
+      {
+        "sample_idx": 56,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 2926,
+        "fertility": 3.4958183990442055,
+        "chars_per_token": 2.050580997949419
+      },
+      {
+        "sample_idx": 57,
+        "word_count": 448,
+        "char_count": 3426,
+        "input_tokens": 1808,
+        "fertility": 4.035714285714286,
+        "chars_per_token": 1.8949115044247788
+      },
+      {
+        "sample_idx": 58,
+        "word_count": 342,
+        "char_count": 2841,
+        "input_tokens": 1545,
+        "fertility": 4.517543859649122,
+        "chars_per_token": 1.8388349514563107
+      },
+      {
+        "sample_idx": 59,
+        "word_count": 332,
+        "char_count": 2351,
+        "input_tokens": 1322,
+        "fertility": 3.9819277108433737,
+        "chars_per_token": 1.7783661119515886
+      },
+      {
+        "sample_idx": 60,
+        "word_count": 851,
+        "char_count": 6000,
+        "input_tokens": 3104,
+        "fertility": 3.6474735605170387,
+        "chars_per_token": 1.9329896907216495
+      },
+      {
+        "sample_idx": 61,
+        "word_count": 431,
+        "char_count": 3365,
+        "input_tokens": 1753,
+        "fertility": 4.067285382830627,
+        "chars_per_token": 1.9195664575014262
+      },
+      {
+        "sample_idx": 62,
+        "word_count": 824,
+        "char_count": 6000,
+        "input_tokens": 2879,
+        "fertility": 3.4939320388349513,
+        "chars_per_token": 2.084056964223689
+      },
+      {
+        "sample_idx": 63,
+        "word_count": 807,
+        "char_count": 6000,
+        "input_tokens": 3285,
+        "fertility": 4.070631970260223,
+        "chars_per_token": 1.82648401826484
+      },
+      {
+        "sample_idx": 64,
+        "word_count": 687,
+        "char_count": 5538,
+        "input_tokens": 2748,
+        "fertility": 4.0,
+        "chars_per_token": 2.01528384279476
+      },
+      {
+        "sample_idx": 65,
+        "word_count": 416,
+        "char_count": 2935,
+        "input_tokens": 1651,
+        "fertility": 3.96875,
+        "chars_per_token": 1.77771047849788
+      },
+      {
+        "sample_idx": 66,
+        "word_count": 391,
+        "char_count": 3828,
+        "input_tokens": 1474,
+        "fertility": 3.7698209718670075,
+        "chars_per_token": 2.5970149253731343
+      },
+      {
+        "sample_idx": 67,
+        "word_count": 403,
+        "char_count": 3025,
+        "input_tokens": 1577,
+        "fertility": 3.913151364764268,
+        "chars_per_token": 1.9181991122384274
+      },
+      {
+        "sample_idx": 68,
+        "word_count": 924,
+        "char_count": 6000,
+        "input_tokens": 3093,
+        "fertility": 3.3474025974025974,
+        "chars_per_token": 1.9398642095053347
+      },
+      {
+        "sample_idx": 69,
+        "word_count": 846,
+        "char_count": 6000,
+        "input_tokens": 2905,
+        "fertility": 3.433806146572104,
+        "chars_per_token": 2.0654044750430294
+      },
+      {
+        "sample_idx": 70,
+        "word_count": 436,
+        "char_count": 2981,
+        "input_tokens": 1627,
+        "fertility": 3.731651376146789,
+        "chars_per_token": 1.8322065150583897
+      },
+      {
+        "sample_idx": 71,
+        "word_count": 874,
+        "char_count": 6000,
+        "input_tokens": 3195,
+        "fertility": 3.6556064073226544,
+        "chars_per_token": 1.8779342723004695
+      },
+      {
+        "sample_idx": 72,
+        "word_count": 528,
+        "char_count": 4047,
+        "input_tokens": 2279,
+        "fertility": 4.316287878787879,
+        "chars_per_token": 1.7757788503729706
+      },
+      {
+        "sample_idx": 73,
+        "word_count": 311,
+        "char_count": 2844,
+        "input_tokens": 1180,
+        "fertility": 3.7942122186495175,
+        "chars_per_token": 2.4101694915254237
+      },
+      {
+        "sample_idx": 74,
+        "word_count": 334,
+        "char_count": 2519,
+        "input_tokens": 1301,
+        "fertility": 3.895209580838323,
+        "chars_per_token": 1.9362029208301306
+      },
+      {
+        "sample_idx": 75,
+        "word_count": 321,
+        "char_count": 2189,
+        "input_tokens": 1203,
+        "fertility": 3.7476635514018692,
+        "chars_per_token": 1.8196176226101413
+      },
+      {
+        "sample_idx": 76,
+        "word_count": 124,
+        "char_count": 1110,
+        "input_tokens": 684,
+        "fertility": 5.516129032258065,
+        "chars_per_token": 1.6228070175438596
+      },
+      {
+        "sample_idx": 77,
+        "word_count": 308,
+        "char_count": 2265,
+        "input_tokens": 1206,
+        "fertility": 3.9155844155844157,
+        "chars_per_token": 1.8781094527363185
+      },
+      {
+        "sample_idx": 78,
+        "word_count": 606,
+        "char_count": 4574,
+        "input_tokens": 2404,
+        "fertility": 3.966996699669967,
+        "chars_per_token": 1.9026622296173046
+      },
+      {
+        "sample_idx": 79,
+        "word_count": 443,
+        "char_count": 3315,
+        "input_tokens": 1760,
+        "fertility": 3.9729119638826185,
+        "chars_per_token": 1.8835227272727273
+      },
+      {
+        "sample_idx": 80,
+        "word_count": 947,
+        "char_count": 6000,
+        "input_tokens": 3231,
+        "fertility": 3.4118268215417107,
+        "chars_per_token": 1.8570102135561746
+      },
+      {
+        "sample_idx": 81,
+        "word_count": 774,
+        "char_count": 6000,
+        "input_tokens": 3443,
+        "fertility": 4.448320413436693,
+        "chars_per_token": 1.7426662794074934
+      },
+      {
+        "sample_idx": 82,
+        "word_count": 798,
+        "char_count": 6000,
+        "input_tokens": 3167,
+        "fertility": 3.968671679197995,
+        "chars_per_token": 1.894537417113988
+      },
+      {
+        "sample_idx": 83,
+        "word_count": 778,
+        "char_count": 6000,
+        "input_tokens": 3216,
+        "fertility": 4.133676092544987,
+        "chars_per_token": 1.8656716417910448
+      },
+      {
+        "sample_idx": 84,
+        "word_count": 624,
+        "char_count": 4736,
+        "input_tokens": 2457,
+        "fertility": 3.9375,
+        "chars_per_token": 1.9275539275539275
+      },
+      {
+        "sample_idx": 85,
+        "word_count": 776,
+        "char_count": 6000,
+        "input_tokens": 3204,
+        "fertility": 4.128865979381444,
+        "chars_per_token": 1.8726591760299625
+      },
+      {
+        "sample_idx": 86,
+        "word_count": 265,
+        "char_count": 1946,
+        "input_tokens": 1105,
+        "fertility": 4.169811320754717,
+        "chars_per_token": 1.7610859728506787
+      },
+      {
+        "sample_idx": 87,
+        "word_count": 814,
+        "char_count": 6000,
+        "input_tokens": 3104,
+        "fertility": 3.8132678132678133,
+        "chars_per_token": 1.9329896907216495
+      },
+      {
+        "sample_idx": 88,
+        "word_count": 586,
+        "char_count": 4164,
+        "input_tokens": 2250,
+        "fertility": 3.839590443686007,
+        "chars_per_token": 1.8506666666666667
+      },
+      {
+        "sample_idx": 89,
+        "word_count": 677,
+        "char_count": 6000,
+        "input_tokens": 3816,
+        "fertility": 5.636632200886263,
+        "chars_per_token": 1.5723270440251573
+      },
+      {
+        "sample_idx": 90,
+        "word_count": 163,
+        "char_count": 1308,
+        "input_tokens": 803,
+        "fertility": 4.92638036809816,
+        "chars_per_token": 1.6288916562889166
+      },
+      {
+        "sample_idx": 91,
+        "word_count": 811,
+        "char_count": 6000,
+        "input_tokens": 3090,
+        "fertility": 3.810110974106042,
+        "chars_per_token": 1.941747572815534
+      },
+      {
+        "sample_idx": 92,
+        "word_count": 447,
+        "char_count": 3325,
+        "input_tokens": 1801,
+        "fertility": 4.029082774049217,
+        "chars_per_token": 1.8461965574680732
+      },
+      {
+        "sample_idx": 93,
+        "word_count": 714,
+        "char_count": 4955,
+        "input_tokens": 2652,
+        "fertility": 3.7142857142857144,
+        "chars_per_token": 1.8684012066365008
+      },
+      {
+        "sample_idx": 94,
+        "word_count": 772,
+        "char_count": 5734,
+        "input_tokens": 3110,
+        "fertility": 4.028497409326425,
+        "chars_per_token": 1.8437299035369774
+      },
+      {
+        "sample_idx": 95,
+        "word_count": 432,
+        "char_count": 4323,
+        "input_tokens": 2535,
+        "fertility": 5.868055555555555,
+        "chars_per_token": 1.7053254437869823
+      },
+      {
+        "sample_idx": 96,
+        "word_count": 708,
+        "char_count": 4754,
+        "input_tokens": 2602,
+        "fertility": 3.675141242937853,
+        "chars_per_token": 1.8270561106840892
+      },
+      {
+        "sample_idx": 97,
+        "word_count": 350,
+        "char_count": 2415,
+        "input_tokens": 1268,
+        "fertility": 3.6228571428571428,
+        "chars_per_token": 1.9045741324921135
+      },
+      {
+        "sample_idx": 98,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 3209,
+        "fertility": 3.8247914183551845,
+        "chars_per_token": 1.869741352446245
+      },
+      {
+        "sample_idx": 99,
+        "word_count": 815,
+        "char_count": 6000,
+        "input_tokens": 3286,
+        "fertility": 4.031901840490797,
+        "chars_per_token": 1.8259281801582472
+      }
+    ]
+  },
+  "nemotron_120b": {
+    "model": "nemotron_120b",
+    "display_name": "Nemotron Super 3 (120B)",
+    "n_samples": 100,
+    "avg_fertility": 3.081924161884176,
+    "std_fertility": 0.4530405615010143,
+    "median_fertility": 3.0018042990218463,
+    "avg_chars_per_token": 2.4326540594134527,
+    "samples": [
+      {
+        "sample_idx": 0,
+        "word_count": 822,
+        "char_count": 6000,
+        "input_tokens": 2254,
+        "fertility": 2.7420924574209247,
+        "chars_per_token": 2.6619343389529724
+      },
+      {
+        "sample_idx": 1,
+        "word_count": 867,
+        "char_count": 6000,
+        "input_tokens": 2481,
+        "fertility": 2.86159169550173,
+        "chars_per_token": 2.418379685610641
+      },
+      {
+        "sample_idx": 2,
+        "word_count": 366,
+        "char_count": 2858,
+        "input_tokens": 1221,
+        "fertility": 3.3360655737704916,
+        "chars_per_token": 2.340704340704341
+      },
+      {
+        "sample_idx": 3,
+        "word_count": 812,
+        "char_count": 6000,
+        "input_tokens": 2251,
+        "fertility": 2.772167487684729,
+        "chars_per_token": 2.665482007996446
+      },
+      {
+        "sample_idx": 4,
+        "word_count": 227,
+        "char_count": 1529,
+        "input_tokens": 831,
+        "fertility": 3.66079295154185,
+        "chars_per_token": 1.8399518652226234
+      },
+      {
+        "sample_idx": 5,
+        "word_count": 883,
+        "char_count": 6000,
+        "input_tokens": 2441,
+        "fertility": 2.7644394110985275,
+        "chars_per_token": 2.4580090126997134
+      },
+      {
+        "sample_idx": 6,
+        "word_count": 856,
+        "char_count": 6000,
+        "input_tokens": 2214,
+        "fertility": 2.586448598130841,
+        "chars_per_token": 2.710027100271003
+      },
+      {
+        "sample_idx": 7,
+        "word_count": 286,
+        "char_count": 2522,
+        "input_tokens": 1245,
+        "fertility": 4.353146853146853,
+        "chars_per_token": 2.02570281124498
+      },
+      {
+        "sample_idx": 8,
+        "word_count": 904,
+        "char_count": 6000,
+        "input_tokens": 2309,
+        "fertility": 2.5542035398230087,
+        "chars_per_token": 2.5985275010827196
+      },
+      {
+        "sample_idx": 9,
+        "word_count": 813,
+        "char_count": 6000,
+        "input_tokens": 2162,
+        "fertility": 2.6592865928659286,
+        "chars_per_token": 2.775208140610546
+      },
+      {
+        "sample_idx": 10,
+        "word_count": 417,
+        "char_count": 2972,
+        "input_tokens": 1220,
+        "fertility": 2.9256594724220624,
+        "chars_per_token": 2.4360655737704917
+      },
+      {
+        "sample_idx": 11,
+        "word_count": 791,
+        "char_count": 6000,
+        "input_tokens": 2418,
+        "fertility": 3.056890012642225,
+        "chars_per_token": 2.4813895781637716
+      },
+      {
+        "sample_idx": 12,
+        "word_count": 914,
+        "char_count": 6000,
+        "input_tokens": 2280,
+        "fertility": 2.4945295404814005,
+        "chars_per_token": 2.6315789473684212
+      },
+      {
+        "sample_idx": 13,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 2433,
+        "fertility": 3.0037037037037035,
+        "chars_per_token": 2.466091245376079
+      },
+      {
+        "sample_idx": 14,
+        "word_count": 683,
+        "char_count": 4972,
+        "input_tokens": 1887,
+        "fertility": 2.7628111273792095,
+        "chars_per_token": 2.6348701642819288
+      },
+      {
+        "sample_idx": 15,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 2458,
+        "fertility": 2.929678188319428,
+        "chars_per_token": 2.441008950366151
+      },
+      {
+        "sample_idx": 16,
+        "word_count": 516,
+        "char_count": 3768,
+        "input_tokens": 1602,
+        "fertility": 3.104651162790698,
+        "chars_per_token": 2.352059925093633
+      },
+      {
+        "sample_idx": 17,
+        "word_count": 376,
+        "char_count": 2838,
+        "input_tokens": 1292,
+        "fertility": 3.4361702127659575,
+        "chars_per_token": 2.196594427244582
+      },
+      {
+        "sample_idx": 18,
+        "word_count": 708,
+        "char_count": 4807,
+        "input_tokens": 1919,
+        "fertility": 2.7104519774011298,
+        "chars_per_token": 2.504950495049505
+      },
+      {
+        "sample_idx": 19,
+        "word_count": 293,
+        "char_count": 2005,
+        "input_tokens": 913,
+        "fertility": 3.1160409556313993,
+        "chars_per_token": 2.1960569550930997
+      },
+      {
+        "sample_idx": 20,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 2287,
+        "fertility": 2.674853801169591,
+        "chars_per_token": 2.623524267599475
+      },
+      {
+        "sample_idx": 21,
+        "word_count": 498,
+        "char_count": 3783,
+        "input_tokens": 1714,
+        "fertility": 3.4417670682730925,
+        "chars_per_token": 2.207117852975496
+      },
+      {
+        "sample_idx": 22,
+        "word_count": 462,
+        "char_count": 3299,
+        "input_tokens": 1331,
+        "fertility": 2.880952380952381,
+        "chars_per_token": 2.478587528174305
+      },
+      {
+        "sample_idx": 23,
+        "word_count": 643,
+        "char_count": 4636,
+        "input_tokens": 1930,
+        "fertility": 3.001555209953344,
+        "chars_per_token": 2.4020725388601036
+      },
+      {
+        "sample_idx": 24,
+        "word_count": 884,
+        "char_count": 6000,
+        "input_tokens": 2472,
+        "fertility": 2.7963800904977374,
+        "chars_per_token": 2.4271844660194173
+      },
+      {
+        "sample_idx": 25,
+        "word_count": 272,
+        "char_count": 2634,
+        "input_tokens": 1096,
+        "fertility": 4.029411764705882,
+        "chars_per_token": 2.403284671532847
+      },
+      {
+        "sample_idx": 26,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 2498,
+        "fertility": 2.9773539928486294,
+        "chars_per_token": 2.401921537229784
+      },
+      {
+        "sample_idx": 27,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 2321,
+        "fertility": 2.667816091954023,
+        "chars_per_token": 2.5850926324859973
+      },
+      {
+        "sample_idx": 28,
+        "word_count": 903,
+        "char_count": 6000,
+        "input_tokens": 2531,
+        "fertility": 2.8028792912513842,
+        "chars_per_token": 2.3706045041485577
+      },
+      {
+        "sample_idx": 29,
+        "word_count": 891,
+        "char_count": 6000,
+        "input_tokens": 2316,
+        "fertility": 2.5993265993265995,
+        "chars_per_token": 2.5906735751295336
+      },
+      {
+        "sample_idx": 30,
+        "word_count": 391,
+        "char_count": 2820,
+        "input_tokens": 1330,
+        "fertility": 3.40153452685422,
+        "chars_per_token": 2.1203007518796992
+      },
+      {
+        "sample_idx": 31,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 2271,
+        "fertility": 2.7132616487455197,
+        "chars_per_token": 2.642007926023778
+      },
+      {
+        "sample_idx": 32,
+        "word_count": 713,
+        "char_count": 6000,
+        "input_tokens": 2840,
+        "fertility": 3.983169705469846,
+        "chars_per_token": 2.112676056338028
+      },
+      {
+        "sample_idx": 33,
+        "word_count": 881,
+        "char_count": 6000,
+        "input_tokens": 2242,
+        "fertility": 2.5448354143019296,
+        "chars_per_token": 2.6761819803746656
+      },
+      {
+        "sample_idx": 34,
+        "word_count": 486,
+        "char_count": 4564,
+        "input_tokens": 1931,
+        "fertility": 3.9732510288065845,
+        "chars_per_token": 2.3635422061108233
+      },
+      {
+        "sample_idx": 35,
+        "word_count": 459,
+        "char_count": 3448,
+        "input_tokens": 1454,
+        "fertility": 3.167755991285403,
+        "chars_per_token": 2.3713892709766164
+      },
+      {
+        "sample_idx": 36,
+        "word_count": 487,
+        "char_count": 3588,
+        "input_tokens": 1462,
+        "fertility": 3.0020533880903493,
+        "chars_per_token": 2.454172366621067
+      },
+      {
+        "sample_idx": 37,
+        "word_count": 826,
+        "char_count": 6000,
+        "input_tokens": 2277,
+        "fertility": 2.7566585956416465,
+        "chars_per_token": 2.635046113306983
+      },
+      {
+        "sample_idx": 38,
+        "word_count": 849,
+        "char_count": 6000,
+        "input_tokens": 2359,
+        "fertility": 2.778563015312132,
+        "chars_per_token": 2.5434506146672318
+      },
+      {
+        "sample_idx": 39,
+        "word_count": 832,
+        "char_count": 6000,
+        "input_tokens": 2305,
+        "fertility": 2.7704326923076925,
+        "chars_per_token": 2.6030368763557483
+      },
+      {
+        "sample_idx": 40,
+        "word_count": 393,
+        "char_count": 2976,
+        "input_tokens": 1178,
+        "fertility": 2.9974554707379135,
+        "chars_per_token": 2.526315789473684
+      },
+      {
+        "sample_idx": 41,
+        "word_count": 897,
+        "char_count": 6000,
+        "input_tokens": 2846,
+        "fertility": 3.172798216276477,
+        "chars_per_token": 2.1082220660576247
+      },
+      {
+        "sample_idx": 42,
+        "word_count": 587,
+        "char_count": 4362,
+        "input_tokens": 1794,
+        "fertility": 3.0562180579216354,
+        "chars_per_token": 2.431438127090301
+      },
+      {
+        "sample_idx": 43,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 2137,
+        "fertility": 2.6382716049382715,
+        "chars_per_token": 2.8076743097800656
+      },
+      {
+        "sample_idx": 44,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 2472,
+        "fertility": 2.8912280701754387,
+        "chars_per_token": 2.4271844660194173
+      },
+      {
+        "sample_idx": 45,
+        "word_count": 461,
+        "char_count": 3267,
+        "input_tokens": 1216,
+        "fertility": 2.6377440347071586,
+        "chars_per_token": 2.6866776315789473
+      },
+      {
+        "sample_idx": 46,
+        "word_count": 735,
+        "char_count": 5311,
+        "input_tokens": 2134,
+        "fertility": 2.9034013605442177,
+        "chars_per_token": 2.4887535145267106
+      },
+      {
+        "sample_idx": 47,
+        "word_count": 847,
+        "char_count": 6000,
+        "input_tokens": 2480,
+        "fertility": 2.927981109799292,
+        "chars_per_token": 2.4193548387096775
+      },
+      {
+        "sample_idx": 48,
+        "word_count": 371,
+        "char_count": 3237,
+        "input_tokens": 1185,
+        "fertility": 3.1940700808625335,
+        "chars_per_token": 2.731645569620253
+      },
+      {
+        "sample_idx": 49,
+        "word_count": 307,
+        "char_count": 2524,
+        "input_tokens": 1061,
+        "fertility": 3.456026058631922,
+        "chars_per_token": 2.3788878416588126
+      },
+      {
+        "sample_idx": 50,
+        "word_count": 490,
+        "char_count": 3604,
+        "input_tokens": 1478,
+        "fertility": 3.016326530612245,
+        "chars_per_token": 2.438430311231394
+      },
+      {
+        "sample_idx": 51,
+        "word_count": 457,
+        "char_count": 3458,
+        "input_tokens": 1535,
+        "fertility": 3.358862144420131,
+        "chars_per_token": 2.252768729641694
+      },
+      {
+        "sample_idx": 52,
+        "word_count": 848,
+        "char_count": 6000,
+        "input_tokens": 2270,
+        "fertility": 2.67688679245283,
+        "chars_per_token": 2.643171806167401
+      },
+      {
+        "sample_idx": 53,
+        "word_count": 426,
+        "char_count": 2959,
+        "input_tokens": 1287,
+        "fertility": 3.0211267605633805,
+        "chars_per_token": 2.299145299145299
+      },
+      {
+        "sample_idx": 54,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 2253,
+        "fertility": 2.589655172413793,
+        "chars_per_token": 2.663115845539281
+      },
+      {
+        "sample_idx": 55,
+        "word_count": 857,
+        "char_count": 6000,
+        "input_tokens": 2124,
+        "fertility": 2.4784130688448074,
+        "chars_per_token": 2.824858757062147
+      },
+      {
+        "sample_idx": 56,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 2264,
+        "fertility": 2.7048984468339308,
+        "chars_per_token": 2.65017667844523
+      },
+      {
+        "sample_idx": 57,
+        "word_count": 448,
+        "char_count": 3426,
+        "input_tokens": 1493,
+        "fertility": 3.3325892857142856,
+        "chars_per_token": 2.2947086403215002
+      },
+      {
+        "sample_idx": 58,
+        "word_count": 342,
+        "char_count": 2841,
+        "input_tokens": 1210,
+        "fertility": 3.538011695906433,
+        "chars_per_token": 2.347933884297521
+      },
+      {
+        "sample_idx": 59,
+        "word_count": 332,
+        "char_count": 2351,
+        "input_tokens": 1094,
+        "fertility": 3.2951807228915664,
+        "chars_per_token": 2.148994515539305
+      },
+      {
+        "sample_idx": 60,
+        "word_count": 851,
+        "char_count": 6000,
+        "input_tokens": 2441,
+        "fertility": 2.8683901292596943,
+        "chars_per_token": 2.4580090126997134
+      },
+      {
+        "sample_idx": 61,
+        "word_count": 431,
+        "char_count": 3365,
+        "input_tokens": 1484,
+        "fertility": 3.4431554524361947,
+        "chars_per_token": 2.2675202156334233
+      },
+      {
+        "sample_idx": 62,
+        "word_count": 824,
+        "char_count": 6000,
+        "input_tokens": 2147,
+        "fertility": 2.6055825242718447,
+        "chars_per_token": 2.7945971122496505
+      },
+      {
+        "sample_idx": 63,
+        "word_count": 807,
+        "char_count": 6000,
+        "input_tokens": 2620,
+        "fertility": 3.2465923172242874,
+        "chars_per_token": 2.2900763358778624
+      },
+      {
+        "sample_idx": 64,
+        "word_count": 687,
+        "char_count": 5538,
+        "input_tokens": 2159,
+        "fertility": 3.1426491994177583,
+        "chars_per_token": 2.5650764242704955
+      },
+      {
+        "sample_idx": 65,
+        "word_count": 416,
+        "char_count": 2935,
+        "input_tokens": 1365,
+        "fertility": 3.28125,
+        "chars_per_token": 2.15018315018315
+      },
+      {
+        "sample_idx": 66,
+        "word_count": 391,
+        "char_count": 3828,
+        "input_tokens": 1286,
+        "fertility": 3.289002557544757,
+        "chars_per_token": 2.9766718506998444
+      },
+      {
+        "sample_idx": 67,
+        "word_count": 403,
+        "char_count": 3025,
+        "input_tokens": 1260,
+        "fertility": 3.1265508684863526,
+        "chars_per_token": 2.4007936507936507
+      },
+      {
+        "sample_idx": 68,
+        "word_count": 924,
+        "char_count": 6000,
+        "input_tokens": 2466,
+        "fertility": 2.668831168831169,
+        "chars_per_token": 2.4330900243309004
+      },
+      {
+        "sample_idx": 69,
+        "word_count": 846,
+        "char_count": 6000,
+        "input_tokens": 2243,
+        "fertility": 2.6513002364066196,
+        "chars_per_token": 2.6749888542131073
+      },
+      {
+        "sample_idx": 70,
+        "word_count": 436,
+        "char_count": 2981,
+        "input_tokens": 1305,
+        "fertility": 2.993119266055046,
+        "chars_per_token": 2.2842911877394636
+      },
+      {
+        "sample_idx": 71,
+        "word_count": 874,
+        "char_count": 6000,
+        "input_tokens": 2505,
+        "fertility": 2.8661327231121283,
+        "chars_per_token": 2.395209580838323
+      },
+      {
+        "sample_idx": 72,
+        "word_count": 528,
+        "char_count": 4047,
+        "input_tokens": 1914,
+        "fertility": 3.625,
+        "chars_per_token": 2.114420062695925
+      },
+      {
+        "sample_idx": 73,
+        "word_count": 311,
+        "char_count": 2844,
+        "input_tokens": 970,
+        "fertility": 3.1189710610932475,
+        "chars_per_token": 2.9319587628865977
+      },
+      {
+        "sample_idx": 74,
+        "word_count": 334,
+        "char_count": 2519,
+        "input_tokens": 999,
+        "fertility": 2.9910179640718564,
+        "chars_per_token": 2.5215215215215214
+      },
+      {
+        "sample_idx": 75,
+        "word_count": 321,
+        "char_count": 2189,
+        "input_tokens": 988,
+        "fertility": 3.0778816199376946,
+        "chars_per_token": 2.215587044534413
+      },
+      {
+        "sample_idx": 76,
+        "word_count": 124,
+        "char_count": 1110,
+        "input_tokens": 572,
+        "fertility": 4.612903225806452,
+        "chars_per_token": 1.9405594405594406
+      },
+      {
+        "sample_idx": 77,
+        "word_count": 308,
+        "char_count": 2265,
+        "input_tokens": 1006,
+        "fertility": 3.2662337662337664,
+        "chars_per_token": 2.2514910536779325
+      },
+      {
+        "sample_idx": 78,
+        "word_count": 606,
+        "char_count": 4574,
+        "input_tokens": 1880,
+        "fertility": 3.102310231023102,
+        "chars_per_token": 2.4329787234042555
+      },
+      {
+        "sample_idx": 79,
+        "word_count": 443,
+        "char_count": 3315,
+        "input_tokens": 1377,
+        "fertility": 3.108352144469526,
+        "chars_per_token": 2.4074074074074074
+      },
+      {
+        "sample_idx": 80,
+        "word_count": 947,
+        "char_count": 6000,
+        "input_tokens": 2511,
+        "fertility": 2.651531151003168,
+        "chars_per_token": 2.3894862604540026
+      },
+      {
+        "sample_idx": 81,
+        "word_count": 774,
+        "char_count": 6000,
+        "input_tokens": 2711,
+        "fertility": 3.5025839793281652,
+        "chars_per_token": 2.213205459240133
+      },
+      {
+        "sample_idx": 82,
+        "word_count": 798,
+        "char_count": 6000,
+        "input_tokens": 2425,
+        "fertility": 3.0388471177944862,
+        "chars_per_token": 2.4742268041237114
+      },
+      {
+        "sample_idx": 83,
+        "word_count": 778,
+        "char_count": 6000,
+        "input_tokens": 2250,
+        "fertility": 2.892030848329049,
+        "chars_per_token": 2.6666666666666665
+      },
+      {
+        "sample_idx": 84,
+        "word_count": 624,
+        "char_count": 4736,
+        "input_tokens": 1905,
+        "fertility": 3.0528846153846154,
+        "chars_per_token": 2.4860892388451443
+      },
+      {
+        "sample_idx": 85,
+        "word_count": 776,
+        "char_count": 6000,
+        "input_tokens": 2506,
+        "fertility": 3.229381443298969,
+        "chars_per_token": 2.3942537909018355
+      },
+      {
+        "sample_idx": 86,
+        "word_count": 265,
+        "char_count": 1946,
+        "input_tokens": 879,
+        "fertility": 3.3169811320754716,
+        "chars_per_token": 2.2138794084186575
+      },
+      {
+        "sample_idx": 87,
+        "word_count": 814,
+        "char_count": 6000,
+        "input_tokens": 2329,
+        "fertility": 2.861179361179361,
+        "chars_per_token": 2.5762129669386002
+      },
+      {
+        "sample_idx": 88,
+        "word_count": 586,
+        "char_count": 4164,
+        "input_tokens": 1753,
+        "fertility": 2.991467576791809,
+        "chars_per_token": 2.3753565316600116
+      },
+      {
+        "sample_idx": 89,
+        "word_count": 677,
+        "char_count": 6000,
+        "input_tokens": 2712,
+        "fertility": 4.005908419497785,
+        "chars_per_token": 2.2123893805309733
+      },
+      {
+        "sample_idx": 90,
+        "word_count": 163,
+        "char_count": 1308,
+        "input_tokens": 700,
+        "fertility": 4.294478527607362,
+        "chars_per_token": 1.8685714285714285
+      },
+      {
+        "sample_idx": 91,
+        "word_count": 811,
+        "char_count": 6000,
+        "input_tokens": 2435,
+        "fertility": 3.0024660912453762,
+        "chars_per_token": 2.4640657084188913
+      },
+      {
+        "sample_idx": 92,
+        "word_count": 447,
+        "char_count": 3325,
+        "input_tokens": 1417,
+        "fertility": 3.170022371364653,
+        "chars_per_token": 2.3465067043048693
+      },
+      {
+        "sample_idx": 93,
+        "word_count": 714,
+        "char_count": 4955,
+        "input_tokens": 1875,
+        "fertility": 2.6260504201680672,
+        "chars_per_token": 2.6426666666666665
+      },
+      {
+        "sample_idx": 94,
+        "word_count": 772,
+        "char_count": 5734,
+        "input_tokens": 2380,
+        "fertility": 3.082901554404145,
+        "chars_per_token": 2.4092436974789915
+      },
+      {
+        "sample_idx": 95,
+        "word_count": 432,
+        "char_count": 4323,
+        "input_tokens": 2150,
+        "fertility": 4.976851851851852,
+        "chars_per_token": 2.0106976744186045
+      },
+      {
+        "sample_idx": 96,
+        "word_count": 708,
+        "char_count": 4754,
+        "input_tokens": 2004,
+        "fertility": 2.830508474576271,
+        "chars_per_token": 2.3722554890219563
+      },
+      {
+        "sample_idx": 97,
+        "word_count": 350,
+        "char_count": 2415,
+        "input_tokens": 981,
+        "fertility": 2.802857142857143,
+        "chars_per_token": 2.46177370030581
+      },
+      {
+        "sample_idx": 98,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 2460,
+        "fertility": 2.932061978545888,
+        "chars_per_token": 2.4390243902439024
+      },
+      {
+        "sample_idx": 99,
+        "word_count": 815,
+        "char_count": 6000,
+        "input_tokens": 2579,
+        "fertility": 3.1644171779141104,
+        "chars_per_token": 2.3264831329972857
+      }
+    ]
+  },
+  "nova_pro": {
+    "model": "nova_pro",
+    "display_name": "Nova Pro",
+    "n_samples": 100,
+    "avg_fertility": 3.6045307147120287,
+    "std_fertility": 0.4192359019753572,
+    "median_fertility": 3.515017557161169,
+    "avg_chars_per_token": 2.0694130705538654,
+    "samples": [
+      {
+        "sample_idx": 0,
+        "word_count": 822,
+        "char_count": 6000,
+        "input_tokens": 2752,
+        "fertility": 3.3479318734793186,
+        "chars_per_token": 2.1802325581395348
+      },
+      {
+        "sample_idx": 1,
+        "word_count": 867,
+        "char_count": 6000,
+        "input_tokens": 2929,
+        "fertility": 3.378316032295271,
+        "chars_per_token": 2.0484807101399793
+      },
+      {
+        "sample_idx": 2,
+        "word_count": 366,
+        "char_count": 2858,
+        "input_tokens": 1388,
+        "fertility": 3.7923497267759565,
+        "chars_per_token": 2.059077809798271
+      },
+      {
+        "sample_idx": 3,
+        "word_count": 812,
+        "char_count": 6000,
+        "input_tokens": 2813,
+        "fertility": 3.4642857142857144,
+        "chars_per_token": 2.132954141485958
+      },
+      {
+        "sample_idx": 4,
+        "word_count": 227,
+        "char_count": 1529,
+        "input_tokens": 900,
+        "fertility": 3.9647577092511015,
+        "chars_per_token": 1.698888888888889
+      },
+      {
+        "sample_idx": 5,
+        "word_count": 883,
+        "char_count": 6000,
+        "input_tokens": 2900,
+        "fertility": 3.2842582106455267,
+        "chars_per_token": 2.0689655172413794
+      },
+      {
+        "sample_idx": 6,
+        "word_count": 856,
+        "char_count": 6000,
+        "input_tokens": 2707,
+        "fertility": 3.1623831775700935,
+        "chars_per_token": 2.2164758034724787
+      },
+      {
+        "sample_idx": 7,
+        "word_count": 286,
+        "char_count": 2522,
+        "input_tokens": 1371,
+        "fertility": 4.793706293706293,
+        "chars_per_token": 1.8395331874544127
+      },
+      {
+        "sample_idx": 8,
+        "word_count": 904,
+        "char_count": 6000,
+        "input_tokens": 2837,
+        "fertility": 3.1382743362831858,
+        "chars_per_token": 2.1149101163200563
+      },
+      {
+        "sample_idx": 9,
+        "word_count": 813,
+        "char_count": 6000,
+        "input_tokens": 2664,
+        "fertility": 3.2767527675276753,
+        "chars_per_token": 2.2522522522522523
+      },
+      {
+        "sample_idx": 10,
+        "word_count": 417,
+        "char_count": 2972,
+        "input_tokens": 1443,
+        "fertility": 3.460431654676259,
+        "chars_per_token": 2.0595980595980596
+      },
+      {
+        "sample_idx": 11,
+        "word_count": 791,
+        "char_count": 6000,
+        "input_tokens": 2749,
+        "fertility": 3.475347661188369,
+        "chars_per_token": 2.1826118588577663
+      },
+      {
+        "sample_idx": 12,
+        "word_count": 914,
+        "char_count": 6000,
+        "input_tokens": 2739,
+        "fertility": 2.9967177242888403,
+        "chars_per_token": 2.190580503833516
+      },
+      {
+        "sample_idx": 13,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 2937,
+        "fertility": 3.6259259259259258,
+        "chars_per_token": 2.0429009193054135
+      },
+      {
+        "sample_idx": 14,
+        "word_count": 683,
+        "char_count": 4972,
+        "input_tokens": 2291,
+        "fertility": 3.3543191800878476,
+        "chars_per_token": 2.1702313400261892
+      },
+      {
+        "sample_idx": 15,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 2895,
+        "fertility": 3.4505363528009534,
+        "chars_per_token": 2.0725388601036268
+      },
+      {
+        "sample_idx": 16,
+        "word_count": 516,
+        "char_count": 3768,
+        "input_tokens": 1901,
+        "fertility": 3.684108527131783,
+        "chars_per_token": 1.98211467648606
+      },
+      {
+        "sample_idx": 17,
+        "word_count": 376,
+        "char_count": 2838,
+        "input_tokens": 1476,
+        "fertility": 3.925531914893617,
+        "chars_per_token": 1.9227642276422765
+      },
+      {
+        "sample_idx": 18,
+        "word_count": 708,
+        "char_count": 4807,
+        "input_tokens": 2314,
+        "fertility": 3.268361581920904,
+        "chars_per_token": 2.0773552290406223
+      },
+      {
+        "sample_idx": 19,
+        "word_count": 293,
+        "char_count": 2005,
+        "input_tokens": 1056,
+        "fertility": 3.6040955631399316,
+        "chars_per_token": 1.8986742424242424
+      },
+      {
+        "sample_idx": 20,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 2778,
+        "fertility": 3.2491228070175437,
+        "chars_per_token": 2.159827213822894
+      },
+      {
+        "sample_idx": 21,
+        "word_count": 498,
+        "char_count": 3783,
+        "input_tokens": 1976,
+        "fertility": 3.967871485943775,
+        "chars_per_token": 1.9144736842105263
+      },
+      {
+        "sample_idx": 22,
+        "word_count": 462,
+        "char_count": 3299,
+        "input_tokens": 1518,
+        "fertility": 3.2857142857142856,
+        "chars_per_token": 2.173254281949934
+      },
+      {
+        "sample_idx": 23,
+        "word_count": 643,
+        "char_count": 4636,
+        "input_tokens": 2243,
+        "fertility": 3.488335925349922,
+        "chars_per_token": 2.066874721355328
+      },
+      {
+        "sample_idx": 24,
+        "word_count": 884,
+        "char_count": 6000,
+        "input_tokens": 2965,
+        "fertility": 3.3540723981900453,
+        "chars_per_token": 2.0236087689713322
+      },
+      {
+        "sample_idx": 25,
+        "word_count": 272,
+        "char_count": 2634,
+        "input_tokens": 1170,
+        "fertility": 4.301470588235294,
+        "chars_per_token": 2.2512820512820513
+      },
+      {
+        "sample_idx": 26,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 2911,
+        "fertility": 3.469606674612634,
+        "chars_per_token": 2.0611473720371007
+      },
+      {
+        "sample_idx": 27,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 2789,
+        "fertility": 3.2057471264367816,
+        "chars_per_token": 2.151308712800287
+      },
+      {
+        "sample_idx": 28,
+        "word_count": 903,
+        "char_count": 6000,
+        "input_tokens": 3043,
+        "fertility": 3.369878183831672,
+        "chars_per_token": 1.9717384160368059
+      },
+      {
+        "sample_idx": 29,
+        "word_count": 891,
+        "char_count": 6000,
+        "input_tokens": 2792,
+        "fertility": 3.133557800224467,
+        "chars_per_token": 2.1489971346704873
+      },
+      {
+        "sample_idx": 30,
+        "word_count": 391,
+        "char_count": 2820,
+        "input_tokens": 1519,
+        "fertility": 3.8849104859335037,
+        "chars_per_token": 1.8564845292955892
+      },
+      {
+        "sample_idx": 31,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 2828,
+        "fertility": 3.3787335722819596,
+        "chars_per_token": 2.1216407355021216
+      },
+      {
+        "sample_idx": 32,
+        "word_count": 713,
+        "char_count": 6000,
+        "input_tokens": 3169,
+        "fertility": 4.4446002805049085,
+        "chars_per_token": 1.8933417481855475
+      },
+      {
+        "sample_idx": 33,
+        "word_count": 881,
+        "char_count": 6000,
+        "input_tokens": 2752,
+        "fertility": 3.1237230419977298,
+        "chars_per_token": 2.1802325581395348
+      },
+      {
+        "sample_idx": 34,
+        "word_count": 486,
+        "char_count": 4564,
+        "input_tokens": 2126,
+        "fertility": 4.374485596707819,
+        "chars_per_token": 2.1467544684854185
+      },
+      {
+        "sample_idx": 35,
+        "word_count": 459,
+        "char_count": 3448,
+        "input_tokens": 1693,
+        "fertility": 3.6884531590413943,
+        "chars_per_token": 2.036621382161843
+      },
+      {
+        "sample_idx": 36,
+        "word_count": 487,
+        "char_count": 3588,
+        "input_tokens": 1692,
+        "fertility": 3.4743326488706368,
+        "chars_per_token": 2.120567375886525
+      },
+      {
+        "sample_idx": 37,
+        "word_count": 826,
+        "char_count": 6000,
+        "input_tokens": 2743,
+        "fertility": 3.320823244552058,
+        "chars_per_token": 2.187386073641998
+      },
+      {
+        "sample_idx": 38,
+        "word_count": 849,
+        "char_count": 6000,
+        "input_tokens": 2816,
+        "fertility": 3.3168433451118964,
+        "chars_per_token": 2.1306818181818183
+      },
+      {
+        "sample_idx": 39,
+        "word_count": 832,
+        "char_count": 6000,
+        "input_tokens": 2833,
+        "fertility": 3.405048076923077,
+        "chars_per_token": 2.1178962230850686
+      },
+      {
+        "sample_idx": 40,
+        "word_count": 393,
+        "char_count": 2976,
+        "input_tokens": 1399,
+        "fertility": 3.559796437659033,
+        "chars_per_token": 2.1272337383845605
+      },
+      {
+        "sample_idx": 41,
+        "word_count": 897,
+        "char_count": 6000,
+        "input_tokens": 3198,
+        "fertility": 3.5652173913043477,
+        "chars_per_token": 1.876172607879925
+      },
+      {
+        "sample_idx": 42,
+        "word_count": 587,
+        "char_count": 4362,
+        "input_tokens": 2104,
+        "fertility": 3.5843270868824533,
+        "chars_per_token": 2.07319391634981
+      },
+      {
+        "sample_idx": 43,
+        "word_count": 810,
+        "char_count": 6000,
+        "input_tokens": 2680,
+        "fertility": 3.308641975308642,
+        "chars_per_token": 2.2388059701492535
+      },
+      {
+        "sample_idx": 44,
+        "word_count": 855,
+        "char_count": 6000,
+        "input_tokens": 2911,
+        "fertility": 3.4046783625730996,
+        "chars_per_token": 2.0611473720371007
+      },
+      {
+        "sample_idx": 45,
+        "word_count": 461,
+        "char_count": 3267,
+        "input_tokens": 1468,
+        "fertility": 3.1843817787418653,
+        "chars_per_token": 2.225476839237057
+      },
+      {
+        "sample_idx": 46,
+        "word_count": 735,
+        "char_count": 5311,
+        "input_tokens": 2513,
+        "fertility": 3.419047619047619,
+        "chars_per_token": 2.1134102666136094
+      },
+      {
+        "sample_idx": 47,
+        "word_count": 847,
+        "char_count": 6000,
+        "input_tokens": 2950,
+        "fertility": 3.4828807556080283,
+        "chars_per_token": 2.0338983050847457
+      },
+      {
+        "sample_idx": 48,
+        "word_count": 371,
+        "char_count": 3237,
+        "input_tokens": 1305,
+        "fertility": 3.5175202156334233,
+        "chars_per_token": 2.4804597701149427
+      },
+      {
+        "sample_idx": 49,
+        "word_count": 307,
+        "char_count": 2524,
+        "input_tokens": 1226,
+        "fertility": 3.993485342019544,
+        "chars_per_token": 2.0587275693311584
+      },
+      {
+        "sample_idx": 50,
+        "word_count": 490,
+        "char_count": 3604,
+        "input_tokens": 1718,
+        "fertility": 3.5061224489795917,
+        "chars_per_token": 2.09778812572759
+      },
+      {
+        "sample_idx": 51,
+        "word_count": 457,
+        "char_count": 3458,
+        "input_tokens": 1732,
+        "fertility": 3.789934354485777,
+        "chars_per_token": 1.9965357967667436
+      },
+      {
+        "sample_idx": 52,
+        "word_count": 848,
+        "char_count": 6000,
+        "input_tokens": 2706,
+        "fertility": 3.1910377358490565,
+        "chars_per_token": 2.2172949002217295
+      },
+      {
+        "sample_idx": 53,
+        "word_count": 426,
+        "char_count": 2959,
+        "input_tokens": 1475,
+        "fertility": 3.4624413145539905,
+        "chars_per_token": 2.0061016949152544
+      },
+      {
+        "sample_idx": 54,
+        "word_count": 870,
+        "char_count": 6000,
+        "input_tokens": 2725,
+        "fertility": 3.132183908045977,
+        "chars_per_token": 2.2018348623853212
+      },
+      {
+        "sample_idx": 55,
+        "word_count": 857,
+        "char_count": 6000,
+        "input_tokens": 2628,
+        "fertility": 3.0665110851808635,
+        "chars_per_token": 2.2831050228310503
+      },
+      {
+        "sample_idx": 56,
+        "word_count": 837,
+        "char_count": 6000,
+        "input_tokens": 2731,
+        "fertility": 3.2628434886499402,
+        "chars_per_token": 2.1969974368363236
+      },
+      {
+        "sample_idx": 57,
+        "word_count": 448,
+        "char_count": 3426,
+        "input_tokens": 1705,
+        "fertility": 3.8058035714285716,
+        "chars_per_token": 2.009384164222874
+      },
+      {
+        "sample_idx": 58,
+        "word_count": 342,
+        "char_count": 2841,
+        "input_tokens": 1407,
+        "fertility": 4.114035087719298,
+        "chars_per_token": 2.0191897654584223
+      },
+      {
+        "sample_idx": 59,
+        "word_count": 332,
+        "char_count": 2351,
+        "input_tokens": 1256,
+        "fertility": 3.783132530120482,
+        "chars_per_token": 1.8718152866242037
+      },
+      {
+        "sample_idx": 60,
+        "word_count": 851,
+        "char_count": 6000,
+        "input_tokens": 2873,
+        "fertility": 3.3760282021151586,
+        "chars_per_token": 2.088409328228333
+      },
+      {
+        "sample_idx": 61,
+        "word_count": 431,
+        "char_count": 3365,
+        "input_tokens": 1664,
+        "fertility": 3.8607888631090486,
+        "chars_per_token": 2.022235576923077
+      },
+      {
+        "sample_idx": 62,
+        "word_count": 824,
+        "char_count": 6000,
+        "input_tokens": 2644,
+        "fertility": 3.20873786407767,
+        "chars_per_token": 2.26928895612708
+      },
+      {
+        "sample_idx": 63,
+        "word_count": 807,
+        "char_count": 6000,
+        "input_tokens": 3030,
+        "fertility": 3.7546468401486988,
+        "chars_per_token": 1.9801980198019802
+      },
+      {
+        "sample_idx": 64,
+        "word_count": 687,
+        "char_count": 5538,
+        "input_tokens": 2554,
+        "fertility": 3.7176128093158662,
+        "chars_per_token": 2.168363351605325
+      },
+      {
+        "sample_idx": 65,
+        "word_count": 416,
+        "char_count": 2935,
+        "input_tokens": 1546,
+        "fertility": 3.7163461538461537,
+        "chars_per_token": 1.8984476067270375
+      },
+      {
+        "sample_idx": 66,
+        "word_count": 391,
+        "char_count": 3828,
+        "input_tokens": 1438,
+        "fertility": 3.6777493606138107,
+        "chars_per_token": 2.6620305980528514
+      },
+      {
+        "sample_idx": 67,
+        "word_count": 403,
+        "char_count": 3025,
+        "input_tokens": 1467,
+        "fertility": 3.640198511166253,
+        "chars_per_token": 2.062031356509884
+      },
+      {
+        "sample_idx": 68,
+        "word_count": 924,
+        "char_count": 6000,
+        "input_tokens": 2856,
+        "fertility": 3.090909090909091,
+        "chars_per_token": 2.100840336134454
+      },
+      {
+        "sample_idx": 69,
+        "word_count": 846,
+        "char_count": 6000,
+        "input_tokens": 2731,
+        "fertility": 3.228132387706856,
+        "chars_per_token": 2.1969974368363236
+      },
+      {
+        "sample_idx": 70,
+        "word_count": 436,
+        "char_count": 2981,
+        "input_tokens": 1501,
+        "fertility": 3.4426605504587156,
+        "chars_per_token": 1.9860093271152566
+      },
+      {
+        "sample_idx": 71,
+        "word_count": 874,
+        "char_count": 6000,
+        "input_tokens": 2946,
+        "fertility": 3.3707093821510297,
+        "chars_per_token": 2.0366598778004072
+      },
+      {
+        "sample_idx": 72,
+        "word_count": 528,
+        "char_count": 4047,
+        "input_tokens": 2202,
+        "fertility": 4.170454545454546,
+        "chars_per_token": 1.837874659400545
+      },
+      {
+        "sample_idx": 73,
+        "word_count": 311,
+        "char_count": 2844,
+        "input_tokens": 1137,
+        "fertility": 3.6559485530546625,
+        "chars_per_token": 2.5013192612137205
+      },
+      {
+        "sample_idx": 74,
+        "word_count": 334,
+        "char_count": 2519,
+        "input_tokens": 1215,
+        "fertility": 3.6377245508982035,
+        "chars_per_token": 2.073251028806584
+      },
+      {
+        "sample_idx": 75,
+        "word_count": 321,
+        "char_count": 2189,
+        "input_tokens": 1158,
+        "fertility": 3.607476635514019,
+        "chars_per_token": 1.890328151986183
+      },
+      {
+        "sample_idx": 76,
+        "word_count": 124,
+        "char_count": 1110,
+        "input_tokens": 633,
+        "fertility": 5.104838709677419,
+        "chars_per_token": 1.7535545023696681
+      },
+      {
+        "sample_idx": 77,
+        "word_count": 308,
+        "char_count": 2265,
+        "input_tokens": 1118,
+        "fertility": 3.6298701298701297,
+        "chars_per_token": 2.025939177101968
+      },
+      {
+        "sample_idx": 78,
+        "word_count": 606,
+        "char_count": 4574,
+        "input_tokens": 2247,
+        "fertility": 3.707920792079208,
+        "chars_per_token": 2.035603026257232
+      },
+      {
+        "sample_idx": 79,
+        "word_count": 443,
+        "char_count": 3315,
+        "input_tokens": 1590,
+        "fertility": 3.5891647855530473,
+        "chars_per_token": 2.0849056603773586
+      },
+      {
+        "sample_idx": 80,
+        "word_count": 947,
+        "char_count": 6000,
+        "input_tokens": 3039,
+        "fertility": 3.2090813093980994,
+        "chars_per_token": 1.9743336623889438
+      },
+      {
+        "sample_idx": 81,
+        "word_count": 774,
+        "char_count": 6000,
+        "input_tokens": 3112,
+        "fertility": 4.020671834625323,
+        "chars_per_token": 1.9280205655526992
+      },
+      {
+        "sample_idx": 82,
+        "word_count": 798,
+        "char_count": 6000,
+        "input_tokens": 2953,
+        "fertility": 3.700501253132832,
+        "chars_per_token": 2.031832035218422
+      },
+      {
+        "sample_idx": 83,
+        "word_count": 778,
+        "char_count": 6000,
+        "input_tokens": 2803,
+        "fertility": 3.602827763496144,
+        "chars_per_token": 2.1405636817695326
+      },
+      {
+        "sample_idx": 84,
+        "word_count": 624,
+        "char_count": 4736,
+        "input_tokens": 2181,
+        "fertility": 3.4951923076923075,
+        "chars_per_token": 2.1714809720311785
+      },
+      {
+        "sample_idx": 85,
+        "word_count": 776,
+        "char_count": 6000,
+        "input_tokens": 2947,
+        "fertility": 3.797680412371134,
+        "chars_per_token": 2.035968781812012
+      },
+      {
+        "sample_idx": 86,
+        "word_count": 265,
+        "char_count": 1946,
+        "input_tokens": 1004,
+        "fertility": 3.788679245283019,
+        "chars_per_token": 1.9382470119521913
+      },
+      {
+        "sample_idx": 87,
+        "word_count": 814,
+        "char_count": 6000,
+        "input_tokens": 2889,
+        "fertility": 3.5491400491400493,
+        "chars_per_token": 2.0768431983385254
+      },
+      {
+        "sample_idx": 88,
+        "word_count": 586,
+        "char_count": 4164,
+        "input_tokens": 2074,
+        "fertility": 3.539249146757679,
+        "chars_per_token": 2.0077145612343297
+      },
+      {
+        "sample_idx": 89,
+        "word_count": 677,
+        "char_count": 6000,
+        "input_tokens": 3013,
+        "fertility": 4.450516986706056,
+        "chars_per_token": 1.9913707268503154
+      },
+      {
+        "sample_idx": 90,
+        "word_count": 163,
+        "char_count": 1308,
+        "input_tokens": 755,
+        "fertility": 4.631901840490798,
+        "chars_per_token": 1.732450331125828
+      },
+      {
+        "sample_idx": 91,
+        "word_count": 811,
+        "char_count": 6000,
+        "input_tokens": 2877,
+        "fertility": 3.5474722564734895,
+        "chars_per_token": 2.0855057351407718
+      },
+      {
+        "sample_idx": 92,
+        "word_count": 447,
+        "char_count": 3325,
+        "input_tokens": 1627,
+        "fertility": 3.639821029082774,
+        "chars_per_token": 2.043638598647818
+      },
+      {
+        "sample_idx": 93,
+        "word_count": 714,
+        "char_count": 4955,
+        "input_tokens": 2316,
+        "fertility": 3.2436974789915967,
+        "chars_per_token": 2.1394645941278068
+      },
+      {
+        "sample_idx": 94,
+        "word_count": 772,
+        "char_count": 5734,
+        "input_tokens": 2818,
+        "fertility": 3.650259067357513,
+        "chars_per_token": 2.034776437189496
+      },
+      {
+        "sample_idx": 95,
+        "word_count": 432,
+        "char_count": 4323,
+        "input_tokens": 2386,
+        "fertility": 5.523148148148148,
+        "chars_per_token": 1.8118189438390613
+      },
+      {
+        "sample_idx": 96,
+        "word_count": 708,
+        "char_count": 4754,
+        "input_tokens": 2423,
+        "fertility": 3.422316384180791,
+        "chars_per_token": 1.9620305406520842
+      },
+      {
+        "sample_idx": 97,
+        "word_count": 350,
+        "char_count": 2415,
+        "input_tokens": 1176,
+        "fertility": 3.36,
+        "chars_per_token": 2.0535714285714284
+      },
+      {
+        "sample_idx": 98,
+        "word_count": 839,
+        "char_count": 6000,
+        "input_tokens": 2947,
+        "fertility": 3.512514898688915,
+        "chars_per_token": 2.035968781812012
+      },
+      {
+        "sample_idx": 99,
+        "word_count": 815,
+        "char_count": 6000,
+        "input_tokens": 3065,
+        "fertility": 3.7607361963190185,
+        "chars_per_token": 1.9575856443719413
+      }
+    ]
+  }
+}
