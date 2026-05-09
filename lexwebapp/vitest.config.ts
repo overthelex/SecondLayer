@@ -7,6 +7,15 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'happy-dom',
+    environmentOptions: {
+      happyDOM: {
+        settings: {
+          navigation: {
+            disableChildFrameNavigation: true,
+          },
+        },
+      },
+    },
     setupFiles: ['./src/__tests__/setup.ts'],
     testTimeout: 15000,
     pool: 'forks',
