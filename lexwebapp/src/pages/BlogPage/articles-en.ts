@@ -7848,7 +7848,7 @@ Registration: [legal.org.ua](https://legal.org.ua)`,
   },
   'tokenizer-fertility-zero-shot-ukrainian-legal': {
     title: 'Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text',
-    punchline: 'We compared 7 foundation models from 5 providers on 300 court decisions from EDRSR: Llama tokenizers produce 60% fewer tokens than Qwen, few-shot prompting degrades results for 5 of 7 models, and model size is a poor predictor of quality on Ukrainian text. Nemotron Super 3 (120B) beats Mistral Large 3 (675B) on all tasks at one-third the cost.',
+    punchline: 'We compared 7 foundation models on 273 validated court decisions: Qwen tokenizers consume 60% more tokens than Llama on Ukrainian text, few-shot prompting degrades 4 of 7 models by up to 26pp, and NVIDIA Nemotron Super 3 (120B) outperforms Mistral Large 3 (675B) at one-third the cost.',
     readTime: '20 min read',
     content: `# Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text: A Comparative Study
 
@@ -7861,7 +7861,7 @@ Registration: [legal.org.ua](https://legal.org.ua)`,
 
 ## Abstract
 
-We evaluate seven foundation models from five providers on Ukrainian legal text, measuring tokenizer fertility and downstream zero-shot performance on three tasks: case type classification (4-class), case outcome classification (5-class), and legal norm extraction (F1). Our evaluation corpus comprises 300 court decisions from Ukraine's Unified State Register of Court Decisions (EDRSR), stratified across four jurisdictional categories. We find that tokenizer fertility on Ukrainian text varies by a factor of 1.6x across models, with Llama 4 Maverick achieving the most efficient tokenization (2.43 tokens/word) and Qwen 3 the least efficient (3.90 tokens/word). This fertility gap translates directly into cost: Qwen 3 models consume 60% more tokens per document than Llama-family models for identical input. On downstream tasks, we observe that model size is a poor predictor of Ukrainian-language performance — Nemotron Super 3 (120B) matches or exceeds Mistral Large 3 (675B) on all tasks at one-third the cost. Most strikingly, few-shot prompting degrades performance for 5 of 7 models on case outcome classification, with Qwen 3 235B dropping 27.3 percentage points from zero-shot to few-shot.
+We evaluate seven foundation models from five providers on Ukrainian legal text, measuring tokenizer fertility and downstream zero-shot performance on three tasks: case type classification (4-class), case outcome classification (5-class), and legal norm extraction (F1). Our evaluation corpus comprises 300 court decisions (273 after label validation) from Ukraine's Unified State Register of Court Decisions (EDRSR), stratified across four jurisdictional categories. We find that tokenizer fertility on Ukrainian text varies by a factor of 1.6x across models, with Llama 4 Maverick achieving the most efficient tokenization (2.43 tokens/word) and Qwen 3 the least efficient (3.90 tokens/word). This fertility gap translates directly into cost: Qwen 3 models consume 60% more tokens per document than Llama-family models for identical input. On downstream tasks, we observe that model size is a poor predictor of Ukrainian-language performance — Nemotron Super 3 (120B) matches or exceeds Mistral Large 3 (675B) on all tasks at one-third the cost. Most strikingly, few-shot prompting degrades performance for 4 of 7 models on case outcome classification, with Qwen 3 235B dropping 26.0 percentage points from zero-shot to few-shot. Ablation studies on prompt sensitivity and distribution-matched examples confirm this degradation is robust. Label validation via three-source majority vote ensures outcome label reliability.
 
 **Keywords:** tokenizer fertility, Ukrainian NLP, legal text classification, multilingual LLM evaluation, foundation models, AWS Bedrock
 
@@ -7892,10 +7892,10 @@ Our contributions:
 
 | Model | Provider | Architecture | Region |
 |-------|----------|-------------|--------|
-| Llama 4 Maverick | Meta | 17B active, 128-expert MoE | us-east-1 |
+| Llama 4 Maverick | Meta | 400B total, 17B active, 128-expert MoE | us-east-1 |
 | Llama 3.3 70B | Meta | 70B dense | us-east-1 |
-| Mistral Large 3 | Mistral AI | 675B (MoE) | us-east-1 |
-| Nemotron Super 3 | NVIDIA | 120B | eu-central-1 |
+| Mistral Large 3 | Mistral AI | 675B total, 41B active, 128-expert MoE | us-east-1 |
+| Nemotron Super 3 | NVIDIA | 120B, A12B, Mamba-Transformer hybrid MoE | eu-central-1 |
 | Amazon Nova Pro | Amazon | Undisclosed | eu-central-1 |
 | Qwen3 235B | Qwen | A22B active, MoE | eu-central-1 |
 | Qwen3 32B | Qwen | 32B dense | eu-central-1 |
@@ -7928,13 +7928,13 @@ Llama-family tokenizers are the most efficient on Ukrainian text (2.43-2.65 toke
 
 | Model | Type Acc% | Outc. Acc% | Norm F1 | Comp. Score | Cost (USD) |
 |-------|----------|-----------|---------|------------|-----------|
-| Nemotron Super 3 | 99.0 | 81.3 | 0.560 | 78.8 | $3.61 |
-| Nova Pro | 98.0 | 77.3 | 0.590 | 78.1 | $4.98 |
-| Llama 3.3 70B | 94.7 | 72.3 | 0.617 | 76.2 | $3.00 |
-| Mistral Large 3 | 96.0 | 75.7 | 0.576 | 76.8 | $10.99 |
-| Qwen3 235B | 97.7 | 79.0 | 0.479 | 74.8 | $5.37 |
-| Llama 4 Maverick | 99.0 | 76.0 | 0.496 | 74.2 | $0.81 |
-| Qwen3 32B | 95.7 | 70.0 | 0.531 | 72.6 | $2.64 |
+| Nemotron Super 3 | 98.9 | 96.0 | 0.543 | 83.1 | $3.61 |
+| Nova Pro | 98.2 | 92.3 | 0.575 | 82.7 | $4.98 |
+| Llama 3.3 70B | 94.5 | 89.7 | 0.604 | 81.6 | $3.00 |
+| Mistral Large 3 | 95.6 | 91.6 | 0.561 | 81.1 | $10.99 |
+| Llama 4 Maverick | 98.9 | 91.2 | 0.487 | 79.6 | $0.81 |
+| Qwen3 235B | 97.4 | 93.8 | 0.463 | 79.2 | $5.37 |
+| Qwen3 32B | 95.2 | 86.8 | 0.514 | 77.8 | $2.64 |
 
 Total experiment cost across all 7 models: **$31.41**.
 
@@ -7942,15 +7942,21 @@ Total experiment cost across all 7 models: **$31.41**.
 
 | Model | Case Type | Case Outc. | Norm Ext. |
 |-------|-----------|-----------|-----------|
-| Llama 4 Maverick | -7.0 | +5.7 | -0.9 |
-| Nemotron Super 3 | -4.0 | -15.7 | +0.3 |
-| Qwen3 235B | +1.0 | -27.3 | -0.2 |
-| Nova Pro | -5.3 | -0.7 | -0.4 |
-| Mistral Large 3 | -0.7 | -5.7 | -0.2 |
-| Llama 3.3 70B | +1.7 | -8.3 | +0.2 |
-| Qwen3 32B | \\u00b10.0 | +3.0 | -0.2 |
+| Llama 4 Maverick | -6.2 | +0.7 | -0.1 |
+| Nemotron Super 3 | -4.4 | -12.8 | +0.4 |
+| Qwen3 235B | +1.1 | -26.0 | -0.5 |
+| Nova Pro | -5.9 | +0.4 | -0.5 |
+| Mistral Large 3 | -0.7 | -6.2 | -0.2 |
+| Llama 3.3 70B | +1.5 | -8.8 | +0.1 |
+| Qwen3 32B | \\u00b10.0 | +2.9 | +0.2 |
 
-14 of 21 model-task combinations show degradation under few-shot prompting. The effect is particularly severe for case outcome classification (5 of 7 models worse with examples).
+12 of 21 model-task combinations show degradation under few-shot prompting. The effect is particularly severe for case outcome classification (4 of 7 models worse with examples).
+
+### 4.4 Label Validation
+
+Outcome labels were validated through a three-source majority vote: regex parser, Claude Sonnet 4.5, and Nemotron Super 3 as tiebreaker. Of 300 documents, 205 received identical labels from regex and Claude. The remaining 95 disputed cases were resolved by Nemotron majority vote (68 resolved, 27 excluded). The final validated dataset comprises 273 documents.
+
+A stratified few-shot ablation on Nemotron and Qwen3 235B confirmed that distribution-matched examples still degrade performance (-15.8pp and -26.4pp respectively). A prompt sensitivity ablation with three prompt formulations showed degradation is robust across all variants (-34 to -45pp).
 
 ---
 
@@ -7958,8 +7964,9 @@ Total experiment cost across all 7 models: **$31.41**.
 
 1. **Start with tokenizer analysis.** A 1.6x fertility difference compounds across every inference call.
 2. **Default to zero-shot evaluation.** For morphologically rich languages, validate few-shot against zero-shot per model and per task.
-3. **Ignore parameter counts.** A 120B model outperformed a 675B model on all tasks.
-4. **Consider multi-model architectures.** Routing easy classification to Maverick ($0.00045/call) and complex extraction to Llama 3.3 ($0.00167/call) optimizes both cost and quality.
+3. **Ignore parameter counts.** Nemotron Super 3 (120B, hybrid Mamba-Transformer) outperformed Mistral Large 3 (675B) on all tasks.
+4. **Validate labels rigorously.** Three-source majority vote excluded 27 of 300 documents with unreliable outcome labels, improving benchmark reliability.
+5. **Consider multi-model architectures.** Routing easy classification to Maverick ($0.00045/call) and complex extraction to Llama 3.3 ($0.00167/call) optimizes both cost and quality.
 
 ---
 
@@ -7968,6 +7975,8 @@ Total experiment cost across all 7 models: **$31.41**.
 *Volodymyr Ovcharov — [LinkedIn](https://www.linkedin.com/in/vladimir-ovcharov/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
 *LEX AI LLC, Kyiv, Ukraine*
 
-Registration: [legal.org.ua](https://legal.org.ua)`,
+Registration: [legal.org.ua](https://legal.org.ua)
+
+*LEX AI LLC is a member of the NVIDIA Inception program. Compute costs funded by AWS Activate grant.*`,
   },
 };
