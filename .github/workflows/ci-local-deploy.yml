@@ -139,7 +139,7 @@ jobs:
         run: |
           cd lexwebapp
           # Run vitest with timeout — it often hangs on teardown after tests complete
-          timeout 180 npx vitest run --reporter=verbose 2>&1 | tee /tmp/vitest-output.txt || true
+          timeout 60 npx vitest run --reporter=verbose 2>&1 | tee /tmp/vitest-output.txt || true
           # Determine results: check for explicit failures first, then for any passed tests
           if grep -qE "FAIL\s|Tests.*failed|×|✗" /tmp/vitest-output.txt; then
             echo "::error::Some tests failed"

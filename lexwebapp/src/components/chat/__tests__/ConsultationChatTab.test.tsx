@@ -26,6 +26,22 @@ vi.mock('../../../services', () => ({
   },
 }));
 
+// Mock E2EE hook with stable reference to prevent infinite re-render loop
+const stableE2ee = {
+  status: 'locked' as const,
+  error: null,
+  encryptMessage: vi.fn(),
+  decryptMessage: vi.fn(),
+  needsRotation: () => false,
+};
+vi.mock('../../../hooks/useConsultationE2ee', () => ({
+  useConsultationE2ee: () => stableE2ee,
+}));
+
+vi.mock('../../encryption/ConsultationE2eeStatus', () => ({
+  ConsultationE2eeStatus: () => null,
+}));
+
 // Mock consultation store
 vi.mock('../../../stores/consultationStore', () => ({
   useConsultationStore: Object.assign(
@@ -74,7 +90,6 @@ describe('ConsultationChatTab', () => {
   });
 
   afterEach(() => {
-    // Unmount all rendered components to trigger useEffect cleanups (clearInterval)
     cleanup();
     currentMockES.close();
     vi.restoreAllMocks();
@@ -177,7 +192,7 @@ describe('ConsultationChatTab', () => {
         expect(screen.getByText('Test message')).toBeInTheDocument();
       });
 
-      expect(mockSendMessage).toHaveBeenCalledWith('cons-1', 'Test message', undefined, undefined);
+      expect(mockSendMessage).toHaveBeenCalledWith('cons-1', 'Test message', undefined, undefined, undefined);
     });
 
     it('does not send empty messages', async () => {
