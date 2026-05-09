@@ -1,6 +1,12 @@
 name: 'Detect Monorepo Changes'
 description: 'Detects which services changed since the last successful deploy'
 
+inputs:
+  baseline:
+    description: 'Tag prefix to use as baseline: "ci-local" (default, for local CI) or "deploy-prod" (for prod deploy)'
+    required: false
+    default: 'ci-local'
+
 outputs:
   shared:
     description: 'Whether packages/shared changed'
@@ -52,25 +58,31 @@ runs:
       id: last_deploy
       shell: bash
       run: |
+        BASELINE="${{ inputs.baseline }}"
         LAST_SHA=""
 
-        # Priority 1: last successful local CI tag (most granular — one per CI run)
-        LAST_TAG=$(git tag -l "ci-local-*" --sort=-creatordate | head -1)
+        # Primary: use the requested baseline tag prefix
+        LAST_TAG=$(git tag -l "${BASELINE}-*" --sort=-creatordate | head -1)
         if [ -n "$LAST_TAG" ]; then
           LAST_SHA=$(git rev-parse "$LAST_TAG" 2>/dev/null || echo "")
-          echo "Using local CI marker tag: $LAST_TAG ($LAST_SHA)"
+          echo "Using ${BASELINE} marker tag: $LAST_TAG ($LAST_SHA)"
         fi
 
-        # Priority 2: last successful prod deploy tag
+        # Fallback: try the other marker type
         if [ -z "$LAST_SHA" ]; then
-          LAST_TAG=$(git tag -l "deploy-prod-*" --sort=-creatordate | head -1)
+          if [ "$BASELINE" = "ci-local" ]; then
+            FALLBACK="deploy-prod"
+          else
+            FALLBACK="ci-local"
+          fi
+          LAST_TAG=$(git tag -l "${FALLBACK}-*" --sort=-creatordate | head -1)
           if [ -n "$LAST_TAG" ]; then
             LAST_SHA=$(git rev-parse "$LAST_TAG" 2>/dev/null || echo "")
-            echo "Using prod deploy marker tag: $LAST_TAG ($LAST_SHA)"
+            echo "Using ${FALLBACK} marker tag as fallback: $LAST_TAG ($LAST_SHA)"
           fi
         fi
 
-        # Priority 3: last release tag
+        # Fallback: release tags
         if [ -z "$LAST_SHA" ]; then
           LAST_TAG=$(git tag -l --sort=-creatordate "v*" "fe-v*" | head -1)
           if [ -n "$LAST_TAG" ]; then
