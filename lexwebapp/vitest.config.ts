@@ -10,8 +10,13 @@ export default defineConfig({
     environmentOptions: {
       happyDOM: {
         settings: {
+          disableJavaScriptFileLoading: true,
+          disableCSSFileLoading: true,
+          disableIframePageLoading: true,
           navigation: {
+            disableMainFrameNavigation: true,
             disableChildFrameNavigation: true,
+            disableChildPageNavigation: true,
           },
         },
       },
@@ -19,7 +24,7 @@ export default defineConfig({
     setupFiles: ['./src/__tests__/setup.ts'],
     testTimeout: 15000,
     pool: 'forks',
-    teardownTimeout: 10000,
+    teardownTimeout: 5000,
     forks: {
       maxForks: 1,
       execArgv: ['--max-old-space-size=4096'],
