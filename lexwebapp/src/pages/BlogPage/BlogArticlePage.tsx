@@ -165,22 +165,8 @@ export function BlogArticlePage() {
       {/* Banner */}
       <div className="relative w-full max-w-3xl mx-auto">
         <div className="relative w-full h-60 sm:h-76 overflow-hidden">
-          {article.id === 'recursive-workflow-signals-rlhf' ? (
-            <>
-              <AttractorBanner seed={article.id} className="absolute inset-0" animate />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-            </>
-          ) : (
-            <>
-              <div className={`absolute inset-0 ${article.category === 'tech' ? 'bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-700' : 'bg-gradient-to-br from-claude-accent via-amber-600 to-orange-700'}`} />
-              <img
-                src={`/blog-banners/${article.id}.png`}
-                alt={article.title}
-                className="relative w-full h-full object-cover object-top"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-            </>
-          )}
+          <AttractorBanner seed={article.id} className="absolute inset-0" animate />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
         </div>
       </div>
 
