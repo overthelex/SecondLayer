@@ -7186,24 +7186,34 @@ Schema: \`workflow_sessions\` \→ \`workflow_artifacts\` \→ \`workflow_edits\
 
 **GitHub PR velocity (core platform):** 1,393 merged PRs over 105 days (87 active). Peak: March 790 PRs (25.5/day). Median time-to-merge: 30 seconds (77.8% under 5 min) \— solo-founder auto-merge pattern. PR timestamps do NOT reflect editing time; real duration reconstructed from OS-level activity.
 
-### 3.1.1 Satellite Projects: The Recursive Workflow Ecosystem
+### 3.1.1 One Shipping Operation, Multiple Technical Surfaces
 
-The core platform (SecondLayer) does not exist in isolation. The same recursive Claude Code workflow produced six satellite projects, all built by the same sole founder during the same shipping period. These projects serve specific operational functions in the LEX AI business pipeline:
+These are not separate projects in different business domains. They are **components of one shipping operation** — making legal.org.ua succeed — spanning different **technical surfaces**. All 1,547 PRs serve one outcome: the platform works, has paying customers, and wins institutional validation.
 
-| Project | PRs | Period | Purpose |
-|---------|-----|--------|---------|
-| **SecondLayer** | 1,393 | Jan 24 \– May 8 (105d) | Core legal AI platform (70+ MCP tools, 380M+ records) |
-| **SneakyPiper** | 73 | Apr 14 \– Apr 30 (17d) | Due diligence intelligence platform (90+ external data sources, sanctions, OSINT, corporate registries). Consumes SecondLayer API as legal data backbone. |
-| **aipromo** | 39 | Apr 5 \– May 3 (29d) | LinkedIn lead automation \— AI-powered response generation (Claude via AWS Bedrock) + Unipile API for messaging. Manages inbound lead communication at scale. |
-| **Calendary** | 27 | Apr 13 \– 14 (2d) | Self-hosted scheduling platform (Calendly alternative). Built in 2 days. Handles meeting booking with leads generated via aipromo. |
-| **Panoptic** | 10 | Apr 7 \– 16 (10d) | Credential leak and threat intelligence aggregation. Enriches due diligence workflows in SneakyPiper. |
-| **XSISTANT** | 5 | Apr 18 (1d) | OS-level activity tracker for this paper\\\'s process-level instrumentation. Built in one day, runs as systemd daemon. |
-| **mcptb** | \— | \— | Thunderbird MCP server for email management via Claude Code. Open source, MIT licensed. |
-| **Total** | **1,547** | **105 days** | **7 projects, 1 founder, 0 employees** |
+**Technical surfaces within SecondLayer itself (1,393 PRs):**
+- Frontend (React 19, Vite, TailwindCSS)
+- Backend (Express, MCP protocol, 70+ tool handlers)
+- Data engineering (EDRSR court decision harvesting, OpenData imports, 380M+ records)
+- Database (PostgreSQL migrations, Qdrant vector indexing, Redis caching)
+- DevOps (Docker, nginx, CI/CD pipelines, blue-green deployment)
+- Content (blog articles, SSG/prerender, SEO)
+- Shared packages (TypeScript monorepo with @secondlayer/shared)
 
-**Why this matters for the paper:** the recursive workflow is not confined to a single codebase. The founder uses the same Claude Code pattern to build an interconnected business infrastructure: legal AI platform \→ due diligence layer \→ lead generation \→ meeting scheduling \→ activity tracking for research. Each project\\\'s preference signals come from the same practitioner under the same outcome accountability, but across different domains (legal tech, OSINT, marketing automation, scheduling, systems programming). This cross-domain breadth strengthens the case that recursive workflow preferences capture generalizable quality signal, not domain-specific taste.
+**Satellite components (154 PRs):**
 
-**Operational pipeline:** LinkedIn leads (aipromo) \→ meeting scheduling (Calendary) \→ due diligence (SneakyPiper + SecondLayer API) \→ client onboarding (SecondLayer platform). All built and shipped by one person using Claude Code.
+| Component | PRs | Period | Role in legal.org.ua |
+|-----------|-----|--------|---------------------|
+| **SneakyPiper** | 73 | Apr 14–30 (17d) | Due diligence product built ON SecondLayer API (90+ data sources) |
+| **aipromo** | 39 | Apr 5–May 3 (29d) | Acquires LinkedIn leads FOR legal.org.ua (Bedrock + Unipile) |
+| **Calendary** | 27 | Apr 13–14 (2d) | Books meetings WITH those leads (built in 2 days) |
+| **Panoptic** | 10 | Apr 7–16 (10d) | Threat intel FEEDING SneakyPiper |
+| **XSISTANT** | 5 | Apr 18 (1d) | Activity tracker FOR this research |
+| **mcptb** | — | — | Email management SUPPORTING the workflow |
+| **Total** | **1,547** | **105 days** | **7 repos, 1 founder, 0 employees, 1 business outcome** |
+
+**Operational pipeline:** LinkedIn leads (aipromo) → meeting scheduling (Calendary) → due diligence (SneakyPiper + SecondLayer API) → client onboarding (SecondLayer platform).
+
+**Why this matters for the paper:** the preference signals come from one practitioner under one outcome accountability, but applied across diverse technical surfaces — React components, database migrations, LinkedIn message templates, scheduling logic, OSINT aggregators, and systemd daemons. This is not "cross-domain transfer" (which would require different founders in different businesses). This is **cross-surface consistency** — the same quality judgment operating across the full technical stack of a single shipped product. If edit patterns are consistent across surfaces, the founder\\\'s preference signal is surface-invariant. If they differ, the differences themselves are informative about which technical surfaces generate the strongest preference signal.
 
 ### 3.2 OS-Level Activity Instrumentation
 
