@@ -9617,7 +9617,7 @@ AWS runners — це не "перехід у хмару заради моди". 
     punchline: 'Кожна нова сесія Claude Code починається з нуля: перечитує файли, накопичує зайвий стейт і втрачає контекст попередніх рішень. На горизонті 6+ тижнів жодне контекстне вікно — навіть 1M токенів — не витримує. Ми проєктуємо тришарову workflow memory layer замість плоских CLAUDE.md дампів.',
     category: 'tech',
     tags: ['AI Architecture', 'Claude Code', 'Workflow Memory', 'RAG', 'Qdrant', 'RLHF', 'Long-Horizon AI'],
-    readTime: '24 хв',
+    readTime: '28 хв',
     publishedAt: '2026-05-09',
     content: `# Workflow Memory Architecture for Long-Horizon Composition
 
@@ -9944,9 +9944,65 @@ The orchestrator never overwrites this file directly — it produces lineage del
 2. **Different blast radius.** Bedrock pipeline failures or Plane API outages should not degrade memory retrieval.
 3. **Operational symmetry.** The pattern matches existing infrastructure (opendata-sync, edrsr-fulltext-worker): scheduled processing → DB write.
 
+### 4.9 Prompt-Commit Bridge (Phase 0 — вже працює)
+
+Ще до побудови повної інфраструктури (фази 1.0–1.5) ми розгорнули мінімальний збирач даних для practitioner layer — **prompt-commit bridge**.
+
+#### Що це
+
+Хук \`UserPromptSubmit\` в Claude Code, який на кожному промпті створює orphan commit у bare git-репозиторії через \`git commit-tree\`. Жодного зовнішнього сервісу, жодної бази — тільки git-об\\'єкти в \`~/.claude/prompt-corpus.git\`, синхронізовані з приватним GitHub-репозиторієм.
+
+#### Що фіксується
+
+Кожен запис — JSON-блоб зі структурованими метаданими:
+
+\`\`\`json
+{
+  "timestamp": "2026-05-09T19:57:55+03:00",
+  "prompt": "знайди всі рішення ВС по справі про визнання договору недійсним",
+  "prompt_length": 88,
+  "session_id": "a1b2c3...",
+  "repo": "SecondLayer",
+  "branch": "main",
+  "cwd": "/home/user/SecondLayer",
+  "permission_mode": "default"
+}
+\`\`\`
+
+#### Як це працює
+
+1. **Захоплення** — хук читає JSON зі stdin, фільтрує короткі промпти (<5 символів), збирає метадані (гілка, репозиторій, режим дозволів)
+2. **Зберігання** — \`git hash-object\` → \`git mktree\` → \`git commit-tree\` з ланцюжком батьківських комітів. Orphan-коміти не забруднюють жодну гілку
+3. **Синхронізація** — автоматичний push на GitHub кожні 10 захоплень (фоновий, неблокуючий)
+4. **Запити** — CLI-інструмент для аналізу: статистика, пошук, експорт JSONL, групування по репозиторіях/сесіях
+
+#### Продуктивність
+
+15 мс на захоплення — непомітно для користувача при таймауті хука в 5 секунд.
+
+#### Навіщо це потрібно зараз
+
+Стаття описує practitioner layer як щось, що буде побудовано у фазі 1.2 (тижні 5–6). Але збір сирого корпусу промптів — це **передумова**, яка не потребує жодної інфраструктури з фаз 1.0–1.5. За 4–6 тижнів пасивного збору це дає:
+
+- **Натуральний текстовий корпус** для disambiguation labels — без тижневих ручних сесій анотації
+- **Операційні паттерни засновника** — частотний розподіл тем, переключення між проєктами, довжина промптів як проксі для складності задач
+- **Стандартизований протокол збору даних** — який можна масштабувати на когорту у Phase 2 і описати в arXiv-статті
+
+Bridge спеціально розділяє захоплення (швидкий, локальний, приватний) і аналіз (окремий крок, після накопичення корпусу). Це та ж логіка, що і в секції 3.1 RLHF-статті про implicit signal capture — тільки замість edit-traces ми збираємо prompt-traces.
+
 ---
 
 ## 5. Phasing
+
+### Phase 0 — Prompt-Commit Bridge (week 0 — deployed)
+
+- \`UserPromptSubmit\` hook capturing every prompt as a git orphan commit
+- Bare git repo (\`~/.claude/prompt-corpus.git\`) with JSON-structured records
+- Auto-sync to private GitHub repo (\`overthelex/prompt-corpus\`)
+- CLI query tool: stats, search, export JSONL, group by repo/session
+- 15ms capture latency, zero external dependencies
+
+**Exit criterion:** hook operational, corpus growing passively. ✅ Done.
 
 ### Phase 1.0 — Foundation (weeks 1–2)
 
@@ -10047,8 +10103,10 @@ This phase activates the push-based orchestrator. It is sequenced after Phase 1.
 ## 8. Connections to the Research Program
 
 - **RLHF paper, Section 4.5** — this architecture produces the empirical content for the section on workflow memory, replacing speculative description with measured retrieval performance and a retrieval-miss dataset.
+- **RLHF paper, Section 3.1 (Implicit Signal Capture)** — the prompt-commit bridge (Section 4.9) implements implicit capture at the prompt level, complementing the edit-trace capture. Combined, they form a complete interaction record: what the practitioner asked for (prompt-trace) and how they corrected the output (edit-trace).
 - **Experiment 5 (Constitutional Stratification)** — practitioner layer indexing makes it trivial to construct training subsets stratified by constitutional layer and edit class, since these are first-class metadata.
 - **Long-horizon track** — once operational, sustained 6+ week workflows become tractable without context-window degradation; the orchestrator is what makes this continuously sustainable.
+- **Prompt corpus as Phase 2 protocol** — the prompt-commit bridge establishes a standardized, zero-friction data collection protocol that scales to a multi-founder cohort without requiring any infrastructure changes. Each participant installs a hook and gets a private GitHub repo; the analysis pipeline runs identically across participants.
 - **Tool lineage as scientific artifact** — the tool lineage registry is itself a publishable dataset: a longitudinal record of how MCP tools, importers, and validators evolve under recursive human-AI co-execution. This is unique data — no equivalent exists publicly.
 
 ---
