@@ -7073,10 +7073,10 @@ Different realities — different architectures. But the goal is one: to make ju
 Registration: [legal.org.ua](https://legal.org.ua)`,
   },
   'recursive-workflow-signals-rlhf': {
-    title: 'Preferences from Shipping: Process-Aware RLHF Data from a CEO Who Built a Production LLM Product',
-    punchline: 'Existing RLHF preference data comes from annotators detached from real product construction. We propose a fundamentally different source: a shipping CEO whose 30,510 edits across 2,892 workflow sessions are validated by a product running in production with paying customers. Plus OS-level process instrumentation that captures how edits happen, not just what changed.',
+    title: 'Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows',
+    punchline: 'When a practitioner runs an LLM agent across multi-step, consequential workflows, every human edit on a model output is a localized correction — not preference annotation, but in-the-loop oversight captured at the granularity where agentic systems actually fail. 30,510 edit-traces across 2,892 sessions, validated by a product in production with paying customers. Plus OS-level instrumentation that captures the behavioral context of each oversight action.',
     readTime: '18 min read',
-    content: `# Preferences from Shipping: Process-Aware RLHF Data from a CEO Who Built a Production LLM Product
+    content: `# Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows
 
 **Working Paper — arXiv Preprint Forthcoming**
 
@@ -7088,83 +7088,89 @@ Registration: [legal.org.ua](https://legal.org.ua)`,
 
 ## Abstract
 
-Existing sources of RLHF preference data — crowd workers, expert annotators, AI raters — all operate detached from real product construction. They evaluate LLM outputs in abstract annotation contexts, without feedback from reality. We propose a fundamentally different source: a CEO/founder who built a production LLM product from zero to paying customers. Their preferences during the shipping period are validated by a product running in production — converting preference signal from subjective rating into **outcome-validated revealed preference**.
+Existing approaches to RLHF preference collection \— crowd workers, expert annotators, AI raters \— generate signal detached from the agentic workflows they are meant to govern. As LLM agents perform longer-horizon, multi-step work (composing tool calls, accumulating context across hundreds of turns, shipping outputs with real-world stakes), the oversight gap widens: annotation happens in abstract evaluation contexts, while agents fail at the level of individual edits within compositional trajectories. We propose **edit-trace oversight** \— a fundamentally different alignment signal captured natively when a practitioner works agentically with an LLM. Every human edit on a model output is a localized correction relative to a domain constitution and an outcome trajectory. This is not preference annotation; it is in-the-loop oversight at the granularity where agentic systems actually fail.
 
-**Subject:** CEO of Legal.org.ua / LEX AI. Shipping period: 105 days (Jan 24 \– May 8, 2026), **1,547 merged PRs across 7 interconnected projects** (core platform + due diligence + lead automation + scheduling + OSINT + activity tracking + email MCP), 70+ MCP tools in production, 380M+ records in the data pipeline. All built by one founder with zero employees. Validated outcomes: Google for Startups acceptance, NVIDIA Inception approval, paying customers.
+**Subject:** CEO of Legal.org.ua / LEX AI. Shipping period: 105 days (Jan 24 \– May 8, 2026), **1,547 merged PRs across 7 interconnected projects** (core platform + due diligence + lead automation + scheduling + OSINT + activity tracking + email MCP), 70+ MCP tools in production, 380M+ records in the data pipeline. All built by one founder with zero employees using Claude Code as the primary agentic engineering counterpart. Validated outcomes: Google for Startups acceptance, NVIDIA Inception approval, paying customers.
 
-**Two-axis preference signal:** (1) artifact-level — what changed (30,510 edits, 80.7% substantive rewrites, median edit distance 0.84); (2) process-level — how it changed (OS-level activity tracking: keystroke timing, idle gaps, cross-app research, voice context). No existing preference dataset captures both.
+**Two-axis oversight signal:** (1) artifact-level \— what was corrected (30,510 edit-traces, 80.7% substantive rewrites, median edit distance 0.84); (2) process-level \— how oversight was performed (OS-level activity tracking: keystroke timing, idle gaps, cross-app research, voice context). No existing alignment dataset captures both.
 
 **Pilot dataset:** 2,892 workflow sessions, 30,510 edit pairs, 1,579 attributed outcomes (54.6% coverage, 88.1% strong confidence). Process-level enrichment via synchronized OS activity tracker covers 498 sessions (17.2%) with 9,254 edits.
 
-**Experiments (1\–3 complete):** Experiment 1 confirmed founder\\\'s extreme edit distribution (80.7% substantive rewrites, crowd comparison sampling done). Experiment 2 showed process-level features are real (permutation p<0.001) but redundant with artifact features for prediction. Experiment 3 revealed rejection is the strongest preference signal (78% positive outcomes). DPO training (Experiment 4) redesigned: 3 conditions focused on distributional difference (founder vs crowd), not engagement weighting.
+**Experiments (1\–3 complete):** Experiment 1 confirmed the practitioner\\\'s extreme edit distribution (80.7% substantive rewrites, crowd comparison sampling done). Experiment 2 showed process-level features are real (permutation p<0.001) but redundant with artifact features for prediction. Experiment 3 revealed rejection is the strongest oversight signal (78% positive outcomes). DPO training (Experiment 4) redesigned: 3 conditions focused on distributional difference (edit-trace oversight vs crowd annotation), not engagement weighting.
 
 ---
 
-## 1. The Validation Gap in Preference Data
+## 1. The Oversight Gap in Agentic Systems
 
 ### 1.1 The Structural Problem
 
-Every existing source of RLHF preference data shares one property: **the annotator\\\'s preferences have not been validated by reality**. A Mechanical Turk worker bears no consequences for a poor rating. An expert annotator evaluates in a controlled environment, not in a shipped product. An RLAIF model evaluates based on principles supplied by its creators, without feedback from reality. They all express ratings, not demonstrated success.
+As LLM agents take on longer-horizon, multi-step work \— composing tool calls, accumulating context across hundreds of turns, and shipping outputs with attributable real-world stakes \— the gap between how we collect alignment signal and how agents actually fail has become structural. Every existing source of RLHF preference data shares one property: **the annotator operates outside the agentic workflow they are meant to govern.** A Mechanical Turk worker rates isolated model outputs without a codebase, a deployment pipeline, or a customer on the other end. An expert annotator evaluates in a controlled environment, not mid-trajectory in a compositional system. An RLAIF model applies principles supplied by its creators, without feedback from the downstream consequences of the agent\\\'s actions. They all produce ratings detached from the granularity at which agentic systems actually fail: the individual edit within a multi-step trajectory under domain constraints and outcome accountability.
 
-### 1.2 An Alternative: Builders Who Ship
+### 1.2 Edit-Trace as Oversight Signal
 
-We propose an alternative validated by shipping: a CEO/founder who used LLMs as the key tool to build a production-grade product from concept to paying customers.
+We propose an alternative: **edit-trace oversight** \— alignment signal captured natively when a practitioner works agentically with an LLM over consequential, multi-step workflows.
 
-This subject\\\'s preferences have already passed shipping validation: every accepted piece of code shipped, every rejected decision did not. Reality applied the filter.
+When a practitioner runs Claude Code agentically \— composing tool calls, reviewing architectural proposals against domain constraints, accepting or rejecting suggested changes based on information not available to the model \— every human edit on a model output is a localized correction relative to a domain constitution and an outcome trajectory. This is not preference annotation. It is **in-the-loop oversight**, captured at the granularity where agentic systems actually fail.
 
-Two methodological innovations distinguish this from "expert annotation":
+Two properties distinguish edit-trace oversight from expert annotation:
 
-**Outcome-validated revealed preference.** The subject makes binding decisions with real consequences. Accepted Claude Code suggestion \→ ships \→ passes/fails in production. This is revealed preference + ground truth.
+**Outcome-validated corrections.** The practitioner makes binding decisions with real consequences. Accepted agent output \→ ships \→ passes or fails in production. Each edit-trace is a correction grounded in revealed preference + ground truth, not abstract judgment.
 
-**Recursive composition under product accountability.** The subject builds compositional pipelines (Query Planner \→ Semantic Sectionizer \→ Hallucination Guard \→ Citation Validator), where every preference decision affects the rest. Qualitatively more informative than isolated rating.
+**Compositional trajectory awareness.** The practitioner builds compositional pipelines (Query Planner \→ Semantic Sectionizer \→ Hallucination Guard \→ Citation Validator), where every oversight correction affects the rest of the trajectory. Each edit encodes not just local quality judgment but awareness of how the correction propagates through downstream components. This is qualitatively more informative than isolated rating of individual model outputs.
 
-### 1.3 Process-Level Signal
+### 1.3 Behavioral Context of Oversight Actions
 
-Even sophisticated preference capture records only the artifact-level diff (chosen vs rejected). The cognitive process behind the diff \— time invested, external research, voice calls, window switches \— is lost. We capture this dimension through synchronized OS-level activity tracking, and show that process-level signal contains information not reducible to artifact diff.
+Even rich edit-trace capture records only the artifact-level correction (what the practitioner changed). The cognitive and behavioral context behind the correction \— time invested, external research consulted, voice calls made, window switches indicating cross-referencing \— is lost. We capture this dimension through synchronized OS-level activity tracking, providing the behavioral context of each oversight action. This enables the question: does how a practitioner performs oversight contain signal beyond what they corrected?
 
 ### 1.4 Research Questions
 
-- **RQ1:** Does artifact-level preference signal from a shipping CEO differ from crowd-sourced on matched LLM outputs?
-- **RQ2:** Does process-level signal contain information not reducible to artifact-level diff?
-- **RQ3:** Do shipping-validated preferences correlate with downstream outcomes more strongly than crowd-sourced?
-- **RQ4:** Does DPO training on shipping CEO\\\'s distinctive preference distribution improve domain-specific performance vs crowd-sourced baselines?
+- **RQ1:** Does oversight edit-trace from an agentic practitioner differ distributionally from crowd annotation on matched LLM outputs?
+- **RQ2:** Does the behavioral context of oversight actions contain signal beyond the artifact-level correction?
+- **RQ3:** Do oversight corrections within agentic workflows correlate with downstream outcomes?
+- **RQ4:** Does training on oversight-trace preferences improve domain-specific performance vs crowd-sourced baselines?
 
 ---
 
-## 2. Defining Recursive Use of Claude Code
+## 2. Defining Valid Oversight: The Domain Constitution
 
-### Two-Axis Preference Signal
+Bai et al. (2022) introduced Constitutional AI, where a model evaluates its own outputs against researcher-authored principles. The construct we develop here is related but distinct: a **domain constitution** \— formal conditions under which human corrections on agentic output constitute valid oversight signal. Where Constitutional AI asks "does this output satisfy these principles?", a domain constitution asks "does this correction process satisfy the conditions required for the resulting edit-trace to function as scalable oversight?"
 
-**Artifact-level:** what changed between LLM output and final artifact \— edit distance, semantic change class, structural changes.
+The distinction matters because not all human\–agent interaction produces oversight signal. A user who copies an LLM snippet into a one-off script provides no oversight. A crowd annotator who rates two completions provides weak oversight, ungrounded in real consequences. The domain constitution specifies the boundary conditions that separate noise from signal.
 
-**Process-level:** how the change happened \— keystroke timing patterns, idle gaps, app-switching trajectory, voice context. Captured only with OS-level instrumentation running in parallel.
+### Two-Axis Oversight Signal
 
-### Five Conditions for Qualifying Workflow
+**Artifact-level:** what was corrected between agentic output and final artifact \— edit distance, semantic change class, structural changes. This axis captures the *content* of oversight: which agentic behaviors the human deemed unacceptable, and how they were remediated.
 
-"Recursive use of Claude Code" describes a specific operational pattern where a single practitioner uses Claude Code as the primary engineering counterpart for sustained production work, satisfying **five conditions simultaneously:**
+**Process-level:** how the correction was made \— keystroke timing patterns, idle gaps, app-switching trajectory, voice context. Captured only with OS-level instrumentation running in parallel. This axis captures the *cognitive cost* of oversight: how much effort the correction required, what external information was consulted, and whether the human deliberated or corrected reflexively.
 
-**1. Codebase as persistent context.** Claude Code operates against a continuously evolving codebase, not isolated snippets. Each session inherits state from previous sessions through the working directory, git history, file structure, and accumulated documentation. The codebase itself functions as long-term memory shared between human and model.
+### Five Conditions of the Domain Constitution
 
-**2. Compositional task layering.** Work decomposes into chains where one Claude Code session\\\'s output (committed code, architectural decision, documentation update) becomes context for subsequent sessions. The practitioner maintains persistent computational threads spanning days, weeks, or months.
+The domain constitution specifies five conditions that must hold simultaneously for human edits on agentic output to constitute valid oversight. Each condition addresses a specific failure mode that would render the edit-trace uninformative or misleading as a training signal.
 
-**3. Pre-defined success criteria with operational feedback loops.** The practitioner establishes definition-of-success parameters before initiating work on any non-trivial task: what observable behavior constitutes completion, what failure modes invalidate the approach, what performance characteristics the artifact must exhibit in production. During and after execution, the practitioner monitors production telemetry (server load, latency, error rates, resource utilization) to inform decisions about whether to scale up, simplify, refactor, or abandon a given direction. Architectural authority is exercised not through abstract judgment but through continuous calibration against observable system behavior.
+**1. Shared persistent state between human and agent.** The agent operates against a continuously evolving codebase, not isolated snippets. Each session inherits state from previous sessions through the working directory, git history, file structure, and accumulated documentation. The codebase itself functions as long-term memory shared between human and agent. *Why this is necessary for oversight validity:* Without persistent shared state, the human\\\'s corrections are context-free \— they reflect preferences over isolated outputs rather than oversight over an evolving system. Persistent state ensures that each correction is informed by the full history of prior agent behavior and its cumulative consequences, making the edit-trace a record of trajectory correction rather than snapshot preference.
 
-**4. Practitioner as architect and editor.** Beyond setting success criteria, the practitioner reviews every commit, evaluates architectural proposals against domain constraints, accepts or rejects suggested changes based on information not available to the model (business priorities, regulatory requirements, user feedback, personal stake in outcomes). The practitioner shapes trajectory; Claude Code executes within that trajectory at high throughput.
+**2. Compositional task layering.** Work decomposes into chains where one agentic session\\\'s output (committed code, architectural decision, documentation update) becomes context for subsequent sessions. The practitioner maintains persistent computational threads spanning days, weeks, or months. *Why this is necessary for oversight validity:* Single-turn corrections cannot capture oversight over compositional failure modes \— cases where each individual agent output appears adequate but the composition fails. When a practitioner corrects an architectural decision because it conflicts with a decision made three weeks earlier, the resulting edit-trace encodes long-range dependency information that no single-turn annotation scheme can capture.
 
-**5. Outcome-attributable artifacts.** The output is shippable code that runs in production with measurable consequences: feature usage, system reliability, customer adoption, revenue, partnership formation.
+**3. Grounding in observable reality.** The practitioner establishes definition-of-success parameters before initiating work on any non-trivial task: what observable behavior constitutes completion, what failure modes invalidate the approach, what performance characteristics the artifact must exhibit in production. During and after execution, the practitioner monitors production telemetry (server load, latency, error rates, resource utilization) to inform decisions about whether to scale up, simplify, refactor, or abandon a given direction. *Why this is necessary for oversight validity:* Oversight that rests on subjective preference alone is indistinguishable from taste. When corrections are grounded in observable system behavior \— a deployment that failed, a latency spike, an error rate increase \— the edit-trace encodes causal information about what works and what does not. This transforms oversight from opinion into empirical calibration.
 
-### Operationalized by the Case Study
+**4. Information asymmetry favoring the human.** Beyond setting success criteria, the practitioner reviews every commit, evaluates architectural proposals against domain constraints, accepts or rejects suggested changes based on information not available to the agent (business priorities, regulatory requirements, user feedback, personal stake in outcomes). The practitioner shapes trajectory; the agent executes within that trajectory at high throughput. *Why this is necessary for oversight validity:* Oversight is meaningful precisely because the overseer holds information the overseen system lacks. If the human\\\'s corrections reflect only information already available to the agent, the edit-trace is redundant with the agent\\\'s own uncertainty. When corrections are driven by regulatory context the agent cannot access, customer feedback the agent has not observed, or strategic priorities the agent was not instructed about, the resulting signal encodes genuinely new information that could not have been generated by the agent alone.
 
-This definition is operationalized by the author\\\'s production work: **1,547 merged PRs across 7 interconnected projects over 105 days** using Claude Code as primary engineering counterpart. The core platform (Legal.org.ua, 1,393 PRs) produces a deployed legal AI platform with 380M+ records pipeline and 70+ MCP tools. Satellite projects (154 PRs) cover due diligence intelligence (SneakyPiper, 73 PRs), LinkedIn lead automation (aipromo, 39 PRs), meeting scheduling (Calendary, 27 PRs), OSINT aggregation (Panoptic, 10 PRs), and OS-level activity tracking (XSISTANT, 5 PRs). Measurable downstream outcomes include selection by Google for Startups, introduction to Deloitte via GFS, and acceptance into NVIDIA Inception Program.
+**5. Consequential grounding.** The output is shippable code that runs in production with measurable consequences: feature usage, system reliability, customer adoption, revenue, partnership formation. *Why this is necessary for oversight validity:* Oversight signal must connect to real consequences to avoid the same detachment that afflicts crowd annotation. When corrected artifacts ship and succeed or fail in production, the edit-trace acquires outcome labels that close the loop between correction and consequence. Without consequential grounding, there is no way to distinguish useful corrections from idiosyncratic preferences.
 
-**Each of these acceptances was achieved through written applications without prior voice conversations, in-person meetings, or warm introductions from accelerator mentor networks.** The applications themselves were drafted using the same recursive Claude Code workflow that produced the underlying product, demonstrating that the workflow generalizes from code production to high-stakes written communication with measurable institutional gatekeepers.
+### Instantiation by the Case Study
 
-### What This Explicitly Excludes
+This domain constitution is instantiated by the author\\\'s production work: **1,547 merged PRs across 7 interconnected projects over 105 days** using Claude Code as primary agentic counterpart. The core platform (Legal.org.ua, 1,393 PRs) produces a deployed legal AI platform with 380M+ records pipeline and 70+ MCP tools. Satellite projects (154 PRs) cover due diligence intelligence (SneakyPiper, 73 PRs), LinkedIn lead automation (aipromo, 39 PRs), meeting scheduling (Calendary, 27 PRs), OSINT aggregation (Panoptic, 10 PRs), and OS-level activity tracking (XSISTANT, 5 PRs). Measurable downstream outcomes include selection by Google for Startups, introduction to Deloitte via GFS, and acceptance into NVIDIA Inception Program.
 
-- One-shot code generation (no codebase persistence, no compositional layering)
-- Automated CI/CD pipelines using Claude Code (no human-in-the-loop architectural judgment)
-- Tutorial or learning use (no production outcome stakes)
-- Pair programming sessions without pre-defined success criteria or observable production feedback (no operational closure of the loop)
+**Each of these acceptances was achieved through written applications without prior voice conversations, in-person meetings, or warm introductions from accelerator mentor networks.** The applications themselves were drafted using the same recursive workflow that produced the underlying product, demonstrating that the workflow generalizes from code production to high-stakes written communication with measurable institutional gatekeepers. This generalization is itself evidence that the oversight signal captured in the edit-trace is domain-transferable rather than task-specific.
+
+### What Fails to Constitute Valid Oversight
+
+The domain constitution also defines its negation \— interaction patterns that fail one or more conditions and therefore do not produce valid oversight signal:
+
+- One-shot code generation (fails Conditions 1\\–2: no persistent state, no compositional layering \\\→ corrections are context-free)
+- Automated CI/CD pipelines using Claude Code (fails Condition 4: no human information asymmetry \\\→ no oversight, only automation)
+- Tutorial or learning use (fails Condition 5: no consequential grounding \\\→ corrections carry no outcome stakes)
+- Pair programming sessions without pre-defined success criteria or observable production feedback (fails Condition 3: no grounding in observable reality \\\→ corrections reflect taste, not calibration)
 
 ### Edit Taxonomy
 
@@ -7184,7 +7190,7 @@ Three retro-extractors feed the \`rlhf-signals/\` module:
 
 Schema: \`workflow_sessions\` \→ \`workflow_artifacts\` \→ \`workflow_edits\` \→ \`workflow_outcomes\`.
 
-**GitHub PR velocity (core platform):** 1,393 merged PRs over 105 days (87 active). Peak: March 790 PRs (25.5/day). Median time-to-merge: 30 seconds (77.8% under 5 min) \— solo-founder auto-merge pattern. PR timestamps do NOT reflect editing time; real duration reconstructed from OS-level activity.
+**GitHub PR velocity (core platform):** 1,393 merged PRs over 105 days (87 active). Peak: March 790 PRs (25.5/day). Median time-to-merge: 30 seconds (77.8% under 5 min) \— solo-practitioner auto-merge pattern. PR timestamps do NOT reflect editing time; real duration reconstructed from OS-level activity.
 
 ### 3.1.1 One Shipping Operation, Multiple Technical Surfaces
 
@@ -7209,11 +7215,11 @@ These are not separate projects in different business domains. They are **compon
 | **Panoptic** | 10 | Apr 7–16 (10d) | Threat intel FEEDING SneakyPiper |
 | **XSISTANT** | 5 | Apr 18 (1d) | Activity tracker FOR this research |
 | **mcptb** | — | — | Email management SUPPORTING the workflow |
-| **Total** | **1,547** | **105 days** | **7 repos, 1 founder, 0 employees, 1 business outcome** |
+| **Total** | **1,547** | **105 days** | **7 repos, 1 practitioner, 0 employees, 1 business outcome** |
 
 **Operational pipeline:** LinkedIn leads (aipromo) → meeting scheduling (Calendary) → due diligence (SneakyPiper + SecondLayer API) → client onboarding (SecondLayer platform).
 
-**Why this matters for the paper:** the preference signals come from one practitioner under one outcome accountability, but applied across diverse technical surfaces — React components, database migrations, LinkedIn message templates, scheduling logic, OSINT aggregators, and systemd daemons. This is not "cross-domain transfer" (which would require different founders in different businesses). This is **cross-surface consistency** — the same quality judgment operating across the full technical stack of a single shipped product. If edit patterns are consistent across surfaces, the founder\\\'s preference signal is surface-invariant. If they differ, the differences themselves are informative about which technical surfaces generate the strongest preference signal.
+**Why this matters for the paper:** the oversight signals come from one practitioner under one outcome accountability, but applied across diverse technical surfaces — React components, database migrations, LinkedIn message templates, scheduling logic, OSINT aggregators, and systemd daemons. This is not "cross-domain transfer" (which would require different practitioners in different businesses). This is **cross-surface consistency** — the same oversight judgment operating across the full technical stack of a single shipped product. If edit patterns are consistent across surfaces, the practitioner\\\'s oversight signal is surface-invariant. If they differ, the differences themselves are informative about which technical surfaces generate the strongest oversight signal.
 
 ### 3.2 OS-Level Activity Instrumentation
 
@@ -7231,29 +7237,29 @@ Storage: ~38 MB for 21 continuous days. Both databases store \`timestamptz\` in 
 
 For each edit with time window [T1, T2]: query activity in [T1-30s, T2+30s], aggregate process features, classify window sessions by category (code_editing / research / communication / documentation / unrelated).
 
-### 3.4 Founder Disambiguation Sessions
+### 3.4 Practitioner Disambiguation Sessions
 
 Automated activity tracking captures *what* app or window was active, but cannot determine *why*. A YouTube video about Ukrainian court procedure, a YouTube video about astrophysics, and a YouTube video about cooking all look identical in the activity_scores data — same wm_class, similar engagement metrics. Yet their relationship to the subsequent editing session is fundamentally different.
 
-We address this through **periodic founder disambiguation sessions** — structured interviews where the founder reviews ambiguous activity windows from the preceding period and provides ground-truth labels:
+We address this through **periodic practitioner disambiguation sessions** — structured interviews where the practitioner reviews ambiguous activity windows from the preceding period and provides ground-truth labels:
 
-**Ambiguous activity categories that require founder input:**
+**Ambiguous activity categories that require practitioner input:**
 
-- **On-topic research.** Watching a conference talk about vector databases directly before refactoring the Qdrant indexing pipeline. The automated classifier sees "YouTube in Chrome" — the founder confirms this was task-relevant research.
-- **Cross-topic inspiration.** Watching an astrophysics lecture that triggered an architectural insight about how to structure the semantic search pipeline. The activity tracker sees idle time followed by a burst of substantive rewrites. Without founder input, this looks like "break followed by productive session." With founder input, it becomes evidence that cross-domain intellectual intake influences editing quality — a process-level signal invisible to artifact-level analysis.
-- **Conversational reasoning with Claude.** Using Claude via claude.ai (web) or Claude Code in conversational mode — not producing commits, but reasoning through architectural decisions, exploring trade-offs, or drafting approaches before implementation. The tracker sees "Chrome + active typing" or "terminal + low keystroke rate." The founder clarifies: this was deliberative reasoning that shaped the next 5 commits.
-- **Genuinely unrelated activity.** Social media scrolling, personal messaging, entertainment. The founder confirms these windows contributed nothing to the subsequent workflow. Important for calibration: if we classify everything as "potentially relevant," the process signal becomes noise.
+- **On-topic research.** Watching a conference talk about vector databases directly before refactoring the Qdrant indexing pipeline. The automated classifier sees "YouTube in Chrome" — the practitioner confirms this was task-relevant research.
+- **Cross-topic inspiration.** Watching an astrophysics lecture that triggered an architectural insight about how to structure the semantic search pipeline. The activity tracker sees idle time followed by a burst of substantive rewrites. Without practitioner input, this looks like "break followed by productive session." With practitioner input, it becomes evidence that cross-domain intellectual intake influences editing quality — a process-level signal invisible to artifact-level analysis.
+- **Conversational reasoning with Claude.** Using Claude via claude.ai (web) or Claude Code in conversational mode — not producing commits, but reasoning through architectural decisions, exploring trade-offs, or drafting approaches before implementation. The tracker sees "Chrome + active typing" or "terminal + low keystroke rate." The practitioner clarifies: this was deliberative reasoning that shaped the next 5 commits.
+- **Genuinely unrelated activity.** Social media scrolling, personal messaging, entertainment. The practitioner confirms these windows contributed nothing to the subsequent workflow. Important for calibration: if we classify everything as "potentially relevant," the process signal becomes noise.
 
 **Implementation:**
 
-Disambiguation sessions happen weekly or after dense work periods. The founder is presented with a timeline of activity windows flagged as ambiguous by the automated classifier (browser sessions without clear code/legal/documentation patterns, idle gaps > 5 minutes followed by high-intensity editing, mic_activity windows without matching communication app). For each flagged window, the founder selects from: *on-topic research / cross-topic inspiration / conversational reasoning / personal break / genuinely unrelated*.
+Disambiguation sessions happen weekly or after dense work periods. The practitioner is presented with a timeline of activity windows flagged as ambiguous by the automated classifier (browser sessions without clear code/legal/documentation patterns, idle gaps > 5 minutes followed by high-intensity editing, mic_activity windows without matching communication app). For each flagged window, the practitioner selects from: *on-topic research / cross-topic inspiration / conversational reasoning / personal break / genuinely unrelated*.
 
 These labels feed back into the \`workflow_edit_engagement\` table as a \`disambiguation_label\` field, enabling:
 - More accurate window_category_seconds computation
 - A new process feature: cross-topic_inspiration_ratio (what fraction of pre-edit time was cross-domain intellectual intake)
 - Validation of the automated classifier\\\'s accuracy (what % of "unrelated" was actually cross-topic inspiration?)
 
-**Why this matters for Experiment 2 specifically:** the current null-adjacent result (process features redundant with artifact features) may partly reflect misclassification of ambiguous windows. If a significant fraction of "idle" or "unrelated" windows are actually cross-topic inspiration that precedes high-quality edits, then correcting these labels could make process features genuinely informative — breaking the redundancy that Experiment 2 found.
+**Why this matters for Experiment 2 specifically:** the current null-adjacent result (behavioral-context features redundant with artifact features) may partly reflect misclassification of ambiguous windows. If a significant fraction of "idle" or "unrelated" windows are actually cross-topic inspiration that precedes high-quality oversight corrections, then correcting these labels could make behavioral-context features genuinely informative — breaking the redundancy that Experiment 2 found.
 
 ### 3.5 Outcome Attribution
 
@@ -7276,7 +7282,7 @@ All numbers verified from production databases.
 | Attributed outcomes | 1,579 (54.6% session coverage) |
 | Outcome confidence | 88.1% strong, 5.1% medium, 6.8% weak |
 
-### 4.2 Edit Distribution (Founder Signal)
+### 4.2 Edit Distribution (Oversight Signal)
 
 | Semantic Class | Count | % |
 |---------------|-------|---|
@@ -7287,7 +7293,7 @@ All numbers verified from production databases.
 | Factual correction | 307 | 1.0% |
 | Tone adjustment | 259 | 0.8% |
 
-Edit distance (normalized): mean=0.807, **median=0.839**, P25=0.743, P75=0.927, P95=0.987. The founder\\\'s default mode is near-total rewrite.
+Edit distance (normalized): mean=0.807, **median=0.839**, P25=0.743, P75=0.927, P95=0.987. The practitioner\\\'s default mode is near-total rewrite.
 
 ### 4.3 Process-Level Data (xsistant DB)
 
@@ -7318,44 +7324,48 @@ The main PR burst (Feb\–Mar, 1,156 PRs at 25.5/day) occurred **before** xsista
 
 Four experiments with progressively higher compute requirements. Experiments 1\–3 require no GPU.
 
-### Experiment 1: Artifact-Level Signal Quality (RQ1)
+### Experiment 1: Oversight vs Annotation: Distributional Difference (RQ1)
 
 **Status: Phase A complete.**
 
-Sample N=200 LLM outputs (stratified by semantic class, min 10 per class), send to crowd annotation platform. Compare founder vs crowd: edit_distance_norm distributions (KS test), semantic class breakdown, inter-annotator agreement (Krippendorff\\\'s alpha).
+Sample N=200 LLM outputs (stratified by semantic class, min 10 per class), send to crowd annotation platform. Compare in-the-loop oversight corrections vs detached crowd annotation: edit_distance_norm distributions (KS test), semantic class breakdown, inter-annotator agreement (Krippendorff\\\'s alpha). The central question is whether corrections applied during live agentic workflows differ in kind from labels applied after the fact.
 
 Phase A results (sampling completed 2026-05-08):
 - 19,455 eligible samples after PII filtering (from 21,461)
 - Stratified allocation: substantive=144, cosmetic=15, reorganization=11, rejection=10, factual=10, tone=10
-- Two JSONL exports: full metadata + platform-ready (no founder edits shown to annotators)
+- Two JSONL exports: full metadata + platform-ready (no oversight edits shown to annotators)
 - Deterministic seeded PRNG for reproducibility
 
-**Expected:** founder edits show heavier tail (80.7% substantive_rewrite already \— crowd workers unlikely to match this intensity).
+**Expected:** oversight corrections show heavier tail (80.7% substantive_rewrite already \— crowd annotators, operating without production context, are unlikely to match this intensity).
 
-### Experiment 2: Process-Level Signal Irreducibility (RQ2)
+### Experiment 2: Behavioral Context of Oversight Actions (RQ2)
 
-Two predictive models on the 498-session overlap subset: Model A (artifact-only) vs Model B (artifact + process features). Compare AUC, SHAP feature importance, permutation test. With only 64 outcomes in overlap, use edit-class proxy labels for statistical power.
+Two predictive models on the 498-session overlap subset: Model A (artifact-only) vs Model B (artifact + behavioral-context features). Compare AUC, SHAP feature importance, permutation test. With only 64 outcomes in overlap, use edit-class proxy labels for statistical power.
+
+The question is whether the *how* of oversight \— keystroke timing, research pauses, deliberation patterns \— adds signal beyond *what* was corrected.
 
 **Expected:** Model B improves outcome prediction on medium edit_distance edits where artifact signal is ambiguous.
 
-### Experiment 3: Outcome\–Preference Correlation (RQ3)
+### Experiment 3: Oversight Corrections and Downstream Outcomes (RQ3)
 
 Group by composite engagement score, compare outcome distributions. Control for confounds: session length, surface, time of day (bimodal peaks), prompt length.
 
-### Experiment 4: DPO Training on Shipping CEO Distribution (RQ4) \— REVISED
+The question is whether specific oversight actions \— particularly rejection (halting an agentic trajectory) \— predict real downstream outcomes.
+
+### Experiment 4: Training on Oversight-Trace vs Annotation Preferences (RQ4) \— REVISED
 
 *Redesigned based on Experiments 1\–3 findings (see Appendix E).*
 
-The flagship experiment requiring NVIDIA DGX Cloud. **Simplified from 5 to 3 core conditions** after Experiments 2\–3 showed engagement weighting is unlikely to improve over uniform weighting.
+The flagship experiment requiring NVIDIA DGX Cloud. **Simplified from 5 to 3 core conditions** after Experiments 2\–3 showed behavioral-context weighting is unlikely to improve over uniform weighting.
 
 Three training conditions on Llama 3.1 8B or Qwen 2.5 7B (open-weight):
-- **A.** Recursive workflow, uniform-weighted (30,510 pairs) \— the distinctive founder distribution
-- **C.** Crowd-sourced preferences (matched volume) \— standard baseline
+- **A.** Oversight-trace, uniform-weighted (30,510 pairs) \— the distinctive distribution of corrections captured during production agentic workflows
+- **C.** Crowd-sourced preferences (matched volume) \— standard annotation baseline
 - **D.** Untrained instruct model \— no-preference baseline
 
 Method: DPO (Rafailov et al. 2023). Evaluation: win-rate (GPT-4 judge + human N=100), domain accuracy, AlpacaEval 2.0, length-controlled win rate.
 
-**Primary metric: A vs C delta** \— does the shipping CEO\\\'s distinctive preference distribution (80.7% substantive rewrites, 78% rejection-positive rate) produce better domain-specific models than crowd-sourced preferences of equal volume?
+**Primary metric: A vs C delta** \— does the oversight-trace signal, captured at the granularity where agentic systems fail, produce better domain-specific models than crowd-sourced annotation preferences of equal volume?
 
 Estimated cost: $5\–7K (down from $8\–12K). See Appendix E for full rationale.
 
@@ -7363,23 +7373,25 @@ Estimated cost: $5\–7K (down from $8\–12K). See Appendix E for full rational
 
 ## 6. Limitations
 
-- **Single-subject case study** \— one CEO, not population-level claims. Phase 2 multi-CEO cohort is future work.
-- **Domain bias:** legal AI specifics may not transfer to coding, creative, or scientific domains.
-- **Survivorship bias:** we capture preferences of someone who shipped successfully. Preferences of failed attempts are absent.
-- **Process coverage:** only 17.2% of sessions / 30.3% of edits have process-level enrichment (xsistant launched after peak sprint).
-- **edit_seconds = 0** for all edits (retro-extracted) \— timing reconstructed from 5-second OS activity buckets.
-- **Conflict of interest:** first author is the study subject. Mitigated by: external baselines, open data release, Phase 2 plans.
-- **Keystroke content boundary:** we capture keystroke counts and timing, never content. Trades fine-grained edit-trace information for PII protection and Phase 2 cohort scalability.
+- **Single-practitioner protocol demonstration** \— one practitioner\\\'s oversight trace, not population-level claims. Proving that edit-trace constitutes valid oversight requires a deep instrumentation case study before cohort scaling; this work establishes the methodology and qualifying criteria, not their generalizability across overseers. A multi-practitioner cohort is explicit future work.
+- **Domain-specific constitution by design.** The five qualifying conditions form a domain constitution \— criteria under which edit-trace constitutes valid oversight \— and are inherently domain-specific. Legal AI oversight patterns (cross-referencing legislation, verifying citation chains) may not transfer to coding, creative, or scientific domains. This is a structural feature of constitution-based oversight, not an incidental limitation: the domain constitution IS the mechanism that converts raw edits into oversight signal.
+- **Oversight captured only from successful trajectories.** The dataset contains corrections applied by an overseer whose product shipped successfully. Failed oversight \— agent outputs that passed without correction and later caused failures, or oversight applied in projects that did not reach production \— is systematically absent.
+- **Behavioral context coverage:** only 17.2% of sessions / 30.3% of edits have process-level behavioral enrichment (xsistant launched after peak sprint). The highest-velocity agentic interaction period (Feb\–Mar, 1,156 PRs at 25.5/day) has artifact-level oversight data only; behavioral context covers the post-peak steady-state pattern (4.4 PRs/day).
+- **edit_seconds = 0** for all edits (retro-extracted) \— timing reconstructed from 5-second OS activity buckets. Oversight action duration is therefore bounded by bucket granularity, which may obscure rapid correction sequences.
+- **Structural conflict of interest:** the study subject IS the overseer. In scalable oversight methodology this is not incidental but structural \— the overseer\\\'s corrections are the data, and the overseer\\\'s identity cannot be separated from the oversight signal. Mitigated by: external baselines, open data release, and the multi-practitioner cohort design in which diverse overseers provide independent domain constitutions.
+- **Keystroke content boundary:** we capture keystroke counts and timing, never content. This trades fine-grained edit-trace information for PII protection and multi-practitioner scalability \— a deliberate design constraint that preserves the ability to recruit cohort participants who would not consent to content-level logging.
 
 ---
 
 ## 7. Future Work
 
-- **Phase 2 multi-CEO cohort** (5\–10 shipping CEOs across domains) \— requires cross-platform standardized activity tracker
-- **Survivorship bias mitigation:** compare with preferences from founders who pivoted/shut down
-- **Eye-tracking integration:** captures reading-while-thinking, still without content capture
-- **Engagement-aware reward modeling:** explicit reward model trained on engagement features
-- **Process-level signal in multi-turn dialogues:** current methodology targets edit-based workflows
+- **Multi-practitioner cohort with diverse domain constitutions** (5\–10 shipping practitioners across legal AI, healthcare AI, fintech, dev tools, creative tools) \— each practitioner brings their own domain constitution (qualifying criteria for when their edit-trace constitutes valid oversight), enabling cross-constitution comparison and meta-constitutional analysis.
+- **Failed oversight trajectories:** studying cases where oversight was absent or insufficient \— practitioners who shipped without correcting agent outputs that later caused production failures, or whose projects did not reach production state. This complements the current dataset\\\'s successful-oversight bias and enables contrastive analysis of oversight quality.
+- **Richer behavioral context for oversight actions:** eye-tracking integration captures reading-while-evaluating, the cognitive phase preceding oversight corrections, still without content capture.
+- **Oversight-aware reward modeling:** an explicit reward model trained to distinguish oversight corrections (edits that correct agent errors under domain-constitutional criteria) from routine annotation (preference ratings without accountability).
+- **Edit-trace capture for non-code agentic workflows:** the current methodology targets code-centric edit-based workflows. Extending edit-trace instrumentation to document drafting, legal brief composition, research analysis, and multi-turn conversational oversight requires different operationalization of the correction boundary.
+- **Constitutional alignment between domain constitution and model constitution:** studying how domain-specific oversight constitutions interact with the model\\\'s own constitutional training (Bai et al. 2022). When a practitioner\\\'s domain constitution conflicts with or reinforces the model\\\'s built-in constitutional principles, the resulting edit-trace may reflect constitutional tension rather than pure quality correction.
+- **Automated oversight difficulty estimation:** using the edit-trace to identify which agentic steps are hardest to oversee (highest edit distance, most rejections, longest deliberation time before correction). This produces a per-step oversight difficulty map that informs where human oversight should be concentrated in recursive agentic workflows.
 
 ---
 
@@ -7406,13 +7418,13 @@ Estimated cost: $5\–7K (down from $8\–12K). See Appendix E for full rational
 | Phase 0 retrospective extraction | **Done** \— 2,892 sessions, 30,510 edits |
 | Edit classification (Bedrock Sonnet) | **Done** \— 99.96% coverage |
 | Outcome attribution + transcript linking | **Done** \— 1,579 outcomes, 5,354 usable pairs |
-| Experiment 1 Phase A (sampling) | **Done** \— 200 stratified samples exported |
+| Experiment 1 Phase A (oversight sampling) | **Done** \— 200 stratified samples exported |
 | Experiment 1 Phase B (crowd annotation) | Next \— send to Surge AI / Scale AI |
-| Experiment 2 (process irreducibility) | **Done** \— process signal real (p<0.001) but RF delta -0.029 |
-| Experiment 3 (outcome correlation) | **Done** \— rejection=78% positive rate, engagement Q4 enrichment |
+| Experiment 2 (behavioral context) | **Done** \— behavioral signal real (p<0.001) but RF delta -0.029 |
+| Experiment 3 (oversight-outcome correlation) | **Done** \— halt/reject=78% positive rate, engagement Q4 enrichment |
 | Cross-experiment synthesis | **Done** \— see Appendix E for DPO decision |
 | NVIDIA Inception extended grant | Next \— all preliminary results ready |
-| Experiment 4 (DPO training) | **Redesigned** \— 3 conditions instead of 5, focus on A vs C |
+| Experiment 4 (oversight-trace vs annotation DPO) | **Redesigned** \— 3 conditions instead of 5, focus on A vs C |
 | arXiv submission | Target: ~T+18 weeks |
 
 ---
@@ -7441,9 +7453,9 @@ Phase 0 retrospective extraction completed against the LEX AI production codebas
 
 **Verdict: GO \— proceed to Phase 1 live capture and Experiment 1.**
 
-## Appendix B: Experiment 1 Phase A Results
+## Appendix B: Experiment 1 Phase A Results — Oversight Sampling
 
-*May 9, 2026 — stratified sampling for crowd annotation baseline.*
+*May 9, 2026 — stratified sampling for oversight vs annotation comparison.*
 
 200 LLM outputs sampled from 19,455 eligible pairs (after PII filtering from 21,461). Stratified by semantic change class with minimum 10 per class. Deterministic seeded PRNG ensures reproducibility (identical output on re-run verified via checksum).
 
@@ -7457,8 +7469,8 @@ Phase 0 retrospective extraction completed against the LEX AI production codebas
 | tone_adjustment | 10 | 212 |
 
 Two JSONL exports produced:
-- **crowd-samples.jsonl** \— full record (LLM output + founder edit + metadata)
-- **crowd-platform.jsonl** \— platform-ready (sample_id + LLM output + task instruction only, no founder edit visible to annotators)
+- **crowd-samples.jsonl** \— full record (LLM output + oversight edit + metadata)
+- **crowd-platform.jsonl** \— platform-ready (sample_id + LLM output + task instruction only, no oversight edit visible to annotators)
 
 Six paper-ready analysis figures generated (300 DPI):
 1. Edit distance distribution (histogram + CDF) \— heavy right skew, median 0.84
@@ -7472,7 +7484,7 @@ Six paper-ready analysis figures generated (300 DPI):
 
 ---
 
-## Appendix C: Experiment 2 Results \— Process-Level Signal Irreducibility
+## Appendix C: Experiment 2 Results \— Behavioral Context of Oversight Actions
 
 *May 9, 2026 \— cross-source linking + Model A vs Model B comparison.*
 
@@ -7497,33 +7509,33 @@ Process features computed per edit: active/passive/idle seconds, keystroke count
 **Target variable:** binary \— substantive_rewrite (1) vs cosmetic (0). N=6,152 edits (5,740 substantive, 412 cosmetic). 5-fold stratified cross-validation.
 
 **Model A (artifact-only):** token_count_from, token_count_to
-**Model B (artifact + process):** Model A features + 9 process features
+**Model B (artifact + behavioral-context):** Model A features + 9 behavioral-context features
 
 | Model | Random Forest AUC | Logistic Regression AUC |
 |-------|-------------------|------------------------|
 | **A (artifact-only)** | **0.903 \± 0.005** | 0.475 \± 0.018 |
-| **B (artifact + process)** | 0.874 \± 0.007 | **0.540 \± 0.039** |
+| **B (artifact + behavioral-context)** | 0.874 \± 0.007 | **0.540 \± 0.039** |
 | **Delta (B \− A)** | \−0.029 | +0.065 |
 
-**Permutation test** (1,000 iterations, process features shuffled): **p < 0.001** \— process features carry statistically significant, non-random signal.
+**Permutation test** (1,000 iterations, behavioral-context features shuffled): **p < 0.001** \— behavioral-context features carry statistically significant, non-random signal.
 
 **Paired t-test** (RF, 5 folds): p = 0.003 \— the delta is statistically significant (in the negative direction for RF).
 
 ### Interpretation
 
-Process-level signal is **real and non-random** (permutation p < 0.001), but does not improve Random Forest prediction of edit class. This is a nuanced result:
+Behavioral-context signal is **real and non-random** (permutation p < 0.001), but does not improve Random Forest prediction of edit class. This is a nuanced result:
 
-1. **The proxy target is already well-predicted by artifact features.** Token counts alone achieve AUC 0.903 for predicting substantive vs cosmetic edits \— leaving little room for process features to add value. The 14:1 class imbalance (5,740 vs 412) further limits discriminative contribution of additional features.
+1. **The proxy target is already well-predicted by artifact features.** Token counts alone achieve AUC 0.903 for predicting substantive vs cosmetic edits \— leaving little room for behavioral-context features to add value. The 14:1 class imbalance (5,740 vs 412) further limits discriminative contribution of additional features.
 
-2. **Process features help linear models.** Logistic Regression gains +0.065 AUC from process features, suggesting the signal exists but is captured non-linearly by artifact features in RF.
+2. **Behavioral-context features help linear models.** Logistic Regression gains +0.065 AUC from behavioral-context features, suggesting the signal exists but is captured non-linearly by artifact features in RF.
 
-3. **The real test requires real outcomes.** Only 64 outcomes exist in the overlap window \— insufficient for outcome prediction. The proxy target (edit class) is a stand-in that may not capture what process features actually predict. Experiment 3 will address this with engagement-outcome correlation.
+3. **The real test requires real outcomes.** Only 64 outcomes exist in the overlap window \— insufficient for outcome prediction. The proxy target (edit class) is a stand-in that may not capture what behavioral-context features actually predict. Experiment 3 addresses this with oversight-action-outcome correlation.
 
-**For the paper:** this is an honest null-adjacent result. Process signal exists (permutation proof) but is largely redundant with artifact signal at this scale and target definition. This is itself a publishable finding \— it means artifact-level capture is sufficient for most preference learning, and process-level adds value primarily for edge cases or different prediction targets.
+**For the paper:** this is an honest null-adjacent result. Behavioral-context signal exists (permutation proof) but is largely redundant with artifact signal at this scale and target definition. This is itself a publishable finding \— it means artifact-level capture of oversight corrections is sufficient for most preference learning, and behavioral context adds value primarily for edge cases or different prediction targets.
 
 ---
 
-## Appendix D: Experiment 3 Results \— Outcome-Preference Correlation
+## Appendix D: Experiment 3 Results \— Oversight Corrections and Downstream Outcomes
 
 *May 9, 2026 \— two-level analysis of how edit patterns correlate with real downstream outcomes.*
 
@@ -7545,13 +7557,13 @@ Process-level signal is **real and non-random** (permutation p < 0.001), but doe
 | Cosmetic | 52.7% | 383 |
 | Substantive rewrite | 48.7% | 3,692 |
 
-**Counterintuitive finding:** rejection (completely abandoning the LLM output) has the highest positive outcome rate. This suggests the most valuable preference signal is the binary accept/reject decision, not granular edit depth. The founder\\\'s willingness to say "no, start over" is more predictive of good outcomes than careful editing.
+**Key finding:** rejection (completely halting the agentic trajectory) has the highest positive outcome rate. This suggests the most valuable oversight signal is the binary accept/halt decision, not granular edit depth. The overseer\\\'s willingness to say "no, start over" is more predictive of good outcomes than careful correction. This has direct implications for scalable oversight: the single highest-value data point is whether a human stopped the agent.
 
-**Negative correlation of edit distance with outcomes:** smaller edits correlate with better outcomes (r = -0.116). Interpretation: when the LLM output is already close to what the founder needs, the final product tends to succeed. Heavy rewrites may indicate the LLM was on the wrong track.
+**Negative correlation of edit distance with outcomes:** smaller corrections correlate with better outcomes (r = -0.116). Interpretation: when the agent\\\'s output is already close to what the overseer needs, the final product tends to succeed. Heavy rewrites may indicate the agent was on the wrong trajectory.
 
-### Level 2: Overlap Subset (Artifact + Process)
+### Level 2: Overlap Subset (Artifact + Behavioral Context)
 
-807 edits with both process data and outcomes (720 with binary positive/negative label).
+807 edits with both behavioral-context data and outcomes (720 with binary positive/negative label).
 
 Engagement quartile analysis shows Q4 (highest engagement) has visible positive outcome enrichment compared to Q1\–Q3, but the effect is modest. The small sample size (807) limits statistical power for definitive engagement-outcome claims.
 
@@ -7567,33 +7579,33 @@ Hour of day, day of week, and session source all affect outcome rates independen
 
 ### The Three Findings
 
-**Finding 1 (Exp 1): The founder\\\'s edit distribution is extreme.** 80.7% of all edits are substantive rewrites. Median normalized edit distance is 0.84 \— the founder\\\'s default mode is near-total rewrite of LLM output. This distribution will almost certainly differ from crowd workers, who tend toward safe, cosmetic edits. **This is the paper\\\'s strongest result.** The comparison with crowd baseline (Phase B) will quantify exactly how different.
+**Finding 1 (Exp 1): Oversight corrections are qualitatively different from annotation.** 80.7% of all edits are substantive rewrites. Median normalized edit distance is 0.84 \— the overseer\\\'s default mode is near-total rewrite of LLM output. This distribution will almost certainly differ from crowd annotators, who \— operating without production context or domain stakes \— tend toward safe, cosmetic edits. **This is the paper\\\'s strongest result.** The comparison with crowd baseline (Phase B) will quantify exactly how the oversight signal diverges from annotation signal.
 
-**Finding 2 (Exp 2): Process-level features are real but redundant.** Permutation testing confirms process features (keystroke timing, idle gaps, app switching, voice context) carry statistically significant signal (p < 0.001). However, they don\\\'t improve Random Forest prediction of edit class beyond what token counts alone achieve (AUC 0.903 \→ 0.874, actually worse). Process features help linear models (+0.065 AUC) but are captured non-linearly by artifact features in tree-based models. **The process-level axis is a contribution to methodology, not to prediction performance.**
+**Finding 2 (Exp 2): Behavioral context of oversight is methodologically important but computationally redundant.** Permutation testing confirms behavioral-context features (keystroke timing, idle gaps, app switching, voice context) carry statistically significant signal (p < 0.001). However, they don\\\'t improve Random Forest prediction of edit class beyond what token counts alone achieve (AUC 0.903 \→ 0.874, actually worse). Behavioral-context features help linear models (+0.065 AUC) but are captured non-linearly by artifact features in tree-based models. **The behavioral-context axis is a contribution to methodology, not to prediction performance.**
 
-**Finding 3 (Exp 3): Rejection is the strongest preference signal.** Completely rejecting LLM output correlates with 78% positive outcomes \— far higher than substantive rewrites (48.7%) or cosmetic edits (52.7%). Edit distance negatively correlates with outcomes (r = -0.116): the less the founder changes, the better the result. **The most informative signal is binary (accept vs reject), not continuous (edit distance).**
+**Finding 3 (Exp 3): The most valuable oversight action is halt/reject.** Completely rejecting LLM output \— halting the agentic trajectory \— correlates with 78% positive outcomes, far higher than substantive rewrites (48.7%) or cosmetic edits (52.7%). Edit distance negatively correlates with outcomes (r = -0.116): the less the overseer changes, the better the result. **The most informative oversight signal is binary (accept vs halt), not continuous (edit distance).** This finding has direct implications for scalable oversight: the single most valuable data point is whether a human stopped the agent, not the magnitude of the correction.
 
 ### What This Means for DPO Training (Experiment 4)
 
-The original Experiment 4 design had 5 training conditions, with the primary hypothesis being that engagement-weighted preferences (Condition B) would outperform uniform-weighted (Condition A). The data now challenges this:
+The original Experiment 4 design had 5 training conditions, with the primary hypothesis being that behavioral-context-weighted preferences (Condition B) would outperform uniform-weighted (Condition A). The data now challenges this:
 
-**Engagement weighting is unlikely to help.** Experiment 2 showed process features don\\\'t improve prediction. Experiment 3 showed engagement quartiles barely differentiate outcomes. The \α-weighted DPO formula (weight = 1 + \α \× engagement_score) would scale pairs by a signal that is statistically real but practically redundant with artifact features.
+**Behavioral-context weighting is unlikely to help.** Experiment 2 showed behavioral-context features don\\\'t improve prediction. Experiment 3 showed engagement quartiles barely differentiate outcomes. The \α-weighted DPO formula (weight = 1 + \α \× engagement_score) would scale pairs by a signal that is statistically real but practically redundant with artifact features.
 
-**The real value is in the distribution, not the weighting.** The founder\\\'s 80.7% substantive rewrite rate and 3.6% rejection rate create a fundamentally different preference distribution than crowd annotation. Training on this distribution (even with uniform weights) should produce different model behavior than training on crowd preferences.
+**The real value is in the distribution, not the weighting.** The overseer\\\'s 80.7% substantive rewrite rate and 3.6% rejection rate create a fundamentally different preference distribution than crowd annotation. This is precisely the distributional signature of in-the-loop oversight: corrections are applied at the exact granularity where the agentic system fails, under the domain constitution that governs valid output. Training on this distribution (even with uniform weights) should produce different model behavior than training on detached annotation preferences.
 
 ### Revised Experiment 4 Design
 
-**Drop Condition B** (engagement-weighted) from the primary experiment. Reduce from 5 to 3 core conditions:
+**Drop Condition B** (behavioral-context-weighted) from the primary experiment. Reduce from 5 to 3 core conditions:
 
 | Condition | Description | Rationale |
 |-----------|-------------|-----------|
-| **A** | Recursive workflow, uniform-weighted | Our dataset\\\'s distinctive distribution |
-| **C** | Crowd-sourced preferences (matched volume) | Standard baseline |
+| **A** | Oversight-trace, uniform-weighted | The distinctive distribution of corrections from production agentic workflows |
+| **C** | Crowd-sourced preferences (matched volume) | Standard annotation baseline |
 | **D** | Untrained instruct model | No-preference baseline |
 
-**Optional** (if compute allows): Condition E (public RLHF dataset) and Condition B (engagement-weighted) as supplementary.
+**Optional** (if compute allows): Condition E (public RLHF dataset) and Condition B (behavioral-context-weighted) as supplementary.
 
-**Primary metric shifts:** from "B vs A delta" to **"A vs C delta"** \— does the shipping CEO\\\'s distinctive preference distribution improve domain-specific performance compared to crowd-sourced preferences of equal volume?
+**Primary metric shifts:** from "B vs A delta" to **"A vs C delta"** \— does the oversight-trace signal produce better domain-specific models than crowd-sourced annotation preferences of equal volume?
 
 **Compute savings:** 3 conditions \× 16h \× 8 H100 \≈ $5\–7K instead of $8\–12K. This makes the experiment more feasible with initial NVIDIA Inception credits.
 
@@ -7601,25 +7613,25 @@ The original Experiment 4 design had 5 training conditions, with the primary hyp
 
 The paper\\\'s contribution shifts from the original framing:
 
-**Original:** "Process-aware engagement weighting improves RLHF training" (speculative, now empirically unlikely)
+**Original:** "Behavioral-context enrichment improves RLHF training" (speculative, now empirically unlikely)
 
-**Revised:** "Shipping CEO preferences constitute a fundamentally different preference distribution, and this distributional difference \— not engagement weighting \— is what matters for domain-specific RLHF training"
+**Revised:** "Oversight-trace \— the edit signal captured during production agentic workflows under a domain constitution \— constitutes a fundamentally different preference distribution than detached annotation, and this distributional difference is what matters for domain-specific alignment"
 
 This is actually a **stronger** narrative because:
-1. It\\\'s grounded in empirical findings (Experiments 1\–3) rather than speculative
-2. The distributional difference (80.7% substantive rewrites, 78% rejection-positive rate) is dramatic and publishable regardless of DPO results
-3. The process-level null result is itself a contribution: it shows that capturing *what* was changed is more important than *how* it was changed
+1. It is grounded in empirical findings (Experiments 1\–3) rather than speculative
+2. The distributional difference (80.7% substantive rewrites, 78% halt-positive rate) is dramatic and publishable regardless of DPO results
+3. The behavioral-context null result is itself a contribution: it shows that capturing *what* was corrected is more important than *how* the correction was performed
 4. The revised DPO experiment is cheaper, simpler, and more likely to show a clear result
 
 ### Bottom Line: Is DPO Worth Running?
 
 **Yes, but with adjusted expectations.** The experiment is worth $5\–7K because:
-- A vs C (founder distribution vs crowd distribution) is the cleanest test of the paper\\\'s core thesis
-- If A > C on domain tasks, that\\\'s the headline result: shipping CEO preferences produce better models
-- If A = C, that\\\'s also publishable: it means preference distribution doesn\\\'t matter as much as preference volume
-- The process-level null result from Exp 2 strengthens the paper either way \— it shows the methodology is honest
+- A vs C (oversight-trace distribution vs annotation distribution) is the cleanest test of the paper\\\'s core thesis
+- If A > C on domain tasks, that\\\'s the headline result: oversight-trace signal trains better domain models than annotation signal of equal volume
+- If A = C, that\\\'s also publishable: it means the distributional difference between oversight and annotation does not transfer through DPO, a meaningful null result for scalable oversight theory
+- The behavioral-context null result from Exp 2 strengthens the paper either way \— it shows the methodology is honest
 
-**What\\\'s NOT worth running:** the \α-sweep over engagement weights. The data says this lever has near-zero expected impact. Save those GPU hours for sample-efficiency analysis or cross-domain transfer instead.
+**What\\\'s NOT worth running:** the \α-sweep over behavioral-context weights. The data says this lever has near-zero expected impact. Save those GPU hours for sample-efficiency analysis or cross-domain transfer instead.
 
 ---
 

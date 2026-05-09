@@ -31,8 +31,8 @@ export function hasRecentArticles(): boolean {
 export const articles: Article[] = [
   {
     id: 'recursive-workflow-signals-rlhf',
-    title: 'Recursive Workflow Signals as Training Data for RLHF',
-    punchline: 'When founders with skin in the game work compositionally with LLMs on consequential tasks, their natural editing behavior generates preference data qualitatively superior to crowd-sourced annotation. A methodology proposal for capturing this fourth category of RLHF signal.',
+    title: 'Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows',
+    punchline: 'When a practitioner runs an LLM agent across multi-step, consequential workflows, every human edit on a model output is a localized correction — not preference annotation, but in-the-loop oversight captured at the granularity where agentic systems actually fail.',
     category: 'tech',
     tags: ['RLHF', 'LLM', 'Preference Data', 'Recursive Workflow', 'Legal AI', 'Methodology'],
     readTime: '15 min read',
