@@ -42,7 +42,7 @@ export const articles: Article[] = [
 **A Methodology Proposal**
 
 *Vladimir Ovcharov, Founder & CEO, LEX AI LLC*
-*[LinkedIn](https://www.linkedin.com/in/overthelex/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
+*[LinkedIn](https://www.linkedin.com/in/vladimir-ovcharov/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
 *May 2026*
 
 ---
@@ -351,7 +351,7 @@ Timeline assumes initiation after current commitments stabilize (Q3 2026), with 
 
 ---
 
-*Vladimir Ovcharov — [LinkedIn](https://www.linkedin.com/in/overthelex/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
+*Vladimir Ovcharov — [LinkedIn](https://www.linkedin.com/in/vladimir-ovcharov/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
 *LEX AI LLC, Kyiv, Ukraine*
 
 Registration: [legal.org.ua](https://legal.org.ua)`,
