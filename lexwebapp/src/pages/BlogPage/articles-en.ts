@@ -7231,9 +7231,33 @@ Storage: ~38 MB for 21 continuous days. Both databases store \`timestamptz\` in 
 
 For each edit with time window [T1, T2]: query activity in [T1-30s, T2+30s], aggregate process features, classify window sessions by category (code_editing / research / communication / documentation / unrelated).
 
-### 3.4 Outcome Attribution
+### 3.4 Founder Disambiguation Sessions
 
-Automated attribution with confidence levels: **strong** (temporally proximate, causally linkable \— PR merged, no revert in 30d), **medium** (present but confounded), **weak** (causally tenuous).
+Automated activity tracking captures *what* app or window was active, but cannot determine *why*. A YouTube video about Ukrainian court procedure, a YouTube video about astrophysics, and a YouTube video about cooking all look identical in the activity_scores data — same wm_class, similar engagement metrics. Yet their relationship to the subsequent editing session is fundamentally different.
+
+We address this through **periodic founder disambiguation sessions** — structured interviews where the founder reviews ambiguous activity windows from the preceding period and provides ground-truth labels:
+
+**Ambiguous activity categories that require founder input:**
+
+- **On-topic research.** Watching a conference talk about vector databases directly before refactoring the Qdrant indexing pipeline. The automated classifier sees "YouTube in Chrome" — the founder confirms this was task-relevant research.
+- **Cross-topic inspiration.** Watching an astrophysics lecture that triggered an architectural insight about how to structure the semantic search pipeline. The activity tracker sees idle time followed by a burst of substantive rewrites. Without founder input, this looks like "break followed by productive session." With founder input, it becomes evidence that cross-domain intellectual intake influences editing quality — a process-level signal invisible to artifact-level analysis.
+- **Conversational reasoning with Claude.** Using Claude via claude.ai (web) or Claude Code in conversational mode — not producing commits, but reasoning through architectural decisions, exploring trade-offs, or drafting approaches before implementation. The tracker sees "Chrome + active typing" or "terminal + low keystroke rate." The founder clarifies: this was deliberative reasoning that shaped the next 5 commits.
+- **Genuinely unrelated activity.** Social media scrolling, personal messaging, entertainment. The founder confirms these windows contributed nothing to the subsequent workflow. Important for calibration: if we classify everything as "potentially relevant," the process signal becomes noise.
+
+**Implementation:**
+
+Disambiguation sessions happen weekly or after dense work periods. The founder is presented with a timeline of activity windows flagged as ambiguous by the automated classifier (browser sessions without clear code/legal/documentation patterns, idle gaps > 5 minutes followed by high-intensity editing, mic_activity windows without matching communication app). For each flagged window, the founder selects from: *on-topic research / cross-topic inspiration / conversational reasoning / personal break / genuinely unrelated*.
+
+These labels feed back into the \`workflow_edit_engagement\` table as a \`disambiguation_label\` field, enabling:
+- More accurate window_category_seconds computation
+- A new process feature: cross-topic_inspiration_ratio (what fraction of pre-edit time was cross-domain intellectual intake)
+- Validation of the automated classifier\\\'s accuracy (what % of "unrelated" was actually cross-topic inspiration?)
+
+**Why this matters for Experiment 2 specifically:** the current null-adjacent result (process features redundant with artifact features) may partly reflect misclassification of ambiguous windows. If a significant fraction of "idle" or "unrelated" windows are actually cross-topic inspiration that precedes high-quality edits, then correcting these labels could make process features genuinely informative — breaking the redundancy that Experiment 2 found.
+
+### 3.5 Outcome Attribution
+
+Automated attribution with confidence levels: **strong** (temporally proximate, causally linkable — PR merged, no revert in 30d), **medium** (present but confounded), **weak** (causally tenuous).
 
 ---
 
