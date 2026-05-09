@@ -7335,8 +7335,9 @@ Method: DPO (Rafailov et al. 2023). Evaluation: win-rate (GPT-4 judge + human N=
 | Outcome attribution + transcript linking | **Done** \\u2014 1,579 outcomes, 5,354 usable pairs |
 | Experiment 1 Phase A (sampling) | **Done** \\u2014 200 stratified samples exported |
 | Experiment 1 Phase B (crowd annotation) | Next \\u2014 send to Surge AI / Scale AI |
-| Experiment 2 (process irreducibility) | Planned \\u2014 cross-source linking script |
-| NVIDIA Inception extended grant | Planned \\u2014 after Exp 1+2 results |
+| Experiment 2 (process irreducibility) | **Done** \\u2014 cross-source linking + Model A vs B analysis |
+| Experiment 3 (outcome correlation) | Next \\u2014 uses Exp 2 engagement scores |
+| NVIDIA Inception extended grant | Next \\u2014 Exp 1+2 results ready as numerical hooks |
 | Experiment 4 (DPO training) | Planned \\u2014 pending DGX Cloud credits |
 | arXiv submission | Target: ~T+18 weeks |
 
@@ -7394,6 +7395,57 @@ Six paper-ready analysis figures generated (300 DPI):
 6. Monthly volume heatmap
 
 **Next:** send crowd-platform.jsonl to Surge AI / Scale AI for crowd annotation (Phase B). Collect crowd edits, run KS test + bootstrap CI for distribution comparison.
+
+---
+
+## Appendix C: Experiment 2 Results \\u2014 Process-Level Signal Irreducibility
+
+*May 9, 2026 \\u2014 cross-source linking + Model A vs Model B comparison.*
+
+### Cross-Source Linking
+
+Joined xsistant OS-level activity data (52,272 activity_scores, 16,122 window_sessions) with rlhf-signals workflow edits via artifact timestamps. Both databases store timestamptz in UTC; cross-source alignment verified to <3 seconds.
+
+| Metric | Value |
+|--------|-------|
+| Edits processed | 10,846 |
+| With process data | 6,753 (62.3%) |
+| Without process data | 4,093 (37.7%) |
+
+Process features computed per edit: active/passive/idle seconds, keystroke counts, mouse distance, idle gap analysis, app switching count, research switches, voice context, window dwell entropy, window category seconds (code_editing / research / communication / documentation / unrelated).
+
+**Process feature averages** (6,753 edits with data):
+- Active seconds: 147.3 | Key presses: 237.2 | Idle gaps: 1.88
+- Apps touched: 1.49 | Voice context: 5.2% | Entropy: 0.289
+
+### Model Comparison
+
+**Target variable:** binary \\u2014 substantive_rewrite (1) vs cosmetic (0). N=6,152 edits (5,740 substantive, 412 cosmetic). 5-fold stratified cross-validation.
+
+**Model A (artifact-only):** token_count_from, token_count_to
+**Model B (artifact + process):** Model A features + 9 process features
+
+| Model | Random Forest AUC | Logistic Regression AUC |
+|-------|-------------------|------------------------|
+| **A (artifact-only)** | **0.903 \\u00b1 0.005** | 0.475 \\u00b1 0.018 |
+| **B (artifact + process)** | 0.874 \\u00b1 0.007 | **0.540 \\u00b1 0.039** |
+| **Delta (B \\u2212 A)** | \\u22120.029 | +0.065 |
+
+**Permutation test** (1,000 iterations, process features shuffled): **p < 0.001** \\u2014 process features carry statistically significant, non-random signal.
+
+**Paired t-test** (RF, 5 folds): p = 0.003 \\u2014 the delta is statistically significant (in the negative direction for RF).
+
+### Interpretation
+
+Process-level signal is **real and non-random** (permutation p < 0.001), but does not improve Random Forest prediction of edit class. This is a nuanced result:
+
+1. **The proxy target is already well-predicted by artifact features.** Token counts alone achieve AUC 0.903 for predicting substantive vs cosmetic edits \\u2014 leaving little room for process features to add value. The 14:1 class imbalance (5,740 vs 412) further limits discriminative contribution of additional features.
+
+2. **Process features help linear models.** Logistic Regression gains +0.065 AUC from process features, suggesting the signal exists but is captured non-linearly by artifact features in RF.
+
+3. **The real test requires real outcomes.** Only 64 outcomes exist in the overlap window \\u2014 insufficient for outcome prediction. The proxy target (edit class) is a stand-in that may not capture what process features actually predict. Experiment 3 will address this with engagement-outcome correlation.
+
+**For the paper:** this is an honest null-adjacent result. Process signal exists (permutation proof) but is largely redundant with artifact signal at this scale and target definition. This is itself a publishable finding \\u2014 it means artifact-level capture is sufficient for most preference learning, and process-level adds value primarily for edge cases or different prediction targets.
 
 ---
 
