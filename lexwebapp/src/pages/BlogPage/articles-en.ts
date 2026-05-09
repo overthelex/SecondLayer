@@ -7075,7 +7075,7 @@ Registration: [legal.org.ua](https://legal.org.ua)`,
   'recursive-workflow-signals-rlhf': {
     title: 'Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows',
     punchline: 'When a practitioner runs an LLM agent across multi-step, consequential workflows, every human edit on a model output is a localized correction — not preference annotation, but in-the-loop oversight captured at the granularity where agentic systems actually fail. 30,510 edit-traces across 2,892 sessions, validated by a product in production with paying customers. Plus OS-level instrumentation that captures the behavioral context of each oversight action.',
-    readTime: '18 min read',
+    readTime: '22 min read',
     content: `# Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows
 
 **Working Paper — arXiv Preprint Forthcoming**
@@ -7098,9 +7098,23 @@ Existing approaches to RLHF preference collection \— crowd workers, expert ann
 
 **Experiments (1\–3 complete):** Experiment 1 confirmed the practitioner\\\'s extreme edit distribution (80.7% substantive rewrites, crowd comparison sampling done). Experiment 2 showed process-level features are real (permutation p<0.001) but redundant with artifact features for prediction. Experiment 3 revealed rejection is the strongest oversight signal (78% positive outcomes). DPO training (Experiment 4) redesigned: 3 conditions focused on distributional difference (edit-trace oversight vs crowd annotation), not engagement weighting.
 
+The methodology rests on a simple empirical claim: a single practitioner working recursively with an LLM, under product accountability, completes long-horizon work that neither party completes alone. The 1,547 merged PRs across 7 production projects in 105 days, ending in paying customers and institutional acceptance (Google for Startups, NVIDIA Inception), are not a productivity datapoint but evidence of a regime change in what bounded foresight can reach. Edit-traces in this regime are not a workaround for the limits of human oversight \— they are the residue of foresight being pushed to its compounded limit by the structure of the workflow itself. The preference signal extracted from this residue inherits that property: it is dense, outcome-validated, and impossible to obtain through annotation in isolation.
+
 ---
 
 ## 1. The Oversight Gap in Agentic Systems
+
+### 1.0 Framing: Foresight Expansion, Not Foresight Compensation
+
+In the alignment literature, scalable oversight is typically framed as a *defensive* problem: models become too capable or too fast for humans to verify every action, so mechanisms must compensate for the limits of human attention \— debate, recursive reward modeling, AI judges, constitutional methods (Christiano et al. 2017; Bai et al. 2022). This framing implicitly treats the bandwidth of human foresight as a fixed constant, and asks how to route around it.
+
+The empirical regime documented in this paper inverts that assumption. The practitioner\\\'s edit-trace is not a workaround for limited attention \— it is evidence that **recursive workflow expands the horizon of what bounded foresight can reach**. Alone, the practitioner would not have shipped 1,547 PRs across 7 production systems in 105 days \— this is an empirical fact about human throughput. Alone, the LLM agent would not have produced a production platform with 380M+ records, 70+ MCP tools, and paying customers \— this is an empirical fact about autonomous agent reliability at consequential scale. Neither party reaches the outcome independently. The human+LLM composition does.
+
+Critically, this composition does not *dilute* foresight in the hope that AI compensates for the gaps. It **compounds** foresight: at each edit, the practitioner makes a binding decision with real consequences, and each decision shapes the trajectory for every subsequent decision. The longer the chain, the stronger the compounding effect of these micro-corrections. This is the opposite of dilution \— it is **densification**.
+
+This reframing matters because the standard defensive posture leads naturally to the question: "what happens when AI becomes too capable to oversee?" \— and from there to concerns about deceptive alignment, alignment faking, and capability-gap anxiety. These concerns are valid, but they are centered on *capability asymmetry*. The question posed by this work is different: **what can human+LLM bring to outcome together that neither brings alone?** This is not a question about a gap \— it is a question about *complementarity*. And it has an empirical answer: 1,547 PRs, Google for Startups, NVIDIA Inception, paying customers.
+
+Product accountability functions as an epistemological mechanism, not a moral one. A practitioner whose code must ship to production and not fail cannot afford diluted foresight. Skin in the game is not an ethical ideal \— it is a constraint that guarantees human attention concentrates at the correct point in the trajectory. The edit-traces generated under this constraint inherit that concentration. This is why edit-trace oversight produces a qualitatively different preference distribution than detached annotation: the signal is not sampled from attention, it is *forced* by stakes.
 
 ### 1.1 The Structural Problem
 
@@ -7632,6 +7646,16 @@ This is actually a **stronger** narrative because:
 - The behavioral-context null result from Exp 2 strengthens the paper either way \— it shows the methodology is honest
 
 **What\\\'s NOT worth running:** the \α-sweep over behavioral-context weights. The data says this lever has near-zero expected impact. Save those GPU hours for sample-efficiency analysis or cross-domain transfer instead.
+
+### The Third Path: Neither Replacement Nor Constraint
+
+The AGI discourse typically occupies two poles: "AI will replace human workers" and "AI must be aligned so it doesn\\\'t replace humans badly." The empirical material in this paper suggests a third position that neither pole captures.
+
+Under the recursive workflow regime, powerful models do not move toward autonomy \— they move toward **deep composition with a human on increasing horizons**. The bottleneck is not model capability (Claude Code is already highly capable) and not human capacity (the practitioner is already at throughput limits). The bottleneck is the **glue layer** between human foresight and model throughput \— the recursive workflow with its edit-traces, domain constitution, and outcome attribution.
+
+This composition reproducibly produces results that autonomous AGI promises but does not yet deliver: a production-grade platform, built from zero, with institutional validation and paying customers, in a domain (legal AI) where errors have consequences. It produces these results not by replacing the human and not by constraining the model, but by creating a regime where the human\\\'s compounded micro-corrections and the model\\\'s throughput are multiplicative rather than additive.
+
+The edit-trace is the empirical residue of this regime. Formalizing its capture, establishing the domain-constitutional conditions under which it constitutes valid oversight, and demonstrating that the resulting signal differs from detached annotation \— this is the contribution of the present work. The contribution is not "a better dataset" but **a methodology for instrumenting a new mode of human-AI work and extracting the alignment signal it natively produces**.
 
 ---
 
