@@ -59,6 +59,8 @@ jobs:
       - name: Auto-detect changes (HEAD vs HEAD~1)
         id: changes
         uses: ./.github/actions/detect-changes
+        with:
+          baseline: deploy-prod
 
       - name: Resolve final change flags
         id: final
