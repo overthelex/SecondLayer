@@ -14,6 +14,7 @@ import { articles, type Article } from './articles';
 import { enTranslations } from './articles-en';
 import { ruTranslations } from './articles-ru';
 import { ArticleModal } from './ArticleModal';
+import AttractorBanner from '../../components/AttractorBanner';
 
 import { getBlogUI, getLocalizedArticles } from './blog-i18n';
 
@@ -153,16 +154,8 @@ export function BlogPage() {
               onClick={() => navigate(effectiveBlogLang === 'en' ? `/blog/${article.id}` : `/blog/${effectiveBlogLang}/${article.id}`)}
             >
               <div className="relative w-full h-52 sm:h-60 overflow-hidden">
-                <div className={`absolute inset-0 ${article.category === 'tech' ? 'bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-700' : 'bg-gradient-to-br from-claude-accent via-amber-600 to-orange-700'}`} />
-                <img
-                  src={`/blog-banners/${article.id}.png`}
-                  alt={article.title}
-                  width={1200}
-                  height={630}
-                  loading="lazy"
-                  className="relative w-full h-full object-cover object-top"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
+                <AttractorBanner seed={article.id} className="absolute inset-0" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
               </div>
               <div className="p-6 sm:p-8">
               <div className="flex items-start gap-4">
