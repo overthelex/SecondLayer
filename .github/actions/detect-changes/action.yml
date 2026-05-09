@@ -52,15 +52,25 @@ runs:
       id: last_deploy
       shell: bash
       run: |
-        # Find the most recent deploy marker tag (created after each successful prod deploy)
         LAST_SHA=""
-        LAST_TAG=$(git tag -l "deploy-prod-*" --sort=-creatordate | head -1)
+
+        # Priority 1: last successful local CI tag (most granular — one per CI run)
+        LAST_TAG=$(git tag -l "ci-local-*" --sort=-creatordate | head -1)
         if [ -n "$LAST_TAG" ]; then
           LAST_SHA=$(git rev-parse "$LAST_TAG" 2>/dev/null || echo "")
-          echo "Using deploy marker tag: $LAST_TAG ($LAST_SHA)"
+          echo "Using local CI marker tag: $LAST_TAG ($LAST_SHA)"
         fi
 
-        # Fallback: use the most recent release tag (v* or fe-v*)
+        # Priority 2: last successful prod deploy tag
+        if [ -z "$LAST_SHA" ]; then
+          LAST_TAG=$(git tag -l "deploy-prod-*" --sort=-creatordate | head -1)
+          if [ -n "$LAST_TAG" ]; then
+            LAST_SHA=$(git rev-parse "$LAST_TAG" 2>/dev/null || echo "")
+            echo "Using prod deploy marker tag: $LAST_TAG ($LAST_SHA)"
+          fi
+        fi
+
+        # Priority 3: last release tag
         if [ -z "$LAST_SHA" ]; then
           LAST_TAG=$(git tag -l --sort=-creatordate "v*" "fe-v*" | head -1)
           if [ -n "$LAST_TAG" ]; then
@@ -69,7 +79,7 @@ runs:
           fi
         fi
 
-        # Last resort: first parent of HEAD (works correctly for merge commits)
+        # Last resort: first parent of HEAD
         if [ -z "$LAST_SHA" ]; then
           LAST_SHA=$(git rev-parse HEAD~1)
           echo "WARNING: No deploy/release tags found, using HEAD~1 ($LAST_SHA)"
