@@ -9617,7 +9617,7 @@ AWS runners — це не "перехід у хмару заради моди". 
     punchline: 'Кожна нова сесія Claude Code починається з нуля: перечитує файли, накопичує зайвий стейт і втрачає контекст попередніх рішень. На горизонті 6+ тижнів жодне контекстне вікно — навіть 1M токенів — не витримує. Ми проєктуємо тришарову workflow memory layer замість плоских CLAUDE.md дампів.',
     category: 'tech',
     tags: ['AI Architecture', 'Claude Code', 'Workflow Memory', 'RAG', 'Qdrant', 'RLHF', 'Long-Horizon AI'],
-    readTime: '25 хв',
+    readTime: '24 хв',
     publishedAt: '2026-05-09',
     content: `# Workflow Memory Architecture for Long-Horizon Composition
 
