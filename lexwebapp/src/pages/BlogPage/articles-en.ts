@@ -7081,7 +7081,7 @@ Registration: [legal.org.ua](https://legal.org.ua)`,
 **Working Paper — arXiv Preprint Forthcoming**
 
 *Vladimir Ovcharov, Founder & CEO, LEX AI LLC*
-*[LinkedIn](https://www.linkedin.com/in/overthelex/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
+*[LinkedIn](https://www.linkedin.com/in/vladimir-ovcharov/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
 *May 2026*
 
 ---
@@ -7618,7 +7618,7 @@ This is actually a **stronger** narrative because:
 
 ---
 
-*Vladimir Ovcharov — [LinkedIn](https://www.linkedin.com/in/overthelex/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
+*Vladimir Ovcharov — [LinkedIn](https://www.linkedin.com/in/vladimir-ovcharov/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
 *LEX AI LLC, Kyiv, Ukraine*
 
 Registration: [legal.org.ua](https://legal.org.ua)`,
