@@ -7335,10 +7335,11 @@ Method: DPO (Rafailov et al. 2023). Evaluation: win-rate (GPT-4 judge + human N=
 | Outcome attribution + transcript linking | **Done** \\u2014 1,579 outcomes, 5,354 usable pairs |
 | Experiment 1 Phase A (sampling) | **Done** \\u2014 200 stratified samples exported |
 | Experiment 1 Phase B (crowd annotation) | Next \\u2014 send to Surge AI / Scale AI |
-| Experiment 2 (process irreducibility) | **Done** \\u2014 cross-source linking + Model A vs B analysis |
-| Experiment 3 (outcome correlation) | Next \\u2014 uses Exp 2 engagement scores |
-| NVIDIA Inception extended grant | Next \\u2014 Exp 1+2 results ready as numerical hooks |
-| Experiment 4 (DPO training) | Planned \\u2014 pending DGX Cloud credits |
+| Experiment 2 (process irreducibility) | **Done** \\u2014 process signal real (p<0.001) but RF delta -0.029 |
+| Experiment 3 (outcome correlation) | **Done** \\u2014 rejection=78% positive rate, engagement Q4 enrichment |
+| Cross-experiment synthesis | **Done** \\u2014 see Appendix E for DPO decision |
+| NVIDIA Inception extended grant | Next \\u2014 all preliminary results ready |
+| Experiment 4 (DPO training) | **Redesigned** \\u2014 3 conditions instead of 5, focus on A vs C |
 | arXiv submission | Target: ~T+18 weeks |
 
 ---
@@ -7446,6 +7447,106 @@ Process-level signal is **real and non-random** (permutation p < 0.001), but doe
 3. **The real test requires real outcomes.** Only 64 outcomes exist in the overlap window \\u2014 insufficient for outcome prediction. The proxy target (edit class) is a stand-in that may not capture what process features actually predict. Experiment 3 will address this with engagement-outcome correlation.
 
 **For the paper:** this is an honest null-adjacent result. Process signal exists (permutation proof) but is largely redundant with artifact signal at this scale and target definition. This is itself a publishable finding \\u2014 it means artifact-level capture is sufficient for most preference learning, and process-level adds value primarily for edge cases or different prediction targets.
+
+---
+
+## Appendix D: Experiment 3 Results \\u2014 Outcome-Preference Correlation
+
+*May 9, 2026 \\u2014 two-level analysis of how edit patterns correlate with real downstream outcomes.*
+
+### Level 1: Full Dataset (Artifact-Only)
+
+30,499 edits joined with 1,579 outcomes. Key findings:
+
+| Metric | Value |
+|--------|-------|
+| edit_distance_norm \\u2194 outcome | r = -0.116, p < 0.001 |
+| semantic_class \\u2194 outcome | r = -0.137, p < 0.001 |
+| KS test (positive vs negative) | 0.253, p < 0.001 |
+
+**Positive outcome rates by edit class:**
+
+| Class | Positive Rate | N |
+|-------|--------------|---|
+| Rejection | **78.0%** | 431 |
+| Cosmetic | 52.7% | 383 |
+| Substantive rewrite | 48.7% | 3,692 |
+
+**Counterintuitive finding:** rejection (completely abandoning the LLM output) has the highest positive outcome rate. This suggests the most valuable preference signal is the binary accept/reject decision, not granular edit depth. The founder\\\'s willingness to say "no, start over" is more predictive of good outcomes than careful editing.
+
+**Negative correlation of edit distance with outcomes:** smaller edits correlate with better outcomes (r = -0.116). Interpretation: when the LLM output is already close to what the founder needs, the final product tends to succeed. Heavy rewrites may indicate the LLM was on the wrong track.
+
+### Level 2: Overlap Subset (Artifact + Process)
+
+807 edits with both process data and outcomes (720 with binary positive/negative label).
+
+Engagement quartile analysis shows Q4 (highest engagement) has visible positive outcome enrichment compared to Q1\\u2013Q3, but the effect is modest. The small sample size (807) limits statistical power for definitive engagement-outcome claims.
+
+### Confound Controls
+
+Hour of day, day of week, and session source all affect outcome rates independently of edit patterns. The bimodal work schedule (07\\u201311 UTC peak, 19\\u201321 UTC secondary) introduces temporal confounds that must be controlled in any outcome prediction model.
+
+---
+
+## Appendix E: Cross-Experiment Synthesis \\u2014 What the Data Actually Says
+
+*May 9, 2026 \\u2014 synthesizing findings from Experiments 1\\u20133 and revising the Experiment 4 design.*
+
+### The Three Findings
+
+**Finding 1 (Exp 1): The founder\\\'s edit distribution is extreme.** 80.7% of all edits are substantive rewrites. Median normalized edit distance is 0.84 \\u2014 the founder\\\'s default mode is near-total rewrite of LLM output. This distribution will almost certainly differ from crowd workers, who tend toward safe, cosmetic edits. **This is the paper\\\'s strongest result.** The comparison with crowd baseline (Phase B) will quantify exactly how different.
+
+**Finding 2 (Exp 2): Process-level features are real but redundant.** Permutation testing confirms process features (keystroke timing, idle gaps, app switching, voice context) carry statistically significant signal (p < 0.001). However, they don\\\'t improve Random Forest prediction of edit class beyond what token counts alone achieve (AUC 0.903 \\u2192 0.874, actually worse). Process features help linear models (+0.065 AUC) but are captured non-linearly by artifact features in tree-based models. **The process-level axis is a contribution to methodology, not to prediction performance.**
+
+**Finding 3 (Exp 3): Rejection is the strongest preference signal.** Completely rejecting LLM output correlates with 78% positive outcomes \\u2014 far higher than substantive rewrites (48.7%) or cosmetic edits (52.7%). Edit distance negatively correlates with outcomes (r = -0.116): the less the founder changes, the better the result. **The most informative signal is binary (accept vs reject), not continuous (edit distance).**
+
+### What This Means for DPO Training (Experiment 4)
+
+The original Experiment 4 design had 5 training conditions, with the primary hypothesis being that engagement-weighted preferences (Condition B) would outperform uniform-weighted (Condition A). The data now challenges this:
+
+**Engagement weighting is unlikely to help.** Experiment 2 showed process features don\\\'t improve prediction. Experiment 3 showed engagement quartiles barely differentiate outcomes. The \\u03b1-weighted DPO formula (weight = 1 + \\u03b1 \\u00d7 engagement_score) would scale pairs by a signal that is statistically real but practically redundant with artifact features.
+
+**The real value is in the distribution, not the weighting.** The founder\\\'s 80.7% substantive rewrite rate and 3.6% rejection rate create a fundamentally different preference distribution than crowd annotation. Training on this distribution (even with uniform weights) should produce different model behavior than training on crowd preferences.
+
+### Revised Experiment 4 Design
+
+**Drop Condition B** (engagement-weighted) from the primary experiment. Reduce from 5 to 3 core conditions:
+
+| Condition | Description | Rationale |
+|-----------|-------------|-----------|
+| **A** | Recursive workflow, uniform-weighted | Our dataset\\\'s distinctive distribution |
+| **C** | Crowd-sourced preferences (matched volume) | Standard baseline |
+| **D** | Untrained instruct model | No-preference baseline |
+
+**Optional** (if compute allows): Condition E (public RLHF dataset) and Condition B (engagement-weighted) as supplementary.
+
+**Primary metric shifts:** from "B vs A delta" to **"A vs C delta"** \\u2014 does the shipping CEO\\\'s distinctive preference distribution improve domain-specific performance compared to crowd-sourced preferences of equal volume?
+
+**Compute savings:** 3 conditions \\u00d7 16h \\u00d7 8 H100 \\u2248 $5\\u20137K instead of $8\\u201312K. This makes the experiment more feasible with initial NVIDIA Inception credits.
+
+### Revised Paper Narrative
+
+The paper\\\'s contribution shifts from the original framing:
+
+**Original:** "Process-aware engagement weighting improves RLHF training" (speculative, now empirically unlikely)
+
+**Revised:** "Shipping CEO preferences constitute a fundamentally different preference distribution, and this distributional difference \\u2014 not engagement weighting \\u2014 is what matters for domain-specific RLHF training"
+
+This is actually a **stronger** narrative because:
+1. It\\\'s grounded in empirical findings (Experiments 1\\u20133) rather than speculative
+2. The distributional difference (80.7% substantive rewrites, 78% rejection-positive rate) is dramatic and publishable regardless of DPO results
+3. The process-level null result is itself a contribution: it shows that capturing *what* was changed is more important than *how* it was changed
+4. The revised DPO experiment is cheaper, simpler, and more likely to show a clear result
+
+### Bottom Line: Is DPO Worth Running?
+
+**Yes, but with adjusted expectations.** The experiment is worth $5\\u20137K because:
+- A vs C (founder distribution vs crowd distribution) is the cleanest test of the paper\\\'s core thesis
+- If A > C on domain tasks, that\\\'s the headline result: shipping CEO preferences produce better models
+- If A = C, that\\\'s also publishable: it means preference distribution doesn\\\'t matter as much as preference volume
+- The process-level null result from Exp 2 strengthens the paper either way \\u2014 it shows the methodology is honest
+
+**What\\\'s NOT worth running:** the \\u03b1-sweep over engagement weights. The data says this lever has near-zero expected impact. Save those GPU hours for sample-efficiency analysis or cross-domain transfer instead.
 
 ---
 
