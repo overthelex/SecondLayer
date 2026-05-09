@@ -7096,7 +7096,7 @@ Existing sources of RLHF preference data — crowd workers, expert annotators, A
 
 **Pilot dataset:** 2,892 workflow sessions, 30,510 edit pairs, 1,579 attributed outcomes (54.6% coverage, 88.1% strong confidence). Process-level enrichment via synchronized OS activity tracker covers 498 sessions (17.2%) with 9,254 edits.
 
-**Experiments:** 4 progressive experiments — from no-GPU signal quality characterization to flagship engagement-weighted DPO training on NVIDIA DGX Cloud (8\\u00d7H100). Experiment 1 Phase A (stratified sampling of 200 LLM outputs for crowd comparison) is complete.
+**Experiments (1\\u20133 complete):** Experiment 1 confirmed founder\\\'s extreme edit distribution (80.7% substantive rewrites, crowd comparison sampling done). Experiment 2 showed process-level features are real (permutation p<0.001) but redundant with artifact features for prediction. Experiment 3 revealed rejection is the strongest preference signal (78% positive outcomes). DPO training (Experiment 4) redesigned: 3 conditions focused on distributional difference (founder vs crowd), not engagement weighting.
 
 ---
 
@@ -7127,33 +7127,44 @@ Even sophisticated preference capture records only the artifact-level diff (chos
 - **RQ1:** Does artifact-level preference signal from a shipping CEO differ from crowd-sourced on matched LLM outputs?
 - **RQ2:** Does process-level signal contain information not reducible to artifact-level diff?
 - **RQ3:** Do shipping-validated preferences correlate with downstream outcomes more strongly than crowd-sourced?
-- **RQ4:** Does engagement-weighted RLHF training improve domain-specific performance vs uniform-weighted and crowd-sourced baselines?
+- **RQ4:** Does DPO training on shipping CEO\\\'s distinctive preference distribution improve domain-specific performance vs crowd-sourced baselines?
 
 ---
 
-## 2. Defining the Shipping CEO Signal
+## 2. Defining Recursive Use of Claude Code
 
-### Two-Axis Definition
+### Two-Axis Preference Signal
 
-The preference signal consists of two components:
-
-**Artifact-level:** what changed between LLM output and final artifact \\u2014 edit distance, semantic change class, structural changes. This is what existing preference infrastructure captures.
+**Artifact-level:** what changed between LLM output and final artifact \\u2014 edit distance, semantic change class, structural changes.
 
 **Process-level:** how the change happened \\u2014 keystroke timing patterns, idle gaps, app-switching trajectory, voice context. Captured only with OS-level instrumentation running in parallel.
 
-### Subject Criteria
+### Five Conditions for Qualifying Workflow
 
-A subject qualifies as a "shipping CEO source" when **all** hold:
+"Recursive use of Claude Code" describes a specific operational pattern where a single practitioner uses Claude Code as the primary engineering counterpart for sustained production work, satisfying **five conditions simultaneously:**
 
-- Product reached paying customer state or equivalent production validation
-- Product handles real workload (not demo or prototype)
-- Subject has CEO-level accountability
-- Compositional layering: LLM output feeds subsequent interactions
-- Judgment-based gating: subject accepts/edits/rejects each output
-- Real-world outcome attribution: measurable consequences for quality
-- Sustained recursive workflow over 4+ weeks
+**1. Codebase as persistent context.** Claude Code operates against a continuously evolving codebase, not isolated snippets. Each session inherits state from previous sessions through the working directory, git history, file structure, and accumulated documentation. The codebase itself functions as long-term memory shared between human and model.
 
-**What this is NOT:** one-shot LLM use, building without shipping validation, paid-per-rating annotation, research without product accountability.
+**2. Compositional task layering.** Work decomposes into chains where one Claude Code session\\\'s output (committed code, architectural decision, documentation update) becomes context for subsequent sessions. The practitioner maintains persistent computational threads spanning days, weeks, or months.
+
+**3. Pre-defined success criteria with operational feedback loops.** The practitioner establishes definition-of-success parameters before initiating work on any non-trivial task: what observable behavior constitutes completion, what failure modes invalidate the approach, what performance characteristics the artifact must exhibit in production. During and after execution, the practitioner monitors production telemetry (server load, latency, error rates, resource utilization) to inform decisions about whether to scale up, simplify, refactor, or abandon a given direction. Architectural authority is exercised not through abstract judgment but through continuous calibration against observable system behavior.
+
+**4. Practitioner as architect and editor.** Beyond setting success criteria, the practitioner reviews every commit, evaluates architectural proposals against domain constraints, accepts or rejects suggested changes based on information not available to the model (business priorities, regulatory requirements, user feedback, personal stake in outcomes). The practitioner shapes trajectory; Claude Code executes within that trajectory at high throughput.
+
+**5. Outcome-attributable artifacts.** The output is shippable code that runs in production with measurable consequences: feature usage, system reliability, customer adoption, revenue, partnership formation.
+
+### Operationalized by the Case Study
+
+This definition is operationalized by the author\\\'s production work on Legal.org.ua: 1,393 merged PRs across 105 days using Claude Code as primary engineering counterpart, producing a deployed legal AI platform with 380M+ records pipeline, 70+ MCP tools in production, and measurable downstream outcomes including selection by Google for Startups, introduction to Deloitte via GFS, and acceptance into NVIDIA Inception Program.
+
+**Each of these acceptances was achieved through written applications without prior voice conversations, in-person meetings, or warm introductions from accelerator mentor networks.** The applications themselves were drafted using the same recursive Claude Code workflow that produced the underlying product, demonstrating that the workflow generalizes from code production to high-stakes written communication with measurable institutional gatekeepers.
+
+### What This Explicitly Excludes
+
+- One-shot code generation (no codebase persistence, no compositional layering)
+- Automated CI/CD pipelines using Claude Code (no human-in-the-loop architectural judgment)
+- Tutorial or learning use (no production outcome stakes)
+- Pair programming sessions without pre-defined success criteria or observable production feedback (no operational closure of the loop)
 
 ### Edit Taxonomy
 
@@ -7278,18 +7289,22 @@ Two predictive models on the 498-session overlap subset: Model A (artifact-only)
 
 Group by composite engagement score, compare outcome distributions. Control for confounds: session length, surface, time of day (bimodal peaks), prompt length.
 
-### Experiment 4: Engagement-Weighted DPO Training (RQ4) \\u2014 KEY
+### Experiment 4: DPO Training on Shipping CEO Distribution (RQ4) \\u2014 REVISED
 
-The flagship experiment requiring NVIDIA DGX Cloud (8\\u00d7H100, ~$8\\u201312K).
+*Redesigned based on Experiments 1\\u20133 findings (see Appendix E).*
 
-Five training conditions on Llama 3.1 8B or Qwen 2.5 7B (open-weight):
-- **A.** Recursive workflow, uniform-weighted (30,510 pairs)
-- **B.** Recursive workflow, engagement-weighted (\\u03b1 sweep: [0, 0.5, 1.0, 2.0])
-- **C.** Crowd-sourced preferences (matched volume)
-- **D.** Untrained instruct baseline
-- **E.** Anthropic HH-RLHF subset
+The flagship experiment requiring NVIDIA DGX Cloud. **Simplified from 5 to 3 core conditions** after Experiments 2\\u20133 showed engagement weighting is unlikely to improve over uniform weighting.
 
-Method: DPO (Rafailov et al. 2023). Evaluation: win-rate (GPT-4 judge + human N=100), domain accuracy, AlpacaEval 2.0, length-controlled win rate. Primary metric: **B vs A delta**.
+Three training conditions on Llama 3.1 8B or Qwen 2.5 7B (open-weight):
+- **A.** Recursive workflow, uniform-weighted (30,510 pairs) \\u2014 the distinctive founder distribution
+- **C.** Crowd-sourced preferences (matched volume) \\u2014 standard baseline
+- **D.** Untrained instruct model \\u2014 no-preference baseline
+
+Method: DPO (Rafailov et al. 2023). Evaluation: win-rate (GPT-4 judge + human N=100), domain accuracy, AlpacaEval 2.0, length-controlled win rate.
+
+**Primary metric: A vs C delta** \\u2014 does the shipping CEO\\\'s distinctive preference distribution (80.7% substantive rewrites, 78% rejection-positive rate) produce better domain-specific models than crowd-sourced preferences of equal volume?
+
+Estimated cost: $5\\u20137K (down from $8\\u201312K). See Appendix E for full rationale.
 
 ---
 
@@ -7348,11 +7363,11 @@ Method: DPO (Rafailov et al. 2023). Evaluation: win-rate (GPT-4 judge + human N=
 
 | Component | Cost |
 |-----------|------|
-| DPO training (5 conditions \\u00d7 7\\u20138B model) | $8\\u201312K (NVIDIA DGX Cloud) |
+| DPO training (3 conditions \\u00d7 7\\u20138B model) | $5\\u20137K (NVIDIA DGX Cloud) |
 | Evaluation (judge runs, MT-Bench) | $1\\u20132K |
 | Crowd annotation (Surge AI / Scale AI) | $500\\u20131K |
-| **Total (minimal)** | **$10\\u201315K** |
-| Extended (+ ablation, sample efficiency) | $20\\u201335K |
+| **Total (revised)** | **$7\\u201310K** |
+| Extended (+ sample efficiency, cross-domain) | $15\\u201320K |
 
 Target venue: arXiv (cs.LG, cs.CL) \\u2192 NeurIPS Datasets and Benchmarks Track 2027 or ICLR Workshop on RLHF.
 
