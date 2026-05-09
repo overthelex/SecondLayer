@@ -7667,7 +7667,7 @@ Registration: [legal.org.ua](https://legal.org.ua)`,
   'workflow-memory-architecture': {
     title: 'Workflow Memory Architecture: Replacing CLAUDE.md with a Queryable Memory Layer',
     punchline: 'Every new Claude Code session starts cold: re-reads files, accumulates redundant state, and loses prior reasoning context. At the 6+ week horizon, no context window — even 1M tokens — holds up. We design a three-layer workflow memory layer to replace flat CLAUDE.md dumps.',
-    readTime: '25 min',
+    readTime: '28 min',
     content: `# Workflow Memory Architecture for Long-Horizon Composition
 
 *Vladimir Ovcharov, Founder & CEO, LEX AI LLC*
@@ -7776,10 +7776,49 @@ Every memory query is logged. After the session closes, a reconciliation job det
 
 A push-based, schedule-driven orchestrator that watches Plane tasks tagged \`LONG-TERM\` and refreshes memory entries proportional to their activity. Runs as a separate Docker container with a Bedrock summarization pipeline producing executive summaries, tool lineage deltas, and open questions.
 
+### 4.9 Prompt-Commit Bridge (Phase 0 — Live)
+
+Before building the full infrastructure (Phases 1.0–1.5), we deployed a minimal data collector for the practitioner layer — the **prompt-commit bridge**.
+
+**What it is:** A \`UserPromptSubmit\` hook in Claude Code that creates an orphan commit in a bare git repository via \`git commit-tree\` on every prompt. No external services, no databases — just git objects in \`~/.claude/prompt-corpus.git\`, synced to a private GitHub repository.
+
+**What it captures:** Each record is a JSON blob with structured metadata:
+
+\`\`\`json
+{
+  "timestamp": "2026-05-09T19:57:55+03:00",
+  "prompt": "find all Supreme Court decisions on contract invalidation for 2025",
+  "prompt_length": 88,
+  "session_id": "a1b2c3...",
+  "repo": "SecondLayer",
+  "branch": "main",
+  "cwd": "/home/user/SecondLayer",
+  "permission_mode": "default"
+}
+\`\`\`
+
+**How it works:**
+
+1. **Capture** — hook reads JSON from stdin, filters short prompts (<5 chars), collects metadata (branch, repo, permission mode)
+2. **Storage** — \`git hash-object\` → \`git mktree\` → \`git commit-tree\` with parent chain. Orphan commits don\\'t pollute any branch
+3. **Sync** — auto-push to GitHub every 10 captures (background, non-blocking)
+4. **Query** — CLI tool for analysis: stats, search, JSONL export, grouping by repo/session
+
+**Performance:** 15ms per capture — imperceptible at the 5-second hook timeout.
+
+**Why now:** The article describes the practitioner layer as something to be built in Phase 1.2 (weeks 5–6). But collecting a raw prompt corpus is a **prerequisite** that requires none of the Phase 1.0–1.5 infrastructure. Over 4–6 weeks of passive collection, this yields:
+
+- **Natural text corpus** for disambiguation labels — without weekly manual annotation sessions
+- **Founder-specific operational patterns** — topic frequency distribution, cross-project switching, prompt length as a complexity proxy
+- **Standardized collection protocol** — scalable to a multi-founder cohort in Phase 2 and citable in the arXiv paper
+
+The bridge deliberately separates capture (fast, local, private) from analysis (separate step, after corpus accumulation). This is the same logic as Section 3.1 of the RLHF paper on implicit signal capture — except instead of edit-traces, we collect prompt-traces.
+
 ---
 
 ## 5. Phasing
 
+- **Phase 0** (week 0 — deployed): Prompt-Commit Bridge — hook, bare git repo, GitHub sync, CLI query tool ✅
 - **Phase 1.0** (weeks 1–2): Foundation — schema, Qdrant collections, basic ingestion
 - **Phase 1.1** (weeks 3–4): Constitution registry + ADR backfill
 - **Phase 1.2** (weeks 5–6): Practitioner layer bootstrap
