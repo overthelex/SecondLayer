@@ -370,47 +370,32 @@ async def create_pool() -> asyncpg.Pool:
 
 
 async def get_missing_batch(pool: asyncpg.Pool, year: int, limit: int, after_doc_id: int = 0) -> tuple[list[tuple], int]:
-    """Fetch a batch of doc_ids missing fulltext using two lightweight queries
-    instead of a single heavy anti-join.
+    """Fetch a batch of doc_ids missing fulltext via direct anti-join.
+    Skips straight to missing docs without scanning filled ones.
     Returns (list of (doc_id, adj_year, url), last_doc_id_checked)."""
 
-    # Step 1: Get candidate doc_ids (fast — uses date index + PK order)
-    # Fetch more than limit because some will already have fulltext
-    fetch_size = limit * 3
-    candidates_sql = """
+    sql = """
         SELECT d.doc_id, extract(year from d.adjudication_date)::int, d.doc_url
         FROM edrsr_documents d
         WHERE d.adjudication_date >= $1
           AND d.adjudication_date < $2
           AND d.doc_url IS NOT NULL AND d.doc_url != ''
           AND d.doc_id > $3
+          AND NOT EXISTS (SELECT 1 FROM edrsr_fulltext f WHERE f.doc_id = d.doc_id)
+          AND NOT EXISTS (SELECT 1 FROM edrsr_fulltext_failed ff WHERE ff.doc_id = d.doc_id)
         ORDER BY d.doc_id
         LIMIT $4
     """
     rows = await pool.fetch(
-        candidates_sql, date(year, 1, 1), date(year + 1, 1, 1), after_doc_id, fetch_size
+        sql, date(year, 1, 1), date(year + 1, 1, 1), after_doc_id, limit
     )
     if not rows:
         return [], after_doc_id
 
-    candidates = [(r[0], r[1], r[2]) for r in rows]
-    last_doc_id = candidates[-1][0]
+    missing = [(r[0], r[1], r[2]) for r in rows]
+    last_doc_id = missing[-1][0]
 
-    # Step 2: Check which doc_ids already have fulltext or are known-failed (fast — PK lookup)
-    doc_ids = [c[0] for c in candidates]
-    existing_sql = "SELECT doc_id FROM edrsr_fulltext WHERE doc_id = ANY($1::bigint[])"
-    failed_sql = "SELECT doc_id FROM edrsr_fulltext_failed WHERE doc_id = ANY($1::bigint[])"
-    existing_rows = await pool.fetch(existing_sql, doc_ids)
-    try:
-        failed_rows = await pool.fetch(failed_sql, doc_ids)
-    except asyncpg.UndefinedTableError:
-        failed_rows = []
-    exclude_set = {r[0] for r in existing_rows} | {r[0] for r in failed_rows}
-
-    # Filter to only missing ones
-    missing = [(d, y, u) for d, y, u in candidates if d not in exclude_set]
-
-    return missing[:limit], last_doc_id
+    return missing, last_doc_id
 
 
 async def insert_batch(pool: asyncpg.Pool, rows: list[tuple]) -> int:
