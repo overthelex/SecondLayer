@@ -506,3 +506,15 @@ jobs:
           fi
 
           if [ "$FAILED" = "true" ]; then exit 1; fi
+
+      - name: Tag successful CI run
+        run: |
+          TAG="ci-local-$(date +%Y%m%d-%H%M%S)"
+          git tag "$TAG" "${{ github.sha }}"
+          git push origin "$TAG"
+
+          # Keep only the 10 most recent ci-local tags to avoid clutter
+          git tag -l "ci-local-*" --sort=-creatordate | tail -n +11 | while read -r old_tag; do
+            git push origin ":refs/tags/$old_tag" 2>/dev/null || true
+            git tag -d "$old_tag" 2>/dev/null || true
+          done
