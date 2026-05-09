@@ -7090,7 +7090,7 @@ Registration: [legal.org.ua](https://legal.org.ua)`,
 
 Existing sources of RLHF preference data — crowd workers, expert annotators, AI raters — all operate detached from real product construction. They evaluate LLM outputs in abstract annotation contexts, without feedback from reality. We propose a fundamentally different source: a CEO/founder who built a production LLM product from zero to paying customers. Their preferences during the shipping period are validated by a product running in production — converting preference signal from subjective rating into **outcome-validated revealed preference**.
 
-**Subject:** CEO of Legal.org.ua / LEX AI. Shipping period: 105 days (Jan 24 – May 8, 2026), 1,393 merged PRs, 70+ MCP tools in production, 380M+ records in the data pipeline. Validated outcomes: Google for Startups acceptance, NVIDIA Inception approval, paying customers.
+**Subject:** CEO of Legal.org.ua / LEX AI. Shipping period: 105 days (Jan 24 \\u2013 May 8, 2026), **1,547 merged PRs across 7 interconnected projects** (core platform + due diligence + lead automation + scheduling + OSINT + activity tracking + email MCP), 70+ MCP tools in production, 380M+ records in the data pipeline. All built by one founder with zero employees. Validated outcomes: Google for Startups acceptance, NVIDIA Inception approval, paying customers.
 
 **Two-axis preference signal:** (1) artifact-level — what changed (30,510 edits, 80.7% substantive rewrites, median edit distance 0.84); (2) process-level — how it changed (OS-level activity tracking: keystroke timing, idle gaps, cross-app research, voice context). No existing preference dataset captures both.
 
@@ -7155,7 +7155,7 @@ Even sophisticated preference capture records only the artifact-level diff (chos
 
 ### Operationalized by the Case Study
 
-This definition is operationalized by the author\\\'s production work on Legal.org.ua: 1,393 merged PRs across 105 days using Claude Code as primary engineering counterpart, producing a deployed legal AI platform with 380M+ records pipeline, 70+ MCP tools in production, and measurable downstream outcomes including selection by Google for Startups, introduction to Deloitte via GFS, and acceptance into NVIDIA Inception Program.
+This definition is operationalized by the author\\\'s production work: **1,547 merged PRs across 7 interconnected projects over 105 days** using Claude Code as primary engineering counterpart. The core platform (Legal.org.ua, 1,393 PRs) produces a deployed legal AI platform with 380M+ records pipeline and 70+ MCP tools. Satellite projects (154 PRs) cover due diligence intelligence (SneakyPiper, 73 PRs), LinkedIn lead automation (aipromo, 39 PRs), meeting scheduling (Calendary, 27 PRs), OSINT aggregation (Panoptic, 10 PRs), and OS-level activity tracking (XSISTANT, 5 PRs). Measurable downstream outcomes include selection by Google for Startups, introduction to Deloitte via GFS, and acceptance into NVIDIA Inception Program.
 
 **Each of these acceptances was achieved through written applications without prior voice conversations, in-person meetings, or warm introductions from accelerator mentor networks.** The applications themselves were drafted using the same recursive Claude Code workflow that produced the underlying product, demonstrating that the workflow generalizes from code production to high-stakes written communication with measurable institutional gatekeepers.
 
@@ -7184,7 +7184,26 @@ Three retro-extractors feed the \`rlhf-signals/\` module:
 
 Schema: \`workflow_sessions\` \\u2192 \`workflow_artifacts\` \\u2192 \`workflow_edits\` \\u2192 \`workflow_outcomes\`.
 
-**GitHub PR velocity:** 1,393 merged PRs over 105 days (87 active). Peak: March 790 PRs (25.5/day). Median time-to-merge: 30 seconds (77.8% under 5 min) \\u2014 solo-founder auto-merge pattern. PR timestamps do NOT reflect editing time; real duration reconstructed from OS-level activity.
+**GitHub PR velocity (core platform):** 1,393 merged PRs over 105 days (87 active). Peak: March 790 PRs (25.5/day). Median time-to-merge: 30 seconds (77.8% under 5 min) \\u2014 solo-founder auto-merge pattern. PR timestamps do NOT reflect editing time; real duration reconstructed from OS-level activity.
+
+### 3.1.1 Satellite Projects: The Recursive Workflow Ecosystem
+
+The core platform (SecondLayer) does not exist in isolation. The same recursive Claude Code workflow produced six satellite projects, all built by the same sole founder during the same shipping period. These projects serve specific operational functions in the LEX AI business pipeline:
+
+| Project | PRs | Period | Purpose |
+|---------|-----|--------|---------|
+| **SecondLayer** | 1,393 | Jan 24 \\u2013 May 8 (105d) | Core legal AI platform (70+ MCP tools, 380M+ records) |
+| **SneakyPiper** | 73 | Apr 14 \\u2013 Apr 30 (17d) | Due diligence intelligence platform (90+ external data sources, sanctions, OSINT, corporate registries). Consumes SecondLayer API as legal data backbone. |
+| **aipromo** | 39 | Apr 5 \\u2013 May 3 (29d) | LinkedIn lead automation \\u2014 AI-powered response generation (Claude via AWS Bedrock) + Unipile API for messaging. Manages inbound lead communication at scale. |
+| **Calendary** | 27 | Apr 13 \\u2013 14 (2d) | Self-hosted scheduling platform (Calendly alternative). Built in 2 days. Handles meeting booking with leads generated via aipromo. |
+| **Panoptic** | 10 | Apr 7 \\u2013 16 (10d) | Credential leak and threat intelligence aggregation. Enriches due diligence workflows in SneakyPiper. |
+| **XSISTANT** | 5 | Apr 18 (1d) | OS-level activity tracker for this paper\\\'s process-level instrumentation. Built in one day, runs as systemd daemon. |
+| **mcptb** | \\u2014 | \\u2014 | Thunderbird MCP server for email management via Claude Code. Open source, MIT licensed. |
+| **Total** | **1,547** | **105 days** | **7 projects, 1 founder, 0 employees** |
+
+**Why this matters for the paper:** the recursive workflow is not confined to a single codebase. The founder uses the same Claude Code pattern to build an interconnected business infrastructure: legal AI platform \\u2192 due diligence layer \\u2192 lead generation \\u2192 meeting scheduling \\u2192 activity tracking for research. Each project\\\'s preference signals come from the same practitioner under the same outcome accountability, but across different domains (legal tech, OSINT, marketing automation, scheduling, systems programming). This cross-domain breadth strengthens the case that recursive workflow preferences capture generalizable quality signal, not domain-specific taste.
+
+**Operational pipeline:** LinkedIn leads (aipromo) \\u2192 meeting scheduling (Calendary) \\u2192 due diligence (SneakyPiper + SecondLayer API) \\u2192 client onboarding (SecondLayer platform). All built and shipped by one person using Claude Code.
 
 ### 3.2 OS-Level Activity Instrumentation
 
