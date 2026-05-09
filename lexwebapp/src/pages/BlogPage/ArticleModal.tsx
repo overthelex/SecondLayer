@@ -122,7 +122,15 @@ export function ArticleModal({ article, onClose }: ArticleModalProps) {
         {/* Banner */}
         <div className="relative w-full h-60 sm:h-76 overflow-hidden">
           <AttractorBanner seed={article.id} className="absolute inset-0" animate />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10 pointer-events-none" />
+          <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-8 pointer-events-none">
+            <p className="text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase text-emerald-400 font-mono mb-2">
+              {article.tags.slice(0, 3).join(' / ')}
+            </p>
+            <h3 className="text-xl sm:text-3xl font-bold text-white font-mono leading-tight">
+              {article.title.split(':')[0]}
+            </h3>
+          </div>
         </div>
 
         {/* Modal content */}

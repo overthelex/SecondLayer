@@ -155,7 +155,15 @@ export function BlogPage() {
             >
               <div className="relative w-full h-52 sm:h-60 overflow-hidden">
                 <AttractorBanner seed={article.id} className="absolute inset-0" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10 pointer-events-none" />
+                <div className="absolute inset-0 flex flex-col justify-end p-5 sm:p-7 pointer-events-none">
+                  <p className="text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase text-emerald-400 font-mono mb-2">
+                    {article.tags.slice(0, 3).join(' / ')}
+                  </p>
+                  <h3 className="text-lg sm:text-2xl font-bold text-white font-mono leading-tight line-clamp-2">
+                    {article.title.split(':')[0]}
+                  </h3>
+                </div>
               </div>
               <div className="p-6 sm:p-8">
               <div className="flex items-start gap-4">
