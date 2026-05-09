@@ -7846,4 +7846,128 @@ The bridge deliberately separates capture (fast, local, private) from analysis (
 
 Registration: [legal.org.ua](https://legal.org.ua)`,
   },
+  'tokenizer-fertility-zero-shot-ukrainian-legal': {
+    title: 'Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text',
+    punchline: 'We compared 7 foundation models from 5 providers on 300 court decisions from EDRSR: Llama tokenizers produce 60% fewer tokens than Qwen, few-shot prompting degrades results for 5 of 7 models, and model size is a poor predictor of quality on Ukrainian text. Nemotron Super 3 (120B) beats Mistral Large 3 (675B) on all tasks at one-third the cost.',
+    readTime: '20 min read',
+    content: `# Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text: A Comparative Study
+
+*Volodymyr Ovcharov*
+*LEX AI Platform, legal.org.ua*
+*Kyiv, Ukraine*
+*May 2026*
+
+---
+
+## Abstract
+
+We evaluate seven foundation models from five providers on Ukrainian legal text, measuring tokenizer fertility and downstream zero-shot performance on three tasks: case type classification (4-class), case outcome classification (5-class), and legal norm extraction (F1). Our evaluation corpus comprises 300 court decisions from Ukraine's Unified State Register of Court Decisions (EDRSR), stratified across four jurisdictional categories. We find that tokenizer fertility on Ukrainian text varies by a factor of 1.6x across models, with Llama 4 Maverick achieving the most efficient tokenization (2.43 tokens/word) and Qwen 3 the least efficient (3.90 tokens/word). This fertility gap translates directly into cost: Qwen 3 models consume 60% more tokens per document than Llama-family models for identical input. On downstream tasks, we observe that model size is a poor predictor of Ukrainian-language performance — Nemotron Super 3 (120B) matches or exceeds Mistral Large 3 (675B) on all tasks at one-third the cost. Most strikingly, few-shot prompting degrades performance for 5 of 7 models on case outcome classification, with Qwen 3 235B dropping 27.3 percentage points from zero-shot to few-shot.
+
+**Keywords:** tokenizer fertility, Ukrainian NLP, legal text classification, multilingual LLM evaluation, foundation models, AWS Bedrock
+
+---
+
+## 1. Introduction
+
+The rapid proliferation of large language models (LLMs) has created an implicit hierarchy among the world's languages. English, as the dominant language in pre-training corpora, benefits from well-optimized tokenizers, extensive benchmarks, and thorough evaluation. Languages with Cyrillic scripts, complex morphology, and smaller digital footprints — such as Ukrainian — face a compounding disadvantage: their words are split into more subword tokens, resulting in higher inference costs, shorter effective context windows, and potentially degraded performance.
+
+This disparity is not merely academic. For practitioners building legal technology platforms that must process tens of thousands of court decisions daily, the choice of foundation model has direct consequences for operational cost, latency, and accuracy. A model that tokenizes Ukrainian text into 60% more tokens than an alternative is, effectively, 60% more expensive per document — before any consideration of output quality.
+
+Our contributions:
+
+1. We measure **tokenizer fertility** for seven models on authentic Ukrainian legal documents, revealing a 1.6x spread between the most and least efficient tokenizers.
+2. We evaluate **zero-shot and few-shot performance** on three legal NLP tasks, finding that model size is a poor predictor of performance on Ukrainian text.
+3. We document a **counterintuitive few-shot degradation effect** for the majority of models tested.
+4. We provide a **cost-performance analysis** across all models via AWS Bedrock.
+
+---
+
+## 3. Methodology
+
+### 3.1 Evaluation Dataset
+
+300 court decisions from the Unified State Register of Court Decisions (EDRSR), stratified by jurisdictional category: Civil, Criminal, Commercial, Administrative — 75 decisions each. All documents are authentic court decisions in Ukrainian.
+
+### 3.2 Models
+
+| Model | Provider | Architecture | Region |
+|-------|----------|-------------|--------|
+| Llama 4 Maverick | Meta | 17B active, 128-expert MoE | us-east-1 |
+| Llama 3.3 70B | Meta | 70B dense | us-east-1 |
+| Mistral Large 3 | Mistral AI | 675B (MoE) | us-east-1 |
+| Nemotron Super 3 | NVIDIA | 120B | eu-central-1 |
+| Amazon Nova Pro | Amazon | Undisclosed | eu-central-1 |
+| Qwen3 235B | Qwen | A22B active, MoE | eu-central-1 |
+| Qwen3 32B | Qwen | 32B dense | eu-central-1 |
+
+### 3.3 Tasks
+
+1. **Case Type Classification (4-class)** — classify into civil, criminal, commercial, or administrative.
+2. **Case Outcome Classification (5-class)** — granted, denied, left without consideration, partially granted, or closed.
+3. **Legal Norm Extraction (F1)** — extract all legal norms (law + article pairs) as structured JSON.
+
+---
+
+## 4. Results
+
+### 4.1 Tokenizer Fertility
+
+| Model | Fertility (lower is better) | Chars/Token | Std |
+|-------|----------|------------|-----|
+| Llama 4 Maverick | 2.434 | 3.090 | 0.398 |
+| Llama 3.3 70B | 2.652 | 2.840 | 0.452 |
+| Mistral Large 3 | 3.057 | 2.452 | 0.444 |
+| Nemotron Super 3 | 3.082 | 2.433 | 0.453 |
+| Nova Pro | 3.605 | 2.069 | 0.419 |
+| Qwen3 235B | 3.894 | 1.917 | 0.467 |
+| Qwen3 32B | 3.902 | 1.913 | 0.469 |
+
+Llama-family tokenizers are the most efficient on Ukrainian text (2.43-2.65 tokens/word). Qwen tokenizers are the least efficient (3.90 tokens/word) — 60.3% higher than Llama 4 Maverick. This gap directly translates to cost: ~1,468 additional tokens per 1,000-word document.
+
+### 4.2 Composite Ranking
+
+| Model | Type Acc% | Outc. Acc% | Norm F1 | Comp. Score | Cost (USD) |
+|-------|----------|-----------|---------|------------|-----------|
+| Nemotron Super 3 | 99.0 | 81.3 | 0.560 | 78.8 | $3.61 |
+| Nova Pro | 98.0 | 77.3 | 0.590 | 78.1 | $4.98 |
+| Llama 3.3 70B | 94.7 | 72.3 | 0.617 | 76.2 | $3.00 |
+| Mistral Large 3 | 96.0 | 75.7 | 0.576 | 76.8 | $10.99 |
+| Qwen3 235B | 97.7 | 79.0 | 0.479 | 74.8 | $5.37 |
+| Llama 4 Maverick | 99.0 | 76.0 | 0.496 | 74.2 | $0.81 |
+| Qwen3 32B | 95.7 | 70.0 | 0.531 | 72.6 | $2.64 |
+
+Total experiment cost across all 7 models: **$31.41**.
+
+### 4.3 The Few-Shot Degradation Effect
+
+| Model | Case Type | Case Outc. | Norm Ext. |
+|-------|-----------|-----------|-----------|
+| Llama 4 Maverick | -7.0 | +5.7 | -0.9 |
+| Nemotron Super 3 | -4.0 | -15.7 | +0.3 |
+| Qwen3 235B | +1.0 | -27.3 | -0.2 |
+| Nova Pro | -5.3 | -0.7 | -0.4 |
+| Mistral Large 3 | -0.7 | -5.7 | -0.2 |
+| Llama 3.3 70B | +1.7 | -8.3 | +0.2 |
+| Qwen3 32B | \\u00b10.0 | +3.0 | -0.2 |
+
+14 of 21 model-task combinations show degradation under few-shot prompting. The effect is particularly severe for case outcome classification (5 of 7 models worse with examples).
+
+---
+
+## 5. Key Findings
+
+1. **Start with tokenizer analysis.** A 1.6x fertility difference compounds across every inference call.
+2. **Default to zero-shot evaluation.** For morphologically rich languages, validate few-shot against zero-shot per model and per task.
+3. **Ignore parameter counts.** A 120B model outperformed a 675B model on all tasks.
+4. **Consider multi-model architectures.** Routing easy classification to Maverick ($0.00045/call) and complex extraction to Llama 3.3 ($0.00167/call) optimizes both cost and quality.
+
+---
+
+**Data and code availability.** The evaluation code and aggregated results are available at https://github.com/overthelex/rlhf-signals.
+
+*Volodymyr Ovcharov — [LinkedIn](https://www.linkedin.com/in/vladimir-ovcharov/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
+*LEX AI LLC, Kyiv, Ukraine*
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
 };
