@@ -7090,13 +7090,13 @@ Registration: [legal.org.ua](https://legal.org.ua)`,
 
 Existing sources of RLHF preference data — crowd workers, expert annotators, AI raters — all operate detached from real product construction. They evaluate LLM outputs in abstract annotation contexts, without feedback from reality. We propose a fundamentally different source: a CEO/founder who built a production LLM product from zero to paying customers. Their preferences during the shipping period are validated by a product running in production — converting preference signal from subjective rating into **outcome-validated revealed preference**.
 
-**Subject:** CEO of Legal.org.ua / LEX AI. Shipping period: 105 days (Jan 24 \\u2013 May 8, 2026), **1,547 merged PRs across 7 interconnected projects** (core platform + due diligence + lead automation + scheduling + OSINT + activity tracking + email MCP), 70+ MCP tools in production, 380M+ records in the data pipeline. All built by one founder with zero employees. Validated outcomes: Google for Startups acceptance, NVIDIA Inception approval, paying customers.
+**Subject:** CEO of Legal.org.ua / LEX AI. Shipping period: 105 days (Jan 24 \– May 8, 2026), **1,547 merged PRs across 7 interconnected projects** (core platform + due diligence + lead automation + scheduling + OSINT + activity tracking + email MCP), 70+ MCP tools in production, 380M+ records in the data pipeline. All built by one founder with zero employees. Validated outcomes: Google for Startups acceptance, NVIDIA Inception approval, paying customers.
 
 **Two-axis preference signal:** (1) artifact-level — what changed (30,510 edits, 80.7% substantive rewrites, median edit distance 0.84); (2) process-level — how it changed (OS-level activity tracking: keystroke timing, idle gaps, cross-app research, voice context). No existing preference dataset captures both.
 
 **Pilot dataset:** 2,892 workflow sessions, 30,510 edit pairs, 1,579 attributed outcomes (54.6% coverage, 88.1% strong confidence). Process-level enrichment via synchronized OS activity tracker covers 498 sessions (17.2%) with 9,254 edits.
 
-**Experiments (1\\u20133 complete):** Experiment 1 confirmed founder\\\'s extreme edit distribution (80.7% substantive rewrites, crowd comparison sampling done). Experiment 2 showed process-level features are real (permutation p<0.001) but redundant with artifact features for prediction. Experiment 3 revealed rejection is the strongest preference signal (78% positive outcomes). DPO training (Experiment 4) redesigned: 3 conditions focused on distributional difference (founder vs crowd), not engagement weighting.
+**Experiments (1\–3 complete):** Experiment 1 confirmed founder\\\'s extreme edit distribution (80.7% substantive rewrites, crowd comparison sampling done). Experiment 2 showed process-level features are real (permutation p<0.001) but redundant with artifact features for prediction. Experiment 3 revealed rejection is the strongest preference signal (78% positive outcomes). DPO training (Experiment 4) redesigned: 3 conditions focused on distributional difference (founder vs crowd), not engagement weighting.
 
 ---
 
@@ -7114,13 +7114,13 @@ This subject\\\'s preferences have already passed shipping validation: every acc
 
 Two methodological innovations distinguish this from "expert annotation":
 
-**Outcome-validated revealed preference.** The subject makes binding decisions with real consequences. Accepted Claude Code suggestion \\u2192 ships \\u2192 passes/fails in production. This is revealed preference + ground truth.
+**Outcome-validated revealed preference.** The subject makes binding decisions with real consequences. Accepted Claude Code suggestion \→ ships \→ passes/fails in production. This is revealed preference + ground truth.
 
-**Recursive composition under product accountability.** The subject builds compositional pipelines (Query Planner \\u2192 Semantic Sectionizer \\u2192 Hallucination Guard \\u2192 Citation Validator), where every preference decision affects the rest. Qualitatively more informative than isolated rating.
+**Recursive composition under product accountability.** The subject builds compositional pipelines (Query Planner \→ Semantic Sectionizer \→ Hallucination Guard \→ Citation Validator), where every preference decision affects the rest. Qualitatively more informative than isolated rating.
 
 ### 1.3 Process-Level Signal
 
-Even sophisticated preference capture records only the artifact-level diff (chosen vs rejected). The cognitive process behind the diff \\u2014 time invested, external research, voice calls, window switches \\u2014 is lost. We capture this dimension through synchronized OS-level activity tracking, and show that process-level signal contains information not reducible to artifact diff.
+Even sophisticated preference capture records only the artifact-level diff (chosen vs rejected). The cognitive process behind the diff \— time invested, external research, voice calls, window switches \— is lost. We capture this dimension through synchronized OS-level activity tracking, and show that process-level signal contains information not reducible to artifact diff.
 
 ### 1.4 Research Questions
 
@@ -7135,9 +7135,9 @@ Even sophisticated preference capture records only the artifact-level diff (chos
 
 ### Two-Axis Preference Signal
 
-**Artifact-level:** what changed between LLM output and final artifact \\u2014 edit distance, semantic change class, structural changes.
+**Artifact-level:** what changed between LLM output and final artifact \— edit distance, semantic change class, structural changes.
 
-**Process-level:** how the change happened \\u2014 keystroke timing patterns, idle gaps, app-switching trajectory, voice context. Captured only with OS-level instrumentation running in parallel.
+**Process-level:** how the change happened \— keystroke timing patterns, idle gaps, app-switching trajectory, voice context. Captured only with OS-level instrumentation running in parallel.
 
 ### Five Conditions for Qualifying Workflow
 
@@ -7178,13 +7178,13 @@ Six semantic change classes: cosmetic / reorganization / factual_correction / to
 
 Three retro-extractors feed the \`rlhf-signals/\` module:
 
-- **GitHub PRs** (GraphQL API) \\u2014 commits, diffs, review comments, merge status
-- **Plane issues** (REST API) \\u2014 state transitions, comment threads, domain problem refinement
-- **Claude Code transcripts** (local JSONL) \\u2014 richest source, avg 26.8 artifacts/session
+- **GitHub PRs** (GraphQL API) \— commits, diffs, review comments, merge status
+- **Plane issues** (REST API) \— state transitions, comment threads, domain problem refinement
+- **Claude Code transcripts** (local JSONL) \— richest source, avg 26.8 artifacts/session
 
-Schema: \`workflow_sessions\` \\u2192 \`workflow_artifacts\` \\u2192 \`workflow_edits\` \\u2192 \`workflow_outcomes\`.
+Schema: \`workflow_sessions\` \→ \`workflow_artifacts\` \→ \`workflow_edits\` \→ \`workflow_outcomes\`.
 
-**GitHub PR velocity (core platform):** 1,393 merged PRs over 105 days (87 active). Peak: March 790 PRs (25.5/day). Median time-to-merge: 30 seconds (77.8% under 5 min) \\u2014 solo-founder auto-merge pattern. PR timestamps do NOT reflect editing time; real duration reconstructed from OS-level activity.
+**GitHub PR velocity (core platform):** 1,393 merged PRs over 105 days (87 active). Peak: March 790 PRs (25.5/day). Median time-to-merge: 30 seconds (77.8% under 5 min) \— solo-founder auto-merge pattern. PR timestamps do NOT reflect editing time; real duration reconstructed from OS-level activity.
 
 ### 3.1.1 Satellite Projects: The Recursive Workflow Ecosystem
 
@@ -7192,30 +7192,30 @@ The core platform (SecondLayer) does not exist in isolation. The same recursive 
 
 | Project | PRs | Period | Purpose |
 |---------|-----|--------|---------|
-| **SecondLayer** | 1,393 | Jan 24 \\u2013 May 8 (105d) | Core legal AI platform (70+ MCP tools, 380M+ records) |
-| **SneakyPiper** | 73 | Apr 14 \\u2013 Apr 30 (17d) | Due diligence intelligence platform (90+ external data sources, sanctions, OSINT, corporate registries). Consumes SecondLayer API as legal data backbone. |
-| **aipromo** | 39 | Apr 5 \\u2013 May 3 (29d) | LinkedIn lead automation \\u2014 AI-powered response generation (Claude via AWS Bedrock) + Unipile API for messaging. Manages inbound lead communication at scale. |
-| **Calendary** | 27 | Apr 13 \\u2013 14 (2d) | Self-hosted scheduling platform (Calendly alternative). Built in 2 days. Handles meeting booking with leads generated via aipromo. |
-| **Panoptic** | 10 | Apr 7 \\u2013 16 (10d) | Credential leak and threat intelligence aggregation. Enriches due diligence workflows in SneakyPiper. |
+| **SecondLayer** | 1,393 | Jan 24 \– May 8 (105d) | Core legal AI platform (70+ MCP tools, 380M+ records) |
+| **SneakyPiper** | 73 | Apr 14 \– Apr 30 (17d) | Due diligence intelligence platform (90+ external data sources, sanctions, OSINT, corporate registries). Consumes SecondLayer API as legal data backbone. |
+| **aipromo** | 39 | Apr 5 \– May 3 (29d) | LinkedIn lead automation \— AI-powered response generation (Claude via AWS Bedrock) + Unipile API for messaging. Manages inbound lead communication at scale. |
+| **Calendary** | 27 | Apr 13 \– 14 (2d) | Self-hosted scheduling platform (Calendly alternative). Built in 2 days. Handles meeting booking with leads generated via aipromo. |
+| **Panoptic** | 10 | Apr 7 \– 16 (10d) | Credential leak and threat intelligence aggregation. Enriches due diligence workflows in SneakyPiper. |
 | **XSISTANT** | 5 | Apr 18 (1d) | OS-level activity tracker for this paper\\\'s process-level instrumentation. Built in one day, runs as systemd daemon. |
-| **mcptb** | \\u2014 | \\u2014 | Thunderbird MCP server for email management via Claude Code. Open source, MIT licensed. |
+| **mcptb** | \— | \— | Thunderbird MCP server for email management via Claude Code. Open source, MIT licensed. |
 | **Total** | **1,547** | **105 days** | **7 projects, 1 founder, 0 employees** |
 
-**Why this matters for the paper:** the recursive workflow is not confined to a single codebase. The founder uses the same Claude Code pattern to build an interconnected business infrastructure: legal AI platform \\u2192 due diligence layer \\u2192 lead generation \\u2192 meeting scheduling \\u2192 activity tracking for research. Each project\\\'s preference signals come from the same practitioner under the same outcome accountability, but across different domains (legal tech, OSINT, marketing automation, scheduling, systems programming). This cross-domain breadth strengthens the case that recursive workflow preferences capture generalizable quality signal, not domain-specific taste.
+**Why this matters for the paper:** the recursive workflow is not confined to a single codebase. The founder uses the same Claude Code pattern to build an interconnected business infrastructure: legal AI platform \→ due diligence layer \→ lead generation \→ meeting scheduling \→ activity tracking for research. Each project\\\'s preference signals come from the same practitioner under the same outcome accountability, but across different domains (legal tech, OSINT, marketing automation, scheduling, systems programming). This cross-domain breadth strengthens the case that recursive workflow preferences capture generalizable quality signal, not domain-specific taste.
 
-**Operational pipeline:** LinkedIn leads (aipromo) \\u2192 meeting scheduling (Calendary) \\u2192 due diligence (SneakyPiper + SecondLayer API) \\u2192 client onboarding (SecondLayer platform). All built and shipped by one person using Claude Code.
+**Operational pipeline:** LinkedIn leads (aipromo) \→ meeting scheduling (Calendary) \→ due diligence (SneakyPiper + SecondLayer API) \→ client onboarding (SecondLayer platform). All built and shipped by one person using Claude Code.
 
 ### 3.2 OS-Level Activity Instrumentation
 
 Parallel to workflow tracking, an OS-level activity tracker (XSISTANT-style) records 5-second activity buckets:
 
-- \`activity_scores\` \\u2014 active/passive/idle classification + keystroke/mouse/click counts
-- \`input_activity\` \\u2014 keystroke and mouse counts per 5s bucket (never keystroke content)
-- \`window_sessions\` \\u2014 focused app + window title + start/end
-- \`idle_events\` \\u2014 gaps without input, with duration
-- \`mic_activity\` \\u2014 voice/call context detection
+- \`activity_scores\` \— active/passive/idle classification + keystroke/mouse/click counts
+- \`input_activity\` \— keystroke and mouse counts per 5s bucket (never keystroke content)
+- \`window_sessions\` \— focused app + window title + start/end
+- \`idle_events\` \— gaps without input, with duration
+- \`mic_activity\` \— voice/call context detection
 
-Storage: ~38 MB for 21 continuous days. Both databases store \`timestamptz\` in UTC \\u2014 cross-source alignment verified to <3 seconds.
+Storage: ~38 MB for 21 continuous days. Both databases store \`timestamptz\` in UTC \— cross-source alignment verified to <3 seconds.
 
 ### 3.3 Cross-Source Linking
 
@@ -7223,7 +7223,7 @@ For each edit with time window [T1, T2]: query activity in [T1-30s, T2+30s], agg
 
 ### 3.4 Outcome Attribution
 
-Automated attribution with confidence levels: **strong** (temporally proximate, causally linkable \\u2014 PR merged, no revert in 30d), **medium** (present but confounded), **weak** (causally tenuous).
+Automated attribution with confidence levels: **strong** (temporally proximate, causally linkable \— PR merged, no revert in 30d), **medium** (present but confounded), **weak** (causally tenuous).
 
 ---
 
@@ -7235,8 +7235,8 @@ All numbers verified from production databases.
 
 | Metric | Value |
 |--------|-------|
-| Workflow sessions | 2,892 (Jan 26 \\u2013 May 8, 2026) |
-| Sources | Claude Code: 1,051 \\u2022 GitHub PRs: 1,013 \\u2022 Plane: 828 |
+| Workflow sessions | 2,892 (Jan 26 \– May 8, 2026) |
+| Sources | Claude Code: 1,051 \• GitHub PRs: 1,013 \• Plane: 828 |
 | Total artifacts | 33,402 (21,477 LLM outputs) |
 | Total edit pairs | 30,510 |
 | Attributed outcomes | 1,579 (54.6% session coverage) |
@@ -7259,15 +7259,15 @@ Edit distance (normalized): mean=0.807, **median=0.839**, P25=0.743, P75=0.927, 
 
 | Table | Rows | Coverage |
 |-------|------|----------|
-| activity_scores | 52,451 | Apr 17 \\u2013 May 8 UTC |
+| activity_scores | 52,451 | Apr 17 \– May 8 UTC |
 | input_activity | 46,543 | 176K keystrokes, 52% in terminal |
 | window_sessions | 16,901 | App + title + working directory |
 | idle_events | 54,974 | Avg idle: 51 min |
-| mic_activity | 1,869 | Apr 16 \\u2013 May 3 |
+| mic_activity | 1,869 | Apr 16 \– May 3 |
 
-Bimodal work pattern: 07\\u201311 UTC primary peak (1,376 active windows), 19\\u201321 UTC secondary peak. ~13% real engagement time (6.7% active, 6.3% passive, 87% idle).
+Bimodal work pattern: 07\–11 UTC primary peak (1,376 active windows), 19\–21 UTC secondary peak. ~13% real engagement time (6.7% active, 6.3% passive, 87% idle).
 
-### 4.4 Overlap Window (xsistant \\u2229 rlhf-signals)
+### 4.4 Overlap Window (xsistant \∩ rlhf-signals)
 
 | Metric | Value |
 |--------|-------|
@@ -7276,13 +7276,13 @@ Bimodal work pattern: 07\\u201311 UTC primary peak (1,376 active windows), 19\\u
 | GitHub PRs in overlap | 75 / 1,393 (5.4%) |
 | Outcomes in overlap | 64 |
 
-The main PR burst (Feb\\u2013Mar, 1,156 PRs at 25.5/day) occurred **before** xsistant launched. Process-level enrichment covers steady-state work (4.4 PRs/day), not peak sprint.
+The main PR burst (Feb\–Mar, 1,156 PRs at 25.5/day) occurred **before** xsistant launched. Process-level enrichment covers steady-state work (4.4 PRs/day), not peak sprint.
 
 ---
 
 ## 5. Experiments
 
-Four experiments with progressively higher compute requirements. Experiments 1\\u20133 require no GPU.
+Four experiments with progressively higher compute requirements. Experiments 1\–3 require no GPU.
 
 ### Experiment 1: Artifact-Level Signal Quality (RQ1)
 
@@ -7296,7 +7296,7 @@ Phase A results (sampling completed 2026-05-08):
 - Two JSONL exports: full metadata + platform-ready (no founder edits shown to annotators)
 - Deterministic seeded PRNG for reproducibility
 
-**Expected:** founder edits show heavier tail (80.7% substantive_rewrite already \\u2014 crowd workers unlikely to match this intensity).
+**Expected:** founder edits show heavier tail (80.7% substantive_rewrite already \— crowd workers unlikely to match this intensity).
 
 ### Experiment 2: Process-Level Signal Irreducibility (RQ2)
 
@@ -7304,36 +7304,36 @@ Two predictive models on the 498-session overlap subset: Model A (artifact-only)
 
 **Expected:** Model B improves outcome prediction on medium edit_distance edits where artifact signal is ambiguous.
 
-### Experiment 3: Outcome\\u2013Preference Correlation (RQ3)
+### Experiment 3: Outcome\–Preference Correlation (RQ3)
 
 Group by composite engagement score, compare outcome distributions. Control for confounds: session length, surface, time of day (bimodal peaks), prompt length.
 
-### Experiment 4: DPO Training on Shipping CEO Distribution (RQ4) \\u2014 REVISED
+### Experiment 4: DPO Training on Shipping CEO Distribution (RQ4) \— REVISED
 
-*Redesigned based on Experiments 1\\u20133 findings (see Appendix E).*
+*Redesigned based on Experiments 1\–3 findings (see Appendix E).*
 
-The flagship experiment requiring NVIDIA DGX Cloud. **Simplified from 5 to 3 core conditions** after Experiments 2\\u20133 showed engagement weighting is unlikely to improve over uniform weighting.
+The flagship experiment requiring NVIDIA DGX Cloud. **Simplified from 5 to 3 core conditions** after Experiments 2\–3 showed engagement weighting is unlikely to improve over uniform weighting.
 
 Three training conditions on Llama 3.1 8B or Qwen 2.5 7B (open-weight):
-- **A.** Recursive workflow, uniform-weighted (30,510 pairs) \\u2014 the distinctive founder distribution
-- **C.** Crowd-sourced preferences (matched volume) \\u2014 standard baseline
-- **D.** Untrained instruct model \\u2014 no-preference baseline
+- **A.** Recursive workflow, uniform-weighted (30,510 pairs) \— the distinctive founder distribution
+- **C.** Crowd-sourced preferences (matched volume) \— standard baseline
+- **D.** Untrained instruct model \— no-preference baseline
 
 Method: DPO (Rafailov et al. 2023). Evaluation: win-rate (GPT-4 judge + human N=100), domain accuracy, AlpacaEval 2.0, length-controlled win rate.
 
-**Primary metric: A vs C delta** \\u2014 does the shipping CEO\\\'s distinctive preference distribution (80.7% substantive rewrites, 78% rejection-positive rate) produce better domain-specific models than crowd-sourced preferences of equal volume?
+**Primary metric: A vs C delta** \— does the shipping CEO\\\'s distinctive preference distribution (80.7% substantive rewrites, 78% rejection-positive rate) produce better domain-specific models than crowd-sourced preferences of equal volume?
 
-Estimated cost: $5\\u20137K (down from $8\\u201312K). See Appendix E for full rationale.
+Estimated cost: $5\–7K (down from $8\–12K). See Appendix E for full rationale.
 
 ---
 
 ## 6. Limitations
 
-- **Single-subject case study** \\u2014 one CEO, not population-level claims. Phase 2 multi-CEO cohort is future work.
+- **Single-subject case study** \— one CEO, not population-level claims. Phase 2 multi-CEO cohort is future work.
 - **Domain bias:** legal AI specifics may not transfer to coding, creative, or scientific domains.
 - **Survivorship bias:** we capture preferences of someone who shipped successfully. Preferences of failed attempts are absent.
 - **Process coverage:** only 17.2% of sessions / 30.3% of edits have process-level enrichment (xsistant launched after peak sprint).
-- **edit_seconds = 0** for all edits (retro-extracted) \\u2014 timing reconstructed from 5-second OS activity buckets.
+- **edit_seconds = 0** for all edits (retro-extracted) \— timing reconstructed from 5-second OS activity buckets.
 - **Conflict of interest:** first author is the study subject. Mitigated by: external baselines, open data release, Phase 2 plans.
 - **Keystroke content boundary:** we capture keystroke counts and timing, never content. Trades fine-grained edit-trace information for PII protection and Phase 2 cohort scalability.
 
@@ -7341,7 +7341,7 @@ Estimated cost: $5\\u20137K (down from $8\\u201312K). See Appendix E for full ra
 
 ## 7. Future Work
 
-- **Phase 2 multi-CEO cohort** (5\\u201310 shipping CEOs across domains) \\u2014 requires cross-platform standardized activity tracker
+- **Phase 2 multi-CEO cohort** (5\–10 shipping CEOs across domains) \— requires cross-platform standardized activity tracker
 - **Survivorship bias mitigation:** compare with preferences from founders who pivoted/shut down
 - **Eye-tracking integration:** captures reading-while-thinking, still without content capture
 - **Engagement-aware reward modeling:** explicit reward model trained on engagement features
@@ -7364,16 +7364,16 @@ Estimated cost: $5\\u20137K (down from $8\\u201312K). See Appendix E for full ra
 
 | Milestone | Status |
 |-----------|--------|
-| Phase 0 retrospective extraction | **Done** \\u2014 2,892 sessions, 30,510 edits |
-| Edit classification (Bedrock Sonnet) | **Done** \\u2014 99.96% coverage |
-| Outcome attribution + transcript linking | **Done** \\u2014 1,579 outcomes, 5,354 usable pairs |
-| Experiment 1 Phase A (sampling) | **Done** \\u2014 200 stratified samples exported |
-| Experiment 1 Phase B (crowd annotation) | Next \\u2014 send to Surge AI / Scale AI |
-| Experiment 2 (process irreducibility) | **Done** \\u2014 process signal real (p<0.001) but RF delta -0.029 |
-| Experiment 3 (outcome correlation) | **Done** \\u2014 rejection=78% positive rate, engagement Q4 enrichment |
-| Cross-experiment synthesis | **Done** \\u2014 see Appendix E for DPO decision |
-| NVIDIA Inception extended grant | Next \\u2014 all preliminary results ready |
-| Experiment 4 (DPO training) | **Redesigned** \\u2014 3 conditions instead of 5, focus on A vs C |
+| Phase 0 retrospective extraction | **Done** \— 2,892 sessions, 30,510 edits |
+| Edit classification (Bedrock Sonnet) | **Done** \— 99.96% coverage |
+| Outcome attribution + transcript linking | **Done** \— 1,579 outcomes, 5,354 usable pairs |
+| Experiment 1 Phase A (sampling) | **Done** \— 200 stratified samples exported |
+| Experiment 1 Phase B (crowd annotation) | Next \— send to Surge AI / Scale AI |
+| Experiment 2 (process irreducibility) | **Done** \— process signal real (p<0.001) but RF delta -0.029 |
+| Experiment 3 (outcome correlation) | **Done** \— rejection=78% positive rate, engagement Q4 enrichment |
+| Cross-experiment synthesis | **Done** \— see Appendix E for DPO decision |
+| NVIDIA Inception extended grant | Next \— all preliminary results ready |
+| Experiment 4 (DPO training) | **Redesigned** \— 3 conditions instead of 5, focus on A vs C |
 | arXiv submission | Target: ~T+18 weeks |
 
 ---
@@ -7382,13 +7382,13 @@ Estimated cost: $5\\u20137K (down from $8\\u201312K). See Appendix E for full ra
 
 | Component | Cost |
 |-----------|------|
-| DPO training (3 conditions \\u00d7 7\\u20138B model) | $5\\u20137K (NVIDIA DGX Cloud) |
-| Evaluation (judge runs, MT-Bench) | $1\\u20132K |
-| Crowd annotation (Surge AI / Scale AI) | $500\\u20131K |
-| **Total (revised)** | **$7\\u201310K** |
-| Extended (+ sample efficiency, cross-domain) | $15\\u201320K |
+| DPO training (3 conditions \× 7\–8B model) | $5\–7K (NVIDIA DGX Cloud) |
+| Evaluation (judge runs, MT-Bench) | $1\–2K |
+| Crowd annotation (Surge AI / Scale AI) | $500\–1K |
+| **Total (revised)** | **$7\–10K** |
+| Extended (+ sample efficiency, cross-domain) | $15\–20K |
 
-Target venue: arXiv (cs.LG, cs.CL) \\u2192 NeurIPS Datasets and Benchmarks Track 2027 or ICLR Workshop on RLHF.
+Target venue: arXiv (cs.LG, cs.CL) \→ NeurIPS Datasets and Benchmarks Track 2027 or ICLR Workshop on RLHF.
 
 ---
 
@@ -7398,9 +7398,9 @@ Target venue: arXiv (cs.LG, cs.CL) \\u2192 NeurIPS Datasets and Benchmarks Track
 
 Phase 0 retrospective extraction completed against the LEX AI production codebase. Pipeline: \`rlhf-signals/\` module ([source](https://github.com/overthelex/secondlayer)), three data sources: GitHub PRs (GraphQL), Plane issues (REST), Claude Code transcripts (local JSONL).
 
-**Dataset:** 2,892 sessions, 33,402 artifacts, 30,510 edit pairs, 1,579 outcomes (after transcript-PR linking). Edit classification via rule-based boundaries + AWS Bedrock Claude Sonnet, 99.96% coverage. 80.7% substantive rewrites. Transcript-PR linking doubled usable preference pairs from 2,668 to 5,354. GO threshold (\\u226550 sessions/month) exceeded 15.8\\u00d7.
+**Dataset:** 2,892 sessions, 33,402 artifacts, 30,510 edit pairs, 1,579 outcomes (after transcript-PR linking). Edit classification via rule-based boundaries + AWS Bedrock Claude Sonnet, 99.96% coverage. 80.7% substantive rewrites. Transcript-PR linking doubled usable preference pairs from 2,668 to 5,354. GO threshold (\≥50 sessions/month) exceeded 15.8\×.
 
-**Verdict: GO \\u2014 proceed to Phase 1 live capture and Experiment 1.**
+**Verdict: GO \— proceed to Phase 1 live capture and Experiment 1.**
 
 ## Appendix B: Experiment 1 Phase A Results
 
@@ -7418,14 +7418,14 @@ Phase 0 retrospective extraction completed against the LEX AI production codebas
 | tone_adjustment | 10 | 212 |
 
 Two JSONL exports produced:
-- **crowd-samples.jsonl** \\u2014 full record (LLM output + founder edit + metadata)
-- **crowd-platform.jsonl** \\u2014 platform-ready (sample_id + LLM output + task instruction only, no founder edit visible to annotators)
+- **crowd-samples.jsonl** \— full record (LLM output + founder edit + metadata)
+- **crowd-platform.jsonl** \— platform-ready (sample_id + LLM output + task instruction only, no founder edit visible to annotators)
 
 Six paper-ready analysis figures generated (300 DPI):
-1. Edit distance distribution (histogram + CDF) \\u2014 heavy right skew, median 0.84
-2. Semantic class breakdown \\u2014 80.7% substantive rewrite dominance
-3. Edit distance per class (box plots) \\u2014 substantive median 0.88, cosmetic median 0.54
-4. Session source \\u00d7 class breakdown
+1. Edit distance distribution (histogram + CDF) \— heavy right skew, median 0.84
+2. Semantic class breakdown \— 80.7% substantive rewrite dominance
+3. Edit distance per class (box plots) \— substantive median 0.88, cosmetic median 0.54
+4. Session source \× class breakdown
 5. Summary statistics table
 6. Monthly volume heatmap
 
@@ -7433,9 +7433,9 @@ Six paper-ready analysis figures generated (300 DPI):
 
 ---
 
-## Appendix C: Experiment 2 Results \\u2014 Process-Level Signal Irreducibility
+## Appendix C: Experiment 2 Results \— Process-Level Signal Irreducibility
 
-*May 9, 2026 \\u2014 cross-source linking + Model A vs Model B comparison.*
+*May 9, 2026 \— cross-source linking + Model A vs Model B comparison.*
 
 ### Cross-Source Linking
 
@@ -7455,38 +7455,38 @@ Process features computed per edit: active/passive/idle seconds, keystroke count
 
 ### Model Comparison
 
-**Target variable:** binary \\u2014 substantive_rewrite (1) vs cosmetic (0). N=6,152 edits (5,740 substantive, 412 cosmetic). 5-fold stratified cross-validation.
+**Target variable:** binary \— substantive_rewrite (1) vs cosmetic (0). N=6,152 edits (5,740 substantive, 412 cosmetic). 5-fold stratified cross-validation.
 
 **Model A (artifact-only):** token_count_from, token_count_to
 **Model B (artifact + process):** Model A features + 9 process features
 
 | Model | Random Forest AUC | Logistic Regression AUC |
 |-------|-------------------|------------------------|
-| **A (artifact-only)** | **0.903 \\u00b1 0.005** | 0.475 \\u00b1 0.018 |
-| **B (artifact + process)** | 0.874 \\u00b1 0.007 | **0.540 \\u00b1 0.039** |
-| **Delta (B \\u2212 A)** | \\u22120.029 | +0.065 |
+| **A (artifact-only)** | **0.903 \± 0.005** | 0.475 \± 0.018 |
+| **B (artifact + process)** | 0.874 \± 0.007 | **0.540 \± 0.039** |
+| **Delta (B \− A)** | \−0.029 | +0.065 |
 
-**Permutation test** (1,000 iterations, process features shuffled): **p < 0.001** \\u2014 process features carry statistically significant, non-random signal.
+**Permutation test** (1,000 iterations, process features shuffled): **p < 0.001** \— process features carry statistically significant, non-random signal.
 
-**Paired t-test** (RF, 5 folds): p = 0.003 \\u2014 the delta is statistically significant (in the negative direction for RF).
+**Paired t-test** (RF, 5 folds): p = 0.003 \— the delta is statistically significant (in the negative direction for RF).
 
 ### Interpretation
 
 Process-level signal is **real and non-random** (permutation p < 0.001), but does not improve Random Forest prediction of edit class. This is a nuanced result:
 
-1. **The proxy target is already well-predicted by artifact features.** Token counts alone achieve AUC 0.903 for predicting substantive vs cosmetic edits \\u2014 leaving little room for process features to add value. The 14:1 class imbalance (5,740 vs 412) further limits discriminative contribution of additional features.
+1. **The proxy target is already well-predicted by artifact features.** Token counts alone achieve AUC 0.903 for predicting substantive vs cosmetic edits \— leaving little room for process features to add value. The 14:1 class imbalance (5,740 vs 412) further limits discriminative contribution of additional features.
 
 2. **Process features help linear models.** Logistic Regression gains +0.065 AUC from process features, suggesting the signal exists but is captured non-linearly by artifact features in RF.
 
-3. **The real test requires real outcomes.** Only 64 outcomes exist in the overlap window \\u2014 insufficient for outcome prediction. The proxy target (edit class) is a stand-in that may not capture what process features actually predict. Experiment 3 will address this with engagement-outcome correlation.
+3. **The real test requires real outcomes.** Only 64 outcomes exist in the overlap window \— insufficient for outcome prediction. The proxy target (edit class) is a stand-in that may not capture what process features actually predict. Experiment 3 will address this with engagement-outcome correlation.
 
-**For the paper:** this is an honest null-adjacent result. Process signal exists (permutation proof) but is largely redundant with artifact signal at this scale and target definition. This is itself a publishable finding \\u2014 it means artifact-level capture is sufficient for most preference learning, and process-level adds value primarily for edge cases or different prediction targets.
+**For the paper:** this is an honest null-adjacent result. Process signal exists (permutation proof) but is largely redundant with artifact signal at this scale and target definition. This is itself a publishable finding \— it means artifact-level capture is sufficient for most preference learning, and process-level adds value primarily for edge cases or different prediction targets.
 
 ---
 
-## Appendix D: Experiment 3 Results \\u2014 Outcome-Preference Correlation
+## Appendix D: Experiment 3 Results \— Outcome-Preference Correlation
 
-*May 9, 2026 \\u2014 two-level analysis of how edit patterns correlate with real downstream outcomes.*
+*May 9, 2026 \— two-level analysis of how edit patterns correlate with real downstream outcomes.*
 
 ### Level 1: Full Dataset (Artifact-Only)
 
@@ -7494,8 +7494,8 @@ Process-level signal is **real and non-random** (permutation p < 0.001), but doe
 
 | Metric | Value |
 |--------|-------|
-| edit_distance_norm \\u2194 outcome | r = -0.116, p < 0.001 |
-| semantic_class \\u2194 outcome | r = -0.137, p < 0.001 |
+| edit_distance_norm \↔ outcome | r = -0.116, p < 0.001 |
+| semantic_class \↔ outcome | r = -0.137, p < 0.001 |
 | KS test (positive vs negative) | 0.253, p < 0.001 |
 
 **Positive outcome rates by edit class:**
@@ -7514,31 +7514,31 @@ Process-level signal is **real and non-random** (permutation p < 0.001), but doe
 
 807 edits with both process data and outcomes (720 with binary positive/negative label).
 
-Engagement quartile analysis shows Q4 (highest engagement) has visible positive outcome enrichment compared to Q1\\u2013Q3, but the effect is modest. The small sample size (807) limits statistical power for definitive engagement-outcome claims.
+Engagement quartile analysis shows Q4 (highest engagement) has visible positive outcome enrichment compared to Q1\–Q3, but the effect is modest. The small sample size (807) limits statistical power for definitive engagement-outcome claims.
 
 ### Confound Controls
 
-Hour of day, day of week, and session source all affect outcome rates independently of edit patterns. The bimodal work schedule (07\\u201311 UTC peak, 19\\u201321 UTC secondary) introduces temporal confounds that must be controlled in any outcome prediction model.
+Hour of day, day of week, and session source all affect outcome rates independently of edit patterns. The bimodal work schedule (07\–11 UTC peak, 19\–21 UTC secondary) introduces temporal confounds that must be controlled in any outcome prediction model.
 
 ---
 
-## Appendix E: Cross-Experiment Synthesis \\u2014 What the Data Actually Says
+## Appendix E: Cross-Experiment Synthesis \— What the Data Actually Says
 
-*May 9, 2026 \\u2014 synthesizing findings from Experiments 1\\u20133 and revising the Experiment 4 design.*
+*May 9, 2026 \— synthesizing findings from Experiments 1\–3 and revising the Experiment 4 design.*
 
 ### The Three Findings
 
-**Finding 1 (Exp 1): The founder\\\'s edit distribution is extreme.** 80.7% of all edits are substantive rewrites. Median normalized edit distance is 0.84 \\u2014 the founder\\\'s default mode is near-total rewrite of LLM output. This distribution will almost certainly differ from crowd workers, who tend toward safe, cosmetic edits. **This is the paper\\\'s strongest result.** The comparison with crowd baseline (Phase B) will quantify exactly how different.
+**Finding 1 (Exp 1): The founder\\\'s edit distribution is extreme.** 80.7% of all edits are substantive rewrites. Median normalized edit distance is 0.84 \— the founder\\\'s default mode is near-total rewrite of LLM output. This distribution will almost certainly differ from crowd workers, who tend toward safe, cosmetic edits. **This is the paper\\\'s strongest result.** The comparison with crowd baseline (Phase B) will quantify exactly how different.
 
-**Finding 2 (Exp 2): Process-level features are real but redundant.** Permutation testing confirms process features (keystroke timing, idle gaps, app switching, voice context) carry statistically significant signal (p < 0.001). However, they don\\\'t improve Random Forest prediction of edit class beyond what token counts alone achieve (AUC 0.903 \\u2192 0.874, actually worse). Process features help linear models (+0.065 AUC) but are captured non-linearly by artifact features in tree-based models. **The process-level axis is a contribution to methodology, not to prediction performance.**
+**Finding 2 (Exp 2): Process-level features are real but redundant.** Permutation testing confirms process features (keystroke timing, idle gaps, app switching, voice context) carry statistically significant signal (p < 0.001). However, they don\\\'t improve Random Forest prediction of edit class beyond what token counts alone achieve (AUC 0.903 \→ 0.874, actually worse). Process features help linear models (+0.065 AUC) but are captured non-linearly by artifact features in tree-based models. **The process-level axis is a contribution to methodology, not to prediction performance.**
 
-**Finding 3 (Exp 3): Rejection is the strongest preference signal.** Completely rejecting LLM output correlates with 78% positive outcomes \\u2014 far higher than substantive rewrites (48.7%) or cosmetic edits (52.7%). Edit distance negatively correlates with outcomes (r = -0.116): the less the founder changes, the better the result. **The most informative signal is binary (accept vs reject), not continuous (edit distance).**
+**Finding 3 (Exp 3): Rejection is the strongest preference signal.** Completely rejecting LLM output correlates with 78% positive outcomes \— far higher than substantive rewrites (48.7%) or cosmetic edits (52.7%). Edit distance negatively correlates with outcomes (r = -0.116): the less the founder changes, the better the result. **The most informative signal is binary (accept vs reject), not continuous (edit distance).**
 
 ### What This Means for DPO Training (Experiment 4)
 
 The original Experiment 4 design had 5 training conditions, with the primary hypothesis being that engagement-weighted preferences (Condition B) would outperform uniform-weighted (Condition A). The data now challenges this:
 
-**Engagement weighting is unlikely to help.** Experiment 2 showed process features don\\\'t improve prediction. Experiment 3 showed engagement quartiles barely differentiate outcomes. The \\u03b1-weighted DPO formula (weight = 1 + \\u03b1 \\u00d7 engagement_score) would scale pairs by a signal that is statistically real but practically redundant with artifact features.
+**Engagement weighting is unlikely to help.** Experiment 2 showed process features don\\\'t improve prediction. Experiment 3 showed engagement quartiles barely differentiate outcomes. The \α-weighted DPO formula (weight = 1 + \α \× engagement_score) would scale pairs by a signal that is statistically real but practically redundant with artifact features.
 
 **The real value is in the distribution, not the weighting.** The founder\\\'s 80.7% substantive rewrite rate and 3.6% rejection rate create a fundamentally different preference distribution than crowd annotation. Training on this distribution (even with uniform weights) should produce different model behavior than training on crowd preferences.
 
@@ -7554,9 +7554,9 @@ The original Experiment 4 design had 5 training conditions, with the primary hyp
 
 **Optional** (if compute allows): Condition E (public RLHF dataset) and Condition B (engagement-weighted) as supplementary.
 
-**Primary metric shifts:** from "B vs A delta" to **"A vs C delta"** \\u2014 does the shipping CEO\\\'s distinctive preference distribution improve domain-specific performance compared to crowd-sourced preferences of equal volume?
+**Primary metric shifts:** from "B vs A delta" to **"A vs C delta"** \— does the shipping CEO\\\'s distinctive preference distribution improve domain-specific performance compared to crowd-sourced preferences of equal volume?
 
-**Compute savings:** 3 conditions \\u00d7 16h \\u00d7 8 H100 \\u2248 $5\\u20137K instead of $8\\u201312K. This makes the experiment more feasible with initial NVIDIA Inception credits.
+**Compute savings:** 3 conditions \× 16h \× 8 H100 \≈ $5\–7K instead of $8\–12K. This makes the experiment more feasible with initial NVIDIA Inception credits.
 
 ### Revised Paper Narrative
 
@@ -7564,23 +7564,23 @@ The paper\\\'s contribution shifts from the original framing:
 
 **Original:** "Process-aware engagement weighting improves RLHF training" (speculative, now empirically unlikely)
 
-**Revised:** "Shipping CEO preferences constitute a fundamentally different preference distribution, and this distributional difference \\u2014 not engagement weighting \\u2014 is what matters for domain-specific RLHF training"
+**Revised:** "Shipping CEO preferences constitute a fundamentally different preference distribution, and this distributional difference \— not engagement weighting \— is what matters for domain-specific RLHF training"
 
 This is actually a **stronger** narrative because:
-1. It\\\'s grounded in empirical findings (Experiments 1\\u20133) rather than speculative
+1. It\\\'s grounded in empirical findings (Experiments 1\–3) rather than speculative
 2. The distributional difference (80.7% substantive rewrites, 78% rejection-positive rate) is dramatic and publishable regardless of DPO results
 3. The process-level null result is itself a contribution: it shows that capturing *what* was changed is more important than *how* it was changed
 4. The revised DPO experiment is cheaper, simpler, and more likely to show a clear result
 
 ### Bottom Line: Is DPO Worth Running?
 
-**Yes, but with adjusted expectations.** The experiment is worth $5\\u20137K because:
+**Yes, but with adjusted expectations.** The experiment is worth $5\–7K because:
 - A vs C (founder distribution vs crowd distribution) is the cleanest test of the paper\\\'s core thesis
 - If A > C on domain tasks, that\\\'s the headline result: shipping CEO preferences produce better models
 - If A = C, that\\\'s also publishable: it means preference distribution doesn\\\'t matter as much as preference volume
-- The process-level null result from Exp 2 strengthens the paper either way \\u2014 it shows the methodology is honest
+- The process-level null result from Exp 2 strengthens the paper either way \— it shows the methodology is honest
 
-**What\\\'s NOT worth running:** the \\u03b1-sweep over engagement weights. The data says this lever has near-zero expected impact. Save those GPU hours for sample-efficiency analysis or cross-domain transfer instead.
+**What\\\'s NOT worth running:** the \α-sweep over engagement weights. The data says this lever has near-zero expected impact. Save those GPU hours for sample-efficiency analysis or cross-domain transfer instead.
 
 ---
 
