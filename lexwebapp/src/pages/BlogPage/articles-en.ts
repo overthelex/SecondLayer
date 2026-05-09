@@ -7664,4 +7664,147 @@ The edit-trace is the empirical residue of this regime. Formalizing its capture,
 
 Registration: [legal.org.ua](https://legal.org.ua)`,
   },
+  'workflow-memory-architecture': {
+    title: 'Workflow Memory Architecture: Replacing CLAUDE.md with a Queryable Memory Layer',
+    punchline: 'Every new Claude Code session starts cold: re-reads files, accumulates redundant state, and loses prior reasoning context. At the 6+ week horizon, no context window — even 1M tokens — holds up. We design a three-layer workflow memory layer to replace flat CLAUDE.md dumps.',
+    readTime: '25 min',
+    content: `# Workflow Memory Architecture for Long-Horizon Composition
+
+*Vladimir Ovcharov, Founder & CEO, LEX AI LLC*
+*[LinkedIn](https://www.linkedin.com/in/vladimir-ovcharov/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
+*May 2026*
+
+---
+
+## 1. Problem Statement
+
+Long-horizon co-execution (workflow tasks spanning weeks to months) is currently bottlenecked by context window mechanics, not by model capability. Each new Claude Code session starts cold, re-reads files into context, accumulates redundant state, and loses prior reasoning when the session ends. At the 6-week horizon, the working set of relevant prior decisions exceeds what fits efficiently in any context window — even at 1M tokens, attention degradation and inference cost make it unworkable.
+
+The accepted workaround — \`CLAUDE.md\` files, README dumps, manual context summaries — is a flat, hand-curated, lossy compression of project state. It captures intent but not the texture of prior decisions: which alternatives were considered and rejected, which constitutional principles were invoked, which edits corrected which validator outputs.
+
+We propose replacing flat context dumps with a **structured, addressable, queryable workflow memory layer** that Claude Code retrieves from on every session, scoped to the current task.
+
+---
+
+## 2. Architectural Thesis
+
+Workflow memory decomposes into three layers, each with distinct retrieval semantics:
+
+| Layer | Content | Retrieval signal | Existing substrate |
+| --- | --- | --- | --- |
+| **Domain** | Legal data — laws, court decisions, regulations | Semantic similarity to query | Qdrant (already in production) |
+| **Workflow** | Architecture decisions, validator definitions, MCP tool contracts, constitution registry, ADR-style docs, change history with rationale | Hybrid: semantic + structured (component, layer, surface) | New: PostgreSQL + Qdrant collection |
+| **Practitioner** | Edit-traces, disambiguation labels, decision patterns, accept/reject history per surface, founder-specific operational principles | Hybrid: semantic + temporal + outcome-conditioned | New: extension of rlhf-signals schema |
+
+A new task issued to Claude Code does not load "the project" — it issues a **memory query** that returns a compact, task-conditioned digest from the three layers. The model works with a small focused context plus access to retrieve more on demand via MCP tools.
+
+The architecture is **dual-mode**: pull-based for fast loops (session-start hooks query memory on demand) and push-based for slow loops (a scheduled orchestrator refreshes memory entries for long-horizon tasks proportional to their activity, so when a session does start, the retrieved digest is already current). The push mode is what makes 6+ week horizons tractable — without it, dormant memory drifts out of sync with task state and retrieval returns stale summaries.
+
+---
+
+## 3. Goals
+
+**Primary:**
+- Reduce average Claude Code session bootstrap from ~25 file reads + cat dumps to 1 memory query + 3–5 targeted file reads
+- Demonstrate measurable session-to-session continuity: a decision made on Task A in week 2 is correctly retrieved and respected on Task B in week 6 without manual reminder
+- Produce an instrumented workflow memory layer that becomes the substrate for the RLHF paper\\'s section on long-horizon composition
+
+**Secondary:**
+- Generate a fourth edit-trace class: *retrieval-correction* edits (cases where the model would have done X correctly if relevant context had been retrieved, but didn\\'t because it wasn\\'t)
+- Bootstrap a practitioner layer index that captures founder-specific operational patterns automatically over a 4–6 week period
+
+**Explicitly out of scope for Phase 1:**
+- Multi-practitioner workflow memory (Phase 2, requires cohort)
+- Cross-project memory federation (e.g., SecondLayer ↔ SneakyPiper memory sharing)
+- Real-time embedding re-indexing (batch nightly is sufficient)
+- LLM-driven automatic constitution evolution (manual curation only in Phase 1)
+
+---
+
+## 4. Components
+
+### 4.1 Workflow Memory Service
+
+New module sitting alongside the existing rlhf-signals pipeline. Owns:
+
+- Ingestion pipelines for the three layers
+- Retrieval API (HTTP + MCP tool wrapper)
+- Embedding generation and re-indexing jobs
+- Memory query language (structured + semantic hybrid)
+
+**Tech stack:** TypeScript (consistent with existing Express MCP backend), reuses existing Qdrant client, existing PostgreSQL with new \`workflow_memory_*\` tables, existing Bedrock Claude Sonnet for summarization steps.
+
+### 4.2 Domain Layer (existing, integrate)
+
+No new build — existing legal data Qdrant collections become the domain layer namespace in the unified retrieval API. The change is interface-level: route domain queries through the workflow memory service rather than directly hitting domain MCP tools, so the memory service can log retrieval, measure miss rate, and unify response format.
+
+### 4.3 Workflow Layer (new build)
+
+Sources, in order of priority:
+
+1. **Constitution registry** — first-class artifact, embedded by principle statement, indexed by id, layer, severity, validator references.
+2. **Validator definitions** — code parsed and embedded with docstrings + signature + test examples.
+3. **MCP tool contracts** — parsed: tool name, description, parameter schema, example inputs/outputs.
+4. **ADR-style decision records** — one markdown file per significant architectural decision. Format: context, decision, alternatives considered, consequences, related principles.
+5. **Git history with semantic enrichment** — for each merged PR, store: title, description, semantic class, affected components, related ADR(s).
+6. **Plane issues** with state transitions — add embedding pipeline on top of existing ingestion.
+
+### 4.4 Practitioner Layer (new build)
+
+Extends existing workflow edits table with embeddable artifacts — trace summaries generated by a nightly Bedrock job over structured edit data (never raw content, preserving the privacy boundary).
+
+### 4.5 Memory Query API
+
+A single MCP tool, \`workflow_memory_query\`, that:
+
+1. Embeds the task description and queries all three Qdrant collections in parallel
+2. Re-ranks the union with cross-encoder (or LLM-as-reranker)
+3. Fills the token budget greedy by relevance, with diversity constraint
+4. Assembles into a structured prose digest with section headers per layer
+
+### 4.6 Claude Code Integration
+
+**Session-start hook:** on invocation, prompts for task description and prepends the memory digest to initial context.
+
+**CLAUDE.md becomes thin:** drops most embedded context and instead routes Claude Code to query memory first.
+
+### 4.7 Retrieval-Miss Instrumentation
+
+Every memory query is logged. After the session closes, a reconciliation job detects potential retrieval misses — producing the retrieval-correction edit class that feeds back into retrieval improvement.
+
+### 4.8 Long-Term Task Orchestrator
+
+A push-based, schedule-driven orchestrator that watches Plane tasks tagged \`LONG-TERM\` and refreshes memory entries proportional to their activity. Runs as a separate Docker container with a Bedrock summarization pipeline producing executive summaries, tool lineage deltas, and open questions.
+
+---
+
+## 5. Phasing
+
+- **Phase 1.0** (weeks 1–2): Foundation — schema, Qdrant collections, basic ingestion
+- **Phase 1.1** (weeks 3–4): Constitution registry + ADR backfill
+- **Phase 1.2** (weeks 5–6): Practitioner layer bootstrap
+- **Phase 1.3** (week 7): Claude Code integration
+- **Phase 1.4** (week 8): Retrieval-miss instrumentation
+- **Phase 1.5** (weeks 9–11): Long-term task orchestrator + tool lineage
+
+---
+
+## 6. Success Metrics
+
+| Metric | Baseline | Target |
+| --- | --- | --- |
+| Avg session bootstrap (file reads) | ~25 | ≤8 |
+| Avg session bootstrap (input tokens) | ~30K+ | ≤10K |
+| Constitutional principle retrieval accuracy | n/a | ≥80% |
+| Practitioner trace retrieval relevance | n/a | ≥70% |
+| Long-term task refresh latency | manual or never | ≤24 hours |
+| Tool lineage coverage | ~0% | ≥80% |
+
+---
+
+*Vladimir Ovcharov — [LinkedIn](https://www.linkedin.com/in/vladimir-ovcharov/) | [volodymyr@legal.org.ua](mailto:volodymyr@legal.org.ua)*
+*LEX AI LLC, Kyiv, Ukraine*
+
+Registration: [legal.org.ua](https://legal.org.ua)`,
+  },
 };
