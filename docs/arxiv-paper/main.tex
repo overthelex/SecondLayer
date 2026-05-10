@@ -94,7 +94,7 @@ Process-level enrichment via synchronized OS activity tracker covers 498 session
 Experiment~1 confirmed the extreme edit distribution (80.7\% substantive rewrites; crowd comparison sampling done).
 Experiment~2 showed process-level features are real (permutation $p<0.001$) but redundant with artifact features for prediction.
 Experiment~3 revealed \emph{rejection} is the strongest oversight signal (78\% positive outcomes).
-DPO training (Experiment~4) is redesigned: 3 conditions focused on distributional difference (edit-trace oversight vs.\ crowd annotation), not engagement weighting.
+DPO training (Experiment~4) is redesigned: 4 conditions: edit-trace oversight vs RLAIF self-correction vs public RLHF baseline vs untrained model.
 
 The methodology rests on a simple empirical claim: a single practitioner working recursively with an LLM, under product accountability, completes long-horizon work that neither party completes alone.
 Edit-traces in this regime are dense, outcome-validated, and impossible to obtain through annotation in isolation.
@@ -628,10 +628,10 @@ The bimodal work schedule (07--11 UTC peak, 19--21 UTC secondary) introduces tem
 
 \emph{Redesigned based on Experiments~1--3 findings (see Section~\ref{sec:synthesis}).}
 
-The flagship experiment requiring NVIDIA DGX Cloud.
-Simplified from 5 to 3 core conditions after Experiments~2--3 showed behavioral-context weighting is unlikely to improve over uniform weighting.
+The flagship experiment requiring GPU compute.
+Simplified from 5 to 4 core conditions after Experiments~2--3 showed behavioral-context weighting is unlikely to improve over uniform weighting.
 
-Three training conditions on Llama~3.1 8B or Qwen~2.5 7B (open-weight):
+Four training conditions on Llama~3.1 8B or Qwen~2.5 7B (open-weight):
 
 \begin{table}[h]
 \centering
@@ -641,8 +641,9 @@ Three training conditions on Llama~3.1 8B or Qwen~2.5 7B (open-weight):
 \toprule
 \textbf{Cond.} & \textbf{Description} & \textbf{Rationale} \\
 \midrule
-A & Oversight-trace, uniform & The distinctive distribution of corrections from production agentic workflows \\
-C & Crowd-sourced (matched vol.) & Standard annotation baseline \\
+A & Oversight-trace, uniform (24{,}495 pairs) & Practitioner edits---the distinctive distribution of corrections from production agentic workflows \\
+C & RLAIF self-correction (24{,}495 matched pairs) & AI self-correction baseline---tests whether human oversight captures signal that AI self-evaluation misses \\
+E & Public RLHF baseline (UltraFeedback, 24{,}495 sampled pairs) & General-purpose RLHF baseline---tests domain-specific value of edit-trace signal \\
 D & Untrained instruct model & No-preference baseline \\
 \bottomrule
 \end{tabular}
@@ -651,9 +652,9 @@ D & Untrained instruct model & No-preference baseline \\
 Method: DPO~\citep{rafailov2023direct}.
 Evaluation: win-rate (GPT-4 judge + human $N=100$), domain accuracy, AlpacaEval~2.0, length-controlled win rate.
 
-\textbf{Primary metric: A vs.\ C delta}---does the oversight-trace signal, captured at the granularity where agentic systems fail, produce better domain-specific models than crowd-sourced annotation preferences of equal volume?
+\textbf{Primary metrics---three comparisons:} A vs.\ D (edit-trace improves stock model), A vs.\ C (human oversight vs.\ AI self-correction), A vs.\ E (domain-specific vs.\ general RLHF).
 
-Estimated cost: \$5--7K (down from \$8--12K).
+Estimated cost: \$310--380 (see Appendix~\ref{sec:compute-budget}).
 
 
 % ============================================================
@@ -690,8 +691,9 @@ Experiment~3 showed engagement quartiles barely differentiate outcomes.
 The $\alpha$-weighted DPO formula ($\text{weight} = 1 + \alpha \cdot \text{engagement\_score}$) would scale pairs by a signal that is statistically real but practically redundant with artifact features.
 
 \textbf{The real value is in the distribution, not the weighting.}
-The overseer's 80.7\% substantive rewrite rate and 3.6\% rejection rate create a fundamentally different preference distribution than crowd annotation.
-Training on this distribution (even with uniform weights) should produce different model behavior than training on detached annotation preferences.
+The overseer's 80.7\% substantive rewrite rate and 3.6\% rejection rate create a fundamentally different preference distribution than either AI self-correction or general-purpose RLHF data.
+Training on this distribution (even with uniform weights) should produce different model behavior than training on RLAIF or public preference data.
+Replacing crowd annotation with RLAIF (Condition~C) and public RLHF data (Condition~E) enables matched-volume comparison (24{,}495 pairs per condition) and eliminates the annotation bottleneck.
 
 \subsection{Summary}
 
@@ -845,7 +847,7 @@ This hypothesis is testable in Experiment~4 by comparing DPO training on full ed
 \subsection{Scope of Claims}
 
 This paper makes a methodological contribution (how to capture and validate edit-trace oversight) and reports empirical findings from a single case study (Experiments~1--3).
-It does \emph{not} claim that edit-trace oversight is universally superior to crowd annotation---that claim requires Experiment~4's completion and replication across multiple practitioners.
+It does \emph{not} claim that edit-trace oversight is universally superior to RLAIF self-correction or general-purpose RLHF data---that claim requires Experiment~4's completion (where Condition~C tests against AI self-correction rather than crowd annotation) and replication across multiple practitioners.
 The observed distributional difference between edit-trace corrections and expected crowd annotation patterns is a descriptive finding; its downstream utility for RLHF training remains to be demonstrated.
 
 
@@ -883,16 +885,16 @@ Estimated budget:
 \toprule
 \textbf{Component} & \textbf{Cost} \\
 \midrule
-DPO training (3 conditions $\times$ 7--8B model) & \$5--7K (NVIDIA DGX Cloud) \\
-Evaluation (judge runs, MT-Bench) & \$1--2K \\
-Crowd annotation (Surge AI / Scale AI) & \$500--1K \\
+DPO training (4 conditions $\times$ 7--8B model) & \$140--200 \\
+RLAIF generation (Bedrock) & \$70--80 \\
+Evaluation (judge runs, MT-Bench) & \$100 \\
 \midrule
-\textbf{Total} & \textbf{\$7--10K} \\
+\textbf{Total} & \textbf{\$310--380} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\noindent As of May 2026: Experiments~1--3 complete. Experiment~1 Phase~B (crowd annotation) and Experiment~4 (DPO training) are pending compute allocation via NVIDIA Inception Program.
+\noindent As of May 2026: Experiments~1--3 complete. Experiment~4 (DPO training with 4 conditions) is pending compute allocation.
 
 
 % ============================================================
