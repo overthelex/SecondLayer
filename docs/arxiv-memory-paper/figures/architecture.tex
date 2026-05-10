@@ -1,0 +1,98 @@
+% Three-layer workflow memory architecture with dual-mode retrieval
+% Compile standalone: pdflatex architecture.tex
+% Or include via \input{figures/architecture} from main.tex
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+    >=stealth,
+    node distance=1.2cm and 2.0cm,
+    layer/.style={draw, rounded corners=3pt, minimum width=5.8cm,
+                  minimum height=1.4cm, align=center, font=\small},
+    service/.style={draw, rounded corners=3pt, minimum width=3.8cm,
+                    minimum height=1.0cm, align=center, font=\small},
+    agent/.style={draw, dashed, rounded corners=3pt, minimum width=3.0cm,
+                  minimum height=0.9cm, align=center, font=\small},
+    pullpath/.style={->, thick, color=MidnightBlue},
+    pushpath/.style={->, thick, color=BrickRed, dashed},
+    labelbox/.style={font=\scriptsize\sffamily, fill=white, inner sep=1pt},
+  ]
+
+  % === Layers (right side) ===
+  \node[layer, fill=blue!8] (domain)
+    {\textbf{Domain Layer}\\Laws, court decisions, regulations\\{\scriptsize Qdrant (production)}};
+
+  \node[layer, fill=green!8, below=0.6cm of domain] (workflow)
+    {\textbf{Workflow Layer}\\Principle ledger, ADRs, tool contracts,\\
+     validator definitions, git history, issues\\
+     {\scriptsize PostgreSQL + Qdrant}};
+
+  \node[layer, fill=orange!8, below=0.6cm of workflow] (practitioner)
+    {\textbf{Practitioner Layer}\\Edit-trace summaries, decision patterns,\\
+     disambiguation labels, accept/reject history\\
+     {\scriptsize rlhf-signals extension}};
+
+  % === Memory Service (center-left) ===
+  \node[service, fill=gray!10, left=2.8cm of workflow] (memservice)
+    {\textbf{Memory Service}\\embed $\rightarrow$ retrieve $\rightarrow$ re-rank\\$\rightarrow$ assemble digest};
+
+  % === Claude Code session (top-left) ===
+  \node[agent, fill=blue!5, above=1.8cm of memservice] (session)
+    {\textbf{Claude Code Session}\\task description};
+
+  % === Long-term orchestrator (bottom-left) ===
+  \node[agent, fill=red!5, below=1.8cm of memservice] (orchestrator)
+    {\textbf{Long-Term Orchestrator}\\scheduled refresh};
+
+  % === Pull path (blue, solid) ===
+  \draw[pullpath] (session.south) -- node[labelbox, left, xshift=-2pt]
+    {\color{MidnightBlue}\textsc{pull}} (memservice.north);
+
+  \draw[pullpath] (memservice.east) -- ++(0.8,0) |- (domain.west);
+  \draw[pullpath] (memservice.east) -- (workflow.west);
+  \draw[pullpath] (memservice.east) -- ++(0.8,0) |- (practitioner.west);
+
+  % Return digest (pull)
+  \draw[pullpath, dotted] (memservice.north west) -- ++(-0.4,0)
+    |- node[labelbox, left, xshift=-6pt, yshift=8pt]
+    {\color{MidnightBlue}digest} (session.south west);
+
+  % === Push path (red, dashed) ===
+  \draw[pushpath] (orchestrator.north) -- node[labelbox, left, xshift=-2pt]
+    {\color{BrickRed}\textsc{push}} (memservice.south);
+
+  \draw[pushpath] (memservice.east) -- ++(0.5,0) |- ([yshift=-3pt]workflow.west);
+  \draw[pushpath] (memservice.east) -- ++(0.5,0) |- ([yshift=-3pt]practitioner.west);
+
+  % === Issue tracker feed into orchestrator ===
+  \node[font=\scriptsize\sffamily, below=0.3cm of orchestrator, text=gray]
+    (tracker) {Plane issues $\cdot$ git activity};
+  \draw[->, thin, gray] (tracker.north) -- (orchestrator.south);
+
+  % === Retrieval-correction feedback loop ===
+  \node[font=\scriptsize\sffamily, right=0.3cm of practitioner.south east,
+        text=OliveGreen, anchor=west] (rcloop) {retrieval-correction};
+  \draw[->, thin, OliveGreen, dashed]
+    ([xshift=5pt]practitioner.south east) -- ++(0,-0.5)
+    -| node[labelbox, below, yshift=-3pt] {\color{OliveGreen}feedback}
+    ([xshift=-8pt]memservice.south east);
+
+  % === Legend ===
+  \node[anchor=north west, font=\scriptsize] at ([yshift=-0.6cm]practitioner.south west)
+  {
+    \tikz\draw[pullpath] (0,0) -- (0.7,0); \textsc{pull} (session-start hook) \quad
+    \tikz\draw[pushpath] (0,0) -- (0.7,0); \textsc{push} (scheduled refresh) \quad
+    \tikz\draw[->, thin, OliveGreen, dashed] (0,0) -- (0.7,0); feedback loop
+  };
+
+\end{tikzpicture}
+\caption{Three-layer workflow memory architecture with dual-mode retrieval.
+  \textsc{Pull} mode (solid blue) fires at session start: the task description is embedded
+  and used to query all three Qdrant collections in parallel; results are re-ranked and
+  assembled into a compact digest.
+  \textsc{Push} mode (dashed red) runs on a schedule proportional to task activity,
+  refreshing workflow and practitioner layer entries so that pull queries return current context.
+  The retrieval-correction feedback loop (green) detects memory entries that \emph{should}
+  have been retrieved but were not, feeding back into retrieval tuning and the RLHF
+  pipeline as a process-level oversight signal.}
+\label{fig:architecture}
+\end{figure}
