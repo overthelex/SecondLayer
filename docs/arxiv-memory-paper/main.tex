@@ -102,7 +102,7 @@ This operational regime is not served by existing memory or retrieval approaches
 
 \paragraph{CLAUDE.md scales as hand-curation.}
 The dominant workaround for cross-session context in agentic workflows is a flat Markdown file (\texttt{CLAUDE.md}) that accumulates project conventions, architectural notes, and operational constraints.
-In practice, its size grows linearly with project age: over 85 days and 25 commits, the \texttt{CLAUDE.md} for the platform described above grew from 4{,}099 to 24{,}148 characters at a rate of 217 characters/day ($R^2 = 0.87$ on a linear fit; see Section~\ref{sec:preliminary}).
+In practice, its size grows linearly with project age: over 85 days and 25 commits, the \texttt{CLAUDE.md} for the platform described above grew from 4{,}099 to 24{,}148 characters (474~lines) at a rate of 217 characters/day ($R^2 = 0.87$; see Section~\ref{sec:preliminary}).
 A new session loads the entire file regardless of task relevance, wasting context budget on content that is irrelevant to the current task and out of date with respect to recent changes.
 Worse, the practitioner bears the curation burden: every architectural decision must be manually distilled into the file, and stale entries silently degrade session quality.
 
@@ -494,12 +494,8 @@ Four metrics operationalize the architecture's success criteria, each paired wit
 \toprule
 \textbf{Metric} & \textbf{Measurement method} & \textbf{Baseline} & \textbf{Target} \\
 \midrule
-Session file reads &
-  Count Read tool calls per session across 304 sessions from companion dataset &
-  23.1 (mean) & ${\leq}8$ \\
-\addlinespace
-Session bootstrap (input tokens) &
-  Sum input tokens at first API call; $N{=}304$ sessions &
+Bootstrap token cost &
+  Input tokens at first API call (includes \texttt{CLAUDE.md} cache); $N{=}304$ sessions &
   30{,}115 (median) & ${\leq}10$K \\
 \addlinespace
 Context waste ratio &
@@ -538,7 +534,7 @@ Per-session file reads (Read tool calls) average 23.1 (median~14, P90: 61), but 
 The memory layer's primary reduction target is therefore the automatic context cost ($T$), not the file-read count.
 
 \paragraph{CLAUDE.md growth (Experiment~2, 25~commits over 85~days).}
-The project's \texttt{CLAUDE.md} grew from 4{,}099 to 24{,}148 characters (152 to 474~lines) across 25 commits spanning January~17 to April~12, 2026.
+The project's \texttt{CLAUDE.md} grew from 4{,}099 to 24{,}148 characters (152 to 474~lines) across 25 commits over 85 days (January~17 to April~12, 2026---a subset of the 105-day operational period documented in the companion paper).
 A linear regression of character count on days elapsed yields a slope of 216.7~chars/day with $R^2 = 0.87$, confirming the approximately linear growth claimed in Section~\ref{sec:intro}.
 Line count is noisier ($R^2 = 0.58$) due to periodic reformatting that changes density without changing content volume.
 
@@ -548,10 +544,7 @@ The distribution is right-skewed: 66\% of sessions waste more than half their bo
 Source-code reads are wasted at 78\%, while memory files (\texttt{.claude/memory/}) are wasted at 66.5\%, suggesting that structured memory retrieval is more targeted than exploratory file reads.
 Waste ratio correlates negatively with session length: short sessions (5--10 turns) waste 68.5\%; longer sessions ($>$50 turns) waste 51.1\%.
 
-\paragraph{Phase~0 status.}
-The prompt-commit bridge has been deployed since May~9, 2026 and has captured 23~prompts across 5~sessions and 4~repositories.
-Meaningful distributional analysis (topic clustering, cross-project switching rates) requires 4--6 weeks of passive collection.
-
+Phase~0 (prompt-commit bridge) has been deployed since May~9, 2026 with negligible performance overhead (15ms per capture); distributional analysis requires 4--6 weeks of collection and will be reported in a revision.
 Full evaluation of the memory layer itself (retrieval accuracy, bootstrap reduction with memory enabled) will be reported after Phase~1.3 deployment.
 
 % --------------------------------------------------
