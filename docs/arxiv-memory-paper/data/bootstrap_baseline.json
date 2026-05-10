@@ -1,0 +1,80 @@
+{
+  "experiment": "bootstrap_baseline",
+  "description": "Session bootstrap cost measurement from Claude Code JSONL transcripts",
+  "methodology": {
+    "data_source": "Claude Code JSONL transcripts at /home/vovkes/.claude/projects/",
+    "session_type": "main sessions only (not subagents)",
+    "bootstrap_definition": "first API call made in response to the initial user message",
+    "bootstrap_end": "next permission-mode entry or next non-tool-result user message",
+    "file_read_detection": "Read tool calls + Bash commands starting with cat/head/tail",
+    "token_measurement": "real Anthropic API usage field (input_tokens + cache_creation_input_tokens + cache_read_input_tokens)",
+    "note": "bootstrap_file_reads = reads in first turn only; session_file_reads = reads across entire session"
+  },
+  "n_sessions": 304,
+  "bootstrap_input_tokens": {
+    "mean": 29692.65,
+    "median": 30115.0,
+    "stdev": 7593.6,
+    "p10": 18540,
+    "p25": 23743,
+    "p75": 32902,
+    "p90": 41774,
+    "min": 16407,
+    "max": 44831
+  },
+  "bootstrap_cache_creation_tokens": {
+    "mean": 17597.8,
+    "median": 15764.0,
+    "stdev": 10938.15,
+    "p10": 5901,
+    "p25": 8468,
+    "p75": 23423,
+    "p90": 32667,
+    "min": 34,
+    "max": 44677
+  },
+  "bootstrap_file_reads": {
+    "mean": 0.93,
+    "median": 0.0,
+    "stdev": 2.43,
+    "p10": 0,
+    "p25": 0,
+    "p75": 1,
+    "p90": 3,
+    "min": 0,
+    "max": 21
+  },
+  "session_file_reads_total": {
+    "mean": 23.12,
+    "median": 14.0,
+    "stdev": 29.29,
+    "p10": 0,
+    "p25": 3,
+    "p75": 31,
+    "p90": 61,
+    "min": 0,
+    "max": 244
+  },
+  "bootstrap_tool_calls": {
+    "mean": 4.4,
+    "median": 2.0,
+    "stdev": 9.63,
+    "p10": 0,
+    "p25": 0,
+    "p75": 4,
+    "p90": 9,
+    "min": 0,
+    "max": 76
+  },
+  "paper_claim_comparison": {
+    "claimed_file_reads": 25,
+    "measured_session_file_reads_mean": 23.1,
+    "measured_bootstrap_file_reads_mean": 0.93,
+    "claimed_input_tokens": 30000,
+    "measured_bootstrap_input_tokens_median": 30115.0,
+    "claim_validation": {
+      "input_tokens_30k": "CONFIRMED \u2014 median bootstrap input tokens = 30,115",
+      "file_reads_25": "PARTIALLY CONFIRMED \u2014 whole-session mean = 23.1 (close); bootstrap-phase only = 0.93 (most sessions start with Bash, not Read)"
+    }
+  }
+}
