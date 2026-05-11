@@ -185,6 +185,11 @@ This enables the question: does \emph{how} a practitioner performs oversight con
 The construct we develop here is related but distinct: a \textbf{domain constitution}---formal conditions under which human corrections on agentic output constitute valid oversight signal.
 Where Constitutional AI asks ``does this output satisfy these principles?'', a domain constitution asks ``does this correction process satisfy the conditions required for the resulting edit-trace to function as scalable oversight?''
 
+The broader principle---that formal structure should \emph{control}, not merely inform, system behavior---has roots in ontology-controlled architectures~\citep{palagin2006architecture}, where domain ontologies govern the runtime behavior of information systems rather than serving as passive metadata.
+Recent work extends this principle to large language models: OntoChatGPT~\citep{palagin2023ontochatgpt} uses formal ontologies to structure and constrain ChatGPT's output generation via ontology-driven meta-learning prompts.
+The domain constitution advances this line from a different direction: where ontology-controlled systems use formal structure to govern \emph{what the system produces}, the domain constitution uses formal conditions to govern \emph{when human corrections on system output constitute valid training signal}.
+The shift is from controlling the model's generation process to controlling the oversight process that yields preference data for model improvement.
+
 Not all human--agent interaction produces oversight signal.
 A user who copies an LLM snippet into a one-off script provides no oversight.
 A crowd annotator who rates two completions provides weak oversight, ungrounded in real consequences.
@@ -816,7 +821,7 @@ This complements the current dataset's successful-oversight bias.
 
 \item \textbf{Edit-trace capture for non-code workflows:} extending instrumentation to document drafting, legal brief composition, research analysis, and multi-turn conversational oversight.
 
-\item \textbf{Constitutional alignment between domain and model constitutions:} studying how domain-specific oversight constitutions interact with the model's own constitutional training~\citep{bai2022constitutional}.
+\item \textbf{Constitutional alignment between domain and model constitutions:} studying how domain-specific oversight constitutions interact with the model's own constitutional training~\citep{bai2022constitutional} and with ontology-driven dialogue architectures~\citep{palagin2023dialogue} that use formal knowledge structures to govern human--AI interaction at the system level.
 
 \item \textbf{Automated oversight difficulty estimation:} using the edit-trace to identify which agentic steps are hardest to oversee (highest edit distance, most rejections, longest deliberation time).
 This produces a per-step oversight difficulty map that informs where human oversight should be concentrated.
