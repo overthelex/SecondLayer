@@ -53,6 +53,9 @@ FROM nginx:alpine
 # Copy built assets from builder stage
 COPY --from=builder /app/lexwebapp/dist /usr/share/nginx/html
 
+# Add .mjs MIME type (ES modules — required for pdf.js worker)
+RUN sed -i 's|application/javascript\s*js;|application/javascript js mjs;|' /etc/nginx/mime.types
+
 # Copy custom nginx configuration
 COPY lexwebapp/nginx.conf /etc/nginx/conf.d/default.conf
 
