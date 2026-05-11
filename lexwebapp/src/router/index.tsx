@@ -74,7 +74,8 @@ const ProductPage = lazyWithRetry(() => import('../pages/ProductPage').then(m =>
 const UKInvestorPage = lazyWithRetry(() => import('../pages/UKInvestorPage').then(m => ({ default: m.UKInvestorPage })));
 const InvestorDeckPage = lazyWithRetry(() => import('../pages/InvestorDeckPage').then(m => ({ default: m.InvestorDeckPage })));
 
-// -- Data Sources (country pages) --
+// -- Data Sources (hub + country pages) --
+const DataSourcesPage = lazyWithRetry(() => import('../pages/DataSourcesPage').then(m => ({ default: m.DataSourcesPage })));
 const USDataSourcesPage = lazyWithRetry(() => import('../pages/USDataSourcesPage').then(m => ({ default: m.USDataSourcesPage })));
 const UKDataSourcesPage = lazyWithRetry(() => import('../pages/UKDataSourcesPage').then(m => ({ default: m.UKDataSourcesPage })));
 const DEDataSourcesPage = lazyWithRetry(() => import('../pages/DEDataSourcesPage').then(m => ({ default: m.DEDataSourcesPage })));
@@ -242,6 +243,10 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.AUP,
     element: S(AupPage),
+  },
+  {
+    path: ROUTES.DATA_SOURCES,
+    element: S(DataSourcesPage),
   },
   {
     path: ROUTES.US_DATA_SOURCES,

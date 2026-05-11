@@ -3,7 +3,7 @@
  * Public informational page listing legal and government open data sources across 15+ jurisdictions
  */
 
-import { ArrowLeft, ExternalLink, Scale, BookOpen, FileText, Building2, Database, Shield, Landmark, DollarSign, BarChart3, Heart, GraduationCap, Leaf, Users, Receipt, Briefcase } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Scale, BookOpen, FileText, Building2, Database, Shield, Landmark, DollarSign, BarChart3, Heart, GraduationCap, Leaf, Users, Receipt, Briefcase, Check } from 'lucide-react';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 interface DataSource {
@@ -12,6 +12,7 @@ interface DataSource {
   url: string;
   description: string;
   tags: string[];
+  inLex?: boolean;
 }
 
 interface Category {
@@ -31,6 +32,7 @@ const categories: Category[] = [
         url: 'https://reyestr.court.gov.ua/',
         description: 'Comprehensive database of all court decisions in Ukraine since 2006. Over 100 million records across civil, criminal, administrative, and commercial jurisdictions. Full-text search by parties, case number, court, and date.',
         tags: ['Court Decisions', 'Official', 'Free', '100M+ Records'],
+        inLex: true,
       },
       {
         name: 'Court Open Data Portal',
@@ -38,6 +40,7 @@ const categories: Category[] = [
         url: 'https://court.gov.ua/opendata/',
         description: 'Judiciary open data portal. Machine-readable exports of court decisions, court statistics, case flow data, and judicial system performance indicators.',
         tags: ['Open Data', 'API', 'Statistics'],
+        inLex: true,
       },
       {
         name: 'Register of Debtors',
@@ -45,6 +48,7 @@ const categories: Category[] = [
         url: 'https://erb.minjust.gov.ua/',
         description: 'Real-time database of individuals and legal entities with unfulfilled financial obligations. Enforcement proceedings, alimony debtors, and property alienation prevention data.',
         tags: ['Debtors', 'Enforcement', 'Real-time'],
+        inLex: true,
       },
     ],
   },
@@ -58,6 +62,7 @@ const categories: Category[] = [
         url: 'https://court.gov.ua/dsa/inshe/oddata/12/',
         description: '25 datasets — yearly bulk exports of all court decisions from the Unified State Register. One archive per year from 2006 to present, enabling historical analysis and research.',
         tags: ['Bulk Data', '25 Datasets', 'Yearly Archives'],
+        inLex: true,
       },
       {
         name: 'Judicial Statistics & Reports',
@@ -65,6 +70,7 @@ const categories: Category[] = [
         url: 'https://court.gov.ua/dsa/inshe/oddata/36/',
         description: '197 datasets — quarterly and annual statistical reports from all court levels. Case flow (civil, criminal, admin, commercial), caseload per judge, case duration, enforcement statistics, and appellate review rates.',
         tags: ['Statistics', '197 Datasets', 'All Court Levels'],
+        inLex: true,
       },
       {
         name: 'Criminal Justice Statistics',
@@ -72,6 +78,7 @@ const categories: Category[] = [
         url: 'https://court.gov.ua/dsa/inshe/oddata/468/',
         description: '22 datasets — detailed criminal case statistics by Criminal Code article. Conviction/acquittal rates, sentencing data, juvenile offender reports, human trafficking, hate crimes, and drug-related cases.',
         tags: ['Criminal', '22 Datasets', 'By CC Article'],
+        inLex: true,
       },
       {
         name: 'Court Procurement & Budgets',
@@ -79,6 +86,7 @@ const categories: Category[] = [
         url: 'https://court.gov.ua/dsa/inshe/oddata/27/',
         description: '103 datasets — annual procurement plans, budget estimates, and financial reports from the State Judicial Administration and individual courts. Includes amendments and quarterly spending data.',
         tags: ['Procurement', '103 Datasets', 'Budgets'],
+        inLex: true,
       },
       {
         name: 'Public Information Requests',
@@ -86,6 +94,7 @@ const categories: Category[] = [
         url: 'https://court.gov.ua/dsa/inshe/oddata/55/',
         description: '302 datasets — quarterly registers of public information requests received by courts and the State Judicial Administration. Type of requester, subject, response status, and resolution.',
         tags: ['FOI Requests', '302 Datasets', 'Transparency'],
+        inLex: true,
       },
       {
         name: 'Court Contacts & Payment Details',
@@ -93,6 +102,7 @@ const categories: Category[] = [
         url: 'https://court.gov.ua/dsa/inshe/oddata/5/',
         description: '11 datasets — court fee payment requisites, electronic address register of government bodies, contact information, and office hours for courts across all regions.',
         tags: ['Contacts', 'Court Fees', 'Requisites'],
+        inLex: true,
       },
       {
         name: 'Normative Acts & Regulations',
@@ -100,6 +110,7 @@ const categories: Category[] = [
         url: 'https://court.gov.ua/dsa/inshe/oddata/745/',
         description: '21 datasets — regulatory acts, administrative orders, and internal policy documents issued by courts and the State Judicial Administration. Quarterly publications of individual and normative acts.',
         tags: ['Regulations', '21 Datasets', 'Orders'],
+        inLex: true,
       },
       {
         name: 'Judicial HR & Staffing',
@@ -107,6 +118,7 @@ const categories: Category[] = [
         url: 'https://court.gov.ua/sud5010/inshe/6/215/',
         description: '7 datasets — judicial staffing data, vacancy announcements, competition results for court positions, judicial corps composition, and personal data protection policies.',
         tags: ['HR', 'Vacancies', 'Competitions'],
+        inLex: true,
       },
       {
         name: 'Civil, Admin & Commercial Reports',
@@ -114,6 +126,7 @@ const categories: Category[] = [
         url: 'https://court.gov.ua/dsa/inshe/oddata/37/',
         description: '126 datasets — detailed reports on first-instance and appellate case processing by jurisdiction type. Civil disputes, administrative cases, commercial/economic cases, and minor offenses with processing time metrics.',
         tags: ['Case Reports', '126 Datasets', 'By Jurisdiction'],
+        inLex: true,
       },
     ],
   },
@@ -127,6 +140,7 @@ const categories: Category[] = [
         url: 'https://zakon.rada.gov.ua/',
         description: 'Official database of all Ukrainian legislation maintained by the Verkhovna Rada. Laws, codes, resolutions, decrees — consolidated with amendments, historical versions, and English annotations for key acts.',
         tags: ['Official', 'Consolidated', 'English Available'],
+        inLex: true,
       },
       {
         name: 'Rada Open Data Portal',
@@ -134,6 +148,7 @@ const categories: Category[] = [
         url: 'https://data.rada.gov.ua/',
         description: 'Parliament\'s official open data portal with 633+ datasets across 8 categories. Full API access for developers at data.rada.gov.ua/open/main/api.',
         tags: ['Parliament', 'API', '633+ Datasets'],
+        inLex: true,
       },
       {
         name: 'Draft Legislation System',
@@ -141,6 +156,7 @@ const categories: Category[] = [
         url: 'https://itd.rada.gov.ua/billInfo/Bills/CardBillSearch',
         description: 'Track bills through the Verkhovna Rada. Search by number, title, author, or committee. Full text of bills, amendments, and committee conclusions.',
         tags: ['Bills', 'Tracking', 'Amendments'],
+        inLex: true,
       },
     ],
   },
@@ -154,6 +170,7 @@ const categories: Category[] = [
         url: 'https://data.rada.gov.ua/open/data/mps',
         description: '179 datasets — full data on People\'s Deputies: biographical info, faction membership, committee roles, attendance, speeches, bill authorship, voting patterns, and inter-faction migration history.',
         tags: ['Deputies', '179 Datasets', 'Activity'],
+        inLex: true,
       },
       {
         name: 'Agenda Items & Votes',
@@ -161,6 +178,7 @@ const categories: Category[] = [
         url: 'https://data.rada.gov.ua/open/data/zal',
         description: '140 datasets — every agenda item considered in the session hall. Individual and roll-call vote results, procedural decisions, motion outcomes, and how each deputy voted on each question.',
         tags: ['Voting', '140 Datasets', 'Roll-call'],
+        inLex: true,
       },
       {
         name: 'Plenary Sessions',
@@ -168,6 +186,7 @@ const categories: Category[] = [
         url: 'https://data.rada.gov.ua/open/data/meetings',
         description: '115 datasets — plenary session records including date, time, stenograms, speeches, procedural events, session agenda, registration data, and attendance.',
         tags: ['Sessions', '115 Datasets', 'Stenograms'],
+        inLex: true,
       },
       {
         name: 'Registered Bills',
@@ -175,6 +194,7 @@ const categories: Category[] = [
         url: 'https://data.rada.gov.ua/open/data/zpr',
         description: '66 datasets — all bills registered in parliament. Bill text, authors, subject, committee assignment, expert opinions, amendments, reading stages, and final vote results.',
         tags: ['Bills', '66 Datasets', 'Full Lifecycle'],
+        inLex: true,
       },
       {
         name: 'Legal Database',
@@ -182,6 +202,7 @@ const categories: Category[] = [
         url: 'https://data.rada.gov.ua/open/data/zak',
         description: '61 datasets — structured data from the legislative database. Laws, codes, resolutions, international treaties in machine-readable format with metadata, relationships, and amendment chains.',
         tags: ['Laws', '61 Datasets', 'Machine-readable'],
+        inLex: true,
       },
       {
         name: 'Financial & Economic Activity',
@@ -229,6 +250,7 @@ const categories: Category[] = [
         url: 'https://usr.minjust.gov.ua/',
         description: 'Unified State Register of Legal Entities, Individual Entrepreneurs, and Public Organizations. Official source for company registration data, founders, and authorized capital.',
         tags: ['Official', 'ЄДР', 'Registration Data'],
+        inLex: true,
       },
     ],
   },
@@ -242,6 +264,7 @@ const categories: Category[] = [
         url: 'https://prozorro.gov.ua/',
         description: 'Revolutionary fully electronic public procurement system. All government tenders and contracts in open format. Saved $6B+ since 2017, monitored by 100,000+ citizens. Open Contracting Data Standard compliant.',
         tags: ['Procurement', 'Open Source', 'OCDS'],
+        inLex: true,
       },
       {
         name: 'E-Data / Spending.gov.ua',
@@ -249,6 +272,7 @@ const categories: Category[] = [
         url: 'https://spending.gov.ua/',
         description: 'Public finance transparency portal tracking all government spending from state and local budgets. Real-time transaction data, spending unit breakdowns, and machine-readable API.',
         tags: ['Budget', 'Spending', 'API', 'Real-time'],
+        inLex: true,
       },
       {
         name: 'Open Budget',
@@ -473,6 +497,7 @@ const categories: Category[] = [
         url: 'https://data.gov.ua/dataset/470196d3-4e7a-46b0-8c0c-883b74ac65f0',
         description: 'National registry of missing persons maintained by the National Police. Includes personal details, circumstances of disappearance, and search status. JSON format.',
         tags: ['Missing Persons', 'National Police', 'JSON'],
+        inLex: true,
       },
       {
         name: 'Administrative-Territorial Dictionary',
@@ -507,6 +532,7 @@ const categories: Category[] = [
         url: 'https://data.gov.ua/dataset/0a556891-d6ef-4a5f-a182-caac2f7aa9c9',
         description: 'State Register of Certified Forensic Experts. Expert specializations (criminalistics, medical, economic, construction), certifications, and affiliated institutions.',
         tags: ['Forensic Experts', 'Certified', 'Registry'],
+        inLex: true,
       },
       {
         name: 'Bankruptcy Proceedings Registry',
@@ -726,6 +752,16 @@ export function UADataSourcesPage() {
         </div>
       </div>
 
+      {/* Legend */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 pb-0">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-50 border border-purple-200">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">
+            <Check size={10} /> В базі LEX
+          </span>
+          <span className="text-sm text-purple-800">&mdash; дані доступні для пошуку та аналізу в LEX AI</span>
+        </div>
+      </div>
+
       {/* Format Statistics */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-10 pb-4">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -776,7 +812,14 @@ export function UADataSourcesPage() {
                   <a key={source.name} href={source.url} target="_blank" rel="noopener noreferrer"
                     className="group block bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 hover:shadow-md transition-all">
                     <div className="flex items-start justify-between mb-1">
-                      <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{source.name}</h3>
+                      <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        {source.name}
+                        {source.inLex && (
+                          <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">
+                            <Check size={10} /> В базі LEX
+                          </span>
+                        )}
+                      </h3>
                       <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-blue-500 flex-shrink-0 mt-0.5" />
                     </div>
                     {source.nameUa && (

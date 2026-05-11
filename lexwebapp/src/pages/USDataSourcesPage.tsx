@@ -206,6 +206,13 @@ export function USDataSourcesPage() {
         </div>
       </div>
 
+      {/* Coverage note */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-8">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+          Sources from this jurisdiction are not yet indexed in LEX AI. Currently LEX AI covers Ukrainian legal data. International expansion is planned.
+        </div>
+      </div>
+
       {/* Categories */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
         <div className="space-y-10">
