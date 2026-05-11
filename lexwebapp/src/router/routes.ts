@@ -94,6 +94,9 @@ export const ROUTES = {
   UK_INVESTOR: '/uk_investor',
   UK_INVESTOR_SIMPLIFIED: '/uk_investor_simplified',
 
+  // Data sources hub
+  DATA_SOURCES: '/data-sources',
+
   // Country-specific public pages
   US_DATA_SOURCES: '/us/data-sources',
   UK_DATA_SOURCES: '/uk/data-sources',

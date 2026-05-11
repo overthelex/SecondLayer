@@ -229,7 +229,7 @@ export function BlogPage() {
           <div className="flex items-center gap-4 text-sm text-claude-subtext font-sans">
             <a href="/login" className="hover:text-claude-accent transition-colors">{ui.login}</a>
             <span className="text-claude-border">|</span>
-            <a href="/ua/data-sources" className="hover:text-claude-accent transition-colors">{ui.dataSources}</a>
+            <a href="/data-sources" className="hover:text-claude-accent transition-colors">{ui.dataSources}</a>
           </div>
         </div>
       </footer>

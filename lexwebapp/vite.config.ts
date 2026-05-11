@@ -64,6 +64,7 @@ function sitemapPlugin(): Plugin {
         }
 
         const dataSourcePages: Entry[] = [
+          '/data-sources',
           '/us/data-sources', '/uk/data-sources', '/de/data-sources',
           '/fr/data-sources', '/nl/data-sources', '/ee/data-sources',
           '/ua/data-sources', '/eu/comparison',
