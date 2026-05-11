@@ -11,6 +11,7 @@ interface BlogUIStringsMap {
   all: string;
   tech: string;
   forLawyers: string;
+  academic: string;
   dataSources: string;
   heroTitle: string;
   heroSubtitle: string;
@@ -38,6 +39,7 @@ const uiStrings: Record<AppLanguage, BlogUIStringsMap> = {
     all: 'Всі',
     tech: 'Tech',
     forLawyers: 'Для юристів',
+    academic: 'Academic',
     dataSources: 'Джерела даних',
     heroTitle: 'LEX AI Blog',
     heroSubtitle: 'Як ми будуємо AI-платформу для юридичної аналітики. Технічні інсайти для розробників та практичні кейси для юристів.',
@@ -63,6 +65,7 @@ const uiStrings: Record<AppLanguage, BlogUIStringsMap> = {
     all: 'All',
     tech: 'Tech',
     forLawyers: 'For Lawyers',
+    academic: 'Academic',
     dataSources: 'Data Sources',
     heroTitle: 'LEX AI Blog',
     heroSubtitle: 'How we build an AI platform for legal analytics. Technical insights for developers and practical cases for lawyers.',
@@ -88,6 +91,7 @@ const uiStrings: Record<AppLanguage, BlogUIStringsMap> = {
     all: 'Все',
     tech: 'Tech',
     forLawyers: 'Для юристов',
+    academic: 'Academic',
     dataSources: 'Источники данных',
     heroTitle: 'LEX AI Blog',
     heroSubtitle: 'Как мы строим AI-платформу для юридической аналитики. Технические инсайты для разработчиков и практические кейсы для юристов.',
@@ -113,6 +117,7 @@ const uiStrings: Record<AppLanguage, BlogUIStringsMap> = {
     all: 'Todos',
     tech: 'Tech',
     forLawyers: 'Para abogados',
+    academic: 'Academic',
     dataSources: 'Fuentes de datos',
     heroTitle: 'LEX AI Blog',
     heroSubtitle: 'Cómo construimos una plataforma de IA para análisis jurídico. Perspectivas técnicas para desarrolladores y casos prácticos para abogados.',

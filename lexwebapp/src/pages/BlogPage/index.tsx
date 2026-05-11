@@ -8,6 +8,7 @@ import {
   BookOpen,
   ChevronRight,
   Cpu,
+  GraduationCap,
   Scale,
 } from 'lucide-react';
 import { articles, type Article } from './articles';
@@ -24,7 +25,7 @@ export function BlogPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
-  const [filter, setFilter] = useState<'all' | 'tech' | 'legal'>('all');
+  const [filter, setFilter] = useState<'all' | 'tech' | 'legal' | 'academic'>('all');
   const blogLang = searchParams.get('lang') as 'en' | 'ru' | 'uk' | null;
   const effectiveBlogLang = blogLang && ['en', 'ru', 'uk'].includes(blogLang) ? blogLang : 'en';
   const ui = getBlogUI(effectiveBlogLang);
@@ -121,6 +122,7 @@ export function BlogPage() {
               { key: 'all', label: ui.all, count: localizedArticles.length },
               { key: 'tech', label: ui.tech, count: localizedArticles.filter(a => a.category === 'tech').length },
               { key: 'legal', label: ui.forLawyers, count: localizedArticles.filter(a => a.category === 'legal').length },
+              { key: 'academic', label: ui.academic, count: localizedArticles.filter(a => a.category === 'academic').length },
             ] as const).map(tab => (
               <button
                 key={tab.key}
@@ -170,18 +172,22 @@ export function BlogPage() {
                 <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
                   article.category === 'tech'
                     ? 'bg-blue-50 text-blue-600'
+                    : article.category === 'academic'
+                    ? 'bg-purple-50 text-purple-600'
                     : 'bg-claude-accent/10 text-claude-accent'
                 }`}>
-                  {article.category === 'tech' ? <Cpu size={20} /> : <Scale size={20} />}
+                  {article.category === 'tech' ? <Cpu size={20} /> : article.category === 'academic' ? <GraduationCap size={20} /> : <Scale size={20} />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <span className={`text-[10px] font-bold tracking-wider uppercase font-sans px-2 py-0.5 rounded-full ${
                       article.category === 'tech'
                         ? 'bg-blue-50 text-blue-600'
+                        : article.category === 'academic'
+                        ? 'bg-purple-50 text-purple-600'
                         : 'bg-claude-accent/10 text-claude-accent'
                     }`}>
-                      {article.category === 'tech' ? 'TECH' : 'LEGAL'}
+                      {article.category === 'tech' ? 'TECH' : article.category === 'academic' ? 'ACADEMIC' : 'LEGAL'}
                     </span>
                     <span className="text-xs text-claude-subtext/60 font-sans">{article.readTime}</span>
                   </div>

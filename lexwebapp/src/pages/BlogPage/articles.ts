@@ -6,11 +6,12 @@ export interface Article {
   id: string;
   title: string;
   punchline: string;
-  category: 'tech' | 'legal';
+  category: 'tech' | 'legal' | 'academic';
   tags: string[];
   readTime: string;
   publishedAt: string; // ISO date, e.g. '2026-03-01'
   content: string;
+  pdfUrl?: string;
 }
 
 export interface ArticleTranslation {
@@ -29,6 +30,140 @@ export function hasRecentArticles(): boolean {
 }
 
 export const articles: Article[] = [
+  {
+    id: 'paper-edit-trace-oversight',
+    title: 'Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows',
+    punchline: 'When a practitioner works agentically with an LLM, every human edit is a localized correction. 30,510 edit-traces from 1,547 merged PRs, 105 days of solo founder shipping. No existing alignment dataset captures both artifact-level and process-level oversight.',
+    category: 'academic',
+    tags: ['arXiv preprint', 'RLHF', 'Edit-Trace', 'Alignment', 'Agentic Workflows'],
+    readTime: 'PDF, 28 pages',
+    publishedAt: '2026-05-11',
+    pdfUrl: '/papers/edit-trace-oversight-2026.pdf',
+    content: `# Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows
+
+**Volodymyr Ovcharov** — LEX AI LLC, Kyiv, Ukraine
+
+---
+
+## Abstract
+
+Existing approaches to RLHF preference collection — crowd workers, expert annotators, AI raters — generate signal detached from the agentic workflows they are meant to govern. As LLM agents perform longer-horizon, multi-step work, the oversight gap widens: annotation happens in abstract evaluation contexts, while agents fail at the level of individual edits within compositional trajectories.
+
+We propose **edit-trace oversight** — alignment signal captured natively when a practitioner works agentically with an LLM. Every human edit on a model output is a localized correction relative to a domain constitution and an outcome trajectory.
+
+**Subject:** CEO of Legal.org.ua / LEX AI. Shipping period: 105 days (Jan 24 – May 8, 2026), 1,547 merged PRs across 7 interconnected projects, 70+ MCP tools in production, 380M+ records in the data pipeline. All built by one founder with zero employees using Claude Code as the primary agentic engineering counterpart.
+
+**Two-axis oversight signal:** (1) artifact-level — what was corrected (30,510 edit-traces, 80.7% substantive rewrites, median edit distance 0.84); (2) process-level — how oversight was performed (OS-level activity tracking: keystroke timing, idle gaps, cross-app research, voice context).
+
+**Pilot dataset:** 2,892 workflow sessions, 30,510 edit pairs, 1,579 attributed outcomes (54.6% coverage, 88.1% strong confidence).
+
+**Experiments (1–3 complete):** Experiment 1 confirmed the extreme edit distribution. Experiment 2 showed process-level features are real but redundant with artifact features. Experiment 3 revealed rejection is the strongest oversight signal (78% positive outcomes). DPO training (Experiment 4) redesigned as 4-condition study.
+
+---
+
+[**Download Full Paper (PDF)**](/papers/edit-trace-oversight-2026.pdf)`,
+  },
+  {
+    id: 'paper-workflow-memory',
+    title: 'Workflow Memory for Long-Horizon Agentic Composition: Architecture, Dual-Mode Retrieval, and Retrieval-Correction Signal',
+    punchline: 'Long-horizon agentic workflows demand a memory substrate whose retrieval unit is the architectural decision, not the conversational turn. Three-layer memory decomposition with dual-mode retrieval and retrieval-correction edits as oversight signal.',
+    category: 'academic',
+    tags: ['arXiv preprint', 'Memory Architecture', 'Agentic AI', 'RAG', 'Oversight'],
+    readTime: 'PDF, 32 pages',
+    publishedAt: '2026-05-10',
+    pdfUrl: '/papers/workflow-memory-2026.pdf',
+    content: `# Workflow Memory for Long-Horizon Agentic Composition
+
+**Architecture, Dual-Mode Retrieval, and Retrieval-Correction Signal**
+
+**Volodymyr Ovcharov** — LEX AI LLC, Kyiv, Ukraine
+
+---
+
+## Abstract
+
+Long-horizon agentic workflows — where a practitioner and an LLM co-author software over weeks to months — demand a memory substrate whose retrieval unit is the architectural decision, not the conversational turn or the code chunk, and whose refresh policy is dual-mode: pull-based for active sessions, push-based for dormant tasks.
+
+Existing memory systems organize around dialogue episodes; code-RAG retrieves over source text without decision provenance; long-context models suffer attention degradation past ~200K tokens. None treats decision provenance as a first-class memory unit or provides a slow-loop refresh primitive.
+
+We frame this memory layer as **scalable oversight infrastructure**: retrieval-correction edits — practitioner corrections that would have been unnecessary had memory surfaced relevant context — constitute a process-level oversight signal that scales with agent autonomy.
+
+**Three contributions:** (1) A three-layer memory decomposition — domain, workflow, and practitioner — with distinct retrieval semantics per layer. (2) Dual-mode retrieval as a first-class architectural primitive: pull mode fires at session start; push mode refreshes memory entries for dormant tasks proportional to repository activity. (3) Retrieval-correction edits as a process-level oversight signal.
+
+Deployed on a legal-technology platform (70+ MCP tools, 380M+ records, 1,547 merged PRs in 105 days). Baseline measurements from 304 sessions confirm a median bootstrap cost of 30,115 input tokens and a median context waste ratio of 60%.
+
+---
+
+[**Download Full Paper (PDF)**](/papers/workflow-memory-2026.pdf)`,
+  },
+  {
+    id: 'paper-tokenizer-fertility',
+    title: 'Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text: A Comparative Study',
+    punchline: 'Seven models, five providers, 273 court decisions from EDRSR. Tokenizer fertility varies 1.6x. NVIDIA Nemotron Super 3 (120B) outperforms Mistral Large 3 (675B) at 1/3 the cost. Few-shot prompting degrades performance by up to 26pp on Ukrainian.',
+    category: 'academic',
+    tags: ['arXiv preprint', 'Tokenizer', 'Ukrainian NLP', 'Foundation Models', 'Legal AI'],
+    readTime: 'PDF, 24 pages',
+    publishedAt: '2026-05-10',
+    pdfUrl: '/papers/tokenizer-fertility-2026.pdf',
+    content: `# Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text
+
+**A Comparative Study**
+
+**Volodymyr Ovcharov** — LEX AI LLC, Kyiv, Ukraine
+
+---
+
+## Abstract
+
+Foundation models tokenize Ukrainian legal text with vastly different efficiency, yet no systematic comparison exists for this domain. We benchmark seven models from five providers on 273 validated court decisions from Ukraine's state registry (EDRSR), measuring tokenizer fertility and zero-shot performance on three tasks.
+
+**Three findings:**
+
+**(1)** Tokenizer fertility varies 1.6×: Qwen 3 models consume 60% more tokens than Llama-family models on identical input, directly reducing API cost.
+
+**(2)** NVIDIA Nemotron Super 3 (120B) achieves the highest composite score (83.1), outperforming Mistral Large 3 (675B total, 41B active), which has 5.6× more total parameters and 3.4× more active parameters per token, at one-third the API cost.
+
+**(3)** Few-shot prompting *degrades* performance by up to 26 percentage points; stratified and prompt-sensitivity ablations confirm this is intrinsic to Ukrainian-language demonstrations, not an artifact of example selection.
+
+**For practitioners:** tokenizer analysis should precede model selection, and zero-shot is a more reliable default than few-shot for morphologically rich languages.
+
+---
+
+[**Download Full Paper (PDF)**](/papers/tokenizer-fertility-2026.pdf)`,
+  },
+  {
+    id: 'paper-ontology-oversight-bridge',
+    title: 'From Ontology-Controlled Systems to Oversight-Controlled Training: Formal Foundations for Human–LLM Alignment Signal Validation',
+    punchline: 'We extend the principle of ontology-controlled systems — where formal ontological structure governs system behavior — from the level of system output to the level of human oversight over system output. Domain constitution formalized in OWL 2 DL with automated reasoning.',
+    category: 'academic',
+    tags: ['Cybernetics & Systems Analysis', 'Ontology', 'OWL 2 DL', 'Alignment', 'Formal Methods'],
+    readTime: 'PDF, 30 pages',
+    publishedAt: '2026-05-11',
+    pdfUrl: '/papers/ontology-oversight-bridge-2026.pdf',
+    content: `# From Ontology-Controlled Systems to Oversight-Controlled Training
+
+**Formal Foundations for Human–LLM Alignment Signal Validation**
+
+**Volodymyr Ovcharov** — LEX AI LLC, Kyiv, Ukraine
+
+---
+
+## Abstract
+
+Current methods for collecting human preference data for RLHF lack formal criteria for determining when human corrections on LLM output constitute valid training signal versus noise.
+
+We extend the principle of **ontology-controlled systems** — where formal ontological structure governs system runtime behavior — from the level of system output to the level of human oversight over system output. We formalize a *domain constitution*: five axiomatically defined conditions under which human edit-traces on agentic LLM output constitute valid alignment signal.
+
+The formalization uses \\(\\mathcal{ALC}\\) description logic, implemented as an OWL 2 DL ontology with automated reasoning for workflow classification. We compare this oversight-level control with output-level ontological control as realized in OntoChatGPT, showing that the two operate on complementary levels of the same conceptual stack.
+
+Empirical validation on 30,510 edit-traces from a production legal AI platform demonstrates that ontology-based filtering of oversight signal correlates with downstream outcome quality.
+
+The work establishes a formal bridge between ontology-controlled architectures and LLM alignment methodology.
+
+---
+
+[**Download Full Paper (PDF)**](/papers/ontology-oversight-bridge-2026.pdf)`,
+  },
   {
     id: 'recursive-workflow-signals-rlhf',
     title: 'Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows',

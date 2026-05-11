@@ -75,9 +75,11 @@ export function ArticleModal({ article, onClose }: ArticleModalProps) {
             <span className={`text-[10px] font-bold tracking-wider uppercase font-sans px-2 py-0.5 rounded-full ${
               article.category === 'tech'
                 ? 'bg-blue-50 text-blue-600'
+                : article.category === 'academic'
+                ? 'bg-purple-50 text-purple-600'
                 : 'bg-claude-accent/10 text-claude-accent'
             }`}>
-              {article.category === 'tech' ? 'TECH' : 'LEGAL'}
+              {article.category === 'tech' ? 'TECH' : article.category === 'academic' ? 'ACADEMIC' : 'LEGAL'}
             </span>
             <span className="text-xs text-claude-subtext font-sans">{article.readTime}</span>
           </div>

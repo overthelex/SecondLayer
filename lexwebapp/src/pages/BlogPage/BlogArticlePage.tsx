@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   ArrowLeft,
+  Download,
   Linkedin,
   Link2,
   Check,
@@ -122,9 +123,11 @@ export function BlogArticlePage() {
               <span className={`text-[10px] font-bold tracking-wider uppercase font-sans px-2 py-0.5 rounded-full ${
                 article.category === 'tech'
                   ? 'bg-blue-50 text-blue-600'
+                  : article.category === 'academic'
+                  ? 'bg-purple-50 text-purple-600'
                   : 'bg-claude-accent/10 text-claude-accent'
               }`}>
-                {article.category === 'tech' ? 'TECH' : 'LEGAL'}
+                {article.category === 'tech' ? 'TECH' : article.category === 'academic' ? 'ACADEMIC' : 'LEGAL'}
               </span>
               <span className="text-xs text-claude-subtext font-sans">{article.readTime}</span>
             </div>
@@ -203,6 +206,27 @@ export function BlogArticlePage() {
             {article.content}
           </ReactMarkdown>
         </div>
+
+        {article.pdfUrl && (
+          <div className="mt-8 rounded-2xl border border-purple-200 bg-purple-50/50 overflow-hidden">
+            <div className="px-6 py-4 flex items-center justify-between border-b border-purple-200">
+              <span className="text-sm font-medium text-purple-700 font-sans">Full Paper (PDF)</span>
+              <a
+                href={article.pdfUrl}
+                download
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-sans font-medium hover:bg-purple-700 transition-colors"
+              >
+                <Download size={16} />
+                Download PDF
+              </a>
+            </div>
+            <iframe
+              src={article.pdfUrl}
+              className="w-full h-[70vh] border-0"
+              title={article.title}
+            />
+          </div>
+        )}
 
         {/* Tags */}
         <div className="flex flex-wrap gap-2 mt-8 pt-6 border-t border-claude-border">
