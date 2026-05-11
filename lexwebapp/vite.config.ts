@@ -468,7 +468,7 @@ function prerenderBlogPlugin(): Plugin {
           <h2><a href="/blog/${langPrefix}${a.id}">${a.title}</a></h2>
           <p>${a.punchline}</p>
           <div>
-            <span>${a.category === 'tech' ? 'TECH' : 'LEGAL'}</span>
+            <span>${a.category === 'tech' ? 'TECH' : a.category === 'academic' ? 'ACADEMIC' : 'LEGAL'}</span>
             <time datetime="${a.publishedAt}">${a.publishedAt}</time>
             <span>${a.readTime}</span>
           </div>
@@ -585,7 +585,7 @@ function prerenderBlogPlugin(): Plugin {
               "image": ogImage,
               "datePublished": article.publishedAt,
               "keywords": article.tags.join(', '),
-              "articleSection": article.category === 'tech' ? 'Technology' : 'Legal',
+              "articleSection": article.category === 'tech' ? 'Technology' : article.category === 'academic' ? 'Academic' : 'Legal',
               "inLanguage": langMeta.htmlLang,
               "publisher": { "@type": "Organization", "name": "SecondLayer", "url": BASE_URL },
               "mainEntityOfPage": { "@type": "WebPage", "@id": articleUrl }
