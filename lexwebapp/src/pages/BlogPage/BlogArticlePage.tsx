@@ -4,7 +4,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   ArrowLeft,
-  Download,
   Linkedin,
   Link2,
   Check,
@@ -16,6 +15,7 @@ import { enTranslations } from './articles-en';
 import { ruTranslations } from './articles-ru';
 import AttractorBanner from '../../components/AttractorBanner';
 import { CommentSection } from './CommentSection';
+import { PaperReader } from './PaperReader';
 import { useLocaleStore } from '../../stores/localeStore';
 import { getBlogUI, getLocalizedArticles } from './blog-i18n';
 
@@ -208,24 +208,11 @@ export function BlogArticlePage() {
         </div>
 
         {article.pdfUrl && (
-          <div className="mt-8 rounded-2xl border border-purple-200 bg-purple-50/50 overflow-hidden">
-            <div className="px-6 py-4 flex items-center justify-between border-b border-purple-200">
-              <span className="text-sm font-medium text-purple-700 font-sans">Full Paper (PDF)</span>
-              <a
-                href={article.pdfUrl}
-                download
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-sans font-medium hover:bg-purple-700 transition-colors"
-              >
-                <Download size={16} />
-                Download PDF
-              </a>
-            </div>
-            <iframe
-              src={article.pdfUrl}
-              className="w-full h-[70vh] border-0"
-              title={article.title}
-            />
-          </div>
+          <PaperReader
+            pdfUrl={article.pdfUrl}
+            texUrl={article.texUrl}
+            title={article.title}
+          />
         )}
 
         {/* Tags */}

@@ -12,6 +12,7 @@ export interface Article {
   publishedAt: string; // ISO date, e.g. '2026-03-01'
   content: string;
   pdfUrl?: string;
+  texUrl?: string;
 }
 
 export interface ArticleTranslation {
@@ -39,6 +40,7 @@ export const articles: Article[] = [
     readTime: 'PDF, 28 pages',
     publishedAt: '2026-05-11',
     pdfUrl: '/papers/edit-trace-oversight-2026.pdf',
+    texUrl: '/papers/edit-trace-oversight-2026.tex',
     content: `# Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows
 
 **Volodymyr Ovcharov** — LEX AI LLC, Kyiv, Ukraine
@@ -72,6 +74,7 @@ We propose **edit-trace oversight** — alignment signal captured natively when 
     readTime: 'PDF, 32 pages',
     publishedAt: '2026-05-10',
     pdfUrl: '/papers/workflow-memory-2026.pdf',
+    texUrl: '/papers/workflow-memory-2026.tex',
     content: `# Workflow Memory for Long-Horizon Agentic Composition
 
 **Architecture, Dual-Mode Retrieval, and Retrieval-Correction Signal**
@@ -105,6 +108,7 @@ Deployed on a legal-technology platform (70+ MCP tools, 380M+ records, 1,547 mer
     readTime: 'PDF, 24 pages',
     publishedAt: '2026-05-10',
     pdfUrl: '/papers/tokenizer-fertility-2026.pdf',
+    texUrl: '/papers/tokenizer-fertility-2026.tex',
     content: `# Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text
 
 **A Comparative Study**
@@ -140,6 +144,7 @@ Foundation models tokenize Ukrainian legal text with vastly different efficiency
     readTime: 'PDF, 30 pages',
     publishedAt: '2026-05-11',
     pdfUrl: '/papers/ontology-oversight-bridge-2026.pdf',
+    texUrl: '/papers/ontology-oversight-bridge-2026.tex',
     content: `# From Ontology-Controlled Systems to Oversight-Controlled Training
 
 **Formal Foundations for Human–LLM Alignment Signal Validation**
