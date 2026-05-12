@@ -177,18 +177,46 @@ This enables the question: does \emph{how} a practitioner performs oversight con
 
 
 % ============================================================
+\section{Related Work}
+\label{sec:related-work}
+% ============================================================
+
+\paragraph{RLHF preference collection.}
+The dominant paradigm for aligning language models relies on human preference judgments collected in controlled settings.
+\citet{christiano2017deep} introduced pairwise comparisons over trajectory segments; \citet{stiennon2020learning} and \citet{ouyang2022training} scaled this to natural language tasks using crowd workers and contractors.
+\citet{bai2022training} compared the signal quality of crowd annotators versus researchers.
+In all cases, annotators operate outside the systems they evaluate---rating isolated outputs without access to the deployment context, downstream consequences, or the compositional trajectory that produced the output.
+Edit-trace oversight departs from this paradigm: the signal source is the practitioner who ships the output, not a detached evaluator.
+
+\paragraph{Scalable oversight.}
+As model capabilities grow, the cost and reliability of human oversight become central concerns.
+\citet{irving2018ai} proposed AI Safety via Debate, where models argue for and against answers to aid human judgment.
+\citet{leike2018scalable} formulated recursive reward modeling, decomposing hard oversight tasks into easier subtasks.
+\citet{bowman2022measuring} provided benchmarks for measuring oversight progress, and \citet{burns2023weak} demonstrated weak-to-strong generalization, where weaker models supervise stronger ones with partial success.
+These approaches treat human oversight bandwidth as a bottleneck to be routed around.
+The regime documented here suggests an alternative: when a practitioner works agentically with an LLM, oversight bandwidth may \emph{scale with} agent capability rather than against it, as the human's corrections become more targeted while the agent handles routine execution.
+
+\paragraph{AI feedback, constitutional methods, and formal control structures.}
+\citet{bai2022constitutional} introduced Constitutional AI, replacing human annotators with AI self-evaluation against researcher-authored principles.
+\citet{lee2023rlaif} extended this with RLAIF, showing that AI-generated feedback can approximate human preferences at lower cost.
+Both eliminate the annotation bottleneck but operate without production grounding---the principles and feedback are applied in abstract evaluation contexts, not during consequential deployment.
+A parallel tradition in knowledge engineering uses formal structures to directly control system behavior: ontology-controlled architectures~\citep{palagin2006architecture} govern information systems through domain ontologies, and recent work applies this principle to LLMs---OntoChatGPT~\citep{palagin2023ontochatgpt} uses formal ontologies to structure ChatGPT's output via meta-learning prompts, while \citet{palagin2024neural} demonstrate that integrating neural network and ontolinguistic paradigms yields stronger results than either alone.
+The domain constitution proposed here draws on both traditions: like Constitutional AI, it defines formal conditions for evaluating model output; like ontology-controlled architectures, it uses formal structure to govern system behavior---but applied to the oversight process rather than the generation process.
+
+\paragraph{Direct preference optimization.}
+\citet{rafailov2023direct} introduced DPO, which optimizes a language model directly on preference pairs without training a separate reward model.
+DPO's reliance on paired preferences (chosen vs.\ rejected completions) makes it a natural fit for edit-trace data, where each human correction provides an implicit preference pair: the practitioner's corrected output (chosen) versus the agent's original output (rejected).
+Experiment~4 (Section~\ref{sec:exp4}) uses DPO to test whether the distinctive distribution of edit-trace preferences translates into improved domain-specific model performance.
+
+
+% ============================================================
 \section{Defining Valid Oversight: The Domain Constitution}
 \label{sec:domain-constitution}
 % ============================================================
 
-\citet{bai2022constitutional} introduced Constitutional AI, where a model evaluates its own outputs against researcher-authored principles.
-The construct we develop here is related but distinct: a \textbf{domain constitution}---formal conditions under which human corrections on agentic output constitute valid oversight signal.
-Where Constitutional AI asks ``does this output satisfy these principles?'', a domain constitution asks ``does this correction process satisfy the conditions required for the resulting edit-trace to function as scalable oversight?''
-
-The broader principle---that formal structure should \emph{control}, not merely inform, system behavior---has roots in ontology-controlled architectures~\citep{palagin2006architecture}, where domain ontologies govern the runtime behavior of information systems rather than serving as passive metadata.
-Recent work extends this principle to large language models: OntoChatGPT~\citep{palagin2023ontochatgpt} uses formal ontologies to structure and constrain ChatGPT's output generation via ontology-driven meta-learning prompts.
-The domain constitution advances this line from a different direction: where ontology-controlled systems use formal structure to govern \emph{what the system produces}, the domain constitution uses formal conditions to govern \emph{when human corrections on system output constitute valid training signal}.
-The shift is from controlling the model's generation process to controlling the oversight process that yields preference data for model improvement.
+As discussed in Section~\ref{sec:related-work}, existing approaches to preference collection and formal AI control operate at the level of model output.
+We define a \textbf{domain constitution}---formal conditions under which human corrections on agentic output constitute valid oversight signal.
+Where Constitutional AI asks ``does this output satisfy these principles?'' and ontology-controlled systems govern what the system produces, the domain constitution governs \emph{when corrections on system output constitute valid training signal}---shifting formal control from the generation process to the oversight process.
 
 Not all human--agent interaction produces oversight signal.
 A user who copies an LLM snippet into a one-off script provides no oversight.
