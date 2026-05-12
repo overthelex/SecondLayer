@@ -21,11 +21,17 @@ import {
   Clock,
   Target,
   Flame,
+  ExternalLink,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 type PhaseKey = 'foundation' | 'exploitation' | 'defensive' | 'professional';
+
+interface Resource {
+  name: string;
+  url: string;
+}
 
 interface Month {
   number: number;
@@ -34,7 +40,7 @@ interface Month {
   subtitle: string;
   theory: string;
   practice: string;
-  resources: string[];
+  resources: Resource[];
 }
 
 interface Phase {
@@ -69,7 +75,12 @@ const PHASES: Phase[] = [
         subtitle: 'OSI, TCP/IP, HTTP, TLS, DNS — как поверхность атаки',
         theory: 'Модель OSI и TCP/IP не как абстракция, а как поверхность атаки. TCP handshake, состояния соединений, что видно в Wireshark. HTTP/1.1 и HTTP/2 на уровне сырых байтов: методы, заголовки, статусы, cookies, CORS, кэширование. TLS — handshake, сертификаты, цепочки доверия, чем отличается TLS 1.2 от 1.3. DNS и его роль в атаках (rebinding, cache poisoning, exfiltration через DNS).',
         practice: 'Разбор реального трафика в Wireshark, ручные запросы через curl и Burp Suite, написание простого MITM-прокси на Python.',
-        resources: ['Wireshark', 'Burp Suite Community', 'curl', 'Python (httpx/mitmproxy)'],
+        resources: [
+          { name: 'Wireshark', url: 'https://www.wireshark.org/' },
+          { name: 'Burp Suite Community', url: 'https://portswigger.net/burp/communitydownload' },
+          { name: 'curl', url: 'https://curl.se/' },
+          { name: 'mitmproxy', url: 'https://mitmproxy.org/' },
+        ],
       },
       {
         number: 2,
@@ -78,7 +89,12 @@ const PHASES: Phase[] = [
         subtitle: 'Процессы, права, сеть, systemd — взгляд хакера',
         theory: 'Процессы, пользователи, права доступа (UID/GID, sticky bit, SUID/SGID). Файловая система, inodes, симлинки. Базовая работа в bash на уровне реального инструмента. Systemd, логи, journalctl. Сетевой стек в Linux: iptables/nftables, netstat/ss, tcpdump. Минимум про Windows: AD, NTLM, Kerberos на концептуальном уровне.',
         practice: 'Настроить уязвимую VM, найти privilege escalation через SUID-бинарь, прочитать /etc/shadow.',
-        resources: ['Kali Linux VM', 'Metasploitable', 'HackTheBox', 'TryHackMe'],
+        resources: [
+          { name: 'Kali Linux', url: 'https://www.kali.org/' },
+          { name: 'Metasploitable', url: 'https://docs.rapid7.com/metasploit/metasploitable-2/' },
+          { name: 'HackTheBox', url: 'https://www.hackthebox.com/' },
+          { name: 'TryHackMe', url: 'https://tryhackme.com/' },
+        ],
       },
       {
         number: 3,
@@ -87,7 +103,11 @@ const PHASES: Phase[] = [
         subtitle: 'AES, RSA, JWT, хэширование — когда что применяется и где ломается',
         theory: 'Симметричное и асимметричное шифрование. AES, RSA, ECC — когда что применяется. Хэш-функции (SHA-2, SHA-3, BLAKE), HMAC, key derivation (PBKDF2, Argon2, bcrypt). Цифровые подписи и PKI. JWT — детально, это болевая точка в AppSec. Типичные ошибки: ECB mode, повторное использование nonce, hardcoded secrets, weak randomness.',
         practice: 'cryptopals.com — первый сет (8 заданий). Навсегда запомнишь, почему не надо изобретать криптографию.',
-        resources: ['cryptopals.com', 'CyberChef', 'jwt.io'],
+        resources: [
+          { name: 'cryptopals.com', url: 'https://cryptopals.com/' },
+          { name: 'CyberChef', url: 'https://gchq.github.io/CyberChef/' },
+          { name: 'jwt.io', url: 'https://jwt.io/' },
+        ],
       },
     ],
   },
@@ -109,7 +129,12 @@ const PHASES: Phase[] = [
         subtitle: 'Injection, XSS, CSRF, SSRF, IDOR — не список, а понимание',
         theory: 'Injection (SQL, NoSQL, command, LDAP). Broken authentication и session management. XSS — три типа (reflected, stored, DOM-based), почему CSP помогает и где её обходят. CSRF и SameSite cookies. SSRF — одна из самых опасных категорий в облачную эпоху (метаданные EC2/GCE). XXE, insecure deserialization, IDOR.',
         practice: 'PortSwigger Web Security Academy — все бесплатные лабы по injection и authentication. Золотой стандарт обучения.',
-        resources: ['PortSwigger Academy', 'DVWA', 'OWASP Juice Shop', 'Burp Suite'],
+        resources: [
+          { name: 'PortSwigger Academy', url: 'https://portswigger.net/web-security' },
+          { name: 'DVWA', url: 'https://github.com/digininja/DVWA' },
+          { name: 'OWASP Juice Shop', url: 'https://owasp.org/www-project-juice-shop/' },
+          { name: 'Burp Suite', url: 'https://portswigger.net/burp' },
+        ],
       },
       {
         number: 5,
@@ -118,7 +143,11 @@ const PHASES: Phase[] = [
         subtitle: 'Race conditions, request smuggling, prototype pollution, OAuth',
         theory: 'Race conditions в веб-приложениях (двойное списание). HTTP request smuggling (CL.TE, TE.CL, TE.TE) — как протокольные детали ломают системы. Prototype pollution в JS. Web cache poisoning. OAuth 2.0 и OIDC: типичные ошибки, open redirect в redirect_uri, PKCE.',
         practice: 'PortSwigger Academy — дойти до уровня Practitioner.',
-        resources: ['PortSwigger Academy (Practitioner)', 'James Kettle research', 'Orange Tsai blog'],
+        resources: [
+          { name: 'PortSwigger Academy', url: 'https://portswigger.net/web-security' },
+          { name: 'James Kettle research', url: 'https://portswigger.net/research/james-kettle' },
+          { name: 'Orange Tsai blog', url: 'https://blog.orange.tw/' },
+        ],
       },
       {
         number: 6,
@@ -127,7 +156,12 @@ const PHASES: Phase[] = [
         subtitle: 'Твоя зона комфорта как QA — используй её как оружие',
         theory: 'OWASP API Security Top 10 (отдельный от обычного Top 10, и для AppSec важнее). BOLA/IDOR в API, broken authentication, excessive data exposure, mass assignment. GraphQL security: introspection, batching attacks, depth limiting. gRPC и его специфика. Rate limiting и почему его обычно делают неправильно.',
         practice: 'Взять open-source API (OWASP crAPI или VAmPI), найти 5 уязвимостей разных классов, написать PoC для каждой.',
-        resources: ['OWASP crAPI', 'VAmPI', 'Postman', 'GraphQL Voyager'],
+        resources: [
+          { name: 'OWASP crAPI', url: 'https://github.com/OWASP/crAPI' },
+          { name: 'VAmPI', url: 'https://github.com/erev0s/VAmPI' },
+          { name: 'Postman', url: 'https://www.postman.com/' },
+          { name: 'GraphQL Voyager', url: 'https://graphql-kit.com/graphql-voyager/' },
+        ],
       },
       {
         number: 7,
@@ -136,7 +170,11 @@ const PHASES: Phase[] = [
         subtitle: 'SAML, OAuth, OIDC, MFA bypass, WebAuthn, RBAC vs ABAC',
         theory: 'SAML, OAuth, OIDC — разбор атак: golden SAML, confused deputy, scope creep. Session fixation, session hijacking. MFA и его обходы (SIM swap, push fatigue, MFA prompt bombing). Password storage done right. WebAuthn/passkeys как современный ответ. RBAC vs ABAC vs ReBAC.',
         practice: 'Настроить Keycloak локально, попытаться сломать собственную конфигурацию.',
-        resources: ['Keycloak', 'Authentik', 'Auth0 Playground'],
+        resources: [
+          { name: 'Keycloak', url: 'https://www.keycloak.org/' },
+          { name: 'Authentik', url: 'https://goauthentik.io/' },
+          { name: 'Auth0 Playground', url: 'https://auth0.com/docs/get-started' },
+        ],
       },
     ],
   },
@@ -158,7 +196,11 @@ const PHASES: Phase[] = [
         subtitle: 'STRIDE, PASTA, data flow — где AppSec встраивается в разработку',
         theory: 'Где AppSec встраивается в процесс разработки: design review, code review, тестирование, релиз, runtime. Threat modeling по STRIDE и PASTA на конкретных архитектурах. Data flow diagrams. Как разговаривать с разработчиками, чтобы они не ненавидели security (это реально часть работы).',
         practice: 'Взять архитектуру любого SaaS-продукта и составить полную threat model.',
-        resources: ['OWASP Threat Dragon', 'Microsoft Threat Modeling Tool', 'STRIDE/PASTA frameworks'],
+        resources: [
+          { name: 'OWASP Threat Dragon', url: 'https://owasp.org/www-project-threat-dragon/' },
+          { name: 'MS Threat Modeling', url: 'https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool' },
+          { name: 'STRIDE/PASTA', url: 'https://owasp.org/www-community/Threat_Modeling' },
+        ],
       },
       {
         number: 9,
@@ -167,7 +209,14 @@ const PHASES: Phase[] = [
         subtitle: 'Semgrep, CodeQL, Snyk, Trivy, ZAP — security pipeline в CI',
         theory: 'Static analysis: Semgrep как современный стандарт, написание собственных правил. CodeQL для глубокого анализа. Dependency scanning: Snyk, Dependabot, OSV. Secrets scanning: gitleaks, trufflehog. Container scanning: Trivy, Grype. DAST: ZAP в CI, Burp Enterprise. QA-бэкграунд — прямое преимущество: встраивание security-чеков в CI/CD это та же автоматизация.',
         practice: 'Настроить полноценный security-пайплайн в GitHub Actions для тестового проекта.',
-        resources: ['Semgrep', 'CodeQL', 'Snyk', 'Trivy', 'OWASP ZAP', 'gitleaks'],
+        resources: [
+          { name: 'Semgrep', url: 'https://semgrep.dev/' },
+          { name: 'CodeQL', url: 'https://codeql.github.com/' },
+          { name: 'Snyk', url: 'https://snyk.io/' },
+          { name: 'Trivy', url: 'https://trivy.dev/' },
+          { name: 'OWASP ZAP', url: 'https://www.zaproxy.org/' },
+          { name: 'gitleaks', url: 'https://github.com/gitleaks/gitleaks' },
+        ],
       },
       {
         number: 10,
@@ -176,7 +225,11 @@ const PHASES: Phase[] = [
         subtitle: 'Ключевой навык AppSec — чтение чужого кода на 4 языках',
         theory: 'Чтение чужого кода на Python, JavaScript/TypeScript, Go, Java — не для того чтобы писать, а чтобы находить уязвимости. Типовые паттерны: где разработчики ошибаются с инпутом, криптографией, конкурентностью, правами. Изучение реальных CVE через коммиты, которые их пофиксили — Project Zero блог, GitHub Security Advisories.',
         practice: 'Разобрать 10 публичных CVE до уровня «понимаю строчку, которую изменили, и почему она ломала всё».',
-        resources: ['Project Zero blog', 'GitHub Security Advisories', 'Semgrep Playground'],
+        resources: [
+          { name: 'Project Zero blog', url: 'https://googleprojectzero.blogspot.com/' },
+          { name: 'GitHub Advisories', url: 'https://github.com/advisories' },
+          { name: 'Semgrep Playground', url: 'https://semgrep.dev/playground' },
+        ],
       },
       {
         number: 11,
@@ -185,7 +238,11 @@ const PHASES: Phase[] = [
         subtitle: 'IAM, VPC, k8s, secrets management — без облака никуда',
         theory: 'IAM как самая сложная и самая ломаемая часть AWS/GCP/Azure. Принцип least privilege на практике. Network security: VPC, security groups, private endpoints. Secrets management (Vault, AWS Secrets Manager). Container и Kubernetes security: pod security, network policies, RBAC в k8s. Логирование и детекция: CloudTrail, GuardDuty.',
         practice: 'Пройти flaws.cloud и flaws2.cloud — бесплатные CTF по AWS-уязвимостям.',
-        resources: ['flaws.cloud', 'flaws2.cloud', 'AWS Well-Architected Security Pillar'],
+        resources: [
+          { name: 'flaws.cloud', url: 'http://flaws.cloud/' },
+          { name: 'flaws2.cloud', url: 'http://flaws2.cloud/' },
+          { name: 'AWS Security Pillar', url: 'https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html' },
+        ],
       },
     ],
   },
@@ -207,7 +264,11 @@ const PHASES: Phase[] = [
         subtitle: 'GitHub, PortSwigger cert, bug bounty, LinkedIn — видимые доказательства',
         theory: 'GitHub с разобранными уязвимостями и собственными security-инструментами. Пройденный PortSwigger Academy с сертификатом Practitioner. Профиль на HackerOne или Bugcrowd с хотя бы парой принятых отчётов. LinkedIn с переписанным позиционированием: не «QA, который учит security», а «AppSec engineer with QA automation background».',
         practice: 'Собрать портфолио: 3+ CVE разбора, 1 security tool, Practitioner cert, 1+ bug bounty report.',
-        resources: ['HackerOne', 'Bugcrowd', 'PortSwigger Certified Practitioner'],
+        resources: [
+          { name: 'HackerOne', url: 'https://www.hackerone.com/' },
+          { name: 'Bugcrowd', url: 'https://www.bugcrowd.com/' },
+          { name: 'BSCP Certification', url: 'https://portswigger.net/web-security/certification' },
+        ],
       },
       {
         number: 13,
@@ -216,18 +277,22 @@ const PHASES: Phase[] = [
         subtitle: 'BSCP, PNPT, OSCP, CSSLP — что реально проверяет навык',
         theory: 'Burp Suite Certified Practitioner (90 USD, реально проверяет навык). PNPT от TCM (доступнее OSCP, практический). OSCP в долгосрок. CISSP — позже, когда будет 5 лет опыта. Целиться не сразу в Security Engineer, а в позиции, где QA-бэкграунд — плюс: Security Automation Engineer, AppSec Engineer с фокусом на тулинг, Security в DevSecOps-команде.',
         practice: 'Пройти минимум одну практическую сертификацию. Начать подавать на позиции Security Automation / AppSec.',
-        resources: ['BSCP exam', 'TCM PNPT', 'OffSec OSCP'],
+        resources: [
+          { name: 'BSCP exam', url: 'https://portswigger.net/web-security/certification' },
+          { name: 'TCM PNPT', url: 'https://certifications.tcm-sec.com/pnpt/' },
+          { name: 'OffSec OSCP', url: 'https://www.offsec.com/courses/pen-200/' },
+        ],
       },
     ],
   },
 ];
 
 const ESSENTIAL_READS = [
-  { name: 'PortSwigger Daily Swig', desc: 'Ежедневные security-новости от создателей Burp Suite' },
-  { name: 'tl;dr sec (Clint Gibler)', desc: 'Лучшая еженедельная рассылка по AppSec' },
-  { name: 'Project Zero blog', desc: 'Глубокие технические разборы от Google' },
-  { name: 'Orange Tsai', desc: 'Лучший исследователь веб-security в мире' },
-  { name: 'James Kettle', desc: 'Автор HTTP request smuggling research' },
+  { name: 'PortSwigger Daily Swig', url: 'https://portswigger.net/daily-swig', desc: 'Ежедневные security-новости от создателей Burp Suite' },
+  { name: 'tl;dr sec (Clint Gibler)', url: 'https://tldrsec.com/', desc: 'Лучшая еженедельная рассылка по AppSec' },
+  { name: 'Project Zero blog', url: 'https://googleprojectzero.blogspot.com/', desc: 'Глубокие технические разборы от Google' },
+  { name: 'Orange Tsai', url: 'https://blog.orange.tw/', desc: 'Лучший исследователь веб-security в мире' },
+  { name: 'James Kettle', url: 'https://portswigger.net/research/james-kettle', desc: 'Автор HTTP request smuggling research' },
 ];
 
 export function CISOAcademyPage() {
@@ -282,6 +347,7 @@ export function CISOAcademyPage() {
             <Clock size={14} />
             <span>{totalMonths} місяців · 5–8 год/тиждень</span>
           </div>
+          <img src="/Image.jpg" alt="LEX" className="h-8 w-auto ml-3" />
         </div>
       </div>
 
@@ -536,12 +602,16 @@ export function CISOAcademyPage() {
                                       {/* Resources */}
                                       <div className="flex flex-wrap gap-1.5">
                                         {month.resources.map((res) => (
-                                          <span
-                                            key={res}
-                                            className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-sans font-medium ${phase.bgColor} ${phase.color}`}
+                                          <a
+                                            key={res.name}
+                                            href={res.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-sans font-medium ${phase.bgColor} ${phase.color} hover:opacity-75 transition-opacity`}
                                           >
-                                            {res}
-                                          </span>
+                                            {res.name}
+                                            <ExternalLink size={10} />
+                                          </a>
                                         ))}
                                       </div>
                                     </div>
@@ -579,13 +649,22 @@ export function CISOAcademyPage() {
           </p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {ESSENTIAL_READS.map((r) => (
-              <div key={r.name} className="flex items-start gap-3 px-4 py-3 rounded-lg bg-claude-bg">
+              <a
+                key={r.name}
+                href={r.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start gap-3 px-4 py-3 rounded-lg bg-claude-bg hover:bg-claude-sidebar transition-colors group"
+              >
                 <div className="w-1.5 h-1.5 rounded-full bg-claude-accent mt-2 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-sans font-medium text-claude-text">{r.name}</p>
+                <div className="flex-1">
+                  <p className="text-sm font-sans font-medium text-claude-text group-hover:text-claude-accent transition-colors inline-flex items-center gap-1.5">
+                    {r.name}
+                    <ExternalLink size={11} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </p>
                   <p className="text-xs font-sans text-claude-subtext">{r.desc}</p>
                 </div>
-              </div>
+              </a>
             ))}
           </div>
         </motion.div>
