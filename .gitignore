@@ -72,7 +72,6 @@ coverage/
 .nyc_output/
 test-results/
 tests/
-!rlhf-signals/tests/
 test_data/
 
 # Temp files
@@ -137,7 +136,6 @@ mcp_backend/start-mcp-container.sh
 # Lock files (managed per workspace)
 package-lock.json
 !platform/package-lock.json
-!rlhf-signals/package-lock.json
 
 # Data downloads (large binary files)
 scripts/judges/downloads/
@@ -169,6 +167,7 @@ scripts/opendata/rnbo/ua_nsdc_sanctions.json
 
 # Nested projects with their own git repos
 mcplane/
+rlhf-signals/
 
 # Opendata importer runtime state (resume checkpoints, temp data)
 services/opendata-importers/_data/

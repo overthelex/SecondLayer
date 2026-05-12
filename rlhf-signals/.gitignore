@@ -1,8 +1,0 @@
-
-# Training data (generated from DB, may contain secrets from transcripts)
-training/data/
-output/experiment1/phase_b/translated_samples.json
-output/experiment1/phase_b/translation_manifest.json
-output/experiment1/phase_b/prolific_batch.jsonl
-output/experiment1/phase_b/synthetic_annotations.jsonl
-output/experiment1/phase_b/analysis_results.json
