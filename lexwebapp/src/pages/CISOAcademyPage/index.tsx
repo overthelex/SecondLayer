@@ -24,6 +24,9 @@ import {
   ExternalLink,
   GraduationCap,
   ListChecks,
+  Copy,
+  Check,
+  Container,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
@@ -50,6 +53,220 @@ const MONTH_ICONS = [
   <Award size={18} />, <Briefcase size={18} />,
 ];
 
+interface LabTool {
+  id: string;
+  name: string;
+  descEn: string;
+  descUk: string;
+  port: string;
+  steps: { labelEn: string; labelUk: string; cmd: string }[];
+}
+
+const LAB_TOOLS: LabTool[] = [
+  {
+    id: 'dvwa',
+    name: 'DVWA',
+    descEn: 'Damn Vulnerable Web Application — classic training ground for web vulnerabilities',
+    descUk: 'Damn Vulnerable Web Application — класичний полігон для веб-вразливостей',
+    port: '4280',
+    steps: [
+      { labelEn: 'Pull and run the container', labelUk: 'Завантажити та запустити контейнер', cmd: 'docker run -d --name dvwa -p 4280:80 vulnerables/web-dvwa' },
+      { labelEn: 'Open in browser', labelUk: 'Відкрити у браузері', cmd: 'http://localhost:4280' },
+      { labelEn: 'Login: admin / password, then click "Create / Reset Database"', labelUk: 'Логін: admin / password, потім натиснути "Create / Reset Database"', cmd: '' },
+    ],
+  },
+  {
+    id: 'juice-shop',
+    name: 'OWASP Juice Shop',
+    descEn: 'Modern vulnerable application with 100+ challenges covering OWASP Top 10',
+    descUk: 'Сучасний вразливий застосунок з 100+ завданнями за OWASP Top 10',
+    port: '3000',
+    steps: [
+      { labelEn: 'Pull and run the container', labelUk: 'Завантажити та запустити контейнер', cmd: 'docker run -d --name juice-shop -p 3000:3000 bkimminich/juice-shop' },
+      { labelEn: 'Open in browser', labelUk: 'Відкрити у браузері', cmd: 'http://localhost:3000' },
+      { labelEn: 'Open the scoreboard to track progress', labelUk: 'Відкрити scoreboard для відстеження прогресу', cmd: 'http://localhost:3000/#/score-board' },
+    ],
+  },
+  {
+    id: 'crapi',
+    name: 'OWASP crAPI',
+    descEn: 'Completely Ridiculous API — vulnerable API for OWASP API Top 10 training',
+    descUk: 'Completely Ridiculous API — вразливий API для тренування OWASP API Top 10',
+    port: '8888',
+    steps: [
+      { labelEn: 'Clone the repository', labelUk: 'Клонувати репозиторій', cmd: 'git clone https://github.com/OWASP/crAPI.git && cd crAPI/deploy/docker' },
+      { labelEn: 'Start with docker compose', labelUk: 'Запустити через docker compose', cmd: 'docker compose -f docker-compose.yml up -d' },
+      { labelEn: 'Open in browser', labelUk: 'Відкрити у браузері', cmd: 'http://localhost:8888' },
+    ],
+  },
+  {
+    id: 'dvga',
+    name: 'DVGA (GraphQL)',
+    descEn: 'Damn Vulnerable GraphQL Application — GraphQL-specific vulnerability training',
+    descUk: 'Damn Vulnerable GraphQL Application — тренування вразливостей GraphQL',
+    port: '5013',
+    steps: [
+      { labelEn: 'Pull and run the container', labelUk: 'Завантажити та запустити контейнер', cmd: 'docker run -d --name dvga -p 5013:5013 -e WEB_HOST=0.0.0.0 dolevf/dvga' },
+      { labelEn: 'Open in browser', labelUk: 'Відкрити у браузері', cmd: 'http://localhost:5013' },
+    ],
+  },
+  {
+    id: 'vampi',
+    name: 'VAmPI',
+    descEn: 'Vulnerable REST API built with Flask — OWASP API Top 10 vulnerabilities',
+    descUk: 'Вразливий REST API на Flask — вразливості OWASP API Top 10',
+    port: '5000',
+    steps: [
+      { labelEn: 'Pull and run the container', labelUk: 'Завантажити та запустити контейнер', cmd: 'docker run -d --name vampi -p 5000:5000 erev0s/vampi' },
+      { labelEn: 'Check API docs', labelUk: 'Перевірити документацію API', cmd: 'http://localhost:5000' },
+    ],
+  },
+  {
+    id: 'zap',
+    name: 'OWASP ZAP',
+    descEn: 'Zed Attack Proxy — free DAST scanner with web UI',
+    descUk: 'Zed Attack Proxy — безкоштовний DAST-сканер з веб-інтерфейсом',
+    port: '8080',
+    steps: [
+      { labelEn: 'Run ZAP with web UI', labelUk: 'Запустити ZAP з веб-інтерфейсом', cmd: 'docker run -d --name zap -u zap -p 8080:8080 -p 8090:8090 ghcr.io/zaproxy/zaproxy zap-webswing.sh' },
+      { labelEn: 'Open ZAP web UI', labelUk: 'Відкрити веб-інтерфейс ZAP', cmd: 'http://localhost:8080/zap/' },
+    ],
+  },
+  {
+    id: 'kali',
+    name: 'Kali Linux',
+    descEn: 'Security-focused Linux distribution with 600+ pre-installed tools',
+    descUk: 'Linux-дистрибутив для безпеки з 600+ попередньо встановлених інструментів',
+    port: '6080',
+    steps: [
+      { labelEn: 'Run Kali with desktop (VNC in browser)', labelUk: 'Запустити Kali з десктопом (VNC у браузері)', cmd: 'docker run -d --name kali -p 6080:6080 --shm-size=512m kasmweb/kali-rolling-desktop:1.16.1' },
+      { labelEn: 'Open desktop in browser', labelUk: 'Відкрити десктоп у браузері', cmd: 'https://localhost:6080' },
+      { labelEn: 'Default credentials: kasm_user / password', labelUk: 'Логін за замовчуванням: kasm_user / password', cmd: '' },
+    ],
+  },
+  {
+    id: 'keycloak',
+    name: 'Keycloak',
+    descEn: 'Open-source IAM — for OAuth/OIDC/SAML attack practice (weeks 25-27)',
+    descUk: 'Open-source IAM — для практики атак OAuth/OIDC/SAML (тижні 25-27)',
+    port: '8443',
+    steps: [
+      { labelEn: 'Run Keycloak in dev mode', labelUk: 'Запустити Keycloak у dev-режимі', cmd: 'docker run -d --name keycloak -p 8443:8080 -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin quay.io/keycloak/keycloak:26.0 start-dev' },
+      { labelEn: 'Open admin console', labelUk: 'Відкрити адмін-консоль', cmd: 'http://localhost:8443' },
+      { labelEn: 'Login: admin / admin', labelUk: 'Логін: admin / admin', cmd: '' },
+    ],
+  },
+];
+
+function CopyButton({ text, copiedCmd, setCopiedCmd }: { text: string; copiedCmd: string | null; setCopiedCmd: (v: string | null) => void }) {
+  const isCopied = copiedCmd === text;
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text);
+        setCopiedCmd(text);
+        setTimeout(() => setCopiedCmd(null), 2000);
+      }}
+      className="flex-shrink-0 p-1 rounded hover:bg-claude-sidebar transition-colors"
+      title="Copy"
+    >
+      {isCopied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} className="text-claude-subtext" />}
+    </button>
+  );
+}
+
+function LabSetupPanel({ language, expandedLab, setExpandedLab, copiedCmd, setCopiedCmd }: {
+  language: string;
+  expandedLab: string | null;
+  setExpandedLab: (v: string | null) => void;
+  copiedCmd: string | null;
+  setCopiedCmd: (v: string | null) => void;
+}) {
+  const isEn = language !== 'uk' && language !== 'ru';
+  return (
+    <div className="mt-6 rounded-xl border border-claude-border bg-white overflow-hidden">
+      <div className="px-4 py-3 border-b border-claude-border bg-claude-bg">
+        <div className="flex items-center gap-2">
+          <Container size={14} className="text-claude-accent" />
+          <p className="text-xs font-sans font-semibold text-claude-text uppercase tracking-wide">
+            {isEn ? 'Lab Environment' : 'Лабораторне середовище'}
+          </p>
+        </div>
+        <p className="text-[11px] font-sans text-claude-subtext mt-1">
+          {isEn ? 'Docker setup — click to expand' : 'Docker setup — натисни для деталей'}
+        </p>
+      </div>
+      <div className="divide-y divide-claude-border/50">
+        {LAB_TOOLS.map((tool) => {
+          const isOpen = expandedLab === tool.id;
+          return (
+            <div key={tool.id}>
+              <button
+                onClick={() => setExpandedLab(isOpen ? null : tool.id)}
+                className="w-full text-left px-4 py-2.5 flex items-center gap-2 hover:bg-claude-bg/50 transition-colors"
+              >
+                <span className="w-5 h-5 rounded bg-claude-accent/10 text-claude-accent flex items-center justify-center flex-shrink-0">
+                  <Container size={11} />
+                </span>
+                <span className="flex-1 text-xs font-sans font-medium text-claude-text">{tool.name}</span>
+                <span className="text-[10px] font-sans text-claude-subtext">:{tool.port}</span>
+                <ChevronDown size={12} className={`text-claude-subtext transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+              </button>
+              <AnimatePresence>
+                {isOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-4 pb-3 pt-0">
+                      <p className="text-[11px] font-sans text-claude-subtext mb-2">
+                        {isEn ? tool.descEn : tool.descUk}
+                      </p>
+                      <ol className="space-y-2">
+                        {tool.steps.map((step, i) => (
+                          <li key={i}>
+                            <p className="text-[11px] font-sans text-claude-text font-medium mb-1">
+                              {i + 1}. {isEn ? step.labelEn : step.labelUk}
+                            </p>
+                            {step.cmd && (
+                              step.cmd.startsWith('http') ? (
+                                <a
+                                  href={step.cmd}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-claude-bg text-[11px] font-mono text-claude-accent hover:underline"
+                                >
+                                  {step.cmd}
+                                  <ExternalLink size={9} />
+                                </a>
+                              ) : (
+                                <div className="flex items-center gap-1 px-2 py-1 rounded bg-zinc-900 group">
+                                  <code className="flex-1 text-[11px] font-mono text-emerald-400 overflow-x-auto whitespace-nowrap">
+                                    $ {step.cmd}
+                                  </code>
+                                  <CopyButton text={step.cmd} copiedCmd={copiedCmd} setCopiedCmd={setCopiedCmd} />
+                                </div>
+                              )
+                            )}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function CISOAcademyPage() {
   const navigate = useNavigate();
   const language = useLocaleStore((s) => s.language);
@@ -57,6 +274,8 @@ export function CISOAcademyPage() {
   const [activePhase, setActivePhase] = useState<PhaseKey>(0);
   const [expandedMonth, setExpandedMonth] = useState<number>(0);
   const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
+  const [expandedLab, setExpandedLab] = useState<string | null>(null);
+  const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
 
   useDocumentMeta({
     title: c.metaTitle,
@@ -225,16 +444,13 @@ export function CISOAcademyPage() {
               </motion.button>
             ))}
 
-            <div className="mt-6 p-4 rounded-xl border border-dashed border-claude-border">
-              <p className="text-xs font-sans font-semibold text-claude-text uppercase tracking-wide mb-2">
-                {c.labTitle}
-              </p>
-              <ul className="space-y-1.5 text-xs font-sans text-claude-subtext leading-relaxed">
-                {c.labItems.map((item) => (
-                  <li key={item}>· {item}</li>
-                ))}
-              </ul>
-            </div>
+            <LabSetupPanel
+              language={language}
+              expandedLab={expandedLab}
+              setExpandedLab={setExpandedLab}
+              copiedCmd={copiedCmd}
+              setCopiedCmd={setCopiedCmd}
+            />
           </div>
 
           {/* Phase content */}
