@@ -552,8 +552,13 @@ export function CISOAcademyPage() {
                                               {week.week}
                                             </span>
                                             <div className="flex-1 min-w-0">
-                                              <h4 className="text-sm font-serif font-medium text-claude-text">
+                                              <h4 className="text-sm font-serif font-medium text-claude-text inline-flex items-center gap-2">
                                                 {isEn ? week.titleEn : week.titleUk}
+                                                {week.advanced && (
+                                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-sans font-bold bg-amber-100 text-amber-700 tracking-wide">
+                                                    ★ {isEn ? 'ADVANCED' : 'СКЛАДНЕ'}
+                                                  </span>
+                                                )}
                                               </h4>
                                               <div className="flex items-center gap-3 mt-1">
                                                 <span className="inline-flex items-center gap-1">
@@ -626,14 +631,18 @@ export function CISOAcademyPage() {
                                                     </h5>
                                                   </div>
                                                   <ol className="space-y-1.5">
-                                                    {wContent.practiceEn.map((step, i) => (
-                                                      <li key={i} className="flex gap-2 text-xs font-sans text-claude-subtext leading-relaxed">
-                                                        <span className={`flex-shrink-0 w-5 h-5 rounded ${style.bgColor} ${style.color} flex items-center justify-center text-[10px] font-bold mt-0.5`}>
-                                                          {i + 1}
+                                                    {wContent.practiceEn.map((step, i) => {
+                                                      const isAdvancedStep = step.startsWith('★');
+                                                      const stepText = isAdvancedStep ? step.slice(2) : step;
+                                                      return (
+                                                      <li key={i} className={`flex gap-2 text-xs font-sans leading-relaxed ${isAdvancedStep ? 'text-claude-text' : 'text-claude-subtext'}`}>
+                                                        <span className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold mt-0.5 ${isAdvancedStep ? 'bg-amber-100 text-amber-700' : `${style.bgColor} ${style.color}`}`}>
+                                                          {isAdvancedStep ? '★' : i + 1}
                                                         </span>
-                                                        <span>{step}</span>
+                                                        <span>{isAdvancedStep && <span className="font-semibold text-amber-700 mr-1">{isEn ? 'Advanced:' : 'Складне:'}</span>}{stepText}</span>
                                                       </li>
-                                                    ))}
+                                                      );
+                                                    })}
                                                   </ol>
                                                 </div>
                                               </div>
