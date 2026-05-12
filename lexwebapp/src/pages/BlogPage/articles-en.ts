@@ -7186,4 +7186,29 @@ The work establishes a formal bridge between ontology-controlled architectures a
 
 [**Download Full Paper (PDF)**](/papers/ontology-oversight-bridge-2026.pdf)`,
   },
+  'paper-mission-memory': {
+    title: 'Persistent Memory Architecture for Long-Horizon Autonomous Missions with Operator Rotation',
+    punchline: 'Three-level memory decomposition (domain / workflow / operator) with dual-mode retrieval for maintaining control continuity in UAV and situation center operations during operator handoff.',
+    content: `# Persistent Memory Architecture for Long-Horizon Autonomous Missions with Operator Rotation
+
+**Dual-Mode Retrieval and Correction Signal**
+
+**Volodymyr Ovcharov** — LEX AI LLC, Kyiv, Ukraine
+
+---
+
+## Abstract
+
+Autonomous agent systems performing long-horizon missions (hours to weeks) require a memory subsystem whose retrieval unit is the operational decision, not the dialogue exchange or code fragment.
+
+We propose a three-level memory decomposition (domain / workflow / operator) with dual-mode retrieval: pull-mode for active sessions and push-mode for background context refresh of dormant tasks. The third contribution is the retrieval-correction signal: situations where operator corrections would have been unnecessary had the system timely provided relevant context.
+
+Application to UAV control systems and situation centers — where operator rotation is a standard procedure — is discussed.
+
+**Note:** This paper is written in Ukrainian. The PDF contains the full Ukrainian text.
+
+---
+
+[**Download Full Paper (PDF)**](/papers/mission-memory-2026.pdf)`,
+  },
 };
