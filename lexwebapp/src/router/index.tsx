@@ -68,7 +68,7 @@ const BlogPage = lazyWithRetry(() => import('../pages/BlogPage').then(m => ({ de
 const BlogArticlePage = lazyWithRetry(() => import('../pages/BlogPage/BlogArticlePage').then(m => ({ default: m.BlogArticlePage })));
 const InvestorLetterPage = lazyWithRetry(() => import('../pages/InvestorLetterPage').then(m => ({ default: m.InvestorLetterPage })));
 const CareerPage = lazyWithRetry(() => import('../pages/CareerPage').then(m => ({ default: m.CareerPage })));
-const CISOAcademyPage = lazyWithRetry(() => import('../pages/CISOAcademyPage').then(m => ({ default: m.CISOAcademyPage })));
+const CISOAcademyPage = lazyWithRetry(() => import('../pages/CISOAcademyPage/index').then(m => ({ default: m.CISOAcademyPage })));
 const AboutPage = lazyWithRetry(() => import('../pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const AboutTeamPage = lazyWithRetry(() => import('../pages/AboutPage').then(m => ({ default: m.AboutTeamPage })));
 const ProductPage = lazyWithRetry(() => import('../pages/ProductPage').then(m => ({ default: m.ProductPage })));
