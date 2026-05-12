@@ -9,7 +9,10 @@
 \@writefile{toc}{\contentsline {section}{\numberline {1}Вступ: проблема безперервності управління}{1}{section.1}\protected@file@percent }
 \newlabel{sec:intro}{{1}{1}{Вступ: проблема безперервності управління}{section.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Актуальність}{1}{subsection.1.1}\protected@file@percent }
+\citation{endsley1995sa}
 \citation{packer2023memgpt,park2023generative,chhikara2025mem0}
+\citation{chen2011supervisory}
+\citation{oneill2022hat}
 \citation{zhang2023repocoder}
 \citation{reid2024gemini}
 \citation{liu2023lost}
@@ -21,16 +24,17 @@
 \citation{packer2023memgpt}
 \citation{park2023generative}
 \citation{chhikara2025mem0}
-\citation{xu2024amem}
 \@writefile{toc}{\contentsline {subsection}{\numberline {1.2}Зв'язок зі школою кібернетичного управління}{2}{subsection.1.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {1.3}Постановка задачі}{2}{subsection.1.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {2}Аналіз існуючих підходів}{2}{section.2}\protected@file@percent }
-\newlabel{sec:related}{{2}{2}{Аналіз існуючих підходів}{section.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Системи пам'яті для діалогових агентів}{2}{subsection.2.1}\protected@file@percent }
+\citation{xu2024amem}
 \citation{letta2025lettacode}
 \citation{letta2026repositories}
 \citation{letta2026constitution}
+\citation{shinn2023reflexion}
+\citation{sumers2024coala}
 \citation{zhang2024survey}
+\citation{lewis2020rag}
+\citation{yan2024crag}
 \citation{zhang2023repocoder}
 \citation{wang2024coderagbench}
 \citation{jimenez2024swebench}
@@ -39,51 +43,57 @@
 \citation{iso42010}
 \citation{zorner2015softwarearchitekturen}
 \citation{zimmermann2015architectural}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Аналіз існуючих підходів}{3}{section.2}\protected@file@percent }
+\newlabel{sec:related}{{2}{3}{Аналіз існуючих підходів}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Системи пам'яті для діалогових агентів}{3}{subsection.2.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Витягування для програмних агентів}{3}{subsection.2.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Записи архітектурних рішень}{3}{subsection.2.3}\protected@file@percent }
-\newlabel{sec:related-adr}{{2.3}{3}{Записи архітектурних рішень}{subsection.2.3}{}}
 \citation{reid2024gemini}
 \citation{liu2023lost,hsieh2024ruler,li2024longcontextbench}
 \citation{palagin2006architecture}
 \citation{palagin2024neural}
-\citation{ovcharov2026edittrace}
+\citation{chikrii1997conflict}
+\citation{horbulin2020uavroutes}
+\citation{zgurovsky2021hybridnn}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Записи архітектурних рішень}{4}{subsection.2.3}\protected@file@percent }
+\newlabel{sec:related-adr}{{2.3}{4}{Записи архітектурних рішень}{subsection.2.3}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Моделі з довгим контекстом}{4}{subsection.2.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.5}Системи управління знаннями в ситуаційних центрах}{4}{subsection.2.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {3}Формалізація проблеми}{4}{section.3}\protected@file@percent }
-\newlabel{sec:problem}{{3}{4}{Формалізація проблеми}{section.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Три характеристики довгострокових місій}{4}{subsection.3.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Проблема ініціалізації сесії}{4}{subsection.3.2}\protected@file@percent }
+\citation{ovcharov2026edittrace}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Формалізація проблеми}{5}{section.3}\protected@file@percent }
+\newlabel{sec:problem}{{3}{5}{Формалізація проблеми}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Три характеристики довгострокових місій}{5}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Проблема ініціалізації сесії}{5}{subsection.3.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Формальна постановка}{5}{subsection.3.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {4}Архітектура трирівневої пам'яті}{5}{section.4}\protected@file@percent }
 \newlabel{sec:architecture}{{4}{5}{Архітектура трирівневої пам'яті}{section.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Предметний рівень (Domain Layer)}{5}{subsection.4.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Зіставлення предметного рівня: юридичний AI та управління БПЛА.}}{5}{table.1}\protected@file@percent }
-\newlabel{tab:domain-mapping}{{1}{5}{Зіставлення предметного рівня: юридичний AI та управління БПЛА}{table.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Робочий рівень (Workflow Layer)}{5}{subsection.4.2}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Трирівнева архітектура персистентної пам'яті з дворежимним витягуванням. Pull"=режим (суцільна лінія) ініціюється запитом оператора на початку сесії та паралельно звертається до всіх трьох рівнів. Push"=режим (пунктирна лінія) фоново оновлює контекст простоюючих задач. Сигнал корекції (точкова лінія) повертається від рівня оператора при виявленні пропущеного релевантного контексту.}}{6}{figure.1}\protected@file@percent }
 \newlabel{fig:architecture}{{1}{6}{Трирівнева архітектура персистентної пам'яті з дворежимним витягуванням. Pull"=режим (суцільна лінія) ініціюється запитом оператора на початку сесії та паралельно звертається до всіх трьох рівнів. Push"=режим (пунктирна лінія) фоново оновлює контекст простоюючих задач. Сигнал корекції (точкова лінія) повертається від рівня оператора при виявленні пропущеного релевантного контексту}{figure.1}{}}
 \citation{ovcharov2026edittrace}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Зіставлення предметного рівня: юридичний AI та управління БПЛА.}}{7}{table.1}\protected@file@percent }
+\newlabel{tab:domain-mapping}{{1}{7}{Зіставлення предметного рівня: юридичний AI та управління БПЛА}{table.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Робочий рівень (Workflow Layer)}{7}{subsection.4.2}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Шість джерел робочого рівня та їхні військові аналоги.}}{7}{table.2}\protected@file@percent }
 \newlabel{tab:workflow-mapping}{{2}{7}{Шість джерел робочого рівня та їхні військові аналоги}{table.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Рівень оператора (Practitioner Layer)}{7}{subsection.4.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Фаза~0: міст промпт--коміт.}{7}{section*.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Фаза~0: міст промпт--коміт.}{8}{section*.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {5}Дворежимне витягування}{8}{section.5}\protected@file@percent }
 \newlabel{sec:dual-mode}{{5}{8}{Дворежимне витягування}{section.5}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Pull"=режим (активні сесії)}{8}{subsection.5.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Push"=режим (фонове оновлення)}{8}{subsection.5.2}\protected@file@percent }
 \newlabel{eq:refresh}{{1}{8}{Push"=режим (фонове оновлення)}{equation.5.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Чому необхідні обидва режими}{8}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Чому необхідні обидва режими}{9}{subsection.5.3}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Дворежимне витягування протягом шеститижневого циклу місії. У~pull-режимі (верхня доріжка) кожна сесія оператора ініціює контекстний запит; у~push-режимі (нижня доріжка) система періодично оновлює кешований контекст завдань. Під~час ротації оператора (штрихові лінії) push-оновлення гарантують, що перший pull-запит нового оператора повертає актуальний стан місії без~ручної реініціалізації.}}{9}{figure.2}\protected@file@percent }
 \newlabel{fig:dual-mode}{{2}{9}{Дворежимне витягування протягом шеститижневого циклу місії. У~pull-режимі (верхня доріжка) кожна сесія оператора ініціює контекстний запит; у~push-режимі (нижня доріжка) система періодично оновлює кешований контекст завдань. Під~час ротації оператора (штрихові лінії) push-оновлення гарантують, що перший pull-запит нового оператора повертає актуальний стан місії без~ручної реініціалізації}{figure.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Сигнал корекції витягування}{9}{subsection.5.4}\protected@file@percent }
-\newlabel{sec:retrieval-correction}{{5.4}{9}{Сигнал корекції витягування}{subsection.5.4}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {6}Деталі реалізації}{9}{section.6}\protected@file@percent }
-\newlabel{sec:implementation}{{6}{9}{Деталі реалізації}{section.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Інструмент запиту до пам'яті}{9}{subsection.6.1}\protected@file@percent }
-\newlabel{sec:memory-query-tool}{{6.1}{9}{Інструмент запиту до пам'яті}{subsection.6.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Сигнал корекції витягування}{10}{subsection.5.4}\protected@file@percent }
+\newlabel{sec:retrieval-correction}{{5.4}{10}{Сигнал корекції витягування}{subsection.5.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Деталі реалізації}{10}{section.6}\protected@file@percent }
+\newlabel{sec:implementation}{{6}{10}{Деталі реалізації}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Інструмент запиту до пам'яті}{10}{subsection.6.1}\protected@file@percent }
+\newlabel{sec:memory-query-tool}{{6.1}{10}{Інструмент запиту до пам'яті}{subsection.6.1}{}}
 \citation{ovcharov2026edittrace}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Оркестратор довгострокових задач}{10}{subsection.6.2}\protected@file@percent }
-\newlabel{sec:orchestrator}{{6.2}{10}{Оркестратор довгострокових задач}{subsection.6.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Оркестратор довгострокових задач}{11}{subsection.6.2}\protected@file@percent }
+\newlabel{sec:orchestrator}{{6.2}{11}{Оркестратор довгострокових задач}{subsection.6.2}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {7}Експериментальна верифікація}{11}{section.7}\protected@file@percent }
 \newlabel{sec:evaluation}{{7}{11}{Експериментальна верифікація}{section.7}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Платформа верифікації}{11}{subsection.7.1}\protected@file@percent }
@@ -92,72 +102,82 @@
 \newlabel{sec:metrics}{{7.2}{11}{Метрики}{subsection.7.2}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Метрики оцінювання з базовими значеннями та цільовими показниками.}}{11}{table.3}\protected@file@percent }
 \newlabel{tab:metrics}{{3}{11}{Метрики оцінювання з базовими значеннями та цільовими показниками}{table.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Попередні результати}{11}{subsection.7.3}\protected@file@percent }
-\newlabel{sec:preliminary}{{7.3}{11}{Попередні результати}{subsection.7.3}{}}
-\@writefile{toc}{\contentsline {paragraph}{Вартість ініціалізації (Експеримент~1, $N{=}304$ сесії).}{11}{section*.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Зростання CLAUDE.md (Експеримент~2, 25~комітів за 85~днів).}{11}{section*.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Коефіцієнт надлишковості (Експеримент~3, $N{=}180$ сесій).}{11}{section*.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.4}Загрози валідності}{11}{subsection.7.4}\protected@file@percent }
-\newlabel{sec:threats}{{7.4}{11}{Загрози валідності}{subsection.7.4}{}}
-\@writefile{toc}{\contentsline {paragraph}{Один проєкт, один практик.}{11}{section*.5}\protected@file@percent }
-\citation{palagin2025evolutionary}
-\citation{palagin2006architecture}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Попередні результати}{12}{subsection.7.3}\protected@file@percent }
+\newlabel{sec:preliminary}{{7.3}{12}{Попередні результати}{subsection.7.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Вартість ініціалізації (Експеримент~1, $N{=}304$ сесії).}{12}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Зростання CLAUDE.md (Експеримент~2, 25~комітів за 85~днів).}{12}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Коефіцієнт надлишковості (Експеримент~3, $N{=}180$ сесій).}{12}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4}Загрози валідності}{12}{subsection.7.4}\protected@file@percent }
+\newlabel{sec:threats}{{7.4}{12}{Загрози валідності}{subsection.7.4}{}}
+\@writefile{toc}{\contentsline {paragraph}{Один проєкт, один практик.}{12}{section*.5}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Змішування з дозріванням кодової бази.}{12}{section*.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Якість реєстру принципів.}{12}{section*.7}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {7.5}Застосовність до управління БПЛА та ситуаційних центрів}{12}{subsection.7.5}\protected@file@percent }
 \newlabel{sec:metrics-mapping}{{7.5}{12}{Застосовність до управління БПЛА та ситуаційних центрів}{subsection.7.5}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Зіставлення метрик верифікації з бойовими метриками.}}{12}{table.4}\protected@file@percent }
 \newlabel{tab:metrics-mapping}{{4}{12}{Зіставлення метрик верифікації з бойовими метриками}{table.4}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {8}Обговорення}{12}{section.8}\protected@file@percent }
-\newlabel{sec:discussion}{{8}{12}{Обговорення}{section.8}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Від пам'яті програмного агента до пам'яті бойової системи}{12}{subsection.8.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Еволюційна кібернетика та адаптація пам'яті}{12}{subsection.8.2}\protected@file@percent }
+\citation{palagin2025evolutionary}
+\citation{palagin2006architecture}
 \citation{palagin2024neural}
 \citation{ovcharov2026edittrace}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Обговорення}{13}{section.8}\protected@file@percent }
+\newlabel{sec:discussion}{{8}{13}{Обговорення}{section.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Від пам'яті програмного агента до пам'яті бойової системи}{13}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Еволюційна кібернетика та адаптація пам'яті}{13}{subsection.8.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Зв'язок з онтологічно"=керованими системами}{13}{subsection.8.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {8.4}Пам'ять як субстрат навчання з підкріпленням}{13}{subsection.8.4}\protected@file@percent }
 \newlabel{sec:disc-rlhf-substrate}{{8.4}{13}{Пам'ять як субстрат навчання з підкріпленням}{subsection.8.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.5}Пам'ять як поверхня масштабованого нагляду}{13}{subsection.8.5}\protected@file@percent }
-\newlabel{sec:disc-oversight-surface}{{8.5}{13}{Пам'ять як поверхня масштабованого нагляду}{subsection.8.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.6}Поведінка пам'яті при ескалації подій}{13}{subsection.8.6}\protected@file@percent }
-\newlabel{sec:disc-escalation}{{8.6}{13}{Поведінка пам'яті при ескалації подій}{subsection.8.6}{}}
 \citation{reid2024gemini,liu2023lost}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.5}Пам'ять як поверхня масштабованого нагляду}{14}{subsection.8.5}\protected@file@percent }
+\newlabel{sec:disc-oversight-surface}{{8.5}{14}{Пам'ять як поверхня масштабованого нагляду}{subsection.8.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.6}Поведінка пам'яті при ескалації подій}{14}{subsection.8.6}\protected@file@percent }
+\newlabel{sec:disc-escalation}{{8.6}{14}{Поведінка пам'яті при ескалації подій}{subsection.8.6}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {8.7}Узагальнення на команди}{14}{subsection.8.7}\protected@file@percent }
 \newlabel{sec:disc-teams}{{8.7}{14}{Узагальнення на команди}{subsection.8.7}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {8.8}Чим це не є}{14}{subsection.8.8}\protected@file@percent }
 \newlabel{sec:disc-not}{{8.8}{14}{Чим це не є}{subsection.8.8}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {9}Обмеження}{14}{section.9}\protected@file@percent }
-\newlabel{sec:limitations}{{9}{14}{Обмеження}{section.9}{}}
 \citation{palagin2006architecture}
 \bibstyle{plainnat}
 \bibdata{references}
-\bibcite{chhikara2025mem0}{{1}{2025}{{Chhikara et~al.}}{{Chhikara, Khare, Tariq, and Bansal}}}
-\bibcite{hsieh2024ruler}{{2}{2024}{{Hsieh et~al.}}{{Hsieh, Sun, Kriman, Ainslie, et~al.}}}
-\bibcite{iso42010}{{3}{2011}{{ISO/IEC/IEEE}}{{}}}
-\bibcite{jimenez2024swebench}{{4}{2024}{{Jimenez et~al.}}{{Jimenez, Yang, Wettig, Yao, Pei, Press, and Narasimhan}}}
-\bibcite{letta2026constitution}{{5}{2026{}}{{Letta Team}}{{}}}
-\bibcite{letta2026repositories}{{6}{2026{}}{{Letta Team}}{{}}}
-\bibcite{li2024longcontextbench}{{7}{2024}{{Li et~al.}}{{Li, Ge, Cheng, Chen, Gao, et~al.}}}
-\bibcite{liu2023lost}{{8}{2023}{{Liu et~al.}}{{Liu, Lin, Hewitt, Paranjape, Bevilacqua, Petroni, and Liang}}}
-\bibcite{nygard2011adr}{{9}{2011}{{Nygard}}{{}}}
+\bibcite{chen2011supervisory}{{1}{2011}{{Chen et~al.}}{{Chen, Barnes, and Harper-Sciarini}}}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Обмеження}{15}{section.9}\protected@file@percent }
+\newlabel{sec:limitations}{{9}{15}{Обмеження}{section.9}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {10}Висновки}{15}{section.10}\protected@file@percent }
 \newlabel{sec:conclusion}{{10}{15}{Висновки}{section.10}{}}
-\bibcite{ovcharov2026edittrace}{{10}{2026}{{Ovcharov}}{{}}}
-\bibcite{packer2023memgpt}{{11}{2023}{{Packer et~al.}}{{Packer, Wooders, Lin, Fang, Patil, Stoica, and Gonzalez}}}
-\bibcite{letta2025lettacode}{{12}{2025}{{Packer et~al.}}{{Packer, Wooders, and Lin}}}
-\bibcite{palagin2006architecture}{{13}{2006}{{Palagin}}{{}}}
-\bibcite{palagin2012knowledge}{{14}{2012}{{Palagin et~al.}}{{Palagin, Kryvyi, and Petrenko}}}
-\bibcite{palagin2020distributional}{{15}{2020}{{Palagin et~al.}}{{Palagin, Velychko, Malakhov, and Shchurov}}}
-\bibcite{palagin2023ontochatgpt}{{16}{2023}{{Palagin et~al.}}{{Palagin, Kaverinskiy, Litvin, and Malakhov}}}
-\bibcite{palagin2024neural}{{17}{2024}{{Palagin et~al.}}{{Palagin, Kaverinskiy, and Malakhov}}}
-\bibcite{palagin2025evolutionary}{{18}{2025}{{Palagin et~al.}}{{Palagin, Symonov, and Chervynskyi}}}
-\bibcite{park2023generative}{{19}{2023}{{Park et~al.}}{{Park, O'Brien, Cai, Morris, Liang, and Bernstein}}}
-\bibcite{reid2024gemini}{{20}{2024}{{Reid et~al.}}{{Reid, Savinov, Teber, et~al.}}}
-\bibcite{wang2024coderagbench}{{21}{2024}{{Wang et~al.}}{{Wang, Shi, Yang, Anantha, Rossi, Park, et~al.}}}
-\bibcite{xu2024amem}{{22}{2024}{{Xu et~al.}}{{Xu, Liang, Mei, Gao, Qi, Yang, Yan, and Liu}}}
-\bibcite{yang2024sweagent}{{23}{2024}{{Yang et~al.}}{{Yang, Jimenez, Wettig, Lieret, Yao, Narasimhan, and Press}}}
-\bibcite{zhang2023repocoder}{{24}{2023}{{Zhang et~al.}}{{Zhang, Chen, Zhang, Liu, Zan, Mao, Lou, and Chen}}}
-\bibcite{zhang2024survey}{{25}{2024}{{Zhang et~al.}}{{Zhang, Zhang, Wang, Yan, Wang, Yu, et~al.}}}
-\bibcite{zimmermann2015architectural}{{26}{2015}{{Zimmermann et~al.}}{{Zimmermann, Wegmann, Koziolek, and Goldschmidt}}}
-\bibcite{zorner2015softwarearchitekturen}{{27}{2015}{{Z\"{o}rner}}{{}}}
-\gdef \@abspage@last{17}
+\bibcite{chhikara2025mem0}{{2}{2025}{{Chhikara et~al.}}{{Chhikara, Khare, Tariq, and Bansal}}}
+\bibcite{chikrii1997conflict}{{3}{1997}{{Chikrii}}{{}}}
+\bibcite{endsley1995sa}{{4}{1995}{{Endsley}}{{}}}
+\bibcite{horbulin2020uavroutes}{{5}{2020}{{Horbulin et~al.}}{{Horbulin, Hulianytskyi, and Sergienko}}}
+\bibcite{hsieh2024ruler}{{6}{2024}{{Hsieh et~al.}}{{Hsieh, Sun, Kriman, Ainslie, et~al.}}}
+\bibcite{iso42010}{{7}{2011}{{ISO/IEC/IEEE}}{{}}}
+\bibcite{jimenez2024swebench}{{8}{2024}{{Jimenez et~al.}}{{Jimenez, Yang, Wettig, Yao, Pei, Press, and Narasimhan}}}
+\bibcite{letta2026constitution}{{9}{2026{}}{{Letta Team}}{{}}}
+\bibcite{letta2026repositories}{{10}{2026{}}{{Letta Team}}{{}}}
+\bibcite{lewis2020rag}{{11}{2020}{{Lewis et~al.}}{{Lewis, Perez, Piktus, Petroni, Karpukhin, Goyal, K{\"u}ttler, Lewis, Yih, Rockt{\"a}schel, Riedel, and Kiela}}}
+\bibcite{li2024longcontextbench}{{12}{2024}{{Li et~al.}}{{Li, Ge, Cheng, Chen, Gao, et~al.}}}
+\bibcite{liu2023lost}{{13}{2023}{{Liu et~al.}}{{Liu, Lin, Hewitt, Paranjape, Bevilacqua, Petroni, and Liang}}}
+\bibcite{nygard2011adr}{{14}{2011}{{Nygard}}{{}}}
+\bibcite{oneill2022hat}{{15}{2022}{{O'Neill et~al.}}{{O'Neill, McNeese, Barron, and Schelble}}}
+\bibcite{ovcharov2026edittrace}{{16}{2026}{{Ovcharov}}{{}}}
+\bibcite{packer2023memgpt}{{17}{2023}{{Packer et~al.}}{{Packer, Wooders, Lin, Fang, Patil, Stoica, and Gonzalez}}}
+\bibcite{letta2025lettacode}{{18}{2025}{{Packer et~al.}}{{Packer, Wooders, and Lin}}}
+\bibcite{palagin2006architecture}{{19}{2006}{{Palagin}}{{}}}
+\bibcite{palagin2012knowledge}{{20}{2012}{{Palagin et~al.}}{{Palagin, Kryvyi, and Petrenko}}}
+\bibcite{palagin2020distributional}{{21}{2020}{{Palagin et~al.}}{{Palagin, Velychko, Malakhov, and Shchurov}}}
+\bibcite{palagin2023ontochatgpt}{{22}{2023}{{Palagin et~al.}}{{Palagin, Kaverinskiy, Litvin, and Malakhov}}}
+\bibcite{palagin2024neural}{{23}{2024}{{Palagin et~al.}}{{Palagin, Kaverinskiy, and Malakhov}}}
+\bibcite{palagin2025evolutionary}{{24}{2025}{{Palagin et~al.}}{{Palagin, Symonov, and Chervynskyi}}}
+\bibcite{park2023generative}{{25}{2023}{{Park et~al.}}{{Park, O'Brien, Cai, Morris, Liang, and Bernstein}}}
+\bibcite{reid2024gemini}{{26}{2024}{{Reid et~al.}}{{Reid, Savinov, Teber, et~al.}}}
+\bibcite{shinn2023reflexion}{{27}{2023}{{Shinn et~al.}}{{Shinn, Cassano, Gopinath, Narasimhan, and Yao}}}
+\bibcite{sumers2024coala}{{28}{2024}{{Sumers et~al.}}{{Sumers, Yao, Narasimhan, and Griffiths}}}
+\bibcite{wang2024coderagbench}{{29}{2024}{{Wang et~al.}}{{Wang, Shi, Yang, Anantha, Rossi, Park, et~al.}}}
+\bibcite{xu2024amem}{{30}{2024}{{Xu et~al.}}{{Xu, Liang, Mei, Gao, Qi, Yang, Yan, and Liu}}}
+\bibcite{yan2024crag}{{31}{2024}{{Yan et~al.}}{{Yan, Gu, Zhu, and Ling}}}
+\bibcite{yang2024sweagent}{{32}{2024}{{Yang et~al.}}{{Yang, Jimenez, Wettig, Lieret, Yao, Narasimhan, and Press}}}
+\bibcite{zgurovsky2021hybridnn}{{33}{2021}{{Zgurovsky et~al.}}{{Zgurovsky, Sineglazov, and Chumachenko}}}
+\bibcite{zhang2023repocoder}{{34}{2023}{{Zhang et~al.}}{{Zhang, Chen, Zhang, Liu, Zan, Mao, Lou, and Chen}}}
+\bibcite{zhang2024survey}{{35}{2024}{{Zhang et~al.}}{{Zhang, Zhang, Wang, Yan, Wang, Yu, et~al.}}}
+\bibcite{zimmermann2015architectural}{{36}{2015}{{Zimmermann et~al.}}{{Zimmermann, Wegmann, Koziolek, and Goldschmidt}}}
+\bibcite{zorner2015softwarearchitekturen}{{37}{2015}{{Z\"{o}rner}}{{}}}
+\gdef \@abspage@last{18}

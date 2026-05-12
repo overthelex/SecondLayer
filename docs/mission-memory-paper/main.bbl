@@ -1,9 +1,18 @@
-\begin{thebibliography}{27}
+\begin{thebibliography}{37}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
   \providecommand{\doi}[1]{doi: #1}\else
   \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Chen et~al.(2011)Chen, Barnes, and
+  Harper-Sciarini]{chen2011supervisory}
+Jessie Y.~C. Chen, Michael~J. Barnes, and Michelle Harper-Sciarini.
+\newblock Supervisory control of multiple robots: Human-performance issues and
+  user-interface design.
+\newblock \emph{IEEE Transactions on Systems, Man, and Cybernetics---Part C},
+  41\penalty0 (4):\penalty0 435--454, 2011.
+\newblock \doi{10.1109/TSMCC.2010.2056682}.
 
 \bibitem[Chhikara et~al.(2025)Chhikara, Khare, Tariq, and
   Bansal]{chhikara2025mem0}
@@ -11,6 +20,28 @@ Prateek Chhikara, Deshraj Khare, Saquib Tariq, and Mudit Bansal.
 \newblock Mem0: Building production-ready {AI} agents with scalable long-term
   memory.
 \newblock \emph{arXiv preprint arXiv:2504.19413}, 2025.
+
+\bibitem[Chikrii(1997)]{chikrii1997conflict}
+Arkadii~A. Chikrii.
+\newblock \emph{Conflict-Controlled Processes}, volume 405 of \emph{Mathematics
+  and Its Applications}.
+\newblock Springer, 1997.
+\newblock \doi{10.1007/978-94-017-1135-7}.
+
+\bibitem[Endsley(1995)]{endsley1995sa}
+Mica~R. Endsley.
+\newblock Toward a theory of situation awareness in dynamic systems.
+\newblock \emph{Human Factors}, 37\penalty0 (1):\penalty0 32--64, 1995.
+\newblock \doi{10.1518/001872095779049543}.
+
+\bibitem[Horbulin et~al.(2020)Horbulin, Hulianytskyi, and
+  Sergienko]{horbulin2020uavroutes}
+Volodymyr~P. Horbulin, Leonid~F. Hulianytskyi, and Ivan~V. Sergienko.
+\newblock Optimization of {UAV} team routes in the presence of alternative and
+  dynamic depots.
+\newblock \emph{Cybernetics and Systems Analysis}, 56\penalty0 (2):\penalty0
+  195--203, 2020.
+\newblock \doi{10.1007/s10559-020-00235-8}.
 
 \bibitem[Hsieh et~al.(2024)Hsieh, Sun, Kriman, Ainslie, et~al.]{hsieh2024ruler}
 Cheng-Ping Hsieh, Simeng Sun, Samuel Kriman, Joshua Ainslie, et~al.
@@ -45,6 +76,15 @@ Carlos~E. Jimenez, John Yang, Alexander Wettig, Shunyu Yao, Kexin Pei, Ofir
 \newblock \url{https://docs.letta.com}, 2026{\natexlab{b}}.
 \newblock Blog post / technical report.
 
+\bibitem[Lewis et~al.(2020)Lewis, Perez, Piktus, Petroni, Karpukhin, Goyal,
+  K{\"u}ttler, Lewis, Yih, Rockt{\"a}schel, Riedel, and Kiela]{lewis2020rag}
+Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir
+  Karpukhin, Naman Goyal, Heinrich K{\"u}ttler, Mike Lewis, Wen-tau Yih, Tim
+  Rockt{\"a}schel, Sebastian Riedel, and Douwe Kiela.
+\newblock Retrieval-augmented generation for knowledge-intensive {NLP} tasks.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~33, 2020.
+
 \bibitem[Li et~al.(2024)Li, Ge, Cheng, Chen, Gao,
   et~al.]{li2024longcontextbench}
 Tianle Li, Junnan Ge, Jingbo Cheng, Siyuan Chen, Luyu Gao, et~al.
@@ -65,6 +105,14 @@ Michael Nygard.
   \url{https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions},
   2011.
 \newblock Blog post.
+
+\bibitem[O'Neill et~al.(2022)O'Neill, McNeese, Barron, and
+  Schelble]{oneill2022hat}
+Thomas O'Neill, Nathan~J. McNeese, Amy Barron, and Beau Schelble.
+\newblock Human-autonomy teaming: A review and analysis of the empirical
+  literature.
+\newblock \emph{Human Factors}, 64\penalty0 (5):\penalty0 904--938, 2022.
+\newblock \doi{10.1177/0018720820960865}.
 
 \bibitem[Ovcharov(2026)]{ovcharov2026edittrace}
 Vladimir Ovcharov.
@@ -147,6 +195,20 @@ Machel Reid, Nikolay Savinov, Denis Teber, et~al.
   tokens of context.
 \newblock \emph{arXiv preprint arXiv:2403.05530}, 2024.
 
+\bibitem[Shinn et~al.(2023)Shinn, Cassano, Gopinath, Narasimhan, and
+  Yao]{shinn2023reflexion}
+Noah Shinn, Federico Cassano, Ashwin Gopinath, Karthik Narasimhan, and Shunyu
+  Yao.
+\newblock Reflexion: Language agents with verbal reinforcement learning.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~36, 2023.
+
+\bibitem[Sumers et~al.(2024)Sumers, Yao, Narasimhan, and
+  Griffiths]{sumers2024coala}
+Theodore~R. Sumers, Shunyu Yao, Karthik Narasimhan, and Thomas~L. Griffiths.
+\newblock Cognitive architectures for language agents.
+\newblock \emph{Transactions on Machine Learning Research}, 2024.
+
 \bibitem[Wang et~al.(2024)Wang, Shi, Yang, Anantha, Rossi, Park,
   et~al.]{wang2024coderagbench}
 Zora~Zhiruo Wang, Akari Shi, Shuyan Yang, Ravi Anantha, Ryan~A. Rossi,
@@ -161,6 +223,11 @@ Wujiang Xu, Zujie Liang, Jingquan Mei, Jiancheng Gao, Yongxin Qi, Feng Yang,
 \newblock {A-MEM}: Agentic memory for {LLM} agents.
 \newblock \emph{arXiv preprint arXiv:2501.13059}, 2024.
 
+\bibitem[Yan et~al.(2024)Yan, Gu, Zhu, and Ling]{yan2024crag}
+Shi-Qi Yan, Jia-Chen Gu, Yun Zhu, and Zhen-Hua Ling.
+\newblock Corrective retrieval augmented generation.
+\newblock \emph{arXiv preprint arXiv:2401.15884}, 2024.
+
 \bibitem[Yang et~al.(2024)Yang, Jimenez, Wettig, Lieret, Yao, Narasimhan, and
   Press]{yang2024sweagent}
 John Yang, Carlos~E. Jimenez, Alexander Wettig, Kilian Lieret, Shunyu Yao,
@@ -168,6 +235,15 @@ John Yang, Carlos~E. Jimenez, Alexander Wettig, Kilian Lieret, Shunyu Yao,
 \newblock {SWE-agent}: Agent-computer interfaces enable automated software
   engineering.
 \newblock \emph{arXiv preprint arXiv:2405.15793}, 2024.
+
+\bibitem[Zgurovsky et~al.(2021)Zgurovsky, Sineglazov, and
+  Chumachenko]{zgurovsky2021hybridnn}
+Mykhailo~Z. Zgurovsky, Viktor~M. Sineglazov, and Olena~I. Chumachenko.
+\newblock \emph{Artificial Intelligence Systems Based on Hybrid Neural
+  Networks: Theory and Applications}, volume 904 of \emph{Studies in
+  Computational Intelligence}.
+\newblock Springer, 2021.
+\newblock \doi{10.1007/978-3-030-48453-8}.
 
 \bibitem[Zhang et~al.(2023)Zhang, Chen, Zhang, Liu, Zan, Mao, Lou, and
   Chen]{zhang2023repocoder}
