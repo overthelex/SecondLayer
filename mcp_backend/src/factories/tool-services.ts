@@ -36,6 +36,8 @@ import { AnalyzeDataTool } from '../api/tools/analyze-data-tool.js';
 import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
 import { DecisionLayerTools } from '../api/tools/decision-layer-tools.js';
 import { ImportTaskTools } from '../api/tools/import-task-tools.js';
+import { WorkflowMemoryTools } from '../api/tools/workflow-memory-tools.js';
+import { WorkflowMemoryService } from '../services/workflow-memory-service.js';
 import { logger } from '../utils/logger.js';
 import path from 'path';
 
@@ -162,6 +164,10 @@ export function createToolServices(
   toolRegistry.registerHandler(edsrUnifiedSearch);
   // Import task manager (multi-IP downloads)
   toolRegistry.registerHandler(new ImportTaskTools(coreServices.importTaskService));
+
+  // Workflow Memory — three-layer semantic retrieval
+  const wmService = new WorkflowMemoryService(coreServices.db, coreServices.embeddingService);
+  toolRegistry.registerHandler(new WorkflowMemoryTools(wmService));
 
   logger.info('Core tool handlers registered with ToolRegistry');
 
