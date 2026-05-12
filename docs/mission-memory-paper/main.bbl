@@ -1,0 +1,205 @@
+\begin{thebibliography}{27}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Chhikara et~al.(2025)Chhikara, Khare, Tariq, and
+  Bansal]{chhikara2025mem0}
+Prateek Chhikara, Deshraj Khare, Saquib Tariq, and Mudit Bansal.
+\newblock Mem0: Building production-ready {AI} agents with scalable long-term
+  memory.
+\newblock \emph{arXiv preprint arXiv:2504.19413}, 2025.
+
+\bibitem[Hsieh et~al.(2024)Hsieh, Sun, Kriman, Ainslie, et~al.]{hsieh2024ruler}
+Cheng-Ping Hsieh, Simeng Sun, Samuel Kriman, Joshua Ainslie, et~al.
+\newblock {RULER}: What's the real context size of your long-context language
+  models?
+\newblock \emph{arXiv preprint arXiv:2404.06654}, 2024.
+
+\bibitem[{ISO/IEC/IEEE}(2011)]{iso42010}
+{ISO/IEC/IEEE}.
+\newblock {ISO/IEC/IEEE} 42010:2011 --- systems and software engineering ---
+  architecture description, 2011.
+
+\bibitem[Jimenez et~al.(2024)Jimenez, Yang, Wettig, Yao, Pei, Press, and
+  Narasimhan]{jimenez2024swebench}
+Carlos~E. Jimenez, John Yang, Alexander Wettig, Shunyu Yao, Kexin Pei, Ofir
+  Press, and Karthik Narasimhan.
+\newblock {SWE-bench}: Can language models resolve real-world {GitHub} issues?
+\newblock In \emph{Proceedings of the Twelfth International Conference on
+  Learning Representations (ICLR)}, 2024.
+\newblock arXiv:2310.06770.
+
+\bibitem[{Letta Team}(2026{\natexlab{a}})]{letta2026constitution}
+{Letta Team}.
+\newblock Context constitution: Declarative retrieval policies for agent
+  memory.
+\newblock \url{https://docs.letta.com}, 2026{\natexlab{a}}.
+\newblock Blog post / technical report.
+
+\bibitem[{Letta Team}(2026{\natexlab{b}})]{letta2026repositories}
+{Letta Team}.
+\newblock Context repositories for persistent agent memory.
+\newblock \url{https://docs.letta.com}, 2026{\natexlab{b}}.
+\newblock Blog post / technical report.
+
+\bibitem[Li et~al.(2024)Li, Ge, Cheng, Chen, Gao,
+  et~al.]{li2024longcontextbench}
+Tianle Li, Junnan Ge, Jingbo Cheng, Siyuan Chen, Luyu Gao, et~al.
+\newblock Long-context {LLMs} struggle with long in-context learning.
+\newblock \emph{arXiv preprint arXiv:2404.02060}, 2024.
+
+\bibitem[Liu et~al.(2023)Liu, Lin, Hewitt, Paranjape, Bevilacqua, Petroni, and
+  Liang]{liu2023lost}
+Nelson~F. Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua,
+  Fabio Petroni, and Percy Liang.
+\newblock Lost in the middle: How language models use long contexts.
+\newblock \emph{arXiv preprint arXiv:2307.03172}, 2023.
+
+\bibitem[Nygard(2011)]{nygard2011adr}
+Michael Nygard.
+\newblock Documenting architecture decisions.
+\newblock
+  \url{https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions},
+  2011.
+\newblock Blog post.
+
+\bibitem[Ovcharov(2026)]{ovcharov2026edittrace}
+Vladimir Ovcharov.
+\newblock Edit-trace oversight: Scalable alignment signal from agentic
+  workflows.
+\newblock \emph{arXiv preprint}, 2026.
+\newblock Under review.
+
+\bibitem[Packer et~al.(2023)Packer, Wooders, Lin, Fang, Patil, Stoica, and
+  Gonzalez]{packer2023memgpt}
+Charles Packer, Sarah Wooders, Kevin Lin, Vivian Fang, Shishir~G. Patil, Ion
+  Stoica, and Joseph~E. Gonzalez.
+\newblock {MemGPT}: Towards {LLMs} as operating systems.
+\newblock \emph{arXiv preprint arXiv:2310.08560}, 2023.
+
+\bibitem[Packer et~al.(2025)Packer, Wooders, and Lin]{letta2025lettacode}
+Charles Packer, Sarah Wooders, and Kevin Lin.
+\newblock Letta: The open-source framework for building stateful {LLM} agents
+  (formerly {MemGPT}).
+\newblock \url{https://github.com/letta-ai/letta}, 2025.
+\newblock Software repository.
+
+\bibitem[Palagin(2006)]{palagin2006architecture}
+Alexander~V. Palagin.
+\newblock Architecture of ontology-controlled computer systems.
+\newblock \emph{Cybernetics and Systems Analysis}, 42\penalty0 (2):\penalty0
+  254--264, 2006.
+\newblock \doi{10.1007/s10559-006-0061-z}.
+
+\bibitem[Palagin et~al.(2012)Palagin, Kryvyi, and
+  Petrenko]{palagin2012knowledge}
+Alexander~V. Palagin, Serhiy~L. Kryvyi, and Mykola~G. Petrenko.
+\newblock On the automation of the process of extracting knowledge from natural
+  language texts.
+\newblock \emph{Natural and Artificial Intelligence International Book Series},
+  2012.
+
+\bibitem[Palagin et~al.(2020)Palagin, Velychko, Malakhov, and
+  Shchurov]{palagin2020distributional}
+Oleksandr Palagin, Vitalii Velychko, Kyrylo Malakhov, and Borys Shchurov.
+\newblock Distributional semantic modeling: A revised technique to train
+  term/word vector space models applying the ontology-related approach.
+\newblock \emph{arXiv preprint arXiv:2003.03350}, 2020.
+
+\bibitem[Palagin et~al.(2023)Palagin, Kaverinskiy, Litvin, and
+  Malakhov]{palagin2023ontochatgpt}
+Oleksandr Palagin, Vladislav Kaverinskiy, Anna Litvin, and Kyrylo Malakhov.
+\newblock {OntoChatGPT} information system: Ontology-driven structured prompts
+  for {ChatGPT} meta-learning.
+\newblock \emph{International Journal of Computing}, 22\penalty0 (2):\penalty0
+  170--183, 2023.
+
+\bibitem[Palagin et~al.(2024)Palagin, Kaverinskiy, and
+  Malakhov]{palagin2024neural}
+Oleksandr Palagin, Vladislav Kaverinskiy, and Kyrylo Malakhov.
+\newblock Fundamentals of the integrated use of neural network and
+  ontolinguistic paradigms: A comprehensive approach.
+\newblock \emph{Cybernetics and Systems Analysis}, 60:\penalty0 111--123, 2024.
+\newblock \doi{10.1007/s10559-024-00652-z}.
+
+\bibitem[Palagin et~al.(2025)Palagin, Symonov, and
+  Chervynskyi]{palagin2025evolutionary}
+Oleksandr Palagin, Dmytro Symonov, and Mykhailo Chervynskyi.
+\newblock Modelling evolutionary cybernetics: Ontology, invariants and design
+  principles.
+\newblock \emph{Information Technologies and Systems}, 6\penalty0 (6):\penalty0
+  3--29, 2025.
+\newblock \doi{10.15407/intechsys.2025.06.003}.
+
+\bibitem[Park et~al.(2023)Park, O'Brien, Cai, Morris, Liang, and
+  Bernstein]{park2023generative}
+Joon~Sung Park, Joseph~C. O'Brien, Carrie~J. Cai, Meredith~Ringel Morris, Percy
+  Liang, and Michael~S. Bernstein.
+\newblock Generative agents: Interactive simulacra of human behavior.
+\newblock \emph{arXiv preprint arXiv:2304.03442}, 2023.
+
+\bibitem[Reid et~al.(2024)Reid, Savinov, Teber, et~al.]{reid2024gemini}
+Machel Reid, Nikolay Savinov, Denis Teber, et~al.
+\newblock Gemini 1.5: Unlocking multimodal understanding across millions of
+  tokens of context.
+\newblock \emph{arXiv preprint arXiv:2403.05530}, 2024.
+
+\bibitem[Wang et~al.(2024)Wang, Shi, Yang, Anantha, Rossi, Park,
+  et~al.]{wang2024coderagbench}
+Zora~Zhiruo Wang, Akari Shi, Shuyan Yang, Ravi Anantha, Ryan~A. Rossi,
+  Neel~Sundaresan Park, et~al.
+\newblock {CodeRAG-Bench}: Can retrieval augment code generation?
+\newblock \emph{arXiv preprint arXiv:2406.14497}, 2024.
+
+\bibitem[Xu et~al.(2024)Xu, Liang, Mei, Gao, Qi, Yang, Yan, and
+  Liu]{xu2024amem}
+Wujiang Xu, Zujie Liang, Jingquan Mei, Jiancheng Gao, Yongxin Qi, Feng Yang,
+  Rui Yan, and Wei Liu.
+\newblock {A-MEM}: Agentic memory for {LLM} agents.
+\newblock \emph{arXiv preprint arXiv:2501.13059}, 2024.
+
+\bibitem[Yang et~al.(2024)Yang, Jimenez, Wettig, Lieret, Yao, Narasimhan, and
+  Press]{yang2024sweagent}
+John Yang, Carlos~E. Jimenez, Alexander Wettig, Kilian Lieret, Shunyu Yao,
+  Karthik Narasimhan, and Ofir Press.
+\newblock {SWE-agent}: Agent-computer interfaces enable automated software
+  engineering.
+\newblock \emph{arXiv preprint arXiv:2405.15793}, 2024.
+
+\bibitem[Zhang et~al.(2023)Zhang, Chen, Zhang, Liu, Zan, Mao, Lou, and
+  Chen]{zhang2023repocoder}
+Fengji Zhang, Bei Chen, Yue Zhang, Jin Liu, Daoguang Zan, Yi~Mao, Jian-Guang
+  Lou, and Weizhu Chen.
+\newblock {RepoCoder}: Repository-level code completion through iterative
+  retrieval and generation.
+\newblock \emph{arXiv preprint arXiv:2303.12570}, 2023.
+
+\bibitem[Zhang et~al.(2024)Zhang, Zhang, Wang, Yan, Wang, Yu,
+  et~al.]{zhang2024survey}
+Zeyu Zhang, Xiaohe Zhang, Yuanpei Wang, Shengjie Yan, Zhaokai Wang, Ge~Yu,
+  et~al.
+\newblock A survey on the memory mechanism of large language model based
+  agents.
+\newblock \emph{arXiv preprint arXiv:2404.13501}, 2024.
+
+\bibitem[Zimmermann et~al.(2015)Zimmermann, Wegmann, Koziolek, and
+  Goldschmidt]{zimmermann2015architectural}
+Olaf Zimmermann, Lukas Wegmann, Heiko Koziolek, and Thomas Goldschmidt.
+\newblock Architectural decision guidance across projects: Problem space
+  modeling, decision backlog management and cloud computing knowledge.
+\newblock In \emph{Proceedings of the 12th Working IEEE/IFIP Conference on
+  Software Architecture (WICSA)}, pages 85--94. IEEE, 2015.
+\newblock \doi{10.1109/WICSA.2015.23}.
+
+\bibitem[Z\"{o}rner(2015)]{zorner2015softwarearchitekturen}
+Stefan Z\"{o}rner.
+\newblock \emph{Softwarearchitekturen dokumentieren und kommunizieren:
+  Entw\"{u}rfe, Entscheidungen und L\"{o}sungen nachvollziehbar und
+  wirkungsvoll festhalten}.
+\newblock Carl Hanser Verlag, M\"{u}nchen, 2 edition, 2015.
+\newblock ISBN 978-3-446-44361-9.
+
+\end{thebibliography}

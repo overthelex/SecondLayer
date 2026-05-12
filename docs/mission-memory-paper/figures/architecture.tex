@@ -1,0 +1,240 @@
+% ============================================================
+%  Three-Layer Memory Architecture with Dual-Mode Retrieval
+%  \input{figures/architecture}
+%
+%  Preamble requirements (add to main.tex before \begin{document}):
+%    \usepackage{tikz}
+%    \usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,fit,
+%                    backgrounds,decorations.pathreplacing}
+% ============================================================
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  % === global styles ===
+  >=Stealth,
+  node distance=6mm and 8mm,
+  every node/.style={font=\small},
+  % --- layer boxes ---
+  layer/.style={
+    draw=#1!70!black, fill=#1!6, thick, rounded corners=3pt,
+    minimum width=72mm, minimum height=30mm,
+    inner sep=5pt,
+  },
+  layer label/.style={
+    font=\small\bfseries, text=#1!70!black,
+    anchor=north west,
+  },
+  % --- item tags inside layers ---
+  tag/.style={
+    draw=#1!50!black, fill=#1!8, rounded corners=2pt,
+    font=\scriptsize, inner sep=2.5pt, outer sep=1pt,
+  },
+  % --- retrieval badge ---
+  retrieval/.style={
+    font=\scriptsize\itshape, text=#1!70!black,
+    anchor=south east,
+  },
+  % --- operator / storage nodes ---
+  actor/.style={
+    draw=MidnightBlue!80, fill=MidnightBlue!8, thick,
+    rounded corners=2pt, minimum width=52mm, minimum height=9mm,
+    font=\small\bfseries, text=MidnightBlue!90!black,
+  },
+  storage/.style={
+    draw=gray!70, fill=gray!6, thick,
+    rounded corners=2pt, minimum width=72mm, minimum height=9mm,
+    font=\small\bfseries, text=gray!80!black,
+  },
+  % --- mode arrows ---
+  pull/.style={
+    ->, thick, MidnightBlue, solid,
+    shorten >=1pt, shorten <=1pt,
+  },
+  push/.style={
+    ->, thick, OliveGreen, dashed,
+    shorten >=1pt, shorten <=1pt,
+  },
+  correction/.style={
+    ->, thick, BrickRed, densely dotted,
+    shorten >=1pt, shorten <=1pt,
+  },
+  % --- mode label ---
+  mode label/.style={
+    font=\scriptsize\bfseries, rounded corners=2pt,
+    inner sep=2pt, minimum width=20mm, align=center,
+  },
+]
+
+% ============================================================
+%  Operator (top)
+% ============================================================
+\node[actor] (operator)
+  {Оператор (людина)};
+\node[font=\scriptsize\itshape, text=MidnightBlue!60, above=1pt of operator]
+  {початок сесії};
+
+% ============================================================
+%  Three memory layers (top to bottom)
+% ============================================================
+
+% --- Layer 3: Practitioner ---
+\node[layer=BrickRed, below=12mm of operator] (L3) {};
+\node[layer label=BrickRed] at ([shift={(2pt,-2pt)}]L3.north west)
+  {Рівень оператора \textnormal{\scriptsize (Practitioner Layer)}};
+% tags
+\node[tag=BrickRed, below=11mm of L3.north west, anchor=west, xshift=4pt]
+  (t3a) {патерни корекцій};
+\node[tag=BrickRed, right=4pt of t3a]
+  (t3b) {профіль оператора};
+% retrieval
+\node[retrieval=BrickRed] at ([shift={(-3pt,3pt)}]L3.south east)
+  {hybrid + temporal};
+
+% --- Layer 2: Workflow ---
+\node[layer=OliveGreen, below=8mm of L3] (L2) {};
+\node[layer label=OliveGreen] at ([shift={(2pt,-2pt)}]L2.north west)
+  {Робочий рівень \textnormal{\scriptsize (Workflow Layer)}};
+% tags (two rows)
+\node[tag=OliveGreen, below=11mm of L2.north west, anchor=west, xshift=4pt]
+  (t2a) {принципи};
+\node[tag=OliveGreen, right=3pt of t2a]
+  (t2b) {валідатори};
+\node[tag=OliveGreen, right=3pt of t2b]
+  (t2c) {контракти інструментів};
+\node[tag=OliveGreen, below=3pt of t2a.south west, anchor=north west]
+  (t2d) {ADR};
+\node[tag=OliveGreen, right=3pt of t2d]
+  (t2e) {git історія};
+\node[tag=OliveGreen, right=3pt of t2e]
+  (t2f) {трекер завдань};
+% retrieval
+\node[retrieval=OliveGreen] at ([shift={(-3pt,3pt)}]L2.south east)
+  {hybrid (semantic + structured)};
+
+% --- Layer 1: Domain ---
+\node[layer=MidnightBlue, below=8mm of L2] (L1) {};
+\node[layer label=MidnightBlue] at ([shift={(2pt,-2pt)}]L1.north west)
+  {Предметний рівень \textnormal{\scriptsize (Domain Layer)}};
+% tags
+\node[tag=MidnightBlue, below=11mm of L1.north west, anchor=west, xshift=4pt]
+  (t1a) {закони};
+\node[tag=MidnightBlue, right=3pt of t1a]
+  (t1b) {судові рішення};
+\node[tag=MidnightBlue, right=3pt of t1b]
+  (t1c) {оперативна обстановка};
+\node[tag=MidnightBlue, below=3pt of t1a.south west, anchor=north west]
+  (t1d) {розвіддані};
+% retrieval
+\node[retrieval=MidnightBlue] at ([shift={(-3pt,3pt)}]L1.south east)
+  {semantic (cosine similarity)};
+
+% ============================================================
+%  Storage (bottom)
+% ============================================================
+\node[storage, below=12mm of L1] (storage)
+  {Сховище: Qdrant\,/\,PostgreSQL\,/\,Redis};
+
+% ============================================================
+%  Pull mode (left side) — solid MidnightBlue
+% ============================================================
+% Mode label
+\node[mode label, fill=MidnightBlue!10, text=MidnightBlue!90!black,
+      left=14mm of L2.west, anchor=center]
+  (pull label) {Pull-режим\\[-1pt]\scriptsize\normalfont(за запитом)};
+
+% Arrows: operator -> layers (parallel fan-out)
+\coordinate (pull start) at ([xshift=-9mm]operator.south west);
+\coordinate (pull L3) at ([xshift=-5mm]L3.west);
+\coordinate (pull L2) at ([xshift=-5mm]L2.west);
+\coordinate (pull L1) at ([xshift=-5mm]L1.west);
+
+\draw[pull] (pull start) -- ++(0,-6mm) coordinate (pull fork)
+  -- (pull fork -| pull L3) -- (pull L3);
+\draw[pull] (pull fork) |- (pull L2);
+\draw[pull] (pull fork) |- (pull L1);
+
+% Return arrow (digest)
+\coordinate (pull return) at ([xshift=-11mm]operator.south west);
+\draw[pull, <-] (pull return) -- ++(0,-4mm)
+  node[left, font=\scriptsize, text=MidnightBlue!70, pos=0.5] {дайджест}
+  -- ++(0,-2mm) coordinate (digest join);
+% thin lines from layers back
+\coordinate (L3 left) at ([xshift=-7mm]L3.west);
+\draw[MidnightBlue, thin, densely dotted]
+  (L3 left) -- (digest join -| L3 left)
+  -- (digest join);
+
+% Annotation arrow from operator
+\node[font=\scriptsize, text=MidnightBlue!70,
+      below left=1mm and 0mm of pull start, anchor=north east]
+  {запит};
+
+% ============================================================
+%  Push mode (right side) — dashed OliveGreen
+% ============================================================
+% Mode label
+\node[mode label, fill=OliveGreen!10, text=OliveGreen!90!black,
+      right=14mm of L2.east, anchor=center]
+  (push label) {Push-режим\\[-1pt]\scriptsize\normalfont(фоновий)};
+
+% Arrows: storage -> layers (background update)
+\coordinate (push start) at ([xshift=7mm]storage.east);
+\coordinate (push L1) at ([xshift=5mm]L1.east);
+\coordinate (push L2) at ([xshift=5mm]L2.east);
+\coordinate (push L3) at ([xshift=5mm]L3.east);
+
+\draw[push] (push start) -- ++(4mm,0) coordinate (push trunk) -- ++(0,10mm)
+  coordinate (push branch);
+\draw[push] (push trunk |- push L1) -- (push L1);
+\draw[push] (push trunk |- push L2) -- (push L2);
+\draw[push] (push trunk |- push L3) -- (push L3);
+% vertical trunk
+\draw[OliveGreen, thick, dashed]
+  (push trunk) -- (push trunk |- push L3);
+
+% Annotation
+\node[font=\scriptsize, text=OliveGreen!70, right=1pt of push label.south,
+      anchor=north west, align=left]
+  {оновлення записів\\для простоюючих\\задач};
+
+% ============================================================
+%  Correction signal (BrickRed, from L3 back to operator)
+% ============================================================
+\draw[correction]
+  ([xshift=12mm]L3.north) -- ++(0,5mm)
+  node[right, font=\scriptsize, text=BrickRed!80, pos=0.5, xshift=1pt]
+    {сигнал корекції};
+
+% ============================================================
+%  Vertical connector: layers <-> storage
+% ============================================================
+\draw[gray!50, thick, <->] (L1.south) -- (storage.north)
+  node[midway, right, font=\scriptsize, text=gray!60] {R/W};
+
+% ============================================================
+%  Legend
+% ============================================================
+\begin{scope}[shift={([yshift=-7mm]storage.south)}, local bounding box=legend]
+  \node[font=\scriptsize, anchor=west] (leg0) at (0,0)
+    {\textbf{Режими:}};
+  \draw[pull] ([xshift=2mm]leg0.east) -- ++(8mm,0)
+    node[right, font=\scriptsize, text=MidnightBlue] {Pull};
+  \draw[push] ([xshift=30mm]leg0.east) -- ++(8mm,0)
+    node[right, font=\scriptsize, text=OliveGreen] {Push};
+  \draw[correction] ([xshift=55mm]leg0.east) -- ++(8mm,0)
+    node[right, font=\scriptsize, text=BrickRed] {Корекція};
+\end{scope}
+
+\end{tikzpicture}
+
+\caption{%
+  Трирівнева архітектура персистентної пам'яті з дворежимним витягуванням.
+  Pull"=режим (суцільна лінія) ініціюється запитом оператора на початку сесії
+  та паралельно звертається до всіх трьох рівнів.
+  Push"=режим (пунктирна лінія) фоново оновлює контекст простоюючих задач.
+  Сигнал корекції (точкова лінія) повертається від рівня оператора
+  при виявленні пропущеного релевантного контексту.%
+}
+\label{fig:architecture}
+\end{figure}
