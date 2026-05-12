@@ -29,6 +29,7 @@ import { useHreflang } from '../../hooks/useHreflang';
 import { useLocaleStore } from '../../stores/localeStore';
 import { LangToggle } from '../AboutPage/LangToggle';
 import { getCISOAcademyCopy } from './copy';
+import { getWeeksForMonth, type Week } from './weeks';
 
 type PhaseKey = 0 | 1 | 2 | 3;
 
@@ -315,45 +316,53 @@ export function CISOAcademyPage() {
                               className="overflow-hidden"
                             >
                               <div className="px-6 pb-6 pt-0">
-                                <div className="border-t border-claude-border pt-5">
-                                  <div className="grid md:grid-cols-2 gap-6">
-                                    <div>
-                                      <div className="flex items-center gap-2 mb-3">
-                                        <BookOpen size={14} className={style.color} />
-                                        <h4 className="text-xs font-sans font-semibold text-claude-text uppercase tracking-wide">
-                                          {c.theoryLabel}
-                                        </h4>
+                                <div className="border-t border-claude-border pt-5 space-y-4">
+                                  {getWeeksForMonth(monthNum).map((week: Week) => {
+                                    const isEn = language !== 'uk' && language !== 'ru';
+                                    return (
+                                      <div key={week.week} className="rounded-lg border border-claude-border/60 p-4">
+                                        <div className="flex items-start gap-3 mb-3">
+                                          <span className={`flex-shrink-0 w-7 h-7 rounded-lg ${style.bgColor} ${style.color} flex items-center justify-center text-xs font-sans font-bold`}>
+                                            {week.week}
+                                          </span>
+                                          <div className="flex-1 min-w-0">
+                                            <h4 className="text-sm font-serif font-medium text-claude-text">
+                                              {isEn ? week.titleEn : week.titleUk}
+                                            </h4>
+                                            <div className="flex items-center gap-2 mt-1">
+                                              <Clock size={11} className="text-claude-subtext" />
+                                              <span className="text-[11px] font-sans text-claude-subtext">{week.hours} {isEn ? 'hrs' : 'год'}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <p className="text-xs font-sans text-claude-subtext leading-relaxed mb-2">
+                                          {isEn ? week.topicsEn : week.topicsUk}
+                                        </p>
+                                        <div className="flex items-start gap-2 mb-3 px-3 py-2 rounded-md bg-claude-bg">
+                                          <Code2 size={12} className={`${style.color} mt-0.5 flex-shrink-0`} />
+                                          <p className="text-xs font-sans text-claude-text leading-relaxed">
+                                            {isEn ? week.artifactEn : week.artifactUk}
+                                          </p>
+                                        </div>
+                                        {week.resources.length > 0 && (
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {week.resources.map((res) => (
+                                              <a
+                                                key={res.name}
+                                                href={res.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-sans font-medium ${style.bgColor} ${style.color} hover:opacity-75 transition-opacity`}
+                                              >
+                                                {res.name}
+                                                <ExternalLink size={9} />
+                                              </a>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
-                                      <p className="text-sm font-sans text-claude-subtext leading-relaxed">
-                                        {month.theory}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <div className="flex items-center gap-2 mb-3">
-                                        <Code2 size={14} className={style.color} />
-                                        <h4 className="text-xs font-sans font-semibold text-claude-text uppercase tracking-wide">
-                                          {c.practiceLabel}
-                                        </h4>
-                                      </div>
-                                      <p className="text-sm font-sans text-claude-subtext leading-relaxed mb-4">
-                                        {month.practice}
-                                      </p>
-                                      <div className="flex flex-wrap gap-1.5">
-                                        {month.resources.map((res) => (
-                                          <a
-                                            key={res.name}
-                                            href={res.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-sans font-medium ${style.bgColor} ${style.color} hover:opacity-75 transition-opacity`}
-                                          >
-                                            {res.name}
-                                            <ExternalLink size={10} />
-                                          </a>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             </motion.div>
