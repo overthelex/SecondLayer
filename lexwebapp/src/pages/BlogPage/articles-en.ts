@@ -7189,6 +7189,7 @@ The work establishes a formal bridge between ontology-controlled architectures a
   'paper-mission-memory': {
     title: 'Persistent Memory Architecture for Long-Horizon Autonomous Missions with Operator Rotation',
     punchline: 'Three-level memory decomposition (domain / workflow / operator) with dual-mode retrieval for maintaining control continuity in UAV and situation center operations during operator handoff.',
+    readTime: '17 min',
     content: `# Persistent Memory Architecture for Long-Horizon Autonomous Missions with Operator Rotation
 
 **Dual-Mode Retrieval and Correction Signal**
