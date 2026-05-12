@@ -22,6 +22,8 @@ import {
   Target,
   Flame,
   ExternalLink,
+  GraduationCap,
+  ListChecks,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
@@ -30,6 +32,7 @@ import { useLocaleStore } from '../../stores/localeStore';
 import { LangToggle } from '../AboutPage/LangToggle';
 import { getCISOAcademyCopy } from './copy';
 import { getWeeksForMonth, type Week } from './weeks';
+import { getWeekContent } from './content';
 
 type PhaseKey = 0 | 1 | 2 | 3;
 
@@ -53,6 +56,7 @@ export function CISOAcademyPage() {
   const c = getCISOAcademyCopy(language);
   const [activePhase, setActivePhase] = useState<PhaseKey>(0);
   const [expandedMonth, setExpandedMonth] = useState<number>(0);
+  const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
 
   useDocumentMeta({
     title: c.metaTitle,
@@ -319,22 +323,37 @@ export function CISOAcademyPage() {
                                 <div className="border-t border-claude-border pt-5 space-y-4">
                                   {getWeeksForMonth(monthNum).map((week: Week) => {
                                     const isEn = language !== 'uk' && language !== 'ru';
+                                    const wContent = getWeekContent(week.week);
+                                    const isWeekOpen = expandedWeek === week.week;
                                     return (
-                                      <div key={week.week} className="rounded-lg border border-claude-border/60 p-4">
-                                        <div className="flex items-start gap-3 mb-3">
-                                          <span className={`flex-shrink-0 w-7 h-7 rounded-lg ${style.bgColor} ${style.color} flex items-center justify-center text-xs font-sans font-bold`}>
-                                            {week.week}
-                                          </span>
-                                          <div className="flex-1 min-w-0">
-                                            <h4 className="text-sm font-serif font-medium text-claude-text">
-                                              {isEn ? week.titleEn : week.titleUk}
-                                            </h4>
-                                            <div className="flex items-center gap-2 mt-1">
-                                              <Clock size={11} className="text-claude-subtext" />
-                                              <span className="text-[11px] font-sans text-claude-subtext">{week.hours} {isEn ? 'hrs' : 'год'}</span>
+                                      <div key={week.week} className={`rounded-lg border transition-all ${isWeekOpen ? 'border-claude-accent/20 shadow-elevation-1' : 'border-claude-border/60'} p-4`}>
+                                        <button
+                                          onClick={() => setExpandedWeek(isWeekOpen ? null : week.week)}
+                                          className="w-full text-left"
+                                        >
+                                          <div className="flex items-start gap-3 mb-3">
+                                            <span className={`flex-shrink-0 w-7 h-7 rounded-lg ${isWeekOpen ? `${style.dotColor} text-white` : `${style.bgColor} ${style.color}`} flex items-center justify-center text-xs font-sans font-bold transition-colors`}>
+                                              {week.week}
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                              <h4 className="text-sm font-serif font-medium text-claude-text">
+                                                {isEn ? week.titleEn : week.titleUk}
+                                              </h4>
+                                              <div className="flex items-center gap-3 mt-1">
+                                                <span className="inline-flex items-center gap-1">
+                                                  <Clock size={11} className="text-claude-subtext" />
+                                                  <span className="text-[11px] font-sans text-claude-subtext">{week.hours} {isEn ? 'hrs' : 'год'}</span>
+                                                </span>
+                                                {wContent && (
+                                                  <span className={`text-[10px] font-sans font-medium ${style.color}`}>
+                                                    {isEn ? 'Lecture + Practice' : 'Лекція + Практика'}
+                                                  </span>
+                                                )}
+                                              </div>
                                             </div>
+                                            <ChevronDown size={16} className={`text-claude-subtext transition-transform mt-1 ${isWeekOpen ? 'rotate-180' : ''}`} />
                                           </div>
-                                        </div>
+                                        </button>
                                         <p className="text-xs font-sans text-claude-subtext leading-relaxed mb-2">
                                           {isEn ? week.topicsEn : week.topicsUk}
                                         </p>
@@ -345,7 +364,7 @@ export function CISOAcademyPage() {
                                           </p>
                                         </div>
                                         {week.resources.length > 0 && (
-                                          <div className="flex flex-wrap gap-1.5">
+                                          <div className="flex flex-wrap gap-1.5 mb-2">
                                             {week.resources.map((res) => (
                                               <a
                                                 key={res.name}
@@ -360,6 +379,51 @@ export function CISOAcademyPage() {
                                             ))}
                                           </div>
                                         )}
+                                        <AnimatePresence>
+                                          {isWeekOpen && wContent && (
+                                            <motion.div
+                                              initial={{ height: 0, opacity: 0 }}
+                                              animate={{ height: 'auto', opacity: 1 }}
+                                              exit={{ height: 0, opacity: 0 }}
+                                              transition={{ duration: 0.25 }}
+                                              className="overflow-hidden"
+                                            >
+                                              <div className="border-t border-claude-border/50 mt-3 pt-4 space-y-4">
+                                                <div>
+                                                  <div className="flex items-center gap-2 mb-2">
+                                                    <GraduationCap size={14} className={style.color} />
+                                                    <h5 className="text-xs font-sans font-semibold text-claude-text uppercase tracking-wide">
+                                                      {isEn ? 'Lecture' : 'Лекція'}
+                                                    </h5>
+                                                  </div>
+                                                  <div className="text-xs font-sans text-claude-subtext leading-relaxed space-y-2">
+                                                    {wContent.lectureEn.split('\n\n').map((p, i) => (
+                                                      <p key={i}>{p}</p>
+                                                    ))}
+                                                  </div>
+                                                </div>
+                                                <div>
+                                                  <div className="flex items-center gap-2 mb-2">
+                                                    <ListChecks size={14} className={style.color} />
+                                                    <h5 className="text-xs font-sans font-semibold text-claude-text uppercase tracking-wide">
+                                                      {isEn ? 'Practice' : 'Практика'}
+                                                    </h5>
+                                                  </div>
+                                                  <ol className="space-y-1.5">
+                                                    {wContent.practiceEn.map((step, i) => (
+                                                      <li key={i} className="flex gap-2 text-xs font-sans text-claude-subtext leading-relaxed">
+                                                        <span className={`flex-shrink-0 w-5 h-5 rounded ${style.bgColor} ${style.color} flex items-center justify-center text-[10px] font-bold mt-0.5`}>
+                                                          {i + 1}
+                                                        </span>
+                                                        <span>{step}</span>
+                                                      </li>
+                                                    ))}
+                                                  </ol>
+                                                </div>
+                                              </div>
+                                            </motion.div>
+                                          )}
+                                        </AnimatePresence>
                                       </div>
                                     );
                                   })}
