@@ -12,6 +12,7 @@ export interface Week {
   artifactEn: string;
   artifactUk: string;
   hours: number;
+  advanced?: boolean;
   resources: WeekResource[];
 }
 
@@ -79,6 +80,7 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'Python script implementing DNS tunneling on a local testbed',
     artifactUk: 'Скрипт на Python, що реалізує DNS-тунелювання на локальному стенді',
     hours: 7,
+    advanced: true,
     resources: [
       { name: 'dnscat2', url: 'https://github.com/iagox86/dnscat2' },
       { name: 'Cloudflare DNS Guide', url: 'https://www.cloudflare.com/learning/dns/what-is-dns/' },
@@ -183,6 +185,7 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'Lab of 5 vulnerable JWT configurations (write an Express server, demonstrate attack on each)',
     artifactUk: 'Лабораторія з 5 вразливих JWT-конфігурацій (написати сервер на Express, продемонструвати атаку на кожну)',
     hours: 8,
+    advanced: true,
     resources: [
       { name: 'jwt.io', url: 'https://jwt.io/' },
       { name: 'jwt_tool', url: 'https://github.com/ticarpi/jwt_tool' },
@@ -243,6 +246,7 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'PortSwigger Academy: all CSRF and SSRF labs. Reproduce Capital One-style attack (2019) in local AWS simulation via LocalStack',
     artifactUk: 'PortSwigger Academy: всі лаби по CSRF і SSRF. Відтворення Capital One-style атаки (2019) в локальній AWS-імітації через LocalStack',
     hours: 8,
+    advanced: true,
     resources: [
       { name: 'PortSwigger CSRF', url: 'https://portswigger.net/web-security/csrf' },
       { name: 'PortSwigger SSRF', url: 'https://portswigger.net/web-security/ssrf' },
@@ -287,6 +291,7 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'PortSwigger Academy: all race condition labs. PoC race condition in own test app (e.g. race in discount code logic)',
     artifactUk: 'PortSwigger Academy: всі лаби по race conditions. PoC race condition у власному тестовому застосунку (наприклад, race в логіці промокодів)',
     hours: 7,
+    advanced: true,
     resources: [
       { name: 'PortSwigger Race Conditions', url: 'https://portswigger.net/web-security/race-conditions' },
       { name: 'Smashing the State Machine', url: 'https://portswigger.net/research/smashing-the-state-machine' },
@@ -301,6 +306,8 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'PortSwigger Academy: all request smuggling labs. Written analysis of James Kettle research paper',
     artifactUk: 'PortSwigger Academy: всі лаби по request smuggling. Письмовий розбір дослідження James Kettle',
     hours: 8,
+    advanced: true,
+    advanced: true,
     resources: [
       { name: 'PortSwigger Request Smuggling', url: 'https://portswigger.net/web-security/request-smuggling' },
       { name: 'HTTP Desync Attacks (Kettle)', url: 'https://portswigger.net/research/http-desync-attacks-request-smuggling-reborn' },
@@ -315,6 +322,8 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'PortSwigger Academy: deserialization and prototype pollution labs. Analysis of a public CVE with deserialization vector',
     artifactUk: 'PortSwigger Academy: лаби по deserialization і prototype pollution. Аналіз публічного CVE з десеріалізаційним вектором',
     hours: 7,
+    advanced: true,
+    advanced: true,
     resources: [
       { name: 'PortSwigger Deserialization', url: 'https://portswigger.net/web-security/deserialization' },
       { name: 'PortSwigger Prototype Pollution', url: 'https://portswigger.net/web-security/prototype-pollution' },
@@ -359,6 +368,7 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'PortSwigger Academy: all web cache poisoning labs. Summary of James Kettle research on the topic',
     artifactUk: 'PortSwigger Academy: всі лаби по web cache poisoning. Конспект досліджень James Kettle з теми',
     hours: 7,
+    advanced: true,
     resources: [
       { name: 'PortSwigger Cache Poisoning', url: 'https://portswigger.net/web-security/web-cache-poisoning' },
       { name: 'Practical Cache Poisoning (Kettle)', url: 'https://portswigger.net/research/practical-web-cache-poisoning' },
@@ -373,6 +383,7 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'Complete HackTheBox Web Challenges (medium level) — minimum 3 machines with full write-ups',
     artifactUk: 'Проходження HackTheBox Web Challenges (медіум-рівень) — мінімум 3 машини з повними write-up',
     hours: 8,
+    advanced: true,
     resources: [
       { name: 'HackTheBox', url: 'https://www.hackthebox.com/' },
       { name: 'HackerOne', url: 'https://www.hackerone.com/' },
@@ -404,6 +415,7 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'PortSwigger Academy: OAuth labs. Written analysis of Microsoft Power Apps SAML bypass or similar public research',
     artifactUk: 'PortSwigger Academy: лаби по OAuth. Письмовий розбір Microsoft Power Apps SAML bypass або аналогічного публічного дослідження',
     hours: 7,
+    advanced: true,
     resources: [
       { name: 'PortSwigger OAuth', url: 'https://portswigger.net/web-security/oauth' },
       { name: 'Authentik', url: 'https://goauthentik.io/' },
@@ -432,6 +444,7 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'BSCP certificate (or retry). HackerOne profile created, prerequisites filled',
     artifactUk: 'Сертифікат BSCP (або повторна спроба). Профіль на HackerOne створений, prerequisites заповнені',
     hours: 8,
+    advanced: true,
     resources: [
       { name: 'BSCP Certification', url: 'https://portswigger.net/web-security/certification' },
       { name: 'HackerOne', url: 'https://www.hackerone.com/' },
@@ -519,6 +532,7 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'Complete a CodeQL CTF (GitHub publishes them regularly). Custom query finding a specific vulnerability pattern',
     artifactUk: 'Проходження CodeQL CTF (GitHub публікує регулярно). Свій query, що знаходить конкретний паттерн вразливості',
     hours: 7,
+    advanced: true,
     resources: [
       { name: 'CodeQL', url: 'https://codeql.github.com/' },
       { name: 'GitHub Security Lab CTF', url: 'https://securitylab.github.com/ctf/' },
@@ -593,6 +607,7 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'Analysis of 3 CVEs from Spring Framework and 2 from popular Go projects with PoC',
     artifactUk: 'Розбір 3 CVE зі Spring Framework і 2 з популярних Go-проєктів з PoC',
     hours: 7,
+    advanced: true,
     resources: [
       { name: 'Spring Security', url: 'https://spring.io/security' },
     ],
@@ -606,6 +621,7 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'At least 2 reports to bug bounty programs (HackerOne or Bugcrowd) — even informational counts as experience',
     artifactUk: 'Мінімум 2 звіти в bug bounty програми (HackerOne або Bugcrowd) — навіть informational зараховується як досвід',
     hours: 8,
+    advanced: true,
     resources: [
       { name: 'HackerOne', url: 'https://www.hackerone.com/' },
       { name: 'Bugcrowd', url: 'https://www.bugcrowd.com/' },
@@ -653,6 +669,7 @@ export const WEEKS_DATA: Week[] = [
     artifactEn: 'Audit of kind/minikube cluster configuration via kube-bench and kubescape. Written remediation plan',
     artifactUk: 'Аудит конфігурації kind/minikube-кластера через kube-bench і kubescape. Письмовий план remediation',
     hours: 7,
+    advanced: true,
     resources: [
       { name: 'Trivy', url: 'https://trivy.dev/' },
       { name: 'Grype', url: 'https://github.com/anchore/grype' },
