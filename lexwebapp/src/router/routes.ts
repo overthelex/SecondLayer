@@ -83,6 +83,7 @@ export const ROUTES = {
 
   // Career
   CAREER: '/career',
+  CISO_ACADEMY: '/cisoacademy',
 
   // About / Product (public marketing surfaces)
   ABOUT: '/about',
