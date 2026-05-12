@@ -1354,6 +1354,154 @@ function prerenderAboutAndProductPlugin(): Plugin {
   }
 }
 
+function prerenderCISOAcademyPlugin(): Plugin {
+  return {
+    name: 'prerender-ciso-academy',
+    closeBundle() {
+      try {
+        const root = path.resolve(__dirname)
+        const distDir = path.resolve(root, 'dist')
+        const indexHtml = fs.readFileSync(path.resolve(distDir, 'index.html'), 'utf-8')
+        const BASE_URL = 'https://legal.org.ua'
+
+        function replaceMeta(html: string, opts: {
+          title: string; description: string; ogUrl: string; canonical: string;
+          ogLocale?: string; ogImage?: string;
+        }): string {
+          const esc = (s: string) => s.replace(/"/g, '&quot;')
+          return html
+            .replace(/<title>[^<]*<\/title>/, `<title>${opts.title}</title>`)
+            .replace(/<meta name="description" content="[^"]*"\s*\/?>/, `<meta name="description" content="${esc(opts.description)}" />`)
+            .replace(/<meta property="og:title" content="[^"]*"\s*\/?>/, `<meta property="og:title" content="${esc(opts.title)}" />`)
+            .replace(/<meta property="og:description" content="[^"]*"\s*\/?>/, `<meta property="og:description" content="${esc(opts.description)}" />`)
+            .replace(/<meta property="og:url" content="[^"]*"\s*\/?>/, `<meta property="og:url" content="${opts.ogUrl}" />`)
+            .replace(/<meta property="og:locale" content="[^"]*"\s*\/?>/, `<meta property="og:locale" content="${opts.ogLocale || 'en_US'}" />`)
+            .replace(/<meta property="og:image" content="[^"]*"\s*\/?>/, `<meta property="og:image" content="${opts.ogImage || `${BASE_URL}/og-image.png`}" />`)
+            .replace(/<meta name="twitter:title" content="[^"]*"\s*\/?>/, `<meta name="twitter:title" content="${esc(opts.title)}" />`)
+            .replace(/<meta name="twitter:description" content="[^"]*"\s*\/?>/, `<meta name="twitter:description" content="${esc(opts.description)}" />`)
+            .replace(/<meta name="twitter:image" content="[^"]*"\s*\/?>/, `<meta name="twitter:image" content="${opts.ogImage || `${BASE_URL}/og-image.png`}" />`)
+            .replace(/<link rel="canonical" href="[^"]*"\s*\/?>/, `<link rel="canonical" href="${opts.canonical}" />`)
+        }
+
+        function writePage(route: string, html: string) {
+          const outDir = path.resolve(distDir, route.replace(/^\//, ''))
+          fs.mkdirSync(outDir, { recursive: true })
+          fs.writeFileSync(path.resolve(outDir, 'index.html'), html)
+        }
+
+        function injectHreflang(html: string, route: string): string {
+          const links = [
+            `<link rel="alternate" hreflang="en" href="${BASE_URL}${route}?lang=en" />`,
+            `<link rel="alternate" hreflang="uk" href="${BASE_URL}${route}?lang=uk" />`,
+            `<link rel="alternate" hreflang="x-default" href="${BASE_URL}${route}" />`,
+          ].join('\n    ')
+          return html.replace('</head>', `${links}\n  </head>`)
+        }
+
+        function injectJsonLd(html: string, jsonLd: object | object[]): string {
+          const arr = Array.isArray(jsonLd) ? jsonLd : [jsonLd]
+          const tags = arr
+            .map(j => `<script type="application/ld+json">${JSON.stringify(j)}</script>`)
+            .join('\n    ')
+          return html.replace('</head>', `${tags}\n  </head>`)
+        }
+
+        function injectSeoBlock(html: string, seoBlockHtml: string, seoId: string): string {
+          return html.replace(
+            '<div id="root"></div>',
+            `${seoBlockHtml}\n    <div id="root"></div>\n    <script>document.getElementById('${seoId}')?.remove()</script>`
+          )
+        }
+
+        const title = 'CISO Academy — QA to AppSec in 12 months | legal.org.ua'
+        const description = 'A 12-month practical training plan for transitioning from QA Automation to Application Security. From networking and cryptography to OWASP, cloud security, and your first AppSec role.'
+
+        const seoHtml = `
+    <main id="cisoacademy-seo" lang="en" style="max-width:900px;margin:40px auto;font-family:system-ui,sans-serif;padding:0 24px">
+      <h1>CISO Academy — QA Automation to AppSec in 12 Months</h1>
+      <p>A month-by-month training plan built around practice. Each topic produces a concrete artifact: a dissected CVE, a written exploit, a vulnerability found in a training application. Designed for QA Automation engineers with API testing experience transitioning to Application Security.</p>
+
+      <h2>Phase 1: Foundation (Months 1–3)</h2>
+      <h3>Month 1: Network Literacy and Protocols</h3>
+      <p>OSI model, TCP/IP, HTTP/1.1 &amp; HTTP/2 at the byte level, TLS handshake and certificates, DNS attacks (rebinding, cache poisoning, exfiltration). Practice: Wireshark traffic analysis, curl, Burp Suite, MITM proxy in Python.</p>
+      <h3>Month 2: Operating Systems and Linux Internals</h3>
+      <p>Processes, UID/GID, SUID/SGID, file system internals, bash, systemd, iptables/nftables, tcpdump. Windows basics: AD, NTLM, Kerberos. Practice: privilege escalation via SUID on a vulnerable VM.</p>
+      <h3>Month 3: Cryptography Without the Math</h3>
+      <p>AES, RSA, ECC, hash functions, HMAC, key derivation (PBKDF2, Argon2, bcrypt), JWT deep dive. Common mistakes: ECB mode, nonce reuse, hardcoded secrets. Practice: cryptopals.com first set.</p>
+
+      <h2>Phase 2: Web Vulnerabilities as Craft (Months 4–7)</h2>
+      <h3>Month 4: OWASP Top 10</h3>
+      <p>SQL/NoSQL/command injection, XSS (reflected, stored, DOM-based), CSRF, SSRF, XXE, IDOR, insecure deserialization. Practice: PortSwigger Web Security Academy labs.</p>
+      <h3>Month 5: Advanced Web Exploitation</h3>
+      <p>Race conditions, HTTP request smuggling (CL.TE, TE.CL), prototype pollution, web cache poisoning, OAuth 2.0/OIDC attacks. Practice: PortSwigger Practitioner level.</p>
+      <h3>Month 6: API Security</h3>
+      <p>OWASP API Security Top 10, BOLA/IDOR, GraphQL security, gRPC, rate limiting. Practice: OWASP crAPI and VAmPI exploitation.</p>
+      <h3>Month 7: Authentication &amp; Authorization</h3>
+      <p>SAML, OAuth, OIDC attacks, session management, MFA bypasses, WebAuthn, RBAC vs ABAC vs ReBAC. Practice: Keycloak local setup and exploitation.</p>
+
+      <h2>Phase 3: Defensive AppSec (Months 8–11)</h2>
+      <h3>Month 8: Secure SDLC &amp; Threat Modeling</h3>
+      <p>STRIDE, PASTA, data flow diagrams, integrating security into development. Practice: full threat model for a SaaS architecture.</p>
+      <h3>Month 9: SAST, DAST, SCA Toolkit</h3>
+      <p>Semgrep, CodeQL, Snyk, Trivy, OWASP ZAP, gitleaks, trufflehog. Practice: full security pipeline in GitHub Actions.</p>
+      <h3>Month 10: Secure Code Review</h3>
+      <p>Reading code in Python, JS/TS, Go, Java for vulnerabilities. Studying real CVE fixes. Practice: dissect 10 public CVEs to the changed line.</p>
+      <h3>Month 11: Cloud Security</h3>
+      <p>AWS/GCP/Azure IAM, VPC, secrets management, Kubernetes security, CloudTrail, GuardDuty. Practice: flaws.cloud and flaws2.cloud CTFs.</p>
+
+      <h2>Phase 4: Professional Development (Month 12+)</h2>
+      <h3>Month 12: Portfolio &amp; Positioning</h3>
+      <p>GitHub portfolio, PortSwigger Practitioner certification, HackerOne/Bugcrowd profile, LinkedIn repositioning. Target: 3+ CVE analyses, 1 security tool, 1+ bug bounty report.</p>
+      <h3>Month 13: Certifications</h3>
+      <p>BSCP ($90), TCM PNPT, OffSec OSCP. Target positions: Security Automation Engineer, AppSec Engineer, DevSecOps.</p>
+
+      <h2>Essential Reading</h2>
+      <ul>
+        <li><a href="https://portswigger.net/daily-swig">PortSwigger Daily Swig</a> — daily security news</li>
+        <li><a href="https://tldrsec.com/">tl;dr sec (Clint Gibler)</a> — best weekly AppSec newsletter</li>
+        <li><a href="https://googleprojectzero.blogspot.com/">Project Zero blog</a> — deep technical analyses from Google</li>
+        <li><a href="https://blog.orange.tw/">Orange Tsai</a> — world-class web security research</li>
+        <li><a href="https://portswigger.net/research/james-kettle">James Kettle</a> — HTTP request smuggling research</li>
+      </ul>
+
+      <p><a href="${BASE_URL}/career">Career at LEX →</a> · <a href="${BASE_URL}/product">See the product →</a></p>
+    </main>`
+
+        const jsonLd = {
+          '@context': 'https://schema.org',
+          '@type': 'Course',
+          name: 'CISO Academy — QA to AppSec in 12 months',
+          description,
+          provider: {
+            '@type': 'Organization',
+            name: 'SecondLayer',
+            url: BASE_URL,
+          },
+          url: `${BASE_URL}/cisoacademy`,
+          educationalLevel: 'Intermediate',
+          timeRequired: 'P12M',
+          teaches: 'Application Security, OWASP, Cloud Security, Threat Modeling, Secure Code Review',
+        }
+
+        let page = replaceMeta(indexHtml, {
+          title,
+          description,
+          ogUrl: `${BASE_URL}/cisoacademy`,
+          canonical: `${BASE_URL}/cisoacademy`,
+        })
+        page = injectHreflang(page, '/cisoacademy')
+        page = injectJsonLd(page, jsonLd)
+        page = injectSeoBlock(page, seoHtml, 'cisoacademy-seo')
+        writePage('/cisoacademy', page)
+
+        console.log('[prerender-ciso-academy] Generated /cisoacademy')
+      } catch (err) {
+        console.error('[prerender-ciso-academy] Failed:', err)
+      }
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const isDocker = !!process.env.DOCKER_ENV
@@ -1363,7 +1511,7 @@ export default defineConfig(({ mode }) => {
   const hasLocalCerts = !isDocker && fs.existsSync(certFile) && fs.existsSync(keyFile)
 
   return {
-    plugins: [react(), sitemapPlugin(), prerenderDocsPlugin(), prerenderBlogPlugin(), prerenderInvestorAndNewsPlugin(), prerenderAboutAndProductPlugin()],
+    plugins: [react(), sitemapPlugin(), prerenderDocsPlugin(), prerenderBlogPlugin(), prerenderInvestorAndNewsPlugin(), prerenderAboutAndProductPlugin(), prerenderCISOAcademyPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, 'src'),
