@@ -11,7 +11,7 @@ Supplementary material for the arXiv preprint.
 | 1.1 | 3--4 | Principle ledger population + ADR backfill from existing PRs and design docs | Complete |
 | 1.2 | 5--6 | Practitioner layer bootstrap: nightly summarization of edit-traces into embeddable artifacts | Planned |
 | 1.3 | 7 | Claude Code integration: session-start hook, `workflow_memory_query` MCP tool, thin CLAUDE.md | Complete |
-| 1.4 | 8 | Retrieval-miss instrumentation: post-session reconciliation job, retrieval-correction candidate flagging | Planned |
+| 1.4 | 8 | Retrieval-miss instrumentation: post-session reconciliation job, retrieval-correction candidate flagging | Complete |
 | 1.5 | 9--11 | Long-term task orchestrator (push mode): Plane task watcher, Bedrock summarization pipeline, tool lineage delta | Planned |
 
 ## Dependencies

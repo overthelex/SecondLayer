@@ -102,6 +102,47 @@ export class WorkflowMemoryTools extends BaseToolHandler {
         },
       },
       {
+        name: 'workflow_memory_reconcile',
+        annotations: { title: 'Reconciliation сесії workflow memory' },
+        description: `Post-session reconciliation: порівнює, що було знайдено в workflow memory під час сесії з тим, що реально використано.
+
+Запускайте після завершення сесії або PR. Визначає:
+- retrieval misses — принципи, релевантні до змінених файлів, але не знайдені
+- spurious retrievals — знайдені, але не використані принципи
+- precision / recall метрики якості retrieval
+- кандидати на нові принципи
+
+Потрібен session_id та список змінених файлів.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            session_id: {
+              type: 'string',
+              description: 'ID сесії для reconciliation',
+            },
+            files_touched: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Список файлів, змінених у сесії',
+            },
+            commit_range: {
+              type: 'string',
+              description: 'Діапазон комітів (first..last)',
+            },
+            tools_used: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Інструменти, використані в сесії',
+            },
+            prompts_count: {
+              type: 'number',
+              description: 'Кількість промптів у сесії',
+            },
+          },
+          required: ['session_id', 'files_touched'],
+        },
+      },
+      {
         name: 'workflow_memory_stats',
         annotations: { title: 'Статистика workflow memory', readOnlyHint: true, idempotentHint: true },
         description: 'Кількість записів у кожному шарі workflow memory та загальна статистика.',
@@ -117,6 +158,8 @@ export class WorkflowMemoryTools extends BaseToolHandler {
           return await this.handleQuery(args);
         case 'workflow_memory_ingest':
           return await this.handleIngest(args);
+        case 'workflow_memory_reconcile':
+          return await this.handleReconcile(args);
         case 'workflow_memory_stats':
           return await this.handleStats();
         default:
@@ -210,6 +253,30 @@ export class WorkflowMemoryTools extends BaseToolHandler {
     return this.wrapResponse({ ok: true, layer, id, message: `Запис додано до ${layer} (id=${id})` });
   }
 
+  private async handleReconcile(args: any): Promise<ToolResult> {
+    const result = await this.wmService.reconcileSession({
+      sessionId: args.session_id,
+      filesTouched: args.files_touched ?? [],
+      commitRange: args.commit_range,
+      toolsUsed: args.tools_used,
+      promptsCount: args.prompts_count,
+    });
+
+    return this.wrapResponse({
+      reconciliation_id: result.reconciliationId,
+      retrieved: result.retrievedCount,
+      relevant: result.relevantCount,
+      missed: result.missedCount,
+      spurious: result.spuriousCount,
+      precision: result.precision !== null ? Math.round(result.precision * 1000) / 1000 : null,
+      recall: result.recall !== null ? Math.round(result.recall * 1000) / 1000 : null,
+      candidates: result.candidates,
+      message: result.missedCount > 0
+        ? `Знайдено ${result.missedCount} retrieval miss(es) — принципи, які могли бути корисними, але не були знайдені.`
+        : 'Усі релевантні принципи були знайдені під час сесії.',
+    });
+  }
+
   private async handleStats(): Promise<ToolResult> {
     const stats = await this.wmService.getStats();
     return this.wrapResponse({
@@ -220,6 +287,7 @@ export class WorkflowMemoryTools extends BaseToolHandler {
       },
       total_entries: stats.principles + stats.patterns + stats.practitioner,
       total_retrievals: stats.retrievals,
+      total_reconciliations: stats.reconciliations ?? 0,
     });
   }
 }
