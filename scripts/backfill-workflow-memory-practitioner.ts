@@ -26,8 +26,11 @@ import { EmbeddingService } from '../mcp_backend/src/services/embedding-service.
 import { WorkflowMemoryService } from '../mcp_backend/src/services/workflow-memory-service.js';
 // Summarization via local backend API (has LLM access inside Docker)
 
+import fs from 'fs';
+
 const DRY_RUN = process.argv.includes('--dry-run');
 const MIN_PROMPTS = parseInt(process.argv.find(a => a.startsWith('--min-prompts='))?.split('=')[1] ?? '5');
+const CORPUS_FILE = process.argv.find(a => a.startsWith('--corpus-file='))?.split('=')[1];
 
 const CORPUS_DIR = path.join(process.env.HOME ?? '/home/vovkes', '.claude', 'prompt-corpus.git');
 
@@ -55,6 +58,14 @@ interface SessionGroup {
 // ── Extract prompts from git corpus ─────────────────────────
 
 function extractPrompts(): PromptRecord[] {
+  if (CORPUS_FILE) {
+    try {
+      return JSON.parse(fs.readFileSync(CORPUS_FILE, 'utf-8'));
+    } catch (err: any) {
+      console.warn(`⚠ Failed to read corpus file ${CORPUS_FILE}: ${err.message}`);
+      return [];
+    }
+  }
   const hashes = execSync(`git -C "${CORPUS_DIR}" log corpus --format=%H`, { encoding: 'utf-8' })
     .trim().split('\n').filter(Boolean);
 
