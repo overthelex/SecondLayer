@@ -28,6 +28,7 @@ interface MockService {
   ingestPattern: jest.Mock<any>;
   ingestPractitioner: jest.Mock<any>;
   getStats: jest.Mock<any>;
+  reconcileSession: jest.Mock<any>;
 }
 
 function makeMockService(): MockService {
@@ -38,6 +39,7 @@ function makeMockService(): MockService {
     ingestPattern: jest.fn() as jest.Mock<any>,
     ingestPractitioner: jest.fn() as jest.Mock<any>,
     getStats: jest.fn() as jest.Mock<any>,
+    reconcileSession: jest.fn() as jest.Mock<any>,
   };
 }
 
@@ -61,9 +63,9 @@ describe('WorkflowMemoryTools', () => {
   // ── getToolDefinitions ─────────────────────────────────────────────────────
 
   describe('getToolDefinitions', () => {
-    it('returns exactly 3 tool definitions', () => {
+    it('returns exactly 4 tool definitions', () => {
       const defs = handler.getToolDefinitions();
-      expect(defs).toHaveLength(3);
+      expect(defs).toHaveLength(4);
     });
 
     it('returns workflow_memory_query with required "query" field', () => {
@@ -91,10 +93,11 @@ describe('WorkflowMemoryTools', () => {
       expect(statsTool!.annotations?.idempotentHint).toBe(true);
     });
 
-    it('handles() returns true for all three tool names', () => {
+    it('handles() returns true for all four tool names', () => {
       expect(handler.handles('workflow_memory_query')).toBe(true);
       expect(handler.handles('workflow_memory_ingest')).toBe(true);
       expect(handler.handles('workflow_memory_stats')).toBe(true);
+      expect(handler.handles('workflow_memory_reconcile')).toBe(true);
     });
 
     it('handles() returns false for unknown tool name', () => {
@@ -130,7 +133,7 @@ describe('WorkflowMemoryTools', () => {
     });
 
     it('dispatches to handleStats for workflow_memory_stats', async () => {
-      svc.getStats.mockResolvedValue({ principles: 0, patterns: 0, practitioner: 0, retrievals: 0 });
+      svc.getStats.mockResolvedValue({ principles: 0, patterns: 0, practitioner: 0, retrievals: 0, reconciliations: 0 });
       const result = await handler.executeTool('workflow_memory_stats', {});
       expect(result).not.toBeNull();
       expect(svc.getStats).toHaveBeenCalledTimes(1);
@@ -506,6 +509,7 @@ describe('WorkflowMemoryTools', () => {
         patterns: 25,
         practitioner: 5,
         retrievals: 100,
+        reconciliations: 3,
       });
 
       const result = await handler.executeTool('workflow_memory_stats', {});
@@ -517,6 +521,7 @@ describe('WorkflowMemoryTools', () => {
       expect(parsed.layers.practitioner).toBe(5);
       expect(parsed.total_entries).toBe(40);
       expect(parsed.total_retrievals).toBe(100);
+      expect(parsed.total_reconciliations).toBe(3);
     });
 
     it('computes total_entries as sum of principles + patterns + practitioner', async () => {
@@ -525,6 +530,7 @@ describe('WorkflowMemoryTools', () => {
         patterns: 7,
         practitioner: 2,
         retrievals: 0,
+        reconciliations: 0,
       });
 
       const result = await handler.executeTool('workflow_memory_stats', {});
@@ -556,7 +562,7 @@ describe('WorkflowMemoryTools', () => {
     });
 
     it('result text is valid JSON for successful responses', async () => {
-      svc.getStats.mockResolvedValue({ principles: 1, patterns: 2, practitioner: 3, retrievals: 4 });
+      svc.getStats.mockResolvedValue({ principles: 1, patterns: 2, practitioner: 3, retrievals: 4, reconciliations: 0 });
       const result = await handler.executeTool('workflow_memory_stats', {});
 
       expect(() => JSON.parse(result!.content[0].text)).not.toThrow();

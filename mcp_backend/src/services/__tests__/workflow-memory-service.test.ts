@@ -535,9 +535,9 @@ describe('WorkflowMemoryService', () => {
   // ── getStats ───────────────────────────────────────────────────────────────
 
   describe('getStats', () => {
-    it('returns counts from all four tables', async () => {
+    it('returns counts from all five tables', async () => {
       let callIndex = 0;
-      const counts = [12, 34, 56, 78];
+      const counts = [12, 34, 56, 78, 3];
       const db = makeDb(() => ({ rows: [{ cnt: counts[callIndex++] }] }));
       const svc = makeService(db);
 
@@ -547,20 +547,22 @@ describe('WorkflowMemoryService', () => {
       expect(stats.patterns).toBe(34);
       expect(stats.practitioner).toBe(56);
       expect(stats.retrievals).toBe(78);
+      expect(stats.reconciliations).toBe(3);
     });
 
-    it('issues four COUNT(*) queries', async () => {
+    it('issues five COUNT(*) queries', async () => {
       const db = makeDb(() => ({ rows: [{ cnt: 0 }] }));
       const svc = makeService(db);
 
       await svc.getStats();
 
-      expect(db.query).toHaveBeenCalledTimes(4);
+      expect(db.query).toHaveBeenCalledTimes(5);
       const sqls = (db.query.mock.calls as any[]).map((c) => c[0]);
       expect(sqls.some((s: string) => s.includes('workflow_memory_principles'))).toBe(true);
       expect(sqls.some((s: string) => s.includes('workflow_memory_patterns'))).toBe(true);
       expect(sqls.some((s: string) => s.includes('workflow_memory_practitioner'))).toBe(true);
       expect(sqls.some((s: string) => s.includes('workflow_memory_retrievals'))).toBe(true);
+      expect(sqls.some((s: string) => s.includes('workflow_memory_reconciliations'))).toBe(true);
     });
 
     it('converts COUNT() string result to number', async () => {
