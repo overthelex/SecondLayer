@@ -603,7 +603,7 @@ function prerenderBlogPlugin(): Plugin {
 
             const semanticArticle = `<article id="blog-article-seo" style="max-width:820px;margin:40px auto;font-family:system-ui,sans-serif;padding:0 24px">
       <header>
-        <span>${article.category === 'tech' ? 'TECH' : 'LEGAL'}</span>
+        <span>${article.category === 'tech' ? 'TECH' : article.category === 'academic' ? 'ACADEMIC' : 'LEGAL'}</span>
         <time datetime="${article.publishedAt}">${article.publishedAt}</time>
         <span>${readTime}</span>
       </header>
