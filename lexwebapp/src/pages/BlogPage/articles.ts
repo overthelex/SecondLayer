@@ -130,7 +130,7 @@ We frame this memory layer as **scalable oversight infrastructure**: retrieval-c
 
 Deployed on a legal-technology platform (70+ MCP tools, 380M+ records, 1,547 merged PRs in 105 days). Baseline measurements from 304 sessions confirm a median bootstrap cost of 30,115 input tokens and a median context waste ratio of 60%.
 
-**Implementation status (May 2026):** All seven phases (0, 1.0–1.5) complete. Memory layer contains 184 entries: 170 domain principles, 1 workflow pattern, 13 practitioner session summaries. Seven MCP tools deployed. Retrieval-miss instrumentation and push-mode orchestrator operational.
+**Implementation status (May 2026):** All seven phases (0, 1.0–1.5) complete. Memory layer contains 187 entries: 170 domain principles (Bedrock Titan Embed v2), 4 workflow patterns (push refresh summaries), 13 practitioner session summaries. Seven MCP tools deployed. Push-mode watchlist: 4 active Plane tasks, 22-tool lineage baseline. Retrieval-miss instrumentation and push-mode orchestrator operational.
 
 ---
 
