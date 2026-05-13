@@ -7,10 +7,10 @@ Supplementary material for the arXiv preprint.
 | Phase | Weeks | Scope | Status |
 |-------|-------|-------|--------|
 | 0 | 0 (deployed) | Prompt-Commit Bridge: `UserPromptSubmit` hook, bare git repo, GitHub sync, CLI query tool | Complete |
-| 1.0 | 1--2 | Foundation: `workflow_memory_*` PostgreSQL schema, Qdrant collections (domain/workflow/practitioner), basic ingestion pipelines | In progress |
-| 1.1 | 3--4 | Principle ledger population + ADR backfill from existing PRs and design docs | Planned |
+| 1.0 | 1--2 | Foundation: `workflow_memory_*` PostgreSQL schema, Qdrant collections (domain/workflow/practitioner), basic ingestion pipelines | Complete |
+| 1.1 | 3--4 | Principle ledger population + ADR backfill from existing PRs and design docs | Complete |
 | 1.2 | 5--6 | Practitioner layer bootstrap: nightly summarization of edit-traces into embeddable artifacts | Planned |
-| 1.3 | 7 | Claude Code integration: session-start hook, `workflow_memory_query` MCP tool, thin CLAUDE.md | Planned |
+| 1.3 | 7 | Claude Code integration: session-start hook, `workflow_memory_query` MCP tool, thin CLAUDE.md | Complete |
 | 1.4 | 8 | Retrieval-miss instrumentation: post-session reconciliation job, retrieval-correction candidate flagging | Planned |
 | 1.5 | 9--11 | Long-term task orchestrator (push mode): Plane task watcher, Bedrock summarization pipeline, tool lineage delta | Planned |
 
