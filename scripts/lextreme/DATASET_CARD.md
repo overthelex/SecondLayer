@@ -8,7 +8,7 @@ task_ids:
 - multi-class-classification
 pretty_name: Ukrainian Court Decisions (Judgment Prediction)
 size_categories:
-- 10K<n<100K
+- 100K<n<1M
 tags:
 - legal
 - court-decisions
@@ -31,16 +31,16 @@ dataset_info:
     dtype: string
   splits:
   - name: train
-    num_bytes: 93721699
-    num_examples: 8214
+    num_bytes: 1298904607
+    num_examples: 120000
   - name: validation
-    num_bytes: 11990934
-    num_examples: 1027
+    num_bytes: 162035703
+    num_examples: 15000
   - name: test
-    num_bytes: 11569921
-    num_examples: 1027
-  download_size: 45561448
-  dataset_size: 117282554
+    num_bytes: 162965763
+    num_examples: 15000
+  download_size: 660000000
+  dataset_size: 1623906073
 ---
 
 # Ukrainian Court Decisions — Judgment Prediction
@@ -82,10 +82,12 @@ We extract text between the ВСТАНОВИВ marker and the ВИРІШИВ mar
 
 ## Data Quality
 
+- 150,000 samples total (120K train / 15K validation / 15K test)
+- Perfectly balanced: 50,000 per class (approved / dismissed / partial)
 - Minimum 200 characters in facts section
 - Maximum 10,000 characters (truncated for very long decisions)
 - Full text length between 500 and 200,000 characters
-- Class-balanced sampling
+- Sampled from 596,538 valid extractions out of 802,189 court decisions
 - Random 80/10/10 train/validation/test split
 
 ## Usage
