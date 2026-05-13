@@ -1,0 +1,70 @@
+{
+  "experiment": "rotation_ablation",
+  "description": "Operator rotation ablation: context waste comparison between continuation sessions (overlapping components) and switch sessions (disjoint components, simulating operator rotation)",
+  "n_sessions": 86,
+  "n_pairs": 85,
+  "continuations": {
+    "n": 49,
+    "waste_ratio": {
+      "n": 49,
+      "mean": 0.4521,
+      "median": 0.5,
+      "stdev": 0.2522,
+      "p25": 0.2857,
+      "p75": 0.6
+    },
+    "bootstrap_reads": {
+      "n": 49,
+      "mean": 9.6531,
+      "median": 9,
+      "stdev": 5.9566,
+      "p25": 5,
+      "p75": 13
+    }
+  },
+  "switches": {
+    "n": 36,
+    "waste_ratio": {
+      "n": 36,
+      "mean": 0.5627,
+      "median": 0.618,
+      "stdev": 0.2916,
+      "p25": 0.3704,
+      "p75": 0.75
+    },
+    "bootstrap_reads": {
+      "n": 36,
+      "mean": 8.4722,
+      "median": 7.5,
+      "stdev": 5.5677,
+      "p25": 5,
+      "p75": 12
+    }
+  },
+  "rotation_cost": {
+    "waste_ratio_delta": 0.1106,
+    "reads_delta": -1.2,
+    "cohens_d": 0.41
+  },
+  "by_gap": {
+    "short_gap_hours": 4,
+    "long_gap_hours": 24,
+    "short_gap_pairs": 46,
+    "long_gap_pairs": 7,
+    "long_gap_continuation_waste": 0.6399,
+    "long_gap_switch_waste": 0.4745
+  },
+  "statistical_test": {
+    "test": "Mann-Whitney U",
+    "z": 2.126,
+    "p": 0.0335,
+    "significant_at_005": true,
+    "bootstrap_ci_95": [
+      -0.0062,
+      0.2271
+    ],
+    "bootstrap_n": 10000,
+    "cohens_d": 0.41,
+    "effect_size": "medium"
+  }
+}
