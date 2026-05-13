@@ -1,10 +1,17 @@
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { WorkflowMemoryService } from '../../services/workflow-memory-service.js';
+import { WorkflowMemoryPushService } from '../../services/workflow-memory-push-service.js';
 import { logger } from '../../utils/logger.js';
 
 export class WorkflowMemoryTools extends BaseToolHandler {
+  private pushService?: WorkflowMemoryPushService;
+
   constructor(private wmService: WorkflowMemoryService) {
     super();
+  }
+
+  setPushService(pushService: WorkflowMemoryPushService): void {
+    this.pushService = pushService;
   }
 
   getToolDefinitions(): ToolDefinition[] {
@@ -143,6 +150,55 @@ export class WorkflowMemoryTools extends BaseToolHandler {
         },
       },
       {
+        name: 'workflow_memory_push_refresh',
+        annotations: { title: 'Push-mode refresh для dormant tasks' },
+        description: `Запускає push-mode refresh: оновлює workflow memory для задач, які були неактивні.
+Для кожної задачі генерує executive summary змін, tool lineage delta, та open questions.
+Результати записуються як pattern entries у workflow memory.
+
+Використовуйте для підтримки актуальності контексту довгострокових задач.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            max_age_days: {
+              type: 'number',
+              description: 'Мінімальний вік останнього refresh (за замовчуванням 1 день)',
+            },
+            task_ids: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Конкретні task IDs для refresh (за замовчуванням — всі due)',
+            },
+          },
+        },
+      },
+      {
+        name: 'workflow_memory_push_sync_tasks',
+        annotations: { title: 'Синхронізувати Plane задачі до watchlist' },
+        description: `Додає або оновлює Plane задачі у push-mode watchlist.
+Задачі з watchlist автоматично отримують refresh при виклику workflow_memory_push_refresh.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            tasks: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  name: { type: 'string' },
+                  project_id: { type: 'string' },
+                  labels: { type: 'array', items: { type: 'string' } },
+                },
+                required: ['id', 'name', 'project_id'],
+              },
+              description: 'Масив задач для додавання до watchlist',
+            },
+          },
+          required: ['tasks'],
+        },
+      },
+      {
         name: 'workflow_memory_stats',
         annotations: { title: 'Статистика workflow memory', readOnlyHint: true, idempotentHint: true },
         description: 'Кількість записів у кожному шарі workflow memory та загальна статистика.',
@@ -160,6 +216,10 @@ export class WorkflowMemoryTools extends BaseToolHandler {
           return await this.handleIngest(args);
         case 'workflow_memory_reconcile':
           return await this.handleReconcile(args);
+        case 'workflow_memory_push_refresh':
+          return await this.handlePushRefresh(args);
+        case 'workflow_memory_push_sync_tasks':
+          return await this.handlePushSyncTasks(args);
         case 'workflow_memory_stats':
           return await this.handleStats();
         default:
@@ -277,6 +337,71 @@ export class WorkflowMemoryTools extends BaseToolHandler {
     });
   }
 
+  private async handlePushRefresh(args: any): Promise<ToolResult> {
+    if (!this.pushService) {
+      return { content: [{ type: 'text', text: 'Push service не налаштований' }], isError: true };
+    }
+
+    const maxAgeDays = args.max_age_days ?? 1;
+    let tasks = await this.pushService.getTasksDueForRefresh(maxAgeDays);
+
+    if (args.task_ids?.length) {
+      tasks = tasks.filter(t => args.task_ids.includes(t.taskId));
+    }
+
+    if (tasks.length === 0) {
+      return this.wrapResponse({ message: 'Немає задач, що потребують refresh.', refreshed: 0 });
+    }
+
+    const results = [];
+    for (const task of tasks) {
+      try {
+        const result = await this.pushService.refreshTask(task);
+
+        // Ingest the refresh summary as a workflow pattern
+        await this.wmService.ingestPattern({
+          patternType: 'push_refresh',
+          description: `[Push refresh] ${task.taskName}\n\n${result.summary}${result.openQuestions.length > 0 ? '\n\nOpen questions:\n' + result.openQuestions.map(q => '- ' + q).join('\n') : ''}`,
+          patternData: {
+            taskId: task.taskId,
+            commitRange: result.commitRange,
+            toolDeltas: result.toolDeltas,
+            openQuestions: result.openQuestions,
+          },
+          tags: [...task.tags, 'push-refresh'],
+        });
+
+        results.push({
+          taskId: task.taskId,
+          taskName: task.taskName,
+          summary: result.summary.slice(0, 200),
+          toolDeltas: result.toolDeltas.length,
+          openQuestions: result.openQuestions.length,
+        });
+      } catch (err: any) {
+        results.push({ taskId: task.taskId, taskName: task.taskName, error: err.message });
+      }
+    }
+
+    return this.wrapResponse({ refreshed: results.filter(r => !('error' in r)).length, results });
+  }
+
+  private async handlePushSyncTasks(args: any): Promise<ToolResult> {
+    if (!this.pushService) {
+      return { content: [{ type: 'text', text: 'Push service не налаштований' }], isError: true };
+    }
+
+    const tasks = (args.tasks ?? []).map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      projectId: t.project_id,
+      labels: t.labels ?? [],
+    }));
+
+    const synced = await this.pushService.syncPlaneTasksToWatchlist(tasks);
+    return this.wrapResponse({ synced, message: `${synced} задач додано/оновлено у watchlist.` });
+  }
+
   private async handleStats(): Promise<ToolResult> {
     const stats = await this.wmService.getStats();
     return this.wrapResponse({
@@ -288,6 +413,7 @@ export class WorkflowMemoryTools extends BaseToolHandler {
       total_entries: stats.principles + stats.patterns + stats.practitioner,
       total_retrievals: stats.retrievals,
       total_reconciliations: stats.reconciliations ?? 0,
+      ...(this.pushService ? { push_mode: await this.pushService.getStats().catch(() => ({ watchedTasks: 0, totalRefreshes: 0, toolSnapshots: 0 })) } : {}),
     });
   }
 }

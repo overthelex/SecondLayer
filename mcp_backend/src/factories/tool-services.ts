@@ -38,6 +38,7 @@ import { DecisionLayerTools } from '../api/tools/decision-layer-tools.js';
 import { ImportTaskTools } from '../api/tools/import-task-tools.js';
 import { WorkflowMemoryTools } from '../api/tools/workflow-memory-tools.js';
 import { WorkflowMemoryService } from '../services/workflow-memory-service.js';
+import { WorkflowMemoryPushService } from '../services/workflow-memory-push-service.js';
 import { logger } from '../utils/logger.js';
 import path from 'path';
 
@@ -165,9 +166,16 @@ export function createToolServices(
   // Import task manager (multi-IP downloads)
   toolRegistry.registerHandler(new ImportTaskTools(coreServices.importTaskService));
 
-  // Workflow Memory — three-layer semantic retrieval
+  // Workflow Memory — three-layer semantic retrieval + push-mode orchestrator
   const wmService = new WorkflowMemoryService(coreServices.db, coreServices.embeddingService);
-  toolRegistry.registerHandler(new WorkflowMemoryTools(wmService));
+  const wmTools = new WorkflowMemoryTools(wmService);
+  const pushSummarize = async (prompt: string) => {
+    const resp = await llmAdapter.chatCompletion({ messages: [{ role: 'user', content: prompt }] }, 'quick');
+    return typeof resp === 'string' ? resp : (resp as any).content ?? '';
+  };
+  const wmPushService = new WorkflowMemoryPushService(coreServices.db, pushSummarize);
+  wmTools.setPushService(wmPushService);
+  toolRegistry.registerHandler(wmTools);
 
   logger.info('Core tool handlers registered with ToolRegistry');
 
