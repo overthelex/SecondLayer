@@ -1,0 +1,100 @@
+% degraded-mode.tex  --  Transition from normal to degraded retrieval mode
+% \input{figures/degraded-mode}
+% Requires: tikz, xcolor[dvipsnames], calc, arrows.meta,
+%   decorations.pathreplacing loaded in the preamble.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    >=Stealth,
+    every node/.style={font=\small},
+  ]
+
+  % --- Dimensions ---
+  \def\W{10}       % plot width (cm)
+  \def\H{4.0}      % plot height (α=1 maps to \H)
+  \def\lz{5.0}     % λ₀ position on x-axis
+  \def\gam{1.2}    % γ steepness
+
+  % --- Background zones ---
+  \fill[MidnightBlue!8] (0, 0) rectangle (3.0, \H+0.4);
+  \fill[gray!6]         (3.0, 0) rectangle (7.0, \H+0.4);
+  \fill[BrickRed!8]     (7.0, 0) rectangle (\W, \H+0.4);
+
+  % Zone boundaries
+  \draw[black!15, thin] (3.0, 0) -- (3.0, \H+0.4);
+  \draw[black!15, thin] (7.0, 0) -- (7.0, \H+0.4);
+
+  % --- Zone labels (above plot) ---
+  \node[font=\scriptsize\bfseries, text=MidnightBlue!80]
+    at (1.5, \H+0.7) {Штатний};
+  \node[font=\scriptsize\bfseries, text=gray!60]
+    at (5.0, \H+0.7) {Перехідна зона};
+  \node[font=\scriptsize\bfseries, text=BrickRed!80]
+    at (8.5, \H+0.7) {Деградований};
+
+  % --- Axes ---
+  \draw[->, thick, black!70] (-0.2, 0) -- (\W+0.6, 0)
+    node[right, font=\small] {$\lambda$\;\scriptsize(подій/год)};
+  \draw[->, thick, black!70] (0, -0.2) -- (0, \H+1.0)
+    node[above, font=\small] {$\alpha$};
+
+  % Y-axis ticks
+  \foreach \yval/\lab in {0/$0$, 2.0/$0{,}5$, 4.0/$1$} {
+    \draw[black!50] (-0.12, \yval) -- (0.12, \yval);
+    \node[left, font=\scriptsize, black!70] at (-0.18, \yval) {\lab};
+  }
+
+  % α = 0.5 reference line
+  \draw[black!25, dotted, thin] (0.12, 2.0) -- (\lz, 2.0);
+
+  % λ₀ reference
+  \draw[black!40, dashed, thin] (\lz, 0) -- (\lz, 2.0);
+  \node[below, font=\scriptsize, black!70] at (\lz, -0.2) {$\lambda_0$};
+
+  % --- Sigmoid curve: α(λ) = 1/(1 + exp(-γ(λ - λ₀))) ---
+  \draw[BrickRed!80!black, very thick]
+    plot[domain=0:\W, samples=80, smooth]
+    (\x, {\H/(1+exp(-\gam*(\x-\lz)))});
+
+  % Curve label
+  \node[font=\scriptsize, text=BrickRed!70!black,
+        fill=white, inner sep=1.5pt, rounded corners=1pt]
+    at (7.6, 2.3) {$\alpha(\lambda)$};
+
+  % --- Scoring annotations inside zones ---
+  \node[font=\scriptsize, text=MidnightBlue!80, align=center]
+    at (1.5, 2.6)
+    {$\mathrm{score} \approx$\\[1pt]$\mathrm{sim}(q,e)$};
+
+  \node[font=\scriptsize, text=BrickRed!80, align=center]
+    at (8.5, 2.6)
+    {$\mathrm{score} \approx$\\[1pt]$\mathrm{crit}(e)$};
+
+  % --- Digest format annotations (braces below x-axis) ---
+  \draw[decorate, decoration={brace, mirror, amplitude=3pt},
+        MidnightBlue!60, thick]
+    (0, -0.6) -- (3.0, -0.6);
+  \node[font=\tiny, text=MidnightBlue!70, below, align=center]
+    at (1.5, -0.85) {плоский дайджест\\(перелік фактів)};
+
+  \draw[decorate, decoration={brace, mirror, amplitude=3pt},
+        BrickRed!60, thick]
+    (7.0, -0.6) -- (\W, -0.6);
+  \node[font=\tiny, text=BrickRed!70, below, align=center]
+    at (8.5, -0.85) {темпоральна структура\\(динаміка + каузальність)};
+
+\end{tikzpicture}
+\caption{%
+  Перехід підсистеми пам'яті зі штатного в деградований режим
+  як функція частоти подій~$\lambda$.
+  При~$\lambda \ll \lambda_0$ ранжування визначається семантичною подібністю
+  (штатний режим); при~$\lambda \gg \lambda_0$ домінує тріаж за
+  критичністю (деградований режим).
+  Сигмоїдний перехід~(\ref{eq:alpha}) забезпечує плавну деградацію
+  без~дискретного перемикання.
+  Формат дайджесту також адаптується: від плоского переліку фактів
+  до темпоральної структури з причинно"=наслідковими зв'язками.%
+}
+\label{fig:degraded-mode}
+\end{figure}
