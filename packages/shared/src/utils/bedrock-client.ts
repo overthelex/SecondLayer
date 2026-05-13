@@ -1,4 +1,4 @@
-import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { logger } from './logger';
 import { ModelSelector } from './model-selector';
 import { requestContext, CostTrackerInterface } from './openai-client';
@@ -40,6 +40,25 @@ export class BedrockClientManager {
   setCostTracker(tracker: CostTrackerInterface) {
     this.costTracker = tracker;
     logger.debug('Cost tracker attached to Bedrock client manager');
+  }
+
+  async generateEmbedding(text: string, opts: { model?: string; dimensions?: number } = {}): Promise<{ embedding: number[]; inputTokens: number }> {
+    const client = this.getClient();
+    const model = opts.model || process.env.BEDROCK_EMBEDDING_MODEL || 'amazon.titan-embed-text-v2:0';
+    const dimensions = opts.dimensions || 1024;
+    const command = new InvokeModelCommand({
+      modelId: model,
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: new TextEncoder().encode(JSON.stringify({
+        inputText: text.substring(0, 8000),
+        dimensions,
+        normalize: true,
+      })),
+    });
+    const response = await client.send(command);
+    const result = JSON.parse(new TextDecoder().decode(response.body));
+    return { embedding: result.embedding, inputTokens: result.inputTextTokenCount ?? 0 };
   }
 
   async trackUsage(model: string, inputTokens: number, outputTokens: number): Promise<void> {
