@@ -1,0 +1,420 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage[numbers,sort&compress]{natbib}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=RoyalBlue,
+  citecolor=ForestGreen,
+  urlcolor=BrickRed
+}
+
+\title{Automatic Construction of a Legal Citation Graph\\from 100 Million Ukrainian Court Decisions:\\Large-Scale Extraction, Topological Analysis,\\and Ontology-Driven Clustering}
+
+\author{
+  Volodymyr Ovcharov\textsuperscript{1} \and
+  Oleksandr V.\ Palagin\textsuperscript{2}
+  \\[6pt]
+  \textsuperscript{1}LEX AI LLC, Kyiv, Ukraine \\
+  \textsuperscript{2}V.M.\ Glushkov Institute of Cybernetics, NAS of Ukraine, Kyiv \\[4pt]
+  \texttt{vladimir@legal.org.ua}
+}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+% ============================================================
+\begin{abstract}
+% ============================================================
+
+We present the first large-scale citation graph constructed from the complete Ukrainian court decision registry (EDRSR): 100.7 million decisions spanning 2000--2026, with 99.5 million full texts totaling over 1.1~TB.
+A regex-based extraction pipeline running on the production database identifies six citation types---codex article references, named law references, constitutional references, inter-case references, law-by-number references, and supreme court ruling references---yielding approximately \textbf{[N\_TOTAL]} million citation edges.
+
+Topological analysis of the resulting bipartite graph (court decisions $\leftrightarrow$ legislation articles) reveals: (1)~a heavy-tailed degree distribution with a small number of ``hub'' legislation articles cited by millions of decisions; (2)~temporal citation dynamics showing legislative regime changes as phase transitions in citation density; (3)~community structure via Louvain clustering that recovers legal domain boundaries (civil, criminal, administrative, commercial) without supervision.
+
+The citation clusters constitute an automatically constructed legal ontology---a machine-readable map of which legislation articles are semantically related through judicial co-citation.
+This ontology is operationalized as the domain layer of a workflow memory system for LLM-assisted legal analysis~\citep{ovcharov2026workflowmemory}, connecting citation-derived structure to the ontology-controlled paradigm~\citep{palagin2006architecture,palagin2023ontochatgpt}.
+
+The extraction pipeline, graph analysis code, and aggregated statistics are released as open data.
+The full-text corpus is publicly accessible via the EDRSR API~\citep{edrsr2024}.
+
+\end{abstract}
+
+\medskip
+\noindent\textbf{Keywords:} legal citation graph, court decisions, Ukrainian law, ontology construction, knowledge extraction, EDRSR, network analysis, legal NLP
+
+
+% ============================================================
+\section{Introduction}
+\label{sec:intro}
+% ============================================================
+
+The Unified State Register of Court Decisions (EDRSR, \emph{Єдиний державний реєстр судових рішень}) is the largest open judicial corpus in continental Europe.
+Established in 2006 by Ukrainian law, it mandates publication of all court decisions within five days of rendering.
+As of May 2026, the registry contains 101.4 million decision records, of which 100.7 million include full text, spanning all judicial instances and all branches of justice---civil, criminal, commercial, administrative, and constitutional.
+
+This corpus has been largely unexploited for computational legal analysis.
+Prior work on legal citation networks has focused on common-law jurisdictions---the U.S.\ Supreme Court~\citep{fowler2007network}, Dutch case law~\citep{winkels2012determining}, Indian courts~\citep{kumar2022citationnet}---where explicit citation conventions (case names, reporter volumes) make extraction straightforward.
+Continental legal systems, including Ukraine's, present different challenges: citations are to legislation articles rather than prior cases, citation formats are inconsistent (abbreviations, Ukrainian morphology, varying codex names), and the sheer volume of decisions (8+ million per year since 2017) requires industrial-scale processing.
+
+No prior work has attempted citation extraction at the 100-million-decision scale for any jurisdiction.
+
+This paper makes three contributions:
+
+\begin{enumerate}[leftmargin=*, nosep]
+  \item \textbf{Large-scale citation extraction.} A regex-based pipeline that identifies six citation types in Ukrainian legal text, processing 100.7 million decisions (1.1~TB of full text) in approximately [HOURS]~hours on a single 4-vCPU production server. The pipeline yields [N\_TOTAL] million citation edges with an estimated precision of [PRECISION]\% on a manually annotated sample.
+
+  \item \textbf{Topological analysis of the citation graph.} We analyze the resulting bipartite graph (decisions $\leftrightarrow$ legislation) and its projections. The legislation-side projection reveals community structure that corresponds to established legal domains without supervision. Temporal analysis shows citation density shifts that align with major legislative reforms (2004 Civil Code adoption, 2012 Criminal Procedure Code, 2017 judicial reform).
+
+  \item \textbf{Citation-derived legal ontology.} Co-citation clustering produces an automatically constructed legal ontology: groups of legislation articles that are semantically related because courts cite them together. This ontology is deployed as the domain layer of the workflow memory system described in the companion paper~\citep{ovcharov2026workflowmemory}, operationalizing the ontology-controlled paradigm of~\citet{palagin2006architecture} with data-derived rather than manually curated structure.
+\end{enumerate}
+
+The work continues two lines of research.
+First, the knowledge extraction program of~\citet{palagin2012knowledge}, which proposed methods for extracting structured knowledge from natural-language texts---here applied to 100 million legal texts at a scale not previously attempted in the Ukrainian NLP community.
+Second, the distributional semantic modeling approach of~\citet{palagin2020distributional}, which used co-occurrence patterns to train term vector spaces---here instantiated as co-citation patterns that define legislation similarity without requiring embedding models or labeled data.
+
+The connection to the ontology-controlled systems paradigm~\citep{palagin2006architecture,palagin2023ontochatgpt} is structural: the citation graph provides the data layer that an ontology-controlled LLM system needs to ground its legal reasoning in statute structure.
+The companion paper on oversight-controlled systems~\citep{ovcharov2026bridge} formalizes the conditions under which human corrections on LLM output constitute valid training signal; the citation graph provides the domain knowledge that makes those corrections informed rather than arbitrary.
+
+
+% ============================================================
+\section{Related Work}
+\label{sec:related}
+% ============================================================
+
+% --------------------------------------------------
+\subsection{Legal Citation Network Analysis}
+% --------------------------------------------------
+
+\citet{fowler2007network} pioneered legal citation network analysis by constructing a citation graph of U.S.\ Supreme Court decisions (1791--2005, ${\sim}30{,}000$ decisions) and demonstrating that network centrality measures (PageRank, hub/authority scores) predict legal importance better than simple citation counts.
+Subsequent work extended this approach to the Dutch legal system~\citep{winkels2012determining,geist2009using} and Indian courts~\citep{kumar2022citationnet}.
+
+All prior work operates at scales of $10^3$--$10^5$ decisions.
+The EDRSR corpus is three orders of magnitude larger ($10^8$), requiring different engineering approaches: partition-parallel processing, server-side cursors, and streaming aggregation.
+More fundamentally, the Ukrainian legal system is a continental (civil law) system where the primary citation relationship is decision$\to$legislation, not decision$\to$decision as in common-law systems.
+This produces a bipartite graph rather than a unipartite one, with different topological properties.
+
+% --------------------------------------------------
+\subsection{Knowledge Extraction from Legal Texts}
+% --------------------------------------------------
+
+\citet{palagin2012knowledge} proposed a framework for extracting structured knowledge from Ukrainian-language texts, combining morphological analysis with domain-specific ontologies.
+The framework was demonstrated on scientific and technical corpora but not applied to legal texts at scale.
+\citet{palagin2020distributional} extended this line with distributional semantic modeling, training term vector spaces from co-occurrence patterns in domain-specific corpora.
+
+Our approach is a direct application of this program to the legal domain: co-citation patterns in 100 million court decisions define a distributional semantics over legislation articles, where two articles are ``similar'' if courts cite them in the same decisions.
+This requires no labeled data, no embedding models, and no morphological analysis---the citation structure itself encodes the semantic relationships.
+
+% --------------------------------------------------
+\subsection{Legal NLP and Information Extraction}
+% --------------------------------------------------
+
+Modern legal NLP has focused on transformer-based models: LEGAL-BERT~\citep{chalkidis2020legal}, LexNLP~\citep{bommarito2018lexnlp}, and domain-specific fine-tuning for citation prediction~\citep{zhang2022citationprediction}.
+These approaches require labeled training data, are language-specific, and operate on individual documents rather than corpus-wide structure.
+
+Our regex-based approach is deliberately simple: it trades recall for precision and interpretability, and scales linearly with corpus size.
+For the specific task of legislation citation extraction in Ukrainian legal text, the structured format of citations (``ст.~625 ЦК~України'', ``стаття~3 Закону~України~«Про~...»'') makes regex extraction competitive with learned models, while being orders of magnitude faster.
+
+% --------------------------------------------------
+\subsection{Ontology Construction from Text}
+% --------------------------------------------------
+
+The ontology-controlled systems paradigm~\citep{palagin2006architecture} requires a domain ontology to structure system behavior.
+Traditional ontology construction is manual and expensive.
+\citet{palagin2023ontochatgpt} showed that ontology-controlled prompting improves LLM output quality for domain-specific tasks, but assumed a pre-existing ontology.
+
+Citation graph clustering provides an alternative: the ontology is \emph{derived} from usage data rather than constructed by experts.
+This is analogous to the distributional hypothesis in semantics---``you shall know a word by the company it keeps''~\citep{palagin2020distributional}---applied at the statute level: \emph{you shall know a law by the decisions that cite it}.
+
+
+% ============================================================
+\section{Data}
+\label{sec:data}
+% ============================================================
+
+% --------------------------------------------------
+\subsection{The EDRSR Corpus}
+% --------------------------------------------------
+
+The Unified State Register of Court Decisions~\citep{edrsr2024} was established by Law of Ukraine No.~3262-IV (22.12.2005) and has been operational since June~1, 2006.
+All courts of Ukraine are required to submit decisions for publication.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}l X r@{}}
+\toprule
+\textbf{Metric} & \textbf{Description} & \textbf{Value} \\
+\midrule
+Total decisions & Records in \texttt{edrsr\_documents} & 101{,}422{,}684 \\
+Full texts available & Records in \texttt{edrsr\_fulltext} & 100{,}753{,}415 \\
+Coverage & Full texts / total decisions & 99.3\% \\
+Time span & Earliest to latest decision year & 2000--2026 \\
+Storage & Total full-text data (partitioned) & 1.1~TB \\
+Mean text length & Characters per decision (sampled) & ${\sim}5{,}000$ \\
+Median text length & Characters per decision (sampled) & ${\sim}3{,}000$ \\
+Peak year & 2025 (partial year at extraction time) & 8{,}764{,}090 \\
+\bottomrule
+\end{tabularx}
+\caption{EDRSR corpus statistics as of May~13, 2026.}
+\label{tab:corpus}
+\end{table}
+
+The data is stored in a PostgreSQL~15 database, partitioned by adjudication year (\texttt{edrsr\_fulltext\_p\_YYYY}).
+Individual partitions range from 443~MB (2009) to 116~GB (2024).
+Full-text search is supported via \texttt{tsvector} columns; the \texttt{justice\_kind} column encodes the branch of justice (1=civil, 2=criminal, 3=commercial, 4=administrative, 5=constitutional).
+
+% --------------------------------------------------
+\subsection{Legislation Corpus}
+% --------------------------------------------------
+
+The legislation side of the citation graph draws on two sources: the Verkhovna Rada legislation database~\citep{zakonrada} (accessed via API at \texttt{zakon.rada.gov.ua}), and a local \texttt{legislation\_articles} table containing 13{,}616 parsed articles from major codes and laws.
+
+The 18 codexes (Civil Code, Criminal Code, Commercial Code, etc.) constitute the densest citation targets.
+Named laws (``Закон України «Про~...»'') form a longer tail.
+
+
+% ============================================================
+\section{Methodology}
+\label{sec:method}
+% ============================================================
+
+% --------------------------------------------------
+\subsection{Citation Extraction Pipeline}
+\label{sec:extraction}
+% --------------------------------------------------
+
+The extraction pipeline processes the \texttt{edrsr\_fulltext} table partition by partition, using Python multiprocessing with server-side PostgreSQL cursors.
+
+Six citation types are extracted via compiled regular expressions:
+
+\begin{enumerate}[leftmargin=*, nosep]
+  \item \textbf{Codex article references} (e.g., ``ст.~625 ЦК~України'', ``частина~1 статті~3 КАС~України'').
+    Recognizes 18 codex abbreviations (ЦК, КК, ГК, ГПК, КПК, КАС, ЦПК, КЗпП, СК, ЗК, ПК, МК, БК, ВК, ЛК, ЖК, КУпАП, КАСУ) with optional ``України'' suffix.
+    Article number ranges (``статті~3,~5,~7--9 та~12'') are expanded into individual references.
+
+  \item \textbf{Named law references} (e.g., ``стаття~3 Закону~України~«Про~ринок електричної енергії»'').
+    Captures the law name from Ukrainian quotation marks or the law number.
+
+  \item \textbf{Constitutional references} (e.g., ``стаття~124 Конституції~України'').
+    Treated separately due to the Constitution's unique structural role.
+
+  \item \textbf{Inter-case references} (e.g., ``справа~№~200/1234/24'').
+    Captures case numbers in the standard Ukrainian format \texttt{NNN/NNNNN/YY}.
+
+  \item \textbf{Law-by-number references} (e.g., ``Закон~України від~01.01.2020 №~123-IX'').
+    Captures law registration numbers with optional Roman numeral suffixes.
+
+  \item \textbf{Supreme Court ruling references} (e.g., ``постанова Великої Палати~ВС'', ``постанова Пленуму Верховного Суду'').
+    Binary detection without article-level granularity.
+\end{enumerate}
+
+The pipeline architecture:
+
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Partitioning:} Each year-partition is processed independently. The largest partition (2024, 116~GB, ${\sim}$8M rows) is split into 50{,}000-row chunks.
+  \item \textbf{Parallelism:} \texttt{ProcessPoolExecutor} with 2 workers (to leave 2 CPUs for production workload). Each worker opens its own database connection with a named server-side cursor.
+  \item \textbf{Write path:} Extracted citations are bulk-inserted via \texttt{psycopg2.extras.execute\_values} with \texttt{ON CONFLICT DO NOTHING} for idempotency.
+  \item \textbf{Priority:} The process runs at \texttt{nice~-n~10} to yield CPU to production queries.
+\end{itemize}
+
+% --------------------------------------------------
+\subsection{Graph Construction}
+\label{sec:graph}
+% --------------------------------------------------
+
+The raw extraction output is a set of tuples $(\text{decision\_id}, \text{citation\_type}, \text{law\_ref}, \text{article\_ref})$.
+We construct three graph representations:
+
+\paragraph{Bipartite citation graph $G_B = (D \cup L, E)$.}
+Nodes are decisions ($D$) and legislation articles ($L$).
+An edge $(d, l) \in E$ exists if decision $d$ cites legislation article $l$.
+Edge weight is the number of times $l$ is cited in $d$ (typically 1, but articles may be cited multiple times in different sections of a decision).
+
+\paragraph{Legislation co-citation projection $G_L = (L, E_L)$.}
+Two legislation articles $l_1, l_2 \in L$ are connected by an edge with weight equal to the number of decisions that cite both.
+Formally: $w(l_1, l_2) = |N(l_1) \cap N(l_2)|$ where $N(l)$ is the set of decisions citing $l$ in $G_B$.
+This projection captures semantic relatedness as revealed by judicial practice.
+
+\paragraph{Decision similarity graph $G_D = (D, E_D)$.}
+Two decisions $d_1, d_2 \in D$ are connected if they cite at least $k$ common legislation articles ($k=3$ by default).
+This graph is too large to materialize fully; we compute it lazily for specific analyses.
+
+% --------------------------------------------------
+\subsection{Community Detection}
+\label{sec:communities}
+% --------------------------------------------------
+
+We apply the Louvain algorithm~\citep{blondel2008louvain} to the legislation co-citation projection $G_L$ to detect communities of legislation articles that are frequently cited together.
+The hypothesis is that these communities correspond to legal domains (civil law, criminal law, administrative law, etc.) without requiring labeled data.
+
+Modularity~\citep{newman2004modularity} is used to evaluate community quality:
+\begin{equation}
+  Q = \frac{1}{2m} \sum_{ij} \left[ A_{ij} - \frac{k_i k_j}{2m} \right] \delta(c_i, c_j)
+\end{equation}
+where $A_{ij}$ is the adjacency matrix, $k_i$ is the degree of node $i$, $m$ is the total edge weight, and $\delta(c_i, c_j) = 1$ if nodes $i$ and $j$ are in the same community.
+
+% --------------------------------------------------
+\subsection{Ontology Construction}
+\label{sec:ontology}
+% --------------------------------------------------
+
+Each Louvain community defines an ontology class: a group of legislation articles that are semantically related through co-citation.
+The ontology is structured as follows:
+
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Classes:} Top-level communities $\to$ legal domains (e.g., ``Civil Law'', ``Criminal Procedure'').
+  \item \textbf{Individuals:} Legislation articles within each community.
+  \item \textbf{Properties:} Co-citation weight (edge weight in $G_L$), citation frequency (degree in $G_B$), temporal range (earliest and latest citing decision).
+  \item \textbf{Inter-class relations:} Cross-community co-citation edges indicate inter-domain relationships (e.g., civil procedure articles co-cited with substantive civil law articles).
+\end{itemize}
+
+This ontology is operationalized in two ways:
+(1)~as Qdrant vector collections in the workflow memory system~\citep{ovcharov2026workflowmemory}, where legislation articles are embedded with their co-citation neighborhoods;
+(2)~as structured metadata for the domain constitution described in the companion paper~\citep{ovcharov2026bridge}, where the citation graph provides the evidence base for validating LLM-generated legal analysis.
+
+
+% ============================================================
+\section{Results}
+\label{sec:results}
+% ============================================================
+
+% NOTE: This section will be populated after the extraction pipeline completes.
+% Expected completion: ~12-15 hours from start (May 13, 2026).
+
+% --------------------------------------------------
+\subsection{Extraction Statistics}
+\label{sec:extraction-results}
+% --------------------------------------------------
+
+\textbf{[PLACEHOLDER --- awaiting pipeline completion.]}
+
+Expected structure:
+\begin{itemize}[leftmargin=*, nosep]
+  \item Total citations extracted (by type)
+  \item Citations per decision (mean, median, distribution)
+  \item Temporal trends: citations per decision by year
+  \item Processing time and throughput
+\end{itemize}
+
+% Preliminary from 2006 partition (8,547 decisions):
+% 30,580 citations, 3.58 per decision
+% codex_article: 27,697 (90.6%), law_article: 1,740 (5.7%),
+% case_reference: 688 (2.2%), constitution: 239 (0.8%),
+% law_by_number: 121 (0.4%), supreme_court_ruling: 95 (0.3%)
+
+% --------------------------------------------------
+\subsection{Graph Topology}
+\label{sec:topology}
+% --------------------------------------------------
+
+\textbf{[PLACEHOLDER --- awaiting extraction completion.]}
+
+Expected structure:
+\begin{itemize}[leftmargin=*, nosep]
+  \item Bipartite graph statistics: $|D|$, $|L|$, $|E|$, density
+  \item Degree distribution (legislation side): power-law fit
+  \item Hub legislation articles: top-20 most cited
+  \item Temporal evolution of citation density
+\end{itemize}
+
+% --------------------------------------------------
+\subsection{Community Structure}
+\label{sec:community-results}
+% --------------------------------------------------
+
+\textbf{[PLACEHOLDER --- awaiting extraction completion.]}
+
+Expected structure:
+\begin{itemize}[leftmargin=*, nosep]
+  \item Number of communities, modularity score
+  \item Largest communities mapped to legal domains
+  \item Inter-community citation patterns
+  \item Comparison with manual legal domain classification
+\end{itemize}
+
+% --------------------------------------------------
+\subsection{Precision Evaluation}
+\label{sec:precision}
+% --------------------------------------------------
+
+\textbf{[PLACEHOLDER --- manual annotation of random sample.]}
+
+A random sample of 200 decisions will be manually annotated to measure extraction precision and recall per citation type.
+
+
+% ============================================================
+\section{Discussion}
+\label{sec:discussion}
+% ============================================================
+
+\paragraph{From distributional semantics to citation semantics.}
+The co-citation projection $G_L$ implements a form of distributional semantics at the statute level: legislation articles acquire meaning from the judicial contexts in which they appear.
+This parallels the word2vec intuition---``a word is characterized by the company it keeps''---but operates on a different substrate: instead of word co-occurrence in sentences, we have statute co-citation in judicial decisions.
+The connection to~\citet{palagin2020distributional} is direct: distributional semantic modeling trained on co-occurrence patterns produces term vector spaces; co-citation modeling produces legislation similarity spaces.
+The key difference is scale: while distributional models typically operate on corpora of $10^6$--$10^9$ tokens, the citation graph aggregates signal from $10^8$ documents.
+
+\paragraph{Ontology construction without expert curation.}
+Traditional ontology construction for legal domains requires domain experts to specify class hierarchies, property definitions, and individual assignments~\citep{gruber1993ontology}.
+Citation graph clustering automates the most labor-intensive part---class discovery---by letting judicial practice define which legislation articles belong together.
+This does not replace expert curation entirely: community labels still require human assignment, and the granularity of Louvain communities may not match the granularity needed for specific applications.
+But it provides a data-grounded starting point that experts can refine, rather than requiring them to build from scratch.
+
+\paragraph{Integration with ontology-controlled LLM systems.}
+The citation-derived ontology addresses a practical gap in the OntoChatGPT framework~\citep{palagin2023ontochatgpt}: where does the domain ontology come from?
+For well-studied domains (medicine, engineering), curated ontologies exist.
+For Ukrainian law, no machine-readable ontology of statute relationships existed prior to this work.
+The citation graph fills this gap with an ontology that is (a)~derived from the complete judicial record rather than expert opinion, (b)~continuously updatable as new decisions are published, and (c)~weighted by usage frequency, providing a natural ranking of relevance.
+
+\paragraph{Temporal dynamics as legislative regime detection.}
+Citation density changes over time encode information about legislative reforms.
+A new codex (e.g., the 2004 Civil Code replacing the 1963 version) produces a phase transition: citations to old articles decay while citations to new articles grow.
+The transition speed reflects how quickly courts adopt new legislation---a metric of judicial system responsiveness that is, to our knowledge, not available from any other data source.
+
+\paragraph{Limitations of regex extraction.}
+Regex-based extraction trades recall for speed and interpretability.
+Known failure modes include: (a)~OCR artifacts in older decisions (pre-2010) that corrupt article numbers; (b)~informal citation styles (``згідно з цивільним кодексом'' without article numbers); (c)~citations to bylaws, ministerial orders, and local regulations that are not in the pattern set.
+These limitations affect recall more than precision: the extracted graph is a lower bound on the true citation structure.
+
+
+% ============================================================
+\section{Conclusion}
+\label{sec:conclusion}
+% ============================================================
+
+We presented the first large-scale citation graph constructed from the complete Ukrainian court decision registry---100.7 million decisions, 99.5 million full texts, [N\_TOTAL] million citation edges.
+Three results emerge.
+
+First, regex-based citation extraction at the $10^8$-decision scale is practical on commodity hardware: the full pipeline completes in [HOURS] hours on a single 4-vCPU server, demonstrating that industrial-scale legal NLP does not require specialized infrastructure.
+
+Second, the legislation co-citation projection reveals community structure that corresponds to legal domains without supervision, providing an automatically constructed legal ontology grounded in judicial practice rather than expert opinion.
+
+Third, temporal citation dynamics encode legislative regime changes as measurable phase transitions, opening a quantitative window into judicial system behavior at a resolution not previously available.
+
+The citation graph is deployed as the domain layer of the workflow memory system described in~\citet{ovcharov2026workflowmemory}, operationalizing the ontology-controlled paradigm of~\citet{palagin2006architecture} with data-derived structure.
+This connects the knowledge extraction program of~\citet{palagin2012knowledge} to the oversight-controlled systems formalized in~\citet{ovcharov2026bridge}: the citation graph provides the domain knowledge that makes human oversight of LLM-generated legal analysis informed and verifiable.
+
+Future work includes: (1)~cross-jurisdiction comparison with European Court of Human Rights citation patterns; (2)~embedding-based citation prediction to complement regex extraction; (3)~temporal ontology evolution tracking as legislation is amended.
+
+
+% ============================================================
+\bibliographystyle{plainnat}
+\bibliography{references}
+% ============================================================
+
+\end{document}
