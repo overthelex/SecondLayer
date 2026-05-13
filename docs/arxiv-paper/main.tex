@@ -877,6 +877,19 @@ Experiment~3's finding---that binary rejection (78\% positive outcome rate) is m
 If the highest-value oversight signal is whether a human stopped the agent, then scalable oversight instrumentation may be simpler than expected: a binary accept/reject log per trajectory step, with outcome tracking, may capture the majority of useful preference signal.
 This hypothesis is testable in Experiment~4 by comparing DPO training on full edit-traces vs.\ binary accept/reject pairs.
 
+\subsection{Generalizability Beyond Software Engineering}
+
+The primary dataset was collected during software engineering workflows (TypeScript monorepo, infrastructure operations, CI/CD pipelines).
+A natural concern is whether edit-trace oversight generalizes to other practitioner roles.
+
+Concurrent with the DPO training experiment (Section~\ref{sec:exp4}), the same practitioner used the identical Claude Code environment for qualitatively different tasks: ML experiment orchestration (SageMaker job configuration, DeepSpeed/LoRA hyperparameter debugging, training monitoring), academic writing (LaTeX paper drafting, BibTeX management, revision cycles), and research operations (arXiv submission workflow, academic outreach, data analysis).
+Over a 31-day window (April~12--May~13, 2026), automated usage instrumentation recorded 284~sessions, 492~commits, and 1{,}853~hours of human--agent interaction across these mixed roles.
+
+The edit patterns observed in ML engineering sessions---rejecting incorrect DeepSpeed configurations, rewriting training hyperparameters, correcting CUDA memory management strategies---are structurally identical to the software engineering corrections in the primary dataset: the practitioner observes agent output, judges correctness against domain knowledge, and intervenes when the output fails to meet implicit quality criteria.
+Similarly, academic writing sessions produce edit-traces where the practitioner rewrites LLM-drafted paragraphs, restructures arguments, and corrects domain-specific claims---generating preference pairs that reflect expertise-grounded oversight rather than stylistic preference.
+
+This observation does not constitute formal validation (a multi-practitioner, multi-domain study is needed; see Section~\ref{sec:future-work}), but it provides preliminary evidence that the edit-trace methodology is \emph{role-agnostic}: it captures oversight signal wherever a domain expert iteratively corrects agent output, regardless of whether the domain is code, infrastructure, or prose.
+
 \subsection{Scope of Claims}
 
 This paper makes a methodological contribution (how to capture and validate edit-trace oversight) and reports empirical findings from a single case study (Experiments~1--3).
