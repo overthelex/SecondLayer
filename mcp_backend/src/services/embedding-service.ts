@@ -2,7 +2,6 @@ import { QdrantClient } from '@qdrant/js-client-rest';
 import { EmbeddingChunk, SectionType, PrecedentStatusType } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { VoyageAIClient } from '../utils/voyage-client.js';
-import { InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { getBedrockManager } from '@secondlayer/shared';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -123,18 +122,18 @@ export class EmbeddingService implements IEmbeddingPort {
     try {
       const bedrock = getBedrockManager();
       const client = bedrock.getClient();
-      const body = JSON.stringify({
-        inputText: text.substring(0, 8000),
-        dimensions: EMBEDDING_DIMENSION,
-        normalize: true,
-      });
+      const { InvokeModelCommand } = await import('@aws-sdk/client-bedrock-runtime');
       const command = new InvokeModelCommand({
         modelId: BEDROCK_EMBED_MODEL,
         contentType: 'application/json',
         accept: 'application/json',
-        body: new TextEncoder().encode(body),
+        body: new TextEncoder().encode(JSON.stringify({
+          inputText: text.substring(0, 8000),
+          dimensions: EMBEDDING_DIMENSION,
+          normalize: true,
+        })),
       });
-      const response = await client.send(command);
+      const response: any = await client.send(command as any);
       const result = JSON.parse(new TextDecoder().decode(response.body));
       const inputTokens = result.inputTextTokenCount ?? 0;
       this.tokenUsageCallback?.(inputTokens, BEDROCK_EMBED_MODEL, task);
