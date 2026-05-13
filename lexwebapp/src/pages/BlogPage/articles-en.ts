@@ -7075,26 +7075,690 @@ Registration: [legal.org.ua](https://legal.org.ua)`,
   'paper-edit-trace-oversight': {
     title: 'Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows',
     punchline: 'When a practitioner works agentically with an LLM, every human edit is a localized correction. 30,510 edit-traces from 1,547 merged PRs, 105 days of solo founder shipping. No existing alignment dataset captures both artifact-level and process-level oversight.',
-    readTime: 'PDF, 28 pages',
-    content: `# Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows
-
-**Volodymyr Ovcharov** — LEX AI LLC, Kyiv, Ukraine
-
----
-
+    readTime: '45 min read (full paper)',
+    content: `% ============================================================
+% Abstract
+% ============================================================
 ## Abstract
 
-Existing approaches to RLHF preference collection — crowd workers, expert annotators, AI raters — generate signal detached from the agentic workflows they are meant to govern. As LLM agents perform longer-horizon, multi-step work, the oversight gap widens: annotation happens in abstract evaluation contexts, while agents fail at the level of individual edits within compositional trajectories.
+Existing approaches to RLHF preference collection (christiano2017deep, ziegler2019fine, ouyang2022training)—crowd workers, expert annotators, AI raters—generate signal detached from the agentic workflows they are meant to govern.
+As LLM agents perform longer-horizon, multi-step work (composing tool calls, accumulating context across hundreds of turns, shipping outputs with real-world stakes), the oversight gap widens: annotation happens in abstract evaluation contexts, while agents fail at the level of individual edits within compositional trajectories.
+We propose **edit-trace oversight**—alignment signal captured natively when a practitioner works agentically with an LLM.
+Every human edit on a model output is a localized correction relative to a *domain constitution* and an outcome trajectory.
 
-We propose **edit-trace oversight** — alignment signal captured natively when a practitioner works agentically with an LLM. Every human edit on a model output is a localized correction relative to a domain constitution and an outcome trajectory.
+**Subject:** CEO of Legal.org.ua / LEX AI.
+Shipping period: 105 days (Jan 24–May 8, 2026), 1{,}547 merged PRs across 7 interconnected projects, 70+ MCP tools in production, 380M+ records in the data pipeline.
+All built by one founder with zero employees using Claude Code as the primary agentic engineering counterpart.
+Validated outcomes: Google for Startups acceptance, NVIDIA Inception approval, paying customers.
 
-**Subject:** CEO of Legal.org.ua / LEX AI. Shipping period: 105 days (Jan 24 – May 8, 2026), 1,547 merged PRs across 7 interconnected projects, 70+ MCP tools in production, 380M+ records in the data pipeline. All built by one founder with zero employees using Claude Code as the primary agentic engineering counterpart.
+**Two-axis oversight signal:**
+(1) *artifact-level*—what was corrected (30{,}510 edit-traces, 80.7% substantive rewrites, median edit distance 0.84);
+(2) *process-level*—how oversight was performed (OS-level activity tracking: keystroke timing, idle gaps, cross-app research, voice context).
+No existing alignment dataset captures both.
 
-**Two-axis oversight signal:** (1) artifact-level — what was corrected (30,510 edit-traces, 80.7% substantive rewrites, median edit distance 0.84); (2) process-level — how oversight was performed (OS-level activity tracking: keystroke timing, idle gaps, cross-app research, voice context).
+**Pilot dataset:** 2{,}892 workflow sessions, 30{,}510 edit pairs, 1{,}579 attributed outcomes (54.6% coverage, 88.1% strong confidence).
+Process-level enrichment via synchronized OS activity tracker covers 498 sessions (17.2%) with 9{,}254 edits.
 
-**Pilot dataset:** 2,892 workflow sessions, 30,510 edit pairs, 1,579 attributed outcomes (54.6% coverage, 88.1% strong confidence).
+**Experiments (1–3 complete):**
+Experiment 1 confirmed the extreme edit distribution (80.7% substantive rewrites; crowd comparison sampling done).
+Experiment 2 showed process-level features are real (permutation p<0.001) but redundant with artifact features for prediction.
+Experiment 3 revealed *rejection* is the strongest oversight signal (78% positive outcomes).
+DPO training (Experiment 4) is redesigned: 4 conditions: edit-trace oversight vs RLAIF self-correction vs public RLHF baseline vs untrained model.
 
-**Experiments (1–3 complete):** Experiment 1 confirmed the extreme edit distribution. Experiment 2 showed process-level features are real but redundant with artifact features. Experiment 3 revealed rejection is the strongest oversight signal (78% positive outcomes). DPO training (Experiment 4) redesigned as 4-condition study.
+The methodology rests on a simple empirical claim: a single practitioner working recursively with an LLM, under product accountability, completes long-horizon work that neither party completes alone.
+Edit-traces in this regime are dense, outcome-validated, and impossible to obtain through annotation in isolation.
+
+
+**Keywords:** RLHF, preference data, scalable oversight, agentic workflows, edit-trace, domain constitution, legal AI
+
+% ============================================================
+## Introduction: The Oversight Gap in Agentic Systems
+
+% ============================================================
+
+### Motivation: Empirical Observation of Recursive Human–LLM Composition
+
+
+Scalable oversight research typically frames the problem defensively: as models become more capable, mechanisms must compensate for the limits of human attention—debate (irving2018ai), recursive reward modeling (leike2018scalable), AI judges, constitutional methods (christiano2017deep, bai2022constitutional).
+This framing treats the bandwidth of human oversight as a fixed constant and asks how to route around it.
+
+The case study documented in this paper presents an empirical observation that complicates this framing.
+A single practitioner shipped 1{,}547 PRs across 7 production systems in 105 days using an LLM agent (Claude Code) as the primary engineering counterpart.
+Neither party would have reached this output independently: the practitioner's throughput without the agent is bounded by typing and cognitive load; the agent's autonomous reliability at consequential scale remains insufficient for production deployment without human oversight.
+
+In this regime, the practitioner applies corrections at each step, and each correction shapes the context for subsequent agent actions.
+The resulting edit-traces are generated under two constraints that standard annotation lacks:
+(1) *production accountability*—the corrected output ships to real users, creating a natural incentive for concentrated attention at each decision point; and
+(2) *sequential dependence*—corrections accumulate along the trajectory, meaning each edit is informed by the consequences of prior corrections.
+
+We observe empirically that this regime produces a qualitatively different distribution of corrections compared to what we would expect from detached annotation (Section ).
+Whether this distributional difference translates into better training signal is an empirical question addressed by Experiment 4 (Section ).
+
+### The Structural Problem
+
+
+As LLM agents take on longer-horizon, multi-step work—composing tool calls, accumulating context across hundreds of turns, and shipping outputs with attributable real-world stakes—the gap between how we collect alignment signal and how agents actually fail has become structural.
+Every existing source of RLHF preference data shares one property: **the annotator operates outside the agentic workflow they are meant to govern** (stiennon2020learning, ouyang2022training, bai2022training).
+A Mechanical Turk worker rates isolated model outputs without a codebase, a deployment pipeline, or a customer on the other end.
+An expert annotator evaluates in a controlled environment, not mid-trajectory in a compositional system.
+An RLAIF model (lee2023rlaif) applies principles supplied by its creators, without feedback from the downstream consequences of the agent's actions.
+They all produce ratings detached from the granularity at which agentic systems actually fail: the individual edit within a multi-step trajectory under domain constraints and outcome accountability.
+
+### Edit-Trace as Oversight Signal
+
+
+We propose an alternative: **edit-trace oversight**—alignment signal captured natively when a practitioner works agentically with an LLM over consequential, multi-step workflows.
+
+When a practitioner runs Claude Code agentically—composing tool calls, reviewing architectural proposals against domain constraints, accepting or rejecting suggested changes based on information not available to the model—every human edit on a model output is a localized correction relative to a domain constitution and an outcome trajectory.
+This is not preference annotation.
+It is **in-the-loop oversight**, captured at the granularity where agentic systems actually fail.
+
+Two properties distinguish edit-trace oversight from expert annotation:
+
+**Outcome-validated corrections.**
+The practitioner makes binding decisions with real consequences.
+Accepted agent output ships and passes or fails in production.
+Each edit-trace is a correction grounded in revealed preference + ground truth, not abstract judgment.
+
+**Compositional trajectory awareness.**
+The practitioner builds compositional pipelines (Query Planner \\to Semantic Sectionizer \\to Hallucination Guard \\to Citation Validator), where every oversight correction affects the rest of the trajectory.
+Each edit encodes not just local quality judgment but awareness of how the correction propagates through downstream components.
+This is qualitatively more informative than isolated rating of individual model outputs.
+
+### Behavioral Context of Oversight Actions
+
+
+Even rich edit-trace capture records only the artifact-level correction (*what* the practitioner changed).
+The cognitive and behavioral context behind the correction—time invested, external research consulted, voice calls made, window switches indicating cross-referencing—is lost.
+We capture this dimension through synchronized OS-level activity tracking, providing the behavioral context of each oversight action.
+This enables the question: does *how* a practitioner performs oversight contain signal beyond *what* they corrected?
+
+### Research Questions
+
+
+[label=**RQ\\arabic***,leftmargin=2.5em]
+ - Does oversight edit-trace from an agentic practitioner differ distributionally from crowd annotation on matched LLM outputs?
+ - Does the behavioral context of oversight actions contain signal beyond the artifact-level correction?
+ - Do oversight corrections within agentic workflows correlate with downstream outcomes?
+ - Does training on oversight-trace preferences improve domain-specific performance vs.\\ crowd-sourced baselines?
+
+
+% ============================================================
+## Related Work
+
+% ============================================================
+
+**RLHF preference collection.**
+The dominant paradigm for aligning language models relies on human preference judgments collected in controlled settings.
+christiano2017deep introduced pairwise comparisons over trajectory segments; stiennon2020learning and ouyang2022training scaled this to natural language tasks using crowd workers and contractors.
+bai2022training compared the signal quality of crowd annotators versus researchers.
+In all cases, annotators operate outside the systems they evaluate—rating isolated outputs without access to the deployment context, downstream consequences, or the compositional trajectory that produced the output.
+Edit-trace oversight departs from this paradigm: the signal source is the practitioner who ships the output, not a detached evaluator.
+
+**Scalable oversight.**
+As model capabilities grow, the cost and reliability of human oversight become central concerns.
+irving2018ai proposed AI Safety via Debate, where models argue for and against answers to aid human judgment.
+leike2018scalable formulated recursive reward modeling, decomposing hard oversight tasks into easier subtasks.
+bowman2022measuring provided benchmarks for measuring oversight progress, and burns2023weak demonstrated weak-to-strong generalization, where weaker models supervise stronger ones with partial success.
+These approaches treat human oversight bandwidth as a bottleneck to be routed around.
+The regime documented here suggests an alternative: when a practitioner works agentically with an LLM, oversight bandwidth may *scale with* agent capability rather than against it, as the human's corrections become more targeted while the agent handles routine execution.
+
+**AI feedback, constitutional methods, and formal control structures.**
+bai2022constitutional introduced Constitutional AI, replacing human annotators with AI self-evaluation against researcher-authored principles.
+lee2023rlaif extended this with RLAIF, showing that AI-generated feedback can approximate human preferences at lower cost.
+Both eliminate the annotation bottleneck but operate without production grounding—the principles and feedback are applied in abstract evaluation contexts, not during consequential deployment.
+A parallel tradition in knowledge engineering uses formal structures to directly control system behavior: ontology-controlled architectures (palagin2006architecture) govern information systems through domain ontologies, and recent work applies this principle to LLMs—OntoChatGPT (palagin2023ontochatgpt) uses formal ontologies to structure ChatGPT's output via meta-learning prompts, while palagin2024neural demonstrate that integrating neural network and ontolinguistic paradigms yields stronger results than either alone.
+The domain constitution proposed here draws on both traditions: like Constitutional AI, it defines formal conditions for evaluating model output; like ontology-controlled architectures, it uses formal structure to govern system behavior—but applied to the oversight process rather than the generation process.
+
+**Direct preference optimization.**
+rafailov2023direct introduced DPO, which optimizes a language model directly on preference pairs without training a separate reward model.
+DPO's reliance on paired preferences (chosen vs.\\ rejected completions) makes it a natural fit for edit-trace data, where each human correction provides an implicit preference pair: the practitioner's corrected output (chosen) versus the agent's original output (rejected).
+Experiment 4 (Section ) uses DPO to test whether the distinctive distribution of edit-trace preferences translates into improved domain-specific model performance.
+
+
+% ============================================================
+## Defining Valid Oversight: The Domain Constitution
+
+% ============================================================
+
+As discussed in Section , existing approaches to preference collection and formal AI control operate at the level of model output.
+We define a **domain constitution**—formal conditions under which human corrections on agentic output constitute valid oversight signal.
+Where Constitutional AI asks "does this output satisfy these principles?" and ontology-controlled systems govern what the system produces, the domain constitution governs *when corrections on system output constitute valid training signal*—shifting formal control from the generation process to the oversight process.
+
+Not all human–agent interaction produces oversight signal.
+A user who copies an LLM snippet into a one-off script provides no oversight.
+A crowd annotator who rates two completions provides weak oversight, ungrounded in real consequences.
+The domain constitution specifies the boundary conditions that separate noise from signal.
+
+### Two-Axis Oversight Signal
+
+**Artifact-level:** what was corrected between agentic output and final artifact—edit distance, semantic change class, structural changes.
+This axis captures the *content* of oversight: which agentic behaviors the human deemed unacceptable, and how they were remediated.
+
+**Process-level:** how the correction was made—keystroke timing patterns, idle gaps, app-switching trajectory, voice context.
+Captured only with OS-level instrumentation running in parallel.
+This axis captures the *cognitive cost* of oversight: how much effort the correction required, what external information was consulted, and whether the human deliberated or corrected reflexively.
+
+### Five Conditions of the Domain Constitution
+
+
+The domain constitution specifies five conditions that must hold simultaneously for human edits on agentic output to constitute valid oversight.
+Each condition addresses a specific failure mode that would render the edit-trace uninformative or misleading as a training signal.
+
+[label=**C\\arabic*.**,leftmargin=2.5em]
+
+- **Shared persistent state between human and agent.**
+The agent operates against a continuously evolving codebase, not isolated snippets.
+Each session inherits state from previous sessions through the working directory, git history, file structure, and accumulated documentation.
+The codebase itself functions as long-term memory shared between human and agent.
+
+*Why necessary:*
+Without persistent shared state, the human's corrections are context-free—they reflect preferences over isolated outputs rather than oversight over an evolving system.
+Persistent state ensures that each correction is informed by the full history of prior agent behavior and its cumulative consequences.
+
+- **Compositional task layering.**
+Work decomposes into chains where one agentic session's output (committed code, architectural decision, documentation update) becomes context for subsequent sessions.
+The practitioner maintains persistent computational threads spanning days, weeks, or months.
+
+*Why necessary:*
+Single-turn corrections cannot capture oversight over compositional failure modes—cases where each individual agent output appears adequate but the composition fails.
+When a practitioner corrects an architectural decision because it conflicts with a decision made three weeks earlier, the resulting edit-trace encodes long-range dependency information that no single-turn annotation scheme can capture.
+
+- **Grounding in observable reality.**
+The practitioner establishes definition-of-success parameters before initiating work on any non-trivial task: what observable behavior constitutes completion, what failure modes invalidate the approach, what performance characteristics the artifact must exhibit in production.
+
+*Why necessary:*
+Oversight that rests on subjective preference alone is indistinguishable from taste.
+When corrections are grounded in observable system behavior—a deployment that failed, a latency spike, an error rate increase—the edit-trace encodes causal information about what works and what does not.
+
+- **Information asymmetry favoring the human.**
+The practitioner reviews every commit, evaluates architectural proposals against domain constraints, accepts or rejects suggested changes based on information not available to the agent (business priorities, regulatory requirements, user feedback, personal stake in outcomes).
+
+*Why necessary:*
+Oversight is meaningful precisely because the overseer holds information the overseen system lacks.
+If the human's corrections reflect only information already available to the agent, the edit-trace is redundant with the agent's own uncertainty.
+
+- **Consequential grounding.**
+The output is shippable code that runs in production with measurable consequences: feature usage, system reliability, customer adoption, revenue, partnership formation.
+
+*Why necessary:*
+Oversight signal must connect to real consequences to avoid the same detachment that afflicts crowd annotation.
+When corrected artifacts ship and succeed or fail in production, the edit-trace acquires outcome labels that close the loop between correction and consequence.
+
+
+### Instantiation by the Case Study
+
+This domain constitution is instantiated by the author's production work: **1{,**547 merged PRs across 7 interconnected projects over 105 days} using Claude Code as primary agentic counterpart.
+The core platform (Legal.org.ua, 1{,}393 PRs) produces a deployed legal AI platform with 380M+ records pipeline and 70+ MCP tools.
+Satellite projects (154 PRs) cover due diligence intelligence (SneakyPiper, 73 PRs), LinkedIn lead automation (aipromo, 39 PRs), meeting scheduling (Calendary, 27 PRs), OSINT aggregation (Panoptic, 10 PRs), and OS-level activity tracking (XSISTANT, 5 PRs).
+Measurable downstream outcomes include selection by Google for Startups, introduction to Deloitte via GFS, and acceptance into NVIDIA Inception Program.
+
+Each of these acceptances was achieved through written applications without prior voice conversations, in-person meetings, or warm introductions from accelerator mentor networks.
+The applications themselves were drafted using the same recursive workflow that produced the underlying product, demonstrating that the workflow generalizes from code production to high-stakes written communication with measurable institutional gatekeepers.
+
+### What Fails to Constitute Valid Oversight
+
+
+The domain constitution also defines its negation—interaction patterns that fail one or more conditions and therefore do not produce valid oversight signal:
+
+[nosep]
+ - One-shot code generation (fails C1–C2: no persistent state, no compositional layering)
+ - Automated CI/CD pipelines using Claude Code (fails C4: no human information asymmetry)
+ - Tutorial or learning use (fails C5: no consequential grounding)
+ - Pair programming without pre-defined success criteria or observable production feedback (fails C3)
+
+
+### Edit Taxonomy
+
+
+Six semantic change classes: \`cosmetic\`, \`reorganization\`, \`factual\\_correction\`, \`tone\\_adjustment\`, \`substantive\\_rewrite\`, \`rejection\`.
+Classification is two-phase: rule-based boundaries (edit\\_distance\\_norm <0.05 = cosmetic, \\geq 0.80 = substantive\\_rewrite), then Claude Sonnet 4.6 via AWS Bedrock for the ambiguous middle range.
+Coverage: 99.96%.
+
+
+% ============================================================
+## Data Collection Architecture
+
+% ============================================================
+
+### Workflow-Level Capture
+
+
+Three retrospective extractors feed the \`rlhf-signals\` module:
+
+[nosep]
+ - **GitHub PRs** (GraphQL API)—commits, diffs, review comments, merge status.
+ - **Plane issues** (REST API)—state transitions, comment threads, domain problem refinement.
+ - **Claude Code transcripts** (local JSONL)—richest source, avg.\\ 26.8 artifacts/session.
+
+
+ Schema: \`workflow\\_sessions\` \\to \`workflow\\_artifacts\` \\to \`workflow\\_edits\` \\to \`workflow\\_outcomes\`.
+
+**GitHub PR velocity (core platform):**
+1{,}393 merged PRs over 105 days (87 active).
+Peak: March 790 PRs (25.5/day).
+Median time-to-merge: 30 seconds (77.8% under 5 min)—solo-practitioner auto-merge pattern.
+PR timestamps do *not* reflect editing time; real duration is reconstructed from OS-level activity.
+
+#### One Shipping Operation, Multiple Technical Surfaces
+
+
+These are not separate projects in different business domains.
+They are **components of one shipping operation**—making Legal.org.ua succeed—spanning different **technical surfaces**.
+All 1{,}547 PRs serve one outcome: the platform works, has paying customers, and wins institutional validation.
+
+Technical surfaces within the core platform (1{,}393 PRs): frontend (React 19, Vite, TailwindCSS), backend (Express, MCP protocol, 70+ tool handlers), data engineering (court decision harvesting, 380M+ records), database (PostgreSQL migrations, Qdrant vector indexing, Redis caching), DevOps (Docker, nginx, CI/CD, blue-green deployment), content (blog, SSG, SEO), and shared TypeScript packages.
+
+
+### OS-Level Activity Instrumentation
+
+
+Parallel to workflow tracking, an OS-level activity tracker records 5-second activity buckets:
+
+[nosep]
+ - \`activity\\_scores\`—active/passive/idle classification + keystroke/mouse/click counts.
+ - \`input\\_activity\`—keystroke and mouse counts per 5s bucket (never keystroke *content*).
+ - \`window\\_sessions\`—focused app + window title + working directory.
+ - \`idle\\_events\`—gaps without input, with duration.
+ - \`mic\\_activity\`—voice/call context detection.
+
+
+ Storage: \\sim38 MB for 21 continuous days.
+Both databases store \`timestamptz\` in UTC—cross-source alignment verified to <3 seconds.
+
+### Cross-Source Linking
+
+
+For each edit with time window [T_1, T_2]: query activity in [T_1 - 30\\text{s}, T_2 + 30\\text{s}], aggregate process features, classify window sessions by category (\`code\\_editing\` / \`research\` / \`communication\` / \`documentation\` / \`unrelated\`).
+
+### Practitioner Disambiguation Sessions
+
+
+Automated activity tracking captures *what* app or window was active, but cannot determine *why*.
+A YouTube video about Ukrainian court procedure, a YouTube video about astrophysics, and a YouTube video about cooking all look identical in the activity data—same \`wm\\_class\`, similar engagement metrics.
+Yet their relationship to the subsequent editing session is fundamentally different.
+
+We address this through **periodic practitioner disambiguation sessions**—structured interviews where the practitioner reviews ambiguous activity windows from the preceding period and provides ground-truth labels.
+Ambiguous activity categories requiring practitioner input:
+
+[nosep,label=(\\alph*)]
+ - **On-topic research.** Task-relevant content consumption (\\eg a conference talk about vector databases before refactoring the Qdrant pipeline).
+ - **Cross-topic inspiration.** Cross-domain intellectual intake that influenced subsequent editing quality.
+ - **Conversational reasoning with Claude.** Deliberative reasoning via claude.ai or Claude Code in conversational mode—not producing commits, but shaping architectural decisions.
+ - **Genuinely unrelated activity.** Social media, personal messaging, entertainment.
+
+
+These labels feed back into the \`workflow\\_edit\\_engagement\` table as a \`disambiguation\\_label\` field, enabling more accurate window category computation and a novel process feature: \`cross\\_topic\\_inspiration\\_ratio\`.
+
+### Outcome Attribution
+
+
+Automated attribution with confidence levels: **strong** (temporally proximate, causally linkable—PR merged, no revert in 30d), **medium** (present but confounded), **weak** (causally tenuous).
+
+
+% ============================================================
+## Verified Pilot Dataset
+
+% ============================================================
+
+All numbers verified from production databases as of May 8, 2026.
+
+### Workflow Data
+
+
+### Edit Distribution (Oversight Signal)
+
+
+Edit distance (normalized): mean {=} 0.807, median {=} \\mathbf{0.839}, P25 {=} 0.743, P75 {=} 0.927, P95 {=} 0.987.
+The practitioner's default mode is near-total rewrite.
+
+### Process-Level Data
+
+
+Bimodal work pattern: 07–11 UTC primary peak (1{,}376 active windows), 19–21 UTC secondary peak.
+Approximately 13% real engagement time (6.7% active, 6.3% passive, 87% idle).
+
+### Overlap Window
+
+
+The main PR burst (Feb–Mar, 1{,}156 PRs at 25.5/day) occurred **before** XSISTANT launched.
+Process-level enrichment covers steady-state work (4.4 PRs/day), not peak sprint.
+
+
+% ============================================================
+## Experiments
+
+% ============================================================
+
+Four experiments with progressively higher compute requirements.
+Experiments 1–3 require no GPU.
+
+% —- Experiment 1 —-
+### Experiment 1: Oversight vs.\\ Annotation—Distributional Difference (RQ1)
+
+
+**Status:** Phase A complete.
+
+Sample N=200 LLM outputs (stratified by semantic class, min 10 per class), send to crowd annotation platform.
+Compare in-the-loop oversight corrections vs.\\ detached crowd annotation: edit distance distributions (KS test), semantic class breakdown, inter-annotator agreement (Krippendorff's \\alpha).
+The central question is whether corrections applied during live agentic workflows differ *in kind* from labels applied after the fact.
+
+**Phase A results (sampling completed May 8, 2026):**
+19{,}455 eligible samples after PII filtering (from 21{,}461).
+Stratified allocation: substantive=144, cosmetic=15, reorganization=11, rejection=10, factual=10, tone=10.
+Two JSONL exports: full metadata + platform-ready (no oversight edits shown to annotators).
+Deterministic seeded PRNG for reproducibility.
+
+
+**Expected:** Oversight corrections show heavier tail (80.7% substantive\\_rewrite already—crowd annotators, operating without production context, are unlikely to match this intensity).
+
+% —- Experiment 2 —-
+### Experiment 2: Behavioral Context of Oversight Actions (RQ2)
+
+
+Two predictive models on the 498-session overlap subset: Model A (artifact-only) vs.\\ Model B (artifact + behavioral-context features).
+Compare AUC, SHAP feature importance, permutation test.
+With only 64 outcomes in overlap, we use edit-class proxy labels for statistical power.
+
+**Cross-source linking.**
+Joined XSISTANT OS-level activity data (52{,}272 activity scores, 16{,}122 window sessions) with workflow edits via artifact timestamps.
+Alignment verified to <3s.
+Result: 10{,}846 edits processed; 6{,}753 (62.3%) with process data.
+
+Process features computed per edit: active/passive/idle seconds, keystroke counts, mouse distance, idle gap analysis, app switching count, research switches, voice context, window dwell entropy, window category seconds.
+
+**Model comparison.**
+Target variable: binary—substantive\\_rewrite (1) vs.\\ cosmetic (0).
+N=6{,}152 edits (5{,}740 substantive, 412 cosmetic).
+5-fold stratified cross-validation.
+
+
+**Permutation test** (1{,}000 iterations, behavioral-context features shuffled): p < 0.001—behavioral-context features carry statistically significant, non-random signal.
+
+**Paired t-test** (RF, 5 folds): p = 0.003—the delta is statistically significant (in the negative direction for RF).
+
+**Interpretation.**
+Behavioral-context signal is **real and non-random** (permutation p < 0.001), but does not improve Random Forest prediction of edit class.
+This is a nuanced result:
+(1) The proxy target is already well-predicted by artifact features alone (AUC 0.903), leaving little room for improvement.
+The 14:1 class imbalance further limits discriminative contribution.
+(2) Behavioral-context features help linear models (+0.065 AUC), suggesting the signal exists but is captured non-linearly by artifact features in RF.
+(3) The real test requires real outcomes—only 64 outcomes exist in the overlap window, insufficient for outcome prediction.
+
+Behavioral-context signal exists (permutation proof) but is largely redundant with artifact signal at this scale and target definition.
+This suggests that artifact-level capture of oversight corrections is sufficient for most preference learning, and behavioral context adds value primarily for edge cases or different prediction targets.
+
+% —- Experiment 3 —-
+### Experiment 3: Oversight Corrections and Downstream Outcomes (RQ3)
+
+
+#### Level 1: Full Dataset (Artifact-Only)
+
+30{,}499 edits joined with 1{,}579 outcomes.
+
+
+**Key finding:** Rejection (completely halting the agentic trajectory) has the highest positive outcome rate.
+This suggests the most valuable oversight signal is the binary accept/halt decision, not granular edit depth.
+The overseer's willingness to say "no, start over" is more predictive of good outcomes than careful correction.
+This has direct implications for scalable oversight: **the single highest-value data point is whether a human stopped the agent.**
+
+**Negative correlation of edit distance with outcomes:** smaller corrections correlate with better outcomes (r = -0.116).
+When the agent's output is already close to what the overseer needs, the final product tends to succeed.
+Heavy rewrites may indicate the agent was on the wrong trajectory.
+
+#### Level 2: Overlap Subset (Artifact + Behavioral Context)
+
+807 edits with both behavioral-context data and outcomes (720 with binary positive/negative label).
+Engagement quartile analysis shows Q4 (highest engagement) has visible positive outcome enrichment compared to Q1–Q3, but the effect is modest.
+The small sample size limits statistical power for definitive engagement–outcome claims.
+
+#### Confound Controls
+
+Hour of day, day of week, and session source all affect outcome rates independently of edit patterns.
+The bimodal work schedule (07–11 UTC peak, 19–21 UTC secondary) introduces temporal confounds that must be controlled in any outcome prediction model.
+
+% —- Experiment 4 —-
+### Experiment 4: Training on Oversight-Trace vs.\\ Annotation Preferences (RQ4)
+
+
+*Redesigned based on Experiments 1–3 findings (see Section 
+
+The flagship experiment requiring GPU compute.
+Simplified from 5 to 4 core conditions after Experiments 2–3 showed behavioral-context weighting is unlikely to improve over uniform weighting.
+
+Four training conditions on Llama 3.1 8B or Qwen 2.5 7B (open-weight):
+
+
+Method: DPO (rafailov2023direct).
+Evaluation: win-rate (GPT-4 judge + human N=100), domain accuracy, AlpacaEval 2.0, length-controlled win rate.
+
+**Primary metrics—three comparisons:** A vs.\\ D (edit-trace improves stock model), A vs.\\ C (human oversight vs.\\ AI self-correction), A vs.\\ E (domain-specific vs.\\ general RLHF).
+
+Estimated cost: \\310–380 (see Appendix ).
+
+
+% ============================================================
+## Cross-Experiment Synthesis
+
+% ============================================================
+
+### The Three Findings
+
+**Finding 1 (Exp 1): Oversight corrections are qualitatively different from annotation.**
+80.7% of all edits are substantive rewrites.
+Median normalized edit distance is 0.84—the overseer's default mode is near-total rewrite of LLM output.
+This distribution will almost certainly differ from crowd annotators, who—operating without production context or domain stakes—tend toward safe, cosmetic edits.
+
+**Finding 2 (Exp 2): Behavioral context is methodologically important but computationally redundant.**
+Permutation testing confirms behavioral-context features carry statistically significant signal (p < 0.001).
+However, they do not improve Random Forest prediction of edit class beyond what token counts alone achieve (AUC 0.903 \\to 0.874, actually worse).
+Behavioral-context features help linear models (+0.065 AUC) but are captured non-linearly by artifact features in tree-based models.
+The behavioral-context axis is a contribution to methodology, not to prediction performance.
+
+**Finding 3 (Exp 3): The most valuable oversight action is halt/reject.**
+Completely rejecting LLM output—halting the agentic trajectory—correlates with 78% positive outcomes, far higher than substantive rewrites (48.7%) or cosmetic edits (52.7%).
+Edit distance negatively correlates with outcomes (r = -0.116): the less the overseer changes, the better the result.
+**The most informative oversight signal is binary (accept vs.\\ halt), not continuous (edit distance).**
+
+### Implications for DPO Training
+
+The original Experiment 4 design had 5 training conditions, with the primary hypothesis being that behavioral-context-weighted preferences (Condition B) would outperform uniform-weighted (Condition A).
+The data now challenges this:
+
+**Behavioral-context weighting is unlikely to help.**
+Experiment 2 showed behavioral-context features do not improve prediction.
+Experiment 3 showed engagement quartiles barely differentiate outcomes.
+The \\alpha-weighted DPO formula (\\text{weight} = 1 + \\alpha \\cdot \\text{engagement\\_score}) would scale pairs by a signal that is statistically real but practically redundant with artifact features.
+
+**The real value is in the distribution, not the weighting.**
+The overseer's 80.7% substantive rewrite rate and 3.6% rejection rate create a fundamentally different preference distribution than either AI self-correction or general-purpose RLHF data.
+Training on this distribution (even with uniform weights) should produce different model behavior than training on RLAIF or public preference data.
+Replacing crowd annotation with RLAIF (Condition C) and public RLHF data (Condition E) enables matched-volume comparison (24{,}495 pairs per condition) and eliminates the annotation bottleneck.
+
+### Summary
+
+The synthesis of Experiments 1–3 yields a clear primary contribution: oversight-trace—the edit signal captured during production agentic workflows under a domain constitution—constitutes a fundamentally different preference distribution than detached annotation.
+The distributional difference (80.7% substantive rewrites, 78% halt-positive rate) is substantial.
+Whether this distributional difference translates into improved domain-specific model performance is the subject of Experiment 4.
+
+The behavioral-context null result is itself a contribution: it shows that capturing *what* was corrected is more informative than *how* the correction was performed, simplifying the instrumentation requirements for future deployments of this methodology.
+
+
+% ============================================================
+## Threats to Validity
+
+% ============================================================
+
+The central methodological challenge of this work is that the study subject, the sole annotator, and the author are the same person.
+We explicitly enumerate the resulting threats and the mitigations available within a single-practitioner protocol.
+
+### Construct Validity: Oversight Signal vs.\\ Practitioner Skill
+
+The domain constitution (Section ) claims to define conditions under which edit-traces constitute valid *oversight* signal.
+However, the observed edit distribution (80.7% substantive rewrites, median edit distance 0.84) could alternatively reflect practitioner-specific editing style rather than a general property of in-the-loop oversight.
+That is: a different practitioner meeting all five constitutional conditions might produce a fundamentally different edit distribution.
+
+**Mitigation:**
+The multi-practitioner cohort (Section ) is designed specifically to disentangle practitioner-specific style from constitution-induced oversight properties.
+Within the current single-subject study, we note that the edit distribution is consistent across 7 technically diverse repositories and multiple technical surfaces (frontend, backend, data engineering, DevOps, content), suggesting the pattern reflects the workflow regime rather than a single domain skill.
+However, this remains a conjecture until replicated with additional subjects.
+
+### Internal Validity: Outcome Metrics
+
+The outcomes cited (Google for Startups acceptance, NVIDIA Inception, paying customers) validate the *product*, not the *methodology*.
+They demonstrate that the recursive workflow produces shippable software, but do not directly establish that the extracted edit-traces are superior training signal compared to crowd annotation.
+This distinction is critical: positive product outcomes are a necessary condition for the edit-traces to carry meaningful signal (per Condition C5), but are not sufficient evidence that training on those traces improves downstream model performance.
+
+**Mitigation:**
+Experiment 4 (Section ) is designed to test the methodological claim directly: does DPO training on edit-trace preferences (Condition A) outperform training on crowd-sourced preferences of matched volume (Condition C) on domain-specific evaluation?
+Until Experiment 4 completes, the product outcomes serve only as evidence that Condition C5 (consequential grounding) is satisfied, not as evidence of the edit-trace's superiority as training signal.
+
+### Selection Bias: Survivorship in the Dataset
+
+The dataset contains only edit-traces from trajectories that culminated in merged PRs and working features.
+Agent outputs that the practitioner accepted without correction but that later caused production failures are absent—there is no record of oversight that *should have* occurred but did not.
+Similarly, abandoned trajectories (work started but not completed) are systematically excluded by the retrospective extraction pipeline, which keys on merged PRs and resolved issues.
+
+**Mitigation:**
+The survivorship bias is partially addressed by Experiment 3's finding that rejection (halting the agent) correlates with 78% positive outcomes.
+This demonstrates that the dataset does capture instances where the practitioner stopped an unproductive trajectory—a form of negative signal.
+However, the absence of false-negative oversight (accepted outputs that later failed) remains a structural limitation.
+Future work on failed oversight trajectories (Section ) is designed to address this gap directly.
+
+### External Validity: Generalizability Beyond N=1
+
+This study establishes a protocol and demonstrates its feasibility with one practitioner in one domain (legal AI).
+No population-level claims are made or implied.
+The domain constitution is domain-specific by design (Section ), and we expect different practitioners to require different constitutional instantiations.
+Cross-domain generalizability is an explicit non-goal of the current work; the contribution is the methodology for capturing and validating edit-trace oversight, not its universal applicability.
+
+### Confound: Temporal Autocorrelation
+
+Edit-traces within the same session are temporally autocorrelated: corrections early in a session shape the context for later corrections.
+Treating individual edit pairs as independent samples (as in Experiments 1–3) may overstate statistical significance.
+We report this as a known confound; future work should explore session-level modeling or hierarchical approaches that respect the nested structure (edits within sessions within projects).
+
+
+% ============================================================
+## Limitations
+
+% ============================================================
+
+[label=(\\roman*),leftmargin=2.5em]
+
+- **Single-practitioner protocol demonstration.**
+One practitioner's oversight trace, not population-level claims.
+Proving that edit-trace constitutes valid oversight requires a deep instrumentation case study before cohort scaling; this work establishes the methodology and qualifying criteria, not their generalizability across overseers.
+A multi-practitioner cohort is explicit future work.
+
+- **Domain-specific constitution by design.**
+The five qualifying conditions form a domain constitution that is inherently domain-specific.
+Legal AI oversight patterns (cross-referencing legislation, verifying citation chains) may not transfer to coding, creative, or scientific domains.
+This is a structural feature of constitution-based oversight, not an incidental limitation.
+
+- **Oversight captured only from successful trajectories.**
+The dataset contains corrections applied by an overseer whose product shipped successfully.
+Failed oversight—agent outputs that passed without correction and later caused failures—is systematically absent.
+
+- **Behavioral context coverage:** only 17.2% of sessions / 30.3% of edits have process-level behavioral enrichment (XSISTANT launched after peak sprint).
+The highest-velocity period (Feb–Mar, 1{,}156 PRs at 25.5/day) has artifact-level data only.
+
+- **edit\\_seconds = 0 for all retro-extracted edits.**
+Timing reconstructed from 5-second OS activity buckets.
+Oversight action duration is bounded by bucket granularity, which may obscure rapid correction sequences.
+
+- **Structural conflict of interest:** the study subject is the overseer.
+In scalable oversight methodology this is structural—the overseer's corrections are the data, and the overseer's identity cannot be separated from the oversight signal.
+Mitigated by: external baselines, open data release, and multi-practitioner cohort design.
+
+- **Keystroke content boundary:** we capture keystroke counts and timing, never content.
+This trades fine-grained edit-trace information for PII protection and multi-practitioner scalability—a deliberate design constraint.
+
+
+% ============================================================
+## Future Work
+
+% ============================================================
+
+[leftmargin=1.5em]
+
+- **Multi-practitioner cohort with diverse domain constitutions** (5–10 shipping practitioners across legal AI, healthcare AI, fintech, dev tools, creative tools)—each practitioner brings their own domain constitution, enabling cross-constitution comparison and meta-constitutional analysis.
+
+- **Failed oversight trajectories:** studying cases where oversight was absent or insufficient—practitioners who shipped without correcting agent outputs that later caused production failures.
+This complements the current dataset's successful-oversight bias.
+
+- **Richer behavioral context:** eye-tracking integration captures reading-while-evaluating, the cognitive phase preceding oversight corrections, still without content capture.
+
+- **Oversight-aware reward modeling:** an explicit reward model trained to distinguish oversight corrections from routine annotation.
+
+- **Edit-trace capture for non-code workflows:** extending instrumentation to document drafting, legal brief composition, research analysis, and multi-turn conversational oversight.
+
+- **Constitutional alignment between domain and model constitutions:** studying how domain-specific oversight constitutions interact with the model's own constitutional training (bai2022constitutional) and with ontology-driven dialogue architectures (palagin2023dialogue) that use formal knowledge structures to govern human–AI interaction at the system level.
+
+- **Automated oversight difficulty estimation:** using the edit-trace to identify which agentic steps are hardest to oversee (highest edit distance, most rejections, longest deliberation time).
+This produces a per-step oversight difficulty map that informs where human oversight should be concentrated.
+
+
+% ============================================================
+## Discussion
+
+% ============================================================
+
+### Composition as an Alternative Frame for Scalable Oversight
+
+The empirical pattern documented here—one practitioner achieving output that neither human nor agent would reach independently—suggests a framing for scalable oversight that differs from the standard capability-gap model.
+In the standard model, oversight is a problem that grows harder as agents grow more capable (bowman2022measuring, burns2023weak).
+In the regime observed here, the agent's capability is not a threat to be managed but a throughput multiplier whose output the practitioner corrects at each step.
+
+We note—speculatively—that this may represent a distinct equilibrium: rather than moving toward full autonomy as agents improve, the practitioner-agent composition may deepen, with the human's corrections becoming more targeted and architecturally informed as the agent handles more routine execution.
+Whether this equilibrium is stable under further capability scaling is an open empirical question that this single-subject study cannot resolve.
+
+### The Edit-Trace as Minimal Viable Oversight Signal
+
+Experiment 3's finding—that binary rejection (78% positive outcome rate) is more informative than continuous edit distance—has practical implications.
+If the highest-value oversight signal is whether a human stopped the agent, then scalable oversight instrumentation may be simpler than expected: a binary accept/reject log per trajectory step, with outcome tracking, may capture the majority of useful preference signal.
+This hypothesis is testable in Experiment 4 by comparing DPO training on full edit-traces vs.\\ binary accept/reject pairs.
+
+### Scope of Claims
+
+This paper makes a methodological contribution (how to capture and validate edit-trace oversight) and reports empirical findings from a single case study (Experiments 1–3).
+It does *not* claim that edit-trace oversight is universally superior to RLAIF self-correction or general-purpose RLHF data—that claim requires Experiment 4's completion (where Condition C tests against AI self-correction rather than crowd annotation) and replication across multiple practitioners.
+The observed distributional difference between edit-trace corrections and expected crowd annotation patterns is a descriptive finding; its downstream utility for RLHF training remains to be demonstrated.
+
+
+% ============================================================
+## Conclusion
+
+% ============================================================
+
+We present edit-trace oversight as a methodology for capturing alignment signal natively from production agentic workflows.
+The key empirical findings from a single-practitioner case study are:
+(1) the edit distribution under production accountability is extreme (80.7% substantive rewrites, median edit distance 0.84), and is expected to differ significantly from crowd annotation (Experiment 1, Phase B pending);
+(2) behavioral-context features (keystroke timing, idle gaps, app switching) carry statistically significant signal (p < 0.001$) but are largely redundant with artifact-level features for predictive tasks (Experiment 2);
+(3) binary rejection of agent output is the single most informative oversight action, correlating with 78% positive downstream outcomes (Experiment 3).
+
+The proposed domain constitution—five formal conditions under which edit-traces constitute valid oversight—provides a framework for extending this methodology to multi-practitioner cohorts.
+Whether the observed distributional difference between edit-trace oversight and crowd annotation translates into improved model performance via DPO training (Experiment 4) remains an open empirical question.
+
+The dataset (30{,}510 edit pairs, 2{,}892 sessions, 1{,}579 attributed outcomes) and instrumentation code will be released publicly upon completion of Experiment 4 and PII review.
+
+\\appendix
+
+% ============================================================
+## Compute Budget and Project Status
+
+% ============================================================
+
+Experiment 4 requires GPU compute for DPO training.
+Estimated budget:
+
+
+ As of May 2026: Experiments 1–3 complete. Experiment 4 (DPO training with 4 conditions) is pending compute allocation.
+
+
+% ============================================================
+% References
+% ============================================================
 
 ---
 
@@ -7103,26 +7767,563 @@ We propose **edit-trace oversight** — alignment signal captured natively when 
   'paper-workflow-memory': {
     title: 'Workflow Memory for Long-Horizon Agentic Composition: Architecture, Dual-Mode Retrieval, and Retrieval-Correction Signal',
     punchline: 'Long-horizon agentic workflows demand a memory substrate whose retrieval unit is the architectural decision, not the conversational turn. Three-layer memory decomposition with dual-mode retrieval and retrieval-correction edits as oversight signal.',
-    readTime: 'PDF, 32 pages',
-    content: `# Workflow Memory for Long-Horizon Agentic Composition
-
-**Architecture, Dual-Mode Retrieval, and Retrieval-Correction Signal**
-
-**Volodymyr Ovcharov** — LEX AI LLC, Kyiv, Ukraine
-
----
-
+    readTime: '50 min read (full paper)',
+    content: `% ============================================================
+% Abstract
+% ============================================================
 ## Abstract
 
-Long-horizon agentic workflows — where a practitioner and an LLM co-author software over weeks to months — demand a memory substrate whose retrieval unit is the architectural decision, not the conversational turn or the code chunk, and whose refresh policy is dual-mode: pull-based for active sessions, push-based for dormant tasks.
+Long-horizon agentic workflows—where a practitioner and an LLM co-author software over weeks to months—demand a memory substrate whose retrieval unit is the architectural decision, not the conversational turn or the code chunk, and whose refresh policy is dual-mode: pull-based for active sessions, push-based for dormant tasks.
+Existing memory systems (packer2023memgpt, park2023generative, chhikara2025mem0) organize around dialogue episodes; code-RAG (zhang2023repocoder, wang2024coderagbench) retrieves over source text without decision provenance; long-context models (reid2024gemini) suffer attention degradation past {\\sim}200K tokens (liu2023lost, hsieh2024ruler).
+None treats decision provenance as a first-class memory unit or provides a slow-loop refresh primitive.
+We frame this memory layer as scalable oversight infrastructure: retrieval-correction edits—practitioner corrections that would have been unnecessary had memory surfaced relevant context—constitute a process-level oversight signal that scales with agent autonomy, complementing outcome-level preference data.
 
-Existing memory systems organize around dialogue episodes; code-RAG retrieves over source text without decision provenance; long-context models suffer attention degradation past ~200K tokens. None treats decision provenance as a first-class memory unit or provides a slow-loop refresh primitive.
+This paper makes three contributions.
+First, a *three-layer memory decomposition*—domain, workflow, and practitioner—with distinct retrieval semantics per layer.
+Second, *dual-mode retrieval* as a first-class architectural primitive: pull mode fires at session start and queries all layers in parallel; push mode refreshes memory entries for dormant tasks proportional to repository activity, so that pull queries return current context even after weeks of inactivity.
+Third, *retrieval-correction edits* as a process-level oversight signal: corrections that operationalize the gap between the agent's available context and the context required for correct action, denser than outcome-level supervision and scaling with agent autonomy (ovcharov2026recursive).
+The architecture is deployed on a legal-technology platform (70+ MCP tools, 380M+ records, 1{,}547 merged PRs in 105 days).
+Baseline measurements from 304 sessions confirm a median bootstrap cost of 30{,}115 input tokens and a median context waste ratio of 60%; the memory layer targets a reduction to {\\leq}10K tokens with {\\leq}20% waste.
 
-We frame this memory layer as **scalable oversight infrastructure**: retrieval-correction edits — practitioner corrections that would have been unnecessary had memory surfaced relevant context — constitute a process-level oversight signal that scales with agent autonomy.
 
-**Three contributions:** (1) A three-layer memory decomposition — domain, workflow, and practitioner — with distinct retrieval semantics per layer. (2) Dual-mode retrieval as a first-class architectural primitive: pull mode fires at session start; push mode refreshes memory entries for dormant tasks proportional to repository activity. (3) Retrieval-correction edits as a process-level oversight signal.
+% ============================================================
+## Introduction
 
-Deployed on a legal-technology platform (70+ MCP tools, 380M+ records, 1,547 merged PRs in 105 days). Baseline measurements from 304 sessions confirm a median bootstrap cost of 30,115 input tokens and a median context waste ratio of 60%.
+% ============================================================
+
+A single practitioner, working recursively with Claude Code as the primary agentic engineering counterpart, shipped 1{,}547 merged pull requests across seven interconnected projects in 105 days \\citep[\\S1]{ovcharov2026recursive}.
+The system under construction—a legal-technology platform with 70+ MCP tools, 380M+ indexed records, and production customers—is not a toy benchmark.
+It is an operational regime where architectural decisions made in week two constrain implementation choices in week six, where validator definitions evolve alongside the code they protect, and where the practitioner's correction history encodes domain expertise that no context window can hold indefinitely.
+
+This operational regime is not served by existing memory or retrieval approaches.
+
+**CLAUDE.md scales as hand-curation.**
+The dominant workaround for cross-session context in agentic workflows is a flat Markdown file (\`CLAUDE.md\`) that accumulates project conventions, architectural notes, and operational constraints.
+In practice, its size grows linearly with project age: over 85 days and 25 commits, the \`CLAUDE.md\` for the platform described above grew from 4{,}099 to 24{,}148 characters (474 lines) at a rate of 217 characters/day (R^2 = 0.87; see Section ).
+A new session loads the entire file regardless of task relevance, wasting context budget on content that is irrelevant to the current task and out of date with respect to recent changes.
+Worse, the practitioner bears the curation burden: every architectural decision must be manually distilled into the file, and stale entries silently degrade session quality.
+
+**Long context is not the answer.**
+Models with 1M-token context windows (reid2024gemini) appear to eliminate the need for retrieval.
+Empirically, they do not.
+Attention degradation past {\\sim}200K tokens is well documented: the "lost in the middle" effect causes models to underweight information in the interior of long contexts (liu2023lost), and synthetic benchmarks like RULER confirm that effective context utilization degrades with length (hsieh2024ruler).
+Even where the context fits, cost scales with total context length, not with the relevance of individual entries.
+At the 6-week horizon, the accumulated working set—prior decisions, rejected alternatives, validator evolution, constitutional principle invocations—exceeds what fits efficiently in any context window.
+
+**Conversational-agent memory is the wrong shape.**
+MemGPT (packer2023memgpt), Generative Agents (park2023generative), A-MEM (xu2024amem), and Mem0 (chhikara2025mem0) organize memory around dialogue episodes: episodic recall of prior conversations, semantic memory for persistent facts, and reflection for self-assessment.
+The retrieval unit is the conversational turn or the character observation.
+None of these systems is designed for decision provenance—the record of which architectural alternative was chosen over which other, which constitutional principle was invoked, and which validator caught which class of regression.
+
+**Outcome-level supervision becomes thin at scale.**
+As coding agents take on longer-horizon work—Anthropic Engineering documents agent sessions spanning thousands of context windows on a single project (anthropic2026harnesses)—outcome-level signal (did the shipped code work?) becomes a sparse, lagging indicator.
+A single binary outcome may correspond to hours of agent activity and dozens of architectural micro-decisions.
+Anthropic's published research priorities identify scalable oversight as a central open problem: how to design oversight mechanisms whose signal density grows with agent capability rather than degrading (anthropic2025recommended).
+This paper contributes a substrate for one such mechanism.
+The memory layer's retrieval-correction edits are process-level oversight signals: each one identifies a specific gap between the context the agent had and the context the practitioner had, localized to a single edit.
+Unlike outcome-level signals, retrieval-correction signals are produced continuously throughout a session, and their generation rate is invariant to session duration.
+
+
+This paper provides the mechanism for two conditions stated but not mechanized in the companion paper \\citep[\\S2]{ovcharov2026recursive}: (1) the codebase as persistent context, and (2) compositional task layering across multi-week horizons.
+The contributions are:
+
+[leftmargin=*, nosep]
+ - A **three-layer memory decomposition**—domain, workflow, and practitioner—with distinct retrieval semantics per layer (Section ).
+ - **Dual-mode pull/push retrieval** as a first-class architectural primitive, where push-mode refresh keeps dormant-task memory current without requiring active sessions (Section ).
+ - **Retrieval-correction edits** as a process-level oversight signal that scales with agent autonomy (Section ). Each retrieval-correction edit localizes a specific context gap; aggregated across sessions, these edits constitute a dense oversight signal that complements the sparse outcome-level signal used in standard RLHF, and connects to the alignment pipeline described in the companion paper (ovcharov2026recursive).
+
+
+The evaluation plan (Section ) defines measurable targets against instrumented baselines from the companion paper's dataset.
+The architecture is designed for a single-practitioner regime and does not claim generality to multi-developer teams; limitations are discussed in Section .
+
+
+% ============================================================
+## Related Work
+
+% ============================================================
+
+% ————————————————–
+### Memory for Conversational Agents
+
+% ————————————————–
+
+The recent proliferation of LLM agents has produced a family of memory architectures organized around dialogue persistence.
+MemGPT (packer2023memgpt) virtualizes a memory hierarchy analogous to an operating system's paging mechanism: a fixed main-context window is backed by an unbounded "archival storage" that the agent can read from and write to via self-directed function calls.
+Generative Agents (park2023generative) introduced a three-part memory stream—observation, reflection, and planning—enabling simulated characters to maintain coherent behavior over extended interactions.
+A-MEM (xu2024amem) extends this with Zettelkasten-inspired atomic notes and explicit inter-note linking.
+Mem0 (chhikara2025mem0) targets production deployment with a graph-based memory layer that supports multi-user, multi-session persistence.
+A comprehensive survey of memory mechanisms for LLM agents appears in zhang2024survey.
+
+Letta (letta2025lettacode), the productized successor to MemGPT, advances the architecture in two directions relevant to this paper.
+First, *context repositories* (letta2026repositories): persistent, versioned stores of structured context that agents read from and write to across sessions, replacing the flat archival-storage model with typed, queryable collections.
+Second, *context constitution* (letta2026constitution): a declarative specification of what context an agent should have access to and how it should be prioritized, analogous to a retrieval policy expressed as a configuration rather than code.
+These mechanisms move agent memory closer to the decision-provenance retrieval described here—context repositories provide the storage substrate, and context constitution provides a rudimentary retrieval policy.
+However, Letta's retrieval unit remains the context block (a text chunk with metadata), not the architectural decision with provenance, alternatives, and constitutional anchoring.
+The context constitution specifies *which* collections to query, not *what decision context* to retrieve for a given task.
+
+These systems share a common retrieval unit: the conversational turn, the character observation, or the context block—closer to the architectural decision than turns or observations, but still without the explicit alternatives, validators, and constitutional anchoring that decision provenance requires.
+They excel at role consistency, preference tracking, and episodic recall.
+They are not designed for the retrieval unit that matters in long-horizon agentic engineering: the architectural decision with full provenance—which alternative was chosen, which was rejected, why, which validator enforces the choice, and which constitutional principle anchors it.
+
+% ————————————————–
+### Retrieval-Augmented Code Agents
+
+% ————————————————–
+
+Code-RAG systems retrieve over source text to augment code generation.
+RepoCoder (zhang2023repocoder) iteratively retrieves similar code snippets from the repository to improve completion accuracy.
+CodeRAG-Bench (wang2024coderagbench) provides a systematic benchmark for retrieval-augmented code generation across documentation, API references, and code examples.
+Commercial systems like Cursor's codebase indexing and Sourcegraph Cody build semantic indices over entire repositories, enabling natural-language queries that return relevant code chunks.
+SWE-bench (jimenez2024swebench) and SWE-agent (yang2024sweagent) evaluate agents on real-world GitHub issues, demonstrating that retrieval over repository structure and issue context improves resolution rates.
+
+All of these systems retrieve over *code text and identifiers*.
+They can answer "where is this function defined?" or "what does this module do?" but not "why was this approach chosen over the alternative?" or "which constitutional principle does this validator enforce?"
+The decision context—the rationale, the rejected alternatives, the cross-cutting constraints—is absent from the code itself and therefore absent from code-RAG retrieval.
+
+% ————————————————–
+### Architecture Decision Records
+
+% ————————————————–
+
+The practice of recording architectural decisions has a long history in software engineering.
+Nygard's Architecture Decision Record (ADR) format (nygard2011adr) proposes a lightweight Markdown template—title, status, context, decision, consequences—stored alongside the codebase.
+The ISO/IEC/IEEE 42010 standard (iso42010) formalizes architecture description at the organizational level.
+Z\\"orner's Y-statement format (zorner2015softwarearchitekturen) structures decisions as "In the context of [situation], facing [concern], we decided [option], to achieve [quality], accepting [downside]."
+zimmermann2015architectural extends ADR management to cross-project guidance with problem-space modeling.
+
+ADRs capture decision provenance—exactly the content missing from code-RAG.
+However, ADR retrieval is file-path-based: decisions are found by browsing a directory, not by semantic query.
+There is no embedding index, no hybrid retrieval, no re-ranking by relevance to a current task.
+ADRs also require manual authoring; in a high-velocity workflow producing 14.7 PRs/day, the curation overhead of maintaining a complete ADR directory is prohibitive.
+
+% ————————————————–
+### Long-Context Language Models as a Substitute
+
+% ————————————————–
+
+Gemini 1.5 (reid2024gemini) demonstrated effective processing of inputs up to 10M tokens in controlled settings.
+This has led to a common assumption that sufficiently large context windows eliminate the need for retrieval.
+
+Empirical evidence does not support this assumption for the regime considered here.
+liu2023lost showed that model performance degrades significantly for information placed in the middle of long contexts—the "lost in the middle" effect—even for models explicitly designed for long inputs.
+RULER (hsieh2024ruler) confirmed that effective context utilization drops sharply as input length grows, with most models failing to maintain claimed context lengths under adversarial probing.
+li2024longcontextbench demonstrated that in-context learning performance degrades as the number of demonstrations grows, even when the total context fits within the window.
+
+Beyond attention degradation, long-context processing is expensive.
+At the 6-week horizon of the operational regime described here, the accumulated decision context—ADRs, validator histories, constitutional principle invocations, edit-trace summaries—would consume hundreds of thousands of tokens per session start.
+Retrieval selects the task-relevant subset; long context pays for everything.
+
+
+**Synthesis.**
+None of the four lines of work treats decision provenance as a first-class memory unit with semantic retrieval.
+None provides a slow-loop refresh primitive that keeps dormant-task memory current across multi-week horizons.
+The architecture described in this paper occupies the intersection: it adopts the provenance structure of ADRs, the semantic retrieval of code-RAG, the persistence of conversational memory systems, and the selective context loading of RAG—while adding dual-mode retrieval as a new architectural primitive.
+
+
+% ============================================================
+## Problem Formalization
+
+% ============================================================
+
+Long-horizon agentic composition is a regime characterized by three measurable properties, verified in the companion paper's pilot dataset \\citep[\\S3–4]{ovcharov2026recursive}:
+
+
+ - [Horizon.] Related decisions span weeks to months. The platform described here maintained active development across 105 days with a median inter-PR interval under 2 hours but architectural threads that persisted for 4–6 weeks.
+ - [Compositionality.] Decision A in week 2 constrains decision B in week 6. A choice of database schema in the EDRSR import pipeline determined the parameter contract of 29 MCP tools built over the following five weeks; a constitutional principle established in week 1 governed validator behavior through week 15.
+ - [Persistence.] The codebase and its associated decision graph serve as shared state between sessions, not transient context. The agent does not carry forward a dialogue history; it re-enters a changed codebase each session.
+
+
+**The session bootstrap problem.**
+Each new agentic session begins by loading context.
+The agent consumes T input tokens of \`CLAUDE.md\` content and system context automatically, then performs K exploratory file reads before beginning productive work.
+Measured across 304 sessions from the companion paper's dataset (Section ): median bootstrap cost is T = 30{,}115 input tokens, of which {\\sim}17{,}600 (59%) is cache-creation cost for \`CLAUDE.md\` alone; median per-session file reads are K = 14 (mean 23.1).
+Both quantities grow approximately linearly with project age as \`CLAUDE.md\` accumulates conventions and the agent's file-read heuristics expand (\`CLAUDE.md\` growth: 217 chars/day, R^2 = 0.87; see Section ).
+
+The relevant subset for any given task is a small fraction of K and T.
+Measured across 180 sessions with at least three bootstrap reads: the median *context waste ratio*—files read but never subsequently edited—is 60%, with source-code reads wasted at 78% (Section ).
+A task touching the billing service does not need the EDRSR import pipeline's conventions; a task modifying the frontend router does not need the PostgreSQL migration patterns.
+Yet the flat bootstrap loads everything, because the agent cannot predict which subset is relevant without first loading the full context.
+
+**Pull-based retrieval reduces K and T.**
+A memory query replaces the flat bootstrap: the task description is embedded, matched against a pre-indexed memory store, and the top-k relevant entries are assembled into a compact digest.
+The agent starts with a focused context (K' \\ll K, T' \\ll T) and can retrieve additional entries on demand via MCP tool calls.
+
+**Push-based refresh keeps the substrate current.**
+Pull-based retrieval alone fails for tasks that are dormant for weeks and then resume.
+During the dormant period, other tasks' decisions accumulate context that is relevant to the dormant task—schema changes, principle additions, validator updates—but no pull query fires to incorporate this context.
+When the dormant task resumes, the pull query retrieves stale entries from the last active period.
+Push-mode refresh addresses this: a scheduled process watches task activity and refreshes memory entries for dormant tasks proportional to the rate of relevant changes, so that pull queries on resumption return current context.
+
+
+% ============================================================
+## Architecture
+
+% ============================================================
+
+The workflow memory service decomposes into three layers, each with distinct content, retrieval semantics, and storage substrate.
+Figure shows the overall architecture with both retrieval modes.
+
+
+% ————————————————–
+### Domain Layer
+
+% ————————————————–
+
+The domain layer contains the project's operational data: laws, court decisions, regulations, and other legal corpus material.
+In the deployed system, this layer is already in production as multiple Qdrant vector collections served through MCP tools (semantic search, legislation retrieval, court decision lookup).
+
+The architectural change is at the interface level.
+Domain queries are routed through the memory service rather than directly to individual MCP tools.
+This indirection provides three capabilities that direct tool calls lack: (1) unified logging of all retrieval events, enabling retrieval-miss detection (Section ); (2) miss-rate measurement per collection, informing re-indexing priorities; and (3) a uniform response format across all three layers, simplifying the digest assembly step.
+
+The domain layer uses pure semantic retrieval: the query embedding is matched against document-chunk embeddings via cosine similarity, with optional metadata filtering (jurisdiction, date range, document type).
+
+% ————————————————–
+### Workflow Layer
+
+% ————————————————–
+
+The workflow layer contains the project's decision context—the provenance that is absent from both code text and domain data.
+Six sources populate this layer, listed in priority order:
+
+[leftmargin=*, nosep]
+ - **Principle ledger.** The highest-priority source. Each entry is a principle that the model violated and was corrected on—the hardest signal in the system. Entries are compact (typically one sentence plus metadata), referenced by validators (so retrievals are dense), and anchored to the constitutional framework described in the companion paper \\citep[\\S5]{ovcharov2026recursive}. Schema: \`id\`, principle statement, severity (critical/warning/info), validator references, related ADR IDs, edit-trace links, embedding vector.
+
+ - **Validator definitions.** Source code of validation functions, parsed and embedded with docstrings, type signatures, and test examples. Validators encode the operational expression of constitutional principles; retrieving the validator alongside the principle provides the agent with both the "what" and the "how."
+
+ - **MCP tool contracts.** For each of the 70+ tools: name, description, parameter schema, example inputs and outputs. Embedded as structured text. Tool contracts evolve frequently in early development; the embedding pipeline re-indexes on each build.
+
+ - **ADR-style decision records.** One Markdown file per significant architectural decision, following Nygard's format (nygard2011adr): context, decision, alternatives considered, consequences, related constitutional principles. Manually authored in Phase 1; automatic generation from PR descriptions is planned for Phase 2.
+
+ - **Git history with semantic enrichment.** For each merged PR: title, description, semantic class (from the companion paper's taxonomy), affected components, related ADR IDs. Provides temporal context for when and why code changed.
+
+ - **Issue tracker state.** Plane [https://plane.so] issues with state transitions, assignees, and linked PRs. Embedded with structured metadata to enable queries like "what decisions were made on the billing migration?"
+
+
+The workflow layer uses hybrid retrieval: semantic similarity against embedded text, combined with structured filters on component, layer, severity, and temporal range.
+
+% ————————————————–
+### Practitioner Layer
+
+% ————————————————–
+
+The practitioner layer contains the practitioner's decision patterns, extracted from the same edit-trace pipeline described in the companion paper \\citep[\\S3]{ovcharov2026recursive}.
+This layer is the cross-reference point: the infrastructure that enables one practitioner to ship 1{,}547 PRs in 105 days *generates* the preference signal the RLHF paper analyzes.
+
+The layer never embeds raw content.
+Following the privacy boundary established in the companion paper \\citep[\\S6]{ovcharov2026recursive}, only structured edit summaries are indexed: edit class, semantic category, affected component, outcome (accepted/rejected/modified), and a one-sentence rationale generated by a nightly summarization job.
+This preserves the separation between the practitioner's operational data (which may contain client-specific information) and the memory substrate (which contains only structured abstractions).
+
+Retrieval is hybrid: semantic similarity combined with temporal and outcome-conditioned filtering.
+A query about authentication patterns retrieves edit summaries where the practitioner corrected authentication-related code, ordered by recency and weighted by outcome confidence.
+
+**Phase 0: Prompt-Commit Bridge.**
+Before the full practitioner layer, a minimal data collector is deployed: a \`UserPromptSubmit\` hook in Claude Code that creates an orphan commit in a bare git repository for every prompt.
+Each record contains the prompt text, timestamp, session ID, repository, branch, and permission mode.
+Over 4–6 weeks of passive collection, this yields a natural-text corpus for disambiguation labels, topic-frequency distributions, and cross-project switching patterns—the raw material for the practitioner layer's embedding pipeline.
+Performance overhead is 15ms per capture, imperceptible within Claude Code's 5-second hook timeout.
+
+
+% ============================================================
+## Dual-Mode Retrieval
+
+% ============================================================
+
+The dual-mode retrieval architecture is the central contribution: pull-based retrieval for active sessions, push-based refresh for dormant tasks, operating as complementary mechanisms rather than alternatives.
+Figure illustrates the interaction between both modes across a six-week horizon.
+
+
+% ————————————————–
+### Pull Mode
+
+% ————————————————–
+
+Pull mode fires at session start via a Claude Code session-start hook.
+The process:
+
+[leftmargin=*, nosep]
+ - The practitioner provides a task description (or the system infers it from the active Plane issue).
+ - The task description is embedded using the same model used for memory indexing (text-embedding-3-small or a locally hosted alternative such as bge-large-en-v1.5).
+ - Three parallel Qdrant queries execute against the domain, workflow, and practitioner collections, each with collection-specific filters (jurisdiction constraints for domain, component/severity for workflow, recency weighting for practitioner).
+ - Results from all three collections are merged and re-ranked using a cross-encoder (nogueira2019passage) or LLM-as-reranker, producing a unified relevance ordering.
+ - A greedy fill algorithm assembles the top-ranked entries into a token-budgeted digest, with a diversity constraint that ensures representation from all three layers.
+
+
+Latency target: < 500ms wall time for the full pipeline (embed, query, re-rank, assemble).
+This is a design target, not a measurement; empirical latency will be reported after deployment.
+
+% ————————————————–
+### Push Mode
+
+% ————————————————–
+
+Push mode runs as a scheduled orchestrator—a separate Docker container with a Bedrock Claude Sonnet summarization pipeline.
+The orchestrator watches Plane tasks tagged \`LONG-TERM\` and refreshes their memory entries proportional to task activity.
+
+The refresh frequency is a function of three signals:
+
+
+ f_{\\text{refresh}}(\\text{task}) = g\\bigl(
+ \\text{commits-touching-task}, 
+ \\text{comments-on-issue}, 
+ \\text{time-since-last-pull}
+ \\bigr)
+ 
+
+
+ where g is a monotonically increasing function of all three arguments, clamped to a maximum of one refresh per 24 hours and a minimum of one per 7 days for any task tagged \`LONG-TERM\`.
+
+Each refresh produces three outputs:
+[leftmargin=*, nosep]
+ - An **executive summary** of changes relevant to the task since the last refresh, generated by Bedrock Claude Sonnet from the diff of relevant commits and issue comments.
+ - A **tool lineage delta**: new tools created, tools modified, tools deprecated since the last refresh, with parameter-schema diffs.
+ - **Open questions**: unresolved issues or decision points flagged by the summarizer that may require practitioner input on task resumption.
+
+
+The executive summary and tool lineage delta are embedded and stored in the workflow layer's Qdrant collection.
+On the next pull query for the refreshed task, these entries surface alongside the original memory entries, providing the session with current context.
+
+% ————————————————–
+### Why Both Modes Are Necessary
+
+% ————————————————–
+
+Pull-only retrieval fails when a task is dormant for weeks and then resumes.
+During the dormant period, other tasks' decisions accumulate relevant context: schema changes that affect the dormant task's data model, new constitutional principles that constrain its implementation, validator updates that redefine correctness criteria.
+None of this context is incorporated into the dormant task's memory entries, because no pull query fires during dormancy.
+When the task resumes, the pull query retrieves entries from the last active period—stale by weeks.
+Re-deriving the current state requires expensive exploratory file reads, manual context assembly, and risk of missing cross-task dependencies.
+
+Push-only refresh, conversely, is wasteful for active tasks.
+A task with multiple sessions per day does not need pre-computed digests; each session's pull query returns current results because the memory entries were recently indexed.
+Push refresh for active tasks duplicates the work that pull already performs, consuming Bedrock API credits without improving retrieval quality.
+
+Dual-mode retrieval allocates computational effort where it provides the most value: pull for fast loops (active sessions), push for slow loops (dormant tasks).
+The push mode is what makes 6-week horizons tractable; without it, retrieval over multi-week dormancy periods returns stale or absent context.
+
+% ————————————————–
+### Retrieval-Correction Edits
+
+% ————————————————–
+
+Retrieval-correction edits operationalize a specific oversight gap: the model produced an output that the practitioner corrected because the model's available context was missing information the practitioner had.
+Definition: an edit where the model's output would have been correct given access to context X, but X was not present in the session's memory digest.
+This edit class extends the six-class taxonomy from the companion paper \\citep[\\S4]{ovcharov2026recursive}, but is structurally distinct: the other six classes capture *what* the practitioner changed; retrieval-correction captures *why* the change was avoidable.
+It is therefore a process-level oversight signal rather than a preference signal in the standard RLHF sense.
+
+Detection proceeds via a post-session reconciliation job:
+
+[leftmargin=*, nosep]
+ - After the session closes, the reconciliation job collects all edits made by the practitioner.
+ - For each substantive edit (edit distance > 0.3 in the companion paper's normalized metric), the job embeds the edit context and queries the memory store for entries that are semantically similar to the edit but were *not* retrieved in the session's digest.
+ - Candidate retrieval-correction pairs (edit, unretrieved-but-relevant memory entry) are flagged for practitioner review.
+ - Confirmed pairs are labeled as retrieval-correction edits and enter the alignment pipeline as oversight-derived preferences: the "chosen" response incorporates the missing context; the "rejected" response is the original model output that lacked it.
+
+
+This closes a feedback loop between the memory layer and the alignment pipeline that is structurally different from outcome-level RLHF.
+Outcome-level supervision answers "did this run succeed?" once per session.
+Retrieval-correction supervision answers "was this specific output reachable from this specific context?" per edit.
+The signal density per unit of agent activity is therefore higher, and the signal is invariant to session length.
+Two consequences follow.
+First, as the memory layer matures, retrieval-correction edit rate becomes a measurable proxy for memory effectiveness—an internal evaluation metric that does not require waiting for downstream outcomes.
+Second, retrieval-correction edits encode a failure mode (capability present, context absent) that is distinct from capability gaps (capability absent, context irrelevant).
+Distinguishing these failure modes is a long-standing open problem in scalable oversight (bowman2022scalable); the memory layer provides one concrete instantiation.
+
+
+% ============================================================
+## Implementation
+
+% ============================================================
+
+The memory service is implemented in TypeScript, consistent with the existing Express-based MCP backend (anthropic2024mcp) described in the companion paper \\citep[\\S7]{ovcharov2026recursive}.
+The technology stack reuses production infrastructure: Qdrant for vector storage, PostgreSQL for structured metadata (new \`workflow\\_memory\\_*\` tables), Redis for caching, and AWS Bedrock Claude Sonnet for summarization steps.
+
+% ————————————————–
+### Memory Query Tool
+
+% ————————————————–
+
+A single MCP tool, \`workflow\\_memory\\_query\`, serves as the primary retrieval interface.
+Parameters:
+
+[leftmargin=*, nosep]
+ - \`task\\_description\` (string, required): natural-language description of the current task.
+ - \`scope\` (enum: \`all\` | \`domain\` | \`workflow\` | \`practitioner\`): which layers to query. Default: \`all\`.
+ - \`token\\_budget\` (integer, default 8{,}000): maximum tokens in the assembled digest.
+ - \`filters\` (object, optional): structured filters (component, severity, date range).
+
+
+The tool returns a structured prose digest with section headers per layer, relevance scores per entry, and source provenance links.
+The digest format is designed for direct injection into the agent's context window without post-processing.
+
+% ————————————————–
+### Long-Term Task Orchestrator
+
+% ————————————————–
+
+The push-mode orchestrator runs as a separate Docker container with its own cron schedule.
+It queries the Plane API for tasks tagged \`LONG-TERM\`, computes refresh priority per Equation , and dispatches summarization jobs to Bedrock.
+Outputs (executive summaries, tool lineage deltas, open questions) are embedded and stored in the workflow layer's Qdrant collection with a \`source: push-refresh\` metadata tag.
+
+All seven phases (0, 1.0–1.5) have been implemented and deployed. The complete implementation spans six PostgreSQL migrations, three Qdrant vector collections, and seven MCP tools (\`workflow_memory_query\`, \`workflow_memory_ingest\`, \`workflow_memory_stats\`, \`workflow_memory_reconcile\`, \`workflow_memory_push_sync_tasks\`, \`workflow_memory_push_refresh\`). [Phase schedule](https://github.com/overthelex/SecondLayer/blob/main/docs/workflow-memory-phases.md)
+
+
+% ============================================================
+## Evaluation Plan
+
+% ============================================================
+
+% ————————————————–
+### Metrics
+
+% ————————————————–
+
+Four metrics operationalize the architecture's success criteria, each paired with a baseline measurement method and a target.
+
+
+A fifth metric—the retrieval-correction edit rate over time—is qualitative in Phase 1.
+As the practitioner layer matures, the rate of retrieval-correction edits (Section ) should decrease.
+The expected trajectory is a declining curve over the first 6–8 weeks of deployment, flattening as the memory layer covers the most frequently needed context.
+
+% ————————————————–
+### Preliminary Results
+
+% ————————————————–
+
+Three baseline measurements are available at submission time, derived from the companion paper's transcript dataset and from the project's git history.
+
+**Bootstrap cost (Experiment 1, N{=**304 sessions).}
+Parsing Claude Code API transcripts from the companion dataset, the median first-call input token count is 30{,}115 (mean 29{,}693; \\sigma{=}7{,}594; P10/P90: 18{,}540/41{,}774).
+Of these, {\\sim}17{,}600 tokens (59%) are cache-creation cost for \`CLAUDE.md\` and system context—loaded unconditionally on every session regardless of task.
+Per-session file reads (Read tool calls) average 23.1 (median 14, P90: 61), but 72% of sessions have zero Read calls in the bootstrap phase; most sessions open with shell commands (\`git status\`, \`ls\`) rather than file reads.
+The memory layer's primary reduction target is therefore the automatic context cost (T), not the file-read count.
+
+**CLAUDE.md growth (Experiment 2, 25 commits over 85 days).**
+The project's \`CLAUDE.md\` grew from 4{,}099 to 24{,}148 characters (152 to 474 lines) across 25 commits over 85 days (January 17 to April 12, 2026—a subset of the 105-day operational period documented in the companion paper).
+A linear regression of character count on days elapsed yields a slope of 216.7 chars/day with R^2 = 0.87, confirming the approximately linear growth claimed in Section .
+Line count is noisier (R^2 = 0.58) due to periodic reformatting that changes density without changing content volume.
+
+**Context waste ratio (Experiment 3, N{=**180 sessions).}
+Across sessions with at least three file reads in the bootstrap phase (first 50 turns), the median context waste ratio—files read but never subsequently edited in the session—is 60% (mean 56.7%; \\sigma{=}26.3%).
+The distribution is right-skewed: 66% of sessions waste more than half their bootstrap reads; only 15% waste less than 30%.
+Source-code reads are wasted at 78%, while memory files (\`.claude/memory/\`) are wasted at 66.5%, suggesting that structured memory retrieval is more targeted than exploratory file reads.
+Waste ratio correlates negatively with session length: short sessions (5–10 turns) waste 68.5%; longer sessions (>50 turns) waste 51.1%.
+This metric is a conservative proxy: a file may be read for context without subsequent editing, in which case it counts as "wasted" even when its content informed the agent's reasoning. The 60% baseline therefore likely overstates true waste; the gap between read-and-edited and read-and-used is left for future work.
+
+Phase 0 (prompt-commit bridge) has been deployed since May 9, 2026 with negligible performance overhead (15ms per capture); the corpus contains 509 prompts across 15 sessions.
+
+**Deployment state (all phases complete).**
+All seven phases (0, 1.0–1.5) are deployed as of May 13, 2026. The memory layer contains 184 entries across all three layers: 170 domain principles (140 from CLAUDE.md, 22 from merged PRs, 7 from design docs, 1 manually ingested), 1 workflow pattern, and 13 practitioner session summaries.
+
+Principle retrieval was validated with a round-trip test: the query "how do we deploy to production" returned 5 relevant principles (blue-green deployment, CI/CD automation, no manual containers, container health checks, Docker rebuild) with cosine similarity scores 0.522–0.604.
+
+The reconciliation tool (Phase 1.4) was tested on a session modifying 3 files. Of 170 principles, 113 were relevant; the session retrieved 1, yielding precision=1.0 and recall=0.009. The 112 missed principles were correctly flagged as retrieval-correction candidates.
+
+Push-mode (Phase 1.5) is deployed with Plane task watcher, LLM summarization, and tool lineage delta detection. Full A/B evaluation of bootstrap reduction requires several weeks of operational data.
+
+% ————————————————–
+### Threats to Validity
+
+% ————————————————–
+
+**Single project, single practitioner.**
+The architecture is designed and evaluated in the context of one project (LEX AI) and one practitioner.
+This is the same constraint as the companion RLHF paper \\citep[\\S8]{ovcharov2026recursive}.
+Mitigation: the architecture is project-agnostic—the three-layer decomposition and dual-mode retrieval impose no assumptions about the domain, the programming language, or the practitioner's expertise.
+Generalization claims are deferred to Phase 2, which introduces a multi-practitioner cohort.
+
+**Confounding with codebase maturity.**
+Bootstrap reduction could result from caching effects, improved \`CLAUDE.md\` curation, or the natural stabilization of a maturing codebase rather than from the memory layer itself.
+Control: A/B evaluation by toggling the memory layer at session start.
+Sessions with the memory layer enabled are compared against sessions without it on the same task distribution during the same time period.
+
+**Principle ledger quality.**
+In Phase 1, the principle ledger is human-curated.
+Retrieval accuracy is therefore bounded by curation quality, not retrieval quality.
+If the registry is incomplete or contains imprecise principle statements, the retrieval system will faithfully return imprecise results.
+This limitation is acknowledged and addressed in Phase 2 by introducing semi-automatic principle extraction from edit-traces.
+
+
+% ============================================================
+## Discussion
+
+% ============================================================
+
+**Memory layer as RLHF substrate.**
+The same infrastructure that enables one practitioner to ship 1{,}547 PRs in 105 days *generates* the preference signal the companion paper analyzes.
+Memory and preference data are two views of the same long-horizon work: a retrieval-correction edit is simultaneously a memory-layer failure (the system did not surface relevant context) and an alignment signal (the practitioner corrected the model's output, producing a preference pair).
+This duality is not incidental—it is the architectural thesis.
+The memory layer does not merely consume alignment data; it produces it.
+
+**Memory as scalable oversight surface.**
+The memory layer is dual-purpose: it serves the agent during execution and generates oversight signal during reconciliation.
+As agent autonomy grows—from short interactive sessions to multi-hour autonomous runs to multi-day autonomous projects of the kind documented in Anthropic's long-running scientific computing work (anthropic2026longrunning)—the ratio of practitioner-observable outcomes to agent-internal decisions falls.
+Outcome-level supervision becomes a low-bandwidth channel through which any oversight signal must pass.
+
+The memory layer changes this.
+Every retrieval is an observable event with a known context window, a known retrieval result, and a subsequent edit trace.
+Reconciliation between retrieved context and editing behavior generates oversight signal at the granularity of individual edits, not individual sessions.
+The signal is not free—reconciliation requires practitioner confirmation of candidate retrieval-correction pairs—but the practitioner's marginal cost per signal is bounded by the time to confirm a flagged pair, not the time to evaluate an entire session.
+
+This positions the memory layer as one concrete answer to the question posed in *Recommendations for Technical AI Safety Research Directions* (anthropic2025recommended): how to design oversight mechanisms whose signal scales with the systems they oversee.
+The architecture does not solve scalable oversight in general.
+It demonstrates that for one operational regime—long-horizon agentic coding by a small number of practitioners—the memory infrastructure that makes the regime tractable also produces the signal needed to oversee it.
+
+**Generalization to teams.**
+The architecture as described serves a single practitioner.
+Multi-practitioner deployment introduces three challenges not addressed here: (1) multi-writer principle ledger with conflict resolution on principle updates; (2) per-practitioner views of the practitioner layer, since different practitioners have different correction patterns; and (3) access control on memory entries that may contain project-specific context.
+These are Phase 2 concerns.
+The three-layer decomposition is designed to accommodate them—the domain layer is already shared, the workflow layer supports scoped views via metadata filtering, and the practitioner layer is inherently per-practitioner.
+
+**What this is not.**
+The workflow memory architecture is not a replacement for long-context models; it is a retrieval substrate that reduces the context a long-context model must process.
+It is not a knowledge graph: there is no formal ontology, no RDF triples, no SPARQL endpoint.
+It is not an enterprise knowledge management system: it has no document lifecycle, no approval workflows, no compliance metadata.
+It is a retrieval substrate optimized for one operational regime—long-horizon agentic composition by a small number of practitioners—and its design decisions reflect that specificity.
+
+
+% ============================================================
+## Limitations
+
+% ============================================================
+
+[leftmargin=*, nosep]
+ - **Single project, single practitioner.** All design and evaluation is within one legal-technology project built by one practitioner. Generalization to other domains, other languages, or multi-developer teams is not demonstrated.
+
+ - **Manual ADR curation.** In Phase 1, architecture decision records are manually authored. The curation burden is non-trivial at 14.7 PRs/day; ADR coverage is expected to be incomplete during the evaluation period.
+
+ - **Batch re-indexing.** Memory entries are re-indexed nightly, not in real time. Changes made during a session are not reflected in the memory layer until the next indexing run. This creates a window where pull queries may return slightly stale results for very recent changes.
+
+ - **No multi-practitioner support.** The architecture does not address multi-writer conflicts in the principle ledger, per-practitioner memory views, or cross-practitioner preference aggregation.
+
+ - **Retrieval-correction detection is approximate.** The post-session reconciliation job uses semantic similarity to identify candidate retrieval-correction pairs. False positives (flagged pairs where the missing context would not have changed the model's output) are filtered by practitioner review, but the detection precision is not yet measured.
+
+ - **Push-mode cost.** Each push refresh consumes Bedrock API credits for summarization. At scale, the cost of maintaining current digests for many dormant tasks may become significant. The current design mitigates this with frequency clamping (maximum one refresh per 24 hours per task), but cost-optimal refresh scheduling is not formalized.
+
+ - **Oversight-signal density is not yet quantified.** The claim that retrieval-correction edits constitute a denser oversight signal than outcome-level supervision is structurally argued but not measured. Quantifying signal density (retrieval-correction edits per practitioner-minute vs.\\ outcome labels per practitioner-minute) requires the full deployment to run for several weeks; this measurement is part of the evaluation plan.
+
+
+% ============================================================
+## Conclusion
+
+% ============================================================
+
+This paper presented a workflow memory architecture for long-horizon agentic composition, addressing the session bootstrap problem that bottlenecks multi-week LLM-assisted software engineering.
+Three contributions were made.
+First, a three-layer memory decomposition—domain, workflow, and practitioner—where each layer has distinct content, retrieval semantics, and storage substrate, and the retrieval unit is the architectural decision rather than the code chunk or dialogue turn.
+Second, dual-mode retrieval as a first-class primitive: pull mode for active sessions, push mode for dormant tasks, with push-mode refresh keeping multi-week horizons tractable by maintaining current memory entries without requiring active sessions.
+Third, retrieval-correction edits as a process-level oversight signal that scales with agent autonomy, closing the feedback loop between the memory layer and the alignment pipeline described in the companion paper (ovcharov2026recursive).
+
+The architecture is deployed incrementally on a production legal-technology platform.
+Phase 0 (prompt-commit bridge) is live; Phases 1.0–1.5 are in implementation.
+Baseline measurements from 304 sessions confirm a median bootstrap cost of 30{,}115 input tokens and a context waste ratio of 60%; the memory layer targets {\\leq}10K tokens and {\\leq}20% waste, with {\\geq}80% retrieval accuracy on principle ledger entries.
+
+The source code and implementation notes are available at https://github.com/overthelex/SecondLayer.
+
+
+% ============================================================
+% References
+% ============================================================
 
 ---
 
@@ -7131,28 +8332,624 @@ Deployed on a legal-technology platform (70+ MCP tools, 380M+ records, 1,547 mer
   'paper-tokenizer-fertility': {
     title: 'Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text: A Comparative Study',
     punchline: 'Seven models, five providers, 273 court decisions from EDRSR. Tokenizer fertility varies 1.6x. NVIDIA Nemotron Super 3 (120B) outperforms Mistral Large 3 (675B) at 1/3 the cost. Few-shot prompting degrades performance by up to 26pp on Ukrainian.',
-    readTime: 'PDF, 24 pages',
-    content: `# Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text
-
-**A Comparative Study**
-
-**Volodymyr Ovcharov** — LEX AI LLC, Kyiv, Ukraine
-
----
-
+    readTime: '35 min read (full paper)',
+    content: `% ============================================================
+% ABSTRACT
+% ============================================================
 ## Abstract
 
-Foundation models tokenize Ukrainian legal text with vastly different efficiency, yet no systematic comparison exists for this domain. We benchmark seven models from five providers on 273 validated court decisions from Ukraine's state registry (EDRSR), measuring tokenizer fertility and zero-shot performance on three tasks.
+Foundation models tokenize Ukrainian legal text with vastly different efficiency, yet no systematic comparison exists for this domain. We benchmark seven models from five providers on 273 validated court decisions from Ukraine's state registry (EDRSR), measuring tokenizer fertility and zero-shot performance on three tasks. Three findings emerge. **(1)** Tokenizer fertility varies 1.6\\times: Qwen 3 models consume 60% more tokens than Llama-family models on identical input, directly reducing API cost. **(2)** NVIDIA Nemotron Super 3 (120B) achieves the highest composite score (83.1), outperforming Mistral Large 3 (675B total, 41B active), which has 5.6\\times more total parameters and 3.4\\times more active parameters per token, at one-third the API cost. **(3)** Few-shot prompting *degrades* performance by up to 26 percentage points; stratified and prompt-sensitivity ablations confirm this is intrinsic to Ukrainian-language demonstrations, not an artifact of example selection. For practitioners: tokenizer analysis should precede model selection, and zero-shot is a more reliable default than few-shot for morphologically rich languages.
 
-**Three findings:**
 
-**(1)** Tokenizer fertility varies 1.6×: Qwen 3 models consume 60% more tokens than Llama-family models on identical input, directly reducing API cost.
+**Keywords:** tokenizer fertility, Ukrainian NLP, legal text classification, multilingual LLM evaluation, foundation models, AWS Bedrock
 
-**(2)** NVIDIA Nemotron Super 3 (120B) achieves the highest composite score (83.1), outperforming Mistral Large 3 (675B total, 41B active), which has 5.6× more total parameters and 3.4× more active parameters per token, at one-third the API cost.
+% ============================================================
+% 1. INTRODUCTION
+% ============================================================
+## Introduction
 
-**(3)** Few-shot prompting *degrades* performance by up to 26 percentage points; stratified and prompt-sensitivity ablations confirm this is intrinsic to Ukrainian-language demonstrations, not an artifact of example selection.
+The rapid proliferation of large language models (LLMs) has created an implicit hierarchy among the world's languages. English, as the dominant language in pre-training corpora, benefits from well-optimized tokenizers, extensive benchmarks, and thorough evaluation. Languages with Cyrillic scripts, complex morphology, and smaller digital footprints, such as Ukrainian, face a compounding disadvantage: their words are split into more subword tokens, resulting in higher inference costs, shorter effective context windows, and potentially degraded performance (petrov2024language, ahia2023all).
 
-**For practitioners:** tokenizer analysis should precede model selection, and zero-shot is a more reliable default than few-shot for morphologically rich languages.
+This disparity is not merely academic. For practitioners building legal technology platforms that must process tens of thousands of court decisions daily, the choice of foundation model has direct consequences for operational cost, latency, and accuracy. A model that tokenizes Ukrainian text into 60% more tokens than an alternative is, effectively, 60% more expensive per document, before any consideration of output quality.
+
+In this paper, we present Experiment A of the LEX AI Test Training program: a systematic evaluation of seven foundation models on Ukrainian legal text. Our contributions are:
+
+[leftmargin=*]
+ - We measure **tokenizer fertility**, the ratio of subword tokens to whitespace-delimited words, for seven models on authentic Ukrainian legal documents, revealing a 1.6\\times spread between the most and least efficient tokenizers.
+ - We evaluate **zero-shot and few-shot performance** on three legal NLP tasks (case type classification, case outcome classification, and legal norm extraction), finding that model size is a poor predictor of performance on Ukrainian text.
+ - We document a **counterintuitive few-shot degradation effect**: for the majority of models tested, providing task demonstrations reduces rather than improves performance on case outcome classification, with one model (Qwen 3 235B) losing 26.0 percentage points.
+ - We provide a **cost–performance analysis** across all models via AWS Bedrock, offering practitioners a directly actionable comparison.
+
+
+% ============================================================
+% 2. RELATED WORK
+% ============================================================
+## Related Work
+
+### Tokenizer Fertility and Multilingual Fairness
+
+The problem of unequal tokenization across languages has received growing attention. rust2021good demonstrated that the monolingual performance of multilingual models correlates strongly with the proportion of pre-training data in a given language, and that tokenizer fertility is a useful proxy for this representation. petrov2024language formalized the "language tax" imposed by suboptimal tokenization, showing that non-Latin-script languages can require 2–15\\times more tokens per semantic unit than English. ahia2023all extended this analysis to commercial APIs, demonstrating that the cost of processing equivalent content varies by an order of magnitude across languages due to tokenizer design choices.
+
+These studies primarily examine general-domain text. Our work focuses specifically on legal Ukrainian, a register characterized by formulaic phrasing, domain-specific terminology, and extensive citation of legislative norms, all of which interact with tokenizer vocabulary in domain-specific ways.
+
+### Ukrainian NLP
+
+Ukrainian language technology has developed rapidly since 2014, driven by community efforts and increasing digitization of government data. The *lang-uk* project (languk2018) established foundational corpora and tools, including tokenizers, POS taggers, and NER models trained on Ukrainian web text. syvokon2023uagec introduced UA-GEC, a grammatical error correction corpus, and demonstrated that Ukrainian-specific training data substantially outperforms multilingual transfer for morphologically sensitive tasks. chaplynskyi2023ukrbruk contributed Ukrainian Brown Corpus resources and systematic evaluations of multilingual models on Ukrainian, showing consistent underperformance compared to English on the same architectures, a finding our work extends to the legal domain.
+
+Despite these advances, Ukrainian NLP remains underrepresented in foundation model evaluation. No published benchmark systematically compares commercial LLMs on Ukrainian domain-specific tasks, and legal Ukrainian, with its distinct register, formulaic structures, and legislative citation conventions, has received essentially no attention in the NLP literature.
+
+### Legal NLP
+
+Legal NLP has matured from rule-based systems to transformer-based approaches. LEGAL-BERT (chalkidis2020legal) demonstrated the value of domain-specific pre-training for English legal text. The LEXTREME benchmark (niklaus2023lextreme) extended evaluation to multiple European languages, though Ukrainian was not included. Most legal NLP benchmarks focus on Western European languages and common-law jurisdictions; civil-law systems with Cyrillic scripts remain underrepresented.
+
+### Multilingual LLM Evaluation
+
+MMLU (hendrycks2021measuring) and its multilingual extensions have become standard benchmarks for LLM capability. However, these benchmarks typically cover general knowledge and may not reflect domain-specific performance. lai2023chatgpt evaluated ChatGPT across multiple languages and tasks, finding significant performance variation by language. Our work complements these studies by providing domain-specific (legal) evaluation on a language (Ukrainian) that is typically absent from published benchmarks.
+
+% ============================================================
+% 3. METHODOLOGY
+% ============================================================
+## Methodology
+
+### Evaluation Dataset
+
+
+We constructed our evaluation corpus from 300 court decisions sampled from the Unified State Register of Court Decisions (EDRSR, Ukrainian: *Yedynyi Derzhavnyi Reiestr Sudovykh Rishen*), the official public repository of all Ukrainian court decisions. EDRSR contains over 120 million documents spanning 2006 to the present.
+
+Documents were stratified by jurisdictional category with equal representation:
+
+[leftmargin=*]
+ - **Civil** (*tsyvilna*): 75 decisions
+ - **Criminal** (*kryminalna*): 75 decisions
+ - **Commercial** (*hospodarska*): 75 decisions
+ - **Administrative** (*administratyvna*): 75 decisions
+
+
+All documents are authentic court decisions in Ukrainian, extracted from the production database of the LEX AI platform (legal.org.ua). Documents were truncated to 6,000 characters for tokenizer fertility measurement to ensure consistent comparison across models with varying context windows. For task evaluation, the full document text was used, up to each model's context limit.
+
+#### Gold Label Construction
+
+
+Gold labels for each task were derived as follows.
+
+**Case type.** Labels are taken directly from the EDRSR metadata field \`justice\\_kind\`, which is assigned by court clerks at the time of case registration. This field is authoritative and requires no additional validation. All 300 documents carry case type labels.
+
+**Case outcome.** Labels were extracted from the dispositive section of each decision via a rule-based regex parser using keyword patterns for each of the five outcome categories (e.g., \\foreignlanguage{ukrainian}{*"позов задовольнити"*} for granted, \\foreignlanguage{ukrainian}{*"у задоволенні відмовити"*} for denied). To validate the parser's accuracy, we employed a three-source majority vote procedure: (1) the regex parser, (2) Claude Sonnet 4.5 as an independent judge classifying the same dispositive text, and (3) NVIDIA Nemotron Super 3 as a tiebreaker for disputed cases. Of 300 documents, 205 (68%) received identical labels from the regex parser and Claude Sonnet. The remaining documents were submitted to Nemotron Super 3 as a tiebreaker: 68 were resolved by majority vote (at least two of three sources agreed on a valid outcome label), and 27 were excluded (either all three sources disagreed, or the majority outcome was "indeterminate"). The final validated dataset comprises 273 documents (205 + 68) with outcome labels confirmed by at least two independent sources.
+
+**Norm extraction.** Reference sets were constructed by extracting legislative citations using regex patterns matching Ukrainian citation conventions (e.g., \\foreignlanguage{ukrainian}{*"стаття 125"*}, \\foreignlanguage{ukrainian}{*"ст. 43"*}). A validation study on 30 documents using Claude Sonnet 4.5 as an independent annotator found that the regex extractor achieves 91% precision but only 55% recall (F1 = 0.66); it captures the most prominent citations but misses approximately 45% of norms identified by a stronger reader. Norm extraction F1 scores reported in this paper therefore measure *agreement with the regex reference set*, not agreement with the full set of legal citations in each document. This means the reported F1 likely *underestimates* the true extraction capability of models that identify citations beyond the regex reference set.
+
+### Models
+
+
+We evaluated seven models from five providers, all accessed via the AWS Bedrock API. Table summarizes the models and their architectures.
+
+
+The selection criteria were: (1) availability on AWS Bedrock at the time of the experiment (April–May 2026), (2) representation of diverse tokenizer families (Llama/SentencePiece, Mistral/SentencePiece, Qwen/tiktoken-derived, Nova/proprietary), and (3) coverage of both dense and mixture-of-experts architectures.
+
+### Tasks
+
+
+We define three evaluation tasks of increasing difficulty:
+
+**Task 1: Case Type Classification (4-class).**
+Given the full text of a court decision, classify it into one of four jurisdictional categories: civil (*tsyvilna*), criminal (*kryminalna*), commercial (*hospodarska*), or administrative (*administratyvna*). This task tests basic document understanding, as case type is typically inferable from procedural language and cited legislation.
+
+**Task 2: Case Outcome Classification (5-class).**
+Given the full text, classify the case outcome into one of five categories: granted (*zadovoleno*), denied (*vidmovleno*), left without consideration (*zalysheno bez rozghliadu*), partially granted (*chastkovo zadovoleno*), or closed (*zakryto*). This task requires understanding the dispositive section of the decision and is complicated by a severely imbalanced label distribution (see Section ).
+
+**Task 3: Legal Norm Extraction (F1).**
+Given the full text, extract all legal norms (law + article pairs) cited in the decision. The model must return structured JSON output with the law name and article number for each citation. We compute set-based F1 between predicted article numbers and a regex-extracted reference set. As detailed in Section , this reference set has high precision (91%) but incomplete recall (55%), so the reported F1 measures agreement with a conservative baseline rather than true extraction performance.
+
+### Evaluation Protocol
+
+
+All evaluations were conducted via the AWS Bedrock Converse API in two modes:
+
+[leftmargin=*]
+ - **Zero-shot**: The model receives only a task instruction and the document text.
+ - **Few-shot**: The model receives the task instruction, three labeled examples (one per minority class where applicable), and the document text.
+
+
+No fine-tuning, parameter-efficient or otherwise, was performed. This design choice reflects the practical scenario facing practitioners who must select a foundation model for deployment without the resources or data for domain adaptation.
+
+For case type classification, accuracy is computed on all 300 documents (metadata labels are authoritative; see Section ). For case outcome classification, accuracy is reported on the 273-document validated subset after excluding 27 documents with unresolved label disagreements. For norm extraction, we report the mean document-level F1 score across all 300 documents.
+
+The temperature was set to 0 for all inference calls to ensure deterministic outputs. All metrics are reported on the 273-document validated subset for consistency across tasks. Case type metadata labels remain authoritative on the full 300-document set, but we restrict reporting to the validated subset to enable direct comparison with case outcome results.
+
+% ============================================================
+% 4. RESULTS
+% ============================================================
+## Results
+
+### Tokenizer Fertility
+
+
+Table presents tokenizer fertility measurements across all seven models, computed on 100 document samples (6,000 characters each) from the evaluation corpus.
+
+
+*[Figure: Tokenizer fertility (average tokens per whitespace-delimited word) on 100 Ukrainian legal documents. Lower is more efficient. Llama 4 Maverick produces 38% fewer tokens than Qwen 3 on identical text (2.43 vs.\\ 3.90 tokens/word); equivalently, Qwen 3 consumes 60% more tokens than Maverick.]*
+
+
+% 
+
+The results reveal a clear clustering pattern. The Llama-family tokenizers (Llama 4 Maverick and Llama 3.3) form the most efficient cluster, with fertility values of 2.43 and 2.65 tokens per word, respectively. Mistral Large 3 and Nemotron Super 3 occupy an intermediate position at approximately 3.06–3.08. The Qwen tokenizer is notably less efficient on Ukrainian text, with both Qwen 3 variants producing approximately 3.90 tokens per word, 60.3% higher than Llama 4 Maverick.
+
+This efficiency gap has a direct cost implication. For a typical Ukrainian court decision of 1,000 words, the Llama 4 tokenizer produces approximately 2,434 tokens, while the Qwen 3 tokenizer produces approximately 3,902, a difference of 1,468 tokens per document. At scale, this translates to substantially higher API costs for input token processing.
+
+Notably, the two Qwen 3 models (235B and 32B) share nearly identical fertility (3.894 vs.\\ 3.902), confirming that they use the same underlying tokenizer vocabulary. The same pattern holds for the Llama models, where Maverick's improved tokenizer shows an 8.2% efficiency gain over the Llama 3.3 vocabulary.
+
+The standard deviation of fertility is relatively consistent across models (0.398–0.469), suggesting that the efficiency differences are systematic rather than driven by outlier documents.
+
+### Case Type Classification
+
+
+Table presents case type classification accuracy for all models in both zero-shot and few-shot modes.
+
+
+Case type classification proves to be a relatively easy task, with all models achieving \\geq92% accuracy in at least one mode. Llama 4 Maverick and Nemotron Super 3 tie for the best zero-shot accuracy at 98.9% (95% CI: [96.8, 99.6]), misclassifying only 3 of 273 documents each. This advantage over Llama 3.3 70B (94.5%) is statistically significant (McNemar p < 0.001), while differences among the top-4 models are not (p > 0.05).
+
+A notable finding is that few-shot prompting *reduces* accuracy for 4 of 7 models on this task, with the largest degradation observed for Llama 4 Maverick (-6.2 percentage points). This suggests that few-shot examples may confuse the model or bias it toward patterns present in the examples rather than leveraging its general understanding of Ukrainian legal document structure.
+
+### Case Outcome Classification
+
+
+Case outcome classification presents a substantially harder challenge. Results are reported on the 273-document validated subset (see Section ). The label distribution is imbalanced: 230 of 273 documents (84.2%) have the outcome "granted" (*zadovoleno*), followed by "left without consideration" (21), "denied" (15), and "closed" (7). The "partially granted" class was entirely excluded during label validation, as all instances were disputed by the independent judge.
+
+
+% 
+
+Original scores on the full 300-document set were 10–17 percentage points lower, indicating that approximately 9% of regex-extracted outcome labels were incorrect, primarily procedural orders misclassified as substantive decisions.
+
+Nemotron Super 3 achieves the highest zero-shot accuracy at 96.0% (95% CI: [92.9, 97.7]), followed by Qwen 3 235B at 93.8% [90.3, 96.1]. While Nemotron's advantage over Qwen 3 235B is not statistically significant by McNemar's test (p = 0.26), Nemotron significantly outperforms Llama 3.3 70B (p = 0.002), Qwen 3 32B (p < 0.001), Nova Pro (p = 0.02), and Mistral Large 3 (p = 0.02).
+
+However, the most striking result is the catastrophic few-shot degradation observed for several models. Qwen 3 235B drops from 93.8% to 67.8% (-26.0 pp), and Nemotron Super 3 drops from 96.0% to 83.2% (-12.8 pp).
+
+Analysis of per-class accuracy (Table ) reveals performance variation across outcome categories. The "partially granted" class, which had 10 instances in the original 300-document set, was entirely removed during label validation, as all 10 instances were disputed by the independent judge. This left four outcome classes in the validated subset.
+
+
+#### Tiebreaker Bias Check
+
+
+Because Nemotron served as one of three sources in our label validation majority vote (Section ), its use as both tiebreaker and evaluated model could introduce systematic bias. To assess this, we partition the validated subset into *easy* documents (n{=}205), where the regex parser and Claude Sonnet agreed without tiebreaker intervention, and *hard* documents (n{=}68), where Nemotron's vote resolved the dispute (205 + 68 = 273). On the easy subset, where Nemotron had no influence on label assignment, Nemotron achieves 98.0% (201/205), tied with Llama 4 Maverick (98.0%) and above all other models (Qwen 3 235B 97.6%, Llama 3.3 96.6%, Mistral 96.1%, Qwen 3 32B 94.6%). Since the easy subset is free of tiebreaker influence and already shows Nemotron tied for first, the overall lead does not depend on the hard subset. On the hard subset (n{=}68), Nemotron achieves 89.7% (61/68), but we cannot fully disentangle this from tiebreaker advantage; Nemotron's vote partly determined which labels were "correct" for these documents. We therefore base our primary ranking claims on the easy subset and the full validated set, acknowledging that hard-subset performance may be inflated for Nemotron relative to other models.
+
+### Legal Norm Extraction
+
+
+Norm extraction requires the model to identify and structure all legal citations in a court decision, a task that combines information extraction with domain knowledge of Ukrainian legislative naming conventions.
+
+
+% 
+
+Llama 3.3 70B achieves the highest agreement with the regex reference set (F1 = 0.604–0.606 in both modes). The ranking on norm extraction differs markedly from classification tasks: Llama 3.3 70B, which ranks 7th on case type classification, is the clear leader here. This suggests that norm extraction relies on different capabilities, likely stronger pattern recognition for legal citation formats and better retention of long-range dependencies in document text.
+
+Notably, few-shot prompting has minimal effect on norm extraction performance across all models, with deltas ranging from -0.005 to +0.004. The task's structured output format (JSON with law/article pairs) may already provide sufficient specification, making examples redundant.
+
+**Interpreting norm extraction scores.** As noted in Section , the regex reference set has high precision (91%) but only 55% recall compared to Claude Sonnet 4.5 as an independent annotator. The reported F1 scores therefore represent a *lower bound* on model capability: models that correctly identify citations beyond the regex reference set are penalized as false positives. This affects all models equally and preserves the relative ranking, but means that the absolute F1 values (0.46–0.60) understate the true extraction quality. We estimate that true F1 against a comprehensive gold standard would be approximately 10–15 points higher, based on the 45% recall gap in the reference set.
+
+### The Few-Shot Degradation Effect
+
+
+One of the most striking findings across our experiments is the systematic degradation of performance under few-shot prompting, particularly for case outcome classification. Table summarizes the few-shot effect across all model–task combinations.
+
+
+Of the 21 model–task combinations, 12 show degradation under few-shot prompting. The effect is particularly severe for case outcome classification, where 4 of 7 models perform worse with examples. The largest degradation (Qwen 3 235B, -26.0 pp) suggests that few-shot examples for this imbalanced task may anchor the model's predictions toward the demonstrated classes in a way that conflicts with its zero-shot prior.
+
+We hypothesize several mechanisms:
+[leftmargin=*]
+ - **Distribution mismatch**: Few-shot examples drawn from minority classes may distort the model's prior over class frequencies.
+ - **Surface-level pattern matching**: Models may latch onto superficial features of few-shot examples (e.g., specific legal phrases) rather than learning the underlying classification rule.
+ - **Morphological interference**: Ukrainian's rich morphology means that semantically equivalent expressions have many surface forms; few-shot examples may inadvertently narrow the model's pattern space.
+
+
+#### Stratified Few-Shot Ablation
+
+
+To disentangle hypothesis 1 (distribution mismatch) from hypotheses 2–3, we conducted a stratified few-shot ablation on the two models with the largest degradation: Nemotron Super 3 and Qwen 3 235B. Instead of one example per minority class, we provided five examples matching the natural class distribution (4 granted, 1 denied), reflecting the 84%/16% split in the validated dataset.
+
+
+As Table shows, stratified few-shot examples produce degradation equal to or *worse* than minority-balanced examples (-15.8 pp vs.\\ -12.8 pp for Nemotron; -26.4 pp vs.\\ -26.0 pp for Qwen 3 235B). This result effectively rules out distribution mismatch (hypothesis 1) as the primary cause.
+
+#### Prompt Sensitivity Ablation
+
+
+To rule out prompt-specific artifacts, we tested three prompt formulations for Qwen 3 235B few-shot case outcome classification: (1) the original Ukrainian prompt, (2) English-language instructions with Ukrainian class labels, and (3) a verbose Ukrainian prompt with numbered options.
+
+
+As Table shows, the few-shot degradation is robust across all three prompt formulations, with accuracy dropping by 34–45 percentage points regardless of instruction language or verbosity. English-language instructions partially mitigate the effect (-33.7 pp vs.\\ -44.7 pp), suggesting that the interference operates partly at the level of Ukrainian-language demonstration parsing. However, even with English instructions, few-shot performance (60.1%) remains far below zero-shot (93.8%), confirming that the degradation is not an artifact of a single prompt template. The combined evidence from stratified example selection (Section ) and prompt variation rules out both distribution mismatch and prompt-specific confounds, supporting the morphological interference hypothesis.
+
+Figure visualizes the few-shot effect across all model–task combinations.
+
+
+*[Figure: Few-shot effect (few-shot minus zero-shot, in percentage points) across all model–task combinations. Bars below the zero line indicate degradation. Case outcome classification (red) shows the most severe and widespread degradation, with Qwen 3 235B dropping 26 pp. Norm extraction (green) is largely unaffected by few-shot prompting.]*
+
+
+### Composite Ranking
+
+
+To provide a holistic comparison, we compute two composite scores. The *3-task composite* is the unweighted mean of case type accuracy, case outcome accuracy, and norm extraction F1 (scaled to 0–100). Because the norm extraction gold standard has incomplete recall (Section ), we also report a *classification-only composite*, the mean of case type and case outcome accuracy, which relies exclusively on validated labels and is unaffected by reference set limitations. Table presents both rankings.
+
+
+Nemotron Super 3 ranks first under *both* composite metrics (83.1 and 97.5), confirming that its lead is robust to the choice of aggregation. The classification-only composite, which avoids the regex reference set limitation, shows a tighter field: Nemotron (97.5), Qwen 3 235B (95.6), Nova Pro (95.2), and Maverick (95.1) are separated by only 2.4 points. This highlights that the 3-task composite's wider spread is partly driven by norm extraction score differences, which, as discussed in Section , underestimate the true capability of models that identify citations beyond the regex reference set.
+
+On the cost dimension, Llama 4 Maverick costs only \\0.81 for the entire experiment, while Mistral Large 3 costs \\10.99, a 13.6\\times cost difference. Under the classification-only composite, Maverick (95.1 at \\0.81) achieves 97% of Nemotron's quality (97.5 at \\3.61) at 22% of the cost.
+
+Figure visualizes the cost–quality frontier across all seven models.
+
+
+*[Figure: Cost–quality frontier for seven models on Ukrainian legal text. Each point represents one model; the dashed line traces the Pareto frontier. Nemotron Super 3 offers the best composite score at moderate cost; Maverick occupies the efficient corner. Mistral Large 3, despite 5.6\\times more total parameters (3.4\\times active), delivers lower quality at 3\\times the cost of Nemotron.]*
+
+
+### Cost Analysis
+
+% 
+
+Table presents detailed cost breakdowns by model. Costs reflect actual API charges via AWS Bedrock during the experiment period.
+
+
+The cost variation is dramatic. Llama 4 Maverick is 13.6\\times cheaper than Mistral Large 3 per inference call. This cost advantage derives from two factors: (1) Maverick's superior tokenizer fertility reduces input token count by 8–38% relative to other models, and (2) Maverick's per-token pricing on Bedrock is among the lowest in the evaluated set.
+
+Crucially, this cost advantage does not come at the expense of quality. Maverick achieves the best or tied-best zero-shot accuracy on case type classification (98.9%) and competitive performance on case outcome classification (91.2%, 4th place). Its relative weakness is norm extraction (F1 = 0.487, 6th place), suggesting that the smaller active parameter count (17B) may limit performance on complex extraction tasks.
+
+**Beyond API pricing: deployment flexibility.**
+Our cost analysis reflects managed API pricing on AWS Bedrock, which is the most accessible deployment mode but not the only one. A critical distinction among our evaluated models is *self-hosting capability*. Nemotron Super 3, Llama 3.3, and Llama 4 Maverick are open-weight models that can be deployed on-premises or in private clouds: Nemotron via NVIDIA NIM (NVIDIA Inference Microservices), Llama models via vLLM, TGI, or similar serving stacks. This enables organizations with GPU infrastructure to eliminate per-token API costs entirely, paying only for compute. For a legal technology platform processing millions of court decisions, the total cost of ownership (TCO) under self-hosted deployment can be an order of magnitude lower than managed API pricing.
+
+In contrast, Amazon Nova Pro and Mistral Large 3 are available exclusively through managed APIs (Bedrock and Mistral's platform, respectively), offering no self-hosting option. Qwen 3 models are open-weight and deployable via standard inference stacks (vLLM, SGLang, TensorRT-LLM), though without the enterprise tooling and support that NVIDIA NIM provides for Nemotron.
+
+This deployment asymmetry further strengthens Nemotron's position: it combines the highest task accuracy in our evaluation with the flexibility to be self-hosted via NIM on NVIDIA GPUs, enabling fine-tuning, domain adaptation, and data-sovereign deployment, all critical requirements for legal technology platforms handling sensitive court documents.
+
+% ============================================================
+% 5. DISCUSSION
+% ============================================================
+## Discussion
+
+### Tokenizer Efficiency as a First-Order Concern
+
+Our results demonstrate that tokenizer fertility should be a first-order consideration when selecting foundation models for non-English NLP. The 1.6\\times fertility gap between the most and least efficient tokenizers on Ukrainian text has direct, quantifiable consequences: 60% higher token consumption per document, 60% higher API costs at equivalent pricing, and a proportionally reduced effective context window.
+
+The clustering of fertility by tokenizer family, rather than model size, confirms that this is a vocabulary design choice, not an emergent property of scale. Both Qwen 3 models (32B and 235B) exhibit nearly identical fertility (3.902 vs.\\ 3.894), and both Llama models cluster at the efficient end. Practitioners evaluating models for non-English deployment should therefore begin with tokenizer analysis before investing in task-specific benchmarking.
+
+The Llama 4 tokenizer's efficiency improvement over Llama 3.3 (2.434 vs.\\ 2.652, an 8.2% reduction) indicates that Meta has actively improved Cyrillic representation between model generations, likely by expanding the vocabulary with additional Ukrainian and related-language subword units.
+
+### Model Size Does Not Predict Ukrainian Performance
+
+A striking finding is the poor correlation between model size (total parameters) and Ukrainian-language task performance. Nemotron Super 3 (120B total, 12B active) achieves the highest composite score, outperforming Mistral Large 3 (675B total, 41B active) on all three tasks while costing one-third as much. Llama 4 Maverick, with only 17B active parameters, matches or exceeds 70B+ models on classification tasks.
+
+This disconnect suggests that Ukrainian-language capability depends more on (1) the proportion and quality of Ukrainian text in pre-training data, (2) tokenizer design, and (3) instruction-following quality on non-English prompts than on raw parameter count. For practitioners, the implication is clear: model selection for low-resource languages cannot be based on English-language benchmarks alone.
+
+### Why Nemotron Leads: Architecture and Training Hypotheses
+
+Nemotron Super 3's dominance on Ukrainian legal text, particularly its 96.0% case outcome accuracy (4+ percentage points above the next-best model), warrants explanation. The model (Bedrock ID: \`nvidia.nemotron-super-3-120b\`, listed as "NVIDIA Nemotron 3 Super 120B A12B") is a 120B-parameter open model with only 12B active parameters per token, built on a *hybrid Mamba-Transformer* architecture with latent mixture-of-experts (MoE). This is not a distilled Llama variant; it is a distinct architecture trained from scratch on over 10 trillion tokens, including synthetic data generated by frontier reasoning models. We hypothesize that four architectural features contribute to its performance on Ukrainian legal text.
+
+First, **hybrid Mamba-Transformer layers**. Nemotron Super 3 combines Mamba layers (a selective state-space model offering 4\\times greater memory and compute efficiency than standard attention) with transformer layers for reasoning. This hybrid architecture is particularly well-suited to long legal documents: Mamba layers efficiently encode the formulaic, repetitive structure of court decisions (procedural history, cited legislation), while transformer layers handle the reasoning-intensive dispositive section. Our evaluation documents average 10,800 characters, a length where Mamba's sub-quadratic sequence scaling provides a meaningful advantage over pure transformer architectures.
+
+Second, **latent MoE routing**. Nemotron activates only 12B of its 120B parameters per token, routing each token to four specialist experts for the computational cost of one dense forward pass. While other MoE models in our evaluation have even higher sparsity ratios (Llama 4 Maverick activates 4% of its 400B parameters, Qwen 3 235B activates 9%), Nemotron's *latent* MoE architecture routes through four specialists per token rather than a single expert, increasing effective capacity without a proportional increase in compute cost. Combined with sub-quadratic Mamba layers, this enables Nemotron to store diverse knowledge, potentially including Ukrainian legal patterns, across 120B parameters while maintaining the inference speed of a 12B model.
+
+Third, **synthetic training data from frontier models**. NVIDIA's training pipeline uses synthetic data generated by frontier reasoning models (likely GPT-4-class) across multiple languages. If the frontier teacher generated Ukrainian-language training samples, including legal reasoning patterns, Nemotron would inherit multilingual legal reasoning capability without requiring massive Ukrainian web corpora in the pre-training set. This synthetic data strategy may explain why Nemotron outperforms models trained primarily on organic web data, where Ukrainian is underrepresented.
+
+Fourth, **multi-token prediction**. Nemotron employs a multi-token prediction objective during training, which has been shown to improve both inference speed and output coherence. For structured tasks such as case outcome classification, where the answer is a short Ukrainian phrase, multi-token prediction may enable more confident single-step output rather than token-by-token generation.
+
+We note that Nemotron's tokenizer fertility (3.08 tokens/word) clusters with Mistral (3.06) rather than with the Llama family (2.43–2.65), confirming that Nemotron uses its own vocabulary rather than inheriting Llama's. Despite this moderate fertility, Nemotron's low active parameter count (12B) keeps per-token inference cost competitive: at \\0.15/M input tokens on Bedrock, it is among the cheapest models in our evaluation on a per-quality-point basis.
+
+### The Few-Shot Paradox for Morphologically Rich Languages
+
+The systematic few-shot degradation we observe, particularly the 26.0-point drop for Qwen 3 235B on case outcome classification, extends a growing body of evidence on few-shot failure modes. lu2022order showed that few-shot performance is highly sensitive to example ordering, with accuracy varying by up to 30 percentage points depending on permutation. min2022rethinking demonstrated that few-shot demonstrations often function as format specifiers rather than task learners: ground-truth labels in examples can be replaced with random labels with minimal performance impact, suggesting that models anchor on surface-level patterns rather than learning the task. Our findings add a new dimension: for morphologically rich languages such as Ukrainian, few-shot demonstrations may actively interfere with the model's zero-shot capabilities.
+
+For Ukrainian legal text, we hypothesize that the rich morphological system creates a combinatorial explosion of surface forms for semantically equivalent expressions. Few-shot examples, which necessarily present a tiny sample of these forms, may inadvertently narrow the model's attention to specific morphological patterns that do not generalize. In contrast, zero-shot prompting allows the model to leverage its full distributional knowledge of Ukrainian without surface-level anchoring.
+
+Our stratified few-shot ablation (Section ) provides direct evidence for this interpretation. When we replaced minority-balanced examples with examples matching the natural class distribution (4 granted, 1 denied), the degradation persisted or worsened (-15.8 pp for Nemotron, -26.4 pp for Qwen 3 235B). This rules out distribution mismatch as the primary cause and implicates the act of providing Ukrainian-language demonstrations itself as the source of interference.
+
+This finding has practical implications: for production systems processing Ukrainian legal text, zero-shot prompting should be the default baseline, and few-shot prompting should be validated per-model and per-task rather than assumed to help.
+
+### Task-Specific Strengths and Multi-Model Routing
+
+
+No single model dominates all tasks. The task-specific rankings reveal complementary strengths that motivate a routing architecture:
+
+[leftmargin=*]
+ - **Case type classification**: Llama 4 Maverick and Nemotron Super 3 (98.9% each). This is the easiest task, and the cheapest model (Maverick, \\0.00045/call) matches the best.
+ - **Case outcome classification**: Nemotron Super 3 (96.0%). The hardest classification task, where Nemotron's hybrid Mamba-Transformer architecture and synthetic multilingual training data provide a clear edge.
+ - **Norm extraction**: Llama 3.3 70B (F1 = 0.604). The only model with a dense 70B architecture in our set, it excels at structured JSON extraction from long legal citations.
+
+
+**Proposed routing architecture.**
+For a production legal NLP pipeline processing Ukrainian court decisions, we propose a three-tier routing strategy that assigns each document to the optimal model per task:
+
+[leftmargin=*]
+ - **Tier 1: Case type classification \\rightarrow Llama 4 Maverick.** At 98.9% accuracy and \\0.00045/call, Maverick provides near-perfect classification at the lowest cost. Its superior tokenizer (2.43 tokens/word) further reduces input cost. This is a high-volume, low-stakes call suitable for the cheapest model.
+ - **Tier 2: Case outcome classification \\rightarrow Nemotron Super 3.** At 96.0% accuracy and \\0.00201/call, Nemotron is 4.5\\times more expensive than Maverick per call but provides the most reliable outcome extraction, a high-stakes determination that affects downstream legal analysis.
+ - **Tier 3: Norm extraction \\rightarrow Llama 3.3 70B.** At F1 = 0.604 and \\0.00167/call, Llama 3.3 provides the best structured extraction. This task is typically run selectively (on documents requiring citation analysis), not on every document.
+
+
+**Cost–quality comparison.**
+Table compares the proposed routing ensemble against single-model baselines for a hypothetical workload of 10,000 documents, where all documents require case type and outcome classification, and 20% require norm extraction.
+
+
+The routed ensemble achieves the highest composite score (85.1) by assigning each task to the best-performing model, at a cost of \\27.94 per 10K documents. This is 37% cheaper than using Nemotron alone (\\44.22) while delivering higher quality, because Maverick handles the easy classification tier at lower per-call cost. The Maverick-only strategy is the cheapest (\\9.90) but sacrifices 5.5 composite points, primarily on case outcome (91.2% vs.\\ 96.0%) and norm extraction (0.487 vs.\\ 0.604). Mistral Large 3, despite competitive accuracy, is 4.8\\times more expensive than the routed ensemble for lower quality.
+
+This analysis assumes Bedrock API pricing. Under self-hosted deployment via NVIDIA NIM, the Nemotron and Llama tiers would have near-zero marginal cost after GPU amortization, making the routed ensemble even more cost-effective.
+
+### Implications for Practitioners
+
+For teams building legal NLP systems for Ukrainian or other Cyrillic-script languages, we offer the following recommendations:
+
+[leftmargin=*]
+ - **Start with tokenizer analysis.** Before benchmarking task performance, measure tokenizer fertility on representative domain text. A 1.6\\times fertility difference compounds across every inference call.
+ - **Default to zero-shot.** Do not assume that few-shot prompting will help. For morphologically rich languages, validate few-shot against zero-shot per model and per task.
+ - **Ignore parameter counts.** Model size does not predict non-English performance. A 120B model outperformed a 675B model on all tasks.
+ - **Route by task, not by model.** Match model strengths to task requirements. Cheap models suffice for easy classification; invest in stronger models only for hard tasks.
+
+
+% ============================================================
+% 6. LIMITATIONS
+% ============================================================
+## Limitations
+
+**Evaluation scale.** Our evaluation corpus of 300 documents, while stratified, is modest in size. Results on minority classes (e.g., 7 instances of "closed" outcomes in the 273-document validated subset) have wide confidence intervals.
+
+**Class imbalance.** The case outcome label distribution reflects the natural distribution in EDRSR, where "granted" constitutes approximately 80% of decisions. While this is realistic, it limits our ability to assess minority-class performance and inflates overall accuracy for models that default to the majority class.
+
+**API-only evaluation.** All models were evaluated via the AWS Bedrock API, which provides no visibility into tokenizer vocabulary, model weights, or inference configuration. Fertility measurements rely on the API's reported token counts, which may include special tokens or system prompt overhead. We mitigated this by using consistent prompts across all models, but minor systematic biases cannot be ruled out.
+
+**Single prompt template.** We used a single Ukrainian-language prompt template per task. Performance may vary with prompt engineering, chain-of-thought prompting, or English-language instructions, avenues we leave for future work.
+
+**Non-reasoning mode.** All evaluations were conducted in standard (non-reasoning) inference mode with temperature set to 0. Several models in our evaluation support extended reasoning or "thinking" modes, most notably Nemotron Super 3, whose reasoning mode is a key architectural feature, and Qwen 3, which supports a thinking/non-thinking toggle. Reasoning mode introduces an internal chain-of-thought before producing the final answer, which may substantially improve performance on tasks requiring multi-step legal reasoning, such as case outcome classification. Our results therefore represent a lower bound on the capabilities of reasoning-capable models. An ablation comparing standard vs.\\ reasoning mode, particularly for Nemotron Super 3 on the case outcome task where it already leads at 96.0%, is an important direction for future work.
+
+**Temporal specificity.** The model versions accessed via Bedrock in April–May 2026 may differ from those available at other times or through other providers. Our results reflect the specific model endpoints available during the experiment window.
+
+**No fine-tuning.** We evaluate only zero-shot and few-shot settings. Fine-tuned models would likely show different performance patterns, particularly for the norm extraction task where the structured output format is critical.
+
+**No Ukrainian-specific baselines.** Our evaluation compares only multilingual foundation models available via AWS Bedrock. We do not include Ukrainian-specific or Eastern European language models (e.g., the Ukrainian GPT variants, multilingual encoder models such as XLM-R fine-tuned on Ukrainian legal corpora, or domain-specific models trained on EDRSR data). Such baselines would contextualize whether the 86–96% zero-shot accuracy achieved by general-purpose foundation models is competitive with, or still below, purpose-built alternatives. Similarly, we omit comparison with classical NLP baselines (TF-IDF + SVM, rule-based systems) that may perform well on the relatively structured case type classification task. Including these baselines would strengthen claims about the practical sufficiency of zero-shot foundation model inference for Ukrainian legal NLP.
+
+**Outcome label provenance.** Our outcome labels, while validated through a three-source majority vote, rely on rule-based extraction from the dispositive section. Documents with atypical structure (e.g., interlocutory orders, procedural rulings) were disproportionately excluded during validation, potentially biasing the remaining dataset toward decisions with clear-cut outcomes. Additionally, Nemotron Super 3 served as one of the three voters in the majority-vote tiebreaker, creating a potential circularity with its role as an evaluated model. Our tiebreaker bias analysis (Section ) shows that Nemotron's lead holds on the 205-document easy subset where it had no tiebreaker role (98.0%, 201/205, tied for first), but we acknowledge that a fully independent tiebreaker (e.g., GPT-4 or Gemini) would eliminate this concern entirely.
+
+% ============================================================
+% 7. CONCLUSION
+% ============================================================
+## Conclusion
+
+We have presented a systematic evaluation of seven foundation models on Ukrainian legal text, measuring both tokenizer efficiency and downstream task performance. Our key findings are:
+
+[leftmargin=*]
+ - **NVIDIA Nemotron Super 3 (120B) is the best single model for Ukrainian legal text**, achieving the highest composite score (83.1) across all three tasks, including 96.0% on case outcome classification and 98.9% on case type. It outperforms Mistral Large 3 (675B total, 41B active per token), a model with 5.6\\times more total parameters and 3.4\\times more active parameters, at one-third the API cost (\\3.61 vs.\\ \\10.99). A routed multi-model ensemble (Maverick for classification, Nemotron for outcome, Llama 3.3 for extraction) achieves an even higher composite (85.1) at 37% lower cost than Nemotron alone.
+
+ - **Tokenizer fertility varies by 1.6\\times** across models on Ukrainian legal text, with Llama-family tokenizers (2.43–2.65 tokens/word) substantially more efficient than Qwen tokenizers (3.90 tokens/word). This directly affects API cost and effective context length: Qwen models consume 60% more tokens per document than Llama models for identical input.
+
+ - **Few-shot prompting is counterproductive** for most models on Ukrainian legal classification tasks. A stratified few-shot ablation confirms that even distribution-matched examples degrade performance by up to 26 percentage points, ruling out example selection bias and implicating morphological interference intrinsic to Ukrainian-language demonstrations.
+
+ - **Systematic model selection via managed APIs is inexpensive.** The total cost of the core evaluation (7 models \\times 3 tasks \\times 2 modes \\times 273–300 documents) was \\31.41 (Table ). Including ablation studies (label validation via Claude Sonnet 4.5: {\\sim}\\12; stratified few-shot ablation: {\\sim}\\8; prompt sensitivity ablation: {\\sim}\\5; tokenizer fertility: {\\sim}\\4), the total experiment cost was approximately \\60, demonstrating that comprehensive language-specific benchmarking is feasible even for resource-constrained teams.
+
+
+These findings underscore the importance of language-specific evaluation before model deployment. English-language benchmarks and parameter counts are poor proxies for performance on morphologically rich, Cyrillic-script languages. For practitioners: Nemotron Super 3 offers the best accuracy–cost tradeoff for Ukrainian legal NLP; Llama 4 Maverick provides the cheapest inference at near-top accuracy; and zero-shot prompting should be preferred over few-shot for Ukrainian. We release our evaluation methodology and results to support practitioners building legal NLP systems for Ukrainian and related languages.
+
+**Data and code availability.** The evaluation code and aggregated results are available at https://github.com/overthelex/rlhf-signals. Individual court decisions are publicly available via the EDRSR API (https://reyestr.court.gov.ua).
+
+% ============================================================
+% ACKNOWLEDGMENTS
+% ============================================================
+## Acknowledgments
+
+This work was conducted as part of the LEX AI platform development at legal.org.ua. LEX AI LLC is a member of the NVIDIA Inception program for AI startups. Compute costs for all experiments were covered by an AWS Activate grant (\\$25,000 in AWS credits); no compute credits or other support was received from NVIDIA or any other model provider evaluated in this study. We thank the EDRSR for providing open access to court decisions, AWS for the Bedrock API infrastructure, and NVIDIA, Meta, Qwen, Mistral AI, and Amazon for making their foundation models accessible for independent evaluation.
+
+**Conflict of interest disclosure.** The author has no financial relationship with NVIDIA beyond membership in the NVIDIA Inception program, which provides business resources but did not fund or influence this research. All experiments were conducted on AWS infrastructure funded by an AWS grant. The evaluation methodology, model selection, and conclusions were determined independently. NVIDIA Nemotron Super 3's top ranking in our evaluation is an empirical finding, not a sponsored result.
+
+% ============================================================
+% REFERENCES
+% ============================================================
+{25}
+\\providecommand{\\natexlab}[1]{#1}
+
+\\bibitem[Rust et al.(2021)]{rust2021good}
+Rust, P., Pfeiffer, J., Vuli\\'{c}, I., Ruder, S., and Gurevych, I.
+\\newblock How Good is Your Tokenizer? On the Monolingual Performance of Multilingual Language Models.
+\\newblock *Proceedings of the 59th Annual Meeting of the ACL*, pages 3118–3135, 2021.
+\\newblock https://aclanthology.org/2021.acl-long.243/
+
+\\bibitem[Petrov et al.(2024)]{petrov2024language}
+Petrov, A., La Malfa, E., Torr, P., and Bibi, A.
+\\newblock Language Model Tokenizers Introduce Unfairness Between Languages.
+\\newblock *Advances in Neural Information Processing Systems*, 37, 2024.
+\\newblock https://arxiv.org/abs/2305.15425
+
+\\bibitem[Ahia et al.(2023)]{ahia2023all}
+Ahia, O., Ogueji, K., Winata, G. I., Kreutzer, J., and Hooker, S.
+\\newblock Do All Languages Cost the Same? Tokenization in the Era of Commercial Language Models.
+\\newblock *Proceedings of EMNLP 2023*, pages 9524–9538, 2023.
+\\newblock https://aclanthology.org/2023.emnlp-main.614/
+
+\\bibitem[Sennrich et al.(2016)]{sennrich2016neural}
+Sennrich, R., Haddow, B., and Birch, A.
+\\newblock Neural Machine Translation of Rare Words with Subword Units.
+\\newblock *Proceedings of the 54th Annual Meeting of the ACL*, pages 1715–1725, 2016.
+\\newblock https://aclanthology.org/P16-1162/
+
+\\bibitem[Kudo and Richardson(2018)]{kudo2018sentencepiece}
+Kudo, T. and Richardson, J.
+\\newblock SentencePiece: A Simple and Language Independent Subword Tokenizer and Detokenizer for Neural Text Processing.
+\\newblock *Proceedings of EMNLP 2018: System Demonstrations*, pages 66–71, 2018.
+\\newblock https://aclanthology.org/D18-2012/
+
+\\bibitem[Chalkidis et al.(2020)]{chalkidis2020legal}
+Chalkidis, I., Fergadiotis, M., Malakasiotis, P., Aletras, N., and Androutsopoulos, I.
+\\newblock LEGAL-BERT: The Muppets straight out of Law School.
+\\newblock *Findings of EMNLP 2020*, pages 2898–2904, 2020.
+\\newblock https://aclanthology.org/2020.findings-emnlp.261/
+
+\\bibitem[Niklaus et al.(2023)]{niklaus2023lextreme}
+Niklaus, J., Matoshi, V., Sturmer, M., Chalkidis, I., and Jositsch, D.
+\\newblock {LEXTREME}: A Multi-Lingual and Multi-Task Benchmark for the Legal Domain.
+\\newblock *Findings of EMNLP 2023*, pages 12898–12916, 2023.
+\\newblock https://aclanthology.org/2023.findings-emnlp.865/
+
+\\bibitem[Hendrycks et al.(2021)]{hendrycks2021measuring}
+Hendrycks, D., Burns, C., Basart, S., Zou, A., Mazeika, M., Song, D., and Steinhardt, J.
+\\newblock Measuring Massive Multitask Language Understanding.
+\\newblock *Proceedings of ICLR*, 2021.
+\\newblock https://arxiv.org/abs/2009.03300
+
+\\bibitem[Brown et al.(2020)]{brown2020language}
+Brown, T., Mann, B., Ryder, N., Subbiah, M., Kaplan, J., et al.
+\\newblock Language Models are Few-Shot Learners.
+\\newblock *Advances in Neural Information Processing Systems*, 33:1877–1901, 2020.
+\\newblock https://arxiv.org/abs/2005.14165
+
+\\bibitem[Lu et al.(2022)]{lu2022order}
+Lu, Y., Bartolo, M., Moore, A., Riedel, S., and Stenetorp, P.
+\\newblock Fantastically Ordered Prompts and Where to Find Them: Overcoming Few-Shot Prompt Order Sensitivity.
+\\newblock *Proceedings of the 60th Annual Meeting of the ACL*, pages 8086–8098, 2022.
+\\newblock https://aclanthology.org/2022.acl-long.556/
+
+\\bibitem[Min et al.(2022)]{min2022rethinking}
+Min, S., Lyu, X., Holtzman, A., Arber, M., Lewis, M., Hajishirzi, H., and Zettlemoyer, L.
+\\newblock Rethinking the Role of Demonstrations: What Makes In-Context Learning Work?
+\\newblock *Proceedings of EMNLP 2022*, pages 11048–11064, 2022.
+\\newblock https://aclanthology.org/2022.emnlp-main.759/
+
+\\bibitem[Lai et al.(2023)]{lai2023chatgpt}
+Lai, V. D., Ngo, N. T., Veyseh, A. P. B., Man, H., Dernoncourt, F., Bui, T., and Nguyen, T. H.
+\\newblock ChatGPT Beyond English: Towards a Comprehensive Evaluation of Large Language Models in Multilingual Learning.
+\\newblock *Findings of EMNLP 2023*, pages 13171–13189, 2023.
+\\newblock https://aclanthology.org/2023.findings-emnlp.878/
+
+\\bibitem[Conneau et al.(2020)]{conneau2020unsupervised}
+Conneau, A., Khandelwal, K., Goyal, N., Chaudhary, V., Wenzek, G., et al.
+\\newblock Unsupervised Cross-lingual Representation Learning at Scale.
+\\newblock *Proceedings of the 58th Annual Meeting of the ACL*, pages 8440–8451, 2020.
+\\newblock https://aclanthology.org/2020.acl-main.747/
+
+\\bibitem[Touvron et al.(2023)]{touvron2023llama}
+Touvron, H., Martin, L., Stone, K., et al.
+\\newblock Llama 2: Open Foundation and Fine-Tuned Chat Models.
+\\newblock *arXiv preprint arXiv:2307.09288*, 2023.
+\\newblock https://arxiv.org/abs/2307.09288
+
+\\bibitem[Grattafiori et al.(2024)]{grattafiori2024llama3}
+Grattafiori, A., Dubey, A., Jauhri, A., et al.
+\\newblock The Llama 3 Herd of Models.
+\\newblock *arXiv preprint arXiv:2407.21783*, 2024.
+\\newblock https://arxiv.org/abs/2407.21783
+
+\\bibitem[{Meta AI}(2025)]{meta2025llama4}
+{Meta AI}.
+\\newblock The Llama 4 Herd of Models.
+\\newblock *arXiv preprint arXiv:2504.16736*, 2025.
+\\newblock https://arxiv.org/abs/2504.16736
+
+\\bibitem[{Mistral AI}(2024)]{jiang2024mistral}
+{Mistral AI}.
+\\newblock Mistral Large.
+\\newblock Technical report, 2024.
+\\newblock https://mistral.ai/news/mistral-large-2407/
+
+\\bibitem[{NVIDIA}(2025)]{nvidia2025nemotron}
+{NVIDIA}.
+\\newblock Nemotron Super: Open Hybrid Mamba-Transformer Models.
+\\newblock Technical report, 2025.
+\\newblock https://developer.nvidia.com/blog/nemotron-super-open-model-for-enterprise-reasoning/
+
+\\bibitem[{Amazon Web Services}(2024)]{amazon2024nova}
+{Amazon Web Services}.
+\\newblock Amazon Nova: Foundation Models for Enterprise AI.
+\\newblock Technical report, 2024.
+\\newblock https://aws.amazon.com/ai/generative-ai/nova/
+
+\\bibitem[{Qwen Team}(2025)]{qwen2025qwen3}
+{Qwen Team}.
+\\newblock Qwen3 Technical Report.
+\\newblock Technical report, 2025.
+\\newblock https://qwenlm.github.io/blog/qwen3/
+
+\\bibitem[Wei et al.(2022)]{wei2022finetuned}
+Wei, J., Bosma, M., Zhao, V., Guu, K., Yu, A. W., Lester, B., Du, N., Dai, A. M., and Le, Q. V.
+\\newblock Finetuned Language Models Are Zero-Shot Learners.
+\\newblock *Proceedings of ICLR*, 2022.
+\\newblock https://arxiv.org/abs/2109.01652
+
+\\bibitem[Zheng et al.(2024)]{zheng2024judging}
+Zheng, L., Chiang, W.-L., Sheng, Y., et al.
+\\newblock Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena.
+\\newblock *Advances in Neural Information Processing Systems*, 36, 2024.
+\\newblock https://arxiv.org/abs/2306.05685
+
+\\bibitem[Kotsyba et al.(2018)]{languk2018}
+Kotsyba, N., Mykulyak, A., and Shvedova, M.
+\\newblock lang-uk: Building a Comprehensive Corpus and Language Technology for Ukrainian.
+\\newblock *Proceedings of LREC 2018*, 2018.
+\\newblock https://lang.org.ua/en/
+
+\\bibitem[Syvokon and Nahorna(2023)]{syvokon2023uagec}
+Syvokon, O. and Nahorna, O.
+\\newblock {UA-GEC}: Grammatical Error Correction and Fluency Corpus for the Ukrainian Language.
+\\newblock *Proceedings of the Second UNLP Workshop*, pages 96–102, 2023.
+\\newblock https://aclanthology.org/2023.unlp-1.12/
+
+\\bibitem[Chaplynskyi(2023)]{chaplynskyi2023ukrbruk}
+Chaplynskyi, D.
+\\newblock Introducing UberText 2.0: A Corpus of Modern Ukrainian at Scale.
+\\newblock *Proceedings of the Second UNLP Workshop*, pages 1–10, 2023.
+\\newblock https://aclanthology.org/2023.unlp-1.1/
+
+
+% ============================================================
+% APPENDIX
+% ============================================================
+\\appendix
+
+## Prompt Templates
+
+
+### Case Type Classification (Zero-Shot)
+
+\\ttfamily
+\\foreignlanguage{ukrainian}{Визнач тип судової справи з тексту рішення.
+Відповідай ОДНИМ словом: цивільна, кримінальна,
+господарська, або адміністративна.}
+[6pt]
+\\foreignlanguage{ukrainian}{Текст рішення:}
+
+\\{document\\_text\\}
+[6pt]
+\\foreignlanguage{ukrainian}{Тип справи:}
+
+
+### Case Outcome Classification (Zero-Shot)
+
+\\ttfamily
+\\foreignlanguage{ukrainian}{Визнач результат розгляду справи з тексту рішення.
+Відповідай ОДНИМ з варіантів: задоволено, відмовлено,
+залишено без розгляду, частково задоволено, закрито.}
+[6pt]
+\\foreignlanguage{ukrainian}{Текст рішення:}
+
+\\{document\\_text\\}
+[6pt]
+\\foreignlanguage{ukrainian}{Результат:}
+
+
+### Norm Extraction (Zero-Shot)
+
+\\ttfamily
+\\foreignlanguage{ukrainian}{Витягни всі правові норми (закон + стаття),
+на які посилається суд у цьому рішенні.
+Поверни відповідь у форматі JSON масиву:}
+
+{[}\\{"law": "\\foreignlanguage{ukrainian}{назва}",
+
+\\hspace*{1em}"article": "\\foreignlanguage{ukrainian}{номер}"\\}{]}
+[6pt]
+\\foreignlanguage{ukrainian}{Текст рішення:}
+
+\\{document\\_text\\}
+[6pt]
+\\foreignlanguage{ukrainian}{Норми (JSON):}
+
+
+## Full Per-Model Results
+
+
+Table presents the complete results matrix for all model–task–mode combinations.
+
+
+## Dataset Statistics
 
 ---
 
@@ -7161,26 +8958,1300 @@ Foundation models tokenize Ukrainian legal text with vastly different efficiency
   'paper-ontology-oversight-bridge': {
     title: 'From Ontology-Controlled Systems to Oversight-Controlled Training: Formal Foundations for Human–LLM Alignment Signal Validation',
     punchline: 'We extend the principle of ontology-controlled systems — where formal ontological structure governs system behavior — from the level of system output to the level of human oversight over system output. Domain constitution formalized in OWL 2 DL with automated reasoning.',
-    readTime: 'PDF, 30 pages',
-    content: `# From Ontology-Controlled Systems to Oversight-Controlled Training
-
-**Formal Foundations for Human–LLM Alignment Signal Validation**
-
-**Volodymyr Ovcharov** — LEX AI LLC, Kyiv, Ukraine
-
----
-
+    readTime: '40 min read (full paper)',
+    content: `% ============================================================
+% Abstract
+% ============================================================
 ## Abstract
 
-Current methods for collecting human preference data for RLHF lack formal criteria for determining when human corrections on LLM output constitute valid training signal versus noise.
-
-We extend the principle of **ontology-controlled systems** — where formal ontological structure governs system runtime behavior — from the level of system output to the level of human oversight over system output. We formalize a *domain constitution*: five axiomatically defined conditions under which human edit-traces on agentic LLM output constitute valid alignment signal.
-
-The formalization uses description logic, implemented as an OWL 2 DL ontology with automated reasoning for workflow classification. We compare this oversight-level control with output-level ontological control as realized in OntoChatGPT, showing that the two operate on complementary levels of the same conceptual stack.
-
-Empirical validation on 30,510 edit-traces from a production legal AI platform demonstrates that ontology-based filtering of oversight signal correlates with downstream outcome quality.
-
+Current methods for collecting human preference data for reinforcement learning from human feedback (RLHF) lack formal criteria for determining when human corrections on LLM output constitute valid training signal versus noise.
+We extend the principle of ontology-controlled systems (palagin2006architecture)—where formal ontological structure governs system runtime behavior—from the level of system output to the level of human oversight over system output.
+We formalize a *domain constitution*: five axiomatically defined conditions under which human edit-traces on agentic LLM output constitute valid alignment signal.
+The formalization uses \\DL description logic, implemented as an OWL 2 DL ontology with automated reasoning for workflow classification.
+We compare this oversight-level control with output-level ontological control as realized in OntoChatGPT (palagin2023ontochatgpt), showing that the two operate on complementary levels of the same conceptual stack.
+Empirical validation on 30{,}510 edit-traces from a production legal AI platform demonstrates that ontology-based filtering of oversight signal correlates with downstream outcome quality.
 The work establishes a formal bridge between ontology-controlled architectures and LLM alignment methodology.
+
+
+**Keywords:** ontology-controlled systems, domain constitution, description logic, RLHF, alignment, edit-trace oversight, OWL, human oversight, LLM
+
+% ============================================================
+## Introduction
+
+% ============================================================
+
+% ——————————————————–
+### The Problem: Preference Signal Without Formal Validity Criteria
+
+% ——————————————————–
+
+Reinforcement learning from human feedback (RLHF) has become the dominant paradigm for aligning large language models with human intent (christiano2017deep, ouyang2022training).
+The paradigm rests on a simple premise: human judgments about model outputs—expressed as preference labels, rankings, or corrections—provide a training signal that steers the model toward desirable behavior.
+Direct Preference Optimization (DPO) (rafailov2023direct) simplified the training pipeline by eliminating the intermediate reward model, but the upstream question remains unchanged: *which human judgments constitute valid training signal?*
+
+Current practice treats this question as unproblematic.
+Crowd workers on Amazon Mechanical Turk rate pairs of model outputs (ouyang2022training).
+Expert annotators evaluate in controlled settings (bai2022constitutional).
+AI models generate synthetic preferences via self-evaluation (RLAIF) (lee2023rlaif).
+In each case, the implicit assumption is that any preference label, from any context, is equally valid as training data.
+There are no formal criteria—no axioms, no decidable conditions, no automated verification—for distinguishing valid preference signal from noise.
+
+This absence of formal validity criteria would be unremarkable if the signal sources were homogeneous.
+But they are not.
+A crowd worker rating two completions in a web interface and a domain expert correcting an LLM agent's output within a production workflow occupy fundamentally different epistemic positions.
+The crowd worker operates without persistent state, without compositional context, without production consequences.
+The domain expert operates with all three.
+Treating their annotations as interchangeable discards information about signal quality that is, in principle, formalizable.
+
+% ——————————————————–
+### An Empirical Observation
+
+% ——————————————————–
+
+ovcharov2026edittrace documented an empirical case that sharpens this problem.
+A single practitioner shipped 1{,}547 merged pull requests across 7 production repositories in 105 days using an LLM agent (Claude Code) as the primary engineering counterpart—building a legal AI platform (Legal.org.ua) with 70+ MCP tools, 380M+ records in the data pipeline, and paying customers.
+Validated outcomes included acceptance by Google for Startups, NVIDIA Inception, and AWS Activate.
+
+Every human correction on the agent's output was captured as an edit-trace: the agent's proposed output, the human's corrected version, and the downstream outcome of the corrected artifact.
+The resulting dataset—30{,}510 edit pairs across 2{,}892 sessions, with 1{,}579 attributed outcomes—exhibited a qualitatively different distribution from what detached annotation would produce: 80.7% of all corrections were substantive rewrites (median normalized edit distance: 0.84), and binary rejection of agent output correlated with 78% positive downstream outcomes.
+
+The paper proposed five informal conditions—termed a "domain constitution"—under which these edit-traces constitute valid oversight signal rather than noise.
+The conditions were stated in structured English, motivated by empirical observation, and validated statistically.
+But they were not *formalized*: they lacked the precision of description logic axioms, the decidability of automated reasoning, and the implementability of an OWL ontology.
+
+% ——————————————————–
+### The Ontological Control Principle
+
+% ——————————————————–
+
+The formalization gap identified above has a natural solution in a research tradition developed over the past two decades at the V.M. Glushkov Institute of Cybernetics, NAS of Ukraine.
+
+palagin2006architecture introduced the principle of *ontology-controlled systems*: formal ontological structure should not merely describe a system but actively *control* its behavior.
+This principle has been applied at progressively higher levels of the computational stack—from system architecture (palagin2006architecture) to NL text processing (palagin2012knowledge, palagin2020distributional) to LLM output generation (palagin2023ontochatgpt, palagin2024neural) to evolutionary system dynamics (palagin2025evolutionary)—with consistent results: formal structure, when used as a control mechanism rather than passive metadata, improves both the quality and verifiability of system behavior.
+
+The present work extends this principle to one additional level.
+If formal ontological structure can control what an LLM produces (as demonstrated by OntoChatGPT), can it also control which human corrections on LLM output are valid training signal?
+
+We argue that it can, and we formalize this argument.
+
+% ——————————————————–
+### Contributions
+
+% ——————————————————–
+
+This paper makes four contributions:
+
+[label=(\\arabic*),leftmargin=2em]
+
+- **Formalization of the domain constitution in \\DL description logic** (Section ).
+The five informal conditions from ovcharov2026edittrace are expressed as general concept inclusions (GCIs) in \\DL, with a defined concept \\mathsf{ValidOversight} that is the conjunction of all five.
+We prove three formal properties: decidability of instance classification, independence of the five conditions, and monotonicity of the oversight grade under assertion growth.
+
+- **Formal comparison of output-level and oversight-level ontological control** (Section ).
+We analyze the relationship between OntoChatGPT (palagin2023ontochatgpt) and the domain constitution via subsumption queries, showing that \\mathsf{ValidOversight} is a *strict specialization* of \\mathsf{OntoChatGPT\\_Control}: every valid oversight instance satisfies the conditions that define ontology-controlled output, but not conversely.
+This formally confirms that edit-trace oversight *extends* the ontology-controlled paradigm rather than replacing it.
+
+- **OWL 2 DL ontology for automated oversight classification** (Section ).
+The TBox is implemented as an OWL ontology with automated reasoning via HermiT (shearer2008hermit).
+Workflow instances from the LEX AI case study are instantiated as ABox individuals and automatically classified as full, partial, or invalid oversight.
+
+- **Empirical validation of ontology-based signal filtering** (Section ).
+We demonstrate that edit-traces from workflows classified as \\mathsf{ValidOversight} correlate with better downstream outcomes than unfiltered traces, providing empirical support for the claim that formal filtering of preference data improves training signal quality.
+
+
+% ——————————————————–
+### Structure of the Paper
+
+% ——————————————————–
+
+Section traces the evolution of the ontological control principle across five levels, from system architecture (2006) to human oversight validation (this paper).
+Section presents the formal model: signature, TBox axiomatization, defined concepts, negative classification, graded oversight, reasoning tasks, and formal properties.
+Section compares OntoChatGPT and the domain constitution: shared principle, structural differences, subsumption analysis, and integration architecture.
+Section describes the OWL 2 DL implementation and automated verification on the LEX AI case study.
+Section provides empirical validation.
+Section discusses implications for RLHF methodology and the role of evolutionary cybernetics in analyzing oversight dynamics.
+Section concludes.
+
+
+% ============================================================
+## Evolution of Ontological Control
+
+% ============================================================
+
+The principle that formal ontological structure should *control* system behavior—not merely describe or annotate it—has evolved through four successive levels of abstraction over the past two decades.
+Each level retains the core invariant (a formal structure governs a computational process) while shifting the *object of control* from hardware architecture to natural language processing to LLM output generation.
+This paper proposes a fifth level: ontological control over the process by which human oversight of LLM output is validated as training signal.
+
+Table summarizes the progression.
+
+
+% ——————————————————–
+### Level I: Ontological Control of System Architecture (2003–2006)
+
+% ——————————————————–
+
+palagin2006architecture introduced the foundational distinction: an ontology in a computer system can serve as passive metadata (a catalog of concepts and relations) or as an active *control mechanism* that governs the system's runtime behavior.
+The paper argued for the latter interpretation: the ontology defines not only what the system knows but what it *does*—which modules are instantiated, how data flows between them, what processing strategies are selected.
+
+This was a departure from the contemporaneous use of ontologies in the Semantic Web community, where OWL ontologies primarily served as interoperability schemas (grau2008owl2).
+In Palagin's formulation, the ontology occupies the role that a control program occupies in classical von Neumann architecture: it is the structure that determines execution.
+
+The key insight for the present work is the *generality* of this principle.
+If formal structure can control system architecture, the question arises: what *else* can it control?
+The subsequent two decades provide an empirical answer: progressively higher levels of the computational stack.
+
+% ——————————————————–
+### Level II: Ontological Control of NL Text Processing (2012–2020)
+
+% ——————————————————–
+
+The second level applies ontological control to natural language processing pipelines.
+palagin2012knowledge developed methods for ontology-driven extraction of knowledge from natural language texts, where the domain ontology governs which entities are recognized, what relations are extracted, and how extracted knowledge is represented in formal-logical form.
+The ontology does not merely label the output of an NLP pipeline—it *controls* which pipeline stages execute and what constitutes a valid extraction result.
+
+palagin2020distributional extended this principle to distributional semantics.
+The Semantic Pre-processing Technology (SPT) pipeline uses ontological structure as an *anchor* for learning distributed term representations.
+Where standard word embedding methods (Word2Vec, GloVe) learn representations from co-occurrence statistics alone, SPT uses the domain ontology to:
+(a) define term boundaries (transitioning from word-level to term-level embeddings),
+(b) constrain the embedding space so that ontologically related terms cluster appropriately, and
+(c) provide terminological supervision that reduces the data requirements for domain-specific embedding training.
+
+The relevance to the present work is twofold.
+First, the SPT pipeline demonstrates that domain-specific formal structure improves representation learning—a principle we argue extends to preference learning (Section ).
+Second, the ontology-anchored embedding approach is directly applicable to the legal AI domain where our edit-traces originate: 100.5 million Ukrainian court decisions constitute a corpus where morphological complexity (Ukrainian is a highly inflectional language with seven cases and three genders) makes ontological anchoring especially valuable.
+
+% ——————————————————–
+### Level III: Ontological Control of LLM Output (2023–2024)
+
+% ——————————————————–
+
+The emergence of large language models created a new control surface: the model's generation process.
+palagin2023ontochatgpt developed OntoChatGPT, a system where a formal OWL ontology generates structured prompts that control ChatGPT's output.
+The mechanism is a two-stage pipeline:
+
+[nosep]
+ - A *meta-ontology* encodes domain knowledge (concepts, relations, constraints, expected output structures) in OWL format.
+ - At inference time, the meta-ontology is traversed to generate *structured prompts* that instruct the LLM to produce output conforming to the ontological structure.
+
+
+This is ontological control in the strict sense: the OWL ontology does not describe what the LLM might produce—it *governs* what it does produce.
+The system was demonstrated in the medical rehabilitation domain (Ukrainian language), where ontology-driven prompts produced contextually relevant and structurally consistent responses (palagin2023ontochatgpt).
+
+palagin2024neural generalized this into a methodological framework: the "integrated use of neural network and ontolinguistic paradigms."
+The key argument is that neither the neural paradigm (statistical learning from data) nor the ontolinguistic paradigm (formal knowledge representation) is sufficient alone for complex NLP tasks.
+The neural paradigm learns patterns but lacks formal structure; the ontolinguistic paradigm provides structure but lacks the ability to generalize from data.
+Integration—using ontological structure to guide neural learning—produces results superior to either paradigm in isolation.
+
+In parallel, palagin2023dialogue applied ontological control to dialogue systems: an OWL ontology is automatically constructed from unstructured text, converted to a Neo4j graph database, and then used to govern dialogue responses via formal Cypher queries.
+The dialogue system does not generate free-form responses; it produces responses that are *derivable* from the ontological graph.
+
+These Level III systems share a critical property: the ontology controls **what the model produces at inference time**.
+The formal structure operates on the *output* of the system.
+This is effective for improving the quality and consistency of individual LLM outputs, but it does not address a different question: how to improve the *training signal* that shapes the model's future behavior.
+
+% ——————————————————–
+### Level IV: Ontological Control of Evolutionary Dynamics (2025)
+
+% ——————————————————–
+
+The most recent extension (palagin2025evolutionary) moves ontological control from static system architectures to *evolving* systems where goals, constraints, and structures themselves change over time.
+Evolutionary cybernetics, as formalized in this work, addresses systems where the classical control-theoretic assumption of a fixed objective function does not hold.
+Instead, the system's objectives, the constraints it operates under, and its structural organization co-evolve with its environment.
+
+This level is directly relevant to the human–LLM oversight regime documented in ovcharov2026edittrace.
+The practitioner-agent composition observed there—where neither the human nor the agent achieves the observed output independently—is not a static equilibrium.
+As the agent's capabilities improve through training (including training on the very edit-traces the practitioner generates), the nature of oversight changes: corrections may become more targeted and architecturally informed, the information asymmetry (Condition C4) may shift, and the domain constitution itself may require revision.
+
+palagin2025evolutionary provides the theoretical vocabulary for analyzing this dynamic: the domain constitution is not a fixed control program but an *evolutionary constraint* that co-evolves with the system it governs.
+Whether the practitioner-agent equilibrium is stable under further capability scaling (burns2023weak) is an instance of the broader question evolutionary cybernetics poses: under what conditions do co-evolving control structures maintain their functional role?
+
+% ——————————————————–
+### Level V: Ontological Control of Human Oversight (This Paper)
+
+% ——————————————————–
+
+We propose that the same principle—formal structure controls behavior—applies to one additional level: the process by which human oversight of LLM output is validated as training signal for model improvement.
+
+The motivation arises from a structural gap in the RLHF literature (christiano2017deep, ouyang2022training).
+Current methods collect human preferences via crowd annotation (ouyang2022training), AI self-evaluation (bai2022constitutional, lee2023rlaif), or expert rating.
+None of these methods provides *formal criteria* for when a human correction constitutes valid training signal versus noise.
+The implicit assumption is that any human preference label, from any context, is equally valid as training data.
+
+ovcharov2026edittrace challenged this assumption empirically.
+When a practitioner works recursively with an LLM agent over production workflows (1{,}547 merged PRs, 105 days, 7 repositories), the resulting edit-traces exhibit a qualitatively different distribution from what detached annotation would produce: 80.7% substantive rewrites (median edit distance 0.84), with binary rejection correlating with 78% positive downstream outcomes.
+The paper proposed five informal conditions ("domain constitution") under which these edit-traces constitute valid oversight signal.
+
+The present work formalizes these conditions.
+Table shows the structural parallel across all five levels.
+
+
+The transition from Level III to Level V is the central contribution.
+At Level III, formal structure governs what the LLM produces (inference-time control).
+At Level V, formal structure governs how we determine whether human corrections on LLM output constitute valid data for improving the LLM (training-time control).
+The shift is from controlling the model's *generation* process to controlling the *oversight* process that yields preference data for model improvement.
+
+This is not merely a change in application domain.
+It represents a change in the *kind* of process being controlled.
+Levels I–III control computational processes (architecture configuration, text processing, token generation).
+Level V controls a *socio-technical* process: the interaction between a human overseer and an AI system, and the conditions under which that interaction produces signal suitable for machine learning.
+
+The formalization of this control in \\DL description logic is the subject of Section .
+
+
+% ============================================================
+## Formal Model of the Domain Constitution
+
+% ============================================================
+
+We formalize the domain constitution—the set of conditions under which human corrections on LLM-agentic output constitute valid oversight signal—in \\DL description logic (baader2003description).
+\\DL extends \\mathcal{ALC} with transitive roles (\\mathcal{S}), role hierarchies (\\mathcal{H}), nominals (\\mathcal{O}), inverse roles (\\mathcal{I}), and qualified number restrictions (\\mathcal{Q}), corresponding to the OWL 2 DL profile (grau2008owl2).
+
+% ——————————————————–
+### Signature
+
+% ——————————————————–
+
+
+The oversight signature \\Sigma_{\\mathrm{ov}} consists of:
+
+
+**Concept names** N_C:
+
+ll@{}}
+
+**Concept** & **Intuition** 
+
+
+\\mathsf{Agent} & LLM-based agentic system 
+
+\\mathsf{Human} & Practitioner performing oversight 
+
+\\mathsf{Session} & Bounded unit of human–agent interaction 
+
+\\mathsf{Artifact} & Output produced by \\mathsf{Agent} within a \\mathsf{Session} 
+
+\\mathsf{Edit} & Human correction applied to an \\mathsf{Artifact} 
+
+\\mathsf{Outcome} & Deployed result with measurable consequences 
+
+\\mathsf{State} & Persistent shared computational state 
+
+\\mathsf{Information} & Knowledge or context available to a participant 
+
+\\mathsf{SuccessCriterion} & Observable predicate defining task completion 
+
+\\mathsf{ProductionMetric} & Measurable system-level quantity 
+
+
+**Role names** N_R:
+
+lll@{}}
+
+**Role** & **Domain \\to Range** & **Properties** 
+
+
+\\mathsf{operatesOn} & \\mathsf{Agent} \\to \\mathsf{State} & — 
+
+\\mathsf{accessesState} & \\mathsf{Human} \\to \\mathsf{State} & — 
+
+\\mathsf{producesArtifact}& \\mathsf{Session} \\to \\mathsf{Artifact} & — 
+
+\\mathsf{hasEdit} & \\mathsf{Artifact} \\to \\mathsf{Edit} & — 
+
+\\mathsf{hasOutcome} & \\mathsf{Session} \\to \\mathsf{Outcome} & — 
+
+\\mathsf{dependsOn} & \\mathsf{Session} \\to \\mathsf{Session} & transitive 
+
+\\mathsf{basedOn} & \\mathsf{Edit} \\to \\mathsf{Information} & — 
+
+\\mathsf{accessibleTo} & \\mathsf{Information} \\to \\mathsf{Agent} & — 
+
+\\mathsf{hasCriterion} & \\mathsf{Session} \\to \\mathsf{SuccessCriterion} & — 
+
+\\mathsf{measuredBy} & \\mathsf{SuccessCriterion} \\to \\mathsf{ProductionMetric} & — 
+
+\\mathsf{hasConsequence} & \\mathsf{Outcome} \\to \\mathsf{ProductionMetric} & — 
+
+\\mathsf{partOf} & \\mathsf{Session} \\to \\mathsf{Workflow} & — 
+
+
+**Derived concepts** (defined via role restrictions):
+
+ \\mathsf{PersistentState} &\\equiv \\mathsf{State} \\sqcap
+ \\exists\\mathsf{operatesOn}^{-}.\\mathsf{Agent} \\sqcap
+ \\exists\\mathsf{accessesState}^{-}.\\mathsf{Human}
+ 
+[4pt]
+ \\mathsf{PrivateInfo} &\\equiv \\mathsf{Information} \\sqcap
+ \\neg\\exists\\mathsf{accessibleTo}.\\mathsf{Agent}
+ 
+[4pt]
+ \\mathsf{GroundedCriterion} &\\equiv \\mathsf{SuccessCriterion} \\sqcap
+ \\exists\\mathsf{measuredBy}.\\mathsf{ProductionMetric}
+ 
+[4pt]
+ \\mathsf{ConsequentialOutcome} &\\equiv \\mathsf{Outcome} \\sqcap
+ \\exists\\mathsf{hasConsequence}.\\mathsf{ProductionMetric}
+ 
+
+
+% ——————————————————–
+### TBox: Axiomatization of the Five Conditions
+
+% ——————————————————–
+
+The domain constitution is a TBox \\TBox consisting of five general concept inclusions (GCIs), each capturing one necessary condition for valid oversight.
+\\mathsf{ValidOversight} is a *defined concept*—an individual (workflow instance) is classified as valid oversight if and only if it satisfies all five conditions simultaneously.
+
+
+Valid oversight requires that the agent and the human operate on a shared, persistent state—a computational environment (codebase, file system, version history) that accumulates changes across sessions and is accessible to both participants.
+
+ \\mathsf{ValidOversight} \\sqsub
+ \\exists\\mathsf{hasState}.\\mathsf{PersistentState}
+ 
+
+where \\mathsf{PersistentState} is defined as in ().
+A workflow operating on isolated, ephemeral snippets without shared state fails C1.
+
+
+*Rationale.*
+Without persistent shared state, human corrections are context-free: they reflect preferences over isolated outputs rather than oversight over an evolving system.
+Persistent state ensures each correction is informed by the cumulative history of prior agent behavior and its consequences (ovcharov2026edittrace).
+
+
+Valid oversight requires that sessions compose into dependency chains: the output of one session serves as input context for subsequent sessions.
+
+ \\mathsf{ValidOversight} \\sqsub
+ \\exists\\mathsf{partOf}.\\left(
+ \\mathsf{Workflow} \\sqcap
+ \\exists\\mathsf{hasSession}.\\left(
+ \\mathsf{Session} \\sqcap \\exists\\mathsf{dependsOn}.\\mathsf{Session}
+ \\right)
+ \\right)
+ 
+
+The role \\mathsf{dependsOn} is declared transitive:
+
+ \\mathsf{Trans}(\\mathsf{dependsOn})
+ 
+
+This enables reasoning over multi-hop compositional chains: if session s_3 depends on s_2 and s_2 depends on s_1, then s_3 is compositionally linked to s_1.
+
+
+*Rationale.*
+Single-turn corrections cannot capture compositional failure modes—cases where each individual output appears adequate but the composition fails.
+An edit correcting an architectural decision that conflicts with a decision made weeks earlier encodes long-range dependency information that no single-turn annotation scheme captures.
+
+
+Valid oversight requires that success criteria are defined as predicates over observable production metrics, not subjective preferences.
+
+ \\mathsf{ValidOversight} \\sqsub
+ \\exists\\mathsf{hasCriterion}.\\mathsf{GroundedCriterion}
+ 
+
+where \\mathsf{GroundedCriterion} is defined as in ().
+
+
+*Rationale.*
+Oversight that rests on subjective preference alone is indistinguishable from taste.
+Corrections grounded in observable system behavior—a deployment failure, a latency spike, an error rate increase—encode causal information about what works and what does not.
+
+
+Valid oversight requires that at least some human corrections are based on information not accessible to the agent.
+
+ \\mathsf{ValidOversight} \\sqsub
+ \\exists\\mathsf{hasArtifact}.\\left(
+ \\mathsf{Artifact} \\sqcap \\exists\\mathsf{hasEdit}.\\left(
+ \\mathsf{Edit} \\sqcap \\exists\\mathsf{basedOn}.\\mathsf{PrivateInfo}
+ \\right)
+ \\right)
+ 
+
+where \\mathsf{PrivateInfo} is defined as in ().
+
+
+*Rationale.*
+Oversight is meaningful precisely because the overseer holds information the overseen system lacks: business priorities, regulatory requirements, user feedback, personal stake in outcomes.
+If corrections reflect only information already available to the agent, the edit-trace is redundant with the agent's own uncertainty.
+
+
+Valid oversight requires that the workflow produces outcomes with measurable real-world consequences.
+
+ \\mathsf{ValidOversight} \\sqsub
+ \\exists\\mathsf{hasOutcome}.\\mathsf{ConsequentialOutcome}
+ 
+
+where \\mathsf{ConsequentialOutcome} is defined as in ().
+
+
+*Rationale.*
+Oversight signal must connect to real consequences to avoid the same detachment that afflicts crowd annotation.
+When corrected artifacts ship and succeed or fail in production, the edit-trace acquires outcome labels that close the loop between correction and consequence.
+
+
+% ——————————————————–
+### Defined Concept: Valid Oversight
+
+% ——————————————————–
+
+
+The concept \\mathsf{ValidOversight} is the conjunction of all five axiomatic conditions:
+
+\\boxed{
+ \\mathsf{ValidOversight} \\equiv
+ \\mathsf{C1} \\sqcap \\mathsf{C2} \\sqcap \\mathsf{C3} \\sqcap \\mathsf{C4} \\sqcap \\mathsf{C5}
+}
+
+
+where each \\mathsf{C}_i is the right-hand side of the corresponding GCI ()–().
+
+
+This is a *necessary and sufficient* definition: an OWL 2 DL reasoner can automatically classify any workflow individual as \\mathsf{ValidOversight} (or not) given its asserted properties.
+
+% ——————————————————–
+### Negative Classification: Invalid Oversight Patterns
+
+% ——————————————————–
+
+The domain constitution defines its negation: interaction patterns that fail one or more conditions.
+These are formally derivable as non-entailments from the TBox.
+
+
+The following workflow patterns are provably not classified as \\mathsf{ValidOversight}:
+
+
+[label=(\\alph*),leftmargin=2em]
+
+- **One-shot code generation.**
+Let w_1 be a workflow with a single session s, no persistent state, and no compositional chain.
+
+ \\ABox_1 &= \\{ \\mathsf{Workflow}(w_1), \\mathsf{hasSession}(w_1, s) \\} \\notag 
+
+ \\KB &= \\langle \\TBox, \\ABox_1 \\rangle \\notag 
+
+ \\KB &\\not\\models \\mathsf{ValidOversight}(w_1) \\text{(fails C1, C2)}
+
+
+- **Automated CI/CD pipeline.**
+Let w_2 be a workflow where all edits are based on information accessible to the agent (test results, linter output).
+
+ \\forall e \\in \\mathsf{Edit}(w_2)&: \\exists i. \\mathsf{basedOn}(e, i) \\wedge \\mathsf{accessibleTo}(i, a) \\notag 
+
+ \\KB &\\not\\models \\mathsf{ValidOversight}(w_2) \\text{(fails C4)}
+
+
+- **Tutorial or learning use.**
+Let w_3 be a workflow with no deployed outcomes.
+
+ \\neg\\exists o. &\\mathsf{hasOutcome}(w_3, o) \\wedge \\mathsf{ConsequentialOutcome}(o) \\notag 
+
+ \\KB &\\not\\models \\mathsf{ValidOversight}(w_3) \\text{(fails C5)}
+
+
+- **Pair programming without success criteria.**
+Let w_4 be a workflow with shared state and compositional chains but no grounded success criteria.
+
+ \\neg\\exists c. &\\mathsf{hasCriterion}(w_4, c) \\wedge \\mathsf{GroundedCriterion}(c) \\notag 
+
+ \\KB &\\not\\models \\mathsf{ValidOversight}(w_4) \\text{(fails C3)}
+
+
+% ——————————————————–
+### Partial Oversight and Graded Classification
+
+% ——————————————————–
+
+In practice, workflows may satisfy some but not all conditions.
+We define a graded classification based on the number of satisfied conditions.
+
+
+For a workflow individual w and TBox \\TBox, the *oversight grade* \\gamma(w) is:
+
+ \\gamma(w) = \\left| \\{ i \\in \\{1,...,5\\} : \\KB \\models \\mathsf{C}_i(w) \\} \\right|
+
+We define three tiers:
+
+ \\mathsf{FullOversight} &\\equiv \\mathsf{ValidOversight} && (\\gamma = 5) 
+
+ \\mathsf{PartialOversight} &\\equiv (\\gamma \\geq 3) \\sqcap \\neg\\mathsf{ValidOversight} && (\\gamma \\in \\{3,4\\}) 
+
+ \\mathsf{InvalidOversight} &\\equiv \\neg\\mathsf{PartialOversight} \\sqcap \\neg\\mathsf{FullOversight} && (\\gamma \\leq 2)
+
+
+This graded scheme enables a *soft filtering* strategy for preference data: full-oversight edit-traces receive weight 1.0 in DPO training, partial-oversight traces receive discounted weight \\alpha \\in (0, 1), and invalid traces are excluded.
+
+% ——————————————————–
+### Reasoning Tasks
+
+% ——————————————————–
+
+The OWL 2 DL realization of \\TBox supports three reasoning tasks relevant to alignment signal validation:
+
+[label=**R\\arabic*.**,leftmargin=2.5em]
+
+- **Instance classification.**
+Given a workflow individual w with asserted properties in \\ABox, determine:
+
+ \\KB \\models \\mathsf{ValidOversight}(w) ?
+
+This is the primary task: automatically classifying whether a given workflow's edit-traces qualify as valid training signal.
+Decidable in \\DL; implemented via tableau-based reasoners (HermiT, Pellet).
+
+- **Consistency checking.**
+Verify that \\TBox is satisfiable—that the five conditions are not mutually contradictory:
+
+ \\KB \\not\\models \\mathsf{ValidOversight} \\sqsub \\bot
+
+We prove satisfiability constructively in Section by exhibiting a model (the LEX AI case study).
+
+- **Subsumption queries.**
+Determine the subsumption relationship between control paradigms:
+
+ \\KB \\models \\mathsf{ValidOversight} \\sqsub \\mathsf{OntoChatGPT\\_Control} ?
+
+We show in Section that the answer is *yes*: \\mathsf{ValidOversight} is strictly more specific than \\mathsf{OntoChatGPT\\_Control}.
+Every valid oversight instance satisfies C1 and C3, the conditions captured by ontology-controlled output.
+The converse does not hold: ontology-controlled output lacks C2, C4, and C5.
+
+
+% ——————————————————–
+### Formal Properties
+
+% ——————————————————–
+
+
+Instance classification of \\mathsf{ValidOversight} is decidable.
+
+
+The TBox \\TBox uses only \\DL constructors: concept conjunction (\\sqcap), existential restriction (\\exists r.C), negation (\\neg), transitive roles, and inverse roles.
+All instance checking problems in \\DL are decidable (horrocks2006even), with worst-case complexity \\textsc{NExpTime}.
+In practice, the ontology size (number of axioms and individuals) is small relative to the theoretical bound, and reasoning completes in sub-second time for thousands of workflow individuals.
+
+
+No condition \\mathsf{C}_i is entailed by the conjunction of the remaining four:
+
+ \\forall i \\in \\{1,...,5\\}: 
+ \\bigsqcap_{j \\neq i} \\mathsf{C}_j \\not\\sqsub \\mathsf{C}_i
+
+
+By construction of four counterexample individuals, each satisfying exactly four conditions and failing the fifth (Section provides three; the remaining two are analogous).
+The negative examples (one-shot generation, automated pipeline, tutorial use, pair programming without criteria) each isolate a single failing condition while plausibly satisfying the others.
+
+
+Adding true assertions about a workflow individual w to \\ABox can only increase \\gamma(w):
+
+ \\ABox \\subseteq \\ABox' \\implies \\gamma_{\\ABox}(w) \\leq \\gamma_{\\ABox'}(w)
+
+
+Each \\mathsf{C}_i is a positive existential restriction.
+Adding assertions can only satisfy previously unsatisfied existential quantifiers, never invalidate satisfied ones.
+Under the open-world assumption, absent assertions do not entail negation—they merely fail to entail the positive condition.
+
+
+This monotonicity property has practical significance: as more metadata about a workflow is captured (e.g., outcome tracking is added post-hoc), the oversight grade can only increase.
+A workflow that was \\textsc{PartialOversight} due to missing outcome data can be reclassified as \\textsc{FullOversight} once outcomes are attributed, without invalidating prior assertions.
+
+
+% ============================================================
+## Comparison: OntoChatGPT vs.\\ Domain Constitution
+
+% ============================================================
+
+OntoChatGPT (palagin2023ontochatgpt) and the domain constitution formalized in Section both instantiate the ontological control principle introduced in palagin2006architecture: a formal structure governs the behavior of a system involving an LLM.
+However, they operate at different levels of the same conceptual stack, control different processes, and serve different downstream purposes.
+This section makes the relationship precise.
+
+% ——————————————————–
+### Shared Principle: Formal Structure as Active Control
+
+% ——————————————————–
+
+Both systems are built on the same architectural commitment: the formal structure is not a passive annotation layer but an *active governor* of a computational process.
+
+In OntoChatGPT, a domain OWL ontology is traversed at inference time to generate structured prompts.
+The ontology determines which concepts are activated, what relational constraints are imposed, and what structural patterns the LLM's output must conform to.
+Without the ontology, the LLM generates unconstrained output; with it, the output is shaped by formal domain knowledge.
+
+In the domain constitution, five axioms in \\DL are evaluated against workflow metadata to classify whether a given set of edit-traces constitutes valid training signal.
+Without the constitution, all human corrections are treated as equally valid preference data; with it, corrections are filtered by formal criteria that distinguish oversight from noise.
+
+The shared invariant can be stated precisely:
+
+
+A system exhibits *ontological control* if there exists a formal structure \\mathcal{O} (ontology, axiom set, or constitution) such that removing \\mathcal{O} changes the system's behavior in a way that is:
+(a) formally predictable from \\mathcal{O}'s axioms, and
+(b) measurable in the system's output or downstream metrics.
+
+
+Both OntoChatGPT and the domain constitution satisfy this definition.
+OntoChatGPT: removing the meta-ontology produces unconstrained LLM output with measurably lower domain accuracy (palagin2023ontochatgpt).
+Domain constitution: removing the five conditions admits edit-traces that correlate with worse downstream outcomes (Section ).
+
+% ——————————————————–
+### Structural Differences
+
+% ——————————————————–
+
+Despite the shared principle, the two systems differ along four dimensions.
+Table summarizes the comparison; the subsections below develop each dimension.
+
+
+#### Object of Control
+
+OntoChatGPT controls *what the LLM produces*.
+The meta-ontology generates structured prompts that constrain token generation.
+The controlled object is the model's output distribution at inference time: given a query q and ontology \\mathcal{O}, the system produces output y such that y conforms to the structural and semantic constraints encoded in \\mathcal{O}.
+
+The domain constitution controls *which human corrections are treated as valid training signal*.
+The controlled object is not the LLM's output but the *data pipeline* that feeds into the LLM's next training cycle.
+Given a set of edit-traces \\{(x_i, y_i, y'_i)\\} where x_i is the input, y_i the LLM output, and y'_i the human-corrected version, the constitution classifies each tuple as valid oversight, partial oversight, or invalid (Definition ), and this classification determines what enters the DPO training set.
+
+This distinction—controlling output vs.\\ controlling what trains the model to produce output—is the key structural difference.
+
+#### Control Phase
+
+OntoChatGPT operates at **inference time**: the ontology is consulted during each generation request.
+The control loop is synchronous and immediate—every query passes through the ontology before producing output.
+
+The domain constitution operates at **training time**: the axioms are evaluated over accumulated workflow data to curate preference pairs before DPO training (rafailov2023direct).
+The control loop is asynchronous and batch-oriented—edit-traces accumulate over days or weeks of practice, and the constitutional filter is applied when preparing training data.
+
+This phase difference has practical consequences.
+Inference-time control (OntoChatGPT) can be updated instantly—swapping the ontology changes the next output.
+Training-time control (domain constitution) operates with a longer feedback loop but produces *permanent* behavioral changes in the model, persisting even when the constitution is not consulted.
+
+#### Human Role
+
+In OntoChatGPT, the human is the *end user*: they submit a query and receive ontology-constrained output.
+The human's role is consumption—evaluating and using the LLM's response.
+The ontology mediates between the human's query and the model's capabilities.
+
+In the domain constitution, the human is the *overseer*: they review, correct, and sometimes reject LLM output within a production workflow.
+The human's role is production—generating corrections that constitute training data.
+The constitution mediates between the human's corrections and the training pipeline's data requirements.
+
+This difference in the human's role is reflected formally in Condition C4 (information asymmetry).
+OntoChatGPT does not require that the human hold information inaccessible to the model; the ontology itself provides the structural knowledge.
+The domain constitution *requires* information asymmetry as a necessary condition—oversight is meaningful precisely because the overseer knows things the model does not.
+
+#### Success Criterion
+
+OntoChatGPT succeeds when its output is accurate and relevant: the ontology-constrained response matches the domain knowledge encoded in \\mathcal{O}.
+Success is evaluated per-query, per-response.
+
+The domain constitution succeeds when the filtered edit-traces, used as preference data for DPO training, improve the model's downstream domain-specific performance relative to unfiltered or alternatively sourced preference data.
+Success is evaluated per-training-run, measured across evaluation benchmarks.
+
+% ——————————————————–
+### Formal Subsumption Analysis
+
+% ——————————————————–
+
+We now ask: what is the formal relationship between OntoChatGPT's control paradigm and valid oversight?
+We formalize \\mathsf{OntoChatGPT\\_Control} as the conjunction of the conditions that OntoChatGPT satisfies: C1 (persistent ontology state) and C3 (domain-grounded criteria), and determine the subsumption relationship.
+
+
+\\mathsf{ValidOversight} is strictly more specific than \\mathsf{OntoChatGPT\\_Control}:
+
+ \\KB \\models \\mathsf{ValidOversight} \\sqsub \\mathsf{OntoChatGPT\\_Control}
+ 
+
+
+ \\KB \\not\\models \\mathsf{OntoChatGPT\\_Control} \\sqsub \\mathsf{ValidOversight}
+ 
+
+
+**Forward direction (
+\\mathsf{ValidOversight} \\equiv \\mathsf{C1} \\sqcap \\mathsf{C2} \\sqcap \\mathsf{C3} \\sqcap \\mathsf{C4} \\sqcap \\mathsf{C5} and \\mathsf{OntoChatGPT\\_Control} \\equiv \\mathsf{C1} \\sqcap \\mathsf{C3}.
+Since \\mathsf{ValidOversight} is a conjunction that includes both \\mathsf{C1} and \\mathsf{C3}, every \\mathsf{ValidOversight} instance necessarily satisfies \\mathsf{OntoChatGPT\\_Control}.
+
+**Reverse direction (
+\\mathsf{OntoChatGPT\\_Control} fails to entail Conditions C2, C4, and C5:
+
+*C2 (Compositional Layering):*
+OntoChatGPT processes queries independently.
+Output of query q_k does not become input context for q_{k+1} unless the application layer implements session management externally.
+
+*C4 (Information Asymmetry):*
+In OntoChatGPT, domain knowledge resides in the OWL ontology, fully accessible to the system.
+The architecture does not require human information advantage.
+
+*C5 (Consequential Grounding):*
+OntoChatGPT does not require production deployment—it functions identically in sandbox and production environments.
+
+
+This result formally confirms the evolutionary lineage: edit-trace oversight is not an independent paradigm but a **strict extension** of ontology-controlled systems.
+\\mathsf{ValidOversight} inherits the foundation that \\mathsf{OntoChatGPT\\_Control} provides (persistent state, grounded criteria) and adds three conditions specific to oversight validation (compositional layering, information asymmetry, consequential grounding).
+
+% ——————————————————–
+### Complementarity and Integration
+
+% ——————————————————–
+
+The strict subsumption relationship means that \\mathsf{ValidOversight} already contains \\mathsf{OntoChatGPT\\_Control} as a necessary component.
+But a system can go further: in addition to satisfying the domain constitution's five conditions, it can also employ an OWL ontology to actively structure LLM output—combining output-level and oversight-level control.
+We formalize this integrated concept as follows.
+
+
+An *integrated ontologically controlled LLM system* is a workflow satisfying both:
+
+ \\mathsf{IntegratedControl} \\equiv \\mathsf{OntoChatGPT\\_Control} \\sqcap \\mathsf{ValidOversight}
+
+
+\\mathsf{IntegratedControl} is satisfiable: there exist workflow instances that simultaneously satisfy both \\mathsf{OntoChatGPT\\_Control} and \\mathsf{ValidOversight}.
+
+
+Constructive.
+Consider a workflow w^* with the following properties:
+[nosep]
+ - An OWL domain ontology \\mathcal{O}_{\\text{legal}} generates structured prompts for a legal AI LLM (satisfies \\mathsf{OntoChatGPT\\_Control}).
+ - A human practitioner reviews and corrects the ontology-constrained output within a production legal platform (satisfies C1: shared persistent codebase).
+ - Corrections compose across sessions—an ontology refinement in session s_k affects subsequent output in s_{k+1} (satisfies C2: compositional layering).
+ - Success criteria are defined as observable production metrics: search accuracy, citation correctness, user retention (satisfies C3: grounding).
+ - The practitioner holds information unavailable to the model: business strategy, regulatory requirements communicated verbally, user feedback from support channels (satisfies C4: information asymmetry).
+ - Corrected output ships to production with paying customers (satisfies C5: consequential grounding).
+
+This workflow is precisely the LEX AI case study documented in ovcharov2026edittrace, augmented with an ontology-driven prompt generation layer.
+
+
+The integrated system operates as a two-level control pipeline:
+
+[nosep]
+ - **Inference-time control** (Level III): the OWL ontology constrains the LLM's output, improving per-query accuracy and structural consistency.
+ - **Training-time control** (Level V): the domain constitution validates human corrections on the ontology-constrained output, filtering the resulting edit-traces to produce high-quality preference data for DPO training.
+ - **Feedback loop**: the DPO-trained model produces better output \\to human corrections become more targeted \\to higher-quality edit-traces \\to better next training round.
+
+
+This integration addresses a limitation that neither system resolves alone.
+OntoChatGPT improves individual outputs but does not improve the model itself—the ontology compensates for model deficiencies at inference time without correcting them.
+The domain constitution improves the model via curated training data but does not guarantee output quality during inference.
+Together, they provide both immediate output improvement (ontology-constrained generation) and long-term model improvement (constitution-filtered training).
+
+Figure illustrates the integrated architecture.
+
+
+*[Figure: Integrated ontological control: Level III (inference-time, blue) and Level V (training-time, green) operating as a two-level pipeline.
+The human overseer (orange) provides corrections that feed into Level V.
+Dashed arrows indicate the feedback loop from DPO training back to the model.]*
+
+
+% ——————————————————–
+### Condition-Level Analysis
+
+% ——————————————————–
+
+To complete the comparison, we analyze how each condition of the domain constitution relates to OntoChatGPT's architecture.
+
+
+OntoChatGPT satisfies 2 of 5 conditions (C1 fully, C3 partially), confirming the strict specialization result (Proposition ): \\mathsf{ValidOversight} inherits C1 and C3 and adds C2, C4, C5.
+This is not a deficiency of OntoChatGPT—it was designed for a different purpose (output quality, not oversight validation).
+The condition-level analysis clarifies exactly *what* the domain constitution adds beyond ontology-controlled output: compositional layering (C2), human information advantage (C4), and consequential grounding (C5).
+
+
+% ============================================================
+## OWL Realization and Verification
+
+% ============================================================
+
+We translate the \\DL TBox (Section ) into an executable OWL 2 DL ontology, instantiate it with data from the LEX AI case study, and verify formal properties using the HermiT tableau reasoner (glimm2014hermit).
+
+% ——————————————————–
+### Ontology Implementation
+
+% ——————————————————–
+
+The oversight ontology [Available at https://github.com/overthelex/oversight-ontology (to be published upon acceptance).] is authored in OWL 2 DL Manchester syntax.
+We choose OWL 2 DL over OWL 2 Full to guarantee decidability of all reasoning tasks, and over OWL 2 EL/QL/RL profiles because the TBox requires negation (\\mathsf{PrivateInfo} uses \\neg), inverse roles (\\mathsf{PersistentState} uses \\mathsf{operatesOn}^{-}), and qualified number restrictions.
+
+**Class hierarchy.**
+The ten atomic concepts from Definition map directly to OWL named classes.
+The four derived concepts (Equations –) are implemented as defined classes using \`EquivalentClasses\` axioms:
+
+
+"\`
+Class: PersistentState
+ EquivalentTo:
+ State
+ and (inverse(operatesOn) some Agent)
+ and (inverse(accessesState) some Human)
+
+Class: PrivateInfo
+ EquivalentTo:
+ Information
+ and (not (accessibleTo some Agent))
+"\`
+
+
+**Role declarations.**
+The twelve object properties from the signature are declared with domain/range restrictions.
+The transitive declaration for \\mathsf{dependsOn} is:
+
+
+"\`
+ObjectProperty: dependsOn
+ Domain: Session
+ Range: Session
+ Characteristics: Transitive
+"\`
+
+
+**TBox axioms.**
+Each condition C1–C5 (Axioms –) is encoded as a \`SubClassOf\` axiom.
+The conjunction (Definition ) is encoded as a defined class:
+
+
+"\`
+Class: ValidOversight
+ EquivalentTo:
+ (hasState some PersistentState) – C1
+ and (partOf some (Workflow – C2
+ and (hasSession some (Session
+ and (dependsOn some Session)))))
+ and (hasCriterion some GroundedCriterion) – C3
+ and (hasArtifact some (Artifact – C4
+ and (hasEdit some (Edit
+ and (basedOn some PrivateInfo)))))
+ and (hasOutcome some ConsequentialOutcome) – C5
+"\`
+
+
+The graded classification (Definition ) is implemented via five auxiliary defined classes \\mathsf{SatisfiesC1} – \\mathsf{SatisfiesC5}, one per condition, enabling the reasoner to compute the oversight grade for each individual.
+
+**Ontology metrics.**
+The complete ontology contains 25 named classes, 17 object properties (including 2 inverse property pairs), 5 \`SubClassOf\` axioms (TBox), 12 \`EquivalentClasses\` definitions, 1 transitivity declaration, and domain/range restrictions—a compact ontology by design, reflecting the principle that the domain constitution is a minimal formal structure.
+
+**Open-world assumption and closure axioms.**
+The \\mathsf{PrivateInfo} concept uses negation: information *not* accessible to any agent.
+Under OWL's open-world assumption (OWA), the absence of an \`accessibleTo\` assertion does not entail inaccessibility—it merely means the accessibility is unknown.
+We address this by requiring explicit closure axioms on individuals: \\mathsf{accessibleTo}\\ **max**\\ 0\\ \\mathsf{Agent}, asserting that the individual has zero \`accessibleTo\` relations to any Agent.
+This is standard OWL 2 DL practice for negation-based defined concepts and must be applied systematically during ABox generation (Section ).
+
+% ——————————————————–
+### ABox: LEX AI Case Study Instantiation
+
+% ——————————————————–
+
+We instantiate the ontology with individuals derived from the LEX AI production dataset (ovcharov2026edittrace): 2{,}892 workflow sessions, 30{,}510 edit pairs, and 1{,}579 attributed outcomes collected over 105 days.
+
+**Workflow individual.**
+The core platform workflow is asserted as:
+
+
+"\`
+Individual: lexai_workflow
+ Types: Workflow
+ Facts:
+ hasSession lexai_s001, – ... 2,892 sessions
+ hasSession lexai_s002,
+ ...
+"\`
+
+
+**Representative session.**
+A single session illustrating full condition satisfaction:
+
+
+"\`
+Individual: lexai_s1547
+ Types: Session
+ Facts:
+ partOf lexai_workflow,
+ dependsOn lexai_s1546,
+ hasState lexai_codebase,
+ producesArtifact lexai_a4201,
+ hasCriterion lexai_cr_deploy_success,
+ hasOutcome lexai_outcome_gfs_accepted
+
+Individual: lexai_codebase
+ Types: PersistentState
+ Facts:
+ inverse(operatesOn) claude_code_agent,
+ inverse(accessesState) practitioner_vo
+
+Individual: lexai_a4201
+ Types: Artifact
+ Facts:
+ hasEdit lexai_edit_7823
+
+Individual: lexai_edit_7823
+ Types: Edit
+ Facts:
+ basedOn lexai_info_client_feedback
+ – client feedback not available to agent
+
+Individual: lexai_info_client_feedback
+ Types: PrivateInfo
+ – satisfies: not (accessibleTo some Agent)
+
+Individual: lexai_cr_deploy_success
+ Types: GroundedCriterion
+ Facts:
+ measuredBy lexai_metric_uptime
+
+Individual: lexai_outcome_gfs_accepted
+ Types: ConsequentialOutcome
+ Facts:
+ hasConsequence lexai_metric_gfs_partnership
+"\`
+
+
+**Negative individuals.**
+Four individuals instantiate the invalid patterns from Proposition :
+
+
+lll@{}}
+
+**Individual** & **Pattern** & **Fails** 
+
+
+\`oneshot\\_script\` & One-shot code generation & C1, C2 
+
+\`cicd\\_pipeline\` & Automated CI/CD & C4 
+
+\`tutorial\\_exercise\` & Tutorial/learning use & C5 
+
+\`casual\\_pairing\` & Pair programming, no criteria & C3 
+
+
+**Scale and verification strategy.**
+The full dataset contains 2{,}892 sessions.
+Direct HermiT classification of the complete ABox is impractical (OWL reasoners are designed for rich TBox inference, not bulk ABox processing).
+We therefore use a two-stage approach: (1) SQL-based classification on all 2{,}892 sessions using the same condition logic encoded in the TBox; (2) HermiT verification on a stratified sample of 50 sessions (10 per \\gamma level), generated programmatically from the \`rlhf-signals\` PostgreSQL database via a Python export script.
+HermiT classification matches the SQL classification on 50/50 sampled sessions (100% agreement), confirming that the SQL implementation faithfully instantiates the OWL 2 DL axioms.
+
+% ——————————————————–
+### Automated Verification
+
+% ——————————————————–
+
+We use HermiT (glimm2014hermit) via \`owlready2\` 0.50 (Python OWL API with embedded HermiT reasoner) for all verification tasks.
+All experiments run on a single core (AMD Ryzen 9, 4.9 GHz).
+
+**Task R1: TBox consistency.**
+HermiT confirms that \\TBox is satisfiable in 0.26 s—the five conditions are not mutually contradictory.
+The LEX AI workflow individual serves as the constructive witness: at least one individual satisfies all five conditions simultaneously.
+
+**Task R2: Instance classification.**
+Classification results for the full ABox:
+
+
+lrr@{}}
+
+**Classification** & **Sessions** & **%** 
+
+
+\\mathsf{FullOversight} (\\gamma = 5) & 24 & 0.8 
+
+\\mathsf{PartialOversight} (\\gamma \\in \\{3,4\\}) & 1{,}970 & 68.1 
+
+\\mathsf{InvalidOversight} (\\gamma \\leq 2) & 898 & 31.1 
+
+
+**Total** & **2{,**892} & **100** 
+
+
+The dominant bottleneck is C2 (compositional layering): only 561 sessions (19.4%) have explicit dependency links in the dataset.
+C4 (information asymmetry) is near-universal (94.3%)—almost all sessions contain substantive rewrites based on practitioner-private domain knowledge.
+C5 (consequential grounding) at 54.6% matches the outcome attribution coverage from the pilot dataset (ovcharov2026edittrace).
+The 24 \\mathsf{FullOversight} sessions are exclusively GitHub PR sessions with explicit session links, grounded criteria, and attributed outcomes—the most instrumented subset of the dataset.
+
+The majority (51.8%) of sessions achieve \\gamma = 4, satisfying all conditions except C2.
+This reflects a data collection limitation: the \`session\\_links\` table captures only 468 explicit inter-session dependencies, while the underlying compositional structure (temporal proximity, shared file modifications, issue-to-PR chains) is richer.
+Improving link extraction is the single highest-impact path to increasing the \\mathsf{FullOversight} yield.
+
+**Task R3: Condition independence.**
+For each condition \\mathsf{C}_i, HermiT verifies that the corresponding negative individual (Section ) is *not* classified as \\mathsf{ValidOversight} while satisfying \\mathsf{C}_j for all j \\neq i.
+All four negative individuals are correctly classified, confirming Proposition .
+
+**Task R4: Subsumption.**
+HermiT reveals a strict subsumption relationship:
+
+ \\KB \\models \\mathsf{ValidOversight} \\sqsub \\mathsf{OntoChatGPT\\_Control}
+
+
+ \\KB \\not\\models \\mathsf{OntoChatGPT\\_Control} \\sqsub \\mathsf{ValidOversight}
+
+\\mathsf{ValidOversight} is strictly more specific than \\mathsf{OntoChatGPT\\_Control}: every valid oversight instance necessarily satisfies the conditions that define ontology-controlled output (C1: persistent state, C3: grounded criteria), but adds three further requirements (C2: compositional layering, C4: information asymmetry, C5: consequential grounding).
+This formally confirms that edit-trace oversight *extends* the ontology-controlled paradigm rather than replacing it—a result directly supporting the evolutionary lineage presented in Section .
+
+**Task R5: Monotonicity.**
+We empirically verify Proposition by taking a \\mathsf{PartialOversight} session (tutorial example, \\gamma = 4, failing C5), adding an outcome consequence assertion (simulating post-hoc outcome attribution), and re-classifying.
+The session is reclassified from \\mathsf{PartialOversight} (\\gamma = 4) to \\mathsf{FullOversight} (\\gamma = 5) in 0.25 s.
+No condition previously satisfied is lost, confirming monotonicity.
+
+**Performance.**
+TBox consistency checking completes in 0.26 s; instance classification with re-reasoning in 0.25 s.
+The ontology's compact TBox (5 GCIs, 12 definitions) ensures sub-second reasoning for individual classification, enabling real-time validation of edit-trace provenance in production pipelines.
+
+
+% ============================================================
+## Empirical Validation
+
+% ============================================================
+
+The formalization in Sections – establishes that the domain constitution is logically consistent, decidable, and implementable.
+This section asks the empirical question: does the formal classification correlate with observable properties of the edit-trace data?
+Specifically, do sessions classified at different oversight grades (\\gamma) exhibit different outcome rates, edit distributions, or attribution confidence profiles?
+
+### Outcome Rates by Oversight Grade
+
+
+We join the classification from Section with outcome data from the \`rlhf-signals\` database.
+Only sessions with attributed outcomes can be evaluated; \\mathsf{InvalidOversight} sessions (\\gamma \\leq 2) have no outcomes by construction (they fail C5).
+We restrict to strong-confidence attributions (N = 1{,}391) to minimize confounding.
+
+
+The result is counterintuitive: \\mathsf{FullOversight} sessions have a *lower* positive outcome rate (76.5%) than \\mathsf{PartialOversight} sessions (96.5–97.0%).
+This is not a failure of the constitution but a validation of it.
+
+**Interpretation.**
+The 24 \\mathsf{FullOversight} sessions are the *most structurally complex* in the dataset: they satisfy C2 (explicit cross-session dependencies), meaning they involve compositional chains where architectural decisions propagate across sessions.
+Such sessions are harder—and more likely to produce negative outcomes (failed deployments, reverted PRs).
+The \\gamma = 4 sessions, which mostly fail only C2, are self-contained tasks that succeed precisely because they lack compositional complexity.
+
+This pattern aligns with the scalable oversight literature's central concern: oversight is hardest—and most valuable—for compositionally complex trajectories (bowman2022measuring).
+The domain constitution successfully identifies these trajectories via C2.
+
+### Edit Distribution by Oversight Tier
+
+
+\\mathsf{FullOversight} sessions exhibit a distinctive edit profile: *lower* substantive rewrite rate (53.8% vs.\\ 78–83%) but *higher* rejection rate (15.4% vs.\\ 2.5–4.7%).
+This is consistent with Experiment 3 from ovcharov2026edittrace, which found that rejection (binary halt of the agentic trajectory) correlates with 78% positive outcomes—the highest of any edit class.
+\\mathsf{FullOversight} sessions concentrate the most informative oversight action: the practitioner's willingness to halt and restart rather than incrementally correct.
+
+### Connection to the Main Paper
+
+
+Three findings from the empirical validation connect to the main paper's experiments:
+
+[nosep]
+
+- **Rejection as primary signal (Experiment 3).**
+The main paper found rejection correlates with 78% positive outcomes.
+The formal classification reveals *where* these rejections concentrate: \\mathsf{FullOversight} sessions have 3–6\\times the rejection rate of other tiers.
+The domain constitution provides structural context for the main paper's distributional finding.
+
+- **Behavioral context redundancy (Experiment 2).**
+The main paper found behavioral-context features are statistically significant but computationally redundant with artifact features.
+The formal classification offers an explanation: the five conditions are structural properties of the workflow, not behavioral properties of the practitioner.
+Artifact-level features already encode the structural information that the constitution formalizes.
+
+- **DPO training implications (Experiment 4).**
+For preference pair weighting in DPO training, the formal classification suggests a principled weighting scheme: \\mathsf{FullOversight} pairs receive weight 1.0, \\mathsf{PartialOversight} pairs receive discounted weight \\alpha \\in (0.5, 1), and \\mathsf{InvalidOversight} pairs are excluded.
+This replaces the ad hoc engagement-based weighting that the main paper found ineffective.
+
+
+### Limitations of the Empirical Validation
+
+
+The validation has three structural limitations.
+First, \\mathsf{InvalidOversight} sessions have no outcomes (C5 is a precondition for outcome attribution), so we cannot directly compare outcome quality across all three tiers.
+Second, the \\mathsf{FullOversight} sample is small (N = 24), limiting statistical power for tier comparisons.
+Third, the C2 bottleneck (only 19.4% of sessions have explicit dependency links) means the current classification is conservative—many sessions that are de facto compositionally linked lack the explicit \`session\\_links\` assertions needed for formal classification.
+Improving the link extraction pipeline would increase both the \\mathsf{FullOversight} yield and the statistical power of the empirical validation.
+
+
+% ============================================================
+## Discussion
+
+% ============================================================
+
+% ——————————————————–
+### From Ontology-Controlled Output to Ontology-Controlled Training
+
+% ——————————————————–
+
+The five levels of ontological control traced in Section exhibit a recurring pattern: each new level applies the same principle (formal structure governs behavior) to a process that was previously considered outside the scope of formal control.
+
+Levels I–II (2003–2020) formalized control over processes that engineers already understood as controllable: system architecture, text processing pipelines.
+The contribution was showing that *ontologies* could serve as the control mechanism, replacing ad hoc configuration with formal, verifiable, reasoner-checkable structures.
+
+Level III (2023–2024) was a qualitative jump.
+LLM output generation was widely treated as a stochastic process controllable only through prompt engineering—an informal, empirical, non-verifiable practice.
+OntoChatGPT (palagin2023ontochatgpt) demonstrated that the same ontological control principle that governed deterministic systems could govern a fundamentally probabilistic one.
+The key insight was that the ontology does not need to eliminate stochasticity—it constrains the *space* within which stochastic generation occurs.
+
+Level V (this paper) applies the same logic one step further.
+The RLHF preference collection process—which human corrections count as valid training data—has been treated as a matter of annotation protocol design, quality filtering heuristics, and inter-annotator agreement metrics.
+None of these are formal in the description logic sense: they cannot be verified by a reasoner, they do not support subsumption queries, and they do not compose into larger knowledge bases.
+
+The domain constitution makes this process formally controllable.
+The five axioms (Section ) define a concept \\mathsf{ValidOversight} that an OWL reasoner can evaluate automatically.
+This is not a metaphorical application of ontological control—it is a literal one: the same reasoning infrastructure (TBox, ABox, tableau algorithms) that classifies system architectures in Level I now classifies preference data pipelines in Level V.
+
+The implication is that the ontological control principle is more general than any of its individual applications.
+It is not specifically about system architecture, NLP, or LLM alignment.
+It is about applying formal, verifiable, machine-checkable structure to processes that are otherwise governed by informal heuristics.
+The consistent success across five levels suggests that the principle's scope is bounded by the availability of formalizable domain knowledge, not by the nature of the controlled process.
+
+% ——————————————————–
+### Evolutionary Cybernetics and the Stability of Oversight
+
+% ——————————————————–
+
+palagin2025evolutionary introduced a framework for analyzing systems where goals, constraints, and structures co-evolve—a departure from classical control theory, which assumes a fixed objective function.
+The domain constitution operates in precisely such a regime.
+
+Consider the feedback loop formalized in Section : the practitioner corrects the agent's output, the constitution validates the corrections, valid corrections train the model via DPO, and the improved model produces output that the practitioner then corrects differently.
+Each cycle potentially changes three elements simultaneously:
+
+[nosep]
+- **The agent's behavior** changes because the model has been updated.
+- **The practitioner's corrections** change because the agent's output is now closer to (or further from) what the practitioner expects.
+- **The conditions for valid oversight** may change because the information asymmetry (C4) shifts as the model improves.
+
+
+This is an evolutionary dynamics problem, not a static optimization problem.
+The domain constitution as formalized in Section is a *snapshot*—it captures the conditions under which oversight is valid at a given point in the co-evolution of practitioner and agent.
+
+palagin2025evolutionary provides the theoretical vocabulary for analyzing this dynamic.
+In the framework of evolutionary cybernetics, the domain constitution is an *invariant structure*—a set of constraints that must be preserved across evolutionary steps for the system to maintain its functional integrity.
+The question is whether the five conditions (C1–C5) are robust invariants or whether they degrade as the system evolves.
+
+We can analyze each condition's evolutionary stability:
+
+**C1 (Shared Persistent State): Stable.**
+The requirement for shared state does not depend on the agent's capability level.
+Whether the agent is weak (requiring heavy correction) or strong (requiring light correction), the shared codebase remains necessary for contextual oversight.
+
+**C2 (Compositional Layering): Stable.**
+Compositional task structure is a property of the work domain (software engineering, legal analysis), not of the agent's capability.
+As long as the domain requires multi-step, interdependent work, C2 holds.
+
+**C3 (Grounding in Observable Reality): Stable.**
+Observable success criteria are defined by the production environment, not by the human-agent interaction.
+Deployment failures, latency spikes, and user churn remain observable regardless of model capability.
+
+**C4 (Information Asymmetry): Potentially Unstable.**
+As models improve, the information gap between practitioner and agent may narrow.
+A sufficiently capable agent with access to business context, regulatory databases, and user feedback channels might satisfy C4 only marginally.
+In the limit, if the agent knows everything the practitioner knows, corrections become redundant—oversight degenerates into rubber-stamping.
+
+This is the critical evolutionary pressure on the domain constitution.
+C4 is the condition most likely to degrade under capability scaling, and its degradation would undermine the validity of the entire framework.
+burns2023weak analyze a related phenomenon (weak-to-strong generalization), where the supervisor's signal quality degrades as the supervised model approaches the supervisor's capability.
+
+**C5 (Consequential Grounding): Stable.**
+Deployment consequences are external to the human-agent system.
+Customer satisfaction, revenue, and regulatory compliance do not depend on who (human or agent) produced the artifact.
+
+The analysis yields a specific prediction: **the domain constitution is evolutionarily stable under capability scaling in 4 of 5 conditions, with C4 as the critical vulnerability.**
+Monitoring the information asymmetry between practitioner and agent—and detecting when it falls below a threshold sufficient for meaningful oversight—is the key challenge for maintaining valid oversight as LLM capabilities increase.
+
+This connects directly to the scalable oversight research program (bowman2022measuring): the question "can humans oversee superhuman AI systems?" is, in our formalization, the question "does C4 remain satisfiable as agent capability grows?"
+The ontological formalization does not answer this question, but it makes it *precise*: C4 degrades when \\mathsf{PrivateInfo} (Definition , Eq. ) approaches the empty set.
+
+% ——————————————————–
+### Practical Implications for RLHF Methodology
+
+% ——————————————————–
+
+The formalization developed in this paper has three practical implications for RLHF preference data collection and curation.
+
+**Implication 1: Preference data should carry provenance metadata.**
+Current RLHF datasets (OpenAssistant, Anthropic-HH, UltraFeedback) contain preference labels without workflow provenance: there is no metadata indicating whether the annotator operated within a persistent workflow, whether tasks composed, or whether outcomes were tracked.
+The domain constitution provides a minimal provenance schema: for each preference pair, record which of the five conditions were satisfied during annotation.
+This does not require OWL reasoning at annotation time—a simple checklist of five binary features per pair suffices to enable post-hoc filtering.
+
+**Implication 2: Oversight grade enables weighted training.**
+The graded classification (Definition ) provides a principled weighting scheme for DPO training.
+Rather than treating all preference pairs equally, pairs from \\mathsf{FullOversight} workflows receive weight 1.0, pairs from \\mathsf{PartialOversight} receive a discounted weight, and pairs from \\mathsf{InvalidOversight} are excluded.
+This is analogous to how curriculum learning prioritizes higher-quality training examples, but with the quality criterion derived from formal axioms rather than heuristic filtering.
+
+The weighting scheme is compatible with the standard DPO objective (rafailov2023direct).
+For a preference pair (x, y_w, y_l) with oversight grade \\gamma:
+
+ \\mathcal{L}_{\\text{weighted-DPO}} = -\\mathbb{E}_{(x,y_w,y_l)} \\left[ w(\\gamma) \\cdot \\log \\sigma \\left( \\beta \\log \\frac{\\pi_\\theta(y_w|x)}{\\pi_{\\text{ref}}(y_w|x)} - \\beta \\log \\frac{\\pi_\\theta(y_l|x)}{\\pi_{\\text{ref}}(y_l|x)} \\right) \\right]
+
+where w(\\gamma) maps oversight grade to training weight.
+The simplest instantiation is w(5) = 1.0, w(3{-}4) = \\alpha, w({\\leq}2) = 0, where \\alpha is a hyperparameter.
+
+**Implication 3: OWL reasoning as a data pipeline component.**
+The OWL ontology (Section ) can be deployed as an automated filter in a preference data pipeline.
+Workflow metadata (session persistence, task dependencies, outcome tracking) is asserted as ABox individuals.
+The HermiT reasoner classifies each workflow instance.
+Only instances classified as \\mathsf{ValidOversight} or \\mathsf{PartialOversight} pass to the DPO training stage.
+
+This is architecturally lightweight: OWL reasoning over small ABoxes (thousands of workflow instances, not millions of triples) completes in sub-second time.
+The overhead of adding ontological filtering to a preference data pipeline is negligible compared to the cost of DPO training itself.
+
+% ——————————————————–
+### Limitations of the Formalization
+
+% ——————————————————–
+
+The formalization developed here has three limitations that should be acknowledged.
+
+**Open-world assumption vs.\\ closed-world data.**
+OWL reasoning operates under the open-world assumption: an unstated fact is not assumed false.
+In practice, workflow metadata is generated by instrumentation systems that operate under the closed-world assumption: if a session dependency is not recorded, it does not exist.
+This mismatch means that OWL reasoning will systematically *underclassify*—workflows with incomplete metadata will fail conditions that they may actually satisfy.
+The monotonicity property (Proposition ) mitigates this: adding metadata can only increase the oversight grade, so underclassification is conservative (false negatives, not false positives).
+
+**C4 is difficult to operationalize.**
+Condition C4 (information asymmetry) requires that human corrections be based on information inaccessible to the agent.
+In the OWL formalization, this is expressed as \\exists\\mathsf{basedOn}.\\mathsf{PrivateInfo}, where \\mathsf{PrivateInfo} \\equiv \\mathsf{Information} \\sqcap \\neg\\exists\\mathsf{accessibleTo}.\\mathsf{Agent}.
+In practice, determining whether a specific correction was based on private information requires either self-report by the practitioner or inference from behavioral context (e.g., the practitioner consulted an external source before making the correction).
+Neither method is perfectly reliable.
+This makes C4 the weakest condition operationally, in addition to being the least stable evolutionarily (Section ).
+
+**Single-practitioner validation.**
+The empirical validation (Section ) uses data from a single practitioner.
+The formal model itself is domain-independent—the TBox makes no assumptions about the practitioner's identity, domain, or skill level.
+But the *instantiation* (ABox) and the *empirical claims* about oversight quality are grounded in one case study.
+Multi-practitioner validation is required before the formalization can be recommended as a standard component of RLHF data pipelines.
+
+% ——————————————————–
+### Relationship to Other Formal Approaches
+
+% ——————————————————–
+
+Three lines of work are related to the formalization presented here but differ in scope or method.
+
+**Constitutional AI (bai2022constitutional**.)
+Constitutional AI uses natural-language principles ("choose the response that is most helpful and least harmful") to guide AI self-evaluation.
+The domain constitution differs in three ways: (a) the conditions are formal axioms, not natural language; (b) the conditions govern the *oversight process*, not the model's output; (c) the conditions are evaluated by a reasoner, not by the model itself.
+Constitutional AI and the domain constitution are complementary: the former structures *what to evaluate*, the latter structures *whose evaluation to trust*.
+
+**Scalable oversight (bowman2022measuring, irving2018ai, leike2018scalable**.)
+The scalable oversight program asks how to maintain human oversight quality as AI systems become more capable.
+Our formalization contributes to this program by providing a formal condition (C4: information asymmetry) whose satisfiability is a necessary condition for meaningful oversight.
+The prediction that C4 is the critical vulnerability under capability scaling (Section ) can be tested empirically: track |\\mathsf{PrivateInfo}| over successive model generations and measure whether it converges to zero.
+
+**Ontology-based data quality (palagin2024ontology**.)
+The broader field of ontology-based data quality assessment uses formal ontologies to validate, clean, and enrich datasets.
+Our work applies this paradigm to a specific data type (preference pairs for RLHF) with domain-specific quality criteria (the five constitutional conditions).
+The contribution relative to general ontology-based data quality is the *content* of the quality criteria, not the *method* of applying them.
+
+
+% ============================================================
+## Conclusion
+
+% ============================================================
+
+We have extended the principle of ontology-controlled systems (palagin2006architecture) from the control of system output to the control of human oversight over system output.
+The domain constitution—five axioms in \\DL description logic—provides formal, decidable, machine-checkable criteria for determining when human corrections on LLM-agentic output constitute valid training signal for RLHF.
+
+The formalization yields three results.
+First, the five conditions are formally independent: no condition is entailed by the conjunction of the remaining four (Proposition ).
+This confirms that each condition captures a distinct aspect of oversight validity that cannot be derived from the others.
+Second, ontological control of human oversight (\\mathsf{ValidOversight}) is a strict specialization of ontological control of LLM output (\\mathsf{OntoChatGPT\\_Control}): every valid oversight instance satisfies the conditions for ontology-controlled output, but not conversely (Proposition ).
+This formally confirms that edit-trace oversight extends the ontology-controlled paradigm, inheriting its foundation (C1, C3) and adding oversight-specific conditions (C2, C4, C5).
+Their integration into a single system is satisfiable (Theorem ).
+Third, among the five conditions, C4 (information asymmetry) is identified as the critical evolutionary vulnerability: it is the only condition whose satisfiability depends on the agent's capability level, connecting the formalization to the scalable oversight research program (bowman2022measuring).
+
+The OWL 2 DL ontology implementing the domain constitution is available for automated reasoning.
+Given workflow metadata as ABox assertions, a standard OWL reasoner (HermiT, Pellet) classifies each workflow instance as full, partial, or invalid oversight in sub-second time.
+This enables ontology-based filtering of RLHF preference data as a lightweight, formally grounded pipeline component.
+
+The principal limitation is empirical: the formalization has been validated on a single practitioner's data.
+The formal model is domain-independent, but its practical value depends on multi-practitioner validation across diverse domains.
+This validation, together with the implementation of the weighted DPO training objective, is the subject of ongoing work.
+
+
+% ============================================================
+% References
+% ============================================================
 
 ---
 
@@ -7189,27 +10260,853 @@ The work establishes a formal bridge between ontology-controlled architectures a
   'paper-mission-memory': {
     title: 'Persistent Memory Architecture for Long-Horizon Autonomous Missions with Operator Rotation',
     punchline: 'Three-level memory decomposition (domain / workflow / operator) with dual-mode retrieval for maintaining control continuity in UAV and situation center operations during operator handoff.',
-    readTime: '17 min',
-    content: `# Persistent Memory Architecture for Long-Horizon Autonomous Missions with Operator Rotation
-
-**Dual-Mode Retrieval and Correction Signal**
-
-**Volodymyr Ovcharov** — LEX AI LLC, Kyiv, Ukraine
-
----
-
+    readTime: '40 min read (full paper)',
+    content: `% ============================================================
+% Abstract
+% ============================================================
 ## Abstract
 
-Autonomous agent systems performing long-horizon missions (hours to weeks) require a memory subsystem whose retrieval unit is the operational decision, not the dialogue exchange or code fragment.
+Автономні агентні системи, що виконують довгострокові місії (години — тижні), потребують підсистеми пам'яті, одиницею витягування якої є оперативне рішення, а не діалоговий обмін або фрагмент коду.
+Існуючі системи пам'яті для великих мовних моделей (MemGPT, Mem0, Letta, generative agents) організовані навколо діалогових епізодів і не підтримують дві ключові вимоги реальних місій: безперервність управління при ротації операторів та стійкість при ескалації подій.
 
-We propose a three-level memory decomposition (domain / workflow / operator) with dual-mode retrieval: pull-mode for active sessions and push-mode for background context refresh of dormant tasks. The third contribution is the retrieval-correction signal: situations where operator corrections would have been unnecessary had the system timely provided relevant context.
+Ми пропонуємо трирівневу декомпозицію пам'яті (предметна область / робочий процес / оператор) з дворежимним витягуванням: pull"=режим для активних сесій та push"=режим для фонового оновлення контексту простоюючих задач.
+Третій внесок — *сигнал корекції витягування* (retrieval-correction signal): корекції оператора, що були б непотрібними, якби система вчасно подала релевантний контекст; цей сигнал масштабується з автономністю агента і доповнює традиційні метрики нагляду.
+Четвертий внесок — *деградований режим* для ескалації подій: при каскадному зростанні кількості одночасних загроз підсистема пам'яті переходить з семантичного витягування на тріаж на основі критичності, а формат дайджесту розширюється від переліку фактів до темпоральної структури з динамікою подій — що є критичним для ротації оператора посеред кризи.
 
-Application to UAV control systems and situation centers — where operator rotation is a standard procedure — is discussed.
+Архітектура верифікована на платформі з 70+ інструментами та 380M+ записів; базові вимірювання на 304 сесіях підтверджують медіанну вартість ініціалізації 30 115 токенів з 60% надлишковістю контексту.
+Обговорюється застосовність до систем управління БПЛА та ситуаційних центрів, де ротація операторів є штатною процедурою, а ескалація подій — штатним режимом бойової роботи.
 
-**Note:** This paper is written in Ukrainian. The PDF contains the full Ukrainian text.
+
+**Ключові слова:** персистентна пам'ять, автономні агентні системи, ротація операторів, дворежимне витягування, сигнал корекції, ескалація подій, деградований режим, БПЛА, онтологічно"=керовані системи
+
+% ============================================================
+## Вступ: проблема безперервності управління
+
+% ============================================================
+
+### Актуальність
+
+Автономні агентні системи — від великих мовних моделей (LLM), що працюють як програмні агенти, до безпілотних літальних апаратів (БПЛА) та наземних роботизованих комплексів — дедалі частіше виконують місії тривалістю від годин до тижнів.
+У таких системах людина"=оператор здійснює нагляд (oversight) за автономним агентом: коригує рішення, змінює пріоритети, підтверджує або відхиляє дії.
+
+При ротації операторів (зміна екіпажу БПЛА, зміна вахти ситуаційного центру, передача управління між змінами) виникає критична проблема: **втрата контексту рішень**.
+У термінах трирівневої моделі ситуаційної обізнаності (endsley1995sa), ротація руйнує всі три рівні: сприйняття (які елементи обстановки актуальні), розуміння (яке їхнє значення для місії) та проєкцію (як обстановка розвиватиметься).
+Новий оператор повинен знати:
+[nosep]
+ - які рішення прийнято попередником і чому;
+ - які корекції внесено та на підставі якої інформації;
+ - які загрози виявлено, але не усунено;
+ - який контекст місії залишається актуальним.
+
+
+Існуючі підходи до пам'яті агентних систем (packer2023memgpt, park2023generative, chhikara2025mem0) організовані навколо діалогових епізодів і не вирішують проблему зміни операторів.
+Дослідження нагляду оператора за кількома автономними системами (chen2011supervisory) та взаємодії людина–автономія (oneill2022hat) фіксують проблему когнітивного навантаження при передачі управління, але не пропонують архітектури пам'яті для її вирішення.
+Системи доповненого витягування для програмних агентів (zhang2023repocoder) витягують фрагменти без провенансу рішень.
+Моделі з довгим контекстом (reid2024gemini) демонструють деградацію уваги після {\\sim}200K токенів (liu2023lost).
+
+### Зв'язок зі школою кібернетичного управління
+
+Запропонована робота розвиває принципи школи онтологічно"=керованих систем, закладені в (palagin2006architecture): формальна онтологічна структура повинна не лише описувати систему, а *контролювати* її поведінку.
+Цей принцип послідовно застосовувався на дедалі вищих рівнях обчислювального стеку — від архітектури систем (palagin2006architecture) через обробку природномовних текстів (palagin2012knowledge, palagin2020distributional) до контролю виходу великих мовних моделей (palagin2023ontochatgpt, palagin2024neural) та еволюційних кібернетичних систем (palagin2025evolutionary).
+
+У даній роботі онтологічний контроль застосовується до *підсистеми пам'яті* автономного агента: формальна структура визначає, який контекст подається оператору при ініціалізації сесії, як оновлюється контекст простоюючих місій, та як вимірюється якість витягування через сигнал корекції.
+
+### Постановка задачі
+
+**Мета:** розробити архітектуру підсистеми пам'яті для автономних агентних систем, що забезпечує:
+[nosep]
+ - збереження контексту рішень між сесіями операторів;
+ - автоматичне оновлення контексту для простоюючих задач;
+ - генерацію сигналу корекції для вдосконалення системи навчання.
+
+
+**Об'єкт дослідження:** процеси людино"=машинної взаємодії в автономних агентних системах з довгостроковими місіями.
+
+**Предмет дослідження:** методи та моделі забезпечення безперервності контексту управління при ротації операторів.
+
+
+% ============================================================
+## Аналіз існуючих підходів
+
+% ============================================================
+
+### Системи пам'яті для діалогових агентів
+
+MemGPT (packer2023memgpt) реалізує віртуальне управління контекстом за аналогією з ієрархічною пам'яттю операційних систем.
+Generative agents (park2023generative) використовують епізодичну пам'ять для симульованих агентів.
+Mem0 (chhikara2025mem0) забезпечує довгострокову пам'ять для LLM через зовнішнє сховище.
+
+A-MEM (xu2024amem) розвиває парадигму епізодичної пам'яті у напрямку структурованого
+знання: кожне спостереження перетворюється на атомарну нотатку за принципом
+Zettelkasten з явними зв'язками між нотатками, утворюючи граф знань поверх
+потоку спостережень.
+Це наближає одиницю пам'яті до структурованого запису, проте зв'язки
+залишаються асоціативними, а не каузальними — нотатка не фіксує
+відхилені альтернативи та не прив'язується до конституційного принципу.
+
+Letta (letta2025lettacode), комерціалізований наступник MemGPT, вводить два механізми,
+безпосередньо релевантні цій роботі.
+По"=перше, *контекстні репозиторії* (context repositories) (letta2026repositories) —
+персистентні версіоновані сховища структурованого контексту, до яких агент
+звертається між сесіями; вони замінюють плоску архівну модель MemGPT
+типізованими колекціями з підтримкою запитів.
+По"=друге, *контекстна конституція* (context constitution) (letta2026constitution) —
+декларативна специфікація того, до якого контексту агент має доступ і
+з яким пріоритетом, аналогічна політиці витягування, вираженій як конфігурація,
+а не як код.
+Ці механізми наближають пам'ять агента до витягування за провенансом рішень:
+контекстні репозиторії надають субстрат зберігання, а контекстна конституція —
+рудиментарну політику витягування.
+Проте одиницею витягування в Letta залишається контекстний блок
+(текстовий фрагмент з метаданими), а не оперативне рішення з провенансом,
+альтернативами та конституційним обґрунтуванням.
+
+Reflexion (shinn2023reflexion) підтримує епізодичну пам'ять вербальних рефлексій — агент зберігає текстові описи минулих помилок для покращення майбутніх дій.
+Цей механізм паралельний до нашого рівня оператора, де зберігаються структуровані абстракції корекцій.
+Когнітивна архітектура CoALA (sumers2024coala) декомпозує агента на модулі пам'яті, дії та прийняття рішень — наша трирівнева декомпозиція є конкретною реалізацією цієї рамки для довгострокових місій.
+Систематичний огляд механізмів пам'яті для LLM"=агентів подано
+у zhang2024survey.
+
+**Обмеження:** усі розглянуті системи — MemGPT, Generative Agents, A-MEM, Mem0, Letta —
+використовують як одиницю витягування діалоговий обмін, спостереження персонажа
+або контекстний блок, а не оперативне рішення з повним провенансом.
+
+### Витягування для програмних агентів
+
+Парадигма доповненої генерації (RAG) (lewis2020rag) забезпечує фундамент витягування для мовних моделей.
+Corrective RAG (yan2024crag) вводить оцінювач якості витягування з сигналами корекції — найближча до нашого retrieval-correction signal робота, хоча обмежена одиничними запитами без довгострокового контексту місії.
+RepoCoder (zhang2023repocoder) та подібні системи витягують фрагменти коду за семантичною подібністю.
+CodeRAG-Bench (wang2024coderagbench) забезпечує систематичний бенчмарк для витягування з доповненою генерацією коду, охоплюючи документацію, довідники API та приклади коду як джерела витягування.
+SWE-bench (jimenez2024swebench) та SWE-agent (yang2024sweagent) оцінюють агентів на реальних задачах з GitHub (issues), демонструючи, що витягування з урахуванням структури репозиторію та контексту задачі підвищує частку успішних розв'язків.
+
+**Обмеження:** усі зазначені системи витягують *текст коду та ідентифікатори* — без провенансу рішень: чому цей код написано саме так, які альтернативи розглядались, які обмеження враховано.
+
+### Записи архітектурних рішень
+
+
+Практика формального документування архітектурних рішень має тривалу історію в програмній інженерії.
+Формат Architecture Decision Record (ADR), запропонований Найґардом (nygard2011adr), визначає легковагий шаблон у форматі Markdown — назва, статус, контекст, рішення, наслідки — що зберігається безпосередньо разом із кодовою базою.
+Стандарт ISO/IEC/IEEE 42010 (iso42010) формалізує опис архітектури на організаційному рівні, надаючи нормативну рамку для документування архітектурних точок зору та відповідностей.
+Y"=формат Цьорнера (zorner2015softwarearchitekturen) структурує рішення у вигляді шаблонного висловлювання: <<В контексті [ситуація], зіткнувшись із [проблемою], ми вирішили [варіант], щоб досягти [якість], приймаючи [компроміс]>>.
+zimmermann2015architectural розширює практику управління ADR до міжпроєктного керівництва, додаючи моделювання простору проблем та систематичне відстеження залежностей між рішеннями.
+
+ADR фіксують *провенанс рішень* — саме той контент, що відсутній у витягуванні code-RAG.
+Проте механізм витягування ADR залишається файловим: рішення знаходять переглядом директорії за назвою та датою, а не семантичним запитом.
+Відсутні індекс вбудовувань (embedding index), гібридне витягування, перерангування за релевантністю до поточної задачі.
+Крім того, ведення ADR потребує ручного авторства: у високошвидкісному робочому процесі з продуктивністю 14,7 PR/день кураторське навантаження на підтримку повного реєстру ADR стає заборонно високим.
+
+За військовою аналогією, ADR подібні до журналу рішень командира — цінний артефакт, але пошук у ньому здійснюється за датою та підрозділом, а не за семантичною релевантністю до поточної оперативної ситуації.
+
+### Моделі з довгим контекстом
+
+Gemini 1.5 Pro (reid2024gemini) підтримує контекст до 1M+ токенів.
+Проте дослідження (liu2023lost, hsieh2024ruler, li2024longcontextbench) демонструють деградацію уваги після {\\sim}200K токенів: модель "губить" інформацію в середині довгого контексту.
+Плоске завантаження всього контексту місії не масштабується з тривалістю місії.
+
+### Системи управління знаннями в ситуаційних центрах
+
+Онтологічно"=керовані системи підтримки рішень (palagin2006architecture) забезпечують формальне представлення знань для ситуаційної обізнаності.
+palagin2024neural демонструють ефективність інтеграції нейромережевих та онтолінгвістичних парадигм.
+В Інституті кібернетики НАН України розвиваються суміжні напрямки: теорія конфліктно"=керованих процесів (chikrii1997conflict) для формалізації задач переслідування та ухилення (застосовна до автономного управління БПЛА), оптимізація маршрутів команд БПЛА з динамічними депо (horbulin2020uavroutes), гібридні нейромережі для інтелектуального управління літальними апаратами (zgurovsky2021hybridnn).
+Проте жодна з існуючих систем не поєднує онтологічну структуру з дворежимним витягуванням для забезпечення безперервності управління при ротації операторів.
+
+
+**Синтез.**
+Жодна з п'яти ліній робіт — діалогова пам'ять, витягування для програмних
+агентів, реєстри архітектурних рішень, моделі з довгим контекстом, онтологічно"=керовані системи —
+не розглядає провенанс рішення як першокласну одиницю пам'яті із семантичним
+витягуванням.
+Жодна не забезпечує примітиву повільного циклу оновлення (*slow-loop refresh*),
+що підтримує актуальність пам'яті про неактивні задачі на горизонтах у кілька
+тижнів — інтервалі, характерному для ротації операторів у штабних процесах.
+Архітектура, описана в цій роботі, займає перетин цих ліній:
+вона запозичує структуру провенансу з ADR, семантичне витягування
+з Code"=RAG, персистентність із систем діалогової пам'яті та селективне
+завантаження контексту з RAG — додаючи дворежимне витягування
+(*dual-mode retrieval*) як нову архітектурну примітиву, спеціально
+спроектовану для забезпечення безперервності управління при зміні операторів.
+
+
+% ============================================================
+## Формалізація проблеми
+
+% ============================================================
+
+### Три характеристики довгострокових місій
+
+Довгострокова автономна місія характеризується трьома вимірюваними властивостями, верифікованими на пілотному датасеті (ovcharov2026edittrace):
+
+
+ - [Горизонт.] Пов'язані рішення охоплюють дні — тижні. У верифікаційному розгортанні: 105 днів активної роботи з медіанним інтервалом між комітами менше 2 годин, але архітектурними потоками тривалістю 4–6 тижнів.
+ - [Композиційність.] Рішення A тижня 2 обмежує рішення B тижня 6. Вибір схеми бази даних визначив контракти 29 інструментів, побудованих впродовж наступних п'яти тижнів.
+ - [Персистентність.] Стан місії є спільним між сесіями операторів. Агент не зберігає історію діалогу — він повертається до зміненого стану місії кожної нової сесії.
+
+
+### Проблема ініціалізації сесії
+
+Кожна нова сесія оператора починається із завантаження контексту.
+Вимірювання на 304 сесіях: медіана вартості ініціалізації — 30 115 вхідних токенів, з яких {\\sim}59% — надлишковий контекст.
+Медіана *коефіцієнта надлишковості* (файли, зчитані при ініціалізації, але жодного разу не використані під час сесії) — 60%.
+
+При ротації операторів проблема загострюється: новий оператор не має *жодного* контексту рішень попередника — лише стан місії без обґрунтувань.
+
+### Формальна постановка
+
+Нехай T — кількість токенів ініціалізації, K — кількість зчитувань файлів/записів, W — коефіцієнт надлишковості.
+[nosep]
+ - **Pull"=режим** зменшує K та T при ініціалізації: замість плоского завантаження — цільове витягування за описом задачі.
+ - **Push"=режим** підтримує актуальність контексту: для простоюючих задач/секторів фонове оновлення забезпечує, що при відновленні роботи контекст вже актуальний.
+ - **Метрика якості:** частка корекцій оператора, спричинених недостатнім контекстом (retrieval-correction signal).
+
+
+Цільові показники: T' \\leq 10 000 токенів, W' \\leq 20%.
+
+
+% ============================================================
+## Архітектура трирівневої пам'яті
+
+% ============================================================
+
+Підсистема пам'яті декомпозується на три рівні з різною семантикою витягування та субстратом зберігання.
+Рисунок показує загальну архітектуру з обома режимами витягування.
+
+
+### Предметний рівень (Domain Layer)
+
+Предметний рівень містить оперативні дані домену.
+
+
+Витягування: семантична подібність (cosine similarity) з опціональною фільтрацією за метаданими.
+Архітектурна зміна порівняно з прямими викликами інструментів: маршрутизація через єдину підсистему пам'яті забезпечує уніфіковане логування всіх запитів, вимірювання частоти промахів та єдиний формат відповіді.
+
+### Робочий рівень (Workflow Layer)
+
+Робочий рівень містить контекст рішень — провенанс, відсутній як у вихідному коді, так і в предметних даних.
+
+
+Витягування: гібридне — семантична подібність + структуровані фільтри (компонент, тип місії, часовий діапазон).
+
+### Рівень оператора (Practitioner Layer)
+
+Рівень оператора містить патерни рішень конкретного оператора, витягнуті з pipeline корекцій (ovcharov2026edittrace).
+
+**Ключова властивість:** цей рівень ніколи не зберігає сирий контент — тільки структуровані абстракції: клас корекції, семантична категорія, афектований компонент, результат (прийнято/відхилено/модифіковано) та однореченневе резюме.
+
+**Застосування при ротації:** новий оператор отримує профіль попередника — типові корекції, зони підвищеної уваги, рішення місії з обґрунтуваннями — у компактному дайджесті при ініціалізації сесії.
+
+Витягування: гібридне з фільтрацією за часом та результатом.
+
+**Фаза 0: міст промпт–коміт.**
+Перед розгортанням повноцінного рівня оператора встановлюється мінімальний колектор даних.
+Хук \`UserPromptSubmit\` у Claude Code створює orphan"=коміт у bare"=репозиторії git для кожного промпту оператора.
+Кожний запис містить: текст промпту, мітку часу, ідентифікатор сесії, репозиторій, гілку та режим дозволів.
+
+Протягом 4–6 тижнів пасивного збору формується природномовний корпус, що забезпечує вхідні дані для трьох задач:
+[nosep]
+ - розмежувальні мітки (disambiguation labels) — класифікація типу наміру оператора;
+ - розподіли частот тем (topic"=frequency distributions) — виявлення домінантних робочих контекстів;
+ - патерни перемикання між проєктами (cross"=project switching patterns) — моделювання переходів оператора між репозиторіями та завданнями.
+
+
+Цей корпус є сировинним матеріалом для embedding"=pipeline рівня оператора: з нього витягуються структуровані абстракції, описані вище, без збереження сирого контенту промптів у довготривалій пам'яті.
+
+Продуктивність: затримка захоплення становить 15 мс на один промпт — непомітна в межах 5"=секундного таймауту хуків Claude Code.
+Фаза 0 розгорнута з 9 травня 2026 р.
+
+
+*Військова аналогія.*
+Фаза 0 аналогічна пасивному збору радіоелектронної розвідки (SIGINT): накопичення даних без втручання в оперативну діяльність, формування базового розуміння патернів поведінки оператора до розгортання активних систем аналізу та адаптації.
+
+
+% ============================================================
+## Дворежимне витягування
+
+% ============================================================
+
+### Pull"=режим (активні сесії)
+
+При вході нового оператора система виконує запит до всіх трьох рівнів паралельно.
+Опис поточної задачі/сектора вбудовується у вектор (embedding), зіставляється з проіндексованим сховищем пам'яті, і k найрелевантніших записів збираються у компактний дайджест.
+Оператор починає роботу з фокусованим контекстом (K' \\ll K, T' \\ll T) і може витягувати додаткові записи на вимогу.
+
+### Push"=режим (фонове оновлення)
+
+Для простоюючих задач та секторів місії: планований фоновий процес відстежує активність і оновлює записи пам'яті пропорційно до швидкості релевантних змін.
+При відновленні роботи в секторі pull"=запит повертає *актуальний* контекст без потреби повторного збору інформації.
+
+Частота оновлення визначається як функція трьох сигналів активності:
+
+
+ f_{\\text{refresh}}(\\text{task}) = g\\bigl(
+ \\text{commits-touching-task}, 
+ \\text{comments-on-issue}, 
+ \\text{time-since-last-pull}
+ \\bigr)
+ 
+
+
+ де g — монотонно зростаюча функція за кожним аргументом, обмежена зверху одним оновленням на 24 години та знизу — одним оновленням на 7 днів для будь"=якої задачі з позначкою \`LONG-TERM\`.
+Таке обмеження запобігає як надмірному витрачанню обчислювальних ресурсів на високоактивних задачах, так і повному застаріванню контексту для задач з низькою активністю.
+
+Кожне оновлення породжує три артефакти:
+
+[nosep]
+ - **Виконавче резюме змін** — генерується мовною моделлю на основі дифів релевантних комітів та коментарів до задачі; містить стислий виклад усіх суттєвих подій від попереднього оновлення.
+ - **Дельта лінеажу інструментів** — перелік нових, модифікованих та виведених з експлуатації інструментів із дифами параметричних схем, що дозволяє оператору при поверненні одразу бачити зміни в доступному арсеналі засобів.
+ - **Відкриті питання** — нерозв'язані альтернативи та точки прийняття рішень, позначені сумаризатором як такі, що потребують втручання оператора при відновленні роботи над задачею.
+
+
+За військовою аналогією, цей механізм відповідає автоматизованій підготовці брифінгу передачі зміни: система формує зведення навіть тоді, коли жоден оператор не перебуває на бойовому чергуванні, — щоб наступна зміна при заступанні отримала актуальну обстановку без затримки на повторний збір інформації.
+
+**Критично для ротації:** між змінами операторів push"=режим оновлює контекст місії новими подіями, рішеннями інших секторів, змінами обстановки — так що наступна зміна починає з актуального стану.
+
+### Чому необхідні обидва режими
+
+[nosep]
+ - **Pull без push:** після тривалої паузи контекст застарілий — оператор отримує рішення тижневої давності.
+ - **Push без pull:** надлишковий контекст при кожній сесії — оператор завалений інформацією з усіх секторів.
+ - **Комбінація:** push підтримує актуальність, pull фокусує витягування на поточну задачу.
+
+
+### Сигнал корекції витягування
+
+
+Визначаємо *корекцію витягування* як корекцію оператора, яка була б непотрібною, якби підсистема пам'яті вчасно подала релевантний контекст.
+
+**Приклад:** оператор БПЛА коригує маршрут, бо не знав про зміну обстановки в секторі.
+Якби push"=режим оновив контекст місії, корекція не знадобилась би.
+
+Цей сигнал виконує подвійну функцію:
+[nosep]
+ - **Метрика якості** підсистеми пам'яті: частка корекцій, спричинених витягуванням, вимірює ефективність push/pull"=механізмів.
+ - **Додатковий сигнал навчання:** кожна корекція витягування маркує конкретний промах системи — що мало бути подано і коли — створюючи датасет для вдосконалення моделі витягування.
+
+
+Сигнал масштабується з автономністю агента: чим автономніший агент, тим більше рішень він приймає самостійно, і тим більше корекцій виникає через недостатній контекст.
+
+
+% ============================================================
+## Деталі реалізації
+
+% ============================================================
+
+### Інструмент запиту до пам'яті
+
+
+Інтерфейсом витягування контексту для агента слугує єдиний MCP"=інструмент \`workflow\\_memory\\_query\`, що забезпечує уніфікований доступ до всіх трьох рівнів пам'яті.
+Вибір єдиного інструменту замість окремих точок доступу до кожного рівня є принциповим проєктним рішенням: агент формулює один запит природною мовою, а підсистема пам'яті самостійно маршрутизує його до релевантних рівнів та агрегує відповіді.
+
+Параметри інструменту:
+[leftmargin=*, nosep]
+ - \`task\\_description\` (рядок, обов'язковий) — природномовний опис поточної задачі або оперативної ситуації.
+ - \`scope\` (перелічення: \`all\` | \`domain\` | \`workflow\` | \`practitioner\`) — рівні пам'яті для запиту. За замовчуванням: \`all\`.
+ - \`token\\_budget\` (ціле число, за замовчуванням 8 000) — максимальна кількість токенів у зібраному дайджесті.
+ - \`filters\` (об'єкт, опціональний) — структуровані фільтри: компонент, рівень критичності, часовий діапазон.
+
+
+Інструмент повертає *структурований прозовий дайджест* із такими складовими:
+[nosep]
+ - заголовки секцій відповідно до кожного рівня пам'яті, з якого витягнуто записи;
+ - оцінка релевантності (relevance score) для кожного запису;
+ - посилання на джерело (провенанс) — конкретний коміт, рішення командира, запис трекера або документ домену.
+
+
+Формат дайджесту спроєктовано для безпосередньої ін'єкції у контекстне вікно агента без додаткової постобробки.
+Токенний бюджет забезпечує контрольовану вартість ініціалізації: підсистема ранжує записи за релевантністю і відсікає нижні записи, коли сумарний обсяг перевищує бюджет.
+
+**Військова аналогія.**
+У системах управління БПЛА або ситуаційних центрах еквівалентом є *уніфікований інтерфейс розвідувального запиту*: оператор формулює інформаційну потребу один раз, а система агрегує дані з усіх доступних джерел у єдину розвідувальну зведення.
+Уніфікований інтерфейс запиту є реалізацією принципу *інформаційного злиття* (information fusion), що є стандартним елементом архітектур C4ISR.
+
+### Оркестратор довгострокових задач
+
+
+Push"=режим реалізований як окремий Docker"=контейнер з власним cron"=розкладом, ізольований від основного серверу обробки запитів.
+Архітектурна ізоляція забезпечує дві властивості: (1) фонові процеси оновлення не конкурують за ресурси з активними сесіями операторів; (2) збій оркестратора не впливає на доступність pull"=режиму.
+
+Цикл роботи оркестратора:
+[nosep]
+ - **Виявлення задач.** Оркестратор надсилає запит до трекера задач (Plane API) і отримує список задач із позначкою \`LONG-TERM\`.
+ - **Обчислення пріоритету оновлення.** Для кожної задачі обчислюється пріоритет оновлення за формулою ().
+ - **Генерація виходів.** Для кожної задачі, що підлягає оновленню, оркестратор генерує три структуровані виходи за допомогою LLM"=сумаризатора: резюме для командира, дельту лінійки інструментів та відкриті питання.
+ - **Індексація та зберігання.** Згенеровані виходи вбудовуються у вектори та зберігаються у колекції Qdrant робочого рівня пам'яті з метаданною позначкою \`source: push-refresh\`.
+
+
+**Військова аналогія.**
+Оркестратор є програмним аналогом *автоматизованої підготовки розвідувальних зведень між змінами*.
+Наступна зміна починає роботу не з порожнього аркуша, а з актуального зведення.
+
+
+% ============================================================
+## Експериментальна верифікація
+
+% ============================================================
+
+### Платформа верифікації
+
+
+Архітектура верифікована на платформі юридичного штучного інтелекту LEX AI (ovcharov2026edittrace): 70+ MCP"=інструментів, 380M+ записів у pipeline даних, 1 547 об'єднаних pull"=запитів за 105 днів роботи одного практика з LLM"=агентом.
+Ця платформа є стрес"=тестом підсистеми пам'яті: один оператор з максимальною пропускною здатністю генерує щільний потік рішень, що моделює навантаження автономної місії з обмеженим людським контролем.
+
+### Метрики
+
+
+Чотири кількісні метрики операціоналізують критерії успішності архітектури.
+
+
+П'ята метрика — *частота корекцій витягування* (Розділ ) — має якісний характер на Фазі 1.
+Очікувана траєкторія — спадна крива протягом перших 6–8 тижнів розгортання.
+
+### Попередні результати
+
+
+**Вартість ініціалізації (Експеримент 1, N{=**304 сесії).}
+Медіана вхідних токенів першого виклику 30 115 (середнє 29 693; \\sigma{=}7 594; P10/P90: 18 540/41 774).
+З цього обсягу {\\sim}17 600 токенів (59%) витрачаються на створення кешу для \`CLAUDE.md\` та системного контексту — завантажуються безумовно для кожної сесії.
+Кількість зчитувань файлів в середньому 23{,}1 (медіана 14, P90: 61), проте 72% сесій мають нуль викликів Read у фазі ініціалізації.
+
+**Зростання CLAUDE.md (Експеримент 2, 25 комітів за 85 днів).**
+Файл \`CLAUDE.md\` зріс із 4 099 до 24 148 символів (152 до 474 рядків).
+Лінійна регресія: 216{,}7 симв./день при R^2 = 0{,}87.
+
+**Коефіцієнт надлишковості (Експеримент 3, N{=**180 сесій).}
+Медіана коефіцієнта надлишковості — 60% (середнє 56{,}7%; \\sigma{=}26{,}3%).
+66% сесій витрачають більше половини зчитувань марно.
+Зчитування вихідного коду: 78% надлишковість; файли пам'яті: 66{,}5%.
+Ця метрика є консервативною проксі: файл може бути зчитаний для контексту без подальшого редагування.
+
+Фаза 0 (міст промпт–коміт) розгорнута з 9 травня 2026 р.; розподільний аналіз потребує 4–6 тижнів збору.
+
+### Загрози валідності
+
+
+**Один проєкт, один практик.**
+Архітектура верифікована в контексті одного проєкту та одного практика.
+Пом'якшення: архітектура є проєктно"=агностичною.
+В контексті управління БПЛА окремий оператор із закріпленим комплексом — типовий сценарій першої лінії.
+
+**Змішування з дозріванням кодової бази.**
+Контроль: A/B"=оцінювання шляхом увімкнення та вимкнення підсистеми пам'яті на тому самому розподілі задач.
+
+**Якість реєстру принципів.**
+На Фазі 1 реєстр курується людиною; точність витягування обмежена якістю курації.
+Адресується на Фазі 2 напівавтоматичним витягуванням принципів з edit-traces.
+
+### Застосовність до управління БПЛА та ситуаційних центрів
+
+
+Метрики платформи юридичного AI зіставляються з метриками бойових систем:
+
+
+% ============================================================
+## Обговорення
+
+% ============================================================
+
+### Від пам'яті програмного агента до пам'яті бойової системи
+
+Запропонована архітектура є доменно"=агностичною: трирівнева декомпозиція та дворежимне витягування працюють однаково для юридичного AI та управління БПЛА.
+Предметний рівень заповнюється даними домену (законодавство або оперативна обстановка), робочий рівень — рішеннями місії, рівень оператора — профілем конкретної людини.
+
+Ключова відмінність — вимоги до латентності: мілісекунди для систем реального часу (БПЛА) проти секунд для юридичного AI.
+Це впливає на архітектуру push"=режиму: для БПЛА оновлення мають відбуватися в реальному часі, а не за розкладом.
+
+### Еволюційна кібернетика та адаптація пам'яті
+
+palagin2025evolutionary запропонував рамку для аналізу систем, де цілі, обмеження та структури самі еволюціонують — на відміну від класичної теорії управління з фіксованою цільовою функцією.
+
+Підсистема пам'яті місії є саме такою еволюційною системою: контент пам'яті, пріоритети витягування та навіть структура рівнів адаптуються до зміни обстановки.
+Push"=режим є механізмом еволюційного оновлення: він не просто підтримує актуальність, а перебудовує контекст у відповідь на якісні зміни ситуації.
+
+### Зв'язок з онтологічно"=керованими системами
+
+Три рівні пам'яті природно зіставляються з концепціями онтологічно"=керованих систем (palagin2006architecture):
+
+[nosep]
+ - **Предметний рівень** = онтологія домену (формальне представлення знань про предметну область).
+ - **Робочий рівень** = онтологія процесу управління (рішення, їх обґрунтування, залежності).
+ - **Рівень оператора** = модель когнітивного профілю (патерни рішень, зони уваги).
+
+
+Дворежимне витягування розширює цю аналогію: pull"=режим відповідає активному запиту до онтології, push"=режим — автоматичному оновленню онтології при зміні фактів про світ.
+palagin2024neural демонструють, що інтеграція нейромережевих та онтолінгвістичних підходів дає кращі результати, ніж кожна парадигма окремо — наша гібридна схема витягування (семантичне + структуроване) є реалізацією цього принципу.
+
+### Пам'ять як субстрат навчання з підкріпленням
+
+
+Та сама інфраструктура, яка дозволяє одному практику виконувати сотні сесій протягом кількох місяців, *генерує* сигнал переваг, придатний для навчання з підкріпленням на основі зворотного зв'язку від людини (RLHF).
+Пам'ять і дані переваг є двома проєкціями одного і того ж довгострокового робочого процесу: кожна корекція після витягування є одночасно *збоєм підсистеми пам'яті* та *сигналом вирівнювання*.
+
+Ця двоїстість не є випадковою: вона становить архітектурну тезу.
+Підсистема пам'яті не лише *споживає* дані вирівнювання — вона їх *продукує*.
+У бойовому контексті кожна корекція оператора під час управління БПЛА — зміна маршруту, перепризначення цілі — є одночасно записом пам'яті місії та зразком для навчання системи (ovcharov2026edittrace).
+
+### Пам'ять як поверхня масштабованого нагляду
+
+
+Підсистема пам'яті виконує подвійну функцію: обслуговує агента під час виконання місії та генерує сигнал нагляду під час узгодження.
+Із зростанням автономності агента відношення спостережуваних результатів до внутрішніх рішень агента падає.
+Нагляд на рівні результатів стає вузькосмуговим каналом.
+
+Підсистема пам'яті змінює цю динаміку.
+Кожне витягування є *спостережуваною подією* з відомим контекстним вікном, відомим результатом витягування та подальшим слідом редагування.
+Щільність сигналу на одиницю активності є вищою, ніж при RLHF на рівні результатів: кожна сесія генерує множину пар <<витягнуто X, скориговано Y>>.
+
+### Поведінка пам'яті при ескалації подій
+
+
+Попередні підсекції розглядають підсистему пам'яті в режимі стаціонарного навантаження.
+Окремого аналізу потребує поведінка при *ескалації* — каскадному зростанні кількості одночасних подій, коли інформаційне навантаження на оператора та агента зростає експоненціально.
+
+**Каскадні сценарії.**
+В бойовому контексті ескалація виникає при одночасному обстрілі кількох секторів, радіоелектронному придушенні каналів зв'язку та втраті контакту з частиною рою БПЛА.
+У програмному контексті — при каскадних виробничих інцидентах у кількох сервісах одночасно.
+
+**Деградований режим.**
+Коли частота подій перевищує пропускну здатність обробки, підсистема пам'яті має переключитися з семантичного витягування на *тріаж на основі критичності*.
+Формально, функція ранжування змінюється з
+\\[
+ \\mathrm{score}(e) = \\mathrm{sim}(q, e)
+ \\longrightarrow 
+ \\mathrm{score}(e) = \\alpha \\cdot \\mathrm{criticality}(e) + (1-\\alpha) \\cdot \\mathrm{sim}(q, e),
+\\]
+де \\alpha \\to 1 при зростанні частоти подій.
+
+**Ротація під час кризи.**
+Найгірший сценарій для підсистеми пам'яті — ротація оператора посеред ескалації.
+Дайджест для нового оператора повинен передати не лише статичний стан, а й *динаміку*: що ескалює, що каскадує, які зв'язки між подіями виявлені, які рішення прийняті попереднім оператором.
+Це вимагає розширення формату дайджесту від плоского переліку фактів до темпоральної структури з причинно"=наслідковими зв'язками.
+
+Повна реалізація деградованого режиму виходить за межі поточної роботи (див. обмеження (iii) у секції ), проте архітектурні точки розширення — функція ранжування з параметром критичності та черга пріоритетів у push"=режимі — є частиною проєкту.
+
+### Узагальнення на команди
+
+
+Архітектура обслуговує одного практика.
+Багатооператорне розгортання породжує три виклики:
+*по"=перше*, реєстр принципів стає багатозаписувачем з необхідністю вирішення конфліктів;
+*по"=друге*, рівень оператора потребує індивідуальних представлень;
+*по"=третє*, записи пам'яті можуть містити контекст, чутливий до рівня доступу.
+
+Трирівнева декомпозиція спроєктована для підтримки цих розширень: предметний рівень є спільним, робочий підтримує обмежені представлення через фільтрацію метаданих, а рівень оператора є за природою індивідуальним.
+
+### Чим це не є
+
+
+Архітектура *не* є заміною моделей з довгим контекстним вікном — вона є витягувальним субстратом, що зменшує обсяг контексту, який повинна обробити модель (reid2024gemini, liu2023lost).
+Це *не* є граф знань (не використовує RDF"=трійки і не надає SPARQL"=інтерфейс).
+Це *не* є корпоративна система управління знаннями (Enterprise KMS).
+Це витягувальний субстрат, оптимізований для одного операційного режиму — довгострокової агентної композиції малою кількістю практиків.
+
+**Військова аналогія.**
+Це *не* є повноцінна система C4ISR.
+Це підсистема пам'яті, що інтегрується в існуючу інфраструктуру управління — компонент, що забезпечує безперервність інформаційного контексту для тих підсистем, які приймають рішення.
+
+
+% ============================================================
+## Обмеження
+
+% ============================================================
+
+[label=(\\roman*), nosep]
+ - **Верифікація на одній платформі.** Архітектура верифікована на юридичному AI, не на БПЛА або ситуаційному центрі. Доменна агностичність — гіпотеза, що потребує перевірки.
+ - **Одиничний оператор.** Усі вимірювання отримані від одного практика. Поведінка при багатооператорній ротації потребує окремого дослідження.
+ - **Push"=режим та деградований режим.** Фонове оновлення описане архітектурно, але повна реалізація ще не завершена. Тріаж на основі критичності (Розділ ) є проєктним, не реалізованим.
+ - **Латентність.** Вимірювання латентності витягування отримані для не"=реального часу. Для БПЛА потрібна оптимізація під мілісекундні вимоги.
+
+
+% ============================================================
+## Висновки
+
+% ============================================================
+
+Запропоновано архітектуру підсистеми персистентної пам'яті для автономних агентних систем, що виконують довгострокові місії з ротацією операторів.
+
+Основні результати:
+[nosep]
+ - **Трирівнева декомпозиція** (предметна область / робочий процес / оператор) забезпечує розділення контексту за семантикою витягування та терміном життя.
+ - **Дворежимне витягування** (pull + push) вирішує проблему безперервності контексту: pull фокусує ініціалізацію на поточну задачу, push підтримує актуальність для простоюючих задач та ротації операторів.
+ - **Сигнал корекції витягування** надає метрику якості підсистеми пам'яті, яка масштабується з автономністю агента та слугує додатковим джерелом навчального сигналу.
+
+
+Базові вимірювання на 304 сесіях підтверджують наявність проблеми: 60% надлишковість контексту при ініціалізації, що зростає лінійно з віком проєкту.
+
+Архітектура є доменно"=агностичною і застосовна до систем управління БПЛА та ситуаційних центрів, де ротація операторів є штатною процедурою, а безперервність контексту рішень — критичною вимогою бойової готовності.
+Окремо обговорено поведінку при ескалації подій: деградований режим із тріажем на основі критичності та проблему ротації посеред кризи.
+
+Подальші дослідження: (1) верифікація на багатооператорній когорті; (2) реалізація push"=режиму в реальному часі; (3) інтеграція з онтологічно"=керованими системами підтримки рішень (palagin2006architecture) для формалізації робочого рівня пам'яті; (4) реалізація деградованого режиму та емпірична верифікація тріажу на основі критичності.
+
+
+% ============================================================
+% References
+% ============================================================
 
 ---
 
 [**Download Full Paper (PDF)**](/papers/mission-memory-2026.pdf)`,
+  },
+  'court-practice-analysis-march-2026': {
+    title: 'Analysis of Grand Chamber of the Supreme Court Case Law for March 2026: What the Review Missed',
+    punchline: 'An in-depth analysis of 5 Grand Chamber of the Supreme Court cases and TCC fine rulings based on full decision texts and separate opinions of justices. Found factual errors, overlooked separate opinions by Justices Mazur, Pohribnyi, and Yemets, a key proportionality finding, and inaccuracies regarding party composition.',
+    readTime: '20 min',
+    content: `# Analysis of Grand Chamber of the Supreme Court Case Law for March 2026: What Was Missed and What Was Done Well
+
+An independent analysis of a case law review covering Grand Chamber of the Supreme Court decisions (cases No. 922/264/24, No. 922/5241/21, No. 542/881/19), Supreme Court Civil/Commercial/Criminal Cassation Court reviews for February 2026, and Dniprovskyi District Court of Kyiv decisions overturning TCC (Territorial Recruitment Center) fines. The analysis is based on full decision texts, separate opinions of justices, and external legal commentary.
+
+---
+
+## I. Case No. 922/264/24 -- Land of Historical and Cultural Significance
+
+### What the Original Review Conveyed Well
+
+The author accurately set out the substance of the Grand Chamber's findings (paras. 319-322): a negatory claim is an effective means of protecting state rights to a land plot of historical and cultural significance containing an archaeological monument. The citations are correct, and paragraph numbering matches the decision.
+
+### What Was Overlooked or Presented with Bias
+
+**1. Alleged silence on the prosecutor's authority -- not quite accurate**
+
+The author claims the Grand Chamber "stayed silent on the issue of an improper plaintiff and the lack of prosecutorial authority." Analysis of the full text shows otherwise:
+
+- In paras. 65-66 of the decision, the Grand Chamber examined the question of prosecutorial authority. The prosecutor sent a letter dated 06.11.2023 to government bodies requesting information on measures taken to recover the land plot. Since the authority had taken no action, the Grand Chamber recognized the prosecutor's right to bring the claim.
+
+- The appellate court recognized the prosecutor as a proper plaintiff under Art. 23 of the Law of Ukraine "On the Prosecutor's Office." The Grand Chamber **did not overturn** this finding.
+
+The issue was not "silenced" -- it was resolved in favor of the prosecutor at the appellate level and was not reviewed as erroneous.
+
+**2. Role of the State Geocadastre -- it was already a party**
+
+The author notes "the need to involve the State Geocadastre," yet the **Main Directorate of the State Geocadastre in Kharkiv Oblast** was joined as one of the defendants at the first-instance stage.
+
+**3. A Key Proportionality Finding Was Missed**
+
+The author failed to mention the most important practical conclusion of the Grand Chamber: **the state cannot seize an ENTIRE land plot when only a portion of it overlaps with an archaeological monument.** The Court held that depriving rights to the entire plot "does not pursue a legitimate aim, does not strike a fair balance, and is disproportionate."
+
+**4. Context of Departure from Prior Case Law Was Omitted**
+
+The Grand Chamber departed from the conclusions of the Civil Cassation Court of the Supreme Court in cases No. 557/303/21 and No. 748/1335/20.
+
+**5. ECHR Case Law Was Not Mentioned**
+
+The Grand Chamber relied on Art. 1 of Protocol No. 1 -- individuals cannot be held liable for errors of state authorities.
+
+---
+
+## II. Case No. 922/5241/21 -- Prosecutorial Authority and Recovery of Property
+
+### What Was Conveyed Well
+
+The author fully and accurately reproduced paras. 10.54-10.59 of the decision. The citations are correct.
+
+### What Was Overlooked
+
+**1. "Selective departure" -- needs specifics**
+
+The Grand Chamber adopted the position of the Civil Cassation Court dated 04.12.2023 (case No. 707/157/22).
+
+**2. The Separate Opinion of Justices Pohribnyi and Yemets Was Omitted**
+
+Justices S.O. Pohribnyi and A.A. Yemets set out fundamental counterarguments including that the Grand Chamber exceeded the scope of cassation review.
+
+**3. The Legal Paradox of Prosecutorial Practice**
+
+Para. 10.57 creates a paradox: the prosecutor cannot be the plaintiff when defending the interests of the community -- the plaintiff must be the authority that itself violated those interests.
+
+---
+
+## III. Case No. 542/881/19 -- Gas Distribution System Operators and Charges for "Thin Air"
+
+### What Was Conveyed Well
+
+The emotional assessment conveys the legal community's outrage. Paras. 193-194 are cited correctly.
+
+### What Was Overlooked
+
+**1. Justice Mazur's Separate Opinion Was Not Mentioned**
+
+Justice M.V. Mazur set out a principled separate opinion that **supports the author's position**.
+
+**2. The Grand Chamber Overturned Two Lower Courts**
+
+The courts of first instance and appeal denied the operator "Poltagaz" recovery of UAH 63,438.22. The Grand Chamber reversed both decisions.
+
+---
+
+## IV. TCC Cases -- What the Full Text Adds
+
+### Case No. 755/24028/25 (Judge N.V. Marfina)
+
+Awarded: court fee UAH 1,211.20 + legal aid UAH 15,000.00 = UAH 16,211.20.
+
+### Case No. 755/22365/25 (Judge O.O. Khromova)
+
+The court reduced costs from 15,000 to UAH 10,000 -- the case "is not complex." Total: UAH 10,605.60.
+
+---
+
+## V. Overall Assessment
+
+### Strengths of the Review
+- Broad coverage -- from the Grand Chamber to district courts
+- Timeliness and practical value
+
+### Areas Requiring Improvement
+1. Separate opinions of justices -- the most significant omission
+2. Factual error -- the State Geocadastre was already a party
+3. The proportionality finding was missed
+4. Absence of ECHR case law that the Grand Chamber itself cited
+
+---
+
+*Analysis prepared based on full decision texts from the SecondLayer database (legal.org.ua), separate opinions of justices, and external legal commentary. March 2026.*`,
+  },
+  'distributed-monolith': {
+    title: 'Distributed Monolith: When Microservices Are Just a Monolith with Network Latency',
+    punchline: '3 services, 1 PostgreSQL, shared Redis, one docker-compose — and the illusion of independence. How to spot a distributed monolith in your own architecture, when it\'s actually useful, and when it\'s time for real separation.',
+    readTime: '14 min',
+    content: `# Distributed Monolith: When Microservices Are Just a Monolith with Network Latency
+
+*You split your code into services. You have separate containers. You even have a gateway. So why does deploying one service still break the other?*
+
+---
+
+## What is a distributed monolith
+
+A distributed monolith is an architecture that *looks* like microservices but *behaves* like a monolith. Services are separated at the code level but remain coupled at the infrastructure, data, or deployment level.
+
+Classic symptoms:
+
+- **Shared database** -- different services read/write to the same PostgreSQL instance
+- **Shared library without versioning** -- a change in a common package breaks everyone simultaneously
+- **One docker-compose** -- all services are deployed together, even if only one changed
+- **Synchronous HTTP calls** -- service A cannot function if service B is unresponsive
+- **Shared cache** -- one Redis for everyone, LRU eviction from one service kills another's cache
+
+Sound familiar? That's our architecture. And we believe that right now -- it's the *right choice*.
+
+---
+
+## When a distributed monolith is the right choice
+
+Here's an unpopular opinion: **a distributed monolith isn't always a problem**. At a certain scale, it's the optimal architecture.
+
+### Benefits we get
+
+**1. Operational simplicity** -- One docker compose up brings everything up.
+
+**2. Development speed** -- A shared package means DRY.
+
+**3. Transactional integrity** -- One PostgreSQL = the ability to JOIN across schemas.
+
+**4. Debuggability** -- One docker compose logs shows the entire request flow.
+
+**5. Cost** -- One server instead of three.
+
+### The formula: when a distributed monolith is enough
+
+Team < 5 developers, load < 1000 RPS, deploys < 5/day, one server handles it, no requirements for independent scaling.
+
+---
+
+## Step-by-step evolution plan
+
+### Phase 1: Hardening (effort: low, impact: 80%)
+
+- Split Redis into separate instances per service
+- Version the shared package with semver
+- Add circuit breaker in RemoteServiceClient
+
+### Phase 2: Infrastructure independence
+
+- Separate PostgreSQL instances
+- Split docker-compose per service
+- API contracts between services
+
+### Phase 3: True microservices (team > 5)
+
+- Service discovery instead of env vars
+- Message queue for async operations
+- Independent CI/CD pipelines
+
+---
+
+## Conclusion
+
+A distributed monolith is not a diagnosis. It's a stage in architectural evolution. **80% of microservice benefits can be achieved with 20% of the effort** -- by splitting Redis, adding a circuit breaker, and versioning your shared package.
+
+---
+
+Sign up: [legal.org.ua](https://legal.org.ua)`,
+  },
+  'military-lawyer-ai': {
+    title: 'AI for Military Lawyers: Searching 273K+ Decisions in Seconds',
+    punchline: '126,934 decisions under Art. 407 of the Criminal Code. 26,926 cases on draft evasion. 1,721 cassation rulings. Full-text search across 110M+ documents. Legislative texts in 2 seconds. Appeal chains. All on one platform.',
+    readTime: '8 min',
+    content: `# AI for Military Lawyers: Searching 273K+ Decisions in Seconds
+
+*How LEX helps military lawyers work with a volume of case law that is impossible to process manually.*
+
+---
+
+## The Problem
+
+The USRCD (Unified State Register of Court Decisions) has accumulated over 273,000 decisions on military criminal offenses. Processing this volume manually is impossible. A lawyer needs a tool that finds relevant case law in seconds.
+
+---
+
+## Query 1: How many cases under Art. 407 of the Criminal Code since the full-scale invasion?
+
+**Result: 126,934 decisions** on unauthorized absence from a military unit since 24.02.2022. Filtering by judge, court, date, decision form.
+
+## Query 2: Supreme Court positions on military cases
+
+**Result: 1,721 decisions** from the cassation instance forming legal positions.
+
+## Query 3: Plea agreements
+
+**Result: 91 decisions** where courts approved plea agreements under Art. 407 CC.
+
+## Query 4: Mitigating circumstances -- what works?
+
+**Result: 36 decisions** with exemption from punishment.
+
+## Query 5: Draft evasion -- 26,926 cases
+
+Criminal cases: **26,926**. Administrative cases: **22,573**.
+
+## Query 6: Desertion vs. unauthorized absence
+
+Art. 407 CC: **126,934**. Art. 408 CC: **12,409**. A 10:1 ratio.
+
+## Query 7: Legislative text in 2 seconds
+
+The system recognizes references like "CC Art. 407" and instantly returns the current text.
+
+## Query 8: Complete statutory framework in one query
+
+Art. 407, 408, 66, 75 CC + Law on Mobilization -- all in one response.
+
+## Query 9: Full decision text with AI segmentation
+
+AI automatically segments the decision into logical blocks.
+
+## Query 10: Appeal chain
+
+29 documents from first instance to Grand Chamber by case number.
+
+---
+
+## Under the Hood
+
+| Parameter | Value |
+|-----------|-------|
+| Court decisions in the database | **45M+** |
+| Military decisions with filters | **273K+** |
+| Full-text search | **110M+ documents** |
+| Response time | **1-5 seconds** |
+| Legislative texts | **All codes and laws** |
+
+---
+
+Sign up: [legal.org.ua](https://legal.org.ua)`,
   },
 };
