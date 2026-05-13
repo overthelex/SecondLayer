@@ -28,6 +28,7 @@ import { WorkflowMemoryService, PrincipleInput } from '../mcp_backend/src/servic
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const SKIP_PRS = process.argv.includes('--skip-prs');
+const PR_FILE = process.argv.find(a => a.startsWith('--pr-file='))?.split('=')[1];
 
 // ── Tag inference ────────────────────────────────────────────
 
@@ -296,6 +297,14 @@ interface PRData {
 }
 
 function fetchMergedPRs(limit = 50): PRData[] {
+  if (PR_FILE) {
+    try {
+      return JSON.parse(fs.readFileSync(PR_FILE, 'utf-8')).slice(0, limit);
+    } catch (err: any) {
+      console.warn(`⚠ Failed to read PR file ${PR_FILE}: ${err.message}`);
+      return [];
+    }
+  }
   try {
     const raw = execSync(
       `gh pr list --state merged --limit ${limit} --json number,title,body,mergedAt,url`,
