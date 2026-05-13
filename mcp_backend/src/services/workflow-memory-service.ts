@@ -69,6 +69,17 @@ export interface PractitionerInput {
   tags?: string[];
 }
 
+export interface ReconciliationResult {
+  reconciliationId: number;
+  retrievedCount: number;
+  relevantCount: number;
+  missedCount: number;
+  spuriousCount: number;
+  precision: number | null;
+  recall: number | null;
+  candidates: Array<{ id: number; title: string; reason: string }>;
+}
+
 export class WorkflowMemoryService {
   private qdrant: QdrantClient;
   private initialized = false;
@@ -264,20 +275,164 @@ export class WorkflowMemoryService {
     }
   }
 
+  // ── Reconciliation (Phase 1.4) ─────────────────────────────
+
+  async reconcileSession(opts: {
+    sessionId: string;
+    commitRange?: string;
+    filesTouched: string[];
+    toolsUsed?: string[];
+    promptsCount?: number;
+  }): Promise<ReconciliationResult> {
+    await this.initialize();
+
+    // 1. Get what was retrieved during this session
+    const retrievalRows = await this.db.query(
+      `SELECT DISTINCT UNNEST(result_ids) AS pid FROM workflow_memory_retrievals WHERE session_id = $1`,
+      [opts.sessionId],
+    );
+    const retrievedIds = new Set<number>(retrievalRows.rows.map((r: any) => r.pid));
+
+    // 2. Find principles relevant to files touched — match by tags inferred from paths
+    const fileTags = this.inferTagsFromPaths(opts.filesTouched);
+    let relevantIds = new Set<number>();
+
+    if (fileTags.length > 0) {
+      const tagRes = await this.db.query(
+        `SELECT id FROM workflow_memory_principles WHERE tags && $1`,
+        [fileTags],
+      );
+      relevantIds = new Set<number>(tagRes.rows.map((r: any) => r.id));
+    }
+
+    // Also check keyword overlap: principles whose body mentions touched file paths
+    if (opts.filesTouched.length > 0) {
+      const pathFragments = opts.filesTouched
+        .map(f => f.split('/').pop()?.replace(/\.[^.]+$/, ''))
+        .filter(Boolean)
+        .slice(0, 20);
+
+      if (pathFragments.length > 0) {
+        const pattern = pathFragments.join('|');
+        const keywordRes = await this.db.query(
+          `SELECT id FROM workflow_memory_principles WHERE body ~* $1 LIMIT 50`,
+          [pattern],
+        );
+        for (const r of keywordRes.rows) relevantIds.add(r.id);
+      }
+    }
+
+    // 3. Compute precision / recall / misses
+    const intersection = new Set([...retrievedIds].filter(id => relevantIds.has(id)));
+    const missedIds = new Set([...relevantIds].filter(id => !retrievedIds.has(id)));
+    const spuriousIds = new Set([...retrievedIds].filter(id => !relevantIds.has(id)));
+
+    const precision = retrievedIds.size > 0 ? intersection.size / retrievedIds.size : null;
+    const recall = relevantIds.size > 0 ? intersection.size / relevantIds.size : null;
+
+    // 4. Mark retrieval rows as useful/not-useful
+    if (retrievedIds.size > 0) {
+      const usefulIds = [...intersection];
+      const notUsefulIds = [...spuriousIds];
+
+      if (usefulIds.length > 0) {
+        await this.db.query(
+          `UPDATE workflow_memory_retrievals SET was_useful = true
+           WHERE session_id = $1 AND result_ids && $2`,
+          [opts.sessionId, usefulIds],
+        );
+      }
+      if (notUsefulIds.length > 0) {
+        await this.db.query(
+          `UPDATE workflow_memory_retrievals SET was_useful = false
+           WHERE session_id = $1 AND NOT (result_ids && $2)`,
+          [opts.sessionId, usefulIds.length > 0 ? usefulIds : [0]],
+        );
+      }
+    }
+
+    // 5. Build candidate principles from missed principles (for review)
+    const candidates: Array<{ id: number; title: string; reason: string }> = [];
+    if (missedIds.size > 0) {
+      const missedRes = await this.db.query(
+        `SELECT id, title, tags FROM workflow_memory_principles WHERE id = ANY($1)`,
+        [[...missedIds]],
+      );
+      for (const r of missedRes.rows) {
+        candidates.push({
+          id: r.id,
+          title: r.title,
+          reason: `Relevant to files touched but not retrieved (tags: ${(r.tags || []).join(', ')})`,
+        });
+      }
+    }
+
+    // 6. Store reconciliation record
+    const res = await this.db.query(
+      `INSERT INTO workflow_memory_reconciliations
+         (session_id, commit_range, files_touched, tools_used, prompts_count,
+          retrieved_ids, relevant_ids, missed_ids, spurious_ids,
+          precision, recall, candidate_principles, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'completed')
+       RETURNING id`,
+      [
+        opts.sessionId, opts.commitRange ?? null,
+        opts.filesTouched, opts.toolsUsed ?? [],
+        opts.promptsCount ?? 0,
+        [...retrievedIds], [...relevantIds], [...missedIds], [...spuriousIds],
+        precision, recall,
+        JSON.stringify(candidates),
+      ],
+    );
+
+    return {
+      reconciliationId: res.rows[0].id,
+      retrievedCount: retrievedIds.size,
+      relevantCount: relevantIds.size,
+      missedCount: missedIds.size,
+      spuriousCount: spuriousIds.size,
+      precision,
+      recall,
+      candidates,
+    };
+  }
+
+  private inferTagsFromPaths(files: string[]): string[] {
+    const tags = new Set<string>();
+    for (const f of files) {
+      if (f.includes('deployment/') || f.includes('docker') || f.includes('Dockerfile')) tags.add('deployment').add('docker');
+      if (f.includes('ci-') || f.includes('.github/')) tags.add('ci-cd');
+      if (f.includes('nginx')) tags.add('deployment');
+      if (f.includes('migration')) tags.add('infrastructure');
+      if (f.includes('mcp_backend/')) tags.add('architecture');
+      if (f.includes('mcp_rada/')) tags.add('architecture');
+      if (f.includes('lexwebapp/')) tags.add('frontend');
+      if (f.includes('.test.') || f.includes('__tests__')) tags.add('testing');
+      if (f.includes('package.json') || f.includes('tsconfig')) tags.add('typescript');
+      if (f.includes('auth') || f.includes('oauth') || f.includes('diia')) tags.add('auth');
+      if (f.includes('billing') || f.includes('monobank') || f.includes('payment')) tags.add('billing');
+      if (f.includes('git') || f.includes('.github')) tags.add('git');
+      if (f.includes('script')) tags.add('workflow');
+    }
+    return [...tags];
+  }
+
   // ── Stats ──────────────────────────────────────────────────
 
   async getStats(): Promise<Record<string, number>> {
-    const [principles, patterns, practitioner, retrievals] = await Promise.all([
+    const [principles, patterns, practitioner, retrievals, reconciliations] = await Promise.all([
       this.db.query('SELECT COUNT(*) AS cnt FROM workflow_memory_principles'),
       this.db.query('SELECT COUNT(*) AS cnt FROM workflow_memory_patterns'),
       this.db.query('SELECT COUNT(*) AS cnt FROM workflow_memory_practitioner'),
       this.db.query('SELECT COUNT(*) AS cnt FROM workflow_memory_retrievals'),
+      this.db.query('SELECT COUNT(*) AS cnt FROM workflow_memory_reconciliations').catch(() => ({ rows: [{ cnt: 0 }] })),
     ]);
     return {
       principles: Number(principles.rows[0].cnt),
       patterns: Number(patterns.rows[0].cnt),
       practitioner: Number(practitioner.rows[0].cnt),
       retrievals: Number(retrievals.rows[0].cnt),
+      reconciliations: Number(reconciliations.rows[0].cnt),
     };
   }
 
