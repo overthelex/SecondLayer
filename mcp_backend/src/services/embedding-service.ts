@@ -2,10 +2,14 @@ import { QdrantClient } from '@qdrant/js-client-rest';
 import { EmbeddingChunk, SectionType, PrecedentStatusType } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { VoyageAIClient } from '../utils/voyage-client.js';
+import { InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { getBedrockManager } from '@secondlayer/shared';
 import { v4 as uuidv4 } from 'uuid';
 
-const EMBEDDING_DIMENSION = 1024; // VoyageAI voyage-3.5
+const EMBEDDING_DIMENSION = 1024;
 const VOYAGE_MODEL = process.env.VOYAGEAI_EMBEDDING_MODEL || 'voyage-3.5';
+const BEDROCK_EMBED_MODEL = process.env.BEDROCK_EMBEDDING_MODEL || 'amazon.titan-embed-text-v2:0';
+const EMBEDDING_PROVIDER = process.env.EMBEDDING_PROVIDER || 'voyage';
 const MAX_CHUNK_TOKENS = 512;
 const CHUNK_OVERLAP = 50;
 const VAULT_COLLECTION = 'vault_documents';
@@ -75,6 +79,9 @@ export class EmbeddingService implements IEmbeddingPort {
   }
 
   async generateEmbedding(text: string, task: string = 'embedding'): Promise<number[]> {
+    if (EMBEDDING_PROVIDER === 'bedrock') {
+      return this.generateEmbeddingBedrock(text, task);
+    }
     try {
       const result = await this.voyageClient.generateEmbeddingsBatchWithUsage([text], VOYAGE_MODEL);
       this.tokenUsageCallback?.(result.totalTokens, result.model, task);
@@ -86,19 +93,49 @@ export class EmbeddingService implements IEmbeddingPort {
   }
 
   async generateEmbeddingsBatch(texts: string[], task: string = 'batch_embedding'): Promise<number[][]> {
-    // Filter out empty strings — VoyageAI rejects them with 400
     const filtered = texts.filter(t => t && t.trim().length > 0);
     if (filtered.length === 0) {
       return texts.map(() => []);
     }
+    if (EMBEDDING_PROVIDER === 'bedrock') {
+      const embeddings = await Promise.all(filtered.map(t => this.generateEmbeddingBedrock(t, task)));
+      let idx = 0;
+      return texts.map(t => (t && t.trim().length > 0) ? embeddings[idx++] : []);
+    }
     try {
       const result = await this.voyageClient.generateEmbeddingsBatchWithUsage(filtered, VOYAGE_MODEL);
       this.tokenUsageCallback?.(result.totalTokens, result.model, task);
-      // Map back: empty inputs get empty embeddings, non-empty get real ones
       let idx = 0;
       return texts.map(t => (t && t.trim().length > 0) ? result.embeddings[idx++] : []);
     } catch (error) {
       logger.error('Batch embedding generation error:', error);
+      throw error;
+    }
+  }
+
+  private async generateEmbeddingBedrock(text: string, task: string): Promise<number[]> {
+    try {
+      const bedrock = getBedrockManager();
+      const client = bedrock.getClient();
+      const body = JSON.stringify({
+        inputText: text.substring(0, 8000),
+        dimensions: EMBEDDING_DIMENSION,
+        normalize: true,
+      });
+      const command = new InvokeModelCommand({
+        modelId: BEDROCK_EMBED_MODEL,
+        contentType: 'application/json',
+        accept: 'application/json',
+        body: new TextEncoder().encode(body),
+      });
+      const response = await client.send(command);
+      const result = JSON.parse(new TextDecoder().decode(response.body));
+      const inputTokens = result.inputTextTokenCount ?? 0;
+      this.tokenUsageCallback?.(inputTokens, BEDROCK_EMBED_MODEL, task);
+      await bedrock.trackUsage(BEDROCK_EMBED_MODEL, inputTokens, 0);
+      return result.embedding;
+    } catch (error) {
+      logger.error('Bedrock embedding error:', error);
       throw error;
     }
   }
