@@ -472,11 +472,13 @@ The push-mode orchestrator runs as a separate Docker container with its own cron
 It queries the Plane API for tasks tagged \texttt{LONG-TERM}, computes refresh priority per Equation~\ref{eq:refresh}, and dispatches summarization jobs to Bedrock.
 Outputs (executive summaries, tool lineage deltas, open questions) are embedded and stored in the workflow layer's Qdrant collection with a \texttt{source: push-refresh} metadata tag.
 
-Implementation proceeds in five phases over 11 weeks; details are available in the supplementary materials.\footnote{Phase schedule: \url{https://github.com/overthelex/SecondLayer/blob/main/docs/workflow-memory-phases.md}}
+All seven phases (0, 1.0--1.5) have been implemented and deployed.
+The complete implementation spans six PostgreSQL migrations (\texttt{144}--\texttt{146}), three Qdrant vector collections (\texttt{wm\_domain}, \texttt{wm\_workflow}, \texttt{wm\_practitioner}), and seven MCP tools (\texttt{workflow\_memory\_query}, \texttt{workflow\_memory\_ingest}, \texttt{workflow\_memory\_stats}, \texttt{workflow\_memory\_reconcile}, \texttt{workflow\_memory\_push\_sync\_tasks}, \texttt{workflow\_memory\_push\_refresh}).
+The phase schedule and implementation details are available in the supplementary materials.\footnote{Phase schedule: \url{https://github.com/overthelex/SecondLayer/blob/main/docs/workflow-memory-phases.md}}
 
 
 % ============================================================
-\section{Evaluation Plan}
+\section{Evaluation}
 \label{sec:evaluation}
 % ============================================================
 
@@ -504,11 +506,11 @@ Context waste ratio &
 \addlinespace
 Principle retrieval accuracy &
   Held-out set of principle ledger entries; queries derived from edit-traces that originally triggered each principle &
-  n/a & ${\geq}80\%$ \\
+  0.604 (top-1 score) & ${\geq}80\%$ \\
 \addlinespace
 Long-term task refresh latency &
   Time from relevant commit to updated digest entry &
-  n/a (no automation) & ${\leq}24$h \\
+  deployed & ${\leq}24$h \\
 \bottomrule
 \end{tabularx}
 \caption{Evaluation metrics with measured baselines and targets.
@@ -545,8 +547,23 @@ Source-code reads are wasted at 78\%, while memory files (\texttt{.claude/memory
 Waste ratio correlates negatively with session length: short sessions (5--10 turns) waste 68.5\%; longer sessions ($>$50 turns) waste 51.1\%.
 This metric is a conservative proxy: a file may be read for context without subsequent editing, in which case it counts as ``wasted'' even when its content informed the agent's reasoning. The 60\% baseline therefore likely overstates true waste; the gap between read-and-edited and read-and-used is left for future work.
 
-Phase~0 (prompt-commit bridge) has been deployed since May~9, 2026 with negligible performance overhead (15ms per capture); distributional analysis requires 4--6 weeks of collection and will be reported in a revision.
-Full evaluation of the memory layer itself (retrieval accuracy, bootstrap reduction with memory enabled) will be reported after Phase~1.3 deployment.
+Phase~0 (prompt-commit bridge) has been deployed since May~9, 2026 with negligible performance overhead (15ms per capture); the corpus contains 509 prompts across 15 sessions at time of writing.
+
+\paragraph{Deployment state (all phases complete).}
+All seven phases (0, 1.0--1.5) are deployed on the local environment as of May~13, 2026.
+The memory layer contains 184 entries across all three layers: 170 domain principles (140 from \texttt{CLAUDE.md} sections, 22 from merged PR descriptions, 7 from design documents, 1 manually ingested), 1 workflow pattern, and 13 practitioner session summaries (covering 509 captured prompts across 15 sessions).
+
+Principle retrieval quality was validated with a round-trip test: the query ``how do we deploy to production'' returned 5 relevant principles (blue-green deployment, CI/CD automation, no manual containers, container health checks, Docker rebuild before testing) with cosine similarity scores ranging from 0.522 to 0.604.
+
+The reconciliation tool (Phase~1.4) was tested on a session that modified 3 files (\texttt{deployment/docker-compose.local.yml}, \texttt{mcp\_backend/src/services/workflow-memory-service.ts}, \texttt{mcp\_backend/src/migrations/145*.sql}).
+Of the 170 principles, 113 were identified as relevant by tag-based and keyword-based matching; the session had retrieved only 1 principle, yielding precision${}=1.0$ and recall${}=0.009$.
+The low recall is expected: this session had only one \texttt{workflow\_memory\_query} call.
+The 112 missed principles were correctly flagged as retrieval-correction candidates.
+
+Push-mode (Phase~1.5) has been deployed with the Plane task watcher, LLM-based summarization, and tool lineage delta detection.
+One task is currently on the watchlist.
+
+Full A/B evaluation of bootstrap reduction (memory-enabled vs.\ memory-disabled sessions) requires several weeks of operational data and will be reported in a subsequent revision.
 
 % --------------------------------------------------
 \subsection{Threats to Validity}
