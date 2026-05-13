@@ -121,24 +121,13 @@ export class EmbeddingService implements IEmbeddingPort {
   private async generateEmbeddingBedrock(text: string, task: string): Promise<number[]> {
     try {
       const bedrock = getBedrockManager();
-      const client = bedrock.getClient();
-      const { InvokeModelCommand } = await import('@aws-sdk/client-bedrock-runtime');
-      const command = new InvokeModelCommand({
-        modelId: BEDROCK_EMBED_MODEL,
-        contentType: 'application/json',
-        accept: 'application/json',
-        body: new TextEncoder().encode(JSON.stringify({
-          inputText: text.substring(0, 8000),
-          dimensions: EMBEDDING_DIMENSION,
-          normalize: true,
-        })),
+      const { embedding, inputTokens } = await bedrock.generateEmbedding(text, {
+        model: BEDROCK_EMBED_MODEL,
+        dimensions: EMBEDDING_DIMENSION,
       });
-      const response: any = await client.send(command as any);
-      const result = JSON.parse(new TextDecoder().decode(response.body));
-      const inputTokens = result.inputTextTokenCount ?? 0;
       this.tokenUsageCallback?.(inputTokens, BEDROCK_EMBED_MODEL, task);
       await bedrock.trackUsage(BEDROCK_EMBED_MODEL, inputTokens, 0);
-      return result.embedding;
+      return embedding;
     } catch (error) {
       logger.error('Bedrock embedding error:', error);
       throw error;
