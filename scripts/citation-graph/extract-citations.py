@@ -224,10 +224,9 @@ def write_citations(results: list[tuple]):
     execute_values(
         cur,
         """INSERT INTO law_court_citations
-           (court_case_id, law_number, law_article, citation_context, court_case_number)
-           VALUES %s
-           ON CONFLICT DO NOTHING""",
-        [(r[0], r[2], r[3], r[4], str(r[0])) for r in results],
+           (court_case_id, citation_type, law_number, law_article, citation_context)
+           VALUES %s""",
+        [(r[0], r[1], r[2], r[3], r[4][:500]) for r in results],
         page_size=5000,
     )
     conn.commit()

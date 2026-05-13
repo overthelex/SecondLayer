@@ -45,10 +45,7 @@ export const articles: Article[] = [
 
 **Large-Scale Extraction, Topological Analysis, and Ontology-Driven Clustering**
 
-**Volodymyr Ovcharov**¹, **Oleksandr V. Palagin**²
-
-¹ LEX AI LLC, Kyiv, Ukraine
-² V.M. Glushkov Institute of Cybernetics, NAS of Ukraine, Kyiv
+**Volodymyr Ovcharov** — LEX AI LLC, Kyiv, Ukraine
 
 ---
 
