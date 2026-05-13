@@ -32,6 +32,41 @@ export function hasRecentArticles(): boolean {
 
 export const articles: Article[] = [
   {
+    id: 'paper-citation-graph',
+    title: 'Automatic Construction of a Legal Citation Graph from 100 Million Ukrainian Court Decisions',
+    punchline: 'First large-scale citation graph from the complete EDRSR registry: 100.7M decisions, 1.1 TB of full texts, six citation types. Co-citation clustering recovers legal domain boundaries without supervision — an automatically constructed legal ontology.',
+    category: 'academic',
+    tags: ['Citation Graph', 'Legal NLP', 'EDRSR', 'Ontology', 'Network Analysis'],
+    readTime: 'PDF, 9 pages',
+    publishedAt: '2026-05-13',
+    pdfUrl: '/papers/citation-graph-2026.pdf',
+    texUrl: '/papers/citation-graph-2026.tex',
+    content: `# Automatic Construction of a Legal Citation Graph from 100 Million Ukrainian Court Decisions
+
+**Large-Scale Extraction, Topological Analysis, and Ontology-Driven Clustering**
+
+**Volodymyr Ovcharov**¹, **Oleksandr V. Palagin**²
+
+¹ LEX AI LLC, Kyiv, Ukraine
+² V.M. Glushkov Institute of Cybernetics, NAS of Ukraine, Kyiv
+
+---
+
+## Abstract
+
+We present the first large-scale citation graph constructed from the complete Ukrainian court decision registry (EDRSR): 100.7 million decisions spanning 2000–2026, with 99.5 million full texts totaling over 1.1 TB. A regex-based extraction pipeline identifies six citation types — codex article references, named law references, constitutional references, inter-case references, law-by-number references, and supreme court ruling references.
+
+Topological analysis of the resulting bipartite graph (court decisions ↔ legislation articles) reveals: (1) a heavy-tailed degree distribution with a small number of "hub" legislation articles cited by millions of decisions; (2) temporal citation dynamics showing legislative regime changes as phase transitions in citation density; (3) community structure via Louvain clustering that recovers legal domain boundaries (civil, criminal, administrative, commercial) without supervision.
+
+The citation clusters constitute an automatically constructed legal ontology — a machine-readable map of which legislation articles are semantically related through judicial co-citation. This ontology is operationalized as the domain layer of a workflow memory system for LLM-assisted legal analysis, connecting citation-derived structure to the ontology-controlled paradigm (Palagin, 2006).
+
+**Status:** Extraction pipeline running on production database (100M decisions). Results section will be updated upon completion.
+
+---
+
+[**Download Full Paper (PDF)**](/papers/citation-graph-2026.pdf)`,
+  },
+  {
     id: 'paper-edit-trace-oversight',
     title: 'Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows',
     punchline: 'When a practitioner works agentically with an LLM, every human edit is a localized correction. 30,510 edit-traces from 1,547 merged PRs, 105 days of solo founder shipping. No existing alignment dataset captures both artifact-level and process-level oversight.',
