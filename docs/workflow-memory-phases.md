@@ -23,6 +23,18 @@ Supplementary material for the arXiv preprint.
 - Phase 1.4 depends on Phase 1.3 (needs session-level retrieval logs).
 - Phase 1.5 is independent of Phases 1.2--1.4 but benefits from principle ledger coverage (Phase 1.1).
 
+## Deployment state (2026-05-13)
+
+| Layer | Collection | Records | Embedding model |
+|-------|------------|---------|-----------------|
+| Principles | `wm_domain` | 170 | Bedrock Titan Embed v2 |
+| Patterns | `wm_workflow` | 4 | Bedrock Titan Embed v2 |
+| Practitioner | `wm_practitioner` | 13 | Bedrock Titan Embed v2 |
+| Push watchlist | — | 4 active, 2 completed | — |
+| Tool lineage | — | 1 snapshot (22 tools) | — |
+
+Sources: CLAUDE.md (140), PRs (23), design docs (7), push refresh (4), prompt corpus sessions (13).
+
 ## Evaluation checkpoints
 
 - After Phase 1.3: measure session bootstrap (file reads, input tokens) with/without memory layer.
