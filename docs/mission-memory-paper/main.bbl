@@ -169,8 +169,8 @@ Thomas O'Neill, Nathan~J. McNeese, Amy Barron, and Beau Schelble.
 Vladimir Ovcharov.
 \newblock Edit-trace oversight: Scalable alignment signal from agentic
   workflows.
-\newblock \emph{arXiv preprint}, 2026.
-\newblock Under review.
+\newblock 2026.
+\newblock Manuscript in preparation.
 
 \bibitem[Packer et~al.(2023)Packer, Wooders, Lin, Fang, Patil, Stoica, and
   Gonzalez]{packer2023memgpt}
@@ -294,12 +294,12 @@ Tao Xiao, Christoph Treude, Hideaki Hata, and Kenichi Matsumoto.
   Software Repositories (MSR)}, pages 64--68, 2024.
 \newblock \doi{10.1145/3643991.3648400}.
 
-\bibitem[Xu et~al.(2024)Xu, Liang, Mei, Gao, Qi, Yang, Yan, and
+\bibitem[Xu et~al.(2025)Xu, Liang, Mei, Gao, Qi, Yang, Yan, and
   Liu]{xu2024amem}
 Wujiang Xu, Zujie Liang, Jingquan Mei, Jiancheng Gao, Yongxin Qi, Feng Yang,
   Rui Yan, and Wei Liu.
 \newblock {A-MEM}: Agentic memory for {LLM} agents.
-\newblock \emph{arXiv preprint arXiv:2501.13059}, 2024.
+\newblock \emph{arXiv preprint arXiv:2501.13059}, 2025.
 
 \bibitem[Yan et~al.(2024)Yan, Gu, Zhu, and Ling]{yan2024crag}
 Shi-Qi Yan, Jia-Chen Gu, Yun Zhu, and Zhen-Hua Ling.
