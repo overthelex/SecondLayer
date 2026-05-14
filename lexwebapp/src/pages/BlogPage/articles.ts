@@ -39,6 +39,8 @@ export const articles: Article[] = [
     tags: ['Few-Shot Learning', 'Tokenizer', 'Ukrainian NLP', 'Cross-Lingual', 'SIB-200', 'Slavic Languages'],
     readTime: '15 min read (experiments in progress)',
     publishedAt: '2026-05-14',
+    pdfUrl: '/papers/fewshot-degradation-2026.pdf',
+    texUrl: '/papers/fewshot-degradation-2026.tex',
     content: `# Few-Shot Degradation in Morphologically Rich Languages
 
 **Cross-Domain and Cross-Lingual Evidence from Ukrainian**

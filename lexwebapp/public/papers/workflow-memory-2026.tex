@@ -547,11 +547,12 @@ Source-code reads are wasted at 78\%, while memory files (\texttt{.claude/memory
 Waste ratio correlates negatively with session length: short sessions (5--10 turns) waste 68.5\%; longer sessions ($>$50 turns) waste 51.1\%.
 This metric is a conservative proxy: a file may be read for context without subsequent editing, in which case it counts as ``wasted'' even when its content informed the agent's reasoning. The 60\% baseline therefore likely overstates true waste; the gap between read-and-edited and read-and-used is left for future work.
 
-Phase~0 (prompt-commit bridge) has been deployed since May~9, 2026 with negligible performance overhead (15ms per capture); the corpus contains 509 prompts across 15 sessions at time of writing.
+Phase~0 (prompt-commit bridge) has been deployed since May~9, 2026 with negligible performance overhead (15ms per capture); the corpus contains 533 prompts across 13 qualifying sessions (${\geq}5$ prompts each) at time of writing.
 
 \paragraph{Deployment state (all phases complete).}
 All seven phases (0, 1.0--1.5) are deployed on the local environment as of May~13, 2026.
-The memory layer contains 184 entries across all three layers: 170 domain principles (140 from \texttt{CLAUDE.md} sections, 22 from merged PR descriptions, 7 from design documents, 1 manually ingested), 1 workflow pattern, and 13 practitioner session summaries (covering 509 captured prompts across 15 sessions).
+The memory layer contains 187 entries across all three layers: 170 domain principles (140 from \texttt{CLAUDE.md} sections, 23 from merged PR descriptions, 7 from design documents), 4 workflow patterns (push-refresh summaries generated via Bedrock Claude Haiku), and 13 practitioner session summaries (covering 533 captured prompts across 13 qualifying sessions).
+All embeddings use Amazon Titan Embed Text v2 (1024 dimensions) via AWS Bedrock.
 
 Principle retrieval quality was validated with a round-trip test: the query ``how do we deploy to production'' returned 5 relevant principles (blue-green deployment, CI/CD automation, no manual containers, container health checks, Docker rebuild before testing) with cosine similarity scores ranging from 0.522 to 0.604.
 
@@ -560,8 +561,9 @@ Of the 170 principles, 113 were identified as relevant by tag-based and keyword-
 The low recall is expected: this session had only one \texttt{workflow\_memory\_query} call.
 The 112 missed principles were correctly flagged as retrieval-correction candidates.
 
-Push-mode (Phase~1.5) has been deployed with the Plane task watcher, LLM-based summarization, and tool lineage delta detection.
-One task is currently on the watchlist.
+Push-mode (Phase~1.5) has been deployed with the Plane task watcher, LLM-based summarization (Bedrock Claude Haiku), and tool lineage delta detection.
+Four active tasks are on the watchlist; the initial tool lineage snapshot covers 22 registered tools.
+The first push-refresh cycle completed successfully, generating 4 workflow patterns with executive summaries and open questions at a total LLM cost of \$0.005.
 
 Full A/B evaluation of bootstrap reduction (memory-enabled vs.\ memory-disabled sessions) requires several weeks of operational data and will be reported in a subsequent revision.
 
