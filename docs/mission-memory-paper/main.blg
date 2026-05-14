@@ -3,44 +3,46 @@ Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: main.aux
 The style file: plainnat.bst
 Database file #1: references.bib
+Warning--empty journal in ovcharov2026edittrace
 You've used 48 entries,
             2773 wiz_defined-function locations,
-            850 strings with 14881 characters,
-and the built_in function-call counts, 22763 in all, are:
-= -- 1917
+            849 strings with 14880 characters,
+and the built_in function-call counts, 22762 in all, are:
+= -- 1916
 > -- 1691
 < -- 24
 + -- 577
 - -- 528
 * -- 1921
-:= -- 3694
+:= -- 3693
 add.period$ -- 169
 call.type$ -- 48
 change.case$ -- 316
 chr.to.int$ -- 47
-cite$ -- 96
+cite$ -- 97
 duplicate$ -- 955
 empty$ -- 1622
 format.name$ -- 576
-if$ -- 4622
+if$ -- 4621
 int.to.chr$ -- 2
 int.to.str$ -- 1
 missing$ -- 41
 newline$ -- 272
 num.names$ -- 192
-pop$ -- 627
+pop$ -- 629
 preamble$ -- 1
 purify$ -- 267
 quote$ -- 0
 skip$ -- 751
 stack$ -- 0
 substring$ -- 385
-swap$ -- 75
+swap$ -- 74
 text.length$ -- 8
 text.prefix$ -- 0
 top$ -- 0
 type$ -- 513
-warning$ -- 0
+warning$ -- 1
 while$ -- 170
 width$ -- 0
-write$ -- 655
+write$ -- 654
+(There was 1 warning)
