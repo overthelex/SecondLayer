@@ -1,4 +1,4 @@
-\begin{thebibliography}{40}
+\begin{thebibliography}{41}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -237,6 +237,13 @@ Zora~Zhiruo Wang, Akari Shi, Shuyan Yang, Ravi Anantha, Ryan~A. Rossi,
   Neel~Sundaresan Park, et~al.
 \newblock {CodeRAG-Bench}: Can retrieval augment code generation?
 \newblock \emph{arXiv preprint arXiv:2406.14497}, 2024.
+
+\bibitem[Xiao et~al.(2024)Xiao, Treude, Hata, and Matsumoto]{xiao2024devgpt}
+Tao Xiao, Christoph Treude, Hideaki Hata, and Kenichi Matsumoto.
+\newblock {DevGPT}: Studying developer-{ChatGPT} conversations.
+\newblock In \emph{Proceedings of the 21st International Conference on Mining
+  Software Repositories (MSR)}, pages 64--68, 2024.
+\newblock \doi{10.1145/3643991.3648400}.
 
 \bibitem[Xu et~al.(2024)Xu, Liang, Mei, Gao, Qi, Yang, Yan, and
   Liu]{xu2024amem}
