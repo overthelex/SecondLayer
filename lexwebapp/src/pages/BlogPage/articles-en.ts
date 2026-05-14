@@ -7074,23 +7074,14 @@ Registration: [legal.org.ua](https://legal.org.ua)`,
   },
   'paper-citation-graph': {
     title: 'Automatic Construction of a Legal Citation Graph from 100 Million Ukrainian Court Decisions: Large-Scale Extraction, Topological Analysis, and Ontology-Driven Clustering',
-    punchline: 'First large-scale citation graph from the complete EDRSR registry: 100.7M decisions, 1.1 TB of full texts, six citation types. Co-citation clustering recovers legal domain boundaries without supervision.',
+    punchline: 'Half a billion citation edges extracted from 100.7 million Ukrainian court decisions reveal that judicial citation structure encodes legal domain boundaries without supervision and predicts future legislative importance with near-perfect accuracy (AUC = 0.9984).',
     readTime: '30 min read (full paper)',
     content: `% ============================================================
 % Abstract
 % ============================================================
 ## Abstract
 
-We present the first large-scale citation graph constructed from the complete Ukrainian court decision registry (EDRSR): 100.7 million decisions spanning 2000--2026, with 99.5 million full texts totaling over 1.1 TB.
-A regex-based extraction pipeline running on the production database identifies six citation types---codex article references, named law references, constitutional references, inter-case references, law-by-number references, and supreme court ruling references.
-
-Topological analysis of the resulting bipartite graph (court decisions $\\leftrightarrow$ legislation articles) reveals: (1) a heavy-tailed degree distribution with a small number of "hub" legislation articles cited by millions of decisions; (2) temporal citation dynamics showing legislative regime changes as phase transitions in citation density; (3) community structure via Louvain clustering that recovers legal domain boundaries (civil, criminal, administrative, commercial) without supervision.
-
-The citation clusters constitute an automatically constructed legal ontology---a machine-readable map of which legislation articles are semantically related through judicial co-citation.
-This ontology is operationalized as the domain layer of a workflow memory system for LLM-assisted legal analysis (ovcharov2026workflowmemory), connecting citation-derived structure to the ontology-controlled paradigm (palagin2006architecture, palagin2023ontochatgpt).
-
-The extraction pipeline, graph analysis code, and aggregated statistics are released as open data.
-The full-text corpus is publicly accessible via the EDRSR API (edrsr2024).
+Half a billion citation edges extracted from 100.7 million Ukrainian court decisions reveal that judicial citation structure encodes legal domain boundaries without supervision and predicts future legislative importance with near-perfect accuracy (AUC = 0.9984). 502 million citation links extracted via regex with precision 1.00. Power-law α=1.57, cross-domain bridging 73.1%, NMI 0.83–0.86 stable ontology, 2022 war entropy spike.
 
 
 % ============================================================
@@ -7292,36 +7283,14 @@ This connects the knowledge extraction program (palagin2012knowledge) to the ove
   },
   'paper-edit-trace-oversight': {
     title: 'Edit-Trace Oversight: Scalable Alignment Signal from Agentic Workflows',
-    punchline: 'When a practitioner works agentically with an LLM, every human edit is a localized correction. 30,510 edit-traces from 1,547 merged PRs, 105 days of solo founder shipping. No existing alignment dataset captures both artifact-level and process-level oversight.',
+    punchline: 'Edit-traces from production agentic workflows produce alignment signal that is denser, more outcome-predictive, and distributionally unlike conventional RLHF preference data. 80.7% of edits are substantive rewrites; binary rejection correlates with 78% positive outcomes — the strongest oversight signal.',
     readTime: '45 min read (full paper)',
     content: `% ============================================================
 % Abstract
 % ============================================================
 ## Abstract
 
-Existing approaches to RLHF preference collection (christiano2017deep, ziegler2019fine, ouyang2022training)—crowd workers, expert annotators, AI raters—generate signal detached from the agentic workflows they are meant to govern.
-As LLM agents perform longer-horizon, multi-step work (composing tool calls, accumulating context across hundreds of turns, shipping outputs with real-world stakes), the oversight gap widens: annotation happens in abstract evaluation contexts, while agents fail at the level of individual edits within compositional trajectories.
-We propose **edit-trace oversight**—alignment signal captured natively when a practitioner works agentically with an LLM.
-Every human edit on a model output is a localized correction relative to a *domain constitution* and an outcome trajectory.
-
-**Subject:** CEO of Legal.org.ua / LEX AI.
-Shipping period: 105 days (Jan 24–May 8, 2026), 1{,}547 merged PRs across 7 interconnected projects, 70+ MCP tools in production, 380M+ records in the data pipeline.
-All built by one founder with zero employees using Claude Code as the primary agentic engineering counterpart.
-Validated outcomes: Google for Startups acceptance, NVIDIA Inception approval, paying customers.
-
-**Two-axis oversight signal:**
-(1) *artifact-level*—what was corrected (30{,}510 edit-traces, 80.7% substantive rewrites, median edit distance 0.84);
-(2) *process-level*—how oversight was performed (OS-level activity tracking: keystroke timing, idle gaps, cross-app research, voice context).
-No existing alignment dataset captures both.
-
-**Pilot dataset:** 2{,}892 workflow sessions, 30{,}510 edit pairs, 1{,}579 attributed outcomes (54.6% coverage, 88.1% strong confidence).
-Process-level enrichment via synchronized OS activity tracker covers 498 sessions (17.2%) with 9{,}254 edits.
-
-**Experiments (1–3 complete):**
-Experiment 1 confirmed the extreme edit distribution (80.7% substantive rewrites; crowd comparison sampling done).
-Experiment 2 showed process-level features are real (permutation p<0.001) but redundant with artifact features for prediction.
-Experiment 3 revealed *rejection* is the strongest oversight signal (78% positive outcomes).
-DPO training (Experiment 4) is redesigned: 4 conditions: edit-trace oversight vs RLAIF self-correction vs public RLHF baseline vs untrained model.
+Edit-traces from production agentic workflows produce alignment signal that is denser, more outcome-predictive, and distributionally unlike conventional RLHF preference data. Three experiments on a single-practitioner case study (30,510 edit pairs, 2,892 sessions, 1,579 attributed outcomes): (1) 80.7% of edits are substantive rewrites; (2) process-level behavioral features are significant but redundant with artifact features; (3) binary rejection correlates with 78% positive outcomes — the strongest oversight signal.
 
 The methodology rests on a simple empirical claim: a single practitioner working recursively with an LLM, under product accountability, completes long-horizon work that neither party completes alone.
 Edit-traces in this regime are dense, outcome-validated, and impossible to obtain through annotation in isolation.
@@ -7984,24 +7953,14 @@ Estimated budget:
   },
   'paper-workflow-memory': {
     title: 'Workflow Memory for Long-Horizon Agentic Composition: Architecture, Dual-Mode Retrieval, and Retrieval-Correction Signal',
-    punchline: 'Long-horizon agentic workflows demand a memory substrate whose retrieval unit is the architectural decision, not the conversational turn. Three-layer memory decomposition with dual-mode retrieval and retrieval-correction edits as oversight signal.',
+    punchline: 'Sixty percent of context tokens in current LLM agentic sessions are wasted — redundant re-explanation of decisions already made in prior sessions. The key insight: the memory layer produces alignment data (retrieval-correction signal), not just consumes it.',
     readTime: '50 min read (full paper)',
     content: `% ============================================================
 % Abstract
 % ============================================================
 ## Abstract
 
-Long-horizon agentic workflows—where a practitioner and an LLM co-author software over weeks to months—demand a memory substrate whose retrieval unit is the architectural decision, not the conversational turn or the code chunk, and whose refresh policy is dual-mode: pull-based for active sessions, push-based for dormant tasks.
-Existing memory systems (packer2023memgpt, park2023generative, chhikara2025mem0) organize around dialogue episodes; code-RAG (zhang2023repocoder, wang2024coderagbench) retrieves over source text without decision provenance; long-context models (reid2024gemini) suffer attention degradation past {\\sim}200K tokens (liu2023lost, hsieh2024ruler).
-None treats decision provenance as a first-class memory unit or provides a slow-loop refresh primitive.
-We frame this memory layer as scalable oversight infrastructure: retrieval-correction edits—practitioner corrections that would have been unnecessary had memory surfaced relevant context—constitute a process-level oversight signal that scales with agent autonomy, complementing outcome-level preference data.
-
-This paper makes three contributions.
-First, a *three-layer memory decomposition*—domain, workflow, and practitioner—with distinct retrieval semantics per layer.
-Second, *dual-mode retrieval* as a first-class architectural primitive: pull mode fires at session start and queries all layers in parallel; push mode refreshes memory entries for dormant tasks proportional to repository activity, so that pull queries return current context even after weeks of inactivity.
-Third, *retrieval-correction edits* as a process-level oversight signal: corrections that operationalize the gap between the agent's available context and the context required for correct action, denser than outcome-level supervision and scaling with agent autonomy (ovcharov2026recursive).
-The architecture is deployed on a legal-technology platform (70+ MCP tools, 380M+ records, 1{,}547 merged PRs in 105 days).
-Baseline measurements from 304 sessions confirm a median bootstrap cost of 30{,}115 input tokens and a median context waste ratio of 60%; the memory layer targets a reduction to {\\leq}10K tokens with {\\leq}20% waste.
+Sixty percent of context tokens in current LLM agentic sessions are wasted — redundant re-explanation of decisions already made in prior sessions. We present a three-layer workflow memory architecture (domain, workflow, practitioner) with dual-mode retrieval: pull mode at session start, push mode for dormant task refresh. The key insight: the memory layer produces alignment data (retrieval-correction signal), not just consumes it.
 
 
 % ============================================================
@@ -8549,14 +8508,14 @@ The source code and implementation notes are available at https://github.com/ove
   },
   'paper-tokenizer-fertility': {
     title: 'Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text: A Comparative Study',
-    punchline: 'Seven models, five providers, 273 court decisions from EDRSR. Tokenizer fertility varies 1.6x. NVIDIA Nemotron Super 3 (120B) outperforms Mistral Large 3 (675B) at 1/3 the cost. Few-shot prompting degrades performance by up to 26pp on Ukrainian.',
+    punchline: 'Tokenizer fertility varies 1.6x across foundation models on Ukrainian legal text, yet this cost-critical dimension is absent from model selection practice. Qwen 3 consumes 60% more tokens than Llama-family; NVIDIA Nemotron Super 3 (120B) outperforms Mistral Large 3 at 1/3 the cost.',
     readTime: '35 min read (full paper)',
     content: `% ============================================================
 % ABSTRACT
 % ============================================================
 ## Abstract
 
-Foundation models tokenize Ukrainian legal text with vastly different efficiency, yet no systematic comparison exists for this domain. We benchmark seven models from five providers on 273 validated court decisions from Ukraine's state registry (EDRSR), measuring tokenizer fertility and zero-shot performance on three tasks. Three findings emerge. **(1)** Tokenizer fertility varies 1.6\\times: Qwen 3 models consume 60% more tokens than Llama-family models on identical input, directly reducing API cost. **(2)** NVIDIA Nemotron Super 3 (120B) achieves the highest composite score (83.1), outperforming Mistral Large 3 (675B total, 41B active), which has 5.6\\times more total parameters and 3.4\\times more active parameters per token, at one-third the API cost. **(3)** Few-shot prompting *degrades* performance by up to 26 percentage points; stratified and prompt-sensitivity ablations confirm this is intrinsic to Ukrainian-language demonstrations, not an artifact of example selection. For practitioners: tokenizer analysis should precede model selection, and zero-shot is a more reliable default than few-shot for morphologically rich languages.
+Tokenizer fertility varies 1.6× across foundation models on Ukrainian legal text, yet this cost-critical dimension is absent from model selection practice. (1) Qwen 3 consumes 60% more tokens than Llama-family; (2) NVIDIA Nemotron Super 3 (120B) outperforms Mistral Large 3 (5.6× more parameters) at 1/3 the cost; (3) few-shot degrades by up to 26pp on Ukrainian.
 
 
 **Keywords:** tokenizer fertility, Ukrainian NLP, legal text classification, multilingual LLM evaluation, foundation models, AWS Bedrock
@@ -9175,20 +9134,14 @@ Table presents the complete results matrix for all model–task–mode combinati
   },
   'paper-ontology-oversight-bridge': {
     title: 'From Ontology-Controlled Systems to Oversight-Controlled Training: Formal Foundations for Human–LLM Alignment Signal Validation',
-    punchline: 'We extend the principle of ontology-controlled systems — where formal ontological structure governs system behavior — from the level of system output to the level of human oversight over system output. Domain constitution formalized in OWL 2 DL with automated reasoning.',
+    punchline: 'Ontology-based filtering of human oversight signal predicts downstream outcome quality: sessions classified as full oversight by a formal domain constitution exhibit 3-6x higher rejection rate, concentrating the most informative alignment action.',
     readTime: '40 min read (full paper)',
     content: `% ============================================================
 % Abstract
 % ============================================================
 ## Abstract
 
-Current methods for collecting human preference data for reinforcement learning from human feedback (RLHF) lack formal criteria for determining when human corrections on LLM output constitute valid training signal versus noise.
-We extend the principle of ontology-controlled systems (palagin2006architecture)—where formal ontological structure governs system runtime behavior—from the level of system output to the level of human oversight over system output.
-We formalize a *domain constitution*: five axiomatically defined conditions under which human edit-traces on agentic LLM output constitute valid alignment signal.
-The formalization uses \\DL description logic, implemented as an OWL 2 DL ontology with automated reasoning for workflow classification.
-We compare this oversight-level control with output-level ontological control as realized in OntoChatGPT (palagin2023ontochatgpt), showing that the two operate on complementary levels of the same conceptual stack.
-Empirical validation on 30{,}510 edit-traces from a production legal AI platform demonstrates that ontology-based filtering of oversight signal correlates with downstream outcome quality.
-The work establishes a formal bridge between ontology-controlled architectures and LLM alignment methodology.
+Ontology-based filtering of human oversight signal predicts downstream outcome quality: sessions classified as full oversight by a formal domain constitution exhibit 3–6× higher rejection rate, concentrating the most informative alignment action. Five axiomatically defined conditions in ALC description logic formalize when human edit-traces constitute valid RLHF training signal.
 
 
 **Keywords:** ontology-controlled systems, domain constitution, description logic, RLHF, alignment, edit-trace oversight, OWL, human oversight, LLM
@@ -10477,19 +10430,11 @@ This validation, together with the implementation of the weighted DPO training o
   },
   'paper-mission-memory': {
     title: 'Persistent Memory Architecture for Long-Horizon Autonomous Missions with Operator Rotation',
-    punchline: 'Three-level memory decomposition with dual-mode retrieval and correction signal. 7 experiments, cross-domain validation on DevGPT (g=0.81), RAGBench (95K, r=-0.60), and SWE-agent (6,636 trajectories). Applications to UAV C2 and situation centers.',
+    punchline: 'Cross-domain validation on three independent datasets confirms: context redundancy ~50-60% is systemic in autonomous agents; operator rotation costs +136% dialogue rounds (Hedges\' g=0.81); context completeness predicts correction need (r=-0.60, g=1.73).',
     readTime: 'PDF, 22 pages',
     content: `## Abstract
 
-Автономні агентні системи, що виконують довгострокові місії (години — тижні), потребують підсистеми пам'яті, одиницею витягування якої є оперативне рішення, а не діалоговий обмін або фрагмент коду.
-Існуючі системи пам'яті для великих мовних моделей (MemGPT, Mem0, Letta, generative agents) організовані навколо діалогових епізодів і не підтримують дві ключові вимоги реальних місій: безперервність управління при ротації операторів та стійкість при ескалації подій.
-
-Ми пропонуємо трирівневу декомпозицію пам'яті (предметна область / робочий процес / оператор) з дворежимним витягуванням: pull-режим для активних сесій та push-режим для фонового оновлення контексту простоюючих задач.
-Третій внесок — *сигнал корекції витягування* (retrieval-correction signal): корекції оператора, що були б непотрібними, якби система вчасно подала релевантний контекст; цей сигнал масштабується з автономністю агента і доповнює традиційні метрики нагляду.
-Четвертий внесок — *деградований режим* для ескалації подій: при каскадному зростанні кількості одночасних загроз підсистема пам'яті переходить з семантичного витягування на тріаж на основі критичності, а формат дайджесту розширюється від переліку фактів до темпоральної структури з динамікою подій — що є критичним для ротації оператора посеред кризи.
-
-Архітектура верифікована на платформі з 70+ інструментами та 380M+ записів; базові вимірювання на 304 сесіях підтверджують медіанну вартість ініціалізації 30 115 токенів з 60% надлишковістю контексту.
-Обговорюється застосовність до систем управління БПЛА та ситуаційних центрів, де ротація операторів є штатною процедурою, а ескалація подій — штатним режимом бойової роботи.
+Cross-domain validation on three independent datasets confirms: context redundancy ~50-60% is systemic in autonomous agents; operator rotation costs +136% dialogue rounds (Hedges' g=0.81); context completeness predicts correction need (r=-0.60, g=1.73). Four contributions: three-layer memory, dual-mode retrieval, retrieval-correction signal, degraded mode for escalation.
 
 
 **Ключові слова:** персистентна пам'ять, автономні агентні системи, ротація операторів, дворежимне витягування, сигнал корекції, ескалація подій, деградований режим, БПЛА, онтологічно-керовані системи

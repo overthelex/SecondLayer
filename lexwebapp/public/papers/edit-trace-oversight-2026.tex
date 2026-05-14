@@ -72,32 +72,18 @@
 %  Abstract
 % ============================================================
 \begin{abstract}
-Existing approaches to RLHF preference collection~\citep{christiano2017deep, ziegler2019fine, ouyang2022training}---crowd workers, expert annotators, AI raters---generate signal detached from the agentic workflows they are meant to govern.
-As LLM agents perform longer-horizon, multi-step work (composing tool calls, accumulating context across hundreds of turns, shipping outputs with real-world stakes), the oversight gap widens: annotation happens in abstract evaluation contexts, while agents fail at the level of individual edits within compositional trajectories.
-We propose \textbf{edit-trace oversight}---alignment signal captured natively when a practitioner works agentically with an LLM.
-Every human edit on a model output is a localized correction relative to a \emph{domain constitution} and an outcome trajectory.
+Edit-traces from production agentic workflows produce alignment signal that is denser, more outcome-predictive, and distributionally unlike conventional RLHF preference data~\citep{christiano2017deep, ouyang2022training}.
+Three experiments on a single-practitioner case study (30{,}510 edit pairs, 2{,}892 sessions, 1{,}579 attributed outcomes) establish this empirically.
+\textbf{(1)}~The practitioner's default mode is near-total rewrite: 80.7\% of edits are substantive (median normalized edit distance 0.84), a distribution expected to differ sharply from crowd annotation.
+\textbf{(2)}~Process-level behavioral features (keystroke timing, idle gaps, app switching) carry statistically significant signal ($p < 0.001$) but are computationally redundant with artifact-level features for prediction---simplifying instrumentation requirements.
+\textbf{(3)}~Binary rejection of agent output is the single most informative oversight action, correlating with 78\% positive downstream outcomes---far exceeding substantive rewrites (48.7\%) or cosmetic edits (52.7\%).
 
-\textbf{Subject:} CEO of Legal.org.ua / LEX~AI.
-Shipping period: 105 days (Jan~24--May~8, 2026), 1{,}547 merged PRs across 7 interconnected projects, 70+ MCP tools in production, 380M+ records in the data pipeline.
-All built by one founder with zero employees using Claude Code as the primary agentic engineering counterpart.
-Validated outcomes: Google for Startups acceptance, NVIDIA Inception approval, paying customers.
+We formalize these findings as \textbf{edit-trace oversight}: alignment signal captured natively when a practitioner works agentically with an LLM under a \emph{domain constitution}---five conditions defining when human corrections constitute valid training signal.
+The dataset is drawn from 105 days of production work (1{,}547 merged PRs, 70+ MCP tools, 380M+ records) building a legal-technology platform with Claude Code as the primary agentic counterpart.
+Signal is captured on two axes: artifact-level (what was corrected) and process-level (how oversight was performed), with outcome attribution at 88.1\% strong confidence.
 
-\textbf{Two-axis oversight signal:}
-(1)~\emph{artifact-level}---what was corrected (30{,}510 edit-traces, 80.7\% substantive rewrites, median edit distance 0.84);
-(2)~\emph{process-level}---how oversight was performed (OS-level activity tracking: keystroke timing, idle gaps, cross-app research, voice context).
-No existing alignment dataset captures both.
-
-\textbf{Pilot dataset:} 2{,}892 workflow sessions, 30{,}510 edit pairs, 1{,}579 attributed outcomes (54.6\% coverage, 88.1\% strong confidence).
-Process-level enrichment via synchronized OS activity tracker covers 498 sessions (17.2\%) with 9{,}254 edits.
-
-\textbf{Experiments (1--3 complete):}
-Experiment~1 confirmed the extreme edit distribution (80.7\% substantive rewrites; crowd comparison sampling done).
-Experiment~2 showed process-level features are real (permutation $p<0.001$) but redundant with artifact features for prediction.
-Experiment~3 revealed \emph{rejection} is the strongest oversight signal (78\% positive outcomes).
-DPO training (Experiment~4) is redesigned: 4 conditions: edit-trace oversight vs RLAIF self-correction vs public RLHF baseline vs untrained model.
-
-The methodology rests on a simple empirical claim: a single practitioner working recursively with an LLM, under product accountability, completes long-horizon work that neither party completes alone.
-Edit-traces in this regime are dense, outcome-validated, and impossible to obtain through annotation in isolation.
+The core empirical claim: a single practitioner under product accountability generates preference signal that is impossible to obtain through detached annotation.
+DPO training (Experiment~4) will test whether this distributional difference translates into improved domain-specific model performance across four matched-volume conditions.
 \end{abstract}
 
 \vspace{0.5em}
@@ -876,6 +862,19 @@ Whether this equilibrium is stable under further capability scaling is an open e
 Experiment~3's finding---that binary rejection (78\% positive outcome rate) is more informative than continuous edit distance---has practical implications.
 If the highest-value oversight signal is whether a human stopped the agent, then scalable oversight instrumentation may be simpler than expected: a binary accept/reject log per trajectory step, with outcome tracking, may capture the majority of useful preference signal.
 This hypothesis is testable in Experiment~4 by comparing DPO training on full edit-traces vs.\ binary accept/reject pairs.
+
+\subsection{Generalizability Beyond Software Engineering}
+
+The primary dataset was collected during software engineering workflows (TypeScript monorepo, infrastructure operations, CI/CD pipelines).
+A natural concern is whether edit-trace oversight generalizes to other practitioner roles.
+
+Concurrent with the DPO training experiment (Section~\ref{sec:exp4}), the same practitioner used the identical Claude Code environment for qualitatively different tasks: ML experiment orchestration (SageMaker job configuration, DeepSpeed/LoRA hyperparameter debugging, training monitoring), academic writing (LaTeX paper drafting, BibTeX management, revision cycles), and research operations (arXiv submission workflow, academic outreach, data analysis).
+Over a 31-day window (April~12--May~13, 2026), automated usage instrumentation recorded 284~sessions, 492~commits, and 1{,}853~hours of human--agent interaction across these mixed roles.
+
+The edit patterns observed in ML engineering sessions---rejecting incorrect DeepSpeed configurations, rewriting training hyperparameters, correcting CUDA memory management strategies---are structurally identical to the software engineering corrections in the primary dataset: the practitioner observes agent output, judges correctness against domain knowledge, and intervenes when the output fails to meet implicit quality criteria.
+Similarly, academic writing sessions produce edit-traces where the practitioner rewrites LLM-drafted paragraphs, restructures arguments, and corrects domain-specific claims---generating preference pairs that reflect expertise-grounded oversight rather than stylistic preference.
+
+This observation does not constitute formal validation (a multi-practitioner, multi-domain study is needed; see Section~\ref{sec:future-work}), but it provides preliminary evidence that the edit-trace methodology is \emph{role-agnostic}: it captures oversight signal wherever a domain expert iteratively corrects agent output, regardless of whether the domain is code, infrastructure, or prose.
 
 \subsection{Scope of Claims}
 
