@@ -46,5 +46,8 @@ export function cleanLatex(raw: string): string {
   s = s.replace(/ сесії\)\.\}/g, ' сесій).**');
   s = s.replace(/ сесій\)\.\}/g, ' сесій).**');
   s = s.replace(/\n{4,}/g, '\n\n\n');
+  // Em dashes → space-surrounded en dash
+  s = s.replace(/—/g, ' – ');
+  s = s.replace(/  +/g, ' ');
   return s;
 }
