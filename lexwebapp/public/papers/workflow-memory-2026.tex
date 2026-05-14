@@ -45,12 +45,7 @@
 % ============================================================
 %  Macros
 % ============================================================
-\newcommand{\ie}{\emph{i.e.}\@\xspace}
-\newcommand{\eg}{\emph{e.g.}\@\xspace}
-\newcommand{\cf}{\emph{cf.}\@\xspace}
 \newcommand{\etal}{\emph{et~al.}\xspace}
-\newcommand{\pullmode}{\textsc{Pull}\xspace}
-\newcommand{\pushmode}{\textsc{Push}\xspace}
 
 % ============================================================
 %  Title
@@ -76,17 +71,15 @@
 %  Abstract
 % ============================================================
 \begin{abstract}
-Long-horizon agentic workflows---where a practitioner and an LLM co-author software over weeks to months---demand a memory substrate whose retrieval unit is the architectural decision, not the conversational turn or the code chunk, and whose refresh policy is dual-mode: pull-based for active sessions, push-based for dormant tasks.
-Existing memory systems~\citep{packer2023memgpt, park2023generative, chhikara2025mem0} organize around dialogue episodes; code-RAG~\citep{zhang2023repocoder, wang2024coderagbench} retrieves over source text without decision provenance; long-context models~\citep{reid2024gemini} suffer attention degradation past ${\sim}200$K tokens~\citep{liu2023lost, hsieh2024ruler}.
-None treats decision provenance as a first-class memory unit or provides a slow-loop refresh primitive.
-We frame this memory layer as scalable oversight infrastructure: retrieval-correction edits---practitioner corrections that would have been unnecessary had memory surfaced relevant context---constitute a process-level oversight signal that scales with agent autonomy, complementing outcome-level preference data.
+Sixty percent of context tokens in current LLM agentic sessions are wasted---redundant re-explanation of decisions already made in prior sessions.
+Baseline measurements from 304 production sessions confirm a median bootstrap cost of 30{,}115 input tokens with a 60\% context waste ratio, while existing memory systems~\citep{packer2023memgpt, park2023generative, chhikara2025mem0} organize around dialogue episodes and code-RAG~\citep{zhang2023repocoder, wang2024coderagbench} retrieves without decision provenance, leaving this waste unaddressed.
 
-This paper makes three contributions.
-First, a \emph{three-layer memory decomposition}---domain, workflow, and practitioner---with distinct retrieval semantics per layer.
-Second, \emph{dual-mode retrieval} as a first-class architectural primitive: pull mode fires at session start and queries all layers in parallel; push mode refreshes memory entries for dormant tasks proportional to repository activity, so that pull queries return current context even after weeks of inactivity.
-Third, \emph{retrieval-correction edits} as a process-level oversight signal: corrections that operationalize the gap between the agent's available context and the context required for correct action, denser than outcome-level supervision and scaling with agent autonomy~\citep{ovcharov2026recursive}.
-The architecture is deployed on a legal-technology platform (70+ MCP tools, 380M+ records, 1{,}547 merged PRs in 105 days).
-Baseline measurements from 304 sessions confirm a median bootstrap cost of 30{,}115 input tokens and a median context waste ratio of 60\%; the memory layer targets a reduction to ${\leq}10$K tokens with ${\leq}20\%$ waste.
+We present a \emph{three-layer workflow memory} architecture---domain, workflow, and practitioner layers with distinct retrieval semantics---targeting ${\leq}10$K bootstrap tokens and ${\leq}20\%$ waste.
+The key architectural primitive is \emph{dual-mode retrieval}: pull mode queries all layers at session start; push mode refreshes memory for dormant tasks proportional to repository activity, so that context remains current even after weeks of inactivity.
+The third contribution reframes the memory layer as scalable oversight infrastructure: \emph{retrieval-correction edits}---practitioner corrections that would have been unnecessary had memory surfaced relevant context---constitute a process-level oversight signal that is denser than outcome-level supervision and scales with agent autonomy~\citep{ovcharov2026recursive}.
+
+The architecture is deployed on a production legal-technology platform (70+ MCP tools, 380M+ records, 1{,}547 merged PRs in 105 days).
+The memory layer does not merely consume alignment data---it produces it: every retrieval failure that triggers a practitioner correction simultaneously generates a preference pair for the companion alignment pipeline~\citep{ovcharov2026recursive}.
 \end{abstract}
 
 % ============================================================
@@ -364,7 +357,7 @@ This is a design target, not a measurement; empirical latency will be reported a
 \label{sec:push-mode}
 % --------------------------------------------------
 
-Push mode runs as a scheduled orchestrator---a separate Docker container with a Bedrock Claude Sonnet summarization pipeline.
+Push mode runs as a scheduled orchestrator---a separate Docker container with a Bedrock Claude Haiku summarization pipeline.
 The orchestrator watches Plane tasks tagged \texttt{LONG-TERM} and refreshes their memory entries proportional to task activity.
 
 The refresh frequency is a function of three signals:
@@ -382,7 +375,7 @@ The refresh frequency is a function of three signals:
 
 Each refresh produces three outputs:
 \begin{itemize}[leftmargin=*, nosep]
-  \item An \textbf{executive summary} of changes relevant to the task since the last refresh, generated by Bedrock Claude Sonnet from the diff of relevant commits and issue comments.
+  \item An \textbf{executive summary} of changes relevant to the task since the last refresh, generated by Bedrock Claude Haiku from the diff of relevant commits and issue comments.
   \item A \textbf{tool lineage delta}: new tools created, tools modified, tools deprecated since the last refresh, with parameter-schema diffs.
   \item \textbf{Open questions}: unresolved issues or decision points flagged by the summarizer that may require practitioner input on task resumption.
 \end{itemize}
@@ -443,7 +436,7 @@ Distinguishing these failure modes is a long-standing open problem in scalable o
 % ============================================================
 
 The memory service is implemented in TypeScript, consistent with the existing Express-based MCP backend~\citep{anthropic2024mcp} described in the companion paper~\citep[\S7]{ovcharov2026recursive}.
-The technology stack reuses production infrastructure: Qdrant for vector storage, PostgreSQL for structured metadata (new \texttt{workflow\_memory\_*} tables), Redis for caching, and AWS Bedrock Claude Sonnet for summarization steps.
+The technology stack reuses production infrastructure: Qdrant for vector storage, PostgreSQL for structured metadata (new \texttt{workflow\_memory\_*} tables), Redis for caching, and AWS Bedrock Claude Haiku for summarization steps.
 
 % --------------------------------------------------
 \subsection{Memory Query Tool}
@@ -473,7 +466,7 @@ It queries the Plane API for tasks tagged \texttt{LONG-TERM}, computes refresh p
 Outputs (executive summaries, tool lineage deltas, open questions) are embedded and stored in the workflow layer's Qdrant collection with a \texttt{source: push-refresh} metadata tag.
 
 All seven phases (0, 1.0--1.5) have been implemented and deployed.
-The complete implementation spans six PostgreSQL migrations (\texttt{144}--\texttt{146}), three Qdrant vector collections (\texttt{wm\_domain}, \texttt{wm\_workflow}, \texttt{wm\_practitioner}), and seven MCP tools (\texttt{workflow\_memory\_query}, \texttt{workflow\_memory\_ingest}, \texttt{workflow\_memory\_stats}, \texttt{workflow\_memory\_reconcile}, \texttt{workflow\_memory\_push\_sync\_tasks}, \texttt{workflow\_memory\_push\_refresh}).
+The complete implementation spans three PostgreSQL migrations (\texttt{144}--\texttt{146}), three Qdrant vector collections (\texttt{wm\_domain}, \texttt{wm\_workflow}, \texttt{wm\_practitioner}), and six MCP tools (\texttt{workflow\_memory\_query}, \texttt{workflow\_memory\_ingest}, \texttt{workflow\_memory\_stats}, \texttt{workflow\_memory\_reconcile}, \texttt{workflow\_memory\_push\_sync\_tasks}, \texttt{workflow\_memory\_push\_refresh}).
 The phase schedule and implementation details are available in the supplementary materials.\footnote{Phase schedule: \url{https://github.com/overthelex/SecondLayer/blob/main/docs/workflow-memory-phases.md}}
 
 
@@ -506,7 +499,7 @@ Context waste ratio &
 \addlinespace
 Principle retrieval accuracy &
   Held-out set of principle ledger entries; queries derived from edit-traces that originally triggered each principle &
-  0.604 (top-1 score) & ${\geq}80\%$ \\
+  0.604 (top-1 cosine similarity) & ${\geq}0.80$ (top-1 cosine similarity) \\
 \addlinespace
 Long-term task refresh latency &
   Time from relevant commit to updated digest entry &
@@ -574,7 +567,7 @@ Full A/B evaluation of bootstrap reduction (memory-enabled vs.\ memory-disabled 
 
 \paragraph{Single project, single practitioner.}
 The architecture is designed and evaluated in the context of one project (LEX AI) and one practitioner.
-This is the same constraint as the companion RLHF paper~\citep[\S8]{ovcharov2026recursive}.
+This is the same constraint as the companion paper~\citep[\S8]{ovcharov2026recursive}.
 Mitigation: the architecture is project-agnostic---the three-layer decomposition and dual-mode retrieval impose no assumptions about the domain, the programming language, or the practitioner's expertise.
 Generalization claims are deferred to Phase~2, which introduces a multi-practitioner cohort.
 
@@ -607,7 +600,7 @@ As agent autonomy grows---from short interactive sessions to multi-hour autonomo
 Outcome-level supervision becomes a low-bandwidth channel through which any oversight signal must pass.
 
 The memory layer changes this.
-Every retrieval is an observable event with a known context window, a known retrieval result, and a subsequent edit trace.
+Every retrieval is an observable event with a known context window, a known retrieval result, and a subsequent edit-trace.
 Reconciliation between retrieved context and editing behavior generates oversight signal at the granularity of individual edits, not individual sessions.
 The signal is not free---reconciliation requires practitioner confirmation of candidate retrieval-correction pairs---but the practitioner's marginal cost per signal is bounded by the time to confirm a flagged pair, not the time to evaluate an entire session.
 
@@ -662,8 +655,8 @@ Second, dual-mode retrieval as a first-class primitive: pull mode for active ses
 Third, retrieval-correction edits as a process-level oversight signal that scales with agent autonomy, closing the feedback loop between the memory layer and the alignment pipeline described in the companion paper~\citep{ovcharov2026recursive}.
 
 The architecture is deployed incrementally on a production legal-technology platform.
-Phase~0 (prompt-commit bridge) is live; Phases~1.0--1.5 are in implementation.
-Baseline measurements from 304 sessions confirm a median bootstrap cost of 30{,}115 input tokens and a context waste ratio of 60\%; the memory layer targets ${\leq}10$K tokens and ${\leq}20\%$ waste, with ${\geq}80\%$ retrieval accuracy on principle ledger entries.
+All seven phases (0, 1.0--1.5) have been implemented and deployed on the local environment as of May~13, 2026.
+Baseline measurements from 304 sessions confirm a median bootstrap cost of 30{,}115 input tokens and a context waste ratio of 60\%; the memory layer targets ${\leq}10$K tokens and ${\leq}20\%$ waste, with ${\geq}0.80$ top-1 cosine similarity on principle ledger entries.
 
 The source code and implementation notes are available at \url{https://github.com/overthelex/SecondLayer}.
 

@@ -14,11 +14,9 @@
 % Tables
 \usepackage{booktabs}
 \usepackage{array}
-\usepackage{tabularx}
 
 % Figures
 \usepackage{graphicx}
-\usepackage{float}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit}
 
@@ -56,8 +54,6 @@
 \newcommand{\KB}{\ensuremath{\mathcal{K}}\xspace}
 \newcommand{\sqsub}{\sqsubseteq}
 \DeclareMathOperator*{\bigsqcap}{\sqcap}
-\newcommand{\DC}{\textsc{DomainConstitution}\xspace}
-\newcommand{\VO}{\textsc{ValidOversight}\xspace}
 
 % ============================================================
 %  Title
@@ -83,13 +79,13 @@
 %  Abstract
 % ============================================================
 \begin{abstract}
-Current methods for collecting human preference data for reinforcement learning from human feedback (RLHF) lack formal criteria for determining when human corrections on LLM output constitute valid training signal versus noise.
-We extend the principle of ontology-controlled systems~\citep{palagin2006architecture}---where formal ontological structure governs system runtime behavior---from the level of system output to the level of human oversight over system output.
-We formalize a \emph{domain constitution}: five axiomatically defined conditions under which human edit-traces on agentic LLM output constitute valid alignment signal.
-The formalization uses \DL description logic, implemented as an OWL~2~DL ontology with automated reasoning for workflow classification.
-We compare this oversight-level control with output-level ontological control as realized in OntoChatGPT~\citep{palagin2023ontochatgpt}, showing that the two operate on complementary levels of the same conceptual stack.
-Empirical validation on 30{,}510 edit-traces from a production legal AI platform demonstrates that ontology-based filtering of oversight signal correlates with downstream outcome quality.
-The work establishes a formal bridge between ontology-controlled architectures and LLM alignment methodology.
+Ontology-based filtering of human oversight signal predicts downstream outcome quality: on 30{,}510 edit-traces from a production legal AI platform, sessions classified as full oversight by a formal domain constitution exhibit a 3--6$\times$ higher rejection rate than partial-oversight sessions, concentrating the most informative alignment action---binary halt of agentic trajectories, which correlates with 78\% positive outcomes.
+This finding bridges two previously disjoint research programs: ontology-controlled systems~\citep{palagin2006architecture, palagin2023ontochatgpt}, which govern system output via formal structure, and LLM alignment, which lacks formal criteria for distinguishing valid human corrections from noise.
+
+We formalize a \emph{domain constitution}---five axiomatically defined, provably independent conditions in \DL description logic---under which human edit-traces on agentic LLM output constitute valid training signal for RLHF.
+The formalization is implemented as an OWL~2~DL ontology: given workflow metadata as ABox assertions, a standard reasoner (HermiT, Pellet) classifies each session as full, partial, or invalid oversight in sub-second time.
+We show that ontological control of human oversight ($\mathsf{ValidOversight}$) is a strict specialization of ontological control of system output ($\mathsf{OntoChatGPT\_Control}$): the two operate on complementary levels of the same conceptual stack, and their integration is satisfiable.
+Among the five conditions, information asymmetry (C4) is identified as the critical evolutionary vulnerability---the only condition whose satisfiability depends on agent capability, connecting the formalization to the scalable oversight research program~\citep{bowman2022measuring}.
 \end{abstract}
 
 \noindent\textbf{Keywords:} ontology-controlled systems, domain constitution, description logic, RLHF, alignment, edit-trace oversight, OWL, human oversight, LLM
@@ -314,7 +310,7 @@ None of these methods provides \emph{formal criteria} for when a human correctio
 The implicit assumption is that any human preference label, from any context, is equally valid as training data.
 
 \citet{ovcharov2026edittrace} challenged this assumption empirically.
-When a practitioner works recursively with an LLM agent over production workflows (1{,}547 merged PRs, 105 days, 7 repositories), the resulting edit-traces exhibit a qualitatively different distribution from what detached annotation would produce: 80.7\% substantive rewrites (median edit distance 0.84), with binary rejection correlating with 78\% positive downstream outcomes.
+When a practitioner works recursively with an LLM agent over production workflows (1{,}547 merged PRs, 105 days, 7 repositories), the resulting edit-traces exhibit a qualitatively different distribution from what detached annotation would produce: 80.7\% substantive rewrites (median normalized edit distance 0.84), with binary rejection correlating with 78\% positive downstream outcomes.
 The paper proposed five informal conditions (``domain constitution'') under which these edit-traces constitute valid oversight signal.
 
 The present work formalizes these conditions.
@@ -377,6 +373,7 @@ The oversight signature $\Sigma_{\mathrm{ov}}$ consists of:
 $\mathsf{Agent}$         & LLM-based agentic system \\
 $\mathsf{Human}$         & Practitioner performing oversight \\
 $\mathsf{Session}$       & Bounded unit of human--agent interaction \\
+$\mathsf{Workflow}$      & Bounded sequence of related sessions \\
 $\mathsf{Artifact}$      & Output produced by $\mathsf{Agent}$ within a $\mathsf{Session}$ \\
 $\mathsf{Edit}$          & Human correction applied to an $\mathsf{Artifact}$ \\
 $\mathsf{Outcome}$       & Deployed result with measurable consequences \\
@@ -397,6 +394,9 @@ $\mathsf{ProductionMetric}$ & Measurable system-level quantity \\
 \midrule
 $\mathsf{operatesOn}$      & $\mathsf{Agent} \to \mathsf{State}$          & --- \\
 $\mathsf{accessesState}$   & $\mathsf{Human} \to \mathsf{State}$          & --- \\
+$\mathsf{hasState}$        & $\mathsf{Session} \to \mathsf{State}$        & --- \\
+$\mathsf{hasSession}$      & $\mathsf{Workflow} \to \mathsf{Session}$     & --- \\
+$\mathsf{hasArtifact}$     & $\mathsf{Session} \to \mathsf{Artifact}$     & --- \\
 $\mathsf{producesArtifact}$& $\mathsf{Session} \to \mathsf{Artifact}$     & --- \\
 $\mathsf{hasEdit}$         & $\mathsf{Artifact} \to \mathsf{Edit}$        & --- \\
 $\mathsf{hasOutcome}$      & $\mathsf{Session} \to \mathsf{Outcome}$      & --- \\
@@ -568,33 +568,43 @@ The following workflow patterns are provably not classified as $\mathsf{ValidOve
 
 \begin{enumerate}[label=(\alph*),leftmargin=2em]
 
-\item \textbf{One-shot code generation.}
-Let $w_1$ be a workflow with a single session $s$, no persistent state, and no compositional chain.
+\item \textbf{Traditional IDE with undo history (C1 only).}
+Let $w_1$ be a system with persistent state across sessions (an IDE undo buffer) but no edit-trace logging of operator corrections; sessions compose into dependency chains (C2), criteria are grounded (C3), the operator holds private context (C4), and the workflow ships production artifacts (C5).
 \begin{align}
-  \ABox_1 &= \{ \mathsf{Workflow}(w_1),\; \mathsf{hasSession}(w_1, s) \} \notag \\
+  \ABox_1 &= \{ \mathsf{Workflow}(w_1),\; \mathsf{hasSession}(w_1, s),\;
+               \neg\exists\mathsf{hasState}.\mathsf{PersistentState}(w_1) \} \notag \\
   \KB &= \langle \TBox, \ABox_1 \rangle \notag \\
-  \KB &\not\models \mathsf{ValidOversight}(w_1) \qquad \text{(fails C1, C2)}
+  \KB &\not\models \mathsf{ValidOversight}(w_1) \qquad \text{(fails C1 only)}
+\end{align}
+
+\item \textbf{One-shot code generation with in-session feedback (C2 only).}
+Let $w_2$ be a one-shot tool that logs operator corrections within a single session (C1 is satisfied by the session-scoped state), but has no persistent state across sessions and no compositional dependency chain; criteria are grounded (C3), the operator holds private information (C4), and an artifact is deployed (C5).
+\begin{align}
+  \ABox_2 &= \{ \mathsf{Workflow}(w_2),\; \mathsf{hasSession}(w_2, s),\;
+               \neg\exists\mathsf{partOf}.({\mathsf{Workflow} \sqcap \exists\mathsf{hasSession}.(\mathsf{Session} \sqcap \exists\mathsf{dependsOn}.\mathsf{Session})})(w_2) \} \notag \\
+  \KB &= \langle \TBox, \ABox_2 \rangle \notag \\
+  \KB &\not\models \mathsf{ValidOversight}(w_2) \qquad \text{(fails C2 only)}
 \end{align}
 
 \item \textbf{Automated CI/CD pipeline.}
-Let $w_2$ be a workflow where all edits are based on information accessible to the agent (test results, linter output).
+Let $w_3$ be a workflow where all edits are based on information accessible to the agent (test results, linter output).
 \begin{align}
-  \forall e \in \mathsf{Edit}(w_2)&: \; \exists i.\; \mathsf{basedOn}(e, i) \wedge \mathsf{accessibleTo}(i, a) \notag \\
-  \KB &\not\models \mathsf{ValidOversight}(w_2) \qquad \text{(fails C4)}
+  \forall e \in \mathsf{Edit}(w_3)&: \; \exists i.\; \mathsf{basedOn}(e, i) \wedge \mathsf{accessibleTo}(i, a) \notag \\
+  \KB &\not\models \mathsf{ValidOversight}(w_3) \qquad \text{(fails C4)}
 \end{align}
 
 \item \textbf{Tutorial or learning use.}
-Let $w_3$ be a workflow with no deployed outcomes.
+Let $w_4$ be a workflow with no deployed outcomes.
 \begin{align}
-  \neg\exists o.\; &\mathsf{hasOutcome}(w_3, o) \wedge \mathsf{ConsequentialOutcome}(o) \notag \\
-  \KB &\not\models \mathsf{ValidOversight}(w_3) \qquad \text{(fails C5)}
+  \neg\exists o.\; &\mathsf{hasOutcome}(w_4, o) \wedge \mathsf{ConsequentialOutcome}(o) \notag \\
+  \KB &\not\models \mathsf{ValidOversight}(w_4) \qquad \text{(fails C5)}
 \end{align}
 
 \item \textbf{Pair programming without success criteria.}
-Let $w_4$ be a workflow with shared state and compositional chains but no grounded success criteria.
+Let $w_5$ be a workflow with shared state and compositional chains but no grounded success criteria.
 \begin{align}
-  \neg\exists c.\; &\mathsf{hasCriterion}(w_4, c) \wedge \mathsf{GroundedCriterion}(c) \notag \\
-  \KB &\not\models \mathsf{ValidOversight}(w_4) \qquad \text{(fails C3)}
+  \neg\exists c.\; &\mathsf{hasCriterion}(w_5, c) \wedge \mathsf{GroundedCriterion}(c) \notag \\
+  \KB &\not\models \mathsf{ValidOversight}(w_5) \qquad \text{(fails C3)}
 \end{align}
 
 \end{enumerate}
@@ -638,7 +648,7 @@ Given a workflow individual $w$ with asserted properties in \ABox, determine:
   \KB \models \mathsf{ValidOversight}(w) \;\; ?
 \end{equation}
 This is the primary task: automatically classifying whether a given workflow's edit-traces qualify as valid training signal.
-Decidable in \DL; implemented via tableau-based reasoners (HermiT, Pellet).
+Decidable in \DL; implemented via tableau-based reasoners (HermiT~\citep{glimm2014hermit}, Pellet~\citep{sirin2007pellet}).
 
 \item \textbf{Consistency checking.}
 Verify that \TBox is satisfiable---that the five conditions are not mutually contradictory:
@@ -669,7 +679,7 @@ Instance classification of $\mathsf{ValidOversight}$ is decidable.
 \end{proposition}
 \begin{proof}
 The TBox \TBox uses only \DL constructors: concept conjunction ($\sqcap$), existential restriction ($\exists r.C$), negation ($\neg$), transitive roles, and inverse roles.
-All instance checking problems in \DL are decidable~\citep{horrocks2006even}, with worst-case complexity \textsc{NExpTime}.
+All instance checking problems in \DL are decidable~\citep{baader2003description}; SHOIQ decidability follows from the fact that SHOIQ is a fragment of SROIQ~\citep{horrocks2006even}, with worst-case complexity \textsc{NExpTime}.
 In practice, the ontology size (number of axioms and individuals) is small relative to the theoretical bound, and reasoning completes in sub-second time for thousands of workflow individuals.
 \end{proof}
 
@@ -682,8 +692,8 @@ No condition $\mathsf{C}_i$ is entailed by the conjunction of the remaining four
 \end{equation}
 \end{proposition}
 \begin{proof}
-By construction of four counterexample individuals, each satisfying exactly four conditions and failing the fifth (Section~\ref{sec:negative} provides three; the remaining two are analogous).
-The negative examples (one-shot generation, automated pipeline, tutorial use, pair programming without criteria) each isolate a single failing condition while plausibly satisfying the others.
+By construction of five counterexample individuals, each satisfying exactly four conditions and failing the fifth (Section~\ref{sec:negative} provides all five).
+The negative examples (traditional IDE without correction tracking, one-shot generation with in-session feedback, automated pipeline, tutorial use, pair programming without criteria) each isolate a single failing condition while satisfying the remaining four.
 \end{proof}
 
 \begin{proposition}[Monotonicity of oversight grade]
@@ -700,7 +710,7 @@ Under the open-world assumption, absent assertions do not entail negation---they
 \end{proof}
 
 This monotonicity property has practical significance: as more metadata about a workflow is captured (e.g., outcome tracking is added post-hoc), the oversight grade can only increase.
-A workflow that was \textsc{PartialOversight} due to missing outcome data can be reclassified as \textsc{FullOversight} once outcomes are attributed, without invalidating prior assertions.
+A workflow that was $\mathsf{PartialOversight}$ due to missing outcome data can be reclassified as $\mathsf{FullOversight}$ once outcomes are attributed, without invalidating prior assertions.
 
 
 % ============================================================
@@ -872,6 +882,9 @@ An \emph{integrated ontologically controlled LLM system} is a workflow satisfyin
 \end{equation}
 \end{definition}
 
+Since $\mathsf{ValidOversight}$ already entails $\mathsf{OntoChatGPT\_Control}$ (Proposition~\ref{prop:non-subsumption}), the conjunction reduces semantically to $\mathsf{ValidOversight}$.
+Nevertheless, the explicit conjunction in $\mathsf{IntegratedControl}$ serves as a design-time reminder that both the legacy output-level constraints and the new oversight-level constraints must be simultaneously active in any integrated deployment.
+
 \begin{theorem}[Satisfiability of Integrated Control]
 \label{thm:integrated}
 $\mathsf{IntegratedControl}$ is satisfiable: there exist workflow instances that simultaneously satisfy both $\mathsf{OntoChatGPT\_Control}$ and $\mathsf{ValidOversight}$.
@@ -891,7 +904,7 @@ Consider a workflow $w^*$ with the following properties:
 This workflow is precisely the LEX~AI case study documented in~\citet{ovcharov2026edittrace}, augmented with an ontology-driven prompt generation layer.
 \end{proof}
 
-The integrated system operates as a two-level control pipeline:
+The integrated system operates as a three-level control pipeline:
 
 \begin{enumerate}[nosep]
   \item \textbf{Inference-time control} (Level~III): the OWL ontology constrains the LLM's output, improving per-query accuracy and structural consistency.
@@ -951,7 +964,7 @@ Figure~\ref{fig:integration} illustrates the integrated architecture.
   \node[font=\scriptsize, text=green!50!black] at (2.2, 3.2) {model};
   \node[font=\scriptsize, text=green!50!black] at (2.2, 2.8) {update};
 \end{tikzpicture}
-\caption{Integrated ontological control: Level~III (inference-time, blue) and Level~V (training-time, green) operating as a two-level pipeline.
+\caption{Integrated ontological control: Level~III (inference-time, blue) and Level~V (training-time, green) operating as a three-level pipeline (inference, training, and feedback loop).
 The human overseer (orange) provides corrections that feed into Level~V.
 Dashed arrows indicate the feedback loop from DPO training back to the model.}
 \label{fig:integration}
@@ -981,7 +994,8 @@ C5 & No & No deployment requirement. The system functions identically in sandbox
 \end{tabular}
 \end{table}
 
-OntoChatGPT satisfies 2 of 5 conditions (C1 fully, C3 partially), confirming the strict specialization result (Proposition~\ref{prop:non-subsumption}): $\mathsf{ValidOversight}$ inherits C1 and C3 and adds C2, C4, C5.
+OntoChatGPT satisfies 2 of 5 conditions (C1 partially, C3 partially), confirming the strict specialization result (Proposition~\ref{prop:non-subsumption}): $\mathsf{ValidOversight}$ inherits the foundation of C1 and C3 and adds C2, C4, C5.
+Note that the subsumption analysis in Proposition~\ref{prop:non-subsumption} uses an idealized model of OntoChatGPT in which C1 and C3 are treated as fully satisfied; the condition-level table above reflects the more nuanced empirical characterization.
 This is not a deficiency of OntoChatGPT---it was designed for a different purpose (output quality, not oversight validation).
 The condition-level analysis clarifies exactly \emph{what} the domain constitution adds beyond ontology-controlled output: compositional layering (C2), human information advantage (C4), and consequential grounding (C5).
 
@@ -1002,7 +1016,7 @@ The oversight ontology\footnote{Available at \url{https://github.com/overthelex/
 We choose OWL~2~DL over OWL~2~Full to guarantee decidability of all reasoning tasks, and over OWL~2~EL/QL/RL profiles because the TBox requires negation ($\mathsf{PrivateInfo}$ uses $\neg$), inverse roles ($\mathsf{PersistentState}$ uses $\mathsf{operatesOn}^{-}$), and qualified number restrictions.
 
 \paragraph{Class hierarchy.}
-The ten atomic concepts from Definition~\ref{def:signature} map directly to OWL named classes.
+The eleven atomic concepts from Definition~\ref{def:signature} map directly to OWL named classes.
 The four derived concepts (Equations~\ref{eq:persistent-state}--\ref{eq:consequential-outcome}) are implemented as defined classes using \texttt{EquivalentClasses} axioms:
 
 \begin{small}
@@ -1021,7 +1035,7 @@ Class: PrivateInfo
 \end{small}
 
 \paragraph{Role declarations.}
-The twelve object properties from the signature are declared with domain/range restrictions.
+The fifteen object properties from the signature are declared with domain/range restrictions.
 The transitive declaration for $\mathsf{dependsOn}$ is:
 
 \begin{small}
@@ -1056,7 +1070,7 @@ Class: ValidOversight
 The graded classification (Definition~\ref{def:grade}) is implemented via five auxiliary defined classes $\mathsf{SatisfiesC1}$\,--\,$\mathsf{SatisfiesC5}$, one per condition, enabling the reasoner to compute the oversight grade for each individual.
 
 \paragraph{Ontology metrics.}
-The complete ontology contains 25 named classes, 17 object properties (including 2 inverse property pairs), 5 \texttt{SubClassOf} axioms (TBox), 12 \texttt{EquivalentClasses} definitions, 1 transitivity declaration, and domain/range restrictions---a compact ontology by design, reflecting the principle that the domain constitution is a minimal formal structure.
+The complete ontology contains 26 named classes, 20 object properties (including 2 inverse property pairs), 5 \texttt{SubClassOf} axioms (TBox), 12 \texttt{EquivalentClasses} definitions, 1 transitivity declaration, and domain/range restrictions---a compact ontology by design, reflecting the principle that the domain constitution is a minimal formal structure.
 
 \paragraph{Open-world assumption and closure axioms.}
 The $\mathsf{PrivateInfo}$ concept uses negation: information \emph{not} accessible to any agent.
@@ -1134,14 +1148,15 @@ Individual: lexai_outcome_gfs_accepted
 \end{small}
 
 \paragraph{Negative individuals.}
-Four individuals instantiate the invalid patterns from Proposition~\ref{prop:negative}:
+Five individuals instantiate the invalid patterns from Proposition~\ref{prop:negative}:
 
 \begin{center}
 \begin{tabular}{@{}lll@{}}
 \toprule
 \textbf{Individual} & \textbf{Pattern} & \textbf{Fails} \\
 \midrule
-\texttt{oneshot\_script}    & One-shot code generation      & C1, C2 \\
+\texttt{ide\_no\_trace}     & Traditional IDE, no correction tracking & C1 \\
+\texttt{oneshot\_feedback}  & One-shot tool with in-session feedback  & C2 \\
 \texttt{cicd\_pipeline}     & Automated CI/CD               & C4 \\
 \texttt{tutorial\_exercise} & Tutorial/learning use         & C5 \\
 \texttt{casual\_pairing}    & Pair programming, no criteria & C3 \\
@@ -1160,7 +1175,7 @@ HermiT classification matches the SQL classification on 50/50 sampled sessions (
 \label{sec:verification}
 % --------------------------------------------------------
 
-We use HermiT~\citep{glimm2014hermit} via \texttt{owlready2}~0.50 (Python OWL~API with embedded HermiT reasoner) for all verification tasks.
+We use HermiT~\citep{glimm2014hermit} via \texttt{owlready2}~0.50~\citep{lamy2017owlready} (Python OWL~API with embedded HermiT reasoner) for all verification tasks.
 All experiments run on a single core (AMD Ryzen~9, 4.9\,GHz).
 
 \paragraph{Task R1: TBox consistency.}
@@ -1195,7 +1210,7 @@ Improving link extraction is the single highest-impact path to increasing the $\
 
 \paragraph{Task R3: Condition independence.}
 For each condition $\mathsf{C}_i$, HermiT verifies that the corresponding negative individual (Section~\ref{sec:abox}) is \emph{not} classified as $\mathsf{ValidOversight}$ while satisfying $\mathsf{C}_j$ for all $j \neq i$.
-All four negative individuals are correctly classified, confirming Proposition~\ref{prop:independence}.
+All five negative individuals are correctly classified, confirming Proposition~\ref{prop:independence}.
 
 \paragraph{Task R4: Subsumption.}
 HermiT reveals a strict subsumption relationship:
@@ -1507,7 +1522,7 @@ Their integration into a single system is satisfiable (Theorem~\ref{thm:integrat
 Third, among the five conditions, C4 (information asymmetry) is identified as the critical evolutionary vulnerability: it is the only condition whose satisfiability depends on the agent's capability level, connecting the formalization to the scalable oversight research program~\citep{bowman2022measuring}.
 
 The OWL~2~DL ontology implementing the domain constitution is available for automated reasoning.
-Given workflow metadata as ABox assertions, a standard OWL reasoner (HermiT, Pellet) classifies each workflow instance as full, partial, or invalid oversight in sub-second time.
+Given workflow metadata as ABox assertions, a standard OWL reasoner (HermiT~\citep{glimm2014hermit}, Pellet~\citep{sirin2007pellet}) classifies each workflow instance as full, partial, or invalid oversight in sub-second time.
 This enables ontology-based filtering of RLHF preference data as a lightweight, formally grounded pipeline component.
 
 The principal limitation is empirical: the formalization has been validated on a single practitioner's data.
