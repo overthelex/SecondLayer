@@ -10477,8 +10477,8 @@ This validation, together with the implementation of the weighted DPO training o
   },
   'paper-mission-memory': {
     title: 'Persistent Memory Architecture for Long-Horizon Autonomous Missions with Operator Rotation',
-    punchline: 'Three-level memory decomposition (domain / workflow / operator) with dual-mode retrieval for maintaining control continuity in UAV and situation center operations during operator handoff.',
-    readTime: '40 min read (full paper)',
+    punchline: 'Three-level memory decomposition with dual-mode retrieval and correction signal. 7 experiments, cross-domain validation on DevGPT (g=0.81), RAGBench (95K, r=-0.60), and SWE-agent (6,636 trajectories). Applications to UAV C2 and situation centers.',
+    readTime: 'PDF, 22 pages',
     content: `## Abstract
 
 Автономні агентні системи, що виконують довгострокові місії (години — тижні), потребують підсистеми пам'яті, одиницею витягування якої є оперативне рішення, а не діалоговий обмін або фрагмент коду.
