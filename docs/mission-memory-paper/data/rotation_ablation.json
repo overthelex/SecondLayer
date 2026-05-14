@@ -1,70 +1,2471 @@
 {
   "experiment": "rotation_ablation",
   "description": "Operator rotation ablation: context waste comparison between continuation sessions (overlapping components) and switch sessions (disjoint components, simulating operator rotation)",
-  "n_sessions": 86,
-  "n_pairs": 85,
+  "n_sessions": 89,
+  "n_pairs": 88,
   "continuations": {
-    "n": 49,
+    "n": 51,
     "waste_ratio": {
-      "n": 49,
-      "mean": 0.4521,
+      "n": 51,
+      "mean": 0.4694,
       "median": 0.5,
-      "stdev": 0.2522,
+      "stdev": 0.2576,
       "p25": 0.2857,
-      "p75": 0.6
+      "p75": 0.6364
     },
     "bootstrap_reads": {
-      "n": 49,
-      "mean": 9.6531,
+      "n": 51,
+      "mean": 9.5686,
       "median": 9,
-      "stdev": 5.9566,
+      "stdev": 6.0142,
       "p25": 5,
       "p75": 13
     }
   },
   "switches": {
-    "n": 36,
+    "n": 37,
     "waste_ratio": {
-      "n": 36,
-      "mean": 0.5627,
-      "median": 0.618,
-      "stdev": 0.2916,
-      "p25": 0.3704,
+      "n": 37,
+      "mean": 0.5479,
+      "median": 0.6111,
+      "stdev": 0.296,
+      "p25": 0.3333,
       "p75": 0.75
     },
     "bootstrap_reads": {
-      "n": 36,
-      "mean": 8.4722,
-      "median": 7.5,
-      "stdev": 5.5677,
+      "n": 37,
+      "mean": 8.5405,
+      "median": 7,
+      "stdev": 5.6794,
       "p25": 5,
-      "p75": 12
+      "p75": 11
     }
   },
   "rotation_cost": {
-    "waste_ratio_delta": 0.1106,
-    "reads_delta": -1.2,
-    "cohens_d": 0.41
+    "waste_ratio_delta": 0.0785,
+    "reads_delta": -1.0,
+    "cohens_d": 0.286
   },
   "by_gap": {
     "short_gap_hours": 4,
     "long_gap_hours": 24,
-    "short_gap_pairs": 46,
+    "short_gap_pairs": 49,
     "long_gap_pairs": 7,
     "long_gap_continuation_waste": 0.6399,
     "long_gap_switch_waste": 0.4745
   },
-  "statistical_test": {
-    "test": "Mann-Whitney U",
-    "z": 2.126,
-    "p": 0.0335,
-    "significant_at_005": true,
-    "bootstrap_ci_95": [
-      -0.0062,
-      0.2271
-    ],
-    "bootstrap_n": 10000,
-    "cohens_d": 0.41,
-    "effect_size": "medium"
-  }
+  "sessions": [
+    {
+      "file": "504fdcb5-a282-4835-b6eb-38331f885130.jsonl",
+      "session_id": "504fdcb5-a282-4835-b6eb-38331f885130",
+      "timestamp": 1776158089.7382236,
+      "timestamp_iso": "2026-04-14T12:14:49.738224",
+      "n_unique_reads": 3,
+      "n_unique_edits": 2,
+      "n_wasted": 1,
+      "waste_ratio": 0.3333,
+      "read_components": [
+        "deployment",
+        "frontend/LoginPage",
+        "other"
+      ],
+      "edit_components": [
+        "deployment",
+        "frontend/LoginPage"
+      ],
+      "all_components": [
+        "deployment",
+        "frontend/LoginPage",
+        "other"
+      ]
+    },
+    {
+      "file": "0784d1a8-099e-4cdf-b83f-7972a55044d8.jsonl",
+      "session_id": "0784d1a8-099e-4cdf-b83f-7972a55044d8",
+      "timestamp": 1776244187.7824743,
+      "timestamp_iso": "2026-04-15T12:09:47.782474",
+      "n_unique_reads": 18,
+      "n_unique_edits": 7,
+      "n_wasted": 11,
+      "waste_ratio": 0.6111,
+      "read_components": [
+        "backend/api",
+        "backend/citation-validator",
+        "backend/migrations",
+        "backend/other",
+        "backend/remote-service-client",
+        "frontend/DeveloperDocsPage",
+        "frontend/other",
+        "frontend/services"
+      ],
+      "edit_components": [
+        "backend/api",
+        "backend/other",
+        "backend/remote-service-client",
+        "frontend/DeveloperDocsPage",
+        "frontend/services"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/citation-validator",
+        "backend/migrations",
+        "backend/other",
+        "backend/remote-service-client",
+        "frontend/DeveloperDocsPage",
+        "frontend/other",
+        "frontend/services"
+      ]
+    },
+    {
+      "file": "b6ac97e5-8510-49ce-9d6c-56f3d6c63ab3.jsonl",
+      "session_id": "b6ac97e5-8510-49ce-9d6c-56f3d6c63ab3",
+      "timestamp": 1776248083.1422045,
+      "timestamp_iso": "2026-04-15T13:14:43.142205",
+      "n_unique_reads": 15,
+      "n_unique_edits": 8,
+      "n_wasted": 9,
+      "waste_ratio": 0.6,
+      "read_components": [
+        "backend/api",
+        "backend/migrations",
+        "frontend/DeveloperDocsPage",
+        "frontend/components",
+        "frontend/other",
+        "openreyestr",
+        "other"
+      ],
+      "edit_components": [
+        "backend/migrations",
+        "frontend/DeveloperDocsPage",
+        "frontend/components",
+        "frontend/other",
+        "other"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/migrations",
+        "frontend/DeveloperDocsPage",
+        "frontend/components",
+        "frontend/other",
+        "openreyestr",
+        "other"
+      ]
+    },
+    {
+      "file": "029d21c5-5ddc-4660-b486-bc9d63f5321b.jsonl",
+      "session_id": null,
+      "timestamp": 1776249483.785051,
+      "timestamp_iso": "2026-04-15T13:38:03.785051",
+      "n_unique_reads": 3,
+      "n_unique_edits": 2,
+      "n_wasted": 1,
+      "waste_ratio": 0.3333,
+      "read_components": [
+        "ci",
+        "deployment"
+      ],
+      "edit_components": [
+        "ci",
+        "deployment"
+      ],
+      "all_components": [
+        "ci",
+        "deployment"
+      ]
+    },
+    {
+      "file": "6a17bcdd-f8dc-4141-9d50-888cb73253b9.jsonl",
+      "session_id": "6a17bcdd-f8dc-4141-9d50-888cb73253b9",
+      "timestamp": 1776260445.2135425,
+      "timestamp_iso": "2026-04-15T16:40:45.213542",
+      "n_unique_reads": 2,
+      "n_unique_edits": 1,
+      "n_wasted": 2,
+      "waste_ratio": 1.0,
+      "read_components": [
+        "docs",
+        "frontend/BlogPage"
+      ],
+      "edit_components": [
+        "docs"
+      ],
+      "all_components": [
+        "docs",
+        "frontend/BlogPage"
+      ]
+    },
+    {
+      "file": "d90194d6-2667-45b7-9537-8d0354233ac3.jsonl",
+      "session_id": "d90194d6-2667-45b7-9537-8d0354233ac3",
+      "timestamp": 1776275859.1153193,
+      "timestamp_iso": "2026-04-15T20:57:39.115319",
+      "n_unique_reads": 13,
+      "n_unique_edits": 1,
+      "n_wasted": 12,
+      "waste_ratio": 0.9231,
+      "read_components": [
+        "backend/api",
+        "backend/conversation-evidence-service",
+        "backend/evidence-extractor",
+        "backend/other",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services",
+        "other"
+      ],
+      "edit_components": [
+        "frontend/other"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/conversation-evidence-service",
+        "backend/evidence-extractor",
+        "backend/other",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services",
+        "other"
+      ]
+    },
+    {
+      "file": "7a11d3bf-f63e-48bf-9a06-c0d85a591b3e.jsonl",
+      "session_id": "7a11d3bf-f63e-48bf-9a06-c0d85a591b3e",
+      "timestamp": 1776278238.1605723,
+      "timestamp_iso": "2026-04-15T21:37:18.160572",
+      "n_unique_reads": 7,
+      "n_unique_edits": 2,
+      "n_wasted": 5,
+      "waste_ratio": 0.7143,
+      "read_components": [
+        "other"
+      ],
+      "edit_components": [
+        "other"
+      ],
+      "all_components": [
+        "other"
+      ]
+    },
+    {
+      "file": "ff85eced-34c5-4e64-872f-e6a679463860.jsonl",
+      "session_id": "ff85eced-34c5-4e64-872f-e6a679463860",
+      "timestamp": 1776334518.1008062,
+      "timestamp_iso": "2026-04-16T13:15:18.100806",
+      "n_unique_reads": 2,
+      "n_unique_edits": 1,
+      "n_wasted": 1,
+      "waste_ratio": 0.5,
+      "read_components": [
+        "other"
+      ],
+      "edit_components": [
+        "other"
+      ],
+      "all_components": [
+        "other"
+      ]
+    },
+    {
+      "file": "e82ed291-6d2f-4e43-8e75-9d5624a0e984.jsonl",
+      "session_id": null,
+      "timestamp": 1776337908.0728903,
+      "timestamp_iso": "2026-04-16T14:11:48.072890",
+      "n_unique_reads": 6,
+      "n_unique_edits": 1,
+      "n_wasted": 5,
+      "waste_ratio": 0.8333,
+      "read_components": [
+        "frontend/BlogPage",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "frontend/other"
+      ],
+      "all_components": [
+        "frontend/BlogPage",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "193b850b-9047-4617-9161-131c9210e2e3.jsonl",
+      "session_id": "193b850b-9047-4617-9161-131c9210e2e3",
+      "timestamp": 1776341086.7175617,
+      "timestamp_iso": "2026-04-16T15:04:46.717562",
+      "n_unique_reads": 7,
+      "n_unique_edits": 4,
+      "n_wasted": 3,
+      "waste_ratio": 0.4286,
+      "read_components": [
+        "backend/api",
+        "backend/conversation-evidence-service",
+        "ci",
+        "deployment",
+        "frontend/components",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "deployment",
+        "frontend/components",
+        "frontend/other"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/conversation-evidence-service",
+        "ci",
+        "deployment",
+        "frontend/components",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "75e9620a-76a0-4ad2-9086-368f485baa8a.jsonl",
+      "session_id": "75e9620a-76a0-4ad2-9086-368f485baa8a",
+      "timestamp": 1776348033.8857267,
+      "timestamp_iso": "2026-04-16T17:00:33.885727",
+      "n_unique_reads": 6,
+      "n_unique_edits": 4,
+      "n_wasted": 3,
+      "waste_ratio": 0.5,
+      "read_components": [
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other",
+        "rada",
+        "scripts"
+      ],
+      "edit_components": [
+        "docs",
+        "frontend/BlogPage",
+        "rada",
+        "scripts"
+      ],
+      "all_components": [
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other",
+        "rada",
+        "scripts"
+      ]
+    },
+    {
+      "file": "96d15b3d-c63d-4cb3-8227-ddadf43fc9b6.jsonl",
+      "session_id": "96d15b3d-c63d-4cb3-8227-ddadf43fc9b6",
+      "timestamp": 1776353541.2713711,
+      "timestamp_iso": "2026-04-16T18:32:21.271371",
+      "n_unique_reads": 8,
+      "n_unique_edits": 3,
+      "n_wasted": 5,
+      "waste_ratio": 0.625,
+      "read_components": [
+        "deployment",
+        "frontend/other",
+        "other"
+      ],
+      "edit_components": [
+        "deployment",
+        "frontend/other"
+      ],
+      "all_components": [
+        "deployment",
+        "frontend/other",
+        "other"
+      ]
+    },
+    {
+      "file": "db5fa9ba-b730-478f-86bd-f9882c916000.jsonl",
+      "session_id": "db5fa9ba-b730-478f-86bd-f9882c916000",
+      "timestamp": 1776354759.8998601,
+      "timestamp_iso": "2026-04-16T18:52:39.899860",
+      "n_unique_reads": 3,
+      "n_unique_edits": 3,
+      "n_wasted": 0,
+      "waste_ratio": 0.0,
+      "read_components": [
+        "backend/other",
+        "frontend/other",
+        "other"
+      ],
+      "edit_components": [
+        "backend/other",
+        "frontend/other",
+        "other"
+      ],
+      "all_components": [
+        "backend/other",
+        "frontend/other",
+        "other"
+      ]
+    },
+    {
+      "file": "c6a133fc-20ad-4ed7-b72e-eec04e94d2b3.jsonl",
+      "session_id": "c6a133fc-20ad-4ed7-b72e-eec04e94d2b3",
+      "timestamp": 1776370859.945026,
+      "timestamp_iso": "2026-04-16T23:20:59.945026",
+      "n_unique_reads": 4,
+      "n_unique_edits": 5,
+      "n_wasted": 2,
+      "waste_ratio": 0.5,
+      "read_components": [
+        "deployment",
+        "other",
+        "scripts"
+      ],
+      "edit_components": [
+        "deployment",
+        "other",
+        "scripts"
+      ],
+      "all_components": [
+        "deployment",
+        "other",
+        "scripts"
+      ]
+    },
+    {
+      "file": "72574b19-826f-4ed3-a520-3896189bc166.jsonl",
+      "session_id": "72574b19-826f-4ed3-a520-3896189bc166",
+      "timestamp": 1776374673.9140525,
+      "timestamp_iso": "2026-04-17T00:24:33.914052",
+      "n_unique_reads": 8,
+      "n_unique_edits": 6,
+      "n_wasted": 2,
+      "waste_ratio": 0.25,
+      "read_components": [
+        "backend/api",
+        "backend/citation-validator",
+        "shared"
+      ],
+      "edit_components": [
+        "backend/api"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/citation-validator",
+        "shared"
+      ]
+    },
+    {
+      "file": "4cbe5c2e-c297-4595-a584-3461ba449a22.jsonl",
+      "session_id": "4cbe5c2e-c297-4595-a584-3461ba449a22",
+      "timestamp": 1776377883.8491662,
+      "timestamp_iso": "2026-04-17T01:18:03.849166",
+      "n_unique_reads": 10,
+      "n_unique_edits": 8,
+      "n_wasted": 6,
+      "waste_ratio": 0.6,
+      "read_components": [
+        "backend/migrations",
+        "deployment",
+        "scripts"
+      ],
+      "edit_components": [
+        "backend/migrations",
+        "deployment",
+        "scripts"
+      ],
+      "all_components": [
+        "backend/migrations",
+        "deployment",
+        "scripts"
+      ]
+    },
+    {
+      "file": "c8b7d4f8-a41a-4cdf-9701-0040d56e01fc.jsonl",
+      "session_id": "c8b7d4f8-a41a-4cdf-9701-0040d56e01fc",
+      "timestamp": 1776414591.431785,
+      "timestamp_iso": "2026-04-17T11:29:51.431785",
+      "n_unique_reads": 11,
+      "n_unique_edits": 5,
+      "n_wasted": 8,
+      "waste_ratio": 0.7273,
+      "read_components": [
+        "frontend/BlogPage",
+        "frontend/other",
+        "other",
+        "scripts"
+      ],
+      "edit_components": [
+        "docs",
+        "frontend/BlogPage",
+        "scripts"
+      ],
+      "all_components": [
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other",
+        "other",
+        "scripts"
+      ]
+    },
+    {
+      "file": "ef4fcd9c-0cd1-4740-9ff7-d683b1416462.jsonl",
+      "session_id": "ef4fcd9c-0cd1-4740-9ff7-d683b1416462",
+      "timestamp": 1776433520.1648214,
+      "timestamp_iso": "2026-04-17T16:45:20.164821",
+      "n_unique_reads": 4,
+      "n_unique_edits": 1,
+      "n_wasted": 4,
+      "waste_ratio": 1.0,
+      "read_components": [
+        "scripts"
+      ],
+      "edit_components": [
+        "scripts"
+      ],
+      "all_components": [
+        "scripts"
+      ]
+    },
+    {
+      "file": "c796b2ef-7d5f-4694-89cc-f68c35171718.jsonl",
+      "session_id": null,
+      "timestamp": 1776440342.7073524,
+      "timestamp_iso": "2026-04-17T18:39:02.707352",
+      "n_unique_reads": 13,
+      "n_unique_edits": 8,
+      "n_wasted": 9,
+      "waste_ratio": 0.6923,
+      "read_components": [
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other",
+        "other"
+      ],
+      "edit_components": [
+        "docs",
+        "frontend/BlogPage"
+      ],
+      "all_components": [
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other",
+        "other"
+      ]
+    },
+    {
+      "file": "86d00795-26c7-46ae-8e1a-afd6d4fbb39f.jsonl",
+      "session_id": "86d00795-26c7-46ae-8e1a-afd6d4fbb39f",
+      "timestamp": 1776441160.6251009,
+      "timestamp_iso": "2026-04-17T18:52:40.625101",
+      "n_unique_reads": 8,
+      "n_unique_edits": 3,
+      "n_wasted": 6,
+      "waste_ratio": 0.75,
+      "read_components": [
+        "backend/api",
+        "backend/import-task-service",
+        "backend/migrations",
+        "other",
+        "scripts"
+      ],
+      "edit_components": [
+        "backend/import-task-service",
+        "backend/migrations",
+        "other"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/import-task-service",
+        "backend/migrations",
+        "other",
+        "scripts"
+      ]
+    },
+    {
+      "file": "e394e0cb-9ec4-4222-b955-6b4d8fcf408f.jsonl",
+      "session_id": "e394e0cb-9ec4-4222-b955-6b4d8fcf408f",
+      "timestamp": 1776441165.4241133,
+      "timestamp_iso": "2026-04-17T18:52:45.424113",
+      "n_unique_reads": 8,
+      "n_unique_edits": 7,
+      "n_wasted": 3,
+      "waste_ratio": 0.375,
+      "read_components": [
+        "backend/api",
+        "backend/edrsr-fts-service",
+        "backend/migrations",
+        "backend/query-planner",
+        "ci",
+        "other",
+        "scripts"
+      ],
+      "edit_components": [
+        "backend/api",
+        "backend/edrsr-fts-service",
+        "backend/other",
+        "backend/search-ranking-config",
+        "other",
+        "scripts"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/edrsr-fts-service",
+        "backend/migrations",
+        "backend/other",
+        "backend/query-planner",
+        "backend/search-ranking-config",
+        "ci",
+        "other",
+        "scripts"
+      ]
+    },
+    {
+      "file": "6c2ef2b8-f5f1-43c6-8737-40596eb665f1.jsonl",
+      "session_id": "6c2ef2b8-f5f1-43c6-8737-40596eb665f1",
+      "timestamp": 1776531874.8060677,
+      "timestamp_iso": "2026-04-18T20:04:34.806068",
+      "n_unique_reads": 6,
+      "n_unique_edits": 5,
+      "n_wasted": 4,
+      "waste_ratio": 0.6667,
+      "read_components": [
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other",
+        "scripts"
+      ],
+      "edit_components": [
+        "docs",
+        "frontend/BlogPage",
+        "scripts"
+      ],
+      "all_components": [
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other",
+        "scripts"
+      ]
+    },
+    {
+      "file": "7c48640f-628c-4131-8718-f1875c463e9a.jsonl",
+      "session_id": "7c48640f-628c-4131-8718-f1875c463e9a",
+      "timestamp": 1776677586.1435075,
+      "timestamp_iso": "2026-04-20T12:33:06.143507",
+      "n_unique_reads": 17,
+      "n_unique_edits": 3,
+      "n_wasted": 14,
+      "waste_ratio": 0.8235,
+      "read_components": [
+        "backend/api",
+        "backend/conversation-evidence-service",
+        "backend/legislation-service",
+        "backend/legislation-service.test",
+        "backend/other",
+        "frontend/LegalCodesLibraryPage",
+        "frontend/components",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "backend/legislation-service",
+        "backend/legislation-service.test",
+        "backend/other"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/conversation-evidence-service",
+        "backend/legislation-service",
+        "backend/legislation-service.test",
+        "backend/other",
+        "frontend/LegalCodesLibraryPage",
+        "frontend/components",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "e2528cc2-e527-4a4c-9ad4-51f01ef38984.jsonl",
+      "session_id": "e2528cc2-e527-4a4c-9ad4-51f01ef38984",
+      "timestamp": 1776680931.8978484,
+      "timestamp_iso": "2026-04-20T13:28:51.897848",
+      "n_unique_reads": 7,
+      "n_unique_edits": 1,
+      "n_wasted": 6,
+      "waste_ratio": 0.8571,
+      "read_components": [
+        "frontend/CareerPage.tsx",
+        "frontend/other",
+        "frontend/services"
+      ],
+      "edit_components": [
+        "frontend/other"
+      ],
+      "all_components": [
+        "frontend/CareerPage.tsx",
+        "frontend/other",
+        "frontend/services"
+      ]
+    },
+    {
+      "file": "3860a6ae-70c1-47b8-8f65-1cc0a3186399.jsonl",
+      "session_id": "3860a6ae-70c1-47b8-8f65-1cc0a3186399",
+      "timestamp": 1776693573.3243315,
+      "timestamp_iso": "2026-04-20T16:59:33.324332",
+      "n_unique_reads": 9,
+      "n_unique_edits": 5,
+      "n_wasted": 4,
+      "waste_ratio": 0.4444,
+      "read_components": [
+        "backend/chat-service",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services",
+        "scripts",
+        "shared"
+      ],
+      "edit_components": [
+        "frontend/components",
+        "frontend/other",
+        "frontend/services",
+        "scripts"
+      ],
+      "all_components": [
+        "backend/chat-service",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services",
+        "scripts",
+        "shared"
+      ]
+    },
+    {
+      "file": "011ed8ec-6ff2-4bf4-9b16-c6f4ac214f64.jsonl",
+      "session_id": "011ed8ec-6ff2-4bf4-9b16-c6f4ac214f64",
+      "timestamp": 1776699931.9647617,
+      "timestamp_iso": "2026-04-20T18:45:31.964762",
+      "n_unique_reads": 12,
+      "n_unique_edits": 10,
+      "n_wasted": 7,
+      "waste_ratio": 0.5833,
+      "read_components": [
+        "backend/api",
+        "backend/edrsr-fts-service",
+        "backend/edrsr-vectorizer-service",
+        "backend/other",
+        "frontend/InvestorLetterPage.tsx",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "backend/api",
+        "backend/other",
+        "docs",
+        "frontend/CareerPage.tsx",
+        "frontend/other"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/edrsr-fts-service",
+        "backend/edrsr-vectorizer-service",
+        "backend/other",
+        "docs",
+        "frontend/CareerPage.tsx",
+        "frontend/InvestorLetterPage.tsx",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "48cc0f70-ac17-4116-97aa-3871e98e20cf.jsonl",
+      "session_id": "48cc0f70-ac17-4116-97aa-3871e98e20cf",
+      "timestamp": 1776786057.4567351,
+      "timestamp_iso": "2026-04-21T18:40:57.456735",
+      "n_unique_reads": 3,
+      "n_unique_edits": 1,
+      "n_wasted": 2,
+      "waste_ratio": 0.6667,
+      "read_components": [
+        "deployment",
+        "other"
+      ],
+      "edit_components": [
+        "deployment"
+      ],
+      "all_components": [
+        "deployment",
+        "other"
+      ]
+    },
+    {
+      "file": "104f9ae9-d9f3-47b2-a65a-15e1de1e5cf2.jsonl",
+      "session_id": null,
+      "timestamp": 1776836210.406666,
+      "timestamp_iso": "2026-04-22T08:36:50.406666",
+      "n_unique_reads": 2,
+      "n_unique_edits": 1,
+      "n_wasted": 1,
+      "waste_ratio": 0.5,
+      "read_components": [
+        "deployment",
+        "scripts"
+      ],
+      "edit_components": [
+        "deployment"
+      ],
+      "all_components": [
+        "deployment",
+        "scripts"
+      ]
+    },
+    {
+      "file": "d854888a-aeeb-4650-89d6-52601f2fb1d2.jsonl",
+      "session_id": "d854888a-aeeb-4650-89d6-52601f2fb1d2",
+      "timestamp": 1776860439.4291623,
+      "timestamp_iso": "2026-04-22T15:20:39.429162",
+      "n_unique_reads": 4,
+      "n_unique_edits": 2,
+      "n_wasted": 2,
+      "waste_ratio": 0.5,
+      "read_components": [
+        "frontend/LoginPage",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "frontend/other"
+      ],
+      "all_components": [
+        "frontend/LoginPage",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "3615d373-4c80-4fa7-8433-da832fc659ed.jsonl",
+      "session_id": "3615d373-4c80-4fa7-8433-da832fc659ed",
+      "timestamp": 1776890649.235664,
+      "timestamp_iso": "2026-04-22T23:44:09.235664",
+      "n_unique_reads": 2,
+      "n_unique_edits": 4,
+      "n_wasted": 0,
+      "waste_ratio": 0.0,
+      "read_components": [
+        "deployment",
+        "docs"
+      ],
+      "edit_components": [
+        "deployment",
+        "docs"
+      ],
+      "all_components": [
+        "deployment",
+        "docs"
+      ]
+    },
+    {
+      "file": "74ceb364-9ca4-4376-ab69-1be155bbc437.jsonl",
+      "session_id": "74ceb364-9ca4-4376-ab69-1be155bbc437",
+      "timestamp": 1776975189.6491394,
+      "timestamp_iso": "2026-04-23T23:13:09.649139",
+      "n_unique_reads": 9,
+      "n_unique_edits": 4,
+      "n_wasted": 5,
+      "waste_ratio": 0.5556,
+      "read_components": [
+        "backend/currency-service",
+        "backend/monobank-service",
+        "backend/monobank-service-mock",
+        "backend/other",
+        "frontend/LoginPage",
+        "frontend/components",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "backend/monobank-service",
+        "backend/monobank-service-mock",
+        "backend/other",
+        "frontend/LoginPage"
+      ],
+      "all_components": [
+        "backend/currency-service",
+        "backend/monobank-service",
+        "backend/monobank-service-mock",
+        "backend/other",
+        "frontend/LoginPage",
+        "frontend/components",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "9ee0f559-8475-45c4-9a32-e8c6daea173b.jsonl",
+      "session_id": "9ee0f559-8475-45c4-9a32-e8c6daea173b",
+      "timestamp": 1776976842.965929,
+      "timestamp_iso": "2026-04-23T23:40:42.965929",
+      "n_unique_reads": 6,
+      "n_unique_edits": 7,
+      "n_wasted": 1,
+      "waste_ratio": 0.1667,
+      "read_components": [
+        "backend/api",
+        "backend/legislation-classifier",
+        "backend/legislation-service",
+        "backend/legislation-service.test",
+        "backend/other"
+      ],
+      "edit_components": [
+        "backend/api",
+        "backend/legislation-classifier",
+        "backend/legislation-service",
+        "backend/legislation-service.test",
+        "backend/other"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/legislation-classifier",
+        "backend/legislation-service",
+        "backend/legislation-service.test",
+        "backend/other"
+      ]
+    },
+    {
+      "file": "72750449-0cb5-48fe-8375-56c550e03cec.jsonl",
+      "session_id": "72750449-0cb5-48fe-8375-56c550e03cec",
+      "timestamp": 1777283019.2691627,
+      "timestamp_iso": "2026-04-27T12:43:39.269163",
+      "n_unique_reads": 5,
+      "n_unique_edits": 2,
+      "n_wasted": 3,
+      "waste_ratio": 0.6,
+      "read_components": [
+        "frontend/other",
+        "frontend/services"
+      ],
+      "edit_components": [
+        "frontend/other"
+      ],
+      "all_components": [
+        "frontend/other",
+        "frontend/services"
+      ]
+    },
+    {
+      "file": "d39e6dd2-ff2b-4df3-99b0-38ef88ccd98a.jsonl",
+      "session_id": null,
+      "timestamp": 1777456997.280193,
+      "timestamp_iso": "2026-04-29T13:03:17.280193",
+      "n_unique_reads": 14,
+      "n_unique_edits": 14,
+      "n_wasted": 8,
+      "waste_ratio": 0.5714,
+      "read_components": [
+        "docs",
+        "frontend/BlogPage",
+        "frontend/CareerPage.tsx",
+        "frontend/LoginPage",
+        "frontend/TeamPage.tsx",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "docs",
+        "frontend/AboutPage",
+        "frontend/LoginPage",
+        "frontend/ProductPage",
+        "frontend/other"
+      ],
+      "all_components": [
+        "docs",
+        "frontend/AboutPage",
+        "frontend/BlogPage",
+        "frontend/CareerPage.tsx",
+        "frontend/LoginPage",
+        "frontend/ProductPage",
+        "frontend/TeamPage.tsx",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "19efe3b8-fa6d-41cc-a09b-9f7398c8595a.jsonl",
+      "session_id": "19efe3b8-fa6d-41cc-a09b-9f7398c8595a",
+      "timestamp": 1777494842.2833471,
+      "timestamp_iso": "2026-04-29T23:34:02.283347",
+      "n_unique_reads": 3,
+      "n_unique_edits": 2,
+      "n_wasted": 3,
+      "waste_ratio": 1.0,
+      "read_components": [
+        "backend/migrations"
+      ],
+      "edit_components": [
+        "backend/migrations",
+        "other"
+      ],
+      "all_components": [
+        "backend/migrations",
+        "other"
+      ]
+    },
+    {
+      "file": "6a99f9be-c71a-4ef0-83a9-10588ba1776d.jsonl",
+      "session_id": "6a99f9be-c71a-4ef0-83a9-10588ba1776d",
+      "timestamp": 1777498766.9673114,
+      "timestamp_iso": "2026-04-30T00:39:26.967311",
+      "n_unique_reads": 8,
+      "n_unique_edits": 2,
+      "n_wasted": 6,
+      "waste_ratio": 0.75,
+      "read_components": [
+        "frontend/LegalCodesLibraryPage",
+        "frontend/__tests__",
+        "frontend/other",
+        "frontend/services"
+      ],
+      "edit_components": [
+        "frontend/LegalCodesLibraryPage",
+        "frontend/__tests__"
+      ],
+      "all_components": [
+        "frontend/LegalCodesLibraryPage",
+        "frontend/__tests__",
+        "frontend/other",
+        "frontend/services"
+      ]
+    },
+    {
+      "file": "f4165a3d-4fef-4391-ab01-54607e9fe9e9.jsonl",
+      "session_id": "f4165a3d-4fef-4391-ab01-54607e9fe9e9",
+      "timestamp": 1777498766.9903114,
+      "timestamp_iso": "2026-04-30T00:39:26.990311",
+      "n_unique_reads": 12,
+      "n_unique_edits": 33,
+      "n_wasted": 4,
+      "waste_ratio": 0.3333,
+      "read_components": [
+        "backend/migrations",
+        "other",
+        "scripts"
+      ],
+      "edit_components": [
+        "backend/migrations",
+        "other",
+        "scripts"
+      ],
+      "all_components": [
+        "backend/migrations",
+        "other",
+        "scripts"
+      ]
+    },
+    {
+      "file": "d5ecd5aa-dc08-4cb2-82b3-f663a5e33203.jsonl",
+      "session_id": "d5ecd5aa-dc08-4cb2-82b3-f663a5e33203",
+      "timestamp": 1777536891.1178534,
+      "timestamp_iso": "2026-04-30T11:14:51.117853",
+      "n_unique_reads": 8,
+      "n_unique_edits": 12,
+      "n_wasted": 4,
+      "waste_ratio": 0.5,
+      "read_components": [
+        "backend/email-service",
+        "backend/other",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services"
+      ],
+      "edit_components": [
+        "backend/email-service",
+        "backend/other",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services"
+      ],
+      "all_components": [
+        "backend/email-service",
+        "backend/other",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services"
+      ]
+    },
+    {
+      "file": "3bafce1e-9cc0-4b5a-9dbd-7971ee3b5a5c.jsonl",
+      "session_id": "3bafce1e-9cc0-4b5a-9dbd-7971ee3b5a5c",
+      "timestamp": 1777540263.0364513,
+      "timestamp_iso": "2026-04-30T12:11:03.036451",
+      "n_unique_reads": 21,
+      "n_unique_edits": 15,
+      "n_wasted": 14,
+      "waste_ratio": 0.6667,
+      "read_components": [
+        "backend/billing-service",
+        "backend/billing-service-downgrade.test",
+        "backend/migrations",
+        "backend/other",
+        "backend/user-service",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services"
+      ],
+      "edit_components": [
+        "backend/access-gate",
+        "backend/access-gate.test",
+        "backend/migrations",
+        "backend/other",
+        "backend/user-service",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services",
+        "frontend/stores"
+      ],
+      "all_components": [
+        "backend/access-gate",
+        "backend/access-gate.test",
+        "backend/billing-service",
+        "backend/billing-service-downgrade.test",
+        "backend/migrations",
+        "backend/other",
+        "backend/user-service",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services",
+        "frontend/stores"
+      ]
+    },
+    {
+      "file": "5764a7fd-cfb2-4540-9d18-fda0356ac1a1.jsonl",
+      "session_id": "5764a7fd-cfb2-4540-9d18-fda0356ac1a1",
+      "timestamp": 1777540568.5070527,
+      "timestamp_iso": "2026-04-30T12:16:08.507053",
+      "n_unique_reads": 15,
+      "n_unique_edits": 14,
+      "n_wasted": 1,
+      "waste_ratio": 0.0667,
+      "read_components": [
+        "backend/cost-tracker",
+        "backend/other",
+        "backend/upload-service",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services"
+      ],
+      "edit_components": [
+        "backend/cost-tracker",
+        "backend/other",
+        "backend/upload-service",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services"
+      ],
+      "all_components": [
+        "backend/cost-tracker",
+        "backend/other",
+        "backend/upload-service",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services"
+      ]
+    },
+    {
+      "file": "a5d20a4e-15b6-43e7-8a3c-f9bc6bbdb20e.jsonl",
+      "session_id": "a5d20a4e-15b6-43e7-8a3c-f9bc6bbdb20e",
+      "timestamp": 1777613860.3531258,
+      "timestamp_iso": "2026-05-01T08:37:40.353126",
+      "n_unique_reads": 11,
+      "n_unique_edits": 4,
+      "n_wasted": 7,
+      "waste_ratio": 0.6364,
+      "read_components": [
+        "backend/other",
+        "frontend/LoginPage",
+        "frontend/components",
+        "frontend/other",
+        "frontend/stores",
+        "other"
+      ],
+      "edit_components": [
+        "frontend/LoginPage",
+        "frontend/components",
+        "other"
+      ],
+      "all_components": [
+        "backend/other",
+        "frontend/LoginPage",
+        "frontend/components",
+        "frontend/other",
+        "frontend/stores",
+        "other"
+      ]
+    },
+    {
+      "file": "6b63b7e3-97a7-4ba4-b746-adfdc9ebfb83.jsonl",
+      "session_id": "6b63b7e3-97a7-4ba4-b746-adfdc9ebfb83",
+      "timestamp": 1777631656.6050398,
+      "timestamp_iso": "2026-05-01T13:34:16.605040",
+      "n_unique_reads": 16,
+      "n_unique_edits": 6,
+      "n_wasted": 10,
+      "waste_ratio": 0.625,
+      "read_components": [
+        "backend/access-gate",
+        "backend/api",
+        "backend/billing-service",
+        "backend/credit-service",
+        "backend/other",
+        "frontend/DecisionsSearchPage.tsx",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "backend/api",
+        "backend/other",
+        "frontend/DecisionsSearchPage.tsx",
+        "frontend/other"
+      ],
+      "all_components": [
+        "backend/access-gate",
+        "backend/api",
+        "backend/billing-service",
+        "backend/credit-service",
+        "backend/other",
+        "frontend/DecisionsSearchPage.tsx",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "d56d40c4-3f4b-4b19-ace5-45a4a665a2c8.jsonl",
+      "session_id": "d56d40c4-3f4b-4b19-ace5-45a4a665a2c8",
+      "timestamp": 1777634075.363285,
+      "timestamp_iso": "2026-05-01T14:14:35.363285",
+      "n_unique_reads": 10,
+      "n_unique_edits": 3,
+      "n_wasted": 7,
+      "waste_ratio": 0.7,
+      "read_components": [
+        "backend/news-article-service",
+        "backend/other",
+        "deployment",
+        "frontend/NewsPage",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "backend/news-article-service",
+        "frontend/NewsPage",
+        "frontend/other"
+      ],
+      "all_components": [
+        "backend/news-article-service",
+        "backend/other",
+        "deployment",
+        "frontend/NewsPage",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "b572e1a6-9849-41b6-b9e1-44e47c6b0058.jsonl",
+      "session_id": "b572e1a6-9849-41b6-b9e1-44e47c6b0058",
+      "timestamp": 1777660599.4881394,
+      "timestamp_iso": "2026-05-01T21:36:39.488139",
+      "n_unique_reads": 27,
+      "n_unique_edits": 17,
+      "n_wasted": 10,
+      "waste_ratio": 0.3704,
+      "read_components": [
+        "backend/api",
+        "backend/other",
+        "other"
+      ],
+      "edit_components": [
+        "backend/api",
+        "backend/other",
+        "other"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/other",
+        "other"
+      ]
+    },
+    {
+      "file": "30fc1976-971b-4d35-8905-e1e0ef64d4a1.jsonl",
+      "session_id": "30fc1976-971b-4d35-8905-e1e0ef64d4a1",
+      "timestamp": 1777701893.1008036,
+      "timestamp_iso": "2026-05-02T09:04:53.100804",
+      "n_unique_reads": 25,
+      "n_unique_edits": 21,
+      "n_wasted": 4,
+      "waste_ratio": 0.16,
+      "read_components": [
+        "backend/attorney-profile-service",
+        "backend/monobank-service",
+        "backend/monobank-service.test",
+        "backend/oauth-service",
+        "backend/other",
+        "deployment",
+        "other"
+      ],
+      "edit_components": [
+        "backend/attorney-profile-service",
+        "backend/monobank-service",
+        "backend/monobank-service.test",
+        "backend/oauth-service",
+        "backend/other",
+        "deployment",
+        "other"
+      ],
+      "all_components": [
+        "backend/attorney-profile-service",
+        "backend/monobank-service",
+        "backend/monobank-service.test",
+        "backend/oauth-service",
+        "backend/other",
+        "deployment",
+        "other"
+      ]
+    },
+    {
+      "file": "7b169531-fa2c-4fea-aabe-ae50041e9c52.jsonl",
+      "session_id": "7b169531-fa2c-4fea-aabe-ae50041e9c52",
+      "timestamp": 1777891854.3313599,
+      "timestamp_iso": "2026-05-04T13:50:54.331360",
+      "n_unique_reads": 4,
+      "n_unique_edits": 3,
+      "n_wasted": 3,
+      "waste_ratio": 0.75,
+      "read_components": [
+        "deployment",
+        "scripts"
+      ],
+      "edit_components": [
+        "scripts"
+      ],
+      "all_components": [
+        "deployment",
+        "scripts"
+      ]
+    },
+    {
+      "file": "65e2b3d8-294f-4bc2-ae88-74d4085d0000.jsonl",
+      "session_id": "65e2b3d8-294f-4bc2-ae88-74d4085d0000",
+      "timestamp": 1777908009.5933359,
+      "timestamp_iso": "2026-05-04T18:20:09.593336",
+      "n_unique_reads": 7,
+      "n_unique_edits": 2,
+      "n_wasted": 5,
+      "waste_ratio": 0.7143,
+      "read_components": [
+        "backend/other",
+        "backend/upload-service",
+        "deployment",
+        "frontend/services",
+        "other"
+      ],
+      "edit_components": [
+        "deployment"
+      ],
+      "all_components": [
+        "backend/other",
+        "backend/upload-service",
+        "deployment",
+        "frontend/services",
+        "other"
+      ]
+    },
+    {
+      "file": "6a75533f-a196-4955-8649-28ea71e0f429.jsonl",
+      "session_id": "6a75533f-a196-4955-8649-28ea71e0f429",
+      "timestamp": 1777912123.445413,
+      "timestamp_iso": "2026-05-04T19:28:43.445413",
+      "n_unique_reads": 5,
+      "n_unique_edits": 3,
+      "n_wasted": 2,
+      "waste_ratio": 0.4,
+      "read_components": [
+        "backend/migrations",
+        "backend/other",
+        "deployment",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "deployment",
+        "frontend/other"
+      ],
+      "all_components": [
+        "backend/migrations",
+        "backend/other",
+        "deployment",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "cda2fbc9-642d-4f47-9ee4-d7c8f0fd252a.jsonl",
+      "session_id": "cda2fbc9-642d-4f47-9ee4-d7c8f0fd252a",
+      "timestamp": 1777929982.5697272,
+      "timestamp_iso": "2026-05-05T00:26:22.569727",
+      "n_unique_reads": 10,
+      "n_unique_edits": 7,
+      "n_wasted": 5,
+      "waste_ratio": 0.5,
+      "read_components": [
+        "backend/migrations",
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other",
+        "scripts"
+      ],
+      "edit_components": [
+        "backend/migrations",
+        "docs",
+        "frontend/BlogPage",
+        "scripts"
+      ],
+      "all_components": [
+        "backend/migrations",
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other",
+        "scripts"
+      ]
+    },
+    {
+      "file": "3622f0ac-617b-400f-9452-7899919026e1.jsonl",
+      "session_id": null,
+      "timestamp": 1777932167.4760306,
+      "timestamp_iso": "2026-05-05T01:02:47.476031",
+      "n_unique_reads": 6,
+      "n_unique_edits": 1,
+      "n_wasted": 5,
+      "waste_ratio": 0.8333,
+      "read_components": [
+        "backend/chat-constants",
+        "backend/chat-context-builder",
+        "backend/chat-intent-classifier",
+        "backend/chat-service",
+        "backend/query-planner",
+        "ci"
+      ],
+      "edit_components": [
+        "ci"
+      ],
+      "all_components": [
+        "backend/chat-constants",
+        "backend/chat-context-builder",
+        "backend/chat-intent-classifier",
+        "backend/chat-service",
+        "backend/query-planner",
+        "ci"
+      ]
+    },
+    {
+      "file": "d68a453c-27cc-466e-8916-cf0d66ea495b.jsonl",
+      "session_id": null,
+      "timestamp": 1777938134.0241241,
+      "timestamp_iso": "2026-05-05T02:42:14.024124",
+      "n_unique_reads": 4,
+      "n_unique_edits": 1,
+      "n_wasted": 3,
+      "waste_ratio": 0.75,
+      "read_components": [
+        "backend/other",
+        "ci",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "backend/other"
+      ],
+      "all_components": [
+        "backend/other",
+        "ci",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "a771a183-ccfa-415d-8948-d5c951c87e9b.jsonl",
+      "session_id": null,
+      "timestamp": 1777980283.8794117,
+      "timestamp_iso": "2026-05-05T14:24:43.879412",
+      "n_unique_reads": 6,
+      "n_unique_edits": 6,
+      "n_wasted": 0,
+      "waste_ratio": 0.0,
+      "read_components": [
+        "backend/api",
+        "frontend/DeveloperDocsPage",
+        "other",
+        "shared"
+      ],
+      "edit_components": [
+        "backend/api",
+        "frontend/DeveloperDocsPage",
+        "other",
+        "shared"
+      ],
+      "all_components": [
+        "backend/api",
+        "frontend/DeveloperDocsPage",
+        "other",
+        "shared"
+      ]
+    },
+    {
+      "file": "d178b826-2670-4b46-bf11-2a73e9a650a9.jsonl",
+      "session_id": "d178b826-2670-4b46-bf11-2a73e9a650a9",
+      "timestamp": 1777989300.4988384,
+      "timestamp_iso": "2026-05-05T16:55:00.498838",
+      "n_unique_reads": 10,
+      "n_unique_edits": 14,
+      "n_wasted": 2,
+      "waste_ratio": 0.2,
+      "read_components": [
+        "backend/api",
+        "backend/document-classification-service",
+        "backend/document-parser",
+        "backend/edrsr-fts-service",
+        "backend/edrsr-vectorizer-service",
+        "backend/legislation-classifier",
+        "backend/metadata-extractor",
+        "backend/name-variation-service",
+        "backend/other"
+      ],
+      "edit_components": [
+        "backend/api",
+        "backend/document-classification-service",
+        "backend/document-parser",
+        "backend/legislation-classifier",
+        "backend/metadata-extractor",
+        "backend/name-variation-service",
+        "backend/other",
+        "backend/query-reformulator",
+        "backend/query-reformulator.test",
+        "backend/search-result-filter",
+        "backend/search-result-filter.test"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/document-classification-service",
+        "backend/document-parser",
+        "backend/edrsr-fts-service",
+        "backend/edrsr-vectorizer-service",
+        "backend/legislation-classifier",
+        "backend/metadata-extractor",
+        "backend/name-variation-service",
+        "backend/other",
+        "backend/query-reformulator",
+        "backend/query-reformulator.test",
+        "backend/search-result-filter",
+        "backend/search-result-filter.test"
+      ]
+    },
+    {
+      "file": "398c9abf-ef44-4441-b034-5fd05192c38b.jsonl",
+      "session_id": "398c9abf-ef44-4441-b034-5fd05192c38b",
+      "timestamp": 1778002415.1577098,
+      "timestamp_iso": "2026-05-05T20:33:35.157710",
+      "n_unique_reads": 2,
+      "n_unique_edits": 1,
+      "n_wasted": 2,
+      "waste_ratio": 1.0,
+      "read_components": [
+        "frontend/other",
+        "frontend/stores"
+      ],
+      "edit_components": [
+        "frontend/other"
+      ],
+      "all_components": [
+        "frontend/other",
+        "frontend/stores"
+      ]
+    },
+    {
+      "file": "c98c30e6-0fe5-4615-888c-0367305eb943.jsonl",
+      "session_id": "c98c30e6-0fe5-4615-888c-0367305eb943",
+      "timestamp": 1778163062.4377625,
+      "timestamp_iso": "2026-05-07T17:11:02.437762",
+      "n_unique_reads": 2,
+      "n_unique_edits": 2,
+      "n_wasted": 0,
+      "waste_ratio": 0.0,
+      "read_components": [
+        "other"
+      ],
+      "edit_components": [
+        "other"
+      ],
+      "all_components": [
+        "other"
+      ]
+    },
+    {
+      "file": "d4913449-4ff1-488f-802d-535b49bb06ca.jsonl",
+      "session_id": "d4913449-4ff1-488f-802d-535b49bb06ca",
+      "timestamp": 1778163246.8647983,
+      "timestamp_iso": "2026-05-07T17:14:06.864798",
+      "n_unique_reads": 6,
+      "n_unique_edits": 2,
+      "n_wasted": 4,
+      "waste_ratio": 0.6667,
+      "read_components": [
+        "backend/chat-intent-classifier",
+        "backend/chat-service",
+        "backend/query-planner",
+        "deployment",
+        "shared"
+      ],
+      "edit_components": [
+        "deployment",
+        "shared"
+      ],
+      "all_components": [
+        "backend/chat-intent-classifier",
+        "backend/chat-service",
+        "backend/query-planner",
+        "deployment",
+        "shared"
+      ]
+    },
+    {
+      "file": "dff1fe4d-5eb4-4723-9dc7-8856de6f7db2.jsonl",
+      "session_id": "dff1fe4d-5eb4-4723-9dc7-8856de6f7db2",
+      "timestamp": 1778164647.3106484,
+      "timestamp_iso": "2026-05-07T17:37:27.310648",
+      "n_unique_reads": 2,
+      "n_unique_edits": 2,
+      "n_wasted": 0,
+      "waste_ratio": 0.0,
+      "read_components": [
+        "shared"
+      ],
+      "edit_components": [
+        "shared"
+      ],
+      "all_components": [
+        "shared"
+      ]
+    },
+    {
+      "file": "1b354ede-1558-43e5-a707-938476519d0e.jsonl",
+      "session_id": "1b354ede-1558-43e5-a707-938476519d0e",
+      "timestamp": 1778181584.2373137,
+      "timestamp_iso": "2026-05-07T22:19:44.237314",
+      "n_unique_reads": 7,
+      "n_unique_edits": 5,
+      "n_wasted": 2,
+      "waste_ratio": 0.2857,
+      "read_components": [
+        "backend/chat-intent-classifier.test",
+        "backend/other",
+        "frontend/ChatPage",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services",
+        "frontend/stores"
+      ],
+      "edit_components": [
+        "backend/chat-intent-classifier.test",
+        "backend/other",
+        "frontend/ChatPage",
+        "frontend/components",
+        "frontend/other"
+      ],
+      "all_components": [
+        "backend/chat-intent-classifier.test",
+        "backend/other",
+        "frontend/ChatPage",
+        "frontend/components",
+        "frontend/other",
+        "frontend/services",
+        "frontend/stores"
+      ]
+    },
+    {
+      "file": "f37aab72-d74c-47f1-968f-97bbc071e7ea.jsonl",
+      "session_id": "f37aab72-d74c-47f1-968f-97bbc071e7ea",
+      "timestamp": 1778181869.9531343,
+      "timestamp_iso": "2026-05-07T22:24:29.953134",
+      "n_unique_reads": 11,
+      "n_unique_edits": 2,
+      "n_wasted": 9,
+      "waste_ratio": 0.8182,
+      "read_components": [
+        "frontend/BlogPage",
+        "frontend/other",
+        "other"
+      ],
+      "edit_components": [
+        "frontend/BlogPage"
+      ],
+      "all_components": [
+        "frontend/BlogPage",
+        "frontend/other",
+        "other"
+      ]
+    },
+    {
+      "file": "fe771650-1652-4788-befd-7fc89cea79a0.jsonl",
+      "session_id": "fe771650-1652-4788-befd-7fc89cea79a0",
+      "timestamp": 1778231246.9644372,
+      "timestamp_iso": "2026-05-08T12:07:26.964437",
+      "n_unique_reads": 10,
+      "n_unique_edits": 6,
+      "n_wasted": 4,
+      "waste_ratio": 0.4,
+      "read_components": [
+        "frontend/BlogPage",
+        "frontend/other",
+        "frontend/stores"
+      ],
+      "edit_components": [
+        "frontend/BlogPage",
+        "frontend/other"
+      ],
+      "all_components": [
+        "frontend/BlogPage",
+        "frontend/other",
+        "frontend/stores"
+      ]
+    },
+    {
+      "file": "4de780d4-7ac4-494d-99e4-4666dcdbb148.jsonl",
+      "session_id": "4de780d4-7ac4-494d-99e4-4666dcdbb148",
+      "timestamp": 1778255548.7315662,
+      "timestamp_iso": "2026-05-08T18:52:28.731566",
+      "n_unique_reads": 14,
+      "n_unique_edits": 10,
+      "n_wasted": 4,
+      "waste_ratio": 0.2857,
+      "read_components": [
+        "frontend/BlogPage",
+        "frontend/components",
+        "frontend/other",
+        "frontend/stores"
+      ],
+      "edit_components": [
+        "frontend/BlogPage",
+        "frontend/other",
+        "frontend/stores"
+      ],
+      "all_components": [
+        "frontend/BlogPage",
+        "frontend/components",
+        "frontend/other",
+        "frontend/stores"
+      ]
+    },
+    {
+      "file": "eaa3f00d-9b26-422b-a361-998515ecea63.jsonl",
+      "session_id": null,
+      "timestamp": 1778256696.7577932,
+      "timestamp_iso": "2026-05-08T19:11:36.757793",
+      "n_unique_reads": 13,
+      "n_unique_edits": 54,
+      "n_wasted": 1,
+      "waste_ratio": 0.0769,
+      "read_components": [
+        "frontend/BlogPage",
+        "other"
+      ],
+      "edit_components": [
+        "frontend/BlogPage",
+        "other"
+      ],
+      "all_components": [
+        "frontend/BlogPage",
+        "other"
+      ]
+    },
+    {
+      "file": "39710efd-6006-40b4-92ce-7410e539c3f6.jsonl",
+      "session_id": "39710efd-6006-40b4-92ce-7410e539c3f6",
+      "timestamp": 1778266670.6642234,
+      "timestamp_iso": "2026-05-08T21:57:50.664223",
+      "n_unique_reads": 5,
+      "n_unique_edits": 3,
+      "n_wasted": 3,
+      "waste_ratio": 0.6,
+      "read_components": [
+        "frontend/BlogPage",
+        "frontend/other",
+        "scripts"
+      ],
+      "edit_components": [
+        "frontend/BlogPage",
+        "scripts"
+      ],
+      "all_components": [
+        "frontend/BlogPage",
+        "frontend/other",
+        "scripts"
+      ]
+    },
+    {
+      "file": "bb3431d3-8f68-4dba-bc24-8fcb21b81906.jsonl",
+      "session_id": "bb3431d3-8f68-4dba-bc24-8fcb21b81906",
+      "timestamp": 1778316825.7917051,
+      "timestamp_iso": "2026-05-09T11:53:45.791705",
+      "n_unique_reads": 11,
+      "n_unique_edits": 6,
+      "n_wasted": 6,
+      "waste_ratio": 0.5455,
+      "read_components": [
+        "ci",
+        "frontend/components",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "ci",
+        "frontend/components",
+        "frontend/other"
+      ],
+      "all_components": [
+        "ci",
+        "frontend/components",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "4f785fdf-8fcf-46eb-b940-539676cdd5ae.jsonl",
+      "session_id": null,
+      "timestamp": 1778317617.212816,
+      "timestamp_iso": "2026-05-09T12:06:57.212816",
+      "n_unique_reads": 15,
+      "n_unique_edits": 15,
+      "n_wasted": 8,
+      "waste_ratio": 0.5333,
+      "read_components": [
+        "frontend/BlogPage",
+        "frontend/components",
+        "frontend/other",
+        "other"
+      ],
+      "edit_components": [
+        "frontend/BlogPage",
+        "frontend/components",
+        "other"
+      ],
+      "all_components": [
+        "frontend/BlogPage",
+        "frontend/components",
+        "frontend/other",
+        "other"
+      ]
+    },
+    {
+      "file": "06f4ede7-ebed-47f2-99b4-903fbf629588.jsonl",
+      "session_id": "06f4ede7-ebed-47f2-99b4-903fbf629588",
+      "timestamp": 1778336213.160772,
+      "timestamp_iso": "2026-05-09T17:16:53.160772",
+      "n_unique_reads": 7,
+      "n_unique_edits": 4,
+      "n_wasted": 3,
+      "waste_ratio": 0.4286,
+      "read_components": [
+        "frontend/BlogPage",
+        "frontend/other",
+        "frontend/services"
+      ],
+      "edit_components": [
+        "frontend/BlogPage",
+        "frontend/other"
+      ],
+      "all_components": [
+        "frontend/BlogPage",
+        "frontend/other",
+        "frontend/services"
+      ]
+    },
+    {
+      "file": "b38a4e41-e566-4195-890d-8e7088cc7be9.jsonl",
+      "session_id": "b38a4e41-e566-4195-890d-8e7088cc7be9",
+      "timestamp": 1778347950.2685416,
+      "timestamp_iso": "2026-05-09T20:32:30.268542",
+      "n_unique_reads": 5,
+      "n_unique_edits": 4,
+      "n_wasted": 1,
+      "waste_ratio": 0.2,
+      "read_components": [
+        "deployment",
+        "frontend/BlogPage",
+        "other"
+      ],
+      "edit_components": [
+        "deployment",
+        "frontend/BlogPage",
+        "other"
+      ],
+      "all_components": [
+        "deployment",
+        "frontend/BlogPage",
+        "other"
+      ]
+    },
+    {
+      "file": "8a0a9ff9-0b01-413e-8af2-9fa528ca1fde.jsonl",
+      "session_id": "8a0a9ff9-0b01-413e-8af2-9fa528ca1fde",
+      "timestamp": 1778348415.2765057,
+      "timestamp_iso": "2026-05-09T20:40:15.276506",
+      "n_unique_reads": 4,
+      "n_unique_edits": 4,
+      "n_wasted": 0,
+      "waste_ratio": 0.0,
+      "read_components": [
+        "ci",
+        "frontend/BlogPage"
+      ],
+      "edit_components": [
+        "ci",
+        "frontend/BlogPage"
+      ],
+      "all_components": [
+        "ci",
+        "frontend/BlogPage"
+      ]
+    },
+    {
+      "file": "f45e9751-ce5c-4072-b60f-341cac37099a.jsonl",
+      "session_id": null,
+      "timestamp": 1778352553.8270025,
+      "timestamp_iso": "2026-05-09T21:49:13.827003",
+      "n_unique_reads": 3,
+      "n_unique_edits": 3,
+      "n_wasted": 0,
+      "waste_ratio": 0.0,
+      "read_components": [
+        "frontend/BlogPage"
+      ],
+      "edit_components": [
+        "frontend/BlogPage"
+      ],
+      "all_components": [
+        "frontend/BlogPage"
+      ]
+    },
+    {
+      "file": "54eb9216-996a-4719-9c88-ed84d3237d41.jsonl",
+      "session_id": null,
+      "timestamp": 1778447075.6238205,
+      "timestamp_iso": "2026-05-11T00:04:35.623821",
+      "n_unique_reads": 7,
+      "n_unique_edits": 7,
+      "n_wasted": 4,
+      "waste_ratio": 0.5714,
+      "read_components": [
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "docs",
+        "frontend/other"
+      ],
+      "all_components": [
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "91ac662d-31a0-4388-86fb-ecfa12970c90.jsonl",
+      "session_id": null,
+      "timestamp": 1778503692.4774923,
+      "timestamp_iso": "2026-05-11T15:48:12.477492",
+      "n_unique_reads": 15,
+      "n_unique_edits": 8,
+      "n_wasted": 9,
+      "waste_ratio": 0.6,
+      "read_components": [
+        "docs",
+        "frontend/BlogPage",
+        "other"
+      ],
+      "edit_components": [
+        "docs",
+        "other"
+      ],
+      "all_components": [
+        "docs",
+        "frontend/BlogPage",
+        "other"
+      ]
+    },
+    {
+      "file": "caeba02a-0d94-480b-bffa-5741b7cb2766.jsonl",
+      "session_id": "caeba02a-0d94-480b-bffa-5741b7cb2766",
+      "timestamp": 1778503692.4804924,
+      "timestamp_iso": "2026-05-11T15:48:12.480492",
+      "n_unique_reads": 15,
+      "n_unique_edits": 15,
+      "n_wasted": 9,
+      "waste_ratio": 0.6,
+      "read_components": [
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other",
+        "other"
+      ],
+      "edit_components": [
+        "docs",
+        "frontend/BlogPage",
+        "other"
+      ],
+      "all_components": [
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other",
+        "other"
+      ]
+    },
+    {
+      "file": "025e06a2-4f0c-45be-acf5-dff255c26818.jsonl",
+      "session_id": null,
+      "timestamp": 1778503692.5024924,
+      "timestamp_iso": "2026-05-11T15:48:12.502492",
+      "n_unique_reads": 6,
+      "n_unique_edits": 6,
+      "n_wasted": 0,
+      "waste_ratio": 0.0,
+      "read_components": [
+        "frontend/BlogPage"
+      ],
+      "edit_components": [
+        "frontend/BlogPage"
+      ],
+      "all_components": [
+        "frontend/BlogPage"
+      ]
+    },
+    {
+      "file": "971deefc-730e-490d-a506-e454a159bfbd.jsonl",
+      "session_id": "971deefc-730e-490d-a506-e454a159bfbd",
+      "timestamp": 1778524664.8382068,
+      "timestamp_iso": "2026-05-11T21:37:44.838207",
+      "n_unique_reads": 11,
+      "n_unique_edits": 7,
+      "n_wasted": 5,
+      "waste_ratio": 0.4545,
+      "read_components": [
+        "deployment",
+        "frontend/BlogPage",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "deployment",
+        "docs",
+        "frontend/other"
+      ],
+      "all_components": [
+        "deployment",
+        "docs",
+        "frontend/BlogPage",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "f04f2bbf-9aa4-49f4-b2da-9f63faed610c.jsonl",
+      "session_id": "f04f2bbf-9aa4-49f4-b2da-9f63faed610c",
+      "timestamp": 1778546041.044787,
+      "timestamp_iso": "2026-05-12T03:34:01.044787",
+      "n_unique_reads": 10,
+      "n_unique_edits": 8,
+      "n_wasted": 2,
+      "waste_ratio": 0.2,
+      "read_components": [
+        "frontend/BlogPage",
+        "frontend/UADataSourcesPage.tsx",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "frontend/BlogPage",
+        "frontend/other"
+      ],
+      "all_components": [
+        "frontend/BlogPage",
+        "frontend/UADataSourcesPage.tsx",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "7f9e373e-2efa-4c5d-9933-c7b444f637d4.jsonl",
+      "session_id": null,
+      "timestamp": 1778608116.3967457,
+      "timestamp_iso": "2026-05-12T20:48:36.396746",
+      "n_unique_reads": 2,
+      "n_unique_edits": 4,
+      "n_wasted": 0,
+      "waste_ratio": 0.0,
+      "read_components": [
+        "docs"
+      ],
+      "edit_components": [
+        "docs"
+      ],
+      "all_components": [
+        "docs"
+      ]
+    },
+    {
+      "file": "663e2e4c-b8f6-4bf7-936c-e256e19d8a68.jsonl",
+      "session_id": null,
+      "timestamp": 1778611331.7416825,
+      "timestamp_iso": "2026-05-12T21:42:11.741683",
+      "n_unique_reads": 17,
+      "n_unique_edits": 8,
+      "n_wasted": 11,
+      "waste_ratio": 0.6471,
+      "read_components": [
+        "frontend/AboutPage",
+        "frontend/AdminMonitoringPage.tsx",
+        "frontend/CISOAcademyPage",
+        "frontend/CISOAcademyPage.tsx",
+        "frontend/CareerPage.tsx",
+        "frontend/ProductPage",
+        "frontend/ProductPage.tsx",
+        "frontend/__tests__",
+        "frontend/admin",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "frontend/CISOAcademyPage",
+        "frontend/CISOAcademyPage.tsx",
+        "frontend/other"
+      ],
+      "all_components": [
+        "frontend/AboutPage",
+        "frontend/AdminMonitoringPage.tsx",
+        "frontend/CISOAcademyPage",
+        "frontend/CISOAcademyPage.tsx",
+        "frontend/CareerPage.tsx",
+        "frontend/ProductPage",
+        "frontend/ProductPage.tsx",
+        "frontend/__tests__",
+        "frontend/admin",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "ef104c34-bb52-43dc-a67b-c3ba5dbfbbcb.jsonl",
+      "session_id": "ef104c34-bb52-43dc-a67b-c3ba5dbfbbcb",
+      "timestamp": 1778618163.0162153,
+      "timestamp_iso": "2026-05-12T23:36:03.016215",
+      "n_unique_reads": 9,
+      "n_unique_edits": 12,
+      "n_wasted": 1,
+      "waste_ratio": 0.1111,
+      "read_components": [
+        "docs",
+        "frontend/BlogPage"
+      ],
+      "edit_components": [
+        "docs",
+        "frontend/BlogPage"
+      ],
+      "all_components": [
+        "docs",
+        "frontend/BlogPage"
+      ]
+    },
+    {
+      "file": "ccddde6f-99c3-44b6-a518-f0ea28f7945a.jsonl",
+      "session_id": null,
+      "timestamp": 1778649459.6632936,
+      "timestamp_iso": "2026-05-13T08:17:39.663294",
+      "n_unique_reads": 13,
+      "n_unique_edits": 3,
+      "n_wasted": 10,
+      "waste_ratio": 0.7692,
+      "read_components": [
+        "docs",
+        "frontend/BlogPage"
+      ],
+      "edit_components": [
+        "docs",
+        "frontend/BlogPage"
+      ],
+      "all_components": [
+        "docs",
+        "frontend/BlogPage"
+      ]
+    },
+    {
+      "file": "98e09f9d-7221-4124-bb1f-c75709a028f0.jsonl",
+      "session_id": "98e09f9d-7221-4124-bb1f-c75709a028f0",
+      "timestamp": 1778670981.0918202,
+      "timestamp_iso": "2026-05-13T14:16:21.091820",
+      "n_unique_reads": 24,
+      "n_unique_edits": 11,
+      "n_wasted": 13,
+      "waste_ratio": 0.5417,
+      "read_components": [
+        "backend/api",
+        "backend/embedding-service",
+        "backend/migrations",
+        "backend/other",
+        "backend/workflow-memory-push-service",
+        "backend/workflow-memory-service",
+        "backend/workflow-memory-service.test",
+        "docs",
+        "frontend/BlogPage",
+        "frontend/CISOAcademyPage",
+        "scripts",
+        "shared"
+      ],
+      "edit_components": [
+        "backend/api",
+        "backend/embedding-service",
+        "backend/other",
+        "backend/workflow-memory-service.test",
+        "docs",
+        "frontend/BlogPage",
+        "scripts",
+        "shared"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/embedding-service",
+        "backend/migrations",
+        "backend/other",
+        "backend/workflow-memory-push-service",
+        "backend/workflow-memory-service",
+        "backend/workflow-memory-service.test",
+        "docs",
+        "frontend/BlogPage",
+        "frontend/CISOAcademyPage",
+        "scripts",
+        "shared"
+      ]
+    },
+    {
+      "file": "e4d48199-d1d0-4476-a7d3-53597294af5e.jsonl",
+      "session_id": null,
+      "timestamp": 1778680656.9191246,
+      "timestamp_iso": "2026-05-13T16:57:36.919125",
+      "n_unique_reads": 8,
+      "n_unique_edits": 4,
+      "n_wasted": 6,
+      "waste_ratio": 0.75,
+      "read_components": [
+        "docs"
+      ],
+      "edit_components": [
+        "docs"
+      ],
+      "all_components": [
+        "docs"
+      ]
+    },
+    {
+      "file": "a19e70fa-49c5-42c9-b195-2fc40cdad9a9.jsonl",
+      "session_id": "a19e70fa-49c5-42c9-b195-2fc40cdad9a9",
+      "timestamp": 1778739590.56635,
+      "timestamp_iso": "2026-05-14T09:19:50.566350",
+      "n_unique_reads": 18,
+      "n_unique_edits": 18,
+      "n_wasted": 7,
+      "waste_ratio": 0.3889,
+      "read_components": [
+        "backend/api",
+        "backend/edrsr-vectorizer-service",
+        "backend/other",
+        "deployment",
+        "frontend/DecisionsSearchPage.tsx",
+        "frontend/DeveloperDocsPage",
+        "frontend/other",
+        "scripts"
+      ],
+      "edit_components": [
+        "backend/api",
+        "backend/edrsr-vectorizer-service",
+        "backend/other",
+        "deployment",
+        "frontend/DecisionsSearchPage.tsx",
+        "frontend/DeveloperDocsPage",
+        "frontend/other",
+        "scripts"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/edrsr-vectorizer-service",
+        "backend/other",
+        "deployment",
+        "frontend/DecisionsSearchPage.tsx",
+        "frontend/DeveloperDocsPage",
+        "frontend/other",
+        "scripts"
+      ]
+    },
+    {
+      "file": "e6a454d5-6ed0-4719-a959-8f891abaf285.jsonl",
+      "session_id": "e6a454d5-6ed0-4719-a959-8f891abaf285",
+      "timestamp": 1778739590.6063502,
+      "timestamp_iso": "2026-05-14T09:19:50.606350",
+      "n_unique_reads": 6,
+      "n_unique_edits": 3,
+      "n_wasted": 3,
+      "waste_ratio": 0.5,
+      "read_components": [
+        "backend/embedding-service",
+        "backend/other",
+        "ci",
+        "frontend/BlogPage",
+        "frontend/other"
+      ],
+      "edit_components": [
+        "backend/other",
+        "frontend/BlogPage",
+        "frontend/other"
+      ],
+      "all_components": [
+        "backend/embedding-service",
+        "backend/other",
+        "ci",
+        "frontend/BlogPage",
+        "frontend/other"
+      ]
+    },
+    {
+      "file": "1a1085ef-0411-4bea-b4cb-2ec66c87dda4.jsonl",
+      "session_id": "1a1085ef-0411-4bea-b4cb-2ec66c87dda4",
+      "timestamp": 1778741824.833313,
+      "timestamp_iso": "2026-05-14T09:57:04.833313",
+      "n_unique_reads": 5,
+      "n_unique_edits": 9,
+      "n_wasted": 5,
+      "waste_ratio": 1.0,
+      "read_components": [
+        "backend/other",
+        "backend/semantic-sectionizer",
+        "docs"
+      ],
+      "edit_components": [
+        "scripts"
+      ],
+      "all_components": [
+        "backend/other",
+        "backend/semantic-sectionizer",
+        "docs",
+        "scripts"
+      ]
+    },
+    {
+      "file": "d3a42a3a-a0d1-433c-8e4f-f5bffaaf1c7f.jsonl",
+      "session_id": "d3a42a3a-a0d1-433c-8e4f-f5bffaaf1c7f",
+      "timestamp": 1778741850.563673,
+      "timestamp_iso": "2026-05-14T09:57:30.563673",
+      "n_unique_reads": 9,
+      "n_unique_edits": 7,
+      "n_wasted": 4,
+      "waste_ratio": 0.4444,
+      "read_components": [
+        "docs",
+        "frontend/BlogPage",
+        "scripts"
+      ],
+      "edit_components": [
+        "docs",
+        "scripts"
+      ],
+      "all_components": [
+        "docs",
+        "frontend/BlogPage",
+        "scripts"
+      ]
+    },
+    {
+      "file": "5a93c8b9-db0f-41c3-94e7-0c30dda48503.jsonl",
+      "session_id": "5a93c8b9-db0f-41c3-94e7-0c30dda48503",
+      "timestamp": 1778745100.1057622,
+      "timestamp_iso": "2026-05-14T10:51:40.105762",
+      "n_unique_reads": 13,
+      "n_unique_edits": 12,
+      "n_wasted": 7,
+      "waste_ratio": 0.5385,
+      "read_components": [
+        "docs",
+        "other"
+      ],
+      "edit_components": [
+        "docs",
+        "other"
+      ],
+      "all_components": [
+        "docs",
+        "other"
+      ]
+    },
+    {
+      "file": "01732d23-47a3-4142-bfd9-681320afcda2.jsonl",
+      "session_id": "01732d23-47a3-4142-bfd9-681320afcda2",
+      "timestamp": 1778746480.731745,
+      "timestamp_iso": "2026-05-14T11:14:40.731745",
+      "n_unique_reads": 6,
+      "n_unique_edits": 5,
+      "n_wasted": 1,
+      "waste_ratio": 0.1667,
+      "read_components": [
+        "ci",
+        "frontend/BlogPage"
+      ],
+      "edit_components": [
+        "ci",
+        "frontend/BlogPage"
+      ],
+      "all_components": [
+        "ci",
+        "frontend/BlogPage"
+      ]
+    },
+    {
+      "file": "26d696a0-b104-4a51-ae73-72c07637111b.jsonl",
+      "session_id": "26d696a0-b104-4a51-ae73-72c07637111b",
+      "timestamp": 1778747204.1349008,
+      "timestamp_iso": "2026-05-14T11:26:44.134901",
+      "n_unique_reads": 29,
+      "n_unique_edits": 24,
+      "n_wasted": 14,
+      "waste_ratio": 0.4828,
+      "read_components": [
+        "backend/api",
+        "backend/citation-validator",
+        "backend/embedding-service",
+        "backend/migrations",
+        "backend/other",
+        "backend/workflow-memory-service",
+        "deployment",
+        "docs",
+        "frontend/BlogPage",
+        "frontend/CISOAcademyPage",
+        "other",
+        "scripts",
+        "shared"
+      ],
+      "edit_components": [
+        "backend/api",
+        "backend/migrations",
+        "backend/other",
+        "backend/workflow-memory-push-service",
+        "backend/workflow-memory-service",
+        "deployment",
+        "docs",
+        "frontend/BlogPage",
+        "other",
+        "scripts"
+      ],
+      "all_components": [
+        "backend/api",
+        "backend/citation-validator",
+        "backend/embedding-service",
+        "backend/migrations",
+        "backend/other",
+        "backend/workflow-memory-push-service",
+        "backend/workflow-memory-service",
+        "deployment",
+        "docs",
+        "frontend/BlogPage",
+        "frontend/CISOAcademyPage",
+        "other",
+        "scripts",
+        "shared"
+      ]
+    },
+    {
+      "file": "f452af95-54bc-4554-af16-341311462149.jsonl",
+      "session_id": "f452af95-54bc-4554-af16-341311462149",
+      "timestamp": 1778747248.4123473,
+      "timestamp_iso": "2026-05-14T11:27:28.412347",
+      "n_unique_reads": 4,
+      "n_unique_edits": 2,
+      "n_wasted": 3,
+      "waste_ratio": 0.75,
+      "read_components": [
+        "docs"
+      ],
+      "edit_components": [
+        "docs"
+      ],
+      "all_components": [
+        "docs"
+      ]
+    }
+  ]
 }
