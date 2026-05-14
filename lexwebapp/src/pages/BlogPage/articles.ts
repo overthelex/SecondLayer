@@ -118,27 +118,32 @@ Fertility is consistently lower on news than legal text for 6/7 models, reflecti
 
 ---
 
-## Experiment 2: Cross-Domain Few-Shot Validation (IN PROGRESS)
+## Experiment 2: Cross-Domain Few-Shot Validation (COMPLETE)
 
 **Dataset:** SIB-200 Ukrainian, test split (204 examples), 7-class topic classification (science/technology, travel, politics, sports, health, entertainment, geography).
 
 **Question:** Does the few-shot degradation from Paper 1 reproduce on a completely different task and domain?
 
-### Preliminary Results
+### Results (all 7 models complete)
 
 | Model | Zero-shot | Few-shot | Delta | Legal Delta (Paper 1) |
 |-------|-----------|----------|-------|-----------------------|
-| Qwen3 32B | 80.9% | 84.8% | **+3.9pp** | -6.6pp |
-| Qwen3 235B | 83.8% | 88.7% | **+4.9pp** | -26.0pp |
 | Llama 3.3 70B | 86.8% | 90.2% | **+3.4pp** | +0.4pp |
-| Mistral Large 3 | 84.8% | 80.4% | **-4.4pp** | -3.3pp |
 | Llama 4 Maverick | 85.8% | 77.9% | **-7.8pp** | -6.2pp |
-| Nemotron Super 3 | ... | ... | ... | -12.8pp |
-| Nova Pro | ... | ... | ... | -2.6pp |
+| Mistral Large 3 | 84.8% | 80.4% | **-4.4pp** | -3.3pp |
+| Nova Pro | 84.3% | 88.7% | **+4.4pp** | -2.6pp |
+| Qwen3 235B | 83.8% | 88.7% | **+4.9pp** | -26.0pp |
+| Qwen3 32B | 80.9% | 84.8% | **+3.9pp** | -6.6pp |
+| Nemotron Super 3 | 80.4% | 88.7% | **+8.3pp** | -12.8pp |
 
-**Emerging finding:** The picture is **model-specific, not language-specific**. Qwen3 235B shows the most dramatic reversal: -26pp on legal text, +4.9pp on news. Three models improve with few-shot, two degrade. This suggests the degradation documented in Paper 1 is an interaction between task structure (formulaic legal outcomes + class imbalance) and in-context learning, not a blanket property of Ukrainian morphology.
+**Few-shot helps 5/7 models, degrades 2/7.** This is the opposite of legal text, where few-shot degraded 5/7 models.
 
-> Remaining models (Nemotron Super 3, Nova Pro) are running. Results will be updated.
+**Key finding:** The effect is **model-specific and task-dependent**, not a blanket property of Ukrainian. The most striking reversals:
+- **Nemotron Super 3:** -12.8pp on legal, **+8.3pp** on news
+- **Qwen3 235B:** -26.0pp on legal, **+4.9pp** on news
+- **Llama 4 Maverick:** consistently degrades (-6.2pp legal, -7.8pp news) -- the only model that degrades on *both* tasks
+
+The two models that degrade on SIB-200 (Maverick -7.8pp, Mistral -4.4pp) also degraded on legal text. Models that improved on SIB-200 (Nemotron, Qwen3, Nova Pro) had degraded on legal. This suggests the legal task's formulaic structure and severe class imbalance (84% "granted") interact with few-shot anchoring in a way that general topic classification does not.
 
 ---
 

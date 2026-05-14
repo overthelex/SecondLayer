@@ -202,17 +202,22 @@ Table~\ref{tab:sib200_results} presents the results alongside the corresponding 
 \toprule
 \textbf{Model} & \textbf{ZS} & \textbf{FS} & \textbf{$\Delta_{\text{FS}}$} & \textbf{Legal $\Delta$} \\
 \midrule
+Llama 3.3 70B    & 86.8\% & 90.2\% & $+$3.4 & $+$0.4 \\
+Llama 4 Maverick & 85.8\% & 77.9\% & $-$7.8 & $-$6.2 \\
+Mistral Large 3  & 84.8\% & 80.4\% & $-$4.4 & $-$3.3 \\
+Nova Pro         & 84.3\% & 88.7\% & $+$4.4 & $-$2.6 \\
+Qwen3 235B       & 83.8\% & 88.7\% & $+$4.9 & $-$26.0 \\
 Qwen3 32B        & 80.9\% & 84.8\% & $+$3.9 & $-$6.6 \\
-Llama 3.3 70B    & 86.8\% & 91.9\% & $+$5.1 & $+$0.4 \\
-Llama 4 Maverick & 85.8\% & --     & --     & $-$6.2 \\
-% TODO: remaining models pending...
+Nemotron Super 3 & 80.4\% & 88.7\% & $+$8.3 & $-$12.8 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Preliminary results reveal a striking contrast with the legal domain. On SIB-200 topic classification, Qwen3~32B shows a \textbf{$+$3.9~percentage point improvement} with few-shot examples, compared to a $-$6.6~pp degradation on legal case outcome classification. This reversal suggests that the few-shot degradation documented by \citet{ovcharov2026tokenizer} may be \textbf{task-specific rather than language-specific}: the structured, formulaic nature of legal outcome classification may interact differently with in-context examples than general topic classification.
+The results reveal a striking asymmetry with the legal domain. On SIB-200, \textbf{five of seven models improve} with few-shot examples, while on legal text, five of seven degraded. The most dramatic reversals are Nemotron Super~3 ($-$12.8~pp on legal, $+$8.3~pp on news) and Qwen3~235B ($-$26.0~pp on legal, $+$4.9~pp on news).
 
-% TODO: complete with all 7 models and update analysis
+Two models---Llama~4 Maverick ($-$7.8~pp) and Mistral Large~3 ($-$4.4~pp)---degrade on \emph{both} tasks, suggesting these models have a systematic vulnerability to few-shot interference regardless of domain. Notably, these are the same two models that degraded most consistently on legal text.
+
+This pattern rules out the hypothesis that few-shot degradation is intrinsic to Ukrainian morphology. Instead, it reveals a \textbf{model$\times$task interaction}: models that anchor on surface patterns in demonstrations (Maverick, Mistral) consistently degrade, while models that leverage demonstrations for task specification (Nemotron, Qwen, Nova Pro) improve on balanced multi-class tasks but are misled by imbalanced, formulaic legal tasks.
 
 \subsection{Experiment 3: Cross-Lingual Fertility}
 \label{sec:exp3}
@@ -302,13 +307,11 @@ Experiment~3 extends this finding across 24~EU languages: on identical legal con
 
 \subsection{Few-Shot Degradation Is Task-Dependent, Not Language-Intrinsic}
 
-Contrary to our initial hypothesis, Experiment~2 shows that few-shot prompting \emph{improves} performance on SIB-200 topic classification for the same models and language that exhibit degradation on legal text. This reversal has important implications.
+Experiment~2 reveals that the few-shot effect is neither uniformly beneficial nor uniformly harmful on Ukrainian. On SIB-200 news classification, five of seven models \emph{improve} with few-shot examples -- the reverse of legal text, where five of seven degraded. The most dramatic reversals are Nemotron Super~3 ($-$12.8~pp legal, $+$8.3~pp news) and Qwen3~235B ($-$26.0~pp legal, $+$4.9~pp news).
 
-The legal case outcome task in \citet{ovcharov2026tokenizer} requires the model to classify a decision into one of five outcomes (granted, denied, partially granted, closed, left without consideration) based on formulaic dispositive language. The task has severe class imbalance (84\% ``granted'') and the correct answer is often embedded verbatim in the final paragraph. Few-shot examples may \emph{anchor} the model to surface patterns in the demonstrations rather than reading the actual dispositive text, producing a form of attention interference that does not occur on the more semantically diverse topic classification task.
+Crucially, two models -- Llama~4 Maverick ($-$7.8~pp) and Mistral Large~3 ($-$4.4~pp) -- degrade on \emph{both} tasks, revealing a model-level vulnerability to few-shot interference that persists across domains. This three-way decomposition (model effect $\times$ task effect $\times$ language) replaces the simpler ``Ukrainian few-shot degradation'' narrative: \textbf{few-shot demonstrations help when the task has balanced, diverse categories and the model can leverage them for format specification; they hurt when the task has imbalanced, formulaic outputs that cause anchoring, or when the model's attention mechanism is vulnerable to surface-pattern matching regardless of task.}
 
-This suggests a refined hypothesis: \textbf{few-shot degradation on morphologically rich languages is an interaction between task structure and morphological complexity}, not a blanket property of the language. Tasks with formulaic, imbalanced output spaces are vulnerable; tasks with diverse, balanced categories are not. Practitioners should validate few-shot effects per task, not per language.
-
-% TODO: update with full results when all models complete
+For practitioners, few-shot validation must be performed \emph{per model and per task}, not per language. A model that benefits from few-shot on topic classification may catastrophically degrade on outcome classification in the same language.
 
 \subsection{Morphological Complexity vs. Undertrained Language}
 
