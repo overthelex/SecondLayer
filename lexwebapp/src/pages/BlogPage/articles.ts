@@ -47,7 +47,7 @@ export const articles: Article[] = [
 
 **Volodymyr Ovcharov** -- LEX AI LLC, Kyiv, Ukraine
 
-> This is a working paper. Experiments 1 and 3 are complete; Experiments 2, 4, and 5 are in progress. Results will be updated as they become available.
+> Experiments 1, 2, 3, and 5 are complete. Experiment 4 (Slavic cross-lingual control) is pending.
 
 ---
 
@@ -219,20 +219,31 @@ The two models that degrade on SIB-200 (Maverick -7.8pp, Mistral -4.4pp) also de
 
 ---
 
-## Experiment 5: Linguistic Competence (IN PROGRESS)
+## Experiment 5: Linguistic Competence (COMPLETE)
 
 **Dataset:** [ULP](https://huggingface.co/datasets/SGaleshchuk/ULP-Ukrainian-Language-Proficiency) -- 347 expert-curated multiple-choice questions on Ukrainian grammar and orthography.
 
 **Question:** Does tokenizer fertility correlate with grammatical competence?
 
-### Preliminary Results
+### Results
 
-| Model | Fertility | ULP Accuracy |
-|-------|-----------|-------------|
-| Qwen3 32B | 3.90 | 34.6% |
-| ... | ... | ... |
+| Model | Fertility | ZS | FS | Delta |
+|-------|-----------|----|----|-------|
+| Llama 4 Maverick | 2.43 | **57.3%** | 53.2% | -4.2pp |
+| Llama 3.3 70B | 2.65 | 33.4% | 36.9% | +3.5pp |
+| Nova Pro | 2.85 | 42.9% | 41.6% | -1.4pp |
+| Mistral Large 3 | 3.06 | 51.0% | 49.4% | -1.6pp |
+| Nemotron Super 3 | 3.08 | 27.7% | 36.3% | +8.7pp |
+| Qwen3 235B | 3.89 | 42.1% | 44.2% | +2.1pp |
+| Qwen3 32B | 3.90 | 34.6% | 31.7% | -2.9pp |
 
-> Remaining models running. Full correlation analysis will follow.
+**Correlation:** Spearman rho = -0.43 (p = 0.34) -- negative trend (better tokenizer = better grammar) but not significant with only 7 data points.
+
+**Key findings:**
+- **Maverick** (lowest fertility) = **best grammar** (57.3%) -- 6pp above second-best
+- **Nemotron** is the outlier: great at legal classification (96% in Paper 1) but worst at grammar (27.7%)
+- Few-shot **degrades 4/7 models** on grammar -- MCQ format is vulnerable to anchoring
+- Fertility is a *necessary but not sufficient* predictor -- architecture and training data matter as much
 
 ---
 
