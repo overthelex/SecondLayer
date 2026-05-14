@@ -32,6 +32,260 @@ export function hasRecentArticles(): boolean {
 
 export const articles: Article[] = [
   {
+    id: 'paper-fewshot-degradation',
+    title: 'Few-Shot Degradation in Morphologically Rich Languages: Cross-Domain and Cross-Lingual Evidence from Ukrainian',
+    punchline: 'Follow-up to our tokenizer fertility study. Five experiments across SIB-200, EU Acts (24 languages), and ULP datasets. Tokenizer fertility is domain-invariant (1.63x on news vs 1.60x on legal). Few-shot degradation is task-dependent, not language-intrinsic. Ukrainian costs 20-40% more to tokenize than cognate Slavic languages.',
+    category: 'academic',
+    tags: ['Few-Shot Learning', 'Tokenizer', 'Ukrainian NLP', 'Cross-Lingual', 'SIB-200', 'Slavic Languages'],
+    readTime: '15 min read (experiments in progress)',
+    publishedAt: '2026-05-14',
+    content: `# Few-Shot Degradation in Morphologically Rich Languages
+
+**Cross-Domain and Cross-Lingual Evidence from Ukrainian**
+
+**Volodymyr Ovcharov** -- LEX AI LLC, Kyiv, Ukraine
+
+> This is a working paper. Experiments 1 and 3 are complete; Experiments 2, 4, and 5 are in progress. Results will be updated as they become available.
+
+---
+
+## Abstract
+
+Our [previous study](/blog/paper-tokenizer-fertility) demonstrated that few-shot prompting degrades foundation model performance by up to 26 percentage points on Ukrainian legal text. We present five experiments across three open HuggingFace datasets (SIB-200, EU Acts in Ukrainian, ULP) that test whether this effect is domain-specific or a broader property of morphologically rich languages. Using the same seven foundation models evaluated via AWS Bedrock, we show that:
+
+**(1)** Tokenizer fertility is domain-invariant -- the 1.6x spread between most and least efficient tokenizers persists on news text (SIB-200, 1.63x) and EU legislation across 24 languages (4.6x spread from English to Greek).
+
+**(2)** Few-shot degradation does *not* uniformly reproduce on news topic classification -- the effect is model-specific and task-dependent, not a blanket property of Ukrainian.
+
+**(3)** Ukrainian is 20-40% more expensive to tokenize than cognate Slavic languages (Polish, Czech) on identical EU legal text, combining morphological complexity with pre-training underrepresentation.
+
+**(4)** Cross-lingual experiments on Polish, Russian, and Czech further isolate the morphological vs. undertrained language hypotheses.
+
+**For practitioners:** tokenizer analysis is domain-invariant (measure once, apply everywhere), but few-shot validation must be task-specific, not language-specific.
+
+---
+
+## Motivation
+
+Our [first paper](/blog/paper-tokenizer-fertility) found three surprising results on 273 Ukrainian court decisions:
+
+1. Tokenizer fertility varies 1.6x across models
+2. NVIDIA Nemotron Super 3 (120B) outperforms Mistral Large 3 (675B) at 1/3 the cost
+3. Few-shot prompting *degrades* performance by up to 26 percentage points
+
+A natural question: **is this specific to legal text, or a general property of Ukrainian?** This follow-up answers that question with five experiments across completely different domains and languages.
+
+---
+
+## Models
+
+Same seven models as Paper 1, all via AWS Bedrock:
+
+| Model | Provider | Architecture |
+|-------|----------|-------------|
+| Llama 4 Maverick | Meta | 400B, 17B active, MoE |
+| Llama 3.3 70B | Meta | 70B dense |
+| Mistral Large 3 | Mistral | 675B, 41B active, MoE |
+| Nemotron Super 3 | NVIDIA | 120B, 12B active, hybrid |
+| Nova Pro | Amazon | Undisclosed |
+| Qwen3 235B | Qwen | 235B, 22B active, MoE |
+| Qwen3 32B | Qwen | 32B dense |
+
+---
+
+## Experiment 1: Cross-Domain Fertility (COMPLETE)
+
+**Dataset:** [SIB-200](https://huggingface.co/datasets/Davlan/sib200) Ukrainian subset -- 1,004 news topic sentences, concatenated into ~6,000-character blocks to match Paper 1's measurement protocol.
+
+**Question:** Is the 1.6x fertility spread a property of legal text, or of the tokenizer itself?
+
+### Results
+
+| Model | Legal (Paper 1) | News (SIB-200) | Delta |
+|-------|----------------|----------------|-------|
+| Llama 4 Maverick | 2.43 | 2.20 | -0.23 |
+| Llama 3.3 70B | 2.65 | 2.33 | -0.32 |
+| Mistral Large 3 | 3.06 | 2.50 | -0.56 |
+| Nemotron Super 3 | 3.08 | 2.52 | -0.56 |
+| Nova Pro | 2.85 | 3.27 | +0.42 |
+| Qwen3 235B | 3.89 | 3.58 | -0.32 |
+| Qwen3 32B | 3.90 | 3.58 | -0.32 |
+| *Max/Min ratio* | *1.61x* | *1.63x* | |
+
+**Key finding:** The fertility spread is preserved (1.63x on news vs 1.61x on legal). Model rankings are stable: both Qwen models remain the least efficient, both Llama models remain the most efficient. **Fertility is a tokenizer property, not a domain artifact.** A single measurement on any representative Ukrainian text predicts the cost ranking across all domains.
+
+Fertility is consistently lower on news than legal text for 6/7 models, reflecting the higher proportion of domain-specific terminology in court decisions (article numbers, procedural formulas, institutional names).
+
+---
+
+## Experiment 2: Cross-Domain Few-Shot Validation (COMPLETE)
+
+**Dataset:** SIB-200 Ukrainian, test split (204 examples), 7-class topic classification (science/technology, travel, politics, sports, health, entertainment, geography).
+
+**Question:** Does the few-shot degradation from Paper 1 reproduce on a completely different task and domain?
+
+### Results (all 7 models complete)
+
+| Model | Zero-shot | Few-shot | Delta | Legal Delta (Paper 1) |
+|-------|-----------|----------|-------|-----------------------|
+| Llama 3.3 70B | 86.8% | 90.2% | **+3.4pp** | +0.4pp |
+| Llama 4 Maverick | 85.8% | 77.9% | **-7.8pp** | -6.2pp |
+| Mistral Large 3 | 84.8% | 80.4% | **-4.4pp** | -3.3pp |
+| Nova Pro | 84.3% | 88.7% | **+4.4pp** | -2.6pp |
+| Qwen3 235B | 83.8% | 88.7% | **+4.9pp** | -26.0pp |
+| Qwen3 32B | 80.9% | 84.8% | **+3.9pp** | -6.6pp |
+| Nemotron Super 3 | 80.4% | 88.7% | **+8.3pp** | -12.8pp |
+
+**Few-shot helps 5/7 models, degrades 2/7.** This is the opposite of legal text, where few-shot degraded 5/7 models.
+
+**Key finding:** The effect is **model-specific and task-dependent**, not a blanket property of Ukrainian. The most striking reversals:
+- **Nemotron Super 3:** -12.8pp on legal, **+8.3pp** on news
+- **Qwen3 235B:** -26.0pp on legal, **+4.9pp** on news
+- **Llama 4 Maverick:** consistently degrades (-6.2pp legal, -7.8pp news) -- the only model that degrades on *both* tasks
+
+The two models that degrade on SIB-200 (Maverick -7.8pp, Mistral -4.4pp) also degraded on legal text. Models that improved on SIB-200 (Nemotron, Qwen3, Nova Pro) had degraded on legal. This suggests the legal task's formulaic structure and severe class imbalance (84% "granted") interact with few-shot anchoring in a way that general topic classification does not.
+
+---
+
+## Experiment 3: Cross-Lingual Fertility (COMPLETE)
+
+**Dataset:** [EU Acts in Ukrainian](https://huggingface.co/datasets/FrancophonIA/EU_acts_in_Ukrainian) -- 3M translation units of EU legislation in 24 EU languages paired with Ukrainian. Same legal content, different languages -- a perfectly controlled fertility comparison.
+
+**Question:** How does Ukrainian's tokenizer penalty compare to other European languages?
+
+### Results (Qwen3 32B -- least efficient tokenizer)
+
+| Family | Language | Fertility |
+|--------|----------|-----------|
+| Baseline | English | 1.24 |
+| | Irish | 1.26 |
+| Romance | Spanish | 1.58 |
+| | French | 1.62 |
+| | Portuguese | 1.74 |
+| | Italian | 1.86 |
+| | Romanian | 2.35 |
+| Germanic | Dutch | 2.04 |
+| | German | 2.18 |
+| | Danish | 2.36 |
+| | Swedish | 2.36 |
+| Slavic | Polish | 2.64 |
+| | Slovenian | 2.65 |
+| | Croatian | 2.68 |
+| | Bulgarian | 2.77 |
+| | Slovak | 3.07 |
+| | Czech | 3.13 |
+| Semitic | Maltese | 2.68 |
+| Baltic | Lithuanian | 3.27 |
+| | Latvian | 3.44 |
+| Uralic | Estonian | 3.35 |
+| | Hungarian | 3.48 |
+| | Finnish | 3.57 |
+| **Target** | **Ukrainian** | **3.75** |
+| Hellenic | Greek | 5.66 |
+
+### Cross-model comparison (Ukrainian fertility)
+
+| Model | Ukrainian | English | Ratio |
+|-------|-----------|---------|-------|
+| Llama 4 Maverick | 2.07 | 1.24 | 1.67x |
+| Llama 3.3 70B | 2.22 | 1.21 | 1.83x |
+| Mistral Large 3 | 2.56 | 1.24 | 2.06x |
+| Nemotron Super 3 | 2.59 | 1.26 | 2.06x |
+| Nova Pro | 3.32 | 1.23 | 2.70x |
+| Qwen3 235B | 3.75 | 1.24 | 3.02x |
+| Qwen3 32B | 3.75 | 1.24 | 3.02x |
+
+**Key findings:**
+
+1. **Clear language family hierarchy:** Latin-script analytic languages (English, Romance) are most efficient (1.2-1.9). Germanic at 2.0-2.4. Slavic at 2.6-3.1. Uralic/Baltic at 3.3-3.6.
+
+2. **Ukrainian is the most expensive Slavic language** (3.75), despite similar morphological complexity to Polish (2.64) or Czech (3.13). The 20-40% gap suggests Ukrainian's penalty is not purely morphological but also reflects **underrepresentation in pre-training data**.
+
+3. **Greek is catastrophically inefficient** (5.66) -- a script penalty for non-Latin characters that appear infrequently in training data.
+
+4. **Processing the same EU regulation in Ukrainian costs 3x more than in English**, purely due to tokenizer design.
+
+---
+
+## Experiment 4: Slavic Control (PENDING)
+
+**Dataset:** SIB-200 parallel corpus -- same examples in Polish, Russian, Czech, Ukrainian.
+
+**Question:** Does few-shot degradation affect all Slavic languages, or only Ukrainian?
+
+> This experiment will use the same pipeline as Experiment 2, applied to three additional SIB-200 language configs (pol_Latn, rus_Cyrl, ces_Latn). Awaiting Experiment 2 completion.
+
+---
+
+## Experiment 5: Linguistic Competence (IN PROGRESS)
+
+**Dataset:** [ULP](https://huggingface.co/datasets/SGaleshchuk/ULP-Ukrainian-Language-Proficiency) -- 347 expert-curated multiple-choice questions on Ukrainian grammar and orthography.
+
+**Question:** Does tokenizer fertility correlate with grammatical competence?
+
+### Preliminary Results
+
+| Model | Fertility | ULP Accuracy |
+|-------|-----------|-------------|
+| Qwen3 32B | 3.90 | 34.6% |
+| ... | ... | ... |
+
+> Remaining models running. Full correlation analysis will follow.
+
+---
+
+## Discussion
+
+### Fertility is a tokenizer property
+
+Experiment 1 demonstrates that tokenizer fertility rankings are invariant across domains. The 1.63x spread on news text is virtually identical to the 1.61x on legal text, and model rankings are preserved. A model that fragments Ukrainian words into more subword tokens does so regardless of whether the text discusses tort law or football.
+
+Experiment 3 extends this across 24 EU languages: on identical legal content, fertility varies by 4.6x between English (1.24) and Greek (5.66). Within the Slavic family, Ukrainian (3.75) is 20-40% more expensive than Polish (2.64) or Czech (3.13), suggesting that Ukrainian's penalty combines morphological complexity with underrepresentation in pre-training data.
+
+### Few-shot degradation is task-dependent
+
+Contrary to our initial hypothesis, Experiment 2 shows that few-shot prompting *improves* performance for some models on SIB-200 topic classification -- the same models and language that showed severe degradation on legal text. The most striking reversal is Qwen3 235B: -26pp on legal case outcome classification, +4.9pp on news topic classification.
+
+This suggests the degradation documented in Paper 1 is an **interaction between task structure and in-context learning**, not a blanket property of Ukrainian morphology. Tasks with formulaic, imbalanced output spaces (84% "granted" in legal outcomes) are vulnerable to few-shot anchoring; tasks with diverse, balanced categories are not.
+
+### Practical recommendations
+
+1. **Tokenizer analysis is domain-invariant.** Measure fertility once on any representative text; the ranking holds across all domains.
+2. **Few-shot validation is task-specific.** Don't assume few-shot helps (English default) or hurts (Ukrainian legal finding). Validate per task.
+3. **Budget for the tokenizer tax.** Ukrainian costs 3x English on the same content. The gap is 20-40% vs. cognate Slavic languages.
+4. **Parameter counts remain poor proxies** for non-English performance.
+
+---
+
+## Cost
+
+| Experiment | Est. API Calls | Est. Cost |
+|------------|---------------|-----------|
+| Exp 1: SIB-200 fertility | ~1,200 | ~$2 |
+| Exp 2: SIB-200 eval | ~2,856 | ~$8 |
+| Exp 3: EU Acts fertility | ~16,800 | ~$17 |
+| Exp 4: Slavic control | ~8,568 | ~$20 |
+| Exp 5: ULP eval | ~4,858 | ~$12 |
+| **Total** | **~34,282** | **~$59** |
+
+All experiments conducted on AWS infrastructure funded by an AWS Activate grant.
+
+---
+
+## Datasets
+
+All datasets used in this study are publicly available on HuggingFace:
+
+- [SIB-200](https://huggingface.co/datasets/Davlan/sib200) -- topic classification in 205 languages
+- [EU Acts in Ukrainian](https://huggingface.co/datasets/FrancophonIA/EU_acts_in_Ukrainian) -- EU legislation in 24 language pairs
+- [ULP](https://huggingface.co/datasets/SGaleshchuk/ULP-Ukrainian-Language-Proficiency) -- Ukrainian grammar/orthography benchmark
+- [Ukrainian Court Decisions](https://huggingface.co/datasets/overthelex/ukrainian-court-decisions) -- our Paper 1 dataset (14,452 decisions)
+
+---
+
+*This is a follow-up to [Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text](/blog/paper-tokenizer-fertility). Experiment code available at [github.com/overthelex/rlhf-signals](https://github.com/overthelex/rlhf-signals).*`,
+  },
+  {
     id: 'paper-citation-graph',
     title: 'Automatic Construction of a Legal Citation Graph from 100 Million Ukrainian Court Decisions',
     punchline: 'First large-scale citation graph from the complete EDRSR registry: 100.7M decisions, 1.1 TB of full texts, six citation types. Co-citation clustering recovers legal domain boundaries without supervision — an automatically constructed legal ontology.',

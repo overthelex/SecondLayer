@@ -56,20 +56,122 @@
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://legal.org.ua/blog/recursive-workflow-signals-rlhf</loc>
-    <lastmod>2026-05-07</lastmod>
+    <loc>https://legal.org.ua/blog/paper-fewshot-degradation</loc>
+    <lastmod>2026-05-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/uk/paper-fewshot-degradation</loc>
+    <lastmod>2026-05-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/paper-citation-graph</loc>
+    <lastmod>2026-05-13</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://legal.org.ua/blog/uk/recursive-workflow-signals-rlhf</loc>
-    <lastmod>2026-05-07</lastmod>
+    <loc>https://legal.org.ua/blog/uk/paper-citation-graph</loc>
+    <lastmod>2026-05-13</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://legal.org.ua/blog/ru/recursive-workflow-signals-rlhf</loc>
-    <lastmod>2026-05-07</lastmod>
+    <loc>https://legal.org.ua/blog/ru/paper-citation-graph</loc>
+    <lastmod>2026-05-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/paper-edit-trace-oversight</loc>
+    <lastmod>2026-05-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/uk/paper-edit-trace-oversight</loc>
+    <lastmod>2026-05-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/paper-edit-trace-oversight</loc>
+    <lastmod>2026-05-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/paper-workflow-memory</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/uk/paper-workflow-memory</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/paper-workflow-memory</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/paper-tokenizer-fertility</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/uk/paper-tokenizer-fertility</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/paper-tokenizer-fertility</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/paper-ontology-oversight-bridge</loc>
+    <lastmod>2026-05-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/uk/paper-ontology-oversight-bridge</loc>
+    <lastmod>2026-05-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/paper-ontology-oversight-bridge</loc>
+    <lastmod>2026-05-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/paper-mission-memory</loc>
+    <lastmod>2026-05-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/uk/paper-mission-memory</loc>
+    <lastmod>2026-05-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/blog/ru/paper-mission-memory</loc>
+    <lastmod>2026-05-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -956,42 +1058,6 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://legal.org.ua/blog/workflow-memory-architecture</loc>
-    <lastmod>2026-05-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://legal.org.ua/blog/uk/workflow-memory-architecture</loc>
-    <lastmod>2026-05-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://legal.org.ua/blog/ru/workflow-memory-architecture</loc>
-    <lastmod>2026-05-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://legal.org.ua/blog/tokenizer-fertility-zero-shot-ukrainian-legal</loc>
-    <lastmod>2026-05-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://legal.org.ua/blog/uk/tokenizer-fertility-zero-shot-ukrainian-legal</loc>
-    <lastmod>2026-05-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://legal.org.ua/blog/ru/tokenizer-fertility-zero-shot-ukrainian-legal</loc>
-    <lastmod>2026-05-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
     <loc>https://legal.org.ua/en/offer</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
@@ -1090,6 +1156,11 @@
     <loc>https://legal.org.ua/ua/marketplace-rules</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://legal.org.ua/data-sources</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://legal.org.ua/us/data-sources</loc>
