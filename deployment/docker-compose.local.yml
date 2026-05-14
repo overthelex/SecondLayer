@@ -5,18 +5,22 @@ services:
   postgres-local:
     image: postgres:15-alpine
     container_name: secondlayer-postgres-local
-    shm_size: '2gb'
+    shm_size: '32gb'
     oom_score_adj: -500
     command: >-
       postgres
       -c max_connections=500
-      -c shared_buffers=2GB
-      -c effective_cache_size=6GB
-      -c work_mem=16MB
-      -c maintenance_work_mem=512MB
+      -c shared_buffers=16GB
+      -c effective_cache_size=48GB
+      -c work_mem=4GB
+      -c maintenance_work_mem=8GB
+      -c max_parallel_workers_per_gather=12
+      -c max_parallel_workers=16
+      -c max_worker_processes=16
       -c wal_buffers=64MB
       -c temp_buffers=32MB
-      -c huge_pages=try
+      -c huge_pages=off
+      -c dynamic_shared_memory_type=mmap
       -c checkpoint_completion_target=0.9
       -c wal_level=minimal
       -c max_wal_senders=0
@@ -43,11 +47,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 4G
+          cpus: '16'
+          memory: 96G
         reservations:
-          cpus: '0.5'
-          memory: 1G
+          cpus: '2'
+          memory: 4G
 
   rada-db-init-local:
     image: postgres:15-alpine

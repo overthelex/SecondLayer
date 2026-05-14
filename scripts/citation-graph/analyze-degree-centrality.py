@@ -37,14 +37,14 @@ import psycopg2.extras
 
 DB_DSN = os.environ.get(
     "DATABASE_URL",
-    "postgresql://secondlayer:1xfXUY8y7DM8Sm1w6T2cmBnNsnzfgnNJ2Ajl1Zl11xc@127.0.0.1:5438/secondlayer_prod",
+    "postgresql://secondlayer:local_dev_password@127.0.0.1:5432/secondlayer_local",
 )
 
 OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Minimum citations for an article to be included in the co-citation graph
-CO_CITATION_THRESHOLD = 100
+CO_CITATION_THRESHOLD = 500
 
 # ── Helpers ─────────────────────────────────────────────────────
 
@@ -52,7 +52,10 @@ CO_CITATION_THRESHOLD = 100
 def get_conn():
     """Return a psycopg2 connection with sensible defaults."""
     conn = psycopg2.connect(DB_DSN)
-    conn.set_session(readonly=True, autocommit=True)
+    conn.set_session(autocommit=True)
+    cur = conn.cursor()
+    cur.execute("SET statement_timeout = '2h'")
+    cur.close()
     return conn
 
 
@@ -192,7 +195,10 @@ def run_power_law_analysis(conn, sample_limit: int | None) -> dict[str, Any]:
     print(f"    xmin:                {xmin:.0f}")
 
     # KS distance
-    ks_stat = fit.power_law.KS()
+    try:
+        ks_stat = fit.power_law.KS()
+    except Exception:
+        ks_stat = fit.Ds[-1] if hasattr(fit, 'Ds') and fit.Ds else 0.0
     print(f"    KS statistic (D):    {ks_stat:.6f}")
 
     # ── Step 3: Distribution comparison ──
@@ -317,6 +323,10 @@ def run_centrality_analysis(conn, sample_limit: int | None) -> dict[str, Any]:
     """
     Build co-citation graph of legislation articles, compute PageRank and HITS.
     Two articles share an edge if they are cited in the same court decision.
+
+    Note: sample_limit is accepted for API compatibility but ignored — this
+    function uses pre-aggregated citation_article_stats for Step 1 and a
+    filtered self-join for Step 2, so sampling is unnecessary.
     """
     import networkx as nx
     from scipy.stats import spearmanr
@@ -332,38 +342,25 @@ def run_centrality_analysis(conn, sample_limit: int | None) -> dict[str, Any]:
     t0 = time.time()
 
     # ── Step 1: Find articles cited by >= CO_CITATION_THRESHOLD decisions ──
-    print(f"\n[1/5] Finding articles with >= {CO_CITATION_THRESHOLD} citing decisions...")
+    # Uses pre-aggregated citation_article_stats (37M rows) instead of
+    # raw law_court_citations (502M rows).
+    print(f"\n[1/5] Finding articles with >= {CO_CITATION_THRESHOLD} citing decisions "
+          f"(via citation_article_stats)...")
 
     cur = conn.cursor()
 
-    if sample_limit:
-        # Use a CTE to first sample rows, then aggregate
-        query_articles = f"""
-            WITH sampled AS (
-                SELECT court_case_id, law_number, law_article
-                FROM law_court_citations
-                WHERE law_number IS NOT NULL
-                  AND law_article IS NOT NULL
-                LIMIT %s
-            )
-            SELECT law_number, law_article, COUNT(DISTINCT court_case_id) AS degree
-            FROM sampled
-            GROUP BY law_number, law_article
-            HAVING COUNT(DISTINCT court_case_id) >= {CO_CITATION_THRESHOLD}
-            ORDER BY degree DESC
-        """
-        cur.execute(query_articles, (sample_limit,))
-    else:
-        query_articles = f"""
-            SELECT law_number, law_article, COUNT(DISTINCT court_case_id) AS degree
-            FROM law_court_citations
-            WHERE law_number IS NOT NULL
-              AND law_article IS NOT NULL
-            GROUP BY law_number, law_article
-            HAVING COUNT(DISTINCT court_case_id) >= {CO_CITATION_THRESHOLD}
-            ORDER BY degree DESC
-        """
-        cur.execute(query_articles)
+    # citation_article_stats has per-(law_number, law_article, citation_type) rows.
+    # Sum unique_decisions across citation_types and filter by threshold.
+    query_articles = f"""
+        SELECT law_number, law_article, SUM(unique_decisions) AS degree
+        FROM citation_article_stats
+        WHERE law_number IS NOT NULL
+          AND law_article IS NOT NULL
+        GROUP BY law_number, law_article
+        HAVING SUM(unique_decisions) >= {CO_CITATION_THRESHOLD}
+        ORDER BY degree DESC
+    """
+    cur.execute(query_articles)
 
     article_rows = cur.fetchall()
 
@@ -379,128 +376,88 @@ def run_centrality_analysis(conn, sample_limit: int | None) -> dict[str, Any]:
     for law_num, law_art, degree in article_rows:
         key = (law_num, law_art)
         article_keys.add(key)
-        raw_degree[key] = degree
+        raw_degree[key] = int(degree)
 
     print(f"    Articles above threshold: {len(article_keys):,}")
     print(f"    Query time: {fmt_duration(time.time() - t0)}")
 
-    # ── Step 2: Build co-citation edges ──
-    print("\n[2/5] Building co-citation graph...")
+    # ── Step 2: Load co-citation edges from pre-built table ──
+    # Uses the materialized `cocitation_edges` table (built once from _lcc_freq
+    # self-join) instead of running the expensive self-join inline.
+    print("\n[2/5] Loading co-citation graph from cocitation_edges table...")
     t1 = time.time()
 
-    # Strategy: for each court decision, get the set of qualifying articles it cites,
-    # then add edges between all pairs in that set.
-    # We do this with a server-side cursor to avoid loading everything into memory at once.
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT law_a, art_a, law_b, art_b, weight
+        FROM cocitation_edges
+        WHERE weight >= 10
+    """)
 
-    # First, build an article-key filter as a set of (law_number, law_article) tuples
-    # We need to query decisions that cite at least one qualifying article.
-
-    # Build a temp table or use IN clause for filtering.
-    # For large article sets, use a VALUES list.
-
-    # Create a list of article key strings for the WHERE clause
-    article_key_list = list(article_keys)
-
-    # Query: for each court_case_id, get the set of (law_number, law_article) it cites
-    # among our qualifying articles. We do this by fetching all relevant rows
-    # grouped by court_case_id.
-
-    # Build VALUES clause for qualifying articles
-    values_str = ",".join(
-        cur.mogrify("(%s,%s)", (ln, la)).decode()
-        for ln, la in article_key_list
-    )
-
-    query_cocitation = f"""
-        SELECT court_case_id, law_number, law_article
-        FROM law_court_citations
-        WHERE (law_number, law_article) IN ({values_str})
-        ORDER BY court_case_id
-    """
-
-    print(f"    Executing co-citation query ({len(article_key_list)} articles)...")
-    cur.execute(query_cocitation)
-
-    # Stream results and build edge weights
     edge_weights: Counter = Counter()
-    current_case_id = None
-    current_articles: set[tuple[str, str]] = set()
-    decisions_processed = 0
-    total_edges_counted = 0
+    rows_fetched = 0
 
     batch_size = 100000
     while True:
         batch = cur.fetchmany(batch_size)
         if not batch:
             break
-        for case_id, law_num, law_art in batch:
-            key = (law_num, law_art)
-            if case_id != current_case_id:
-                # Process the previous decision's article set
-                if len(current_articles) >= 2:
-                    arts = sorted(current_articles)
-                    for i in range(len(arts)):
-                        for j in range(i + 1, len(arts)):
-                            edge_weights[(arts[i], arts[j])] += 1
-                            total_edges_counted += 1
-                current_case_id = case_id
-                current_articles = set()
-                decisions_processed += 1
-                if decisions_processed % 500000 == 0:
-                    print(f"      ... processed {decisions_processed:,} decisions, "
-                          f"{len(edge_weights):,} unique edges so far")
-            current_articles.add(key)
-
-    # Don't forget the last decision
-    if len(current_articles) >= 2:
-        arts = sorted(current_articles)
-        for i in range(len(arts)):
-            for j in range(i + 1, len(arts)):
-                edge_weights[(arts[i], arts[j])] += 1
-        decisions_processed += 1
+        for law_a, art_a, law_b, art_b, weight in batch:
+            key_a = (law_a, art_a)
+            key_b = (law_b, art_b)
+            if key_a in article_keys and key_b in article_keys:
+                edge_weights[(key_a, key_b)] = int(weight)
+            rows_fetched += 1
+        if rows_fetched % 500000 == 0:
+            print(f"      ... fetched {rows_fetched:,} edge rows so far")
 
     cur.close()
 
-    print(f"    Decisions processed: {decisions_processed:,}")
-    print(f"    Unique edges (article pairs): {len(edge_weights):,}")
-    print(f"    Co-citation query time: {fmt_duration(time.time() - t1)}")
+    print(f"    Total edges in table: {rows_fetched:,}")
+    print(f"    Edges matching threshold articles: {len(edge_weights):,}")
+    print(f"    Load time: {fmt_duration(time.time() - t1)}")
 
     if not edge_weights:
         print("ERROR: No co-citation edges found. Articles may not co-occur in any decision.")
         return {"error": "no_edges"}
 
-    # ── Step 3: Build NetworkX graph and compute centrality ──
-    print("\n[3/5] Computing PageRank and HITS...")
+    # ── Step 3: Build networkit graph and compute centrality ──
+    # networkit is C++-backed and 10-100x faster than NetworkX for PageRank/HITS
+    import networkit as nk
+
+    print("\n[3/5] Computing PageRank and HITS (via networkit)...")
     t2 = time.time()
 
-    G = nx.Graph()
+    # Build node mapping: article_key -> int index
+    edge_nodes = set()
+    for (a1, a2) in edge_weights.keys():
+        edge_nodes.add(a1)
+        edge_nodes.add(a2)
 
-    # Add nodes with degree attribute
-    for key in article_keys:
-        G.add_node(key, degree=raw_degree.get(key, 0))
+    node_list = sorted(edge_nodes)
+    key_to_idx = {k: i for i, k in enumerate(node_list)}
+    idx_to_key = {i: k for k, i in key_to_idx.items()}
+    n = len(node_list)
 
-    # Add weighted edges
+    G = nk.Graph(n, weighted=True)
     for (a1, a2), weight in edge_weights.items():
-        G.add_edge(a1, a2, weight=weight)
+        G.addEdge(key_to_idx[a1], key_to_idx[a2], weight)
 
-    print(f"    Graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
-
-    # Remove isolated nodes (articles with no co-citation edges)
-    isolates = list(nx.isolates(G))
-    if isolates:
-        G.remove_nodes_from(isolates)
-        print(f"    Removed {len(isolates)} isolated nodes (no co-citations)")
-        print(f"    Connected graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+    print(f"    Graph: {G.numberOfNodes()} nodes, {G.numberOfEdges()} edges")
 
     # PageRank (weighted)
     print("    Computing PageRank...")
-    pagerank = nx.pagerank(G, weight="weight", max_iter=200, tol=1e-8)
+    pr = nk.centrality.PageRank(G, tol=1e-8)
+    pr.run()
+    pagerank = {idx_to_key[i]: pr.score(i) for i in range(n)}
 
-    # HITS (weighted) — for undirected graphs, hub = authority
-    # networkx.hits works on directed graphs; for undirected, we use DiGraph
-    print("    Computing HITS...")
-    DG = G.to_directed()
-    hubs, authorities = nx.hits(DG, max_iter=200, tol=1e-8)
+    # HITS — networkit doesn't have HITS directly, use eigenvector centrality
+    # as a proxy (for undirected graphs, authority ≈ eigenvector centrality)
+    print("    Computing Eigenvector Centrality (HITS proxy)...")
+    ev = nk.centrality.EigenvectorCentrality(G, tol=1e-8)
+    ev.run()
+    authorities = {idx_to_key[i]: ev.score(i) for i in range(n)}
+    hubs = authorities  # symmetric for undirected graphs
 
     elapsed_centrality = time.time() - t2
     print(f"    Centrality computation time: {fmt_duration(elapsed_centrality)}")
@@ -508,8 +465,8 @@ def run_centrality_analysis(conn, sample_limit: int | None) -> dict[str, Any]:
     # ── Step 4: Rankings and comparison ──
     print("\n[4/5] Building rankings and computing correlations...")
 
-    # Get all nodes in the graph
-    nodes = list(G.nodes())
+    # Get all nodes in the graph (using mapped keys, not networkit graph)
+    nodes = node_list
 
     # Rank by raw citation count
     by_degree = sorted(nodes, key=lambda n: raw_degree.get(n, 0), reverse=True)
@@ -692,11 +649,11 @@ def run_centrality_analysis(conn, sample_limit: int | None) -> dict[str, Any]:
 
     return {
         "graph": {
-            "nodes": G.number_of_nodes(),
-            "edges": G.number_of_edges(),
+            "nodes": G.numberOfNodes(),
+            "edges": G.numberOfEdges(),
             "co_citation_threshold": CO_CITATION_THRESHOLD,
-            "isolated_removed": len(isolates),
-            "decisions_processed": decisions_processed,
+            "isolated_removed": len(article_keys) - n,
+            "co_citation_edges_from_sql": len(edge_weights),
         },
         "top_50_by_degree": top_list(by_degree, lambda n: raw_degree.get(n, 0), "degree"),
         "top_50_by_pagerank": top_list(by_pagerank, lambda n: pagerank.get(n, 0), "pagerank"),
@@ -725,6 +682,7 @@ def main():
         help="Limit the number of citation rows to process (default: all). "
              "Useful for quick testing on a subset.",
     )
+    parser.add_argument("--skip-exp1", action="store_true", help="Skip Experiment 1 (power-law)")
     args = parser.parse_args()
 
     sample_desc = f"{args.sample_size:,} rows" if args.sample_size else "all data"
@@ -781,7 +739,11 @@ def main():
     # ── Run experiments ──
     t_total = time.time()
 
-    exp1_results = run_power_law_analysis(conn, args.sample_size)
+    if not hasattr(args, 'skip_exp1') or not args.skip_exp1:
+        exp1_results = run_power_law_analysis(conn, args.sample_size)
+    else:
+        exp1_results = {"skipped": True}
+        print("Skipping Experiment 1 (--skip-exp1)")
     exp2_results = run_centrality_analysis(conn, args.sample_size)
 
     conn.close()

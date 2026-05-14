@@ -43,7 +43,7 @@ from scipy import stats as scipy_stats
 
 DB_DSN = os.environ.get(
     "DATABASE_URL",
-    "postgresql://secondlayer:1xfXUY8y7DM8Sm1w6T2cmBnNsnzfgnNJ2Ajl1Zl11xc@127.0.0.1:5438/secondlayer_prod",
+    "postgresql://secondlayer:local_dev_password@127.0.0.1:5432/secondlayer_local",
 )
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -92,31 +92,33 @@ def get_conn():
 def exp3_fetch_codex_citations_per_year(conn, year_from: int, year_to: int) -> dict:
     """
     For each major codex, count citations per year.
-    Join law_court_citations with edrsr_fulltext to get adj_year.
+    Uses pre-aggregated citation_year_stats table.
     Returns: {codex_abbr: {year: count}}
     """
     cur = conn.cursor()
 
     # Build CASE expression for codex classification
     when_clauses = []
+    ilike_conditions = []
     for abbr, name_fragment in CODEX_MAP.items():
-        when_clauses.append(f"WHEN c.law_number ILIKE '%{name_fragment}%' THEN '{abbr}'")
+        when_clauses.append(f"WHEN law_number ILIKE '%%{name_fragment}%%' THEN '{abbr}'")
+        ilike_conditions.append(f"law_number ILIKE '%%{name_fragment}%%'")
     case_expr = "CASE " + " ".join(when_clauses) + " END"
+    where_ilike = " OR ".join(ilike_conditions)
 
     query = f"""
         SELECT
             {case_expr} AS codex,
-            f.adj_year AS year,
-            COUNT(*) AS cnt
-        FROM law_court_citations c
-        JOIN edrsr_fulltext f ON c.court_case_id = f.doc_id
-        WHERE c.citation_type = 'codex_article'
-          AND f.adj_year BETWEEN %s AND %s
-        GROUP BY codex, f.adj_year
-        HAVING {case_expr} IS NOT NULL
+            year,
+            SUM(citations) AS cnt
+        FROM citation_year_stats
+        WHERE citation_type = 'codex_article'
+          AND year BETWEEN %s AND %s
+          AND ({where_ilike})
+        GROUP BY codex, year
         ORDER BY codex, year
     """
-    print("  Fetching codex citations per year...")
+    print("  Fetching codex citations per year (from citation_year_stats)...")
     t0 = time.time()
     cur.execute(query, (year_from, year_to))
     rows = cur.fetchall()
@@ -130,16 +132,16 @@ def exp3_fetch_codex_citations_per_year(conn, year_from: int, year_to: int) -> d
 
 
 def exp3_fetch_decisions_per_year(conn, year_from: int, year_to: int) -> dict:
-    """Count total decisions per year from edrsr_fulltext for normalization."""
+    """Count total decisions per year from doc_metadata_lookup for normalization."""
     cur = conn.cursor()
     query = """
         SELECT adj_year, COUNT(*) AS cnt
-        FROM edrsr_fulltext
+        FROM doc_metadata_lookup
         WHERE adj_year BETWEEN %s AND %s
         GROUP BY adj_year
         ORDER BY adj_year
     """
-    print("  Fetching decisions per year...")
+    print("  Fetching decisions per year (from doc_metadata_lookup)...")
     t0 = time.time()
     cur.execute(query, (year_from, year_to))
     rows = cur.fetchall()
@@ -340,16 +342,16 @@ def run_experiment_3(conn, year_from: int, year_to: int) -> dict:
 # ── Experiment 7: Impact of 2022 war ───────────────────────
 
 def exp7_fetch_decisions_per_year(conn, year_from: int, year_to: int) -> dict:
-    """Total decisions per year from edrsr_fulltext."""
+    """Total decisions per year from doc_metadata_lookup."""
     cur = conn.cursor()
     query = """
         SELECT adj_year, COUNT(*) AS cnt
-        FROM edrsr_fulltext
+        FROM doc_metadata_lookup
         WHERE adj_year BETWEEN %s AND %s
         GROUP BY adj_year
         ORDER BY adj_year
     """
-    print("  Fetching decisions per year...")
+    print("  Fetching decisions per year (from doc_metadata_lookup)...")
     t0 = time.time()
     cur.execute(query, (year_from, year_to))
     rows = cur.fetchall()
@@ -361,18 +363,18 @@ def exp7_fetch_decisions_per_year(conn, year_from: int, year_to: int) -> dict:
 def exp7_fetch_top_articles(conn, target_year: int, top_n: int = 20) -> list:
     """
     Top N cited articles in a given year.
+    Uses pre-aggregated citation_year_stats table.
     Returns list of (law_number, law_article, count).
     """
     cur = conn.cursor()
     query = """
-        SELECT c.law_number, c.law_article, COUNT(*) AS cnt
-        FROM law_court_citations c
-        JOIN edrsr_fulltext f ON c.court_case_id = f.doc_id
-        WHERE f.adj_year = %s
-          AND c.citation_type IN ('codex_article', 'constitution', 'law_article')
-          AND c.law_article IS NOT NULL
-          AND c.law_article != ''
-        GROUP BY c.law_number, c.law_article
+        SELECT law_number, law_article, SUM(citations) AS cnt
+        FROM citation_year_stats
+        WHERE year = %s
+          AND citation_type IN ('codex_article', 'constitution', 'law_article')
+          AND law_article IS NOT NULL
+          AND law_article != ''
+        GROUP BY law_number, law_article
         ORDER BY cnt DESC
         LIMIT %s
     """
@@ -385,30 +387,29 @@ def exp7_fetch_top_articles(conn, target_year: int, top_n: int = 20) -> list:
 def exp7_fetch_new_post_war_legislation(conn, min_citations: int = 50) -> list:
     """
     Articles with zero citations before 2022 but significant citations after.
+    Uses pre-aggregated citation_year_stats table.
     Returns list of (law_number, law_article, post_count).
     """
     cur = conn.cursor()
     query = """
         WITH post AS (
-            SELECT c.law_number, c.law_article, COUNT(*) AS post_cnt
-            FROM law_court_citations c
-            JOIN edrsr_fulltext f ON c.court_case_id = f.doc_id
-            WHERE f.adj_year >= 2022
-              AND c.citation_type IN ('codex_article', 'constitution', 'law_article')
-              AND c.law_article IS NOT NULL
-              AND c.law_article != ''
-            GROUP BY c.law_number, c.law_article
-            HAVING COUNT(*) >= %s
+            SELECT law_number, law_article, SUM(citations) AS post_cnt
+            FROM citation_year_stats
+            WHERE year >= 2022
+              AND citation_type IN ('codex_article', 'constitution', 'law_article')
+              AND law_article IS NOT NULL
+              AND law_article != ''
+            GROUP BY law_number, law_article
+            HAVING SUM(citations) >= %s
         ),
         pre AS (
-            SELECT c.law_number, c.law_article, COUNT(*) AS pre_cnt
-            FROM law_court_citations c
-            JOIN edrsr_fulltext f ON c.court_case_id = f.doc_id
-            WHERE f.adj_year < 2022
-              AND c.citation_type IN ('codex_article', 'constitution', 'law_article')
-              AND c.law_article IS NOT NULL
-              AND c.law_article != ''
-            GROUP BY c.law_number, c.law_article
+            SELECT law_number, law_article, SUM(citations) AS pre_cnt
+            FROM citation_year_stats
+            WHERE year < 2022
+              AND citation_type IN ('codex_article', 'constitution', 'law_article')
+              AND law_article IS NOT NULL
+              AND law_article != ''
+            GROUP BY law_number, law_article
         )
         SELECT post.law_number, post.law_article, post.post_cnt
         FROM post
@@ -418,7 +419,7 @@ def exp7_fetch_new_post_war_legislation(conn, min_citations: int = 50) -> list:
         ORDER BY post.post_cnt DESC
         LIMIT 30
     """
-    print("  Fetching new post-war legislation...")
+    print("  Fetching new post-war legislation (from citation_year_stats)...")
     t0 = time.time()
     cur.execute(query, (min_citations,))
     rows = cur.fetchall()
@@ -431,22 +432,22 @@ def exp7_fetch_citation_entropy_per_year(conn, year_from: int, year_to: int) -> 
     """
     Compute citation entropy per year.
     H = -sum(p_i * log(p_i)) where p_i = fraction of citations to article i.
+    Uses pre-aggregated citation_year_stats table.
     Returns: {year: entropy}
     """
     cur = conn.cursor()
-    # Get citation counts per article per year
+    # Get citation counts per article per year from pre-aggregated table
     query = """
-        SELECT f.adj_year, c.law_number, c.law_article, COUNT(*) AS cnt
-        FROM law_court_citations c
-        JOIN edrsr_fulltext f ON c.court_case_id = f.doc_id
-        WHERE f.adj_year BETWEEN %s AND %s
-          AND c.citation_type IN ('codex_article', 'constitution', 'law_article')
-          AND c.law_article IS NOT NULL
-          AND c.law_article != ''
-        GROUP BY f.adj_year, c.law_number, c.law_article
-        ORDER BY f.adj_year
+        SELECT year, law_number, law_article, SUM(citations) AS cnt
+        FROM citation_year_stats
+        WHERE year BETWEEN %s AND %s
+          AND citation_type IN ('codex_article', 'constitution', 'law_article')
+          AND law_article IS NOT NULL
+          AND law_article != ''
+        GROUP BY year, law_number, law_article
+        ORDER BY year
     """
-    print("  Fetching citation distributions for entropy calculation...")
+    print("  Fetching citation distributions for entropy (from citation_year_stats)...")
     t0 = time.time()
     cur.execute(query, (year_from, year_to))
     rows = cur.fetchall()
@@ -790,7 +791,7 @@ def main():
 
     stats_path = OUTPUT_DIR / "temporal-dynamics-stats.json"
     with open(stats_path, "w", encoding="utf-8") as f:
-        json.dump(all_stats, f, indent=2, ensure_ascii=False)
+        json.dump(all_stats, f, indent=2, ensure_ascii=False, default=str)
     print(f"\nStats saved to {stats_path}")
 
     print(f"\n=== Done in {elapsed:.1f}s ===")
