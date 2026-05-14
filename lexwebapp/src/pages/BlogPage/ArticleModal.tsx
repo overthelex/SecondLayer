@@ -13,6 +13,7 @@ import {
 import type { Article } from './articles';
 import { CommentSection } from './CommentSection';
 import { useLocaleStore } from '../../stores/localeStore';
+import { cleanLatex } from './clean-latex';
 import { getBlogUI } from './blog-i18n';
 import AttractorBanner from '../../components/AttractorBanner';
 
@@ -157,7 +158,7 @@ export function ArticleModal({ article, onClose }: ArticleModalProps) {
             prose-hr:border-claude-border
           ">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {article.content}
+              {cleanLatex(article.content)}
             </ReactMarkdown>
           </div>
 
