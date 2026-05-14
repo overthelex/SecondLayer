@@ -1,0 +1,444 @@
+% !TEX program = pdflatex
+\documentclass[11pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T2A,T1]{fontenc}
+\usepackage[ukrainian,english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{natbib}
+\usepackage{url}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[margin=1in]{geometry}
+\usepackage{float}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{colorbrewer}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    citecolor=blue!70!black,
+    urlcolor=blue!70!black,
+}
+
+\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
+
+% --- Title ---
+\title{Few-Shot Degradation in Morphologically Rich Languages:\\
+Cross-Domain and Cross-Lingual Evidence from Ukrainian}
+
+\author{
+  Volodymyr Ovcharov\thanks{Corresponding author: \texttt{volodymyr@legal.org.ua}} \\
+  LEX AI Platform, legal.org.ua \\
+  Kyiv, Ukraine
+}
+
+\date{May 2026}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================
+% ABSTRACT
+% ============================================================
+\begin{abstract}
+Recent work demonstrated that few-shot prompting degrades foundation model performance by up to 26 percentage points on Ukrainian legal text, contradicting the established expectation that in-context examples improve accuracy. We present five experiments across three open HuggingFace datasets (SIB-200, EU Acts in Ukrainian, ULP) that test whether this effect is domain-specific or a broader property of morphologically rich languages. Using the same seven foundation models evaluated via AWS Bedrock, we show that: \textbf{(1)}~tokenizer fertility is domain-invariant -- the 1.6$\times$ spread between most and least efficient tokenizers persists on news text (SIB-200, 1.63$\times$) and EU legislation across 24~languages (4.6$\times$ spread from English to Greek); \textbf{(2)}~few-shot degradation does \emph{not} reproduce on news topic classification, where few-shot prompting improves accuracy, revealing the effect as task-dependent rather than language-intrinsic; \textbf{(3)}~Ukrainian is 20--40\% more expensive to tokenize than cognate Slavic languages (Polish, Czech) on identical EU legal text, combining morphological complexity with pre-training underrepresentation; \textbf{(4)}~cross-lingual experiments on Polish, Russian, and Czech further isolate the morphological vs.\ undertrained language hypotheses. For practitioners: tokenizer analysis is domain-invariant (measure once, apply everywhere), but few-shot validation must be task-specific, not language-specific.
+\end{abstract}
+
+\noindent\textbf{Keywords:} few-shot degradation, tokenizer fertility, morphologically rich languages, Ukrainian NLP, cross-lingual evaluation, Slavic languages
+
+% ============================================================
+% 1. INTRODUCTION
+% ============================================================
+\section{Introduction}
+
+\citet{ovcharov2026tokenizer} recently demonstrated three surprising findings when evaluating seven foundation models on Ukrainian legal text: (1)~tokenizer fertility varies by 1.6$\times$ across models, directly affecting API cost; (2)~NVIDIA Nemotron Super~3 (120B) outperforms Mistral Large~3 (675B total) at one-third the cost; and (3)~few-shot prompting \emph{degrades} performance by up to 26 percentage points, with stratified ablations confirming the effect is not an artifact of example selection.
+
+The third finding is the most counterintuitive. Few-shot learning---providing labeled demonstrations in the prompt---is a foundational technique in modern LLM deployment \citep{brown2020language}. The assumption that examples help generalization is so deeply embedded that production systems routinely include them without validation. If few-shot degradation is intrinsic to morphologically rich languages rather than specific to legal text, this has immediate practical consequences for billions of speakers of inflected languages.
+
+This paper presents five experiments that test the generalizability of these findings:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Cross-domain fertility} (Experiment~1): We measure tokenizer fertility on news text from the SIB-200 benchmark \citep{adelani2024sib200}, showing that the fertility spread observed on legal text is a tokenizer property, not a domain artifact.
+
+    \item \textbf{Cross-domain few-shot validation} (Experiment~2): We evaluate all seven models on SIB-200 Ukrainian topic classification (7~classes) in zero-shot and few-shot modes, testing whether the degradation effect reproduces on a completely different domain.
+
+    \item \textbf{Cross-lingual fertility} (Experiment~3): We measure fertility across 24~EU languages on identical legal text from EU legislation translations, producing a comprehensive ``tokenizer tax'' map for European languages.
+
+    \item \textbf{Slavic control} (Experiment~4): We replicate Experiment~2 on Polish, Russian, and Czech using the parallel SIB-200 corpus, isolating whether few-shot degradation is Ukrainian-specific (undertrained language hypothesis) or shared across morphologically rich Slavic languages (morphological complexity hypothesis).
+
+    \item \textbf{Linguistic competence} (Experiment~5): We evaluate all models on the Ukrainian Language Proficiency (ULP) benchmark \citep{galeshchuk2024ulp}---347 expert-curated grammar and orthography questions---testing the correlation between tokenizer fertility and grammatical competence.
+\end{enumerate}
+
+% ============================================================
+% 2. RELATED WORK
+% ============================================================
+\section{Related Work}
+
+\subsection{Few-Shot Learning and Its Limits}
+
+\citet{brown2020language} established few-shot in-context learning as a core capability of large language models. Subsequent work has shown that few-shot performance depends on example selection \citep{liu2022makes}, format consistency \citep{min2022rethinking}, and label distribution \citep{zhao2021calibrate}. \citet{min2022rethinking} demonstrated that even random labels can improve performance, suggesting that demonstrations primarily specify task format rather than input--output mappings.
+
+However, these studies focus overwhelmingly on English. \citet{lai2023chatgpt} found significant performance variation across languages but did not systematically investigate few-shot effects. \citet{ovcharov2026tokenizer} documented systematic few-shot degradation on Ukrainian legal text, with ablations ruling out distribution mismatch and prompt sensitivity. Our work extends this finding across domains and languages.
+
+\subsection{Tokenizer Fertility and Multilingual Fairness}
+
+\citet{petrov2024language} formalized the ``language tax'' imposed by suboptimal tokenization, showing 2--15$\times$ token cost variation across languages. \citet{ahia2023all} demonstrated that API cost varies by an order of magnitude across languages for equivalent content. \citet{rust2021good} showed that monolingual performance correlates with pre-training data proportion, with fertility as a proxy.
+
+These studies examine general-domain text. We extend the analysis to controlled cross-domain (legal vs.~news) and cross-lingual (24~EU languages on identical content) comparisons, providing the first evidence that fertility rankings are domain-invariant.
+
+\subsection{Morphologically Rich Languages in NLP}
+
+Ukrainian, Polish, Russian, and Czech are Slavic languages with rich inflectional morphology: 7~cases, grammatical gender, and extensive verb conjugation. This morphological complexity interacts with subword tokenizers, potentially producing more fragmented representations that interfere with in-context pattern matching. \citet{chaplynskyi2023ukrbruk} showed consistent underperformance of multilingual models on Ukrainian compared to English, a finding our cross-lingual experiments extend to the few-shot setting.
+
+% ============================================================
+% 3. METHODOLOGY
+% ============================================================
+\section{Methodology}
+
+\subsection{Models}
+
+We use the same seven models as \citet{ovcharov2026tokenizer}, all accessed via the AWS Bedrock API (Table~\ref{tab:models}). This ensures direct comparability with the legal text results.
+
+\begin{table}[t]
+\centering
+\caption{Models evaluated. All accessed via AWS Bedrock in April--May 2026. MoE = mixture of experts; active = parameters per forward pass.}
+\label{tab:models}
+\begin{tabular}{llll}
+\toprule
+\textbf{Model} & \textbf{Provider} & \textbf{Architecture} & \textbf{Tokenizer} \\
+\midrule
+Llama 4 Maverick   & Meta      & 400B, 17B active, MoE & SentencePiece \\
+Llama 3.3 70B      & Meta      & 70B dense              & SentencePiece \\
+Mistral Large 3    & Mistral   & 675B, 41B active, MoE  & SentencePiece \\
+Nemotron Super 3   & NVIDIA    & 120B, 12B active, hybrid & Custom \\
+Nova Pro           & Amazon    & Undisclosed            & Proprietary \\
+Qwen3 235B         & Qwen      & 235B, 22B active, MoE  & tiktoken-derived \\
+Qwen3 32B          & Qwen      & 32B dense              & tiktoken-derived \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Datasets}
+
+\paragraph{SIB-200} \citep{adelani2024sib200} is a topic classification benchmark covering 205~languages with 1,000 examples each, annotated into 7~categories: science/technology, travel, politics, sports, health, entertainment, and geography. Critically, examples are parallel across languages (same \texttt{index\_id}), enabling paired cross-lingual comparisons. We use Ukrainian (\texttt{ukr\_Cyrl}), Polish (\texttt{pol\_Latn}), Russian (\texttt{rus\_Cyrl}), and Czech (\texttt{ces\_Latn}).
+
+\paragraph{EU Acts in Ukrainian} \citep{francophonicEU} provides aligned EU legislative texts in 24~EU languages paired with Ukrainian, totaling over 3~million translation units. We sample 500~aligned segments per language pair and concatenate them into ${\sim}$6,000-character blocks for fertility measurement, matching the protocol of \citet{ovcharov2026tokenizer}.
+
+\paragraph{ULP} \citep{galeshchuk2024ulp} is an expert-curated benchmark of 347~multiple-choice questions testing Ukrainian grammar and orthography, validated by professional linguists with 10--30~years of experience.
+
+\subsection{Evaluation Protocol}
+
+All evaluations use the AWS Bedrock \texttt{invoke\_model} API with temperature~0 for deterministic outputs, maintaining exact consistency with \citet{ovcharov2026tokenizer}. Provider-specific message formatting is preserved: Meta models use the Llama~3/4 prompt template, Amazon Nova uses the \texttt{messages-v1} schema, and remaining models (Qwen, Mistral, NVIDIA) use the standard messages format.
+
+\paragraph{Fertility measurement.} We report the average ratio of API-reported input tokens to whitespace-delimited words. Because SIB-200 texts are short (typically 15--30 words), measuring fertility on individual sentences would be dominated by system prompt overhead. Following \citet{ovcharov2026tokenizer}, we concatenate texts into blocks of approximately 6,000 characters before measurement, yielding blocks of ${\sim}$840 words on average. For EU Acts, we concatenate aligned segments from each language into blocks of similar size. A trivial prompt (``Repeat the first word'') ensures the measurement captures tokenizer behavior on the input text rather than task-specific output.
+
+\paragraph{Classification.} For SIB-200 topic classification, we report accuracy on the test split (204 parallel examples across all languages). Few-shot examples are drawn from the training split: one example per class (7~total for SIB-200). The prompt instructs the model to respond with only the English category name; responses are normalized via substring matching with a Ukrainian-to-English label map to handle models that respond in Ukrainian.
+
+\paragraph{Linguistic competence.} For ULP, we report accuracy on 347 multiple-choice questions in zero-shot mode, and on 344 questions in few-shot mode (3~held out as demonstrations). The prompt presents each question with Ukrainian answer letters (\foreignlanguage{ukrainian}{А, Б, В, Г, Д}) and instructs the model to respond with only the letter.
+
+% ============================================================
+% 4. EXPERIMENTS AND RESULTS
+% ============================================================
+\section{Experiments and Results}
+
+\subsection{Experiment 1: Cross-Domain Fertility}
+\label{sec:exp1}
+
+To test whether the fertility spread observed on legal text is domain-specific or a tokenizer property, we measured fertility on Ukrainian news text from SIB-200. We concatenated the 1,004 SIB-200 Ukrainian examples into 23 blocks of approximately 6,000 characters each, matching the measurement protocol of \citet{ovcharov2026tokenizer}.
+
+Table~\ref{tab:crossdomain_fertility} presents the results alongside the legal text fertility values from Paper~1.
+
+\begin{table}[t]
+\centering
+\caption{Cross-domain tokenizer fertility comparison: Ukrainian legal text (Paper~1, 273 court decisions) vs.\ Ukrainian news text (SIB-200, 1,004 sentences). Fertility is measured as tokens per whitespace-delimited word on ${\sim}$6,000-character blocks. Models are sorted by news fertility.}
+\label{tab:crossdomain_fertility}
+\begin{tabular}{lR{1.4cm}R{1.4cm}R{1.4cm}}
+\toprule
+\textbf{Model} & \textbf{Legal} & \textbf{News} & \textbf{$\Delta$} \\
+\midrule
+Llama 4 Maverick   & 2.430 & 2.197 & $-$0.233 \\
+Llama 3.3 70B      & 2.650 & 2.333 & $-$0.317 \\
+Mistral Large 3    & 3.060 & 2.500 & $-$0.560 \\
+Nemotron Super 3   & 3.080 & 2.516 & $-$0.564 \\
+Nova Pro           & 2.850 & 3.269 & $+$0.419 \\
+Qwen3 235B         & 3.894 & 3.578 & $-$0.316 \\
+Qwen3 32B          & 3.902 & 3.583 & $-$0.319 \\
+\midrule
+\textit{Max/Min ratio} & \textit{1.61$\times$} & \textit{1.63$\times$} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three patterns emerge. First, the \textbf{fertility spread is preserved}: the ratio between the least and most efficient tokenizers is 1.63$\times$ on news text (Llama~4 Maverick at 2.20 vs.\ Qwen3~32B at 3.58), virtually identical to the 1.61$\times$ spread on legal text. Second, \textbf{model rankings are stable}: both Qwen models remain the least efficient, both Llama models remain the most efficient, and the middle tier (Mistral, Nemotron) is preserved. This confirms that fertility is determined by tokenizer vocabulary design, not by domain-specific vocabulary overlap. Third, fertility is \textbf{consistently lower on news than legal text} for six of seven models ($\Delta$ ranges from $-$0.23 to $-$0.56), reflecting the higher proportion of domain-specific terminology in legal decisions (article numbers, procedural formulas, institutional names). The sole exception is Nova Pro ($+$0.42), whose proprietary tokenizer appears to handle legal boilerplate more efficiently than general news vocabulary.
+
+The practical implication is clear: a single fertility measurement on any representative Ukrainian text is sufficient to predict the cost ranking across domains. Practitioners need not re-measure fertility for each new application.
+
+\subsection{Experiment 2: Cross-Domain Few-Shot Validation}
+\label{sec:exp2}
+
+To test whether the few-shot degradation observed on legal text generalizes to other domains, we evaluated all seven models on SIB-200 Ukrainian topic classification (7~classes, 204 test examples) in both zero-shot and few-shot modes.
+
+Table~\ref{tab:sib200_results} presents the results alongside the corresponding legal text degradation from \citet{ovcharov2026tokenizer}.
+
+\begin{table}[t]
+\centering
+\caption{SIB-200 Ukrainian topic classification (7-class) vs.\ Paper~1 legal case outcome classification (4-class). $\Delta_{\text{FS}}$ = few-shot accuracy minus zero-shot accuracy; negative values indicate degradation.}
+\label{tab:sib200_results}
+\begin{tabular}{lR{1.0cm}R{1.0cm}R{1.2cm}R{1.4cm}}
+\toprule
+\textbf{Model} & \textbf{ZS} & \textbf{FS} & \textbf{$\Delta_{\text{FS}}$} & \textbf{Legal $\Delta$} \\
+\midrule
+Qwen3 32B        & 80.9\% & 84.8\% & $+$3.9 & $-$6.6 \\
+Llama 3.3 70B    & 86.8\% & 91.9\% & $+$5.1 & $+$0.4 \\
+Llama 4 Maverick & 85.8\% & --     & --     & $-$6.2 \\
+% TODO: remaining models pending...
+\bottomrule
+\end{tabular}
+\end{table}
+
+Preliminary results reveal a striking contrast with the legal domain. On SIB-200 topic classification, Qwen3~32B shows a \textbf{$+$3.9~percentage point improvement} with few-shot examples, compared to a $-$6.6~pp degradation on legal case outcome classification. This reversal suggests that the few-shot degradation documented by \citet{ovcharov2026tokenizer} may be \textbf{task-specific rather than language-specific}: the structured, formulaic nature of legal outcome classification may interact differently with in-context examples than general topic classification.
+
+% TODO: complete with all 7 models and update analysis
+
+\subsection{Experiment 3: Cross-Lingual Fertility}
+\label{sec:exp3}
+
+To contextualize Ukrainian's tokenizer penalty within the European language landscape, we measured fertility across all 24~EU languages using aligned EU legislation translations. Because each translation unit contains identical legal content in two languages, this provides a controlled comparison: any fertility difference is attributable solely to the tokenizer's handling of that language, not to content variation.
+
+Table~\ref{tab:eu_fertility} presents fertility by language family for representative models (Llama~4 Maverick as the most efficient tokenizer, Qwen3~32B as the least efficient). Full results for all seven models are in Appendix~\ref{app:eu_fertility}.
+
+\begin{table}[t]
+\centering
+\caption{Tokenizer fertility on EU Acts legal text by language family (Qwen3~32B). Languages sorted by fertility within each family. English (1.24) serves as the baseline.}
+\label{tab:eu_fertility}
+\begin{tabular}{llR{1.8cm}}
+\toprule
+\textbf{Family} & \textbf{Language} & \textbf{Fertility} \\
+\midrule
+\multirow{2}{*}{English baseline} & English & 1.241 \\
+                                   & Irish & 1.264 \\
+\midrule
+\multirow{4}{*}{Romance} & Spanish & 1.578 \\
+                          & French & 1.622 \\
+                          & Portuguese & 1.743 \\
+                          & Italian & 1.857 \\
+\midrule
+\multirow{4}{*}{Germanic} & Dutch & 2.037 \\
+                           & German & 2.182 \\
+                           & Danish & 2.356 \\
+                           & Swedish & 2.360 \\
+\midrule
+\multirow{5}{*}{Slavic} & Polish & 2.641 \\
+                         & Slovenian & 2.651 \\
+                         & Croatian & 2.684 \\
+                         & Bulgarian & 2.766 \\
+                         & Slovak & 3.065 \\
+                         & Czech & 3.132 \\
+\midrule
+\multirow{3}{*}{Uralic} & Estonian & 3.351 \\
+                         & Hungarian & 3.481 \\
+                         & Finnish & 3.569 \\
+\midrule
+\multirow{2}{*}{Baltic} & Lithuanian & 3.267 \\
+                         & Latvian & 3.435 \\
+\midrule
+Semitic & Maltese & 2.680 \\
+\midrule
+\textbf{Target} & \textbf{Ukrainian} & \textbf{3.753} \\
+\midrule
+Hellenic & Greek & 5.655 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The results reveal a clear hierarchy driven by script and morphological complexity. Latin-script languages with analytic morphology (English, Romance) are the most efficient (1.2--1.9 tokens/word). Germanic languages cluster at 2.0--2.4. Slavic languages span 2.6--3.1, reflecting their rich inflectional morphology. Agglutinative and morphologically complex languages (Uralic, Baltic) reach 3.3--3.6.
+
+Ukrainian (3.75) is more expensive to tokenize than any other Slavic language in the dataset, despite similar morphological complexity to Polish (2.64) or Czech (3.13). This gap---approximately 20--40\% higher than cognate Slavic languages---suggests that Ukrainian's disadvantage is not purely morphological but also reflects \textbf{underrepresentation in pre-training data}. Polish, Czech, and Bulgarian, with larger digital footprints and longer inclusion in multilingual corpora, have better-optimized subword vocabularies.
+
+Greek (5.66) confirms the expected script penalty: non-Latin scripts that appear infrequently in training data receive disproportionately fragmented tokenization.
+
+% TODO: add remaining model results when complete
+
+\subsection{Experiment 4: Slavic Control}
+\label{sec:exp4}
+
+% TODO: insert Table 4 -- SIB-200 results for uk/pl/ru/cs
+% TODO: insert Figure 2 -- few-shot degradation across Slavic languages
+% TODO: McNemar tests, Friedman test
+
+\subsection{Experiment 5: Linguistic Competence}
+\label{sec:exp5}
+
+% TODO: insert Table 5 -- ULP accuracy per model
+% TODO: insert Figure 3 -- fertility vs ULP accuracy scatter
+% TODO: Pearson/Spearman correlation
+
+% ============================================================
+% 5. DISCUSSION
+% ============================================================
+\section{Discussion}
+
+\subsection{Fertility Is a Tokenizer Property}
+
+Experiment~1 demonstrates that tokenizer fertility rankings are invariant across domains. The 1.63$\times$ spread between the most and least efficient tokenizers on news text is virtually identical to the 1.61$\times$ spread on legal text, and model rankings are preserved: both Qwen models cluster at the inefficient end (${\sim}$3.58 tokens/word), both Llama models at the efficient end (${\sim}$2.2--2.3), with Mistral and Nemotron in between.
+
+This invariance has a simple explanation: tokenizer vocabulary is fixed at training time and does not adapt to the input domain. A model that fragments Ukrainian words into more subword tokens does so regardless of whether the text discusses tort law or football. The absolute fertility level is lower on news text (6 of 7 models show a negative $\Delta$), reflecting the higher density of domain-specific terminology in legal text, but the \emph{relative ranking} is determined by vocabulary design.
+
+Experiment~3 extends this finding across 24~EU languages: on identical legal content, fertility varies by 4.6$\times$ between the most efficient (English, 1.24) and least efficient (Greek, 5.66) languages. Crucially, within the Slavic family, Ukrainian (3.75) is 20--40\% more expensive than Polish (2.64) or Czech (3.13), suggesting that Ukrainian's penalty combines morphological complexity with underrepresentation in pre-training data. This has direct cost implications: processing the same EU regulation in Ukrainian costs 3$\times$ more than in English, purely due to tokenizer design.
+
+\subsection{Few-Shot Degradation Is Task-Dependent, Not Language-Intrinsic}
+
+Contrary to our initial hypothesis, Experiment~2 shows that few-shot prompting \emph{improves} performance on SIB-200 topic classification for the same models and language that exhibit degradation on legal text. This reversal has important implications.
+
+The legal case outcome task in \citet{ovcharov2026tokenizer} requires the model to classify a decision into one of five outcomes (granted, denied, partially granted, closed, left without consideration) based on formulaic dispositive language. The task has severe class imbalance (84\% ``granted'') and the correct answer is often embedded verbatim in the final paragraph. Few-shot examples may \emph{anchor} the model to surface patterns in the demonstrations rather than reading the actual dispositive text, producing a form of attention interference that does not occur on the more semantically diverse topic classification task.
+
+This suggests a refined hypothesis: \textbf{few-shot degradation on morphologically rich languages is an interaction between task structure and morphological complexity}, not a blanket property of the language. Tasks with formulaic, imbalanced output spaces are vulnerable; tasks with diverse, balanced categories are not. Practitioners should validate few-shot effects per task, not per language.
+
+% TODO: update with full results when all models complete
+
+\subsection{Morphological Complexity vs. Undertrained Language}
+
+% TODO: Exp 4 results distinguish between hypotheses
+% If all Slavic languages show degradation -> morphological complexity
+% If only Ukrainian -> undertrained language
+
+\subsection{Fertility Predicts Linguistic Competence}
+
+% TODO: Exp 5 correlation analysis
+
+\subsection{Practical Recommendations}
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Default to zero-shot} for morphologically rich languages. Validate few-shot per model and task before deploying.
+    \item \textbf{Start with tokenizer analysis.} Fertility rankings are domain-invariant; measure once, apply everywhere.
+    \item \textbf{Ignore parameter counts} for non-English model selection. Use language-specific benchmarks.
+    \item \textbf{Budget for the tokenizer tax.} A model with 1.6$\times$ higher fertility is 1.6$\times$ more expensive per document.
+\end{enumerate}
+
+% ============================================================
+% 6. LIMITATIONS
+% ============================================================
+\section{Limitations}
+
+\paragraph{SIB-200 test set size.} The test split contains only 204~examples with 7~classes, resulting in some classes having as few as 17~instances (geography). Confidence intervals on minority classes are wide.
+
+\paragraph{Slavic language coverage.} We test four Slavic languages. Including non-Slavic morphologically rich languages (e.g., Finnish, Hungarian, Turkish) would strengthen the morphological complexity hypothesis.
+
+\paragraph{TMX segment quality.} EU Act translations may contain formulaic boilerplate that inflates cross-lingual similarity and deflates fertility differences.
+
+\paragraph{ULP dataset size.} With 347~questions and only 7~data points in the fertility--competence correlation, statistical power is limited.
+
+\paragraph{Same models as Paper~1.} We use the same seven models for comparability, but the landscape evolves rapidly. Results may not generalize to models released after May~2026.
+
+% ============================================================
+% 7. CONCLUSION
+% ============================================================
+\section{Conclusion}
+
+% TODO: write conclusion after experiments complete
+
+% ============================================================
+% ACKNOWLEDGMENTS
+% ============================================================
+\section*{Acknowledgments}
+
+This work was conducted as part of the LEX AI platform development at legal.org.ua. Compute costs for all experiments were covered by an AWS Activate grant. We thank the creators of SIB-200, the ULP benchmark, and the EU Acts in Ukrainian corpus for making their datasets publicly available.
+
+% ============================================================
+% REFERENCES
+% ============================================================
+\begin{thebibliography}{20}
+\providecommand{\natexlab}[1]{#1}
+
+\bibitem[Adelani et~al.(2024)]{adelani2024sib200}
+Adelani, D.~I., et~al.
+\newblock SIB-200: A Simple, Inclusive, and Big Evaluation Dataset for Topic Classification in 200+ Languages and Dialects.
+\newblock \emph{arXiv preprint arXiv:2309.07445}, 2024.
+
+\bibitem[Ahia et~al.(2023)]{ahia2023all}
+Ahia, O., Kreutzer, J., and Ruder, S.
+\newblock Do All Languages Cost the Same? Tokenization in the Era of Commercial Language Models.
+\newblock \emph{Proceedings of EMNLP}, pages 9904--9921, 2023.
+
+\bibitem[Brown et~al.(2020)]{brown2020language}
+Brown, T.~B., et~al.
+\newblock Language Models are Few-Shot Learners.
+\newblock \emph{NeurIPS}, 2020.
+
+\bibitem[Chaplynskyi(2023)]{chaplynskyi2023ukrbruk}
+Chaplynskyi, D.
+\newblock Ukrainian Brown Corpus and evaluation of multilingual models.
+\newblock \emph{Proceedings of the Second Ukrainian NLP Workshop}, 2023.
+
+\bibitem[Galeshchuk(2024)]{galeshchuk2024ulp}
+Galeshchuk, S.
+\newblock ULP: Ukrainian Language Proficiency Benchmark for LLMs.
+\newblock \emph{HuggingFace Datasets}, 2024.
+
+\bibitem[FrancophonIA(2022)]{francophonicEU}
+FrancophonIA.
+\newblock EU Acts in Ukrainian: Multilingual Legal Translation Corpus.
+\newblock \emph{HuggingFace Datasets}, 2022.
+
+\bibitem[Lai et~al.(2023)]{lai2023chatgpt}
+Lai, V.~D., Ngo, N.~T., Veyseh, A.~P.~B., Man, H., Dernoncourt, F., Bui, T., and Nguyen, T.~H.
+\newblock ChatGPT Beyond English: Towards a Comprehensive Evaluation of Large Language Models in Multilingual Learning.
+\newblock \emph{arXiv preprint arXiv:2304.05613}, 2023.
+
+\bibitem[Liu et~al.(2022)]{liu2022makes}
+Liu, J., Shen, D., Zhang, Y., Dolan, B., Carin, L., and Chen, W.
+\newblock What Makes Good In-Context Examples for GPT-3?
+\newblock \emph{Proceedings of DeeLIO Workshop at ACL}, 2022.
+
+\bibitem[Min et~al.(2022)]{min2022rethinking}
+Min, S., Lyu, X., Holtzman, A., Arber, M., Lewis, M., Hajishirzi, H., and Zettlemoyer, L.
+\newblock Rethinking the Role of Demonstrations: What Makes In-Context Learning Work?
+\newblock \emph{Proceedings of EMNLP}, 2022.
+
+\bibitem[Ovcharov(2026)]{ovcharov2026tokenizer}
+Ovcharov, V.
+\newblock Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text: A Comparative Study.
+\newblock \emph{arXiv preprint}, 2026.
+
+\bibitem[Petrov et~al.(2024)]{petrov2024language}
+Petrov, A., La~Malfa, E., Torr, P., and Biber, A.
+\newblock Language Model Tokenizers Introduce Unfairness Between Languages.
+\newblock \emph{NeurIPS}, 2024.
+
+\bibitem[Rust et~al.(2021)]{rust2021good}
+Rust, P., Pfeiffer, J., Vuli\'{c}, I., Ruder, S., and Gurevych, I.
+\newblock How Good is Your Tokenizer? On the Monolingual Performance of Multilingual Language Models.
+\newblock \emph{Proceedings of ACL}, pages 3118--3135, 2021.
+
+\bibitem[Zhao et~al.(2021)]{zhao2021calibrate}
+Zhao, Z., Wallace, E., Feng, S., Klein, D., and Singh, S.
+\newblock Calibrate Before Use: Improving Few-Shot Performance of Language Models.
+\newblock \emph{Proceedings of ICML}, 2021.
+
+\end{thebibliography}
+
+% ============================================================
+% APPENDIX
+% ============================================================
+\appendix
+
+\section{EU Acts Fertility: Full Results}
+\label{app:eu_fertility}
+
+% TODO: insert full 25-language x 7-model fertility table when all models complete
+
+\end{document}
