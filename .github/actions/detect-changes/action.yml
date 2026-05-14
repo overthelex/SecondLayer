@@ -62,7 +62,7 @@ runs:
         LAST_SHA=""
 
         # Primary: use the requested baseline tag prefix
-        LAST_TAG=$(git tag -l "${BASELINE}-*" --sort=-creatordate | head -1)
+        LAST_TAG=$(git tag -l "${BASELINE}-*" --sort=-creatordate | head -1 || true)
         if [ -n "$LAST_TAG" ]; then
           LAST_SHA=$(git rev-parse "$LAST_TAG" 2>/dev/null || echo "")
           echo "Using ${BASELINE} marker tag: $LAST_TAG ($LAST_SHA)"
@@ -75,7 +75,7 @@ runs:
           else
             FALLBACK="ci-local"
           fi
-          LAST_TAG=$(git tag -l "${FALLBACK}-*" --sort=-creatordate | head -1)
+          LAST_TAG=$(git tag -l "${FALLBACK}-*" --sort=-creatordate | head -1 || true)
           if [ -n "$LAST_TAG" ]; then
             LAST_SHA=$(git rev-parse "$LAST_TAG" 2>/dev/null || echo "")
             echo "Using ${FALLBACK} marker tag as fallback: $LAST_TAG ($LAST_SHA)"
@@ -84,7 +84,7 @@ runs:
 
         # Fallback: release tags
         if [ -z "$LAST_SHA" ]; then
-          LAST_TAG=$(git tag -l --sort=-creatordate "v*" "fe-v*" | head -1)
+          LAST_TAG=$(git tag -l --sort=-creatordate "v*" "fe-v*" | head -1 || true)
           if [ -n "$LAST_TAG" ]; then
             LAST_SHA=$(git rev-parse "$LAST_TAG" 2>/dev/null || echo "")
             echo "Using release tag as fallback: $LAST_TAG ($LAST_SHA)"
