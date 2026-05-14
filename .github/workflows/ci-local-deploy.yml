@@ -421,7 +421,7 @@ jobs:
           [ -n "$START" ] && $DC up -d $START
 
           $DC restart nginx-local
-          docker image prune -f
+          docker image prune -f || true
 
       - name: Wait for local services to become healthy
         run: |
