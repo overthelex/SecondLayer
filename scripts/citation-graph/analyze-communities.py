@@ -14,8 +14,9 @@ Usage:
   python3 analyze-communities.py --all             # both experiments
   python3 analyze-communities.py --all --min-citations 100
 
-Designed to run on prod (direct DB access). The co-citation self-join is expensive;
-expect ~10-30 min per time period depending on data volume.
+Uses pre-aggregated tables (citation_article_stats, citation_year_stats,
+citation_domain_stats, doc_metadata_lookup) instead of the raw 502M-row
+law_court_citations table where possible.
 """
 
 import argparse
@@ -34,7 +35,7 @@ import psycopg2.extras
 
 DB_DSN = os.environ.get(
     "DATABASE_URL",
-    "postgresql://secondlayer:1xfXUY8y7DM8Sm1w6T2cmBnNsnzfgnNJ2Ajl1Zl11xc@127.0.0.1:5438/secondlayer_prod",
+    "postgresql://secondlayer:local_dev_password@127.0.0.1:5432/secondlayer_local",
 )
 
 OUTPUT_DIR = Path(__file__).parent / "output"
@@ -56,8 +57,12 @@ TIME_PERIODS = [
 ]
 
 
-def get_conn():
-    return psycopg2.connect(DB_DSN)
+def get_conn(statement_timeout: str = "2h"):
+    conn = psycopg2.connect(DB_DSN)
+    cur = conn.cursor()
+    cur.execute("SET statement_timeout = %s", (statement_timeout,))
+    cur.close()
+    return conn
 
 
 def ensure_output_dir():
@@ -68,7 +73,12 @@ def ensure_output_dir():
 
 
 def run_experiment_4(min_citations: int):
-    """Identify bridge articles cited significantly across multiple justice domains."""
+    """Identify bridge articles cited significantly across multiple justice domains.
+
+    Uses the pre-aggregated `citation_domain_stats` table which already has
+    per-article, per-justice_kind citation counts — no JOIN with edrsr_documents
+    needed.
+    """
     print("\n" + "=" * 70)
     print("EXPERIMENT 4: Cross-Domain Bridging Analysis")
     print("=" * 70)
@@ -77,31 +87,29 @@ def run_experiment_4(min_citations: int):
     conn = get_conn()
     cur = conn.cursor()
 
-    # Step 1: Build per-domain citation counts for each (law_number, law_article)
-    print("\n[1/4] Counting per-domain citations (joining with edrsr_fulltext)...")
+    # Step 1: Build per-domain citation counts from citation_domain_stats
+    print("\n[1/4] Counting per-domain citations (from citation_domain_stats)...")
 
     cur.execute("""
         SELECT
-            c.law_number,
-            c.law_article,
-            f.justice_kind,
-            COUNT(*) AS cnt
-        FROM law_court_citations c
-        JOIN edrsr_fulltext f ON c.court_case_id = f.doc_id
-        WHERE c.law_number IS NOT NULL
-          AND c.law_number != ''
-          AND c.law_article IS NOT NULL
-          AND c.law_article != ''
-          AND f.justice_kind IS NOT NULL
-          AND f.justice_kind BETWEEN 1 AND 5
-        GROUP BY c.law_number, c.law_article, f.justice_kind
+            law_number,
+            law_article,
+            justice_kind,
+            SUM(citations) AS total
+        FROM citation_domain_stats
+        WHERE law_number IS NOT NULL
+          AND law_number != ''
+          AND law_article IS NOT NULL
+          AND law_article != ''
+          AND justice_kind BETWEEN 1 AND 5
+        GROUP BY law_number, law_article, justice_kind
     """)
 
     # Build nested dict: (law_number, law_article) -> {justice_kind: count}
     article_domain_counts = defaultdict(lambda: defaultdict(int))
     total_rows = 0
     for law_number, law_article, justice_kind, cnt in cur:
-        article_domain_counts[(law_number, law_article)][justice_kind] += cnt
+        article_domain_counts[(law_number, law_article)][justice_kind] += int(cnt)
         total_rows += 1
 
     print(f"  Loaded {total_rows:,} (article, domain) pairs for "
@@ -205,7 +213,7 @@ def run_experiment_4(min_citations: int):
     ensure_output_dir()
     out_path = OUTPUT_DIR / "experiment4-bridge-articles.json"
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
+        json.dump(results, f, indent=2, ensure_ascii=False, default=str)
     print(f"  Results saved to {out_path}")
 
     cur.close()
@@ -270,13 +278,13 @@ def _plot_experiment_4(top30: list[dict]):
 
 
 def run_experiment_5(min_citations: int):
-    """Build co-citation graphs per time period, detect communities, track evolution."""
-    import networkx as nx
-    try:
-        from community import community_louvain
-    except ImportError:
-        print("  [error] python-louvain not installed. Run: pip install python-louvain")
-        sys.exit(1)
+    """Build co-citation graphs per time period, detect communities, track evolution.
+
+    Uses `citation_year_stats` for fast article frequency filtering and
+    `doc_metadata_lookup` for year-filtered co-citation self-joins (instead of
+    JOINing with edrsr_fulltext or edrsr_documents on the full table).
+    """
+    import networkit as nk
 
     try:
         from sklearn.metrics import normalized_mutual_info_score
@@ -300,18 +308,18 @@ def run_experiment_5(min_citations: int):
         conn = get_conn()
         cur = conn.cursor()
 
-        # Step 1: Create temp table of articles with >= min_citations in this period
-        print(f"  [1/4] Finding articles with >= {min_citations} citations...")
+        # Step 1: Find frequent articles from citation_year_stats (pre-aggregated)
+        print(f"  [1/4] Finding articles with >= {min_citations} citations "
+              f"(from citation_year_stats)...")
         cur.execute("""
             CREATE TEMP TABLE _freq_articles AS
-            SELECT c.law_number, c.law_article, COUNT(*) AS total_cites
-            FROM law_court_citations c
-            JOIN edrsr_fulltext f ON c.court_case_id = f.doc_id
-            WHERE f.adj_year BETWEEN %s AND %s
-              AND c.law_number IS NOT NULL AND c.law_number != ''
-              AND c.law_article IS NOT NULL AND c.law_article != ''
-            GROUP BY c.law_number, c.law_article
-            HAVING COUNT(*) >= %s
+            SELECT law_number, law_article, SUM(citations) AS total_cites
+            FROM citation_year_stats
+            WHERE year BETWEEN %s AND %s
+              AND law_number IS NOT NULL AND law_number != ''
+              AND law_article IS NOT NULL AND law_article != ''
+            GROUP BY law_number, law_article
+            HAVING SUM(citations) >= %s
         """, (year_from, year_to, min_citations))
 
         cur.execute("SELECT COUNT(*) FROM _freq_articles")
@@ -330,32 +338,22 @@ def run_experiment_5(min_citations: int):
             })
             continue
 
-        # Step 2: Build co-citation edge list via SQL self-join
-        print(f"  [2/4] Building co-citation graph (SQL self-join, may take minutes)...")
+        # Step 2: Load subgraph from pre-built cocitation_edges
+        # Filter to edges where BOTH endpoints are frequent articles in this period.
+        # Seconds instead of 20+ min self-join per period.
+        print(f"  [2/4] Loading co-citation subgraph from cocitation_edges...")
 
-        cur.execute("""
-            SELECT
-                a.law_number AS law_a, a.law_article AS art_a,
-                b.law_number AS law_b, b.law_article AS art_b,
-                COUNT(DISTINCT a.court_case_id) AS weight
-            FROM law_court_citations a
-            JOIN law_court_citations b ON a.court_case_id = b.court_case_id
-            JOIN edrsr_fulltext f ON a.court_case_id = f.doc_id
-            JOIN _freq_articles fa ON a.law_number = fa.law_number AND a.law_article = fa.law_article
-            JOIN _freq_articles fb ON b.law_number = fb.law_number AND b.law_article = fb.law_article
-            WHERE f.adj_year BETWEEN %s AND %s
-              AND (a.law_number < b.law_number
-                   OR (a.law_number = b.law_number AND a.law_article < b.law_article))
-            GROUP BY a.law_number, a.law_article, b.law_number, b.law_article
-            HAVING COUNT(DISTINCT a.court_case_id) >= 10
-        """, (year_from, year_to))
-
-        edges = cur.fetchall()
-        print(f"    {len(edges):,} co-citation edges (weight >= 10)")
-
-        # Load article citation counts for labeling
         cur.execute("SELECT law_number, law_article, total_cites FROM _freq_articles")
-        article_cites = {(r[0], r[1]): r[2] for r in cur.fetchall()}
+        article_cites = {(r[0], r[1]): int(r[2]) for r in cur.fetchall()}
+        freq_set = set(article_cites.keys())
+
+        cur.execute("SELECT law_a, art_a, law_b, art_b, weight FROM cocitation_edges")
+        edges = []
+        for law_a, art_a, law_b, art_b, weight in cur:
+            if (law_a, art_a) in freq_set and (law_b, art_b) in freq_set:
+                edges.append((law_a, art_a, law_b, art_b, int(weight)))
+
+        print(f"    {len(edges):,} co-citation edges (from {len(freq_set):,} freq articles)")
 
         cur.execute("DROP TABLE IF EXISTS _freq_articles")
         cur.close()
@@ -371,26 +369,38 @@ def run_experiment_5(min_citations: int):
             })
             continue
 
-        # Step 3: Build networkx graph and run Louvain
-        print(f"  [3/4] Running Louvain community detection...")
+        # Step 3: Build networkit graph and run PLM (Parallel Louvain)
+        import networkit as nk
 
-        G = nx.Graph()
+        print(f"  [3/4] Running Louvain community detection (networkit PLM)...")
+
+        # Build node mapping
+        all_nodes = set()
         for law_a, art_a, law_b, art_b, weight in edges:
-            node_a = (law_a, art_a)
-            node_b = (law_b, art_b)
-            G.add_edge(node_a, node_b, weight=weight)
-
-        # Add isolated frequent articles (no co-citation edges but still frequent)
+            all_nodes.add((law_a, art_a))
+            all_nodes.add((law_b, art_b))
         for key in article_cites:
-            if key not in G:
-                G.add_node(key)
+            all_nodes.add(key)
 
-        print(f"    Graph: {G.number_of_nodes():,} nodes, {G.number_of_edges():,} edges")
+        node_list = sorted(all_nodes)
+        key_to_idx = {k: i for i, k in enumerate(node_list)}
+        idx_to_key = {i: k for k, i in key_to_idx.items()}
+        n = len(node_list)
 
-        partition = community_louvain.best_partition(G, weight="weight", random_state=42)
-        modularity = community_louvain.modularity(partition, G, weight="weight")
+        G_nk = nk.Graph(n, weighted=True)
+        for law_a, art_a, law_b, art_b, weight in edges:
+            G_nk.addEdge(key_to_idx[(law_a, art_a)], key_to_idx[(law_b, art_b)], weight)
 
-        # Organize communities
+        print(f"    Graph: {G_nk.numberOfNodes():,} nodes, {G_nk.numberOfEdges():,} edges")
+
+        plm = nk.community.PLM(G_nk, refine=True, turbo=True)
+        plm.run()
+        nk_partition = plm.getPartition()
+        modularity = nk.community.Modularity().getQuality(nk_partition, G_nk)
+
+        # Convert to dict format
+        partition = {idx_to_key[i]: nk_partition.subsetOf(i) for i in range(n)}
+
         communities = defaultdict(list)
         for node, comm_id in partition.items():
             communities[comm_id].append(node)
@@ -455,8 +465,8 @@ def run_experiment_5(min_citations: int):
             "year_to": year_to,
             "n_articles": n_articles,
             "n_edges": len(edges),
-            "n_nodes": G.number_of_nodes(),
-            "n_graph_edges": G.number_of_edges(),
+            "n_nodes": G_nk.numberOfNodes(),
+            "n_graph_edges": G_nk.numberOfEdges(),
             "n_communities": n_communities,
             "modularity": round(modularity, 4),
             "top5_community_sizes": [s for _, s in community_sizes[:5]],
@@ -531,7 +541,7 @@ def run_experiment_5(min_citations: int):
     ensure_output_dir()
     out_path = OUTPUT_DIR / "experiment5-temporal-communities.json"
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
+        json.dump(results, f, indent=2, ensure_ascii=False, default=str)
     print(f"  Results saved to {out_path}")
 
     # Generate plots
