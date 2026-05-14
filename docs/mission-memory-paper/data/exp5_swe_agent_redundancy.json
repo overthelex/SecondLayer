@@ -1,0 +1,78 @@
+{
+  "experiment": "exp7_swe_agent_redundancy",
+  "dataset": {
+    "name": "SWE-agent trajectories (nebius/SWE-agent-trajectories)",
+    "shard": "train-00000-of-00012 (1/12, ~8.3% of 80K)",
+    "n_trajectories": 6670,
+    "n_with_reads": 6636,
+    "success_rate_pct": 19.0
+  },
+  "results": {
+    "overall": {
+      "n": 6636,
+      "mean": 0.5636,
+      "median": 0.5,
+      "std": 0.2256,
+      "p25": 0.5,
+      "p75": 0.7143
+    },
+    "success_vs_failure": {
+      "success": {
+        "n": 1268,
+        "mean": 0.4937,
+        "median": 0.5,
+        "std": 0.1439,
+        "p25": 0.3333,
+        "p75": 0.6
+      },
+      "failure": {
+        "n": 5368,
+        "mean": 0.5801,
+        "median": 0.6,
+        "std": 0.2379,
+        "p25": 0.5,
+        "p75": 0.75
+      },
+      "delta_mean": 0.0864,
+      "mann_whitney_U": 4422557.5,
+      "mann_whitney_p": 0.0,
+      "hedges_g": 0.387,
+      "CLES": 0.65
+    },
+    "correlations": {
+      "waste_vs_traj_length": {
+        "spearman_rho": 0.2033,
+        "p": 0.0
+      },
+      "waste_vs_success": {
+        "point_biserial_r": -0.1506,
+        "p": 0.0,
+        "direction": "higher waste → less success"
+      }
+    },
+    "comparison_with_lex_ai": {
+      "lex_ai_median_waste": 0.6,
+      "lex_ai_mean_waste": 0.567,
+      "swe_agent_median_waste": 0.5,
+      "swe_agent_mean_waste": 0.5636,
+      "wilcoxon_p": 0.0
+    }
+  },
+  "per_model": {
+    "swe-agent-llama-70b": {
+      "n": 5986,
+      "waste_mean": 0.568,
+      "success_pct": 17.7
+    },
+    "swe-agent-llama-8b": {
+      "n": 510,
+      "waste_mean": 0.55,
+      "success_pct": 27.6
+    },
+    "swe-agent-llama-405b": {
+      "n": 140,
+      "waste_mean": 0.442,
+      "success_pct": 47.9
+    }
+  }
+}
