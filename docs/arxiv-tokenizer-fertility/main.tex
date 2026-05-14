@@ -56,7 +56,7 @@
 % ABSTRACT
 % ============================================================
 \begin{abstract}
-Foundation models tokenize Ukrainian legal text with vastly different efficiency, yet no systematic comparison exists for this domain. We benchmark seven models from five providers on 273 validated court decisions from Ukraine's state registry (EDRSR), measuring tokenizer fertility and zero-shot performance on three tasks. Three findings emerge. \textbf{(1)}~Tokenizer fertility varies 1.6$\times$: Qwen~3 models consume 60\% more tokens than Llama-family models on identical input, directly reducing API cost. \textbf{(2)}~NVIDIA Nemotron Super~3 (120B) achieves the highest composite score (83.1), outperforming Mistral Large~3 (675B total, 41B active)---a model with 5.6$\times$ more total parameters and 3.4$\times$ more active parameters per token---at one-third the API cost. \textbf{(3)}~Few-shot prompting \emph{degrades} performance by up to 26 percentage points; stratified and prompt-sensitivity ablations confirm this is intrinsic to Ukrainian-language demonstrations, not an artifact of example selection. For practitioners: tokenizer analysis should precede model selection, and zero-shot is a more reliable default than few-shot for morphologically rich languages.
+Foundation models tokenize Ukrainian legal text with vastly different efficiency, yet no systematic comparison exists for this domain. We benchmark seven models from five providers on 273 validated court decisions from Ukraine's state registry (EDRSR), measuring tokenizer fertility and zero-shot performance on three tasks. Three findings emerge. \textbf{(1)}~Tokenizer fertility varies 1.6$\times$: Qwen3 models consume 60\% more tokens than Llama-family models on identical input, directly reducing API cost. \textbf{(2)}~NVIDIA Nemotron Super~3 (120B) achieves the highest composite score (83.1), outperforming Mistral Large~3 (675B total, 41B active)---a model with 5.6$\times$ more total parameters and 3.4$\times$ more active parameters per token---at one-third the API cost. \textbf{(3)}~Few-shot prompting \emph{degrades} performance by up to 26 percentage points; stratified and prompt-sensitivity ablations confirm this is intrinsic to Ukrainian-language demonstrations, not an artifact of example selection. For practitioners: tokenizer analysis should precede model selection, and zero-shot is a more reliable default than few-shot for morphologically rich languages.
 \end{abstract}
 
 \noindent\textbf{Keywords:} tokenizer fertility, Ukrainian NLP, legal text classification, multilingual LLM evaluation, foundation models, AWS Bedrock
@@ -75,7 +75,7 @@ In this paper, we present Experiment~A of the LEX AI Test Training program: a sy
 \begin{enumerate}[leftmargin=*]
     \item We measure \textbf{tokenizer fertility}---the ratio of subword tokens to whitespace-delimited words---for seven models on authentic Ukrainian legal documents, revealing a 1.6$\times$ spread between the most and least efficient tokenizers.
     \item We evaluate \textbf{zero-shot and few-shot performance} on three legal NLP tasks (case type classification, case outcome classification, and legal norm extraction), finding that model size is a poor predictor of performance on Ukrainian text.
-    \item We document a \textbf{counterintuitive few-shot degradation effect}: for the majority of models tested, providing task demonstrations reduces rather than improves performance on case outcome classification, with one model (Qwen~3 235B) losing 26.0 percentage points.
+    \item We document a \textbf{counterintuitive few-shot degradation effect}: for the majority of models tested, providing task demonstrations reduces rather than improves performance on case outcome classification, with one model (Qwen3 235B) losing 26.0 percentage points.
     \item We provide a \textbf{cost--performance analysis} across all models via AWS Bedrock, offering practitioners a directly actionable comparison.
 \end{enumerate}
 
@@ -92,7 +92,7 @@ These studies primarily examine general-domain text. Our work focuses specifical
 
 \subsection{Ukrainian NLP}
 
-Ukrainian language technology has developed rapidly since 2014, driven by community efforts and increasing digitization of government data. The \textit{lang-uk} project \citep{languk2018} established foundational corpora and tools, including tokenizers, POS taggers, and NER models trained on Ukrainian web text. \citet{syvokon2023uagec} introduced UA-GEC, a grammatical error correction corpus, and demonstrated that Ukrainian-specific training data substantially outperforms multilingual transfer for morphologically sensitive tasks. \citet{chaplynskyi2023ukrbruk} contributed Ukrainian Brown Corpus resources and systematic evaluations of multilingual models on Ukrainian, showing consistent underperformance compared to English on the same architectures---a finding our work extends to the legal domain.
+Ukrainian language technology has developed rapidly since 2014, driven by community efforts and increasing digitization of government data. The \textit{lang-uk} project \citep{languk2018} established foundational corpora and tools, including tokenizers, POS taggers, and NER models trained on Ukrainian web text. \citet{syvokon2023uagec} introduced UA-GEC, a grammatical error correction corpus, and demonstrated that Ukrainian-specific training data substantially outperforms multilingual transfer for morphologically sensitive tasks. \citet{chaplynskyi2023ukrbruk} introduced UberText 2.0, a large-scale corpus of modern Ukrainian, and conducted systematic evaluations of multilingual models on Ukrainian, showing consistent underperformance compared to English on the same architectures---a finding our work extends to the legal domain.
 
 Despite these advances, Ukrainian NLP remains underrepresented in foundation model evaluation. No published benchmark systematically compares commercial LLMs on Ukrainian domain-specific tasks, and legal Ukrainian---with its distinct register, formulaic structures, and legislative citation conventions---has received essentially no attention in the NLP literature.
 
@@ -188,9 +188,9 @@ All evaluations were conducted via the AWS Bedrock Converse API in two modes:
 
 No fine-tuning, parameter-efficient or otherwise, was performed. This design choice reflects the practical scenario facing practitioners who must select a foundation model for deployment without the resources or data for domain adaptation.
 
-For case type classification, accuracy is computed on all 300 documents (metadata labels are authoritative; see Section~\ref{sec:gold_labels}). For case outcome classification, accuracy is reported on the 273-document validated subset after excluding 27 documents with unresolved label disagreements. For norm extraction, we report the mean document-level F1 score across all 300 documents.
+For case type classification, accuracy is computed on the 273-document validated subset (metadata labels are authoritative; see Section~\ref{sec:gold_labels}). For case outcome classification, accuracy is reported on the 273-document validated subset after excluding 27 documents with unresolved label disagreements. For norm extraction, we report the mean document-level F1 score across the 273-document validated subset.
 
-The temperature was set to 0 for all inference calls to ensure deterministic outputs. All metrics are reported on the 273-document validated subset for consistency across tasks. Case type metadata labels remain authoritative on the full 300-document set, but we restrict reporting to the validated subset to enable direct comparison with case outcome results.
+The temperature was set to 0 for all inference calls to ensure deterministic outputs. All metrics are reported on the 273-document validated subset for consistency across tasks.
 
 % ============================================================
 % 4. RESULTS
@@ -250,20 +250,15 @@ Qwen3 32B         & 3.902 & 1.913 & 0.469 & 3.804 \\
 };
 \end{axis}
 \end{tikzpicture}
-\caption{Tokenizer fertility (average tokens per whitespace-delimited word) on 100 Ukrainian legal documents. Lower is more efficient. Llama~4 Maverick produces 38\% fewer tokens than Qwen~3 on identical text (2.43 vs.\ 3.90 tokens/word); equivalently, Qwen~3 consumes 60\% more tokens than Maverick.}
+\caption{Tokenizer fertility (average tokens per whitespace-delimited word) on 100 Ukrainian legal documents. Lower is more efficient. Llama~4 Maverick produces 38\% fewer tokens than Qwen3 on identical text (2.43 vs.\ 3.90 tokens/word); equivalently, Qwen3 consumes 60\% more tokens than Maverick.}
 \label{fig:fertility}
 \end{figure}
 
-% Old external figure reference (replaced by TikZ above)
-% \begin{figure}[t]
-%     \centering
-% \end{figure}
+The results reveal a clear clustering pattern. The Llama-family tokenizers (Llama~4 Maverick and Llama~3.3) form the most efficient cluster, with fertility values of 2.43 and 2.65 tokens per word, respectively. Mistral Large~3 and Nemotron Super~3 occupy an intermediate position at approximately 3.06--3.08. The Qwen tokenizer is notably less efficient on Ukrainian text, with both Qwen3 variants producing approximately 3.90 tokens per word---60.3\% higher than Llama~4 Maverick.
 
-The results reveal a clear clustering pattern. The Llama-family tokenizers (Llama~4 Maverick and Llama~3.3) form the most efficient cluster, with fertility values of 2.43 and 2.65 tokens per word, respectively. Mistral Large~3 and Nemotron Super~3 occupy an intermediate position at approximately 3.06--3.08. The Qwen tokenizer is notably less efficient on Ukrainian text, with both Qwen~3 variants producing approximately 3.90 tokens per word---60.3\% higher than Llama~4 Maverick.
+This efficiency gap has a direct cost implication. For a typical Ukrainian court decision of 1,000 words, the Llama~4 tokenizer produces approximately 2,434 tokens, while the Qwen3 tokenizer produces approximately 3,902---a difference of 1,468 tokens per document. At scale, this translates to substantially higher API costs for input token processing.
 
-This efficiency gap has a direct cost implication. For a typical Ukrainian court decision of 1,000 words, the Llama~4 tokenizer produces approximately 2,434 tokens, while the Qwen~3 tokenizer produces approximately 3,902---a difference of 1,468 tokens per document. At scale, this translates to substantially higher API costs for input token processing.
-
-Notably, the two Qwen~3 models (235B and 32B) share nearly identical fertility (3.894 vs.\ 3.902), confirming that they use the same underlying tokenizer vocabulary. The same pattern holds for the Llama models, where Maverick's improved tokenizer shows an 8.2\% efficiency gain over the Llama~3.3 vocabulary.
+Notably, the two Qwen3 models (235B and 32B) share nearly identical fertility (3.894 vs.\ 3.902), confirming that they use the same underlying tokenizer vocabulary. The same pattern holds for the Llama models, where Maverick's improved tokenizer shows an 8.2\% efficiency gain over the Llama~3.3 vocabulary.
 
 The standard deviation of fertility is relatively consistent across models (0.398--0.469), suggesting that the efficiency differences are systematic rather than driven by outlier documents.
 
@@ -319,15 +314,11 @@ Qwen3 32B         & 86.8          & [82.3, 90.3] & 89.7 & $+$2.9 \\
 \end{tabular}
 \end{table}
 
-% \begin{figure}[t]
-%     \centering
-% \end{figure}
-
 Original scores on the full 300-document set were 10--17 percentage points lower, indicating that approximately 9\% of regex-extracted outcome labels were incorrect---primarily procedural orders misclassified as substantive decisions.
 
-Nemotron Super~3 achieves the highest zero-shot accuracy at 96.0\% (95\% CI: [92.9, 97.7]), followed by Qwen~3 235B at 93.8\% [90.3, 96.1]. While Nemotron's advantage over Qwen~3 235B is not statistically significant by McNemar's test ($p = 0.26$), Nemotron significantly outperforms Llama~3.3 70B ($p = 0.002$), Qwen~3 32B ($p < 0.001$), Nova Pro ($p = 0.02$), and Mistral Large~3 ($p = 0.02$).
+Nemotron Super~3 achieves the highest zero-shot accuracy at 96.0\% (95\% CI: [92.9, 97.7]), followed by Qwen3 235B at 93.8\% [90.3, 96.1]. While Nemotron's advantage over Qwen3 235B is not statistically significant by McNemar's test ($p = 0.26$), Nemotron significantly outperforms Llama~3.3 70B ($p = 0.002$), Qwen3 32B ($p < 0.001$), Nova Pro ($p = 0.02$), and Mistral Large~3 ($p = 0.02$).
 
-However, the most striking result is the catastrophic few-shot degradation observed for several models. Qwen~3 235B drops from 93.8\% to 67.8\% ($-$26.0 pp), and Nemotron Super~3 drops from 96.0\% to 83.2\% ($-$12.8 pp).
+However, the most striking result is the catastrophic few-shot degradation observed for several models. Qwen3 235B drops from 93.8\% to 67.8\% ($-$26.0 pp), and Nemotron Super~3 drops from 96.0\% to 83.2\% ($-$12.8 pp).
 
 Analysis of per-class accuracy (Table~\ref{tab:per_class_outcome}) reveals performance variation across outcome categories. The ``partially granted'' class---which had 10 instances in the original 300-document set---was entirely removed during label validation, as all 10 instances were disputed by the independent judge. This left four outcome classes in the validated subset.
 
@@ -355,7 +346,7 @@ Qwen3 32B  & 85.2 & 100.0 & 95.2 & 85.7 \\
 \subsubsection{Tiebreaker Bias Check}
 \label{sec:tiebreaker_bias}
 
-Because Nemotron served as one of three sources in our label validation majority vote (Section~\ref{sec:gold_labels}), its use as both tiebreaker and evaluated model could introduce systematic bias. To assess this, we partition the validated subset into \emph{easy} documents ($n{=}205$), where the regex parser and Claude Sonnet agreed without tiebreaker intervention, and \emph{hard} documents ($n{=}68$), where Nemotron's vote resolved the dispute ($205 + 68 = 273$). On the easy subset---where Nemotron had no influence on label assignment---Nemotron achieves 98.0\% (201/205), tied with Llama~4 Maverick (98.0\%) and above all other models (Qwen~3 235B 97.6\%, Llama~3.3 96.6\%, Mistral 96.1\%, Qwen~3 32B 94.6\%). Since the easy subset is free of tiebreaker influence and already shows Nemotron tied for first, the overall lead does not depend on the hard subset. On the hard subset ($n{=}68$), Nemotron achieves 89.7\% (61/68), but we cannot fully disentangle this from tiebreaker advantage---Nemotron's vote partly determined which labels were ``correct'' for these documents. We therefore base our primary ranking claims on the easy subset and the full validated set, acknowledging that hard-subset performance may be inflated for Nemotron relative to other models.
+Because Nemotron served as one of three sources in our label validation majority vote (Section~\ref{sec:gold_labels}), its use as both tiebreaker and evaluated model could introduce systematic bias. To assess this, we partition the validated subset into \emph{easy} documents ($n{=}205$), where the regex parser and Claude Sonnet agreed without tiebreaker intervention, and \emph{hard} documents ($n{=}68$), where Nemotron's vote resolved the dispute ($205 + 68 = 273$). On the easy subset---where Nemotron had no influence on label assignment---Nemotron achieves 98.0\% (201/205), tied with Llama~4 Maverick (98.0\%) and above all other models (Qwen3 235B 97.6\%, Nova Pro 97.1\%, Llama~3.3 96.6\%, Mistral 96.1\%, Qwen3 32B 94.6\%). Since the easy subset is free of tiebreaker influence and already shows Nemotron tied for first, the overall lead does not depend on the hard subset. On the hard subset ($n{=}68$), Nemotron achieves 89.7\% (61/68), but we cannot fully disentangle this from tiebreaker advantage---Nemotron's vote partly determined which labels were ``correct'' for these documents. We therefore base our primary ranking claims on the easy subset and the full validated set, acknowledging that hard-subset performance may be inflated for Nemotron relative to other models.
 
 \subsection{Legal Norm Extraction}
 \label{sec:results_norms}
@@ -370,20 +361,16 @@ Norm extraction requires the model to identify and structure all legal citations
 \toprule
 \textbf{Model} & \textbf{Zero-Shot F1} & \textbf{Few-Shot F1} & \textbf{$\Delta$ (FS--ZS)} \\
 \midrule
-Llama 3.3 70B     & \textbf{0.604} & \textbf{0.606} & $+$0.001 \\
+Llama 3.3 70B     & \textbf{0.604} & \textbf{0.606} & $+$0.002 \\
 Nova Pro          & 0.575          & 0.570          & $-$0.005 \\
-Mistral Large 3   & 0.561          & 0.560          & $-$0.002 \\
+Mistral Large 3   & 0.561          & 0.560          & $-$0.001 \\
 Nemotron Super 3  & 0.543          & 0.547          & $+$0.004 \\
-Qwen3 32B         & 0.514          & 0.515          & $+$0.002 \\
+Qwen3 32B         & 0.514          & 0.515          & $+$0.001 \\
 Llama 4 Maverick  & 0.487          & 0.486          & $-$0.001 \\
 Qwen3 235B        & 0.463          & 0.458          & $-$0.005 \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-% \begin{figure}[t]
-%     \centering
-% \end{figure}
 
 Llama~3.3 70B achieves the highest agreement with the regex reference set (F1 = 0.604--0.606 in both modes). The ranking on norm extraction differs markedly from classification tasks: Llama~3.3 70B, which ranks 7th on case type classification, is the clear leader here. This suggests that norm extraction relies on different capabilities---likely stronger pattern recognition for legal citation formats and better retention of long-range dependencies in document text.
 
@@ -415,7 +402,7 @@ Qwen3 32B         & $\pm$0.0                  & \textcolor{blue}{$+$2.9} & \text
 \end{tabular}
 \end{table}
 
-Of the 21 model--task combinations, 12 show degradation under few-shot prompting. The effect is particularly severe for case outcome classification, where 4 of 7 models perform worse with examples. The largest degradation (Qwen~3 235B, $-$26.0 pp) suggests that few-shot examples for this imbalanced task may anchor the model's predictions toward the demonstrated classes in a way that conflicts with its zero-shot prior.
+Of the 21 model--task combinations, 12 show degradation under few-shot prompting. The effect is particularly severe for case outcome classification, where 4 of 7 models perform worse with examples. The largest degradation (Qwen3 235B, $-$26.0 pp) suggests that few-shot examples for this imbalanced task may anchor the model's predictions toward the demonstrated classes in a way that conflicts with its zero-shot prior.
 
 We hypothesize several mechanisms:
 \begin{enumerate}[leftmargin=*]
@@ -427,7 +414,7 @@ We hypothesize several mechanisms:
 \subsubsection{Stratified Few-Shot Ablation}
 \label{sec:stratified_ablation}
 
-To disentangle hypothesis~1 (distribution mismatch) from hypotheses~2--3, we conducted a stratified few-shot ablation on the two models with the largest degradation: Nemotron Super~3 and Qwen~3 235B. Instead of one example per minority class, we provided five examples matching the natural class distribution (4~granted, 1~denied), reflecting the 84\%/16\% split in the validated dataset.
+To disentangle hypothesis~1 (distribution mismatch) from hypotheses~2--3, we conducted a stratified few-shot ablation on the two models with the largest degradation: Nemotron Super~3 and Qwen3 235B. Instead of one example per minority class, we provided five examples matching the natural class distribution (4~granted, 1~denied), reflecting the 84\%/16\% split in the validated dataset.
 
 \begin{table}[t]
 \centering
@@ -443,16 +430,16 @@ Qwen3 235B       & \textbf{93.8} & 67.8 ($-$26.0) & 67.4 ($-$26.4) \\
 \end{tabular}
 \end{table}
 
-As Table~\ref{tab:stratified_ablation} shows, stratified few-shot examples produce degradation equal to or \emph{worse} than minority-balanced examples ($-$15.8~pp vs.\ $-$12.8~pp for Nemotron; $-$26.4~pp vs.\ $-$26.0~pp for Qwen~3 235B). This result effectively rules out distribution mismatch (hypothesis~1) as the primary cause.
+As Table~\ref{tab:stratified_ablation} shows, stratified few-shot examples produce degradation equal to or \emph{worse} than minority-balanced examples ($-$15.8~pp vs.\ $-$12.8~pp for Nemotron; $-$26.4~pp vs.\ $-$26.0~pp for Qwen3 235B). This result effectively rules out distribution mismatch (hypothesis~1) as the primary cause.
 
 \subsubsection{Prompt Sensitivity Ablation}
 \label{sec:prompt_sensitivity}
 
-To rule out prompt-specific artifacts, we tested three prompt formulations for Qwen~3 235B few-shot case outcome classification: (1)~the original Ukrainian prompt, (2)~English-language instructions with Ukrainian class labels, and (3)~a verbose Ukrainian prompt with numbered options.
+To rule out prompt-specific artifacts, we tested three prompt formulations for Qwen3 235B few-shot case outcome classification: (1)~the original Ukrainian prompt, (2)~English-language instructions with Ukrainian class labels, and (3)~a verbose Ukrainian prompt with numbered options.
 
 \begin{table}[t]
 \centering
-\caption{Prompt sensitivity ablation for Qwen~3 235B on case outcome classification (few-shot, $n{=}273$). The degradation is robust across all prompt formulations.}
+\caption{Prompt sensitivity ablation for Qwen3 235B on case outcome classification (few-shot, $n{=}273$). All three few-shot variants use a dedicated prompt template for this ablation, distinct from the main evaluation prompt in Table~\ref{tab:case_outcome}; the ``orig'' variant corresponds to the primary few-shot prompt used in the main evaluation. The degradation is robust across all prompt formulations.}
 \label{tab:prompt_sensitivity}
 \begin{tabular}{lR{2.0cm}R{2.0cm}}
 \toprule
@@ -460,14 +447,14 @@ To rule out prompt-specific artifacts, we tested three prompt formulations for Q
 \midrule
 Zero-shot (baseline)          & 93.8 & --- \\
 \midrule
-Ukrainian instructions (orig) & 49.1 & $-$44.7 \\
+Ukrainian instructions (orig) & 67.8 & $-$26.0 \\
 English instructions           & 60.1 & $-$33.7 \\
 Verbose Ukrainian              & 60.1 & $-$33.7 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-As Table~\ref{tab:prompt_sensitivity} shows, the few-shot degradation is robust across all three prompt formulations, with accuracy dropping by 34--45 percentage points regardless of instruction language or verbosity. English-language instructions partially mitigate the effect ($-$33.7~pp vs.\ $-$44.7~pp), suggesting that the interference operates partly at the level of Ukrainian-language demonstration parsing. However, even with English instructions, few-shot performance (60.1\%) remains far below zero-shot (93.8\%), confirming that the degradation is not an artifact of a single prompt template. The combined evidence from stratified example selection (Section~\ref{sec:stratified_ablation}) and prompt variation rules out both distribution mismatch and prompt-specific confounds, supporting the morphological interference hypothesis.
+As Table~\ref{tab:prompt_sensitivity} shows, the few-shot degradation is robust across all three prompt formulations, with accuracy dropping by 26--34 percentage points regardless of instruction language or verbosity. English-language instructions and verbose Ukrainian both show deeper degradation ($-$33.7~pp) than the original Ukrainian prompt ($-$26.0~pp), suggesting that the original prompt's phrasing provides a modest advantage but cannot prevent the degradation effect. Nonetheless, even with the original prompt, few-shot performance (67.8\%) remains substantially below zero-shot (93.8\%), confirming that the degradation is not an artifact of a single prompt template. The combined evidence from stratified example selection (Section~\ref{sec:stratified_ablation}) and prompt variation rules out both distribution mismatch and prompt-specific confounds, supporting the morphological interference hypothesis.
 
 Figure~\ref{fig:fewshot_delta} visualizes the few-shot effect across all model--task combinations.
 
@@ -510,7 +497,7 @@ Figure~\ref{fig:fewshot_delta} visualizes the few-shot effect across all model--
 \legend{Case Type, Case Outcome, Norm Extraction}
 \end{axis}
 \end{tikzpicture}
-\caption{Few-shot effect (few-shot minus zero-shot, in percentage points) across all model--task combinations. Bars below the zero line indicate degradation. Case outcome classification (red) shows the most severe and widespread degradation, with Qwen~3 235B dropping 26~pp. Norm extraction (green) is largely unaffected by few-shot prompting.}
+\caption{Few-shot effect (few-shot minus zero-shot, in percentage points) across all model--task combinations. Bars below the zero line indicate degradation. Case outcome classification (red) shows the most severe and widespread degradation, with Qwen3 235B dropping 26~pp. Norm extraction (green) is largely unaffected by few-shot prompting.}
 \label{fig:fewshot_delta}
 \end{figure}
 
@@ -540,7 +527,7 @@ Qwen3 32B         & 95.2 & 86.8 & .514 & 77.8 & 91.0 & 2.64 \\
 \end{tabular}
 \end{table}
 
-Nemotron Super~3 ranks first under \emph{both} composite metrics (83.1 and 97.5), confirming that its lead is robust to the choice of aggregation. The classification-only composite, which avoids the regex reference set limitation, shows a tighter field: Nemotron (97.5), Qwen~3 235B (95.6), Nova Pro (95.2), and Maverick (95.1) are separated by only 2.4 points. This highlights that the 3-task composite's wider spread is partly driven by norm extraction score differences, which---as discussed in Section~\ref{sec:results_norms}---underestimate the true capability of models that identify citations beyond the regex reference set.
+Nemotron Super~3 ranks first under \emph{both} composite metrics (83.1 and 97.5), confirming that its lead is robust to the choice of aggregation. The classification-only composite, which avoids the regex reference set limitation, shows a tighter field: Nemotron (97.5), Qwen3 235B (95.6), Nova Pro (95.2), and Maverick (95.1) are separated by only 2.4 points. This highlights that the 3-task composite's wider spread is partly driven by norm extraction score differences, which---as discussed in Section~\ref{sec:results_norms}---underestimate the true capability of models that identify citations beyond the regex reference set.
 
 On the cost dimension, Llama~4 Maverick costs only \$0.81 for the entire experiment, while Mistral Large~3 costs \$10.99---a 13.6$\times$ cost difference. Under the classification-only composite, Maverick (95.1 at \$0.81) achieves 97\% of Nemotron's quality (97.5 at \$3.61) at 22\% of the cost.
 
@@ -585,7 +572,6 @@ Figure~\ref{fig:cost_composite} visualizes the cost--quality frontier across all
 
 \subsection{Cost Analysis}
 \label{sec:cost}
-% \end{figure}
 
 Table~\ref{tab:costs} presents detailed cost breakdowns by model. Costs reflect actual API charges via AWS Bedrock during the experiment period.
 
@@ -605,19 +591,19 @@ Nova Pro          & \$4.98  & \$0.00277 \\
 Qwen3 235B        & \$5.37  & \$0.00298 \\
 Mistral Large 3   & \$10.99 & \$0.00611 \\
 \midrule
-\textbf{Total}    & \textbf{\$31.41} & --- \\
+\textbf{Total}    & \textbf{\$31.40} & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 The cost variation is dramatic. Llama~4 Maverick is 13.6$\times$ cheaper than Mistral Large~3 per inference call. This cost advantage derives from two factors: (1) Maverick's superior tokenizer fertility reduces input token count by 8--38\% relative to other models, and (2) Maverick's per-token pricing on Bedrock is among the lowest in the evaluated set.
 
-Crucially, this cost advantage does not come at the expense of quality. Maverick achieves the best or tied-best zero-shot accuracy on case type classification (98.9\%) and competitive performance on case outcome classification (91.2\%, 4th place). Its relative weakness is norm extraction (F1 = 0.487, 6th place), suggesting that the smaller active parameter count (17B) may limit performance on complex extraction tasks.
+Crucially, this cost advantage does not come at the expense of quality. Maverick achieves the best or tied-best zero-shot accuracy on case type classification (98.9\%) and competitive performance on case outcome classification (91.2\%, 5th place). Its relative weakness is norm extraction (F1 = 0.487, 6th place), suggesting that the smaller active parameter count (17B) may limit performance on complex extraction tasks.
 
 \paragraph{Beyond API pricing: deployment flexibility.}
 Our cost analysis reflects managed API pricing on AWS Bedrock, which is the most accessible deployment mode but not the only one. A critical distinction among our evaluated models is \emph{self-hosting capability}. Nemotron Super~3, Llama~3.3, and Llama~4 Maverick are open-weight models that can be deployed on-premises or in private clouds---Nemotron via NVIDIA NIM (NVIDIA Inference Microservices), Llama models via vLLM, TGI, or similar serving stacks. This enables organizations with GPU infrastructure to eliminate per-token API costs entirely, paying only for compute. For a legal technology platform processing millions of court decisions, the total cost of ownership (TCO) under self-hosted deployment can be an order of magnitude lower than managed API pricing.
 
-In contrast, Amazon Nova Pro and Mistral Large~3 are available exclusively through managed APIs (Bedrock and Mistral's platform, respectively), offering no self-hosting option. Qwen~3 models are open-weight and deployable via standard inference stacks (vLLM, SGLang, TensorRT-LLM), though without the enterprise tooling and support that NVIDIA NIM provides for Nemotron.
+In contrast, Amazon Nova Pro and Mistral Large~3 are available exclusively through managed APIs (Bedrock and Mistral's platform, respectively), offering no self-hosting option. Qwen3 models are open-weight and deployable via standard inference stacks (vLLM, SGLang, TensorRT-LLM), though without the enterprise tooling and support that NVIDIA NIM provides for Nemotron.
 
 This deployment asymmetry further strengthens Nemotron's position: it combines the highest task accuracy in our evaluation with the flexibility to be self-hosted via NIM on NVIDIA GPUs, enabling fine-tuning, domain adaptation, and data-sovereign deployment---all critical requirements for legal technology platforms handling sensitive court documents.
 
@@ -630,7 +616,7 @@ This deployment asymmetry further strengthens Nemotron's position: it combines t
 
 Our results demonstrate that tokenizer fertility should be a first-order consideration when selecting foundation models for non-English NLP. The 1.6$\times$ fertility gap between the most and least efficient tokenizers on Ukrainian text has direct, quantifiable consequences: 60\% higher token consumption per document, 60\% higher API costs at equivalent pricing, and a proportionally reduced effective context window.
 
-The clustering of fertility by tokenizer family---rather than model size---confirms that this is a vocabulary design choice, not an emergent property of scale. Both Qwen~3 models (32B and 235B) exhibit nearly identical fertility (3.902 vs.\ 3.894), and both Llama models cluster at the efficient end. Practitioners evaluating models for non-English deployment should therefore begin with tokenizer analysis before investing in task-specific benchmarking.
+The clustering of fertility by tokenizer family---rather than model size---confirms that this is a vocabulary design choice, not an emergent property of scale. Both Qwen3 models (32B and 235B) exhibit nearly identical fertility (3.902 vs.\ 3.894), and both Llama models cluster at the efficient end. Practitioners evaluating models for non-English deployment should therefore begin with tokenizer analysis before investing in task-specific benchmarking.
 
 The Llama~4 tokenizer's efficiency improvement over Llama~3.3 (2.434 vs.\ 2.652, an 8.2\% reduction) indicates that Meta has actively improved Cyrillic representation between model generations, likely by expanding the vocabulary with additional Ukrainian and related-language subword units.
 
@@ -642,11 +628,11 @@ This disconnect suggests that Ukrainian-language capability depends more on (1) 
 
 \subsection{Why Nemotron Leads: Architecture and Training Hypotheses}
 
-Nemotron Super~3's dominance on Ukrainian legal text---particularly its 96.0\% case outcome accuracy, 4+ percentage points above the next-best model---warrants explanation. The model (Bedrock ID: \texttt{nvidia.nemotron-super-3-120b}, listed as ``NVIDIA Nemotron 3 Super 120B A12B'') is a 120B-parameter open model with only 12B active parameters per token, built on a \emph{hybrid Mamba-Transformer} architecture with latent mixture-of-experts (MoE). This is not a distilled Llama variant---it is a distinct architecture trained from scratch on over 10 trillion tokens, including synthetic data generated by frontier reasoning models. We hypothesize that four architectural features contribute to its performance on Ukrainian legal text.
+Nemotron Super~3's dominance on Ukrainian legal text---particularly its 96.0\% case outcome accuracy, 2.2 percentage points above the next-best model---warrants explanation. The model (Bedrock ID: \texttt{nvidia.nemotron-super-3-120b}, listed as ``NVIDIA Nemotron 3 Super 120B A12B'') is a 120B-parameter open model with only 12B active parameters per token, built on a \emph{hybrid Mamba-Transformer} architecture with latent mixture-of-experts (MoE). This is an architecturally modified model with hybrid Mamba-Transformer layers and latent MoE routing, trained on over 10 trillion tokens including synthetic data generated by frontier reasoning models. We hypothesize that four architectural features contribute to its performance on Ukrainian legal text.
 
 First, \textbf{hybrid Mamba-Transformer layers}. Nemotron Super~3 combines Mamba layers (a selective state-space model offering 4$\times$ greater memory and compute efficiency than standard attention) with transformer layers for reasoning. This hybrid architecture is particularly well-suited to long legal documents: Mamba layers efficiently encode the formulaic, repetitive structure of court decisions (procedural history, cited legislation), while transformer layers handle the reasoning-intensive dispositive section. Our evaluation documents average 10,800 characters---a length where Mamba's sub-quadratic sequence scaling provides a meaningful advantage over pure transformer architectures.
 
-Second, \textbf{latent MoE routing}. Nemotron activates only 12B of its 120B parameters per token, routing each token to four specialist experts for the computational cost of one dense forward pass. While other MoE models in our evaluation have even higher sparsity ratios---Llama~4 Maverick activates 4\% of its 400B parameters, Qwen~3 235B activates 9\%---Nemotron's \emph{latent} MoE architecture routes through four specialists per token rather than a single expert, increasing effective capacity without a proportional increase in compute cost. Combined with sub-quadratic Mamba layers, this enables Nemotron to store diverse knowledge---potentially including Ukrainian legal patterns---across 120B parameters while maintaining the inference speed of a 12B model.
+Second, \textbf{latent MoE routing}. Nemotron activates only 12B of its 120B parameters per token, routing each token to four specialist experts for the computational cost of one dense forward pass. While other MoE models in our evaluation have even higher sparsity ratios---Llama~4 Maverick activates 4\% of its 400B parameters, Qwen3 235B activates 9\%---Nemotron's \emph{latent} MoE architecture routes through four specialists per token rather than a single expert, increasing effective capacity without a proportional increase in compute cost. Combined with sub-quadratic Mamba layers, this enables Nemotron to store diverse knowledge---potentially including Ukrainian legal patterns---across 120B parameters while maintaining the inference speed of a 12B model.
 
 Third, \textbf{synthetic training data from frontier models}. NVIDIA's training pipeline uses synthetic data generated by frontier reasoning models (likely GPT-4-class) across multiple languages. If the frontier teacher generated Ukrainian-language training samples---including legal reasoning patterns---Nemotron would inherit multilingual legal reasoning capability without requiring massive Ukrainian web corpora in the pre-training set. This synthetic data strategy may explain why Nemotron outperforms models trained primarily on organic web data, where Ukrainian is underrepresented.
 
@@ -656,11 +642,11 @@ We note that Nemotron's tokenizer fertility (3.08 tokens/word) clusters with Mis
 
 \subsection{The Few-Shot Paradox for Morphologically Rich Languages}
 
-The systematic few-shot degradation we observe---particularly the 26.0-point drop for Qwen~3 235B on case outcome classification---extends a growing body of evidence on few-shot failure modes. \citet{lu2022order} showed that few-shot performance is highly sensitive to example ordering, with accuracy varying by up to 30 percentage points depending on permutation. \citet{min2022rethinking} demonstrated that few-shot demonstrations often function as format specifiers rather than task learners---ground-truth labels in examples can be replaced with random labels with minimal performance impact, suggesting that models anchor on surface-level patterns rather than learning the task. Our findings add a new dimension: for morphologically rich languages such as Ukrainian, few-shot demonstrations may actively interfere with the model's zero-shot capabilities.
+The systematic few-shot degradation we observe---particularly the 26.0-point drop for Qwen3 235B on case outcome classification---extends a growing body of evidence on few-shot failure modes. \citet{lu2022order} showed that few-shot performance is highly sensitive to example ordering, with accuracy varying by up to 30 percentage points depending on permutation. \citet{min2022rethinking} demonstrated that few-shot demonstrations often function as format specifiers rather than task learners---ground-truth labels in examples can be replaced with random labels with minimal performance impact, suggesting that models anchor on surface-level patterns rather than learning the task. Our findings add a new dimension: for morphologically rich languages such as Ukrainian, few-shot demonstrations may actively interfere with the model's zero-shot capabilities.
 
 For Ukrainian legal text, we hypothesize that the rich morphological system creates a combinatorial explosion of surface forms for semantically equivalent expressions. Few-shot examples, which necessarily present a tiny sample of these forms, may inadvertently narrow the model's attention to specific morphological patterns that do not generalize. In contrast, zero-shot prompting allows the model to leverage its full distributional knowledge of Ukrainian without surface-level anchoring.
 
-Our stratified few-shot ablation (Section~\ref{sec:stratified_ablation}) provides direct evidence for this interpretation. When we replaced minority-balanced examples with examples matching the natural class distribution (4~granted, 1~denied), the degradation persisted or worsened ($-$15.8~pp for Nemotron, $-$26.4~pp for Qwen~3 235B). This rules out distribution mismatch as the primary cause and implicates the act of providing Ukrainian-language demonstrations itself as the source of interference.
+Our stratified few-shot ablation (Section~\ref{sec:stratified_ablation}) provides direct evidence for this interpretation. When we replaced minority-balanced examples with examples matching the natural class distribution (4~granted, 1~denied), the degradation persisted or worsened ($-$15.8~pp for Nemotron, $-$26.4~pp for Qwen3 235B). This rules out distribution mismatch as the primary cause and implicates the act of providing Ukrainian-language demonstrations itself as the source of interference.
 
 This finding has practical implications: for production systems processing Ukrainian legal text, zero-shot prompting should be the default baseline, and few-shot prompting should be validated per-model and per-task rather than assumed to help.
 
@@ -730,9 +716,9 @@ For teams building legal NLP systems for Ukrainian or other Cyrillic-script lang
 
 \paragraph{API-only evaluation.} All models were evaluated via the AWS Bedrock API, which provides no visibility into tokenizer vocabulary, model weights, or inference configuration. Fertility measurements rely on the API's reported token counts, which may include special tokens or system prompt overhead. We mitigated this by using consistent prompts across all models, but minor systematic biases cannot be ruled out.
 
-\paragraph{Single prompt template.} We used a single Ukrainian-language prompt template per task. Performance may vary with prompt engineering, chain-of-thought prompting, or English-language instructions---avenues we leave for future work.
+\paragraph{Single prompt template.} We used a single Ukrainian-language prompt template per task for the primary evaluation, though Section~\ref{sec:prompt_sensitivity} explores prompt sensitivity with three formulations for Qwen3 235B on case outcome classification. Performance may vary further with prompt engineering, chain-of-thought prompting, or English-language instructions---avenues we leave for future work.
 
-\paragraph{Non-reasoning mode.} All evaluations were conducted in standard (non-reasoning) inference mode with temperature set to 0. Several models in our evaluation support extended reasoning or ``thinking'' modes---most notably Nemotron Super~3, whose reasoning mode is a key architectural feature, and Qwen~3, which supports a thinking/non-thinking toggle. Reasoning mode introduces an internal chain-of-thought before producing the final answer, which may substantially improve performance on tasks requiring multi-step legal reasoning, such as case outcome classification. Our results therefore represent a lower bound on the capabilities of reasoning-capable models. An ablation comparing standard vs.\ reasoning mode, particularly for Nemotron Super~3 on the case outcome task where it already leads at 96.0\%, is an important direction for future work.
+\paragraph{Non-reasoning mode.} All evaluations were conducted in standard (non-reasoning) inference mode with temperature set to 0. Several models in our evaluation support extended reasoning or ``thinking'' modes---most notably Nemotron Super~3, whose reasoning mode is a key architectural feature, and Qwen3, which supports a thinking/non-thinking toggle. Reasoning mode introduces an internal chain-of-thought before producing the final answer, which may substantially improve performance on tasks requiring multi-step legal reasoning, such as case outcome classification. Our results therefore represent a lower bound on the capabilities of reasoning-capable models. An ablation comparing standard vs.\ reasoning mode, particularly for Nemotron Super~3 on the case outcome task where it already leads at 96.0\%, is an important direction for future work.
 
 \paragraph{Temporal specificity.} The model versions accessed via Bedrock in April--May 2026 may differ from those available at other times or through other providers. Our results reflect the specific model endpoints available during the experiment window.
 
@@ -756,7 +742,7 @@ We have presented a systematic evaluation of seven foundation models on Ukrainia
 
     \item \textbf{Few-shot prompting is counterproductive} for most models on Ukrainian legal classification tasks. A stratified few-shot ablation confirms that even distribution-matched examples degrade performance by up to 26 percentage points, ruling out example selection bias and implicating morphological interference intrinsic to Ukrainian-language demonstrations.
 
-    \item \textbf{Systematic model selection via managed APIs is inexpensive.} The total cost of the core evaluation (7 models $\times$ 3 tasks $\times$ 2 modes $\times$ 273--300 documents) was \$31.41 (Table~\ref{tab:costs}). Including ablation studies (label validation via Claude Sonnet~4.5: ${\sim}$\$12; stratified few-shot ablation: ${\sim}$\$8; prompt sensitivity ablation: ${\sim}$\$5; tokenizer fertility: ${\sim}$\$4), the total experiment cost was approximately \$60, demonstrating that comprehensive language-specific benchmarking is feasible even for resource-constrained teams.
+    \item \textbf{Systematic model selection via managed APIs is inexpensive.} The total cost of the core evaluation (7 models $\times$ 3 tasks $\times$ 2 modes $\times$ 273--300 documents) was \$31.40 (Table~\ref{tab:costs}). Including ablation studies (label validation via Claude Sonnet~4.5: ${\sim}$\$12; stratified few-shot ablation: ${\sim}$\$8; prompt sensitivity ablation: ${\sim}$\$5; tokenizer fertility: ${\sim}$\$4), the total experiment cost was approximately \$60, demonstrating that comprehensive language-specific benchmarking is feasible even for resource-constrained teams.
 \end{enumerate}
 
 These findings underscore the importance of language-specific evaluation before model deployment. English-language benchmarks and parameter counts are poor proxies for performance on morphologically rich, Cyrillic-script languages. For practitioners: Nemotron Super~3 offers the best accuracy--cost tradeoff for Ukrainian legal NLP; Llama~4 Maverick provides the cheapest inference at near-top accuracy; and zero-shot prompting should be preferred over few-shot for Ukrainian. We release our evaluation methodology and results to support practitioners building legal NLP systems for Ukrainian and related languages.
@@ -817,8 +803,8 @@ Chalkidis, I., Fergadiotis, M., Malakasiotis, P., Aletras, N., and Androutsopoul
 \bibitem[Niklaus et~al.(2023)]{niklaus2023lextreme}
 Niklaus, J., Matoshi, V., Rani, P., Galassi, A., St{\"u}rmer, M., and Chalkidis, I.
 \newblock {LEXTREME}: A Multi-Lingual and Multi-Task Benchmark for the Legal Domain.
-\newblock \emph{Findings of EMNLP 2023}, pages 12898--12916, 2023.
-\newblock \url{https://aclanthology.org/2023.findings-emnlp.865/}
+\newblock \emph{Findings of the Association for Computational Linguistics: EMNLP 2023}, pages 3016--3054, 2023.
+\newblock \url{https://aclanthology.org/2023.findings-emnlp.200/}
 
 \bibitem[Hendrycks et~al.(2021)]{hendrycks2021measuring}
 Hendrycks, D., Burns, C., Basart, S., Zou, A., Mazeika, M., Song, D., and Steinhardt, J.
@@ -987,25 +973,25 @@ Table~\ref{tab:full_results} presents the complete results matrix for all model-
 \textbf{Model} & \textbf{Mode} & \textbf{Case Type} & \textbf{Outcome} & \textbf{Norm F1} \\
 \midrule
 \multirow{2}{*}{Llama 4 Maverick} & Zero-shot & 98.9 & 91.2 & 0.487 \\
- & Few-shot & 92.7 & 91.9 & 0.488 \\
+ & Few-shot & 92.7 & 91.9 & 0.486 \\
 \midrule
 \multirow{2}{*}{Llama 3.3 70B} & Zero-shot & 94.5 & 89.7 & 0.604 \\
  & Few-shot & 96.0 & 81.0 & 0.606 \\
 \midrule
 \multirow{2}{*}{Mistral Large 3} & Zero-shot & 95.6 & 91.6 & 0.561 \\
- & Few-shot & 94.9 & 85.3 & 0.575 \\
+ & Few-shot & 94.9 & 85.3 & 0.560 \\
 \midrule
 \multirow{2}{*}{Nemotron Super 3} & Zero-shot & 98.9 & 96.0 & 0.543 \\
- & Few-shot & 94.5 & 83.2 & 0.564 \\
+ & Few-shot & 94.5 & 83.2 & 0.547 \\
 \midrule
 \multirow{2}{*}{Nova Pro} & Zero-shot & 98.2 & 92.3 & 0.575 \\
- & Few-shot & 92.3 & 92.7 & 0.585 \\
+ & Few-shot & 92.3 & 92.7 & 0.570 \\
 \midrule
 \multirow{2}{*}{Qwen3 235B} & Zero-shot & 97.4 & 93.8 & 0.463 \\
- & Few-shot & 98.5 & 67.8 & 0.476 \\
+ & Few-shot & 98.5 & 67.8 & 0.458 \\
 \midrule
 \multirow{2}{*}{Qwen3 32B} & Zero-shot & 95.2 & 86.8 & 0.514 \\
- & Few-shot & 95.2 & 89.7 & 0.529 \\
+ & Few-shot & 95.2 & 89.7 & 0.515 \\
 \bottomrule
 \end{tabular}
 \end{table}
