@@ -22,6 +22,7 @@ import { CommentSection } from './CommentSection';
 import { PaperReader } from './PaperReader';
 import { useLocaleStore } from '../../stores/localeStore';
 import { getBlogUI, getLocalizedArticles } from './blog-i18n';
+import { cleanLatex } from './clean-latex';
 
 const translationMaps = { en: enTranslations, ru: ruTranslations };
 
@@ -433,7 +434,7 @@ export function BlogArticlePage() {
             [&>p:first-of-type::first-letter]:text-5xl [&>p:first-of-type::first-letter]:font-serif [&>p:first-of-type::first-letter]:font-bold [&>p:first-of-type::first-letter]:text-gray-900 [&>p:first-of-type::first-letter]:float-left [&>p:first-of-type::first-letter]:mr-2 [&>p:first-of-type::first-letter]:mt-1 [&>p:first-of-type::first-letter]:leading-none
           ">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {article.content}
+              {cleanLatex(article.content)}
             </ReactMarkdown>
           </div>
         </div>
