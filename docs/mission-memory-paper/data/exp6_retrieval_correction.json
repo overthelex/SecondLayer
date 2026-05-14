@@ -1,0 +1,212 @@
+{
+  "dataset": {
+    "name": "RAGBench",
+    "source": "HuggingFace galileo-ai/ragbench",
+    "reference": "Friel et al., 2024, arXiv:2407.11005",
+    "n_total": 95378,
+    "n_domains": 12,
+    "n_correction_needed": 24210,
+    "correction_rate_pct": 25.4
+  },
+  "correlations": {
+    "relevance_vs_correction": {
+      "r": 0.2606,
+      "p": 0.0,
+      "significant": true,
+      "direction": "higher metric → more corrections"
+    },
+    "utilization_vs_correction": {
+      "r": -0.0517,
+      "p": 0.0,
+      "significant": true,
+      "direction": "lower metric → more corrections"
+    },
+    "completeness_vs_correction": {
+      "r": -0.6008,
+      "p": 0.0,
+      "significant": true,
+      "direction": "lower metric → more corrections"
+    }
+  },
+  "group_comparison": {
+    "relevance": {
+      "no_correction": {
+        "n": 71168,
+        "mean": 0.2682,
+        "median": 0.1875,
+        "std": 0.2439
+      },
+      "needs_correction": {
+        "n": 24210,
+        "mean": 0.4286,
+        "median": 0.4,
+        "std": 0.2974
+      },
+      "delta_mean": -0.1603,
+      "mann_whitney_U": 561578422.5,
+      "mann_whitney_p": 1.0,
+      "hedges_g": -0.62,
+      "CLES": 0.326
+    },
+    "utilization": {
+      "no_correction": {
+        "n": 71168,
+        "mean": 0.2235,
+        "median": 0.1667,
+        "std": 0.1977
+      },
+      "needs_correction": {
+        "n": 24210,
+        "mean": 0.2007,
+        "median": 0.1633,
+        "std": 0.174
+      },
+      "delta_mean": 0.0228,
+      "mann_whitney_U": 900776974.5,
+      "mann_whitney_p": 0.0,
+      "hedges_g": 0.119,
+      "CLES": 0.523
+    },
+    "completeness": {
+      "no_correction": {
+        "n": 71168,
+        "mean": 0.8712,
+        "median": 1.0,
+        "std": 0.1935
+      },
+      "needs_correction": {
+        "n": 24210,
+        "mean": 0.4807,
+        "median": 0.4,
+        "std": 0.3024
+      },
+      "delta_mean": 0.3905,
+      "mann_whitney_U": 1451687087.5,
+      "mann_whitney_p": 0.0,
+      "hedges_g": 1.727,
+      "CLES": 0.843
+    }
+  },
+  "threshold_analysis": [
+    {
+      "threshold": 0.01,
+      "n_below": 1959,
+      "n_above": 93419,
+      "correction_rate_below": 29.2,
+      "correction_rate_above": 25.3,
+      "ratio": 1.15
+    },
+    {
+      "threshold": 0.05,
+      "n_below": 12753,
+      "n_above": 82625,
+      "correction_rate_below": 14.1,
+      "correction_rate_above": 27.1,
+      "ratio": 0.52
+    },
+    {
+      "threshold": 0.1,
+      "n_below": 25539,
+      "n_above": 69839,
+      "correction_rate_below": 12.6,
+      "correction_rate_above": 30.0,
+      "ratio": 0.42
+    },
+    {
+      "threshold": 0.2,
+      "n_below": 41791,
+      "n_above": 53587,
+      "correction_rate_below": 14.1,
+      "correction_rate_above": 34.1,
+      "ratio": 0.41
+    },
+    {
+      "threshold": 0.5,
+      "n_below": 70446,
+      "n_above": 24932,
+      "correction_rate_below": 20.3,
+      "correction_rate_above": 39.8,
+      "ratio": 0.51
+    }
+  ],
+  "per_domain": {
+    "finqa": {
+      "n": 16562,
+      "correction_rate": 10.9,
+      "relevance_when_correction": 0.1267,
+      "relevance_when_ok": 0.0727
+    },
+    "delucionqa": {
+      "n": 1824,
+      "correction_rate": 16.5,
+      "relevance_when_correction": 0.3668,
+      "relevance_when_ok": 0.2726
+    },
+    "covidqa": {
+      "n": 1765,
+      "correction_rate": 38.2,
+      "relevance_when_correction": 0.3335,
+      "relevance_when_ok": 0.2588
+    },
+    "hagrid": {
+      "n": 4532,
+      "correction_rate": 28.8,
+      "relevance_when_correction": 0.3969,
+      "relevance_when_ok": 0.2913
+    },
+    "pubmedqa": {
+      "n": 24499,
+      "correction_rate": 41.5,
+      "relevance_when_correction": 0.5501,
+      "relevance_when_ok": 0.5292
+    },
+    "techqa": {
+      "n": 1810,
+      "correction_rate": 55.7,
+      "relevance_when_correction": 0.0668,
+      "relevance_when_ok": 0.0653
+    },
+    "emanual": {
+      "n": 1318,
+      "correction_rate": 22.2,
+      "relevance_when_correction": 0.2813,
+      "relevance_when_ok": 0.2562
+    },
+    "hotpotqa": {
+      "n": 2697,
+      "correction_rate": 20.2,
+      "relevance_when_correction": 0.2875,
+      "relevance_when_ok": 0.2036
+    },
+    "tatqa": {
+      "n": 33104,
+      "correction_rate": 14.6,
+      "relevance_when_correction": 0.4806,
+      "relevance_when_ok": 0.2551
+    },
+    "msmarco": {
+      "n": 2690,
+      "correction_rate": 45.8,
+      "relevance_when_correction": 0.4219,
+      "relevance_when_ok": 0.3494
+    },
+    "expertqa": {
+      "n": 2027,
+      "correction_rate": 68.1,
+      "relevance_when_correction": 0.2734,
+      "relevance_when_ok": 0.3875
+    },
+    "cuad": {
+      "n": 2550,
+      "correction_rate": 26.2,
+      "relevance_when_correction": 0.2634,
+      "relevance_when_ok": 0.0388
+    }
+  },
+  "paper_mapping": {
+    "retrieval_correction_signal": "correction_needed proxy (adherence=False OR completeness<0.5)",
+    "pull_mode_quality": "relevance_score — did the system fetch relevant context?",
+    "push_mode_adequacy": "completeness_score — was all needed context available?",
+    "context_efficiency": "utilization_score — did the agent use fetched context?"
+  }
+}
