@@ -5,14 +5,13 @@
   \providecommand{\doi}[1]{doi: #1}\else
   \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
 
-\bibitem[{Aerorozvidka} and {Ministry of Defence of
-  Ukraine}(2024)]{delta2024system}
-{Aerorozvidka} and {Ministry of Defence of Ukraine}.
-\newblock Delta (situational awareness system).
-\newblock Wikipedia, 2024.
+\bibitem[Bondar(2024)]{bondar2024delta}
+Kateryna Bondar.
+\newblock Does {Ukraine} already have functional {CJADC2} technology?
+\newblock Technical report, Center for Strategic and International Studies, 12
+  2024.
 \newblock URL
-  \url{https://en.wikipedia.org/wiki/Delta_(situational_awareness_system)}.
-\newblock Accessed: 2026-05-14.
+  \url{https://www.csis.org/analysis/does-ukraine-already-have-functional-cjadc2-technology}.
 
 \bibitem[Chen et~al.(2011)Chen, Barnes, and
   Harper-Sciarini]{chen2011supervisory}
