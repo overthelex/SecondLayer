@@ -582,6 +582,10 @@ services:
       OPENREYESTR_MCP_URL: http://app-openreyestr-prod:3005
       OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEY:-}
 
+      # SneakyPiper OSINT Proxy
+      SNEAKYPIPER_API_URL: ${SNEAKYPIPER_API_URL:-}
+      SNEAKYPIPER_API_KEY: ${SNEAKYPIPER_API_KEY:-}
+
       # Stage access for db-compare
       STAGE_BACKEND_URL: ${STAGE_BACKEND_URL:-https://stage.legal.org.ua}
       STAGE_API_KEY: ${STAGE_API_KEY:-}
@@ -972,6 +976,8 @@ services:
       RADA_API_KEY: ${RADA_API_KEY:-}
       OPENREYESTR_MCP_URL: http://app-openreyestr-prod-green:3005
       OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEY:-}
+      SNEAKYPIPER_API_URL: ${SNEAKYPIPER_API_URL:-}
+      SNEAKYPIPER_API_KEY: ${SNEAKYPIPER_API_KEY:-}
       STAGE_BACKEND_URL: ${STAGE_BACKEND_URL:-https://stage.legal.org.ua}
       STAGE_API_KEY: ${STAGE_API_KEY:-}
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-legal.org.ua}
