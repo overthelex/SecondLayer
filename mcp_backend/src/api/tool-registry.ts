@@ -39,6 +39,18 @@ const TOOL_TIMEOUT_OVERRIDES: Record<string, number> = {
   build_legal_decision: 120_000,
   search_public_spending: 120_000,
   analyze_data: 45_000,
+  osint_search_credentials: 35_000,
+  osint_search_ransomware_victims: 35_000,
+  osint_search_forum_subjects: 35_000,
+  osint_search_sanctions: 35_000,
+  osint_search_interpol: 35_000,
+  osint_search_worldbank_debarment: 35_000,
+  osint_search_cve: 35_000,
+  osint_check_ip_reputation: 35_000,
+  osint_check_domain_reputation: 35_000,
+  osint_search_corporate_registry: 35_000,
+  osint_search_media_mentions: 35_000,
+  osint_search_github_leaks: 35_000,
 };
 const DEFAULT_TOOL_TIMEOUT_MS = 60_000;
 
