@@ -39,6 +39,8 @@ import { ImportTaskTools } from '../api/tools/import-task-tools.js';
 import { WorkflowMemoryTools } from '../api/tools/workflow-memory-tools.js';
 import { WorkflowMemoryService } from '../services/workflow-memory-service.js';
 import { WorkflowMemoryPushService } from '../services/workflow-memory-push-service.js';
+import { OsintProxyAdapter } from '../adapters/osint-proxy-adapter.js';
+import { OsintProxyTools } from '../api/tools/osint-proxy-tools.js';
 import { logger } from '../utils/logger.js';
 import path from 'path';
 
@@ -199,6 +201,16 @@ export function createToolServices(
   vaultTools.setMinioService(minioService);
   toolRegistry.registerHandler(vaultTools);
   logger.info('Upload, MinIO, and Vault services initialized');
+
+  // OSINT proxy (SneakyPiper integration)
+  const osintAdapter = new OsintProxyAdapter(
+    process.env.SNEAKYPIPER_API_URL || '',
+    process.env.SNEAKYPIPER_API_KEY || ''
+  );
+  if (osintAdapter.isConfigured()) {
+    toolRegistry.registerHandler(new OsintProxyTools(osintAdapter));
+    logger.info('OSINT proxy tools registered (SneakyPiper)');
+  }
 
   return {
     toolRegistry,
