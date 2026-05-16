@@ -962,12 +962,12 @@ describe('QueryTypeConfig', () => {
     }
   });
 
-  it('practice_analysis should use standard budget', () => {
-    expect(QUERY_TYPE_CONFIG.practice_analysis.defaultBudget).toBe('standard');
+  it('practice_analysis should use deep budget', () => {
+    expect(QUERY_TYPE_CONFIG.practice_analysis.defaultBudget).toBe('deep');
   });
 
-  it('comparative_analysis should use standard budget', () => {
-    expect(QUERY_TYPE_CONFIG.comparative_analysis.defaultBudget).toBe('standard');
+  it('comparative_analysis should use deep budget', () => {
+    expect(QUERY_TYPE_CONFIG.comparative_analysis.defaultBudget).toBe('deep');
   });
 
   it('legislation_lookup should use quick budget', () => {
@@ -1050,16 +1050,16 @@ describe.skip('DOMAIN_TOOL_MAP', () => {
 
 describe('VALID_QUERY_TYPES', () => {
 
-  it('should contain all 13 defined query types', () => {
+  it('should contain all 14 defined query types', () => {
     const expected: QueryType[] = [
       'case_lookup', 'practice_analysis', 'legislation_lookup', 'legal_consultation',
       'registry_lookup', 'parliament_query', 'document_query', 'calculation',
       'document_drafting', 'comparative_analysis', 'due_diligence', 'institutional_analysis',
-      'unsupported',
+      'osint_investigation', 'unsupported',
     ];
     for (const qt of expected) {
       expect(VALID_QUERY_TYPES.has(qt)).toBe(true);
     }
-    expect(VALID_QUERY_TYPES.size).toBe(13);
+    expect(VALID_QUERY_TYPES.size).toBe(14);
   });
 });
