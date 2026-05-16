@@ -52,7 +52,6 @@ const PUBLIC_ROUTE_PATTERNS: RegExp[] = [
   /^\/[a-z]{2}\/(offer|attorney-offer|developer-offer|marketplace-rules|terms|privacy|dpa|ai-usage|ai-transparency|refund-policy|data-sources)/,
   /^\/eu\/comparison/,
   /^\/blog(\/|$)/,
-  /^\/lex-news/,
   /^\/news$/,
   /^\/career(\/|$)/,
   /^\/investor(\/|$)/,

@@ -21,7 +21,6 @@ export const getLegislationSections = () => [
   { id: 'legislation-db', label: appT('nav.legislationDb'), icon: BookOpen, route: ROUTES.LEGISLATION_MONITORING },
   { id: 'codes', label: appT('nav.codes'), icon: Scale, route: ROUTES.LEGAL_CODES_LIBRARY },
   { id: 'news', label: appT('nav.newsKmu'), icon: Newspaper, route: ROUTES.NEWS },
-  { id: 'lex-news', label: appT('nav.newsLex'), icon: Globe, route: ROUTES.LEX_NEWS },
 ];
 
 export function getMattersSections(isAttorney: boolean) {
