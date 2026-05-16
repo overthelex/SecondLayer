@@ -1,15 +1,22 @@
 /**
  * Access Gate tests
  *
- * Verifies the rule that gates chat / upload behind beta-tester membership
- * or a successful Monobank top-up.
+ * Verifies the rule that gates chat / upload behind:
+ * beta-tester membership, admin role, positive balance, or a successful Monobank top-up.
  */
 
-import { evaluateAccessGate, hasMonobankTopup } from '../access-gate';
+import { evaluateAccessGate, hasMonobankTopup, hasPositiveBalance } from '../access-gate';
 import type { User } from '../user-service';
 
-function makeDb(rows: any[] = []) {
-  return { query: jest.fn().mockResolvedValue({ rows }) } as any;
+function makeDb(queryResults: any[][] = [[]]) {
+  let callIndex = 0;
+  return {
+    query: jest.fn().mockImplementation(() => {
+      const rows = queryResults[callIndex] || [];
+      callIndex++;
+      return Promise.resolve({ rows });
+    }),
+  } as any;
 }
 
 function makeUser(overrides: Partial<User> = {}): User {
@@ -57,38 +64,59 @@ describe('access-gate', () => {
       expect(db.query).not.toHaveBeenCalled();
     });
 
-    it('allows ordinary users with at least one successful Monobank top-up', async () => {
-      const db = makeDb([{ '?column?': 1 }]);
+    it('allows users with positive balance (welcome bonus)', async () => {
+      // First query (balance check) returns a row
+      const db = makeDb([[{ '?column?': 1 }]]);
       const decision = await evaluateAccessGate(db, makeUser());
-      expect(decision).toEqual({ allowed: true, reason: 'monobank_topup' });
+      expect(decision).toEqual({ allowed: true, reason: 'has_balance' });
       expect(db.query).toHaveBeenCalledTimes(1);
       const sql = db.query.mock.calls[0][0] as string;
-      expect(sql).toMatch(/billing_transactions/);
-      expect(sql).toMatch(/payment_provider = 'monobank'/);
-      expect(sql).toMatch(/type = 'topup'/);
+      expect(sql).toMatch(/user_billing/);
+      expect(sql).toMatch(/balance_usd > 0 OR balance_uah > 0/);
     });
 
-    it('denies ordinary users without a Monobank top-up', async () => {
-      const db = makeDb([]);
+    it('allows ordinary users with Monobank top-up when balance is zero', async () => {
+      // First query (balance) returns empty, second (topup) returns a row
+      const db = makeDb([[], [{ '?column?': 1 }]]);
       const decision = await evaluateAccessGate(db, makeUser());
-      expect(decision).toEqual({ allowed: false, reason: 'no_monobank_topup' });
+      expect(decision).toEqual({ allowed: true, reason: 'monobank_topup' });
+      expect(db.query).toHaveBeenCalledTimes(2);
+    });
+
+    it('denies ordinary users without balance or top-up', async () => {
+      // Both queries return empty
+      const db = makeDb([[], []]);
+      const decision = await evaluateAccessGate(db, makeUser());
+      expect(decision).toEqual({ allowed: false, reason: 'no_balance' });
     });
 
     it('fails closed when the database lookup throws', async () => {
       const db = { query: jest.fn().mockRejectedValue(new Error('boom')) } as any;
       const decision = await evaluateAccessGate(db, makeUser());
-      expect(decision).toEqual({ allowed: false, reason: 'no_monobank_topup' });
+      expect(decision).toEqual({ allowed: false, reason: 'no_balance' });
+    });
+  });
+
+  describe('hasPositiveBalance', () => {
+    it('returns true when user has positive balance', async () => {
+      const db = makeDb([[{ '?column?': 1 }]]);
+      await expect(hasPositiveBalance(db, 'user-001')).resolves.toBe(true);
+    });
+
+    it('returns false when user has no balance', async () => {
+      const db = makeDb([[]]);
+      await expect(hasPositiveBalance(db, 'user-001')).resolves.toBe(false);
     });
   });
 
   describe('hasMonobankTopup', () => {
     it('returns true when at least one successful top-up exists', async () => {
-      const db = makeDb([{ '?column?': 1 }]);
+      const db = makeDb([[{ '?column?': 1 }]]);
       await expect(hasMonobankTopup(db, 'user-001')).resolves.toBe(true);
     });
 
     it('returns false when no top-up exists', async () => {
-      const db = makeDb([]);
+      const db = makeDb([[]]);
       await expect(hasMonobankTopup(db, 'user-001')).resolves.toBe(false);
     });
   });

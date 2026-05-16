@@ -11,6 +11,7 @@ import { BannerService } from '../services/banner-service.js';
 import { logger } from '../utils/logger.js';
 import { provisionAuthentikUser } from '../services/authentik-service.js';
 import { provisionNextcloudUser } from '../services/nextcloud-provisioning.js';
+import { creditWelcomeBonus } from '../controllers/auth-common.js';
 
 let passportBannerService: BannerService | null = null;
 
@@ -104,6 +105,8 @@ export function configurePassport(db: Database): typeof passport {
               logger.error('[Banner] Async generation failed for OAuth user', { userId: user.id, error: err.message });
             });
           }
+
+          creditWelcomeBonus(user.id);
 
           return done(null, user);
         } catch (error: any) {

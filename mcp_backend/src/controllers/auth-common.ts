@@ -149,3 +149,37 @@ export function generateBannerAsync(userId: string, name: string): void {
     logger.error('[Banner] Async generation failed', { userId, error: err.message });
   });
 }
+
+// ---------------------------------------------------------------------------
+// Welcome bonus for new users
+// ---------------------------------------------------------------------------
+
+const WELCOME_BONUS_UAH = 430;
+
+/**
+ * Credit welcome bonus (430 UAH / ~$10 USD) to a newly registered user.
+ * Fire-and-forget — logs errors but never throws.
+ */
+export function creditWelcomeBonus(userId: string): void {
+  const billingService = authBillingService;
+  if (!billingService) {
+    logger.warn('[WelcomeBonus] Billing service not available', { userId });
+    return;
+  }
+
+  (async () => {
+    await billingService.getOrCreateUserBilling(userId);
+    const amountUsd = await billingService.convertFromUah(WELCOME_BONUS_UAH);
+    await billingService.topUpBalance({
+      userId,
+      amountUsd,
+      amountUah: WELCOME_BONUS_UAH,
+      description: 'Вітальний бонус — 430 грн',
+      paymentProvider: 'adjustment',
+      paymentId: `welcome-${userId}`,
+    });
+    logger.info('[WelcomeBonus] Credited', { userId, amountUah: WELCOME_BONUS_UAH, amountUsd });
+  })().catch((err: any) => {
+    logger.warn('[WelcomeBonus] Failed to credit', { userId, error: err.message });
+  });
+}
