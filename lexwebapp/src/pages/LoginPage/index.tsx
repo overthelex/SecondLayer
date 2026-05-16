@@ -16,7 +16,6 @@ import {
   EyeOff,
   User,
   BookOpen,
-  Newspaper,
   X,
   TrendingUp,
   FileText,
@@ -818,14 +817,6 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               {hasRecentArticles() && (
                 <span className="w-1 h-1 rounded-full bg-zinc-600 inline-block" />
               )}
-            </a>
-            <a
-              href="/lex-news"
-              className="inline-flex items-center gap-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors duration-200 tracking-wide"
-            >
-              <Newspaper size={10} />
-              <span>{t.newsLink}</span>
-              <span className="w-1 h-1 rounded-full bg-emerald-700/70 inline-block" />
             </a>
             <a
               href="/investor"
