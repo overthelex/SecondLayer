@@ -14,6 +14,7 @@ export type QueryType =
   | 'comparative_analysis'
   | 'due_diligence'
   | 'institutional_analysis'
+  | 'osint_investigation'
   | 'unsupported';
 
 export const VALID_QUERY_TYPES: Set<QueryType> = new Set([
@@ -29,6 +30,7 @@ export const VALID_QUERY_TYPES: Set<QueryType> = new Set([
   'comparative_analysis',
   'due_diligence',
   'institutional_analysis',
+  'osint_investigation',
   'unsupported',
 ]);
 

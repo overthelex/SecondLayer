@@ -22,5 +22,6 @@ export const QUERY_TYPE_CONFIG: Record<string, QueryTypeConfigEntry> = {
   comparative_analysis: { defaultBudget: 'deep', requiresGrounding: true, description: '', maxToolCalls: 10, thinkingPrefix: 'Порівнюю', preferredScenarios: ['comparison'] },
   due_diligence: { defaultBudget: 'deep', requiresGrounding: true, description: '', maxToolCalls: 10, thinkingPrefix: 'Виконую due diligence', preferredScenarios: ['due_diligence'] },
   institutional_analysis: { defaultBudget: 'deep', requiresGrounding: true, description: '', maxToolCalls: 10, thinkingPrefix: 'Аналізую інституцію', preferredScenarios: ['practice_search'] },
+  osint_investigation: { defaultBudget: 'standard', requiresGrounding: true, description: '', maxToolCalls: 5, thinkingPrefix: 'Перевіряю через OSINT-джерела', preferredScenarios: ['osint_entity_screening', 'osint_cyber_check', 'osint_darknet_intel'] },
   unsupported: { defaultBudget: 'quick', requiresGrounding: false, description: '', maxToolCalls: 0, thinkingPrefix: '', preferredScenarios: [] },
 };
