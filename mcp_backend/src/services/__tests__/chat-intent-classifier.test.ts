@@ -962,12 +962,12 @@ describe('QueryTypeConfig', () => {
     }
   });
 
-  it('practice_analysis should use deep budget', () => {
-    expect(QUERY_TYPE_CONFIG.practice_analysis.defaultBudget).toBe('deep');
+  it('practice_analysis should use standard budget', () => {
+    expect(QUERY_TYPE_CONFIG.practice_analysis.defaultBudget).toBe('standard');
   });
 
-  it('comparative_analysis should use deep budget', () => {
-    expect(QUERY_TYPE_CONFIG.comparative_analysis.defaultBudget).toBe('deep');
+  it('comparative_analysis should use standard budget', () => {
+    expect(QUERY_TYPE_CONFIG.comparative_analysis.defaultBudget).toBe('standard');
   });
 
   it('legislation_lookup should use quick budget', () => {
