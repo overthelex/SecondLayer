@@ -1,21 +1,12 @@
 /**
  * Access Gate
  *
- * The hosted version of the application is currently restricted to internal
- * beta testers and to users who have demonstrated payment intent by topping
- * up their balance through Monobank. External users without a Monobank
- * top-up are blocked from chat and document upload.
- *
- * The gate is intentionally narrow:
+ * Controls access to paid features (chat, document upload).
+ * A user is allowed if ANY of these conditions is true:
  *   - administrators: always allowed
  *   - users.is_beta_tester = TRUE: always allowed
- *   - any other user: must have at least one successful Monobank top-up
- *     recorded in billing_transactions (type = 'topup',
- *     payment_provider = 'monobank', amount_usd > 0)
- *
- * The "balance increased via Monobank" check is intentionally based on the
- * existence of a successful top-up rather than on the current balance — the
- * balance can be drained by usage, but the user has still proven access.
+ *   - has positive balance (from welcome bonus or top-up)
+ *   - has at least one successful top-up in billing_transactions
  */
 
 import type { IDatabase } from '../domain/ports/index.js';
@@ -25,7 +16,9 @@ import { logger } from '../utils/logger.js';
 export type AccessGateReason =
   | 'beta_tester'
   | 'administrator'
+  | 'has_balance'
   | 'monobank_topup'
+  | 'no_balance'
   | 'no_monobank_topup'
   | 'unauthenticated';
 
@@ -36,9 +29,25 @@ export interface AccessGateDecision {
 
 const RESULT_BETA: AccessGateDecision = { allowed: true, reason: 'beta_tester' };
 const RESULT_ADMIN: AccessGateDecision = { allowed: true, reason: 'administrator' };
+const RESULT_BALANCE: AccessGateDecision = { allowed: true, reason: 'has_balance' };
 const RESULT_TOPUP: AccessGateDecision = { allowed: true, reason: 'monobank_topup' };
-const RESULT_DENIED: AccessGateDecision = { allowed: false, reason: 'no_monobank_topup' };
+const RESULT_DENIED: AccessGateDecision = { allowed: false, reason: 'no_balance' };
 const RESULT_UNAUTH: AccessGateDecision = { allowed: false, reason: 'unauthenticated' };
+
+/**
+ * Returns true iff the user has a positive balance in user_billing.
+ */
+export async function hasPositiveBalance(db: IDatabase, userId: string): Promise<boolean> {
+  const result = await db.query(
+    `SELECT 1
+       FROM user_billing
+      WHERE user_id = $1
+        AND (balance_usd > 0 OR balance_uah > 0)
+      LIMIT 1`,
+    [userId]
+  );
+  return result.rows.length > 0;
+}
 
 /**
  * Returns true iff the user has at least one successful Monobank top-up
@@ -71,13 +80,11 @@ export async function evaluateAccessGate(
   if (user.role === 'administrator' || user.is_admin === true) return RESULT_ADMIN;
 
   try {
+    if (await hasPositiveBalance(db, user.id)) return RESULT_BALANCE;
     const ok = await hasMonobankTopup(db, user.id);
     return ok ? RESULT_TOPUP : RESULT_DENIED;
   } catch (error: any) {
-    // Fail closed: if the lookup fails we deny access rather than letting
-    // unrestricted external traffic through. The error is logged so we can
-    // diagnose connectivity problems.
-    logger.error('[AccessGate] Failed to check Monobank top-up', {
+    logger.error('[AccessGate] Failed to check access', {
       error: error?.message,
       userId: user.id,
     });
