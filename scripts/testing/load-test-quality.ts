@@ -32,9 +32,14 @@ const TEST_USER_COUNT = 10;
 const INITIAL_BALANCE_USD = 100.0;
 const BUDGET = 'standard';
 const REQUEST_TIMEOUT_MS = 240_000;
-const BATCH_SIZE = 10;
+const BATCH_SIZE_SIMPLE = 10;
+const BATCH_SIZE_COMPLEX = 5;
 const PAUSE_BETWEEN_BATCHES_MS = 3_000;
-const PAUSE_BETWEEN_PHASES_MS = 10_000;
+const PAUSE_BETWEEN_BATCHES_COMPLEX_MS = 8_000;
+const PAUSE_BETWEEN_PHASES_MS = 30_000;
+const MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 3_000;
+const INTERNAL_TOOLS = new Set(['_init', '_classify', '_summarize', 'request_additional_tools']);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -164,11 +169,15 @@ CREATE TABLE IF NOT EXISTS load_test_results (
   response_id VARCHAR(255),
   conversation_id UUID,
   raw_events JSONB DEFAULT '[]',
+  quality_score VARCHAR(30),
+  quality_reason TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_load_test_run ON load_test_results(test_run_id);
 CREATE INDEX IF NOT EXISTS idx_load_test_status ON load_test_results(status);
 CREATE INDEX IF NOT EXISTS idx_load_test_created ON load_test_results(created_at DESC);
+ALTER TABLE load_test_results ADD COLUMN IF NOT EXISTS quality_score VARCHAR(30);
+ALTER TABLE load_test_results ADD COLUMN IF NOT EXISTS quality_reason TEXT;
 `;
 
 async function ensureResultsTable(pool: pg.Pool): Promise<void> {
@@ -182,8 +191,9 @@ async function insertResult(pool: pg.Pool, r: Record<string, any>): Promise<void
      (test_run_id, wave, user_email, user_id, query, expected_tool,
       tool_triggered, tools_used, response_text, response_time_ms,
       first_byte_ms, cost_usd, charged_usd, status, error_message,
-      thinking_steps, response_id, conversation_id, raw_events)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+      thinking_steps, response_id, conversation_id, raw_events,
+      quality_score, quality_reason)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
     [
       r.testRunId, r.wave, r.userEmail, r.userId,
       r.query, r.expectedTool,
@@ -194,6 +204,7 @@ async function insertResult(pool: pg.Pool, r: Record<string, any>): Promise<void
       r.status, r.errorMessage,
       r.thinkingSteps, r.responseId,
       r.conversationId, JSON.stringify(r.rawEvents),
+      r.qualityScore || null, r.qualityReason || null,
     ]
   );
 }
@@ -348,20 +359,28 @@ async function sendChatQuery(baseUrl: string, token: string, query: string): Pro
                 break;
               case 'thinking':
                 result.thinkingSteps++;
-                if (data.tool) {
+                if (data.tool && !INTERNAL_TOOLS.has(data.tool)) {
+                  result.toolsUsed.push(data.tool);
+                }
+                break;
+              case 'tool_result':
+                if (data.tool && !INTERNAL_TOOLS.has(data.tool)) {
                   result.toolsUsed.push(data.tool);
                 }
                 break;
               case 'tool_call':
                 if (data.name || data.tool) {
-                  result.toolsUsed.push(data.name || data.tool);
+                  const toolName = data.name || data.tool;
+                  if (!INTERNAL_TOOLS.has(toolName)) {
+                    result.toolsUsed.push(toolName);
+                  }
                 }
                 break;
               case 'decision':
                 if (data.tools_to_call) {
                   for (const t of data.tools_to_call) {
-                    if (typeof t === 'string') result.toolsUsed.push(t);
-                    else if (t.name) result.toolsUsed.push(t.name);
+                    const name = typeof t === 'string' ? t : t.name;
+                    if (name && !INTERNAL_TOOLS.has(name)) result.toolsUsed.push(name);
                   }
                 }
                 break;
@@ -415,6 +434,40 @@ async function sendChatQuery(baseUrl: string, token: string, query: string): Pro
 }
 
 // ---------------------------------------------------------------------------
+// Retry wrapper
+// ---------------------------------------------------------------------------
+
+async function sendChatQueryWithRetry(
+  baseUrl: string,
+  token: string,
+  query: string
+): Promise<SSEResult> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const result = await sendChatQuery(baseUrl, token, query);
+
+    if (result.status === 'success' || result.status === 'no_answer') {
+      return result;
+    }
+
+    const isRetryable =
+      result.errorMessage?.includes('429') ||
+      result.errorMessage?.includes('fetch failed') ||
+      result.errorMessage?.includes('ECONNRESET') ||
+      result.status === 'timeout';
+
+    if (!isRetryable || attempt === MAX_RETRIES) {
+      return result;
+    }
+
+    const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+    console.log(`      [retry ${attempt}/${MAX_RETRIES}] ${result.errorMessage?.substring(0, 50)}... waiting ${delay / 1000}s`);
+    await sleep(delay);
+  }
+
+  return { responseId: null, answer: '', toolsUsed: [], thinkingSteps: 0, totalCostUsd: 0, chargedUsd: 0, conversationId: null, status: 'error', errorMessage: 'max retries exceeded', firstByteMs: 0, totalMs: 0, events: [] };
+}
+
+// ---------------------------------------------------------------------------
 // Wave runner
 // ---------------------------------------------------------------------------
 
@@ -439,7 +492,7 @@ async function runBatch(
     const shortQuery = a.query.length > 60 ? a.query.substring(0, 60) + '...' : a.query;
     console.log(`    [${user.email.split('@')[0]}] -> ${a.expectedTool}: ${shortQuery}`);
 
-    const result = await sendChatQuery(BASE_URL, user.jwt, a.query);
+    const result = await sendChatQueryWithRetry(BASE_URL, user.jwt, a.query);
 
     const primaryTool = result.toolsUsed.length > 0 ? result.toolsUsed[0] : null;
 
@@ -499,15 +552,18 @@ async function runPhase(
     userIndex: i,
   }));
 
+  const batchSize = wave === 'simple' ? BATCH_SIZE_SIMPLE : BATCH_SIZE_COMPLEX;
+  const batchPause = wave === 'simple' ? PAUSE_BETWEEN_BATCHES_MS : PAUSE_BETWEEN_BATCHES_COMPLEX_MS;
+
   let batchNum = 1;
-  for (let offset = 0; offset < allAssignments.length; offset += BATCH_SIZE) {
-    const batch = allAssignments.slice(offset, offset + BATCH_SIZE);
+  for (let offset = 0; offset < allAssignments.length; offset += batchSize) {
+    const batch = allAssignments.slice(offset, offset + batchSize);
     await runBatch(batchNum, wave, batch, users, pool, testRunId);
     batchNum++;
 
-    if (offset + BATCH_SIZE < allAssignments.length) {
-      console.log(`  ... pause ${PAUSE_BETWEEN_BATCHES_MS / 1000}s ...`);
-      await sleep(PAUSE_BETWEEN_BATCHES_MS);
+    if (offset + batchSize < allAssignments.length) {
+      console.log(`  ... pause ${batchPause / 1000}s ...`);
+      await sleep(batchPause);
     }
   }
 }
@@ -579,7 +635,144 @@ async function printSummary(pool: pg.Pool, testRunId: string): Promise<void> {
 
   const t = totals.rows[0];
   console.log(`\nTotals: ${t.success}/${t.total} succeeded | Cost: $${t.total_cost} | Charged: $${t.total_charged}`);
-  console.log(`Test run ID: ${testRunId}`);
+
+  const quality = await pool.query(`
+    SELECT quality_score, COUNT(*) as cnt
+    FROM load_test_results WHERE test_run_id = $1 AND quality_score IS NOT NULL
+    GROUP BY quality_score ORDER BY cnt DESC
+  `, [testRunId]);
+
+  if (quality.rows.length > 0) {
+    console.log('\nQuality scores:');
+    for (const row of quality.rows) {
+      console.log(`  ${row.quality_score}: ${row.cnt}`);
+    }
+  }
+
+  console.log(`\nTest run ID: ${testRunId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Pre-flight checks
+// ---------------------------------------------------------------------------
+
+async function preflightCheck(baseUrl: string, token: string): Promise<void> {
+  console.log('[Preflight] Checking backend health...');
+
+  // 1. Health endpoint
+  try {
+    const healthResp = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(10_000) });
+    if (!healthResp.ok) {
+      throw new Error(`Health check failed: HTTP ${healthResp.status}`);
+    }
+    const health = await healthResp.json() as Record<string, any>;
+    console.log(`[Preflight] Health OK: ${JSON.stringify(health).substring(0, 200)}`);
+  } catch (err: any) {
+    throw new Error(`Backend unreachable at ${baseUrl}: ${err.message}`);
+  }
+
+  // 2. Auth check — send a minimal chat query to verify JWT + API key chain
+  console.log('[Preflight] Verifying auth + LLM API key with test query...');
+  const testResult = await sendChatQuery(baseUrl, token, 'тест');
+  if (testResult.status === 'error') {
+    if (testResult.errorMessage?.includes('401')) {
+      throw new Error(`API key invalid: ${testResult.errorMessage}`);
+    }
+    if (testResult.errorMessage?.includes('429') && testResult.errorMessage?.includes('not active')) {
+      throw new Error(`LLM account not active: ${testResult.errorMessage}`);
+    }
+    // 429 quota is ok — just means rate limit, key itself works
+    if (testResult.errorMessage?.includes('429')) {
+      console.log('[Preflight] Got rate limit (429) — key is valid, quota will recover');
+      return;
+    }
+    console.warn(`[Preflight] Warning: test query failed: ${testResult.errorMessage?.substring(0, 100)}`);
+  } else {
+    console.log(`[Preflight] Auth OK — test query returned in ${testResult.totalMs}ms`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quality scoring
+// ---------------------------------------------------------------------------
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+const QUALITY_MODEL = 'gpt-4o-mini';
+
+interface QualityScore {
+  score: 'relevant' | 'partially_relevant' | 'not_relevant' | 'hallucinated' | 'skip';
+  reason: string;
+}
+
+async function gradeAnswer(query: string, answer: string, expectedTool: string): Promise<QualityScore> {
+  if (!OPENAI_API_KEY || !answer || answer.length < 20) {
+    return { score: 'skip', reason: 'no API key or empty answer' };
+  }
+
+  try {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: QUALITY_MODEL,
+        temperature: 0,
+        max_tokens: 150,
+        messages: [
+          {
+            role: 'system',
+            content: `You grade legal AI assistant answers. Respond with JSON: {"score": "relevant"|"partially_relevant"|"not_relevant"|"hallucinated", "reason": "<short reason>"}.
+- relevant: directly answers the query with correct legal info
+- partially_relevant: related but incomplete or tangential
+- not_relevant: doesn't address the query at all
+- hallucinated: contains fabricated case numbers, fake citations, or invented legal norms`,
+          },
+          {
+            role: 'user',
+            content: `Query: ${query}\nExpected tool: ${expectedTool}\nAnswer (first 1000 chars): ${answer.substring(0, 1000)}`,
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (!resp.ok) return { score: 'skip', reason: `grading API error: ${resp.status}` };
+
+    const data = await resp.json() as any;
+    const content = data.choices?.[0]?.message?.content || '';
+    const parsed = JSON.parse(content);
+    return { score: parsed.score, reason: parsed.reason };
+  } catch (err: any) {
+    return { score: 'skip', reason: `grading failed: ${err.message}` };
+  }
+}
+
+async function gradeResults(pool: pg.Pool, testRunId: string): Promise<void> {
+  if (!OPENAI_API_KEY) {
+    console.log('[Quality] Skipping grading — no OPENAI_API_KEY');
+    return;
+  }
+
+  console.log('\n[Quality] Grading successful answers...');
+  const rows = await pool.query(
+    `SELECT id, query, response_text, expected_tool FROM load_test_results
+     WHERE test_run_id = $1 AND status = 'success' AND quality_score IS NULL`,
+    [testRunId]
+  );
+
+  let graded = 0;
+  for (const row of rows.rows) {
+    const { score, reason } = await gradeAnswer(row.query, row.response_text, row.expected_tool);
+    await pool.query(
+      'UPDATE load_test_results SET quality_score = $1, quality_reason = $2 WHERE id = $3',
+      [score, reason, row.id]
+    );
+    graded++;
+    if (graded % 10 === 0) console.log(`[Quality] Graded ${graded}/${rows.rows.length}`);
+  }
+  console.log(`[Quality] Done — graded ${graded} answers`);
 }
 
 // ---------------------------------------------------------------------------
@@ -591,10 +784,105 @@ function sleep(ms: number): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Report generator
+// ---------------------------------------------------------------------------
+
+async function generateReport(pool: pg.Pool, runId?: string): Promise<void> {
+  const targetRun = runId || (await pool.query(
+    `SELECT test_run_id FROM load_test_results ORDER BY created_at DESC LIMIT 1`
+  )).rows[0]?.test_run_id;
+
+  if (!targetRun) {
+    console.log('No test runs found.');
+    return;
+  }
+
+  console.log(`# Load Test Report: ${targetRun}\n`);
+
+  const summary = await pool.query(`
+    SELECT wave,
+      COUNT(*) as total,
+      COUNT(*) FILTER (WHERE status = 'success') as success,
+      COUNT(*) FILTER (WHERE status = 'error') as errors,
+      COUNT(*) FILTER (WHERE status = 'timeout') as timeouts,
+      ROUND(AVG(response_time_ms) FILTER (WHERE status='success')) as avg_ms,
+      ROUND(MIN(response_time_ms) FILTER (WHERE status='success')) as min_ms,
+      ROUND(MAX(response_time_ms) FILTER (WHERE status='success')) as max_ms,
+      ROUND(AVG(cost_usd::numeric) FILTER (WHERE status='success'), 4) as avg_cost,
+      ROUND(SUM(cost_usd::numeric), 4) as total_cost
+    FROM load_test_results WHERE test_run_id = $1 GROUP BY wave ORDER BY wave
+  `, [targetRun]);
+
+  console.log('## Summary by Wave\n');
+  console.log('| Wave | Total | OK | Err | Timeout | Avg ms | Min ms | Max ms | Avg $ | Total $ |');
+  console.log('|------|-------|----|-----|---------|--------|--------|--------|-------|---------|');
+  for (const r of summary.rows) {
+    console.log(`| ${r.wave} | ${r.total} | ${r.success} | ${r.errors} | ${r.timeouts} | ${r.avg_ms || '-'} | ${r.min_ms || '-'} | ${r.max_ms || '-'} | ${r.avg_cost || '-'} | ${r.total_cost || '-'} |`);
+  }
+
+  const errors = await pool.query(`
+    SELECT LEFT(error_message, 80) as error_type, COUNT(*) as cnt
+    FROM load_test_results WHERE test_run_id = $1 AND status = 'error'
+    GROUP BY LEFT(error_message, 80) ORDER BY cnt DESC
+  `, [targetRun]);
+
+  console.log('\n## Error Breakdown\n');
+  console.log('| Error | Count |');
+  console.log('|-------|-------|');
+  for (const r of errors.rows) {
+    console.log(`| ${r.error_type} | ${r.cnt} |`);
+  }
+
+  const routing = await pool.query(`
+    SELECT expected_tool, tool_triggered,
+      CASE WHEN expected_tool = tool_triggered THEN 'exact'
+           WHEN tool_triggered IS NOT NULL AND tool_triggered != '' THEN 'mismatch'
+           ELSE 'none' END as match_type,
+      response_time_ms, cost_usd, quality_score
+    FROM load_test_results WHERE test_run_id = $1 AND status = 'success'
+    ORDER BY expected_tool
+  `, [targetRun]);
+
+  const exact = routing.rows.filter(r => r.match_type === 'exact').length;
+  const total = routing.rows.length;
+
+  console.log(`\n## Tool Routing Accuracy: ${exact}/${total} (${total > 0 ? Math.round(exact / total * 100) : 0}%)\n`);
+  console.log('| Expected Tool | Triggered | ms | Cost | Quality |');
+  console.log('|---------------|-----------|-----|------|---------|');
+  for (const r of routing.rows) {
+    console.log(`| ${r.expected_tool} | ${r.tool_triggered || 'none'} | ${r.response_time_ms} | $${r.cost_usd || 0} | ${r.quality_score || '-'} |`);
+  }
+
+  const quality = await pool.query(`
+    SELECT quality_score, COUNT(*) as cnt
+    FROM load_test_results WHERE test_run_id = $1 AND quality_score IS NOT NULL AND quality_score != 'skip'
+    GROUP BY quality_score ORDER BY cnt DESC
+  `, [targetRun]);
+
+  if (quality.rows.length > 0) {
+    console.log('\n## Quality Distribution\n');
+    for (const r of quality.rows) {
+      console.log(`- **${r.quality_score}**: ${r.cnt}`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 async function main() {
+  const args = process.argv.slice(2);
+
+  if (args.includes('--report')) {
+    const pool = new pg.Pool(DB_CONFIG);
+    const runIdArg = args[args.indexOf('--report') + 1];
+    const runId = runIdArg && !runIdArg.startsWith('--') ? runIdArg : undefined;
+    await generateReport(pool, runId);
+    await pool.end();
+    return;
+  }
+
   const testRunId = `loadtest-${new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)}`;
 
   console.log(`${'='.repeat(60)}`);
@@ -613,12 +901,16 @@ async function main() {
 
     const users = await createTestUsers(pool);
 
+    await preflightCheck(BASE_URL, users[0].jwt);
+
     await runPhase('simple', users, pool, testRunId);
 
     console.log(`\n  ... pause ${PAUSE_BETWEEN_PHASES_MS / 1000}s between phases ...`);
     await sleep(PAUSE_BETWEEN_PHASES_MS);
 
     await runPhase('complex', users, pool, testRunId);
+
+    await gradeResults(pool, testRunId);
 
     await printSummary(pool, testRunId);
 
