@@ -1,0 +1,432 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T2A,T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[ukrainian,english]{babel}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{tikz}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage[numbers,sort&compress]{natbib}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=RoyalBlue,
+  citecolor=ForestGreen,
+  urlcolor=BrickRed
+}
+
+\title{Temporal Dynamics of a Half-Billion-Edge Legal Citation Network:\\
+Structural Resilience Across Reform and War\\in Ukrainian Courts}
+
+\author{
+  Volodymyr Ovcharov \\[6pt]
+  LEX AI LLC, Kyiv, Ukraine \\[4pt]
+  \texttt{vladimir@legal.org.ua}
+}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+% ============================================================
+\begin{abstract}
+% ============================================================
+
+Static snapshots of legal citation networks conceal the dynamics that reveal how legal systems respond to reform, crisis, and conflict.
+We present the first temporal analysis of a legal citation network at the hundred-million-decision scale: 386 million deduplicated citation events from 101 million Ukrainian court decisions (2007--2026), decomposed into five event-aligned periods spanning pre-Maidan baseline, post-revolution reforms, judicial modernization, pre-invasion stability, and full-scale war.
+
+Using sparse matrix co-citation ($M^\top M$ on $10^7 \times 5{,}000$ matrices, computed in seconds per period) with year-normalized weights and a fixed node set across all periods, we construct period-specific co-citation networks totaling 3.9 million edges across five temporal windows.
+Leiden community detection on a stable set of 5{,}000 most-cited legislation articles reveals consistently high modularity ($Q = 0.60$--$0.63$ across all periods, $z > 600$), with 8--14 well-separated communities corresponding to legal domains.
+
+Normalized mutual information between consecutive periods quantifies stability: NMI ranges from $0.77$ (P3$\to$P4, the post-reform consolidation period) to $0.84$ (P1$\to$P2, pre-reform baseline), with the 2022 invasion transition at NMI $= 0.81$ (P4$\to$P5).
+All transitions maintain NMI $> 0.76$ (where NMI $= 0$ indicates random reassignment and NMI $= 1$ indicates identical partitions), confirming that community structure is robust across all major events.
+War introduces dramatic individual-law changes (martial law citations growing 4{,}000$\times$) but preserves the overall community architecture (NMI $= 0.81$).
+Citation entropy analysis with formal break detection ($\pm 2\sigma$ threshold) confirms system-level resilience: no individual year produces a statistically significant distributional anomaly.
+
+The co-citation graph, community assignments, and analysis code are released as open data.
+
+\end{abstract}
+
+\medskip
+\noindent\textbf{Keywords:} temporal networks, legal citation graph, community evolution, structural resilience, Ukrainian courts, judicial reform, war impact, EDRSR
+
+% ============================================================
+\section{Introduction}
+\label{sec:intro}
+% ============================================================
+
+Legal citation networks encode the operational structure of a legal system: which norms courts actually apply, how frequently, and in what combinations.
+Prior work has constructed such networks for the US Supreme Court~\citep{fowler2007network}, Dutch case law~\citep{winkels2011determining}, Danish courts~\citep{mones2021emergence}, and French legal codes~\citep{mazzega2009network}.
+These studies, however, treat citation networks as static objects -- aggregated across decades, analyzed at a single time point.
+The temporal dimension -- how citation patterns evolve in response to legislative reform, societal crisis, and institutional change -- remains largely unexplored at scale.
+
+The companion paper~\citep{ovcharov2026citationgraph} constructed the first large-scale legal citation graph from the complete Ukrainian court record: 502 million citation edges from 101 million decisions, with community structure that recovers legal domain boundaries.
+That analysis was static: all years collapsed into a single graph.
+This paper develops the temporal dimension.
+
+We decompose the citation record into five event-aligned periods spanning two decades of Ukrainian legal history: the pre-Maidan baseline (2007--2013), post-revolution reforms (2014--2016), judicial modernization (2017--2019), pre-invasion stability (2020--2021), and the full-scale Russian invasion (2022--2026).
+For each period, we compute co-citation networks via sparse matrix multiplication and track community evolution across periods.
+
+Four research questions guide the analysis:
+\begin{enumerate}[nosep]
+  \item[\textbf{RQ1}:] Does the co-citation community structure change in response to legislative reform, and if so, how sharply?
+  \item[\textbf{RQ2}:] How fast do courts adopt new legislation, and does adoption speed vary by region?
+  \item[\textbf{RQ3}:] Does the co-citation community structure evolve gradually or through discrete jumps?
+  \item[\textbf{RQ4}:] What structural signature does the 2022 full-scale invasion leave on the citation network?
+\end{enumerate}
+
+Our principal finding is that community structure is consistently stable across all transitions ($Q \approx 0.62$, NMI $> 0.76$, where NMI $= 0$ would indicate random reassignment), with the post-reform consolidation period associated with the largest restructuring (NMI $= 0.77$) and the 2022 invasion producing less disruption (NMI $= 0.81$) despite introducing entirely new legislative clusters.
+Yearly modularity analysis (2010--2025) shows gradual evolution rather than sharp breaks, with $Q$ fluctuating between 0.51 and 0.72.
+This suggests that the legal system's domain structure is resilient to both institutional reform and armed conflict -- a finding with implications for legal system design and ontology-based legal informatics.
+
+% ============================================================
+\section{Related Work}
+\label{sec:related}
+% ============================================================
+
+\subsection{Temporal Network Analysis}
+
+\citet{holme2012temporal} provide a comprehensive review of temporal networks, distinguishing between contact sequences (edges with timestamps) and interval graphs (edges active during windows).
+Our approach falls into the latter category: we construct period-specific co-citation networks and analyze their evolution.
+Key metrics from the temporal networks literature that we apply include normalized mutual information for comparing community partitions across time~\citep{danon2005comparing} and modularity for measuring community separability~\citep{newman2004finding}.
+
+\subsection{Legal Network Evolution}
+
+\citet{coupette2021measuring} introduced a framework for measuring legal evolution through network analysis, applying it to US federal statutes and German regulations (${\sim}10^4$ nodes).
+Their work tracks structural properties (density, clustering, degree distribution) over time but does not analyze co-citation community evolution.
+\citet{bommarito2010mathematical} studied the US Code as a citation network, identifying hierarchical structure and power-law degree distributions.
+Neither work operates at the scale of $10^8$ decisions or analyzes the temporal dynamics of co-citation communities.
+
+\subsection{Innovation Diffusion in Legal Systems}
+
+The adoption of new legislation by courts can be modeled as a diffusion process~\citep{rogers1962diffusion}: initially slow adoption by early-adopter courts, followed by rapid spread as the new norm becomes standard practice, and eventual saturation.
+We operationalize this through citation time series of new legislation articles and fit logistic adoption curves to measure judicial system responsiveness.
+To our knowledge, no prior work has measured legislative adoption curves empirically from court citation data at national scale.
+
+% ============================================================
+\section{Data and Methods}
+\label{sec:methods}
+% ============================================================
+
+\subsection{Dataset}
+
+The Unified State Register of Court Decisions (EDRSR) contains 101.1 million decision records (2005--2026), of which 100.7 million include full text totaling 1.1~TB.
+Citation extraction via the regex pipeline described in the companion paper~\citep{ovcharov2026citationgraph} yields 502 million citation edges linking decisions to legislation articles across six citation types: codex articles (79\%), case references (13\%), law articles (6\%), constitutional provisions, supreme court rulings, and laws by number.
+
+After deduplication to unique (decision, law, article) tuples, the dataset comprises 386.6 million citation events spanning 35.5 million unique decisions and approximately 500{,}000 unique legislation article identifiers.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Period definitions and dataset statistics.}
+\label{tab:periods}
+\begin{tabular}{@{}clrrr@{}}
+\toprule
+\textbf{Period} & \textbf{Years} & \textbf{Decisions} & \textbf{Citations} & \textbf{Context} \\
+\midrule
+1 & 2007--2013 & 5,196,182 & 56,708,529 & Pre-Maidan baseline \\
+2 & 2014--2016 & 9,102,868 & 102,828,193 & Revolution, early reforms \\
+3 & 2017--2019 & 6,134,398 & 58,308,820 & Judicial reform, new codes \\
+4 & 2020--2021 & 3,633,714 & 35,428,099 & Pre-invasion (COVID) \\
+5 & 2022--2026 & 11,415,011 & 133,369,281 & Full-scale invasion \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Temporal Co-Citation via Sparse Matrix Multiplication}
+
+We select a fixed set of $k = 5{,}000$ legislation articles with the highest citation count across the entire dataset (aggregate over all periods).
+This fixed set ensures that temporal comparisons are made on identical node sets, avoiding artifacts from period-specific article selection.
+
+For each period $t$, we construct a binary sparse matrix $M^{(t)} \in \{0,1\}^{n_t \times k}$, where $n_t$ is the number of decisions and $k = 5{,}000$ is the fixed article set.
+The co-citation matrix is computed as $C^{(t)} = (M^{(t)})^\top M^{(t)}$, where entry $C^{(t)}_{ab}$ gives the number of decisions in period $t$ that cite both articles $a$ and $b$.
+To account for unequal period lengths (2--7 years), we normalize: $\hat{C}^{(t)}_{ab} = C^{(t)}_{ab} / L_t$, where $L_t$ is the period length in years.
+
+This formulation replaces the $O(n^2)$ SQL self-join with a sparse matrix-matrix product computed via BLAS in seconds per period.
+The upper triangle of $\hat{C}^{(t)}$ with entries $\geq 5$ (co-citations per year) defines the period's co-citation network.
+Articles with zero edges (not co-cited with any other article above threshold) are excluded from community detection, yielding 3{,}887--4{,}604 active nodes per period (Table~\ref{tab:cocitation}).
+
+\begin{table}[t]
+\centering
+\small
+\caption{Temporal co-citation network statistics (fixed node set, year-normalized weights, Leiden algorithm, 30 iterations). All $z$-scores indicate modularity far exceeding random expectation.}
+\label{tab:cocitation}
+\begin{tabular}{@{}crrrrrr@{}}
+\toprule
+\textbf{Period} & \textbf{Nodes} & \textbf{Edges} & \textbf{Density} & \textbf{$Q \pm \sigma$} & \textbf{$z$} & \textbf{$k$} \\
+\midrule
+1 & 3,887 & 457,634 & 0.059 & $0.627 \pm 0.000$ & 600 & 14 \\
+2 & 4,544 & 855,077 & 0.078 & $0.633 \pm 0.000$ & 828 & 11 \\
+3 & 4,584 & 866,769 & 0.078 & $0.617 \pm 0.000$ & 812 & 8 \\
+4 & 4,604 & 780,340 & 0.072 & $0.622 \pm 0.000$ & 777 & 8 \\
+5 & 4,604 & 930,961 & 0.085 & $0.607 \pm 0.000$ & 828 & 9 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Community Detection and Evolution}
+
+We apply the Leiden algorithm~\citep{traag2019louvain} to each period's co-citation network with edge weights (30 independent runs with 5 iterations each; objective: modularity maximization; resolution parameter $\gamma = 1.0$).
+The consensus partition is determined by majority vote across the 30 runs; modularity $Q$ is reported as mean $\pm$ standard deviation.
+Community evolution is tracked via:
+\begin{itemize}[nosep]
+  \item Normalized Mutual Information (NMI) between consecutive periods on shared active nodes, with bootstrapped confidence intervals (50 subsamples of $n = 1{,}000$);
+  \item Adjusted Rand Index (ARI) as a chance-corrected agreement measure;
+  \item Modularity $Q$ significance assessed via analytical $z$-score: $z = Q \cdot \sqrt{2|E|}$, where $|E|$ is the edge count.
+\end{itemize}
+Bridge articles are identified by betweenness centrality on the top-1{,}000 nodes by degree; bridge stability is measured by Jaccard overlap of the top-20 bridge articles between consecutive periods.
+
+\subsection{Citation Entropy and Structural Break Detection}
+
+Shannon entropy of the citation distribution at year $t$:
+\[
+H(t) = -\sum_{a} p_a(t) \log p_a(t), \quad p_a(t) = \frac{c_a(t)}{\sum_{a'} c_{a'}(t)}
+\]
+where $c_a(t)$ is the total citations to article $a$ in year $t$.
+
+% ============================================================
+\section{Results}
+\label{sec:results}
+% ============================================================
+
+\subsection{Decision Volume and Citation Dynamics (RQ1)}
+
+Figure~\ref{fig:volume} shows the decision volume by jurisdiction type across 2010--2026.
+Civil and administrative cases dominate, with a visible dip across all categories in 2022 (invasion year) followed by recovery.
+Criminal cases show steady growth from 2013 onward, reflecting expanded jurisdiction of criminal procedure courts.
+
+\begin{figure}[t]
+\centering
+\input{figures/fig1_volume.tex}
+\caption{Court decisions per year by jurisdiction type (2010--2026). Dashed lines mark the 2017 judicial reform and 2022 invasion.}
+\label{fig:volume}
+\end{figure}
+
+\subsection{Community Structure Stability (RQ1, RQ3)}
+
+With year-normalized weights and a fixed node set, modularity remains consistently high across all periods ($Q = 0.61$--$0.63$, Table~\ref{tab:cocitation} and Figure~\ref{fig:period_summary}), indicating that legal domain structure is a persistent feature of judicial citation practice rather than an artifact of any single reform.
+Yearly modularity analysis (2010--2025, Figure~\ref{fig:yearly_q}) confirms gradual evolution: $Q$ fluctuates between 0.51 and 0.72 (mean $= 0.62$) without a sharp inflection point at any single year, suggesting continuous adaptation rather than abrupt reorganization.
+
+\begin{figure}[t]
+\centering
+\input{figures/fig7_yearly_modularity.tex}
+\caption{Yearly modularity $Q$ (2010--2025) on the fixed 5{,}000-node co-citation graph. No sharp inflection point is visible; $Q$ fluctuates around a stable mean of 0.62.}
+\label{fig:yearly_q}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\input{figures/fig9_period_summary.tex}
+\caption{Period-level summary: modularity, community count, and edge density remain in stable ranges across all five periods, confirming structural resilience.}
+\label{fig:period_summary}
+\end{figure}
+
+Figure~\ref{fig:alluvial} shows the community evolution across all five periods.
+The dominant communities correspond to: civil procedure (CPC), criminal procedure and criminal code (KPC/CC), administrative litigation (AdminC), civil substantive law (CivC), commercial procedure (ComPC), and misdemeanor proceedings (KUpAP).
+
+\begin{figure}[t]
+\centering
+\input{figures/fig3_alluvial.tex}
+\caption{Community evolution across five periods (alluvial diagram). Flow width indicates the number of shared nodes between community assignments in consecutive periods.}
+\label{fig:alluvial}
+\end{figure}
+
+\subsection{Community Evolution Stability (RQ3)}
+
+Figure~\ref{fig:nmi_bars} shows the bootstrapped NMI between consecutive periods with 95\% confidence intervals.
+The P3$\to$P4 transition (2017 reform consolidation) shows the lowest NMI ($0.765 \pm 0.016$), confirming it as the period of greatest community restructuring.
+Critically, all transitions maintain NMI $> 0.76$, indicating that the majority of community assignments persist across all major events.
+
+\begin{figure}[t]
+\centering
+\input{figures/fig8_nmi_bars.tex}
+\caption{Bootstrapped NMI between consecutive periods (error bars: $\pm 2\sigma$). All values exceed 0.76, indicating high structural stability. The P3$\to$P4 transition shows the largest community shift.}
+\label{fig:nmi_bars}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Community stability between consecutive periods (fixed node set, Leiden, bootstrapped NMI with $n = 1{,}000$ subsample $\times$ 50 iterations).}
+\label{tab:nmi}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Transition} & \textbf{Shared} & \textbf{NMI} & \textbf{Boot $\mu \pm \sigma$} & \textbf{ARI} \\
+\midrule
+P1 $\to$ P2 & 3,887 & 0.838 & $0.844 \pm 0.015$ & 0.852 \\
+P2 $\to$ P3 & 4,544 & 0.819 & $0.826 \pm 0.013$ & 0.794 \\
+P3 $\to$ P4 & 4,584 & 0.765 & $0.771 \pm 0.016$ & 0.734 \\
+P4 $\to$ P5 & 4,604 & 0.814 & $0.821 \pm 0.012$ & 0.837 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{War Impact on Citation Structure (RQ4)}
+
+The 2022 full-scale Russian invasion produced the most dramatic individual-law citation changes in the dataset.
+Citations to the martial law regime act (``On the Legal Regime of Martial Law'') grew from 3 in 2021 to 12{,}136 in 2022 -- a 4{,}000$\times$ increase in a single year.
+Mobilization legislation grew from 1{,}029 to 32{,}209 citations by 2025.
+An entirely new legislative cluster emerged: wartime labor relations (0 $\to$ 5{,}752 citations).
+
+Despite this dramatic surface change, the community structure NMI between P4 and P5 is 0.81 (Table~\ref{tab:nmi}) -- higher than the P3$\to$P4 transition (0.77) that coincides with the judicial reform consolidation period.
+The war introduced new nodes into existing communities rather than restructuring community boundaries.
+Modularity remained stable ($Q = 0.62 \to 0.61$), and community count shifted from 8 to 9 as wartime legislation formed a small additional cluster absorbed into the administrative law domain.
+
+Figure~\ref{fig:war_adoption} shows the adoption curves for war-related legislation on a logarithmic scale.
+Figure~\ref{fig:network} visualizes the network community structure before and after the invasion.
+Citation entropy (Figure~\ref{fig:entropy}) fluctuates across years but formal break detection (linear detrending with $\pm 2\sigma$ threshold) identifies no statistically significant anomalies -- the variation is within normal inter-annual bounds.
+This complements the NMI finding: the legal citation system absorbs both reform and war without dramatic distributional shifts.
+
+\begin{figure}[t]
+\centering
+\input{figures/fig2_war_adoption.tex}
+\caption{War-related legislation citation curves (2014--2026, log scale). Martial law regime citations grow 4{,}000$\times$ in a single year (2021$\to$2022).}
+\label{fig:war_adoption}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\input{figures/fig4_network_comparison.tex}
+\caption{Co-citation network community structure: Period~4 (2020--2021, left) vs.\ Period~5 (2022--2026, right). Top 200 edges by weight; node color indicates Leiden community assignment.}
+\label{fig:network}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\input{figures/fig5_entropy.tex}
+\caption{Shannon entropy of the citation distribution (2010--2025) with linear trend and $\pm 2\sigma$ band. No individual year exceeds the significance threshold, indicating that entropy variation is within normal inter-annual fluctuation.}
+\label{fig:entropy}
+\end{figure}
+
+\subsection{Bridge Articles and Betweenness Stability}
+
+Betweenness centrality identifies articles that serve as structural bridges between legal domain communities.
+Table~\ref{tab:bridges} shows the evolution of the top bridge article across periods.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Top bridge article (highest betweenness centrality) and bridge stability per period.}
+\label{tab:bridges}
+\begin{tabular}{@{}clccc@{}}
+\toprule
+\textbf{Period} & \textbf{Top bridge} & \textbf{Betweenness} & \textbf{Jaccard$_{t \to t+1}$} \\
+\midrule
+1 & Commercial Procedure Code art.~1117 & 0.125 & 0.03 \\
+2 & Civil Procedure Code art.~215 & 0.323 & 0.21 \\
+3 & Civil Procedure Code art.~354 & 0.309 & 0.21 \\
+4 & Supreme Court (case law) & 0.675 & 0.54 \\
+5 & Supreme Court (case law) & 0.752 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The bridge structure undergoes a qualitative shift: in P1--P3, procedural articles serve as bridges (specific code provisions connecting adjacent domains).
+After the 2017 reform, the Supreme Court's case law references become the dominant bridge (betweenness $0.68 \to 0.75$), reflecting its role as the sole appellate instance connecting all branches of justice.
+Bridge stability (Jaccard of top-20 bridge articles between consecutive periods) increases monotonically: $0.03 \to 0.21 \to 0.21 \to 0.54$, indicating that the post-reform bridge structure is converging to a stable configuration.
+
+\subsection{Adoption Curve Modeling (RQ2)}
+
+Logistic curves $c(t) = K / (1 + e^{-r(t - t_{50})})$ fitted to war-related legislation citations yield the following adoption parameters:
+
+\begin{table}[t]
+\centering
+\small
+\caption{Logistic adoption curve parameters for wartime legislation. $R^2$ indicates goodness of fit.}
+\label{tab:adoption}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Law} & \textbf{$t_{50}$} & \textbf{Rate $r$} & \textbf{$R^2$} & \textbf{Interpretation} \\
+\midrule
+Martial law regime & 2021.8 & 6.2 & 0.80 & Instant adoption \\
+Mobilization & 2024.1 & 1.0 & 0.90 & Gradual, still growing \\
+Wartime labor & 2023.4 & 0.4 & 0.21 & Poor fit (non-logistic) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The martial law regime act was adopted by courts within weeks of the invasion (effectively $t_{50} < $ invasion date), consistent with the law having existed since 2015 -- courts were prepared to apply it when martial law was declared.
+Mobilization legislation shows a slower adoption curve ($r = 1.0$) reaching half-saturation only in 2024, reflecting the gradual expansion of mobilization-related litigation as the war continued.
+
+\subsection{Regional Adoption Speed (RQ2)}
+
+Regional analysis of martial law citation adoption reveals significant geographic variation (Figure~\ref{fig:regional}).
+After normalizing by court count per region, Kyiv City (62.7 citations/court in 2022) and Dnipropetrovsk Oblast (43.2/court) lead adoption, while frontline regions (Zaporizhzhia, Kharkiv) show elevated per-court intensity consistent with the geographic distribution of conflict-related proceedings.
+
+\subsection{Alignment with Formal Legal Domains}
+
+Comparing co-citation communities with the formal jurisdiction classification (\emph{justice\_kind}: civil, criminal, commercial, administrative, misdemeanor) reveals increasing alignment over time.
+NMI between Leiden communities and formal domains rises from 0.69 (P2, post-revolution turbulence) to 0.85 (P5, wartime).
+The wartime period shows the highest formal-practice alignment, indicating that courts under wartime conditions cite more strictly within their formal jurisdictional boundaries -- consistent with either reduced case complexity or institutional pressure for faster resolution.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/fig6_regional_heatmap.pdf}
+\caption{Martial law citation intensity by region (2022--2025). Color intensity indicates citation count (square-root scale). Frontline regions show disproportionate wartime legislation activity.}
+\label{fig:regional}
+\end{figure}
+
+% ============================================================
+\section{Discussion}
+\label{sec:discussion}
+% ============================================================
+
+\paragraph{Citation networks as a judicial observatory.}
+The temporal co-citation analysis demonstrates that legal citation networks function as a real-time observatory for judicial system behavior.
+Legislative reforms, political crises, and armed conflict all leave measurable structural signatures in the citation graph -- without requiring any natural language processing or content analysis.
+The purely structural signal (which laws are cited together, how often) captures systemic changes that would be difficult to detect from individual case readings.
+
+\paragraph{Reform vs.\ war: relative disruption.}
+The 2017 judicial reform period is associated with the lowest NMI between consecutive periods (0.77), while the 2022 invasion transition shows higher stability (NMI = 0.81).
+One plausible explanation is architectural: procedural codes define \emph{how} courts process cases, affecting every decision regardless of subject matter, while war-related legislation is substantive and applies to specific case categories.
+However, alternative explanations must be acknowledged: the 2017 reform introduced new article identifiers (splitting one procedural code into four domain-specific codes), which could mechanically redistribute nodes across communities.
+Similarly, court specialization after 2017 (dedicated commercial and administrative courts) may reduce cross-domain citations through institutional routing rather than changed citation practice.
+
+\paragraph{Connection to ontology evolution.}
+The companion paper~\citep{ovcharov2026citationgraph} derived a legal ontology from aggregate co-citation clustering.
+The temporal stability results here (NMI $> 0.76$ across all transitions) provide empirical justification for using such an ontology as a stable domain layer in LLM-assisted legal systems~\citep{ovcharov2026workflowmemory,palagin2023ontochatgpt}: the domain structure is persistent enough to serve as a reliable knowledge scaffold, while the temporal dynamics indicate when ontology updates are needed.
+
+\paragraph{Limitations.}
+Four limitations constrain the analysis.
+First, coverage gaps in 2008--2009 (data loading anomalies) reduce reliability for Period~1; however, recomputing P1 using only 2010--2013 yields $Q = 0.60$ (vs.\ $0.63$ with all years), confirming the baseline is robust.
+Second, the top-5{,}000 article selection from the aggregate graph creates survivorship bias toward older, well-established articles; legislation important only in recent periods may be underrepresented.
+Third, OCR artifacts in pre-2010 decisions introduce noise into citation extraction for the earliest years.
+Fourth, unequal period durations (2--7 years) mean later periods have more statistical power despite year-normalization of weights.
+None of these substantially affect the post-2014 periods where our principal findings lie.
+
+\paragraph{Implications.}
+For legal informatics, temporal citation analysis offers a quantitative framework for monitoring judicial system health: sudden entropy spikes signal legislative disruption, declining NMI signals structural reform, and regional adoption speed variation signals implementation heterogeneity.
+For policy, the adoption curve methodology provides an empirical measure of judicial system responsiveness to legislative intent.
+
+% ============================================================
+\section{Conclusion}
+\label{sec:conclusion}
+% ============================================================
+
+We presented the first temporal analysis of a legal citation network at the hundred-million-decision scale.
+Decomposing 386 million deduplicated citation events across five event-aligned periods (2007--2026) with year-normalized weights and a fixed node set, we find:
+
+\begin{enumerate}[nosep]
+  \item Co-citation community structure is remarkably stable across all periods ($Q = 0.61$--$0.63$, NMI $> 0.76$ between all consecutive periods), with legal domains persisting as a robust organizational feature of judicial citation practice.
+  \item The 2022 full-scale invasion introduces dramatic individual-law changes (martial law citations $+4{,}000\times$) but preserves community architecture (NMI $= 0.81$), while the 2017 reform period shows the largest (though moderate) restructuring (NMI $= 0.77$).
+  \item Sparse matrix co-citation ($M^\top M$) with year normalization computes period networks from $10^8$ citations in seconds, making temporal analysis of national-scale legal systems computationally tractable.
+  \item Regional adoption analysis reveals geographic heterogeneity in wartime legislation citation intensity, with frontline regions showing disproportionate activity.
+  \item Bridge article analysis reveals a qualitative shift: the Supreme Court's case law becomes the sole structural bridge connecting all legal domains after the 2017 reform (betweenness $0.68 \to 0.75$), with bridge stability converging over time (Jaccard $0.03 \to 0.54$).
+\end{enumerate}
+
+The co-citation networks, community assignments, and analysis code are released as open data to enable replication and extension to other jurisdictions.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
