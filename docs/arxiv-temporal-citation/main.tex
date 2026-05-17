@@ -54,7 +54,7 @@ We uncover a three-phase dynamic invisible to static or fixed-node analyses:
 \emph{(iii)}~wartime reorganization, as the system differentiates into 5 communities that absorb wartime legislation into a coherent -- though potentially transient -- domain structure.
 Pre-invasion stability is near-perfect (NMI~$= 0.96$), confirming that the COVID period introduced no structural change.
 
-All findings are robust to resolution ($\gamma \in [0.5, 1.2]$) and threshold ($3$--$10$ co-citations/year) variation.
+All findings are robust to resolution ($\gamma \in [0.5, 1.0]$) and threshold ($3$--$10$ co-citations/year) variation across three tested periods.
 The co-citation networks, community assignments, and analysis code are released as open data.
 
 \end{abstract}
@@ -414,30 +414,9 @@ After normalizing by court count, Kyiv City (62.7 citations/court in 2022) and D
 \label{fig:regional}
 \end{figure}
 
-\subsection{Bridge Article Evolution}
-
-Betweenness centrality identifies structural bridges between communities (Table~\ref{tab:bridges}).
-In P1--P3, procedural code articles serve as bridges.
-After the 2017 reform, the Supreme Court's case law becomes the dominant bridge (betweenness $0.68 \to 0.75$), reflecting its role as the sole appellate instance.
-Bridge stability increases monotonically ($\text{Jaccard} = 0.03 \to 0.54$), indicating convergence to a stable inter-domain structure.
-
-\begin{table}[t]
-\centering
-\small
-\caption{Top bridge article (highest betweenness centrality) and bridge stability per period.}
-\label{tab:bridges}
-\begin{tabular}{@{}clcc@{}}
-\toprule
-\textbf{Period} & \textbf{Top bridge} & \textbf{Betweenness} & \textbf{Jaccard$_{t \to t+1}$} \\
-\midrule
-1 & Commercial Procedure Code art.~1117 & 0.125 & 0.03 \\
-2 & Civil Procedure Code art.~215 & 0.323 & 0.21 \\
-3 & Civil Procedure Code art.~354 & 0.309 & 0.21 \\
-4 & Supreme Court (case law) & 0.675 & 0.54 \\
-5 & Supreme Court (case law) & 0.752 & -- \\
-\bottomrule
-\end{tabular}
-\end{table}
+% Bridge article analysis removed: betweenness centrality on 50-100M edge
+% graphs is computationally intractable (O(V*E)), and the previous values
+% were computed on the superseded 5K-node fixed set.
 
 % ============================================================
 \section{Discussion}
@@ -483,15 +462,29 @@ The companion paper~\citep{ovcharov2026citationgraph} derived a legal ontology f
 The temporal stability results here (NMI $> 0.76$ across all transitions) provide empirical justification for using such an ontology as a stable domain layer in LLM-assisted legal systems~\citep{ovcharov2026workflowmemory,palagin2023ontochatgpt}: the domain structure is persistent enough to serve as a reliable knowledge scaffold, while the temporal dynamics indicate when ontology updates are needed -- specifically, after structural shocks like the 2022 invasion.
 
 \paragraph{Sensitivity analysis.}
-Resolution sensitivity ($\gamma \in \{0.5, 0.8, 1.0, 1.2, 1.5\}$) on P3 shows stable community count ($k = 4$) for $\gamma \leq 1.0$, with $\gamma = 1.2$ producing $k = 6$ and $\gamma = 1.5$ producing degenerate fragmentation ($k = 9{,}431$, $Q = 0.16$; Figure~\ref{fig:sensitivity}).
-Threshold sensitivity (3--10 co-citations/year) shows stable results ($Q = 0.310$--$0.311$, $k = 4$--$5$), confirming that findings are not artifacts of parameter choice.
+We conduct resolution sensitivity ($\gamma \in \{0.5, 0.8, 1.0, 1.2, 1.5\}$) and threshold sensitivity (3--10 co-citations/year) on three periods representing different regimes: P1 (highest density, 0.33), P3 (moderate density, 0.23), and P5 (wartime, density 0.29).
 
-\begin{figure}[t]
+Community count is stable for $\gamma \leq 1.0$ across all three periods: P1 yields $k = 7$--$8$, P3 yields $k = 4$, and P5 yields $k = 3$--$5$ (Table~\ref{tab:sensitivity}).
+At $\gamma = 1.2$, P3 transitions smoothly to $k = 6$, while the denser graphs (P1, P5) fragment catastrophically ($k > 5{,}000$), indicating that dense co-citation networks have a sharper resolution boundary.
+Threshold sensitivity is stable across all periods ($\Delta k \leq 3$ over the 3--10/year range), confirming that community structure is not an artifact of threshold choice.
+
+\begin{table}[t]
 \centering
-\input{figures/fig10_sensitivity.tex}
-\caption{Resolution sensitivity on P3 (2017--2019). Community count and modularity are stable for $\gamma \in [0.5, 1.2]$; only $\gamma = 1.5$ produces degenerate fragmentation.}
-\label{fig:sensitivity}
-\end{figure}
+\small
+\caption{Resolution and threshold sensitivity across three periods. Community count $k$ is stable for $\gamma \leq 1.0$; dense graphs (P1, P5) fragment at $\gamma = 1.2$.}
+\label{tab:sensitivity}
+\begin{tabular}{@{}lrrrrrrrrrr@{}}
+\toprule
+& \multicolumn{5}{c}{\textbf{Resolution $\gamma$}} & \multicolumn{4}{c}{\textbf{Threshold (co-cites/yr)}} \\
+\cmidrule(lr){2-6} \cmidrule(lr){7-10}
+& 0.5 & 0.8 & 1.0 & 1.2 & 1.5 & $\geq$3 & $\geq$5 & $\geq$7 & $\geq$10 \\
+\midrule
+P1 ($\rho{=}0.33$) & 7 & 7 & 8 & 9{,}983 & 9{,}986 & 8 & 8 & 10 & 10 \\
+P3 ($\rho{=}0.23$) & 4 & 4 & 4 & 6 & 9{,}431 & 4 & 4 & 5 & 5 \\
+P5 ($\rho{=}0.29$) & 3 & 4 & 5 & 5{,}554 & 9{,}356 & 5 & 5 & 6 & 8 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \paragraph{Limitations.}
 Three limitations constrain the analysis.
@@ -517,7 +510,7 @@ Analyzing 345 million citation events across five periods (2007--2026) with data
   \item \textbf{Wartime disruption}: the 2022 invasion produces the strongest structural shock of any transition (NMI $= 0.77$, ARI $= 0.75$), splitting civil procedure and crystallizing a new administrative/misdemeanor domain. This finding was masked by fixed-node approaches that excluded war-era articles.
   \item \textbf{Reorganization}: the system differentiates into $k = 5$ identified communities with $Q = 0.27$ ($z = 1{,}848$), absorbing wartime legislation into coherent domains. The ongoing conflict means this structure may not yet be at equilibrium.
   \item \textbf{Computational tractability}: sparse co-citation ($M^\top M$ on $10^7 \times 10^4$ matrices) computes 50--102 million edge networks in 13--72 seconds per period.
-  \item \textbf{Robustness}: community count and modularity are stable across resolution $\gamma \in [0.5, 1.2]$ and threshold $\in [3, 10]$ co-citations per year.
+  \item \textbf{Robustness}: community count is stable for $\gamma \in [0.5, 1.0]$ and threshold $\in [3, 10]$ across three tested periods (P1, P3, P5). Dense graphs fragment at $\gamma = 1.2$, establishing a sharp resolution boundary that correlates with graph density.
 \end{enumerate}
 
 The co-citation networks, community assignments, and analysis code are released as open data.
