@@ -67,7 +67,7 @@ The decay concentrates along two dimensions:
   \item \emph{Frequency}: hub articles ($>$100K citations) maintain predictability; mid-frequency articles (1K--10K) -- the practical retrieval challenge -- lose half their signal.
 \end{enumerate}
 
-These findings have direct implications for legal retrieval system design: graph-based methods should not be treated as static indexes but require continual updating, and neural text-based retrieval is necessary specifically for the mid-frequency, civil/administrative tail where co-citation fails.
+These findings have direct implications for legal retrieval system design: graph-based methods should not be treated as static indexes but require continual updating, and complementary text-based methods are needed for the mid-frequency, civil/administrative tail where co-citation signal is weakest -- though our BM25 results show that lexical text matching alone does not solve the temporal robustness problem.
 
 \section{Related Work}
 \label{sec:related}
@@ -151,15 +151,15 @@ This removes data leakage: the co-citation matrix never sees evaluation cases.
 \small
 \caption{Retrieval baselines on the 2024 snapshot (200K cases, 1.8M predictions, 3{,}671 articles).}
 \label{tab:main}
-\begin{tabular}{@{}l ccc@{}}
+\begin{tabular}{@{}l cccc@{}}
 \toprule
-\textbf{Metric} & \textbf{Adamic-Adar} & \textbf{Common Neighbors} & \textbf{Degree} \\
+\textbf{Metric} & \textbf{Adamic-Adar} & \textbf{Common Neighbors} & \textbf{Degree} & \textbf{Random} \\
 \midrule
-Hit@1  & 0.145 & 0.141 & 0.030 \\
-Hit@5  & 0.406 & 0.398 & 0.063 \\
-Hit@10 & 0.545 & 0.534 & 0.111 \\
-Hit@20 & 0.675 & 0.664 & 0.175 \\
-MRR    & 0.272 & 0.266 & 0.059 \\
+Hit@1  & 0.145 & 0.141 & 0.030 & $<$0.001 \\
+Hit@5  & 0.406 & 0.398 & 0.063 & 0.001 \\
+Hit@10 & 0.545 & 0.534 & 0.111 & 0.003 \\
+Hit@20 & 0.675 & 0.664 & 0.175 & 0.005 \\
+MRR    & 0.272 & 0.266 & 0.059 & $<$0.001 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -211,6 +211,7 @@ The practical challenge resides in the 3{,}650 non-hub articles that constitute 
 Figure~\ref{fig:temporal} presents the central result: Adamic-Adar MRR declines from 0.47 (2012) to 0.27 (2024).
 The decline is monotonic after 2012 with no recovery periods.
 All three methods show parallel degradation, confirming a structural phenomenon rather than a scoring artifact.
+(The 2009 outlier -- MRR = 0.56 -- reflects an anomalously small partition of 52K decisions during a political crisis; it is retained but should not be interpreted as peak performance.)
 
 \subsection{Ablation: Is the Decay Real?}
 
@@ -252,19 +253,19 @@ Three findings confirm the decay is genuine:
 \begin{table}[t]
 \centering
 \small
-\caption{BM25 (case text $\to$ article text) vs.\ co-citation (Adamic-Adar). BM25 uses masked case text (citations stripped) as query against article full texts. Both methods degrade over time.}
+\caption{BM25 (case text $\to$ article text) vs.\ co-citation (Adamic-Adar). BM25 uses masked case text (citations stripped) as query against article full texts. Both methods are evaluated on the intersection of frequent and text-available articles. Both degrade over time.}
 \label{tab:bm25}
-\begin{tabular}{@{}l cc cc@{}}
+\begin{tabular}{@{}l r cc cc@{}}
 \toprule
-\textbf{Year} & \textbf{AA MRR} & \textbf{BM25 MRR} & \textbf{AA Hit@10} & \textbf{BM25 Hit@10} \\
+\textbf{Year} & \textbf{Articles} & \textbf{AA MRR} & \textbf{BM25 MRR} & \textbf{AA Hit@10} & \textbf{BM25 Hit@10} \\
 \midrule
-2008 & 0.409 & 0.068 & 0.721 & 0.112 \\
-2012 & 0.509 & 0.022 & 0.789 & 0.037 \\
-2016 & 0.369 & 0.027 & 0.647 & 0.047 \\
-2020 & 0.330 & 0.052 & 0.619 & 0.091 \\
-2024 & 0.324 & 0.047 & 0.607 & 0.082 \\
+2008 &    432 & 0.409 & 0.068 & 0.721 & 0.112 \\
+2012 &  1{,}362 & 0.509 & 0.022 & 0.789 & 0.037 \\
+2016 &  1{,}600 & 0.369 & 0.027 & 0.647 & 0.047 \\
+2020 &  1{,}962 & 0.330 & 0.052 & 0.619 & 0.091 \\
+2024 &  2{,}492 & 0.324 & 0.047 & 0.607 & 0.082 \\
 \midrule
-\textbf{Decay} & \textbf{20.8\%} & \textbf{31.1\%} & & \\
+\multicolumn{2}{@{}l}{\textbf{Decay (2008$\to$2024)}} & \textbf{20.8\%} & \textbf{31.1\%} & & \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -277,7 +278,9 @@ Crucially, BM25 \emph{also degrades} over time (31\% decay), even faster than co
 This challenges the assumption that text-based methods are inherently more temporally robust.
 The decay likely reflects evolving judicial writing conventions: as courts adopt new terminology and citation styles, the lexical bridge between decisions and statutes weakens.
 
-However, the two signals are complementary: co-citation excels on high-frequency articles with dense graph structure, while BM25 provides nonzero signal for rare articles where co-citation fails entirely.
+We note that co-citation and BM25 solve related but distinct tasks: co-citation predicts missing links from a partial citation set (link prediction), while BM25 matches case text to article text (text retrieval).
+Direct MRR comparison reflects relative task difficulty rather than method quality on the same input.
+Nevertheless, the two signals are complementary: co-citation excels on high-frequency articles with dense graph structure, while BM25 provides nonzero signal for rare articles where co-citation fails entirely.
 A hybrid system combining both modalities may achieve more robust performance than either alone.
 
 \subsection{Non-Uniform Degradation}
@@ -342,7 +345,7 @@ Two complementary mechanisms drive the observed degradation:
 A formal changepoint analysis (PELT algorithm on mean+variance) identifies 2014, 2017, and 2019 as structural breaks, though the decline is predominantly gradual rather than step-like -- consistent with a diffusion mechanism rather than a single discrete event.
 
 \paragraph{Practical implications.}
-The decay rate of $\sim$3\% MRR/year for mid-frequency articles implies that a graph-based retrieval system loses meaningful performance within 3--4 years without retraining.
+The decay rate of $\sim$4\% MRR/year during 2012--2018, slowing to $\sim$1\%/year after 2020 for mid-frequency articles implies that a graph-based retrieval system loses meaningful performance within 3--4 years without retraining.
 Notably, our BM25 baseline shows that naive text-based retrieval does \emph{not} solve the problem -- it decays even faster (31\% vs.\ 21\%).
 This suggests that temporal robustness requires either continual retraining, dense semantic embeddings (which may capture deeper legal reasoning patterns than lexical overlap), or hybrid graph-text systems that exploit complementary signal.
 
@@ -368,6 +371,7 @@ The underlying 396M codex citation records remain proprietary; the co-citation g
 \label{sec:limitations}
 
 \begin{enumerate}[nosep,leftmargin=*]
+  \item \emph{Link prediction, not retrieval}: our leave-one-out protocol measures citation prediction (given partial citations, recover the missing one), which is a proxy for statute retrieval but not the same task. Practitioners start from case facts, not from partial citation sets.
   \item \emph{Codex articles only}: specific laws (by number/date) are not covered.
   \item \emph{Citation $\neq$ relevance}: ground truth conflates procedural and substantive citations.
   \item \emph{Single jurisdiction}: results may not generalize to common-law systems where stare decisis creates different citation dynamics.
@@ -379,7 +383,7 @@ The underlying 396M codex citation records remain proprietary; the co-citation g
 \label{sec:conclusion}
 
 We demonstrated that co-citation predictability in legal statute retrieval is \emph{non-stationary}: it decays 33--47\% over 12 years depending on evaluation protocol.
-The decay is genuine (persists on fixed articles, strengthens without data leakage), non-uniform (concentrates in civil/administrative domains and mid-frequency articles), and practically significant ($\sim$3\% MRR/year loss for the articles that matter most).
+The decay is genuine (persists on fixed articles, strengthens without data leakage), non-uniform (concentrates in civil/administrative domains and mid-frequency articles), and practically significant ($\sim$4\% MRR/year during 2012--2018, slowing to $\sim$1\%/year after 2020 loss for the articles that matter most).
 BM25 text retrieval, far from being a stable alternative, decays even faster (31\%), suggesting that temporal robustness is an open challenge for \emph{all} retrieval modalities.
 
 These findings challenge two implicit assumptions: that citation structure provides stable signal, and that text-based methods are inherently more temporally robust.
