@@ -263,26 +263,31 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-local_redis_pass}
 
-      # OpenAI Configuration
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-local-dev-openai-key}
-      OPENAI_API_KEY2: ${OPENAI_API_KEY2:-}
-      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      # AWS Bedrock Configuration
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      BEDROCK_MODEL_QUICK: ${BEDROCK_MODEL_QUICK:-eu.anthropic.claude-haiku-4-5-20251001-v1:0}
+      BEDROCK_MODEL_STANDARD: ${BEDROCK_MODEL_STANDARD:-eu.anthropic.claude-sonnet-4-6}
+      BEDROCK_MODEL_DEEP: ${BEDROCK_MODEL_DEEP:-eu.anthropic.claude-sonnet-4-6}
+      BEDROCK_FALLBACK_MODEL_QUICK: ${BEDROCK_FALLBACK_MODEL_QUICK:-}
+      BEDROCK_FALLBACK_MODEL_STANDARD: ${BEDROCK_FALLBACK_MODEL_STANDARD:-}
+      BEDROCK_FALLBACK_MODEL_DEEP: ${BEDROCK_FALLBACK_MODEL_DEEP:-}
+
+      # Embeddings
       VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY:-}
       VOYAGEAI_API_KEY_2: ${VOYAGEAI_API_KEY_2:-}
       VOYAGEAI_EMBEDDING_MODEL: ${VOYAGEAI_EMBEDDING_MODEL:-voyage-multilingual-2}
 
-      # Dynamic model selection (cost-optimized defaults)
-      OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
-      OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
-      OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
+      # LLM Provider Strategy
+      LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-bedrock-first}
 
-      # LLM Provider Strategy (OpenAI-only pipeline)
-      LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-openai-first}
+      # Anthropic direct (fallback)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
 
-      # ZakonOnline API
-      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN:-local-dev-zo-token}
+      # ZakonOnline API (deprecated, removal pending)
+      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN:-}
       ZAKONONLINE_API_TOKEN2: ${ZAKONONLINE_API_TOKEN2:-}
-      ZAKONONLINE_TOKEN_STRATEGY: round_robin
 
       # Security (relaxed for local dev)
       SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS:-local-dev-key,test-key-123}
