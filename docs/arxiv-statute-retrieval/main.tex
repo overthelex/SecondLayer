@@ -25,12 +25,12 @@
   urlcolor=BrickRed
 }
 
-\title{Temporal Decay of Co-Citation Predictability:\\A 20-Year Statute Retrieval Benchmark\\from 502M Ukrainian Court Citations}
+\title{Temporal Decay of Co-Citation Predictability:\\A 20-Year Statute Retrieval Benchmark\\from 396M Ukrainian Court Citations}
 
 \author{
-  Volodymyr Keshchenko\\
-  SecondLayer\\
-  \texttt{mcvovkes@gmail.com}
+  Volodymyr Ovcharov \\[6pt]
+  LEX AI LLC, Kyiv, Ukraine \\[4pt]
+  \texttt{vladimir@legal.org.ua}
 }
 
 \date{}
@@ -40,7 +40,7 @@
 
 \begin{abstract}
 Co-citation structure is widely assumed to provide stable retrieval signal in legal information systems.
-We test this assumption longitudinally by constructing UA-StatuteRetrieval, a benchmark that measures co-citation predictability across 20 annual snapshots (2007--2026) of 502 million citation records from 126 million Ukrainian court decisions.
+We test this assumption longitudinally by constructing UA-StatuteRetrieval, a benchmark that measures co-citation predictability across 20 annual snapshots (2007--2026) of 396 million codex citations from 101 million Ukrainian court decisions.
 Using a leave-one-out protocol over the full bipartite citation graph, we find that Adamic-Adar MRR declines 33\% on a \emph{fixed} set of articles (from 0.43 to 0.29) and 47\% under a train/test temporal split (from 0.51 to 0.27) -- confirming genuine temporal decay rather than compositional shift or evaluation artifact.
 The decay is non-uniform: criminal procedure maintains stable co-citation patterns (MRR $\sim$0.40), while civil law degrades from 0.35 to 0.15 following the 2017 judicial reform.
 Hub articles ($>$100K citations) resist decay, but mid-frequency articles (1K--10K) -- the practical retrieval frontier -- lose half their predictability.
@@ -55,7 +55,7 @@ Co-citation structure -- the pattern of which statutory articles are cited toget
 The implicit assumption is that this structure provides a stable signal: if articles A and B were frequently co-cited in past decisions, they remain relevant to similar future cases.
 
 We test this assumption empirically.
-From the Ukrainian Unified State Register of Court Decisions (\foreignlanguage{ukrainian}{ЄДРСР}, 126M decisions, 2005--2026), we extract 502 million statutory citations and construct annual retrieval benchmarks spanning 20 years.
+From the Ukrainian Unified State Register of Court Decisions (\foreignlanguage{ukrainian}{ЄДРСР}, 101M decisions, 2007--2026), we extract 396 million codex-article citations and construct annual retrieval benchmarks spanning 20 years.
 Our evaluation protocol is leave-one-out over the full bipartite citation graph: for each decision, we mask each cited article and measure whether co-citation-based methods can recover it.
 
 The central finding is that co-citation predictability \emph{decays}: the same retrieval methods applied to the same articles yield progressively worse results over time.
@@ -93,9 +93,10 @@ Our contribution is the longitudinal application and the discovery that predicta
 \subsection{Source Corpus}
 
 The ЄДРСР publishes all Ukrainian court decisions since 2005.
-We process 126 million full-text decisions partitioned by adjudication year.
+We process 101 million full-text decisions partitioned by adjudication year (2007--2026).
 Citation extraction uses compiled regex patterns for 13 codices with abbreviation normalization and article range expansion.
-After cleaning (retaining only well-formed article references), we obtain 502 million citation records.
+The raw extraction yields 502 million citation records across all types (codex articles, case references, constitutional citations, law-by-number references).
+After restricting to codex-article citations and retaining only well-formed article references, we obtain 396 million validated records -- the basis for our evaluation.
 
 \subsection{Annual Snapshots}
 
@@ -246,6 +247,39 @@ Three findings confirm the decay is genuine:
   \item \textbf{Residual composition effect}: the 8.3pp gap between original (41.5\%) and fixed-article (33.2\%) decay quantifies the contribution of compositional shift -- new articles appearing in later years do account for roughly one-fifth of the observed decline.
 \end{enumerate}
 
+\subsection{Text-Based Baseline: BM25}
+
+\begin{table}[t]
+\centering
+\small
+\caption{BM25 (case text $\to$ article text) vs.\ co-citation (Adamic-Adar). BM25 uses masked case text (citations stripped) as query against article full texts. Both methods degrade over time.}
+\label{tab:bm25}
+\begin{tabular}{@{}l cc cc@{}}
+\toprule
+\textbf{Year} & \textbf{AA MRR} & \textbf{BM25 MRR} & \textbf{AA Hit@10} & \textbf{BM25 Hit@10} \\
+\midrule
+2008 & 0.409 & 0.068 & 0.721 & 0.112 \\
+2012 & 0.509 & 0.022 & 0.789 & 0.037 \\
+2016 & 0.369 & 0.027 & 0.647 & 0.047 \\
+2020 & 0.330 & 0.052 & 0.619 & 0.091 \\
+2024 & 0.324 & 0.047 & 0.607 & 0.082 \\
+\midrule
+\textbf{Decay} & \textbf{20.8\%} & \textbf{31.1\%} & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+To test whether text-based retrieval provides a temporally stable alternative, we evaluate BM25 using masked case text (all citation patterns stripped) as the query against article full texts from 13 Ukrainian codices (Table~\ref{tab:bm25}).
+
+BM25 achieves substantially lower MRR than co-citation (0.047 vs.\ 0.324 in 2024), confirming that lexical overlap between case text and statutory provisions is a weak retrieval signal -- legal decisions discuss factual circumstances in language quite different from the normative text they cite.
+
+Crucially, BM25 \emph{also degrades} over time (31\% decay), even faster than co-citation (21\%).
+This challenges the assumption that text-based methods are inherently more temporally robust.
+The decay likely reflects evolving judicial writing conventions: as courts adopt new terminology and citation styles, the lexical bridge between decisions and statutes weakens.
+
+However, the two signals are complementary: co-citation excels on high-frequency articles with dense graph structure, while BM25 provides nonzero signal for rare articles where co-citation fails entirely.
+A hybrid system combining both modalities may achieve more robust performance than either alone.
+
 \subsection{Non-Uniform Degradation}
 
 \begin{figure}[t]
@@ -308,8 +342,8 @@ Two complementary mechanisms drive the observed degradation:
 
 \paragraph{Practical implications.}
 The decay rate of $\sim$3\% MRR/year for mid-frequency articles implies that a graph-based retrieval system loses meaningful performance within 3--4 years without retraining.
-For criminal procedure, static co-citation indexes remain viable; for civil and administrative law, text-based retrieval (dense embeddings, BM25 over article text) is necessary to maintain quality.
-The domain-specific decay rates enable targeted hybrid strategies.
+Notably, our BM25 baseline shows that naive text-based retrieval does \emph{not} solve the problem -- it decays even faster (31\% vs.\ 21\%).
+This suggests that temporal robustness requires either continual retraining, dense semantic embeddings (which may capture deeper legal reasoning patterns than lexical overlap), or hybrid graph-text systems that exploit complementary signal.
 
 \paragraph{Benchmark design.}
 The train/test split ablation reveals that standard leave-one-out evaluation \emph{underestimates} real-world degradation by $\sim$5pp.
@@ -327,7 +361,7 @@ UA-StatuteRetrieval is available at \url{https://huggingface.co/datasets/overthe
 \end{itemize}
 
 The R evaluation scripts are released alongside the paper.
-The underlying 502M citation records remain proprietary; the co-citation graph is available separately~\citep{keshchenko2025citation}.
+The underlying 396M codex citation records remain proprietary; the co-citation graph is available separately~\citep{keshchenko2025citation}.
 
 \section{Limitations}
 \label{sec:limitations}
@@ -336,7 +370,7 @@ The underlying 502M citation records remain proprietary; the co-citation graph i
   \item \emph{Codex articles only}: specific laws (by number/date) are not covered.
   \item \emph{Citation $\neq$ relevance}: ground truth conflates procedural and substantive citations.
   \item \emph{Single jurisdiction}: results may not generalize to common-law systems where stare decisis creates different citation dynamics.
-  \item \emph{Graph-only baselines}: text-based retrievers (likely more temporally robust) are not evaluated. This is deliberate -- establishing graph-method decay is a prerequisite for motivating text-based alternatives.
+  \item \emph{BM25 only}: our text baseline uses lexical matching; dense embedding retrievers (E5, BGE-M3) may show different temporal dynamics.
   \item \emph{Early-year anomalies}: 2007 contains retrospective imports (15 cites/case vs.\ 4 average), and 2009 has only 52K decisions due to political crisis. Both outliers are retained but noted.
 \end{enumerate}
 
@@ -345,10 +379,11 @@ The underlying 502M citation records remain proprietary; the co-citation graph i
 
 We demonstrated that co-citation predictability in legal statute retrieval is \emph{non-stationary}: it decays 33--47\% over 12 years depending on evaluation protocol.
 The decay is genuine (persists on fixed articles, strengthens without data leakage), non-uniform (concentrates in civil/administrative domains and mid-frequency articles), and practically significant ($\sim$3\% MRR/year loss for the articles that matter most).
+BM25 text retrieval, far from being a stable alternative, decays even faster (31\%), suggesting that temporal robustness is an open challenge for \emph{all} retrieval modalities.
 
-These findings challenge the implicit assumption that citation structure provides stable retrieval signal.
-Legal information systems that rely on co-citation should implement continual graph updates, and the mid-frequency / civil-law tail should be served by complementary text-based retrieval.
-The released benchmark enables direct measurement of temporal robustness for any retrieval system.
+These findings challenge two implicit assumptions: that citation structure provides stable signal, and that text-based methods are inherently more temporally robust.
+Dense semantic retrievers (E5, BGE-M3) and hybrid graph-text systems should be evaluated against this temporal baseline.
+The released benchmark enables direct measurement of temporal robustness for any retrieval approach.
 
 \bibliographystyle{plainnat}
 \bibliography{references}
