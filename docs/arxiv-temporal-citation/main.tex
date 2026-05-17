@@ -25,7 +25,7 @@
 }
 
 \title{Temporal Dynamics of a Half-Billion-Edge Legal Citation Network:\\
-Consolidation, Disruption, and Recovery\\in Ukrainian Courts}
+Consolidation, Disruption, and Reorganization\\in Ukrainian Courts}
 
 \author{
   Volodymyr Ovcharov \\[6pt]
@@ -49,9 +49,9 @@ Using sparse matrix co-citation ($M^\top M$ on $10^7 \times 10^4$ matrices) with
 The data-driven approach eliminates survivorship bias toward older articles, allowing newly important legislation to enter the analysis naturally.
 
 We uncover a three-phase dynamic invisible to static or fixed-node analyses:
-\emph{(i)}~progressive consolidation, as community count declines from 8 (pre-2014) to 3 (pre-invasion), reflecting judicial specialization and procedural code unification;
-\emph{(ii)}~wartime disruption, as the 2022 invasion produces the strongest structural shock of all transitions (NMI~$= 0.77$, the lowest observed), creating new legal domains while fragmenting consolidated ones; and
-\emph{(iii)}~structural recovery, as the system reorganizes into 5 communities that absorb wartime legislation into a coherent domain structure.
+\emph{(i)}~progressive consolidation, as the four core legal domains (commercial, civil substantive, civil procedural, criminal) merge from 4--5 effective communities to 3 by the pre-invasion period, reflecting judicial specialization and procedural code unification;
+\emph{(ii)}~wartime disruption, as the 2022 invasion produces the strongest structural shock of all transitions (NMI~$= 0.77$, the lowest observed), splitting civil procedure into trial and cassation clusters and crystallizing a new administrative/misdemeanor domain; and
+\emph{(iii)}~wartime reorganization, as the system differentiates into 5 communities that absorb wartime legislation into a coherent -- though potentially transient -- domain structure.
 Pre-invasion stability is near-perfect (NMI~$= 0.96$), confirming that the COVID period introduced no structural change.
 
 All findings are robust to resolution ($\gamma \in [0.5, 1.2]$) and threshold ($3$--$10$ co-citations/year) variation.
@@ -90,7 +90,7 @@ Four research questions guide the analysis:
   \item[\textbf{RQ4}:] What structural signature does the 2022 full-scale invasion leave on the citation network?
 \end{enumerate}
 
-Our principal finding is a three-phase dynamic: progressive consolidation ($k = 8 \to 3$ communities over 2007--2021), wartime disruption (the invasion produces the lowest NMI of any transition, $0.77$), and structural recovery ($k = 5$ communities incorporating wartime legislation).
+Our principal finding is a three-phase dynamic: progressive consolidation of four core legal domains into three ($k_{\text{eff}} = 4 \to 3$ over 2007--2021), wartime disruption (the invasion produces the lowest NMI of any transition, $0.77$), and reorganization into five identified communities incorporating wartime legislation.
 The pre-invasion period is maximally stable (NMI~$= 0.96$), establishing a clear baseline against which the invasion effect is measured.
 Resolution and threshold sensitivity analysis confirms robustness across parameter choices.
 
@@ -220,23 +220,66 @@ Criminal cases show steady growth from 2013 onward, reflecting expanded criminal
 \label{fig:volume}
 \end{figure}
 
-\subsection{Phase I: Progressive Consolidation (RQ1, RQ3)}
+\subsection{Phase I: Consolidation of Legal Domains (RQ1, RQ3)}
 
-The most striking pattern in the full-scale analysis is progressive community consolidation: the number of distinct co-citation communities declines monotonically from $k = 8$ (P1, pre-Maidan) to $k = 3$ (P4, pre-invasion), as shown in Figure~\ref{fig:period_summary} and the alluvial diagram (Figure~\ref{fig:alluvial}).
+Community detection recovers recognizable legal domains in every period (Table~\ref{tab:domains}).
+Four major domains persist across the entire timeline: \emph{commercial/economic} (Commercial Procedure Code, ГПК), \emph{civil substantive} (Civil Code, ЦК), \emph{civil procedural} (Civil Procedure Code, ЦПК), and \emph{criminal} (Criminal Code + Criminal Procedure Code, КК/КПК).
+Smaller domain-specific communities appear and disappear as the legal system evolves.
 
-This consolidation reflects two institutional processes.
-First, the 2017 judicial reform unified procedural codes and created specialized courts, mechanically merging citation clusters that previously corresponded to separate procedural domains.
-Second, the Supreme Court's expanding role as the sole appellate instance after 2017 created cross-domain citation bridges that pulled formerly separate communities together.
+\begin{table}[t]
+\centering
+\small
+\caption{Community labels by period. Each community is identified by its dominant legislation. Only communities with $> 100$ nodes shown; P1 also contains 4 micro-communities (2 nodes each: copyright, tax, bankruptcy, public information).}
+\label{tab:domains}
+\begin{tabular}{@{}clrl@{}}
+\toprule
+\textbf{P} & \textbf{Domain} & \textbf{Nodes} & \textbf{Top legislation} \\
+\midrule
+\multirow{4}{*}{1} & Commercial procedure & 9{,}997 & ГПК art.~1117, 1119, 11110 \\
+ & Civil procedure + pensions & 6{,}293 & ЦПК art.~215, 88; pension law \\
+ & Commercial appeals & 1{,}015 & ГПК art.~107, 112, 1118 \\
+ & Criminal & 950 & КК art.~185, 75; КПК art.~323 \\
+\midrule
+\multirow{5}{*}{2} & Commercial procedure & 10{,}020 & ГПК art.~1117, 1119 \\
+ & Civil substantive & 9{,}520 & ЦК art.~1268, 1218, 1216 \\
+ & Civil procedure & 5{,}135 & ЦПК art.~88, 10, 60 \\
+ & Criminal + admin & 3{,}734 & КК art.~185; КАС art.~160; КУпАП \\
+ & Commercial appeals & 1{,}065 & ГПК art.~1114, 86, 112 \\
+\midrule
+\multirow{4}{*}{3} & Commercial procedure & 10{,}015 & ГПК art.~1117, 1119 \\
+ & Civil substantive & 9{,}523 & ЦК art.~1055, 1218, 1216 \\
+ & Civil procedure + obligations & 8{,}631 & ЦК art.~1054, 526; ЦПК art.~141 \\
+ & Criminal & 1{,}208 & КК art.~185; КПК art.~177, 163 \\
+\midrule
+\multirow{3}{*}{4} & Civil substantive & 9{,}483 & ЦК art.~10561, 1241, 1082 \\
+ & Civil procedure & 7{,}831 & ЦПК art.~81, 141; ЦК art.~1054 \\
+ & Criminal & 1{,}163 & КК art.~185; КПК art.~177, 163 \\
+\midrule
+\multirow{5}{*}{5} & Civil substantive & 9{,}473 & ЦК art.~1227, 1221, 1264 \\
+ & Civil procedure (first instance) & 3{,}135 & ЦПК art.~141, 81, 178 \\
+ & Admin + misdemeanor & 2{,}416 & КУпАП art.~130; КАС art.~77 \\
+ & Civil procedure (cassation) & 2{,}240 & ЦПК art.~392, 447, 411 \\
+ & Criminal & 1{,}269 & КК art.~185; КПК art.~177, 163 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-The consolidation is accompanied by the growth of a dominant community: the largest cluster expands from ${\sim}30\%$ of active nodes in P1 to ${\sim}60\%$ in P4 (Figure~\ref{fig:comm_sizes}), absorbing smaller domain-specific communities.
-Modularity varies substantially across periods ($Q = 0.03$--$0.42$), but all periods show modularity significantly exceeding their degree-preserving null models ($z = 18.7$--$4{,}493$; Table~\ref{tab:cocitation}), confirming that community structure is a genuine feature at every stage of consolidation.
+The raw community count ($k = 8, 6, 4, 3, 5$) overstates P1's complexity: four of P1's eight communities are micro-clusters of exactly 2 nodes each (copyright, tax code, bankruptcy, public information), totaling 8 nodes out of 18{,}263.
+Excluding these, P1 has four substantive communities, matching P3.
+The meaningful consolidation trajectory is $k_{\text{eff}} = 4 \to 5 \to 4 \to 3 \to 5$ (Table~\ref{tab:domains}), where the primary structural change is the merger of the commercial appeals sub-community into the main commercial procedure cluster (P2$\to$P3) and the absorption of separate civil procedural and substantive communities into a unified civil domain (P3$\to$P4).
 
-The transition stability confirms gradualism: NMI between P1$\to$P2 ($0.823$), P2$\to$P3 ($0.861$), and P3$\to$P4 ($0.958$) shows \emph{increasing} stability over time (Table~\ref{tab:nmi}), with the pre-invasion period achieving near-perfect partition preservation.
+P1 deserves particular methodological caution.
+Its co-citation graph has the highest density (0.333) and the lowest modularity ($Q = 0.027$, only marginally above the null model $Q_{\text{null}} = 0.026$, $z = 18.7$).
+The 7-year aggregation window generates far more co-citation opportunities than shorter periods, inflating edge density despite year-normalization of weights (which corrects edge \emph{weights} but not edge \emph{count}).
+P1's community assignments should therefore be interpreted with caution; the core four-domain structure is identifiable from the top-cited articles, but the partition boundaries are less sharp than in later periods.
+
+The transition stability increases monotonically: NMI between P1$\to$P2 ($0.823$), P2$\to$P3 ($0.861$), and P3$\to$P4 ($0.958$) (Table~\ref{tab:nmi}), with the pre-invasion period achieving near-perfect partition preservation.
+This increasing stability reflects genuine convergence toward a consolidated domain structure, not a measurement artifact.
 
 \begin{figure}[t]
 \centering
 \input{figures/fig9_period_summary.tex}
-\caption{Community count $k$ (bars) and modularity $Q$ (line) across periods. The system consolidates from $k=8$ to $k=3$ through reform, then diversifies to $k=5$ under wartime conditions.}
+\caption{Community count $k$ (bars) and modularity $Q$ (line) across periods. Raw $k$ includes micro-communities (P1: 4 clusters of 2 nodes); effective community count is $k_{\text{eff}} = 4, 5, 4, 3, 5$.}
 \label{fig:period_summary}
 \end{figure}
 
@@ -260,9 +303,10 @@ The 2022 full-scale Russian invasion produced the strongest structural shock in 
 The P4$\to$P5 transition yields the lowest NMI of any consecutive-period pair: $0.768$ (ARI $= 0.752$; Table~\ref{tab:nmi}, Figure~\ref{fig:nmi_bars}).
 This is substantially lower than the pre-invasion baseline (P3$\to$P4: NMI $= 0.958$) and lower than the reform transition (P2$\to$P3: $0.861$).
 
-The disruption operates through two mechanisms visible in the transition heatmap (Figure~\ref{fig:transition}).
-First, \emph{fragmentation}: the three consolidated communities of P4 split into five communities in P5, with off-diagonal mass in the transition matrix indicating substantial node reassignment.
-Second, \emph{domain creation}: wartime legislation (martial law regime, mobilization, occupied territories, wartime labor) enters the active node set and forms distinct clusters that did not exist in P4.
+The disruption operates through two mechanisms visible in the transition heatmap (Figure~\ref{fig:transition}) and domain labels (Table~\ref{tab:domains}).
+First, \emph{domain splitting}: P4's civil procedure community (7{,}831 nodes) fractures into two distinct clusters in P5 -- first-instance procedure (3{,}135 nodes, ЦПК art.~81, 141) and cassation procedure (2{,}240 nodes, ЦПК art.~392, 447) -- reflecting the growing procedural divergence between trial and appellate courts under wartime conditions.
+Second, \emph{domain emergence}: an administrative/misdemeanor cluster (2{,}416 nodes, КУпАП art.~130; КАС art.~77) crystallizes in P5, absorbing wartime administrative proceedings that were previously distributed across other communities.
+This cluster includes martial law, mobilization, and occupied territories legislation alongside traditional administrative law.
 
 At the individual-law level, the changes are dramatic.
 Citations to the martial law regime act grew from 3 in 2021 to 12{,}136 in 2022 -- a 4{,}000$\times$ increase in a single year.
@@ -300,14 +344,15 @@ P4 $\to$ P5 & 18,338 & 0.768 & $0.769 \pm 0.011$ & 0.752 \\
 \label{fig:transition}
 \end{figure}
 
-\subsection{Phase III: Structural Recovery}
+\subsection{Phase III: Wartime Reorganization}
 
 Despite the disruption, the post-invasion community structure is not chaotic.
-The system reorganizes into $k = 5$ well-separated communities (Figure~\ref{fig:network}), with wartime legislation absorbed into coherent domain clusters rather than remaining as isolated fragments.
-Modularity recovers to $Q = 0.265$ ($z = 1{,}848$), indicating strong community structure despite the recent reorganization.
+The system reorganizes into $k = 5$ well-separated communities (Figure~\ref{fig:network}): civil substantive law (51\%), civil first-instance procedure (17\%), administrative/misdemeanor (13\%), civil cassation (12\%), and criminal (7\%).
+Modularity reaches $Q = 0.265$ ($z = 1{,}848$), indicating coherent community structure in the reorganized state.
 
-The recovery is visible in the network comparison (Figure~\ref{fig:network}): the P5 graph shows five clearly separated communities, in contrast to the three densely connected communities of P4.
-The new structure is arguably more differentiated than the pre-invasion state, suggesting that wartime conditions forced a re-specialization of legal domains that the consolidation trend had obscured.
+The network comparison (Figure~\ref{fig:network}) shows five clearly separated communities in P5, in contrast to the three densely connected communities of P4.
+The new structure is more differentiated than the pre-invasion state, suggesting that wartime conditions forced a re-specialization that the consolidation trend had obscured.
+We use the term ``reorganization'' rather than ``recovery'' because P5 spans an ongoing conflict (2022--2026) and the current partition may not represent a stable equilibrium.
 
 Citation entropy (Figure~\ref{fig:entropy}) provides a complementary perspective: despite the dramatic changes at the community level, no individual year produces a statistically significant distributional anomaly ($\pm 2\sigma$ threshold).
 The legal system absorbs structural shocks while maintaining distributional stability -- an apparent paradox resolved by recognizing that community reorganization redistributes nodes \emph{between} domains without dramatically altering the overall citation frequency distribution \emph{within} domains.
@@ -399,12 +444,12 @@ Bridge stability increases monotonically ($\text{Jaccard} = 0.03 \to 0.54$), ind
 \label{sec:discussion}
 % ============================================================
 
-\paragraph{The consolidation--disruption--recovery cycle.}
-The three-phase pattern (consolidation $\to$ disruption $\to$ recovery) provides a richer narrative than the ``stable resilience'' story told by fixed-node analyses.
+\paragraph{The consolidation--disruption--reorganization cycle.}
+The three-phase pattern provides a richer narrative than the ``stable resilience'' story told by fixed-node analyses.
 The legal system does not simply absorb shocks; it undergoes genuine structural reorganization in response to major institutional events.
-The consolidation phase (P1--P4) reflects deliberate policy: procedural code unification, court specialization, and centralization of appellate jurisdiction mechanically reduce the number of distinct citation communities.
-The wartime disruption phase reverses this trend, as entirely new legal domains (martial law, mobilization, occupied territories) force the system to differentiate.
-The recovery into $k = 5$ communities suggests that the legal system's self-organizing dynamics can absorb exogenous shocks within a few years, producing a new equilibrium that integrates wartime legislation.
+The consolidation phase (P1--P4) reflects deliberate policy: procedural code unification, court specialization, and centralization of appellate jurisdiction merge distinct citation communities into a three-domain structure (civil substantive, civil procedural, criminal).
+The wartime disruption phase reverses this trend, as new legal domains (martial law, mobilization, occupied territories) and procedural divergence (first instance vs.\ cassation) force the system to differentiate.
+The reorganization into $k = 5$ identified communities suggests that the legal system's self-organizing dynamics can accommodate exogenous shocks by creating new domain boundaries, though the ongoing conflict means the current partition may still be evolving.
 
 \paragraph{Why fixed-node analyses mislead.}
 The data-driven node selection is not merely a technical improvement; it changes the substantive conclusions.
@@ -420,6 +465,14 @@ Figure~\ref{fig:node_dynamics} visualizes this: 1{,}000--11{,}000 articles enter
 \caption{Node set dynamics across periods. Blue: articles shared with the previous period. Red: articles newly entering the active set. The data-driven approach allows 1{,}000--11{,}000 new articles per period, eliminating survivorship bias.}
 \label{fig:node_dynamics}
 \end{figure}
+
+\paragraph{NMI on shared nodes underestimates disruption.}
+A methodological tension deserves explicit discussion.
+NMI is computed on the intersection of active nodes between consecutive periods (18{,}094--28{,}989 shared nodes per transition; Table~\ref{tab:nmi}).
+However, the articles that \emph{enter} the active set in P5 -- wartime legislation, new procedural provisions -- are precisely the nodes driving community reorganization, yet they are excluded from the NMI computation because they lack P4 community assignments.
+The reported NMI values ($0.77$ for P4$\to$P5) therefore represent a \emph{lower bound on partition similarity among continuing articles}, not a complete measure of structural change.
+The true disruption, accounting for the 1{,}000--11{,}000 newly entering articles per period (Figure~\ref{fig:node_dynamics}), is larger than NMI alone suggests.
+This limitation is inherent to any temporal analysis where node sets evolve, and we report NMI with this caveat rather than imputing community assignments for absent nodes.
 
 \paragraph{Entropy stability despite community disruption.}
 The apparent paradox -- community structure disrupted (NMI $= 0.77$) while citation entropy remains within normal bounds -- is resolved by recognizing that NMI measures partition \emph{geometry} (which nodes belong to which community) while entropy measures the \emph{distribution} (how concentrated citations are across articles).
@@ -460,9 +513,9 @@ We presented the first full-scale temporal analysis of a legal citation network 
 Analyzing 345 million citation events across five periods (2007--2026) with data-driven node selection (18{,}000--29{,}500 articles per period), we find:
 
 \begin{enumerate}[nosep]
-  \item \textbf{Consolidation}: community count declines monotonically from $k = 8$ to $k = 3$ over 2007--2021, driven by procedural code unification and judicial specialization. Transition stability increases over time (NMI: $0.82 \to 0.86 \to 0.96$).
-  \item \textbf{Wartime disruption}: the 2022 invasion produces the strongest structural shock of any transition (NMI $= 0.77$, ARI $= 0.75$), creating new legal domains and fragmenting consolidated ones. This finding was masked by fixed-node approaches that excluded war-era articles.
-  \item \textbf{Recovery}: the system reorganizes into $k = 5$ communities with $Q = 0.27$ ($z = 1{,}848$), absorbing wartime legislation into a coherent domain structure rather than remaining fragmented.
+  \item \textbf{Consolidation}: four core legal domains (commercial, civil substantive, civil procedural, criminal) consolidate from $k_{\text{eff}} = 4$--$5$ to $k = 3$ over 2007--2021. Transition stability increases monotonically (NMI: $0.82 \to 0.86 \to 0.96$).
+  \item \textbf{Wartime disruption}: the 2022 invasion produces the strongest structural shock of any transition (NMI $= 0.77$, ARI $= 0.75$), splitting civil procedure and crystallizing a new administrative/misdemeanor domain. This finding was masked by fixed-node approaches that excluded war-era articles.
+  \item \textbf{Reorganization}: the system differentiates into $k = 5$ identified communities with $Q = 0.27$ ($z = 1{,}848$), absorbing wartime legislation into coherent domains. The ongoing conflict means this structure may not yet be at equilibrium.
   \item \textbf{Computational tractability}: sparse co-citation ($M^\top M$ on $10^7 \times 10^4$ matrices) computes 50--102 million edge networks in 13--72 seconds per period.
   \item \textbf{Robustness}: community count and modularity are stable across resolution $\gamma \in [0.5, 1.2]$ and threshold $\in [3, 10]$ co-citations per year.
 \end{enumerate}
