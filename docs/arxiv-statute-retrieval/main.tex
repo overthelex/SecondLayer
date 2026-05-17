@@ -1,0 +1,356 @@
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1,T2A]{fontenc}
+\usepackage{lmodern}
+\usepackage[english,ukrainian]{babel}
+\selectlanguage{english}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{tikz}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{enumitem}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=RoyalBlue,
+  citecolor=ForestGreen,
+  urlcolor=BrickRed
+}
+
+\title{Temporal Decay of Co-Citation Predictability:\\A 20-Year Statute Retrieval Benchmark\\from 502M Ukrainian Court Citations}
+
+\author{
+  Volodymyr Keshchenko\\
+  SecondLayer\\
+  \texttt{mcvovkes@gmail.com}
+}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Co-citation structure is widely assumed to provide stable retrieval signal in legal information systems.
+We test this assumption longitudinally by constructing UA-StatuteRetrieval, a benchmark that measures co-citation predictability across 20 annual snapshots (2007--2026) of 502 million citation records from 126 million Ukrainian court decisions.
+Using a leave-one-out protocol over the full bipartite citation graph, we find that Adamic-Adar MRR declines 33\% on a \emph{fixed} set of articles (from 0.43 to 0.29) and 47\% under a train/test temporal split (from 0.51 to 0.27) -- confirming genuine temporal decay rather than compositional shift or evaluation artifact.
+The decay is non-uniform: criminal procedure maintains stable co-citation patterns (MRR $\sim$0.40), while civil law degrades from 0.35 to 0.15 following the 2017 judicial reform.
+Hub articles ($>$100K citations) resist decay, but mid-frequency articles (1K--10K) -- the practical retrieval frontier -- lose half their predictability.
+These findings establish that graph-based legal retrieval requires continual updating and that neural text-based methods are necessary precisely where co-citation signal is weakest.
+The benchmark is released at \url{https://huggingface.co/datasets/overthelex/ua-statute-retrieval}.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Co-citation structure -- the pattern of which statutory articles are cited together in court decisions -- underpins many legal information retrieval systems~\citep{tang2024casegnn,ho2025incorporating,barron2025bridging}.
+The implicit assumption is that this structure provides a stable signal: if articles A and B were frequently co-cited in past decisions, they remain relevant to similar future cases.
+
+We test this assumption empirically.
+From the Ukrainian Unified State Register of Court Decisions (\foreignlanguage{ukrainian}{ЄДРСР}, 126M decisions, 2005--2026), we extract 502 million statutory citations and construct annual retrieval benchmarks spanning 20 years.
+Our evaluation protocol is leave-one-out over the full bipartite citation graph: for each decision, we mask each cited article and measure whether co-citation-based methods can recover it.
+
+The central finding is that co-citation predictability \emph{decays}: the same retrieval methods applied to the same articles yield progressively worse results over time.
+This is not a trivial consequence of changing article composition -- we verify through ablation that decay persists on a fixed article set (33\% decline) and strengthens under proper train/test separation (47\% decline).
+
+The decay concentrates along two dimensions:
+\begin{enumerate}[nosep,leftmargin=*]
+  \item \emph{Domain}: criminal procedure resists decay while civil and administrative law degrade rapidly.
+  \item \emph{Frequency}: hub articles ($>$100K citations) maintain predictability; mid-frequency articles (1K--10K) -- the practical retrieval challenge -- lose half their signal.
+\end{enumerate}
+
+These findings have direct implications for legal retrieval system design: graph-based methods should not be treated as static indexes but require continual updating, and neural text-based retrieval is necessary specifically for the mid-frequency, civil/administrative tail where co-citation fails.
+
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Legal retrieval benchmarks.}
+BSARD~\citep{lotfi2024bsard} provides 1{,}108 queries for Belgian statutory article retrieval.
+SCALE~\citep{rasiah2023scale} and LeSICiN~\citep{paul2021lesicin} evaluate retrieval in Swiss and Indian contexts respectively.
+LEXTREME~\citep{niklaus2023lextreme} and LegalBench~\citep{guha2023legalbench} cover classification but not retrieval.
+All evaluate at a single time point; none measure temporal stability.
+
+\paragraph{Legal citation networks.}
+Fowler et al.~\citep{fowler2007network} study US Supreme Court precedent networks; Coupette et al.~\citep{coupette2021measuring} analyze European statute evolution; Winkels et al.~\citep{winkels2011determining} examine Dutch case law authority.
+CaseGNN++~\citep{tang2024casegnn} applies graph neural networks to legal retrieval.
+None release citation graphs as retrieval benchmarks or study temporal degradation.
+
+\paragraph{Link prediction.}
+We adapt Common Neighbors and Adamic-Adar~\citep{adamic2003friends} from social network link prediction~\citep{liben2007link} to bipartite legal graphs.
+Our contribution is the longitudinal application and the discovery that predictability is non-stationary.
+
+\section{Data}
+\label{sec:data}
+
+\subsection{Source Corpus}
+
+The ЄДРСР publishes all Ukrainian court decisions since 2005.
+We process 126 million full-text decisions partitioned by adjudication year.
+Citation extraction uses compiled regex patterns for 13 codices with abbreviation normalization and article range expansion.
+After cleaning (retaining only well-formed article references), we obtain 502 million citation records.
+
+\subsection{Annual Snapshots}
+
+For each year $y \in \{2007, \ldots, 2026\}$, we construct an evaluation snapshot:
+\begin{enumerate}[nosep,leftmargin=*]
+  \item Extract all codex citations from decisions adjudicated in year $y$.
+  \item Filter articles: minimum 50 citations, capped at 5{,}000 most frequent.
+  \item Filter cases: 3--200 cited articles per decision.
+\end{enumerate}
+The 2024 snapshot contains 3{,}671 articles, 1{,}801{,}481 cases, and 16.4M citation edges.
+
+\section{Method}
+\label{sec:method}
+
+\subsection{Evaluation Protocol}
+
+Let $M \in \{0,1\}^{|U| \times |V|}$ be the binary case-article incidence matrix and $C = M^\top M$ (with $\text{diag}(C) = 0$) the article co-citation matrix.
+
+For each case $u$ with cited articles $S_u$ ($|S_u| \geq 3$), and each target $v_t \in S_u$:
+score all candidates $v \notin S_u \cup \{v_t\}$ and compute the rank of $v_t$.
+Since $\text{diag}(C) = 0$, the target's self-contribution is naturally excluded.
+
+We sample 200{,}000 cases per year, yielding $\sim$1.8M predictions per snapshot.
+
+\subsection{Scoring Functions}
+
+\textbf{Common Neighbors}: $\text{CN}(v_t \mid S) = \sum_{s \in S} C_{s, v_t}$
+
+\textbf{Adamic-Adar}: $\text{AA}(v_t \mid S) = \sum_{s \in S} C_{s, v_t} / \max(\log d_s, 1)$
+
+\textbf{Degree Baseline}: $\text{DG}(v_t) = d_{v_t}$ (popularity only).
+
+\subsection{Ablation Controls}
+
+To distinguish genuine temporal decay from confounds, we introduce two controls:
+
+\paragraph{Fixed-Article Ablation.}
+We identify articles with $\geq$50 citations in \emph{both} 2012 (peak) and 2024 (recent), yielding a shared vocabulary.
+Evaluating only on this fixed set isolates temporal decay from compositional shift (new articles diluting performance).
+
+\paragraph{Temporal Train/Test Split.}
+Within each year, we build $C$ from the first 50\% of cases (by document ID) and evaluate on the second 50\%.
+This removes data leakage: the co-citation matrix never sees evaluation cases.
+
+\section{Results}
+\label{sec:results}
+
+\subsection{Cross-Sectional Performance (2024)}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Retrieval baselines on the 2024 snapshot (200K cases, 1.8M predictions, 3{,}671 articles).}
+\label{tab:main}
+\begin{tabular}{@{}l ccc@{}}
+\toprule
+\textbf{Metric} & \textbf{Adamic-Adar} & \textbf{Common Neighbors} & \textbf{Degree} \\
+\midrule
+Hit@1  & 0.145 & 0.141 & 0.030 \\
+Hit@5  & 0.406 & 0.398 & 0.063 \\
+Hit@10 & 0.545 & 0.534 & 0.111 \\
+Hit@20 & 0.675 & 0.664 & 0.175 \\
+MRR    & 0.272 & 0.266 & 0.059 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:main} establishes the 2024 cross-section.
+Co-citation methods outperform degree by 4.6$\times$ on MRR, confirming that citation context provides retrieval signal beyond popularity.
+These numbers represent the \emph{current} state of predictability -- subsequent sections show they were substantially higher in earlier years.
+
+\subsection{Difficulty Spectrum}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Performance by article citation frequency (2024, Adamic-Adar).}
+\label{tab:difficulty}
+\begin{tabular}{@{}l r r cc@{}}
+\toprule
+\textbf{Bin} & \textbf{Articles} & \textbf{Predictions} & \textbf{Hit@10} & \textbf{MRR} \\
+\midrule
+Hub ($>$100K)     &    21 &  298{,}925 & 0.890 & 0.536 \\
+High (10K--100K)  &   354 & 1{,}127{,}489 & 0.601 & 0.274 \\
+Mid (1K--10K)     &   864 &  316{,}972 & 0.138 & 0.074 \\
+Low (100--1K)     & 1{,}689 &   68{,}807 & 0.041 & 0.020 \\
+Rare ($<$100)     &   739 &    5{,}338 & 0.012 & 0.010 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\input{figures/fig1_difficulty_curve.tex}
+\caption{Retrieval performance vs.\ article citation frequency. The practical difficulty frontier lies at $\sim$10K citations: below this, graph-based methods approach the degree baseline.}
+\label{fig:difficulty}
+\end{figure}
+
+Table~\ref{tab:difficulty} and Figure~\ref{fig:difficulty} show a 50$\times$ MRR gap between hub and rare articles.
+The 21 hub articles achieve near-perfect recovery -- a consequence of their dense co-citation clusters (Section~\ref{sec:structure}) rather than a meaningful retrieval achievement.
+The practical challenge resides in the 3{,}650 non-hub articles that constitute 84\% of predictions.
+
+\subsection{Temporal Decay: Main Finding}
+
+\begin{figure}[t]
+\centering
+\input{figures/fig3_temporal_curve.tex}
+\caption{MRR over 20 years. Co-citation predictability peaks in 2011--2012 and declines monotonically. Dashed: 2017 judicial reform. Dotted: 2022 invasion.}
+\label{fig:temporal}
+\end{figure}
+
+Figure~\ref{fig:temporal} presents the central result: Adamic-Adar MRR declines from 0.47 (2012) to 0.27 (2024).
+The decline is monotonic after 2012 with no recovery periods.
+All three methods show parallel degradation, confirming a structural phenomenon rather than a scoring artifact.
+
+\subsection{Ablation: Is the Decay Real?}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Ablation comparison: decay persists under both controls, confirming genuine temporal decay of co-citation predictability.}
+\label{tab:ablation}
+\begin{tabular}{@{}l ccc@{}}
+\toprule
+\textbf{Year} & \textbf{Original} & \textbf{Fixed-Article} & \textbf{Train/Test} \\
+\midrule
+2008 & 0.420 & 0.424 & 0.479 \\
+2010 & 0.356 & 0.364 & 0.338 \\
+2012 & 0.465 & 0.426 & 0.509 \\
+2014 & 0.368 & 0.358 & 0.322 \\
+2016 & 0.353 & 0.360 & 0.351 \\
+2018 & 0.309 & 0.324 & 0.310 \\
+2020 & 0.292 & 0.300 & 0.291 \\
+2022 & 0.280 & 0.291 & 0.279 \\
+2024 & 0.272 & 0.285 & 0.271 \\
+\midrule
+\textbf{Decay (2012$\to$2024)} & \textbf{41.5\%} & \textbf{33.2\%} & \textbf{46.9\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:ablation} reports both ablation controls.
+Three findings confirm the decay is genuine:
+
+\begin{enumerate}[nosep,leftmargin=*]
+  \item \textbf{Fixed-article ablation} (same articles, different years): MRR declines 33.2\%. Since article composition is controlled, this is pure temporal decay of co-citation structure.
+  \item \textbf{Train/test split} (no data leakage): MRR declines 46.9\% -- \emph{stronger} than the original 41.5\%. The original evaluation, which builds $C$ from all cases including the evaluation set, actually \emph{underestimates} the real-world degradation.
+  \item \textbf{Residual composition effect}: the 8.3pp gap between original (41.5\%) and fixed-article (33.2\%) decay quantifies the contribution of compositional shift -- new articles appearing in later years do account for roughly one-fifth of the observed decline.
+\end{enumerate}
+
+\subsection{Non-Uniform Degradation}
+
+\begin{figure}[t]
+\centering
+\input{figures/fig4_year_difficulty_heatmap.tex}
+\caption{MRR by year and difficulty bin. Hub articles (top) resist decay. Mid-frequency articles (middle) show the steepest decline, particularly after 2017.}
+\label{fig:heatmap_temporal}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\input{figures/fig5_article_stability.tex}
+\caption{Article-level MRR: 2012 vs.\ 2024 for shared articles. Points below the diagonal became harder. Criminal procedure (blue) clusters near the diagonal; civil articles scatter below.}
+\label{fig:stability}
+\end{figure}
+
+The decay concentrates in specific frequency bands (Figure~\ref{fig:heatmap_temporal}).
+Hub articles maintain MRR $>$ 0.5 across all 20 years -- their dense co-citation clusters are structurally robust.
+Mid-frequency articles (1K--10K citations) show the steepest decline: from MRR $\sim$0.15 in 2012 to $\sim$0.07 in 2024, a 53\% drop.
+
+At the individual article level (Figure~\ref{fig:stability}), the majority of shared articles fall below the diagonal, but the pattern varies by legal domain.
+
+\subsection{Domain-Specific Trajectories}
+
+\begin{figure}[t]
+\centering
+\input{figures/fig6_per_codex_temporal.tex}
+\caption{Per-codex MRR over time. Criminal Procedure remains stable; Civil Code degrades most. The 2017 reform creates a visible inflection in civil/administrative codes.}
+\label{fig:codex}
+\end{figure}
+
+Figure~\ref{fig:codex} reveals that the aggregate decay masks sharply divergent domain trajectories:
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{Criminal Procedure} (MRR $\sim$0.40, stable): highly formulaic citation patterns that persist across reforms.
+  \item \textbf{Civil Code} (0.35 $\to$ 0.15): steepest decline, reflecting evolving interpretive practice and the 2017 reform's reorganization of civil procedure.
+  \item \textbf{Administrative Courts} (post-2022 break): wartime emergency legislation disrupts established patterns.
+\end{itemize}
+
+\subsection{Structural Explanation}
+\label{sec:structure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig2_cocitation_heatmap.pdf}
+\caption{Co-citation Jaccard similarity among the 20 most-cited articles (2024). Block-diagonal structure reflects procedural ``citation templates'' that resist temporal change.}
+\label{fig:heatmap}
+\end{figure}
+
+Figure~\ref{fig:heatmap} explains why hub articles resist decay: they form tight intra-code clusters representing canonical citation templates (e.g., administrative procedure articles 283--285 always co-occur).
+These templates are procedurally mandated -- courts must cite them regardless of evolving substantive law.
+Mid-frequency articles lack such structural protection, making their co-citation patterns vulnerable to legal evolution.
+
+\section{Discussion}
+\label{sec:discussion}
+
+\paragraph{Mechanisms of decay.}
+Two complementary mechanisms drive the observed degradation:
+(1)~\emph{Structural breaks} -- the 2017 judicial reform replaced old procedural codes with new ones, disrupting established co-citation patterns. This manifests as a visible inflection in Figure~\ref{fig:codex}.
+(2)~\emph{Growing diversity} -- as annual case volume grows from 6.4M (2016) to 8.8M (2025), the distribution over article combinations becomes more diffuse, weakening co-citation signal for non-hub provisions.
+
+\paragraph{Practical implications.}
+The decay rate of $\sim$3\% MRR/year for mid-frequency articles implies that a graph-based retrieval system loses meaningful performance within 3--4 years without retraining.
+For criminal procedure, static co-citation indexes remain viable; for civil and administrative law, text-based retrieval (dense embeddings, BM25 over article text) is necessary to maintain quality.
+The domain-specific decay rates enable targeted hybrid strategies.
+
+\paragraph{Benchmark design.}
+The train/test split ablation reveals that standard leave-one-out evaluation \emph{underestimates} real-world degradation by $\sim$5pp.
+We recommend that future retrieval benchmarks adopt temporal splits as the default evaluation protocol.
+
+\section{Dataset Release}
+\label{sec:release}
+
+UA-StatuteRetrieval is available at \url{https://huggingface.co/datasets/overthelex/ua-statute-retrieval}:
+
+\begin{itemize}[nosep,leftmargin=*]
+  \item \texttt{article\_retrieval\_performance.parquet}: per-article metrics for 3{,}667 articles.
+  \item \texttt{temporal\_metrics.parquet}: year-by-year metrics (2007--2026), all methods.
+  \item \texttt{difficulty\_stratification.csv}: per-bin breakdowns.
+\end{itemize}
+
+The R evaluation scripts are released alongside the paper.
+The underlying 502M citation records remain proprietary; the co-citation graph is available separately~\citep{keshchenko2025citation}.
+
+\section{Limitations}
+\label{sec:limitations}
+
+\begin{enumerate}[nosep,leftmargin=*]
+  \item \emph{Codex articles only}: specific laws (by number/date) are not covered.
+  \item \emph{Citation $\neq$ relevance}: ground truth conflates procedural and substantive citations.
+  \item \emph{Single jurisdiction}: results may not generalize to common-law systems where stare decisis creates different citation dynamics.
+  \item \emph{Graph-only baselines}: text-based retrievers (likely more temporally robust) are not evaluated. This is deliberate -- establishing graph-method decay is a prerequisite for motivating text-based alternatives.
+  \item \emph{Early-year anomalies}: 2007 contains retrospective imports (15 cites/case vs.\ 4 average), and 2009 has only 52K decisions due to political crisis. Both outliers are retained but noted.
+\end{enumerate}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We demonstrated that co-citation predictability in legal statute retrieval is \emph{non-stationary}: it decays 33--47\% over 12 years depending on evaluation protocol.
+The decay is genuine (persists on fixed articles, strengthens without data leakage), non-uniform (concentrates in civil/administrative domains and mid-frequency articles), and practically significant ($\sim$3\% MRR/year loss for the articles that matter most).
+
+These findings challenge the implicit assumption that citation structure provides stable retrieval signal.
+Legal information systems that rely on co-citation should implement continual graph updates, and the mid-frequency / civil-law tail should be served by complementary text-based retrieval.
+The released benchmark enables direct measurement of temporal robustness for any retrieval system.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

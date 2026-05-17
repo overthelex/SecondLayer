@@ -1,0 +1,115 @@
+\begin{thebibliography}{15}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Adamic and Adar(2003)]{adamic2003friends}
+Lada~A. Adamic and Eytan Adar.
+\newblock Friends and neighbors on the web.
+\newblock \emph{Social Networks}, 25\penalty0 (3):\penalty0 211--230, 2003.
+
+\bibitem[Barron et~al.(2025)Barron, Eren, Serafimova, Matuszek, and
+  Alexandrov]{barron2025bridging}
+Ryan~C. Barron, Maksim~E. Eren, Olga~M. Serafimova, Cynthia Matuszek, and
+  Boian~S. Alexandrov.
+\newblock Bridging legal knowledge and {AI}: Retrieval-augmented generation
+  with vector stores, knowledge graphs, and hierarchical non-negative matrix
+  factorization.
+\newblock In \emph{Proceedings of AAAI Workshop on AI for Access to Justice},
+  2025.
+
+\bibitem[Coupette et~al.(2021)Coupette, Beckedorf, Hartung, Bommarito, and
+  Katz]{coupette2021measuring}
+Corinna Coupette, Janis Beckedorf, Dirk Hartung, Michael Bommarito, and
+  Daniel~Martin Katz.
+\newblock Measuring law over time: A network analytical framework with an
+  application to statutes and regulations in the {United States} and {Germany}.
+\newblock \emph{Frontiers in Physics}, 9, 2021.
+
+\bibitem[Fowler et~al.(2007)Fowler, Johnson, Spriggs, Jeon, and
+  Wahlbeck]{fowler2007network}
+James~H. Fowler, Timothy~R. Johnson, James~F. Spriggs, Sangick Jeon, and
+  Paul~J. Wahlbeck.
+\newblock Network analysis and the law: Measuring the legal importance of
+  precedents at the {U.S.} {Supreme Court}.
+\newblock \emph{Political Analysis}, 15\penalty0 (3):\penalty0 324--346, 2007.
+
+\bibitem[Guha et~al.(2023)Guha, Nyarko, Ho, R{\'e}, Chilton, Narasimhan,
+  et~al.]{guha2023legalbench}
+Neel Guha, Julian Nyarko, Daniel Ho, Christopher R{\'e}, Adam Chilton, Arvind
+  Narasimhan, et~al.
+\newblock {LegalBench}: A collaboratively built benchmark for measuring legal
+  reasoning in large language models.
+\newblock In \emph{NeurIPS Datasets and Benchmarks Track}, 2023.
+
+\bibitem[Ho et~al.(2025)Ho, Colby, and Fisher]{ho2025incorporating}
+Justin Ho, Alexandra Colby, and William Fisher.
+\newblock Incorporating legal structure in retrieval-augmented generation: A
+  case study on copyright fair use.
+\newblock In \emph{Proceedings of the ACL Workshop on Natural Legal Language
+  Processing}, 2025.
+
+\bibitem[Keshchenko(2025)]{keshchenko2025citation}
+Volodymyr Keshchenko.
+\newblock Citation graph analysis of 99.5{M} {Ukrainian} court decisions:
+  Co-citation structure, temporal dynamics, and community evolution.
+\newblock \emph{arXiv preprint}, 2025.
+
+\bibitem[Liben-Nowell and Kleinberg(2007)]{liben2007link}
+David Liben-Nowell and Jon Kleinberg.
+\newblock The link-prediction problem for social networks.
+\newblock \emph{Journal of the American Society for Information Science and
+  Technology}, 58\penalty0 (7):\penalty0 1019--1031, 2007.
+
+\bibitem[Lotfi et~al.(2024)Lotfi, Banar, Yuzbashyan, and
+  Daelemans]{lotfi2024bsard}
+Ehsan Lotfi, Nikolay Banar, Nerses Yuzbashyan, and Walter Daelemans.
+\newblock Bilingual {BSARD}: Extending statutory article retrieval to dutch.
+\newblock In \emph{Proceedings of the Natural Legal Language Processing
+  Workshop}, 2024.
+
+\bibitem[Louis et~al.(2023)Louis, van Dijck, and Spanakis]{louis2023finding}
+Antoine Louis, Gijs van Dijck, and Gerasimos Spanakis.
+\newblock Finding the law: Enhancing statutory article retrieval via graph
+  neural networks.
+\newblock In \emph{Proceedings of EACL}, 2023.
+
+\bibitem[Niklaus et~al.(2023)Niklaus, Matoshi, Rani, Galassi, St{\"u}rmer, and
+  Chalkidis]{niklaus2023lextreme}
+Joel Niklaus, Veton Matoshi, Pooja Rani, Andrea Galassi, Matthias St{\"u}rmer,
+  and Ilias Chalkidis.
+\newblock {LEXTREME}: A multi-lingual and multi-task benchmark for the legal
+  domain.
+\newblock In \emph{Findings of the Association for Computational Linguistics:
+  ACL 2023}, 2023.
+
+\bibitem[Paul et~al.(2022)Paul, Goyal, and Ghosh]{paul2021lesicin}
+Shounak Paul, Pawan Goyal, and Saptarshi Ghosh.
+\newblock {LeSICiN}: A heterogeneous graph-based approach for automatic legal
+  statute identification from indian legal documents.
+\newblock In \emph{Proceedings of AAAI}, 2022.
+
+\bibitem[Rasiah et~al.(2023)Rasiah, Stern, Matoshi, St{\"u}rmer, Chalkidis, Ho,
+  and Niklaus]{rasiah2023scale}
+Vishvaksenan Rasiah, Ronja Stern, Veton Matoshi, Matthias St{\"u}rmer, Ilias
+  Chalkidis, Daniel~E. Ho, and Joel Niklaus.
+\newblock {SCALE}: Scaling up the complexity for advanced language model
+  evaluation.
+\newblock In \emph{Proceedings of the Natural Legal Language Processing
+  Workshop}, 2023.
+
+\bibitem[Tang et~al.(2024)Tang, Qiu, Liu, Li, and Huang]{tang2024casegnn}
+Yanran Tang, Ruihong Qiu, Yilun Liu, Xue Li, and Zi~Huang.
+\newblock {CaseGNN++}: Graph contrastive learning for legal case retrieval with
+  graph augmentation.
+\newblock In \emph{Proceedings of SIGIR}, 2024.
+
+\bibitem[Winkels et~al.(2011)Winkels, de~Ruyter, and
+  Kroese]{winkels2011determining}
+Radboud Winkels, Jelle de~Ruyter, and Henryk Kroese.
+\newblock Determining authority of dutch case law.
+\newblock \emph{Legal Knowledge and Information Systems}, 2011.
+
+\end{thebibliography}
