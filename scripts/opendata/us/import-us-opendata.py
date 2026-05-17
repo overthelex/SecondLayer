@@ -402,7 +402,7 @@ SOURCES = {
     "sam_exclusions": ImportSource(
         name="sam_exclusions",
         title="SAM.gov Exclusions",
-        url="https://sam.gov/api/prod/fileextract/v1/api/listExclusions?api_key=DEMO_KEY&random=1",
+        url="https://sam.gov/api/prod/fileextract/v2/exclusions?api_key=DEMO_KEY&format=csv&fileName=SAM_Exclusions_Public_Extract",
         file_type="csv",
         target_table="us_sam_exclusions",
         desc="Government contractor debarment list — 163K+ records",
@@ -426,7 +426,7 @@ SOURCES = {
     "fara": ImportSource(
         name="fara",
         title="FARA Foreign Agents",
-        url="https://efile.fara.gov/api/v1/Registrants/json/Active",
+        url="https://efile.fara.gov/ords/fara/q/registrantDt",
         file_type="json_api",
         target_table="us_fara_registrants",
         desc="Foreign Agents Registration Act registrants",
@@ -442,7 +442,7 @@ SOURCES = {
     "osha": ImportSource(
         name="osha",
         title="OSHA Inspections",
-        url="https://enforcedata.dol.gov/views/data_summary/osha_inspection.csv.zip",
+        url="https://www.osha.gov/sites/default/files/osha_inspection.csv.zip",
         file_type="zip_csv",
         target_table="us_osha_inspections",
         desc="Workplace safety inspections — 5M records since 1973",
@@ -451,7 +451,7 @@ SOURCES = {
         name="nhtsa",
         title="NHTSA Vehicle Recalls",
         url="https://static.nhtsa.gov/odi/ffdd/rcl/FLAT_RCL.zip",
-        file_type="zip_flat",
+        file_type="zip_csv",
         target_table="us_nhtsa_recalls",
         desc="Vehicle safety recalls — all campaigns",
     ),
