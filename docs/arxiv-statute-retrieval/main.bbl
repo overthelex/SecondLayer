@@ -1,4 +1,4 @@
-\begin{thebibliography}{15}
+\begin{thebibliography}{14}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -17,8 +17,7 @@ Ryan~C. Barron, Maksim~E. Eren, Olga~M. Serafimova, Cynthia Matuszek, and
 \newblock Bridging legal knowledge and {AI}: Retrieval-augmented generation
   with vector stores, knowledge graphs, and hierarchical non-negative matrix
   factorization.
-\newblock In \emph{Proceedings of AAAI Workshop on AI for Access to Justice},
-  2025.
+\newblock \emph{arXiv preprint arXiv:2502.20364}, 2025.
 
 \bibitem[Coupette et~al.(2021)Coupette, Beckedorf, Hartung, Bommarito, and
   Katz]{coupette2021measuring}
@@ -36,10 +35,10 @@ James~H. Fowler, Timothy~R. Johnson, James~F. Spriggs, Sangick Jeon, and
   precedents at the {U.S.} {Supreme Court}.
 \newblock \emph{Political Analysis}, 15\penalty0 (3):\penalty0 324--346, 2007.
 
-\bibitem[Guha et~al.(2023)Guha, Nyarko, Ho, R{\'e}, Chilton, Narasimhan,
-  et~al.]{guha2023legalbench}
-Neel Guha, Julian Nyarko, Daniel Ho, Christopher R{\'e}, Adam Chilton, Arvind
-  Narasimhan, et~al.
+\bibitem[Guha et~al.(2023)Guha, Nyarko, Ho, R{\'e}, Chilton, Chohlas-Wood,
+  Peters, et~al.]{guha2023legalbench}
+Neel Guha, Julian Nyarko, Daniel~E. Ho, Christopher R{\'e}, Adam Chilton, Alex
+  Chohlas-Wood, Austin Peters, et~al.
 \newblock {LegalBench}: A collaboratively built benchmark for measuring legal
   reasoning in large language models.
 \newblock In \emph{NeurIPS Datasets and Benchmarks Track}, 2023.
@@ -48,14 +47,7 @@ Neel Guha, Julian Nyarko, Daniel Ho, Christopher R{\'e}, Adam Chilton, Arvind
 Justin Ho, Alexandra Colby, and William Fisher.
 \newblock Incorporating legal structure in retrieval-augmented generation: A
   case study on copyright fair use.
-\newblock In \emph{Proceedings of the ACL Workshop on Natural Legal Language
-  Processing}, 2025.
-
-\bibitem[Keshchenko(2025)]{keshchenko2025citation}
-Volodymyr Keshchenko.
-\newblock Citation graph analysis of 99.5{M} {Ukrainian} court decisions:
-  Co-citation structure, temporal dynamics, and community evolution.
-\newblock \emph{arXiv preprint}, 2025.
+\newblock \emph{arXiv preprint arXiv:2505.02164}, 2025.
 
 \bibitem[Liben-Nowell and Kleinberg(2007)]{liben2007link}
 David Liben-Nowell and Jon Kleinberg.
@@ -70,12 +62,6 @@ Ehsan Lotfi, Nikolay Banar, Nerses Yuzbashyan, and Walter Daelemans.
 \newblock In \emph{Proceedings of the Natural Legal Language Processing
   Workshop}, 2024.
 
-\bibitem[Louis et~al.(2023)Louis, van Dijck, and Spanakis]{louis2023finding}
-Antoine Louis, Gijs van Dijck, and Gerasimos Spanakis.
-\newblock Finding the law: Enhancing statutory article retrieval via graph
-  neural networks.
-\newblock In \emph{Proceedings of EACL}, 2023.
-
 \bibitem[Niklaus et~al.(2023)Niklaus, Matoshi, Rani, Galassi, St{\"u}rmer, and
   Chalkidis]{niklaus2023lextreme}
 Joel Niklaus, Veton Matoshi, Pooja Rani, Andrea Galassi, Matthias St{\"u}rmer,
@@ -84,6 +70,12 @@ Joel Niklaus, Veton Matoshi, Pooja Rani, Andrea Galassi, Matthias St{\"u}rmer,
   domain.
 \newblock In \emph{Findings of the Association for Computational Linguistics:
   ACL 2023}, 2023.
+
+\bibitem[Ovcharov(2025)]{ovcharov2025citation}
+Volodymyr Ovcharov.
+\newblock Citation graph analysis of 99.5{M} {Ukrainian} court decisions:
+  Co-citation structure, temporal dynamics, and community evolution.
+\newblock \emph{arXiv preprint}, 2025.
 
 \bibitem[Paul et~al.(2022)Paul, Goyal, and Ghosh]{paul2021lesicin}
 Shounak Paul, Pawan Goyal, and Saptarshi Ghosh.
