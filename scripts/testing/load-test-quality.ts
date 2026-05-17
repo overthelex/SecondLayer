@@ -31,7 +31,8 @@ const DB_CONFIG = {
 const TEST_USER_PASSWORD = 'LoadTest2026!';
 const TEST_USER_COUNT = 10;
 const INITIAL_BALANCE_USD = 100.0;
-const BUDGET = 'standard';
+const BUDGET_ARG = process.argv.find(a => a.startsWith('--budget='))?.split('=')[1];
+const BUDGET = BUDGET_ARG || 'quick';
 const REQUEST_TIMEOUT_MS = 240_000;
 const BATCH_SIZE_SIMPLE = 10;
 const BATCH_SIZE_COMPLEX = 5;
