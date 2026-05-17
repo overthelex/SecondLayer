@@ -282,8 +282,7 @@ services:
       # LLM Provider Strategy
       LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-bedrock-first}
 
-      # Anthropic direct (fallback)
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # No Anthropic/OpenAI — Bedrock only
 
       # ZakonOnline API (deprecated, removal pending)
       ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN:-}
