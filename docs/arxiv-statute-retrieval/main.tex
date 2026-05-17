@@ -56,7 +56,8 @@ The implicit assumption is that this structure provides a stable signal: if arti
 
 We test this assumption empirically.
 From the Ukrainian Unified State Register of Court Decisions (\foreignlanguage{ukrainian}{ЄДРСР}, 101M decisions, 2007--2026), we extract 396 million codex-article citations and construct annual retrieval benchmarks spanning 20 years.
-Our evaluation protocol is leave-one-out over the full bipartite citation graph: for each decision, we mask each cited article and measure whether co-citation-based methods can recover it.
+Our evaluation protocol is leave-one-out citation prediction over the full bipartite citation graph: for each decision, we mask each cited article and measure whether co-citation-based methods can recover it from the remaining citations.
+While this is a proxy for statute retrieval rather than the end-user task itself (which starts from case facts, not partial citations), it directly measures the temporal stability of the co-citation signal that underpins many retrieval systems.
 
 The central finding is that co-citation predictability \emph{decays}: the same retrieval methods applied to the same articles yield progressively worse results over time.
 This is not a trivial consequence of changing article composition -- we verify through ablation that decay persists on a fixed article set (33\% decline) and strengthens under proper train/test separation (47\% decline).
@@ -166,6 +167,7 @@ MRR    & 0.272 & 0.266 & 0.059 & $<$0.001 \\
 
 Table~\ref{tab:main} establishes the 2024 cross-section.
 Co-citation methods outperform degree by 4.6$\times$ on MRR, confirming that citation context provides retrieval signal beyond popularity.
+All differences are statistically significant: bootstrap 95\% CIs on 1.8M predictions are $\pm$0.0004 (AA: 0.272 $\pm$ 0.0002, CN: 0.266 $\pm$ 0.0002; paired difference $z = 108.9$).
 These numbers represent the \emph{current} state of predictability -- subsequent sections show they were substantially higher in earlier years.
 
 \subsection{Difficulty Spectrum}
@@ -365,7 +367,7 @@ UA-StatuteRetrieval is available at \url{https://huggingface.co/datasets/overthe
 \end{itemize}
 
 The R evaluation scripts are released alongside the paper.
-The underlying 396M codex citation records remain proprietary; the co-citation graph is available separately~\citep{keshchenko2025citation}.
+The underlying 396M codex citation records remain proprietary; the co-citation graph is available separately~\citep{ovcharov2025citation}.
 
 \section{Limitations}
 \label{sec:limitations}
