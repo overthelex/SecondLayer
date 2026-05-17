@@ -11,6 +11,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
+import { Dashboard, type ResultEntry } from './tui-dashboard.ts';
 
 dotenv.config({ path: new URL('../../mcp_backend/.env', import.meta.url).pathname });
 
@@ -483,18 +484,27 @@ async function runBatch(
   assignments: QueryAssignment[],
   users: TestUser[],
   pool: pg.Pool,
-  testRunId: string
+  testRunId: string,
+  dashboard: Dashboard | null
 ): Promise<{ succeeded: number; failed: number }> {
-  console.log(`\n  [Batch ${batchNum}] ${assignments.length} queries (${wave})`);
+  if (!dashboard) console.log(`\n  [Batch ${batchNum}] ${assignments.length} queries (${wave})`);
 
   const promises = assignments.map(async (a) => {
     const user = users[a.userIndex % users.length];
     const shortQuery = a.query.length > 60 ? a.query.substring(0, 60) + '...' : a.query;
-    console.log(`    [${user.email.split('@')[0]}] -> ${a.expectedTool}: ${shortQuery}`);
+    if (!dashboard) console.log(`    [${user.email.split('@')[0]}] -> ${a.expectedTool}: ${shortQuery}`);
 
     const result = await sendChatQueryWithRetry(BASE_URL, user.jwt, a.query);
 
     const primaryTool = result.toolsUsed.length > 0 ? result.toolsUsed[0] : null;
+
+    dashboard?.recordResult({
+      tool: a.expectedTool,
+      status: result.status === 'success' ? 'success' : result.status === 'timeout' ? 'timeout' : 'error',
+      timeMs: result.totalMs,
+      cost: result.totalCostUsd,
+      errorMsg: result.errorMessage?.substring(0, 30),
+    });
 
     await insertResult(pool, {
       testRunId,
@@ -519,7 +529,7 @@ async function runBatch(
     });
 
     const icon = result.status === 'success' ? 'OK' : result.status === 'timeout' ? 'TIMEOUT' : 'ERR';
-    console.log(`    [${user.email.split('@')[0]}] ${icon} ${result.totalMs}ms cost=$${result.totalCostUsd.toFixed(4)} tools=[${result.toolsUsed.join(',')}]`);
+    if (!dashboard) console.log(`    [${user.email.split('@')[0]}] ${icon} ${result.totalMs}ms cost=$${result.totalCostUsd.toFixed(4)} tools=[${result.toolsUsed.join(',')}]`);
 
     return result;
   });
@@ -532,7 +542,7 @@ async function runBatch(
     else failed++;
   }
 
-  console.log(`  [Batch ${batchNum}] Done: ${succeeded} ok, ${failed} failed`);
+  if (!dashboard) console.log(`  [Batch ${batchNum}] Done: ${succeeded} ok, ${failed} failed`);
   return { succeeded, failed };
 }
 
@@ -540,11 +550,15 @@ async function runPhase(
   wave: 'simple' | 'complex',
   users: TestUser[],
   pool: pg.Pool,
-  testRunId: string
+  testRunId: string,
+  dashboard: Dashboard | null
 ): Promise<void> {
-  console.log(`\n${'='.repeat(60)}`);
-  console.log(`  PHASE: ${wave.toUpperCase()} (${QUERY_CATALOG.length} queries)`);
-  console.log(`${'='.repeat(60)}`);
+  dashboard?.setWave(wave);
+  if (!dashboard) {
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`  PHASE: ${wave.toUpperCase()} (${QUERY_CATALOG.length} queries)`);
+    console.log(`${'='.repeat(60)}`);
+  }
 
   const allAssignments: QueryAssignment[] = QUERY_CATALOG.map((q, i) => ({
     query: wave === 'simple' ? q.simple : q.complex,
@@ -554,15 +568,17 @@ async function runPhase(
 
   const batchSize = wave === 'simple' ? BATCH_SIZE_SIMPLE : BATCH_SIZE_COMPLEX;
   const batchPause = wave === 'simple' ? PAUSE_BETWEEN_BATCHES_MS : PAUSE_BETWEEN_BATCHES_COMPLEX_MS;
+  const totalBatches = Math.ceil(allAssignments.length / batchSize);
 
   let batchNum = 1;
   for (let offset = 0; offset < allAssignments.length; offset += batchSize) {
     const batch = allAssignments.slice(offset, offset + batchSize);
-    await runBatch(batchNum, wave, batch, users, pool, testRunId);
+    dashboard?.setBatch(batchNum, totalBatches, batch.map(a => a.expectedTool));
+    await runBatch(batchNum, wave, batch, users, pool, testRunId, dashboard);
     batchNum++;
 
     if (offset + batchSize < allAssignments.length) {
-      console.log(`  ... pause ${batchPause / 1000}s ...`);
+      if (!dashboard) console.log(`  ... pause ${batchPause / 1000}s ...`);
       await sleep(batchPause);
     }
   }
@@ -907,15 +923,24 @@ async function main() {
   }
 
   const testRunId = `loadtest-${new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)}`;
+  const totalQueries = QUERY_CATALOG.length * 2;
 
-  console.log(`${'='.repeat(60)}`);
-  console.log(`  LOAD & QUALITY TEST`);
-  console.log(`  Run ID: ${testRunId}`);
-  console.log(`  Target: ${BASE_URL}`);
-  console.log(`  Queries: ${QUERY_CATALOG.length} tools x 2 = ${QUERY_CATALOG.length * 2}`);
-  console.log(`  Users: ${TEST_USER_COUNT} concurrent`);
-  console.log(`  Budget: ${BUDGET}`);
-  console.log(`${'='.repeat(60)}\n`);
+  const useTui = process.stdout.isTTY && !args.includes('--no-tui');
+  let dashboard: Dashboard | null = null;
+
+  if (useTui) {
+    dashboard = new Dashboard({ testRunId, totalQueries });
+    dashboard.start();
+  } else {
+    console.log(`${'='.repeat(60)}`);
+    console.log(`  LOAD & QUALITY TEST`);
+    console.log(`  Run ID: ${testRunId}`);
+    console.log(`  Target: ${BASE_URL}`);
+    console.log(`  Queries: ${QUERY_CATALOG.length} tools x 2 = ${totalQueries}`);
+    console.log(`  Users: ${TEST_USER_COUNT} concurrent`);
+    console.log(`  Budget: ${BUDGET}`);
+    console.log(`${'='.repeat(60)}\n`);
+  }
 
   const pool = new pg.Pool(DB_CONFIG);
 
@@ -924,14 +949,18 @@ async function main() {
 
     const users = await createTestUsers(pool);
 
+    if (!useTui) console.log('[Preflight] Checking...');
     await preflightCheck(BASE_URL, users[0].jwt);
 
-    await runPhase('simple', users, pool, testRunId);
+    await runPhase('simple', users, pool, testRunId, dashboard);
 
-    console.log(`\n  ... pause ${PAUSE_BETWEEN_PHASES_MS / 1000}s between phases ...`);
+    if (!useTui) console.log(`\n  ... pause ${PAUSE_BETWEEN_PHASES_MS / 1000}s between phases ...`);
     await sleep(PAUSE_BETWEEN_PHASES_MS);
 
-    await runPhase('complex', users, pool, testRunId);
+    await runPhase('complex', users, pool, testRunId, dashboard);
+
+    dashboard?.stop();
+    dashboard = null;
 
     await gradeResults(pool, testRunId);
 
@@ -941,6 +970,7 @@ async function main() {
 
     console.log('\nDone.');
   } catch (error: any) {
+    dashboard?.stop();
     console.error('Fatal error:', error.message);
     console.error(error.stack);
     process.exit(1);
