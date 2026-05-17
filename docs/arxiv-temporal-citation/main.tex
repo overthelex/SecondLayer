@@ -469,6 +469,40 @@ It drops sharply in P4 (NMI $= 0.46$), when three co-citation communities cannot
 Alignment partially recovers in P5 (NMI $= 0.59$), as wartime reorganization re-separates domains toward the formal classification.
 This provides external validation that the detected communities are not statistical artifacts: they track, and deviate from, institutional domain boundaries in interpretable ways.
 
+\subsection{Spectral Analysis: Algebraic Connectivity Evolution}
+
+The Fiedler value $\lambda_2$ (second-smallest eigenvalue of the normalized Laplacian) provides a community-detection-independent measure of graph separability.
+A smaller $\lambda_2$ indicates clearer community boundaries; a larger $\lambda_2$ indicates a more uniformly connected graph.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Spectral analysis: Fiedler value ($\lambda_2$) of the normalized Laplacian. The 50$\times$ jump at P3$\to$P4 reflects the consolidation merger; the P1$\to$P3 decrease reflects progressive domain clarification.}
+\label{tab:spectral}
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+\textbf{Period} & \textbf{Nodes} & \textbf{$\lambda_2$ (Fiedler)} & \textbf{$\lambda_3$} & \textbf{$\lambda_2/\lambda_3$} \\
+\midrule
+P1 (2007--13) & 18{,}263 & 0.00269 & 0.00921 & 0.29 \\
+P2 (2014--16) & 29{,}476 & 0.00076 & 0.00346 & 0.22 \\
+P3 (2017--19) & 29{,}377 & 0.00019 & 0.00987 & 0.02 \\
+P4 (2020--21) & 18{,}477 & 0.00946 & 0.02791 & 0.34 \\
+P5 (2022--26) & 18{,}533 & 0.01116 & 0.03247 & 0.34 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The spectral trajectory (Table~\ref{tab:spectral}) adds nuance to the consolidation narrative.
+During P1$\to$P3, $\lambda_2$ \emph{decreases} from $0.0027$ to $0.0002$ -- a 14$\times$ drop -- indicating that the remaining communities become progressively more separable even as their count decreases.
+This is \emph{clarification}: fewer domains, but each more spectrally distinct.
+The ratio $\lambda_2/\lambda_3$ drops to $0.02$ at P3, indicating a strong spectral gap between the first non-trivial eigenvalue and the rest -- the signature of a well-defined bipartition.
+
+At P3$\to$P4, $\lambda_2$ jumps 50$\times$ ($0.0002 \to 0.0095$), signaling that the consolidation into $k = 3$ communities destroys spectral separability.
+The merged graph is nearly uniformly connected, consistent with the low modularity ($Q = 0.059$) and high density ($\rho = 0.29$).
+
+P5 shows $\lambda_2 = 0.0112$ -- slightly higher than P4, indicating that the reorganized $k = 5$ communities have not yet achieved the spectral distinctness of the pre-consolidation era (P3: $\lambda_2 = 0.0002$).
+The new domain boundaries exist in the Leiden partition but are spectrally soft -- consistent with the ongoing structural adjustment under wartime conditions.
+
 % ============================================================
 \section{Discussion}
 \label{sec:discussion}
@@ -582,7 +616,7 @@ Analyzing 345 million citation events across five periods (2007--2026) with data
   \item \textbf{Consolidation}: four core legal domains (commercial, civil substantive, civil procedural, criminal) consolidate from $k_{\text{eff}} = 4$--$5$ to $k = 3$ over 2007--2021. Transition stability increases monotonically (NMI: $0.82 \to 0.86 \to 0.96$).
   \item \textbf{Wartime disruption}: the 2022 invasion produces the strongest structural shock of any transition (NMI $= 0.77$, significantly lower than all others at $p < 10^{-4}$), splitting civil procedure and crystallizing a new administrative/misdemeanor domain.
   \item \textbf{Reorganization}: the system differentiates into $k = 5$ communities that stabilize rapidly: sub-period analysis shows NMI $= 0.94$ between 2022--2023 and 2024--2026, confirming the reorganized structure is persistent, not transient.
-  \item \textbf{External validation}: NMI between communities and formal jurisdiction (\emph{justice\_kind}) tracks the consolidation--reorganization cycle ($0.71 \to 0.46 \to 0.59$), confirming that detected communities correspond to institutional legal domains.
+  \item \textbf{External validation}: NMI between communities and formal jurisdiction tracks the consolidation--reorganization cycle ($0.71 \to 0.46 \to 0.59$). Spectral analysis (Fiedler value) independently confirms: $\lambda_2$ decreases 14$\times$ during clarification, jumps 50$\times$ during consolidation.
   \item \textbf{Computational tractability}: sparse co-citation ($M^\top M$ on $10^7 \times 10^4$ matrices) computes 50--102 million edge networks in 13--72 seconds per period.
   \item \textbf{Robustness}: results are stable across resolution $\gamma \in [0.5, 1.0]$, threshold $\in [3, 10]$ (three periods tested), and period boundary $\pm 1$ year (NMI identical to three decimal places).
 \end{enumerate}
