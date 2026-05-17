@@ -32,7 +32,9 @@ const TEST_USER_PASSWORD = 'LoadTest2026!';
 const TEST_USER_COUNT = 10;
 const INITIAL_BALANCE_USD = 100.0;
 const BUDGET_ARG = process.argv.find(a => a.startsWith('--budget='))?.split('=')[1];
-const BUDGET = BUDGET_ARG || 'quick';
+const BUDGET = BUDGET_ARG || 'standard';
+const MODEL_ARG = process.argv.find(a => a.startsWith('--model='))?.split('=')[1];
+const FORCE_MODEL = MODEL_ARG || '';  // e.g. --model=haiku forces all tiers to Haiku
 const REQUEST_TIMEOUT_MS = 240_000;
 const BATCH_SIZE_SIMPLE = 10;
 const BATCH_SIZE_COMPLEX = 5;
@@ -317,7 +319,7 @@ async function sendChatQuery(baseUrl: string, token: string, query: string): Pro
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ query, budget: BUDGET }),
+      body: JSON.stringify({ query, budget: BUDGET, ...(FORCE_MODEL ? { maxBudget: FORCE_MODEL } : {}) }),
       signal: controller.signal,
     });
 

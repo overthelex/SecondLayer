@@ -90,7 +90,7 @@ export function createChatInlineRoutes(deps: {
     const requestId = `chat-${uuidv4()}`;
 
     try {
-      const { query, history, budget, conversationId, approvedPlan, planSessionId, allowDeepEscalation, internetEnabled } = req.body;
+      const { query, history, budget, maxBudget, conversationId, approvedPlan, planSessionId, allowDeepEscalation, internetEnabled } = req.body;
 
       if (!query || typeof query !== 'string') {
         return res.status(400).json({ error: 'query is required' });
@@ -173,6 +173,7 @@ export function createChatInlineRoutes(deps: {
         query,
         history,
         budget: (budget || 'standard') as 'quick' | 'standard' | 'deep',
+        maxBudget: maxBudget as 'quick' | 'standard' | 'deep' | undefined,
         conversationId,
         userId,
         requestId,
