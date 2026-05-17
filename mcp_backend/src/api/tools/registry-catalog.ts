@@ -404,4 +404,142 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
       { name: 'status', description: 'Статус банку (Нормальний, Неплатоспроможний, В стані ліквідації)', match: 'exact', columns: ['n_stan'] },
     ],
   },
+
+  // ── US Open Data registries ──────────────────────────────────────
+
+  us_court_opinions: {
+    title: 'US Court Opinions (6.9M decisions)',
+    description: 'Full-text search across 6.9M US court opinions from the Caselaw Access Project.\nCovers federal and state courts, 1658–2020. 360 years of legal history.\n\nSearch by text keywords (FTS on preview), reporter series (e.g. f2d, us, s-ct), or text length.',
+    table: 'us_court_opinions',
+    selectColumns: 'id, reporter_series, author, text_length, text_preview',
+    orderBy: 'text_length DESC',
+    emptyMessage: 'No US court opinions found matching criteria',
+    defaultLimit: 20,
+    maxLimit: 50,
+    fields: [
+      { name: 'query', description: 'Full-text search in opinion text (English)', match: 'ilike', columns: ['text_preview'] },
+      { name: 'reporter', description: 'Reporter series (e.g. f2d, f3d, us, s-ct for Supreme Court)', match: 'exact', columns: ['reporter_series'] },
+      { name: 'author', description: 'Author or URL containing court/jurisdiction info', match: 'ilike', columns: ['author'] },
+    ],
+  },
+
+  us_sanctions_screening: {
+    title: 'Sanctions & PEP Screening (1.26M entities)',
+    description: 'Screen persons and entities against OFAC SDN, SAM.gov exclusions, and 100+ international sanctions/PEP lists via OpenSanctions.\n\n1.26M entities: 80% persons, 9% companies, 6% legal entities. Daily updates.\n\nUse for KYC/AML compliance, due diligence, counterparty screening.',
+    table: 'opensanctions_entities',
+    selectColumns: 'id, schema, name, aliases, birth_date, countries, addresses, identifiers, sanctions, datasets, first_seen, last_seen',
+    orderBy: 'last_seen DESC NULLS LAST',
+    emptyMessage: 'No sanctioned entities found matching criteria',
+    fields: [
+      { name: 'name', description: 'Person or entity name (fuzzy search)', match: 'ilike', columns: ['name'] },
+      { name: 'aliases', description: 'Search in aliases/alternate names', match: 'ilike', columns: ['aliases'] },
+      { name: 'schema', description: 'Entity type: Person, Company, LegalEntity, Organization, Vessel, CryptoWallet', match: 'exact', columns: ['schema'] },
+      { name: 'countries', description: 'Country code (e.g. us, ru, ir, cn)', match: 'ilike', columns: ['countries'] },
+      { name: 'datasets', description: 'Source dataset (e.g. us_ofac_sdn, us_sam_exclusions)', match: 'ilike', columns: ['datasets'] },
+    ],
+  },
+
+  us_sec_filers: {
+    title: 'SEC EDGAR Registered Filers (969K companies)',
+    description: 'Search SEC-registered entities: public companies, funds, investment advisers, broker-dealers.\n\n969K filers with CIK, ticker, SIC industry code, EIN, state of incorporation, filing count.\nCovers all entities that file with the SEC.',
+    table: 'us_sec_filers',
+    selectColumns: 'cik, entity_name, entity_type, sic, sic_description, ticker, exchanges, ein, state_of_incorporation, fiscal_year_end, filing_count, category, state, city',
+    orderBy: 'filing_count DESC NULLS LAST',
+    emptyMessage: 'No SEC filers found matching criteria',
+    fields: [
+      { name: 'name', description: 'Company or entity name', match: 'ilike', columns: ['entity_name'] },
+      { name: 'ticker', description: 'Stock ticker symbol (e.g. AAPL, TSLA)', match: 'exact', columns: ['ticker'], transform: 'uppercase' },
+      { name: 'cik', description: 'SEC Central Index Key (10-digit number)', match: 'exact', columns: ['cik'] },
+      { name: 'sic', description: 'SIC industry code (e.g. 7372 for software)', match: 'exact', columns: ['sic'] },
+      { name: 'ein', description: 'Employer Identification Number', match: 'exact', columns: ['ein'] },
+      { name: 'state', description: 'State of incorporation (2-letter code)', match: 'exact', columns: ['state_of_incorporation'], transform: 'uppercase' },
+    ],
+  },
+
+  us_fec_contributions: {
+    title: 'US Political Contributions (58M donations)',
+    description: 'Search individual political contributions reported to the FEC.\n\n58M records from 2000–2024 election cycles. Contributions over $200 by individuals to federal candidates, PACs, party committees.\n\nFind who donated to whom, how much, employer/occupation of donors.',
+    table: 'us_fec_contributions',
+    selectColumns: 'contributor_name, city, state, zip_code, employer, occupation, transaction_date, transaction_amount, committee_id, memo_text',
+    orderBy: 'transaction_amount DESC NULLS LAST',
+    emptyMessage: 'No FEC contributions found matching criteria',
+    defaultLimit: 50,
+    maxLimit: 100,
+    requiredFields: ['donor'],
+    fields: [
+      { name: 'donor', description: 'Contributor name (LAST, FIRST format)', match: 'ilike', columns: ['contributor_name'] },
+      { name: 'employer', description: 'Employer of contributor', match: 'ilike', columns: ['employer'] },
+      { name: 'state', description: 'Donor state (2-letter code)', match: 'exact', columns: ['state'], transform: 'uppercase' },
+      { name: 'committee', description: 'Recipient committee ID (e.g. C00401224)', match: 'exact', columns: ['committee_id'] },
+      { name: 'min_amount', description: 'Minimum contribution amount ($)', match: 'gte', columns: ['transaction_amount'], type: 'number' },
+      { name: 'occupation', description: 'Occupation of contributor', match: 'ilike', columns: ['occupation'] },
+    ],
+  },
+
+  us_osha_enforcement: {
+    title: 'OSHA Workplace Enforcement (377K employers)',
+    description: 'Search OSHA enforcement history by employer.\n\n377K employers with citation counts, penalties, violation types (willful, repeat, serious).\nDate range: 2009–2026. Useful for vendor safety screening and due diligence.',
+    table: 'us_osha_enforcement',
+    selectColumns: 'employer_id, employer_name, city, state, naics_code, naics_description, parent_name, citation_count, inspection_count, penalties_current_total, willful_count, repeat_count, serious_count, earliest_citation, latest_citation',
+    orderBy: 'penalties_current_total DESC NULLS LAST',
+    emptyMessage: 'No OSHA enforcement records found for this employer',
+    fields: [
+      { name: 'employer', description: 'Employer name', match: 'ilike', columns: ['employer_name'] },
+      { name: 'parent', description: 'Parent company name', match: 'ilike', columns: ['parent_name'] },
+      { name: 'state', description: 'State (2-letter code)', match: 'exact', columns: ['state'], transform: 'uppercase' },
+      { name: 'naics', description: 'NAICS industry code', match: 'exact', columns: ['naics_code'] },
+      { name: 'min_penalties', description: 'Minimum total penalties ($)', match: 'gte', columns: ['penalties_current_total'], type: 'number' },
+    ],
+  },
+
+  us_epa_facilities: {
+    title: 'EPA Regulated Facilities (3.2M sites)',
+    description: 'Search EPA-regulated facilities across the US.\n\n3.2M facilities from the Facility Registry Service (FRS). Includes location, NAICS/SIC codes, EPA region.\nCovers facilities under Clean Air Act, Clean Water Act, RCRA, SDWA, TRI programs.',
+    table: 'us_epa_facilities',
+    selectColumns: 'registry_id, fac_name, fac_street, fac_city, fac_state, fac_zip, fac_county, fac_epa_region, fac_lat, fac_long, fac_naics_codes, fac_sic_codes',
+    orderBy: 'fac_name',
+    emptyMessage: 'No EPA facilities found matching criteria',
+    fields: [
+      { name: 'name', description: 'Facility name', match: 'ilike', columns: ['fac_name'] },
+      { name: 'state', description: 'State (2-letter code)', match: 'exact', columns: ['fac_state'], transform: 'uppercase' },
+      { name: 'city', description: 'City name', match: 'ilike', columns: ['fac_city'] },
+      { name: 'zip', description: 'ZIP code', match: 'exact', columns: ['fac_zip'] },
+      { name: 'naics', description: 'NAICS code (in comma-separated list)', match: 'ilike', columns: ['fac_naics_codes'] },
+      { name: 'county', description: 'County name', match: 'ilike', columns: ['fac_county'] },
+      { name: 'epa_region', description: 'EPA region number (01-10)', match: 'exact', columns: ['fac_epa_region'] },
+    ],
+  },
+
+  us_cfpb_complaints: {
+    title: 'CFPB Consumer Complaints (15M complaints)',
+    description: 'Search consumer financial complaints from the CFPB database.\n\n15M complaints since 2011. Search by company, product, state, issue.\nUse for financial partner screening, complaint pattern analysis.',
+    table: 'us_cfpb_complaints',
+    selectColumns: 'complaint_id, date_received, product_normalized as product, issue, company, state, company_response, timely_response, consumer_complaint_narrative',
+    orderBy: 'date_received DESC NULLS LAST',
+    emptyMessage: 'No CFPB complaints found matching criteria',
+    defaultLimit: 30,
+    requiredFields: ['company'],
+    fields: [
+      { name: 'company', description: 'Company name (bank, lender, servicer)', match: 'ilike', columns: ['company'] },
+      { name: 'product', description: 'Product: Credit reporting, Mortgage, Bank account, Credit card / prepaid, Debt collection, etc.', match: 'exact', columns: ['product_normalized'] },
+      { name: 'state', description: 'Consumer state (2-letter code)', match: 'exact', columns: ['state'], transform: 'uppercase' },
+      { name: 'issue', description: 'Issue description', match: 'ilike', columns: ['issue'] },
+    ],
+  },
+
+  us_fda_enforcement: {
+    title: 'FDA Enforcement & Recalls (17.6K actions)',
+    description: 'Search FDA drug and food enforcement actions (recalls).\n\n17.6K enforcement actions since 2011. Includes product description, reason for recall, classification (Class I/II/III), recalling firm.',
+    table: 'us_fda_enforcement',
+    selectColumns: 'recall_number, status, classification, product_type, recalling_firm, city, state, recall_initiation_date, reason_for_recall, product_description, distribution_pattern',
+    orderBy: 'recall_initiation_date DESC NULLS LAST',
+    emptyMessage: 'No FDA enforcement actions found',
+    fields: [
+      { name: 'firm', description: 'Recalling firm name', match: 'ilike', columns: ['recalling_firm'] },
+      { name: 'product', description: 'Product description keywords', match: 'ilike', columns: ['product_description'] },
+      { name: 'reason', description: 'Reason for recall keywords', match: 'ilike', columns: ['reason_for_recall'] },
+      { name: 'classification', description: 'Risk class: Class I (dangerous), Class II (may cause harm), Class III (unlikely harm)', match: 'exact', columns: ['classification'] },
+      { name: 'state', description: 'State (2-letter code)', match: 'exact', columns: ['state'], transform: 'uppercase' },
+    ],
+  },
 };
