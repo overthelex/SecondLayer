@@ -35,8 +35,6 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Evaluation Protocol}{2}{subsection.4.1}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Retrieval baselines on the 2024 snapshot (200K cases, 1.8M predictions, 3{,}671 articles).}}{3}{table.1}\protected@file@percent }
 \newlabel{tab:main}{{1}{3}{Retrieval baselines on the 2024 snapshot (200K cases, 1.8M predictions, 3{,}671 articles)}{table.1}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Performance by article citation frequency (2024, Adamic-Adar).}}{3}{table.2}\protected@file@percent }
-\newlabel{tab:difficulty}{{2}{3}{Performance by article citation frequency (2024, Adamic-Adar)}{table.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Scoring Functions}{3}{subsection.4.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Ablation Controls}{3}{subsection.4.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Fixed-Article Ablation.}{3}{section*.4}\protected@file@percent }
@@ -45,53 +43,58 @@
 \newlabel{sec:results}{{5}{3}{Results}{section.5}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Cross-Sectional Performance (2024)}{3}{subsection.5.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Difficulty Spectrum}{3}{subsection.5.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Performance by article citation frequency (2024, Adamic-Adar).}}{4}{table.2}\protected@file@percent }
+\newlabel{tab:difficulty}{{2}{4}{Performance by article citation frequency (2024, Adamic-Adar)}{table.2}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Retrieval performance vs.\ article citation frequency. The practical difficulty frontier lies at $\sim $10K citations: below this, graph-based methods approach the degree baseline.}}{4}{figure.1}\protected@file@percent }
 \newlabel{fig:difficulty}{{1}{4}{Retrieval performance vs.\ article citation frequency. The practical difficulty frontier lies at $\sim $10K citations: below this, graph-based methods approach the degree baseline}{figure.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Temporal Decay: Main Finding}{4}{subsection.5.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Ablation: Is the Decay Real?}{4}{subsection.5.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Non-Uniform Degradation}{4}{subsection.5.5}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces MRR over 20 years. Co-citation predictability peaks in 2011--2012 and declines monotonically. Dashed: 2017 judicial reform. Dotted: 2022 invasion.}}{5}{figure.2}\protected@file@percent }
 \newlabel{fig:temporal}{{2}{5}{MRR over 20 years. Co-citation predictability peaks in 2011--2012 and declines monotonically. Dashed: 2017 judicial reform. Dotted: 2022 invasion}{figure.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}Domain-Specific Trajectories}{5}{subsection.5.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.7}Structural Explanation}{5}{subsection.5.7}\protected@file@percent }
-\newlabel{sec:structure}{{5.7}{5}{Structural Explanation}{subsection.5.7}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {6}Discussion}{5}{section.6}\protected@file@percent }
-\newlabel{sec:discussion}{{6}{5}{Discussion}{section.6}{}}
-\@writefile{toc}{\contentsline {paragraph}{Mechanisms of decay.}{5}{section*.6}\protected@file@percent }
-\citation{keshchenko2025citation}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Text-Based Baseline: BM25}{5}{subsection.5.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}Non-Uniform Degradation}{5}{subsection.5.6}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Ablation comparison: decay persists under both controls, confirming genuine temporal decay of co-citation predictability.}}{6}{table.3}\protected@file@percent }
 \newlabel{tab:ablation}{{3}{6}{Ablation comparison: decay persists under both controls, confirming genuine temporal decay of co-citation predictability}{table.3}{}}
-\@writefile{toc}{\contentsline {paragraph}{Practical implications.}{6}{section*.7}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Benchmark design.}{6}{section*.8}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7}Dataset Release}{6}{section.7}\protected@file@percent }
-\newlabel{sec:release}{{7}{6}{Dataset Release}{section.7}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {8}Limitations}{6}{section.8}\protected@file@percent }
-\newlabel{sec:limitations}{{8}{6}{Limitations}{section.8}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces BM25 (case text $\to $ article text) vs.\ co-citation (Adamic-Adar). BM25 uses masked case text (citations stripped) as query against article full texts. Both methods degrade over time.}}{6}{table.4}\protected@file@percent }
+\newlabel{tab:bm25}{{4}{6}{BM25 (case text $\to $ article text) vs.\ co-citation (Adamic-Adar). BM25 uses masked case text (citations stripped) as query against article full texts. Both methods degrade over time}{table.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.7}Domain-Specific Trajectories}{6}{subsection.5.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.8}Structural Explanation}{6}{subsection.5.8}\protected@file@percent }
+\newlabel{sec:structure}{{5.8}{6}{Structural Explanation}{subsection.5.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Discussion}{6}{section.6}\protected@file@percent }
+\newlabel{sec:discussion}{{6}{6}{Discussion}{section.6}{}}
+\@writefile{toc}{\contentsline {paragraph}{Mechanisms of decay.}{6}{section*.6}\protected@file@percent }
+\citation{keshchenko2025citation}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces MRR by year and difficulty bin. Hub articles (top) resist decay. Mid-frequency articles (middle) show the steepest decline, particularly after 2017.}}{7}{figure.3}\protected@file@percent }
+\newlabel{fig:heatmap_temporal}{{3}{7}{MRR by year and difficulty bin. Hub articles (top) resist decay. Mid-frequency articles (middle) show the steepest decline, particularly after 2017}{figure.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Practical implications.}{7}{section*.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Benchmark design.}{7}{section*.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Dataset Release}{7}{section.7}\protected@file@percent }
+\newlabel{sec:release}{{7}{7}{Dataset Release}{section.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Limitations}{7}{section.8}\protected@file@percent }
+\newlabel{sec:limitations}{{8}{7}{Limitations}{section.8}{}}
 \bibstyle{plainnat}
 \bibdata{references}
 \bibcite{adamic2003friends}{{1}{2003}{{Adamic and Adar}}{{}}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Article-level MRR: 2012 vs.\ 2024 for shared articles. Points below the diagonal became harder. Criminal procedure (blue) clusters near the diagonal; civil articles scatter below.}}{8}{figure.4}\protected@file@percent }
+\newlabel{fig:stability}{{4}{8}{Article-level MRR: 2012 vs.\ 2024 for shared articles. Points below the diagonal became harder. Criminal procedure (blue) clusters near the diagonal; civil articles scatter below}{figure.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Conclusion}{8}{section.9}\protected@file@percent }
+\newlabel{sec:conclusion}{{9}{8}{Conclusion}{section.9}{}}
 \bibcite{barron2025bridging}{{2}{2025}{{Barron et~al.}}{{Barron, Eren, Serafimova, Matuszek, and Alexandrov}}}
 \bibcite{coupette2021measuring}{{3}{2021}{{Coupette et~al.}}{{Coupette, Beckedorf, Hartung, Bommarito, and Katz}}}
 \bibcite{fowler2007network}{{4}{2007}{{Fowler et~al.}}{{Fowler, Johnson, Spriggs, Jeon, and Wahlbeck}}}
 \bibcite{guha2023legalbench}{{5}{2023}{{Guha et~al.}}{{Guha, Nyarko, Ho, R{\'e}, Chilton, Narasimhan, et~al.}}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces MRR by year and difficulty bin. Hub articles (top) resist decay. Mid-frequency articles (middle) show the steepest decline, particularly after 2017.}}{7}{figure.3}\protected@file@percent }
-\newlabel{fig:heatmap_temporal}{{3}{7}{MRR by year and difficulty bin. Hub articles (top) resist decay. Mid-frequency articles (middle) show the steepest decline, particularly after 2017}{figure.3}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {9}Conclusion}{7}{section.9}\protected@file@percent }
-\newlabel{sec:conclusion}{{9}{7}{Conclusion}{section.9}{}}
 \bibcite{ho2025incorporating}{{6}{2025}{{Ho et~al.}}{{Ho, Colby, and Fisher}}}
 \bibcite{keshchenko2025citation}{{7}{2025}{{Keshchenko}}{{}}}
 \bibcite{liben2007link}{{8}{2007}{{Liben-Nowell and Kleinberg}}{{}}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Per-codex MRR over time. Criminal Procedure remains stable; Civil Code degrades most. The 2017 reform creates a visible inflection in civil/administrative codes.}}{9}{figure.5}\protected@file@percent }
+\newlabel{fig:codex}{{5}{9}{Per-codex MRR over time. Criminal Procedure remains stable; Civil Code degrades most. The 2017 reform creates a visible inflection in civil/administrative codes}{figure.5}{}}
 \bibcite{lotfi2024bsard}{{9}{2024}{{Lotfi et~al.}}{{Lotfi, Banar, Yuzbashyan, and Daelemans}}}
 \bibcite{louis2023finding}{{10}{2023}{{Louis et~al.}}{{Louis, van Dijck, and Spanakis}}}
 \bibcite{niklaus2023lextreme}{{11}{2023}{{Niklaus et~al.}}{{Niklaus, Matoshi, Rani, Galassi, St{\"u}rmer, and Chalkidis}}}
 \bibcite{paul2021lesicin}{{12}{2022}{{Paul et~al.}}{{Paul, Goyal, and Ghosh}}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Article-level MRR: 2012 vs.\ 2024 for shared articles. Points below the diagonal became harder. Criminal procedure (blue) clusters near the diagonal; civil articles scatter below.}}{8}{figure.4}\protected@file@percent }
-\newlabel{fig:stability}{{4}{8}{Article-level MRR: 2012 vs.\ 2024 for shared articles. Points below the diagonal became harder. Criminal procedure (blue) clusters near the diagonal; civil articles scatter below}{figure.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Co-citation Jaccard similarity among the 20 most-cited articles (2024). Block-diagonal structure reflects procedural ``citation templates'' that resist temporal change.}}{10}{figure.6}\protected@file@percent }
+\newlabel{fig:heatmap}{{6}{10}{Co-citation Jaccard similarity among the 20 most-cited articles (2024). Block-diagonal structure reflects procedural ``citation templates'' that resist temporal change}{figure.6}{}}
 \bibcite{rasiah2023scale}{{13}{2023}{{Rasiah et~al.}}{{Rasiah, Stern, Matoshi, St{\"u}rmer, Chalkidis, Ho, and Niklaus}}}
 \bibcite{tang2024casegnn}{{14}{2024}{{Tang et~al.}}{{Tang, Qiu, Liu, Li, and Huang}}}
 \bibcite{winkels2011determining}{{15}{2011}{{Winkels et~al.}}{{Winkels, de~Ruyter, and Kroese}}}
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Per-codex MRR over time. Criminal Procedure remains stable; Civil Code degrades most. The 2017 reform creates a visible inflection in civil/administrative codes.}}{9}{figure.5}\protected@file@percent }
-\newlabel{fig:codex}{{5}{9}{Per-codex MRR over time. Criminal Procedure remains stable; Civil Code degrades most. The 2017 reform creates a visible inflection in civil/administrative codes}{figure.5}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Co-citation Jaccard similarity among the 20 most-cited articles (2024). Block-diagonal structure reflects procedural ``citation templates'' that resist temporal change.}}{10}{figure.6}\protected@file@percent }
-\newlabel{fig:heatmap}{{6}{10}{Co-citation Jaccard similarity among the 20 most-cited articles (2024). Block-diagonal structure reflects procedural ``citation templates'' that resist temporal change}{figure.6}{}}
-\gdef \@abspage@last{10}
+\gdef \@abspage@last{11}

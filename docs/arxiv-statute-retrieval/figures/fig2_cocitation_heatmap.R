@@ -18,18 +18,18 @@ LAW_NORM <- c(
 )
 dt[law_number %in% names(LAW_NORM), law_number := LAW_NORM[law_number]]
 
-# Short labels for display
+# Short labels for display (English for PDF compatibility)
 LAW_SHORT <- c(
-  "Цивільний процесуальний кодекс України" = "ЦПК",
-  "Кримінальний процесуальний кодекс України" = "КПК",
-  "Кодекс адміністративного судочинства України" = "КАС",
-  "Цивільний кодекс України" = "ЦК",
-  "Кримінальний кодекс України" = "КК",
-  "Кодекс України про адміністративні правопорушення" = "КУпАП",
-  "Господарський процесуальний кодекс України" = "ГПК",
-  "Сімейний кодекс України" = "СК",
-  "Податковий кодекс України" = "ПК",
-  "Господарський кодекс України" = "ГК"
+  "Цивільний процесуальний кодекс України" = "CivProc",
+  "Кримінальний процесуальний кодекс України" = "CrimProc",
+  "Кодекс адміністративного судочинства України" = "Admin",
+  "Цивільний кодекс України" = "CivCode",
+  "Кримінальний кодекс України" = "CrimCode",
+  "Кодекс України про адміністративні правопорушення" = "AdminOff",
+  "Господарський процесуальний кодекс України" = "CommProc",
+  "Сімейний кодекс України" = "Family",
+  "Податковий кодекс України" = "Tax",
+  "Господарський кодекс України" = "CommCode"
 )
 dt[, law_short := ifelse(law_number %in% names(LAW_SHORT), LAW_SHORT[law_number], law_number)]
 dt[, article_key := paste0(law_short, " ", law_article)]
@@ -73,9 +73,9 @@ jdt <- data.table(
 jdt[, art_x := factor(art_x, levels = rev(top20))]
 jdt[, art_y := factor(art_y, levels = top20)]
 
-# Generate PDF (tikzDevice doesn't handle Cyrillic well)
-pdf(file.path(FIGDIR, "fig2_cocitation_heatmap.pdf"),
-    width = 5.5, height = 4.5, family = "Helvetica")
+# Generate PDF with Cairo for proper font rendering
+cairo_pdf(file.path(FIGDIR, "fig2_cocitation_heatmap.pdf"),
+          width = 5.5, height = 4.5)
 
 p <- ggplot(jdt, aes(x = art_y, y = art_x, fill = jaccard)) +
   geom_tile(color = "white", linewidth = 0.3) +
