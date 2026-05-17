@@ -368,9 +368,8 @@ services:
         condition: service_healthy
 
     volumes:
-      # Mount source code for hot reload (optional - comment out if using Docker image only)
-      # - ../mcp_backend/src:/app/src:ro
-      # - ../mcp_backend/dist:/app/dist:ro
+      - ../mcp_backend/dist:/app/mcp_backend/dist:ro
+      - ../packages/shared/dist:/app/mcp_backend/node_modules/@secondlayer/shared/dist:ro
       - ../mcp_backend/logs:/app/logs
       - app_local_data:/app/data
       # Vision API credentials for OCR
