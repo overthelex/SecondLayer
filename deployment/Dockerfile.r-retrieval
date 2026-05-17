@@ -1,0 +1,15 @@
+FROM rocker/r-ver:4.4.2
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglpk-dev \
+    libxml2-dev \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN R -e "install.packages(c('data.table', 'Matrix', 'igraph', 'arrow', 'jsonlite'), repos='https://cloud.r-project.org/', Ncpus=8)"
+
+COPY scripts/citation-graph/06_statute_retrieval_eval.R /opt/ml/code/eval.R
+COPY scripts/citation-graph/run_temporal_eval.R /opt/ml/code/run_temporal_eval.R
+
+ENTRYPOINT ["Rscript", "/opt/ml/code/run_temporal_eval.R"]
