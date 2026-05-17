@@ -1,61 +1,80 @@
 # LexTreme Dataset Contribution Workflow
 
+## Prerequisites
+
+```bash
+pip install psycopg2-binary datasets huggingface_hub pyarrow
+huggingface-cli login
+```
+
 ## Steps
 
-### 1. Extract data (on prod server)
+### 1. Ensure SSH tunnel to prod DB
 
 ```bash
-scp scripts/lextreme/extract-server-side.py prod:/tmp/extract-lextreme.py
-ssh prod "python3 /tmp/extract-lextreme.py"
+# Check if tunnel is already running:
+ss -tlnp | grep 5438
+
+# If not, start it:
+ssh -fNL 5438:localhost:5432 prod
 ```
 
-### 2. Download results
+### 2. Extract data from prod
 
 ```bash
-mkdir -p scripts/lextreme/output
-scp prod:/tmp/lextreme-ukr-*.jsonl scripts/lextreme/output/
+# Set prod DB password
+export PGPASSWORD='...'   # from .env.prod PROD_DB_PASSWORD
+
+# Extract all epochs (may take a while on full_scale due to less fulltext data)
+python3 scripts/lextreme/extract-full-local.py --prod
+
+# Or specific epochs with balancing:
+python3 scripts/lextreme/extract-full-local.py --prod --target-per-class 20000 --epochs hybrid_war pre_war
+
+# Or pass password directly:
+python3 scripts/lextreme/extract-full-local.py --prod --password '...'
 ```
 
-### 3. Convert to parquet and upload to HuggingFace
+Output: `scripts/lextreme/output/lextreme-ukr-{pre_war,hybrid_war,full_scale}.jsonl`
+
+### 3. Build temporal splits
 
 ```bash
-pip install datasets huggingface_hub pyarrow
-huggingface-cli login
+python3 scripts/lextreme/build-temporal-splits.py
+
+# With balancing (equal per class per epoch):
+python3 scripts/lextreme/build-temporal-splits.py --balance 20000
+```
+
+Output: `scripts/lextreme/output/{epoch}/{train,validation,test}.jsonl`
+
+Each split is chronological -- train contains earliest decisions, test contains latest.
+
+### 4. Upload to HuggingFace
+
+```bash
+# Dry run first:
+python3 scripts/lextreme/upload-to-hf.py --dry-run
+
+# Upload all configs:
 python3 scripts/lextreme/upload-to-hf.py
 ```
 
-### 4. Fork and PR to LexTreme
+### 5. Fork and PR to LexTreme
 
 ```bash
 # Fork joelniklaus/lextreme on HuggingFace
-# Clone your fork
 git clone https://huggingface.co/datasets/YOUR_USERNAME/lextreme
 cd lextreme
-
-# Edit lextreme.py — add the config from lextreme-config.py
-# Commit and push
-# Create PR on HuggingFace
+# Edit lextreme.py -- add the 3 configs from lextreme-config.py
+# Commit and push, create PR on HuggingFace
 ```
 
-### 5. Reply to Joel
+## Data availability notes
 
-Subject: Ukrainian Court Decisions subset for LexTreme
+Fulltext data on prod is uneven:
+- **pre_war** (2008-2013): ~11M fulltext records, solid coverage
+- **hybrid_war** (2014-2021): ~56M fulltext records, best coverage
+- **full_scale** (2022-2026): ~791K fulltext records, limited (import in progress)
 
-```
-Hi Joel,
-
-Thanks for the endorsement! I've prepared a Ukrainian court decisions dataset
-for LexTreme — case outcome prediction (approved/dismissed/partial) based on
-the facts section only.
-
-Source: State Court Decisions Registry (ЄДРСР) — 100M+ decisions.
-We extracted ~15K balanced samples from civil and commercial courts (2018-2025).
-
-Dataset: https://huggingface.co/datasets/secondlayer/ukrainian-court-decisions
-PR: [link to PR]
-
-Let me know if anything needs adjusting!
-
-Best,
-Volodymyr
-```
+Use `--target-per-class` to balance across epochs if full_scale is too small.
