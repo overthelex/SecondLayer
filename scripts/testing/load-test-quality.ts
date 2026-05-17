@@ -605,24 +605,34 @@ async function printSummary(pool: pg.Pool, testRunId: string): Promise<void> {
   const routing = await pool.query(`
     SELECT expected_tool,
       tool_triggered,
+      tools_used,
       status,
       wave,
       response_time_ms as ms
-    FROM load_test_results WHERE test_run_id = $1
+    FROM load_test_results WHERE test_run_id = $1 AND status = 'success'
     ORDER BY wave, expected_tool
   `, [testRunId]);
 
   console.log('\nTool routing:');
-  console.log('-'.repeat(90));
-  console.log('Wave     | Expected Tool                    | Triggered Tool                   | Match | ms');
-  console.log('-'.repeat(90));
+  console.log('-'.repeat(100));
+  console.log('Wave     | Expected Tool                    | Tools Used                             | Match | ms');
+  console.log('-'.repeat(100));
+  let exactMatch = 0;
+  let containsMatch = 0;
   for (const row of routing.rows) {
-    const match = row.expected_tool === row.tool_triggered ? 'YES' :
-      (row.tool_triggered && row.expected_tool.includes(row.tool_triggered.split('_')[0])) ? '~' : 'NO';
+    const toolsUsed: string[] = row.tools_used || [];
+    const isExact = row.expected_tool === row.tool_triggered;
+    const isContains = toolsUsed.includes(row.expected_tool);
+    if (isExact) exactMatch++;
+    if (isContains) containsMatch++;
+    const match = isExact ? 'EXACT' : isContains ? 'YES' : 'NO';
+    const toolsStr = toolsUsed.slice(0, 3).join(',') + (toolsUsed.length > 3 ? '...' : '');
     console.log(
-      `${(row.wave || '').padEnd(8)} | ${(row.expected_tool || '').padEnd(32)} | ${(row.tool_triggered || 'none').padEnd(32)} | ${match.padStart(5)} | ${String(row.ms || 0).padStart(6)}`
+      `${(row.wave || '').padEnd(8)} | ${(row.expected_tool || '').padEnd(32)} | ${toolsStr.padEnd(38)} | ${match.padStart(5)} | ${String(row.ms || 0).padStart(6)}`
     );
   }
+  const total = routing.rows.length;
+  console.log(`\nRouting accuracy: exact=${exactMatch}/${total} (${total > 0 ? Math.round(exactMatch/total*100) : 0}%) | contains=${containsMatch}/${total} (${total > 0 ? Math.round(containsMatch/total*100) : 0}%)`);
 
   const totals = await pool.query(`
     SELECT
@@ -693,56 +703,66 @@ async function preflightCheck(baseUrl: string, token: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Quality scoring
+// Quality scoring (Bedrock Claude Haiku)
 // ---------------------------------------------------------------------------
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
-const QUALITY_MODEL = 'gpt-4o-mini';
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+
+const GRADING_MODEL = process.env.BEDROCK_GRADING_MODEL || 'eu.anthropic.claude-haiku-4-5-20251001-v1:0';
+const AWS_REGION = process.env.AWS_REGION || 'eu-central-1';
 
 interface QualityScore {
   score: 'relevant' | 'partially_relevant' | 'not_relevant' | 'hallucinated' | 'skip';
   reason: string;
 }
 
+function getBedrockClient(): BedrockRuntimeClient | null {
+  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) return null;
+  return new BedrockRuntimeClient({ region: AWS_REGION });
+}
+
 async function gradeAnswer(query: string, answer: string, expectedTool: string): Promise<QualityScore> {
-  if (!OPENAI_API_KEY || !answer || answer.length < 20) {
-    return { score: 'skip', reason: 'no API key or empty answer' };
+  const client = getBedrockClient();
+  if (!client || !answer || answer.length < 20) {
+    return { score: 'skip', reason: 'no AWS credentials or empty answer' };
   }
 
   try {
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: QUALITY_MODEL,
-        temperature: 0,
-        max_tokens: 150,
-        messages: [
-          {
-            role: 'system',
-            content: `You grade legal AI assistant answers. Respond with JSON: {"score": "relevant"|"partially_relevant"|"not_relevant"|"hallucinated", "reason": "<short reason>"}.
+    const body = JSON.stringify({
+      anthropic_version: 'bedrock-2023-05-31',
+      max_tokens: 150,
+      temperature: 0,
+      messages: [
+        {
+          role: 'user',
+          content: `You grade legal AI assistant answers. Respond ONLY with JSON: {"score": "relevant"|"partially_relevant"|"not_relevant"|"hallucinated", "reason": "<short reason>"}
+
+Scoring:
 - relevant: directly answers the query with correct legal info
 - partially_relevant: related but incomplete or tangential
 - not_relevant: doesn't address the query at all
-- hallucinated: contains fabricated case numbers, fake citations, or invented legal norms`,
-          },
-          {
-            role: 'user',
-            content: `Query: ${query}\nExpected tool: ${expectedTool}\nAnswer (first 1000 chars): ${answer.substring(0, 1000)}`,
-          },
-        ],
-      }),
-      signal: AbortSignal.timeout(15_000),
+- hallucinated: contains fabricated case numbers, fake citations, or invented legal norms
+
+Query: ${query}
+Expected tool: ${expectedTool}
+Answer (first 1000 chars): ${answer.substring(0, 1000)}`,
+        },
+      ],
     });
 
-    if (!resp.ok) return { score: 'skip', reason: `grading API error: ${resp.status}` };
+    const command = new InvokeModelCommand({
+      modelId: GRADING_MODEL,
+      contentType: 'application/json',
+      accept: 'application/json',
+      body,
+    });
 
-    const data = await resp.json() as any;
-    const content = data.choices?.[0]?.message?.content || '';
-    const parsed = JSON.parse(content);
+    const resp = await client.send(command);
+    const responseBody = JSON.parse(new TextDecoder().decode(resp.body));
+    const content = responseBody.content?.[0]?.text || '';
+    const jsonMatch = content.match(/\{[^}]+\}/);
+    if (!jsonMatch) return { score: 'skip', reason: 'no JSON in grading response' };
+    const parsed = JSON.parse(jsonMatch[0]);
     return { score: parsed.score, reason: parsed.reason };
   } catch (err: any) {
     return { score: 'skip', reason: `grading failed: ${err.message}` };
@@ -750,8 +770,8 @@ async function gradeAnswer(query: string, answer: string, expectedTool: string):
 }
 
 async function gradeResults(pool: pg.Pool, testRunId: string): Promise<void> {
-  if (!OPENAI_API_KEY) {
-    console.log('[Quality] Skipping grading — no OPENAI_API_KEY');
+  if (!process.env.AWS_ACCESS_KEY_ID) {
+    console.log('[Quality] Skipping grading — no AWS credentials');
     return;
   }
 
@@ -834,23 +854,26 @@ async function generateReport(pool: pg.Pool, runId?: string): Promise<void> {
   }
 
   const routing = await pool.query(`
-    SELECT expected_tool, tool_triggered,
-      CASE WHEN expected_tool = tool_triggered THEN 'exact'
-           WHEN tool_triggered IS NOT NULL AND tool_triggered != '' THEN 'mismatch'
-           ELSE 'none' END as match_type,
+    SELECT expected_tool, tool_triggered, tools_used,
       response_time_ms, cost_usd, quality_score
     FROM load_test_results WHERE test_run_id = $1 AND status = 'success'
     ORDER BY expected_tool
   `, [targetRun]);
 
-  const exact = routing.rows.filter(r => r.match_type === 'exact').length;
+  const exact = routing.rows.filter((r: any) => r.expected_tool === r.tool_triggered).length;
+  const contains = routing.rows.filter((r: any) => (r.tools_used || []).includes(r.expected_tool)).length;
   const total = routing.rows.length;
 
-  console.log(`\n## Tool Routing Accuracy: ${exact}/${total} (${total > 0 ? Math.round(exact / total * 100) : 0}%)\n`);
-  console.log('| Expected Tool | Triggered | ms | Cost | Quality |');
-  console.log('|---------------|-----------|-----|------|---------|');
+  console.log(`\n## Tool Routing Accuracy: exact=${exact}/${total} (${total > 0 ? Math.round(exact / total * 100) : 0}%) | contains=${contains}/${total} (${total > 0 ? Math.round(contains / total * 100) : 0}%)\n`);
+  console.log('| Expected Tool | Tools Used | Match | ms | Cost | Quality |');
+  console.log('|---------------|-----------|-------|-----|------|---------|');
   for (const r of routing.rows) {
-    console.log(`| ${r.expected_tool} | ${r.tool_triggered || 'none'} | ${r.response_time_ms} | $${r.cost_usd || 0} | ${r.quality_score || '-'} |`);
+    const toolsUsed: string[] = r.tools_used || [];
+    const isContains = toolsUsed.includes(r.expected_tool);
+    const isExact = r.expected_tool === r.tool_triggered;
+    const match = isExact ? 'EXACT' : isContains ? 'YES' : 'NO';
+    const toolsStr = toolsUsed.slice(0, 3).join(', ') + (toolsUsed.length > 3 ? '...' : '');
+    console.log(`| ${r.expected_tool} | ${toolsStr || 'none'} | ${match} | ${r.response_time_ms} | $${r.cost_usd || 0} | ${r.quality_score || '-'} |`);
   }
 
   const quality = await pool.query(`
