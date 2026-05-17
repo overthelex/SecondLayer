@@ -234,6 +234,13 @@ This is \emph{clarification}: fewer domains, each spectrally sharper.
 
 Transition stability confirms gradualism: NMI increases monotonically from $0.826$ (P1$\to$P2) to $0.960$ (P3$\to$P4; Table~\ref{tab:nmi}), with the pre-invasion period achieving near-perfect partition preservation.
 
+\begin{figure}[t]
+\centering
+\input{figures/fig_spectral.tex}
+\caption{Fiedler value $\lambda_2$ (algebraic connectivity) across periods. The 14$\times$ drop (P1--P3) indicates progressive spectral clarification; the 50$\times$ jump (P3--P4) signals consolidation destroying separability.}
+\label{fig:spectral}
+\end{figure}
+
 P1 warrants methodological caution: density $\rho = 0.33$ and modularity barely above null ($Q = 0.027$, $Q_{\text{null}} = 0.026$).
 The 7-year window inflates edge count despite weight normalization.
 
@@ -341,7 +348,14 @@ Community restructuring redistributes nodes \emph{between} domains without alter
 \subsection{Five-Method Validation}
 
 \paragraph{Formal jurisdiction.}
-NMI between communities and the \emph{justice\_kind} classification (Table~\ref{tab:validation}) peaks at P2 ($0.71$), drops during consolidation to $0.46$ (P4: three communities cannot cover five formal domains), and partially recovers at P5 ($0.59$).
+NMI between communities and the \emph{justice\_kind} classification (Table~\ref{tab:validation}, Figure~\ref{fig:validation_jk}) peaks at P2 ($0.71$), drops during consolidation to $0.46$ (P4: three communities cannot cover five formal domains), and partially recovers at P5 ($0.59$).
+
+\begin{figure}[t]
+\centering
+\input{figures/fig_validation_jk.tex}
+\caption{NMI between co-citation communities and formal jurisdiction. Community count $k$ shown inside bars. Alignment drops during consolidation ($k{=}3$) and recovers during reorganization ($k{=}5$).}
+\label{fig:validation_jk}
+\end{figure}
 
 \begin{table}[t]
 \centering
@@ -509,5 +523,29 @@ The co-citation networks, community assignments, and analysis code are released 
 
 \bibliographystyle{plainnat}
 \bibliography{references}
+
+\appendix
+\section{Additional Figures}
+
+\begin{figure}[ht]
+\centering
+\input{figures/fig_embed_comparison.tex}
+\caption{Comparison of two validation metrics per period: NMI between co-citation communities and formal jurisdiction (blue), and NMI between co-citation communities and LLM embedding clusters (red). The metrics align at P3 and diverge at P5, where co-citation captures practice-based distinctions invisible to semantics.}
+\label{fig:embed_comparison}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\input{figures/fig_nmi_extended.tex}
+\caption{Extended NMI comparison including within-P5 stability (P5a$\to$P5b, green). The wartime reorganization stabilizes rapidly (NMI $= 0.942$), contrasting with the P4$\to$P5 disruption (NMI $= 0.770$).}
+\label{fig:nmi_extended}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\input{figures/fig_boundary.tex}
+\caption{Period boundary sensitivity. Shifting the P4/P5 boundary by $\pm 1$ year produces identical NMI values for both the P3$\to$P4 (blue) and P4$\to$P5 (red) transitions.}
+\label{fig:boundary}
+\end{figure}
 
 \end{document}
