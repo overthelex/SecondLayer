@@ -42,9 +42,9 @@
 Co-citation structure is widely assumed to provide stable retrieval signal in legal information systems.
 We test this assumption longitudinally by constructing UA-StatuteRetrieval, a benchmark that measures co-citation predictability across 20 annual snapshots (2007--2026) of 396 million codex citations from 101 million Ukrainian court decisions.
 Using a leave-one-out protocol over the full bipartite citation graph, we find that Adamic-Adar MRR declines 33\% on a \emph{fixed} set of articles (from 0.43 to 0.29) and 47\% under a train/test temporal split (from 0.51 to 0.27) -- confirming genuine temporal decay rather than compositional shift or evaluation artifact.
-The decay is non-uniform: criminal procedure maintains stable co-citation patterns (MRR $\sim$0.40), while civil law degrades from 0.35 to 0.15 following the 2017 judicial reform.
+The decay is non-uniform: criminal procedure maintains stable co-citation patterns (MRR $\sim$0.40), while civil law degrades from 0.35 to 0.15, coinciding with the 2017 judicial reform.
 Hub articles ($>$100K citations) resist decay, but mid-frequency articles (1K--10K) -- the practical retrieval frontier -- lose half their predictability.
-These findings establish that graph-based legal retrieval requires continual updating and that neural text-based methods are necessary precisely where co-citation signal is weakest.
+A BM25 text baseline decays even faster (31\%), indicating that temporal robustness is an open challenge across retrieval modalities.
 The benchmark is released at \url{https://huggingface.co/datasets/overthelex/ua-statute-retrieval}.
 \end{abstract}
 
@@ -307,14 +307,14 @@ At the individual article level (Figure~\ref{fig:stability}), the majority of sh
 \begin{figure}[t]
 \centering
 \input{figures/fig6_per_codex_temporal.tex}
-\caption{Per-codex MRR over time. Criminal Procedure remains stable; Civil Code degrades most. The 2017 reform creates a visible inflection in civil/administrative codes.}
+\caption{Per-codex MRR over time. Criminal Procedure remains stable; Civil Code degrades most. The decline is gradual, with no sharp discontinuity at 2017.}
 \label{fig:codex}
 \end{figure}
 
 Figure~\ref{fig:codex} reveals that the aggregate decay masks sharply divergent domain trajectories:
 \begin{itemize}[nosep,leftmargin=*]
   \item \textbf{Criminal Procedure} (MRR $\sim$0.40, stable): highly formulaic citation patterns that persist across reforms.
-  \item \textbf{Civil Code} (0.35 $\to$ 0.15): steepest decline, reflecting evolving interpretive practice and the 2017 reform's reorganization of civil procedure.
+  \item \textbf{Civil Code} (0.35 $\to$ 0.15): steepest decline, coinciding with evolving interpretive practice and the 2017 reform's reorganization of civil procedure.
   \item \textbf{Administrative Courts} (post-2022 break): wartime emergency legislation disrupts established patterns.
 \end{itemize}
 
@@ -337,8 +337,9 @@ Mid-frequency articles lack such structural protection, making their co-citation
 
 \paragraph{Mechanisms of decay.}
 Two complementary mechanisms drive the observed degradation:
-(1)~\emph{Structural breaks} -- the 2017 judicial reform replaced old procedural codes with new ones, disrupting established co-citation patterns. This manifests as a visible inflection in Figure~\ref{fig:codex}.
-(2)~\emph{Growing diversity} -- as annual case volume grows from 6.4M (2016) to 8.8M (2025), the distribution over article combinations becomes more diffuse, weakening co-citation signal for non-hub provisions.
+(1)~\emph{Growing diversity} -- as annual case volume grows from 6.4M (2016) to 8.8M (2025), the distribution over article combinations becomes more diffuse, weakening co-citation signal for non-hub provisions.
+(2)~\emph{Legislative change} -- the 2017 judicial reform introduced new procedural codes, coinciding with accelerated decline in civil and administrative domains (Figure~\ref{fig:codex}).
+A formal changepoint analysis (PELT algorithm on mean+variance) identifies 2014, 2017, and 2019 as structural breaks, though the decline is predominantly gradual rather than step-like -- consistent with a diffusion mechanism rather than a single discrete event.
 
 \paragraph{Practical implications.}
 The decay rate of $\sim$3\% MRR/year for mid-frequency articles implies that a graph-based retrieval system loses meaningful performance within 3--4 years without retraining.
