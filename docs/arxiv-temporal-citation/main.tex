@@ -503,6 +503,32 @@ The merged graph is nearly uniformly connected, consistent with the low modulari
 P5 shows $\lambda_2 = 0.0112$ -- slightly higher than P4, indicating that the reorganized $k = 5$ communities have not yet achieved the spectral distinctness of the pre-consolidation era (P3: $\lambda_2 = 0.0002$).
 The new domain boundaries exist in the Leiden partition but are spectrally soft -- consistent with the ongoing structural adjustment under wartime conditions.
 
+\subsection{Semantic Embedding Validation}
+
+To test whether co-citation communities reflect textual similarity or purely citation-practice patterns, we embed all 30{,}280 legislation article identifiers using a multilingual LLM (intfloat/multilingual-e5-large, 1{,}024 dimensions), cluster the embeddings via $k$-means, and compare with co-citation community assignments via NMI (Table~\ref{tab:embeddings}).
+
+\begin{table}[t]
+\centering
+\small
+\caption{NMI between LLM embedding clusters ($k$-means) and co-citation communities. Peak alignment at P3 ($k=4$); wartime P5 communities capture practice-based distinctions invisible to semantic similarity.}
+\label{tab:embeddings}
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+\textbf{Period} & \textbf{Cocit $k$} & \textbf{NMI} & \textbf{Best emb.\ $k$} & \textbf{Best NMI} \\
+\midrule
+P1 & 8 & 0.426 & 2 & 0.735 \\
+P2 & 6 & 0.621 & 4 & 0.727 \\
+P3 & 4 & 0.710 & 4 & 0.710 \\
+P4 & 3 & 0.588 & 3 & 0.588 \\
+P5 & 5 & 0.434 & 3 & 0.613 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Embedding clusters and co-citation communities align most strongly at P3 (NMI $= 0.71$, optimal $k$ identical), where the community structure closely mirrors textual domain boundaries.
+For P5, however, co-citation detects five communities while embeddings favor three: the wartime procedural split (first-instance vs.\ cassation) and the administrative/misdemeanor emergence are \emph{citation-practice} distinctions not reflected in article-title semantics.
+This demonstrates that co-citation analysis captures practice-based legal domain boundaries that text-based methods alone would miss -- a finding with implications for legal information retrieval systems that rely solely on semantic similarity.
+
 % ============================================================
 \section{Discussion}
 \label{sec:discussion}
