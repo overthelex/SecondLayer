@@ -33,6 +33,10 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import numpy as np
 import torch
+
+
+def is_main_process():
+    return int(os.environ.get("LOCAL_RANK", 0)) == 0
 from datasets import Dataset
 from sklearn.metrics import (
     accuracy_score,
@@ -219,31 +223,37 @@ def train_single(model_key, epoch, seed, max_train_samples=None):
 
     val_metrics = trainer.evaluate()
 
-    trainer.save_model(str(out_dir / "best_model"))
-    tokenizer.save_pretrained(str(out_dir / "best_model"))
+    if is_main_process():
+        trainer.save_model(str(out_dir / "best_model"))
+        tokenizer.save_pretrained(str(out_dir / "best_model"))
 
-    results = {
-        "model": model_key,
-        "hf_id": hf_id,
-        "train_epoch": epoch,
-        "seed": seed,
-        "train_samples": len(train_ds),
-        "val_samples": len(val_ds),
-        "train_time_seconds": round(train_time, 1),
-        "n_gpus": n_gpus,
-        **{k.replace("eval_", ""): v for k, v in val_metrics.items()},
-    }
+        results = {
+            "model": model_key,
+            "hf_id": hf_id,
+            "train_epoch": epoch,
+            "seed": seed,
+            "train_samples": len(train_ds),
+            "val_samples": len(val_ds),
+            "train_time_seconds": round(train_time, 1),
+            "n_gpus": n_gpus,
+            **{k.replace("eval_", ""): v for k, v in val_metrics.items()},
+        }
 
-    with open(out_dir / "eval_results.json", "w") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
+        with open(out_dir / "eval_results.json", "w") as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
 
-    print(f"\n{name} done: macro_f1={results.get('macro_f1', 'N/A'):.4f}, "
-          f"acc={results.get('accuracy', 'N/A'):.4f}, time={train_time:.0f}s")
+        print(f"\n{name} done: macro_f1={results.get('macro_f1', 'N/A'):.4f}, "
+              f"acc={results.get('accuracy', 'N/A'):.4f}, time={train_time:.0f}s")
 
-    return results
+        return results
+
+    return None
 
 
 def evaluate_cross_epoch(model_key, train_epoch, seed):
+    if not is_main_process():
+        return None
+
     out_dir = output_dir_for(model_key, train_epoch, seed)
     model_path = out_dir / "best_model"
 
@@ -314,6 +324,9 @@ def evaluate_cross_epoch(model_key, train_epoch, seed):
 
 
 def extract_embeddings(model_key, train_epoch, seed, n_samples=1000):
+    if not is_main_process():
+        return
+
     out_dir = output_dir_for(model_key, train_epoch, seed)
     model_path = out_dir / "best_model"
     emb_file = out_dir / "embeddings.npz"
@@ -488,7 +501,6 @@ def aggregate_results():
         matrices = defaultdict(lambda: defaultdict(list))
 
         for seed in SEEDS:
-            out_dir = output_dir_for(model_key, None, None)
             for train_epoch in EPOCHS:
                 result_file = output_dir_for(model_key, train_epoch, seed) / "cross_epoch_results.json"
                 if not result_file.exists():
@@ -501,18 +513,18 @@ def aggregate_results():
             print("  No results yet")
             continue
 
-        print(f"  {'Train/Test':<15} {'pre_war':>10} {'hybrid_war':>12} {'full_scale':>12}")
-        print(f"  {'-'*49}")
+        print(f"  {'Train/Test':<15} {'pre_war':>12} {'hybrid_war':>12} {'full_scale':>12}")
+        print(f"  {'-'*51}")
         for train_epoch in EPOCHS:
             row = f"  {train_epoch:<15}"
             for test_epoch in EPOCHS:
                 vals = matrices[train_epoch].get(test_epoch, [])
                 if vals:
-                    mean = np.mean(vals)
-                    std = np.std(vals)
-                    row += f" {mean:>7.1f}±{std:.1f}"
+                    mean = np.mean(vals) * 100
+                    std = np.std(vals) * 100
+                    row += f" {mean:>8.1f}±{std:.1f}"
                 else:
-                    row += f" {'---':>10}"
+                    row += f" {'---':>12}"
             print(row)
 
         fwd_vals = matrices["pre_war"].get("full_scale", [])
@@ -521,10 +533,10 @@ def aggregate_results():
         diag_full = matrices["full_scale"].get("full_scale", [])
 
         if fwd_vals and diag_pre:
-            fwd_drop = np.mean(diag_pre) - np.mean(fwd_vals)
+            fwd_drop = (np.mean(diag_pre) - np.mean(fwd_vals)) * 100
             print(f"\n  Forward degradation (pre_war diag - pre_war→full_scale): {fwd_drop:.1f} pp")
         if bwd_vals and diag_full:
-            bwd_drop = np.mean(diag_full) - np.mean(bwd_vals)
+            bwd_drop = (np.mean(diag_full) - np.mean(bwd_vals)) * 100
             print(f"  Backward degradation (full_scale diag - full_scale→pre_war): {bwd_drop:.1f} pp")
 
     agg_file = RESULTS_DIR / "aggregate_results.json"

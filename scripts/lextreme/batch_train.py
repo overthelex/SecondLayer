@@ -41,20 +41,35 @@ BASE_MODELS = [m for m in MODELS if "large" not in m]
 LARGE_MODELS = [m for m in MODELS if "large" in m]
 
 
-def run_experiment(gpu_id, model, epoch, seed, extra_args=None):
+def run_experiment(gpu_id, model, epoch, seed, extra_args=None, n_gpus_per_job=1, master_port=29500):
     env = os.environ.copy()
-    env["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
 
-    cmd = [
-        sys.executable, str(SCRIPT),
+    if isinstance(gpu_id, (list, tuple)):
+        env["CUDA_VISIBLE_DEVICES"] = ",".join(str(g) for g in gpu_id)
+        gpu_label = f"GPU {gpu_id[0]}-{gpu_id[-1]}"
+    else:
+        env["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+        gpu_label = f"GPU {gpu_id}"
+
+    script_args = [
         "--model", model,
         "--epoch", epoch,
         "--seed", str(seed),
     ]
     if extra_args:
-        cmd.extend(extra_args)
+        script_args.extend(extra_args)
 
-    label = f"[GPU {gpu_id}] {model} / {epoch} / s{seed}"
+    if n_gpus_per_job > 1:
+        cmd = [
+            sys.executable, "-m", "torch.distributed.run",
+            "--nproc_per_node", str(n_gpus_per_job),
+            "--master_port", str(master_port),
+            str(SCRIPT),
+        ] + script_args
+    else:
+        cmd = [sys.executable, str(SCRIPT)] + script_args
+
+    label = f"[{gpu_label}] {model} / {epoch} / s{seed}"
     print(f"START: {label}", flush=True)
     t0 = time.time()
 
@@ -75,18 +90,33 @@ def run_experiment(gpu_id, model, epoch, seed, extra_args=None):
     }
 
 
-def run_continual(gpu_id, model, direction, seed):
+def run_continual(gpu_id, model, direction, seed, n_gpus_per_job=1, master_port=29500):
     env = os.environ.copy()
-    env["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
 
-    cmd = [
-        sys.executable, str(SCRIPT),
+    if isinstance(gpu_id, (list, tuple)):
+        env["CUDA_VISIBLE_DEVICES"] = ",".join(str(g) for g in gpu_id)
+        gpu_label = f"GPU {gpu_id[0]}-{gpu_id[-1]}"
+    else:
+        env["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+        gpu_label = f"GPU {gpu_id}"
+
+    script_args = [
         "--model", model,
         "--continual", direction,
         "--seed", str(seed),
     ]
 
-    label = f"[GPU {gpu_id}] continual {direction} / {model} / s{seed}"
+    if n_gpus_per_job > 1:
+        cmd = [
+            sys.executable, "-m", "torch.distributed.run",
+            "--nproc_per_node", str(n_gpus_per_job),
+            "--master_port", str(master_port),
+            str(SCRIPT),
+        ] + script_args
+    else:
+        cmd = [sys.executable, str(SCRIPT)] + script_args
+
+    label = f"[{gpu_label}] continual {direction} / {model} / s{seed}"
     print(f"START: {label}", flush=True)
     t0 = time.time()
 
@@ -161,31 +191,43 @@ def main():
     base_jobs = [j for j in jobs if "large" not in j[1]]
     large_jobs = [j for j in jobs if "large" in j[1]]
 
-    for group_name, group_jobs, parallelism in [
-        ("base", base_jobs, min(n_gpus, 4)),
-        ("large", large_jobs, min(n_gpus, 2)),
+    # Base: 1 GPU per job, 4 parallel
+    # Large: 2 GPUs per job (DDP), 2 parallel -- same wall clock density, 2x faster per run
+    GPU_PAIRS = [[0, 1], [2, 3]]
+
+    for group_name, group_jobs, parallelism, gpus_per_job in [
+        ("base", base_jobs, min(n_gpus, 4), 1),
+        ("large", large_jobs, 2, 2),
     ]:
         if not group_jobs:
             continue
 
+        mode = f"{gpus_per_job} GPU/job, DDP" if gpus_per_job > 1 else f"1 GPU/job"
         print(f"\n{'='*60}")
-        print(f"  {group_name} models: {len(group_jobs)} jobs, {parallelism} parallel")
+        print(f"  {group_name} models: {len(group_jobs)} jobs, {parallelism} parallel ({mode})")
         print(f"{'='*60}\n", flush=True)
 
         with ProcessPoolExecutor(max_workers=parallelism) as pool:
             futures = {}
-            gpu_cycle = 0
+            slot_cycle = 0
 
             for job in group_jobs:
-                gpu_id = gpu_cycle % n_gpus
-                gpu_cycle += 1
+                if gpus_per_job > 1:
+                    gpu_id = GPU_PAIRS[slot_cycle % len(GPU_PAIRS)]
+                    master_port = 29500 + (slot_cycle % len(GPU_PAIRS))
+                else:
+                    gpu_id = slot_cycle % n_gpus
+                    master_port = 29500
+                slot_cycle += 1
 
                 if job[0] == "continual":
                     _, model, direction, seed = job
-                    f = pool.submit(run_continual, gpu_id, model, direction, seed)
+                    f = pool.submit(run_continual, gpu_id, model, direction, seed,
+                                    gpus_per_job, master_port)
                 else:
                     _, model, epoch, seed = job
-                    f = pool.submit(run_experiment, gpu_id, model, epoch, seed, extra)
+                    f = pool.submit(run_experiment, gpu_id, model, epoch, seed, extra,
+                                    gpus_per_job, master_port)
 
                 futures[f] = job
 
