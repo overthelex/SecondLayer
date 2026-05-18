@@ -5,15 +5,17 @@ Build HuggingFace dataset with temporal train/val/test splits per epoch.
 Takes per-epoch JSONL files from extract-full-local.py, sorts by adjudication_date,
 and splits chronologically: earliest 80% = train, next 10% = validation, last 10% = test.
 
-Produces three configs for HuggingFace (one per epoch):
-  - pre_war    (2008-2013)
-  - hybrid_war (2014-2021)
-  - full_scale (2022-2026)
+Produces configs for HuggingFace:
+  Full configs (one per epoch):
+    - pre_war, hybrid_war, full_scale
+  LEXTREME benchmark configs (small val/test for fast evaluation):
+    - pre_war_lextreme, hybrid_war_lextreme, full_scale_lextreme
 
 Usage:
     python3 scripts/lextreme/build-temporal-splits.py
     python3 scripts/lextreme/build-temporal-splits.py --balance 20000
     python3 scripts/lextreme/build-temporal-splits.py --epochs hybrid_war full_scale
+    python3 scripts/lextreme/build-temporal-splits.py --lextreme-max 1000
 """
 
 import argparse
@@ -81,11 +83,47 @@ def format_for_hf(record):
     }
 
 
+def subsample_split(records, max_samples, rng):
+    """Subsample records while preserving temporal order and label balance."""
+    if len(records) <= max_samples:
+        return records
+    by_label = {}
+    for r in records:
+        by_label.setdefault(r["label"], []).append(r)
+    per_class = max_samples // len(by_label)
+    sampled = []
+    for label in sorted(by_label.keys()):
+        items = by_label[label]
+        if len(items) > per_class:
+            indices = sorted(rng.sample(range(len(items)), per_class))
+            sampled.extend(items[i] for i in indices)
+        else:
+            sampled.extend(items)
+    sampled.sort(key=lambda r: r.get("adjudication_date") or "")
+    return sampled
+
+
+def write_split(split_data, path, keep_metadata):
+    with open(path, "w", encoding="utf-8") as f:
+        for record in split_data:
+            out = record if keep_metadata else format_for_hf(record)
+            f.write(json.dumps(out, ensure_ascii=False) + "\n")
+
+
+def print_split_info(split_name, split_data):
+    dates = [r["adjudication_date"] for r in split_data if r.get("adjudication_date")]
+    date_range = f"{min(dates)} .. {max(dates)}" if dates else "no dates"
+    dist = Counter(r["label"] for r in split_data)
+    print(f"  {split_name:12s}: {len(split_data):>7,} samples  [{date_range}]  {dict(dist)}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", nargs="+", default=EPOCHS, choices=EPOCHS)
     parser.add_argument("--balance", type=int, default=None,
                         help="Balance to N per class per epoch before splitting")
+    parser.add_argument("--lextreme-max", type=int, default=1000,
+                        help="Max val/test size for LEXTREME configs (default: 1000)")
     parser.add_argument("--seed", type=int, default=SEED)
     parser.add_argument("--keep-metadata", action="store_true",
                         help="Keep jurisdiction, adjudication_date, doc_id in output")
@@ -93,10 +131,11 @@ def main():
 
     rng = random.Random(args.seed)
 
-    print("Building temporal splits for LexTreme")
+    print("Building temporal splits for HuggingFace")
     print(f"Epochs: {args.epochs}")
     if args.balance:
         print(f"Balancing to {args.balance} per class per epoch")
+    print(f"LEXTREME val/test cap: {args.lextreme_max}")
     print()
 
     for epoch_name in args.epochs:
@@ -117,29 +156,38 @@ def main():
 
         splits = temporal_split(records)
 
+        # Full config
         epoch_dir = OUTPUT_DIR / epoch_name
         epoch_dir.mkdir(parents=True, exist_ok=True)
 
+        print(f"\n  [Full config: {epoch_name}]")
         for split_name, split_data in splits.items():
-            dates = [r["adjudication_date"] for r in split_data if r.get("adjudication_date")]
-            date_range = f"{min(dates)} .. {max(dates)}" if dates else "no dates"
-            dist = Counter(r["label"] for r in split_data)
+            write_split(split_data, epoch_dir / f"{split_name}.jsonl", args.keep_metadata)
+            print_split_info(split_name, split_data)
 
-            path = epoch_dir / f"{split_name}.jsonl"
-            with open(path, "w", encoding="utf-8") as f:
-                for record in split_data:
-                    out = record if args.keep_metadata else format_for_hf(record)
-                    f.write(json.dumps(out, ensure_ascii=False) + "\n")
+        # LEXTREME config (small val/test)
+        lx_dir = OUTPUT_DIR / f"{epoch_name}_lextreme"
+        lx_dir.mkdir(parents=True, exist_ok=True)
 
-            print(f"  {split_name:12s}: {len(split_data):>7,} samples  [{date_range}]  {dict(dist)}")
+        lx_splits = {
+            "train": splits["train"],
+            "validation": subsample_split(splits["validation"], args.lextreme_max, rng),
+            "test": subsample_split(splits["test"], args.lextreme_max, rng),
+        }
+
+        print(f"\n  [LEXTREME config: {epoch_name}_lextreme]")
+        for split_name, split_data in lx_splits.items():
+            write_split(split_data, lx_dir / f"{split_name}.jsonl", args.keep_metadata)
+            print_split_info(split_name, split_data)
 
     print(f"\n{'='*50}")
     print("Output structure:")
     for epoch_name in args.epochs:
-        epoch_dir = OUTPUT_DIR / epoch_name
-        if epoch_dir.exists():
-            for f in sorted(epoch_dir.glob("*.jsonl")):
-                print(f"  {f.relative_to(OUTPUT_DIR)}")
+        for suffix in ["", "_lextreme"]:
+            d = OUTPUT_DIR / f"{epoch_name}{suffix}"
+            if d.exists():
+                for f in sorted(d.glob("*.jsonl")):
+                    print(f"  {f.relative_to(OUTPUT_DIR)}")
 
     print("\nRun upload-to-hf.py to push to HuggingFace.")
 

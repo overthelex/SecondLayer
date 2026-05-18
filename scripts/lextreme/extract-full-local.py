@@ -187,8 +187,8 @@ def main():
     conn.set_client_encoding('UTF8')
     conn.set_session(readonly=True)
 
-    # Verify connection
     with conn.cursor() as cur:
+        cur.execute("SET idle_in_transaction_session_timeout = 0")
         cur.execute("SELECT current_database(), count(*) FROM edrsr_documents LIMIT 1")
         db_name, _ = cur.fetchone()
         print(f"Connected to: {db_name}")
@@ -251,8 +251,6 @@ def main():
                         continue
 
                     facts = sections["facts"]
-                    if len(facts) > 10000:
-                        facts = facts[:10000]
 
                     valid += 1
                     epoch_results.append({
