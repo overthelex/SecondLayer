@@ -56,7 +56,7 @@
 % ABSTRACT
 % ============================================================
 \begin{abstract}
-Tokenizer fertility varies 1.6$\times$ across foundation models on Ukrainian legal text, yet this cost-critical dimension is absent from model selection practice. We benchmark seven models from five providers on 273 validated court decisions from Ukraine's state registry (EDRSR), measuring tokenizer fertility and zero-shot performance on three tasks. Three findings emerge. \textbf{(1)}~Qwen~3 models consume 60\% more tokens than Llama-family models on identical input, making tokenizer analysis a prerequisite for cost-efficient deployment. \textbf{(2)}~NVIDIA Nemotron Super~3 (120B) achieves the highest composite score (83.1), outperforming Mistral Large~3 (5.6$\times$ more total parameters) at one-third the API cost---model scale is a poor proxy for domain performance. \textbf{(3)}~Few-shot prompting \emph{degrades} performance by up to 26 percentage points; stratified and prompt-sensitivity ablations confirm this is intrinsic to Ukrainian-language demonstrations, not an artifact of example selection. For practitioners: tokenizer analysis should precede model selection, and zero-shot is a more reliable default than few-shot for morphologically rich languages. To support reproducibility and address the absence of Ukrainian from legal NLP benchmarks, we release a public dataset of 14{,}452 court decisions spanning 2008--2026, annotated with seven outcome labels across three temporal epochs that capture the impact of armed conflict on judicial proceedings.
+Tokenizer fertility varies 1.6$\times$ across foundation models on Ukrainian legal text, yet this cost-critical dimension is absent from model selection practice. We benchmark seven models from five providers on 273 validated court decisions from Ukraine's state registry (EDRSR), measuring tokenizer fertility and zero-shot performance on three tasks. Three findings emerge. \textbf{(1)}~Qwen~3 models consume 60\% more tokens than Llama-family models on identical input, making tokenizer analysis a prerequisite for cost-efficient deployment. \textbf{(2)}~NVIDIA Nemotron Super~3 (120B) achieves the highest composite score (83.1), outperforming Mistral Large~3 (5.6$\times$ more total parameters) at one-third the API cost -- model scale is a poor proxy for domain performance. \textbf{(3)}~Few-shot prompting \emph{degrades} performance by up to 26 percentage points; stratified and prompt-sensitivity ablations confirm this is intrinsic to Ukrainian-language demonstrations, not an artifact of example selection. \textbf{(4)}~A cross-temporal generalization experiment reveals that classifiers trained on pre-war court decisions (2008--2013) lose 27.9 percentage points when applied to full-scale invasion era decisions (2022--2026), with a pronounced forward--backward asymmetry: newer models transfer backward (+14.6~pp above forward transfer), but older models fail catastrophically on wartime legal language. For practitioners: tokenizer analysis should precede model selection, and zero-shot is a more reliable default than few-shot for morphologically rich languages. To support reproducibility and address the absence of Ukrainian from legal NLP benchmarks, we release a public dataset of 14{,}452 court decisions spanning 2008--2026, annotated with seven outcome labels across three temporal epochs that capture the impact of armed conflict on judicial proceedings.
 \end{abstract}
 
 \noindent\textbf{Keywords:} tokenizer fertility, Ukrainian NLP, legal text classification, multilingual LLM evaluation, foundation models, AWS Bedrock
@@ -78,6 +78,7 @@ In this paper, we present Experiment~A of the LEX AI Test Training program: a sy
     \item We document a \textbf{counterintuitive few-shot degradation effect}: for the majority of models tested, providing task demonstrations reduces rather than improves performance on case outcome classification, with one model (Qwen~3 235B) losing 26.0 percentage points.
     \item We provide a \textbf{cost--performance analysis} across all models via AWS Bedrock, offering practitioners a directly actionable comparison.
     \item We release a \textbf{public benchmark dataset} of 14,452 court decisions spanning 2008--2026 with seven outcome labels, five jurisdiction types, and three temporal epochs reflecting major geopolitical disruptions (Crimea annexation 2014, full-scale invasion 2022), contributed to the LEXTREME benchmark as the first Cyrillic-script subset.
+    \item We conduct a \textbf{cross-temporal generalization experiment} using a classical baseline (TF-IDF + logistic regression) that validates the temporal epoch structure of the released dataset, quantifies a 27.9-pp forward degradation gap caused by armed conflict, and reveals a directional asymmetry in temporal transfer that has implications for legal NLP system maintenance.
 \end{enumerate}
 
 % ============================================================
@@ -148,7 +149,12 @@ To address the evaluation scale limitation of our 273-document corpus and the ab
     \item \textbf{Full-scale (2022--2026):} 7,000 decisions. Full-scale invasion and martial law declaration altered procedural timelines, appeal rules, and case-type distributions. Military criminal cases surged (AWOL art.~407, desertion art.~408, draft evasion art.~336), and new Criminal Code articles were introduced (collaborationism art.~111-1, aiding the aggressor state art.~111-2).
 \end{itemize}
 
-Each decision is annotated with seven outcome labels (\textit{granted}, \textit{guilty}, \textit{partial}, \textit{closed}, \textit{denied}, \textit{plea\_deal}, \textit{other}), five jurisdiction types (civil, criminal, commercial, administrative, administrative offense), and includes both the facts section (model input) and the dispositive section (for label verification). The epoch structure enables cross-temporal generalization experiments---e.g., training on pre-war decisions and evaluating on full-scale-era cases---a temporal robustness challenge absent from existing legal NLP benchmarks. The dataset is available at \url{https://huggingface.co/datasets/overthelex/ukrainian-court-decisions} (config: \texttt{case\_outcome\_temporal}) and has been submitted as a pull request to the LEXTREME benchmark.
+Each decision is annotated with seven outcome labels (\textit{granted}, \textit{guilty}, \textit{partial}, \textit{closed}, \textit{denied}, \textit{plea\_deal}, \textit{other}), five jurisdiction types (civil, criminal, commercial, administrative, administrative offense), and includes both the facts section (model input) and the dispositive section (for label verification). The epoch structure enables cross-temporal generalization experiments -- e.g., training on pre-war decisions and evaluating on full-scale-era cases -- a temporal robustness challenge absent from existing legal NLP benchmarks. The dataset is available at \url{https://huggingface.co/datasets/overthelex/ukrainian-court-decisions} (config: \texttt{case\_outcome\_temporal}) and has been submitted as a pull request to the LEXTREME benchmark.
+
+\subsection{Classical Baseline for Cross-Temporal Evaluation}
+\label{sec:classical_baseline}
+
+To validate the temporal epoch structure and establish a non-neural baseline, we train TF-IDF + logistic regression classifiers on the released dataset. For each of the three temporal epochs, we sample 5{,}000 training documents and 1{,}000 test documents (non-overlapping) with the natural label distribution. We construct a shared TF-IDF vocabulary from the union of all training data (unigrams and bigrams, minimum document frequency 10, maximum 50\%), yielding 162{,}152 features. We train $L_2$-regularized multinomial logistic regression via \texttt{glmnet} \citep{friedman2010glmnet} with 5-fold cross-validation for regularization selection ($\alpha = 0.5$). Each epoch-specific classifier is then evaluated on all three epoch test sets, producing a $3 \times 3$ accuracy matrix that quantifies cross-temporal generalization.
 
 \subsection{Models}
 \label{sec:models}
@@ -634,6 +640,69 @@ In contrast, Amazon Nova Pro and Mistral Large~3 are available exclusively throu
 
 This deployment asymmetry further strengthens Nemotron's position: it combines the highest task accuracy in our evaluation with the flexibility to be self-hosted via NIM on NVIDIA GPUs, enabling fine-tuning, domain adaptation, and data-sovereign deployment, all critical requirements for legal technology platforms handling sensitive court documents.
 
+\subsection{Cross-Temporal Generalization}
+\label{sec:temporal}
+
+To validate the temporal epoch structure of the released dataset and establish a classical baseline, we train TF-IDF + logistic regression classifiers on each epoch's data and evaluate on all three epochs (Section~\ref{sec:classical_baseline}). Table~\ref{tab:temporal_matrix} presents the $3 \times 3$ accuracy matrix.
+
+\begin{table}[t]
+\centering
+\caption{Cross-temporal generalization matrix (accuracy \%). Rows: training epoch; columns: test epoch. Diagonal entries (bold) are in-epoch baselines. Classical baseline: TF-IDF + $L_2$-regularized logistic regression, 5{,}000 train / 1{,}000 test per epoch.}
+\label{tab:temporal_matrix}
+\begin{tabular}{lR{1.8cm}R{1.8cm}R{2.0cm}}
+\toprule
+\textbf{Train $\backslash$ Test} & \textbf{Pre-war} & \textbf{Hybrid} & \textbf{Full-scale} \\
+\midrule
+Pre-war (2008--13)     & \textbf{86.5} & 76.3          & 58.6 \\
+Hybrid (2014--21)      & 83.2          & \textbf{83.7} & 64.5 \\
+Full-scale (2022--26)  & 79.5          & 80.4          & \textbf{69.3} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three patterns emerge from the cross-temporal evaluation:
+
+\paragraph{Forward transfer fails catastrophically.}
+A classifier trained on pre-war decisions loses 27.9 percentage points when applied to full-scale era cases (86.5\% $\rightarrow$ 58.6\%). The hybrid$\rightarrow$full-scale gap is smaller but still substantial ($-$19.2~pp). This degradation reflects genuine distributional shift: the full-scale invasion introduced new Criminal Code articles (collaborationism art.~111-1, aiding the aggressor art.~111-2), martial-law procedural modifications, and a surge in military criminal cases (AWOL art.~407, desertion art.~408) that have no precedent in pre-war training data.
+
+\paragraph{Backward transfer is robust.}
+The asymmetry between forward and backward transfer is striking. Models trained on newer data generalize well to older epochs: full-scale$\rightarrow$pre-war achieves 79.5\% (only $-$7.0~pp below the pre-war in-epoch baseline), while pre-war$\rightarrow$full-scale drops by $-$27.9~pp. Mean backward transfer accuracy (81.0\%) exceeds mean forward transfer (66.5\%) by 14.6~pp. This asymmetry is consistent with a \emph{legal language accumulation} hypothesis: newer legal language subsumes older conventions (courts still apply pre-war statutes), but older training data cannot anticipate future legislative and procedural changes.
+
+\paragraph{Task difficulty increases with conflict intensity.}
+In-epoch accuracy decreases monotonically across epochs: 86.5\% (pre-war) $>$ 83.7\% (hybrid) $>$ 69.3\% (full-scale). This gradient reflects increasing case-type heterogeneity and outcome unpredictability under martial law, where procedural norms are modified by presidential decrees and new offense categories produce cases without established judicial precedent.
+
+\begin{figure}[t]
+\centering
+\input{figures/fig_temporal_heatmap.tex}
+\caption{Cross-temporal generalization heatmap. Rows: training epoch; columns: test epoch. The color gradient reveals a strong forward-degradation pattern: classifiers trained on older data (bottom row) fail on newer test data (right column), while backward transfer (top-left) is substantially more robust.}
+\label{fig:temporal_heatmap}
+\end{figure}
+
+\paragraph{Comparison with foundation models.}
+The zero-shot foundation models evaluated in Sections~\ref{sec:results_casetype}--\ref{sec:results_outcome} achieve 86.8--98.9\% on case type classification and 86.8--96.0\% on case outcome, both on the 273-document validated subset spanning all epochs. The TF-IDF baseline's in-epoch accuracy (69.3--86.5\% on the three-class outcome task) establishes that zero-shot foundation models substantially outperform classical methods on this task, even without fine-tuning. However, foundation models are not immune to temporal drift: our Bedrock evaluation (Section~\ref{sec:temporal_bedrock_comparison}) shows that both Nemotron Super~3 and Qwen~3 235B exhibit epoch-dependent performance, with full-scale era accuracy 25--29~pp below pre-war levels in zero-shot mode, a degradation comparable in magnitude to the classical baseline.
+
+\label{sec:temporal_bedrock_comparison}
+\paragraph{Foundation model epoch analysis.}
+To compare temporal sensitivity across paradigms, we evaluated Nemotron Super~3 and Qwen~3 235B on 504 temporally stratified documents from the released dataset (168 per epoch, balanced labels). Table~\ref{tab:temporal_bedrock} presents accuracy by epoch.
+
+\begin{table}[t]
+\centering
+\caption{Foundation model accuracy (\%) by temporal epoch on 504 stratified documents (168 per epoch, balanced labels across three outcome classes). Zero-shot, temperature 0.}
+\label{tab:temporal_bedrock}
+\begin{tabular}{lR{1.8cm}R{1.8cm}R{2.0cm}R{1.5cm}}
+\toprule
+\textbf{Model} & \textbf{Pre-war} & \textbf{Hybrid} & \textbf{Full-scale} & \textbf{$\Delta$} \\
+\midrule
+Nemotron Super 3  & 90.5 & 82.7 & 61.3 & $-$29.2 \\
+Qwen3 235B        & 88.1 & 86.3 & 66.1 & $-$22.0 \\
+\midrule
+TF-IDF (in-epoch) & 86.5 & 83.7 & 69.3 & $-$17.2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Both foundation models show monotonically decreasing accuracy across epochs, with Nemotron dropping 29.2~pp from pre-war to full-scale and Qwen~3 dropping 22.0~pp. Notably, the TF-IDF in-epoch baseline (69.3\%) \emph{outperforms} both foundation models on full-scale era data (Nemotron: 61.3\%, Qwen~3: 66.1\%), despite the foundation models having access to vastly more parametric knowledge. This suggests that full-scale era cases present a distributional challenge that neither pre-training scale nor zero-shot prompting can overcome without epoch-specific adaptation.
+
 % ============================================================
 % 5. DISCUSSION
 % ============================================================
@@ -721,6 +790,14 @@ The routed ensemble achieves the highest composite score (85.1) by assigning eac
 
 This analysis assumes Bedrock API pricing. Under self-hosted deployment via NVIDIA NIM, the Nemotron and Llama tiers would have near-zero marginal cost after GPU amortization, making the routed ensemble even more cost-effective.
 
+\subsection{Temporal Drift as a First-Class Challenge}
+
+The cross-temporal generalization experiment (Section~\ref{sec:temporal}) reveals that temporal robustness is not merely a theoretical concern for legal NLP -- it is a dominant source of performance degradation, exceeding the impact of model selection. The 27.9-pp forward degradation gap (pre-war$\rightarrow$full-scale) is larger than the difference between the best and worst foundation models on any single task in our evaluation (12.1~pp on case outcome). This finding has two implications.
+
+First, \textbf{legal NLP systems require temporal maintenance}. A model deployed on pre-war training data will fail on wartime cases, not because the model is weak, but because the legal landscape has shifted. The accumulation of new statutes (art.~111-1, 111-2, 407, 408), procedural modifications under martial law, and novel case-type distributions creates distributional shift that neither pre-training scale nor zero-shot prompting can absorb. Systems must be periodically re-evaluated -- and potentially re-trained -- on contemporary data.
+
+Second, \textbf{the forward--backward asymmetry suggests that legal language is additive}. Courts continue to apply pre-war statutes alongside new wartime legislation; a model trained on 2022--2026 data has seen both old and new legal frameworks. Conversely, a 2008--2013 model has never encountered martial-law proceedings. This asymmetry distinguishes legal temporal drift from standard concept drift: the target distribution does not simply change -- it expands, accumulating new concepts without discarding old ones.
+
 \subsection{Implications for Practitioners}
 
 For teams building legal NLP systems for Ukrainian or other Cyrillic-script languages, we offer the following recommendations:
@@ -730,6 +807,7 @@ For teams building legal NLP systems for Ukrainian or other Cyrillic-script lang
     \item \textbf{Default to zero-shot.} Do not assume that few-shot prompting will help. For morphologically rich languages, validate few-shot against zero-shot per model and per task.
     \item \textbf{Ignore parameter counts.} Model size does not predict non-English performance. A 120B model outperformed a 675B model on all tasks.
     \item \textbf{Route by task, not by model.} Match model strengths to task requirements. Cheap models suffice for easy classification; invest in stronger models only for hard tasks.
+    \item \textbf{Budget for temporal maintenance.} Legal NLP performance degrades with distributional shift from legislative changes. The 28-pp forward degradation gap we observe is not a model deficiency -- it is a property of the domain. Re-evaluation on contemporary data should be part of the deployment lifecycle.
 \end{enumerate}
 
 % ============================================================
@@ -751,7 +829,7 @@ For teams building legal NLP systems for Ukrainian or other Cyrillic-script lang
 
 \paragraph{No fine-tuning.} We evaluate only zero-shot and few-shot settings. Fine-tuned models would likely show different performance patterns, particularly for the norm extraction task where the structured output format is critical.
 
-\paragraph{No Ukrainian-specific baselines.} Our evaluation compares only multilingual foundation models available via AWS Bedrock. We do not include Ukrainian-specific or Eastern European language models (e.g., the Ukrainian GPT variants, multilingual encoder models such as XLM-R fine-tuned on Ukrainian legal corpora, or domain-specific models trained on EDRSR data). Such baselines would contextualize whether the 86--96\% zero-shot accuracy achieved by general-purpose foundation models is competitive with, or still below, purpose-built alternatives. Similarly, we omit comparison with classical NLP baselines (TF-IDF + SVM, rule-based systems) that may perform well on the relatively structured case type classification task. Including these baselines would strengthen claims about the practical sufficiency of zero-shot foundation model inference for Ukrainian legal NLP.
+\paragraph{No Ukrainian-specific neural baselines.} While we establish a classical TF-IDF baseline (Section~\ref{sec:temporal}), we do not include Ukrainian-specific neural models (e.g., XLM-R fine-tuned on Ukrainian legal corpora, or domain-specific models trained on EDRSR data). Such baselines would contextualize whether the 86--96\% zero-shot accuracy achieved by general-purpose foundation models is competitive with, or still below, purpose-built alternatives.
 
 \paragraph{Outcome label provenance.} Our outcome labels, while validated through a three-source majority vote, rely on rule-based extraction from the dispositive section. Documents with atypical structure (e.g., interlocutory orders, procedural rulings) were disproportionately excluded during validation, potentially biasing the remaining dataset toward decisions with clear-cut outcomes. Additionally, Nemotron Super~3 served as one of the three voters in the majority-vote tiebreaker, creating a potential circularity with its role as an evaluated model. Our tiebreaker bias analysis (Section~\ref{sec:tiebreaker_bias}) shows that Nemotron's lead holds on the 205-document easy subset where it had no tiebreaker role (98.0\%, 201/205, tied for first), but we acknowledge that a fully independent tiebreaker (e.g., GPT-4 or Gemini) would eliminate this concern entirely.
 
@@ -769,10 +847,12 @@ We have presented a systematic evaluation of seven foundation models on Ukrainia
 
     \item \textbf{Few-shot prompting is counterproductive} for most models on Ukrainian legal classification tasks. A stratified few-shot ablation confirms that even distribution-matched examples degrade performance by up to 26 percentage points, ruling out example selection bias and implicating morphological interference intrinsic to Ukrainian-language demonstrations.
 
-    \item \textbf{Systematic model selection via managed APIs is inexpensive.} The total cost of the core evaluation (7 models $\times$ 3 tasks $\times$ 2 modes $\times$ 273--300 documents) was \$31.41 (Table~\ref{tab:costs}). Including ablation studies (label validation via Claude Sonnet~4.5: ${\sim}$\$12; stratified few-shot ablation: ${\sim}$\$8; prompt sensitivity ablation: ${\sim}$\$5; tokenizer fertility: ${\sim}$\$4), the total experiment cost was approximately \$60, demonstrating that comprehensive language-specific benchmarking is feasible even for resource-constrained teams.
+    \item \textbf{Temporal drift dominates model selection.} A cross-temporal generalization experiment on 15{,}000 documents across three epochs (pre-war, hybrid war, full-scale invasion) reveals that classifiers trained on pre-war data lose 27.9~pp when applied to full-scale era cases -- a degradation larger than the gap between the best and worst foundation models on any single task. The forward--backward asymmetry (backward transfer exceeds forward by 14.6~pp) suggests that legal language is additive: newer legal frameworks subsume older ones, but the reverse does not hold.
+
+    \item \textbf{Systematic model selection via managed APIs is inexpensive.} The total cost of the core evaluation (7 models $\times$ 3 tasks $\times$ 2 modes $\times$ 273--300 documents) was \$31.41 (Table~\ref{tab:costs}). Including ablation studies and the temporal generalization experiment, the total cost was approximately \$70, demonstrating that comprehensive language-specific benchmarking is feasible even for resource-constrained teams.
 \end{enumerate}
 
-These findings underscore the importance of language-specific evaluation before model deployment. English-language benchmarks and parameter counts are poor proxies for performance on morphologically rich, Cyrillic-script languages. For practitioners: Nemotron Super~3 offers the best accuracy--cost tradeoff for Ukrainian legal NLP; Llama~4 Maverick provides the cheapest inference at near-top accuracy; and zero-shot prompting should be preferred over few-shot for Ukrainian. We release our evaluation methodology and results to support practitioners building legal NLP systems for Ukrainian and related languages.
+These findings underscore the importance of language-specific and \emph{temporally aware} evaluation before model deployment. English-language benchmarks, parameter counts, and static test sets are poor proxies for performance on morphologically rich, Cyrillic-script languages operating under evolving legal frameworks. For practitioners: Nemotron Super~3 offers the best accuracy--cost tradeoff for Ukrainian legal NLP; Llama~4 Maverick provides the cheapest inference at near-top accuracy; zero-shot prompting should be preferred over few-shot for Ukrainian; and temporal re-evaluation should be budgeted as part of the deployment lifecycle. We release our evaluation methodology, results, and the temporally annotated benchmark dataset to support practitioners building legal NLP systems for Ukrainian and related languages.
 
 \paragraph{Data and code availability.} The evaluation code and aggregated results are available at \url{https://github.com/overthelex/rlhf-signals}. The public benchmark dataset (14,452 decisions, 2008--2026, seven outcome labels, three temporal epochs) is available at \url{https://huggingface.co/datasets/overthelex/ukrainian-court-decisions} (config: \texttt{case\_outcome\_temporal}). Individual court decisions are publicly available via the EDRSR API (\url{https://reyestr.court.gov.ua}).
 
@@ -940,6 +1020,12 @@ Chaplynskyi, D.
 \newblock Introducing UberText 2.0: A Corpus of Modern Ukrainian at Scale.
 \newblock \emph{Proceedings of the Second UNLP Workshop}, pages 1--10, 2023.
 \newblock \url{https://aclanthology.org/2023.unlp-1.1/}
+
+\bibitem[Friedman et~al.(2010)]{friedman2010glmnet}
+Friedman, J., Hastie, T., and Tibshirani, R.
+\newblock Regularization Paths for Generalized Linear Models via Coordinate Descent.
+\newblock \emph{Journal of Statistical Software}, 33(1):1--22, 2010.
+\newblock \url{https://www.jstatsoft.org/article/view/v033i01}
 
 \end{thebibliography}
 
