@@ -1,4 +1,4 @@
-\begin{thebibliography}{14}
+\begin{thebibliography}{27}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -10,6 +10,20 @@ Lada~A. Adamic and Eytan Adar.
 \newblock Friends and neighbors on the web.
 \newblock \emph{Social Networks}, 25\penalty0 (3):\penalty0 211--230, 2003.
 
+\bibitem[Agarwal and Nenkova(2022)]{agarwal2022temporal}
+Oshin Agarwal and Ani Nenkova.
+\newblock Temporal effects on pre-trained models for language processing tasks.
+\newblock \emph{Transactions of the Association for Computational Linguistics},
+  10:\penalty0 904--921, 2022.
+
+\bibitem[Alkhalifa et~al.(2023)]{alkhalifa2023longeval}
+Rabab Alkhalifa et~al.
+\newblock Overview of the {CLEF}-2023 {LongEval} lab on longitudinal evaluation
+  of model performance.
+\newblock In \emph{Experimental {IR} Meets Multilinguality, Multimodality, and
+  Interaction}, volume 14163 of \emph{Lecture Notes in Computer Science}, pages
+  499--517. Springer, 2023.
+
 \bibitem[Barron et~al.(2025)Barron, Eren, Serafimova, Matuszek, and
   Alexandrov]{barron2025bridging}
 Ryan~C. Barron, Maksim~E. Eren, Olga~M. Serafimova, Cynthia Matuszek, and
@@ -18,6 +32,12 @@ Ryan~C. Barron, Maksim~E. Eren, Olga~M. Serafimova, Cynthia Matuszek, and
   with vector stores, knowledge graphs, and hierarchical non-negative matrix
   factorization.
 \newblock \emph{arXiv preprint arXiv:2502.20364}, 2025.
+
+\bibitem[Campos et~al.(2015)Campos, Dias, Jorge, and Jatowt]{campos2015survey}
+Ricardo Campos, Ga{\"e}l Dias, Al{\'i}pio~M{\'a}rio Jorge, and Adam Jatowt.
+\newblock Survey of temporal information retrieval and related applications.
+\newblock \emph{ACM Computing Surveys}, 47\penalty0 (2):\penalty0 15:1--15:41,
+  2015.
 
 \bibitem[Coupette et~al.(2021)Coupette, Beckedorf, Hartung, Bommarito, and
   Katz]{coupette2021measuring}
@@ -35,6 +55,14 @@ James~H. Fowler, Timothy~R. Johnson, James~F. Spriggs, Sangick Jeon, and
   precedents at the {U.S.} {Supreme Court}.
 \newblock \emph{Political Analysis}, 15\penalty0 (3):\penalty0 324--346, 2007.
 
+\bibitem[Gama et~al.(2014)Gama, {\v{Z}}liobait{\.e}, Bifet, Pechenizkiy, and
+  Bouchachia]{gama2014survey}
+Jo{\~a}o Gama, Indr{\.e} {\v{Z}}liobait{\.e}, Albert Bifet, Mykola Pechenizkiy,
+  and Abdelhamid Bouchachia.
+\newblock A survey on concept drift adaptation.
+\newblock \emph{ACM Computing Surveys}, 46\penalty0 (4):\penalty0 44:1--44:37,
+  2014.
+
 \bibitem[Guha et~al.(2023)Guha, Nyarko, Ho, R{\'e}, Chilton, Chohlas-Wood,
   Peters, et~al.]{guha2023legalbench}
 Neel Guha, Julian Nyarko, Daniel~E. Ho, Christopher R{\'e}, Adam Chilton, Alex
@@ -49,6 +77,26 @@ Justin Ho, Alexandra Colby, and William Fisher.
   case study on copyright fair use.
 \newblock \emph{arXiv preprint arXiv:2505.02164}, 2025.
 
+\bibitem[Huang et~al.(2023)Huang, Poursafaei, Danovitch, Fey, Hu, Rossi,
+  Leskovec, Bronstein, Rabusseau, and Rabbany]{huang2023temporal}
+Shenyang Huang, Farimah Poursafaei, Jacob Danovitch, Matthias Fey, Weihua Hu,
+  Emanuele Rossi, Jure Leskovec, Michael Bronstein, Guillaume Rabusseau, and
+  Reihaneh Rabbany.
+\newblock Temporal graph benchmark for machine learning on temporal graphs.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~36, 2023.
+
+\bibitem[Lazaridou et~al.(2021)Lazaridou, Kuncoro, Gribovskaya, Agrawal, Liska,
+  Terzi, Gimenez, de~Masson~d'Autume, Kocisky, Ruder, Yogatama, Cao, Young, and
+  Blunsom]{lazaridou2021mind}
+Angeliki Lazaridou, Adhi Kuncoro, Elena Gribovskaya, Devang Agrawal, Adam
+  Liska, Tayfun Terzi, Mai Gimenez, Cyprien de~Masson~d'Autume, Tomas Kocisky,
+  Sebastian Ruder, Dani Yogatama, Kris Cao, Susannah Young, and Phil Blunsom.
+\newblock Mind the gap: Assessing temporal generalization in neural language
+  models.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~34, pages 11407--11421, 2021.
+
 \bibitem[Liben-Nowell and Kleinberg(2007)]{liben2007link}
 David Liben-Nowell and Jon Kleinberg.
 \newblock The link-prediction problem for social networks.
@@ -61,6 +109,21 @@ Ehsan Lotfi, Nikolay Banar, Nerses Yuzbashyan, and Walter Daelemans.
 \newblock Bilingual {BSARD}: Extending statutory article retrieval to dutch.
 \newblock In \emph{Proceedings of the Natural Legal Language Processing
   Workshop}, 2024.
+
+\bibitem[Luu et~al.(2022)Luu, Khashabi, Gururangan, Mandyam, and
+  Smith]{luu2022time}
+Kelvin Luu, Daniel Khashabi, Suchin Gururangan, Karishma Mandyam, and Noah~A.
+  Smith.
+\newblock Time waits for no one! {Analysis} and challenges of temporal
+  misalignment.
+\newblock In \emph{Proceedings of the 2022 Conference of the North American
+  Chapter of the Association for Computational Linguistics}, pages 5944--5958,
+  2022.
+
+\bibitem[Mann(1945)]{mann1945nonparametric}
+Henry~B. Mann.
+\newblock Nonparametric tests against trend.
+\newblock \emph{Econometrica}, 13\penalty0 (3):\penalty0 245--259, 1945.
 
 \bibitem[Niklaus et~al.(2023)Niklaus, Matoshi, Rani, Galassi, St{\"u}rmer, and
   Chalkidis]{niklaus2023lextreme}
@@ -83,6 +146,15 @@ Shounak Paul, Pawan Goyal, and Saptarshi Ghosh.
   statute identification from indian legal documents.
 \newblock In \emph{Proceedings of AAAI}, 2022.
 
+\bibitem[Rabelo et~al.(2024)Rabelo, Goebel, Kim, Kano, Yoshioka, and
+  Satoh]{rabelo2024coliee}
+Juliano Rabelo, Randy Goebel, Mi-Young Kim, Yoshinobu Kano, Masaharu Yoshioka,
+  and Ken Satoh.
+\newblock Overview and discussion of the competition on legal information,
+  extraction/entailment ({COLIEE}) 2023.
+\newblock \emph{The Review of Socionetwork Strategies}, 18\penalty0
+  (1):\penalty0 27--47, 2024.
+
 \bibitem[Rasiah et~al.(2023)Rasiah, Stern, Matoshi, St{\"u}rmer, Chalkidis, Ho,
   and Niklaus]{rasiah2023scale}
 Vishvaksenan Rasiah, Ronja Stern, Veton Matoshi, Matthias St{\"u}rmer, Ilias
@@ -92,16 +164,43 @@ Vishvaksenan Rasiah, Ronja Stern, Veton Matoshi, Matthias St{\"u}rmer, Ilias
 \newblock In \emph{Proceedings of the Natural Legal Language Processing
   Workshop}, 2023.
 
+\bibitem[Rossi et~al.(2020)Rossi, Chamberlain, Frasca, Eynard, Monti, and
+  Bronstein]{rossi2020temporal}
+Emanuele Rossi, Ben Chamberlain, Fabrizio Frasca, Davide Eynard, Federico
+  Monti, and Michael Bronstein.
+\newblock Temporal graph networks for deep learning on dynamic graphs.
+\newblock \emph{arXiv preprint arXiv:2006.10637}, 2020.
+
+\bibitem[Sen(1968)]{sen1968estimates}
+Pranab~Kumar Sen.
+\newblock Estimates of the regression coefficient based on {Kendall's} tau.
+\newblock \emph{Journal of the American Statistical Association}, 63\penalty0
+  (324):\penalty0 1379--1389, 1968.
+
 \bibitem[Tang et~al.(2024)Tang, Qiu, Liu, Li, and Huang]{tang2024casegnn}
 Yanran Tang, Ruihong Qiu, Yilun Liu, Xue Li, and Zi~Huang.
 \newblock {CaseGNN++}: Graph contrastive learning for legal case retrieval with
   graph augmentation.
 \newblock In \emph{Proceedings of SIGIR}, 2024.
 
+\bibitem[Wang et~al.(2024)Wang, Yang, Huang, Yang, Majumder, and
+  Wei]{wang2024multilingual}
+Liang Wang, Nan Yang, Xiaolong Huang, Linjun Yang, Rangan Majumder, and Furu
+  Wei.
+\newblock Multilingual {E5} text embeddings: A technical report.
+\newblock \emph{arXiv preprint arXiv:2402.05672}, 2024.
+
 \bibitem[Winkels et~al.(2011)Winkels, de~Ruyter, and
   Kroese]{winkels2011determining}
 Radboud Winkels, Jelle de~Ruyter, and Henryk Kroese.
 \newblock Determining authority of dutch case law.
 \newblock \emph{Legal Knowledge and Information Systems}, 2011.
+
+\bibitem[Xu et~al.(2020)Xu, Ruan, K{\"o}rpeo{\u{g}}lu, Kumar, and
+  Achan]{xu2020inductive}
+Da~Xu, Chuanwei Ruan, Evren K{\"o}rpeo{\u{g}}lu, Sushant Kumar, and Kannan
+  Achan.
+\newblock Inductive representation learning on temporal graphs.
+\newblock In \emph{International Conference on Learning Representations}, 2020.
 
 \end{thebibliography}
