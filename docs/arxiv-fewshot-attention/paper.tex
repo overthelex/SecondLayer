@@ -49,7 +49,7 @@ Across 12 Models, 2 Tasks, and 2 Architectures}
 
 % ============================================================
 \begin{abstract}
-Few-shot prompting degrades some foundation models yet the mechanism is unknown. We evaluate 12~open-weight models (11~Transformers, 1~SSM) on two Ukrainian tasks: news classification (SIB-200) and legal case outcome prediction (ua-case-outcome, our open dataset of 14,452~court decisions). The behavioral contrast is striking: the same models that improve on news (+24~pp) show near-zero or negative effects on legal text (+3.4~pp), with 2/10 degrading. We then introduce a \emph{random-text control} that isolates demonstration content from prompt length -- without it, prompt length inflates shift estimates by 2--7$\times$. The corrected metric, \emph{content delta}, predicts few-shot benefit ($\rho = +0.65$, $p = 0.043$ on news), while neither attention allocation nor raw shift does. Causal ablation confirms: masking demonstrations in Llama~3.3~70B recovers accuracy above the zero-shot baseline. Data: \url{https://huggingface.co/datasets/overthelex/attention-analysis-fewshot}.
+Few-shot prompting sometimes degrades language models instead of helping them, but why this happens is unknown. We evaluate 12~open-weight models on two Ukrainian tasks -- news classification and legal case outcome prediction -- and find that the effect is strongly task-dependent: the same models that gain +24~pp on news show only +3.4~pp on legal text, with two models degrading. To understand why, we look inside the models. Prior work measures how much hidden states shift between zero-shot and few-shot modes, but few-shot prompts are much longer, and that length difference alone moves representations. We propose a simple fix: replace demonstrations with length-matched random text to measure the shift caused by prompt length, then subtract it. The resulting metric -- \emph{content delta} -- isolates how much the model's representations change because of what the demonstrations say, not how long they are. This changes the picture entirely: raw shift does not predict whether few-shot helps or hurts ($r = 0.20$), but content delta does ($\rho = +0.65$, $p = 0.043$). Models that restructure representations more from demonstration content benefit more -- the opposite of the intuitive ``distortion'' explanation. Masking demonstrations in Llama~3.3~70B confirms the finding causally, recovering accuracy above the zero-shot baseline. Data: \url{https://huggingface.co/datasets/overthelex/attention-analysis-fewshot}.
 \end{abstract}
 
 \noindent\textbf{Keywords:} few-shot degradation, representation shift, attention analysis, tokenizer fertility, morphologically rich languages, Ukrainian NLP, SSM
@@ -342,7 +342,7 @@ We presented the first combined behavioral and mechanistic investigation of few-
 
     \item \textbf{Content delta predicts few-shot benefit} on news ($\rho = +0.65$, $p = 0.043$) with a consistent trend on legal ($\rho = +0.59$, $p = 0.074$). Models that restructure representations more from demo content improve more -- supporting the content hypothesis over the distortion hypothesis.
 
-    \item \textbf{The random-text control is essential.} Without it, prompt length inflates shift by 2--7$\times$ and reverses the correlation direction.
+    \item \textbf{The random-text control is essential.} Without it, prompt length inflates shift by up to 5$\times$ and reverses the correlation direction.
 
     \item \textbf{DAR is not a predictor} ($r = 0.02$). Attention allocation reflects dependency, not benefit.
 
