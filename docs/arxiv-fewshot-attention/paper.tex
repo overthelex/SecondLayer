@@ -1,0 +1,512 @@
+% !TEX program = pdflatex
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T2A,T1]{fontenc}
+\usepackage[ukrainian,english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{natbib}
+\usepackage{url}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage[margin=1in]{geometry}
+\usepackage{float}
+\usepackage{array}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\pgfplotsset{compat=1.18}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    citecolor=blue!70!black,
+    urlcolor=blue!70!black,
+}
+
+\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
+
+\title{Few-Shot Degradation Is Not What It Seems:\\
+Behavioral Evidence, Representation Analysis, and a Random-Text Control\\
+Across 12 Models, 2 Tasks, and 2 Architectures}
+
+\author{
+  Volodymyr Ovcharov\thanks{Corresponding author: \texttt{volodymyr@legal.org.ua}} \\
+  LEX AI Platform, legal.org.ua \\
+  Kyiv, Ukraine
+}
+
+\date{May 2026}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================
+\begin{abstract}
+Few-shot prompting degrades some foundation models yet the mechanism is unknown. We evaluate 12~open-weight models (11~Transformers, 1~SSM) on two Ukrainian tasks: news classification (SIB-200) and legal case outcome prediction (ua-case-outcome, our open dataset of 14,452~court decisions). The behavioral contrast is striking: the same models that improve on news (+24~pp) show near-zero or negative effects on legal text (+3.4~pp), with 2/10 degrading. We then introduce a \emph{random-text control} that isolates demonstration content from prompt length -- without it, prompt length inflates shift estimates by 2--7$\times$. The corrected metric, \emph{content delta}, predicts few-shot benefit ($\rho = +0.65$, $p = 0.043$ on news), while neither attention allocation nor raw shift does. Causal ablation confirms: masking demonstrations in Llama~3.3~70B recovers accuracy above the zero-shot baseline. Data: \url{https://huggingface.co/datasets/overthelex/attention-analysis-fewshot}.
+\end{abstract}
+
+\noindent\textbf{Keywords:} few-shot degradation, representation shift, attention analysis, tokenizer fertility, morphologically rich languages, Ukrainian NLP, SSM
+
+% ============================================================
+% PART I: BEHAVIORAL EXPERIMENTS
+% ============================================================
+
+\section{Introduction}
+
+\citet{ovcharov2026tokenizer} demonstrated three surprising findings when evaluating seven foundation models on Ukrainian legal text: tokenizer fertility varies by 1.6$\times$ across models; NVIDIA Nemotron outperforms models 5$\times$ its size; and few-shot prompting \emph{degrades} performance by up to 26 percentage points. The third finding contradicts a foundational assumption of modern LLM deployment \citep{brown2020language}: that in-context demonstrations improve accuracy.
+
+This paper investigates the phenomenon using 12~open-weight models evaluated on two tasks: news topic classification (SIB-200) and legal case outcome prediction (ua-case-outcome, our open dataset of 14,452~Ukrainian court decisions). \textbf{Part~I} (Sections~\ref{sec:behavioral_methods}--\ref{sec:behavioral_results}) establishes the behavioral scope: all 12~models improve on news but the effect nearly vanishes on legal text, with 2/10~models degrading. \textbf{Part~II} (Sections~\ref{sec:internal_methods}--\ref{sec:internal_results}) opens the same models: we extract attention patterns and hidden states, introducing a random-text control that fundamentally changes the interpretation. Using the same models for both parts eliminates the accuracy discrepancy that would arise from comparing API-based and local evaluations.
+
+Two competing hypotheses could explain few-shot degradation. The \emph{distortion hypothesis} predicts that demonstrations corrupt internal representations: the more a model's hidden states shift under few-shot prompting, the more it degrades. The \emph{content hypothesis} predicts the opposite: models that extract more task-relevant signal from demonstrations restructure representations more \emph{and} benefit more. Part~II distinguishes between these hypotheses using a random-text control that separates representation change caused by demonstration content from change caused by prompt length alone.
+
+% ============================================================
+\section{Related Work}
+
+\subsection{Few-Shot Learning}
+
+\citet{brown2020language} established few-shot in-context learning as a core LLM capability. \citet{min2022rethinking} showed demonstrations primarily specify task format rather than input--output mappings. \citet{wei2023larger} demonstrated that larger models use demonstrations differently, suggesting architecture-dependent effects. \citet{zhao2021calibrate} and \citet{liu2022makes} explored sensitivity to example selection and format. \citet{hendel2023icl} showed that ICL compresses demonstrations into task vectors in hidden states, providing a representational account that motivates our shift-based analysis.
+
+\subsection{Tokenizer Fertility and Multilingual Fairness}
+
+\citet{petrov2023language} formalized the ``language tax'' from suboptimal tokenization (2--15$\times$ cost variation). \citet{ahia2023all} showed API costs vary by an order of magnitude across languages. \citet{rust2021good} demonstrated that monolingual performance correlates with pre-training data proportion. \citet{hu2020xtreme} introduced XTREME for cross-lingual evaluation but did not measure fertility as a confound. \citet{tanwar2023multilingual} studied cross-lingual ICL and found that alignment quality mediates few-shot effectiveness across languages.
+
+\subsection{Attention-Based Interpretability}
+
+\citet{olsson2022context} identified induction heads for in-context learning. \citet{dai2023gpt} formalized ICL as implicit Bayesian inference. \citet{todd2024function} discovered function vectors encoding task mappings. \citet{wang2023label} showed label words serve as attention anchors. \citet{jain2019attention} cautioned that attention weights are not explanations. For SSMs, \citet{park2024mamba} showed that Mamba matches Transformers on regression ICL tasks but falls short on retrieval, motivating our architecture comparison. \citet{liu2024quantized} found that 4-bit quantization preserves emergent abilities including ICL, though degradation patterns vary by task -- relevant to our quantized Llama~3.3~70B results.
+
+% ============================================================
+% PART I METHODS
+% ============================================================
+\section{Part I: Behavioral Experiments}
+\label{sec:behavioral_methods}
+
+\subsection{Models}
+
+We evaluate 12~open-weight models from 9~architecture families (Table~\ref{tab:internal_models}), the same set used for internal analysis in Part~II. This eliminates discrepancies between API-based and local evaluations. Models range from 7B to 70B parameters; Llama~3.3~70B uses 4-bit NF4 quantization. All use native chat templates with temperature~0 (greedy decoding). For Qwen3 models (8B, 14B, 32B), thinking mode was disabled (\texttt{enable\_thinking=false}) to isolate the effect of demonstrations from chain-of-thought reasoning. Inference used \texttt{transformers}~4.51 and \texttt{torch}~2.6 on 4$\times$A10G GPUs (96~GB total). Exact model identifiers are listed in Table~\ref{tab:model_ids}.
+
+\subsection{Datasets}
+
+\paragraph{SIB-200} \citep{adelani2024sib200}: 204 parallel test examples in 7~categories (news topic classification). We use Ukrainian (\texttt{ukr\_Cyrl}).
+
+\paragraph{ua-case-outcome}: our open dataset of 14,452~Ukrainian court decisions with 7-class outcome labels (granted, guilty, partial, other, closed, denied, plea\_deal), available at \url{https://huggingface.co/datasets/overthelex/ua-case-outcome}. We use a stratified sample of 196~test examples (28~per class $\times$ 7~classes) with facts truncated to 1,500~characters and few-shot demonstrations truncated to 300~characters (7~demos, one per class) to fit within context windows of smaller models.
+
+The two tasks differ in ways that prior work identified as relevant for few-shot degradation \citep{ovcharov2026tokenizer}: SIB-200 is balanced and topically diverse; ua-case-outcome is imbalanced (granted: 40\%, guilty: 28\%) and formulaic.
+
+% ============================================================
+% PART I RESULTS
+% ============================================================
+\section{Part I: Behavioral Results}
+\label{sec:behavioral_results}
+
+\subsection{Few-Shot Effect Depends Dramatically on Task}
+
+Table~\ref{tab:dual_dataset} and Figure~\ref{fig:task_contrast} present accuracy on both tasks for all 12~models. The contrast is striking: the mean few-shot delta is $+$23.9~pp on SIB-200 news but only $+$3.4~pp on ua-case-outcome legal text -- a 7$\times$ reduction. On news, only 1/10~valid models degrades; on legal, 2/10 degrade (Llama~3.3~70B and Qwen3~14B).
+
+\begin{table*}[t]
+\centering
+\small
+\caption{Few-shot accuracy on SIB-200 (news, 204 examples) and ua-case-outcome (legal, 196 examples) for 12~models. Models sorted by legal $\Delta_{\text{FS}}$. Bold = degradation. ``fmt'' = prompt format produced invalid outputs.}
+\label{tab:dual_dataset}
+\begin{tabular}{llR{0.7cm}R{0.7cm}R{0.9cm}R{0.7cm}R{0.7cm}R{0.9cm}}
+\toprule
+& & \multicolumn{3}{c}{\textbf{SIB-200 (news)}} & \multicolumn{3}{c}{\textbf{ua-case-outcome (legal)}} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-8}
+\textbf{Model} & \textbf{Size} & \textbf{ZS} & \textbf{FS} & \textbf{$\Delta$} & \textbf{ZS} & \textbf{FS} & \textbf{$\Delta$} \\
+\midrule
+Falcon3 7B     & 7B  & 28.9 & 58.3 & $+$29.4$^{***}$ & 20.4 & 30.1 & $+$9.7$^{**}$ \\
+Qwen3 8B       & 8B  & 35.8 & 73.0 & $+$37.3$^{***}$ & 24.0 & 33.7 & $+$9.7$^{**}$ \\
+Mistral 7B     & 7B  &  6.9 & 54.4 & $+$47.5$^{***}$ & 29.6 & 34.7 & $+$5.1 \\
+Gemma 3 12B    & 12B & 56.9 & 59.3 & $+$2.5 & 36.7 & 41.3 & $+$4.6 \\
+Granite 8B     & 8B  & 33.3 & 56.9 & $+$23.5$^{***}$ & 30.1 & 33.2 & $+$3.1 \\
+Qwen3 32B      & 32B & 57.8 & 72.5 & $+$14.7$^{***}$ & 38.8 & 40.3 & $+$1.5 \\
+Nemotron 8B    & 8B  & 51.0 & 77.0 & $+$26.0$^{***}$ & 32.1 & 33.2 & $+$1.0 \\
+Nemo 12B       & 12B & 32.4 & 58.3 & $+$26.0$^{***}$ & 33.2 & 34.2 & $+$1.0 \\
+\textbf{Qwen3 14B} & 14B & 40.0 & 75.0 & $+$35.0$^{***}$ & 37.8 & 37.2 & $\mathbf{-0.5}$ \\
+\textbf{Llama 3.3 70B} & 70B & 58.3 & 55.9 & $\mathbf{-2.5}$ & 35.7 & 34.7 & $\mathbf{-1.0}$ \\
+DeepSeek R1 14B & 14B & \multicolumn{2}{c}{\footnotesize fmt} & --- & \multicolumn{2}{c}{\footnotesize fmt} & --- \\
+Falcon Mamba 7B & 7B & \multicolumn{2}{c}{\footnotesize fmt} & --- & \multicolumn{3}{c}{} \\
+\midrule
+\multicolumn{2}{l}{\textit{Mean $\Delta$ (valid)}} & & & \textit{+24} & & & \textit{+3.4} \\
+\multicolumn{2}{l}{\textit{Degrading / valid}} & & & \textit{1/10} & & & \textit{2/10} \\
+\bottomrule
+\multicolumn{8}{l}{\footnotesize McNemar's test: $^{*}p < 0.05$, $^{**}p < 0.01$, $^{***}p < 0.001$. No marker = tested, $p > 0.05$.}
+\end{tabular}
+\end{table*}
+
+\input{fig_task_contrast}
+
+Several patterns emerge. First, every model that improves on news improves less on legal -- the reduction is universal, not model-specific. Second, Qwen3~14B \emph{reverses}: $+$35~pp on news, $-$0.5~pp on legal. This is the task-dependent degradation hypothesized in \citet{ovcharov2026tokenizer}, now confirmed on open-weight models with identical prompts. Third, Llama~3.3~70B degrades on \emph{both} tasks, the only model with consistent cross-task degradation.
+
+\subsection{Within-Family Scaling: Qwen3}
+
+The Qwen3 family (8B, 14B, 32B) provides a controlled within-family comparison. On SIB-200, the few-shot benefit decreases monotonically with size: $+$37.3, $+$35.0, $+$14.7~pp. On ua-case-outcome, the pattern is non-monotonic: 8B benefits most ($+$9.7~pp), 14B \emph{degrades} ($-$0.5~pp), and 32B shows a small benefit ($+$1.5~pp). The 14B model occupies a middle ground: large enough that demonstrations do not help with task specification (unlike 8B), yet not large enough to be robust to potentially misleading demonstrations (unlike 32B). This non-monotonic pattern suggests that few-shot sensitivity depends on the interaction between model capacity and task difficulty, not on scale alone.
+
+\subsection{Part I Summary}
+
+The few-shot effect is strongly task-dependent: balanced news classification benefits all models, while imbalanced legal classification reduces or reverses the effect. The legal task -- with its formulaic text, imbalanced classes, and domain-specific vocabulary -- is a more challenging test of few-shot prompting. But behavioral experiments cannot explain \emph{why} the effect reverses. Part~II addresses this question using the same 12~models.
+
+% ============================================================
+% PART II METHODS
+% ============================================================
+\section{Part II: Internal Analysis}
+\label{sec:internal_methods}
+
+\subsection{Models}
+
+We evaluate 12~open-weight models spanning 9~families and two architectures (Table~\ref{tab:internal_models}): 11 Transformers and 1~SSM (Falcon Mamba~7B). All run on 4$\times$A10G GPUs (96~GB); Llama~3.3~70B uses 4-bit NF4 quantization.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Open-weight models for internal analysis.}
+\label{tab:internal_models}
+\begin{tabular}{lllr}
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{Arch} & \textbf{Size} \\
+\midrule
+Qwen3 32B / 14B / 8B   & Qwen      & Trans & 8--32B \\
+Llama 3.3 70B           & Meta      & Trans & 70B \\
+Mistral Nemo 12B / 7B   & Mistral   & Trans & 7--12B \\
+Nemotron 8B             & NVIDIA    & Trans & 8B \\
+Falcon3 7B              & TII       & Trans & 7B \\
+Granite 3.1 8B          & IBM       & Trans & 8B \\
+DeepSeek R1 14B         & DeepSeek  & Trans & 14B \\
+Gemma 3 12B             & Google    & Trans & 12B \\
+Falcon Mamba 7B         & TII       & \textbf{SSM} & 7B \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Metrics}
+
+\paragraph{Demonstration Attention Ratio (DAR).} Fraction of final-token attention (last 4 layers, averaged across heads) allocated to demonstration tokens vs.\ input tokens. Defined for Transformers only.
+
+\paragraph{Representation shift.} Cosine distance between hidden states at the classification position in ZS vs.\ FS mode: $\text{shift} = 1 - \cos(\mathbf{h}_{\text{ZS}}, \mathbf{h}_{\text{FS}})$.
+
+\paragraph{Content delta (random-text control).} We replace demonstrations with length-matched random text and measure the resulting shift. Content delta = shift$_{\text{FS}}$ $-$ shift$_{\text{rand}}$ isolates demonstration content from prompt length.
+
+% ============================================================
+% PART II RESULTS
+% ============================================================
+\section{Part II: Internal Results}
+\label{sec:internal_results}
+
+\subsection{Main Results}
+
+Table~\ref{tab:internal_main} combines behavioral accuracy from both tasks with internal metrics measured on SIB-200.
+
+\begin{table*}[t]
+\centering
+\small
+\caption{Combined results: behavioral accuracy (both tasks) and internal metrics (SIB-200). Sorted by content delta. $\Delta_{\text{cnt}}$ = shift$_{\text{FS}}$ $-$ shift$_{\text{rand}}$. Bold = degradation.}
+\label{tab:internal_main}
+\begin{tabular}{llR{0.9cm}R{0.9cm}R{0.7cm}R{0.8cm}R{0.8cm}R{0.8cm}}
+\toprule
+& & \textbf{$\Delta_{\text{FS}}$} & \textbf{$\Delta_{\text{FS}}$} & & & & \\
+\textbf{Model} & \textbf{Arch} & \textbf{news} & \textbf{legal} & \textbf{DAR} & \textbf{Shift} & \textbf{Sh$_{\text{rnd}}$} & \textbf{$\Delta_{\text{cnt}}$} \\
+\midrule
+Granite 8B       & Trans & $+$23.5 & $+$3.1  & .442 & .610 & .087 & .523 \\
+Mistral 7B       & Trans & $+$47.5 & $+$5.1  & .598 & .451 & .205 & .246 \\
+Falcon3 7B       & Trans & $+$29.4 & $+$9.7  & .449 & .327 & .103 & .224 \\
+Qwen3 8B         & Trans & $+$37.3 & $+$9.7  & .380 & .325 & .106 & .219 \\
+Nemotron 8B      & Trans & $+$26.0 & $+$1.0  & .441 & .277 & .064 & .213 \\
+Nemo 12B         & Trans & $+$26.0 & $+$1.0  & .721 & .219 & .047 & .172 \\
+Qwen3 14B        & Trans & $+$35.0 & $\mathbf{-0.5}$ & .403 & .201 & .033 & .168 \\
+Qwen3 32B        & Trans & $+$14.7 & $+$1.5  & .319 & .157 & .017 & .139 \\
+Gemma 3 12B      & Trans & ---     & $+$4.6  & .536 & .109 & .014 & .096 \\
+DeepSeek R1      & Trans & ---     & ---     & .508 & .295 & .179 & .116 \\
+Llama 3.3 70B    & Trans & $\mathbf{-2.5}$ & $\mathbf{-1.0}$ & .534 & .319 & .252 & .067 \\
+Falcon Mamba     & SSM   & ---     & ---     & N/A  & .035 & .007 & .027 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Content Delta Predicts Few-Shot Benefit}
+
+Figure~\ref{fig:content_delta} shows the relationship between content delta and few-shot effect. On SIB-200, the correlation is significant ($\rho = +0.648$, $p = 0.043$, $n = 10$); on ua-case-outcome, the trend is consistent but borderline ($\rho = +0.588$, $p = 0.074$, $n = 10$). Models that restructure representations more from demonstration content benefit more from few-shot prompting on both tasks -- supporting the \emph{content hypothesis} over the \emph{distortion hypothesis} (Section~1).
+
+\begin{figure}[t]
+\centering
+\input{fig4_content_vs_delta}
+\caption{Content delta vs.\ few-shot effect. Spearman $\rho = +0.648$, $p = 0.043$. Higher content delta = more benefit.}
+\label{fig:content_delta}
+\end{figure}
+
+\subsection{The Random-Text Control Is Essential}
+
+Figure~\ref{fig:decomposition} decomposes total shift into prompt-length and content components. Llama~3.3~70B's high raw shift (0.319) is 79\% prompt length; Granite~8B's (0.610) is 86\% content. Without the control, raw shift correlates weakly ($r = +0.20$, $p = 0.59$) and misleads.
+
+\begin{figure}[t]
+\centering
+\input{fig5_shift_decomposition}
+\caption{Shift decomposition: demo content (red) vs.\ prompt length (grey).}
+\label{fig:decomposition}
+\end{figure}
+
+\subsection{DAR Does Not Predict the Few-Shot Effect}
+
+DAR shows zero correlation with $\Delta_{\text{FS}}$ ($r = +0.02$, $p = 0.96$; Figure~\ref{fig:dar}). Nemo~12B has the highest DAR (0.72) yet improves by +26~pp. DAR reflects task dependency, not benefit or harm.
+
+\begin{figure}[t]
+\centering
+\input{fig6_dar_violin}
+\caption{DAR distribution across 11 Transformer models. DAR does not predict few-shot benefit ($r = +0.02$).}
+\label{fig:dar}
+\end{figure}
+
+\subsection{SSM vs.\ Transformer}
+
+Falcon Mamba~7B (SSM) shows 10$\times$ lower shift than the Transformer mean (0.035 vs.\ 0.299; Figure~\ref{fig:shift}). The TII Falcon comparison is revealing: Falcon3~7B (Transformer, shift = 0.327) vs.\ Falcon Mamba~7B (SSM, shift = 0.035) -- same provider, same size, 10$\times$ difference from architecture alone. DAR is undefined for SSM (no attention mechanism).
+
+\begin{figure}[t]
+\centering
+\input{fig7_shift_violin}
+\caption{Representation shift: Falcon Mamba (SSM, red) vs.\ Transformers (blue).}
+\label{fig:shift}
+\end{figure}
+
+\subsection{Causal Ablation}
+
+To test whether demonstrations \emph{causally} harm Llama~3.3~70B, we zero the attention weights from the final token to all demonstration tokens at every layer and head. This forces the model to classify based solely on the input text and system prompt while preserving the positional encoding of the original few-shot sequence.
+
+Masking recovers accuracy from 55.9\% (FS) to 59.3\% (Figure~\ref{fig:ablation}), exceeding the ZS baseline (58.3\%) by 1~pp. The improvement beyond ZS suggests that the expanded context window provides useful positional structure even when demonstration content is removed -- the model benefits from the sequence length without being misled by the demonstration labels.
+
+This result is specific to Llama~3.3~70B, which uses 4-bit NF4 quantization. We cannot determine whether the causal harm originates from quantization artifacts or the base model's architecture. Extending this ablation to other degrading models (e.g., Qwen3~14B on legal) and to non-quantized Llama variants would resolve this confound.
+
+\begin{figure}[t]
+\centering
+\input{fig8_ablation}
+\caption{Masking demos in Llama~3.3~70B recovers accuracy above ZS baseline.}
+\label{fig:ablation}
+\end{figure}
+
+\subsection{Cross-Task Generalization of Internal Metrics}
+
+Internal metrics (DAR, shift, content delta) were measured on SIB-200, yet content delta also predicts few-shot benefit on ua-case-outcome ($\rho = +0.59$, $p = 0.074$). This cross-task prediction suggests that representation sensitivity to demonstrations is a \emph{model property} rather than a task-specific artifact: models that restructure representations more from demonstration content on one task tend to benefit more on another. The borderline significance on legal ($p = 0.074$ vs.\ $p = 0.043$ on news) may reflect the reduced variance in legal $\Delta_{\text{FS}}$ (range: $-$1 to $+$10~pp vs.\ $-$2.5 to $+$47.5~pp on news), which compresses the correlation.
+
+% ============================================================
+\section{Discussion}
+
+\subsection{A Unified Account}
+
+Part~I established \emph{what}: few-shot degradation is model-intrinsic and task-dependent. Part~II reveals \emph{why it's not what it seems}: the distortion hypothesis (over-attention $\rightarrow$ representation distortion $\rightarrow$ degradation) is wrong. Models that change representations the most from demonstration \emph{content} benefit the most. The only degrading model (Llama~70B) has the \emph{lowest} content delta among Transformers.
+
+\subsection{Why the Random-Text Control Changes Everything}
+
+Few-shot prompts are 5--8$\times$ longer than zero-shot. This length difference alone shifts representations, with magnitude depending on positional encoding and context processing. Llama~70B's shift is 79\% prompt length; Granite~8B's is only 14\%. \textbf{Reporting raw shift without the random-text control leads to the opposite conclusion.}
+
+\subsection{Architecture Matters More Than Size}
+
+The Transformer--SSM divide is the clearest finding. Falcon Mamba processes demonstrations through state accumulation rather than attention, producing minimal representation change. Within Transformers, model size modulates the effect non-linearly: the Qwen3 family shows decreasing shift with size (8B: 0.325, 14B: 0.201, 32B: 0.157), but Granite~8B (0.610) exceeds all larger models.
+
+\subsection{Practical Recommendations}
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Validate few-shot per model and task.} Not per language -- the effect is model-intrinsic.
+    \item \textbf{Tokenizer fertility: measure once, apply everywhere.} Domain-invariant and stable.
+    \item \textbf{Include a random-text control} when measuring representation effects from demonstrations.
+    \item \textbf{Budget for the tokenizer tax:} Ukrainian costs 3$\times$ English purely from tokenizer design.
+\end{enumerate}
+
+% ============================================================
+\section{Limitations}
+
+\paragraph{Degrading models.} Llama~3.3~70B degrades on both tasks but is the only quantized model. Qwen3~14B degrades only on legal ($-$0.5~pp, not significant). The degradation--quantization confound for Llama cannot be resolved without FP16 inference.
+
+\paragraph{Single classification task for Part~II.} Internal analysis uses only SIB-200. The content delta relationship may not hold for generation or reasoning tasks.
+
+\paragraph{Prompt format.} DeepSeek~R1 and Falcon Mamba produced near-zero accuracy on both tasks due to chat template mismatches, reducing some correlations to $n = 10$.
+
+\paragraph{Demo truncation.} Few-shot demonstrations for ua-case-outcome were truncated to 300~characters (from typical 5,000--30,000 in full court decisions) to fit context windows of 7B models. At less than 6\% of the original text, truncated demonstrations carry minimal domain signal. This truncation alone may account for part of the reduced few-shot benefit on legal text, independent of task complexity or class imbalance. An ablation varying truncation length (300 vs.\ 500 vs.\ 1,000 characters) would disentangle these factors.
+
+\paragraph{Content delta robustness.} The content delta correlation depends partly on Granite~8B (the highest-delta model): excluding it weakens $\rho$ from 0.65 to 0.50. A leave-one-out analysis shows that excluding any single model changes $\rho$ by at most 0.15, with Granite having the largest influence. The correlation is suggestive but not robust to individual outliers at $n = 10$.
+
+\paragraph{One SSM model.} The architecture comparison relies on a single SSM model.
+
+\paragraph{Greedy decoding.} All models use temperature~0 (greedy), which selects the single highest-probability token. For classification tasks where answer tokens have similar likelihoods, greedy decoding may systematically favor certain labels depending on tokenizer-specific token probabilities, introducing a bias not present under sampling.
+
+% ============================================================
+\section{Conclusion}
+
+We presented the first combined behavioral and mechanistic investigation of few-shot degradation. Our findings across 12~models, 2~tasks, and 2~architectures:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Few-shot degradation is task-dependent.} Mean $\Delta_{\text{FS}}$ is $+$24~pp on news but only $+$3.4~pp on legal text (7$\times$ reduction). Qwen3~14B reverses from $+$35~pp (news) to $-$0.5~pp (legal). Llama~3.3~70B degrades on both tasks.
+
+    \item \textbf{Content delta predicts few-shot benefit} on news ($\rho = +0.65$, $p = 0.043$) with a consistent trend on legal ($\rho = +0.59$, $p = 0.074$). Models that restructure representations more from demo content improve more -- supporting the content hypothesis over the distortion hypothesis.
+
+    \item \textbf{The random-text control is essential.} Without it, prompt length inflates shift by 2--7$\times$ and reverses the correlation direction.
+
+    \item \textbf{DAR is not a predictor} ($r = 0.02$). Attention allocation reflects dependency, not benefit.
+
+    \item \textbf{SSM shows 10$\times$ lower shift.} Architecture determines context sensitivity more than model size.
+
+    \item \textbf{Causal ablation confirms.} Masking demos in Llama recovers accuracy from 55.9\% to 59.3\%.
+\end{enumerate}
+
+For the field: the random-text control should become standard methodology when analyzing in-context learning through representation geometry. For practitioners: validate few-shot per model and task, not per language.
+
+% ============================================================
+\section*{Acknowledgments}
+
+Compute was provided by AWS Activate credits: Bedrock API for behavioral experiments, SageMaker g5.12xlarge (4$\times$A10G) for internal analysis. Total compute cost: \$95. We thank the creators of SIB-200 and all model providers for open-weight access. Data and code: \url{https://huggingface.co/datasets/overthelex/attention-analysis-fewshot}.
+
+% ============================================================
+\begin{thebibliography}{30}
+\providecommand{\natexlab}[1]{#1}
+
+\bibitem[Adelani et~al.(2024)]{adelani2024sib200}
+Adelani, D.~I., et~al.
+\newblock SIB-200: A Simple, Inclusive, and Big Evaluation Dataset for Topic Classification in 200+ Languages and Dialects.
+\newblock \emph{Proceedings of EACL}, pages 226--245, 2024.
+\newblock \href{https://arxiv.org/abs/2309.07445}{arXiv:2309.07445}.
+
+\bibitem[Ahia et~al.(2023)]{ahia2023all}
+Ahia, O., Kumar, S., Gonen, H., Kasai, J., Mortensen, D.~R., Smith, N.~A., and Tsvetkov, Y.
+\newblock Do All Languages Cost the Same? Tokenization in the Era of Commercial Language Models.
+\newblock \emph{Proceedings of EMNLP}, pages 9904--9923, 2023.
+\newblock \href{https://arxiv.org/abs/2305.13707}{arXiv:2305.13707}.
+
+\bibitem[Brown et~al.(2020)]{brown2020language}
+Brown, T.~B., et~al.
+\newblock Language Models are Few-Shot Learners.
+\newblock \emph{NeurIPS}, 2020.
+\newblock \href{https://arxiv.org/abs/2005.14165}{arXiv:2005.14165}.
+
+\bibitem[Hu et~al.(2020)]{hu2020xtreme}
+Hu, J., Ruder, S., Siddhant, A., Neubig, G., Firat, O., and Johnson, M.
+\newblock XTREME: A Massively Multilingual Multi-task Benchmark for Evaluating Cross-lingual Generalisation.
+\newblock \emph{Proceedings of ICML}, pages 4411--4421, 2020.
+\newblock \href{https://arxiv.org/abs/2003.11080}{arXiv:2003.11080}.
+
+\bibitem[Dai et~al.(2023)]{dai2023gpt}
+Dai, D., Sun, Y., Dong, L., Hao, Y., Ma, S., Sui, Z., and Wei, F.
+\newblock Why Can {GPT} Learn In-Context? Language Models Implicitly Perform Gradient Descent as Meta-Optimizers.
+\newblock \emph{Findings of ACL}, 2023.
+\newblock \href{https://arxiv.org/abs/2212.10559}{arXiv:2212.10559}.
+
+\bibitem[Hendel et~al.(2023)]{hendel2023icl}
+Hendel, R., Geva, M., and Globerson, A.
+\newblock In-Context Learning Creates Task Vectors.
+\newblock \emph{Findings of EMNLP}, pages 9318--9333, 2023.
+\newblock \href{https://arxiv.org/abs/2310.15916}{arXiv:2310.15916}.
+
+\bibitem[Jain and Wallace(2019)]{jain2019attention}
+Jain, S. and Wallace, B.~C.
+\newblock Attention is not Explanation.
+\newblock \emph{Proceedings of NAACL}, 2019.
+\newblock \href{https://arxiv.org/abs/1902.10186}{arXiv:1902.10186}.
+
+\bibitem[Liu et~al.(2022)]{liu2022makes}
+Liu, J., Shen, D., Zhang, Y., Dolan, B., Carin, L., and Chen, W.
+\newblock What Makes Good In-Context Examples for GPT-3?
+\newblock \emph{Proceedings of DeeLIO Workshop at ACL}, 2022.
+\newblock \href{https://arxiv.org/abs/2101.06804}{arXiv:2101.06804}.
+
+\bibitem[Liu et~al.(2024)]{liu2024quantized}
+Liu, P., Liu, Z., Gao, Z.-F., Gao, D., Zhao, W.~X., Li, Y., Ding, B., and Wen, J.-R.
+\newblock Do Emergent Abilities Exist in Quantized Large Language Models: An Empirical Study.
+\newblock \emph{Proceedings of LREC-COLING}, pages 5174--5190, 2024.
+\newblock \href{https://arxiv.org/abs/2307.08072}{arXiv:2307.08072}.
+
+\bibitem[Min et~al.(2022)]{min2022rethinking}
+Min, S., Lyu, X., Holtzman, A., Artetxe, M., Lewis, M., Hajishirzi, H., and Zettlemoyer, L.
+\newblock Rethinking the Role of Demonstrations: What Makes In-Context Learning Work?
+\newblock \emph{Proceedings of EMNLP}, 2022.
+\newblock \href{https://arxiv.org/abs/2202.12837}{arXiv:2202.12837}.
+
+\bibitem[Olsson et~al.(2022)]{olsson2022context}
+Olsson, C., Elhage, N., Nanda, N., Joseph, N., DasSarma, N., et~al.
+\newblock In-Context Learning and Induction Heads.
+\newblock \emph{Transformer Circuits Thread}, 2022.
+
+\bibitem[Ovcharov(2026)]{ovcharov2026tokenizer}
+Ovcharov, V.
+\newblock Tokenizer Fertility and Zero-Shot Performance of Foundation Models on Ukrainian Legal Text.
+\newblock \href{https://arxiv.org/abs/2605.14890}{arXiv:2605.14890}, 2026.
+
+\bibitem[Park et~al.(2024)]{park2024mamba}
+Park, J., Park, J., Xiong, Z., Lee, N., Cho, J., Oymak, S., Lee, K., and Papailiopoulos, D.
+\newblock Can Mamba Learn How to Learn? A Comparative Study on In-Context Learning Tasks.
+\newblock \href{https://arxiv.org/abs/2402.04248}{arXiv:2402.04248}, 2024.
+
+\bibitem[Petrov et~al.(2023)]{petrov2023language}
+Petrov, A., La~Malfa, E., Torr, P., and Bibi, A.
+\newblock Language Model Tokenizers Introduce Unfairness Between Languages.
+\newblock \emph{NeurIPS}, 2023.
+\newblock \href{https://arxiv.org/abs/2305.15425}{arXiv:2305.15425}.
+
+\bibitem[Rust et~al.(2021)]{rust2021good}
+Rust, P., Pfeiffer, J., Vuli\'{c}, I., Ruder, S., and Gurevych, I.
+\newblock How Good is Your Tokenizer? On the Monolingual Performance of Multilingual Language Models.
+\newblock \emph{Proceedings of ACL}, pages 3118--3135, 2021.
+\newblock \href{https://arxiv.org/abs/2012.15613}{arXiv:2012.15613}.
+
+\bibitem[Todd et~al.(2024)]{todd2024function}
+Todd, E., Li, M.~L., Sharma, A.~S., Mueller, A., Wallace, B.~C., and Bau, D.
+\newblock Function Vectors in Large Language Models.
+\newblock \emph{Proceedings of ICLR}, 2024.
+\newblock \href{https://arxiv.org/abs/2310.15213}{arXiv:2310.15213}.
+
+\bibitem[Tanwar et~al.(2023)]{tanwar2023multilingual}
+Tanwar, E., Dutta, S., Borthakur, M., and Chakraborty, T.
+\newblock Multilingual LLMs are Better Cross-lingual In-context Learners with Alignment.
+\newblock \emph{Proceedings of ACL}, pages 6292--6307, 2023.
+\newblock \href{https://arxiv.org/abs/2305.05940}{arXiv:2305.05940}.
+
+\bibitem[Wang et~al.(2023)]{wang2023label}
+Wang, L., Li, L., Dai, D., Chen, D., Zhou, H., Meng, F., Zhou, J., and Sun, X.
+\newblock Label Words are Anchors: An Information Flow Perspective for Understanding In-Context Learning.
+\newblock \emph{Proceedings of EMNLP}, 2023.
+\newblock \href{https://arxiv.org/abs/2305.14160}{arXiv:2305.14160}.
+
+\bibitem[Wei et~al.(2023)]{wei2023larger}
+Wei, J., Wei, J., Tay, Y., Tran, D., Webson, A., Lu, Y., et~al.
+\newblock Larger Language Models Do In-Context Learning Differently.
+\newblock \href{https://arxiv.org/abs/2303.03846}{arXiv:2303.03846}, 2023.
+
+\bibitem[Zhao et~al.(2021)]{zhao2021calibrate}
+Zhao, Z., Wallace, E., Feng, S., Klein, D., and Singh, S.
+\newblock Calibrate Before Use: Improving Few-Shot Performance of Language Models.
+\newblock \emph{Proceedings of ICML}, 2021.
+\newblock \href{https://arxiv.org/abs/2102.09690}{arXiv:2102.09690}.
+
+\end{thebibliography}
+
+% ============================================================
+\appendix
+\section{Model Identifiers}
+
+\begin{table}[h]
+\centering
+\small
+\caption{HuggingFace model identifiers for reproducibility.}
+\label{tab:model_ids}
+\begin{tabular}{ll}
+\toprule
+\textbf{Model} & \textbf{HuggingFace ID} \\
+\midrule
+Qwen3 8B       & \texttt{Qwen/Qwen3-8B} \\
+Qwen3 14B      & \texttt{Qwen/Qwen3-14B} \\
+Qwen3 32B      & \texttt{Qwen/Qwen3-32B} \\
+Llama 3.3 70B  & \texttt{meta-llama/Llama-3.3-70B-Instruct} \\
+Mistral 7B     & \texttt{mistralai/Mistral-7B-Instruct-v0.3} \\
+Nemo 12B       & \texttt{mistralai/Mistral-Nemo-Instruct-2407} \\
+Nemotron 8B    & \texttt{nvidia/Llama-3.1-Nemotron-8B-Instruct} \\
+Falcon3 7B     & \texttt{tiiuae/Falcon3-7B-Instruct} \\
+Granite 3.1 8B & \texttt{ibm-granite/granite-3.1-8b-instruct} \\
+DeepSeek R1 14B & \texttt{deepseek-ai/DeepSeek-R1-Distill-Qwen-14B} \\
+Gemma 3 12B    & \texttt{google/gemma-3-12b-it} \\
+Falcon Mamba 7B & \texttt{tiiuae/falcon-mamba-7b-instruct} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}
