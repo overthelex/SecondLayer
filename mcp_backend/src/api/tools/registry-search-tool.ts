@@ -84,18 +84,27 @@ ${registryDescriptions}
     const maxLimit = def.maxLimit ?? 100;
     const defaultLimit = def.defaultLimit ?? 50;
     const lim = Math.max(1, Math.min(Number(limit) || defaultLimit, maxLimit));
+
+    const countValues = [...values];
     values.push(lim);
 
-    const sql = `SELECT ${def.selectColumns}, COUNT(*) OVER() AS _total_count
+    const dataSql = `SELECT ${def.selectColumns}
       FROM ${def.table}
       WHERE ${whereClause}
       ORDER BY ${def.orderBy}
       LIMIT $${paramIndex}`;
 
+    const countSql = `SELECT COUNT(*) AS total FROM ${def.table} WHERE ${whereClause}`;
+
     try {
-      const result = await this.db.query(sql, values);
-      if (result.rows.length === 0) return this.wrapResponse(def.emptyMessage);
-      return this.wrapSearchResults(result.rows, lim);
+      const [dataResult, countResult] = await Promise.all([
+        this.db.query(dataSql, values),
+        this.db.query(countSql, countValues),
+      ]);
+      if (dataResult.rows.length === 0) return this.wrapResponse(def.emptyMessage);
+      const totalCount = parseInt(countResult.rows[0]?.total ?? '0', 10);
+      dataResult.rows.forEach((r: any) => { r._total_count = totalCount; });
+      return this.wrapSearchResults(dataResult.rows, lim);
     } catch (error: any) {
       logger.error(`search_registry[${registry}] error`, { error: error.message });
       return this.wrapError(`Помилка пошуку: ${error.message}`);
