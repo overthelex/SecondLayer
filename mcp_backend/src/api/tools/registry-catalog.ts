@@ -502,7 +502,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     orderBy: 'fac_name',
     emptyMessage: 'No EPA facilities found matching criteria',
     fields: [
-      { name: 'name', description: 'Facility name', match: 'ilike', columns: ['fac_name'] },
+      { name: 'name', description: 'Facility name', match: 'fts_simple', columns: ['fac_name'] },
       { name: 'state', description: 'State (2-letter code)', match: 'exact', columns: ['fac_state'], transform: 'uppercase' },
       { name: 'city', description: 'City name', match: 'ilike', columns: ['fac_city'] },
       { name: 'zip', description: 'ZIP code', match: 'exact', columns: ['fac_zip'] },
