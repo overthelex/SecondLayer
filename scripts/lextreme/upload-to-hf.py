@@ -18,14 +18,16 @@ import argparse
 from pathlib import Path
 
 OUTPUT_DIR = Path(__file__).parent / "output"
-DEFAULT_REPO = "secondlayer/ukrainian-court-decisions"
+DEFAULT_REPO = "overthelex/ukrainian-court-decisions"
 EPOCHS = ["pre_war", "hybrid_war", "full_scale"]
+LEXTREME_EPOCHS = [f"{e}_lextreme" for e in EPOCHS]
+ALL_CONFIGS = EPOCHS + LEXTREME_EPOCHS
 
 
 def main():
     parser = argparse.ArgumentParser(description="Upload dataset to HuggingFace Hub")
     parser.add_argument("--repo", default=DEFAULT_REPO, help=f"HF repo ID (default: {DEFAULT_REPO})")
-    parser.add_argument("--epochs", nargs="+", default=EPOCHS, choices=EPOCHS)
+    parser.add_argument("--epochs", nargs="+", default=ALL_CONFIGS, choices=ALL_CONFIGS)
     parser.add_argument("--dry-run", action="store_true", help="Show what would be uploaded")
     args = parser.parse_args()
 
