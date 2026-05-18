@@ -165,6 +165,18 @@ ${registryDescriptions}
           values.push(`%${val}%`);
           pi++;
           break;
+
+        case 'fts':
+          conditions.push(`to_tsvector('english', ${field.columns[0]}) @@ plainto_tsquery('english', $${pi})`);
+          values.push(val);
+          pi++;
+          break;
+
+        case 'fts_simple':
+          conditions.push(`to_tsvector('simple', ${field.columns[0]}) @@ plainto_tsquery('simple', $${pi})`);
+          values.push(val);
+          pi++;
+          break;
       }
     }
 

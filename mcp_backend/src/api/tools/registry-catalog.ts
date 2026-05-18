@@ -17,7 +17,9 @@ export type MatchType =
   | 'gte'           // col >= $N
   | 'lte'           // col <= $N
   | 'array_contains' // $N = ANY(col)
-  | 'ilike_cast';    // col::text ILIKE $N  (%val%)
+  | 'ilike_cast'    // col::text ILIKE $N  (%val%)
+  | 'fts'           // to_tsvector('english', col) @@ plainto_tsquery('english', $N)
+  | 'fts_simple';   // to_tsvector('simple', col) @@ plainto_tsquery('simple', $N)
 
 export interface FieldDef {
   name: string;
@@ -417,7 +419,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     defaultLimit: 20,
     maxLimit: 50,
     fields: [
-      { name: 'query', description: 'Full-text search in opinion text (English)', match: 'ilike', columns: ['text_preview'] },
+      { name: 'query', description: 'Full-text search in opinion text (English)', match: 'fts', columns: ['text_preview'] },
       { name: 'reporter', description: 'Reporter series (e.g. f2d, f3d, us, s-ct for Supreme Court)', match: 'exact', columns: ['reporter_series'] },
       { name: 'author', description: 'Author or URL containing court/jurisdiction info', match: 'ilike', columns: ['author'] },
     ],
@@ -467,7 +469,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     maxLimit: 100,
     requiredFields: ['donor'],
     fields: [
-      { name: 'donor', description: 'Contributor name (LAST, FIRST format)', match: 'ilike', columns: ['contributor_name'] },
+      { name: 'donor', description: 'Contributor name (LAST, FIRST format)', match: 'fts_simple', columns: ['contributor_name'] },
       { name: 'employer', description: 'Employer of contributor', match: 'ilike', columns: ['employer'] },
       { name: 'state', description: 'Donor state (2-letter code)', match: 'exact', columns: ['state'], transform: 'uppercase' },
       { name: 'committee', description: 'Recipient committee ID (e.g. C00401224)', match: 'exact', columns: ['committee_id'] },
@@ -520,7 +522,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     defaultLimit: 30,
     requiredFields: ['company'],
     fields: [
-      { name: 'company', description: 'Company name (bank, lender, servicer)', match: 'ilike', columns: ['company'] },
+      { name: 'company', description: 'Company name (bank, lender, servicer)', match: 'fts_simple', columns: ['company'] },
       { name: 'product', description: 'Product: Credit reporting, Mortgage, Bank account, Credit card / prepaid, Debt collection, etc.', match: 'exact', columns: ['product_normalized'] },
       { name: 'state', description: 'Consumer state (2-letter code)', match: 'exact', columns: ['state'], transform: 'uppercase' },
       { name: 'issue', description: 'Issue description', match: 'ilike', columns: ['issue'] },
