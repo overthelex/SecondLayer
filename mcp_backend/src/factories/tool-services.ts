@@ -41,6 +41,7 @@ import { WorkflowMemoryService } from '../services/workflow-memory-service.js';
 import { WorkflowMemoryPushService } from '../services/workflow-memory-push-service.js';
 import { OsintProxyAdapter } from '../adapters/osint-proxy-adapter.js';
 import { OsintProxyTools } from '../api/tools/osint-proxy-tools.js';
+import { IndiaCourtTools } from '../api/tools/india-court-tools.js';
 import { logger } from '../utils/logger.js';
 import path from 'path';
 
@@ -146,6 +147,7 @@ export function createToolServices(
   toolRegistry.registerHandler(new OpenDataRegistriesTools(coreServices.db));
   toolRegistry.registerHandler(new Tier1OpenDataTools(coreServices.db));
   toolRegistry.registerHandler(new EdsrExtendedTools(coreServices.db));
+  toolRegistry.registerHandler(new IndiaCourtTools(coreServices.db));
   toolRegistry.registerHandler(new DecisionLayerTools(llmAdapter));
 
   // EDRSR unified search (structured + FTS + hybrid + semantic in one tool)
