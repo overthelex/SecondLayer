@@ -20,7 +20,7 @@
 \usepackage{microtype}
 \usepackage{url}
 \usepackage[numbers,sort&compress]{natbib}
-\usepackage[hyphens]{url}
+\PassOptionsToPackage{hyphens}{url}
 \usepackage{hyperref}
 \usepackage{pgfplots}
 \usepackage{pgfplotstable}
@@ -53,17 +53,16 @@
 \maketitle
 
 \begin{abstract}
-Legal definitions in legislation are assumed to satisfy basic logical requirements -- yet we find that \textbf{52\% of all statutory definitions} in Ukrainian law contain at least one formally detectable logical defect.
-A definition must not define a term through itself (\emph{circulus in definiendo}) nor rely on terms that lack their own definitions (\emph{ignotum per ignotum}); violations produce normatively empty provisions that undermine legal certainty.
-Prior NLP work has addressed definition extraction from legislative text~\citep{hosabettu2025statutory}, stylistic quality checking of legislative drafts~\citep{hofler2012style}, and retrieval-augmented definition generation~\citep{chouhan2024lexdrafter}, but no system has attempted to detect \emph{logical} defects within definitions themselves.
-We present \textsc{DefectRadar}, the first pipeline for automated detection of \emph{circulus in definiendo} and \emph{ignotum per ignotum} in legislation.
-The pipeline extracts 5{,}799 definitions from 879 laws within a corpus of 44{,}021 active Ukrainian legislative acts, applies morpho-semantic circularity detection (Ukrainian lemmatization via pymorphy2-uk combined with discriminating-adjective analysis), and constructs a cross-legislative definition graph to identify undefined-term dependencies across the entire corpus.
-DefectRadar identifies 1{,}880 circular definitions (32.4\%) and 1{,}885 cross-reference gaps (32.5\%), with the highest defect concentration in post-2014 EU harmonization laws -- electronic communications, media, payment services, pharmaceuticals, and insurance -- consistent with a ``decorative borrowing'' pattern in \emph{acquis} transposition.
-As a diagnostic complement to generative systems like LexDrafter, DefectRadar enables a detect--diagnose--repair workflow for legislative definition quality.
-We release the pipeline code and audit results at \url{https://huggingface.co/datasets/overthelex/ua-defectradar}.
+We introduce \emph{legislative definition quality assessment} (\textsc{LegDefQA}) -- the task of automatically detecting logical defects in statutory definitions -- and present \textsc{DefectRadar}, the first NLP pipeline for this task.
+Applied to 5{,}799 definitions from 44{,}021 active Ukrainian legislative acts, the pipeline flags 32.4\% as morphologically circular (\emph{circulus in definiendo}) and 32.5\% as relying on cross-law undefined terms (\emph{ignotum per ignotum}).
+However, error analysis using a RAG-augmented GPT-4o judge reveals that \textbf{85\% of flagged circulus cases are benign domain terminology reuse}, not normative tautology -- yielding an estimated true defect rate of $\sim$3\%.
+For ignotum, 71\% are cross-reference gaps (terms defined in other laws) and 21\% are critical (undefined anywhere in the corpus).
+These findings transform DefectRadar from a binary defect detector into a \emph{severity-aware triage tool}: the $\sim$10\% of definitions with severe defects warrant legislative attention, while the remainder represent systematic but lower-priority drafting gaps.
+Prior work has addressed definition extraction~\citep{hosabettu2025statutory}, stylistic quality~\citep{hofler2012style}, and definition generation~\citep{chouhan2024lexdrafter}, but no system has attempted to detect logical defects within definitions -- a task that \citet{hofler2012style} identified as an open problem 14 years ago.
+We release the \textsc{LegDefQA} benchmark (train/dev/test splits), pipeline code, and 5{,}799 annotated definitions at \url{https://huggingface.co/datasets/overthelex/ua-defectradar}.
 \end{abstract}
 
-\noindent\textbf{Keywords:} legal NLP, legislative quality assurance, definitional defects, \emph{circulus in definiendo}, \emph{ignotum per ignotum}, Ukrainian law, morphological analysis, cross-legislative definition graph
+\noindent\textbf{Keywords:} legal NLP, legislative definition quality assessment, definitional defects, \emph{circulus in definiendo}, \emph{ignotum per ignotum}, Ukrainian law, morphological analysis, cross-legislative definition graph, benchmark
 
 % ============================================================
 \section{Introduction}
@@ -742,6 +741,44 @@ For the EU \emph{acquis}, LexDrafter's existing definition knowledge base~\citep
 We outline specific adaptation requirements for Polish, Czech, and Lithuanian law in the appendix.
 
 % ============================================================
+\section{The LegDefQA Benchmark}
+\label{sec:benchmark}
+% ============================================================
+
+To facilitate future work on legislative definition quality assessment, we release \textsc{LegDefQA} -- a benchmark derived from the DefectRadar corpus.
+
+\paragraph{Task.}
+Given a legal definition (definiendum + definiens + source law), predict: (a)~whether the definition exhibits \emph{circulus in definiendo} (binary), and (b)~which terms in the definiens constitute \emph{ignotum per ignotum} cross-reference gaps (sequence labeling).
+
+\paragraph{Data splits.}
+We partition the 5{,}799 definitions into train (3{,}522 from 527 laws), dev (1{,}153 from 176 laws), and test (1{,}124 from 176 laws) with \textbf{no law overlap} between splits -- ensuring that models cannot memorize law-specific patterns.
+The circulus positive rate is balanced across splits (31.8\%/34.4\%/32.3\%); ignotum is similarly stable (31.6\%/32.6\%/35.3\%).
+
+\paragraph{Baselines.}
+
+\begin{table}[t]
+\centering
+\caption{\textsc{LegDefQA} benchmark baselines on the test set ($n = 1{,}124$).}
+\label{tab:benchmark}
+\small
+\begin{tabular}{lR{1cm}R{1cm}R{1cm}R{1cm}R{1cm}R{1cm}}
+\toprule
+& \multicolumn{3}{c}{\textbf{Circulus}} & \multicolumn{3}{c}{\textbf{Ignotum}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+\textbf{System} & P & R & F1 & P & R & F1 \\
+\midrule
+Majority (all YES) & 32.3 & 100 & 48.8 & 35.3 & 100 & 52.2 \\
+Random (matched) & 35.7 & 35.3 & 35.5 & 35.6 & 35.3 & 35.4 \\
+GPT-4o RAG judge & 59.6 & 96.9 & 73.8 & 33.9 & 100 & 50.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:benchmark} reports baseline results on the test split.
+The GPT-4o RAG judge achieves 73.8\% F1 on circulus (high recall, moderate precision) but performs at majority-class level on ignotum (F1 50.6 vs.\ 52.2) -- the near-universal flagging rate (100\% recall) makes the ignotum task particularly challenging for discriminative approaches.
+The DefectRadar pipeline defines the ground-truth labels and thus cannot be evaluated against itself; future work should establish human-annotated gold labels on the test set to enable pipeline evaluation.
+
+% ============================================================
 \section{Conclusion}
 \label{sec:conclusion}
 % ============================================================
@@ -761,5 +798,52 @@ We release the full audit results and pipeline code to support adoption in other
 % ============================================================
 \bibliographystyle{plainnat}
 \bibliography{references}
+
+\clearpage
+\appendix
+\section{Annotated Examples}
+\label{app:examples}
+
+We present representative examples from the error analysis (Section~\ref{sec:error-analysis}) to illustrate the distinction between true defects and domain terminology reuse.
+
+\subsection*{A.1 True Defects (Normatively Empty)}
+
+\paragraph{Example 1.}
+\textbf{Law:} 894-2025-\foreignlanguage{ukrainian}{п} (IT systems regulation) \\
+\textbf{Term:} \foreignlanguage{ukrainian}{програмно-апаратна помилка} (software-hardware error) \\
+\textbf{Definition:} \foreignlanguage{ukrainian}{помилка, недолік або дефект у програмному забезпеченні або програмних складових частинах, програмно-апаратному устаткованні...} \\
+\textbf{Defect:} The qualifier \foreignlanguage{ukrainian}{``програмно-апаратна''} reappears verbatim in the differentia. The definition does not establish any criterion for distinguishing software-hardware errors from other types of errors -- it merely restates the term.
+
+\paragraph{Example 2.}
+\textbf{Law:} z1124-25 (securities regulation) \\
+\textbf{Term:} \foreignlanguage{ukrainian}{тимчасовий керівник виконавчого органу підсанкційного професійного учасника} \\
+\textbf{Definition:} \foreignlanguage{ukrainian}{особа, призначена НКЦПФР тимчасовим керівником виконавчого органу підсанкційного професійного учасника...} \\
+\textbf{Defect:} The entire multi-word term is repeated in the definiens without genus or differentia. The definition provides no information beyond restating the definiendum with the addition of the appointing authority.
+
+\paragraph{Example 3.}
+\textbf{Law:} 1145-2022-\foreignlanguage{ukrainian}{п} (vehicle registry) \\
+\textbf{Term:} \foreignlanguage{ukrainian}{електронна заява} (electronic application) \\
+\textbf{Definition:} \foreignlanguage{ukrainian}{заява про внесення до Реєстру відомостей, яка формується через електронний кабінет...} \\
+\textbf{Defect:} The root \foreignlanguage{ukrainian}{``електрон-''} from the definiendum reappears as \foreignlanguage{ukrainian}{``електронний кабінет''} in the differentia; the definition fails to explain what makes the application ``electronic'' beyond pointing to an ``electronic cabinet.''
+
+\subsection*{A.2 Domain Terminology Reuse (Not Defective)}
+
+\paragraph{Example 4.}
+\textbf{Law:} 1089-IX (electronic communications) \\
+\textbf{Term:} \foreignlanguage{ukrainian}{канал кабельної каналізації електронних комунікаційних мереж} \\
+\textbf{Definition:} \foreignlanguage{ukrainian}{окремо виділені місця обмеженої ємності в інфраструктурі кабельної каналізації, призначені для прокладання кабелів...} \\
+\textbf{Classification:} Domain reuse. The genus (``designated spaces of limited capacity in infrastructure'') provides substantive content; the repetition of ``cable duct'' terminology is inherent to the domain.
+
+\paragraph{Example 5.}
+\textbf{Law:} 2469-IX (medicines) \\
+\textbf{Term:} \foreignlanguage{ukrainian}{Державний реєстр лікарських засобів} (State Register of Medicines) \\
+\textbf{Definition:} \foreignlanguage{ukrainian}{єдина державна інформаційна система, що містить відомості про зареєстровані лікарські засоби...} \\
+\textbf{Classification:} Domain reuse. ``Medicines'' necessarily appears in both the term and its definition; the genus (``unified state information system'') properly distinguishes the register from other uses of the term.
+
+\paragraph{Example 6.}
+\textbf{Law:} 2804-IX (chemical safety) \\
+\textbf{Term:} \foreignlanguage{ukrainian}{оцінка безпечності хімічної речовини} (chemical substance safety assessment) \\
+\textbf{Definition:} \foreignlanguage{ukrainian}{аналіз інформації щодо небезпечних властивостей хімічної речовини, визначення безпечних рівнів впливу...} \\
+\textbf{Classification:} Domain reuse. The root \foreignlanguage{ukrainian}{``безпеч-''} recurs in ``safe exposure levels'' -- a distinct technical concept within the chemical safety domain.
 
 \end{document}
