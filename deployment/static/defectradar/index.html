@@ -1,0 +1,993 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>DefectRadar: NLP-пайплайн виявлення дефектів юридичних визначень – LEX AI Research</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0E1620;
+  --ink-2:#182230;
+  --ink-3:#243141;
+  --paper:#F2EDE4;
+  --paper-2:#E7E0D2;
+  --paper-3:#D6CFBF;
+  --rule:#B9B0A0;
+  --muted:#6B7586;
+  --signal:oklch(0.62 0.18 32);
+  --signal-2:oklch(0.72 0.14 32);
+  --ok:oklch(0.55 0.09 150);
+  --warn:oklch(0.78 0.13 80);
+
+  --serif:'Playfair Display', 'Times New Roman', serif;
+  --sans:'IBM Plex Sans', system-ui, sans-serif;
+  --mono:'IBM Plex Mono', ui-monospace, monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+.wrap{max-width:1320px;margin:0 auto;padding:0 40px}
+.mono{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+/* ─────── Top utility bar ─────── */
+.utility{
+  background:var(--ink);color:var(--paper-2);
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+}
+.utility .wrap{display:flex;align-items:center;justify-content:space-between;height:34px}
+.utility .left{display:flex;gap:22px;align-items:center}
+.utility .dot{width:6px;height:6px;border-radius:50%;background:var(--signal);display:inline-block;box-shadow:0 0 0 3px color-mix(in oklab,var(--signal) 30%,transparent);animation:pulse 2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px color-mix(in oklab,var(--signal) 0%,transparent)}}
+.utility .right{display:flex;gap:22px;align-items:center;color:#9AA3B2}
+.utility .right a:hover{color:var(--paper)}
+
+/* ─────── Navigation ─────── */
+.nav{border-bottom:1px solid var(--ink);background:var(--paper)}
+.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:78px}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-mark{width:44px;height:44px;border:1px solid var(--ink);border-radius:50%;position:relative;display:grid;place-items:center;background:var(--paper)}
+.brand-mark::before,.brand-mark::after{content:"";position:absolute;background:var(--ink)}
+.brand-mark::before{width:100%;height:1px;top:50%}
+.brand-mark::after{height:100%;width:1px;left:50%}
+.brand-mark i{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--signal);top:10px;right:10px;box-shadow:0 0 0 3px color-mix(in oklab,var(--signal) 25%,transparent)}
+.brand-title{font-family:var(--serif);font-size:19px;font-weight:600;letter-spacing:-.01em;line-height:1.05}
+.brand-sub{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.navlinks{display:flex;gap:30px;font-size:14px}
+.navlinks a{position:relative;padding:4px 0}
+.navlinks a:hover{color:var(--signal)}
+.nav-cta{display:flex;gap:10px;align-items:center}
+
+.btn{display:inline-flex;align-items:center;gap:10px;padding:11px 18px;font-size:13px;font-weight:500;border:1px solid var(--ink);transition:all .18s}
+.btn.primary{background:var(--ink);color:var(--paper)}
+.btn.primary:hover{background:var(--signal);border-color:var(--signal)}
+.btn.ghost:hover{background:var(--ink);color:var(--paper)}
+.btn .arr{font-family:var(--mono);font-size:14px}
+
+/* ─────── Hero ─────── */
+.hero{border-bottom:1px solid var(--ink);position:relative;overflow:hidden;background:var(--paper)}
+.hero .wrap{display:grid;grid-template-columns:1.35fr 1fr;gap:60px;padding-top:64px;padding-bottom:72px;position:relative}
+.hero-eyebrow{display:flex;gap:14px;align-items:center;margin-bottom:28px;color:var(--muted)}
+.hero-eyebrow span.tag{background:var(--ink);color:var(--paper);padding:4px 8px;font-family:var(--mono);font-size:10px;letter-spacing:.12em}
+.hero h1{
+  font-family:var(--serif);font-weight:500;font-size:84px;line-height:.98;letter-spacing:-.025em;
+  color:var(--ink);
+}
+.hero h1 em{font-style:italic;color:var(--signal);font-weight:400}
+.hero h1 .thin{font-weight:400}
+.hero-lede{max-width:540px;margin-top:28px;font-size:17px;line-height:1.55;color:var(--ink-2)}
+.hero-cta{display:flex;gap:12px;margin-top:36px}
+.hero-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px;padding-top:24px;border-top:1px solid var(--rule)}
+.hero-meta .k{font-family:var(--serif);font-size:34px;font-weight:500;letter-spacing:-.02em}
+.hero-meta .v{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+
+/* Radar visual */
+.radar{
+  position:relative;align-self:start;aspect-ratio:1;
+  border:1px solid var(--ink);background:var(--paper-2);
+  display:grid;place-items:center;overflow:hidden;
+}
+.radar .ring{position:absolute;border:1px solid var(--rule);border-radius:50%}
+.radar .ring.r1{width:86%;height:86%}
+.radar .ring.r2{width:64%;height:64%}
+.radar .ring.r3{width:42%;height:42%}
+.radar .ring.r4{width:20%;height:20%}
+.radar .x,.radar .y{position:absolute;background:var(--rule)}
+.radar .x{width:100%;height:1px;top:50%}
+.radar .y{height:100%;width:1px;left:50%}
+.radar .sweep{
+  position:absolute;inset:0;
+  transform-origin:50% 50%;
+  background:conic-gradient(from -4deg at 50% 50%,
+    color-mix(in oklab,var(--signal) 55%,transparent) 0deg,
+    color-mix(in oklab,var(--signal) 20%,transparent) 8deg,
+    transparent 40deg,
+    transparent 360deg);
+  mask:radial-gradient(circle at 50% 50%, #000 0, #000 50%, transparent 50%);
+  -webkit-mask:radial-gradient(circle at 50% 50%, #000 0, #000 50%, transparent 50%);
+  animation:sweep 5s linear infinite;
+  pointer-events:none;
+}
+.radar .sweep::after{
+  content:"";position:absolute;left:50%;top:50%;
+  width:50%;height:1px;background:var(--signal);
+  transform-origin:left center;
+}
+@keyframes sweep{from{transform:rotate(0deg)}to{transform:rotate(-360deg)}}
+.radar .blip{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--signal);box-shadow:0 0 0 4px color-mix(in oklab,var(--signal) 25%,transparent)}
+.radar .blip.small{width:6px;height:6px}
+.radar .label{position:absolute;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);background:var(--paper);padding:3px 6px;border:1px solid var(--ink)}
+.radar .axis-label{position:absolute;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.12em}
+
+.hero-ticker{
+  position:absolute;left:0;right:0;bottom:0;border-top:1px solid var(--ink);background:var(--ink);color:var(--paper-2);
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  overflow:hidden;
+}
+.ticker-row{display:flex;gap:60px;padding:12px 0;white-space:nowrap;animation:tick 50s linear infinite;width:max-content}
+@keyframes tick{to{transform:translateX(-50%)}}
+.ticker-row span{display:inline-flex;gap:10px;align-items:center}
+.ticker-row .sep{color:var(--signal)}
+.hero .wrap{padding-bottom:120px}
+
+/* ─────── Section scaffolding ─────── */
+section{border-bottom:1px solid var(--ink);padding:88px 0;background:var(--paper)}
+section.dark{background:var(--ink);color:var(--paper)}
+section.dark .eyebrow{color:color-mix(in oklab,var(--paper) 55%,transparent)}
+.section-head{display:grid;grid-template-columns:200px 1fr 260px;gap:40px;margin-bottom:56px;align-items:end}
+.section-head .num{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.section-head h2{font-family:var(--serif);font-size:54px;line-height:1;letter-spacing:-.02em;font-weight:500}
+.section-head h2 em{font-style:italic;color:var(--signal);font-weight:400}
+.section-head .aside{font-size:14px;color:var(--muted);border-left:1px solid var(--rule);padding-left:16px}
+
+/* ─────── Problem ─────── */
+.problem-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--ink)}
+.prob{
+  padding:30px 26px 36px;border-right:1px solid var(--rule);position:relative;min-height:260px;
+  display:flex;flex-direction:column;
+}
+.prob:last-child{border-right:none}
+.prob .big{font-family:var(--serif);font-size:58px;line-height:1;letter-spacing:-.02em;margin-bottom:16px}
+.prob .big sup{font-size:18px;vertical-align:super;color:var(--signal);margin-left:2px}
+.prob .lab{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:auto}
+.prob p{margin-top:22px;font-size:14px;line-height:1.55;max-width:240px}
+
+/* ─────── How it works ─────── */
+.how{display:grid;grid-template-columns:1.15fr 1fr;gap:72px;align-items:start}
+.how-steps{list-style:none;counter-reset:s}
+.how-steps li{
+  display:grid;grid-template-columns:56px 1fr;gap:20px;padding:28px 0;border-top:1px solid var(--rule);
+  counter-increment:s;
+}
+.how-steps li:last-child{border-bottom:1px solid var(--rule)}
+.how-steps li::before{
+  content:"0" counter(s);font-family:var(--mono);font-size:13px;letter-spacing:.1em;color:var(--signal);
+  border-right:1px solid var(--rule);padding-right:20px;height:100%;
+}
+.how-steps h3{font-family:var(--serif);font-size:24px;font-weight:500;letter-spacing:-.01em;margin-bottom:8px}
+.how-steps p{color:var(--ink-2);font-size:14.5px;max-width:480px}
+
+/* Dashboard mock */
+.dash{border:1px solid var(--ink);background:var(--paper);position:sticky;top:24px}
+.dash-chrome{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--ink);background:var(--ink);color:var(--paper)}
+.dash-chrome .left{display:flex;gap:10px;align-items:center;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.dash-chrome .left i{width:8px;height:8px;background:var(--signal);border-radius:50%}
+.dash-chrome .right{font-family:var(--mono);font-size:10px;color:#A5ADBB;letter-spacing:.1em}
+.dash-body{padding:22px}
+.dash-title{font-family:var(--serif);font-size:22px;font-weight:500;margin-bottom:4px}
+.dash-sub{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+
+.dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);margin:20px 0;border:1px solid var(--rule)}
+.dash-grid .cell{background:var(--paper);padding:14px 14px 16px}
+.dash-grid .cell .n{font-family:var(--serif);font-size:28px;font-weight:500;line-height:1}
+.dash-grid .cell .lab{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.dash-grid .cell .trend{font-family:var(--mono);font-size:10px;margin-top:6px;color:var(--signal)}
+.dash-grid .cell .trend.ok{color:var(--ok)}
+
+.dash-chart{height:140px;border:1px solid var(--rule);position:relative;margin-top:8px;background:
+  repeating-linear-gradient(to right,transparent,transparent 39px,color-mix(in oklab,var(--rule) 50%,transparent) 39px,color-mix(in oklab,var(--rule) 50%,transparent) 40px),
+  repeating-linear-gradient(to bottom,transparent,transparent 27px,color-mix(in oklab,var(--rule) 50%,transparent) 27px,color-mix(in oklab,var(--rule) 50%,transparent) 28px)
+}
+.dash-chart svg{position:absolute;inset:0;width:100%;height:100%}
+.dash-chart .x-label,.dash-chart .y-label{position:absolute;font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.1em}
+.dash-chart .x-label{bottom:4px}
+.dash-chart .y-label{left:4px}
+
+.dash-list{margin-top:16px;border-top:1px solid var(--rule)}
+.dash-row{display:grid;grid-template-columns:40px 1fr auto 80px;gap:14px;align-items:center;padding:11px 0;border-bottom:1px solid var(--rule);font-size:13px}
+.dash-row .id{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em}
+.dash-row .t{font-weight:500}
+.dash-row .sev{font-family:var(--mono);font-size:10px;padding:3px 7px;letter-spacing:.08em;text-transform:uppercase}
+.sev.high{background:var(--signal);color:var(--paper)}
+.sev.med{background:var(--warn);color:var(--ink)}
+.sev.low{background:var(--paper-3);color:var(--ink)}
+.dash-row .date{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right}
+
+/* ─────── Capabilities (dark) ─────── */
+.caps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:color-mix(in oklab,var(--paper) 20%,transparent)}
+.cap{background:var(--ink);padding:36px 30px;min-height:280px;display:flex;flex-direction:column}
+.cap .n{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--signal-2);margin-bottom:32px}
+.cap h3{font-family:var(--serif);font-size:28px;font-weight:500;letter-spacing:-.01em;margin-bottom:14px}
+.cap p{color:color-mix(in oklab,var(--paper) 75%,transparent);font-size:14.5px;margin-bottom:auto}
+.cap .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+.cap .tags span{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;border:1px solid color-mix(in oklab,var(--paper) 25%,transparent);padding:4px 8px;color:color-mix(in oklab,var(--paper) 85%,transparent)}
+
+/* ─────── Taxonomy / sectors ─────── */
+.taxonomy{display:grid;grid-template-columns:1fr 2fr;gap:60px;align-items:start}
+.tax-list{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--ink);border-left:1px solid var(--ink)}
+.tax{padding:18px 20px;border-right:1px solid var(--ink);border-bottom:1px solid var(--ink);display:flex;justify-content:space-between;align-items:center;gap:14px;background:var(--paper)}
+.tax:hover{background:var(--paper-2)}
+.tax .name{font-family:var(--serif);font-size:18px}
+.tax .cnt{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.1em}
+.tax .bar{flex:1;height:2px;background:var(--paper-3);margin:0 10px;position:relative}
+.tax .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--signal)}
+
+/* ─────── Case / spotlight ─────── */
+.case{display:grid;grid-template-columns:1.1fr 1fr;gap:0;border:1px solid var(--ink)}
+.case .col{padding:40px 36px}
+.case .col.left{border-right:1px solid var(--ink);background:var(--paper-2)}
+.case .meta{display:flex;gap:14px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:20px}
+.case h3{font-family:var(--serif);font-size:42px;line-height:1.05;font-weight:500;letter-spacing:-.02em;margin-bottom:20px}
+.case blockquote{font-family:var(--serif);font-style:italic;font-size:22px;line-height:1.35;border-left:2px solid var(--signal);padding-left:18px;color:var(--ink);margin:18px 0}
+.case .kv{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:20px}
+.case .kv div{background:var(--paper);padding:14px 16px}
+.case .kv .k{font-family:var(--serif);font-size:26px;font-weight:500}
+.case .kv .l{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-top:4px}
+
+/* ─────── Methodology ─────── */
+.method{display:grid;grid-template-columns:repeat(12,1fr);gap:24px}
+.method .lead{grid-column:1/5}
+.method .lead h3{font-family:var(--serif);font-size:32px;line-height:1.1;font-weight:500;letter-spacing:-.015em}
+.method .lead p{margin-top:18px;font-size:14px;color:var(--ink-2);max-width:280px}
+.method .lead .cta{margin-top:24px}
+.method .pipe{grid-column:5/13;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);display:grid;grid-template-columns:repeat(5,1fr);position:relative}
+.method .pipe .st{padding:26px 22px;border-right:1px solid var(--rule);position:relative}
+.method .pipe .st:last-child{border-right:none}
+.method .pipe .st .n{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--signal);margin-bottom:12px;display:block}
+.method .pipe .st h4{font-family:var(--serif);font-size:19px;font-weight:500;margin-bottom:8px}
+.method .pipe .st p{font-size:12.5px;color:var(--ink-2)}
+.method .pipe .st::after{content:"→";position:absolute;right:-8px;top:32px;font-family:var(--mono);font-size:14px;color:var(--signal);background:var(--paper);padding:2px 4px}
+.method .pipe .st:last-child::after{display:none}
+
+/* ─────── Team ─────── */
+.team{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+.member{border:1px solid var(--rule);background:var(--paper);display:flex;flex-direction:column}
+.member .ph{
+  aspect-ratio:4/5;background:
+    repeating-linear-gradient(45deg,var(--paper-2),var(--paper-2) 6px,var(--paper-3) 6px,var(--paper-3) 12px);
+  position:relative;border-bottom:1px solid var(--rule);display:grid;place-items:center;
+}
+.member .ph span{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);background:var(--paper);padding:4px 8px;border:1px solid var(--ink)}
+.member .info{padding:16px 18px}
+.member .nm{font-family:var(--serif);font-size:20px;font-weight:500}
+.member .ro{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.member .bio{font-size:13px;margin-top:10px;color:var(--ink-2)}
+
+/* ─────── Partners ─────── */
+.partners{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--ink);border-left:1px solid var(--ink)}
+.partner{aspect-ratio:2.2/1;border-right:1px solid var(--ink);border-bottom:1px solid var(--ink);display:grid;place-items:center;padding:18px;background:var(--paper)}
+.partner span{font-family:var(--serif);font-size:18px;letter-spacing:.02em;color:var(--ink-2);text-align:center;font-weight:500}
+.partner.mono span{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase}
+
+/* ─────── FAQ ─────── */
+.faq{display:grid;grid-template-columns:1fr 1.4fr;gap:60px}
+.faq h2{font-family:var(--serif);font-size:44px;line-height:1;font-weight:500;letter-spacing:-.02em}
+.faq h2 em{color:var(--signal);font-style:italic;font-weight:400}
+.faq .list details{border-top:1px solid var(--rule);padding:18px 0}
+.faq .list details:last-child{border-bottom:1px solid var(--rule)}
+.faq .list summary{display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-family:var(--serif);font-size:20px;font-weight:500;list-style:none}
+.faq .list summary::-webkit-details-marker{display:none}
+.faq .list summary::after{content:"+";font-family:var(--mono);font-size:22px;color:var(--signal);transition:transform .18s}
+.faq .list details[open] summary::after{content:"−"}
+.faq .list p{margin-top:14px;color:var(--ink-2);font-size:14.5px;max-width:560px}
+
+/* ─────── CTA ─────── */
+.cta-band{background:var(--ink);color:var(--paper);padding:96px 0;border-bottom:1px solid var(--ink)}
+.cta-band .wrap{display:grid;grid-template-columns:1.4fr 1fr;gap:60px;align-items:end}
+.cta-band h2{font-family:var(--serif);font-size:76px;line-height:.98;letter-spacing:-.025em;font-weight:500}
+.cta-band h2 em{color:var(--signal-2);font-style:italic;font-weight:400}
+.cta-band .right{font-size:15px;color:color-mix(in oklab,var(--paper) 75%,transparent)}
+.cta-band .btns{display:flex;gap:12px;margin-top:24px}
+.cta-band .btn.primary{background:var(--signal);border-color:var(--signal);color:var(--paper)}
+.cta-band .btn.ghost{border-color:var(--paper);color:var(--paper)}
+.cta-band .btn.ghost:hover{background:var(--paper);color:var(--ink)}
+
+/* ─────── Footer ─────── */
+footer{background:var(--paper);padding:64px 0 32px;color:var(--ink)}
+.foot-top{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:40px;padding-bottom:40px;border-bottom:1px solid var(--ink)}
+.foot-top h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
+.foot-top ul{list-style:none;display:grid;gap:8px;font-size:14px}
+.foot-top ul a:hover{color:var(--signal)}
+.foot-bot{display:flex;justify-content:space-between;align-items:center;padding-top:24px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.foot-bot .left{display:flex;gap:24px}
+
+/* ─────── Tweaks ─────── */
+#tweaks{
+  position:fixed;right:20px;bottom:20px;z-index:50;width:300px;background:var(--paper);
+  border:1px solid var(--ink);display:none;font-family:var(--sans);box-shadow:0 20px 40px -15px rgba(0,0,0,.3);
+}
+#tweaks.on{display:block}
+#tweaks h5{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--paper);background:var(--ink);padding:10px 14px}
+#tweaks .grp{padding:14px;border-bottom:1px solid var(--rule)}
+#tweaks .grp:last-child{border-bottom:none}
+#tweaks label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px}
+#tweaks .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#tweaks .opts button{border:1px solid var(--rule);padding:8px 4px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--paper)}
+#tweaks .opts button.active{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+#tweaks .swatches{display:flex;gap:6px}
+#tweaks .swatches button{width:28px;height:28px;border:1px solid var(--ink);cursor:pointer}
+#tweaks .swatches button.active{outline:2px solid var(--ink);outline-offset:2px}
+
+/* ─────── Theme variants ─────── */
+body[data-theme="midnight"]{--paper:#0E1620;--paper-2:#152030;--paper-3:#1F2C3F;--ink:#F2EDE4;--ink-2:#D6CFBF;--ink-3:#B9B0A0;--rule:#2B3648;--muted:#8993A6}
+body[data-theme="paper"]{--paper:#F2EDE4;--ink:#0E1620}
+body[data-theme="parchment"]{--paper:#ECE4D0;--paper-2:#E0D7BE;--paper-3:#CFC4A5;--ink:#1A1710}
+
+body[data-accent="red"]{--signal:oklch(0.62 0.18 32);--signal-2:oklch(0.72 0.14 32)}
+body[data-accent="blue"]{--signal:oklch(0.55 0.17 255);--signal-2:oklch(0.68 0.14 255)}
+body[data-accent="gold"]{--signal:oklch(0.72 0.15 80);--signal-2:oklch(0.80 0.12 80)}
+</style>
+</head>
+<body data-theme="paper" data-accent="red">
+
+<!-- UTILITY BAR -->
+<div class="utility">
+  <div class="wrap">
+    <div class="left">
+      <span><i class="dot"></i>&nbsp;&nbsp;LEX AI Research · Корпус актуалізовано квітень 2026</span>
+      <span>Корпус: 44&nbsp;021 акт · 5&nbsp;799 визначень</span>
+    </div>
+    <div class="right">
+      <a href="#">UA</a><a href="#" style="color:var(--paper)">EN</a>
+      <a href="https://huggingface.co/datasets/overthelex/ua-defectradar">HuggingFace</a>
+      <a href="#team">Команда</a>
+      <a href="mailto:vladimir@legal.org.ua">vladimir@legal.org.ua</a>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#">
+      <div class="brand-mark"><i></i></div>
+      <div>
+        <div class="brand-title">DefectRadar</div>
+        <div class="brand-sub">defectradar.legal.org.ua</div>
+      </div>
+    </a>
+    <nav class="navlinks">
+      <a href="#problem">Проблема</a>
+      <a href="#how">Дослідження</a>
+      <a href="#caps">Результати</a>
+      <a href="#method">Метод</a>
+      <a href="#team">Команда</a>
+      <a href="#partners">Дані</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn primary" href="#">Читати статтю <span class="arr">→</span></a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero" style="padding:0">
+  <div class="wrap">
+    <div>
+      <div class="hero-eyebrow">
+        <span class="tag">arXiv 2026 · LEX AI Research</span>
+        <span>Обчислювальна лінгвістика · Правова інформатика</span>
+      </div>
+      <h1>
+        52%<br>
+        <span class="thin">визначень</span><br>
+        в українському<br>
+        законодавстві мають<br>
+        <em>логічні дефекти</em>.
+      </h1>
+      <p class="hero-lede">
+        DefectRadar – перший NLP-пайплайн для автоматичного виявлення дефектів юридичних визначень у законодавстві. Морфо-семантичний аналіз 44&nbsp;021 активних нормативних акта виявив circulus in definiendo (тавтологію) та ignotum per ignotum (невизначені терміни) у більш ніж половині всіх легальних дефініцій.
+      </p>
+      <div class="hero-cta">
+        <a class="btn primary" href="#">Стаття на arXiv <span class="arr">→</span></a>
+        <a class="btn ghost" href="https://huggingface.co/datasets/overthelex/ua-defectradar">Датасет на HuggingFace</a>
+      </div>
+      <div class="hero-meta">
+        <div><div class="k">44 021</div><div class="v">Актів проаналізовано</div></div>
+        <div><div class="k">3 016</div><div class="v">Дефектних визначень</div></div>
+        <div><div class="k">52,0%</div><div class="v">Рівень дефектності</div></div>
+      </div>
+    </div>
+
+    <!-- Radar -->
+    <div class="radar" aria-hidden="true">
+      <div class="ring r1"></div>
+      <div class="ring r2"></div>
+      <div class="ring r3"></div>
+      <div class="ring r4"></div>
+      <div class="x"></div><div class="y"></div>
+      <div class="sweep"></div>
+
+      <span class="axis-label" style="top:8px;left:50%;transform:translateX(-50%)">N · CIRCULUS IN DEFINIENDO</span>
+      <span class="axis-label" style="bottom:8px;left:50%;transform:translateX(-50%)">S · IGNOTUM PER IGNOTUM</span>
+      <span class="axis-label" style="left:8px;top:50%;transform:translateY(-50%) rotate(-90deg);transform-origin:left">W · STAGE 2 · MORPHO</span>
+      <span class="axis-label" style="right:8px;top:50%;transform:translateY(-50%) rotate(90deg);transform-origin:right">E · STAGE 3 · GRAPH</span>
+
+      <div class="blip" style="top:28%;left:64%"></div>
+      <div class="blip small" style="top:42%;left:36%"></div>
+      <div class="blip small" style="top:70%;left:58%"></div>
+      <div class="blip small" style="top:22%;left:40%"></div>
+      <div class="blip" style="top:58%;left:72%"></div>
+
+      <div class="label" style="top:22%;left:66%">ЗУ 1089-IX · CIRC</div>
+      <div class="label" style="top:64%;left:28%">ЗУ 3817-20 · IGNO</div>
+    </div>
+  </div>
+
+  <!-- Ticker -->
+  <div class="hero-ticker">
+    <div class="ticker-row">
+      <span>★ Circulus <span class="sep">/</span> ЗУ «Про культуру» §1 – «креативні індустрії» → «креативне вираження»</span>
+      <span>★ Ignotum <span class="sep">/</span> ЗУ 1089-IX – «електронне повідомлення» без визначення «засобів електронних комунікацій»</span>
+      <span>★ Circulus <span class="sep">/</span> ЗУ «Про рекламу» §1 – «реклама» визначена через «рекламну діяльність»</span>
+      <span>★ Ignotum <span class="sep">/</span> ЗУ 3817-20 – «об'єкт оподаткування» посилається на невизначений термін</span>
+      <span>★ Circulus <span class="sep">/</span> ЗУ «Про культуру» §1 – «креативні індустрії» → «креативне вираження»</span>
+      <span>★ Ignotum <span class="sep">/</span> ЗУ 1089-IX – «електронне повідомлення» без визначення «засобів електронних комунікацій»</span>
+      <span>★ Circulus <span class="sep">/</span> ЗУ «Про рекламу» §1 – «реклама» визначена через «рекламну діяльність»</span>
+      <span>★ Ignotum <span class="sep">/</span> ЗУ 3817-20 – «об'єкт оподаткування» посилається на невизначений термін</span>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section id="problem">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num">§ 01 – Контекст</div>
+      <h2>Дефекти юридичних визначень – <em>системна проблема</em>.</h2>
+      <div class="aside">Höfler &amp; Sugisaki (2012) сформулювали правило виявлення circulus in definiendo, але не реалізували його автоматично. Ця робота є першою масштабною автоматизованою перевіркою на реальному законодавчому корпусі.</div>
+    </div>
+
+    <div class="problem-grid">
+      <div class="prob">
+        <div class="lab">Circulus in definiendo</div>
+        <div class="big">1 880<sup></sup></div>
+        <p>Тавтологічних визначень виявлено у корпусі – 32,4% від загальної кількості проаналізованих дефініцій.</p>
+      </div>
+      <div class="prob">
+        <div class="lab">Ignotum per ignotum</div>
+        <div class="big">1 885<sup></sup></div>
+        <p>Визначень через невизначений термін – 32,5%. Ключовий дефініцієндум посилається на термін без власного визначення у законі.</p>
+      </div>
+      <div class="prob">
+        <div class="lab">Обидва дефекти</div>
+        <div class="big">749<sup></sup></div>
+        <p>Визначень мають одночасно circulus та ignotum – 12,9%. Найбільш проблематичні з точки зору правозастосування.</p>
+      </div>
+      <div class="prob">
+        <div class="lab">Загальний корпус</div>
+        <div class="big">5 799<sup></sup></div>
+        <p>Унікальних легальних дефініцій проаналізовано у 879 законах, що містять структуровані статті-визначення.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num">§ 02 – Дослідження</div>
+      <h2>Трьохстадійний <em>NLP-пайплайн</em>.</h2>
+      <div class="aside">Код та дані у відкритому доступі на HuggingFace. Датасет: <a href="https://huggingface.co/datasets/overthelex/ua-defectradar" style="color:var(--signal)">overthelex/ua-defectradar</a>.</div>
+    </div>
+
+    <div class="how">
+      <ol class="how-steps">
+        <li>
+          <div>
+            <h3>Екстракція визначень</h3>
+            <p>Гібридний підхід: rule-based парсер для статей виду «X – це Y» та нейронна модель XLM-RoBERTa для виявлення неструктурованих дефініцій. 44&nbsp;021 акт, 879 законів зі структурованими визначальними статтями.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3>Circulus: морфологічний детектор</h3>
+            <p>Лематизація через pymorphy2-uk. Алгоритм виключає genus proximum і перевіряє, чи входить корінь дефінієнда до differentia specifica. Точність (Precision): 95,0%.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3>Ignotum: крос-законодавчий граф</h3>
+            <p>Граф визначень по 879 законах. Для кожного терміна у definientia перевіряється наявність власного визначення у тому ж або пов'язаних законах. Точність: 96,8%.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3>LLM-валідація</h3>
+            <p>GPT-4o як суддя з RAG-контекстом верифікує хибнопозитивні спрацювання. Вибіркова перевірка 200 випадкових дефектів підтвердила прийнятний рівень точності для масштабного аналізу.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3>Відкриті дані</h3>
+            <p>Повний датасет анотованих визначень і виявлених дефектів опубліковано на HuggingFace. Код пайплайну доступний на GitHub під відкритою ліцензією.</p>
+          </div>
+        </li>
+      </ol>
+
+      <!-- Dashboard mock -->
+      <div class="dash">
+        <div class="dash-chrome">
+          <div class="left"><i></i> PIPELINE · РЕЗУЛЬТАТИ</div>
+          <div class="right">Квітень 2026</div>
+        </div>
+        <div class="dash-body">
+          <div class="dash-title">Результати пайплайну</div>
+          <div class="dash-sub">Корпус: 44&nbsp;021 активних НПА · Квітень 2026</div>
+
+          <div class="dash-grid">
+            <div class="cell"><div class="n">5 799</div><div class="lab">Визначень</div><div class="trend">879 законів</div></div>
+            <div class="cell"><div class="n">1 880</div><div class="lab">Circulus</div><div class="trend">32,4%</div></div>
+            <div class="cell"><div class="n">1 885</div><div class="lab">Ignotum</div><div class="trend">32,5%</div></div>
+          </div>
+
+          <div class="dash-chart">
+            <span class="y-label" style="top:8px">120</span>
+            <span class="y-label" style="top:52px">80</span>
+            <span class="y-label" style="top:96px">40</span>
+            <span class="x-label" style="left:8px">ЦПК</span>
+            <span class="x-label" style="left:88px">ГК</span>
+            <span class="x-label" style="right:8px">ПКУ</span>
+            <svg viewBox="0 0 400 140" preserveAspectRatio="none">
+              <polyline fill="none" stroke="var(--signal)" stroke-width="1.5"
+                points="0,110 30,95 60,98 90,72 120,80 150,55 180,62 210,40 240,48 270,32 300,38 330,22 360,30 400,18" />
+              <polyline fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="3 3" opacity=".5"
+                points="0,120 30,115 60,112 90,100 120,96 150,88 180,82 210,74 240,68 270,58 300,52 330,45 360,42 400,38" />
+            </svg>
+          </div>
+
+          <div class="dash-list">
+            <div class="dash-row">
+              <span class="id">CIRC</span>
+              <span class="t">ЗУ «Про культуру» – «креативні індустрії»</span>
+              <span class="sev high">Circulus</span>
+              <span class="date">2026</span>
+            </div>
+            <div class="dash-row">
+              <span class="id">IGNO</span>
+              <span class="t">ЗУ 1089-IX – «електронне повідомлення»</span>
+              <span class="sev med">Ignotum</span>
+              <span class="date">2026</span>
+            </div>
+            <div class="dash-row">
+              <span class="id">BOTH</span>
+              <span class="t">ЗУ «Про рекламу» – «реклама»</span>
+              <span class="sev high">Обидва</span>
+              <span class="date">2026</span>
+            </div>
+            <div class="dash-row" style="border-bottom:none">
+              <span class="id">IGNO</span>
+              <span class="t">ЗУ 3817-20 – «об'єкт оподаткування»</span>
+              <span class="sev low">Ignotum</span>
+              <span class="date">2026</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CAPABILITIES (dark) -->
+<section class="dark" id="caps">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num" style="color:var(--signal-2)">§ 03 – Результати</div>
+      <h2 style="color:var(--paper)">Pipeline vs LLM: <em>точність аналізу</em>.</h2>
+      <div class="aside" style="color:color-mix(in oklab,var(--paper) 65%,transparent);border-color:color-mix(in oklab,var(--paper) 30%,transparent)">
+        Метрики обчислено на вибірці 200 вручну верифікованих визначень. Автоматичний пайплайн демонструє вищу точність за GPT-4o без RAG.
+      </div>
+    </div>
+
+    <div class="caps">
+      <div class="cap">
+        <div class="n">METRIC · 01</div>
+        <h3>Circulus Precision</h3>
+        <p>95,0% – серед визначень, класифікованих пайплайном як тавтологія, 95 з 100 є справжніми circulus in definiendo. Хибнопозитивні випадки здебільшого пов'язані з омонімними коренями.</p>
+        <div class="tags"><span>pymorphy2-uk</span><span>Лематизація</span><span>Genus exclusion</span></div>
+      </div>
+      <div class="cap">
+        <div class="n">METRIC · 02</div>
+        <h3>Circulus Recall</h3>
+        <p>55,7% – пайплайн виявляє більше половини реальних circulus. Пропущені випадки здебільшого містять непрямі тавтологічні ланцюжки через синоніми або складені терміни.</p>
+        <div class="tags"><span>Морфо-аналіз</span><span>NLP</span><span>Benchmark</span></div>
+      </div>
+      <div class="cap">
+        <div class="n">METRIC · 03</div>
+        <h3>Ignotum Precision</h3>
+        <p>96,8% – найвища точність серед усіх компонентів пайплайну. Крос-законодавчий граф ефективно відрізняє терміни з визначеннями від справжніх ignotum.</p>
+        <div class="tags"><span>Граф визначень</span><span>879 законів</span><span>Cross-reference</span></div>
+      </div>
+      <div class="cap">
+        <div class="n">METRIC · 04</div>
+        <h3>Ignotum Recall</h3>
+        <p>32,6% – нижчий показник пояснюється тим, що частина невизначених термінів міститься поза межами 879 проаналізованих законів або у підзаконних актах.</p>
+        <div class="tags"><span>Граф охоплення</span><span>Підзаконні акти</span><span>Scope limit</span></div>
+      </div>
+      <div class="cap">
+        <div class="n">METRIC · 05</div>
+        <h3>GPT-4o (без RAG)</h3>
+        <p>Нульовий базовий рівень: точність GPT-4o без контексту суттєво нижча за автоматичний пайплайн для обох типів дефектів. Демонструє необхідність спеціалізованих NLP-методів.</p>
+        <div class="tags"><span>Baseline</span><span>LLM</span><span>Порівняння</span></div>
+      </div>
+      <div class="cap">
+        <div class="n">METRIC · 06</div>
+        <h3>GPT-4o з RAG</h3>
+        <p>Додавання релевантного законодавчого контексту через RAG суттєво покращує результати GPT-4o, але не досягає точності морфологічного пайплайну для circulus.</p>
+        <div class="tags"><span>RAG</span><span>LLM</span><span>Порівняння</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TAXONOMY -->
+<section id="taxonomy">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num">§ 04 – Типологія</div>
+      <h2>Типи дефектів <em>юридичних визначень</em>.</h2>
+      <div class="aside">Класифікація відповідає логіко-правовій теорії Höfler &amp; Sugisaki (2012) з розширенням для крос-законодавчих патернів.</div>
+    </div>
+
+    <div class="taxonomy">
+      <div>
+        <p style="font-size:15px;line-height:1.55;max-width:360px;color:var(--ink-2)">
+          Кожне визначення у законодавчому корпусі класифікується за домінуючим типом дефекту.
+          Визначення можуть мати ознаки кількох типів одночасно – зокрема, 749 визначень (12,9%)
+          мають і circulus, і ignotum.
+        </p>
+        <p class="mono" style="margin-top:24px;color:var(--muted)">&Sigma; · 5&nbsp;799 проаналізованих визначень</p>
+      </div>
+
+      <div class="tax-list">
+        <div class="tax"><span class="name">Circulus in definiendo</span><div class="bar"><i style="width:65%"></i></div><span class="cnt">1 880</span></div>
+        <div class="tax"><span class="name">Ignotum per ignotum</span><div class="bar"><i style="width:65%"></i></div><span class="cnt">1 885</span></div>
+        <div class="tax"><span class="name">Cross-reference gap</span><div class="bar"><i style="width:44%"></i></div><span class="cnt">749</span></div>
+        <div class="tax"><span class="name">Semantic paraphrase</span><div class="bar"><i style="width:28%"></i></div><span class="cnt">285</span></div>
+        <div class="tax"><span class="name">Без дефекту</span><div class="bar"><i style="width:48%"></i></div><span class="cnt">2 783</span></div>
+        <div class="tax"><span class="name">Тавтологія + Ignotum</span><div class="bar"><i style="width:26%"></i></div><span class="cnt">749</span></div>
+        <div class="tax"><span class="name">Прямий перехрест</span><div class="bar"><i style="width:20%"></i></div><span class="cnt">197</span></div>
+        <div class="tax"><span class="name">Неповне визначення</span><div class="bar"><i style="width:22%"></i></div><span class="cnt">217</span></div>
+        <div class="tax"><span class="name">Законодавство про КІ</span><div class="bar"><i style="width:12%"></i></div><span class="cnt">88</span></div>
+        <div class="tax"><span class="name">Сфера ІКТ</span><div class="bar"><i style="width:18%"></i></div><span class="cnt">143</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CASE -->
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num">§ 05 – Кейс</div>
+      <h2>Закон «Про культуру»: <em>circulus</em> у визначенні «креативних індустрій».</h2>
+      <div class="aside">Детальний кейс-стаді · квітень 2026 · Ihor Kyrychenko.</div>
+    </div>
+
+    <div class="case">
+      <div class="col left">
+        <div class="meta"><span>CASE · 2026/01</span><span>Культура · КІ</span><span>CIRCULUS + IGNOTUM</span></div>
+        <h3>Тавтологія у визначенні «креативних індустрій» блокує розподіл сотень мільйонів гривень грантів.</h3>
+        <blockquote>«Kreative industries – це галузі, що базуються на креативному вираженні...» Дефініцієнд «kreативні» міститься у definientia – типовий circulus in definiendo.</blockquote>
+        <p style="margin-top:14px;color:var(--ink-2);max-width:460px;font-size:14.5px">
+          Закон України «Про культуру», стаття 1. Термін «креативні індустрії» визначено через «креативне вираження», яке саме не має визначення у тому самому законі (ignotum per ignotum).<br>
+          <span class="mono" style="color:var(--muted);margin-top:6px;display:block">ВЕРИФІКОВАНО · РУЧНА ПЕРЕВІРКА</span>
+        </p>
+      </div>
+      <div class="col">
+        <div class="meta"><span>Правовий наслідок</span></div>
+        <p style="font-size:15px;line-height:1.55;color:var(--ink-2)">
+          Тавтологічне визначення «креативних індустрій» не встановлює чітких критеріїв належності до цієї категорії.
+          Державні органи отримують необмежений розсуд при розподілі грантів і субсидій, що щорічно
+          становлять сотні мільйонів гривень. Відсутність операціонального визначення унеможливлює
+          оскарження відмов у фінансуванні та стимулює корупційні ризики.
+        </p>
+        <div class="kv">
+          <div><div class="k">2</div><div class="l">Типи дефектів</div></div>
+          <div><div class="k">§1</div><div class="l">Стаття ЗУ «Про культуру»</div></div>
+          <div><div class="k">100+ млн</div><div class="l">Грантів під ризиком (₴)</div></div>
+          <div><div class="k">2012</div><div class="l">Höfler &amp; Sugisaki</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- METHOD -->
+<section id="method">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num">§ 06 – Метод</div>
+      <h2>Прозора й <em>відтворювана</em> процедура.</h2>
+      <div class="aside">Повний опис методу – у статті на arXiv. Код відтворення доступний на GitHub.</div>
+    </div>
+
+    <div class="method">
+      <div class="lead">
+        <h3>Що таке дефект юридичного визначення?</h3>
+        <p>Circulus in definiendo: дефінієнд або його морфологічний корінь входить до складу definientia. Ignotum per ignotum: визначення містить термін, який сам не має визначення у чинному законодавстві.</p>
+        <div class="cta"><a class="btn ghost" href="#">Читати статтю <span class="arr">↗</span></a></div>
+      </div>
+      <div class="pipe">
+        <div class="st"><span class="n">01 · EXTRACT</span><h4>Екстракція</h4><p>Rule-based + XLM-RoBERTa. 44 021 акт, 5 799 визначень.</p></div>
+        <div class="st"><span class="n">02 · MORPHO</span><h4>Лематизація</h4><p>pymorphy2-uk. Genus exclusion для circulus-детектора.</p></div>
+        <div class="st"><span class="n">03 · GRAPH</span><h4>Граф дефініцій</h4><p>Крос-законодавчий граф по 879 законах. Ignotum detection.</p></div>
+        <div class="st"><span class="n">04 · VALIDATE</span><h4>LLM-суддя</h4><p>GPT-4o + RAG. 200 вручну верифікованих зразків.</p></div>
+        <div class="st"><span class="n">05 · PUBLISH</span><h4>Відкриті дані</h4><p>HuggingFace датасет + GitHub код.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TEAM -->
+<section id="team">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num">§ 07 – Команда</div>
+      <h2>NLP-інженери та <em>правові дослідники</em>.</h2>
+      <div class="aside">LEX AI Research · Незалежні дослідники · 2026.</div>
+    </div>
+
+    <div class="team" style="grid-template-columns:repeat(2,1fr);max-width:700px">
+      <div class="member">
+        <div class="ph"><span>АВТОР · NLP</span></div>
+        <div class="info">
+          <div class="nm">Volodymyr Ovcharov</div>
+          <div class="ro">LEX AI LLC · NLP Lead</div>
+          <p class="bio">NLP-пайплайн, корпусна лінгвістика, архітектура системи. Розробка детекторів circulus та ignotum, крос-законодавчого графу визначень.</p>
+        </div>
+      </div>
+      <div class="member">
+        <div class="ph"><span>АВТОР · ПРАВО</span></div>
+        <div class="info">
+          <div class="nm">Ihor Kyrychenko</div>
+          <div class="ro">Незалежний дослідник</div>
+          <p class="bio">Юридична теорія, case study «креативних індустрій». Верифікація класифікаційної схеми дефектів та правових наслідків виявлених проблем.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PARTNERS / PUBLICATIONS -->
+<section id="partners">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num">§ 08 – Наукові публікації</div>
+      <h2>Суміжні <em>роботи</em>.</h2>
+      <div class="aside">Теоретичне підгрунтя та суміжні дослідження в галузі юридичної NLP та автоматизованого аналізу законодавства.</div>
+    </div>
+    <div class="partners">
+      <div class="partner">
+        <span>Höfler &amp; Sugisaki<br>2012</span>
+      </div>
+      <div class="partner mono">
+        <span>Circulus in Definiendo · Swiss Law</span>
+      </div>
+      <div class="partner">
+        <span>Hosabettu<br>2025</span>
+      </div>
+      <div class="partner mono">
+        <span>LegalBench · Statutory Reasoning</span>
+      </div>
+      <div class="partner">
+        <span>LexDrafter<br>2024</span>
+      </div>
+      <div class="partner mono">
+        <span>EU Legislative Drafting · NLP</span>
+      </div>
+      <div class="partner">
+        <span>Chalkidis<br>et al. 2022</span>
+      </div>
+      <div class="partner mono">
+        <span>Legal NLP · Benchmark Survey</span>
+      </div>
+      <div class="partner mono">
+        <span>overthelex / ua-defectradar · HuggingFace</span>
+      </div>
+      <div class="partner">
+        <span>arXiv<br>2026</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section>
+  <div class="wrap">
+    <div class="faq">
+      <div>
+        <div class="eyebrow" style="margin-bottom:24px">§ 09 – Поширені запитання</div>
+        <h2>Те, що <em>запитують</em> найчастіше.</h2>
+        <p style="margin-top:24px;color:var(--ink-2);max-width:320px">Питання щодо методології, даних або співпраці – пишіть авторам.</p>
+        <a class="btn ghost" style="margin-top:24px" href="mailto:vladimir@legal.org.ua">vladimir@legal.org.ua</a>
+      </div>
+      <div class="list">
+        <details open>
+          <summary>Яке джерело даних використовувалося?</summary>
+          <p>Виключно офіційні джерела: rada.gov.ua та офіційні тексти законів України. Корпус включає 44 021 активний нормативний акт станом на квітень 2026 року. 879 законів містили структуровані статті-визначення.</p>
+        </details>
+        <details>
+          <summary>Чому recall для ignotum нижчий за recall для circulus?</summary>
+          <p>Граф визначень покриває 879 законів. Частина термінів визначена у підзаконних актах, міжнародних договорах або галузевих стандартах, що знаходяться поза межами аналізованого корпусу. Це структурне обмеження методу, детально описане у статті.</p>
+        </details>
+        <details>
+          <summary>Чи можна відтворити результати?</summary>
+          <p>Так. Датасет анотованих визначень опубліковано на HuggingFace (overthelex/ua-defectradar). Код пайплайну доступний на GitHub. Стаття містить повний опис гіперпараметрів і процедури валідації.</p>
+        </details>
+        <details>
+          <summary>Як зрозуміти різницю між circulus і семантичним парафразом?</summary>
+          <p>Circulus: дефінієнд або його лема входить до definientia (формальний критерій, перевіряється морфологічно). Семантичний парафраз: визначення є перефразуванням дефінієнда без буквального повторення кореня. Перший тип детектується автоматично, другий вимагає семантичного аналізу.</p>
+        </details>
+        <details>
+          <summary>Де знайти повний список виявлених дефектів?</summary>
+          <p>Повний анотований датасет завантажується з HuggingFace: huggingface.co/datasets/overthelex/ua-defectradar. Набір включає ідентифікатор закону, текст визначення, тип дефекту та мітку валідації.</p>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-band" id="cta">
+  <div class="wrap">
+    <h2>Відкрита наука –<br>відкрите <em>законодавство</em>.</h2>
+    <div class="right">
+      <div class="eyebrow" style="color:color-mix(in oklab,var(--paper) 55%,transparent)">Матеріали дослідження</div>
+      <p style="margin-top:14px;font-size:16px;line-height:1.55">Датасет, код пайплайну та стаття у відкритому доступі. Запрошуємо до реплікації, критики та розширення дослідження на інші юрисдикції.</p>
+      <div class="btns">
+        <a class="btn primary" href="#">Читати статтю на arXiv <span class="arr">→</span></a>
+        <a class="btn ghost" href="https://huggingface.co/datasets/overthelex/ua-defectradar">Датасет на HuggingFace</a>
+        <a class="btn ghost" href="#">Код пайплайну на GitHub</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div>
+        <div class="brand" style="margin-bottom:16px">
+          <div class="brand-mark"><i></i></div>
+          <div>
+            <div class="brand-title">DefectRadar</div>
+            <div class="brand-sub">defectradar.legal.org.ua</div>
+          </div>
+        </div>
+        <p style="max-width:320px;color:var(--muted);font-size:13.5px;line-height:1.55">Дослідницький проєкт LEX AI LLC. NLP-аналіз дефектів юридичних визначень в українському законодавстві. Київ · 2026.</p>
+      </div>
+      <div>
+        <h4>Матеріали</h4>
+        <ul>
+          <li><a href="#">Стаття на arXiv</a></li>
+          <li><a href="https://huggingface.co/datasets/overthelex/ua-defectradar">Датасет на HuggingFace</a></li>
+          <li><a href="#">Код пайплайну на GitHub</a></li>
+          <li><a href="#">Презентація (PDF)</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Дослідження</h4>
+        <ul>
+          <li><a href="#problem">Постановка проблеми</a></li>
+          <li><a href="#how">Пайплайн</a></li>
+          <li><a href="#caps">Результати</a></li>
+          <li><a href="#method">Методологія</a></li>
+          <li><a href="#team">Команда</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Контакт</h4>
+        <ul>
+          <li>LEX AI LLC</li>
+          <li>Київ, Україна</li>
+          <li><a href="mailto:vladimir@legal.org.ua">vladimir@legal.org.ua</a></li>
+          <li><a href="https://huggingface.co/overthelex">HuggingFace</a> · <a href="#">GitHub</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bot">
+      <div class="left">
+        <span>&copy; 2026 LEX AI LLC</span>
+        <span>CC BY 4.0 · Датасет</span>
+        <span>MIT · Код</span>
+      </div>
+      <div>arXiv 2026 · LEX AI Research · DefectRadar</div>
+    </div>
+  </div>
+</footer>
+
+<!-- TWEAKS -->
+<div id="tweaks">
+  <h5>Tweaks · Візуальна тема</h5>
+  <div class="grp">
+    <label>Тема</label>
+    <div class="opts" data-group="theme">
+      <button data-v="paper" class="active">Paper</button>
+      <button data-v="parchment">Parchment</button>
+      <button data-v="midnight">Midnight</button>
+    </div>
+  </div>
+  <div class="grp">
+    <label>Акцент</label>
+    <div class="swatches" data-group="accent">
+      <button data-v="red" class="active" style="background:oklch(0.62 0.18 32)" title="Сигнальний червоний"></button>
+      <button data-v="blue" style="background:oklch(0.55 0.17 255)" title="Інституційний синій"></button>
+      <button data-v="gold" style="background:oklch(0.72 0.15 80)" title="Золото"></button>
+    </div>
+  </div>
+  <div class="grp">
+    <label>Шрифт заголовків</label>
+    <div class="opts" data-group="heading">
+      <button data-v="playfair" class="active">Playfair</button>
+      <button data-v="plex">Plex Sans</button>
+      <button data-v="mono">Plex Mono</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Tweaks wiring */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "paper",
+  "accent": "red",
+  "heading": "playfair"
+}/*EDITMODE-END*/;
+
+const state = { ...TWEAK_DEFAULTS };
+const fonts = {
+  playfair: "'Playfair Display', serif",
+  plex: "'IBM Plex Sans', sans-serif",
+  mono: "'IBM Plex Mono', monospace"
+};
+
+function apply(){
+  document.body.dataset.theme = state.theme;
+  document.body.dataset.accent = state.accent;
+  document.documentElement.style.setProperty('--serif', fonts[state.heading]);
+  document.querySelectorAll('#tweaks [data-group]').forEach(group=>{
+    const g = group.dataset.group;
+    group.querySelectorAll('button').forEach(b=>{
+      b.classList.toggle('active', b.dataset.v === state[g]);
+    });
+  });
+}
+apply();
+
+document.querySelectorAll('#tweaks [data-group]').forEach(group=>{
+  const g = group.dataset.group;
+  group.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    state[g] = b.dataset.v;
+    apply();
+    window.parent.postMessage({type:'__edit_mode_set_keys', edits:{[g]: state[g]}}, '*');
+  });
+});
+
+window.addEventListener('message', e=>{
+  if(!e.data) return;
+  if(e.data.type === '__activate_edit_mode') document.getElementById('tweaks').classList.add('on');
+  if(e.data.type === '__deactivate_edit_mode') document.getElementById('tweaks').classList.remove('on');
+});
+window.parent.postMessage({type:'__edit_mode_available'}, '*');
+</script>
+
+</body>
+</html>
