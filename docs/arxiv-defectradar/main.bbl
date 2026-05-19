@@ -176,18 +176,19 @@ I.~I. Onischuk.
 Volodymyr Ovcharov.
 \newblock Temporal decay of co-citation predictability: A 20-year statute
   retrieval benchmark from 396{M} {Ukrainian} court citations.
-\newblock \emph{arXiv preprint}, 2026{\natexlab{a}}.
+\newblock \emph{arXiv preprint arXiv:2605.17639}, 2026{\natexlab{a}}.
 
 \bibitem[Ovcharov(2026{\natexlab{b}})]{ovcharov2026temporal}
 Volodymyr Ovcharov.
-\newblock Temporal citation drift in {Ukrainian} court decisions.
-\newblock \emph{arXiv preprint}, 2026{\natexlab{b}}.
+\newblock Temporal citation drift in {Ukrainian} court decisions: A
+  101{M}-record analysis.
+\newblock \emph{arXiv preprint arXiv:2605.15362}, 2026{\natexlab{b}}.
 
 \bibitem[Ovcharov(2026{\natexlab{c}})]{ovcharov2026tokenizer}
 Volodymyr Ovcharov.
 \newblock Tokenizer fertility and zero-shot performance of foundation models on
   {Ukrainian} legal text: A comparative study.
-\newblock \emph{arXiv preprint}, 2026{\natexlab{c}}.
+\newblock \emph{arXiv preprint arXiv:2605.14890}, 2026{\natexlab{c}}.
 
 \bibitem[Sadowski and Chudziak(2025)]{sadowski2025verifiable}
 Albert Sadowski and Jaros{\l}aw~A. Chudziak.
