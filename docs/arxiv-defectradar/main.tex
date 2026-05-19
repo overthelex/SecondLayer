@@ -431,13 +431,22 @@ The 2.0\% rate reflects a genuine structural property of Ukrainian legislation: 
 \textbf{Metric} & \textbf{Value} \\
 \midrule
 Definitions analyzed & 5{,}799 \\
-Circulus detected (morphological) & 1{,}880 (32.4\%) \\
+Tier 1: Morphological circulus & 1{,}880 (32.4\%) \\
+Tier 2: Semantic circulus ($\tau = 0.90$) & 24 (0.4\%) \\
+\midrule
+Combined circulus & 1{,}904 (32.8\%) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 Table~\ref{tab:circulus} reports detection results on the full corpus.
-The morphological detector identifies 1{,}880 definitions (32.4\%) where a discriminating adjective or qualifier from the \emph{definiendum} reappears in the \emph{differentia specifica}.
+The morphological detector (Tier~1) identifies 1{,}880 definitions (32.4\%) where a discriminating adjective or qualifier from the \emph{definiendum} reappears in the \emph{differentia specifica}.
+
+The semantic detector (Tier~2) applies multilingual E5-large to the 3{,}919 definitions that passed Tier~1 (no morphological overlap).
+The cosine similarity between the embedded \emph{definiendum}+\emph{genus} and the embedded \emph{differentia} has a median of 0.827 ($\sigma = 0.031$) across the corpus -- reflecting the inherent semantic alignment between a term and its definition.
+At the conservative threshold $\tau = 0.90$ (top 0.6\% of the distribution), Tier~2 identifies 24 additional definitions as semantically circular -- cases where the \emph{definiens} is a near-verbatim restatement or semantic paraphrase of the \emph{definiendum} without sharing surface morphemes.
+For example, \foreignlanguage{ukrainian}{``виробник вина''} (wine producer) defined as \foreignlanguage{ukrainian}{``виробник продукту виноградарства, виробник продукту виноробства''} (producer of viticultural product, producer of winemaking product) -- a semantic paraphrase at cosine similarity 0.921.
+The low yield (24 vs.\ 1{,}880 from Tier~1) confirms that morphological overlap is the dominant circulus mechanism in Ukrainian legislative definitions; semantic-only circularity is rare.
 
 The detector operates by extracting \emph{discriminating lemmas} -- adjectives and participles that qualify the head noun in the \emph{definiendum} -- and checking whether they recur in the \emph{differentia} after excluding the \emph{genus proximum} and the first few words of the \emph{definiens} (which constitute the head noun phrase).
 For example, in \foreignlanguage{ukrainian}{``бездимний тютюновий виріб -- тютюновий виріб, що не передбачає процесу згоряння...''}, the adjective \foreignlanguage{ukrainian}{``бездимний''} is correctly excluded (it does not appear in the \emph{definiens}), while definitions like \foreignlanguage{ukrainian}{``страховий продукт -- умови страхування, які задовольняють...потреби...в отриманні страхової послуги''} are correctly flagged: the discriminating adjective \foreignlanguage{ukrainian}{``страховий''} reappears as \foreignlanguage{ukrainian}{``страхової послуги''}.
