@@ -100,24 +100,21 @@ LAW_NORM = {
 
 print("\n[2/4] Experiment 1: Dense Retrieval Baseline...")
 
-YEARS = [2008, 2012, 2016, 2020, 2024]
-SAMPLE_CASES = 5000  # cases per year (embedding is expensive)
+YEARS = [2012, 2016, 2020, 2024]
+SAMPLE_CASES = 5000
 MIN_CITATIONS = 3
 
 results_exp1 = []
 
+# Fixed-article ablation: find articles present in ALL years
+print("\n[2/3] Finding shared articles across all years...")
+per_year_articles = {}
+per_year_citations = {}
 for year in YEARS:
-    print(f"\n  Year {year}...")
-    t0 = time.time()
-
-    # Load citation data
     citation_file = os.path.join(INPUT_DIR, f"map_year_{year}.csv")
     if not os.path.exists(citation_file):
-        print(f"    SKIP: {citation_file} not found")
         continue
-
-    # Parse citations
-    case_citations = {}  # case_id → set of article_keys
+    case_citations = {}
     with open(citation_file, encoding="utf-8") as f:
         reader = csv.reader(f)
         for row in reader:
@@ -130,12 +127,32 @@ for year in YEARS:
             key = f"{law_name}|{art_num}"
             if key in article_key_idx:
                 case_citations.setdefault(case_id, set()).add(key)
+    per_year_citations[year] = case_citations
+    per_year_articles[year] = set()
+    for arts in case_citations.values():
+        per_year_articles[year].update(arts)
 
-    # Filter cases: need >=3 citations among embedded articles
-    valid_cases = [c for c, arts in case_citations.items()
-                   if MIN_CITATIONS <= len(arts) <= 200]
+shared_articles = set.intersection(*per_year_articles.values()) if per_year_articles else set()
+print(f"  Shared articles across {len(YEARS)} years: {len(shared_articles)}")
 
-    # Sample
+for year in YEARS:
+    print(f"\n  Year {year}...")
+    t0 = time.time()
+
+    case_citations = per_year_citations.get(year, {})
+    if not case_citations:
+        print(f"    SKIP: no citations")
+        continue
+
+    # Filter to shared articles only
+    filtered = {}
+    for case_id, arts in case_citations.items():
+        shared = arts & shared_articles
+        if MIN_CITATIONS <= len(shared) <= 200:
+            filtered[case_id] = shared
+    valid_cases = list(filtered.keys())
+    case_citations = filtered
+
     np.random.seed(42)
     if len(valid_cases) > SAMPLE_CASES:
         valid_cases = list(np.random.choice(valid_cases, SAMPLE_CASES, replace=False))

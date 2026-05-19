@@ -38,7 +38,7 @@
 \@writefile{toc}{\contentsline {paragraph}{Temporal degradation in NLP/IR.}{2}{section*.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Legal statute retrieval.}{2}{section*.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Temporal graph learning.}{2}{section*.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Link prediction.}{2}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Link prediction.}{3}{section*.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {3}Data}{3}{section.3}\protected@file@percent }
 \newlabel{sec:data}{{3}{3}{Data}{section.3}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Source Corpus}{3}{subsection.3.1}\protected@file@percent }
@@ -49,21 +49,21 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Scoring Functions}{3}{subsection.4.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Ablation Controls}{3}{subsection.4.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Fixed-Article Ablation.}{3}{section*.7}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Temporal Train/Test Split.}{3}{section*.8}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Retrieval baselines on the 2024 snapshot (200K cases, 1.8M predictions, 3{,}671 articles).}}{4}{table.1}\protected@file@percent }
 \newlabel{tab:main}{{1}{4}{Retrieval baselines on the 2024 snapshot (200K cases, 1.8M predictions, 3{,}671 articles)}{table.1}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Performance by article citation frequency (2024, Adamic-Adar).}}{4}{table.2}\protected@file@percent }
 \newlabel{tab:difficulty}{{2}{4}{Performance by article citation frequency (2024, Adamic-Adar)}{table.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Temporal Train/Test Split.}{4}{section*.8}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {5}Results}{4}{section.5}\protected@file@percent }
 \newlabel{sec:results}{{5}{4}{Results}{section.5}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Cross-Sectional Performance (2024)}{4}{subsection.5.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Difficulty Spectrum}{4}{subsection.5.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Temporal Decay: Main Finding}{4}{subsection.5.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Ablation: Is the Decay Real?}{4}{subsection.5.4}\protected@file@percent }
 \citation{mann1945nonparametric}
 \citation{sen1968estimates}
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Retrieval performance vs.\ article citation frequency. The practical difficulty frontier lies at $\sim $10K citations: below this, graph-based methods approach the degree baseline.}}{5}{figure.1}\protected@file@percent }
 \newlabel{fig:difficulty}{{1}{5}{Retrieval performance vs.\ article citation frequency. The practical difficulty frontier lies at $\sim $10K citations: below this, graph-based methods approach the degree baseline}{figure.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Ablation: Is the Decay Real?}{5}{subsection.5.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Text-Based Baseline: BM25}{5}{subsection.5.5}\protected@file@percent }
 \citation{wang2024multilingual}
 \citation{chen2024bge}
@@ -79,55 +79,60 @@
 \citation{wang2024multilingual}
 \@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Dense retrieval (E5-large embeddings) vs.\ co-citation (Adamic-Adar). For each case, the mean embedding of seed articles is compared to all candidate embeddings by cosine similarity. E5 decays at the same rate as co-citation (42\% vs.\ 41\%) while achieving $\sim $3$\times $ lower absolute MRR.}}{8}{table.5}\protected@file@percent }
 \newlabel{tab:e5}{{5}{8}{Dense retrieval (E5-large embeddings) vs.\ co-citation (Adamic-Adar). For each case, the mean embedding of seed articles is compared to all candidate embeddings by cosine similarity. E5 decays at the same rate as co-citation (42\% vs.\ 41\%) while achieving $\sim $3$\times $ lower absolute MRR}{table.5}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces BGE-M3 vs.\ E5-large: both dense models achieve $\sim $3$\times $ lower MRR than co-citation, confirming the finding is not model-specific.}}{8}{table.6}\protected@file@percent }
-\newlabel{tab:bge}{{6}{8}{BGE-M3 vs.\ E5-large: both dense models achieve $\sim $3$\times $ lower MRR than co-citation, confirming the finding is not model-specific}{table.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Dense retrieval with two models (fixed-article evaluation). E5-large decays 42\%; BGE-M3 does not, likely due to more recent training data. Both achieve $\sim $3$\times $ lower absolute MRR than co-citation.}}{8}{table.6}\protected@file@percent }
+\newlabel{tab:bge}{{6}{8}{Dense retrieval with two models (fixed-article evaluation). E5-large decays 42\%; BGE-M3 does not, likely due to more recent training data. Both achieve $\sim $3$\times $ lower absolute MRR than co-citation}{table.6}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.9}Structural Explanation}{8}{subsection.5.9}\protected@file@percent }
 \newlabel{sec:structure}{{5.9}{8}{Structural Explanation}{subsection.5.9}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.10}Embedding Drift as Mechanistic Explanation}{8}{subsection.5.10}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Discussion}{8}{section.6}\protected@file@percent }
-\newlabel{sec:discussion}{{6}{8}{Discussion}{section.6}{}}
-\@writefile{toc}{\contentsline {paragraph}{Mechanisms of decay.}{8}{section*.9}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces MRR over time for three retrieval modalities. All three degrade; E5-large (dense) and Adamic-Adar (graph) decay at nearly identical rates (42\% vs.\ 41\%), while BM25 (lexical) decays 31\%. Co-citation dominates in absolute terms ($\sim $3$\times $ E5).}}{9}{figure.3}\protected@file@percent }
 \newlabel{fig:e5_temporal}{{3}{9}{MRR over time for three retrieval modalities. All three degrade; E5-large (dense) and Adamic-Adar (graph) decay at nearly identical rates (42\% vs.\ 41\%), while BM25 (lexical) decays 31\%. Co-citation dominates in absolute terms ($\sim $3$\times $ E5)}{figure.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Discussion}{9}{section.6}\protected@file@percent }
+\newlabel{sec:discussion}{{6}{9}{Discussion}{section.6}{}}
+\@writefile{toc}{\contentsline {paragraph}{Mechanisms of decay.}{9}{section*.9}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Mitigation: sliding-window retraining.}{9}{section*.10}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Practical implications.}{9}{section*.11}\protected@file@percent }
-\citation{ovcharov2025citation}
 \@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Decay comparison (2012$\to $2024). Dense retrieval does not escape temporal degradation. MRR$_{2024}$ values inside bars show absolute performance.}}{10}{figure.4}\protected@file@percent }
 \newlabel{fig:decay_comparison}{{4}{10}{Decay comparison (2012$\to $2024). Dense retrieval does not escape temporal degradation. MRR$_{2024}$ values inside bars show absolute performance}{figure.4}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Sliding-window mitigation: MRR (Adamic-Adar) when the co-citation matrix is built from the preceding $W$ years only. Bold indicates the best window per evaluation year. 50K sampled cases, $\sim $450K predictions per cell.}}{10}{table.7}\protected@file@percent }
 \newlabel{tab:mitigation}{{7}{10}{Sliding-window mitigation: MRR (Adamic-Adar) when the co-citation matrix is built from the preceding $W$ years only. Bold indicates the best window per evaluation year. 50K sampled cases, $\sim $450K predictions per cell}{table.7}{}}
-\@writefile{toc}{\contentsline {paragraph}{Benchmark design.}{10}{section*.12}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7}Dataset Release}{10}{section.7}\protected@file@percent }
-\newlabel{sec:release}{{7}{10}{Dataset Release}{section.7}{}}
+\@writefile{toc}{\contentsline {paragraph}{Mitigation: exponential recency weighting.}{10}{section*.11}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces MRR by year and difficulty bin. Hub articles (top) resist decay. Mid-frequency articles (middle) show the steepest decline, particularly after 2017.}}{11}{figure.5}\protected@file@percent }
 \newlabel{fig:heatmap_temporal}{{5}{11}{MRR by year and difficulty bin. Hub articles (top) resist decay. Mid-frequency articles (middle) show the steepest decline, particularly after 2017}{figure.5}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {8}Limitations}{11}{section.8}\protected@file@percent }
-\newlabel{sec:limitations}{{8}{11}{Limitations}{section.8}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {9}Conclusion}{11}{section.9}\protected@file@percent }
-\newlabel{sec:conclusion}{{9}{11}{Conclusion}{section.9}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Exponential recency weighting: MRR (Adamic-Adar) with $w = \exp (-\lambda \cdot \Delta t)$. $\lambda = 0$ is uniform (baseline). Bold: best $\lambda $ per year.}}{11}{table.8}\protected@file@percent }
+\newlabel{tab:reweighting}{{8}{11}{Exponential recency weighting: MRR (Adamic-Adar) with $w = \exp (-\lambda \cdot \Delta t)$. $\lambda = 0$ is uniform (baseline). Bold: best $\lambda $ per year}{table.8}{}}
+\@writefile{toc}{\contentsline {paragraph}{Practical implications.}{11}{section*.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Benchmark design.}{11}{section*.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Dataset Release}{11}{section.7}\protected@file@percent }
+\newlabel{sec:release}{{7}{11}{Dataset Release}{section.7}{}}
+\citation{ovcharov2025citation}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Article-level MRR: 2012 vs.\ 2024 for shared articles. Points below the diagonal became harder. Criminal procedure (blue) clusters near the diagonal; civil articles scatter below.}}{12}{figure.6}\protected@file@percent }
+\newlabel{fig:stability}{{6}{12}{Article-level MRR: 2012 vs.\ 2024 for shared articles. Points below the diagonal became harder. Criminal procedure (blue) clusters near the diagonal; civil articles scatter below}{figure.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Limitations}{12}{section.8}\protected@file@percent }
+\newlabel{sec:limitations}{{8}{12}{Limitations}{section.8}{}}
 \bibstyle{plainnat}
 \bibdata{references}
 \bibcite{adamic2003friends}{{1}{2003}{{Adamic and Adar}}{{}}}
 \bibcite{agarwal2022temporal}{{2}{2022}{{Agarwal and Nenkova}}{{}}}
 \bibcite{alkhalifa2023longeval}{{3}{2023}{{Alkhalifa et~al.}}{{}}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Per-codex MRR over time. Criminal Procedure remains stable; Civil Code degrades most. The decline is gradual, with no sharp discontinuity at 2017.}}{13}{figure.7}\protected@file@percent }
+\newlabel{fig:codex}{{7}{13}{Per-codex MRR over time. Criminal Procedure remains stable; Civil Code degrades most. The decline is gradual, with no sharp discontinuity at 2017}{figure.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Conclusion}{13}{section.9}\protected@file@percent }
+\newlabel{sec:conclusion}{{9}{13}{Conclusion}{section.9}{}}
 \bibcite{barron2025bridging}{{4}{2025}{{Barron et~al.}}{{Barron, Eren, Serafimova, Matuszek, and Alexandrov}}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Article-level MRR: 2012 vs.\ 2024 for shared articles. Points below the diagonal became harder. Criminal procedure (blue) clusters near the diagonal; civil articles scatter below.}}{12}{figure.6}\protected@file@percent }
-\newlabel{fig:stability}{{6}{12}{Article-level MRR: 2012 vs.\ 2024 for shared articles. Points below the diagonal became harder. Criminal procedure (blue) clusters near the diagonal; civil articles scatter below}{figure.6}{}}
 \bibcite{campos2015survey}{{5}{2015}{{Campos et~al.}}{{Campos, Dias, Jorge, and Jatowt}}}
 \bibcite{coupette2021measuring}{{6}{2021}{{Coupette et~al.}}{{Coupette, Beckedorf, Hartung, Bommarito, and Katz}}}
 \bibcite{fowler2007network}{{7}{2007}{{Fowler et~al.}}{{Fowler, Johnson, Spriggs, Jeon, and Wahlbeck}}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Co-citation Jaccard similarity among the 20 most-cited articles (2024). Block-diagonal structure reflects procedural ``citation templates'' that resist temporal change.}}{14}{figure.8}\protected@file@percent }
+\newlabel{fig:heatmap}{{8}{14}{Co-citation Jaccard similarity among the 20 most-cited articles (2024). Block-diagonal structure reflects procedural ``citation templates'' that resist temporal change}{figure.8}{}}
 \bibcite{gama2014survey}{{8}{2014}{{Gama et~al.}}{{Gama, {\v {Z}}liobait{\.e}, Bifet, Pechenizkiy, and Bouchachia}}}
 \bibcite{guha2023legalbench}{{9}{2023}{{Guha et~al.}}{{Guha, Nyarko, Ho, R{\'e}, Chilton, Chohlas-Wood, Peters, et~al.}}}
 \bibcite{ho2025incorporating}{{10}{2025}{{Ho et~al.}}{{Ho, Colby, and Fisher}}}
 \bibcite{huang2023temporal}{{11}{2023}{{Huang et~al.}}{{Huang, Poursafaei, Danovitch, Fey, Hu, Rossi, Leskovec, Bronstein, Rabusseau, and Rabbany}}}
-\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Per-codex MRR over time. Criminal Procedure remains stable; Civil Code degrades most. The decline is gradual, with no sharp discontinuity at 2017.}}{13}{figure.7}\protected@file@percent }
-\newlabel{fig:codex}{{7}{13}{Per-codex MRR over time. Criminal Procedure remains stable; Civil Code degrades most. The decline is gradual, with no sharp discontinuity at 2017}{figure.7}{}}
 \bibcite{lazaridou2021mind}{{12}{2021}{{Lazaridou et~al.}}{{Lazaridou, Kuncoro, Gribovskaya, Agrawal, Liska, Terzi, Gimenez, de~Masson~d'Autume, Kocisky, Ruder, Yogatama, Cao, Young, and Blunsom}}}
 \bibcite{liben2007link}{{13}{2007}{{Liben-Nowell and Kleinberg}}{{}}}
 \bibcite{lotfi2024bsard}{{14}{2024}{{Lotfi et~al.}}{{Lotfi, Banar, Yuzbashyan, and Daelemans}}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Semantic embedding drift (2012$\to $2024) by legal code. For each article, we embed 50 citing case snippets per year using E5-large and measure centroid shift. Civil Procedure shows the highest drift, consistent with its steepest MRR decline.}}{15}{figure.9}\protected@file@percent }
+\newlabel{fig:drift}{{9}{15}{Semantic embedding drift (2012$\to $2024) by legal code. For each article, we embed 50 citing case snippets per year using E5-large and measure centroid shift. Civil Procedure shows the highest drift, consistent with its steepest MRR decline}{figure.9}{}}
 \bibcite{luu2022time}{{15}{2022}{{Luu et~al.}}{{Luu, Khashabi, Gururangan, Mandyam, and Smith}}}
-\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Co-citation Jaccard similarity among the 20 most-cited articles (2024). Block-diagonal structure reflects procedural ``citation templates'' that resist temporal change.}}{14}{figure.8}\protected@file@percent }
-\newlabel{fig:heatmap}{{8}{14}{Co-citation Jaccard similarity among the 20 most-cited articles (2024). Block-diagonal structure reflects procedural ``citation templates'' that resist temporal change}{figure.8}{}}
 \bibcite{mann1945nonparametric}{{16}{1945}{{Mann}}{{}}}
 \bibcite{niklaus2023lextreme}{{17}{2023}{{Niklaus et~al.}}{{Niklaus, Matoshi, Rani, Galassi, St{\"u}rmer, and Chalkidis}}}
 \bibcite{ovcharov2025citation}{{18}{2025}{{Ovcharov}}{{}}}
@@ -136,8 +141,6 @@
 \bibcite{rasiah2023scale}{{21}{2023}{{Rasiah et~al.}}{{Rasiah, Stern, Matoshi, St{\"u}rmer, Chalkidis, Ho, and Niklaus}}}
 \bibcite{rossi2020temporal}{{22}{2020}{{Rossi et~al.}}{{Rossi, Chamberlain, Frasca, Eynard, Monti, and Bronstein}}}
 \bibcite{sen1968estimates}{{23}{1968}{{Sen}}{{}}}
-\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Semantic embedding drift (2012$\to $2024) by legal code. For each article, we embed 50 citing case snippets per year using E5-large and measure centroid shift. Civil Procedure shows the highest drift, consistent with its steepest MRR decline.}}{15}{figure.9}\protected@file@percent }
-\newlabel{fig:drift}{{9}{15}{Semantic embedding drift (2012$\to $2024) by legal code. For each article, we embed 50 citing case snippets per year using E5-large and measure centroid shift. Civil Procedure shows the highest drift, consistent with its steepest MRR decline}{figure.9}{}}
 \bibcite{tang2024casegnn}{{24}{2024}{{Tang et~al.}}{{Tang, Qiu, Liu, Li, and Huang}}}
 \bibcite{wang2024multilingual}{{25}{2024}{{Wang et~al.}}{{Wang, Yang, Huang, Yang, Majumder, and Wei}}}
 \bibcite{winkels2011determining}{{26}{2011}{{Winkels et~al.}}{{Winkels, de~Ruyter, and Kroese}}}
