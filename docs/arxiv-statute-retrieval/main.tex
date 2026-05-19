@@ -46,7 +46,7 @@ The decay is non-uniform: criminal procedure maintains stable co-citation patter
 Hub articles ($>$100K citations) resist decay, but mid-frequency articles (1K--10K) -- the practical retrieval frontier -- lose half their predictability.
 A BM25 text baseline decays even faster (31\%), and dense retrieval with E5-large embeddings decays at the same rate (42\%), confirming that neither lexical nor semantic methods escape temporal degradation.
 Embedding drift analysis reveals a 4.3\% semantic shift in how articles are cited, providing a mechanistic explanation for the observed decay.
-A sliding-window mitigation experiment shows that restricting the co-citation matrix to the preceding 1--5 years improves MRR by 3--28\% over cumulative indexing.
+We propose exponential recency weighting of the co-citation matrix, which improves MRR by 3--23\% over uniform weighting, with the optimal decay rate shifting adaptively as post-reform data accumulates.
 The benchmark is released at \url{https://huggingface.co/datasets/overthelex/ua-statute-retrieval}.
 \end{abstract}
 
@@ -337,22 +337,23 @@ The absolute gap confirms that co-citation structure encodes retrieval signal th
 
 Critically, E5 decays at the same rate as co-citation: 42\% MRR decline from 2012 to 2024, compared with 41\% for Adamic-Adar (Figures~\ref{fig:e5_temporal} and~\ref{fig:decay_comparison}).
 To verify this is not model-specific, we replicate the experiment with BGE-M3~\citep{chen2024bge}, a more recent multilingual embedding model (Table~\ref{tab:bge}).
-BGE-M3 achieves comparable absolute MRR (0.064--0.105) and shows similar behavior: dense retrieval signal is substantially weaker than co-citation regardless of the embedding model.
-This confirms that the temporal degradation finding generalizes across dense retrieval architectures.
+BGE-M3 achieves comparable absolute MRR to E5-large (Table~\ref{tab:bge}), confirming that dense retrieval signal is substantially weaker than co-citation regardless of the embedding model.
+Notably, E5-large shows clear temporal decay (42\% MRR decline, 2012$\to$2024) while BGE-M3 does not -- likely because BGE-M3, trained on more recent multilingual data (2024), better represents modern Ukrainian legal language, effectively compensating for temporal drift in later years.
+This asymmetry itself is informative: it suggests that \emph{embedding model recency} interacts with \emph{corpus temporal shift}, and that periodically updating the embedding model may provide an additional mitigation pathway alongside co-citation reweighting.
 
 \begin{table}[t]
 \centering
 \small
-\caption{BGE-M3 vs.\ E5-large: both dense models achieve $\sim$3$\times$ lower MRR than co-citation, confirming the finding is not model-specific.}
+\caption{Dense retrieval with two models (fixed-article evaluation). E5-large decays 42\%; BGE-M3 does not, likely due to more recent training data. Both achieve $\sim$3$\times$ lower absolute MRR than co-citation.}
 \label{tab:bge}
 \begin{tabular}{@{}l cc cc@{}}
 \toprule
 \textbf{Year} & \textbf{E5 MRR} & \textbf{BGE-M3 MRR} & \textbf{E5 Hit@10} & \textbf{BGE-M3 Hit@10} \\
 \midrule
-2012 & 0.155 & 0.064 & 0.283 & 0.160 \\
-2016 & 0.106 & 0.066 & 0.222 & 0.159 \\
-2020 & 0.102 & 0.105 & 0.216 & 0.247 \\
-2024 & 0.090 & 0.096 & 0.192 & 0.240 \\
+2012 & 0.155 & 0.051 & 0.283 & 0.135 \\
+2016 & 0.106 & 0.062 & 0.222 & 0.151 \\
+2020 & 0.102 & 0.087 & 0.216 & 0.240 \\
+2024 & 0.090 & 0.092 & 0.192 & 0.257 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -484,10 +485,34 @@ This result provides a concrete, zero-cost mitigation strategy: periodically reb
 \end{tabular}
 \end{table}
 
+\paragraph{Mitigation: exponential recency weighting.}
+Rather than the binary choice of including or excluding historical data, we propose weighting each case's contribution to the co-citation matrix by recency: $w(\text{case}) = \exp(-\lambda \cdot \Delta t)$, where $\Delta t$ is the age in years and $\lambda$ controls the decay rate.
+Table~\ref{tab:reweighting} shows that this principled approach consistently outperforms uniform weighting (3--23\% improvement), with the optimal $\lambda$ decreasing over time: $\lambda = 1.0$ is best for 2014--2018 (aggressive downweighting of pre-reform data), while $\lambda = 0.1$--$0.2$ is optimal for 2022--2024 (where post-reform data already dominates).
+This adaptive behavior makes exponential reweighting preferable to sliding windows, which require choosing a fixed cutoff: reweighting smoothly discounts stale signal rather than discarding it entirely.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Exponential recency weighting: MRR (Adamic-Adar) with $w = \exp(-\lambda \cdot \Delta t)$. $\lambda = 0$ is uniform (baseline). Bold: best $\lambda$ per year.}
+\label{tab:reweighting}
+\begin{tabular}{@{}l ccccc r@{}}
+\toprule
+\textbf{Year} & \textbf{$\lambda$=0} & \textbf{0.1} & \textbf{0.2} & \textbf{0.5} & \textbf{1.0} & \textbf{$\Delta$} \\
+\midrule
+2014 & 0.327 & 0.338 & 0.342 & 0.347 & \textbf{0.358} & +9.5\% \\
+2016 & 0.334 & 0.341 & 0.342 & 0.343 & \textbf{0.344} & +3.0\% \\
+2018 & 0.165 & 0.173 & 0.178 & 0.189 & \textbf{0.203} & +23.0\% \\
+2020 & 0.247 & 0.274 & 0.286 & \textbf{0.293} & 0.293 & +18.7\% \\
+2022 & 0.255 & 0.277 & \textbf{0.280} & 0.280 & 0.279 & +9.9\% \\
+2024 & 0.269 & \textbf{0.280} & 0.278 & 0.275 & 0.274 & +4.1\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \paragraph{Practical implications.}
 The decay rate of $\sim$4\% MRR/year during 2012--2018, slowing to $\sim$1\%/year after 2020 for mid-frequency articles implies that a graph-based retrieval system loses meaningful performance within 3--4 years without retraining.
 Notably, neither BM25 nor dense retrieval (E5-large) solves the problem: BM25 decays faster (31\%) and E5 decays at the same rate (42\% vs.\ 41\%) while achieving $\sim$3$\times$ lower absolute MRR than co-citation.
-The sliding-window experiment confirms that temporal robustness requires continual index rebuilding rather than modality switching, and that a 1--5 year window provides 3--28\% improvement over cumulative indexing.
+Exponential recency weighting provides a principled, parameter-light mitigation: a single $\lambda$ parameter yields 3--23\% improvement over uniform weighting, with the optimal value shifting from aggressive ($\lambda = 1.0$) to mild ($\lambda = 0.1$) as post-reform data accumulates.
 
 \paragraph{Benchmark design.}
 The train/test split ablation reveals that standard leave-one-out evaluation \emph{underestimates} real-world degradation by $\sim$5pp.
@@ -527,7 +552,7 @@ The decay is genuine (persists on fixed articles, strengthens without data leaka
 BM25 text retrieval decays even faster (31\%), and dense retrieval with E5-large decays at the same rate (42\%).
 Embedding drift analysis reveals that the underlying cause is semantic evolution: the legal context in which articles are cited shifts 4.3\% over 12 years, with civil procedure drifting twice as fast as criminal law.
 
-A sliding-window mitigation experiment demonstrates that restricting the co-citation matrix to the preceding 1--5 years improves MRR by 3--28\% over cumulative indexing, with the largest gains immediately following legislative reform -- providing a zero-cost retraining strategy for deployed systems.
+Exponential recency weighting of the co-citation matrix -- a single-parameter method that smoothly discounts stale signal -- improves MRR by 3--23\%, with the largest gains (+23\%) immediately following legislative reform.
 
 These findings challenge the assumption that legal retrieval signals -- whether structural, lexical, or semantic -- are temporally stable.
 The released benchmark, with per-article difficulty scores, 20 annual snapshots, and embedding drift measurements, enables direct measurement of temporal robustness for any retrieval approach.
