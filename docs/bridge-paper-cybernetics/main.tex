@@ -123,7 +123,7 @@ Treating their annotations as interchangeable discards information about signal 
 \label{sec:observation}
 % --------------------------------------------------------
 
-\citet{ovcharov2026edittrace} documented an empirical case that sharpens this problem.
+The author's prior work~\citep{ovcharov2025citation,ovcharov2025statute} documented an empirical case that sharpens this problem.
 A single practitioner shipped 1{,}547 merged pull requests across 7 production repositories in 105 days using an LLM agent (Claude Code) as the primary engineering counterpart -- building a legal AI platform (Legal.org.ua) with 70+ MCP tools, 380M+ records in the data pipeline, and paying customers.
 Validated outcomes included acceptance by Google for Startups, NVIDIA Inception, and AWS Activate.
 
@@ -159,7 +159,7 @@ This paper makes four contributions:
 \begin{enumerate}[label=(\arabic*),leftmargin=2em]
 
 \item \textbf{Formalization of the domain constitution in \DL description logic} (Section~\ref{sec:formal}).
-The five informal conditions from~\citet{ovcharov2026edittrace} are expressed as general concept inclusions (GCIs) in \DL, with a defined concept $\mathsf{ValidOversight}$ that is the conjunction of all five.
+The five informal conditions from the author's prior work~\citep{ovcharov2025citation,ovcharov2025statute} are expressed as general concept inclusions (GCIs) in \DL, with a defined concept $\mathsf{ValidOversight}$ that is the conjunction of all five.
 We prove three formal properties: decidability of instance classification, independence of the five conditions, and monotonicity of the oversight grade under assertion growth.
 
 \item \textbf{Formal comparison of output-level and oversight-level ontological control} (Section~\ref{sec:comparison}).
@@ -290,7 +290,7 @@ The most recent extension~\citep{palagin2025evolutionary} moves ontological cont
 Evolutionary cybernetics, as formalized in this work, addresses systems where the classical control-theoretic assumption of a fixed objective function does not hold.
 Instead, the system's objectives, the constraints it operates under, and its structural organization co-evolve with its environment.
 
-This level is directly relevant to the human--LLM oversight regime documented in~\citet{ovcharov2026edittrace}.
+This level is directly relevant to the human--LLM oversight regime documented in the author's prior work~\citep{ovcharov2025citation,ovcharov2025statute}.
 The practitioner-agent composition observed there -- where neither the human nor the agent achieves the observed output independently -- is not a static equilibrium.
 As the agent's capabilities improve through training (including training on the very edit-traces the practitioner generates), the nature of oversight changes: corrections may become more targeted and architecturally informed, the information asymmetry (Condition~C4) may shift, and the domain constitution itself may require revision.
 
@@ -309,7 +309,7 @@ Current methods collect human preferences via crowd annotation~\citep{ouyang2022
 None of these methods provides \emph{formal criteria} for when a human correction constitutes valid training signal versus noise.
 The implicit assumption is that any human preference label, from any context, is equally valid as training data.
 
-\citet{ovcharov2026edittrace} challenged this assumption empirically.
+The author~\citep{ovcharov2025citation,ovcharov2025statute} challenged this assumption empirically.
 When a practitioner works recursively with an LLM agent over production workflows (1{,}547 merged PRs, 105 days, 7 repositories), the resulting edit-traces exhibit a qualitatively different distribution from what detached annotation would produce: 80.7\% substantive rewrites (median normalized edit distance 0.84), with binary rejection correlating with 78\% positive downstream outcomes.
 The paper proposed five informal conditions (``domain constitution'') under which these edit-traces constitute valid oversight signal.
 
@@ -452,7 +452,7 @@ A workflow operating on isolated, ephemeral snippets without shared state fails 
 \medskip\noindent
 \emph{Rationale.}
 Without persistent shared state, human corrections are context-free: they reflect preferences over isolated outputs rather than oversight over an evolving system.
-Persistent state ensures each correction is informed by the cumulative history of prior agent behavior and its consequences~\citep{ovcharov2026edittrace}.
+Persistent state ensures each correction is informed by the cumulative history of prior agent behavior and its consequences~\citep{ovcharov2025citation,ovcharov2025statute}.
 \end{axiom}
 
 \begin{axiom}[C2: Compositional Task Layering]
@@ -901,7 +901,7 @@ Consider a workflow $w^*$ with the following properties:
   \item The practitioner holds information unavailable to the model: business strategy, regulatory requirements communicated verbally, user feedback from support channels (satisfies C4: information asymmetry).
   \item Corrected output ships to production with paying customers (satisfies C5: consequential grounding).
 \end{enumerate}
-This workflow is precisely the LEX~AI case study documented in~\citet{ovcharov2026edittrace}, augmented with an ontology-driven prompt generation layer.
+This workflow is precisely the LEX~AI case study documented in the author's prior work~\citep{ovcharov2025citation,ovcharov2025statute}, augmented with an ontology-driven prompt generation layer.
 \end{proof}
 
 The integrated system operates as a three-level control pipeline:
@@ -1090,7 +1090,7 @@ This is standard OWL~2~DL practice for negation-based defined concepts and must 
 \label{sec:abox}
 % --------------------------------------------------------
 
-We instantiate the ontology with individuals derived from the LEX~AI production dataset~\citep{ovcharov2026edittrace}: 2{,}892 workflow sessions, 30{,}510 edit pairs, and 1{,}579 attributed outcomes collected over 105~days.
+We instantiate the ontology with individuals derived from the LEX~AI production dataset~\citep{ovcharov2025citation,ovcharov2025statute}: 2{,}892 workflow sessions, 30{,}510 edit pairs, and 1{,}579 attributed outcomes collected over 105~days.
 
 \paragraph{Workflow individual.}
 The core platform workflow is asserted as:
@@ -1215,7 +1215,7 @@ $\mathsf{InvalidOversight}$ ($\gamma \leq 2$) & 898 & 31.1 \\
 
 The dominant bottleneck is C2 (compositional layering): only 561 sessions (19.4\%) have explicit dependency links in the dataset.
 C4 (information asymmetry) is near-universal (94.3\%) -- almost all sessions contain substantive rewrites based on practitioner-private domain knowledge.
-C5 (consequential grounding) at 54.6\% matches the outcome attribution coverage from the pilot dataset~\citep{ovcharov2026edittrace}.
+C5 (consequential grounding) at 54.6\% matches the outcome attribution coverage from the pilot dataset~\citep{ovcharov2025citation,ovcharov2025statute}.
 The 24 $\mathsf{FullOversight}$ sessions are exclusively GitHub PR sessions with explicit session links, grounded criteria, and attributed outcomes -- the most instrumented subset of the dataset.
 
 The majority (51.8\%) of sessions achieve $\gamma = 4$, satisfying all conditions except C2.
@@ -1340,7 +1340,7 @@ $\mathsf{FullOversight}$ sessions exhibit a distinctive edit profile (Figure~\re
 \caption{Edit behavior across oversight tiers. $\mathsf{FullOversight}$ sessions have fewer substantive rewrites but 3--6$\times$ higher rejection rates -- concentrating the most informative oversight signal.}
 \label{fig:edit-profile}
 \end{figure}
-This is consistent with Experiment~3 from~\citet{ovcharov2026edittrace}, which found that rejection (binary halt of the agentic trajectory) correlates with 78\% positive outcomes -- the highest of any edit class.
+This is consistent with Experiment~3 from the author's prior work~\citep{ovcharov2025citation,ovcharov2025statute}, which found that rejection (binary halt of the agentic trajectory) correlates with 78\% positive outcomes -- the highest of any edit class.
 $\mathsf{FullOversight}$ sessions concentrate the most informative oversight action: the practitioner's willingness to halt and restart rather than incrementally correct.
 
 \subsection{Connection to the Main Paper}
