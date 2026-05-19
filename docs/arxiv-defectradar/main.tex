@@ -378,11 +378,15 @@ For each definition $d$ with \emph{definiens} $D_{\text{ens}}$, we extract candi
 A definition exhibits \emph{ignotum per ignotum} if it contains legal terms that have no incoming edges in $\mathcal{G}$ -- i.e., terms used as if they are legally defined but are absent from the entire legislative corpus.
 We rank \emph{ignotum} severity by the specificity of the undefined term: highly domain-specific terms (low corpus frequency, high TF-IDF in legal text) are more problematic than semi-generic terms.
 
-\subsection{LLM Baseline}
+\subsection{LLM-as-Judge Evaluation}
 \label{sec:llm-baseline}
 
-We evaluate GPT-4o as a zero-shot baseline, prompting it with the definition text and asking it to identify whether the definition exhibits (a)~\emph{circulus in definiendo} or (b)~\emph{ignotum per ignotum}, with chain-of-thought reasoning.
-This baseline tests whether general-purpose language understanding suffices for the task.
+To evaluate the pipeline against an independent judge without requiring exhaustive manual annotation of 5{,}799 definitions, we deploy a RAG-augmented LLM judge.
+We sample 300 definitions (stratified across pipeline-positive, pipeline-negative, and random strata) and submit each to GPT-4o via the LEX AI chat interface, which has access to the full Ukrainian legislative corpus through MCP tool calls (legislation search, cross-reference lookup).
+For each definition, the LLM is prompted to independently assess both \emph{circulus} and \emph{ignotum} defects, provide reasoning grounded in the actual legislative text, and return a structured JSON response with binary labels, evidence, and confidence.
+
+This design makes the LLM judge \emph{grounded}: unlike zero-shot prompting, the judge can verify whether a term is actually defined in other laws by querying the corpus -- the same information our Stage~3 definition graph encodes structurally.
+After filtering parse errors, 282 valid annotations remain.
 
 % ============================================================
 \section{Experiments}
@@ -541,13 +545,47 @@ Economic law and environmental law exhibit the highest \emph{ignotum} rates (24.
 Criminal law has the lowest defect rate (4.3\%), consistent with the strict definitional requirements of the \emph{nullum crimen sine lege} principle.
 
 \paragraph{Structural patterns.}
-Among the 312 \emph{circulus} definitions, we identify three structural subtypes:
+Manual inspection of a 312-definition subsample reveals three structural subtypes of \emph{circulus}:
 
 \begin{enumerate}[nosep,leftmargin=*]
   \item \textbf{Direct morphological circularity} (47.1\%): The \emph{definiendum} root appears verbatim in the \emph{differentia specifica} (e.g., \foreignlanguage{ukrainian}{``креативні індустрії''} defined through \foreignlanguage{ukrainian}{``креативне вираження''}).
   \item \textbf{Adjectival echo} (31.4\%): The qualifying adjective of the \emph{definiendum} reappears in a different grammatical form (e.g., \foreignlanguage{ukrainian}{``цифровий контент''} defined as content that is \foreignlanguage{ukrainian}{``цифровим за своєю природою''}).
   \item \textbf{Semantic paraphrase} (21.5\%): No surface overlap, but the \emph{definiens} is a semantic rephrasing of the \emph{definiendum} without adding discriminative content.
 \end{enumerate}
+
+\subsection{Pipeline vs.\ LLM-as-Judge}
+\label{sec:exp-llm}
+
+Table~\ref{tab:llm-eval} reports the comparison between the DefectRadar pipeline and the RAG-augmented GPT-4o judge on 282 definitions (Section~\ref{sec:llm-baseline}).
+
+\begin{table}[t]
+\centering
+\caption{Pipeline vs.\ RAG-augmented GPT-4o judge on 282 sampled definitions.}
+\label{tab:llm-eval}
+\begin{tabular}{lR{1.0cm}R{1.0cm}R{1.0cm}R{1.0cm}R{1.0cm}}
+\toprule
+\textbf{Defect} & \textbf{P\,\%} & \textbf{R\,\%} & \textbf{F1\,\%} & \textbf{Pipe\,+} & \textbf{LLM\,+} \\
+\midrule
+\emph{Circulus} & 95.0 & 55.7 & 70.2 & 49.3\% & 84.0\% \\
+\emph{Ignotum} & 96.8 & 32.6 & 48.8 & 33.0\% & 97.9\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The results reveal a sharp precision--recall trade-off between the two approaches:
+
+\paragraph{Pipeline: high-precision scalpel.}
+When the pipeline flags a definition as defective, the LLM judge agrees in 95.0\% (circulus) and 96.8\% (ignotum) of cases.
+The 7 false positives for circulus involve legitimate terminological reuse across genus and differentia that the morphological filter did not exclude; the 3 false positives for ignotum involve terms with well-established common-law meanings that the pipeline's legal-term dictionary incorrectly classified as requiring statutory definition.
+
+\paragraph{LLM: high-recall net.}
+The GPT-4o judge flags 84.0\% of definitions as exhibiting circulus and 97.9\% as exhibiting ignotum -- rates far higher than the pipeline's 49.3\% and 33.0\%.
+The discrepancy reflects the LLM's broader conception of circularity: it identifies semantic paraphrases and root-level morphological connections (e.g., \foreignlanguage{ukrainian}{``деалкоголізація''} defined through \foreignlanguage{ukrainian}{``алкогольних напоїв''} -- shared root \foreignlanguage{ukrainian}{``алкоголь''}) that our lemma-overlap detector misses because pymorphy2-uk does not decompose compound derivations.
+For ignotum, the LLM's near-universal flagging (97.9\%) suggests that almost every legal definition uses at least one term that could benefit from its own statutory definition -- a finding that, while technically correct, reduces the diagnostic utility of the ignotum label.
+
+\paragraph{Complementarity.}
+The pipeline and LLM judge are complementary: the pipeline provides \emph{actionable, high-confidence} flags suitable for legislative audit, while the LLM provides \emph{comprehensive, nuanced} analysis suitable for in-depth review of individual definitions.
+A production legislative quality system would use the pipeline for triage (flag the 32\% most clearly defective) and the LLM for detailed analysis of flagged cases.
 
 % ============================================================
 \section{Case Study: ``Creative Industries'' Rediscovered}
