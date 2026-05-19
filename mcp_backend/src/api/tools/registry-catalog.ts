@@ -433,7 +433,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     orderBy: 'last_seen DESC NULLS LAST',
     emptyMessage: 'No sanctioned entities found matching criteria',
     fields: [
-      { name: 'name', description: 'Person or entity name (fuzzy search)', match: 'ilike', columns: ['name'] },
+      { name: 'name', description: 'Person or entity name (fuzzy search)', match: 'fts_simple', columns: ['name'] },
       { name: 'aliases', description: 'Search in aliases/alternate names', match: 'ilike', columns: ['aliases'] },
       { name: 'schema', description: 'Entity type: Person, Company, LegalEntity, Organization, Vessel, CryptoWallet', match: 'exact', columns: ['schema'] },
       { name: 'countries', description: 'Country code (e.g. us, ru, ir, cn)', match: 'ilike', columns: ['countries'] },
@@ -486,7 +486,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     orderBy: 'penalties_current_total DESC NULLS LAST',
     emptyMessage: 'No OSHA enforcement records found for this employer',
     fields: [
-      { name: 'employer', description: 'Employer name', match: 'ilike', columns: ['employer_name'] },
+      { name: 'employer', description: 'Employer name', match: 'fts_simple', columns: ['employer_name'] },
       { name: 'parent', description: 'Parent company name', match: 'ilike', columns: ['parent_name'] },
       { name: 'state', description: 'State (2-letter code)', match: 'exact', columns: ['state'], transform: 'uppercase' },
       { name: 'naics', description: 'NAICS industry code', match: 'exact', columns: ['naics_code'] },
@@ -537,8 +537,8 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     orderBy: 'recall_initiation_date DESC NULLS LAST',
     emptyMessage: 'No FDA enforcement actions found',
     fields: [
-      { name: 'firm', description: 'Recalling firm name', match: 'ilike', columns: ['recalling_firm'] },
-      { name: 'product', description: 'Product description keywords', match: 'ilike', columns: ['product_description'] },
+      { name: 'firm', description: 'Recalling firm name', match: 'fts_simple', columns: ['recalling_firm'] },
+      { name: 'product', description: 'Product description keywords', match: 'fts_simple', columns: ['product_description'] },
       { name: 'reason', description: 'Reason for recall keywords', match: 'ilike', columns: ['reason_for_recall'] },
       { name: 'classification', description: 'Risk class: Class I (dangerous), Class II (may cause harm), Class III (unlikely harm)', match: 'exact', columns: ['classification'] },
       { name: 'state', description: 'State (2-letter code)', match: 'exact', columns: ['state'], transform: 'uppercase' },
