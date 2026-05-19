@@ -1,0 +1,213 @@
+\begin{thebibliography}{26}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Baader et~al.(2003)Baader, Calvanese, McGuinness, Nardi, and
+  Patel-Schneider]{baader2003description}
+Franz Baader, Diego Calvanese, Deborah~L. McGuinness, Daniele Nardi, and
+  Peter~F. Patel-Schneider.
+\newblock \emph{The Description Logic Handbook: Theory, Implementation, and
+  Applications}.
+\newblock Cambridge University Press, 1st edition, 2003.
+\newblock \doi{10.1017/CBO9780511711787}.
+
+\bibitem[Bai et~al.(2022)Bai, Kadavath, Kundu, et~al.]{bai2022constitutional}
+Yuntao Bai, Saurav Kadavath, Sandipan Kundu, et~al.
+\newblock Constitutional {AI}: Harmlessness from {AI} feedback.
+\newblock \emph{arXiv preprint arXiv:2212.08073}, 2022.
+\newblock URL \url{https://arxiv.org/abs/2212.08073}.
+
+\bibitem[Bowman et~al.(2022)]{bowman2022measuring}
+Samuel~R. Bowman et~al.
+\newblock Measuring progress on scalable oversight for large language models.
+\newblock \emph{arXiv preprint arXiv:2211.03540}, 2022.
+\newblock URL \url{https://arxiv.org/abs/2211.03540}.
+
+\bibitem[Burns et~al.(2023)]{burns2023weak}
+Collin Burns et~al.
+\newblock Weak-to-strong generalization: Eliciting strong capabilities with
+  weak supervision.
+\newblock \emph{arXiv preprint arXiv:2312.09390}, 2023.
+\newblock URL \url{https://arxiv.org/abs/2312.09390}.
+
+\bibitem[Christiano et~al.(2017)Christiano, Leike, Brown, Martic, Legg, and
+  Amodei]{christiano2017deep}
+Paul~F. Christiano, Jan Leike, Tom Brown, Miljan Martic, Shane Legg, and Dario
+  Amodei.
+\newblock Deep reinforcement learning from human preferences.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~30, 2017.
+\newblock URL \url{https://arxiv.org/abs/1706.03741}.
+
+\bibitem[Glimm et~al.(2014)Glimm, Horrocks, Motik, Stoilos, and
+  Wang]{glimm2014hermit}
+Birte Glimm, Ian Horrocks, Boris Motik, Giorgos Stoilos, and Zhe Wang.
+\newblock Hermit: An {OWL}~2 reasoner.
+\newblock \emph{Journal of Automated Reasoning}, 53\penalty0 (3):\penalty0
+  245--269, 2014.
+\newblock \doi{10.1007/s10817-014-9305-1}.
+
+\bibitem[Grau et~al.(2008)Grau, Horrocks, Motik, Parsia, Patel-Schneider, and
+  Sattler]{grau2008owl2}
+Bernardo~Cuenca Grau, Ian Horrocks, Boris Motik, Bijan Parsia, Peter
+  Patel-Schneider, and Ulrike Sattler.
+\newblock {OWL} 2: The next step for {OWL}.
+\newblock \emph{Journal of Web Semantics}, 6\penalty0 (4):\penalty0 309--322,
+  2008.
+\newblock \doi{10.1016/j.websem.2008.05.001}.
+
+\bibitem[Horrocks et~al.(2006)Horrocks, Kutz, and Sattler]{horrocks2006even}
+Ian Horrocks, Oliver Kutz, and Ulrike Sattler.
+\newblock Even more irresistible {SROIQ}.
+\newblock \emph{Proceedings of the 10th International Conference on Principles
+  of Knowledge Representation and Reasoning (KR)}, pages 57--67, 2006.
+\newblock URL
+  \url{https://www.cs.ox.ac.uk/ian.horrocks/Publications/download/2006/HoKS06a.pdf}.
+
+\bibitem[Irving et~al.(2018)Irving, Christiano, and Amodei]{irving2018ai}
+Geoffrey Irving, Paul Christiano, and Dario Amodei.
+\newblock {AI} safety via debate.
+\newblock \emph{arXiv preprint arXiv:1805.00899}, 2018.
+\newblock URL \url{https://arxiv.org/abs/1805.00899}.
+
+\bibitem[Lamy(2017)]{lamy2017owlready}
+Jean-Baptiste Lamy.
+\newblock Owlready: Ontology-oriented programming in {Python} with automatic
+  classification and high level constructs for biomedical ontologies.
+\newblock \emph{Artificial Intelligence in Medicine}, 80:\penalty0 11--28,
+  2017.
+\newblock \doi{10.1016/j.artmed.2017.07.002}.
+
+\bibitem[Lee et~al.(2024)Lee, Phatale, Mansoor, et~al.]{lee2023rlaif}
+Harrison Lee, Samrat Phatale, Hassan Mansoor, et~al.
+\newblock {RLAIF}: Scaling reinforcement learning from human feedback with {AI}
+  feedback.
+\newblock In \emph{International Conference on Learning Representations}, 2024.
+\newblock URL \url{https://arxiv.org/abs/2309.00267}.
+
+\bibitem[Leike et~al.(2018)Leike, Krueger, Everitt, Martic, Maini, and
+  Legg]{leike2018scalable}
+Jan Leike, David Krueger, Tom Everitt, Miljan Martic, Vishal Maini, and Shane
+  Legg.
+\newblock Scalable agent alignment via reward modeling: A research direction.
+\newblock \emph{arXiv preprint arXiv:1811.07871}, 2018.
+\newblock URL \url{https://arxiv.org/abs/1811.07871}.
+
+\bibitem[Litvin et~al.(2023)Litvin, Palagin, Kaverinsky, and
+  Malakhov]{palagin2023dialogue}
+Anna Litvin, Oleksandr Palagin, Vladislav Kaverinsky, and Kyrylo Malakhov.
+\newblock Ontology-driven development of dialogue systems.
+\newblock \emph{South African Computer Journal}, 35\penalty0 (1), 2023.
+\newblock \doi{10.18489/sacj.v35i1.1233}.
+
+\bibitem[Ouyang et~al.(2022)Ouyang, Wu, Jiang, et~al.]{ouyang2022training}
+Long Ouyang, Jeff Wu, Xu~Jiang, et~al.
+\newblock Training language models to follow instructions with human feedback.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~35, 2022.
+\newblock URL \url{https://arxiv.org/abs/2203.02155}.
+
+\bibitem[Ovcharov(2025{\natexlab{a}})]{ovcharov2025citation}
+Volodymyr Ovcharov.
+\newblock Automatic construction of a legal citation graph from 100 million
+  {Ukrainian} court decisions: Large-scale extraction, topological analysis,
+  and ontology-driven clustering.
+\newblock \emph{arXiv preprint arXiv:2605.15362}, 2025{\natexlab{a}}.
+\newblock URL \url{https://arxiv.org/abs/2605.15362}.
+
+\bibitem[Ovcharov(2025{\natexlab{b}})]{ovcharov2025statute}
+Volodymyr Ovcharov.
+\newblock Temporal decay of co-citation predictability: A 20-year statute
+  retrieval benchmark from 396{M} {Ukrainian} court citations.
+\newblock \emph{arXiv preprint arXiv:2605.17639}, 2025{\natexlab{b}}.
+\newblock URL \url{https://arxiv.org/abs/2605.17639}.
+
+\bibitem[Palagin(2006)]{palagin2006architecture}
+Alexander~V. Palagin.
+\newblock Architecture of ontology-controlled computer systems.
+\newblock \emph{Cybernetics and Systems Analysis}, 42\penalty0 (2):\penalty0
+  254--264, 2006.
+\newblock \doi{10.1007/s10559-006-0061-z}.
+
+\bibitem[Palagin et~al.(2012)Palagin, Kryvyi, and
+  Petrenko]{palagin2012knowledge}
+Alexander~V. Palagin, Serhiy~L. Kryvyi, and Mykola~G. Petrenko.
+\newblock On the automation of the process of extracting knowledge from natural
+  language texts.
+\newblock \emph{Natural and Artificial Intelligence International Book Series},
+  2012.
+\newblock Bibliographic details incomplete.
+
+\bibitem[Palagin et~al.(2020)Palagin, Velychko, Malakhov, and
+  Shchurov]{palagin2020distributional}
+Oleksandr Palagin, Vitalii Velychko, Kyrylo Malakhov, and Oleksandr Shchurov.
+\newblock Distributional semantic modeling: A revised technique to train
+  term/word vector space models applying the ontology-related approach.
+\newblock \emph{arXiv preprint arXiv:2003.03350}, 2020.
+\newblock URL \url{https://arxiv.org/abs/2003.03350}.
+
+\bibitem[Palagin et~al.(2023)Palagin, Kaverinskiy, Litvin, and
+  Malakhov]{palagin2023ontochatgpt}
+Oleksandr Palagin, Vladislav Kaverinskiy, Anna Litvin, and Kyrylo Malakhov.
+\newblock {OntoChatGPT} information system: Ontology-driven structured prompts
+  for {ChatGPT} meta-learning.
+\newblock \emph{International Journal of Computing}, 22\penalty0 (2):\penalty0
+  170--183, 2023.
+\newblock URL \url{https://arxiv.org/abs/2307.05082}.
+
+\bibitem[Palagin et~al.(2024{\natexlab{a}})Palagin, Kaverinskiy, Malakhov, and
+  Petrenko]{palagin2024neural}
+Oleksandr Palagin, Vladislav Kaverinskiy, Kyrylo Malakhov, and Mykola Petrenko.
+\newblock Fundamentals of the integrated use of neural network and
+  ontolinguistic paradigms: A comprehensive approach.
+\newblock \emph{Cybernetics and Systems Analysis}, 60:\penalty0 111--123,
+  2024{\natexlab{a}}.
+\newblock \doi{10.1007/s10559-024-00652-z}.
+
+\bibitem[Palagin et~al.(2024{\natexlab{b}})Palagin, Petrenko, and
+  Malakhov]{palagin2024ontology}
+Oleksandr Palagin, Mykola Petrenko, and Kyrylo Malakhov.
+\newblock Challenges and role of ontology engineering in creating the knowledge
+  industry.
+\newblock \emph{Cybernetics and Systems Analysis}, 60:\penalty0 633--645,
+  2024{\natexlab{b}}.
+\newblock \doi{10.1007/s10559-024-00702-6}.
+
+\bibitem[Palagin et~al.(2025)Palagin, Symonov, and
+  Chervynskyi]{palagin2025evolutionary}
+Oleksandr Palagin, Dmytro Symonov, and Mykhailo Chervynskyi.
+\newblock Modelling evolutionary cybernetics: Ontology, invariants and design
+  principles.
+\newblock \emph{Information Technologies and Systems}, 6\penalty0 (6):\penalty0
+  3--29, 2025.
+\newblock \doi{10.15407/intechsys.2025.06.003}.
+
+\bibitem[Rafailov et~al.(2023)Rafailov, Sharma, Mitchell, Manning, Ermon, and
+  Finn]{rafailov2023direct}
+Rafael Rafailov, Archit Sharma, Eric Mitchell, Christopher~D. Manning, Stefano
+  Ermon, and Chelsea Finn.
+\newblock Direct preference optimization: Your language model is secretly a
+  reward model.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~36, 2023.
+\newblock URL \url{https://arxiv.org/abs/2305.18290}.
+
+\bibitem[Shearer et~al.(2008)Shearer, Motik, and Horrocks]{shearer2008hermit}
+Rob Shearer, Boris Motik, and Ian Horrocks.
+\newblock {HermiT}: A highly-efficient {OWL} reasoner.
+\newblock \emph{Proceedings of the 5th International Workshop on OWL:
+  Experiences and Directions (OWLED)}, 2008.
+
+\bibitem[Sirin et~al.(2007)Sirin, Parsia, Grau, Kalyanpur, and
+  Katz]{sirin2007pellet}
+Evren Sirin, Bijan Parsia, Bernardo~Cuenca Grau, Aditya Kalyanpur, and Yarden
+  Katz.
+\newblock Pellet: A practical {OWL-DL} reasoner.
+\newblock \emph{Journal of Web Semantics}, 5\penalty0 (2):\penalty0 51--53,
+  2007.
+\newblock \doi{10.1016/j.websem.2007.03.004}.
+
+\end{thebibliography}
