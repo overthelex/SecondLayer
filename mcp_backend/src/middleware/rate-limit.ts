@@ -146,7 +146,7 @@ export const webhookRateLimit = createRateLimiter({
 // (Cloudflare proxies all traffic through shared IPs)
 export const chatRateLimit = createRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 60,
+  maxRequests: 180,
   keyPrefix: 'ratelimit:chat',
   keyByUserId: true,
 });
