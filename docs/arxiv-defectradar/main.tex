@@ -3,8 +3,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1,T2A]{fontenc}
 \usepackage{lmodern}
-\usepackage[english,ukrainian]{babel}
-\selectlanguage{english}
+\usepackage[ukrainian,english]{babel}
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
@@ -21,6 +20,7 @@
 \usepackage{microtype}
 \usepackage{url}
 \usepackage[numbers,sort&compress]{natbib}
+\usepackage[hyphens]{url}
 \usepackage{hyperref}
 \usepackage{pgfplots}
 \usepackage{pgfplotstable}
@@ -447,6 +447,14 @@ The cosine similarity between the embedded \emph{definiendum}+\emph{genus} and t
 At the conservative threshold $\tau = 0.90$ (top 0.6\% of the distribution), Tier~2 identifies 24 additional definitions as semantically circular -- cases where the \emph{definiens} is a near-verbatim restatement or semantic paraphrase of the \emph{definiendum} without sharing surface morphemes.
 For example, \foreignlanguage{ukrainian}{``виробник вина''} (wine producer) defined as \foreignlanguage{ukrainian}{``виробник продукту виноградарства, виробник продукту виноробства''} (producer of viticultural product, producer of winemaking product) -- a semantic paraphrase at cosine similarity 0.921.
 The low yield (24 vs.\ 1{,}880 from Tier~1) confirms that morphological overlap is the dominant circulus mechanism in Ukrainian legislative definitions; semantic-only circularity is rare.
+Figure~\ref{fig:semantic-dist} shows the similarity distribution with the threshold.
+
+\begin{figure}[t]
+\centering
+\input{figures/fig4_semantic_dist.tex}
+\caption{Cosine similarity distribution for 3{,}919 Tier-1-negative definitions (E5-large). The median (0.827) reflects inherent alignment between term and definition. Threshold $\tau=0.90$ captures 24 semantic paraphrases in the far-right tail.}
+\label{fig:semantic-dist}
+\end{figure}
 
 The detector operates by extracting \emph{discriminating lemmas} -- adjectives and participles that qualify the head noun in the \emph{definiendum} -- and checking whether they recur in the \emph{differentia} after excluding the \emph{genus proximum} and the first few words of the \emph{definiens} (which constitute the head noun phrase).
 For example, in \foreignlanguage{ukrainian}{``бездимний тютюновий виріб -- тютюновий виріб, що не передбачає процесу згоряння...''}, the adjective \foreignlanguage{ukrainian}{``бездимний''} is correctly excluded (it does not appear in the \emph{definiens}), while definitions like \foreignlanguage{ukrainian}{``страховий продукт -- умови страхування, які задовольняють...потреби...в отриманні страхової послуги''} are correctly flagged: the discriminating adjective \foreignlanguage{ukrainian}{``страховий''} reappears as \foreignlanguage{ukrainian}{``страхової послуги''}.
@@ -642,6 +650,15 @@ We submit 100 pipeline-flagged \emph{ignotum} definitions and ask the LLM to cla
 \bottomrule
 \end{tabular}
 \end{table}
+
+Figure~\ref{fig:error-analysis} visualizes the classification and severity distributions.
+
+\begin{figure}[t]
+\centering
+\input{figures/fig5_error_analysis.tex}
+\caption{Error analysis results. (a)~84.8\% of pipeline-flagged circulus cases are domain terminology reuse; only 9.1\% are true normative defects. (b)~70.8\% of ignotum-flagged terms are cross-reference gaps (defined in other laws); 20.8\% are critical (undefined anywhere).}
+\label{fig:error-analysis}
+\end{figure}
 
 The majority of ignotum flags (70.8\%) represent \textsc{Cross\_Ref} gaps -- terms that \emph{are} defined in other laws but not in the current one.
 These are genuine drafting deficiencies (the reader must know which other law to consult) but not normative vacuums.

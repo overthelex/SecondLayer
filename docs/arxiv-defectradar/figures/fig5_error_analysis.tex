@@ -1,0 +1,69 @@
+% Error analysis: classification of pipeline-flagged circulus definitions
+% Data: Experiment A, 33 valid classifications by RAG-augmented GPT-4o
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.46\textwidth,
+  height=4.8cm,
+  ybar,
+  ylabel={Proportion (\%)},
+  ymin=0, ymax=100,
+  xtick=data,
+  xticklabels={
+    {Domain\\Reuse},
+    {True\\Defect},
+    {False\\Pos.}
+  },
+  xticklabel style={font=\scriptsize, align=center},
+  yticklabel style={font=\scriptsize},
+  bar width=16pt,
+  nodes near coords,
+  nodes near coords style={font=\scriptsize\bfseries, anchor=south},
+  every node near coord/.append style={yshift=1pt},
+  grid=none,
+  ytick={0,25,50,75,100},
+  title={\scriptsize (a) Circulus classification ($n\!=\!33$)},
+  title style={at={(0.5,1.02)}, anchor=south},
+]
+
+\addplot[fill=RoyalBlue!40, draw=RoyalBlue] coordinates {
+  (0, 84.8)
+  (1, 9.1)
+  (2, 6.1)
+};
+
+\end{axis}
+\end{tikzpicture}%
+\hfill%
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.46\textwidth,
+  height=4.8cm,
+  ybar,
+  ylabel={Proportion (\%)},
+  ymin=0, ymax=100,
+  xtick=data,
+  xticklabels={
+    {Cross-\\Ref},
+    {Critical},
+    {Common}
+  },
+  xticklabel style={font=\scriptsize, align=center},
+  yticklabel style={font=\scriptsize},
+  bar width=16pt,
+  nodes near coords,
+  nodes near coords style={font=\scriptsize\bfseries, anchor=south},
+  every node near coord/.append style={yshift=1pt},
+  grid=none,
+  ytick={0,25,50,75,100},
+  title={\scriptsize (b) Ignotum severity ($n\!=\!24$ terms)},
+  title style={at={(0.5,1.02)}, anchor=south},
+]
+
+\addplot[fill=BrickRed!40, draw=BrickRed] coordinates {
+  (0, 70.8)
+  (1, 20.8)
+  (2, 8.3)
+};
+
+\end{axis}
+\end{tikzpicture}
