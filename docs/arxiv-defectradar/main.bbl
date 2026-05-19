@@ -1,0 +1,211 @@
+\begin{thebibliography}{31}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Ahmadi et~al.(2026)Ahmadi, Strich, Semmann, and
+  Biemann]{ahmadi2026lemur}
+Narges~Baba Ahmadi, Jan Strich, Martin Semmann, and Chris Biemann.
+\newblock {LEMUR}: A corpus for robust fine-tuning of multilingual law
+  embedding models for retrieval.
+\newblock \emph{arXiv preprint arXiv:2602.09570}, 2026.
+
+\bibitem[Aires et~al.(2019)Aires, Granada, Monteiro, Barros, and
+  Meneguzzi]{aires2019classifying}
+Jo{\~a}o~Paulo Aires, Roger Granada, Juarez Monteiro, Rodrigo~C. Barros, and
+  Felipe Meneguzzi.
+\newblock Classifying norm conflicts using learned semantic representations.
+\newblock In \emph{Proceedings of ICAIL}, 2019.
+
+\bibitem[Ariai et~al.(2024)Ariai, Mackenzie, and Demartini]{ariai2024survey}
+Farid Ariai, Joel Mackenzie, and Gianluca Demartini.
+\newblock Natural language processing for the legal domain: A survey of tasks,
+  datasets, models, and challenges.
+\newblock \emph{arXiv preprint arXiv:2410.21306}, 2024.
+
+\bibitem[Braun and Matthes(2024)]{braun2024agb}
+Daniel Braun and Florian Matthes.
+\newblock {AGB-DE}: A corpus for the automated legal assessment of clauses in
+  {German} consumer contracts.
+\newblock \emph{arXiv preprint arXiv:2406.06809}, 2024.
+
+\bibitem[Chalkidis et~al.(2022)Chalkidis, Jana, Hartung, Bommarito,
+  Androutsopoulos, Katz, and Aletras]{chalkidis2022lexglue}
+Ilias Chalkidis, Abhik Jana, Dirk Hartung, Michael Bommarito, Ion
+  Androutsopoulos, Daniel~Martin Katz, and Nikolaos Aletras.
+\newblock {LexGLUE}: A benchmark dataset for legal language understanding in
+  {English}.
+\newblock In \emph{Proceedings of ACL}, 2022.
+
+\bibitem[Chouhan and Gertz(2024)]{chouhan2024lexdrafter}
+Ashish Chouhan and Michael Gertz.
+\newblock {LexDrafter}: Terminology drafting for legislative documents using
+  retrieval augmented generation.
+\newblock In \emph{Proceedings of LREC-COLING}, 2024.
+
+\bibitem[Dzeiko(2007)]{dzeiko2007legislative}
+Zh.~O. Dzeiko.
+\newblock \emph{Законодавча техніка в Україні:
+  історико-теоретичне дослідження}.
+\newblock Видавничо-поліграфічний центр
+  ``Київський університет'', Kyiv, 2007.
+
+\bibitem[Flynn et~al.(2026)Flynn, Obiso, and Newman]{flynn2026gelato}
+Matthew Flynn, Timothy Obiso, and Sam Newman.
+\newblock The {GELATO} dataset for legislative {NER}.
+\newblock \emph{arXiv preprint arXiv:2603.14130}, 2026.
+
+\bibitem[Hart(2012)]{hart2012concept}
+H.~L.~A. Hart.
+\newblock \emph{The Concept of Law}.
+\newblock Oxford University Press, 3rd edition, 2012.
+
+\bibitem[H{\"o}fler and Sugisaki(2012)]{hofler2012style}
+Stefan H{\"o}fler and Kyoko Sugisaki.
+\newblock From drafting guideline to error detection: Automating style checking
+  for legislative texts.
+\newblock In \emph{Proceedings of the EACL 2012 Workshop on Computational
+  Linguistics and Writing}, pages 9--18, Avignon, 2012.
+
+\bibitem[Holzenberger et~al.(2020)Holzenberger, Blair-Stanek, and
+  Van~Durme]{holzenberger2020statutory}
+Nils Holzenberger, Andrew Blair-Stanek, and Benjamin Van~Durme.
+\newblock A dataset for statutory reasoning in tax law entailment and question
+  answering.
+\newblock In \emph{Proceedings of NeurIPS Datasets and Benchmarks}, 2020.
+
+\bibitem[Hosabettu and Shah(2025)]{hosabettu2025statutory}
+Arpana Hosabettu and Harsh Shah.
+\newblock Transformer-based extraction of statutory definitions from the {U.S.}
+  code.
+\newblock In \emph{Proceedings of IEEE BigData}, 2025.
+\newblock arXiv:2504.16353.
+
+\bibitem[Katz et~al.(2023)Katz, Hartung, Gerlach, Jana, and
+  Bommarito]{katz2023natural}
+Daniel~Martin Katz, Dirk Hartung, Lauritz Gerlach, Abhik Jana, and Michael~J.
+  Bommarito.
+\newblock Natural language processing in the legal domain.
+\newblock \emph{arXiv preprint arXiv:2302.12039}, 2023.
+
+\bibitem[Kelsen(2004)]{kelsen2004pure}
+Hans Kelsen.
+\newblock \emph{Чисте правознавство}.
+\newblock Юніверс, Kyiv, 2004.
+\newblock Ukr. trans. O. Mokrovolsky.
+
+\bibitem[Kiulian et~al.(2024)Kiulian, Polishko, Khandoga, Chubych, Connor,
+  Ravishankar, and Shirawalmath]{kiulian2024borsch}
+Artur Kiulian, Anton Polishko, Mykola Khandoga, Oryna Chubych, Jack Connor,
+  Raghav Ravishankar, and Adarsh Shirawalmath.
+\newblock From bytes to borsch: Fine-tuning {Gemma} and {Mistral} for the
+  {Ukrainian} language representation.
+\newblock \emph{arXiv preprint arXiv:2404.09138}, 2024.
+
+\bibitem[Koreeda and Manning(2021)]{koreeda2021contractnli}
+Yuta Koreeda and Christopher~D. Manning.
+\newblock {ContractNLI}: A dataset for document-level natural language
+  inference for contracts.
+\newblock In \emph{Findings of EMNLP}, 2021.
+
+\bibitem[Korobov(2015)]{korobov2015morphological}
+Mikhail Korobov.
+\newblock Morphological analyzer and generator for {Russian} and {Ukrainian}
+  languages.
+\newblock In \emph{Proceedings of AIST}, 2015.
+
+\bibitem[Kyrychenko(2026)]{kyrychenko2026creative}
+Ihor~V. Kyrychenko.
+\newblock Дефініція ``креативних індустрій'' у
+  Законі України ``Про культуру'': правова
+  колізія тавтологічного визначення та її
+  бюджетні наслідки.
+\newblock \emph{DefectRadar -- Радар правових колізій
+  України}, 2026.
+\newblock URL
+  \url{https://defectradar.legal.org.ua/research/culture/creative-industries/}.
+
+\bibitem[Ma et~al.(2026)Ma, Ye, and Xie]{ma2026clase}
+Yiran~Rex Ma, Yuxiao Ye, and Huiyuan Xie.
+\newblock {CLASE}: A hybrid method for {Chinese} legalese stylistic evaluation.
+\newblock \emph{arXiv preprint arXiv:2602.12639}, 2026.
+
+\bibitem[MacCormick and Summers(1991)]{mccormick1991interpreting}
+Neil MacCormick and Robert~S. Summers.
+\newblock \emph{Interpreting Statutes: A Comparative Study}.
+\newblock Dartmouth, 1991.
+
+\bibitem[{Ministry of Justice of Ukraine}(2006)]{minjust2006guidelines}
+{Ministry of Justice of Ukraine}.
+\newblock Методичні рекомендації щодо
+  розроблення проектів законів та
+  дотримання вимог нормопроектувальної
+  техніки, 2006.
+\newblock Updated editions through 2024.
+
+\bibitem[Nakpih and Santini(2020)]{nakpih2020fallacies}
+Emmanuel Nakpih and Marina Santini.
+\newblock Automated discovery of logical fallacies in legal argumentation.
+\newblock \emph{International Journal of Artificial Intelligence \&
+  Applications}, 11\penalty0 (2), 2020.
+
+\bibitem[Niklaus et~al.(2023{\natexlab{a}})Niklaus, Matoshi, Rani, Galassi,
+  St{\"u}rmer, and Chalkidis]{niklaus2023lextreme}
+Joel Niklaus, Veton Matoshi, Pooja Rani, Andrea Galassi, Matthias St{\"u}rmer,
+  and Ilias Chalkidis.
+\newblock {LEXTREME}: A multi-lingual and multi-task benchmark for the legal
+  domain.
+\newblock In \emph{Findings of ACL}, 2023{\natexlab{a}}.
+
+\bibitem[Niklaus et~al.(2023{\natexlab{b}})Niklaus, Matoshi, St{\"u}rmer,
+  Chalkidis, and Ho]{niklaus2023multilegal}
+Joel Niklaus, Veton Matoshi, Matthias St{\"u}rmer, Ilias Chalkidis, and
+  Daniel~E. Ho.
+\newblock {MultiLegalPile}: A 689{GB} multilingual legal corpus.
+\newblock \emph{arXiv preprint arXiv:2306.02069}, 2023{\natexlab{b}}.
+
+\bibitem[Onischuk(2014)]{onischuk2014technique}
+I.~I. Onischuk.
+\newblock \emph{Техніка юридичного письма в
+  нормативно-правових актах}.
+\newblock Ivano-Frankivsk, 2014.
+
+\bibitem[Ovcharov(2026{\natexlab{a}})]{ovcharov2026statute}
+Volodymyr Ovcharov.
+\newblock Temporal decay of co-citation predictability: A 20-year statute
+  retrieval benchmark from 396{M} {Ukrainian} court citations.
+\newblock \emph{arXiv preprint}, 2026{\natexlab{a}}.
+
+\bibitem[Ovcharov(2026{\natexlab{b}})]{ovcharov2026temporal}
+Volodymyr Ovcharov.
+\newblock Temporal citation drift in {Ukrainian} court decisions.
+\newblock \emph{arXiv preprint}, 2026{\natexlab{b}}.
+
+\bibitem[Ovcharov(2026{\natexlab{c}})]{ovcharov2026tokenizer}
+Volodymyr Ovcharov.
+\newblock Tokenizer fertility and zero-shot performance of foundation models on
+  {Ukrainian} legal text: A comparative study.
+\newblock \emph{arXiv preprint}, 2026{\natexlab{c}}.
+
+\bibitem[Sadowski and Chudziak(2025)]{sadowski2025verifiable}
+Albert Sadowski and Jaros{\l}aw~A. Chudziak.
+\newblock On verifiable legal reasoning: A multi-agent framework with
+  formalized knowledge representations.
+\newblock \emph{arXiv preprint arXiv:2509.00710}, 2025.
+
+\bibitem[Wang et~al.(2024)Wang, Yang, Huang, Yang, Majumder, and
+  Wei]{wang2024multilingual}
+Liang Wang, Nan Yang, Xiaolong Huang, Linjun Yang, Rangan Majumder, and Furu
+  Wei.
+\newblock Multilingual {E5} text embeddings: A technical report.
+\newblock \emph{arXiv preprint arXiv:2402.05672}, 2024.
+
+\bibitem[Wardas and Matthes(2025)]{wardas2025employment}
+Oliver Wardas and Florian Matthes.
+\newblock {AI}-assisted {German} employment contract review: A benchmark
+  dataset.
+\newblock \emph{arXiv preprint arXiv:2501.17194}, 2025.
+
+\end{thebibliography}

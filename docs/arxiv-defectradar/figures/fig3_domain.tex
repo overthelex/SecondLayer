@@ -1,0 +1,46 @@
+% Domain distribution of definitional defects
+% TODO: Replace with actual data from pipeline run
+\begin{tikzpicture}
+\begin{axis}[
+  width=\linewidth,
+  height=7cm,
+  xbar,
+  xlabel={Defect prevalence (\%)},
+  xmin=0, xmax=30,
+  ytick=data,
+  yticklabels={
+    Criminal,
+    Constitutional,
+    Labor,
+    Tax,
+    Administrative,
+    Civil,
+    Environmental,
+    Economic
+  },
+  yticklabel style={font=\footnotesize},
+  xticklabel style={font=\footnotesize},
+  legend style={at={(0.98,0.02)}, anchor=south east, font=\footnotesize, draw=none, fill=white, fill opacity=0.8},
+  bar width=8pt,
+  grid=major,
+  grid style={gray!15},
+  enlarge y limits=0.12,
+  nodes near coords,
+  nodes near coords style={font=\tiny, anchor=west},
+  every node near coord/.append style={xshift=2pt},
+]
+
+% Ignotum
+\addplot[fill=BrickRed!60, draw=BrickRed] coordinates {
+  (3.1,0) (6.2,1) (11.8,2) (14.3,3) (15.7,4) (18.2,5) (22.1,6) (24.7,7)
+};
+\addlegendentry{\emph{Ignotum}}
+
+% Circulus
+\addplot[fill=RoyalBlue!60, draw=RoyalBlue] coordinates {
+  (1.2,0) (1.5,1) (1.8,2) (2.1,3) (1.9,4) (2.3,5) (2.7,6) (3.4,7)
+};
+\addlegendentry{\emph{Circulus}}
+
+\end{axis}
+\end{tikzpicture}

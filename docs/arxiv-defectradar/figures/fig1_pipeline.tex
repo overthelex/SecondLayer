@@ -1,0 +1,40 @@
+\begin{tikzpicture}[
+  node distance=1.8cm and 2.2cm,
+  stage/.style={draw, rounded corners=3pt, minimum width=3.2cm, minimum height=1.1cm, align=center, font=\small\sffamily},
+  input/.style={draw, dashed, rounded corners=2pt, minimum width=2.8cm, minimum height=0.8cm, align=center, font=\footnotesize\sffamily, fill=gray!8},
+  output/.style={draw, rounded corners=2pt, minimum width=2.8cm, minimum height=0.8cm, align=center, font=\footnotesize\sffamily, fill=ForestGreen!10},
+  arrow/.style={-{Stealth[length=5pt]}, thick},
+  label/.style={font=\tiny\sffamily\bfseries, fill=white, inner sep=1pt}
+]
+
+% Input
+\node[input] (corpus) {Legislative Corpus\\24{,}187 laws};
+
+% Stage 1
+\node[stage, right=of corpus, fill=RoyalBlue!12] (s1) {\textbf{Stage 1}\\Definition\\Extraction};
+
+% Stage 2
+\node[stage, right=of s1, fill=BrickRed!12] (s2) {\textbf{Stage 2}\\\emph{Circulus}\\Detection};
+
+% Stage 3
+\node[stage, right=of s2, fill=Goldenrod!15] (s3) {\textbf{Stage 3}\\\emph{Ignotum}\\Detection};
+
+% Outputs
+\node[output, below=1.2cm of s1] (defs) {47{,}312\\definitions};
+\node[output, below=1.2cm of s2] (circ) {312 \emph{circulus}\\defects (1.8\%)};
+\node[output, below=1.2cm of s3] (igno) {2{,}847 \emph{ignotum}\\defects (16.4\%)};
+
+% Tools
+\node[font=\tiny\sffamily, text=gray, below=0.15cm of s1] {regex + XLM-R};
+\node[font=\tiny\sffamily, text=gray, below=0.15cm of s2] {pymorphy2 + E5};
+\node[font=\tiny\sffamily, text=gray, below=0.15cm of s3] {term graph};
+
+% Arrows
+\draw[arrow] (corpus) -- (s1);
+\draw[arrow] (s1) -- (s2);
+\draw[arrow] (s2) -- (s3);
+\draw[arrow] (s1) -- (defs);
+\draw[arrow] (s2) -- (circ);
+\draw[arrow] (s3) -- (igno);
+
+\end{tikzpicture}
