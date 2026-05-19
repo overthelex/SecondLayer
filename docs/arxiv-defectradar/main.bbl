@@ -17,7 +17,8 @@ Narges~Baba Ahmadi, Jan Strich, Martin Semmann, and Chris Biemann.
 Jo{\~a}o~Paulo Aires, Roger Granada, Juarez Monteiro, Rodrigo~C. Barros, and
   Felipe Meneguzzi.
 \newblock Classifying norm conflicts using learned semantic representations.
-\newblock In \emph{Proceedings of ICAIL}, 2019.
+\newblock In \emph{Proceedings of AAMAS}, 2019.
+\newblock arXiv:1906.02121.
 
 \bibitem[Ariai et~al.(2024)Ariai, Mackenzie, and Demartini]{ariai2024survey}
 Farid Ariai, Joel Mackenzie, and Gianluca Demartini.
@@ -74,7 +75,8 @@ Stefan H{\"o}fler and Kyoko Sugisaki.
 Nils Holzenberger, Andrew Blair-Stanek, and Benjamin Van~Durme.
 \newblock A dataset for statutory reasoning in tax law entailment and question
   answering.
-\newblock In \emph{Proceedings of NeurIPS Datasets and Benchmarks}, 2020.
+\newblock In \emph{Proceedings of the NLLP Workshop at KDD}, 2020.
+\newblock arXiv:2005.05257.
 
 \bibitem[Hosabettu and Shah(2025)]{hosabettu2025statutory}
 Arpana Hosabettu and Harsh Shah.
@@ -109,12 +111,14 @@ Yuta Koreeda and Christopher~D. Manning.
 \newblock {ContractNLI}: A dataset for document-level natural language
   inference for contracts.
 \newblock In \emph{Findings of EMNLP}, 2021.
+\newblock arXiv:2110.01799.
 
 \bibitem[Korobov(2015)]{korobov2015morphological}
 Mikhail Korobov.
 \newblock Morphological analyzer and generator for {Russian} and {Ukrainian}
   languages.
 \newblock In \emph{Proceedings of AIST}, 2015.
+\newblock arXiv:1503.07283.
 
 \bibitem[Kyrychenko(2026)]{kyrychenko2026creative}
 Ihor~V. Kyrychenko.
