@@ -71,19 +71,28 @@ def create_security_group(vpc_id):
 
     sg = ec2.create_security_group(
         GroupName="mlflow-tracking-server",
-        Description="MLflow Tracking Server - port 5000 VPC only",
+        Description="MLflow Tracking Server - port 5000 with auth + IP allowlist",
         VpcId=vpc_id,
     )
     sg_id = sg["GroupId"]
 
     vpc_cidr = ec2.describe_vpcs(VpcIds=[vpc_id])["Vpcs"][0]["CidrBlock"]
+    sagemaker_cidrs = [
+        {"CidrIp": "44.224.0.0/11", "Description": "AWS us-west-2 EC2 (SageMaker NAT)"},
+        {"CidrIp": "34.208.0.0/12", "Description": "AWS us-west-2 EC2 (SageMaker NAT)"},
+        {"CidrIp": "35.80.0.0/12", "Description": "AWS us-west-2 EC2 (SageMaker NAT)"},
+        {"CidrIp": "35.160.0.0/13", "Description": "AWS us-west-2 EC2 (SageMaker NAT)"},
+        {"CidrIp": "52.32.0.0/13", "Description": "AWS us-west-2 EC2 (SageMaker NAT)"},
+        {"CidrIp": "54.184.0.0/13", "Description": "AWS us-west-2 EC2 (SageMaker NAT)"},
+        {"CidrIp": "100.20.0.0/14", "Description": "AWS us-west-2 EC2 (SageMaker NAT)"},
+    ]
     ec2.authorize_security_group_ingress(
         GroupId=sg_id,
         IpPermissions=[
             {"IpProtocol": "tcp", "FromPort": 22, "ToPort": 22,
              "IpRanges": [{"CidrIp": "0.0.0.0/0", "Description": "SSH"}]},
             {"IpProtocol": "tcp", "FromPort": MLFLOW_PORT, "ToPort": MLFLOW_PORT,
-             "IpRanges": [{"CidrIp": vpc_cidr, "Description": "MLflow from VPC"}]},
+             "IpRanges": [{"CidrIp": vpc_cidr, "Description": "MLflow from VPC"}] + sagemaker_cidrs},
         ],
     )
     ec2.create_tags(Resources=[sg_id], Tags=[STACK_TAG])
@@ -104,11 +113,26 @@ systemctl start postgresql
 sudo -u postgres psql -c "CREATE USER mlflow WITH PASSWORD 'mlflow_local';"
 sudo -u postgres psql -c "CREATE DATABASE mlflow OWNER mlflow;"
 
-# Install MLflow
-pip3 install mlflow boto3 psycopg2-binary
+# Install MLflow with auth support
+pip3 install mlflow boto3 psycopg2-binary flask-wtf
 
-# Create systemd service
-cat > /etc/systemd/system/mlflow.service << 'SVCEOF'
+# Generate secrets
+ADMIN_PASS=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
+FLASK_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
+
+# Create auth config
+cat > /home/ec2-user/basic_auth.ini << AUTHEOF
+[mlflow]
+default_permission = READ
+database_uri = sqlite:////home/ec2-user/basic_auth.db
+admin_username = admin
+admin_password = $ADMIN_PASS
+authorization_function = mlflow.server.auth:authenticate_request_basic_auth
+AUTHEOF
+chown ec2-user:ec2-user /home/ec2-user/basic_auth.ini
+
+# Create systemd service with basic auth
+cat > /etc/systemd/system/mlflow.service << SVCEOF
 [Unit]
 Description=MLflow Tracking Server
 After=postgresql.service
@@ -116,11 +140,15 @@ After=postgresql.service
 [Service]
 Type=simple
 User=ec2-user
-ExecStart=/usr/local/bin/mlflow server \\
-    --backend-store-uri postgresql://mlflow:mlflow_local@localhost/mlflow \\
-    --default-artifact-root s3://{S3_ARTIFACT_BUCKET}/artifacts \\
-    --host 0.0.0.0 \\
-    --port {MLFLOW_PORT}
+WorkingDirectory=/home/ec2-user
+Environment=MLFLOW_AUTH_CONFIG_PATH=/home/ec2-user/basic_auth.ini
+Environment=MLFLOW_FLASK_SERVER_SECRET_KEY=$FLASK_KEY
+ExecStart=/usr/local/bin/mlflow server \\\\
+    --backend-store-uri postgresql://mlflow:mlflow_local@localhost/mlflow \\\\
+    --default-artifact-root s3://{S3_ARTIFACT_BUCKET}/artifacts \\\\
+    --host 0.0.0.0 \\\\
+    --port {MLFLOW_PORT} \\\\
+    --app-name basic-auth
 Restart=always
 RestartSec=5
 
@@ -131,6 +159,10 @@ SVCEOF
 systemctl daemon-reload
 systemctl enable mlflow
 systemctl start mlflow
+
+echo "MLflow admin password: $ADMIN_PASS" > /home/ec2-user/mlflow_credentials.txt
+chown ec2-user:ec2-user /home/ec2-user/mlflow_credentials.txt
+chmod 600 /home/ec2-user/mlflow_credentials.txt
 """
 
 

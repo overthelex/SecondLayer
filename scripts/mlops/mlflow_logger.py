@@ -38,6 +38,16 @@ def _load_config():
     return None
 
 
+def _setup_auth(config: dict):
+    if not config.get("auth_enabled"):
+        return
+    if not os.environ.get("MLFLOW_TRACKING_USERNAME"):
+        username = config.get("auth_username", "sagemaker")
+        os.environ["MLFLOW_TRACKING_USERNAME"] = username
+    if not os.environ.get("MLFLOW_TRACKING_PASSWORD"):
+        print("[mlflow_logger] WARNING: MLFLOW_TRACKING_PASSWORD not set, auth may fail")
+
+
 def start_run(experiment_name: str, params: dict = None, tags: dict = None) -> bool:
     global _active_run
     if not MLFLOW_AVAILABLE:
@@ -50,12 +60,14 @@ def start_run(experiment_name: str, params: dict = None, tags: dict = None) -> b
         return False
 
     try:
+        _setup_auth(config)
         mlflow.set_tracking_uri(config["mlflow_tracking_uri"])
         mlflow.set_experiment(experiment_name)
 
         run_tags = {
             "project": "secondlayer",
             "launched_from": os.environ.get("SM_TRAINING_JOB_NAME", "local"),
+            "hardware": os.environ.get("MLFLOW_HARDWARE_TAG", "a10g"),
         }
         if tags:
             run_tags.update(tags)
