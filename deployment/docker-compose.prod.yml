@@ -1529,12 +1529,12 @@ services:
         reservations:
           memory: 64M
 
-  legal-intern-prod:
+  lmaf-prod:
     build:
       context: ..
-      dockerfile: deployment/Dockerfile.legal-intern
-    image: legal-intern-prod:latest
-    container_name: legal-intern-prod
+      dockerfile: deployment/Dockerfile.lmaf
+    image: lmaf-prod:latest
+    container_name: lmaf-prod
     restart: unless-stopped
     logging:
       driver: json-file
