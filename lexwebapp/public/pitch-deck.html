@@ -832,6 +832,11 @@
     font-size: 13px;
     color: #94a3b8;
   }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
 </style>
 </head>
 <body>
@@ -985,82 +990,71 @@
   <div class="slide-number">04</div>
 </div>
 
-<!-- SLIDE 5: Combined Data Moat -->
+<!-- SLIDE 5: The Real Moat -->
 <div class="slide">
-  <h2>Combined <span>Data Moat</span></h2>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
-    <!-- LEX Data -->
-    <div>
-      <div style="font-size:13px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">LEX — Legal Data</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="data-card">
-          <div class="number">115M</div>
-          <div class="unit">Court Decisions</div>
-          <div class="desc">Complete EDRSR index since 2005</div>
-        </div>
-        <div class="data-card">
-          <div class="number">5M</div>
-          <div class="unit">Full-Text Indexed</div>
-          <div class="desc">Parsed for semantic search</div>
-        </div>
-        <div class="data-card">
-          <div class="number">2M</div>
-          <div class="unit">Vector Embeddings</div>
-          <div class="desc">AI-powered similarity search</div>
-        </div>
-        <div class="data-card">
-          <div class="number">41.8M</div>
-          <div class="unit">Registry Records</div>
-          <div class="desc">Enforcement, debtors, bankruptcy</div>
-        </div>
-        <div class="data-card">
-          <div class="number">200K+</div>
-          <div class="unit">Legislation</div>
-          <div class="desc">Laws, codes, decrees</div>
-        </div>
-        <div class="data-card">
-          <div class="number">12K+</div>
-          <div class="unit">Judge Profiles</div>
-          <div class="desc">Performance analytics, patterns</div>
-        </div>
+  <h2>The Real <span>Moat</span></h2>
+  <p style="font-size:16px;color:#94a3b8;margin-bottom:24px;max-width:960px;">EDRSR is public data. Our moat is that we're the only team that has <strong style="color:#f1f5f9;">trained models on it</strong>, built <strong style="color:#f1f5f9;">production ML infrastructure</strong> around it, and <strong style="color:#f1f5f9;">published peer-reviewed research</strong> proving the approach works.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
+    <div style="background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(59,130,246,0.02));border:1px solid rgba(59,130,246,0.2);border-radius:16px;padding:28px;">
+      <div style="font-size:13px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;">Trained Models</div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:26px;font-weight:800;color:#f1f5f9;">CPT 14B</div>
+        <div style="font-size:13px;color:#94a3b8;">Continual pre-training on 115M court decisions</div>
       </div>
-    </div>
-    <!-- Panoptic Data -->
-    <div>
-      <div style="font-size:13px;font-weight:600;color:#a78bfa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Panoptic — Intelligence Data</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="data-card purple">
-          <div class="number">4M+</div>
-          <div class="unit">Sanctions Entities</div>
-          <div class="desc">100+ global lists incl. OFAC, EU, UN</div>
-        </div>
-        <div class="data-card purple">
-          <div class="number">15B+</div>
-          <div class="unit">Breach Records</div>
-          <div class="desc">6 parallel Dark Web sources</div>
-        </div>
-        <div class="data-card purple">
-          <div class="number">810K+</div>
-          <div class="unit">Offshore Entities</div>
-          <div class="desc">Panama, Paradise, Pandora Papers</div>
-        </div>
-        <div class="data-card purple">
-          <div class="number">5M+</div>
-          <div class="unit">UK Companies</div>
-          <div class="desc">Beneficial ownership data (PSC)</div>
-        </div>
-        <div class="data-card purple">
-          <div class="number">2.5M+</div>
-          <div class="unit">LEI Records</div>
-          <div class="desc">GLEIF global entity identifiers</div>
-        </div>
-        <div class="data-card purple">
-          <div class="number">100+</div>
-          <div class="unit">Tor Instances</div>
-          <div class="desc">Dark Web access fleet</div>
-        </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:26px;font-weight:800;color:#f1f5f9;">DPO</div>
+        <div style="font-size:13px;color:#94a3b8;">8/9 preference-tuning experiments complete</div>
       </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:26px;font-weight:800;color:#f1f5f9;">2M+</div>
+        <div style="font-size:13px;color:#94a3b8;">Domain-specific vector embeddings</div>
+      </div>
+      <div style="font-size:12px;color:#64748b;border-top:1px solid rgba(255,255,255,0.06);padding-top:12px;margin-top:8px;">Running on 8xH100 (NVIDIA Innovation Lab)</div>
     </div>
+
+    <div style="background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(139,92,246,0.02));border:1px solid rgba(139,92,246,0.2);border-radius:16px;padding:28px;">
+      <div style="font-size:13px;font-weight:600;color:#a78bfa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;">ML Infrastructure</div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:18px;font-weight:700;color:#f1f5f9;">MLflow Experiment Tracking</div>
+        <div style="font-size:13px;color:#94a3b8;">Every run tracked: metrics, artifacts, model registry</div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:18px;font-weight:700;color:#f1f5f9;">SageMaker Pipelines</div>
+        <div style="font-size:13px;color:#94a3b8;">Atomic GPU jobs: 1 model x 1 experiment, auto-scaling</div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:18px;font-weight:700;color:#f1f5f9;">HuggingFace Hub</div>
+        <div style="font-size:13px;color:#94a3b8;">8 published datasets, model checkpoints, benchmarks</div>
+      </div>
+      <div style="font-size:12px;color:#64748b;border-top:1px solid rgba(255,255,255,0.06);padding-top:12px;margin-top:8px;">Full reproducibility from raw data to deployed model</div>
+    </div>
+
+    <div style="background:linear-gradient(135deg,rgba(34,197,94,0.08),rgba(34,197,94,0.02));border:1px solid rgba(34,197,94,0.2);border-radius:16px;padding:28px;">
+      <div style="font-size:13px;font-weight:600;color:#4ade80;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;">Research & Expertise</div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:26px;font-weight:800;color:#f1f5f9;">9</div>
+        <div style="font-size:13px;color:#94a3b8;">Research papers (4 published on arXiv)</div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:26px;font-weight:800;color:#f1f5f9;">PhD</div>
+        <div style="font-size:13px;color:#94a3b8;">Dissertation: 5 of 6 chapters written (31 pp)</div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:26px;font-weight:800;color:#f1f5f9;">NAS</div>
+        <div style="font-size:13px;color:#94a3b8;">Glushkov Institute of Cybernetics collaboration</div>
+      </div>
+      <div style="font-size:12px;color:#64748b;border-top:1px solid rgba(255,255,255,0.06);padding-top:12px;margin-top:8px;">Domain knowledge no competitor can shortcut</div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:20px;justify-content:center;">
+    <span class="feature-pill">115M Court Decisions</span>
+    <span class="feature-pill">5M Full-Text Indexed</span>
+    <span class="feature-pill">200K+ Laws</span>
+    <span class="feature-pill">41.8M Registry Records</span>
+    <span class="feature-pill purple">4M+ Sanctions Entities</span>
+    <span class="feature-pill purple">15B+ Breach Records</span>
   </div>
   <div class="logo-bar">SECONDLAYER</div>
   <div class="slide-number">05</div>
@@ -1114,51 +1108,70 @@
   <div class="slide-number">06</div>
 </div>
 
-<!-- SLIDE 7: LLM Training Vision -->
+<!-- SLIDE 7: LLM Training Progress -->
 <div class="slide">
-  <h2>LLM <span>Training</span> Vision</h2>
+  <h2>LLM Training <span>in Progress</span></h2>
   <div style="display:flex;gap:40px;">
     <div style="flex:1.3;">
       <p style="font-size:16px;color:#cbd5e1;line-height:1.7;margin-bottom:20px;">
-        Building a <strong style="color:#f1f5f9;">Harvey-class legal AI model</strong> for Ukrainian law. Three-phase roadmap using open-weight models (DeepSeek-V3 685B) on cloud infrastructure, trained on the largest open court corpus in Europe.
+        Not a roadmap -- <strong style="color:#f1f5f9;">active training</strong>. CPT on Qwen2.5-14B running on 8xH100 right now. DPO preference tuning 89% complete. Every experiment tracked in MLflow with full reproducibility.
       </p>
 
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">
-        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px;">
-          <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Phase 1: Foundation</div>
-          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">Fine-tune embeddings + LoRA on 10.9M KUpAP decisions. Target: >75% preference vs GPT-4o.</p>
-          <div style="font-size:11px;color:#64748b;margin-top:8px;">Budget: ~$15K</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:20px;">
+        <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:18px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#4ade80;animation:pulse 2s infinite;"></div>
+            <div style="font-size:12px;font-weight:600;color:#4ade80;text-transform:uppercase;letter-spacing:1px;">Running Now</div>
+          </div>
+          <div style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:4px;">CPT Qwen2.5-14B</div>
+          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">Continual pre-training on 115M court decisions. 8xH100 via NVIDIA Innovation Lab. ~48s/step.</p>
+        </div>
+        <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:18px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#60a5fa;"></div>
+            <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;">89% Complete</div>
+          </div>
+          <div style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:4px;">DPO Fine-Tuning</div>
+          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">8/9 preference-tuning experiments done. SageMaker g5 (A10G). Legal reasoning optimization.</p>
         </div>
         <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px;">
-          <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Phase 2: Scale</div>
-          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">Continued pre-training on 100M decisions (50-80B tokens). Jurisdiction-specific LoRA adapters.</p>
-          <div style="font-size:11px;color:#64748b;margin-top:8px;">Budget: ~$80-120K</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#a78bfa;"></div>
+            <div style="font-size:12px;font-weight:600;color:#a78bfa;text-transform:uppercase;letter-spacing:1px;">Complete</div>
+          </div>
+          <div style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:4px;">Temporal Drift Analysis</div>
+          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">24-job experiment matrix. 12 models, 9 families. H100 + SageMaker parallel GPU scheduling.</p>
         </div>
         <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px;">
-          <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Phase 3: Harvey-class</div>
-          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">Multi-model orchestration, RLHF with lawyers. Target: >95% preference, <0.2% hallucination.</p>
-          <div style="font-size:11px;color:#64748b;margin-top:8px;">Budget: ~$100-130K</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#fbbf24;"></div>
+            <div style="font-size:12px;font-weight:600;color:#fbbf24;text-transform:uppercase;letter-spacing:1px;">Next</div>
+          </div>
+          <div style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:4px;">CPT Qwen2.5-32B</div>
+          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">Scale to 32B parameters. Full EDRSR corpus. Target: benchmark-beating Ukrainian legal LLM.</p>
         </div>
-      </div>
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <span class="feature-pill">Constitutional RLHF</span>
-        <span class="feature-pill">DeepSeek-V3 685B</span>
-        <span class="feature-pill">Long Tail Mitigation</span>
-        <span class="feature-pill">Calibrated Uncertainty</span>
       </div>
     </div>
 
     <div style="flex:0.7;">
-      <div style="background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.06));border:1px solid rgba(59,130,246,0.15);border-radius:16px;padding:24px;margin-bottom:16px;">
-        <h4 style="font-size:13px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Constitutional RLHF</h4>
-        <p style="font-size:13px;color:#94a3b8;line-height:1.6;">Ukraine's Constitution as reward signal. Each response evaluated against constitutional principles: presumption of innocence, privacy, equality, human dignity.</p>
-        <p style="font-size:13px;color:#cbd5e1;line-height:1.6;margin-top:10px;font-weight:500;">30-article LegalTech LLM Constitution published as open industry standard.</p>
+      <div style="background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(59,130,246,0.06));border:1px solid rgba(139,92,246,0.15);border-radius:16px;padding:24px;margin-bottom:16px;">
+        <h4 style="font-size:13px;font-weight:600;color:#a78bfa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">MLflow Experiment Tracking</h4>
+        <p style="font-size:13px;color:#94a3b8;line-height:1.6;">Every training run -- hyperparameters, metrics, model artifacts -- tracked and versioned. Production-grade ML operations from day one.</p>
+        <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;">
+            <div style="font-size:22px;font-weight:800;color:#a78bfa;">50+</div>
+            <div style="font-size:10px;color:#64748b;text-transform:uppercase;">Tracked Runs</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;">
+            <div style="font-size:22px;font-weight:800;color:#a78bfa;">100%</div>
+            <div style="font-size:10px;color:#64748b;text-transform:uppercase;">Reproducible</div>
+          </div>
+        </div>
       </div>
 
       <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:24px;">
-        <h4 style="font-size:13px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Key Innovation</h4>
-        <p style="font-size:13px;color:#94a3b8;line-height:1.6;">Harvey.ai spent $100M+ training with OpenAI. We achieve comparable results at a fraction of cost using open-weight models on cloud silicon — focused on a unique dataset no competitor can replicate.</p>
+        <h4 style="font-size:13px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Why This Matters</h4>
+        <p style="font-size:13px;color:#94a3b8;line-height:1.6;">EDRSR data is public. But training on it requires domain tokenizers, legal-specific data cleaning, constitutional alignment, and years of iteration. Competitors would need 12-18 months to catch up.</p>
       </div>
     </div>
   </div>
@@ -1262,34 +1275,34 @@
   <h2>Traction & <span>Roadmap</span></h2>
   <div class="traction-grid">
     <div class="traction-card">
-      <div class="t-val">120M+</div>
-      <div class="t-label">Legal Records Indexed</div>
+      <div class="t-val">14B</div>
+      <div class="t-label">Model in Training (8xH100)</div>
     </div>
     <div class="traction-card">
-      <div class="t-val">118+</div>
-      <div class="t-label">AI Tools Built</div>
+      <div class="t-val">50+</div>
+      <div class="t-label">MLflow Tracked Experiments</div>
     </div>
     <div class="traction-card">
-      <div class="t-val">2</div>
-      <div class="t-label">Platforms in Public Beta</div>
+      <div class="t-val">9</div>
+      <div class="t-label">Research Papers (4 arXiv)</div>
     </div>
     <div class="traction-card">
-      <div class="t-val">6</div>
-      <div class="t-label">Research Papers (arXiv)</div>
+      <div class="t-val">8</div>
+      <div class="t-label">HuggingFace Datasets Published</div>
     </div>
   </div>
   <div class="milestones">
     <div class="milestone">
+      <div class="m-period">Now</div>
+      <p><span class="m-highlight">CPT 14B training on 8xH100.</span> DPO 89% done. 2 platforms in public beta. 118 AI tools live. SWC regional finalist.</p>
+    </div>
+    <div class="milestone">
       <div class="m-period">Months 1-2</div>
-      <p><span class="m-highlight">Domain-specific LLM v1.</span> Fine-tune on 120M court decisions. Benchmark vs GPT-4o on Ukrainian legal tasks. First paid beta cohort.</p>
+      <p><span class="m-highlight">LLM v1 benchmarked vs GPT-4o.</span> Scale to 32B. NVIDIA Inception marketplace listing. First paid cohort.</p>
     </div>
     <div class="milestone">
-      <div class="m-period">Months 3-4</div>
-      <p><span class="m-highlight">NVIDIA Inception marketplace listing.</span> LLM API available for law firms and compliance platforms. First enterprise pilots.</p>
-    </div>
-    <div class="milestone">
-      <div class="m-period">Months 5-6</div>
-      <p><span class="m-highlight">$15-25K MRR from LLM API + platform subs.</span> Seed round preparation. Expand to CEE jurisdictions.</p>
+      <div class="m-period">Months 3-6</div>
+      <p><span class="m-highlight">LLM API + platform subs = $15-25K MRR.</span> Enterprise pilots. Seed round. Expand to CEE jurisdictions.</p>
     </div>
   </div>
   <div class="logo-bar">SECONDLAYER</div>
@@ -1305,7 +1318,7 @@
       <div class="team-info">
         <h4>Volodymyr Ovcharov</h4>
         <div class="role">Founder, CEO & AI Researcher</div>
-        <p>15+ years building scalable data platforms. Glushkov Institute of Cybernetics (NAS of Ukraine). AI/ML, LLM training, high-load systems, OSINT infrastructure.</p>
+        <p>15+ years in data platforms. Glushkov Institute of Cybernetics (NAS of Ukraine). 9 papers, active LLM training, MLflow/SageMaker pipelines, PhD in progress.</p>
       </div>
     </div>
     <div class="team-card">
@@ -1319,16 +1332,16 @@
   </div>
   <div class="why-us">
     <div class="why-item">
-      <h4>Domain Expertise</h4>
-      <p>Legal PhD + AI researcher CEO. Domain logic baked into architecture, not bolted on.</p>
+      <h4>Models, Not Just Data</h4>
+      <p>Active LLM training on EDRSR. 50+ tracked experiments. Competitors would need 12-18 months to replicate.</p>
     </div>
     <div class="why-item">
-      <h4>Dual Data Moat</h4>
-      <p>120M+ legal records + 15B+ intelligence records. Months to build. Impossible to replicate quickly.</p>
+      <h4>Production MLOps</h4>
+      <p>MLflow, SageMaker, HuggingFace Hub. Full pipeline from raw court data to deployed model. Not a prototype.</p>
     </div>
     <div class="why-item">
-      <h4>Two Markets, One Team</h4>
-      <p>Legal analytics + due diligence. Natural cross-sell. Shared infrastructure. Double the addressable market.</p>
+      <h4>Academic Credibility</h4>
+      <p>9 papers, 4 on arXiv. PhD in progress at NAS Ukraine. Domain knowledge no hire can shortcut.</p>
     </div>
   </div>
   <div class="logo-bar">SECONDLAYER</div>
