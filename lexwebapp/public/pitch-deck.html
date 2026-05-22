@@ -616,8 +616,11 @@
   <div class="slide-number">09</div>
 </div>
 
-<button onclick="window.print()" style="position:fixed;top:24px;right:24px;z-index:1000;padding:10px 22px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.3);transition:opacity .2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Download PDF</button>
-<style>@media print { button { display: none !important; } }</style>
+<div style="position:fixed;top:24px;right:24px;z-index:1000;display:flex;gap:10px;">
+<button onclick="if(!document.fullscreenElement){document.documentElement.requestFullscreen()}else{document.exitFullscreen()}" style="padding:10px 18px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#cbd5e1;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .2s;backdrop-filter:blur(8px);" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Fullscreen</button>
+<button onclick="window.print()" style="padding:10px 22px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.3);transition:opacity .2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Download PDF</button>
+</div>
+<style>@media print { div[style*="position:fixed"] { display: none !important; } }</style>
 
 </body>
 </html>
