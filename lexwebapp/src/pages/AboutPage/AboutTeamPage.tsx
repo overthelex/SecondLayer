@@ -49,11 +49,11 @@ const en: TeamCopy = {
       role: 'Co-founder & CTO',
       photo: '/team/volodymyr.jpg',
       bio:
-        '15+ years building scalable data platforms, AI/ML systems, and OSINT infrastructure. As CTO of SecondLayer, designed and shipped the platform that processes 120M+ court records via 118 AI tools using LLM orchestration, vector search, and autonomous agents.',
+        '25+ years in computer science and software engineering. Founder & CEO of LEX AI – an AI-powered legal intelligence platform processing 100M+ court decisions across 12 jurisdictions. Prior: 2x CTO in Seoul (30-person team, OCaml/Haskell/Polkadot), startup exit (AVOX, VoIP – Startup Sauna 2016 winner, acquired), Toptal (top 3%). Currently training domain-specific legal LLM on 8xH100 (NVIDIA Innovation Lab). 14 research papers (93% sole-authored), 14 open datasets on HuggingFace.',
       expertise:
-        'Production RAG pipelines (Qdrant, Voyage AI, OpenAI embeddings); multi-provider LLM orchestration (OpenAI GPT-4o, Anthropic Claude Opus/Sonnet, AWS Bedrock); autonomous agentic systems with intent classification and query planning; OSINT engineering across 20+ registries; Ukrainian-language NLP; E2EE (X25519 + AES-256-GCM); WebAuthn/FIDO2; Diia digital-identity integration; blue-green CI/CD on self-hosted runners.',
+        'LLM training at scale (CPT, SFT, DPO on H100/A10G clusters); legal NLP for morphologically rich languages; RAG architecture and semantic search (500M+ document corpus); research – 3 arXiv publications in cs.CL/cs.IR, 6 manuscripts ready; open-data engineering – 14 HuggingFace datasets including the largest non-English legal NLP corpus; distributed systems architecture (TypeScript, PostgreSQL, Qdrant, Redis, AWS); startup leadership and prior exit.',
       education:
-        'BSc Applied Mathematics, Igor Sikorsky Kyiv Polytechnic Institute (KPI). Researcher, V.M. Glushkov Institute of Cybernetics, National Academy of Sciences of Ukraine.',
+        'MSc Computational Science, Igor Sikorsky Kyiv Polytechnic Institute (KPI). PhD candidate (Computer Science, specialty 122), V.M. Glushkov Institute of Cybernetics, National Academy of Sciences of Ukraine. Dissertation: 5/6 chapters completed.',
       linkedin: 'https://linkedin.com/in/volodymir-ovcharov',
       email: 'volodymyr@legal.org.ua',
     },
@@ -98,11 +98,11 @@ const uk: TeamCopy = {
       role: 'Кофаундер та CTO',
       photo: '/team/volodymyr.jpg',
       bio:
-        '15+ років побудови масштабних data-платформ, AI/ML-систем та OSINT-інфраструктури. Як CTO SecondLayer спроектував і запустив платформу, що обробляє 120M+ судових записів через 118 AI-інструментів з використанням LLM-оркестрації, векторного пошуку та автономних агентів.',
+        '25+ років у computer science та інженерії. Засновник і CEO LEX AI – AI-платформи для юридичної аналітики, що обробляє 100M+ судових рішень у 12 юрисдикціях. Раніше: 2x CTO в Сеулі (команда 30 осіб, OCaml/Haskell/Polkadot), стартап-exit (AVOX, VoIP – переможець Startup Sauna 2016, придбаний), Toptal (top 3%). Зараз тренує доменну юридичну LLM на 8xH100 (NVIDIA Innovation Lab). 14 наукових статей (93% sole-authored), 14 відкритих датасетів на HuggingFace.',
       expertise:
-        'Продакшн RAG-пайплайни (Qdrant, Voyage AI, OpenAI embeddings); multi-provider LLM-оркестрація (OpenAI GPT-4o, Anthropic Claude Opus/Sonnet, AWS Bedrock); автономні агентні системи з intent classification та query planning; OSINT-платформи з 20+ реєстрами; NLP для українських текстів; E2EE (X25519 + AES-256-GCM); WebAuthn/FIDO2; інтеграція Дія.Підпис; blue-green CI/CD.',
+        'Тренування LLM (CPT, SFT, DPO на кластерах H100/A10G); legal NLP для морфологічно багатих мов; RAG-архітектура та семантичний пошук (500M+ документів); дослідження – 3 публікації arXiv у cs.CL/cs.IR, 6 рукописів готові; open-data engineering – 14 датасетів HuggingFace, включаючи найбільший неанглійський корпус для legal NLP; архітектура розподілених систем (TypeScript, PostgreSQL, Qdrant, Redis, AWS); лідерство стартапів та exit.',
       education:
-        'Бакалавр прикладної математики, КПІ ім. Ігоря Сікорського. Дослідник, Інститут кібернетики ім. В.М. Глушкова НАН України.',
+        'Магістр прикладної математики, КПІ ім. Ігоря Сікорського. Аспірант (компʼютерні науки, спеціальність 122), Інститут кібернетики ім. В.М. Глушкова НАН України. Дисертація: 5/6 розділів завершено.',
       linkedin: 'https://linkedin.com/in/volodymir-ovcharov',
       email: 'volodymyr@legal.org.ua',
     },
