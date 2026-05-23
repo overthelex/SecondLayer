@@ -183,8 +183,8 @@
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:10px;">
     <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:32px;">
       <div style="font-size:24px;font-weight:800;color:#60a5fa;margin-bottom:14px;">01</div>
-      <h3 style="font-size:20px;font-weight:600;color:#f1f5f9;margin-bottom:12px;">Generic LLMs Fail at Law</h3>
-      <p style="font-size:15px;color:#94a3b8;line-height:1.7;">GPT-4o hallucinates case numbers, misreads Ukrainian legal terminology, and has no knowledge of post-2023 court practice. Legal professionals can't trust it.</p>
+      <h3 style="font-size:20px;font-weight:600;color:#f1f5f9;margin-bottom:12px;">Generic LLM + RAG Hits a Ceiling</h3>
+      <p style="font-size:15px;color:#94a3b8;line-height:1.7;">Plugging court docs into ChatGPT looks like it works -- until it doesn't. RAG retrieves documents, but the model still confuses procedural stages, hallucinates citations, and misreads Ukrainian legal reasoning. <strong style="color:#cbd5e1;">The model was never trained on this domain</strong> -- it pattern-matches on English common law, not Ukrainian civil code. Only domain-trained weights fix this.</p>
     </div>
     <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:32px;">
       <div style="font-size:24px;font-weight:800;color:#60a5fa;margin-bottom:14px;">02</div>
