@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Linkedin, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Linkedin, Mail, Phone, Github } from 'lucide-react';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { useHreflang } from '../../hooks/useHreflang';
 import { useLocaleStore } from '../../stores/localeStore';
@@ -18,6 +18,8 @@ interface Founder {
   linkedin: string;
   email: string;
   phone?: string;
+  github?: string;
+  huggingface?: string;
 }
 
 interface TeamCopy {
@@ -56,6 +58,8 @@ const en: TeamCopy = {
         'MSc Computational Science, Igor Sikorsky Kyiv Polytechnic Institute (KPI). PhD candidate (Computer Science, specialty 122), V.M. Glushkov Institute of Cybernetics, National Academy of Sciences of Ukraine. Dissertation: 5/6 chapters completed.',
       linkedin: 'https://linkedin.com/in/volodymir-ovcharov',
       email: 'volodymyr@legal.org.ua',
+      github: 'https://github.com/overthelex',
+      huggingface: 'https://huggingface.co/overthelex',
     },
     {
       slug: 'igor',
@@ -105,6 +109,8 @@ const uk: TeamCopy = {
         'Магістр прикладної математики, КПІ ім. Ігоря Сікорського. Аспірант (компʼютерні науки, спеціальність 122), Інститут кібернетики ім. В.М. Глушкова НАН України. Дисертація: 5/6 розділів завершено.',
       linkedin: 'https://linkedin.com/in/volodymir-ovcharov',
       email: 'volodymyr@legal.org.ua',
+      github: 'https://github.com/overthelex',
+      huggingface: 'https://huggingface.co/overthelex',
     },
     {
       slug: 'igor',
@@ -282,6 +288,28 @@ function FounderCard({
               <Mail size={14} />
               {f.email}
             </a>
+            {f.github && (
+              <a
+                href={f.github}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-claude-subtext hover:text-claude-accent transition-colors"
+              >
+                <Github size={14} />
+                GitHub
+              </a>
+            )}
+            {f.huggingface && (
+              <a
+                href={f.huggingface}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-claude-subtext hover:text-claude-accent transition-colors"
+              >
+                <span className="text-xs font-bold">🤗</span>
+                HuggingFace
+              </a>
+            )}
             {f.phone && (
               <a
                 href={`tel:${f.phone.replace(/\s+/g, '')}`}
