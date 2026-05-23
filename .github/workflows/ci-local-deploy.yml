@@ -420,7 +420,7 @@ jobs:
 
           [ -n "$START" ] && $DC up -d $START
 
-          $DC restart nginx-local
+          $DC up -d --force-recreate nginx-local
           docker image prune -f || true
 
       - name: Wait for local services to become healthy
