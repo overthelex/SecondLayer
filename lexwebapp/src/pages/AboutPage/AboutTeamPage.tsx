@@ -36,22 +36,22 @@ interface TeamCopy {
 const en: TeamCopy = {
   metaTitle: 'Team — LEX | Founders & Engineering',
   metaDescription:
-    'The team behind LEX: Volodymyr Ovcharov (CTO, 15+ years in data platforms and AI/ML) and Igor Kyrychenko (CEO, PhD in Law).',
+    'The team behind LEX: Volodymyr Ovcharov (CEO & AI Researcher, 25+ years in CS) and Igor Kyrychenko (COO & CLO, PhD in Law).',
   back: 'Back',
   hero: {
     kicker: 'Founders',
     headline: 'The team behind LEX.',
     lead:
-      'A Ukrainian-founded company combining 15+ years of large-scale data-platform engineering with deep Ukrainian legal-domain expertise. The platform is built end-to-end in-house: data-ingestion pipelines, AI orchestration, frontend, and infrastructure.',
+      'A Ukrainian-founded company combining 25+ years of computer science and AI research with deep Ukrainian legal-domain expertise. The platform is built end-to-end in-house: data-ingestion pipelines, AI orchestration, frontend, and infrastructure.',
   },
   founders: [
     {
       slug: 'volodymyr',
       name: 'Volodymyr Ovcharov',
-      role: 'Co-founder & CTO',
+      role: 'Co-founder, CEO & AI Researcher',
       photo: '/team/volodymyr.jpg',
       bio:
-        '25+ years in computer science and software engineering. Founder & CEO of LEX AI – an AI-powered legal intelligence platform processing 100M+ court decisions across 12 jurisdictions. Prior: 2x CTO in Seoul (30-person team, OCaml/Haskell/Polkadot), startup exit (AVOX, VoIP – Startup Sauna 2016 winner, acquired), Toptal (top 3%). Currently training domain-specific legal LLM on 8xH100 (NVIDIA Innovation Lab). 14 research papers (93% sole-authored), 14 open datasets on HuggingFace.',
+        '25+ years in computer science and software engineering. Built LEX AI – an AI-powered legal intelligence platform processing 100M+ court decisions across 12 jurisdictions. Prior: 2x CTO in Seoul (30-person team, OCaml/Haskell/Polkadot), startup exit (AVOX, VoIP – Startup Sauna 2016 winner, acquired), Toptal (top 3%). Currently training domain-specific legal LLM on 8xH100 (NVIDIA Innovation Lab). 14 research papers (93% sole-authored), 14 open datasets on HuggingFace.',
       expertise:
         'LLM training at scale (CPT, SFT, DPO on H100/A10G clusters); legal NLP for morphologically rich languages; RAG architecture and semantic search (500M+ document corpus); research – 3 arXiv publications in cs.CL/cs.IR, 6 manuscripts ready; open-data engineering – 14 HuggingFace datasets including the largest non-English legal NLP corpus; distributed systems architecture (TypeScript, PostgreSQL, Qdrant, Redis, AWS); startup leadership and prior exit.',
       education:
@@ -64,10 +64,10 @@ const en: TeamCopy = {
     {
       slug: 'igor',
       name: 'Igor Kyrychenko',
-      role: 'Co-founder & CEO',
+      role: 'Co-founder, COO & CLO',
       photo: '/team/igor.jpg',
       bio:
-        'PhD in Law, with deep expertise in Ukrainian and international legal practice. Director of the operating Ukrainian entity (LLC) and COO of SecondLayer. Responsible for product direction, legal-domain modelling (the taxonomy of 118 MCP tools, the workflow templates for litigation, and the doctrinal weighting used in retrieval), business development, and partnerships with law firms, bar associations, and the government sector.',
+        'PhD in Law, with deep expertise in Ukrainian and international legal practice. Director of the operating Ukrainian entity (LLC). Responsible for product direction, legal-domain modelling (the taxonomy of 118 MCP tools, the workflow templates for litigation, and the doctrinal weighting used in retrieval), business development, and partnerships with law firms, bar associations, and the government sector.',
       expertise:
         'Ukrainian civil, commercial, and criminal procedure; Supreme Court doctrinal analysis; legal-domain ontology design; legal-tech go-to-market in Ukraine; partnerships with the Ukrainian Bar Association and Diia (Ministry of Digital Transformation).',
       linkedin: 'https://www.linkedin.com/in/ihor-kyrychenko-90503890/',
@@ -87,22 +87,22 @@ const en: TeamCopy = {
 const uk: TeamCopy = {
   metaTitle: 'Команда — LEX | Кофаундери та інженерія',
   metaDescription:
-    'Команда LEX: Володимир Овчаров (CTO, 15+ років в data-платформах та AI/ML) та Ігор Кириченко (CEO, PhD у праві).',
+    'Команда LEX: Володимир Овчаров (CEO та AI Researcher, 25+ років у CS) та Ігор Кириченко (COO та CLO, PhD у праві).',
   back: 'Назад',
   hero: {
     kicker: 'Кофаундери',
     headline: 'Команда LEX.',
     lead:
-      'Компанія з українським корінням, що поєднує 15+ років інженерного досвіду з масштабованими data-платформами та глибоку експертизу в українському праві. Платформу побудовано end-to-end власною командою: пайплайни обробки даних, AI-оркестрація, фронтенд та інфраструктура.',
+      'Компанія з українським корінням, що поєднує 25+ років досвіду в computer science та AI-дослідженнях з глибокою експертизою в українському праві. Платформу побудовано end-to-end власною командою: пайплайни обробки даних, AI-оркестрація, фронтенд та інфраструктура.',
   },
   founders: [
     {
       slug: 'volodymyr',
       name: 'Володимир Овчаров',
-      role: 'Кофаундер та CTO',
+      role: 'Кофаундер, CEO та AI Researcher',
       photo: '/team/volodymyr.jpg',
       bio:
-        '25+ років у computer science та інженерії. Засновник і CEO LEX AI – AI-платформи для юридичної аналітики, що обробляє 100M+ судових рішень у 12 юрисдикціях. Раніше: 2x CTO в Сеулі (команда 30 осіб, OCaml/Haskell/Polkadot), стартап-exit (AVOX, VoIP – переможець Startup Sauna 2016, придбаний), Toptal (top 3%). Зараз тренує доменну юридичну LLM на 8xH100 (NVIDIA Innovation Lab). 14 наукових статей (93% sole-authored), 14 відкритих датасетів на HuggingFace.',
+        '25+ років у computer science та інженерії. Побудував LEX AI – AI-платформу для юридичної аналітики, що обробляє 100M+ судових рішень у 12 юрисдикціях. Раніше: 2x CTO в Сеулі (команда 30 осіб, OCaml/Haskell/Polkadot), стартап-exit (AVOX, VoIP – переможець Startup Sauna 2016, придбаний), Toptal (top 3%). Зараз тренує доменну юридичну LLM на 8xH100 (NVIDIA Innovation Lab). 14 наукових статей (93% sole-authored), 14 відкритих датасетів на HuggingFace.',
       expertise:
         'Тренування LLM (CPT, SFT, DPO на кластерах H100/A10G); legal NLP для морфологічно багатих мов; RAG-архітектура та семантичний пошук (500M+ документів); дослідження – 3 публікації arXiv у cs.CL/cs.IR, 6 рукописів готові; open-data engineering – 14 датасетів HuggingFace, включаючи найбільший неанглійський корпус для legal NLP; архітектура розподілених систем (TypeScript, PostgreSQL, Qdrant, Redis, AWS); лідерство стартапів та exit.',
       education:
@@ -115,10 +115,10 @@ const uk: TeamCopy = {
     {
       slug: 'igor',
       name: 'Ігор Кириченко',
-      role: 'Кофаундер та CEO',
+      role: 'Кофаундер, COO та CLO',
       photo: '/team/igor.jpg',
       bio:
-        'PhD у праві, з глибокою експертизою в українській та міжнародній юридичній практиці. Директор операційного ТОВ та COO SecondLayer. Відповідає за продуктовий напрямок, моделювання предметної області (таксономія 118 MCP-інструментів, шаблони workflow для litigation, доктринальне зважування в retrieval), бізнес-розвиток та партнерства з юридичними фірмами, асоціаціями адвокатів та державним сектором.',
+        'PhD у праві, з глибокою експертизою в українській та міжнародній юридичній практиці. Директор операційного ТОВ. Відповідає за продуктовий напрямок, моделювання предметної області (таксономія 118 MCP-інструментів, шаблони workflow для litigation, доктринальне зважування в retrieval), бізнес-розвиток та партнерства з юридичними фірмами, асоціаціями адвокатів та державним сектором.',
       expertise:
         'Цивільне, господарське та кримінальне процесуальне право України; доктринальний аналіз позицій Верховного Суду; проектування правових онтологій; legal-tech go-to-market в Україні; партнерства з НААУ та Мінцифри (Дія).',
       linkedin: 'https://www.linkedin.com/in/ihor-kyrychenko-90503890/',
