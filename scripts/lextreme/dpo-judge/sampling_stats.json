@@ -1,0 +1,21 @@
+{
+  "total": 3006,
+  "per_epoch": {
+    "pre_war": 1002,
+    "hybrid_war": 1002,
+    "full_scale": 1002
+  },
+  "per_label": {
+    "approved": 1002,
+    "dismissed": 1002,
+    "partial": 1002
+  },
+  "text_len": {
+    "min": 2000,
+    "max": 12000,
+    "median": 6472
+  },
+  "seed": 42,
+  "min_text_len": 2000,
+  "max_text_len": 12000
+}
