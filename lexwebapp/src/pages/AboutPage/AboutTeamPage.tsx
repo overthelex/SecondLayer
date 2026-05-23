@@ -197,19 +197,6 @@ export function AboutTeamPage() {
           ))}
         </div>
 
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-16 rounded-2xl bg-white border border-claude-border p-8"
-        >
-          <h2 className="text-2xl font-serif text-claude-text font-medium mb-3">
-            {c.wider.title}
-          </h2>
-          <p className="text-base text-claude-subtext font-sans leading-relaxed">
-            {c.wider.body}
-          </p>
-        </motion.section>
       </div>
     </div>
   );
