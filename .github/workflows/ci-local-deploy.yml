@@ -365,10 +365,12 @@ jobs:
             npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build
           fi
 
-      - name: Link env files from main repo
+      - name: Link env files and certs from main repo
         run: |
           ln -sf /home/vovkes/SecondLayer/deployment/.env.local deployment/.env.local
           ln -sf /home/vovkes/SecondLayer/deployment/.env.prod deployment/.env.prod 2>/dev/null || true
+          rm -rf deployment/nginx/certs
+          ln -sf /home/vovkes/SecondLayer/deployment/nginx/certs deployment/nginx/certs
 
       - name: Safety check — prod containers untouched
         run: |
