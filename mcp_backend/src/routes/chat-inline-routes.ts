@@ -13,6 +13,7 @@ import { CostTracker } from '../services/cost-tracker.js';
 import { Database } from '../database/database.js';
 import { v4 as uuidv4 } from 'uuid';
 import { requestContext } from '../utils/openai-client.js';
+import { runWithABUser } from '../infrastructure/adapters/llm-adapter.js';
 
 export function createChatInlineRoutes(deps: {
   chatService: ChatService;
@@ -184,25 +185,24 @@ export function createChatInlineRoutes(deps: {
         internetEnabled: internetEnabled !== false,
       };
       try {
-        for await (const event of deps.chatService.chat(chatRequest)) {
-          if (abortController.signal.aborted) break;
+        await runWithABUser(userId || '', async () => {
+          for await (const event of deps.chatService.chat(chatRequest)) {
+            if (abortController.signal.aborted) break;
 
-          if (event.type === 'complete') {
-            chatCompleted = true;
-            chatTotalCostUsd = event.data?.total_cost_usd || 0;
-            event.data.response_id = requestId;
-            // Include auto-created conversationId so the client can track it
-            if (chatRequest.conversationId && chatRequest.conversationId !== conversationId) {
-              event.data.conversationId = chatRequest.conversationId;
+            if (event.type === 'complete') {
+              chatCompleted = true;
+              chatTotalCostUsd = event.data?.total_cost_usd || 0;
+              event.data.response_id = requestId;
+              if (chatRequest.conversationId && chatRequest.conversationId !== conversationId) {
+                event.data.conversationId = chatRequest.conversationId;
+              }
             }
+
+            res.write(`event: ${event.type}\n`);
+            res.write(`data: ${JSON.stringify(event.data)}\n\n`);
           }
+        });
 
-          res.write(`event: ${event.type}\n`);
-          res.write(`data: ${JSON.stringify(event.data)}\n\n`);
-        }
-
-        // If aborted (timeout) and no answer was sent, emit an error event
-        // so the frontend knows to reset streaming state
         if (abortController.signal.aborted && !chatCompleted && !res.writableEnded) {
           logger.warn('[ChatService] Sending timeout error to client', { requestId });
           res.write(`event: error\n`);

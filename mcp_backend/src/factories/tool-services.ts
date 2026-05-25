@@ -42,6 +42,8 @@ import { WorkflowMemoryPushService } from '../services/workflow-memory-push-serv
 import { OsintProxyAdapter } from '../adapters/osint-proxy-adapter.js';
 import { OsintProxyTools } from '../api/tools/osint-proxy-tools.js';
 import { IndiaCourtTools } from '../api/tools/india-court-tools.js';
+import { ABTestingTools } from '../api/tools/ab-testing-tools.js';
+import { ABTestingService } from '../services/ab-testing-service.js';
 import { logger } from '../utils/logger.js';
 import path from 'path';
 
@@ -180,6 +182,10 @@ export function createToolServices(
   const wmPushService = new WorkflowMemoryPushService(coreServices.db, pushSummarize);
   wmTools.setPushService(wmPushService);
   toolRegistry.registerHandler(wmTools);
+
+  // A/B testing tools
+  const abTestingService = new ABTestingService(coreServices.db);
+  toolRegistry.registerHandler(new ABTestingTools(abTestingService));
 
   logger.info('Core tool handlers registered with ToolRegistry');
 
