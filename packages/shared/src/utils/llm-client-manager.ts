@@ -132,6 +132,15 @@ export class LLMClientManager {
     this.externalApiMetrics = callback;
   }
 
+  async chatCompletionWithModel(
+    request: UnifiedChatRequest,
+    model: string,
+    provider: LLMProvider,
+  ): Promise<UnifiedChatResponse> {
+    const selection: ModelSelection = { provider, model, budget: 'standard' };
+    return this.executeChatCompletion(request, selection);
+  }
+
   async chatCompletion(
     request: UnifiedChatRequest,
     budget: BudgetLevel = 'standard',

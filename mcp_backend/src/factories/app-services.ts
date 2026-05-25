@@ -29,6 +29,7 @@ import { AttorneyPayoutService } from '../services/attorney-payout-service.js';
 import { ConsultationE2eeService } from '../services/consultation-e2ee-service.js';
 import { OAuthService } from '../services/oauth-service.js';
 import { LegislationMonitoringService } from '../services/legislation-monitoring-service.js';
+import { ABTestingService } from '../services/ab-testing-service.js';
 import { MCPSSEServer } from '../api/mcp-sse-server.js';
 import { BannerService } from '../services/banner-service.js';
 import { UserService } from '../services/user-service.js';
@@ -71,6 +72,7 @@ export interface AppServices {
   mcpSSEServer: MCPSSEServer;
   llmAdapter: LLMAdapter;
   legislationMonitoringService: LegislationMonitoringService;
+  abTestingService: ABTestingService;
 }
 
 export function createAppServices(
@@ -79,6 +81,11 @@ export function createAppServices(
   tools: ToolServices,
   llmAdapter: LLMAdapter
 ): AppServices {
+  // A/B testing service
+  const abTestingService = new ABTestingService(coreServices.db);
+  llmAdapter.setABTestingService(abTestingService);
+  logger.info('A/B testing service initialized');
+
   // OAuth 2.0 service for ChatGPT integration
   const oauthService = new OAuthService(coreServices.db);
   logger.info('OAuth 2.0 service initialized');
@@ -290,5 +297,6 @@ export function createAppServices(
     mcpSSEServer,
     llmAdapter,
     legislationMonitoringService,
+    abTestingService,
   };
 }
