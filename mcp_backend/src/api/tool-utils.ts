@@ -172,23 +172,14 @@ export function generateCaseNumberVariations(caseNumber: string): string[] {
   const variations = new Set<string>();
   variations.add(caseNumber);
 
+  // Standard format: 123/456/22-ц
   const match = caseNumber.match(/^(\d+\/\d+\/)(\d{2,4})(-[а-яіїєґА-ЯІЇЄҐ])?$/);
   if (match) {
     const prefix = match[1];
     const year = match[2];
     const suffix = match[3] || '';
 
-    let shortYear = year;
-    let longYear = year;
-
-    if (year.length === 2) {
-      shortYear = year;
-      const yearNum = parseInt(year, 10);
-      longYear = yearNum < 50 ? `20${year}` : `19${year}`;
-    } else if (year.length === 4) {
-      longYear = year;
-      shortYear = year.slice(-2);
-    }
+    const [shortYear, longYear] = expandYear(year);
 
     variations.add(`${prefix}${shortYear}${suffix}`);
     variations.add(`${prefix}${longYear}${suffix}`);
@@ -199,7 +190,29 @@ export function generateCaseNumberVariations(caseNumber: string): string[] {
     }
   }
 
+  // Pre-2017 VSU format: 5-15кс12 → also try 5-15/12, 5-15/2012
+  const vsuMatch = caseNumber.match(/^(\d+-\d+)[а-яіїєґА-ЯІЇЄҐ]+(\d{2,4})$/);
+  if (vsuMatch) {
+    const numPart = vsuMatch[1];
+    const year = vsuMatch[2];
+    const [shortYear, longYear] = expandYear(year);
+
+    variations.add(`${numPart}/${shortYear}`);
+    variations.add(`${numPart}/${longYear}`);
+  }
+
   return Array.from(variations);
+}
+
+function expandYear(year: string): [string, string] {
+  if (year.length === 2) {
+    const yearNum = parseInt(year, 10);
+    return [year, yearNum < 50 ? `20${year}` : `19${year}`];
+  }
+  if (year.length === 4) {
+    return [year.slice(-2), year];
+  }
+  return [year, year];
 }
 
 /**
