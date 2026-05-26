@@ -29,6 +29,33 @@ def get_conn():
     return psycopg2.connect(DB_URL)
 
 
+def clean_str(s):
+    """Remove null bytes that PostgreSQL rejects."""
+    if s is None:
+        return None
+    if isinstance(s, str):
+        return s.replace("\x00", "")
+    return s
+
+
+def clean_json(obj):
+    """Recursively remove null bytes from JSON-serializable object."""
+    if obj is None:
+        return None
+    s = json.dumps(obj, default=str)
+    return s.replace("\\u0000", "").replace("\x00", "")
+
+
+def clean_date(val):
+    """Validate and clean a date value. Returns YYYY-MM-DD string or None."""
+    if val is None:
+        return None
+    s = str(val)[:10]
+    if len(s) < 8 or not s[:4].isdigit():
+        return None
+    return s
+
+
 def load_checkpoint(name: str) -> set:
     cp_file = CHECKPOINT_DIR / f"nordic_{name}.json"
     if cp_file.exists():
@@ -88,20 +115,20 @@ def import_dk_hf_file(filepath: str) -> int:
 
         batch_rows.append((
             record_id,
-            ecli,
+            clean_str(ecli),
             "hf-domsdatabasen",
-            court,                                          # court_name
-            None,                                           # court_type
-            case_number,
-            case_type,
-            str(decision_date)[:10] if decision_date else None,
-            None,                                           # judge
-            None,                                           # parties
-            abstract,
-            text,                                           # full_text
-            anonymized,                                     # anonymized_text
-            None,                                           # source_url
-            json.dumps(meta, default=str) if meta else None,
+            clean_str(court),
+            None,
+            clean_str(case_number),
+            clean_str(case_type),
+            clean_date(decision_date),
+            None,
+            None,
+            clean_str(abstract),
+            clean_str(text),
+            clean_str(anonymized),
+            None,
+            clean_json(meta) if meta else None,
         ))
 
         if len(batch_rows) >= BATCH_SIZE:
@@ -218,7 +245,7 @@ def import_se_hf_file(filepath: str) -> int:
             None,                                           # court_type
             case_number,
             None,                                           # decision_type
-            str(decision_date)[:10] if decision_date else None,
+            clean_date(decision_date),
             None,                                           # judge
             title,                                          # subject
             keywords,
@@ -226,7 +253,7 @@ def import_se_hf_file(filepath: str) -> int:
             None,                                           # abstract
             text,                                           # full_text
             None,                                           # source_url
-            json.dumps(meta, default=str) if meta else None,
+            clean_json(meta) if meta else None,
         ))
 
         if len(batch_rows) >= BATCH_SIZE:
