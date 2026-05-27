@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LEX AI -- Legal Intelligence & Due Diligence Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -13,9 +16,9 @@
   }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 'Liberation Sans', Arial, Helvetica, sans-serif;
-    background: #0a0a0a;
-    color: #f5f5f5;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f0f0f2;
+    color: #18181B;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -23,147 +26,141 @@
   .slide {
     width: 1280px;
     height: 720px;
-    padding: 70px 90px;
+    padding: 72px 90px;
     position: relative;
     overflow: hidden;
     page-break-after: always;
     page-break-inside: avoid;
-    background: #0c0c1a;
+    background: #FAFAFA;
     display: flex;
     flex-direction: column;
   }
 
-  .slide::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
-                radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
-    pointer-events: none;
-  }
-
   .slide-number {
     position: absolute;
-    bottom: 30px;
-    right: 50px;
-    font-size: 13px;
-    color: rgba(255,255,255,0.2);
+    bottom: 32px;
+    right: 52px;
+    font-size: 12px;
+    color: #A1A1AA;
     font-weight: 500;
     letter-spacing: 1px;
   }
 
   .logo-bar {
     position: absolute;
-    bottom: 30px;
+    bottom: 32px;
     left: 90px;
-    font-size: 13px;
-    color: rgba(255,255,255,0.25);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-bar svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .logo-bar span {
+    font-size: 12px;
+    color: #A1A1AA;
     font-weight: 600;
-    letter-spacing: 2px;
+    letter-spacing: 1.5px;
     text-transform: uppercase;
   }
 
+  /* typography */
   h2 {
-    font-size: 46px;
+    font-family: 'Crimson Pro', serif;
+    font-size: 52px;
     font-weight: 700;
-    margin-bottom: 44px;
-    line-height: 1.15;
-    position: relative;
+    color: #18181B;
+    margin-bottom: 40px;
+    line-height: 1.1;
   }
 
-  h2 span { color: #60a5fa; }
+  h2 em {
+    font-style: normal;
+    color: #5C7C9E;
+  }
 
-  .big-point {
-    font-size: 22px;
-    color: #cbd5e1;
+  .subtitle {
+    font-size: 20px;
+    color: #71717A;
     line-height: 1.7;
-    max-width: 900px;
+    max-width: 800px;
   }
 
-  .big-point strong { color: #f1f5f9; }
+  .subtitle strong {
+    color: #18181B;
+    font-weight: 600;
+  }
 
   .pill {
     display: inline-block;
-    padding: 7px 16px;
-    background: rgba(59,130,246,0.1);
-    border: 1px solid rgba(59,130,246,0.2);
+    padding: 6px 14px;
+    background: #F4F4F5;
+    border: 1px solid #E4E4E7;
     border-radius: 8px;
     font-size: 13px;
     font-weight: 500;
-    color: #93c5fd;
+    color: #52525B;
     margin: 0 6px 8px 0;
   }
 
-  /* cover */
-  .cover {
-    justify-content: center;
-    align-items: flex-start;
-    background: linear-gradient(135deg, #0c0c1a 0%, #0f172a 50%, #0c0c1a 100%);
-  }
-
-  .cover .glow-orb {
-    position: absolute;
-    right: -80px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 500px;
-    height: 500px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, rgba(139,92,246,0.08) 40%, transparent 70%);
-  }
-
-  /* stat row */
-  .stat-row {
-    display: flex;
-    gap: 48px;
-    margin-top: auto;
-    padding-top: 30px;
-  }
-
-  .stat-item .val {
-    font-size: 40px;
-    font-weight: 800;
-    color: #60a5fa;
-    line-height: 1.2;
-  }
-
-  .stat-item .lbl {
-    font-size: 13px;
-    color: #64748b;
-    margin-top: 4px;
-  }
-
-  /* grid helpers */
-  .grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 28px;
-  }
-
-  .grid-3 {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 24px;
-  }
-
+  /* cards */
   .card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 16px;
-    padding: 30px;
+    background: #FFFFFF;
+    border: 1px solid #E4E4E7;
+    border-radius: 12px;
+    padding: 28px;
   }
 
   .card h3 {
-    font-size: 20px;
+    font-family: 'Crimson Pro', serif;
+    font-size: 22px;
     font-weight: 600;
-    color: #f1f5f9;
-    margin-bottom: 10px;
+    color: #18181B;
+    margin-bottom: 8px;
   }
 
   .card p {
     font-size: 15px;
     line-height: 1.6;
-    color: #94a3b8;
+    color: #71717A;
+  }
+
+  /* grids */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* stats */
+  .stat-row {
+    display: flex;
+    gap: 56px;
+  }
+
+  .stat-item .val {
+    font-family: 'Crimson Pro', serif;
+    font-size: 44px;
+    font-weight: 700;
+    color: #18181B;
+    line-height: 1.1;
+  }
+
+  .stat-item .lbl {
+    font-size: 13px;
+    color: #A1A1AA;
+    margin-top: 4px;
+    font-weight: 500;
   }
 
   /* pipeline */
@@ -178,32 +175,33 @@
     flex: 1;
     text-align: center;
     padding: 28px 16px;
-    border-radius: 14px;
-    background: rgba(59,130,246,0.06);
-    border: 1px solid rgba(59,130,246,0.15);
+    border-radius: 12px;
+    background: #FFFFFF;
+    border: 1px solid #E4E4E7;
   }
 
   .pipeline .step h3 {
-    font-size: 18px;
-    font-weight: 700;
-    color: #f1f5f9;
+    font-family: 'Crimson Pro', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: #18181B;
     margin-bottom: 6px;
   }
 
   .pipeline .step p {
     font-size: 12px;
-    color: #94a3b8;
+    color: #A1A1AA;
     line-height: 1.4;
   }
 
   .pipeline .arrow {
-    font-size: 20px;
-    color: #475569;
+    font-size: 18px;
+    color: #D4D4D8;
     padding: 0 10px;
     flex-shrink: 0;
   }
 
-  /* market circles */
+  /* market */
   .market-row {
     display: flex;
     gap: 20px;
@@ -212,81 +210,96 @@
 
   .market-box {
     flex: 1;
-    border-radius: 16px;
+    border-radius: 12px;
     padding: 28px;
     text-align: center;
+    background: #FFFFFF;
+    border: 1px solid #E4E4E7;
   }
 
   .market-box .c-label {
     font-size: 12px;
     font-weight: 600;
-    color: #60a5fa;
+    color: #A1A1AA;
     letter-spacing: 1.5px;
     text-transform: uppercase;
   }
 
   .market-box .c-value {
-    font-size: 36px;
-    font-weight: 800;
-    color: #f1f5f9;
+    font-family: 'Crimson Pro', serif;
+    font-size: 38px;
+    font-weight: 700;
+    color: #18181B;
     margin: 4px 0;
   }
 
   .market-box .c-desc {
     font-size: 13px;
-    color: #94a3b8;
+    color: #71717A;
   }
 
-  .tam { background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15); }
-  .sam { background: rgba(59,130,246,0.10); border: 1px solid rgba(59,130,246,0.25); }
-  .som { background: rgba(59,130,246,0.18); border: 1px solid rgba(59,130,246,0.35); }
+  .market-box.highlight {
+    background: #18181B;
+    border-color: #18181B;
+  }
+
+  .market-box.highlight .c-label { color: #71717A; }
+  .market-box.highlight .c-value { color: #FFFFFF; }
+  .market-box.highlight .c-desc { color: #A1A1AA; }
 
   /* pricing */
   .pricing-card {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 16px;
+    background: #FFFFFF;
+    border: 1px solid #E4E4E7;
+    border-radius: 12px;
     padding: 32px;
   }
 
   .pricing-card.featured {
-    border-color: rgba(59,130,246,0.3);
-    background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.04));
+    background: #18181B;
+    border-color: #18181B;
   }
 
   .pricing-card h4 {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
-    color: #94a3b8;
+    color: #A1A1AA;
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: 12px;
   }
 
   .pricing-card .price {
-    font-size: 38px;
-    font-weight: 800;
-    color: #f1f5f9;
+    font-family: 'Crimson Pro', serif;
+    font-size: 40px;
+    font-weight: 700;
+    color: #18181B;
   }
 
   .pricing-card .price span {
+    font-family: 'Inter', sans-serif;
     font-size: 16px;
     font-weight: 400;
-    color: #64748b;
+    color: #A1A1AA;
   }
 
   .pricing-card .desc {
     font-size: 14px;
-    color: #94a3b8;
+    color: #71717A;
     margin-top: 10px;
     line-height: 1.5;
   }
 
+  .pricing-card.featured h4 { color: #71717A; }
+  .pricing-card.featured .price { color: #FFFFFF; }
+  .pricing-card.featured .price span { color: #71717A; }
+  .pricing-card.featured .desc { color: #A1A1AA; }
+
   /* team */
   .team-card {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 16px;
+    background: #FFFFFF;
+    border: 1px solid #E4E4E7;
+    border-radius: 12px;
     padding: 32px;
     display: flex;
     gap: 22px;
@@ -294,85 +307,88 @@
   }
 
   .team-avatar {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
-    font-weight: 800;
-    color: #fff;
-    flex-shrink: 0;
-  }
-
-  .team-avatar.vo { background: linear-gradient(135deg, #3b82f6, #8b5cf6); }
-  .team-avatar.ik { background: linear-gradient(135deg, #06b6d4, #3b82f6); }
-
-  .team-info h4 {
     font-size: 20px;
     font-weight: 700;
-    color: #f1f5f9;
+    color: #fff;
+    flex-shrink: 0;
+    background: #1E2838;
+  }
+
+  .team-avatar.ik { background: #5C7C9E; }
+
+  .team-info h4 {
+    font-family: 'Crimson Pro', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: #18181B;
     margin-bottom: 2px;
   }
 
   .team-info .role {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    color: #60a5fa;
+    color: #5C7C9E;
     margin-bottom: 10px;
   }
 
   .team-info p {
     font-size: 14px;
-    color: #94a3b8;
+    color: #71717A;
     line-height: 1.6;
   }
 
-  /* phase */
+  /* phases */
   .phase {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 16px;
-    padding: 36px;
+    background: #FFFFFF;
+    border: 1px solid #E4E4E7;
+    border-radius: 12px;
+    padding: 32px;
     position: relative;
   }
 
   .phase .num {
-    font-size: 56px;
-    font-weight: 800;
-    color: rgba(59,130,246,0.12);
+    font-family: 'Crimson Pro', serif;
+    font-size: 64px;
+    font-weight: 700;
+    color: #F4F4F5;
     position: absolute;
-    top: 18px;
+    top: 14px;
     right: 24px;
     line-height: 1;
   }
 
   .phase h3 {
-    font-size: 22px;
-    font-weight: 700;
-    color: #60a5fa;
-    margin-bottom: 12px;
+    font-family: 'Crimson Pro', serif;
+    font-size: 24px;
+    font-weight: 600;
+    color: #18181B;
+    margin-bottom: 10px;
   }
 
   .phase p {
     font-size: 15px;
-    color: #cbd5e1;
+    color: #71717A;
     line-height: 1.6;
   }
 
   /* contact */
   .contact-box {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px;
+    background: #FFFFFF;
+    border: 1px solid #E4E4E7;
+    border-radius: 12px;
     padding: 36px;
   }
 
   .contact-box h4 {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
-    color: #60a5fa;
+    color: #A1A1AA;
     text-transform: uppercase;
     letter-spacing: 1.5px;
     margin-bottom: 18px;
@@ -380,24 +396,63 @@
 
   .contact-line {
     font-size: 16px;
-    color: #cbd5e1;
+    color: #71717A;
     margin-bottom: 8px;
     line-height: 1.5;
   }
 
-  .contact-line strong { color: #f1f5f9; }
+  .contact-line strong {
+    color: #18181B;
+    font-weight: 600;
+  }
 
   .btn {
     display: inline-block;
     padding: 10px 24px;
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    background: #18181B;
     border-radius: 8px;
-    color: #fff;
+    color: #FFFFFF;
     font-weight: 600;
     font-size: 14px;
     text-decoration: none;
     border: none;
     cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .btn:hover { opacity: 0.9; }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid #E4E4E7;
+    color: #18181B;
+  }
+
+  .btn-outline:hover { background: #F4F4F5; opacity: 1; }
+
+  /* cover special */
+  .cover {
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .cover .accent-line {
+    width: 48px;
+    height: 3px;
+    background: #1E2838;
+    border-radius: 2px;
+    margin-bottom: 32px;
+  }
+
+  /* divider line on left */
+  .slide .left-accent {
+    position: absolute;
+    left: 0;
+    top: 72px;
+    bottom: 72px;
+    width: 4px;
+    background: linear-gradient(to bottom, #1E2838, #5C7C9E);
+    border-radius: 0 2px 2px 0;
   }
 </style>
 </head>
@@ -405,22 +460,27 @@
 
 <!-- SLIDE 1: Title -->
 <div class="slide cover">
-  <div class="glow-orb"></div>
-  <div style="display:inline-block;padding:6px 18px;border:1px solid rgba(59,130,246,0.4);border-radius:20px;font-size:13px;font-weight:500;color:#60a5fa;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:30px;">Legal Intelligence & Due Diligence</div>
-  <h1 style="font-size:68px;font-weight:800;line-height:1.1;margin-bottom:20px;color:#fff;position:relative;">LEX AI</h1>
-  <p style="font-size:24px;font-weight:300;color:#94a3b8;line-height:1.6;max-width:700px;position:relative;">
-    Legal analytics as fast as you type.<br>We train models to gain precision and scale.
+  <div class="left-accent"></div>
+  <div class="accent-line"></div>
+  <h1 style="font-family:'Crimson Pro',serif;font-size:72px;font-weight:700;color:#18181B;line-height:1.05;margin-bottom:20px;position:relative;">LEX AI</h1>
+  <p style="font-size:24px;color:#71717A;line-height:1.6;max-width:640px;margin-bottom:0;position:relative;">
+    Legal analytics as fast as you type.<br>
+    We train models to gain precision and scale.
   </p>
-  <div style="margin-top:auto;position:relative;display:flex;align-items:center;gap:30px;">
-    <span style="font-size:15px;font-weight:500;color:#60a5fa;">legal.org.ua</span>
-    <a href="pitch-deck.pdf" download class="btn" style="font-size:13px;padding:8px 20px;box-shadow:0 4px 12px rgba(59,130,246,0.3);" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Download PDF</a>
+  <div style="margin-top:auto;position:relative;display:flex;align-items:center;gap:24px;">
+    <span style="font-size:15px;font-weight:500;color:#71717A;">legal.org.ua</span>
+    <a href="pitch-deck.pdf" download class="btn" style="font-size:13px;padding:8px 20px;">Download PDF</a>
+  </div>
+  <div class="logo-bar">
+    <span>LEX AI</span>
   </div>
   <div class="slide-number">01</div>
 </div>
 
 <!-- SLIDE 2: Problem -->
 <div class="slide">
-  <h2>The <span>Problem</span></h2>
+  <div class="left-accent"></div>
+  <h2>The <em>Problem</em></h2>
   <div class="grid-2" style="flex:1;">
     <div class="card">
       <h3>Legal work is slow</h3>
@@ -436,69 +496,68 @@
     </div>
     <div class="card">
       <h3>Risks found too late</h3>
-      <p>Hidden owners, sanctions violations, liabilities -- discoverable but never flagged automatically.</p>
+      <p>Hidden owners, sanctions violations, liabilities -- discoverable but never flagged.</p>
     </div>
   </div>
-  <div class="logo-bar">LEX AI</div>
+  <div class="logo-bar"><span>LEX AI</span></div>
   <div class="slide-number">02</div>
 </div>
 
 <!-- SLIDE 3: Solution -->
 <div class="slide">
-  <h2><span>LEX AI</span> Chat Pipeline</h2>
-  <div class="big-point" style="margin-bottom:40px;">
+  <div class="left-accent"></div>
+  <h2><em>LEX AI</em> Chat Pipeline</h2>
+  <p class="subtitle" style="margin-bottom:40px;">
     One service for legal research, case analysis,<br>sanctions, ownership, and risk checks.<br>
     At the end of the pipeline -- <strong>one clear picture</strong>.
+  </p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <div class="pill">Legal Research</div>
+    <div class="pill">Case Analysis</div>
+    <div class="pill">Legislation</div>
+    <div class="pill">Sanctions Screening</div>
+    <div class="pill">Ownership Chains</div>
+    <div class="pill">Risk Assessment</div>
   </div>
-  <div class="grid-2" style="max-width:900px;">
-    <div>
-      <div class="pill">Legal Research</div>
-      <div class="pill">Case Analysis</div>
-      <div class="pill">Legislation</div>
-    </div>
-    <div>
-      <div class="pill">Sanctions Screening</div>
-      <div class="pill">Ownership Chains</div>
-      <div class="pill">Risk Assessment</div>
-    </div>
-  </div>
-  <div class="logo-bar">LEX AI</div>
+  <div class="logo-bar"><span>LEX AI</span></div>
   <div class="slide-number">03</div>
 </div>
 
 <!-- SLIDE 4: How It Works -->
 <div class="slide">
-  <h2>How <span>It Works</span></h2>
-  <p class="big-point" style="margin-bottom:32px;">One request. Many sources. Under 5 minutes.</p>
+  <div class="left-accent"></div>
+  <h2>How <em>It Works</em></h2>
+  <p class="subtitle" style="margin-bottom:32px;">One request. Many sources. Under 5 minutes.</p>
   <div class="pipeline">
     <div class="step">
       <h3>Query</h3>
       <p>Natural language request</p>
     </div>
-    <div class="arrow">-></div>
+    <div class="arrow">&rarr;</div>
     <div class="step">
       <h3>Multi-Source</h3>
       <p>Courts, registries, sanctions in parallel</p>
     </div>
-    <div class="arrow">-></div>
+    <div class="arrow">&rarr;</div>
     <div class="step">
       <h3>AI Analysis</h3>
       <p>Reads hundreds of documents</p>
     </div>
-    <div class="arrow">-></div>
+    <div class="arrow">&rarr;</div>
     <div class="step">
       <h3>Output</h3>
       <p>Risk score, action points, report</p>
     </div>
   </div>
-  <div class="logo-bar">LEX AI</div>
+  <div class="logo-bar"><span>LEX AI</span></div>
   <div class="slide-number">04</div>
 </div>
 
 <!-- SLIDE 5: Data Moat -->
 <div class="slide">
-  <h2><span>Data</span> Moat</h2>
-  <div class="stat-row" style="margin-top:0;padding-top:0;margin-bottom:36px;">
+  <div class="left-accent"></div>
+  <h2><em>Data</em> Moat</h2>
+  <div class="stat-row" style="margin-bottom:32px;">
     <div class="stat-item">
       <div class="val">130M+</div>
       <div class="lbl">Court Decisions</div>
@@ -516,7 +575,7 @@
       <div class="lbl">Offshore Links</div>
     </div>
   </div>
-  <p class="big-point">ML pipelines for model fine-tuning and training.<br>Data quality and scale are our advantage.</p>
+  <p class="subtitle">ML pipelines for model fine-tuning and training.<br>Data quality and scale are our advantage.</p>
   <div style="margin-top:auto;display:flex;gap:8px;flex-wrap:wrap;">
     <div class="pill">5M Full-Text Indexed</div>
     <div class="pill">2M Vector Embeddings</div>
@@ -524,17 +583,18 @@
     <div class="pill">Ownership Chains</div>
     <div class="pill">200K+ Legislation</div>
   </div>
-  <div class="logo-bar">LEX AI</div>
+  <div class="logo-bar"><span>LEX AI</span></div>
   <div class="slide-number">05</div>
 </div>
 
 <!-- SLIDE 6: Technology -->
 <div class="slide">
-  <h2><span>Technology</span></h2>
-  <p class="big-point" style="margin-bottom:36px;">
+  <div class="left-accent"></div>
+  <h2><em>Technology</em></h2>
+  <p class="subtitle" style="margin-bottom:36px;">
     LEX AI uses <strong>AWS, NVIDIA, and GCP cloud grants</strong><br>to tune open models on the largest legal corpus in the region.
   </p>
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:auto;">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
     <div class="pill">TypeScript / Node.js</div>
     <div class="pill">Python / FastAPI</div>
     <div class="pill">PostgreSQL + Qdrant + Redis</div>
@@ -544,13 +604,14 @@
     <div class="pill">Docker + CI/CD</div>
     <div class="pill">118 AI Tools</div>
   </div>
-  <div class="logo-bar">LEX AI</div>
+  <div class="logo-bar"><span>LEX AI</span></div>
   <div class="slide-number">06</div>
 </div>
 
 <!-- SLIDE 7: LLM Plan -->
 <div class="slide">
-  <h2>LLM <span>Training</span> Plan</h2>
+  <div class="left-accent"></div>
+  <h2>LLM <em>Training</em> Plan</h2>
   <div class="grid-3" style="flex:1;">
     <div class="phase">
       <div class="num">1</div>
@@ -568,39 +629,41 @@
       <p>Feedback from practicing lawyers. >95% preference, &lt;0.2% hallucination.</p>
     </div>
   </div>
-  <div class="logo-bar">LEX AI</div>
+  <div class="logo-bar"><span>LEX AI</span></div>
   <div class="slide-number">07</div>
 </div>
 
 <!-- SLIDE 8: Market -->
 <div class="slide">
-  <h2>Market <span>Opportunity</span></h2>
+  <div class="left-accent"></div>
+  <h2>Market <em>Opportunity</em></h2>
   <div class="market-row">
-    <div class="market-box tam">
+    <div class="market-box">
       <div class="c-label">TAM</div>
       <div class="c-value">$1.2B+</div>
       <div class="c-desc">Legal AI + Due Diligence</div>
     </div>
-    <div class="market-box sam">
+    <div class="market-box">
       <div class="c-label">SAM</div>
       <div class="c-value">$120M</div>
       <div class="c-desc">Ukraine, CEE & Compliance</div>
     </div>
-    <div class="market-box som">
+    <div class="market-box highlight">
       <div class="c-label">SOM</div>
       <div class="c-value">$8M</div>
       <div class="c-desc">2-Year Target</div>
     </div>
   </div>
-  <p class="big-point">Few players combine legal AI and global due diligence.<br>We do both in one product stack.</p>
-  <div class="logo-bar">LEX AI</div>
+  <p class="subtitle">Few players combine legal AI and global due diligence.<br>We do both in one product stack.</p>
+  <div class="logo-bar"><span>LEX AI</span></div>
   <div class="slide-number">08</div>
 </div>
 
 <!-- SLIDE 9: Business Model -->
 <div class="slide">
-  <h2>Business <span>Model</span></h2>
-  <p class="big-point" style="margin-bottom:32px;">Subscriptions plus API pricing.</p>
+  <div class="left-accent"></div>
+  <h2>Business <em>Model</em></h2>
+  <p class="subtitle" style="margin-bottom:28px;">Subscriptions plus API pricing.</p>
   <div class="grid-3">
     <div class="pricing-card">
       <h4>LEX Individual</h4>
@@ -618,37 +681,39 @@
       <div class="desc">Pay-per-query. On-premise. White-label.</div>
     </div>
   </div>
-  <div class="logo-bar">LEX AI</div>
+  <div class="logo-bar"><span>LEX AI</span></div>
   <div class="slide-number">09</div>
 </div>
 
 <!-- SLIDE 10: Traction -->
 <div class="slide">
-  <h2><span>Traction</span></h2>
-  <div class="stat-row" style="margin-top:40px;padding-top:0;margin-bottom:0;gap:80px;">
+  <div class="left-accent"></div>
+  <h2><em>Traction</em></h2>
+  <div class="stat-row" style="margin-top:48px;gap:80px;">
     <div class="stat-item">
-      <div class="val" style="font-size:52px;">130M+</div>
+      <div class="val" style="font-size:56px;">130M+</div>
       <div class="lbl" style="font-size:15px;">Legal Records Indexed</div>
     </div>
     <div class="stat-item">
-      <div class="val" style="font-size:52px;">118</div>
+      <div class="val" style="font-size:56px;">118</div>
       <div class="lbl" style="font-size:15px;">AI Tools Built</div>
     </div>
     <div class="stat-item">
-      <div class="val" style="font-size:52px;color:#34d399;">Live</div>
+      <div class="val" style="font-size:56px;color:#5C7C9E;">Live</div>
       <div class="lbl" style="font-size:15px;">In Production</div>
     </div>
   </div>
-  <div class="logo-bar">LEX AI</div>
+  <div class="logo-bar"><span>LEX AI</span></div>
   <div class="slide-number">10</div>
 </div>
 
 <!-- SLIDE 11: Team -->
 <div class="slide">
-  <h2>The <span>Team</span></h2>
+  <div class="left-accent"></div>
+  <h2>The <em>Team</em></h2>
   <div class="grid-2" style="margin-bottom:auto;">
     <div class="team-card">
-      <div class="team-avatar vo">VO</div>
+      <div class="team-avatar">VO</div>
       <div class="team-info">
         <h4>Volodymyr Ovcharov</h4>
         <div class="role">AI & Infrastructure</div>
@@ -664,14 +729,15 @@
       </div>
     </div>
   </div>
-  <div class="logo-bar">LEX AI</div>
+  <div class="logo-bar"><span>LEX AI</span></div>
   <div class="slide-number">11</div>
 </div>
 
 <!-- SLIDE 12: Ask -->
 <div class="slide" style="justify-content:center;align-items:center;">
-  <h2 style="text-align:center;margin-bottom:12px;"><span>Partners, Pilots & Investors</span></h2>
-  <p style="font-size:20px;color:#94a3b8;text-align:center;margin-bottom:40px;position:relative;">Public beta is live today.</p>
+  <div class="left-accent"></div>
+  <h2 style="text-align:center;margin-bottom:8px;"><em>Partners, Pilots & Investors</em></h2>
+  <p style="font-size:20px;color:#71717A;text-align:center;margin-bottom:40px;position:relative;">Public beta is live today.</p>
   <div class="contact-box" style="min-width:400px;">
     <h4>Get in Touch</h4>
     <div class="contact-line"><strong>Volodymyr</strong> -- volodymyr@legal.org.ua</div>
@@ -680,7 +746,7 @@
       <a class="btn" href="https://legal.org.ua" style="text-decoration:none;">legal.org.ua</a>
     </div>
   </div>
-  <div class="logo-bar">LEX AI</div>
+  <div class="logo-bar"><span>LEX AI</span></div>
   <div class="slide-number">12</div>
 </div>
 
