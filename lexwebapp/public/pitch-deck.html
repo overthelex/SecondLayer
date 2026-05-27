@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SecondLayer — Legal Intelligence & Due Diligence Platform</title>
+<title>LEX AI — Legal Intelligence & Due Diligence Platform</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -100,7 +100,7 @@
     font-weight: 300;
     color: #94a3b8;
     line-height: 1.5;
-    max-width: 680px;
+    max-width: 700px;
     margin-bottom: 36px;
   }
 
@@ -114,10 +114,6 @@
     font-weight: 500;
     color: #60a5fa;
     letter-spacing: 0.5px;
-  }
-
-  .cover .url.panoptic {
-    color: #a78bfa;
   }
 
   .cover .glow-orb {
@@ -194,66 +190,33 @@
     color: #94a3b8;
   }
 
-  /* ===== Two Products ===== */
-  .two-products {
+  /* ===== Solution Cards ===== */
+  .solution-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 30px;
+    gap: 24px;
     margin-top: 10px;
   }
 
-  .product-card {
+  .solution-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(59,130,246,0.15);
     border-radius: 16px;
-    padding: 32px;
-    position: relative;
+    padding: 30px;
   }
 
-  .product-card.lex {
-    background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(59,130,246,0.02));
-    border: 1px solid rgba(59,130,246,0.2);
-  }
-
-  .product-card.panoptic {
-    background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(139,92,246,0.02));
-    border: 1px solid rgba(139,92,246,0.2);
-  }
-
-  .product-card .product-name {
-    font-size: 24px;
-    font-weight: 800;
-    margin-bottom: 4px;
-  }
-
-  .product-card.lex .product-name {
+  .solution-card h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 10px;
     color: #60a5fa;
   }
 
-  .product-card.panoptic .product-name {
-    color: #a78bfa;
-  }
-
-  .product-card .product-tagline {
-    font-size: 13px;
-    color: #64748b;
-    margin-bottom: 16px;
-    font-weight: 500;
-  }
-
-  .product-card .product-desc {
-    font-size: 14px;
-    line-height: 1.6;
+  .solution-card p {
+    font-size: 15px;
+    line-height: 1.7;
     color: #cbd5e1;
-    margin-bottom: 16px;
   }
-
-  .product-card .product-url {
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-  }
-
-  .product-card.lex .product-url { color: #60a5fa; }
-  .product-card.panoptic .product-url { color: #a78bfa; }
 
   /* ===== Data Grid ===== */
   .data-grid {
@@ -323,12 +286,6 @@
     color: #94a3b8;
     line-height: 1.5;
   }
-
-  .arch-box.purple {
-    border-color: rgba(139,92,246,0.15);
-  }
-
-  .arch-box.purple h4 { color: #c4b5fd; }
 
   .tech-stack-list {
     list-style: none;
@@ -510,64 +467,37 @@
   /* ===== Traction ===== */
   .traction-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 18px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
     margin-bottom: 28px;
   }
 
   .traction-card {
     background: rgba(255,255,255,0.02);
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
-    padding: 22px;
+    border-radius: 16px;
+    padding: 36px;
     text-align: center;
   }
 
   .traction-card .t-val {
-    font-size: 28px;
+    font-size: 42px;
     font-weight: 800;
     color: #f1f5f9;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
   }
 
   .traction-card .t-label {
-    font-size: 11px;
-    color: #64748b;
-    text-transform: uppercase;
+    font-size: 14px;
+    color: #94a3b8;
     letter-spacing: 0.5px;
   }
 
-  .milestones {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
-  }
-
-  .milestone {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
-    padding: 20px;
-  }
-
-  .milestone .m-period {
+  .traction-card .t-detail {
     font-size: 12px;
-    font-weight: 600;
-    color: #60a5fa;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 10px;
-  }
-
-  .milestone p {
-    font-size: 13px;
-    color: #94a3b8;
-    line-height: 1.5;
-  }
-
-  .milestone .m-highlight {
-    color: #f1f5f9;
-    font-weight: 600;
+    color: #64748b;
+    margin-top: 8px;
+    line-height: 1.4;
   }
 
   /* ===== Team ===== */
@@ -651,59 +581,7 @@
     line-height: 1.5;
   }
 
-  /* ===== Ask ===== */
-  .ask-layout {
-    display: flex;
-    gap: 50px;
-  }
-
-  .ask-left { flex: 1.2; }
-  .ask-right { flex: 1; }
-
-  .ask-box {
-    background: linear-gradient(135deg, rgba(59,130,246,0.10), rgba(139,92,246,0.06));
-    border: 1px solid rgba(59,130,246,0.2);
-    border-radius: 16px;
-    padding: 30px;
-    margin-bottom: 24px;
-  }
-
-  .ask-box h3 {
-    font-size: 22px;
-    font-weight: 700;
-    color: #f1f5f9;
-    margin-bottom: 6px;
-  }
-
-  .ask-box .valuation {
-    font-size: 14px;
-    color: #94a3b8;
-  }
-
-  .use-of-funds { list-style: none; }
-
-  .use-of-funds li {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-    font-size: 14px;
-    color: #cbd5e1;
-  }
-
-  .fund-bar {
-    height: 6px;
-    border-radius: 3px;
-    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-  }
-
-  .fund-pct {
-    font-weight: 700;
-    color: #60a5fa;
-    min-width: 36px;
-  }
-
+  /* ===== Contact ===== */
   .contact-box {
     background: rgba(255,255,255,0.02);
     border: 1px solid rgba(255,255,255,0.08);
@@ -752,19 +630,11 @@
   .pipeline-step {
     flex: 1;
     text-align: center;
-    padding: 20px 12px;
+    padding: 24px 16px;
     border-radius: 12px;
     position: relative;
-  }
-
-  .pipeline-step.lex-step {
     background: rgba(59,130,246,0.06);
     border: 1px solid rgba(59,130,246,0.15);
-  }
-
-  .pipeline-step.panoptic-step {
-    background: rgba(139,92,246,0.06);
-    border: 1px solid rgba(139,92,246,0.15);
   }
 
   .pipeline-step .step-num {
@@ -776,17 +646,15 @@
     margin-bottom: 8px;
   }
 
-  .pipeline-step.panoptic-step .step-num { color: #a78bfa; }
-
   .pipeline-step .step-title {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     color: #f1f5f9;
     margin-bottom: 6px;
   }
 
   .pipeline-step .step-desc {
-    font-size: 11px;
+    font-size: 12px;
     color: #94a3b8;
     line-height: 1.4;
   }
@@ -795,58 +663,68 @@
     font-size: 20px;
     color: #475569;
     flex-shrink: 0;
-    padding: 0 6px;
+    padding: 0 8px;
   }
 
-  /* ===== Case Study ===== */
-  .case-study {
-    background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.06));
-    border: 1px solid rgba(59,130,246,0.15);
+  /* ===== LLM Phases ===== */
+  .llm-phases {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 10px;
+  }
+
+  .llm-phase {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
     border-radius: 16px;
-    padding: 28px;
+    padding: 32px;
+    position: relative;
   }
 
-  .case-study h4 {
-    font-size: 14px;
-    font-weight: 600;
-    color: #60a5fa;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    margin-bottom: 14px;
-  }
-
-  .case-study .stat {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-
-  .case-study .stat .num {
-    font-size: 28px;
+  .llm-phase .phase-num {
+    font-size: 48px;
     font-weight: 800;
-    color: #60a5fa;
+    color: rgba(59,130,246,0.15);
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    line-height: 1;
   }
 
-  .case-study .stat .label {
-    font-size: 13px;
-    color: #94a3b8;
+  .llm-phase h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #60a5fa;
+    margin-bottom: 12px;
+  }
+
+  .llm-phase p {
+    font-size: 14px;
+    color: #cbd5e1;
+    line-height: 1.7;
+  }
+
+  .llm-phase .detail {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 12px;
+    line-height: 1.5;
   }
 </style>
 </head>
 <body>
 
-<!-- SLIDE 1: Cover -->
+<!-- SLIDE 1: Title -->
 <div class="slide cover">
   <div class="glow-orb"></div>
   <div class="badge">Legal Intelligence & Due Diligence</div>
-  <h1>SecondLayer<br><span>Know Everything</span><br>Before You Act</h1>
+  <h1>LEX AI<br><span>Legal Analytics</span><br>As Fast As You Type</h1>
   <div class="subtitle">
-    Two AI platforms. One mission. Legal analytics over 120M+ court records and global due diligence across sanctions, Dark Web, and corporate registries.
+    We build AI products for legal analytics and due diligence. We train models to gain precision and scale. We collect datasets from open data across countries.
   </div>
   <div class="urls">
     <div class="url">legal.org.ua</div>
-    <div class="url panoptic">panoptic.com.ua</div>
   </div>
   <a href="pitch-deck.pdf" download style="margin-top:18px;padding:10px 22px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.3);transition:opacity .2s;text-decoration:none;display:inline-block;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Download PDF</a>
   <div class="slide-number">01</div>
@@ -858,312 +736,256 @@
   <div class="problem-grid">
     <div class="problem-card">
       <div class="icon" style="font-size:24px;font-weight:800;color:#60a5fa;">01</div>
-      <h3>Days of Manual Legal Research</h3>
-      <p>Lawyers spend 2-3 full days digging through court records. Legacy Ukrainian tools from the 2000s offer no AI, no semantic search, no analytics.</p>
+      <h3>Legal Work is Slow</h3>
+      <p>Lawyers still spend days on manual search across fragmented court databases. Legacy tools offer no AI, no semantic understanding.</p>
     </div>
     <div class="problem-card">
       <div class="icon" style="font-size:24px;font-weight:800;color:#60a5fa;">02</div>
-      <h3>Due Diligence is Broken</h3>
-      <p>Checking a counterparty means 10+ separate databases: sanctions, registries, offshore leaks, media, breach databases. No one tool connects them all.</p>
+      <h3>Due Diligence is Fragmented</h3>
+      <p>Checking a counterparty means 10+ separate databases: sanctions, registries, offshore leaks, ownership chains. No one tool connects them all.</p>
     </div>
     <div class="problem-card">
       <div class="icon" style="font-size:24px;font-weight:800;color:#60a5fa;">03</div>
-      <h3>Hidden Risks Destroy Deals</h3>
-      <p>Sanctions violations cost millions. Undisclosed beneficial owners, offshore structures, compromised credentials, negative media — all discoverable, none automatically flagged.</p>
+      <h3>Many Separate Sources</h3>
+      <p>Court decisions, parliament data, business registries, sanctions lists -- scattered across dozens of systems with no unified interface.</p>
     </div>
     <div class="problem-card">
       <div class="icon" style="font-size:24px;font-weight:800;color:#60a5fa;">04</div>
-      <h3>Fragmented Intelligence</h3>
-      <p>Court decisions, parliament data, business registries, sanctions lists, Dark Web leaks — scattered across dozens of systems with no unified interface.</p>
+      <h3>Risks Found Too Late</h3>
+      <p>Important risks are often discovered after the deal closes. Undisclosed owners, sanctions violations, hidden liabilities -- all discoverable, none automatically flagged.</p>
     </div>
   </div>
-  <div class="logo-bar">SECONDLAYER</div>
+  <div class="logo-bar">LEX AI</div>
   <div class="slide-number">02</div>
 </div>
 
-<!-- SLIDE 3: Solution — Two Platforms -->
+<!-- SLIDE 3: Solution -->
 <div class="slide">
-  <h2>Two Platforms, <span>One Intelligence Stack</span></h2>
-  <div class="two-products">
-    <div class="product-card lex">
-      <div class="product-name">LEX</div>
-      <div class="product-tagline">AI Legal Analytics</div>
-      <div class="product-desc">
-        The AI layer over Ukrainian legal data. Semantic search across 120M+ court decisions, judge analytics, citation verification, defense strategy generation, legislation monitoring. 118 MCP AI tools.
-      </div>
-      <div style="margin-bottom:16px;">
-        <span class="feature-pill">Semantic Search</span>
-        <span class="feature-pill">Judge Analytics</span>
-        <span class="feature-pill">Citation Verification</span>
-        <span class="feature-pill">118 MCP Tools</span>
-      </div>
-      <div class="product-url">legal.org.ua</div>
+  <h2>The <span>Solution</span></h2>
+  <div style="display:flex;flex-direction:column;gap:30px;margin-top:10px;">
+    <div style="max-width:900px;">
+      <p style="font-size:22px;color:#cbd5e1;line-height:1.7;margin-bottom:24px;">
+        <strong style="color:#60a5fa;">LEX AI</strong> is a chat pipeline service that handles legal research, case analysis, sanctions screening, ownership checks, and risk assessment -- all in one place.
+      </p>
     </div>
-    <div class="product-card panoptic">
-      <div class="product-name">Panoptic</div>
-      <div class="product-tagline">Due Diligence & Threat Intelligence</div>
-      <div class="product-desc">
-        Global counterparty screening in seconds. Sanctions (4M+ entities), offshore leaks (ICIJ), beneficial ownership chains, Dark Web credential checks (15B+ records), media intelligence, cyber threat analysis.
+    <div class="solution-grid">
+      <div class="solution-card">
+        <h3>Legal Research & Case Analysis</h3>
+        <p>AI reads hundreds of court documents, identifies patterns, finds precedents, and generates defense strategies automatically.</p>
       </div>
-      <div style="margin-bottom:16px;">
-        <span class="feature-pill purple">Sanctions Screening</span>
-        <span class="feature-pill purple">Dark Web Intel</span>
-        <span class="feature-pill purple">Ownership Chains</span>
-        <span class="feature-pill purple">Threat Analysis</span>
+      <div class="solution-card">
+        <h3>Sanctions & Ownership Checks</h3>
+        <p>Screen counterparties against global sanctions lists, trace beneficial ownership chains, and check offshore connections.</p>
       </div>
-      <div class="product-url">panoptic.com.ua</div>
+      <div class="solution-card">
+        <h3>Risk Assessment</h3>
+        <p>Aggregate findings into a single risk profile with risk scores, flagged issues, and recommended action points.</p>
+      </div>
+      <div class="solution-card">
+        <h3>One Clear Picture</h3>
+        <p>At the end of the pipeline, you have a complete view: legal history, compliance status, risk level, and next steps.</p>
+      </div>
     </div>
   </div>
-  <div style="margin-top:24px;text-align:center;">
-    <p style="font-size:15px;color:#94a3b8;">Together: the only platform that connects <strong style="color:#f1f5f9;">legal case analysis</strong> with <strong style="color:#f1f5f9;">global risk intelligence</strong></p>
-  </div>
-  <div class="logo-bar">SECONDLAYER</div>
+  <div class="logo-bar">LEX AI</div>
   <div class="slide-number">03</div>
 </div>
 
-<!-- SLIDE 4: Due Diligence Pipeline -->
+<!-- SLIDE 4: How It Works -->
 <div class="slide">
-  <h2>The Complete <span>Due Diligence</span> Pipeline</h2>
+  <h2>How <span>It Works</span></h2>
+  <div style="margin-bottom:20px;">
+    <p style="font-size:18px;color:#cbd5e1;line-height:1.6;">One request checks many sources at once. Typical due diligence takes under 5 minutes.</p>
+  </div>
   <div class="pipeline-flow">
-    <div class="pipeline-step panoptic-step">
+    <div class="pipeline-step">
       <div class="step-num">Step 1</div>
-      <div class="step-title">Sanctions Check</div>
-      <div class="step-desc">Screen against 4M+ entities from 100+ global sanctions & PEP lists with fuzzy matching</div>
+      <div class="step-title">User Query</div>
+      <div class="step-desc">Natural language request -- a company name, a legal question, a counterparty check</div>
     </div>
     <div class="pipeline-arrow">-></div>
-    <div class="pipeline-step panoptic-step">
+    <div class="pipeline-step">
       <div class="step-num">Step 2</div>
-      <div class="step-title">Ownership Analysis</div>
-      <div class="step-desc">Walk beneficial ownership chains via GLEIF, ICIJ offshore leaks, UK Companies House</div>
+      <div class="step-title">Multi-Source Search</div>
+      <div class="step-desc">AI pipeline queries courts, registries, sanctions, ownership, legislation in parallel</div>
     </div>
     <div class="pipeline-arrow">-></div>
-    <div class="pipeline-step panoptic-step">
+    <div class="pipeline-step">
       <div class="step-num">Step 3</div>
-      <div class="step-title">Threat Intel</div>
-      <div class="step-desc">Dark Web credential check (6 sources), media sentiment, cyber vulnerability scan</div>
-    </div>
-    <div class="pipeline-arrow">-></div>
-    <div class="pipeline-step lex-step">
-      <div class="step-num">Step 4</div>
-      <div class="step-title">Legal History</div>
-      <div class="step-desc">Court cases, enforcement proceedings, debtor registry, bankruptcy records</div>
-    </div>
-    <div class="pipeline-arrow">-></div>
-    <div class="pipeline-step lex-step">
-      <div class="step-num">Step 5</div>
       <div class="step-title">AI Analysis</div>
-      <div class="step-desc">Risk assessment, defense strategies, precedent analysis, compliance report</div>
+      <div class="step-desc">Reads hundreds of documents, extracts key facts, identifies risks and patterns</div>
+    </div>
+    <div class="pipeline-arrow">-></div>
+    <div class="pipeline-step">
+      <div class="step-num">Step 4</div>
+      <div class="step-title">Clear Output</div>
+      <div class="step-desc">Risk score, action points, related data, defense strategies -- one unified report</div>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px;">
-    <div class="case-study">
-      <h4>Use Case: M&A Due Diligence</h4>
-      <div class="stat">
-        <span class="num">12+</span>
-        <span class="label">databases checked in one query</span>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:30px;">
+    <div style="background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.06));border:1px solid rgba(59,130,246,0.15);border-radius:16px;padding:28px;">
+      <h4 style="font-size:14px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Due Diligence</h4>
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;">
+        <span style="font-size:28px;font-weight:800;color:#60a5fa;">&lt;5 min</span>
+        <span style="font-size:13px;color:#94a3b8;">full counterparty screening</span>
       </div>
-      <div class="stat">
-        <span class="num">&lt;30s</span>
-        <span class="label">full counterparty screening</span>
-      </div>
-      <p style="font-size:12px;color:#94a3b8;margin-top:8px;line-height:1.5;">Sanctions + offshore + media + court history + enforcement — unified risk score for any entity globally.</p>
+      <p style="font-size:12px;color:#94a3b8;line-height:1.5;">Sanctions + ownership + court history + enforcement -- unified risk score for any entity.</p>
     </div>
-    <div class="case-study" style="border-color:rgba(139,92,246,0.15);background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(59,130,246,0.04));">
-      <h4 style="color:#a78bfa;">Use Case: Legal Case Research</h4>
-      <div class="stat">
-        <span class="num">473</span>
-        <span class="label">documents analyzed</span>
+    <div style="background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.06));border:1px solid rgba(59,130,246,0.15);border-radius:16px;padding:28px;">
+      <h4 style="font-size:14px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Legal Case Research</h4>
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;">
+        <span style="font-size:28px;font-weight:800;color:#60a5fa;">Hundreds</span>
+        <span style="font-size:13px;color:#94a3b8;">of documents analyzed quickly</span>
       </div>
-      <div class="stat">
-        <span class="num">15 min</span>
-        <span class="label">vs. 1 week manually</span>
-      </div>
-      <p style="font-size:12px;color:#94a3b8;margin-top:8px;line-height:1.5;">11-year-old debt case (UAH 11.9M). AI identified 9 defense strategies across multiple registries.</p>
+      <p style="font-size:12px;color:#94a3b8;line-height:1.5;">AI reads court decisions, finds relevant precedents, extracts strategies -- what took a week now takes minutes.</p>
     </div>
   </div>
-  <div class="logo-bar">SECONDLAYER</div>
+  <div class="logo-bar">LEX AI</div>
   <div class="slide-number">04</div>
 </div>
 
-<!-- SLIDE 5: Combined Data Moat -->
+<!-- SLIDE 5: Data Moat -->
 <div class="slide">
-  <h2>Combined <span>Data Moat</span></h2>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
-    <!-- LEX Data -->
-    <div>
-      <div style="font-size:13px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">LEX — Legal Data</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="data-card">
-          <div class="number">115M</div>
-          <div class="unit">Court Decisions</div>
-          <div class="desc">Complete EDRSR index since 2005</div>
-        </div>
-        <div class="data-card">
-          <div class="number">5M</div>
-          <div class="unit">Full-Text Indexed</div>
-          <div class="desc">Parsed for semantic search</div>
-        </div>
-        <div class="data-card">
-          <div class="number">2M</div>
-          <div class="unit">Vector Embeddings</div>
-          <div class="desc">AI-powered similarity search</div>
-        </div>
-        <div class="data-card">
-          <div class="number">41.8M</div>
-          <div class="unit">Registry Records</div>
-          <div class="desc">Enforcement, debtors, bankruptcy</div>
-        </div>
-        <div class="data-card">
-          <div class="number">200K+</div>
-          <div class="unit">Legislation</div>
-          <div class="desc">Laws, codes, decrees</div>
-        </div>
-        <div class="data-card">
-          <div class="number">12K+</div>
-          <div class="unit">Judge Profiles</div>
-          <div class="desc">Performance analytics, patterns</div>
-        </div>
-      </div>
+  <h2><span>Data</span> Moat</h2>
+  <div style="margin-bottom:24px;">
+    <p style="font-size:18px;color:#cbd5e1;line-height:1.6;">Our advantage is data quality and scale. ML pipelines for model fine-tuning and training.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+    <div class="data-card">
+      <div class="number">130M+</div>
+      <div class="unit">Court Decisions</div>
+      <div class="desc">Across 22 countries</div>
     </div>
-    <!-- Panoptic Data -->
-    <div>
-      <div style="font-size:13px;font-weight:600;color:#a78bfa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Panoptic — Intelligence Data</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="data-card purple">
-          <div class="number">4M+</div>
-          <div class="unit">Sanctions Entities</div>
-          <div class="desc">100+ global lists incl. OFAC, EU, UN</div>
-        </div>
-        <div class="data-card purple">
-          <div class="number">15B+</div>
-          <div class="unit">Breach Records</div>
-          <div class="desc">6 parallel Dark Web sources</div>
-        </div>
-        <div class="data-card purple">
-          <div class="number">810K+</div>
-          <div class="unit">Offshore Entities</div>
-          <div class="desc">Panama, Paradise, Pandora Papers</div>
-        </div>
-        <div class="data-card purple">
-          <div class="number">5M+</div>
-          <div class="unit">UK Companies</div>
-          <div class="desc">Beneficial ownership data (PSC)</div>
-        </div>
-        <div class="data-card purple">
-          <div class="number">2.5M+</div>
-          <div class="unit">LEI Records</div>
-          <div class="desc">GLEIF global entity identifiers</div>
-        </div>
-        <div class="data-card purple">
-          <div class="number">100+</div>
-          <div class="unit">Tor Instances</div>
-          <div class="desc">Dark Web access fleet</div>
-        </div>
-      </div>
+    <div class="data-card">
+      <div class="number">5M</div>
+      <div class="unit">Full-Text Indexed</div>
+      <div class="desc">Parsed for semantic search</div>
+    </div>
+    <div class="data-card">
+      <div class="number">2M</div>
+      <div class="unit">Vector Embeddings</div>
+      <div class="desc">AI-powered similarity search</div>
+    </div>
+    <div class="data-card">
+      <div class="number">4M+</div>
+      <div class="unit">Sanctions Entities</div>
+      <div class="desc">100+ global lists incl. OFAC, EU, UN</div>
+    </div>
+    <div class="data-card">
+      <div class="number">810K+</div>
+      <div class="unit">Offshore Links</div>
+      <div class="desc">Panama, Paradise, Pandora Papers</div>
+    </div>
+    <div class="data-card">
+      <div class="number">15B+</div>
+      <div class="unit">Breach Records</div>
+      <div class="desc">Dark Web intelligence sources</div>
+    </div>
+    <div class="data-card">
+      <div class="number">41.8M</div>
+      <div class="unit">Registry Records</div>
+      <div class="desc">Enforcement, debtors, bankruptcy</div>
+    </div>
+    <div class="data-card">
+      <div class="number">5M+</div>
+      <div class="unit">Ownership Chains</div>
+      <div class="desc">UK Companies, GLEIF, beneficial owners</div>
+    </div>
+    <div class="data-card">
+      <div class="number">200K+</div>
+      <div class="unit">Legislation</div>
+      <div class="desc">Laws, codes, decrees</div>
     </div>
   </div>
-  <div class="logo-bar">SECONDLAYER</div>
+  <div class="logo-bar">LEX AI</div>
   <div class="slide-number">05</div>
 </div>
 
-<!-- SLIDE 6: Technology Architecture -->
+<!-- SLIDE 6: Technology -->
 <div class="slide">
-  <h2><span>Technology</span> Architecture</h2>
-  <div class="tech-layout">
-    <div class="tech-left">
-      <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">LEX Backend</div>
+  <h2><span>Technology</span></h2>
+  <div style="display:flex;gap:40px;margin-top:10px;">
+    <div style="flex:1;">
+      <p style="font-size:18px;color:#cbd5e1;line-height:1.7;margin-bottom:28px;">
+        LEX AI uses <strong style="color:#f1f5f9;">AWS, NVIDIA, and GCP cloud grants</strong> to tune open models on the largest legal corpus in the region.
+      </p>
       <div class="arch-box">
         <h4>MCP Backend</h4>
-        <p>Court cases, documents, semantic search, AI analysis, billing, consultations.</p>
+        <p>Court cases, documents, semantic search, AI analysis, billing, consultations. 118 AI tools.</p>
       </div>
       <div class="arch-box">
-        <h4>MCP Rada + MCP OpenReyestr</h4>
-        <p>Parliament data, business registries, beneficiaries, debtors.</p>
+        <h4>Parliament & Registry Servers</h4>
+        <p>Parliament data, business registries, beneficiaries, debtors, sanctions screening.</p>
       </div>
-      <div style="font-size:12px;font-weight:600;color:#a78bfa;text-transform:uppercase;letter-spacing:1px;margin:14px 0 10px;">Panoptic Backend</div>
-      <div class="arch-box purple">
+      <div class="arch-box">
         <h4>Intelligence Pipeline</h4>
-        <p>FastAPI async engine. Parallel queries to 12+ sources in &lt;200ms.</p>
-      </div>
-      <div class="arch-box purple">
-        <h4>Tor Fleet + OpenSanctions</h4>
-        <p>100+ containerized Tor instances + self-hosted sanctions screening via Elasticsearch.</p>
+        <p>Parallel queries to 12+ sources. Sanctions, offshore, ownership, threat analysis.</p>
       </div>
       <div class="arch-box">
         <h4>Unified Gateway</h4>
         <p>Single API aggregating all services. Blue-green production deployment.</p>
       </div>
     </div>
-    <div class="tech-right">
+    <div style="flex:0.8;">
       <h4 style="font-size:13px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Tech Stack</h4>
       <ul class="tech-stack-list">
-        <li><span class="dot"></span>TypeScript / Node.js 20 (LEX)</li>
-        <li><span class="dot purple"></span>Python / FastAPI (Panoptic)</li>
+        <li><span class="dot"></span>TypeScript / Node.js 20</li>
+        <li><span class="dot purple"></span>Python / FastAPI</li>
         <li><span class="dot"></span>PostgreSQL + Qdrant + Redis</li>
-        <li><span class="dot purple"></span>Elasticsearch + DuckDB + SQLite</li>
         <li><span class="dot"></span>OpenAI GPT-4o + Embeddings</li>
         <li><span class="dot"></span>React 19 + Vite + TailwindCSS</li>
-        <li><span class="dot purple"></span>Tor Fleet + HAProxy</li>
         <li><span class="dot"></span>MCP Protocol (Model Context Protocol)</li>
         <li><span class="dot"></span>Docker + Blue-Green Deploy + CI/CD</li>
-        <li><span class="dot"></span>Diia Digital Identity Integration</li>
       </ul>
+      <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap;">
+        <span class="feature-pill">AWS</span>
+        <span class="feature-pill">NVIDIA</span>
+        <span class="feature-pill">GCP</span>
+        <span class="feature-pill">Cloud Grants</span>
+      </div>
     </div>
   </div>
-  <div class="logo-bar">SECONDLAYER</div>
+  <div class="logo-bar">LEX AI</div>
   <div class="slide-number">06</div>
 </div>
 
-<!-- SLIDE 7: LLM Training Vision -->
+<!-- SLIDE 7: LLM Plan -->
 <div class="slide">
-  <h2>LLM <span>Training</span> Vision</h2>
-  <div style="display:flex;gap:40px;">
-    <div style="flex:1.3;">
-      <p style="font-size:16px;color:#cbd5e1;line-height:1.7;margin-bottom:20px;">
-        Building a <strong style="color:#f1f5f9;">Harvey-class legal AI model</strong> for Ukrainian law. Three-phase roadmap using open-weight models (DeepSeek-V3 685B) on cloud infrastructure, trained on the largest open court corpus in Europe.
-      </p>
-
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">
-        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px;">
-          <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Phase 1: Foundation</div>
-          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">Fine-tune embeddings + LoRA on 10.9M KUpAP decisions. Target: >75% preference vs GPT-4o.</p>
-          <div style="font-size:11px;color:#64748b;margin-top:8px;">Budget: ~$15K</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px;">
-          <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Phase 2: Scale</div>
-          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">Continued pre-training on 100M decisions (50-80B tokens). Jurisdiction-specific LoRA adapters.</p>
-          <div style="font-size:11px;color:#64748b;margin-top:8px;">Budget: ~$80-120K</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px;">
-          <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Phase 3: Harvey-class</div>
-          <p style="font-size:12px;color:#94a3b8;line-height:1.5;">Multi-model orchestration, RLHF with lawyers. Target: >95% preference, <0.2% hallucination.</p>
-          <div style="font-size:11px;color:#64748b;margin-top:8px;">Budget: ~$100-130K</div>
-        </div>
-      </div>
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <span class="feature-pill">Constitutional RLHF</span>
-        <span class="feature-pill">DeepSeek-V3 685B</span>
-        <span class="feature-pill">Long Tail Mitigation</span>
-        <span class="feature-pill">Calibrated Uncertainty</span>
-      </div>
+  <h2>LLM <span>Training</span> Plan</h2>
+  <div style="margin-bottom:20px;">
+    <p style="font-size:18px;color:#cbd5e1;line-height:1.7;">
+      We are training a legal model for Ukrainian law. Three steps from fine-tuning to high-accuracy production model.
+    </p>
+  </div>
+  <div class="llm-phases">
+    <div class="llm-phase">
+      <div class="phase-num">1</div>
+      <h3>Fine-Tune</h3>
+      <p>Fine-tune on millions of court decisions. Domain-specific embeddings and LoRA adapters. Target: outperform GPT-4o on Ukrainian legal tasks.</p>
+      <div class="detail">Open-weight models (DeepSeek, Qwen) on cloud infrastructure with NVIDIA H100 GPUs.</div>
     </div>
-
-    <div style="flex:0.7;">
-      <div style="background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.06));border:1px solid rgba(59,130,246,0.15);border-radius:16px;padding:24px;margin-bottom:16px;">
-        <h4 style="font-size:13px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Constitutional RLHF</h4>
-        <p style="font-size:13px;color:#94a3b8;line-height:1.6;">Ukraine's Constitution as reward signal. Each response evaluated against constitutional principles: presumption of innocence, privacy, equality, human dignity.</p>
-        <p style="font-size:13px;color:#cbd5e1;line-height:1.6;margin-top:10px;font-weight:500;">30-article LegalTech LLM Constitution published as open industry standard.</p>
-      </div>
-
-      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:24px;">
-        <h4 style="font-size:13px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Key Innovation</h4>
-        <p style="font-size:13px;color:#94a3b8;line-height:1.6;">Harvey.ai spent $100M+ training with OpenAI. We achieve comparable results at a fraction of cost using open-weight models on cloud silicon — focused on a unique dataset no competitor can replicate.</p>
-      </div>
+    <div class="llm-phase">
+      <div class="phase-num">2</div>
+      <h3>Scale</h3>
+      <p>Scale to larger corpus and jurisdiction-specific adapters. Continued pre-training on 100M+ decisions across 22 countries.</p>
+      <div class="detail">Multi-jurisdiction coverage. Expand training data beyond Ukraine to CEE and EU courts.</div>
+    </div>
+    <div class="llm-phase">
+      <div class="phase-num">3</div>
+      <h3>RLHF</h3>
+      <p>Reinforcement learning from human feedback with practicing lawyers. Target: >95% preference, <0.2% hallucination rate.</p>
+      <div class="detail">Constitutional RLHF -- Ukraine's Constitution as reward signal. LegalTech LLM Constitution as open standard.</div>
     </div>
   </div>
-  <div class="logo-bar">SECONDLAYER</div>
+  <div style="margin-top:24px;display:flex;gap:8px;flex-wrap:wrap;">
+    <span class="feature-pill">Constitutional RLHF</span>
+    <span class="feature-pill">Open-Weight Models</span>
+    <span class="feature-pill">NVIDIA H100</span>
+    <span class="feature-pill">22 Jurisdictions</span>
+    <span class="feature-pill">Calibrated Uncertainty</span>
+  </div>
+  <div class="logo-bar">LEX AI</div>
   <div class="slide-number">07</div>
 </div>
 
@@ -1187,30 +1009,33 @@
     </div>
     <div class="market-details">
       <div class="market-item">
-        <h4>TAM — Legal AI + RegTech</h4>
-        <p>Global legal AI market (<span class="highlight">$500M+</span>) combined with regulatory technology and due diligence (<span class="highlight">$700M+</span>). Two fast-growing markets converging.</p>
+        <h4>TAM -- Legal AI + Due Diligence</h4>
+        <p>Global legal AI market combined with regulatory technology and due diligence. <span class="highlight">$1.2B+</span> and growing fast.</p>
       </div>
       <div class="market-item">
-        <h4>SAM — Ukraine, CEE & Compliance</h4>
-        <p>Legal tech spending in Ukraine/CEE (<span class="highlight">$50M</span>) plus KYC/AML compliance market for companies operating in the region (<span class="highlight">$70M</span>).</p>
+        <h4>SAM -- Ukraine, CEE & Compliance</h4>
+        <p>Legal tech spending in Ukraine/CEE plus KYC/AML compliance market for companies operating in the region.</p>
       </div>
       <div class="market-item">
-        <h4>SOM — Realistic 2-Year Target</h4>
-        <p><span class="highlight">$5M ARR</span> from LEX (legal professionals) + <span class="highlight">$3M ARR</span> from Panoptic (compliance teams, banks, law firms doing international DD).</p>
+        <h4>SOM -- Realistic 2-Year Target</h4>
+        <p><span class="highlight">$8M ARR</span> from legal professionals, compliance teams, banks, and law firms doing international due diligence.</p>
       </div>
       <div class="market-item">
-        <h4>Zero Direct Competitors</h4>
-        <p>No platform combines <span class="highlight">AI legal analytics + global due diligence</span> in one stack. Competitors are either legal-only or compliance-only.</p>
+        <h4>Few Direct Competitors</h4>
+        <p>Few players combine <span class="highlight">legal AI and global due diligence</span> in one product stack. We do both.</p>
       </div>
     </div>
   </div>
-  <div class="logo-bar">SECONDLAYER</div>
+  <div class="logo-bar">LEX AI</div>
   <div class="slide-number">08</div>
 </div>
 
 <!-- SLIDE 9: Business Model -->
 <div class="slide">
   <h2>Business <span>Model</span></h2>
+  <div style="margin-bottom:16px;">
+    <p style="font-size:18px;color:#cbd5e1;">Subscriptions plus API pricing.</p>
+  </div>
   <div class="pricing-grid">
     <div class="pricing-card">
       <h4>LEX Individual</h4>
@@ -1218,12 +1043,12 @@
       <div class="desc">Solo lawyers. Full access to court search, AI analysis, judge analytics, legislation monitoring.</div>
     </div>
     <div class="pricing-card featured">
-      <h4>LEX + Panoptic Bundle</h4>
+      <h4>LEX + Due Diligence Bundle</h4>
       <div class="price">$149+<span>/mo</span></div>
       <div class="desc">Law firms & corporate legal. Complete legal analytics + due diligence intelligence. Multi-user access.</div>
     </div>
     <div class="pricing-card">
-      <h4>API / Enterprise</h4>
+      <h4>Enterprise API</h4>
       <div class="price">Custom</div>
       <div class="desc">Pay-per-query API. On-premise deployment. White-label for banks, fintech, compliance platforms.</div>
     </div>
@@ -1249,51 +1074,48 @@
       <div class="val">2 mo</div>
       <div class="lbl">Payback Period</div>
     </div>
-    <div class="unit-econ-item">
-      <div class="val">2x</div>
-      <div class="lbl">Products = 2x Revenue</div>
-    </div>
   </div>
-  <div class="logo-bar">SECONDLAYER</div>
+  <div class="logo-bar">LEX AI</div>
   <div class="slide-number">09</div>
 </div>
 
-<!-- SLIDE 10: Traction & Roadmap -->
+<!-- SLIDE 10: Traction -->
 <div class="slide">
-  <h2>Traction & <span>Roadmap</span></h2>
-  <div class="traction-grid">
-    <div class="traction-card">
-      <div class="t-val">120M+</div>
-      <div class="t-label">Legal Records Indexed</div>
-    </div>
-    <div class="traction-card">
-      <div class="t-val">118+</div>
-      <div class="t-label">AI Tools Built</div>
-    </div>
-    <div class="traction-card">
-      <div class="t-val">2</div>
-      <div class="t-label">Platforms in Public Beta</div>
-    </div>
-    <div class="traction-card">
-      <div class="t-val">6</div>
-      <div class="t-label">Research Papers (arXiv)</div>
-    </div>
-  </div>
-  <div class="milestones">
-    <div class="milestone">
-      <div class="m-period">Months 1-2</div>
-      <p><span class="m-highlight">Domain-specific LLM v1.</span> Fine-tune on 120M court decisions. Benchmark vs GPT-4o on Ukrainian legal tasks. First paid beta cohort.</p>
-    </div>
-    <div class="milestone">
-      <div class="m-period">Months 3-4</div>
-      <p><span class="m-highlight">NVIDIA Inception marketplace listing.</span> LLM API available for law firms and compliance platforms. First enterprise pilots.</p>
-    </div>
-    <div class="milestone">
-      <div class="m-period">Months 5-6</div>
-      <p><span class="m-highlight">$15-25K MRR from LLM API + platform subs.</span> Seed round preparation. Expand to CEE jurisdictions.</p>
+  <h2><span>Traction</span></h2>
+  <div style="margin-top:40px;">
+    <div class="traction-grid">
+      <div class="traction-card">
+        <div class="t-val">130M+</div>
+        <div class="t-label">Legal Records Indexed</div>
+        <div class="t-detail">Court decisions across 22 countries</div>
+      </div>
+      <div class="traction-card">
+        <div class="t-val">118</div>
+        <div class="t-label">AI Tools Built</div>
+        <div class="t-detail">Search, analysis, risk, compliance</div>
+      </div>
+      <div class="traction-card">
+        <div class="t-val">Live</div>
+        <div class="t-label">In Production</div>
+        <div class="t-detail">LEX AI is live at legal.org.ua</div>
+      </div>
     </div>
   </div>
-  <div class="logo-bar">SECONDLAYER</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:20px;">
+    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px;">
+      <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Data Pipeline</div>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.5;">Automated ingestion from open data sources across 22 countries. ML pipelines for model training.</p>
+    </div>
+    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px;">
+      <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Research</div>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.5;">6 papers published on arXiv. Active research in legal NLP, temporal drift, and model evaluation.</p>
+    </div>
+    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px;">
+      <div style="font-size:12px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Infrastructure</div>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.5;">AWS + NVIDIA + GCP cloud grants. Training on H100 GPUs. Full CI/CD with blue-green deploys.</p>
+    </div>
+  </div>
+  <div class="logo-bar">LEX AI</div>
   <div class="slide-number">10</div>
 </div>
 
@@ -1305,60 +1127,56 @@
       <div class="team-avatar vo">VO</div>
       <div class="team-info">
         <h4>Volodymyr Ovcharov</h4>
-        <div class="role">Founder, CEO & AI Researcher</div>
-        <p>15+ years building scalable data platforms. Glushkov Institute of Cybernetics (NAS of Ukraine). AI/ML, LLM training, high-load systems, OSINT infrastructure.</p>
+        <div class="role">AI & Infrastructure</div>
+        <p>15+ years building scalable data platforms. Glushkov Institute of Cybernetics (NAS of Ukraine). AI/ML, LLM training, high-load systems.</p>
       </div>
     </div>
     <div class="team-card">
       <div class="team-avatar ik">IK</div>
       <div class="team-info">
         <h4>Igor Kyrychenko</h4>
-        <div class="role">Co-Founder & CLO (Chief Legal Officer)</div>
+        <div class="role">Legal Domain & Compliance</div>
         <p>PhD in Law. Deep expertise in Ukrainian and international legal practice. Legal domain modeling, annotation quality, compliance strategy.</p>
       </div>
     </div>
   </div>
   <div class="why-us">
     <div class="why-item">
-      <h4>Domain Expertise</h4>
-      <p>Legal PhD + AI researcher CEO. Domain logic baked into architecture, not bolted on.</p>
+      <h4>AI + Legal Depth</h4>
+      <p>This mix lets us move fast and stay accurate. Domain logic baked into architecture, not bolted on.</p>
     </div>
     <div class="why-item">
-      <h4>Dual Data Moat</h4>
-      <p>120M+ legal records + 15B+ intelligence records. Months to build. Impossible to replicate quickly.</p>
+      <h4>Data Moat</h4>
+      <p>130M+ legal records across 22 countries. Months to build. Impossible to replicate quickly.</p>
     </div>
     <div class="why-item">
-      <h4>Two Markets, One Team</h4>
-      <p>Legal analytics + due diligence. Natural cross-sell. Shared infrastructure. Double the addressable market.</p>
+      <h4>Full Stack</h4>
+      <p>Legal analytics + due diligence in one product. Shared infrastructure. Natural cross-sell.</p>
     </div>
   </div>
-  <div class="logo-bar">SECONDLAYER</div>
+  <div class="logo-bar">LEX AI</div>
   <div class="slide-number">11</div>
 </div>
 
-<!-- SLIDE 12: Contact -->
+<!-- SLIDE 12: Ask -->
 <div class="slide" style="display:flex;flex-direction:column;justify-content:center;align-items:center;">
-  <h2 style="text-align:center;"><span>Let's Talk</span></h2>
-  <div style="display:flex;gap:40px;justify-content:center;align-items:flex-start;margin-top:10px;">
-    <div class="contact-box" style="min-width:340px;">
+  <h2 style="text-align:center;margin-bottom:16px;">Looking for <span>Partners, Pilots & Investors</span></h2>
+  <p style="font-size:18px;color:#94a3b8;text-align:center;margin-bottom:36px;">Public beta is live today.</p>
+  <div style="display:flex;gap:40px;justify-content:center;align-items:flex-start;">
+    <div class="contact-box" style="min-width:380px;">
       <h4>Get in Touch</h4>
-      <div class="contact-line"><strong>Volodymyr Ovcharov</strong> – CEO & AI Researcher</div>
+      <div class="contact-line"><strong>Volodymyr Ovcharov</strong></div>
       <div class="contact-line">volodymyr@legal.org.ua</div>
       <div class="contact-line" style="margin-bottom:16px;">linkedin.com/in/volodymir-ovcharov</div>
-      <div class="contact-line"><strong>Igor Kyrychenko</strong> – CLO</div>
+      <div class="contact-line"><strong>Igor Kyrychenko</strong></div>
       <div class="contact-line">igor@legal.org.ua</div>
-      <div class="contact-line">+380 67 720 63 53</div>
       <div class="contact-line" style="margin-bottom:16px;">linkedin.com/in/ihor-kyrychenko</div>
-      <div style="display:flex;gap:12px;">
+      <div>
         <a class="contact-url" href="https://legal.org.ua" style="text-decoration:none;">legal.org.ua</a>
-        <a class="contact-url" href="https://panoptic.com.ua" style="text-decoration:none;background:linear-gradient(135deg, #8b5cf6, #6d28d9);">panoptic.com.ua</a>
       </div>
     </div>
   </div>
-  <div style="margin-top:28px;text-align:center;">
-    <p style="font-size:14px;color:#64748b;font-weight:500;">Pre-revenue | Public beta live | LLM distribution via NVIDIA Inception</p>
-  </div>
-  <div class="logo-bar">SECONDLAYER</div>
+  <div class="logo-bar">LEX AI</div>
   <div class="slide-number">12</div>
 </div>
 
