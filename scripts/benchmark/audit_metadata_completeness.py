@@ -56,7 +56,7 @@ JURISDICTIONS = {
             "court_type": "court_type",
             "decision_type": "decision_type",
             "subject": "keywords",
-            "outcome": None,
+            "outcome": ["enriched_outcome"],
             "cited_provisions": "legal_bases",
         },
     },
@@ -68,7 +68,7 @@ JURISDICTIONS = {
             "court_type": "court_type",
             "decision_type": "decision_type",
             "subject": "subject",
-            "outcome": None,
+            "outcome": ["enriched_outcome"],
             "cited_provisions": "cited_provisions",
         },
     },
@@ -80,7 +80,7 @@ JURISDICTIONS = {
             "court_type": "collegium",
             "decision_type": "decision_type",
             "subject": "legal_area",
-            "outcome": None,
+            "outcome": ["enriched_outcome"],
             "cited_provisions": "legislation_refs",
         },
     },
@@ -188,11 +188,10 @@ JURISDICTIONS = {
         "columns": {
             "court_type": "court_type",
             "decision_type": "decision_type",
-            "subject": "subject_area",
-            "outcome": "tenor",
+            "subject": ["subject_area", "enriched_subject_area"],
+            "outcome": ["enriched_outcome"],
             "cited_provisions": None,
         },
-        "notes": "tenor is raw text, not a label -- needs classification",
     },
     "be": {
         "label": "Belgium",
@@ -269,9 +268,26 @@ JURISDICTIONS = {
 }
 
 
+def column_exists(cur, table, column):
+    cur.execute("""
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = %s AND column_name = %s
+    """, (table, column))
+    return cur.fetchone() is not None
+
+
 def count_field(cur, table, column):
     if column is None:
         return 0
+    if isinstance(column, (list, tuple)):
+        parts = []
+        for c in column:
+            if column_exists(cur, table, c):
+                parts.append(f"({c} IS NOT NULL AND {c}::text != '' AND {c}::text != '{{}}')")
+        if not parts:
+            return 0
+        cur.execute(f"SELECT count(*) FROM {table} WHERE {' OR '.join(parts)}")
+        return cur.fetchone()[0]
     cur.execute(
         f"SELECT count(*) FROM {table} WHERE {column} IS NOT NULL AND {column}::text != '' AND {column}::text != '{{}}'"
     )
