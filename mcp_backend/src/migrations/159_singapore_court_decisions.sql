@@ -50,18 +50,18 @@ END $$;
 CREATE OR REPLACE FUNCTION sg_court_decisions_stats_trigger() RETURNS trigger AS $$
 BEGIN
     IF TG_OP = 'INSERT' AND NEW.full_text IS NOT NULL AND length(NEW.full_text) > 100 THEN
-        INSERT INTO jurisdiction_fulltext_stats (jurisdiction, total_decisions, with_fulltext, last_updated)
-        VALUES ('SG', 1, 1, NOW())
-        ON CONFLICT (jurisdiction) DO UPDATE SET
+        INSERT INTO jurisdiction_fulltext_stats (jurisdiction_code, jurisdiction_name, total_decisions, fulltext_decisions, updated_at)
+        VALUES ('SG', 'Singapore', 1, 1, NOW())
+        ON CONFLICT (jurisdiction_code) DO UPDATE SET
             total_decisions = jurisdiction_fulltext_stats.total_decisions + 1,
-            with_fulltext = jurisdiction_fulltext_stats.with_fulltext + 1,
-            last_updated = NOW();
+            fulltext_decisions = jurisdiction_fulltext_stats.fulltext_decisions + 1,
+            updated_at = NOW();
     ELSIF TG_OP = 'INSERT' THEN
-        INSERT INTO jurisdiction_fulltext_stats (jurisdiction, total_decisions, with_fulltext, last_updated)
-        VALUES ('SG', 1, 0, NOW())
-        ON CONFLICT (jurisdiction) DO UPDATE SET
+        INSERT INTO jurisdiction_fulltext_stats (jurisdiction_code, jurisdiction_name, total_decisions, fulltext_decisions, updated_at)
+        VALUES ('SG', 'Singapore', 1, 0, NOW())
+        ON CONFLICT (jurisdiction_code) DO UPDATE SET
             total_decisions = jurisdiction_fulltext_stats.total_decisions + 1,
-            last_updated = NOW();
+            updated_at = NOW();
     END IF;
     RETURN NEW;
 END;
