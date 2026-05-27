@@ -160,58 +160,51 @@ def enrich_country(db_url, country, table, dry_run=False, batch_size=5000):
         return
 
     conn.close()
-    read_conn = psycopg2.connect(db_url)
-    write_conn = psycopg2.connect(db_url)
-    write_conn.autocommit = True
+    conn = psycopg2.connect(db_url)
+    conn.autocommit = True
+    cur = conn.cursor()
 
-    cur = read_conn.cursor(name=f"{country}_outcome_cursor")
-    cur.itersize = batch_size
-
-    cur.execute(f"""
-        SELECT id, full_text FROM {table}
-        WHERE full_text IS NOT NULL AND length(full_text) > 500
-          AND enriched_outcome IS NULL
-        ORDER BY id
-    """)
-
-    update_cur = write_conn.cursor()
-    batch = []
     stats = {"granted": 0, "denied": 0, "partial": 0, "fail": 0}
     processed = 0
+    last_id = ""
 
-    for row in cur:
-        doc_id, text = row
-        processed += 1
-        outcome = classify_outcome(text, country)
+    while True:
+        cur.execute(f"""
+            SELECT id, full_text FROM {table}
+            WHERE full_text IS NOT NULL AND length(full_text) > 500
+              AND enriched_outcome IS NULL
+              AND id > %s
+            ORDER BY id
+            LIMIT %s
+        """, (last_id, batch_size))
+        rows = cur.fetchall()
+        if not rows:
+            break
 
-        if outcome:
-            stats[outcome] += 1
-            batch.append((outcome, doc_id))
-        else:
-            stats["fail"] += 1
+        batch = []
+        for doc_id, text in rows:
+            processed += 1
+            last_id = doc_id
+            outcome = classify_outcome(text, country)
 
-        if len(batch) >= 1000 and not dry_run:
+            if outcome:
+                stats[outcome] += 1
+                batch.append((outcome, doc_id))
+            else:
+                stats["fail"] += 1
+
+        if batch and not dry_run:
             psycopg2.extras.execute_batch(
-                update_cur,
+                cur,
                 f"UPDATE {table} SET enriched_outcome = %s WHERE id = %s",
                 batch,
             )
-            batch = []
 
         if processed % 10000 == 0:
             print(f"  {processed:,} -- granted={stats['granted']}, denied={stats['denied']}, partial={stats['partial']}, fail={stats['fail']}", flush=True)
 
-    if batch and not dry_run:
-        psycopg2.extras.execute_batch(
-            update_cur,
-            f"UPDATE {table} SET enriched_outcome = %s WHERE id = %s",
-            batch,
-        )
-
     cur.close()
-    update_cur.close()
-    read_conn.close()
-    write_conn.close()
+    conn.close()
 
     classified = stats["granted"] + stats["denied"] + stats["partial"]
     print(f"\n  {country.upper()} Summary: {processed:,} processed, {classified:,} classified ({classified/max(processed,1)*100:.1f}%)")

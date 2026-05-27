@@ -240,22 +240,10 @@ def main():
     cur.close()
     conn.close()
 
-    read_conn = psycopg2.connect(args.db_url)
-    write_conn = psycopg2.connect(args.db_url)
-    write_conn.autocommit = True
+    conn = psycopg2.connect(args.db_url)
+    conn.autocommit = True
+    cur = conn.cursor()
 
-    cur = read_conn.cursor(name="de_enrich_cursor")
-    cur.itersize = args.batch_size
-
-    cur.execute("""
-        SELECT id, court_type, court_name, subject_area, tenor, full_text
-        FROM de_court_decisions
-        WHERE enriched_subject_area IS NULL OR enriched_outcome IS NULL
-        ORDER BY id
-    """)
-
-    update_cur = write_conn.cursor()
-    batch = []
     stats = {
         "subject_court_map": 0, "subject_strafrecht_refine": 0, "subject_fail": 0,
         "outcome_regex": 0, "outcome_fail": 0,
@@ -263,40 +251,55 @@ def main():
     processed = 0
     llm_subject_ids = []
     llm_outcome_ids = []
+    last_id = ""
 
-    for row in cur:
-        doc_id, court_type, court_name, existing_subject, tenor, full_text = row
-        processed += 1
+    while True:
+        cur.execute("""
+            SELECT id, court_type, court_name, subject_area, tenor, full_text
+            FROM de_court_decisions
+            WHERE (enriched_subject_area IS NULL OR enriched_outcome IS NULL)
+              AND id > %s
+            ORDER BY id
+            LIMIT %s
+        """, (last_id, args.batch_size))
+        rows = cur.fetchall()
+        if not rows:
+            break
 
-        subject = classify_subject_by_court(court_type, court_name)
-        if subject:
-            subject = refine_subject_with_text(subject, full_text)
-            if subject == "Strafrecht" and classify_subject_by_court(court_type, court_name) != "Strafrecht":
-                stats["subject_strafrecht_refine"] += 1
-            stats["subject_court_map"] += 1
-        else:
-            stats["subject_fail"] += 1
-            llm_subject_ids.append(doc_id)
+        batch = []
+        for row in rows:
+            doc_id, court_type, court_name, existing_subject, tenor, full_text = row
+            processed += 1
+            last_id = doc_id
 
-        outcome = classify_outcome_regex(tenor, full_text)
-        if outcome:
-            stats["outcome_regex"] += 1
-        else:
-            stats["outcome_fail"] += 1
-            llm_outcome_ids.append(doc_id)
+            subject = classify_subject_by_court(court_type, court_name)
+            if subject:
+                subject = refine_subject_with_text(subject, full_text)
+                if subject == "Strafrecht" and classify_subject_by_court(court_type, court_name) != "Strafrecht":
+                    stats["subject_strafrecht_refine"] += 1
+                stats["subject_court_map"] += 1
+            else:
+                stats["subject_fail"] += 1
+                llm_subject_ids.append(doc_id)
 
-        batch.append((subject, outcome, doc_id))
+            outcome = classify_outcome_regex(tenor, full_text)
+            if outcome:
+                stats["outcome_regex"] += 1
+            else:
+                stats["outcome_fail"] += 1
+                llm_outcome_ids.append(doc_id)
 
-        if len(batch) >= 1000 and not args.dry_run:
+            batch.append((subject, outcome, doc_id))
+
+        if batch and not args.dry_run:
             psycopg2.extras.execute_batch(
-                update_cur,
+                cur,
                 """UPDATE de_court_decisions
                    SET enriched_subject_area = COALESCE(%s, enriched_subject_area),
                        enriched_outcome = COALESCE(%s, enriched_outcome)
                    WHERE id = %s""",
                 batch,
             )
-            batch = []
 
         if processed % 10000 == 0:
             print(
@@ -305,20 +308,8 @@ def main():
                 flush=True,
             )
 
-    if batch and not args.dry_run:
-        psycopg2.extras.execute_batch(
-            update_cur,
-            """UPDATE de_court_decisions
-               SET enriched_subject_area = COALESCE(%s, enriched_subject_area),
-                   enriched_outcome = COALESCE(%s, enriched_outcome)
-               WHERE id = %s""",
-            batch,
-        )
-
     cur.close()
-    update_cur.close()
-    read_conn.close()
-    write_conn.close()
+    conn.close()
 
     print(f"\n=== DE Enrichment Summary ===")
     print(f"Total processed: {processed:,}")
