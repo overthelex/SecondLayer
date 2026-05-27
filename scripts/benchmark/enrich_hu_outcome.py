@@ -147,8 +147,11 @@ def ensure_outcome_column(conn):
 
 
 def process_batch_regex(db_url, batch_size=5000, dry_run=False):
-    conn = psycopg2.connect(db_url)
-    cur = conn.cursor(name="hu_outcome_cursor")
+    read_conn = psycopg2.connect(db_url)
+    write_conn = psycopg2.connect(db_url)
+    write_conn.autocommit = True
+
+    cur = read_conn.cursor(name="hu_outcome_cursor")
     cur.itersize = batch_size
 
     cur.execute("""
@@ -158,7 +161,7 @@ def process_batch_regex(db_url, batch_size=5000, dry_run=False):
         ORDER BY id
     """)
 
-    update_cur = conn.cursor()
+    update_cur = write_conn.cursor()
     batch = []
     total = 0
     failed_ids = []
@@ -181,7 +184,6 @@ def process_batch_regex(db_url, batch_size=5000, dry_run=False):
                 "UPDATE hu_court_decisions SET enriched_outcome = %s WHERE id = %s",
                 batch,
             )
-            conn.commit()
             batch = []
 
         if total % 10000 == 0:
@@ -193,11 +195,11 @@ def process_batch_regex(db_url, batch_size=5000, dry_run=False):
             "UPDATE hu_court_decisions SET enriched_outcome = %s WHERE id = %s",
             batch,
         )
-        conn.commit()
 
     cur.close()
     update_cur.close()
-    conn.close()
+    read_conn.close()
+    write_conn.close()
 
     log(f"\nRegex phase complete: {total:,} processed")
     log(f"  granted={stats['regex_granted']}, denied={stats['regex_denied']}, partial={stats['regex_partial']}")
