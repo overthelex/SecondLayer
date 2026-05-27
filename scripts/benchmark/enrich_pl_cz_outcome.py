@@ -160,8 +160,11 @@ def enrich_country(db_url, country, table, dry_run=False, batch_size=5000):
         return
 
     conn.close()
-    conn = psycopg2.connect(db_url)
-    cur = conn.cursor(name=f"{country}_outcome_cursor")
+    read_conn = psycopg2.connect(db_url)
+    write_conn = psycopg2.connect(db_url)
+    write_conn.autocommit = True
+
+    cur = read_conn.cursor(name=f"{country}_outcome_cursor")
     cur.itersize = batch_size
 
     cur.execute(f"""
@@ -171,7 +174,7 @@ def enrich_country(db_url, country, table, dry_run=False, batch_size=5000):
         ORDER BY id
     """)
 
-    update_cur = conn.cursor()
+    update_cur = write_conn.cursor()
     batch = []
     stats = {"granted": 0, "denied": 0, "partial": 0, "fail": 0}
     processed = 0
@@ -193,7 +196,6 @@ def enrich_country(db_url, country, table, dry_run=False, batch_size=5000):
                 f"UPDATE {table} SET enriched_outcome = %s WHERE id = %s",
                 batch,
             )
-            conn.commit()
             batch = []
 
         if processed % 10000 == 0:
@@ -205,11 +207,11 @@ def enrich_country(db_url, country, table, dry_run=False, batch_size=5000):
             f"UPDATE {table} SET enriched_outcome = %s WHERE id = %s",
             batch,
         )
-        conn.commit()
 
     cur.close()
     update_cur.close()
-    conn.close()
+    read_conn.close()
+    write_conn.close()
 
     classified = stats["granted"] + stats["denied"] + stats["partial"]
     print(f"\n  {country.upper()} Summary: {processed:,} processed, {classified:,} classified ({classified/max(processed,1)*100:.1f}%)")

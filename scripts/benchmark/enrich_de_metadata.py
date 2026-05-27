@@ -240,8 +240,11 @@ def main():
     cur.close()
     conn.close()
 
-    conn = psycopg2.connect(args.db_url)
-    cur = conn.cursor(name="de_enrich_cursor")
+    read_conn = psycopg2.connect(args.db_url)
+    write_conn = psycopg2.connect(args.db_url)
+    write_conn.autocommit = True
+
+    cur = read_conn.cursor(name="de_enrich_cursor")
     cur.itersize = args.batch_size
 
     cur.execute("""
@@ -251,7 +254,7 @@ def main():
         ORDER BY id
     """)
 
-    update_cur = conn.cursor()
+    update_cur = write_conn.cursor()
     batch = []
     stats = {
         "subject_court_map": 0, "subject_strafrecht_refine": 0, "subject_fail": 0,
@@ -293,7 +296,6 @@ def main():
                    WHERE id = %s""",
                 batch,
             )
-            conn.commit()
             batch = []
 
         if processed % 10000 == 0:
@@ -312,11 +314,11 @@ def main():
                WHERE id = %s""",
             batch,
         )
-        conn.commit()
 
     cur.close()
     update_cur.close()
-    conn.close()
+    read_conn.close()
+    write_conn.close()
 
     print(f"\n=== DE Enrichment Summary ===")
     print(f"Total processed: {processed:,}")
