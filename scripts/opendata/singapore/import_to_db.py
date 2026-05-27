@@ -262,7 +262,7 @@ def main():
     cp_meta = load_checkpoint_metadata(html_dir.parent)
     log.info(f"Checkpoint metadata: {len(cp_meta)} entries")
 
-    conn = psycopg2.connect(DB_URL)
+    conn = psycopg2.connect(DB_URL, keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5)
     cur = conn.cursor()
 
     cur.execute("SELECT neutral_citation FROM sg_court_decisions WHERE source = 'elitigation'")
@@ -275,16 +275,24 @@ def main():
 
     file_paths = [str(f) for f in files]
 
+    # Pre-filter: only parse files not already in DB to avoid long idle connection
+    pending_paths = []
+    for f in files:
+        raw_cit = f.stem
+        neutral = format_neutral_citation(raw_cit)
+        if neutral not in existing:
+            pending_paths.append(str(f))
+        else:
+            total_skipped += 1
+    file_paths = pending_paths
+    log.info(f"Skipped {total_skipped} already in DB, parsing {len(file_paths)} new files...")
+
     log.info(f"Parsing HTML files with {args.workers} workers...")
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
         batch = []
         for i, record in enumerate(pool.map(process_file, file_paths, chunksize=50)):
             if record is None:
                 total_failed += 1
-                continue
-
-            if record["neutral_citation"] in existing:
-                total_skipped += 1
                 continue
 
             # Merge in checkpoint metadata for fields the HTML parser missed
@@ -304,7 +312,7 @@ def main():
                 inserted = insert_batch(cur, batch)
                 conn.commit()
                 total_imported += inserted
-                log.info(f"  [{i+1}/{len(files)}] Imported {total_imported:,}, skipped {total_skipped:,}, failed {total_failed:,}")
+                log.info(f"  [{i+1}/{len(file_paths)}] Imported {total_imported:,}, skipped {total_skipped:,}, failed {total_failed:,}")
                 batch = []
 
         if batch:
