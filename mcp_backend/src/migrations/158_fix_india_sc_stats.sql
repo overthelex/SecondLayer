@@ -43,9 +43,13 @@ $$ LANGUAGE plpgsql;
 -- RE-SEED IN-SC: total = metadata + fulltext (disjoint sets)
 -- ============================================================
 
-UPDATE jurisdiction_fulltext_stats SET
-    total_decisions = (SELECT COUNT(*) FROM indian_sc_judgments)
-                    + COALESCE((SELECT COUNT(*) FROM indian_court_fulltext WHERE source = 'sc'), 0),
-    fulltext_decisions = COALESCE((SELECT COUNT(*) FROM indian_court_fulltext WHERE source = 'sc'), 0),
-    updated_at = NOW()
-WHERE jurisdiction_code = 'IN-SC';
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'indian_sc_judgments' AND table_schema = 'public') THEN
+        UPDATE jurisdiction_fulltext_stats SET
+            total_decisions = (SELECT COUNT(*) FROM indian_sc_judgments)
+                            + COALESCE((SELECT COUNT(*) FROM indian_court_fulltext WHERE source = 'sc'), 0),
+            fulltext_decisions = COALESCE((SELECT COUNT(*) FROM indian_court_fulltext WHERE source = 'sc'), 0),
+            updated_at = NOW()
+        WHERE jurisdiction_code = 'IN-SC';
+    END IF;
+END $$;
