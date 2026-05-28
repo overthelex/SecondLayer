@@ -303,9 +303,9 @@ def ensure_column(conn, table, column, col_type="TEXT"):
     cur.close()
 
 
-def worker_loop(worker_id, region, model, work_items, table, id_column, task_name, task_config, language, dry_run):
+def worker_loop(worker_id, region, model, work_items, table, id_column, task_name, task_config, language, dry_run, db_url):
     bedrock = boto3.client("bedrock-runtime", region_name=region)
-    conn = psycopg2.connect(DB_URL)
+    conn = psycopg2.connect(db_url)
     conn.autocommit = True
     cur = conn.cursor()
 
@@ -396,8 +396,7 @@ def main():
     parser.add_argument("--workers", type=int, default=len(WORKERS), help="Number of parallel workers")
     args = parser.parse_args()
 
-    global DB_URL
-    DB_URL = args.db_url
+    db_url = args.db_url
 
     config = JURISDICTION_CONFIG[args.country]
     table = config["table"]
@@ -467,7 +466,7 @@ def main():
                     worker_loop,
                     i, worker["region"], worker["model"],
                     chunk, table, id_column,
-                    task_name, task_config, language, args.dry_run,
+                    task_name, task_config, language, args.dry_run, db_url,
                 )
                 futures[f] = i
 
