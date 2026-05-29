@@ -1,0 +1,347 @@
+##############################################################################
+# Pipeline: Deploy to Stage (GCP)
+# - Builds and tests changed services
+# - Deploys to GCP stage VM (stage.legal.org.ua) via SSH
+# - Triggered on PR to main (for pre-merge validation) or manually
+##############################################################################
+name: 'Deploy to Stage'
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Services to deploy (comma-separated: backend,rada,openreyestr,frontend). Leave empty to auto-detect.'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: deploy-stage-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  STAGE_HOST: 34.159.151.177
+  STAGE_USER: vovkes
+  DEPLOY_DIR: /home/vovkes/SecondLayer
+
+jobs:
+  # ─── Step 1: Detect what changed ─────────────────────────────────────
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      shared: ${{ steps.changes.outputs.shared }}
+      backend: ${{ steps.changes.outputs.backend }}
+      rada: ${{ steps.changes.outputs.rada }}
+      openreyestr: ${{ steps.changes.outputs.openreyestr }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      deployment: ${{ steps.changes.outputs.deployment }}
+      any_backend: ${{ steps.changes.outputs.any_backend }}
+      services_to_build: ${{ steps.changes.outputs.services_to_build }}
+      has_changes: ${{ steps.check.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        uses: ./.github/actions/detect-changes
+
+      - name: Check if any services need deploy
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.services }}" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Manual deploy requested: ${{ inputs.services }}"
+          else
+            SERVICES='${{ steps.changes.outputs.services_to_build }}'
+            if [ "$SERVICES" = '[]' ]; then
+              echo "has_changes=false" >> "$GITHUB_OUTPUT"
+              echo "No services changed — skipping"
+            else
+              echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+  # ─── Step 2: Build & test ────────────────────────────────────────────
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    env:
+      BACKEND_CHANGED: ${{ needs.detect-changes.outputs.backend }}
+      RADA_CHANGED: ${{ needs.detect-changes.outputs.rada }}
+      OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
+      FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build shared package
+        run: cd packages/shared && npm install --legacy-peer-deps && npm run build
+
+      - name: Overlay proprietary source
+        if: env.BACKEND_CHANGED == 'true'
+        env:
+          CORE_REPO_SSH_KEY: ${{ secrets.CORE_REPO_SSH_KEY }}
+        run: |
+          CORE_TMP=$(mktemp -d)
+          KEY_FILE=$(mktemp)
+          trap 'shred -u "$KEY_FILE" 2>/dev/null || rm -f "$KEY_FILE"; rm -rf "$CORE_TMP"' EXIT
+          printf '%s\n' "$CORE_REPO_SSH_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+          GIT_SSH_COMMAND="ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes" \
+            git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
+          cp -f "$CORE_TMP"/src/services/* mcp_backend/src/services/
+          cp -rf "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
+
+      - name: Build backend
+        if: env.BACKEND_CHANGED == 'true'
+        run: cd mcp_backend && npm install && npm run build
+
+      - name: Unit test backend
+        if: env.BACKEND_CHANGED == 'true'
+        run: |
+          cd mcp_backend && npx jest --no-cache --forceExit \
+            src/controllers/__tests__/ \
+            src/middleware/__tests__/ \
+            src/adapters/__tests__/ \
+            src/services/__tests__/
+
+      - name: Build RADA
+        if: env.RADA_CHANGED == 'true'
+        run: cd mcp_rada && npm install && npm run build
+
+      - name: Build OpenReyestr
+        if: env.OPENREYESTR_CHANGED == 'true'
+        run: cd mcp_openreyestr && npm install && npm run build
+
+      - name: Install frontend deps
+        if: env.FRONTEND_CHANGED == 'true'
+        run: cd lexwebapp && npm install --legacy-peer-deps
+
+      - name: Build frontend
+        if: env.FRONTEND_CHANGED == 'true'
+        run: cd lexwebapp && npm run build
+        env:
+          VITE_API_URL: https://stage.legal.org.ua
+          NODE_OPTIONS: --max-old-space-size=8192
+
+  # ─── Step 3: Deploy to stage VM ──────────────────────────────────────
+  deploy-stage:
+    name: Deploy to Stage
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-test]
+    if: |
+      always() &&
+      needs.build-and-test.result == 'success'
+    env:
+      BACKEND_CHANGED: ${{ needs.detect-changes.outputs.backend }}
+      RADA_CHANGED: ${{ needs.detect-changes.outputs.rada }}
+      OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
+      FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+      SHARED_CHANGED: ${{ needs.detect-changes.outputs.shared }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        env:
+          STAGE_SSH_KEY: ${{ secrets.STAGE_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$STAGE_SSH_KEY" > ~/.ssh/stage_key
+          chmod 600 ~/.ssh/stage_key
+          ssh-keyscan -H ${{ env.STAGE_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Resolve services to deploy
+        id: services
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.services }}" ]; then
+            echo "list=${{ inputs.services }}" >> "$GITHUB_OUTPUT"
+          else
+            SERVICES=""
+            [ "$BACKEND_CHANGED" = "true" ] && SERVICES="backend"
+            [ "$RADA_CHANGED" = "true" ] && SERVICES="${SERVICES:+$SERVICES,}rada"
+            [ "$OPENREYESTR_CHANGED" = "true" ] && SERVICES="${SERVICES:+$SERVICES,}openreyestr"
+            [ "$FRONTEND_CHANGED" = "true" ] && SERVICES="${SERVICES:+$SERVICES,}frontend"
+            [ "$SHARED_CHANGED" = "true" ] && [ -z "$SERVICES" ] && SERVICES="backend,rada,openreyestr,frontend"
+            echo "list=${SERVICES:-backend,frontend}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy via SSH
+        env:
+          SERVICES: ${{ steps.services.outputs.list }}
+          CORE_REPO_SSH_KEY: ${{ secrets.CORE_REPO_SSH_KEY }}
+        run: |
+          SSH_CMD="ssh -i ~/.ssh/stage_key -o StrictHostKeyChecking=accept-new ${{ env.STAGE_USER }}@${{ env.STAGE_HOST }}"
+
+          # Sync code to stage
+          $SSH_CMD "cd ${{ env.DEPLOY_DIR }} && git fetch origin && git checkout ${GITHUB_SHA} --force"
+
+          # Overlay proprietary source if backend is being deployed
+          if echo "$SERVICES" | grep -q "backend"; then
+            KEY_FILE=$(mktemp)
+            trap 'shred -u "$KEY_FILE" 2>/dev/null || rm -f "$KEY_FILE"' EXIT
+            printf '%s\n' "$CORE_REPO_SSH_KEY" > "$KEY_FILE"
+            chmod 600 "$KEY_FILE"
+            scp -i ~/.ssh/stage_key -o StrictHostKeyChecking=accept-new "$KEY_FILE" ${{ env.STAGE_USER }}@${{ env.STAGE_HOST }}:/tmp/core_key
+            $SSH_CMD bash -s <<'OVERLAY_EOF'
+              KEY_FILE=/tmp/core_key
+              chmod 600 "$KEY_FILE"
+              CORE_TMP=$(mktemp -d)
+              trap 'shred -u "$KEY_FILE" 2>/dev/null; rm -rf "$CORE_TMP"' EXIT
+              GIT_SSH_COMMAND="ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes" \
+                git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
+              cp -f "$CORE_TMP"/src/services/* $DEPLOY_DIR/mcp_backend/src/services/
+              cp -rf "$CORE_TMP"/src/prompts/* $DEPLOY_DIR/mcp_backend/src/prompts/
+          OVERLAY_EOF
+          fi
+
+          # Build and deploy Docker services
+          $SSH_CMD bash -s -- "$SERVICES" <<'DEPLOY_EOF'
+            set -euo pipefail
+            SERVICES="$1"
+            cd /home/vovkes/SecondLayer/deployment
+            DC="docker compose -f docker-compose.stage.yml --env-file .env.stage"
+
+            STOP="" BUILD="" START=""
+
+            if echo "$SERVICES" | grep -q "backend"; then
+              STOP="$STOP app-stage document-service-stage"
+              BUILD="$BUILD app-stage document-service-stage migrate-stage"
+              START="$START app-stage document-service-stage"
+            fi
+            if echo "$SERVICES" | grep -q "rada"; then
+              STOP="$STOP rada-mcp-app-stage"
+              BUILD="$BUILD rada-mcp-app-stage rada-db-init-stage rada-migrate-stage"
+              START="$START rada-mcp-app-stage"
+            fi
+            if echo "$SERVICES" | grep -q "openreyestr"; then
+              STOP="$STOP app-openreyestr-stage"
+              BUILD="$BUILD app-openreyestr-stage migrate-openreyestr-stage"
+              START="$START app-openreyestr-stage"
+            fi
+            if echo "$SERVICES" | grep -q "frontend"; then
+              STOP="$STOP lexwebapp-stage"
+              BUILD="$BUILD lexwebapp-stage"
+              START="$START lexwebapp-stage"
+            fi
+
+            [ -n "$STOP" ] && $DC stop $STOP 2>/dev/null || true
+            [ -n "$STOP" ] && $DC rm -f $STOP 2>/dev/null || true
+            [ -n "$BUILD" ] && $DC build --no-cache $BUILD
+
+            # Run migrations
+            if echo "$SERVICES" | grep -q "backend"; then
+              timeout 120 $DC up --abort-on-container-exit migrate-stage || true
+            fi
+            if echo "$SERVICES" | grep -q "rada"; then
+              timeout 120 $DC up --abort-on-container-exit rada-db-init-stage || true
+              timeout 120 $DC up --abort-on-container-exit rada-migrate-stage || true
+            fi
+            if echo "$SERVICES" | grep -q "openreyestr"; then
+              timeout 120 $DC up --abort-on-container-exit migrate-openreyestr-stage || true
+            fi
+
+            [ -n "$START" ] && $DC up -d $START
+
+            # Always recreate nginx after any deploy
+            $DC up -d --force-recreate nginx-stage
+
+            docker image prune -f || true
+          DEPLOY_EOF
+
+      - name: Health check
+        run: |
+          SSH_CMD="ssh -i ~/.ssh/stage_key -o StrictHostKeyChecking=accept-new ${{ env.STAGE_USER }}@${{ env.STAGE_HOST }}"
+
+          FAILED=false
+
+          wait_healthy() {
+            local name=$1 container=$2 max_wait=${3:-120}
+            local elapsed=0
+            echo "Waiting for $name ($container)..."
+            while [ $elapsed -lt $max_wait ]; do
+              status=$($SSH_CMD "docker inspect --format='{{.State.Health.Status}}' $container 2>/dev/null || echo not_found")
+              case "$status" in
+                healthy) echo "✓ $name: healthy (${elapsed}s)"; return 0 ;;
+                unhealthy) echo "✗ $name: unhealthy"; FAILED=true; return 1 ;;
+                *) sleep 10; elapsed=$((elapsed + 10)) ;;
+              esac
+            done
+            echo "✗ $name: timed out"
+            FAILED=true
+          }
+
+          if [ "${{ env.BACKEND_CHANGED }}" = "true" ]; then
+            wait_healthy "Backend" "secondlayer-app-stage" 180
+            wait_healthy "Document Service" "document-service-stage" 120
+          fi
+          [ "${{ env.RADA_CHANGED }}" = "true" ] && wait_healthy "RADA" "rada-mcp-app-stage" 120
+          [ "${{ env.OPENREYESTR_CHANGED }}" = "true" ] && wait_healthy "OpenReyestr" "openreyestr-app-stage" 120
+          [ "${{ env.FRONTEND_CHANGED }}" = "true" ] && wait_healthy "Frontend" "lexwebapp-stage" 60
+
+          # Verify stage is reachable via HTTPS
+          for i in 1 2 3 4 5; do
+            curl -sf --max-time 10 "https://stage.legal.org.ua/health" > /dev/null 2>&1 && {
+              echo "✓ stage.legal.org.ua reachable"
+              break
+            }
+            echo "Attempt $i: stage not reachable yet, retrying..."
+            sleep 10
+          done
+
+          if [ "$FAILED" = "true" ]; then exit 1; fi
+
+      - name: Comment PR with stage URL
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = [
+              '## Stage Deployment',
+              '',
+              '| | |',
+              '|---|---|',
+              `| **URL** | https://stage.legal.org.ua |`,
+              `| **Commit** | \`${context.sha.substring(0, 7)}\` |`,
+              `| **Services** | ${{ steps.services.outputs.list }} |`,
+              '',
+              '> Deploy completed — test before merging.',
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body.includes('## Stage Deployment'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
