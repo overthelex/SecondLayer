@@ -139,8 +139,8 @@ JURISDICTIONS = {
         "columns": {
             "court_type": "court_type",
             "decision_type": "decision_type",
-            "subject": "subject",
-            "outcome": None,
+            "subject": ["subject", "enriched_subject_area"],
+            "outcome": ["enriched_outcome"],
             "cited_provisions": None,
         },
     },
