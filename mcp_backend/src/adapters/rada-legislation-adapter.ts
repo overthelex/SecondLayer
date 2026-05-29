@@ -667,18 +667,29 @@ export class RadaLegislationAdapter {
     return chunks;
   }
 
-  async getArticleByNumber(radaId: string, articleNumber: string): Promise<LegislationArticle | null> {
-    // Deterministic pick of the latest version when duplicate rows exist
-    // (see LEXAI-823: multiple is_current rows per article caused random body/title mismatch).
-    const result = await this.db.query(
-      `SELECT la.*
-       FROM legislation_articles la
-       JOIN legislation l ON la.legislation_id = l.id
-       WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.is_current = true
-       ORDER BY la.version_date DESC NULLS LAST, la.id DESC
-       LIMIT 1`,
-      [radaId, articleNumber]
-    );
+  async getArticleByNumber(radaId: string, articleNumber: string, asOfDate?: string): Promise<LegislationArticle | null> {
+    let result;
+    if (asOfDate) {
+      result = await this.db.query(
+        `SELECT la.*
+         FROM legislation_articles la
+         JOIN legislation l ON la.legislation_id = l.id
+         WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.version_date <= $3
+         ORDER BY la.version_date DESC
+         LIMIT 1`,
+        [radaId, articleNumber, asOfDate]
+      );
+    } else {
+      result = await this.db.query(
+        `SELECT la.*
+         FROM legislation_articles la
+         JOIN legislation l ON la.legislation_id = l.id
+         WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.is_current = true
+         ORDER BY la.version_date DESC NULLS LAST, la.id DESC
+         LIMIT 1`,
+        [radaId, articleNumber]
+      );
+    }
 
     if (result.rows.length === 0) return null;
 
@@ -709,6 +720,120 @@ export class RadaLegislationAdapter {
 
     const result = await this.db.query(sql, params);
     return result.rows;
+  }
+
+  async fetchEditionDates(radaId: string): Promise<string[]> {
+    if (/[^\p{L}\p{N}\-_\/\.]/u.test(radaId) || radaId.includes('..')) {
+      throw new Error(`Invalid legislation ID: ${radaId}`);
+    }
+    const url = `${this.BASE_URL}/laws/show/${radaId}/card4`;
+    logger.info(`Fetching edition dates from ${url}`);
+
+    const response = await this.httpClient.get(url);
+    const html = response.data as string;
+    const edRegex = /\/ed(\d{8})/g;
+    const dates = new Set<string>();
+    let match;
+    while ((match = edRegex.exec(html)) !== null) {
+      dates.add(match[1]);
+    }
+    const sorted = [...dates].sort();
+    logger.info(`Found ${sorted.length} editions for ${radaId}`);
+    return sorted;
+  }
+
+  async fetchEdition(radaId: string, editionDate: string): Promise<{ metadata: LegislationMetadata; articles: LegislationArticle[] }> {
+    if (/[^\p{L}\p{N}\-_\/\.]/u.test(radaId) || radaId.includes('..')) {
+      throw new Error(`Invalid legislation ID: ${radaId}`);
+    }
+    if (!/^\d{8}$/.test(editionDate)) {
+      throw new Error(`Invalid edition date format: ${editionDate}, expected YYYYMMDD`);
+    }
+
+    const url = `${this.BASE_URL}/laws/show/${radaId}/ed${editionDate}/print`;
+    logger.info(`Fetching edition ${editionDate} from ${url}`);
+
+    const callStart = Date.now();
+    try {
+      const response = await this.httpClient.get(url, { timeout: 60000 });
+      const callDuration = (Date.now() - callStart) / 1000;
+      this.externalApiMetrics?.('zakon_rada', 'success', callDuration);
+
+      const html = response.data as string;
+      const $ = cheerio.load(html);
+      const metadata = this.extractMetadata($, radaId, url);
+
+      const versionDate = new Date(
+        parseInt(editionDate.substring(0, 4)),
+        parseInt(editionDate.substring(4, 6)) - 1,
+        parseInt(editionDate.substring(6, 8)),
+      );
+
+      // Edition pages use <pre><b> format
+      let articles = this.extractArticlesPreBold(html);
+
+      // Fallback to rvts9 format if pre/bold found nothing
+      if (articles.length < 3) {
+        articles = this.extractArticles($, radaId);
+      }
+
+      for (const art of articles) {
+        art.version_date = versionDate;
+        art.metadata = { ...art.metadata, edition_date: editionDate, extraction_method: 'edition_endpoint' };
+      }
+
+      logger.info(`Edition ${editionDate} of ${radaId}: ${articles.length} articles`);
+      return { metadata, articles };
+    } catch (error: any) {
+      const callDuration = (Date.now() - callStart) / 1000;
+      this.externalApiMetrics?.('zakon_rada', 'error', callDuration);
+      logger.error(`Failed to fetch edition ${editionDate} of ${radaId}:`, error.message);
+      throw error;
+    }
+  }
+
+  private extractArticlesPreBold(html: string): LegislationArticle[] {
+    const articles: LegislationArticle[] = [];
+    // Edition pages wrap text in <pre> blocks with <b>Стаття N.</b> headers
+    const articleRegex = /<b>Стаття\s+(\d+(?:-\d+)?)\.?<\/b>\s*(.*?)(?=<b>Стаття\s+\d|<\/pre>\s*$|$)/gs;
+
+    const seen = new Set<string>();
+    let match;
+    while ((match = articleRegex.exec(html)) !== null) {
+      const articleNumber = match[1].trim();
+      if (seen.has(articleNumber)) continue;
+      seen.add(articleNumber);
+
+      let body = match[2];
+      // Clean HTML tags but preserve line breaks
+      body = body.replace(/<br\s*\/?>/gi, '\n');
+      body = body.replace(/<b>([^<]*)<\/b>/g, '$1');
+      body = body.replace(/<[^>]+>/g, ' ');
+      body = body.replace(/&nbsp;/g, ' ');
+      body = body.replace(/&mdash;/g, '—');
+      body = body.replace(/&laquo;/g, '«');
+      body = body.replace(/&raquo;/g, '»');
+      body = body.replace(/&amp;/g, '&');
+      body = body.replace(/\{[^}]*\}/g, '');
+      body = body.replace(/[ \t]+/g, ' ');
+      body = body.replace(/\n\s*\n/g, '\n');
+      body = body.trim();
+
+      if (body.length < 5) continue;
+
+      const firstLine = body.split('\n')[0].trim();
+      const title = firstLine.length < 200 ? firstLine : undefined;
+
+      articles.push({
+        article_number: articleNumber,
+        title,
+        full_text: body,
+        byte_size: Buffer.byteLength(body, 'utf8'),
+        metadata: { extraction_method: 'edition_pre_bold' },
+      });
+    }
+
+    return articles;
   }
 
   setExternalApiMetrics(callback: (service: string, status: string, durationSec: number) => void) {
