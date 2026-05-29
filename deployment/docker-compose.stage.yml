@@ -4,12 +4,12 @@ services:
     container_name: secondlayer-postgres-stage
     command: >-
       postgres
-      -c max_connections=500
-      -c shared_buffers=8GB
-      -c effective_cache_size=40GB
-      -c work_mem=128MB
-      -c maintenance_work_mem=2GB
-      -c wal_buffers=64MB
+      -c max_connections=200
+      -c shared_buffers=512MB
+      -c effective_cache_size=1536MB
+      -c work_mem=16MB
+      -c maintenance_work_mem=256MB
+      -c wal_buffers=16MB
       -c idle_in_transaction_session_timeout=60000
       -c statement_timeout=300000
       -c lock_timeout=30000
@@ -36,9 +36,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 12G
+          memory: 1G
         reservations:
-          memory: 8G
+          memory: 512M
 
   # PgBouncer connection pooler for PostgreSQL
   pgbouncer-stage:
@@ -102,14 +102,14 @@ services:
   postgres-openreyestr-stage:
     image: mcvovkes/openreyestr-db:latest
     container_name: openreyestr-postgres-stage
-    shm_size: '4g'
+    shm_size: '256m'
     command: >-
       postgres
-      -c max_connections=200
-      -c shared_buffers=2GB
-      -c effective_cache_size=6GB
-      -c work_mem=128MB
-      -c maintenance_work_mem=1GB
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c effective_cache_size=768MB
+      -c work_mem=16MB
+      -c maintenance_work_mem=128MB
       -c idle_in_transaction_session_timeout=60000
       -c statement_timeout=300000
       -c lock_timeout=30000
@@ -134,11 +134,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 16G
+          cpus: '1'
+          memory: 1G
         reservations:
-          cpus: '0.5'
-          memory: 4G
+          cpus: '0.25'
+          memory: 512M
 
   qdrant-stage:
     image: qdrant/qdrant:latest
@@ -163,9 +163,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 8G
+          memory: 1G
         reservations:
-          memory: 4G
+          memory: 512M
   redis-stage:
     image: redis:7-alpine
     container_name: secondlayer-redis-stage
@@ -173,7 +173,7 @@ services:
     - "127.0.0.1:6381:6379"
     volumes:
     - redis_stage_data:/data
-    command: redis-server --appendonly yes --maxmemory 8192mb --maxmemory-policy noeviction
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     healthcheck:
       test:
       - CMD
@@ -191,9 +191,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 9G
+          memory: 768M
         reservations:
-          memory: 4G
+          memory: 256M
   migrate-stage:
     build:
       context: ..
@@ -493,7 +493,7 @@ services:
         max-file: "10"
     command:
     - node
-    - --max-old-space-size=8192
+    - --max-old-space-size=2048
     - dist/http-server.js
     environment:
       NODE_ENV: staging
@@ -624,10 +624,10 @@ services:
       resources:
         limits:
           cpus: '2'
-          memory: 10G
+          memory: 2G
         reservations:
           cpus: '0.5'
-          memory: 4G
+          memory: 1G
   # Document Analysis Service (OCR, PDF parsing)
   document-service-stage:
     build:
@@ -635,7 +635,7 @@ services:
       dockerfile: deployment/Dockerfile.document-service
     image: document-service:latest
     container_name: document-service-stage
-    command: ["node", "--max-old-space-size=5120", "--expose-gc", "dist/document-service.js"]
+    command: ["node", "--max-old-space-size=1024", "--expose-gc", "dist/document-service.js"]
     logging:
       driver: json-file
       options:
@@ -736,11 +736,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 6G
+          cpus: '1'
+          memory: 1536M
         reservations:
-          cpus: '0.5'
-          memory: 1G
+          cpus: '0.25'
+          memory: 512M
 
   lexwebapp-stage:
     build:
@@ -801,12 +801,8 @@ services:
         max-file: "5"
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - ./nginx/stage.legal.org.ua.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx/includes:/etc/nginx/includes:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-      - /var/www/html:/var/www/html:ro
       - nginx_stage_logs:/var/log/nginx
     depends_on:
       app-stage:
