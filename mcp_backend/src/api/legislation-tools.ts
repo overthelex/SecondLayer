@@ -14,6 +14,7 @@ export interface LegislationToolArgs {
   include_html?: boolean;
   include_court_practice?: boolean;
   theme?: 'light' | 'dark';
+  as_of_date?: string;
 }
 
 export class LegislationTools extends BaseToolHandler {
@@ -122,7 +123,7 @@ export class LegislationTools extends BaseToolHandler {
       query: query.substring(0, 50)
     });
 
-    const article = await this.service.getArticle(resolved.radaId, resolved.articleNumber);
+    const article = await this.service.getArticle(resolved.radaId, resolved.articleNumber, args.as_of_date);
     if (!article) {
       return {
         error: `Article ${resolved.articleNumber} not found in legislation ${resolved.radaId}`,
@@ -170,7 +171,7 @@ export class LegislationTools extends BaseToolHandler {
       articles: args.article_numbers.join(', ')
     });
 
-    const articles = await this.service.getMultipleArticles(args.rada_id, args.article_numbers);
+    const articles = await this.service.getMultipleArticles(args.rada_id, args.article_numbers, args.as_of_date);
 
     if (articles.length === 0) {
       return {
@@ -182,6 +183,7 @@ export class LegislationTools extends BaseToolHandler {
     const response: any = {
       rada_id: args.rada_id,
       total_found: articles.length,
+      as_of_date: args.as_of_date || undefined,
       articles: articles.map(a => ({
         article_number: a.article_number,
         title: a.title,
@@ -500,6 +502,10 @@ export class LegislationTools extends BaseToolHandler {
               type: 'string',
               description: 'Номер статті (наприклад, "625", "44", "354-1")',
             },
+            as_of_date: {
+              type: 'string',
+              description: 'Дата для отримання історичної редакції (формат YYYY-MM-DD). Без цього параметру повертається чинна редакція.',
+            },
             include_html: {
               type: 'boolean',
               description: 'Чи включати форматований HTML (за замовчуванням false)',
@@ -528,6 +534,10 @@ export class LegislationTools extends BaseToolHandler {
               type: 'array',
               items: { type: 'string' },
               description: 'Масив номерів статей (наприклад, ["354", "355", "356"])',
+            },
+            as_of_date: {
+              type: 'string',
+              description: 'Дата для отримання історичної редакції (формат YYYY-MM-DD)',
             },
             include_html: {
               type: 'boolean',
@@ -587,6 +597,21 @@ export class LegislationTools extends BaseToolHandler {
             rada_id: {
               type: 'string',
               description: 'ID законодавчого акту',
+            },
+          },
+          required: ['rada_id'],
+        },
+      },
+      {
+        name: 'list_legislation_editions',
+        annotations: { title: 'Редакції закону', readOnlyHint: true, idempotentHint: true },
+        description: 'Перелік всіх доступних історичних редакцій законодавчого акту з датами. Використовуй для вибору дати при запиті get_legislation_section з as_of_date.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            rada_id: {
+              type: 'string',
+              description: 'ID законодавчого акту (наприклад, "435-15" для ЦК)',
             },
           },
           required: ['rada_id'],
@@ -672,6 +697,25 @@ export class LegislationTools extends BaseToolHandler {
     };
   }
 
+  async listLegislationEditions(args: { rada_id: string }): Promise<any> {
+    if (!args.rada_id) throw new Error('rada_id is required');
+    const radaId = normalizeRadaId(args.rada_id);
+    const editions = await this.service.getEditionDates(radaId);
+    const structure = await this.service.getLegislationStructure(radaId);
+    return {
+      rada_id: radaId,
+      title: structure?.title || null,
+      total_editions: editions.length,
+      editions: editions.map(e => ({
+        date: e.edition_date,
+        article_count: e.article_count,
+      })),
+      note: editions.length === 0
+        ? 'Історичні редакції ще не завантажені для цього акту'
+        : undefined,
+    };
+  }
+
   async executeTool(name: string, args: any): Promise<ToolResult | null> {
     switch (name) {
       case 'get_legislation_article': // backward-compat alias
@@ -687,6 +731,8 @@ export class LegislationTools extends BaseToolHandler {
         return this.wrapResponse(await this.getLegislationStructure(args));
       case 'get_legislation_history':
         return this.wrapResponse(await this.getLegislationHistory(args));
+      case 'list_legislation_editions':
+        return this.wrapResponse(await this.listLegislationEditions(args));
       default:
         return null;
     }

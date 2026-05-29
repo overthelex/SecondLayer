@@ -476,7 +476,7 @@ export class LegislationService {
     }
   }
 
-  async getArticle(radaId: string, articleNumber: string): Promise<LegislationReference | null> {
+  async getArticle(radaId: string, articleNumber: string, asOfDate?: string): Promise<LegislationReference | null> {
     const kmuPrefix = parseKmuPrefix(radaId);
     if (kmuPrefix) {
       const resolved = await this.resolveKmuRadaId(kmuPrefix.kmuNumber, kmuPrefix.docType);
@@ -486,7 +486,7 @@ export class LegislationService {
     radaId = normalizeRadaId(radaId);
     await this.ensureLegislationExists(radaId);
 
-    const article = await this.adapter.getArticleByNumber(radaId, articleNumber);
+    const article = await this.adapter.getArticleByNumber(radaId, articleNumber, asOfDate);
     if (!article) {
       return null;
     }
@@ -502,7 +502,7 @@ export class LegislationService {
     // header and body must come from the same record (LEXAI-823).
     const actualArticleNumber = article.article_number || articleNumber;
 
-    return {
+    const ref: LegislationReference = {
       rada_id: radaId,
       article_number: actualArticleNumber,
       title: article.title,
@@ -516,20 +516,37 @@ export class LegislationService {
       chapter_number: article.chapter_number,
       chapter_title: article.chapter_title,
     };
+
+    if (asOfDate) {
+      ref.metadata = { ...ref.metadata, is_historical: true, as_of_date: asOfDate };
+    }
+
+    return ref;
   }
 
-  async getMultipleArticles(radaId: string, articleNumbers: string[]): Promise<LegislationReference[]> {
+  async getMultipleArticles(radaId: string, articleNumbers: string[], asOfDate?: string): Promise<LegislationReference[]> {
     await this.ensureLegislationExists(radaId);
 
-    // DISTINCT ON picks the latest version per article when duplicate rows exist (LEXAI-823).
-    const result = await this.db.query(
-      `SELECT DISTINCT ON (la.article_number) la.*, l.rada_id, l.title as npa_title
-       FROM legislation_articles la
-       JOIN legislation l ON la.legislation_id = l.id
-       WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = ANY($2) AND la.is_current = true
-       ORDER BY la.article_number, la.version_date DESC NULLS LAST, la.id DESC`,
-      [radaId, articleNumbers]
-    );
+    let result;
+    if (asOfDate) {
+      result = await this.db.query(
+        `SELECT DISTINCT ON (la.article_number) la.*, l.rada_id, l.title as npa_title
+         FROM legislation_articles la
+         JOIN legislation l ON la.legislation_id = l.id
+         WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = ANY($2) AND la.version_date <= $3
+         ORDER BY la.article_number, la.version_date DESC`,
+        [radaId, articleNumbers, asOfDate]
+      );
+    } else {
+      result = await this.db.query(
+        `SELECT DISTINCT ON (la.article_number) la.*, l.rada_id, l.title as npa_title
+         FROM legislation_articles la
+         JOIN legislation l ON la.legislation_id = l.id
+         WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = ANY($2) AND la.is_current = true
+         ORDER BY la.article_number, la.version_date DESC NULLS LAST, la.id DESC`,
+        [radaId, articleNumbers]
+      );
+    }
 
     return result.rows.map((row: any) => ({
       rada_id: radaId,
@@ -538,7 +555,7 @@ export class LegislationService {
       full_text: row.full_text,
       full_text_html: row.full_text_html,
       url: `https://zakon.rada.gov.ua/laws/show/${radaId}#n${row.article_number}`,
-      metadata: row.metadata,
+      metadata: asOfDate ? { ...row.metadata, is_historical: true, as_of_date: asOfDate } : row.metadata,
       npa_title: row.npa_title,
       section_number: row.section_number,
       section_title: row.section_title,
@@ -658,6 +675,21 @@ export class LegislationService {
       `SELECT DISTINCT type FROM legislation WHERE type IS NOT NULL ORDER BY type`
     );
     return result.rows.map((row: any) => row.type);
+  }
+
+  async getEditionDates(radaId: string): Promise<Array<{ edition_date: string; article_count: number }>> {
+    const result = await this.db.query(
+      `SELECT le.edition_date, le.article_count
+       FROM legislation_editions le
+       JOIN legislation l ON le.legislation_id = l.id
+       WHERE LOWER(l.rada_id) = LOWER($1)
+       ORDER BY le.edition_date DESC`,
+      [radaId]
+    );
+    return result.rows.map((row: any) => ({
+      edition_date: row.edition_date,
+      article_count: row.article_count,
+    }));
   }
 
   async getAmendmentHistory(radaId: string): Promise<Array<{
