@@ -215,14 +215,16 @@ jobs:
             chmod 600 "$KEY_FILE"
             scp -i ~/.ssh/stage_key -o StrictHostKeyChecking=accept-new "$KEY_FILE" ${{ env.STAGE_USER }}@${{ env.STAGE_HOST }}:/tmp/core_key
             $SSH_CMD bash -s <<'OVERLAY_EOF'
+              set -euo pipefail
               KEY_FILE=/tmp/core_key
               chmod 600 "$KEY_FILE"
               CORE_TMP=$(mktemp -d)
               trap 'shred -u "$KEY_FILE" 2>/dev/null; rm -rf "$CORE_TMP"' EXIT
               GIT_SSH_COMMAND="ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes" \
                 git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
-              cp -f "$CORE_TMP"/src/services/* $DEPLOY_DIR/mcp_backend/src/services/
-              cp -rf "$CORE_TMP"/src/prompts/* $DEPLOY_DIR/mcp_backend/src/prompts/
+              cp -f "$CORE_TMP"/src/services/* /home/vovkes/SecondLayer/mcp_backend/src/services/
+              cp -rf "$CORE_TMP"/src/prompts/* /home/vovkes/SecondLayer/mcp_backend/src/prompts/
+              cd /home/vovkes/SecondLayer && npm --prefix mcp_backend run build
           OVERLAY_EOF
           fi
 
