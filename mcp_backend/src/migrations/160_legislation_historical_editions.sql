@@ -2,7 +2,7 @@
 -- Enables storage and fast temporal lookup of all historical editions of Ukrainian codes
 
 -- 1. Composite index for O(1) temporal lookups: "article X as of date Y"
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_articles_temporal_lookup
+CREATE INDEX IF NOT EXISTS idx_articles_temporal_lookup
 ON legislation_articles (legislation_id, article_number, version_date DESC);
 
 -- 2. Create legislation_editions table (tracks available editions per code)
@@ -31,6 +31,6 @@ DO $$ BEGIN
 END $$;
 
 -- 4. Partial index for maintenance queries on historical articles
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_articles_historical
+CREATE INDEX IF NOT EXISTS idx_articles_historical
 ON legislation_articles (legislation_id, version_date)
 WHERE is_current = false;
