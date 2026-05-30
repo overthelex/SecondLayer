@@ -230,7 +230,7 @@ jobs:
 
           # Build and deploy Docker services
           $SSH_CMD bash -s -- "$SERVICES" <<'DEPLOY_EOF'
-            set -euo pipefail
+            set -uo pipefail
             SERVICES="$1"
             cd /home/vovkes/SecondLayer/deployment
             DC="docker compose -f docker-compose.stage.yml --env-file .env.stage"
