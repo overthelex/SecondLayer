@@ -801,8 +801,11 @@ services:
         max-file: "5"
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/stage.legal.org.ua.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/cf-origin-cert.pem:/etc/nginx/certs/cf-origin-cert.pem:ro
+      - ./nginx/cf-origin-key.pem:/etc/nginx/certs/cf-origin-key.pem:ro
       - nginx_stage_logs:/var/log/nginx
     depends_on:
       app-stage:

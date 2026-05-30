@@ -2,14 +2,13 @@
 # Pipeline: Deploy to Stage (GCP)
 # - Builds and tests changed services
 # - Deploys to GCP stage VM (stage.legal.org.ua) via SSH
-# - Triggered on PR to main (for pre-merge validation) or manually
+# - Triggered on push/merge to stage branch or manually
 ##############################################################################
 name: 'Deploy to Stage'
 
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened]
+  push:
+    branches: [stage]
   workflow_dispatch:
     inputs:
       services:
@@ -19,12 +18,12 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 concurrency:
-  group: deploy-stage-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: deploy-stage
+  cancel-in-progress: false
 
 env:
   STAGE_HOST: 34.159.151.177
@@ -189,7 +188,24 @@ jobs:
           SSH_CMD="ssh -i ~/.ssh/stage_key -o StrictHostKeyChecking=accept-new ${{ env.STAGE_USER }}@${{ env.STAGE_HOST }}"
 
           # Sync code to stage
-          $SSH_CMD "cd ${{ env.DEPLOY_DIR }} && git fetch origin && git checkout ${GITHUB_SHA} --force"
+          $SSH_CMD "cd ${{ env.DEPLOY_DIR }} && git fetch origin stage && git checkout ${GITHUB_SHA} --force"
+
+          # Build TypeScript on stage VM (Dockerfiles require pre-built dist/)
+          $SSH_CMD bash -s -- "$SERVICES" <<'BUILD_EOF'
+            set -euo pipefail
+            SERVICES="$1"
+            cd /home/vovkes/SecondLayer
+            npm --prefix packages/shared install --legacy-peer-deps && npm --prefix packages/shared run build
+            if echo "$SERVICES" | grep -q "backend"; then
+              npm --prefix mcp_backend install && npm --prefix mcp_backend run build
+            fi
+            if echo "$SERVICES" | grep -q "rada"; then
+              npm --prefix mcp_rada install && npm --prefix mcp_rada run build
+            fi
+            if echo "$SERVICES" | grep -q "openreyestr"; then
+              npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build
+            fi
+          BUILD_EOF
 
           # Overlay proprietary source if backend is being deployed
           if echo "$SERVICES" | grep -q "backend"; then
@@ -306,42 +322,12 @@ jobs:
 
           if [ "$FAILED" = "true" ]; then exit 1; fi
 
-      - name: Comment PR with stage URL
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const body = [
-              '## Stage Deployment',
-              '',
-              '| | |',
-              '|---|---|',
-              `| **URL** | https://stage.legal.org.ua |`,
-              `| **Commit** | \`${context.sha.substring(0, 7)}\` |`,
-              `| **Services** | ${{ steps.services.outputs.list }} |`,
-              '',
-              '> Deploy completed — test before merging.',
-            ].join('\n');
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-
-            const existing = comments.find(c => c.body.includes('## Stage Deployment'));
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
+      - name: Tag successful stage deploy
+        run: |
+          TAG="stage-$(date +%Y%m%d-%H%M%S)"
+          git tag "$TAG" "${{ github.sha }}"
+          git push origin "$TAG"
+          git tag -l "stage-*" --sort=-creatordate | tail -n +11 | while read -r old_tag; do
+            git push origin ":refs/tags/$old_tag" 2>/dev/null || true
+            git tag -d "$old_tag" 2>/dev/null || true
+          done
