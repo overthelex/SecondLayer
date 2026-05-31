@@ -93,6 +93,9 @@ export function createToolServices(
   const serviceProxy = new ServiceProxy(costTracker, remoteClient);
   logger.info('Unified Gateway initialized (Tool Registry + Service Proxy)');
 
+  // EDRSR FTS service — instantiated early so procedural/unified tools can share it
+  const edsrFtsService = new EdsrFtsService();
+
   // Register all tool handlers with the central registry
   toolRegistry.registerHandler(coreServices.legislationTools);
   toolRegistry.registerHandler(documentAnalysisTools);
@@ -120,7 +123,9 @@ export function createToolServices(
     coreServices.sectionizer,
     coreServices.embeddingService,
     coreServices.patternStore,
-    llmAdapter
+    llmAdapter,
+    edsrFtsService,
+    coreServices.db,
   ));
   toolRegistry.registerHandler(new LegalAdviceTools(
     coreServices.queryPlanner,
@@ -153,7 +158,6 @@ export function createToolServices(
   toolRegistry.registerHandler(new DecisionLayerTools(llmAdapter));
 
   // EDRSR unified search (structured + FTS + hybrid + semantic in one tool)
-  const edsrFtsService = new EdsrFtsService();
   let edsrVectorizer: EdsrVectorizerService | undefined;
   try {
     edsrVectorizer = new EdsrVectorizerService();
