@@ -142,14 +142,7 @@ export class EdsrFtsService {
       paramIdx++;
     }
 
-    const whereClause = conditions.join(' AND ');
-
-    // Build FROM clause — only join edrsr_documents when metadata filters are used
-    const fromClause = hasMetadataFilter
-      ? `edrsr_fulltext f INNER JOIN edrsr_documents d ON d.doc_id = f.doc_id`
-      : `edrsr_fulltext f`;
-
-    // Instance code needs court join
+    // Instance code filter — must be added before building whereClause
     let extraJoin = '';
     if (filters.instance_code) {
       extraJoin = ` LEFT JOIN edrsr_courts c ON c.court_code = d.court_code`;
@@ -157,6 +150,13 @@ export class EdsrFtsService {
       params.push(filters.instance_code);
       paramIdx++;
     }
+
+    const whereClause = conditions.join(' AND ');
+
+    // Build FROM clause — only join edrsr_documents when metadata filters are used
+    const fromClause = hasMetadataFilter
+      ? `edrsr_fulltext f INNER JOIN edrsr_documents d ON d.doc_id = f.doc_id`
+      : `edrsr_fulltext f`;
 
     const buildSelectFields = (withHeadline: boolean) => {
       const headlineExpr = withHeadline
