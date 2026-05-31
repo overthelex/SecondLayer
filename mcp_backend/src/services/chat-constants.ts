@@ -1,7 +1,8 @@
 // Proprietary implementation: @secondlayer/core (private repo)
+// Stub — overridden by CI overlay from secondlayer-core/src/services/
 
 export const CHAT_CONSTANTS = {
-  MAX_TOOL_CALLS: 10,
+  MAX_TOOL_CALLS: 12,
   MAX_CONTEXT_CHARS: 100000,
   MAX_RESULT_CHARS: 50000,
   DEFAULT_BUDGET: 'standard' as const,
