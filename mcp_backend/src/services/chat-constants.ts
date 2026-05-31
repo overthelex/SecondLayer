@@ -1,5 +1,6 @@
 // Proprietary implementation: @secondlayer/core (private repo)
 // Stub — overridden by CI overlay from secondlayer-core/src/services/
+// Includes transitional provisions search rule
 
 export const CHAT_CONSTANTS = {
   MAX_TOOL_CALLS: 12,
