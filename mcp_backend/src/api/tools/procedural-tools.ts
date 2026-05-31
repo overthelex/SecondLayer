@@ -15,6 +15,7 @@
 import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
 import type { IEmbeddingPort, ILLMPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
+import { EdsrFtsService, EdsrFtsFilters } from '../../services/edrsr-fts-service.js';
 import { SectionType } from '../../types/index.js';
 import { logger } from '../../utils/logger.js';
 import { extractSearchTermsWithAI } from '../../utils/html-parser.js';
@@ -54,7 +55,9 @@ export class ProceduralTools extends BaseToolHandler {
     private sectionizer: SemanticSectionizer,
     private embeddingService: IEmbeddingPort,
     private patternStore: LegalPatternStore,
-    private readonly llm?: ILLMPort
+    private readonly llm?: ILLMPort,
+    private readonly ftsService?: EdsrFtsService,
+    private readonly db?: any,
   ) {
     super();
   }
@@ -388,53 +391,45 @@ export class ProceduralTools extends BaseToolHandler {
     if (!query) throw new Error('query parameter is required');
 
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
-
-    const baseWhereFilters: any[] = [];
     const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
-    if (justiceKind !== null) {
-      baseWhereFilters.push({ field: 'justice_kind', operator: '=', value: justiceKind });
-    }
 
-    const timeParams = {
-      ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
-      ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
-    };
+    const ftsSearch = async (suffix: string) => {
+      if (!this.ftsService || !this.db) return { results: [], instanceLabel: '' };
 
-    const cascadeSearch = async (suffix: string) => {
-      return searchWithInstanceCascade(
-        async (filters) => {
-          const resp = await this.zoAdapter.searchCourtDecisions({
-            meta: { search: `${query} ${suffix}` },
-            where: filters.length > 0 ? filters : undefined,
-            limit,
-            offset: 0,
-            ...timeParams,
-          });
-          return this.zoAdapter.normalizeResponse(resp);
-        },
-        baseWhereFilters,
-      );
+      const baseFilters: EdsrFtsFilters = {
+        ...(justiceKind !== null ? { justice_kind: justiceKind } : {}),
+        ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
+        ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
+      };
+
+      for (const inst of [
+        { code: 1, label: 'Верховний Суд' },
+        { code: 2, label: 'апеляційні суди' },
+        { code: 3, label: 'суди першої інстанції' },
+      ] as const) {
+        const resp = await this.ftsService.searchFulltext(
+          `${query} ${suffix}`, this.db,
+          { ...baseFilters, instance_code: inst.code }, limit,
+        );
+        if (resp.results.length > 0) {
+          return { results: resp.results, instanceLabel: inst.label };
+        }
+      }
+      return { results: [], instanceLabel: '' };
     };
 
     const [proResult, contraResult] = await Promise.all([
-      cascadeSearch('задовольн'),
-      cascadeSearch('відмов'),
+      ftsSearch('задовольнити позов'),
+      ftsSearch('відмовити у задоволенні позову'),
     ]);
 
-    const mapCase = (d: any) => {
-      const courtName = extractCourtFromTitle(d?.title);
-      return {
-        doc_id: d?._raw?.doc_id ?? d?.doc_id ?? d?.zakononline_id,
-        court: d?.court || courtName,
-        chamber: courtName,
-        date: d?.date || d?.adjudication_date,
-        case_number: d?.case_number || d?.cause_num,
-        url: d?._raw?.url || d?.url,
-        snippet: (typeof d?.full_text === 'string' && d.full_text.length > 0)
-          ? extractSnippets(d.full_text, query, 1)[0]
-          : undefined,
-      };
-    };
+    const mapFtsCase = (d: any) => ({
+      doc_id: d.doc_id,
+      court_code: d.court_code,
+      date: d.adjudication_date,
+      case_number: d.cause_num,
+      snippet: d.headline,
+    });
 
     const payload: any = {
       procedure_code: procedureCode,
@@ -442,10 +437,10 @@ export class ProceduralTools extends BaseToolHandler {
       time_range: args.time_range,
       court_level_pro: proResult.instanceLabel || undefined,
       court_level_contra: contraResult.instanceLabel || undefined,
-      pro: proResult.data.slice(0, limit).map(mapCase),
-      contra: contraResult.data.slice(0, limit).map(mapCase),
-      total_pro: proResult.data.length,
-      total_contra: contraResult.data.length,
+      pro: proResult.results.slice(0, limit).map(mapFtsCase),
+      contra: contraResult.results.slice(0, limit).map(mapFtsCase),
+      total_pro: proResult.results.length,
+      total_contra: contraResult.results.length,
     };
     if (timeRangeParsed.warning) payload.warning = timeRangeParsed.warning;
 
@@ -472,53 +467,47 @@ export class ProceduralTools extends BaseToolHandler {
       ? extracted.searchQuery.trim()
       : (extractedTerms.length > 0 ? extractedTerms.join(' ') : factsText.slice(0, 180));
 
-    const baseWhereFilters: any[] = [];
     const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
-    if (justiceKind !== null) {
-      baseWhereFilters.push({ field: 'justice_kind', operator: '=', value: justiceKind });
-    }
 
-    const timeParams = {
-      ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
-      ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
-    };
+    let results: any[] = [];
+    let courtLevel = '';
 
-    const cascadeResult = await searchWithInstanceCascade(
-      async (filters) => {
-        const resp = await this.zoAdapter.searchCourtDecisions({
-          meta: { search: query },
-          where: filters.length > 0 ? filters : undefined,
-          limit,
-          offset: 0,
-          ...timeParams,
-        });
-        return this.zoAdapter.normalizeResponse(resp);
-      },
-      baseWhereFilters,
-    );
-
-    const results = cascadeResult.data.slice(0, limit).map((d: any) => {
-      const fullText = typeof d?.full_text === 'string' ? d.full_text : '';
-      const courtName = extractCourtFromTitle(d?.title);
-      return {
-        doc_id: d?._raw?.doc_id ?? d?.doc_id ?? d?.zakononline_id,
-        court: d?.court || courtName,
-        chamber: courtName,
-        date: d?.date || d?.adjudication_date,
-        case_number: d?.case_number || d?.cause_num,
-        url: d?._raw?.url || d?.url,
-        why_similar: extractSnippets(fullText, query.split(' ')[0] || query, 2),
+    if (this.ftsService && this.db) {
+      const baseFilters: EdsrFtsFilters = {
+        ...(justiceKind !== null ? { justice_kind: justiceKind } : {}),
+        ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
+        ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
       };
-    });
+
+      for (const inst of [
+        { code: 1, label: 'Верховний Суд' },
+        { code: 2, label: 'апеляційні суди' },
+        { code: 3, label: 'суди першої інстанції' },
+      ] as const) {
+        const resp = await this.ftsService.searchFulltext(
+          query, this.db, { ...baseFilters, instance_code: inst.code }, limit,
+        );
+        if (resp.results.length > 0) {
+          courtLevel = inst.label;
+          results = resp.results.slice(0, limit).map((d) => ({
+            doc_id: d.doc_id,
+            court_code: d.court_code,
+            date: d.adjudication_date,
+            case_number: d.cause_num,
+            snippet: d.headline,
+          }));
+          break;
+        }
+      }
+    }
 
     const payload: any = {
       procedure_code: procedureCode,
       time_range: args.time_range,
-      court_level: cascadeResult.instanceLabel || undefined,
+      court_level: courtLevel || undefined,
       extracted_search_terms: extractedTerms,
       search_query: query,
       results,
-      warning: 'Similarity is based on search-term extraction and text retrieval. For true fact-pattern similarity, FACTS sections need to be indexed as embeddings.',
     };
     if (timeRangeParsed.warning) payload.time_range_warning = timeRangeParsed.warning;
 
