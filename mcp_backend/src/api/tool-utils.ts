@@ -295,6 +295,34 @@ export function buildSupremeCourtWhereFilter(courtLevel: string): any[] {
   return [];
 }
 
+/** Court instance cascade order: SC → appellate → first instance */
+const INSTANCE_CASCADE = [
+  { level: 'SC', code: 1, label: 'Верховний Суд' },
+  { level: 'AC', code: 2, label: 'апеляційні суди' },
+  { level: 'FC', code: 3, label: 'суди першої інстанції' },
+] as const;
+
+/**
+ * Cascading court search: try SC first, if empty — appellate, if empty — first instance.
+ * Returns results + which instance level actually matched.
+ */
+export async function searchWithInstanceCascade(
+  searchFn: (whereFilters: any[]) => Promise<{ data: any[] }>,
+  baseWhereFilters: any[],
+): Promise<{ data: any[]; instanceLevel: string; instanceLabel: string }> {
+  for (const inst of INSTANCE_CASCADE) {
+    const filters = [
+      ...baseWhereFilters,
+      { field: 'instance_code', operator: '=', value: inst.code },
+    ];
+    const result = await searchFn(filters);
+    if (result.data.length > 0) {
+      return { data: result.data, instanceLevel: inst.level, instanceLabel: inst.label };
+    }
+  }
+  return { data: [], instanceLevel: 'none', instanceLabel: '' };
+}
+
 /**
  * Pick section types for answer based on intent classification.
  */
