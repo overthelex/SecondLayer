@@ -4,7 +4,7 @@
  * 1 tool:
  * - search_court_case_status — пошук статусів судових справ (1.25M записів)
  *
- * Note: search_court_schedule was merged into search_court_sessions (court-session-tools.ts)
+ * Note: search_court_schedule was merged into search_court_hearing_schedule (court-session-tools.ts)
  */
 
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';

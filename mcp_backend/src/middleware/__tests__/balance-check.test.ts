@@ -16,7 +16,7 @@ function createMockReq(overrides: Partial<AuthenticatedRequest> = {}): Authentic
     headers: {},
     ip: '127.0.0.1',
     path: '/api/tools/test',
-    params: { toolName: 'search_court_sessions' },
+    params: { toolName: 'search_court_hearing_schedule' },
     body: { query: 'test' },
     authType: 'jwt',
     user: { id: 'user-123', email: 'test@example.com' },

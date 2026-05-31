@@ -2,7 +2,7 @@
  * Court Session Tools - Search and bulk ingest court sessions from ZakonOnline
  *
  * 2 tools:
- * - search_court_sessions
+ * - search_court_hearing_schedule (formerly search_court_sessions)
  * - bulk_ingest_court_sessions
  */
 
@@ -21,13 +21,15 @@ export class CourtSessionTools extends BaseToolHandler {
   getToolDefinitions(): ToolDefinition[] {
     return [
       {
-        name: 'search_court_sessions',
-        annotations: { title: 'Судові засідання', readOnlyHint: true },
-        description: `Пошук судових засідань за номером справи, учасниками, суддею або назвою суду
+        name: 'search_court_hearing_schedule',
+        annotations: { title: 'Розклад засідань', readOnlyHint: true },
+        description: `Пошук РОЗКЛАДУ судових засідань (дата, час, зал, учасники) — НЕ для пошуку текстів судових рішень або правових позицій.
+
+Для пошуку судової практики та рішень використовуйте: search_edrsr_fulltext, compare_practice_pro_contra, find_similar_fact_pattern_cases.
 
 💰 Примерная стоимость: $0.001-$0.01 USD
-Пошук запланованих та завершених судових засідань. Підтримує пошук по API (query) та локальній базі (структуровані фільтри).
-Джерела: source=api (ZakonOnline API), source=opendata (481K засідань з відкритих даних), source=all (обидва).`,
+Знаходить заплановані та завершені засідання за номером справи, учасниками, суддею.
+Джерела: source=api (ZakonOnline API), source=opendata (30M+ засідань з відкритих даних), source=all (обидва).`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -122,7 +124,8 @@ export class CourtSessionTools extends BaseToolHandler {
 
   async executeTool(name: string, args: any): Promise<ToolResult | null> {
     switch (name) {
-      case 'search_court_sessions':
+      case 'search_court_hearing_schedule':
+      case 'search_court_sessions': // backward-compat alias
       case 'search_court_schedule': // backward-compat alias
         return this.searchCourtSessions(args);
       case 'bulk_ingest_court_sessions':
