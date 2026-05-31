@@ -28,6 +28,7 @@ import {
   extractSnippets,
   buildSupremeCourtHints,
   buildSupremeCourtWhereFilter,
+  searchWithInstanceCascade,
   mapProcedureCodeToJusticeKind,
   extractCaseNumberFromText,
   safeParseJsonFromToolResult,
@@ -388,31 +389,37 @@ export class ProceduralTools extends BaseToolHandler {
 
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
 
-    // Build where-filters for SC instance and justice_kind
-    const whereFilters: any[] = [
-      ...buildSupremeCourtWhereFilter('SC'),
-    ];
+    const baseWhereFilters: any[] = [];
     const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
     if (justiceKind !== null) {
-      whereFilters.push({ field: 'justice_kind', operator: '=', value: justiceKind });
+      baseWhereFilters.push({ field: 'justice_kind', operator: '=', value: justiceKind });
     }
 
-    const mk = (q: string) => ({
-      meta: { search: q },
-      where: whereFilters.length > 0 ? whereFilters : undefined,
-      limit,
-      offset: 0,
+    const timeParams = {
       ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
       ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
-    });
+    };
 
-    const [proResp, contraResp] = await Promise.all([
-      this.zoAdapter.searchCourtDecisions(mk(`${query} задовольн`)),
-      this.zoAdapter.searchCourtDecisions(mk(`${query} відмов`)),
+    const cascadeSearch = async (suffix: string) => {
+      return searchWithInstanceCascade(
+        async (filters) => {
+          const resp = await this.zoAdapter.searchCourtDecisions({
+            meta: { search: `${query} ${suffix}` },
+            where: filters.length > 0 ? filters : undefined,
+            limit,
+            offset: 0,
+            ...timeParams,
+          });
+          return this.zoAdapter.normalizeResponse(resp);
+        },
+        baseWhereFilters,
+      );
+    };
+
+    const [proResult, contraResult] = await Promise.all([
+      cascadeSearch('задовольн'),
+      cascadeSearch('відмов'),
     ]);
-
-    const proNorm = await this.zoAdapter.normalizeResponse(proResp);
-    const contraNorm = await this.zoAdapter.normalizeResponse(contraResp);
 
     const mapCase = (d: any) => {
       const courtName = extractCourtFromTitle(d?.title);
@@ -433,10 +440,12 @@ export class ProceduralTools extends BaseToolHandler {
       procedure_code: procedureCode,
       query,
       time_range: args.time_range,
-      pro: proNorm.data.slice(0, limit).map(mapCase),
-      contra: contraNorm.data.slice(0, limit).map(mapCase),
-      total_pro: proNorm.data.length,
-      total_contra: contraNorm.data.length,
+      court_level_pro: proResult.instanceLabel || undefined,
+      court_level_contra: contraResult.instanceLabel || undefined,
+      pro: proResult.data.slice(0, limit).map(mapCase),
+      contra: contraResult.data.slice(0, limit).map(mapCase),
+      total_pro: proResult.data.length,
+      total_contra: contraResult.data.length,
     };
     if (timeRangeParsed.warning) payload.warning = timeRangeParsed.warning;
 
@@ -463,28 +472,32 @@ export class ProceduralTools extends BaseToolHandler {
       ? extracted.searchQuery.trim()
       : (extractedTerms.length > 0 ? extractedTerms.join(' ') : factsText.slice(0, 180));
 
-    // Build where-filters for SC instance and justice_kind
-    const whereFilters: any[] = [
-      ...buildSupremeCourtWhereFilter('SC'),
-    ];
+    const baseWhereFilters: any[] = [];
     const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
     if (justiceKind !== null) {
-      whereFilters.push({ field: 'justice_kind', operator: '=', value: justiceKind });
+      baseWhereFilters.push({ field: 'justice_kind', operator: '=', value: justiceKind });
     }
 
-    const searchParams: any = {
-      meta: { search: query },
-      where: whereFilters.length > 0 ? whereFilters : undefined,
-      limit,
-      offset: 0,
+    const timeParams = {
       ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
       ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
     };
 
-    const resp = await this.zoAdapter.searchCourtDecisions(searchParams);
-    const norm = await this.zoAdapter.normalizeResponse(resp);
+    const cascadeResult = await searchWithInstanceCascade(
+      async (filters) => {
+        const resp = await this.zoAdapter.searchCourtDecisions({
+          meta: { search: query },
+          where: filters.length > 0 ? filters : undefined,
+          limit,
+          offset: 0,
+          ...timeParams,
+        });
+        return this.zoAdapter.normalizeResponse(resp);
+      },
+      baseWhereFilters,
+    );
 
-    const results = norm.data.slice(0, limit).map((d: any) => {
+    const results = cascadeResult.data.slice(0, limit).map((d: any) => {
       const fullText = typeof d?.full_text === 'string' ? d.full_text : '';
       const courtName = extractCourtFromTitle(d?.title);
       return {
@@ -501,6 +514,7 @@ export class ProceduralTools extends BaseToolHandler {
     const payload: any = {
       procedure_code: procedureCode,
       time_range: args.time_range,
+      court_level: cascadeResult.instanceLabel || undefined,
       extracted_search_terms: extractedTerms,
       search_query: query,
       results,
