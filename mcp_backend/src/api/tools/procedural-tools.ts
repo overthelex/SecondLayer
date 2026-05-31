@@ -48,6 +48,26 @@ function extractCourtFromTitle(title?: string): string {
   return match ? match[0] : '';
 }
 
+const UK_STOP_WORDS = new Set([
+  'та', 'і', 'або', 'що', 'як', 'це', 'у', 'в', 'на', 'з', 'із', 'за', 'до', 'від',
+  'по', 'для', 'при', 'без', 'про', 'через', 'між', 'над', 'під', 'після', 'перед',
+  'він', 'вона', 'воно', 'вони', 'його', 'її', 'їх', 'який', 'яка', 'яке', 'які',
+  'цей', 'ця', 'ці', 'той', 'та', 'ті', 'свій', 'свою', 'своє', 'свої',
+  'не', 'ні', 'так', 'але', 'також', 'ще', 'вже', 'навіть', 'лише', 'тільки',
+  'є', 'був', 'була', 'було', 'були', 'бути', 'може', 'має', 'мають',
+  'а', 'й', 'чи', 'коли', 'якщо', 'тому', 'тобто', 'зокрема', 'проте',
+  'себе', 'собі', 'нього', 'неї', 'них', 'тому', 'цього', 'тим',
+]);
+
+/** Trim FTS query to max N significant words — plainto_tsquery ANDs all terms */
+function trimFtsQuery(query: string, maxWords: number = 6): string {
+  const words = query
+    .replace(/[""«»()[\]{}<>:;,!?.]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !UK_STOP_WORDS.has(w.toLowerCase()));
+  return words.slice(0, maxWords).join(' ');
+}
+
 export class ProceduralTools extends BaseToolHandler {
   constructor(
     private zoAdapter: EdsrLocalAdapter,
@@ -408,7 +428,7 @@ export class ProceduralTools extends BaseToolHandler {
         { code: 3, label: 'суди першої інстанції' },
       ] as const) {
         const resp = await this.ftsService.searchFulltext(
-          `${query} ${suffix}`, this.db,
+          `${trimFtsQuery(query)} ${suffix}`, this.db,
           { ...baseFilters, instance_code: inst.code }, limit,
         );
         if (resp.results.length > 0) {
@@ -485,7 +505,7 @@ export class ProceduralTools extends BaseToolHandler {
         { code: 3, label: 'суди першої інстанції' },
       ] as const) {
         const resp = await this.ftsService.searchFulltext(
-          query, this.db, { ...baseFilters, instance_code: inst.code }, limit,
+          trimFtsQuery(query), this.db, { ...baseFilters, instance_code: inst.code }, limit,
         );
         if (resp.results.length > 0) {
           courtLevel = inst.label;
