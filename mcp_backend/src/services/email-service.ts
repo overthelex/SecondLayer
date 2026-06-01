@@ -248,15 +248,13 @@ export class EmailService {
       });
 
       logger.info('Payment success email sent', {
-        email: maskSensitive(params.email, 4),
         amount: params.amount,
         currency: params.currency,
         hasReferralData: !!referralData,
       });
     } catch (error: any) {
       logger.error('Failed to send payment success email', {
-        email: maskSensitive(params.email, 4),
-        error: error.message,
+        errorMessage: String(error.message).substring(0, 100),
       });
     }
   }
@@ -293,14 +291,12 @@ export class EmailService {
       });
 
       logger.info('Admin credit email sent', {
-        email: maskSensitive(params.email, 4),
         amount: params.amount,
         currency: params.currency,
       });
     } catch (error: any) {
       logger.error('Failed to send admin credit email', {
-        email: maskSensitive(params.email, 4),
-        error: error.message,
+        errorMessage: String(error.message).substring(0, 100),
       });
     }
   }
@@ -329,14 +325,12 @@ export class EmailService {
       });
 
       logger.info('Payment failure email sent', {
-        email: maskSensitive(params.email, 4),
         amount: params.amount,
         currency: params.currency,
       });
     } catch (error: any) {
       logger.error('Failed to send payment failure email', {
-        email: maskSensitive(params.email, 4),
-        error: error.message,
+        errorMessage: String(error.message).substring(0, 100),
       });
     }
   }
@@ -374,14 +368,12 @@ export class EmailService {
       });
 
       logger.info('Low balance alert sent', {
-        email: maskSensitive(params.email, 4),
         balance: params.balance,
         currency: params.currency,
       });
     } catch (error: any) {
       logger.error('Failed to send low balance alert', {
-        email: maskSensitive(params.email, 4),
-        error: error.message,
+        errorMessage: String(error.message).substring(0, 100),
       });
     }
   }

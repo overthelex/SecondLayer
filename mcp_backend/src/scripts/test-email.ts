@@ -10,11 +10,8 @@ import { maskSensitive } from '../utils/sanitize-log.js';
 async function testEmail(recipientEmail?: string) {
   const recipient = recipientEmail || process.env.TEST_ACCOUNT_EMAIL || 'test@legal.org.ua';
 
-  logger.info('🧪 Testing email service...');
-  logger.info(`📧 Recipient: ${maskSensitive(recipient, 4)}`);
-  logger.info(`📮 SMTP Host: ${process.env.SMTP_HOST || 'not configured'}`);
-  logger.info(`🔌 SMTP Port: ${process.env.SMTP_PORT || 'not configured'}`);
-  logger.info(`👤 SMTP User: ${process.env.SMTP_USER || 'not configured'}`);
+  logger.info('Testing email service...');
+  logger.info('SMTP configured: ' + (process.env.SMTP_HOST ? 'yes' : 'no'));
 
   const emailService = new EmailService();
 
@@ -58,14 +55,7 @@ async function testEmail(recipientEmail?: string) {
     });
     logger.info('✅ Low balance alert sent!');
 
-    logger.info('\n✅ All test emails sent successfully!');
-    logger.info(`\n📬 Check your inbox at: ${maskSensitive(recipient, 4)}`);
-    logger.info('💡 If you don\'t see the emails, check your spam folder.');
-    logger.info('\n📧 Email Configuration:');
-    logger.info(`   From: ${process.env.EMAIL_FROM || 'billing@legal.org.ua'}`);
-    logger.info(`   Host: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}`);
-    logger.info(`   Secure: ${process.env.SMTP_SECURE || 'false'}`);
-    logger.info(`   User: ${process.env.SMTP_USER}`);
+    logger.info('All test emails sent successfully!');
 
   } catch (error: any) {
     logger.error('\n❌ Email test failed!');

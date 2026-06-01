@@ -434,12 +434,10 @@ export class RadaLegislationAdapter {
       const endPos = i + 1 < points.length ? points[i + 1].startPos - 50 : sectionHtml.length;
       const pointHtml = sectionHtml.slice(point.startPos, endPos);
 
-      // Strip HTML tags for plain text
-      const fullText = pointHtml
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-        .replace(/<em>[\s\S]*?<\/em>/g, '')
-        .replace(/<[^>]+>/g, ' ')
+      // Strip HTML tags for plain text using cheerio parser
+      const $point = cheerio.load(pointHtml, { xml: false });
+      $point('script, style, em').remove();
+      const fullText = $point.text()
         .replace(/\{[^}]*\}/g, '')
         .replace(/\s+/g, ' ')
         .trim();

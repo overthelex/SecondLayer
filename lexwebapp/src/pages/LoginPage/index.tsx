@@ -416,7 +416,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       const diiaSessionParam = urlParams.get('diia_session');
 
       if (diiaSessionParam) {
-        if (diiaDeeplinkParam) {
+        if (diiaDeeplinkParam && /^https:\/\/diia\.app\//.test(diiaDeeplinkParam)) {
           setDiiaDeeplink(diiaDeeplinkParam);
         }
         setDiiaSessionId(diiaSessionParam);

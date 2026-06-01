@@ -10,7 +10,7 @@ import { UserService, User } from '../services/user-service.js';
 import { ApiKeyService } from '../services/api-key-service.js';
 import { WebAuthnService } from '../services/webauthn-service.js';
 import { logger } from '../utils/logger.js';
-import { maskSensitive } from '../utils/sanitize-log.js';
+import { maskSensitive, sanitizeId } from '../utils/sanitize-log.js';
 
 const _jwtSecret = process.env.JWT_SECRET;
 if (!_jwtSecret) {
@@ -129,7 +129,7 @@ async function authenticateWithAPIKey(req: AuthenticatedRequest, apiKey: string)
       logger.debug('Phase 2 API key validation result', {
         keyPrefix: maskSensitive(apiKey, 8),
         found: keyInfo !== null,
-        userId: keyInfo?.userId,
+        userId: keyInfo?.userId ? sanitizeId(keyInfo.userId) : undefined,
       });
 
       if (keyInfo) {
@@ -154,9 +154,8 @@ async function authenticateWithAPIKey(req: AuthenticatedRequest, apiKey: string)
         req.authType = 'apikey';
 
         logger.debug('Phase 2 API key authentication successful', {
-          userId: user.id,
-          email: user.email,
-          keyId: keyInfo.id,
+          userId: sanitizeId(user.id),
+          keyId: sanitizeId(keyInfo.id),
           keyName: keyInfo.name,
         });
 
@@ -164,7 +163,7 @@ async function authenticateWithAPIKey(req: AuthenticatedRequest, apiKey: string)
       }
     } catch (error: any) {
       logger.error('Error validating Phase 2 API key', {
-        error: error.message,
+        errorMessage: String(error.message),
         keyPrefix: maskSensitive(apiKey, 8),
       });
       // Continue to check legacy keys
@@ -181,7 +180,6 @@ async function authenticateWithAPIKey(req: AuthenticatedRequest, apiKey: string)
   if (!keyMatch) {
     logger.warn('Invalid API key attempt (not found in Phase 2 or legacy keys)', {
       keyPrefix: maskSensitive(apiKey, 8),
-      validKeysCount: validKeys.length,
     });
     throw new Error('Invalid API key');
   }
