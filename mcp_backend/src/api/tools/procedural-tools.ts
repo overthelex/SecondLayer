@@ -428,7 +428,7 @@ export class ProceduralTools extends BaseToolHandler {
         { code: 3, label: 'суди першої інстанції' },
       ] as const) {
         const resp = await this.ftsService.searchFulltext(
-          `${trimFtsQuery(query)} ${suffix}`, this.db,
+          `${trimFtsQuery(query, 3)} ${suffix}`, this.db,
           { ...baseFilters, instance_code: inst.code }, limit,
         );
         if (resp.results.length > 0) {
