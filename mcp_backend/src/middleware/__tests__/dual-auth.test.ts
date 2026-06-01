@@ -1,5 +1,9 @@
 import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = 'test-jwt-secret-for-tests';
+process.env.JWT_SECRET = JWT_SECRET;
+
 import {
   dualAuth,
   requireJWT,
@@ -22,9 +26,9 @@ jest.mock('../../utils/logger.js', () => ({
 
 jest.mock('../../utils/sanitize-log.js', () => ({
   maskSensitive: (val: string, len: number) => val.substring(0, len) + '...',
+  sanitizeId: (id: string | number) => String(id).substring(0, 8),
+  maskEmail: (email: string) => email,
 }));
-
-const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
 
 const mockUser = {
   id: 'user-123',
