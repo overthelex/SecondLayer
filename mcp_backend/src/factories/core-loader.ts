@@ -18,6 +18,10 @@ import { BillingService } from '../services/billing-service.js';
 import { PricingService } from '../services/pricing-service.js';
 import { SubscriptionService } from '../services/subscription-service.js';
 import { CreditService } from '../services/credit-service.js';
+import { TokenBudgetAllocator } from '../services/token-budget-allocator.js';
+import { IncrementalAllowSet } from '../services/incremental-allow-set.js';
+import { ToolHealthTracker } from '../services/tool-health-tracker.js';
+import { StepConstraintEnforcer } from '../services/step-constraints.js';
 
 export {
   SemanticSectionizer,
@@ -32,4 +36,8 @@ export {
   PricingService,
   SubscriptionService,
   CreditService,
+  TokenBudgetAllocator,
+  IncrementalAllowSet,
+  ToolHealthTracker,
+  StepConstraintEnforcer,
 };
