@@ -1094,8 +1094,8 @@ export class LegislationService {
         }
       }
 
-      // Return all rows above MIN_SCORE threshold, not limited by caller's limit
-      const result = { rows: allRows };
+      // Return all rows above MIN_SCORE threshold, capped at 15 to avoid maxToolCalls exhaustion
+      const result = { rows: allRows.slice(0, 15) };
 
       return result.rows.map((row: any) => ({
         rada_id: row.rada_id,
