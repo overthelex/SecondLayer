@@ -178,7 +178,7 @@ jobs:
         run: |
           CORE_TMP=$(mktemp -d)
           gh repo clone overthelex/secondlayer-core "$CORE_TMP" -- --depth 1
-          cp -rf "$CORE_TMP"/src/services/* mcp_backend/src/services/
+          find "$CORE_TMP"/src/services -maxdepth 1 -name '*.ts' -exec cp -f {} mcp_backend/src/services/ \;
           cp -rf "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
           rm -rf "$CORE_TMP"
 
