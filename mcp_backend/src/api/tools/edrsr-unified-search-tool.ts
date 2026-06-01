@@ -5,7 +5,7 @@
  * - structured — SQL WHERE on metadata (cause_num, judge, court, date, category, military presets)
  * - fulltext   — PostgreSQL tsvector FTS with highlights
  * - hybrid     — FTS + Qdrant vectors merged via Reciprocal Rank Fusion
- * - semantic   — Pure vector search (redirects to fulltext while Qdrant populates)
+ * - semantic   — Pure vector search (available for КУпАП/justice_kind=5, FTS fallback for others)
  *
  * Replaces: search_edrsr_decisions, search_edrsr_fulltext, search_edrsr_semantic, edrsr_hybrid_search
  * Also removes: get_edrsr_decision_fulltext (duplicate of get_court_decision)
@@ -78,8 +78,8 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 4 режими пошуку:
 • **structured** — за метаданими: номер справи, суддя, суд, дата, категорія, військові пресети. Найшвидший, коли відомі точні параметри.
 • **fulltext** — повнотекстовий пошук (PostgreSQL tsvector) з підсвіченими фрагментами. Для пошуку за ключовими словами та юридичними термінами.
-• **hybrid** — FTS + семантичний пошук (Qdrant Voyage-3) з мерджем через Reciprocal Rank Fusion. Найкращий recall, коли запит містить і семантику, і точні токени.
-• **semantic** — чистий семантичний пошук (тимчасово перенаправляється на fulltext, Qdrant наповнюється).
+• **hybrid** — FTS + семантичний пошук (Qdrant Voyage-3.5) з мерджем через Reciprocal Rank Fusion. Найкращий recall, коли запит містить і семантику, і точні токени. Семантична нога працює для КупАП (justice_kind=5).
+• **semantic** — чистий семантичний пошук по векторній базі Qdrant. Доступний для КУпАП (justice_kind=5), для решти — fallback на fulltext.
 
 Фільтри (спільні для всіх режимів): court_code/court_name, judge, justice_kind, judgment_code, category_code, date_from/date_to.
 Для повного тексту рішення — get_court_decision. Для резолютивки — edrsr_get_decision_dispositive.`,
@@ -339,7 +339,12 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       .searchFulltext(ftsQuery, this.db, filters, candidateLimit, 0)
       .catch((err: any) => { logger.warn('[EdsrUnifiedSearch] FTS leg failed', { error: err.message }); return null; });
 
-    const vectorPromise = this.vectorizer
+    const justiceKind = args.justice_kind ? Number(args.justice_kind) : undefined;
+    const hasVectors = justiceKind
+      ? EdsrUnifiedSearchTool.VECTORIZED_JUSTICE_KINDS.has(justiceKind)
+      : false;
+
+    const vectorPromise = (this.vectorizer && hasVectors)
       ? this.vectorizer.semanticSearch(semanticQuery, filters as unknown as EdrsrSearchFilters, candidateLimit)
           .catch((err: any) => { logger.warn('[EdsrUnifiedSearch] Qdrant leg failed', { error: err.message }); return null; })
       : Promise.resolve(null);
@@ -367,23 +372,84 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     });
   }
 
-  // ── Semantic search (Qdrant vectors, currently redirects to FTS) ─
+  // ── Semantic search (Qdrant vectors) ─────────────────────────────
+
+  private static readonly VECTORIZED_JUSTICE_KINDS = new Set([5]); // КупАП
 
   private async searchSemantic(args: any): Promise<ToolResult> {
     if (!args.query) return this.wrapError('query є обов\'язковим для режиму semantic');
 
-    logger.info('[EdsrUnifiedSearch] Semantic search redirected to FTS (Qdrant populating)');
-    const result = await this.searchFulltext({ ...args, limit: args.limit || 10 });
+    const justiceKind = args.justice_kind ? Number(args.justice_kind) : undefined;
+    const hasVectors = justiceKind
+      ? EdsrUnifiedSearchTool.VECTORIZED_JUSTICE_KINDS.has(justiceKind)
+      : false;
 
-    if (result.content?.[0]?.text) {
-      try {
-        const parsed = JSON.parse(result.content[0].text);
-        parsed.mode = 'semantic (redirected to fulltext)';
-        parsed._notice = 'Семантичний пошук тимчасово недоступний (база Qdrant наповнюється). Результати отримано через FTS.';
-        result.content[0].text = JSON.stringify(parsed, null, 2);
-      } catch { /* keep original */ }
+    if (!this.vectorizer || !hasVectors) {
+      logger.info('[EdsrUnifiedSearch] Semantic fallback to FTS', { justice_kind: justiceKind, vectorizer: !!this.vectorizer });
+      const result = await this.searchFulltext({ ...args, limit: args.limit || 10 });
+      if (result.content?.[0]?.text) {
+        try {
+          const parsed = JSON.parse(result.content[0].text);
+          parsed.mode = 'semantic (fallback to fulltext)';
+          parsed._notice = justiceKind
+            ? `Семантичний пошук для justice_kind=${justiceKind} ще недоступний. Результати через FTS. Доступні: КУпАП (5).`
+            : 'Вкажіть justice_kind для семантичного пошуку. Доступні: КУпАП (justice_kind=5).';
+          result.content[0].text = JSON.stringify(parsed, null, 2);
+        } catch { /* keep original */ }
+      }
+      return result;
     }
-    return result;
+
+    try {
+      const limit = Math.min(Math.max(Number(args.limit) || 10, 1), 50);
+      const filters: EdrsrSearchFilters = {
+        court_code: args.court_code, justice_kind: justiceKind,
+        judge: args.judge, date_from: args.date_from, date_to: args.date_to,
+      };
+
+      const reformulated = this.queryReformulator
+        ? await this.queryReformulator.reformulate(args.query).catch(() => null)
+        : null;
+      const semanticQuery = reformulated?.semantic || args.query;
+
+      const results = await this.vectorizer.semanticSearch(semanticQuery, filters, limit * 3);
+
+      const deduped = new Map<number, EdrsrSearchResult>();
+      for (const r of results) {
+        const existing = deduped.get(r.doc_id);
+        if (!existing || r.score > existing.score) deduped.set(r.doc_id, r);
+      }
+      const topResults = Array.from(deduped.values()).sort((a, b) => b.score - a.score).slice(0, limit);
+
+      const enriched = await this.enrichResults(topResults.map(r => ({
+        doc_id: r.doc_id, cause_num: r.metadata.cause_num, judge: r.metadata.judge,
+        court_code: r.metadata.court_code, justice_kind: r.metadata.justice_kind,
+        judgment_code: r.metadata.judgment_code, adjudication_date: r.metadata.adjudication_date,
+        rank: r.score,
+      })));
+
+      const withChunks = enriched.map((e, i) => ({
+        ...e,
+        qdrant_score: Number(topResults[i].score.toFixed(6)),
+        qdrant_best_chunk_text: topResults[i].text?.substring(0, 500) || null,
+        qdrant_best_chunk_index: topResults[i].chunk_index,
+      }));
+
+      const output = await this.maybeFilter(withChunks, args.query);
+
+      return this.wrapResponse({
+        mode: 'semantic', query: args.query,
+        ...(reformulated ? { reformulated: { semantic: reformulated.semantic } } : {}),
+        total: deduped.size, returned: output.filtered.length,
+        results: output.filtered,
+        ...(output.original_count !== output.filtered_count
+          ? { relevance_filter: { from: output.original_count, to: output.filtered_count } }
+          : {}),
+      });
+    } catch (err: any) {
+      logger.error('[EdsrUnifiedSearch] semantic failed, falling back to FTS', { error: err.message });
+      return this.searchFulltext({ ...args, limit: args.limit || 10 });
+    }
   }
 
   // ── Pre-filter via Haiku ────────────────────────────────────────
