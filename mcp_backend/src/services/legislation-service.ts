@@ -1051,33 +1051,48 @@ export class LegislationService {
         })));
       }
 
-      // Points may have article_id in payload (legacy UUID points) or use integer point ID directly
-      const articleIds = [...new Set(searchResults.map((r: any) => {
-        if (r.payload?.article_id) return r.payload.article_id;
-        if (typeof r.id === 'number') return r.id;
-        return null;
-      }).filter(Boolean))].slice(0, limit);
+      // Resolve vector results to DB records via integer IDs or payload lookup
+      const integerIds: number[] = [];
+      const payloadLookups: Array<{ rada_id: string; article_number: string }> = [];
 
-      if (articleIds.length === 0) {
-        logger.warn('[LegislationService] No article IDs resolved from vector results');
-        const textResults = await this.searchLegislation(query, radaId, limit);
-        return textResults.flatMap(r => r.articles.map((a: any) => ({
-          rada_id: r.rada_id, article_number: a.article_number, title: a.title,
-          full_text: a.full_text, full_text_html: a.full_text_html,
-          url: `https://zakon.rada.gov.ua/laws/show/${r.rada_id}#n${a.article_number}`,
-          metadata: a.metadata, npa_title: r.legislation_title,
-          section_number: a.section_number, section_title: a.section_title,
-          chapter_number: a.chapter_number, chapter_title: a.chapter_title,
-        })));
+      for (const r of searchResults) {
+        if (r.payload?.article_id) {
+          integerIds.push(r.payload.article_id);
+        } else if (typeof r.id === 'number') {
+          integerIds.push(r.id);
+        } else if (r.payload?.rada_id && r.payload?.article_number) {
+          payloadLookups.push({ rada_id: r.payload.rada_id, article_number: r.payload.article_number });
+        }
       }
 
-      const result = await this.db.query(
-        `SELECT la.*, l.rada_id, l.title as npa_title
-         FROM legislation_articles la
-         JOIN legislation l ON la.legislation_id = l.id
-         WHERE la.id = ANY($1)`,
-        [articleIds]
-      );
+      const queries: Promise<any>[] = [];
+      if (integerIds.length > 0) {
+        queries.push(this.db.query(
+          `SELECT la.*, l.rada_id, l.title as npa_title
+           FROM legislation_articles la JOIN legislation l ON la.legislation_id = l.id
+           WHERE la.id = ANY($1)`, [[...new Set(integerIds)]]
+        ));
+      }
+      for (const pl of payloadLookups.slice(0, limit)) {
+        queries.push(this.db.query(
+          `SELECT la.*, l.rada_id, l.title as npa_title
+           FROM legislation_articles la JOIN legislation l ON la.legislation_id = l.id
+           WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.is_current = true
+           LIMIT 1`, [pl.rada_id, pl.article_number]
+        ));
+      }
+
+      const queryResults = await Promise.all(queries);
+      const seen = new Set<string>();
+      const allRows: any[] = [];
+      for (const qr of queryResults) {
+        for (const row of qr.rows) {
+          const key = `${row.rada_id}:${row.article_number}`;
+          if (!seen.has(key)) { seen.add(key); allRows.push(row); }
+        }
+      }
+
+      const result = { rows: allRows.slice(0, limit) };
 
       return result.rows.map((row: any) => ({
         rada_id: row.rada_id,
