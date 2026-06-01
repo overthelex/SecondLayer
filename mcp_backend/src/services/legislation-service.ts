@@ -486,7 +486,11 @@ export class LegislationService {
     radaId = normalizeRadaId(radaId);
     await this.ensureLegislationExists(radaId);
 
-    const article = await this.adapter.getArticleByNumber(radaId, articleNumber, asOfDate);
+    let article = await this.adapter.getArticleByNumber(radaId, articleNumber, asOfDate);
+    // Fallback: transitional provisions stored as "п.38.6" but LLM may request "38.6"
+    if (!article && /^\d+\.\d/.test(articleNumber)) {
+      article = await this.adapter.getArticleByNumber(radaId, `п.${articleNumber}`, asOfDate);
+    }
     if (!article) {
       return null;
     }
