@@ -326,13 +326,15 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
           const normalized: import('../../types/models/Message').CitationWarning =
             data.reason === 'fabricated_case_numbers'
               ? { kind: 'fabricated', fabricated: data.fabricated, message: data.message }
-              : {
-                  kind: 'overruled',
-                  case_number: data.case_number,
-                  status: data.status,
-                  confidence: data.confidence,
-                  message: data.message,
-                };
+              : data.reason === 'unverified_law_articles'
+                ? { kind: 'unverified_articles', unverified: data.unverified, message: data.message }
+                : {
+                    kind: 'overruled',
+                    case_number: data.case_number,
+                    status: data.status,
+                    confidence: data.confidence,
+                    message: data.message,
+                  };
           updateMessage(assistantMessageId, {
             citationWarnings: [...existing, normalized],
           });
