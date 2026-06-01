@@ -3,8 +3,28 @@ import { logger } from './logger';
 import { ModelSelector } from './model-selector';
 import { requestContext, CostTrackerInterface } from './openai-client';
 
+const FALLBACK_REGIONS = (process.env.BEDROCK_FALLBACK_REGIONS || 'us-east-1,us-west-2').split(',').map(r => r.trim()).filter(Boolean);
+
+function swapRegionPrefix(model: string, targetRegion: string): string {
+  const regionPrefix = targetRegion.startsWith('us-') ? 'us' : targetRegion.startsWith('ap-') ? 'ap' : 'eu';
+  return model.replace(/^(eu|us|ap)\./, `${regionPrefix}.`);
+}
+
+function isThrottlingError(err: any): boolean {
+  const name = err?.name || err?.__type || '';
+  const message = (err?.message || '').toLowerCase();
+  return name === 'ThrottlingException'
+    || name === 'TooManyRequestsException'
+    || name === 'ServiceUnavailableException'
+    || message.includes('throttl')
+    || message.includes('rate exceeded')
+    || message.includes('too many requests')
+    || err?.['$metadata']?.httpStatusCode === 429;
+}
+
 export class BedrockClientManager {
   private client: BedrockRuntimeClient | null = null;
+  private fallbackClients: Array<{ region: string; client: BedrockRuntimeClient }> = [];
   private costTracker: CostTrackerInterface | null = null;
 
   constructor() {
@@ -13,14 +33,22 @@ export class BedrockClientManager {
     const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
     if (accessKeyId && secretAccessKey) {
-      this.client = new BedrockRuntimeClient({
+      const creds = { accessKeyId, secretAccessKey };
+      this.client = new BedrockRuntimeClient({ region, credentials: creds });
+
+      for (const fbRegion of FALLBACK_REGIONS) {
+        if (fbRegion !== region) {
+          this.fallbackClients.push({
+            region: fbRegion,
+            client: new BedrockRuntimeClient({ region: fbRegion, credentials: creds }),
+          });
+        }
+      }
+
+      logger.info('Bedrock client manager initialized', {
         region,
-        credentials: {
-          accessKeyId,
-          secretAccessKey,
-        },
+        fallbackRegions: this.fallbackClients.map(c => c.region),
       });
-      logger.info('Bedrock client manager initialized', { region });
     } else {
       logger.warn('AWS credentials not configured - Bedrock provider will be unavailable');
     }
@@ -35,6 +63,10 @@ export class BedrockClientManager {
       throw new Error('Bedrock client not configured - missing AWS credentials');
     }
     return this.client;
+  }
+
+  getFallbackClients(): Array<{ region: string; client: BedrockRuntimeClient }> {
+    return this.fallbackClients;
   }
 
   setCostTracker(tracker: CostTrackerInterface) {
@@ -90,6 +122,8 @@ export class BedrockClientManager {
     }
   }
 }
+
+export { isThrottlingError, swapRegionPrefix };
 
 let bedrockManager: BedrockClientManager | null = null;
 
