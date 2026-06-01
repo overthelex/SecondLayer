@@ -104,7 +104,7 @@ jobs:
           chmod 600 "$KEY_FILE"
           GIT_SSH_COMMAND="ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes" \
             git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
-          cp -rf "$CORE_TMP"/src/services/* mcp_backend/src/services/
+          find "$CORE_TMP"/src/services -maxdepth 1 -name '*.ts' -exec cp -f {} mcp_backend/src/services/ \;
           cp -rf "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
 
       - name: Build backend
