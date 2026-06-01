@@ -3,7 +3,7 @@
 // Includes transitional provisions search rule
 
 export const CHAT_CONSTANTS = {
-  MAX_TOOL_CALLS: 12,
+  MAX_TOOL_CALLS: 16,
   MAX_CONTEXT_CHARS: 100000,
   MAX_RESULT_CHARS: 50000,
   DEFAULT_BUDGET: 'standard' as const,
