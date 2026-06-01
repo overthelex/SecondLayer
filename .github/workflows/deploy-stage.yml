@@ -104,7 +104,7 @@ jobs:
           chmod 600 "$KEY_FILE"
           GIT_SSH_COMMAND="ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes" \
             git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
-          cp -f "$CORE_TMP"/src/services/* mcp_backend/src/services/
+          cp -rf "$CORE_TMP"/src/services/* mcp_backend/src/services/
           cp -rf "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
 
       - name: Build backend
@@ -222,7 +222,7 @@ jobs:
               trap 'shred -u "$KEY_FILE" 2>/dev/null; rm -rf "$CORE_TMP"' EXIT
               GIT_SSH_COMMAND="ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes" \
                 git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
-              cp -f "$CORE_TMP"/src/services/* /home/vovkes/SecondLayer/mcp_backend/src/services/
+              cp -rf "$CORE_TMP"/src/services/* /home/vovkes/SecondLayer/mcp_backend/src/services/
               cp -rf "$CORE_TMP"/src/prompts/* /home/vovkes/SecondLayer/mcp_backend/src/prompts/
               cd /home/vovkes/SecondLayer && npm --prefix mcp_backend run build
           OVERLAY_EOF
