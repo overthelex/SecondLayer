@@ -178,12 +178,7 @@ export class EdsrFtsService {
     const executeQuery = async (withHeadline: boolean) => {
       const selectFields = buildSelectFields(withHeadline);
 
-      // Count query
-      const countSql = `SELECT COUNT(*)::int AS total FROM ${fromClause}${extraJoin} WHERE ${whereClause}`;
-      const countResult = await dbPool.query(countSql, params);
-      const total = countResult.rows[0]?.total || 0;
-
-      // Data query with ranking
+      // Skip expensive COUNT(*) — use LIMIT+1 to detect has_more instead
       const dataSql = `
         SELECT ${selectFields}
         FROM ${fromClause}${extraJoin}
@@ -191,7 +186,11 @@ export class EdsrFtsService {
         ORDER BY ${EDRSR_FTS_SEARCH_ORDER}
         LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
 
-      const dataResult = await dbPool.query(dataSql, [...params, safeLimit, safeOffset]);
+      const dataResult = await dbPool.query(dataSql, [...params, safeLimit + 1, safeOffset]);
+      const total = dataResult.rows.length > safeLimit ? safeLimit * 10 : dataResult.rows.length;
+      if (dataResult.rows.length > safeLimit) {
+        dataResult.rows = dataResult.rows.slice(0, safeLimit);
+      }
       return { total, dataResult };
     };
 
