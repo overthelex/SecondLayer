@@ -1028,7 +1028,9 @@ export class LegislationService {
         filter.rada_id = radaId;
       }
 
-      const searchResults = await this.embeddingService.searchVectors(queryEmbedding, limit * 2, filter);
+      const MIN_SCORE = 0.6;
+      const allResults = await this.embeddingService.searchVectors(queryEmbedding, Math.max(limit * 3, 20), filter);
+      const searchResults = allResults.filter((r: any) => (r.score || 0) >= MIN_SCORE);
 
       if (searchResults.length === 0) {
         logger.warn('[LegislationService] Vector search returned 0 results, falling back to text search', {
@@ -1092,7 +1094,8 @@ export class LegislationService {
         }
       }
 
-      const result = { rows: allRows.slice(0, limit) };
+      // Return all rows above MIN_SCORE threshold, not limited by caller's limit
+      const result = { rows: allRows };
 
       return result.rows.map((row: any) => ({
         rada_id: row.rada_id,
