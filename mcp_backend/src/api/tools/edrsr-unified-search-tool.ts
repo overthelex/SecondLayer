@@ -23,6 +23,22 @@ const DEFAULT_RRF_K = 60;
 const DEFAULT_OVERSAMPLE = 3;
 const MAX_OVERSAMPLE = 5;
 
+const KUPAP_PRESETS: Record<string, { category_codes: number[]; label: string }> = {
+  'traffic_dui':        { category_codes: [41090, 5952], label: 'П\'яне водіння (ст. 130 КУпАП)' },
+  'traffic_accident':   { category_codes: [41080, 5861], label: 'ДТП з пошкодженням (ст. 124 КУпАП)' },
+  'domestic_violence':  { category_codes: [41237, 6062], label: 'Домашнє насильство (ст. 173-2 КУпАП)' },
+  'hooliganism':        { category_codes: [41235, 6060], label: 'Дрібне хуліганство (ст. 173 КУпАП)' },
+  'drugs_alcohol':      { category_codes: [41233], label: 'Розпивання / наркотики (ст. 178, 44 КУпАП)' },
+  'admin_oversight':    { category_codes: [41280, 6097], label: 'Порушення адмінагляду (ст. 187 КУпАП)' },
+  'child_neglect':      { category_codes: [41256, 6076], label: 'Невиконання обов\'язків щодо дітей (ст. 184 КУпАП)' },
+  'petty_theft':        { category_codes: [40956], label: 'Дрібне викрадення (ст. 51 КУпАП)' },
+  'border_crossing':    { category_codes: [41352], label: 'Незаконне перетинання кордону (ст. 204-1 КУпАП)' },
+  'quarantine':         { category_codes: [13123], label: 'Порушення карантину (ст. 44-3 КУпАП)' },
+  'tax_violations':     { category_codes: [5997, 6001], label: 'Податкові правопорушення (ст. 163-1, 163-2 КУпАП)' },
+  'no_license':         { category_codes: [41083], label: 'Водіння без документів (ст. 126 КУпАП)' },
+  'all_kupap':          { category_codes: [41090, 5952, 41080, 5861, 41237, 6062, 41235, 6060, 41233, 41280, 6097, 41256, 6076, 40956, 41352, 13123, 5997, 6001, 41083], label: 'Всі основні категорії КУпАП' },
+};
+
 const MILITARY_PRESETS: Record<string, { category_codes: number[]; label: string }> = {
   'awol':             { category_codes: [40851, 5459, 10660, 12440], label: 'Самовільне залишення частини (ст.407 КК)' },
   'desertion':        { category_codes: [40852, 2050], label: 'Дезертирство (ст.408 КК)' },
@@ -82,6 +98,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 • **semantic** — чистий семантичний пошук по векторній базі Qdrant. Доступний для КУпАП (justice_kind=5), для решти — fallback на fulltext.
 
 Фільтри (спільні для всіх режимів): court_code/court_name, judge, justice_kind, judgment_code, category_code, date_from/date_to.
+Пресети: military_preset (військові справи), kupap_preset (адмінправопорушення — traffic_dui, traffic_accident, domestic_violence, hooliganism тощо).
 Для повного тексту рішення — get_court_decision. Для резолютивки — edrsr_get_decision_dispositive.`,
       inputSchema: {
         type: 'object',
@@ -139,6 +156,11 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
             type: 'string',
             enum: ['awol', 'desertion', 'insubordination', 'disobedience', 'draft_evasion', 'self_harm', 'negligence', 'abuse_of_power', 'looting', 'all_military'],
             description: 'Пресет для військових справ (тільки structured). Автоматично встановлює justice_kind=2 та category_code.',
+          },
+          kupap_preset: {
+            type: 'string',
+            enum: ['traffic_dui', 'traffic_accident', 'domestic_violence', 'hooliganism', 'drugs_alcohol', 'admin_oversight', 'child_neglect', 'petty_theft', 'border_crossing', 'quarantine', 'tax_violations', 'no_license', 'all_kupap'],
+            description: 'Пресет для справ КУпАП. Автоматично встановлює justice_kind=5 та відповідні category_code. traffic_dui=п\'яне водіння, traffic_accident=ДТП, domestic_violence=домашнє насильство, hooliganism=дрібне хуліганство, petty_theft=дрібне викрадення, border_crossing=перетинання кордону, tax_violations=податкові, no_license=без документів.',
           },
           include_fulltext: {
             type: 'boolean',
@@ -199,6 +221,13 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       if (!args.justice_kind) args.justice_kind = 2;
     }
 
+    if (args.kupap_preset && KUPAP_PRESETS[args.kupap_preset]) {
+      const preset = KUPAP_PRESETS[args.kupap_preset];
+      args._kupap_category_codes = preset.category_codes;
+      args._kupap_label = preset.label;
+      if (!args.justice_kind) args.justice_kind = 5;
+    }
+
     const conditions: string[] = [];
     const params: any[] = [];
     let paramIdx = 1;
@@ -223,6 +252,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     if (args.justice_kind) { conditions.push(`d.justice_kind = $${paramIdx}`); params.push(args.justice_kind); paramIdx++; }
     if (args.judgment_code) { conditions.push(`d.judgment_code = $${paramIdx}`); params.push(args.judgment_code); paramIdx++; }
     if (args._military_category_codes?.length) { conditions.push(`d.category_code = ANY($${paramIdx})`); params.push(args._military_category_codes); paramIdx++; }
+    else if (args._kupap_category_codes?.length) { conditions.push(`d.category_code = ANY($${paramIdx})`); params.push(args._kupap_category_codes); paramIdx++; }
     else if (args.category_code) { conditions.push(`d.category_code = $${paramIdx}`); params.push(args.category_code); paramIdx++; }
     if (args.date_from) { conditions.push(`d.adjudication_date >= $${paramIdx}`); params.push(args.date_from); paramIdx++; }
     if (args.date_to) { conditions.push(`d.adjudication_date <= $${paramIdx}`); params.push(args.date_to); paramIdx++; }
@@ -259,8 +289,9 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
       return this.wrapResponse({
         mode: 'structured',
-        query: { ...args, _military_category_codes: undefined },
+        query: { ...args, _military_category_codes: undefined, _kupap_category_codes: undefined },
         ...(args._military_label ? { military_filter: args._military_label } : {}),
+        ...(args._kupap_label ? { kupap_filter: args._kupap_label } : {}),
         total, returned: enriched.length, offset, has_more: offset + enriched.length < total,
         results: enriched,
       });
