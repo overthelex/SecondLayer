@@ -22,6 +22,11 @@ export type CitationWarning =
       kind: 'fabricated';
       fabricated: string[];
       message: string;
+    }
+  | {
+      kind: 'unverified_articles';
+      unverified: string[];
+      message: string;
     };
 
 export interface CostSummary {

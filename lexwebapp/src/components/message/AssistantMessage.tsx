@@ -166,7 +166,8 @@ export function AssistantMessage({
           {citationWarnings && citationWarnings.length > 0 && (
             <div className="space-y-1.5 mt-4">
               {citationWarnings.map((warning, idx) => {
-                if (warning.kind === 'fabricated') {
+                if (warning.kind === 'fabricated' || warning.kind === 'unverified_articles') {
+                  const items = warning.kind === 'fabricated' ? warning.fabricated : warning.unverified;
                   return (
                     <motion.div
                       key={`cw-${idx}`}
@@ -180,7 +181,7 @@ export function AssistantMessage({
                           {warning.message}
                         </p>
                         <p className="text-[11px] text-amber-700/80 mt-1 font-mono">
-                          Не підтверджено пошуком: {warning.fabricated.join(', ')}
+                          Не підтверджено пошуком: {items.join(', ')}
                         </p>
                       </div>
                     </motion.div>

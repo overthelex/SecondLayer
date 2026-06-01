@@ -25,6 +25,11 @@ export type CitationWarning =
       reason: 'fabricated_case_numbers';
       fabricated: string[];
       message: string;
+    }
+  | {
+      reason: 'unverified_law_articles';
+      unverified: string[];
+      message: string;
     };
 
 import type { Decision, Citation, VaultDocument } from '../../types/models/Message';
