@@ -670,6 +670,9 @@ export class LegislationTools extends BaseToolHandler {
 - Знайти які постанови/закони вносили зміни до акту
 - Проаналізувати еволюцію правового регулювання
 
+Без article_number повертає загальну статистику змін (згруповано по статтях).
+З article_number повертає повну історію конкретної статті.
+
 💰 Вартість: $0.00 (тільки PostgreSQL запит)`,
         inputSchema: {
           type: 'object',
@@ -678,6 +681,10 @@ export class LegislationTools extends BaseToolHandler {
               type: 'string',
               description: 'ID законодавчого акту на zakon.rada.gov.ua (наприклад, "1388-98-п" для Постанови КМУ №1388, "435-15" для ЦК)',
             },
+            article_number: {
+              type: 'string',
+              description: 'Номер статті для детальної історії (наприклад, "266"). Без цього параметра повертає загальну статистику змін.',
+            },
           },
           required: ['rada_id'],
         },
@@ -685,7 +692,7 @@ export class LegislationTools extends BaseToolHandler {
     ];
   }
 
-  async getLegislationHistory(args: { rada_id: string }): Promise<any> {
+  async getLegislationHistory(args: { rada_id: string; article_number?: string }): Promise<any> {
     if (!args.rada_id) {
       throw new Error('rada_id is required');
     }
@@ -708,15 +715,32 @@ export class LegislationTools extends BaseToolHandler {
       }
     }
 
-    logger.info('[MCP Tool] get_legislation_history started', { rada_id: radaId });
+    const articleFilter = args.article_number?.trim() || null;
+    logger.info('[MCP Tool] get_legislation_history started', { rada_id: radaId, article_number: articleFilter });
 
-    // Get amendment history (non-current article versions)
-    const history = await this.service.getAmendmentHistory(radaId);
-
-    // Also get current legislation metadata
     const structure = await this.service.getLegislationStructure(radaId);
 
-    if (!structure && history.length === 0) {
+    if (articleFilter) {
+      // Detailed history for a specific article
+      const history = await this.service.getAmendmentHistory(radaId);
+      const filtered = history.filter(h => h.article_number === articleFilter);
+      return {
+        rada_id: radaId,
+        title: structure?.title || null,
+        article_number: articleFilter,
+        url: `https://zakon.rada.gov.ua/laws/show/${radaId}`,
+        total_versions: filtered.length,
+        versions: filtered,
+        note: filtered.length === 0
+          ? `Попередні редакції статті ${articleFilter} не знайдені в базі`
+          : undefined,
+      };
+    }
+
+    // Summary mode: grouped stats instead of 70K raw rows
+    const summary = await this.service.getAmendmentSummary(radaId);
+
+    if (!structure && summary.length === 0) {
       return {
         rada_id: radaId,
         error: `Законодавчий акт ${radaId} не знайдено в базі даних`,
@@ -725,18 +749,20 @@ export class LegislationTools extends BaseToolHandler {
       };
     }
 
+    const totalAmendments = summary.reduce((s, r) => s + r.version_count, 0);
+
     return {
       rada_id: radaId,
       title: structure?.title || null,
       type: structure?.type || null,
       total_current_articles: structure?.total_articles || null,
       url: `https://zakon.rada.gov.ua/laws/show/${radaId}`,
-      amendment_history: history,
-      total_amendments: history.length,
-      amended_articles: [...new Set(history.map(h => h.article_number))],
-      note: history.length === 0
-        ? 'Історія змін порожня — можливо акт ще не був змінений або попередні редакції не збережено в базі. Перевірте актуальний текст на zakon.rada.gov.ua'
-        : undefined,
+      total_amendments: totalAmendments,
+      total_amended_articles: summary.length,
+      most_amended_articles: summary.slice(0, 30),
+      note: summary.length === 0
+        ? 'Історія змін порожня — можливо акт ще не був змінений або попередні редакції не збережено в базі'
+        : 'Для детальної історії конкретної статті вкажіть article_number',
     };
   }
 

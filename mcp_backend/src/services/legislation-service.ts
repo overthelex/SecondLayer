@@ -718,6 +718,32 @@ export class LegislationService {
     }));
   }
 
+  async getAmendmentSummary(radaId: string): Promise<Array<{
+    article_number: string;
+    version_count: number;
+    earliest_version: string | null;
+    latest_version: string | null;
+  }>> {
+    const result = await this.db.query(
+      `SELECT la.article_number,
+              COUNT(*)::int as version_count,
+              MIN(la.metadata->>'version_date') as earliest_version,
+              MAX(la.metadata->>'version_date') as latest_version
+       FROM legislation_articles la
+       JOIN legislation l ON la.legislation_id = l.id
+       WHERE LOWER(l.rada_id) = LOWER($1) AND la.is_current = false
+       GROUP BY la.article_number
+       ORDER BY COUNT(*) DESC`,
+      [radaId]
+    );
+    return result.rows.map((row: any) => ({
+      article_number: row.article_number,
+      version_count: row.version_count,
+      earliest_version: row.earliest_version,
+      latest_version: row.latest_version,
+    }));
+  }
+
   async searchLegislation(query: string, radaId?: string, limit: number = 10): Promise<LegislationSearchResult[]> {
     if (radaId) {
       await this.ensureLegislationExists(radaId);
