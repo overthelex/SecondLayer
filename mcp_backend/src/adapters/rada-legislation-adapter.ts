@@ -420,9 +420,9 @@ export class RadaLegislationAdapter {
       });
     }
 
-    // Extract numbered points: <a name="nNNNN"></a>\s*N. text...
-    // Each point runs until the next numbered point or end of section
-    const pointRegex = /<a\s+name="n(\d+)">\s*<\/a>\s*(\d+)\.\s*/g;
+    // Extract numbered points: <a name="nNNNN"></a>\s*N. or N.N. or N.N.N. text...
+    // Matches: "38.6.", "69.14.", "1.", "41.2.5." etc.
+    const pointRegex = /<a\s+name="n(\d+)">\s*<\/a>\s*(\d+(?:\.\d+)*)\.\s*/g;
     const points: Array<{ anchor: string; num: string; startPos: number }> = [];
     let pMatch;
     while ((pMatch = pointRegex.exec(sectionHtml)) !== null) {
