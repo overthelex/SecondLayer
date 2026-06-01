@@ -530,6 +530,9 @@ export class ProceduralTools extends BaseToolHandler {
       results,
     };
     if (timeRangeParsed.warning) payload.time_range_warning = timeRangeParsed.warning;
+    if (results.length === 0) {
+      payload.hint = 'Результатів не знайдено. Повторний виклик з іншим формулюванням навряд чи дасть результат — FTS шукає точний збіг усіх слів. Спробуйте search_edrsr_fulltext з коротшим запитом (2-3 слова) або compare_practice_pro_contra.';
+    }
 
     return this.wrapResponse(payload);
   }
