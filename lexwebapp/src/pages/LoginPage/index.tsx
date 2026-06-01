@@ -416,8 +416,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       const diiaSessionParam = urlParams.get('diia_session');
 
       if (diiaSessionParam) {
-        if (diiaDeeplinkParam && /^https:\/\/diia\.app\//.test(diiaDeeplinkParam)) {
-          setDiiaDeeplink(diiaDeeplinkParam);
+        if (diiaDeeplinkParam) {
+          try {
+            const parsed = new URL(diiaDeeplinkParam);
+            if (parsed.origin === 'https://diia.app') {
+              setDiiaDeeplink(parsed.href);
+            }
+          } catch { /* invalid URL, ignore */ }
         }
         setDiiaSessionId(diiaSessionParam);
         window.history.replaceState({}, '', window.location.pathname);

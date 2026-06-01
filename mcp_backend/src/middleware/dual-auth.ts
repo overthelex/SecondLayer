@@ -163,8 +163,7 @@ async function authenticateWithAPIKey(req: AuthenticatedRequest, apiKey: string)
       }
     } catch (error: any) {
       logger.error('Error validating Phase 2 API key', {
-        errorMessage: String(error.message),
-        keyPrefix: maskSensitive(apiKey, 8),
+        errorMessage: String(error.message).substring(0, 100),
       });
       // Continue to check legacy keys
     }
