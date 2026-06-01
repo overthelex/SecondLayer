@@ -32,7 +32,7 @@ from psycopg2.extras import execute_values
 
 # ── Database connection ──────────────────────────────────────
 
-DB_DSN = os.environ.get("DATABASE_URL", "postgresql://secondlayer:local_db_password@localhost:5432/secondlayer_prod")
+DB_DSN = os.environ.get("DATABASE_URL", "postgresql://secondlayer:local_dev_password@localhost:5432/secondlayer_local")
 
 def get_conn():
     return psycopg2.connect(DB_DSN)
@@ -181,6 +181,8 @@ def extract_citations_from_text(doc_id: int, text: str) -> list[Citation]:
 
 # ── Worker ───────────────────────────────────────────────────
 
+_JUSTICE_KIND_FILTER = None
+
 def process_chunk(args: tuple) -> dict:
     """Process a chunk of rows from a partition. Runs in a separate process."""
     year, offset, chunk_size = args
@@ -188,7 +190,16 @@ def process_chunk(args: tuple) -> dict:
     cur = conn.cursor(name=f"cite_{year}_{offset}")
 
     partition = f"edrsr_fulltext_p_{year}"
-    cur.execute(f"SELECT doc_id, full_text FROM {partition} OFFSET %s LIMIT %s", (offset, chunk_size))
+    if _JUSTICE_KIND_FILTER is not None:
+        cur.execute(
+            f"SELECT f.doc_id, f.full_text FROM {partition} f "
+            f"JOIN edrsr_documents d ON f.doc_id = d.doc_id "
+            f"WHERE d.justice_kind = %s "
+            f"OFFSET %s LIMIT %s",
+            (_JUSTICE_KIND_FILTER, offset, chunk_size),
+        )
+    else:
+        cur.execute(f"SELECT doc_id, full_text FROM {partition} OFFSET %s LIMIT %s", (offset, chunk_size))
 
     all_citations = []
     rows = 0
@@ -215,7 +226,7 @@ def process_chunk(args: tuple) -> dict:
         "data": [(c.doc_id, c.citation_type, c.law_ref, c.article_ref, c.raw_match) for c in all_citations],
     }
 
-def write_citations(results: list[tuple]):
+def write_citations(results: list[tuple], justice_kind: int = None, adj_year: int = None):
     """Bulk-insert citation results."""
     if not results:
         return
@@ -224,9 +235,9 @@ def write_citations(results: list[tuple]):
     execute_values(
         cur,
         """INSERT INTO law_court_citations
-           (court_case_id, citation_type, law_number, law_article, citation_context)
+           (court_case_id, citation_type, law_number, law_article, citation_context, justice_kind, adj_year)
            VALUES %s""",
-        [(r[0], r[1], r[2], r[3], r[4][:500]) for r in results],
+        [(r[0], r[1], r[2], r[3], r[4][:500], justice_kind, adj_year) for r in results],
         page_size=5000,
     )
     conn.commit()
@@ -242,7 +253,13 @@ def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000
     conn = get_conn()
     cur = conn.cursor()
     partition = f"edrsr_fulltext_p_{year}"
-    cur.execute(f"SELECT COUNT(*) FROM {partition}")
+    if _JUSTICE_KIND_FILTER is not None:
+        cur.execute(
+            f"SELECT COUNT(*) FROM {partition} f JOIN edrsr_documents d ON f.doc_id = d.doc_id WHERE d.justice_kind = %s",
+            (_JUSTICE_KIND_FILTER,),
+        )
+    else:
+        cur.execute(f"SELECT COUNT(*) FROM {partition}")
     total = cur.fetchone()[0]
     cur.close()
     conn.close()
@@ -265,7 +282,7 @@ def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000
                 stats.by_type[k] += v
 
             if not dry_run and result["data"]:
-                write_citations(result["data"])
+                write_citations(result["data"], justice_kind=_JUSTICE_KIND_FILTER, adj_year=year)
 
             if (i + 1) % 10 == 0 or i == len(futures) - 1:
                 elapsed = time.time() - t0
@@ -284,15 +301,20 @@ def main():
     parser.add_argument("--chunk-size", type=int, default=50000, help="Rows per chunk")
     parser.add_argument("--years-from", type=int, default=2007, help="Start year for --all")
     parser.add_argument("--years-to", type=int, default=2026, help="End year for --all")
+    parser.add_argument("--justice-kind", type=int, default=None, help="Filter by justice_kind (e.g. 5 for КУпАП)")
     args = parser.parse_args()
 
     if not args.year and not args.all:
         parser.error("Specify --year YYYY or --all")
 
+    global _JUSTICE_KIND_FILTER
+    _JUSTICE_KIND_FILTER = args.justice_kind
+
     years = list(range(args.years_from, args.years_to + 1)) if args.all else [args.year]
 
+    jk_label = f", justice_kind={args.justice_kind}" if args.justice_kind else ""
     print(f"=== Citation Extraction Pipeline ===")
-    print(f"Years: {years[0]}–{years[-1]} ({len(years)} years)")
+    print(f"Years: {years[0]}–{years[-1]} ({len(years)} years){jk_label}")
     print(f"Workers: {args.workers}, Chunk: {args.chunk_size:,}")
     print(f"Dry run: {args.dry_run}\n")
 
