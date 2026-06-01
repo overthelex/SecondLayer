@@ -223,6 +223,13 @@ export class RadaLegislationAdapter {
       }
     }
 
+    // Extract transitional/final provisions as separate articles
+    const transitional = this.extractTransitionalProvisions(bodyHtml, radaId);
+    if (transitional.length > 0) {
+      logger.info(`Extracted ${transitional.length} transitional provision entries from ${radaId}`);
+      articles.push(...transitional);
+    }
+
     return articles;
   }
 
@@ -363,6 +370,118 @@ export class RadaLegislationAdapter {
       }
     }
     return result.toString();
+  }
+
+  /**
+   * Extract numbered points from "Прикінцеві та перехідні положення" section.
+   * These use "N. text" format instead of "Стаття N." and are missed by the main parser.
+   */
+  private extractTransitionalProvisions(bodyHtml: string, radaId: string): LegislationArticle[] {
+    const articles: LegislationArticle[] = [];
+
+    // Find the transitional provisions section header
+    const headerPatterns = [
+      /ПРИКІНЦЕВІ\s+ТА\s+ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
+      /ПЕРЕХІДНІ\s+ТА\s+ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
+      /ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
+      /ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
+    ];
+
+    let sectionStart = -1;
+    let sectionTitle = '';
+    for (const pat of headerPatterns) {
+      const m = pat.exec(bodyHtml);
+      if (m) {
+        sectionStart = m.index;
+        sectionTitle = m[0];
+        break;
+      }
+    }
+    if (sectionStart < 0) return articles;
+
+    const sectionHtml = bodyHtml.slice(sectionStart);
+
+    // Track current subsection/section context within transitional provisions
+    let currentSection = sectionTitle;
+    let currentSubsection = '';
+
+    const sectionHeaderRegex = /<span\s+class=["']?rvts(?:15|23)["']?>((?:Розділ|Підрозділ)\s+[^<]+)<\/span>(?:\s*(?:<br\s*\/?>)?\s*<span\s+class=["']?rvts(?:15|23)["']?>([^<]+)<\/span>)?/gi;
+    const sectionHeaders: Array<{ pos: number; type: string; number: string; title: string }> = [];
+    let shMatch;
+    while ((shMatch = sectionHeaderRegex.exec(sectionHtml)) !== null) {
+      const raw = shMatch[1].trim();
+      const title = shMatch[2]?.trim() || '';
+      const isSubsection = /підрозділ/i.test(raw);
+      sectionHeaders.push({
+        pos: shMatch.index,
+        type: isSubsection ? 'subsection' : 'section',
+        number: raw.replace(/^(?:Розділ|Підрозділ)\s+/i, '').trim(),
+        title,
+      });
+    }
+
+    // Extract numbered points: <a name="nNNNN"></a>\s*N. text...
+    // Each point runs until the next numbered point or end of section
+    const pointRegex = /<a\s+name="n(\d+)">\s*<\/a>\s*(\d+)\.\s*/g;
+    const points: Array<{ anchor: string; num: string; startPos: number }> = [];
+    let pMatch;
+    while ((pMatch = pointRegex.exec(sectionHtml)) !== null) {
+      points.push({ anchor: pMatch[1], num: pMatch[2], startPos: pMatch.index + pMatch[0].length });
+    }
+
+    for (let i = 0; i < points.length; i++) {
+      const point = points[i];
+      const endPos = i + 1 < points.length ? points[i + 1].startPos - 50 : sectionHtml.length;
+      const pointHtml = sectionHtml.slice(point.startPos, endPos);
+
+      // Strip HTML tags for plain text
+      const fullText = pointHtml
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<em>[\s\S]*?<\/em>/g, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\{[^}]*\}/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (fullText.length < 10) continue;
+
+      // Determine which subsection/section this point belongs to
+      for (const sh of sectionHeaders) {
+        if (sh.pos < point.startPos) {
+          if (sh.type === 'subsection') {
+            currentSubsection = `Підрозділ ${sh.number}${sh.title ? ' ' + sh.title : ''}`;
+          } else {
+            currentSection = `Розділ ${sh.number}${sh.title ? ' ' + sh.title : ''}`;
+            currentSubsection = '';
+          }
+        }
+      }
+
+      const articleNumber = `п.${point.num}`;
+      const title = fullText.slice(0, Math.min(fullText.indexOf('.', 10) + 1 || 150, 150)).trim();
+
+      articles.push({
+        article_number: articleNumber,
+        section_number: undefined,
+        section_title: sectionTitle,
+        chapter_number: undefined,
+        chapter_title: currentSubsection || currentSection,
+        title,
+        full_text: `${point.num}. ${fullText}`,
+        full_text_html: pointHtml.substring(0, 10000),
+        byte_size: Buffer.byteLength(fullText, 'utf8'),
+        metadata: {
+          rada_id: radaId,
+          extraction_date: new Date().toISOString(),
+          extraction_method: 'transitional_provisions',
+          is_transitional: true,
+          subsection: currentSubsection || undefined,
+        },
+      });
+    }
+
+    return articles;
   }
 
   private extractArticlesFallback($: cheerio.CheerioAPI, radaId: string): LegislationArticle[] {
