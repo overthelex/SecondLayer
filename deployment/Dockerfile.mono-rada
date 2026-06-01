@@ -55,16 +55,15 @@ RUN apk add --no-cache tzdata
 ENV TZ=Europe/Kiev
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-COPY --from=builder /app/mcp_rada/package.json ./package.json
-COPY --from=builder /app/mcp_rada/package-lock.json* ./
-COPY --from=builder /app/mcp_rada/node_modules ./node_modules
-COPY --from=builder /app/mcp_rada/dist ./dist
-COPY --from=builder /app/mcp_rada/scripts ./scripts
-COPY --from=builder /app/mcp_rada/src/migrations ./src/migrations
-
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 && \
-    chown -R nodejs:nodejs /app
+    adduser -S nodejs -u 1001
+
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_rada/package.json ./package.json
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_rada/package-lock.json* ./
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_rada/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_rada/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_rada/scripts ./scripts
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_rada/src/migrations ./src/migrations
 
 USER nodejs
 
