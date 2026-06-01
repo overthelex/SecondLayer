@@ -30,7 +30,7 @@ export class LegislationTools extends BaseToolHandler {
   private renderer: LegislationRenderer;
   private patternStore?: LegalPatternStore;
   private searchDedup: SearchDedup[] = [];
-  private readonly DEDUP_TTL_MS = 120_000;
+  private readonly DEDUP_TTL_MS = 300_000;
 
   constructor(
     service: LegislationService,
@@ -234,13 +234,12 @@ export class LegislationTools extends BaseToolHandler {
     const now = Date.now();
     this.searchDedup = this.searchDedup.filter(d => now - d.ts < this.DEDUP_TTL_MS);
 
-    if (this.searchDedup.length > 0 && !args.rada_id) {
+    if (this.searchDedup.length >= 3) {
       const prevRadaIds = new Set<string>();
       for (const d of this.searchDedup) {
         d.radaIds.forEach(id => prevRadaIds.add(id));
       }
-      // If we already searched 3+ times, return hint instead of repeating
-      if (this.searchDedup.length >= 3) {
+      {
         logger.info('[MCP Tool] search_legislation dedup: already searched 3+ times, returning hint', {
           query: args.query.substring(0, 60),
           prevSearches: this.searchDedup.length,
