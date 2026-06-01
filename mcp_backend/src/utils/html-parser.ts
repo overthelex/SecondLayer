@@ -196,71 +196,17 @@ export class CourtDecisionHTMLParser {
 }
 
 /**
- * Извлекает ключевые термины с помощью OpenAI для более точного анализа
+ * Extracts key search terms from court decision text using regex patterns.
+ * LLM-based extraction disabled — was 100% fail rate with ~10s timeout per call.
  */
-export async function extractSearchTermsWithAI(text: string, llm?: ILLMPort): Promise<{
+export function extractSearchTermsWithAI(text: string, _llm?: ILLMPort): Promise<{
   lawArticles: string[];
   keywords: string[];
   disputeType: string | null;
   searchQuery: string;
   caseEssence: string;
 }> {
-  if (!llm) {
-    return { lawArticles: [], keywords: [], disputeType: null, searchQuery: text.substring(0, 200), caseEssence: '' };
-  }
-
-  try {
-    // Ограничиваем текст для анализа (макс 3000 символов)
-    const analysisText = text.substring(0, 3000);
-
-    const response = await llm.chatCompletion(
-      {
-        messages: [
-          {
-            role: 'system',
-            content: `Ти експерт-аналітик судових рішень. Проаналізуй текст судового рішення та витягни:
-
-1. **Статті законів** - які використовуються в рішенні (наприклад: "626 ЦК", "280 ЦПК")
-2. **Тип спору** - коротко, одним реченням (наприклад: "стягнення заборгованості за договором лізингу")
-3. **Суть справи** - 1-2 речення про що справа
-4. **Ключові слова** для пошуку схожих справ (5-10 слів)
-5. **Пошуковий запит** - оптимальний запит для пошуку подібних справ в базі
-
-Поверни ТІЛЬКИ валідний JSON з полями: lawArticles (array), disputeType (string), caseEssence (string), keywords (array), searchQuery (string).`,
-          },
-          {
-            role: 'user',
-            content: `Проаналізуй це судове рішення:\n\n${analysisText}`,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 4096,
-        response_format: { type: 'json_object' },
-      },
-      'quick'
-    );
-
-    const content = response.content || '{}';
-    const result = JSON.parse(content);
-
-    logger.info('AI extracted search terms', {
-      lawArticles: result.lawArticles?.length || 0,
-      keywords: result.keywords?.length || 0,
-      disputeType: result.disputeType,
-    });
-
-    return {
-      lawArticles: result.lawArticles || [],
-      keywords: result.keywords || [],
-      disputeType: result.disputeType || null,
-      searchQuery: result.searchQuery || '',
-      caseEssence: result.caseEssence || '',
-    };
-  } catch (error: any) {
-    logger.warn('AI term extraction failed, using fallback', error?.message);
-    // Fallback to regex-based extraction
-    return extractSearchTermsRegex(text);
-  }
+  return Promise.resolve(extractSearchTermsRegex(text));
 }
 
 /**
