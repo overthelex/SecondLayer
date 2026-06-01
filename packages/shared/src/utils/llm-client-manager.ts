@@ -16,7 +16,7 @@ import {
 import { logger } from './logger';
 import { OpenAIClientManager, getOpenAIManager, CostTrackerInterface } from './openai-client';
 import { AnthropicClientManager, getAnthropicManager } from './anthropic-client';
-import { BedrockClientManager, getBedrockManager } from './bedrock-client';
+import { BedrockClientManager, getBedrockManager, isThrottlingError, swapRegionPrefix } from './bedrock-client';
 import { ModelSelector, LLMProvider, BudgetLevel, ModelSelection } from './model-selector';
 
 /** GPT-5 models only support temperature=1 (default) */
@@ -915,7 +915,31 @@ export class LLMClientManager {
     request: UnifiedChatRequest,
     model: string
   ): Promise<UnifiedChatResponse> {
-    const client = this.bedrockManager.getClient();
+    try {
+      return await this.sendBedrockConverse(this.bedrockManager.getClient(), model, request);
+    } catch (err: any) {
+      if (!isThrottlingError(err)) throw err;
+
+      // Cross-region fallback on throttling
+      for (const fb of this.bedrockManager.getFallbackClients()) {
+        const regionModel = swapRegionPrefix(model, fb.region);
+        logger.info(`Bedrock throttled, trying ${fb.region}`, { model: regionModel });
+        try {
+          return await this.sendBedrockConverse(fb.client, regionModel, request);
+        } catch (fbErr: any) {
+          logger.warn(`Bedrock fallback ${fb.region} failed: ${fbErr.message}`);
+          if (!isThrottlingError(fbErr)) throw fbErr;
+        }
+      }
+      throw err;
+    }
+  }
+
+  private async sendBedrockConverse(
+    client: import('@aws-sdk/client-bedrock-runtime').BedrockRuntimeClient,
+    model: string,
+    request: UnifiedChatRequest
+  ): Promise<UnifiedChatResponse> {
     const hasTools = !!(request.tools && request.tools.length > 0);
     const { system, messages } = this.convertToBedrockMessages(request.messages, hasTools);
 
@@ -925,7 +949,6 @@ export class LLMClientManager {
       ...(system.length > 0 ? { system } : {}),
     };
 
-    // Add inference config
     const inferenceConfig: any = {};
     if (request.max_tokens) {
       const modelMaxTokens = model.includes('nova') ? 10000 : request.max_tokens;
@@ -938,7 +961,6 @@ export class LLMClientManager {
       params.inferenceConfig = inferenceConfig;
     }
 
-    // Add tool config
     if (request.tools && request.tools.length > 0 && request.tool_choice !== 'none') {
       params.toolConfig = this.buildBedrockToolConfig(request);
     }
@@ -946,7 +968,6 @@ export class LLMClientManager {
     const command = new ConverseCommand(params);
     const response = await client.send(command);
 
-    // Parse response
     const contentBlocks = response.output?.message?.content || [];
     let textContent = '';
     const toolCalls: ToolCall[] = [];
@@ -968,7 +989,6 @@ export class LLMClientManager {
     const inputTokens = response.usage?.inputTokens || 0;
     const outputTokens = response.usage?.outputTokens || 0;
 
-    // Track cost
     await this.bedrockManager.trackUsage(model, inputTokens, outputTokens);
 
     return {
