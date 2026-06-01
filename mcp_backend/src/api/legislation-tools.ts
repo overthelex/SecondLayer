@@ -17,10 +17,20 @@ export interface LegislationToolArgs {
   as_of_date?: string;
 }
 
+/** Per-request dedup cache for search_legislation — prevents repeated searches returning same rada_id */
+interface SearchDedup {
+  key: string;
+  result: any;
+  radaIds: Set<string>;
+  ts: number;
+}
+
 export class LegislationTools extends BaseToolHandler {
   private service: LegislationService;
   private renderer: LegislationRenderer;
   private patternStore?: LegalPatternStore;
+  private searchDedup: SearchDedup[] = [];
+  private readonly DEDUP_TTL_MS = 120_000;
 
   constructor(
     service: LegislationService,
@@ -219,6 +229,31 @@ export class LegislationTools extends BaseToolHandler {
     }
 
     const limit = args.limit || 10;
+
+    // Dedup: if a recent search already found articles from the same rada_id, return cached
+    const now = Date.now();
+    this.searchDedup = this.searchDedup.filter(d => now - d.ts < this.DEDUP_TTL_MS);
+
+    if (this.searchDedup.length > 0 && !args.rada_id) {
+      const prevRadaIds = new Set<string>();
+      for (const d of this.searchDedup) {
+        d.radaIds.forEach(id => prevRadaIds.add(id));
+      }
+      // If we already searched 3+ times, return hint instead of repeating
+      if (this.searchDedup.length >= 3) {
+        logger.info('[MCP Tool] search_legislation dedup: already searched 3+ times, returning hint', {
+          query: args.query.substring(0, 60),
+          prevSearches: this.searchDedup.length,
+        });
+        return {
+          query: args.query,
+          total_found: 0,
+          articles: [],
+          dedup_hint: `Вже виконано ${this.searchDedup.length} пошуків законодавства за цю сесію (знайдено: ${[...prevRadaIds].join(', ')}). Використайте search_edrsr_fulltext для судової практики або get_legislation_article для тексту конкретної статті.`,
+        };
+      }
+    }
+
     logger.info('[MCP Tool] search_legislation started', {
       query: args.query.substring(0, 100),
       limit
@@ -394,6 +429,15 @@ export class LegislationTools extends BaseToolHandler {
         }
       );
     }
+
+    // Record in dedup cache
+    const foundRadaIds = new Set(articles.map((a: any) => a.rada_id).filter(Boolean));
+    this.searchDedup.push({
+      key: args.query,
+      result: response,
+      radaIds: foundRadaIds,
+      ts: Date.now(),
+    });
 
     return response;
   }
