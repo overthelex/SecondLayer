@@ -90,22 +90,21 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
     PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
-COPY --from=builder /app/mcp_backend/package.json ./package.json
-COPY --from=builder /app/mcp_backend/package-lock.json* ./
-COPY --from=builder /app/mcp_backend/node_modules ./node_modules
-COPY --from=builder /app/mcp_backend/dist ./dist
-COPY --from=builder /app/mcp_backend/scripts ./scripts
-COPY --from=builder /app/mcp_backend/assets ./assets
-COPY --from=builder /app/mcp_backend/src/migrations ./src/migrations
-
 RUN apk add --no-cache su-exec && \
-    mkdir -p /app/data /app/data/uploads /app/data/uploads/multer-tmp && \
     addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 && \
-    chown -R nodejs:nodejs /app
+    mkdir -p /app/data /app/data/uploads /app/data/uploads/multer-tmp && \
+    chown -R nodejs:nodejs /app/data
 
-COPY deployment/scripts/backend-entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/package.json ./package.json
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/package-lock.json* ./
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/scripts ./scripts
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/assets ./assets
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/src/migrations ./src/migrations
+
+COPY --chmod=755 deployment/scripts/backend-entrypoint.sh /usr/local/bin/entrypoint.sh
 
 EXPOSE 3000
 
