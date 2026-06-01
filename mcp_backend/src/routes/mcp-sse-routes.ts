@@ -326,7 +326,7 @@ export function createMCPSSERoutes(deps: {
           const oauthToken = await deps.oauthService.verifyAccessToken(token);
           if (oauthToken) {
             userId = String(oauthToken.userId);
-            logger.debug('[MCP v1/sse] Authenticated with OAuth token', { userId: sanitizeId(userId), clientId: sanitizeId(String(oauthToken.clientId)) });
+            logger.debug('[MCP v1/sse] Authenticated with OAuth token');
           } else {
             // API key
             clientKey = token;
@@ -380,6 +380,8 @@ export function createMCPSSERoutes(deps: {
         });
       }
 
+      const safeUserId = sanitizeId(userId || 'anonymous');
+
       // Create MCP Server instance for this connection
       const mcpServer = new Server(
         {
@@ -410,7 +412,7 @@ export function createMCPSSERoutes(deps: {
         try {
           logger.info('[MCP v1/sse] Tool call', {
             tool: toolName,
-            userId: sanitizeId(userId || 'anonymous'),
+            userId: safeUserId,
           });
 
           // Phase 2 Billing: Check credits BEFORE execution
@@ -422,7 +424,7 @@ export function createMCPSSERoutes(deps: {
 
               if (!balance.hasCredits) {
                 logger.warn('[MCP v1/sse] Insufficient credits', {
-                  userId: sanitizeId(userId),
+                  userId: safeUserId,
                   tool: toolName,
                   creditsRequired,
                 });
@@ -490,10 +492,9 @@ export function createMCPSSERoutes(deps: {
 
               if (deduction.success) {
                 logger.info('[MCP v1/sse] Credits deducted', {
-                  userId: sanitizeId(userId),
+                  userId: safeUserId,
                   tool: toolName,
                   creditsDeducted: creditsRequired,
-                  newBalance: deduction.newBalance,
                 });
               }
             }

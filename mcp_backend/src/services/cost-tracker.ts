@@ -54,7 +54,6 @@ export class CostTracker extends BaseCostTracker {
 
     logger.debug('Cost tracking record created', {
       requestId: params.requestId,
-      userId: sanitizeId(params.userId || ''),
     });
   }
 
