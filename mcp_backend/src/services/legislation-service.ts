@@ -1047,7 +1047,25 @@ export class LegislationService {
         })));
       }
 
-      const articleIds = [...new Set(searchResults.map((r: any) => r.payload.article_id))].slice(0, limit);
+      // Points may have article_id in payload (legacy UUID points) or use integer point ID directly
+      const articleIds = [...new Set(searchResults.map((r: any) => {
+        if (r.payload?.article_id) return r.payload.article_id;
+        if (typeof r.id === 'number') return r.id;
+        return null;
+      }).filter(Boolean))].slice(0, limit);
+
+      if (articleIds.length === 0) {
+        logger.warn('[LegislationService] No article IDs resolved from vector results');
+        const textResults = await this.searchLegislation(query, radaId, limit);
+        return textResults.flatMap(r => r.articles.map((a: any) => ({
+          rada_id: r.rada_id, article_number: a.article_number, title: a.title,
+          full_text: a.full_text, full_text_html: a.full_text_html,
+          url: `https://zakon.rada.gov.ua/laws/show/${r.rada_id}#n${a.article_number}`,
+          metadata: a.metadata, npa_title: r.legislation_title,
+          section_number: a.section_number, section_title: a.section_title,
+          chapter_number: a.chapter_number, chapter_title: a.chapter_title,
+        })));
+      }
 
       const result = await this.db.query(
         `SELECT la.*, l.rada_id, l.title as npa_title
