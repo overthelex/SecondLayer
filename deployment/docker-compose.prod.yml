@@ -1402,7 +1402,11 @@ services:
   cadvisor-prod:
     image: gcr.io/cadvisor/cadvisor:v0.55.1
     container_name: cadvisor-prod
-    privileged: true
+    privileged: false
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - no-new-privileges:true
     devices:
       - /dev/kmsg
     environment:
