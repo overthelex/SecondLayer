@@ -25,6 +25,14 @@ interface SearchDedup {
   ts: number;
 }
 
+const MAX_ARTICLE_TEXT_CHARS = 2000;
+
+function capText(text: string | undefined | null): string {
+  if (!text) return '';
+  if (text.length <= MAX_ARTICLE_TEXT_CHARS) return text;
+  return text.slice(0, MAX_ARTICLE_TEXT_CHARS) + '… [обрізано]';
+}
+
 export class LegislationTools extends BaseToolHandler {
   private service: LegislationService;
   private renderer: LegislationRenderer;
@@ -82,7 +90,7 @@ export class LegislationTools extends BaseToolHandler {
           articles: relevantArticles.map(a => ({
             article_number: a.article_number,
             title: a.title,
-            full_text: a.full_text,
+            full_text: capText(a.full_text),
             url: a.url,
             metadata: a.metadata,
           })),
@@ -145,7 +153,7 @@ export class LegislationTools extends BaseToolHandler {
       rada_id: article.rada_id,
       article_number: article.article_number,
       title: article.title,
-      full_text: article.full_text,
+      full_text: capText(article.full_text),
       url: article.url,
       metadata: article.metadata,
       npa_title: article.npa_title,
@@ -197,7 +205,7 @@ export class LegislationTools extends BaseToolHandler {
       articles: articles.map(a => ({
         article_number: a.article_number,
         title: a.title,
-        full_text: a.full_text,
+        full_text: capText(a.full_text),
         url: a.url,
         npa_title: a.npa_title,
         section_number: a.section_number,
@@ -313,7 +321,7 @@ export class LegislationTools extends BaseToolHandler {
               rada_id: article.rada_id,
               article_number: article.article_number,
               title: article.title,
-              full_text: article.full_text,
+              full_text: capText(article.full_text),
               url: article.url,
               npa_title: article.npa_title,
               section_number: article.section_number,
@@ -358,7 +366,7 @@ export class LegislationTools extends BaseToolHandler {
             rada_id: resolvedRadaId,
             article_number: a.article_number,
             title: a.title,
-            full_text: a.full_text || '',
+            full_text: capText(a.full_text),
             url: `https://zakon.rada.gov.ua/laws/show/${resolvedRadaId}#n${a.article_number}`,
           })),
         };
@@ -387,7 +395,7 @@ export class LegislationTools extends BaseToolHandler {
         rada_id: a.rada_id,
         article_number: a.article_number,
         title: a.title,
-        full_text: a.full_text || '',
+        full_text: capText(a.full_text),
         url: a.url,
         npa_title: a.npa_title,
         section_number: a.section_number,
@@ -511,7 +519,7 @@ export class LegislationTools extends BaseToolHandler {
               rada_id: pattern.rada_id,
               article_number: articleNumber,
               title: article.title,
-              full_text: article.full_text,
+              full_text: capText(article.full_text),
               url: article.url,
             });
           }
