@@ -63,9 +63,7 @@ export class ApiKeyService {
       );
 
       if (result.rows.length === 0) {
-        logger.debug('[ApiKeyService] API key not found or inactive', {
-          keyPrefix: maskSensitive(apiKey, 8),
-        });
+        logger.debug('[ApiKeyService] API key not found or inactive');
         return null;
       }
 

@@ -52,11 +52,9 @@ export class CostTracker extends BaseCostTracker {
       ]
     );
 
-    const maskedKey = params.clientKey ? maskSensitive(params.clientKey, 8) : 'none';
     logger.debug('Cost tracking record created', {
       requestId: params.requestId,
       userId: sanitizeId(params.userId || ''),
-      clientKeyPrefix: maskedKey,
     });
   }
 

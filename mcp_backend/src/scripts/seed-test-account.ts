@@ -41,7 +41,7 @@ async function cleanupTestAccount() {
     }
 
     const userId = existingUser.rows[0].id;
-    logger.info(`Found test user: ${maskSensitive(TEST_USER.email, 4)} (ID: ${sanitizeId(userId.substring(0, 8))}...)`);
+    logger.info('Found test user', { userId: sanitizeId(userId) });
 
     // Must drop immutability rules to allow FK cascade
     await db.query(`
@@ -120,7 +120,7 @@ async function seedTestAccount() {
 
     if (existingUser.rows.length > 0) {
       userId = existingUser.rows[0].id;
-      logger.info(`Test user already exists: ${maskSensitive(TEST_USER.email, 4)} (ID: ${sanitizeId(userId.substring(0, 8))}...)`);
+      logger.info('Test user already exists', { userId: sanitizeId(userId) });
     } else {
       // Create test user
       const userResult = await db.query(
@@ -131,7 +131,7 @@ async function seedTestAccount() {
       );
 
       userId = userResult.rows[0].id;
-      logger.info(`Created test user: ${maskSensitive(TEST_USER.email, 4)} (ID: ${sanitizeId(userId.substring(0, 8))}...)`);
+      logger.info('Created test user', { userId: sanitizeId(userId) });
     }
 
     // 2. Check if billing record exists
@@ -261,13 +261,13 @@ async function seedTestAccount() {
     );
 
     const billing = finalBilling.rows[0];
-    logger.info('\nTest Account Summary:');
-    logger.info(`   Email: ${maskSensitive(TEST_USER.email, 4)}`);
-    logger.info(`   User ID: ${sanitizeId(userId.substring(0, 8))}...`);
-    logger.info(`   Balance: $${billing.balance_usd} USD`);
-    logger.info(`   Transactions: ${transactions.length}`);
-    logger.info(`   Payment Intents: ${paymentIntents.length}`);
-    logger.info('\nTest account seed completed successfully!');
+    logger.info('Test Account Summary:', {
+      userId: sanitizeId(userId),
+      balanceUsd: billing.balance_usd,
+      transactions: transactions.length,
+      paymentIntents: paymentIntents.length,
+    });
+    logger.info('Test account seed completed successfully!');
   } catch (error: any) {
     logger.error('Error seeding test account:', error);
     throw error;

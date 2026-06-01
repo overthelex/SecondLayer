@@ -319,14 +319,14 @@ export function createMCPSSERoutes(deps: {
           const jwtSecret = process.env.JWT_SECRET;
           if (!jwtSecret) throw new Error('JWT_SECRET not configured');
           const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as any;
-          userId = decoded.userId;
-          logger.debug('[MCP v1/sse] Authenticated with JWT', { userId });
+          userId = String(decoded.userId);
+          logger.debug('[MCP v1/sse] Authenticated with JWT', { userId: sanitizeId(userId) });
         } else {
           // Try OAuth access token first, then API key
           const oauthToken = await deps.oauthService.verifyAccessToken(token);
           if (oauthToken) {
-            userId = oauthToken.userId;
-            logger.debug('[MCP v1/sse] Authenticated with OAuth token', { userId: sanitizeId(userId || ''), clientId: sanitizeId(oauthToken.clientId) });
+            userId = String(oauthToken.userId);
+            logger.debug('[MCP v1/sse] Authenticated with OAuth token', { userId: sanitizeId(userId), clientId: sanitizeId(String(oauthToken.clientId)) });
           } else {
             // API key
             clientKey = token;

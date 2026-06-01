@@ -29,7 +29,7 @@ async function seedMatterData() {
       throw new Error(`Test user ${TEST_EMAIL} not found. Run seed-test-account first.`);
     }
     const userId = userResult.rows[0].id;
-    logger.info(`Using test user: ${maskSensitive(TEST_EMAIL, 4)} (${sanitizeId(userId.substring(0, 8))}...)`);
+    logger.info('Using test user', { userId: sanitizeId(userId) });
 
     // Get or create organization
     let orgId: string;
@@ -350,7 +350,7 @@ async function seedMatterData() {
     logger.info(`  Legal holds: 2`);
 
   } catch (error: any) {
-    logger.error('Matter seed failed:', { message: sanitizeId(error.message) });
+    logger.error('Matter seed failed:', { message: String(error.message).substring(0, 100) });
     throw error;
   } finally {
     await db.close();
@@ -396,6 +396,6 @@ const isCleanup = process.argv.includes('--cleanup');
     process.exit(0);
   })
   .catch((error) => {
-    logger.error('Fatal error:', { message: sanitizeId(error.message) });
+    logger.error('Fatal error:', { message: String(error.message).substring(0, 100) });
     process.exit(1);
   });

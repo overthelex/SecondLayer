@@ -104,7 +104,7 @@ async function main() {
     [USER_ID]
   );
 
-  console.log(`Found ${docs.length} documents with text for user ${USER_ID}`);
+  console.log(`Found ${docs.length} documents with text for reindexing`);
   if (DRY_RUN) {
     console.log('DRY_RUN — exiting');
     await pool.end();
