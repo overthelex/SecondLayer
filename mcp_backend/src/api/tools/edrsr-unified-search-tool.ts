@@ -94,8 +94,8 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 4 режими пошуку:
 • **structured** — за метаданими: номер справи, суддя, суд, дата, категорія, військові пресети. Найшвидший, коли відомі точні параметри.
 • **fulltext** — повнотекстовий пошук (PostgreSQL tsvector) з підсвіченими фрагментами. Для пошуку за ключовими словами та юридичними термінами.
-• **hybrid** — FTS + семантичний пошук (Qdrant Voyage-3.5) з мерджем через Reciprocal Rank Fusion. Найкращий recall, коли запит містить і семантику, і точні токени. Семантична нога працює для КупАП (justice_kind=5).
-• **semantic** — чистий семантичний пошук по векторній базі Qdrant. Доступний для КУпАП (justice_kind=5), для решти — fallback на fulltext.
+• **hybrid** — FTS + семантичний пошук (Qdrant BGE-M3) з мерджем через Reciprocal Rank Fusion. Найкращий recall, коли запит містить і семантику, і точні токени. Семантична нога працює для ГПК (3) та КупАП (5).
+• **semantic** — чистий семантичний пошук по векторній базі Qdrant. Доступний для ГПК (justice_kind=3) та КУпАП (justice_kind=5), для решти — fallback на fulltext.
 
 Фільтри (спільні для всіх режимів): court_code/court_name, judge, justice_kind, judgment_code, category_code, date_from/date_to.
 Пресети: military_preset (військові справи), kupap_preset (адмінправопорушення — traffic_dui, traffic_accident, domestic_violence, hooliganism тощо).
@@ -405,7 +405,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
   // ── Semantic search (Qdrant vectors) ─────────────────────────────
 
-  private static readonly VECTORIZED_JUSTICE_KINDS = new Set([5]); // КупАП
+  private static readonly VECTORIZED_JUSTICE_KINDS = new Set([3, 5]); // ГПК, КупАП
 
   private async searchSemantic(args: any): Promise<ToolResult> {
     if (!args.query) return this.wrapError('query є обов\'язковим для режиму semantic');
