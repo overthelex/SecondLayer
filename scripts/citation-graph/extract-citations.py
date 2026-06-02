@@ -44,16 +44,16 @@ PATTERNS = {
     # "статті 3, 5 Закону України «Про ...»" or "ст. 3 ЗУ «Про ...»"
     "law_article": re.compile(
         r'(?:стат(?:т[іея]|ей)|ст\.)\s*'
-        r'([\d,\s\-та]+)'
+        r'([\d,\s\-]{1,50})'
         r'\s+(?:Закону\s+України|ЗУ|Закону)\s+'
-        r'(?:[«"]([^»"]+)[»"]|(?:від|№)\s*(\d[\d.\-/]+))',
+        r'(?:[«"]([^»"]{1,200})[»"]|(?:від|№)\s*(\d[\d.\-/]{1,30}))',
         re.IGNORECASE | re.UNICODE
     ),
     # Codex references: "ст. 625 ЦК України", "ч. 1 ст. 3 КАС України"
     "codex_article": re.compile(
         r'(?:(?:ч(?:астин[аи]|\.)\s*\d+\s+)?'
         r'(?:стат(?:т[іея]|ей)|ст\.)\s*'
-        r'([\d,\s\-та]+))\s+'
+        r'([\d,\s\-]{1,50}))\s+'
         r'(ЦК|КК|ГК|ГПК|КПК|КАС|ЦПК|КЗпП|СК|ЗК|ПК|МК|БК|ВК|ЛК|ЖК|КУпАП|КАСУ)'
         r'(?:\s+України)?',
         re.IGNORECASE | re.UNICODE
@@ -61,20 +61,20 @@ PATTERNS = {
     # Constitution: "стаття 124 Конституції України"
     "constitution": re.compile(
         r'(?:стат(?:т[іея]|ей)|ст\.)\s*'
-        r'([\d,\s\-та]+)\s+'
+        r'([\d,\s\-]{1,50})\s+'
         r'Конституці[їі]\s+України',
         re.IGNORECASE | re.UNICODE
     ),
     # Case number references: "справа № 200/1234/24"
     "case_reference": re.compile(
-        r'(?:справ[аи]\s*)?№\s*(\d{1,4}/\d+/\d{2,4})',
+        r'(?:справ[аи]\s*)?№\s*(\d{1,4}/\d{1,10}/\d{2,4})',
         re.IGNORECASE
     ),
     # Law by number: "Закон України від 01.01.2020 № 123-IX"
     "law_by_number": re.compile(
         r'Закон(?:у|ом)?\s+України\s+'
         r'(?:від\s+(\d{2}\.\d{2}\.\d{4})\s+)?'
-        r'№\s*([\d\-]+(?:\-[IVX]+)?)',
+        r'№\s*([\d\-]{1,20}(?:\-[IVX]{1,5})?)',
         re.IGNORECASE | re.UNICODE
     ),
     # Постанова Пленуму Верховного Суду
@@ -144,8 +144,12 @@ def parse_article_numbers(raw: str) -> list[str]:
             articles.append(part)
     return articles
 
+MAX_TEXT_LEN = 10_000
+
 def extract_citations_from_text(doc_id: int, text: str) -> list[Citation]:
     citations = []
+    if len(text) > MAX_TEXT_LEN:
+        text = text[:MAX_TEXT_LEN]
 
     for m in PATTERNS["law_article"].finditer(text):
         articles_raw = m.group(1)
@@ -182,6 +186,22 @@ def extract_citations_from_text(doc_id: int, text: str) -> list[Citation]:
 # ── Worker ───────────────────────────────────────────────────
 
 _JUSTICE_KIND_FILTER = None
+_USE_PARTITIONS = None
+
+def _check_partitions():
+    global _USE_PARTITIONS
+    if _USE_PARTITIONS is not None:
+        return _USE_PARTITIONS
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM pg_class WHERE relname = 'edrsr_fulltext_p_2020' AND relkind = 'r'")
+        _USE_PARTITIONS = cur.fetchone() is not None
+        cur.close()
+        conn.close()
+    except Exception:
+        _USE_PARTITIONS = False
+    return _USE_PARTITIONS
 
 def process_chunk(args: tuple) -> dict:
     """Process a chunk of rows from a partition. Runs in a separate process."""
@@ -189,17 +209,26 @@ def process_chunk(args: tuple) -> dict:
     conn = get_conn()
     cur = conn.cursor(name=f"cite_{year}_{offset}")
 
-    partition = f"edrsr_fulltext_p_{year}"
+    if _check_partitions():
+        table = f"edrsr_fulltext_p_{year}"
+        year_filter = ""
+    else:
+        table = "edrsr_fulltext"
+        year_filter = f"AND f.adj_year = {year} "
+
     if _JUSTICE_KIND_FILTER is not None:
         cur.execute(
-            f"SELECT f.doc_id, f.full_text FROM {partition} f "
+            f"SELECT f.doc_id, f.full_text FROM {table} f "
             f"JOIN edrsr_documents d ON f.doc_id = d.doc_id "
-            f"WHERE d.justice_kind = %s "
+            f"WHERE d.justice_kind = %s {year_filter}"
             f"OFFSET %s LIMIT %s",
             (_JUSTICE_KIND_FILTER, offset, chunk_size),
         )
     else:
-        cur.execute(f"SELECT doc_id, full_text FROM {partition} OFFSET %s LIMIT %s", (offset, chunk_size))
+        cur.execute(
+            f"SELECT doc_id, full_text FROM {table} WHERE adj_year = %s OFFSET %s LIMIT %s",
+            (year, offset, chunk_size),
+        )
 
     all_citations = []
     rows = 0
@@ -209,10 +238,13 @@ def process_chunk(args: tuple) -> dict:
         rows += 1
         if not text:
             continue
-        cites = extract_citations_from_text(doc_id, text)
-        all_citations.extend(cites)
-        for c in cites:
-            type_counts[c.citation_type] += 1
+        try:
+            cites = extract_citations_from_text(doc_id, text)
+            all_citations.extend(cites)
+            for c in cites:
+                type_counts[c.citation_type] += 1
+        except Exception:
+            pass
 
     cur.close()
     conn.close()
@@ -252,14 +284,20 @@ def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000
 
     conn = get_conn()
     cur = conn.cursor()
-    partition = f"edrsr_fulltext_p_{year}"
+    if _check_partitions():
+        table = f"edrsr_fulltext_p_{year}"
+        year_filter = ""
+    else:
+        table = "edrsr_fulltext"
+        year_filter = f"AND f.adj_year = {year} "
+
     if _JUSTICE_KIND_FILTER is not None:
         cur.execute(
-            f"SELECT COUNT(*) FROM {partition} f JOIN edrsr_documents d ON f.doc_id = d.doc_id WHERE d.justice_kind = %s",
+            f"SELECT COUNT(*) FROM {table} f JOIN edrsr_documents d ON f.doc_id = d.doc_id WHERE d.justice_kind = %s {year_filter}",
             (_JUSTICE_KIND_FILTER,),
         )
     else:
-        cur.execute(f"SELECT COUNT(*) FROM {partition}")
+        cur.execute(f"SELECT COUNT(*) FROM {table} WHERE adj_year = %s", (year,))
     total = cur.fetchone()[0]
     cur.close()
     conn.close()
