@@ -14,10 +14,13 @@ const REFERRAL_CODE_LENGTH = 8;
 
 function generateReferralCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  const bytes = randomBytes(REFERRAL_CODE_LENGTH);
+  const maxValid = Math.floor(256 / chars.length) * chars.length;
   let code = '';
-  for (let i = 0; i < REFERRAL_CODE_LENGTH; i++) {
-    code += chars[bytes[i] % chars.length];
+  while (code.length < REFERRAL_CODE_LENGTH) {
+    const byte = randomBytes(1)[0];
+    if (byte < maxValid) {
+      code += chars[byte % chars.length];
+    }
   }
   return code;
 }

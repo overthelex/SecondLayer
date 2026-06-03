@@ -19,9 +19,6 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Allow self-signed certs for local dev
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
 const BASE_URL = process.env.TEST_BASE_URL || 'https://localhost';
 const TEST_EMAIL = process.env.TEST_EMAIL || 'testuser@secondlayer.com';
 const TEST_PASSWORD = process.env.TEST_PASSWORD || 'testuser123';
