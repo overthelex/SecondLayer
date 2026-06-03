@@ -202,8 +202,8 @@ function extractArticlesFromEditionHtml(html: string): Array<{ article_number: s
 
     const inlineTitle = match[2]?.trim();
     let body = match[3];
-    body = body.replace(/<script[^>]*>.*?<\/script>/gs, '');
-    body = body.replace(/<style[^>]*>.*?<\/style>/gs, '');
+    body = body.replace(/<script[^>]*>.*?<\/script\s*>/gsi, '');
+    body = body.replace(/<style[^>]*>.*?<\/style\s*>/gsi, '');
     body = body.replace(/<[^>]+>/g, ' ');
     body = body.replace(/\s+/g, ' ').replace(/\{[^}]*\}/g, '').trim();
     if (body.length < 10) continue;
