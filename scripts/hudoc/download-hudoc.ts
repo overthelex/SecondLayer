@@ -30,6 +30,7 @@
  */
 
 import { writeFileSync, appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, readdirSync, statSync } from 'fs';
+import * as cheerio from 'cheerio';
 import { writeFile, rename, unlink, stat } from 'fs/promises';
 import { join, dirname } from 'path';
 
@@ -208,25 +209,9 @@ function buildFulltextURL(itemId: string): string {
 
 function htmlToText(html: string): string {
   if (!html) return '';
-  // Remove CSS style blocks
-  let text = html.replace(/<style[^>]*>[\s\S]*?<\/style\s*>/gi, '');
-  text = text.replace(/<script[^>]*>[\s\S]*?<\/script\s*>/gi, '');
-  // Convert common block elements to newlines
-  text = text.replace(/<\/(p|div|br|h[1-6]|li|tr|td|th|blockquote|pre)[^>]*>/gi, '\n');
-  text = text.replace(/<br\s*\/?>/gi, '\n');
-  // Remove all remaining tags
-  text = text.replace(/<[^>]+>/g, '');
-  // Decode HTML entities
-  text = text
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)))
-    .replace(/&amp;/g, '&');
-  // Collapse whitespace
+  const $ = cheerio.load(html);
+  $('script, style').remove();
+  let text = $.text();
   text = text.replace(/[ \t]+/g, ' ');
   text = text.replace(/\n{3,}/g, '\n\n');
   text = text.trim();
