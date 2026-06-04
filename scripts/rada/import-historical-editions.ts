@@ -13,6 +13,7 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
+import * as cheerio from 'cheerio';
 import * as fs from 'fs';
 import * as path from 'path';
 import pg from 'pg';
@@ -202,10 +203,9 @@ function extractArticlesFromEditionHtml(html: string): Array<{ article_number: s
 
     const inlineTitle = match[2]?.trim();
     let body = match[3];
-    body = body.replace(/<script[^>]*>.*?<\/script\s*>/gsi, '');
-    body = body.replace(/<style[^>]*>.*?<\/style\s*>/gsi, '');
-    body = body.replace(/<[^>]+>/g, ' ');
-    body = body.replace(/\s+/g, ' ').replace(/\{[^}]*\}/g, '').trim();
+    const $body = cheerio.load(body);
+    $body('script, style').remove();
+    body = $body.text().replace(/\s+/g, ' ').replace(/\{[^}]*\}/g, '').trim();
     if (body.length < 10) continue;
 
     articles.push({
