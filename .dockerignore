@@ -55,6 +55,8 @@ config
 deployment/backups
 deployment/nginx/certs
 deployment/hudoc-storage
+deployment/hudoc-storage/**
+deployment/hudoc-storage/pgdata
 
 # Misc
 *.md

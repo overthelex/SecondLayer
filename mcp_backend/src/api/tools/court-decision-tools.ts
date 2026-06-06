@@ -418,7 +418,7 @@ export class CourtDecisionTools extends BaseToolHandler {
 
   private async getCaseDocumentsChain(args: any): Promise<ToolResult> {
     const caseNumber = typeof args.case_number === 'string' ? args.case_number.trim() : '';
-    const includeFullText = args.include_full_text !== false;
+    const includeFullText = args.include_full_text === true;
     const maxDocs = Math.min(100, Math.max(1, Number(args.max_docs || 50)));
     const groupByInstance = args.group_by_instance !== false;
 
