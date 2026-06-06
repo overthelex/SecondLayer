@@ -1086,6 +1086,10 @@ class HTTPMCPServer {
   }
 }
 
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection', { error: reason instanceof Error ? reason.message : String(reason) });
+});
+
 // Start server
 const server = new HTTPMCPServer();
 server.start().catch((error) => {
