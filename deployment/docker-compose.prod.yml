@@ -579,7 +579,7 @@ services:
       ENABLE_UNIFIED_GATEWAY: "true"
       RADA_MCP_URL: http://rada-mcp-app-prod:3001
       RADA_API_KEY: ${RADA_API_KEY:-}
-      OPENREYESTR_MCP_URL: http://app-openreyestr-prod:3005
+      OPENREYESTR_MCP_URL: http://openreyestr-app-prod:3005
       OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEY:-}
 
       # SneakyPiper OSINT Proxy
@@ -975,7 +975,7 @@ services:
       ENABLE_UNIFIED_GATEWAY: "true"
       RADA_MCP_URL: http://rada-mcp-app-prod-green:3001
       RADA_API_KEY: ${RADA_API_KEY:-}
-      OPENREYESTR_MCP_URL: http://app-openreyestr-prod-green:3005
+      OPENREYESTR_MCP_URL: http://openreyestr-app-prod-green:3005
       OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEY:-}
       SNEAKYPIPER_API_URL: ${SNEAKYPIPER_API_URL:-}
       SNEAKYPIPER_API_KEY: ${SNEAKYPIPER_API_KEY:-}
@@ -1513,7 +1513,7 @@ services:
       NODE_ENV: production
       BACKEND_URL: http://app-prod:3000
       BACKEND_API_KEY: ${SECONDARY_LAYER_KEYS:-}
-      OPENREYESTR_URL: http://app-openreyestr-prod:3005
+      OPENREYESTR_URL: http://openreyestr-app-prod:3005
       OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEYS:-}
       HEALTH_PORT: "3010"
       TZ: Europe/Kiev

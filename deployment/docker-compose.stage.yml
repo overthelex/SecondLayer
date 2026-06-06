@@ -540,7 +540,7 @@ services:
       ENABLE_UNIFIED_GATEWAY: "true"
       RADA_MCP_URL: http://rada-mcp-app-stage:3001
       RADA_API_KEY: ${RADA_API_KEY:-}
-      OPENREYESTR_MCP_URL: http://app-openreyestr-stage:3005
+      OPENREYESTR_MCP_URL: http://openreyestr-app-stage:3005
       OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEY:-}
 
       # Google Cloud Vision API (for OCR in document analysis tools)
