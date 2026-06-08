@@ -358,7 +358,7 @@ jobs:
 
           if [ "$BACKEND_CHANGED" = "true" ] || [ "$RADA_CHANGED" = "true" ] || [ "$OPENREYESTR_CHANGED" = "true" ]; then
             echo "=== Rebuild and restart active backend ==="
-            $SSH_CMD "cd ${REMOTE_REPO}/deployment && $DC_CMD up -d --build --force-recreate app-prod rada-mcp-app-prod openreyestr-app-prod"
+            $SSH_CMD "cd ${REMOTE_REPO}/deployment && $DC_CMD up -d --build --force-recreate app-prod rada-mcp-app-prod app-openreyestr-prod"
 
             echo "=== Wait for health ==="
             for i in $(seq 1 30); do
