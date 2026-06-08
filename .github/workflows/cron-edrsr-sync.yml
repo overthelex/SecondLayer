@@ -28,7 +28,7 @@ concurrency:
 jobs:
   sync-edrsr:
     name: Sync EDRSR ${{ inputs.year || 'current year' }}
-    runs-on: [self-hosted, local]
+    runs-on: [self-hosted, workstation]
     timeout-minutes: 30
     steps:
       - name: Checkout
