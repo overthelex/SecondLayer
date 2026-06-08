@@ -533,7 +533,7 @@ jobs:
               if [ "\$NEW_FRONTEND" = "green" ]; then
                 \$DC --profile green up -d lexwebapp-prod-green
               else
-                \$DC up -d lexwebapp-prod
+                \$DC --profile blue up -d lexwebapp-prod-blue
               fi
             fi
             if [ "${PLATFORM_CHANGED}" = "true" ]; then
@@ -582,7 +582,7 @@ jobs:
               if [ "\$NEW_FRONTEND" = "green" ]; then
                 wait_healthy "lexwebapp-prod-green" 60 || HEALTH_OK=false
               else
-                wait_healthy "lexwebapp-prod" 60 || HEALTH_OK=false
+                wait_healthy "lexwebapp-prod-blue" 60 || HEALTH_OK=false
               fi
             fi
             if [ "${PLATFORM_CHANGED}" = "true" ]; then
@@ -606,8 +606,8 @@ jobs:
                   \$DC --profile green stop lexwebapp-prod-green 2>/dev/null || true
                   \$DC --profile green rm -f lexwebapp-prod-green 2>/dev/null || true
                 else
-                  \$DC stop lexwebapp-prod 2>/dev/null || true
-                  \$DC rm -f lexwebapp-prod 2>/dev/null || true
+                  \$DC --profile blue stop lexwebapp-prod-blue 2>/dev/null || true
+                  \$DC --profile blue rm -f lexwebapp-prod-blue 2>/dev/null || true
                 fi
               fi
               exit 1
@@ -621,10 +621,10 @@ jobs:
               [ "\$BACKEND_COLOR" = "green" ] && PREVIEW_BE_HOST="secondlayer-app-prod-green" || PREVIEW_BE_HOST="secondlayer-app-prod"
             fi
             if [ "${FRONTEND_CHANGED}" = "true" ]; then
-              [ "\$NEW_FRONTEND" = "green" ] && PREVIEW_FE_HOST="lexwebapp-prod-green" || PREVIEW_FE_HOST="lexwebapp-prod"
+              [ "\$NEW_FRONTEND" = "green" ] && PREVIEW_FE_HOST="lexwebapp-prod-green" || PREVIEW_FE_HOST="lexwebapp-prod-blue"
             else
               # No frontend change — preview frontend points to current prod frontend
-              [ "\$FRONTEND_COLOR" = "green" ] && PREVIEW_FE_HOST="lexwebapp-prod-green" || PREVIEW_FE_HOST="lexwebapp-prod"
+              [ "\$FRONTEND_COLOR" = "green" ] && PREVIEW_FE_HOST="lexwebapp-prod-green" || PREVIEW_FE_HOST="lexwebapp-prod-blue"
             fi
 
             printf '# Preview upstreams — managed by deploy script\n# Points to inactive color containers for pre-production preview\n# DO NOT EDIT MANUALLY\n\nupstream preview_mcp_backend {\n    server %s:3000;\n    keepalive 128;\n}\n\nupstream preview_frontend {\n    server %s:80;\n    keepalive 32;\n}\n' "\$PREVIEW_BE_HOST" "\$PREVIEW_FE_HOST" > nginx/includes/preview-upstreams.conf
@@ -711,11 +711,11 @@ jobs:
               echo "WARNING: .active-colors disagrees with docker state, correcting backend=blue"
             fi
             if docker inspect lexwebapp-prod-green --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
-              if ! docker inspect lexwebapp-prod --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+              if ! docker inspect lexwebapp-prod-blue --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
                 FRONTEND_COLOR="green"
                 echo "WARNING: .active-colors disagrees with docker state, correcting frontend=green"
               fi
-            elif docker inspect lexwebapp-prod --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+            elif docker inspect lexwebapp-prod-blue --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
               FRONTEND_COLOR="blue"
               echo "WARNING: .active-colors disagrees with docker state, correcting frontend=blue"
             fi
@@ -740,9 +740,9 @@ jobs:
               [ "\$BACKEND_COLOR" = "green" ] && BE_HOST="secondlayer-app-prod-green" || BE_HOST="secondlayer-app-prod"
             fi
             if [ "${FRONTEND_CHANGED}" = "true" ]; then
-              [ "\$NEW_FRONTEND" = "green" ] && FE_HOST="lexwebapp-prod-green" || FE_HOST="lexwebapp-prod"
+              [ "\$NEW_FRONTEND" = "green" ] && FE_HOST="lexwebapp-prod-green" || FE_HOST="lexwebapp-prod-blue"
             else
-              [ "\$FRONTEND_COLOR" = "green" ] && FE_HOST="lexwebapp-prod-green" || FE_HOST="lexwebapp-prod"
+              [ "\$FRONTEND_COLOR" = "green" ] && FE_HOST="lexwebapp-prod-green" || FE_HOST="lexwebapp-prod-blue"
             fi
 
             printf '# Active upstreams — managed by deploy script (blue-green switching)\n# DO NOT EDIT MANUALLY — overwritten during zero-downtime deploy\n\nupstream prod_mcp_backend {\n    server %s:3000;\n    keepalive 128;\n}\n\nupstream prod_frontend {\n    server %s:80;\n    keepalive 32;\n}\n' "\$BE_HOST" "\$FE_HOST" > nginx/includes/prod-upstreams.conf
@@ -766,7 +766,7 @@ jobs:
               if docker inspect lexwebapp-prod-green --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
                 FE_HOST="lexwebapp-prod-green"
               else
-                FE_HOST="lexwebapp-prod"
+                FE_HOST="lexwebapp-prod-blue"
               fi
               printf '# Active upstreams — managed by deploy script (blue-green switching)\n# DO NOT EDIT MANUALLY — overwritten during zero-downtime deploy\n\nupstream prod_mcp_backend {\n    server %s:3000;\n    keepalive 128;\n}\n\nupstream prod_frontend {\n    server %s:80;\n    keepalive 32;\n}\n' "\$BE_HOST" "\$FE_HOST" > nginx/includes/prod-upstreams.conf
               printf '# Backend hostname variables for dynamic DNS resolution\n# Managed by deploy script (blue-green switching)\n\nset \$prod_backend_host %s;\nset \$prod_backend http://\$prod_backend_host:3000;\nset \$prod_frontend_host %s;\nset \$prod_frontend http://\$prod_frontend_host:80;\n' "\$BE_HOST" "\$FE_HOST" > nginx/includes/prod-backend-vars.conf
@@ -795,8 +795,8 @@ jobs:
                 \$DC --profile green stop lexwebapp-prod-green 2>/dev/null || true
                 \$DC --profile green rm -f lexwebapp-prod-green 2>/dev/null || true
               else
-                \$DC stop lexwebapp-prod 2>/dev/null || true
-                \$DC rm -f lexwebapp-prod 2>/dev/null || true
+                \$DC --profile blue stop lexwebapp-prod-blue 2>/dev/null || true
+                \$DC --profile blue rm -f lexwebapp-prod-blue 2>/dev/null || true
               fi
               FRONTEND_COLOR="\$NEW_FRONTEND"
             fi
@@ -921,7 +921,7 @@ jobs:
 
               echo ""
               echo "=== Last 30 lines from failing containers ==="
-              for svc in app-prod rada-mcp-app-prod app-openreyestr-prod document-service-prod nginx-prod lexwebapp-prod; do
+              for svc in app-prod rada-mcp-app-prod app-openreyestr-prod document-service-prod nginx-prod lexwebapp-prod-blue lexwebapp-prod-green; do
                 echo "--- $svc ---"
                 $SSH_CMD "cd ${REMOTE_REPO}/deployment && docker compose -f docker-compose.prod.yml --env-file .env.prod logs --tail=30 $svc" 2>&1 || true
               done
