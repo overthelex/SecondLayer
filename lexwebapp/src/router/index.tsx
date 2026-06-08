@@ -155,7 +155,6 @@ const AdminBillingPage = lazyWithRetry(() => import('../pages/AdminBillingPage')
 const AdminInfrastructurePage = lazyWithRetry(() => import('../pages/AdminInfrastructurePage').then(m => ({ default: m.AdminInfrastructurePage })));
 const AdminContainersPage = lazyWithRetry(() => import('../pages/AdminContainersPage').then(m => ({ default: m.AdminContainersPage })));
 const AdminConfigPage = lazyWithRetry(() => import('../pages/AdminConfigPage').then(m => ({ default: m.AdminConfigPage })));
-const AdminDBComparePage = lazyWithRetry(() => import('../pages/AdminDBComparePage').then(m => ({ default: m.AdminDBComparePage })));
 const AdminServicePricingPage = lazyWithRetry(() => import('../pages/AdminServicePricingPage').then(m => ({ default: m.AdminServicePricingPage })));
 const AdminTerminalPage = lazyWithRetry(() => import('../pages/AdminTerminalPage').then(m => ({ default: m.AdminTerminalPage })));
 const AdminZOStatsPage = lazyWithRetry(() => import('../pages/AdminZOStatsPage').then(m => ({ default: m.AdminZOStatsPage })));
@@ -558,10 +557,6 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.ADMIN_CONFIG,
             element: S(AdminConfigPage),
-          },
-          {
-            path: ROUTES.ADMIN_DB_COMPARE,
-            element: S(AdminDBComparePage),
           },
           {
             path: ROUTES.ADMIN_SERVICE_PRICING,
