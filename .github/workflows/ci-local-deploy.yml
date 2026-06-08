@@ -356,12 +356,15 @@ jobs:
               git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
             find "$CORE_TMP"/src/services -maxdepth 1 -name '*.ts' -exec cp -f {} mcp_backend/src/services/ \;
             cp -rf "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
+            rm -rf mcp_backend/dist
             npm --prefix mcp_backend install && npm --prefix mcp_backend run build
           fi
           if [ "$RADA_CHANGED" = "true" ]; then
+            rm -rf mcp_rada/dist
             npm --prefix mcp_rada install && npm --prefix mcp_rada run build
           fi
           if [ "$OPENREYESTR_CHANGED" = "true" ]; then
+            rm -rf mcp_openreyestr/dist
             npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build
           fi
 
