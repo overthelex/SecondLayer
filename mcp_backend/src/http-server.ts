@@ -79,6 +79,7 @@ import { createAbuseRoutes } from './routes/abuse-routes.js';
 import { createLegislationMonitoringRoutes } from './routes/legislation-monitoring-routes.js';
 import { createUsageRoutes } from './routes/usage-routes.js';
 import { createSessionReplayRoutes, createAdminSessionReplayRoutes } from './routes/session-replay-routes.js';
+import { createEchrSyncRouter } from './routes/admin/echr-sync.js';
 import { SessionReplayService } from './services/session-replay-service.js';
 import rateLimit from 'express-rate-limit';
 import cron from 'node-cron';
@@ -738,6 +739,9 @@ class HTTPMCPServer {
     // GET /api/admin/api-keys - List API keys
     // GET /api/admin/settings - Get system settings
     this.app.use('/api/admin', requireJWT as any, createAdminRoutes(this.services.db, this.billing.billingService, this.billing.userPreferencesService, this.billing.prometheusService, this.billing.pricingService, this.billing.subscriptionService, this.app_.configService, this.app_.auditService, this.billing.emailService));
+
+    // ECHR HUDOC sync admin routes
+    this.app.use('/api/admin', createEchrSyncRouter(this.services.echrHudocSyncService));
 
     // Session replay: rrweb recording + admin playback
     const sessionReplayService = new SessionReplayService(this.services.db, this.tools.minioService);

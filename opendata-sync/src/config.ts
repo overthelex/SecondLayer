@@ -5,7 +5,7 @@
  * Frequencies use node-cron syntax: second(opt) minute hour day month weekday
  */
 
-export type SyncTarget = 'backend' | 'openreyestr';
+export type SyncTarget = 'backend' | 'openreyestr' | 'echr';
 
 export interface DataSourceSchedule {
   name: string;
@@ -292,6 +292,387 @@ const naisWeeklySources: DataSourceSchedule[] = [
   },
 ];
 
+// ─── ECHR HUDOC data sources (weekly, all 47 CoE member states) ─────
+
+const echrWeeklySources: DataSourceSchedule[] = [
+  {
+    name: 'echr_ukr',
+    title: 'ЄСПЛ — Україна',
+    cron: '0 22 * * 6', // Saturday 22:00
+    target: 'echr' as SyncTarget,
+    sourceName: 'UKR',
+    enabled: true,
+  },
+  {
+    name: 'echr_tur',
+    title: 'ЄСПЛ — Туреччина',
+    cron: '15 22 * * 6', // Saturday 22:15
+    target: 'echr' as SyncTarget,
+    sourceName: 'TUR',
+    enabled: true,
+  },
+  {
+    name: 'echr_rus',
+    title: 'ЄСПЛ — Росія',
+    cron: '30 22 * * 6', // Saturday 22:30
+    target: 'echr' as SyncTarget,
+    sourceName: 'RUS',
+    enabled: true,
+  },
+  {
+    name: 'echr_ita',
+    title: 'ЄСПЛ — Італія',
+    cron: '45 22 * * 6', // Saturday 22:45
+    target: 'echr' as SyncTarget,
+    sourceName: 'ITA',
+    enabled: true,
+  },
+  {
+    name: 'echr_rou',
+    title: 'ЄСПЛ — Румунія',
+    cron: '0 23 * * 6', // Saturday 23:00
+    target: 'echr' as SyncTarget,
+    sourceName: 'ROU',
+    enabled: true,
+  },
+  {
+    name: 'echr_pol',
+    title: 'ЄСПЛ — Польща',
+    cron: '15 23 * * 6', // Saturday 23:15
+    target: 'echr' as SyncTarget,
+    sourceName: 'POL',
+    enabled: true,
+  },
+  {
+    name: 'echr_grc',
+    title: 'ЄСПЛ — Греція',
+    cron: '30 23 * * 6', // Saturday 23:30
+    target: 'echr' as SyncTarget,
+    sourceName: 'GRC',
+    enabled: true,
+  },
+  {
+    name: 'echr_bgr',
+    title: 'ЄСПЛ — Болгарія',
+    cron: '45 23 * * 6', // Saturday 23:45
+    target: 'echr' as SyncTarget,
+    sourceName: 'BGR',
+    enabled: true,
+  },
+  {
+    name: 'echr_fra',
+    title: 'ЄСПЛ — Франція',
+    cron: '0 0 * * 0', // Sunday 00:00
+    target: 'echr' as SyncTarget,
+    sourceName: 'FRA',
+    enabled: true,
+  },
+  {
+    name: 'echr_hun',
+    title: 'ЄСПЛ — Угорщина',
+    cron: '15 0 * * 0', // Sunday 00:15
+    target: 'echr' as SyncTarget,
+    sourceName: 'HUN',
+    enabled: true,
+  },
+  {
+    name: 'echr_mda',
+    title: 'ЄСПЛ — Молдова',
+    cron: '30 0 * * 0', // Sunday 00:30
+    target: 'echr' as SyncTarget,
+    sourceName: 'MDA',
+    enabled: true,
+  },
+  {
+    name: 'echr_geo',
+    title: 'ЄСПЛ — Грузія',
+    cron: '45 0 * * 0', // Sunday 00:45
+    target: 'echr' as SyncTarget,
+    sourceName: 'GEO',
+    enabled: true,
+  },
+  {
+    name: 'echr_aze',
+    title: 'ЄСПЛ — Азербайджан',
+    cron: '0 1 * * 0', // Sunday 01:00
+    target: 'echr' as SyncTarget,
+    sourceName: 'AZE',
+    enabled: true,
+  },
+  {
+    name: 'echr_arm',
+    title: 'ЄСПЛ — Вірменія',
+    cron: '15 1 * * 0', // Sunday 01:15
+    target: 'echr' as SyncTarget,
+    sourceName: 'ARM',
+    enabled: true,
+  },
+  {
+    name: 'echr_hrv',
+    title: 'ЄСПЛ — Хорватія',
+    cron: '30 1 * * 0', // Sunday 01:30
+    target: 'echr' as SyncTarget,
+    sourceName: 'HRV',
+    enabled: true,
+  },
+  {
+    name: 'echr_srb',
+    title: 'ЄСПЛ — Сербія',
+    cron: '45 1 * * 0', // Sunday 01:45
+    target: 'echr' as SyncTarget,
+    sourceName: 'SRB',
+    enabled: true,
+  },
+  {
+    name: 'echr_bih',
+    title: 'ЄСПЛ — Боснія і Герцеговина',
+    cron: '0 2 * * 0', // Sunday 02:00
+    target: 'echr' as SyncTarget,
+    sourceName: 'BIH',
+    enabled: true,
+  },
+  {
+    name: 'echr_mkd',
+    title: 'ЄСПЛ — Північна Македонія',
+    cron: '15 2 * * 0', // Sunday 02:15
+    target: 'echr' as SyncTarget,
+    sourceName: 'MKD',
+    enabled: true,
+  },
+  {
+    name: 'echr_alb',
+    title: 'ЄСПЛ — Албанія',
+    cron: '30 2 * * 0', // Sunday 02:30
+    target: 'echr' as SyncTarget,
+    sourceName: 'ALB',
+    enabled: true,
+  },
+  {
+    name: 'echr_gbr',
+    title: 'ЄСПЛ — Велика Британія',
+    cron: '45 2 * * 0', // Sunday 02:45
+    target: 'echr' as SyncTarget,
+    sourceName: 'GBR',
+    enabled: true,
+  },
+  {
+    name: 'echr_deu',
+    title: 'ЄСПЛ — Німеччина',
+    cron: '0 3 * * 0', // Sunday 03:00
+    target: 'echr' as SyncTarget,
+    sourceName: 'DEU',
+    enabled: true,
+  },
+  {
+    name: 'echr_esp',
+    title: 'ЄСПЛ — Іспанія',
+    cron: '15 3 * * 0', // Sunday 03:15
+    target: 'echr' as SyncTarget,
+    sourceName: 'ESP',
+    enabled: true,
+  },
+  {
+    name: 'echr_prt',
+    title: 'ЄСПЛ — Португалія',
+    cron: '30 3 * * 0', // Sunday 03:30
+    target: 'echr' as SyncTarget,
+    sourceName: 'PRT',
+    enabled: true,
+  },
+  {
+    name: 'echr_aut',
+    title: 'ЄСПЛ — Австрія',
+    cron: '45 3 * * 0', // Sunday 03:45
+    target: 'echr' as SyncTarget,
+    sourceName: 'AUT',
+    enabled: true,
+  },
+  {
+    name: 'echr_cze',
+    title: 'ЄСПЛ — Чехія',
+    cron: '0 4 * * 0', // Sunday 04:00
+    target: 'echr' as SyncTarget,
+    sourceName: 'CZE',
+    enabled: true,
+  },
+  {
+    name: 'echr_svk',
+    title: 'ЄСПЛ — Словаччина',
+    cron: '15 4 * * 0', // Sunday 04:15
+    target: 'echr' as SyncTarget,
+    sourceName: 'SVK',
+    enabled: true,
+  },
+  {
+    name: 'echr_ltu',
+    title: 'ЄСПЛ — Литва',
+    cron: '30 4 * * 0', // Sunday 04:30
+    target: 'echr' as SyncTarget,
+    sourceName: 'LTU',
+    enabled: true,
+  },
+  {
+    name: 'echr_lva',
+    title: 'ЄСПЛ — Латвія',
+    cron: '45 4 * * 0', // Sunday 04:45
+    target: 'echr' as SyncTarget,
+    sourceName: 'LVA',
+    enabled: true,
+  },
+  {
+    name: 'echr_est',
+    title: 'ЄСПЛ — Естонія',
+    cron: '0 5 * * 0', // Sunday 05:00
+    target: 'echr' as SyncTarget,
+    sourceName: 'EST',
+    enabled: true,
+  },
+  {
+    name: 'echr_svn',
+    title: 'ЄСПЛ — Словенія',
+    cron: '15 5 * * 0', // Sunday 05:15
+    target: 'echr' as SyncTarget,
+    sourceName: 'SVN',
+    enabled: true,
+  },
+  {
+    name: 'echr_bel',
+    title: 'ЄСПЛ — Бельгія',
+    cron: '30 5 * * 0', // Sunday 05:30
+    target: 'echr' as SyncTarget,
+    sourceName: 'BEL',
+    enabled: true,
+  },
+  {
+    name: 'echr_nld',
+    title: 'ЄСПЛ — Нідерланди',
+    cron: '45 5 * * 0', // Sunday 05:45
+    target: 'echr' as SyncTarget,
+    sourceName: 'NLD',
+    enabled: true,
+  },
+  {
+    name: 'echr_fin',
+    title: 'ЄСПЛ — Фінляндія',
+    cron: '0 6 * * 0', // Sunday 06:00
+    target: 'echr' as SyncTarget,
+    sourceName: 'FIN',
+    enabled: true,
+  },
+  {
+    name: 'echr_swe',
+    title: 'ЄСПЛ — Швеція',
+    cron: '15 6 * * 0', // Sunday 06:15
+    target: 'echr' as SyncTarget,
+    sourceName: 'SWE',
+    enabled: true,
+  },
+  {
+    name: 'echr_nor',
+    title: 'ЄСПЛ — Норвегія',
+    cron: '30 6 * * 0', // Sunday 06:30
+    target: 'echr' as SyncTarget,
+    sourceName: 'NOR',
+    enabled: true,
+  },
+  {
+    name: 'echr_che',
+    title: 'ЄСПЛ — Швейцарія',
+    cron: '45 6 * * 0', // Sunday 06:45
+    target: 'echr' as SyncTarget,
+    sourceName: 'CHE',
+    enabled: true,
+  },
+  {
+    name: 'echr_dnk',
+    title: 'ЄСПЛ — Данія',
+    cron: '0 7 * * 0', // Sunday 07:00
+    target: 'echr' as SyncTarget,
+    sourceName: 'DNK',
+    enabled: true,
+  },
+  {
+    name: 'echr_irl',
+    title: 'ЄСПЛ — Ірландія',
+    cron: '15 7 * * 0', // Sunday 07:15
+    target: 'echr' as SyncTarget,
+    sourceName: 'IRL',
+    enabled: true,
+  },
+  {
+    name: 'echr_cyp',
+    title: 'ЄСПЛ — Кіпр',
+    cron: '30 7 * * 0', // Sunday 07:30
+    target: 'echr' as SyncTarget,
+    sourceName: 'CYP',
+    enabled: true,
+  },
+  {
+    name: 'echr_mne',
+    title: 'ЄСПЛ — Чорногорія',
+    cron: '45 7 * * 0', // Sunday 07:45
+    target: 'echr' as SyncTarget,
+    sourceName: 'MNE',
+    enabled: true,
+  },
+  {
+    name: 'echr_lux',
+    title: 'ЄСПЛ — Люксембург',
+    cron: '0 8 * * 0', // Sunday 08:00
+    target: 'echr' as SyncTarget,
+    sourceName: 'LUX',
+    enabled: true,
+  },
+  {
+    name: 'echr_mlt',
+    title: 'ЄСПЛ — Мальта',
+    cron: '15 8 * * 0', // Sunday 08:15
+    target: 'echr' as SyncTarget,
+    sourceName: 'MLT',
+    enabled: true,
+  },
+  {
+    name: 'echr_isl',
+    title: 'ЄСПЛ — Ісландія',
+    cron: '30 8 * * 0', // Sunday 08:30
+    target: 'echr' as SyncTarget,
+    sourceName: 'ISL',
+    enabled: true,
+  },
+  {
+    name: 'echr_and',
+    title: 'ЄСПЛ — Андорра',
+    cron: '45 8 * * 0', // Sunday 08:45
+    target: 'echr' as SyncTarget,
+    sourceName: 'AND',
+    enabled: true,
+  },
+  {
+    name: 'echr_lie',
+    title: 'ЄСПЛ — Ліхтенштейн',
+    cron: '0 9 * * 0', // Sunday 09:00
+    target: 'echr' as SyncTarget,
+    sourceName: 'LIE',
+    enabled: true,
+  },
+  {
+    name: 'echr_mco',
+    title: 'ЄСПЛ — Монако',
+    cron: '15 9 * * 0', // Sunday 09:15
+    target: 'echr' as SyncTarget,
+    sourceName: 'MCO',
+    enabled: true,
+  },
+  {
+    name: 'echr_smr',
+    title: 'ЄСПЛ — Сан-Марино',
+    cron: '30 9 * * 0', // Sunday 09:30
+    target: 'echr' as SyncTarget,
+    sourceName: 'SMR',
+    enabled: true,
+  },
+];
+
 // ─── All sources ───────────────────────────────────────────────────
 
 export const ALL_SOURCES: DataSourceSchedule[] = [
@@ -299,6 +680,7 @@ export const ALL_SOURCES: DataSourceSchedule[] = [
   ...backendWeeklySources,
   ...naisDailySources,
   ...naisWeeklySources,
+  ...echrWeeklySources,
 ];
 
 // ─── Environment config ────────────────────────────────────────────
