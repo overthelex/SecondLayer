@@ -255,8 +255,8 @@ export function AdminSessionReplayPage() {
                         )}
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-gray-500">{formatTime(log.created_at)}</span>
-                          {log.total_cost_usd > 0 && (
-                            <span className="text-yellow-500">${log.total_cost_usd.toFixed(4)}</span>
+                          {Number(log.total_cost_usd) > 0 && (
+                            <span className="text-yellow-500">${Number(log.total_cost_usd).toFixed(4)}</span>
                           )}
                         </div>
                       </div>
