@@ -1372,7 +1372,7 @@ services:
     image: oliver006/redis_exporter:v1.56.0
     container_name: redis-exporter-prod
     environment:
-      REDIS_ADDR: "redis://redis-prod:6379"
+      REDIS_ADDR: "redis://:${REDIS_PASSWORD}@redis-prod:6379"
     networks:
       - secondlayer-prod-network
     restart: unless-stopped
