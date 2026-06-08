@@ -10,3 +10,21 @@ datasources:
     editable: false
     jsonData:
       timeInterval: 10s
+
+  - name: PostgreSQL
+    uid: PostgreSQL
+    type: postgres
+    access: proxy
+    url: pgbouncer-prod:5432
+    user: secondlayer
+    secureJsonData:
+      password: $POSTGRES_PASSWORD
+    jsonData:
+      database: secondlayer_prod
+      sslmode: disable
+      maxOpenConns: 2
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+      postgresVersion: 1500
+      timescaledb: false
+    editable: false
