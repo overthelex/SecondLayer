@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Clock, User, Monitor, Database, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Play, Clock, User, Monitor, Database, ChevronLeft, ChevronRight, RefreshCw, Keyboard } from 'lucide-react';
 import { sessionReplayApi } from '../utils/api/session-replay';
 import 'rrweb-player/dist/style.css';
 
@@ -53,6 +53,8 @@ export function AdminSessionReplayPage() {
   const [serverLogs, setServerLogs] = useState<ServerLog[]>([]);
   const [costLogs, setCostLogs] = useState<CostLog[]>([]);
   const [loadingReplay, setLoadingReplay] = useState(false);
+  const [activeKeys, setActiveKeys] = useState<Array<{ id: number; label: string; ts: number }>>([]);
+  const keyIdRef = useRef(0);
   const replayerContainerRef = useRef<HTMLDivElement>(null);
   const replayerRef = useRef<any>(null);
 
@@ -128,6 +130,33 @@ export function AdminSessionReplayPage() {
           },
         });
         replayerRef.current = player;
+
+        const replayer = player.getReplayer?.() || (player as any).$$.ctx?.[0];
+        if (replayer) {
+          replayer.on('custom-event', (event: any) => {
+            if (event.data?.tag === 'keyboard') {
+              const payload = event.data.payload;
+              const parts: string[] = [];
+              if (payload.meta) parts.push('Cmd');
+              if (payload.ctrl) parts.push('Ctrl');
+              if (payload.alt) parts.push('Alt');
+              if (payload.shift && payload.key.length > 1) parts.push('Shift');
+              const keyLabel = payload.key.length === 1 && payload.shift
+                ? payload.key
+                : payload.key;
+              if (!['Control', 'Shift', 'Alt', 'Meta'].includes(payload.key)) {
+                parts.push(keyLabel === ' ' ? 'Space' : keyLabel);
+              }
+              if (parts.length === 0) return;
+              const label = parts.join(' + ');
+              const id = keyIdRef.current++;
+              setActiveKeys(prev => [...prev.slice(-9), { id, label, ts: Date.now() }]);
+              setTimeout(() => {
+                setActiveKeys(prev => prev.filter(k => k.id !== id));
+              }, 1500);
+            }
+          });
+        }
       } catch (err) {
         console.error('[SessionReplay] Player init failed', err);
       }
@@ -137,6 +166,7 @@ export function AdminSessionReplayPage() {
 
     return () => {
       replayerRef.current = null;
+      setActiveKeys([]);
     };
   }, [replayEvents]);
 
@@ -193,10 +223,22 @@ export function AdminSessionReplayPage() {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             {/* Player */}
             <div className="xl:col-span-2">
-              <div className="bg-gray-900 rounded-lg p-4">
+              <div className="bg-gray-900 rounded-lg p-4 relative">
                 <div ref={replayerContainerRef} className="rrweb-player-container" />
                 {replayEvents && replayEvents.length === 0 && (
                   <div className="text-center text-gray-500 py-20">Немає подій для відтворення</div>
+                )}
+                {activeKeys.length > 0 && (
+                  <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center gap-1.5 pointer-events-none">
+                    {activeKeys.map(k => (
+                      <span
+                        key={k.id}
+                        className="px-2.5 py-1 bg-black/80 border border-gray-600 rounded-md text-sm font-mono text-white shadow-lg animate-fade-in"
+                      >
+                        {k.label}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
@@ -269,6 +311,43 @@ export function AdminSessionReplayPage() {
                     Немає серверних логів для цієї сесії
                   </div>
                 )}
+
+                {/* Keyboard events extracted from replay */}
+                {replayEvents && (() => {
+                  const kbEvents = replayEvents.filter(
+                    (e: any) => e.type === 5 && e.data?.tag === 'keyboard'
+                  );
+                  if (kbEvents.length === 0) return null;
+                  const startTs = replayEvents[0]?.timestamp || 0;
+                  return (
+                    <div className="mt-4">
+                      <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <Keyboard className="w-4 h-4" /> Клавіатура ({kbEvents.length})
+                      </h3>
+                      <div className="max-h-[300px] overflow-y-auto space-y-1">
+                        {kbEvents.map((e: any, i: number) => {
+                          const p = e.data.payload;
+                          const parts: string[] = [];
+                          if (p.meta) parts.push('Cmd');
+                          if (p.ctrl) parts.push('Ctrl');
+                          if (p.alt) parts.push('Alt');
+                          if (p.shift && p.key.length > 1) parts.push('Shift');
+                          if (!['Control', 'Shift', 'Alt', 'Meta'].includes(p.key)) {
+                            parts.push(p.key === ' ' ? 'Space' : p.key);
+                          }
+                          if (parts.length === 0) return null;
+                          const elapsed = ((e.timestamp - startTs) / 1000).toFixed(1);
+                          return (
+                            <div key={i} className="text-xs flex items-center gap-2 p-1 bg-gray-800 rounded">
+                              <span className="text-gray-500 font-mono w-14 text-right shrink-0">{elapsed}s</span>
+                              <span className="font-mono text-green-400">{parts.join(' + ')}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>

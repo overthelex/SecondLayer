@@ -55,36 +55,45 @@ export function useSessionRecorder() {
 
     // Dynamically import rrweb to avoid blocking initial load
     let mounted = true;
-    import('rrweb').then(({ record }) => {
+    import('rrweb').then(({ record, addCustomEvent }) => {
       if (!mounted) return;
 
       const stop = record!({
         emit: (event) => {
           bufferRef.current.push(event);
 
-          // Flush early if buffer is large
           if (bufferRef.current.length >= MAX_BUFFER_SIZE) {
             flushBuffer(sessionId);
           }
         },
-        // Record mouse movements for cursor replay
         sampling: {
           mousemove: true,
           mouseInteraction: true,
-          scroll: 150, // ms throttle for scroll events
-          input: 'last', // capture last input value
+          scroll: 150,
+          input: 'last',
         },
-        // Mask sensitive inputs (passwords, etc.)
         maskInputOptions: {
           password: true,
         },
-        // Record canvas content
         recordCanvas: false,
-        // Collect fonts for accurate replay
         collectFonts: true,
       });
 
       stopRef.current = stop ?? null;
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (!e.key || e.key === 'Unidentified') return;
+        addCustomEvent('keyboard', {
+          key: e.key,
+          code: e.code,
+          ctrl: e.ctrlKey,
+          shift: e.shiftKey,
+          alt: e.altKey,
+          meta: e.metaKey,
+        });
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      (stopRef as any)._keyHandler = handleKeyDown;
     });
 
     // Periodic flush
@@ -95,6 +104,11 @@ export function useSessionRecorder() {
     // Cleanup on unmount / logout
     return () => {
       mounted = false;
+
+      // Remove keyboard listener
+      if ((stopRef as any)._keyHandler) {
+        window.removeEventListener('keydown', (stopRef as any)._keyHandler);
+      }
 
       // Stop rrweb recording
       if (stopRef.current) {
