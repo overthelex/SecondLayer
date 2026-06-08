@@ -374,8 +374,11 @@ jobs:
 
           if [ "$FRONTEND_CHANGED" = "true" ]; then
             echo "=== Build & switch frontend ==="
-            $SSH_CMD "cd ${REMOTE_REPO}/deployment && $DC_CMD up -d --build --force-recreate frontend-prod-${INACTIVE_FE}"
+            $SSH_CMD "cd ${REMOTE_REPO}/deployment && $DC_CMD up -d --build --force-recreate lexwebapp-prod-${INACTIVE_FE}"
             sleep 5
+
+            echo "=== Update frontend upstream ==="
+            $SSH_CMD "sed -i 's/server lexwebapp-prod-[a-z]*:80/server lexwebapp-prod-${INACTIVE_FE}:80/' ${REMOTE_REPO}/deployment/nginx/includes/prod-upstreams.conf"
             $SSH_CMD "cd ${REMOTE_REPO}/deployment && sed -i 's/^frontend=.*/frontend=${INACTIVE_FE}/' .active-colors && $DC_CMD up -d --force-recreate nginx-prod"
           fi
 
