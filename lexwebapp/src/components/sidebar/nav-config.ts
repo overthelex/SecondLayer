@@ -57,7 +57,6 @@ export const getMonitoringSections = () => [
   { id: 'containers', label: appT('nav.containers'), icon: Boxes, route: ROUTES.ADMIN_CONTAINERS },
   { id: 'admin-billing', label: appT('nav.billing'), icon: CreditCard, route: ROUTES.ADMIN_BILLING },
   { id: 'system-config', label: appT('nav.config'), icon: Settings, route: ROUTES.ADMIN_CONFIG },
-  { id: 'db-compare', label: appT('nav.dbCompare'), icon: Database, route: ROUTES.ADMIN_DB_COMPARE },
   { id: 'service-pricing', label: appT('nav.servicePricing'), icon: Tag, route: ROUTES.ADMIN_SERVICE_PRICING },
   { id: 'terminal', label: appT('nav.terminal'), icon: Terminal, route: ROUTES.ADMIN_TERMINAL },
   { id: 'zo-stats', label: appT('nav.zoStats'), icon: BarChart3, route: ROUTES.ADMIN_ZO_STATS },

@@ -3,7 +3,6 @@
  */
 
 import { Router, Request, Response } from 'express';
-import axios from 'axios';
 import type { IDatabase } from '../../domain/ports/index.js';
 import { logger } from '../../utils/logger.js';
 
@@ -170,90 +169,6 @@ export function createAdminImportRoutes(
     } catch (error: any) {
       logger.error('Failed to get import samples', { error: error.message });
       res.status(500).json({ error: 'Failed to retrieve import samples' });
-    }
-  });
-
-  // ========================================
-  // DB Compare: local vs stage table counts
-  // ========================================
-  router.get('/db-compare', async (req: Request, res: Response) => {
-    const localOnly = req.query.local_only === 'true';
-
-    async function fetchServiceStatsLocal(baseUrl: string, apiKey: string, label: string) {
-      try {
-        const resp = await axios.get(`${baseUrl}/api/stats`, {
-          headers: { 'x-api-key': apiKey },
-          timeout: 15000,
-        });
-        return resp.data;
-      } catch (err: any) {
-        logger.warn(`db-compare: failed to fetch ${label} stats`, { error: err.message });
-        return null;
-      }
-    }
-
-    async function fetchMainDbStats(dbInstance: IDatabase) {
-      const tableList = [
-        'documents', 'document_sections', 'legislation', 'legislation_articles',
-        'legislation_chunks', 'users', 'conversations', 'upload_sessions',
-      ];
-      const tables: Record<string, number> = {};
-      for (const t of tableList) {
-        try {
-          const r = await dbInstance.query(`SELECT COUNT(*) as cnt FROM ${t}`);
-          tables[t] = parseInt(r.rows[0]?.cnt || '0');
-        } catch {
-          tables[t] = -1;
-        }
-      }
-      return tables;
-    }
-
-    try {
-      const openreyestrUrl = process.env.OPENREYESTR_MCP_URL || 'http://openreyestr-app-local:3004';
-      const openreyestrKey = process.env.OPENREYESTR_API_KEY || 'test-key-123';
-      const radaUrl = process.env.RADA_MCP_URL || 'http://rada-mcp-app-local:3001';
-      const radaKey = process.env.RADA_API_KEY || 'test-key-123';
-
-      const [openreyestrStats, radaStats, mainStats] = await Promise.all([
-        fetchServiceStatsLocal(openreyestrUrl, openreyestrKey, 'openreyestr-local'),
-        fetchServiceStatsLocal(radaUrl, radaKey, 'rada-local'),
-        fetchMainDbStats(db),
-      ]);
-
-      const localData = {
-        openreyestr: openreyestrStats,
-        rada: radaStats,
-        main: mainStats,
-        timestamp: new Date().toISOString(),
-      };
-
-      if (localOnly) {
-        return res.json({ local: localData });
-      }
-
-      const stageBackendUrl = process.env.STAGE_BACKEND_URL || 'https://stage.legal.org.ua';
-      const stageApiKey = process.env.STAGE_API_KEY ||
-        process.env.SECONDARY_LAYER_KEYS?.split(',')[0]?.trim() || '';
-      let stageData: any = null;
-      try {
-        const stageResp = await axios.get(`${stageBackendUrl}/api/internal/db-stats`, {
-          headers: { Authorization: `Bearer ${stageApiKey}` },
-          timeout: 20000,
-        });
-        stageData = stageResp.data?.local || null;
-      } catch (err: any) {
-        logger.warn('db-compare: failed to fetch stage data', { error: err.message });
-      }
-
-      return res.json({
-        local: localData,
-        stage: stageData,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error: any) {
-      logger.error('db-compare failed', { error: error.message });
-      res.status(500).json({ error: 'Failed to compare databases' });
     }
   });
 

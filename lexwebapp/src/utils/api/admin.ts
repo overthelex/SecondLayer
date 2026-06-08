@@ -126,9 +126,6 @@ export const adminApi = {
     apiClient.put(`/api/admin/config/${key}`, { value }),
   resetConfig: (key: string) =>
     apiClient.delete(`/api/admin/config/${key}`),
-  getDBCompare: () =>
-    apiClient.get('/api/admin/db-compare'),
-
   // Court registry scraper
   startCourtScraper: (params?: {
     justice_kind?: string;

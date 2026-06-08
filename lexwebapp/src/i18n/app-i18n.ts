@@ -909,7 +909,6 @@ const translations: TranslationMap = {
   'nav.containers': { uk: 'Контейнери', en: 'Containers', de: 'Container', es: 'Contenedores' },
   'nav.billing': { uk: 'Біллінг', en: 'Billing', de: 'Abrechnung', es: 'Facturación' },
   'nav.config': { uk: 'Конфігурація', en: 'Configuration', de: 'Konfiguration', es: 'Configuración' },
-  'nav.dbCompare': { uk: 'Порівняння БД', en: 'DB Comparison', de: 'DB-Vergleich', es: 'Comparación de BD' },
   'nav.servicePricing': { uk: 'Собівартість сервісів', en: 'Service Pricing', de: 'Servicepreise', es: 'Precios de servicios' },
   'nav.terminal': { uk: 'Термінал', en: 'Terminal', de: 'Terminal', es: 'Terminal' },
   'nav.zoStats': { uk: 'Статистика рішень', en: 'Decision Statistics', de: 'Entscheidungsstatistik', es: 'Estadísticas de resoluciones' },
