@@ -15,6 +15,7 @@ import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
 import { getLLMManager } from '../utils/llm-client-manager.js';
 import { ReyestrDownloadService } from '../services/reyestr-download-service.js';
 import { ImportTaskService } from '../services/import-task-service.js';
+import { EchrHudocSyncService } from '../services/echr-hudoc-sync-service.js';
 
 export interface BackendCoreServices {
   db: Database;
@@ -34,6 +35,7 @@ export interface BackendCoreServices {
   legislationTools: LegislationTools;
   reyestrDownloadService: ReyestrDownloadService;
   importTaskService: ImportTaskService;
+  echrHudocSyncService: EchrHudocSyncService;
   mcpAPI: MCPQueryAPI;
 }
 
@@ -57,6 +59,7 @@ export function createBackendCoreServices(): BackendCoreServices {
   const legislationTools = new LegislationTools(legislationService, undefined, patternStore);
   const reyestrDownloadService = new ReyestrDownloadService(db, documentService, sectionizer, embeddingService);
   const importTaskService = new ImportTaskService(db);
+  const echrHudocSyncService = new EchrHudocSyncService(db);
 
   const mcpAPI = new MCPQueryAPI(
     queryPlanner,
@@ -87,6 +90,7 @@ export function createBackendCoreServices(): BackendCoreServices {
     legislationTools,
     reyestrDownloadService,
     importTaskService,
+    echrHudocSyncService,
     mcpAPI,
   };
 }

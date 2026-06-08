@@ -3,6 +3,7 @@
  *
  * Backend sources: triggers start_import via /api/tools/start_import
  * OpenReyestr sources: triggers registry sync via /api/admin/sync-registry/:name
+ * ECHR sources: triggers ECHR sync via /api/admin/sync-echr
  */
 
 import http from 'http';
@@ -217,6 +218,57 @@ async function triggerOpenreyestrSync(
 }
 
 /**
+ * Trigger an ECHR (HUDOC) sync for a specific country.
+ * Calls POST /api/admin/sync-echr with country code.
+ * This only triggers the sync — it doesn't wait for completion.
+ */
+async function triggerEchrSync(
+  config: ServiceConfig,
+  source: DataSourceSchedule,
+): Promise<SyncResult> {
+  const start = Date.now();
+  const startedAt = new Date().toISOString();
+
+  try {
+    const res = await httpRequest(
+      `${config.backendUrl}/api/admin/sync-echr`,
+      'POST',
+      JSON.stringify({ country: source.sourceName }),
+      { Authorization: `Bearer ${config.backendApiKey}` },
+      60_000, // 60s — just triggers, doesn't wait for completion
+    );
+
+    const success = res.statusCode >= 200 && res.statusCode < 300;
+    let message: string;
+    try {
+      const data = JSON.parse(res.body);
+      const raw = data?.content?.[0]?.text || data?.result || data?.message || `HTTP ${res.statusCode}`;
+      message = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    } catch {
+      message = `HTTP ${res.statusCode}: ${res.body.slice(0, 200)}`;
+    }
+
+    return {
+      source: source.name,
+      success,
+      message: success
+        ? `ECHR sync запущено: ${source.sourceName} — ${message.slice(0, 200)}`
+        : `Помилка ECHR sync: ${message.slice(0, 200)}`,
+      durationMs: Date.now() - start,
+      startedAt,
+    };
+  } catch (error: any) {
+    return {
+      source: source.name,
+      success: false,
+      message: `Помилка з'єднання з backend (ECHR): ${error.message}`,
+      durationMs: Date.now() - start,
+      startedAt,
+    };
+  }
+}
+
+/**
  * Run a single source sync.
  */
 export async function runSync(
@@ -228,6 +280,8 @@ export async function runSync(
   let result: SyncResult;
   if (source.target === 'backend') {
     result = await triggerBackendImport(config, source);
+  } else if (source.target === 'echr') {
+    result = await triggerEchrSync(config, source);
   } else {
     result = await triggerOpenreyestrSync(config, source);
   }
@@ -258,8 +312,11 @@ export async function runAllOnce(
   // Group by target to avoid overwhelming a single service
   const backendSources = sources.filter((s) => s.target === 'backend' && s.enabled);
   const openreyestrSources = sources.filter((s) => s.target === 'openreyestr' && s.enabled);
+  const echrSources = sources.filter((s) => s.target === 'echr' && s.enabled);
 
-  console.log(`[SYNC] Разовий запуск: ${backendSources.length} backend + ${openreyestrSources.length} openreyestr джерел`);
+  console.log(
+    `[SYNC] Разовий запуск: ${backendSources.length} backend + ${openreyestrSources.length} openreyestr + ${echrSources.length} echr джерел`,
+  );
 
   // Run backend sources sequentially (they create background tasks anyway)
   for (const source of backendSources) {
@@ -274,6 +331,13 @@ export async function runAllOnce(
     const result = await runSync(config, source);
     results.push(result);
     await new Promise((r) => setTimeout(r, 5000));
+  }
+
+  // Run ECHR sources sequentially with longer delay (HUDOC rate limiting)
+  for (const source of echrSources) {
+    const result = await runSync(config, source);
+    results.push(result);
+    await new Promise((r) => setTimeout(r, 10_000));
   }
 
   return results;
