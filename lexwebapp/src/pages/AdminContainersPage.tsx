@@ -26,7 +26,7 @@ import { getErrorMessage } from '../utils/errors';
 
 // ── Types ──────────────────────────────────────────────
 
-type TimeRange = '1h' | '6h' | '24h';
+type TimeRange = '1h' | '6h' | '24h' | '7d' | '30d';
 
 interface ContainerSnapshot {
   name: string;
@@ -244,7 +244,7 @@ export function AdminContainersPage() {
           <h2 className="text-xl font-semibold text-claude-text">Контейнери</h2>
           <div className="flex items-center gap-2">
             {/* Time range */}
-            {(['1h', '6h', '24h'] as TimeRange[]).map((r) => (
+            {(['1h', '6h', '24h', '7d', '30d'] as TimeRange[]).map((r) => (
               <button
                 key={r}
                 onClick={() => setRange(r)}
