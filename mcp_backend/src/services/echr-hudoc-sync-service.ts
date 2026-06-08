@@ -307,7 +307,7 @@ export class EchrHudocSyncService {
        GROUP BY c.respondent, l.completed_at, l.status
        ORDER BY c.respondent`
     );
-    return res.rows.map(r => ({
+    return res.rows.map((r: any) => ({
       country: r.country,
       lastSyncAt: r.last_sync_at,
       lastStatus: r.last_status,
@@ -504,7 +504,7 @@ export class EchrHudocSyncService {
        WHERE item_id = ANY($1) AND (full_text IS NULL OR full_text = '')`,
       [itemIds]
     );
-    return res.rows.map(r => r.item_id);
+    return res.rows.map((r: any) => r.item_id);
   }
 
   private async downloadTextsInBatches(itemIds: string[]): Promise<{ downloaded: number; errors: number }> {
