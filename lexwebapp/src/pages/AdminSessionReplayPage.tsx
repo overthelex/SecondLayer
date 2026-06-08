@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Clock, User, Monitor, Database, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { sessionReplayApi } from '../utils/api/session-replay';
+import 'rrweb-player/dist/style.css';
 
 interface SessionRecord {
   id: string;
@@ -110,29 +111,28 @@ export function AdminSessionReplayPage() {
       }
     }
 
-    // Dynamic import to avoid SSR issues
     import('rrweb-player').then((mod) => {
       const RRWebPlayer = mod.default || mod;
-
-      // Import CSS
-      import('rrweb-player/dist/style.css').catch(() => {});
-
       if (!replayerContainerRef.current) return;
 
-      const player = new RRWebPlayer({
-        target: replayerContainerRef.current,
-        props: {
-          events: replayEvents,
-          width: 1024,
-          height: 600,
-          autoPlay: false,
-          showController: true,
-          speedOption: [1, 2, 4, 8],
-          // Mouse cursor is shown by default in rrweb-player
-        },
-      });
-
-      replayerRef.current = player;
+      try {
+        const player = new RRWebPlayer({
+          target: replayerContainerRef.current,
+          props: {
+            events: replayEvents,
+            width: 1024,
+            height: 600,
+            autoPlay: false,
+            showController: true,
+            speedOption: [1, 2, 4, 8],
+          },
+        });
+        replayerRef.current = player;
+      } catch (err) {
+        console.error('[SessionReplay] Player init failed', err);
+      }
+    }).catch((err) => {
+      console.error('[SessionReplay] Failed to load rrweb-player', err);
     });
 
     return () => {
