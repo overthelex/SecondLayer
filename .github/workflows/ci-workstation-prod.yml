@@ -357,19 +357,19 @@ jobs:
           DC_CMD="docker compose -f docker-compose.prod.yml --env-file .env.prod"
 
           if [ "$BACKEND_CHANGED" = "true" ] || [ "$RADA_CHANGED" = "true" ] || [ "$OPENREYESTR_CHANGED" = "true" ]; then
-            echo "=== Start inactive backend color ==="
-            $SSH_CMD "cd ${REMOTE_REPO}/deployment && $DC_CMD up -d --build --force-recreate secondlayer-app-prod-${INACTIVE_BE}"
+            echo "=== Rebuild and restart active backend ==="
+            $SSH_CMD "cd ${REMOTE_REPO}/deployment && $DC_CMD up -d --build --force-recreate app-prod rada-mcp-app-prod openreyestr-app-prod"
 
             echo "=== Wait for health ==="
             for i in $(seq 1 30); do
-              HEALTH=$($SSH_CMD "docker inspect --format='{{.State.Health.Status}}' secondlayer-app-prod-${INACTIVE_BE} 2>/dev/null" || echo "starting")
+              HEALTH=$($SSH_CMD "docker inspect --format='{{.State.Health.Status}}' secondlayer-app-prod 2>/dev/null" || echo "starting")
               echo "  Health check $i: $HEALTH"
               [ "$HEALTH" = "healthy" ] && break
               sleep 2
             done
 
-            echo "=== Switch backend traffic ==="
-            $SSH_CMD "cd ${REMOTE_REPO}/deployment && sed -i 's/^backend=.*/backend=${INACTIVE_BE}/' .active-colors && $DC_CMD up -d --force-recreate nginx-prod"
+            echo "=== Force-recreate nginx ==="
+            $SSH_CMD "cd ${REMOTE_REPO}/deployment && $DC_CMD up -d --force-recreate nginx-prod"
           fi
 
           if [ "$FRONTEND_CHANGED" = "true" ]; then
