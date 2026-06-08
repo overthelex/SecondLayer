@@ -567,10 +567,10 @@ jobs:
               # Application-level HTTP readiness check
               local port=""
               case "\$container" in
-                *app-prod*|secondlayer-app*) port=3000 ;;
                 *rada*) port=3001 ;;
                 *openreyestr*) port=3005 ;;
                 *document-service*) port=3002 ;;
+                secondlayer-app*|*app-prod*) port=3000 ;;
                 *) echo "✓ \$container: no HTTP check needed"; return 0 ;;
               esac
               echo "Verifying HTTP readiness on port \$port..."
