@@ -160,7 +160,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 10
-      start_period: 600s
+      start_period: 1800s
     restart: unless-stopped
     networks:
     - secondlayer-prod-network
@@ -1410,6 +1410,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
       - PROMETHEUS_HOST=prometheus-prod
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
     volumes:
       - grafana_prod_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
