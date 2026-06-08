@@ -164,7 +164,7 @@ export function AdminSessionReplayPage() {
   // Replay view
   if (selectedSession) {
     return (
-      <div className="min-h-screen bg-gray-950 text-gray-100 p-4">
+      <div className="h-full overflow-y-auto bg-gray-950 text-gray-100 p-4">
         {/* Header */}
         <div className="flex items-center gap-4 mb-4">
           <button
@@ -279,7 +279,7 @@ export function AdminSessionReplayPage() {
 
   // Session list view
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 p-4">
+    <div className="h-full overflow-y-auto bg-gray-950 text-gray-100 p-4">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold">Запис сесій користувачів</h1>
         <div className="flex items-center gap-2">
