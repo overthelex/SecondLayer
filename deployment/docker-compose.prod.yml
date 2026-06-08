@@ -1276,6 +1276,35 @@ services:
           cpus: '0.1'
           memory: 64M
 
+  lexwebapp-prod-blue:
+    image: lexwebapp-prod:latest
+    container_name: lexwebapp-prod-blue
+    profiles: ["blue"]
+    environment:
+    - NODE_ENV=production
+    - TZ=Europe/Kiev
+    networks:
+    - secondlayer-prod-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - sh
+      - -c
+      - wget --quiet --tries=1 --spider http://127.0.0.1/ || exit 1
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
   # Minimal monitoring
   prometheus-prod:
     image: prom/prometheus:v2.48.0
