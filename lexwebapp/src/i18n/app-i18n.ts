@@ -897,7 +897,7 @@ const translations: TranslationMap = {
   'nav.apiDocs': { uk: 'API документація', en: 'API Documentation', de: 'API-Dokumentation', es: 'Documentación API' },
 
   // External sources (admin)
-  'nav.extMonitoring': { uk: 'Моніторинг', en: 'Monitoring', de: 'Überwachung', es: 'Monitoreo' },
+  'nav.extMonitoring': { uk: 'Інструменти', en: 'Tool Usage', de: 'Werkzeuge', es: 'Herramientas' },
   'nav.extDataSources': { uk: 'Джерела даних', en: 'Data Sources', de: 'Datenquellen', es: 'Fuentes de datos' },
   'nav.extOpenData': { uk: 'Каталог OpenData', en: 'OpenData Catalog', de: 'OpenData-Katalog', es: 'Catálogo OpenData' },
 
