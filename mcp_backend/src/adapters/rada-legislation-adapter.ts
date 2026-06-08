@@ -154,13 +154,34 @@ export class RadaLegislationAdapter {
       // Load the article HTML into cheerio for text extraction
       const $article = cheerio.load(`<div>${articleHtml}</div>`);
 
+      // Extract amendment annotations from <em> blocks before removing them.
+      // Rada marks amended parts as: <em>{Частина N статті M в редакції Закону № X від DD.MM.YYYY}</em>
+      // These are critical legal metadata — preserve them as plain-text notes in full_text.
+      const amendmentNotes: string[] = [];
+      $article('em').each((_i, el) => {
+        const emText = $article(el).text()
+          .replace(/\s+/g, ' ')
+          .trim();
+        // Only keep notes that look like amendment markers (contain "редакції" or "доповнено" or "виключено")
+        if (/редакції|доповнено|виключено|втратила|набрала/i.test(emText) && emText.length > 5) {
+          // Strip surrounding {} but keep the content
+          const cleaned = emText.replace(/^\{|\}$/g, '').trim();
+          if (cleaned) amendmentNotes.push(`[${cleaned}]`);
+        }
+      });
+
       // Extract clean text (remove HTML tags, scripts, styles)
       $article('script, style, em').remove();
-      const fullText = $article.text()
+      const bodyText = $article.text()
         .trim()
         .replace(/\s+/g, ' ')
-        .replace(/\{[^}]+\}/g, '') // Remove {...} comments
+        .replace(/\{[^}]+\}/g, '') // Remove remaining {...} inline markers
         .trim();
+
+      // Append amendment notes after the article body so LLMs can see them
+      const fullText = amendmentNotes.length > 0
+        ? `${bodyText} ${amendmentNotes.join(' ')}`
+        : bodyText;
 
       if (fullText.length < 10) continue;
 
@@ -208,6 +229,7 @@ export class RadaLegislationAdapter {
           subsection_title: subsectionTitle,
           paragraph_number: structure.paragraphNumber,
           paragraph_title: structure.paragraphTitle,
+          amendment_notes: amendmentNotes.length > 0 ? amendmentNotes : undefined,
         },
       });
     }
@@ -436,11 +458,22 @@ export class RadaLegislationAdapter {
 
       // Strip HTML tags for plain text using cheerio parser
       const $point = cheerio.load(pointHtml, { xml: false });
+      const pointAmendmentNotes: string[] = [];
+      $point('em').each((_i, el) => {
+        const emText = $point(el).text().replace(/\s+/g, ' ').trim();
+        if (/редакції|доповнено|виключено|втратила|набрала/i.test(emText) && emText.length > 5) {
+          const cleaned = emText.replace(/^\{|\}$/g, '').trim();
+          if (cleaned) pointAmendmentNotes.push(`[${cleaned}]`);
+        }
+      });
       $point('script, style, em').remove();
-      const fullText = $point.text()
+      const pointBodyText = $point.text()
         .replace(/\{[^}]*\}/g, '')
         .replace(/\s+/g, ' ')
         .trim();
+      const fullText = pointAmendmentNotes.length > 0
+        ? `${pointBodyText} ${pointAmendmentNotes.join(' ')}`
+        : pointBodyText;
 
       if (fullText.length < 10) continue;
 
