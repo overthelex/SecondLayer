@@ -551,7 +551,7 @@ jobs:
                 local status
                 status=\$(docker inspect --format='{{.State.Health.Status}}' "\$container" 2>/dev/null || echo "not_found")
                 case "\$status" in
-                  healthy) echo "✓ \$container: healthy (\${elapsed}s)"; return 0 ;;
+                  healthy) echo "✓ \$container: docker healthy (\${elapsed}s)"; break ;;
                   unhealthy)
                     echo "✗ \$container: unhealthy after \${elapsed}s"
                     docker logs --tail=20 "\$container" 2>&1
@@ -559,8 +559,31 @@ jobs:
                   *) sleep 5; elapsed=\$((elapsed + 5)) ;;
                 esac
               done
-              echo "✗ \$container: timed out (\${max_wait}s)"
-              docker logs --tail=20 "\$container" 2>&1
+              if [ \$elapsed -ge \$max_wait ]; then
+                echo "✗ \$container: timed out (\${max_wait}s)"
+                docker logs --tail=20 "\$container" 2>&1
+                return 1
+              fi
+              # Application-level HTTP readiness check
+              local port=""
+              case "\$container" in
+                *app-prod*|secondlayer-app*) port=3000 ;;
+                *rada*) port=3001 ;;
+                *openreyestr*) port=3005 ;;
+                *document-service*) port=3002 ;;
+                *) echo "✓ \$container: no HTTP check needed"; return 0 ;;
+              esac
+              echo "Verifying HTTP readiness on port \$port..."
+              local http_wait=0
+              while [ \$http_wait -lt 60 ]; do
+                if docker exec "\$container" wget -q -O /dev/null --timeout=5 "http://127.0.0.1:\${port}/health" 2>/dev/null; then
+                  echo "✓ \$container: HTTP ready on :\$port (\${http_wait}s after docker healthy)"
+                  return 0
+                fi
+                sleep 3; http_wait=\$((http_wait + 3))
+              done
+              echo "✗ \$container: docker healthy but HTTP not responding on :\$port after 60s"
+              docker logs --tail=30 "\$container" 2>&1
               return 1
             }
 
@@ -733,6 +756,28 @@ jobs:
 
             echo "Promoting: Backend \$BACKEND_COLOR → \$NEW_BACKEND, Frontend \$FRONTEND_COLOR → \$NEW_FRONTEND"
 
+            # --- 0. Verify new containers are still healthy before switching traffic ---
+            if [ "\$ANY_BACKEND" = "true" ]; then
+              if [ "\$NEW_BACKEND" = "green" ]; then
+                BE_CONTAINER="secondlayer-app-prod-green"
+              else
+                BE_CONTAINER="secondlayer-app-prod"
+              fi
+              echo "Pre-switch health check: \$BE_CONTAINER"
+              for i in 1 2 3 4 5 6; do
+                if docker exec "\$BE_CONTAINER" wget -q -O /dev/null --timeout=5 "http://127.0.0.1:3000/health" 2>/dev/null; then
+                  echo "✓ \$BE_CONTAINER: HTTP ready"
+                  break
+                fi
+                if [ \$i -eq 6 ]; then
+                  echo "::error::\$BE_CONTAINER is not responding on :3000 — aborting promotion"
+                  exit 1
+                fi
+                echo "  Waiting... (\$i/6)"
+                sleep 10
+              done
+            fi
+
             # --- 1. Switch prod upstreams to new color ---
             if [ "\$ANY_BACKEND" = "true" ]; then
               [ "\$NEW_BACKEND" = "green" ] && BE_HOST="secondlayer-app-prod-green" || BE_HOST="secondlayer-app-prod"
@@ -811,15 +856,19 @@ jobs:
             if [ "\$BACKEND_COLOR" = "green" ]; then
               BE_CONTAINER="secondlayer-app-prod-green"
               OR_CONTAINER="openreyestr-app-prod-green"
+              RADA_CONTAINER="rada-mcp-app-prod-green"
             else
               BE_CONTAINER="secondlayer-app-prod"
               OR_CONTAINER="openreyestr-app-prod"
+              RADA_CONTAINER="rada-mcp-app-prod"
             fi
-            echo "Adding canonical DNS aliases (app-prod, app-openreyestr-prod) to \$BE_CONTAINER, \$OR_CONTAINER"
+            echo "Adding canonical DNS aliases (app-prod, app-openreyestr-prod, rada-mcp-app-prod) to \$BE_CONTAINER, \$OR_CONTAINER, \$RADA_CONTAINER"
             docker network disconnect "\$NETWORK" "\$BE_CONTAINER" 2>/dev/null || true
             docker network connect --alias app-prod "\$NETWORK" "\$BE_CONTAINER" || true
             docker network disconnect "\$NETWORK" "\$OR_CONTAINER" 2>/dev/null || true
             docker network connect --alias app-openreyestr-prod "\$NETWORK" "\$OR_CONTAINER" || true
+            docker network disconnect "\$NETWORK" "\$RADA_CONTAINER" 2>/dev/null || true
+            docker network connect --alias rada-mcp-app-prod "\$NETWORK" "\$RADA_CONTAINER" || true
 
             # Restart monitoring if needed
             if [ "${MONITORING_CHANGED}" = "true" ]; then
