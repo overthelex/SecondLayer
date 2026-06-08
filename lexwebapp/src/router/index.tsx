@@ -162,7 +162,6 @@ const AdminZOStatsPage = lazyWithRetry(() => import('../pages/AdminZOStatsPage')
 const AdminUserActivityPage = lazyWithRetry(() => import('../pages/AdminUserActivityPage').then(m => ({ default: m.AdminUserActivityPage })));
 const AdminBulkScrapePage = lazyWithRetry(() => import('../pages/AdminBulkScrapePage').then(m => ({ default: m.AdminBulkScrapePage })));
 const AdminOpenDataCatalogPage = lazyWithRetry(() => import('../pages/AdminOpenDataCatalogPage').then(m => ({ default: m.AdminOpenDataCatalogPage })));
-const AdminPGMonitoringPage = lazyWithRetry(() => import('../pages/AdminPGMonitoringPage').then(m => ({ default: m.AdminPGMonitoringPage })));
 const AdminLimitsPage = lazyWithRetry(() => import('../pages/AdminLimitsPage').then(m => ({ default: m.AdminLimitsPage })));
 const AdminSessionReplayPage = lazyWithRetry(() => import('../pages/AdminSessionReplayPage').then(m => ({ default: m.AdminSessionReplayPage })));
 
@@ -587,10 +586,6 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.ADMIN_OPEN_DATA_CATALOG,
             element: S(AdminOpenDataCatalogPage),
-          },
-          {
-            path: ROUTES.ADMIN_PG_MONITORING,
-            element: S(AdminPGMonitoringPage),
           },
           {
             path: ROUTES.ADMIN_LIMITS,

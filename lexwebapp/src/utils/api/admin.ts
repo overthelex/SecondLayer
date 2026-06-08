@@ -182,10 +182,6 @@ export const adminApi = {
   deleteAttorneyProfile: (userId: string) =>
     apiClient.delete(`/api/admin/users/${userId}/attorney-profile`),
 
-  // PG Monitoring — EDRSR stats
-  getPGMonitoring: () =>
-    apiClient.get('/api/admin/pg-monitoring'),
-
   // System limits
   getLimits: () =>
     apiClient.get('/api/admin/limits'),

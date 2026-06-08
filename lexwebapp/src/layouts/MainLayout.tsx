@@ -54,7 +54,6 @@ const PAGE_TITLES: Record<string, string> = {
   [ROUTES.ADMIN_TERMINAL]: 'Термінал адміністратора',
   [ROUTES.ADMIN_BULK_SCRAPE]: 'Пайплайн збору даних',
   [ROUTES.ADMIN_OPEN_DATA_CATALOG]: 'Каталог OpenData',
-  [ROUTES.ADMIN_PG_MONITORING]: 'PG Моніторинг',
   [ROUTES.ADMIN_LIMITS]: 'Ліміти системи',
   [ROUTES.ADMIN_SESSION_REPLAY]: 'Запис сесій',
   [ROUTES.ATTORNEY_CLIENTS]: 'Мої клієнти',

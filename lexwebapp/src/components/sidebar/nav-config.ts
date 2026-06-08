@@ -3,7 +3,7 @@ import {
   BarChart3, Newspaper,
   Clock, FileText, Search, Activity, Database, Users, DollarSign,
   Server, Boxes, Globe, CreditCard, Settings, Terminal, Tag, Zap,
-  Layers, HardDrive, Gauge, Code, Video,
+  Layers, Gauge, Code, Video,
 } from 'lucide-react';
 import { ROUTES } from '../../router/routes';
 import { appT } from '../../i18n/app-i18n';
@@ -63,7 +63,6 @@ export const getMonitoringSections = () => [
   { id: 'zo-stats', label: appT('nav.zoStats'), icon: BarChart3, route: ROUTES.ADMIN_ZO_STATS },
   { id: 'user-activity', label: appT('nav.userActivity'), icon: Zap, route: ROUTES.ADMIN_USER_ACTIVITY },
   { id: 'bulk-scrape', label: appT('nav.bulkScrape'), icon: Database, route: ROUTES.ADMIN_BULK_SCRAPE },
-  { id: 'pg-monitoring', label: appT('nav.pgMonitoring'), icon: HardDrive, route: ROUTES.ADMIN_PG_MONITORING },
   { id: 'limits', label: appT('nav.limits'), icon: Gauge, route: ROUTES.ADMIN_LIMITS },
   { id: 'session-replay', label: 'Запис сесій', icon: Video, route: ROUTES.ADMIN_SESSION_REPLAY },
 ];
