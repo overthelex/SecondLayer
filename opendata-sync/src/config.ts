@@ -91,14 +91,6 @@ const backendDailySources: DataSourceSchedule[] = [
 
 const backendWeeklySources: DataSourceSchedule[] = [
   {
-    name: 'edrsr_current_year',
-    title: 'ЄДРСР — Судові рішення (поточний рік)',
-    cron: '0 1 * * 0', // Sunday 01:00
-    target: 'backend',
-    sourceName: 'edrsr_current_year',
-    enabled: true,
-  },
-  {
     name: 'nipo_trademarks',
     title: 'УІПВ — Торгові марки',
     cron: '0 2 * * 0', // Sunday 02:00
