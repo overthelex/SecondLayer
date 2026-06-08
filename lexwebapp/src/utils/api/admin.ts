@@ -182,4 +182,6 @@ export const adminApi = {
   // System limits
   getLimits: () =>
     apiClient.get('/api/admin/limits'),
+  getToolUsage: (days: number = 30) =>
+    apiClient.get('/api/admin/stats/tool-usage', { params: { days } }),
 };

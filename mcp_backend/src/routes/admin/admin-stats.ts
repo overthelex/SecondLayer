@@ -497,5 +497,48 @@ export function createAdminStatsRoutes(
     }
   });
 
+  /**
+   * GET /api/admin/stats/tool-usage
+   * Tool usage frequency. ?days=0 means all time.
+   */
+  router.get('/stats/tool-usage', async (req: Request, res: Response) => {
+    try {
+      const days = Math.max(0, Number(req.query.days ?? 30));
+      const whereClause = days > 0
+        ? `WHERE created_at >= NOW() - '${days} days'::interval`
+        : '';
+
+      const result = await db.query(`
+        SELECT
+          tool_name,
+          COUNT(*)::int as total_calls,
+          COUNT(*) FILTER (WHERE status = 'completed')::int as success_calls,
+          COUNT(*) FILTER (WHERE status = 'failed')::int as failed_calls,
+          COALESCE(AVG(execution_time_ms) FILTER (WHERE status = 'completed'), 0)::int as avg_time_ms,
+          COALESCE(SUM(total_cost_usd), 0)::float as total_cost_usd,
+          MIN(created_at) as first_used,
+          MAX(created_at) as last_used,
+          COUNT(DISTINCT user_id)::int as unique_users
+        FROM cost_tracking
+        ${whereClause}
+        GROUP BY tool_name
+        ORDER BY total_calls DESC
+      `);
+
+      const totalResult = await db.query(`
+        SELECT COUNT(*)::int as total FROM cost_tracking ${whereClause}
+      `);
+
+      res.json({
+        tools: result.rows,
+        total_calls: totalResult.rows[0]?.total || 0,
+        period_days: days,
+      });
+    } catch (error: any) {
+      logger.error('Failed to get tool usage', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve tool usage' });
+    }
+  });
+
   return router;
 }

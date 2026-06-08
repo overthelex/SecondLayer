@@ -2,8 +2,8 @@ import {
   Gavel, BookOpen, TrendingUp, CheckCircle, Scale, Briefcase,
   BarChart3, Newspaper,
   Clock, FileText, Search, Activity, Database, Users, DollarSign,
-  Server, Boxes, Globe, CreditCard, Settings, Terminal, Tag, Zap,
-  Layers, Gauge, Code, Video,
+  Server, Boxes, CreditCard, Settings, Terminal, Tag, Zap,
+  Gauge, Code, Video,
 } from 'lucide-react';
 import { ROUTES } from '../../router/routes';
 import { appT } from '../../i18n/app-i18n';
@@ -45,8 +45,6 @@ export const getDeveloperSections = () => [
 
 export const getExternalSourcesSections = () => [
   { id: 'ext-monitoring', label: appT('nav.extMonitoring'), icon: Database, route: ROUTES.ADMIN_MONITORING },
-  { id: 'ext-data-sources', label: appT('nav.extDataSources'), icon: Globe, route: ROUTES.ADMIN_DATA_SOURCES },
-  { id: 'ext-open-data-catalog', label: appT('nav.extOpenData'), icon: Layers, route: ROUTES.ADMIN_OPEN_DATA_CATALOG },
 ];
 
 export const getMonitoringSections = () => [

@@ -150,7 +150,6 @@ const AdminOverviewPage = lazyWithRetry(() => import('../pages/AdminOverviewPage
 const AdminMonitoringPage = lazyWithRetry(() => import('../pages/AdminMonitoringPage').then(m => ({ default: m.AdminMonitoringPage })));
 const AdminUsersPage = lazyWithRetry(() => import('../pages/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })));
 const AdminCostsPage = lazyWithRetry(() => import('../pages/AdminCostsPage').then(m => ({ default: m.AdminCostsPage })));
-const AdminDataSourcesPage = lazyWithRetry(() => import('../pages/AdminDataSourcesPage').then(m => ({ default: m.AdminDataSourcesPage })));
 const AdminBillingPage = lazyWithRetry(() => import('../pages/AdminBillingPage').then(m => ({ default: m.AdminBillingPage })));
 const AdminInfrastructurePage = lazyWithRetry(() => import('../pages/AdminInfrastructurePage').then(m => ({ default: m.AdminInfrastructurePage })));
 const AdminContainersPage = lazyWithRetry(() => import('../pages/AdminContainersPage').then(m => ({ default: m.AdminContainersPage })));
@@ -160,7 +159,6 @@ const AdminTerminalPage = lazyWithRetry(() => import('../pages/AdminTerminalPage
 const AdminZOStatsPage = lazyWithRetry(() => import('../pages/AdminZOStatsPage').then(m => ({ default: m.AdminZOStatsPage })));
 const AdminUserActivityPage = lazyWithRetry(() => import('../pages/AdminUserActivityPage').then(m => ({ default: m.AdminUserActivityPage })));
 const AdminBulkScrapePage = lazyWithRetry(() => import('../pages/AdminBulkScrapePage').then(m => ({ default: m.AdminBulkScrapePage })));
-const AdminOpenDataCatalogPage = lazyWithRetry(() => import('../pages/AdminOpenDataCatalogPage').then(m => ({ default: m.AdminOpenDataCatalogPage })));
 const AdminLimitsPage = lazyWithRetry(() => import('../pages/AdminLimitsPage').then(m => ({ default: m.AdminLimitsPage })));
 const AdminSessionReplayPage = lazyWithRetry(() => import('../pages/AdminSessionReplayPage').then(m => ({ default: m.AdminSessionReplayPage })));
 
@@ -539,10 +537,6 @@ export const router = createBrowserRouter([
             element: S(AdminCostsPage),
           },
           {
-            path: ROUTES.ADMIN_DATA_SOURCES,
-            element: S(AdminDataSourcesPage),
-          },
-          {
             path: ROUTES.ADMIN_BILLING,
             element: S(AdminBillingPage),
           },
@@ -577,10 +571,6 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.ADMIN_BULK_SCRAPE,
             element: S(AdminBulkScrapePage),
-          },
-          {
-            path: ROUTES.ADMIN_OPEN_DATA_CATALOG,
-            element: S(AdminOpenDataCatalogPage),
           },
           {
             path: ROUTES.ADMIN_LIMITS,

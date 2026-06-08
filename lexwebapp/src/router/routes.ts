@@ -137,7 +137,6 @@ export const ROUTES = {
   ADMIN_MONITORING: '/admin/monitoring',
   ADMIN_USERS: '/admin/users',
   ADMIN_COSTS: '/admin/costs',
-  ADMIN_DATA_SOURCES: '/admin/data-sources',
   ADMIN_BILLING: '/admin/billing',
   ADMIN_INFRASTRUCTURE: '/admin/infrastructure',
   ADMIN_CONTAINERS: '/admin/containers',
@@ -147,7 +146,6 @@ export const ROUTES = {
   ADMIN_USER_ACTIVITY: '/admin/user-activity',
   ADMIN_ZO_STATS: '/admin/zo-stats',
   ADMIN_BULK_SCRAPE: '/admin/bulk-scrape',
-  ADMIN_OPEN_DATA_CATALOG: '/admin/open-data-catalog',
   ADMIN_LIMITS: '/admin/limits',
   ADMIN_SESSION_REPLAY: '/admin/session-replay',
 } as const;
