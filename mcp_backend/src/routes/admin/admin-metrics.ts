@@ -405,17 +405,17 @@ export function createAdminMetricsRoutes(
         queueDepth,
         concurrencyActive, concurrencyMax,
       ] = await Promise.all([
-        prometheus.queryRange('upload_jobs_completed_total', start, end, step),
-        prometheus.queryRange('upload_jobs_failed_total', start, end, step),
-        prometheus.queryRange('upload_jobs_active', start, end, step),
-        prometheus.queryRange('upload_jobs_waiting', start, end, step),
-        prometheus.queryRange('upload_jobs_delayed', start, end, step),
+        prometheus.queryRange('bullmq_jobs{status="completed"}', start, end, step),
+        prometheus.queryRange('bullmq_jobs{status="failed"}', start, end, step),
+        prometheus.queryRange('bullmq_jobs{status="active"}', start, end, step),
+        prometheus.queryRange('bullmq_jobs{status="waiting"}', start, end, step),
+        prometheus.queryRange('bullmq_jobs{status="delayed"}', start, end, step),
         prometheus.queryRange('histogram_quantile(0.50, rate(upload_processing_duration_seconds_bucket[5m]))', start, end, step),
         prometheus.queryRange('histogram_quantile(0.95, rate(upload_processing_duration_seconds_bucket[5m]))', start, end, step),
         prometheus.queryRange('histogram_quantile(0.99, rate(upload_processing_duration_seconds_bucket[5m]))', start, end, step),
         prometheus.queryRange('upload_queue_depth', start, end, step),
-        prometheus.queryRange('upload_concurrent_processing', start, end, step),
-        prometheus.queryRange('upload_max_concurrent_processing', start, end, step),
+        prometheus.queryRange('upload_processing_active', start, end, step),
+        prometheus.queryRange('cpu_adaptive_concurrency', start, end, step),
       ]);
 
       const completedVals = jobsCompleted[0]?.values || [];
