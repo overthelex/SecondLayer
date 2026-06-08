@@ -377,10 +377,27 @@ jobs:
             $SSH_CMD "cd ${REMOTE_REPO}/deployment && $DC_CMD up -d --build --force-recreate lexwebapp-prod-${INACTIVE_FE}"
             sleep 5
 
-            echo "=== Update frontend upstream ==="
-            $SSH_CMD "sed -i 's/server lexwebapp-prod-[a-z]*:80/server lexwebapp-prod-${INACTIVE_FE}:80/' ${REMOTE_REPO}/deployment/nginx/includes/prod-upstreams.conf"
-            $SSH_CMD "cd ${REMOTE_REPO}/deployment && sed -i 's/^frontend=.*/frontend=${INACTIVE_FE}/' .active-colors && $DC_CMD up -d --force-recreate nginx-prod"
+            echo "=== Update frontend upstream and switch ==="
+            $SSH_CMD "sed -i 's/^frontend=.*/frontend=${INACTIVE_FE}/' ${REMOTE_REPO}/deployment/.active-colors"
           fi
+
+          echo "=== Write upstreams and reload nginx ==="
+          ACTIVE_FE_NOW=$($SSH_CMD "grep '^frontend=' ${REMOTE_REPO}/deployment/.active-colors | cut -d= -f2")
+          $SSH_CMD "cat > ${REMOTE_REPO}/deployment/nginx/includes/prod-upstreams.conf << UPSTREAM_EOF
+# Active upstreams — managed by CI deploy
+# DO NOT EDIT MANUALLY
+
+upstream prod_mcp_backend {
+    server secondlayer-app-prod:3000;
+    keepalive 128;
+}
+
+upstream prod_frontend {
+    server lexwebapp-prod-${ACTIVE_FE_NOW}:80;
+    keepalive 32;
+}
+UPSTREAM_EOF"
+          $SSH_CMD "cd ${REMOTE_REPO}/deployment && $DC_CMD up -d --force-recreate nginx-prod"
 
       - name: Tag release
         run: |
