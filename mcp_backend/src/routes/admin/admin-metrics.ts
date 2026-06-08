@@ -14,9 +14,9 @@ import { logger } from '../../utils/logger.js';
  * Helper: parse range param and compute start/end/step
  */
 function parseRange(range: string) {
-  const rangeSeconds: Record<string, number> = { '1h': 3600, '6h': 21600, '24h': 86400 };
+  const rangeSeconds: Record<string, number> = { '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800, '30d': 2592000 };
   const seconds = rangeSeconds[range] || 3600;
-  const step = seconds <= 3600 ? '30s' : seconds <= 21600 ? '2m' : '5m';
+  const step = seconds <= 3600 ? '30s' : seconds <= 21600 ? '2m' : seconds <= 86400 ? '5m' : seconds <= 604800 ? '30m' : '2h';
   const end = Math.floor(Date.now() / 1000);
   const start = end - seconds;
   return { start, end, step };
@@ -45,9 +45,9 @@ export function createAdminMetricsRoutes(
   router.get('/metrics/traffic', async (req: Request, res: Response) => {
     try {
       const range = (req.query.range as string) || '1h';
-      const rangeSeconds: Record<string, number> = { '1h': 3600, '6h': 21600, '24h': 86400 };
+      const rangeSeconds: Record<string, number> = { '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800, '30d': 2592000 };
       const seconds = rangeSeconds[range] || 3600;
-      const step = seconds <= 3600 ? '30s' : seconds <= 21600 ? '2m' : '5m';
+      const step = seconds <= 3600 ? '30s' : seconds <= 21600 ? '2m' : seconds <= 86400 ? '5m' : seconds <= 604800 ? '30m' : '2h';
       const end = Math.floor(Date.now() / 1000);
       const start = end - seconds;
 
@@ -76,9 +76,9 @@ export function createAdminMetricsRoutes(
   router.get('/metrics/latency', async (req: Request, res: Response) => {
     try {
       const range = (req.query.range as string) || '1h';
-      const rangeSeconds: Record<string, number> = { '1h': 3600, '6h': 21600, '24h': 86400 };
+      const rangeSeconds: Record<string, number> = { '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800, '30d': 2592000 };
       const seconds = rangeSeconds[range] || 3600;
-      const step = seconds <= 3600 ? '30s' : seconds <= 21600 ? '2m' : '5m';
+      const step = seconds <= 3600 ? '30s' : seconds <= 21600 ? '2m' : seconds <= 86400 ? '5m' : seconds <= 604800 ? '30m' : '2h';
       const end = Math.floor(Date.now() / 1000);
       const start = end - seconds;
 
@@ -169,9 +169,9 @@ export function createAdminMetricsRoutes(
   router.get('/metrics/containers', async (req: Request, res: Response) => {
     try {
       const range = (req.query.range as string) || '1h';
-      const rangeSeconds: Record<string, number> = { '1h': 3600, '6h': 21600, '24h': 86400 };
+      const rangeSeconds: Record<string, number> = { '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800, '30d': 2592000 };
       const seconds = rangeSeconds[range] || 3600;
-      const step = seconds <= 3600 ? '30s' : seconds <= 21600 ? '2m' : '5m';
+      const step = seconds <= 3600 ? '30s' : seconds <= 21600 ? '2m' : seconds <= 86400 ? '5m' : seconds <= 604800 ? '30m' : '2h';
       const end = Math.floor(Date.now() / 1000);
       const start = end - seconds;
 
