@@ -278,6 +278,7 @@ services:
       VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY:-}
       VOYAGEAI_API_KEY_2: ${VOYAGEAI_API_KEY_2:-}
       VOYAGEAI_EMBEDDING_MODEL: ${VOYAGEAI_EMBEDDING_MODEL:-voyage-multilingual-2}
+      BGE_M3_URL: ${BGE_M3_URL:-}
 
       # LLM Provider Strategy
       LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-bedrock-first}

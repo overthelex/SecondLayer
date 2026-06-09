@@ -1,5 +1,5 @@
 /**
- * EDRSR Hybrid Search — dense vectors (Qdrant/Voyage-3) + sparse FTS (tsvector) via RRF.
+ * EDRSR Hybrid Search — dense vectors (Qdrant/BGE-M3) + sparse FTS (tsvector) via RRF.
  *
  * 1 tool:
  * - edrsr_hybrid_search — паралельний виклик FTS + семантичного пошуку в Qdrant,
@@ -56,7 +56,7 @@ export class EdsrHybridTools extends BaseToolHandler {
       {
         name: 'edrsr_hybrid_search',
         annotations: { title: 'Гібридний пошук ЄДРСР', readOnlyHint: true, openWorldHint: true },
-        description: `Гібридний пошук судових рішень ЄДРСР: семантика (Qdrant, ~88M векторів, Voyage-3-large 1024-dim)
+        description: `Гібридний пошук судових рішень ЄДРСР: семантика (Qdrant, ~118M векторів, BGE-M3 1024-dim)
 + лексика (PG tsvector FTS) з мерджем через Reciprocal Rank Fusion.
 
 Коли використовувати:
