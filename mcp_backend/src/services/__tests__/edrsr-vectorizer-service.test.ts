@@ -29,6 +29,13 @@ jest.mock('../../utils/voyage-client.js', () => ({
   })),
 }));
 
+jest.mock('../../utils/bge-m3-client.js', () => ({
+  BgeM3Client: jest.fn().mockImplementation(() => ({
+    embedBatch: jest.fn().mockResolvedValue({ embeddings: [], usage: { total_tokens: 0 } }),
+    embed: jest.fn().mockResolvedValue({ embedding: new Array(1024).fill(0), usage: { total_tokens: 50 } }),
+  })),
+}));
+
 jest.mock('../../utils/logger.js', () => ({
   logger: { info: jest.fn(), warn: jest.fn(), debug: jest.fn(), error: jest.fn() },
 }));
@@ -40,7 +47,7 @@ describe('EdsrVectorizerService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env = { ...originalEnv, VOYAGEAI_API_KEY: 'test-key', QDRANT_URL: 'http://localhost:6333' };
+    process.env = { ...originalEnv, VOYAGEAI_API_KEY: 'test-key', QDRANT_URL: 'http://localhost:6333', BGE_M3_URL: 'http://localhost:8080' };
   });
 
   afterAll(() => {
