@@ -59,16 +59,16 @@ describe('EdsrVectorizerService', () => {
     });
   });
 
-  describe('setTokenUsageCallback', () => {
+  describe('setUsageCallback', () => {
     it('should accept callback', () => {
       const service = new EdsrVectorizerService();
       const cb = jest.fn();
-      expect(() => service.setTokenUsageCallback(cb)).not.toThrow();
+      expect(() => service.setUsageCallback(cb)).not.toThrow();
     });
 
     it('should accept undefined to clear callback', () => {
       const service = new EdsrVectorizerService();
-      expect(() => service.setTokenUsageCallback(undefined)).not.toThrow();
+      expect(() => service.setUsageCallback(undefined)).not.toThrow();
     });
   });
 
