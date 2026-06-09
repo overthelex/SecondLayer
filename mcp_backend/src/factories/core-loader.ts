@@ -1,5 +1,5 @@
 // Proprietary implementation: @secondlayer/core (private repo)
-// Core overlay: CORE-24/25/26/27/28 — budget limits, step constraints, health gating, allow-set cleanup
+// Core overlay: CORE-24/25/26/27/28/29 — budget limits, step constraints, health gating, allow-set cross-refs
 
 /**
  * Core service loader.
