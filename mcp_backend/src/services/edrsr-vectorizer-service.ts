@@ -2,15 +2,14 @@
  * EdsrVectorizerService — On-demand vectorization of EDRSR court decisions.
  *
  * When a search returns EDRSR doc_ids, this service checks if they have vectors
- * in Qdrant. If not, it fetches fulltext from PG, chunks, embeds with VoyageAI
+ * in Qdrant. If not, it fetches fulltext from PG, chunks, embeds with BGE-M3
  * in parallel batches, and stores in a dedicated `edrsr_decisions` Qdrant collection.
  *
- * Uses voyage-3.5 (1024-dim) via voyage-client.ts directly (not EmbeddingService)
- * to avoid coupling with the `legal_sections` collection.
+ * Uses BGE-M3 (1024-dim) via self-hosted HuggingFace TEI endpoint.
  */
 
 import { QdrantClient } from '@qdrant/js-client-rest';
-import { VoyageAIClient, VoyageBatchResult } from '../utils/voyage-client.js';
+import { BgeM3Client, EmbeddingBatchResult } from '../utils/bge-m3-client.js';
 import { logger } from '../utils/logger.js';
 import { Semaphore } from '../utils/semaphore.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -18,9 +17,9 @@ import { v4 as uuidv4 } from 'uuid';
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const EMBEDDING_DIM = 1024;
-const VOYAGE_MODEL = process.env.VOYAGEAI_EMBEDDING_MODEL || 'voyage-3.5';
+const EMBEDDING_MODEL = 'bge-m3';
 const COLLECTION_NAME = 'edrsr_decisions';
-const EMBED_BATCH_SIZE = 50; // VoyageAI batch size
+const EMBED_BATCH_SIZE = 64; // TEI supports larger batches than VoyageAI
 const QDRANT_UPSERT_BATCH = 100; // Qdrant upsert sub-batch
 const DEFAULT_CONCURRENCY = 5;
 const MAX_CHUNK_CHARS = 2048;
@@ -66,7 +65,7 @@ export interface EdrsrVectorizationStats {
   collection_exists: boolean;
 }
 
-export type VoyageTokensCallback = (tokens: number, model: string, task: string) => void;
+export type EmbeddingUsageCallback = (tokens: number, model: string, task: string) => void;
 
 // ── Chunking ─────────────────────────────────────────────────────────────────
 
@@ -107,18 +106,18 @@ function chunkText(text: string, maxChars = MAX_CHUNK_CHARS, overlapWords = CHUN
 // ── Service ──────────────────────────────────────────────────────────────────
 
 export class EdsrVectorizerService {
-  private voyageClient: VoyageAIClient;
+  private embeddingClient: BgeM3Client;
   private qdrant: QdrantClient;
   private initialized = false;
-  private tokenUsageCallback?: VoyageTokensCallback;
+  private usageCallback?: EmbeddingUsageCallback;
   private concurrency: number;
 
   constructor(concurrency: number = DEFAULT_CONCURRENCY) {
-    const apiKey = process.env.VOYAGEAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('VOYAGEAI_API_KEY is required for EdsrVectorizerService');
+    const bgeUrl = process.env.BGE_M3_URL;
+    if (!bgeUrl) {
+      throw new Error('BGE_M3_URL is required for EdsrVectorizerService');
     }
-    this.voyageClient = new VoyageAIClient(apiKey, process.env.VOYAGEAI_API_KEY_2 || '');
+    this.embeddingClient = new BgeM3Client(bgeUrl);
 
     const qdrantUrl = process.env.QDRANT_EDRSR_URL || process.env.QDRANT_URL || 'http://localhost:6333';
     const qdrantApiKey = process.env.QDRANT_EDRSR_API_KEY || process.env.QDRANT_API_KEY;
@@ -127,9 +126,8 @@ export class EdsrVectorizerService {
     this.concurrency = concurrency;
   }
 
-  /** Register a callback to receive VoyageAI token usage (for cost tracking). */
-  setTokenUsageCallback(cb: VoyageTokensCallback | undefined): void {
-    this.tokenUsageCallback = cb;
+  setUsageCallback(cb: EmbeddingUsageCallback | undefined): void {
+    this.usageCallback = cb;
   }
 
   // ── Initialization ───────────────────────────────────────────────────────
@@ -314,8 +312,8 @@ export class EdsrVectorizerService {
     await this.ensureCollection();
 
     // Embed query
-    const result = await this.voyageClient.generateEmbeddingsBatchWithUsage([query], VOYAGE_MODEL);
-    this.tokenUsageCallback?.(result.totalTokens, result.model, 'edrsr_semantic_search');
+    const result = await this.embeddingClient.generateEmbeddingsBatchWithUsage([query]);
+    this.usageCallback?.(result.totalTokens, EMBEDDING_MODEL, 'edrsr_semantic_search');
     const queryVector = result.embeddings[0];
 
     // Build Qdrant filter
@@ -536,12 +534,12 @@ export class EdsrVectorizerService {
 
     for (let i = 0; i < texts.length; i += EMBED_BATCH_SIZE) {
       const batch = texts.slice(i, i + EMBED_BATCH_SIZE);
-      const batchResult: VoyageBatchResult = await this.voyageClient.generateEmbeddingsBatchWithUsage(batch, VOYAGE_MODEL);
+      const batchResult: EmbeddingBatchResult = await this.embeddingClient.generateEmbeddingsBatchWithUsage(batch);
       allEmbeddings.push(...batchResult.embeddings);
       totalTokens += batchResult.totalTokens;
     }
 
-    this.tokenUsageCallback?.(totalTokens, VOYAGE_MODEL, 'edrsr_vectorize');
+    this.usageCallback?.(totalTokens, EMBEDDING_MODEL, 'edrsr_vectorize');
 
     // 3. Build Qdrant points
     const points = allChunks.map((chunk, idx) => {
@@ -565,6 +563,7 @@ export class EdsrVectorizerService {
           chunk_index: chunk.chunkIndex,
           total_chunks: chunk.totalChunks,
           text: chunk.text,
+          embedding_model: EMBEDDING_MODEL,
         },
       };
     });

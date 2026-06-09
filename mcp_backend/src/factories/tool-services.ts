@@ -161,13 +161,13 @@ export function createToolServices(
   let edsrVectorizer: EdsrVectorizerService | undefined;
   try {
     edsrVectorizer = new EdsrVectorizerService();
-    edsrVectorizer.setTokenUsageCallback((tokens, model, task) => {
+    edsrVectorizer.setUsageCallback((tokens, model, task) => {
       costTracker.recordVoyageCall({ model, totalTokens: tokens, task }).catch((err) => {
-        logger.warn('Failed to record Voyage cost', { error: err.message });
+        logger.warn('Failed to record embedding cost', { error: err.message });
       });
     });
   } catch (err: any) {
-    logger.warn('EdsrVectorizerService not available (VOYAGEAI_API_KEY missing?)', { error: err.message });
+    logger.warn('EdsrVectorizerService not available (BGE_M3_URL missing?)', { error: err.message });
   }
   const edsrUnifiedSearch = new EdsrUnifiedSearchTool(coreServices.db, edsrFtsService, edsrVectorizer);
   edsrUnifiedSearch.setResultFilter(new SearchResultFilter(llmAdapter));
