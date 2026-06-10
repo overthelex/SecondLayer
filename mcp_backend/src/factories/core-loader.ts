@@ -1,5 +1,5 @@
 // Proprietary implementation: @secondlayer/core (private repo)
-// Core overlay: CORE-24/25/26/27/28/29/30 — budget limits, step constraints, health gating, article verification
+// Core overlay: CORE-24..30 + core#31 — article verification fix (parse 'articles' field, was inert in prod)
 
 /**
  * Core service loader.
