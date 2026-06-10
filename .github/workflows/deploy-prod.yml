@@ -570,6 +570,7 @@ jobs:
                 *rada*) port=3001 ;;
                 *openreyestr*) port=3005 ;;
                 *document-service*) port=3002 ;;
+                lexwebapp*|platform*) port=80 ;;
                 secondlayer-app*|*app-prod*) port=3000 ;;
                 *) echo "✓ \$container: no HTTP check needed"; return 0 ;;
               esac
