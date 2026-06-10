@@ -651,7 +651,8 @@ services:
       TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:-}
       STUN_SERVER_URL: ${STUN_SERVER_URL:-stun:stun.l.google.com:19302}
 
-      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_LEVEL: ${BACKEND_LOG_LEVEL:-info}
+      LOG_TO_FILE: "false"
       TZ: Europe/Kiev
     ports:
     - "127.0.0.1:3007:3000"
@@ -1026,7 +1027,8 @@ services:
       TURN_SERVER_URL: ${TURN_SERVER_URL:-}
       TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:-}
       STUN_SERVER_URL: ${STUN_SERVER_URL:-stun:stun.l.google.com:19302}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_LEVEL: ${BACKEND_LOG_LEVEL:-info}
+      LOG_TO_FILE: "false"
       TZ: Europe/Kiev
     depends_on:
       pgbouncer-prod:
