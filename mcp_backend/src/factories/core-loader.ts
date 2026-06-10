@@ -1,5 +1,5 @@
 // Proprietary implementation: @secondlayer/core (private repo)
-// Core overlay: CORE-24..30 + core#31 — article verification fix (parse 'articles' field, was inert in prod)
+// Core overlay: CORE-21 graph pipeline (core#32) — REPLAN node, fast path, plan-service decomposition, metrics fix
 
 /**
  * Core service loader.
