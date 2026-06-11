@@ -1,5 +1,5 @@
 // Proprietary implementation: @secondlayer/core (private repo)
-// Core overlay: CORE-21 graph pipeline (core#32) — REPLAN node, fast path, plan-service decomposition, metrics fix
+// Core overlay: CORE-21 complete (core#33) — execute loop split into nodes, chat-service 935 lines
 
 /**
  * Core service loader.
