@@ -45,16 +45,19 @@ MODELS = {
         "model_id": "BAAI/bge-m3",
         "pooling": "cls",
         "doc_prefix": "",
+        "max_len": 1024,    # supports 8192; 1024 = benchmark chunk size
     },
     "me5": {
         "model_id": "intfloat/multilingual-e5-large-instruct",
         "pooling": "mean",
         "doc_prefix": "",   # instruct variant: documents need no prefix
+        "max_len": 512,     # XLM-R position limit (514) - 1024 hits device assert
     },
     "bge-m3-ua": {
         "model_id": "BAAI/bge-m3",   # tokenizer/base arch; weights via --model-s3
         "pooling": "cls",
         "doc_prefix": "",
+        "max_len": 1024,
     },
 }
 
@@ -80,7 +83,8 @@ def main():
     ap.add_argument("--model-s3", help="model.tar.gz S3 URI for finetuned checkpoint")
     ap.add_argument("--instance-type", default="ml.g5.12xlarge")
     ap.add_argument("--batch-size", type=int, default=64)
-    ap.add_argument("--max-len", type=int, default=1024)
+    ap.add_argument("--max-len", type=int, default=None,
+                    help="override model preset chunk size")
     ap.add_argument("--stride", type=int, default=128)
     ap.add_argument("--spot", action="store_true")
     ap.add_argument("--max-runtime-hours", type=float, default=8)
@@ -99,6 +103,7 @@ def main():
         raise SystemExit("bge-m3-ua requires --model-s3 (finetuned model.tar.gz)")
 
     cfg = MODELS[args.model]
+    max_len = args.max_len or cfg["max_len"]
     ts = int(time.time())
     job_name = f"embed-{args.model}-{ts}"
     output_s3 = f"s3://{BUCKET}/citation-eval/embeddings/{args.model}"
@@ -119,7 +124,7 @@ def main():
         "pooling": cfg["pooling"],
         # SageMaker rejects empty hyperparameter values - omit when blank
         **({"doc_prefix": cfg["doc_prefix"]} if cfg["doc_prefix"] else {}),
-        "max_len": str(args.max_len),
+        "max_len": str(max_len),
         "stride": str(args.stride),
         "batch_size": str(args.batch_size),
         "output_s3": output_s3,
