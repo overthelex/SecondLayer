@@ -37,8 +37,11 @@ ROLE = "arn:aws:iam::272594900302:role/SageMakerDPOExecutionRole"
 BUCKET = "secondlayer-ml-data-usw2"
 IMAGE_URI = "763104351884.dkr.ecr.us-west-2.amazonaws.com/pytorch-training:2.5.1-gpu-py311-cu124-ubuntu22.04-sagemaker"
 
-CORPUS_LOCAL = Path(__file__).parent / "output" / "eval500k" / "texts_pool"
-CORPUS_S3_PREFIX = "citation-eval/texts_pool"
+VARIANTS = {
+    # corpus variant -> (local dir name, s3 prefix suffix)
+    "stripped": "texts_pool",
+    "raw": "texts_pool_raw",   # no-strip leak ablation
+}
 
 MODELS = {
     "bge-m3": {
@@ -62,18 +65,20 @@ MODELS = {
 }
 
 
-def upload_corpus(s3):
-    shards = sorted(CORPUS_LOCAL.glob("*.jsonl"))
+def upload_corpus(s3, variant):
+    local = Path(__file__).parent / "output" / "eval500k" / VARIANTS[variant]
+    prefix = f"citation-eval/{VARIANTS[variant]}"
+    shards = sorted(local.glob("*.jsonl"))
     if not shards:
-        raise SystemExit(f"no shards in {CORPUS_LOCAL} - run 14_build_relevant_pool.py first")
+        raise SystemExit(f"no shards in {local} - run 14_build_relevant_pool.py first")
     existing = set()
     for page in s3.get_paginator("list_objects_v2").paginate(
-            Bucket=BUCKET, Prefix=CORPUS_S3_PREFIX + "/"):
+            Bucket=BUCKET, Prefix=prefix + "/"):
         existing.update(o["Key"] for o in page.get("Contents", []))
-    todo = [p for p in shards if f"{CORPUS_S3_PREFIX}/{p.name}" not in existing]
-    print(f"uploading {len(todo)}/{len(shards)} shards to s3://{BUCKET}/{CORPUS_S3_PREFIX}/")
+    todo = [p for p in shards if f"{prefix}/{p.name}" not in existing]
+    print(f"uploading {len(todo)}/{len(shards)} shards to s3://{BUCKET}/{prefix}/")
     for i, p in enumerate(todo, 1):
-        s3.upload_file(str(p), BUCKET, f"{CORPUS_S3_PREFIX}/{p.name}")
+        s3.upload_file(str(p), BUCKET, f"{prefix}/{p.name}")
         print(f"  [{i}/{len(todo)}] {p.name}")
 
 
@@ -87,6 +92,8 @@ def main():
                     help="override model preset chunk size")
     ap.add_argument("--stride", type=int, default=128)
     ap.add_argument("--spot", action="store_true")
+    ap.add_argument("--variant", choices=sorted(VARIANTS), default="stripped",
+                    help="corpus variant: stripped (main) or raw (leak ablation)")
     ap.add_argument("--max-runtime-hours", type=float, default=8)
     ap.add_argument("--upload-corpus", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
@@ -94,7 +101,7 @@ def main():
 
     s3 = boto3.client("s3", region_name=REGION)
     if args.upload_corpus:
-        upload_corpus(s3)
+        upload_corpus(s3, args.variant)
         if not args.model:
             return
     if not args.model:
@@ -105,8 +112,9 @@ def main():
     cfg = MODELS[args.model]
     max_len = args.max_len or cfg["max_len"]
     ts = int(time.time())
-    job_name = f"embed-{args.model}-{ts}"
-    output_s3 = f"s3://{BUCKET}/citation-eval/embeddings/{args.model}"
+    slug = args.model if args.variant == "stripped" else f"{args.model}-{args.variant}"
+    job_name = f"embed-{slug}-{ts}"
+    output_s3 = f"s3://{BUCKET}/citation-eval/embeddings/{slug}"
 
     script_dir = Path(__file__).parent
     code_key = f"citation-eval/code/{job_name}/sourcedir.tar.gz"
@@ -120,7 +128,7 @@ def main():
 
     hyperparams = {
         "model_id": cfg["model_id"],
-        "model_slug": args.model,
+        "model_slug": slug,
         "pooling": cfg["pooling"],
         # SageMaker rejects empty hyperparameter values - omit when blank
         **({"doc_prefix": cfg["doc_prefix"]} if cfg["doc_prefix"] else {}),
@@ -137,7 +145,7 @@ def main():
         "ChannelName": "corpus",
         "DataSource": {"S3DataSource": {
             "S3DataType": "S3Prefix",
-            "S3Uri": f"s3://{BUCKET}/{CORPUS_S3_PREFIX}/",
+            "S3Uri": f"s3://{BUCKET}/citation-eval/{VARIANTS[args.variant]}/",
             "S3DataDistributionType": "FullyReplicated",
         }},
     }]
@@ -196,7 +204,7 @@ def main():
     boto3.client("sagemaker", region_name=REGION).create_training_job(**job_config)
     print(f"\nLaunched: {job_name} on {args.instance_type}")
     print(f"Embeddings -> {output_s3}/")
-    print(f"MLflow: experiment 'citation-embedding-eval', run 'embed-{args.model}'")
+    print(f"MLflow: experiment 'citation-embedding-eval', run 'embed-{slug}'")
 
 
 if __name__ == "__main__":
