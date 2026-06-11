@@ -93,6 +93,16 @@ def worker(rank, args, shard_files, progress):
     tok = AutoTokenizer.from_pretrained(model_path)
     model = AutoModel.from_pretrained(model_path, torch_dtype=torch.float16).to(device).eval()
 
+    # guard against exceeding the model's position-embedding table
+    model_max = getattr(model.config, "max_position_embeddings", None)
+    if model_max and model_max < 100_000:
+        # XLM-R style tables reserve 2 positions (pad offset)
+        hard_cap = model_max - 2
+        if args.max_len > hard_cap:
+            print(f"[{rank}] clamp max_len {args.max_len} -> {hard_cap} "
+                  f"(max_position_embeddings={model_max})")
+            args.max_len = hard_cap
+
     bucket, prefix = s3_parts(args.output_s3)
     s3 = boto3.client("s3")
     my_shards = shard_files[rank::torch.cuda.device_count()]
