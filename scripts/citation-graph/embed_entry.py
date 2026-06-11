@@ -190,9 +190,9 @@ def main():
         "output_s3": args.output_s3,
     })
 
-    progress = mp.Array("l", [0, 0, 0])  # docs, chunks, shards
-    t0 = time.time()
     ctx = mp.get_context("spawn")
+    progress = ctx.Array("l", [0, 0, 0])  # docs, chunks, shards
+    t0 = time.time()
     procs = [ctx.Process(target=worker, args=(r, args, shard_files, progress))
              for r in range(n_gpu)]
     for p in procs:
