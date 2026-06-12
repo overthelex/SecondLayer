@@ -1,4 +1,5 @@
 import http from 'http';
+import { load } from 'cheerio';
 import { Database } from '../database/database.js';
 import { logger } from '../utils/logger.js';
 
@@ -139,22 +140,19 @@ async function fetchHtml(url: string): Promise<string> {
 
 function htmlToText(html: string): string {
   if (!html) return '';
-  let text = html;
-  text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-  text = text.replace(/<br\s*\/?>/gi, '\n');
-  text = text.replace(/<\/p>/gi, '\n\n');
-  text = text.replace(/<\/div>/gi, '\n');
-  text = text.replace(/<\/tr>/gi, '\n');
-  text = text.replace(/<\/li>/gi, '\n');
-  text = text.replace(/<[^>]+>/g, '');
-  text = text.replace(/&nbsp;/gi, ' ');
-  text = text.replace(/&amp;/gi, '&');
-  text = text.replace(/&lt;/gi, '<');
-  text = text.replace(/&gt;/gi, '>');
-  text = text.replace(/&quot;/gi, '"');
-  text = text.replace(/&#39;/gi, "'");
-  text = text.replace(/&[a-zA-Z0-9#]+;/g, '');
+  // Parse with a real HTML parser rather than regex: regex-based tag
+  // stripping/entity-unescaping is unreliable (misses `</script >`, can
+  // re-introduce `<script`, double-unescapes `&`) — flagged by CodeQL.
+  const $ = load(html);
+  // Drop non-content elements outright so their contents never leak into text.
+  $('script, style, noscript, template, head').remove();
+  // Preserve the line breaks the block-level structure implied.
+  $('br').replaceWith('\n');
+  $('p').append('\n\n');
+  $('div, tr, li').append('\n');
+  // .text() strips remaining tags and decodes HTML entities natively.
+  let text = $.root().text();
+  text = text.replace(/\u00a0/g, ' ');  // nbsp -> regular space
   text = text.replace(/[ \t]+/g, ' ');
   text = text.replace(/\n{3,}/g, '\n\n');
   text = text.trim();
