@@ -180,7 +180,7 @@ def main():
         },
         StoppingCondition={"MaxRuntimeInSeconds": int(args.max_runtime_hours * 3600)},
         Environment={
-            "MLFLOW_TRACKING_URI": "https://mlflow.legal.org.ua",
+            "MLFLOW_TRACKING_URI": "http://35.84.222.41:5000",
             "MLFLOW_TRACKING_USERNAME": mlflow_user,
             "MLFLOW_TRACKING_PASSWORD": mlflow_pass,
         },
