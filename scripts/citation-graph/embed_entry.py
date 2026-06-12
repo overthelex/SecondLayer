@@ -187,7 +187,7 @@ def main():
     print(f"corpus: {len(shard_files)} shards, GPUs: {n_gpu}")
 
     import mlflow
-    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "https://mlflow.legal.org.ua"))
+    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://35.84.222.41:5000"))
     mlflow.set_experiment("citation-embedding-eval")
     run = mlflow.start_run(run_name=f"embed-{args.model_slug}")
     mlflow.log_params({

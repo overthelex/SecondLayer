@@ -1,5 +1,5 @@
 {
-  "mlflow_tracking_uri": "https://mlflow.legal.org.ua",
+  "mlflow_tracking_uri": "http://35.84.222.41:5000",
   "mlflow_tracking_uri_internal": "http://35.84.222.41:5000",
   "mlflow_tracking_uri_private": "http://172.31.36.11:5000",
   "artifact_bucket": "secondlayer-mlflow-artifacts",

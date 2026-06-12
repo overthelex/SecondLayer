@@ -32,7 +32,7 @@ def setup_mlflow(stage: int, hp: dict, train_data: str, n_gpus: int):
     try:
         import mlflow
 
-        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "https://mlflow.legal.org.ua")
+        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://35.84.222.41:5000")
         mlflow.set_tracking_uri(tracking_uri)
         mlflow.set_experiment("bge-m3-finetune")
 
