@@ -54,3 +54,36 @@ go build -o kas-uploader .
 | 3 ГПК | 7.5M docs | 13,773,100 | done |
 | 4 Адміністративне (КАС) | 22.6M docs | 8,278 (74.5M on Brev-local Qdrant) | transfer to prod pending |
 | 5 КУпАП | 12M docs | 69,391,702 | done |
+
+## КУпАП campaign (2026-06-12, LEXAI-1724/1725)
+
+Refined per-year pipeline used for КУпАП (jk=5) and ЦПК (jk=1) re-runs; supersedes
+`clean_parallel.py` for per-year `.jsonl.zst` exports:
+
+1. **Clean + global dedup** — `clean_dedup_yearly.py <src_dir> <out_dir>`
+   Same header-stripping rules as `clean_parallel.py` + global first-occurrence dedup
+   across all year files (by `doc_id`, then by md5 of cleaned text). КУпАП: 11.99M →
+   11.83M docs (156K exact-text dups), ~11 min on 23 cores.
+2. **Quality gate** — `analyze_dataset.py <dataset_dir>`
+   Full-scan stats before embedding: empty/short texts, >15K-char truncation candidates,
+   missing fields, residual header noise, length percentiles, chunk estimate.
+3. **Filter + reshard** — `reshard_filtered.py <src_dir> <out_dir> [codes] [shards]`
+   Filters by `judgment_code` (КУпАП kept {2,5,6} = постанова/ухвала/окрема ухвала)
+   and round-robins into N equal plain-JSONL shards, one per embed worker.
+4. **Embed** — `embed_ort_trt_32w.py` (evolution of `embed_ort_trt.py`):
+   **deterministic point IDs** `uuid5("edrsr/{justice_kind}/{doc_id}/{chunk_index}")`
+   — restarts are idempotent, no random-UUID dup cleanup needed (the lesson that
+   produced `dedup-qdrant-jk.py`).
+
+КУпАП result: 31,271,465 chunks on Brev `qdrant-gpu` :6343, points == chunks 1:1,
+0 failed upserts, HNSW green.
+
+### qdrant-gpu (GPU HNSW indexing) caveats
+
+- NVIDIA driver 580.105.08 segfaults in `libnvidia-eglcore` when qdrant initializes
+  >2 Vulkan devices in one process (newer loader / ICD pinning / capabilities=all do
+  NOT help). Run with `--gpus '"device=0,1"'` + `QDRANT__GPU__PARALLEL_INDEXES=2` max.
+- After a qdrant restart the optimizer stays idle (status `grey`): kick it with
+  `PATCH /collections/<name> {"optimizers_config":{}}`.
+- `indexed_vectors_count` advances only when whole segments finish — long flat
+  periods with both GPUs at 100% are normal.
