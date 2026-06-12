@@ -31,11 +31,14 @@ BUCKET = "secondlayer-ml-data-usw2"
 IMAGE_URI = "763104351884.dkr.ecr.us-west-2.amazonaws.com/pytorch-training:2.5.1-gpu-py311-cu124-ubuntu22.04-sagemaker"
 
 STAGE_HYPERPARAMS = {
+    # lr lowered 5e-5 -> 1e-5 / 1e-5 -> 5e-6, batch 2 -> 4; bf16 is the entry
+    # default now. First run (fp16 + temp 0.02 + lr 5e-5) collapsed the encoder
+    # to a constant vector: loss flat at ln(16) / ln(8) = uniform scores.
     1: {
         "stage": "1",
-        "learning_rate": "5e-5",
+        "learning_rate": "1e-5",
         "num_train_epochs": "1",
-        "per_device_train_batch_size": "2",
+        "per_device_train_batch_size": "4",
         "warmup_ratio": "0.1",
         "query_max_len": "256",
         "passage_max_len": "512",
@@ -44,9 +47,9 @@ STAGE_HYPERPARAMS = {
     },
     2: {
         "stage": "2",
-        "learning_rate": "1e-5",
+        "learning_rate": "5e-6",
         "num_train_epochs": "3",
-        "per_device_train_batch_size": "2",
+        "per_device_train_batch_size": "4",
         "warmup_ratio": "0.05",
         "query_max_len": "256",
         "passage_max_len": "512",

@@ -143,6 +143,46 @@ def stream_and_log(cmd: list[str]) -> int:
     return process.returncode
 
 
+def embedding_spread_check(model_dir, train_dir, n=64):
+    """Pairwise-cosine std of CLS embeddings over a training sample.
+
+    A healthy encoder gives std ~0.1; a collapsed one gives ~0.
+    """
+    import glob
+    import json as _json
+    import numpy as np
+    import torch
+    from transformers import AutoModel, AutoTokenizer
+
+    texts = []
+    for f in glob.glob(os.path.join(train_dir, "*.jsonl")):
+        with open(f, encoding="utf-8") as fh:
+            for line in fh:
+                d = _json.loads(line)
+                texts.append(d.get("query") or d.get("pos", [""])[0])
+                if len(texts) >= n:
+                    break
+        if len(texts) >= n:
+            break
+
+    tok = AutoTokenizer.from_pretrained(model_dir)
+    model = AutoModel.from_pretrained(model_dir).eval()
+    if torch.cuda.is_available():
+        model = model.cuda()
+    embs = []
+    with torch.no_grad():
+        for i in range(0, len(texts), 16):
+            enc = tok(texts[i:i + 16], max_length=256, truncation=True,
+                      padding=True, return_tensors="pt")
+            if torch.cuda.is_available():
+                enc = {k: v.cuda() for k, v in enc.items()}
+            h = model(**enc).last_hidden_state[:, 0]
+            embs.append(torch.nn.functional.normalize(h, dim=-1).float().cpu())
+    v = torch.cat(embs).numpy()
+    sims = v @ v.T
+    return float(sims[np.triu_indices(len(v), k=1)].std())
+
+
 def main():
     install_deps()
 
@@ -220,7 +260,9 @@ def main():
         "--logging_steps", "50",
         "--save_steps", "1000",
         "--save_total_limit", "2",
-        "--fp16",
+        # bf16, not fp16: XLM-R + temperature 0.02 + fp16 collapsed the encoder
+        # to a constant vector (stage1 loss flat at ln(16), stage2 at ln(8))
+        "--bf16" if hp.get("precision", "bf16") == "bf16" else "--fp16",
         "--dataloader_drop_last", "True",
         "--gradient_checkpointing",
         "--same_task_within_batch", "True",
@@ -240,10 +282,24 @@ def main():
 
     elapsed = time.time() - t0
 
+    # Collapse guard: a degenerate encoder maps everything to one point and the
+    # job still "succeeds". Embed a sample and fail loudly if vectors are constant.
+    emb_std = None
+    if returncode == 0:
+        try:
+            emb_std = embedding_spread_check(model_dir, train_data)
+            print(f"[sanity] pairwise-cosine std over sample: {emb_std:.4f}")
+        except Exception as e:
+            print(f"[sanity] spread check failed to run: {e}")
+        if emb_std is not None and emb_std < 0.01:
+            print("[sanity] EMBEDDING COLLAPSE DETECTED - failing the job")
+            returncode = 42
+
     if mlflow_ok:
         try:
             import mlflow
-            mlflow.log_metrics({"training_time_s": elapsed})
+            mlflow.log_metrics({"training_time_s": elapsed,
+                                **({"embedding_cos_std": emb_std} if emb_std is not None else {})})
             # Log model config as artifact
             config_path = os.path.join(model_dir, "config.json")
             if os.path.exists(config_path):
