@@ -132,7 +132,7 @@ def main():
     # 3. Build job config
     print("Step 3: Submitting SageMaker job...")
 
-    mlflow_password = os.environ.get("MLFLOW_TRACKING_PASSWORD", "mNW73dLlYkel1ue7bmQPcIjxeVpSln-k")
+    mlflow_password = os.environ["MLFLOW_TRACKING_PASSWORD"]
 
     job_config = dict(
         TrainingJobName=job_name,
