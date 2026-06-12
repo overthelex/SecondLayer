@@ -35,7 +35,9 @@ from spot_wrapper import enable_spot
 REGION = "us-west-2"
 ROLE = "arn:aws:iam::272594900302:role/SageMakerDPOExecutionRole"
 BUCKET = "secondlayer-ml-data-usw2"
-IMAGE_URI = "763104351884.dkr.ecr.us-west-2.amazonaws.com/pytorch-training:2.5.1-gpu-py311-cu124-ubuntu22.04-sagemaker"
+# torch>=2.6 base: lifts the transformers>=4.50 torch.load(.bin) restriction
+# (CVE-2025-32434), so we can run a patched transformers (ReDoS/Trainer fixes).
+IMAGE_URI = "763104351884.dkr.ecr.us-west-2.amazonaws.com/pytorch-training:2.8.0-gpu-py312-cu129-ubuntu22.04-sagemaker"
 
 VARIANTS = {
     # corpus variant -> (local dir name, s3 prefix suffix)
