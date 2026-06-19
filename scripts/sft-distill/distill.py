@@ -66,7 +66,14 @@ BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "eu-central-1")
 
 # Only these are enabled+invokable in this account/region (probed 2026-06-16):
 #   Sonnet 4.5 (teacher/judge), Haiku 4.5 (query-gen). Sonnet 4 / 3.x are access-denied.
-TEACHER_MODEL = os.environ.get("TEACHER_MODEL", "eu.anthropic.claude-sonnet-4-5-20250929-v1:0")
+# Teacher rotates across the eu. AND global. inference profiles: they draw from SEPARATE
+# tokens-per-day pools (eu 238M + global 476M), so alternating ~3x the daily headroom
+# (the per-day cap is the real bottleneck and is non-adjustable; per-minute quotas are not hit).
+TEACHER_MODELS = [m.strip() for m in os.environ.get(
+    "TEACHER_MODELS",
+    "eu.anthropic.claude-sonnet-4-5-20250929-v1:0,global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+).split(",") if m.strip()]
+TEACHER_MODEL = os.environ.get("TEACHER_MODEL", TEACHER_MODELS[0])
 JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "eu.anthropic.claude-sonnet-4-5-20250929-v1:0")
 QUERYGEN_MODEL = os.environ.get("QUERYGEN_MODEL", "eu.anthropic.claude-haiku-4-5-20251001-v1:0")
 
@@ -163,8 +170,16 @@ def parallel_map(fn: Callable[[Any], Any], items: list, workers: int, desc: str)
 class Bedrock:
     def __init__(self, region: str = BEDROCK_REGION):
         import boto3  # noqa: import here so non-bedrock stages don't need it
+        from botocore.config import Config
 
-        self._client = boto3.client("bedrock-runtime", region_name=region)
+        # default pool is 10 -> "Connection pool is full" warnings + lost concurrency
+        # under 16-32 workers. Size it above the worker count.
+        cfg = Config(
+            region_name=region,
+            max_pool_connections=int(os.environ.get("BEDROCK_POOL", "64")),
+            retries={"max_attempts": 2, "mode": "standard"},
+        )
+        self._client = boto3.client("bedrock-runtime", config=cfg)
 
     def invoke(
         self,
@@ -543,7 +558,9 @@ def stage_teacher(args) -> Path:
             "Дай обґрунтовану відповідь українською з посиланнями [doc:ID] "
             "виключно на наведені джерела. Якщо підстав недостатньо — так і напиши."
         )
-        answer = bd.invoke(TEACHER_MODEL, SYSTEM_PROMPT, user,
+        # rotate teacher across inference profiles (separate per-day token pools)
+        teacher_model = TEACHER_MODELS[hash(row["id"]) % len(TEACHER_MODELS)]
+        answer = bd.invoke(teacher_model, SYSTEM_PROMPT, user,
                            max_tokens=1500, temperature=0.3)
         writer.write({"id": row["id"], "query": row["query"], "justice_kind": row["justice_kind"],
                       "is_refusal": row.get("is_refusal", False),
