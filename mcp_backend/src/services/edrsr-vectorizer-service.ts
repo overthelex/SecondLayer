@@ -18,7 +18,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 const EMBEDDING_DIM = 1024;
 const EMBEDDING_MODEL = 'bge-m3';
-const COLLECTION_NAME = 'edrsr_decisions';
+const COLLECTION_NAME = process.env.QDRANT_EDRSR_COLLECTION || 'edrsr_decisions';
 const EMBED_BATCH_SIZE = 64; // TEI supports larger batches than VoyageAI
 const QDRANT_UPSERT_BATCH = 100; // Qdrant upsert sub-batch
 const DEFAULT_CONCURRENCY = 5;
@@ -346,6 +346,9 @@ export class EdsrVectorizerService {
         limit,
         filter: qdrantFilter,
         with_payload: true,
+        // Binary-quantized serving collection: rescore against full vectors with
+        // oversampling for recall (no-op on non-quantized collections).
+        params: { quantization: { rescore: true, oversampling: 2.0 } },
       });
 
       return searchResult.map((r) => ({
