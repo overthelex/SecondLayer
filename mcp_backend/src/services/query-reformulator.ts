@@ -20,6 +20,8 @@ const REFORMULATION_PROMPT = `Ти — експерт з українськог�
 {"semantic": "...", "fts": "...", "expanded": "..." або null}`;
 
 const MIN_QUERY_LENGTH = 10;
+const REFORMULATION_CACHE_MAX = 5_000;
+const REFORMULATION_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 export interface ReformulatedQueries {
   original: string;
@@ -29,6 +31,10 @@ export interface ReformulatedQueries {
 }
 
 export class QueryReformulator {
+  // In-process TTL cache — legal queries repeat; a hit skips the ~2s LLM round-trip
+  // on the search critical path. Per-process is sufficient (prod runs one backend).
+  private readonly cache = new Map<string, { result: ReformulatedQueries; expires: number }>();
+
   constructor(private readonly llm: ILLMPort) {}
 
   async reformulate(query: string): Promise<ReformulatedQueries> {
@@ -36,6 +42,12 @@ export class QueryReformulator {
 
     if (trimmed.length < MIN_QUERY_LENGTH) {
       return { original: trimmed, semantic: trimmed, fts: trimmed, expanded: null };
+    }
+
+    const cacheKey = trimmed.toLowerCase().replace(/\s+/g, ' ');
+    const cached = this.cache.get(cacheKey);
+    if (cached && cached.expires > Date.now()) {
+      return cached.result;
     }
 
     try {
@@ -75,10 +87,20 @@ export class QueryReformulator {
         fts: result.fts.slice(0, 80),
       });
 
+      this.storeInCache(cacheKey, result);
       return result;
     } catch (err: any) {
       logger.warn('[QueryReformulator] Reformulation failed, using original', { error: err.message });
       return { original: trimmed, semantic: trimmed, fts: trimmed, expanded: null };
     }
+  }
+
+  private storeInCache(key: string, result: ReformulatedQueries): void {
+    // FIFO eviction when full (Map preserves insertion order).
+    if (this.cache.size >= REFORMULATION_CACHE_MAX) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest !== undefined) this.cache.delete(oldest);
+    }
+    this.cache.set(key, { result, expires: Date.now() + REFORMULATION_CACHE_TTL_MS });
   }
 }
