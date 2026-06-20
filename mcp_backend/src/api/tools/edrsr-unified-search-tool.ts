@@ -405,7 +405,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
   // ── Semantic search (Qdrant vectors) ─────────────────────────────
 
-  private static readonly VECTORIZED_JUSTICE_KINDS = new Set([3, 5]); // ГПК, КупАП
+  private static readonly VECTORIZED_JUSTICE_KINDS = new Set([1, 2, 3, 4, 5]); // ЦПК, КПК, ГПК, КАС, КУпАП (unified edrsr_serving 296.56M)
 
   private async searchSemantic(args: any): Promise<ToolResult> {
     if (!args.query) return this.wrapError('query є обов\'язковим для режиму semantic');
