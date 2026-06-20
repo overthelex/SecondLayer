@@ -222,23 +222,26 @@ export class EdsrSemanticTools extends BaseToolHandler {
   private async searchSemantic(args: any): Promise<ToolResult> {
     if (!args.query) return this.wrapError('query є обов\'язковим параметром');
 
-    // TEMP: Redirect to FTS while Qdrant DB is being populated
-    logger.info('[EdsrSemanticTools] Semantic search temporarily redirected to FTS (Qdrant populating)');
-    const ftsResult = await this.searchFulltext({
-      ...args,
-      limit: args.limit || 10,
-    });
-
-    // Add notice about redirect
-    if (ftsResult.content?.[0]?.text) {
-      try {
-        const parsed = JSON.parse(ftsResult.content[0].text);
-        parsed._notice = 'Семантичний пошук тимчасово недоступний (база Qdrant наповнюється). Результати отримано через FTS.';
-        ftsResult.content[0].text = JSON.stringify(parsed);
-      } catch { /* keep original */ }
+    try {
+      const results = await this.vectorizer.semanticSearch(
+        args.query,
+        {
+          court_code: args.court_code,
+          justice_kind: args.justice_kind,
+          judge: args.judge,
+          date_from: args.date_from,
+          date_to: args.date_to,
+        },
+        args.limit || 10,
+      );
+      // Flatten metadata to top level so enrichResults can resolve court/justice/judgment names
+      const flat = results.map((r) => ({ ...r, ...r.metadata }));
+      const enriched = await this.enrichResults(flat);
+      return this.wrapResponse({ query: args.query, total: enriched.length, results: enriched });
+    } catch (err: any) {
+      logger.error('[EdsrSemanticTools] searchSemantic failed', { error: err?.message });
+      return this.wrapError(`Семантичний пошук не вдався: ${err?.message || err}`);
     }
-
-    return ftsResult;
   }
 
   private async vectorizeResults(args: any): Promise<ToolResult> {
