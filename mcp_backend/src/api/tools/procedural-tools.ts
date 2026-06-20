@@ -16,6 +16,7 @@ import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
 import type { IEmbeddingPort, ILLMPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
 import { EdsrFtsService, EdsrFtsFilters } from '../../services/edrsr-fts-service.js';
+import { EdsrVectorizerService, EdrsrSearchFilters } from '../../services/edrsr-vectorizer-service.js';
 import { SectionType } from '../../types/index.js';
 import { logger } from '../../utils/logger.js';
 import { extractSearchTermsWithAI } from '../../utils/html-parser.js';
@@ -78,6 +79,7 @@ export class ProceduralTools extends BaseToolHandler {
     private readonly llm?: ILLMPort,
     private readonly ftsService?: EdsrFtsService,
     private readonly db?: any,
+    private readonly edsrVectorizer?: EdsrVectorizerService,
   ) {
     super();
   }
@@ -147,9 +149,10 @@ export class ProceduralTools extends BaseToolHandler {
         annotations: { title: 'Схожі за фактами справи', readOnlyHint: true },
         description: `Пошук судових справ зі схожими фактичними обставинами
 
-Витягує ключові терміни з опису фактів та шукає справи з аналогічними обставинами.
-Використовуйте для пошуку релевантної практики, коли є опис ситуації клієнта.
-Повертає: список справ з релевантністю та ключовими фрагментами.`,
+Семантичний (векторний) пошук по реєстру судових рішень: знаходить справи з аналогічною
+фабулою за змістом, а не лише за точним збігом слів. Використовуйте для пошуку релевантної
+практики, коли є опис ситуації клієнта.
+Повертає: список справ з релевантністю (score) та ключовими фрагментами.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -491,8 +494,46 @@ export class ProceduralTools extends BaseToolHandler {
 
     let results: any[] = [];
     let courtLevel = '';
+    let searchMethod = '';
 
-    if (this.ftsService && this.db) {
+    // Primary path: HNSW semantic search over the unified edrsr_serving collection
+    // (BGE-M3 vectors, 296M chunks). Semantic similarity is the natural fit for
+    // "find cases with a similar fact pattern", and HNSW is fast (~300ms warm) —
+    // unlike the multi-instance FTS loop below, which scans the full-text index 3×
+    // and routinely blew the 60s tool timeout on practice_analysis queries.
+    if (this.edsrVectorizer) {
+      try {
+        const semFilters: EdrsrSearchFilters = {
+          ...(justiceKind !== null ? { justice_kind: justiceKind } : {}),
+          ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
+          ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
+        };
+        // Over-fetch chunks, then dedupe to distinct cases (a case may match on
+        // several chunks; we want the top distinct decisions).
+        const hits = await this.edsrVectorizer.semanticSearch(query, semFilters, limit * 4);
+        const seen = new Set<number>();
+        for (const h of hits) {
+          if (seen.has(h.doc_id)) continue;
+          seen.add(h.doc_id);
+          results.push({
+            doc_id: h.doc_id,
+            court_code: h.metadata.court_code,
+            date: h.metadata.adjudication_date,
+            case_number: h.metadata.cause_num,
+            snippet: (h.text || '').slice(0, 600) + ((h.text || '').length > 600 ? '…' : ''),
+            score: typeof h.score === 'number' ? Number(h.score.toFixed(4)) : undefined,
+          });
+          if (results.length >= limit) break;
+        }
+        if (results.length > 0) searchMethod = 'semantic_hnsw';
+      } catch (err: any) {
+        logger.warn('[findSimilarFactPatternCases] semantic HNSW search failed, falling back to FTS', { error: err.message });
+      }
+    }
+
+    // Fallback: multi-instance FTS (when the vectorizer is unavailable or returns
+    // nothing — e.g. very rare terminology not well represented in embeddings).
+    if (results.length === 0 && this.ftsService && this.db) {
       const baseFilters: EdsrFtsFilters = {
         ...(justiceKind !== null ? { justice_kind: justiceKind } : {}),
         ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
@@ -516,6 +557,7 @@ export class ProceduralTools extends BaseToolHandler {
             case_number: d.cause_num,
             snippet: d.headline,
           }));
+          searchMethod = 'fts';
           break;
         }
       }
@@ -525,13 +567,14 @@ export class ProceduralTools extends BaseToolHandler {
       procedure_code: procedureCode,
       time_range: args.time_range,
       court_level: courtLevel || undefined,
+      search_method: searchMethod || undefined,
       extracted_search_terms: extractedTerms,
       search_query: query,
       results,
     };
     if (timeRangeParsed.warning) payload.time_range_warning = timeRangeParsed.warning;
     if (results.length === 0) {
-      payload.hint = 'Результатів не знайдено. Повторний виклик з іншим формулюванням навряд чи дасть результат — FTS шукає точний збіг усіх слів. Спробуйте search_edrsr_fulltext з коротшим запитом (2-3 слова) або compare_practice_pro_contra.';
+      payload.hint = 'Результатів не знайдено. Спробуйте переформулювати фабулу ширше або скористайтесь search_edrsr_fulltext з коротшим запитом (2-3 слова) чи compare_practice_pro_contra.';
     }
 
     return this.wrapResponse(payload);

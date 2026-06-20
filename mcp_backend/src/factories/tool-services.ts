@@ -117,6 +117,20 @@ export function createToolServices(
     coreServices.patternStore,
     coreServices.db
   ));
+  // EDRSR vectorizer (BGE-M3 + qdrant edrsr_serving HNSW) — shared by ProceduralTools
+  // (find_similar_fact_pattern_cases) and EdsrUnifiedSearchTool below.
+  let edsrVectorizer: EdsrVectorizerService | undefined;
+  try {
+    edsrVectorizer = new EdsrVectorizerService();
+    edsrVectorizer.setUsageCallback((tokens, model, task) => {
+      costTracker.recordVoyageCall({ model, totalTokens: tokens, task }).catch((err) => {
+        logger.warn('Failed to record embedding cost', { error: err.message });
+      });
+    });
+  } catch (err: any) {
+    logger.warn('EdsrVectorizerService not available (BGE_M3_URL missing?)', { error: err.message });
+  }
+
   toolRegistry.registerHandler(new ProceduralTools(
     coreServices.zoAdapter,
     coreServices.zoPracticeAdapter,
@@ -126,6 +140,7 @@ export function createToolServices(
     llmAdapter,
     edsrFtsService,
     coreServices.db,
+    edsrVectorizer,
   ));
   toolRegistry.registerHandler(new LegalAdviceTools(
     coreServices.queryPlanner,
@@ -158,17 +173,7 @@ export function createToolServices(
   toolRegistry.registerHandler(new DecisionLayerTools(llmAdapter));
 
   // EDRSR unified search (structured + FTS + hybrid + semantic in one tool)
-  let edsrVectorizer: EdsrVectorizerService | undefined;
-  try {
-    edsrVectorizer = new EdsrVectorizerService();
-    edsrVectorizer.setUsageCallback((tokens, model, task) => {
-      costTracker.recordVoyageCall({ model, totalTokens: tokens, task }).catch((err) => {
-        logger.warn('Failed to record embedding cost', { error: err.message });
-      });
-    });
-  } catch (err: any) {
-    logger.warn('EdsrVectorizerService not available (BGE_M3_URL missing?)', { error: err.message });
-  }
+  // Reuses the edsrVectorizer instance created above.
   const edsrUnifiedSearch = new EdsrUnifiedSearchTool(coreServices.db, edsrFtsService, edsrVectorizer);
   edsrUnifiedSearch.setResultFilter(new SearchResultFilter(llmAdapter));
   edsrUnifiedSearch.setQueryReformulator(new QueryReformulator(llmAdapter));
