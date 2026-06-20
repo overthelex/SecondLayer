@@ -962,8 +962,11 @@ describe('QueryTypeConfig', () => {
     }
   });
 
-  it('practice_analysis should use standard budget', () => {
-    expect(QUERY_TYPE_CONFIG.practice_analysis.defaultBudget).toBe('standard');
+  it('practice_analysis should use deep budget', () => {
+    // deep (not standard): practice analysis must load full texts of several key
+    // decisions; standard's 10-call / 8000-char caps exhaust the budget and truncate
+    // full decisions. Mirrors institutional_analysis. See secondlayer-core#34.
+    expect(QUERY_TYPE_CONFIG.practice_analysis.defaultBudget).toBe('deep');
   });
 
   it('comparative_analysis should use standard budget', () => {
