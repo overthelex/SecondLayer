@@ -94,8 +94,8 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 4 режими пошуку:
 • **structured** — за метаданими: номер справи, суддя, суд, дата, категорія, військові пресети. Найшвидший, коли відомі точні параметри.
 • **fulltext** — повнотекстовий пошук (PostgreSQL tsvector) з підсвіченими фрагментами. Для пошуку за ключовими словами та юридичними термінами.
-• **hybrid** — FTS + семантичний пошук (Qdrant BGE-M3) з мерджем через Reciprocal Rank Fusion. Найкращий recall, коли запит містить і семантику, і точні токени. Семантична нога працює для ГПК (3) та КупАП (5).
-• **semantic** — чистий семантичний пошук по векторній базі Qdrant. Доступний для ГПК (justice_kind=3) та КУпАП (justice_kind=5), для решти — fallback на fulltext.
+• **hybrid** — FTS + семантичний пошук (Qdrant BGE-M3) з мерджем через Reciprocal Rank Fusion. Найкращий recall, коли запит містить і семантику, і точні токени. Семантична нога працює для ВСІХ видів судочинства (justice_kind 1-5).
+• **semantic** — чистий семантичний пошук по векторній базі Qdrant (296M чанків, увесь ЄДРСР). Працює для ВСІХ видів судочинства (justice_kind 1-5); justice_kind не обов'язковий (без нього шукає по всіх кодексах). Найкраще для концептуальних/розмовних запитів.
 
 Фільтри (спільні для всіх режимів): court_code/court_name, judge, justice_kind, judgment_code, category_code, date_from/date_to.
 Пресети: military_preset (військові справи), kupap_preset (адмінправопорушення — traffic_dui, traffic_accident, domestic_violence, hooliganism тощо).
@@ -373,7 +373,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     const justiceKind = args.justice_kind ? Number(args.justice_kind) : undefined;
     const hasVectors = justiceKind
       ? EdsrUnifiedSearchTool.VECTORIZED_JUSTICE_KINDS.has(justiceKind)
-      : false;
+      : true; // no justice_kind filter → search the whole unified collection (all codices vectorized)
 
     const vectorPromise = (this.vectorizer && hasVectors)
       ? this.vectorizer.semanticSearch(semanticQuery, filters as unknown as EdrsrSearchFilters, candidateLimit)
@@ -413,7 +413,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     const justiceKind = args.justice_kind ? Number(args.justice_kind) : undefined;
     const hasVectors = justiceKind
       ? EdsrUnifiedSearchTool.VECTORIZED_JUSTICE_KINDS.has(justiceKind)
-      : false;
+      : true; // no justice_kind filter → search the whole unified collection (all codices vectorized)
 
     if (!this.vectorizer || !hasVectors) {
       logger.info('[EdsrUnifiedSearch] Semantic fallback to FTS', { justice_kind: justiceKind, vectorizer: !!this.vectorizer });
@@ -422,9 +422,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
         try {
           const parsed = JSON.parse(result.content[0].text);
           parsed.mode = 'semantic (fallback to fulltext)';
-          parsed._notice = justiceKind
-            ? `Семантичний пошук для justice_kind=${justiceKind} ще недоступний. Результати через FTS. Доступні: КУпАП (5).`
-            : 'Вкажіть justice_kind для семантичного пошуку. Доступні: КУпАП (justice_kind=5).';
+          parsed._notice = 'Семантичний пошук тимчасово недоступний (векторний сервіс), результати через FTS.';
           result.content[0].text = JSON.stringify(parsed, null, 2);
         } catch { /* keep original */ }
       }
