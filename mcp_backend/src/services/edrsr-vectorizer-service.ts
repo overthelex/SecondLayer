@@ -25,6 +25,30 @@ const COLLECTION_NAME = process.env.QDRANT_EDRSR_COLLECTION || 'edrsr_serving';
 const EMBED_BATCH_SIZE = 64; // TEI supports larger batches than VoyageAI
 const QDRANT_UPSERT_BATCH = 100; // Qdrant upsert sub-batch
 const DEFAULT_CONCURRENCY = 5;
+// Cap concurrent Qdrant searches against edrsr_serving (LEXAI-1758). Each search
+// fans across ~293 on-disk-graph segments; more than ~2 in flight saturates the
+// serving node's cores and blows the request timeout (aborts → hybrid loses its
+// vector leg). Tunable via env.
+const QDRANT_SEARCH_CONCURRENCY = Math.max(1, Number(process.env.QDRANT_EDRSR_MAX_CONCURRENCY || 2));
+
+/** Minimal async semaphore — bounds in-flight work to `max` concurrent runs. */
+export class AsyncSemaphore {
+  private active = 0;
+  private readonly queue: Array<() => void> = [];
+  constructor(private readonly max: number) {}
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.active >= this.max) {
+      await new Promise<void>((resolve) => this.queue.push(resolve));
+    }
+    this.active++;
+    try {
+      return await fn();
+    } finally {
+      this.active--;
+      this.queue.shift()?.();
+    }
+  }
+}
 const MAX_CHUNK_CHARS = 2048;
 const CHUNK_OVERLAP_WORDS = 50;
 
@@ -113,6 +137,8 @@ export class EdsrVectorizerService {
   private qdrant: QdrantClient;
   private initialized = false;
   private usageCallback?: EmbeddingUsageCallback;
+  // Shared across all callers (singleton service) → global cap on concurrent searches.
+  private readonly searchSemaphore = new AsyncSemaphore(QDRANT_SEARCH_CONCURRENCY);
   private concurrency: number;
 
   constructor(concurrency: number = DEFAULT_CONCURRENCY) {
@@ -353,7 +379,8 @@ export class EdsrVectorizerService {
     const qdrantFilter = must.length > 0 ? { must } : undefined;
 
     try {
-      const searchResult = await this.qdrant.search(COLLECTION_NAME, {
+      // Bound concurrent Qdrant searches — see QDRANT_SEARCH_CONCURRENCY (LEXAI-1758).
+      const searchResult = await this.searchSemaphore.run(() => this.qdrant.search(COLLECTION_NAME, {
         vector: queryVector,
         limit,
         filter: qdrantFilter,
@@ -371,7 +398,7 @@ export class EdsrVectorizerService {
               ? { rescore: true, oversampling: Number(process.env.QDRANT_EDRSR_OVERSAMPLING || 2.0) }
               : { rescore: false },
         },
-      });
+      }));
 
       return searchResult.map((r) => ({
         id: r.id as string,
