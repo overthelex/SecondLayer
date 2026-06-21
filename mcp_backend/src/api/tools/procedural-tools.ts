@@ -746,17 +746,20 @@ export class ProceduralTools extends BaseToolHandler {
     };
 
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
-    const extracted = await extractSearchTermsWithAI(factsText, this.llm);
-    const extractedTerms = Array.isArray(extracted?.keywords) ? extracted.keywords : [];
-    const query = typeof extracted?.searchQuery === 'string' && extracted.searchQuery.trim().length > 0
-      ? extracted.searchQuery.trim()
-      : (extractedTerms.length > 0 ? extractedTerms.join(' ') : factsText.slice(0, 180));
-
     const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
 
     let results: any[] = [];
     let courtLevel = '';
     let searchMethod = '';
+    // Term extraction is deferred to the FTS fallback (below). The semantic path
+    // embeds the full fact pattern directly, so we no longer block on an upfront
+    // keyword-extraction LLM call that — when it returned no keywords — collapsed
+    // the query to a truncated literal and zeroed out the results.
+    let extractedTerms: string[] = [];
+    let ftsQuery = '';
+    // BGE-M3 is the ideal consumer of natural-language facts; pass the fact pattern
+    // straight through (capped — the model truncates long input anyway).
+    const semanticQuery = factsText.slice(0, 4000);
 
     // Primary path: HNSW semantic search over the unified edrsr_serving collection
     // (BGE-M3 vectors, 296M chunks). Semantic similarity is the natural fit for
@@ -775,7 +778,7 @@ export class ProceduralTools extends BaseToolHandler {
         // court level (SC is a minority of the corpus), over-fetch much wider so enough
         // 99* decisions survive the post-filter.
         const overfetch = courtLevelFilter ? Math.max(limit * 20, 200) : limit * 4;
-        const hits = await this.edsrVectorizer.semanticSearch(query, semFilters, overfetch);
+        const hits = await this.edsrVectorizer.semanticSearch(semanticQuery, semFilters, overfetch);
         const seen = new Set<number>();
         for (const h of hits) {
           if (seen.has(h.doc_id)) continue;
@@ -800,6 +803,13 @@ export class ProceduralTools extends BaseToolHandler {
     // Fallback: multi-instance FTS (when the vectorizer is unavailable or returns
     // nothing — e.g. very rare terminology not well represented in embeddings).
     if (results.length === 0 && this.ftsService && this.db) {
+      // FTS is lexical, so here (and only here) we extract keywords from the facts.
+      const extracted = await extractSearchTermsWithAI(factsText, this.llm);
+      extractedTerms = Array.isArray(extracted?.keywords) ? extracted.keywords : [];
+      ftsQuery = typeof extracted?.searchQuery === 'string' && extracted.searchQuery.trim().length > 0
+        ? extracted.searchQuery.trim()
+        : (extractedTerms.length > 0 ? extractedTerms.join(' ') : factsText.slice(0, 180));
+
       const baseFilters: EdsrFtsFilters = {
         ...(justiceKind !== null ? { justice_kind: justiceKind } : {}),
         ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
@@ -817,7 +827,7 @@ export class ProceduralTools extends BaseToolHandler {
           ] as const);
       for (const inst of instances) {
         const resp = await this.ftsService.searchFulltext(
-          trimFtsQuery(query), this.db, { ...baseFilters, instance_code: inst.code }, limit,
+          trimFtsQuery(ftsQuery), this.db, { ...baseFilters, instance_code: inst.code }, limit,
         );
         if (resp.results.length > 0) {
           courtLevel = inst.label;
@@ -844,7 +854,7 @@ export class ProceduralTools extends BaseToolHandler {
       court_level_filter: courtLevelFilter || undefined,
       search_method: searchMethod || undefined,
       extracted_search_terms: extractedTerms,
-      search_query: query,
+      search_query: searchMethod === 'fts' ? ftsQuery : factsText.slice(0, 200),
       results,
     };
     if (timeRangeParsed.warning) payload.time_range_warning = timeRangeParsed.warning;
