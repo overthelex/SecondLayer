@@ -11,7 +11,7 @@ export interface QueryTypeConfigEntry {
 
 export const QUERY_TYPE_CONFIG: Record<string, QueryTypeConfigEntry> = {
   case_lookup: { defaultBudget: 'standard', requiresGrounding: true, description: '', maxToolCalls: 5, thinkingPrefix: 'Шукаю справу', preferredScenarios: ['case_search'] },
-  practice_analysis: { defaultBudget: 'deep', requiresGrounding: true, description: '', maxToolCalls: 10, thinkingPrefix: 'Аналізую практику', preferredScenarios: ['practice_search'] },
+  practice_analysis: { defaultBudget: 'standard', requiresGrounding: true, description: '', maxToolCalls: 10, thinkingPrefix: 'Аналізую практику', preferredScenarios: ['practice_search'] },
   legislation_lookup: { defaultBudget: 'quick', requiresGrounding: true, description: '', maxToolCalls: 3, thinkingPrefix: 'Шукаю законодавство', preferredScenarios: ['legislation_search'] },
   legal_consultation: { defaultBudget: 'standard', requiresGrounding: true, description: '', maxToolCalls: 8, thinkingPrefix: 'Надаю консультацію', preferredScenarios: ['consultation'] },
   registry_lookup: { defaultBudget: 'quick', requiresGrounding: true, description: '', maxToolCalls: 3, thinkingPrefix: 'Шукаю в реєстрі', preferredScenarios: ['registry_search'] },

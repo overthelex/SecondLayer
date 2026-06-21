@@ -962,11 +962,12 @@ describe('QueryTypeConfig', () => {
     }
   });
 
-  it('practice_analysis should use deep budget', () => {
-    // deep (not standard): practice analysis must load full texts of several key
-    // decisions; standard's 10-call / 8000-char caps exhaust the budget and truncate
-    // full decisions. Mirrors institutional_analysis. See secondlayer-core#34.
-    expect(QUERY_TYPE_CONFIG.practice_analysis.defaultBudget).toBe('deep');
+  it('practice_analysis should use standard budget', () => {
+    // standard (Sonnet), not deep (Opus): A/B on prod (2026-06-21, LEXAI) showed deep
+    // costs ~10x more on practice_analysis with no measurable quality gain — both tiers
+    // cite real-but-sometimes-irrelevant cases, so the bottleneck is citation grounding,
+    // not model tier. deep is reserved for institutional_analysis + explicit budget:'deep'.
+    expect(QUERY_TYPE_CONFIG.practice_analysis.defaultBudget).toBe('standard');
   });
 
   it('comparative_analysis should use standard budget', () => {
