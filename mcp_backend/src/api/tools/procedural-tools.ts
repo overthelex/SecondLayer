@@ -125,8 +125,9 @@ export class ProceduralTools extends BaseToolHandler {
         description: `Підбірка судової практики "за" і "проти" по правовій тезі
 
 Знаходить дві лінії практики — рішення, що підтверджують тезу, та рішення, що їй суперечать.
+Позиція кожного рішення визначається LLM-класифікацією (за/проти/не по суті), а не збігом ключових слів.
 Використовуйте для аналізу суперечливої практики або підготовки правової позиції.
-Повертає: списки справ pro/contra з цитатами з мотивувальної частини.`,
+Повертає: списки справ pro/contra з цитатою та впевненістю (confidence). Якщо однієї зі сторін немає — повертає insufficient_practice.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -421,6 +422,71 @@ export class ProceduralTools extends BaseToolHandler {
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
     const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
 
+    // Primary path: retrieve candidates once (no pro/contra keyword suffix) and let the LLM
+    // classify each decision's holding relative to the user's thesis (supports / opposes /
+    // not-on-point) with a cited fragment. The legacy keyword suffix (задовольнити/відмовити)
+    // is non-discriminative and cannot separate opposing holdings — kept only as a fallback
+    // when the LLM or vectorizer is unavailable.
+    if (this.llm) {
+      try {
+        const gathered = await this.gatherProContraCandidates(
+          query, justiceKind, timeRangeParsed, Math.min(12, Math.max(6, limit * 2)),
+        );
+        if (gathered.candidates.length > 0) {
+          const stances = await this.classifyHoldings(query, gathered.candidates);
+          if (stances) {
+            const pro: any[] = [];
+            const contra: any[] = [];
+            for (const c of gathered.candidates) {
+              const v = stances.get(c.doc_id);
+              if (!v) continue;
+              const row = {
+                doc_id: c.doc_id,
+                court_code: c.court_code,
+                date: c.date,
+                case_number: c.case_number,
+                snippet: v.quote || c.fragment,
+                confidence: v.confidence,
+              };
+              if (v.stance === 'supports') pro.push(row);
+              else if (v.stance === 'opposes') contra.push(row);
+              // not_on_point → dropped
+            }
+            const byConf = (a: any, b: any) => (b.confidence || 0) - (a.confidence || 0);
+            pro.sort(byConf);
+            contra.sort(byConf);
+            const proCases = pro.slice(0, limit);
+            const contraCases = contra.slice(0, limit);
+
+            const payload: any = {
+              procedure_code: procedureCode,
+              query,
+              time_range: args.time_range,
+              search_method: `llm_holding_${gathered.method}`,
+              pro: proCases,
+              contra: contraCases,
+              total_pro: proCases.length,
+              total_contra: contraCases.length,
+            };
+            if (proCases.length === 0 || contraCases.length === 0) {
+              payload.insufficient_practice = true;
+              payload.hint = proCases.length === 0 && contraCases.length === 0
+                ? 'Серед знайдених рішень немає таких, що прямо підтверджують або спростовують тезу. Спробуйте переформулювати тезу або скористайтесь find_similar_fact_pattern_cases.'
+                : (proCases.length === 0
+                    ? 'Знайдено лише практику ПРОТИ тези; практики ЗА не виявлено серед кандидатів.'
+                    : 'Знайдено лише практику ЗА тезу; практики ПРОТИ не виявлено серед кандидатів.');
+            }
+            if (timeRangeParsed.warning) payload.warning = timeRangeParsed.warning;
+            return this.wrapResponse(payload);
+          }
+        }
+      } catch (err: any) {
+        logger.warn('[comparePracticeProContra] holding-classification path failed, falling back to keyword FTS', {
+          error: err?.message,
+        });
+      }
+    }
+
     const ftsSearch = async (suffix: string) => {
       if (!this.ftsService || !this.db) return { results: [], instanceLabel: '' };
 
@@ -516,6 +582,141 @@ export class ProceduralTools extends BaseToolHandler {
     if (timeRangeParsed.warning) payload.warning = timeRangeParsed.warning;
 
     return this.wrapResponse(payload);
+  }
+
+  /**
+   * Retrieve distinct candidate decisions for pro/contra classification — semantic search
+   * (preferred: relevant chunk text becomes the fragment) with an FTS fallback. No pro/contra
+   * keyword suffix here; discrimination is done downstream by the LLM.
+   */
+  private async gatherProContraCandidates(
+    query: string,
+    justiceKind: number | null,
+    timeRangeParsed: { date_from?: string; date_to?: string },
+    maxN: number,
+  ): Promise<{ candidates: Array<{ doc_id: number; court_code?: number; date?: string; case_number?: string; fragment: string }>; method: string }> {
+    // Semantic (preferred)
+    if (this.edsrVectorizer) {
+      try {
+        const semFilters: EdrsrSearchFilters = {
+          ...(justiceKind !== null ? { justice_kind: justiceKind } : {}),
+          ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
+          ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
+        };
+        const hits = await this.edsrVectorizer.semanticSearch(query, semFilters, maxN * 3);
+        const seen = new Set<number>();
+        const out: any[] = [];
+        for (const h of hits) {
+          if (seen.has(h.doc_id)) continue;
+          seen.add(h.doc_id);
+          out.push({
+            doc_id: h.doc_id,
+            court_code: h.metadata.court_code,
+            date: h.metadata.adjudication_date,
+            case_number: h.metadata.cause_num,
+            fragment: (h.text || '').slice(0, 900),
+          });
+          if (out.length >= maxN) break;
+        }
+        if (out.length > 0) return { candidates: out, method: 'semantic_hnsw' };
+      } catch (err: any) {
+        logger.warn('[gatherProContraCandidates] semantic search failed, falling back to FTS', { error: err?.message });
+      }
+    }
+
+    // FTS fallback (headline as fragment)
+    if (this.ftsService && this.db) {
+      const baseFilters: EdsrFtsFilters = {
+        ...(justiceKind !== null ? { justice_kind: justiceKind } : {}),
+        ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
+        ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
+      };
+      for (const inst of [
+        { code: 1 }, { code: 2 }, { code: 3 },
+      ] as const) {
+        const resp = await this.ftsService.searchFulltext(
+          trimFtsQuery(query), this.db, { ...baseFilters, instance_code: inst.code }, maxN,
+        );
+        if (resp.results.length > 0) {
+          const seen = new Set<number>();
+          const out: any[] = [];
+          for (const d of resp.results) {
+            if (seen.has(d.doc_id)) continue;
+            seen.add(d.doc_id);
+            out.push({
+              doc_id: d.doc_id,
+              court_code: d.court_code,
+              date: d.adjudication_date,
+              case_number: d.cause_num,
+              fragment: d.headline || '',
+            });
+          }
+          if (out.length > 0) return { candidates: out, method: 'fts' };
+        }
+      }
+    }
+
+    return { candidates: [], method: '' };
+  }
+
+  /**
+   * LLM holding classification: for each candidate decision, classify its holding relative to
+   * the user's thesis as supports / opposes / not_on_point, with a short cited fragment and
+   * confidence. One batched call. Returns null on parse failure so the caller can fall back.
+   */
+  private async classifyHoldings(
+    thesis: string,
+    candidates: Array<{ doc_id: number; case_number?: string; court_code?: number; fragment: string }>,
+  ): Promise<Map<number, { stance: 'supports' | 'opposes' | 'not_on_point'; quote: string; confidence: number }> | null> {
+    if (!this.llm) return null;
+    const items = candidates.map((c, i) => (
+      `#${i} doc_id=${c.doc_id} справа=${c.case_number || '—'}\nФрагмент: ${(c.fragment || '').replace(/\s+/g, ' ').slice(0, 800)}`
+    )).join('\n\n');
+
+    const system =
+      'Ти суддя-аналітик. Тобі дано ТЕЗУ та фрагменти судових рішень. ' +
+      'Для КОЖНОГО рішення визнач його позицію щодо тези: ' +
+      '"supports" — рішення підтверджує тезу; "opposes" — спростовує тезу; ' +
+      '"not_on_point" — фрагмент не дозволяє визначити позицію щодо тези. ' +
+      'Якщо не впевнений — став "not_on_point". Відповідай ВИКЛЮЧНО валідним JSON.';
+    const user =
+      `ТЕЗА: ${thesis}\n\nРІШЕННЯ:\n${items}\n\n` +
+      'Поверни JSON: {"classifications":[{"doc_id":<число>,"stance":"supports|opposes|not_on_point",' +
+      '"quote":"<коротка цитата з фрагмента українською, ≤200 симв.>","confidence":<0..1>}]}';
+
+    const response = await this.llm.chatCompletion(
+      {
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        temperature: 0.1,
+        response_format: { type: 'json_object' },
+      },
+      'standard',
+    );
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(response.content || '{}');
+    } catch {
+      logger.warn('[classifyHoldings] non-JSON LLM response');
+      return null;
+    }
+    const list = Array.isArray(parsed?.classifications) ? parsed.classifications : [];
+    if (list.length === 0) return null;
+
+    const validDocIds = new Set(candidates.map(c => c.doc_id));
+    const map = new Map<number, { stance: 'supports' | 'opposes' | 'not_on_point'; quote: string; confidence: number }>();
+    for (const item of list) {
+      const docId = Number(item?.doc_id);
+      if (!validDocIds.has(docId)) continue;
+      const stance = item?.stance;
+      if (stance !== 'supports' && stance !== 'opposes' && stance !== 'not_on_point') continue;
+      const confidence = typeof item?.confidence === 'number' ? Math.max(0, Math.min(1, item.confidence)) : 0.5;
+      map.set(docId, { stance, quote: typeof item?.quote === 'string' ? item.quote.slice(0, 300) : '', confidence });
+    }
+    return map.size > 0 ? map : null;
   }
 
   private async findSimilarFactPatternCases(args: any): Promise<ToolResult> {
