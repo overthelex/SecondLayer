@@ -18,7 +18,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 const EMBEDDING_DIM = 1024;
 const EMBEDDING_MODEL = 'bge-m3';
-const COLLECTION_NAME = process.env.QDRANT_EDRSR_COLLECTION || 'edrsr_decisions';
+// Default to the live unified collection. The old `edrsr_decisions` collection
+// was deleted at the edrsr_serving cutover (2026-06-21); defaulting to it would
+// make semantic search silently return nothing if the env var is ever missing.
+const COLLECTION_NAME = process.env.QDRANT_EDRSR_COLLECTION || 'edrsr_serving';
 const EMBED_BATCH_SIZE = 64; // TEI supports larger batches than VoyageAI
 const QDRANT_UPSERT_BATCH = 100; // Qdrant upsert sub-batch
 const DEFAULT_CONCURRENCY = 5;
@@ -132,6 +135,7 @@ export class EdsrVectorizerService {
     });
 
     this.concurrency = concurrency;
+    logger.info('[EdsrVectorizer] initialized', { collection: COLLECTION_NAME, qdrantUrl });
   }
 
   setUsageCallback(cb: EmbeddingUsageCallback | undefined): void {
@@ -141,7 +145,7 @@ export class EdsrVectorizerService {
   // ── Initialization ───────────────────────────────────────────────────────
 
   /**
-   * Lazy initialization: create the edrsr_decisions collection on first use.
+   * Lazy initialization: create the EDRSR collection on first use.
    */
   private async ensureCollection(): Promise<void> {
     if (this.initialized) return;
