@@ -79,6 +79,7 @@ export class EdsrFtsService {
     filters: EdsrFtsFilters = {},
     limit: number = 20,
     offset: number = 0,
+    headlineQuery?: string,
   ): Promise<EdsrFtsSearchResponse> {
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     const safeOffset = Math.max(offset, 0);
@@ -151,6 +152,17 @@ export class EdsrFtsService {
       paramIdx++;
     }
 
+    // Optional separate query for snippet highlighting. Callers that append discriminator
+    // terms to the FTS match (e.g. compare_practice_pro_contra adds "відмовити у задоволенні")
+    // can pass the bare user query here so ts_headline centres the snippet on the topic,
+    // not on the boilerplate suffix (which produced header-only snippets — see LEXAI fix).
+    let headlineParamIdx = 1;
+    if (headlineQuery && headlineQuery !== query) {
+      headlineParamIdx = paramIdx;
+      params.push(headlineQuery);
+      paramIdx++;
+    }
+
     const whereClause = conditions.join(' AND ');
 
     // Build FROM clause — only join edrsr_documents when metadata filters are used
@@ -160,7 +172,7 @@ export class EdsrFtsService {
 
     const buildSelectFields = (withHeadline: boolean) => {
       const headlineExpr = withHeadline
-        ? `safe_ts_headline('simple'::regconfig, f.full_text, plainto_tsquery('simple', $1),
+        ? `safe_ts_headline('simple'::regconfig, f.full_text, plainto_tsquery('simple', $${headlineParamIdx}),
            'MaxWords=${FTS_HEADLINE_MAX_WORDS}, MinWords=${FTS_HEADLINE_MIN_WORDS}, StartSel=**, StopSel=**') AS headline`
         : `NULL AS headline`;
 

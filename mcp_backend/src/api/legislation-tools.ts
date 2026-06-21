@@ -33,6 +33,39 @@ function capText(text: string | undefined | null): string {
   return text.slice(0, MAX_ARTICLE_TEXT_CHARS) + '… [обрізано]';
 }
 
+/** Confidence at/above which an AI-resolved article is trusted without semantic supplementation. */
+const AI_REF_TRUSTED_CONFIDENCE = 0.9;
+/** Min share of distinctive query terms that must appear in the resolved article for it to be "grounded". */
+const ARTICLE_GROUNDING_MIN_RATIO = 0.5;
+const GROUNDING_TOKEN_MIN_LEN = 5;
+/** Compare on a prefix to tolerate Ukrainian inflection (відмінки/числа). */
+const GROUNDING_PREFIX_LEN = 6;
+
+/**
+ * Heuristic grounding check: does the resolved article's text actually cover the query's
+ * distinctive terms? Guards against the AI classifier confidently returning a plausible but
+ * off-topic article number (e.g. ст. 265 "склад податку" for a query about ВПО/occupied-territory
+ * пільги that lives in ст. 266 / підрозділ 10 розд. XX). Returns the share [0..1] of distinctive
+ * query tokens found in the article; callers treat a low share as "supplement with semantic search".
+ */
+export function articleGroundingRatio(query: string, articleText: string): number {
+  const normalize = (s: string) =>
+    (s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ');
+  const queryTokens = [
+    ...new Set(
+      normalize(query)
+        .split(' ')
+        .filter(t => t.length >= GROUNDING_TOKEN_MIN_LEN)
+    ),
+  ];
+  if (queryTokens.length === 0) return 1; // nothing distinctive to check — don't flag
+  const haystack = normalize(articleText);
+  const matched = queryTokens.filter(t =>
+    haystack.includes(t.slice(0, Math.min(t.length, GROUNDING_PREFIX_LEN)))
+  ).length;
+  return matched / queryTokens.length;
+}
+
 export class LegislationTools extends BaseToolHandler {
   private service: LegislationService;
   private renderer: LegislationRenderer;
@@ -307,6 +340,33 @@ export class LegislationTools extends BaseToolHandler {
           };
         }
 
+        const resolvedArticle = {
+          rada_id: article.rada_id,
+          article_number: article.article_number,
+          title: article.title,
+          full_text: capText(article.full_text),
+          url: article.url,
+          npa_title: article.npa_title,
+          section_number: article.section_number,
+          section_title: article.section_title,
+          chapter_number: article.chapter_number,
+          chapter_title: article.chapter_title,
+        };
+
+        // Grounding guard: the AI classifier can confidently return a plausible-but-wrong
+        // article number (no retrieval/grounding on its side). If the resolved article does
+        // not actually cover the query's distinctive terms — or confidence is below the
+        // trusted bar — supplement with semantic search scoped to the same rada_id so the
+        // genuinely relevant article (e.g. ст. 266 vs ст. 265, or підрозділ 10 розд. XX
+        // transitional points) still surfaces instead of a single wrong answer.
+        const grounding = articleGroundingRatio(
+          args.query,
+          `${article.title || ''} ${article.full_text || ''}`
+        );
+        const trusted =
+          (directRef.confidence ?? 0) >= AI_REF_TRUSTED_CONFIDENCE &&
+          grounding >= ARTICLE_GROUNDING_MIN_RATIO;
+
         const response: any = {
           query: args.query,
           resolved_reference: {
@@ -314,23 +374,58 @@ export class LegislationTools extends BaseToolHandler {
             article_number: directRef.articleNumber,
             source: directRef.source,
             confidence: directRef.confidence,
+            grounding_ratio: Number(grounding.toFixed(2)),
           },
           total_found: 1,
-          articles: [
-            {
-              rada_id: article.rada_id,
-              article_number: article.article_number,
-              title: article.title,
-              full_text: capText(article.full_text),
-              url: article.url,
-              npa_title: article.npa_title,
-              section_number: article.section_number,
-              section_title: article.section_title,
-              chapter_number: article.chapter_number,
-              chapter_title: article.chapter_title,
-            },
-          ],
+          articles: [resolvedArticle],
         };
+
+        if (!trusted) {
+          try {
+            const supplemental = await this.service.findRelevantArticles(
+              args.query,
+              resolvedRadaId,
+              limit
+            );
+            const seen = new Set<string>([
+              `${resolvedArticle.rada_id}:${resolvedArticle.article_number}`,
+            ]);
+            for (const a of supplemental) {
+              const key = `${a.rada_id}:${a.article_number}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              response.articles.push({
+                rada_id: a.rada_id,
+                article_number: a.article_number,
+                title: a.title,
+                full_text: capText(a.full_text),
+                url: a.url,
+                npa_title: a.npa_title,
+                section_number: a.section_number,
+                section_title: a.section_title,
+                chapter_number: a.chapter_number,
+                chapter_title: a.chapter_title,
+              });
+            }
+            response.total_found = response.articles.length;
+            if (response.articles.length > 1) {
+              response.resolved_reference.supplemented = true;
+              response.note =
+                'AI-визначена стаття могла не повністю відповідати запиту — додано релевантні статті за семантичним пошуком. Перевірте, яка стаття відповідає питанню.';
+            }
+            logger.info('[MCP Tool] search_legislation supplemented low-grounding AI reference', {
+              rada_id: resolvedRadaId,
+              ai_article: directRef.articleNumber,
+              confidence: directRef.confidence,
+              grounding_ratio: Number(grounding.toFixed(2)),
+              supplemental_count: response.articles.length - 1,
+            });
+          } catch (err: any) {
+            logger.warn('[MCP Tool] search_legislation supplemental search failed', {
+              error: err?.message,
+            });
+          }
+        }
 
         if (args.include_html) {
           response.html = this.renderer.renderArticleHTML(article, {

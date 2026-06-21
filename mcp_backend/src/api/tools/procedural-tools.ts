@@ -158,6 +158,11 @@ export class ProceduralTools extends BaseToolHandler {
           properties: {
             procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'], description: 'Вид судочинства: cpc (цивільне), gpc (господарське), cac (адміністративне), crpc (кримінальне)' },
             facts_text: { type: 'string', description: 'Опис фактичних обставин справи (довільний текст)' },
+            court_level: {
+              type: 'string',
+              enum: ['SC', 'GrandChamber'],
+              description: 'Обмежити пошук інстанцією: SC — лише Верховний Суд (касаційні суди, код суду 99*), GrandChamber — лише Велика Палата ВС (9901). Використовуйте, коли питання саме про позицію Верховного Суду. За замовчуванням — усі інстанції.',
+            },
             time_range: {
               oneOf: [
                 { type: 'string' },
@@ -425,14 +430,18 @@ export class ProceduralTools extends BaseToolHandler {
         ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
       };
 
+      const bareQuery = trimFtsQuery(query, 3);
       for (const inst of [
         { code: 1, label: 'Верховний Суд' },
         { code: 2, label: 'апеляційні суди' },
         { code: 3, label: 'суди першої інстанції' },
       ] as const) {
         const resp = await this.ftsService.searchFulltext(
-          `${trimFtsQuery(query, 3)} ${suffix}`, this.db,
+          `${bareQuery} ${suffix}`, this.db,
           { ...baseFilters, instance_code: inst.code }, limit,
+          0,
+          // Snippet highlights the topic, not the "задовольнити/відмовити" discriminator suffix.
+          bareQuery,
         );
         if (resp.results.length > 0) {
           return { results: resp.results, instanceLabel: inst.label };
@@ -446,6 +455,26 @@ export class ProceduralTools extends BaseToolHandler {
       ftsSearch('відмовити у задоволенні позову'),
     ]);
 
+    // The pro/contra discriminator (keyword suffix) is non-discriminative: SC decisions
+    // routinely contain both "задовольнити" and "відмовити", so the same document can rank
+    // on both sides. Cross-dedupe by doc_id, keeping each document on the side where it
+    // ranks higher, so one decision can never appear as both pro and contra.
+    const proByDoc = new Map<number, any>();
+    for (const d of proResult.results) if (!proByDoc.has(d.doc_id)) proByDoc.set(d.doc_id, d);
+    const contraByDoc = new Map<number, any>();
+    for (const d of contraResult.results) if (!contraByDoc.has(d.doc_id)) contraByDoc.set(d.doc_id, d);
+
+    for (const [docId, proDoc] of [...proByDoc.entries()]) {
+      const contraDoc = contraByDoc.get(docId);
+      if (!contraDoc) continue;
+      // Same doc on both sides → keep on the higher-ranked side only.
+      if ((contraDoc.rank || 0) >= (proDoc.rank || 0)) {
+        proByDoc.delete(docId);
+      } else {
+        contraByDoc.delete(docId);
+      }
+    }
+
     const mapFtsCase = (d: any) => ({
       doc_id: d.doc_id,
       court_code: d.court_code,
@@ -454,17 +483,36 @@ export class ProceduralTools extends BaseToolHandler {
       snippet: d.headline,
     });
 
+    const proCases = [...proByDoc.values()].slice(0, limit).map(mapFtsCase);
+    const contraCases = [...contraByDoc.values()].slice(0, limit).map(mapFtsCase);
+    const distinctDocs = new Set<number>([
+      ...proCases.map(c => c.doc_id),
+      ...contraCases.map(c => c.doc_id),
+    ]);
+
     const payload: any = {
       procedure_code: procedureCode,
       query,
       time_range: args.time_range,
-      court_level_pro: proResult.instanceLabel || undefined,
-      court_level_contra: contraResult.instanceLabel || undefined,
-      pro: proResult.results.slice(0, limit).map(mapFtsCase),
-      contra: contraResult.results.slice(0, limit).map(mapFtsCase),
-      total_pro: proResult.results.length,
-      total_contra: contraResult.results.length,
+      court_level_pro: proCases.length > 0 ? (proResult.instanceLabel || undefined) : undefined,
+      court_level_contra: contraCases.length > 0 ? (contraResult.instanceLabel || undefined) : undefined,
+      pro: proCases,
+      contra: contraCases,
+      total_pro: proCases.length,
+      total_contra: contraCases.length,
     };
+
+    // Honest signalling instead of fabricating a 1-vs-1 controversy out of a single
+    // boilerplate-matched decision. The keyword discriminator cannot reliably separate
+    // opposing holdings; when too little distinct practice is found, say so.
+    if (distinctDocs.size <= 1) {
+      payload.insufficient_practice = true;
+      payload.hint =
+        'Недостатньо різної практики для протиставлення позицій «за/проти» за цим запитом. ' +
+        'Розбиття за ключовими словами не є надійним для класифікації позицій суду — ' +
+        'перевірте знайдені рішення вручну або скористайтесь find_similar_fact_pattern_cases ' +
+        'чи search_edrsr_fulltext із вужчим запитом.';
+    }
     if (timeRangeParsed.warning) payload.warning = timeRangeParsed.warning;
 
     return this.wrapResponse(payload);
@@ -482,6 +530,19 @@ export class ProceduralTools extends BaseToolHandler {
       );
     }
     if (!factsText) throw new Error('facts_text parameter is required');
+
+    // Optional instance filter: SC = Supreme Court (cassation courts, court_code 99*),
+    // GrandChamber = Велика Палата (9901). Lets the orchestrator answer "what does the
+    // Supreme Court say" instead of being crowded out by long first-instance texts that
+    // dominate pure cosine ranking.
+    const courtLevelFilter: 'SC' | 'GrandChamber' | undefined =
+      args.court_level === 'SC' || args.court_level === 'GrandChamber' ? args.court_level : undefined;
+    const matchesCourtLevel = (courtCode: any): boolean => {
+      if (!courtLevelFilter) return true;
+      const code = String(courtCode ?? '');
+      if (!code.startsWith('99')) return false;
+      return courtLevelFilter === 'GrandChamber' ? code === '9901' : true;
+    };
 
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
     const extracted = await extractSearchTermsWithAI(factsText, this.llm);
@@ -509,11 +570,15 @@ export class ProceduralTools extends BaseToolHandler {
           ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
         };
         // Over-fetch chunks, then dedupe to distinct cases (a case may match on
-        // several chunks; we want the top distinct decisions).
-        const hits = await this.edsrVectorizer.semanticSearch(query, semFilters, limit * 4);
+        // several chunks; we want the top distinct decisions). When restricting to a
+        // court level (SC is a minority of the corpus), over-fetch much wider so enough
+        // 99* decisions survive the post-filter.
+        const overfetch = courtLevelFilter ? Math.max(limit * 20, 200) : limit * 4;
+        const hits = await this.edsrVectorizer.semanticSearch(query, semFilters, overfetch);
         const seen = new Set<number>();
         for (const h of hits) {
           if (seen.has(h.doc_id)) continue;
+          if (!matchesCourtLevel(h.metadata.court_code)) continue;
           seen.add(h.doc_id);
           results.push({
             doc_id: h.doc_id,
@@ -540,17 +605,25 @@ export class ProceduralTools extends BaseToolHandler {
         ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
       };
 
-      for (const inst of [
-        { code: 1, label: 'Верховний Суд' },
-        { code: 2, label: 'апеляційні суди' },
-        { code: 3, label: 'суди першої інстанції' },
-      ] as const) {
+      // When the caller asked for Supreme Court only, restrict the FTS fallback to
+      // instance_code=1 (Верховний Суд) rather than walking down to first instance.
+      const instances = courtLevelFilter
+        ? ([{ code: 1, label: 'Верховний Суд' }] as const)
+        : ([
+            { code: 1, label: 'Верховний Суд' },
+            { code: 2, label: 'апеляційні суди' },
+            { code: 3, label: 'суди першої інстанції' },
+          ] as const);
+      for (const inst of instances) {
         const resp = await this.ftsService.searchFulltext(
           trimFtsQuery(query), this.db, { ...baseFilters, instance_code: inst.code }, limit,
         );
         if (resp.results.length > 0) {
           courtLevel = inst.label;
-          results = resp.results.slice(0, limit).map((d) => ({
+          results = resp.results
+            .filter((d) => matchesCourtLevel(d.court_code))
+            .slice(0, limit)
+            .map((d) => ({
             doc_id: d.doc_id,
             court_code: d.court_code,
             date: d.adjudication_date,
@@ -566,7 +639,8 @@ export class ProceduralTools extends BaseToolHandler {
     const payload: any = {
       procedure_code: procedureCode,
       time_range: args.time_range,
-      court_level: courtLevel || undefined,
+      court_level: courtLevel || (courtLevelFilter === 'GrandChamber' ? 'Велика Палата ВС' : courtLevelFilter === 'SC' ? 'Верховний Суд' : undefined),
+      court_level_filter: courtLevelFilter || undefined,
       search_method: searchMethod || undefined,
       extracted_search_terms: extractedTerms,
       search_query: query,
@@ -574,7 +648,9 @@ export class ProceduralTools extends BaseToolHandler {
     };
     if (timeRangeParsed.warning) payload.time_range_warning = timeRangeParsed.warning;
     if (results.length === 0) {
-      payload.hint = 'Результатів не знайдено. Спробуйте переформулювати фабулу ширше або скористайтесь search_edrsr_fulltext з коротшим запитом (2-3 слова) чи compare_practice_pro_contra.';
+      payload.hint = courtLevelFilter
+        ? `Практику ${courtLevelFilter === 'GrandChamber' ? 'Великої Палати ВС' : 'Верховного Суду'} за цією фабулою не знайдено. Спробуйте без court_level (усі інстанції), ширшу фабулу, або search_supreme_court_practice / search_edrsr_fulltext.`
+        : 'Результатів не знайдено. Спробуйте переформулювати фабулу ширше або скористайтесь search_edrsr_fulltext з коротшим запитом (2-3 слова) чи compare_practice_pro_contra.';
     }
 
     return this.wrapResponse(payload);
