@@ -104,8 +104,12 @@ jobs:
           chmod 600 "$KEY_FILE"
           GIT_SSH_COMMAND="ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes" \
             git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
+          test -s "$CORE_TMP/src/services/chat-execution-loop.ts" && test -s "$CORE_TMP/src/prompts/chat-system-prompt.ts" \
+            || { echo "::error::core clone incomplete — key files missing in $CORE_TMP"; exit 1; }
           find "$CORE_TMP"/src/services -maxdepth 1 -name '*.ts' -exec cp -f {} mcp_backend/src/services/ \;
           cp -rf "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
+          test -s mcp_backend/src/services/chat-execution-loop.ts && test -s mcp_backend/src/prompts/chat-system-prompt.ts \
+            || { echo "::error::core overlay failed — key files missing after copy"; exit 1; }
 
       - name: Build backend
         if: env.BACKEND_CHANGED == 'true'
@@ -222,8 +226,13 @@ jobs:
               trap 'shred -u "$KEY_FILE" 2>/dev/null; rm -rf "$CORE_TMP"' EXIT
               GIT_SSH_COMMAND="ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes" \
                 git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
+              test -s "$CORE_TMP/src/services/chat-execution-loop.ts" && test -s "$CORE_TMP/src/prompts/chat-system-prompt.ts" \
+                || { echo "core clone incomplete — key files missing"; exit 1; }
               find "$CORE_TMP"/src/services -maxdepth 1 -name '*.ts' -exec cp -f {} /home/vovkes/SecondLayer/mcp_backend/src/services/ \;
               cp -rf "$CORE_TMP"/src/prompts/* /home/vovkes/SecondLayer/mcp_backend/src/prompts/
+              test -s /home/vovkes/SecondLayer/mcp_backend/src/services/chat-execution-loop.ts \
+                && test -s /home/vovkes/SecondLayer/mcp_backend/src/prompts/chat-system-prompt.ts \
+                || { echo "core overlay failed — key files missing after copy"; exit 1; }
               cd /home/vovkes/SecondLayer && npm --prefix mcp_backend run build
           OVERLAY_EOF
           fi
