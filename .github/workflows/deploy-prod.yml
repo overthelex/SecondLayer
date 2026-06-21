@@ -178,9 +178,13 @@ jobs:
         run: |
           CORE_TMP=$(mktemp -d)
           gh repo clone overthelex/secondlayer-core "$CORE_TMP" -- --depth 1
+          test -s "$CORE_TMP/src/services/chat-execution-loop.ts" && test -s "$CORE_TMP/src/prompts/chat-system-prompt.ts" \
+            || { echo "::error::core clone incomplete — key files missing in $CORE_TMP"; exit 1; }
           find "$CORE_TMP"/src/services -maxdepth 1 -name '*.ts' -exec cp -f {} mcp_backend/src/services/ \;
           cp -rf "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
           rm -rf "$CORE_TMP"
+          test -s mcp_backend/src/services/chat-execution-loop.ts && test -s mcp_backend/src/prompts/chat-system-prompt.ts \
+            || { echo "::error::core overlay failed — key files missing after copy"; exit 1; }
 
       - name: Build & test backend
         if: needs.detect-changes.outputs.backend == 'true'
@@ -464,11 +468,15 @@ jobs:
           if [ "$BACKEND_CHANGED" = "true" ]; then
             # Overlay proprietary source from private repo before building
             CORE_TMP=$(mktemp -d)
-            gh repo clone overthelex/secondlayer-core "$CORE_TMP" -- --depth 1 2>/dev/null
+            gh repo clone overthelex/secondlayer-core "$CORE_TMP" -- --depth 1
+            test -s "$CORE_TMP/src/services/chat-execution-loop.ts" && test -s "$CORE_TMP/src/prompts/chat-system-prompt.ts" \
+              || { echo "::error::core clone incomplete — key files missing in $CORE_TMP"; exit 1; }
             SCP_CMD="scp -i $PROD_SSH_KEY_PATH -o StrictHostKeyChecking=no"
             $SCP_CMD -r "$CORE_TMP"/src/services/* "${PROD_USER}@${PROD_SERVER}:${REMOTE_REPO}/mcp_backend/src/services/"
             $SCP_CMD -r "$CORE_TMP"/src/prompts/* "${PROD_USER}@${PROD_SERVER}:${REMOTE_REPO}/mcp_backend/src/prompts/"
             rm -rf "$CORE_TMP"
+            $SSH_CMD "test -s ${REMOTE_REPO}/mcp_backend/src/services/chat-execution-loop.ts && test -s ${REMOTE_REPO}/mcp_backend/src/prompts/chat-system-prompt.ts" \
+              || { echo "::error::core overlay missing on prod after scp"; exit 1; }
 
             $SSH_CMD "cd ${REMOTE_REPO} && npm --prefix mcp_backend install && npm --prefix mcp_backend run build"
           fi
