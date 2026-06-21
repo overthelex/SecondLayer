@@ -5,6 +5,7 @@ import type { CostSummary as CostSummaryType } from '../types/models/Message';
 import { getToolLabel } from '../hooks/chat/tool-labels';
 import { useCurrencyRate } from '../hooks/useCurrencyRate';
 import { useMiscT } from '../i18n/misc-i18n';
+import { ShareControl } from './ShareControl';
 
 interface CostSummaryProps {
   data: CostSummaryType;
@@ -32,6 +33,7 @@ export function CostSummary({ data }: CostSummaryProps) {
 
   return (
     <div className="mt-3">
+      <div className="flex items-center gap-3">
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-1.5 text-[12px] text-claude-subtext hover:text-claude-text transition-colors"
@@ -58,6 +60,9 @@ export function CostSummary({ data }: CostSummaryProps) {
           strokeWidth={2}
         />
       </button>
+
+        <ShareControl responseId={data.response_id} />
+      </div>
 
       <AnimatePresence>
         {expanded && (

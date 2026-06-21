@@ -10,6 +10,7 @@ export const ROUTES = {
   // Main
   HOME: '/',
   CHAT: '/chat',
+  SHARED: '/shared/:token',
 
   // Referral
   REFERRAL: '/referral',
