@@ -11,6 +11,7 @@ import { adminApi } from './admin';
 import { documentsApi } from './documents';
 import { teamApi } from './team';
 import { conversationsApi } from './conversations';
+import { sharesApi } from './shares';
 import { decisionsApi, keysApi, gdprApi, toolsApi } from './misc';
 
 export const api = {
@@ -20,6 +21,7 @@ export const api = {
   team: teamApi,
   tools: toolsApi,
   conversations: conversationsApi,
+  shares: sharesApi,
   documents: documentsApi,
   admin: adminApi,
   decisions: decisionsApi,
@@ -34,5 +36,6 @@ export { adminApi } from './admin';
 export { documentsApi } from './documents';
 export { teamApi } from './team';
 export { conversationsApi } from './conversations';
+export { sharesApi } from './shares';
 export { decisionsApi, keysApi, gdprApi, toolsApi } from './misc';
 export { sessionReplayApi } from './session-replay';

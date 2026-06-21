@@ -88,6 +88,7 @@ const EUComparisonPage = lazyWithRetry(() => import('../pages/EUComparisonPage')
 
 // -- Core app pages --
 const ChatPage = lazyWithRetry(() => import('../pages/ChatPage').then(m => ({ default: m.ChatPage })));
+const SharedConversationPage = lazyWithRetry(() => import('../pages/SharedConversationPage').then(m => ({ default: m.SharedConversationPage })));
 const ProfilePage = lazyWithRetry(() => import('../pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const BillingDashboard = lazyWithRetry(() => import('../pages/BillingDashboard').then(m => ({ default: m.BillingDashboard })));
 const BillingOverviewTab = lazyWithRetry(() => import('../components/billing/OverviewTab').then(m => ({ default: m.OverviewTab })));
@@ -335,6 +336,10 @@ export const router = createBrowserRouter([
   {
     element: <AuthGuard />,
     children: [
+      {
+        path: ROUTES.SHARED,
+        element: S(SharedConversationPage),
+      },
       {
         element: <MainLayout />,
         children: [

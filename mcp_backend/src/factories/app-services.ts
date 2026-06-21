@@ -3,6 +3,7 @@ import { BillingServices } from './billing-services.js';
 import { ToolServices } from './tool-services.js';
 import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
 import { ConversationService } from '../services/conversation-service.js';
+import { ShareService } from '../services/share-service.js';
 import { ConversationEvidenceService } from '../services/conversation-evidence-service.js';
 import { GdprService } from '../services/gdpr-service.js';
 import { AuditService } from '../services/audit-service.js';
@@ -44,6 +45,7 @@ import { logger } from '../utils/logger.js';
 
 export interface AppServices {
   conversationService: ConversationService;
+  shareService: ShareService;
   evidenceService: ConversationEvidenceService;
   gdprService: GdprService;
   auditService: AuditService;
@@ -92,6 +94,7 @@ export function createAppServices(
 
   // Conversation & GDPR
   const conversationService = new ConversationService(coreServices.db);
+  const shareService = new ShareService(coreServices.db);
   const evidenceService = new ConversationEvidenceService(coreServices.db);
   const gdprService = new GdprService(coreServices.db, tools.minioService, coreServices.embeddingService);
 
@@ -269,6 +272,7 @@ export function createAppServices(
 
   return {
     conversationService,
+    shareService,
     evidenceService,
     gdprService,
     auditService,

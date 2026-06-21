@@ -2267,6 +2267,123 @@ const miscStrings: Record<string, Record<Locale, string>> = {
     de: 'Endgültig löschen',
     es: 'Eliminar para siempre',
   },
+
+  // ── Chat sharing ──
+  share: {
+    uk: 'Поділитися',
+    en: 'Share',
+    de: 'Teilen',
+    es: 'Compartir',
+  },
+  shareWhatTitle: {
+    uk: 'Чим поділитися?',
+    en: 'What to share?',
+    de: 'Was teilen?',
+    es: '¿Qué compartir?',
+  },
+  shareWholeConversation: {
+    uk: 'Вся розмова',
+    en: 'Whole conversation',
+    de: 'Gesamte Unterhaltung',
+    es: 'Toda la conversación',
+  },
+  shareWholeConversationHint: {
+    uk: 'Поділитися всім діалогом',
+    en: 'Share the entire dialogue',
+    de: 'Den gesamten Dialog teilen',
+    es: 'Compartir todo el diálogo',
+  },
+  shareThisResponse: {
+    uk: 'Лише ця відповідь',
+    en: 'This response only',
+    de: 'Nur diese Antwort',
+    es: 'Solo esta respuesta',
+  },
+  shareThisResponseHint: {
+    uk: 'Поділитися лише цією відповіддю та запитанням',
+    en: 'Share just this answer and its question',
+    de: 'Nur diese Antwort und die Frage teilen',
+    es: 'Compartir solo esta respuesta y su pregunta',
+  },
+  shareCreating: {
+    uk: 'Створення посилання...',
+    en: 'Creating link...',
+    de: 'Link wird erstellt...',
+    es: 'Creando enlace...',
+  },
+  shareLinkReady: {
+    uk: 'Посилання готове',
+    en: 'Link ready',
+    de: 'Link bereit',
+    es: 'Enlace listo',
+  },
+  shareLinkHint: {
+    uk: 'Будь-який користувач платформи зможе відкрити це посилання.',
+    en: 'Any platform user can open this link.',
+    de: 'Jeder Plattformnutzer kann diesen Link öffnen.',
+    es: 'Cualquier usuario de la plataforma puede abrir este enlace.',
+  },
+  shareCopyLink: {
+    uk: 'Копіювати',
+    en: 'Copy',
+    de: 'Kopieren',
+    es: 'Copiar',
+  },
+  shareCopied: {
+    uk: 'Скопійовано',
+    en: 'Copied',
+    de: 'Kopiert',
+    es: 'Copiado',
+  },
+  shareFailed: {
+    uk: 'Не вдалося створити посилання',
+    en: 'Failed to create link',
+    de: 'Link konnte nicht erstellt werden',
+    es: 'No se pudo crear el enlace',
+  },
+  shareOpenInApp: {
+    uk: 'Відкрити',
+    en: 'Open',
+    de: 'Öffnen',
+    es: 'Abrir',
+  },
+  // ── Shared view page ──
+  sharedTitle: {
+    uk: 'Спільна розмова',
+    en: 'Shared conversation',
+    de: 'Geteilte Unterhaltung',
+    es: 'Conversación compartida',
+  },
+  sharedBy: {
+    uk: 'Поділився',
+    en: 'Shared by',
+    de: 'Geteilt von',
+    es: 'Compartido por',
+  },
+  sharedNotFound: {
+    uk: 'Посилання недійсне або скасоване',
+    en: 'This link is invalid or has been revoked',
+    de: 'Dieser Link ist ungültig oder wurde widerrufen',
+    es: 'Este enlace no es válido o ha sido revocado',
+  },
+  sharedReadOnly: {
+    uk: 'Лише для перегляду',
+    en: 'Read-only',
+    de: 'Nur Lesen',
+    es: 'Solo lectura',
+  },
+  sharedBackToChat: {
+    uk: 'До чату',
+    en: 'Back to chat',
+    de: 'Zurück zum Chat',
+    es: 'Volver al chat',
+  },
+  sharedLoading: {
+    uk: 'Завантаження...',
+    en: 'Loading...',
+    de: 'Wird geladen...',
+    es: 'Cargando...',
+  },
 };
 
 export type MiscKey = keyof typeof miscStrings;

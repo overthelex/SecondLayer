@@ -52,6 +52,7 @@ import { createOAuthRouter } from './routes/oauth-routes.js';
 import { healthCheckRateLimit, webhookRateLimit, globalApiRateLimit, consultationRateLimit, publicSearchRateLimit } from './middleware/rate-limit.js';
 import { createUploadRouter } from './routes/upload-routes.js';
 import { createConversationRouter } from './routes/conversation-routes.js';
+import { createShareRouter } from './routes/share-routes.js';
 import { createEvidenceRoutes } from './routes/evidence-routes.js';
 import { createEdsrRoutes } from './routes/edrsr-routes.js';
 import { createGdprRouter } from './routes/gdpr-routes.js';
@@ -581,6 +582,10 @@ class HTTPMCPServer {
     this.app.use('/api/conversations', requireJWT as any, createConversationRouter(this.app_.conversationService));
     this.app.use('/api/conversations', requireJWT as any, createEvidenceRoutes(this.app_.evidenceService));
     logger.info('Conversation and evidence routes registered at /api/conversations');
+
+    // Share routes - shareable read-only chat links among platform users
+    this.app.use('/api/shares', requireJWT as any, createShareRouter(this.app_.shareService));
+    logger.info('Share routes registered at /api/shares');
 
     // EDRSR direct access routes
     this.app.use('/api/edrsr', requireJWT as any, createEdsrRoutes(this.services.db));

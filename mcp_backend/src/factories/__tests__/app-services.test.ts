@@ -365,7 +365,7 @@ describe('createAppServices', () => {
 
   describe('return shape — all properties present', () => {
     const expectedKeys = [
-      'conversationService', 'evidenceService', 'gdprService', 'auditService',
+      'conversationService', 'shareService', 'evidenceService', 'gdprService', 'auditService',
       'matterService', 'contractService', 'conflictCheckService', 'legalHoldService',
       'timeEntryService', 'matterInvoiceService', 'workflowService',
       'workflowGeneratorService', 'workflowExecutorService', 'chatService',
