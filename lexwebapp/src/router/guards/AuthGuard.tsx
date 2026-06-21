@@ -6,7 +6,7 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROUTES } from '../routes';
 import { api } from '../../utils/api-client';
@@ -16,6 +16,7 @@ import { useOnboardingStore } from '../../stores/onboardingStore';
 
 export const AuthGuard: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const location = useLocation();
   const [showOrgModal, setShowOrgModal] = useState(false);
   const [, setOrgChecked] = useState(false);
 
@@ -72,9 +73,14 @@ export const AuthGuard: React.FC = () => {
     );
   }
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated, preserving the intended
+  // destination so the user lands back on it after signing in.
   if (!isAuthenticated) {
-    return <Navigate to={ROUTES.LOGIN} replace />;
+    const target = `${location.pathname}${location.search}`;
+    const loginUrl = target && target !== '/'
+      ? `${ROUTES.LOGIN}?returnUrl=${encodeURIComponent(target)}`
+      : ROUTES.LOGIN;
+    return <Navigate to={loginUrl} replace />;
   }
 
   // Render child routes + modals
