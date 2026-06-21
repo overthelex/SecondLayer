@@ -280,6 +280,21 @@ async function fetchEditionDates(httpClient: AxiosInstance, bucket: TokenBucket,
   let match;
   while ((match = edRegex.exec(html)) !== null) dates.add(match[1]);
 
+  // Fallback: some codices (e.g. КУпАП 80731-10) list editions in the card4
+  // history table with empty \"Текст редакції\" cells, so there are no /ed
+  // links. Each edition row has <span class=\"dat1\">DD.MM.YYYY</span> and the
+  // event cell text contains \"Редакція\". Parse those dates and build ed-keys
+  // (the text exists at /ed{YYYYMMDD}/print even without a card4 hyperlink).
+  if (dates.size === 0) {
+    const rowRegex = /<span class=\"dat1\">(\d{2})\.(\d{2})\.(\d{4})<\/span>([\s\S]*?)(?=<span class=\"dat1\">|<\/tbody>|$)/g;
+    let row;
+    while ((row = rowRegex.exec(html)) !== null) {
+      const [, dd, mm, yyyy, rest] = row;
+      if (/редакц/i.test(rest)) dates.add(`${yyyy}${mm}${dd}`);
+    }
+    if (dates.size > 0) console.log(`  (fallback) parsed ${dates.size} edition dates from card4 history table`);
+  }
+
   return [...dates].sort();
 }
 
