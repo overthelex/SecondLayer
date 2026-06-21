@@ -207,7 +207,7 @@ export class LLMClientManager {
     selection: ModelSelection
   ): Promise<UnifiedChatResponse> {
     if (selection.provider === 'bedrock') {
-      return await this.executeBedrockChatCompletion(request, selection.model);
+      return await this.executeBedrockChatCompletion(request, selection.model, selection.budget);
     }
     if (selection.provider === 'anthropic') {
       return await this.executeAnthropicChatCompletion(request, selection.model);
@@ -437,7 +437,7 @@ export class LLMClientManager {
     const streamStart = Date.now();
     try {
       if (selection.provider === 'bedrock') {
-        yield* this.executeBedrockStreamCompletion(request, selection.model, signal);
+        yield* this.executeBedrockStreamCompletion(request, selection.model, signal, budget);
       } else if (selection.provider === 'anthropic') {
         yield* this.executeAnthropicStreamCompletion(request, selection.model, signal);
       } else {
@@ -455,7 +455,7 @@ export class LLMClientManager {
           logger.info(`Stream bedrock fallback: ${selection.model} → ${bedrockFallback.model}`);
           const fbStart = Date.now();
           try {
-            yield* this.executeBedrockStreamCompletion(request, bedrockFallback.model, signal);
+            yield* this.executeBedrockStreamCompletion(request, bedrockFallback.model, signal, budget);
             this.externalApiMetrics?.('bedrock-fallback', 'success', (Date.now() - fbStart) / 1000);
             return;
           } catch (fbError: any) {
@@ -473,7 +473,7 @@ export class LLMClientManager {
         const fbStart = Date.now();
         try {
           if (fallbackSelection.provider === 'bedrock') {
-            yield* this.executeBedrockStreamCompletion(request, fallbackSelection.model, signal);
+            yield* this.executeBedrockStreamCompletion(request, fallbackSelection.model, signal, fallbackSelection.budget);
           } else if (fallbackSelection.provider === 'anthropic') {
             yield* this.executeAnthropicStreamCompletion(request, fallbackSelection.model, signal);
           } else {
@@ -913,15 +913,20 @@ export class LLMClientManager {
 
   private async executeBedrockChatCompletion(
     request: UnifiedChatRequest,
-    model: string
+    model: string,
+    budget: BudgetLevel = 'standard'
   ): Promise<UnifiedChatResponse> {
+    // Tier-based region pinning: quick-tier calls may route to a separate
+    // region (BEDROCK_QUICK_REGION) to isolate quota from the main loop.
+    const pin = this.bedrockManager.getClientForTier(budget);
+    const pinnedModel = swapRegionPrefix(model, pin.region);
     try {
-      return await this.sendBedrockConverse(this.bedrockManager.getClient(), model, request);
+      return await this.sendBedrockConverse(pin.client, pinnedModel, request);
     } catch (err: any) {
       if (!isThrottlingError(err)) throw err;
 
-      // Cross-region fallback on throttling
-      for (const fb of this.bedrockManager.getFallbackClients()) {
+      // Cross-region fallback on throttling (excluding the region already tried)
+      for (const fb of this.bedrockManager.getFailoverClients(pin.region)) {
         const regionModel = swapRegionPrefix(model, fb.region);
         logger.info(`Bedrock throttled, trying ${fb.region}`, { model: regionModel });
         try {
@@ -1008,9 +1013,15 @@ export class LLMClientManager {
   private async *executeBedrockStreamCompletion(
     request: UnifiedChatRequest,
     model: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    budget: BudgetLevel = 'standard'
   ): AsyncGenerator<UnifiedStreamChunk> {
-    const client = this.bedrockManager.getClient();
+    // Tier-based region pinning (see executeBedrockChatCompletion). The stream
+    // path keeps the existing model/provider fallback in chatCompletionStream;
+    // here we only choose the region client + matching model prefix.
+    const pin = this.bedrockManager.getClientForTier(budget);
+    const client = pin.client;
+    model = swapRegionPrefix(model, pin.region);
     const hasTools = !!(request.tools && request.tools.length > 0);
     const { system, messages } = this.convertToBedrockMessages(request.messages, hasTools);
 
