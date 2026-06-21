@@ -40,7 +40,28 @@ jest.mock('../../utils/logger.js', () => ({
   logger: { info: jest.fn(), warn: jest.fn(), debug: jest.fn(), error: jest.fn() },
 }));
 
-import { EdsrVectorizerService } from '../edrsr-vectorizer-service';
+import { EdsrVectorizerService, AsyncSemaphore } from '../edrsr-vectorizer-service';
+
+describe('AsyncSemaphore', () => {
+  it('caps concurrent runs at max (LEXAI-1758)', async () => {
+    const sem = new AsyncSemaphore(2);
+    let active = 0, peak = 0;
+    const task = () => sem.run(async () => {
+      active++; peak = Math.max(peak, active);
+      await new Promise((r) => setTimeout(r, 15));
+      active--;
+    });
+    await Promise.all(Array.from({ length: 6 }, task));
+    expect(peak).toBe(2);
+    expect(active).toBe(0);
+  });
+
+  it('runs all tasks and returns their results in order', async () => {
+    const sem = new AsyncSemaphore(2);
+    const results = await Promise.all([1, 2, 3, 4].map((n) => sem.run(async () => n * 10)));
+    expect(results).toEqual([10, 20, 30, 40]);
+  });
+});
 
 describe('EdsrVectorizerService', () => {
   const originalEnv = process.env;
