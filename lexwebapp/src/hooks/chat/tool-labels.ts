@@ -1,6 +1,6 @@
 /**
  * Canonical tool name labels for UI display.
- * Single source of truth — imported by useMCPTool, useAIChat, CostSummary, PlanReviewDisplay.
+ * Single source of truth — imported by useMCPTool, useAIChat, CostSummary.
  */
 
 export const TOOL_LABELS: Record<string, string> = {

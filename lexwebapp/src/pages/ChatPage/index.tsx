@@ -8,7 +8,6 @@ import { useCallback, useEffect, useRef } from 'react';
 import { ChatInput } from '../../components/ChatInput';
 import { MessageThread } from '../../components/MessageThread';
 import { EmptyState } from '../../components/EmptyState';
-import { PlanReviewDisplay } from '../../components/PlanReviewDisplay';
 import { useChatStore, useSettingsStore } from '../../stores';
 import { useAIChat } from '../../hooks/useMCPTool';
 import showToast from '../../utils/toast';
@@ -20,19 +19,17 @@ export function ChatPage() {
   // Zustand stores — individual selectors to avoid full-store re-renders
   const messages = useChatStore(s => s.messages);
   const isStreaming = useChatStore(s => s.isStreaming);
-  const pendingPlanReview = useChatStore(s => s.pendingPlanReview);
-  const isPlanLoading = useChatStore(s => s.isPlanLoading);
   const cancelStream = useChatStore(s => s.cancelStream);
   const removeMessage = useChatStore(s => s.removeMessage);
   const queuedQuery = useChatStore(s => s.queuedQuery);
   const setQueuedQuery = useChatStore(s => s.setQueuedQuery);
 
   // AI Chat hook (agentic mode)
-  const { executeChat, confirmPlanAndExecute, skipPlanReview } = useAIChat();
+  const { executeChat } = useAIChat();
 
   const handleSend = async (content: string, _toolName?: string, documentIds?: string[]) => {
     // If streaming is active, queue the message for execution after current stream ends
-    if (isStreaming || isPlanLoading) {
+    if (isStreaming) {
       setQueuedQuery({ content, documentIds });
       return;
     }
@@ -47,7 +44,7 @@ export function ChatPage() {
   // Auto-execute queued query when streaming ends
   const executingQueueRef = useRef(false);
   useEffect(() => {
-    if (!isStreaming && !isPlanLoading && queuedQuery && !executingQueueRef.current) {
+    if (!isStreaming && queuedQuery && !executingQueueRef.current) {
       executingQueueRef.current = true;
       const { content, documentIds } = queuedQuery;
       setQueuedQuery(null);
@@ -60,7 +57,7 @@ export function ChatPage() {
           executingQueueRef.current = false;
         });
     }
-  }, [isStreaming, isPlanLoading, queuedQuery, setQueuedQuery, executeChat, internetEnabled]);
+  }, [isStreaming, queuedQuery, setQueuedQuery, executeChat, internetEnabled]);
 
   const handleRegenerate = useCallback((userQuery: string) => {
     // Find the last assistant message and remove it
@@ -96,23 +93,10 @@ export function ChatPage() {
         <MessageThread messages={messages} onRegenerate={handleRegenerate} onEdit={handleEdit} />
       )}
 
-      {/* Plan review questionnaire — shown between messages and input */}
-      {pendingPlanReview && (
-        <div className="w-full max-w-3xl mx-auto px-4">
-          <PlanReviewDisplay
-            plan={pendingPlanReview.plan}
-            onConfirm={confirmPlanAndExecute}
-            onSkip={skipPlanReview}
-            isLoading={isStreaming}
-          />
-        </div>
-      )}
-
       <div className="w-full bg-claude-bg pt-3 pb-5 z-20 border-t border-claude-border/60">
         <ChatInput
           onSend={handleSend}
-          disabled={!!pendingPlanReview}
-          isStreaming={isStreaming || isPlanLoading}
+          isStreaming={isStreaming}
           hasQueuedQuery={!!queuedQuery}
           onCancel={cancelStream}
         />
