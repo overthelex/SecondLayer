@@ -27,6 +27,16 @@ function supportsTemperature(model: string): boolean {
 /** Per-chunk timeout for LLM streams — throws if no chunk arrives within timeoutMs */
 const STREAM_CHUNK_TIMEOUT_MS = 90_000; // 90 seconds between chunks
 
+/**
+ * Cross-region hedging threshold for standard-tier Bedrock streams (ms).
+ * When > 0, if the primary region produces no first chunk within this window,
+ * a duplicate stream is started on a fallback region and whichever yields the
+ * first chunk wins (the loser is aborted). 0 = disabled (default). Trims tail
+ * latency at the cost of the loser's input tokens until abort — standard tier
+ * only (Sonnet), never deep (Opus) or quick.
+ */
+const BEDROCK_HEDGE_MS = parseInt(process.env.BEDROCK_HEDGE_MS || '0', 10) || 0;
+
 async function* withChunkTimeout<T>(
   source: AsyncIterable<T>,
   timeoutMs: number = STREAM_CHUNK_TIMEOUT_MS,
@@ -1010,18 +1020,40 @@ export class LLMClientManager {
     };
   }
 
+  /**
+   * Bedrock streaming entry: tier-based region pinning + optional cross-region
+   * hedging for the standard tier (BEDROCK_HEDGE_MS). Delegates the actual
+   * stream to streamBedrockOnClient.
+   */
   private async *executeBedrockStreamCompletion(
     request: UnifiedChatRequest,
     model: string,
     signal?: AbortSignal,
     budget: BudgetLevel = 'standard'
   ): AsyncGenerator<UnifiedStreamChunk> {
-    // Tier-based region pinning (see executeBedrockChatCompletion). The stream
-    // path keeps the existing model/provider fallback in chatCompletionStream;
-    // here we only choose the region client + matching model prefix.
     const pin = this.bedrockManager.getClientForTier(budget);
-    const client = pin.client;
-    model = swapRegionPrefix(model, pin.region);
+
+    // Cross-region hedging: only for the standard tier (Sonnet — available in
+    // all fallback regions, no Opus-downgrade risk) and only when enabled. The
+    // model/provider fallback in chatCompletionStream still wraps this path.
+    if (BEDROCK_HEDGE_MS > 0 && budget === 'standard') {
+      const hedge = this.bedrockManager.getFailoverClients(pin.region)[0];
+      if (hedge) {
+        yield* this.executeBedrockHedgedStream(request, model, signal, pin, hedge);
+        return;
+      }
+    }
+
+    yield* this.streamBedrockOnClient(pin.client, swapRegionPrefix(model, pin.region), request, signal);
+  }
+
+  /** Stream a Bedrock Converse response on a specific region client. */
+  private async *streamBedrockOnClient(
+    client: import('@aws-sdk/client-bedrock-runtime').BedrockRuntimeClient,
+    model: string,
+    request: UnifiedChatRequest,
+    signal?: AbortSignal
+  ): AsyncGenerator<UnifiedStreamChunk> {
     const hasTools = !!(request.tools && request.tools.length > 0);
     const { system, messages } = this.convertToBedrockMessages(request.messages, hasTools);
 
@@ -1139,6 +1171,106 @@ export class LLMClientManager {
       model,
       provider: 'bedrock',
     };
+  }
+
+  /**
+   * Hedged Bedrock stream: start the primary region; if it produces no first
+   * chunk within BEDROCK_HEDGE_MS, start a duplicate on a fallback region and
+   * stream from whichever yields the first chunk first. The loser is aborted.
+   * If one region errors before producing, the other takes over (resilience).
+   */
+  private async *executeBedrockHedgedStream(
+    request: UnifiedChatRequest,
+    baseModel: string,
+    signal: AbortSignal | undefined,
+    primary: { region: string; client: import('@aws-sdk/client-bedrock-runtime').BedrockRuntimeClient },
+    hedge: { region: string; client: import('@aws-sdk/client-bedrock-runtime').BedrockRuntimeClient }
+  ): AsyncGenerator<UnifiedStreamChunk> {
+    type Pull = { src: 1 | 2; r?: IteratorResult<UnifiedStreamChunk>; err?: any };
+
+    const ac1 = new AbortController();
+    const ac2 = new AbortController();
+    const onOuterAbort = () => { ac1.abort(); ac2.abort(); };
+    if (signal) {
+      if (signal.aborted) onOuterAbort();
+      else signal.addEventListener('abort', onOuterAbort, { once: true });
+    }
+    const cleanup = () => { if (signal) signal.removeEventListener('abort', onOuterAbort); };
+
+    const m1 = swapRegionPrefix(baseModel, primary.region);
+    const m2 = swapRegionPrefix(baseModel, hedge.region);
+
+    const it1 = this.streamBedrockOnClient(primary.client, m1, request, ac1.signal)[Symbol.asyncIterator]();
+    const pull1: Promise<Pull> = it1.next().then(r => ({ src: 1 as const, r })).catch(err => ({ src: 1 as const, err }));
+
+    let it2: AsyncIterator<UnifiedStreamChunk> | null = null;
+    let pull2: Promise<Pull> | null = null;
+    const startHedge = (): Promise<Pull> => {
+      it2 = this.streamBedrockOnClient(hedge.client, m2, request, ac2.signal)[Symbol.asyncIterator]();
+      pull2 = it2.next().then(r => ({ src: 2 as const, r })).catch(err => ({ src: 2 as const, err }));
+      return pull2;
+    };
+
+    const timer = new Promise<'timer'>(res => setTimeout(() => res('timer'), BEDROCK_HEDGE_MS));
+
+    try {
+      // Phase 1: wait for the primary's first chunk, or the hedge timer.
+      let decided = await Promise.race([pull1, timer]);
+      if (decided === 'timer') {
+        logger.info('Bedrock hedge: primary slow, starting second region', {
+          primaryRegion: primary.region, hedgeRegion: hedge.region, hedgeMs: BEDROCK_HEDGE_MS,
+        });
+        decided = await Promise.race([pull1, startHedge()]);
+      }
+      const first = decided as Pull;
+
+      // Phase 2: resolve the winner, handling the case where the first to settle errored.
+      let winner: AsyncIterator<UnifiedStreamChunk>;
+      let loserAc: AbortController;
+      let firstResult: IteratorResult<UnifiedStreamChunk> | null = null;
+
+      if (!first.err) {
+        if (first.src === 1) { winner = it1; loserAc = ac2; }
+        else { winner = it2!; loserAc = ac1; }
+        firstResult = first.r!;
+      } else if (first.src === 1) {
+        // Primary failed before producing — fall back to the hedge.
+        logger.warn('Bedrock hedge: primary region failed, using second region', {
+          region: primary.region, error: first.err?.message,
+        });
+        const r2 = await (pull2 ?? startHedge());
+        if (r2.err) { throw first.err; } // both regions failed
+        winner = it2!; loserAc = ac1; firstResult = r2.r!;
+      } else {
+        // Hedge failed before producing — fall back to the primary.
+        logger.warn('Bedrock hedge: second region failed, using primary', {
+          region: hedge.region, error: first.err?.message,
+        });
+        const r1 = await pull1;
+        if (r1.err) { throw r1.err; } // both regions failed
+        winner = it1; loserAc = ac2; firstResult = r1.r!;
+      }
+
+      // Abort the loser and swallow its abandoned pull promise.
+      loserAc.abort();
+      const loserPull: Promise<Pull> | null = loserAc === ac1 ? pull1 : pull2;
+      loserPull?.catch(() => {});
+
+      // Emit the winner's first chunk, then drain the rest.
+      if (firstResult) {
+        if (!firstResult.done && firstResult.value) yield firstResult.value;
+        if (firstResult.done) return;
+      }
+      while (!signal?.aborted) {
+        const r = await winner.next();
+        if (r.done) break;
+        if (r.value) yield r.value;
+      }
+    } finally {
+      ac1.abort();
+      ac2.abort();
+      cleanup();
+    }
   }
 
   // ─── Fallback ───────────────────────────────────────────────────
