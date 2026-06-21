@@ -295,7 +295,13 @@ async function fetchEditionDates(httpClient: AxiosInstance, bucket: TokenBucket,
     if (dates.size > 0) console.log(`  (fallback) parsed ${dates.size} edition dates from card4 history table`);
   }
 
-  return [...dates].sort();
+  // Drop implausible / sentinel dates: Rada uses year 3000 (ed3000XXXX) for
+  // editions with no fixed effective date; real editions fall within 1900-2099.
+  const plausible = [...dates].filter((k) => {
+    const y = Number(k.slice(0, 4));
+    return y >= 1900 && y <= 2099;
+  });
+  return plausible.sort();
 }
 
 // ─── Import One Edition ──────────────────────────────────────────────────────
