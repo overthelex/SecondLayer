@@ -215,6 +215,38 @@ describe('EdsrUnifiedSearchTool', () => {
       expect(parsed.results[0].court_name).toBe('Оболонський');
       expect(parsed.results[0].justice_kind_name).toBe('Цивільне');
     });
+
+    it('truncates an over-long fulltext query to the leading tokens', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService);
+
+      const longQuery = 'один два три чотири пять шість сім вісім девять';
+      const result = await tool.executeTool('search_court_decisions', {
+        mode: 'fulltext', query: longQuery,
+      });
+
+      const passedQuery = mockFtsService.searchFulltext.mock.calls[0][0];
+      expect(passedQuery.split(/\s+/)).toHaveLength(6);
+      expect(passedQuery).toBe('один два три чотири пять шість');
+      const parsed = JSON.parse(result?.content[0].text || '{}');
+      expect(parsed.query_truncated.from_tokens).toBe(9);
+    });
+
+    it('falls back to hybrid when FTS returns zero matches', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      mockFtsService.searchFulltext = jest.fn(() =>
+        Promise.resolve({ query: 'x', total: 0, results: [] }));
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService, mockVectorizer);
+
+      const result = await tool.executeTool('search_court_decisions', {
+        mode: 'fulltext', query: 'безпідставне збагачення',
+      });
+
+      const parsed = JSON.parse(result?.content[0].text || '{}');
+      expect(parsed.mode).toBe('hybrid');
+      expect(parsed.fallback_from).toBe('fulltext');
+      expect(mockVectorizer.semanticSearch).toHaveBeenCalled();
+    });
   });
 
   describe('hybrid mode', () => {
