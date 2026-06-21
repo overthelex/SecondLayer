@@ -1,12 +1,15 @@
 /**
- * useAIChatPlan Hook
- * Plan review flow: request plan, pending state, approval/rejection, skip.
- * Extracted from useAIChat to keep each hook focused.
+ * useAIChatExecute Hook
+ * Starts a chat turn and streams the answer directly.
+ *
+ * The previous two-phase plan-review flow (request plan → show depth dialog →
+ * confirm/skip → execute) was removed. Analysis depth (standard/deep) is now
+ * decided automatically inside the secondlayer-core pipeline, so the chat runs
+ * straight through without an intermediate confirmation dialog.
  */
 
 import { useCallback } from 'react';
 import { useChatStore } from '../../stores';
-import { mcpService } from '../../services';
 import type { ExecutionPlan } from '../../types/models/Message';
 import { handleCatchError } from './chat-error-utils';
 
@@ -28,15 +31,10 @@ export function useAIChatPlan(options: UseAIChatPlanOptions) {
     updateMessage,
     setStreaming,
     setCurrentTool,
-    setPendingPlanReview,
-    setIsPlanLoading,
   } = useChatStore();
 
   const { runChatStream, onError } = options;
 
-  /**
-   * Phase 1: Request plan for user review, then pause.
-   */
   const executeChat = useCallback(
     async (query: string, _documentIds?: string[], allowDeepEscalation?: boolean, internetEnabled?: boolean) => {
       const userMessage = {
@@ -63,27 +61,6 @@ export function useAIChatPlan(options: UseAIChatPlanOptions) {
         thinkingSteps: [],
       });
 
-      setIsPlanLoading(true);
-      try {
-        const planResult = await mcpService.requestPlan(query, 'standard', internetEnabled);
-
-        if (planResult.plan && planResult.planSessionId) {
-          setIsPlanLoading(false);
-          updateMessage(assistantMessageId, { isStreaming: false });
-          setPendingPlanReview({
-            plan: planResult.plan,
-            planSessionId: planResult.planSessionId,
-            query,
-            assistantMessageId,
-          });
-          return;
-        }
-      } catch (err) {
-        console.warn('[AIChat] Plan request failed, falling through to direct execution', err);
-      }
-
-      // No plan or plan failed -> direct execution
-      setIsPlanLoading(false);
       setStreaming(true);
       setCurrentTool('ai_chat');
 
@@ -95,60 +72,8 @@ export function useAIChatPlan(options: UseAIChatPlanOptions) {
         });
       }
     },
-    [addMessage, updateMessage, setStreaming, setCurrentTool, setIsPlanLoading, setPendingPlanReview, runChatStream, onError]
+    [addMessage, updateMessage, setStreaming, setCurrentTool, runChatStream, onError]
   );
 
-  /**
-   * Phase 2: User confirmed the plan with depth choices -> execute.
-   */
-  const confirmPlanAndExecute = useCallback(
-    async (approvedPlan: ExecutionPlan) => {
-      const pending = useChatStore.getState().pendingPlanReview;
-      if (!pending) return;
-
-      const { query, assistantMessageId, planSessionId } = pending;
-
-      setPendingPlanReview(null);
-      updateMessage(assistantMessageId, { isStreaming: true, content: '' });
-      setStreaming(true);
-      setCurrentTool('ai_chat');
-
-      try {
-        await runChatStream(query, assistantMessageId, approvedPlan, planSessionId);
-      } catch (error: unknown) {
-        handleCatchError(assistantMessageId, error, {
-          updateMessage, setStreaming, setCurrentTool, onError,
-        });
-      }
-    },
-    [updateMessage, setStreaming, setCurrentTool, setPendingPlanReview, runChatStream, onError]
-  );
-
-  /**
-   * Skip plan review -> execute with default depths.
-   */
-  const skipPlanReview = useCallback(
-    async () => {
-      const pending = useChatStore.getState().pendingPlanReview;
-      if (!pending) return;
-
-      const { query, assistantMessageId } = pending;
-
-      setPendingPlanReview(null);
-      updateMessage(assistantMessageId, { isStreaming: true, content: '' });
-      setStreaming(true);
-      setCurrentTool('ai_chat');
-
-      try {
-        await runChatStream(query, assistantMessageId);
-      } catch (error: unknown) {
-        handleCatchError(assistantMessageId, error, {
-          updateMessage, setStreaming, setCurrentTool, onError,
-        });
-      }
-    },
-    [updateMessage, setStreaming, setCurrentTool, setPendingPlanReview, runChatStream, onError]
-  );
-
-  return { executeChat, confirmPlanAndExecute, skipPlanReview };
+  return { executeChat };
 }
