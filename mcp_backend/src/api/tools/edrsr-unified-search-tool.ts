@@ -22,6 +22,10 @@ import type { EdsrVectorizerService, EdrsrSearchFilters, EdrsrSearchResult } fro
 const DEFAULT_RRF_K = 60;
 const DEFAULT_OVERSAMPLE = 3;
 const MAX_OVERSAMPLE = 5;
+// plainto_tsquery ANDs every token, so a long multi-word query (the LLM often emits
+// 7-9 words) matches no single document. Cap the FTS leg to the leading tokens; the
+// full query still drives the hybrid fallback when FTS returns nothing.
+const FULLTEXT_MAX_TOKENS = 6;
 
 const KUPAP_PRESETS: Record<string, { category_codes: number[]; label: string }> = {
   'traffic_dui':        { category_codes: [41090, 5952], label: 'П\'яне водіння (ст. 130 КУпАП)' },
@@ -320,18 +324,38 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
         if (courtResult.rows.length > 0) courtCode = courtResult.rows[0].court_code;
       }
 
+      // Cap the FTS query to its leading tokens — a long all-AND query matches nothing.
+      const originalQuery = String(args.query).trim();
+      const tokens = originalQuery.split(/\s+/).filter(Boolean);
+      let ftsQuery = originalQuery;
+      let truncatedFromTokens: number | undefined;
+      if (tokens.length > FULLTEXT_MAX_TOKENS) {
+        ftsQuery = tokens.slice(0, FULLTEXT_MAX_TOKENS).join(' ');
+        truncatedFromTokens = tokens.length;
+      }
+
       const result = await this.ftsService.searchFulltext(
-        args.query, this.db,
+        ftsQuery, this.db,
         { court_code: courtCode, judge: args.judge, date_from: args.date_from, date_to: args.date_to,
           justice_kind: args.justice_kind, judgment_code: args.judgment_code, category_code: args.category_code } as EdsrFtsFilters,
         args.limit || 20, args.offset || 0,
       );
 
+      // Genuine no-match (not merely relevance-filtered) → fall back to hybrid, whose
+      // semantic leg doesn't require every token to co-occur. Uses the ORIGINAL query.
+      if (result.total === 0 && this.vectorizer) {
+        logger.info('[EdsrUnifiedSearch] fulltext 0 results, falling back to hybrid', {
+          query: originalQuery, ftsQuery, justice_kind: args.justice_kind,
+        });
+        return this.searchHybrid({ ...args, query: originalQuery, _fallback_from: 'fulltext' });
+      }
+
       const enriched = await this.enrichResults(result.results);
-      const output = await this.maybeFilter(enriched, args.query);
+      const output = await this.maybeFilter(enriched, ftsQuery);
 
       return this.wrapResponse({
         mode: 'fulltext', ...result,
+        ...(truncatedFromTokens ? { query_truncated: { from_tokens: truncatedFromTokens, used: ftsQuery } } : {}),
         results: output.filtered,
         ...(output.original_count !== output.filtered_count
           ? { relevance_filter: { from: output.original_count, to: output.filtered_count } }
@@ -393,6 +417,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
     return this.wrapResponse({
       mode: 'hybrid', query, rrf_k: rrfK, oversample,
+      ...(args._fallback_from ? { fallback_from: args._fallback_from } : {}),
       ...(reformulated ? { reformulated: { fts: reformulated.fts, semantic: reformulated.semantic } } : {}),
       legs: { fts_available: !!ftsResponse, vector_available: !!vectorResults, fts_candidates: ftsResults.length, vector_candidates: vectorHits.length },
       total_fused: fused.length, returned: output.filtered.length,
