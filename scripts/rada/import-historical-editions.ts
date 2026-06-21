@@ -23,8 +23,10 @@ import pg from 'pg';
 const SCRIPTS_DIR = path.resolve(__dirname);
 const PROGRESS_FILE = path.join(SCRIPTS_DIR, 'historical-editions-progress.json');
 const BASE_URL = 'https://zakon.rada.gov.ua';
-const RATE_LIMIT = 2; // requests per second
-const MAX_RETRIES = 3;
+// Tunable via env. Defaults chosen to stay under Rada's throttle (sustained 2 req/s + retries tripped HTTP 429).
+const RATE_LIMIT = Number(process.env.RADA_RATE_LIMIT || 1.5); // global requests per second (shared across workers)
+const CONCURRENCY = Number(process.env.RADA_CONCURRENCY || 4); // parallel workers saturating the shared rate budget
+const MAX_RETRIES = Number(process.env.RADA_MAX_RETRIES || 6);
 const CHECKPOINT_INTERVAL = 5;
 
 const CODES: Array<{ rada_id: string; short_title: string }> = [
@@ -105,20 +107,48 @@ function createHttpClient(): AxiosInstance {
   });
 }
 
-// ─── Retry ───────────────────────────────────────────────────────────────────
+// ─── Status-aware fetch with backoff ─────────────────────────────────────────
+// httpClient uses validateStatus:()=>true, so 429/5xx come back as normal
+// responses (NOT thrown). We must inspect status here and back off — honoring
+// Retry-After when Rada sends it — otherwise throttling looks like a hard fail.
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
-async function withRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promise<T> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
+async function fetchWithBackoff(
+  httpClient: AxiosInstance,
+  bucket: TokenBucket,
+  url: string,
+): Promise<string> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    await bucket.acquire();
+    let response;
     try {
-      return await fn();
+      response = await httpClient.get(url);
     } catch (err: any) {
-      if (attempt === retries) throw err;
-      const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
-      console.error(`  Attempt ${attempt} failed: ${err.message}, retrying in ${delay}ms...`);
+      // network-level error (timeout/reset) — back off and retry
+      if (attempt === MAX_RETRIES) throw err;
+      const delay = Math.min(2000 * Math.pow(2, attempt - 1), 60000) + Math.floor(Math.random() * 1000);
       await new Promise(r => setTimeout(r, delay));
+      continue;
     }
+
+    if (response.status === 200) return response.data as string;
+
+    if (RETRYABLE_STATUS.has(response.status) && attempt < MAX_RETRIES) {
+      // Honor Retry-After (seconds or HTTP-date); else exponential backoff + jitter
+      const ra = response.headers?.['retry-after'];
+      let delay = Math.min(2000 * Math.pow(2, attempt - 1), 60000) + Math.floor(Math.random() * 1000);
+      if (ra) {
+        const raSec = Number(ra);
+        if (!Number.isNaN(raSec)) delay = Math.max(delay, raSec * 1000);
+        else { const t = Date.parse(ra); if (!Number.isNaN(t)) delay = Math.max(delay, t - Date.now()); }
+      }
+      await new Promise(r => setTimeout(r, delay));
+      continue;
+    }
+
+    throw new Error(`HTTP ${response.status} for ${url}`);
   }
-  throw new Error('Unreachable');
+  throw new Error(`Exhausted ${MAX_RETRIES} retries for ${url}`);
 }
 
 // ─── Progress Tracking ───────────────────────────────────────────────────────
@@ -241,13 +271,9 @@ function extractArticlesFromEditionHtml(html: string): Array<{ article_number: s
 // ─── Edition Discovery ───────────────────────────────────────────────────────
 
 async function fetchEditionDates(httpClient: AxiosInstance, bucket: TokenBucket, radaId: string): Promise<string[]> {
-  await bucket.acquire();
   const url = `${BASE_URL}/laws/show/${radaId}/card4`;
   console.log(`  Fetching edition dates from ${url}`);
-  const response = await withRetry(() => httpClient.get(url));
-  if (response.status !== 200) throw new Error(`HTTP ${response.status} for ${url}`);
-
-  const html = response.data as string;
+  const html = await fetchWithBackoff(httpClient, bucket, url);
   // Match /ed{YYYYMMDD} links — rada_id may appear URL-encoded in HTML
   const edRegex = /\/ed(\d{8})/g;
   const dates = new Set<string>();
@@ -267,12 +293,8 @@ async function importEdition(
   radaId: string,
   editionDate: string,
 ): Promise<number> {
-  await bucket.acquire();
   const url = `${BASE_URL}/laws/show/${radaId}/ed${editionDate}/print`;
-  const response = await withRetry(() => httpClient.get(url));
-  if (response.status !== 200) throw new Error(`HTTP ${response.status} for ${url}`);
-
-  const html = response.data as string;
+  const html = await fetchWithBackoff(httpClient, bucket, url);
   const articles = extractArticlesFromEditionHtml(html);
   if (articles.length === 0) return 0;
 
@@ -317,15 +339,18 @@ async function importEdition(
 async function main() {
   const args = process.argv.slice(2);
   const codeArg = args.find(a => a.startsWith('--code='))?.split('=')[1];
+  const codesArg = args.find(a => a.startsWith('--codes='))?.split('=')[1];
+  const codesList = codesArg ? codesArg.split(',').map(s => s.trim()).filter(Boolean) : null;
   const allArg = args.includes('--all');
   const resumeArg = args.includes('--resume');
   const fromArg = args.find(a => a.startsWith('--from='))?.split('=')[1];
   const toArg = args.find(a => a.startsWith('--to='))?.split('=')[1];
   const dryRun = args.includes('--dry-run');
 
-  if (!codeArg && !allArg && !resumeArg) {
+  if (!codeArg && !codesList && !allArg && !resumeArg) {
     console.log('Usage:');
     console.log('  --code=ЦК              Import one code');
+    console.log('  --codes=ПК,КК,ЗК       Import a specific subset (disjoint split across machines)');
     console.log('  --all                   Import all 16 codes');
     console.log('  --resume                Resume from checkpoint');
     console.log('  --from=YYYYMMDD         Start from this edition date');
@@ -335,7 +360,7 @@ async function main() {
   }
 
   const dbUrl = process.env.DATABASE_URL || 'postgresql://secondlayer:secondlayer@localhost:5432/secondlayer_prod';
-  const pool = new pg.Pool({ connectionString: dbUrl, max: 3 });
+  const pool = new pg.Pool({ connectionString: dbUrl, max: Math.max(CONCURRENCY + 2, 5) });
 
   // Ensure migration tables exist
   await pool.query(`
@@ -363,6 +388,15 @@ async function main() {
       process.exit(1);
     }
     codesToProcess = [found];
+  } else if (codesList) {
+    codesToProcess = codesList.map(token => {
+      const found = CODES.find(c => c.short_title === token || c.rada_id === token);
+      if (!found) {
+        console.error(`Unknown code: ${token}. Available: ${CODES.map(c => c.short_title).join(', ')}`);
+        process.exit(1);
+      }
+      return found;
+    });
   } else {
     codesToProcess = CODES;
   }
@@ -417,25 +451,45 @@ async function main() {
       continue;
     }
 
-    let editionsDone = 0;
-    for (const edDate of toImport) {
-      try {
-        const artCount = await importEdition(httpClient, bucket, pool, legislationId, code.rada_id, edDate);
-        cp.completed_editions.push(edDate);
-        totalEditionsImported++;
-        totalArticlesImported += artCount;
-        editionsDone++;
-
-        if (editionsDone % CHECKPOINT_INTERVAL === 0) {
-          saveProgress(progress);
-          const pct = ((alreadyImported.size + editionsDone) / editionDates.length * 100).toFixed(1);
-          console.log(`  [${editionsDone}/${toImport.length}] ed${edDate}: ${artCount} articles (${pct}% of ${code.short_title})`);
+    // Worker pool: CONCURRENCY workers share the single global rate bucket,
+    // so they saturate the safe req/s budget without exceeding it.
+    let progressCount = 0;
+    const runPool = async (items: string[], label: string): Promise<string[]> => {
+      const failed: string[] = [];
+      let idx = 0;
+      const worker = async () => {
+        for (;;) {
+          const i = idx++;
+          if (i >= items.length) break;
+          const edDate = items[i];
+          try {
+            const artCount = await importEdition(httpClient, bucket, pool, legislationId, code.rada_id, edDate);
+            cp.completed_editions.push(edDate);
+            totalEditionsImported++;
+            totalArticlesImported += artCount;
+            progressCount++;
+            if (progressCount % CHECKPOINT_INTERVAL === 0) {
+              saveProgress(progress);
+              const pct = ((alreadyImported.size + progressCount) / editionDates.length * 100).toFixed(1);
+              console.log(`  [${progressCount}/${toImport.length}] ${label} ed${edDate}: ${artCount} articles (${pct}% of ${code.short_title})`);
+            }
+          } catch (err: any) {
+            console.error(`  FAILED ${label} ed${edDate}: ${err.message}`);
+            failed.push(edDate);
+          }
         }
-      } catch (err: any) {
-        console.error(`  FAILED ed${edDate}: ${err.message}`);
-        cp.failed_editions.push(edDate);
-      }
+      };
+      await Promise.all(Array.from({ length: Math.max(1, Math.min(CONCURRENCY, items.length)) }, () => worker()));
+      return failed;
+    };
+
+    let failed = await runPool(toImport, 'main');
+    if (failed.length > 0) {
+      console.log(`  Retrying ${failed.length} failed editions for ${code.short_title}...`);
+      failed = await runPool(failed, 'retry');
     }
+    for (const f of failed) cp.failed_editions.push(f);
+    const editionsDone = toImport.length - failed.length;
 
     // Update total_editions on legislation table
     await pool.query(
