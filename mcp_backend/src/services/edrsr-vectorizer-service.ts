@@ -121,7 +121,15 @@ export class EdsrVectorizerService {
 
     const qdrantUrl = process.env.QDRANT_EDRSR_URL || process.env.QDRANT_URL || 'http://localhost:6333';
     const qdrantApiKey = process.env.QDRANT_EDRSR_API_KEY || process.env.QDRANT_API_KEY;
-    this.qdrant = new QdrantClient({ url: qdrantUrl, ...(qdrantApiKey && { apiKey: qdrantApiKey }) });
+    // Cap request duration so a rare disk-bound stall on the large on-disk
+    // `edrsr_serving` collection fails fast and the caller can degrade to FTS,
+    // instead of hanging until the upstream 60s timeout and surfacing a 500.
+    const qdrantTimeoutMs = Number(process.env.QDRANT_EDRSR_TIMEOUT_MS || 12000);
+    this.qdrant = new QdrantClient({
+      url: qdrantUrl,
+      timeout: qdrantTimeoutMs,
+      ...(qdrantApiKey && { apiKey: qdrantApiKey }),
+    });
 
     this.concurrency = concurrency;
   }
@@ -346,9 +354,19 @@ export class EdsrVectorizerService {
         limit,
         filter: qdrantFilter,
         with_payload: true,
-        // Binary-quantized serving collection: rescore against full vectors with
-        // oversampling for recall (no-op on non-quantized collections).
-        params: { quantization: { rescore: true, oversampling: 2.0 } },
+        // `edrsr_serving` keeps full vectors on disk with binary quantization in
+        // RAM. Rescore re-reads full f32 vectors from the gp3 volume and stalls
+        // past the request timeout under concurrency, so it defaults OFF —
+        // scoring runs from the in-RAM quantized vectors with a wider hnsw_ef to
+        // recover recall. Set QDRANT_EDRSR_RESCORE=true to restore full-vector
+        // rescore with oversampling (higher recall, disk-bound under load).
+        params: {
+          hnsw_ef: Number(process.env.QDRANT_EDRSR_HNSW_EF || 128),
+          quantization:
+            process.env.QDRANT_EDRSR_RESCORE === 'true'
+              ? { rescore: true, oversampling: Number(process.env.QDRANT_EDRSR_OVERSAMPLING || 2.0) }
+              : { rescore: false },
+        },
       });
 
       return searchResult.map((r) => ({
