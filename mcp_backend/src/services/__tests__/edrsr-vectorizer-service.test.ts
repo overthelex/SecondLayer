@@ -6,7 +6,7 @@
  * and error paths.
  */
 
-const mockGetCollections = jest.fn().mockResolvedValue({ collections: [{ name: 'edrsr_decisions' }] });
+const mockGetCollections = jest.fn().mockResolvedValue({ collections: [{ name: 'edrsr_serving' }] });
 const mockGetCollection = jest.fn().mockResolvedValue({ points_count: 5000 });
 const mockCollectionExists = jest.fn().mockResolvedValue(true);
 
@@ -83,7 +83,7 @@ describe('EdsrVectorizerService', () => {
     it('should return stats when collection exists', async () => {
       const service = new EdsrVectorizerService();
       mockGetCollections.mockResolvedValueOnce({
-        collections: [{ name: 'edrsr_decisions' }],
+        collections: [{ name: 'edrsr_serving' }],
       });
       mockGetCollection.mockResolvedValueOnce({ points_count: 5000 });
 
