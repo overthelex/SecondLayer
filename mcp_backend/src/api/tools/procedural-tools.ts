@@ -32,9 +32,7 @@ import {
   buildSupremeCourtWhereFilter,
   searchWithInstanceCascade,
   mapProcedureCodeToJusticeKind,
-  extractCaseNumberFromText,
   safeParseJsonFromToolResult,
-  resolveCourtDecisionDocIdByCaseNumber,
 } from '../tool-utils.js';
 
 /**
@@ -357,52 +355,37 @@ export class ProceduralTools extends BaseToolHandler {
 
     if (!query) throw new Error('query parameter is required');
 
-    const timeRangeParsed = parseTimeRangeToDates(args.time_range);
-    const whereFilters: any[] = [
-      ...(courtLevel ? buildSupremeCourtWhereFilter(courtLevel) : []),
-    ];
-    if (procedureCode) {
-      const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
-      if (justiceKind !== null) {
-        whereFilters.push({ field: 'justice_kind', operator: '=', value: justiceKind });
-      }
-    }
+    if (!this.ftsService || !this.db) throw new Error('FTS сервіс недоступний для пошуку практики');
 
-    const searchParams: any = {
-      meta: { search: query },
-      where: whereFilters.length > 0 ? whereFilters : undefined,
-      limit: Math.max(limit, 20),
-      offset: 0,
+    const timeRangeParsed = parseTimeRangeToDates(args.time_range);
+    const filters: EdsrFtsFilters = {
       ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
       ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
     };
+    if (procedureCode) {
+      const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
+      if (justiceKind !== null) filters.justice_kind = justiceKind;
+    }
+    // Supreme Court / Grand Chamber == cassation instance in the EDRSR court table.
+    if (courtLevel === 'SC' || courtLevel === 'GrandChamber') filters.instance_code = 1;
 
-    const response = await this.zoAdapter.searchCourtDecisions(searchParams);
-    const normalized = await this.zoAdapter.normalizeResponse(response);
+    const ftsResp = await this.ftsService.searchFulltext(query, this.db, filters, Math.max(limit, 20), 0);
 
-    const scCourtCodePrefix = '99';
-    const filtered = normalized.data.filter((d: any) => {
-      if (courtLevel !== 'SC' && courtLevel !== 'GrandChamber') return true;
-      const code = String(d?.court_code || '');
-      if (!code.startsWith(scCourtCodePrefix)) return false;
-      if (courtLevel === 'GrandChamber') return code === '9901';
-      return true;
-    });
+    // Grand Chamber lives under a single court_code (9901); narrow when explicitly requested.
+    let rows = ftsResp.results;
+    if (courtLevel === 'GrandChamber') {
+      rows = rows.filter((r) => String(r.court_code || '') === '9901');
+    }
 
-    const results = filtered.slice(0, limit).map((d: any) => {
-      const fullText = typeof d.full_text === 'string' ? d.full_text : '';
-      const courtName = extractCourtFromTitle(d?.title);
-      return {
-        doc_id: d?._raw?.doc_id ?? d?.doc_id ?? d?.zakononline_id,
-        court: d?.court || courtName,
-        chamber: courtName,
-        date: d?.date || d?.adjudication_date,
-        case_number: d?.case_number || d?.cause_num,
-        url: d?._raw?.url || d?.url,
-        section_focus: sectionFocus,
-        snippets: extractSnippets(fullText, query, 2),
-      };
-    });
+    const results = rows.slice(0, limit).map((r) => ({
+      doc_id: r.doc_id,
+      court_code: r.court_code,
+      date: r.adjudication_date,
+      case_number: r.cause_num,
+      url: `https://reyestr.court.gov.ua/Review/${r.doc_id}`,
+      section_focus: sectionFocus,
+      snippets: r.headline ? [r.headline] : [],
+    }));
 
     return this.wrapResponse({
       procedure_code: procedureCode || 'all',
@@ -986,65 +969,10 @@ export class ProceduralTools extends BaseToolHandler {
       for (const q of broadQueries) { if (await runQuery(q)) break; }
     }
 
-    // Court practice recall
-    if (practiceUseCourtPractice && practiceCaseMapMax > 0 && aggregated.length < minWanted) {
-      try {
-        const courtPracticeQueries = Array.from(new Set([
-          primaryQueries[0] || '',
-          `строк апеляційного оскарження повний текст`,
-          `поновлення строку апеляційного оскарження`,
-          `з якого моменту обчислюється строк апеляційного оскарження`,
-        ].map(s => String(s || '').trim()).filter(Boolean))).slice(0, 4);
-
-        const mapped: Array<{ case_number: string; doc_id: number }> = [];
-        const unmapped: string[] = [];
-        const caseNumbers: string[] = [];
-        let practiceCandidatesTotal = 0;
-
-        for (const q of courtPracticeQueries) {
-          const resp = await this.zoPracticeAdapter.searchCourtDecisions({
-            meta: { search: q },
-            limit: Math.min(50, practiceCaseMapMax * 3),
-            offset: 0,
-            ...(practiceDisableTimeRange ? {} : parseTimeRangeToDates(practiceTimeRange)),
-          } as any);
-          const norm = await this.zoPracticeAdapter.normalizeResponse(resp);
-          const candidates = Array.isArray(norm?.data) ? norm.data : [];
-          practiceCandidatesTotal += candidates.length;
-
-          for (const d of candidates) {
-            const cnRaw = String(d?.case_number || d?._raw?.cause_num || d?._raw?.case_number || d?.case_number_text || '').trim();
-            const cn = cnRaw || extractCaseNumberFromText(String(d?.title || d?._raw?.title || d?._raw?.name || d?.name || '')) || '';
-            if (!cn || caseNumbers.includes(cn)) continue;
-            caseNumbers.push(cn);
-            if (caseNumbers.length >= practiceCaseMapMax) break;
-          }
-          if (caseNumbers.length >= practiceCaseMapMax) break;
-        }
-
-        for (const cn of caseNumbers) {
-          const docId = await resolveCourtDecisionDocIdByCaseNumber(this.zoAdapter, cn);
-          if (!docId) { unmapped.push(cn); continue; }
-          mapped.push({ case_number: cn, doc_id: docId });
-          const id = String(docId);
-          if (seen.has(id)) continue;
-          seen.add(id);
-          aggregated.push({ doc_id: docId, case_number: cn, source: 'court_practice' });
-          if (aggregated.length >= practiceLimit) break;
-        }
-
-        (args.__debug_stats ??= {});
-        args.__debug_stats.court_practice = {
-          queries: courtPracticeQueries,
-          candidates_total: practiceCandidatesTotal,
-          case_numbers_collected: caseNumbers.length,
-          mapped: mapped.length,
-          unmapped: unmapped.length,
-        };
-      } catch (e: any) {
-        practiceError = practiceError || String(e?.message || e);
-      }
-    }
+    // (Removed) Legacy "court practice recall" fallback — it depended on the deleted
+    // ZakonOnline adapter stubs (zoPracticeAdapter.searchCourtDecisions +
+    // resolveCourtDecisionDocIdByCaseNumber) and only ever returned empty. Primary
+    // (searchSupremeCourtPractice over EDRSR FTS) + broad queries cover recall now.
 
     // Build structured payload sections
     const conclusion = {
@@ -1233,23 +1161,24 @@ export class ProceduralTools extends BaseToolHandler {
 
   /** Helper for practice expansion - fetches a court decision by doc_id */
   private async getCourtDecisionForExpansion(docId: number, depth: number, budget: string): Promise<ToolResult> {
-    const searchResult = await this.zoAdapter.searchCourtDecisions({
-      meta: { search: String(docId) },
-      limit: 1,
-      fulldata: 1,
-    });
+    // Read full text + case number straight from the prod EDRSR DB (replaces the deleted
+    // ZakonOnline adapter stubs searchCourtDecisions/getDocumentFullText).
+    let fullText = '';
+    let caseNumber: string | undefined;
+    if (this.db) {
+      const r = await this.db.query(
+        `SELECT f.full_text, d.cause_num
+         FROM edrsr_fulltext f
+         LEFT JOIN edrsr_documents d ON d.doc_id = f.doc_id
+         WHERE f.doc_id = $1 LIMIT 1`,
+        [docId],
+      );
+      const row = r.rows?.[0];
+      fullText = typeof row?.full_text === 'string' ? row.full_text : '';
+      caseNumber = row?.cause_num || undefined;
+    }
 
-    const metadata = searchResult?.data?.[0] || null;
-    const fullTextData = await this.zoAdapter.getDocumentFullText(docId);
-    const doc = {
-      ...metadata,
-      text: fullTextData?.text,
-      html: fullTextData?.html,
-      case_number: fullTextData?.case_number || metadata?.case_number,
-    };
-
-    const fullText = typeof doc?.full_text === 'string' ? doc.full_text : (typeof doc?.text === 'string' ? doc.text : '');
-    const url = typeof doc?.url === 'string' ? doc.url : `https://zakononline.ua/court-decisions/show/${docId}`;
+    const url = `https://reyestr.court.gov.ua/Review/${docId}`;
 
     const extractedSections = fullText
       ? await this.sectionizer.extractSections(fullText, budget === 'deep')
@@ -1263,8 +1192,8 @@ export class ProceduralTools extends BaseToolHandler {
       : [];
 
     return this.wrapResponse({
-      doc_id: doc?.doc_id || doc?.zakononline_id || docId,
-      case_number: doc?.case_number || undefined,
+      doc_id: docId,
+      case_number: caseNumber,
       url,
       depth,
       sections: sections.slice(0, depth),

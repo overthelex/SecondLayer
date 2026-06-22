@@ -365,32 +365,6 @@ export function parseOpenReyestrResponse(response: any): any {
 // ========================= Functions with Dependencies =========================
 
 /**
- * Resolve court decision doc_id by case number using ZO adapter search.
- */
-export async function resolveCourtDecisionDocIdByCaseNumber(
-  zoAdapter: EdsrLocalAdapter,
-  caseNumber: string
-): Promise<number | null> {
-  const cn = String(caseNumber || '').trim();
-  if (!cn) return null;
-  try {
-    const resp = await zoAdapter.searchCourtDecisions({
-      target: 'title',
-      meta: { search: cn },
-      limit: 5,
-      offset: 0,
-    } as any);
-    const norm = await zoAdapter.normalizeResponse(resp);
-    const top = Array.isArray(norm?.data) ? norm.data[0] : null;
-    const docId = top?._raw?.doc_id ?? top?.doc_id;
-    const n = Number(docId);
-    return Number.isFinite(n) ? n : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Call a RADA MCP tool via HTTP API.
  */
 export async function callRadaTool(toolName: string, args: any): Promise<any> {
