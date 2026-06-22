@@ -101,6 +101,8 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 • **hybrid** — FTS + семантичний пошук (Qdrant BGE-M3) з мерджем через Reciprocal Rank Fusion. Найкращий recall, коли запит містить і семантику, і точні токени. Семантична нога працює для ВСІХ видів судочинства (justice_kind 1-5).
 • **semantic** — чистий семантичний пошук по векторній базі Qdrant (296M чанків, увесь ЄДРСР). Працює для ВСІХ видів судочинства (justice_kind 1-5); justice_kind не обов'язковий (без нього шукає по всіх кодексах). Найкраще для концептуальних/розмовних запитів.
 
+⚠️ Роль сторони (конкретна особа/компанія саме ЯК відповідач або позивач), точне найменування сторони, № справи чи статті → бери structured або fulltext, НЕ semantic. Семантика знаходить тематично схожі рішення, а не процесуальну роль, тож для «де X — відповідач» дасть неповний і зашумлений результат.
+
 Фільтри (спільні для всіх режимів): court_code/court_name, judge, justice_kind, judgment_code, category_code, date_from/date_to.
 Пресети: military_preset (військові справи), kupap_preset (адмінправопорушення — traffic_dui, traffic_accident, domestic_violence, hooliganism тощо).
 Для повного тексту рішення — get_court_decision. Для резолютивки — edrsr_get_decision_dispositive.`,

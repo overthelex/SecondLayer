@@ -9,6 +9,7 @@
 const mockGetCollections = jest.fn().mockResolvedValue({ collections: [{ name: 'edrsr_serving' }] });
 const mockGetCollection = jest.fn().mockResolvedValue({ points_count: 5000 });
 const mockCollectionExists = jest.fn().mockResolvedValue(true);
+const mockSearch = jest.fn().mockResolvedValue([]);
 
 jest.mock('@qdrant/js-client-rest', () => ({
   QdrantClient: jest.fn().mockImplementation(() => ({
@@ -16,8 +17,9 @@ jest.mock('@qdrant/js-client-rest', () => ({
     getCollection: mockGetCollection,
     collectionExists: mockCollectionExists,
     createCollection: jest.fn().mockResolvedValue({}),
+    createPayloadIndex: jest.fn().mockResolvedValue({}),
     upsert: jest.fn().mockResolvedValue({}),
-    search: jest.fn().mockResolvedValue([]),
+    search: mockSearch,
     scroll: jest.fn().mockResolvedValue({ points: [] }),
   })),
 }));
@@ -33,6 +35,7 @@ jest.mock('../../utils/bge-m3-client.js', () => ({
   BgeM3Client: jest.fn().mockImplementation(() => ({
     embedBatch: jest.fn().mockResolvedValue({ embeddings: [], usage: { total_tokens: 0 } }),
     embed: jest.fn().mockResolvedValue({ embedding: new Array(1024).fill(0), usage: { total_tokens: 50 } }),
+    generateEmbeddingsBatchWithUsage: jest.fn().mockResolvedValue({ embeddings: [new Array(1024).fill(0)], totalTokens: 50 }),
   })),
 }));
 
@@ -129,6 +132,38 @@ describe('EdsrVectorizerService', () => {
     it('should handle empty document array', async () => {
       const service = new EdsrVectorizerService();
       await expect(service.vectorizeDocuments([])).resolves.not.toThrow();
+    });
+  });
+
+  describe('semanticSearch score_threshold', () => {
+    const searchArgs = () => mockSearch.mock.calls.at(-1)![1] as any;
+
+    it('omits score_threshold when unset (no recall regression by default)', async () => {
+      delete process.env.QDRANT_EDRSR_SCORE_THRESHOLD;
+      const service = new EdsrVectorizerService();
+      await service.semanticSearch('тест');
+      expect('score_threshold' in searchArgs()).toBe(false);
+    });
+
+    it('forwards the env-configured floor to Qdrant', async () => {
+      process.env.QDRANT_EDRSR_SCORE_THRESHOLD = '0.45';
+      const service = new EdsrVectorizerService();
+      await service.semanticSearch('тест');
+      expect(searchArgs().score_threshold).toBe(0.45);
+    });
+
+    it('lets a per-call threshold override the env default', async () => {
+      process.env.QDRANT_EDRSR_SCORE_THRESHOLD = '0.45';
+      const service = new EdsrVectorizerService();
+      await service.semanticSearch('тест', undefined, 10, 0.6);
+      expect(searchArgs().score_threshold).toBe(0.6);
+    });
+
+    it('ignores a non-numeric env value', async () => {
+      process.env.QDRANT_EDRSR_SCORE_THRESHOLD = 'abc';
+      const service = new EdsrVectorizerService();
+      await service.semanticSearch('тест');
+      expect('score_threshold' in searchArgs()).toBe(false);
     });
   });
 });
