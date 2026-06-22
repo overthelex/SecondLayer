@@ -16,16 +16,22 @@ import { logger } from '../../utils/logger.js';
 import { EDRSR_METADATA_SEARCH_ORDER } from '../../services/search-ranking-config.js';
 import type { SearchResultFilter } from '../../services/search-result-filter.js';
 import type { QueryReformulator } from '../../services/query-reformulator.js';
-import type { EdsrFtsService, EdsrFtsFilters } from '../../services/edrsr-fts-service.js';
+import type { EdsrFtsService, EdsrFtsFilters, EdsrFtsSearchResponse } from '../../services/edrsr-fts-service.js';
 import type { EdsrVectorizerService, EdrsrSearchFilters, EdrsrSearchResult } from '../../services/edrsr-vectorizer-service.js';
 
 const DEFAULT_RRF_K = 60;
 const DEFAULT_OVERSAMPLE = 3;
 const MAX_OVERSAMPLE = 5;
-// plainto_tsquery ANDs every token, so a long multi-word query (the LLM often emits
-// 7-9 words) matches no single document. Cap the FTS leg to the leading tokens; the
-// full query still drives the hybrid fallback when FTS returns nothing.
+// plainto_tsquery ANDs every token, and a party filter adds ~2 more conjuncts, so one
+// rare term can collapse the whole conjunction to 0 (observed: "…вантажу логістика" +
+// defendant → 0 while 6 tokens → 144). Rather than guess a single fixed cap, start from
+// the leading FULLTEXT_MAX_TOKENS and relax DOWNWARD on an empty result — dropping the
+// trailing (least-salient) token and retrying down to FTS_MIN_TOKENS. The party filter is
+// part of every probe, so relaxation is selectivity-aware for free. FTS_MAX_RELAX_STEPS
+// bounds the extra probe queries on the hot path.
 const FULLTEXT_MAX_TOKENS = 6;
+const FTS_MIN_TOKENS = 2;
+const FTS_MAX_RELAX_STEPS = 4;
 
 const KUPAP_PRESETS: Record<string, { category_codes: number[]; label: string }> = {
   'traffic_dui':        { category_codes: [41090, 5952], label: 'П\'яне водіння (ст. 130 КУпАП)' },
@@ -319,6 +325,44 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     }
   }
 
+  // ── Term-budget FTS (cap + relax-on-empty) ──────────────────────
+
+  /**
+   * Run FTS with reactive term relaxation. Start from the leading FULLTEXT_MAX_TOKENS
+   * (a long all-AND query already matches little); if a probe returns nothing, drop the
+   * trailing token and retry, down to FTS_MIN_TOKENS, bounded by FTS_MAX_RELAX_STEPS.
+   * Because the supplied filters (incl. party_name/party_role) are part of every probe,
+   * relaxation stops as soon as the conjunction is satisfiable — selectivity-aware
+   * without any precomputed term-frequency table.
+   */
+  private async ftsWithRelaxation(
+    topicalQuery: string,
+    filters: EdsrFtsFilters,
+    limit: number,
+    offset: number,
+  ): Promise<{ result: EdsrFtsSearchResponse; usedQuery: string; startTokens: number; usedTokens: number; relaxedFromTokens?: number }> {
+    const tokens = String(topicalQuery).trim().split(/\s+/).filter(Boolean);
+    const startTokens = tokens.length;
+    let n = Math.min(startTokens, FULLTEXT_MAX_TOKENS) || 1;
+    const cappedFrom = n; // token count at the first (capped) probe
+    let usedQuery = tokens.slice(0, n).join(' ') || String(topicalQuery).trim();
+
+    let result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset);
+
+    let steps = 0;
+    while (result.total === 0 && n > FTS_MIN_TOKENS && steps < FTS_MAX_RELAX_STEPS) {
+      n -= 1; steps += 1;
+      usedQuery = tokens.slice(0, n).join(' ');
+      logger.info('[EdsrUnifiedSearch] FTS relax-on-empty', { from_tokens: n + 1, to_tokens: n, query: usedQuery });
+      result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset);
+    }
+
+    return {
+      result, usedQuery, startTokens, usedTokens: n,
+      ...(n < cappedFrom ? { relaxedFromTokens: cappedFrom } : {}),
+    };
+  }
+
   // ── Fulltext search (tsvector FTS) ───────────────────────────────
 
   private async searchFulltext(args: any): Promise<ToolResult> {
@@ -335,16 +379,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
         if (courtResult.rows.length > 0) courtCode = courtResult.rows[0].court_code;
       }
 
-      // Cap the FTS query to its leading tokens — a long all-AND query matches nothing.
       const originalQuery = String(args.query).trim();
-      const tokens = originalQuery.split(/\s+/).filter(Boolean);
-      let ftsQuery = originalQuery;
-      let truncatedFromTokens: number | undefined;
-      if (tokens.length > FULLTEXT_MAX_TOKENS) {
-        ftsQuery = tokens.slice(0, FULLTEXT_MAX_TOKENS).join(' ');
-        truncatedFromTokens = tokens.length;
-      }
-
       const baseFilters: EdsrFtsFilters = {
         court_code: courtCode, judge: args.judge, date_from: args.date_from, date_to: args.date_to,
         justice_kind: args.justice_kind, judgment_code: args.judgment_code, category_code: args.category_code,
@@ -352,43 +387,46 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       const partyName = typeof args.party_name === 'string' ? args.party_name.trim() : undefined;
       const partyRole = args.party_role as EdsrFtsFilters['party_role'] | undefined;
 
-      let result = await this.ftsService.searchFulltext(
-        ftsQuery, this.db,
+      // Term-budget search: cap to the leading tokens and relax downward on an empty hit.
+      let fts = await this.ftsWithRelaxation(
+        originalQuery,
         { ...baseFilters, party_name: partyName || undefined, party_role: partyRole },
         args.limit || 20, args.offset || 0,
       );
+      let result = fts.result;
 
       // Role-relaxation tier: the role keyword may simply not co-occur in the text even
       // when the party IS a party (court phrasing varies). Before the costlier hybrid
-      // fallback, retry keeping the name phrase but dropping the role constraint.
+      // fallback, retry (with term relaxation) keeping the name phrase but dropping the role.
       let partyRoleRelaxed = false;
       if (result.total === 0 && partyName && partyRole && partyRole !== 'any') {
         partyRoleRelaxed = true;
         logger.info('[EdsrUnifiedSearch] fulltext 0 with party_role, relaxing role', {
           party_name: partyName, party_role: partyRole,
         });
-        result = await this.ftsService.searchFulltext(
-          ftsQuery, this.db,
-          { ...baseFilters, party_name: partyName },
+        fts = await this.ftsWithRelaxation(
+          originalQuery, { ...baseFilters, party_name: partyName },
           args.limit || 20, args.offset || 0,
         );
+        result = fts.result;
       }
 
       // Genuine no-match (not merely relevance-filtered) → fall back to hybrid, whose
       // semantic leg doesn't require every token to co-occur. Uses the ORIGINAL query.
       if (result.total === 0 && this.vectorizer) {
         logger.info('[EdsrUnifiedSearch] fulltext 0 results, falling back to hybrid', {
-          query: originalQuery, ftsQuery, justice_kind: args.justice_kind,
+          query: originalQuery, ftsQuery: fts.usedQuery, justice_kind: args.justice_kind,
         });
         return this.searchHybrid({ ...args, query: originalQuery, _fallback_from: 'fulltext' });
       }
 
       const enriched = await this.enrichResults(result.results);
-      const output = await this.maybeFilter(enriched, ftsQuery);
+      const output = await this.maybeFilter(enriched, fts.usedQuery);
 
       return this.wrapResponse({
         mode: 'fulltext', ...result,
-        ...(truncatedFromTokens ? { query_truncated: { from_tokens: truncatedFromTokens, used: ftsQuery } } : {}),
+        ...(fts.usedTokens < fts.startTokens ? { query_truncated: { from_tokens: fts.startTokens, used: fts.usedQuery } } : {}),
+        ...(fts.relaxedFromTokens ? { term_relaxed: { from_tokens: fts.relaxedFromTokens, to_tokens: fts.usedTokens } } : {}),
         ...(partyRoleRelaxed ? { party_role_relaxed: true } : {}),
         results: output.filtered,
         ...(output.original_count !== output.filtered_count
@@ -428,8 +466,12 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     const ftsQuery = reformulated?.fts || query;
     const semanticQuery = reformulated?.semantic || query;
 
-    const ftsPromise = this.ftsService
-      .searchFulltext(ftsQuery, this.db, filters, candidateLimit, 0)
+    // Same term-budget relaxation as fulltext mode — the hybrid FTS leg previously passed
+    // the full reformulated query uncapped, so one rare term collapsed it to 0 (the
+    // semantic leg masked it, but lost the precise FTS hits). Cap + relax here too.
+    const ftsPromise = this
+      .ftsWithRelaxation(ftsQuery, filters, candidateLimit, 0)
+      .then(r => r.result)
       .catch((err: any) => { logger.warn('[EdsrUnifiedSearch] FTS leg failed', { error: err.message }); return null; });
 
     const justiceKind = args.justice_kind ? Number(args.justice_kind) : undefined;

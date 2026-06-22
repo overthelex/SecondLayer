@@ -302,6 +302,50 @@ describe('EdsrUnifiedSearchTool', () => {
     });
   });
 
+  describe('term relaxation (relax-on-empty)', () => {
+    it('drops trailing tokens until a non-empty hit, surfacing term_relaxed', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      const seen: string[] = [];
+      // Over-AND collapse: only ≤4 tokens match (mimics one rare term zeroing the conjunction).
+      mockFtsService.searchFulltext = jest.fn((q: string) => {
+        seen.push(q);
+        const n = q.split(/\s+/).filter(Boolean).length;
+        return Promise.resolve(n <= 4
+          ? { query: q, total: 3, results: [{ doc_id: 1, rank: 0.4 }] }
+          : { query: q, total: 0, results: [] });
+      });
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService);
+
+      const result = await tool.executeTool('search_court_decisions', {
+        mode: 'fulltext', query: 'один два три чотири пять шість',
+      });
+
+      // capped to 6, then relaxed 6→5→4
+      expect(seen[0].split(/\s+/)).toHaveLength(6);
+      expect(seen[seen.length - 1].split(/\s+/)).toHaveLength(4);
+      const parsed = JSON.parse(result?.content[0].text || '{}');
+      expect(parsed.term_relaxed).toEqual({ from_tokens: 6, to_tokens: 4 });
+      expect(parsed.total).toBe(3);
+    });
+
+    it('does not relax below FTS_MIN_TOKENS (2)', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      const seen: string[] = [];
+      mockFtsService.searchFulltext = jest.fn((q: string) => {
+        seen.push(q);
+        return Promise.resolve({ query: q, total: 0, results: [] }); // always empty
+      });
+      // no vectorizer → no hybrid fallback, just return the empty result
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService);
+
+      await tool.executeTool('search_court_decisions', { mode: 'fulltext', query: 'альфа бета гама' });
+
+      // 3→2 then stop (never probes a single token)
+      const minTokens = Math.min(...seen.map(q => q.split(/\s+/).filter(Boolean).length));
+      expect(minTokens).toBe(2);
+    });
+  });
+
   describe('hybrid mode', () => {
     it('requires query parameter', async () => {
       db = makeDb(() => ({ rows: [] }));
