@@ -564,6 +564,12 @@ services:
       BEDROCK_FALLBACK_MODEL_QUICK: ${BEDROCK_FALLBACK_MODEL_QUICK:-eu.amazon.nova-micro-v1:0}
       BEDROCK_FALLBACK_MODEL_STANDARD: ${BEDROCK_FALLBACK_MODEL_STANDARD:-eu.amazon.nova-pro-v1:0}
       BEDROCK_FALLBACK_MODEL_DEEP: ${BEDROCK_FALLBACK_MODEL_DEEP:-eu.amazon.nova-pro-v1:0}
+      # Chat-latency tunables (CORE-32 region pinning / CORE-35 hedged streaming / CORE-36 parallel-seed).
+      # Empty default = feature off (no behavior change); enable by setting the value in .env.prod.
+      BEDROCK_QUICK_REGION: ${BEDROCK_QUICK_REGION:-}
+      BEDROCK_FALLBACK_REGIONS: ${BEDROCK_FALLBACK_REGIONS:-}
+      BEDROCK_HEDGE_MS: ${BEDROCK_HEDGE_MS:-}
+      CHAT_PARALLEL_SEED_MIN: ${CHAT_PARALLEL_SEED_MIN:-}
       VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY:-}
       VOYAGEAI_API_KEY_2: ${VOYAGEAI_API_KEY_2:-}
       VOYAGEAI_EMBEDDING_MODEL: ${VOYAGEAI_EMBEDDING_MODEL:-voyage-multilingual-2}
@@ -981,6 +987,12 @@ services:
       BEDROCK_FALLBACK_MODEL_QUICK: ${BEDROCK_FALLBACK_MODEL_QUICK:-eu.amazon.nova-micro-v1:0}
       BEDROCK_FALLBACK_MODEL_STANDARD: ${BEDROCK_FALLBACK_MODEL_STANDARD:-eu.amazon.nova-pro-v1:0}
       BEDROCK_FALLBACK_MODEL_DEEP: ${BEDROCK_FALLBACK_MODEL_DEEP:-eu.amazon.nova-pro-v1:0}
+      # Chat-latency tunables (CORE-32 region pinning / CORE-35 hedged streaming / CORE-36 parallel-seed).
+      # Empty default = feature off (no behavior change); enable by setting the value in .env.prod.
+      BEDROCK_QUICK_REGION: ${BEDROCK_QUICK_REGION:-}
+      BEDROCK_FALLBACK_REGIONS: ${BEDROCK_FALLBACK_REGIONS:-}
+      BEDROCK_HEDGE_MS: ${BEDROCK_HEDGE_MS:-}
+      CHAT_PARALLEL_SEED_MIN: ${CHAT_PARALLEL_SEED_MIN:-}
       VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY:-}
       VOYAGEAI_API_KEY_2: ${VOYAGEAI_API_KEY_2:-}
       VOYAGEAI_EMBEDDING_MODEL: ${VOYAGEAI_EMBEDDING_MODEL:-voyage-multilingual-2}
