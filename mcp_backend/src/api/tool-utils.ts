@@ -6,7 +6,7 @@
  */
 
 import { SectionType } from '../types/index.js';
-import { EdsrLocalAdapter } from '../adapters/edrsr-local-adapter.js';
+import type { EdsrFtsService, EdsrFtsFilters } from '../services/edrsr-fts-service.js';
 import { logger } from '../utils/logger.js';
 import axios from 'axios';
 
@@ -427,12 +427,15 @@ export async function callOpenReyestrTool(toolName: string, args: any): Promise<
 }
 
 /**
- * Count all results by paginating through ZO adapter.
+ * Count results for a query via EDRSR FTS. Returns the FTS total estimate (the service
+ * caps the exact count for speed) plus the first page for right-panel display. Replaces
+ * the old ZakonOnline pagination loop, which routed through a now-deleted dead stub.
  */
 export async function countAllResults(
-  zoAdapter: EdsrLocalAdapter,
+  ftsService: EdsrFtsService,
+  db: any,
   query: string,
-  queryParams?: any
+  filters: EdsrFtsFilters = {}
 ): Promise<{
   total_count: number;
   pages_fetched: number;
@@ -441,83 +444,21 @@ export async function countAllResults(
   first_results: any[];
 }> {
   const startTime = Date.now();
-  const maxApiLimit = 1000;
-  let offset = 0;
-  let totalCount = 0;
-  let pagesFetched = 0;
-  let hasMore = true;
-  let firstResults: any[] = [];
-
-  logger.info('Starting pagination to count all results', { query });
-
-  while (hasMore) {
-    const searchParams = {
-      meta: { search: query },
-      limit: maxApiLimit,
-      offset: offset,
-      ...queryParams,
-    };
-
-    logger.info('Fetching page', {
-      page: pagesFetched + 1,
-      offset,
-      limit: maxApiLimit,
-    });
-
-    try {
-      const response = await zoAdapter.searchCourtDecisions(searchParams);
-      const normalized = await zoAdapter.normalizeResponse(response);
-
-      const resultsInPage = normalized.data.length;
-      // Capture first page results for use in right panel
-      if (pagesFetched === 0 && resultsInPage > 0) {
-        firstResults = normalized.data.slice(0, 50);
-      }
-      totalCount += resultsInPage;
-      pagesFetched++;
-
-      logger.info('Page fetched', {
-        page: pagesFetched,
-        resultsInPage,
-        totalSoFar: totalCount,
-        offset,
-      });
-
-      if (resultsInPage < maxApiLimit) {
-        hasMore = false;
-        logger.info('Last page reached', { totalCount, pagesFetched });
-      } else {
-        offset += maxApiLimit;
-        if (pagesFetched >= 10000) {
-          logger.warn('Reached safety limit of 10,000 pages', { totalCount });
-          hasMore = false;
-        }
-      }
-    } catch (error: any) {
-      logger.error('Error during pagination', {
-        page: pagesFetched + 1,
-        offset,
-        error: error.message,
-      });
-      throw new Error(`Pagination failed at page ${pagesFetched + 1}: ${error.message}`);
-    }
-  }
-
-  const timeTaken = Date.now() - startTime;
-  const costEstimate = pagesFetched * 0.00714;
-
-  logger.info('Pagination completed', {
-    totalCount,
-    pagesFetched,
-    timeTakenMs: timeTaken,
-    costEstimateUsd: costEstimate.toFixed(6),
-  });
+  const resp = await ftsService.searchFulltext(query, db, filters, 50, 0);
+  const firstResults = resp.results.map((r) => ({
+    doc_id: r.doc_id,
+    cause_num: r.cause_num,
+    judge: r.judge,
+    court_code: r.court_code,
+    adjudication_date: r.adjudication_date,
+    url: `https://reyestr.court.gov.ua/Review/${r.doc_id}`,
+  }));
 
   return {
-    total_count: totalCount,
-    pages_fetched: pagesFetched,
-    time_taken_ms: timeTaken,
-    cost_estimate_usd: parseFloat(costEstimate.toFixed(6)),
+    total_count: resp.total,
+    pages_fetched: 1,
+    time_taken_ms: Date.now() - startTime,
+    cost_estimate_usd: 0,
     first_results: firstResults,
   };
 }

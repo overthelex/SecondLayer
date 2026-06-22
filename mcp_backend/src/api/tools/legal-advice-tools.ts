@@ -16,6 +16,7 @@ import type { IEmbeddingPort, ILLMPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
 import { CitationValidator } from '../../services/citation-validator.js';
 import { ShepardizationService, ShepardizationResult } from '../../services/shepardization-service.js';
+import type { EdsrFtsService, EdsrFtsFilters, EdsrFtsResult } from '../../services/edrsr-fts-service.js';
 import { SectionType } from '../../types/index.js';
 import { logger } from '../../utils/logger.js';
 import { CourtDecisionHTMLParser, extractSearchTermsWithAI } from '../../utils/html-parser.js';
@@ -36,9 +37,36 @@ export class LegalAdviceTools extends BaseToolHandler {
     private citationValidator: CitationValidator,
     private shepardizationService?: ShepardizationService,
     private readonly llm?: ILLMPort,
-    private readonly db?: { query: (sql: string, params?: any[]) => Promise<any> }
+    private readonly db?: { query: (sql: string, params?: any[]) => Promise<any> },
+    private readonly ftsService?: EdsrFtsService
   ) {
     super();
+  }
+
+  /** Map EDRSR FTS rows to the case shape this tool's responses expose. */
+  private mapFtsResults(rows: EdsrFtsResult[]): any[] {
+    return rows.map((r) => ({
+      doc_id: r.doc_id,
+      cause_num: r.cause_num,
+      judge: r.judge,
+      court_code: r.court_code,
+      justice_kind: r.justice_kind,
+      adjudication_date: r.adjudication_date,
+      url: `https://reyestr.court.gov.ua/Review/${r.doc_id}`,
+      ...(r.headline ? { headline: r.headline } : {}),
+      ...(r.rank != null ? { rank: r.rank } : {}),
+    }));
+  }
+
+  /** Build EDRSR FTS filters from court_level (SC → cassation) + procedure_code. */
+  private buildEdsrFilters(courtLevel?: string, procedureCode?: string): EdsrFtsFilters {
+    const f: EdsrFtsFilters = {};
+    if (procedureCode) {
+      const jk = mapProcedureCodeToJusticeKind(procedureCode);
+      if (jk !== null) f.justice_kind = jk;
+    }
+    if (courtLevel && courtLevel !== 'all') f.instance_code = 1; // Supreme Court = cassation
+    return f;
   }
 
   getToolDefinitions(): ToolDefinition[] {
@@ -300,18 +328,14 @@ export class LegalAdviceTools extends BaseToolHandler {
     });
 
     if (args.count_all === true) {
-      const countResult = await countAllResults(this.zoAdapter, query);
+      if (!this.ftsService || !this.db) throw new Error('FTS сервіс недоступний');
+      const countResult = await countAllResults(this.ftsService, this.db, query);
       return this.wrapResponse({
         query,
         count_all_mode: true,
         total_count: countResult.total_count,
-        pages_fetched: countResult.pages_fetched,
         time_taken_ms: countResult.time_taken_ms,
-        cost_estimate_usd: countResult.cost_estimate_usd,
-        note: 'Підраховано через пагінацію. Перші результати включені для відображення в правій панелі.',
-        warning: countResult.total_count >= 10000000
-          ? 'Достигнут лимит безопасности в 10,000,000 результатов.'
-          : null,
+        note: 'Оцінка кількості через FTS (точний підрахунок доступний для пошуку за стороною — count_cases_by_party).',
         // Include first page results so the right panel can display decisions
         results: countResult.first_results,
       });
@@ -321,96 +345,39 @@ export class LegalAdviceTools extends BaseToolHandler {
     const caseNumberPattern = /\b(\d{1,4}\/\d{1,6}\/\d{2}(-\w)?)\b/;
     const caseNumberMatch = query.match(caseNumberPattern);
 
-    if (caseNumberMatch) {
+    if (caseNumberMatch && this.ftsService && this.db) {
       const caseNumber = caseNumberMatch[1];
       try {
-        const sourceCase = await this.zoAdapter.getDocumentByCaseNumber(caseNumber);
+        // Load the source case straight from the prod EDRSR DB (replaces dead ZO stub).
+        const srcRes = await this.db.query(
+          `SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+                  d.category_code, d.adjudication_date, f.full_text
+           FROM edrsr_documents d
+           LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
+           WHERE d.cause_num = $1
+           ORDER BY d.adjudication_date DESC NULLS LAST
+           LIMIT 1`,
+          [caseNumber],
+        );
+        const sourceCase = srcRes.rows?.[0];
         if (!sourceCase) return await this.performRegularSearch(args);
 
-        let textForAnalysis = '';
-        let textSource = 'metadata';
-
-        if (sourceCase.full_text) {
-          try {
-            if (sourceCase.full_text.includes('<html') || sourceCase.full_text.includes('<!DOCTYPE')) {
-              const parser = new CourtDecisionHTMLParser(sourceCase.full_text);
-              const paragraphs = parser.extractMainText();
-              const sections = parser.identifySections(paragraphs);
-              textForAnalysis = parser.extractKeyContent(sections);
-              textSource = 'parsed_html_key_sections';
-            } else {
-              textForAnalysis = sourceCase.full_text.substring(0, 5000);
-              textSource = 'full_text_truncated';
-            }
-            if (textForAnalysis.length > 5000) textForAnalysis = textForAnalysis.substring(0, 5000);
-          } catch {
-            textForAnalysis = sourceCase.full_text.substring(0, 5000);
-            textSource = 'full_text_truncated_fallback';
-          }
-        } else {
-          const parts = [sourceCase.title, sourceCase.resolution, sourceCase.snippet ? load(sourceCase.snippet).root().text() : undefined].filter(Boolean);
-          textForAnalysis = parts.join('\n');
-          textSource = 'combined_metadata';
-        }
-
+        const textForAnalysis = typeof sourceCase.full_text === 'string'
+          ? sourceCase.full_text.substring(0, 5000)
+          : '';
         if (!textForAnalysis || textForAnalysis.length < 50) return await this.performRegularSearch(args);
 
         const searchTerms = await extractSearchTermsWithAI(textForAnalysis, this.llm);
         const smartQuery = searchTerms.searchQuery || searchTerms.disputeType || '';
+        if (!smartQuery) return await this.performRegularSearch(args);
 
-        const requestedDisplay = args.limit || 10;
-        const userOffset = args.offset || 0;
-        const maxApiLimit = 1000;
-        let similarCasesForDisplay: any[] = [];
-        let totalFound = 0;
-        let offset = userOffset;
-        let pagesFetched = 0;
-        let hasMore = true;
-        const maxPages = 10000;
-
-        while (hasMore && pagesFetched < maxPages) {
-          const similarResponse = await this.zoAdapter.searchCourtDecisions({
-            meta: { search: smartQuery },
-            limit: maxApiLimit,
-            offset,
-          });
-          const normalized = await this.zoAdapter.normalizeResponse(similarResponse);
-          const pageResults = normalized.data.filter((doc: any) => doc.doc_id !== sourceCase.doc_id);
-
-          if (similarCasesForDisplay.length < requestedDisplay) {
-            const remainingSlots = requestedDisplay - similarCasesForDisplay.length;
-            similarCasesForDisplay.push(...pageResults.slice(0, remainingSlots).map((doc: any) => ({
-              cause_num: doc.cause_num,
-              doc_id: doc.doc_id,
-              title: doc.title,
-              resolution: doc.resolution,
-              judge: doc.judge,
-              court_code: doc.court_code,
-              adjudication_date: doc.adjudication_date,
-              url: doc.url,
-              similarity_reason: 'metadata_and_keywords',
-            })));
-          }
-
-          totalFound += pageResults.length;
-          pagesFetched++;
-
-          if (normalized.data.length < maxApiLimit) {
-            hasMore = false;
-          } else if (similarCasesForDisplay.length >= requestedDisplay) {
-            hasMore = false;
-          } else {
-            offset += maxApiLimit;
-          }
-        }
-
-        const reachedLimit = pagesFetched >= maxPages;
-
-        if (similarCasesForDisplay.length > 0) {
-          this.zoAdapter.saveDocumentsToDatabase(similarCasesForDisplay, 1000).catch(err => {
-            logger.error('Failed to save documents to database:', err);
-          });
-        }
+        const requestedDisplay = Math.min(50, Math.max(1, Number(args.limit || 10)));
+        const ftsResp = await this.ftsService.searchFulltext(
+          smartQuery, this.db, {}, Math.max(requestedDisplay * 2, 20), 0,
+        );
+        const similarCasesForDisplay = this.mapFtsResults(
+          ftsResp.results.filter((r) => r.doc_id !== sourceCase.doc_id),
+        ).slice(0, requestedDisplay).map((c) => ({ ...c, similarity_reason: 'fts_keywords' }));
 
         const enrichedSimilar = await this.enrichWithPrecedentStatus(similarCasesForDisplay);
 
@@ -418,17 +385,14 @@ export class LegalAdviceTools extends BaseToolHandler {
           source_case: {
             cause_num: sourceCase.cause_num,
             doc_id: sourceCase.doc_id,
-            title: sourceCase.title,
-            resolution: sourceCase.resolution,
             judge: sourceCase.judge,
             court_code: sourceCase.court_code,
             adjudication_date: sourceCase.adjudication_date,
-            url: sourceCase.url,
+            url: `https://reyestr.court.gov.ua/Review/${sourceCase.doc_id}`,
             category_code: sourceCase.category_code,
             justice_kind: sourceCase.justice_kind,
           },
-          search_method: 'smart_text_search_with_pagination',
-          text_source: textSource,
+          search_method: 'smart_fts_search',
           text_length: textForAnalysis.length,
           extracted_terms: {
             law_articles: searchTerms.lawArticles,
@@ -438,16 +402,11 @@ export class LegalAdviceTools extends BaseToolHandler {
           },
           search_query: smartQuery,
           similar_cases: enrichedSimilar,
-          total_found: totalFound,
-          pages_fetched: pagesFetched,
-          reached_safety_limit: reachedLimit,
+          total_found: ftsResp.total,
           displaying: enrichedSimilar.length,
-          total_available_info: reachedLimit
-            ? `Найдено минимум ${totalFound} прецедентов (показано первых ${enrichedSimilar.length}).`
-            : `Найдено ${totalFound} прецедентов через ${pagesFetched} страниц.`,
         });
       } catch (error: any) {
-        logger.error('Semantic search failed, falling back to regular search', error);
+        logger.error('Smart FTS search failed, falling back to regular search', error);
         return await this.performRegularSearch(args);
       }
     }
@@ -465,119 +424,54 @@ export class LegalAdviceTools extends BaseToolHandler {
     const procedureCode = args.procedure_code ? String(args.procedure_code) : undefined;
     const sectionFocus = Array.isArray(args.section_focus) ? args.section_focus : undefined;
 
+    if (!this.ftsService || !this.db) throw new Error('FTS сервіс недоступний для пошуку прецедентів');
+
     const budget = query.length < 30 ? 'quick' : 'standard';
     const intent = await this.queryPlanner.classifyIntent(query, budget as 'quick' | 'standard');
-    // Optimize query for sph04 AND-mode: long queries with many words return 0 results
+    // Optimize long queries — plainto_tsquery ANDs every token, so a long phrase matches little.
     const searchQuery = query.length > 40
       ? await this.queryPlanner.generateOptimizedSearchQuery(query, intent, budget as 'quick' | 'standard')
       : query;
-    const queryParams = this.queryPlanner.buildQueryParams(intent, searchQuery);
 
-    // Apply court_level and procedure_code filters (from merged search_supreme_court_practice)
-    if (courtLevel && courtLevel !== 'all') {
-      queryParams.where = [
-        ...(queryParams.where || []),
-        ...buildSupremeCourtWhereFilter(courtLevel),
-      ];
-    }
-    if (procedureCode) {
-      const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
-      if (justiceKind !== null) {
-        queryParams.where = [
-          ...(queryParams.where || []),
-          { field: 'justice_kind', operator: '=', value: justiceKind },
-        ];
-      }
-    }
+    const filters = this.buildEdsrFilters(courtLevel, procedureCode);
+    // Over-fetch when filtering by court level to compensate for the GrandChamber post-filter.
+    const fetchLimit = (courtLevel && courtLevel !== 'all') ? Math.max(limit * 3, 30) : limit;
 
-    // Fetch more results when filtering by court level to compensate post-filtering
-    if (courtLevel && courtLevel !== 'all') {
-      queryParams.limit = Math.max(limit * 3, 30);
-    }
-
-    const endpoints = this.queryPlanner.selectEndpoints(intent).filter(e => e === 'court');
-
-    const results: any[] = [];
-    const errors: string[] = [];
-
-    for (const endpoint of endpoints) {
+    const runFts = async (q: string) => {
       try {
-        let response;
-        switch (endpoint) {
-          case 'court':
-            response = await this.zoAdapter.searchCourtDecisions(queryParams);
-            break;
-          default:
-            continue;
-        }
-        const normalized = await this.zoAdapter.normalizeResponse(response);
-        results.push(...normalized.data.slice(offset, offset + limit));
+        const resp = await this.ftsService!.searchFulltext(q, this.db, filters, fetchLimit, offset);
+        return resp.results;
       } catch (error: any) {
-        errors.push(`${endpoint}: ${error.message}`);
+        logger.warn('[search_legal_precedents] FTS leg failed', { error: error.message });
+        return [];
       }
-    }
+    };
 
-    // Fallback: if 0 results, retry with stripped keywords (remove all quotes and Sphinx operators).
-    // Fires even when searchQuery === query (optimizer returned input unchanged) — in that case
-    // we still strip quotes/operators and retry with broader bare-keyword search.
-    if (results.length === 0 && errors.length === 0) {
+    let rows = await runFts(searchQuery);
+
+    // Relax-on-empty: strip operators, then fall back to the 4 most distinctive words.
+    if (rows.length === 0) {
       const stripped = query.replace(/["'|()]/g, ' ').replace(/\s+/g, ' ').trim();
       if (stripped && stripped !== searchQuery) {
-        logger.info('[search_legal_precedents] 0 results with optimized query, retrying with stripped keywords', {
-          optimized: searchQuery,
-          fallback: stripped.substring(0, 100),
-        });
-        const fallbackParams = this.queryPlanner.buildQueryParams(intent, stripped);
-        try {
-          const fallbackResponse = await this.zoAdapter.searchCourtDecisions(fallbackParams);
-          const fallbackNormalized = await this.zoAdapter.normalizeResponse(fallbackResponse);
-          results.push(...fallbackNormalized.data.slice(offset, offset + limit));
-        } catch (error: any) {
-          errors.push(`fallback: ${error.message}`);
-        }
-
-        // Second-level fallback: sph04 AND-mode requires ALL words present in the doc.
-        // A stripped multi-word phrase (8+ words) still returns 0. Retry with only the
-        // 4 longest words (most distinctive nouns), which greatly broadens the match.
-        if (results.length === 0) {
+        rows = await runFts(stripped);
+        if (rows.length === 0) {
           const keyWords = stripped.split(/\s+/).filter(w => w.length >= 6).slice(0, 4).join(' ');
-          if (keyWords && keyWords !== stripped) {
-            logger.info('[search_legal_precedents] 0 results with stripped query, retrying with key words only', {
-              stripped: stripped.substring(0, 100),
-              keyWords,
-            });
-            const shortParams = this.queryPlanner.buildQueryParams(intent, keyWords);
-            try {
-              const shortResponse = await this.zoAdapter.searchCourtDecisions(shortParams);
-              const shortNormalized = await this.zoAdapter.normalizeResponse(shortResponse);
-              results.push(...shortNormalized.data.slice(offset, offset + limit));
-            } catch (error: any) {
-              errors.push(`fallback2: ${error.message}`);
-            }
-          }
+          if (keyWords && keyWords !== stripped) rows = await runFts(keyWords);
         }
       }
     }
 
-    // Post-filter by SC court codes if court_level is specified
-    let filtered = results;
-    if (courtLevel && courtLevel !== 'all') {
-      const scCourtCodePrefix = '99';
-      filtered = results.filter((d: any) => {
-        const code = String(d?.court_code || '');
-        if (!code.startsWith(scCourtCodePrefix)) return false;
-        if (courtLevel === 'GrandChamber') return code === '9901';
-        return true;
-      }).slice(0, limit);
+    let filtered = this.mapFtsResults(rows);
+    // Grand Chamber lives under a single court_code (9901).
+    if (courtLevel === 'GrandChamber') {
+      filtered = filtered.filter((d: any) => String(d?.court_code || '') === '9901');
     }
+    filtered = filtered.slice(0, limit);
 
-    // Add snippets for SC results if section_focus is set
+    // Expose the FTS headline as a snippet when a section focus is requested.
     if (sectionFocus && filtered.length > 0) {
       for (const r of filtered) {
-        const fullText = typeof r.full_text === 'string' ? r.full_text : '';
-        if (fullText) {
-          r.snippets = extractSnippets(fullText, query, 2);
-        }
+        if (r.headline) r.snippets = [r.headline];
       }
     }
 
@@ -586,11 +480,10 @@ export class LegalAdviceTools extends BaseToolHandler {
     return this.wrapResponse({
       results: enriched,
       intent,
-      search_method: 'text_based',
+      search_method: 'fts',
       total: enriched.length,
       ...(courtLevel && courtLevel !== 'all' ? { court_level: courtLevel } : {}),
       ...(procedureCode ? { procedure_code: procedureCode } : {}),
-      ...(errors.length > 0 && { warnings: errors }),
     });
   }
 
