@@ -12,6 +12,7 @@
  */
 
 import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
+import type { EdsrFtsService } from '../../services/edrsr-fts-service.js';
 import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
 import type { IEmbeddingPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
@@ -27,7 +28,8 @@ export class CourtDecisionTools extends BaseToolHandler {
     private sectionizer: SemanticSectionizer,
     private embeddingService: IEmbeddingPort,
     private patternStore: LegalPatternStore,
-    private db?: any
+    private db?: any,
+    private ftsService?: EdsrFtsService
   ) {
     super();
   }
@@ -803,124 +805,75 @@ export class CourtDecisionTools extends BaseToolHandler {
   }
 
   private async countCasesByParty(args: any): Promise<ToolResult> {
-    const partyName = args.party_name;
-    const partyType = args.party_type || 'any';
-    const returnCases = args.return_cases || false;
-    const maxCasesToReturn = args.max_cases_to_return || 100;
+    if (!this.ftsService || !this.db) return this.wrapError('FTS сервіс недоступний для підрахунку справ');
 
-    let searchQuery = partyName;
-    if (partyType === 'plaintiff') searchQuery = `позивач ${partyName}`;
-    else if (partyType === 'defendant') searchQuery = `відповідач ${partyName}`;
+    const partyName: string = String(args.party_name || '').trim();
+    if (!partyName) return this.wrapError('party_name є обов\'язковим');
+    const partyType: 'plaintiff' | 'defendant' | 'any' = args.party_type || 'any';
+    const returnCases = args.return_cases === true;
+    const maxCasesToReturn = Math.min(Math.max(Number(args.max_cases_to_return) || 100, 1), 1000);
+
+    // Strip leading legal-form prefix (ТОВ / ПАТ / ФОП …) and quotes so the phrase matches
+    // the distinctive proper name — courts keep quoted proper names in the nominative case.
+    const cleanedName = partyName
+      .replace(/^(ТОВ|ПАТ|ПрАТ|ТДВ|ФОП|КП|ДП|АТ|ВАТ|ЗАТ)\s+/i, '')
+      .replace(/[«»"]/g, '')
+      .trim() || partyName;
 
     const startTime = Date.now();
-    const maxApiLimit = 1000;
-    let offset = 0;
-    let totalCount = 0;
-    let pagesFetched = 0;
-    let hasMore = true;
-    const allCases: any[] = [];
-    const seenDocIds = new Set<number>();
-    const SAFETY_LIMIT = 100000;
-    const MAX_PAGES_WITH_DATE_FILTER = 100;
-    const hasDateFilter = !!(args.date_from || args.date_to);
-    let reachedPageLimit = false;
+    try {
+      const counts = await this.ftsService.countByParty(
+        cleanedName,
+        partyType,
+        this.db,
+        { date_from: args.date_from, date_to: args.date_to, justice_kind: args.justice_kind },
+        returnCases ? maxCasesToReturn : 0,
+      );
 
-    while (hasMore && totalCount < SAFETY_LIMIT) {
-      if (hasDateFilter && pagesFetched >= MAX_PAGES_WITH_DATE_FILTER) {
-        reachedPageLimit = true;
-        break;
-      }
+      const topCourts = counts.by_court.slice(0, 30);
+      const courtNames = await this.lookupCourtNames(topCourts.map(c => c.court_code));
+      const by_court = topCourts.map(c => ({
+        court_code: c.court_code,
+        court_name: courtNames.get(c.court_code) || null,
+        count: c.count,
+      }));
 
-      const searchParams: any = {
-        meta: { search: searchQuery },
-        limit: maxApiLimit,
-        offset,
+      const result: any = {
+        party_name: partyName,
+        party_type: partyType,
+        matched_name: cleanedName,
+        total_cases: counts.total,
+        courts_count: counts.by_court.length,
+        by_court,
+        time_taken_ms: Date.now() - startTime,
+        method: 'fts_party_anchor',
+        note: 'Назва/роль — це FTS-прив\'язка по тексту рішення, не структурний фільтр сторони. Точне визначення ролі — після впровадження parties-таблиці (LEXAI-1760).',
       };
-
-      const response = await this.zoAdapter.searchCourtDecisions(searchParams);
-      pagesFetched++;
-
-      if (Array.isArray(response) && response.length > 0) {
-        let filteredResponse: any[] = response;
-        if (args.date_from || args.date_to) {
-          filteredResponse = response.filter(doc => {
-            const docDate = doc.adjudication_date ? new Date(doc.adjudication_date) : null;
-            if (!docDate) return false;
-            if (args.date_from && docDate < new Date(args.date_from)) return false;
-            if (args.date_to && docDate > new Date(args.date_to)) return false;
-            return true;
-          });
-        }
-
-        const uniqueResults = filteredResponse.filter(doc => {
-          if (!doc.doc_id) return false;
-          if (seenDocIds.has(doc.doc_id)) return false;
-          seenDocIds.add(doc.doc_id);
-          return true;
-        });
-
-        if (uniqueResults.length === 0 && filteredResponse.length > 0) {
-          hasMore = false;
-          break;
-        }
-
-        totalCount += uniqueResults.length;
-
-        if (returnCases && allCases.length < maxCasesToReturn) {
-          const casesToAdd = uniqueResults.slice(0, maxCasesToReturn - allCases.length);
-          allCases.push(...casesToAdd.map(doc => ({
-            cause_num: doc.cause_num,
-            doc_id: doc.doc_id,
-            title: doc.title,
-            resolution: doc.resolution,
-            judge: doc.judge,
-            court_code: doc.court_code,
-            adjudication_date: doc.adjudication_date,
-            url: `https://zakononline.ua/court-decisions/show/${doc.doc_id}`,
-          })));
-        }
-
-        if (response.length < maxApiLimit) {
-          hasMore = false;
-        } else {
-          offset += maxApiLimit;
-        }
-      } else {
-        hasMore = false;
+      if (args.date_from) result.date_from = args.date_from;
+      if (args.date_to) result.date_to = args.date_to;
+      if (returnCases && counts.sample) {
+        result.cases = counts.sample.map(s => ({
+          ...s,
+          external_url: `https://reyestr.court.gov.ua/Review/${s.doc_id}`,
+        }));
+        result.cases_returned = counts.sample.length;
       }
-    }
 
-    const timeTaken = Date.now() - startTime;
-    const costEstimate = pagesFetched * 0.00714;
-
-    const result: any = {
-      party_name: partyName,
-      party_type: partyType,
-      search_query: searchQuery,
-      total_unique_cases: totalCount,
-      unique_doc_ids_found: seenDocIds.size,
-      pages_fetched: pagesFetched,
-      time_taken_ms: timeTaken,
-      cost_estimate_usd: parseFloat(costEstimate.toFixed(6)),
-    };
-
-    if (args.date_from) result.date_from = args.date_from;
-    if (args.date_to) result.date_to = args.date_to;
-    if (args.date_from || args.date_to) {
-      result.filtering_method = 'local';
-      result.note = 'Фільтрація по датах виконана локально (API-фільтр надто повільний)';
+      return this.wrapResponse(result);
+    } catch (err: any) {
+      logger.error('[CourtDecisionTools] countCasesByParty failed', { error: err.message });
+      return this.wrapError(`Помилка підрахунку справ: ${err.message}`);
     }
-    if (reachedPageLimit) {
-      result.warning = `Досягнуто ліміт у ${MAX_PAGES_WITH_DATE_FILTER} сторінок. Просканировано ${pagesFetched * maxApiLimit} справ, знайдено ${totalCount}.`;
-      result.scanned_documents = pagesFetched * maxApiLimit;
-    } else if (totalCount >= SAFETY_LIMIT) {
-      result.warning = `Досягнуто ліміт безпеки у ${SAFETY_LIMIT} справ. Реальна кількість може бути більшою.`;
-    }
-    if (returnCases) {
-      result.cases = allCases;
-      result.cases_returned = allCases.length;
-    }
+  }
 
-    return this.wrapResponse(result);
+  private async lookupCourtNames(codes: number[]): Promise<Map<number, string>> {
+    const map = new Map<number, string>();
+    const ids = [...new Set(codes.filter((c): c is number => typeof c === 'number'))];
+    if (ids.length === 0 || !this.db) return map;
+    try {
+      const res = await this.db.query(`SELECT court_code, name FROM edrsr_courts WHERE court_code = ANY($1)`, [ids]);
+      for (const row of res.rows) map.set(row.court_code, row.name);
+    } catch { /* non-critical */ }
+    return map;
   }
 }
