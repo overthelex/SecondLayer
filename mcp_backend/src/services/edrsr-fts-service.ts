@@ -21,6 +21,8 @@ import {
   FTS_HEADLINE_MIN_WORDS,
 } from './search-ranking-config.js';
 
+export type PartyRole = 'plaintiff' | 'defendant' | 'any';
+
 export interface EdsrFtsFilters {
   court_code?: number;
   judge?: string;
@@ -30,7 +32,23 @@ export interface EdsrFtsFilters {
   judgment_code?: number;
   category_code?: number;
   instance_code?: number;
+  // Party constraints — anchored into the tsquery, NOT bag-of-words keywords.
+  // party_name should be the distinctive proper name (e.g. "Нова Пошта"), without
+  // the legal-form prefix (ТОВ / Товариство з обмеженою відповідальністю), which
+  // declines and breaks the 'simple' (stemless) config. It is matched as a phrase.
+  party_name?: string;
+  // party_role narrows to decisions where the role keyword (відповідач/позивач, with
+  // common case forms) co-occurs with the party name. 'any'/undefined → no role constraint.
+  party_role?: PartyRole;
 }
+
+// Hand-rolled case forms for the role nouns — the 'simple' PG config has no Ukrainian
+// stemmer, so each declension must be listed explicitly. Constant strings only (never
+// user input), so they are safe to interpolate into to_tsquery().
+const ROLE_TSQUERY: Record<Exclude<PartyRole, 'any'>, string> = {
+  defendant: 'відповідач | відповідача | відповідачу | відповідачем | відповідачі | відповідачів | відповідачам | відповідачами',
+  plaintiff: 'позивач | позивача | позивачу | позивачем | позивачі | позивачів | позивачам | позивачами',
+};
 
 export interface EdsrFtsResult {
   doc_id: number;
@@ -97,10 +115,31 @@ export class EdsrFtsService {
     const params: any[] = [];
     let paramIdx = 1;
 
-    // FTS condition on tsv column
-    conditions.push(`f.tsv @@ plainto_tsquery('simple', $${paramIdx})`);
+    // FTS condition on tsv column. The topical query stays at $1 so ranking and
+    // ts_headline (below) reference it directly. Party constraints are AND-combined
+    // into the same tsvector match via the && operator:
+    //   - party_name → phraseto_tsquery (contiguous phrase, declension-tolerant for
+    //     quoted proper names which courts keep in nominative)
+    //   - party_role → to_tsquery of enumerated role-noun case forms
+    const tsqueryParts: string[] = [`plainto_tsquery('simple', $${paramIdx})`];
     params.push(query);
     paramIdx++;
+
+    const partyName = filters.party_name?.trim();
+    if (partyName) {
+      tsqueryParts.push(`phraseto_tsquery('simple', $${paramIdx})`);
+      params.push(partyName);
+      paramIdx++;
+    }
+    const roleTsquery = filters.party_role && filters.party_role !== 'any'
+      ? ROLE_TSQUERY[filters.party_role]
+      : null;
+    if (roleTsquery) {
+      // roleTsquery is a hardcoded constant — safe to inline, no user input.
+      tsqueryParts.push(`to_tsquery('simple', '${roleTsquery}')`);
+    }
+
+    conditions.push(`f.tsv @@ (${tsqueryParts.join(' && ')})`);
 
     // Metadata filters — require JOIN with edrsr_documents
     const hasMetadataFilter = filters.court_code || filters.judge || filters.date_from ||
