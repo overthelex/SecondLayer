@@ -91,7 +91,7 @@ export function createChatInlineRoutes(deps: {
     const requestId = `chat-${uuidv4()}`;
 
     try {
-      const { query, history, budget, maxBudget, conversationId, approvedPlan, planSessionId, allowDeepEscalation, internetEnabled } = req.body;
+      const { query, history, budget, maxBudget, conversationId, approvedPlan, planSessionId, allowDeepEscalation, internetEnabled, parallelSeedMin } = req.body;
 
       if (!query || typeof query !== 'string') {
         return res.status(400).json({ error: 'query is required' });
@@ -183,6 +183,8 @@ export function createChatInlineRoutes(deps: {
         planSessionId,
         allowDeepEscalation: !!allowDeepEscalation,
         internetEnabled: internetEnabled !== false,
+        // A/B override for parallel-seed (CORE-36 grounding-eval). Number or undefined.
+        parallelSeedMin: parallelSeedMin === undefined ? undefined : Number(parallelSeedMin),
       };
       try {
         await runWithABUser(userId || '', async () => {

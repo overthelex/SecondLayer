@@ -12,6 +12,8 @@ export interface ChatRequest {
   planSessionId?: string;
   allowDeepEscalation?: boolean;
   internetEnabled?: boolean;
+  /** A/B override for parallel-seed (CORE-36); forwarded to @secondlayer/core. */
+  parallelSeedMin?: number;
 }
 
 export interface ChatEvent {
