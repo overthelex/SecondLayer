@@ -71,6 +71,12 @@ export interface EdsrFtsSearchResponse {
   results: EdsrFtsResult[];
 }
 
+export interface PartyCaseCount {
+  total: number;
+  by_court: Array<{ court_code: number; count: number }>;
+  sample?: Array<{ doc_id: number; cause_num: string | null; court_code: number | null; justice_kind: number | null; adjudication_date: string | null }>;
+}
+
 export interface EdsrIndexProgress {
   total: number;
   indexed: number;
@@ -296,6 +302,83 @@ export class EdsrFtsService {
     } catch (err: any) {
       logger.error('[EdsrFtsService] searchFulltext failed', { error: err.message, query });
       throw new Error(`FTS search failed: ${err.message}`);
+    }
+  }
+
+  /**
+   * Exact case count for a party (optionally constrained to a procedural role), with a
+   * per-court breakdown — backs count_cases_by_party. Replaces the old keyword-paginated
+   * approach (which routed through a now-removed deprecated adapter stub and returned 0).
+   *
+   * party_name is matched as a phrase (declension-tolerant for quoted proper names);
+   * party_role appends the enumerated role-noun case forms. Both are anchored into the
+   * tsvector match, so the GIN index does the selection and only the matched rows are
+   * counted/grouped. No LIMIT on the count — this is an exact aggregate, not a search.
+   */
+  async countByParty(
+    partyName: string,
+    partyRole: PartyRole | undefined,
+    dbPool: any,
+    filters: { date_from?: string; date_to?: string; justice_kind?: number } = {},
+    sampleLimit: number = 0,
+  ): Promise<PartyCaseCount> {
+    const params: any[] = [];
+    let p = 1;
+
+    const tsqueryParts: string[] = [`phraseto_tsquery('simple', $${p})`];
+    params.push(partyName);
+    p++;
+    const roleTsquery = partyRole && partyRole !== 'any' ? ROLE_TSQUERY[partyRole] : null;
+    if (roleTsquery) {
+      // roleTsquery is a hardcoded constant — safe to inline, no user input.
+      tsqueryParts.push(`to_tsquery('simple', '${roleTsquery}')`);
+    }
+
+    const conditions = [`f.tsv @@ (${tsqueryParts.join(' && ')})`];
+    if (filters.date_from) { conditions.push(`d.adjudication_date >= $${p}`); params.push(filters.date_from); p++; }
+    if (filters.date_to) { conditions.push(`d.adjudication_date <= $${p}`); params.push(filters.date_to); p++; }
+    if (filters.justice_kind) { conditions.push(`d.justice_kind = $${p}`); params.push(filters.justice_kind); p++; }
+    const whereClause = conditions.join(' AND ');
+
+    try {
+      const countSql = `
+        SELECT d.court_code, count(*)::int AS n
+        FROM edrsr_fulltext f
+        JOIN edrsr_documents d ON d.doc_id = f.doc_id
+        WHERE ${whereClause}
+        GROUP BY d.court_code
+        ORDER BY n DESC`;
+      const countResult = await dbPool.query(countSql, params);
+      const by_court = countResult.rows.map((r: any) => ({ court_code: r.court_code, count: r.n }));
+      const total = by_court.reduce((s: number, r: any) => s + r.count, 0);
+
+      let sample: PartyCaseCount['sample'];
+      if (sampleLimit > 0) {
+        const safeSample = Math.min(Math.max(sampleLimit, 1), 1000);
+        const sampleSql = `
+          SELECT d.doc_id, d.cause_num, d.court_code, d.justice_kind, d.adjudication_date
+          FROM edrsr_fulltext f
+          JOIN edrsr_documents d ON d.doc_id = f.doc_id
+          WHERE ${whereClause}
+          ORDER BY d.adjudication_date DESC NULLS LAST
+          LIMIT ${safeSample}`;
+        const sampleResult = await dbPool.query(sampleSql, params);
+        sample = sampleResult.rows.map((r: any) => ({
+          doc_id: Number(r.doc_id), cause_num: r.cause_num ?? null, court_code: r.court_code ?? null,
+          justice_kind: r.justice_kind ?? null, adjudication_date: r.adjudication_date ?? null,
+        }));
+      }
+
+      logger.info('[EdsrFtsService] countByParty', {
+        party_name: partyName, party_role: partyRole ?? 'any',
+        filters: Object.keys(filters).filter(k => (filters as any)[k] !== undefined),
+        total, courts: by_court.length,
+      });
+
+      return { total, by_court, ...(sample ? { sample } : {}) };
+    } catch (err: any) {
+      logger.error('[EdsrFtsService] countByParty failed', { error: err.message, party_name: partyName });
+      throw new Error(`Party count failed: ${err.message}`);
     }
   }
 
