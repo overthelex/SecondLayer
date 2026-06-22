@@ -101,7 +101,9 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 • **hybrid** — FTS + семантичний пошук (Qdrant BGE-M3) з мерджем через Reciprocal Rank Fusion. Найкращий recall, коли запит містить і семантику, і точні токени. Семантична нога працює для ВСІХ видів судочинства (justice_kind 1-5).
 • **semantic** — чистий семантичний пошук по векторній базі Qdrant (296M чанків, увесь ЄДРСР). Працює для ВСІХ видів судочинства (justice_kind 1-5); justice_kind не обов'язковий (без нього шукає по всіх кодексах). Найкраще для концептуальних/розмовних запитів.
 
-Фільтри (спільні для всіх режимів): court_code/court_name, judge, justice_kind, judgment_code, category_code, date_from/date_to.
+⚠️ Роль сторони (конкретна особа/компанія саме ЯК відповідач або позивач) → передавай party_name + party_role у режимі fulltext/hybrid, а НЕ дописуй слово «відповідач» у query. party_name прив'язується до тексту як фраза, party_role — до рольового слова, тож «де X — відповідач» дасть точніший результат, ніж семантика чи ключові слова. Для точного № справи/статті → structured або fulltext.
+
+Фільтри (спільні для всіх режимів): court_code/court_name, judge, justice_kind, judgment_code, category_code, date_from/date_to, party_name, party_role.
 Пресети: military_preset (військові справи), kupap_preset (адмінправопорушення — traffic_dui, traffic_accident, domestic_violence, hooliganism тощо).
 Для повного тексту рішення — get_court_decision. Для резолютивки — edrsr_get_decision_dispositive.`,
       inputSchema: {
@@ -114,7 +116,16 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
           },
           query: {
             type: 'string',
-            description: 'Пошуковий запит (обов\'язковий для fulltext/hybrid/semantic). Наприклад: "ст. 210-1 КУпАП ТЦК неналежне оповіщення"',
+            description: 'Пошуковий запит (обов\'язковий для fulltext/hybrid/semantic). Наприклад: "ст. 210-1 КУпАП ТЦК неналежне оповіщення". НЕ додавай сюди роль сторони — для цього є party_name/party_role.',
+          },
+          party_name: {
+            type: 'string',
+            description: 'Розрізняльне найменування сторони БЕЗ організаційно-правової форми (наприклад "Нова Пошта", а не "ТОВ «Нова Пошта»"). Матчиться як фраза в тексті рішення. Тільки fulltext/hybrid.',
+          },
+          party_role: {
+            type: 'string',
+            enum: ['plaintiff', 'defendant', 'any'],
+            description: 'Процесуальна роль party_name: plaintiff (позивач), defendant (відповідач), any (будь-яка). Звужує до рішень, де поряд із назвою фігурує відповідне рольове слово. Тільки fulltext/hybrid.',
           },
           cause_num: {
             type: 'string',
@@ -334,12 +345,34 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
         truncatedFromTokens = tokens.length;
       }
 
-      const result = await this.ftsService.searchFulltext(
+      const baseFilters: EdsrFtsFilters = {
+        court_code: courtCode, judge: args.judge, date_from: args.date_from, date_to: args.date_to,
+        justice_kind: args.justice_kind, judgment_code: args.judgment_code, category_code: args.category_code,
+      };
+      const partyName = typeof args.party_name === 'string' ? args.party_name.trim() : undefined;
+      const partyRole = args.party_role as EdsrFtsFilters['party_role'] | undefined;
+
+      let result = await this.ftsService.searchFulltext(
         ftsQuery, this.db,
-        { court_code: courtCode, judge: args.judge, date_from: args.date_from, date_to: args.date_to,
-          justice_kind: args.justice_kind, judgment_code: args.judgment_code, category_code: args.category_code } as EdsrFtsFilters,
+        { ...baseFilters, party_name: partyName || undefined, party_role: partyRole },
         args.limit || 20, args.offset || 0,
       );
+
+      // Role-relaxation tier: the role keyword may simply not co-occur in the text even
+      // when the party IS a party (court phrasing varies). Before the costlier hybrid
+      // fallback, retry keeping the name phrase but dropping the role constraint.
+      let partyRoleRelaxed = false;
+      if (result.total === 0 && partyName && partyRole && partyRole !== 'any') {
+        partyRoleRelaxed = true;
+        logger.info('[EdsrUnifiedSearch] fulltext 0 with party_role, relaxing role', {
+          party_name: partyName, party_role: partyRole,
+        });
+        result = await this.ftsService.searchFulltext(
+          ftsQuery, this.db,
+          { ...baseFilters, party_name: partyName },
+          args.limit || 20, args.offset || 0,
+        );
+      }
 
       // Genuine no-match (not merely relevance-filtered) → fall back to hybrid, whose
       // semantic leg doesn't require every token to co-occur. Uses the ORIGINAL query.
@@ -356,6 +389,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       return this.wrapResponse({
         mode: 'fulltext', ...result,
         ...(truncatedFromTokens ? { query_truncated: { from_tokens: truncatedFromTokens, used: ftsQuery } } : {}),
+        ...(partyRoleRelaxed ? { party_role_relaxed: true } : {}),
         results: output.filtered,
         ...(output.original_count !== output.filtered_count
           ? { relevance_filter: { from: output.original_count, to: output.filtered_count } }
@@ -382,6 +416,10 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     const filters: EdsrFtsFilters = {
       court_code: args.court_code, justice_kind: args.justice_kind,
       judge: args.judge, date_from: args.date_from, date_to: args.date_to,
+      // Party constraints apply to the FTS leg only; the semantic leg can't filter by
+      // role, so RRF still surfaces topically-relevant vector hits as a safety net.
+      party_name: typeof args.party_name === 'string' ? args.party_name.trim() || undefined : undefined,
+      party_role: args.party_role,
     };
 
     const reformulated = this.queryReformulator

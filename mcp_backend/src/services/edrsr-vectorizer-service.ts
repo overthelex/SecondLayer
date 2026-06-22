@@ -345,9 +345,21 @@ export class EdsrVectorizerService {
   async semanticSearch(
     query: string,
     filters?: EdrsrSearchFilters,
-    limit: number = 10
+    limit: number = 10,
+    scoreThreshold?: number
   ): Promise<EdrsrSearchResult[]> {
     await this.ensureCollection();
+
+    // Optional relevance floor. BGE-M3 cosine for genuinely on-topic legal
+    // chunks sits well above the noise band; the low-score tail is dominated by
+    // incidental mentions (e.g. a courier named in passing rather than a party
+    // to the case). Dropping sub-threshold hits in Qdrant trims that noise
+    // cheaply — before the costlier LLM result-filter ever sees it. Off by
+    // default (env-driven); calibrate per scoring mode, since rescore:false
+    // returns quantization-derived scores on a slightly different scale.
+    const envThreshold = process.env.QDRANT_EDRSR_SCORE_THRESHOLD;
+    const threshold = scoreThreshold ??
+      (envThreshold !== undefined && envThreshold !== '' ? Number(envThreshold) : undefined);
 
     // Embed query
     const result = await this.embeddingClient.generateEmbeddingsBatchWithUsage([query]);
@@ -385,6 +397,7 @@ export class EdsrVectorizerService {
         limit,
         filter: qdrantFilter,
         with_payload: true,
+        ...(threshold !== undefined && Number.isFinite(threshold) ? { score_threshold: threshold } : {}),
         // `edrsr_serving` keeps full vectors on disk with binary quantization in
         // RAM. Rescore re-reads full f32 vectors from the gp3 volume and stalls
         // past the request timeout under concurrency, so it defaults OFF —

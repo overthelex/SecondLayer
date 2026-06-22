@@ -249,6 +249,59 @@ describe('EdsrUnifiedSearchTool', () => {
     });
   });
 
+  describe('party filters', () => {
+    it('exposes party_name and party_role params', () => {
+      db = makeDb(() => ({ rows: [] }));
+      tool = new EdsrUnifiedSearchTool(db);
+      const props = tool.getToolDefinitions()[0].inputSchema.properties as any;
+      expect(props.party_name).toBeTruthy();
+      expect(props.party_role.enum).toEqual(['plaintiff', 'defendant', 'any']);
+    });
+
+    it('passes party_name/party_role into the FTS filters (fulltext)', async () => {
+      db = makeDb((sql) => {
+        if (sql.includes('edrsr_courts')) return { rows: [] };
+        if (sql.includes('edrsr_justice_kinds')) return { rows: [] };
+        if (sql.includes('edrsr_judgment_forms')) return { rows: [] };
+        return { rows: [] };
+      });
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService);
+
+      await tool.executeTool('search_court_decisions', {
+        mode: 'fulltext', query: 'доставка вантажу',
+        party_name: 'Нова Пошта', party_role: 'defendant',
+      });
+
+      const filters = mockFtsService.searchFulltext.mock.calls[0][2];
+      expect(filters.party_name).toBe('Нова Пошта');
+      expect(filters.party_role).toBe('defendant');
+    });
+
+    it('relaxes party_role and retries when first FTS pass is empty', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      const calls: any[] = [];
+      mockFtsService.searchFulltext = jest.fn((q: string, _db: any, filters: any) => {
+        calls.push(filters);
+        // first call (with role) → empty; second (relaxed) → a hit
+        if (filters.party_role) return Promise.resolve({ query: q, total: 0, results: [] });
+        return Promise.resolve({ query: q, total: 1, results: [{ doc_id: 1, rank: 0.4 }] });
+      });
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService);
+
+      const result = await tool.executeTool('search_court_decisions', {
+        mode: 'fulltext', query: 'доставка',
+        party_name: 'Нова Пошта', party_role: 'defendant',
+      });
+
+      expect(calls).toHaveLength(2);
+      expect(calls[0].party_role).toBe('defendant');
+      expect(calls[1].party_role).toBeUndefined();
+      expect(calls[1].party_name).toBe('Нова Пошта');
+      const parsed = JSON.parse(result?.content[0].text || '{}');
+      expect(parsed.party_role_relaxed).toBe(true);
+    });
+  });
+
   describe('hybrid mode', () => {
     it('requires query parameter', async () => {
       db = makeDb(() => ({ rows: [] }));
