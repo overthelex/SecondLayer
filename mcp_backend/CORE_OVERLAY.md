@@ -10,6 +10,7 @@ a core-only change triggers a backend build + deploy.
 |------|-------------|-------|
 | 2026-06-23 | `17b1b0a` | CORE-21 P0.1 quote-or-drop (#55) + P0.2 claim↔source verifier (#57): warn-only citation-grounding gates (`ungrounded_quote`, `claim_unsupported`). |
 | 2026-06-23 | `3fd3bed` | CORE-21 P0.3 verify-before-stream (#58): high-stakes query types (practice/institutional/comparative_analysis, due_diligence) verify + repair citations before the answer is streamed — final answer renders at once, not token-by-token. |
+| 2026-06-23 | `810155f` | CORE-21 P0.enforce (#59): flip P0.1/P0.2 warn→enforce — unsupported quotes/holdings on real cited cases are now stripped from the answer (repairUnsupportedCitations), not just flagged. |
 
 > Update this row whenever a core change must reach prod. The overlay always uses
 > core `main` HEAD; keep the recorded commit equal to that HEAD at merge time.
