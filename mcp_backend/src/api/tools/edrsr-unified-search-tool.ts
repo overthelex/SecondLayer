@@ -508,8 +508,22 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       ? EdsrUnifiedSearchTool.VECTORIZED_JUSTICE_KINDS.has(justiceKind)
       : true; // no justice_kind filter → search the whole unified collection (all codices vectorized)
 
+    // The vector leg gets only the filters Qdrant can enforce via payload indices
+    // (court_code/justice_kind/judge/date) — with justice_kind coerced to a number so the
+    // integer index matches. Pushing justice_kind into the Qdrant filter pre-constrains the
+    // candidates by codex instead of returning cross-codex hits that the post-fusion pass
+    // would otherwise drop. party_name/party_role/instance_code stay FTS-only and are
+    // re-checked post-fusion below.
+    const vectorFilters: EdrsrSearchFilters = {
+      court_code: args.court_code,
+      justice_kind: justiceKind,
+      judge: args.judge,
+      date_from: args.date_from,
+      date_to: args.date_to,
+    };
+
     const vectorPromise = (this.vectorizer && hasVectors)
-      ? this.vectorizer.semanticSearch(semanticQuery, filters as unknown as EdrsrSearchFilters, candidateLimit)
+      ? this.vectorizer.semanticSearch(semanticQuery, vectorFilters, candidateLimit)
           .catch((err: any) => { logger.warn('[EdsrUnifiedSearch] Qdrant leg failed', { error: err.message }); return null; })
       : Promise.resolve(null);
 

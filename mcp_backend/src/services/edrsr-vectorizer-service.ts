@@ -390,12 +390,16 @@ export class EdsrVectorizerService {
     // Build Qdrant filter
     const must: any[] = [];
 
+    // court_code / justice_kind payload indices are integers. Tool-call args (and HTTP
+    // JSON) often arrive as strings ("4"); a string `value` is treated by Qdrant as a
+    // keyword and silently matches nothing, so the vector leg returns 0 candidates even
+    // though the code exists. Coerce to Number so the integer index actually matches.
     if (filters?.court_code) {
-      must.push({ key: 'court_code', match: { value: filters.court_code } });
+      must.push({ key: 'court_code', match: { value: Number(filters.court_code) } });
     }
 
     if (filters?.justice_kind) {
-      must.push({ key: 'justice_kind', match: { value: filters.justice_kind } });
+      must.push({ key: 'justice_kind', match: { value: Number(filters.justice_kind) } });
     }
 
     if (filters?.judge) {
