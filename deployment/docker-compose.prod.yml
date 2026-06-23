@@ -544,6 +544,11 @@ services:
       QDRANT_EDRSR_RESCORE: ${QDRANT_EDRSR_RESCORE:-}
       QDRANT_EDRSR_OVERSAMPLING: ${QDRANT_EDRSR_OVERSAMPLING:-}
       QDRANT_EDRSR_SCORE_THRESHOLD: ${QDRANT_EDRSR_SCORE_THRESHOLD:-}
+      # Serving-node guard: when true, the read path assumes the edrsr_serving
+      # collection + payload indexes already exist and never (re)creates them.
+      # Re-issuing createPayloadIndex on a pre-built serving node triggers full
+      # segment rebuilds that saturate its IO and time out searches.
+      QDRANT_EDRSR_SKIP_INIT: ${QDRANT_EDRSR_SKIP_INIT:-}
       BGE_M3_URL: ${BGE_M3_URL:-}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis-prod:6379
       REDIS_HOST: redis-prod
@@ -742,6 +747,11 @@ services:
       QDRANT_EDRSR_RESCORE: ${QDRANT_EDRSR_RESCORE:-}
       QDRANT_EDRSR_OVERSAMPLING: ${QDRANT_EDRSR_OVERSAMPLING:-}
       QDRANT_EDRSR_SCORE_THRESHOLD: ${QDRANT_EDRSR_SCORE_THRESHOLD:-}
+      # Serving-node guard: when true, the read path assumes the edrsr_serving
+      # collection + payload indexes already exist and never (re)creates them.
+      # Re-issuing createPayloadIndex on a pre-built serving node triggers full
+      # segment rebuilds that saturate its IO and time out searches.
+      QDRANT_EDRSR_SKIP_INIT: ${QDRANT_EDRSR_SKIP_INIT:-}
       BGE_M3_URL: ${BGE_M3_URL:-}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis-prod:6379
       REDIS_HOST: redis-prod
@@ -969,6 +979,11 @@ services:
       QDRANT_EDRSR_RESCORE: ${QDRANT_EDRSR_RESCORE:-}
       QDRANT_EDRSR_OVERSAMPLING: ${QDRANT_EDRSR_OVERSAMPLING:-}
       QDRANT_EDRSR_SCORE_THRESHOLD: ${QDRANT_EDRSR_SCORE_THRESHOLD:-}
+      # Serving-node guard: when true, the read path assumes the edrsr_serving
+      # collection + payload indexes already exist and never (re)creates them.
+      # Re-issuing createPayloadIndex on a pre-built serving node triggers full
+      # segment rebuilds that saturate its IO and time out searches.
+      QDRANT_EDRSR_SKIP_INIT: ${QDRANT_EDRSR_SKIP_INIT:-}
       BGE_M3_URL: ${BGE_M3_URL:-}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis-prod:6379
       REDIS_HOST: redis-prod
@@ -1236,6 +1251,11 @@ services:
       QDRANT_EDRSR_RESCORE: ${QDRANT_EDRSR_RESCORE:-}
       QDRANT_EDRSR_OVERSAMPLING: ${QDRANT_EDRSR_OVERSAMPLING:-}
       QDRANT_EDRSR_SCORE_THRESHOLD: ${QDRANT_EDRSR_SCORE_THRESHOLD:-}
+      # Serving-node guard: when true, the read path assumes the edrsr_serving
+      # collection + payload indexes already exist and never (re)creates them.
+      # Re-issuing createPayloadIndex on a pre-built serving node triggers full
+      # segment rebuilds that saturate its IO and time out searches.
+      QDRANT_EDRSR_SKIP_INIT: ${QDRANT_EDRSR_SKIP_INIT:-}
       BGE_M3_URL: ${BGE_M3_URL:-}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis-prod:6379
       REDIS_HOST: redis-prod
