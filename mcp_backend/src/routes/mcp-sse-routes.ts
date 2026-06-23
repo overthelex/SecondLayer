@@ -23,7 +23,8 @@ import { CostTracker } from '../services/cost-tracker.js';
 import { CreditService } from '../services/credit-service.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { CallToolRequestSchema, ListToolsRequestSchema, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 
 export function createMCPSSERoutes(deps: {
   mcpSSEServer: MCPSSEServer;
@@ -58,6 +59,179 @@ export function createMCPSSERoutes(deps: {
       scopes_supported: ['mcp', 'claudeai'],
       code_challenge_methods_supported: ['S256', 'plain'],
     };
+  }
+
+  // Active Streamable HTTP sessions (transport reused across POST/GET/DELETE by Mcp-Session-Id)
+  const streamableSessions = new Map<string, StreamableHTTPServerTransport>();
+
+  // Helper: authenticate a Bearer request (JWT / OAuth access token / API key).
+  // On failure, writes the 401/429 response (with WWW-Authenticate for discovery) and returns null.
+  // `resourceMetadataPath` is the RFC 9728 metadata path for THIS transport so OAuth clients
+  // discover the resource whose URL matches their configured server URL.
+  async function authenticateMcpBearer(
+    req: DualAuthRequest,
+    res: Response,
+    logTag: string,
+    resourceMetadataPath: string
+  ): Promise<{ userId?: string; clientKey?: string } | null> {
+    const baseUrl = getBaseUrl(req);
+    const resourceMetadataUrl = `${baseUrl}${resourceMetadataPath}`;
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      logger.warn(`${logTag} Missing or invalid Authorization header`);
+      res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadataUrl}"`);
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authorization header with Bearer token is required',
+        code: 'MISSING_AUTH',
+      });
+      return null;
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    let userId: string | undefined;
+    let clientKey: string | undefined;
+
+    try {
+      if (token.includes('.')) {
+        // JWT token
+        const jwt = await import('jsonwebtoken');
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) throw new Error('JWT_SECRET not configured');
+        const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as any;
+        userId = String(decoded.userId);
+        logger.debug(`${logTag} Authenticated with JWT`, { userId: sanitizeId(userId) });
+      } else {
+        // OAuth access token first, then API key
+        const oauthToken = await deps.oauthService.verifyAccessToken(token);
+        if (oauthToken) {
+          userId = String(oauthToken.userId);
+          clientKey = oauthToken.clientId;
+          logger.debug(`${logTag} Authenticated with OAuth token`);
+        } else {
+          clientKey = token;
+          const keyInfo = await deps.apiKeyService.validateApiKey(token);
+          if (!keyInfo) {
+            logger.warn(`${logTag} Invalid API key`, { keyPrefix: maskSensitive(token, 8) });
+            res.setHeader('WWW-Authenticate', `Bearer error="invalid_token", resource_metadata="${resourceMetadataUrl}"`);
+            res.status(401).json({ error: 'Unauthorized', message: 'Invalid API key', code: 'INVALID_API_KEY' });
+            return null;
+          }
+          const rateLimit = await deps.apiKeyService.checkRateLimit(token);
+          if (!rateLimit.allowed) {
+            logger.warn(`${logTag} Rate limit exceeded`, { keyId: keyInfo.id, reason: rateLimit.reason });
+            res.status(429).json({ error: 'Rate limit exceeded', code: 'RATE_LIMIT_EXCEEDED', reason: rateLimit.reason });
+            return null;
+          }
+          userId = keyInfo.userId;
+          logger.debug(`${logTag} Authenticated with API key`, { userId, keyId: keyInfo.id });
+          deps.apiKeyService.updateUsage(token).catch((err) => {
+            logger.error(`${logTag} Failed to update API key usage`, { error: err.message });
+          });
+        }
+      }
+    } catch (error) {
+      logger.warn(`${logTag} Authentication failed`, { error: (error as Error).message });
+      res.setHeader('WWW-Authenticate', `Bearer error="invalid_token", resource_metadata="${resourceMetadataUrl}"`);
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication failed: ' + (error as Error).message,
+        code: 'AUTH_FAILED',
+      });
+      return null;
+    }
+
+    return { userId, clientKey };
+  }
+
+  // Helper: build a fully-wired MCP Server (tools/list + tools/call with billing) for a user.
+  // Shared by the classic SSE transport (/v1/sse) and the Streamable HTTP transport (/v1/mcp).
+  function buildMcpServer(userId: string | undefined, clientKey: string | undefined): Server {
+    const safeUserId = sanitizeId(userId || 'anonymous');
+    const mcpServer = new Server(
+      { name: 'secondlayer-mcp', version: '1.0.0' },
+      { capabilities: { tools: {} } }
+    );
+
+    mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
+      return { tools: deps.toolRegistry.getLocalToolDefinitions() };
+    });
+
+    mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
+      const toolName = request.params.name;
+      const args = request.params.arguments || {};
+      const requestId = `mcp-v1-${uuidv4()}`;
+      const startTime = Date.now();
+
+      try {
+        logger.info('[MCP] Tool call', { tool: toolName, userId: safeUserId });
+
+        // Phase 2 Billing: Check credits BEFORE execution
+        if (userId && deps.creditService) {
+          const creditsRequired = await deps.creditService.calculateCreditsForTool(toolName, userId);
+          if (creditsRequired > 0) {
+            const balance = await deps.creditService.checkBalance(userId, creditsRequired);
+            if (!balance.hasCredits) {
+              logger.warn('[MCP] Insufficient credits', { userId: safeUserId, tool: toolName, creditsRequired });
+              return {
+                content: [{ type: 'text', text: `Error: Insufficient credits. Required: ${creditsRequired}, Current balance: ${balance.currentBalance}` }],
+                isError: true,
+              };
+            }
+          }
+        }
+
+        await deps.costTracker.createTrackingRecord({
+          requestId,
+          toolName,
+          clientKey,
+          userId,
+          userQuery: String(args.query || JSON.stringify(args)),
+          queryParams: args,
+        });
+
+        const result = await requestContext.run(
+          { requestId, task: toolName },
+          async () => {
+            const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
+            const vaultUserId = userId || process.env.DEFAULT_VAULT_USER_ID;
+            const toolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId: vaultUserId } : args;
+            const registryResult = await deps.toolRegistry.executeTool(toolName, toolArgs);
+            if (registryResult) {
+              return registryResult;
+            }
+            throw new Error(`Unknown tool: ${toolName}`);
+          }
+        );
+
+        const executionTime = Date.now() - startTime;
+        await deps.costTracker.completeTrackingRecord({ requestId, executionTimeMs: executionTime, status: 'completed' });
+
+        if (userId && deps.creditService) {
+          const creditsRequired = await deps.creditService.calculateCreditsForTool(toolName, userId);
+          if (creditsRequired > 0) {
+            const deduction = await deps.creditService.deductCredits(userId, creditsRequired, toolName, requestId, `Tool execution: ${toolName}`);
+            if (deduction.success) {
+              logger.info('[MCP] Credits deducted', { userId: safeUserId, tool: toolName, creditsDeducted: creditsRequired });
+            }
+          }
+        }
+
+        return {
+          content: result.content || [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (error: any) {
+        logger.error('[MCP] Tool execution error', { tool: toolName, error: error.message });
+        const executionTime = Date.now() - startTime;
+        await deps.costTracker.completeTrackingRecord({ requestId, executionTimeMs: executionTime, status: 'failed', errorMessage: error.message });
+        return {
+          content: [{ type: 'text', text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    });
+
+    return mcpServer;
   }
 
   // ========================= /sse endpoints =========================
@@ -297,253 +471,18 @@ export function createMCPSSERoutes(deps: {
       logger.info('[MCP v1/sse] New standard MCP SSE connection');
 
       // REQUIRED authentication for usage tracking
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        logger.warn('[MCP v1/sse] Missing or invalid Authorization header');
-        // Point OAuth clients at the protected-resource metadata for THIS transport
-        // (resource = public /api/v1/sse), so the SDK's resource check passes. Without this
-        // header the SDK falls back to the root metadata (resource = /sse) and rejects.
-        const baseUrl = getBaseUrl(req);
-        res.setHeader(
-          'WWW-Authenticate',
-          `Bearer resource_metadata="${baseUrl}/.well-known/oauth-protected-resource/api/v1/sse"`
-        );
-        return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'Authorization header with Bearer token is required',
-          code: 'MISSING_AUTH',
-        });
-      }
-
-      const token = authHeader.replace('Bearer ', '');
-      let userId: string | undefined;
-      let clientKey: string | undefined;
-
-      // Authenticate (JWT, OAuth access token, or API key)
-      try {
-        if (token.includes('.')) {
-          // JWT token
-          const jwt = await import('jsonwebtoken');
-          const jwtSecret = process.env.JWT_SECRET;
-          if (!jwtSecret) throw new Error('JWT_SECRET not configured');
-          const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as any;
-          userId = String(decoded.userId);
-          logger.debug('[MCP v1/sse] Authenticated with JWT', { userId: sanitizeId(userId) });
-        } else {
-          // Try OAuth access token first, then API key
-          const oauthToken = await deps.oauthService.verifyAccessToken(token);
-          if (oauthToken) {
-            userId = String(oauthToken.userId);
-            logger.debug('[MCP v1/sse] Authenticated with OAuth token');
-          } else {
-            // API key
-            clientKey = token;
-            const keyInfo = await deps.apiKeyService.validateApiKey(token);
-
-            if (!keyInfo) {
-              logger.warn('[MCP v1/sse] Invalid API key', {
-                keyPrefix: maskSensitive(token, 8),
-              });
-              return res.status(401).json({
-                error: 'Unauthorized',
-                message: 'Invalid API key',
-                code: 'INVALID_API_KEY',
-              });
-            }
-
-            // Check rate limits
-            const rateLimit = await deps.apiKeyService.checkRateLimit(token);
-
-            if (!rateLimit.allowed) {
-              logger.warn('[MCP v1/sse] Rate limit exceeded', {
-                keyId: keyInfo.id,
-                reason: rateLimit.reason,
-              });
-              return res.status(429).json({
-                error: 'Rate limit exceeded',
-                code: 'RATE_LIMIT_EXCEEDED',
-                reason: rateLimit.reason,
-              });
-            }
-
-            userId = keyInfo.userId;
-            logger.debug('[MCP v1/sse] Authenticated with API key', {
-              userId,
-              keyId: keyInfo.id,
-            });
-
-            // Update API key usage
-            deps.apiKeyService.updateUsage(token).catch((err) => {
-              logger.error('[MCP v1/sse] Failed to update API key usage', { error: err.message });
-            });
-          }
-        }
-      } catch (error) {
-        // Auth failed - return 401
-        logger.warn('[MCP v1/sse] Authentication failed', { error: (error as Error).message });
-        return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'Authentication failed: ' + (error as Error).message,
-          code: 'AUTH_FAILED',
-        });
-      }
-
-      const safeUserId = sanitizeId(userId || 'anonymous');
-
-      // Create MCP Server instance for this connection
-      const mcpServer = new Server(
-        {
-          name: 'secondlayer-mcp',
-          version: '1.0.0',
-        },
-        {
-          capabilities: {
-            tools: {},
-          },
-        }
+      const auth = await authenticateMcpBearer(
+        req,
+        res,
+        '[MCP v1/sse]',
+        '/.well-known/oauth-protected-resource/api/v1/sse'
       );
+      if (!auth) return; // response already sent
 
-      // Setup tools/list handler
-      mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
-        return {
-          tools: deps.toolRegistry.getLocalToolDefinitions(),
-        };
-      });
+      const { userId, clientKey } = auth;
 
-      // Setup tools/call handler with billing integration
-      mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
-        const toolName = request.params.name;
-        const args = request.params.arguments || {};
-        const requestId = `mcp-v1-${uuidv4()}`;
-        const startTime = Date.now();
-
-        try {
-          logger.info('[MCP v1/sse] Tool call', {
-            tool: toolName,
-            userId: safeUserId,
-          });
-
-          // Phase 2 Billing: Check credits BEFORE execution
-          if (userId && deps.creditService) {
-            const creditsRequired = await deps.creditService.calculateCreditsForTool(toolName, userId);
-
-            if (creditsRequired > 0) {
-              const balance = await deps.creditService.checkBalance(userId, creditsRequired);
-
-              if (!balance.hasCredits) {
-                logger.warn('[MCP v1/sse] Insufficient credits', {
-                  userId: safeUserId,
-                  tool: toolName,
-                  creditsRequired,
-                });
-
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Error: Insufficient credits. Required: ${creditsRequired}, Current balance: ${balance.currentBalance}`,
-                    },
-                  ],
-                  isError: true,
-                };
-              }
-            }
-          }
-
-          // Create cost tracking record
-          await deps.costTracker.createTrackingRecord({
-            requestId,
-            toolName,
-            clientKey,
-            userId,
-            userQuery: String(args.query || JSON.stringify(args)),
-            queryParams: args,
-          });
-
-          // Execute tool in request context
-          const result = await requestContext.run(
-            { requestId, task: toolName },
-            async () => {
-              // Route to appropriate tool handler via centralized registry
-              // Inject userId for all vault tools (user isolation)
-              const VAULT_TOOLS = new Set(['store_document', 'get_document', 'list_documents', 'semantic_search', 'list_folders', 'delete_document', 'update_document']);
-              const vaultUserId = userId || process.env.DEFAULT_VAULT_USER_ID;
-              const toolArgs = VAULT_TOOLS.has(toolName) ? { ...args, userId: vaultUserId } : args;
-              const registryResult = await deps.toolRegistry.executeTool(toolName, toolArgs);
-              if (registryResult) {
-                return registryResult;
-              }
-              throw new Error(`Unknown tool: ${toolName}`);
-            }
-          );
-
-          // Complete cost tracking
-          const executionTime = Date.now() - startTime;
-          await deps.costTracker.completeTrackingRecord({
-            requestId,
-            executionTimeMs: executionTime,
-            status: 'completed',
-          });
-
-          // Phase 2 Billing: Deduct credits after successful execution
-          if (userId && deps.creditService) {
-            const creditsRequired = await deps.creditService.calculateCreditsForTool(toolName, userId);
-
-            if (creditsRequired > 0) {
-              const deduction = await deps.creditService.deductCredits(
-                userId,
-                creditsRequired,
-                toolName,
-                requestId,
-                `Tool execution: ${toolName}`
-              );
-
-              if (deduction.success) {
-                logger.info('[MCP v1/sse] Credits deducted', {
-                  userId: safeUserId,
-                  tool: toolName,
-                  creditsDeducted: creditsRequired,
-                });
-              }
-            }
-          }
-
-          // Return result in MCP format
-          return {
-            content: result.content || [
-              {
-                type: 'text',
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          };
-
-        } catch (error: any) {
-          logger.error('[MCP v1/sse] Tool execution error', {
-            tool: toolName,
-            error: error.message,
-          });
-
-          // Record failure
-          const executionTime = Date.now() - startTime;
-          await deps.costTracker.completeTrackingRecord({
-            requestId,
-            executionTimeMs: executionTime,
-            status: 'failed',
-            errorMessage: error.message,
-          });
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Error: ${error.message}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-      });
+      // Build the MCP server (tools/list + tools/call with billing)
+      const mcpServer = buildMcpServer(userId, clientKey);
 
       // Create SSE transport
       const transport = new SSEServerTransport('/v1/sse', res);
@@ -573,6 +512,106 @@ export function createMCPSSERoutes(deps: {
       }
     }
   }) as any);
+
+  // ========================= /v1/mcp (Streamable HTTP) =========================
+  // Modern MCP transport (replaces deprecated SSE). Publicly reached at /api/v1/mcp
+  // (nginx rewrites /api/v1/mcp -> /v1/mcp). Claude Code `"type": "http"` connects here;
+  // unlike the SSE transport it reliably attaches the OAuth bearer on every request.
+
+  const MCP_RESOURCE_METADATA_PATH = '/.well-known/oauth-protected-resource/api/v1/mcp';
+
+  // POST /v1/mcp - JSON-RPC requests (initialize + tool calls). Stateful via Mcp-Session-Id.
+  router.post('/v1/mcp', (async (req: DualAuthRequest, res: Response) => {
+    try {
+      const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+      // Reuse an existing session if present
+      if (sessionId && streamableSessions.has(sessionId)) {
+        const transport = streamableSessions.get(sessionId)!;
+        return await transport.handleRequest(req, res, req.body);
+      }
+
+      // New session must begin with an `initialize` request
+      if (sessionId || !isInitializeRequest(req.body)) {
+        return res.status(400).json({
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Bad Request: no valid session ID for non-initialize request' },
+          id: null,
+        });
+      }
+
+      // Authenticate the initialize request (token bound to this session for its lifetime)
+      const auth = await authenticateMcpBearer(req, res, '[MCP v1/mcp]', MCP_RESOURCE_METADATA_PATH);
+      if (!auth) return; // response already sent
+
+      const { userId, clientKey } = auth;
+      const mcpServer = buildMcpServer(userId, clientKey);
+
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => uuidv4(),
+        onsessioninitialized: (sid: string) => {
+          streamableSessions.set(sid, transport);
+          logger.info('[MCP v1/mcp] Session initialized', { sessionId: sid });
+        },
+      });
+
+      transport.onclose = () => {
+        if (transport.sessionId) {
+          streamableSessions.delete(transport.sessionId);
+          logger.info('[MCP v1/mcp] Session closed', { sessionId: transport.sessionId });
+        }
+        mcpServer.close();
+      };
+
+      await mcpServer.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+    } catch (error: any) {
+      logger.error('[MCP v1/mcp] POST error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: '2.0',
+          error: { code: -32603, message: 'Internal server error', data: error.message },
+          id: null,
+        });
+      }
+    }
+  }) as any);
+
+  // GET /v1/mcp - server→client notification stream for an existing session
+  router.get('/v1/mcp', (async (req: DualAuthRequest, res: Response) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (!sessionId || !streamableSessions.has(sessionId)) {
+      const baseUrl = getBaseUrl(req);
+      res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${baseUrl}${MCP_RESOURCE_METADATA_PATH}"`);
+      return res.status(400).json({ error: 'Invalid or missing Mcp-Session-Id', code: 'INVALID_SESSION' });
+    }
+    const transport = streamableSessions.get(sessionId)!;
+    await transport.handleRequest(req, res);
+  }) as any);
+
+  // DELETE /v1/mcp - explicit session termination
+  router.delete('/v1/mcp', (async (req: DualAuthRequest, res: Response) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (!sessionId || !streamableSessions.has(sessionId)) {
+      return res.status(400).json({ error: 'Invalid or missing Mcp-Session-Id', code: 'INVALID_SESSION' });
+    }
+    const transport = streamableSessions.get(sessionId)!;
+    await transport.handleRequest(req, res);
+  }) as any);
+
+  // RFC 9728 protected-resource metadata for the Streamable HTTP transport.
+  // `resource` MUST equal the public URL the client configures (/api/v1/mcp).
+  const mcpResourceMetadata = (req: Request, res: Response) => {
+    const baseUrl = getBaseUrl(req);
+    res.json({
+      resource: `${baseUrl}/api/v1/mcp`,
+      authorization_servers: [baseUrl],
+      scopes_supported: ['mcp'],
+      bearer_methods_supported: ['header'],
+    });
+  };
+  router.get('/.well-known/oauth-protected-resource/api/v1/mcp', mcpResourceMetadata);
+  router.get('/.well-known/oauth-protected-resource/v1/mcp', mcpResourceMetadata);
 
   // ========================= /mcp discovery =========================
 
