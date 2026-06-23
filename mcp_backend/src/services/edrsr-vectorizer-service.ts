@@ -460,6 +460,71 @@ export class EdsrVectorizerService {
     }
   }
 
+  // ── Best chunk per document (evidence backfill) ────────────────────────
+
+  /**
+   * Return the single most query-relevant chunk for each given doc_id.
+   *
+   * Used to backfill an evidence snippet for hybrid hits that came ONLY from the FTS
+   * leg (and therefore have no qdrant_best_chunk_text). Without this, the LLM relevance
+   * filter judges such hits on an uninformative ts_headline — which, when the matched
+   * terms are scattered, collapses to the decision's boilerplate header (court, case
+   * number, judges) and carries zero topical signal, so genuinely on-topic FTS matches
+   * get wrongly dropped. Embeds the query once, then issues one top-1 vector search per
+   * doc_id constrained by the edrsr_doc_id payload index, so every doc gets its own best
+   * chunk regardless of how it ranks globally. Failures per doc are swallowed (best-effort).
+   */
+  async bestChunkForDocs(
+    query: string,
+    docIds: number[],
+  ): Promise<Map<number, { text: string; chunk_index: number; score: number }>> {
+    const out = new Map<number, { text: string; chunk_index: number; score: number }>();
+    const uniqueIds = Array.from(new Set(docIds.filter((id) => Number.isFinite(id) && id > 0)));
+    if (!query?.trim() || uniqueIds.length === 0) return out;
+
+    await this.ensureCollection();
+
+    const result = await this.embeddingClient.generateEmbeddingsBatchWithUsage([query]);
+    this.usageCallback?.(result.totalTokens, EMBEDDING_MODEL, 'edrsr_best_chunk');
+    const queryVector = result.embeddings[0];
+    if (!queryVector) return out;
+
+    // Mirror semanticSearch's scoring params so the backfilled chunk is selected on the
+    // same basis as the vector leg's chunks (in-RAM quantized scoring by default).
+    const searchParams = {
+      hnsw_ef: Number(process.env.QDRANT_EDRSR_HNSW_EF || 128),
+      quantization:
+        process.env.QDRANT_EDRSR_RESCORE === 'true'
+          ? { rescore: true, oversampling: Number(process.env.QDRANT_EDRSR_OVERSAMPLING || 2.0) }
+          : { rescore: false },
+    };
+
+    await Promise.all(uniqueIds.map((docId) => this.searchSemaphore.run(async () => {
+      try {
+        const hits = await this.qdrant.search(COLLECTION_NAME, {
+          vector: queryVector,
+          limit: 1,
+          filter: { must: [{ key: 'edrsr_doc_id', match: { value: docId } }] },
+          with_payload: true,
+          params: searchParams,
+        });
+        const top = hits[0];
+        const text = top?.payload?.text as string | undefined;
+        if (top && text) {
+          out.set(docId, {
+            text,
+            chunk_index: (top.payload?.chunk_index as number) || 0,
+            score: top.score,
+          });
+        }
+      } catch (err: any) {
+        logger.warn('[EdsrVectorizer] bestChunkForDocs failed', { docId, error: err.message });
+      }
+    })));
+
+    return out;
+  }
+
   // ── Core: getVectorizationStats ────────────────────────────────────────
 
   /**

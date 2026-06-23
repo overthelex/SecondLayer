@@ -50,6 +50,7 @@ describe('EdsrUnifiedSearchTool', () => {
     };
     mockVectorizer = {
       semanticSearch: jest.fn(() => Promise.resolve([])),
+      bestChunkForDocs: jest.fn(() => Promise.resolve(new Map())),
     };
   });
 
@@ -417,6 +418,48 @@ describe('EdsrUnifiedSearchTool', () => {
       const parsed = JSON.parse(result?.content[0].text || '{}');
       expect(parsed.legs.fts_available).toBe(true);
       expect(parsed.legs.vector_available).toBe(false);
+    });
+
+    it('backfills a semantic chunk for FTS-only hits (evidence parity for the filter)', async () => {
+      // FTS leg finds doc 12345 whose only snippet is a boilerplate header; the vector
+      // leg finds a different doc that already carries a real chunk. The FTS-only hit must
+      // get a query-relevant chunk backfilled so the relevance filter judges it fairly.
+      const ftsOnly = {
+        searchFulltext: jest.fn(() => Promise.resolve({
+          query: 'тест', total: 1,
+          results: [{
+            doc_id: 12345, cause_num: '756/1/23', judge: 'Іванов І.І.',
+            court_code: 2605, justice_kind: 1, judgment_code: 3,
+            adjudication_date: '2024-06-15', headline: 'ПОСТАНОВА ІМЕНЕМ УКРАЇНИ',
+            rank: 0.0001,
+          }],
+        })),
+        filterDocIdsByConstraints: jest.fn((ids: number[]) => Promise.resolve(new Set(ids.map(Number)))),
+      };
+      const vectorizer = {
+        semanticSearch: jest.fn(() => Promise.resolve([{
+          id: 'p1', score: 370, text: 'вже має чанк', doc_id: 67890, chunk_index: 4,
+          metadata: { court_code: 2605, justice_kind: 1 },
+        }])),
+        bestChunkForDocs: jest.fn((_q: string, ids: number[]) =>
+          Promise.resolve(new Map(ids.map(id => [id, { text: 'релевантний фрагмент про директора', chunk_index: 2, score: 0.6 }])))),
+      };
+      db = makeDb(() => ({ rows: [] }));
+      tool = new EdsrUnifiedSearchTool(db, ftsOnly as any, vectorizer as any);
+
+      const result = await tool.executeTool('search_court_decisions', { mode: 'hybrid', query: 'тест' });
+      const parsed = JSON.parse(result?.content[0].text || '{}');
+
+      // Only the FTS-only doc is backfilled — the vector hit already had a chunk.
+      expect(vectorizer.bestChunkForDocs).toHaveBeenCalledWith('тест', [12345]);
+      expect(parsed.legs.fts_chunks_backfilled).toBe(1);
+
+      const ftsHit = parsed.results.find((r: any) => r.doc_id === 12345);
+      expect(ftsHit.qdrant_best_chunk_text).toBe('релевантний фрагмент про директора');
+      expect(ftsHit.evidence_chunk_backfilled).toBe(true);
+
+      const vectorHit = parsed.results.find((r: any) => r.doc_id === 67890);
+      expect(vectorHit.evidence_chunk_backfilled).toBeUndefined();
     });
   });
 
