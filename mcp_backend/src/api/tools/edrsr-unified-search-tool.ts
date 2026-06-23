@@ -15,6 +15,7 @@ import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handle
 import { logger } from '../../utils/logger.js';
 import { EDRSR_METADATA_SEARCH_ORDER } from '../../services/search-ranking-config.js';
 import type { SearchResultFilter } from '../../services/search-result-filter.js';
+import { STRICT_MIN_SCORE } from '../../services/search-result-filter.js';
 import type { QueryReformulator } from '../../services/query-reformulator.js';
 import type { EdsrFtsService, EdsrFtsFilters, EdsrFtsSearchResponse } from '../../services/edrsr-fts-service.js';
 import { selectFtsTerms } from '../../services/edrsr-fts-service.js';
@@ -580,7 +581,18 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     // each such hit's best query-relevant chunk so both legs feed the filter comparable
     // evidence. Bounded to the post-slice top set (≤ limit), no-op when nothing needs it.
     const chunkBackfilled = await this.backfillEvidenceChunks(enriched, semanticQuery);
-    const output = await this.maybeFilter(enriched, query);
+    // CORE-21 P1.5b: when the FTS leg collapsed, the fused set is effectively vector-only,
+    // and semantic search floods "partially relevant" (5-7) same-codex cases that get
+    // mis-cited as on-point practice. Raise the relevance-gate bar to 8-10 in that case so
+    // only directly-relevant hits survive. (Even IDF-ranked FTS — P1.5a — can return 0 on an
+    // ultra-specific all-AND query; this is the paired safeguard.)
+    const ftsCollapsed = (ftsResponse?.total ?? 0) < FTS_RELAX_MIN_RESULTS;
+    if (ftsCollapsed) {
+      logger.info('[EdsrUnifiedSearch] FTS collapsed — strict relevance gate', {
+        fts_total: ftsResponse?.total ?? 0, min_score: STRICT_MIN_SCORE, candidates: enriched.length,
+      });
+    }
+    const output = await this.maybeFilter(enriched, query, ftsCollapsed ? { minScore: STRICT_MIN_SCORE } : undefined);
 
     return this.wrapResponse({
       mode: 'hybrid', query, rrf_k: rrfK, oversample,
@@ -588,7 +600,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       ...(reformulated ? { reformulated: { fts: reformulated.fts, semantic: reformulated.semantic } } : {}),
       ...(partyName ? { party_filter: { party_name: partyName, party_role: partyRole || 'any' } } : {}),
       ...(instanceCode ? { instance_code: instanceCode } : {}),
-      legs: { fts_available: !!ftsResponse, vector_available: !!vectorResults, fts_candidates: ftsResults.length, vector_candidates: vectorHits.length, ...(chunkBackfilled > 0 ? { fts_chunks_backfilled: chunkBackfilled } : {}) },
+      legs: { fts_available: !!ftsResponse, vector_available: !!vectorResults, fts_candidates: ftsResults.length, vector_candidates: vectorHits.length, ...(chunkBackfilled > 0 ? { fts_chunks_backfilled: chunkBackfilled } : {}), ...(ftsCollapsed ? { fts_collapsed: true, strict_relevance_gate: true } : {}) },
       ...(structuralFilter ? { structural_filter: structuralFilter } : {}),
       total_fused: fused.length, returned: output.filtered.length,
       results: output.filtered,
@@ -716,11 +728,12 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
   private async maybeFilter(
     results: any[],
     query: string,
+    options?: { minScore?: number },
   ): Promise<{ filtered: any[]; original_count: number; filtered_count: number }> {
     if (!this.resultFilter) {
       return { filtered: results, original_count: results.length, filtered_count: results.length };
     }
-    return this.resultFilter.filterResults(results, query);
+    return this.resultFilter.filterResults(results, query, options);
   }
 
   // ── RRF fusion ──────────────────────────────────────────────────
