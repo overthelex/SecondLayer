@@ -2,7 +2,8 @@ import { logger } from '../utils/logger.js';
 import { withLLMRetry } from '../utils/llm-retry.js';
 import type { ILLMPort } from '../domain/ports/index.js';
 
-const FILTER_PROMPT = `Ти — юридичний асистент з ранжування. Тобі надано пошуковий запит користувача та список судових рішень (метадані).
+function filterPrompt(minScore: number): string {
+  return `Ти — юридичний асистент з ранжування. Тобі надано пошуковий запит користувача та список судових рішень (метадані).
 Оціни релевантність кожного рішення до запиту за шкалою 0-10.
 
 КРИТЕРІЇ:
@@ -11,10 +12,18 @@ const FILTER_PROMPT = `Ти — юридичний асистент з ранж�
 - 0-4: нерелевантне (інша тема, інша галузь права)
 
 Поверни ТІЛЬКИ JSON масив об'єктів: [{"doc_id": 12345, "score": 8}, ...]
-Порядок — за спаданням score. Включи ТІЛЬКИ рішення зі score >= 5.`;
+Порядок — за спаданням score. Включи ТІЛЬКИ рішення зі score >= ${minScore}.`;
+}
 
 const MIN_RESULTS_TO_FILTER = 8;
 const MIN_SCORE = 5;
+/**
+ * Stricter keep-threshold for when the FTS leg collapsed and the fused set is effectively
+ * vector-only (CORE-21 P1.5b). Without a precise FTS anchor, semantic search surfaces
+ * "partially relevant" (5-7) same-codex cases that get mis-cited as on-point practice;
+ * requiring 8-10 ("прямо стосується") drops that flood.
+ */
+export const STRICT_MIN_SCORE = 7;
 
 export class SearchResultFilter {
   constructor(private readonly llm: ILLMPort) {}
@@ -22,9 +31,10 @@ export class SearchResultFilter {
   async filterResults(
     results: any[],
     query: string,
-    options?: { maxResults?: number },
+    options?: { maxResults?: number; minScore?: number },
   ): Promise<{ filtered: any[]; original_count: number; filtered_count: number }> {
     const originalCount = results.length;
+    const minScore = options?.minScore ?? MIN_SCORE;
 
     if (results.length < MIN_RESULTS_TO_FILTER || !query?.trim()) {
       return { filtered: results, original_count: originalCount, filtered_count: originalCount };
@@ -48,7 +58,7 @@ export class SearchResultFilter {
         () => this.llm.chatCompletion(
           {
             messages: [
-              { role: 'system', content: FILTER_PROMPT },
+              { role: 'system', content: filterPrompt(minScore) },
               {
                 role: 'user',
                 content: `Запит: "${query}"\n\nРезультати (${summaries.length}):\n${JSON.stringify(summaries, null, 0)}`,
@@ -71,7 +81,7 @@ export class SearchResultFilter {
           const parsed = JSON.parse(objMatch[0]);
           const arr = parsed.results || parsed.decisions || parsed.items || Object.values(parsed).find(Array.isArray);
           if (Array.isArray(arr)) {
-            return this.applyScores(results, arr, query, options?.maxResults);
+            return this.applyScores(results, arr, query, options?.maxResults, minScore);
           }
         }
         logger.warn('[SearchResultFilter] Could not parse LLM response, returning unfiltered');
@@ -79,7 +89,7 @@ export class SearchResultFilter {
       }
 
       const scored: Array<{ doc_id: number; score: number }> = JSON.parse(jsonMatch[0]);
-      return this.applyScores(results, scored, query, options?.maxResults);
+      return this.applyScores(results, scored, query, options?.maxResults, minScore);
     } catch (err: any) {
       logger.warn('[SearchResultFilter] Filtering failed, returning unfiltered', { error: err.message });
       return { filtered: results, original_count: originalCount, filtered_count: originalCount };
@@ -91,6 +101,7 @@ export class SearchResultFilter {
     scored: Array<{ doc_id: number; score: number }>,
     query: string,
     maxResults?: number,
+    minScore: number = MIN_SCORE,
   ): { filtered: any[]; original_count: number; filtered_count: number } {
     const scoreMap = new Map<number, number>();
     for (const s of scored) {
@@ -102,7 +113,7 @@ export class SearchResultFilter {
     const filtered = results
       .filter(r => {
         const score = scoreMap.get(r.doc_id);
-        return score !== undefined && score >= MIN_SCORE;
+        return score !== undefined && score >= minScore;
       })
       .sort((a, b) => (scoreMap.get(b.doc_id) || 0) - (scoreMap.get(a.doc_id) || 0));
 
