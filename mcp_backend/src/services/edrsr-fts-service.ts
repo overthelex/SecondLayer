@@ -125,11 +125,66 @@ export interface EdsrIndexProgress {
   percentComplete: number;
 }
 
+/**
+ * IDF-weighted ordering of FTS keyword tokens (CORE-21 P1.5a). Returns the tokens
+ * most-discriminative first so the caller probes the rarest terms and relaxation drops
+ * the commonest. `idfByToken` is keyed by lowercased token (see EdsrFtsService.lexemeDf).
+ *
+ * Zero-risk fallback: an EMPTY idf map (df table unpopulated / lookup failed) preserves
+ * the original token order — i.e. the previous positional behaviour. Stable sort: equal
+ * idf (and the fallback) keep input order via the original index.
+ */
+export function selectFtsTerms(tokens: string[], idfByToken: Map<string, number>): string[] {
+  if (idfByToken.size === 0) return [...tokens];
+  return tokens
+    .map((tok, i) => ({ tok, i, idf: idfByToken.get(tok.toLowerCase()) ?? 0 }))
+    .sort((a, b) => (b.idf - a.idf) || (a.i - b.i))
+    .map(x => x.tok);
+}
+
 export class EdsrFtsService {
   private edsrCache: EdsrCacheService | null = null;
 
   setEdsrCache(cache: EdsrCacheService): void {
     this.edsrCache = cache;
+  }
+
+  /**
+   * Per-token IDF from the sampled edrsr_lexeme_df table (CORE-21 P1.5a). Returns a
+   * Map<lowercased token, idf>; idf = ln(sample_docs / df) for sampled lexemes, and
+   * ln(sample_docs) (the maximum) for tokens below the sampling floor when the table
+   * IS populated. Returns an EMPTY map when the df table is empty/missing/unreadable —
+   * callers then keep positional ordering (no regression before the table is built).
+   */
+  async lexemeDf(tokens: string[], dbPool: any): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    const lexemes = [...new Set(tokens.map(t => t.toLowerCase()).filter(Boolean))];
+    if (lexemes.length === 0) return out;
+    try {
+      const res = await dbPool.query(
+        `SELECT lexeme, df, sample_docs FROM edrsr_lexeme_df WHERE lexeme = ANY($1::text[])`,
+        [lexemes],
+      );
+      // sample_docs identifies whether the table is populated. Any matched row carries
+      // it; otherwise a cheap probe. No value -> empty table -> no signal (positional).
+      let sampleDocs = Number(res.rows[0]?.sample_docs) || 0;
+      if (!sampleDocs) {
+        const probe = await dbPool.query(`SELECT sample_docs FROM edrsr_lexeme_df LIMIT 1`);
+        sampleDocs = Number(probe.rows[0]?.sample_docs) || 0;
+      }
+      if (!sampleDocs) return out;
+      const maxIdf = Math.log(sampleDocs);
+      const dfByLex = new Map<string, number>();
+      for (const r of res.rows) dfByLex.set(r.lexeme, Number(r.df));
+      for (const lex of lexemes) {
+        const df = dfByLex.get(lex);
+        out.set(lex, df && df > 0 ? Math.log(sampleDocs / df) : maxIdf);
+      }
+      return out;
+    } catch (err: any) {
+      logger.warn('[EdsrFtsService] lexemeDf lookup failed; positional FTS fallback', { error: err.message });
+      return new Map();
+    }
   }
 
   /**

@@ -17,6 +17,7 @@ import { EDRSR_METADATA_SEARCH_ORDER } from '../../services/search-ranking-confi
 import type { SearchResultFilter } from '../../services/search-result-filter.js';
 import type { QueryReformulator } from '../../services/query-reformulator.js';
 import type { EdsrFtsService, EdsrFtsFilters, EdsrFtsSearchResponse } from '../../services/edrsr-fts-service.js';
+import { selectFtsTerms } from '../../services/edrsr-fts-service.js';
 import type { EdsrVectorizerService, EdrsrSearchFilters, EdrsrSearchResult } from '../../services/edrsr-vectorizer-service.js';
 
 const DEFAULT_RRF_K = 60;
@@ -359,7 +360,13 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     limit: number,
     offset: number,
   ): Promise<{ result: EdsrFtsSearchResponse; usedQuery: string; startTokens: number; usedTokens: number; relaxedFromTokens?: number }> {
-    const tokens = String(topicalQuery).trim().split(/\s+/).filter(Boolean);
+    const rawTokens = String(topicalQuery).trim().split(/\s+/).filter(Boolean);
+    // CORE-21 P1.5a: order tokens by IDF (discriminative first) so the probe keeps rare
+    // terms (донецьк/окупован/ДРРП) and relaxation drops the commonest (податок/майно),
+    // instead of the positional tail. Empty idf map → original order (no regression).
+    const idf = this.ftsService ? await this.ftsService.lexemeDf(rawTokens, this.db) : new Map<string, number>();
+    const tokens = selectFtsTerms(rawTokens, idf);
+    const idfRanked = idf.size > 0;
     const startTokens = tokens.length;
     let n = Math.min(startTokens, FULLTEXT_MAX_TOKENS) || 1;
     const cappedFrom = n; // token count at the first (capped) probe
@@ -368,13 +375,14 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     let result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset);
 
     let steps = 0;
-    // Relax while near-empty (not just hard 0): dropping a trailing AND-term only widens the
-    // match set, so we keep broadening until the probe clears the floor or we hit the bounds.
+    // Relax while near-empty (not just hard 0): dropping the LEAST discriminative AND-term
+    // (the idf-ranked tail) only widens the match set, so we keep broadening until the probe
+    // clears the floor or we hit the bounds.
     while (result.total < FTS_RELAX_MIN_RESULTS && n > FTS_MIN_TOKENS && steps < FTS_MAX_RELAX_STEPS) {
       n -= 1; steps += 1;
       usedQuery = tokens.slice(0, n).join(' ');
       logger.info('[EdsrUnifiedSearch] FTS relax-on-near-empty', {
-        from_tokens: n + 1, to_tokens: n, prev_total: result.total, query: usedQuery,
+        from_tokens: n + 1, to_tokens: n, prev_total: result.total, query: usedQuery, idf_ranked: idfRanked,
       });
       result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset);
     }
