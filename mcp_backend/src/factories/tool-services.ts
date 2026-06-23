@@ -222,13 +222,27 @@ export function createToolServices(
   logger.info('Upload, MinIO, and Vault services initialized');
 
   // OSINT proxy (SneakyPiper integration)
+  //
+  // TEMPORARILY DISABLED 2026-06-23: the upstream SneakyPiper self-hosted yente /
+  // OpenSanctions host (178.150.37.129, reachable over the wg-panoptic mesh at
+  // 10.77.0.1:8200) is down, and the INTERPOL relay is failing. Every osint_* call
+  // therefore returned an empty result set, which for a sanctions/PEP check is a
+  // dangerous false-negative ("nothing found" reads as "not sanctioned"). We keep the
+  // adapter and tools in the codebase (nothing deleted) but skip registration so they
+  // do not reach the chat. Re-enable once the host is restored: either revert this
+  // guard or set OSINT_PROXY_ENABLED=true.
   const osintAdapter = new OsintProxyAdapter(
     process.env.SNEAKYPIPER_API_URL || '',
     process.env.SNEAKYPIPER_API_KEY || ''
   );
-  if (osintAdapter.isConfigured()) {
+  const osintProxyEnabled = process.env.OSINT_PROXY_ENABLED === 'true';
+  if (osintProxyEnabled && osintAdapter.isConfigured()) {
     toolRegistry.registerHandler(new OsintProxyTools(osintAdapter));
     logger.info('OSINT proxy tools registered (SneakyPiper)');
+  } else if (osintAdapter.isConfigured()) {
+    logger.warn(
+      'OSINT proxy tools NOT registered: disabled via kill-switch (set OSINT_PROXY_ENABLED=true to re-enable once SneakyPiper upstream is restored)'
+    );
   }
 
   return {
