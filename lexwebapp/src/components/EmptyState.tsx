@@ -55,20 +55,6 @@ const PROMPT_POOL: SamplePrompt[] = [
   { category: 'Глибокий аналіз', text: 'Набувальна давність (ст. 344 ЦК): земельне та містобудівне законодавство, практика ВС, КС та аналіз патернів' },
   { category: 'Глибокий аналіз', text: 'Компанія «Газпром»: санкції РНБО, пов\'язані юрособи в Україні, судові справи, виконавчі провадження та закупівлі' },
   { category: 'Глибокий аналіз', text: 'Відповідальність директора ТОВ: ст. 89 ГК, ст. 1166 ЦК, практика ВС, банкрутні справи та дані з реєстрів' },
-
-  // ── OSINT (міжнародні бази, кіберрозвідка) ──
-  { category: 'OSINT', text: 'Перевірка санкцій OFAC/EU/UN для Huawei Technologies' },
-  { category: 'OSINT', text: 'Перевір IP 185.220.101.1 на шкідливу активність' },
-  { category: 'OSINT', text: 'Витоки облікових даних для домену @jpmorgan.com' },
-  { category: 'OSINT', text: 'Червоні повідомлення ІНТЕРПОЛУ за шахрайство' },
-  { category: 'OSINT', text: 'Репутація домену suspicious-site.com через VirusTotal' },
-  { category: 'OSINT', text: 'Жертви ransomware у фінансовому секторі' },
-  { category: 'OSINT', text: 'Дебармент Світового банку для консалтингових фірм' },
-  { category: 'OSINT', text: 'Офшорні зв\'язки через ICIJ для shell-компаній' },
-  { category: 'OSINT', text: 'Згадки у медіа та тональність для компанії Wirecard' },
-  { category: 'OSINT', text: 'CVE вразливості Cisco критичного рівня' },
-  { category: 'OSINT', text: 'Витоки API-ключів у GitHub для acme-corp.com' },
-  { category: 'OSINT', text: 'Публікації на darknet-форумах про витоки даних' },
 ];
 
 /**
@@ -78,7 +64,6 @@ const PROMPT_POOL: SamplePrompt[] = [
 const DISPLAY_SLOTS: string[] = [
   'Швидкий пошук',
   'Дослідження',
-  'OSINT',
   'Глибокий аналіз',
 ];
 
