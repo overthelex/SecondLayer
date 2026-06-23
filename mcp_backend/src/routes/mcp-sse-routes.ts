@@ -154,7 +154,15 @@ export function createMCPSSERoutes(deps: {
     );
 
     mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
-      return { tools: deps.toolRegistry.getLocalToolDefinitions() };
+      // Expose local backend tools + unified-gateway proxied tools (rada_*, openreyestr_*).
+      // Remote defs are fetched once and cached; executeTool() routes prefixed calls to the
+      // proxy. Falls back to local-only if remote services are unreachable.
+      try {
+        return { tools: await deps.toolRegistry.getAllToolDefinitions() };
+      } catch (err: any) {
+        logger.warn('[MCP] getAllToolDefinitions failed, serving local tools only', { error: err.message });
+        return { tools: deps.toolRegistry.getLocalToolDefinitions() };
+      }
     });
 
     mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
