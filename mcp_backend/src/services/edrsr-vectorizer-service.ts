@@ -171,33 +171,54 @@ export class EdsrVectorizerService {
   // ── Initialization ───────────────────────────────────────────────────────
 
   /**
-   * Lazy initialization: create the EDRSR collection on first use.
+   * Lazy initialization: ensure the EDRSR collection is usable before first read.
+   *
+   * On a read-only serving node (e.g. `edrsr_serving`, 296M points) the collection
+   * and its payload indexes already exist. The old implementation, on every init,
+   * (a) called `getCollection()` — which scans `points_count` over the whole
+   * collection and takes tens of seconds on a disk-bound serving node, and
+   * (b) re-issued `createPayloadIndex` for all filterable fields. Under load this
+   * became a self-sustaining disk storm: the heavy index (re)builds saturated the
+   * serving node's IOPS → `getCollection()` timed out → `initialized` was never set
+   * → the next search re-ran the whole handshake and re-queued more index builds.
+   * Searches degraded to FTS-only (`vector_available:false`) the entire time.
+   *
+   * Fix: keep the read path cheap. Existence is checked with `getCollections()`
+   * (a name listing, not a points scan). If the collection exists we trust it and
+   * mark init complete — collection/index creation is the vectorization pipeline's
+   * job, not the search path's. The heavy create+verify path runs ONLY when the
+   * collection is genuinely missing. `QDRANT_EDRSR_SKIP_INIT=true` skips even the
+   * existence probe for serving nodes where the collection is known-good.
    */
   private async ensureCollection(): Promise<void> {
     if (this.initialized) return;
 
+    // Serving-node fast path: collection + indexes are known to exist, so skip
+    // every network round-trip and never touch index creation.
+    if (process.env.QDRANT_EDRSR_SKIP_INIT === 'true') {
+      this.initialized = true;
+      logger.info('[EdsrVectorizer] init skipped (QDRANT_EDRSR_SKIP_INIT) — assuming collection + indexes exist', { collection: COLLECTION_NAME });
+      return;
+    }
+
     try {
+      // Cheap existence check — lists collection names, does NOT scan points.
       const collections = await this.qdrant.getCollections();
       const exists = collections.collections.some((c) => c.name === COLLECTION_NAME);
 
       if (exists) {
-        // Verify dimension matches
-        const info = await this.qdrant.getCollection(COLLECTION_NAME);
-        const currentSize = (info.config?.params?.vectors as any)?.size;
-        if (currentSize && currentSize !== EMBEDDING_DIM) {
-          logger.warn(`[EdsrVectorizer] Collection ${COLLECTION_NAME} has dimension ${currentSize}, expected ${EMBEDDING_DIM}. Recreating.`);
-          await this.qdrant.deleteCollection(COLLECTION_NAME);
-          await this._createCollection();
-        } else {
-          logger.info(`[EdsrVectorizer] Collection ${COLLECTION_NAME} exists (${info.points_count} points)`);
-        }
-      } else {
-        await this._createCollection();
+        // Already present — trust it. Do NOT call getCollection() (heavy
+        // points_count scan) or re-create payload indexes on every init; that
+        // work belongs to the vectorization pipeline, not the read path, and
+        // re-issuing it here is what saturated the serving node's disk.
+        this.initialized = true;
+        logger.info(`[EdsrVectorizer] Collection ${COLLECTION_NAME} present — init complete (lazy)`);
+        return;
       }
 
-      // Create payload indexes for filterable fields
+      // Collection genuinely missing — create it and its indexes once.
+      await this._createCollection();
       await this._ensurePayloadIndexes();
-
       this.initialized = true;
     } catch (error) {
       logger.error('[EdsrVectorizer] Failed to initialize collection:', error);
