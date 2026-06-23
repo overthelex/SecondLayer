@@ -44,6 +44,9 @@ describe('EdsrUnifiedSearchTool', () => {
           rank: 0.5,
         }],
       })),
+      // Default: pass-through (keep every candidate). Tests override to assert dropping.
+      filterDocIdsByConstraints: jest.fn((docIds: number[]) =>
+        Promise.resolve(new Set(docIds.map(Number)))),
     };
     mockVectorizer = {
       semanticSearch: jest.fn(() => Promise.resolve([])),
@@ -387,6 +390,131 @@ describe('EdsrUnifiedSearchTool', () => {
       const parsed = JSON.parse(result?.content[0].text || '{}');
       expect(parsed.legs.fts_available).toBe(true);
       expect(parsed.legs.vector_available).toBe(false);
+    });
+  });
+
+  describe('court_level / instance_code', () => {
+    it('exposes court_level param with SC / GrandChamber enum', () => {
+      db = makeDb(() => ({ rows: [] }));
+      tool = new EdsrUnifiedSearchTool(db);
+      const props = tool.getToolDefinitions()[0].inputSchema.properties as any;
+      expect(props.court_level).toBeTruthy();
+      expect(props.court_level.enum).toEqual(['all', 'SC', 'GrandChamber']);
+    });
+
+    it('maps court_level=SC to instance_code=1 in fulltext FTS filters', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService);
+
+      await tool.executeTool('search_court_decisions', {
+        mode: 'fulltext', query: 'податок нерухомість', court_level: 'SC',
+      });
+
+      const filters = mockFtsService.searchFulltext.mock.calls[0][2];
+      expect(filters.instance_code).toBe(1);
+    });
+
+    it('maps court_level=GrandChamber to instance_code=1 in structured WHERE', async () => {
+      db = makeDb((sql) => {
+        if (sql.includes('COUNT(*)')) return { rows: [{ total: 0 }] };
+        return { rows: [] };
+      });
+      tool = new EdsrUnifiedSearchTool(db);
+
+      await tool.executeTool('search_court_decisions', {
+        mode: 'structured', cause_num: '910/1/23', court_level: 'GrandChamber',
+      });
+
+      const instanceCall = calls.find(c => c.sql.includes('c.instance_code'));
+      expect(instanceCall).toBeTruthy();
+      expect(instanceCall!.params).toContain(1);
+    });
+
+    it('explicit instance_code wins over court_level', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService);
+
+      await tool.executeTool('search_court_decisions', {
+        mode: 'fulltext', query: 'тест', court_level: 'SC', instance_code: 2,
+      });
+
+      const filters = mockFtsService.searchFulltext.mock.calls[0][2];
+      expect(filters.instance_code).toBe(2);
+    });
+
+    it('passes instance_code into the hybrid FTS leg filters', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService, mockVectorizer);
+
+      await tool.executeTool('search_court_decisions', {
+        mode: 'hybrid', query: 'тест', court_level: 'SC',
+      });
+
+      const filters = mockFtsService.searchFulltext.mock.calls[0][2];
+      expect(filters.instance_code).toBe(1);
+    });
+  });
+
+  describe('hybrid structural enforcement', () => {
+    const vectorHit = (doc_id: number, score: number) => ({
+      doc_id, score, text: 'фрагмент', chunk_index: 0,
+      metadata: { court_code: 2605, cause_num: `${doc_id}/23`, justice_kind: 1, judgment_code: 3 },
+    });
+
+    it('drops vector-only hits that fail the party constraint', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      // FTS leg returns the party-matching doc; vector leg adds an unconstrained extra.
+      mockFtsService.searchFulltext = jest.fn(() => Promise.resolve({
+        query: 'тест', total: 1,
+        results: [{ doc_id: 111, court_code: 2605, justice_kind: 1, judgment_code: 3, rank: 0.5, headline: null }],
+      }));
+      mockFtsService.filterDocIdsByConstraints = jest.fn((ids: number[]) =>
+        // Only the FTS doc actually contains "Нова Пошта" as a party; 222 is vector noise.
+        Promise.resolve(new Set(ids.filter(id => id === 111))));
+      mockVectorizer.semanticSearch = jest.fn(() => Promise.resolve([vectorHit(222, 0.9), vectorHit(111, 0.4)]));
+
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService, mockVectorizer);
+      const result = await tool.executeTool('search_court_decisions', {
+        mode: 'hybrid', query: 'тест', party_name: 'Нова Пошта', party_role: 'defendant',
+      });
+
+      const parsed = JSON.parse(result?.content[0].text || '{}');
+      const ids = parsed.results.map((r: any) => r.doc_id);
+      expect(ids).toContain(111);
+      expect(ids).not.toContain(222);
+      expect(parsed.structural_filter.dropped).toBe(1);
+      expect(parsed.party_filter).toEqual({ party_name: 'Нова Пошта', party_role: 'defendant' });
+    });
+
+    it('relaxes party_role when the role wipes every candidate', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      mockFtsService.searchFulltext = jest.fn(() => Promise.resolve({ query: 'тест', total: 0, results: [] }));
+      mockVectorizer.semanticSearch = jest.fn(() => Promise.resolve([vectorHit(333, 0.8)]));
+      // First pass (name + role) → empty; second pass (name only) → keeps 333.
+      mockFtsService.filterDocIdsByConstraints = jest.fn((ids: number[], c: any) =>
+        Promise.resolve(c.party_role ? new Set<number>() : new Set(ids.map(Number))));
+
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService, mockVectorizer);
+      const result = await tool.executeTool('search_court_decisions', {
+        mode: 'hybrid', query: 'тест', party_name: 'Нова Пошта', party_role: 'defendant',
+      });
+
+      const parsed = JSON.parse(result?.content[0].text || '{}');
+      expect(parsed.structural_filter.party_role_relaxed).toBe(true);
+      expect(parsed.results.map((r: any) => r.doc_id)).toContain(333);
+      expect(mockFtsService.filterDocIdsByConstraints).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not run structural enforcement without party/instance filters', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      mockVectorizer.semanticSearch = jest.fn(() => Promise.resolve([vectorHit(444, 0.7)]));
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService, mockVectorizer);
+
+      const result = await tool.executeTool('search_court_decisions', { mode: 'hybrid', query: 'тест' });
+
+      const parsed = JSON.parse(result?.content[0].text || '{}');
+      expect(parsed.structural_filter).toBeUndefined();
+      expect(mockFtsService.filterDocIdsByConstraints).not.toHaveBeenCalled();
     });
   });
 

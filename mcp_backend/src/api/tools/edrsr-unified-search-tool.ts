@@ -109,7 +109,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
 ⚠️ Роль сторони (конкретна особа/компанія саме ЯК відповідач або позивач) → передавай party_name + party_role у режимі fulltext/hybrid, а НЕ дописуй слово «відповідач» у query. party_name прив'язується до тексту як фраза, party_role — до рольового слова, тож «де X — відповідач» дасть точніший результат, ніж семантика чи ключові слова. Для точного № справи/статті → structured або fulltext.
 
-Фільтри (спільні для всіх режимів): court_code/court_name, judge, justice_kind, judgment_code, category_code, date_from/date_to, party_name, party_role.
+Фільтри (спільні для всіх режимів): court_code/court_name, judge, justice_kind, judgment_code, category_code, date_from/date_to, party_name, party_role, court_level (SC=Верховний Суд).
 Пресети: military_preset (військові справи), kupap_preset (адмінправопорушення — traffic_dui, traffic_accident, domestic_violence, hooliganism тощо).
 Для повного тексту рішення — get_court_decision. Для резолютивки — edrsr_get_decision_dispositive.`,
       inputSchema: {
@@ -171,7 +171,12 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
           },
           instance_code: {
             type: 'number',
-            description: 'Інстанція суду: 1=Касаційна, 2=Апеляційна, 3=Перша (тільки structured)',
+            description: 'Інстанція суду: 1=Касаційна, 2=Апеляційна, 3=Перша. Працює в усіх режимах (structured/fulltext/hybrid).',
+          },
+          court_level: {
+            type: 'string',
+            enum: ['all', 'SC', 'GrandChamber'],
+            description: 'Рівень суду: all (всі), SC (Верховний Суд: КЦС/КГС/КАС/ККС), GrandChamber (Велика Палата ВС). SC/GrandChamber → касаційна інстанція (мапиться на instance_code=1). Узгоджено з search_legal_precedents / find_similar_fact_pattern_cases.',
           },
           military_preset: {
             type: 'string',
@@ -218,6 +223,13 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
   async executeTool(name: string, args: any): Promise<ToolResult | null> {
     if (name !== 'search_court_decisions') return null;
+
+    // court_level is the cross-tool convention (search_legal_precedents,
+    // find_similar_fact_pattern_cases): SC / GrandChamber → cassation instance. Map it onto
+    // instance_code so every mode honours it; explicit instance_code wins if both are given.
+    if (!args.instance_code && (args.court_level === 'SC' || args.court_level === 'GrandChamber')) {
+      args.instance_code = 1;
+    }
 
     switch (args.mode) {
       case 'structured': return this.searchStructured(args);
@@ -383,6 +395,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       const baseFilters: EdsrFtsFilters = {
         court_code: courtCode, judge: args.judge, date_from: args.date_from, date_to: args.date_to,
         justice_kind: args.justice_kind, judgment_code: args.judgment_code, category_code: args.category_code,
+        instance_code: args.instance_code,
       };
       const partyName = typeof args.party_name === 'string' ? args.party_name.trim() : undefined;
       const partyRole = args.party_role as EdsrFtsFilters['party_role'] | undefined;
@@ -451,13 +464,19 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     const rrfK = Math.max(Number(args.rrf_k) || DEFAULT_RRF_K, 1);
     const candidateLimit = limit * oversample;
 
+    const partyName = typeof args.party_name === 'string' ? args.party_name.trim() || undefined : undefined;
+    const partyRole = args.party_role as EdsrFtsFilters['party_role'] | undefined;
+    const instanceCode = args.instance_code ? Number(args.instance_code) : undefined;
+
     const filters: EdsrFtsFilters = {
       court_code: args.court_code, justice_kind: args.justice_kind,
       judge: args.judge, date_from: args.date_from, date_to: args.date_to,
-      // Party constraints apply to the FTS leg only; the semantic leg can't filter by
-      // role, so RRF still surfaces topically-relevant vector hits as a safety net.
-      party_name: typeof args.party_name === 'string' ? args.party_name.trim() || undefined : undefined,
-      party_role: args.party_role,
+      instance_code: instanceCode,
+      // Party/instance constraints apply to the FTS leg here; the semantic leg can't filter
+      // by them, so RRF still surfaces topically-relevant vector hits. The structural
+      // post-fusion pass below re-checks those vector-only hits and drops non-matching ones.
+      party_name: partyName,
+      party_role: partyRole,
     };
 
     const reformulated = this.queryReformulator
@@ -490,7 +509,37 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
     const ftsResults = ftsResponse?.results || [];
     const vectorHits: EdrsrSearchResult[] = vectorResults || [];
-    const fused = this.fuseRRF(ftsResults, vectorHits, rrfK);
+    let fused = this.fuseRRF(ftsResults, vectorHits, rrfK);
+
+    // Post-fusion structural enforcement. The Qdrant leg cannot filter by party_name/
+    // party_role/instance_code, so vector-only hits arrive unconstrained and previously
+    // diluted the result (e.g. "Нова Пошта as defendant" returned cases without the party;
+    // court_level=SC returned lower-instance courts). Re-check the fused candidates against
+    // edrsr_fulltext/edrsr_courts and drop the ones that don't actually satisfy the
+    // constraints. FTS-leg hits already match, so only vector-only hits can be removed.
+    let structuralFilter: { dropped: number; party_role_relaxed?: boolean } | undefined;
+    if ((partyName || instanceCode) && fused.length > 0) {
+      const docIds = fused.map(h => h.doc_id);
+      let allowed = await this.ftsService.filterDocIdsByConstraints(
+        docIds, { party_name: partyName, party_role: partyRole, instance_code: instanceCode }, this.db,
+      );
+      // Role may simply not co-occur as a keyword even when the party IS a party (court
+      // phrasing varies) — mirror fulltext mode: if the role wipes everything, drop the role
+      // but keep the name + instance constraint rather than returning nothing.
+      let roleRelaxed = false;
+      if (allowed.size === 0 && partyName && partyRole && partyRole !== 'any') {
+        roleRelaxed = true;
+        allowed = await this.ftsService.filterDocIdsByConstraints(
+          docIds, { party_name: partyName, instance_code: instanceCode }, this.db,
+        );
+      }
+      const before = fused.length;
+      fused = fused.filter(h => allowed.has(h.doc_id));
+      if (before !== fused.length || roleRelaxed) {
+        structuralFilter = { dropped: before - fused.length, ...(roleRelaxed ? { party_role_relaxed: true } : {}) };
+      }
+    }
+
     const top = fused.slice(0, limit);
     const enriched = await this.enrichFusedHits(top);
     const output = await this.maybeFilter(enriched, query);
@@ -499,7 +548,10 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       mode: 'hybrid', query, rrf_k: rrfK, oversample,
       ...(args._fallback_from ? { fallback_from: args._fallback_from } : {}),
       ...(reformulated ? { reformulated: { fts: reformulated.fts, semantic: reformulated.semantic } } : {}),
+      ...(partyName ? { party_filter: { party_name: partyName, party_role: partyRole || 'any' } } : {}),
+      ...(instanceCode ? { instance_code: instanceCode } : {}),
       legs: { fts_available: !!ftsResponse, vector_available: !!vectorResults, fts_candidates: ftsResults.length, vector_candidates: vectorHits.length },
+      ...(structuralFilter ? { structural_filter: structuralFilter } : {}),
       total_fused: fused.length, returned: output.filtered.length,
       results: output.filtered,
       ...(output.original_count !== output.filtered_count

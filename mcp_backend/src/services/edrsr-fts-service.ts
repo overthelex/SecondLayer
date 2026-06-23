@@ -383,6 +383,80 @@ export class EdsrFtsService {
   }
 
   /**
+   * Return the subset of doc_ids that satisfy structural constraints the Qdrant leg
+   * cannot enforce — party_name/party_role (tsv phrase + role match) and instance_code
+   * (court instance). Used by hybrid search to re-check fused candidates AFTER RRF, so
+   * vector-only hits that don't actually involve the named party (or aren't from the
+   * requested instance) are dropped instead of polluting the result.
+   *
+   * Matching mirrors searchFulltext/countByParty exactly (phraseto_tsquery for the name,
+   * enumerated role-noun case forms for the role), so a doc that passes here would also
+   * have passed the FTS leg. With no party/instance constraint it is a pass-through.
+   */
+  async filterDocIdsByConstraints(
+    docIds: number[],
+    constraints: { party_name?: string; party_role?: PartyRole; instance_code?: number },
+    dbPool: any,
+  ): Promise<Set<number>> {
+    const matched = new Set<number>();
+    if (docIds.length === 0) return matched;
+
+    const partyName = constraints.party_name?.trim();
+    const instanceCode = constraints.instance_code;
+    if (!partyName && !instanceCode) {
+      for (const id of docIds) matched.add(Number(id));
+      return matched;
+    }
+
+    const params: any[] = [docIds];
+    let p = 2;
+    const conditions: string[] = [`f.doc_id = ANY($1)`];
+
+    if (partyName) {
+      const tsqueryParts: string[] = [`phraseto_tsquery('simple', $${p})`];
+      params.push(partyName);
+      p++;
+      const roleTsquery = constraints.party_role && constraints.party_role !== 'any'
+        ? ROLE_TSQUERY[constraints.party_role]
+        : null;
+      if (roleTsquery) {
+        // roleTsquery is a hardcoded constant — safe to inline, no user input.
+        tsqueryParts.push(`to_tsquery('simple', '${roleTsquery}')`);
+      }
+      conditions.push(`f.tsv @@ (${tsqueryParts.join(' && ')})`);
+    }
+
+    if (instanceCode) {
+      conditions.push(`c.instance_code = $${p}`);
+      params.push(instanceCode);
+      p++;
+    }
+
+    // edrsr_courts join only needed for the instance filter.
+    const fromClause = instanceCode
+      ? `edrsr_fulltext f
+         JOIN edrsr_documents d ON d.doc_id = f.doc_id
+         JOIN edrsr_courts c ON c.court_code = d.court_code`
+      : `edrsr_fulltext f`;
+
+    try {
+      const sql = `SELECT f.doc_id FROM ${fromClause} WHERE ${conditions.join(' AND ')}`;
+      const res = await dbPool.query(sql, params);
+      for (const row of res.rows) matched.add(Number(row.doc_id));
+      logger.info('[EdsrFtsService] filterDocIdsByConstraints', {
+        candidates: docIds.length, matched: matched.size,
+        party_name: partyName, party_role: constraints.party_role ?? 'any', instance_code: instanceCode,
+      });
+      return matched;
+    } catch (err: any) {
+      logger.error('[EdsrFtsService] filterDocIdsByConstraints failed', { error: err.message });
+      // Fail open: on error keep all candidates rather than dropping the whole result set.
+      for (const id of docIds) matched.add(Number(id));
+      return matched;
+    }
+  }
+
+  /**
    * Populate tsv column for rows that haven't been indexed yet.
    * Designed to be called repeatedly by a background job / cron.
    *
