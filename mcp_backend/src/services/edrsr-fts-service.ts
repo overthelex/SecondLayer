@@ -37,8 +37,10 @@ export interface EdsrFtsFilters {
   // the legal-form prefix (ТОВ / Товариство з обмеженою відповідальністю), which
   // declines and breaks the 'simple' (stemless) config. It is matched as a phrase.
   party_name?: string;
-  // party_role narrows to decisions where the role keyword (відповідач/позивач, with
-  // common case forms) co-occurs with the party name. 'any'/undefined → no role constraint.
+  // party_role narrows to decisions where the party stands in that procedural slot of the
+  // claim clause ("за позовом X до Y про …"), enforced by a claim-clause regex over full_text
+  // (see buildPartyRoleRegex) on top of the tsv role-noun prefilter. NOT mere co-occurrence
+  // of the role word — that wrongly matched courier mentions. 'any'/undefined → no constraint.
   party_role?: PartyRole;
 }
 
@@ -49,6 +51,45 @@ const ROLE_TSQUERY: Record<Exclude<PartyRole, 'any'>, string> = {
   defendant: 'відповідач | відповідача | відповідачу | відповідачем | відповідачі | відповідачів | відповідачам | відповідачами',
   plaintiff: 'позивач | позивача | позивачу | позивачем | позивачі | позивачів | позивачам | позивачами',
 };
+
+// Legal-form prefixes a court may place before a company name in the claim clause
+// ("ТОВ", "ПрАТ", "ПАТ", "ФОП", …). Constant ERE alternation (no user input), so it is
+// safe to embed in the built pattern. Declension suffixes are spelled out because the
+// 'simple' PG config / POSIX regex have no Ukrainian stemmer.
+const LEGAL_FORM_GROUP =
+  '(?:тов|товариств[а-яіїєґ]*[[:space:]]+з[[:space:]]+обмежен[а-яіїєґ]*[[:space:]]+відповідальніст[а-яіїєґ]*' +
+  '|прат|приватн[а-яіїєґ]*[[:space:]]+акціонерн[а-яіїєґ]*[[:space:]]+товариств[а-яіїєґ]*' +
+  '|пат|публічн[а-яіїєґ]*[[:space:]]+акціонерн[а-яіїєґ]*[[:space:]]+товариств[а-яіїєґ]*' +
+  '|пп|приватн[а-яіїєґ]*[[:space:]]+підприємств[а-яіїєґ]*' +
+  '|тдв|ат|дп|кп|фг|фоп)';
+
+/**
+ * Build a POSIX-ERE pattern (for `full_text ~* $param`) that matches the party ONLY when it
+ * stands in the requested procedural slot of the claim clause "за позовом X до Y про …":
+ *   - defendant → the name appears right after "до"/"проти" (the respondent slot)
+ *   - plaintiff → the name appears right after "за позовом" (the claimant slot)
+ *
+ * `party_name` is user input (any company name carried in the user's query), so regex
+ * metacharacters are escaped and internal whitespace is made flexible; the result is passed
+ * as a BOUND PARAMETER, never interpolated into SQL. A REQUIRED closing quote after the name
+ * discriminates the exact legal entity, so «Нова Пошта» is kept while «Нова Пошта Інтернешнл»
+ * (a different company) is rejected.
+ *
+ * This replaces the old bag-of-words role check (party name + the word «відповідач»
+ * co-occurring anywhere in the text), which wrongly matched decisions that merely named the
+ * company as a courier ("надіслано через ТОВ «Нова Пошта»") or where it was the plaintiff.
+ */
+export function buildPartyRoleRegex(partyName: string, role: Exclude<PartyRole, 'any'>): string {
+  const name = partyName
+    .trim()
+    .replace(/[.\\*+?()[\]{}|^$]/g, '\\$&')   // escape ERE metacharacters in user input
+    .replace(/\s+/g, '[[:space:]]+');          // tolerate any whitespace between name tokens
+  // Optional legal form, optional opening quote, the name, then a REQUIRED closing quote.
+  const anchoredName = `${LEGAL_FORM_GROUP}?[[:space:]]*[«"”“]?[[:space:]]*${name}[»"”“]`;
+  return role === 'defendant'
+    ? `(?:до|проти)[[:space:]]+${anchoredName}`
+    : `за[[:space:]]+позов[а-яіїєґ]*[[:space:]]+${anchoredName}`;
+}
 
 export interface EdsrFtsResult {
   doc_id: number;
@@ -146,6 +187,15 @@ export class EdsrFtsService {
     }
 
     conditions.push(`f.tsv @@ (${tsqueryParts.join(' && ')})`);
+
+    // Precise role enforcement: the party must stand in the claim clause's role slot, not
+    // merely co-occur with the role noun anywhere in the text. Applied as a regex post-filter
+    // on full_text — the tsv match above narrows the candidate rows the regex has to scan.
+    if (partyName && filters.party_role && filters.party_role !== 'any') {
+      conditions.push(`f.full_text ~* $${paramIdx}`);
+      params.push(buildPartyRoleRegex(partyName, filters.party_role));
+      paramIdx++;
+    }
 
     // Metadata filters — require JOIN with edrsr_documents
     const hasMetadataFilter = filters.court_code || filters.judge || filters.date_from ||
@@ -335,6 +385,13 @@ export class EdsrFtsService {
     }
 
     const conditions = [`f.tsv @@ (${tsqueryParts.join(' && ')})`];
+    // Claim-clause role post-filter (see buildPartyRoleRegex) — keeps the count honest by
+    // dropping decisions that only mention the party as a courier or in the opposite role.
+    if (partyRole && partyRole !== 'any') {
+      conditions.push(`f.full_text ~* $${p}`);
+      params.push(buildPartyRoleRegex(partyName, partyRole));
+      p++;
+    }
     if (filters.date_from) { conditions.push(`d.adjudication_date >= $${p}`); params.push(filters.date_from); p++; }
     if (filters.date_to) { conditions.push(`d.adjudication_date <= $${p}`); params.push(filters.date_to); p++; }
     if (filters.justice_kind) { conditions.push(`d.justice_kind = $${p}`); params.push(filters.justice_kind); p++; }
@@ -390,8 +447,8 @@ export class EdsrFtsService {
    * requested instance) are dropped instead of polluting the result.
    *
    * Matching mirrors searchFulltext/countByParty exactly (phraseto_tsquery for the name,
-   * enumerated role-noun case forms for the role), so a doc that passes here would also
-   * have passed the FTS leg. With no party/instance constraint it is a pass-through.
+   * role-noun tsv prefilter + claim-clause regex for the role), so a doc that passes here
+   * would also have passed the FTS leg. With no party/instance constraint it is a pass-through.
    */
   async filterDocIdsByConstraints(
     docIds: number[],
@@ -424,6 +481,15 @@ export class EdsrFtsService {
         tsqueryParts.push(`to_tsquery('simple', '${roleTsquery}')`);
       }
       conditions.push(`f.tsv @@ (${tsqueryParts.join(' && ')})`);
+      // Claim-clause role post-filter: re-check the fused (post-RRF) candidates so a
+      // vector-only hit that merely names the party as a courier — or in the opposite role —
+      // is dropped instead of polluting the result. This is the hybrid path that previously
+      // let "через ТОВ «Нова Пошта»" decisions through the defendant filter.
+      if (constraints.party_role && constraints.party_role !== 'any') {
+        conditions.push(`f.full_text ~* $${p}`);
+        params.push(buildPartyRoleRegex(partyName, constraints.party_role));
+        p++;
+      }
     }
 
     if (instanceCode) {
