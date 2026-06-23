@@ -566,6 +566,12 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
     const top = fused.slice(0, limit);
     const enriched = await this.enrichFusedHits(top);
+    // Evidence parity for the relevance filter: FTS-only hits carry no semantic chunk and
+    // would be judged on an uninformative ts_headline (often the decision's boilerplate
+    // header), so on-topic FTS matches with scattered terms get wrongly dropped. Backfill
+    // each such hit's best query-relevant chunk so both legs feed the filter comparable
+    // evidence. Bounded to the post-slice top set (≤ limit), no-op when nothing needs it.
+    const chunkBackfilled = await this.backfillEvidenceChunks(enriched, semanticQuery);
     const output = await this.maybeFilter(enriched, query);
 
     return this.wrapResponse({
@@ -574,7 +580,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       ...(reformulated ? { reformulated: { fts: reformulated.fts, semantic: reformulated.semantic } } : {}),
       ...(partyName ? { party_filter: { party_name: partyName, party_role: partyRole || 'any' } } : {}),
       ...(instanceCode ? { instance_code: instanceCode } : {}),
-      legs: { fts_available: !!ftsResponse, vector_available: !!vectorResults, fts_candidates: ftsResults.length, vector_candidates: vectorHits.length },
+      legs: { fts_available: !!ftsResponse, vector_available: !!vectorResults, fts_candidates: ftsResults.length, vector_candidates: vectorHits.length, ...(chunkBackfilled > 0 ? { fts_chunks_backfilled: chunkBackfilled } : {}) },
       ...(structuralFilter ? { structural_filter: structuralFilter } : {}),
       total_fused: fused.length, returned: output.filtered.length,
       results: output.filtered,
@@ -793,6 +799,40 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       ...(row.headline ? { headline: row.headline } : {}),
       ...(row.rank != null ? { rank: Number(row.rank) || 0 } : {}),
     }));
+  }
+
+  /**
+   * Give FTS-only hybrid hits a query-relevant semantic chunk so the LLM relevance filter
+   * (search-result-filter) judges every candidate on comparable evidence. Mutates the
+   * enriched hits in place (populates qdrant_best_chunk_text/_index, flags
+   * evidence_chunk_backfilled) and returns how many were backfilled. No-op when the
+   * vectorizer is unavailable or no enriched hit lacks a chunk. Best-effort: a failure
+   * leaves the hits unchanged rather than failing the whole search.
+   */
+  private async backfillEvidenceChunks(enriched: any[], semanticQuery: string): Promise<number> {
+    if (!this.vectorizer || !semanticQuery?.trim()) return 0;
+    const needing = enriched
+      .filter(h => !h.qdrant_best_chunk_text && h.fts_position != null)
+      .map(h => h.doc_id);
+    if (needing.length === 0) return 0;
+    try {
+      const chunks = await this.vectorizer.bestChunkForDocs(semanticQuery, needing);
+      if (chunks.size === 0) return 0;
+      let count = 0;
+      for (const h of enriched) {
+        const c = chunks.get(h.doc_id);
+        if (c) {
+          h.qdrant_best_chunk_text = c.text;
+          h.qdrant_best_chunk_index = c.chunk_index;
+          h.evidence_chunk_backfilled = true;
+          count++;
+        }
+      }
+      return count;
+    } catch (err: any) {
+      logger.warn('[EdsrUnifiedSearch] evidence chunk backfill failed', { error: err.message });
+      return 0;
+    }
   }
 
   private async enrichFusedHits(hits: FusedHit[]): Promise<any[]> {
