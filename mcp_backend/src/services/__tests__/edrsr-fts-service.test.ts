@@ -6,7 +6,10 @@
  */
 
 import { describe, it, expect, jest } from '@jest/globals';
-import { EdsrFtsService } from '../edrsr-fts-service';
+import { EdsrFtsService, buildPartyRoleRegex } from '../edrsr-fts-service';
+
+const findRegexParam = (params: any[]): string | undefined =>
+  params.find((p) => typeof p === 'string' && (p.includes('(?:до|проти)') || p.includes('за[[:space:]]+позов')));
 
 const makeDb = () => {
   const calls: { sql: string; params: any[] }[] = [];
@@ -30,6 +33,7 @@ describe('EdsrFtsService.searchFulltext party filters', () => {
     expect(sql).toContain("plainto_tsquery('simple', $1)");
     expect(sql).not.toContain('phraseto_tsquery');
     expect(sql).not.toMatch(/&& to_tsquery/); // no role-noun clause
+    expect(sql).not.toContain('f.full_text ~*'); // no role regex post-filter
     // topical query is the only tsquery param
     expect(db.calls[0].params[0]).toBe('оренда землі');
   });
@@ -56,6 +60,13 @@ describe('EdsrFtsService.searchFulltext party filters', () => {
     expect(sql).toContain('відповідач');
     expect(sql).toContain('відповідача');
     expect(sql).not.toContain('позивач');
+    // claim-clause regex post-filter, anchored on the respondent slot "до …"
+    expect(sql).toContain('f.full_text ~*');
+    const rx = findRegexParam(db.calls[0].params);
+    expect(rx).toBeDefined();
+    expect(rx).toContain('(?:до|проти)');
+    expect(rx).toContain('Нова[[:space:]]+Пошта');
+    expect(rx).toContain('[»"”“]'); // required closing quote discriminates the exact entity
   });
 
   it('adds plaintiff role forms for plaintiff', async () => {
@@ -66,6 +77,9 @@ describe('EdsrFtsService.searchFulltext party filters', () => {
     const sql = db.calls[0].sql;
     expect(sql).toContain('позивач');
     expect(sql).not.toContain('відповідач');
+    const rx = findRegexParam(db.calls[0].params);
+    expect(rx).toBeDefined();
+    expect(rx).toContain('за[[:space:]]+позов'); // anchored on the claimant slot
   });
 
   it('treats party_role "any" as no role constraint', async () => {
@@ -76,6 +90,51 @@ describe('EdsrFtsService.searchFulltext party filters', () => {
     const sql = db.calls[0].sql;
     expect(sql).toContain('phraseto_tsquery');
     expect(sql).not.toMatch(/&& to_tsquery/);
+    expect(sql).not.toContain('f.full_text ~*');
+  });
+});
+
+describe('buildPartyRoleRegex', () => {
+  it('anchors the defendant on the respondent slot and requires a closing quote', () => {
+    const rx = buildPartyRoleRegex('Нова Пошта', 'defendant');
+    expect(rx.startsWith('(?:до|проти)')).toBe(true);
+    expect(rx).toContain('Нова[[:space:]]+Пошта[»"”“]');
+  });
+
+  it('anchors the plaintiff on the claimant slot', () => {
+    const rx = buildPartyRoleRegex('Нова Пошта', 'plaintiff');
+    expect(rx.startsWith('за[[:space:]]+позов')).toBe(true);
+  });
+
+  it('escapes regex metacharacters in user-supplied names', () => {
+    const rx = buildPartyRoleRegex('А.Б (В)', 'defendant');
+    expect(rx).toContain('\\.');
+    expect(rx).toContain('\\(');
+    expect(rx).toContain('\\)');
+  });
+});
+
+describe('EdsrFtsService.filterDocIdsByConstraints', () => {
+  it('adds the claim-clause role regex post-filter on the fused candidates', async () => {
+    const svc = new EdsrFtsService();
+    const db = makeDb();
+    await svc.filterDocIdsByConstraints([1, 2, 3], { party_name: 'Нова Пошта', party_role: 'defendant' }, db);
+
+    const sql = db.calls[0].sql;
+    expect(sql).toContain('f.doc_id = ANY($1)');
+    expect(sql).toContain('phraseto_tsquery');
+    expect(sql).toContain('f.full_text ~*');
+    const rx = findRegexParam(db.calls[0].params);
+    expect(rx).toContain('(?:до|проти)');
+  });
+
+  it('is a pass-through (no query) when no party/instance constraint is given', async () => {
+    const svc = new EdsrFtsService();
+    const db = makeDb();
+    const res = await svc.filterDocIdsByConstraints([1, 2], {}, db);
+
+    expect(db.calls).toHaveLength(0);
+    expect(res.size).toBe(2);
   });
 });
 
