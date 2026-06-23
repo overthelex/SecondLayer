@@ -615,7 +615,39 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
         const existing = deduped.get(r.doc_id);
         if (!existing || r.score > existing.score) deduped.set(r.doc_id, r);
       }
-      const topResults = Array.from(deduped.values()).sort((a, b) => b.score - a.score).slice(0, limit);
+      let ranked = Array.from(deduped.values()).sort((a, b) => b.score - a.score);
+
+      // Structural enforcement. The Qdrant leg cannot filter by instance_code / party_name /
+      // party_role (court_level=SC/GrandChamber maps onto instance_code=1 upstream), so pure
+      // semantic hits arrive unconstrained. Without this, a court_level=SC query leaked
+      // lower-instance courts (окружні/апеляційні) and off-party cases into the result —
+      // mirrors the post-fusion pass in searchHybrid. Re-check candidates against
+      // edrsr_fulltext/edrsr_courts and drop the ones that don't satisfy the constraints.
+      const partyName = typeof args.party_name === 'string' ? args.party_name.trim() || undefined : undefined;
+      const partyRole = args.party_role as EdsrFtsFilters['party_role'] | undefined;
+      const instanceCode = args.instance_code ? Number(args.instance_code) : undefined;
+      let structuralFilter: { dropped: number; party_role_relaxed?: boolean } | undefined;
+      if ((partyName || instanceCode) && ranked.length > 0 && this.ftsService) {
+        const docIds = ranked.map(r => r.doc_id);
+        let allowed = await this.ftsService.filterDocIdsByConstraints(
+          docIds, { party_name: partyName, party_role: partyRole, instance_code: instanceCode }, this.db,
+        );
+        // Role may not co-occur as a keyword even when the party IS a party — mirror
+        // hybrid/fulltext: if the role wipes everything, keep name + instance, drop the role.
+        let roleRelaxed = false;
+        if (allowed.size === 0 && partyName && partyRole && partyRole !== 'any') {
+          roleRelaxed = true;
+          allowed = await this.ftsService.filterDocIdsByConstraints(
+            docIds, { party_name: partyName, instance_code: instanceCode }, this.db,
+          );
+        }
+        const before = ranked.length;
+        ranked = ranked.filter(r => allowed.has(r.doc_id));
+        if (before !== ranked.length || roleRelaxed) {
+          structuralFilter = { dropped: before - ranked.length, ...(roleRelaxed ? { party_role_relaxed: true } : {}) };
+        }
+      }
+      const topResults = ranked.slice(0, limit);
 
       const enriched = await this.enrichResults(topResults.map(r => ({
         doc_id: r.doc_id, cause_num: r.metadata.cause_num, judge: r.metadata.judge,
@@ -636,6 +668,9 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       return this.wrapResponse({
         mode: 'semantic', query: args.query,
         ...(reformulated ? { reformulated: { semantic: reformulated.semantic } } : {}),
+        ...(instanceCode ? { instance_code: instanceCode } : {}),
+        ...(partyName ? { party_filter: { party_name: partyName, party_role: partyRole || 'any' } } : {}),
+        ...(structuralFilter ? { structural_filter: structuralFilter } : {}),
         total: deduped.size, returned: output.filtered.length,
         results: output.filtered,
         ...(output.original_count !== output.filtered_count
