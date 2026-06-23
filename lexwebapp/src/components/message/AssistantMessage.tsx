@@ -138,7 +138,7 @@ export function AssistantMessage({
       <div className="flex gap-4 md:gap-5" data-role="assistant">
         {/* Avatar */}
         <div className="flex-shrink-0 mt-0.5">
-          <div className="w-7 h-7 rounded-md overflow-hidden flex items-center justify-center bg-zinc-900 shadow-sm">
+          <div className="w-7 h-7 rounded-md overflow-hidden flex items-center justify-center bg-transparent">
             <LexLogo3D spinning={!!isStreaming} size={28} />
           </div>
         </div>
