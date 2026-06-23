@@ -331,6 +331,33 @@ describe('EdsrUnifiedSearchTool', () => {
       expect(parsed.total).toBe(3);
     });
 
+    it('relaxes on near-collapse (1–2 hits), not just a hard 0', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      const seen: string[] = [];
+      // Over-narrow AND-chain: 5–6 tokens scrape a single hit (mimics the prod
+      // "Нова Пошта кур'єрська служба пошкодження вантажу" + defendant → total 1),
+      // dropping to ≤4 clears the floor. A strict ===0 trigger would never fire here.
+      mockFtsService.searchFulltext = jest.fn((q: string) => {
+        seen.push(q);
+        const n = q.split(/\s+/).filter(Boolean).length;
+        return Promise.resolve(n <= 4
+          ? { query: q, total: 50, results: [{ doc_id: 1, rank: 0.4 }] }
+          : { query: q, total: 1, results: [{ doc_id: 9, rank: 0.4 }] });
+      });
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService);
+
+      const result = await tool.executeTool('search_court_decisions', {
+        mode: 'fulltext', query: 'один два три чотири пять шість',
+      });
+
+      // capped to 6 (total 1), relaxed 6→5→4 where the floor (3) is cleared
+      expect(seen[0].split(/\s+/)).toHaveLength(6);
+      expect(seen[seen.length - 1].split(/\s+/)).toHaveLength(4);
+      const parsed = JSON.parse(result?.content[0].text || '{}');
+      expect(parsed.term_relaxed).toEqual({ from_tokens: 6, to_tokens: 4 });
+      expect(parsed.total).toBe(50);
+    });
+
     it('does not relax below FTS_MIN_TOKENS (2)', async () => {
       db = makeDb(() => ({ rows: [] }));
       const seen: string[] = [];

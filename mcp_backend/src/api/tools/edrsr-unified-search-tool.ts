@@ -23,15 +23,21 @@ const DEFAULT_RRF_K = 60;
 const DEFAULT_OVERSAMPLE = 3;
 const MAX_OVERSAMPLE = 5;
 // plainto_tsquery ANDs every token, and a party filter adds ~2 more conjuncts, so one
-// rare term can collapse the whole conjunction to 0 (observed: "…вантажу логістика" +
-// defendant → 0 while 6 tokens → 144). Rather than guess a single fixed cap, start from
-// the leading FULLTEXT_MAX_TOKENS and relax DOWNWARD on an empty result — dropping the
-// trailing (least-salient) token and retrying down to FTS_MIN_TOKENS. The party filter is
-// part of every probe, so relaxation is selectivity-aware for free. FTS_MAX_RELAX_STEPS
-// bounds the extra probe queries on the hot path.
+// rare term can collapse the whole conjunction to ~0 (observed: "…вантажу логістика" +
+// defendant → 0 while 6 tokens → 144; and "Нова Пошта кур'єрська служба пошкодження
+// вантажу" + defendant → 1, starving the precise FTS leg). Rather than guess a single
+// fixed cap, start from the leading FULLTEXT_MAX_TOKENS and relax DOWNWARD while the probe
+// stays near-empty — dropping the trailing (least-salient) token and retrying down to
+// FTS_MIN_TOKENS. Dropping a conjunct can only widen the match set (monotone), so this
+// stops at the narrowest query that clears FTS_RELAX_MIN_RESULTS — the most precise probe
+// that still feeds the leg. The party filter is part of every probe, so relaxation is
+// selectivity-aware for free. FTS_MAX_RELAX_STEPS bounds the extra probes on the hot path.
 const FULLTEXT_MAX_TOKENS = 6;
 const FTS_MIN_TOKENS = 2;
 const FTS_MAX_RELAX_STEPS = 4;
+// Relax not just on a hard 0, but on near-collapse: 1–2 hits means the AND-chain is
+// over-narrow and the FTS leg can't carry recall (the semantic leg ends up masking it).
+const FTS_RELAX_MIN_RESULTS = 3;
 
 const KUPAP_PRESETS: Record<string, { category_codes: number[]; label: string }> = {
   'traffic_dui':        { category_codes: [41090, 5952], label: 'П\'яне водіння (ст. 130 КУпАП)' },
@@ -362,10 +368,14 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     let result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset);
 
     let steps = 0;
-    while (result.total === 0 && n > FTS_MIN_TOKENS && steps < FTS_MAX_RELAX_STEPS) {
+    // Relax while near-empty (not just hard 0): dropping a trailing AND-term only widens the
+    // match set, so we keep broadening until the probe clears the floor or we hit the bounds.
+    while (result.total < FTS_RELAX_MIN_RESULTS && n > FTS_MIN_TOKENS && steps < FTS_MAX_RELAX_STEPS) {
       n -= 1; steps += 1;
       usedQuery = tokens.slice(0, n).join(' ');
-      logger.info('[EdsrUnifiedSearch] FTS relax-on-empty', { from_tokens: n + 1, to_tokens: n, query: usedQuery });
+      logger.info('[EdsrUnifiedSearch] FTS relax-on-near-empty', {
+        from_tokens: n + 1, to_tokens: n, prev_total: result.total, query: usedQuery,
+      });
       result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset);
     }
 
