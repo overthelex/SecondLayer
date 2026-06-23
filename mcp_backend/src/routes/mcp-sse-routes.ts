@@ -300,6 +300,14 @@ export function createMCPSSERoutes(deps: {
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         logger.warn('[MCP v1/sse] Missing or invalid Authorization header');
+        // Point OAuth clients at the protected-resource metadata for THIS transport
+        // (resource = public /api/v1/sse), so the SDK's resource check passes. Without this
+        // header the SDK falls back to the root metadata (resource = /sse) and rejects.
+        const baseUrl = getBaseUrl(req);
+        res.setHeader(
+          'WWW-Authenticate',
+          `Bearer resource_metadata="${baseUrl}/.well-known/oauth-protected-resource/api/v1/sse"`
+        );
         return res.status(401).json({
           error: 'Unauthorized',
           message: 'Authorization header with Bearer token is required',
@@ -645,6 +653,23 @@ export function createMCPSSERoutes(deps: {
       bearer_methods_supported: ['header'],
     });
   });
+
+  // RFC 9728 metadata for the standard MCP SSE transport (GET/POST /v1/sse).
+  // Publicly this transport is reached at /api/v1/sse (nginx rewrites /api/v1/sse -> /v1/sse),
+  // so the advertised `resource` MUST be the public /api/v1/sse URL to match the client's
+  // configured server URL — otherwise the SDK rejects with "resource does not match expected".
+  // Clients (e.g. Claude Code) probe the path-aware well-known for both /api/v1/sse and /v1/sse.
+  const v1SseResourceMetadata = (req: Request, res: Response) => {
+    const baseUrl = getBaseUrl(req);
+    res.json({
+      resource: `${baseUrl}/api/v1/sse`,
+      authorization_servers: [baseUrl],
+      scopes_supported: ['mcp'],
+      bearer_methods_supported: ['header'],
+    });
+  };
+  router.get('/.well-known/oauth-protected-resource/api/v1/sse', v1SseResourceMetadata);
+  router.get('/.well-known/oauth-protected-resource/v1/sse', v1SseResourceMetadata);
 
   // Redirect /register to /oauth/register (MCP client compatibility)
   router.post('/register', (req: Request, res: Response) => {
