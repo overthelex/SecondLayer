@@ -360,12 +360,15 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     filters: EdsrFtsFilters,
     limit: number,
     offset: number,
+    noIdf: boolean = false,
   ): Promise<{ result: EdsrFtsSearchResponse; usedQuery: string; startTokens: number; usedTokens: number; relaxedFromTokens?: number }> {
     const rawTokens = String(topicalQuery).trim().split(/\s+/).filter(Boolean);
     // CORE-21 P1.5a: order tokens by IDF (discriminative first) so the probe keeps rare
     // terms (донецьк/окупован/ДРРП) and relaxation drops the commonest (податок/майно),
     // instead of the positional tail. Empty idf map → original order (no regression).
-    const idf = this.ftsService ? await this.ftsService.lexemeDf(rawTokens, this.db) : new Map<string, number>();
+    // noIdf is the A/B baseline arm (P1.eval) — bypass the df lookup to reproduce the old
+    // positional behaviour for a controlled before/after.
+    const idf = (this.ftsService && !noIdf) ? await this.ftsService.lexemeDf(rawTokens, this.db) : new Map<string, number>();
     const tokens = selectFtsTerms(rawTokens, idf);
     const idfRanked = idf.size > 0;
     const startTokens = tokens.length;
@@ -507,8 +510,12 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     // Same term-budget relaxation as fulltext mode — the hybrid FTS leg previously passed
     // the full reformulated query uncapped, so one rare term collapsed it to 0 (the
     // semantic leg masked it, but lost the precise FTS hits). Cap + relax here too.
+    // P1.eval A/B baseline arm: bypass IDF term selection (P1.5a) and the strict relevance
+    // gate (P1.5b) to reproduce the pre-improvement retrieval for a controlled before/after.
+    // Debug-only; never set on normal traffic.
+    const evalBaseline = args._eval_baseline === true;
     const ftsPromise = this
-      .ftsWithRelaxation(ftsQuery, filters, candidateLimit, 0)
+      .ftsWithRelaxation(ftsQuery, filters, candidateLimit, 0, evalBaseline)
       .then(r => r.result)
       .catch((err: any) => { logger.warn('[EdsrUnifiedSearch] FTS leg failed', { error: err.message }); return null; });
 
@@ -586,7 +593,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     // mis-cited as on-point practice. Raise the relevance-gate bar to 8-10 in that case so
     // only directly-relevant hits survive. (Even IDF-ranked FTS — P1.5a — can return 0 on an
     // ultra-specific all-AND query; this is the paired safeguard.)
-    const ftsCollapsed = (ftsResponse?.total ?? 0) < FTS_RELAX_MIN_RESULTS;
+    const ftsCollapsed = (ftsResponse?.total ?? 0) < FTS_RELAX_MIN_RESULTS && !evalBaseline;
     if (ftsCollapsed) {
       logger.info('[EdsrUnifiedSearch] FTS collapsed — strict relevance gate', {
         fts_total: ftsResponse?.total ?? 0, min_score: STRICT_MIN_SCORE, candidates: enriched.length,
@@ -600,7 +607,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       ...(reformulated ? { reformulated: { fts: reformulated.fts, semantic: reformulated.semantic } } : {}),
       ...(partyName ? { party_filter: { party_name: partyName, party_role: partyRole || 'any' } } : {}),
       ...(instanceCode ? { instance_code: instanceCode } : {}),
-      legs: { fts_available: !!ftsResponse, vector_available: !!vectorResults, fts_candidates: ftsResults.length, vector_candidates: vectorHits.length, ...(chunkBackfilled > 0 ? { fts_chunks_backfilled: chunkBackfilled } : {}), ...(ftsCollapsed ? { fts_collapsed: true, strict_relevance_gate: true } : {}) },
+      legs: { fts_available: !!ftsResponse, vector_available: !!vectorResults, fts_candidates: ftsResults.length, vector_candidates: vectorHits.length, ...(chunkBackfilled > 0 ? { fts_chunks_backfilled: chunkBackfilled } : {}), ...(ftsCollapsed ? { fts_collapsed: true, strict_relevance_gate: true } : {}), ...(evalBaseline ? { eval_baseline: true } : {}) },
       ...(structuralFilter ? { structural_filter: structuralFilter } : {}),
       total_fused: fused.length, returned: output.filtered.length,
       results: output.filtered,
