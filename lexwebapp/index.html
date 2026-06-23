@@ -99,6 +99,38 @@
     }
     </script>
 
+
+    <!-- Google Ads: loaded dynamically after analytics consent (GDPR) -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      // Set consent defaults BEFORE any gtag config
+      gtag('consent', 'default', {
+        analytics_storage: 'denied',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+      });
+      window.__loadGtag = function() {
+        if (window.__gtagLoaded) return;
+        window.__gtagLoaded = true;
+        gtag('consent', 'update', {
+          analytics_storage: 'granted',
+          ad_storage: 'granted',
+          ad_user_data: 'granted',
+          ad_personalization: 'granted',
+        });
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=AW-18033840618';
+        document.head.appendChild(s);
+        gtag('js', new Date());
+        gtag('config', 'AW-18033840618');
+      };
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
     <!-- Noscript fallback for crawlers -->
     <noscript>
       <div style="max-width:720px;margin:40px auto;font-family:system-ui,sans-serif;color:#e4e4e7;background:#0a0a0b;padding:40px">
@@ -170,38 +202,6 @@
         <p>Start free — 50 credits on registration. <a href="https://legal.org.ua">Sign up</a></p>
       </div>
     </noscript>
-
-    <!-- Google Ads: loaded dynamically after analytics consent (GDPR) -->
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      // Set consent defaults BEFORE any gtag config
-      gtag('consent', 'default', {
-        analytics_storage: 'denied',
-        ad_storage: 'denied',
-        ad_user_data: 'denied',
-        ad_personalization: 'denied',
-      });
-      window.__loadGtag = function() {
-        if (window.__gtagLoaded) return;
-        window.__gtagLoaded = true;
-        gtag('consent', 'update', {
-          analytics_storage: 'granted',
-          ad_storage: 'granted',
-          ad_user_data: 'granted',
-          ad_personalization: 'granted',
-        });
-        var s = document.createElement('script');
-        s.async = true;
-        s.src = 'https://www.googletagmanager.com/gtag/js?id=AW-18033840618';
-        document.head.appendChild(s);
-        gtag('js', new Date());
-        gtag('config', 'AW-18033840618');
-      };
-    </script>
-  </head>
-  <body>
-    <div id="root"></div>
     <script type="module" src="/src/index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
