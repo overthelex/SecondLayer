@@ -39,15 +39,26 @@ const QUERIES = [
 
 async function search(query, jk, baseline) {
   const body = { mode: 'hybrid', query, limit: 10, ...(jk ? { justice_kind: jk } : {}), ...(baseline ? { _eval_baseline: true } : {}) };
-  const r = await fetch(`${API}/api/tools/search_court_decisions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${JWT}` },
-    body: JSON.stringify(body),
-  });
-  const j = await r.json();
-  const textBlock = Array.isArray(j?.content) ? j.content.find(c => c.type === 'text')?.text : null;
-  const parsed = textBlock ? JSON.parse(textBlock) : j;
-  return { results: parsed.results || [], legs: parsed.legs || {} };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 90_000);
+  try {
+    const r = await fetch(`${API}/api/tools/search_court_decisions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${JWT}` },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+    const j = await r.json();
+    // HTTP wraps the tool result: { success, tool, result: { content: [{type:'text', text}] } }
+    const content = j?.result?.content ?? j?.content;
+    const textBlock = Array.isArray(content) ? content.find(c => c.type === 'text')?.text : null;
+    const parsed = textBlock ? JSON.parse(textBlock) : (j?.result ?? j);
+    return { results: parsed.results || [], legs: parsed.legs || {} };
+  } catch (e) {
+    return { results: [], legs: {}, error: e.name === 'AbortError' ? 'timeout' : e.message };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function snippet(r) {
@@ -82,22 +93,29 @@ async function judge(query, results) {
 
 const rows = [];
 let bN = 0, tN = 0, bSum = 0, tSum = 0, collapseN = 0, strictN = 0;
+const pct = x => x == null ? ' n/a' : (x * 100).toFixed(0).padStart(3) + '%';
 for (const { q, jk } of QUERIES) {
-  const [base, treat] = await Promise.all([search(q, jk, true), search(q, jk, false)]);
-  const [bj, tj] = await Promise.all([judge(q, base.results), judge(q, treat.results)]);
-  if (treat.legs.fts_collapsed) collapseN++;
-  if (treat.legs.strict_relevance_gate) strictN++;
-  if (bj.precision != null) { bN++; bSum += bj.precision; }
-  if (tj.precision != null) { tN++; tSum += tj.precision; }
-  rows.push({ q: q.slice(0, 42), jk,
-    base_n: base.results.length, base_p: bj.precision, base_avg: bj.avg,
-    treat_n: treat.results.length, treat_p: tj.precision, treat_avg: tj.avg,
-    collapsed: !!treat.legs.fts_collapsed, eval_ok: !!base.legs.eval_baseline });
-  const pct = x => x == null ? ' n/a' : (x * 100).toFixed(0).padStart(3) + '%';
-  console.log(`${pct(bj.precision)} → ${pct(tj.precision)}  [${base.results.length}/${treat.results.length}]  ${treat.legs.fts_collapsed ? 'COLLAPSE' : '        '}  ${q.slice(0, 50)}`);
+  try {
+    const [base, treat] = await Promise.all([search(q, jk, true), search(q, jk, false)]);
+    const [bj, tj] = await Promise.all([judge(q, base.results), judge(q, treat.results)]);
+    if (treat.legs.fts_collapsed) collapseN++;
+    if (treat.legs.strict_relevance_gate) strictN++;
+    if (bj.precision != null) { bN++; bSum += bj.precision; }
+    if (tj.precision != null) { tN++; tSum += tj.precision; }
+    rows.push({ q: q.slice(0, 42), jk,
+      base_n: base.results.length, base_p: bj.precision, base_avg: bj.avg,
+      treat_n: treat.results.length, treat_p: tj.precision, treat_avg: tj.avg,
+      collapsed: !!treat.legs.fts_collapsed, eval_ok: !!base.legs.eval_baseline,
+      err: base.error || treat.error || null });
+    console.log(`${pct(bj.precision)} → ${pct(tj.precision)}  [${base.results.length}/${treat.results.length}]  ${treat.legs.fts_collapsed ? 'COLLAPSE' : '        '}  ${base.error || treat.error ? '(' + (base.error || treat.error) + ') ' : ''}${q.slice(0, 48)}`);
+  } catch (e) {
+    console.log(` ERR  ${q.slice(0, 48)} :: ${e.message}`);
+    rows.push({ q: q.slice(0, 42), jk, err: e.message });
+  }
 }
 
+const bMean = bN ? bSum / bN : null, tMean = tN ? tSum / tN : null;
 console.log('\n=== A/B summary (precision@10, judge score >= 7) ===');
-console.log(`queries: ${QUERIES.length}  |  baseline mean: ${(bSum / bN * 100).toFixed(1)}%  treatment mean: ${(tSum / tN * 100).toFixed(1)}%  |  delta: ${((tSum / tN - bSum / bN) * 100).toFixed(1)} pp`);
-console.log(`FTS-collapse rate: ${collapseN}/${QUERIES.length}  |  strict-gate fired: ${strictN}/${QUERIES.length}  |  eval_baseline flag honored: ${rows.every(r => r.eval_ok)}`);
+console.log(`queries: ${QUERIES.length}  scored arms: base ${bN}, treat ${tN}  |  baseline mean: ${pct(bMean)}  treatment mean: ${pct(tMean)}  |  delta: ${bMean != null && tMean != null ? ((tMean - bMean) * 100).toFixed(1) + ' pp' : 'n/a'}`);
+console.log(`FTS-collapse rate: ${collapseN}/${QUERIES.length}  |  strict-gate fired: ${strictN}/${QUERIES.length}  |  eval_baseline honored: ${rows.filter(r => r.eval_ok).length}/${rows.length}`);
 console.log('\nJSON:', JSON.stringify({ rows, baseline_mean: bSum / bN, treatment_mean: tSum / tN }, null, 0));
