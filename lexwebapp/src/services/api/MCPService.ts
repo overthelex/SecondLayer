@@ -49,7 +49,7 @@ export interface ChatStreamCallbacks {
   onAnswer?: (data: { text: string; provider: string; model: string; norms?: Array<{ text: string; source: string }> }) => void;
   onEvidenceUpdate?: (data: EvidenceEnvelope) => void;
   onCitationWarning?: (data: CitationWarning) => void;
-  onComplete?: (data: { iterations: number; elapsed_ms: number; tools_used?: string[]; total_cost_usd?: number; charged_usd?: number; response_id?: string; conversationId?: string }) => void;
+  onComplete?: (data: { iterations: number; elapsed_ms: number; tools_used?: string[]; total_cost_usd?: number; charged_usd?: number; response_id?: string; conversationId?: string; search_stats?: { fts: number; qdrant: number; structured?: number } }) => void;
   onCostSummary?: (data: { total_cost_usd: number; charged_usd: number; balance_usd: number | null }) => void;
   onBudgetEscalated?: (data: { reason: string; estimatedCost: { minUsd: number; maxUsd: number }; requiresConfirmation?: boolean }) => void;
   onError?: (data: { message?: string; code?: string; current_balance_usd?: number }) => void;

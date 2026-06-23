@@ -367,6 +367,7 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
               total_cost_usd: data.total_cost_usd || 0,
               charged_usd: data.charged_usd || 0,
               response_id: data.response_id || responseIdRef.current || undefined,
+              search_stats: data.search_stats ?? costSummaryRef.current?.search_stats,
             };
             updateMessage(assistantMessageId, {
               costSummary: costSummaryRef.current as CostSummary,

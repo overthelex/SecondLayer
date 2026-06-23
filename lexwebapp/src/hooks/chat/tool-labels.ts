@@ -4,6 +4,8 @@
  */
 
 export const TOOL_LABELS: Record<string, string> = {
+  search_court_decisions: 'Пошук судових рішень',
+  search_court_cases: 'Пошук судових справ',
   search_legal_precedents: 'Пошук прецедентів',
   get_court_decision: 'Отримання рішення',
   get_case_documents_chain: 'Ланцюг документів',

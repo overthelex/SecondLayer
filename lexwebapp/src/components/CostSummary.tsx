@@ -89,6 +89,44 @@ export function CostSummary({ data }: CostSummaryProps) {
                 </div>
               )}
 
+              {/* Search-leg breakdown (FTS vs Qdrant) */}
+              {data.search_stats &&
+                (data.search_stats.fts > 0 ||
+                  data.search_stats.qdrant > 0 ||
+                  (data.search_stats.structured ?? 0) > 0) && (
+                <div className="pt-0.5">
+                  <span className="font-medium text-claude-text">{t('searchBreakdown')}</span>
+                  <table className="mt-1 w-full max-w-[280px] text-[11px]">
+                    <thead>
+                      <tr className="text-claude-subtext/70">
+                        <th className="text-left font-normal pb-0.5">{t('searchKind')}</th>
+                        <th className="text-right font-normal pb-0.5">{t('searchCount')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.search_stats.fts > 0 && (
+                        <tr className="border-t border-claude-border/30">
+                          <td className="py-0.5">{t('searchFts')}</td>
+                          <td className="py-0.5 text-right tabular-nums">{data.search_stats.fts}</td>
+                        </tr>
+                      )}
+                      {data.search_stats.qdrant > 0 && (
+                        <tr className="border-t border-claude-border/30">
+                          <td className="py-0.5">{t('searchQdrant')}</td>
+                          <td className="py-0.5 text-right tabular-nums">{data.search_stats.qdrant}</td>
+                        </tr>
+                      )}
+                      {(data.search_stats.structured ?? 0) > 0 && (
+                        <tr className="border-t border-claude-border/30">
+                          <td className="py-0.5">{t('searchStructured')}</td>
+                          <td className="py-0.5 text-right tabular-nums">{data.search_stats.structured}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
               {/* Cost breakdown */}
               <div className="flex items-center gap-3 flex-wrap">
                 {Number(data.total_cost_usd) > 0 && (
