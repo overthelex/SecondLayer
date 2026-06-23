@@ -565,4 +565,47 @@ describe('EdsrUnifiedSearchTool', () => {
       expect(parsed.mode).toContain('semantic');
     });
   });
+
+  describe('semantic structural enforcement', () => {
+    const vectorHit = (doc_id: number, score: number) => ({
+      doc_id, score, text: 'фрагмент', chunk_index: 0,
+      metadata: { court_code: 2605, cause_num: `${doc_id}/23`, justice_kind: 4, judgment_code: 3 },
+    });
+
+    it('drops lower-instance vector hits when court_level=SC (instance_code=1)', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      // Qdrant cannot filter by instance; it returns an SC doc (111) and a lower-instance one (222).
+      mockVectorizer.semanticSearch = jest.fn(() => Promise.resolve([vectorHit(222, 0.9), vectorHit(111, 0.4)]));
+      // Only the cassation doc satisfies instance_code=1.
+      mockFtsService.filterDocIdsByConstraints = jest.fn((ids: number[]) =>
+        Promise.resolve(new Set(ids.filter(id => id === 111))));
+
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService, mockVectorizer);
+      const result = await tool.executeTool('search_court_decisions', {
+        mode: 'semantic', query: 'тест', justice_kind: 4, court_level: 'SC',
+      });
+
+      const parsed = JSON.parse(result?.content[0].text || '{}');
+      const ids = parsed.results.map((r: any) => r.doc_id);
+      expect(ids).toContain(111);
+      expect(ids).not.toContain(222);
+      expect(parsed.instance_code).toBe(1);
+      expect(parsed.structural_filter.dropped).toBe(1);
+      expect(mockFtsService.filterDocIdsByConstraints).toHaveBeenCalled();
+    });
+
+    it('does not run structural enforcement without party/instance filters', async () => {
+      db = makeDb(() => ({ rows: [] }));
+      mockVectorizer.semanticSearch = jest.fn(() => Promise.resolve([vectorHit(444, 0.7)]));
+      tool = new EdsrUnifiedSearchTool(db, mockFtsService, mockVectorizer);
+
+      const result = await tool.executeTool('search_court_decisions', {
+        mode: 'semantic', query: 'тест', justice_kind: 4,
+      });
+
+      const parsed = JSON.parse(result?.content[0].text || '{}');
+      expect(parsed.structural_filter).toBeUndefined();
+      expect(mockFtsService.filterDocIdsByConstraints).not.toHaveBeenCalled();
+    });
+  });
 });
