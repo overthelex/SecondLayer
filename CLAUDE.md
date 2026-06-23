@@ -168,7 +168,7 @@ Tool registry: `mcp_backend/src/api/tool-registry.ts` maps tool names to handler
 Key exports used across all services:
 - `getOpenAIManager` / `getAnthropicManager` - LLM client singletons
 - `LLMManager` - Unified interface for OpenAI/Anthropic with fallback
-- `ModelSelector` - Budget-aware model selection (quick → gpt-4o-mini, standard → gpt-4o-mini, deep → gpt-4o)
+- `ModelSelector` - Budget-aware, multi-provider model selection. Provider order via `LLM_PROVIDER_STRATEGY` (prod = `bedrock-first`). Prod tiers (Bedrock, eu-central-1): quick → Claude Haiku 4.5, standard → Claude Sonnet 4.6, deep → Claude Opus 4.6; throttle fallback → Amazon Nova (micro/pro). OpenAI fallback tiers: quick → gpt-5-nano, standard → gpt-5-mini, deep → gpt-5.1
 - `logger` - Winston-based structured logging
 - `BaseDatabase` - PostgreSQL connection pool management
 - `CostTracker` / `CostCalculator` - Per-request API cost tracking
