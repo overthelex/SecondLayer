@@ -170,6 +170,20 @@ export function createChatInlineRoutes(deps: {
 
       let chatCompleted = false;
       let chatTotalCostUsd = 0;
+      // Aggregate search-leg usage across the turn so the UI can show how many
+      // queries hit FTS (PostgreSQL full-text) vs Qdrant (vector/semantic).
+      // Derived from each tool call's `mode` param on `thinking` events.
+      const searchStats = { fts: 0, qdrant: 0, structured: 0 };
+      const tallySearch = (tool?: string, mode?: string) => {
+        if (tool === 'search_court_decisions' || tool === 'search_court_cases') {
+          if (mode === 'fulltext') searchStats.fts += 1;
+          else if (mode === 'semantic') searchStats.qdrant += 1;
+          else if (mode === 'hybrid') { searchStats.fts += 1; searchStats.qdrant += 1; }
+          else if (mode === 'structured') searchStats.structured += 1;
+        } else if (tool === 'semantic_search') {
+          searchStats.qdrant += 1;
+        }
+      };
       const chatRequest = {
         query,
         history,
@@ -191,10 +205,17 @@ export function createChatInlineRoutes(deps: {
           for await (const event of deps.chatService.chat(chatRequest)) {
             if (abortController.signal.aborted) break;
 
+            if (event.type === 'thinking') {
+              tallySearch(event.data?.tool, event.data?.params?.mode);
+            }
+
             if (event.type === 'complete') {
               chatCompleted = true;
               chatTotalCostUsd = event.data?.total_cost_usd || 0;
               event.data.response_id = requestId;
+              if (searchStats.fts || searchStats.qdrant || searchStats.structured) {
+                event.data.search_stats = searchStats;
+              }
               if (chatRequest.conversationId && chatRequest.conversationId !== conversationId) {
                 event.data.conversationId = chatRequest.conversationId;
               }
@@ -229,11 +250,13 @@ export function createChatInlineRoutes(deps: {
           const chargedUsd = trackingRow.rows[0]?.total_cost_usd
             ? parseFloat(trackingRow.rows[0].total_cost_usd)
             : chatTotalCostUsd;
+          const hasSearchStats = searchStats.fts || searchStats.qdrant || searchStats.structured;
           const costSummaryFull = {
             total_cost_usd: chatTotalCostUsd,
             charged_usd: chargedUsd,
             balance_usd: summary?.balance_usd ?? 0,
             response_id: requestId,
+            ...(hasSearchStats ? { search_stats: searchStats } : {}),
           };
           res.write(`event: cost_summary\n`);
           res.write(`data: ${JSON.stringify({
@@ -241,10 +264,13 @@ export function createChatInlineRoutes(deps: {
             markup_percentage: trackingRow.rows[0]?.markup_percentage ?? 0,
           })}\n\n`);
 
-          // Persist charged_usd back to conversation_messages so reload shows correct cost
+          // Persist charged_usd + search_stats back to conversation_messages so reload
+          // shows correct cost and the FTS/Qdrant breakdown. Merge into the existing
+          // cost_summary JSONB so already-saved fields (e.g. tools_used) are preserved.
           if (conversationId) {
             deps.db.query(
-              `UPDATE conversation_messages SET cost_summary = $1
+              `UPDATE conversation_messages
+               SET cost_summary = COALESCE(cost_summary, '{}'::jsonb) || $1::jsonb
                WHERE id = (
                  SELECT id FROM conversation_messages
                  WHERE conversation_id = $2 AND role = 'assistant'

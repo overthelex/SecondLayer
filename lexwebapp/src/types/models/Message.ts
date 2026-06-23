@@ -29,12 +29,25 @@ export type CitationWarning =
       message: string;
     };
 
+/**
+ * Breakdown of search-leg usage for a single chat turn.
+ * - `fts`: PostgreSQL full-text queries (fulltext + hybrid modes)
+ * - `qdrant`: vector/semantic queries (semantic + hybrid modes)
+ * - `structured`: metadata-only (structured mode), neither FTS nor Qdrant
+ */
+export interface SearchStats {
+  fts: number;
+  qdrant: number;
+  structured?: number;
+}
+
 export interface CostSummary {
   tools_used: string[];
   total_cost_usd: number;
   charged_usd?: number;
   balance_usd?: number | null;
   response_id?: string;
+  search_stats?: SearchStats;
   /** @deprecated use charged_usd */
   credits_deducted?: number;
   /** @deprecated use balance_usd */

@@ -2087,6 +2087,42 @@ const miscStrings: Record<string, Record<Locale, string>> = {
     de: 'Anfrage-ID kopieren',
     es: 'Copiar ID de solicitud',
   },
+  searchBreakdown: {
+    uk: 'Пошукові запити:',
+    en: 'Search queries:',
+    de: 'Suchanfragen:',
+    es: 'Consultas de búsqueda:',
+  },
+  searchKind: {
+    uk: 'Тип пошуку',
+    en: 'Search type',
+    de: 'Suchtyp',
+    es: 'Tipo de búsqueda',
+  },
+  searchCount: {
+    uk: 'Запитів',
+    en: 'Queries',
+    de: 'Anfragen',
+    es: 'Consultas',
+  },
+  searchFts: {
+    uk: 'Повнотекстовий (FTS)',
+    en: 'Full-text (FTS)',
+    de: 'Volltext (FTS)',
+    es: 'Texto completo (FTS)',
+  },
+  searchQdrant: {
+    uk: 'Семантичний (Qdrant)',
+    en: 'Semantic (Qdrant)',
+    de: 'Semantisch (Qdrant)',
+    es: 'Semántico (Qdrant)',
+  },
+  searchStructured: {
+    uk: 'За реквізитами',
+    en: 'Structured',
+    de: 'Strukturiert',
+    es: 'Estructurado',
+  },
 
   // ── Confirm Modal ──
   confirm: {
