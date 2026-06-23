@@ -166,4 +166,38 @@ describe('EdsrVectorizerService', () => {
       expect('score_threshold' in searchArgs()).toBe(false);
     });
   });
+
+  describe('semanticSearch filter coercion', () => {
+    const filterMust = () => (((mockSearch.mock.calls.at(-1)![1] as any).filter?.must) ?? []) as any[];
+
+    it('coerces a string justice_kind into an integer Qdrant match (index is integer)', async () => {
+      const service = new EdsrVectorizerService();
+      // hybrid callers may forward the raw tool-call arg, which arrives as a string
+      await service.semanticSearch('тест', { justice_kind: '4' as unknown as number });
+      const jk = filterMust().find((c) => c.key === 'justice_kind');
+      expect(jk).toBeDefined();
+      expect(jk.match.value).toBe(4);
+    });
+
+    it('coerces a string court_code into an integer Qdrant match', async () => {
+      const service = new EdsrVectorizerService();
+      await service.semanticSearch('тест', { court_code: '9931' as unknown as number });
+      const cc = filterMust().find((c) => c.key === 'court_code');
+      expect(cc).toBeDefined();
+      expect(cc.match.value).toBe(9931);
+    });
+
+    it('keeps a numeric justice_kind unchanged', async () => {
+      const service = new EdsrVectorizerService();
+      await service.semanticSearch('тест', { justice_kind: 1 });
+      const jk = filterMust().find((c) => c.key === 'justice_kind');
+      expect(jk.match.value).toBe(1);
+    });
+
+    it('adds no justice_kind clause when no filter is supplied', async () => {
+      const service = new EdsrVectorizerService();
+      await service.semanticSearch('тест');
+      expect(filterMust().find((c) => c.key === 'justice_kind')).toBeUndefined();
+    });
+  });
 });
