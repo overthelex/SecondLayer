@@ -328,13 +328,21 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
               ? { kind: 'fabricated', fabricated: data.fabricated, message: data.message }
               : data.reason === 'unverified_law_articles'
                 ? { kind: 'unverified_articles', unverified: data.unverified, message: data.message }
-                : {
-                    kind: 'overruled',
-                    case_number: data.case_number,
-                    status: data.status,
-                    confidence: data.confidence,
-                    message: data.message,
-                  };
+                : data.reason === 'low_relevance_case_numbers'
+                  ? { kind: 'grounding', reason: data.reason, cases: data.lowRelevance, message: data.message }
+                  : data.reason === 'subject_matter_mismatch'
+                    ? { kind: 'grounding', reason: data.reason, cases: data.mismatches.map((m) => m.caseNumber), message: data.message }
+                    : data.reason === 'ungrounded_quote'
+                      ? { kind: 'grounding', reason: data.reason, cases: data.ungrounded.map((u) => u.caseNumber), message: data.message }
+                      : data.reason === 'claim_unsupported'
+                        ? { kind: 'grounding', reason: data.reason, cases: data.unsupported.map((u) => u.caseNumber), message: data.message }
+                        : {
+                            kind: 'overruled',
+                            case_number: data.case_number,
+                            status: data.status,
+                            confidence: data.confidence,
+                            message: data.message,
+                          };
           updateMessage(assistantMessageId, {
             citationWarnings: [...existing, normalized],
           });
