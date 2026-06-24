@@ -46,6 +46,16 @@ const CODES: Array<{ rada_id: string; short_title: string }> = [
   { rada_id: '4495-17', short_title: 'МК' },
   { rada_id: '435-15', short_title: 'ЦК' },
   { rada_id: '5403-17', short_title: 'КЦЗ' },
+  // Group A: substantive laws that already have current article text loaded
+  // (total_articles > 0) but no historical editions yet.
+  { rada_id: '1058-15', short_title: 'ПЕНС-ЗДПС' },     // Про загальнообов'язкове державне пенсійне страхування
+  { rada_id: '389-19', short_title: 'ВОЄННИЙ-СТАН' },   // Про правовий режим воєнного стану
+  { rada_id: '1576-12', short_title: 'ГОСП-ТОВ' },      // Про господарські товариства
+  { rada_id: '2262-12', short_title: 'ПЕНС-ВІЙСЬК' },   // Про пенсійне забезпечення осіб, звільнених з військової служби
+  { rada_id: '2275-19', short_title: 'ТОВ-ТДВ' },       // Про товариства з обмеженою та додатковою відповідальністю
+  { rada_id: '2778-17', short_title: 'КУЛЬТУРА' },      // Про культуру
+  { rada_id: '1023-12', short_title: 'ЗПС' },           // Про захист прав споживачів
+  { rada_id: '2011-12', short_title: 'ЗАХ-ВІЙСЬК' },    // Про соціальний і правовий захист військовослужбовців
 ];
 
 // ─── Token Bucket Rate Limiter ───────────────────────────────────────────────
