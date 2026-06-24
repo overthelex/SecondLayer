@@ -3,13 +3,24 @@
  */
 
 /**
- * Per-message warning about one of two distinct problems:
+ * Per-message warning. Several distinct problems share this channel:
  * - `overruled`: shepardization found the cited case was overruled/modified
  *   by a higher court (legacy path, emitted by ShepardizationService).
+ *   Only this kind carries `confidence`/`status`.
  * - `fabricated`: LEXAI-637 — the model cited a case number that never
  *   appeared in any tool result of the current turn. Pulled from prior
  *   messages' context or from training memory.
+ * - `unverified_articles`: cited law articles not confirmed by search/DB.
+ * - `grounding`: relevance/grounding gates in chat-answer-verification.ts —
+ *   real cases cited for the wrong proposition. NO confidence/status; the
+ *   backend message is self-contained. `reason` distinguishes the sub-gate.
  */
+export type GroundingWarningReason =
+  | 'low_relevance_case_numbers'
+  | 'subject_matter_mismatch'
+  | 'ungrounded_quote'
+  | 'claim_unsupported';
+
 export type CitationWarning =
   | {
       kind: 'overruled';
@@ -26,6 +37,12 @@ export type CitationWarning =
   | {
       kind: 'unverified_articles';
       unverified: string[];
+      message: string;
+    }
+  | {
+      kind: 'grounding';
+      reason: GroundingWarningReason;
+      cases: string[];
       message: string;
     };
 

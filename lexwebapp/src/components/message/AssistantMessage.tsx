@@ -187,6 +187,33 @@ export function AssistantMessage({
                     </motion.div>
                   );
                 }
+                if (warning.kind === 'grounding') {
+                  const caption: Record<typeof warning.reason, string> = {
+                    low_relevance_case_numbers: 'Можливо, не стосується запиту',
+                    subject_matter_mismatch: 'Інший предмет спору',
+                    ungrounded_quote: 'Цитату не знайдено в тексті',
+                    claim_unsupported: 'Зміст не підтверджено текстом',
+                  };
+                  return (
+                    <motion.div
+                      key={`cw-${idx}`}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: idx * 0.08 }}
+                      className="flex items-start gap-3 px-3.5 py-3 rounded-lg border bg-amber-50/70 border-amber-200/60"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] leading-relaxed text-amber-800">
+                          {warning.message}
+                        </p>
+                        <p className="text-[11px] text-amber-700/80 mt-1 font-mono">
+                          {caption[warning.reason]}
+                          {warning.cases.length > 0 ? ` · ${warning.cases.join(', ')}` : ''}
+                        </p>
+                      </div>
+                    </motion.div>
+                  );
+                }
                 return (
                   <motion.div
                     key={`cw-${idx}`}

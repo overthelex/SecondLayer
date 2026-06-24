@@ -30,6 +30,29 @@ export type CitationWarning =
       reason: 'unverified_law_articles';
       unverified: string[];
       message: string;
+    }
+  // Grounding/relevance gates (chat-answer-verification.ts). These carry NO
+  // confidence/status — the message is self-contained. Do NOT map them to the
+  // `overruled` shape (that produced "Частково змінено · впевненість: NaN%").
+  | {
+      reason: 'low_relevance_case_numbers';
+      lowRelevance: string[];
+      message: string;
+    }
+  | {
+      reason: 'subject_matter_mismatch';
+      mismatches: Array<{ caseNumber: string; claimed: string; actual: string }>;
+      message: string;
+    }
+  | {
+      reason: 'ungrounded_quote';
+      ungrounded: Array<{ caseNumber: string }>;
+      message: string;
+    }
+  | {
+      reason: 'claim_unsupported';
+      unsupported: Array<{ caseNumber: string; reason: string }>;
+      message: string;
     };
 
 import type { Decision, Citation, VaultDocument } from '../../types/models/Message';
