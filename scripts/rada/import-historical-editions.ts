@@ -287,6 +287,43 @@ function extractArticlesFromEditionHtml(html: string): Array<{ article_number: s
     }
   }
 
+  // Statute fallback: military statutes (Статут внутрішньої служби, Стройовий,
+  // Гарнізонної служби, Дисциплінарний — 548..551) are NOT structured with
+  // "Стаття N" headers. Their articles are continuously-numbered points ("9.",
+  // "10.", ...) grouped under "Розділ" headings; the only "Стаття" tokens are
+  // {amendment notes} in curly braces, which we strip. Extract the numbered
+  // points as articles.
+  if (articles.length < 3) {
+    seen.clear();
+    articles.length = 0;
+    const text = html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|tr|li|h[1-6])>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ').replace(/&mdash;/g, '—').replace(/&laquo;/g, '«').replace(/&raquo;/g, '»').replace(/&amp;/g, '&')
+      .replace(/\{[^}]*\}/g, ' ')          // drop amendment annotations
+      .replace(/[ \t]+/g, ' ');
+    // A point starts at a line boundary: "N. " followed by a capital letter or «.
+    // Body runs until the next such point, a Розділ/Глава heading, or end.
+    const pointRegex = /(?:^|\n)\s*(\d{1,3})\.\s+([А-ЯІЇЄҐ«][\s\S]*?)(?=\n\s*\d{1,3}\.\s+[А-ЯІЇЄҐ«]|\n\s*(?:Розділ|РОЗДІЛ|Глава|ГЛАВА)\s|$)/g;
+    let pm: RegExpExecArray | null;
+    while ((pm = pointRegex.exec(text)) !== null) {
+      const num = pm[1];
+      if (seen.has(num)) continue;
+      const body = pm[2].replace(/\n\s*\n/g, '\n').replace(/[ \t]+/g, ' ').trim();
+      if (body.length < 15) continue;
+      seen.add(num);
+      articles.push({
+        article_number: num,
+        title: undefined,
+        full_text: body,
+        byte_size: Buffer.byteLength(body, 'utf8'),
+      });
+    }
+    // Guard against spurious matches: require a real run of points.
+    if (articles.length < 5) articles.length = 0;
+  }
+
   return articles;
 }
 
