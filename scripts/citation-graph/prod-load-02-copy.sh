@@ -28,12 +28,16 @@ echo "Source: $INDIR"
 [ -f "$INDIR/MANIFEST.txt" ] && { echo "Expected row counts:"; cat "$INDIR/MANIFEST.txt"; }
 
 echo "-> law_court_citations"
+# FORCE_NOT_NULL: on export, empty-string fields (e.g. law_article='' for
+# supreme_court_ruling / law_by_number rows) become bare CSV fields; on import
+# CSV treats a bare empty field as NULL, which violates the NOT NULL on
+# law_number/law_article. FORCE_NOT_NULL keeps them as '' (matching the source).
 gunzip -c "$INDIR/lcc_final.csv.gz" | $PSQL -c \
-  "COPY law_court_citations (court_case_id, citation_type, law_number, law_article, citation_context, justice_kind, adj_year) FROM STDIN WITH (FORMAT csv)"
+  "COPY law_court_citations (court_case_id, citation_type, law_number, law_article, citation_context, justice_kind, adj_year) FROM STDIN WITH (FORMAT csv, FORCE_NOT_NULL (law_number, law_article, citation_context))"
 
 echo "-> case_citation_edges"
 gunzip -c "$INDIR/cce_final.csv.gz" | $PSQL -c \
-  "COPY case_citation_edges (from_case_id, to_case_number, citation_context, justice_kind, adj_year) FROM STDIN WITH (FORMAT csv)"
+  "COPY case_citation_edges (from_case_id, to_case_number, citation_context, justice_kind, adj_year) FROM STDIN WITH (FORMAT csv, FORCE_NOT_NULL (to_case_number, citation_context))"
 
 echo "=== Loaded row counts (verify against MANIFEST) ==="
 $PSQL -tA -c "SELECT 'law_court_citations', count(*) FROM law_court_citations UNION ALL SELECT 'case_citation_edges', count(*) FROM case_citation_edges"
