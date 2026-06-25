@@ -26,6 +26,22 @@ export interface ChatPlanResult {
   planSessionId: string;
 }
 
+/** V3 telemetry (CORE-55) — one record per chat request, wired to Prometheus. */
+export interface ChatTelemetry {
+  queryType: string;
+  groundingScore: number;
+  signals: {
+    fabricatedCases: number;
+    fabricatedArticles: number;
+    lowRelevance: number;
+    subjectMismatch: number;
+    ungroundedQuotes: number;
+  };
+  iterations: number;
+  toolCalls: number;
+  toolRepeatMax: number;
+}
+
 export class ChatService {
   constructor(...args: any[]) {}
 
@@ -43,4 +59,6 @@ export class ChatService {
   }
 
   setToolGroupMetricsCallback(callback: (groups: any) => void): void {}
+
+  setChatTelemetryCallback(callback: (t: ChatTelemetry) => void): void {}
 }

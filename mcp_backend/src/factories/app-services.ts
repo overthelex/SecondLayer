@@ -200,6 +200,18 @@ export function createAppServices(
     metricsService.chatToolGroupRequests.inc({ groups });
   });
 
+  // V3 chat telemetry (CORE-55): grounding quality + tool-thrashing per request.
+  chatService.setChatTelemetryCallback((t) => {
+    const qt = t.queryType || 'unknown';
+    metricsService.chatGroundingScore.observe({ query_type: qt }, t.groundingScore);
+    metricsService.chatAgenticIterations.observe({ query_type: qt }, t.iterations);
+    metricsService.chatToolCallsPerRequest.observe({ query_type: qt }, t.toolCalls);
+    metricsService.chatToolRepeatMax.observe({ query_type: qt }, t.toolRepeatMax);
+    for (const [k, v] of Object.entries(t.signals)) {
+      if (v > 0) metricsService.chatGroundingSignals.inc({ signal_type: k }, v);
+    }
+  });
+
   logger.info('Prometheus metrics service initialized');
 
   // Upload recovery service (uses BullMQ for re-enqueuing)
