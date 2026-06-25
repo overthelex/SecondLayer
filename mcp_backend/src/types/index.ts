@@ -1,3 +1,5 @@
+import type { CourtLevel } from '@secondlayer/shared';
+
 export enum SectionType {
   HEADER = 'HEADER',
   FACTS = 'FACTS',
@@ -10,14 +12,13 @@ export enum SectionType {
   AMOUNTS = 'AMOUNTS',
 }
 
+// ProcedureCode here is the Ukrainian user-input convention (legacy); it is
+// normalized to the latin codes (cpc/gpc/cac/crpc) by mapProcedureCodeToShort
+// before query execution. The latin convention is the canonical shared enum.
 export type ProcedureCode = 'ЦПК' | 'ГПК' | 'КАС' | 'КПК';
 
-export type CourtLevel =
-  | 'first_instance'
-  | 'appeal'
-  | 'cassation'
-  | 'SC'
-  | 'GrandChamber';
+// CourtLevel is the canonical whitelist — single source in @secondlayer/shared.
+export type { CourtLevel };
 
 export type DesiredOutput = 'теза' | 'чеклист' | 'таблиця' | 'підбірка' | 'порівняння';
 
