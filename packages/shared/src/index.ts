@@ -4,6 +4,9 @@ export * as queryIr from './query-ir';
 export { buildWhere } from './query-ir/build-where';
 export type { BuildWhereOptions, BuildWhereResult } from './query-ir/build-where';
 export type { FieldDef, MatchType } from './query-ir/field-def';
+// Whitelist primitives consumers can adopt without the queryIr namespace.
+export type { CourtLevel, PartyRole } from './query-ir/enums';
+export { PROCEDURE_TO_JUSTICE_KIND } from './query-ir/enums';
 export * from './utils/model-selector';
 export * from './utils/openai-client';
 export * from './utils/anthropic-client';

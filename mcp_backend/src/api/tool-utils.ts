@@ -6,6 +6,7 @@
  */
 
 import { SectionType } from '../types/index.js';
+import { PROCEDURE_TO_JUSTICE_KIND } from '@secondlayer/shared';
 import type { EdsrFtsService, EdsrFtsFilters } from '../services/edrsr-fts-service.js';
 import { logger } from '../utils/logger.js';
 import axios from 'axios';
@@ -269,13 +270,10 @@ export function buildSupremeCourtHints(_intent?: any): string {
  * justice_kind: 1=цивільне, 2=кримінальне, 3=господарське, 4=адміністративне
  */
 export function mapProcedureCodeToJusticeKind(code: string | null): number | null {
-  const map: Record<string, number> = {
-    cpc: 1,   // цивільне судочинство
-    crpc: 2,  // кримінальне судочинство
-    gpc: 3,   // господарське судочинство
-    cac: 4,   // адміністративне судочинство
-  };
-  return code ? (map[code] ?? null) : null;
+  // Mapping data is single-sourced in @secondlayer/shared (PROCEDURE_TO_JUSTICE_KIND):
+  // cpc→1 (цивільне), crpc→2 (кримінальне), gpc→3 (господарське), cac→4 (адміністративне).
+  if (!code) return null;
+  return (PROCEDURE_TO_JUSTICE_KIND as Record<string, number>)[code] ?? null;
 }
 
 /**
