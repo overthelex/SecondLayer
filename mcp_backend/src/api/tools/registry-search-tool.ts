@@ -7,6 +7,7 @@
 
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { REGISTRY_CATALOG, RegistryDef, FieldDef } from './registry-catalog.js';
+import { buildWhere } from '@secondlayer/shared';
 import { logger } from '../../utils/logger.js';
 
 const REGISTRY_KEYS = Object.keys(REGISTRY_CATALOG);
@@ -115,85 +116,10 @@ ${registryDescriptions}
     fields: FieldDef[],
     filters: Record<string, any>
   ): { whereClause: string | null; values: any[]; paramIndex: number } {
-    const conditions: string[] = [];
-    const values: any[] = [];
-    let pi = 1;
-
-    for (const field of fields) {
-      let val = filters[field.name];
-      if (val === undefined || val === null || val === '') continue;
-
-      if (field.type === 'number') val = Number(val);
-      if (field.transform === 'uppercase' && typeof val === 'string') val = val.toUpperCase();
-
-      switch (field.match) {
-        case 'ilike':
-          conditions.push(`${field.columns[0]} ILIKE $${pi}`);
-          values.push(`%${val}%`);
-          pi++;
-          break;
-
-        case 'exact':
-          conditions.push(`${field.columns[0]} = $${pi}`);
-          values.push(val);
-          pi++;
-          break;
-
-        case 'ilike_multi':
-          conditions.push(`(${field.columns.map(c => `${c} ILIKE $${pi}`).join(' OR ')})`);
-          values.push(`%${val}%`);
-          pi++;
-          break;
-
-        case 'exact_multi':
-          conditions.push(`(${field.columns.map(c => `${c} = $${pi}`).join(' OR ')})`);
-          values.push(val);
-          pi++;
-          break;
-
-        case 'gte':
-          conditions.push(`${field.columns[0]} >= $${pi}`);
-          values.push(val);
-          pi++;
-          break;
-
-        case 'lte':
-          conditions.push(`${field.columns[0]} <= $${pi}`);
-          values.push(val);
-          pi++;
-          break;
-
-        case 'array_contains':
-          conditions.push(`$${pi} = ANY(${field.columns[0]})`);
-          values.push(val);
-          pi++;
-          break;
-
-        case 'ilike_cast':
-          conditions.push(`${field.columns[0]}::text ILIKE $${pi}`);
-          values.push(`%${val}%`);
-          pi++;
-          break;
-
-        case 'fts':
-          conditions.push(`to_tsvector('english', ${field.columns[0]}) @@ plainto_tsquery('english', $${pi})`);
-          values.push(val);
-          pi++;
-          break;
-
-        case 'fts_simple':
-          conditions.push(`to_tsvector('simple', ${field.columns[0]}) @@ plainto_tsquery('simple', $${pi})`);
-          values.push(val);
-          pi++;
-          break;
-      }
-    }
-
-    return {
-      whereClause: conditions.length > 0 ? conditions.join(' AND ') : null,
-      values,
-      paramIndex: pi,
-    };
+    // Delegates to the shared query-builder (single source of WHERE-building
+    // logic for registry + EDRSR). `paramIndex` = next free $N for LIMIT.
+    const { whereClause, values, nextParamIndex } = buildWhere(fields, filters);
+    return { whereClause, values, paramIndex: nextParamIndex };
   }
 
   private describeRegistry(key: string, def: RegistryDef): string {

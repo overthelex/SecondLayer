@@ -17,3 +17,5 @@
 export * from './enums';
 export * from './slots';
 export * from './parse';
+export * from './field-def';
+export * from './build-where';
