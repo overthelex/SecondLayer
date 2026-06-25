@@ -3,6 +3,20 @@ import * as cheerio from 'cheerio';
 import { logger } from '../utils/logger';
 import type { IDatabase } from '../domain/ports/index.js';
 
+/**
+ * КУпАП (Кодекс України про адміністративні правопорушення) is split in RADA
+ * into two documents: 80731-10 (статті 1–212-21) and 80732-10 (статті 213–330).
+ * Article numbers don't overlap, so a КУпАП article lookup must search BOTH
+ * rada_ids (LEXAI-1770). Defined locally to avoid a circular import with
+ * legislation-service.ts (which imports this adapter).
+ */
+const KUPAP_RADA_IDS = ['80731-10', '80732-10'];
+
+function expandKupapRadaIds(radaId: string): string[] {
+  const lower = String(radaId || '').toLowerCase();
+  return KUPAP_RADA_IDS.some((id) => id === lower) ? [...KUPAP_RADA_IDS] : [radaId];
+}
+
 export interface LegislationMetadata {
   rada_id: string;
   type: 'code' | 'law' | 'regulation';
@@ -33,6 +47,8 @@ export interface LegislationArticle {
   version_date?: Date;
   byte_size: number;
   metadata?: any;
+  /** rada_id of the legislation row this article belongs to (set on direct lookups). */
+  rada_id?: string;
 }
 
 export interface ArticleChunk {
@@ -821,26 +837,29 @@ export class RadaLegislationAdapter {
   }
 
   async getArticleByNumber(radaId: string, articleNumber: string, asOfDate?: string): Promise<LegislationArticle | null> {
+    // КУпАП spans two RADA documents (80731-10 / 80732-10); search both halves.
+    // Article numbers don't overlap between them, so the match stays unambiguous.
+    const radaIds = expandKupapRadaIds(radaId).map((id) => id.toLowerCase());
     let result;
     if (asOfDate) {
       result = await this.db.query(
-        `SELECT la.*
+        `SELECT la.*, l.rada_id
          FROM legislation_articles la
          JOIN legislation l ON la.legislation_id = l.id
-         WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.version_date <= $3
+         WHERE LOWER(l.rada_id) = ANY($1) AND la.article_number = $2 AND la.version_date <= $3
          ORDER BY la.version_date DESC
          LIMIT 1`,
-        [radaId, articleNumber, asOfDate]
+        [radaIds, articleNumber, asOfDate]
       );
     } else {
       result = await this.db.query(
-        `SELECT la.*
+        `SELECT la.*, l.rada_id
          FROM legislation_articles la
          JOIN legislation l ON la.legislation_id = l.id
-         WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.is_current = true
+         WHERE LOWER(l.rada_id) = ANY($1) AND la.article_number = $2 AND la.is_current = true
          ORDER BY la.version_date DESC NULLS LAST, la.id DESC
          LIMIT 1`,
-        [radaId, articleNumber]
+        [radaIds, articleNumber]
       );
     }
 
@@ -864,8 +883,9 @@ export class RadaLegislationAdapter {
     const params: any[] = [query, `%${query}%`];
 
     if (radaId) {
-      sql += ` AND LOWER(l.rada_id) = LOWER($3)`;
-      params.push(radaId);
+      // КУпАП spans 80731-10 + 80732-10 — filter across both halves.
+      sql += ` AND LOWER(l.rada_id) = ANY($3)`;
+      params.push(expandKupapRadaIds(radaId).map((id) => id.toLowerCase()));
     }
 
     sql += ` ORDER BY ts_rank(to_tsvector('simple', la.full_text), plainto_tsquery('simple', $1)) DESC LIMIT $${params.length + 1}`;

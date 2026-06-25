@@ -31,6 +31,29 @@ export interface LegislationSearchResult {
 }
 
 /**
+ * КУпАП (Кодекс України про адміністративні правопорушення) is split in RADA
+ * into TWO documents:
+ *   - 80731-10 → статті 1–212-21  (loaded as legislation.id=653)
+ *   - 80732-10 → статті 213–330   (loaded as legislation.id=22)
+ * The alias maps resolve КУпАП to 80731-10, so a citation to ст. 213+ would
+ * silently miss its DB row (this caused ~18.7K unresolved statute citations,
+ * LEXAI-1770). Article numbers do NOT overlap between the two halves, so
+ * searching BOTH rada_ids is safe and unambiguous.
+ *
+ * Given either КУпАП half, returns both rada_ids; otherwise returns [radaId].
+ * Used to widen article lookups to `LOWER(rada_id) = ANY(...)`.
+ */
+export const KUPAP_RADA_IDS = ['80731-10', '80732-10'] as const;
+
+export function expandKupapRadaIds(radaId: string): string[] {
+  const lower = String(radaId || '').toLowerCase();
+  if (KUPAP_RADA_IDS.some((id) => id.toLowerCase() === lower)) {
+    return [...KUPAP_RADA_IDS];
+  }
+  return [radaId];
+}
+
+/**
  * Парсит ссылку на законодательство из текста, используя regexp.
  * Для сложных случаев следует использовать parseLegislationReferenceWithAI.
  */
@@ -54,6 +77,8 @@ export function parseLegislationReference(text: string): { radaId: string; artic
     'КК': '2341-14',
     'КУ': '254к/96-вр',
     'КОНСТИТУЦІЯ': '254к/96-вр',
+    // КУпАП resolves to the first half here; article lookups widen to both
+    // halves (80731-10 + 80732-10) via expandKupapRadaIds (LEXAI-1770).
     'КУПАП': '80731-10',
     'КУпАП': '80731-10',
   };
@@ -441,10 +466,13 @@ export class LegislationService {
     }
 
     radaId = normalizeRadaId(radaId);
+    // КУпАП is split across two RADA documents (80731-10 / 80732-10). Accept either
+    // half as "present" so a ст. 213+ lookup doesn't trigger a needless refetch.
+    const radaIds = expandKupapRadaIds(radaId).map((id) => id.toLowerCase());
     // Case-insensitive lookup — RADA API may return different casing (e.g. 254к/96-ВР vs 254к/96-вр)
     const result = await this.db.query(
-      'SELECT id, rada_id, total_articles FROM legislation WHERE LOWER(rada_id) = LOWER($1)',
-      [radaId]
+      'SELECT id, rada_id, total_articles FROM legislation WHERE LOWER(rada_id) = ANY($1)',
+      [radaIds]
     );
     if (result.rows.length > 0) {
       const row = result.rows[0];
@@ -495,10 +523,14 @@ export class LegislationService {
       return null;
     }
 
+    // For КУпАП the matched article may live in the 80732-10 half even when the
+    // caller passed 80731-10 — use the record's own rada_id for title/URL.
+    const matchedRadaId = article.rada_id || radaId;
+
     // Fetch NPA title from legislation table
     const legResult = await this.db.query(
       `SELECT title FROM legislation WHERE LOWER(rada_id) = LOWER($1) LIMIT 1`,
-      [radaId]
+      [matchedRadaId]
     );
     const npaTitle = legResult.rows[0]?.title || undefined;
 
@@ -507,12 +539,12 @@ export class LegislationService {
     const actualArticleNumber = article.article_number || articleNumber;
 
     const ref: LegislationReference = {
-      rada_id: radaId,
+      rada_id: matchedRadaId,
       article_number: actualArticleNumber,
       title: article.title,
       full_text: article.full_text,
       full_text_html: article.full_text_html,
-      url: `https://zakon.rada.gov.ua/laws/show/${radaId}#n${actualArticleNumber}`,
+      url: `https://zakon.rada.gov.ua/laws/show/${matchedRadaId}#n${actualArticleNumber}`,
       metadata: article.metadata,
       npa_title: npaTitle,
       section_number: article.section_number,
@@ -531,34 +563,40 @@ export class LegislationService {
   async getMultipleArticles(radaId: string, articleNumbers: string[], asOfDate?: string): Promise<LegislationReference[]> {
     await this.ensureLegislationExists(radaId);
 
+    // КУпАП spans two RADA documents (80731-10 / 80732-10); widen the lookup to
+    // both halves. Article numbers don't overlap, so this stays unambiguous.
+    const radaIds = expandKupapRadaIds(radaId).map((id) => id.toLowerCase());
+
     let result;
     if (asOfDate) {
       result = await this.db.query(
         `SELECT DISTINCT ON (la.article_number) la.*, l.rada_id, l.title as npa_title
          FROM legislation_articles la
          JOIN legislation l ON la.legislation_id = l.id
-         WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = ANY($2) AND la.version_date <= $3
+         WHERE LOWER(l.rada_id) = ANY($1) AND la.article_number = ANY($2) AND la.version_date <= $3
          ORDER BY la.article_number, la.version_date DESC`,
-        [radaId, articleNumbers, asOfDate]
+        [radaIds, articleNumbers, asOfDate]
       );
     } else {
       result = await this.db.query(
         `SELECT DISTINCT ON (la.article_number) la.*, l.rada_id, l.title as npa_title
          FROM legislation_articles la
          JOIN legislation l ON la.legislation_id = l.id
-         WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = ANY($2) AND la.is_current = true
+         WHERE LOWER(l.rada_id) = ANY($1) AND la.article_number = ANY($2) AND la.is_current = true
          ORDER BY la.article_number, la.version_date DESC NULLS LAST, la.id DESC`,
-        [radaId, articleNumbers]
+        [radaIds, articleNumbers]
       );
     }
 
     return result.rows.map((row: any) => ({
-      rada_id: radaId,
+      // Use the matched record's own rada_id, not the input — for КУпАП the
+      // article may live in the 80732-10 half even when the caller passed 80731-10.
+      rada_id: row.rada_id || radaId,
       article_number: row.article_number,
       title: row.title,
       full_text: row.full_text,
       full_text_html: row.full_text_html,
-      url: `https://zakon.rada.gov.ua/laws/show/${radaId}#n${row.article_number}`,
+      url: `https://zakon.rada.gov.ua/laws/show/${row.rada_id || radaId}#n${row.article_number}`,
       metadata: asOfDate ? { ...row.metadata, is_historical: true, as_of_date: asOfDate } : row.metadata,
       npa_title: row.npa_title,
       section_number: row.section_number,
