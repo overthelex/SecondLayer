@@ -14,6 +14,7 @@
  */
 
 import { logger } from '../utils/logger.js';
+import type { PartyRole } from '@secondlayer/shared';
 import type { EdsrCacheService } from './edrsr-cache-service.js';
 import {
   EDRSR_FTS_SEARCH_ORDER,
@@ -21,7 +22,8 @@ import {
   FTS_HEADLINE_MIN_WORDS,
 } from './search-ranking-config.js';
 
-export type PartyRole = 'plaintiff' | 'defendant' | 'any';
+// PartyRole is the canonical whitelist — single source in @secondlayer/shared.
+export type { PartyRole };
 
 export interface EdsrFtsFilters {
   court_code?: number;
