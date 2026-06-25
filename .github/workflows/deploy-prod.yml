@@ -366,7 +366,11 @@ jobs:
   # ─── Step 3a: Deploy Preview (inactive color) ──────────────────────
   deploy-preview:
     name: Deploy Preview
-    runs-on: [self-hosted, local]
+    # Must run on the prod-reachable runner: this job SSHes to PROD_SERVER_IP.
+    # The `local` label also matches local-runner (cthulhu), which cannot reach
+    # prod's public IP → intermittent `ssh: connect … timed out`. prod-deploy is
+    # a label unique to prod-runner.
+    runs-on: [self-hosted, prod-deploy]
     needs: [detect-changes, pre-deploy-tests]
     if: |
       needs.detect-changes.outputs.has_changes == 'true' &&
@@ -700,7 +704,8 @@ jobs:
   # ─── Step 3b: Promote to Production (requires approval) ───────────
   promote-to-prod:
     name: Promote to Production
-    runs-on: [self-hosted, local]
+    # SSHes to PROD_SERVER_IP — pin to prod-runner (see Deploy Preview note).
+    runs-on: [self-hosted, prod-deploy]
     needs: [detect-changes, deploy-preview]
     if: needs.deploy-preview.result == 'success'
     environment: production
@@ -931,7 +936,8 @@ jobs:
   # ─── Step 3c: Self-heal deploy failures (DISABLED) ─────────────────
   self-heal-deploy:
     name: Self-Heal Deploy Failures
-    runs-on: [self-hosted, local]
+    # SSHes to PROD_SERVER_IP — pin to prod-runner (see Deploy Preview note).
+    runs-on: [self-hosted, prod-deploy]
     needs: [detect-changes, deploy-preview, promote-to-prod]
     if: false  # temporarily disabled — not producing useful fixes
     env:
