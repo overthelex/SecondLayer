@@ -56,6 +56,41 @@ const WORKLIST: WorkItem[] = [
   { rada_id: '1875-15',   cited_name: 'Про житлово-комунальні послуги', cites: 132, note: 'old, repealed 2019' },
   { rada_id: '875-12',    cited_name: 'Про основи соціальної захищеності осіб з інвалідністю в Україні', cites: 112, note: 'active' },
   { rada_id: '2344-14',   cited_name: 'Про автомобільний транспорт', cites: 100, note: 'active' },
+
+  // ─── FOLLOW-UP batch (LEXAI-1770 follow-up): ~30 genuinely-absent long-tail
+  //     laws cited by court decisions but missing from the registry. rada_id
+  //     (nreg) verified against zakon.rada.gov.ua. Many repealed — imported
+  //     anyway for historical citation resolution. ──────────────────────────
+  { rada_id: '3018-14',   cited_name: 'Про судоустрій України', cites: 146, note: '2002 judiciary law (repealed 2010); covers «Про судоустрій»/«Про судоустрій в Україні» variants' },
+  { rada_id: '2269-12',   cited_name: 'Про оренду державного та комунального майна', cites: 110, note: '1992 lease law (repealed 2020)' },
+  { rada_id: '356/95-вр', cited_name: 'Про боротьбу з корупцією', cites: 98, note: 'repealed 2011' },
+  { rada_id: '98/96-вр',  cited_name: 'Про патентування деяких видів підприємницької діяльності', cites: 76, note: 'repealed 2011' },
+  { rada_id: '2535-12',   cited_name: 'Про плату за землю', cites: 70, note: 'repealed 2011' },
+  { rada_id: '448/96-вр', cited_name: 'Про державне регулювання ринку цінних паперів в Україні', cites: 70, note: 'active (retitled «Про державне регулювання ринків капіталу...»)' },
+  { rada_id: '796-12',    cited_name: 'Про статус і соціальний захист громадян, які постраждали внаслідок Чорнобильської катастрофи', cites: 80, note: 'active' },
+  { rada_id: '400/97-вр', cited_name: 'Про збір на обов\'язкове державне пенсійне страхування', cites: 80, note: 'active' },
+  { rada_id: '264/94-вр', cited_name: 'Про адміністративний нагляд за особами, звільненими з місць позбавлення волі', cites: 110, note: 'active' },
+  { rada_id: '3480-15',   cited_name: 'Про цінні папери та фондовий ринок', cites: 66, note: 'active (retitled «Про ринки капіталу...»); covers «Про цінні папери та фондову біржу»' },
+  { rada_id: '2654-12',   cited_name: 'Про заставу', cites: 50, note: 'active' },
+  { rada_id: '1961-15',   cited_name: 'Про обов\'язкове страхування цивільно-правової відповідальності власників наземних транспортних засобів', cites: 52, note: 'repealed 2025' },
+  { rada_id: '1533-14',   cited_name: 'Про загальнообов\'язкове державне соціальне страхування на випадок безробіття', cites: 70, note: 'active' },
+  { rada_id: '1789-12',   cited_name: 'Про прокуратуру', cites: 36, note: '1991 prosecutor law (repealed 2014)' },
+  { rada_id: '1160-15',   cited_name: 'Про засади державної регуляторної політики у сфері господарської діяльності', cites: 34, note: 'active' },
+  { rada_id: '1775-14',   cited_name: 'Про ліцензування певних видів господарської діяльності', cites: 34, note: 'repealed 2015' },
+  { rada_id: '2460-12',   cited_name: 'Про об\'єднання громадян', cites: 60, note: 'repealed 2013; covers об*/об`/об"/обєднання variants' },
+  { rada_id: '2121-14',   cited_name: 'Про банки і банківську діяльність', cites: 42, note: 'active; covers «Про банки та банківську діяльність»' },
+  { rada_id: '2171-12',   cited_name: 'Про приватизацію невеликих державних підприємств (малу приватизацію)', cites: 30, note: 'repealed 2018' },
+  { rada_id: '1952-15',   cited_name: 'Про державну реєстрацію речових прав на нерухоме майно та їх обтяжень', cites: 30, note: 'active; cited as «...та їх обмежень»' },
+  { rada_id: '1490-14',   cited_name: 'Про закупівлю товарів, робіт і послуг за державні кошти', cites: 26, note: 'repealed 2008' },
+  { rada_id: '393/96-вр', cited_name: 'Про звернення громадян', cites: 22, note: 'active' },
+  { rada_id: '3425-12',   cited_name: 'Про нотаріат', cites: 20, note: 'active' },
+  { rada_id: '887-12',    cited_name: 'Про підприємства в Україні', cites: 20, note: 'repealed 2004' },
+  { rada_id: '3674-17',   cited_name: 'Про судовий збір', cites: 12, note: 'active' },
+  { rada_id: '1701-15',   cited_name: 'Про третейські суди', cites: 14, note: 'active' },
+  { rada_id: '2694-12',   cited_name: 'Про охорону праці', cites: 28, note: 'active' },
+  { rada_id: '4004-12',   cited_name: 'Про забезпечення санітарного та епідемічного благополуччя населення', cites: 6, note: 'repealed 2023; cited as «...епідеміологічного...»' },
+  { rada_id: '2135-12',   cited_name: 'Про оперативно-розшукову діяльність', cites: 8, note: 'active' },
+  { rada_id: '898-15',    cited_name: 'Про іпотеку', cites: 6, note: 'active' },
 ];
 
 // ─── Minimal IDatabase wrapper over a pg.Pool ─────────────────────────────────
