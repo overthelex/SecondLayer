@@ -50,6 +50,12 @@ export class MetricsService {
 
   // Chat tool grouping metrics
   readonly chatToolGroupRequests: Counter;
+  // V3 chat telemetry (CORE-55)
+  readonly chatGroundingScore: Histogram;
+  readonly chatGroundingSignals: Counter;
+  readonly chatAgenticIterations: Histogram;
+  readonly chatToolCallsPerRequest: Histogram;
+  readonly chatToolRepeatMax: Histogram;
 
   constructor() {
     this.registry = new Registry();
@@ -202,6 +208,42 @@ export class MetricsService {
       name: 'chat_tool_group_requests_total',
       help: 'LLM requests for additional tool groups via meta-tool',
       labelNames: ['groups'] as const,
+      registers: [this.registry],
+    });
+
+    // V3 chat telemetry (CORE-55) — grounding quality + tool-thrashing per request.
+    this.chatGroundingScore = new Histogram({
+      name: 'chat_grounding_score',
+      help: 'Per-request composite grounding score (0-100; lower = more fabricated/ungrounded citations)',
+      labelNames: ['query_type'] as const,
+      buckets: [0, 25, 50, 70, 85, 95, 100],
+      registers: [this.registry],
+    });
+    this.chatGroundingSignals = new Counter({
+      name: 'chat_grounding_signals_total',
+      help: 'Count of grounding violations by signal type (fabricated_cases, fabricated_articles, low_relevance, subject_mismatch, ungrounded_quotes)',
+      labelNames: ['signal_type'] as const,
+      registers: [this.registry],
+    });
+    this.chatAgenticIterations = new Histogram({
+      name: 'chat_agentic_iterations',
+      help: 'Agentic-loop iterations per chat request (high = thrashing)',
+      labelNames: ['query_type'] as const,
+      buckets: [1, 2, 3, 5, 8, 12, 16, 25],
+      registers: [this.registry],
+    });
+    this.chatToolCallsPerRequest = new Histogram({
+      name: 'chat_tool_calls_per_request',
+      help: 'Total tool calls executed per chat request',
+      labelNames: ['query_type'] as const,
+      buckets: [0, 1, 2, 3, 5, 8, 12, 20],
+      registers: [this.registry],
+    });
+    this.chatToolRepeatMax = new Histogram({
+      name: 'chat_tool_repeat_max',
+      help: 'Max calls to a single tool in one request (repeats with varying params = thrashing)',
+      labelNames: ['query_type'] as const,
+      buckets: [1, 2, 3, 4, 6, 8, 12],
       registers: [this.registry],
     });
 
