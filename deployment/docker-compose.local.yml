@@ -369,8 +369,13 @@ services:
         condition: service_healthy
 
     volumes:
-      - ../mcp_backend/dist:/app/mcp_backend/dist:ro
-      - ../packages/shared/dist:/app/mcp_backend/node_modules/@secondlayer/shared/dist:ro
+      # NOTE: do NOT bind-mount host packages/shared/dist or mcp_backend/dist here.
+      # Dockerfile.mono-backend already compiles fresh dist into the image (and the
+      # local deploy runs `up -d --build`), so mounting host dist only re-introduced
+      # the stale-overwrite the Dockerfile warns about — and, because dist/ is
+      # gitignored, `git clean -ffdx` in CI checkout deletes it while this
+      # restart:unless-stopped container holds the mount, making the Docker daemon
+      # recreate the host dir root-owned and break the next tsc build (EACCES).
       - ../mcp_backend/logs:/app/logs
       - app_local_data:/app/data
       # Vision API credentials for OCR
