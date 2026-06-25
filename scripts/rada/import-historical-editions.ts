@@ -16,12 +16,14 @@ import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as http from 'http';
+import * as https from 'https';
 import pg from 'pg';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 const SCRIPTS_DIR = path.resolve(__dirname);
-const PROGRESS_FILE = path.join(SCRIPTS_DIR, 'historical-editions-progress.json');
+const PROGRESS_FILE = process.env.PROGRESS_FILE || path.join(SCRIPTS_DIR, 'historical-editions-progress.json');
 const BASE_URL = 'https://zakon.rada.gov.ua';
 // Tunable via env. Defaults chosen to stay under Rada's throttle (sustained 2 req/s + retries tripped HTTP 429).
 const RATE_LIMIT = Number(process.env.RADA_RATE_LIMIT || 1.5); // global requests per second (shared across workers)
@@ -56,6 +58,9 @@ const CODES: Array<{ rada_id: string; short_title: string }> = [
   { rada_id: '2778-17', short_title: 'КУЛЬТУРА' },      // Про культуру
   { rada_id: '1023-12', short_title: 'ЗПС' },           // Про захист прав споживачів
   { rada_id: '2011-12', short_title: 'ЗАХ-ВІЙСЬК' },    // Про соціальний і правовий захист військовослужбовців
+  // Group B (codes): base current text loaded on-demand, then editions backfilled.
+  { rada_id: '2597-19', short_title: 'КЗПБ' },          // Кодекс України з процедур банкрутства
+  { rada_id: '3852-12', short_title: 'ЛК' },            // Лісовий кодекс України
 ];
 
 // ─── Token Bucket Rate Limiter ───────────────────────────────────────────────
@@ -104,6 +109,11 @@ class TokenBucket {
 // ─── HTTP Client ─────────────────────────────────────────────────────────────
 
 function createHttpClient(): AxiosInstance {
+  // Optional: bind outbound sockets to a specific source IP (LOCAL_ADDRESS).
+  // Used to split scraping across multiple egress IPs (each behind its own EIP)
+  // so Rada's per-IP throttling is sidestepped and throughput scales ~N×.
+  const localAddress = process.env.LOCAL_ADDRESS || undefined;
+  const agentOpts: http.AgentOptions = { keepAlive: true, ...(localAddress ? { localAddress } : {}) };
   return axios.create({
     timeout: 60000,
     headers: {
@@ -114,6 +124,8 @@ function createHttpClient(): AxiosInstance {
     },
     decompress: true,
     validateStatus: () => true,
+    httpAgent: new http.Agent(agentOpts),
+    httpsAgent: new https.Agent(agentOpts),
   });
 }
 
@@ -372,16 +384,26 @@ async function main() {
   const codeArg = args.find(a => a.startsWith('--code='))?.split('=')[1];
   const codesArg = args.find(a => a.startsWith('--codes='))?.split('=')[1];
   const codesList = codesArg ? codesArg.split(',').map(s => s.trim()).filter(Boolean) : null;
+  const idsFileArg = args.find(a => a.startsWith('--ids-file='))?.split('=')[1];
   const allArg = args.includes('--all');
   const resumeArg = args.includes('--resume');
   const fromArg = args.find(a => a.startsWith('--from='))?.split('=')[1];
   const toArg = args.find(a => a.startsWith('--to='))?.split('=')[1];
   const dryRun = args.includes('--dry-run');
 
-  if (!codeArg && !codesList && !allArg && !resumeArg) {
+  // --ids-file: import editions for arbitrary acts by rada_id (one per line),
+  // independent of the hardcoded CODES list. short_title defaults to the rada_id.
+  const idsFromFile: Array<{ rada_id: string; short_title: string }> | null = idsFileArg
+    ? fs.readFileSync(idsFileArg, 'utf-8')
+        .split('\n').map(s => s.trim()).filter(Boolean)
+        .map(rada_id => ({ rada_id, short_title: rada_id }))
+    : null;
+
+  if (!codeArg && !codesList && !allArg && !resumeArg && !idsFromFile) {
     console.log('Usage:');
     console.log('  --code=ЦК              Import one code');
     console.log('  --codes=ПК,КК,ЗК       Import a specific subset (disjoint split across machines)');
+    console.log('  --ids-file=PATH         Import editions for rada_ids listed in a file (one per line)');
     console.log('  --all                   Import all 16 codes');
     console.log('  --resume                Resume from checkpoint');
     console.log('  --from=YYYYMMDD         Start from this edition date');
@@ -412,7 +434,9 @@ async function main() {
   const progress = loadProgress();
 
   let codesToProcess: typeof CODES;
-  if (codeArg) {
+  if (idsFromFile) {
+    codesToProcess = idsFromFile;
+  } else if (codeArg) {
     const found = CODES.find(c => c.short_title === codeArg || c.rada_id === codeArg);
     if (!found) {
       console.error(`Unknown code: ${codeArg}. Available: ${CODES.map(c => c.short_title).join(', ')}`);
