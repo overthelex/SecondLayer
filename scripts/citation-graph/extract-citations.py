@@ -35,7 +35,18 @@ from psycopg2.extras import execute_values
 DB_DSN = os.environ.get("DATABASE_URL", "postgresql://secondlayer:local_dev_password@localhost:5432/secondlayer_local")
 
 def get_conn():
-    return psycopg2.connect(DB_DSN)
+    conn = psycopg2.connect(DB_DSN)
+    # Batch workload on a busy shared box: a worker's server-side cursor can sit
+    # idle-in-transaction (CPU-bound extraction between fetches) long enough to
+    # trip the server's idle_in_transaction_session_timeout, and a huge OFFSET
+    # scan can trip statement_timeout. Either kills the worker connection mid-run
+    # and (without retry) takes the whole multi-hour run down. This data is fully
+    # reproducible from edrsr_fulltext, so disabling both for our sessions is safe.
+    with conn.cursor() as c:
+        c.execute("SET idle_in_transaction_session_timeout = 0")
+        c.execute("SET statement_timeout = 0")
+    conn.commit()
+    return conn
 
 # ── Citation patterns ────────────────────────────────────────
 
@@ -422,20 +433,42 @@ def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000
     chunks = [(year, offset, chunk_size, dry_run) for offset in range(0, total, chunk_size)]
     print(f"  Year {year}: {total:,} rows, {len(chunks)} chunks, {workers} workers")
 
+    def _accumulate(result):
+        stats.rows_processed += result["rows"]
+        stats.citations_found += result["citations"]
+        for k, v in result["type_counts"].items():
+            stats.by_type[k] += v
+
+    failed = []
     with ProcessPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(process_chunk, c): c for c in chunks}
 
         for i, future in enumerate(as_completed(futures)):
-            result = future.result()
-            stats.rows_processed += result["rows"]
-            stats.citations_found += result["citations"]
-            for k, v in result["type_counts"].items():
-                stats.by_type[k] += v
+            # A single chunk losing its DB connection must NOT kill the whole
+            # multi-hour run. Queue it for a serial retry pass instead.
+            try:
+                result = future.result()
+            except Exception as e:
+                ch = futures[future]
+                print(f"    ! chunk offset={ch[1]} failed ({type(e).__name__}: {e}); queued for retry")
+                failed.append(ch)
+                continue
+            _accumulate(result)
 
             if (i + 1) % 10 == 0 or i == len(futures) - 1:
                 elapsed = time.time() - t0
                 rate = stats.rows_processed / elapsed if elapsed > 0 else 0
                 print(f"    [{i+1}/{len(chunks)}] {stats.rows_processed:,} rows, {stats.citations_found:,} citations, {rate:,.0f} rows/sec")
+
+    # Serial retry pass for any chunks whose worker connection dropped. Re-running
+    # a chunk under --bulk-load may re-insert rows it partially wrote; that is
+    # harmless because finalize dedups via DISTINCT ON the unique key.
+    for ch in failed:
+        try:
+            _accumulate(process_chunk(ch))
+            print(f"    ✓ retry ok offset={ch[1]}")
+        except Exception as e:
+            print(f"    ✗ chunk offset={ch[1]} PERMANENTLY failed ({type(e).__name__}: {e})")
 
     if not dry_run and not _NO_ENRICH:
         enrich_justice_kind(year)
