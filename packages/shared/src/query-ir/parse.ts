@@ -11,7 +11,7 @@
  * for observability of prompt regressions.
  */
 import { z, type ZodType, type ZodIssue } from 'zod';
-import { CourtSearchIR, IntentIR } from './slots';
+import { CourtSearchIR, IntentIR, PlannerSlots } from './slots';
 
 export type ParseResult<T> =
   | { ok: true; value: T }
@@ -48,6 +48,18 @@ export function parseIntentIR(raw: unknown): ParseResult<IntentIR> {
   const obj = typeof raw === 'string' ? extractJsonObject(raw) : raw;
   if (obj === null) return { ok: false, issues: [] };
   return parseWith(IntentIR, obj);
+}
+
+/**
+ * Validate the chat QueryPlanner slot bag (Ukrainian convention). Run this
+ * AFTER the planner's alias-normalization so canonical values reach the
+ * strictObject; unknown slots are dropped (injection guard). Returns ok:false
+ * (never throws) so the planner can keep its normalized slots and just log.
+ */
+export function parsePlannerSlots(raw: unknown): ParseResult<PlannerSlots> {
+  const obj = typeof raw === 'string' ? extractJsonObject(raw) : raw;
+  if (obj === null) return { ok: false, issues: [] };
+  return parseWith(PlannerSlots, obj);
 }
 
 // re-exported for callers that want the literal type name `z` available
