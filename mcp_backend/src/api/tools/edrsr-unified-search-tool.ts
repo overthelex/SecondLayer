@@ -12,7 +12,7 @@
  */
 
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
-import { buildWhere, type FieldDef } from '@secondlayer/shared';
+import { buildWhere, parseEdsrSearchArgs, type FieldDef } from '@secondlayer/shared';
 import { logger } from '../../utils/logger.js';
 import { EDRSR_METADATA_SEARCH_ORDER } from '../../services/search-ranking-config.js';
 import type { SearchResultFilter } from '../../services/search-result-filter.js';
@@ -232,6 +232,21 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
   async executeTool(name: string, args: any): Promise<ToolResult | null> {
     if (name !== 'search_court_decisions') return null;
+
+    // Safe-input boundary (LEXAI-1771 / CORE-54): validate raw model-produced
+    // arguments against the canonical Zod schema before any handler logic.
+    // Unknown (injected) fields are stripped; invalid enum/date/range values are
+    // rejected with a clean, model-actionable message instead of silently
+    // producing wrong filters. SQL stays parameterized downstream via buildWhere.
+    const parsed = parseEdsrSearchArgs(args);
+    if (!parsed.ok) {
+      const detail = parsed.issues
+        .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+        .join('; ');
+      logger.warn('[search_court_decisions] invalid arguments rejected', { detail });
+      return this.wrapError(`Невалідні параметри пошуку: ${detail || 'перевір mode та фільтри'}`);
+    }
+    args = parsed.value;
 
     // court_level is the cross-tool convention (search_legal_precedents,
     // find_similar_fact_pattern_cases): SC / GrandChamber → cassation instance. Map it onto
