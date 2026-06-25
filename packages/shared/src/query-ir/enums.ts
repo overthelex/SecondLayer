@@ -13,9 +13,21 @@
  */
 import { z } from 'zod';
 
-/** Procedure code → maps to justice_kind 1..4 (see PROCEDURE_TO_JUSTICE_KIND). */
+/** Procedure code (latin, normalized) → maps to justice_kind 1..4 (see PROCEDURE_TO_JUSTICE_KIND). */
 export const ProcedureCode = z.enum(['cpc', 'crpc', 'gpc', 'cac']);
 export type ProcedureCode = z.infer<typeof ProcedureCode>;
+
+/**
+ * Procedure code in the Ukrainian user-input convention used by the chat
+ * planner slots. Normalized to the latin ProcedureCode before query execution
+ * (mcp_backend mapProcedureCodeToShort). ЦПК→cpc, ГПК→gpc, КАС→cac, КПК→crpc.
+ */
+export const ProcedureCodeUA = z.enum(['ЦПК', 'ГПК', 'КАС', 'КПК']);
+export type ProcedureCodeUA = z.infer<typeof ProcedureCodeUA>;
+
+/** Desired output shape requested by the chat planner (Ukrainian UI labels). */
+export const DesiredOutput = z.enum(['теза', 'чеклист', 'таблиця', 'підбірка', 'порівняння']);
+export type DesiredOutput = z.infer<typeof DesiredOutput>;
 
 /** Court instance level (normalized; aliases resolved before validation). */
 export const CourtLevel = z.enum([

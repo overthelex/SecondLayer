@@ -15,6 +15,8 @@
 import { z } from 'zod';
 import {
   ProcedureCode,
+  ProcedureCodeUA,
+  DesiredOutput,
   CourtLevel,
   PartyRole,
   JudgmentCode,
@@ -81,6 +83,25 @@ export const ClassifierSlots = z.strictObject({
   registry_tool_hint: z.string().max(64).optional(),
 });
 export type ClassifierSlots = z.infer<typeof ClassifierSlots>;
+
+/**
+ * PlannerSlots — canonical model of the chat QueryPlanner slot bag
+ * (secondlayer-core query-planner.ts). DISTINCT from CourtSearchIR: this uses
+ * the Ukrainian procedure-code convention and carries planner-only fields
+ * (case_category, law_article, desired_output). Validate the planner's slots
+ * AFTER its alias-normalization step (normalizeCourtLevel etc.) — z.strictObject
+ * then drops any unknown slot the LLM invented.
+ */
+export const PlannerSlots = z.strictObject({
+  procedure_code: ProcedureCodeUA.optional(),
+  court_level: CourtLevel.optional(),
+  case_category: z.string().max(200).optional(),
+  law_article: z.string().max(200).optional(),
+  section_focus: z.array(SectionType).max(9).optional(),
+  money_terms: MoneyTerms.optional(),
+  desired_output: DesiredOutput.optional(),
+});
+export type PlannerSlots = z.infer<typeof PlannerSlots>;
 
 /**
  * IntentIR — full output of the planner/intent-classifier.

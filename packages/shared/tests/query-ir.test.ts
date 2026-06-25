@@ -2,6 +2,7 @@ import {
   buildWhere,
   parseCourtSearchIR,
   parseIntentIR,
+  parsePlannerSlots,
   CourtSearchIR,
   PROCEDURE_TO_JUSTICE_KIND,
 } from '../src/query-ir';
@@ -68,6 +69,43 @@ describe('query-ir / parseIntentIR', () => {
 
   it('rejects an unknown query_type', () => {
     expect(parseIntentIR({ query_type: 'time_travel' }).ok).toBe(false);
+  });
+});
+
+describe('query-ir / parsePlannerSlots', () => {
+  it('accepts Ukrainian-convention planner slots', () => {
+    const r = parsePlannerSlots({
+      procedure_code: 'ЦПК',
+      court_level: 'cassation',
+      case_category: 'споживчий спір',
+      section_focus: ['COURT_REASONING', 'DECISION'],
+      money_terms: { penalty: true },
+      desired_output: 'таблиця',
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.procedure_code).toBe('ЦПК');
+      expect(r.value.desired_output).toBe('таблиця');
+    }
+  });
+
+  it('rejects latin procedure_code (planner uses the Ukrainian convention)', () => {
+    expect(parsePlannerSlots({ procedure_code: 'cpc' }).ok).toBe(false);
+  });
+
+  it('DROPS unknown slot keys (injection guard)', () => {
+    expect(parsePlannerSlots({ court_level: 'appeal', registry_tool_hint: 'x' }).ok).toBe(false);
+  });
+
+  it('rejects a non-canonical court_level (alias normalization is the planner job)', () => {
+    // 'велика палата' must be normalized to 'GrandChamber' BEFORE validation
+    expect(parsePlannerSlots({ court_level: 'велика палата' }).ok).toBe(false);
+    expect(parsePlannerSlots({ court_level: 'GrandChamber' }).ok).toBe(true);
+  });
+
+  it('degrades (ok:false, no throw) on garbage', () => {
+    expect(parsePlannerSlots('nope').ok).toBe(false);
+    expect(parsePlannerSlots(null).ok).toBe(false);
   });
 });
 
