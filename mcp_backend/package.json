@@ -1,6 +1,6 @@
 {
   "name": "secondlayer-mcp",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "SecondLayer MCP Backend — semantic legal analysis, court decisions, legislation",
   "main": "dist/index.js",
   "bin": {
