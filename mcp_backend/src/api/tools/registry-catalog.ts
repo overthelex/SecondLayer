@@ -9,26 +9,10 @@
  * state-registry-tools.ts, spending-tools.ts (partial).
  */
 
-export type MatchType =
-  | 'ilike'         // col ILIKE $N  (%val%)
-  | 'exact'         // col = $N
-  | 'ilike_multi'   // (col1 ILIKE $N OR col2 ILIKE $N ...)  (%val%)
-  | 'exact_multi'   // (col1 = $N OR col2 = $N ...)
-  | 'gte'           // col >= $N
-  | 'lte'           // col <= $N
-  | 'array_contains' // $N = ANY(col)
-  | 'ilike_cast'    // col::text ILIKE $N  (%val%)
-  | 'fts'           // to_tsvector('english', col) @@ plainto_tsquery('english', $N)
-  | 'fts_simple';   // to_tsvector('simple', col) @@ plainto_tsquery('simple', $N)
-
-export interface FieldDef {
-  name: string;
-  description: string;
-  match: MatchType;
-  columns: string[];
-  type?: 'string' | 'number' | 'boolean';
-  transform?: 'uppercase';
-}
+// MatchType / FieldDef are the canonical query-builder primitives, now owned by
+// @secondlayer/shared/query-ir so registry AND EDRSR share one definition.
+import type { MatchType, FieldDef } from '@secondlayer/shared';
+export type { MatchType, FieldDef };
 
 export interface RegistryDef {
   title: string;
