@@ -7,6 +7,9 @@ export type { FieldDef, MatchType } from './query-ir/field-def';
 // Whitelist primitives consumers can adopt without the queryIr namespace.
 export type { CourtLevel, PartyRole } from './query-ir/enums';
 export { PROCEDURE_TO_JUSTICE_KIND } from './query-ir/enums';
+// Tool-call argument validators (V3 chat tool-execution boundary).
+export { parseEdsrSearchArgs } from './query-ir/tool-args';
+export type { EdsrSearchArgs } from './query-ir/tool-args';
 export * from './utils/model-selector';
 export * from './utils/openai-client';
 export * from './utils/anthropic-client';

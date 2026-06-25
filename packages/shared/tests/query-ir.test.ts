@@ -3,6 +3,7 @@ import {
   parseCourtSearchIR,
   parseIntentIR,
   parsePlannerSlots,
+  parseEdsrSearchArgs,
   CourtSearchIR,
   PROCEDURE_TO_JUSTICE_KIND,
 } from '../src/query-ir';
@@ -215,5 +216,63 @@ describe('query-ir / buildWhere', () => {
     const r = buildWhere(edrsrFields, parsed.value as Record<string, any>);
     expect(r.whereClause).toBe('d.judge ILIKE $1 AND d.justice_kind = $2');
     expect(r.values).toEqual(['%Петренко%', 2]);
+  });
+});
+
+describe('query-ir / parseEdsrSearchArgs (tool-call boundary)', () => {
+  it('accepts a valid structured search and keeps known fields', () => {
+    const r = parseEdsrSearchArgs({
+      mode: 'structured',
+      judge: 'Петренко',
+      justice_kind: 2,
+      judgment_code: 1,
+      date_from: '2023-01-01',
+      party_role: 'defendant',
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.mode).toBe('structured');
+      expect(r.value.justice_kind).toBe(2);
+      expect(r.value.party_role).toBe('defendant');
+    }
+  });
+
+  it('rejects unknown (injected/unsupported) fields via .strict()', () => {
+    const r = parseEdsrSearchArgs({ mode: 'fulltext', query: 'оренда', sql: 'DROP TABLE x', region: 'Kyiv' });
+    expect(r.ok).toBe(false);
+  });
+
+  it('coerces stringified numerics ("2" -> 2)', () => {
+    const r = parseEdsrSearchArgs({ mode: 'structured', justice_kind: '2', limit: '50' });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.justice_kind).toBe(2);
+      expect(r.value.limit).toBe(50);
+    }
+  });
+
+  it('rejects out-of-range justice_kind', () => {
+    const r = parseEdsrSearchArgs({ mode: 'structured', justice_kind: 99 });
+    expect(r.ok).toBe(false);
+  });
+
+  it('rejects invalid judgment_code', () => {
+    const r = parseEdsrSearchArgs({ mode: 'structured', judgment_code: 4 });
+    expect(r.ok).toBe(false);
+  });
+
+  it('rejects a malformed date', () => {
+    const r = parseEdsrSearchArgs({ mode: 'structured', date_from: 'вчора' });
+    expect(r.ok).toBe(false);
+  });
+
+  it('rejects an unknown mode', () => {
+    const r = parseEdsrSearchArgs({ mode: 'magic' });
+    expect(r.ok).toBe(false);
+  });
+
+  it('rejects an invalid party_role enum', () => {
+    const r = parseEdsrSearchArgs({ mode: 'hybrid', query: 'x', party_role: 'judge' });
+    expect(r.ok).toBe(false);
   });
 });
