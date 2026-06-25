@@ -14,7 +14,8 @@ export type MatchType =
   | 'exact_multi'    // (col1 = $N OR col2 = $N ...)
   | 'gte'            // col >= $N
   | 'lte'            // col <= $N
-  | 'array_contains' // $N = ANY(col)
+  | 'array_contains' // $N = ANY(col)         — col is an array column, val is scalar
+  | 'eq_any'         // col = ANY($N)          — col is scalar, val is an array of allowed values
   | 'ilike_cast'     // col::text ILIKE $N  (%val%)
   | 'fts'            // to_tsvector('english', col) @@ plainto_tsquery('english', $N)
   | 'fts_simple';    // to_tsvector('simple', col) @@ plainto_tsquery('simple', $N)

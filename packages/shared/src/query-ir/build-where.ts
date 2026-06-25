@@ -90,6 +90,12 @@ export function buildWhere(
         pi++;
         break;
 
+      case 'eq_any':
+        conditions.push(`${field.columns[0]} = ANY($${pi})`);
+        values.push(val);
+        pi++;
+        break;
+
       case 'ilike_cast':
         conditions.push(`${field.columns[0]}::text ILIKE $${pi}`);
         values.push(`%${val}%`);

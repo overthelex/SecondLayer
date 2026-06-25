@@ -125,6 +125,41 @@ describe('query-ir / buildWhere', () => {
     expect(r.values).toEqual(['urgent', '2026-01-01', '%ТОВ%']);
   });
 
+  it('renders eq_any (col = ANY($N)) for array-valued slots', () => {
+    const fields: FieldDef[] = [
+      { name: 'category_codes', match: 'eq_any', columns: ['d.category_code'] },
+    ];
+    const r = buildWhere(fields, { category_codes: [40851, 5459] });
+    expect(r.whereClause).toBe('d.category_code = ANY($1)');
+    expect(r.values).toEqual([[40851, 5459]]);
+  });
+
+  it('matches the EDRSR structured WHERE shape and param order', () => {
+    // mirrors edrsr-unified-search-tool.searchStructured field order
+    const fields: FieldDef[] = [
+      { name: 'judge', match: 'ilike', columns: ['d.judge'] },
+      { name: 'court_codes', match: 'eq_any', columns: ['d.court_code'] },
+      { name: 'justice_kind', match: 'exact', columns: ['d.justice_kind'] },
+      { name: 'military_category', match: 'eq_any', columns: ['d.category_code'] },
+      { name: 'date_from', match: 'gte', columns: ['d.adjudication_date'] },
+      { name: 'instance_code', match: 'exact', columns: ['c.instance_code'] },
+    ];
+    const r = buildWhere(fields, {
+      judge: 'Коваль',
+      court_codes: [991, 992],
+      justice_kind: 2,
+      military_category: [40851, 5459],
+      date_from: '2026-01-01',
+      instance_code: 1,
+    });
+    expect(r.whereClause).toBe(
+      'd.judge ILIKE $1 AND d.court_code = ANY($2) AND d.justice_kind = $3 AND ' +
+      'd.category_code = ANY($4) AND d.adjudication_date >= $5 AND c.instance_code = $6'
+    );
+    expect(r.values).toEqual(['%Коваль%', [991, 992], 2, [40851, 5459], '2026-01-01', 1]);
+    expect(r.nextParamIndex).toBe(7); // next free $N → LIMIT
+  });
+
   it('honors startParamIndex for composition with prior conditions', () => {
     const r = buildWhere(FIELDS, { name: 'x', edrpou: '12345678' }, { startParamIndex: 5 });
     expect(r.whereClause).toBe('name ILIKE $5 AND edrpou = $6');

@@ -12,6 +12,7 @@
  */
 
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
+import { buildWhere, type FieldDef } from '@secondlayer/shared';
 import { logger } from '../../utils/logger.js';
 import { EDRSR_METADATA_SEARCH_ORDER } from '../../services/search-ranking-config.js';
 import type { SearchResultFilter } from '../../services/search-result-filter.js';
@@ -269,10 +270,6 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       if (!args.justice_kind) args.justice_kind = 5;
     }
 
-    const conditions: string[] = [];
-    const params: any[] = [];
-    let paramIdx = 1;
-
     let resolvedCourtCodes: number[] | null = null;
     if (args.court_name && !args.court_code) {
       const courtResult = await this.db.query(
@@ -286,24 +283,33 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       }
     }
 
-    if (args.cause_num) { conditions.push(`d.cause_num = $${paramIdx}`); params.push(args.cause_num); paramIdx++; }
-    if (args.judge) { conditions.push(`LOWER(d.judge) LIKE LOWER($${paramIdx})`); params.push(`%${args.judge}%`); paramIdx++; }
-    if (args.court_code) { conditions.push(`d.court_code = $${paramIdx}`); params.push(args.court_code); paramIdx++; }
-    else if (resolvedCourtCodes?.length) { conditions.push(`d.court_code = ANY($${paramIdx})`); params.push(resolvedCourtCodes); paramIdx++; }
-    if (args.justice_kind) { conditions.push(`d.justice_kind = $${paramIdx}`); params.push(args.justice_kind); paramIdx++; }
-    if (args.judgment_code) { conditions.push(`d.judgment_code = $${paramIdx}`); params.push(args.judgment_code); paramIdx++; }
-    if (args._military_category_codes?.length) { conditions.push(`d.category_code = ANY($${paramIdx})`); params.push(args._military_category_codes); paramIdx++; }
-    else if (args._kupap_category_codes?.length) { conditions.push(`d.category_code = ANY($${paramIdx})`); params.push(args._kupap_category_codes); paramIdx++; }
-    else if (args.category_code) { conditions.push(`d.category_code = $${paramIdx}`); params.push(args.category_code); paramIdx++; }
-    if (args.date_from) { conditions.push(`d.adjudication_date >= $${paramIdx}`); params.push(args.date_from); paramIdx++; }
-    if (args.date_to) { conditions.push(`d.adjudication_date <= $${paramIdx}`); params.push(args.date_to); paramIdx++; }
-    if (args.instance_code) { conditions.push(`c.instance_code = $${paramIdx}`); params.push(args.instance_code); paramIdx++; }
+    // Whitelisted slot → SQL mapping, assembled by the shared safe builder.
+    // Field order preserved for param-index parity; scalar-vs-array branches
+    // (court_code, category) and military→kupap→category precedence mirror the
+    // previous inline logic exactly. judge uses ILIKE (idx_edrsr_docs_judge is a
+    // plain b-tree, unusable under a leading-wildcard LIKE either way, so ILIKE
+    // is result-identical to the former LOWER(judge) LIKE LOWER()).
+    const fields: FieldDef[] = [];
+    const filters: Record<string, any> = {};
+    const add = (def: FieldDef, value: any) => { fields.push(def); filters[def.name] = value; };
 
-    if (conditions.length === 0) {
+    if (args.cause_num) add({ name: 'cause_num', match: 'exact', columns: ['d.cause_num'] }, args.cause_num);
+    if (args.judge) add({ name: 'judge', match: 'ilike', columns: ['d.judge'] }, args.judge);
+    if (args.court_code) add({ name: 'court_code', match: 'exact', columns: ['d.court_code'] }, args.court_code);
+    else if (resolvedCourtCodes?.length) add({ name: 'court_codes', match: 'eq_any', columns: ['d.court_code'] }, resolvedCourtCodes);
+    if (args.justice_kind) add({ name: 'justice_kind', match: 'exact', columns: ['d.justice_kind'] }, args.justice_kind);
+    if (args.judgment_code) add({ name: 'judgment_code', match: 'exact', columns: ['d.judgment_code'] }, args.judgment_code);
+    if (args._military_category_codes?.length) add({ name: 'military_category', match: 'eq_any', columns: ['d.category_code'] }, args._military_category_codes);
+    else if (args._kupap_category_codes?.length) add({ name: 'kupap_category', match: 'eq_any', columns: ['d.category_code'] }, args._kupap_category_codes);
+    else if (args.category_code) add({ name: 'category_code', match: 'exact', columns: ['d.category_code'] }, args.category_code);
+    if (args.date_from) add({ name: 'date_from', match: 'gte', columns: ['d.adjudication_date'] }, args.date_from);
+    if (args.date_to) add({ name: 'date_to', match: 'lte', columns: ['d.adjudication_date'] }, args.date_to);
+    if (args.instance_code) add({ name: 'instance_code', match: 'exact', columns: ['c.instance_code'] }, args.instance_code);
+
+    const { whereClause, values: params, nextParamIndex: paramIdx } = buildWhere(fields, filters);
+    if (!whereClause) {
       return this.wrapError('Потрібен хоча б один параметр пошуку');
     }
-
-    const whereClause = conditions.join(' AND ');
     const needsCourtJoin = args.instance_code || args.court_name;
     const includeFulltext = args.include_fulltext === true;
 
