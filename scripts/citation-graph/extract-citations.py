@@ -248,6 +248,11 @@ _JUSTICE_KIND_FILTER = None
 _USE_PARTITIONS = None
 _TARGET_TABLE = "law_court_citations"
 _CASE_TABLE = "case_citation_edges"
+# Bulk-load mode: plain INSERT, no ON CONFLICT (target table must have NO unique
+# index during load). Dedup + unique index are built once afterwards (deferred index).
+_BULK_LOAD = False
+# Skip the per-year justice_kind enrich UPDATE (defer it to a single end-of-run pass).
+_NO_ENRICH = False
 
 # case_reference is routed to the separate decision->case edge table, not the statute table
 _STATUTE_TYPES = {"law_article", "codex_article", "constitution", "law_by_number", "supreme_court_ruling"}
@@ -337,7 +342,7 @@ def write_statute(rows: list[tuple], adj_year: int):
         cur,
         f"""INSERT INTO {_TARGET_TABLE}
            (court_case_id, citation_type, law_number, law_article, citation_context, justice_kind, adj_year)
-           VALUES %s ON CONFLICT DO NOTHING""",
+           VALUES %s {'' if _BULK_LOAD else 'ON CONFLICT DO NOTHING'}""",
         # r = (doc_id, citation_type, law_ref, article_ref, raw_match, justice_kind)
         [(r[0], r[1], r[2], r[3], r[4][:500], r[5], adj_year) for r in rows],
         page_size=5000,
@@ -356,7 +361,7 @@ def write_cases(rows: list[tuple], adj_year: int):
         cur,
         f"""INSERT INTO {_CASE_TABLE}
            (from_case_id, to_case_number, citation_context, justice_kind, adj_year)
-           VALUES %s ON CONFLICT DO NOTHING""",
+           VALUES %s {'' if _BULK_LOAD else 'ON CONFLICT DO NOTHING'}""",
         # r = (doc_id, to_case_number, raw_match, justice_kind)
         [(r[0], r[1], r[2][:500], r[3], adj_year) for r in rows],
         page_size=5000,
@@ -432,7 +437,7 @@ def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000
                 rate = stats.rows_processed / elapsed if elapsed > 0 else 0
                 print(f"    [{i+1}/{len(chunks)}] {stats.rows_processed:,} rows, {stats.citations_found:,} citations, {rate:,.0f} rows/sec")
 
-    if not dry_run:
+    if not dry_run and not _NO_ENRICH:
         enrich_justice_kind(year)
 
     stats.elapsed_sec = time.time() - t0
@@ -451,15 +456,19 @@ def main():
     parser.add_argument("--target-table", type=str, default="law_court_citations", help="Statute-citation destination table (use a staging table for pilots)")
     parser.add_argument("--case-table", type=str, default="case_citation_edges", help="decision->case edge destination table")
     parser.add_argument("--limit", type=int, default=None, help="Cap rows processed per year (for piloting)")
+    parser.add_argument("--bulk-load", action="store_true", help="Plain INSERT, no ON CONFLICT (deferred index: target tables must have NO unique index; dedup+index built afterwards)")
+    parser.add_argument("--no-enrich", action="store_true", help="Skip per-year justice_kind enrich UPDATE (defer to a single end-of-run pass)")
     args = parser.parse_args()
 
     if not args.year and not args.all:
         parser.error("Specify --year YYYY or --all")
 
-    global _JUSTICE_KIND_FILTER, _TARGET_TABLE, _CASE_TABLE
+    global _JUSTICE_KIND_FILTER, _TARGET_TABLE, _CASE_TABLE, _BULK_LOAD, _NO_ENRICH
     _JUSTICE_KIND_FILTER = args.justice_kind
     _TARGET_TABLE = args.target_table
     _CASE_TABLE = args.case_table
+    _BULK_LOAD = args.bulk_load
+    _NO_ENRICH = args.no_enrich
 
     years = list(range(args.years_from, args.years_to + 1)) if args.all else [args.year]
 
