@@ -15,6 +15,7 @@ import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
 import type { IEmbeddingPort, ILLMPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
 import { CitationValidator } from '../../services/citation-validator.js';
+import type { CitationGraphService } from '../../services/citation-graph-service.js';
 import { ShepardizationService, ShepardizationResult } from '../../services/shepardization-service.js';
 import type { EdsrFtsService, EdsrFtsFilters, EdsrFtsResult } from '../../services/edrsr-fts-service.js';
 import { SectionType } from '../../types/index.js';
@@ -38,9 +39,35 @@ export class LegalAdviceTools extends BaseToolHandler {
     private shepardizationService?: ShepardizationService,
     private readonly llm?: ILLMPort,
     private readonly db?: { query: (sql: string, params?: any[]) => Promise<any> },
-    private readonly ftsService?: EdsrFtsService
+    private readonly ftsService?: EdsrFtsService,
+    private readonly citationGraphService?: CitationGraphService
   ) {
     super();
+  }
+
+  /**
+   * Resolve any case identifier (UUID, numeric doc_id, case_number) to the EDRSR
+   * doc_id (bigint as string) used as the Decision key in the Neo4j citation graph.
+   * Chain: UUID → documents.zakononline_id; case_number → edrsr_documents.doc_id; numeric → as-is.
+   */
+  private async resolveToEdrsrDocId(input: string): Promise<string | null> {
+    if (!this.db) return null;
+    if (/^\d+$/.test(input)) return input;
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(input)) {
+      const doc = await this.db.query(
+        `SELECT zakononline_id::text AS doc_id FROM documents WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
+        [input]
+      );
+      return doc.rows[0]?.doc_id ?? null;
+    }
+
+    const edrsr = await this.db.query(
+      `SELECT doc_id::text AS doc_id FROM edrsr_documents WHERE cause_num = $1 ORDER BY adjudication_date DESC NULLS LAST LIMIT 1`,
+      [input]
+    );
+    return edrsr.rows[0]?.doc_id ?? null;
   }
 
   /** Map EDRSR FTS rows to the case shape this tool's responses expose. */
@@ -281,6 +308,31 @@ export class LegalAdviceTools extends BaseToolHandler {
 
   private async getCitationGraph(args: any): Promise<ToolResult> {
     const input = String(args.case_id).trim();
+    const depth = args.depth || 2;
+
+    // CITATION_BACKEND=neo4j → serve the decision→article graph from Neo4j.
+    if (this.citationGraphService?.isEnabled()) {
+      const docId = await this.resolveToEdrsrDocId(input);
+      if (!docId) {
+        return this.wrapResponse({
+          error: `Не вдалося конвертувати "${input}" у doc_id ЄДРСР для графа цитувань.`,
+          provided_value: input,
+          backend: 'neo4j',
+        });
+      }
+      try {
+        const graph = await this.citationGraphService.getCitationGraph(docId, depth);
+        return this.wrapResponse({ graph, backend: 'neo4j' });
+      } catch (error: any) {
+        logger.error('[LegalAdviceTools] Neo4j citation graph failed', { input, docId, error: error?.message });
+        return this.wrapResponse({
+          error: 'Граф цитувань (Neo4j) тимчасово недоступний.',
+          detail: error?.message,
+          provided_value: input,
+          backend: 'neo4j',
+        });
+      }
+    }
 
     if (!this.db) {
       // No DB — only UUID passthrough works

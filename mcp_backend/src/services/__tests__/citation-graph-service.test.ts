@@ -1,0 +1,168 @@
+/**
+ * Unit tests for CitationGraphService (Neo4j-backed citation graph).
+ * neo4j-driver is fully mocked — no live Neo4j required.
+ */
+
+const mockRun = jest.fn();
+const mockSessionClose = jest.fn().mockResolvedValue(undefined);
+const mockSession = jest.fn(() => ({ run: mockRun, close: mockSessionClose }));
+const mockDriverClose = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('neo4j-driver', () => {
+  const int = (n: number) => ({ __int: n, toNumber: () => n });
+  return {
+    __esModule: true,
+    default: {
+      driver: () => ({ session: mockSession, close: mockDriverClose }),
+      auth: { basic: (u: string, p: string) => ({ scheme: 'basic', principal: u, credentials: p }) },
+      session: { READ: 'READ' },
+      int,
+      isInt: (v: any) => !!v && typeof v === 'object' && '__int' in v,
+    },
+  };
+});
+
+import { CitationGraphService } from '../citation-graph-service.js';
+
+function rec(obj: Record<string, any>) {
+  return { get: (k: string) => obj[k] };
+}
+const neoInt = (n: number) => ({ __int: n, toNumber: () => n });
+
+describe('CitationGraphService', () => {
+  const ORIGINAL_ENV = process.env;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...ORIGINAL_ENV, CITATION_BACKEND: 'neo4j', NEO4J_URI: 'bolt://test:7687', NEO4J_PASSWORD: 'x' };
+  });
+
+  afterAll(() => {
+    process.env = ORIGINAL_ENV;
+  });
+
+  describe('isEnabled', () => {
+    it('is true when CITATION_BACKEND=neo4j', () => {
+      expect(new CitationGraphService().isEnabled()).toBe(true);
+    });
+
+    it('is false by default (postgres)', () => {
+      process.env = { ...ORIGINAL_ENV };
+      delete process.env.CITATION_BACKEND;
+      expect(new CitationGraphService().isEnabled()).toBe(false);
+    });
+
+    it('is false for explicit postgres', () => {
+      process.env = { ...ORIGINAL_ENV, CITATION_BACKEND: 'postgres' };
+      expect(new CitationGraphService().isEnabled()).toBe(false);
+    });
+  });
+
+  describe('getDecisionCitations', () => {
+    it('maps Decision->Article records and closes the session', async () => {
+      mockRun.mockResolvedValueOnce({
+        records: [
+          rec({ law: 'ЦПК України', article: '175', ct: 'codex_article', ctx: 'ст. 175 ЦПК' }),
+          rec({ law: 'КК України', article: '185', ct: 'codex_article', ctx: 'ст. 185 КК' }),
+        ],
+      });
+
+      const svc = new CitationGraphService();
+      const out = await svc.getDecisionCitations('86560781');
+
+      expect(out).toEqual([
+        { law: 'ЦПК України', article: '175', citationType: 'codex_article', context: 'ст. 175 ЦПК' },
+        { law: 'КК України', article: '185', citationType: 'codex_article', context: 'ст. 185 КК' },
+      ]);
+      // doc_id is coerced to string for the Decision key lookup
+      expect(mockRun.mock.calls[0][1]).toMatchObject({ docId: '86560781' });
+      expect(mockSessionClose).toHaveBeenCalled();
+    });
+  });
+
+  describe('getArticleStats', () => {
+    it('parses neo4j Integer properties to JS numbers', async () => {
+      mockRun.mockResolvedValueOnce({
+        records: [rec({ law: 'КУпАП', article: '130', tc: neoInt(2965804), ud: neoInt(1500000) })],
+      });
+
+      const stats = await new CitationGraphService().getArticleStats('КУпАП', '130');
+      expect(stats).toEqual({ law: 'КУпАП', article: '130', totalCitations: 2965804, uniqueDecisions: 1500000 });
+    });
+
+    it('returns null when the article is absent', async () => {
+      mockRun.mockResolvedValueOnce({ records: [] });
+      expect(await new CitationGraphService().getArticleStats('X', '1')).toBeNull();
+    });
+  });
+
+  describe('getArticleCitedBy', () => {
+    it('returns decisions and total count from two queries', async () => {
+      mockRun
+        .mockResolvedValueOnce({ records: [rec({ docId: '111' }), rec({ docId: '222' })] })
+        .mockResolvedValueOnce({ records: [rec({ c: neoInt(42) })] });
+
+      const out = await new CitationGraphService().getArticleCitedBy('ЦПК України', '178');
+      expect(out).toEqual({ count: 42, decisions: ['111', '222'] });
+      expect(mockRun).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('healthCheck', () => {
+    it('returns ok with node-label counts', async () => {
+      mockRun.mockResolvedValueOnce({
+        records: [
+          rec({ label: 'Decision', c: neoInt(33138541) }),
+          rec({ label: 'Article', c: neoInt(3133367) }),
+          rec({ label: null, c: neoInt(0) }),
+        ],
+      });
+
+      const h = await new CitationGraphService().healthCheck();
+      expect(h.ok).toBe(true);
+      expect(h.enabled).toBe(true);
+      expect(h.counts).toEqual({ Decision: 33138541, Article: 3133367 });
+    });
+
+    it('returns ok=false with error on driver failure', async () => {
+      mockRun.mockRejectedValueOnce(new Error('connection refused'));
+      const h = await new CitationGraphService().healthCheck();
+      expect(h.ok).toBe(false);
+      expect(h.error).toContain('connection refused');
+    });
+  });
+
+  describe('getCitationGraph', () => {
+    it('builds decision/article/law nodes and edges at depth 1', async () => {
+      mockRun.mockResolvedValueOnce({
+        records: [rec({ law: 'ЦПК України', article: '175', ct: 'codex_article', ctx: null })],
+      });
+
+      const g = await new CitationGraphService().getCitationGraph('500', 1);
+      expect(g.root).toEqual({ docId: '500' });
+      expect(g.nodes).toEqual(
+        expect.arrayContaining([
+          { id: 'decision:500', type: 'decision', label: '500' },
+          { id: 'article:ЦПК України|175', type: 'article', label: 'ЦПК України ст.175' },
+          { id: 'law:ЦПК України', type: 'law', label: 'ЦПК України' },
+        ])
+      );
+      expect(g.edges).toEqual(
+        expect.arrayContaining([
+          { from: 'decision:500', to: 'article:ЦПК України|175', type: 'CITES_ARTICLE' },
+          { from: 'article:ЦПК України|175', to: 'law:ЦПК України', type: 'OF_LAW' },
+        ])
+      );
+    });
+  });
+
+  describe('close', () => {
+    it('closes the driver if initialized', async () => {
+      const svc = new CitationGraphService();
+      mockRun.mockResolvedValueOnce({ records: [] });
+      await svc.getDecisionCitations('1'); // triggers driver init
+      await svc.close();
+      expect(mockDriverClose).toHaveBeenCalled();
+    });
+  });
+});

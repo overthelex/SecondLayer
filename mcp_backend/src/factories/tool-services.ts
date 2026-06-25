@@ -154,7 +154,8 @@ export function createToolServices(
     coreServices.shepardizationService,
     llmAdapter,
     coreServices.db,
-    edsrFtsService
+    edsrFtsService,
+    coreServices.citationGraphService
   ));
   toolRegistry.registerHandler(new CourtSessionTools(
     coreServices.zoSessionsAdapter,
