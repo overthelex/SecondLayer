@@ -255,9 +255,11 @@ describe('LegislationService', () => {
 
       await service.ensureLegislationExists('254k/96-vr');
 
+      // Lookup is a case-insensitive batch query (LOWER(rada_id) = ANY($1)); the
+      // Latin '254k/96-vr' input must reach the DB normalized to Cyrillic, lowercased.
       expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining('LOWER(rada_id) = LOWER'),
-        ['254к/96-вр']
+        expect.stringContaining('LOWER(rada_id) = ANY'),
+        [['254к/96-вр']]
       );
     });
 
