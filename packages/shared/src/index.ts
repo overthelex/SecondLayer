@@ -1,4 +1,5 @@
 export { createLogger, logger, type Logger } from './utils/logger';
+export * as queryIr from './query-ir';
 export * from './utils/model-selector';
 export * from './utils/openai-client';
 export * from './utils/anthropic-client';
