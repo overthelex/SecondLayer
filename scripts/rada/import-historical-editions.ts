@@ -414,6 +414,52 @@ async function importEdition(
   return articles.length;
 }
 
+// ─── Reconcile current redaction ─────────────────────────────────────────────
+// After importing editions for a code, flag exactly the current redaction
+// (latest edition effective on/before today; future-dated editions are ignored)
+// as is_current=true and demote all others. Keeps is_current-filtered consumers
+// (citation resolution, LegislationService, get_legislation_section) working.
+// Idempotent: safe to re-run.
+async function reconcileCurrentEdition(pool: pg.Pool, legislationId: number): Promise<void> {
+  const chosen = await pool.query(
+    `SELECT version_date
+       FROM legislation_articles
+      WHERE legislation_id = $1
+      ORDER BY (version_date::date <= CURRENT_DATE) DESC, version_date DESC
+      LIMIT 1`,
+    [legislationId],
+  );
+  if (chosen.rows.length === 0) return;
+  const currentVersion: Date = chosen.rows[0].version_date;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Demote any rows wrongly flagged on other editions.
+    await client.query(
+      `UPDATE legislation_articles
+          SET is_current = false
+        WHERE legislation_id = $1 AND is_current = true AND version_date <> $2`,
+      [legislationId, currentVersion],
+    );
+    // Promote the chosen current redaction.
+    const res = await client.query(
+      `UPDATE legislation_articles
+          SET is_current = true, updated_at = NOW()
+        WHERE legislation_id = $1 AND version_date = $2 AND is_current = false`,
+      [legislationId, currentVersion],
+    );
+    await client.query('COMMIT');
+    const d = new Date(currentVersion).toISOString().slice(0, 10);
+    console.log(`  Flagged current redaction ${d}: ${res.rowCount} articles is_current=true`);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -590,6 +636,12 @@ async function main() {
       ) WHERE id = $1`,
       [legislationId],
     );
+
+    // Flag the current redaction so is_current-filtered consumers
+    // (citation resolution, LegislationService, get_legislation_section) work.
+    // This importer inserts every edition with is_current=false; without this
+    // step a code imported ONLY here would have zero current articles (LEXAI-1770).
+    await reconcileCurrentEdition(pool, legislationId);
 
     saveProgress(progress);
     console.log(`  Done: ${editionsDone} editions imported for ${code.short_title}`);

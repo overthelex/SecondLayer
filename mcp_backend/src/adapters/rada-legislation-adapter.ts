@@ -70,8 +70,11 @@ export class RadaLegislationAdapter {
     if (/[^\p{L}\p{N}\-_\/\.]/u.test(radaId) || radaId.includes('..')) {
       throw new Error(`Invalid legislation ID: ${radaId}`);
     }
-    // Use /print endpoint for full text with all articles
-    const url = `${this.BASE_URL}/laws/show/${encodeURIComponent(radaId)}/print`;
+    // Use /print endpoint for full text with all articles.
+    // RADA IDs may contain a literal slash (e.g. "213/95-вр"); encode each
+    // path segment but keep the "/" separators literal (encoded "%2F" 404s).
+    const encodedId = radaId.split('/').map((seg) => encodeURIComponent(seg)).join('/');
+    const url = `${this.BASE_URL}/laws/show/${encodedId}/print`;
     logger.info(`Fetching legislation from ${url}`);
 
     const callStart = Date.now();
