@@ -127,22 +127,81 @@ class PartitionStats:
 
 # ── Extraction ───────────────────────────────────────────────
 
+# Max width of a "real" article-range expansion. Ukrainian codes have at most
+# a few hundred base articles, so a legitimate "ст. 5-9" spans a handful of numbers.
+# Anything wider is almost certainly a flattened-superscript list misread as a range
+# (e.g. "ст. 1115, 1117, 1119 - 11111" where 1115 == article 111⁵ == "111-5").
+MAX_RANGE_SPAN = 20
+
+
 def parse_article_numbers(raw: str) -> list[str]:
-    """Parse '3, 5, 7-9 та 12' into ['3', '5', '7', '8', '9', '12']."""
+    """Parse an article enumeration into a list of canonical article numbers.
+
+    Handles three shapes:
+      - plain lists: '3, 5 та 12'            -> ['3', '5', '12']
+      - true ranges: '7-9'                   -> ['7', '8', '9']
+      - dashed/superscript articles: '129-1' -> ['129-1']   (NOT a range)
+        and their OCR-flattened form '1291'  -> ['129-1']
+
+    Procedural codes (ГПК/ЦПК/КАС) heavily use superscript article numbers
+    (стаття 111⁵). In source text the superscript is flattened to a trailing
+    digit ('1115'). The previous implementation (a) treated every '-' as a
+    numeric range — so '1119 - 11111' exploded into ~10k phantom articles, and
+    (b) lost genuine dashed articles like '129-1' (range(129,2) is empty).
+    """
     articles = []
-    raw = raw.replace("та", ",").replace("і", ",").replace("й", ",")
+    # Normalise list separators ("та"/"і"/"й" = "and"). Use word boundaries so we
+    # don't strip the Cyrillic letters out of unrelated tokens.
+    raw = re.sub(r"\s+(?:та|і|й)\s+", ",", raw)
     for part in raw.split(","):
-        part = part.strip()
+        part = part.strip().strip(".")
+        if not part:
+            continue
         if "-" in part:
-            try:
-                a, b = part.split("-", 1)
-                for n in range(int(a.strip()), int(b.strip()) + 1):
-                    articles.append(str(n))
-            except ValueError:
+            a, b = (s.strip() for s in part.split("-", 1))
+            if a.isdigit() and b.isdigit():
+                ai, bi = int(a), int(b)
+                span = bi - ai
+                # Genuine narrow ascending range -> expand.
+                if 0 < span <= MAX_RANGE_SPAN:
+                    articles.extend(str(n) for n in range(ai, bi + 1))
+                # Dashed article number written with an explicit hyphen
+                # (e.g. "129-1"): keep canonical form, do NOT expand.
+                elif span <= 0 or len(b) <= 2:
+                    articles.append(f"{a}-{b}")
+                # Anything else (wide "range" like 1119-11111) is a flattened
+                # superscript list mis-joined by a stray hyphen: keep only the
+                # endpoints in canonical dashed form, drop the phantom middle.
+                else:
+                    articles.append(normalize_flattened(a))
+                    articles.append(normalize_flattened(b))
+            else:
                 articles.append(part)
         elif part.isdigit():
-            articles.append(part)
+            articles.append(normalize_flattened(part))
     return articles
+
+
+def normalize_flattened(num: str) -> str:
+    """Map an OCR-flattened superscript article number to canonical 'base-index'.
+
+    Ukrainian procedural codes number inserted articles with a superscript:
+    стаття 111⁵ (article 111, insert 5). When the superscript collapses into the
+    base it becomes '1115'. Heuristic: a 4-5 digit token whose leading 1-3 digits
+    form a plausible base article and trailing 1-2 digits a plausible insert index
+    is rewritten as 'base-index'. Plain 1-3 digit articles pass through unchanged.
+
+    NOTE: this is a best-effort heuristic for the regex capture path. The
+    authoritative disambiguation against the legislation_articles registry happens
+    in the backfill SQL; here we only avoid emitting raw 4-5 digit garbage.
+    """
+    if len(num) <= 3 or not num.isdigit():
+        return num
+    # Prefer a 2-digit insert index for 5-digit tokens, 1-digit for 4-digit tokens.
+    if len(num) == 5:
+        return f"{num[:3]}-{num[3:]}"
+    # 4 digits: split as 3+1 (e.g. 1115 -> 111-5). Callers reconcile against registry.
+    return f"{num[:3]}-{num[3:]}"
 
 MAX_TEXT_LEN = 10_000
 
@@ -187,6 +246,11 @@ def extract_citations_from_text(doc_id: int, text: str) -> list[Citation]:
 
 _JUSTICE_KIND_FILTER = None
 _USE_PARTITIONS = None
+_TARGET_TABLE = "law_court_citations"
+_CASE_TABLE = "case_citation_edges"
+
+# case_reference is routed to the separate decision->case edge table, not the statute table
+_STATUTE_TYPES = {"law_article", "codex_article", "constitution", "law_by_number", "supreme_court_ruling"}
 
 def _check_partitions():
     global _USE_PARTITIONS
@@ -204,81 +268,124 @@ def _check_partitions():
     return _USE_PARTITIONS
 
 def process_chunk(args: tuple) -> dict:
-    """Process a chunk of rows from a partition. Runs in a separate process."""
-    year, offset, chunk_size = args
+    """Process a chunk of rows from a partition. Runs in a separate process.
+    Each worker writes its own results on its own connection (parallel writes,
+    no IPC of citation tuples back to the main process)."""
+    year, offset, chunk_size, dry_run = args
     conn = get_conn()
     cur = conn.cursor(name=f"cite_{year}_{offset}")
 
+    # Partitions carry justice_kind per row, so filter/select directly off the partition (no join needed).
     if _check_partitions():
         table = f"edrsr_fulltext_p_{year}"
-        year_filter = ""
-    else:
-        table = "edrsr_fulltext"
-        year_filter = f"AND f.adj_year = {year} "
-
-    if _JUSTICE_KIND_FILTER is not None:
+        where = "WHERE justice_kind = %s " if _JUSTICE_KIND_FILTER is not None else ""
+        params = ([_JUSTICE_KIND_FILTER] if _JUSTICE_KIND_FILTER is not None else []) + [offset, chunk_size]
         cur.execute(
-            f"SELECT f.doc_id, f.full_text FROM {table} f "
-            f"JOIN edrsr_documents d ON f.doc_id = d.doc_id "
-            f"WHERE d.justice_kind = %s {year_filter}"
-            f"OFFSET %s LIMIT %s",
-            (_JUSTICE_KIND_FILTER, offset, chunk_size),
+            f"SELECT doc_id, full_text, justice_kind FROM {table} {where}OFFSET %s LIMIT %s",
+            tuple(params),
         )
     else:
+        where = "AND justice_kind = %s " if _JUSTICE_KIND_FILTER is not None else ""
+        params = [year] + ([_JUSTICE_KIND_FILTER] if _JUSTICE_KIND_FILTER is not None else []) + [offset, chunk_size]
         cur.execute(
-            f"SELECT doc_id, full_text FROM {table} WHERE adj_year = %s OFFSET %s LIMIT %s",
-            (year, offset, chunk_size),
+            f"SELECT doc_id, full_text, justice_kind FROM edrsr_fulltext WHERE adj_year = %s {where}OFFSET %s LIMIT %s",
+            tuple(params),
         )
 
-    all_citations = []
+    statute_data = []   # (doc_id, citation_type, law_ref, article_ref, raw_match, justice_kind)
+    case_data = []      # (doc_id, to_case_number, raw_match, justice_kind)
     rows = 0
     type_counts = Counter()
 
-    for doc_id, text in cur:
+    for doc_id, text, jk in cur:
         rows += 1
         if not text:
             continue
         try:
-            cites = extract_citations_from_text(doc_id, text)
-            all_citations.extend(cites)
-            for c in cites:
+            for c in extract_citations_from_text(doc_id, text):
                 type_counts[c.citation_type] += 1
+                if c.citation_type == "case_reference":
+                    case_data.append((c.doc_id, c.law_ref, c.raw_match, jk))
+                else:
+                    statute_data.append((c.doc_id, c.citation_type, c.law_ref, c.article_ref, c.raw_match, jk))
         except Exception:
             pass
 
     cur.close()
     conn.close()
 
+    # Write directly from this worker (parallel writes across workers, disjoint doc_ids per chunk)
+    if not dry_run:
+        write_statute(statute_data, adj_year=year)
+        write_cases(case_data, adj_year=year)
+
     return {
         "year": year,
         "offset": offset,
         "rows": rows,
-        "citations": len(all_citations),
+        "citations": len(statute_data) + len(case_data),
         "type_counts": dict(type_counts),
-        "data": [(c.doc_id, c.citation_type, c.law_ref, c.article_ref, c.raw_match) for c in all_citations],
     }
 
-def write_citations(results: list[tuple], justice_kind: int = None, adj_year: int = None):
-    """Bulk-insert citation results."""
-    if not results:
+def write_statute(rows: list[tuple], adj_year: int):
+    """Bulk-insert statute citations. Idempotent via ON CONFLICT DO NOTHING (dedup)."""
+    if not rows:
         return
     conn = get_conn()
     cur = conn.cursor()
     execute_values(
         cur,
-        """INSERT INTO law_court_citations
+        f"""INSERT INTO {_TARGET_TABLE}
            (court_case_id, citation_type, law_number, law_article, citation_context, justice_kind, adj_year)
-           VALUES %s""",
-        [(r[0], r[1], r[2], r[3], r[4][:500], justice_kind, adj_year) for r in results],
+           VALUES %s ON CONFLICT DO NOTHING""",
+        # r = (doc_id, citation_type, law_ref, article_ref, raw_match, justice_kind)
+        [(r[0], r[1], r[2], r[3], r[4][:500], r[5], adj_year) for r in rows],
         page_size=5000,
     )
     conn.commit()
     cur.close()
     conn.close()
 
+def write_cases(rows: list[tuple], adj_year: int):
+    """Bulk-insert decision->case reference edges. Idempotent via ON CONFLICT DO NOTHING (dedup)."""
+    if not rows:
+        return
+    conn = get_conn()
+    cur = conn.cursor()
+    execute_values(
+        cur,
+        f"""INSERT INTO {_CASE_TABLE}
+           (from_case_id, to_case_number, citation_context, justice_kind, adj_year)
+           VALUES %s ON CONFLICT DO NOTHING""",
+        # r = (doc_id, to_case_number, raw_match, justice_kind)
+        [(r[0], r[1], r[2][:500], r[3], adj_year) for r in rows],
+        page_size=5000,
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def enrich_justice_kind(year: int):
+    """Backfill justice_kind from edrsr_documents (the source of truth; edrsr_fulltext.justice_kind
+    is only ~2% populated). Set-based UPDATE per year, decoupled from chunked pagination."""
+    conn = get_conn()
+    cur = conn.cursor()
+    for tbl, col in ((_TARGET_TABLE, "court_case_id"), (_CASE_TABLE, "from_case_id")):
+        cur.execute(
+            f"UPDATE {tbl} t SET justice_kind = d.justice_kind "
+            f"FROM edrsr_documents d "
+            f"WHERE t.{col} = d.doc_id AND t.adj_year = %s "
+            f"AND t.justice_kind IS NULL AND d.justice_kind IS NOT NULL",
+            (year,),
+        )
+        print(f"    enriched justice_kind on {tbl}: {cur.rowcount:,} rows")
+    conn.commit()
+    cur.close()
+    conn.close()
+
 # ── Main ─────────────────────────────────────────────────────
 
-def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000) -> PartitionStats:
+def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000, limit: int = None) -> PartitionStats:
     stats = PartitionStats(year=year)
     t0 = time.time()
 
@@ -286,18 +393,15 @@ def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000
     cur = conn.cursor()
     if _check_partitions():
         table = f"edrsr_fulltext_p_{year}"
-        year_filter = ""
+        if _JUSTICE_KIND_FILTER is not None:
+            cur.execute(f"SELECT COUNT(*) FROM {table} WHERE justice_kind = %s", (_JUSTICE_KIND_FILTER,))
+        else:
+            cur.execute(f"SELECT COUNT(*) FROM {table}")
     else:
-        table = "edrsr_fulltext"
-        year_filter = f"AND f.adj_year = {year} "
-
-    if _JUSTICE_KIND_FILTER is not None:
-        cur.execute(
-            f"SELECT COUNT(*) FROM {table} f JOIN edrsr_documents d ON f.doc_id = d.doc_id WHERE d.justice_kind = %s {year_filter}",
-            (_JUSTICE_KIND_FILTER,),
-        )
-    else:
-        cur.execute(f"SELECT COUNT(*) FROM {table} WHERE adj_year = %s", (year,))
+        if _JUSTICE_KIND_FILTER is not None:
+            cur.execute("SELECT COUNT(*) FROM edrsr_fulltext WHERE adj_year = %s AND justice_kind = %s", (year, _JUSTICE_KIND_FILTER))
+        else:
+            cur.execute("SELECT COUNT(*) FROM edrsr_fulltext WHERE adj_year = %s", (year,))
     total = cur.fetchone()[0]
     cur.close()
     conn.close()
@@ -306,7 +410,11 @@ def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000
         print(f"  Year {year}: 0 rows, skipping")
         return stats
 
-    chunks = [(year, offset, chunk_size) for offset in range(0, total, chunk_size)]
+    if limit is not None and total > limit:
+        print(f"  Year {year}: capping {total:,} -> {limit:,} rows (--limit)")
+        total = limit
+
+    chunks = [(year, offset, chunk_size, dry_run) for offset in range(0, total, chunk_size)]
     print(f"  Year {year}: {total:,} rows, {len(chunks)} chunks, {workers} workers")
 
     with ProcessPoolExecutor(max_workers=workers) as pool:
@@ -319,13 +427,13 @@ def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000
             for k, v in result["type_counts"].items():
                 stats.by_type[k] += v
 
-            if not dry_run and result["data"]:
-                write_citations(result["data"], justice_kind=_JUSTICE_KIND_FILTER, adj_year=year)
-
             if (i + 1) % 10 == 0 or i == len(futures) - 1:
                 elapsed = time.time() - t0
                 rate = stats.rows_processed / elapsed if elapsed > 0 else 0
                 print(f"    [{i+1}/{len(chunks)}] {stats.rows_processed:,} rows, {stats.citations_found:,} citations, {rate:,.0f} rows/sec")
+
+    if not dry_run:
+        enrich_justice_kind(year)
 
     stats.elapsed_sec = time.time() - t0
     return stats
@@ -340,13 +448,18 @@ def main():
     parser.add_argument("--years-from", type=int, default=2007, help="Start year for --all")
     parser.add_argument("--years-to", type=int, default=2026, help="End year for --all")
     parser.add_argument("--justice-kind", type=int, default=None, help="Filter by justice_kind (e.g. 5 for КУпАП)")
+    parser.add_argument("--target-table", type=str, default="law_court_citations", help="Statute-citation destination table (use a staging table for pilots)")
+    parser.add_argument("--case-table", type=str, default="case_citation_edges", help="decision->case edge destination table")
+    parser.add_argument("--limit", type=int, default=None, help="Cap rows processed per year (for piloting)")
     args = parser.parse_args()
 
     if not args.year and not args.all:
         parser.error("Specify --year YYYY or --all")
 
-    global _JUSTICE_KIND_FILTER
+    global _JUSTICE_KIND_FILTER, _TARGET_TABLE, _CASE_TABLE
     _JUSTICE_KIND_FILTER = args.justice_kind
+    _TARGET_TABLE = args.target_table
+    _CASE_TABLE = args.case_table
 
     years = list(range(args.years_from, args.years_to + 1)) if args.all else [args.year]
 
@@ -354,13 +467,14 @@ def main():
     print(f"=== Citation Extraction Pipeline ===")
     print(f"Years: {years[0]}–{years[-1]} ({len(years)} years){jk_label}")
     print(f"Workers: {args.workers}, Chunk: {args.chunk_size:,}")
+    print(f"Statute table: {_TARGET_TABLE} | case-edge table: {_CASE_TABLE}" + (f" | limit/year: {args.limit:,}" if args.limit else ""))
     print(f"Dry run: {args.dry_run}\n")
 
     all_stats = []
     t_total = time.time()
 
     for year in years:
-        stats = process_year(year, args.workers, args.dry_run, args.chunk_size)
+        stats = process_year(year, args.workers, args.dry_run, args.chunk_size, args.limit)
         all_stats.append(stats)
         print(f"  → Year {year}: {stats.citations_found:,} citations in {stats.elapsed_sec:.1f}s")
         print(f"    Types: {dict(stats.by_type)}\n")
