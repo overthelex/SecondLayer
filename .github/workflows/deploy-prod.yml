@@ -170,6 +170,13 @@ jobs:
         with:
           node-version: 20
 
+      # Self-hosted runner: deployment/docker-compose.local.yml bind-mounts
+      # packages/shared/dist and mcp_backend/dist into containers. When those host
+      # dirs are absent, the Docker daemon (root) creates them root-owned, which
+      # then blocks the next tsc build under the runner user (EACCES). Reset first.
+      - name: Reset dist ownership (self-hosted runner)
+        run: sudo chown -R "$(id -u):$(id -g)" packages/shared/dist mcp_backend/dist 2>/dev/null || true
+
       - name: Build shared package
         run: cd packages/shared && npm install --legacy-peer-deps && npm run build
 
