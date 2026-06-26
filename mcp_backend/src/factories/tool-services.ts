@@ -116,7 +116,8 @@ export function createToolServices(
     coreServices.embeddingService,
     coreServices.patternStore,
     coreServices.db,
-    edsrFtsService
+    edsrFtsService,
+    coreServices.citationGraphService
   ));
   // EDRSR vectorizer (BGE-M3 + qdrant edrsr_serving HNSW) — shared by ProceduralTools
   // (find_similar_fact_pattern_cases) and EdsrUnifiedSearchTool below.

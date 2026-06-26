@@ -39,6 +39,21 @@ export interface CitedArticleStat {
   uniqueDecisions: number;
 }
 
+export interface CitedArticleRef {
+  law: string;
+  article: string;
+  citationType?: string | null;
+  /** How often this cited article is referenced corpus-wide (node stat) — a cheap authority signal. */
+  popularity: number;
+}
+
+export interface DecisionCitationSummary {
+  /** Total CITES_ARTICLE edges out of this decision. */
+  citedCount: number;
+  /** Top cited articles, ordered by corpus-wide popularity (most authoritative first). */
+  topCitedArticles: CitedArticleRef[];
+}
+
 export interface CitationGraphNode {
   id: string;
   type: 'decision' | 'article' | 'law';
@@ -157,6 +172,38 @@ export class CitationGraphService {
         context: r.get('ctx'),
       })
     );
+  }
+
+  /**
+   * Compact citation summary for a single decision — what articles it cites, with a
+   * corpus-wide popularity (authority) signal, plus the total citation count.
+   * Intended as inline enrichment for get_court_decision (Decision->Article path only,
+   * which is fully loaded today; decision<->decision is a future layer).
+   */
+  async getDecisionCitationSummary(docId: string | number, limit = 20): Promise<DecisionCitationSummary> {
+    const id = String(docId);
+    const [articles, countRows] = await Promise.all([
+      this.run(
+        `MATCH (d:Decision {doc_id: $docId})-[c:CITES_ARTICLE]->(a:Article)
+         RETURN a.law_number AS law, a.law_article AS article,
+                c.citation_type AS ct, a.total_citations AS pop
+         ORDER BY coalesce(a.total_citations, 0) DESC
+         LIMIT $limit`,
+        { docId: id, limit: neo4j.int(limit) },
+        (r) => ({
+          law: r.get('law'),
+          article: r.get('article'),
+          citationType: r.get('ct'),
+          popularity: toNum(r.get('pop')),
+        })
+      ),
+      this.run(
+        `MATCH (:Decision {doc_id: $docId})-[c:CITES_ARTICLE]->() RETURN count(c) AS c`,
+        { docId: id },
+        (r) => toNum(r.get('c'))
+      ),
+    ]);
+    return { citedCount: countRows[0] ?? 0, topCitedArticles: articles };
   }
 
   /** Decisions that cite a given article (Article <- Decision), plus total count. */
