@@ -28,7 +28,8 @@ import { HallucinationGuard } from '../services/hallucination-guard.js';
 import { logger } from '../utils/logger.js';
 import { LegislationTools } from './legislation-tools.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
-import { extractSourceStrings } from './tool-utils.js';
+import { extractSourceStrings, generateCaseNumberVariations } from './tool-utils.js';
+import type { CitationGraphService } from '../services/citation-graph-service.js';
 
 export type StreamEventCallback = (event: {
   type: string;
@@ -45,7 +46,8 @@ export class MCPQueryAPI extends BaseToolHandler {
     private patternStore: LegalPatternStore,
     private citationValidator: CitationValidator,
     private hallucinationGuard: HallucinationGuard,
-    private legislationTools: LegislationTools
+    private legislationTools: LegislationTools,
+    private citationGraphService?: CitationGraphService
   ) {
     super();
   }
@@ -231,11 +233,35 @@ export class MCPQueryAPI extends BaseToolHandler {
 
     const status = await this.citationValidator.validatePrecedentStatus(caseId, caseNumber || undefined);
 
+    // Best-effort precedent-weight signal from the decision↔case graph (Neo4j,
+    // LEXAI-1777): how many decisions cite this case. Gated by CITATION_BACKEND=neo4j;
+    // non-fatal. The PG shepardization above remains the authoritative validity check.
+    let citationGraph: any = undefined;
+    if (this.citationGraphService?.isEnabled() && caseNumber) {
+      try {
+        const variations = generateCaseNumberVariations(caseNumber);
+        const stat = await this.citationGraphService.getCaseStats(variations);
+        if (stat && stat.citingDecisions > 0) {
+          citationGraph = {
+            backend: 'neo4j',
+            cited_by_decisions: stat.citingDecisions,
+            documents_in_case: stat.memberCount || undefined,
+            latest_doc_id: stat.latestDocId || undefined,
+          };
+        }
+      } catch (error: any) {
+        logger.warn('[check_precedent_status] citation-graph enrichment failed (non-fatal)', {
+          caseNumber,
+          error: error?.message,
+        });
+      }
+    }
+
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({ status }, null, 2),
+          text: JSON.stringify({ status, ...(citationGraph ? { citation_graph: citationGraph } : {}) }, null, 2),
         },
       ],
     };

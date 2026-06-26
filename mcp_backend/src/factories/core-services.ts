@@ -72,7 +72,8 @@ export function createBackendCoreServices(): BackendCoreServices {
     patternStore,
     citationValidator,
     hallucinationGuard,
-    legislationTools
+    legislationTools,
+    citationGraphService
   );
 
   return {
