@@ -56,6 +56,7 @@ export class MetricsService {
   readonly chatAgenticIterations: Histogram;
   readonly chatToolCallsPerRequest: Histogram;
   readonly chatToolRepeatMax: Histogram;
+  readonly chatCapHits: Counter;
 
   constructor() {
     this.registry = new Registry();
@@ -244,6 +245,12 @@ export class MetricsService {
       help: 'Max calls to a single tool in one request (repeats with varying params = thrashing)',
       labelNames: ['query_type'] as const,
       buckets: [1, 2, 3, 4, 6, 8, 12],
+      registers: [this.registry],
+    });
+    this.chatCapHits = new Counter({
+      name: 'chat_cap_hits_total',
+      help: 'Safety-cap hits per request (kind: repeat = per-tool repeat cap, total = total tool-call cap)',
+      labelNames: ['kind'] as const,
       registers: [this.registry],
     });
 
