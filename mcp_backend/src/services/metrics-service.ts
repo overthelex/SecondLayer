@@ -237,7 +237,7 @@ export class MetricsService {
       name: 'chat_tool_calls_per_request',
       help: 'Total tool calls executed per chat request',
       labelNames: ['query_type'] as const,
-      buckets: [0, 1, 2, 3, 5, 8, 12, 20],
+      buckets: [0, 1, 2, 3, 5, 8, 12, 20, 25, 30],
       registers: [this.registry],
     });
     this.chatToolRepeatMax = new Histogram({
