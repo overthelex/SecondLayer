@@ -40,6 +40,7 @@ export interface ChatTelemetry {
   iterations: number;
   toolCalls: number;
   toolRepeatMax: number;
+  capHits: { repeat: number; total: number };
 }
 
 export class ChatService {

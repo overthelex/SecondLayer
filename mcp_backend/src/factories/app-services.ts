@@ -210,6 +210,8 @@ export function createAppServices(
     for (const [k, v] of Object.entries(t.signals)) {
       if (v > 0) metricsService.chatGroundingSignals.inc({ signal_type: k }, v);
     }
+    if (t.capHits?.repeat > 0) metricsService.chatCapHits.inc({ kind: 'repeat' }, t.capHits.repeat);
+    if (t.capHits?.total > 0) metricsService.chatCapHits.inc({ kind: 'total' }, t.capHits.total);
   });
 
   logger.info('Prometheus metrics service initialized');
