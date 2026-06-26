@@ -16,6 +16,7 @@ import type { EdsrFtsService } from '../../services/edrsr-fts-service.js';
 import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
 import type { IEmbeddingPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
+import type { CitationGraphService } from '../../services/citation-graph-service.js';
 import { SectionType } from '../../types/index.js';
 import { logger } from '../../utils/logger.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
@@ -29,7 +30,8 @@ export class CourtDecisionTools extends BaseToolHandler {
     private embeddingService: IEmbeddingPort,
     private patternStore: LegalPatternStore,
     private db?: any,
-    private ftsService?: EdsrFtsService
+    private ftsService?: EdsrFtsService,
+    private citationGraphService?: CitationGraphService
   ) {
     super();
   }
@@ -50,6 +52,11 @@ export class CourtDecisionTools extends BaseToolHandler {
             case_number: { type: 'string' },
             depth: { type: 'number', default: 2 },
             reasoning_budget: { type: 'string', enum: ['quick', 'standard', 'deep'], default: 'standard' },
+            include_citations: {
+              type: 'boolean',
+              default: true,
+              description: 'Додати зведення цитованих статей з графа цитувань (Neo4j). Активне лише коли CITATION_BACKEND=neo4j; інакше ігнорується.',
+            },
           },
           required: [],
         },
@@ -395,6 +402,31 @@ export class CourtDecisionTools extends BaseToolHandler {
       full_text: fullText || undefined,
       full_text_length: fullText.length,
     };
+
+    // Best-effort citation-graph enrichment (Neo4j). Gated by CITATION_BACKEND=neo4j;
+    // never blocks or breaks the primary decision response.
+    if (args.include_citations !== false && this.citationGraphService?.isEnabled() && row.doc_id != null) {
+      try {
+        const summary = await this.citationGraphService.getDecisionCitationSummary(row.doc_id);
+        if (summary.citedCount > 0) {
+          payload.citation_graph = {
+            backend: 'neo4j',
+            cited_count: summary.citedCount,
+            top_cited_articles: summary.topCitedArticles.map((a) => ({
+              law: a.law,
+              article: a.article,
+              citation_type: a.citationType || undefined,
+              popularity: a.popularity || undefined,
+            })),
+          };
+        }
+      } catch (error: any) {
+        logger.warn('[get_court_decision] citation-graph enrichment failed (non-fatal)', {
+          docId: row.doc_id,
+          error: error?.message,
+        });
+      }
+    }
 
     return this.wrapResponse(payload);
   }

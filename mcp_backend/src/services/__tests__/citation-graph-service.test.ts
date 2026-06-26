@@ -96,6 +96,38 @@ describe('CitationGraphService', () => {
     });
   });
 
+  describe('getDecisionCitationSummary', () => {
+    it('returns top cited articles (with popularity) and total count', async () => {
+      mockRun
+        .mockResolvedValueOnce({
+          records: [
+            rec({ law: 'Кримінальний кодекс України', article: '185', ct: 'codex_article', pop: neoInt(3308876) }),
+            rec({ law: 'КУпАП', article: '130', ct: 'codex_article', pop: neoInt(2965804) }),
+          ],
+        })
+        .mockResolvedValueOnce({ records: [rec({ c: neoInt(7) })] });
+
+      const out = await new CitationGraphService().getDecisionCitationSummary('125502043');
+      expect(out.citedCount).toBe(7);
+      expect(out.topCitedArticles).toEqual([
+        { law: 'Кримінальний кодекс України', article: '185', citationType: 'codex_article', popularity: 3308876 },
+        { law: 'КУпАП', article: '130', citationType: 'codex_article', popularity: 2965804 },
+      ]);
+      // docId coerced to string; runs the list + count queries
+      expect(mockRun.mock.calls[0][1]).toMatchObject({ docId: '125502043' });
+      expect(mockRun).toHaveBeenCalledTimes(2);
+    });
+
+    it('returns zero count and empty list when the decision has no citations', async () => {
+      mockRun
+        .mockResolvedValueOnce({ records: [] })
+        .mockResolvedValueOnce({ records: [rec({ c: neoInt(0) })] });
+
+      const out = await new CitationGraphService().getDecisionCitationSummary('999');
+      expect(out).toEqual({ citedCount: 0, topCitedArticles: [] });
+    });
+  });
+
   describe('getArticleCitedBy', () => {
     it('returns decisions and total count from two queries', async () => {
       mockRun
