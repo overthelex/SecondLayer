@@ -140,6 +140,43 @@ describe('CitationGraphService', () => {
     });
   });
 
+  describe('getCaseStats (decision↔case layer)', () => {
+    it('returns precedent stats for the most-cited matching case', async () => {
+      mockRun.mockResolvedValueOnce({
+        records: [rec({ cn: '826/3858/18', mc: neoInt(18), ld: neoInt(86270655), citing: neoInt(184018) })],
+      });
+      const out = await new CitationGraphService().getCaseStats(['826/3858/18', '826/3858/2018']);
+      expect(out).toEqual({ causeNum: '826/3858/18', citingDecisions: 184018, memberCount: 18, latestDocId: '86270655' });
+      expect(mockRun.mock.calls[0][1]).toMatchObject({ cns: ['826/3858/18', '826/3858/2018'] });
+    });
+
+    it('returns null for empty input without querying', async () => {
+      const out = await new CitationGraphService().getCaseStats([]);
+      expect(out).toBeNull();
+      expect(mockRun).not.toHaveBeenCalled();
+    });
+
+    it('returns null when no Case node matches', async () => {
+      mockRun.mockResolvedValueOnce({ records: [] });
+      expect(await new CitationGraphService().getCaseStats(['x/1'])).toBeNull();
+    });
+  });
+
+  describe('getCaseCitedBy / getDecisionCitedCases', () => {
+    it('returns citing decision doc_ids for a case', async () => {
+      mockRun.mockResolvedValueOnce({ records: [rec({ docId: '111' }), rec({ docId: '222' })] });
+      expect(await new CitationGraphService().getCaseCitedBy('826/3858/18', 50)).toEqual(['111', '222']);
+    });
+
+    it('returns cases a decision cites with member/latest metadata', async () => {
+      mockRun.mockResolvedValueOnce({
+        records: [rec({ cn: '240/4937/18', mc: neoInt(26), ld: neoInt(104672151) })],
+      });
+      const out = await new CitationGraphService().getDecisionCitedCases('500');
+      expect(out).toEqual([{ causeNum: '240/4937/18', memberCount: 26, latestDocId: '104672151' }]);
+    });
+  });
+
   describe('healthCheck', () => {
     it('returns ok with node-label counts', async () => {
       mockRun.mockResolvedValueOnce({

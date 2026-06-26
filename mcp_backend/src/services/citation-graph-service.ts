@@ -54,6 +54,24 @@ export interface DecisionCitationSummary {
   topCitedArticles: CitedArticleRef[];
 }
 
+/** Precedent stats for a case from the decision↔case layer (LEXAI-1777). */
+export interface CaseStat {
+  causeNum: string;
+  /** How many decisions cite this case (precedent weight / in-degree). */
+  citingDecisions: number;
+  /** Number of documents in the case across instances (Case.member_count). */
+  memberCount: number;
+  /** Most recent document of the case (Case.latest_doc_id); null if unknown. */
+  latestDocId: string | null;
+}
+
+/** A case cited by a decision (precedent outbound). */
+export interface CitedCaseRef {
+  causeNum: string;
+  memberCount: number;
+  latestDocId: string | null;
+}
+
 export interface CitationGraphNode {
   id: string;
   type: 'decision' | 'article' | 'law';
@@ -245,6 +263,53 @@ export class CitationGraphService {
       })
     );
     return rows[0] ?? null;
+  }
+
+  /**
+   * Precedent stats for a case (decision↔case layer, LEXAI-1777). Accepts the
+   * case-number variations and picks the most-cited matching Case node. Returns
+   * how many decisions cite the case + how many documents the case spans.
+   */
+  async getCaseStats(causeNums: string[]): Promise<CaseStat | null> {
+    if (!causeNums || causeNums.length === 0) return null;
+    const rows = await this.run(
+      `MATCH (c:Case) WHERE c.cause_num IN $cns
+       RETURN c.cause_num AS cn, c.member_count AS mc, c.latest_doc_id AS ld,
+              COUNT { (c)<-[:CITES_CASE]-(:Decision) } AS citing
+       ORDER BY citing DESC LIMIT 1`,
+      { cns: causeNums },
+      (r) => ({
+        causeNum: r.get('cn'),
+        citingDecisions: toNum(r.get('citing')),
+        memberCount: toNum(r.get('mc')),
+        latestDocId: r.get('ld') != null ? String(toNum(r.get('ld'))) : null,
+      })
+    );
+    return rows[0] ?? null;
+  }
+
+  /** Decisions that cite a given case (precedent inbound). */
+  async getCaseCitedBy(causeNum: string, limit = 100): Promise<string[]> {
+    return this.run(
+      `MATCH (c:Case {cause_num: $cn})<-[:CITES_CASE]-(d:Decision)
+       RETURN d.doc_id AS docId LIMIT $limit`,
+      { cn: causeNum, limit: neo4j.int(limit) },
+      (r) => r.get('docId') as string
+    );
+  }
+
+  /** Cases that a given decision cites (precedent outbound). */
+  async getDecisionCitedCases(docId: string | number, limit = 100): Promise<CitedCaseRef[]> {
+    return this.run(
+      `MATCH (:Decision {doc_id: $docId})-[:CITES_CASE]->(c:Case)
+       RETURN c.cause_num AS cn, c.member_count AS mc, c.latest_doc_id AS ld LIMIT $limit`,
+      { docId: String(docId), limit: neo4j.int(limit) },
+      (r) => ({
+        causeNum: r.get('cn'),
+        memberCount: toNum(r.get('mc')),
+        latestDocId: r.get('ld') != null ? String(toNum(r.get('ld'))) : null,
+      })
+    );
   }
 
   /** Articles co-cited alongside a given article, by descending weight. */

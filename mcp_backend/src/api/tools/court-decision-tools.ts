@@ -609,6 +609,31 @@ export class CourtDecisionTools extends BaseToolHandler {
       },
     };
 
+    // Best-effort precedent enrichment from the decision↔case graph (Neo4j, LEXAI-1777).
+    // The document chain itself stays in Postgres (above); the graph adds the
+    // precedent signal — how many decisions cite this case. Gated by
+    // CITATION_BACKEND=neo4j; non-fatal.
+    if (this.citationGraphService?.isEnabled()) {
+      try {
+        const stat = await this.citationGraphService.getCaseStats(caseVariations);
+        if (stat && stat.citingDecisions > 0) {
+          const sampleCiting = await this.citationGraphService.getCaseCitedBy(stat.causeNum, 20);
+          payload.citation_graph = {
+            backend: 'neo4j',
+            cited_by_decisions: stat.citingDecisions,
+            documents_in_case: stat.memberCount || undefined,
+            latest_doc_id: stat.latestDocId || undefined,
+            sample_citing_decisions: sampleCiting,
+          };
+        }
+      } catch (error: any) {
+        logger.warn('[get_case_documents_chain] citation-graph enrichment failed (non-fatal)', {
+          caseNumber,
+          error: error?.message,
+        });
+      }
+    }
+
     return this.wrapResponse(payload);
   }
 
