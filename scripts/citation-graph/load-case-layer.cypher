@@ -15,7 +15,11 @@
 // 1. Case key uniqueness (also index-backs the MERGEs below).
 CREATE CONSTRAINT case_cause_num IF NOT EXISTS FOR (c:Case) REQUIRE c.cause_num IS UNIQUE;
 
-// 2. Case nodes (38.3M). MERGE is idempotent / re-runnable.
+// 2. Case nodes. MERGE is idempotent / re-runnable.
+//    NOTE: run each LOAD CSV ... IN TRANSACTIONS statement on its OWN via
+//    `cypher-shell -c "<statement>"` (5.x auto-uses an implicit txn). Do NOT use a
+//    multi-statement --file: cypher-shell wraps that in an explicit txn and
+//    CALL {} IN TRANSACTIONS then fails ("not allowed in an open transaction").
 LOAD CSV WITH HEADERS FROM 'file:///cases.csv' AS row
 CALL { WITH row
   MERGE (c:Case {cause_num: row.cause_num})

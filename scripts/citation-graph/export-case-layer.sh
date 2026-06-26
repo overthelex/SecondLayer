@@ -16,10 +16,16 @@ OUT=/tmp/case-layer
 mkdir -p "$OUT"
 PSQL="docker exec -i secondlayer-postgres-prod psql -U secondlayer -d secondlayer_prod -v ON_ERROR_STOP=1 -q"
 
-echo "=== cases.csv (Case nodes from edrsr_case_index) ==="
+echo "=== cases.csv (Case nodes: precedent-target cases only) ==="
+# Only cases actually cited as precedent (inbound non-self CITES_CASE) become Neo4j
+# nodes -- ~85% of resolved case refs are self-citations (a decision restating its own
+# case number), so the precedent graph touches far fewer than the 38.9M total cases.
 $PSQL -c "\copy (
-  SELECT cause_num, member_count, latest_doc_id
-  FROM edrsr_case_index
+  SELECT ci.cause_num, ci.member_count, ci.latest_doc_id
+  FROM edrsr_case_index ci
+  WHERE EXISTS (
+    SELECT 1 FROM case_citation_links l
+    WHERE l.to_case_number = ci.cause_num AND l.resolved AND NOT l.is_self_citation)
 ) TO STDOUT WITH (FORMAT csv, HEADER true, FORCE_QUOTE (cause_num))" | gzip > "$OUT/cases.csv.gz"
 
 echo "=== cites_case.csv (CITES_CASE precedent edges; resolved, non-self) ==="
