@@ -570,8 +570,8 @@
         "uid": "Prometheus"
       },
       "type": "stat",
-      "title": "Cap-hits per request (1h)",
-      "description": "Safety-cap hits (repeat + total) divided by chat requests. Thrashing intensity: 0 = healthy, >0.2 = many requests truncated mid-loop.",
+      "title": "Truncated requests (% hitting any cap, 1h)",
+      "description": "Share of chat requests that hit at least one safety cap (counted once per request via chat_cap_hit_requests_total{kind=\"any\"}). 0% = healthy, >20% = many requests truncated mid-loop.",
       "gridPos": {
         "h": 8,
         "w": 6,
@@ -580,8 +580,8 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
-          "decimals": 3,
+          "unit": "percentunit",
+          "decimals": 1,
           "color": {
             "mode": "thresholds"
           },
@@ -620,7 +620,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "sum(rate(chat_cap_hits_total[1h])) / sum(rate(chat_tool_calls_per_request_count[1h]))",
+          "expr": "sum(rate(chat_cap_hit_requests_total{kind=\"any\"}[1h])) / sum(rate(chat_tool_calls_per_request_count[1h]))",
           "refId": "A"
         }
       ],
