@@ -469,9 +469,20 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       const partyName = typeof args.party_name === 'string' ? args.party_name.trim() : undefined;
       const partyRole = args.party_role as EdsrFtsFilters['party_role'] | undefined;
 
+      // LLM term-rewrite (v1-style): a verbose natural-language question split on whitespace
+      // becomes a long all-AND tsquery that the stemless 'simple' config can't satisfy → 0 hits.
+      // Reuse QueryReformulator.fts (already used by the hybrid/semantic legs) to distil the
+      // question into key legal terms BEFORE relaxation, so the AND probe starts from real
+      // anchors, not function words. originalQuery is kept for the headline and hybrid fallback.
+      // Fail-safe: reformulator off/erroring → originalQuery (no regression).
+      const reformulated = this.queryReformulator
+        ? await this.queryReformulator.reformulate(originalQuery).catch(() => null)
+        : null;
+      const ftsQuery = reformulated?.fts || originalQuery;
+
       // Term-budget search: cap to the leading tokens and relax downward on an empty hit.
       let fts = await this.ftsWithRelaxation(
-        originalQuery,
+        ftsQuery,
         { ...baseFilters, party_name: partyName || undefined, party_role: partyRole },
         args.limit || 20, args.offset || 0,
       );
@@ -487,7 +498,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
           party_name: partyName, party_role: partyRole,
         });
         fts = await this.ftsWithRelaxation(
-          originalQuery, { ...baseFilters, party_name: partyName },
+          ftsQuery, { ...baseFilters, party_name: partyName },
           args.limit || 20, args.offset || 0,
         );
         result = fts.result;
@@ -522,6 +533,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
         ...(fts.usedTokens < fts.startTokens ? { query_truncated: { from_tokens: fts.startTokens, used: fts.usedQuery } } : {}),
         ...(fts.relaxedFromTokens ? { term_relaxed: { from_tokens: fts.relaxedFromTokens, to_tokens: fts.usedTokens } } : {}),
         ...(partyRoleRelaxed ? { party_role_relaxed: true } : {}),
+        ...(reformulated && ftsQuery !== originalQuery ? { reformulated: { fts: reformulated.fts } } : {}),
         results: output.filtered,
         ...(output.original_count !== output.filtered_count
           ? { relevance_filter: { from: output.original_count, to: output.filtered_count } }
