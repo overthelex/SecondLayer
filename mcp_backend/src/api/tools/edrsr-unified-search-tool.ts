@@ -505,6 +505,18 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       const enriched = await this.enrichResults(result.results);
       const output = await this.maybeFilter(enriched, fts.usedQuery);
 
+      // LEXAI Cause-C: FTS matched lexically (result.total > 0) but the relevance gate
+      // dropped EVERYTHING — the AND of the model's keywords landed in a topically-wrong
+      // cluster (e.g. "переміщені/внутрішньо" → IDP cases instead of the real-estate-tax
+      // line). Lexical co-occurrence can't recover here; fall back to the semantic-bearing
+      // hybrid leg, which ranks by meaning. Guard against re-entry via _fallback_from.
+      if (output.filtered.length === 0 && result.total > 0 && this.vectorizer && !args._fallback_from) {
+        logger.info('[EdsrUnifiedSearch] fulltext gate emptied results, falling back to hybrid', {
+          query: originalQuery, fts_total: result.total, fts_query: fts.usedQuery,
+        });
+        return this.searchHybrid({ ...args, query: originalQuery, _fallback_from: 'fulltext_gate' });
+      }
+
       return this.wrapResponse({
         mode: 'fulltext', ...result,
         ...(fts.usedTokens < fts.startTokens ? { query_truncated: { from_tokens: fts.startTokens, used: fts.usedQuery } } : {}),
