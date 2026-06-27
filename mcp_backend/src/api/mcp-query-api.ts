@@ -241,12 +241,21 @@ export class MCPQueryAPI extends BaseToolHandler {
       try {
         const variations = generateCaseNumberVariations(caseNumber);
         const stat = await this.citationGraphService.getCaseStats(variations);
-        if (stat && stat.citingDecisions > 0) {
+        if (stat && (stat.citingDecisions > 0 || stat.departedByDecision)) {
           citationGraph = {
             backend: 'neo4j',
             cited_by_decisions: stat.citingDecisions,
             documents_in_case: stat.memberCount || undefined,
             latest_doc_id: stat.latestDocId || undefined,
+            ...(stat.departedByDecision
+              ? {
+                  position_departed_from: {
+                    by_grand_chamber_decision: stat.departedByDecision,
+                    on: stat.departedOn || undefined,
+                    note: 'Правову позицію у цій справі відступлено Великою Палатою ВС — прецедент може бути нечинним.',
+                  },
+                }
+              : {}),
           };
         }
       } catch (error: any) {
