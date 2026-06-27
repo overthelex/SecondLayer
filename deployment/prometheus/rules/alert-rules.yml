@@ -138,3 +138,42 @@ groups:
         annotations:
           summary: "Node.js heap usage > 90% on {{ $labels.job }}"
           description: "Heap utilization is {{ $value | humanizePercentage }}. Possible memory leak."
+
+  - name: chat_quality_alerts
+    rules:
+      - alert: ChatToolThrashingHigh
+        expr: histogram_quantile(0.95, sum(rate(chat_tool_repeat_max_bucket[10m])) by (le)) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Chat tool thrashing (repeat-max p95 > 5)"
+          description: "P95 max-repeats-on-a-single-tool is {{ $value }} for 10+ minutes. Model is looping on one tool; check tool-loop stop logic / safety caps."
+
+      - alert: ChatCapHitsHigh
+        expr: >
+          sum(rate(chat_cap_hits_total[10m])) / sum(rate(chat_tool_calls_per_request_count[10m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Chat safety-cap hits > 0.2 per request"
+          description: "Safety caps (repeat/total) are firing at {{ $value }} hits/request for 10+ minutes. Many requests are being truncated mid-loop."
+
+      - alert: ChatAgenticIterationsHigh
+        expr: histogram_quantile(0.95, sum(rate(chat_agentic_iterations_bucket[10m])) by (le)) > 16
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Chat agentic iterations p95 > 16"
+          description: "P95 agentic-loop iterations is {{ $value }} for 10+ minutes. Possible runaway / non-converging reasoning loops."
+
+      - alert: ChatGroundingScoreLow
+        expr: histogram_quantile(0.5, sum(rate(chat_grounding_score_bucket[10m])) by (le)) < 70
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Chat grounding score p50 < 70"
+          description: "Median grounding score is {{ $value }} (target >= 85) for 15+ minutes. More fabricated/ungrounded citations than usual."

@@ -352,12 +352,138 @@
         "uid": "Prometheus"
       },
       "type": "timeseries",
-      "title": "Tool repeat-max p95 (thrashing)",
+      "title": "Tool repeat-max p50/p95/p99 (thrashing)",
+      "description": "Max calls to a single tool in one request. Threshold line = repeat safety cap. Rising lines = model looping on one tool.",
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 12,
         "x": 0,
         "y": 25
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum(rate(chat_tool_repeat_max_bucket[1h])) by (le))",
+          "refId": "A",
+          "legendFormat": "p50"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(chat_tool_repeat_max_bucket[1h])) by (le))",
+          "refId": "B",
+          "legendFormat": "p95"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum(rate(chat_tool_repeat_max_bucket[1h])) by (le))",
+          "refId": "C",
+          "legendFormat": "p99"
+        }
+      ],
+      "id": 8
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "type": "heatmap",
+      "title": "Tool repeat-max distribution (heatmap)",
+      "description": "Full distribution of per-tool repeats. A bright band at the top bucket = requests slamming into the repeat cap (thrashing).",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "mode": "scheme",
+          "scheme": "Spectral",
+          "steps": 64
+        },
+        "yAxis": {
+          "unit": "short"
+        },
+        "tooltip": {
+          "mode": "single",
+          "yHistogram": true
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "sum(rate(chat_tool_repeat_max_bucket[5m])) by (le)",
+          "format": "heatmap",
+          "refId": "A",
+          "legendFormat": "{{le}}"
+        }
+      ],
+      "id": 10
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "type": "timeseries",
+      "title": "Tool repeat-max p95 by query_type",
+      "description": "Which query types thrash most. topk surfaces the worst-offending intents.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 33
       },
       "fieldConfig": {
         "defaults": {
@@ -385,12 +511,12 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(chat_tool_repeat_max_bucket[1h])) by (le))",
+          "expr": "topk(5, histogram_quantile(0.95, sum(rate(chat_tool_repeat_max_bucket[1h])) by (le, query_type)))",
           "refId": "A",
-          "legendFormat": "p95"
+          "legendFormat": "{{query_type}}"
         }
       ],
-      "id": 8
+      "id": 11
     },
     {
       "datasource": {
@@ -401,7 +527,7 @@
       "title": "Safety-cap hits / min by kind (CORE-55)",
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 12,
         "x": 0,
         "y": 33
       },
@@ -437,6 +563,112 @@
         }
       ],
       "id": 9
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "type": "stat",
+      "title": "Cap-hits per request (1h)",
+      "description": "Safety-cap hits (repeat + total) divided by chat requests. Thrashing intensity: 0 = healthy, >0.2 = many requests truncated mid-loop.",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 41
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 3,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.05
+              },
+              {
+                "color": "red",
+                "value": 0.2
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "sum(rate(chat_cap_hits_total[1h])) / sum(rate(chat_tool_calls_per_request_count[1h]))",
+          "refId": "A"
+        }
+      ],
+      "id": 12
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "type": "heatmap",
+      "title": "Tool calls / request distribution (heatmap)",
+      "description": "Full distribution of tool-calls per request. A bright band at the 25/30 buckets = requests hitting the total-call cap.",
+      "gridPos": {
+        "h": 8,
+        "w": 18,
+        "x": 6,
+        "y": 41
+      },
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "mode": "scheme",
+          "scheme": "Spectral",
+          "steps": 64
+        },
+        "yAxis": {
+          "unit": "short"
+        },
+        "tooltip": {
+          "mode": "single",
+          "yHistogram": true
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "sum(rate(chat_tool_calls_per_request_bucket[5m])) by (le)",
+          "format": "heatmap",
+          "refId": "A",
+          "legendFormat": "{{le}}"
+        }
+      ],
+      "id": 13
     }
   ]
 }
