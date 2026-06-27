@@ -210,8 +210,14 @@ export function createAppServices(
     for (const [k, v] of Object.entries(t.signals)) {
       if (v > 0) metricsService.chatGroundingSignals.inc({ signal_type: k }, v);
     }
-    if (t.capHits?.repeat > 0) metricsService.chatCapHits.inc({ kind: 'repeat' }, t.capHits.repeat);
-    if (t.capHits?.total > 0) metricsService.chatCapHits.inc({ kind: 'total' }, t.capHits.total);
+    const repeatHits = t.capHits?.repeat ?? 0;
+    const totalHits = t.capHits?.total ?? 0;
+    if (repeatHits > 0) metricsService.chatCapHits.inc({ kind: 'repeat' }, repeatHits);
+    if (totalHits > 0) metricsService.chatCapHits.inc({ kind: 'total' }, totalHits);
+    // Once-per-request cap-hit flags → true share of truncated requests.
+    if (repeatHits > 0) metricsService.chatCapHitRequests.inc({ kind: 'repeat' });
+    if (totalHits > 0) metricsService.chatCapHitRequests.inc({ kind: 'total' });
+    if (repeatHits > 0 || totalHits > 0) metricsService.chatCapHitRequests.inc({ kind: 'any' });
   });
 
   logger.info('Prometheus metrics service initialized');

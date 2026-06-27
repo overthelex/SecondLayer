@@ -57,6 +57,7 @@ export class MetricsService {
   readonly chatToolCallsPerRequest: Histogram;
   readonly chatToolRepeatMax: Histogram;
   readonly chatCapHits: Counter;
+  readonly chatCapHitRequests: Counter;
 
   constructor() {
     this.registry = new Registry();
@@ -253,11 +254,25 @@ export class MetricsService {
       labelNames: ['kind'] as const,
       registers: [this.registry],
     });
+    this.chatCapHitRequests = new Counter({
+      name: 'chat_cap_hit_requests_total',
+      help: 'Requests that hit at least one safety cap, counted once per request (kind: repeat, total, any). Divide by chat_tool_calls_per_request_count for the share of truncated requests.',
+      labelNames: ['kind'] as const,
+      registers: [this.registry],
+    });
 
     // Pre-initialize external API counters so Prometheus always has these series
     // (counters don't appear until first .inc() otherwise)
     for (const svc of ['openai', 'anthropic', 'rada', 'diia']) {
       this.externalApiCallsTotal.inc({ service: svc, status: 'success' }, 0);
+    }
+    // Pre-initialize cap-hit counters so the "share of truncated requests"
+    // ratio resolves to 0 (not "no data") before the first cap fires.
+    for (const kind of ['repeat', 'total']) {
+      this.chatCapHits.inc({ kind }, 0);
+    }
+    for (const kind of ['repeat', 'total', 'any']) {
+      this.chatCapHitRequests.inc({ kind }, 0);
     }
 
     logger.info('[Metrics] MetricsService initialized');

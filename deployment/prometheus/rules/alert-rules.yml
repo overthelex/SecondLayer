@@ -152,13 +152,13 @@ groups:
 
       - alert: ChatCapHitsHigh
         expr: >
-          sum(rate(chat_cap_hits_total[10m])) / sum(rate(chat_tool_calls_per_request_count[10m])) > 0.2
+          sum(rate(chat_cap_hit_requests_total{kind="any"}[10m])) / sum(rate(chat_tool_calls_per_request_count[10m])) > 0.2
         for: 10m
         labels:
           severity: warning
         annotations:
-          summary: "Chat safety-cap hits > 0.2 per request"
-          description: "Safety caps (repeat/total) are firing at {{ $value }} hits/request for 10+ minutes. Many requests are being truncated mid-loop."
+          summary: "Chat truncated requests > 20%"
+          description: "{{ $value | humanizePercentage }} of chat requests hit a safety cap (repeat/total) for 10+ minutes. Many requests are being truncated mid-loop."
 
       - alert: ChatAgenticIterationsHigh
         expr: histogram_quantile(0.95, sum(rate(chat_agentic_iterations_bucket[10m])) by (le)) > 16
