@@ -203,6 +203,21 @@ export function buildPrefixTsquery(stems: string[]): string | null {
   return parts.map(s => `${s}:*`).join(' & ');
 }
 
+// Cap-before-rank (LEXAI FTS perf). `ORDER BY ts_rank_cd(...) DESC` forces Postgres to
+// compute the rank of EVERY matching row before it can take the top N. For broad topical
+// prefix queries (податок:* & нерухом:* …) the match set is millions of rows across the
+// year partitions, so ranking alone runs >40s and the tool hits its 120s ceiling. Instead
+// we cap the candidate set with a cheap GIN-only scan (WHERE tsv @@ q LIMIT N), then rank
+// only those — measured 412ms vs >35s on prod. Narrow queries (party/metadata, < cap
+// matches) are unaffected: ranking the full match set and ranking the capped set are
+// identical when the match set already fits under the cap.
+const FTS_CANDIDATE_CAP = 2000;
+// Belt-and-suspenders: even the capped rank could be pathological. A per-statement timeout
+// caps the worst case; on timeout we return EMPTY so the caller's relax/hybrid fallback
+// takes over instead of surfacing an error (the FTS leg returning 0 → hybrid is an
+// already-supported path). Must comfortably clear the capped query (sub-second on prod).
+const FTS_STATEMENT_TIMEOUT_MS = 8000;
+
 export class EdsrFtsService {
   private edsrCache: EdsrCacheService | null = null;
 
@@ -491,18 +506,57 @@ export class EdsrFtsService {
            ${headlineExpr}`;
     };
 
+    // Run the data query under a per-statement timeout (B). SET LOCAL needs a transaction,
+    // so use a dedicated client when the pool exposes connect(); otherwise fall back to a
+    // plain pooled query (timeout-less) so non-pg pool wrappers still work.
+    const queryWithTimeout = async (sql: string, args: any[]) => {
+      if (typeof dbPool.connect !== 'function') {
+        return dbPool.query(sql, args);
+      }
+      const client = await dbPool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(`SET LOCAL statement_timeout = ${FTS_STATEMENT_TIMEOUT_MS}`);
+        const res = await client.query(sql, args);
+        await client.query('COMMIT');
+        return res;
+      } catch (e) {
+        try { await client.query('ROLLBACK'); } catch { /* ignore rollback failure */ }
+        throw e;
+      } finally {
+        client.release();
+      }
+    };
+
     const executeQuery = async (withHeadline: boolean) => {
       const selectFields = buildSelectFields(withHeadline);
 
+      // Cap-before-rank (A): a MATERIALIZED CTE pins a bounded candidate set via a cheap
+      // GIN-only scan (WHERE tsv @@ q LIMIT cap, no rank/headline), then rank/highlight only
+      // those. AS MATERIALIZED stops the planner from inlining the cap back into the ranked
+      // scan. The metadata JOIN (when present) lives in the CTE so its filters bound the
+      // candidates; the outer JOIN re-fetches d.* for the returned rows only.
+      const outerFrom = hasMetadataFilter
+        ? `edrsr_fulltext f
+           JOIN cand ON cand.doc_id = f.doc_id
+           JOIN edrsr_documents d ON d.doc_id = f.doc_id`
+        : `edrsr_fulltext f
+           JOIN cand ON cand.doc_id = f.doc_id`;
+
       // Skip expensive COUNT(*) — use LIMIT+1 to detect has_more instead
       const dataSql = `
+        WITH cand AS MATERIALIZED (
+          SELECT f.doc_id
+          FROM ${fromClause}${extraJoin}
+          WHERE ${whereClause}
+          LIMIT ${FTS_CANDIDATE_CAP}
+        )
         SELECT ${selectFields}
-        FROM ${fromClause}${extraJoin}
-        WHERE ${whereClause}
+        FROM ${outerFrom}
         ORDER BY ${EDRSR_FTS_SEARCH_ORDER}
         LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
 
-      const dataResult = await dbPool.query(dataSql, [...params, safeLimit + 1, safeOffset]);
+      const dataResult = await queryWithTimeout(dataSql, [...params, safeLimit + 1, safeOffset]);
       const total = dataResult.rows.length > safeLimit ? safeLimit * 10 : dataResult.rows.length;
       if (dataResult.rows.length > safeLimit) {
         dataResult.rows = dataResult.rows.slice(0, safeLimit);
@@ -521,6 +575,15 @@ export class EdsrFtsService {
         if (headlineErr.code === '22021') {
           logger.warn('[EdsrFtsService] Retrying without ts_headline due to encoding error', { query });
           ({ total, dataResult } = await executeQuery(false));
+        } else if (headlineErr.code === '57014') {
+          // Statement timeout (B): even the candidate-capped rank blew the budget. Return
+          // empty so the caller's relax/hybrid fallback (FTS-0 → hybrid) takes over instead
+          // of erroring out to the user.
+          logger.warn('[EdsrFtsService] FTS statement timeout; returning empty for fallback', {
+            query: cacheKey, timeoutMs: FTS_STATEMENT_TIMEOUT_MS,
+          });
+          total = 0;
+          dataResult = { rows: [] };
         } else {
           throw headlineErr;
         }
