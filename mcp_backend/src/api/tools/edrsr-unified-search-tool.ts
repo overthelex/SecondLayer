@@ -389,9 +389,14 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     // instead of the positional tail. Empty idf map → original order (no regression).
     // noIdf is the A/B baseline arm (P1.eval) — bypass the df lookup to reproduce the old
     // positional behaviour for a controlled before/after.
-    const idf = (this.ftsService && !noIdf) ? await this.ftsService.lexemeDf(rawTokens, this.db) : new Map<string, number>();
-    const tokens = selectFtsTerms(rawTokens, idf);
-    const idfRanked = idf.size > 0;
+    // LEXAI Cause-A: fetch idf + raw df + sample size, so selectFtsTerms can demote
+    // sub-floor junk tokens (сумування/дррп/typos) to the tail instead of letting them
+    // survive IDF-only relaxation and starve the all-AND probe of real anchors.
+    const stats = (this.ftsService && !noIdf)
+      ? await this.ftsService.lexemeStats(rawTokens, this.db)
+      : { idf: new Map<string, number>(), df: new Map<string, number>(), sampleDocs: 0 };
+    const tokens = selectFtsTerms(rawTokens, stats.idf, { df: stats.df, sampleDocs: stats.sampleDocs });
+    const idfRanked = stats.idf.size > 0;
     const startTokens = tokens.length;
     let n = Math.min(startTokens, FULLTEXT_MAX_TOKENS) || 1;
     const cappedFrom = n; // token count at the first (capped) probe

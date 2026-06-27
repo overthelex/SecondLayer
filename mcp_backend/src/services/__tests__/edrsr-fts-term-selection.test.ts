@@ -39,6 +39,43 @@ describe('selectFtsTerms (CORE-21 P1.5a)', () => {
   });
 });
 
+describe('selectFtsTerms — anchor-floor demotion (LEXAI Cause-A)', () => {
+  // sample 3.0M → floor = 3.0M * 1e-4 = 300 docs. "сумування"/"дррп" sub-floor (junk);
+  // "окупована"/"нерухоме" well above. Junk has HIGH idf (rare) yet must NOT lead.
+  const sampleDocs = 3_000_000;
+  const idf = new Map<string, number>([
+    ['окупована', Math.log(sampleDocs / 41321)],
+    ['нерухоме', Math.log(sampleDocs / 193320)],
+    ['сумування', Math.log(sampleDocs / 80)],   // rarest → highest idf
+    ['дррп', Math.log(sampleDocs / 526)],        // just above floor
+  ]);
+  const df = new Map<string, number>([
+    ['окупована', 41321], ['нерухоме', 193320], ['сумування', 80], ['дррп', 526],
+  ]);
+  const tokens = ['сумування', 'окупована', 'дррп', 'нерухоме'];
+
+  it('demotes sub-floor junk to the tail even though it has the highest idf', () => {
+    const out = selectFtsTerms(tokens, idf, { df, sampleDocs });
+    // anchors (df ≥ 300) first, ordered by idf desc: окупована (rarer) before нерухоме;
+    // дррп (526) is an anchor too. сумування (80 < 300) is demoted to LAST.
+    expect(out[out.length - 1]).toBe('сумування');
+    expect(out.indexOf('окупована')).toBeLessThan(out.indexOf('сумування'));
+    expect(out.indexOf('нерухоме')).toBeLessThan(out.indexOf('сумування'));
+  });
+
+  it('keeps idf-only behaviour (junk leads) when df is NOT supplied — proves the regression', () => {
+    const out = selectFtsTerms(tokens, idf);            // no df → old behaviour
+    expect(out[0]).toBe('сумування');                   // rarest leads → this is the bug
+  });
+
+  it('never empties an all-junk query — returns least-rare junk first', () => {
+    const jIdf = new Map([['сумування', 5.0], ['ввп', 6.0]]);
+    const jDf = new Map([['сумування', 80], ['ввп', 20]]);
+    const out = selectFtsTerms(['ввп', 'сумування'], jIdf, { df: jDf, sampleDocs });
+    expect(out).toEqual(['сумування', 'ввп']);          // both weak → df desc (80 before 20)
+  });
+});
+
 describe('EdsrFtsService.lexemeDf (CORE-21 P1.5a)', () => {
   const svc = new EdsrFtsService();
 
@@ -76,5 +113,26 @@ describe('EdsrFtsService.lexemeDf (CORE-21 P1.5a)', () => {
     const db = dbReturning([{ lexeme: 'донецьк', df: 10, sample_docs: 1000 }]);
     const m = await svc.lexemeDf(['Донецьк'], db);
     expect(m.get('донецьк')!).toBeCloseTo(Math.log(1000 / 10));
+  });
+
+  it('lexemeStats returns raw df (0 for absent) and the sample size (LEXAI Cause-A)', async () => {
+    const db = dbReturning([
+      { lexeme: 'окупована', df: 41321, sample_docs: 3_000_000 },
+      { lexeme: 'сумування', df: 80, sample_docs: 3_000_000 },
+    ]);
+    const s = await svc.lexemeStats(['Окупована', 'сумування', 'абракадабра'], db);
+    expect(s.sampleDocs).toBe(3_000_000);
+    expect(s.df.get('окупована')).toBe(41321);
+    expect(s.df.get('сумування')).toBe(80);
+    expect(s.df.get('абракадабра')).toBe(0);                 // absent → 0, the junk signal
+    expect(s.idf.get('окупована')!).toBeCloseTo(Math.log(3_000_000 / 41321));
+  });
+
+  it('lexemeStats degrades to empty maps + 0 sample on db error', async () => {
+    const db = { query: jest.fn().mockRejectedValue(new Error('relation does not exist')) };
+    const s = await svc.lexemeStats(['x'], db);
+    expect(s.idf.size).toBe(0);
+    expect(s.df.size).toBe(0);
+    expect(s.sampleDocs).toBe(0);
   });
 });

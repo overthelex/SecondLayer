@@ -127,20 +127,57 @@ export interface EdsrIndexProgress {
   percentComplete: number;
 }
 
+// Anchor-vocabulary floor (LEXAI Cause-A fix). A token must occur in at least this many
+// sampled documents to be trusted as an FTS anchor. Below it (or absent from the corpus),
+// the token is a WEAK term — a colloquial abbreviation / OCR / typo (e.g. "сумування",
+// "дррп") that the LLM reformulator baked into the fts string. Such tokens pollute an
+// all-AND plainto_tsquery (→ 0 results) AND, fatally, survive IDF-only relaxation because
+// "rare == high idf == kept first". The floor is relative to the sample with an absolute
+// minimum, and is applied ONLY when document frequencies are supplied.
+export const ANCHOR_DF_FRACTION = 1e-4;  // 3.0M-doc sample → ~300-doc floor
+export const ANCHOR_DF_MIN_ABS = 8;
+
+export interface SelectFtsTermsOpts {
+  // Per-(lowercased)-token document frequency from edrsr_lexeme_df. When present, tokens
+  // below the anchor floor are demoted to the tail so relaxation drops THEM first.
+  df?: Map<string, number>;
+  sampleDocs?: number;  // total sampled docs → relative floor = sampleDocs * ANCHOR_DF_FRACTION
+}
+
 /**
- * IDF-weighted ordering of FTS keyword tokens (CORE-21 P1.5a). Returns the tokens
- * most-discriminative first so the caller probes the rarest terms and relaxation drops
- * the commonest. `idfByToken` is keyed by lowercased token (see EdsrFtsService.lexemeDf).
+ * IDF-weighted ordering of FTS keyword tokens (CORE-21 P1.5a + LEXAI Cause-A).
  *
- * Zero-risk fallback: an EMPTY idf map (df table unpopulated / lookup failed) preserves
- * the original token order — i.e. the previous positional behaviour. Stable sort: equal
- * idf (and the fallback) keep input order via the original index.
+ * Returns discriminative-but-REAL terms first, so the caller probes them and relaxation
+ * drops the commonest (low idf) and the junk (sub-floor df) first. Two-tier order:
+ *   1. anchors (df ≥ floor, or df unknown) — by idf desc (rarest real term first)
+ *   2. weak terms (df < floor: ultra-rare / absent → likely colloquial/typo) — by df desc,
+ *      kept only as a last resort so a fully-colloquial query still searches *something*.
+ *
+ * Zero-risk fallbacks: an EMPTY idf map (df table unpopulated / lookup failed) preserves the
+ * original positional order; with no `opts.df` the behaviour is exactly the previous pure-idf
+ * ordering. Stable on ties via the original index.
  */
-export function selectFtsTerms(tokens: string[], idfByToken: Map<string, number>): string[] {
+export function selectFtsTerms(
+  tokens: string[],
+  idfByToken: Map<string, number>,
+  opts?: SelectFtsTermsOpts,
+): string[] {
   if (idfByToken.size === 0) return [...tokens];
+  const df = opts?.df;
+  const floor = df
+    ? Math.max(ANCHOR_DF_MIN_ABS, Math.round((opts?.sampleDocs ?? 0) * ANCHOR_DF_FRACTION))
+    : 0;
   return tokens
-    .map((tok, i) => ({ tok, i, idf: idfByToken.get(tok.toLowerCase()) ?? 0 }))
-    .sort((a, b) => (b.idf - a.idf) || (a.i - b.i))
+    .map((tok, i) => {
+      const lc = tok.toLowerCase();
+      const d = df ? (df.get(lc) ?? 0) : undefined;
+      return { tok, i, idf: idfByToken.get(lc) ?? 0, d: d ?? 0, weak: df ? (d! < floor) : false };
+    })
+    .sort((a, b) =>
+      (a.weak === b.weak)
+        ? (a.weak ? (b.d - a.d) || (a.i - b.i)   // weak tail: least-rare junk first
+                  : (b.idf - a.idf) || (a.i - b.i)) // anchors: discriminative first
+        : (a.weak ? 1 : -1))                        // anchors before weak
     .map(x => x.tok);
 }
 
@@ -159,9 +196,24 @@ export class EdsrFtsService {
    * callers then keep positional ordering (no regression before the table is built).
    */
   async lexemeDf(tokens: string[], dbPool: any): Promise<Map<string, number>> {
-    const out = new Map<string, number>();
+    return (await this.lexemeStats(tokens, dbPool)).idf;
+  }
+
+  /**
+   * Like lexemeDf but also returns the raw per-token document frequency and the sample size,
+   * so callers can apply the anchor-floor in selectFtsTerms (LEXAI Cause-A). `df` carries 0
+   * for tokens absent from the sampled corpus — the signal that separates a rare-but-real
+   * legal term from colloquial junk/typos. Same fail-safe contract as lexemeDf: an
+   * empty/missing/unreadable table yields empty maps + sampleDocs 0 (positional fallback).
+   */
+  async lexemeStats(
+    tokens: string[],
+    dbPool: any,
+  ): Promise<{ idf: Map<string, number>; df: Map<string, number>; sampleDocs: number }> {
+    const idf = new Map<string, number>();
+    const df = new Map<string, number>();
     const lexemes = [...new Set(tokens.map(t => t.toLowerCase()).filter(Boolean))];
-    if (lexemes.length === 0) return out;
+    if (lexemes.length === 0) return { idf, df, sampleDocs: 0 };
     try {
       const res = await dbPool.query(
         `SELECT lexeme, df, sample_docs FROM edrsr_lexeme_df WHERE lexeme = ANY($1::text[])`,
@@ -174,18 +226,19 @@ export class EdsrFtsService {
         const probe = await dbPool.query(`SELECT sample_docs FROM edrsr_lexeme_df LIMIT 1`);
         sampleDocs = Number(probe.rows[0]?.sample_docs) || 0;
       }
-      if (!sampleDocs) return out;
+      if (!sampleDocs) return { idf, df, sampleDocs: 0 };
       const maxIdf = Math.log(sampleDocs);
       const dfByLex = new Map<string, number>();
       for (const r of res.rows) dfByLex.set(r.lexeme, Number(r.df));
       for (const lex of lexemes) {
-        const df = dfByLex.get(lex);
-        out.set(lex, df && df > 0 ? Math.log(sampleDocs / df) : maxIdf);
+        const d = dfByLex.get(lex);
+        idf.set(lex, d && d > 0 ? Math.log(sampleDocs / d) : maxIdf);
+        df.set(lex, d && d > 0 ? d : 0);
       }
-      return out;
+      return { idf, df, sampleDocs };
     } catch (err: any) {
-      logger.warn('[EdsrFtsService] lexemeDf lookup failed; positional FTS fallback', { error: err.message });
-      return new Map();
+      logger.warn('[EdsrFtsService] lexemeStats lookup failed; positional FTS fallback', { error: err.message });
+      return { idf: new Map(), df: new Map(), sampleDocs: 0 };
     }
   }
 
