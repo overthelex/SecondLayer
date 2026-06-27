@@ -146,8 +146,23 @@ describe('CitationGraphService', () => {
         records: [rec({ cn: '826/3858/18', mc: neoInt(18), ld: neoInt(86270655), citing: neoInt(184018) })],
       });
       const out = await new CitationGraphService().getCaseStats(['826/3858/18', '826/3858/2018']);
-      expect(out).toEqual({ causeNum: '826/3858/18', citingDecisions: 184018, memberCount: 18, latestDocId: '86270655' });
+      expect(out).toEqual({
+        causeNum: '826/3858/18',
+        citingDecisions: 184018,
+        memberCount: 18,
+        latestDocId: '86270655',
+        departedByDecision: null,
+        departedOn: null,
+      });
       expect(mockRun.mock.calls[0][1]).toMatchObject({ cns: ['826/3858/18', '826/3858/2018'] });
+    });
+
+    it('surfaces a Grand Chamber departure (DEPARTS_FROM) when present', async () => {
+      mockRun.mockResolvedValueOnce({
+        records: [rec({ cn: '761/15791/15-ц', mc: neoInt(4), ld: neoInt(72150984), citing: neoInt(0), depBy: '72150984', depOn: '2018-01-29' })],
+      });
+      const out = await new CitationGraphService().getCaseStats(['761/15791/15-ц']);
+      expect(out).toMatchObject({ departedByDecision: '72150984', departedOn: '2018-01-29' });
     });
 
     it('returns null for empty input without querying', async () => {

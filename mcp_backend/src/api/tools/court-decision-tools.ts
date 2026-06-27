@@ -616,7 +616,7 @@ export class CourtDecisionTools extends BaseToolHandler {
     if (this.citationGraphService?.isEnabled()) {
       try {
         const stat = await this.citationGraphService.getCaseStats(caseVariations);
-        if (stat && stat.citingDecisions > 0) {
+        if (stat && (stat.citingDecisions > 0 || stat.departedByDecision)) {
           const sampleCiting = await this.citationGraphService.getCaseCitedBy(stat.causeNum, 20);
           payload.citation_graph = {
             backend: 'neo4j',
@@ -624,6 +624,15 @@ export class CourtDecisionTools extends BaseToolHandler {
             documents_in_case: stat.memberCount || undefined,
             latest_doc_id: stat.latestDocId || undefined,
             sample_citing_decisions: sampleCiting,
+            ...(stat.departedByDecision
+              ? {
+                  position_departed_from: {
+                    by_grand_chamber_decision: stat.departedByDecision,
+                    on: stat.departedOn || undefined,
+                    note: 'Правову позицію у цій справі відступлено Великою Палатою ВС — прецедент може бути нечинним.',
+                  },
+                }
+              : {}),
           };
         }
       } catch (error: any) {

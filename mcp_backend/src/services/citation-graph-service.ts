@@ -63,6 +63,13 @@ export interface CaseStat {
   memberCount: number;
   /** Most recent document of the case (Case.latest_doc_id); null if unknown. */
   latestDocId: string | null;
+  /**
+   * If the legal position of this case was formally departed from by the Grand
+   * Chamber (DEPARTS_FROM edge, LEXAI-1779) — doc_id of the latest departing
+   * decision and its date. null when the position has not been departed from.
+   */
+  departedByDecision: string | null;
+  departedOn: string | null;
 }
 
 /** A case cited by a decision (precedent outbound). */
@@ -274,15 +281,20 @@ export class CitationGraphService {
     if (!causeNums || causeNums.length === 0) return null;
     const rows = await this.run(
       `MATCH (c:Case) WHERE c.cause_num IN $cns
-       RETURN c.cause_num AS cn, c.member_count AS mc, c.latest_doc_id AS ld,
-              COUNT { (c)<-[:CITES_CASE]-(:Decision) } AS citing
-       ORDER BY citing DESC LIMIT 1`,
+       WITH c, COUNT { (c)<-[:CITES_CASE]-(:Decision) } AS citing
+       ORDER BY citing DESC LIMIT 1
+       OPTIONAL MATCH (c)<-[df:DEPARTS_FROM]-(gc:Decision)
+       WITH c, citing, gc, df ORDER BY df.departed_on DESC
+       RETURN c.cause_num AS cn, c.member_count AS mc, c.latest_doc_id AS ld, citing,
+              head(collect(gc.doc_id)) AS depBy, head(collect(df.departed_on)) AS depOn`,
       { cns: causeNums },
       (r) => ({
         causeNum: r.get('cn'),
         citingDecisions: toNum(r.get('citing')),
         memberCount: toNum(r.get('mc')),
         latestDocId: r.get('ld') != null ? String(toNum(r.get('ld'))) : null,
+        departedByDecision: r.get('depBy') != null ? String(r.get('depBy')) : null,
+        departedOn: r.get('depOn') != null ? String(r.get('depOn')) : null,
       })
     );
     return rows[0] ?? null;
