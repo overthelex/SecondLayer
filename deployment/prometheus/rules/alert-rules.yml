@@ -142,13 +142,13 @@ groups:
   - name: chat_quality_alerts
     rules:
       - alert: ChatToolThrashingHigh
-        expr: histogram_quantile(0.95, sum(rate(chat_tool_repeat_max_bucket[10m])) by (le)) > 5
+        expr: histogram_quantile(0.95, sum(rate(chat_tool_repeat_max_bucket[10m])) by (le)) > 14
         for: 10m
         labels:
           severity: warning
         annotations:
-          summary: "Chat tool thrashing (repeat-max p95 > 5)"
-          description: "P95 max-repeats-on-a-single-tool is {{ $value }} for 10+ minutes. Model is looping on one tool; check tool-loop stop logic / safety caps."
+          summary: "Chat tool thrashing (repeat-max p95 approaching cap)"
+          description: "P95 max-repeats-on-a-single-tool is {{ $value }} for 10+ minutes (TOOL_REPEAT_CAP=15). Normal deep analysis runs ~11-12; sustained >14 means requests are about to be clipped by the repeat cap — check for runaway tool loops."
 
       - alert: ChatCapHitsHigh
         expr: >

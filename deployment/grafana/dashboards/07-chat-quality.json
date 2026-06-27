@@ -353,7 +353,7 @@
       },
       "type": "timeseries",
       "title": "Tool repeat-max p50/p95/p99 (thrashing)",
-      "description": "Max calls to a single tool in one request. Threshold line = repeat safety cap. Rising lines = model looping on one tool.",
+      "description": "Max executed calls to a single tool in one request. Repeat safety cap (TOOL_REPEAT_CAP) = 15; legitimate deep analysis runs at p95 ~11-12, so yellow at 13 = approaching cap, red at 15 = cap firing (capHits.repeat increments). Below 13 is normal.",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -379,8 +379,12 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 13
+              },
+              {
                 "color": "red",
-                "value": 5
+                "value": 15
               }
             ]
           }
