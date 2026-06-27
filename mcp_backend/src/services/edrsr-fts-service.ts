@@ -181,6 +181,28 @@ export function selectFtsTerms(
     .map(x => x.tok);
 }
 
+// Token sanitisation for prefix tsquery construction. The 'simple' config keeps Cyrillic
+// and Latin letters + digits; everything else (punctuation, tsquery metachars & | ! ( ) : *)
+// is stripped so the token can never break to_tsquery or inject operators.
+const MIN_STEM_LEN = 5;       // shortest prefix we will snap to (4-grams over-match in uk)
+const MAX_STEM_LEN = 12;      // longest candidate prefix considered
+
+export function sanitizeFtsToken(token: string): string {
+  return (token || '').toLowerCase().replace(/[^\p{L}\p{Nd}]+/gu, '');
+}
+
+/**
+ * Build a declension-tolerant prefix tsquery string from already-snapped stems:
+ *   ['окупован', 'нерухом'] → "окупован:* & нерухом:*"
+ * Stems are sanitised corpus prefixes (no user metacharacters), so they are safe to embed.
+ * Returns null when there is nothing usable (caller falls back to plainto_tsquery).
+ */
+export function buildPrefixTsquery(stems: string[]): string | null {
+  const parts = stems.map(s => sanitizeFtsToken(s)).filter(s => s.length >= 1);
+  if (parts.length === 0) return null;
+  return parts.map(s => `${s}:*`).join(' & ');
+}
+
 export class EdsrFtsService {
   private edsrCache: EdsrCacheService | null = null;
 
@@ -243,6 +265,65 @@ export class EdsrFtsService {
   }
 
   /**
+   * Snap each query token to the LONGEST corpus stem present in edrsr_lexeme_df with
+   * prefix-df ≥ floor (LEXAI Cause-A.2). This is the data-driven fix for two coupled
+   * failures: (1) the 'simple' config has no Ukrainian stemmer, so an exact-form match
+   * ("окупована") misses the declined forms a decision actually uses ("окупованій",
+   * "нерухомості"); snapping to the stem ("окупован") + a `:*` prefix query restores
+   * recall. (2) colloquial junk / typos that have no corpus stem (or only a sub-floor
+   * one) snap to nothing and are dropped — choosing terms FROM the existing key list.
+   *
+   * Returns Map<sanitized-token, stem>. Tokens with no qualifying stem are absent (dropped).
+   * Floor mirrors the anchor floor: max(ANCHOR_DF_MIN_ABS, sampleDocs * ANCHOR_DF_FRACTION).
+   * Fail-safe: any error → empty map (caller keeps the plainto_tsquery path).
+   */
+  async snapTokensToStems(tokens: string[], dbPool: any): Promise<Map<string, string>> {
+    const out = new Map<string, string>();
+    const clean = [...new Set(tokens.map(sanitizeFtsToken).filter(t => t.length >= MIN_STEM_LEN))];
+    if (clean.length === 0) return out;
+    // Candidate prefixes per token: longest → shortest (we pick the longest that clears the
+    // floor). Bounded by [MIN_STEM_LEN, MAX_STEM_LEN] so very long words stay cheap.
+    const candidates: string[] = [];
+    for (const tok of clean) {
+      const top = Math.min(tok.length, MAX_STEM_LEN);
+      for (let len = top; len >= MIN_STEM_LEN; len--) candidates.push(tok.slice(0, len));
+    }
+    const uniqCandidates = [...new Set(candidates)];
+    try {
+      // Prefix-df for every candidate in one round-trip. The text_pattern_ops index
+      // (migration 166) turns each `lexeme LIKE cand||'%'` into an index range scan.
+      const res = await dbPool.query(
+        `SELECT u.cand AS cand,
+                (SELECT COALESCE(sum(df), 0) FROM edrsr_lexeme_df WHERE lexeme LIKE u.cand || '%') AS df
+         FROM unnest($1::text[]) AS u(cand)`,
+        [uniqCandidates],
+      );
+      let sampleDocs = 0;
+      const probe = await dbPool.query(`SELECT sample_docs FROM edrsr_lexeme_df LIMIT 1`);
+      sampleDocs = Number(probe.rows[0]?.sample_docs) || 0;
+      if (!sampleDocs) return out;  // table empty → no snap signal → plainto fallback
+      const floor = Math.max(ANCHOR_DF_MIN_ABS, Math.round(sampleDocs * ANCHOR_DF_FRACTION));
+      const dfByCand = new Map<string, number>();
+      for (const r of res.rows) dfByCand.set(r.cand, Number(r.df));
+      for (const tok of clean) {
+        const top = Math.min(tok.length, MAX_STEM_LEN);
+        // SHORTEST valid prefix wins: it is the most inflection-tolerant stem (e.g. "нерух"
+        // matches нерухоме/нерухомості/нерухомість), whereas the longest above-floor prefix
+        // ("нерухомість") would again miss other declensions. The floor blocks meaningless
+        // short n-grams that don't actually occur in the corpus.
+        for (let len = MIN_STEM_LEN; len <= top; len++) {
+          const cand = tok.slice(0, len);
+          if ((dfByCand.get(cand) ?? 0) >= floor) { out.set(tok, cand); break; }
+        }
+      }
+      return out;
+    } catch (err: any) {
+      logger.warn('[EdsrFtsService] snapTokensToStems failed; plainto fallback', { error: err.message });
+      return new Map();
+    }
+  }
+
+  /**
    * Full text search over edrsr_fulltext with optional metadata filters from edrsr_documents.
    *
    * Uses ts_rank_cd for relevance scoring and ts_headline for snippet generation.
@@ -255,15 +336,25 @@ export class EdsrFtsService {
     limit: number = 20,
     offset: number = 0,
     headlineQuery?: string,
+    topicalTsquery?: string,
   ): Promise<EdsrFtsSearchResponse> {
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     const safeOffset = Math.max(offset, 0);
 
+    // LEXAI Cause-A.2: when the caller supplies a prebuilt prefix tsquery (vocabulary-snapped
+    // stems like "окупован:* & нерухом:*"), match/rank/highlight with to_tsquery so declined
+    // Ukrainian forms are caught. Without it, behaviour is the original plainto_tsquery path.
+    const useTsq = !!(topicalTsquery && topicalTsquery.trim());
+    const topicalArg = useTsq ? topicalTsquery!.trim() : query;
+    const topicalExpr = useTsq ? `to_tsquery('simple', $1)` : `plainto_tsquery('simple', $1)`;
+    // Distinct cache key per actual tsquery so prefix and plainto results never collide.
+    const cacheKey = useTsq ? `tsq:${topicalArg}` : query;
+
     // Check cache first
     if (this.edsrCache) {
-      const cached = await this.edsrCache.getCachedFtsResults(query, filters, safeLimit, safeOffset);
+      const cached = await this.edsrCache.getCachedFtsResults(cacheKey, filters, safeLimit, safeOffset);
       if (cached) {
-        logger.debug('[EdsrFtsService] Cache hit for FTS query', { query });
+        logger.debug('[EdsrFtsService] Cache hit for FTS query', { query: cacheKey });
         return cached;
       }
     }
@@ -278,8 +369,8 @@ export class EdsrFtsService {
     //   - party_name → phraseto_tsquery (contiguous phrase, declension-tolerant for
     //     quoted proper names which courts keep in nominative)
     //   - party_role → to_tsquery of enumerated role-noun case forms
-    const tsqueryParts: string[] = [`plainto_tsquery('simple', $${paramIdx})`];
-    params.push(query);
+    const tsqueryParts: string[] = [topicalExpr];   // $1 — plainto OR to_tsquery (see useTsq)
+    params.push(topicalArg);
     paramIdx++;
 
     const partyName = filters.party_name?.trim();
@@ -375,20 +466,28 @@ export class EdsrFtsService {
       ? `edrsr_fulltext f INNER JOIN edrsr_documents d ON d.doc_id = f.doc_id`
       : `edrsr_fulltext f`;
 
+    // Headline tsquery: a caller-supplied bare headlineQuery is plain text (plainto); otherwise
+    // it reuses $1, which is a prefix tsquery when useTsq → highlight via to_tsquery so the
+    // snippet centres on the same declined matches the search found.
+    const explicitHeadline = !!(headlineQuery && headlineQuery !== query);
+    const headlineFn = (useTsq && !explicitHeadline)
+      ? `to_tsquery('simple', $${headlineParamIdx})`
+      : `plainto_tsquery('simple', $${headlineParamIdx})`;
+
     const buildSelectFields = (withHeadline: boolean) => {
       const headlineExpr = withHeadline
-        ? `safe_ts_headline('simple'::regconfig, f.full_text, plainto_tsquery('simple', $${headlineParamIdx}),
+        ? `safe_ts_headline('simple'::regconfig, f.full_text, ${headlineFn},
            'MaxWords=${FTS_HEADLINE_MAX_WORDS}, MinWords=${FTS_HEADLINE_MIN_WORDS}, StartSel=**, StopSel=**') AS headline`
         : `NULL AS headline`;
 
       return hasMetadataFilter
         ? `f.doc_id,
-           ts_rank_cd(f.tsv, plainto_tsquery('simple', $1)) AS rank,
+           ts_rank_cd(f.tsv, ${topicalExpr}) AS rank,
            ${headlineExpr},
            d.adjudication_date, d.cause_num, d.judge, d.court_code,
            d.justice_kind, d.judgment_code`
         : `f.doc_id,
-           ts_rank_cd(f.tsv, plainto_tsquery('simple', $1)) AS rank,
+           ts_rank_cd(f.tsv, ${topicalExpr}) AS rank,
            ${headlineExpr}`;
     };
 
@@ -453,9 +552,9 @@ export class EdsrFtsService {
         })),
       };
 
-      // Cache the result
+      // Cache the result (keyed by the actual tsquery so prefix/plainto never collide)
       if (this.edsrCache) {
-        this.edsrCache.setCachedFtsResults(query, filters, safeLimit, safeOffset, response).catch(() => {});
+        this.edsrCache.setCachedFtsResults(cacheKey, filters, safeLimit, safeOffset, response).catch(() => {});
       }
 
       return response;

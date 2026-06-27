@@ -19,7 +19,7 @@ import type { SearchResultFilter } from '../../services/search-result-filter.js'
 import { STRICT_MIN_SCORE } from '../../services/search-result-filter.js';
 import type { QueryReformulator } from '../../services/query-reformulator.js';
 import type { EdsrFtsService, EdsrFtsFilters, EdsrFtsSearchResponse } from '../../services/edrsr-fts-service.js';
-import { selectFtsTerms } from '../../services/edrsr-fts-service.js';
+import { selectFtsTerms, sanitizeFtsToken, buildPrefixTsquery } from '../../services/edrsr-fts-service.js';
 import type { EdsrVectorizerService, EdrsrSearchFilters, EdrsrSearchResult } from '../../services/edrsr-vectorizer-service.js';
 
 const DEFAULT_RRF_K = 60;
@@ -397,12 +397,32 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       : { idf: new Map<string, number>(), df: new Map<string, number>(), sampleDocs: 0 };
     const tokens = selectFtsTerms(rawTokens, stats.idf, { df: stats.df, sampleDocs: stats.sampleDocs });
     const idfRanked = stats.idf.size > 0;
-    const startTokens = tokens.length;
-    let n = Math.min(startTokens, FULLTEXT_MAX_TOKENS) || 1;
-    const cappedFrom = n; // token count at the first (capped) probe
-    let usedQuery = tokens.slice(0, n).join(' ') || String(topicalQuery).trim();
 
-    let result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset);
+    // LEXAI Cause-A.2: snap ranked tokens to corpus STEMS (edrsr_lexeme_df) and probe with a
+    // declension-tolerant prefix tsquery (окупован:* …). Fixes the stemless-'simple' recall
+    // hole (query "окупована" missed doc form "окупованій") AND drops junk that has no corpus
+    // stem. Empty stem map (snap off / table empty) → fall back to the plainto token string.
+    const stemMap = (this.ftsService && !noIdf)
+      ? await this.ftsService.snapTokensToStems(rawTokens, this.db)
+      : new Map<string, string>();
+    const stems = [...new Set(
+      tokens.map(t => stemMap.get(sanitizeFtsToken(t))).filter((s): s is string => !!s),
+    )];
+    const usePrefix = stems.length > 0;
+    const units = usePrefix ? stems : tokens;   // what we cap & relax over
+    const startTokens = units.length;
+    let n = Math.min(startTokens, FULLTEXT_MAX_TOKENS) || 1;
+    const cappedFrom = n; // unit count at the first (capped) probe
+
+    const probe = (k: number) => {
+      const slice = units.slice(0, k);
+      const usedQuery = slice.join(' ') || String(topicalQuery).trim();
+      const topicalTsquery = usePrefix ? (buildPrefixTsquery(slice) ?? undefined) : undefined;
+      return { usedQuery, topicalTsquery };
+    };
+
+    let { usedQuery, topicalTsquery } = probe(n);
+    let result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset, undefined, topicalTsquery);
 
     let steps = 0;
     // Relax while near-empty (not just hard 0): dropping the LEAST discriminative AND-term
@@ -410,11 +430,12 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     // clears the floor or we hit the bounds.
     while (result.total < FTS_RELAX_MIN_RESULTS && n > FTS_MIN_TOKENS && steps < FTS_MAX_RELAX_STEPS) {
       n -= 1; steps += 1;
-      usedQuery = tokens.slice(0, n).join(' ');
+      ({ usedQuery, topicalTsquery } = probe(n));
       logger.info('[EdsrUnifiedSearch] FTS relax-on-near-empty', {
-        from_tokens: n + 1, to_tokens: n, prev_total: result.total, query: usedQuery, idf_ranked: idfRanked,
+        from_tokens: n + 1, to_tokens: n, prev_total: result.total, query: topicalTsquery || usedQuery,
+        idf_ranked: idfRanked, prefix: usePrefix,
       });
-      result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset);
+      result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset, undefined, topicalTsquery);
     }
 
     return {

@@ -2,7 +2,7 @@
  * CORE-21 P1.5a — IDF-weighted FTS term selection.
  * selectFtsTerms (pure ordering) + EdsrFtsService.lexemeDf (df → idf, db-backed).
  */
-import { selectFtsTerms, EdsrFtsService } from '../edrsr-fts-service';
+import { selectFtsTerms, EdsrFtsService, sanitizeFtsToken, buildPrefixTsquery } from '../edrsr-fts-service';
 
 describe('selectFtsTerms (CORE-21 P1.5a)', () => {
   // Mimics lexemeDf output: common terms low idf, discriminative terms high.
@@ -134,5 +134,64 @@ describe('EdsrFtsService.lexemeDf (CORE-21 P1.5a)', () => {
     expect(s.idf.size).toBe(0);
     expect(s.df.size).toBe(0);
     expect(s.sampleDocs).toBe(0);
+  });
+});
+
+describe('prefix tsquery helpers (LEXAI Cause-A.2)', () => {
+  it('sanitizeFtsToken lowercases and strips tsquery metacharacters', () => {
+    expect(sanitizeFtsToken('Окупована:*')).toBe('окупована');
+    expect(sanitizeFtsToken('60-кв.м')).toBe('60квм');
+    expect(sanitizeFtsToken('a&b|c!')).toBe('abc');
+  });
+
+  it('buildPrefixTsquery ANDs stems with :* prefix', () => {
+    expect(buildPrefixTsquery(['окупован', 'нерухом'])).toBe('окупован:* & нерухом:*');
+  });
+
+  it('buildPrefixTsquery returns null when nothing usable', () => {
+    expect(buildPrefixTsquery([])).toBeNull();
+    expect(buildPrefixTsquery(['', '  '])).toBeNull();
+  });
+});
+
+describe('EdsrFtsService.snapTokensToStems (LEXAI Cause-A.2)', () => {
+  const svc = new EdsrFtsService();
+  // floor at sampleDocs 3.0M = max(8, 3.0M*1e-4) = 300.
+  function db(prefixDf: Record<string, number>, sampleDocs = 3_000_000) {
+    return {
+      query: jest.fn().mockImplementation((sql: string) => {
+        if (/LIMIT 1/.test(sql)) return Promise.resolve({ rows: [{ sample_docs: sampleDocs }] });
+        // unnest candidates query → return df for known prefixes, 0 otherwise
+        return Promise.resolve({ rows: Object.entries(prefixDf).map(([cand, d]) => ({ cand, df: d })) });
+      }),
+    };
+  }
+
+  it('snaps a declined token to the SHORTEST above-floor stem (inflection-tolerant)', async () => {
+    // shortest valid prefix wins so the :* query catches all declensions. "нерух" (≥floor)
+    // is chosen over the longer "нерухом"/"нерухомість".
+    const m = await svc.snapTokensToStems(['нерухомість'], db({ 'нерух': 193320, 'нерухом': 193000, 'нерухомість': 5000 }));
+    expect(m.get('нерухомість')).toBe('нерух');
+  });
+
+  it('skips below-floor short prefixes and snaps to the first above-floor one', async () => {
+    // "окуп"/"окупо" sub-floor here; "окупов" clears it → snapped (not the full form).
+    const m = await svc.snapTokensToStems(['окупована'], db({ 'окупо': 50, 'окупов': 41321, 'окупован': 41000 }));
+    expect(m.get('окупована')).toBe('окупов');
+  });
+
+  it('drops junk with no above-floor corpus stem', async () => {
+    const m = await svc.snapTokensToStems(['сумування'], db({ 'сумування': 80, 'сумуван': 80, 'сумув': 90 }));
+    expect(m.has('сумування')).toBe(false);
+  });
+
+  it('returns empty map when the df table is empty (plainto fallback)', async () => {
+    const m = await svc.snapTokensToStems(['окупована'], db({}, 0));
+    expect(m.size).toBe(0);
+  });
+
+  it('never throws — empty map on db error', async () => {
+    const errDb = { query: jest.fn().mockRejectedValue(new Error('boom')) };
+    expect((await svc.snapTokensToStems(['окупована'], errDb)).size).toBe(0);
   });
 });
