@@ -199,5 +199,21 @@ describe('EdsrVectorizerService', () => {
       await service.semanticSearch('тест');
       expect(filterMust().find((c) => c.key === 'justice_kind')).toBeUndefined();
     });
+
+    it('pushes court_codes as a match-any on court_code (instance/court_level → vector leg)', async () => {
+      const service = new EdsrVectorizerService();
+      await service.semanticSearch('тест', { court_codes: [9901, 9911, '9921' as unknown as number] });
+      const cc = filterMust().find((c) => c.key === 'court_code');
+      expect(cc).toBeDefined();
+      expect(cc.match.any).toEqual([9901, 9911, 9921]); // coerced to integers for the index
+    });
+
+    it('prefers a single court_code over court_codes when both are set', async () => {
+      const service = new EdsrVectorizerService();
+      await service.semanticSearch('тест', { court_code: 9931, court_codes: [9901, 9911] });
+      const cc = filterMust().find((c) => c.key === 'court_code');
+      expect(cc.match.value).toBe(9931);
+      expect(cc.match.any).toBeUndefined();
+    });
   });
 });

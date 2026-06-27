@@ -104,6 +104,27 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     this.queryReformulator = reformulator;
   }
 
+  // instance_code → court_code[] (cached; instances are static). The vector leg can only filter
+  // by court_code (no instance_code in the Qdrant payload), so an instance/court_level filter is
+  // translated to its set of court_codes before being pushed to the vector leg. Fail-safe: on a
+  // DB error returns [] so the caller skips the vector court filter (no crash, just unfiltered).
+  private readonly instanceCourtCodeCache = new Map<number, number[]>();
+  private async resolveInstanceCourtCodes(instanceCode: number): Promise<number[]> {
+    const cached = this.instanceCourtCodeCache.get(instanceCode);
+    if (cached) return cached;
+    try {
+      const res = await this.db.query(
+        `SELECT court_code FROM edrsr_courts WHERE instance_code = $1`, [instanceCode],
+      );
+      const codes = res.rows.map((r: any) => Number(r.court_code)).filter((n: number) => Number.isFinite(n));
+      if (codes.length > 0) this.instanceCourtCodeCache.set(instanceCode, codes);
+      return codes;
+    } catch (err: any) {
+      logger.warn('[EdsrUnifiedSearch] resolveInstanceCourtCodes failed', { instanceCode, error: err.message });
+      return [];
+    }
+  }
+
   getToolDefinitions(): ToolDefinition[] {
     return [{
       name: 'search_court_decisions',
@@ -609,6 +630,15 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       date_to: args.date_to,
     };
 
+    // Translate an instance/court_level filter to a court_code set the vector leg CAN enforce
+    // (instance_code is not in the Qdrant payload). Without this the vector candidates all fail
+    // the post-fusion instance re-check and instance-filtered hybrid searches collapse to the
+    // FTS leg alone. Only when the model didn't pin a single court_code.
+    if (instanceCode && !args.court_code) {
+      const instanceCourtCodes = await this.resolveInstanceCourtCodes(instanceCode);
+      if (instanceCourtCodes.length > 0) vectorFilters.court_codes = instanceCourtCodes;
+    }
+
     const vectorPromise = (this.vectorizer && hasVectors)
       ? this.vectorizer.semanticSearch(semanticQuery, vectorFilters, candidateLimit)
           .catch((err: any) => { logger.warn('[EdsrUnifiedSearch] Qdrant leg failed', { error: err.message }); return null; })
@@ -720,6 +750,14 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
         court_code: args.court_code, justice_kind: justiceKind,
         judge: args.judge, date_from: args.date_from, date_to: args.date_to,
       };
+      // Push an instance/court_level filter onto the vector leg as a court_code set (see
+      // searchHybrid / resolveInstanceCourtCodes): instance_code is not in the Qdrant payload,
+      // so otherwise every semantic hit is dropped by the post-fusion instance re-check.
+      const semInstanceCode = args.instance_code ? Number(args.instance_code) : undefined;
+      if (semInstanceCode && !args.court_code) {
+        const instanceCourtCodes = await this.resolveInstanceCourtCodes(semInstanceCode);
+        if (instanceCourtCodes.length > 0) filters.court_codes = instanceCourtCodes;
+      }
 
       const reformulated = this.queryReformulator
         ? await this.queryReformulator.reformulate(args.query).catch(() => null)

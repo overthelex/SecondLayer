@@ -81,6 +81,12 @@ export interface EdrsrSearchResult {
 
 export interface EdrsrSearchFilters {
   court_code?: number;
+  // Multi-court constraint (match-any on the court_code payload index). Used to push an
+  // instance/court_level filter onto the vector leg: instance_code is NOT in the Qdrant payload,
+  // but court_code is — so an instance filter is translated to its set of court_codes. Without
+  // this the vector leg can't honour a court/instance filter and every vector candidate is
+  // dropped by the post-fusion instance re-check, collapsing instance-filtered searches.
+  court_codes?: number[];
   justice_kind?: number;
   date_from?: string;
   date_to?: string;
@@ -396,6 +402,10 @@ export class EdsrVectorizerService {
     // though the code exists. Coerce to Number so the integer index actually matches.
     if (filters?.court_code) {
       must.push({ key: 'court_code', match: { value: Number(filters.court_code) } });
+    } else if (filters?.court_codes?.length) {
+      // match-any over the court_code integer index (e.g. all cassation courts for an
+      // instance/court_level filter). Single court_code wins if both are somehow set.
+      must.push({ key: 'court_code', match: { any: filters.court_codes.map(Number) } });
     }
 
     if (filters?.justice_kind) {
