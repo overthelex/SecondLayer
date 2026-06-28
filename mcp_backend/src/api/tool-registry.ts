@@ -36,6 +36,11 @@ const TOOL_TIMEOUT_OVERRIDES: Record<string, number> = {
   search_court_decisions: 120_000,
   get_case_documents_chain: 120_000,
   edrsr_court_decisions_by_court: 90_000,
+  // Semantic candidate retrieval (qdrant/HNSW) + a "standard" LLM holding-classification
+  // call, with a keyword-FTS fallback. Intermittent qdrant/Bedrock latency can push the
+  // happy path past 60s; matches the other heavy search tools above.
+  compare_practice_pro_contra: 120_000,
+  find_similar_fact_pattern_cases: 120_000,
   edrsr_get_decision_dispositive: 15_000,
   build_legal_decision: 120_000,
   search_public_spending: 120_000,
