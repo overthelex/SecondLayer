@@ -120,6 +120,17 @@ function parseClassifications(content: string | undefined | null): any[] {
   return list || [];
 }
 
+/**
+ * True when a court_code belongs to the requested instance level. Supreme Court cassation
+ * courts are numbered 99*, the Grand Chamber is 9901. No filter → always true.
+ */
+function isCourtLevelMatch(courtCode: any, filter?: 'SC' | 'GrandChamber'): boolean {
+  if (!filter) return true;
+  const code = String(courtCode ?? '');
+  if (!code.startsWith('99')) return false;
+  return filter === 'GrandChamber' ? code === '9901' : true;
+}
+
 // Per-step soft budgets for the pro/contra holding-classification path. The registry caps
 // the whole tool at 120s (tool-registry.ts); these keep each external leg bounded so a slow
 // qdrant or an overloaded LLM degrades to a useful partial answer instead of a hard timeout.
@@ -196,6 +207,11 @@ export class ProceduralTools extends BaseToolHandler {
           properties: {
             procedure_code: { type: 'string', enum: ['cpc', 'gpc', 'cac', 'crpc'], description: 'Вид судочинства: cpc (цивільне), gpc (господарське), cac (адміністративне), crpc (кримінальне)' },
             query: { type: 'string', description: 'Правова теза для аналізу (наприклад: "поновлення строку апеляційного оскарження через несвоєчасне отримання повного тексту")' },
+            court_level: {
+              type: 'string',
+              enum: ['SC', 'GrandChamber'],
+              description: 'Обмежити практику інстанцією: SC — лише Верховний Суд (касаційні суди, код суду 99*), GrandChamber — лише Велика Палата ВС (9901). Використовуйте, коли потрібне саме цитування ВС. За замовчуванням — усі інстанції.',
+            },
             time_range: {
               oneOf: [
                 { type: 'string' },
@@ -467,20 +483,29 @@ export class ProceduralTools extends BaseToolHandler {
     if (!procedureCode) throw new Error('procedure_code must be one of: cpc, gpc, cac, crpc');
     if (!query) throw new Error('query parameter is required');
 
+    // Optional instance filter — prefer Supreme Court / Grand Chamber practice when the user
+    // wants "цитування ВС" (mirrors find_similar_fact_pattern_cases).
+    const courtLevelFilter: 'SC' | 'GrandChamber' | undefined =
+      args.court_level === 'SC' || args.court_level === 'GrandChamber' ? args.court_level : undefined;
+
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
     const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
     const startedAt = Date.now();
+    // Widen the candidate pool well past `limit`: BGE-M3 retrieves topically-similar chunks
+    // regardless of stance, so a deeper net surfaces opposing holdings on the same point for
+    // the LLM to classify — countering the structural bias toward "pro" when the pool is small.
+    const candidateTarget = Math.min(28, Math.max(14, limit * 3));
 
-    // Primary path: retrieve candidates once (no pro/contra keyword suffix) and let the LLM
-    // classify each decision's holding relative to the user's thesis (supports / opposes /
-    // not-on-point) with a cited fragment. The legacy keyword suffix (задовольнити/відмовити)
-    // is non-discriminative and cannot separate opposing holdings — kept only as a fallback
-    // when the LLM or vectorizer is unavailable. Each external leg runs under a soft deadline
-    // so a slow qdrant/LLM degrades to a partial answer instead of hitting the 120s hard cap.
+    // Primary path: retrieve candidates (both sides — see gatherProContraCandidates) and let
+    // the LLM classify each decision's holding relative to the user's thesis (supports /
+    // opposes / not-on-point) with a cited fragment. The legacy keyword suffix
+    // (задовольнити/відмовити) is non-discriminative for classification — used only as a
+    // retrieval seed / fallback. Each external leg runs under a soft deadline so a slow
+    // qdrant/LLM degrades to a partial answer instead of hitting the 120s hard cap.
     if (this.llm) {
       const gathered = await withSoftTimeout(
         this.gatherProContraCandidates(
-          query, justiceKind, timeRangeParsed, Math.min(12, Math.max(6, limit * 2)),
+          query, justiceKind, timeRangeParsed, candidateTarget, courtLevelFilter,
         ),
         PRO_CONTRA_GATHER_BUDGET_MS, 'comparePracticeProContra.gather',
       );
@@ -517,7 +542,9 @@ export class ProceduralTools extends BaseToolHandler {
             procedure_code: procedureCode,
             query,
             time_range: args.time_range,
+            court_level_filter: courtLevelFilter || undefined,
             search_method: `llm_holding_${gathered.method}`,
+            candidates_considered: gathered.candidates.length,
             pro: proCases,
             contra: contraCases,
             total_pro: proCases.length,
@@ -707,8 +734,20 @@ export class ProceduralTools extends BaseToolHandler {
     justiceKind: number | null,
     timeRangeParsed: { date_from?: string; date_to?: string },
     maxN: number,
+    courtLevelFilter?: 'SC' | 'GrandChamber',
   ): Promise<{ candidates: Array<{ doc_id: number; court_code?: number; date?: string; case_number?: string; fragment: string }>; method: string }> {
-    // Semantic (preferred)
+    type Candidate = { doc_id: number; court_code?: number; date?: string; case_number?: string; fragment: string };
+    const byDoc = new Map<number, Candidate>();
+    const methods: string[] = [];
+    // Reserve part of the pool for the contra seed (below) so a flood of thesis-similar "pro"
+    // decisions can't crowd out refusal practice. Only meaningful when FTS is available.
+    const canSeed = !!(this.ftsService && this.db);
+    const seedReserve = canSeed ? Math.min(8, Math.floor(maxN / 3)) : 0;
+
+    // Leg A — semantic on the thesis. BGE-M3 retrieves topically-similar chunks regardless of
+    // stance, so a wide net surfaces opposing holdings on the same point. When a court level
+    // is requested, over-fetch much wider and post-filter (SC is a minority of the corpus).
+    let semanticHits: Candidate[] = [];
     if (this.edsrVectorizer) {
       try {
         const semFilters: EdrsrSearchFilters = {
@@ -716,45 +755,103 @@ export class ProceduralTools extends BaseToolHandler {
           ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
           ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
         };
-        const hits = await this.edsrVectorizer.semanticSearch(query, semFilters, maxN * 3);
+        const overfetch = courtLevelFilter ? Math.max(maxN * 8, 200) : maxN * 3;
+        const hits = await this.edsrVectorizer.semanticSearch(query, semFilters, overfetch);
         const seen = new Set<number>();
-        const out: any[] = [];
         for (const h of hits) {
           if (seen.has(h.doc_id)) continue;
+          if (!isCourtLevelMatch(h.metadata.court_code, courtLevelFilter)) continue;
           seen.add(h.doc_id);
-          out.push({
+          semanticHits.push({
             doc_id: h.doc_id,
             court_code: h.metadata.court_code,
             date: h.metadata.adjudication_date,
             case_number: h.metadata.cause_num,
             fragment: (h.text || '').slice(0, 900),
           });
-          if (out.length >= maxN) break;
         }
-        if (out.length > 0) return { candidates: out, method: 'semantic_hnsw' };
+        // Fill up to (maxN - seedReserve) now; the remainder of semanticHits is used to top
+        // up after the seed, so reserving space never costs us candidates.
+        const semCap = Math.max(1, maxN - seedReserve);
+        for (const c of semanticHits) {
+          if (byDoc.size >= semCap) break;
+          byDoc.set(c.doc_id, c);
+        }
+        if (byDoc.size > 0) methods.push('semantic_hnsw');
       } catch (err: any) {
-        logger.warn('[gatherProContraCandidates] semantic search failed, falling back to FTS', { error: err?.message });
+        logger.warn('[gatherProContraCandidates] semantic search failed', { error: err?.message });
       }
     }
 
-    // FTS fallback (headline as fragment)
+    // Leg B — contra seed. The thesis-similarity leg under-samples decisions that REFUSE the
+    // claim (courts phrase a refusal differently), biasing the pool toward "pro". Seed a few
+    // refusal decisions via the keyword discriminator so the LLM has both sides to classify.
+    // The suffix is used ONLY for retrieval diversity here — never for the pro/contra decision,
+    // which is the LLM's job. Best-effort; the outer gather soft-timeout bounds it.
+    if (canSeed && seedReserve > 0 && byDoc.size < maxN) {
+      try {
+        const seedFilters: EdsrFtsFilters = {
+          ...(justiceKind !== null ? { justice_kind: justiceKind } : {}),
+          ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
+          ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
+        };
+        const bareQuery = trimFtsQuery(query, 3);
+        const instances = courtLevelFilter ? [1] : [1, 2, 3];
+        let seeded = 0;
+        for (const code of instances) {
+          if (seeded >= seedReserve || byDoc.size >= maxN) break;
+          const resp = await this.ftsService!.searchFulltext(
+            `${bareQuery} відмовити у задоволенні позову`, this.db,
+            { ...seedFilters, instance_code: code }, seedReserve, 0, bareQuery,
+          );
+          for (const d of resp.results) {
+            if (byDoc.has(d.doc_id)) continue;
+            if (!isCourtLevelMatch(d.court_code, courtLevelFilter)) continue;
+            byDoc.set(d.doc_id, {
+              doc_id: d.doc_id,
+              court_code: d.court_code,
+              date: d.adjudication_date,
+              case_number: d.cause_num,
+              fragment: d.headline || '',
+            });
+            seeded++;
+            if (seeded >= seedReserve || byDoc.size >= maxN) break;
+          }
+        }
+        if (seeded > 0) methods.push('contra_seed');
+      } catch (err: any) {
+        logger.warn('[gatherProContraCandidates] contra-seed FTS failed', { error: err?.message });
+      }
+    }
+
+    // Top up any remaining room from the semantic overflow (decisions reserved-out above).
+    for (const c of semanticHits) {
+      if (byDoc.size >= maxN) break;
+      if (!byDoc.has(c.doc_id)) byDoc.set(c.doc_id, c);
+    }
+
+    if (byDoc.size > 0) {
+      return { candidates: [...byDoc.values()], method: methods.join('+') || 'semantic_hnsw' };
+    }
+
+    // Pure FTS fallback (semantic unavailable/empty) — court-level aware, headline as fragment.
     if (this.ftsService && this.db) {
       const baseFilters: EdsrFtsFilters = {
         ...(justiceKind !== null ? { justice_kind: justiceKind } : {}),
         ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
         ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
       };
-      for (const inst of [
-        { code: 1 }, { code: 2 }, { code: 3 },
-      ] as const) {
+      const instances = courtLevelFilter ? [{ code: 1 }] : [{ code: 1 }, { code: 2 }, { code: 3 }];
+      for (const inst of instances) {
         const resp = await this.ftsService.searchFulltext(
           trimFtsQuery(query), this.db, { ...baseFilters, instance_code: inst.code }, maxN,
         );
         if (resp.results.length > 0) {
           const seen = new Set<number>();
-          const out: any[] = [];
+          const out: Candidate[] = [];
           for (const d of resp.results) {
             if (seen.has(d.doc_id)) continue;
+            if (!isCourtLevelMatch(d.court_code, courtLevelFilter)) continue;
             seen.add(d.doc_id);
             out.push({
               doc_id: d.doc_id,
@@ -873,12 +970,7 @@ export class ProceduralTools extends BaseToolHandler {
     // dominate pure cosine ranking.
     const courtLevelFilter: 'SC' | 'GrandChamber' | undefined =
       args.court_level === 'SC' || args.court_level === 'GrandChamber' ? args.court_level : undefined;
-    const matchesCourtLevel = (courtCode: any): boolean => {
-      if (!courtLevelFilter) return true;
-      const code = String(courtCode ?? '');
-      if (!code.startsWith('99')) return false;
-      return courtLevelFilter === 'GrandChamber' ? code === '9901' : true;
-    };
+    const matchesCourtLevel = (courtCode: any): boolean => isCourtLevelMatch(courtCode, courtLevelFilter);
 
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
     const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);

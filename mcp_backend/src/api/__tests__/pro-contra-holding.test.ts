@@ -9,6 +9,7 @@ import { ProceduralTools } from '../tools/procedural-tools';
 function makeTools(opts: {
   hits: any[];
   classifications: any[];
+  ftsResults?: any[]; // when set, also stub the FTS service (enables the contra-seed leg)
 }): ProceduralTools {
   const edsrVectorizer: any = {
     semanticSearch: jest.fn().mockResolvedValue(opts.hits),
@@ -18,11 +19,19 @@ function makeTools(opts: {
       content: JSON.stringify({ classifications: opts.classifications }),
     }),
   };
+  const ftsService: any = opts.ftsResults
+    ? { searchFulltext: jest.fn().mockResolvedValue({ results: opts.ftsResults }) }
+    : undefined;
+  const db: any = opts.ftsResults ? {} : undefined;
   // Required ctor args are unused on this path — stub them.
   return new ProceduralTools(
     {} as any, {} as any, {} as any, {} as any, {} as any,
-    llm, undefined, undefined, edsrVectorizer,
+    llm, ftsService, db, edsrVectorizer,
   );
+}
+
+function ftsRow(doc_id: number, court_code: number, headline: string) {
+  return { doc_id, court_code, adjudication_date: '2025-02-02', cause_num: `c/${doc_id}`, headline };
 }
 
 function hit(doc_id: number, court_code: number, text: string) {
@@ -100,5 +109,47 @@ describe('comparePracticeProContra — LLM holding classification', () => {
     expect(out.relevant_practice.map((c: any) => c.doc_id)).toEqual([301, 302]);
     // Repair retry was attempted (2 calls: initial + repair).
     expect(llm.chatCompletion).toHaveBeenCalledTimes(2);
+  });
+
+  it('applies court_level=SC filter — non-99* candidates never reach classification', async () => {
+    const tools = makeTools({
+      // 9921 and 9901 are Supreme Court (99*); 1370 is a first-instance court.
+      hits: [hit(101, 9921, 'frag A'), hit(102, 1370, 'frag B'), hit(103, 9901, 'frag C')],
+      classifications: [
+        { doc_id: 101, stance: 'supports', quote: 'ВС за', confidence: 0.9 },
+        { doc_id: 102, stance: 'opposes', quote: 'перша інстанція проти', confidence: 0.8 },
+        { doc_id: 103, stance: 'opposes', quote: 'ВП проти', confidence: 0.8 },
+      ],
+    });
+    const out = await run(tools, { procedure_code: 'cac', query: 'теза', court_level: 'SC' });
+
+    expect(out.court_level_filter).toBe('SC');
+    // 102 (court 1370) is filtered out before classification — it cannot appear on either side.
+    const allDocs = [...out.pro, ...out.contra].map((c: any) => c.doc_id);
+    expect(allDocs).not.toContain(102);
+    expect(out.pro.map((c: any) => c.doc_id)).toEqual([101]);
+    expect(out.contra.map((c: any) => c.doc_id)).toEqual([103]);
+  });
+
+  it('seeds contra practice via FTS when the semantic pool skews pro', async () => {
+    const tools = makeTools({
+      // Semantic leg returns only thesis-agreeing decisions.
+      hits: [hit(401, 9921, 'за тезу A'), hit(402, 9921, 'за тезу B')],
+      // FTS contra-seed surfaces a refusal decision the semantic leg missed.
+      ftsResults: [ftsRow(501, 9921, 'суд відмовив у задоволенні позову')],
+      classifications: [
+        { doc_id: 401, stance: 'supports', quote: 'за', confidence: 0.9 },
+        { doc_id: 402, stance: 'supports', quote: 'теж за', confidence: 0.8 },
+        { doc_id: 501, stance: 'opposes', quote: 'відмовлено', confidence: 0.85 },
+      ],
+    });
+    const out = await run(tools, { procedure_code: 'cac', query: 'теза' });
+
+    expect(out.search_method).toBe('llm_holding_semantic_hnsw+contra_seed');
+    expect(out.pro.map((c: any) => c.doc_id).sort()).toEqual([401, 402]);
+    expect(out.contra.map((c: any) => c.doc_id)).toEqual([501]);
+    expect(out.total_contra).toBe(1);
+    // No longer a one-sided insufficient_practice result.
+    expect(out.insufficient_practice).toBeUndefined();
   });
 });
