@@ -40,6 +40,21 @@ export function isAbortError(error: unknown): boolean {
 }
 
 /**
+ * True when the error is a network-level fetch failure (connection dropped, server
+ * unreachable) rather than an application error. Browsers throw a TypeError here, with a
+ * message that varies by engine: "Failed to fetch" (Chrome), "NetworkError when attempting
+ * to fetch resource." (Firefox), "Load failed" (Safari). Used to retry transparently across
+ * a backend restart (e.g. blue-green deploy upstream switch) instead of surfacing an error.
+ */
+export function isNetworkError(error: unknown): boolean {
+  if (error instanceof TypeError) {
+    const m = error.message.toLowerCase();
+    return m.includes('fetch') || m.includes('network') || m.includes('load failed') || m.includes('connection');
+  }
+  return false;
+}
+
+/**
  * Type guard: checks if an unknown value has an HTTP-like `status` number property.
  */
 export function hasStatus(err: unknown): err is { status: number; message?: string; details?: Record<string, unknown>; retryAfter?: string } {

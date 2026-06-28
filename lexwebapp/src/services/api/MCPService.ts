@@ -6,10 +6,14 @@
 
 import { BaseService } from '../base/BaseService';
 import { SSEClient } from './SSEClient';
-import { getErrorMessage, isAbortError } from '../../utils/errors';
+import { getErrorMessage, isAbortError, isNetworkError } from '../../utils/errors';
 import { transformToolResultToMessage } from './mcp/response-transformers';
 import type { Message } from '../../types/models';
 import { StreamingCallbacks } from '../../types/api/sse';
+
+/** Shown when a chat stream is lost to a network/connection failure (e.g. a backend restart)
+ *  that could not be transparently retried — clearer than the raw browser "Failed to fetch". */
+const CONNECTION_LOST_MESSAGE = "Зв'язок із сервером перервано. Перевірте підключення та спробуйте повторити запит.";
 
 /** Raw SSE shape — backend emits either shape under the same event type. */
 export type CitationWarning =
@@ -190,49 +194,55 @@ export class MCPService extends BaseService {
     internetEnabled?: boolean
   ): Promise<AbortController> {
     const controller = new AbortController();
+    const maxRetries = 2;
 
-    try {
-      const response = await fetch(`${this.API_URL}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.getAuthToken()}`,
-        },
-        body: JSON.stringify({ query, history, budget, conversationId, approvedPlan, planSessionId, allowDeepEscalation, internetEnabled }),
-        signal: controller.signal,
-      });
+    // Run one connect+stream attempt. Returns 'retry' only when the connection failed at the
+    // network layer BEFORE any event was received — i.e. the request never produced output, so
+    // re-sending it cannot duplicate a partial answer or double-charge. This is the blue-green
+    // deploy case: the request hit the draining backend (or the upstream mid-switch) and was
+    // reset; a moment later the new backend is up. Any failure after the first event is final.
+    const runAttempt = async (attempt: number): Promise<'retry' | 'done'> => {
+      let receivedAny = false;
+      try {
+        const response = await fetch(`${this.API_URL}/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.getAuthToken()}`,
+          },
+          body: JSON.stringify({ query, history, budget, conversationId, approvedPlan, planSessionId, allowDeepEscalation, internetEnabled }),
+          signal: controller.signal,
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        // Surface the beta-restricted modal when the chat endpoint blocks
-        // the request because the user has not topped up via Monobank.
-        if (response.status === 403) {
-          try {
-            const parsed = JSON.parse(errorText) as { code?: string; message?: string };
-            if (parsed?.code === 'BETA_RESTRICTED') {
-              const m = await import('../../stores/accessGateStore');
-              m.useAccessGateStore.getState().markRestricted();
-              callbacks.onError?.({ message: parsed.message, code: 'BETA_RESTRICTED' });
-              return controller;
+        if (!response.ok) {
+          const errorText = await response.text();
+          // Surface the beta-restricted modal when the chat endpoint blocks
+          // the request because the user has not topped up via Monobank.
+          if (response.status === 403) {
+            try {
+              const parsed = JSON.parse(errorText) as { code?: string; message?: string };
+              if (parsed?.code === 'BETA_RESTRICTED') {
+                const m = await import('../../stores/accessGateStore');
+                m.useAccessGateStore.getState().markRestricted();
+                callbacks.onError?.({ message: parsed.message, code: 'BETA_RESTRICTED' });
+                return 'done';
+              }
+            } catch {
+              // Fall through to the generic error path below.
             }
-          } catch {
-            // Fall through to the generic error path below.
           }
+          callbacks.onError?.({ message: `API Error: ${response.status} - ${errorText}` });
+          return 'done';
         }
-        callbacks.onError?.({ message: `API Error: ${response.status} - ${errorText}` });
-        return controller;
-      }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        callbacks.onError?.({ message: 'No response body' });
-        return controller;
-      }
+        const reader = response.body?.getReader();
+        if (!reader) {
+          callbacks.onError?.({ message: 'No response body' });
+          return 'done';
+        }
 
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      const processEvents = async () => {
+        const decoder = new TextDecoder();
+        let buffer = '';
         let currentEvent = '';
         let currentData = '';
 
@@ -256,6 +266,7 @@ export class MCPService extends BaseService {
               } else if (line === '' && currentEvent && currentData) {
                 try {
                   const data = JSON.parse(currentData);
+                  receivedAny = true;
                   this.dispatchChatEvent(currentEvent, data, callbacks);
                 } catch {
                   // skip malformed JSON
@@ -265,24 +276,38 @@ export class MCPService extends BaseService {
               }
             }
           }
+          return 'done';
         } catch (err: unknown) {
-          if (!isAbortError(err)) {
-            callbacks.onError?.({ message: getErrorMessage(err) });
-          }
-        } finally {
-          // Always notify that the stream has ended so the UI can reset streaming state,
-          // even if the stream ended without an 'answer' event (e.g. backend timeout/abort)
-          callbacks.onStreamEnd?.();
+          if (isAbortError(err)) return 'done';
+          if (isNetworkError(err) && !receivedAny && attempt < maxRetries) return 'retry';
+          callbacks.onError?.({ message: isNetworkError(err) ? CONNECTION_LOST_MESSAGE : getErrorMessage(err) });
+          return 'done';
         }
-      };
-
-      processEvents();
-    } catch (err: unknown) {
-      if (!isAbortError(err)) {
-        callbacks.onError?.({ message: getErrorMessage(err) });
+      } catch (err: unknown) {
+        if (isAbortError(err)) return 'done';
+        if (isNetworkError(err) && !receivedAny && attempt < maxRetries) return 'retry';
+        callbacks.onError?.({ message: isNetworkError(err) ? CONNECTION_LOST_MESSAGE : getErrorMessage(err) });
+        return 'done';
       }
-    }
+    };
 
+    const driveAttempts = async () => {
+      try {
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          if (controller.signal.aborted) break;
+          const outcome = await runAttempt(attempt);
+          if (outcome === 'done') break;
+          // Brief backoff before re-connecting — a blue-green upstream switch settles in seconds.
+          await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+        }
+      } finally {
+        // Always notify that the stream has ended (once, after the final attempt) so the UI
+        // resets streaming state even if it ended without an 'answer' event.
+        callbacks.onStreamEnd?.();
+      }
+    };
+
+    driveAttempts();
     return controller;
   }
 
