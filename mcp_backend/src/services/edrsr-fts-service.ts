@@ -510,10 +510,19 @@ export class EdsrFtsService {
     // so use a dedicated client when the pool exposes connect(); otherwise fall back to a
     // plain pooled query (timeout-less) so non-pg pool wrappers still work.
     const queryWithTimeout = async (sql: string, args: any[]) => {
-      if (typeof dbPool.connect !== 'function') {
+      // A pooled client lets us scope SET LOCAL statement_timeout to one transaction. Only the
+      // raw pg Pool yields a client with query()/release(); sharded/wrapper pools may expose a
+      // connect() that returns undefined or a non-pg object (this broke compare_practice_pro_contra,
+      // which passes such a wrapper). Probe the client and fall back to a plain pooled query —
+      // which still runs the cap-before-rank SQL, just without the per-statement timeout.
+      let client: any;
+      if (typeof dbPool.connect === 'function') {
+        try { client = await dbPool.connect(); } catch { client = undefined; }
+      }
+      if (!client || typeof client.query !== 'function' || typeof client.release !== 'function') {
+        if (client && typeof client.release === 'function') client.release();
         return dbPool.query(sql, args);
       }
-      const client = await dbPool.connect();
       try {
         await client.query('BEGIN');
         await client.query(`SET LOCAL statement_timeout = ${FTS_STATEMENT_TIMEOUT_MS}`);
