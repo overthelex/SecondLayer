@@ -76,4 +76,29 @@ describe('comparePracticeProContra — LLM holding classification', () => {
     expect(out.total_contra).toBe(0);
     expect(out.insufficient_practice).toBe(true);
   });
+
+  it('degrades to unclassified relevant practice when the LLM response is unparseable', async () => {
+    // Both the initial classify call and the repair retry return non-JSON, so classifyHoldings
+    // gives up. Instead of discarding the good semantic candidates and dropping to keyword-FTS,
+    // the tool returns them as relevant practice with stances unlabeled.
+    const edsrVectorizer: any = {
+      semanticSearch: jest.fn().mockResolvedValue([hit(301, 9921, 'frag A'), hit(302, 9921, 'frag B')]),
+    };
+    const llm: any = {
+      chatCompletion: jest.fn().mockResolvedValue({ content: 'вибачте, не можу' }),
+    };
+    const tools = new ProceduralTools(
+      {} as any, {} as any, {} as any, {} as any, {} as any,
+      llm, undefined, undefined, edsrVectorizer,
+    );
+    const out = await run(tools, { procedure_code: 'cac', query: 'теза' });
+
+    expect(out.stance_classification_unavailable).toBe(true);
+    expect(out.search_method).toBe('semantic_semantic_hnsw_unclassified');
+    expect(out.pro).toEqual([]);
+    expect(out.contra).toEqual([]);
+    expect(out.relevant_practice.map((c: any) => c.doc_id)).toEqual([301, 302]);
+    // Repair retry was attempted (2 calls: initial + repair).
+    expect(llm.chatCompletion).toHaveBeenCalledTimes(2);
+  });
 });

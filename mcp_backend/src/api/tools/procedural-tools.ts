@@ -67,6 +67,71 @@ function trimFtsQuery(query: string, maxWords: number = 6): string {
   return words.slice(0, maxWords).join(' ');
 }
 
+/**
+ * Race a promise against a soft deadline. On timeout (or rejection) resolves to `null`
+ * instead of throwing, so callers can degrade gracefully rather than failing the whole
+ * tool. The underlying promise is left to settle on its own (we just stop awaiting it);
+ * this is intentional — qdrant/LLM calls have their own client timeouts.
+ */
+async function withSoftTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => {
+      logger.warn(`[${label}] soft timeout after ${ms}ms — degrading`);
+      resolve(null);
+    }, ms);
+  });
+  try {
+    return await Promise.race([
+      p.then(
+        (v) => v,
+        (e: any) => {
+          logger.warn(`[${label}] failed: ${e?.message || e}`);
+          return null;
+        },
+      ),
+      timeout,
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * Parse the holding-classifier's JSON, salvaging the largest `{...}` block if the model
+ * wrapped it in prose. Returns `[]` on total failure (caller treats as "unparseable").
+ */
+function parseClassifications(content: string | undefined | null): any[] {
+  const raw = content || '';
+  const tryParse = (s: string): any[] | null => {
+    try {
+      const obj = JSON.parse(s);
+      return Array.isArray(obj?.classifications) ? obj.classifications : null;
+    } catch {
+      return null;
+    }
+  };
+  let list = tryParse(raw);
+  if (!list) {
+    const first = raw.indexOf('{');
+    const last = raw.lastIndexOf('}');
+    if (first >= 0 && last > first) list = tryParse(raw.slice(first, last + 1));
+  }
+  return list || [];
+}
+
+// Per-step soft budgets for the pro/contra holding-classification path. The registry caps
+// the whole tool at 120s (tool-registry.ts); these keep each external leg bounded so a slow
+// qdrant or an overloaded LLM degrades to a useful partial answer instead of a hard timeout.
+const PRO_CONTRA_GATHER_BUDGET_MS = 15_000;
+const PRO_CONTRA_CLASSIFY_BUDGET_MS = 35_000;
+// Past this point on the wall clock, don't start the multi-instance keyword-FTS fallback —
+// return an honest signal instead, so we always finish under the 120s registry cap.
+const PRO_CONTRA_OVERALL_SOFT_BUDGET_MS = 95_000;
+// Bound the cross-network qdrant semantic leg of find_similar (defense-in-depth over the
+// qdrant client's own 12s timeout: embedding + search + queue on the concurrency semaphore).
+const FIND_SIMILAR_SEMANTIC_BUDGET_MS = 18_000;
+
 export class ProceduralTools extends BaseToolHandler {
   constructor(
     private zoAdapter: EdsrLocalAdapter,
@@ -404,70 +469,98 @@ export class ProceduralTools extends BaseToolHandler {
 
     const timeRangeParsed = parseTimeRangeToDates(args.time_range);
     const justiceKind = mapProcedureCodeToJusticeKind(procedureCode);
+    const startedAt = Date.now();
 
     // Primary path: retrieve candidates once (no pro/contra keyword suffix) and let the LLM
     // classify each decision's holding relative to the user's thesis (supports / opposes /
     // not-on-point) with a cited fragment. The legacy keyword suffix (задовольнити/відмовити)
     // is non-discriminative and cannot separate opposing holdings — kept only as a fallback
-    // when the LLM or vectorizer is unavailable.
+    // when the LLM or vectorizer is unavailable. Each external leg runs under a soft deadline
+    // so a slow qdrant/LLM degrades to a partial answer instead of hitting the 120s hard cap.
     if (this.llm) {
-      try {
-        const gathered = await this.gatherProContraCandidates(
+      const gathered = await withSoftTimeout(
+        this.gatherProContraCandidates(
           query, justiceKind, timeRangeParsed, Math.min(12, Math.max(6, limit * 2)),
+        ),
+        PRO_CONTRA_GATHER_BUDGET_MS, 'comparePracticeProContra.gather',
+      );
+      if (gathered && gathered.candidates.length > 0) {
+        const stances = await withSoftTimeout(
+          this.classifyHoldings(query, gathered.candidates),
+          PRO_CONTRA_CLASSIFY_BUDGET_MS, 'comparePracticeProContra.classify',
         );
-        if (gathered.candidates.length > 0) {
-          const stances = await this.classifyHoldings(query, gathered.candidates);
-          if (stances) {
-            const pro: any[] = [];
-            const contra: any[] = [];
-            for (const c of gathered.candidates) {
-              const v = stances.get(c.doc_id);
-              if (!v) continue;
-              const row = {
-                doc_id: c.doc_id,
-                court_code: c.court_code,
-                date: c.date,
-                case_number: c.case_number,
-                snippet: v.quote || c.fragment,
-                confidence: v.confidence,
-              };
-              if (v.stance === 'supports') pro.push(row);
-              else if (v.stance === 'opposes') contra.push(row);
-              // not_on_point → dropped
-            }
-            const byConf = (a: any, b: any) => (b.confidence || 0) - (a.confidence || 0);
-            pro.sort(byConf);
-            contra.sort(byConf);
-            const proCases = pro.slice(0, limit);
-            const contraCases = contra.slice(0, limit);
-
-            const payload: any = {
-              procedure_code: procedureCode,
-              query,
-              time_range: args.time_range,
-              search_method: `llm_holding_${gathered.method}`,
-              pro: proCases,
-              contra: contraCases,
-              total_pro: proCases.length,
-              total_contra: contraCases.length,
+        if (stances) {
+          const pro: any[] = [];
+          const contra: any[] = [];
+          for (const c of gathered.candidates) {
+            const v = stances.get(c.doc_id);
+            if (!v) continue;
+            const row = {
+              doc_id: c.doc_id,
+              court_code: c.court_code,
+              date: c.date,
+              case_number: c.case_number,
+              snippet: v.quote || c.fragment,
+              confidence: v.confidence,
             };
-            if (proCases.length === 0 || contraCases.length === 0) {
-              payload.insufficient_practice = true;
-              payload.hint = proCases.length === 0 && contraCases.length === 0
-                ? 'Серед знайдених рішень немає таких, що прямо підтверджують або спростовують тезу. Спробуйте переформулювати тезу або скористайтесь find_similar_fact_pattern_cases.'
-                : (proCases.length === 0
-                    ? 'Знайдено лише практику ПРОТИ тези; практики ЗА не виявлено серед кандидатів.'
-                    : 'Знайдено лише практику ЗА тезу; практики ПРОТИ не виявлено серед кандидатів.');
-            }
-            if (timeRangeParsed.warning) payload.warning = timeRangeParsed.warning;
-            return this.wrapResponse(payload);
+            if (v.stance === 'supports') pro.push(row);
+            else if (v.stance === 'opposes') contra.push(row);
+            // not_on_point → dropped
           }
+          const byConf = (a: any, b: any) => (b.confidence || 0) - (a.confidence || 0);
+          pro.sort(byConf);
+          contra.sort(byConf);
+          const proCases = pro.slice(0, limit);
+          const contraCases = contra.slice(0, limit);
+
+          const payload: any = {
+            procedure_code: procedureCode,
+            query,
+            time_range: args.time_range,
+            search_method: `llm_holding_${gathered.method}`,
+            pro: proCases,
+            contra: contraCases,
+            total_pro: proCases.length,
+            total_contra: contraCases.length,
+          };
+          if (proCases.length === 0 || contraCases.length === 0) {
+            payload.insufficient_practice = true;
+            payload.hint = proCases.length === 0 && contraCases.length === 0
+              ? 'Серед знайдених рішень немає таких, що прямо підтверджують або спростовують тезу. Спробуйте переформулювати тезу або скористайтесь find_similar_fact_pattern_cases.'
+              : (proCases.length === 0
+                  ? 'Знайдено лише практику ПРОТИ тези; практики ЗА не виявлено серед кандидатів.'
+                  : 'Знайдено лише практику ЗА тезу; практики ПРОТИ не виявлено серед кандидатів.');
+          }
+          if (timeRangeParsed.warning) payload.warning = timeRangeParsed.warning;
+          return this.wrapResponse(payload);
         }
-      } catch (err: any) {
-        logger.warn('[comparePracticeProContra] holding-classification path failed, falling back to keyword FTS', {
-          error: err?.message,
-        });
+        // Classification timed out or could not be parsed. Don't discard the (good) semantic
+        // candidates and drop to the non-discriminative keyword-FTS path — return them as
+        // relevant practice with stances unlabeled so the user still gets cited decisions.
+        return this.buildUnclassifiedProContra(
+          procedureCode, query, args.time_range, gathered, limit, timeRangeParsed,
+        );
       }
+      // gather empty or timed out → fall through to keyword-FTS fallback (budget permitting).
+    }
+
+    // If the slow primary path already burned most of the wall-clock budget, skip the
+    // multi-instance keyword-FTS scan and return an honest signal — better than risking the
+    // 120s hard cap.
+    if (Date.now() - startedAt > PRO_CONTRA_OVERALL_SOFT_BUDGET_MS) {
+      const payload: any = {
+        procedure_code: procedureCode,
+        query,
+        time_range: args.time_range,
+        pro: [],
+        contra: [],
+        total_pro: 0,
+        total_contra: 0,
+        insufficient_practice: true,
+        hint: 'Не вдалося отримати практику в межах часу очікування. Спробуйте звузити запит або повторіть пізніше.',
+      };
+      if (timeRangeParsed.warning) payload.warning = timeRangeParsed.warning;
+      return this.wrapResponse(payload);
     }
 
     const ftsSearch = async (suffix: string) => {
@@ -568,6 +661,43 @@ export class ProceduralTools extends BaseToolHandler {
   }
 
   /**
+   * Degraded pro/contra payload used when holding-classification is unavailable (LLM soft
+   * timeout or unparseable response). Returns the semantic candidates as unlabeled relevant
+   * practice so the user still gets cited decisions to review by hand, with an explicit flag.
+   */
+  private buildUnclassifiedProContra(
+    procedureCode: string,
+    query: string,
+    timeRange: any,
+    gathered: { candidates: Array<{ doc_id: number; court_code?: number; date?: string; case_number?: string; fragment: string }>; method: string },
+    limit: number,
+    timeRangeParsed: { warning?: string },
+  ): ToolResult {
+    const relevant = gathered.candidates.slice(0, limit).map((c) => ({
+      doc_id: c.doc_id,
+      court_code: c.court_code,
+      date: c.date,
+      case_number: c.case_number,
+      snippet: c.fragment,
+    }));
+    const payload: any = {
+      procedure_code: procedureCode,
+      query,
+      time_range: timeRange,
+      search_method: `semantic_${gathered.method}_unclassified`,
+      pro: [],
+      contra: [],
+      total_pro: 0,
+      total_contra: 0,
+      stance_classification_unavailable: true,
+      relevant_practice: relevant,
+      hint: 'Класифікацію позицій «за/проти» не вдалося виконати вчасно (модель перевантажена або відповідь некоректна). Нижче — релевантна практика без розмітки позицій; перевірте холдинги вручну або повторіть запит.',
+    };
+    if (timeRangeParsed.warning) payload.warning = timeRangeParsed.warning;
+    return this.wrapResponse(payload);
+  }
+
+  /**
    * Retrieve distinct candidate decisions for pro/contra classification — semantic search
    * (preferred: relevant chunk text becomes the fragment) with an FTS fallback. No pro/contra
    * keyword suffix here; discrimination is done downstream by the LLM.
@@ -645,7 +775,9 @@ export class ProceduralTools extends BaseToolHandler {
   /**
    * LLM holding classification: for each candidate decision, classify its holding relative to
    * the user's thesis as supports / opposes / not_on_point, with a short cited fragment and
-   * confidence. One batched call. Returns null on parse failure so the caller can fall back.
+   * confidence. One batched call on the 'quick' tier (Haiku) — the task is a constrained
+   * 3-way classification over short fragments, so the cheap/fast tier is sufficient and keeps
+   * the call well inside its soft budget. Returns null only when even a repair pass fails.
    */
   private async classifyHoldings(
     thesis: string,
@@ -676,18 +808,38 @@ export class ProceduralTools extends BaseToolHandler {
         temperature: 0.1,
         response_format: { type: 'json_object' },
       },
-      'standard',
+      'quick',
     );
 
-    let parsed: any;
-    try {
-      parsed = JSON.parse(response.content || '{}');
-    } catch {
-      logger.warn('[classifyHoldings] non-JSON LLM response');
+    // Parse with substring-salvage; the 'quick' tier occasionally wraps JSON in prose.
+    let list = parseClassifications(response.content);
+    if (list.length === 0) {
+      // One cheap repair pass: ask the model to re-emit strict JSON from its own output.
+      logger.warn('[classifyHoldings] unparseable response — attempting repair retry');
+      const repair = await this.llm.chatCompletion(
+        {
+          messages: [
+            { role: 'system', content: 'Поверни ВИКЛЮЧНО валідний JSON без пояснень.' },
+            {
+              role: 'user',
+              content:
+                'Виправ цей текст у валідний JSON формату ' +
+                '{"classifications":[{"doc_id":<число>,"stance":"supports|opposes|not_on_point",' +
+                '"quote":"<рядок>","confidence":<0..1>}]}:\n\n' +
+                (response.content || '').slice(0, 4000),
+            },
+          ],
+          temperature: 0,
+          response_format: { type: 'json_object' },
+        },
+        'quick',
+      );
+      list = parseClassifications(repair.content);
+    }
+    if (list.length === 0) {
+      logger.warn('[classifyHoldings] no classifications after repair');
       return null;
     }
-    const list = Array.isArray(parsed?.classifications) ? parsed.classifications : [];
-    if (list.length === 0) return null;
 
     const validDocIds = new Set(candidates.map(c => c.doc_id));
     const map = new Map<number, { stance: 'supports' | 'opposes' | 'not_on_point'; quote: string; confidence: number }>();
@@ -750,18 +902,23 @@ export class ProceduralTools extends BaseToolHandler {
     // unlike the multi-instance FTS loop below, which scans the full-text index 3×
     // and routinely blew the 60s tool timeout on practice_analysis queries.
     if (this.edsrVectorizer) {
-      try {
-        const semFilters: EdrsrSearchFilters = {
-          ...(justiceKind !== null ? { justice_kind: justiceKind } : {}),
-          ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
-          ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
-        };
-        // Over-fetch chunks, then dedupe to distinct cases (a case may match on
-        // several chunks; we want the top distinct decisions). When restricting to a
-        // court level (SC is a minority of the corpus), over-fetch much wider so enough
-        // 99* decisions survive the post-filter.
-        const overfetch = courtLevelFilter ? Math.max(limit * 20, 200) : limit * 4;
-        const hits = await this.edsrVectorizer.semanticSearch(semanticQuery, semFilters, overfetch);
+      const semFilters: EdrsrSearchFilters = {
+        ...(justiceKind !== null ? { justice_kind: justiceKind } : {}),
+        ...(timeRangeParsed.date_from ? { date_from: timeRangeParsed.date_from } : {}),
+        ...(timeRangeParsed.date_to ? { date_to: timeRangeParsed.date_to } : {}),
+      };
+      // Over-fetch chunks, then dedupe to distinct cases (a case may match on
+      // several chunks; we want the top distinct decisions). When restricting to a
+      // court level (SC is a minority of the corpus), over-fetch much wider so enough
+      // 99* decisions survive the post-filter.
+      const overfetch = courtLevelFilter ? Math.max(limit * 20, 200) : limit * 4;
+      // Soft-bound the cross-network qdrant leg; on timeout/failure `hits` is null and we
+      // fall through to the FTS fallback below instead of stalling toward the 120s hard cap.
+      const hits = await withSoftTimeout(
+        this.edsrVectorizer.semanticSearch(semanticQuery, semFilters, overfetch),
+        FIND_SIMILAR_SEMANTIC_BUDGET_MS, 'findSimilarFactPatternCases.semantic',
+      );
+      if (hits) {
         const seen = new Set<number>();
         for (const h of hits) {
           if (seen.has(h.doc_id)) continue;
@@ -778,8 +935,6 @@ export class ProceduralTools extends BaseToolHandler {
           if (results.length >= limit) break;
         }
         if (results.length > 0) searchMethod = 'semantic_hnsw';
-      } catch (err: any) {
-        logger.warn('[findSimilarFactPatternCases] semantic HNSW search failed, falling back to FTS', { error: err.message });
       }
     }
 
