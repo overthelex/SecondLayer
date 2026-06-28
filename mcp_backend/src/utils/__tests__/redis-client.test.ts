@@ -58,14 +58,26 @@ describe('redis-client', () => {
     it('should use REDIS_URL env var when set', async () => {
       process.env.REDIS_URL = 'redis://custom-host:6380';
       await getRedisClient();
-      expect(mockCreateClient).toHaveBeenCalledWith({ url: 'redis://custom-host:6380' });
+      expect(mockCreateClient).toHaveBeenCalledWith(
+        expect.objectContaining({ url: 'redis://custom-host:6380' }),
+      );
       delete process.env.REDIS_URL;
     });
 
     it('should fall back to redis://localhost:6379 when REDIS_URL is not set', async () => {
       delete process.env.REDIS_URL;
       await getRedisClient();
-      expect(mockCreateClient).toHaveBeenCalledWith({ url: 'redis://localhost:6379' });
+      expect(mockCreateClient).toHaveBeenCalledWith(
+        expect.objectContaining({ url: 'redis://localhost:6379' }),
+      );
+    });
+
+    it('should configure keepAlive + pingInterval so dead connections fail fast', async () => {
+      delete process.env.REDIS_URL;
+      await getRedisClient();
+      const opts = mockCreateClient.mock.calls[0][0];
+      expect(opts.pingInterval).toBeGreaterThan(0);
+      expect(opts.socket?.keepAlive).toBe(true);
     });
 
     it('should return the same singleton on repeated calls', async () => {
