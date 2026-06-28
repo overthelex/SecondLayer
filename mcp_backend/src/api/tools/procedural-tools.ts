@@ -20,6 +20,7 @@ import { EdsrVectorizerService, EdrsrSearchFilters } from '../../services/edrsr-
 import { SectionType } from '../../types/index.js';
 import { logger } from '../../utils/logger.js';
 import { extractSearchTermsWithAI } from '../../utils/html-parser.js';
+import { extractDispositiveFromText, classifyOutcome, DecisionOutcome } from '../../utils/dispositive.js';
 import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import {
@@ -135,7 +136,15 @@ function isCourtLevelMatch(courtCode: any, filter?: 'SC' | 'GrandChamber'): bool
 // the whole tool at 120s (tool-registry.ts); these keep each external leg bounded so a slow
 // qdrant or an overloaded LLM degrades to a useful partial answer instead of a hard timeout.
 const PRO_CONTRA_GATHER_BUDGET_MS = 15_000;
+// Batched DB fetch of each candidate's dispositive (резолютивна частина) before classification,
+// so the LLM anchors the pro/contra stance to the operative outcome instead of a snippet that
+// merely restates the norm. One ANY($1) query over the candidate doc_ids — fast; the budget is
+// defense-in-depth so a slow/locked edrsr_fulltext degrades to snippet-only classification.
+const PRO_CONTRA_DISPOSITIVE_BUDGET_MS = 8_000;
 const PRO_CONTRA_CLASSIFY_BUDGET_MS = 35_000;
+// Per-candidate dispositive slice fed to the classifier. The operative result sits in the first
+// few hundred chars after the marker; keep it tight so the batched prompt stays bounded.
+const PRO_CONTRA_DISPOSITIVE_SLICE_CHARS = 900;
 // Past this point on the wall clock, don't start the multi-instance keyword-FTS fallback —
 // return an honest signal instead, so we always finish under the 120s registry cap.
 const PRO_CONTRA_OVERALL_SOFT_BUDGET_MS = 95_000;
@@ -510,8 +519,17 @@ export class ProceduralTools extends BaseToolHandler {
         PRO_CONTRA_GATHER_BUDGET_MS, 'comparePracticeProContra.gather',
       );
       if (gathered && gathered.candidates.length > 0) {
+        // Anchor classification to the operative part: fetch each candidate's dispositive so the
+        // LLM decides stance from the actual outcome (задоволено/відмовлено/скасовано), not a
+        // topically-similar snippet that only restates the norm. Best-effort — on timeout the
+        // map is empty and classification degrades to snippet-only.
+        const dispositives = await withSoftTimeout(
+          this.fetchDispositives(gathered.candidates.map(c => c.doc_id)),
+          PRO_CONTRA_DISPOSITIVE_BUDGET_MS, 'comparePracticeProContra.dispositive',
+        ) || new Map<number, { dispositive: string; outcome: DecisionOutcome }>();
+
         const stances = await withSoftTimeout(
-          this.classifyHoldings(query, gathered.candidates),
+          this.classifyHoldings(query, gathered.candidates, dispositives),
           PRO_CONTRA_CLASSIFY_BUDGET_MS, 'comparePracticeProContra.classify',
         );
         if (stances) {
@@ -520,12 +538,14 @@ export class ProceduralTools extends BaseToolHandler {
           for (const c of gathered.candidates) {
             const v = stances.get(c.doc_id);
             if (!v) continue;
+            const disp = dispositives.get(c.doc_id);
             const row = {
               doc_id: c.doc_id,
               court_code: c.court_code,
               date: c.date,
               case_number: c.case_number,
               snippet: v.quote || c.fragment,
+              outcome: disp?.outcome || 'unknown',
               confidence: v.confidence,
             };
             if (v.stance === 'supports') pro.push(row);
@@ -870,31 +890,83 @@ export class ProceduralTools extends BaseToolHandler {
   }
 
   /**
+   * Batch-fetch the dispositive (резолютивна частина) of each candidate decision and derive a
+   * coarse outcome label. One ANY($1) query over edrsr_fulltext keeps this to a single round
+   * trip; the dispositive is sliced tight (operative result sits right after the marker) so the
+   * downstream classifier prompt stays bounded. Best-effort: any DB error returns an empty map
+   * and classification degrades to snippet-only (legacy behaviour).
+   */
+  private async fetchDispositives(
+    docIds: number[],
+  ): Promise<Map<number, { dispositive: string; outcome: DecisionOutcome }>> {
+    const out = new Map<number, { dispositive: string; outcome: DecisionOutcome }>();
+    const ids = [...new Set(docIds.filter((id) => Number.isFinite(id)))];
+    if (!this.db || ids.length === 0) return out;
+    try {
+      const res = await this.db.query(
+        `SELECT doc_id, full_text FROM edrsr_fulltext WHERE doc_id = ANY($1)`,
+        [ids],
+      );
+      for (const r of res.rows) {
+        const { dispositive } = extractDispositiveFromText(r.full_text || '');
+        if (!dispositive) continue;
+        out.set(Number(r.doc_id), {
+          dispositive: dispositive.replace(/\s+/g, ' ').slice(0, PRO_CONTRA_DISPOSITIVE_SLICE_CHARS),
+          outcome: classifyOutcome(dispositive),
+        });
+      }
+    } catch (err: any) {
+      logger.warn('[fetchDispositives] failed — degrading to snippet-only', { error: err?.message });
+    }
+    return out;
+  }
+
+  /**
    * LLM holding classification: for each candidate decision, classify its holding relative to
    * the user's thesis as supports / opposes / not_on_point, with a short cited fragment and
    * confidence. One batched call on the 'quick' tier (Haiku) — the task is a constrained
    * 3-way classification over short fragments, so the cheap/fast tier is sufficient and keeps
    * the call well inside its soft budget. Returns null only when even a repair pass fails.
+   *
+   * When a candidate's dispositive is available it is included in the prompt and the model is
+   * instructed to anchor the stance to the operative outcome (задоволено/відмовлено/скасовано)
+   * — not to a snippet that merely restates the norm. This is what prevents the classifier from
+   * inverting a refusal into a "supports".
    */
   private async classifyHoldings(
     thesis: string,
     candidates: Array<{ doc_id: number; case_number?: string; court_code?: number; fragment: string }>,
+    dispositives?: Map<number, { dispositive: string; outcome: DecisionOutcome }>,
   ): Promise<Map<number, { stance: 'supports' | 'opposes' | 'not_on_point'; quote: string; confidence: number }> | null> {
     if (!this.llm) return null;
-    const items = candidates.map((c, i) => (
-      `#${i} doc_id=${c.doc_id} справа=${c.case_number || '—'}\nФрагмент: ${(c.fragment || '').replace(/\s+/g, ' ').slice(0, 800)}`
-    )).join('\n\n');
+    const items = candidates.map((c, i) => {
+      const disp = dispositives?.get(c.doc_id);
+      const lines = [
+        `#${i} doc_id=${c.doc_id} справа=${c.case_number || '—'}`,
+        `Фрагмент: ${(c.fragment || '').replace(/\s+/g, ' ').slice(0, 600)}`,
+      ];
+      if (disp?.dispositive) {
+        lines.push(`Резолютивна частина: ${disp.dispositive}`);
+      }
+      return lines.join('\n');
+    }).join('\n\n');
 
     const system =
-      'Ти суддя-аналітик. Тобі дано ТЕЗУ та фрагменти судових рішень. ' +
-      'Для КОЖНОГО рішення визнач його позицію щодо тези: ' +
+      'Ти суддя-аналітик. Тобі дано ТЕЗУ, релевантний фрагмент і (за наявності) РЕЗОЛЮТИВНУ ' +
+      'ЧАСТИНУ кожного судового рішення. Для КОЖНОГО рішення визнач його позицію щодо тези: ' +
       '"supports" — рішення підтверджує тезу; "opposes" — спростовує тезу; ' +
-      '"not_on_point" — фрагмент не дозволяє визначити позицію щодо тези. ' +
+      '"not_on_point" — неможливо визначити позицію щодо тези. ' +
+      'НАЙВАЖЛИВІШЕ: позиція має відповідати ФАКТИЧНОМУ результату в резолютивній частині ' +
+      '(позов задоволено / у задоволенні відмовлено / рішення скасовано / справу повернено), ' +
+      'а не лише цитуванню норми у фрагменті. Зваж, ХТО подав скаргу: «касаційну скаргу залишити ' +
+      'без задоволення» означає, що в силі лишається попереднє рішення — визнач результат для ПОЗОВУ, ' +
+      'а не для скарги. Якщо резолютивна частина суперечить фрагменту — довіряй резолютивній частині. ' +
       'Якщо не впевнений — став "not_on_point". Відповідай ВИКЛЮЧНО валідним JSON.';
     const user =
       `ТЕЗА: ${thesis}\n\nРІШЕННЯ:\n${items}\n\n` +
       'Поверни JSON: {"classifications":[{"doc_id":<число>,"stance":"supports|opposes|not_on_point",' +
-      '"quote":"<коротка цитата з фрагмента українською, ≤200 симв.>","confidence":<0..1>}]}';
+      '"quote":"<коротка цитата з фрагмента або резолютивної частини українською, ≤200 симв.>",' +
+      '"confidence":<0..1>}]}';
 
     const response = await this.llm.chatCompletion(
       {

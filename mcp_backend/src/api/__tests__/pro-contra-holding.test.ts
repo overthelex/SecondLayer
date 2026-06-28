@@ -131,6 +131,43 @@ describe('comparePracticeProContra — LLM holding classification', () => {
     expect(out.contra.map((c: any) => c.doc_id)).toEqual([103]);
   });
 
+  it('fetches each candidate dispositive, feeds it to the classifier and labels the outcome', async () => {
+    // The semantic snippet only restates the norm; the operative outcome lives in the
+    // dispositive. We assert (a) the dispositive text reaches the classifier prompt and
+    // (b) the programmatic outcome label is attached to the output row.
+    const edsrVectorizer: any = {
+      semanticSearch: jest.fn().mockResolvedValue([
+        hit(601, 9921, 'підставою недійсності є недодержання вимог ст. 203 ЦК'),
+      ]),
+    };
+    const llm: any = {
+      chatCompletion: jest.fn().mockResolvedValue({
+        content: JSON.stringify({
+          classifications: [{ doc_id: 601, stance: 'opposes', quote: 'у задоволенні позову відмовлено', confidence: 0.9 }],
+        }),
+      }),
+    };
+    const db: any = {
+      query: jest.fn().mockResolvedValue({
+        rows: [{ doc_id: 601, full_text: 'мотивувальна частина ... ПОСТАНОВИВ: у задоволенні позову про визнання правочину недійсним відмовити.' }],
+      }),
+    };
+    const tools = new ProceduralTools(
+      {} as any, {} as any, {} as any, {} as any, {} as any,
+      llm, undefined, db, edsrVectorizer,
+    );
+    const out = await run(tools, { procedure_code: 'cpc', query: 'теза' });
+
+    // Dispositive was queried by doc_id and its text was placed into the classifier prompt.
+    expect(db.query).toHaveBeenCalled();
+    const userPrompt = llm.chatCompletion.mock.calls[0][0].messages[1].content;
+    expect(userPrompt).toContain('Резолютивна частина:');
+    expect(userPrompt).toContain('у задоволенні позову');
+    // Programmatic outcome label is surfaced on the row.
+    expect(out.contra[0].doc_id).toBe(601);
+    expect(out.contra[0].outcome).toBe('denied');
+  });
+
   it('seeds contra practice via FTS when the semantic pool skews pro', async () => {
     const tools = makeTools({
       // Semantic leg returns only thesis-agreeing decisions.

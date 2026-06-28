@@ -12,24 +12,10 @@
 
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { logger } from '../../utils/logger.js';
-
-const DISPOSITIVE_MARKERS = [
-  'ВИРІШИВ:',
-  'УХВАЛИВ:',
-  'ПОСТАНОВИВ:',
-  'ВИРОК',
-  'В И Р І Ш И В',
-  'У Х В А Л И В',
-  'П О С Т А Н О В И В',
-  'в и р і ш и в',
-  'у х в а л и в',
-  'п о с т а н о в и в',
-];
+import { extractDispositiveFromText } from '../../utils/dispositive.js';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
-const DISPOSITIVE_MAX_CHARS = 8000;
-const DISPOSITIVE_FALLBACK_TAIL_CHARS = 4000;
 const STATEMENT_TIMEOUT_MS = 60_000;
 
 export class EdsrExtendedTools extends BaseToolHandler {
@@ -282,44 +268,26 @@ export class EdsrExtendedTools extends BaseToolHandler {
         });
       }
 
-      let bestPos = -1;
-      let bestMarker: string | null = null;
-      for (const marker of DISPOSITIVE_MARKERS) {
-        const pos = fullText.indexOf(marker);
-        if (pos >= 0 && (bestPos === -1 || pos < bestPos)) {
-          bestPos = pos;
-          bestMarker = marker;
-        }
-      }
-
-      let dispositive: string;
-      let isFallback = false;
-
-      if (bestPos >= 0) {
-        dispositive = fullText.slice(bestPos, bestPos + DISPOSITIVE_MAX_CHARS);
-      } else {
-        const tailStart = Math.max(0, fullText.length - DISPOSITIVE_FALLBACK_TAIL_CHARS);
-        dispositive = fullText.slice(tailStart);
-        isFallback = true;
-      }
+      const { dispositive, marker, marker_position, is_fallback } =
+        extractDispositiveFromText(fullText);
 
       logger.info('[EdsrExtendedTools] edrsr_get_decision_dispositive', {
         doc_id: docId,
-        marker: bestMarker,
-        marker_position: bestPos >= 0 ? bestPos : null,
+        marker,
+        marker_position,
         text_length: textLength,
-        is_fallback: isFallback,
+        is_fallback,
         dispositive_length: dispositive.length,
       });
 
       return this.wrapResponse({
         doc_id: Number(docId) || docId,
         dispositive,
-        marker: bestMarker,
-        marker_position: bestPos >= 0 ? bestPos : null,
+        marker,
+        marker_position,
         text_length: textLength,
         dispositive_length: dispositive.length,
-        is_fallback: isFallback,
+        is_fallback,
         external_url: `https://reyestr.court.gov.ua/Review/${docId}`,
       });
     } catch (err: any) {
