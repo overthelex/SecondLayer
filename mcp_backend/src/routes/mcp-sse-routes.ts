@@ -16,7 +16,9 @@ import { logger } from '../utils/logger.js';
 import { sanitizeId, maskSensitive } from '../utils/sanitize-log.js';
 import { requestContext } from '../utils/openai-client.js';
 import { MCPSSEServer } from '../api/mcp-sse-server.js';
-import { ToolRegistry } from '../api/tool-registry.js';
+import { ToolRegistry, ToolDefinition } from '../api/tool-registry.js';
+import { ChatService } from '../services/chat-service.js';
+import { runWithABUser } from '../infrastructure/adapters/llm-adapter.js';
 import { OAuthService } from '../services/oauth-service.js';
 import { ApiKeyService } from '../services/api-key-service.js';
 import { CostTracker } from '../services/cost-tracker.js';
@@ -29,6 +31,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema, isInitializeRequest } fr
 export function createMCPSSERoutes(deps: {
   mcpSSEServer: MCPSSEServer;
   toolRegistry: ToolRegistry;
+  chatService: ChatService;
   oauthService: OAuthService;
   apiKeyService: ApiKeyService;
   costTracker: CostTracker;
@@ -236,6 +239,106 @@ export function createMCPSSERoutes(deps: {
           content: [{ type: 'text', text: `Error: ${error.message}` }],
           isError: true,
         };
+      }
+    });
+
+    return mcpServer;
+  }
+
+  // ========================= MCP v2 (single orchestrating tool) =========================
+  // v2 exposes ONE tool — `legal_chat` — instead of the ~112 low-level tools that v1
+  // surfaces. The tool wraps the full ChatService (v3) pipeline: intent classification →
+  // plan → curated tool execution → grounded synthesis. External MCP clients (Claude
+  // Code/Desktop) ask a natural-language legal question and get a cited answer back,
+  // mirroring what the web chat does, rather than choosing among 112 raw tools.
+
+  const LEGAL_CHAT_TOOL: ToolDefinition = {
+    name: 'legal_chat',
+    description:
+      'Ukrainian legal research assistant. Ask a legal question or describe a task in natural ' +
+      'language (Ukrainian preferred; English accepted). It runs the full SecondLayer pipeline — ' +
+      'planning and executing retrieval over court decisions (ЄДРСР), legislation, parliament and ' +
+      'business registries — and returns a grounded answer with citations. Prefer this single tool ' +
+      'over calling low-level search tools directly.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'The legal question or task, in natural language (uk-UA preferred).',
+        },
+        budget: {
+          type: 'string',
+          enum: ['quick', 'standard', 'deep'],
+          description: 'Depth/cost tradeoff. quick = cheap/fast, deep = exhaustive. Default: standard.',
+        },
+        internetEnabled: {
+          type: 'boolean',
+          description: 'Allow web sources in addition to internal legal data. Default: true.',
+        },
+      },
+      required: ['query'],
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  };
+
+  // Build an MCP Server that exposes only `legal_chat`. Billing/cost-tracking is handled
+  // inside the ChatService pipeline (keyed by requestId), so — unlike the per-tool v1 path —
+  // we do not create tracking records or deduct credits here.
+  function buildMcpServerV2(userId: string | undefined, _clientKey: string | undefined): Server {
+    const safeUserId = sanitizeId(userId || 'anonymous');
+    const mcpServer = new Server(
+      { name: 'secondlayer-mcp', version: '2.0.0' },
+      { capabilities: { tools: {} } }
+    );
+
+    mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [LEGAL_CHAT_TOOL] }));
+
+    mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
+      const toolName = request.params.name;
+      const args = request.params.arguments || {};
+      const requestId = `mcp-v2-${uuidv4()}`;
+
+      if (toolName !== 'legal_chat') {
+        return {
+          content: [{ type: 'text', text: `Error: unknown tool '${toolName}'. MCP v2 exposes only 'legal_chat'.` }],
+          isError: true,
+        };
+      }
+
+      const query = String(args.query || '').trim();
+      if (!query) {
+        return { content: [{ type: 'text', text: 'Error: "query" is required.' }], isError: true };
+      }
+      const budget = ['quick', 'standard', 'deep'].includes(String(args.budget))
+        ? (String(args.budget) as 'quick' | 'standard' | 'deep')
+        : 'standard';
+
+      try {
+        logger.info('[MCP v2] legal_chat call', { userId: safeUserId, requestId, budget });
+
+        let answer = '';
+        let totalCostUsd = 0;
+        await runWithABUser(userId || '', async () => {
+          for await (const event of deps.chatService.chat({
+            query,
+            budget,
+            userId,
+            requestId,
+            internetEnabled: args.internetEnabled !== false,
+          })) {
+            if (event.type === 'complete') {
+              answer = event.data?.answer || answer;
+              totalCostUsd = event.data?.total_cost_usd || totalCostUsd;
+            }
+          }
+        });
+
+        logger.info('[MCP v2] legal_chat done', { userId: safeUserId, requestId, costUsd: totalCostUsd });
+        return { content: [{ type: 'text', text: answer || 'Не вдалося згенерувати відповідь.' }] };
+      } catch (error: any) {
+        logger.error('[MCP v2] legal_chat error', { requestId, error: error.message });
+        return { content: [{ type: 'text', text: `Error: ${error.message}` }], isError: true };
       }
     });
 
@@ -531,6 +634,11 @@ export function createMCPSSERoutes(deps: {
   // POST /v1/mcp - JSON-RPC requests (initialize + tool calls). Stateful via Mcp-Session-Id.
   router.post('/v1/mcp', (async (req: DualAuthRequest, res: Response) => {
     try {
+      // Deprecated in favour of /api/v2/mcp (single `legal_chat` tool). v1 still serves the
+      // full ~112-tool surface for backward compatibility; advertise the successor to clients.
+      res.setHeader('Deprecation', 'true');
+      res.setHeader('Link', '</api/v2/mcp>; rel="successor-version"');
+
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
       // Reuse an existing session if present
@@ -621,6 +729,97 @@ export function createMCPSSERoutes(deps: {
   router.get('/.well-known/oauth-protected-resource/api/v1/mcp', mcpResourceMetadata);
   router.get('/.well-known/oauth-protected-resource/v1/mcp', mcpResourceMetadata);
 
+  // ========================= /v2/mcp (Streamable HTTP, single tool) =========================
+  // Canonical transport. Same OAuth/session mechanics as /v1/mcp, but the wired MCP server
+  // exposes only `legal_chat` (see buildMcpServerV2). Publicly reached at /api/v2/mcp.
+  const MCP_V2_RESOURCE_METADATA_PATH = '/.well-known/oauth-protected-resource/api/v2/mcp';
+
+  router.post('/v2/mcp', (async (req: DualAuthRequest, res: Response) => {
+    try {
+      const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+      if (sessionId && streamableSessions.has(sessionId)) {
+        const transport = streamableSessions.get(sessionId)!;
+        return await transport.handleRequest(req, res, req.body);
+      }
+
+      if (sessionId || !isInitializeRequest(req.body)) {
+        return res.status(400).json({
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Bad Request: no valid session ID for non-initialize request' },
+          id: null,
+        });
+      }
+
+      const auth = await authenticateMcpBearer(req, res, '[MCP v2/mcp]', MCP_V2_RESOURCE_METADATA_PATH);
+      if (!auth) return; // response already sent
+
+      const { userId, clientKey } = auth;
+      const mcpServer = buildMcpServerV2(userId, clientKey);
+
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => uuidv4(),
+        onsessioninitialized: (sid: string) => {
+          streamableSessions.set(sid, transport);
+          logger.info('[MCP v2/mcp] Session initialized', { sessionId: sid });
+        },
+      });
+
+      transport.onclose = () => {
+        if (transport.sessionId) {
+          streamableSessions.delete(transport.sessionId);
+          logger.info('[MCP v2/mcp] Session closed', { sessionId: transport.sessionId });
+        }
+        mcpServer.close();
+      };
+
+      await mcpServer.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+    } catch (error: any) {
+      logger.error('[MCP v2/mcp] POST error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: '2.0',
+          error: { code: -32603, message: 'Internal server error', data: error.message },
+          id: null,
+        });
+      }
+    }
+  }) as any);
+
+  router.get('/v2/mcp', (async (req: DualAuthRequest, res: Response) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (!sessionId || !streamableSessions.has(sessionId)) {
+      const baseUrl = getBaseUrl(req);
+      res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${baseUrl}${MCP_V2_RESOURCE_METADATA_PATH}"`);
+      return res.status(400).json({ error: 'Invalid or missing Mcp-Session-Id', code: 'INVALID_SESSION' });
+    }
+    const transport = streamableSessions.get(sessionId)!;
+    await transport.handleRequest(req, res);
+  }) as any);
+
+  router.delete('/v2/mcp', (async (req: DualAuthRequest, res: Response) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (!sessionId || !streamableSessions.has(sessionId)) {
+      return res.status(400).json({ error: 'Invalid or missing Mcp-Session-Id', code: 'INVALID_SESSION' });
+    }
+    const transport = streamableSessions.get(sessionId)!;
+    await transport.handleRequest(req, res);
+  }) as any);
+
+  // RFC 9728 protected-resource metadata for the v2 transport.
+  const mcpV2ResourceMetadata = (req: Request, res: Response) => {
+    const baseUrl = getBaseUrl(req);
+    res.json({
+      resource: `${baseUrl}/api/v2/mcp`,
+      authorization_servers: [baseUrl],
+      scopes_supported: ['mcp'],
+      bearer_methods_supported: ['header'],
+    });
+  };
+  router.get('/.well-known/oauth-protected-resource/api/v2/mcp', mcpV2ResourceMetadata);
+  router.get('/.well-known/oauth-protected-resource/v2/mcp', mcpV2ResourceMetadata);
+
   // ========================= /mcp discovery =========================
 
   // GET /mcp - MCP discovery endpoint (public, rate limited)
@@ -645,6 +844,9 @@ export function createMCPSSERoutes(deps: {
         sse: '/sse',
         'sse-standard': '/v1/sse',
         http: '/api/tools',
+        'streamable-http-v1': '/api/v1/mcp',
+        // Canonical: single `legal_chat` tool wrapping the full chat pipeline.
+        'streamable-http-v2': '/api/v2/mcp',
       },
       tools: tools.map(t => ({
         name: t.name,
