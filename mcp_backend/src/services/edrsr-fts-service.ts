@@ -221,8 +221,134 @@ const FTS_STATEMENT_TIMEOUT_MS = 8000;
 export class EdsrFtsService {
   private edsrCache: EdsrCacheService | null = null;
 
+  // LEXAI-1760: years whose plaintiff/defendant spans have been extracted into edrsr_parties
+  // (read from edrsr_parties_coverage). When a count's date range falls entirely inside these
+  // years, countByParty serves it from the indexed parties table instead of the full-text
+  // regex scan. Cached briefly; empty set (table absent / not yet built) ⇒ always FTS fallback.
+  private coveredYearsCache: { years: Set<number>; at: number } | null = null;
+  private static readonly COVERAGE_TTL_MS = 60_000;
+
   setEdsrCache(cache: EdsrCacheService): void {
     this.edsrCache = cache;
+  }
+
+  /**
+   * Years served by the structured parties table (edrsr_parties_coverage), cached for
+   * COVERAGE_TTL_MS. Fail-safe: any error / missing table ⇒ empty set ⇒ callers fall back to
+   * the legacy FTS path, so a half-built or absent table can never break counting.
+   */
+  private async coveredPartyYears(dbPool: any): Promise<Set<number>> {
+    const now = Date.now();
+    if (this.coveredYearsCache && now - this.coveredYearsCache.at < EdsrFtsService.COVERAGE_TTL_MS) {
+      return this.coveredYearsCache.years;
+    }
+    let years = new Set<number>();
+    try {
+      const res = await dbPool.query(`SELECT adj_year FROM edrsr_parties_coverage`);
+      years = new Set(res.rows.map((r: any) => Number(r.adj_year)));
+    } catch {
+      years = new Set();
+    }
+    this.coveredYearsCache = { years, at: now };
+    return years;
+  }
+
+  /** Normalise a party name the same way the backfill builds name_norm (lower, strip quotes,
+   *  collapse whitespace), then escape ILIKE wildcards so it is matched literally as a substring. */
+  private normalizePartyName(partyName: string): string {
+    return partyName
+      .toLowerCase()
+      .replace(/[«»"“”']/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/[%_\\]/g, '\\$&');
+  }
+
+  /**
+   * Fast role count from the structured parties table — used by countByParty only when the
+   * whole [date_from, date_to] year span is covered (see coveredPartyYears). Returns null when
+   * the fast path is not applicable (no/partial date range, an uncovered year, or any error),
+   * which signals the caller to fall back to the FTS scan.
+   */
+  private async countByPartyFast(
+    partyName: string,
+    partyRole: PartyRole | undefined,
+    dbPool: any,
+    filters: { date_from?: string; date_to?: string; justice_kind?: number },
+    sampleLimit: number,
+  ): Promise<PartyCaseCount | null> {
+    const { date_from, date_to } = filters;
+    if (!date_from || !date_to) return null;                       // open-ended range — coverage not guaranteed
+    const yFrom = Number(date_from.slice(0, 4));
+    const yTo = Number(date_to.slice(0, 4));
+    if (!Number.isInteger(yFrom) || !Number.isInteger(yTo) || yFrom > yTo) return null;
+
+    const covered = await this.coveredPartyYears(dbPool);
+    if (covered.size === 0) return null;
+    for (let y = yFrom; y <= yTo; y++) {
+      if (!covered.has(y)) return null;                            // any uncovered year ⇒ fall back to FTS
+    }
+
+    const namePattern = `%${this.normalizePartyName(partyName)}%`;
+    const params: any[] = [namePattern, yFrom, yTo];
+    let p = 4;
+    const conditions = [`name_norm ILIKE $1`, `adj_year BETWEEN $2 AND $3`];
+    if (partyRole && partyRole !== 'any') {
+      conditions.push(`role = $${p}`);
+      params.push(partyRole === 'defendant' ? 2 : 1);
+      p++;
+    } else {
+      conditions.push(`role IN (1, 2)`);
+    }
+    // Day-precision bounds inside the boundary years (the year span is coarse): re-check the
+    // exact adjudication_date so e.g. 2023-03-01..2023-09-30 is honoured, not the whole year.
+    conditions.push(`adjudication_date >= $${p}`); params.push(date_from); p++;
+    conditions.push(`adjudication_date <= $${p}`); params.push(date_to); p++;
+    if (filters.justice_kind) { conditions.push(`justice_kind = $${p}`); params.push(filters.justice_kind); p++; }
+    const whereClause = conditions.join(' AND ');
+
+    try {
+      const countSql = `
+        SELECT court_code, count(DISTINCT doc_id)::int AS n
+        FROM edrsr_parties
+        WHERE ${whereClause}
+        GROUP BY court_code
+        ORDER BY n DESC`;
+      const countResult = await dbPool.query(countSql, params);
+      const by_court = countResult.rows
+        .filter((r: any) => r.court_code !== null)
+        .map((r: any) => ({ court_code: r.court_code, count: r.n }));
+      const total = countResult.rows.reduce((s: number, r: any) => s + r.n, 0);
+
+      let sample: PartyCaseCount['sample'];
+      if (sampleLimit > 0) {
+        const safeSample = Math.min(Math.max(sampleLimit, 1), 1000);
+        const sampleSql = `
+          SELECT DISTINCT ON (p.doc_id) p.doc_id, d.cause_num, p.court_code, p.justice_kind, p.adjudication_date
+          FROM edrsr_parties p
+          JOIN edrsr_documents d ON d.doc_id = p.doc_id
+          WHERE ${whereClause.replace(/\bname_norm\b/g, 'p.name_norm')
+                              .replace(/\badj_year\b/g, 'p.adj_year')
+                              .replace(/\brole\b/g, 'p.role')
+                              .replace(/\badjudication_date\b/g, 'p.adjudication_date')
+                              .replace(/\bjustice_kind\b/g, 'p.justice_kind')}
+          ORDER BY p.doc_id, p.adjudication_date DESC NULLS LAST
+          LIMIT ${safeSample}`;
+        const sampleResult = await dbPool.query(sampleSql, params);
+        sample = sampleResult.rows.map((r: any) => ({
+          doc_id: Number(r.doc_id), cause_num: r.cause_num ?? null, court_code: r.court_code ?? null,
+          justice_kind: r.justice_kind ?? null, adjudication_date: r.adjudication_date ?? null,
+        }));
+      }
+
+      logger.info('[EdsrFtsService] countByParty (fast/parties-table)', {
+        party_name: partyName, party_role: partyRole ?? 'any', years: [yFrom, yTo], total, courts: by_court.length,
+      });
+      return { total, by_court, ...(sample ? { sample } : {}) };
+    } catch (err: any) {
+      logger.warn('[EdsrFtsService] countByPartyFast failed; falling back to FTS', { error: err.message, party_name: partyName });
+      return null;
+    }
   }
 
   /**
@@ -653,6 +779,12 @@ export class EdsrFtsService {
     filters: { date_from?: string; date_to?: string; justice_kind?: number } = {},
     sampleLimit: number = 0,
   ): Promise<PartyCaseCount> {
+    // LEXAI-1760: when the requested year span is fully covered by the structured parties
+    // table, answer from its indexes (fast, exact) instead of regex-scanning 125M full texts.
+    // Returns null when not applicable / on error → fall through to the legacy FTS path below.
+    const fast = await this.countByPartyFast(partyName, partyRole, dbPool, filters, sampleLimit);
+    if (fast) return fast;
+
     const params: any[] = [];
     let p = 1;
 
