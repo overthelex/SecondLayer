@@ -319,14 +319,18 @@ export function createMCPSSERoutes(deps: {
 
         let answer = '';
         let totalCostUsd = 0;
+        // Build the request as a variable (not an inline literal) so excess-property
+        // checks don't fire against the proprietary ChatRequest type — same pattern as
+        // chat-inline-routes.ts, which forwards `internetEnabled` the same way.
+        const chatRequest = {
+          query,
+          budget,
+          userId,
+          requestId,
+          internetEnabled: args.internetEnabled !== false,
+        };
         await runWithABUser(userId || '', async () => {
-          for await (const event of deps.chatService.chat({
-            query,
-            budget,
-            userId,
-            requestId,
-            internetEnabled: args.internetEnabled !== false,
-          })) {
+          for await (const event of deps.chatService.chat(chatRequest)) {
             if (event.type === 'complete') {
               answer = event.data?.answer || answer;
               totalCostUsd = event.data?.total_cost_usd || totalCostUsd;
