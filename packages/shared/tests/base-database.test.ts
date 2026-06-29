@@ -3,12 +3,18 @@
  * pool stats, metrics collector, close, schema sanitization, and createDatabaseFromEnv.
  */
 
+import { EventEmitter } from 'events';
+
 const mockQuery = jest.fn();
 const mockRelease = jest.fn();
-const mockConnect = jest.fn().mockResolvedValue({
+// Real EventEmitter so the checked-out client supports on()/removeListener()/emit()
+// — the transaction helper attaches an 'error' listener to it, and the
+// idle-in-transaction regression test emits a real 'error' event.
+const mockClient: any = Object.assign(new EventEmitter(), {
   query: mockQuery,
   release: mockRelease,
 });
+const mockConnect = jest.fn().mockResolvedValue(mockClient);
 const mockPoolQuery = jest.fn();
 const mockEnd = jest.fn().mockResolvedValue(undefined);
 const mockOn = jest.fn();
@@ -186,6 +192,42 @@ describe('BaseDatabase', () => {
       await expect(db.transaction(callback)).rejects.toThrow();
 
       expect(mockRelease).toHaveBeenCalled();
+    });
+
+    it('captures an async client error (idle-in-transaction) instead of crashing the process', async () => {
+      const db = new BaseDatabase(defaultConfig);
+      const fatal = new Error('terminating connection due to idle-in-transaction timeout');
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockRejectedValueOnce(fatal)        // COMMIT fails on the dead connection
+        .mockRejectedValueOnce(fatal);       // ROLLBACK also fails
+
+      // Postgres kills the idle-in-transaction session; pg emits 'error' on the
+      // checked-out client. Without the helper's listener this throws
+      // synchronously and crashes the process.
+      let emitThrew = false;
+      const callback = jest.fn().mockImplementation(async () => {
+        try {
+          mockClient.emit('error', fatal);
+        } catch {
+          emitThrew = true;
+        }
+      });
+
+      await expect(db.transaction(callback)).rejects.toBe(fatal);
+      expect(emitThrew).toBe(false);
+      // The poisoned connection is destroyed (released WITH the error), not
+      // returned to the pool.
+      expect(mockRelease).toHaveBeenCalledWith(fatal);
+    });
+
+    it('releases the client without an error on a clean commit', async () => {
+      const db = new BaseDatabase(defaultConfig);
+      const callback = jest.fn().mockResolvedValue('ok');
+
+      await db.transaction(callback);
+
+      expect(mockRelease).toHaveBeenCalledWith(undefined);
     });
   });
 

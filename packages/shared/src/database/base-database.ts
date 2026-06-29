@@ -87,16 +87,40 @@ export class BaseDatabase {
 
   async transaction<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
+
+    // A checked-out client can emit an asynchronous 'error' while the callback
+    // awaits non-DB work (e.g. an LLM/HTTP call) and no query is in flight to
+    // reject — most commonly Postgres terminating an idle-in-transaction
+    // session (SQLSTATE 25P03). Without a listener, node-pg re-throws it as an
+    // unhandled 'error' event, which crashes the whole process. Capture it here
+    // so it surfaces as a normal rejection and the broken connection is
+    // discarded on release instead of being returned to the pool poisoned.
+    let connectionError: Error | undefined;
+    const onClientError = (err: Error) => {
+      connectionError = err;
+      logger.error('Database client error during transaction (connection terminated):', err);
+    };
+    client.on('error', onClientError);
+
     try {
       await client.query('BEGIN');
       const result = await callback(client);
       await client.query('COMMIT');
       return result;
     } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
+      // The connection may already be dead (e.g. after 25P03); a failed
+      // ROLLBACK must not mask the original error or throw on its own.
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        logger.warn('Transaction ROLLBACK failed (connection likely already terminated):', rollbackError);
+      }
+      throw connectionError ?? error;
     } finally {
-      client.release();
+      client.removeListener('error', onClientError);
+      // Passing the error destroys the client instead of returning it to the
+      // pool; a connection killed mid-transaction must not be reused.
+      client.release(connectionError);
     }
   }
 
