@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../domain/auth_notifier.dart';
+import '../../../core/platform/platform_support.dart';
 import '../../../navigation/route_names.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -78,31 +79,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 40),
 
-                  // Google Sign In
-                  OutlinedButton.icon(
-                    onPressed: authState.isLoading
-                        ? null
-                        : () => ref.read(authNotifierProvider.notifier).signInWithGoogle(),
-                    icon: const Icon(Icons.g_mobiledata, size: 24),
-                    label: const Text('Увійти з Google'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  // Google Sign In - hidden on platforms without a
+                  // google_sign_in plugin (e.g. Linux desktop).
+                  if (PlatformSupport.googleSignInAvailable) ...[
+                    OutlinedButton.icon(
+                      onPressed: authState.isLoading
+                          ? null
+                          : () => ref.read(authNotifierProvider.notifier).signInWithGoogle(),
+                      icon: const Icon(Icons.g_mobiledata, size: 24),
+                      label: const Text('Увійти з Google'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 24),
-                  Row(children: [
-                    const Expanded(child: Divider()),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('або', style: theme.textTheme.bodySmall),
-                    ),
-                    const Expanded(child: Divider()),
-                  ]),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
+                    Row(children: [
+                      const Expanded(child: Divider()),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text('або', style: theme.textTheme.bodySmall),
+                      ),
+                      const Expanded(child: Divider()),
+                    ]),
+                    const SizedBox(height: 24),
+                  ],
 
                   // Email
                   TextFormField(

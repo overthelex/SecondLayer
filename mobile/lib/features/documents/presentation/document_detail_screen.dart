@@ -10,6 +10,7 @@ import '../domain/document_notifier.dart';
 import '../data/models/document.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/l10n/app_localizations.dart';
+import '../../../core/platform/platform_support.dart';
 
 /// Standalone screen with AppBar — used when opening a single document.
 class DocumentDetailScreen extends ConsumerWidget {
@@ -209,6 +210,44 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage>
   }
 
   Widget _buildContent(ThemeData theme) {
+    // PDF on platforms without an inline viewer (e.g. Linux desktop):
+    // flutter_pdfview has no implementation there, so open the downloaded file
+    // in the system viewer / browser instead of rendering it inline.
+    if (_pdfLocalPath != null && !PlatformSupport.inlinePdfViewAvailable) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.picture_as_pdf,
+                  size: 64, color: theme.colorScheme.primary),
+              const SizedBox(height: 16),
+              Text(
+                widget.document.title,
+                style: theme.textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => _openInBrowser(Uri.file(_pdfLocalPath!).toString()),
+                icon: const Icon(Icons.open_in_new),
+                label: Text(AppLocalizations.of(context)!.documentOpenPdf),
+              ),
+              if (_preview?.previewUrl != null) ...[
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => _openInBrowser(_preview!.previewUrl!),
+                  icon: const Icon(Icons.open_in_browser, size: 18),
+                  label: Text(AppLocalizations.of(context)!.documentOpenInBrowser),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
     // PDF — inline viewer
     if (_preview?.isPdf == true && _pdfLocalPath != null) {
       return Column(
