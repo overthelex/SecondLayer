@@ -407,6 +407,7 @@ class HTTPMCPServer {
     this.app.use(createMCPSSERoutes({
       mcpSSEServer: this.app_.mcpSSEServer,
       toolRegistry: this.tools.toolRegistry,
+      chatService: this.app_.chatService,
       oauthService: this.app_.oauthService,
       apiKeyService: this.billing.apiKeyService,
       costTracker: this.billing.costTracker,
