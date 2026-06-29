@@ -92,3 +92,26 @@ scrape_configs:
     scrape_interval: 15s
     static_configs:
       - targets: ['localhost:9090']
+
+  # WireGuard mesh hosts - node_exporter on each node (scraped over the wg-sync tunnel).
+  # prod is reached via its in-network container DNS; the rest via their WG IPs (10.88.0.x).
+  - job_name: wg_mesh
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels: { host: prod }
+      - targets: ['10.88.0.2:9100']
+        labels: { host: local }
+      - targets: ['10.88.0.4:9100']
+        labels: { host: workstation }
+      - targets: ['10.88.0.6:9100']
+        labels: { host: bigbox }
+      - targets: ['10.88.0.3:9100']
+        labels: { host: brev }
+
+  # WireGuard mesh GPU metrics - DCGM exporter (brev 8x H100 box only).
+  - job_name: wg_mesh_gpu
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['10.88.0.3:9400']
+        labels: { host: brev }
