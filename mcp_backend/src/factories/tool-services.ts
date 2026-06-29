@@ -33,6 +33,7 @@ import { OpenDataRegistriesTools } from '../api/tools/opendata-registries-tools.
 import { Tier1OpenDataTools } from '../api/tools/tier1-opendata-tools.js';
 import { RegistrySearchTool } from '../api/tools/registry-search-tool.js';
 import { AnalyzeDataTool } from '../api/tools/analyze-data-tool.js';
+import { LegislationAnalyticsTools } from '../api/tools/legislation-analytics-tools.js';
 import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
 import { DecisionLayerTools } from '../api/tools/decision-layer-tools.js';
 import { ImportTaskTools } from '../api/tools/import-task-tools.js';
@@ -167,6 +168,8 @@ export function createToolServices(
   toolRegistry.registerHandler(new CourtStatusTools(coreServices.db));
   toolRegistry.registerHandler(new RegistrySearchTool(coreServices.db));
   toolRegistry.registerHandler(new AnalyzeDataTool(coreServices.db));
+  // CORE-89 Phase A — norm-impact amendment analytics (additive; not yet in FIXED_V2_TOOLS)
+  toolRegistry.registerHandler(new LegislationAnalyticsTools(coreServices.db));
   // Bespoke tools with non-parametric query patterns
   toolRegistry.registerHandler(new OpenDataTools(coreServices.db));
   toolRegistry.registerHandler(new SpendingTools(coreServices.db));
