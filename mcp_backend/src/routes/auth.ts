@@ -74,20 +74,27 @@ const ALLOWED_CALLBACK_HOSTS = new Set([
   'platform.legal.org.ua',
   'mcp.legal.org.ua',
   'preview.legal.org.ua',
+  'local.legal.org.ua',
 ]);
 
+// legal.org.ua and its subdomains are always served over HTTPS (TLS is terminated
+// at the edge / Cloudflare Tunnel, so the internal proxy hop may be plain http).
+// Force https for those hosts so the http hop never leaks into OAuth redirect URIs.
+function resolveProtocol(req: any, host: string): string {
+  if (host.endsWith('legal.org.ua')) return 'https';
+  return req.headers['x-forwarded-proto'] || req.protocol || 'https';
+}
+
 function getCallbackURL(req: any): string {
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
   const rawHost = (req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0];
   const host = ALLOWED_CALLBACK_HOSTS.has(rawHost) ? rawHost : 'legal.org.ua';
-  return `${protocol}://${host}/auth/google/callback`;
+  return `${resolveProtocol(req, host)}://${host}/auth/google/callback`;
 }
 
 function getSafeFrontendUrl(req: any): string {
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
   const rawHost = (req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0];
   const host = ALLOWED_CALLBACK_HOSTS.has(rawHost) ? rawHost : 'legal.org.ua';
-  return `${protocol}://${host}`;
+  return `${resolveProtocol(req, host)}://${host}`;
 }
 
 /**
