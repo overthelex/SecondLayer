@@ -518,7 +518,11 @@ ensure_letsencrypt_certs() {
         # Ensure latest certs are copied
         sudo cp "$le_dir/fullchain.pem" "$certs_dir/fullchain.pem"
         sudo cp "$le_dir/privkey.pem" "$certs_dir/privkey.pem"
-        sudo chown $(id -u):$(id -g) "$certs_dir/fullchain.pem" "$certs_dir/privkey.pem"
+        # Keep the whole certs dir owned by the runner user. On the self-hosted
+        # CI runner this dir lives inside the Actions workspace; if it (or any
+        # file in it) stays root-owned, the next `actions/checkout` git-clean
+        # fails with EACCES and blocks every subsequent deploy.
+        sudo chown -R $(id -u):$(id -g) "$certs_dir"
         return 0
     fi
 
@@ -539,7 +543,9 @@ ensure_letsencrypt_certs() {
         print_msg "$GREEN" "Certificate obtained successfully"
         sudo cp "$le_dir/fullchain.pem" "$certs_dir/fullchain.pem"
         sudo cp "$le_dir/privkey.pem" "$certs_dir/privkey.pem"
-        sudo chown $(id -u):$(id -g) "$certs_dir/fullchain.pem" "$certs_dir/privkey.pem"
+        # Keep the whole certs dir runner-owned (see note above) so the next
+        # CI checkout can git-clean the workspace without EACCES.
+        sudo chown -R $(id -u):$(id -g) "$certs_dir"
     else
         print_msg "$YELLOW" "Let's Encrypt failed -- falling back to existing certs"
     fi
