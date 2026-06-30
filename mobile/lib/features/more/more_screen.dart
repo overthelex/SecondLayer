@@ -68,6 +68,11 @@ class MoreScreen extends ConsumerWidget {
             title: 'Білінг',
             onTap: () => context.goNamed(RouteNames.billing),
           ),
+          _MenuItem(
+            icon: Icons.extension_outlined,
+            title: 'MCP конект',
+            onTap: () => context.goNamed(RouteNames.mcpConnect),
+          ),
           const Divider(),
           _MenuItem(
             icon: Icons.person_outline,

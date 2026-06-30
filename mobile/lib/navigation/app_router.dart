@@ -15,6 +15,7 @@ import '../features/documents/presentation/document_detail_screen.dart';
 import '../features/documents/presentation/document_pager_screen.dart';
 import '../features/documents/data/models/document.dart';
 import '../features/more/more_screen.dart';
+import '../features/more/presentation/mcp_connect_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/matters/presentation/clients_screen.dart';
 import '../features/matters/presentation/matters_screen.dart';
@@ -166,6 +167,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                 name: RouteNames.billing,
                 parentNavigatorKey: _rootNavigatorKey,
                 builder: (_, __) => const BillingScreen(),
+              ),
+              GoRoute(
+                path: 'mcp-connect',
+                name: RouteNames.mcpConnect,
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (_, __) => const McpConnectScreen(),
               ),
               GoRoute(
                 path: 'consultations',

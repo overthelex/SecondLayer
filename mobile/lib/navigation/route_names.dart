@@ -16,6 +16,7 @@ class RouteNames {
   static const matters = 'matters';
   static const timeTracking = 'time-tracking';
   static const billing = 'billing';
+  static const mcpConnect = 'mcp-connect';
   static const consultations = 'consultations';
   static const consultationChat = 'consultation-chat';
 }
