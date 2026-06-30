@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'app_text_styles.dart';
 
 class AppTheme {
   static ThemeData get light => ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,
+        textTheme: AppTextStyles.textTheme(
+          textColor: AppColors.textPrimary,
+          secondaryColor: AppColors.textSecondary,
+        ),
         colorScheme: const ColorScheme.light(
           primary: AppColors.primary,
           primaryContainer: AppColors.primaryLight,
@@ -23,6 +28,7 @@ class AppTheme {
           backgroundColor: AppColors.surface,
           foregroundColor: AppColors.textPrimary,
           elevation: 0,
+          scrolledUnderElevation: 0,
           surfaceTintColor: Colors.transparent,
         ),
         navigationBarTheme: NavigationBarThemeData(
@@ -105,15 +111,19 @@ class AppTheme {
   static ThemeData get dark => ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
+        textTheme: AppTextStyles.textTheme(
+          textColor: AppColors.darkTextPrimary,
+          secondaryColor: AppColors.darkTextSecondary,
+        ),
         colorScheme: const ColorScheme.dark(
-          primary: AppColors.primaryLight,
-          primaryContainer: AppColors.primary,
-          secondary: AppColors.primaryLight,
+          primary: AppColors.darkTextPrimary,
+          primaryContainer: AppColors.primaryLight,
+          secondary: AppColors.darkTextSecondary,
           secondaryContainer: AppColors.darkSurfaceVariant,
           surface: AppColors.darkSurface,
           surfaceContainerHighest: AppColors.darkSurfaceVariant,
           error: AppColors.error,
-          onPrimary: AppColors.textOnPrimary,
+          onPrimary: AppColors.primary,
           onSurface: AppColors.darkTextPrimary,
           onSurfaceVariant: AppColors.darkTextSecondary,
           outline: AppColors.darkBorder,
@@ -123,6 +133,7 @@ class AppTheme {
           backgroundColor: AppColors.darkSurface,
           foregroundColor: AppColors.darkTextPrimary,
           elevation: 0,
+          scrolledUnderElevation: 0,
           surfaceTintColor: Colors.transparent,
         ),
         navigationBarTheme: NavigationBarThemeData(
