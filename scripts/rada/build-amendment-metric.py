@@ -50,7 +50,22 @@ def to_text(htmlfrag):
           .replace("&laquo;", "«").replace("&raquo;", "»").replace("&amp;", "&"))
     return re.sub(r"[ \t]+", " ", t)
 
-ACT = re.compile(r"Закон[ауомих]* № (\d+-[IVXІ]+)(?:\s+від\s+(\d{2})\.(\d{2})\.(\d{4}))?")
+# Handles «№ 1432-IX» and old «N 244/94-ВР ( 2342-14 ) від 05.04.2001» formats.
+ACT = re.compile(
+    r"Закон[а-яіїєґ']*\s*(?:№|N)\s*"
+    r"([0-9]+(?:[/-][0-9A-Za-zА-Яа-яІЇЄҐ]+)+)"
+    r"(?:\s*\([^)]*\))?"
+    r"(?:\s+від\s+(\d{1,2})\.(\d{1,2})\.(\d{2,4}))?", re.I)
+
+def norm_year(y):
+    return y if len(y) == 4 else (("19" + y) if int(y) >= 30 else ("20" + y))
+
+def valid_date(dt):
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", dt) if dt else None
+    if not m:
+        return None
+    y, mo, d = map(int, m.groups())
+    return dt if (1900 <= y <= 2100 and 1 <= mo <= 12 and 1 <= d <= 31) else None
 
 def classify(ctx):
     ctx = ctx.lower()
@@ -68,7 +83,7 @@ def parse_notes(text):
         for m in ACT.finditer(inner):
             ctx = inner[prev:m.start()] or inner[:m.end()]
             act = m.group(1)
-            date_iso = (f"{m.group(4)}-{m.group(3)}-{m.group(2)}"
+            date_iso = (valid_date(f"{norm_year(m.group(4))}-{m.group(3).zfill(2)}-{m.group(2).zfill(2)}")
                         if m.group(2) else None)
             yield classify(ctx), act, date_iso, note
             prev = m.end()
