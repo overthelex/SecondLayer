@@ -122,11 +122,16 @@ def parse_ops(html):
 
 def process(law):
     lid, rada, ed = law
-    html = fetch(f"{BASE}/laws/show/{rada}/ed{ed}/print")
-    ops = parse_ops(html)
-    if not ops and "Стаття" not in html:      # fallback to plain current edition
+    # PRINT_MODE (or laws with no edition date) → fetch the current consolidated text.
+    if os.environ.get("PRINT_MODE") == "1" or not ed.isdigit():
         html = fetch(f"{BASE}/laws/show/{rada}/print")
         ops = parse_ops(html)
+    else:
+        html = fetch(f"{BASE}/laws/show/{rada}/ed{ed}/print")
+        ops = parse_ops(html)
+        if not ops and "Стаття" not in html:  # fallback to current edition
+            html = fetch(f"{BASE}/laws/show/{rada}/print")
+            ops = parse_ops(html)
     rec = {"id": lid, "rada": rada, "ed": ed, "ops": ops, "bytes": len(html)}
     with wlock:
         with open(DONE, "a") as f:
