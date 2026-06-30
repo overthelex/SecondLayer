@@ -26,6 +26,19 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>GIDClientID</key>
+	<string>144958755023-hffsik0une6mcnpeb6cj86jfslkuqgbl.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.144958755023-hffsik0une6mcnpeb6cj86jfslkuqgbl</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Додаток використовує камеру, щоб сфотографувати документи для аналізу.</string>
 	<key>NSDocumentsFolderUsageDescription</key>

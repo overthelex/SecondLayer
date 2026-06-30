@@ -84,11 +84,21 @@ export async function googleMobileAuth(req: Request, res: Response): Promise<Res
       return res.status(501).json({ error: 'Google OAuth is not configured on server' });
     }
 
+    // Accept the primary web client id plus any additional mobile client ids
+    // (comma-separated in GOOGLE_MOBILE_CLIENT_IDS) — e.g. a native iOS/Android
+    // OAuth client whose issued idToken carries a different audience. This is
+    // additive: the web (passport) login keeps using GOOGLE_CLIENT_ID only.
+    const extraMobileIds = (process.env.GOOGLE_MOBILE_CLIENT_IDS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const allowedAudiences = [clientId, ...extraMobileIds];
+
     // Verify the idToken with Google
     const client = new OAuth2Client(clientId);
     const ticket = await client.verifyIdToken({
       idToken,
-      audience: clientId,
+      audience: allowedAudiences,
     });
     const payload = ticket.getPayload();
 
