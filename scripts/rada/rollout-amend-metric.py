@@ -59,11 +59,27 @@ def fetch(url, tries=6):
         time.sleep(3 + 3 * i)
     return txt
 
-ACT = re.compile(r"Закон[ауомих]* № (\d+-[IVXІ]+)(?:\s+від\s+(\d{2})\.(\d{2})\.(\d{4}))?")
+# Act ref: «Закон[ом] № 1432-IX» AND old КУпАП-style «Законом N 244/94-ВР ( 2342-14 ) від 05.04.2001»
+# — handles both № and Latin N, slashed/Roman numbers, and 2- or 4-digit years.
+ACT = re.compile(
+    r"Закон[а-яіїєґ']*\s*(?:№|N)\s*"
+    r"([0-9]+(?:[/-][0-9A-Za-zА-Яа-яІЇЄҐ]+)+)"          # 1432-IX, 244/94-ВР, 2342-III
+    r"(?:\s*\([^)]*\))?"                                  # optional ( rada-id )
+    r"(?:\s+від\s+(\d{1,2})\.(\d{1,2})\.(\d{2,4}))?", re.I)
 HDR = re.compile(r"Стаття\s+(\d+(?:-\d+)?)\.")               # article header (capital С + period)
 NOTEREF = re.compile(r"статт[іяюеї]\s+(\d+(?:-\d+)?)", re.I)  # note's own article ref
 TOK = re.compile(r"(Стаття\s+\d+(?:-\d+)?\.)|(\{[^}]*\})", re.S)
 JUNK = re.compile(r"dataLayer|function|https?:|link:|stat:|gtag|push\(")
+
+def norm_year(y):
+    return y if len(y) == 4 else (("19" + y) if int(y) >= 30 else ("20" + y))
+
+def valid_date(dt):
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", dt) if dt else None
+    if not m:
+        return None
+    y, mo, d = map(int, m.groups())
+    return dt if (1900 <= y <= 2100 and 1 <= mo <= 12 and 1 <= d <= 31) else None
 
 def classify(ctx):
     ctx = ctx.lower()
@@ -99,7 +115,7 @@ def parse_ops(html):
         prev = 0
         for a in ACT.finditer(inner):
             ctx = inner[prev:a.start()] or inner[:a.end()]
-            dt = f"{a.group(4)}-{a.group(3)}-{a.group(2)}" if a.group(2) else None
+            dt = valid_date(f"{norm_year(a.group(4))}-{a.group(3).zfill(2)}-{a.group(2).zfill(2)}") if a.group(2) else None
             ops.append([art, classify(ctx), a.group(1), dt, note])
             prev = a.end()
     return ops

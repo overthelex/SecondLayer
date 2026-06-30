@@ -762,6 +762,38 @@ export class LegislationService {
     earliest_version: string | null;
     latest_version: string | null;
   }>> {
+    // Preferred source: clause-level amendment operations parsed from Rada's
+    // inline {…} notes (legislation_article_amendments). version_count here is the
+    // real number of times an article was amended (added/modified/removed), NOT
+    // the number of editions. Article '0' = document-wide notes, excluded.
+    try {
+      const amend = await this.db.query(
+        `SELECT a.article_number,
+                COUNT(*)::int as version_count,
+                to_char(MIN(a.act_date), 'YYYY-MM-DD') as earliest_version,
+                to_char(MAX(a.act_date), 'YYYY-MM-DD') as latest_version
+         FROM legislation_article_amendments a
+         JOIN legislation l ON a.legislation_id = l.id
+         WHERE LOWER(l.rada_id) = LOWER($1) AND a.article_number <> '0'
+         GROUP BY a.article_number
+         ORDER BY COUNT(*) DESC`,
+        [radaId]
+      );
+      if (amend.rows.length > 0) {
+        return amend.rows.map((row: any) => ({
+          article_number: row.article_number,
+          version_count: row.version_count,
+          earliest_version: row.earliest_version,
+          latest_version: row.latest_version,
+        }));
+      }
+    } catch (err) {
+      // Table may not exist in some environments yet — fall back to legacy count.
+      logger.warn(`getAmendmentSummary: amendment metric unavailable, falling back to edition count: ${(err as Error).message}`);
+    }
+
+    // Fallback (legacy): counts edition snapshots in legislation_articles. Used
+    // only for laws not yet covered by the amendment metric (e.g. resolutions).
     const result = await this.db.query(
       `SELECT la.article_number,
               COUNT(*)::int as version_count,
