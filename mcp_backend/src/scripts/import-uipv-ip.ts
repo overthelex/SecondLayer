@@ -87,9 +87,11 @@ function sleep(ms: number): Promise<void> {
 function extractTrademark(record: any): any[] {
   const data = record.data || {};
 
-  // Mark text
+  // Mark text — the verbal element is nested under `data`, same as every other
+  // field below (holder/applicant/nice). Reading it off `record` left mark_text
+  // NULL for the entire trademark table.
   let markText = '';
-  const wordMark = record.WordMarkSpecification?.MarkSignificantVerbalElement;
+  const wordMark = data.WordMarkSpecification?.MarkSignificantVerbalElement;
   if (Array.isArray(wordMark)) {
     markText = wordMark.map((w: any) => w['#text'] || '').filter(Boolean).join(' ');
   }
