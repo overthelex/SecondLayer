@@ -124,30 +124,32 @@ async function upsertBatch(rows: any[][]): Promise<number> {
 async function syncConvocation(conv: number): Promise<{ docs: number; gneu: number }> {
   const bills = await fetchBillInfo(conv);
 
-  let batch: any[][] = [];
-  let total = 0;
+  // A document id can appear more than once in the feed (same doc listed under both
+  // `workflow` and `source`, or attached to more than one bill). Postgres rejects a
+  // duplicate constrained value inside one ON CONFLICT statement, so dedupe by doc_id
+  // up front. `workflow` is iterated first and wins — it carries the review verdict.
+  const byId = new Map<number, any[]>();
   let gneu = 0;
-  let processedBills = 0;
-
   for (const bill of bills) {
     const docs = bill.documents || {};
     for (const group of ['workflow', 'source'] as const) {
       const arr = Array.isArray(docs[group]) ? docs[group] : [];
       for (const doc of arr) {
-        if (doc?.id == null) continue; // PK required
+        if (doc?.id == null || byId.has(doc.id)) continue;
         if (doc.kindId === 100) gneu++;
-        batch.push(toRow(doc, bill, conv, group));
-        if (batch.length >= BATCH_SIZE) {
-          total += await upsertBatch(batch);
-          batch = [];
-        }
+        byId.set(doc.id, toRow(doc, bill, conv, group));
       }
     }
-    if (++processedBills % 2000 === 0) {
-      console.log(`   …${processedBills.toLocaleString()}/${bills.length.toLocaleString()} bills, ${total.toLocaleString()} docs upserted`);
+  }
+
+  const rows = [...byId.values()];
+  let total = 0;
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    total += await upsertBatch(rows.slice(i, i + BATCH_SIZE));
+    if (i % (BATCH_SIZE * 20) === 0 && i > 0) {
+      console.log(`   …${i.toLocaleString()}/${rows.length.toLocaleString()} docs upserted`);
     }
   }
-  if (batch.length) total += await upsertBatch(batch);
 
   console.log(`✅ skl${conv}: ${total.toLocaleString()} documents upserted (${gneu.toLocaleString()} ГНЕУ conclusions)`);
   return { docs: total, gneu };
