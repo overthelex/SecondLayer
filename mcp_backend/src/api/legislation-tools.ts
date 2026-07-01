@@ -867,22 +867,33 @@ export class LegislationTools extends BaseToolHandler {
     const articleFilter = args.article_number?.trim() || null;
     logger.info('[MCP Tool] get_legislation_history started', { rada_id: radaId, article_number: articleFilter });
 
-    const structure = await this.service.getLegislationStructure(radaId);
+    const structure = await this.service.getLegislationStructure(radaId, undefined, false);
 
     if (articleFilter) {
-      // Detailed history for a specific article
-      const history = await this.service.getAmendmentHistory(radaId);
-      const filtered = history.filter(h => h.article_number === articleFilter);
+      // Detailed history for a specific article:
+      // 1) real clause-level amendments (dated, from legislation_article_amendments), and
+      // 2) distinct text versions deduped by full_text (many editions carry identical text,
+      //    so raw per-edition rows over-report). Reads the real version_date column.
+      const [amendments, versionsResult] = await Promise.all([
+        this.service.getArticleAmendments(radaId, articleFilter),
+        this.service.getArticleVersions(radaId, articleFilter, 50),
+      ]);
+      const changed = amendments.length > 0 || versionsResult.total > 1;
       return {
         rada_id: radaId,
         title: structure?.title || null,
         article_number: articleFilter,
         url: `https://zakon.rada.gov.ua/laws/show/${radaId}`,
-        total_versions: filtered.length,
-        versions: filtered,
-        note: filtered.length === 0
-          ? `Попередні редакції статті ${articleFilter} не знайдені в базі`
-          : undefined,
+        amendments_count: amendments.length,
+        amendments,
+        distinct_versions: versionsResult.total,
+        versions: versionsResult.versions,
+        versions_truncated: versionsResult.total > versionsResult.versions.length || undefined,
+        note: !changed
+          ? `Стаття ${articleFilter}: зафіксованих змін немає — поточна редакція єдина.`
+          : amendments.length === 0
+            ? `Деталізованих операцій зміни немає; показано ${versionsResult.versions.length} відмінних редакцій тексту (з ${versionsResult.total}).`
+            : undefined,
       };
     }
 
@@ -919,7 +930,7 @@ export class LegislationTools extends BaseToolHandler {
     if (!args.rada_id) throw new Error('rada_id is required');
     const radaId = normalizeRadaId(args.rada_id);
     const editions = await this.service.getEditionDates(radaId);
-    const structure = await this.service.getLegislationStructure(radaId);
+    const structure = await this.service.getLegislationStructure(radaId, undefined, false);
     return {
       rada_id: radaId,
       title: structure?.title || null,

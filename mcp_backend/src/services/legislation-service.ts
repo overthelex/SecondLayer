@@ -814,6 +814,82 @@ export class LegislationService {
     }));
   }
 
+  /**
+   * Real clause-level amendment events for a single article, parsed from Rada's inline
+   * {…} notes (legislation_article_amendments): each row is an actual change (added/
+   * modified/removed) with the act date and the enacting law — not an edition snapshot.
+   */
+  async getArticleAmendments(radaId: string, articleNumber: string): Promise<Array<{
+    act_date: string | null;
+    change_type: string | null;
+    basis_act: string | null;
+    note_text: string | null;
+    source_edition: string | null;
+  }>> {
+    const result = await this.db.query(
+      `SELECT to_char(a.act_date, 'YYYY-MM-DD') AS act_date, a.change_type,
+              a.basis_act, a.note_text, a.source_edition
+       FROM legislation_article_amendments a
+       JOIN legislation l ON a.legislation_id = l.id
+       WHERE LOWER(l.rada_id) = LOWER($1) AND a.article_number = $2
+       ORDER BY a.act_date DESC NULLS LAST, a.id DESC`,
+      [radaId, articleNumber]
+    );
+    return result.rows.map((row: any) => ({
+      act_date: row.act_date,
+      change_type: row.change_type,
+      basis_act: row.basis_act,
+      note_text: row.note_text,
+      source_edition: row.source_edition,
+    }));
+  }
+
+  /**
+   * Distinct text versions of a single article, deduped by full_text (many editions
+   * carry an identical article, so raw per-edition rows over-report). Reads the real
+   * version_date COLUMN (not metadata->>'version_date', which is empty). Returns the
+   * effective date range each distinct text was in force, most recent first.
+   */
+  async getArticleVersions(
+    radaId: string,
+    articleNumber: string,
+    limit = 50
+  ): Promise<{
+    total: number;
+    versions: Array<{ effective_from: string | null; last_seen: string | null; title: string | null; byte_size: number | null }>;
+  }> {
+    const countResult = await this.db.query(
+      `SELECT COUNT(DISTINCT md5(la.full_text))::int AS n
+       FROM legislation_articles la
+       JOIN legislation l ON la.legislation_id = l.id
+       WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.full_text IS NOT NULL`,
+      [radaId, articleNumber]
+    );
+    const total = countResult.rows[0]?.n || 0;
+
+    const result = await this.db.query(
+      `SELECT to_char(MIN(la.version_date), 'YYYY-MM-DD') AS effective_from,
+              to_char(MAX(la.version_date), 'YYYY-MM-DD') AS last_seen,
+              MAX(la.title) AS title, MAX(la.byte_size) AS byte_size
+       FROM legislation_articles la
+       JOIN legislation l ON la.legislation_id = l.id
+       WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.full_text IS NOT NULL
+       GROUP BY md5(la.full_text)
+       ORDER BY MIN(la.version_date) DESC NULLS LAST
+       LIMIT $3`,
+      [radaId, articleNumber, limit]
+    );
+    return {
+      total,
+      versions: result.rows.map((row: any) => ({
+        effective_from: row.effective_from,
+        last_seen: row.last_seen,
+        title: row.title,
+        byte_size: row.byte_size,
+      })),
+    };
+  }
+
   async searchLegislation(query: string, radaId?: string, limit: number = 10): Promise<LegislationSearchResult[]> {
     if (radaId) {
       await this.ensureLegislationExists(radaId);
