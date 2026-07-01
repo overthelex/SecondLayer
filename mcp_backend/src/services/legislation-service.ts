@@ -842,7 +842,7 @@ export class LegislationService {
     }));
   }
 
-  async getLegislationStructure(radaId: string, forceRefresh?: boolean): Promise<any> {
+  async getLegislationStructure(radaId: string, forceRefresh?: boolean, tocIncludeArticles = true): Promise<any> {
     radaId = normalizeRadaId(radaId);
 
     if (forceRefresh) {
@@ -893,11 +893,11 @@ export class LegislationService {
       total_articles: data.total_articles,
       structure: data.structure_metadata || {},
       articles: data.articles || [],
-      table_of_contents: this.buildTableOfContents(data.articles || []),
+      table_of_contents: this.buildTableOfContents(data.articles || [], tocIncludeArticles),
     };
   }
 
-  private buildTableOfContents(articles: any[]): any[] {
+  private buildTableOfContents(articles: any[], includeArticles = true): any[] {
     const toc: any[] = [];
     let currentBook: any = null;
     let currentSection: any = null;
@@ -1014,25 +1014,27 @@ export class LegislationService {
         }
       }
 
-      const articleEntry = {
-        article_number: article.article_number,
-        title: article.title,
-        byte_size: article.byte_size,
-      };
+      const target =
+        currentParagraph || currentChapter || currentSubsection || currentSection || currentBook || null;
 
-      // Place article in the deepest available container
-      if (currentParagraph) {
-        currentParagraph.articles.push(articleEntry);
-      } else if (currentChapter) {
-        currentChapter.articles.push(articleEntry);
-      } else if (currentSubsection) {
-        currentSubsection.articles.push(articleEntry);
-      } else if (currentSection) {
-        currentSection.articles.push(articleEntry);
-      } else if (currentBook) {
-        currentBook.children.push(articleEntry);
-      } else {
-        toc.push(articleEntry);
+      if (includeArticles) {
+        // Full mode: place each article as a leaf in the deepest container.
+        const articleEntry = {
+          article_number: article.article_number,
+          title: article.title,
+          byte_size: article.byte_size,
+        };
+        if (currentParagraph) currentParagraph.articles.push(articleEntry);
+        else if (currentChapter) currentChapter.articles.push(articleEntry);
+        else if (currentSubsection) currentSubsection.articles.push(articleEntry);
+        else if (currentSection) currentSection.articles.push(articleEntry);
+        else if (currentBook) currentBook.children.push(articleEntry);
+        else toc.push(articleEntry);
+      } else if (target) {
+        // Headings-only mode: just count articles per container + track the number range.
+        target.article_count = (target.article_count || 0) + 1;
+        if (!target.article_range) target.article_range = [article.article_number, article.article_number];
+        else target.article_range[1] = article.article_number;
       }
     }
 
