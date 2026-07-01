@@ -977,6 +977,7 @@ export class LegislationService {
     const toc: any[] = [];
     let currentBook: any = null;
     let currentSection: any = null;
+    let currentSectionKey: string | null = null;
     let currentSubsection: any = null;
     let currentChapter: any = null;
     let currentParagraph: any = null;
@@ -995,13 +996,16 @@ export class LegislationService {
         };
         toc.push(currentBook);
         currentSection = null;
+        currentSectionKey = null;
         currentSubsection = null;
         currentChapter = null;
         currentParagraph = null;
       }
 
-      // Handle section level (section_number may include book prefix like "1.2")
-      if (article.section_number && (!currentSection || currentSection.number !== article.section_number)) {
+      // Handle section level (section_number may include a book prefix like "1.2").
+      // Compare against the FULL section_number — currentSection.number holds the stripped
+      // display number, so comparing to it recreated a section on every article.
+      if (article.section_number && currentSectionKey !== article.section_number) {
         // Extract display number (strip book prefix for display)
         const displayNumber = article.section_number.includes('.')
           ? article.section_number.split('.').pop()
@@ -1013,6 +1017,7 @@ export class LegislationService {
           title: article.section_title || undefined,
           articles: [],
         };
+        currentSectionKey = article.section_number;
 
         if (currentBook) {
           currentBook.children.push(currentSection);
