@@ -18,7 +18,6 @@ import { requestContext } from '../utils/openai-client.js';
 import { MCPSSEServer } from '../api/mcp-sse-server.js';
 import { ToolRegistry, ToolDefinition } from '../api/tool-registry.js';
 import { ChatService } from '../services/chat-service.js';
-import { runWithABUser } from '../infrastructure/adapters/llm-adapter.js';
 import { OAuthService } from '../services/oauth-service.js';
 import { ApiKeyService } from '../services/api-key-service.js';
 import { CostTracker } from '../services/cost-tracker.js';
@@ -148,11 +147,17 @@ export function createMCPSSERoutes(deps: {
   }
 
   // Helper: build a fully-wired MCP Server (tools/list + tools/call with billing) for a user.
-  // Shared by the classic SSE transport (/v1/sse) and the Streamable HTTP transport (/v1/mcp).
-  function buildMcpServer(userId: string | undefined, clientKey: string | undefined): Server {
+  // Shared by the classic SSE transport (/v1/sse) and the Streamable HTTP transports (/v1/mcp,
+  // /v2/mcp). Pass opts.allowedTools to restrict the exposed surface to a whitelist (v2 subset);
+  // omit it to expose the full ~112-tool surface (v1).
+  function buildMcpServer(
+    userId: string | undefined,
+    clientKey: string | undefined,
+    opts?: { allowedTools?: Set<string>; version?: string }
+  ): Server {
     const safeUserId = sanitizeId(userId || 'anonymous');
     const mcpServer = new Server(
-      { name: 'secondlayer-mcp', version: '1.0.0' },
+      { name: 'secondlayer-mcp', version: opts?.version || '1.0.0' },
       { capabilities: { tools: {} } }
     );
 
@@ -160,12 +165,22 @@ export function createMCPSSERoutes(deps: {
       // Expose local backend tools + unified-gateway proxied tools (rada_*, openreyestr_*).
       // Remote defs are fetched once and cached; executeTool() routes prefixed calls to the
       // proxy. Falls back to local-only if remote services are unreachable.
+      let tools: ToolDefinition[];
       try {
-        return { tools: await deps.toolRegistry.getAllToolDefinitions() };
+        tools = await deps.toolRegistry.getAllToolDefinitions();
       } catch (err: any) {
         logger.warn('[MCP] getAllToolDefinitions failed, serving local tools only', { error: err.message });
-        return { tools: deps.toolRegistry.getLocalToolDefinitions() };
+        tools = deps.toolRegistry.getLocalToolDefinitions();
       }
+      if (opts?.allowedTools) {
+        const available = new Set(tools.map((t) => t.name));
+        const missing = [...opts.allowedTools].filter((n) => !available.has(n));
+        if (missing.length > 0) {
+          logger.warn('[MCP] Whitelisted v2 tools missing from registry', { missing });
+        }
+        tools = tools.filter((t) => opts.allowedTools!.has(t.name));
+      }
+      return { tools };
     });
 
     mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -176,6 +191,15 @@ export function createMCPSSERoutes(deps: {
 
       try {
         logger.info('[MCP] Tool call', { tool: toolName, userId: safeUserId });
+
+        // Enforce the v2 whitelist in code (not just tools/list): reject any tool outside
+        // the exposed subset so a client can't call a hidden low-level tool by name.
+        if (opts?.allowedTools && !opts.allowedTools.has(toolName)) {
+          return {
+            content: [{ type: 'text', text: `Error: tool '${toolName}' is not available on this endpoint.` }],
+            isError: true,
+          };
+        }
 
         // Phase 2 Billing: Check credits BEFORE execution
         if (userId && deps.creditService) {
@@ -245,108 +269,36 @@ export function createMCPSSERoutes(deps: {
     return mcpServer;
   }
 
-  // ========================= MCP v2 (single orchestrating tool) =========================
-  // v2 exposes ONE tool — `legal_chat` — instead of the ~112 low-level tools that v1
-  // surfaces. The tool wraps the full ChatService (v3) pipeline: intent classification →
-  // plan → curated tool execution → grounded synthesis. External MCP clients (Claude
-  // Code/Desktop) ask a natural-language legal question and get a cited answer back,
-  // mirroring what the web chat does, rather than choosing among 112 raw tools.
+  // ========================= MCP v2 (curated 15-tool subset) =========================
+  // v2 exposes a curated subset of 15 tools — 6 legislation + 9 court-decision (ЄДРСР) —
+  // instead of the ~112 low-level tools that v1 surfaces. A small, focused toolset keeps
+  // tool selection tractable for external MCP clients (Claude Code/Desktop) while still
+  // letting them call the real handlers directly. Execution, billing and cost-tracking are
+  // identical to v1 (buildMcpServer); only the exposed set differs.
+  const V2_TOOL_NAMES = new Set<string>([
+    // Legislation (6)
+    'search_legislation',
+    'get_legislation_section',
+    'get_legislation_articles',
+    'get_legislation_structure',
+    'get_legislation_history',
+    'list_legislation_editions',
+    // Court decisions — ЄДРСР (9)
+    'search_court_decisions',
+    'get_court_decision',
+    'get_case_documents_chain',
+    'load_full_texts',
+    'find_similar_fact_pattern_cases',
+    'compare_practice_pro_contra',
+    'count_cases_by_party',
+    'check_precedent_status',
+    'get_citation_graph',
+  ]);
 
-  const LEGAL_CHAT_TOOL: ToolDefinition = {
-    name: 'legal_chat',
-    description:
-      'Ukrainian legal research assistant. Ask a legal question or describe a task in natural ' +
-      'language (Ukrainian preferred; English accepted). It runs the full SecondLayer pipeline — ' +
-      'planning and executing retrieval over court decisions (ЄДРСР), legislation, parliament and ' +
-      'business registries — and returns a grounded answer with citations. Prefer this single tool ' +
-      'over calling low-level search tools directly.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        query: {
-          type: 'string',
-          description: 'The legal question or task, in natural language (uk-UA preferred).',
-        },
-        budget: {
-          type: 'string',
-          enum: ['quick', 'standard', 'deep'],
-          description: 'Depth/cost tradeoff. quick = cheap/fast, deep = exhaustive. Default: standard.',
-        },
-        internetEnabled: {
-          type: 'boolean',
-          description: 'Allow web sources in addition to internal legal data. Default: true.',
-        },
-      },
-      required: ['query'],
-    },
-    annotations: { readOnlyHint: true, openWorldHint: true },
-  };
-
-  // Build an MCP Server that exposes only `legal_chat`. Billing/cost-tracking is handled
-  // inside the ChatService pipeline (keyed by requestId), so — unlike the per-tool v1 path —
-  // we do not create tracking records or deduct credits here.
-  function buildMcpServerV2(userId: string | undefined, _clientKey: string | undefined): Server {
-    const safeUserId = sanitizeId(userId || 'anonymous');
-    const mcpServer = new Server(
-      { name: 'secondlayer-mcp', version: '2.0.0' },
-      { capabilities: { tools: {} } }
-    );
-
-    mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [LEGAL_CHAT_TOOL] }));
-
-    mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const toolName = request.params.name;
-      const args = request.params.arguments || {};
-      const requestId = `mcp-v2-${uuidv4()}`;
-
-      if (toolName !== 'legal_chat') {
-        return {
-          content: [{ type: 'text', text: `Error: unknown tool '${toolName}'. MCP v2 exposes only 'legal_chat'.` }],
-          isError: true,
-        };
-      }
-
-      const query = String(args.query || '').trim();
-      if (!query) {
-        return { content: [{ type: 'text', text: 'Error: "query" is required.' }], isError: true };
-      }
-      const budget = ['quick', 'standard', 'deep'].includes(String(args.budget))
-        ? (String(args.budget) as 'quick' | 'standard' | 'deep')
-        : 'standard';
-
-      try {
-        logger.info('[MCP v2] legal_chat call', { userId: safeUserId, requestId, budget });
-
-        let answer = '';
-        let totalCostUsd = 0;
-        // Build the request as a variable (not an inline literal) so excess-property
-        // checks don't fire against the proprietary ChatRequest type — same pattern as
-        // chat-inline-routes.ts, which forwards `internetEnabled` the same way.
-        const chatRequest = {
-          query,
-          budget,
-          userId,
-          requestId,
-          internetEnabled: args.internetEnabled !== false,
-        };
-        await runWithABUser(userId || '', async () => {
-          for await (const event of deps.chatService.chat(chatRequest)) {
-            if (event.type === 'complete') {
-              answer = event.data?.answer || answer;
-              totalCostUsd = event.data?.total_cost_usd || totalCostUsd;
-            }
-          }
-        });
-
-        logger.info('[MCP v2] legal_chat done', { userId: safeUserId, requestId, costUsd: totalCostUsd });
-        return { content: [{ type: 'text', text: answer || 'Не вдалося згенерувати відповідь.' }] };
-      } catch (error: any) {
-        logger.error('[MCP v2] legal_chat error', { requestId, error: error.message });
-        return { content: [{ type: 'text', text: `Error: ${error.message}` }], isError: true };
-      }
-    });
-
-    return mcpServer;
+  // Build an MCP Server exposing only the curated v2 subset. Reuses the fully-wired v1
+  // builder (tools/list + tools/call with billing) with the whitelist applied.
+  function buildMcpServerV2(userId: string | undefined, clientKey: string | undefined): Server {
+    return buildMcpServer(userId, clientKey, { allowedTools: V2_TOOL_NAMES, version: '2.0.0' });
   }
 
   // ========================= /sse endpoints =========================
@@ -638,7 +590,7 @@ export function createMCPSSERoutes(deps: {
   // POST /v1/mcp - JSON-RPC requests (initialize + tool calls). Stateful via Mcp-Session-Id.
   router.post('/v1/mcp', (async (req: DualAuthRequest, res: Response) => {
     try {
-      // Deprecated in favour of /api/v2/mcp (single `legal_chat` tool). v1 still serves the
+      // Deprecated in favour of /api/v2/mcp (curated 15-tool subset). v1 still serves the
       // full ~112-tool surface for backward compatibility; advertise the successor to clients.
       res.setHeader('Deprecation', 'true');
       res.setHeader('Link', '</api/v2/mcp>; rel="successor-version"');
@@ -733,9 +685,9 @@ export function createMCPSSERoutes(deps: {
   router.get('/.well-known/oauth-protected-resource/api/v1/mcp', mcpResourceMetadata);
   router.get('/.well-known/oauth-protected-resource/v1/mcp', mcpResourceMetadata);
 
-  // ========================= /v2/mcp (Streamable HTTP, single tool) =========================
+  // ========================= /v2/mcp (Streamable HTTP, curated subset) =========================
   // Canonical transport. Same OAuth/session mechanics as /v1/mcp, but the wired MCP server
-  // exposes only `legal_chat` (see buildMcpServerV2). Publicly reached at /api/v2/mcp.
+  // exposes only the curated 15-tool subset (see buildMcpServerV2). Publicly reached at /api/v2/mcp.
   const MCP_V2_RESOURCE_METADATA_PATH = '/.well-known/oauth-protected-resource/api/v2/mcp';
 
   router.post('/v2/mcp', (async (req: DualAuthRequest, res: Response) => {
@@ -849,7 +801,7 @@ export function createMCPSSERoutes(deps: {
         'sse-standard': '/v1/sse',
         http: '/api/tools',
         'streamable-http-v1': '/api/v1/mcp',
-        // Canonical: single `legal_chat` tool wrapping the full chat pipeline.
+        // Canonical: curated 15-tool subset (6 legislation + 9 ЄДРСР).
         'streamable-http-v2': '/api/v2/mcp',
       },
       tools: tools.map(t => ({
