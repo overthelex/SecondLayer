@@ -266,11 +266,31 @@ export class MCPQueryAPI extends BaseToolHandler {
       }
     }
 
+    // If the Grand Chamber formally departed from this case's legal position (Neo4j
+    // DEPARTS_FROM), the precedent is no longer fully good law — downgrade an otherwise
+    // valid/unknown status to "limited" so the top-level status reflects it.
+    let effectiveStatus: any = status;
+    if (
+      citationGraph?.position_departed_from &&
+      (status?.status === 'valid' || status?.status === 'unknown' || !status?.status)
+    ) {
+      effectiveStatus = {
+        ...status,
+        status: 'limited',
+        departed_note:
+          'Правову позицію у цій справі відступлено Великою Палатою ВС — прецедент обмежено чинний (див. citation_graph.position_departed_from).',
+      };
+    }
+
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({ status, ...(citationGraph ? { citation_graph: citationGraph } : {}) }, null, 2),
+          text: JSON.stringify(
+            { status: effectiveStatus, ...(citationGraph ? { citation_graph: citationGraph } : {}) },
+            null,
+            2
+          ),
         },
       ],
     };
@@ -328,17 +348,17 @@ export class MCPQueryAPI extends BaseToolHandler {
       {
         name: 'check_precedent_status',
         annotations: { title: 'Статус прецеденту', readOnlyHint: true, idempotentHint: true },
-        description: `Перевіряє актуальність судового рішення: чи не скасовано вищою інстанцією. Шукає ланцюг інстанцій у ZakonOnline, визначає статус: valid, explicitly_overruled, limited, unknown.
+        description: `Перевіряє актуальність судового рішення: чи не скасовано вищою інстанцією. Реконструює ланцюг інстанцій з локального реєстру ЄДРСР (перша → апеляція → касація → ВП) і визначає статус: valid, explicitly_overruled, limited, unknown. Додатково враховує відступ від правової позиції Великою Палатою (граф цитувань Neo4j).
 
-Приймає: case_number (номер справи, наприклад 922/989/18), case_id (UUID документа) або doc_id (zakononline_id).
+Приймає: case_number (номер справи, наприклад 922/989/18) або doc_id (ЄДРСР doc_id).
 
-💰 Вартість: $0.00-$0.02 USD (кешується 24 год у Redis, 7 днів у PostgreSQL)`,
+💰 Вартість: $0.00 USD (локальні БД; кешується 24 год у Redis)`,
         inputSchema: {
           type: 'object',
           properties: {
-            case_id: { type: 'string', description: 'UUID документа з бази даних' },
+            case_id: { type: 'string', description: 'ЄДРСР doc_id або номер справи' },
             case_number: { type: 'string', description: 'Номер справи (наприклад: 922/989/18)' },
-            doc_id: { type: 'string', description: 'ZakonOnline document ID' },
+            doc_id: { type: 'string', description: 'ЄДРСР doc_id' },
           },
         },
       },
